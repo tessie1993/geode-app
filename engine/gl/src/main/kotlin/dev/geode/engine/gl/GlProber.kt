@@ -1,5 +1,6 @@
 package dev.geode.engine.gl
 
+import android.annotation.SuppressLint
 import android.opengl.GLES30
 import android.opengl.GLES31
 import android.util.Half
@@ -565,6 +566,10 @@ object GlProber {
      * makes the probe fail: an unreadable target is not a proven target, and the policy's whole
      * contract is that a rung is taken only on proof.
      */
+    // Lint reads the GL_HALF_FLOAT branch below as a half-float silently widening to float. It is
+    // the documented conversion instead: android.util.Half.toFloat takes exactly the bit pattern
+    // glReadPixels just wrote, which is the usage the check exists to require rather than forbid.
+    @SuppressLint("HalfFloat")
     private fun readFloats(
         framebuffer: Int,
         spec: FormatSpec,
@@ -832,6 +837,10 @@ object GlProber {
             return ids[0]
         }
 
+        // The same false positive as readFloats, running the other way: Half.toHalf produces the
+        // bit pattern and putShort stores it untouched. The tell is what lint calls the widened
+        // type - java.nio.ByteBuffer, which is putShort's return value and not a number at all.
+        @SuppressLint("HalfFloat")
         private fun upload(
             spec: FormatSpec,
             width: Int,

@@ -12,8 +12,9 @@
     <ID>NestedBlockDepth:Adsr.kt$AdsrEngine$fun tick( dt: Float, features: AudioFeatures, ): FloatArray</ID>
     <ID>NestedBlockDepth:AiffPcm.kt$AiffPcm.Companion$internal fun parse(rawStream: InputStream): AiffPcm?</ID>
     <ID>NestedBlockDepth:FluidSim.kt$FluidSim$private fun allocGrids(preserve: Boolean)</ID>
-    <ID>NestedBlockDepth:OfflineAnalyzer.kt$OfflineAnalyzer$fun analyzeBlocking( uri: Uri, beatSensitivity: Float = BeatTuning.SENSITIVITY_DEFAULT, beatMinIntervalMs: Float = BeatTuning.INTERVAL_MS_DEFAULT, onProgress: (Float) -&gt; Unit = {}, ): FeatureTimeline</ID>
+    <ID>NestedBlockDepth:OfflineAnalyzer.kt$OfflineAnalyzer$fun analyzeBlocking( uri: Uri, beatSensitivity: Float = BeatTuning.SENSITIVITY_DEFAULT, beatMinIntervalMs: Float = BeatTuning.INTERVAL_MS_DEFAULT, onProgress: (Float) -&gt; Unit = {}, stillWanted: () -&gt; Boolean = { true }, ): FeatureTimeline</ID>
     <ID>SwallowedException:MilkdropEngine.kt$MilkdropEngine$t: Throwable</ID>
+    <ID>ThrowsCount:OfflineAnalyzer.kt$OfflineAnalyzer$fun analyzeBlocking( uri: Uri, beatSensitivity: Float = BeatTuning.SENSITIVITY_DEFAULT, beatMinIntervalMs: Float = BeatTuning.INTERVAL_MS_DEFAULT, onProgress: (Float) -&gt; Unit = {}, stillWanted: () -&gt; Boolean = { true }, ): FeatureTimeline</ID>
     <ID>TooGenericExceptionCaught:MilkdropEngine.kt$MilkdropEngine$t: Throwable</ID>
   </CurrentIssues>
 </SmellBaseline>

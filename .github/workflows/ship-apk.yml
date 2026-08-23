@@ -63,11 +63,11 @@ jobs:
           # when the run is started from another branch.
           ref: ${{ inputs.ref || github.sha }}
 
-      - name: Set up Java 17
+      - name: Set up Java 21
         uses: actions/setup-java@v5
         with:
           distribution: temurin
-          java-version: "17"
+          java-version: "21"
 
       - name: Set up Gradle and cache
         uses: gradle/actions/setup-gradle@v6

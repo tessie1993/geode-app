@@ -1,0 +1,15 @@
+# Provenance of the prebuilt libraries committed in this directory.
+#
+# Built locally in the session worktree, replicating .github/workflows/native-libs.yml:
+#   NDK 28.0.13004108, ANDROID_PLATFORM=android-26, ANDROID_ABI=x86_64,
+#   -DBUILD_SHARED_LIBS=ON -DENABLE_PLAYLIST=ON, Release, Ninja,
+#   -Wl,-z,max-page-size=16384,-z,common-page-size=16384
+# projectM v4.1.7, stock (no patches); unstripped, as the workflow produces.
+# JNI bridge tools/milkdrop_jni.c at 879b6e6838ac51a690e370c09dab6e4382c7b70c.
+#
+# Verified before commit: every ELF LOAD segment aligned 0x4000 (16 KB), and
+# llvm-nm confirms all ten Java_dev_geode_render_scene_MilkdropEngine_* exports.
+# Commit this file alongside the .so files it describes;
+# android.yml verifies the hashes on every pull request.
+79c6083b7d9b52db3c320e8b3902ab59ccbaa1bfe53b54d096d3131925b0501f  libmilkdropjni.so
+1b4137ab92013a1d53c877c4640e5b2ca375e668df0f4f3bad30fc430ea3d3ca  libprojectM-4.so

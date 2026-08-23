@@ -1,0 +1,1137 @@
+{
+  "schemaVersion": 2,
+  "generated": "2026-08-15",
+  "slice": "V2-A-02a",
+  "note": "Machine-readable provenance for the Visualizer 2.0 engine. One entry per repository, keyed to a MASTER_PLAN.md §3.1 ledger row. Every licence hash below was read from the licence file at the recorded commit, not from a repository badge. Intended input for the checkEngineProvenance Gradle task (§3.3, slice V2-1-04); EngineProvenanceRegistryTest validates it today.",
+  "tiers": {
+    "ADAPT": "Per-file code adaptation permitted after licence verification, with SPDX and origin markers, shipped notices and a statement of modifications.",
+    "REIMPLEMENT": "Published algorithms may be implemented and validated independently. No code, shader text, constant table, name or layout is copied.",
+    "ORACLE": "Used outside the shipped runtime to generate fixtures and expected values. Never shipped, never linked.",
+    "BENCHMARK": "Adoption candidate pending a measured win and an ADR. Nothing enters the tree before that evidence exists.",
+    "RETAIN": "Already shipped and stays, under its existing boundary and obligations. Not a foundation for new engine code.",
+    "STUDY": "Read for architecture and behaviour. Nothing derived from it enters the tree.",
+    "EXCLUDE": "Licence, provenance, duplication or product fit blocks use. Mathematics research only."
+  },
+  "sources": [
+    {
+      "id": "colourful-attraction",
+      "planLedger": "Colourful Attraction",
+      "name": "QC20/Colourful-Attraction",
+      "url": "https://github.com/QC20/Colourful-Attraction",
+      "tier": "ADAPT",
+      "planTier": "ADAPT verified GLSL only",
+      "license": "MIT",
+      "role": "Basis for the first signature scene: GPU particles morphing between velocity fields without resetting particle state.",
+      "incorporated": "Persistent particle state; uninterrupted blending between force fields; twelve candidate velocity fields; billboard draw pattern",
+      "notIncorporated": "Unverified constants, application code, and any assumption that the young repo is production proof",
+      "importedFiles": [],
+      "modifications": [],
+      "attribution": "MIT: copyright line and licence text with any copied portion.",
+      "notes": "Zero stars, and the GitHub description terminates mid-sentence in an apparent leaked authoring prompt. Verify the shader maths independently; adapt the GLSL, not the application shell.",
+      "pin": {
+        "commit": "6e502d3657e5dc009bff9699e0619fafa984a8e5",
+        "source": "reviewed clone"
+      },
+      "licenceEvidence": {
+        "state": "verified",
+        "file": "LICENSE",
+        "sha256": "f4766ddde66fb219c29f7758b016f6352bbfe4280c487dbffb9799ed154239a4",
+        "bytes": 1062,
+        "firstLine": "MIT License",
+        "readAtCommit": "6e502d3657e5dc009bff9699e0619fafa984a8e5",
+        "readOn": "2026-08-15"
+      }
+    },
+    {
+      "id": "shadereditor",
+      "planLedger": "ShaderEditor",
+      "name": "markusfisch/ShaderEditor",
+      "url": "https://github.com/markusfisch/ShaderEditor",
+      "tier": "ADAPT",
+      "planTier": "ADAPT selectively",
+      "license": "MIT",
+      "role": "Android shader lifecycle, ping-pong backbuffers, wallpaper service, resolution choices, low-battery throttling.",
+      "incorporated": "Android GL lifecycle, backbuffer, multi-pass shader preprocessing, last-good compilation, wallpaper behavior, local textures/cubemaps, touch/sensors, resolution and low-battery policies",
+      "notIncorporated": "Its UI and unconstrained shader execution model",
+      "importedFiles": [],
+      "modifications": [],
+      "attribution": "MIT: copyright line and licence text travel with any copied portion.",
+      "notes": "",
+      "pin": {
+        "commit": "513e79fc130f2f0ffc9d2ac4940fc2b263533ead",
+        "source": "reviewed clone"
+      },
+      "licenceEvidence": {
+        "state": "verified",
+        "file": "LICENSE",
+        "sha256": "f97454014f68b14a98a8280a7f3b4b08c341cc0c42420dc8670fb81641bb36cb",
+        "bytes": 1074,
+        "firstLine": "The MIT License (MIT)",
+        "readAtCommit": "513e79fc130f2f0ffc9d2ac4940fc2b263533ead",
+        "readOn": "2026-08-15"
+      }
+    },
+    {
+      "id": "swissgl",
+      "planLedger": "SwissGL",
+      "name": "google/swissgl",
+      "url": "https://github.com/google/swissgl",
+      "tier": "ADAPT",
+      "planTier": "ADAPT selectively",
+      "license": "Apache-2.0",
+      "role": "Primary GLES 3.0 simulation reference: texture-backed state histories, fragment-shader GPGPU, deterministic seeds, instanced particle rendering.",
+      "incorporated": "Texture-backed simulation state, deterministic hashes, ping-pong kernels, instanced particles; Particle Life, Particle Lenia, Physarum, reaction-diffusion, Firefly Sync, Wave2D and Neural CA kernels",
+      "notIncorporated": "JavaScript wrapper and browser runtime",
+      "importedFiles": [],
+      "modifications": [],
+      "attribution": "Apache-2.0: licence text, copyright notice, upstream NOTICE if present, and a statement of changes in each modified file. SPDX-License-Identifier: Apache-2.0.",
+      "notes": "WebGL2 shading language is GLES 3.0. Port the kernels, not the JavaScript wrapper.",
+      "pin": {
+        "commit": "489dfcf437702d6e2446f3e36beadecb34cc81ca",
+        "source": "reviewed clone"
+      },
+      "licenceEvidence": {
+        "state": "verified",
+        "file": "LICENSE",
+        "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+        "bytes": 11357,
+        "firstLine": "Apache License",
+        "readAtCommit": "489dfcf437702d6e2446f3e36beadecb34cc81ca",
+        "readOn": "2026-08-15"
+      }
+    },
+    {
+      "id": "webgl-fluid",
+      "planLedger": "PavelDoGreat WebGL Fluid",
+      "name": "PavelDoGreat/WebGL-Fluid-Simulation",
+      "url": "https://github.com/PavelDoGreat/WebGL-Fluid-Simulation",
+      "tier": "ADAPT",
+      "planTier": "ADAPT/consolidate",
+      "license": "MIT",
+      "role": "Advection, pressure projection, splat, bloom, format fallback.",
+      "incorporated": "Advection, divergence, pressure, gradient subtraction, curl, splats, dye, bloom and format fallbacks; reconcile with existing attributed port",
+      "notIncorporated": "Browser/runtime scaffolding",
+      "importedFiles": [
+        "app/src/main/res/raw/fluid_*.glsl",
+        "app/src/main/java/dev/musicviz/render/fluid/"
+      ],
+      "modifications": [
+        "Sim-space coordinates, boundary sampling helpers, grid-scale Jacobi, capsule emitters with velocity blending implemented clean-room from published literature."
+      ],
+      "attribution": "Already recorded in THIRD_PARTY_NOTICES.",
+      "notes": "Already partially ported. V2 consolidates the shared infrastructure rather than re-porting.",
+      "pin": {
+        "commit": "a2d292931f19d9b3b9f564e23e6c32729d2121c3",
+        "source": "reviewed clone"
+      },
+      "licenceEvidence": {
+        "state": "verified",
+        "file": "LICENSE",
+        "sha256": "1be448ae1212de2bee77b4cf851ab0acea0a7f7f32d21cd73095dd94dc173f66",
+        "bytes": 1072,
+        "firstLine": "MIT License",
+        "readAtCommit": "a2d292931f19d9b3b9f564e23e6c32729d2121c3",
+        "readOn": "2026-08-15"
+      }
+    },
+    {
+      "id": "acidcam-gpu",
+      "planLedger": "acidcam-gpu",
+      "name": "lostjared/acidcam-gpu",
+      "url": "https://github.com/lostjared/acidcam-gpu",
+      "tier": "REIMPLEMENT",
+      "planTier": "REIMPLEMENT selectively",
+      "license": "BSD-2-Clause",
+      "role": "Temporal history textures, FFT history, shader chains, glitch feedback and HDR history effects for the Recursive Temple family (MASTER_PLAN §7.7).",
+      "incorporated": "Temporal history textures, FFT history, shader chains, glitch feedback and HDR history effects",
+      "notIncorporated": "Desktop capture/runtime architecture",
+      "importedFiles": [],
+      "modifications": [],
+      "attribution": "BSD-2-Clause: copyright notice and licence text in the shipped notices, per adapted file.",
+      "notes": "Desktop capture/runtime architecture is not adopted. Per-file review before anything is reimplemented.",
+      "pin": {
+        "commit": "4969e8cb8a013ed639b6e229ba7838cd4a3c57a5",
+        "source": "resolved head on 2026-08-15"
+      },
+      "licenceEvidence": {
+        "state": "verified",
+        "file": "LICENSE",
+        "sha256": "1e7b44a680a8921dcf46d06941a9cf13a3e1be7a06598fd1999903473e5708ad",
+        "bytes": 1300,
+        "firstLine": "BSD 2-Clause License",
+        "readAtCommit": "4969e8cb8a013ed639b6e229ba7838cd4a3c57a5",
+        "readOn": "2026-08-15"
+      }
+    },
+    {
+      "id": "audio-shader-studio",
+      "planLedger": "Audio Shader Studio",
+      "name": "sandner-art/Audio-Shader-Studio",
+      "url": "https://github.com/sandner-art/Audio-Shader-Studio",
+      "tier": "REIMPLEMENT",
+      "planTier": "REIMPLEMENT",
+      "license": "MIT",
+      "role": "Shader-side audio uniform and texture contract design.",
+      "incorporated": "Audio scalar/texture shader contract and authoring workflow comparisons",
+      "notIncorporated": "Desktop/browser host code",
+      "importedFiles": [],
+      "modifications": [],
+      "attribution": "None required while only the contract shape is reused.",
+      "notes": "",
+      "pin": {
+        "commit": "3d5a6f1f7d4771a458a030cf90ac5d87132da128",
+        "source": "reviewed clone"
+      },
+      "licenceEvidence": {
+        "state": "verified",
+        "file": "LICENSE",
+        "sha256": "9202b6b72159e8ca23efd5545792b468ba1fb5f1746942449d3e5295dc508b43",
+        "bytes": 1071,
+        "firstLine": "MIT License",
+        "readAtCommit": "3d5a6f1f7d4771a458a030cf90ac5d87132da128",
+        "readOn": "2026-08-15"
+      }
+    },
+    {
+      "id": "clubber",
+      "planLedger": "Clubber",
+      "name": "wizgrav/clubber",
+      "url": "https://github.com/wizgrav/clubber",
+      "tier": "REIMPLEMENT",
+      "planTier": "REIMPLEMENT",
+      "license": "MIT",
+      "role": "Musical log/MIDI band mapping and feature-to-visual mapping.",
+      "incorporated": "Musical log/MIDI band layout and compact feature-to-visual mapping patterns",
+      "notIncorporated": "Browser runtime",
+      "importedFiles": [],
+      "modifications": [],
+      "attribution": "None required while only the mapping approach is reimplemented.",
+      "notes": "",
+      "pin": {
+        "commit": "a8dad7ce7065283f3667c0c2748855e7ff41f084",
+        "source": "reviewed clone"
+      },
+      "licenceEvidence": {
+        "state": "verified",
+        "file": "LICENSE",
+        "sha256": "401567cd38cf74d705f22194d55d790cde654e26403d8723f8e601ffc9044a8b",
+        "bytes": 1072,
+        "firstLine": "MIT License",
+        "readAtCommit": "a8dad7ce7065283f3667c0c2748855e7ff41f084",
+        "readOn": "2026-08-15"
+      }
+    },
+    {
+      "id": "glchaosp",
+      "planLedger": "glChAoS.P",
+      "name": "BrutPitt/glChAoS.P",
+      "url": "https://github.com/BrutPitt/glChAoS.P",
+      "tier": "REIMPLEMENT",
+      "planTier": "REIMPLEMENT",
+      "license": "BSD-2-Clause",
+      "role": "Strange-attractor parameter ranges, point-sprite glow, tone mapping.",
+      "incorporated": "Attractor families, glow point sprites, surface/tone-map ideas and mobile-reduced modes",
+      "notIncorporated": "Desktop-scale particle counts",
+      "importedFiles": [],
+      "modifications": [],
+      "attribution": "BSD-2-Clause: copyright and conditions with any copied portion.",
+      "notes": "Desktop particle counts must be reduced radically.",
+      "pin": {
+        "commit": "f3b604a6885f7e80567c2bffe91f7dd2ef2be4b7",
+        "source": "reviewed clone"
+      },
+      "licenceEvidence": {
+        "state": "verified",
+        "file": "license.txt",
+        "sha256": "14d7a50bb65ceb0e116f74458a42d60271f01dfcc811a9ee0856cf3d3bef2b25",
+        "bytes": 1328,
+        "firstLine": "BSD 2-Clause License",
+        "readAtCommit": "f3b604a6885f7e80567c2bffe91f7dd2ef2be4b7",
+        "readOn": "2026-08-15"
+      }
+    },
+    {
+      "id": "karmaviz",
+      "planLedger": "KarmaViz",
+      "name": "karmatripping/KarmaViz",
+      "url": "https://github.com/karmatripping/KarmaViz",
+      "tier": "REIMPLEMENT",
+      "planTier": "REIMPLEMENT selectively",
+      "license": "MIT",
+      "role": "Music visualization effect reference.",
+      "incorporated": "Additional audio-reactive mappings after source-level validation",
+      "notIncorporated": "Earlier incorrect “conflicting license” claim",
+      "importedFiles": [],
+      "modifications": [],
+      "attribution": "MIT.",
+      "notes": "Earlier research flagged conflicting licence language and advised avoiding it. That was wrong: LICENSE.md is plain MIT.",
+      "pin": {
+        "commit": "67e8a15dda8cb7b5f052ade0731db3de62d82063",
+        "source": "reviewed clone"
+      },
+      "licenceEvidence": {
+        "state": "verified",
+        "file": "LICENSE.md",
+        "sha256": "8cb62a26fc872e913bbefdb2b2a2de2065ee4f59aee9d71144d1c21cdfee963d",
+        "bytes": 1068,
+        "firstLine": "MIT License",
+        "readAtCommit": "67e8a15dda8cb7b5f052ade0731db3de62d82063",
+        "readOn": "2026-08-15"
+      }
+    },
+    {
+      "id": "kymatik",
+      "planLedger": "Kymatik",
+      "name": "xsoophx/Kymatik",
+      "url": "https://github.com/xsoophx/Kymatik",
+      "tier": "REIMPLEMENT",
+      "planTier": "REIMPLEMENT selectively",
+      "license": "MIT",
+      "role": "Kotlin FFT and BPM pipeline structure on the JVM.",
+      "incorporated": "Kotlin/JVM FFT/BPM pipeline comparison and Android-oriented tests",
+      "notIncorporated": "Direct adoption without corpus and CPU proof",
+      "importedFiles": [],
+      "modifications": [],
+      "attribution": "MIT: copyright line and licence text with any copied portion.",
+      "notes": "The only Kotlin reference in the set; most directly comparable to the new audio core.",
+      "pin": {
+        "commit": "bbeca375ca91775c9ebdf21198ca74a8fe03aac0",
+        "source": "reviewed clone"
+      },
+      "licenceEvidence": {
+        "state": "verified",
+        "file": "LICENSE",
+        "sha256": "d46772dccde0c4c22bb1b21d468609c095fb931be5ec0227984d744babcb5358",
+        "bytes": 1071,
+        "firstLine": "MIT License",
+        "readAtCommit": "bbeca375ca91775c9ebdf21198ca74a8fe03aac0",
+        "readOn": "2026-08-15"
+      }
+    },
+    {
+      "id": "lenia",
+      "planLedger": "Lenia",
+      "name": "Chakazul/Lenia",
+      "url": "https://github.com/Chakazul/Lenia",
+      "tier": "REIMPLEMENT",
+      "planTier": "REIMPLEMENT",
+      "license": "MIT",
+      "role": "Continuous cellular-automaton kernel and growth function.",
+      "incorporated": "Continuous CA convolution and growth; stable organism parameter sets",
+      "notIncorporated": "Bundled UI and platform ports",
+      "importedFiles": [],
+      "modifications": [],
+      "attribution": "None required while only the algorithm is reimplemented.",
+      "notes": "",
+      "pin": {
+        "commit": "adfc542939266de7f4bb7ebb552e8499701ee107",
+        "source": "reviewed clone"
+      },
+      "licenceEvidence": {
+        "state": "verified",
+        "file": "LICENSE.md",
+        "sha256": "2b44d8d9a71aead092d67a6c365ed7c3ca54e8bbb265b1f4a8393aa66ef2cd80",
+        "bytes": 1066,
+        "firstLine": "MIT License",
+        "readAtCommit": "adfc542939266de7f4bb7ebb552e8499701ee107",
+        "readOn": "2026-08-15"
+      }
+    },
+    {
+      "id": "meyda",
+      "planLedger": "Meyda",
+      "name": "meyda/meyda",
+      "url": "https://github.com/meyda/meyda",
+      "tier": "REIMPLEMENT",
+      "planTier": "REIMPLEMENT",
+      "license": "MIT",
+      "role": "Spectral feature formulas: RMS, centroid, rolloff, flatness, spread, skewness, kurtosis, ZCR, flux, MFCC, chroma.",
+      "incorporated": "Formula cross-check for descriptors, MFCC and chroma",
+      "notIncorporated": "JavaScript runtime",
+      "importedFiles": [],
+      "modifications": [],
+      "attribution": "None required while only formulas are reimplemented.",
+      "notes": "",
+      "pin": {
+        "commit": "ecf256616d43292c82cbf96e60a91b19ca10eb64",
+        "source": "reviewed clone"
+      },
+      "licenceEvidence": {
+        "state": "verified",
+        "file": "LICENSE.md",
+        "sha256": "15be9b78aa3f0b48a2ef63359b0cacfd73e61ac9244818db8086d858fc7f8121",
+        "bytes": 1111,
+        "firstLine": "# The MIT License (MIT)",
+        "readAtCommit": "ecf256616d43292c82cbf96e60a91b19ca10eb64",
+        "readOn": "2026-08-15"
+      }
+    },
+    {
+      "id": "particle-life",
+      "planLedger": "Particle Life",
+      "name": "hunar4321/particle-life",
+      "url": "https://github.com/hunar4321/particle-life",
+      "tier": "REIMPLEMENT",
+      "planTier": "REIMPLEMENT",
+      "license": "MIT",
+      "role": "Attraction/repulsion interaction matrix ecology.",
+      "incorporated": "Species attraction/repulsion matrix, ecology presets and interaction validation",
+      "notIncorporated": "O(N²) implementation at production counts",
+      "importedFiles": [],
+      "modifications": [],
+      "attribution": "None required while only the algorithm is reimplemented.",
+      "notes": "Needs a spatial grid or field approximation to avoid O(N^2) on mobile.",
+      "pin": {
+        "commit": "256278714c4f6a1ce900d24faafcc101769c54c2",
+        "source": "reviewed clone"
+      },
+      "licenceEvidence": {
+        "state": "verified",
+        "file": "LICENSE",
+        "sha256": "26b28c3a713be6c073d7dcfddda37d7cd8757ae209575d73181a2113dff7e0ad",
+        "bytes": 1068,
+        "firstLine": "MIT License",
+        "readAtCommit": "256278714c4f6a1ce900d24faafcc101769c54c2",
+        "readOn": "2026-08-15"
+      }
+    },
+    {
+      "id": "physarum",
+      "planLedger": "Physarum",
+      "name": "fogleman/physarum",
+      "url": "https://github.com/fogleman/physarum",
+      "tier": "REIMPLEMENT",
+      "planTier": "REIMPLEMENT",
+      "license": "MIT",
+      "role": "Agent sensor angle/distance, rotation, deposit, decay and diffuse rules with working parameter ranges.",
+      "incorporated": "Sensor/turn/deposit/diffuse/decay rules and curated parameter regions",
+      "notIncorporated": "CPU reference implementation",
+      "importedFiles": [],
+      "modifications": [],
+      "attribution": "None required while only the algorithm is reimplemented.",
+      "notes": "",
+      "pin": {
+        "commit": "704dda780d899f2795a4c9419f2aa0b5618b5384",
+        "source": "reviewed clone"
+      },
+      "licenceEvidence": {
+        "state": "verified",
+        "file": "LICENSE.md",
+        "sha256": "33ba77a4da1e6b17fc386aefb131969fb8081b0f32ed891beb43b1a2847dac0c",
+        "bytes": 1060,
+        "firstLine": "Copyright (C) 2020 Michael Fogleman",
+        "readAtCommit": "704dda780d899f2795a4c9419f2aa0b5618b5384",
+        "readOn": "2026-08-15"
+      }
+    },
+    {
+      "id": "rdsystem",
+      "planLedger": "RDSystem",
+      "name": "keijiro/RDSystem",
+      "url": "https://github.com/keijiro/RDSystem",
+      "tier": "REIMPLEMENT",
+      "planTier": "REIMPLEMENT",
+      "license": "Unlicense",
+      "role": "Minimal GPU reaction-diffusion kernel.",
+      "incorporated": "Minimal Gray–Scott GPU kernel and test fixtures",
+      "notIncorporated": "Unity-specific host code",
+      "importedFiles": [],
+      "modifications": [],
+      "attribution": "Public domain; no obligation. Recorded for completeness.",
+      "notes": "",
+      "pin": {
+        "commit": "78994665f03b5b635634de58d2c50c8cbb19695c",
+        "source": "reviewed clone"
+      },
+      "licenceEvidence": {
+        "state": "verified",
+        "file": "LICENSE",
+        "sha256": "f0510d3b9d1223c45e8fdd2b49270ec8734fff491c7f7d1b948ee70162e1ceff",
+        "bytes": 1210,
+        "firstLine": "This is free and unencumbered software released into the public domain.",
+        "readAtCommit": "78994665f03b5b635634de58d2c50c8cbb19695c",
+        "readOn": "2026-08-15"
+      }
+    },
+    {
+      "id": "spectrageist",
+      "planLedger": "spectrageist",
+      "name": "gijzelaerr/spectrageist",
+      "url": "https://github.com/gijzelaerr/spectrageist",
+      "tier": "REIMPLEMENT",
+      "planTier": "REIMPLEMENT selectively",
+      "license": "MIT",
+      "role": "Real-time audio feature extraction for live visualization.",
+      "incorporated": "Real-time feature extraction comparison and fixture vocabulary",
+      "notIncorporated": "Unbenchmarked runtime dependency",
+      "importedFiles": [],
+      "modifications": [],
+      "attribution": "MIT.",
+      "notes": "",
+      "pin": {
+        "commit": "0a177a4d75e76a872ceb503775d0b51ef0043f82",
+        "source": "reviewed clone"
+      },
+      "licenceEvidence": {
+        "state": "verified",
+        "file": "LICENSE",
+        "sha256": "75486ea0af9309140ca6e2c401d7e67bea8f4892344e5707f6394dc5e83dfc44",
+        "bytes": 1056,
+        "firstLine": "MIT License",
+        "readAtCommit": "0a177a4d75e76a872ceb503775d0b51ef0043f82",
+        "readOn": "2026-08-15"
+      }
+    },
+    {
+      "id": "threelab",
+      "planLedger": "Threelab",
+      "name": "jonradoff/threelab",
+      "url": "https://github.com/jonradoff/threelab",
+      "tier": "REIMPLEMENT",
+      "planTier": "REIMPLEMENT",
+      "license": "MIT",
+      "role": "Lorenz, Rossler, Halvorsen, Thomas, Aizawa and Dadras attractor formulations; curl noise; four-pass GPU Physarum; Gray-Scott; wave interference; electric fields.",
+      "incorporated": "Attractors, curl fields, Physarum, reaction-diffusion, domain warp, wave interference, electric/magnetic fields, fractals, L-systems, packing, spirograph, Truchet, Voronoi, voxel landscapes, genetic exploration",
+      "notIncorporated": "Web application and node editor",
+      "importedFiles": [],
+      "modifications": [],
+      "attribution": "None required while only the algorithm is reimplemented.",
+      "notes": "",
+      "pin": {
+        "commit": "9b37d76f24c4517cfc077fda2eb2fede9141e039",
+        "source": "reviewed clone"
+      },
+      "licenceEvidence": {
+        "state": "verified",
+        "file": "LICENSE",
+        "sha256": "8c779d713e990a5fa19b7ff2dee905ce338a8ef21bb2bb8b27dd51a881194a65",
+        "bytes": 1091,
+        "firstLine": "MIT License",
+        "readAtCommit": "9b37d76f24c4517cfc077fda2eb2fede9141e039",
+        "readOn": "2026-08-15"
+      }
+    },
+    {
+      "id": "vgalizer",
+      "planLedger": "vgalizer",
+      "name": "Hornfisk/vgalizer",
+      "url": "https://github.com/Hornfisk/vgalizer",
+      "tier": "REIMPLEMENT",
+      "planTier": "REIMPLEMENT",
+      "license": "MIT",
+      "role": "Effect recipes: cymatics, harmonographs, moire, Mobius grids, tunnels.",
+      "incorporated": "Twenty-five compact recipes, beat PLL validation, hot parameter schema, soak harness, trail/glitch/mirror/scanline/VGA post effects",
+      "notIncorporated": "Rust/wgpu runtime",
+      "importedFiles": [],
+      "modifications": [],
+      "attribution": "MIT.",
+      "notes": "Rust/wgpu; nothing is directly portable.",
+      "pin": {
+        "commit": "faa19ee419a6dca6b761988a6b4957c9f52d7cee",
+        "source": "reviewed clone"
+      },
+      "licenceEvidence": {
+        "state": "verified",
+        "file": "LICENSE",
+        "sha256": "22b772d3a4e3e0cfdeff38bb29cbfb7a58b00d52542b3233471801f54ddd6923",
+        "bytes": 1065,
+        "firstLine": "MIT License",
+        "readAtCommit": "faa19ee419a6dca6b761988a6b4957c9f52d7cee",
+        "readOn": "2026-08-15"
+      }
+    },
+    {
+      "id": "wavefield",
+      "planLedger": "Wavefield",
+      "name": "niko-dellic/wavefield",
+      "url": "https://github.com/niko-dellic/wavefield",
+      "tier": "REIMPLEMENT",
+      "planTier": "REIMPLEMENT",
+      "license": "MIT",
+      "role": "Spectral-peak to Chladni eigenmode mapping with attack/release/phase persistence; rectangular and spherical modal fields.",
+      "incorporated": "Persistent modal bank, rectangular and spherical modal fields, spectral-peak-to-mode selection, attack/release, phase and pulse decay",
+      "notIncorporated": "TypeScript/WebGL application",
+      "importedFiles": [],
+      "modifications": [],
+      "attribution": "None required while only the algorithm is reimplemented.",
+      "notes": "",
+      "pin": {
+        "commit": "3858a657190ebd09bee704caa094e7e1fd3c6cc2",
+        "source": "reviewed clone"
+      },
+      "licenceEvidence": {
+        "state": "verified",
+        "file": "LICENSE",
+        "sha256": "fc0a3635ca6a79cfbcaadc9613531e67e6635094e690290e310e1f4a54578519",
+        "bytes": 1068,
+        "firstLine": "MIT License",
+        "readAtCommit": "3858a657190ebd09bee704caa094e7e1fd3c6cc2",
+        "readOn": "2026-08-15"
+      }
+    },
+    {
+      "id": "webgpu-lab",
+      "planLedger": "WebGPU-Lab",
+      "name": "s-macke/WebGPU-Lab",
+      "url": "https://github.com/s-macke/WebGPU-Lab",
+      "tier": "REIMPLEMENT",
+      "planTier": "REIMPLEMENT selectively",
+      "license": "MIT",
+      "role": "Compute fluids, SDFs, light propagation.",
+      "incorporated": "Compute-fluid, cloud, SDF and light-propagation concepts",
+      "notIncorporated": "Any shader without direct provenance review",
+      "importedFiles": [],
+      "modifications": [],
+      "attribution": "MIT.",
+      "notes": "Per-shader provenance review required before any adaptation.",
+      "pin": {
+        "commit": "ea1a8c021a413fb5e36fc6ad183caff2d5897af7",
+        "source": "reviewed clone"
+      },
+      "licenceEvidence": {
+        "state": "verified",
+        "file": "LICENSE",
+        "sha256": "fb2574e2c32ce362d7590d2e5beeacf404b0b982686a5d8623d6887563baf698",
+        "bytes": 1072,
+        "firstLine": "MIT License",
+        "readAtCommit": "ea1a8c021a413fb5e36fc6ad183caff2d5897af7",
+        "readOn": "2026-08-15"
+      }
+    },
+    {
+      "id": "beat-and-tempo-tracking",
+      "planLedger": "Beat-and-Tempo-Tracking",
+      "name": "michaelkrzyzaniak/Beat-and-Tempo-Tracking",
+      "url": "https://github.com/michaelkrzyzaniak/Beat-and-Tempo-Tracking",
+      "tier": "ORACLE",
+      "planTier": "ORACLE/REIMPLEMENT after benchmark",
+      "license": "MIT",
+      "role": "Benchmark for causal onset detection, tempo estimation and beat prediction against the Kotlin tracker.",
+      "incorporated": "Causal onset, tempo and predicted-beat test behavior",
+      "notIncorporated": "Immediate native dependency",
+      "importedFiles": [],
+      "modifications": [],
+      "attribution": "MIT if any method is ported.",
+      "notes": "Port selected methods only after corpus evaluation.",
+      "pin": {
+        "commit": "c039090f1af771092d95c3ffc402e557940f7384",
+        "source": "reviewed clone"
+      },
+      "licenceEvidence": {
+        "state": "verified",
+        "file": "LICENSE",
+        "sha256": "74400a6ea5b29562c7b128ff1ae0921e8f39af5c56f65e569c3bc8d69fefe829",
+        "bytes": 1074,
+        "firstLine": "MIT License",
+        "readAtCommit": "c039090f1af771092d95c3ffc402e557940f7384",
+        "readOn": "2026-08-15"
+      }
+    },
+    {
+      "id": "libebur128",
+      "planLedger": "libebur128",
+      "name": "libebur128",
+      "url": "https://github.com/jiixyj/libebur128",
+      "tier": "ORACLE",
+      "planTier": "ORACLE",
+      "license": "MIT",
+      "role": "BS.1770 / EBU R128 loudness reference values.",
+      "incorporated": "BS.1770/R128 fixture generation",
+      "notIncorporated": "Runtime C until an ADR justifies it",
+      "importedFiles": [],
+      "modifications": [],
+      "attribution": "MIT if the C is ever vendored.",
+      "notes": "Runtime meter implemented allocation-free in Kotlin. Vendor the C only if correctness or performance benchmarks justify the native dependency.",
+      "pin": {
+        "commit": "67b33abe1558160ed76ada1322329b0e9e058b02",
+        "source": "resolved head on 2026-08-15"
+      },
+      "licenceEvidence": {
+        "state": "verified",
+        "file": "COPYING",
+        "sha256": "d6b4754bb67bdd08b97d5d11b2d7434997a371585a78fe77007149df3af8d09c",
+        "bytes": 1059,
+        "firstLine": "Copyright (c) 2011 Jan Kokemüller",
+        "readAtCommit": "67b33abe1558160ed76ada1322329b0e9e058b02",
+        "readOn": "2026-08-15"
+      }
+    },
+    {
+      "id": "librosa",
+      "planLedger": "librosa",
+      "name": "librosa",
+      "url": "https://github.com/librosa/librosa",
+      "tier": "ORACLE",
+      "planTier": "ORACLE",
+      "license": "ISC",
+      "role": "Fixture generator and formula reference for RMS, descriptors, onset strength, HPSS, chroma, YIN and tempo.",
+      "incorporated": "Golden fixtures for spectral descriptors, onset, HPSS, chroma, YIN and tempo",
+      "notIncorporated": "Runtime Python",
+      "importedFiles": [],
+      "modifications": [],
+      "attribution": "None; never shipped.",
+      "notes": "Python is used at fixture-generation time only and must never be embedded in the app.",
+      "pin": {
+        "commit": "e40ded3bdff28c889f206c7299b4b1ed4562c6b3",
+        "source": "resolved head on 2026-08-15"
+      },
+      "licenceEvidence": {
+        "state": "verified",
+        "file": "LICENSE.md",
+        "sha256": "79aa4a8086d51ac89f9a7322f546670cdef73e758c67f04587b7af8afafd6df8",
+        "bytes": 766,
+        "firstLine": "## ISC License",
+        "readAtCommit": "e40ded3bdff28c889f206c7299b4b1ed4562c6b3",
+        "readOn": "2026-08-15"
+      }
+    },
+    {
+      "id": "pffft",
+      "planLedger": "PFFFT",
+      "name": "PFFFT",
+      "url": "https://github.com/marton78/pffft",
+      "tier": "BENCHMARK",
+      "planTier": "BENCHMARK candidate",
+      "license": "BSD-like (FFTPACK-derived)",
+      "role": "FFT benchmark against JTransforms on arm64.",
+      "incorporated": "ARM FFT comparison",
+      "notIncorporated": "Adoption without ≥2× measured advantage or meaningful power reduction",
+      "importedFiles": [],
+      "modifications": [],
+      "attribution": "BSD-like if adopted.",
+      "notes": "Adopt only for a material latency or battery win; target at least a 2x FFT speedup.",
+      "pin": {
+        "commit": "a4b03590cc2a4bea56f9721996e3057835799179",
+        "source": "resolved head on 2026-08-15"
+      },
+      "licenceEvidence": {
+        "state": "verified",
+        "file": "LICENSE.txt",
+        "sha256": "6c99fce38c991ff104307ecebe20ff014b5e1f5d9e3426da292da8417c7a78cd",
+        "bytes": 1686,
+        "firstLine": "Copyright (c) 2020  Dario Mambro ( dario.mambro@gmail.com )",
+        "readAtCommit": "a4b03590cc2a4bea56f9721996e3057835799179",
+        "readOn": "2026-08-15"
+      }
+    },
+    {
+      "id": "projectm",
+      "planLedger": "projectM",
+      "name": "projectM-visualizer/projectm",
+      "url": "https://github.com/projectM-visualizer/projectm",
+      "tier": "RETAIN",
+      "planTier": "RETAIN",
+      "license": "LGPL-2.1",
+      "role": "Retained legacy MilkDrop scene adapter. Not the architecture for new visuals.",
+      "incorporated": "Existing dynamically linked MilkDrop compatibility, library/preset notices and classic feedback layer",
+      "notIncorporated": "New-engine foundation or static linking",
+      "importedFiles": [
+        "app/src/main/jniLibs/arm64-v8a/libprojectM-4.so",
+        "app/src/main/jniLibs/arm64-v8a/libprojectmjni.so",
+        "tools/pm_jni.c"
+      ],
+      "modifications": [
+        "tools/projectm-v417-render-fbo-backport.patch backports projectm_opengl_render_frame_fbo from 4.2.0."
+      ],
+      "attribution": "LGPL-2.1: dynamic linking, licence notice, and corresponding source of the modified library. Patch and build recipe are in tools/; binaries are produced by .github/workflows/native-libs.yml.",
+      "notes": "Separate remediation track. Shipped .so files are 4 KB page-aligned while release.yml gates on 16384, and the JNI binary predates a 2026-08-11 fix to pm_jni.c.",
+      "pin": {
+        "commit": "e0b0a967f0ffd7d332106c366668ed271718472b",
+        "source": "resolved tag on 2026-08-15"
+      },
+      "licenceEvidence": {
+        "state": "verified",
+        "file": "LICENSE.txt",
+        "sha256": "7c35cd70dea6db64925d89ea15d5506487ac8e9db103aa7630123da2e02a78bd",
+        "bytes": 24381,
+        "firstLine": "GNU LESSER GENERAL PUBLIC LICENSE",
+        "readAtCommit": "e0b0a967f0ffd7d332106c366668ed271718472b",
+        "readOn": "2026-08-15"
+      }
+    },
+    {
+      "id": "butterchurn",
+      "planLedger": "Butterchurn",
+      "name": "jberg/butterchurn",
+      "url": "https://github.com/jberg/butterchurn",
+      "tier": "STUDY",
+      "planTier": "STUDY",
+      "license": "MIT",
+      "role": "MilkDrop semantics: per-frame/per-vertex equation model, warp mesh, comp stage, preset transitions.",
+      "incorporated": "Preset transition continuity, feedback warp behavior and evaluation semantics",
+      "notIncorporated": "Web runtime or second MilkDrop engine",
+      "importedFiles": [],
+      "modifications": [],
+      "attribution": "None required while nothing is copied.",
+      "notes": "Permissively licensed, but a second MilkDrop runtime would duplicate projectM, and the product ships no web technology by explicit decision: no WebView, no JavaScript, no WebGL runtime.",
+      "pin": {
+        "commit": "fbac2f6bab62fd9c6a50ebbeb29359c5eb05903e",
+        "source": "reviewed clone"
+      },
+      "licenceEvidence": {
+        "state": "verified",
+        "file": "LICENSE",
+        "sha256": "e5c204814d7119c939d9f111691e0c2008607d09c2f4679691e6dc5a10f24b98",
+        "bytes": 1073,
+        "firstLine": "MIT License",
+        "readAtCommit": "fbac2f6bab62fd9c6a50ebbeb29359c5eb05903e",
+        "readOn": "2026-08-15"
+      }
+    },
+    {
+      "id": "fosfora",
+      "planLedger": "Fosfora",
+      "name": "kevinraymond/fosfora",
+      "url": "https://github.com/kevinraymond/fosfora",
+      "tier": "STUDY",
+      "planTier": "STUDY plus independent reimplementation",
+      "license": "Apache-2.0 OR MIT",
+      "role": "Architecture reference: lock-free audio delivery, multi-resolution analysis, HDR layering, data-driven effects, modulation, audio textures.",
+      "incorporated": "Sample-driven audio architecture, 83-feature vocabulary, multi-resolution analysis, feature interpolation, data-driven effect recipes, logical layers, 13 blend modes, displacement/refract/lens effects, cue lists, fast render path, audio textures, test structure",
+      "notIncorporated": "Rust/wgpu runtime, source layout, network control and media-output features",
+      "importedFiles": [],
+      "modifications": [],
+      "attribution": "None required while nothing is copied.",
+      "notes": "The plan lists this for adaptation, but the runtime is Rust/wgpu and nothing is portable. Algorithms must be independently validated. Dual-licensed at the user's option.",
+      "pin": {
+        "commit": "09132c01e5d6fd95bd2934067300e2dfee75a935",
+        "source": "reviewed clone"
+      },
+      "licenceEvidence": {
+        "state": "verified",
+        "file": "LICENSE-APACHE",
+        "sha256": "8ef62beefefa8a7458bd88460db49b81ba47e88fa6da98ee88eda7cdde9588bc",
+        "bytes": 11229,
+        "firstLine": "Apache License",
+        "readAtCommit": "09132c01e5d6fd95bd2934067300e2dfee75a935",
+        "readOn": "2026-08-15"
+      }
+    },
+    {
+      "id": "geno-1",
+      "planLedger": "Geno-1",
+      "name": "Geno-1",
+      "url": null,
+      "tier": "STUDY",
+      "planTier": "STUDY",
+      "license": "MIT (declared in MASTER_PLAN §3.1; unverified)",
+      "role": "Clock-accurate A/V scheduling, timed pulses, HDR/bloom and host-testable engine separation.",
+      "incorporated": "Clock-accurate A/V scheduling, timed pulses, HDR/bloom and host-testable engine separation",
+      "notIncorporated": "Direct architecture transplant",
+      "importedFiles": [],
+      "modifications": [],
+      "attribution": "Unknown until the repository is identified.",
+      "notes": "UNRESOLVED. MASTER_PLAN §3.1 names it but §21 gives no URL, and it could not be located from this container. No Geno-1-derived idea may be cited as provenance until a URL, commit and licence file are recorded here.",
+      "pin": null,
+      "licenceEvidence": {
+        "state": "unresolved",
+        "checked": "repository not located from this container"
+      }
+    },
+    {
+      "id": "pilka",
+      "planLedger": "Pilka",
+      "name": "pudnax/pilka",
+      "url": "https://github.com/pudnax/pilka",
+      "tier": "STUDY",
+      "planTier": "TOOLING reference",
+      "license": "MIT",
+      "role": "Tooling reference for a desktop prototype runner: shader hot reload, previous-frame textures, FFT input and a recording workflow.",
+      "incorporated": "Desktop prototype runner, shader hot reload, previous-frame textures, FFT input and recording workflow",
+      "notIncorporated": "Production Android dependency",
+      "importedFiles": [],
+      "modifications": [],
+      "attribution": "MIT if any code were adopted; none is planned, so none is owed today.",
+      "notes": "Never a production Android dependency. Its value is the authoring loop, which informs Shader Studio (§9.5), not the runtime.",
+      "pin": {
+        "commit": "7a90cd4b22859213b7a7618888f9e63512f8f04e",
+        "source": "resolved head on 2026-08-15"
+      },
+      "licenceEvidence": {
+        "state": "verified",
+        "file": "LICENSE",
+        "sha256": "0bec15577d1cca8d5eed9add13f631b96958679232f7932e7b82eb24cf20d101",
+        "bytes": 1083,
+        "firstLine": "MIT License",
+        "readAtCommit": "7a90cd4b22859213b7a7618888f9e63512f8f04e",
+        "readOn": "2026-08-15"
+      }
+    },
+    {
+      "id": "rdpe",
+      "planLedger": "RDPE",
+      "name": "sqrew/rdpe",
+      "url": "https://github.com/sqrew/rdpe",
+      "tier": "STUDY",
+      "planTier": "STUDY until fixed",
+      "license": "MIT declared in Cargo.toml; LICENSE file absent from the repository",
+      "role": "Typed simulation rules, structure-of-arrays state, GPU-only updates, spatial hashing.",
+      "incorporated": "Typed rule vocabulary, SoA state, lifecycle rules, spatial hashing, radix/Morton organization, matrices, composable fields and 35-post-effect taxonomy",
+      "notIncorporated": "Any copied code, generated WGSL, or dependency until repository license is complete",
+      "importedFiles": [],
+      "modifications": [],
+      "attribution": "Unresolved until the licence text is present.",
+      "notes": "Cargo.toml declares license = MIT and the README badge links to a LICENSE that does not exist in the repository. Study-only until resolved. Its wgpu rule compiler must not become a dependency.",
+      "pin": {
+        "commit": "28db17f864127d48e5ae93379f266f6cff3cef04",
+        "source": "resolved pinned on 2026-08-15"
+      },
+      "licenceEvidence": {
+        "state": "none-published",
+        "checked": "no LICENSE, LICENCE, COPYING or UNLICENSE file exists at this commit",
+        "readAtCommit": "28db17f864127d48e5ae93379f266f6cff3cef04",
+        "readOn": "2026-08-15"
+      }
+    },
+    {
+      "id": "velo-visualiser",
+      "planLedger": "Velo Visualiser",
+      "name": "rorygallagher2024/velo-visualiser",
+      "url": "https://github.com/rorygallagher2024/velo-visualiser",
+      "tier": "STUDY",
+      "planTier": "STUDY",
+      "license": "GPL-3.0",
+      "role": "Coverage checklist and Android scene-lifecycle behaviour only. Its 48-scene list is what the V2 catalogue is measured against for breadth.",
+      "incorporated": "Native Android scene lifecycle, Oboe/exact PCM concepts, compute-particle organization, dynamic resolution, staged scene warmup, secondary display, stereo phase views, 48-scene coverage checklist",
+      "notIncorporated": "All code, shaders and derived implementation",
+      "importedFiles": [],
+      "modifications": [],
+      "attribution": "None owed, because nothing is taken. GPL-3.0 is incompatible with this app's distribution, so no code, shader text or derived implementation may enter the tree.",
+      "notes": "The strongest reason this stays STUDY: reading GPL source and then writing the same effect is where a clean-room claim quietly dies. Effects taken from its checklist must be implemented from published mathematics, and their coverage row must say so.",
+      "pin": {
+        "commit": "bebf7233f97f19b0158391ff06a8dfa54caf896c",
+        "source": "reviewed clone"
+      },
+      "licenceEvidence": {
+        "state": "verified",
+        "file": "LICENSE",
+        "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986",
+        "bytes": 35149,
+        "firstLine": "GNU GENERAL PUBLIC LICENSE",
+        "readAtCommit": "bebf7233f97f19b0158391ff06a8dfa54caf896c",
+        "readOn": "2026-08-15"
+      }
+    },
+    {
+      "id": "wavora",
+      "planLedger": "wavora",
+      "name": "muhamedamin308/wavora",
+      "url": "https://github.com/muhamedamin308/wavora",
+      "tier": "STUDY",
+      "planTier": "STUDY",
+      "license": "MIT",
+      "role": "Android Media3 and clean-architecture structural example.",
+      "incorporated": "Small Android Media3 separation examples",
+      "notIncorporated": "Architectural authority",
+      "importedFiles": [],
+      "modifications": [],
+      "attribution": "None required.",
+      "notes": "Two-star project; treat as illustration, not authority.",
+      "pin": {
+        "commit": "cd49ad3690a35b1cf76bf9940bcce444e59f2afc",
+        "source": "reviewed clone"
+      },
+      "licenceEvidence": {
+        "state": "verified",
+        "file": "LICENSE",
+        "sha256": "029074779c13879847529ecfb3b0ee6fcd3df59821c6af9f3255323645adf249",
+        "bytes": 1076,
+        "firstLine": "MIT License",
+        "readAtCommit": "cd49ad3690a35b1cf76bf9940bcce444e59f2afc",
+        "readOn": "2026-08-15"
+      }
+    },
+    {
+      "id": "baryon",
+      "planLedger": "Baryon",
+      "name": "BaryonOfficial/Baryon",
+      "url": "https://github.com/BaryonOfficial/Baryon",
+      "tier": "EXCLUDE",
+      "planTier": "EXCLUDE",
+      "license": "PolyForm Strict 1.0.0",
+      "role": "Volumetric cymatics concepts only.",
+      "incorporated": "High-level volumetric cymatics research questions only",
+      "notIncorporated": "Code, shader text, constants and derivative distribution",
+      "importedFiles": [],
+      "modifications": [],
+      "attribution": "N/A",
+      "notes": "Non-commercial. A separate commercial licence is required to distribute anything built on the engine.",
+      "pin": {
+        "commit": "f8511e76487338a6da2f27d18c69ff4eec8ec8d0",
+        "source": "resolved head on 2026-08-15"
+      },
+      "licenceEvidence": {
+        "state": "verified",
+        "file": "LICENSE",
+        "sha256": "e4ad64f7ee1b4c7d9f81610af2ff2a21f5f552fa27523af95ad155ad6964807c",
+        "bytes": 3589,
+        "firstLine": "# PolyForm Strict License 1.0.0",
+        "readAtCommit": "f8511e76487338a6da2f27d18c69ff4eec8ec8d0",
+        "readOn": "2026-08-15"
+      }
+    },
+    {
+      "id": "enthea",
+      "planLedger": "ORPHIC / ENTHEA / Hydra",
+      "name": "elder-plinius/ENTHEA",
+      "url": "https://github.com/elder-plinius/ENTHEA",
+      "tier": "EXCLUDE",
+      "planTier": "EXCLUDE",
+      "license": "AGPL-3.0",
+      "role": "Scene-design document only.",
+      "incorporated": "Public mathematical ideas only, traced back to permissive papers where used",
+      "notIncorporated": "Code, shader text, scene descriptions copied closely",
+      "importedFiles": [],
+      "modifications": [],
+      "attribution": "N/A",
+      "notes": "",
+      "pin": {
+        "commit": "f8eaf39d36178a0097cb6219c67ec1920d2ed7e6",
+        "source": "resolved head on 2026-08-15"
+      },
+      "licenceEvidence": {
+        "state": "verified",
+        "file": "LICENSE",
+        "sha256": "8d56b405468aad11f87ab5763f901e276e08d9646ff5c8481b1762b6b789e9ed",
+        "bytes": 34524,
+        "firstLine": "GNU AFFERO GENERAL PUBLIC LICENSE",
+        "readAtCommit": "f8eaf39d36178a0097cb6219c67ec1920d2ed7e6",
+        "readOn": "2026-08-15"
+      }
+    },
+    {
+      "id": "hydra",
+      "planLedger": "ORPHIC / ENTHEA / Hydra",
+      "name": "hydra-synth/hydra",
+      "url": "https://github.com/hydra-synth/hydra",
+      "tier": "EXCLUDE",
+      "planTier": "EXCLUDE",
+      "license": "AGPL-3.0",
+      "role": "Public mathematical ideas only, traced back to permissive papers where used.",
+      "incorporated": "Public mathematical ideas only, traced back to permissive papers where used",
+      "notIncorporated": "Code, shader text, scene descriptions copied closely",
+      "importedFiles": [],
+      "modifications": [],
+      "attribution": "None owed, because nothing is taken.",
+      "notes": "AGPL. Code, shader text and closely copied scene descriptions are forbidden. Listed with ORPHIC and ENTHEA in one §3.1 row; recorded separately here because it is a distinct repository.",
+      "pin": {
+        "commit": "523e0feaf3f49899b759ce0e7afabe0114ddfe2b",
+        "source": "resolved head on 2026-08-15"
+      },
+      "licenceEvidence": {
+        "state": "verified",
+        "file": "LICENSE",
+        "sha256": "7f8f48e4266aa8fd3033dfaa4bb7f6e83a60c6e099f82d4959b81de90e67cd8f",
+        "bytes": 34503,
+        "firstLine": "GNU AFFERO GENERAL PUBLIC LICENSE",
+        "readAtCommit": "523e0feaf3f49899b759ce0e7afabe0114ddfe2b",
+        "readOn": "2026-08-15"
+      }
+    },
+    {
+      "id": "lygia",
+      "planLedger": "LYGIA",
+      "name": "patriciogonzalezvivo/lygia",
+      "url": "https://github.com/patriciogonzalezvivo/lygia",
+      "tier": "EXCLUDE",
+      "planTier": "EXCLUDE",
+      "license": "Prosperity Public License 3.0.0",
+      "role": "None. Recorded so that a later session does not rediscover it and assume a shader library this widely used must be permissive.",
+      "incorporated": "None without a separate commercial license",
+      "notIncorporated": "Shader library",
+      "importedFiles": [],
+      "modifications": [],
+      "attribution": "None owed, because nothing is taken.",
+      "notes": "Prosperity 3.0.0 is noncommercial-only, which MASTER_PLAN §3.1 records as 'non-commercial default'. Verified from the licence file, not a badge. Excluded without a separate commercial licence.",
+      "pin": {
+        "commit": "4b0d4a8dd332ea42ab6a2d93e4ad3f300b58aee1",
+        "source": "resolved head on 2026-08-15"
+      },
+      "licenceEvidence": {
+        "state": "verified",
+        "file": "LICENSE.md",
+        "sha256": "07011ea2ef9819e2aa019dff343fcfcdb24d9826e42d25b6a71ac4e77910b926",
+        "bytes": 3096,
+        "firstLine": "# The Prosperity Public License 3.0.0",
+        "readAtCommit": "4b0d4a8dd332ea42ab6a2d93e4ad3f300b58aee1",
+        "readOn": "2026-08-15"
+      }
+    },
+    {
+      "id": "orphic",
+      "planLedger": "ORPHIC / ENTHEA / Hydra",
+      "name": "adityarajashekaran/orphic",
+      "url": "https://github.com/adityarajashekaran/orphic",
+      "tier": "EXCLUDE",
+      "planTier": "EXCLUDE",
+      "license": "AGPL-3.0",
+      "role": "Scene-design document only.",
+      "incorporated": "Public mathematical ideas only, traced back to permissive papers where used",
+      "notIncorporated": "Code, shader text, scene descriptions copied closely",
+      "importedFiles": [],
+      "modifications": [],
+      "attribution": "N/A",
+      "notes": "",
+      "pin": {
+        "commit": "47a8d5dc547e848663a5381b9d76c8dd80512d02",
+        "source": "resolved head on 2026-08-15"
+      },
+      "licenceEvidence": {
+        "state": "verified",
+        "file": "LICENSE",
+        "sha256": "0d96a4ff68ad6d4b6f1f30f713b18d5184912ba8dd389f86aa7710db079abcb0",
+        "bytes": 34523,
+        "firstLine": "GNU AFFERO GENERAL PUBLIC LICENSE",
+        "readAtCommit": "47a8d5dc547e848663a5381b9d76c8dd80512d02",
+        "readOn": "2026-08-15"
+      }
+    },
+    {
+      "id": "rreusser-sketches",
+      "planLedger": "rreusser/sketches",
+      "name": "rreusser/sketches",
+      "url": "https://github.com/rreusser/sketches",
+      "tier": "EXCLUDE",
+      "planTier": "EXCLUDE",
+      "license": "NONE",
+      "role": "Mathematics research only.",
+      "incorporated": "Published mathematics may identify papers to implement independently",
+      "notIncorporated": "All source and shader text",
+      "importedFiles": [],
+      "modifications": [],
+      "attribution": "N/A",
+      "notes": "Earlier research recommended this as MIT. It has no LICENSE file, no package.json licence field and no README licence section, therefore all rights reserved. Published mathematics may be learned from; no code or shader text may be copied.",
+      "pin": {
+        "commit": "82eb3ce5a2672c24aaddefb22fe0d61b9df85c68",
+        "source": "resolved pinned on 2026-08-15"
+      },
+      "licenceEvidence": {
+        "state": "none-published",
+        "checked": "no LICENSE, LICENCE, COPYING or UNLICENSE file exists at this commit",
+        "readAtCommit": "82eb3ce5a2672c24aaddefb22fe0d61b9df85c68",
+        "readOn": "2026-08-15"
+      }
+    },
+    {
+      "id": "shadertoy",
+      "planLedger": "Shadertoy and ambiguous collections",
+      "name": "Shadertoy and ambiguous collections",
+      "url": null,
+      "tier": "EXCLUDE",
+      "planTier": "EXCLUDE by default",
+      "license": "Per-shader; unspecified by default",
+      "role": "None by default.",
+      "incorporated": "A separately licensed individual shader may enter only through a new provenance slice",
+      "notIncorporated": "Unverified code or visual clones",
+      "importedFiles": [],
+      "modifications": [],
+      "attribution": "Per-shader, if one ever enters.",
+      "notes": "Not a repository — a class of sources. A single separately licensed shader may enter only through its own provenance slice that records the author, the licence text and the URL. Default-deny exists because 'found on Shadertoy' is the most common way an unlicensed shader reaches a shipped app.",
+      "pin": null,
+      "licenceEvidence": {
+        "state": "unresolved",
+        "checked": "repository not located from this container"
+      }
+    }
+  ]
+}

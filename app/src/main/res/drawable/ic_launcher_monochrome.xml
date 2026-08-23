@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Themed-icon silhouette. A dedicated drawable rather than reusing the
+  foreground: the system tints every non-transparent pixel one colour, so the
+  twelve-facet rosette would flatten into a solid blob. Here the geode is drawn
+  as a ring plus spokes, which survives being reduced to one colour.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108"
+    android:tint="#FFFFFF">
+
+    <!-- Rock rind. -->
+    <path
+        android:pathData="M84,54 L78.2,40 L69.5,27.2 L54,25 L39,28 L30.6,40.5 L24,54 L29.8,68 L38.5,80.8 L54,83 L69,80 L78.2,68 Z"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="6"
+        android:fillColor="#00000000"
+        android:strokeLineJoin="round" />
+
+    <!-- Crystal spokes. -->
+    <path
+        android:pathData="M54,54 L54,36.6 M54,54 L68.5,45.6 M54,54 L68.5,62.4 M54,54 L54,71.4 M54,54 L39.5,62.4 M54,54 L39.5,45.6"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="3.5"
+        android:fillColor="#00000000"
+        android:strokeLineCap="round" />
+</vector>

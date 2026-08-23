@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 11 and below (auto backup). Presets, playlists, the track library
+     and preferences are worth restoring; the analysis cache is large and
+     rebuildable, and the crash file is device-local debug output. -->
+<full-backup-content>
+    <exclude
+        domain="file"
+        path="analysis" />
+    <exclude
+        domain="file"
+        path="crash-latest.txt" />
+    <exclude
+        domain="file"
+        path="milk/generated" />
+    <!-- User-imported texture images are large and re-importable; left in,
+         they push the total past Auto Backup's ~25 MB quota and backup of
+         EVERYTHING (presets, playlists, history) silently stops. -->
+    <exclude
+        domain="file"
+        path="milk/textures" />
+    <!-- Takes are megabytes of JSON per long performance: same quota
+         arithmetic as the textures above. -->
+    <exclude
+        domain="file"
+        path="takes" />
+</full-backup-content>

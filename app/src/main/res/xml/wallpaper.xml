@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Live-wallpaper metadata. The thumbnail reuses the launcher icon: the
+  wallpaper renders whatever style the app was last left showing, so any fixed
+  preview image would be a picture of a look the user may not have chosen.
+-->
+<wallpaper xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/wallpaper_description"
+    android:thumbnail="@mipmap/ic_launcher" />

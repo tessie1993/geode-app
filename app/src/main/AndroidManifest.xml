@@ -1,0 +1,243 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <uses-feature
+        android:glEsVersion="0x00030000"
+        android:required="true" />
+
+    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
+    <!-- "Live input": the visuals react to the room instead of to a track.
+         Requested at the moment the user turns that setting on, never at
+         launch; samples go straight into the analysis ring buffer and are
+         never written to disk or sent anywhere. The feature is optional, so
+         the microphone is not a required device feature. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-feature
+        android:name="android.hardware.microphone"
+        android:required="false" />
+    <!-- Two features need to keep running with no screen in front of them, and
+         Android grants that to foreground services only. Being visible as a
+         notification for as long as they last is the deal a foreground service
+         is, so POST_NOTIFICATIONS belongs to both — asked for at the moment
+         "Visualize other apps" is turned on, never at launch, because that is
+         the one where the notification is itself the disclosure. Refused, the
+         media notification simply does not appear; playback and its lock-screen
+         controls are unaffected, since those come from the MediaSession rather
+         than from the notification. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <!-- "Visualize other apps": Android 10's playback-capture API, which the
+         platform only allows from a foreground service the user can see. The
+         notification is the point, not a formality — it is the standing
+         statement that this app can currently hear the device. Nothing
+         captured is written to disk or sent anywhere; the samples go into the
+         same in-memory analysis ring buffer the microphone and the player
+         already share. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
+    <!-- Music keeps playing when Geode is not on screen. Everything the
+         platform then shows for it — the notification transport, the lock
+         screen, a Bluetooth headset's buttons — is driven by the MediaSession
+         in .playback.PlaybackService, and none of it involves the network:
+         titles come from the file's own tags and the local library. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <!--
+      A 4K render is tens of minutes of GPU work. Android 15 added the
+      mediaProcessing type for exactly this ("time-consuming operations on
+      media assets"); below 15 the service falls back to dataSync, which is
+      what those versions accept for long-running local work.
+    -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROCESSING" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Media3 merges ACCESS_NETWORK_STATE in for streaming it can do and this app
+         never does. Geode is offline by design and its privacy policy says so; the
+         shipped manifest should agree. Media3 treats the missing permission as
+         "network type unknown", which is correct for local files. -->
+    <uses-permission
+        android:name="android.permission.ACCESS_NETWORK_STATE"
+        tools:node="remove" />
+    <!--
+      The crystal packs' haptic cues name Android feedback constants that all
+      landed after minSdk 26, so older devices fall back to the vibration
+      patterns the packs ship alongside them.
+    -->
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- The live wallpaper is optional; the app is fully usable without a
+         launcher that supports one. -->
+    <uses-feature
+        android:name="android.software.live_wallpaper"
+        android:required="false" />
+
+    <!-- "Now playing in other apps" labels the capture with the app it is hearing.
+         Android 11's package visibility filtering hides other packages from
+         getApplicationLabel(), so without these narrow queries the UI would show raw
+         package names instead of "Spotify". Scoped to media apps only - this is not
+         QUERY_ALL_PACKAGES and requests nothing from the user. -->
+    <queries>
+        <intent>
+            <action android:name="android.media.browse.MediaBrowserService" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.APP_MUSIC" />
+        </intent>
+    </queries>
+
+    <application
+        android:name=".GeodeApp"
+        android:allowBackup="true"
+        android:appCategory="audio"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:enableOnBackInvokedCallback="true"
+        android:fullBackupContent="@xml/backup_rules"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:localeConfig="@xml/locales_config"
+        android:theme="@android:style/Theme.Material.NoActionBar">
+        <activity
+            android:name=".ui.MainActivity"
+            android:exported="true"
+            android:theme="@style/Theme.Geode.Splash"
+            android:configChanges="orientation|screenSize|keyboardHidden">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <!--
+              Shared presets. A preset is a self-contained document and the app
+              has no network permission, so a "shared preset" IS the preset,
+              carried inside the link; tapping one in a chat opens the app and
+              imports it. Nothing is fetched.
+            -->
+            <intent-filter android:autoVerify="false">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="geode"
+                    android:host="preset" />
+            </intent-filter>
+        </activity>
+
+        <!--
+          The visualizer as a live wallpaper: the same renderer, on the style
+          and parameters the app was last left showing. It reacts to what the
+          app is playing and breathes on its own the rest of the time.
+        -->
+        <service
+            android:name=".wallpaper.VisualizerWallpaperService"
+            android:exported="true"
+            android:label="@string/wallpaper_label"
+            android:permission="android.permission.BIND_WALLPAPER">
+            <intent-filter>
+                <action android:name="android.service.wallpaper.WallpaperService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.service.wallpaper"
+                android:resource="@xml/wallpaper" />
+        </service>
+
+        <!--
+          Music that outlives the screen. Holds the app's one ExoPlayer and the
+          MediaSession that publishes it, so playback survives the Activity and
+          the transport controls reach the audio that is actually playing.
+
+          Exported, unlike every other component here, because the things that
+          drive it are other processes: the notification and the lock screen,
+          Bluetooth and wired headset buttons, watches, Android Auto. The
+          MediaSession is the only surface any of them reach, and it exposes
+          transport and the current track's own tags — nothing else, and
+          nothing off the device, since the app holds no network permission.
+        -->
+        <service
+            android:name=".playback.PlaybackService"
+            android:exported="true"
+            android:foregroundServiceType="mediaPlayback">
+            <intent-filter>
+                <action android:name="androidx.media3.session.MediaSessionService" />
+            </intent-filter>
+        </service>
+
+        <!--
+          Media buttons, and with them playback resumption.
+
+          Media3 routes hardware transport keys and the system's "resume what
+          you were playing" request through a MEDIA_BUTTON broadcast, and it
+          finds the target by looking for a receiver with this filter in the
+          app's own manifest — the library declares none of its own. Without
+          it the merged manifest carried exactly one receiver (the profile
+          installer) and zero MEDIA_BUTTON filters, so PlaybackService's
+          onPlaybackResumption was never invoked: Geode never appeared in
+          the System UI media carousel after its process died, and
+          lastPlayedResumption was code that could not run in production.
+
+          Exported, like the service it drives, because the callers are other
+          processes: System UI, Bluetooth, a wired headset's buttons.
+        -->
+        <receiver
+            android:name="androidx.media3.session.MediaButtonReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MEDIA_BUTTON" />
+            </intent-filter>
+        </receiver>
+
+        <!--
+          Playback capture: holds the MediaProjection and the ongoing
+          notification for as long as another app's audio is being read.
+          Not exported — it is started only by this app, with consent the user
+          just gave to the system dialog. Coexists with the playback service
+          above rather than competing with it: different foreground service
+          types, and the ViewModel pauses our own player before it starts
+          reading someone else's, because there is one analysis ring buffer and
+          two streams summed into it would be recognisable as neither.
+        -->
+        <service
+            android:name=".audio.PlaybackCaptureService"
+            android:exported="false"
+            android:foregroundServiceType="mediaProjection" />
+
+        <!--
+          Keeps a video render alive while the app is not in front of the user.
+          It does not own the render - that lives in ExportRun's process-scoped
+          coroutine - it only tells Android the process is doing visible work.
+          Both types are declared because mediaProcessing does not exist before
+          Android 15 and the service picks at runtime.
+        -->
+        <service
+            android:name=".export.ExportService"
+            android:exported="false"
+            android:foregroundServiceType="mediaProcessing|dataSync" />
+
+        <!--
+          Does nothing, and must exist: getActiveSessions() is gated on being
+          an enabled notification listener, and that is the only way to become
+          one. It is how the app can name what Spotify or YouTube is playing.
+          Optional — the visuals work on the captured audio alone.
+        -->
+        <service
+            android:name=".audio.GeodeNotificationListener"
+            android:exported="false"
+            android:label="@string/notification_listener_label"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+
+        <!-- Sharing a preset too long to be a link sends its .json; a raw
+             file:// uri cannot leave the app, so it goes out through here.
+             Scoped to the presets directory alone (preset_paths.xml). -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.presets"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/preset_paths" />
+        </provider>
+    </application>
+</manifest>

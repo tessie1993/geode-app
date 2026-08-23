@@ -1,0 +1,254 @@
+name: Build Geode Debug APK
+
+# Pull-request CI, plus a manual build when an APK is wanted from a branch.
+# Pushes to main are handled by ship-apk.yml, which runs the same build and
+# checks and then publishes the APK as a GitHub Release — running both on main
+# would build the app twice per push for the same result.
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "app/**"
+      - "engine/**"
+      - "build-logic/**"
+      - "gradle/**"
+      - "*.gradle.kts"
+      - "gradle.properties"
+      - ".github/workflows/android.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: geode-debug-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PROJECT_DIR: .
+  APK_SOURCE: app/build/outputs/apk/debug/app-debug.apk
+
+jobs:
+  build-debug-apk:
+    name: Build debug APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      # The .so files are committed blobs built out-of-band by native-libs.yml;
+      # the recorded hashes are the only link between those bytes and the
+      # sources they claim to come from, so drift fails the build.
+      - name: Verify committed native libs match their recorded checksums
+        working-directory: app/src/main/jniLibs
+        run: |
+          set -euo pipefail
+          found=0
+          for sums in */SHA256SUMS; do
+            found=1
+            echo "== ${sums%/SHA256SUMS}"
+            (cd "$(dirname "$sums")" && sha256sum -c SHA256SUMS)
+          done
+          [ "$found" -eq 1 ] || { echo "::error::no SHA256SUMS under jniLibs"; exit 1; }
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle and cache
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-read-only: ${{ github.event_name == 'pull_request' }}
+
+      - name: Install Android SDK 36
+        shell: bash
+        # sdkmanager is not on PATH on the ubuntu-24.04 runner image; resolve
+        # it from the preinstalled SDK location instead.
+        run: |
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:?Android SDK location not set on runner}}"
+          SDKMANAGER="$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" \
+            "platform-tools" \
+            "platforms;android-36" \
+            "build-tools;36.0.0"
+
+      # The shader compile pass in ShaderSyntaxTest skips without this, and
+      # ShaderSyntaxTest asserts this step exists so it cannot skip unnoticed.
+      - name: Install GLSL compiler
+        run: sudo apt-get update -qq && sudo apt-get install -y glslang-tools
+
+      - name: Make Gradle wrapper executable
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: chmod +x gradlew
+
+      # Baselined static analysis: the SwallowedException/UnusedParameter
+      # class of bug is caught at PR time instead of the next audit.
+      - name: detekt
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: ./gradlew :app:detekt --stacktrace --no-daemon
+
+      # detekt prints only "Analysis failed with N weighted issues" and a stack
+      # trace; the findings themselves go to a report file. Without this, reading
+      # a failure means downloading the reports artifact, so the log says a gate
+      # failed but never which rule or which line. Print them instead.
+      - name: Show detekt findings
+        if: failure()
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          dir=app/build/reports/detekt
+          if [ -f "$dir/detekt.txt" ]; then
+            echo "::group::detekt findings"
+            cat "$dir/detekt.txt"
+            echo "::endgroup::"
+          elif [ -f "$dir/detekt.xml" ]; then
+            # The XML carries the same findings one <error> element per issue;
+            # enough to name the rule, file and line without the artifact.
+            echo "::group::detekt findings (xml)"
+            grep -oE '<file name="[^"]*"|<error line="[0-9]+" column="[0-9]+" severity="[^"]*" message="[^"]*" source="[^"]*"' "$dir/detekt.xml" || cat "$dir/detekt.xml"
+            echo "::endgroup::"
+          else
+            echo "No detekt report found under $dir. Present:"
+            ls -la "$dir" 2>/dev/null || echo "  (directory absent)"
+          fi
+
+      - name: Assemble debug APK
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: ./gradlew :app:assembleDebug --stacktrace --no-daemon
+
+      - name: Package APK and checksum
+        id: package
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION_NAME=$(sed -n 's/^[[:space:]]*versionName = "\([^"]*\)".*/\1/p' \
+            "$PROJECT_DIR/app/build.gradle.kts" | head -n 1)
+          SHORT_SHA="${GITHUB_SHA::7}"
+          FILE_NAME="Geode-${VERSION_NAME:-debug}-${SHORT_SHA}-debug.apk"
+
+          mkdir -p dist
+          cp "$APK_SOURCE" "dist/$FILE_NAME"
+          sha256sum "dist/$FILE_NAME" > "dist/$FILE_NAME.sha256"
+
+          echo "file_name=$FILE_NAME" >> "$GITHUB_OUTPUT"
+          echo "Built dist/$FILE_NAME"
+
+      # Convenience, not a gate: the APK is here so a reviewer can install the
+      # build without running it themselves. It must never decide whether the
+      # PR is green. Run 185 failed on "Artifact storage quota has been hit"
+      # AFTER the APK had already been assembled, which skipped every
+      # verification step below and reported the whole job as a failure - a
+      # red check that said "the build is broken" when the build was fine and
+      # nothing had been verified at all. continue-on-error keeps a full
+      # artifact store (or a flaky upload) from speaking for the code.
+      - name: Upload debug APK
+        continue-on-error: true
+        uses: actions/upload-artifact@v7
+        with:
+          name: geode-debug-${{ github.run_number }}-${{ github.sha }}
+          path: |
+            dist/${{ steps.package.outputs.file_name }}
+            dist/${{ steps.package.outputs.file_name }}.sha256
+          if-no-files-found: error
+          # 7 days, not 30: the quota that broke run 185 is the sum of these.
+          # The APK is mostly WebP and native libs, which do not compress
+          # further, but the dex and resources.arsc do - so this no longer
+          # forces compression off.
+          retention-days: 7
+
+      # Verification runs after the APK upload. If a check fails, the APK is
+      # still available from the workflow run for device testing.
+      - name: Run unit tests
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: ./gradlew :app:testDebugUnitTest --stacktrace --no-daemon
+
+      - name: Run Android lint
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: ./gradlew :app:lintDebug --stacktrace --no-daemon
+
+      - name: Run Kotlin formatting checks
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: ./gradlew ktlintCheck --stacktrace --no-daemon
+
+      # The in-app "Open source licenses" screen reads a COPY of the root
+      # THIRD_PARTY_NOTICES bundled as an asset, and attribution obligations
+      # are only met by the copy that ships. Nothing else in CI ran this task,
+      # so the two drifted silently twice in a row - once when the Cymatics
+      # work added the Naadara notice, once when gl-transitions was vendored.
+      - name: Check bundled third-party notices are current
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: ./gradlew :app:checkThirdPartyNotices --stacktrace --no-daemon
+
+      - name: Upload reports when verification fails
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: geode-build-reports-${{ github.run_number }}
+          path: |
+            app/build/reports/
+            app/build/test-results/
+          if-no-files-found: ignore
+          retention-days: 14
+
+  # Instrumented tests need a real Android runtime: MediaStore, a live
+  # MediaSession and the permission model do not exist off a device, and
+  # Robolectric's shadows actively misreport some of them (its ContentResolver
+  # returns success for any uri, so a delete of a missing file "succeeds").
+  # This job is the only place those paths are genuinely exercised.
+  #
+  # Its own job rather than a step in the build: the emulator takes minutes to
+  # boot, and a slow device suite must not delay the APK the build job
+  # publishes for manual testing.
+  instrumented-tests:
+    name: Instrumented tests (emulator)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      # The emulator needs hardware acceleration to be usable; ubuntu runners
+      # expose KVM but not to unprivileged processes by default.
+      - name: Enable KVM for the emulator
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Run instrumented tests
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          # 29 is the floor for the scoped-storage paths these tests cover;
+          # anything below skips them via assumeTrue rather than failing.
+          api-level: 30
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          script: ./gradlew :app:connectedDebugAndroidTest --stacktrace --no-daemon
+          working-directory: .
+
+      - name: Upload instrumented reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: geode-instrumented-reports-${{ github.run_number }}
+          path: |
+            app/build/reports/androidTests/
+            app/build/outputs/androidTest-results/
+          if-no-files-found: ignore
+          retention-days: 14

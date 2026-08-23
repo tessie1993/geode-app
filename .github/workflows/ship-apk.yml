@@ -1,0 +1,207 @@
+name: Ship Geode APK
+
+# Builds the debug-signed APK from main and publishes it as a GitHub Release,
+# so it can be downloaded and sideloaded without a GitHub login and without the
+# 30-day expiry that applies to the workflow artifacts in android.yml.
+#
+# Releases are marked pre-release: this is Android's debug signing key, not the
+# Play upload key. The Play Store build is release.yml.
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Branch, tag, or SHA to build and ship
+        default: main
+        required: true
+      prerelease:
+        description: Mark the GitHub Release as a pre-release
+        type: boolean
+        default: true
+  push:
+    branches:
+      - main
+    paths:
+      - "app/**"
+      - "engine/**"
+      - "build-logic/**"
+      - "gradle/**"
+      - "*.gradle.kts"
+      - "gradle.properties"
+      - ".github/workflows/ship-apk.yml"
+
+permissions:
+  contents: write
+
+# Keyed on the COMMIT, not the branch. `cancel-in-progress: false` only
+# protects a run that has already started: GitHub keeps at most one PENDING run
+# per group and cancels the older one, so two pushes to main in quick
+# succession meant the middle commit was never built or verified at all. That
+# is not hypothetical - it is how a commit that does not compile became main
+# (the merge that dropped `GlUtil.withChunk` while its call sites survived),
+# and it stayed undetected until the NEXT push failed for the same reason.
+# One group per commit means every commit on main is verified on its own.
+concurrency:
+  group: geode-ship-${{ github.sha }}
+  cancel-in-progress: false
+
+env:
+  PROJECT_DIR: .
+  APK_SOURCE: app/build/outputs/apk/debug/app-debug.apk
+
+jobs:
+  ship-apk:
+    name: Build and publish APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          # A dispatch defaults to main so the APK that ships is main's, even
+          # when the run is started from another branch.
+          ref: ${{ inputs.ref || github.sha }}
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle and cache
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Install Android SDK 36
+        shell: bash
+        # sdkmanager is not on PATH on the ubuntu-24.04 runner image; resolve
+        # it from the preinstalled SDK location instead.
+        run: |
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:?Android SDK location not set on runner}}"
+          SDKMANAGER="$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" \
+            "platform-tools" \
+            "platforms;android-36" \
+            "build-tools;36.0.0"
+
+      - name: Make Gradle wrapper executable
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: chmod +x gradlew
+
+      - name: Assemble debug APK
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: ./gradlew :app:assembleDebug --stacktrace --no-daemon
+
+      # Nothing gets published that has not passed the same checks android.yml
+      # runs, so a release asset is always a verified build.
+      - name: Verify (ktlint, unit tests, lint)
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: ./gradlew ktlintCheck :app:testDebugUnitTest :app:lintDebug :app:checkThirdPartyNotices --stacktrace --no-daemon
+
+      - name: Package APK and checksum
+        id: package
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION_NAME=$(sed -n 's/^[[:space:]]*versionName = "\([^"]*\)".*/\1/p' \
+            "$PROJECT_DIR/app/build.gradle.kts" | head -n 1)
+          VERSION_CODE=$(sed -n 's/^[[:space:]]*versionCode = \([0-9]*\).*/\1/p' \
+            "$PROJECT_DIR/app/build.gradle.kts" | head -n 1)
+          # The checkout may be a different ref than the one that triggered the
+          # run, so tag the commit actually built.
+          BUILT_SHA=$(git rev-parse HEAD)
+          SHORT_SHA=${BUILT_SHA::7}
+          FILE_NAME="Geode-${VERSION_NAME:-debug}-${SHORT_SHA}-debug.apk"
+
+          mkdir -p dist
+          cp "$APK_SOURCE" "dist/$FILE_NAME"
+          ( cd dist && sha256sum "$FILE_NAME" > "$FILE_NAME.sha256" )
+
+          {
+            echo "file_name=$FILE_NAME"
+            echo "version_name=${VERSION_NAME:-debug}"
+            echo "version_code=${VERSION_CODE:-0}"
+            echo "built_sha=$BUILT_SHA"
+            echo "short_sha=$SHORT_SHA"
+            echo "tag=apk-v${VERSION_NAME:-debug}-${SHORT_SHA}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Publish GitHub Release
+        id: release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.package.outputs.tag }}
+          FILE_NAME: ${{ steps.package.outputs.file_name }}
+          BUILT_SHA: ${{ steps.package.outputs.built_sha }}
+          VERSION_NAME: ${{ steps.package.outputs.version_name }}
+          VERSION_CODE: ${{ steps.package.outputs.version_code }}
+          SHORT_SHA: ${{ steps.package.outputs.short_sha }}
+          # Empty on push events, where a pre-release is always what we want.
+          PRERELEASE: ${{ inputs.prerelease }}
+        run: |
+          set -euo pipefail
+          NOTES=$(cat <<EOF
+          Debug-signed Geode APK built by GitHub Actions.
+
+          | | |
+          | --- | --- |
+          | Version | \`$VERSION_NAME\` (versionCode $VERSION_CODE) |
+          | Commit | \`$BUILT_SHA\` |
+          | ABI | arm64-v8a and x86_64, minSdk 26 |
+          | Workflow run | [#$GITHUB_RUN_NUMBER]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID) |
+
+          Download \`$FILE_NAME\` and open it on the device to install; Android
+          asks for permission to install from the browser or file manager used.
+          Verify the download with \`sha256sum -c $FILE_NAME.sha256\`.
+
+          This build is signed with Android's debug key while sharing the
+          Play build's application id, so the two cannot be installed at the
+          same time: Android refuses the install over a Play copy, and you have
+          to uninstall one to try the other.
+          EOF
+          )
+
+          PRERELEASE_FLAG=()
+          if [ "${PRERELEASE:-true}" != "false" ]; then
+            PRERELEASE_FLAG=(--prerelease)
+          fi
+
+          # Re-running the workflow on the same commit refreshes the assets of
+          # the existing release rather than failing on the duplicate tag.
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" \
+              "dist/$FILE_NAME" "dist/$FILE_NAME.sha256" --clobber
+          else
+            gh release create "$TAG" \
+              "dist/$FILE_NAME" "dist/$FILE_NAME.sha256" \
+              --target "$BUILT_SHA" \
+              --title "Geode $VERSION_NAME ($SHORT_SHA)" \
+              --notes "$NOTES" \
+              "${PRERELEASE_FLAG[@]}"
+          fi
+
+          URL=$(gh release view "$TAG" --json url --jq .url)
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+
+      - name: Summarize
+        shell: bash
+        run: |
+          {
+            echo "### Shipped \`${{ steps.package.outputs.file_name }}\`"
+            echo
+            echo "- Release: ${{ steps.release.outputs.url }}"
+            echo "- Commit: \`${{ steps.package.outputs.built_sha }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload reports when the build fails
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: geode-ship-reports-${{ github.run_number }}
+          path: |
+            app/build/reports/
+            app/build/test-results/
+          if-no-files-found: ignore
+          retention-days: 14

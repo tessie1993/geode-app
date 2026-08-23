@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Status-bar icon for the playback-capture notification: equalizer bars.
+     A white-on-transparent vector of our own, because a system drawable
+     (android.R.drawable.*) renders differently per OEM and may change or
+     vanish between releases. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24"
+    android:tint="#FFFFFF">
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M4,10h3v8H4zM10.5,4h3v14h-3zM17,13h3v5h-3z" />
+</vector>

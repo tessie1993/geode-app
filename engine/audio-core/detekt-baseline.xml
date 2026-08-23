@@ -1,0 +1,8 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>ComplexCondition:StructureTracker.kt$StructureTracker$sectionArmed &amp;&amp; warmupSeconds &gt; WARMUP_SECONDS &amp;&amp; sinceSection &gt; SECTION_REFRACTORY_SECONDS &amp;&amp; novelty &gt; threshold</ID>
+    <ID>ComplexCondition:StructureTracker.kt$StructureTracker$warmupSeconds &gt; WARMUP_SECONDS &amp;&amp; sinceDrop &gt; DROP_REFRACTORY_SECONDS &amp;&amp; buildupMemory &gt; DROP_BUILDUP &amp;&amp; sinceDip &lt; DROP_DIP_WINDOW_SECONDS &amp;&amp; rms &gt; DROP_SLAM_LEVEL &amp;&amp; rms &gt; slowEnergy + DROP_SLAM_MARGIN</ID>
+  </CurrentIssues>
+</SmellBaseline>

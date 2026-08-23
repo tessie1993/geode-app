@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MusicViz — application wireframe v0.13</title>
+<style>
+  /* ------------------------------------------------------------------
+     MusicViz wireframe kit — pure grayscale, self-contained, no external
+     resources. Palette: #fff #f4f4f4 #ddd #999 #333. Outlines 1.5px.
+     ------------------------------------------------------------------ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { background: #fff; color: #333; }
+  body {
+    font-family: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    padding: 40px 24px 80px;
+  }
+
+  /* Page header */
+  .pagehead { text-align: center; margin-bottom: 12px; }
+  .pagehead h1 { font-size: 22px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; }
+  .pagehead p  { font-size: 11px; letter-spacing: 1.5px; color: #999; margin-top: 8px; text-transform: uppercase; }
+  .legend {
+    display: flex; justify-content: center; gap: 24px; flex-wrap: wrap;
+    margin: 20px auto 36px; font-size: 9px; letter-spacing: 1px; color: #999;
+    text-transform: uppercase;
+  }
+  .legend span { display: inline-flex; align-items: center; gap: 7px; }
+  .legend .sw { width: 22px; height: 15px; border: 1.5px solid #999; display: inline-block; }
+
+  /* Frame grid */
+  .grid { display: flex; flex-wrap: wrap; gap: 56px 44px; justify-content: center; align-items: flex-start; }
+  figure { width: 390px; }
+  figcaption { margin-top: 14px; text-align: center; font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; }
+  figcaption small { display: block; margin-top: 5px; font-size: 9px; font-weight: 400; letter-spacing: 1px; color: #999; }
+
+  .frame {
+    width: 390px; height: 844px; border: 1.5px solid #333; border-radius: 28px;
+    background: #fff; display: flex; flex-direction: column; overflow: hidden; position: relative;
+  }
+
+  /* Status bar */
+  .status {
+    height: 30px; flex: none; display: flex; justify-content: space-between; align-items: center;
+    padding: 0 22px; font-size: 9px; letter-spacing: 1.5px; color: #999;
+  }
+
+  /* Screen header */
+  .hdr { display: flex; align-items: center; gap: 10px; padding: 10px 18px 12px; flex: none; }
+  .hdr h2 { flex: 1; font-size: 19px; font-weight: 700; letter-spacing: 2.5px; }
+
+  /* Icons (CSS-drawn, monochrome) */
+  .i-search { width: 13px; height: 13px; border: 1.5px solid #333; border-radius: 50%; position: relative; flex: none; }
+  .i-search::after { content: ""; position: absolute; width: 7px; height: 1.5px; background: #333; right: -5px; bottom: -2px; transform: rotate(45deg); }
+  .iconbtn { width: 34px; height: 34px; border: 1.5px solid #333; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex: none; background: #fff; }
+  .glyph { font-size: 13px; line-height: 1; color: #333; }
+
+  /* Tabs */
+  .tabs { display: flex; border-bottom: 1.5px solid #333; flex: none; }
+  .tabs div { flex: 1; text-align: center; padding: 9px 2px 10px; font-size: 9px; letter-spacing: 1px; color: #999; text-transform: uppercase; white-space: nowrap; }
+  .tabs div.on { color: #333; font-weight: 700; box-shadow: inset 0 -3px 0 #333; }
+  .subtabs { display: flex; border-bottom: 1.5px solid #ddd; flex: none; overflow: hidden; }
+  .subtabs div { padding: 8px 10px 9px; font-size: 8px; letter-spacing: 1px; color: #999; text-transform: uppercase; white-space: nowrap; }
+  .subtabs div.on { color: #333; font-weight: 700; box-shadow: inset 0 -2px 0 #333; }
+
+  /* Buttons & chips */
+  .btn { display: inline-block; border: 1.5px solid #333; border-radius: 18px; padding: 8px 16px; font-size: 9px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; background: #fff; white-space: nowrap; }
+  .btn.fill { background: #333; color: #fff; }
+  .chip { display: inline-block; border: 1.5px solid #999; border-radius: 15px; padding: 7px 13px; font-size: 9px; letter-spacing: 1px; text-transform: uppercase; white-space: nowrap; color: #333; background: #fff; }
+  .chip.dim { color: #999; }
+  .chiprow { display: flex; gap: 8px; overflow: hidden; }
+  .tag { display: inline-block; border: 1.5px solid #333; background: #f4f4f4; border-radius: 4px; padding: 2px 6px; font-size: 7px; font-weight: 700; letter-spacing: 1px; color: #333; text-transform: uppercase; vertical-align: middle; }
+
+  /* X-crossed placeholder box (image / visualizer area) */
+  .xbox {
+    border: 1.5px solid #999; background-color: #f4f4f4; position: relative;
+    background-image:
+      linear-gradient(to top right,  transparent calc(50% - 1px), #ddd calc(50% - 1px), #ddd calc(50% + 1px), transparent calc(50% + 1px)),
+      linear-gradient(to bottom right, transparent calc(50% - 1px), #ddd calc(50% - 1px), #ddd calc(50% + 1px), transparent calc(50% + 1px));
+  }
+
+  /* Sliders */
+  .param { margin: 9px 0; }
+  .pl { display: flex; justify-content: space-between; align-items: center; font-size: 8px; letter-spacing: 1.2px; color: #999; text-transform: uppercase; margin-bottom: 2px; }
+  .lk { border: 1.5px solid #ddd; border-radius: 3px; padding: 1px 5px; font-size: 6.5px; letter-spacing: 1px; color: #999; }
+  .lk.on { border-color: #333; color: #333; font-weight: 700; }
+  .sl { position: relative; height: 16px; }
+  .sl::before { content: ""; position: absolute; left: 0; right: 0; top: 7px; height: 2px; background: #ddd; }
+  .sl b  { position: absolute; left: 0; top: 7px; height: 2px; background: #999; width: var(--v, 0%); }
+  .sl i  { position: absolute; top: 1px; margin-left: -7px; width: 12px; height: 12px; border: 1.5px solid #333; border-radius: 50%; background: #fff; left: var(--v, 0%); }
+
+  /* Toggle */
+  .tgl { width: 34px; height: 18px; border: 1.5px solid #333; border-radius: 10px; position: relative; flex: none; }
+  .tgl i { position: absolute; top: 2px; width: 11px; height: 11px; border-radius: 50%; }
+  .tgl.on i  { right: 2px; background: #333; }
+  .tgl.off i { left: 2px;  border: 1.5px solid #999; background: #fff; }
+
+  /* List rows */
+  .row { display: flex; align-items: center; gap: 12px; padding: 10px 18px; border-bottom: 1.5px solid #f4f4f4; }
+  .row .grow { flex: 1; min-width: 0; }
+  .tt { font-size: 12px; letter-spacing: 0.5px; }
+  .st { font-size: 8px; letter-spacing: 1px; color: #999; text-transform: uppercase; margin-top: 3px; }
+  .sect { padding: 14px 18px 4px; font-size: 9px; font-weight: 700; letter-spacing: 2px; color: #999; text-transform: uppercase; }
+
+  /* Mini player + nav bar */
+  .dock { flex: none; margin-top: auto; }
+  .mini { border-top: 1.5px solid #333; background: #f4f4f4; padding: 9px 16px 0; }
+  .mini .r { display: flex; align-items: center; gap: 10px; }
+  .mini .art { width: 26px; height: 26px; flex: none; }
+  .mini .grow { flex: 1; min-width: 0; }
+  .mini .glyph + .glyph { margin-left: 6px; }
+  .mini .prog { height: 2px; background: #ddd; margin: 8px -16px 0; }
+  .mini .prog i { display: block; height: 2px; background: #333; }
+  .nav { display: flex; border-top: 1.5px solid #333; background: #fff; }
+  .nav div { flex: 1; text-align: center; padding: 9px 0 13px; font-size: 8px; letter-spacing: 1px; color: #999; text-transform: uppercase; }
+  .nav i { display: block; width: 17px; height: 17px; border: 1.5px solid #999; border-radius: 5px; margin: 0 auto 5px; }
+  .nav .on { color: #333; font-weight: 700; }
+  .nav .on i { border-color: #333; background: #ddd; }
+
+  /* Fields (forms) */
+  .flabel { font-size: 7.5px; letter-spacing: 1.5px; color: #999; text-transform: uppercase; margin: 10px 0 3px; }
+  .field { border: 1.5px solid #999; border-radius: 8px; padding: 9px 11px; font-size: 10px; letter-spacing: 1px; color: #333; background: #fff; }
+  .field.ph { color: #999; }
+
+  /* Bottom sheet */
+  .scrim { flex: 1; background: #ddd; position: relative; overflow: hidden; }
+  .sheet {
+    flex: none; border-top: 1.5px solid #333; border-radius: 22px 22px 0 0;
+    background: #fff; padding: 10px 20px 18px; position: relative; margin-top: -22px;
+  }
+  .grab { width: 36px; height: 4px; border-radius: 2px; background: #ddd; margin: 2px auto 10px; }
+
+  /* Splash rings */
+  .ring { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); border: 1.5px solid #ddd; border-radius: 50%; }
+
+  /* Annotation notes + leader lines */
+  .note {
+    position: absolute; background: #fff; border: 1.5px dashed #999; border-radius: 6px;
+    padding: 5px 9px; font-size: 7.5px; font-weight: 700; letter-spacing: 1px; color: #333;
+    text-transform: uppercase; z-index: 5; max-width: 150px; text-align: center;
+  }
+  .leader { position: absolute; border-top: 1.5px dashed #999; z-index: 4; transform-origin: left center; }
+  .leader::after { content: ""; position: absolute; right: -1px; top: -4px; border: 4px solid transparent; border-left: 6px solid #999; }
+
+  /* EQ bands */
+  .eq { display: flex; align-items: flex-end; gap: 12px; height: 74px; padding: 4px 6px 0; }
+  .eqcol { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; height: 100%; justify-content: flex-end; }
+  .eqb { width: 13px; border: 1.5px solid #999; background: #ddd; border-radius: 3px 3px 0 0; }
+  .eqf { font-size: 6.5px; letter-spacing: 0.5px; color: #999; }
+
+  /* Settings sections */
+  .setrow { display: flex; align-items: center; gap: 12px; padding: 15px 18px; border-bottom: 1.5px solid #ddd; }
+  .setrow .grow { flex: 1; }
+  .caret { font-size: 12px; color: #999; flex: none; }
+
+  /* Album grid */
+  .agrid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 14px 18px; }
+  .acard .xbox { width: 100%; height: 150px; border-radius: 10px; }
+
+  /* Now-playing transport card */
+  .glass {
+    position: absolute; left: 14px; right: 14px; bottom: 20px; border: 1.5px solid #333;
+    border-radius: 16px; background: #fff; padding: 11px 15px 9px; z-index: 3;
+  }
+  .times { display: flex; align-items: center; gap: 9px; font-size: 8px; letter-spacing: 1px; color: #999; }
+  .transport { display: flex; align-items: center; justify-content: space-evenly; padding: 6px 0 4px; }
+  .playbig { width: 44px; height: 44px; border: 1.5px solid #333; background: #f4f4f4; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+  .playbig .glyph { font-size: 16px; }
+  .qbadge { display: flex; justify-content: center; gap: 7px; padding: 3px 0 6px; border-top: 1.5px solid #f4f4f4; margin-top: 2px; padding-top: 8px; }
+  .qbadge .chip { font-size: 7.5px; padding: 4px 9px; }
+  .cardfoot { display: flex; justify-content: space-between; border-top: 1.5px solid #f4f4f4; padding-top: 7px; font-size: 8.5px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; }
+
+  .fill { flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; }
+  .pad { padding: 0 18px; }
+  .hint { font-size: 8px; letter-spacing: 1px; color: #999; text-transform: uppercase; }
+</style>
+</head>
+<body>
+
+<header class="pagehead">
+  <h1>MusicViz &mdash; application wireframe v0.13</h1>
+  <p>Android &middot; bottom-nav shell &middot; 14 screens &middot; grayscale structure only &mdash; apply visual style on top</p>
+</header>
+
+<div class="legend">
+  <span><span class="sw xbox"></span> image / visualizer area</span>
+  <span><span class="sw" style="border-style:dashed"></span> annotation (not UI)</span>
+  <span><span class="sw" style="background:#f4f4f4"></span> surface fill</span>
+  <span><span class="sw" style="background:#333"></span> primary action</span>
+</div>
+
+<div class="grid">
+
+<!-- ============================================================ 01 BOOT SPLASH -->
+<figure>
+  <div class="frame">
+    <div class="status"><span>9:41</span><span>&#9679;&#9679;&#9679;</span></div>
+    <div class="fill" style="position:relative">
+      <div class="ring" style="width:340px;height:340px"></div>
+      <div class="ring" style="width:264px;height:264px"></div>
+      <div class="ring" style="width:192px;height:192px;border-color:#999"></div>
+      <div class="ring" style="width:124px;height:124px;border-color:#999"></div>
+      <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);text-align:center;background:#fff;padding:10px 16px">
+        <div style="font-size:24px;font-weight:700;letter-spacing:5px">MUSICVIZ</div>
+        <div class="hint" style="margin-top:8px">V0.13</div>
+      </div>
+      <div class="note" style="left:50%;transform:translateX(-50%);bottom:130px">Ripple rings expand on beat of intro sting</div>
+      <div style="position:absolute;left:50%;transform:translateX(-50%);bottom:64px;display:flex;gap:8px">
+        <span style="width:7px;height:7px;border-radius:50%;background:#333"></span>
+        <span style="width:7px;height:7px;border-radius:50%;border:1.5px solid #999"></span>
+        <span style="width:7px;height:7px;border-radius:50%;border:1.5px solid #999"></span>
+      </div>
+    </div>
+  </div>
+  <figcaption>01 &middot; Boot splash <small>Ripple-rings intro around wordmark &mdash; new in 0.13</small></figcaption>
+</figure>
+
+<!-- ============================================================ 02 HOME -->
+<figure>
+  <div class="frame">
+    <div class="status"><span>9:41</span><span>&#9679;&#9679;&#9679;</span></div>
+    <div class="hdr"><h2>HOME</h2><span class="iconbtn"><span class="i-search"></span></span></div>
+    <div class="fill pad">
+      <div style="border:1.5px solid #333;border-radius:14px;padding:13px 15px;display:flex;align-items:center;gap:13px;margin-bottom:14px">
+        <span class="iconbtn" style="background:#333"><span class="glyph" style="color:#fff">&#9654;</span></span>
+        <div class="grow">
+          <div class="hint">Resume</div>
+          <div class="tt" style="margin-top:3px">Midnight City &mdash; M83</div>
+        </div>
+        <span class="caret">&#8250;</span>
+      </div>
+      <div style="margin-bottom:18px"><span class="btn fill">&#8644;&nbsp; Shuffle all</span></div>
+      <div class="sect" style="padding-left:0">Recently played</div>
+      <div class="chiprow" style="margin:9px 0 16px">
+        <span class="chip">Nightcall</span><span class="chip">Flim</span><span class="chip">Breathe</span><span class="chip">Aer&hellip;</span>
+      </div>
+      <div class="sect" style="padding-left:0">Most played</div>
+      <div class="chiprow" style="margin:9px 0">
+        <span class="chip">Strobe (41)</span><span class="chip">Kids (33)</span><span class="chip">Genesis (2&hellip;</span>
+      </div>
+    </div>
+    <div class="dock">
+      <div class="mini">
+        <div class="r">
+          <div class="art xbox"></div>
+          <div class="grow"><div class="tt">Midnight City &mdash; M83</div></div>
+          <span class="glyph">&#10074;&#10074;</span>
+          <span class="glyph">&#9654;&#9654;</span>
+        </div>
+        <div class="prog"><i style="width:36%"></i></div>
+      </div>
+      <div class="nav">
+        <div class="on"><i></i>Home</div>
+        <div><i></i>Library</div>
+        <div><i></i>Visuals</div>
+        <div><i></i>Settings</div>
+      </div>
+    </div>
+  </div>
+  <figcaption>02 &middot; Home <small>Resume card &middot; shuffle all &middot; history chip rows &middot; mini player &middot; nav bar</small></figcaption>
+</figure>
+
+<!-- ============================================================ 03 LIBRARY / TRACKS -->
+<figure>
+  <div class="frame">
+    <div class="status"><span>9:41</span><span>&#9679;&#9679;&#9679;</span></div>
+    <div class="hdr"><h2>LIBRARY</h2><span class="iconbtn"><span class="i-search"></span></span></div>
+    <div class="tabs">
+      <div class="on">Tracks</div><div>Albums</div><div>Artists</div><div>Playlists</div><div>Folders</div>
+    </div>
+    <div class="fill">
+      <div class="row"><div class="grow"><div class="tt">Midnight City</div><div class="st">M83 &middot; Am &middot; 105 BPM</div></div><span class="glyph">&#9998;</span><span class="glyph">&#8942;</span></div>
+      <div class="row"><div class="grow"><div class="tt">Strobe</div><div class="st">Deadmau5 &middot; Bm &middot; 128 BPM</div></div><span class="glyph">&#9998;</span><span class="glyph">&#8942;</span></div>
+      <div class="row"><div class="grow"><div class="tt">Nightcall</div><div class="st">Kavinsky &middot; Dm &middot; 92 BPM</div></div><span class="glyph">&#9998;</span><span class="glyph">&#8942;</span></div>
+      <div class="row"><div class="grow"><div class="tt">Flim</div><div class="st">Aphex Twin &middot; C &middot; 84 BPM</div></div><span class="glyph">&#9998;</span><span class="glyph">&#8942;</span></div>
+      <div class="row"><div class="grow"><div class="tt">Kids</div><div class="st">MGMT &middot; A &middot; 123 BPM</div></div><span class="glyph">&#9998;</span><span class="glyph">&#8942;</span></div>
+      <div class="row"><div class="grow"><div class="tt">Genesis</div><div class="st">Justice &middot; Gm &middot; 100 BPM</div></div><span class="glyph">&#9998;</span><span class="glyph">&#8942;</span></div>
+      <div class="row"><div class="grow"><div class="tt">Breathe</div><div class="st">Telepopmusik &middot; Em &middot; 110 BPM</div></div><span class="glyph">&#9998;</span><span class="glyph">&#8942;</span></div>
+      <div class="note" style="right:12px;top:258px">&#9998; opens track-info editor (06)</div>
+    </div>
+    <div class="dock">
+      <div class="mini">
+        <div class="r"><div class="art xbox"></div><div class="grow"><div class="tt">Midnight City &mdash; M83</div></div><span class="glyph">&#10074;&#10074;</span><span class="glyph">&#9654;&#9654;</span></div>
+        <div class="prog"><i style="width:36%"></i></div>
+      </div>
+      <div class="nav">
+        <div><i></i>Home</div><div class="on"><i></i>Library</div><div><i></i>Visuals</div><div><i></i>Settings</div>
+      </div>
+    </div>
+  </div>
+  <figcaption>03 &middot; Library / Tracks <small>Tab row &middot; rows: title + artist &middot; key &middot; BPM &middot; edit-info icon (new)</small></figcaption>
+</figure>
+
+<!-- ============================================================ 04 LIBRARY / ALBUMS -->
+<figure>
+  <div class="frame">
+    <div class="status"><span>9:41</span><span>&#9679;&#9679;&#9679;</span></div>
+    <div class="hdr"><h2>LIBRARY</h2><span class="iconbtn"><span class="i-search"></span></span></div>
+    <div class="tabs">
+      <div>Tracks</div><div class="on">Albums</div><div>Artists</div><div>Playlists</div><div>Folders</div>
+    </div>
+    <div class="fill">
+      <div class="agrid">
+        <div class="acard"><div class="xbox"></div><div class="tt" style="margin-top:7px">Hurry Up, We're&hellip;</div><div class="st">M83 &middot; 22 tracks</div></div>
+        <div class="acard"><div class="xbox"></div><div class="tt" style="margin-top:7px">Random Access&hellip;</div><div class="st">Daft Punk &middot; 13 tracks</div></div>
+        <div class="acard"><div class="xbox"></div><div class="tt" style="margin-top:7px">For Lack Of A&hellip;</div><div class="st">Deadmau5 &middot; 11 tracks</div></div>
+        <div class="acard"><div class="xbox"></div><div class="tt" style="margin-top:7px">Cross</div><div class="st">Justice &middot; 12 tracks</div></div>
+        <div class="acard"><div class="xbox" style="height:70px"></div></div>
+        <div class="acard"><div class="xbox" style="height:70px"></div></div>
+      </div>
+      <div class="note" style="left:50%;transform:translateX(-50%);bottom:8px">Tap album &#8250; drill-in track list &middot; &#8249; back pops</div>
+    </div>
+    <div class="dock">
+      <div class="mini">
+        <div class="r"><div class="art xbox"></div><div class="grow"><div class="tt">Midnight City &mdash; M83</div></div><span class="glyph">&#10074;&#10074;</span><span class="glyph">&#9654;&#9654;</span></div>
+        <div class="prog"><i style="width:36%"></i></div>
+      </div>
+      <div class="nav">
+        <div><i></i>Home</div><div class="on"><i></i>Library</div><div><i></i>Visuals</div><div><i></i>Settings</div>
+      </div>
+    </div>
+  </div>
+  <figcaption>04 &middot; Library / Albums <small>Two-column cover grid &middot; drill-in to album track list</small></figcaption>
+</figure>
+
+<!-- ============================================================ 05 LIBRARY / PLAYLISTS -->
+<figure>
+  <div class="frame">
+    <div class="status"><span>9:41</span><span>&#9679;&#9679;&#9679;</span></div>
+    <div class="hdr"><h2>LIBRARY</h2><span class="iconbtn"><span class="i-search"></span></span></div>
+    <div class="tabs">
+      <div>Tracks</div><div>Albums</div><div>Artists</div><div class="on">Playlists</div><div>Folders</div>
+    </div>
+    <div class="fill">
+      <div class="row"><div class="grow"><div class="tt">Late Drive</div><div class="st">14 tracks</div></div><span class="glyph">&#9998;</span><span class="iconbtn" style="width:30px;height:30px"><span class="glyph">&#9654;</span></span></div>
+      <div class="row" style="background:#f4f4f4"><div class="grow"><div class="tt">Focus Deep</div><div class="st">9 tracks &middot; expanded</div></div><span class="glyph">&#9998;</span><span class="iconbtn" style="width:30px;height:30px"><span class="glyph">&#9654;</span></span></div>
+      <div class="row" style="padding-left:38px"><div class="grow"><div class="tt" style="font-size:11px">Flim</div></div><span class="glyph">&#8963;</span><span class="glyph">&#8964;</span></div>
+      <div class="row" style="padding-left:38px"><div class="grow"><div class="tt" style="font-size:11px">Breathe</div></div><span class="glyph">&#8963;</span><span class="glyph">&#8964;</span></div>
+      <div class="row" style="padding-left:38px"><div class="grow"><div class="tt" style="font-size:11px">Avril 14th</div></div><span class="glyph">&#8963;</span><span class="glyph">&#8964;</span></div>
+      <div class="row"><div class="grow"><div class="tt">Gym High-BPM</div><div class="st">21 tracks</div></div><span class="glyph">&#9998;</span><span class="iconbtn" style="width:30px;height:30px"><span class="glyph">&#9654;</span></span></div>
+      <div class="pad hint" style="padding-top:14px">Reorder with &#8963; / &#8964; &middot; rename via &#9998; dialog</div>
+    </div>
+    <div class="dock">
+      <div class="mini">
+        <div class="r"><div class="art xbox"></div><div class="grow"><div class="tt">Midnight City &mdash; M83</div></div><span class="glyph">&#10074;&#10074;</span><span class="glyph">&#9654;&#9654;</span></div>
+        <div class="prog"><i style="width:36%"></i></div>
+      </div>
+      <div class="nav">
+        <div><i></i>Home</div><div class="on"><i></i>Library</div><div><i></i>Visuals</div><div><i></i>Settings</div>
+      </div>
+    </div>
+  </div>
+  <figcaption>05 &middot; Library / Playlists <small>Expandable rows &middot; inline reorder &middot; rename &middot; play</small></figcaption>
+</figure>
+
+<!-- ============================================================ 06 TRACK-INFO EDITOR SHEET -->
+<figure>
+  <div class="frame">
+    <div class="status" style="color:#999"><span>9:41</span><span>&#9679;&#9679;&#9679;</span></div>
+    <div class="scrim">
+      <div class="row" style="border-color:#999;opacity:.5"><div class="grow"><div class="tt">Midnight City</div><div class="st">M83 &middot; Am &middot; 105 BPM</div></div></div>
+      <div class="row" style="border-color:#999;opacity:.5"><div class="grow"><div class="tt">Strobe</div><div class="st">Deadmau5 &middot; Bm &middot; 128 BPM</div></div></div>
+      <div class="note" style="left:50%;transform:translateX(-50%);top:96px">Library dimmed behind sheet</div>
+    </div>
+    <div class="sheet">
+      <div class="grab"></div>
+      <div style="display:flex;align-items:center;margin-bottom:2px">
+        <div style="flex:1;font-size:12px;font-weight:700;letter-spacing:2px">EDIT TRACK INFO <span class="tag">New</span></div>
+        <span class="glyph">&#10005;</span>
+      </div>
+      <div class="flabel">Title</div>
+      <div class="field">Midnight City</div>
+      <div class="flabel">Artist</div>
+      <div class="field">M83</div>
+      <div class="flabel">Album</div>
+      <div class="field">Hurry Up, We're Dreaming</div>
+      <div class="flabel">Genre</div>
+      <div class="chiprow" style="margin:2px 0 2px">
+        <span class="chip">Electronic</span><span class="chip dim">Synthpop</span><span class="chip dim">Indie</span><span class="chip dim">+</span>
+      </div>
+      <div style="display:flex;gap:12px">
+        <div style="flex:1"><div class="flabel">Year</div><div class="field">2011</div></div>
+        <div style="flex:1"><div class="flabel">Track #</div><div class="field">2</div></div>
+      </div>
+      <div class="flabel">Comment</div>
+      <div class="field ph" style="height:52px">Optional note&hellip;</div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px">
+        <span class="btn">Cancel</span><span class="btn fill">Save tags</span>
+      </div>
+    </div>
+  </div>
+  <figcaption>06 &middot; Track-info editor <small>Bottom sheet: title / artist / album / genre chips / year / track # / comment &mdash; new</small></figcaption>
+</figure>
+
+<!-- ============================================================ 07 SEARCH OVERLAY -->
+<figure>
+  <div class="frame">
+    <div class="status"><span>9:41</span><span>&#9679;&#9679;&#9679;</span></div>
+    <div class="hdr" style="gap:12px">
+      <div class="field ph" style="flex:1;display:flex;align-items:center;gap:10px"><span class="i-search" style="border-color:#999"></span> stro|</div>
+      <span class="glyph">&#10005;</span>
+    </div>
+    <div class="pad"><span class="note" style="position:static;display:inline-block">Debounced 300 ms &middot; fullscreen overlay &middot; back closes</span></div>
+    <div class="fill" style="margin-top:8px">
+      <div class="sect">Tracks</div>
+      <div class="row"><div class="grow"><div class="tt">Strobe</div><div class="st">Deadmau5 &middot; Bm &middot; 128 BPM</div></div><span class="glyph">&#9654;</span></div>
+      <div class="row"><div class="grow"><div class="tt">Strobe (Club Edit)</div><div class="st">Deadmau5 &middot; Bm &middot; 128 BPM</div></div><span class="glyph">&#9654;</span></div>
+      <div class="row"><div class="grow"><div class="tt">Day &amp; Night (Strobe rmx)</div><div class="st">Kid Cudi &middot; F&#9839;m &middot; 121 BPM</div></div><span class="glyph">&#9654;</span></div>
+      <div class="sect">Playlists</div>
+      <div class="row"><div class="grow"><div class="tt">Strobelight Nights</div><div class="st">12 tracks</div></div><span class="glyph">&#9654;</span></div>
+      <div class="sect">Presets</div>
+      <div class="row"><div class="grow"><div class="tt">Strobe Pulse</div><div class="st">Visual preset &middot; plasma</div></div><span class="glyph">&#8250;</span></div>
+      <div class="row"><div class="grow"><div class="tt">Strobo Tunnel</div><div class="st">Visual preset &middot; tunnel</div></div><span class="glyph">&#8250;</span></div>
+      <div class="pad hint" style="padding-top:12px">Grouped results: tracks &middot; playlists &middot; presets (new) &middot; tap plays / applies</div>
+    </div>
+  </div>
+  <figcaption>07 &middot; Search overlay <small>Debounced field &middot; grouped tracks / playlists / presets &mdash; new grouping</small></figcaption>
+</figure>
+
+<!-- ============================================================ 08 VISUALS / STYLES -->
+<figure>
+  <div class="frame">
+    <div class="status"><span>9:41</span><span>&#9679;&#9679;&#9679;</span></div>
+    <div class="hdr"><h2>VISUALS</h2><span class="btn">View live</span></div>
+    <div class="tabs">
+      <div>Presets</div><div class="on">Styles</div><div>Customize</div><div>Textures</div>
+    </div>
+    <div class="subtabs">
+      <div>Particles</div><div>Shaders</div><div class="on">Fluid</div><div>MilkDrop</div>
+    </div>
+    <div class="fill pad" style="padding-top:14px">
+      <div style="border:1.5px solid #999;border-radius:12px;padding:11px;display:flex;gap:13px;align-items:center;margin-bottom:12px">
+        <div class="xbox" style="width:86px;height:56px;border-radius:7px"></div>
+        <div class="grow"><div class="tt">FLUID</div><div class="st">Dye + force simulation</div></div>
+        <span style="width:14px;height:14px;border:1.5px solid #999;border-radius:50%"></span>
+      </div>
+      <div style="border:1.5px solid #999;border-radius:12px;padding:11px;display:flex;gap:13px;align-items:center;margin-bottom:12px">
+        <div class="xbox" style="width:86px;height:56px;border-radius:7px"></div>
+        <div class="grow"><div class="tt">CURLFLOW</div><div class="st">Curl-noise particle flow</div></div>
+        <span style="width:14px;height:14px;border:1.5px solid #999;border-radius:50%"></span>
+      </div>
+      <div style="border:1.5px solid #333;border-radius:12px;padding:11px;display:flex;gap:13px;align-items:center;margin-bottom:12px;background:#f4f4f4">
+        <div class="xbox" style="width:86px;height:56px;border-radius:7px;background-color:#fff"></div>
+        <div class="grow"><div class="tt">WATER <span class="tag">New</span></div><div class="st">Surface waves + refraction</div></div>
+        <span style="width:14px;height:14px;border:1.5px solid #333;border-radius:50%;background:#333"></span>
+      </div>
+      <div class="hint" style="margin-top:6px">Selection applies live to the shared renderer &mdash; open &ldquo;View live&rdquo; to see it</div>
+    </div>
+    <div class="dock">
+      <div class="mini">
+        <div class="r"><div class="art xbox"></div><div class="grow"><div class="tt">Midnight City &mdash; M83</div></div><span class="glyph">&#10074;&#10074;</span><span class="glyph">&#9654;&#9654;</span></div>
+        <div class="prog"><i style="width:36%"></i></div>
+      </div>
+      <div class="nav">
+        <div><i></i>Home</div><div><i></i>Library</div><div class="on"><i></i>Visuals</div><div><i></i>Settings</div>
+      </div>
+    </div>
+  </div>
+  <figcaption>08 &middot; Visuals / Styles <small>Sub-tabs particles / shaders / fluid / milkdrop &middot; style cards incl. new &ldquo;Water&rdquo;</small></figcaption>
+</figure>
+
+<!-- ============================================================ 09 VISUALS / CUSTOMIZE -->
+<figure>
+  <div class="frame">
+    <div class="status"><span>9:41</span><span>&#9679;&#9679;&#9679;</span></div>
+    <div class="hdr"><h2>VISUALS</h2><span class="btn">View live</span></div>
+    <div class="tabs">
+      <div>Presets</div><div>Styles</div><div class="on">Customize</div><div>Textures</div>
+    </div>
+    <div class="subtabs">
+      <div>Motion</div><div>Shape</div><div>Behavior</div><div>Color</div><div>FX</div><div>Fluid</div><div class="on">Water</div>
+    </div>
+    <div class="pad" style="padding-top:10px"><span class="btn">&#9856; Randomize unlocked</span></div>
+    <div class="fill pad" style="padding-top:4px">
+      <div class="sect" style="padding-left:0">Water <span class="tag">New</span></div>
+      <div class="param"><div class="pl"><span>Wave height</span><span class="lk on">Lock</span></div><div class="sl" style="--v:62%"><b></b><i></i></div></div>
+      <div class="param"><div class="pl"><span>Flow speed</span><span class="lk">Lock</span></div><div class="sl" style="--v:38%"><b></b><i></i></div></div>
+      <div class="param"><div class="pl"><span>Viscosity</span><span class="lk">Lock</span></div><div class="sl" style="--v:22%"><b></b><i></i></div></div>
+      <div class="param"><div class="pl"><span>Refraction depth</span><span class="lk">Lock</span></div><div class="sl" style="--v:70%"><b></b><i></i></div></div>
+      <div class="sect" style="padding-left:0;margin-top:6px">Water ripples (all styles) <span class="tag">New</span></div>
+      <div style="display:flex;align-items:center;gap:12px;margin:8px 0 2px">
+        <span class="hint" style="flex:1">Ripple overlay on any style</span><span class="tgl on"><i></i></span>
+      </div>
+      <div class="param"><div class="pl"><span>Ripple intensity</span><span class="lk">Lock</span></div><div class="sl" style="--v:48%"><b></b><i></i></div></div>
+      <div class="param"><div class="pl"><span>Ripple decay</span><span class="lk">Lock</span></div><div class="sl" style="--v:55%"><b></b><i></i></div></div>
+      <div class="param"><div class="pl"><span>Beat spawn amount</span><span class="lk">Lock</span></div><div class="sl" style="--v:30%"><b></b><i></i></div></div>
+    </div>
+    <div class="dock">
+      <div class="mini">
+        <div class="r"><div class="art xbox"></div><div class="grow"><div class="tt">Midnight City &mdash; M83</div></div><span class="glyph">&#10074;&#10074;</span><span class="glyph">&#9654;&#9654;</span></div>
+        <div class="prog"><i style="width:36%"></i></div>
+      </div>
+      <div class="nav">
+        <div><i></i>Home</div><div><i></i>Library</div><div class="on"><i></i>Visuals</div><div><i></i>Settings</div>
+      </div>
+    </div>
+  </div>
+  <figcaption>09 &middot; Visuals / Customize <small>Slider groups with per-param locks &middot; Water + &ldquo;Water ripples (all styles)&rdquo; sections &mdash; new</small></figcaption>
+</figure>
+
+<!-- ============================================================ 10 NOW PLAYING -->
+<figure>
+  <div class="frame">
+    <div class="xbox" style="position:absolute;inset:0;border:none;border-radius:26px"></div>
+    <div style="position:absolute;left:14px;top:40px;display:flex;align-items:center;gap:11px;z-index:3">
+      <span class="iconbtn" style="background:#fff"><span class="glyph">&#8964;</span></span>
+      <div style="background:#fff;border:1.5px solid #999;border-radius:9px;padding:6px 11px">
+        <div class="tt" style="font-weight:700">MIDNIGHT CITY</div>
+        <div class="st">M83</div>
+      </div>
+    </div>
+    <div class="note" style="left:50%;transform:translateX(-50%);top:300px">Fullscreen visualizer canvas &middot; tap toggles controls</div>
+    <div class="glass">
+      <div class="hint" style="text-align:right;margin-bottom:2px">Glass card &middot; 86% opacity</div>
+      <div class="times"><span>0:42</span><div class="sl" style="--v:36%;flex:1"><b></b><i></i></div><span>3:51</span></div>
+      <div class="transport">
+        <span class="glyph">&#8644;</span>
+        <span class="glyph">&#9664;&#9664;</span>
+        <span class="playbig"><span class="glyph">&#10074;&#10074;</span></span>
+        <span class="glyph">&#9654;&#9654;</span>
+        <span class="glyph">&#8635;</span>
+      </div>
+      <div class="qbadge">
+        <span class="chip">FLAC &middot; Lossless</span><span class="chip dim">24-bit / 96 kHz</span><span class="tag">New</span>
+      </div>
+      <div class="cardfoot"><span>&#9881; Visuals</span><span style="color:#999">Auto: off</span></div>
+    </div>
+  </div>
+  <figcaption>10 &middot; Now Playing <small>Visual behind &middot; glass transport card &middot; quality badge row &ldquo;FLAC &middot; Lossless&rdquo; &mdash; new</small></figcaption>
+</figure>
+
+<!-- ============================================================ 11 SETTINGS OVERVIEW -->
+<figure>
+  <div class="frame">
+    <div class="status"><span>9:41</span><span>&#9679;&#9679;&#9679;</span></div>
+    <div class="hdr"><h2>SETTINGS</h2><span class="tag">New structure</span></div>
+    <div class="fill">
+      <div class="setrow"><div class="grow"><div class="tt">APPEARANCE</div><div class="st">Theme &middot; opacity &middot; corners &middot; accent</div></div><span class="caret">&#8250;</span></div>
+      <div class="setrow"><div class="grow"><div class="tt">PLAYBACK</div><div class="st">Speed &middot; pitch &middot; EQ &middot; sleep timer</div></div><span class="caret">&#8250;</span></div>
+      <div class="setrow"><div class="grow"><div class="tt">LIBRARY</div><div class="st">Folders &middot; rescan &middot; preset mirror path</div></div><span class="caret">&#8250;</span></div>
+      <div class="setrow"><div class="grow"><div class="tt">VISUALS &amp; ANALYSIS</div><div class="st">Cache &middot; morph beats &middot; beat threshold</div></div><span class="caret">&#8250;</span></div>
+      <div class="setrow"><div class="grow"><div class="tt">EXPORT &amp; ABOUT</div><div class="st">Export video &middot; version 0.13</div></div><span class="caret">&#8250;</span></div>
+      <div class="pad hint" style="padding-top:16px">Collapsible sections &mdash; one open at a time; &#8250; expands in place (see 12, 13)</div>
+    </div>
+    <div class="dock">
+      <div class="mini">
+        <div class="r"><div class="art xbox"></div><div class="grow"><div class="tt">Midnight City &mdash; M83</div></div><span class="glyph">&#10074;&#10074;</span><span class="glyph">&#9654;&#9654;</span></div>
+        <div class="prog"><i style="width:36%"></i></div>
+      </div>
+      <div class="nav">
+        <div><i></i>Home</div><div><i></i>Library</div><div><i></i>Visuals</div><div class="on"><i></i>Settings</div>
+      </div>
+    </div>
+  </div>
+  <figcaption>11 &middot; Settings overview <small>Collapsible sections: appearance / playback / library / visuals &amp; analysis / export &mdash; new</small></figcaption>
+</figure>
+
+<!-- ============================================================ 12 SETTINGS / APPEARANCE -->
+<figure>
+  <div class="frame">
+    <div class="status"><span>9:41</span><span>&#9679;&#9679;&#9679;</span></div>
+    <div class="hdr"><h2>SETTINGS</h2></div>
+    <div class="fill">
+      <div class="setrow" style="background:#f4f4f4;border-color:#333"><div class="grow"><div class="tt">APPEARANCE</div></div><span class="caret">&#8964;</span></div>
+      <div class="pad" style="padding-top:12px">
+        <div class="flabel">Theme</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin:4px 0 8px">
+          <span class="chip" style="text-align:center;background:#333;color:#fff;border-color:#333">Midnight</span>
+          <span class="chip dim" style="text-align:center">Neon</span>
+          <span class="chip dim" style="text-align:center">Sunset</span>
+          <span class="chip dim" style="text-align:center">Mono</span>
+          <span class="chip dim" style="text-align:center">Ocean</span>
+          <span class="chip dim" style="text-align:center">Paper</span>
+        </div>
+        <div class="hint">+ 12 more themes &middot; horizontal scroll</div>
+        <div class="param"><div class="pl"><span>Bar opacity &middot; 80%</span></div><div class="sl" style="--v:80%"><b></b><i></i></div></div>
+        <div class="flabel">Corner style</div>
+        <div style="display:flex;gap:9px;margin:3px 0 4px">
+          <span class="chip">&#9679; Rounded</span><span class="chip dim">Cut</span><span class="chip dim">Square</span>
+        </div>
+        <div class="param"><div class="pl"><span>Accent strength</span></div><div class="sl" style="--v:58%"><b></b><i></i></div></div>
+        <div class="param"><div class="pl"><span>Canvas dim behind sheets</span></div><div class="sl" style="--v:34%"><b></b><i></i></div></div>
+      </div>
+      <div class="setrow"><div class="grow"><div class="tt">PLAYBACK</div></div><span class="caret">&#8250;</span></div>
+      <div class="setrow"><div class="grow"><div class="tt">LIBRARY</div></div><span class="caret">&#8250;</span></div>
+    </div>
+    <div class="dock">
+      <div class="nav">
+        <div><i></i>Home</div><div><i></i>Library</div><div><i></i>Visuals</div><div class="on"><i></i>Settings</div>
+      </div>
+    </div>
+  </div>
+  <figcaption>12 &middot; Settings / Appearance <small>Theme grid &middot; opacity slider &middot; corner style &middot; accent + dim sliders</small></figcaption>
+</figure>
+
+<!-- ============================================================ 13 SETTINGS / PLAYBACK -->
+<figure>
+  <div class="frame">
+    <div class="status"><span>9:41</span><span>&#9679;&#9679;&#9679;</span></div>
+    <div class="hdr"><h2>SETTINGS</h2></div>
+    <div class="fill">
+      <div class="setrow"><div class="grow"><div class="tt">APPEARANCE</div></div><span class="caret">&#8250;</span></div>
+      <div class="setrow" style="background:#f4f4f4;border-color:#333"><div class="grow"><div class="tt">PLAYBACK <span class="tag">New</span></div></div><span class="caret">&#8964;</span></div>
+      <div class="pad" style="padding-top:12px">
+        <div class="param"><div class="pl"><span>Speed &middot; 1.00&times;</span><span class="hint">0.5&ndash;2.0</span></div><div class="sl" style="--v:50%"><b></b><i></i></div></div>
+        <div class="param"><div class="pl"><span>Pitch &middot; 0 semitones</span><span class="hint">&plusmn;12</span></div><div class="sl" style="--v:50%"><b></b><i></i></div></div>
+        <div class="flabel" style="margin-top:12px">Equalizer</div>
+        <div class="eq">
+          <div class="eqcol"><div class="eqb" style="height:52%"></div><div class="eqf">60</div></div>
+          <div class="eqcol"><div class="eqb" style="height:68%"></div><div class="eqf">230</div></div>
+          <div class="eqcol"><div class="eqb" style="height:44%"></div><div class="eqf">910</div></div>
+          <div class="eqcol"><div class="eqb" style="height:58%"></div><div class="eqf">3.6K</div></div>
+          <div class="eqcol"><div class="eqb" style="height:74%"></div><div class="eqf">14K</div></div>
+        </div>
+        <div style="display:flex;gap:8px;margin:6px 0 4px">
+          <span class="chip">Flat</span><span class="chip dim">Bass+</span><span class="chip dim">Vocal</span><span class="chip dim">Custom</span>
+        </div>
+        <div class="flabel" style="margin-top:10px">Sleep timer</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:3px">
+          <span class="chip" style="background:#333;color:#fff;border-color:#333">Off</span>
+          <span class="chip dim">15 min</span><span class="chip dim">30 min</span><span class="chip dim">60 min</span><span class="chip dim">End of track</span>
+        </div>
+      </div>
+      <div class="setrow" style="margin-top:10px"><div class="grow"><div class="tt">LIBRARY</div></div><span class="caret">&#8250;</span></div>
+    </div>
+    <div class="dock">
+      <div class="nav">
+        <div><i></i>Home</div><div><i></i>Library</div><div><i></i>Visuals</div><div class="on"><i></i>Settings</div>
+      </div>
+    </div>
+  </div>
+  <figcaption>13 &middot; Settings / Playback <small>Speed + pitch sliders &middot; EQ bands &middot; sleep timer chips &mdash; new</small></figcaption>
+</figure>
+
+<!-- ============================================================ 14 NOW PLAYING + RIPPLE OVERLAY -->
+<figure>
+  <div class="frame">
+    <div class="xbox" style="position:absolute;inset:0;border:none;border-radius:26px"></div>
+    <!-- ripple rings over the visual -->
+    <div class="ring" style="width:190px;height:190px;left:120px;top:270px;border-color:#999"></div>
+    <div class="ring" style="width:130px;height:130px;left:120px;top:270px;border-color:#999"></div>
+    <div class="ring" style="width:70px;height:70px;left:120px;top:270px;border-color:#333"></div>
+    <div class="ring" style="width:110px;height:110px;left:295px;top:480px;border-color:#999"></div>
+    <div class="ring" style="width:56px;height:56px;left:295px;top:480px;border-color:#333"></div>
+    <div style="position:absolute;left:14px;top:40px;display:flex;align-items:center;gap:11px;z-index:3">
+      <span class="iconbtn" style="background:#fff"><span class="glyph">&#8964;</span></span>
+      <div style="background:#fff;border:1.5px solid #999;border-radius:9px;padding:6px 11px">
+        <div class="tt" style="font-weight:700">MIDNIGHT CITY</div>
+        <div class="st">M83</div>
+      </div>
+    </div>
+    <!-- annotations with leader lines -->
+    <div class="note" style="right:12px;top:150px">Ripple overlay: water refraction distorts the visual beneath</div>
+    <div class="leader" style="width:74px;right:120px;top:200px;transform:rotate(38deg)"></div>
+    <div class="note" style="left:12px;top:560px;max-width:130px">Beats + touch spawn expanding rings</div>
+    <div class="leader" style="width:88px;left:140px;top:565px;transform:rotate(-16deg)"></div>
+    <div class="glass">
+      <div class="hint" style="text-align:right;margin-bottom:2px">Ripples refract this card edge too</div>
+      <div class="times"><span>0:42</span><div class="sl" style="--v:36%;flex:1"><b></b><i></i></div><span>3:51</span></div>
+      <div class="transport">
+        <span class="glyph">&#8644;</span>
+        <span class="glyph">&#9664;&#9664;</span>
+        <span class="playbig"><span class="glyph">&#10074;&#10074;</span></span>
+        <span class="glyph">&#9654;&#9654;</span>
+        <span class="glyph">&#8635;</span>
+      </div>
+      <div class="cardfoot" style="border-top:none;padding-top:4px"><span>&#9881; Visuals</span><span>Ripples: on</span></div>
+    </div>
+  </div>
+  <figcaption>14 &middot; Now Playing + ripple overlay <small>&ldquo;Water ripples (all styles)&rdquo; enabled &mdash; refraction rings over any visual &mdash; new</small></figcaption>
+</figure>
+
+</div>
+
+<footer style="text-align:center;margin-top:56px" class="hint">
+  MusicViz wireframe v0.13 &middot; grayscale structure reference &middot; generated from ui/AppShell.kt, LibraryScreen.kt, VisualsHub.kt, VisualizerScreen.kt, CustomizeDialog.kt + 0.13 round additions
+</footer>
+
+</body>
+</html>

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Stone ground for the geode. Deep indigo with a lighter diagonal wedge so the
+  icon reads as a lit rock face rather than a flat tile; the wedge runs the same
+  way as the crystal highlight in the foreground.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:pathData="M0,0h108v108h-108z"
+        android:fillColor="#0E0620" />
+    <path
+        android:pathData="M0,108 L108,0 L108,108 Z"
+        android:fillColor="#190D36" />
+    <path
+        android:pathData="M0,108 L108,30 L108,108 Z"
+        android:fillColor="#1F1145" />
+</vector>

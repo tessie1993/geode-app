@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Geode cross-section: a rough stone rind opened to a crystal rosette.
+  The metaphor is the product — plain outside, a lit crystal interior when you
+  open it — and the facet colours are the app's own neon palette, the same
+  ramp the visualizer's default palettes are built from.
+
+  Everything sits inside the 72x72 centre of the 108x108 viewport so no facet is
+  lost to an adaptive-icon mask.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Rock rind: an irregular dodecagon so the silhouette reads as stone. -->
+    <path
+        android:pathData="M84,54 L78.2,40 L69.5,27.2 L54,25 L39,28 L30.6,40.5 L24,54 L29.8,68 L38.5,80.8 L54,83 L69,80 L78.2,68 Z"
+        android:fillColor="#2A1B4D" />
+    <path
+        android:pathData="M84,54 L78.2,40 L69.5,27.2 L54,25 L39,28 L30.6,40.5 L24,54 L29.8,68 L38.5,80.8 L54,83 L69,80 L78.2,68 Z"
+        android:strokeColor="#4B3583"
+        android:strokeWidth="3"
+        android:fillColor="#00000000"
+        android:strokeLineJoin="round" />
+
+    <!-- Crystal rosette: twelve facets radiating from the centre. -->
+    <path android:pathData="M54,54 L72,54 L68.5,45.6 Z" android:fillColor="#89DDFF" />
+    <path android:pathData="M54,54 L68.5,45.6 L63.3,37.9 Z" android:fillColor="#82AAFF" />
+    <path android:pathData="M54,54 L63.3,37.9 L54,36.6 Z" android:fillColor="#9C6BFF" />
+    <path android:pathData="M54,54 L54,36.6 L45,38.4 Z" android:fillColor="#7C4DFF" />
+    <path android:pathData="M54,54 L45,38.4 L40,45.9 Z" android:fillColor="#9C6BFF" />
+    <path android:pathData="M54,54 L40,45.9 L36,54 Z" android:fillColor="#C792EA" />
+    <path android:pathData="M54,54 L36,54 L39.5,62.4 Z" android:fillColor="#89DDFF" />
+    <path android:pathData="M54,54 L39.5,62.4 L44.7,70.1 Z" android:fillColor="#82AAFF" />
+    <path android:pathData="M54,54 L44.7,70.1 L54,71.4 Z" android:fillColor="#9C6BFF" />
+    <path android:pathData="M54,54 L54,71.4 L63,70 Z" android:fillColor="#7C4DFF" />
+    <path android:pathData="M54,54 L63,70 L68.5,62.4 Z" android:fillColor="#C792EA" />
+    <path android:pathData="M54,54 L68.5,62.4 L72,54 Z" android:fillColor="#FFCB6B" />
+
+    <!-- Cavity edge, drawn over the facets so each one ends on a clean line. -->
+    <path
+        android:pathData="M72,54 L68.5,45.6 L63.3,37.9 L54,36.6 L45,38.4 L40,45.9 L36,54 L39.5,62.4 L44.7,70.1 L54,71.4 L63,70 L68.5,62.4 Z"
+        android:strokeColor="#12082A"
+        android:strokeWidth="1.5"
+        android:fillColor="#00000000"
+        android:strokeLineJoin="round" />
+
+    <!-- Specular hit on the upper-left rind, matching the background wedge. -->
+    <path
+        android:pathData="M39,28 L54,25 L69.5,27.2"
+        android:strokeColor="#B79BFF"
+        android:strokeWidth="2.5"
+        android:fillColor="#00000000"
+        android:strokeLineCap="round" />
+</vector>

@@ -1,0 +1,111 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>ComplexCondition:Adsr.kt$AdsrEngine$features.beat &amp;&amp; (c.retrigger || stage[i] == 0 || stage[i] == 4)</ID>
+    <ID>ComplexCondition:AutoVisualsController.kt$AutoVisualsController$choices.size &gt; 1 &amp;&amp; pick.sceneId == s.sceneId &amp;&amp; pick.presetName == null &amp;&amp; pick.milkPath == null</ID>
+    <ID>ComplexCondition:FeatureTimeline.kt$FeatureTimeline$beat == f.beat &amp;&amp; onset == f.onset &amp;&amp; flux == f.flux &amp;&amp; strength == f.beatStrength &amp;&amp; transient == f.transient</ID>
+    <ID>ComplexCondition:NebulaScene.kt$NebulaScene$px[i] &lt; -1.3f || px[i] &gt; 1.3f || py[i] &lt; -1.3f || py[i] &gt; 1.3f</ID>
+    <ID>ComplexCondition:TextureStore.kt$TextureStore$bytes.size &gt;= 4 &amp;&amp; bytes[0] == 'D'.code.toByte() &amp;&amp; bytes[1] == 'D'.code.toByte() &amp;&amp; bytes[2] == 'S'.code.toByte() &amp;&amp; bytes[3] == ' '.code.toByte()</ID>
+    <ID>ComplexCondition:VideoExporter.kt$VideoExporter$(p.flowEnabled || sceneNeedsFlow) &amp;&amp; flowField != null &amp;&amp; flowField.available</ID>
+    <ID>ComplexCondition:VisualizerRenderer.kt$VisualizerRenderer$(p.flowEnabled || sceneNeedsFlow || layerNeedsFlow) &amp;&amp; ff != null &amp;&amp; ff.available &amp;&amp; !fluidActive</ID>
+    <ID>ComplexCondition:VisualizerRenderer.kt$VisualizerRenderer$ff == null || !ff.available || fluidActive || target !is EmergenceScene</ID>
+    <ID>ComplexCondition:VisualizerRenderer.kt$VisualizerRenderer$target is EmergenceScene &amp;&amp; (p.flowAdvectParticles || targetNeedsFlow) &amp;&amp; ff.available</ID>
+    <ID>EmptyFunctionBlock:AiffExtractor.kt$AiffExtractor${}</ID>
+    <ID>InstanceOfCheckForException:ExportController.kt$ExportController$t is kotlinx.coroutines.CancellationException</ID>
+    <ID>InstanceOfCheckForException:PlayerViewModel.kt$PlayerViewModel$t is kotlinx.coroutines.CancellationException</ID>
+    <ID>LoopWithTooManyJumpStatements:Adsr.kt$AdsrEngine.Companion$for</ID>
+    <ID>LoopWithTooManyJumpStatements:AudioCapturePump.kt$AudioCapturePump$while</ID>
+    <ID>LoopWithTooManyJumpStatements:AudioTranscoder.kt$AudioTranscoder$while</ID>
+    <ID>LoopWithTooManyJumpStatements:AutoVisualsPrefsStore.kt$AutoVisualsPrefsStore.Companion$for</ID>
+    <ID>LoopWithTooManyJumpStatements:CompositeGradeTest.kt$CompositeGradeTest$for</ID>
+    <ID>LoopWithTooManyJumpStatements:FeatureTimeline.kt$FeatureTimeline$for</ID>
+    <ID>LoopWithTooManyJumpStatements:Lfo.kt$LfoEngine.Companion$for</ID>
+    <ID>LoopWithTooManyJumpStatements:Lyrics.kt$LyricsLoader$for</ID>
+    <ID>LoopWithTooManyJumpStatements:PerformanceTake.kt$PerformanceTake.Timeline$while</ID>
+    <ID>LoopWithTooManyJumpStatements:RenderAccumulatorWrapTest.kt$RenderAccumulatorWrapTest$for</ID>
+    <ID>LoopWithTooManyJumpStatements:ShaderSamplerPrecisionTest.kt$ShaderSamplerPrecisionTest$for</ID>
+    <ID>MatchingDeclarationName:PaletteMaker.kt$SavedPalettes</ID>
+    <ID>MemberNameEqualsClassName:FluidBuffers.kt$FluidBuffers.Fbo$var fbo = 0 private set</ID>
+    <ID>NestedBlockDepth:Adsr.kt$AdsrEngine$fun tick( dt: Float, features: AudioFeatures, ): FloatArray</ID>
+    <ID>NestedBlockDepth:AiffPcm.kt$AiffPcm.Companion$internal fun parse(rawStream: InputStream): AiffPcm?</ID>
+    <ID>NestedBlockDepth:AudioTranscoder.kt$AudioTranscoder$fun transcode( uri: Uri, maxDurationMs: Long, startMs: Long = 0L, isCancelled: () -&gt; Boolean = { false }, onProgress: (Float) -&gt; Unit = {}, ): Result</ID>
+    <ID>NestedBlockDepth:AudioTranscoder.kt$AudioTranscoder$private fun transcodeAiff( aiff: dev.geode.audio.AiffPcm, maxDurationMs: Long, startMs: Long, isCancelled: () -&gt; Boolean, onProgress: (Float) -&gt; Unit, ): Result</ID>
+    <ID>NestedBlockDepth:CymaticsClockSafetyTest.kt$CymaticsClockSafetyTest$private fun enclosingCall( src: String, pos: Int, ): String?</ID>
+    <ID>NestedBlockDepth:ExportDefaultsPersistenceTest.kt$ExportDefaultsPersistenceTest$@Test fun everyChoiceCombinationRoundTrips()</ID>
+    <ID>NestedBlockDepth:FluidSim.kt$FluidSim$private fun allocGrids(preserve: Boolean)</ID>
+    <ID>NestedBlockDepth:OfflineAnalyzer.kt$OfflineAnalyzer$fun analyzeBlocking( uri: Uri, beatSensitivity: Float = BeatTuning.SENSITIVITY_DEFAULT, beatMinIntervalMs: Float = BeatTuning.INTERVAL_MS_DEFAULT, onProgress: (Float) -&gt; Unit = {}, ): FeatureTimeline</ID>
+    <ID>NestedBlockDepth:PlaybackCapture.kt$PlaybackCapture$@RequiresApi(Build.VERSION_CODES.Q) private fun openRecord(projection: MediaProjection): AudioRecord?</ID>
+    <ID>NestedBlockDepth:PlayerScreen.kt$internal suspend fun driveSpectrum( live: Boolean, bands: () -&gt; FloatArray, emit: (FloatArray) -&gt; Unit, )</ID>
+    <ID>NestedBlockDepth:RippleMathTest.kt$RippleMathTest$private fun ringRadius(h: FloatArray): Float</ID>
+    <ID>NestedBlockDepth:SceneFailureTest.kt$SceneFailureTest$private fun shaderFailureBlocks(source: String): List&lt;String&gt;</ID>
+    <ID>NestedBlockDepth:VideoExporter.kt$VideoExporter$private fun encodeInto( pfd: ParcelFileDescriptor, audioUri: Uri, timeline: FeatureTimeline, sceneFactory: SceneFactory, aspect: ExportAspect, sceneParams: SceneParams, lfoConfigs: List&lt;dev.geode.render.LfoConfig&gt;, adsrConfigs: List&lt;dev.geode.render.AdsrConfig&gt;, reducedMotion: Boolean, requestedFps: Int, paramsAt: ((Long) -&gt; SceneParams)?, loopSafe: Boolean, range: ExportRange?, onProgress: (Float) -&gt; Unit, isCancelled: () -&gt; Boolean, )</ID>
+    <ID>ReturnCount:AiffExtractor.kt$AiffExtractor$override fun read( input: ExtractorInput, seekPosition: PositionHolder, ): Int</ID>
+    <ID>ReturnCount:AiffPcm.kt$AiffPcm$fun read(out: ShortArray): Int</ID>
+    <ID>ReturnCount:AiffPcm.kt$AiffPcm.Companion$internal fun parse(rawStream: InputStream): AiffPcm?</ID>
+    <ID>ReturnCount:AiffPcm.kt$AiffPcm.Companion$private fun readExtended80(din: DataInputStream): Int</ID>
+    <ID>ReturnCount:AnalysisCache.kt$AnalysisCache$fun load( context: Context, uri: Uri, beatSensitivity: Float, beatMinIntervalMs: Float, ): FeatureTimeline?</ID>
+    <ID>ReturnCount:ArtPalette.kt$ArtPalette$fun extract(pixels: IntArray): Extracted?</ID>
+    <ID>ReturnCount:AudioTranscoder.kt$AudioTranscoder$fun feedEncoder(): Boolean</ID>
+    <ID>ReturnCount:AutoVisualsController.kt$AutoVisualsController$fun advanceSectionStaging()</ID>
+    <ID>ReturnCount:BarTrim.kt$BarTrim$fun trimToBars( durationUs: Long, bpm: Float, ): Long</ID>
+    <ID>ReturnCount:BlueNoise.kt$BlueNoise$fun createTexture(context: Context): Int</ID>
+    <ID>ReturnCount:CaptureController.kt$CaptureController$fun setMicEnabled(enabled: Boolean): MicCapture.Failure?</ID>
+    <ID>ReturnCount:Chromagram.kt$Chromagram$private fun peakToMedian(): Float</ID>
+    <ID>ReturnCount:CyclicPalettes.kt$CyclicPalettes$fun createTexture(context: Context): Int</ID>
+    <ID>ReturnCount:CymaticsScene.kt$CymaticsScene$private fun driveSpectrum( f: AudioFeatures, dt: Float, ): FloatArray</ID>
+    <ID>ReturnCount:FeatureTimeline.kt$FeatureTimeline$fun featuresAt( timeMs: Long, spanMs: Long = 0L, ): AudioFeatures</ID>
+    <ID>ReturnCount:FeatureTimeline.kt$FeatureTimeline$fun withBeatSensitivity( beatSensitivity: Float, beatMinIntervalMs: Float, ): FeatureTimeline</ID>
+    <ID>ReturnCount:FeatureTimeline.kt$FeatureTimeline$fun withDrumChannels(sampleRateHz: Int = 48_000): FeatureTimeline</ID>
+    <ID>ReturnCount:FluidEmitters.kt$FluidEmitters$private fun suctionSplats( out: MutableList&lt;FluidSim.Splat&gt;, radius: Float, )</ID>
+    <ID>ReturnCount:FluidLook.kt$FluidLook$private fun applySunrays(dyeTex: Int)</ID>
+    <ID>ReturnCount:FluidSim.kt$FluidSim$fun applyResolution( newSimRes: Int, newDyeRes: Int, ): Boolean</ID>
+    <ID>ReturnCount:FluidSim.kt$FluidSim$fun resize( w: Int, h: Int, ): Boolean</ID>
+    <ID>ReturnCount:FluidSim.kt$FluidSim$fun step(dtRaw: Float)</ID>
+    <ID>ReturnCount:FluidSim.kt$FluidSim$private fun compileCustom( src: String?, current: GlUtil.UniformCache?, reportError: (String?) -&gt; Unit, ): GlUtil.UniformCache?</ID>
+    <ID>ReturnCount:HistoryStore.kt$HistoryStore$private fun readLocked()</ID>
+    <ID>ReturnCount:KeyPalette.kt$KeyPalette$fun hueFor(key: String): Float?</ID>
+    <ID>ReturnCount:LibraryScreen.kt$internal fun playlistDropIndex( from: Int, offsetPx: Float, rowHeightPx: Int, count: Int, ): Int</ID>
+    <ID>ReturnCount:MicCapture.kt$MicCapture$@Synchronized fun start(onSampleRate: (Int) -&gt; Unit = {}): Failure?</ID>
+    <ID>ReturnCount:MusicPlaylistStore.kt$MusicPlaylistStore$fun move( name: String, from: Int, to: Int, ): MusicPlaylist</ID>
+    <ID>ReturnCount:MusicPlaylistStore.kt$MusicPlaylistStore$fun rename( oldName: String, newName: String, ): Boolean</ID>
+    <ID>ReturnCount:NowPlayingBridge.kt$NowPlayingBridge$fun current(): External?</ID>
+    <ID>ReturnCount:PcmRingBuffer.kt$PcmRingBuffer$private fun snapshotFrom( src: FloatArray, out: FloatArray, ): Boolean</ID>
+    <ID>ReturnCount:PerformanceMonitor.kt$PerformanceMonitor$fun onFrame(dtSeconds: Float): Int</ID>
+    <ID>ReturnCount:PerformanceTake.kt$PerformanceTake.Recorder$fun append( atMs: Long, sceneId: String, params: SceneParams, milkPath: String?, ): Boolean</ID>
+    <ID>ReturnCount:PerformanceTake.kt$PerformanceTake.Timeline$fun stateAt(ms: Long): State?</ID>
+    <ID>ReturnCount:PlaybackCapture.kt$PlaybackCapture$@RequiresApi(Build.VERSION_CODES.Q) @Synchronized fun start( projection: MediaProjection, onSampleRate: (Int) -&gt; Unit = {}, ): CaptureFailure?</ID>
+    <ID>ReturnCount:PlaybackCaptureService.kt$PlaybackCaptureService$override fun onStartCommand( intent: Intent?, flags: Int, startId: Int, ): Int</ID>
+    <ID>ReturnCount:PlaybackQueue.kt$PlaybackQueue$fun contextFor( uri: String, browse: List&lt;QueueTrack&gt;, deviceTracks: List&lt;DeviceTrack&gt;, libraryTracks: List&lt;LibraryTrack&gt;, ): List&lt;QueueTrack&gt;</ID>
+    <ID>ReturnCount:PlaybackQueue.kt$PlaybackQueue$fun window( tracks: List&lt;QueueTrack&gt;, startUri: String, ): Window</ID>
+    <ID>ReturnCount:PlayerViewModel.kt$PlayerViewModel$private fun applyIntelligence()</ID>
+    <ID>ReturnCount:PlayerViewModel.kt$PlayerViewModel$private fun waveformOf(timeline: FeatureTimeline): FloatArray?</ID>
+    <ID>ReturnCount:PresetLibraryController.kt$PresetLibraryController$fun importPresetLink(text: String): String?</ID>
+    <ID>ReturnCount:PresetLink.kt$PresetLink$fun decode(text: String): String?</ID>
+    <ID>ReturnCount:PresetStore.kt$PresetStore$fun removeFolder(name: String): Boolean</ID>
+    <ID>ReturnCount:RippleMath.kt$RippleMath$fun strokeDrops( x: Float, y: Float, dx: Float, dy: Float, dt: Float, radius: Float, strength: Float, ): List&lt;StrokeDrop&gt;</ID>
+    <ID>ReturnCount:RippleSim.kt$RippleSim$fun applyResolution(newSimRes: Int): Boolean</ID>
+    <ID>ReturnCount:RippleSim.kt$RippleSim$fun resize( w: Int, h: Int, ): Boolean</ID>
+    <ID>ReturnCount:StereoField.kt$StereoField$fun width( mid: FloatArray, side: FloatArray, count: Int = minOf(mid.size, side.size), ): Float</ID>
+    <ID>ReturnCount:StudioExporter.kt$StudioExporter$suspend fun export( source: Uri, sourceDurationMs: Long, edit: ClipEdit, displayName: String, onProgress: (Float) -&gt; Unit, ): Result</ID>
+    <ID>ReturnCount:TakeStore.kt$TakeStore$fun rename( from: String, to: String, ): Boolean</ID>
+    <ID>ReturnCount:TextureStore.kt$TextureStore$private fun importOne(uri: Uri): TextureImportResult</ID>
+    <ID>ReturnCount:TrackLibrary.kt$TrackLibrary$private fun readLocked(): List&lt;LibraryTrack&gt;?</ID>
+    <ID>ReturnCount:VisualizerRenderer.kt$VisualizerRenderer$private fun createScene( id: String, particleShaders: EmergenceScene.Shaders, quadVert: String, export: Boolean = false, ): Scene</ID>
+    <ID>ReturnCount:VisualizerRenderer.kt$VisualizerRenderer$private fun sceneFor(id: String): Scene?</ID>
+    <ID>ReturnCount:VisualizerRenderer.kt$VisualizerRenderer$private fun transitionProgram(id: String): CompositeProgram</ID>
+    <ID>SwallowedException:MilkdropEngine.kt$MilkdropEngine$t: Throwable</ID>
+    <ID>SwallowedException:VideoExporter.kt$VideoExporter$e: Exception</ID>
+    <ID>ThrowsCount:AiffExtractor.kt$AiffExtractor$private fun parseHeaders(input: ExtractorInput)</ID>
+    <ID>ThrowsCount:AudioTranscoder.kt$AudioTranscoder$fun transcode( uri: Uri, maxDurationMs: Long, startMs: Long = 0L, isCancelled: () -&gt; Boolean = { false }, onProgress: (Float) -&gt; Unit = {}, ): Result</ID>
+    <ID>ThrowsCount:AudioTranscoder.kt$AudioTranscoder$private fun transcodeAiff( aiff: dev.geode.audio.AiffPcm, maxDurationMs: Long, startMs: Long, isCancelled: () -&gt; Boolean, onProgress: (Float) -&gt; Unit, ): Result</ID>
+    <ID>TooGenericExceptionCaught:AudioTranscoder.kt$AudioTranscoder$t: Throwable</ID>
+    <ID>TooGenericExceptionCaught:ExportController.kt$ExportController$t: Throwable</ID>
+    <ID>TooGenericExceptionCaught:MilkdropEngine.kt$MilkdropEngine$t: Throwable</ID>
+    <ID>TooGenericExceptionCaught:PlayerViewModel.kt$PlayerViewModel$t: Throwable</ID>
+    <ID>TooGenericExceptionCaught:VideoExporter.kt$VideoExporter$e: Exception</ID>
+    <ID>UnusedParameter:AudioFxController.kt$AudioFxController$band: Int</ID>
+    <ID>UnusedPrivateProperty:OfflineAnalyzer.kt$OfflineAnalyzer.StreamingPipeline$c</ID>
+    <ID>UseCheckOrError:AudioTranscoder.kt$AudioTranscoder$throw IllegalStateException("Audio transcode stalled (codec made no progress)")</ID>
+  </CurrentIssues>
+</SmellBaseline>

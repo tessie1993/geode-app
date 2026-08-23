@@ -1,0 +1,10 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>ComplexCondition:SinkClockDriver.kt$SinkClockDriver$begun.sampleRateHz &lt;= 0 || begun.channelCount &lt;= 0 || begun.sampleWidth == null || !(speed &gt; 0f)</ID>
+    <ID>SwallowedException:PcmTap.kt$PcmTap$survivable: RuntimeException</ID>
+    <ID>SwallowedException:SinkClockDriver.kt$SinkClockDriver$unexpected: IllegalArgumentException</ID>
+    <ID>TooGenericExceptionCaught:PcmTap.kt$PcmTap$survivable: RuntimeException</ID>
+  </CurrentIssues>
+</SmellBaseline>

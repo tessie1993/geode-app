@@ -1,0 +1,19 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>ComplexCondition:Adsr.kt$AdsrEngine$hit &gt; 0f &amp;&amp; (c.retrigger || stage[i] == 0 || stage[i] == 4)</ID>
+    <ID>ComplexCondition:FeatureTimeline.kt$FeatureTimeline$beat == f.beat &amp;&amp; onset == f.onset &amp;&amp; flux == f.flux &amp;&amp; strength == f.beatStrength &amp;&amp; transient == f.transient</ID>
+    <ID>LoopWithTooManyJumpStatements:Adsr.kt$AdsrEngine.Companion$for</ID>
+    <ID>LoopWithTooManyJumpStatements:FeatureTimeline.kt$FeatureTimeline$for</ID>
+    <ID>LoopWithTooManyJumpStatements:Lfo.kt$LfoEngine$for</ID>
+    <ID>LoopWithTooManyJumpStatements:Lfo.kt$LfoEngine.Companion$for</ID>
+    <ID>MemberNameEqualsClassName:FluidBuffers.kt$FluidBuffers.Fbo$var fbo = 0 private set</ID>
+    <ID>NestedBlockDepth:Adsr.kt$AdsrEngine$fun tick( dt: Float, features: AudioFeatures, ): FloatArray</ID>
+    <ID>NestedBlockDepth:AiffPcm.kt$AiffPcm.Companion$internal fun parse(rawStream: InputStream): AiffPcm?</ID>
+    <ID>NestedBlockDepth:FluidSim.kt$FluidSim$private fun allocGrids(preserve: Boolean)</ID>
+    <ID>NestedBlockDepth:OfflineAnalyzer.kt$OfflineAnalyzer$fun analyzeBlocking( uri: Uri, beatSensitivity: Float = BeatTuning.SENSITIVITY_DEFAULT, beatMinIntervalMs: Float = BeatTuning.INTERVAL_MS_DEFAULT, onProgress: (Float) -&gt; Unit = {}, ): FeatureTimeline</ID>
+    <ID>SwallowedException:MilkdropEngine.kt$MilkdropEngine$t: Throwable</ID>
+    <ID>TooGenericExceptionCaught:MilkdropEngine.kt$MilkdropEngine$t: Throwable</ID>
+  </CurrentIssues>
+</SmellBaseline>

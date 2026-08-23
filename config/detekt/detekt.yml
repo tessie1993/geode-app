@@ -1,0 +1,60 @@
+# Tuned detekt config (applied to every module by build-logic geode.kotlin-common).
+style:
+  MagicNumber:
+    active: false
+  ReturnCount:
+    active: true
+    # Detekt's default is 2, which forbids the guard-clause style this codebase is written
+    # in - probe, cache and capability code is a sequence of "try this, bail if it fails",
+    # and rewriting those into a single exit produces deeper nesting, not clearer code.
+    # 8 is just above the worst measured value among functions written against the current
+    # style; the handful of pre-existing functions above it sit in each module's baseline.
+    max: 8
+    excludeGuardClauses: true
+  MaxLineLength:
+    active: false # ktlint owns line length
+
+naming:
+  FunctionNaming:
+    ignoreAnnotated: ["Composable"]
+
+complexity:
+  # Thresholds sit just above the worst measured value so the gate cannot
+  # regress. Lower each one in the commit that shrinks its worst offender.
+  LongMethod:
+    active: true
+    threshold: 320
+  LongParameterList:
+    active: true
+    functionThreshold: 20
+    constructorThreshold: 20
+    ignoreDefaultParameters: true
+  CyclomaticComplexMethod:
+    active: true
+    threshold: 85
+  TooManyFunctions:
+    active: true
+    thresholdInFiles: 200
+    thresholdInClasses: 200
+    thresholdInInterfaces: 200
+    thresholdInObjects: 200
+    thresholdInEnums: 200
+    ignorePrivate: true
+    ignoreOverridden: true
+  LargeClass:
+    active: true
+    threshold: 1100
+    # Pure data catalogs: long by nature, no logic to decompose.
+    excludes:
+      - '**/ThemePackCatalog.kt'
+      - '**/VisualStyleCatalog.kt'
+      - '**/BuiltInPresets.kt'
+
+potential-bugs:
+  active: true
+
+exceptions:
+  active: true
+
+coroutines:
+  active: true

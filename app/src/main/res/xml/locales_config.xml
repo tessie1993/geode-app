@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The languages this app ships, declared so Android 13+ can offer a per-app
+  language picker in system Settings and so the Play listing can advertise
+  them.
+
+  Without this file the picker does not appear at all, and the app is stuck on
+  whatever the device locale happens to be - which is wrong for the common case
+  of someone whose phone is in one language and whose music, or whose comfort,
+  is in another.
+
+  A locale belongs here only once its `values-<tag>/strings.xml` is complete;
+  a half-translated language offered in the picker reads as a broken app rather
+  than an unfinished one.
+-->
+<locale-config xmlns:android="http://schemas.android.com/apk/res/android"
+    android:defaultLocale="en">
+    <locale android:name="en" />
+</locale-config>

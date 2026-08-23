@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Sharing a preset too long to be a link sends the .json itself, and a raw
+  file:// uri is not allowed to leave the app. This exposes ONLY the presets
+  directory, so a share can never hand out anything else in app storage.
+-->
+<paths>
+    <files-path
+        name="presets"
+        path="presets/" />
+</paths>

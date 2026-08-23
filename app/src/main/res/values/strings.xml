@@ -1,0 +1,579 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Geode</string>
+    <string name="wallpaper_label">Geode</string>
+    <string name="wallpaper_description">Your last Geode style, reacting to whatever the app is playing and drifting gently when it is not.</string>
+    <string name="notification_listener_label">Geode — now playing in other apps</string>
+    <string name="capture_channel_name">Visualizing other apps</string>
+    <string name="capture_channel_description">Shown while Geode is reading the audio another app is playing.</string>
+    <string name="capture_notification_title">Visualizing other apps</string>
+    <string name="capture_notification_text">Geode is reading the audio playing on this device.</string>
+    <string name="capture_notification_stop">Stop</string>
+    <string name="export_channel_name">Rendering video</string>
+    <string name="export_channel_description">Shown while Geode is rendering a video, so the render is not interrupted.</string>
+    <string name="export_notification_title">Rendering video</string>
+    <string name="export_notification_text">Geode is rendering your visuals.</string>
+
+    <!-- First-run photosensitivity notice. Safety copy: translate carefully,
+         the flash rate is factual and must survive translation. This is an
+         acknowledgement, not a choice — there is no setting behind it. -->
+    <string name="safety_title">Before the visuals start</string>
+    <string name="safety_warning">Geode reacts to music with light, and the visuals are intense — bright, fast and full-screen.</string>
+    <string name="safety_prompt">The flash rate is limited in the engine, by design. Nothing on screen can flash more than three times a second, no preset or imported file can raise that, and the video you export is held to the same limit as the screen you saw. There is no setting for this and nothing to switch off.</string>
+    <string name="safety_acknowledge">I understand</string>
+
+    <!-- First run, after the notice: where the music is, and what you came here to do. -->
+    <!-- First run: permission, then an optional folder. Nothing else is asked. -->
+    <string name="first_run_access_title">Let\'s find your music</string>
+    <string name="first_run_access_body">Geode needs access to the audio on this device. Nothing leaves your phone — there is no account and no sign-in.</string>
+    <string name="first_run_access_allow">Allow music access</string>
+    <string name="first_run_access_skip">Not now</string>
+    <string name="first_run_access_denied">Music access is off, and Android will not ask again from here. You can turn it on in app settings whenever you like.</string>
+    <string name="first_run_access_granted">Music access granted</string>
+    <plurals name="first_run_scanning">
+        <item quantity="one">%1$d track found</item>
+        <item quantity="other">%1$d tracks found</item>
+    </plurals>
+    <string name="first_run_scanning_working">Scanning your library…</string>
+    <string name="first_run_folder_title">Add a folder?</string>
+    <string name="first_run_folder_body">Optional. Your library is already loading. Add a folder only if you keep music somewhere Android does not index — an SD card, or Downloads.</string>
+    <string name="first_run_folder_pick">Choose a folder</string>
+    <plurals name="first_run_folder_added">
+        <item quantity="one">%1$d folder added</item>
+        <item quantity="other">%1$d folders added</item>
+    </plurals>
+    <string name="first_run_optional">Optional</string>
+    <string name="first_run_done">Start listening</string>
+
+    <!-- The intent setting. No longer asked at first run; it lives in Settings > Behaviour. -->
+    <string name="settings_intent_title">What do you use Geode for?</string>
+    <string name="settings_intent_body">Sets where the app opens and whether Studio appears in the navigation bar.</string>
+    <string name="settings_intent_listening">Listening</string>
+    <string name="settings_intent_listening_detail">Opens on the player. Studio stays out of the way.</string>
+    <string name="settings_intent_videos">Making videos</string>
+    <string name="settings_intent_videos_detail">Opens in Studio, with your projects and render queue to hand.</string>
+    <string name="settings_intent_both">Both</string>
+    <string name="settings_intent_both_detail">Opens on the player, with Studio one tap away.</string>
+
+    <!-- Walkthrough. Each step navigates to the tab it describes, so the app underneath
+         is the thing being pointed at rather than a picture of it. -->
+    <string name="tutorial_skip">Skip</string>
+    <string name="tutorial_back">Back</string>
+    <string name="tutorial_next">Next</string>
+    <string name="tutorial_finish">Got it</string>
+    <string name="tutorial_progress">%1$d of %2$d</string>
+    <string name="tutorial_dont_show">Don\'t show this next time</string>
+    <string name="tutorial_player_title">This is the Player</string>
+    <string name="tutorial_player_body">Your track, the transport, and a live spectrum. Tap the artwork to go full screen — that is where the visuals live.</string>
+    <string name="tutorial_library_title">Your music lives here</string>
+    <string name="tutorial_library_body">Tracks, albums, artists, folders and playlists. Tapping any track queues everything you are looking at, so Next and Previous behave the way you expect.</string>
+    <string name="tutorial_visuals_title">Sixty-odd visual styles</string>
+    <string name="tutorial_visuals_body">Pick a style, then open Customize to change how it moves. Presets save a whole look; Randomize on any tab is the fastest way to find one you like.</string>
+    <string name="tutorial_touch_title">Touch the visuals</string>
+    <string name="tutorial_touch_body">On the full-screen visualizer, your finger is part of the picture: one finger sets a point the style builds itself around, two set an axis, three or more open a swirl. Pinch and twist zoom and rotate.</string>
+    <string name="tutorial_studio_title">Studio makes videos</string>
+    <string name="tutorial_studio_body">Record a performance as you play with the controls, then render it out at any quality. Hide this tab in Settings if you only came to listen.</string>
+    <string name="tutorial_settings_title">Everything else is in Settings</string>
+    <string name="tutorial_settings_body">Themes, audio, playback, folders and safety. Help lives here too — you can replay this walkthrough any time.</string>
+
+    <!-- Settings > Help -->
+    <string name="settings_tab_help">Help</string>
+    <string name="help_tutorial_group">Walkthrough</string>
+    <string name="help_tutorial_body">A short tour of the Player, Library, Visuals and Studio. It navigates the app as it goes, so you see the real thing.</string>
+    <string name="help_tutorial_start">Start the walkthrough</string>
+    <string name="help_tutorial_replay">Replay the walkthrough</string>
+    <string name="help_tutorial_on_first_run">Offer it on a fresh install</string>
+    <string name="help_topics_group">How things work</string>
+    <string name="help_topic_library">Library and folders</string>
+    <string name="help_topic_library_body">Geode reads the audio Android already indexes. If you keep music somewhere it does not look — an SD card, or Downloads — add that folder in Settings › Folders.</string>
+    <string name="help_topic_visuals">Styles, presets and Customize</string>
+    <string name="help_topic_visuals_body">A style is the renderer; a preset is a style plus every control around it. Customize hides controls a style cannot use, so an empty section means that style ignores it rather than that something is broken.</string>
+    <string name="help_topic_touch">Touch on the visualizer</string>
+    <string name="help_topic_touch_body">Every style reads where your finger is and means something by it — a vanishing point, a spawn point, a place the geometry reaches toward. Pinch and twist map onto the real Zoom and Rotation controls, so a gesture you like is saved with the preset.</string>
+    <string name="help_topic_safety">Flashing and motion</string>
+    <string name="help_topic_safety_body">Nothing on screen can flash more than three times a second. That limit lives in the engine, covers exported video as well as the screen, and is always on — there is no switch for it and nothing to turn on. Settings › Behavior › Visual safety adds one choice on top: “Slow the motion down”, which eases movement, shake, drift and rotation if motion rather than flashing is what affects you.</string>
+    <string name="help_topic_performance">If it runs hot or stutters</string>
+    <string name="help_topic_performance_body">The engine already lowers its own quality when the device heats up. The Detail control on the marched styles is the biggest single lever you have, and lowering it costs less than you would expect.</string>
+
+    <!-- Per-track metadata editor. -->
+    <string name="track_info_title">Track info</string>
+    <string name="track_info_field_title">Title</string>
+    <string name="track_info_field_artist">Artist</string>
+    <string name="track_info_field_album">Album</string>
+    <string name="track_info_field_genre">Genre</string>
+    <string name="track_info_field_year">Year</string>
+    <string name="track_info_field_track_no">Track #</string>
+    <string name="track_info_field_comment">Comment / info</string>
+    <string name="track_info_note">Edits are stored in the app only — audio files are not modified.</string>
+
+    <!-- Settings › About. -->
+    <string name="about_group">About</string>
+    <string name="about_version">Version %1$s (%2$d)</string>
+    <string name="about_blurb">Plays music from your device and renders it. No account, no ads, no analytics — nothing leaves the phone unless you export a video and share it.</string>
+    <string name="about_licenses">Open source licenses</string>
+    <string name="about_privacy_policy">Privacy policy</string>
+    <string name="about_licenses_unavailable">Third-party notices could not be loaded.</string>
+    <string name="about_licenses_loading">Loading…</string>
+
+    <!-- Bottom navigation. Short: these sit under an icon in a five-item bar. -->
+    <string name="nav_player">Player</string>
+    <string name="nav_library">Library</string>
+    <string name="nav_visuals">Visuals</string>
+    <string name="nav_studio">Studio</string>
+    <string name="nav_settings">Settings</string>
+
+    <!-- Mini-player above the nav bar. -->
+    <string name="mini_player_idle">Now playing</string>
+
+    <!-- Offered once, after a run that crashed. -->
+    <string name="crash_dialog_title">Previous crash captured</string>
+    <string name="crash_dialog_body">The last run crashed. Copy the report to share it, then dismiss.\n\n%1$s</string>
+    <string name="crash_clip_label">Geode crash</string>
+
+    <!-- Search across tracks, playlists and presets. -->
+    <string name="search_placeholder">Search tracks, playlists &amp; presets</string>
+    <string name="search_close">Close search</string>
+    <string name="search_hint">Type to search your music</string>
+    <string name="search_heading_tracks">Tracks (%1$d)</string>
+    <string name="search_heading_playlists">Playlists (%1$d)</string>
+    <string name="search_heading_presets">Presets (%1$d)</string>
+    <string name="search_no_results">No results for “%1$s”</string>
+
+    <!-- Playback notices: a transient error strip under the top bar. -->
+    <string name="notice_dismiss">Dismiss</string>
+    <string name="notice_dismiss_description">Dismiss playback message</string>
+
+    <plurals name="track_count">
+        <item quantity="one">%1$d track</item>
+        <item quantity="other">%1$d tracks</item>
+    </plurals>
+
+    <!-- Transport controls. Spoken by screen readers, so they name the action. -->
+    <string name="action_previous">Previous</string>
+    <string name="action_play_pause">Play/Pause</string>
+    <string name="action_next">Next</string>
+    <string name="action_add_to_queue">Add to queue</string>
+
+    <!-- Now Playing: what the app is listening to, and to what. -->
+    <string name="source_other_apps">Other apps</string>
+    <string name="source_live_input">Live input</string>
+    <string name="state_now_playing">Now playing</string>
+    <string name="state_paused">Paused</string>
+    <string name="state_nothing_playing">Nothing playing</string>
+    <string name="title_whatever_is_playing">Whatever is playing</string>
+    <string name="title_the_room">The room</string>
+    <string name="title_untitled">Untitled</string>
+    <string name="title_pick_something">Pick something to play</string>
+    <string name="subtitle_capture_refused">%1$s will not be captured — see Settings</string>
+    <string name="subtitle_capture_refused_unknown_app">That app</string>
+    <string name="subtitle_captured_from_another_app">Captured from another app</string>
+    <string name="subtitle_microphone_hears">Whatever the microphone hears</string>
+    <string name="subtitle_unknown_artist">Unknown artist</string>
+    <string name="subtitle_nothing_playing">Your library, your history, or the room</string>
+
+    <string name="action_search">Search</string>
+    <string name="action_shuffle">Shuffle</string>
+    <string name="action_play">Play</string>
+    <string name="action_pause">Pause</string>
+    <string name="action_repeat">Repeat</string>
+    <string name="action_favourite_add">Add to favourites</string>
+    <string name="action_favourite_remove">Remove from favourites</string>
+    <string name="action_stop_capture">Stop capture</string>
+    <string name="action_resume_last_played">Resume last played</string>
+    <string name="action_open_library">Open library</string>
+    <string name="action_open_queue">Open queue</string>
+
+    <!-- A–B loop: one control, three states, named so colour is not the only cue. -->
+    <string name="ab_loop_idle">A–B</string>
+    <string name="ab_loop_set_b">Set B</string>
+    <string name="ab_loop_looping">Looping</string>
+
+    <!-- Automatic visual switching. -->
+    <string name="auto_random">Auto: random</string>
+    <string name="auto_smart">Auto: smart</string>
+    <string name="auto_sections">Auto: sections</string>
+    <string name="auto_off">Auto: off</string>
+
+    <string name="queue">Queue</string>
+    <string name="queue_with_count">Queue · %1$d</string>
+    <string name="queue_up_next">Up next</string>
+
+    <!-- Quick actions under the player. -->
+    <string name="quick_room_on">Room: on</string>
+    <string name="quick_capturing">Capturing</string>
+    <string name="quick_sleep_on">Sleep: on</string>
+    <string name="quick_sleep_30m">Sleep 30m</string>
+    <string name="quick_shuffle_all">Shuffle all</string>
+
+    <!-- Now Playing on a connected display: this screen becomes the remote. -->
+    <string name="second_screen_showing_on">Showing on</string>
+    <string name="second_screen_explainer">The visuals are on the connected display. Everything here still controls them — turn this off in Settings › Live input &amp; touch to bring them back.</string>
+    <string name="action_collapse">Collapse</string>
+
+    <!-- Panel chips under the transport. -->
+    <string name="panel_now">Now</string>
+    <string name="panel_lyrics">Lyrics</string>
+
+    <!-- Seek bar. Spoken, not drawn: the bar itself is a bare canvas. -->
+    <string name="seek_description">Seek. %1$s of %2$s</string>
+
+    <!-- Lyrics panel. -->
+    <string name="lyrics_none">No lyrics</string>
+    <string name="lyrics_none_explainer">Drop an .lrc file next to the track — same name, .lrc extension — and it shows up here, timed and following the music. Words written into the file\'s own tags are read too. Nothing is fetched: the app has no network access.</string>
+    <string name="lyrics_source_timed">Timed lyrics from %1$s. Tap a line to jump there.</string>
+    <string name="lyrics_source_untimed">Untimed lyrics from %1$s.</string>
+
+    <!-- Queue panel. -->
+    <string name="queue_empty_explainer">Nothing queued. Playing anything from a list — the library, a shelf on Home, a search result — queues that whole list.</string>
+    <string name="queue_save_as_playlist">Save as playlist</string>
+    <string name="queue_save_dialog_title">Save queue as playlist</string>
+    <string name="action_move_up">Move up</string>
+    <string name="action_remove_from_queue">Remove from queue</string>
+
+    <!-- Library: tabs, permission recovery, playlists and folders. -->
+    <string name="library_tab_tracks">Tracks</string>
+    <string name="library_tab_albums">Albums</string>
+    <string name="library_tab_artists">Artists</string>
+    <string name="library_tab_playlists">Playlists</string>
+    <string name="library_tab_folders">Folders</string>
+    <string name="library_permission_rationale">Grant music access to browse everything on this device.</string>
+    <string name="library_permission_denied_forever">Music access is turned off for Geode, and Android will not ask again from here. Open app settings to turn on Music and audio.</string>
+    <string name="library_permission_allow">Allow music access</string>
+    <string name="library_permission_open_settings">Open app settings</string>
+    <string name="library_no_music">No music found on device.</string>
+    <string name="library_group_unnamed">(no name)</string>
+    <string name="library_back">‹ Back</string>
+    <string name="library_play_all">Play all</string>
+    <string name="library_search_hint">Search titles, artists, albums</string>
+    <string name="library_no_results">Nothing matches that.</string>
+    <string name="library_sort_title">Title</string>
+    <string name="library_sort_artist">Artist</string>
+    <string name="library_sort_album">Album</string>
+    <string name="library_sort_duration">Length</string>
+    <string name="library_sort_added">Added</string>
+    <string name="action_visualise">Visualise</string>
+    <string name="action_export_now">Export now</string>
+    <string name="action_add_to_studio">Add to Studio</string>
+
+    <string name="action_more">More</string>
+    <string name="action_play_next">Play next</string>
+    <string name="action_add_to_playlist">Add to playlist</string>
+    <string name="action_add_to_library_list">Add to library list</string>
+    <string name="action_edit_track_info">Edit track info</string>
+    <string name="action_rename">Rename</string>
+    <string name="action_delete">Delete</string>
+    <string name="action_create">Create</string>
+    <string name="action_up">Up</string>
+    <string name="action_down">Down</string>
+    <string name="action_ok">OK</string>
+
+    <!-- The analysed badge announces itself as one phrase; the gem is decoration. -->
+
+    <string name="playlist_new">New playlist</string>
+    <string name="playlist_new_branch">New playlist…</string>
+    <string name="playlist_delete_title">Delete playlist</string>
+    <string name="playlist_delete_body">\"%1$s\" is removed. Its tracks stay in the library.</string>
+    <string name="playlist_rename_title">Rename playlist</string>
+    <string name="playlist_name_required">A playlist needs a name.</string>
+    <string name="playlist_name_taken">There is already a playlist called \"%1$s\".</string>
+    <string name="playlist_none_yet">No playlists yet. Start one with \"New playlist\" above, save the current queue from the queue panel in Now Playing, or use \"Add to playlist\" in any track\'s ⋮ menu.</string>
+    <string name="playlist_untitled_track">Track %1$d</string>
+    <string name="action_remove_from_playlist">Remove from playlist</string>
+
+    <string name="folders_library">Library folders</string>
+    <string name="folders_device">Device folders</string>
+    <string name="folders_add">Add folder</string>
+    <string name="folders_remove">Remove folder</string>
+    <string name="folders_rescan">Rescan</string>
+    <string name="folders_scanning">Scanning…</string>
+
+    <!-- Studio: the clip shelf and the editor. -->
+    <string name="studio_edit">Edit</string>
+    <string name="studio_open_video">Open a video…</string>
+    <string name="studio_empty_title">Nothing rendered yet</string>
+    <string name="studio_empty_body">Render a visual from Settings › Export video and it lands here, ready to be cut, graded and sent somewhere. Any other video on the phone can be opened with the button above.</string>
+    <string name="studio_send">Send</string>
+    <string name="studio_send_ellipsis">Send…</string>
+    <string name="studio_share_chooser">Send video</string>
+    <string name="studio_storage_used">%1$s in Movies/Geode</string>
+    <string name="studio_rename_title">Rename clip</string>
+    <string name="studio_rename_field">Name</string>
+    <string name="studio_rename_failed">Could not rename that clip.</string>
+    <string name="studio_delete_title">Delete clip?</string>
+    <string name="studio_delete_body">\"%1$s\" will be deleted from this device. This cannot be undone.</string>
+    <string name="studio_delete_failed">Android would not let Geode delete that file.</string>
+    <string name="studio_notice_title">Didn\'t work</string>
+    <string name="action_back">Back</string>
+
+    <plurals name="clip_count">
+        <item quantity="one">%1$d clip</item>
+        <item quantity="other">%1$d clips</item>
+    </plurals>
+    <string name="studio_size_gb">%1$.1f GB</string>
+
+    <string name="studio_section_cut">Cut</string>
+    <string name="studio_section_look">Look</string>
+    <string name="studio_section_frame">Frame</string>
+    <string name="studio_section_sound">Sound &amp; caption</string>
+    <string name="studio_section_render">Render &amp; send</string>
+
+    <string name="studio_trim_summary">"%1$s → %2$s   ·   keeps %3$s"</string>
+    <string name="studio_trim_renders">, renders %1$s</string>
+    <string name="studio_look_explainer">A look writes these four and then gets out of the way — every one stays an ordinary slider afterwards, the same way the live-input profiles work.</string>
+    <string name="studio_brightness">Brightness</string>
+    <string name="studio_contrast">Contrast</string>
+    <string name="studio_saturation">Saturation</string>
+    <string name="studio_hue_shift">Hue shift</string>
+    <string name="studio_speed">Speed</string>
+    <string name="studio_rotate">Rotate</string>
+    <string name="studio_reframe">Reframe</string>
+    <string name="studio_as_shot">As shot</string>
+    <string name="studio_reframe_explainer">Reframing crops rather than pillarboxes — turning 16:9 into 9:16 means losing the sides, and black bars are the one result nobody wants from that.</string>
+    <string name="studio_mute">Mute</string>
+    <string name="studio_caption">Burnt-in caption</string>
+    <string name="studio_caption_explainer">Drawn into the frame after everything else, so it is not graded or cropped with the picture. Leave it empty for none.</string>
+    <string name="studio_rendering">Rendering… %1$d%%</string>
+    <string name="studio_saved">Saved to Movies/Geode.</string>
+    <string name="studio_play">Play</string>
+    <string name="studio_edit_again">Edit again</string>
+    <string name="studio_send_explainer">Send opens the phone\'s own share sheet — YouTube, Instagram, TikTok, Drive, a message, whatever is installed and signed in. Geode has no network access of its own and never uploads anything itself.</string>
+    <string name="studio_render">Render</string>
+    <string name="studio_reset">Reset</string>
+    <string name="studio_nothing_changed">Nothing is changed yet — rendering now would just copy the clip.</string>
+    <string name="studio_renders_new_file">Renders a NEW file. The original is never overwritten.</string>
+    <string name="studio_slider_value">"%1$s  %2$s%3$s"</string>
+
+    <!-- Settings › Audio › Playback. -->
+    <string name="playback_speed">"Speed  %1$sx"</string>
+    <string name="playback_pitch">"Pitch  %1$s st (0 = normal)"</string>
+    <string name="playback_fade_off">Fade on pause, resume and skip — off</string>
+    <string name="playback_fade">"Fade on pause, resume and skip  %1$ss"</string>
+    <string name="playback_fade_explainer">Ramps the volume instead of cutting it. Not a crossfade — one player decodes one track at a time, and a second one would give the analyser two streams to sum — but it removes the hard edges, which is the part you hear.</string>
+    <string name="playback_skip_silence">Skip silence</string>
+    <string name="playback_pause_unplugged">Pause when unplugged</string>
+    <string name="playback_keep_screen_on">Keep screen on</string>
+    <string name="playback_auto_resume">Auto-resume last track</string>
+    <string name="playback_sleep_timer">Sleep timer</string>
+    <string name="playback_sleep_off">Off</string>
+    <string name="playback_sleep_minutes">%1$d min</string>
+    <string name="playback_sleep_finish_track">Let the track finish</string>
+    <string name="playback_sleep_pausing_after_track">Pausing after the track playing in %1$s</string>
+    <string name="playback_sleep_pausing_in">Pausing in %1$s</string>
+
+    <!-- Settings › Audio › Equalizer. -->
+    <string name="eq_title">Equalizer</string>
+    <string name="eq_no_session">Play something first — the effects chain attaches to the audio session, and there is no session until audio starts.</string>
+    <string name="eq_unsupported">Not supported on this device</string>
+    <string name="eq_partial">This device would not grant an equalizer. What it did grant is below.</string>
+    <string name="eq_preset">Preset</string>
+    <string name="eq_custom">Custom</string>
+    <string name="eq_band">"%1$s  %2$s"</string>
+    <string name="eq_bass_boost">"Bass boost  %1$d%%"</string>
+    <string name="eq_loudness">"Loudness  %1$s"</string>
+
+    <!-- Settings › Folders. -->
+    <string name="folders_group_preset">Preset folder</string>
+    <string name="folders_group_music">Music folders</string>
+    <string name="folders_group_cache">Analysis cache</string>
+    <string name="folders_group_export">Export destination</string>
+    <string name="folders_export_explainer">Exports land in your Videos library (Movies/Geode), or in a folder you pick at render time — there is no standing export folder to configure. Defaults for quality and size live in the Export tab.</string>
+    <string name="folders_preset_chosen">Preset folder: chosen — saves are mirrored there</string>
+    <string name="folders_preset_internal">Preset folder: internal only</string>
+    <string name="folders_choose_preset">Choose preset folder</string>
+    <string name="folders_preset_explainer">Presets always save inside the app; a chosen folder gets a mirror copy so your own sorting is visible in any file manager.</string>
+    <string name="folders_none_yet">No folders yet. Device music appears in the Library on its own; folders you add here are scanned into the import library as well.</string>
+    <string name="folders_rescan_explainer">The same list as Library › Folders. Rescanning re-walks every folder; tracks already imported keep their analysis.</string>
+    <string name="folders_cache_measuring">…</string>
+    <string name="folders_cache_summary">%1$d tracks · %2$.1f MB</string>
+    <string name="folders_cache_label">Analysis cache: %1$s</string>
+    <string name="folders_cache_explainer">Analysis results per track, so replaying never re-analyses. Clearing costs nothing but the next analysis pass.</string>
+    <string name="action_clear">Clear</string>
+
+    <!-- Settings › Audio: analysis, key colour, live input. -->
+    <string name="audio_group_playback">Playback</string>
+    <string name="audio_group_analysis">Analysis</string>
+    <string name="audio_beat_sensitivity">"Beat sensitivity  %1$sσ — drag right for LESS sensitive (fewer beat flashes)"</string>
+    <string name="audio_beat_min_gap">"Minimum gap between beats  %1$d ms — never flash faster than %2$d BPM"</string>
+    <string name="audio_slow_track">Slow track</string>
+    <string name="audio_default">Default</string>
+    <string name="audio_preset_morph">Preset morph: %1$.1f s (0 = snap)</string>
+    <string name="audio_key_colour">Colour from the musical key</string>
+    <string name="audio_key_colour_explainer">Sets Hue shift from the key the analyser found, around the circle of fifths — so a track keeps the same colour every time you play it, and two songs that sound related look related. It moves the ordinary Hue shift slider, so you can always disagree with it; switching this off gives your own value back.</string>
+    <string name="audio_react_mic">React to the microphone</string>
+    <string name="audio_react_mic_explainer">Plays nothing and drives the visuals from what the phone hears — a room, an instrument, a speaker across the street. Playback pauses while it is on, because the analyzer has one input and a track plus the room would just blur together. Audio is analysed live and never recorded, saved or sent anywhere.</string>
+    <string name="audio_mic_denied">Microphone access is off for Geode. Turn it on in Android Settings › Apps › Geode › Permissions to use live input.</string>
+    <string name="audio_mic_busy">The microphone could not be opened — another app may be using it.</string>
+    <string name="audio_tune_room">Tune for what the phone is hearing</string>
+    <string name="audio_profiles_explainer">Each sets the beat threshold, the reactivity envelope and the band balance together — they are one decision, and they live on three different screens. Every value stays an ordinary slider afterwards.</string>
+
+    <!-- Settings › Audio › Other apps (playback capture). -->
+    <string name="ext_visualize_other_apps">Visualize other apps</string>
+    <string name="ext_needs_android10">Needs Android 10 or newer — the API that lets one app read another app\'s audio arrived with it. Live input (the microphone) works on every version and can hear the same speaker.</string>
+    <string name="ext_explainer">Drives the visuals from whatever is already playing on this device — a streaming app, a video, a game — instead of from a file in your library. Android asks for capture permission first, and shows a notification the whole time it is running. Audio is analysed live and never recorded, saved or sent anywhere.</string>
+    <string name="ext_waiting_permission">Waiting for the capture permission…</string>
+    <string name="ext_listening_to">Listening to %1$s.</string>
+    <string name="ext_listening_idle">Listening. Start something playing in any app.</string>
+    <string name="ext_now_playing_line">%1$s: %2$s</string>
+    <string name="ext_now_playing_line_with_artist">%1$s: %2$s — %3$s</string>
+    <string name="ext_read_now_playing_explainer">Geode can also show WHAT the other app is playing — the track and artist, on the visualizer. That reads the media session, which Android gates behind notification access. Optional: the visuals work on the sound alone.</string>
+    <string name="ext_allow_reading">Allow reading now playing</string>
+    <string name="ext_silence_title">Silence, on purpose</string>
+    <string name="ext_refused_body">%1$s does not allow other apps to capture its audio. Android honours that, and there is no setting on either side that changes it — the capture is running and being handed digital silence. Most other apps (YouTube, podcast players, games) do allow it and work here.</string>
+    <string name="ext_mic_alternative">The microphone still hears your speaker. It picks up the room with it, so it is a rougher signal — but it reacts to %1$s.</string>
+    <string name="ext_use_mic_instead">Use the microphone instead</string>
+    <string name="ext_fail_unsupported">This device is older than Android 10, which introduced audio capture between apps.</string>
+    <string name="ext_fail_permission">Microphone access is off for Geode. Android requires it for audio capture of any kind — turn it on in Android Settings › Apps › Geode › Permissions.</string>
+    <string name="ext_fail_consent">Capture permission was not given. Nothing is being read.</string>
+    <string name="ext_fail_unavailable">The device would not open an audio capture at any format — another app may be holding it.</string>
+
+    <!-- Export: shared by the Export tab and the export dialog. -->
+    <string name="export_title">Export</string>
+    <string name="export_group_defaults">Defaults</string>
+    <string name="export_platform_preset">Platform preset</string>
+    <string name="export_quality">Quality</string>
+    <string name="export_frame_rate">Frame rate</string>
+    <string name="export_aspect_ratio">Aspect ratio</string>
+    <string name="export_fps_30">30 fps</string>
+    <string name="export_fps_60">60 fps</string>
+    <string name="export_loop_safe">Loop-safe</string>
+    <string name="export_loop_safe_default">Loop-safe by default</string>
+    <string name="export_loop_safe_explainer">Loop-safe trims the end of the render to a bar boundary so the clip repeats cleanly when a platform autoplays it. It needs a detected tempo, so a track that has not been analysed falls back to full length for that render.</string>
+    <string name="export_video_button">Export video…</string>
+    <string name="export_defaults_explainer">Starts from the defaults above; each render can change them for one video. The destination — your Videos library or a folder you pick — is chosen at render time, per export.</string>
+    <string name="export_spec">%1$s, %2$s, %3$d fps</string>
+    <string name="export_spec_loop_safe">%1$s, loop-safe</string>
+    <string name="export_named_preset">%1$s — %2$s</string>
+    <string name="export_custom_preset">Custom — %1$s</string>
+    <string name="export_rendering_offline">Rendering offline…</string>
+    <string name="export_leave_hint">You can leave Geode — the render keeps going and finishes in the background.</string>
+    <string name="export_saved_folder">Saved to your chosen folder.</string>
+    <string name="export_saved_library">Saved to your Videos library (Movies/Geode).</string>
+    <string name="export_failed">Failed: %1$s</string>
+    <string name="export_upload_share_to">Upload / share to</string>
+    <string name="export_upload_drive">Upload to Drive / Share</string>
+    <string name="export_length">Length</string>
+    <string name="export_whole_track">Whole track</string>
+    <string name="export_segment">Segment</string>
+    <string name="export_segment_hint">Drag to pick at least %1$d second of the track. Anything shorter renders the whole thing instead.</string>
+    <string name="export_segment_summary">Renders %1$s–%2$s (%3$s). The clip starts at 0:00 in the file, and the visuals are the ones from that part of the track.</string>
+    <string name="export_looping">Looping</string>
+    <string name="export_full_length">Full length</string>
+    <string name="export_loop_safe_bar_hint">Loop-safe cuts on a bar boundary (%1$s BPM, %2$s s per bar) so the last beat runs into the first — what a short clip needs when a platform autoplays it on repeat. Up to one bar is trimmed from the end.</string>
+    <string name="export_loop_safe_needs_tempo">Loop-safe needs a detected tempo. Analyse the track (Now Playing › Auto) and reopen this dialog.</string>
+    <string name="export_group_performance">Performance</string>
+    <string name="export_live_settings">Live settings</string>
+    <string name="export_take_explainer">Renders the take\'s parameter automation — every slider, colour and effect moving as you performed it. A style SWITCH inside the take is not reproduced: the render draws through the style selected now, for its whole length.</string>
+    <string name="export_4k_fallback">4K depends on your device\'s encoder; it falls back automatically if unsupported.</string>
+    <string name="export_render_button">Render %1$dp %2$s %3$dfps</string>
+    <string name="export_render_to_folder">Render to chosen folder…</string>
+    <string name="export_cancel">Cancel export</string>
+
+    <!-- Settings: Look tab. -->
+    <string name="look_group_theme">Theme</string>
+    <string name="look_accent_intensity">"Accent intensity  %1$d%%"</string>
+    <string name="look_background_dim">"Background dim  %1$d%%"</string>
+    <string name="look_follow_system">Follow system light/dark</string>
+    <string name="look_group_text">Text</string>
+    <string name="look_text_size">"Text size  %1$d%%"</string>
+    <string name="look_text_size_hint">Scales every font in the app, live - including this one.</string>
+    <string name="look_font_color">Font color</string>
+    <string name="look_font_color_light_hint">Pale colors are greyed out on this light theme - they could not be read on its surfaces.</string>
+    <string name="look_font_color_hint">Recolors the writing everywhere; Auto returns to the theme\'s own text colors.</string>
+    <string name="look_group_layout">Layout</string>
+    <string name="look_bar_opacity">"Bar opacity  %1$d%%"</string>
+    <string name="look_player_position">Player position</string>
+    <string name="look_position_top">Top</string>
+    <string name="look_position_bottom">Bottom</string>
+    <string name="look_corner_style">Corner style</string>
+    <string name="look_corner_sharp">Sharp</string>
+    <string name="look_corner_rounded">Rounded</string>
+    <string name="look_corner_pill">Pill</string>
+    <string name="look_compact_player">Compact mini-player</string>
+    <string name="look_clear_visuals_menu">Clear-overlay Visuals menu</string>
+    <string name="look_clear_visuals_hint">Text-only Visuals menu over the live visuals, so adjustments are visible as you make them.</string>
+    <string name="look_boot_animation">Boot animation</string>
+
+    <!-- Font colour swatches. Mineral names; the argb value is what persists. -->
+    <string name="font_color_auto">Auto</string>
+    <string name="font_color_white">White</string>
+    <string name="font_color_moonstone">Moonstone ivory</string>
+    <string name="font_color_pyrite">Pyrite gold</string>
+    <string name="font_color_rose">Rose</string>
+    <string name="font_color_lavender">Lavender</string>
+    <string name="font_color_ice">Ice blue</string>
+    <string name="font_color_mint">Mint</string>
+
+    <!-- Settings: Behavior tab. -->
+    <string name="behavior_group_touch">Touch</string>
+    <string name="behavior_group_display">Connected display</string>
+    <string name="behavior_group_safety">Visual safety</string>
+    <string name="behavior_group_auto">Auto visuals</string>
+    <string name="behavior_group_wallpaper">Live wallpaper</string>
+    <string name="behavior_touch_smear">Smear the visuals with a finger</string>
+    <string name="behavior_touch_smear_hint">Drag on the fullscreen visualizer to push the image around: the drag raises the surface ahead of your finger and dips it behind, and whatever is on screen bends through it. On the Water style it stirs the pool itself and paints into it.</string>
+    <string name="behavior_smear_strength">"Smear strength  %1$d%%"</string>
+    <string name="behavior_touch_transform">Pinch and twist the canvas</string>
+    <string name="behavior_touch_transform_hint">Two fingers on the fullscreen visualizer: pinch moves the Zoom slider, twist moves Rotation. They are the same controls the Customize panel shows, so a gesture is saved into presets and takes — and undone by dragging the slider back.</string>
+    <string name="behavior_display_use">Use a connected display</string>
+    <string name="behavior_display_connected">Connected: %1$s. The visuals play there and the phone becomes the control surface — the canvas moves rather than being mirrored, so the big screen shows exactly what the app renders.</string>
+    <string name="behavior_display_none">Nothing connected. Plug in HDMI or start casting, and the visuals move to that screen while the phone keeps the controls.</string>
+    <string name="behavior_group_intent">What you\'re here for</string>
+    <string name="behavior_safety_title">Flashing and motion</string>
+    <string name="behavior_flash_guidance">Nothing in Geode can flash more than three times a second. Published guidance (WCAG 2.3.1) puts the general limit there, and the clamp sits in the render path itself — it applies to every scene, every preset and every imported file, on screen and in exported video alike. It is not a setting, so there is nothing here to adjust.</string>
+    <string name="behavior_slow_motion">Slow the motion down</string>
+    <string name="behavior_slow_motion_hint">Slows movement, shake, drift and rotation. This one is about motion comfort rather than seizures, which is why it is a choice: the flash limit above is not. Applies to exported video as well as the screen.</string>
+    <string name="behavior_wallpaper_hint">Set the visualizer as your wallpaper. It uses the style and settings the app was last showing, reacts to whatever Geode is playing, and drifts gently on its own the rest of the time. It draws nothing while another app is in front, so it is not a background battery drain.</string>
+    <string name="behavior_wallpaper_button">Set as live wallpaper</string>
+
+    <!-- Settings: Auto visuals (rendered inside the Behavior tab). -->
+    <string name="autoviz_intro">Two modes rotate the look on a clock while a track plays. Only one of them runs at a time: starting the visual playlist stops Random, and turning Random on stops the playlist.</string>
+    <string name="autoviz_random_overline">Random</string>
+    <string name="autoviz_random_running">Random is running.</string>
+    <string name="autoviz_random_off_playlist">Random is off — the visual playlist below has it.</string>
+    <string name="autoviz_random_off_auto">Random is off — the Auto button on the Now Playing screen turns it on.</string>
+    <string name="autoviz_shape_hint">The settings below shape it whether it is running or not, so a session can be set up before it starts — and they are remembered across restarts.</string>
+    <string name="autoviz_switch_every">Switch every %1$d s</string>
+    <string name="autoviz_on_beat">Switch on a strong beat</string>
+    <string name="autoviz_on_beat_hint">Waits for a big moment in the music instead of switching the instant the timer is up, so a change lands with the track rather than across it. It still holds a look for at least half the interval, and forces a switch at twice it, so a quiet passage cannot stall the rotation.</string>
+    <string name="autoviz_pick_from">Pick from</string>
+    <string name="autoviz_pick_styles">Styles</string>
+    <string name="autoviz_pick_presets">Saved presets</string>
+    <string name="autoviz_pick_milk">MilkDrop presets</string>
+    <string name="autoviz_nothing_selected">Nothing is selected, so Random has nothing to switch to and will leave the visuals alone.</string>
+    <string name="autoviz_pick_hint">Styles are the built-in looks; saved presets carry their own settings with them.</string>
+    <string name="autoviz_roll_colors">Roll the colours too</string>
+    <string name="autoviz_roll_colors_hint">Rolls both palettes, the blend between them and the hue shift on every switch. It clears a custom palette you made in Customize › Color, because that override outranks the palettes being rolled and the new ones would otherwise never show.</string>
+    <string name="autoviz_playlist_overline">Visual playlist</string>
+    <string name="autoviz_playlist_play">Play the visual playlist</string>
+    <string name="autoviz_playlist_random_running">Random is running — turning this on will stop it.</string>
+    <plurals name="autoviz_playlist_count">
+        <item quantity="one">%1$d look in the playlist.</item>
+        <item quantity="other">%1$d looks in the playlist.</item>
+    </plurals>
+    <string name="autoviz_playlist_add_hint">Add looks with the heart button in Visuals › Presets. The playlist needs at least two before it has anywhere to go.</string>
+    <string name="autoviz_wait_strong">Wait for a strong moment</string>
+    <string name="autoviz_wait_strong_hint">The same timing Random\'s \"strong beat\" uses, applied to the playlist order: the next look still comes next, it just waits for a moment worth arriving on.</string>
+
+    <!-- Studio clip preview. -->
+    <string name="studio_preview_hint">Loops your cut, muted — grade, speed and reframe show as they will render. Tap to pause.</string>
+    <string name="studio_preview_toggle">Play or pause the preview</string>
+
+    <!-- Shared verbs. One definition each, so a translator sees them once. -->
+    <string name="action_save">Save</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_close">Close</string>
+    <string name="action_copy">Copy</string>
+    <string name="action_dismiss">Dismiss</string>
+    <string name="preset_link_imported">Preset \"%1$s\" imported — it is in Visuals › Presets.</string>
+    <string name="preset_link_unreadable">That preset link could not be read. It may have been cut short in transit.</string>
+    <string name="palette_base_hue">Base hue %1$s</string>
+    <string name="palette_hue_span">Hue span %1$s</string>
+    <string name="palette_apply_gradient">Apply gradient</string>
+    <string name="palette_from_current">From current</string>
+    <string name="palette_name_label">Palette name</string>
+    <string name="palette_save">Save palette</string>
+    <string name="palette_saved_heading">Saved palettes</string>
+    <string name="palette_none_yet">None yet — build a gradient above and save it.</string>
+    <string name="palette_edit">Edit</string>
+    <string name="palette_delete">Delete</string>
+</resources>

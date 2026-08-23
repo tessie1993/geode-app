@@ -1,10 +1,9 @@
 plugins {
     id("com.android.library")
-    id("org.jetbrains.kotlin.android")
     id("geode.kotlin-common")
 }
 
-extensions.configure<com.android.build.gradle.LibraryExtension> {
+extensions.configure<com.android.build.api.dsl.LibraryExtension> {
     compileSdk = 36
     defaultConfig {
         minSdk = 26

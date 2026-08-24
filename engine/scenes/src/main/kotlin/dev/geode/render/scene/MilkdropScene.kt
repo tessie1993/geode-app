@@ -214,6 +214,16 @@ class MilkdropScene(
     override fun draw(timeSeconds: Float) {
         if (!postProgramOk) return
         GLES30.glGetIntegerv(GLES30.GL_DRAW_FRAMEBUFFER_BINDING, prevFbo, 0)
+        // BEFORE the engine runs, not only after it. projectM is a stock upstream build that
+        // assumes a default-ish GL state and restores very little of what it finds; the frame
+        // reset in VisualizerRenderer.beginFrame() is already several passes stale by the time a
+        // scene draws, because the overlay simulations and the secondary/transition target run in
+        // between. A sampler object still bound to a texture unit is the one that actually blacks
+        // MilkDrop out - it overrides the wrap and filter modes projectM set on its own textures,
+        // so its noise and blur reads come back clamped - and a leaked scissor box, colour mask or
+        // blend func each do it their own way. The reset after nativeRender protects the app from
+        // projectM; this one protects projectM from the app.
+        GlUtil.resetFrameState()
         ensureEngine()
         ensureFrameTexture()
         if (handle == 0L || frameTex == 0) return

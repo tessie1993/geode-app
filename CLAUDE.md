@@ -11,8 +11,11 @@ on-device: no network permission, nothing captured or rendered leaves the phone.
 Three JDK settings that are easy to conflate, and only the last reaches a device: the Gradle
 daemon runs on JDK 21 (`gradle/gradle-daemon-jvm.properties`, so it ignores `JAVA_HOME`), the
 compile toolchain is JDK 21 (`geode.kotlin-common`), and the bytecode target is 17. Do not "fix"
-a mismatch between them — the split is deliberate. `compileSdk`/`targetSdk` 36, `minSdk` 26,
-application id `dev.geode`. `local.properties`
+a mismatch between them — the split is deliberate. `compileSdk` 37, `targetSdk` 36, `minSdk` 26,
+application id `dev.geode`. compileSdk and targetSdk deliberately differ too: the Compose 1.12 /
+Lifecycle 2.11 / Hilt 1.4 stack refuses to build against anything below 37, while targeting stays
+at 36 so the app opts into no new runtime behaviour. Raise targetSdk on its own evidence, not to
+match compileSdk. `local.properties`
 must point at an Android SDK; on a machine without one, `tools/setup-android-sdk.sh` installs the
 packages and writes `local.properties` (it needs `dl.google.com` and `maven.google.com` reachable).
 

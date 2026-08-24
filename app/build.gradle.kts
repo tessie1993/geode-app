@@ -34,7 +34,7 @@ val hasReleaseSigning =
 
 android {
     namespace = "dev.geode"
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "dev.geode"

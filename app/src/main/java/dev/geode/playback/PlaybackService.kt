@@ -90,12 +90,16 @@ class PlaybackService : MediaSessionService() {
                         MediaItem
                             .Builder()
                             .setUri(t.uri)
+                            // Distinct per track: MediaMetadata.equals ignores extras, so without
+                            // this two untitled tracks compare equal and the platform session skips
+                            // the metadata update. artworkUri used to supply this discriminator.
+                            .setMediaId(t.uri)
                             .setMediaMetadata(
                                 MediaMetadata
                                     .Builder()
                                     .setTitle(t.title)
                                     .setArtist(t.artist.ifBlank { null })
-                                    .setArtworkUri(android.net.Uri.parse(t.uri))
+                                    .setExtras(MediaArtwork.embeddedArtExtras(t.uri))
                                     .build(),
                             ).build()
                     }
@@ -106,12 +110,13 @@ class PlaybackService : MediaSessionService() {
                 MediaItem
                     .Builder()
                     .setUri(last.uri)
+                    .setMediaId(last.uri)
                     .setMediaMetadata(
                         MediaMetadata
                             .Builder()
                             .setTitle(last.title)
                             .setArtist(last.artist)
-                            .setArtworkUri(android.net.Uri.parse(last.uri))
+                            .setExtras(MediaArtwork.embeddedArtExtras(last.uri))
                             .build(),
                     ).build()
             return MediaSession.MediaItemsWithStartPosition(listOf(item), 0, 0L)

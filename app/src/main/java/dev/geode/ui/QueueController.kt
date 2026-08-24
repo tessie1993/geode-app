@@ -3,9 +3,11 @@ package dev.geode.ui
 import android.app.Application
 import android.net.Uri
 import android.provider.OpenableColumns
+import androidx.core.net.toUri
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
+import dev.geode.playback.MediaArtwork
 import dev.geode.playback.QueueOps
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -13,9 +15,7 @@ import kotlinx.coroutines.flow.StateFlow
 data class AbLoop(
     val startMs: Long,
     val endMs: Long? = null,
-) {
-    val armed: Boolean get() = endMs != null
-}
+)
 
 internal class QueueController(
     private val application: Application,
@@ -59,7 +59,7 @@ internal class QueueController(
         player.prepare()
         player.seekTo(window.startIndex, 0L)
         player.play()
-        host.onQueueStarted(Uri.parse(window.tracks[window.startIndex].uri))
+        host.onQueueStarted(window.tracks[window.startIndex].uri.toUri())
     }
 
     fun playAll(
@@ -80,12 +80,12 @@ internal class QueueController(
 
     fun playNext(uri: String) {
         val at = QueueOps.insertNextIndex(player.currentMediaItemIndex, player.mediaItemCount)
-        player.addMediaItem(at, mediaItemFor(Uri.parse(uri)))
+        player.addMediaItem(at, mediaItemFor(uri.toUri()))
         host.refreshUi()
     }
 
     fun enqueue(uri: String) {
-        player.addMediaItem(mediaItemFor(Uri.parse(uri)))
+        player.addMediaItem(mediaItemFor(uri.toUri()))
         host.refreshUi()
     }
 
@@ -95,27 +95,31 @@ internal class QueueController(
         return MediaItem
             .Builder()
             .setUri(uri)
+            // Distinct per track: MediaMetadata.equals ignores extras, so without this two
+            // untitled tracks compare equal and the platform session skips the metadata update.
+            .setMediaId(uri.toString())
             .setMediaMetadata(
                 MediaMetadata
                     .Builder()
                     .setTitle(t)
                     .setArtist(a.ifBlank { null })
-                    .setArtworkUri(uri)
+                    .setExtras(MediaArtwork.embeddedArtExtras(uri.toString()))
                     .build(),
             ).build()
     }
 
     fun mediaItemFor(track: QueueTrack): MediaItem {
-        if (track.title.isBlank()) return mediaItemFor(Uri.parse(track.uri))
+        if (track.title.isBlank()) return mediaItemFor(track.uri.toUri())
         return MediaItem
             .Builder()
-            .setUri(Uri.parse(track.uri))
+            .setUri(track.uri.toUri())
+            .setMediaId(track.uri)
             .setMediaMetadata(
                 MediaMetadata
                     .Builder()
                     .setTitle(track.title)
                     .setArtist(track.artist.ifBlank { null })
-                    .setArtworkUri(Uri.parse(track.uri))
+                    .setExtras(MediaArtwork.embeddedArtExtras(track.uri))
                     .build(),
             ).build()
     }

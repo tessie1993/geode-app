@@ -28,9 +28,7 @@ data class TextureRemoveOutcome(
     val removed: Boolean,
     val removedGeneratedPresetPaths: List<String>,
     val textures: List<MilkTexture>,
-) {
-    val removedGeneratedPresetPath: String? get() = removedGeneratedPresetPaths.firstOrNull()
-}
+)
 
 class TextureStore(
     context: Context,

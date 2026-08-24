@@ -41,6 +41,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -60,6 +61,8 @@ import dev.geode.render.scene.SceneIds
 import dev.geode.render.scene.VisualStyleCatalog
 import dev.geode.ui.theme.StoneIcon
 import dev.geode.ui.theme.StoneIconArt
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 @Composable
 fun VisualsHub(
@@ -610,17 +613,34 @@ private fun MilkDropTab(
     val visualsViewModel: VisualsViewModel = geodeViewModel()
     var refresh by remember { mutableStateOf(0) }
     val viz by viewModel.vizState.collectAsStateWithLifecycle()
-    val milkFiles = remember(refresh) { visualsViewModel.userMilkPresets() }
+    // Off the main thread: userMilkPresets() runs MilkStarterPack.install() - a marker read, an
+    // assets.list, an exists() per asset and up to six asset->file copies on first run - then
+    // listFiles() plus a lastModified() stat per preset for the sort. Inside composition that
+    // measured 45-53 ms of main-thread disk I/O on every launch. Same key as before, so the
+    // refresh++ below still relists; the list simply arrives a frame later instead of stalling one.
+    val milkFiles by produceState(emptyList<java.io.File>(), refresh) {
+        value = withContext(Dispatchers.IO) { visualsViewModel.userMilkPresets() }
+    }
     val loaded by viewModel.activeMilkPath.collectAsStateWithLifecycle()
     var packReport by remember { mutableStateOf<dev.geode.data.MilkPackImporter.Report?>(null) }
     val importedTextures by visualsViewModel.textures.collectAsStateWithLifecycle()
     var linkRefresh by remember { mutableStateOf(0) }
     // What the linker decided for the preset on screen, kept live so a texture import or a
     // manual choice is visible without leaving the tab.
-    val textureLinks =
-        remember(loaded, refresh, linkRefresh, importedTextures) {
-            loaded?.let { runCatching { viewModel.milkTextureLinksFor(it) }.getOrDefault(emptyList()) }.orEmpty()
-        }
+    // Also disk-bound: resolutionFor() stats the preset and its .links/<stem> record, so it belongs
+    // off the main thread for the same reason as milkFiles above. Keys are unchanged.
+    val textureLinks by produceState(
+        emptyList<dev.geode.data.MilkTextureLink>(),
+        loaded,
+        refresh,
+        linkRefresh,
+        importedTextures,
+    ) {
+        value =
+            withContext(Dispatchers.IO) {
+                loaded?.let { runCatching { viewModel.milkTextureLinksFor(it) }.getOrDefault(emptyList()) }.orEmpty()
+            }
+    }
     var pickTextureFor by remember { mutableStateOf<String?>(null) }
     val milkFolderPicker =
         rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->

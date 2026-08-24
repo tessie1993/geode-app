@@ -76,6 +76,13 @@ class VisualizerView(
      * why it waits: the thread is gone by the time super returns. The wait is bounded because a
      * wedged GL thread must not turn a teardown into an ANR; the leak it prevents is finite and
      * an ANR is not.
+     *
+     * Still taking jobs is NOT the same as still having a context. By the time a view is detached
+     * the surface is gone and GLSurfaceView has already unbound the context
+     * (`eglMakeCurrent(.., EGL_NO_CONTEXT)`), so the job below runs contextless: the native
+     * projectM destroy it exists for still frees the native heap, but every GL delete along the
+     * way is a no-op and the driver logs one `E/libEGL: call to OpenGL ES API with no current
+     * context` per thread. That log line is expected here. See SceneRegistry.releaseAll.
      */
     private fun releaseScenesOnGlThread() {
         val done = CountDownLatch(1)

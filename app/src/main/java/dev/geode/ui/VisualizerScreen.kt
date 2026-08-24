@@ -377,7 +377,7 @@ fun VisualizerScreen(
 }
 
 enum class PlayerPanel(
-    @StringRes val label: Int,
+    @param:StringRes val label: Int,
 ) {
     TRANSPORT(R.string.panel_now),
     LYRICS(R.string.panel_lyrics),

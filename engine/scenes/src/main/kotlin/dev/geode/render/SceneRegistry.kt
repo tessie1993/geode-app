@@ -132,15 +132,30 @@ internal class SceneRegistry(
     }
 
     /**
-     * Drops every built scene while the GL context is still current.
+     * Drops every built scene.
      *
-     * [onSurfaceCreated] does this because a NEW context has arrived and the old objects are
-     * stale. This is the other direction: a host that is going away for good. It matters because
-     * MilkdropScene owns a projectM instance in the NATIVE heap, and losing the GL context
-     * reclaims none of that - only MilkdropScene.release() calls nativeDestroy. Pure-GL scenes
-     * would be reclaimed either way.
+     * Two callers, and only one of them has a current GL context:
      *
-     * Must be called on the GL thread.
+     * [onSurfaceCreated] calls this because a NEW context has arrived and the old objects are
+     * stale. There the context is current and the glDelete calls in each scene's release() do
+     * what they say.
+     *
+     * The teardown path (VisualizerView.onDetachedFromWindow, and the wallpaper engine's
+     * equivalent) does NOT have one: GLSurfaceView has already run
+     * `eglMakeCurrent(display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT)` by the time the
+     * view is detached, so every glDelete issued from there is a no-op against a context that is
+     * being destroyed anyway - harmless, but it is what produces the one
+     * `E/libEGL: call to OpenGL ES API with no current context` per GL thread in device logs.
+     * Do not "fix" that by pruning our own glDelete calls: MilkdropScene's projectm_destroy runs
+     * libprojectM's C++ destructor, which deletes its own GL objects and logs the same line
+     * regardless. Removing it for real means releasing before the surface goes away, not here.
+     *
+     * What this call must still do on the teardown path is free NATIVE memory: MilkdropScene owns
+     * a projectM instance in the native heap, losing the GL context reclaims none of it, and only
+     * MilkdropScene.release() reaches nativeDestroy. Pure-GL scenes are reclaimed either way.
+     *
+     * Must be called on the GL thread. Idempotent: it clears [scenes], and MilkdropScene.release()
+     * guards on a zero handle.
      */
     fun releaseAll() {
         milkdropScene = null
@@ -215,13 +230,6 @@ internal class SceneRegistry(
         }
         scenes[id] = scene
         return scene
-    }
-
-    fun setMilkdropWindowSize(
-        width: Int,
-        height: Int,
-    ) {
-        milkdropScene?.setWindowSize(width, height)
     }
 
     fun createScene(

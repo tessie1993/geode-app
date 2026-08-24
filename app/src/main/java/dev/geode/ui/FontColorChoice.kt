@@ -4,7 +4,7 @@ import androidx.annotation.StringRes
 import dev.geode.R
 
 data class FontColorChoice(
-    @StringRes val labelRes: Int,
+    @param:StringRes val labelRes: Int,
     val argb: Int?,
 ) {
     companion object {

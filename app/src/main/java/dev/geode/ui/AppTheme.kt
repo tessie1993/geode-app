@@ -10,6 +10,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.unit.dp
+import androidx.core.content.edit
 import dev.geode.R
 import dev.geode.analysis.BeatTuning
 import dev.geode.ui.theme.ThemePack
@@ -49,22 +50,15 @@ internal val LocalFontColor = staticCompositionLocalOf<Color?> { null }
 @Composable
 fun accentTextColor(): Color = LocalFontColor.current ?: MaterialTheme.colorScheme.primary
 
-@Composable
-fun onAccentTextColor(): Color {
-    val cs = MaterialTheme.colorScheme
-    if (LocalFontColor.current == null) return cs.onPrimary
-    return if (cs.primary.luminance() > 0.55f) Color.Black else Color.White
-}
-
 enum class PlayerPosition(
-    @StringRes val labelRes: Int,
+    @param:StringRes val labelRes: Int,
 ) {
     TOP(R.string.look_position_top),
     BOTTOM(R.string.look_position_bottom),
 }
 
 enum class CornerStyle(
-    @StringRes val labelRes: Int,
+    @param:StringRes val labelRes: Int,
 ) {
     SHARP(R.string.look_corner_sharp),
     ROUNDED(R.string.look_corner_rounded),
@@ -177,7 +171,7 @@ class ThemeStore(
     fun load(): ThemePack = ThemePackCatalog.bySlug(migrateLegacyName(prefs.getString(KEY, null)))
 
     fun save(pack: ThemePack) {
-        prefs.edit().putString(KEY, pack.slug).apply()
+        prefs.edit { putString(KEY, pack.slug) }
     }
 
     /** Reads the morph length, converting a beat count saved by an older build. */
@@ -274,35 +268,34 @@ class ThemeStore(
 
     fun saveGui(gui: GuiPrefs) {
         val fontColor = gui.fontColorOverride
-        prefs
-            .edit()
-            .putString(KEY_POS, gui.playerPosition.name)
-            .putString(KEY_CORNER, gui.cornerStyle.name)
-            .putFloat(KEY_OPACITY, gui.barOpacity)
-            .putFloat("beat_sigma", gui.beatSensitivity)
-            .putFloat(KEY_BEAT_INTERVAL, gui.beatMinIntervalMs)
-            .putString("preset_mirror_uri", gui.presetMirrorUri)
-            .putFloat(KEY_PRESET_MORPH_SEC, gui.presetMorphSeconds)
-            .putFloat(KEY_ACCENT, gui.accentIntensity)
-            .putFloat(KEY_DIM, gui.backgroundDim)
-            .putBoolean(KEY_COMPACT, gui.compactPlayer)
-            .putBoolean(KEY_FOLLOW_DARK, gui.followSystemDark)
-            .putBoolean(KEY_CLEAR_VIZ_MENU, gui.clearVisualsMenu)
-            .apply { if (fontColor != null) putInt(KEY_FONT_COLOR, fontColor) else remove(KEY_FONT_COLOR) }
-            .remove(KEY_WHITE_FONT)
-            .putFloat(KEY_TEXT_SCALE, gui.textScale)
-            .putBoolean(KEY_SAFETY_ACKNOWLEDGED, gui.safetyAcknowledged)
-            .putBoolean(KEY_SETUP_DONE, gui.setupDone)
-            .putString(KEY_INTENT, gui.intent.name)
-            .putBoolean(KEY_TUTORIAL_SEEN, gui.tutorialSeen)
-            .putBoolean(KEY_TUTORIAL_ON_FIRST_RUN, gui.tutorialOnFirstRun)
-            .putBoolean(KEY_REDUCED_MOTION, gui.reducedMotion)
-            .putBoolean(KEY_TOUCH_SMEAR, gui.touchSmear)
-            .putFloat(KEY_TOUCH_SMEAR_STRENGTH, gui.touchSmearStrength)
-            .putBoolean(KEY_TOUCH_TRANSFORM, gui.touchTransform)
-            .putBoolean(KEY_KEY_COLOR, gui.keyColor)
-            .putBoolean(KEY_SECOND_SCREEN, gui.secondScreen)
-            .apply()
+        prefs.edit {
+            putString(KEY_POS, gui.playerPosition.name)
+            putString(KEY_CORNER, gui.cornerStyle.name)
+            putFloat(KEY_OPACITY, gui.barOpacity)
+            putFloat("beat_sigma", gui.beatSensitivity)
+            putFloat(KEY_BEAT_INTERVAL, gui.beatMinIntervalMs)
+            putString("preset_mirror_uri", gui.presetMirrorUri)
+            putFloat(KEY_PRESET_MORPH_SEC, gui.presetMorphSeconds)
+            putFloat(KEY_ACCENT, gui.accentIntensity)
+            putFloat(KEY_DIM, gui.backgroundDim)
+            putBoolean(KEY_COMPACT, gui.compactPlayer)
+            putBoolean(KEY_FOLLOW_DARK, gui.followSystemDark)
+            putBoolean(KEY_CLEAR_VIZ_MENU, gui.clearVisualsMenu)
+            if (fontColor != null) putInt(KEY_FONT_COLOR, fontColor) else remove(KEY_FONT_COLOR)
+            remove(KEY_WHITE_FONT)
+            putFloat(KEY_TEXT_SCALE, gui.textScale)
+            putBoolean(KEY_SAFETY_ACKNOWLEDGED, gui.safetyAcknowledged)
+            putBoolean(KEY_SETUP_DONE, gui.setupDone)
+            putString(KEY_INTENT, gui.intent.name)
+            putBoolean(KEY_TUTORIAL_SEEN, gui.tutorialSeen)
+            putBoolean(KEY_TUTORIAL_ON_FIRST_RUN, gui.tutorialOnFirstRun)
+            putBoolean(KEY_REDUCED_MOTION, gui.reducedMotion)
+            putBoolean(KEY_TOUCH_SMEAR, gui.touchSmear)
+            putFloat(KEY_TOUCH_SMEAR_STRENGTH, gui.touchSmearStrength)
+            putBoolean(KEY_TOUCH_TRANSFORM, gui.touchTransform)
+            putBoolean(KEY_KEY_COLOR, gui.keyColor)
+            putBoolean(KEY_SECOND_SCREEN, gui.secondScreen)
+        }
     }
 
     internal companion object {

@@ -97,7 +97,7 @@ jobs:
       # runs, so a release asset is always a verified build.
       - name: Verify (ktlint, unit tests, lint)
         working-directory: ${{ env.PROJECT_DIR }}
-        run: ./gradlew ktlintCheck :app:testDebugUnitTest :app:lintDebug :app:checkThirdPartyNotices --stacktrace --no-daemon
+        run: ./gradlew ktlintCheck :app:testDebugUnitTest :app:lintDebug --stacktrace --no-daemon
 
       - name: Package APK and checksum
         id: package

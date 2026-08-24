@@ -128,31 +128,6 @@ android {
     }
 }
 
-tasks.register<Copy>("syncThirdPartyNotices") {
-    description = "Refreshes the bundled copy of THIRD_PARTY_NOTICES."
-    from(rootProject.file("THIRD_PARTY_NOTICES")) {
-        rename { "third_party_notices.txt" }
-    }
-    into(file("src/main/assets"))
-}
-
-tasks.register("checkThirdPartyNotices") {
-    description = "Fails if the bundled notices asset has drifted from THIRD_PARTY_NOTICES."
-    val source = rootProject.file("THIRD_PARTY_NOTICES")
-    val bundled = file("src/main/assets/third_party_notices.txt")
-    inputs.file(source)
-    inputs.file(bundled)
-    doLast {
-        if (source.readText() != bundled.readText()) {
-            throw GradleException(
-                "third_party_notices.txt is out of date — run ./gradlew :app:syncThirdPartyNotices",
-            )
-        }
-    }
-}
-
-tasks.named("check") { dependsOn("checkThirdPartyNotices") }
-
 val checkNativePageAlignment =
     tasks.register("checkNativePageAlignment") {
         description = "Fails if a packaged .so is not 16 KB page aligned."

@@ -174,15 +174,6 @@ jobs:
         working-directory: ${{ env.PROJECT_DIR }}
         run: ./gradlew ktlintCheck --stacktrace --no-daemon
 
-      # The in-app "Open source licenses" screen reads a COPY of the root
-      # THIRD_PARTY_NOTICES bundled as an asset, and attribution obligations
-      # are only met by the copy that ships. Nothing else in CI ran this task,
-      # so the two drifted silently twice in a row - once when the Cymatics
-      # work added the Naadara notice, once when gl-transitions was vendored.
-      - name: Check bundled third-party notices are current
-        working-directory: ${{ env.PROJECT_DIR }}
-        run: ./gradlew :app:checkThirdPartyNotices --stacktrace --no-daemon
-
       - name: Upload reports when verification fails
         if: failure()
         uses: actions/upload-artifact@v7

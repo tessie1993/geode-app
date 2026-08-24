@@ -33,7 +33,7 @@ packages and writes `local.properties` (it needs `dl.google.com` and `maven.goog
 Run a single test: `./gradlew :app:testDebugUnitTest --tests "dev.geode.ui.PresetLinkTest"`.
 
 CI (`.github/workflows/android.yml`) runs, in order: jniLibs checksum verify → `:app:detekt` →
-`assembleDebug` → `testDebugUnitTest` → `lintDebug` → `ktlintCheck` → `checkThirdPartyNotices`,
+`assembleDebug` → `testDebugUnitTest` → `lintDebug` → `ktlintCheck`,
 plus a separate emulator job. `ShaderSyntaxTest` needs `glslang-tools` installed to actually
 compile shaders; without it that check silently skips.
 
@@ -89,8 +89,12 @@ breaks export reproducibility.
   (ADAPT/RETAIN), and no STUDY/EXCLUDE repository may be named anywhere in shipped source.
   `docs/visualizer-v2/SOURCE_ARCHIVE.md` is the prose; where the two disagree, the registry wins.
 - **Third-party notices.** `THIRD_PARTY_NOTICES` at the root and
-  `app/src/main/assets/third_party_notices.txt` must be byte-identical; adding a dependency means
-  editing the root file then `./gradlew :app:syncThirdPartyNotices`.
+- **Third-party notices.** `THIRD_PARTY_NOTICES` at the root is copied byte-for-byte to
+  `app/src/main/assets/third_party_notices.txt`, which the in-app "Open source licenses" screen
+  (`ui/AboutSettings.kt`) reads at runtime. Nothing enforces that the two match any more — the
+  `checkThirdPartyNotices`/`syncThirdPartyNotices` tasks were removed — so after adding a
+  dependency, edit the root file and copy it over the asset by hand. They have drifted silently
+  before. `checkEngineProvenance` still reads the root file to verify attribution markers.
 - **Native libs.** `app/src/main/jniLibs/<abi>/*.so` are committed blobs built out-of-band by
   `.github/workflows/native-libs.yml` (libprojectM v4 + the JNI bridge from `tools/milkdrop_jni.c`).
   CI verifies each ABI's `SHA256SUMS`, and `checkNativePageAlignment` fails a release build whose

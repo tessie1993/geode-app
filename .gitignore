@@ -27,3 +27,4 @@ google-services.json
 .codex/
 AGENTS.md
 __pycache__/
+*.logcat

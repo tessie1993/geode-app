@@ -1,7 +1,7 @@
 #!/bin/bash
 # Installs the Android SDK pieces this repo's Gradle build needs, idempotently.
 #
-# CLAUDE.md points contributors (and CI-like containers) here. The build wants:
+# Contributors and CI-like containers start here. The build wants:
 #   - platforms;android-36   (compileSdk 36, app/build.gradle.kts)
 #   - build-tools;36.0.0
 #   - platform-tools         (adb, for on-device smoke tests)

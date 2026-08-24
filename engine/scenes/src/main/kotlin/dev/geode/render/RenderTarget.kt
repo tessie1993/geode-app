@@ -112,7 +112,7 @@ class RenderTarget(
 
     companion object {
         // Reused rather than built per call: discards run several times per frame on the GL
-        // thread, and this is one of the hot paths CLAUDE.md exempts from immutable style.
+        // thread, and per-frame render paths keep preallocated state rather than allocating.
         private val COLOR_ATTACHMENTS =
             intArrayOf(GLES30.GL_COLOR_ATTACHMENT0, GLES30.GL_COLOR_ATTACHMENT1)
 

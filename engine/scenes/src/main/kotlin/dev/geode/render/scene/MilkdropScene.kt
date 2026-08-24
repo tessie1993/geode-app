@@ -26,6 +26,27 @@ class MilkdropScene(
 
         private const val PCM_CAPACITY = 8192
 
+        /**
+         * What projectM will actually keep from one `projectm_pcm_add_float` call.
+         *
+         * Its whole circular input buffer is `AudioBufferSamples` = 576 floats per channel
+         * (Audio/AudioConstants.hpp, v4.1.7), and `audio.h` states the contract plainly: a call
+         * "should not exceed this number of samples. If more samples are added, only this number
+         * of samples is stored and the remainder discarded."
+         *
+         * Handing it the full [PCM_CAPACITY] accumulation broke that. `PCM::AddToBuffer` does not
+         * clamp - it loops the whole count writing `(start + i) % 576` - so 8192 samples wrote
+         * fourteen times around a 576-slot ring every frame. Only the last 576 survived, and
+         * `m_start` advanced by `count % 576` rather than by the audio that mattered, so the
+         * waveform projectM drew and its bass/mid/treble beat detection ran on a shifting,
+         * arbitrary slice of a chunk it had already overwritten.
+         *
+         * Send the NEWEST this many samples instead. projectM v4.1.7 exposes the real number as
+         * `projectm_pcm_get_max_samples()`; reading it needs a new export in the JNI bridge, so
+         * mirror it here until the native libraries are next rebuilt.
+         */
+        private const val ENGINE_PCM_SAMPLES = 576
+
         private const val TWO_PI = (2.0 * Math.PI).toFloat()
     }
 
@@ -203,17 +224,37 @@ class MilkdropScene(
         if (p.colorCycle) cyclePhase = (cyclePhase + p.cycleSpeed * dt) % 1f
         beatPulse = maxOf(LiveSignal.hit(features), beatPulse - dt * 3f).coerceAtLeast(0f)
         if (handle == 0L) return
+        // The bridge always reads from index 0, so the newest samples are moved to the front
+        // rather than passed as an offset. Both branches leave pcmCount at 0, which is also what
+        // makes pcmBuffer free to use as scratch in the fallback below.
         if (pcmCount > 0) {
-            MilkdropEngine.nativeAddPcmMono(handle, pcmBuffer, pcmCount)
+            val n = pcmCount.coerceAtMost(ENGINE_PCM_SAMPLES)
+            if (n < pcmCount) System.arraycopy(pcmBuffer, pcmCount - n, pcmBuffer, 0, n)
             pcmCount = 0
+            MilkdropEngine.nativeAddPcmMono(handle, pcmBuffer, n)
         } else {
-            MilkdropEngine.nativeAddPcmMono(handle, features.waveform, features.waveform.size)
+            val wave = features.waveform
+            val n = wave.size.coerceAtMost(ENGINE_PCM_SAMPLES)
+            if (n > 0) {
+                System.arraycopy(wave, wave.size - n, pcmBuffer, 0, n)
+                MilkdropEngine.nativeAddPcmMono(handle, pcmBuffer, n)
+            }
         }
     }
 
     override fun draw(timeSeconds: Float) {
         if (!postProgramOk) return
         GLES30.glGetIntegerv(GLES30.GL_DRAW_FRAMEBUFFER_BINDING, prevFbo, 0)
+        // BEFORE the engine runs, not only after it. projectM is a stock upstream build that
+        // assumes a default-ish GL state and restores very little of what it finds; the frame
+        // reset in VisualizerRenderer.beginFrame() is already several passes stale by the time a
+        // scene draws, because the overlay simulations and the secondary/transition target run in
+        // between. A sampler object still bound to a texture unit is the one that actually blacks
+        // MilkDrop out - it overrides the wrap and filter modes projectM set on its own textures,
+        // so its noise and blur reads come back clamped - and a leaked scissor box, colour mask or
+        // blend func each do it their own way. The reset after nativeRender protects the app from
+        // projectM; this one protects projectM from the app.
+        GlUtil.resetFrameState()
         ensureEngine()
         ensureFrameTexture()
         if (handle == 0L || frameTex == 0) return

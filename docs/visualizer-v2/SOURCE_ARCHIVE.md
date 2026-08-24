@@ -21,10 +21,10 @@ An adapted file is marked like this, and the gate reads both lines:
 // Origin: https://github.com/google/swissgl@489dfcf437702d6e2446f3e36beadecb34cc81ca
 ```
 
-**Working clones** live outside the repository at
-`C:/Users/tessi/Claude/repos/_visualizer-research/`. They are reference material, not a
-submodule and not a dependency. Restricted-licence clones are quarantined in
-`_REFERENCE_ONLY_DO_NOT_COPY/` so the boundary is a filesystem fact rather than a note.
+**Working clones** live outside the repository in a `_visualizer-research/` directory.
+They are reference material, not a submodule and not a dependency. Restricted-licence
+clones are quarantined in `_REFERENCE_ONLY_DO_NOT_COPY/` so the boundary is a filesystem
+fact rather than a note.
 
 Every licence below was read from the licence file itself, never from a repository badge.
 As of slice V2-A-02a each one is also **pinned and hashed**: the registry records the

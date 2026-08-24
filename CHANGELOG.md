@@ -1413,7 +1413,7 @@ the record, and the plan document it lived in is gone.
 
 Requires JDK 17+, Android SDK 36. `local.properties` must point at your SDK.
 
-On a machine with no SDK — a Claude Code cloud session, a fresh container —
+On a machine with no SDK — a fresh CI container, for instance —
 `tools/setup-android-sdk.sh` installs the packages `compileSdk` asks for and
 writes `local.properties` for you. Every package comes from `dl.google.com`,
 which the "Trusted" network policy does not allow and `maven.google.com`

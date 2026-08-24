@@ -92,8 +92,8 @@ class ShaderScene(
         touchField = field
     }
 
-    // Preallocated because uploadTouch() runs once per scene per frame; the render hot-path
-    // exemption in CLAUDE.md is exactly this case.
+    // Preallocated because uploadTouch() runs once per scene per frame; render hot paths
+    // reuse buffers rather than allocating per frame.
     private val touchAnchor = FloatArray(TouchField.POINT_STRIDE)
     private val touchPoints = FloatArray(TouchField.MAX_POINTS * TouchField.POINT_STRIDE)
 

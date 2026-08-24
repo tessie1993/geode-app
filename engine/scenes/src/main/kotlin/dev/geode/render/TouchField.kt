@@ -37,8 +37,8 @@ import kotlin.math.sqrt
  * finger. (The fluid smear still uses [VisualizerRenderer.queueTouchStroke]'s
  * queue, because a smear IS the path and dropping part of it loses ink.)
  *
- * Both sides write into preallocated arrays: this is a per-frame path, and the
- * render/audio hot-path rule in `CLAUDE.md` applies.
+ * Both sides write into preallocated arrays: this is a per-frame path, and
+ * render/audio hot paths allocate nothing per frame.
  *
  * ## Coordinates
  *

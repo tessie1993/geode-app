@@ -19,9 +19,7 @@ keystore.properties
 secrets.properties
 google-services.json
 
-# Agent tooling is local-only and is not tracked in this repository. CLAUDE.md is
-# the exception - it documents the build, the module graph and the gates that fail
-# it, so it is tracked deliberately. Do not add it back here.
+# Agent tooling is local-only and is not tracked in this repository.
 .claude/
 .agents/
 .codex/

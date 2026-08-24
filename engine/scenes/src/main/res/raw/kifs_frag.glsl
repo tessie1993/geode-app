@@ -320,8 +320,8 @@ const float KIFS_TRAP_FAR = 4.0;
 // The fold set is the same for every march step of a fragment, and it costs
 // half a dozen sin/cos and two matrix builds. These globals are how it gets
 // built ONCE per fragment instead of once per step: the same
-// preallocated-mutable-state exception CLAUDE.md carves out for the render hot
-// path, in the form GLSL has. gTrapR/gTrapZ run the other way - they are how
+// preallocated-mutable-state trade the render hot path makes elsewhere, in the
+// form GLSL has. gTrapR/gTrapZ run the other way - they are how
 // the estimate reports its orbit trap back, since GLSL ES has no out
 // parameters on a function called four times from a normal. They are
 // overwritten by every kifsMap call, so a hit's traps must be captured BEFORE

@@ -430,8 +430,7 @@ private fun MiniPlayer(
                 corner = 0.dp,
                 glowStrength = 0.6f,
                 facets = 0.8f,
-            )
-            .clickable(onClick = onExpand),
+            ).clickable(onClick = onExpand),
     ) {
         Row(
             Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = if (compact) 0.dp else 6.dp),

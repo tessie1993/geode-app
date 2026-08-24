@@ -60,7 +60,11 @@ fun SettingsDialog(
     var ratio by rememberSaveable { mutableStateOf(defaults.ratio) }
     var fps by rememberSaveable { mutableStateOf(defaults.fps) }
     var loopSafe by remember {
-        mutableStateOf(defaults.loopSafe && dev.geode.analysis.BarTrim.barDurationUs(bpm) != null)
+        mutableStateOf(
+            defaults.loopSafe &&
+                dev.geode.analysis.BarTrim
+                    .barDurationUs(bpm) != null,
+        )
     }
     var segment by rememberSaveable { mutableStateOf(false) }
     var rangeStart by remember { mutableFloatStateOf(0f) }
@@ -85,11 +89,15 @@ fun SettingsDialog(
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 when (val phase = export.phase) {
                     is ExportPhase.Running -> {
-                        val run by dev.geode.export.ExportRun.state.collectAsStateWithLifecycle()
+                        val run by dev.geode.export.ExportRun.state
+                            .collectAsStateWithLifecycle()
                         Text(
                             listOfNotNull(
                                 stringResource(R.string.export_rendering_offline),
-                                run.secondsRemaining?.let { dev.geode.export.RenderEta.describe(it) },
+                                run.secondsRemaining?.let {
+                                    dev.geode.export.RenderEta
+                                        .describe(it)
+                                },
                             ).joinToString(" · "),
                         )
                         LinearProgressIndicator(
@@ -199,7 +207,9 @@ fun SettingsDialog(
                                 )
                             }
                         }
-                        val barUs = dev.geode.analysis.BarTrim.barDurationUs(bpm)
+                        val barUs =
+                            dev.geode.analysis.BarTrim
+                                .barDurationUs(bpm)
                         Text(stringResource(R.string.export_looping), style = MaterialTheme.typography.labelMedium)
                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             QualityChip(stringResource(R.string.export_full_length), !loopSafe) {

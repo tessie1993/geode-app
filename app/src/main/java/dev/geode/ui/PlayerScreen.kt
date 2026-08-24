@@ -69,7 +69,9 @@ fun PlayerScreen(
 
     LazyColumn(
         Modifier.fillMaxSize(),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 24.dp),
+        contentPadding =
+            androidx.compose.foundation.layout
+                .PaddingValues(bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         item {
@@ -486,9 +488,15 @@ private fun LiveSpectrum(
             val h = (size.height * (0.06f + 0.94f * v)).coerceAtLeast(2f)
             drawRoundRect(
                 brush = brush,
-                topLeft = androidx.compose.ui.geometry.Offset(i * (barWidth + gap), size.height - h),
-                size = androidx.compose.ui.geometry.Size(barWidth, h),
-                cornerRadius = androidx.compose.ui.geometry.CornerRadius(barWidth / 2f),
+                topLeft =
+                    androidx.compose.ui.geometry
+                        .Offset(i * (barWidth + gap), size.height - h),
+                size =
+                    androidx.compose.ui.geometry
+                        .Size(barWidth, h),
+                cornerRadius =
+                    androidx.compose.ui.geometry
+                        .CornerRadius(barWidth / 2f),
             )
         }
     }
@@ -540,7 +548,8 @@ private fun QuickActions(
     val context = androidx.compose.ui.platform.LocalContext.current
     val micPermission =
         androidx.activity.compose.rememberLauncherForActivityResult(
-            androidx.activity.result.contract.ActivityResultContracts.RequestPermission(),
+            androidx.activity.result.contract.ActivityResultContracts
+                .RequestPermission(),
         ) { granted -> if (granted) viewModel.setMicEnabled(true) }
     val projectionLauncher =
         androidx.activity.compose.rememberLauncherForActivityResult(
@@ -573,7 +582,9 @@ private fun QuickActions(
         }
     LazyRow(
         horizontalArrangement = Arrangement.spacedBy(10.dp),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp),
+        contentPadding =
+            androidx.compose.foundation.layout
+                .PaddingValues(horizontal = 16.dp),
     ) {
         item {
             QuickAction(

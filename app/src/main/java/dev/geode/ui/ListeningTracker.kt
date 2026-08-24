@@ -128,8 +128,14 @@ internal class ListeningTracker(
                 val uri = item.localConfiguration?.uri?.toString() ?: return@mapNotNull null
                 SessionStore.SavedTrack(
                     uri = uri,
-                    title = item.mediaMetadata.title?.toString().orEmpty(),
-                    artist = item.mediaMetadata.artist?.toString().orEmpty(),
+                    title =
+                        item.mediaMetadata.title
+                            ?.toString()
+                            .orEmpty(),
+                    artist =
+                        item.mediaMetadata.artist
+                            ?.toString()
+                            .orEmpty(),
                 )
             }
         storeScope.launch { sessionRepository.save(SessionStore.Saved(tracks, index, position)) }

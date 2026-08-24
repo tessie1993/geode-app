@@ -130,7 +130,11 @@ object GlUtil {
         context: android.content.Context,
         resId: Int,
     ): String {
-        val source = context.resources.openRawResource(resId).bufferedReader().use { it.readText() }
+        val source =
+            context.resources
+                .openRawResource(resId)
+                .bufferedReader()
+                .use { it.readText() }
         return resolveIncludes(context, source)
     }
 
@@ -149,7 +153,10 @@ object GlUtil {
             val name = match.groupValues[1]
             val resId = INCLUDES[name] ?: throw ShaderCompileException("unknown shader include '$name'")
             Regex.escapeReplacement(
-                context.resources.openRawResource(resId).bufferedReader().use { it.readText() },
+                context.resources
+                    .openRawResource(resId)
+                    .bufferedReader()
+                    .use { it.readText() },
             )
         }
     }

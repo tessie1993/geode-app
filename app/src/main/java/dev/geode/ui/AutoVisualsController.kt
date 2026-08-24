@@ -195,7 +195,12 @@ internal class AutoVisualsController(
     fun setSectionStaging(enabled: Boolean) {
         host.updateViz { it.copy(sectionStaging = enabled) }
         lastStagedSection = -1
-        if (enabled && host.vizState.value.sections.isEmpty()) host.analyzeCurrentTrack()
+        if (enabled &&
+            host.vizState.value.sections
+                .isEmpty()
+        ) {
+            host.analyzeCurrentTrack()
+        }
     }
 
     fun advanceRandomMode() {

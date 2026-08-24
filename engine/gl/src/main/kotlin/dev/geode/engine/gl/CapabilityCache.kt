@@ -45,7 +45,11 @@ object CapabilityCache {
         if (cachedVendor != vendor || cachedRenderer != renderer || cachedVersion != versionString) return null
 
         val extensions =
-            reader.value("extensions")?.split(' ')?.filter { it.isNotEmpty() }?.toSet() ?: return null
+            reader
+                .value("extensions")
+                ?.split(' ')
+                ?.filter { it.isNotEmpty() }
+                ?.toSet() ?: return null
         val maxTextureSize = reader.int("maxTextureSize") ?: return null
         val maxColorAttachments = reader.int("maxColorAttachments") ?: return null
         val maxVertexTextureImageUnits = reader.int("maxVertexTextureImageUnits") ?: return null
@@ -102,7 +106,9 @@ object CapabilityCache {
         )
     }
 
-    private class LineReader(private val lines: List<String>) {
+    private class LineReader(
+        private val lines: List<String>,
+    ) {
         private var index = 0
 
         val exhausted: Boolean get() = index >= lines.size

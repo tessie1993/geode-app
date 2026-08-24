@@ -25,10 +25,14 @@ const val DEFAULT_SNAP_TOLERANCE_MS: Long = 60L
 const val MIN_CLIP_DURATION_MS: Long = 33L
 
 @JvmInline
-value class LaneId(val value: String)
+value class LaneId(
+    val value: String,
+)
 
 @JvmInline
-value class ClipId(val value: String)
+value class ClipId(
+    val value: String,
+)
 
 /**
  * The lane families of the editor. A lane only accepts clips whose content belongs to it, which is
@@ -270,16 +274,24 @@ sealed interface EditResult {
         val ripple: RippleShift? = null,
     ) : EditResult
 
-    data class Rejected(val error: EditError) : EditResult
+    data class Rejected(
+        val error: EditError,
+    ) : EditResult
 }
 
 /** Expected refusals. These are values, not exceptions: the UI shows them, it does not crash on them. */
 sealed interface EditError {
-    data class LaneNotFound(val laneId: LaneId) : EditError
+    data class LaneNotFound(
+        val laneId: LaneId,
+    ) : EditError
 
-    data class ClipNotFound(val clipId: ClipId) : EditError
+    data class ClipNotFound(
+        val clipId: ClipId,
+    ) : EditError
 
-    data class LaneLocked(val laneId: LaneId) : EditError
+    data class LaneLocked(
+        val laneId: LaneId,
+    ) : EditError
 
     data class WrongLaneKind(
         val laneId: LaneId,
@@ -287,10 +299,14 @@ sealed interface EditError {
         val contentKind: LaneKind,
     ) : EditError
 
-    data class Overlaps(val clipId: ClipId) : EditError
+    data class Overlaps(
+        val clipId: ClipId,
+    ) : EditError
 
     /** The edit would have to cut an existing clip in two, and only the caller can name the new half. */
-    data class NeedsSplit(val clipId: ClipId) : EditError
+    data class NeedsSplit(
+        val clipId: ClipId,
+    ) : EditError
 
     data object TooShort : EditError
 
@@ -634,9 +650,13 @@ private fun SnapContext.candidates(target: SnapTarget): List<Long> =
 private fun List<Long>.nearestTo(timeMs: Long): Long? = minByOrNull { abs(it - timeMs) }
 
 private sealed interface PlaceOutcome {
-    data class Placed(val lane: Lane) : PlaceOutcome
+    data class Placed(
+        val lane: Lane,
+    ) : PlaceOutcome
 
-    data class Blocked(val error: EditError) : PlaceOutcome
+    data class Blocked(
+        val error: EditError,
+    ) : PlaceOutcome
 }
 
 private fun Lane.place(

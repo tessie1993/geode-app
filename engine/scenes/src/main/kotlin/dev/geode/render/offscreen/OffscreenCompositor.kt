@@ -107,11 +107,17 @@ internal class OffscreenCompositor(
     ): Float {
         val impulse =
             dev.geode.render.VisualSafety
-                .flashImpulse(params.flash, dev.geode.render.LiveSignal.hit(features))
+                .flashImpulse(
+                    params.flash,
+                    dev.geode.render.LiveSignal
+                        .hit(features),
+                )
         return flashBudget.gainFor(timeSeconds, impulse)
     }
 
-    private val noiseTex: Int = dev.geode.render.BlueNoise.createTexture(context)
+    private val noiseTex: Int =
+        dev.geode.render.BlueNoise
+            .createTexture(context)
     private val vao: Int
 
     private val sceneTarget = dev.geode.render.RenderTarget("offscreenScene")
@@ -223,9 +229,16 @@ internal class OffscreenCompositor(
         rippleTexelH: Float = 0f,
         rippleStrength: Float = 0f,
         rippleSpecular: Float = 0f,
-        strobeHz: Float = dev.geode.render.VisualSafety.strobeHz(),
+        strobeHz: Float =
+            dev.geode.render.VisualSafety
+                .strobeHz(),
     ) {
-        grade.advance(params, dtSeconds, dev.geode.render.LiveSignal.hit(features))
+        grade.advance(
+            params,
+            dtSeconds,
+            dev.geode.render.LiveSignal
+                .hit(features),
+        )
         val family =
             when {
                 isShaderScene -> CompositeGrade.SceneFamily.SHADER
@@ -263,7 +276,11 @@ internal class OffscreenCompositor(
         GLES30.glUniform1i(loc("uBlendMode"), BlendMode.NORMAL.ordinal)
         GLES30.glUniform1f(loc("uRatio"), width.toFloat() / height.toFloat())
         GLES30.glUniform1f(loc("uTime"), timeSeconds)
-        GLES30.glUniform1f(loc("uBeat"), dev.geode.render.LiveSignal.hit(features))
+        GLES30.glUniform1f(
+            loc("uBeat"),
+            dev.geode.render.LiveSignal
+                .hit(features),
+        )
         GLES30.glUniform1f(loc("uChroma"), params.chromaAb)
         GLES30.glUniform1f(loc("uVignette"), params.vignette)
         GLES30.glUniform1f(loc("uScanline"), params.scanlines)

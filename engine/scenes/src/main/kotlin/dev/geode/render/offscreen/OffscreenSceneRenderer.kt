@@ -53,7 +53,9 @@ class OffscreenSceneRenderer(
 ) {
     private val lfoEngine = LfoEngine()
     private val adsrEngine = AdsrEngine()
-    private val rippleDrops = dev.geode.render.fluid.RippleOverlayDrops()
+    private val rippleDrops =
+        dev.geode.render.fluid
+            .RippleOverlayDrops()
 
     private var scene: Scene? = null
     private var compositor: OffscreenCompositor? = null
@@ -82,7 +84,8 @@ class OffscreenSceneRenderer(
         // argument, and [renderFrame] for the fluid ladder's half of the same suppression.
         if (!thermalSuppressed) {
             thermalSuppressed = true
-            dev.geode.render.ThermalGovernor.beginOffscreenRender()
+            dev.geode.render.ThermalGovernor
+                .beginOffscreenRender()
         }
         val created = sceneFactory.create().also { scene = it }
         created.init()
@@ -131,7 +134,8 @@ class OffscreenSceneRenderer(
     fun renderFrame(frame: Int) {
         val scene = checkNotNull(scene) { "renderFrame() before prepare()" }
         val fx = checkNotNull(compositor) { "renderFrame() before prepare()" }
-        dev.geode.render.scene.GlUtil.resetFrameState()
+        dev.geode.render.scene.GlUtil
+            .resetFrameState()
 
         val fps = spec.fps
         val dt = 1f / fps
@@ -224,7 +228,8 @@ class OffscreenSceneRenderer(
         // method promises to tolerate — cannot hand the governor back a suppression it never took.
         if (thermalSuppressed) {
             thermalSuppressed = false
-            dev.geode.render.ThermalGovernor.endOffscreenRender()
+            dev.geode.render.ThermalGovernor
+                .endOffscreenRender()
         }
         bestEffort(TAG, "scene.release()") { scene?.release() }
         bestEffort(TAG, "flowField.release()") { flowField?.release() }

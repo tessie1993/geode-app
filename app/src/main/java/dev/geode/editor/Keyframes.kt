@@ -15,10 +15,14 @@ import kotlin.math.abs
  */
 
 @JvmInline
-value class ParamId(val value: String)
+value class ParamId(
+    val value: String,
+)
 
 @JvmInline
-value class KeyframeId(val value: String)
+value class KeyframeId(
+    val value: String,
+)
 
 /** The shapes a parameter value can take. The kind is fixed per track — see [KeyframeTrack.kind]. */
 enum class ParamKind {
@@ -33,7 +37,9 @@ sealed interface ParamValue {
     val kind: ParamKind
 
     /** Opacity, FX amount, rotation — anything that is one number. */
-    data class Scalar(val value: Float) : ParamValue {
+    data class Scalar(
+        val value: Float,
+    ) : ParamValue {
         override val kind: ParamKind = ParamKind.SCALAR
     }
 
@@ -59,12 +65,16 @@ sealed interface ParamValue {
         override val kind: ParamKind = ParamKind.COLOUR
     }
 
-    data class Toggle(val on: Boolean) : ParamValue {
+    data class Toggle(
+        val on: Boolean,
+    ) : ParamValue {
         override val kind: ParamKind = ParamKind.TOGGLE
     }
 
     /** A choice out of a fixed list: palette index, blend mode, symmetry count. */
-    data class Choice(val index: Int) : ParamValue {
+    data class Choice(
+        val index: Int,
+    ) : ParamValue {
         override val kind: ParamKind = ParamKind.CHOICE
     }
 }
@@ -130,7 +140,9 @@ data class BezierCurve(
 }
 
 /** The named presets of the curve editor, each one an ordinary bezier the user can then drag. */
-enum class EaseShape(val curve: BezierCurve) {
+enum class EaseShape(
+    val curve: BezierCurve,
+) {
     IN(BezierCurve(0.42f, 0f, 1f, 1f)),
     OUT(BezierCurve(0f, 0f, 0.58f, 1f)),
     IN_OUT(BezierCurve(0.42f, 0f, 0.58f, 1f)),
@@ -144,9 +156,13 @@ sealed interface Interpolation {
 
     data object Linear : Interpolation
 
-    data class Ease(val shape: EaseShape) : Interpolation
+    data class Ease(
+        val shape: EaseShape,
+    ) : Interpolation
 
-    data class Custom(val curve: BezierCurve) : Interpolation
+    data class Custom(
+        val curve: BezierCurve,
+    ) : Interpolation
 }
 
 /** Eased position between two keys, given the raw 0..1 [progress] between their times. */
@@ -166,9 +182,13 @@ data class Keyframe(
 )
 
 sealed interface KeyframeResult {
-    data class Applied(val track: KeyframeTrack) : KeyframeResult
+    data class Applied(
+        val track: KeyframeTrack,
+    ) : KeyframeResult
 
-    data class Rejected(val error: KeyframeError) : KeyframeResult
+    data class Rejected(
+        val error: KeyframeError,
+    ) : KeyframeResult
 }
 
 sealed interface KeyframeError {
@@ -178,7 +198,9 @@ sealed interface KeyframeError {
         val actual: ParamKind,
     ) : KeyframeError
 
-    data class KeyNotFound(val id: KeyframeId) : KeyframeError
+    data class KeyNotFound(
+        val id: KeyframeId,
+    ) : KeyframeError
 }
 
 /**

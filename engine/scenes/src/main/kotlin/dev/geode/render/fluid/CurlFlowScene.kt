@@ -73,7 +73,8 @@ internal class CurlFlowScene(
         field?.release()
         val (fw, fh) = FluidBuffers.resolution(96, width, height)
         field =
-            FluidBuffers.Fbo(fw, fh, formats.rg, linear = true)
+            FluidBuffers
+                .Fbo(fw, fh, formats.rg, linear = true)
                 .also { it.create() }
                 .takeIf { it.ok }
         if (field == null) onShaderError("Curl Flow unavailable: this GPU refused the flow-field buffer")

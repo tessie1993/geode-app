@@ -28,7 +28,9 @@ object AudioBus {
         latestAtMs = 0L
     }
 
-    private val consumers = java.util.concurrent.atomic.AtomicInteger(0)
+    private val consumers =
+        java.util.concurrent.atomic
+            .AtomicInteger(0)
 
     @Volatile
     var onInterestChanged: (() -> Unit)? = null

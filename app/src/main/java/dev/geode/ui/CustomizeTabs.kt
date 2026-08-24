@@ -274,7 +274,11 @@ internal fun SceneTab(
         if (transitionId != null && sectionVisible()) {
             SectionHeader("Scene transition")
             val ctx = androidx.compose.ui.platform.LocalContext.current
-            val library = remember { dev.geode.render.TransitionCatalog.library(ctx) }
+            val library =
+                remember {
+                    dev.geode.render.TransitionCatalog
+                        .library(ctx)
+                }
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 dev.geode.render.TransitionCatalog.BUILT_IN_IDS.forEach { id ->
                     FilterChip(

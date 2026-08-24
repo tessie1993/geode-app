@@ -132,7 +132,11 @@ class PublishTemplateStore(
 
     /** Forgets the edits so [load] returns the shipped defaults again. */
     fun reset() {
-        prefs.edit().remove(KEY_DESCRIPTION).remove(KEY_FILE_NAME).apply()
+        prefs
+            .edit()
+            .remove(KEY_DESCRIPTION)
+            .remove(KEY_FILE_NAME)
+            .apply()
     }
 
     private companion object {

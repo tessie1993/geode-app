@@ -70,8 +70,11 @@ class TextureStore(
     ): String? =
         when (ext) {
             "dds" ->
-                if (bytes.size >= 4 && bytes[0] == 'D'.code.toByte() && bytes[1] == 'D'.code.toByte() &&
-                    bytes[2] == 'S'.code.toByte() && bytes[3] == ' '.code.toByte()
+                if (bytes.size >= 4 &&
+                    bytes[0] == 'D'.code.toByte() &&
+                    bytes[1] == 'D'.code.toByte() &&
+                    bytes[2] == 'S'.code.toByte() &&
+                    bytes[3] == ' '.code.toByte()
                 ) {
                     null
                 } else {

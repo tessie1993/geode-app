@@ -48,8 +48,11 @@ class VisualizerRenderer(
         private val LERPED_FLOATS: Array<java.lang.reflect.Field> =
             SceneParams::class.java
                 .declaredFields
-                .filter { it.type == Float::class.javaPrimitiveType && !java.lang.reflect.Modifier.isStatic(it.modifiers) }
-                .filterNot { it.name in NOT_FADED }
+                .filter {
+                    it.type == Float::class.javaPrimitiveType &&
+                        !java.lang.reflect.Modifier
+                            .isStatic(it.modifiers)
+                }.filterNot { it.name in NOT_FADED }
                 .onEach { it.isAccessible = true }
                 .toTypedArray()
 

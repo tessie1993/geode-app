@@ -81,8 +81,10 @@ object ParamRandomizer {
 
     private val PARAM_FIELDS: List<java.lang.reflect.Field> =
         SceneParams::class.java.declaredFields
-            .filterNot { java.lang.reflect.Modifier.isStatic(it.modifiers) }
-            .onEach { it.isAccessible = true }
+            .filterNot {
+                java.lang.reflect.Modifier
+                    .isStatic(it.modifiers)
+            }.onEach { it.isAccessible = true }
 
     /** Seeds unioned so a roll gated behind a `chance()` still reveals what it writes. */
     private val PROBE_SEEDS = listOf(1, 7, 13, 29, 61, 127, 257, 521)

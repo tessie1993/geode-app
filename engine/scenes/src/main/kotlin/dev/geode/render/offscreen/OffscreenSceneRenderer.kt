@@ -14,6 +14,7 @@ import dev.geode.render.scene.Scene
 import dev.geode.render.scene.SceneParams
 import dev.geode.render.scene.applyBandGains
 import dev.geode.util.bestEffort
+import kotlin.random.Random
 
 /**
  * Everything needed to render one offscreen sequence: the frame grid and the parameter
@@ -51,7 +52,7 @@ class OffscreenSceneRenderer(
     private val timeline: FeatureTimeline,
     private val spec: OffscreenRenderSpec,
 ) {
-    private val lfoEngine = LfoEngine()
+    private val lfoEngine = LfoEngine(Random(EXPORT_LFO_SEED))
     private val adsrEngine = AdsrEngine()
     private val rippleDrops =
         dev.geode.render.fluid
@@ -262,6 +263,9 @@ class OffscreenSceneRenderer(
     private companion object {
         const val TAG = "OffscreenSceneRenderer"
         const val RIPPLE_OVERLAY_RES = 256
+
+        /** Export re-renders frame-exact, so the S&H LFO must draw the same sequence every run. */
+        const val EXPORT_LFO_SEED = 0x6E0DEL
 
         fun beamRetention(trailLength: Float): Float = (0.55f + 0.44f * trailLength).coerceIn(0f, 0.99f)
     }

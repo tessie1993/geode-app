@@ -7,6 +7,7 @@ import kotlin.math.abs
 import kotlin.math.floor
 import kotlin.math.sin
 import kotlin.math.sqrt
+import kotlin.random.Random
 
 enum class LfoWave(
     val label: String,
@@ -165,7 +166,10 @@ data class LfoConfig(
     }
 }
 
-class LfoEngine {
+class LfoEngine(
+    /** Seeded on the export path so a re-render draws the same S&H sequence. */
+    private val random: Random = Random.Default,
+) {
     @Volatile
     var configs: List<LfoConfig> = List(SLOTS) { LfoConfig() }
 
@@ -248,7 +252,7 @@ class LfoEngine {
                 val cycle = floor(totalPhase[i]).toInt()
                 if (cycle != lastCycle[i]) {
                     lastCycle[i] = cycle
-                    sampleHold[i] = (Math.random().toFloat() * 2f - 1f)
+                    sampleHold[i] = random.nextFloat() * 2f - 1f
                 }
                 sampleHold[i]
             }

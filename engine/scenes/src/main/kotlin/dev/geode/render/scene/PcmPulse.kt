@@ -12,9 +12,15 @@ internal class PcmPulse(
         samples: FloatArray,
         count: Int,
     ) {
+        // Clamped to the array, not trusted from [count]. Every other PCM consumer here already
+        // does this - PcmRow.fill coerces into source.size, ShaderScene and BeamScene into their
+        // own buffer, and the JNI bridge re-reads GetArrayLength for the same reason - and this
+        // was the one path that indexed straight to a caller-supplied length. Six scenes route
+        // into it, so a short read anywhere upstream would be six crashes rather than quiet audio.
+        val n = count.coerceAtMost(samples.size)
         var peak = 0f
         var i = 0
-        while (i < count) {
+        while (i < n) {
             val s = samples[i]
             if (s.isFinite()) {
                 val a = abs(s)

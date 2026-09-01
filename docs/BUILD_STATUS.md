@@ -1,0 +1,87 @@
+# Build status — single source of truth. Read first. Update before every commit.
+Snapshot: bebd045 2026-09-01 21:11:39 +0200   Branch: claude/native-core   Last update: 2026-09-01
+
+## Decisions (why, not what)
+- Local branch is `claude/native-core` as the prompt instructs. The remote accepts pushes from this session only on `claude/read-entire-markdown-t4chq6`, so that is the branch the commits are pushed to; the two names carry the same history.
+
+## UNKNOWN / UNVERIFIED
+
+## BLOCKED
+
+## Owner notes (things the owner must do or decide)
+
+## Kotlin → C++ mapping
+| Kotlin file | C++ file | status |
+|---|---|---|
+
+## Checklists (copied from the prompt; tick as you go)
+
+### Phase 0 — orientation
+- [x] 0.1 Fetch, branch `claude/native-core` from `origin/main`, record snapshot.
+- [x] 0.2 Read gradle/build-logic/engine gradle files, `app/src/main/cpp/CMakeLists.txt`, `milkdrop_jni.c`.
+- [x] 0.3 Create `docs/BUILD_STATUS.md`.
+
+### Phase 1 — native skeleton
+- [ ] 1.1 projectM submodule at the recorded tag.
+- [ ] 1.2 Root `CMakeLists.txt` (flags, projectM options verbatim, `add_subdirectory(core)`, `libgeode.so`).
+- [ ] 1.3 `core/CMakeLists.txt`; Gradle points at root CMake, `c++_shared`; delete old cpp CMake, jniLibs, vendored headers, `native-libs.yml`, hash-verify step; rewrite `tools/build-projectm.md`; notices only if paths changed.
+- [ ] 1.4 Port `milkdrop_jni.c` → `milkdrop_jni.cpp`, same symbols; delete the `.c`.
+- [ ] 1.5 `core/api/geode_api.h` + `.cpp` with `geode_version()` and handle types; `geode_jni.cpp` `version()`; `GeodeNative.kt` in the lowest shared engine module.
+- [ ] 1.6 Status: mapping row, owner notes (F24, submodule step).
+
+### Phase 2 — reference looks as GLSL styles
+- [ ] 2.1 `orb_lattice_frag.glsl`, scene id `orb_lattice`.
+- [ ] 2.2 `rod_tunnel_frag.glsl`, scene id `rod_tunnel` (raymarched, `lib_sdf3`, kifs march budget).
+- [ ] 2.3 `neon_tiles_frag.glsl`, scene id `neon_tiles`.
+- [ ] 2.4 Register all three (ids, registry/factory/catalogue, Customize tab, strings), three built-in presets, three `PARAM_MATRIX.md` rows.
+- [ ] 2.5 Status: uniforms used / added per look.
+
+### Phase 3 — analysis core → C++
+- [ ] 3.1 `third_party/kissfft` submodule, float, no tools/tests.
+- [ ] 3.2 Port every producer in `engine/audio-core/.../audio/` to `core/analysis/<SameName>.{hpp,cpp}` one file per commit; record skip decisions.
+- [ ] 3.3 `GeodeFeatureFrame` per `AUDIO_FEATURE_ABI.md`; `geode_analysis_create/destroy/push/pull`.
+- [ ] 3.4 Kotlin `ReactiveAnalyzer` thin wrapper; delete ported producers; drop JTransforms when unused.
+- [ ] 3.5 `OfflineAnalyzer` on the native analyzer; `FeatureTimeline` and cache format unchanged.
+
+### Phase 4 — renderer core → C++
+- [ ] 4.1 Shaders to `app/src/main/assets/shaders/`; `core/viz/ShaderSource` with the `//#include` resolver; keep `res/raw` until 4.9.
+- [ ] 4.2 `core/viz/{GlCaps,Program,ProgramBinaryCache,Texture,Framebuffer,Quad}`.
+- [ ] 4.3 `core/viz/{Params,ParamBlend,Lfo,Adsr,VisualSafety,FlashBudget,FramePacer,ThermalGovernor}`.
+- [ ] 4.4 `core/viz/Renderer` frame graph + `geode_viz_*`; `VisualizerView`/`VisualizerRenderer` adapters; offscreen paths use explicit target FBO.
+- [ ] 4.5 `core/viz/scenes/ShaderScene` + native `SceneRegistry`; Kotlin registry asks native first.
+- [ ] 4.6 Port cymatics, fluid/curlflow/water, particle/simulation scenes, compute path.
+- [ ] 4.7 `milkdrop` as C++ scene; delete `milkdrop_jni.cpp` and `MilkdropEngine.kt` externals; `MilkdropScene.kt` adapter.
+- [ ] 4.8 Transitions → `core/viz/Transition`.
+- [ ] 4.9 Delete ported Kotlin scene/pass files and `res/raw` shader copies; mapping table complete.
+
+### Phase 5 — audio DSP and native player
+- [ ] 5.1 `core/audio/dsp/{Biquad,Equalizer,Gain,Crossfeed,Limiter,DspChain}` + `geode_dsp_*`.
+- [ ] 5.2 `NativeDspProcessor : AudioProcessor`; `AudioFxController` drives native EQ; `EqualizerSettings` 10 bands.
+- [ ] 5.3 `third_party/taglib`; `core/library/Tags` + `geode_tags_read/write` via fd.
+- [ ] 5.4 ReplayGain on playback in `PlaybackEngine.kt`; settings in `PlaybackSettings.kt`.
+- [ ] 5.5 Tag writing from `TrackInfoEditor.kt` via SAF rw fd.
+- [ ] 5.6 `third_party/oboe`; `core/audio/player/{Decoder,Resampler,Mixer,Output,Player}` + `geode_player_*`.
+- [ ] 5.7 `NativePlayer : SimpleBasePlayer`; settings toggle default off; PCM tap from native mixer.
+
+### Phase 6 — video suite
+- [ ] 6.1 `data/EditorProjectStore.kt` JSON persistence, autosave, undo/redo.
+- [ ] 6.2 Timeline UI (`ui/studio/{TimelineLanes,ClipStrip,MarkerLane,KeyframeLane,Playhead}.kt`).
+- [ ] 6.3 Keyframe curve editor applied at export time.
+- [ ] 6.4 Multi-clip export via `Composition` + `EditedMediaItemSequence`; GL transitions; speed ramps.
+- [ ] 6.5 Captions from `.lrc` as `TextOverlay`; SRT in `editor/Subtitles.kt`.
+- [ ] 6.6 HEVC `ExportCodec` with capability check and H.264 fallback.
+- [ ] 6.7 LUT `.cube` import as `GlEffect`; per-channel gamma.
+
+### Phase 7 — player features
+- [ ] 7.1 Android Auto: `MediaLibraryService` browse tree, `automotive_app_desc.xml`, manifest meta-data.
+- [ ] 7.2 Smart playlists (`data/SmartPlaylistStore.kt`) + duplicate finder.
+- [ ] 7.3 Glance home-screen widget.
+- [ ] 7.4 Bookmarks for long tracks in `data/PlayerPrefs.kt`.
+- [ ] 7.5 Bit-perfect USB output toggle (API 34 gate).
+
+### Phase 8 — finish
+- [ ] 8.1 Rewrite `README.md`; delete `lines.txt`.
+- [ ] 8.2 Fold log into `CHANGELOG.md`, bump version, delete `docs/BUILD_STATUS.md`, final commit.
+
+## Log (newest first; one line per commit)
+- 0.3: build status ledger

@@ -5,6 +5,7 @@ add_library(geode_core STATIC
     analysis/AdaptiveRange.cpp
     analysis/LogBands.cpp
     analysis/MelBank.cpp
+    analysis/Mfcc.cpp
 )
 target_include_directories(geode_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_compile_options(geode_core PRIVATE ${GEODE_COMPILE_OPTIONS})

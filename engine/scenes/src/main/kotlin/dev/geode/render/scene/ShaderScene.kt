@@ -271,7 +271,11 @@ class ShaderScene(
             GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
         }
         setUniform1f("uPalLutMix", if (lutSelected) 1f else 0f)
-        setUniform1f("uPalLutRow", dev.geode.render.CyclicPalettes.rowCoordinate(p.paletteLut.coerceAtLeast(0)))
+        setUniform1f(
+            "uPalLutRow",
+            dev.geode.render.CyclicPalettes
+                .rowCoordinate(p.paletteLut.coerceAtLeast(0)),
+        )
         setUniform1f("uSteps", marchSteps(p.marchDetail))
         uploadTouch()
         GLES30.glBindVertexArray(vao)

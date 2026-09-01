@@ -99,7 +99,10 @@ class PlaybackSession internal constructor(
         dev.geode.audio.AudioBus.onInterestChanged = interestHook
         syncAnalysis()
         scope.launch {
-            analysis.features.collect { dev.geode.audio.AudioBus.publish(it) }
+            analysis.features.collect {
+                dev.geode.audio.AudioBus
+                    .publish(it)
+            }
         }
     }
 

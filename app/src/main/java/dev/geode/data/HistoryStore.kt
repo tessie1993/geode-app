@@ -103,7 +103,9 @@ class HistoryStore(
     @Volatile
     private var dirty = false
 
-    private val writeQueued = java.util.concurrent.atomic.AtomicBoolean(false)
+    private val writeQueued =
+        java.util.concurrent.atomic
+            .AtomicBoolean(false)
 
     private fun newestStamp(): Long = entries.values.maxOfOrNull { it.lastPlayedMs } ?: 0L
 

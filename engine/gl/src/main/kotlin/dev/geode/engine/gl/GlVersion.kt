@@ -1,6 +1,9 @@
 package dev.geode.engine.gl
 
-data class GlVersion(val major: Int, val minor: Int) : Comparable<GlVersion> {
+data class GlVersion(
+    val major: Int,
+    val minor: Int,
+) : Comparable<GlVersion> {
     override fun compareTo(other: GlVersion): Int = compareValuesBy(this, other, GlVersion::major, GlVersion::minor)
 
     override fun toString(): String = "$major.$minor"

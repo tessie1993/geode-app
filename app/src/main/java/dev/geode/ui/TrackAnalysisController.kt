@@ -163,7 +163,9 @@ internal class TrackAnalysisController(
         if (host.vizState.value.intelligenceMode != IntelligenceMode.AUTO) return
         val t = timeline ?: return
         val pos = host.playerPositionMs
-        val section = host.vizState.value.sections.count { it <= pos }
+        val section =
+            host.vizState.value.sections
+                .count { it <= pos }
         val key = (System.identityHashCode(t).toLong() shl 16) or (section.toLong() and 0xFFFF)
         if (key == autoSuggestKey) return
         autoSuggestKey = key

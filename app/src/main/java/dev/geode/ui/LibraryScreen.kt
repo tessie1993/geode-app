@@ -462,7 +462,11 @@ private fun PlaylistsTab(viewModel: LibraryViewModel) {
     }
     renaming?.let { old ->
         val proposed = renameText.trim()
-        val otherNames = library.playlists.map { it.name }.filterNot { it == old }.toSet()
+        val otherNames =
+            library.playlists
+                .map { it.name }
+                .filterNot { it == old }
+                .toSet()
         val nameOk = playlistNameAccepted(proposed, otherNames)
         AlertDialog(
             onDismissRequest = { renaming = null },

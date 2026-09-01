@@ -9,7 +9,10 @@ object SceneSuggester {
     const val SCENE_TUNNEL = SceneIds.TUNNEL
 
     val SCENE_MYCELIUM: String =
-        requireNotNull(dev.geode.render.scene.VisualStyleCatalog.myco("myco_polycephalum")).id
+        requireNotNull(
+            dev.geode.render.scene.VisualStyleCatalog
+                .myco("myco_polycephalum"),
+        ).id
 
     data class Affinity(
         val sceneId: String,

@@ -93,8 +93,7 @@ fun WaveformSeekBar(
                     onSeek(target.coerceIn(0f, 1f))
                     true
                 }
-            }
-            .pointerInput(durationMs) {
+            }.pointerInput(durationMs) {
                 detectTapGestures { offset ->
                     onSeek((offset.x / size.width.toFloat()).coerceIn(0f, 1f))
                 }
@@ -182,7 +181,9 @@ fun LyricsPanel(
     LazyColumn(
         modifier,
         state = listState,
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 24.dp, vertical = 12.dp),
+        contentPadding =
+            androidx.compose.foundation.layout
+                .PaddingValues(horizontal = 24.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         itemsIndexed(lyrics.lines) { index, line ->
@@ -296,7 +297,9 @@ fun QueuePanel(
         LazyColumn(
             Modifier.weight(1f).fillMaxWidth(),
             state = listState,
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+            contentPadding =
+                androidx.compose.foundation.layout
+                    .PaddingValues(horizontal = 12.dp, vertical = 8.dp),
         ) {
             itemsIndexed(queue.tracks, key = { i, _ -> keys[i] }) { index, track ->
                 val playing = index == queue.index

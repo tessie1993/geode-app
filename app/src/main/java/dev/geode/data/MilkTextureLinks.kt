@@ -223,7 +223,11 @@ class MilkTextureLinks(
 
     private fun overridesFor(presetFileName: String): Map<String, String> {
         val entry = loadOverrides().optJSONObject(presetFileName) ?: return emptyMap()
-        return entry.keys().asSequence().associateWith { entry.optString(it) }.filterValues { it.isNotEmpty() }
+        return entry
+            .keys()
+            .asSequence()
+            .associateWith { entry.optString(it) }
+            .filterValues { it.isNotEmpty() }
     }
 
     internal companion object {
@@ -240,9 +244,16 @@ class MilkTextureLinks(
 
         val BUILTIN_SAMPLERS =
             setOf(
-                "main", "blur1", "blur2", "blur3",
-                "noise_lq", "noise_lq_lite", "noise_mq", "noise_hq",
-                "noisevol_lq", "noisevol_hq",
+                "main",
+                "blur1",
+                "blur2",
+                "blur3",
+                "noise_lq",
+                "noise_lq_lite",
+                "noise_mq",
+                "noise_hq",
+                "noisevol_lq",
+                "noisevol_hq",
             )
 
         fun normalize(name: String): String = name.lowercase().filter { it.isLetterOrDigit() }

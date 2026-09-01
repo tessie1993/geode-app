@@ -73,7 +73,9 @@ internal class FluidLook(
         ).forEach { uniforms[it] = GlUtil.UniformCache(it) }
         displayPrograms.values.forEach { uniforms[it] = GlUtil.UniformCache(it) }
 
-        ditherTex = dev.geode.render.BlueNoise.createTexture(context)
+        ditherTex =
+            dev.geode.render.BlueNoise
+                .createTexture(context)
 
         quad.create()
         available = true

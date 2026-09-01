@@ -106,7 +106,9 @@ sealed interface AutoCutResult {
         val settings: AutoCutSettings,
     ) : AutoCutResult
 
-    data class NoCuts(val reason: AutoCutMiss) : AutoCutResult
+    data class NoCuts(
+        val reason: AutoCutMiss,
+    ) : AutoCutResult
 }
 
 /** Why a run found nothing. Expected outcomes, all of them: the UI explains, it does not throw. */
@@ -116,7 +118,9 @@ sealed interface AutoCutMiss {
     /** Silence, or a pad with no attacks in it. Turning sensitivity up will not invent hits. */
     data object NoTransients : AutoCutMiss
 
-    data class WindowTooShort(val spanMs: Long) : AutoCutMiss
+    data class WindowTooShort(
+        val spanMs: Long,
+    ) : AutoCutMiss
 }
 
 object AutoCut {

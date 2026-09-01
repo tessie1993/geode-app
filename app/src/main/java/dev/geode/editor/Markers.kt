@@ -22,10 +22,14 @@ const val DEFAULT_TAP_LATENCY_MS: Long = 120L
 const val DEFAULT_TAP_DEBOUNCE_MS: Long = 90L
 
 @JvmInline
-value class MarkerId(val value: String)
+value class MarkerId(
+    val value: String,
+)
 
 /** A small fixed palette so markers read as a set of colours rather than as arbitrary paint. */
-enum class MarkerColour(val argb: Int) {
+enum class MarkerColour(
+    val argb: Int,
+) {
     RED(0xFFE5484D.toInt()),
     AMBER(0xFFFFB224.toInt()),
     LIME(0xFF99D52A.toInt()),

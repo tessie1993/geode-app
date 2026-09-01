@@ -18,7 +18,9 @@ import javax.inject.Inject
 sealed interface PresetLinkImport {
     data object NotALink : PresetLinkImport
 
-    data class Imported(val name: String) : PresetLinkImport
+    data class Imported(
+        val name: String,
+    ) : PresetLinkImport
 
     data object Unreadable : PresetLinkImport
 }
@@ -121,7 +123,8 @@ class VisualsViewModel
             if (!PresetLink.isPresetLink(data)) {
                 PresetLinkImport.NotALink
             } else {
-                session.importPresetLink(data)
+                session
+                    .importPresetLink(data)
                     ?.let(PresetLinkImport::Imported)
                     ?: PresetLinkImport.Unreadable
             }

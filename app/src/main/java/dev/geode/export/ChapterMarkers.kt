@@ -153,7 +153,10 @@ data class ChapterMarkers(
                     Chapter(
                         startMs = span.startMs,
                         durationMs = span.durationMs,
-                        title = span.clip.title.trim().ifEmpty { "Track ${index + 1}" },
+                        title =
+                            span.clip.title
+                                .trim()
+                                .ifEmpty { "Track ${index + 1}" },
                     )
                 }
             return ChapterMarkers(chapters)

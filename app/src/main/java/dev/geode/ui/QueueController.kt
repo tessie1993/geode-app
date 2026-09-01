@@ -150,7 +150,11 @@ internal class QueueController(
             order.mapIndexed { position, i ->
                 val item = player.getMediaItemAt(i)
                 QueueTrack(
-                    uri = item.localConfiguration?.uri?.toString().orEmpty(),
+                    uri =
+                        item.localConfiguration
+                            ?.uri
+                            ?.toString()
+                            .orEmpty(),
                     title =
                         item.mediaMetadata.title?.toString()
                             ?: item.localConfiguration

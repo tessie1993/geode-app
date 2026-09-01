@@ -1012,7 +1012,9 @@ class PlayerSession internal constructor(
         // scope's cancellation races the very writes this teardown exists to preserve.
         listening.flushListenTime()
         vizStateStore.flushIfDirty()
-        val pendingStoreWrites = storeScope.coroutineContext.job.children.toList()
+        val pendingStoreWrites =
+            storeScope.coroutineContext.job.children
+                .toList()
 
         captureController.shutdown()
         AudioBus.removeConsumer()

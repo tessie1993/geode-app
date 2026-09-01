@@ -556,6 +556,10 @@ object GlProber {
         while (GLES30.glGetError() != GLES30.GL_NO_ERROR && drained < ERROR_DRAIN_LIMIT) drained++
     }
 
+    // Lint reads the GL_HALF_FLOAT branch below as a half-float silently widening to float. It is
+    // the documented conversion instead: android.util.Half.toFloat takes exactly the bit pattern
+    // glReadPixels just wrote, which is the usage the check exists to require rather than forbid.
+
     /**
      * Reads one texel back as floats.
      *
@@ -566,9 +570,6 @@ object GlProber {
      * makes the probe fail: an unreadable target is not a proven target, and the policy's whole
      * contract is that a rung is taken only on proof.
      */
-    // Lint reads the GL_HALF_FLOAT branch below as a half-float silently widening to float. It is
-    // the documented conversion instead: android.util.Half.toFloat takes exactly the bit pattern
-    // glReadPixels just wrote, which is the usage the check exists to require rather than forbid.
     @SuppressLint("HalfFloat")
     private fun readFloats(
         framebuffer: Int,

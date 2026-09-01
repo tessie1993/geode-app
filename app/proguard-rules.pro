@@ -43,15 +43,6 @@
 }
 
 # ---------------------------------------------------------------------------
-# JTransforms
-# ---------------------------------------------------------------------------
-# Pulls in optional Apache Commons Math / large-array helpers that are not on
-# the Android classpath; the FFT paths Geode uses do not need them.
--dontwarn org.jtransforms.**
--dontwarn pl.edu.icm.**
--dontwarn org.apache.commons.math3.**
-
-# ---------------------------------------------------------------------------
 # Crash reports
 # ---------------------------------------------------------------------------
 # GeodeApp writes crash-latest.txt for the in-app crash banner. Keeping

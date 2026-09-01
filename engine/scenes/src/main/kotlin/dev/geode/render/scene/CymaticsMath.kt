@@ -1,6 +1,5 @@
 package dev.geode.render.scene
 
-import dev.geode.engine.audio.LogBands
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.atan2
@@ -11,9 +10,9 @@ import kotlin.math.sin
 import kotlin.math.sqrt
 
 object CymaticsMath {
-    const val MIN_BAND_HZ: Float = LogBands.DEFAULT_MIN_HZ
+    const val MIN_BAND_HZ: Float = 30f
 
-    const val MAX_BAND_HZ: Float = LogBands.DEFAULT_MAX_HZ
+    const val MAX_BAND_HZ: Float = 16_000f
 
     const val MAX_ORDER: Int = 14
 

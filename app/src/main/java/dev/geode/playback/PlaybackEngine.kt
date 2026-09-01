@@ -117,7 +117,7 @@ class PlaybackSession internal constructor(
                 player.playbackState != Player.STATE_ENDED
 
     internal fun release() {
-        analysis.stop()
+        analysis.close()
         if (dev.geode.audio.AudioBus.onInterestChanged === interestHook) {
             dev.geode.audio.AudioBus.onInterestChanged = null
         }

@@ -47,8 +47,9 @@ void geode_analysis_reset(geode_analysis* a) {
     if (a) a->session.reset();
 }
 
-void geode_analysis_analyze(geode_analysis* a, const float* mid, const float* side, float dt_seconds, GeodeFeatureFrame* out) {
-    if (a && mid && out) a->session.analyze(mid, side, dt_seconds, *out);
+void geode_analysis_analyze(geode_analysis* a, const float* mid, const float* side, size_t frames, float dt_seconds,
+                            GeodeFeatureFrame* out) {
+    if (a && mid && out) a->session.analyze(mid, side, frames, dt_seconds, *out);
 }
 
 void geode_analysis_push(geode_analysis* a, const float* interleaved, size_t frames, int channels) {

@@ -17,7 +17,7 @@ public:
     void setSampleRateHz(int value);
     void setTuning(float sensitivity, float refractoryMs, float attackSeconds, float releaseSeconds);
     void reset();
-    void analyze(const float* mid, const float* side, float dtSeconds, GeodeFeatureFrame& out);
+    void analyze(const float* mid, const float* side, size_t frames, float dtSeconds, GeodeFeatureFrame& out);
     void push(const float* interleaved, size_t frames, int channels);
     bool pull(GeodeFeatureFrame& out);
     std::string key() const { return key_.finish(); }

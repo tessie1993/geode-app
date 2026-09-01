@@ -1,10 +1,8 @@
 package dev.geode.analysis
 
-import dev.geode.engine.audio.Chromagram
 import dev.geode.engine.audio.MidSideWindow
 import dev.geode.engine.audio.ReactiveAnalyzer
 import dev.geode.engine.audio.SampleRing
-import dev.geode.engine.audio.StereoField
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -74,34 +72,19 @@ class AnalysisEngine(
 
     internal inner class Pass {
         private val window = MidSideWindow(ring, fftSize)
-        private val waveform = FloatArray(WAVEFORM_POINTS)
-        private val chroma = Chromagram(hopRateHz = HOP_RATE_HZ)
-        private val chromaMagnitudes = FloatArray(fftSize / 2)
 
         fun reset() {
             analyzer.reset()
-            chroma.reset()
         }
 
         fun tick(): Boolean {
             if (!window.refresh()) return false
-            analyzer.analyze(window.mid, DT_SECONDS)
-
-            val step = fftSize / waveform.size
-            for (i in waveform.indices) {
-                var acc = 0f
-                val base = i * step
-                for (j in 0 until step) acc += window.mid[base + j]
-                waveform[i] = acc / step
-            }
-
-            chroma.step(analyzer.spectrumInto(chromaMagnitudes), sampleRateHz, fftSize)
-            val stereo = StereoField.of(window.mid, window.side)
+            analyzer.analyze(window.mid, window.side, DT_SECONDS)
 
             _features.value =
                 AudioFeatures(
                     bands = analyzer.bands.copyOf(),
-                    waveform = waveform.copyOf(),
+                    waveform = analyzer.waveform.copyOf(),
                     rms = analyzer.rms,
                     bass = analyzer.bass,
                     mid = analyzer.mid,
@@ -119,11 +102,11 @@ class AnalysisEngine(
                     kick = analyzer.kick,
                     snare = analyzer.snare,
                     hat = analyzer.hat,
-                    chroma = chroma.bins.copyOf(),
-                    chromaConfidence = chroma.confidence,
-                    stereoWidth = stereo.width,
-                    stereoCorrelation = stereo.correlation,
-                    stereoPan = stereo.pan,
+                    chroma = analyzer.chroma.copyOf(),
+                    chromaConfidence = analyzer.chromaConfidence,
+                    stereoWidth = analyzer.stereoWidth,
+                    stereoCorrelation = analyzer.stereoCorrelation,
+                    stereoPan = analyzer.stereoPan,
                 )
             return true
         }
@@ -159,10 +142,13 @@ class AnalysisEngine(
         job = null
     }
 
+    fun close() {
+        stop()
+        analyzer.close()
+    }
+
     companion object {
         private const val TICK_NS = 16_000_000L
-
-        internal const val WAVEFORM_POINTS = 128
 
         internal const val HOP_RATE_HZ = 1000f / 16f
         internal const val DT_SECONDS = 16f / 1000f

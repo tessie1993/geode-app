@@ -69,8 +69,8 @@ GEODE_API void            geode_analysis_set_tuning(geode_analysis*, float sensi
                                                     float attack_seconds, float release_seconds);
 GEODE_API void            geode_analysis_reset(geode_analysis*);
 /* One window (fft_size mono samples, optional side channel) analysed now; waveform is block-averaged. */
-GEODE_API void            geode_analysis_analyze(geode_analysis*, const float* mid, const float* side, float dt_seconds,
-                                                 GeodeFeatureFrame* out);
+GEODE_API void            geode_analysis_analyze(geode_analysis*, const float* mid, const float* side, size_t frames,
+                                                 float dt_seconds, GeodeFeatureFrame* out);   /* frames >= fft_size */
 /* Hop-locked path: push interleaved PCM, pull one frame per hop; waveform is decimated and the key accumulates. */
 GEODE_API void            geode_analysis_push(geode_analysis*, const float* interleaved, size_t frames, int channels);
 GEODE_API int             geode_analysis_pull(geode_analysis*, GeodeFeatureFrame* out);   /* 1 = new frame */

@@ -3,6 +3,9 @@ Snapshot: bebd045 2026-09-01 21:11:39 +0200   Branch: claude/native-core   Last 
 
 ## Decisions (why, not what)
 - `GeodeNative` lives in `engine/audio-core` (package `dev.geode.engine.bridge`): it is the lowest module both `engine/scenes` (via `api(project(":engine:audio-core"))`) and `app` (via `engine:runtime` → `engine:scenes`) reach, and Phase 3 needs it from `ReactiveAnalyzer` in that same module. It stays a JVM library: `System.loadLibrary` is plain `java.lang.System`, and `geode.jvm-library.gradle.kts` has no Android plugin to conflict with. Android-only handles (an `AssetManager`) will cross as `Any`/`jobject` when Phase 4 needs them.
+- 3.4: `FeatureRingBridge`/`FeatureRing` have no producer or consumer in the tree (nothing calls `publish`), so the wrapper copies the native frame into the analyzer's own `bands`/`waveform`/`chroma` arrays that `AnalysisEngine` and `OfflineAnalyzer` already read; publishing into the ring would add a producer with no reader. `FeatureRing` stays for `FeatureRingTest`.
+- 3.4: JTransforms removed from `engine/audio-core`, `app`, the version catalogue and the R8 rules after `grep -rn jtransforms` showed the only importer was the deleted `Spectrum.kt`.
+- 3.5: `AnalysisIdentity.CURRENT` and the `.mvac` cache format are untouched; the offline frame rate (60 Hz), hop (`sampleRate / 60`), waveform decimation and key detection are reproduced natively, so cached timelines stay valid.
 - 3.2 skipped (Kotlin-only containers/clock, no compute): `FeatureRing`, `RingReader`, `RingReadResult`, `SampleRing`, `PcmSink`, `MidSideWindow` (a view over `SampleRing`), `AudioPresentationClock`, `ClockSegment`, `PresentationMapping`. Everything else in `engine/audio-core/.../audio/` is ported.
 - 3.3 API shape: `geode_analysis_create(sample_rate, fft_size, hop_rate_hz)` takes the hop RATE rather than a hop size because every tempo-domain filter is built from it and the hop in samples is `sample_rate / hop_rate_hz` (exactly `OfflineAnalyzer`'s `sampleRate / 60`). Two entry points keep both existing behaviours bit-for-bit: `geode_analysis_analyze` (live: caller-supplied window and dt, block-averaged waveform, no key accumulation) and `push`/`pull` (offline: hop-locked, decimated waveform, key accumulates). `push` takes interleaved PCM with a channel count so mid/side are formed natively.
 - `PulseReplay` and `DrumChannels` get their own C entry points (`geode_pulse_replay`, `geode_drums_*`) because `FeatureTimeline` re-decides beats and drums on cached timelines without a full analyzer.
@@ -60,6 +63,11 @@ Snapshot: bebd045 2026-09-01 21:11:39 +0200   Branch: claude/native-core   Last 
 | `engine/audio-core/src/main/kotlin/dev/geode/engine/audio/FrameGrid.kt` | `core/analysis/FrameGrid.hpp,.cpp` | ported |
 | `engine/audio-core/src/main/kotlin/dev/geode/engine/audio/PulseReplay.kt` | `core/analysis/PulseReplay.hpp,.cpp` | ported |
 | `engine/audio-core/src/main/kotlin/dev/geode/engine/audio/ReactiveAnalyzer.kt` | `core/analysis/ReactiveAnalyzer.hpp,.cpp` | ported |
+| `engine/audio-core/.../audio/ReactiveAnalyzer.kt` | wrapper over `geode_analysis_*` (same public API, plus `analyze(mid, side, dt)`, `push/pull/key`, `chroma`, `waveform`, stereo fields, `close()`) | delegating |
+| `engine/audio-core/.../audio/PulseReplay.kt` | wrapper over `geode_pulse_replay` (same `decide` API) | delegating |
+| `engine/audio-core/.../audio/DrumChannels.kt` | wrapper over `geode_drums_*` (`step`, `kick/snare/hat`, `close()`) | delegating |
+| `engine/scenes/.../analysis/{AnalysisEngine,OfflineAnalyzer,FeatureTimeline}.kt` | unchanged shape; read chroma/stereo/waveform/key from the wrapper | adapted |
+| `engine/scenes/.../render/scene/CymaticsMath.kt` | `MIN_BAND_HZ`/`MAX_BAND_HZ` are now literal 30 / 16000 (were `LogBands.DEFAULT_*`) | adapted |
 | `app/src/main/cpp/milkdrop_jni.c` | `app/src/main/cpp/milkdrop_jni.cpp` | ported, same exported symbols |
 
 ## Checklists (copied from the prompt; tick as you go)
@@ -90,8 +98,8 @@ Phase 2 uniform usage: all three read the shared contract only (`uTime uResoluti
 - [x] 3.1 `third_party/kissfft` submodule, float, no tools/tests.
 - [x] 3.2 Port every producer in `engine/audio-core/.../audio/` to `core/analysis/<SameName>.{hpp,cpp}` one file per commit; record skip decisions.
 - [x] 3.3 `GeodeFeatureFrame` per `AUDIO_FEATURE_ABI.md`; `geode_analysis_create/destroy/push/pull`.
-- [ ] 3.4 Kotlin `ReactiveAnalyzer` thin wrapper; delete ported producers; drop JTransforms when unused.
-- [ ] 3.5 `OfflineAnalyzer` on the native analyzer; `FeatureTimeline` and cache format unchanged.
+- [x] 3.4 Kotlin `ReactiveAnalyzer` thin wrapper; delete ported producers; drop JTransforms when unused.
+- [x] 3.5 `OfflineAnalyzer` on the native analyzer; `FeatureTimeline` and cache format unchanged.
 
 ### Phase 4 — renderer core → C++
 - [ ] 4.1 Shaders to `app/src/main/assets/shaders/`; `core/viz/ShaderSource` with the `//#include` resolver; keep `res/raw` until 4.9.
@@ -134,6 +142,7 @@ Phase 2 uniform usage: all three read the shared contract only (`uTime uResoluti
 - [ ] 8.2 Fold log into `CHANGELOG.md`, bump version, delete `docs/BUILD_STATUS.md`, final commit.
 
 ## Log (newest first; one line per commit)
+- 3.4+3.5: Kotlin analyzers delegate to native; ported producers deleted; JTransforms removed; offline analyzer on push/pull
 - 3.3: GeodeFeatureFrame, geode_analysis_* / geode_pulse_replay / geode_drums_* API, JNI, GeodeNative externals
 - 3.2: port ReactiveAnalyzer
 - 3.2: port PulseReplay

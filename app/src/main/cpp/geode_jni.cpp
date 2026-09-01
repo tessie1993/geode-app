@@ -64,8 +64,9 @@ Java_dev_geode_engine_bridge_GeodeNative_analysisAnalyze(JNIEnv* env, jobject, j
     FloatElements midData(env, mid);
     FloatElements sideData(env, side);
     if (!midData.get()) return;
+    const jsize frames = sideData.get() && sideData.length() < midData.length() ? sideData.length() : midData.length();
     GeodeFeatureFrame frame{};
-    geode_analysis_analyze(analysisOf(handle), midData.get(), sideData.get(), dtSeconds, &frame);
+    geode_analysis_analyze(analysisOf(handle), midData.get(), sideData.get(), static_cast<size_t>(frames), dtSeconds, &frame);
     writeFrame(env, frame, out);
 }
 

@@ -18,6 +18,22 @@ a partial reconstruction, rebuilt from the references in these entries, is at
   twenty-four `hyper*` parameters are gone. Saved presets and templates that
   named a Hyperspace scene fall back to the default style; their unknown JSON
   keys are ignored on read, so nothing else in a preset is lost.
+- **New fragment style: Fractal Tunnel** (Styles > Shaders, id `fractal_tunnel`).
+  A raymarched fall down a bore through a three-dimensional Apollonian sphere
+  packing: the plane y = 0 seen through a chain of domain repetitions and
+  sphere inversions, cut open by one cylinder so the walls are nested spheres
+  at every size with the cavities behind them showing through, and a wedge
+  fold about the axis that gives the cross-section a kaleidoscope's symmetry.
+  The camera falls along a bending axis and banks into the bends; the packing
+  breathes (the inversion radius morphs), turns inside itself, slides across
+  the bore and twists about it so the chains of beads spiral into the
+  distance - all continuous, and all still moving in silence. Bass breathes
+  the spheres and the bore, mids steer the spin and the fold, treble sharpens
+  the rims, and the beat throws the camera forward and adds one inversion.
+  It spends the shared Detail march budget like the other five marched
+  styles, reads every touch gesture (one finger steers the bore, two open it,
+  three spin it), and its flight speed is an integer number of world periods
+  per scene-clock wrap, so a wallpaper running for hours never teleports.
 - Cymatics keeps its original saved-preset IDs while exposing ten authored
   substyles through one shared renderer.
 - The eight named crystal themes now draw different deterministic mineral

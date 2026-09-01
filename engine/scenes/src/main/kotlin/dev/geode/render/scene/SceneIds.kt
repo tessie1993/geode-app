@@ -35,4 +35,5 @@ object SceneIds {
     const val NEBULA: String = "nebula"
     const val NONEUCLID: String = "noneuclid"
     const val KIFS: String = "kifs"
+    const val FRACTAL_TUNNEL: String = "fractal_tunnel"
 }

@@ -253,7 +253,7 @@ Also, more mundanely but just as capable of misleading you:
    behind `uTouchCount == 0` (render/scene/SceneTouch.kt), and none of it runs
    here.
 
-10. **Five scene families are wired up**: the 27
+10. **Five scene families are wired up**: the 28
     `ShaderScene` styles and the four field-sim families
     `SilkScene`, `LifeScene`, `AcidScene` and `MycoScene` (10 styles each,
     `--style`). The fluid family's own display passes, WATER, CYMATICS, BEAM

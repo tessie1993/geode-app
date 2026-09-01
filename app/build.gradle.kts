@@ -35,6 +35,9 @@ val hasReleaseSigning =
 android {
     namespace = "dev.geode"
     compileSdk = 36
+    // r28 is the first NDK that aligns shared objects to 16 KB pages by default,
+    // and the version the committed libprojectM-4.so was built with.
+    ndkVersion = "28.0.13004108"
 
     defaultConfig {
         applicationId = "dev.geode"
@@ -44,6 +47,14 @@ android {
         versionName = "1.7.0"
         ndk {
             abiFilters += listOf("arm64-v8a", "x86_64")
+        }
+        externalNativeBuild {
+            cmake {
+                // The bridge is plain C over the engine's C API; the engine
+                // links libc++ statically, so nothing here needs an STL and
+                // none gets packaged.
+                arguments += listOf("-DANDROID_STL=none")
+            }
         }
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -85,6 +96,15 @@ android {
             applicationIdSuffix = ".debug"
             versionNameSuffix = "-debug"
             isDebuggable = true
+        }
+    }
+
+    // Builds libmilkdropjni.so from src/main/cpp against the prebuilt
+    // libprojectM-4.so in src/main/jniLibs; see src/main/cpp/CMakeLists.txt.
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+            version = "3.22.1"
         }
     }
 
@@ -157,7 +177,8 @@ val checkNativePageAlignment =
             }
             if (bad.isNotEmpty()) {
                 throw GradleException(
-                    "16 KB page-size check failed — rebuild through .github/workflows/native-libs.yml:\n" +
+                    "16 KB page-size check failed — libprojectM-4.so is rebuilt through " +
+                        ".github/workflows/native-libs.yml, libmilkdropjni.so by src/main/cpp/CMakeLists.txt:\n" +
                         bad.joinToString("\n"),
                 )
             }

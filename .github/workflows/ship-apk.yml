@@ -72,10 +72,11 @@ jobs:
       - name: Set up Gradle and cache
         uses: gradle/actions/setup-gradle@v6
 
-      - name: Install Android SDK 36
+      - name: Install Android SDK 36, NDK and CMake
         shell: bash
         # sdkmanager is not on PATH on the ubuntu-24.04 runner image; resolve
-        # it from the preinstalled SDK location instead.
+        # it from the preinstalled SDK location instead. NDK and CMake match
+        # app/build.gradle.kts and compile the JNI bridge in app/src/main/cpp.
         run: |
           SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:?Android SDK location not set on runner}}"
           SDKMANAGER="$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
@@ -83,7 +84,9 @@ jobs:
           "$SDKMANAGER" \
             "platform-tools" \
             "platforms;android-36" \
-            "build-tools;36.0.0"
+            "build-tools;36.0.0" \
+            "ndk;28.0.13004108" \
+            "cmake;3.22.1"
 
       - name: Make Gradle wrapper executable
         working-directory: ${{ env.PROJECT_DIR }}

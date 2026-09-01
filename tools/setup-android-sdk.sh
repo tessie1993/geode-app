@@ -4,6 +4,8 @@
 # Contributors and CI-like containers start here. The build wants:
 #   - platforms;android-36   (compileSdk 36, app/build.gradle.kts)
 #   - build-tools;36.0.0
+#   - ndk;28.0.13004108      (ndkVersion; compiles app/src/main/cpp)
+#   - cmake;3.22.1           (externalNativeBuild.cmake.version)
 #   - platform-tools         (adb, for on-device smoke tests)
 # plus a JDK 17+ that is assumed present (the Gradle toolchain does not
 # auto-provision one in offline-ish containers).
@@ -28,6 +30,8 @@ CMDLINE_TOOLS_URL="https://dl.google.com/android/repository/${CMDLINE_TOOLS_ZIP}
 
 PLATFORM="platforms;android-36"
 BUILD_TOOLS="build-tools;36.0.0"
+NDK="ndk;28.0.13004108"
+CMAKE="cmake;3.22.1"
 
 say() { printf '[android-sdk] %s\n' "$*"; }
 
@@ -67,6 +71,8 @@ NEED=()
 [ -d "$SDK_DIR/platform-tools" ] || NEED+=("platform-tools")
 [ -d "$SDK_DIR/platforms/android-36" ] || NEED+=("$PLATFORM")
 [ -d "$SDK_DIR/build-tools/36.0.0" ] || NEED+=("$BUILD_TOOLS")
+[ -d "$SDK_DIR/ndk/28.0.13004108" ] || NEED+=("$NDK")
+[ -d "$SDK_DIR/cmake/3.22.1" ] || NEED+=("$CMAKE")
 
 if [ "${#NEED[@]}" -gt 0 ]; then
     say "accepting licenses"

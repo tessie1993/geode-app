@@ -18,7 +18,8 @@ history is in [CHANGELOG.md](CHANGELOG.md).
 - **Visual scenes** — particle scenes; fragment-shader scenes with an in-app
   GLSL editor; the GPU fluid family (Fluid / Curl Flow / Water); Cymatics
   (the standing-wave field of what is playing); MilkDrop via libprojectM 4
-  (arm64-v8a — rebuild notes in `tools/build-projectm.md`). The Customize
+  (arm64-v8a and x86_64 — the JNI bridge is compiled in-tree with the NDK from
+  `app/src/main/cpp`; engine rebuild notes in `tools/build-projectm.md`). The Customize
   panel exposes every parameter with per-param locks, one randomizer, LFO and
   ADSR modulation, a palette maker, presets (JSON + `.milk`), and
   photosensitivity clamps (Settings > Visual safety).

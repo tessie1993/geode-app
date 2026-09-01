@@ -2,6 +2,7 @@
 Snapshot: bebd045 2026-09-01 21:11:39 +0200   Branch: claude/native-core   Last update: 2026-09-01
 
 ## Decisions (why, not what)
+- `GeodeNative` lives in `engine/audio-core` (package `dev.geode.engine.bridge`): it is the lowest module both `engine/scenes` (via `api(project(":engine:audio-core"))`) and `app` (via `engine:runtime` → `engine:scenes`) reach, and Phase 3 needs it from `ReactiveAnalyzer` in that same module. It stays a JVM library: `System.loadLibrary` is plain `java.lang.System`, and `geode.jvm-library.gradle.kts` has no Android plugin to conflict with. Android-only handles (an `AssetManager`) will cross as `Any`/`jobject` when Phase 4 needs them.
 - 1.2 also carries `core/CMakeLists.txt`, `core/api/geode_api.{h,cpp}` and `geode_jni.cpp` (parts of 1.3/1.5): the root CMake must reference only files that exist, and Gradle keeps pointing at the old CMake until 1.3, so the app still builds the old way after this commit.
 - projectM options replicated from `native-libs.yml` verbatim: `CMAKE_BUILD_TYPE=Release`, `BUILD_SHARED_LIBS=ON`, `ENABLE_PLAYLIST=ON`. `ENABLE_PLAYLIST=ON` also produces `libprojectM-4-playlist.so`, which nothing calls; left as instructed (see owner notes).
 - projectM target name read from `third_party/projectm/src/libprojectM/CMakeLists.txt`: `projectM` (alias `libprojectM::projectM`); its GLES path is auto-enabled for Android by `cmake_dependent_option(ENABLE_GLES ...)`.
@@ -12,6 +13,7 @@ Snapshot: bebd045 2026-09-01 21:11:39 +0200   Branch: claude/native-core   Last 
 ## BLOCKED
 
 ## Owner notes (things the owner must do or decide)
+- F24: `compileSdk = 37` while the workflows install `platforms;android-36`; both left alone.
 - Run `git submodule update --init --recursive` after pulling; projectM is now built from `third_party/projectm`.
 - CI checkouts (`android.yml`, `release.yml`, `ship-apk.yml`) use `actions/checkout` without `submodules: recursive`; the native build needs it. Not added here because the prompt forbids CI additions.
 - `ENABLE_PLAYLIST=ON` (kept verbatim from the old workflow) builds and packages `libprojectM-4-playlist.so`, which nothing calls. Set it OFF in the root `CMakeLists.txt` to drop it.
@@ -21,6 +23,7 @@ Snapshot: bebd045 2026-09-01 21:11:39 +0200   Branch: claude/native-core   Last 
 ## Kotlin → C++ mapping
 | Kotlin file | C++ file | status |
 |---|---|---|
+| `app/src/main/cpp/milkdrop_jni.c` | `app/src/main/cpp/milkdrop_jni.cpp` | ported, same exported symbols |
 
 ## Checklists (copied from the prompt; tick as you go)
 
@@ -34,8 +37,8 @@ Snapshot: bebd045 2026-09-01 21:11:39 +0200   Branch: claude/native-core   Last 
 - [x] 1.2 Root `CMakeLists.txt` (flags, projectM options verbatim, `add_subdirectory(core)`, `libgeode.so`).
 - [x] 1.3 `core/CMakeLists.txt`; Gradle points at root CMake, `c++_shared`; delete old cpp CMake, jniLibs, vendored headers, `native-libs.yml`, hash-verify step; rewrite `tools/build-projectm.md`; notices only if paths changed.
 - [x] 1.4 Port `milkdrop_jni.c` → `milkdrop_jni.cpp`, same symbols; delete the `.c`.
-- [ ] 1.5 `core/api/geode_api.h` + `.cpp` with `geode_version()` and handle types; `geode_jni.cpp` `version()`; `GeodeNative.kt` in the lowest shared engine module.
-- [ ] 1.6 Status: mapping row, owner notes (F24, submodule step).
+- [x] 1.5 `core/api/geode_api.h` + `.cpp` with `geode_version()` and handle types; `geode_jni.cpp` `version()`; `GeodeNative.kt` in the lowest shared engine module.
+- [x] 1.6 Status: mapping row, owner notes (F24, submodule step).
 
 ### Phase 2 — reference looks as GLSL styles
 - [ ] 2.1 `orb_lattice_frag.glsl`, scene id `orb_lattice`.
@@ -92,6 +95,7 @@ Snapshot: bebd045 2026-09-01 21:11:39 +0200   Branch: claude/native-core   Last 
 - [ ] 8.2 Fold log into `CHANGELOG.md`, bump version, delete `docs/BUILD_STATUS.md`, final commit.
 
 ## Log (newest first; one line per commit)
+- 1.5+1.6: GeodeNative binding in engine/audio-core, mapping row, owner notes
 - 1.3+1.4: Gradle on root CMake, prebuilt engine and old bridge removed, milkdrop_jni ported to C++
 - 1.2: root CMakeLists, core skeleton, geode_version API
 - 1.1: projectM submodule at v4.1.7

@@ -15,6 +15,10 @@
     native <methods>;
 }
 -keep class dev.geode.render.scene.MilkdropEngine { *; }
+-keepclasseswithmembernames,includedescriptorclasses class dev.geode.engine.bridge.GeodeNative {
+    native <methods>;
+}
+-keep class dev.geode.engine.bridge.GeodeNative { *; }
 
 # Belt and braces for anything else that grows a native method later.
 -keepclasseswithmembernames,includedescriptorclasses class * {

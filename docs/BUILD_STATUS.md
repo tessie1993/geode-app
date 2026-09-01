@@ -42,7 +42,7 @@ Snapshot: bebd045 2026-09-01 21:11:39 +0200   Branch: claude/native-core   Last 
 
 ### Phase 2 — reference looks as GLSL styles
 - [x] 2.1 `orb_lattice_frag.glsl`, scene id `orb_lattice`.
-- [ ] 2.2 `rod_tunnel_frag.glsl`, scene id `rod_tunnel` (raymarched, `lib_sdf3`, kifs march budget).
+- [x] 2.2 `rod_tunnel_frag.glsl`, scene id `rod_tunnel` (raymarched, `lib_sdf3`, kifs march budget).
 - [ ] 2.3 `neon_tiles_frag.glsl`, scene id `neon_tiles`.
 - [ ] 2.4 Register all three (ids, registry/factory/catalogue, Customize tab, strings), three built-in presets, three `PARAM_MATRIX.md` rows.
 - [ ] 2.5 Status: uniforms used / added per look.
@@ -95,6 +95,7 @@ Snapshot: bebd045 2026-09-01 21:11:39 +0200   Branch: claude/native-core   Last 
 - [ ] 8.2 Fold log into `CHANGELOG.md`, bump version, delete `docs/BUILD_STATUS.md`, final commit.
 
 ## Log (newest first; one line per commit)
+- 2.2: rod_tunnel_frag.glsl
 - 2.1: orb_lattice_frag.glsl
 - 1.5+1.6: GeodeNative binding in engine/audio-core, mapping row, owner notes
 - 1.3+1.4: Gradle on root CMake, prebuilt engine and old bridge removed, milkdrop_jni ported to C++

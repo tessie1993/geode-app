@@ -70,13 +70,14 @@ fun AboutSection() {
 @Composable
 private fun LicensesDialog(onDismiss: () -> Unit) {
     val context = LocalContext.current
+    val unavailable = stringResource(R.string.about_licenses_unavailable)
     var notices by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(Unit) {
         notices =
             withContext(Dispatchers.IO) {
                 runCatching {
                     context.assets.open("third_party_notices.txt").use { it.readBytes().decodeToString() }
-                }.getOrElse { context.getString(R.string.about_licenses_unavailable) }
+                }.getOrElse { unavailable }
             }
     }
     AlertDialog(

@@ -140,7 +140,8 @@ internal object FluidBuffers {
          */
         fun discardContents() {
             if (fbo == 0) return
-            dev.geode.render.RenderTarget.discardColorAttachments(GLES30.GL_FRAMEBUFFER, 1)
+            dev.geode.render.RenderTarget
+                .discardColorAttachments(GLES30.GL_FRAMEBUFFER, 1)
         }
 
         fun release() {
@@ -227,7 +228,8 @@ internal object FluidBuffers {
              */
             fun discardContents() {
                 if (fbo == 0) return
-                dev.geode.render.RenderTarget.discardColorAttachments(GLES30.GL_FRAMEBUFFER, 2)
+                dev.geode.render.RenderTarget
+                    .discardColorAttachments(GLES30.GL_FRAMEBUFFER, 2)
             }
 
             fun release() {

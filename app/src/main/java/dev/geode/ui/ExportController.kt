@@ -127,10 +127,11 @@ internal class ExportController(
             ExportRun.scope.launch(Dispatchers.Default) {
                 try {
                     val analysed =
-                        host.cachedTimeline ?: host.analyze(uri) { p ->
-                            _exportState.update { it.copy(phase = ExportPhase.Running(p * 0.2f)) }
-                            ExportRun.publish(p * 0.2f)
-                        }.also { if (host.exportUri == uri) host.cachedTimeline = it }
+                        host.cachedTimeline ?: host
+                            .analyze(uri) { p ->
+                                _exportState.update { it.copy(phase = ExportPhase.Running(p * 0.2f)) }
+                                ExportRun.publish(p * 0.2f)
+                            }.also { if (host.exportUri == uri) host.cachedTimeline = it }
                     val gui = host.guiPrefs
                     val t =
                         analysed.withBeatSensitivity(
@@ -208,7 +209,11 @@ internal class ExportController(
     fun refreshStudioClips() {
         scope.launch {
             _studio.update { it.copy(phase = ExportPhase.Loading) }
-            val clips = withContext(Dispatchers.IO) { dev.geode.export.StudioClips.list(application) }
+            val clips =
+                withContext(Dispatchers.IO) {
+                    dev.geode.export.StudioClips
+                        .list(application)
+                }
             _studio.update { it.copy(clips = clips, phase = ExportPhase.Idle) }
         }
     }
@@ -218,7 +223,11 @@ internal class ExportController(
         onResult: (Boolean) -> Unit,
     ) {
         scope.launch {
-            val ok = withContext(Dispatchers.IO) { dev.geode.export.StudioClips.delete(application, uri) }
+            val ok =
+                withContext(Dispatchers.IO) {
+                    dev.geode.export.StudioClips
+                        .delete(application, uri)
+                }
             if (ok) refreshStudioClips()
             onResult(ok)
         }
@@ -230,7 +239,11 @@ internal class ExportController(
         onResult: (Boolean) -> Unit,
     ) {
         scope.launch {
-            val ok = withContext(Dispatchers.IO) { dev.geode.export.StudioClips.rename(application, uri, name) }
+            val ok =
+                withContext(Dispatchers.IO) {
+                    dev.geode.export.StudioClips
+                        .rename(application, uri, name)
+                }
             if (ok) refreshStudioClips()
             onResult(ok)
         }
@@ -241,7 +254,11 @@ internal class ExportController(
         onReady: (dev.geode.export.StudioClip) -> Unit,
     ) {
         scope.launch {
-            val clip = withContext(Dispatchers.IO) { dev.geode.export.StudioClips.describe(application, uri) }
+            val clip =
+                withContext(Dispatchers.IO) {
+                    dev.geode.export.StudioClips
+                        .describe(application, uri)
+                }
             onReady(clip)
         }
     }

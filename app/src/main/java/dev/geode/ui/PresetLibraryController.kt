@@ -140,7 +140,9 @@ internal class PresetLibraryController(
     }
 
     fun presetShareLink(name: String): String? {
-        val preset = host.vizState.value.presets.firstOrNull { it.name == name } ?: return null
+        val preset =
+            host.vizState.value.presets
+                .firstOrNull { it.name == name } ?: return null
         val link = PresetLink.encode(PresetStore.toJson(preset))
         return link.takeIf { it.length <= PresetLink.MAX_LINK_LENGTH }
     }
@@ -171,7 +173,10 @@ internal class PresetLibraryController(
 
     private fun importPresetJson(json: String): String? {
         val incoming = runCatching { PresetStore.fromJson(json) }.getOrNull() ?: return null
-        val existing = host.vizState.value.presets.map { it.name }.toSet()
+        val existing =
+            host.vizState.value.presets
+                .map { it.name }
+                .toSet()
         val base =
             incoming.name
                 .replace(" · ", " - ")

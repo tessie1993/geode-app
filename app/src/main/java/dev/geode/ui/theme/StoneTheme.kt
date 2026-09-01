@@ -65,9 +65,17 @@ fun ThemePack.colorScheme(
 ): ColorScheme {
     val p = palette
 
-    fun Color.intensity(): Color = Color(dev.geode.ui.ColorDerive.scaleSaturation(toArgbInt(), accentIntensity))
+    fun Color.intensity(): Color =
+        Color(
+            dev.geode.ui.ColorDerive
+                .scaleSaturation(toArgbInt(), accentIntensity),
+        )
 
-    fun Color.dimmed(): Color = Color(dev.geode.ui.ColorDerive.dim(toArgbInt(), backgroundDim))
+    fun Color.dimmed(): Color =
+        Color(
+            dev.geode.ui.ColorDerive
+                .dim(toArgbInt(), backgroundDim),
+        )
     val primary = p.primary.intensity()
     val secondary = p.secondary.intensity()
     val background = p.background.dimmed()
@@ -146,7 +154,11 @@ private fun readableOn(
     var tone = authored
     while (t < 1f && contrastRatio(tone, surface) < minRatio) {
         t = minOf(1f, t + 0.08f)
-        tone = Color(dev.geode.ui.ColorDerive.lerpArgb(authored.toArgbInt(), end.toArgbInt(), t))
+        tone =
+            Color(
+                dev.geode.ui.ColorDerive
+                    .lerpArgb(authored.toArgbInt(), end.toArgbInt(), t),
+            )
     }
     return tone
 }

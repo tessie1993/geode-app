@@ -52,7 +52,11 @@ object TransitionCatalog {
         library?.let { return it }
         val parsed =
             runCatching {
-                val text = context.assets.open(ASSET).bufferedReader().use { it.readText() }
+                val text =
+                    context.assets
+                        .open(ASSET)
+                        .bufferedReader()
+                        .use { it.readText() }
                 val arr = JSONArray(text)
                 (0 until arr.length()).map { i -> parseDef(arr.getJSONObject(i)) }
             }.getOrDefault(emptyList())
@@ -120,9 +124,13 @@ object TransitionCatalog {
         val types = o.optJSONObject("paramsTypes")
         val defaults = o.optJSONObject("defaultParams")
         val params =
-            types?.keys()?.asSequence()?.map { key ->
-                Param(key, types.optString(key, "float"), floatsOf(defaults?.opt(key)))
-            }?.toList().orEmpty()
+            types
+                ?.keys()
+                ?.asSequence()
+                ?.map { key ->
+                    Param(key, types.optString(key, "float"), floatsOf(defaults?.opt(key)))
+                }?.toList()
+                .orEmpty()
         return Def(
             name = o.optString("name"),
             author = o.optString("author"),

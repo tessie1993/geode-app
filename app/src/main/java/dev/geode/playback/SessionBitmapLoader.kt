@@ -3,13 +3,13 @@ package dev.geode.playback
 import android.content.Context
 import android.graphics.Bitmap
 import android.net.Uri
+import androidx.core.net.toUri
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.util.BitmapLoader
 import androidx.media3.common.util.UnstableApi
 import com.google.common.util.concurrent.ListenableFuture
 import com.google.common.util.concurrent.MoreExecutors
 import java.util.concurrent.Executors
-import androidx.core.net.toUri
 
 @UnstableApi
 class SessionBitmapLoader(

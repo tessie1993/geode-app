@@ -3,9 +3,13 @@ package dev.geode.ui
 sealed interface AnalysisState {
     data object Idle : AnalysisState
 
-    data class Running(val progress: Float) : AnalysisState
+    data class Running(
+        val progress: Float,
+    ) : AnalysisState
 
-    data class Failed(val message: String) : AnalysisState
+    data class Failed(
+        val message: String,
+    ) : AnalysisState
 }
 
 val AnalysisState.isRunning: Boolean

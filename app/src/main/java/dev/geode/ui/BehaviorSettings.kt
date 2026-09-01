@@ -165,15 +165,16 @@ private fun LiveWallpaperGroup() {
     )
     CrystalButton(onClick = {
         val direct =
-            android.content.Intent(
-                android.app.WallpaperManager.ACTION_CHANGE_LIVE_WALLPAPER,
-            ).putExtra(
-                android.app.WallpaperManager.EXTRA_LIVE_WALLPAPER_COMPONENT,
-                android.content.ComponentName(
-                    ctx,
-                    dev.geode.wallpaper.VisualizerWallpaperService::class.java,
-                ),
-            )
+            android.content
+                .Intent(
+                    android.app.WallpaperManager.ACTION_CHANGE_LIVE_WALLPAPER,
+                ).putExtra(
+                    android.app.WallpaperManager.EXTRA_LIVE_WALLPAPER_COMPONENT,
+                    android.content.ComponentName(
+                        ctx,
+                        dev.geode.wallpaper.VisualizerWallpaperService::class.java,
+                    ),
+                )
         val ok = runCatching { ctx.startActivity(direct) }.isSuccess
         if (!ok) {
             runCatching {

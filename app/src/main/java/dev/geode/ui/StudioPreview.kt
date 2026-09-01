@@ -90,8 +90,10 @@ internal fun ClipPreview(
         modifier
             .fillMaxWidth()
             .aspectRatio(aspect.coerceIn(0.3f, 3.4f))
-            .clip(androidx.compose.foundation.shape.RoundedCornerShape(8.dp))
-            .background(Color.Black)
+            .clip(
+                androidx.compose.foundation.shape
+                    .RoundedCornerShape(8.dp),
+            ).background(Color.Black)
             .clickable { playing = !playing },
         contentAlignment = Alignment.Center,
     ) {

@@ -166,7 +166,10 @@ private fun LiveInputGroup(viewModel: PlayerViewModel) {
     Column {
         Text(stringResource(R.string.audio_tune_room), style = MaterialTheme.typography.labelMedium)
         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            items(dev.geode.analysis.LiveInputProfile.entries.toList()) { profile ->
+            items(
+                dev.geode.analysis.LiveInputProfile.entries
+                    .toList(),
+            ) { profile ->
                 CrystalButton(
                     compact = true,
                     filled = false,
@@ -175,7 +178,8 @@ private fun LiveInputGroup(viewModel: PlayerViewModel) {
             }
         }
         Text(
-            dev.geode.analysis.LiveInputProfile.entries.joinToString("  ·  ") { "${it.label}: ${it.summary}" },
+            dev.geode.analysis.LiveInputProfile.entries
+                .joinToString("  ·  ") { "${it.label}: ${it.summary}" },
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

@@ -6,7 +6,8 @@ import kotlin.math.roundToLong
 
 class SinkClockDriver(
     private val clock: AudioPresentationClock,
-) : SinkClockHooks, TapBoundaryListener {
+) : SinkClockHooks,
+    TapBoundaryListener {
     @Volatile
     private var skipped: SkippedFrameSource = SkippedFrameSource { 0L }
 

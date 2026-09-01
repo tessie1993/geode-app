@@ -122,8 +122,7 @@ class PresetStore(
                 runCatching { fromJson(f.readText()) }
                     .onFailure { dev.geode.RingLog.note("PresetStore", "unreadable preset skipped: ${f.name}", it) }
                     .getOrNull()
-            }
-            .sortedBy { it.name }
+            }.sortedBy { it.name }
             .toList()
 
     @WorkerThread

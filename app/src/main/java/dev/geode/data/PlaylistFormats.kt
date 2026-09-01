@@ -15,7 +15,9 @@ sealed interface PlaylistParse {
         val entries: List<PlaylistEntry>,
     ) : PlaylistParse
 
-    data class Unreadable(val why: String) : PlaylistParse
+    data class Unreadable(
+        val why: String,
+    ) : PlaylistParse
 }
 
 data class PlaylistResolution(
@@ -205,7 +207,14 @@ object PlaylistFormats {
     private fun childText(
         xml: String,
         tag: Regex,
-    ): String = decodeEntities(tag.find(xml)?.groupValues?.get(1).orEmpty()).trim()
+    ): String =
+        decodeEntities(
+            tag
+                .find(xml)
+                ?.groupValues
+                ?.get(1)
+                .orEmpty(),
+        ).trim()
 
     private fun secondsToMs(seconds: Long?): Long = if (seconds != null && seconds >= 0) seconds * 1000L else UNKNOWN_DURATION
 

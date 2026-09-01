@@ -44,9 +44,7 @@ class ExportService : Service() {
         intent: Intent?,
         flags: Int,
         startId: Int,
-    ): Int {
-        return START_NOT_STICKY
-    }
+    ): Int = START_NOT_STICKY
 
     override fun onTimeout(
         startId: Int,
@@ -92,8 +90,7 @@ class ExportService : Service() {
                         state.label.ifBlank { getString(dev.geode.R.string.export_notification_text) },
                         state.secondsRemaining?.let { RenderEta.describe(it) },
                     ).joinToString(" · "),
-                )
-                .setSmallIcon(dev.geode.R.drawable.ic_stat_capture)
+                ).setSmallIcon(dev.geode.R.drawable.ic_stat_capture)
                 .setOngoing(true)
                 .setContentIntent(open)
         val progress = state.progress

@@ -92,8 +92,7 @@ fun VisualizerScreen(
             .background(Color.Black)
             .pointerInput(Unit) {
                 detectTapGestures(onTap = { controlsVisible = !controlsVisible })
-            }
-            .visualizerTouch(
+            }.visualizerTouch(
                 renderer = visualizerView.visualizerRenderer,
                 smear = gui.touchSmear,
                 smearStrength = gui.touchSmearStrength,

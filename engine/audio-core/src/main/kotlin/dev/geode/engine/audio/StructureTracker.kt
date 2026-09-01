@@ -88,8 +88,10 @@ class StructureTracker(
         noveltyDev += (kotlin.math.abs(novelty - noveltyMean) - noveltyDev) * statsPole
         val threshold = max(SECTION_FLOOR, noveltyMean + 2f * noveltyDev)
         sectionBoundary = false
-        if (sectionArmed && warmupSeconds > WARMUP_SECONDS &&
-            sinceSection > SECTION_REFRACTORY_SECONDS && novelty > threshold
+        if (sectionArmed &&
+            warmupSeconds > WARMUP_SECONDS &&
+            sinceSection > SECTION_REFRACTORY_SECONDS &&
+            novelty > threshold
         ) {
             sectionBoundary = true
             sectionCount++

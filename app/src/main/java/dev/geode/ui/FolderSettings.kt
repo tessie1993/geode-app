@@ -20,6 +20,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -159,6 +160,7 @@ internal fun MusicFoldersEditor(viewModel: LibraryViewModel) {
 @Composable
 private fun AnalysisCacheGroup() {
     val context = LocalContext.current
+    val resources = LocalResources.current
     val measuring = stringResource(R.string.folders_cache_measuring)
     var cacheInfo by remember { mutableStateOf(measuring) }
     var cacheBump by remember { mutableIntStateOf(0) }
@@ -172,7 +174,7 @@ private fun AnalysisCacheGroup() {
                 val mb =
                     dev.geode.analysis.AnalysisCache
                         .sizeBytes(app) / (1024f * 1024f)
-                context.getString(R.string.folders_cache_summary, n, mb)
+                resources.getString(R.string.folders_cache_summary, n, mb)
             }
     }
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {

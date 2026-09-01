@@ -2,6 +2,9 @@
 Snapshot: bebd045 2026-09-01 21:11:39 +0200   Branch: claude/native-core   Last update: 2026-09-01
 
 ## Decisions (why, not what)
+- 1.2 also carries `core/CMakeLists.txt`, `core/api/geode_api.{h,cpp}` and `geode_jni.cpp` (parts of 1.3/1.5): the root CMake must reference only files that exist, and Gradle keeps pointing at the old CMake until 1.3, so the app still builds the old way after this commit.
+- projectM options replicated from `native-libs.yml` verbatim: `CMAKE_BUILD_TYPE=Release`, `BUILD_SHARED_LIBS=ON`, `ENABLE_PLAYLIST=ON`. `ENABLE_PLAYLIST=ON` also produces `libprojectM-4-playlist.so`, which nothing calls; left as instructed (see owner notes).
+- projectM target name read from `third_party/projectm/src/libprojectM/CMakeLists.txt`: `projectM` (alias `libprojectM::projectM`); its GLES path is auto-enabled for Android by `cmake_dependent_option(ENABLE_GLES ...)`.
 - Local branch is `claude/native-core` as the prompt instructs. The remote accepts pushes from this session only on `claude/read-entire-markdown-t4chq6`, so that is the branch the commits are pushed to; the two names carry the same history.
 
 ## UNKNOWN / UNVERIFIED
@@ -23,7 +26,7 @@ Snapshot: bebd045 2026-09-01 21:11:39 +0200   Branch: claude/native-core   Last 
 
 ### Phase 1 — native skeleton
 - [x] 1.1 projectM submodule at the recorded tag.
-- [ ] 1.2 Root `CMakeLists.txt` (flags, projectM options verbatim, `add_subdirectory(core)`, `libgeode.so`).
+- [x] 1.2 Root `CMakeLists.txt` (flags, projectM options verbatim, `add_subdirectory(core)`, `libgeode.so`).
 - [ ] 1.3 `core/CMakeLists.txt`; Gradle points at root CMake, `c++_shared`; delete old cpp CMake, jniLibs, vendored headers, `native-libs.yml`, hash-verify step; rewrite `tools/build-projectm.md`; notices only if paths changed.
 - [ ] 1.4 Port `milkdrop_jni.c` → `milkdrop_jni.cpp`, same symbols; delete the `.c`.
 - [ ] 1.5 `core/api/geode_api.h` + `.cpp` with `geode_version()` and handle types; `geode_jni.cpp` `version()`; `GeodeNative.kt` in the lowest shared engine module.
@@ -84,5 +87,6 @@ Snapshot: bebd045 2026-09-01 21:11:39 +0200   Branch: claude/native-core   Last 
 - [ ] 8.2 Fold log into `CHANGELOG.md`, bump version, delete `docs/BUILD_STATUS.md`, final commit.
 
 ## Log (newest first; one line per commit)
+- 1.2: root CMakeLists, core skeleton, geode_version API
 - 1.1: projectM submodule at v4.1.7
 - 0.3: build status ledger

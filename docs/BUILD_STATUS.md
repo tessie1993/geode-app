@@ -22,7 +22,7 @@ Snapshot: bebd045 2026-09-01 21:11:39 +0200   Branch: claude/native-core   Last 
 - [x] 0.3 Create `docs/BUILD_STATUS.md`.
 
 ### Phase 1 — native skeleton
-- [ ] 1.1 projectM submodule at the recorded tag.
+- [x] 1.1 projectM submodule at the recorded tag.
 - [ ] 1.2 Root `CMakeLists.txt` (flags, projectM options verbatim, `add_subdirectory(core)`, `libgeode.so`).
 - [ ] 1.3 `core/CMakeLists.txt`; Gradle points at root CMake, `c++_shared`; delete old cpp CMake, jniLibs, vendored headers, `native-libs.yml`, hash-verify step; rewrite `tools/build-projectm.md`; notices only if paths changed.
 - [ ] 1.4 Port `milkdrop_jni.c` → `milkdrop_jni.cpp`, same symbols; delete the `.c`.
@@ -84,4 +84,5 @@ Snapshot: bebd045 2026-09-01 21:11:39 +0200   Branch: claude/native-core   Last 
 - [ ] 8.2 Fold log into `CHANGELOG.md`, bump version, delete `docs/BUILD_STATUS.md`, final commit.
 
 ## Log (newest first; one line per commit)
+- 1.1: projectM submodule at v4.1.7
 - 0.3: build status ledger

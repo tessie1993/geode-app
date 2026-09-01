@@ -55,6 +55,7 @@ Snapshot: bebd045 2026-09-01 21:11:39 +0200   Branch: claude/native-core   Last 
 | `engine/audio-core/src/main/kotlin/dev/geode/engine/audio/AnalysisBranch.kt` | `core/analysis/AnalysisBranch.hpp,.cpp` | ported |
 | `engine/audio-core/src/main/kotlin/dev/geode/engine/audio/FrameGrid.kt` | `core/analysis/FrameGrid.hpp,.cpp` | ported |
 | `engine/audio-core/src/main/kotlin/dev/geode/engine/audio/PulseReplay.kt` | `core/analysis/PulseReplay.hpp,.cpp` | ported |
+| `engine/audio-core/src/main/kotlin/dev/geode/engine/audio/ReactiveAnalyzer.kt` | `core/analysis/ReactiveAnalyzer.hpp,.cpp` | ported |
 | `app/src/main/cpp/milkdrop_jni.c` | `app/src/main/cpp/milkdrop_jni.cpp` | ported, same exported symbols |
 
 ## Checklists (copied from the prompt; tick as you go)
@@ -129,6 +130,7 @@ Phase 2 uniform usage: all three read the shared contract only (`uTime uResoluti
 - [ ] 8.2 Fold log into `CHANGELOG.md`, bump version, delete `docs/BUILD_STATUS.md`, final commit.
 
 ## Log (newest first; one line per commit)
+- 3.2: port ReactiveAnalyzer
 - 3.2: port PulseReplay
 - 3.2: port FrameGrid
 - 3.2: port AnalysisBranch

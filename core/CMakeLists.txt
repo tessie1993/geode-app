@@ -40,6 +40,12 @@ add_library(geode_core STATIC
     viz/Texture.cpp
     viz/Framebuffer.cpp
     viz/Quad.cpp
+    viz/Params.cpp
+    viz/Lfo.cpp
+    viz/Adsr.cpp
+    viz/VisualSafety.cpp
+    viz/FramePacer.cpp
+    viz/ThermalGovernor.cpp
 )
 target_include_directories(geode_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_compile_options(geode_core PRIVATE ${GEODE_COMPILE_OPTIONS})

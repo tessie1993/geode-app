@@ -3,6 +3,8 @@ Snapshot: bebd045 2026-09-01 21:11:39 +0200   Branch: claude/native-core   Last 
 
 ## Decisions (why, not what)
 - `GeodeNative` lives in `engine/audio-core` (package `dev.geode.engine.bridge`): it is the lowest module both `engine/scenes` (via `api(project(":engine:audio-core"))`) and `app` (via `engine:runtime` → `engine:scenes`) reach, and Phase 3 needs it from `ReactiveAnalyzer` in that same module. It stays a JVM library: `System.loadLibrary` is plain `java.lang.System`, and `geode.jvm-library.gradle.kts` has no Android plugin to conflict with. Android-only handles (an `AssetManager`) will cross as `Any`/`jobject` when Phase 4 needs them.
+- 4.3: `Params.cpp` is generated from `Params.hpp` by a one-off script (the 98 lerped floats = every float field minus the five NOT_FADED sentinels, matching `VisualizerRenderer.LERPED_FLOATS`/`ParamBlend.FLOATS`), so the table cannot drift from the struct. `SceneParams.customPaletteId/customPalette2Id` (strings that render nothing) are not carried natively.
+- 4.3: `FramePacer` and `ThermalGovernor` keep their Android halves (Choreographer, PowerManager) in Kotlin; the native classes take vsync timestamps and thermal readings as plain values. `ThermalGovernor` is per-renderer natively; the Kotlin singleton stays the process-wide owner until 4.9.
 - 4.2: the Kotlin `engine/gl` layer stays in place and keeps serving the Kotlin scenes until 4.9; the C++ ports are the same rules and the same cache files (`gl-probe-facts.txt`, `gl-program-binaries/ns-*/{new,kept}`), so both sides can share a device's cache. `DeviceGl`'s process-wide memo becomes a member of the native `DeviceGl` instance the renderer owns.
 - 4.1: all 87 `res/raw` files (including the two `.bin` tables) are COPIED to `app/src/main/assets/shaders/`; `res/raw` stays until 4.9 because every Kotlin scene still loads `R.raw.*`. The native resolver mirrors `GlUtil.resolveIncludes` exactly: one pass, the same eight include names, an unknown name is an error.
 - 3.4: `FeatureRingBridge`/`FeatureRing` have no producer or consumer in the tree (nothing calls `publish`), so the wrapper copies the native frame into the analyzer's own `bands`/`waveform`/`chroma` arrays that `AnalysisEngine` and `OfflineAnalyzer` already read; publishing into the ring would add a producer with no reader. `FeatureRing` stays for `FeatureRingTest`.
@@ -79,6 +81,11 @@ Snapshot: bebd045 2026-09-01 21:11:39 +0200   Branch: claude/native-core   Last 
 | `engine/scenes/.../render/scene/ProgramBinaryCache.kt` | `core/viz/ProgramBinaryCache.hpp,.cpp` (+ `Sha256`) | ported (same directory and entry layout) |
 | `engine/scenes/.../render/scene/GlUtil.kt` | `core/viz/Program.hpp,.cpp` (build, compile, UniformCache), `Quad.hpp,.cpp` (FullscreenTriangle, resetFrameState), `ShaderSource` (includes) | ported |
 | `engine/scenes/.../render/RenderTarget.kt` | `core/viz/Framebuffer.hpp,.cpp` | ported |
+| `engine/scenes/.../render/scene/SceneParams.kt` + `VisualizerRenderer.lerpParams` + `ParamBlend.kt` | `core/viz/Params.hpp,.cpp` (struct, palette table, generated lerp/blend field table, `set(name, value)`) | ported |
+| `engine/scenes/.../render/{Lfo,Adsr,LiveSignal}.kt` | `core/viz/Lfo.hpp,.cpp`, `Adsr.hpp,.cpp`, `LiveSignal.hpp` | ported |
+| `engine/scenes/.../render/{VisualSafety,FlashBudget,TransitionStyle,BlendMode}.kt` | `core/viz/VisualSafety.hpp,.cpp` | ported |
+| `engine/scenes/.../render/FramePacer.kt` | `core/viz/FramePacer.hpp,.cpp` (vsync divide, dt clamp, p95/p99; Choreographer stays Kotlin) | ported |
+| `engine/scenes/.../render/{ThermalGovernor,fluid/PerformanceMonitor}.kt` | `core/viz/ThermalGovernor.hpp,.cpp` (PowerManager readings pushed in by the host) | ported |
 | `app/src/main/cpp/milkdrop_jni.c` | `app/src/main/cpp/milkdrop_jni.cpp` | ported, same exported symbols |
 
 ## Checklists (copied from the prompt; tick as you go)
@@ -115,7 +122,7 @@ Phase 2 uniform usage: all three read the shared contract only (`uTime uResoluti
 ### Phase 4 — renderer core → C++
 - [x] 4.1 Shaders to `app/src/main/assets/shaders/`; `core/viz/ShaderSource` with the `//#include` resolver; keep `res/raw` until 4.9.
 - [x] 4.2 `core/viz/{GlCaps,Program,ProgramBinaryCache,Texture,Framebuffer,Quad}`.
-- [ ] 4.3 `core/viz/{Params,ParamBlend,Lfo,Adsr,VisualSafety,FlashBudget,FramePacer,ThermalGovernor}`.
+- [x] 4.3 `core/viz/{Params,ParamBlend,Lfo,Adsr,VisualSafety,FlashBudget,FramePacer,ThermalGovernor}`.
 - [ ] 4.4 `core/viz/Renderer` frame graph + `geode_viz_*`; `VisualizerView`/`VisualizerRenderer` adapters; offscreen paths use explicit target FBO.
 - [ ] 4.5 `core/viz/scenes/ShaderScene` + native `SceneRegistry`; Kotlin registry asks native first.
 - [ ] 4.6 Port cymatics, fluid/curlflow/water, particle/simulation scenes, compute path.
@@ -153,6 +160,7 @@ Phase 2 uniform usage: all three read the shared contract only (`uTime uResoluti
 - [ ] 8.2 Fold log into `CHANGELOG.md`, bump version, delete `docs/BUILD_STATUS.md`, final commit.
 
 ## Log (newest first; one line per commit)
+- 4.3: core/viz pure logic: Params, Lfo, Adsr, LiveSignal, VisualSafety, FlashBudget, FramePacer, ThermalGovernor
 - 4.2: core/viz GL core: GlCaps, GlProber, GlProfile, Compute, ProgramBinaryCache, Program, Texture, Framebuffer, Quad
 - 4.1: shaders copied to assets/shaders, core/viz/ShaderSource with the //#include resolver
 - 3.4+3.5: Kotlin analyzers delegate to native; ported producers deleted; JTransforms removed; offline analyzer on push/pull

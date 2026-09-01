@@ -27,6 +27,15 @@ set(BUILD_SHARED_LIBS ON CACHE BOOL "" FORCE)
 set(ENABLE_PLAYLIST ON CACHE BOOL "" FORCE)
 add_subdirectory(third_party/projectm)
 
+# kissfft refuses BUILD_SHARED_LIBS together with KISSFFT_STATIC; the normal variable shadows the forced cache entry projectM needed.
+set(BUILD_SHARED_LIBS OFF)
+set(KISSFFT_DATATYPE "float" CACHE STRING "" FORCE)
+set(KISSFFT_STATIC ON CACHE BOOL "" FORCE)
+set(KISSFFT_TEST OFF CACHE BOOL "" FORCE)
+set(KISSFFT_TOOLS OFF CACHE BOOL "" FORCE)
+set(KISSFFT_PKGCONFIG OFF CACHE BOOL "" FORCE)
+add_subdirectory(third_party/kissfft)
+
 add_subdirectory(core)
 
 add_library(geode SHARED

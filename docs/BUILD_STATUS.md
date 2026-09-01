@@ -55,7 +55,7 @@ Snapshot: bebd045 2026-09-01 21:11:39 +0200   Branch: claude/native-core   Last 
 Phase 2 uniform usage: all three read the shared contract only (`uTime uResolution uBass uMid uTreble uEnergy uBeat uBeatPhase uBeatResponse uKaleido uSymmetry uColorShift uPal* uPalLut*` via `pal()`, the touch block via `lib_touch`, and `uSteps` in `rod_tunnel`); `grade()` consumes the colour controls. No uniform was added to the contract.
 
 ### Phase 3 — analysis core → C++
-- [ ] 3.1 `third_party/kissfft` submodule, float, no tools/tests.
+- [x] 3.1 `third_party/kissfft` submodule, float, no tools/tests.
 - [ ] 3.2 Port every producer in `engine/audio-core/.../audio/` to `core/analysis/<SameName>.{hpp,cpp}` one file per commit; record skip decisions.
 - [ ] 3.3 `GeodeFeatureFrame` per `AUDIO_FEATURE_ABI.md`; `geode_analysis_create/destroy/push/pull`.
 - [ ] 3.4 Kotlin `ReactiveAnalyzer` thin wrapper; delete ported producers; drop JTransforms when unused.
@@ -102,6 +102,7 @@ Phase 2 uniform usage: all three read the shared contract only (`uTime uResoluti
 - [ ] 8.2 Fold log into `CHANGELOG.md`, bump version, delete `docs/BUILD_STATUS.md`, final commit.
 
 ## Log (newest first; one line per commit)
+- 3.1: kissfft submodule at 131.2.0, static float build
 - 2.4+2.5: register the three looks (ids, SHADER_SCENES, MARCHED_SCENES, three built-in presets); uniform notes
 - 2.3: neon_tiles_frag.glsl
 - 2.2: rod_tunnel_frag.glsl

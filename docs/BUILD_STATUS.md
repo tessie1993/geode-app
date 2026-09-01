@@ -50,6 +50,7 @@ Snapshot: bebd045 2026-09-01 21:11:39 +0200   Branch: claude/native-core   Last 
 | `engine/audio-core/src/main/kotlin/dev/geode/engine/audio/DrumChannels.kt` | `core/analysis/DrumChannels.hpp,.cpp` | ported |
 | `engine/audio-core/src/main/kotlin/dev/geode/engine/audio/KeyDetector.kt` | `core/analysis/KeyDetector.hpp,.cpp` | ported |
 | `engine/audio-core/src/main/kotlin/dev/geode/engine/audio/StructureTracker.kt` | `core/analysis/StructureTracker.hpp,.cpp` | ported |
+| `engine/audio-core/src/main/kotlin/dev/geode/engine/audio/StereoField.kt` | `core/analysis/StereoField.hpp,.cpp` | ported |
 | `app/src/main/cpp/milkdrop_jni.c` | `app/src/main/cpp/milkdrop_jni.cpp` | ported, same exported symbols |
 
 ## Checklists (copied from the prompt; tick as you go)
@@ -124,6 +125,7 @@ Phase 2 uniform usage: all three read the shared contract only (`uTime uResoluti
 - [ ] 8.2 Fold log into `CHANGELOG.md`, bump version, delete `docs/BUILD_STATUS.md`, final commit.
 
 ## Log (newest first; one line per commit)
+- 3.2: port StereoField
 - 3.2: port StructureTracker
 - 3.2: port KeyDetector
 - 3.2: port DrumChannels

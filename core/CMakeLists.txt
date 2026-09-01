@@ -21,6 +21,7 @@ add_library(geode_core STATIC
     analysis/BarTracker.cpp
     analysis/DrumChannels.cpp
     analysis/KeyDetector.cpp
+    analysis/StructureTracker.cpp
 )
 target_include_directories(geode_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_compile_options(geode_core PRIVATE ${GEODE_COMPILE_OPTIONS})

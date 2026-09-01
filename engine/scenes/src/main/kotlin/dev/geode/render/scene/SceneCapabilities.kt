@@ -60,12 +60,15 @@ object SceneCapabilities {
             SceneIds.NEBULA to R.raw.nebula_frag,
             SceneIds.NONEUCLID to R.raw.noneuclid_frag,
             SceneIds.KIFS to R.raw.kifs_frag,
+            SceneIds.ORB_LATTICE to R.raw.orb_lattice_frag,
+            SceneIds.ROD_TUNNEL to R.raw.rod_tunnel_frag,
+            SceneIds.NEON_TILES to R.raw.neon_tiles_frag,
         )
 
     /**
      * The fragment styles that raymarch, and so spend the [MarchBudget] the Detail control sets.
      *
-     * A per-STYLE set rather than a [SceneKind], because only five of the 27 shader styles march;
+     * A per-STYLE set rather than a [SceneKind], because only six of the 30 shader styles march;
      * scoping Detail to `SceneKind.SHADER` would put a dead slider in front of anyone looking at
      * Plasma, which is exactly what [ParamScope]'s no-dead-controls rule exists to prevent.
      */
@@ -76,6 +79,7 @@ object SceneCapabilities {
             SceneIds.NEBULA,
             SceneIds.NONEUCLID,
             SceneIds.KIFS,
+            SceneIds.ROD_TUNNEL,
         )
 
     /**

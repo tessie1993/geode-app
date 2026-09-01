@@ -87,8 +87,8 @@ copy of the licence itself to accompany the app, not merely a link, so the
 full text is reproduced verbatim at the end of this file.
 
 The shipped binary statically embeds projectM's vendored dependencies, so
-their notices belong here too. Confirmed present by the build paths left in
-app/src/main/jniLibs/*/libprojectM-4.so:
+their notices belong here too. libprojectM-4.so is built in-tree from the
+third_party/projectm submodule by the root CMakeLists.txt:
 
   glm (https://github.com/g-truc/glm) - Copyright (c) 2005 - G-Truc
   Creation. Dual licensed under The Happy Bunny License (Modified MIT

@@ -37,8 +37,7 @@ android {
     // 37 is the floor the Compose 1.12 / lifecycle 2.11 / hilt-navigation 1.4
     // AARs declare; targetSdk stays where it is.
     compileSdk = 37
-    // r28 is the first NDK that aligns shared objects to 16 KB pages by default,
-    // and the version the committed libprojectM-4.so was built with.
+    // r28 is the first NDK that aligns shared objects to 16 KB pages by default.
     ndkVersion = "28.0.13004108"
 
     defaultConfig {
@@ -52,10 +51,7 @@ android {
         }
         externalNativeBuild {
             cmake {
-                // The bridge is plain C over the engine's C API; the engine
-                // links libc++ statically, so nothing here needs an STL and
-                // none gets packaged.
-                arguments += listOf("-DANDROID_STL=none")
+                arguments += listOf("-DANDROID_STL=c++_shared")
             }
         }
 
@@ -101,11 +97,10 @@ android {
         }
     }
 
-    // Builds libmilkdropjni.so from src/main/cpp against the prebuilt
-    // libprojectM-4.so in src/main/jniLibs; see src/main/cpp/CMakeLists.txt.
+    // Builds libgeode.so and libprojectM-4.so from the root CMakeLists.txt.
     externalNativeBuild {
         cmake {
-            path = file("src/main/cpp/CMakeLists.txt")
+            path = file("../CMakeLists.txt")
             version = "3.22.1"
         }
     }

@@ -49,25 +49,6 @@ jobs:
           yes | "$SDKMANAGER" --licenses >/dev/null || true
           "$SDKMANAGER" "platforms;android-36" "ndk;28.0.13004108" "cmake;3.22.1"
 
-      # A release that fails Play's 16 KB page-size requirement is rejected at
-      # upload, so fail here instead of after a review cycle. This covers the
-      # committed engine; checkNativePageAlignment (app/build.gradle.kts) covers
-      # every .so in the bundle, the freshly compiled bridge included.
-      - name: Gate on 16 KB native alignment
-        working-directory: app/src/main/jniLibs
-        run: |
-          set -euo pipefail
-          fail=0
-          for so in $(find . -name '*.so'); do
-            for a in $(readelf -lW "$so" | awk '$1 == "LOAD" { print $NF }'); do
-              if [ "$((a))" -lt 16384 ]; then
-                echo "::error file=$so::LOAD segment aligned to $a; Play requires >= 16384. Run the native-libs workflow and commit the rebuilt .so."
-                fail=1
-              fi
-            done
-          done
-          exit "$fail"
-
       - name: Decode upload keystore
         env:
           KEYSTORE_BASE64: ${{ secrets.MUSICVIZ_KEYSTORE_BASE64 }}

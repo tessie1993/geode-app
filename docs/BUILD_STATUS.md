@@ -12,6 +12,11 @@ Snapshot: bebd045 2026-09-01 21:11:39 +0200   Branch: claude/native-core   Last 
 ## BLOCKED
 
 ## Owner notes (things the owner must do or decide)
+- Run `git submodule update --init --recursive` after pulling; projectM is now built from `third_party/projectm`.
+- CI checkouts (`android.yml`, `release.yml`, `ship-apk.yml`) use `actions/checkout` without `submodules: recursive`; the native build needs it. Not added here because the prompt forbids CI additions.
+- `ENABLE_PLAYLIST=ON` (kept verbatim from the old workflow) builds and packages `libprojectM-4-playlist.so`, which nothing calls. Set it OFF in the root `CMakeLists.txt` to drop it.
+- The `release.yml` "Gate on 16 KB native alignment" step scanned `app/src/main/jniLibs`, which no longer exists; it was deleted as dead. `checkNativePageAlignment` in `app/build.gradle.kts` still covers every packaged `.so`.
+- `docs/visualizer-v2/provenance.json` lists `app/src/main/jniLibs/...` under the projectM entry's `importedFiles`; the provenance check only requires the URL to appear in `THIRD_PARTY_NOTICES`, so it still passes, but the paths are stale.
 
 ## Kotlin → C++ mapping
 | Kotlin file | C++ file | status |
@@ -27,8 +32,8 @@ Snapshot: bebd045 2026-09-01 21:11:39 +0200   Branch: claude/native-core   Last 
 ### Phase 1 — native skeleton
 - [x] 1.1 projectM submodule at the recorded tag.
 - [x] 1.2 Root `CMakeLists.txt` (flags, projectM options verbatim, `add_subdirectory(core)`, `libgeode.so`).
-- [ ] 1.3 `core/CMakeLists.txt`; Gradle points at root CMake, `c++_shared`; delete old cpp CMake, jniLibs, vendored headers, `native-libs.yml`, hash-verify step; rewrite `tools/build-projectm.md`; notices only if paths changed.
-- [ ] 1.4 Port `milkdrop_jni.c` → `milkdrop_jni.cpp`, same symbols; delete the `.c`.
+- [x] 1.3 `core/CMakeLists.txt`; Gradle points at root CMake, `c++_shared`; delete old cpp CMake, jniLibs, vendored headers, `native-libs.yml`, hash-verify step; rewrite `tools/build-projectm.md`; notices only if paths changed.
+- [x] 1.4 Port `milkdrop_jni.c` → `milkdrop_jni.cpp`, same symbols; delete the `.c`.
 - [ ] 1.5 `core/api/geode_api.h` + `.cpp` with `geode_version()` and handle types; `geode_jni.cpp` `version()`; `GeodeNative.kt` in the lowest shared engine module.
 - [ ] 1.6 Status: mapping row, owner notes (F24, submodule step).
 
@@ -87,6 +92,7 @@ Snapshot: bebd045 2026-09-01 21:11:39 +0200   Branch: claude/native-core   Last 
 - [ ] 8.2 Fold log into `CHANGELOG.md`, bump version, delete `docs/BUILD_STATUS.md`, final commit.
 
 ## Log (newest first; one line per commit)
+- 1.3+1.4: Gradle on root CMake, prebuilt engine and old bridge removed, milkdrop_jni ported to C++
 - 1.2: root CMakeLists, core skeleton, geode_version API
 - 1.1: projectM submodule at v4.1.7
 - 0.3: build status ledger

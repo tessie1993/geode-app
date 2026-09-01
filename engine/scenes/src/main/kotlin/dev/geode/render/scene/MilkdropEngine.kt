@@ -3,7 +3,7 @@ package dev.geode.render.scene
 object MilkdropEngine {
     val available: Boolean =
         try {
-            System.loadLibrary("milkdropjni")
+            System.loadLibrary("geode")
             nativeGetLastError()
             true
         } catch (t: Throwable) {

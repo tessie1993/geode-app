@@ -13,6 +13,7 @@ add_library(geode_core STATIC
     analysis/SpectralContrast.cpp
     analysis/HarmonicBalance.cpp
     analysis/OnsetPeakPicker.cpp
+    analysis/Envelope.cpp
 )
 target_include_directories(geode_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_compile_options(geode_core PRIVATE ${GEODE_COMPILE_OPTIONS})

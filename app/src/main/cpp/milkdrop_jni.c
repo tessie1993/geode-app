@@ -7,8 +7,9 @@
 #define TAG "milkdrop-jni"
 /* LOGI names user-chosen preset and texture paths, and native code cannot see
  * BuildConfig.DEBUG - so the gate that keeps RingLog's echo out of release
- * builds does not reach here. native-libs.yml compiles this file with -DNDEBUG,
- * so the shipped bridge carries none of these. Errors still log either way. */
+ * builds does not reach here. CMake defines NDEBUG for the Release config AGP
+ * uses on non-debuggable variants, so the shipped bridge carries none of these
+ * and a debug build keeps them. Errors still log either way. */
 #ifdef NDEBUG
 #define LOGI(...) ((void) 0)
 #else

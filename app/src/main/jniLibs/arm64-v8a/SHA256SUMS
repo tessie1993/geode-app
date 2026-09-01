@@ -1,9 +1,9 @@
-# Provenance of the prebuilt libraries committed in this directory.
+# Provenance of the prebuilt library committed in this directory.
 #
 # Built by native-libs.yml run: https://github.com/tessie1993/music-visualizer-2/actions/runs/32264164487
-# projectM v4.1.7, stock (no patches);
-# JNI bridge tools/milkdrop_jni.c at 1a565735a0c82bd6f4dcb9911046de812d6ea254.
-# Commit this file alongside the .so files it describes;
-# android.yml verifies the hashes on every pull request.
-b0fbd9df75eeaa257cfc6157f841d04cad0fb3fd68a24051b4b00f0c4f89375e  libmilkdropjni.so
+# projectM v4.1.7, stock (no patches).
+# The JNI bridge (libmilkdropjni.so) is not committed: the app build compiles
+# it from app/src/main/cpp with the NDK.
+# Commit this file alongside the .so it describes;
+# android.yml verifies the hash on every pull request.
 5c0f34b5840895acdb381215a9c5f7e6d3adfa97da7d8a125e2d6454f988d56f  libprojectM-4.so

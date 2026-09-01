@@ -1,16 +1,20 @@
 name: Rebuild native libs (16 KB aligned)
 
 # Google Play requires 16 KB page-size support for apps targeting Android 15+
-# (API 35 and above). The .so files checked into app/src/main/jniLibs must
-# therefore have ELF LOAD segments aligned to 16384, which means rebuilding
-# libprojectM and the JNI bridge with NDK r28 (16 KB is its default) plus the
-# explicit max-page-size linker flag.
+# (API 35 and above). The libprojectM-4.so checked into app/src/main/jniLibs
+# must therefore have ELF LOAD segments aligned to 16384, which means building
+# it with NDK r28 (16 KB is its default) plus the explicit max-page-size linker
+# flag.
 #
-# Run this manually, download each ABI's artifact, drop its two .so AND its
+# Run this manually, download each ABI's artifact, drop its .so AND its
 # SHA256SUMS into app/src/main/jniLibs/<abi>/ and commit them together: the
-# SHA256SUMS carries the run URL and source SHA that let the repo prove the
-# committed blobs match tools/milkdrop_jni.c and the projectM tag. android.yml
-# verifies the hashes on every pull request.
+# SHA256SUMS carries the run URL that lets the repo prove the committed blob
+# matches the projectM tag. android.yml verifies the hash on every pull
+# request.
+#
+# Only the engine is built here. The JNI bridge (app/src/main/cpp) is compiled
+# by the app build itself through the NDK, so it never needs to be committed;
+# the same NDK version and page-size flags apply there.
 #
 # The engine is built STOCK — no patches. It renders to the default
 # framebuffer exactly as upstream ships it; the app copies the frame off
@@ -78,47 +82,27 @@ jobs:
             -G Ninja
           ninja -C build-android
 
-      - name: Build libmilkdropjni.so
+      - name: Collect libprojectM-4.so
         run: |
           set -euo pipefail
           mkdir -p out
           find build-android -name 'libprojectM-4.so' -exec cp {} out/ \;
-          TOOLCHAIN="$NDK/toolchains/llvm/prebuilt/linux-x86_64"
-          case "$ABI" in
-            arm64-v8a) TRIPLE=aarch64-linux-android ;;
-            x86_64)    TRIPLE=x86_64-linux-android ;;
-            *) echo "::error::no toolchain triple mapped for ABI $ABI"; exit 1 ;;
-          esac
-          "$TOOLCHAIN/bin/$TRIPLE$API-clang" \
-            -shared -fPIC -O2 -DNDEBUG \
-            -o out/libmilkdropjni.so \
-            tools/milkdrop_jni.c \
-            -I projectm/src/api/include \
-            -I build-android/src/api/include \
-            -L out -lprojectM-4 -llog \
-            $PAGE_FLAGS
 
-      - name: Verify the bridge exports every MilkdropEngine symbol
+      # The engine's public headers vendored under app/src/main/cpp/include must
+      # be the ones this .so was built from, or the bridge compiles against an
+      # API the binary does not have.
+      - name: Verify the vendored API headers match this tag
         run: |
           set -euo pipefail
-          TOOLCHAIN="$NDK/toolchains/llvm/prebuilt/linux-x86_64"
-          "$TOOLCHAIN/bin/llvm-nm" -D --defined-only out/libmilkdropjni.so \
-            | awk '{print $NF}' | grep '^Java_' | sort > exported.txt
-          cat exported.txt
-          for m in nativeCreate nativeDestroy nativeResize nativeAddPcmMono \
-                   nativeRender nativeSetTexturePaths nativeLoadPreset \
-                   nativeGetLastError nativeSetBeatSensitivity nativeSetPresetLocked; do
-            grep -qx "Java_dev_geode_render_scene_MilkdropEngine_$m" exported.txt || {
-              echo "::error::missing JNI export: $m"; exit 1; }
-          done
+          diff -r projectm/src/api/include/projectM-4 app/src/main/cpp/include/projectM-4 \
+            --exclude=projectM_export.h --exclude=version.h
+          diff build-android/src/api/include/projectM-4/version.h app/src/main/cpp/include/projectM-4/version.h
 
-      # These .so are committed and shipped as-is, and unstripped they each carry
-      # about 11 MB of DWARF that no device reads. AGP's own strip step cannot
-      # help: the app build installs no NDK, so stripDebugSymbols is a no-op and
-      # whatever is committed is what users download. Strip here, after the
-      # export check and before the checksums, so the recorded hashes describe
-      # the bytes that actually ship. --strip-unneeded keeps .dynsym, so every
-      # Java_dev_geode_* export verified above survives.
+      # This .so is committed and shipped as-is, and unstripped it carries
+      # about 11 MB of DWARF that no device reads. Strip here, before the
+      # checksums, so the recorded hash describes the bytes that actually ship.
+      # --strip-unneeded keeps .dynsym, so the projectm_* API the bridge links
+      # against survives.
       - name: Strip debug symbols
         run: |
           set -euo pipefail
@@ -150,13 +134,14 @@ jobs:
           set -euo pipefail
           cd out
           {
-            echo "# Provenance of the prebuilt libraries committed in this directory."
+            echo "# Provenance of the prebuilt library committed in this directory."
             echo "#"
             echo "# Built by native-libs.yml run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
-            echo "# projectM ${{ inputs.projectm_tag }}, stock (no patches);"
-            echo "# JNI bridge tools/milkdrop_jni.c at ${GITHUB_SHA}."
-            echo "# Commit this file alongside the .so files it describes;"
-            echo "# android.yml verifies the hashes on every pull request."
+            echo "# projectM ${{ inputs.projectm_tag }}, stock (no patches)."
+            echo "# The JNI bridge (libmilkdropjni.so) is not committed: the app build compiles"
+            echo "# it from app/src/main/cpp with the NDK."
+            echo "# Commit this file alongside the .so it describes;"
+            echo "# android.yml verifies the hash on every pull request."
             sha256sum *.so
           } > SHA256SUMS
           cat SHA256SUMS

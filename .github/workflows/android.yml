@@ -38,9 +38,10 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v7
 
-      # The .so files are committed blobs built out-of-band by native-libs.yml;
-      # the recorded hashes are the only link between those bytes and the
-      # sources they claim to come from, so drift fails the build.
+      # libprojectM-4.so is a committed blob built out-of-band by native-libs.yml;
+      # the recorded hash is the only link between those bytes and the source
+      # they claim to come from, so drift fails the build. (The JNI bridge is
+      # not a blob: assembleDebug compiles it from app/src/main/cpp.)
       - name: Verify committed native libs match their recorded checksums
         working-directory: app/src/main/jniLibs
         run: |
@@ -64,18 +65,23 @@ jobs:
         with:
           cache-read-only: ${{ github.event_name == 'pull_request' }}
 
-      - name: Install Android SDK 36
+      - name: Install Android SDK 37, NDK and CMake
         shell: bash
         # sdkmanager is not on PATH on the ubuntu-24.04 runner image; resolve
-        # it from the preinstalled SDK location instead.
+        # it from the preinstalled SDK location instead. The NDK and CMake
+        # versions match ndkVersion and externalNativeBuild.cmake.version in
+        # app/build.gradle.kts: they compile the MilkDrop JNI bridge from
+        # app/src/main/cpp during assembleDebug.
         run: |
           SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:?Android SDK location not set on runner}}"
           SDKMANAGER="$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
           yes | "$SDKMANAGER" --licenses >/dev/null || true
           "$SDKMANAGER" \
             "platform-tools" \
-            "platforms;android-36" \
-            "build-tools;36.0.0"
+            "platforms;android-37" \
+            "build-tools;36.0.0" \
+            "ndk;28.0.13004108" \
+            "cmake;3.22.1"
 
       # The shader compile pass in ShaderSyntaxTest skips without this, and
       # ShaderSyntaxTest asserts this step exists so it cannot skip unnoticed.

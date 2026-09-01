@@ -34,7 +34,9 @@ val hasReleaseSigning =
 
 android {
     namespace = "dev.geode"
-    compileSdk = 36
+    // 37 is the floor the Compose 1.12 / lifecycle 2.11 / hilt-navigation 1.4
+    // AARs declare; targetSdk stays where it is.
+    compileSdk = 37
     // r28 is the first NDK that aligns shared objects to 16 KB pages by default,
     // and the version the committed libprojectM-4.so was built with.
     ndkVersion = "28.0.13004108"

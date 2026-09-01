@@ -18,6 +18,7 @@ add_library(geode_core STATIC
     analysis/TempoTracker.cpp
     analysis/TempoStability.cpp
     analysis/BeatGrid.cpp
+    analysis/BarTracker.cpp
 )
 target_include_directories(geode_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_compile_options(geode_core PRIVATE ${GEODE_COMPILE_OPTIONS})

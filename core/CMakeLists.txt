@@ -30,7 +30,17 @@ add_library(geode_core STATIC
     analysis/ReactiveAnalyzer.cpp
     analysis/AnalysisSession.cpp
     viz/ShaderSource.cpp
+    viz/GlCaps.cpp
+    viz/GlProber.cpp
+    viz/GlProfile.cpp
+    viz/Compute.cpp
+    viz/Sha256.cpp
+    viz/ProgramBinaryCache.cpp
+    viz/Program.cpp
+    viz/Texture.cpp
+    viz/Framebuffer.cpp
+    viz/Quad.cpp
 )
 target_include_directories(geode_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_compile_options(geode_core PRIVATE ${GEODE_COMPILE_OPTIONS})
-target_link_libraries(geode_core PUBLIC kissfft::kissfft log android)
+target_link_libraries(geode_core PUBLIC kissfft::kissfft GLESv3 EGL log android)

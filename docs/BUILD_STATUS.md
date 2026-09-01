@@ -3,6 +3,7 @@ Snapshot: bebd045 2026-09-01 21:11:39 +0200   Branch: claude/native-core   Last 
 
 ## Decisions (why, not what)
 - `GeodeNative` lives in `engine/audio-core` (package `dev.geode.engine.bridge`): it is the lowest module both `engine/scenes` (via `api(project(":engine:audio-core"))`) and `app` (via `engine:runtime` → `engine:scenes`) reach, and Phase 3 needs it from `ReactiveAnalyzer` in that same module. It stays a JVM library: `System.loadLibrary` is plain `java.lang.System`, and `geode.jvm-library.gradle.kts` has no Android plugin to conflict with. Android-only handles (an `AssetManager`) will cross as `Any`/`jobject` when Phase 4 needs them.
+- 4.1: all 87 `res/raw` files (including the two `.bin` tables) are COPIED to `app/src/main/assets/shaders/`; `res/raw` stays until 4.9 because every Kotlin scene still loads `R.raw.*`. The native resolver mirrors `GlUtil.resolveIncludes` exactly: one pass, the same eight include names, an unknown name is an error.
 - 3.4: `FeatureRingBridge`/`FeatureRing` have no producer or consumer in the tree (nothing calls `publish`), so the wrapper copies the native frame into the analyzer's own `bands`/`waveform`/`chroma` arrays that `AnalysisEngine` and `OfflineAnalyzer` already read; publishing into the ring would add a producer with no reader. `FeatureRing` stays for `FeatureRingTest`.
 - 3.4: JTransforms removed from `engine/audio-core`, `app`, the version catalogue and the R8 rules after `grep -rn jtransforms` showed the only importer was the deleted `Spectrum.kt`.
 - 3.5: `AnalysisIdentity.CURRENT` and the `.mvac` cache format are untouched; the offline frame rate (60 Hz), hop (`sampleRate / 60`), waveform decimation and key detection are reproduced natively, so cached timelines stay valid.
@@ -19,6 +20,7 @@ Snapshot: bebd045 2026-09-01 21:11:39 +0200   Branch: claude/native-core   Last 
 - Local branch is `claude/native-core` as the prompt instructs. The remote accepts pushes from this session only on `claude/read-entire-markdown-t4chq6`, so that is the branch the commits are pushed to; the two names carry the same history.
 
 ## UNKNOWN / UNVERIFIED
+- UNVERIFIED: no NDK is on this machine (`local.properties` absent, no `asset_manager.h` on disk), so every `AAssetManager_*`/`AAsset_*` call in `core/viz/ShaderSource.cpp` is written from the names in the prompt and not checked against the header.
 - UNKNOWN: `docs/visualizer-v2/AUDIO_FEATURE_ABI.md` has no feature table (its own text says the table is written by a later slice). `GeodeFeatureFrame` therefore takes its fields and units from `ReactiveAnalyzer.kt` + `AudioFeatures.kt` + `FeatureRingBridge.kt`, all floats, order fixed in `core/api/geode_api.h` and mirrored by `FeatureFrameLayout.kt`.
 - Phase 2 shaders (`orb_lattice`, `rod_tunnel`, `neon_tiles`) are written against the include contract and GLSL ES 3.00; they have not been compiled (rule: no compiling). First device run is the owner's.
 
@@ -102,7 +104,7 @@ Phase 2 uniform usage: all three read the shared contract only (`uTime uResoluti
 - [x] 3.5 `OfflineAnalyzer` on the native analyzer; `FeatureTimeline` and cache format unchanged.
 
 ### Phase 4 — renderer core → C++
-- [ ] 4.1 Shaders to `app/src/main/assets/shaders/`; `core/viz/ShaderSource` with the `//#include` resolver; keep `res/raw` until 4.9.
+- [x] 4.1 Shaders to `app/src/main/assets/shaders/`; `core/viz/ShaderSource` with the `//#include` resolver; keep `res/raw` until 4.9.
 - [ ] 4.2 `core/viz/{GlCaps,Program,ProgramBinaryCache,Texture,Framebuffer,Quad}`.
 - [ ] 4.3 `core/viz/{Params,ParamBlend,Lfo,Adsr,VisualSafety,FlashBudget,FramePacer,ThermalGovernor}`.
 - [ ] 4.4 `core/viz/Renderer` frame graph + `geode_viz_*`; `VisualizerView`/`VisualizerRenderer` adapters; offscreen paths use explicit target FBO.
@@ -142,6 +144,7 @@ Phase 2 uniform usage: all three read the shared contract only (`uTime uResoluti
 - [ ] 8.2 Fold log into `CHANGELOG.md`, bump version, delete `docs/BUILD_STATUS.md`, final commit.
 
 ## Log (newest first; one line per commit)
+- 4.1: shaders copied to assets/shaders, core/viz/ShaderSource with the //#include resolver
 - 3.4+3.5: Kotlin analyzers delegate to native; ported producers deleted; JTransforms removed; offline analyzer on push/pull
 - 3.3: GeodeFeatureFrame, geode_analysis_* / geode_pulse_replay / geode_drums_* API, JNI, GeodeNative externals
 - 3.2: port ReactiveAnalyzer

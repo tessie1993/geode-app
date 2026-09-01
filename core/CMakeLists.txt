@@ -46,6 +46,15 @@ add_library(geode_core STATIC
     viz/VisualSafety.cpp
     viz/FramePacer.cpp
     viz/ThermalGovernor.cpp
+    viz/TouchField.cpp
+    viz/TransitionCatalog.cpp
+    viz/CompositeGrade.cpp
+    viz/CompositePass.cpp
+    viz/TrailPass.cpp
+    viz/SceneRegistry.cpp
+    viz/Renderer.cpp
+    viz/RendererFrame.cpp
+    util/Json.cpp
 )
 target_include_directories(geode_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_compile_options(geode_core PRIVATE ${GEODE_COMPILE_OPTIONS})

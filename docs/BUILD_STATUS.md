@@ -86,6 +86,12 @@ Snapshot: bebd045 2026-09-01 21:11:39 +0200   Branch: claude/native-core   Last 
 | `engine/scenes/.../render/{VisualSafety,FlashBudget,TransitionStyle,BlendMode}.kt` | `core/viz/VisualSafety.hpp,.cpp` | ported |
 | `engine/scenes/.../render/FramePacer.kt` | `core/viz/FramePacer.hpp,.cpp` (vsync divide, dt clamp, p95/p99; Choreographer stays Kotlin) | ported |
 | `engine/scenes/.../render/{ThermalGovernor,fluid/PerformanceMonitor}.kt` | `core/viz/ThermalGovernor.hpp,.cpp` (PowerManager readings pushed in by the host) | ported |
+| `engine/scenes/.../render/TouchField.kt` | `core/viz/TouchField.hpp,.cpp` | ported |
+| `engine/scenes/.../render/{TransitionCatalog,TransitionPrograms}.kt` | `core/viz/TransitionCatalog.hpp,.cpp` (catalog from `gl_transitions.json`, spliced program LRU) + `core/util/Json.hpp,.cpp` | ported |
+| `engine/scenes/.../render/{CompositeGrade,BlueNoise,CyclicPalettes}.kt` | `core/viz/CompositeGrade.hpp,.cpp`; blue-noise and palette LUT textures live in `CompositePass`/`Renderer` (`shaders/blue_noise_64.bin`, `shaders/cyclic_palettes.bin`) | ported |
+| `engine/scenes/.../render/CompositePass.kt` | `core/viz/CompositePass.hpp,.cpp` | ported |
+| `engine/scenes/.../render/TrailPass.kt` | `core/viz/TrailPass.hpp,.cpp` | ported |
+| `engine/scenes/.../render/VisualizerRenderer.kt` | `core/viz/Renderer.hpp`, `Renderer.cpp` (lifecycle, thread-safe setters, scene cache), `RendererFrame.cpp` (frame graph), `Scene.hpp`, `SceneRegistry.hpp,.cpp` | ported frame graph; `geode_viz_*` C API, JNI and Kotlin adapters pending (4.4) |
 | `app/src/main/cpp/milkdrop_jni.c` | `app/src/main/cpp/milkdrop_jni.cpp` | ported, same exported symbols |
 
 ## Checklists (copied from the prompt; tick as you go)
@@ -160,6 +166,7 @@ Phase 2 uniform usage: all three read the shared contract only (`uTime uResoluti
 - [ ] 8.2 Fold log into `CHANGELOG.md`, bump version, delete `docs/BUILD_STATUS.md`, final commit.
 
 ## Log (newest first; one line per commit)
+- 4.4 (part 1): core/viz Renderer frame graph, CompositePass, TrailPass, TransitionCatalog, TouchField, CompositeGrade, SceneRegistry (empty until 4.5), util/Json
 - 4.3: core/viz pure logic: Params, Lfo, Adsr, LiveSignal, VisualSafety, FlashBudget, FramePacer, ThermalGovernor
 - 4.2: core/viz GL core: GlCaps, GlProber, GlProfile, Compute, ProgramBinaryCache, Program, Texture, Framebuffer, Quad
 - 4.1: shaders copied to assets/shaders, core/viz/ShaderSource with the //#include resolver

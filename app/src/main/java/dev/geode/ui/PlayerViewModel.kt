@@ -15,6 +15,7 @@ import dev.geode.data.MilkPackImporter
 import dev.geode.data.Preset
 import dev.geode.di.PlayerSessionProvider
 import dev.geode.export.ExportAspect
+import dev.geode.export.ExportCodec
 import dev.geode.export.ExportRange
 import dev.geode.render.SceneFactory
 import dev.geode.render.TransitionStyle
@@ -259,7 +260,8 @@ class PlayerViewModel
             loopSafe: Boolean = false,
             range: ExportRange? = null,
             sceneFactoryFor: ((String) -> SceneFactory)? = null,
-        ) = session.startExport(aspect, fps, sceneFactory, destination, loopSafe, range, sceneFactoryFor)
+            codec: ExportCodec = ExportCodec.H264,
+        ) = session.startExport(aspect, fps, sceneFactory, destination, loopSafe, range, sceneFactoryFor, codec)
 
         /**
          * This ViewModel owns the session's teardown. `AppRoot` creates it unconditionally and

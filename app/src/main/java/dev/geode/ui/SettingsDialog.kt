@@ -33,8 +33,10 @@ import dev.geode.R
 import dev.geode.data.ExportDefaults
 import dev.geode.data.ExportPrefsStore
 import dev.geode.data.GeodePrefsFiles
+import dev.geode.data.exportCodecLabel
 import dev.geode.data.exportQualityLabel
 import dev.geode.export.ExportAspect
+import dev.geode.export.ExportCodec
 import dev.geode.export.ExportQuality
 import dev.geode.export.ExportRange
 import dev.geode.export.ExportRatio
@@ -48,8 +50,8 @@ fun SettingsDialog(
     onSelectTake: (String?) -> Unit,
     bpm: Float,
     trackDurationMs: Long,
-    onStart: (ExportAspect, Int, Boolean, ExportRange?) -> Unit,
-    onStartToDestination: (ExportAspect, Int, Boolean, ExportRange?) -> Unit,
+    onStart: (ExportAspect, Int, Boolean, ExportRange?, ExportCodec) -> Unit,
+    onStartToDestination: (ExportAspect, Int, Boolean, ExportRange?, ExportCodec) -> Unit,
     onCancel: () -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -59,6 +61,7 @@ fun SettingsDialog(
     var quality by rememberSaveable { mutableStateOf(defaults.quality) }
     var ratio by rememberSaveable { mutableStateOf(defaults.ratio) }
     var fps by rememberSaveable { mutableStateOf(defaults.fps) }
+    var codec by rememberSaveable { mutableStateOf(defaults.codec) }
     var loopSafe by remember {
         mutableStateOf(
             defaults.loopSafe &&
@@ -80,7 +83,7 @@ fun SettingsDialog(
             )
         }
 
-    fun persistDefaults() = exportPrefs.save(ExportDefaults(quality, fps, ratio, loopSafe))
+    fun persistDefaults() = exportPrefs.save(ExportDefaults(quality, fps, ratio, loopSafe, codec))
     val chooserTitle = stringResource(R.string.export_upload_share_to)
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -159,6 +162,15 @@ fun SettingsDialog(
                             QualityChip(stringResource(R.string.export_fps_60), fps == 60) {
                                 fps = 60
                                 persistDefaults()
+                            }
+                        }
+                        Text(stringResource(R.string.export_codec), style = MaterialTheme.typography.labelMedium)
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            ExportCodec.entries.forEach { c ->
+                                QualityChip(exportCodecLabel(c), codec == c) {
+                                    codec = c
+                                    persistDefaults()
+                                }
                             }
                         }
                         Text(stringResource(R.string.export_aspect_ratio), style = MaterialTheme.typography.labelMedium)
@@ -258,14 +270,14 @@ fun SettingsDialog(
                             )
                         }
                         Button(
-                            onClick = { onStart(ExportAspect.of(quality, ratio), fps, loopSafe, range) },
+                            onClick = { onStart(ExportAspect.of(quality, ratio), fps, loopSafe, range, codec) },
                             enabled = hasMedia,
                             modifier = Modifier.fillMaxWidth(),
                         ) {
                             Text(stringResource(R.string.export_render_button, quality.shortSide, ratio.label, fps))
                         }
                         OutlinedButton(
-                            onClick = { onStartToDestination(ExportAspect.of(quality, ratio), fps, loopSafe, range) },
+                            onClick = { onStartToDestination(ExportAspect.of(quality, ratio), fps, loopSafe, range, codec) },
                             enabled = hasMedia,
                             modifier = Modifier.fillMaxWidth(),
                         ) {

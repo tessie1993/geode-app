@@ -35,6 +35,7 @@ import dev.geode.data.SharedPrefsFavouritesRepository
 import dev.geode.data.SharedPrefsPlayerPrefsRepository
 import dev.geode.data.TakeStore
 import dev.geode.export.ExportAspect
+import dev.geode.export.ExportCodec
 import dev.geode.export.ExportRange
 import dev.geode.export.StudioClip
 import dev.geode.geodeContainer
@@ -996,7 +997,8 @@ class PlayerSession internal constructor(
         loopSafe: Boolean = false,
         range: ExportRange? = null,
         sceneFactoryFor: ((String) -> SceneFactory)? = null,
-    ) = exportController.startExport(aspect, fps, sceneFactory, destination, loopSafe, range, sceneFactoryFor)
+        codec: ExportCodec = ExportCodec.H264,
+    ) = exportController.startExport(aspect, fps, sceneFactory, destination, loopSafe, range, sceneFactoryFor, codec)
 
     fun cancelExport() = exportController.cancelExport()
 

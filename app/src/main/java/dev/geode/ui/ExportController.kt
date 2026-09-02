@@ -6,7 +6,10 @@ import dev.geode.analysis.FeatureTimeline
 import dev.geode.data.PerformanceTake
 import dev.geode.editor.AnimatableParams
 import dev.geode.editor.KeyframeSheet
+import dev.geode.data.ExportPrefsStore
+import dev.geode.data.GeodePrefsFiles
 import dev.geode.export.ExportAspect
+import dev.geode.export.ExportCodec
 import dev.geode.export.ExportRange
 import dev.geode.export.ExportRun
 import dev.geode.export.ExportService
@@ -117,6 +120,7 @@ internal class ExportController(
         loopSafe: Boolean = false,
         range: ExportRange? = null,
         sceneFactoryFor: ((String) -> SceneFactory)? = null,
+        codec: ExportCodec = ExportCodec.H264,
     ) {
         val uri = host.exportUri ?: return
         if (_exportState.value.phase.isBusy || ExportRun.running) return
@@ -189,6 +193,7 @@ internal class ExportController(
                             loopSafe = loopSafe,
                             range = range,
                             destination = destination,
+                            codec = codec,
                             onProgress = { p ->
                                 val overall = 0.2f + p * 0.8f
                                 _exportState.update { it.copy(phase = ExportPhase.Running(overall)) }
@@ -297,6 +302,7 @@ internal class ExportController(
                         sourceDurationMs = clip.durationMs,
                         edit = edit,
                         displayName = name,
+                        codec = defaultCodec(),
                     ) { p -> _studio.update { it.copy(phase = ExportPhase.Running(p.coerceIn(0f, 1f))) } }
                 _studio.update { it.copy(phase = result.toPhase()) }
                 refreshStudioClips()
@@ -316,7 +322,7 @@ internal class ExportController(
             scope.launch {
                 val name = "geode_cut_${System.currentTimeMillis()}.mp4"
                 val result =
-                    studioExporter.exportComposition(built.composition, built.durationMs, name) { p ->
+                    studioExporter.exportComposition(built.composition, built.durationMs, name, defaultCodec()) { p ->
                         _studio.update { it.copy(phase = ExportPhase.Running(p.coerceIn(0f, 1f))) }
                     }
                 _studio.update { it.copy(phase = result.toPhase()) }
@@ -324,6 +330,8 @@ internal class ExportController(
                 studioJob = null
             }
     }
+
+    private fun defaultCodec(): ExportCodec = ExportPrefsStore(GeodePrefsFiles(application).general).load().codec
 
     fun cancelStudioExport() {
         studioExporter.cancel()

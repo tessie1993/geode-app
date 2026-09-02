@@ -67,6 +67,8 @@ Snapshot: 848a374 2026-09-02   Branch: claude/repo-actions-6.4-8.2-cs6lz6   Last
 
 - 6.5: captions are Text-lane clips. `Subtitles` converts both ways (SRT cues ↔ clips, `.lrc` lines → cues, each line until the next or 8 s) and imports always land on a new Text lane so typed captions are never overwritten. At export the Text lanes become one `TimedTextOverlay` per media item holding the cues that touch it, re-based to the item's first frame; the overlay draws a single space when no cue is on, because an empty layout cannot be a bitmap. Lyrics come from the session's already-loaded `Lyrics` (synced only), so the "Lyrics → captions" button shows only when the playing track has them.
 
+- 6.6: `ExportCodec` lives in `VideoExporter.kt` and resolves itself (`available()`: HEVC only when `MediaCodecList` lists an HEVC encoder, else H.264). Both frame-by-frame encoders try the chosen codec at the requested rate, then its 30 fps / two-thirds-bitrate form, then the same pair on H.264, so a configure refusal never ends a render; the Transformer path passes the resolved MIME through `setVideoMimeType`. The choice is an export default (`ExportDefaults.codec`, both settings surfaces), carried to the visualizer export through `startExport(..., codec)` and read from the prefs store by the Studio and cut exports.
+
 ## UNKNOWN / UNVERIFIED
 - UNVERIFIED (6.5): `TextOverlay.getText(long)` / `getOverlaySettings(long)` overridden as named in the prompt; the `OverlaySettings` interface name is from the Media3 1.x API as remembered.
 - UNVERIFIED (6.4): Media3 `GlProgram` (`setBufferAttribute`, `setSamplerTexIdUniform`, `setFloatUniform`, `setFloatsUniform`, `setIntUniform`, `bindAttributesAndUniforms`, `use`, `delete`), `GlUtil` (`getNormalizedCoordinateBounds`, `HOMOGENEOUS_COORDINATE_VECTOR_SIZE`, `createTexture(w, h, highPrecision)`, `deleteTexture`, `checkGlError`), `BaseGlShaderProgram(useHdr, poolCapacity)` with `configure`/`drawFrame`/`release`, `RgbMatrix.getMatrix(timeUs, useHdr)`, `MatrixTransformation.configure/getMatrix`, `EditedMediaItemSequence.Builder().addItem`, `Composition.Builder(List)`, `EditedMediaItem.Builder.setDurationUs/setFrameRate` (stills) are written from the Media3 1.x API as remembered; the jars were not opened.
@@ -229,7 +231,7 @@ Phase 2 uniform usage: all three read the shared contract only (`uTime uResoluti
 - [x] 6.3 Keyframe curve editor applied at export time.
 - [x] 6.4 Multi-clip export via `Composition` + `EditedMediaItemSequence`; GL transitions; speed ramps.
 - [x] 6.5 Captions from `.lrc` as `TextOverlay`; SRT in `editor/Subtitles.kt`.
-- [ ] 6.6 HEVC `ExportCodec` with capability check and H.264 fallback.
+- [x] 6.6 HEVC `ExportCodec` with capability check and H.264 fallback.
 - [ ] 6.7 LUT `.cube` import as `GlEffect`; per-channel gamma.
 
 ### Phase 7 — player features
@@ -244,6 +246,7 @@ Phase 2 uniform usage: all three read the shared contract only (`uTime uResoluti
 - [ ] 8.2 Fold log into `CHANGELOG.md`, bump version, delete `docs/BUILD_STATUS.md`, final commit.
 
 ## Log (newest first; one line per commit)
+- 6.6: ExportCodec (H.264/HEVC) with MediaCodecList check and H.264 fallback in VideoExporter, LoopRender and StudioExporter; codec in export defaults, settings tab and export dialog
 - 6.5: editor/Subtitles (SRT parse/write, lyric and lane conversions), TimedTextOverlay per media item, Lyrics → captions / Import SRT / Export SRT in the toolbar
 - 6.4: ClipTransition on clips, ProjectComposition (media lane + audio lane), GlTransitionEffect/TransitionCaptureEffect, SpeedRamp, KeyframedGrade/Rotation, composition path in StudioExporter, Render cut + Transition… in the timeline editor
 - Debug pass: first full build with the NDK on disk. Restored `dev.geode.util.bestEffort` (deleted with `engine/gl` in 4.9, still imported by ten files), fixed the four native compile errors (`AMEDIAFORMAT_KEY_PCM_ENCODING` is API 28, `geode_dsp` is not movable, explicit `UniformCache` ctor in `std::array{}`, projectM deleter signature), the Studio Kotlin errors (`snap` import, `markersFrom` argument, duplicate import), ktlint/detekt findings; CI checks out submodules.

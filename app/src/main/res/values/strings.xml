@@ -456,6 +456,9 @@
     <string name="export_platform_preset">Platform preset</string>
     <string name="export_quality">Quality</string>
     <string name="export_frame_rate">Frame rate</string>
+    <string name="export_codec">Video codec</string>
+    <string name="export_codec_explainer">HEVC (H.265) makes files about a third smaller at the same quality. If a device cannot encode it, the render falls back to H.264 on its own.</string>
+    <string name="export_codec_no_hevc">This device has no HEVC encoder; renders will use H.264 whichever is chosen.</string>
     <string name="export_aspect_ratio">Aspect ratio</string>
     <string name="export_fps_30">30 fps</string>
     <string name="export_fps_60">60 fps</string>

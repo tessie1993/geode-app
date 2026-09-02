@@ -53,6 +53,7 @@ class StudioExporter(
         sourceDurationMs: Long,
         edit: ClipEdit,
         displayName: String,
+        codec: ExportCodec = ExportCodec.H264,
         onProgress: (Float) -> Unit,
     ): Result {
         val item =
@@ -69,13 +70,14 @@ class StudioExporter(
                 .apply { edit.speedProvider()?.let { setSpeed(it) } }
                 .build()
         val composition = Composition.Builder(EditedMediaItemSequence.Builder().addItem(edited).build()).build()
-        return exportComposition(composition, edit.outputMs(sourceDurationMs), displayName, onProgress)
+        return exportComposition(composition, edit.outputMs(sourceDurationMs), displayName, codec, onProgress)
     }
 
     suspend fun exportComposition(
         composition: Composition,
         outputDurationMs: Long,
         displayName: String,
+        codec: ExportCodec = ExportCodec.H264,
         onProgress: (Float) -> Unit,
     ): Result {
         cancelled = false
@@ -83,7 +85,7 @@ class StudioExporter(
         try {
             val outcome =
                 withContext(Dispatchers.Main) {
-                    runTransformer(composition, scratch, outputDurationMs, onProgress)
+                    runTransformer(composition, scratch, outputDurationMs, codec.available(), onProgress)
                 }
             if (outcome != null) return outcome
             if (cancelled) return Result.Cancelled
@@ -101,12 +103,14 @@ class StudioExporter(
         composition: Composition,
         output: File,
         outputDurationMs: Long,
+        codec: ExportCodec,
         onProgress: (Float) -> Unit,
     ): Result? =
         suspendCancellableCoroutine { continuation ->
             val built =
                 Transformer
                     .Builder(context)
+                    .setVideoMimeType(codec.mimeType)
                     .addListener(
                         object : Transformer.Listener {
                             override fun onCompleted(

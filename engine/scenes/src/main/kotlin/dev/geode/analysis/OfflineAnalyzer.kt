@@ -5,10 +5,7 @@ import android.media.MediaCodec
 import android.media.MediaExtractor
 import android.media.MediaFormat
 import android.net.Uri
-import dev.geode.engine.audio.Chromagram
-import dev.geode.engine.audio.KeyDetector
 import dev.geode.engine.audio.ReactiveAnalyzer
-import dev.geode.engine.audio.StereoField
 import dev.geode.util.bestEffort
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -45,8 +42,8 @@ class OfflineAnalyzer(
         stillWanted: () -> Boolean = { true },
     ): FeatureTimeline {
         dev.geode.audio.AiffPcm.open(context, uri)?.let { aiff ->
+            val pipeline = StreamingPipeline(beatSensitivity, beatMinIntervalMs)
             try {
-                val pipeline = StreamingPipeline(beatSensitivity, beatMinIntervalMs)
                 val buf = ShortArray(16384)
                 var last = 0f
                 while (true) {
@@ -61,6 +58,7 @@ class OfflineAnalyzer(
                 }
                 return pipeline.finish()
             } finally {
+                pipeline.close()
                 aiff.close()
             }
         }
@@ -141,18 +139,13 @@ class OfflineAnalyzer(
             extractor.release()
         }
         onProgress(1f)
-        return pipeline.finish()
+        return pipeline.use { it.finish() }
     }
 
     internal class StreamingPipeline(
         sigma: Float,
         minIntervalMs: Float,
-    ) {
-        private val keyDetector = KeyDetector()
-
-        private val chroma = Chromagram(hopRateHz = HOP_RATE_HZ)
-        private var stereo = StereoField.MONO
-
+    ) : AutoCloseable {
         private val analyzer =
             ReactiveAnalyzer(
                 bandCount = AnalysisEngine.DEFAULT_BAND_COUNT,
@@ -164,17 +157,9 @@ class OfflineAnalyzer(
                 it.attackSeconds = BeatTuning.envelopeSeconds(AnalysisEngine.DEFAULT_ATTACK)
                 it.releaseSeconds = BeatTuning.envelopeSeconds(AnalysisEngine.DEFAULT_DECAY)
             }
-        private val fftSize = AnalysisEngine.DEFAULT_FFT_SIZE
-        private val window = FloatArray(fftSize)
-        private val sideWindow = FloatArray(fftSize)
-        private val chromaMagnitudes = FloatArray(fftSize / 2)
-        private val waveform = FloatArray(128)
-        private val dtSeconds = 1f / HOP_RATE_HZ
 
         private val frames = FrameAccumulator()
-        private var buffer = FloatArray(AnalysisEngine.DEFAULT_FFT_SIZE * 4)
-        private var sideBuffer = FloatArray(AnalysisEngine.DEFAULT_FFT_SIZE * 4)
-        private var buffered = 0
+        private var scratch = FloatArray(AnalysisEngine.DEFAULT_FFT_SIZE * 4)
         private var sampleRate = 44100
         private var hopSamples = sampleRate / 60
 
@@ -186,24 +171,11 @@ class OfflineAnalyzer(
             sampleRateHz: Int,
         ) {
             if (channels <= 0 || sampleRateHz <= 0) return
-            if (sampleRateHz != sampleRate) {
-                sampleRate = sampleRateHz
-                hopSamples = (sampleRate / 60).coerceAtLeast(1)
-            }
-            val frameCount = pcm.remaining() / channels
-            if (buffered + frameCount > buffer.size) {
-                buffer = buffer.copyOf((buffered + frameCount).coerceAtLeast(buffer.size * 2))
-                sideBuffer = sideBuffer.copyOf(buffer.size)
-            }
-            var s = 0
-            for (f in 0 until frameCount) {
-                val left = pcm.get(s) / 32768f
-                val right = if (channels >= 2) pcm.get(s + 1) / 32768f else left
-                buffer[buffered + f] = (left + right) * 0.5f
-                sideBuffer[buffered + f] = (left - right) * 0.5f
-                s += channels
-            }
-            buffered += frameCount
+            adoptSampleRate(sampleRateHz)
+            val n = pcm.remaining()
+            if (scratch.size < n) scratch = FloatArray(n.coerceAtLeast(scratch.size * 2))
+            for (i in 0 until n) scratch[i] = pcm.get(pcm.position() + i) / 32768f
+            analyzer.push(scratch, n / channels, channels)
             drain()
         }
 
@@ -213,56 +185,34 @@ class OfflineAnalyzer(
             sampleRateHz: Int,
         ) {
             if (channels <= 0 || sampleRateHz <= 0) return
+            adoptSampleRate(sampleRateHz)
+            val n = pcm.remaining()
+            if (scratch.size < n) scratch = FloatArray(n.coerceAtLeast(scratch.size * 2))
+            pcm.duplicate().get(scratch, 0, n)
+            analyzer.push(scratch, n / channels, channels)
+            drain()
+        }
+
+        private fun adoptSampleRate(sampleRateHz: Int) {
             if (sampleRateHz != sampleRate) {
                 sampleRate = sampleRateHz
                 hopSamples = (sampleRate / 60).coerceAtLeast(1)
             }
-            val frameCount = pcm.remaining() / channels
-            if (buffered + frameCount > buffer.size) {
-                buffer = buffer.copyOf((buffered + frameCount).coerceAtLeast(buffer.size * 2))
-                sideBuffer = sideBuffer.copyOf(buffer.size)
-            }
-            var s = 0
-            for (f in 0 until frameCount) {
-                val left = pcm.get(s)
-                val right = if (channels >= 2) pcm.get(s + 1) else left
-                buffer[buffered + f] = (left + right) * 0.5f
-                sideBuffer[buffered + f] = (left - right) * 0.5f
-                s += channels
-            }
-            buffered += frameCount
-            drain()
+            analyzer.sampleRateHz = sampleRate
         }
 
         private fun drain() {
-            var start = 0
-            while (start + fftSize <= buffered) {
-                System.arraycopy(buffer, start, window, 0, fftSize)
-                System.arraycopy(sideBuffer, start, sideWindow, 0, fftSize)
-                analyzer.sampleRateHz = sampleRate
-                analyzer.analyze(window, dtSeconds)
-                analyzer.spectrumInto(chromaMagnitudes)
-                keyDetector.accumulate(chromaMagnitudes, sampleRate, fftSize)
-                chroma.step(chromaMagnitudes, sampleRate, fftSize)
-                stereo = StereoField.of(window, sideWindow)
-                val step = fftSize / waveform.size
-                for (i in waveform.indices) waveform[i] = window[i * step]
+            while (analyzer.pull()) {
                 val timeMs = absSample * 1000L / sampleRate
                 frames.add(TimelineFrame(timeMs, snapshot()))
                 absSample += hopSamples
-                start += hopSamples
-            }
-            if (start > 0) {
-                System.arraycopy(buffer, start, buffer, 0, buffered - start)
-                System.arraycopy(sideBuffer, start, sideBuffer, 0, buffered - start)
-                buffered -= start
             }
         }
 
         private fun snapshot(): AudioFeatures =
             AudioFeatures(
                 bands = analyzer.bands.copyOf(),
-                waveform = waveform.copyOf(),
+                waveform = analyzer.waveform.copyOf(),
                 rms = analyzer.rms,
                 bass = analyzer.bass,
                 mid = analyzer.mid,
@@ -280,11 +230,11 @@ class OfflineAnalyzer(
                 kick = analyzer.kick,
                 snare = analyzer.snare,
                 hat = analyzer.hat,
-                chroma = chroma.bins.copyOf(),
-                chromaConfidence = chroma.confidence,
-                stereoWidth = stereo.width,
-                stereoCorrelation = stereo.correlation,
-                stereoPan = stereo.pan,
+                chroma = analyzer.chroma.copyOf(),
+                chromaConfidence = analyzer.chromaConfidence,
+                stereoWidth = analyzer.stereoWidth,
+                stereoCorrelation = analyzer.stereoCorrelation,
+                stereoPan = analyzer.stereoPan,
             )
 
         fun finish(): FeatureTimeline {
@@ -293,9 +243,13 @@ class OfflineAnalyzer(
             return FeatureTimeline(
                 out,
                 hopMs = group * 1000L / 60,
-                key = keyDetector.finish(),
+                key = analyzer.key(),
                 hopRateHz = HOP_RATE_HZ / group,
             )
+        }
+
+        override fun close() {
+            analyzer.close()
         }
 
         private companion object {

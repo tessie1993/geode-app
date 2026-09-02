@@ -1,7 +1,6 @@
 package dev.geode.render
 
 import android.content.Context
-import android.opengl.GLES30
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -13,10 +12,6 @@ import org.json.JSONObject
  */
 object TransitionCatalog {
     private const val ASSET = "gl_transitions.json"
-
-    private const val SOURCE_MARKER = "// __GL_TRANSITION_SOURCE__"
-
-    const val STYLE_LIBRARY: Int = 5
 
     data class Param(
         val name: String,
@@ -77,48 +72,6 @@ object TransitionCatalog {
     }
 
     fun builtIn(id: String): TransitionStyle? = BUILT_IN_BY_ID[id]
-
-    fun spliceInto(
-        base: String,
-        def: Def,
-    ): String {
-        val versionEnd = base.indexOf('\n') + 1
-        val withDefine = base.substring(0, versionEnd) + "#define MV_TRANSITION 1\n" + base.substring(versionEnd)
-        return withDefine.replace(SOURCE_MARKER, def.glsl)
-    }
-
-    fun uploadParams(
-        program: Int,
-        def: Def,
-    ) {
-        for (p in def.params) {
-            val loc = GLES30.glGetUniformLocation(program, p.name)
-            if (loc < 0) continue
-            val v = p.values
-            when (p.type) {
-                "float" -> GLES30.glUniform1f(loc, v.getOrElse(0) { 0f })
-                "int", "bool" -> GLES30.glUniform1i(loc, v.getOrElse(0) { 0f }.toInt())
-                "vec2" -> GLES30.glUniform2f(loc, v.getOrElse(0) { 0f }, v.getOrElse(1) { 0f })
-                "vec3" -> GLES30.glUniform3f(loc, v.getOrElse(0) { 0f }, v.getOrElse(1) { 0f }, v.getOrElse(2) { 0f })
-                "vec4" ->
-                    GLES30.glUniform4f(
-                        loc,
-                        v.getOrElse(0) { 0f },
-                        v.getOrElse(1) { 0f },
-                        v.getOrElse(2) { 0f },
-                        v.getOrElse(3) { 0f },
-                    )
-                "ivec2" -> GLES30.glUniform2i(loc, v.getOrElse(0) { 0f }.toInt(), v.getOrElse(1) { 0f }.toInt())
-                "ivec3" ->
-                    GLES30.glUniform3i(
-                        loc,
-                        v.getOrElse(0) { 0f }.toInt(),
-                        v.getOrElse(1) { 0f }.toInt(),
-                        v.getOrElse(2) { 0f }.toInt(),
-                    )
-            }
-        }
-    }
 
     private fun parseDef(o: JSONObject): Def {
         val types = o.optJSONObject("paramsTypes")

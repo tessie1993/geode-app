@@ -132,6 +132,17 @@ class LibraryViewModel
             comment: String,
         ) = session.saveTrackInfo(uri, title, artist, album, genre, year, trackNo, comment)
 
+        suspend fun writeTrackInfo(
+            uri: String,
+            title: String,
+            artist: String,
+            album: String,
+            genre: String,
+            year: Int,
+            trackNo: Int,
+            comment: String,
+        ): Boolean = session.writeTrackInfo(uri, title, artist, album, genre, year, trackNo, comment)
+
         fun createMusicPlaylist(name: String) = session.createMusicPlaylist(name)
 
         fun renameMusicPlaylist(

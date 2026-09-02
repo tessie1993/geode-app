@@ -104,7 +104,9 @@
     <string name="track_info_field_year">Year</string>
     <string name="track_info_field_track_no">Track #</string>
     <string name="track_info_field_comment">Comment / info</string>
-    <string name="track_info_note">Edits are stored in the app only — audio files are not modified.</string>
+    <string name="track_info_note">Edits are stored in the app; the audio file itself changes only with the switch on.</string>
+    <string name="track_info_write_file">Write tags into the audio file</string>
+    <string name="track_info_write_failed">The file could not be written. Turn the switch off to keep the edit in the app only.</string>
 
     <!-- Settings › About. -->
     <string name="about_group">About</string>
@@ -359,6 +361,22 @@
     <string name="playback_sleep_finish_track">Let the track finish</string>
     <string name="playback_sleep_pausing_after_track">Pausing after the track playing in %1$s</string>
     <string name="playback_sleep_pausing_in">Pausing in %1$s</string>
+    <string name="playback_replaygain">ReplayGain</string>
+    <string name="playback_replaygain_off">Off</string>
+    <string name="playback_replaygain_track">Track</string>
+    <string name="playback_replaygain_album">Album</string>
+    <string name="playback_replaygain_preamp">"Preamp  %1$s dB"</string>
+    <string name="playback_replaygain_clip_guard">Prevent clipping</string>
+    <string name="playback_native_engine">Native audio engine</string>
+    <string name="playback_native_engine_explainer">Decodes and mixes inside the engine, with gapless joins and crossfades. Takes effect the next time playback starts after the app has been closed.</string>
+    <string name="playback_gapless">Gapless playback</string>
+    <string name="playback_crossfade_off">Crossfade — off</string>
+    <string name="playback_crossfade">"Crossfade  %1$ss"</string>
+    <string name="playback_crossfade_curve">Crossfade curve</string>
+    <string name="playback_crossfade_linear">Linear</string>
+    <string name="playback_crossfade_equal_power">Equal power</string>
+    <string name="playback_crossfade_smooth">Smooth</string>
+    <string name="playback_replaygain_explainer">Evens out loudness between tracks from the ReplayGain tags in each file. Files without the tags play at their own level.</string>
 
     <!-- Settings › Audio › Equalizer. -->
     <string name="eq_title">Equalizer</string>
@@ -370,6 +388,12 @@
     <string name="eq_band">"%1$s  %2$s"</string>
     <string name="eq_bass_boost">"Bass boost  %1$d%%"</string>
     <string name="eq_loudness">"Loudness  %1$s"</string>
+    <string name="eq_preset_flat">Flat</string>
+    <string name="eq_preset_bass">Bass</string>
+    <string name="eq_preset_treble">Treble</string>
+    <string name="eq_preset_vocal">Vocal</string>
+    <string name="eq_preset_rock">Rock</string>
+    <string name="eq_preset_electronic">Electronic</string>
 
     <!-- Settings › Folders. -->
     <string name="folders_group_preset">Preset folder</string>
@@ -555,6 +579,85 @@
     <string name="autoviz_wait_strong_hint">The same timing Random\'s \"strong beat\" uses, applied to the playlist order: the next look still comes next, it just waits for a moment worth arriving on.</string>
 
     <!-- Studio clip preview. -->
+    <!-- Timeline editor. -->
+    <string name="editor_open">Timeline</string>
+    <string name="editor_playhead">"Playhead  %1$s"</string>
+    <string name="editor_undo">Undo</string>
+    <string name="editor_redo">Redo</string>
+    <string name="editor_zoom_in">Zoom +</string>
+    <string name="editor_zoom_out">Zoom −</string>
+    <string name="editor_add_lane">+ %1$s lane</string>
+    <string name="editor_lane_visual">Visual</string>
+    <string name="editor_lane_media">Media</string>
+    <string name="editor_lane_text">Text</string>
+    <string name="editor_lane_overlay">Overlay</string>
+    <string name="editor_lane_audio">Audio</string>
+    <string name="editor_add_marker">Marker here</string>
+    <string name="editor_tap_in">Tap in</string>
+    <string name="editor_tap">Tap</string>
+    <string name="editor_tap_count">%1$d taps</string>
+    <string name="editor_tap_undo">Undo tap</string>
+    <string name="editor_tap_done">Keep taps</string>
+    <string name="editor_auto_cut">Auto-cut</string>
+    <string name="editor_split">Split at playhead</string>
+    <string name="editor_delete">Delete</string>
+    <string name="editor_ripple_delete">Ripple delete</string>
+    <string name="editor_duplicate">Duplicate</string>
+    <string name="editor_enable">Enable</string>
+    <string name="editor_disable">Disable</string>
+    <string name="editor_delete_marker">Delete marker</string>
+    <string name="editor_delete_key">Delete key</string>
+    <string name="editor_markers">Markers</string>
+    <string name="editor_mute_short">M</string>
+    <string name="editor_lock_short">L</string>
+    <string name="editor_add_short">+</string>
+    <string name="editor_add_video">Video…</string>
+    <string name="editor_add_still">Still image…</string>
+    <string name="editor_text_title">Text clip</string>
+    <string name="editor_empty">Add a lane to start. Tap a clip to select it, double-tap to split, drag its body to move and its ends to trim; tap the ruler to move the playhead.</string>
+    <string name="editor_err_not_found">That clip is no longer there.</string>
+    <string name="editor_err_locked">The lane is locked.</string>
+    <string name="editor_err_wrong_lane">That kind of clip cannot live on this lane.</string>
+    <string name="editor_err_overlaps">It would overlap another clip.</string>
+    <string name="editor_err_needs_split">Split the clip underneath first.</string>
+    <string name="editor_err_too_short">Too short to keep.</string>
+    <string name="editor_err_outside_clip">The playhead is not inside the clip.</string>
+    <string name="curve_animate_scene">Animate scene…</string>
+    <string name="curve_animate_clip">Animate clip…</string>
+    <string name="curve_add_track">Animate</string>
+    <string name="curve_key_at">"%1$s  ·  key at %2$s"</string>
+    <string name="curve_value">"Value  %1$s"</string>
+    <string name="curve_toggle">On</string>
+    <string name="curve_hold">Hold</string>
+    <string name="curve_linear">Linear</string>
+    <string name="curve_ease_in">Ease in</string>
+    <string name="curve_ease_out">Ease out</string>
+    <string name="curve_ease_in_out">Ease in-out</string>
+    <string name="curve_smooth">Smooth</string>
+    <string name="curve_custom">Custom</string>
+    <string name="curve_unknown_param">Parameter</string>
+    <string name="autocut_title">Auto-cut</string>
+    <string name="autocut_source">Cut on</string>
+    <string name="autocut_source_transient">Transients</string>
+    <string name="autocut_source_flux">Spectral flux</string>
+    <string name="autocut_source_onset">Onsets</string>
+    <string name="autocut_source_kick">Kick</string>
+    <string name="autocut_source_snare">Snare</string>
+    <string name="autocut_source_hat">Hat</string>
+    <string name="autocut_sensitivity">"Sensitivity  %1$d%%"</string>
+    <string name="autocut_spacing">"Minimum spacing  %1$d ms"</string>
+    <string name="autocut_detect">Detect</string>
+    <string name="autocut_as_markers">Add as markers</string>
+    <string name="autocut_as_clips">Cut the visual lane</string>
+    <string name="autocut_no_analysis">Analyse the current track first — auto-cut reads the hits from its analysis.</string>
+    <string name="autocut_miss_empty">The analysis has no frames.</string>
+    <string name="autocut_miss_none">No hits stood out — sensitivity only lowers the bar, it cannot invent them.</string>
+    <string name="autocut_miss_window">The chosen window is too short.</string>
+    <string name="autocut_explainer">Cuts follow the hits the player actually played, not a tempo grid. Suggestions become ordinary markers or clips you can drag, trim and delete.</string>
+    <plurals name="autocut_found">
+        <item quantity="one">%1$d cut found</item>
+        <item quantity="other">%1$d cuts found</item>
+    </plurals>
     <string name="studio_preview_hint">Loops your cut, muted — grade, speed and reframe show as they will render. Tap to pause.</string>
     <string name="studio_preview_toggle">Play or pause the preview</string>
 

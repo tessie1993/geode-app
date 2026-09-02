@@ -6,15 +6,15 @@
 # cannot see from bytecode alone.
 
 # ---------------------------------------------------------------------------
-# JNI bridge to libmilkdropjni.so
+# JNI bridge to libgeode.so
 # ---------------------------------------------------------------------------
-# milkdrop_jni.c uses static symbol registration
-# (Java_dev_geode_render_scene_MilkdropEngine_nativeCreate, ...), so both the
-# class name and the method names have to survive minification exactly.
--keepclasseswithmembernames,includedescriptorclasses class dev.geode.render.scene.MilkdropEngine {
+# geode_jni.cpp and geode_viz_jni.cpp use static symbol registration
+# (Java_dev_geode_engine_bridge_GeodeNative_*), so both the class name and the
+# method names have to survive minification exactly.
+-keepclasseswithmembernames,includedescriptorclasses class dev.geode.engine.bridge.GeodeNative {
     native <methods>;
 }
--keep class dev.geode.render.scene.MilkdropEngine { *; }
+-keep class dev.geode.engine.bridge.GeodeNative { *; }
 
 # Belt and braces for anything else that grows a native method later.
 -keepclasseswithmembernames,includedescriptorclasses class * {
@@ -37,15 +37,6 @@
 -keepclassmembers class kotlinx.coroutines.** {
     volatile <fields>;
 }
-
-# ---------------------------------------------------------------------------
-# JTransforms
-# ---------------------------------------------------------------------------
-# Pulls in optional Apache Commons Math / large-array helpers that are not on
-# the Android classpath; the FFT paths Geode uses do not need them.
--dontwarn org.jtransforms.**
--dontwarn pl.edu.icm.**
--dontwarn org.apache.commons.math3.**
 
 # ---------------------------------------------------------------------------
 # Crash reports

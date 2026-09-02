@@ -4,6 +4,8 @@ import android.app.Application
 import android.net.Uri
 import dev.geode.analysis.FeatureTimeline
 import dev.geode.data.PerformanceTake
+import dev.geode.editor.AnimatableParams
+import dev.geode.editor.KeyframeSheet
 import dev.geode.export.ExportAspect
 import dev.geode.export.ExportRange
 import dev.geode.export.ExportRun
@@ -65,6 +67,9 @@ internal class ExportController(
         fun lfoConfigs(): List<dev.geode.render.LfoConfig>
 
         fun adsrConfigs(): List<dev.geode.render.AdsrConfig>
+
+        /** The open editor project's tracks; programme-level scene tracks animate the export. */
+        fun keyframes(): KeyframeSheet
 
         suspend fun loadExportTake(): PerformanceTake.Timeline?
 
@@ -141,6 +146,19 @@ internal class ExportController(
                     host.publishSections(uri, t)
                     val name = "geode_${System.currentTimeMillis()}.mp4"
                     val exportTake = host.loadExportTake()
+                    val sheet = host.keyframes()
+                    val animated = sheet.tracks.any { it.enabled && it.clipId == null && AnimatableParams.find(it.paramId)?.isScene == true }
+                    val clipStartMs = range?.startMs ?: 0L
+                    val paramsAt: ((Long) -> SceneParams)? =
+                        if (exportTake == null && !animated) {
+                            null
+                        } else {
+                            { ms: Long ->
+                                val base =
+                                    exportTake?.stateAt(clipStartMs + ms - exportTake.trackOffsetMs)?.params ?: host.sceneParams
+                                if (animated) AnimatableParams.applyToScene(base, sheet.valuesAt(clipStartMs + ms)) else base
+                            }
+                        }
                     val factory =
                         if (exportTake != null && sceneFactoryFor != null) {
                             sceneFactoryFor(exportSceneIdFor(exportTake, host.sceneId))
@@ -159,14 +177,7 @@ internal class ExportController(
                             adsrConfigs = host.adsrConfigs(),
                             reducedMotion = gui.reducedMotion,
                             requestedFps = fps,
-                            paramsAt =
-                                exportTake?.let { take ->
-                                    val clipStartMs = range?.startMs ?: 0L
-                                    { ms: Long ->
-                                        take.stateAt(clipStartMs + ms - take.trackOffsetMs)?.params
-                                            ?: host.sceneParams
-                                    }
-                                },
+                            paramsAt = paramsAt,
                             loopSafe = loopSafe,
                             range = range,
                             destination = destination,

@@ -1,11 +1,8 @@
 package dev.geode.audio
 
 import android.content.SharedPreferences
-import android.media.audiofx.BassBoost
-import android.media.audiofx.Equalizer
-import android.media.audiofx.LoudnessEnhancer
-import android.util.Log
-import dev.geode.util.bestEffort
+import dev.geode.audio.dsp.DspSettings
+import dev.geode.audio.dsp.NativeDspProcessor
 
 data class AudioFxBand(
     val label: String,
@@ -57,186 +54,143 @@ object AudioFxFormat {
             .orEmpty()
 }
 
+/** A named set of band levels in millibels, low band first. */
+data class AudioFxPreset(
+    val name: String,
+    val levelsMb: List<Int>,
+)
+
+/**
+ * Drives the native equalizer chain and remembers its settings.
+ *
+ * The chain lives inside the player's processor list, so it is always "attached"; [attach] is
+ * kept for the audio-session callers and only records the id.
+ */
 class AudioFxController(
     private val prefs: SharedPreferences,
+    private val presets: List<AudioFxPreset>,
+    private val dsp: NativeDspProcessor,
 ) {
-    private var equalizer: Equalizer? = null
-    private var bassBoost: BassBoost? = null
-    private var loudness: LoudnessEnhancer? = null
     private var sessionId: Int = 0
 
-    val available: Boolean
-        get() = equalizer != null
+    val available: Boolean get() = true
 
-    val attached: Boolean
-        get() = sessionId > 0
+    val attached: Boolean get() = true
+
+    init {
+        dsp.update(restored())
+    }
 
     fun attach(sessionId: Int) {
-        if (sessionId == this.sessionId && equalizer != null) return
-        release()
         this.sessionId = sessionId
-        if (sessionId <= 0) return
-        equalizer = runCatching { Equalizer(0, sessionId) }.getOrNull()
-        bassBoost = runCatching { BassBoost(0, sessionId) }.getOrNull()
-        loudness = runCatching { LoudnessEnhancer(sessionId) }.getOrNull()
-        restore()
     }
 
     fun release() {
-        bestEffort(TAG, "equalizer release") { equalizer?.release() }
-        bestEffort(TAG, "bassBoost release") { bassBoost?.release() }
-        bestEffort(TAG, "loudness release") { loudness?.release() }
-        equalizer = null
-        bassBoost = null
-        loudness = null
         sessionId = 0
     }
 
     fun setEnabled(enabled: Boolean) {
         prefs.edit().putBoolean(KEY_ENABLED, enabled).apply()
-        applyEnabled(enabled)
+        dsp.update(dsp.settings.copy(enabled = enabled))
     }
 
-    val bandCount: Int
-        get() = equalizer?.let { eq -> runCatching { eq.numberOfBands.toInt() }.getOrNull() } ?: 0
+    val bandCount: Int get() = NativeDspProcessor.BANDS
 
-    fun bandRange(band: Int): Pair<Int, Int> =
-        equalizer
-            ?.let { eq -> runCatching { eq.bandLevelRange.let { it[0].toInt() to it[1].toInt() } }.getOrNull() }
-            ?: (-1500 to 1500)
+    fun bandRange(band: Int): Pair<Int, Int> {
+        require(band in 0 until bandCount) { "band $band" }
+        return NativeDspProcessor.MIN_MB to NativeDspProcessor.MAX_MB
+    }
 
     fun setBandLevel(
         band: Int,
         mB: Int,
     ): Boolean {
-        val eq = equalizer ?: return false
+        if (band !in 0 until bandCount) return false
         val (lo, hi) = bandRange(band)
-        val applied =
-            runCatching { eq.setBandLevel(band.toShort(), mB.coerceIn(lo, hi).toShort()) }
-                .onFailure { Log.w(TAG, "setBandLevel($band) failed", it) }
-                .isSuccess
-        if (applied) {
-            prefs
-                .edit()
-                .putInt(KEY_PRESET, -1)
-                .putString(KEY_BANDS, AudioFxFormat.encodeBandLevels(currentBandLevels()))
-                .apply()
-        }
-        return applied
+        val levels = dsp.settings.bandsMb.toMutableList()
+        levels[band] = mB.coerceIn(lo, hi)
+        dsp.update(dsp.settings.copy(bandsMb = levels))
+        prefs
+            .edit()
+            .putInt(KEY_PRESET, -1)
+            .putString(KEY_BANDS, AudioFxFormat.encodeBandLevels(levels))
+            .apply()
+        return true
     }
 
-    val presetNames: List<String>
-        get() =
-            equalizer
-                ?.let { eq ->
-                    runCatching {
-                        (0 until eq.numberOfPresets.toInt()).map { eq.getPresetName(it.toShort()) }
-                    }.getOrNull()
-                }.orEmpty()
+    val presetNames: List<String> get() = presets.map { it.name }
 
     fun usePreset(i: Int): Boolean {
-        val eq = equalizer
-        if (eq == null || i !in presetNames.indices) return false
-        val applied =
-            runCatching { eq.usePreset(i.toShort()) }
-                .onFailure { Log.w(TAG, "usePreset($i) failed", it) }
-                .isSuccess
-        if (applied) {
-            prefs
-                .edit()
-                .putInt(KEY_PRESET, i)
-                .putString(KEY_BANDS, AudioFxFormat.encodeBandLevels(currentBandLevels()))
-                .apply()
-        }
-        return applied
+        val preset = presets.getOrNull(i) ?: return false
+        dsp.update(dsp.settings.copy(bandsMb = preset.levelsMb))
+        prefs
+            .edit()
+            .putInt(KEY_PRESET, i)
+            .putString(KEY_BANDS, AudioFxFormat.encodeBandLevels(preset.levelsMb))
+            .apply()
+        return true
     }
 
     fun setBassBoost(strength: Int): Boolean {
         val s = strength.coerceIn(0, 1000)
-        val applied =
-            runCatching { bassBoost?.setStrength(s.toShort()) }
-                .onFailure { Log.w(TAG, "setBassBoost failed", it) }
-                .isSuccess
-        if (applied) prefs.edit().putInt(KEY_BASS, s).apply()
-        return applied
+        dsp.update(dsp.settings.copy(bassBoost = s))
+        prefs.edit().putInt(KEY_BASS, s).apply()
+        return true
     }
 
     fun setLoudness(mB: Int): Boolean {
         val g = mB.coerceIn(0, 1000)
-        val applied =
-            runCatching { loudness?.setTargetGain(g) }
-                .onFailure { Log.w(TAG, "setLoudness failed", it) }
-                .isSuccess
-        if (applied) prefs.edit().putInt(KEY_LOUDNESS, g).apply()
-        return applied
+        dsp.update(dsp.settings.copy(loudnessMb = g))
+        prefs.edit().putInt(KEY_LOUDNESS, g).apply()
+        return true
     }
+
+    /** The ReplayGain / preamp stage, in decibels; owned by playback, not by the equalizer settings. */
+    fun setGainDb(db: Float) = dsp.update(dsp.settings.copy(gainDb = db))
+
+    fun setCrossfeed(enabled: Boolean) = dsp.update(dsp.settings.copy(crossfeed = enabled))
+
+    fun setLimiter(enabled: Boolean) = dsp.update(dsp.settings.copy(limiter = enabled))
 
     fun snapshot(): AudioFxState {
-        val base =
-            AudioFxState(
-                available = available,
-                attached = attached,
-                bassAvailable = bassBoost != null,
-                loudnessAvailable = loudness != null,
-                enabled = prefs.getBoolean(KEY_ENABLED, false),
-                presetIndex = prefs.getInt(KEY_PRESET, -1),
-                bassBoost = prefs.getInt(KEY_BASS, 0),
-                loudness = prefs.getInt(KEY_LOUDNESS, 0),
-            )
-        val eq = equalizer ?: return base
-        val bands =
-            runCatching {
-                val range = eq.bandLevelRange
-                (0 until eq.numberOfBands.toInt()).map { b ->
+        val s = dsp.settings
+        val (lo, hi) = NativeDspProcessor.MIN_MB to NativeDspProcessor.MAX_MB
+        return AudioFxState(
+            available = true,
+            attached = true,
+            bassAvailable = true,
+            loudnessAvailable = true,
+            enabled = s.enabled,
+            bands =
+                s.bandsMb.mapIndexed { band, mb ->
                     AudioFxBand(
-                        label = AudioFxFormat.freqLabel(eq.getCenterFreq(b.toShort())),
-                        levelMb = eq.getBandLevel(b.toShort()).toInt(),
-                        minMb = range[0].toInt(),
-                        maxMb = range[1].toInt(),
+                        label = AudioFxFormat.freqLabel(NativeDspProcessor.bandCenterMilliHz(band)),
+                        levelMb = mb,
+                        minMb = lo,
+                        maxMb = hi,
                     )
-                }
-            }.getOrDefault(emptyList())
-        return base.copy(bands = bands, presets = presetNames)
+                },
+            presets = presetNames,
+            presetIndex = prefs.getInt(KEY_PRESET, -1),
+            bassBoost = s.bassBoost,
+            loudness = s.loudnessMb,
+        )
     }
 
-    private fun currentBandLevels(): List<Int> =
-        equalizer
-            ?.let { eq ->
-                runCatching {
-                    (0 until eq.numberOfBands.toInt()).map { eq.getBandLevel(it.toShort()).toInt() }
-                }.getOrNull()
-            }.orEmpty()
-
-    private fun restore() {
-        val eq = equalizer
-        if (eq != null) {
-            val preset = prefs.getInt(KEY_PRESET, -1)
-            val presetApplied = preset >= 0 && runCatching { eq.usePreset(preset.toShort()) }.isSuccess
-            if (!presetApplied) {
-                val levels = AudioFxFormat.decodeBandLevels(prefs.getString(KEY_BANDS, null))
-                levels.forEachIndexed { band, mb ->
-                    if (band < bandCount) {
-                        val (lo, hi) = bandRange(band)
-                        bestEffort(TAG, "restore band $band") {
-                            eq.setBandLevel(band.toShort(), mb.coerceIn(lo, hi).toShort())
-                        }
-                    }
-                }
+    private fun restored(): DspSettings {
+        val preset = prefs.getInt(KEY_PRESET, -1)
+        val fromPreset = presets.getOrNull(preset)?.levelsMb
+        val stored = AudioFxFormat.decodeBandLevels(prefs.getString(KEY_BANDS, null))
+        val levels =
+            List(bandCount) { band ->
+                (fromPreset?.getOrNull(band) ?: stored.getOrNull(band) ?: 0).coerceIn(NativeDspProcessor.MIN_MB, NativeDspProcessor.MAX_MB)
             }
-        }
-        bestEffort(TAG, "restore bassBoost") {
-            bassBoost?.setStrength(prefs.getInt(KEY_BASS, 0).coerceIn(0, 1000).toShort())
-        }
-        bestEffort(TAG, "restore loudness") {
-            loudness?.setTargetGain(prefs.getInt(KEY_LOUDNESS, 0).coerceIn(0, 1000))
-        }
-        applyEnabled(prefs.getBoolean(KEY_ENABLED, false))
-    }
-
-    private fun applyEnabled(enabled: Boolean) {
-        bestEffort(TAG, "equalizer enabled=$enabled") { equalizer?.enabled = enabled }
-        bestEffort(TAG, "bassBoost enabled=$enabled") { bassBoost?.enabled = enabled }
-        bestEffort(TAG, "loudness enabled=$enabled") { loudness?.enabled = enabled }
+        return dsp.settings.copy(
+            enabled = prefs.getBoolean(KEY_ENABLED, false),
+            bandsMb = levels,
+            bassBoost = prefs.getInt(KEY_BASS, 0).coerceIn(0, 1000),
+            loudnessMb = prefs.getInt(KEY_LOUDNESS, 0).coerceIn(0, 1000),
+        )
     }
 
     private companion object {
@@ -247,5 +201,3 @@ class AudioFxController(
         const val KEY_LOUDNESS = "loudness"
     }
 }
-
-private const val TAG = "AudioFxController"

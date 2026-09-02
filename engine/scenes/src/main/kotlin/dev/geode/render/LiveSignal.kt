@@ -17,7 +17,7 @@ import kotlin.math.abs
  */
 object LiveSignal {
     /**
-     * Below this a transient is noise floor rather than a hit. [dev.geode.engine.audio.OnsetPeakPicker]
+     * Below this a transient is noise floor rather than a hit. The native onset picker
      * already applies its own refractory window, so this is only a magnitude gate.
      */
     const val HIT_FLOOR: Float = 0.06f

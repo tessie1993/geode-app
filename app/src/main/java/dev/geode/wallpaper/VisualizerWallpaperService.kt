@@ -271,8 +271,9 @@ class VisualizerWallpaperService : WallpaperService() {
          * quality bar wants from a wallpaper.
          *
          * The reduced rate is the right end state, but it cannot be switched on from here alone:
-         * `FluidSceneBase.autoQualityTick` reads GPU pressure off the achieved frame rate through
-         * `PerformanceMonitor(targetFps = 50f)`, an inference that only holds while the renderer
+         * the native fluid quality ladder (`FluidSceneBase::autoQualityTick` in `core/viz/scenes`)
+         * reads GPU pressure off the achieved frame rate through its `PerformanceMonitor`
+         * (target 50 fps), an inference that only holds while the renderer
          * free-runs. Ask for 30 and every fluid scene on the wallpaper reads its own cap as a
          * device that cannot keep up and downgrades itself two quality tiers within three
          * seconds. Teaching that monitor the difference between "capped" and "struggling" comes

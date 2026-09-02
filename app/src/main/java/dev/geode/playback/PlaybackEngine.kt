@@ -8,9 +8,12 @@ import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import dev.geode.audio.AudioFxController
+import dev.geode.audio.AudioFxPresets
+import dev.geode.audio.dsp.NativeDspProcessor
 import dev.geode.audio.PcmRingBuffer
 import dev.geode.audio.TapRenderersFactory
 import dev.geode.data.GeodePrefsFiles
+import dev.geode.data.PlayerPrefsStore
 import dev.geode.engine.audio.AudioPresentationClock
 import dev.geode.engine.audio.PcmSink
 import dev.geode.engine.audio.SampleRing
@@ -60,34 +63,49 @@ class PlaybackSession internal constructor(
                 }
         }
 
+    internal val dsp = NativeDspProcessor()
+
+    private val prefsFiles = GeodePrefsFiles(context)
+
+    /** Read once here: the engine choice is fixed for the life of the session. */
+    val nativeEngine: Boolean = PlayerPrefsStore(prefsFiles.player).load().nativeEngine
+
     // WAKE_MODE_LOCAL takes a partial wake lock while playback is active, so the CPU
     // cannot doze mid-track with the screen off. Not the WIFI variant: nothing streams.
-    val player: ExoPlayer =
-        ExoPlayer
-            .Builder(context, TapRenderersFactory(context, tap, clockDriver))
-            .setMediaSourceFactory(
-                androidx.media3.exoplayer.source.DefaultMediaSourceFactory(
-                    context,
-                    androidx.media3.extractor.ExtractorsFactory {
-                        androidx.media3.extractor
-                            .DefaultExtractorsFactory()
-                            .createExtractors() +
-                            dev.geode.audio.AiffExtractor()
-                    },
-                ),
-            ).setAudioAttributes(
-                AudioAttributes
-                    .Builder()
-                    .setUsage(C.USAGE_MEDIA)
-                    .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
-                    .build(),
-                true,
-            ).setWakeMode(C.WAKE_MODE_LOCAL)
-            .build()
+    val exoPlayer: ExoPlayer? =
+        if (nativeEngine) {
+            null
+        } else {
+            ExoPlayer
+                .Builder(context, TapRenderersFactory(context, tap, clockDriver, dsp = listOf(dsp)))
+                .setMediaSourceFactory(
+                    androidx.media3.exoplayer.source.DefaultMediaSourceFactory(
+                        context,
+                        androidx.media3.extractor.ExtractorsFactory {
+                            androidx.media3.extractor
+                                .DefaultExtractorsFactory()
+                                .createExtractors() +
+                                dev.geode.audio.AiffExtractor()
+                        },
+                    ),
+                ).setAudioAttributes(
+                    AudioAttributes
+                        .Builder()
+                        .setUsage(C.USAGE_MEDIA)
+                        .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
+                        .build(),
+                    true,
+                ).setWakeMode(C.WAKE_MODE_LOCAL)
+                .build()
+        }
 
-    val audioFx = AudioFxController(GeodePrefsFiles(context).audioFx)
+    val player: Player = exoPlayer ?: NativePlayer(context, NativeTapPump(tap, clockDriver), NativePlayerDsp(dsp))
+
+    val audioFx = AudioFxController(prefsFiles.audioFx, AudioFxPresets.all(context), dsp)
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+
+    val replayGain = ReplayGain(context.contentResolver, scope) { audioFx.setGainDb(it) }
 
     val sleepTimer = SleepTimer(player, scope)
 
@@ -96,6 +114,7 @@ class PlaybackSession internal constructor(
     private val interestHook: () -> Unit = { syncAnalysis() }
 
     init {
+        player.addListener(replayGain)
         dev.geode.audio.AudioBus.onInterestChanged = interestHook
         syncAnalysis()
         scope.launch {
@@ -117,14 +136,16 @@ class PlaybackSession internal constructor(
                 player.playbackState != Player.STATE_ENDED
 
     internal fun release() {
-        analysis.stop()
+        analysis.close()
         if (dev.geode.audio.AudioBus.onInterestChanged === interestHook) {
             dev.geode.audio.AudioBus.onInterestChanged = null
         }
         scope.cancel()
         onAudioFormat = null
         audioFx.release()
+        player.removeListener(replayGain)
         player.release()
+        dsp.release()
     }
 }
 

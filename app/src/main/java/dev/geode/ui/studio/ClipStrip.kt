@@ -162,6 +162,9 @@ private fun DrawScope.drawClip(
     val size = Size(width.coerceAtLeast(2f), this.size.height - top * 2)
     val corner = CornerRadius(6f * density)
     drawRoundRect(fill, Offset(x, top), size, corner)
+    if (clip.transition != null) {
+        drawRect(colors.outline.copy(alpha = 0.6f), Offset(x, top), Size(TRANSITION_BADGE_DP * density, size.height))
+    }
     if (selected) drawRoundRect(colors.outline, Offset(x, top), size, corner, style = Stroke(2f * density))
     val label = clip.label.ifBlank { defaultLabel(clip.content) }
     if (width > 24f * density) {
@@ -224,4 +227,5 @@ private class ClipColors(
 }
 
 private const val EDGE_ZONE_DP = 14f
+private const val TRANSITION_BADGE_DP = 5f
 private val SNAP_DP = 10.dp

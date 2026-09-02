@@ -60,6 +60,10 @@ class StudioViewModel
             onReady: (StudioClip) -> Unit,
         ) = session.describeStudioClip(uri, onReady)
 
+        override fun exportProject() = session.startProjectExport()
+
+        override fun cancelProjectExport() = session.cancelStudioExport()
+
         val exportState: StateFlow<ExportUiState> get() = session.exportState
 
         val takeState: StateFlow<TakeUiState> get() = session.takeState

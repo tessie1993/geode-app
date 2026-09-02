@@ -1025,6 +1025,8 @@ class PlayerSession internal constructor(
 
     fun cancelStudioExport() = exportController.cancelStudioExport()
 
+    fun startProjectExport() = exportController.startProjectExport(editor.state.value.project)
+
     fun clearStudioResult() = exportController.clearStudioResult()
 
     /**

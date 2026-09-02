@@ -43,4 +43,9 @@ interface EditorActions {
         uri: Uri,
         onReady: (StudioClip) -> Unit,
     )
+
+    /** Renders the project's media lane to Movies/Geode; progress arrives on the Studio state. */
+    fun exportProject()
+
+    fun cancelProjectExport()
 }

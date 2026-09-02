@@ -128,6 +128,7 @@ data class Clip(
     val sourceDurationMs: Long = 0L,
     val label: String = "",
     val enabled: Boolean = true,
+    val transition: ClipTransition? = null,
 ) {
     val endMs: Long get() = startMs + durationMs
 
@@ -189,6 +190,7 @@ data class Clip(
                     startMs = atMs,
                     durationMs = tailMs,
                     sourceInMs = sourceInMs + headMs,
+                    transition = null,
                 ),
         )
     }

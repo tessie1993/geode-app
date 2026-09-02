@@ -9,6 +9,7 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.transformer.Composition
 import androidx.media3.transformer.EditedMediaItem
+import androidx.media3.transformer.EditedMediaItemSequence
 import androidx.media3.transformer.Effects
 import androidx.media3.transformer.ExportException
 import androidx.media3.transformer.ExportResult
@@ -54,19 +55,42 @@ class StudioExporter(
         displayName: String,
         onProgress: (Float) -> Unit,
     ): Result {
+        val item =
+            MediaItem
+                .Builder()
+                .setUri(source)
+                .setClippingConfiguration(edit.clipping())
+                .build()
+        val edited =
+            EditedMediaItem
+                .Builder(item)
+                .setRemoveAudio(edit.mute)
+                .setEffects(Effects(emptyList(), edit.videoEffects()))
+                .apply { edit.speedProvider()?.let { setSpeed(it) } }
+                .build()
+        val composition = Composition.Builder(EditedMediaItemSequence.Builder().addItem(edited).build()).build()
+        return exportComposition(composition, edit.outputMs(sourceDurationMs), displayName, onProgress)
+    }
+
+    suspend fun exportComposition(
+        composition: Composition,
+        outputDurationMs: Long,
+        displayName: String,
+        onProgress: (Float) -> Unit,
+    ): Result {
         cancelled = false
         val scratch = File(context.cacheDir, "studio-${System.currentTimeMillis()}.mp4")
         try {
             val outcome =
                 withContext(Dispatchers.Main) {
-                    runTransformer(source, edit, scratch, sourceDurationMs, onProgress)
+                    runTransformer(composition, scratch, outputDurationMs, onProgress)
                 }
             if (outcome != null) return outcome
             if (cancelled) return Result.Cancelled
             val published =
                 withContext(Dispatchers.IO) { publish(scratch, displayName) }
             return published
-                ?.let { Result.Saved(it, edit.outputMs(sourceDurationMs)) }
+                ?.let { Result.Saved(it, outputDurationMs) }
                 ?: Result.Failed("The finished file could not be saved to Movies/Geode.")
         } finally {
             scratch.delete()
@@ -74,26 +98,12 @@ class StudioExporter(
     }
 
     private suspend fun runTransformer(
-        source: Uri,
-        edit: ClipEdit,
+        composition: Composition,
         output: File,
-        sourceDurationMs: Long,
+        outputDurationMs: Long,
         onProgress: (Float) -> Unit,
     ): Result? =
         suspendCancellableCoroutine { continuation ->
-            val item =
-                MediaItem
-                    .Builder()
-                    .setUri(source)
-                    .setClippingConfiguration(edit.clipping())
-                    .build()
-            val edited =
-                EditedMediaItem
-                    .Builder(item)
-                    .setRemoveAudio(edit.mute)
-                    .setEffects(Effects(emptyList(), edit.videoEffects()))
-                    .apply { edit.speedProvider()?.let { setSpeed(it) } }
-                    .build()
             val built =
                 Transformer
                     .Builder(context)
@@ -128,7 +138,7 @@ class StudioExporter(
                 cancelled = true
                 bestEffort(TAG, "built.cancel()") { built.cancel() }
             }
-            runCatching { built.start(edited, output.absolutePath) }
+            runCatching { built.start(composition, output.absolutePath) }
                 .onFailure {
                     transformer = null
                     continuation.resumeOnce(Result.Failed(it.message ?: "The export could not be started."))
@@ -145,7 +155,7 @@ class StudioExporter(
                     delay(PROGRESS_POLL_MS)
                 }
             }
-            if (sourceDurationMs <= 0L) onProgress(0f)
+            if (outputDurationMs <= 0L) onProgress(0f)
         }
 
     fun cancel() {

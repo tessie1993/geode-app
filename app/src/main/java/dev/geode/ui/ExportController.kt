@@ -304,6 +304,27 @@ internal class ExportController(
             }
     }
 
+    fun startProjectExport(project: dev.geode.editor.EditorProject) {
+        if (_studio.value.phase.isBusy) return
+        val built = dev.geode.export.ProjectComposition.build(application, project)
+        if (built !is dev.geode.export.ProjectComposition.Outcome.Ready) {
+            _studio.update { it.copy(phase = ExportPhase.Failed(application.getString(dev.geode.R.string.editor_export_no_video))) }
+            return
+        }
+        _studio.update { it.copy(phase = ExportPhase.Running(0f)) }
+        studioJob =
+            scope.launch {
+                val name = "geode_cut_${System.currentTimeMillis()}.mp4"
+                val result =
+                    studioExporter.exportComposition(built.composition, built.durationMs, name) { p ->
+                        _studio.update { it.copy(phase = ExportPhase.Running(p.coerceIn(0f, 1f))) }
+                    }
+                _studio.update { it.copy(phase = result.toPhase()) }
+                refreshStudioClips()
+                studioJob = null
+            }
+    }
+
     fun cancelStudioExport() {
         studioExporter.cancel()
         studioJob?.cancel()

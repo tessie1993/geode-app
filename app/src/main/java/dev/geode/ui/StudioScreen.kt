@@ -86,7 +86,7 @@ internal fun StudioScreen(
     var editing by remember { mutableStateOf<StudioClip?>(null) }
     var timelineOpen by rememberSaveable { mutableStateOf(false) }
     if (timelineOpen) {
-        TimelineEditor(state = editor, actions = editorActions, onClose = { timelineOpen = false })
+        TimelineEditor(state = editor, exportPhase = state.phase, actions = editorActions, onClose = { timelineOpen = false })
         return
     }
     LaunchedEffect(editingUri) {

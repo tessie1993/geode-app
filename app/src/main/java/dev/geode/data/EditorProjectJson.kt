@@ -4,6 +4,7 @@ import dev.geode.editor.BezierCurve
 import dev.geode.editor.Clip
 import dev.geode.editor.ClipContent
 import dev.geode.editor.ClipId
+import dev.geode.editor.ClipTransition
 import dev.geode.editor.EaseShape
 import dev.geode.editor.EditorProject
 import dev.geode.editor.Interpolation
@@ -87,6 +88,7 @@ internal object EditorProjectJson {
             .put("sourceDurationMs", c.sourceDurationMs)
             .put("label", c.label)
             .put("enabled", c.enabled)
+            .putOpt("transition", c.transition?.let(::transition))
             .put("content", content(c.content))
 
     private fun clip(o: JSONObject): Clip =
@@ -99,7 +101,13 @@ internal object EditorProjectJson {
             sourceDurationMs = o.optLong("sourceDurationMs", 0L),
             label = o.optString("label", ""),
             enabled = o.optBoolean("enabled", true),
+            transition = o.optJSONObject("transition")?.let(::transition),
         )
+
+    private fun transition(t: ClipTransition): JSONObject = JSONObject().put("id", t.id).put("durationMs", t.durationMs)
+
+    private fun transition(o: JSONObject): ClipTransition =
+        ClipTransition(o.getString("id"), o.optLong("durationMs", ClipTransition.DEFAULT_TRANSITION_MS))
 
     private fun content(c: ClipContent): JSONObject =
         when (c) {

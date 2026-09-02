@@ -5,16 +5,21 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -43,8 +48,12 @@ import dev.geode.editor.RippleScope
 import dev.geode.editor.TapInSession
 import dev.geode.editor.TapResult
 import dev.geode.editor.Timeline
+import dev.geode.editor.predecessorOf
 import dev.geode.ui.EditorUiState
+import dev.geode.ui.ExportPhase
+import dev.geode.ui.isBusy
 import java.util.UUID
+import kotlin.math.roundToInt
 
 private enum class PickKind {
     VIDEO,
@@ -57,6 +66,7 @@ private enum class PickKind {
 @Composable
 fun TimelineEditor(
     state: EditorUiState,
+    exportPhase: ExportPhase,
     actions: EditorActions,
     onClose: () -> Unit,
 ) {
@@ -73,6 +83,7 @@ fun TimelineEditor(
     var picking by remember { mutableStateOf<Pair<LaneId, PickKind>?>(null) }
     var trackSheet by remember { mutableStateOf<ClipId?>(null) }
     var trackSheetOpen by remember { mutableStateOf(false) }
+    var transitionSheet by remember { mutableStateOf<ClipId?>(null) }
     val scale = TimelineScale(pxPerMs, maxOf(project.timeline.durationMs, MIN_CONTENT_MS) + CONTENT_MARGIN_MS)
     val laneNames = LANE_NAME_LABELS.associate { (kind, label) -> kind to stringResource(label) }
 
@@ -162,11 +173,14 @@ fun TimelineEditor(
             canUndo = state.history.canUndo,
             canRedo = state.history.canRedo,
             playheadMs = state.playheadMs,
+            exporting = exportPhase.isBusy,
             onUndo = actions::undo,
             onRedo = actions::redo,
             onZoom = { pxPerMs = (pxPerMs * it).coerceIn(TimelineScale.MIN_PX_PER_MS, TimelineScale.MAX_PX_PER_MS) },
+            onExport = actions::exportProject,
             onClose = onClose,
         )
+        ExportStatusRow(exportPhase, onCancel = actions::cancelProjectExport)
         EditorToolbar(
             tapSession = tapSession,
             onAddLane = ::addLane,
@@ -183,11 +197,14 @@ fun TimelineEditor(
             onAutoCut = { autoCutOpen = true },
         )
         val clip = selectedClip?.let(project.timeline::clip)
+        val clipLane = clip?.let { project.timeline.laneOf(it.id) }
         SelectionToolbar(
             clipSelected = clip != null,
             clipEnabled = clip?.enabled ?: true,
             markerSelected = selectedMarker != null,
             keySelected = selectedKey != null,
+            canTransition = clip != null && clipLane?.kind == LaneKind.Media && clipLane.predecessorOf(clip) != null,
+            onTransition = { transitionSheet = selectedClip },
             onSplit = { clip?.let { applyResult(project.timeline.splitClip(it.id, state.playheadMs, actions.newClipId())) } },
             onDelete = {
                 clip?.let {
@@ -298,6 +315,22 @@ fun TimelineEditor(
         )
     }
 
+    transitionSheet?.let { clipId ->
+        val target = project.timeline.clip(clipId)
+        if (target == null) {
+            transitionSheet = null
+        } else {
+            TransitionSheet(
+                current = target.transition,
+                onPick = { picked ->
+                    actions.edit { p -> p.copy(timeline = p.timeline.withClip(target.copy(transition = picked))) }
+                    transitionSheet = null
+                },
+                onDismiss = { transitionSheet = null },
+            )
+        }
+    }
+
     textLane?.let { laneId ->
         TextClipDialog(
             onConfirm = {
@@ -320,6 +353,29 @@ fun TimelineEditor(
             },
             onDismiss = { autoCutOpen = false },
         )
+    }
+}
+
+@Composable
+private fun ExportStatusRow(
+    phase: ExportPhase,
+    onCancel: () -> Unit,
+) {
+    when (phase) {
+        is ExportPhase.Running -> {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    stringResource(R.string.studio_rendering, (phase.progress * 100).roundToInt()),
+                    style = MaterialTheme.typography.labelMedium,
+                    modifier = Modifier.weight(1f),
+                )
+                TextButton(onClick = onCancel) { Text(stringResource(R.string.action_cancel)) }
+            }
+            LinearProgressIndicator(progress = { phase.progress }, modifier = Modifier.fillMaxWidth())
+        }
+        is ExportPhase.Done -> Text(stringResource(R.string.studio_saved), style = MaterialTheme.typography.labelMedium)
+        is ExportPhase.Failed -> Text(phase.message, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+        ExportPhase.Idle, ExportPhase.Loading -> Unit
     }
 }
 

@@ -122,7 +122,11 @@ data class ClipEdit(
             .build()
 
     @UnstableApi
-    fun videoEffects(): List<Effect> =
+    fun videoEffects(): List<Effect> = gradeEffects() + listOfNotNull(captionEffect())
+
+    /** Grade, rotation and reframe, in that order; the caption is drawn after everything else. */
+    @UnstableApi
+    fun gradeEffects(): List<Effect> =
         buildList {
             if (brightness != 0f) add(Brightness(brightness))
             if (contrast != 0f) add(Contrast(contrast))
@@ -155,22 +159,23 @@ data class ClipEdit(
                     ),
                 )
             }
-            caption.takeIf { it.isNotBlank() }?.let { text ->
-                add(
-                    OverlayEffect(
-                        listOf(
-                            TextOverlay.createStaticTextOverlay(
-                                android.text.SpannableString(text),
-                                StaticOverlaySettings
-                                    .Builder()
-                                    .setBackgroundFrameAnchor(0f, -0.82f)
-                                    .setOverlayFrameAnchor(0f, -1f)
-                                    .build(),
-                            ),
-                        ),
+        }
+
+    @UnstableApi
+    fun captionEffect(): Effect? =
+        caption.takeIf { it.isNotBlank() }?.let { text ->
+            OverlayEffect(
+                listOf(
+                    TextOverlay.createStaticTextOverlay(
+                        android.text.SpannableString(text),
+                        StaticOverlaySettings
+                            .Builder()
+                            .setBackgroundFrameAnchor(0f, -0.82f)
+                            .setOverlayFrameAnchor(0f, -1f)
+                            .build(),
                     ),
-                )
-            }
+                ),
+            )
         }
 
     @UnstableApi

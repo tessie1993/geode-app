@@ -3,16 +3,17 @@ package dev.geode.ui
 import android.app.Application
 import android.net.Uri
 import dev.geode.analysis.FeatureTimeline
+import dev.geode.data.ExportPrefsStore
+import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.PerformanceTake
 import dev.geode.editor.AnimatableParams
 import dev.geode.editor.KeyframeSheet
-import dev.geode.data.ExportPrefsStore
-import dev.geode.data.GeodePrefsFiles
 import dev.geode.export.ExportAspect
 import dev.geode.export.ExportCodec
 import dev.geode.export.ExportRange
 import dev.geode.export.ExportRun
 import dev.geode.export.ExportService
+import dev.geode.export.ProjectComposition
 import dev.geode.export.VideoExporter
 import dev.geode.render.SceneFactory
 import dev.geode.render.scene.SceneParams
@@ -312,8 +313,8 @@ internal class ExportController(
 
     fun startProjectExport(project: dev.geode.editor.EditorProject) {
         if (_studio.value.phase.isBusy) return
-        val built = dev.geode.export.ProjectComposition.build(application, project)
-        if (built !is dev.geode.export.ProjectComposition.Outcome.Ready) {
+        val built = ProjectComposition.build(application, project)
+        if (built !is ProjectComposition.Outcome.Ready) {
             _studio.update { it.copy(phase = ExportPhase.Failed(application.getString(dev.geode.R.string.editor_export_no_video))) }
             return
         }

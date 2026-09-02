@@ -15,8 +15,6 @@ import dev.geode.audio.AudioBus
 import dev.geode.audio.AudioFxState
 import dev.geode.audio.MicCapture
 import dev.geode.data.EditorProjectStore
-import dev.geode.data.SmartPlaylist
-import dev.geode.data.SmartPlaylistMatcher
 import dev.geode.data.FavouritesRepository
 import dev.geode.data.FilePresetRepository
 import dev.geode.data.FileSessionRepository
@@ -35,12 +33,15 @@ import dev.geode.data.SessionRepository
 import dev.geode.data.SessionStore
 import dev.geode.data.SharedPrefsFavouritesRepository
 import dev.geode.data.SharedPrefsPlayerPrefsRepository
+import dev.geode.data.SmartPlaylist
+import dev.geode.data.SmartPlaylistMatcher
 import dev.geode.data.TakeStore
 import dev.geode.export.ExportAspect
 import dev.geode.export.ExportCodec
 import dev.geode.export.ExportRange
 import dev.geode.export.StudioClip
 import dev.geode.geodeContainer
+import dev.geode.playback.BitPerfectOutput
 import dev.geode.playback.PlaybackEngine
 import dev.geode.playback.PlaybackErrors
 import dev.geode.playback.PlaybackService
@@ -177,7 +178,7 @@ class PlayerSession internal constructor(
                 override fun refreshUi() = refresh()
 
                 override fun applyBitPerfect(enabled: Boolean) {
-                    dev.geode.playback.BitPerfectOutput.apply(application, enabled)
+                    BitPerfectOutput.apply(application, enabled)
                 }
             },
         )

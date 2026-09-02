@@ -84,7 +84,12 @@ class LibraryTree(
                 ALBUMS -> tracks().filter { it.album == name }
                 ARTISTS -> tracks().filter { it.artist == name }
                 PLAYLISTS ->
-                    MusicPlaylistStore(context).list().firstOrNull { it.name == name }?.trackUris?.let(::rowsFor).orEmpty()
+                    MusicPlaylistStore(context)
+                        .list()
+                        .firstOrNull { it.name == name }
+                        ?.trackUris
+                        ?.let(::rowsFor)
+                        .orEmpty()
                 else -> emptyList()
             }
         return rows.map { playable(parentId, it) }

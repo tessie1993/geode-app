@@ -38,7 +38,11 @@ class WidgetPublisher(
     }
 
     fun publish() {
-        val uri = player.currentMediaItem?.localConfiguration?.uri?.toString()
+        val uri =
+            player.currentMediaItem
+                ?.localConfiguration
+                ?.uri
+                ?.toString()
         val metadata = player.mediaMetadata
         val previous = WidgetState.load(appContext)
         val state =

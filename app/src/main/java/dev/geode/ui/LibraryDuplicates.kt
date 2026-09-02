@@ -25,7 +25,11 @@ object LibraryDuplicates {
         val groups = ArrayList<MutableList<DeviceTrack>>()
         for (track in sorted) {
             val open = groups.lastOrNull()
-            if (open != null && abs(open.last().durationMs - track.durationMs) <= DURATION_SLACK_MS) open += track else groups += mutableListOf(track)
+            if (open != null && abs(open.last().durationMs - track.durationMs) <= DURATION_SLACK_MS) {
+                open += track
+            } else {
+                groups += mutableListOf(track)
+            }
         }
         return groups
     }

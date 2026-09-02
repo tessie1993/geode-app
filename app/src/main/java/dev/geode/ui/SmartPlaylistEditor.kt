@@ -71,7 +71,11 @@ internal fun SmartPlaylistsSection(viewModel: LibraryViewModel) {
     if (creating || editing != null) {
         SmartPlaylistDialog(
             initial = editing ?: SmartPlaylist(""),
-            taken = library.smartPlaylists.map { it.name }.filterNot { it == editing?.name }.toSet(),
+            taken =
+                library.smartPlaylists
+                    .map { it.name }
+                    .filterNot { it == editing?.name }
+                    .toSet(),
             onSave = {
                 editing?.name?.takeIf { old -> old != it.name }?.let(viewModel::deleteSmartPlaylist)
                 viewModel.saveSmartPlaylist(it)
@@ -121,7 +125,9 @@ private fun SmartPlaylistDialog(
                 draft.rules.forEachIndexed { index, rule ->
                     RuleRow(
                         rule = rule,
-                        onChange = { changed -> draft = draft.copy(rules = draft.rules.mapIndexed { i, r -> if (i == index) changed else r }) },
+                        onChange = { changed ->
+                            draft = draft.copy(rules = draft.rules.mapIndexed { i, r -> if (i == index) changed else r })
+                        },
                         onRemove = { draft = draft.copy(rules = draft.rules.filterIndexed { i, _ -> i != index }) },
                     )
                 }
@@ -184,7 +190,12 @@ private fun RuleRow(
     }
 }
 
-private fun defaultOp(field: RuleField): RuleOp = if (field.isText) RuleOp.CONTAINS else if (field.isFlag) RuleOp.IS else RuleOp.AT_LEAST
+private fun defaultOp(field: RuleField): RuleOp =
+    when {
+        field.isText -> RuleOp.CONTAINS
+        field.isFlag -> RuleOp.IS
+        else -> RuleOp.AT_LEAST
+    }
 
 private fun opsFor(field: RuleField): List<RuleOp> =
     when {

@@ -21,6 +21,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.geode.R
+import dev.geode.editor.AnimatableParam
+import dev.geode.editor.AnimatableParams
 import dev.geode.editor.AutoCut
 import dev.geode.editor.Clip
 import dev.geode.editor.ClipContent
@@ -31,6 +33,7 @@ import dev.geode.editor.EditorProject
 import dev.geode.editor.Keyframe
 import dev.geode.editor.KeyframeId
 import dev.geode.editor.KeyframeResult
+import dev.geode.editor.KeyframeTrack
 import dev.geode.editor.KeyframeTrack
 import dev.geode.editor.Lane
 import dev.geode.editor.LaneId
@@ -70,6 +73,8 @@ fun TimelineEditor(
     var textLane by remember { mutableStateOf<LaneId?>(null) }
     var tapSession by remember { mutableStateOf<TapInSession?>(null) }
     var picking by remember { mutableStateOf<Pair<LaneId, PickKind>?>(null) }
+    var trackSheet by remember { mutableStateOf<ClipId?>(null) }
+    var trackSheetOpen by remember { mutableStateOf(false) }
     val scale = TimelineScale(pxPerMs, maxOf(project.timeline.durationMs, MIN_CONTENT_MS) + CONTENT_MARGIN_MS)
     val laneNames = LANE_NAME_LABELS.associate { (kind, label) -> kind to stringResource(label) }
 
@@ -202,7 +207,24 @@ fun TimelineEditor(
                 }
                 selectedKey = null
             },
+            onAnimateProgramme = {
+                trackSheet = null
+                trackSheetOpen = true
+            },
+            onAnimateClip = {
+                trackSheet = selectedClip
+                trackSheetOpen = true
+            },
         )
+        selectedKey?.let { id ->
+            val track = project.keyframes.tracks.firstOrNull { t -> t.key(id) != null }
+            val key = track?.key(id)
+            if (track != null && key != null) {
+                KeyEditor(key = key, param = AnimatableParams.find(track.paramId)) { changed ->
+                    actions.edit { p -> p.withKeyOn(track, changed) }
+                }
+            }
+        }
         editError?.let { error ->
             Text(editErrorMessage(error), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
         }
@@ -243,6 +265,25 @@ fun TimelineEditor(
         )
     }
 
+    if (trackSheetOpen) {
+        val scopeClip = trackSheet?.let(project.timeline::clip)
+        val available =
+            when (scopeClip?.content) {
+                null -> AnimatableParams.scene
+                is ClipContent.Video -> AnimatableParams.clip
+                is ClipContent.Scene -> AnimatableParams.scene
+                else -> emptyList()
+            }
+        AddTrackSheet(
+            params = available,
+            onPick = { param ->
+                actions.edit { p -> p.withNewTrack(param, scopeClip, state.playheadMs, actions) }
+                trackSheetOpen = false
+            },
+            onDismiss = { trackSheetOpen = false },
+        )
+    }
+
     textLane?.let { laneId ->
         TextClipDialog(
             onConfirm = {
@@ -266,6 +307,24 @@ fun TimelineEditor(
             onDismiss = { autoCutOpen = false },
         )
     }
+}
+
+/** A new track starts with one key holding the parameter's value now, so the curve has something to leave from. */
+private fun EditorProject.withNewTrack(
+    param: AnimatableParam,
+    scopeClip: Clip?,
+    atMs: Long,
+    actions: EditorActions,
+): EditorProject {
+    val clipId = scopeClip?.id
+    if (keyframes.track(param.id, clipId) != null) return this
+    val value =
+        when (val content = scopeClip?.content) {
+            is ClipContent.Video -> param.readClip?.invoke(content.edit)
+            else -> param.readScene?.invoke(actions.currentSceneParams())
+        } ?: return this
+    val track = KeyframeTrack(paramId = param.id, clipId = clipId)
+    return withKeyOn(track, Keyframe(actions.newKeyframeId(), atMs, value))
 }
 
 /** The programme runs to the last clip; every applied edit re-fits it. */

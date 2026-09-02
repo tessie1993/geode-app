@@ -9,6 +9,7 @@ import dev.geode.editor.MarkerId
 import dev.geode.editor.TransientEnvelope
 import dev.geode.editor.TransientSource
 import dev.geode.export.StudioClip
+import dev.geode.render.scene.SceneParams
 
 /** Everything the timeline UI needs from the session, so the composables stay free of the view model. */
 interface EditorActions {
@@ -32,6 +33,8 @@ interface EditorActions {
     fun transientEnvelope(source: TransientSource): TransientEnvelope?
 
     fun currentSceneId(): String
+
+    fun currentSceneParams(): SceneParams
 
     /** The player's position while it plays, for tapping markers in against the music; null when parked. */
     fun playbackPositionMs(): Long?

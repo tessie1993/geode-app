@@ -13,6 +13,7 @@ import dev.geode.editor.TransientEnvelope
 import dev.geode.editor.TransientSource
 import dev.geode.export.ClipEdit
 import dev.geode.export.StudioClip
+import dev.geode.render.scene.SceneParams
 import dev.geode.ui.studio.EditorActions
 import kotlinx.coroutines.flow.StateFlow
 import javax.inject.Inject
@@ -49,6 +50,8 @@ class StudioViewModel
             session.analysisTimeline()?.let { TransientEnvelope.from(it, source) }
 
         override fun currentSceneId(): String = session.currentSceneId()
+
+        override fun currentSceneParams(): SceneParams = session.currentSceneParams()
 
         override fun playbackPositionMs(): Long? = session.playbackPositionMs()
 

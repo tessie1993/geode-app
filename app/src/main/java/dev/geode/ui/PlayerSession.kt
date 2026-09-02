@@ -953,6 +953,8 @@ class PlayerSession internal constructor(
 
                 override fun adsrConfigs() = modulation.adsrs.value
 
+                override fun keyframes() = editor.state.value.project.keyframes
+
                 override suspend fun loadExportTake() = takeController.loadExportTake()
 
                 override fun publishSections(
@@ -973,6 +975,8 @@ class PlayerSession internal constructor(
     fun analysisTimeline(): FeatureTimeline? = analysis.timeline
 
     fun currentSceneId(): String = _vizState.value.sceneId
+
+    fun currentSceneParams(): SceneParams = _vizState.value.params
 
     fun playbackPositionMs(): Long? = if (player.isPlaying) player.currentPosition else null
 

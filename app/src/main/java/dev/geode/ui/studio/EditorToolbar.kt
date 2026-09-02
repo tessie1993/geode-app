@@ -104,10 +104,13 @@ fun SelectionToolbar(
     onToggleEnabled: () -> Unit,
     onDeleteMarker: () -> Unit,
     onDeleteKey: () -> Unit,
+    onAnimateProgramme: () -> Unit,
+    onAnimateClip: () -> Unit,
 ) {
-    if (!clipSelected && !markerSelected && !keySelected) return
     Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        CrystalButton(compact = true, filled = false, onClick = onAnimateProgramme) { Text(stringResource(R.string.curve_animate_scene)) }
         if (clipSelected) {
+            CrystalButton(compact = true, filled = false, onClick = onAnimateClip) { Text(stringResource(R.string.curve_animate_clip)) }
             CrystalButton(compact = true, filled = false, onClick = onSplit) { Text(stringResource(R.string.editor_split)) }
             CrystalButton(compact = true, filled = false, onClick = onDelete) { Text(stringResource(R.string.editor_delete)) }
             CrystalButton(compact = true, filled = false, onClick = onRippleDelete) { Text(stringResource(R.string.editor_ripple_delete)) }

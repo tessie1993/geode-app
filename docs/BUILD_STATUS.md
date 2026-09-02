@@ -59,6 +59,7 @@ Snapshot: d4d70cf 2026-09-02 00:51:54 +0000   Branch: claude/native-core   Last 
 - 5.7: `PlaybackSession.player` is now the `Player` interface and is either the ExoPlayer or `NativePlayer`, chosen once from the `native_engine` pref when the session is built (the pref row says so); the two ExoPlayer-only calls (`skipSilenceEnabled`, `setHandleAudioBecomingNoisy`, `audioSessionId`) go through `exoPlayer?`. `NativePlayer` keeps the playlist itself and hands the engine one descriptor per load, each tagged with a fresh load id, so a gapless join the engine made on its own is recognised on the next poll and the following track is pre-rolled; repeat-one pre-rolls the same file. The native path feeds the same `PcmTap` (through `NativeTapPump`) and drives `SinkClockDriver`'s two hooks itself, so analysis and the presentation clock are unchanged; the equalizer settings reach a second chain built at the device rate through `NativeDspProcessor.onSettings`.
 - 6.1: the undo stack holds whole `EditorProject` values rather than `Timeline` values alone, because `EditorProject.apply` moves markers and keyframes together with a ripple and a timeline-only stack would leave them behind on undo. `EditorHistory.push` ignores a value equal to the present one, so a refused edit never clears the redo stack. Serialisation is org.json with tagged variants (`type`/`kind`), one file per named project under `files/editor`, written with `AtomicWrite` and quarantined when unreadable, as `PresetStore` does. Autosave is a save per edit on the session's single-lane store scope.
 - 6.2: drags on clips, markers and keys are previewed locally and committed as one `Timeline`/`MarkerSet`/`KeyframeTrack` operation on release, so the undo stack holds one entry per gesture. Rejections come back as `EditError` values shown under the toolbars. The playhead is the editor's own scrub position; tap-in reads the player's position while it plays and the playhead otherwise. Snapping is `SnapMode.Magnetic` with a radius derived from the zoom (10 dp), markers never snap to other markers. The editor lives behind a "Timeline" button on the Studio tab and replaces the screen; `EditorActions` (implemented by `StudioViewModel`) is all it needs from the session. Picked media takes a persistable read grant so the project reopens later.
+- 6.3: `AnimatableParams` is the one table of what a track may drive: scene fields under `scene.<field>` (labels from `ParamKeys`, ranges copied from the `CustomizeTabs` sliders so an animated value never leaves what the panel offers; int sliders round, choices clamp) and clip grade fields under `clip.<field>`. Palette indices are left out because their choice list is not a fixed table in the code read. The visualizer export folds programme-level scene tracks into `paramsAt` per frame on top of the take (or the live params); clip-scoped tracks are evaluated by the multi-clip export of 6.4. A new track starts with one key holding the current value so the curve has an origin. The custom curve's handles are dragged on a canvas drawn from the same `BezierCurve.eval` the export uses.
 
 ## UNKNOWN / UNVERIFIED
 - UNVERIFIED: all `<GLES3/gl3.h>`, `<GLES3/gl31.h>`, `<EGL/egl.h>` calls in `core/viz` are written against the Khronos names (no NDK sysroot on this machine to open). `GLESv3` and `EGL` are linked by their NDK library names.
@@ -216,7 +217,7 @@ Phase 2 uniform usage: all three read the shared contract only (`uTime uResoluti
 ### Phase 6 — video suite
 - [x] 6.1 `data/EditorProjectStore.kt` JSON persistence, autosave, undo/redo.
 - [x] 6.2 Timeline UI (`ui/studio/{TimelineLanes,ClipStrip,MarkerLane,KeyframeLane,Playhead}.kt`).
-- [ ] 6.3 Keyframe curve editor applied at export time.
+- [x] 6.3 Keyframe curve editor applied at export time.
 - [ ] 6.4 Multi-clip export via `Composition` + `EditedMediaItemSequence`; GL transitions; speed ramps.
 - [ ] 6.5 Captions from `.lrc` as `TextOverlay`; SRT in `editor/Subtitles.kt`.
 - [ ] 6.6 HEVC `ExportCodec` with capability check and H.264 fallback.
@@ -234,6 +235,7 @@ Phase 2 uniform usage: all three read the shared contract only (`uTime uResoluti
 - [ ] 8.2 Fold log into `CHANGELOG.md`, bump version, delete `docs/BUILD_STATUS.md`, final commit.
 
 ## Log (newest first; one line per commit)
+- 6.3: AnimatableParams catalogue, key editor with interpolation chips and bezier handles, add-track sheet, keyframes applied to the visualizer export
 - 6.2: timeline editor UI (lanes, clip strip, marker lane with tap-in, keyframe lanes, ruler/playhead, auto-cut sheet) on the Studio tab
 - 6.1: EditorProjectStore + EditorProjectJson, EditorHistory undo/redo, EditorController with autosave
 - 5.7: NativePlayer over SimpleBasePlayer behind the native-engine pref, tap pump and DSP mirror, crossfade/gapless settings

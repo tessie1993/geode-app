@@ -229,8 +229,9 @@ object GeodeNative {
         frames: Int,
     ): Int
 
+    /** [assets] is the app's `android.content.res.AssetManager`; typed as Any because this module has no Android SDK. */
     external fun vizCreate(
-        assets: android.content.res.AssetManager,
+        assets: Any,
         cacheDir: String,
     ): Long
 

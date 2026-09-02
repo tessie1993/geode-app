@@ -147,7 +147,15 @@ internal class ExportController(
                     val name = "geode_${System.currentTimeMillis()}.mp4"
                     val exportTake = host.loadExportTake()
                     val sheet = host.keyframes()
-                    val animated = sheet.tracks.any { it.enabled && it.clipId == null && AnimatableParams.find(it.paramId)?.isScene == true }
+                    val animated =
+                        sheet.tracks.any {
+                            it.enabled &&
+                                it.clipId == null &&
+                                AnimatableParams
+                                    .find(
+                                        it.paramId,
+                                    )?.isScene == true
+                        }
                     val clipStartMs = range?.startMs ?: 0L
                     val paramsAt: ((Long) -> SceneParams)? =
                         if (exportTake == null && !animated) {

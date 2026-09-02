@@ -104,12 +104,20 @@ internal object EditorProjectJson {
     private fun content(c: ClipContent): JSONObject =
         when (c) {
             is ClipContent.Scene ->
-                JSONObject().put("type", "scene").put("sceneId", c.sceneId).putOpt("presetId", c.presetId).putOpt("milkPath", c.milkPath)
+                JSONObject()
+                    .put("type", "scene")
+                    .put("sceneId", c.sceneId)
+                    .putOpt("presetId", c.presetId)
+                    .putOpt("milkPath", c.milkPath)
             is ClipContent.Video -> JSONObject().put("type", "video").put("uri", c.uri).put("edit", clipEdit(c.edit))
             is ClipContent.Still -> JSONObject().put("type", "still").put("uri", c.uri).put("kenBurns", c.kenBurns.toDouble())
             is ClipContent.Text -> JSONObject().put("type", "text").put("text", c.text).putOpt("styleId", c.styleId)
             is ClipContent.Overlay ->
-                JSONObject().put("type", "overlay").put("uri", c.uri).put("blend", c.blend.name).put("opacity", c.opacity.toDouble())
+                JSONObject()
+                    .put("type", "overlay")
+                    .put("uri", c.uri)
+                    .put("blend", c.blend.name)
+                    .put("opacity", c.opacity.toDouble())
             is ClipContent.Audio -> JSONObject().put("type", "audio").put("uri", c.uri).put("gainDb", c.gainDb.toDouble())
         }
 

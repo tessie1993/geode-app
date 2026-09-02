@@ -61,7 +61,14 @@ fun TrackInfoEditor(
             if (writeToFile) {
                 val written =
                     viewModel.writeTrackInfo(
-                        uri, savedTitle, artist.trim(), album.trim(), genre.trim(), savedYear, savedTrackNo, comment.trim(),
+                        uri,
+                        savedTitle,
+                        artist.trim(),
+                        album.trim(),
+                        genre.trim(),
+                        savedYear,
+                        savedTrackNo,
+                        comment.trim(),
                     )
                 if (!written) {
                     writeFailed = true

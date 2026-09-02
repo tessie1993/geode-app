@@ -46,7 +46,11 @@ fun EditorHeader(
         )
         CrystalButton(compact = true, filled = false, enabled = canUndo, onClick = onUndo) { Text(stringResource(R.string.editor_undo)) }
         CrystalButton(compact = true, filled = false, enabled = canRedo, onClick = onRedo) { Text(stringResource(R.string.editor_redo)) }
-        CrystalButton(compact = true, filled = false, onClick = { onZoom(1f / ZOOM_STEP) }) { Text(stringResource(R.string.editor_zoom_out)) }
+        CrystalButton(
+            compact = true,
+            filled = false,
+            onClick = { onZoom(1f / ZOOM_STEP) },
+        ) { Text(stringResource(R.string.editor_zoom_out)) }
         CrystalButton(compact = true, filled = false, onClick = { onZoom(ZOOM_STEP) }) { Text(stringResource(R.string.editor_zoom_in)) }
     }
 }

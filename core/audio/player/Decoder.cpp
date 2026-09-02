@@ -15,6 +15,10 @@ namespace {
 
 constexpr int64_t kOutputTimeoutUs = 10'000;
 constexpr int32_t kEncodingPcmFloat = 4;   // android.media.AudioFormat.ENCODING_PCM_FLOAT
+// android.media.MediaFormat.KEY_PCM_ENCODING. libmediandk exports AMEDIAFORMAT_KEY_PCM_ENCODING only
+// from API 28, so naming that symbol fails to link on minSdk 26; the key itself has been in the codec's
+// output format since API 24.
+constexpr const char* kKeyPcmEncoding = "pcm-encoding";
 constexpr float kInt16Scale = 1.0f / 32768.0f;
 
 bool isAudioMime(const char* mime) { return mime && std::strncmp(mime, "audio/", 6) == 0; }
@@ -186,7 +190,7 @@ void Decoder::applyOutputFormat() {
     int32_t value = 0;
     if (AMediaFormat_getInt32(format, AMEDIAFORMAT_KEY_SAMPLE_RATE, &value) && value > 0) sampleRate_ = value;
     if (AMediaFormat_getInt32(format, AMEDIAFORMAT_KEY_CHANNEL_COUNT, &value) && value > 0) channels_ = value;
-    if (AMediaFormat_getInt32(format, AMEDIAFORMAT_KEY_PCM_ENCODING, &value)) floatSamples_ = value == kEncodingPcmFloat;
+    if (AMediaFormat_getInt32(format, kKeyPcmEncoding, &value)) floatSamples_ = value == kEncodingPcmFloat;
     AMediaFormat_delete(format);
 }
 

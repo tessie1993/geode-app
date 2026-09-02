@@ -2,6 +2,7 @@ package dev.geode.data
 
 import android.content.ContentResolver
 import android.net.Uri
+import dev.geode.RingLog
 import dev.geode.engine.bridge.GeodeNative
 import java.io.FileNotFoundException
 
@@ -35,6 +36,7 @@ data class TrackTagEdit(
 
 /** TagLib behind [GeodeNative.tagsRead] and [GeodeNative.tagsWrite], fed by content URIs. */
 object NativeTags {
+    private const val TAG = "NativeTags"
     private const val TEXT_FIELDS = 6
     private const val TRACK_GAIN = 1
     private const val TRACK_PEAK = 2
@@ -51,7 +53,9 @@ object NativeTags {
         val gains = FloatArray(4)
         val mask = GeodeNative.tagsRead(fd, texts, ints, gains)
         if (mask < 0) return null
+
         fun text(index: Int): String = texts[index]?.toString(Charsets.UTF_8).orEmpty()
+
         fun gain(
             bit: Int,
             index: Int,
@@ -96,8 +100,10 @@ object NativeTags {
         try {
             resolver.openFileDescriptor(uri, mode)?.detachFd()
         } catch (e: FileNotFoundException) {
+            RingLog.note(TAG, "openFileDescriptor($mode) failed", e)
             null
         } catch (e: SecurityException) {
+            RingLog.note(TAG, "openFileDescriptor($mode) refused", e)
             null
         }
 }

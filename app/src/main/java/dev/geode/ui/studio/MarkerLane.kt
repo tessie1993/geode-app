@@ -50,7 +50,11 @@ fun MarkerLane(
     var drag by remember { mutableStateOf<MarkerDrag?>(null) }
     val outline = MaterialTheme.colorScheme.onSurface
 
-    fun markerAt(x: Float): Marker? = markers.markers.minByOrNull { abs(scale.xOf(it.atMs) - x) }?.takeIf { abs(scale.xOf(it.atMs) - x) <= hitPx }
+    fun markerAt(x: Float): Marker? =
+        markers.markers.minByOrNull { abs(scale.xOf(it.atMs) - x) }?.takeIf {
+            abs(scale.xOf(it.atMs) - x) <=
+                hitPx
+        }
 
     Canvas(
         modifier
@@ -109,7 +113,15 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawFlag(
         }
     drawPath(flag, color)
     drawLine(color, Offset(x, 0f), Offset(x, size.height), strokeWidth = if (selected) 3f else 1.5f)
-    if (selected) drawPath(flag, outline, style = androidx.compose.ui.graphics.drawscope.Stroke(1.5f * density))
+    if (selected) {
+        drawPath(
+            flag,
+            outline,
+            style =
+                androidx.compose.ui.graphics.drawscope
+                    .Stroke(1.5f * density),
+        )
+    }
 }
 
 private const val HIT_DP = 12f

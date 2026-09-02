@@ -13,6 +13,7 @@ import androidx.media3.common.SimpleBasePlayer
 import androidx.media3.common.util.UnstableApi
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
+import dev.geode.RingLog
 import dev.geode.engine.bridge.GeodeNative
 import java.io.FileNotFoundException
 import java.util.concurrent.Callable
@@ -293,7 +294,10 @@ class NativePlayer(
             Callable {
                 val fd = openFd(entry.item)
                 if (fd == null) {
-                    main.post { error = PlaybackException("cannot open ${entry.item.mediaId}", null, PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND) }
+                    main.post {
+                        error =
+                            PlaybackException("cannot open ${entry.item.mediaId}", null, PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND)
+                    }
                     return@Callable
                 }
                 GeodeNative.playerOpen(handle, fd.first, 0L, fd.second, id)
@@ -353,8 +357,10 @@ class NativePlayer(
                 pfd.detachFd() to (if (length > 0) length else 0L)
             }
         } catch (e: FileNotFoundException) {
+            RingLog.note(TAG, "openFileDescriptor failed", e)
             null
         } catch (e: SecurityException) {
+            RingLog.note(TAG, "openFileDescriptor refused", e)
             null
         }
     }
@@ -362,7 +368,9 @@ class NativePlayer(
     private fun done(): ListenableFuture<*> = Futures.immediateVoidFuture()
 
     private companion object {
+        const val TAG = "NativePlayer"
         const val POLL_MS = 200L
+
         // GeodePlayerState in core/api/geode_api.h.
         const val ENGINE_IDLE = 0
         const val ENGINE_READY = 2

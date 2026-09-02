@@ -95,7 +95,7 @@ private:
     FullscreenTriangle quad_;
     GLuint linearSampler_ = 0;
     std::string baseVertSrc_;
-    std::array<UniformCache, kProgCount> programs_{};
+    std::array<UniformCache, kProgCount> programs_;
     bool programsBuilt_ = false;
     std::vector<Splat> pending_;
     std::optional<UniformCache> customForce_;

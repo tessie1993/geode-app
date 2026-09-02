@@ -108,7 +108,10 @@ class NativeDspProcessor : BaseAudioProcessor() {
             val shorts = output.asShortBuffer()
             for (i in 0 until samples) {
                 val v = floats.get(i)
-                shorts.put(i, (v.coerceIn(-1f, 1f) * SHORT_FULL_SCALE).toInt().coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort())
+                shorts.put(
+                    i,
+                    (v.coerceIn(-1f, 1f) * SHORT_FULL_SCALE).toInt().coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort(),
+                )
             }
         }
         output.position(samples * bytesPerSample)

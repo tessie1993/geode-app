@@ -46,7 +46,7 @@ private:
     static constexpr float kTwoPi = 6.2831853f;
 
     struct EngineDeleter {
-        void operator()(std::remove_pointer_t<projectm_handle> h) const;
+        void operator()(projectm_handle h) const;
     };
     using Engine = std::unique_ptr<std::remove_pointer_t<projectm_handle>, EngineDeleter>;
 

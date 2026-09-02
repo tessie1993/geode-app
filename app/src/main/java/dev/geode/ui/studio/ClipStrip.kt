@@ -32,6 +32,7 @@ import dev.geode.editor.SnapContext
 import dev.geode.editor.SnapMode
 import dev.geode.editor.SnapTarget
 import dev.geode.editor.Timeline
+import dev.geode.editor.snap
 
 /** What a drag on a clip is doing: sliding it or pulling one of its edges. */
 private enum class DragMode {
@@ -115,7 +116,11 @@ fun ClipStrip(
                                         policy = OverlapPolicy.REJECT,
                                     )
                                 DragMode.TRIM_START ->
-                                    timeline.trimClip(active.clipId, ClipEdge.START, snap.snap(active.originStartMs + active.deltaMs, context))
+                                    timeline.trimClip(
+                                        active.clipId,
+                                        ClipEdge.START,
+                                        snap.snap(active.originStartMs + active.deltaMs, context),
+                                    )
                                 DragMode.TRIM_END ->
                                     timeline.trimClip(active.clipId, ClipEdge.END, snap.snap(active.originEndMs + active.deltaMs, context))
                             },

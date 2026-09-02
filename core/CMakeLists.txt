@@ -1,6 +1,10 @@
 add_library(geode_core STATIC
     api/geode_api.cpp
     api/geode_viz_api.cpp
+    api/geode_dsp_api.cpp
+    audio/dsp/Equalizer.cpp
+    audio/dsp/Crossfeed.cpp
+    audio/dsp/Limiter.cpp
     analysis/WindowTable.cpp
     analysis/Spectrum.cpp
     analysis/AdaptiveRange.cpp

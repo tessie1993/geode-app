@@ -77,6 +77,67 @@ object GeodeNative {
         out: FloatArray,
     )
 
+    external fun dspCreate(
+        sampleRate: Int,
+        channels: Int,
+    ): Long
+
+    external fun dspDestroy(handle: Long)
+
+    external fun dspBandCount(): Int
+
+    external fun dspBandCenterHz(band: Int): Float
+
+    external fun dspSetEnabled(
+        handle: Long,
+        enabled: Boolean,
+    )
+
+    external fun dspSetBand(
+        handle: Long,
+        band: Int,
+        millibels: Int,
+    )
+
+    external fun dspBand(
+        handle: Long,
+        band: Int,
+    ): Int
+
+    external fun dspSetBassBoost(
+        handle: Long,
+        permille: Int,
+    )
+
+    external fun dspSetLoudnessMb(
+        handle: Long,
+        millibels: Int,
+    )
+
+    external fun dspSetGainDb(
+        handle: Long,
+        db: Float,
+    )
+
+    external fun dspSetCrossfeed(
+        handle: Long,
+        enabled: Boolean,
+    )
+
+    external fun dspSetLimiter(
+        handle: Long,
+        enabled: Boolean,
+    )
+
+    external fun dspReset(handle: Long)
+
+    /** [buffer] must be a direct float buffer holding [frames] interleaved frames; processed in place. */
+    external fun dspProcess(
+        handle: Long,
+        buffer: java.nio.ByteBuffer,
+        frames: Int,
+    )
+
     external fun vizCreate(
         assets: android.content.res.AssetManager,
         cacheDir: String,

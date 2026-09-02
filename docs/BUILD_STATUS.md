@@ -44,6 +44,9 @@ Snapshot: bebd045 2026-09-01 21:11:39 +0200   Branch: claude/native-core   Last 
 - 4.9: `:engine:gl` was deleted as a Gradle module (its every class was ported in 4.2 and only the deleted Kotlin renderer read it); `settings.gradle.kts` and `engine/scenes/build.gradle.kts` no longer list it. `engine/scenes` has no `res/` any more, so nothing may import `dev.geode.engine.scenes.R`.
 - 4.9: Kotlin files that survive because the UI or the app's own GL export code reads them: `SceneParams`, `SceneIds`, `SceneCapabilities`, `VisualStyleCatalog`, `ParamScope/ParamKeys/ParamRandomizer/CustomizeTab`, `MarchBudget`, `CymaticsMath`, `TouchTransform`, `PcmSink`, `FluidQuality`, `FluidShaderTemplate`, `Lfo`, `Adsr`, `ParamBlend`, `VisualSafety`, `LiveSignal`, `TouchField`, `FramePacer`, `TransitionStyle/BlendMode`, `MilkStarterPack`, `MilkdropEngine.available`, `GlUtil` (builder + triangle), `VisualizerView`. The `LfoEngine`/`AdsrEngine` tick code inside `Lfo.kt`/`Adsr.kt` is no longer called by anything (native ticks); the config types beside it are.
 
+- 5.1: the equalizer is ten RBJ peaking biquads on the ISO octave centres 31 Hz … 16 kHz, Q 1.41, ±15 dB in millibels (the platform `Equalizer` range `AudioFxController` fell back to); a low shelf at 120 Hz up to +9 dB stands in for `BassBoost` and a second smoothed `Gain` for `LoudnessEnhancer`'s makeup gain, so the settings the app already stores keep their meaning. Band levels are atomics and the audio thread recomputes coefficients when it sees them change: no lock in `process`, no allocation after `create`.
+- 5.1: `geode_dsp_process` takes a direct `ByteBuffer` through JNI (`GetDirectBufferAddress`) rather than a `FloatArray`, because `GetFloatArrayElements` may copy and the audio thread must not.
+
 ## UNKNOWN / UNVERIFIED
 - UNVERIFIED: all `<GLES3/gl3.h>`, `<GLES3/gl31.h>`, `<EGL/egl.h>` calls in `core/viz` are written against the Khronos names (no NDK sysroot on this machine to open). `GLESv3` and `EGL` are linked by their NDK library names.
 - UNVERIFIED: no NDK is on this machine (`local.properties` absent, no `asset_manager.h` on disk), so every `AAssetManager_*`/`AAsset_*` call in `core/viz/ShaderSource.cpp` is written from the names in the prompt and not checked against the header.
@@ -181,7 +184,7 @@ Phase 2 uniform usage: all three read the shared contract only (`uTime uResoluti
 - [x] 4.9 Delete ported Kotlin scene/pass files and `res/raw` shader copies; mapping table complete.
 
 ### Phase 5 — audio DSP and native player
-- [ ] 5.1 `core/audio/dsp/{Biquad,Equalizer,Gain,Crossfeed,Limiter,DspChain}` + `geode_dsp_*`.
+- [x] 5.1 `core/audio/dsp/{Biquad,Equalizer,Gain,Crossfeed,Limiter,DspChain}` + `geode_dsp_*`.
 - [ ] 5.2 `NativeDspProcessor : AudioProcessor`; `AudioFxController` drives native EQ; `EqualizerSettings` 10 bands.
 - [ ] 5.3 `third_party/taglib`; `core/library/Tags` + `geode_tags_read/write` via fd.
 - [ ] 5.4 ReplayGain on playback in `PlaybackEngine.kt`; settings in `PlaybackSettings.kt`.
@@ -210,6 +213,7 @@ Phase 2 uniform usage: all three read the shared contract only (`uTime uResoluti
 - [ ] 8.2 Fold log into `CHANGELOG.md`, bump version, delete `docs/BUILD_STATUS.md`, final commit.
 
 ## Log (newest first; one line per commit)
+- 5.1: core/audio/dsp (biquad, equalizer, gain, crossfeed, lookahead limiter, chain), geode_dsp_* API, JNI, externals
 - 4.9: status ledger for the deletions (the deletion commit itself went out without this update)
 - 4.9: ported Kotlin scenes, passes, sims, compute layer, engine/gl module and res/raw shader copies deleted; VisualizerRenderer and OffscreenSceneRenderer are native adapters
 - 4.8: transition catalog and programs renamed to core/viz/Transition

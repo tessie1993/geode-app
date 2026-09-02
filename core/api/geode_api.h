@@ -136,6 +136,28 @@ GEODE_API void        geode_viz_cut(geode_viz*);
 GEODE_API void        geode_viz_render(geode_viz*, double time_seconds, uint32_t target_fbo);
 GEODE_API void        geode_viz_release_scenes(geode_viz*);
 
+/* Playback DSP: gain -> 10-band equalizer -> crossfeed -> lookahead limiter on float interleaved PCM.
+ * Setters may be called from any thread; geode_dsp_process runs on the audio thread and never allocates,
+ * locks or logs. */
+#define GEODE_DSP_BANDS 10
+#define GEODE_DSP_MIN_MILLIBELS (-1500)
+#define GEODE_DSP_MAX_MILLIBELS 1500
+
+GEODE_API geode_dsp* geode_dsp_create(int sample_rate, int channels);   /* channels 1 or 2 */
+GEODE_API void       geode_dsp_destroy(geode_dsp*);
+GEODE_API int        geode_dsp_band_count(void);
+GEODE_API float      geode_dsp_band_center_hz(int band);
+GEODE_API void       geode_dsp_set_enabled(geode_dsp*, int enabled);          /* the equalizer and bass boost */
+GEODE_API void       geode_dsp_set_band(geode_dsp*, int band, int millibels);
+GEODE_API int        geode_dsp_band(geode_dsp*, int band);
+GEODE_API void       geode_dsp_set_bass_boost(geode_dsp*, int permille);      /* 0..1000 */
+GEODE_API void       geode_dsp_set_loudness_mb(geode_dsp*, int millibels);    /* 0..1000 makeup gain */
+GEODE_API void       geode_dsp_set_gain_db(geode_dsp*, float db);             /* ReplayGain + preamp */
+GEODE_API void       geode_dsp_set_crossfeed(geode_dsp*, int enabled);
+GEODE_API void       geode_dsp_set_limiter(geode_dsp*, int enabled);
+GEODE_API void       geode_dsp_reset(geode_dsp*);                              /* clears filter state after a seek or flush */
+GEODE_API void       geode_dsp_process(geode_dsp*, float* interleaved, size_t frames);   /* in place, RT-safe */
+
 #ifdef __cplusplus
 }
 #endif

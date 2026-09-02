@@ -49,7 +49,7 @@ add_library(geode_core STATIC
     viz/FramePacer.cpp
     viz/ThermalGovernor.cpp
     viz/TouchField.cpp
-    viz/TransitionCatalog.cpp
+    viz/Transition.cpp
     viz/CompositeGrade.cpp
     viz/CompositePass.cpp
     viz/TrailPass.cpp

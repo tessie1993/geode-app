@@ -39,6 +39,8 @@ Snapshot: bebd045 2026-09-01 21:11:39 +0200   Branch: claude/native-core   Last 
 - 4.7: the MilkDrop "adapter" is `VisualizerRenderer.loadMilkPreset/reloadCurrentMilkPreset/onMilkPresetLoaded` forwarding to `geode_viz_load_milk_preset/reload/take_milk_preset_loaded`; no Kotlin scene object remains because the native registry knows `milkdrop` and the Kotlin path never draws it. `MilkdropEngine.available` now means "libgeode.so loaded", since projectM is linked into it. The shared texture directory (`filesDir/milk/textures`) reaches native through `geode_viz_set_milk_texture_dir` at handle creation, and an export carries the live renderer's last preset through `SceneFactory.milkPresetPath`.
 - 4.7: preset requests from the UI thread are latched under the state lock and applied to the scene table in `beginFrame` (`applyMilkRequests`), because the table is GL-thread state; the Kotlin version reached the scene object through a volatile reference.
 
+- 4.8: the transition port was already complete in 4.4 (`TransitionCatalog` + `TransitionPrograms` in one translation unit); 4.8 only gives the file the checklist's name, `core/viz/Transition.{hpp,cpp}`, and touches nothing inside it.
+
 ## UNKNOWN / UNVERIFIED
 - UNVERIFIED: all `<GLES3/gl3.h>`, `<GLES3/gl31.h>`, `<EGL/egl.h>` calls in `core/viz` are written against the Khronos names (no NDK sysroot on this machine to open). `GLESv3` and `EGL` are linked by their NDK library names.
 - UNVERIFIED: no NDK is on this machine (`local.properties` absent, no `asset_manager.h` on disk), so every `AAssetManager_*`/`AAsset_*` call in `core/viz/ShaderSource.cpp` is written from the names in the prompt and not checked against the header.
@@ -108,7 +110,7 @@ Snapshot: bebd045 2026-09-01 21:11:39 +0200   Branch: claude/native-core   Last 
 | `engine/scenes/.../render/FramePacer.kt` | `core/viz/FramePacer.hpp,.cpp` (vsync divide, dt clamp, p95/p99; Choreographer stays Kotlin) | ported |
 | `engine/scenes/.../render/{ThermalGovernor,fluid/PerformanceMonitor}.kt` | `core/viz/ThermalGovernor.hpp,.cpp` (PowerManager readings pushed in by the host) | ported |
 | `engine/scenes/.../render/TouchField.kt` | `core/viz/TouchField.hpp,.cpp` | ported |
-| `engine/scenes/.../render/{TransitionCatalog,TransitionPrograms}.kt` | `core/viz/TransitionCatalog.hpp,.cpp` (catalog from `gl_transitions.json`, spliced program LRU) + `core/util/Json.hpp,.cpp` | ported |
+| `engine/scenes/.../render/{TransitionStyle,TransitionCatalog,TransitionPrograms}.kt` | `core/viz/Transition.hpp,.cpp` (catalog from `gl_transitions.json`, spliced program LRU; the style enum sits in `VisualSafety.hpp`) + `core/util/Json.hpp,.cpp` | ported |
 | `engine/scenes/.../render/{CompositeGrade,BlueNoise,CyclicPalettes}.kt` | `core/viz/CompositeGrade.hpp,.cpp`; blue-noise and palette LUT textures live in `CompositePass`/`Renderer` (`shaders/blue_noise_64.bin`, `shaders/cyclic_palettes.bin`) | ported |
 | `engine/scenes/.../render/CompositePass.kt` | `core/viz/CompositePass.hpp,.cpp` | ported |
 | `engine/scenes/.../render/TrailPass.kt` | `core/viz/TrailPass.hpp,.cpp` | ported |
@@ -168,7 +170,7 @@ Phase 2 uniform usage: all three read the shared contract only (`uTime uResoluti
 - [x] 4.5 `core/viz/scenes/ShaderScene` + native `SceneRegistry`; Kotlin registry asks native first.
 - [x] 4.6 Port cymatics, fluid/curlflow/water, particle/simulation scenes, compute path.
 - [x] 4.7 `milkdrop` as C++ scene; delete `milkdrop_jni.cpp` and `MilkdropEngine.kt` externals; `MilkdropScene.kt` adapter.
-- [ ] 4.8 Transitions → `core/viz/Transition`.
+- [x] 4.8 Transitions → `core/viz/Transition`.
 - [ ] 4.9 Delete ported Kotlin scene/pass files and `res/raw` shader copies; mapping table complete.
 
 ### Phase 5 — audio DSP and native player
@@ -201,6 +203,7 @@ Phase 2 uniform usage: all three read the shared contract only (`uTime uResoluti
 - [ ] 8.2 Fold log into `CHANGELOG.md`, bump version, delete `docs/BUILD_STATUS.md`, final commit.
 
 ## Log (newest first; one line per commit)
+- 4.8: transition catalog and programs renamed to core/viz/Transition
 - 4.7: native MilkdropScene owning projectM, milkdrop_jni.cpp and MilkdropScene.kt deleted, preset API through geode_viz_*
 - 4.6: native cymatics, beam, silk/life/myco/acid, fluid/curlflow/water scenes, compute SimPass layer, overlays in the renderer, full native registry
 - 4.5: native ShaderScene, SceneRegistry with the 30 fragment styles, custom-shader memory, Kotlin registry asks native first

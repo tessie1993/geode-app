@@ -5,7 +5,7 @@
 #include <string>
 
 #include "viz/Params.hpp"
-#include "viz/TransitionCatalog.hpp"
+#include "viz/Transition.hpp"
 
 namespace geode::viz {
 

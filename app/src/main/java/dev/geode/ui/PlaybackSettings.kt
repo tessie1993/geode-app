@@ -102,6 +102,14 @@ fun PlaybackSettingsSection(viewModel: SettingsViewModel) {
         PlaybackSwitchRow(stringResource(R.string.playback_auto_resume), prefs.autoResume) {
             viewModel.setPlayerPrefs(prefs.copy(autoResume = it))
         }
+        PlaybackSwitchRow(stringResource(R.string.playback_resume_long_tracks), prefs.resumeLongTracks) {
+            viewModel.setPlayerPrefs(prefs.copy(resumeLongTracks = it))
+        }
+        Text(
+            stringResource(R.string.playback_resume_long_tracks_explainer),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
         Column {
             Text(stringResource(R.string.playback_sleep_timer), style = MaterialTheme.typography.labelMedium)
             Row(

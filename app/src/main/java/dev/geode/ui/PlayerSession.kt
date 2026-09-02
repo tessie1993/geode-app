@@ -381,6 +381,11 @@ class PlayerSession internal constructor(
 
     private var currentUri: Uri? = null
 
+    private val bookmarks =
+        dev.geode.playback.TrackBookmarks(dev.geode.data.BookmarkStore(prefsFiles.player)) {
+            settings.playerPrefs.value.resumeLongTracks
+        }
+
     private val listening: ListeningTracker =
         ListeningTracker(
             application,
@@ -1149,6 +1154,7 @@ class PlayerSession internal constructor(
                             )
                         }
                         onTrackChanged()
+                        bookmarks.onTrackStarted(player)
                     }
                 }
 
@@ -1224,6 +1230,7 @@ class PlayerSession internal constructor(
             autoVisuals.advanceRandomMode()
             autoVisuals.advanceSectionStaging()
             listening.persistSession()
+            bookmarks.onPoll(player)
             delay(POLL_INTERVAL_MS)
         }
     }

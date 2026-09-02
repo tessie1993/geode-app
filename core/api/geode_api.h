@@ -188,6 +188,43 @@ GEODE_API int         geode_tags_replaygain(const geode_tags*, float* track_gain
 /* texts holds GEODE_TAG_TEXT_COUNT UTF-8 strings in GeodeTagText order (NULL clears a field). 1 = saved. */
 GEODE_API int         geode_tags_write(int fd, const char* const* texts, int year, int track);
 
+/* Native player: AMediaCodec decode -> resampler -> mixer (gapless join, crossfade) -> Oboe. Every call is
+ * asynchronous and may come from any thread; a file descriptor belongs to the player from the call on.
+ * token names the track to the caller and comes back from geode_player_current_token. */
+typedef enum GeodePlayerState {
+    GEODE_PLAYER_IDLE = 0,
+    GEODE_PLAYER_BUFFERING,
+    GEODE_PLAYER_READY,
+    GEODE_PLAYER_ENDED,
+    GEODE_PLAYER_ERROR
+} GeodePlayerState;
+#define GEODE_CROSSFADE_LINEAR 0
+#define GEODE_CROSSFADE_EQUAL_POWER 1
+#define GEODE_CROSSFADE_SMOOTH 2
+
+GEODE_API geode_player* geode_player_create(void);
+GEODE_API void          geode_player_destroy(geode_player*);
+GEODE_API void          geode_player_open(geode_player*, int fd, int64_t offset, int64_t length, int64_t token); /* length <= 0 = to the end */
+GEODE_API void          geode_player_set_next(geode_player*, int fd, int64_t offset, int64_t length, int64_t token); /* fd < 0 = none */
+GEODE_API void          geode_player_play(geode_player*);
+GEODE_API void          geode_player_pause(geode_player*);
+GEODE_API void          geode_player_stop(geode_player*);
+GEODE_API void          geode_player_seek(geode_player*, int64_t position_us);
+GEODE_API void          geode_player_set_crossfade(geode_player*, int duration_ms, int curve);   /* 0 ms = gapless join */
+/* A chain built for geode_player_output_sample_rate and 2 channels; NULL bypasses. Returns only once the audio
+ * thread has let go of the previous chain, so that one may be destroyed afterwards. */
+GEODE_API void          geode_player_set_dsp(geode_player*, geode_dsp*);
+GEODE_API void          geode_player_set_volume(geode_player*, float volume);
+GEODE_API int           geode_player_state(geode_player*);
+GEODE_API int           geode_player_play_when_ready(geode_player*);
+GEODE_API int64_t       geode_player_position_us(geode_player*);
+GEODE_API int64_t       geode_player_duration_us(geode_player*);      /* 0 = unknown */
+GEODE_API int64_t       geode_player_current_token(geode_player*);    /* -1 = nothing loaded */
+GEODE_API int           geode_player_output_sample_rate(geode_player*); /* 0 until the stream opened */
+GEODE_API size_t        geode_player_last_error(geode_player*, char* out, size_t capacity);   /* returns the full length */
+/* The stereo mix as sent to the device, for analysis; one reader thread. Returns frames copied. */
+GEODE_API size_t        geode_player_read_tap(geode_player*, float* stereo, size_t frames);
+
 #ifdef __cplusplus
 }
 #endif

@@ -3,7 +3,13 @@ add_library(geode_core STATIC
     api/geode_viz_api.cpp
     api/geode_dsp_api.cpp
     api/geode_tags_api.cpp
+    api/geode_player_api.cpp
     library/Tags.cpp
+    audio/player/Resampler.cpp
+    audio/player/Decoder.cpp
+    audio/player/Mixer.cpp
+    audio/player/Output.cpp
+    audio/player/Player.cpp
     audio/dsp/Equalizer.cpp
     audio/dsp/Crossfeed.cpp
     audio/dsp/Limiter.cpp
@@ -100,4 +106,4 @@ target_include_directories(geode_core PRIVATE
     ${CMAKE_SOURCE_DIR}/third_party/taglib/taglib/toolkit
     ${CMAKE_BINARY_DIR}/third_party/taglib)
 target_compile_options(geode_core PRIVATE ${GEODE_COMPILE_OPTIONS})
-target_link_libraries(geode_core PUBLIC kissfft::kissfft projectM tag GLESv3 EGL log android)
+target_link_libraries(geode_core PUBLIC kissfft::kissfft projectM tag oboe mediandk GLESv3 EGL log android)

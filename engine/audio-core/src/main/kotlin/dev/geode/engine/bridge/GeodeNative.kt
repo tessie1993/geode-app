@@ -158,6 +158,77 @@ object GeodeNative {
         track: Int,
     ): Boolean
 
+    external fun playerCreate(): Long
+
+    external fun playerDestroy(handle: Long)
+
+    /** [fd] belongs to native from here on; [length] <= 0 reads to the end. */
+    external fun playerOpen(
+        handle: Long,
+        fd: Int,
+        offset: Long,
+        length: Long,
+        token: Long,
+    )
+
+    /** Pre-rolls the track that follows for a gapless join; [fd] < 0 clears it. */
+    external fun playerSetNext(
+        handle: Long,
+        fd: Int,
+        offset: Long,
+        length: Long,
+        token: Long,
+    )
+
+    external fun playerPlay(handle: Long)
+
+    external fun playerPause(handle: Long)
+
+    external fun playerStop(handle: Long)
+
+    external fun playerSeek(
+        handle: Long,
+        positionUs: Long,
+    )
+
+    external fun playerSetCrossfade(
+        handle: Long,
+        durationMs: Int,
+        curve: Int,
+    )
+
+    /** [dsp] is a dspCreate handle at the player's output rate with 2 channels, or 0 to bypass. */
+    external fun playerSetDsp(
+        handle: Long,
+        dsp: Long,
+    )
+
+    external fun playerSetVolume(
+        handle: Long,
+        volume: Float,
+    )
+
+    external fun playerState(handle: Long): Int
+
+    external fun playerPlayWhenReady(handle: Long): Boolean
+
+    external fun playerPositionUs(handle: Long): Long
+
+    external fun playerDurationUs(handle: Long): Long
+
+    external fun playerCurrentToken(handle: Long): Long
+
+    external fun playerOutputSampleRate(handle: Long): Int
+
+    external fun playerLastError(handle: Long): String
+
+    /** Copies up to [frames] stereo float frames of the mix into the direct [buffer]; returns the frames copied. */
+    external fun playerReadTap(
+        handle: Long,
+        buffer: java.nio.ByteBuffer,
+        frames: Int,
+    ): Int
+
     external fun vizCreate(
         assets: android.content.res.AssetManager,
         cacheDir: String,

@@ -53,6 +53,9 @@ Snapshot: d4d70cf 2026-09-02 00:51:54 +0000   Branch: claude/native-core   Last 
 - 5.3: TagLib is built static with `BUILD_TESTING`/`BUILD_BINDINGS`/`BUILD_EXAMPLES` off, `WITH_ZLIB OFF` (only ID3v2 compressed frames need it; the NDK ships no zlib CMake package to find) and `VISIBILITY_HIDDEN ON` (with `TAGLIB_STATIC` this keeps its symbols out of `libgeode.so`'s export table). Its `tag` target exports include paths for the install tree only, so `core/CMakeLists.txt` names the source dirs and the binary dir holding the generated `taglib_config.h` itself. The `third_party/oboe` submodule is committed alongside (both were pinned together) and is wired into CMake by 5.6.
 - 5.4: `ReplayGain` is a `Player.Listener` the `PlaybackSession` registers on its own `ExoPlayer`, so tags are read for every media item transition whether the UI or only the service drives playback; the read runs on IO and is dropped when the item changed underneath it. The gain is track or album gain (each falling back to the other) plus the preamp, capped at `-20·log10(peak)` when the clip guard is on and a peak is tagged; files without tags play at 0 dB (the preamp never applies alone). The three prefs travel with the other playback prefs (`PlayerPrefs`, applied through `PlayerSettingsController.applyPlaybackPrefs`).
 - 5.5: the editor writes to the file only behind an explicit switch (default off), through `openFileDescriptor(uri, "rw")` and TagLib; the app-side override is written afterwards so the list shows the new text at once. A failed write keeps the dialog open with the reason instead of silently falling back. The file's album artist is read first and carried over because the editor has no field for it. `importTracks` now also takes the persistable write grant, in a second call so a read-only grant still succeeds.
+- 5.6: the player has three threads with one-way traffic between them. The engine thread (a `std::thread` inside `Player`) owns decoders, resamplers, decks and the Oboe stream; API calls only queue commands for it and read atomics it publishes each loop. The audio callback pulls from `Deck` rings (SPSC, wait-free) and learns about new decks through a second SPSC ring of `DeckCommand`s; it hands consumed decks back through a retired ring, so it never allocates, frees or locks. A seek builds a fresh deck at the new position instead of rewinding the ring the callback is reading. While the stream is paused the engine applies the command ring itself, which is what keeps a seek-while-paused visible without a callback.
+- 5.6: gapless join = the callback continues into the next deck when the current one reports end-of-stream with an empty ring; crossfade = both decks are pulled once the current position enters the last `duration_ms` of the container duration, with linear, equal-power or smoothstep gains. Decoding runs through the NDK `AMediaExtractor`/`AMediaCodec` synchronous API on the engine thread, and a 4-point Hermite resampler brings every track to the device rate the Oboe stream reports (Float, stereo, LowLatency, Exclusive falling back to Shared). Position is the callback's consumed-frame count, not corrected for output latency.
+- 5.6: the analysis tap is a ring the callback pushes the final mix into and one reader drains through `geode_player_read_tap`; there is no callback into Kotlin from the audio thread. The DSP chain is a `geode_dsp` handle the caller sets; `geode_player_set_dsp` waits for one callback to pass before returning so the previous chain can be destroyed safely.
 
 ## UNKNOWN / UNVERIFIED
 - UNVERIFIED: all `<GLES3/gl3.h>`, `<GLES3/gl31.h>`, `<EGL/egl.h>` calls in `core/viz` are written against the Khronos names (no NDK sysroot on this machine to open). `GLESv3` and `EGL` are linked by their NDK library names.
@@ -65,6 +68,8 @@ Snapshot: d4d70cf 2026-09-02 00:51:54 +0000   Branch: claude/native-core   Last 
 - UNVERIFIED: the native simulation and fluid code calls `glTexStorage2D`, `glClearBufferuiv/fv`, `glInvalidateFramebuffer`, `glBindSampler`, `glDrawBuffers`, `glReadPixels` and `glBlendFuncSeparate` by their GLES 3.0/3.1 names; the NDK headers were not on disk to open.
 
 - UNVERIFIED: `androidx.media3.common.audio.BaseAudioProcessor` member names used by `NativeDspProcessor` (`onConfigure`, `queueInput`, `replaceOutputBuffer`, `onFlush`, `inputAudioFormat`, `UnhandledAudioFormatException`) are written from the Media3 1.x API as remembered; the jar was not opened (rule: no archive inspection).
+
+- UNVERIFIED: every `AMediaExtractor_*`, `AMediaCodec_*`, `AMediaFormat_*` call, the `AMEDIAFORMAT_KEY_*`/`AMEDIACODEC_*` constants and `AMEDIAEXTRACTOR_SEEK_PREVIOUS_SYNC` in `core/audio/player/Decoder.cpp` are written from the NDK media API as named (the headers are not on disk); `mediandk` is linked by its NDK library name. The Oboe calls were read from `third_party/oboe/include`.
 
 ## BLOCKED
 
@@ -200,7 +205,7 @@ Phase 2 uniform usage: all three read the shared contract only (`uTime uResoluti
 - [x] 5.3 `third_party/taglib`; `core/library/Tags` + `geode_tags_read/write` via fd.
 - [x] 5.4 ReplayGain on playback in `PlaybackEngine.kt`; settings in `PlaybackSettings.kt`.
 - [x] 5.5 Tag writing from `TrackInfoEditor.kt` via SAF rw fd.
-- [ ] 5.6 `third_party/oboe`; `core/audio/player/{Decoder,Resampler,Mixer,Output,Player}` + `geode_player_*`.
+- [x] 5.6 `third_party/oboe`; `core/audio/player/{Decoder,Resampler,Mixer,Output,Player}` + `geode_player_*`.
 - [ ] 5.7 `NativePlayer : SimpleBasePlayer`; settings toggle default off; PCM tap from native mixer.
 
 ### Phase 6 — video suite
@@ -224,6 +229,7 @@ Phase 2 uniform usage: all three read the shared contract only (`uTime uResoluti
 - [ ] 8.2 Fold log into `CHANGELOG.md`, bump version, delete `docs/BUILD_STATUS.md`, final commit.
 
 ## Log (newest first; one line per commit)
+- 5.6: native player (decoder, resampler, mixer with gapless join and crossfade, Oboe output, engine thread), geode_player_* API, JNI, externals
 - 5.5: TrackInfoEditor writes tags into the file through NativeTags behind a switch; imports take the write grant
 - 5.4: ReplayGain listener on the playback session, PlayerPrefs mode/preamp/clip guard, settings UI
 - 5.3: taglib + oboe submodules, core/library/Tags over TagLib, geode_tags_* API, JNI, NativeTags.kt

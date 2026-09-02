@@ -43,12 +43,15 @@ set(WITH_ZLIB OFF CACHE BOOL "" FORCE)
 set(VISIBILITY_HIDDEN ON CACHE BOOL "" FORCE)
 add_subdirectory(third_party/taglib)
 
+add_subdirectory(third_party/oboe)
+
 add_subdirectory(core)
 
 add_library(geode SHARED
     app/src/main/cpp/geode_jni.cpp
     app/src/main/cpp/geode_viz_jni.cpp
-    app/src/main/cpp/geode_tags_jni.cpp)
+    app/src/main/cpp/geode_tags_jni.cpp
+    app/src/main/cpp/geode_player_jni.cpp)
 target_compile_options(geode PRIVATE ${GEODE_COMPILE_OPTIONS})
 target_link_options(geode PRIVATE ${GEODE_LINK_OPTIONS})
 target_link_libraries(geode PRIVATE geode_core log android)

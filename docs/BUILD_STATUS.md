@@ -41,6 +41,9 @@ Snapshot: bebd045 2026-09-01 21:11:39 +0200   Branch: claude/native-core   Last 
 
 - 4.8: the transition port was already complete in 4.4 (`TransitionCatalog` + `TransitionPrograms` in one translation unit); 4.8 only gives the file the checklist's name, `core/viz/Transition.{hpp,cpp}`, and touches nothing inside it.
 
+- 4.9: `:engine:gl` was deleted as a Gradle module (its every class was ported in 4.2 and only the deleted Kotlin renderer read it); `settings.gradle.kts` and `engine/scenes/build.gradle.kts` no longer list it. `engine/scenes` has no `res/` any more, so nothing may import `dev.geode.engine.scenes.R`.
+- 4.9: Kotlin files that survive because the UI or the app's own GL export code reads them: `SceneParams`, `SceneIds`, `SceneCapabilities`, `VisualStyleCatalog`, `ParamScope/ParamKeys/ParamRandomizer/CustomizeTab`, `MarchBudget`, `CymaticsMath`, `TouchTransform`, `PcmSink`, `FluidQuality`, `FluidShaderTemplate`, `Lfo`, `Adsr`, `ParamBlend`, `VisualSafety`, `LiveSignal`, `TouchField`, `FramePacer`, `TransitionStyle/BlendMode`, `MilkStarterPack`, `MilkdropEngine.available`, `GlUtil` (builder + triangle), `VisualizerView`. The `LfoEngine`/`AdsrEngine` tick code inside `Lfo.kt`/`Adsr.kt` is no longer called by anything (native ticks); the config types beside it are.
+
 ## UNKNOWN / UNVERIFIED
 - UNVERIFIED: all `<GLES3/gl3.h>`, `<GLES3/gl31.h>`, `<EGL/egl.h>` calls in `core/viz` are written against the Khronos names (no NDK sysroot on this machine to open). `GLESv3` and `EGL` are linked by their NDK library names.
 - UNVERIFIED: no NDK is on this machine (`local.properties` absent, no `asset_manager.h` on disk), so every `AAssetManager_*`/`AAsset_*` call in `core/viz/ShaderSource.cpp` is written from the names in the prompt and not checked against the header.
@@ -54,6 +57,7 @@ Snapshot: bebd045 2026-09-01 21:11:39 +0200   Branch: claude/native-core   Last 
 ## BLOCKED
 
 ## Owner notes (things the owner must do or decide)
+- `docs/visualizer-v2/GPU_RESOURCE_ABI.md` describes the `:engine:gl` Kotlin module that 4.9 removed; the same probe/format policy now lives in `core/viz/GlCaps*`, `GlProber`, `GlProfile`. The document was left as written.
 - F24: `compileSdk = 37` while the workflows install `platforms;android-36`; both left alone.
 - Run `git submodule update --init --recursive` after pulling; projectM is now built from `third_party/projectm`.
 - CI checkouts (`android.yml`, `release.yml`, `ship-apk.yml`) use `actions/checkout` without `submodules: recursive`; the native build needs it. Not added here because the prompt forbids CI additions.
@@ -101,7 +105,7 @@ Snapshot: bebd045 2026-09-01 21:11:39 +0200   Branch: claude/native-core   Last 
 | `engine/gl/.../GlProber.kt` | `core/viz/GlProber.hpp,.cpp` (+ `Half.hpp`) | ported |
 | `engine/gl/.../{DeviceGl,EglProbeHarness}.kt` | `core/viz/GlProfile.hpp,.cpp` | ported (`gl-probe-facts.txt` in the given dir) |
 | `engine/gl/.../{WorkGroupSize,ComputeSupport,GlImageFormat,ComputeProgram,ComputePass}.kt` | `core/viz/Compute.hpp,.cpp` | ported |
-| `engine/scenes/.../render/scene/ProgramBinaryCache.kt` | `core/viz/ProgramBinaryCache.hpp,.cpp` (+ `Sha256`) | ported (same directory and entry layout) |
+| `engine/scenes/.../render/scene/ProgramBinaryCache.kt` | `core/viz/ProgramBinaryCache.hpp,.cpp` (+ `Sha256`) | ported; Kotlin deleted (same directory and entry layout) |
 | `engine/scenes/.../render/scene/GlUtil.kt` | `core/viz/Program.hpp,.cpp` (build, compile, UniformCache), `Quad.hpp,.cpp` (FullscreenTriangle, resetFrameState), `ShaderSource` (includes) | ported |
 | `engine/scenes/.../render/RenderTarget.kt` | `core/viz/Framebuffer.hpp,.cpp` | ported |
 | `engine/scenes/.../render/scene/SceneParams.kt` + `VisualizerRenderer.lerpParams` + `ParamBlend.kt` | `core/viz/Params.hpp,.cpp` (struct, palette table, generated lerp/blend field table, `set(name, value)`) | ported |
@@ -114,10 +118,10 @@ Snapshot: bebd045 2026-09-01 21:11:39 +0200   Branch: claude/native-core   Last 
 | `engine/scenes/.../render/{CompositeGrade,BlueNoise,CyclicPalettes}.kt` | `core/viz/CompositeGrade.hpp,.cpp`; blue-noise and palette LUT textures live in `CompositePass`/`Renderer` (`shaders/blue_noise_64.bin`, `shaders/cyclic_palettes.bin`) | ported |
 | `engine/scenes/.../render/CompositePass.kt` | `core/viz/CompositePass.hpp,.cpp` | ported |
 | `engine/scenes/.../render/TrailPass.kt` | `core/viz/TrailPass.hpp,.cpp` | ported |
-| `engine/scenes/.../render/VisualizerRenderer.kt` | `core/viz/Renderer.hpp`, `Renderer.cpp` (lifecycle, thread-safe setters, scene cache), `RendererFrame.cpp` (frame graph), `Scene.hpp`, `SceneRegistry.hpp,.cpp` | ported; `geode_viz_*` in `core/api/geode_viz_api.cpp`, JNI `app/src/main/cpp/geode_viz_jni.cpp`, Kotlin `render/bridge/{NativeViz,SceneParamsCodec,FeatureFrameCodec,ModConfigCodec}.kt`; `VisualizerRenderer.kt` hands every frame whose scene native knows to `geode_viz_render` |
-| `engine/scenes/.../render/offscreen/{OffscreenSceneRenderer,OffscreenCompositor}.kt` | `NativeViz` path with an explicit target FBO when native knows the scene; Kotlin path (now also taking a target FBO) stays until 4.9 | adapter |
+| `engine/scenes/.../render/VisualizerRenderer.kt` | `core/viz/Renderer.hpp`, `Renderer.cpp` (lifecycle, thread-safe setters, scene cache), `RendererFrame.cpp` (frame graph), `Scene.hpp`, `SceneRegistry.hpp,.cpp` | ported; `VisualizerRenderer.kt` is now the GL-thread adapter over `NativeViz` (public surface unchanged) |
+| `engine/scenes/.../render/offscreen/{OffscreenSceneRenderer,OffscreenCompositor}.kt` | `OffscreenSceneRenderer.kt` is a `NativeViz` adapter with an explicit target FBO; `OffscreenCompositor.kt` deleted | adapter |
 | `engine/scenes/.../render/scene/ShaderScene.kt` + `PcmRow.kt` + `MarchBudget.kt` | `core/viz/scenes/ShaderScene.hpp,.cpp` (same uniform block, audio texture, touch upload, march budget) | ported |
-| `engine/scenes/.../render/SceneRegistry.kt` + `scene/SceneCapabilities.SHADER_SCENES` | `core/viz/SceneRegistry.hpp,.cpp` (the 30 fragment styles; other families arrive in 4.6/4.7) | partial: shader styles native, Kotlin registry keeps every family until 4.9 |
+| `engine/scenes/.../render/SceneRegistry.kt` + `scene/SceneCapabilities.SHADER_SCENES` | `core/viz/SceneRegistry.hpp,.cpp` (every family) | ported; `SceneRegistry.kt` deleted, `SHADER_SCENES` now maps ids to asset names for the UI |
 | `engine/scenes/.../render/scene/VisualStyleCatalog.kt` | `core/viz/scenes/StyleCatalog.hpp,.cpp` (ids and numbers; labels stay Kotlin for the UI) | ported |
 | `engine/scenes/.../render/scene/{CymaticsScene,CymaticsPlate,CymaticsDrops,CymaticsMath}.kt` | `core/viz/scenes/CymaticsScene.hpp,.cpp`, `CymaticsMath.hpp,.cpp` | ported |
 | `engine/scenes/.../render/scene/{BeamScene,SilkScene,LifeScene,MycoScene,AcidScene}.kt` | `core/viz/scenes/{BeamScene,SilkScene,LifeScene,MycoScene,AcidScene}.hpp,.cpp` | ported |
@@ -129,6 +133,9 @@ Snapshot: bebd045 2026-09-01 21:11:39 +0200   Branch: claude/native-core   Last 
 | `engine/scenes/.../render/fluid/{FluidSceneBase,FluidScene,CurlFlowScene,WaterScene}.kt` | `core/viz/scenes/{FluidSceneBase,FluidScene,CurlFlowScene,WaterScene}.hpp,.cpp` | ported |
 | `engine/scenes/.../render/OverlayEffects.kt` | `core/viz/Overlays.hpp,.cpp` (owned by `Renderer`; `geode_viz_queue_touch_stroke`) | ported |
 | `engine/scenes/.../render/BlueNoise.kt` | `core/viz/BlueNoise.hpp,.cpp` (shared by the composite and the fluid look) | ported |
+| `engine/scenes/.../render/scene/{GlUtil,Scene}.kt` | `core/viz/{Program,Quad}.hpp,.cpp`, `Scene.hpp` | ported; `GlUtil.kt` keeps only the program builder and fullscreen triangle the app's own export passes use, `Scene.kt` deleted |
+| `engine/scenes/.../render/{ThermalGovernor,CyclicPalettes,TransitionCatalog}.kt` | `core/viz/ThermalGovernor.hpp,.cpp`, palette LUT in `Renderer`, `core/viz/Transition.hpp,.cpp` | ported; the Kotlin files keep only what the UI reads (platform thermal readings, palette names, the transition library metadata) |
+| `engine/scenes/src/main/res/raw/*.glsl, *.bin` | `app/src/main/assets/shaders/` | copies deleted; `FluidShaderTemplate.kt` reads the asset |
 | `app/src/main/cpp/milkdrop_jni.c` + `engine/scenes/.../render/scene/MilkdropScene.kt` | `core/viz/scenes/MilkdropScene.hpp,.cpp` (projectM handle owned by the scene; per-instance error string) | ported; `milkdrop_jni.cpp` and `MilkdropScene.kt` deleted, `MilkdropEngine.kt` keeps only `available` |
 
 ## Checklists (copied from the prompt; tick as you go)
@@ -171,7 +178,7 @@ Phase 2 uniform usage: all three read the shared contract only (`uTime uResoluti
 - [x] 4.6 Port cymatics, fluid/curlflow/water, particle/simulation scenes, compute path.
 - [x] 4.7 `milkdrop` as C++ scene; delete `milkdrop_jni.cpp` and `MilkdropEngine.kt` externals; `MilkdropScene.kt` adapter.
 - [x] 4.8 Transitions → `core/viz/Transition`.
-- [ ] 4.9 Delete ported Kotlin scene/pass files and `res/raw` shader copies; mapping table complete.
+- [x] 4.9 Delete ported Kotlin scene/pass files and `res/raw` shader copies; mapping table complete.
 
 ### Phase 5 — audio DSP and native player
 - [ ] 5.1 `core/audio/dsp/{Biquad,Equalizer,Gain,Crossfeed,Limiter,DspChain}` + `geode_dsp_*`.
@@ -203,6 +210,8 @@ Phase 2 uniform usage: all three read the shared contract only (`uTime uResoluti
 - [ ] 8.2 Fold log into `CHANGELOG.md`, bump version, delete `docs/BUILD_STATUS.md`, final commit.
 
 ## Log (newest first; one line per commit)
+- 4.9: status ledger for the deletions (the deletion commit itself went out without this update)
+- 4.9: ported Kotlin scenes, passes, sims, compute layer, engine/gl module and res/raw shader copies deleted; VisualizerRenderer and OffscreenSceneRenderer are native adapters
 - 4.8: transition catalog and programs renamed to core/viz/Transition
 - 4.7: native MilkdropScene owning projectM, milkdrop_jni.cpp and MilkdropScene.kt deleted, preset API through geode_viz_*
 - 4.6: native cymatics, beam, silk/life/myco/acid, fluid/curlflow/water scenes, compute SimPass layer, overlays in the renderer, full native registry

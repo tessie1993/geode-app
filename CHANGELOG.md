@@ -9,6 +9,27 @@ their content shipped, and the original `docs/DEVICE_CHECKS.md` was lost —
 a partial reconstruction, rebuilt from the references in these entries, is at
 [docs/DEVICE_CHECKS.md](docs/DEVICE_CHECKS.md).
 
+## Unreleased
+
+- **Three new fragment styles after the reference pictures** (Styles >
+  Shaders, ids `chroma_orb`, `mandala_dome`, `bead_vortex`). The earlier
+  attempts at the same three pictures (`orb_lattice`, `rod_tunnel`,
+  `neon_tiles`) stay as they are; these are new styles beside them.
+  *Chroma Orb* is a glass sphere skinned with a four-fold kaleidoscope of dot
+  lattices, a ringed tunnel bored through its centre and the whole skin drawn
+  three times at slightly different scales, so every dot has a green core with
+  blue and orange lens fringes, over a dark green field of bokeh. *Mandala
+  Dome* is a mirrored hall of eight-point stars, rings and framed tiles in
+  violet, blue and magenta with green, cyan and red fringed outlines, wrapped
+  over two domes bulging in from the sides and a patterned sphere in the
+  middle. *Bead Vortex* looks down a tunnel walled with strands of segmented
+  beads - crimson, olive and violet - winding into a white-hot core through a
+  purple haze of drifting motes. All three are 2D sphere and tunnel mappings
+  with faked lighting, so none spends the Detail march budget; bass breathes
+  the patterns and swells the beads, the beat widens the fringes and flares
+  the core, energy sets the spin, and each still moves in silence. One
+  built-in preset per style (Lens, Cathedral, Corkscrew).
+
 ## v1.8.0 (code 32) - Native core, Studio timeline, player features
 
 The engine's compute moved to C++ behind one `libgeode.so`, the Studio grew a

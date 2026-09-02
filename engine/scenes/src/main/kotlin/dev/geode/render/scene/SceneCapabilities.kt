@@ -62,12 +62,17 @@ object SceneCapabilities {
             SceneIds.ORB_LATTICE to "shaders/orb_lattice_frag.glsl",
             SceneIds.ROD_TUNNEL to "shaders/rod_tunnel_frag.glsl",
             SceneIds.NEON_TILES to "shaders/neon_tiles_frag.glsl",
+            // The three reference looks (see CHANGELOG): 2D tunnel and sphere
+            // mappings, no raymarch, so none of them joins MARCHED_SCENES.
+            SceneIds.CHROMA_ORB to "shaders/chroma_orb_frag.glsl",
+            SceneIds.MANDALA_DOME to "shaders/mandala_dome_frag.glsl",
+            SceneIds.BEAD_VORTEX to "shaders/bead_vortex_frag.glsl",
         )
 
     /**
      * The fragment styles that raymarch, and so spend the [MarchBudget] the Detail control sets.
      *
-     * A per-STYLE set rather than a [SceneKind], because only six of the 30 shader styles march;
+     * A per-STYLE set rather than a [SceneKind], because only six of the 33 shader styles march;
      * scoping Detail to `SceneKind.SHADER` would put a dead slider in front of anyone looking at
      * Plasma, which is exactly what [ParamScope]'s no-dead-controls rule exists to prevent.
      */

@@ -38,4 +38,7 @@ object SceneIds {
     const val ORB_LATTICE: String = "orb_lattice"
     const val ROD_TUNNEL: String = "rod_tunnel"
     const val NEON_TILES: String = "neon_tiles"
+    const val CHROMA_ORB: String = "chroma_orb"
+    const val MANDALA_DOME: String = "mandala_dome"
+    const val BEAD_VORTEX: String = "bead_vortex"
 }

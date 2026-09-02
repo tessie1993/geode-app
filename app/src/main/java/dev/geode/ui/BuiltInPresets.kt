@@ -280,6 +280,54 @@ object BuiltInPresets {
                     ),
             ),
             Preset(
+                name = "chroma_orb · Lens",
+                sceneId = dev.geode.render.scene.SceneIds.CHROMA_ORB,
+                attack = 0.5f,
+                decay = 0.12f,
+                customShader = null,
+                params =
+                    SceneParams(
+                        speed = 0.8f,
+                        audioDrive = 1.2f,
+                        beatResponse = 1.2f,
+                        bloom = 0.3f,
+                        contrast = 1.1f,
+                        vignette = 0.3f,
+                    ),
+            ),
+            Preset(
+                name = "mandala_dome · Cathedral",
+                sceneId = dev.geode.render.scene.SceneIds.MANDALA_DOME,
+                attack = 0.45f,
+                decay = 0.12f,
+                customShader = null,
+                params =
+                    SceneParams(
+                        speed = 0.7f,
+                        audioDrive = 1.1f,
+                        beatResponse = 1.1f,
+                        bloom = 0.35f,
+                        saturation = 1.1f,
+                        contrast = 1.05f,
+                    ),
+            ),
+            Preset(
+                name = "bead_vortex · Corkscrew",
+                sceneId = dev.geode.render.scene.SceneIds.BEAD_VORTEX,
+                attack = 0.6f,
+                decay = 0.15f,
+                customShader = null,
+                params =
+                    SceneParams(
+                        speed = 1.1f,
+                        audioDrive = 1.25f,
+                        beatResponse = 1.3f,
+                        bloom = 0.4f,
+                        contrast = 1.1f,
+                        bassGain = 1.2f,
+                    ),
+            ),
+            Preset(
                 name = "winter · Flurry",
                 sceneId = dev.geode.render.scene.SceneIds.WINTER,
                 attack = 0.5f,

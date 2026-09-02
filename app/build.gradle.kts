@@ -220,6 +220,7 @@ dependencies {
     ksp(libs.hilt.compiler)
     implementation(libs.compose.material.icons.extended)
     implementation(libs.activity.compose)
+    implementation(libs.glance.appwidget)
     implementation(libs.lifecycle.viewmodel.compose)
     implementation(libs.lifecycle.runtime.compose)
     implementation(libs.kotlinx.coroutines.android)

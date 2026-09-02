@@ -233,6 +233,19 @@
             </intent-filter>
         </service>
 
+        <!-- Home-screen widget: artwork, title and transport, driven by the playback service's session. -->
+        <receiver
+            android:name=".widget.NowPlayingWidgetReceiver"
+            android:exported="true"
+            android:label="@string/widget_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/now_playing_widget_info" />
+        </receiver>
+
         <!-- Sharing a preset too long to be a link sends its .json; a raw
              file:// uri cannot leave the app, so it goes out through here.
              Scoped to the presets directory alone (preset_paths.xml). -->

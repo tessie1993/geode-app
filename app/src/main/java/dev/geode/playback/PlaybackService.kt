@@ -16,22 +16,30 @@ import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import dev.geode.data.HistoryStore
 import dev.geode.data.SessionStore
+import dev.geode.widget.WidgetPublisher
 
 @OptIn(UnstableApi::class)
 class PlaybackService : MediaLibraryService() {
     private var session: MediaLibrarySession? = null
     private var artworkLoader: SessionBitmapLoader? = null
+    private var widget: WidgetPublisher? = null
 
     override fun onCreate() {
         super.onCreate()
         val loader = SessionBitmapLoader(this)
         artworkLoader = loader
+        val player = PlaybackEngine.acquireForService(this).player
         session =
             MediaLibrarySession
-                .Builder(this, PlaybackEngine.acquireForService(this).player, LibraryCallback(this, LibraryTree(this)))
+                .Builder(this, player, LibraryCallback(this, LibraryTree(this)))
                 .setSessionActivity(openAppIntent())
                 .setBitmapLoader(CacheBitmapLoader(loader))
                 .build()
+        widget =
+            WidgetPublisher(this, player).also {
+                player.addListener(it)
+                it.publish()
+            }
     }
 
     /** Browsing answers on the resumption thread: the tree reads files and the MediaStore. */
@@ -127,6 +135,11 @@ class PlaybackService : MediaLibraryService() {
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaLibrarySession? = session
 
     override fun onDestroy() {
+        widget?.let { publisher ->
+            session?.player?.removeListener(publisher)
+            publisher.clear()
+        }
+        widget = null
         session?.release()
         session = null
         artworkLoader?.release()

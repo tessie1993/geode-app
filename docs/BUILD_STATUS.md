@@ -75,7 +75,10 @@ Snapshot: 848a374 2026-09-02   Branch: claude/repo-actions-6.4-8.2-cs6lz6   Last
 
 - 7.2: a smart playlist is a rule list (text fields, minutes, days since added, play count, favourite) with all/any matching and an optional limit, stored one file per playlist beside the ordinary playlists and resolved on demand against the device tracks (play counts from `HistoryStore` through `ListeningTracker.playCountOf`, favourites from the session flow), so nothing is cached that could go stale. Duplicates are grouped by normalised title + artist (bracketed suffixes and punctuation dropped) and split where lengths differ by more than two seconds; deletion goes through `MediaStore.createDeleteRequest` (API 30+) so Android asks before a file goes.
 
+- 7.3: the widget never touches the player directly. `WidgetPublisher` is a `Player.Listener` the service registers on the session's player; it writes `WidgetState` (a small prefs file plus a PNG of the embedded art in the cache dir) and asks Glance to redraw, and the widget's buttons build a `MediaController` on the service's `SessionToken` for one command, so the widget works whichever engine (ExoPlayer or native) the session runs. Artwork decoding is keyed on the track URI so a play/pause toggle does not re-decode.
+
 ## UNKNOWN / UNVERIFIED
+- UNVERIFIED (7.3): `androidx.glance:glance-appwidget` version `1.1.1` was written from memory (no catalogue on disk lists it), as were the Glance names used (`GlanceAppWidget.provideGlance/provideContent`, `GlanceAppWidgetReceiver`, `ActionCallback`/`actionRunCallback`, `actionStartActivity`, `GlanceModifier.defaultWeight/cornerRadius/background`, `ImageProvider(Bitmap)`, `updateAll`, `@layout/glance_default_loading_layout`).
 - UNVERIFIED (7.1): `MediaLibraryService.MediaLibrarySession.Builder(service, player, callback)`, `LibraryResult.ofItem/ofItemList/ofError`, `MediaLibrarySession.Callback.onGetLibraryRoot/onGetChildren/onGetItem`, `MediaSession.Callback.onSetMediaItems(session, controller, items, startIndex, startPositionMs)` and the `MediaMetadata.MEDIA_TYPE_*` constants are used from the Media3 1.x API as remembered.
 - UNVERIFIED (6.7): `androidx.media3.effect.SingleColorLut.createFromCube(int[][][])` with `cube[r][g][b]` holding ARGB ints, from the Media3 1.x API as remembered; the jar was not opened.
 - UNVERIFIED (6.5): `TextOverlay.getText(long)` / `getOverlaySettings(long)` overridden as named in the prompt; the `OverlaySettings` interface name is from the Media3 1.x API as remembered.
@@ -245,7 +248,7 @@ Phase 2 uniform usage: all three read the shared contract only (`uTime uResoluti
 ### Phase 7 — player features
 - [x] 7.1 Android Auto: `MediaLibraryService` browse tree, `automotive_app_desc.xml`, manifest meta-data.
 - [x] 7.2 Smart playlists (`data/SmartPlaylistStore.kt`) + duplicate finder.
-- [ ] 7.3 Glance home-screen widget.
+- [x] 7.3 Glance home-screen widget.
 - [ ] 7.4 Bookmarks for long tracks in `data/PlayerPrefs.kt`.
 - [ ] 7.5 Bit-perfect USB output toggle (API 34 gate).
 
@@ -254,6 +257,7 @@ Phase 2 uniform usage: all three read the shared contract only (`uTime uResoluti
 - [ ] 8.2 Fold log into `CHANGELOG.md`, bump version, delete `docs/BUILD_STATUS.md`, final commit.
 
 ## Log (newest first; one line per commit)
+- 7.3: Glance now-playing widget (artwork, title, artist, previous/play-pause/next through a MediaController), WidgetPublisher on the service's player, receiver, provider xml, icons
 - 7.2: SmartPlaylistStore + matcher, smart playlists section with a rule editor on the Playlists tab, LibraryDuplicates and a Duplicates tab with MediaStore delete requests
 - 7.1: PlaybackService as MediaLibraryService with LibraryTree (tracks, albums, artists, playlists, favourites, recent), DeviceTrackQuery shared with the library, automotive_app_desc and manifest meta-data
 - 6.7: CubeLut parser (3D and 1D .cube, domain scaling), LUT and per-channel gamma on ClipEdit through SingleColorLut, LUT picker and gamma sliders in the Studio look section

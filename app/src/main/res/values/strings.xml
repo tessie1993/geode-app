@@ -260,6 +260,13 @@
     <string name="smart_op_is_not">is not</string>
     <string name="smart_op_at_least">at least</string>
     <string name="smart_op_at_most">at most</string>
+    <string name="widget_label">Geode now playing</string>
+    <string name="widget_description">Artwork, title and transport for what Geode is playing.</string>
+    <string name="widget_nothing_playing">Nothing playing</string>
+    <string name="widget_play">Play</string>
+    <string name="widget_pause">Pause</string>
+    <string name="widget_next">Next track</string>
+    <string name="widget_previous">Previous track</string>
     <string name="auto_favourites">Favourites</string>
     <string name="auto_recently_played">Recently played</string>
     <string name="library_permission_rationale">Grant music access to browse everything on this device.</string>

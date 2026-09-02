@@ -84,6 +84,47 @@ GEODE_API geode_drums* geode_drums_create(int band_count, float hop_rate_hz, int
 GEODE_API void         geode_drums_destroy(geode_drums*);
 GEODE_API void         geode_drums_step(geode_drums*, const float* bands, float* kick_snare_hat);
 
+/* Native visualizer: one renderer per GL surface. Setters may be called from any thread and are latched
+ * for the next frame; the calls under "GL thread" need the surface's context current. */
+#define GEODE_LFO_SLOTS 3
+#define GEODE_LFO_CONFIG_FLOATS 8   /* enabled, source, target, wave, rate_seconds, depth, polarity, curve */
+#define GEODE_ADSR_SLOTS 2
+#define GEODE_ADSR_CONFIG_FLOATS 10 /* enabled, attack, decay, sustain, release, amount, band, gate_threshold,
+                                       sustain_track, retrigger; followed by the target ordinals */
+
+GEODE_API geode_viz*  geode_viz_create(AAssetManager* assets, const char* cache_dir);
+GEODE_API void        geode_viz_destroy(geode_viz*);
+GEODE_API int         geode_viz_param_count(void);
+GEODE_API const char* geode_viz_param_name(int index);   /* NULL past the end */
+/* Every scene parameter in geode_viz_param_name order; ints and flags travel as floats. */
+GEODE_API void        geode_viz_set_params(geode_viz*, const float* values, int count);
+GEODE_API int         geode_viz_set_param(geode_viz*, const char* name, float value);   /* 1 = known name */
+GEODE_API void        geode_viz_set_features(geode_viz*, const GeodeFeatureFrame*);
+GEODE_API void        geode_viz_set_reduced_motion(geode_viz*, int on);
+GEODE_API void        geode_viz_set_layer(geode_viz*, const char* scene_id, float mix, int blend_mode); /* "" = none */
+GEODE_API void        geode_viz_set_transition(geode_viz*, const char* id, int64_t duration_ms);
+GEODE_API void        geode_viz_begin_param_morph(geode_viz*, float seconds);
+GEODE_API void        geode_viz_set_touch(geode_viz*, const float* xy_ndc, int points);   /* 0 points = all lifted */
+GEODE_API void        geode_viz_push_pcm(geode_viz*, const float* mono, int count);
+GEODE_API void        geode_viz_set_custom_shader(geode_viz*, const char* scene_id, const char* fragment_source);
+GEODE_API void        geode_viz_set_lfo(geode_viz*, int slot, const float* config, int count);
+GEODE_API void        geode_viz_set_adsr(geode_viz*, int slot, const float* config, int count);
+GEODE_API void        geode_viz_set_thermal(geode_viz*, int platform_status, float headroom); /* status < 0 = unknown */
+GEODE_API void        geode_viz_set_paced_fps(geode_viz*, float fps);
+GEODE_API void        geode_viz_set_offscreen(geode_viz*, int on);
+GEODE_API int         geode_viz_knows(geode_viz*, const char* scene_id);
+GEODE_API size_t      geode_viz_scene_ids(geode_viz*, char* out, size_t capacity);   /* newline-joined; returns the full length */
+GEODE_API const char* geode_viz_last_error(geode_viz*);   /* "" when clean */
+/* GL thread. */
+GEODE_API void        geode_viz_surface_created(geode_viz*);
+GEODE_API void        geode_viz_surface_changed(geode_viz*, int width, int height);
+GEODE_API int         geode_viz_set_scene(geode_viz*, const char* scene_id);   /* 0 = native cannot draw it */
+GEODE_API void        geode_viz_warm_transition(geode_viz*, const char* id);
+/* Forgets the drawn scene so the next frame cuts instead of transitioning from it. */
+GEODE_API void        geode_viz_cut(geode_viz*);
+GEODE_API void        geode_viz_render(geode_viz*, double time_seconds, uint32_t target_fbo);
+GEODE_API void        geode_viz_release_scenes(geode_viz*);
+
 #ifdef __cplusplus
 }
 #endif

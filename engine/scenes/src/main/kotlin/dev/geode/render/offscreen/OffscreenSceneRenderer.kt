@@ -8,7 +8,9 @@ import dev.geode.render.AdsrEngine
 import dev.geode.render.LfoConfig
 import dev.geode.render.LfoEngine
 import dev.geode.render.SceneFactory
+import dev.geode.render.TransitionStyle
 import dev.geode.render.VisualSafety
+import dev.geode.render.bridge.NativeViz
 import dev.geode.render.fluid.CurlFlowMath
 import dev.geode.render.scene.Scene
 import dev.geode.render.scene.SceneParams
@@ -57,6 +59,7 @@ class OffscreenSceneRenderer(
         dev.geode.render.fluid
             .RippleOverlayDrops()
 
+    private var nativeViz: NativeViz? = null
     private var scene: Scene? = null
     private var compositor: OffscreenCompositor? = null
     private var flowField: dev.geode.render.fluid.FlowField? = null
@@ -87,6 +90,13 @@ class OffscreenSceneRenderer(
             dev.geode.render.ThermalGovernor
                 .beginOffscreenRender()
         }
+        val native = NativeViz(context)
+        if (native.create() && native.knows(sceneFactory.sceneId)) {
+            nativeViz = native
+            prepareNative(native)
+            return
+        }
+        native.destroy()
         val created = sceneFactory.create().also { scene = it }
         created.init()
         created.resize(spec.width, spec.height)
@@ -125,13 +135,31 @@ class OffscreenSceneRenderer(
         }
     }
 
+    private fun prepareNative(native: NativeViz) {
+        native.setOffscreen(true)
+        native.surfaceCreated()
+        native.surfaceChanged(spec.width, spec.height)
+        native.setScene(sceneFactory.sceneId)
+        native.setTransition(TransitionStyle.CUT.name.lowercase(), 0L)
+        native.setReducedMotion(spec.reducedMotion)
+        if (spec.lfoConfigs.isNotEmpty()) native.setLfoConfigs(spec.lfoConfigs)
+        if (spec.adsrConfigs.isNotEmpty()) native.setAdsrConfigs(spec.adsrConfigs)
+    }
+
     /**
-     * Renders frame [frame] of the sequence to the default framebuffer.
+     * Renders frame [frame] of the sequence into [targetFbo] (0 = the default framebuffer).
      *
      * [prepare] must have run first. The caller presents the result — swapping an encoder
      * surface, reading pixels back, whatever it needs.
      */
-    fun renderFrame(frame: Int) {
+    fun renderFrame(
+        frame: Int,
+        targetFbo: Int = 0,
+    ) {
+        nativeViz?.let { native ->
+            renderNativeFrame(native, frame, targetFbo)
+            return
+        }
         val scene = checkNotNull(scene) { "renderFrame() before prepare()" }
         val fx = checkNotNull(compositor) { "renderFrame() before prepare()" }
         dev.geode.render.scene.GlUtil
@@ -219,7 +247,23 @@ class OffscreenSceneRenderer(
             rippleStrength = if (rippleTex != 0) p.rippleOverlayStrength.coerceIn(0f, 1f) else 0f,
             rippleSpecular = if (rippleTex != 0) p.rippleOverlaySpecular.coerceIn(0f, 1f) else 0f,
             strobeHz = VisualSafety.strobeHz(),
+            targetFbo = targetFbo,
         )
+    }
+
+    private fun renderNativeFrame(
+        native: NativeViz,
+        frame: Int,
+        targetFbo: Int,
+    ) {
+        val fps = spec.fps
+        val timeMs = frame * 1000L / fps
+        val nextTimeMs = (frame + 1) * 1000L / fps
+        val features = timeline.featuresAt(spec.rangeStartMs + timeMs, nextTimeMs - timeMs)
+        val p = (spec.paramsAt?.invoke(timeMs) ?: spec.baseParams).copy(fluidAutoQuality = false)
+        native.setParams(p)
+        native.setFeatures(features)
+        native.render(timeMs / 1000.0, targetFbo)
     }
 
     /** Frees every GL object this renderer owns. Safe to call more than once. */
@@ -235,6 +279,8 @@ class OffscreenSceneRenderer(
         bestEffort(TAG, "flowField.release()") { flowField?.release() }
         bestEffort(TAG, "rippleOverlay.release()") { rippleOverlay?.release() }
         bestEffort(TAG, "compositor.release()") { compositor?.release() }
+        bestEffort(TAG, "nativeViz.destroy()") { nativeViz?.destroy() }
+        nativeViz = null
         scene = null
         flowField = null
         rippleOverlay = null

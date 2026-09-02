@@ -171,6 +171,10 @@ struct SceneParams {
     };
     static const std::array<FloatField, 98>& lerpedFloats();
 
+    // Every field in declaration order; the wire order of geode_viz_set_params.
+    static constexpr int kFieldCount = 138;
+    static const std::array<const char*, kFieldCount>& fieldNames();
+
     // Sets a field by its Kotlin property name; ints and bools are taken from the float's value.
     bool set(std::string_view name, float value);
 };

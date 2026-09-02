@@ -6,6 +6,7 @@ import android.opengl.GLSurfaceView
 import android.os.SystemClock
 import android.util.Log
 import dev.geode.analysis.AudioFeatures
+import dev.geode.render.bridge.NativeViz
 import dev.geode.engine.gl.DeviceGl
 import dev.geode.engine.gl.GlProfile
 import dev.geode.engine.scenes.R
@@ -145,7 +146,10 @@ class VisualizerRenderer(
      * Must run on the GL thread with the context still current, and only when this renderer is
      * being discarded - a host that is merely losing its surface gets [onSurfaceCreated] instead.
      */
-    fun releaseScenes() = registry.releaseAll()
+    fun releaseScenes() {
+        registry.releaseAll()
+        nativeViz.destroy()
+    }
 
     /**
      * Where the fingers are, for every scene family that wants to know.
@@ -162,6 +166,14 @@ class VisualizerRenderer(
     private val compositeInputs = CompositePass.Inputs()
 
     private val flashBudget = FlashBudget()
+
+    // The native renderer draws any frame whose scene it knows; the Kotlin path draws the rest.
+    private val nativeViz = NativeViz(context)
+    private var nativeDrawing = false
+    private var nativeParams: SceneParams? = null
+    private var nativeLfo: List<LfoConfig>? = null
+    private var nativeAdsr: List<AdsrConfig>? = null
+    private var nativeThermalSampleMs = 0L
 
     private val fboA = RenderTarget("sceneA")
     private val fboB = RenderTarget("sceneB")
@@ -210,7 +222,10 @@ class VisualizerRenderer(
     fun submitShader(
         sceneId: String,
         fragmentSrc: String,
-    ) = registry.submitShader(sceneId, fragmentSrc)
+    ) {
+        registry.submitShader(sceneId, fragmentSrc)
+        nativeViz.setCustomShader(sceneId, fragmentSrc)
+    }
 
     fun customShaderFor(sceneId: String): String? = registry.customShaderFor(sceneId)
 
@@ -223,7 +238,10 @@ class VisualizerRenderer(
 
     fun reloadCurrentMilkPreset() = registry.reloadCurrentMilkPreset()
 
-    fun warmTransition(id: String) = compositePass.warmTransition(id)
+    fun warmTransition(id: String) {
+        compositePass.warmTransition(id)
+        nativeViz.warmTransition(id)
+    }
 
     fun queueTouchStroke(
         nx: Float,
@@ -247,12 +265,16 @@ class VisualizerRenderer(
     fun submitTouchPoints(
         xy: FloatArray,
         n: Int,
-    ) = touchField.submit(xy, n)
+    ) {
+        touchField.submit(xy, n)
+        nativeViz.submitTouchPoints(xy, n)
+    }
 
     fun beginParamMorph(seconds: Float) {
         if (seconds <= 0f) return
         morphFadeSec = seconds
         morphRemainSec = seconds * 3f
+        nativeViz.beginParamMorph(seconds)
     }
 
     /** Always budgeted — the same call the offscreen path makes, so preview and export agree. */
@@ -324,6 +346,10 @@ class VisualizerRenderer(
         quadVao = ids[0]
         GLES30.glClearColor(0f, 0f, 0f, 1f)
         lastFrameMs = SystemClock.elapsedRealtime()
+        nativeViz.surfaceCreated()
+        nativeParams = null
+        nativeLfo = null
+        nativeAdsr = null
     }
 
     override fun onSurfaceChanged(
@@ -335,6 +361,7 @@ class VisualizerRenderer(
         this.height = height
         GLES30.glViewport(0, 0, width, height)
         applyRenderScale()
+        nativeViz.surfaceChanged(width, height)
     }
 
     /**
@@ -374,6 +401,11 @@ class VisualizerRenderer(
     }
 
     override fun onDrawFrame(gl: GL10?) {
+        if (nativeViz.knows(requestedSceneId)) {
+            drawNativeFrame()
+            return
+        }
+        if (nativeDrawing) resumeKotlinPath()
         val dt = beginFrame()
         if (ThermalGovernor.tier != appliedThermalTier) applyRenderScale()
         val scene = resolveActiveScene() ?: return
@@ -385,6 +417,55 @@ class VisualizerRenderer(
         val progress = drawSecondaryTargets(p, dt)
         drawSceneTarget(scene, p, dt)
         composite(scene, p, progress)
+    }
+
+    private fun drawNativeFrame() {
+        if (!nativeDrawing) {
+            nativeDrawing = true
+            nativeViz.cut()
+        }
+        nativeViz.setScene(requestedSceneId)
+        syncNativeState()
+        nativeViz.render(SystemClock.elapsedRealtimeNanos() / NANOS_PER_SECOND, targetFbo = 0)
+        nativeViz.takeError()?.let(onShaderError)
+    }
+
+    private fun syncNativeState() {
+        val p = sceneParams
+        if (p !== nativeParams) {
+            nativeViz.setParams(p)
+            nativeParams = p
+        }
+        val lfo = lfoEngine.configs
+        if (lfo !== nativeLfo) {
+            nativeViz.setLfoConfigs(lfo)
+            nativeLfo = lfo
+        }
+        val adsr = adsrEngine.configs
+        if (adsr !== nativeAdsr) {
+            nativeViz.setAdsrConfigs(adsr)
+            nativeAdsr = adsr
+        }
+        nativeViz.setFeatures(features)
+        nativeViz.setReducedMotion(reducedMotion)
+        nativeViz.setLayer(layerSceneId, layerMix, layerBlend)
+        nativeViz.setTransition(transitionId, transitionDurationMs)
+        nativeViz.setPacedFps(ThermalGovernor.pacedFps)
+        val now = SystemClock.elapsedRealtime()
+        if (now - nativeThermalSampleMs >= THERMAL_SAMPLE_MS) {
+            nativeThermalSampleMs = now
+            nativeViz.setThermal(ThermalGovernor.platformStatus, ThermalGovernor.thermalHeadroom())
+        }
+        pcmProvider()?.let { chunk -> nativeViz.pushPcm(chunk.data, chunk.count) }
+    }
+
+    /** Back on the Kotlin path after native frames: the stale Kotlin scene must not be transitioned from. */
+    private fun resumeKotlinPath() {
+        nativeDrawing = false
+        activeScene = null
+        outgoingScene = null
+        outgoingParams = null
+        lastFrameMs = SystemClock.elapsedRealtime()
     }
 
     private fun beginFrame(): Float {
@@ -688,10 +769,16 @@ class VisualizerRenderer(
             else -> CompositeGrade.SceneFamily.FLUID
         }
 
-    fun exportSceneFactory(sceneId: String): SceneFactory =
-        object : SceneFactory {
-            override fun create(): Scene = registry.exportScene(sceneId, sceneParams)
+    fun exportSceneFactory(sceneId: String): SceneFactory {
+        val id = sceneId
+        return object : SceneFactory {
+            override val sceneId: String = id
+
+            override fun create(): Scene = registry.exportScene(id, sceneParams)
         }
+    }
 }
 
 private const val TOUCH_MIN_OVERLAY_STRENGTH = 0.35f
+private const val THERMAL_SAMPLE_MS = 1000L
+private const val NANOS_PER_SECOND = 1_000_000_000.0

@@ -40,6 +40,7 @@ add_subdirectory(core)
 
 add_library(geode SHARED
     app/src/main/cpp/geode_jni.cpp
+    app/src/main/cpp/geode_viz_jni.cpp
     app/src/main/cpp/milkdrop_jni.cpp)
 target_compile_options(geode PRIVATE ${GEODE_COMPILE_OPTIONS})
 target_link_options(geode PRIVATE ${GEODE_LINK_OPTIONS})

@@ -1,5 +1,6 @@
 add_library(geode_core STATIC
     api/geode_api.cpp
+    api/geode_viz_api.cpp
     analysis/WindowTable.cpp
     analysis/Spectrum.cpp
     analysis/AdaptiveRange.cpp
@@ -41,6 +42,7 @@ add_library(geode_core STATIC
     viz/Framebuffer.cpp
     viz/Quad.cpp
     viz/Params.cpp
+    viz/ParamsFields.cpp
     viz/Lfo.cpp
     viz/Adsr.cpp
     viz/VisualSafety.cpp

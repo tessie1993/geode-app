@@ -22,11 +22,19 @@ Snapshot: bebd045 2026-09-01 21:11:39 +0200   Branch: claude/native-core   Last 
 - projectM target name read from `third_party/projectm/src/libprojectM/CMakeLists.txt`: `projectM` (alias `libprojectM::projectM`); its GLES path is auto-enabled for Android by `cmake_dependent_option(ENABLE_GLES ...)`.
 - Local branch is `claude/native-core` as the prompt instructs. The remote accepts pushes from this session only on `claude/read-entire-markdown-t4chq6`, so that is the branch the commits are pushed to; the two names carry the same history.
 
+- 4.4: the strangler switch is per frame: `VisualizerRenderer.onDrawFrame` asks `geode_viz_knows(requestedSceneId)` and hands the frame to native when it says yes. A switch between the Kotlin and native paths cuts (`geode_viz_cut`, `resumeKotlinPath`) because neither side holds the other's last frame to transition from.
+- 4.4: `SceneParams` crosses JNI as one float array in `SceneParams::fieldNames()` order (`ParamsFields.cpp`, generated from `Params.hpp`); `SceneParamsCodec.verify` compares the native name list once and fails loudly. Packing is hand-listed, not reflective, because release builds run R8 and nothing keeps `SceneParams` field names. `customPaletteId/customPalette2Id` are not sent (they render nothing).
+- 4.4: `AudioFeatures` → `GeodeFeatureFrame` packing leaves the twelve fields `AudioFeatures` does not carry (tempoStability, barPhase, beatInBar, downbeat, downbeatConfidence, novelty, sectionBoundary, buildup, drop, arrival, harmonicity, warmup) at zero; the native scenes read only what the Kotlin scenes read.
+- 4.4: the native thermal governor gets its platform readings from the Kotlin `ThermalGovernor` (`platformStatus`, `thermalHeadroom()`), sampled once a second by the adapter, and settles its own tier; the offscreen path pins it to Full with `geode_viz_set_offscreen`.
+- 4.4: the offscreen native path lets native apply LFO/ADSR/safety from the same configs instead of pre-applying them in Kotlin, so live and export agree by construction; `fluidAutoQuality=false` is still forced per frame.
+
 ## UNKNOWN / UNVERIFIED
 - UNVERIFIED: all `<GLES3/gl3.h>`, `<GLES3/gl31.h>`, `<EGL/egl.h>` calls in `core/viz` are written against the Khronos names (no NDK sysroot on this machine to open). `GLESv3` and `EGL` are linked by their NDK library names.
 - UNVERIFIED: no NDK is on this machine (`local.properties` absent, no `asset_manager.h` on disk), so every `AAssetManager_*`/`AAsset_*` call in `core/viz/ShaderSource.cpp` is written from the names in the prompt and not checked against the header.
 - UNKNOWN: `docs/visualizer-v2/AUDIO_FEATURE_ABI.md` has no feature table (its own text says the table is written by a later slice). `GeodeFeatureFrame` therefore takes its fields and units from `ReactiveAnalyzer.kt` + `AudioFeatures.kt` + `FeatureRingBridge.kt`, all floats, order fixed in `core/api/geode_api.h` and mirrored by `FeatureFrameLayout.kt`.
 - Phase 2 shaders (`orb_lattice`, `rod_tunnel`, `neon_tiles`) are written against the include contract and GLSL ES 3.00; they have not been compiled (rule: no compiling). First device run is the owner's.
+
+- UNVERIFIED: `AAssetManager_fromJava` (`<android/asset_manager_jni.h>`), used by `geode_viz_jni.cpp`; the NDK headers are not on disk.
 
 ## BLOCKED
 
@@ -91,7 +99,8 @@ Snapshot: bebd045 2026-09-01 21:11:39 +0200   Branch: claude/native-core   Last 
 | `engine/scenes/.../render/{CompositeGrade,BlueNoise,CyclicPalettes}.kt` | `core/viz/CompositeGrade.hpp,.cpp`; blue-noise and palette LUT textures live in `CompositePass`/`Renderer` (`shaders/blue_noise_64.bin`, `shaders/cyclic_palettes.bin`) | ported |
 | `engine/scenes/.../render/CompositePass.kt` | `core/viz/CompositePass.hpp,.cpp` | ported |
 | `engine/scenes/.../render/TrailPass.kt` | `core/viz/TrailPass.hpp,.cpp` | ported |
-| `engine/scenes/.../render/VisualizerRenderer.kt` | `core/viz/Renderer.hpp`, `Renderer.cpp` (lifecycle, thread-safe setters, scene cache), `RendererFrame.cpp` (frame graph), `Scene.hpp`, `SceneRegistry.hpp,.cpp` | ported frame graph; `geode_viz_*` C API, JNI and Kotlin adapters pending (4.4) |
+| `engine/scenes/.../render/VisualizerRenderer.kt` | `core/viz/Renderer.hpp`, `Renderer.cpp` (lifecycle, thread-safe setters, scene cache), `RendererFrame.cpp` (frame graph), `Scene.hpp`, `SceneRegistry.hpp,.cpp` | ported; `geode_viz_*` in `core/api/geode_viz_api.cpp`, JNI `app/src/main/cpp/geode_viz_jni.cpp`, Kotlin `render/bridge/{NativeViz,SceneParamsCodec,FeatureFrameCodec,ModConfigCodec}.kt`; `VisualizerRenderer.kt` hands every frame whose scene native knows to `geode_viz_render` |
+| `engine/scenes/.../render/offscreen/{OffscreenSceneRenderer,OffscreenCompositor}.kt` | `NativeViz` path with an explicit target FBO when native knows the scene; Kotlin path (now also taking a target FBO) stays until 4.9 | adapter |
 | `app/src/main/cpp/milkdrop_jni.c` | `app/src/main/cpp/milkdrop_jni.cpp` | ported, same exported symbols |
 
 ## Checklists (copied from the prompt; tick as you go)
@@ -129,7 +138,7 @@ Phase 2 uniform usage: all three read the shared contract only (`uTime uResoluti
 - [x] 4.1 Shaders to `app/src/main/assets/shaders/`; `core/viz/ShaderSource` with the `//#include` resolver; keep `res/raw` until 4.9.
 - [x] 4.2 `core/viz/{GlCaps,Program,ProgramBinaryCache,Texture,Framebuffer,Quad}`.
 - [x] 4.3 `core/viz/{Params,ParamBlend,Lfo,Adsr,VisualSafety,FlashBudget,FramePacer,ThermalGovernor}`.
-- [ ] 4.4 `core/viz/Renderer` frame graph + `geode_viz_*`; `VisualizerView`/`VisualizerRenderer` adapters; offscreen paths use explicit target FBO.
+- [x] 4.4 `core/viz/Renderer` frame graph + `geode_viz_*`; `VisualizerView`/`VisualizerRenderer` adapters; offscreen paths use explicit target FBO.
 - [ ] 4.5 `core/viz/scenes/ShaderScene` + native `SceneRegistry`; Kotlin registry asks native first.
 - [ ] 4.6 Port cymatics, fluid/curlflow/water, particle/simulation scenes, compute path.
 - [ ] 4.7 `milkdrop` as C++ scene; delete `milkdrop_jni.cpp` and `MilkdropEngine.kt` externals; `MilkdropScene.kt` adapter.
@@ -166,6 +175,7 @@ Phase 2 uniform usage: all three read the shared contract only (`uTime uResoluti
 - [ ] 8.2 Fold log into `CHANGELOG.md`, bump version, delete `docs/BUILD_STATUS.md`, final commit.
 
 ## Log (newest first; one line per commit)
+- 4.4: geode_viz_* C API, JNI, NativeViz + codecs, VisualizerRenderer and offscreen adapters (explicit target FBO), band gains in the native frame graph
 - 4.4 (part 1): core/viz Renderer frame graph, CompositePass, TrailPass, TransitionCatalog, TouchField, CompositeGrade, SceneRegistry (empty until 4.5), util/Json
 - 4.3: core/viz pure logic: Params, Lfo, Adsr, LiveSignal, VisualSafety, FlashBudget, FramePacer, ThermalGovernor
 - 4.2: core/viz GL core: GlCaps, GlProber, GlProfile, Compute, ProgramBinaryCache, Program, Texture, Framebuffer, Quad

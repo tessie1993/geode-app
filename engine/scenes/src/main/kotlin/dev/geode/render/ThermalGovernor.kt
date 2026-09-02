@@ -224,6 +224,17 @@ object ThermalGovernor {
 
     private fun platformKnows(): Boolean = power != null
 
+    /** The platform's last thermal status, or -1 while no PowerManager has answered. */
+    val platformStatus: Int
+        get() = if (platformKnows()) osStatus else -1
+
+    /** The forecast headroom the platform reports; NaN when it has none (see [headroomTier]). */
+    fun thermalHeadroom(): Float {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return Float.NaN
+        val service = power ?: return Float.NaN
+        return runCatching { service.getThermalHeadroom(FORECAST_SECONDS) }.getOrDefault(Float.NaN)
+    }
+
     private fun trackMeasuredTrend(dtSeconds: Float) {
         // Forwarded rather than read by the monitor itself: the pacer publishes to one place, and
         // "keeping up" then means the same thing here as it does to the fluid ladder.
@@ -311,9 +322,7 @@ object ThermalGovernor {
      * that crashes the render thread.
      */
     private fun headroomTier(): ThermalTier {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return ThermalTier.FULL
-        val service = power ?: return ThermalTier.FULL
-        val headroom = runCatching { service.getThermalHeadroom(FORECAST_SECONDS) }.getOrDefault(Float.NaN)
+        val headroom = thermalHeadroom()
         return when {
             headroom.isNaN() -> ThermalTier.FULL
             headroom >= HEADROOM_MINIMAL -> ThermalTier.MINIMAL

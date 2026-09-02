@@ -60,6 +60,7 @@ public:
     void surfaceChanged(int width, int height);
     bool setScene(const std::string& sceneId);
     void warmTransition(const std::string& id);
+    void cut();
     void render(double timeSeconds, GLuint targetFbo);
     void releaseScenes();
     const GlProfile& profile() const { return profile_; }

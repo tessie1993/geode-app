@@ -9,6 +9,18 @@
 
 namespace geode::viz {
 
+namespace {
+// Port of applyBandGains: the per-scene band trims, clamped as the Kotlin path clamps them.
+GeodeFeatureFrame gainAdjusted(const GeodeFeatureFrame& f, const SceneParams& p) {
+    if (p.bassGain == 1.0f && p.midGain == 1.0f && p.trebGain == 1.0f) return f;
+    GeodeFeatureFrame out = f;
+    out.bass = std::clamp(f.bass * p.bassGain, 0.0f, 2.0f);
+    out.mid = std::clamp(f.mid * p.midGain, 0.0f, 2.0f);
+    out.treble = std::clamp(f.treble * p.trebGain, 0.0f, 2.0f);
+    return out;
+}
+}  // namespace
+
 float Renderer::beginFrame(double timeSeconds) {
     resetFrameState();
     frameNowS_ = timeSeconds;
@@ -125,7 +137,7 @@ float Renderer::drawSecondaryTargets(const SceneParams& p, float dt) {
         layerScene_->setFlow(flowTex_ != 0 ? flowTex_ : compositePass_.zeroTex(), p.flowEnabled ? flowStrength_ : 0.0f);
         layerScene_->setParams(p);
         deliverPcm(*layerScene_);
-        layerScene_->update(frameFeatures_, dt);
+        layerScene_->update(gainAdjusted(frameFeatures_, p), dt);
         layerScene_->draw(timeSeconds_);
     }
     if (outgoingScene_) {
@@ -138,7 +150,7 @@ float Renderer::drawSecondaryTargets(const SceneParams& p, float dt) {
             const SceneParams& op = outgoingParams_ ? *outgoingParams_ : p;
             outgoingScene_->setParams(op);
             deliverPcm(*outgoingScene_);
-            outgoingScene_->update(frameFeatures_, dt);
+            outgoingScene_->update(gainAdjusted(frameFeatures_, op), dt);
             outgoingScene_->draw(timeSeconds_);
         }
     }
@@ -157,7 +169,7 @@ void Renderer::drawSceneTarget(Scene& scene, const SceneParams& p, float dt) {
     scene.setFlow(flowTex_ != 0 ? flowTex_ : compositePass_.zeroTex(), p.flowEnabled ? flowStrength_ : 0.0f);
     scene.setParams(p);
     deliverPcm(scene);
-    scene.update(frameFeatures_, dt);
+    scene.update(gainAdjusted(frameFeatures_, p), dt);
     scene.draw(timeSeconds_);
 }
 

@@ -184,6 +184,13 @@ bool Renderer::setScene(const std::string& sceneId) {
 
 void Renderer::warmTransition(const std::string& id) { compositePass_.warmTransition(id); }
 
+void Renderer::cut() {
+    activeScene_ = nullptr;
+    outgoingScene_ = nullptr;
+    outgoingParams_.reset();
+    layerScene_ = nullptr;
+}
+
 Scene* Renderer::sceneFor(const std::string& id) {
     for (auto& entry : scenes_) {
         if (entry.first == id) return entry.second.get();

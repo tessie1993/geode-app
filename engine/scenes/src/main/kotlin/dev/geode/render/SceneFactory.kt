@@ -9,5 +9,7 @@ import dev.geode.render.scene.Scene
  * on `export` — that was the one edge pointing back out of the engine layer.
  */
 interface SceneFactory {
+    val sceneId: String
+
     fun create(): Scene
 }

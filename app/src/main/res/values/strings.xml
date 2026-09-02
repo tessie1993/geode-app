@@ -370,6 +370,12 @@
     <string name="eq_band">"%1$s  %2$s"</string>
     <string name="eq_bass_boost">"Bass boost  %1$d%%"</string>
     <string name="eq_loudness">"Loudness  %1$s"</string>
+    <string name="eq_preset_flat">Flat</string>
+    <string name="eq_preset_bass">Bass</string>
+    <string name="eq_preset_treble">Treble</string>
+    <string name="eq_preset_vocal">Vocal</string>
+    <string name="eq_preset_rock">Rock</string>
+    <string name="eq_preset_electronic">Electronic</string>
 
     <!-- Settings › Folders. -->
     <string name="folders_group_preset">Preset folder</string>

@@ -2,6 +2,7 @@ package dev.geode.audio
 
 import android.content.Context
 import androidx.annotation.OptIn
+import androidx.media3.common.audio.AudioProcessor
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.audio.AudioSink
@@ -15,9 +16,10 @@ class TapRenderersFactory(
     context: Context,
     private val sink: TeeAudioProcessor.AudioBufferSink,
     private val hooks: SinkClockHooks = SinkClockHooks.None,
+    private val dsp: List<AudioProcessor> = emptyList(),
 ) : DefaultRenderersFactory(context) {
     internal fun audioProcessorChain(): MvzAudioProcessorChain =
-        MvzAudioProcessorChain(TeeAudioProcessor(sink), hooks = hooks).also(hooks::attachSkippedFrames)
+        MvzAudioProcessorChain(TeeAudioProcessor(sink), dsp = dsp, hooks = hooks).also(hooks::attachSkippedFrames)
 
     override fun buildAudioSink(
         context: Context,

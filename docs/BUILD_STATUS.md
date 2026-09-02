@@ -47,6 +47,8 @@ Snapshot: bebd045 2026-09-01 21:11:39 +0200   Branch: claude/native-core   Last 
 - 5.1: the equalizer is ten RBJ peaking biquads on the ISO octave centres 31 Hz … 16 kHz, Q 1.41, ±15 dB in millibels (the platform `Equalizer` range `AudioFxController` fell back to); a low shelf at 120 Hz up to +9 dB stands in for `BassBoost` and a second smoothed `Gain` for `LoudnessEnhancer`'s makeup gain, so the settings the app already stores keep their meaning. Band levels are atomics and the audio thread recomputes coefficients when it sees them change: no lock in `process`, no allocation after `create`.
 - 5.1: `geode_dsp_process` takes a direct `ByteBuffer` through JNI (`GetDirectBufferAddress`) rather than a `FloatArray`, because `GetFloatArrayElements` may copy and the audio thread must not.
 
+- 5.2: `NativeDspProcessor` sits after Sonic in `MvzAudioProcessorChain`'s `dsp` list, so the analysis tap (first in the chain) still hears the untouched signal and speed/pitch changes are equalised too. It keeps the input encoding (16-bit or float) and converts through one direct float buffer; a format change builds a new native chain and retires the old one until `release()`, so a settings call from the main thread can never reach a freed chain. The platform effects needed an audio session id; `attach(sessionId)` stays as a no-op recorder so `PlayerSession` is untouched and the UI's "no session" branch is simply never taken.
+
 ## UNKNOWN / UNVERIFIED
 - UNVERIFIED: all `<GLES3/gl3.h>`, `<GLES3/gl31.h>`, `<EGL/egl.h>` calls in `core/viz` are written against the Khronos names (no NDK sysroot on this machine to open). `GLESv3` and `EGL` are linked by their NDK library names.
 - UNVERIFIED: no NDK is on this machine (`local.properties` absent, no `asset_manager.h` on disk), so every `AAssetManager_*`/`AAsset_*` call in `core/viz/ShaderSource.cpp` is written from the names in the prompt and not checked against the header.
@@ -56,6 +58,8 @@ Snapshot: bebd045 2026-09-01 21:11:39 +0200   Branch: claude/native-core   Last 
 - UNVERIFIED: `AAssetManager_fromJava` (`<android/asset_manager_jni.h>`), used by `geode_viz_jni.cpp`; the NDK headers are not on disk.
 
 - UNVERIFIED: the native simulation and fluid code calls `glTexStorage2D`, `glClearBufferuiv/fv`, `glInvalidateFramebuffer`, `glBindSampler`, `glDrawBuffers`, `glReadPixels` and `glBlendFuncSeparate` by their GLES 3.0/3.1 names; the NDK headers were not on disk to open.
+
+- UNVERIFIED: `androidx.media3.common.audio.BaseAudioProcessor` member names used by `NativeDspProcessor` (`onConfigure`, `queueInput`, `replaceOutputBuffer`, `onFlush`, `inputAudioFormat`, `UnhandledAudioFormatException`) are written from the Media3 1.x API as remembered; the jar was not opened (rule: no archive inspection).
 
 ## BLOCKED
 
@@ -139,6 +143,7 @@ Snapshot: bebd045 2026-09-01 21:11:39 +0200   Branch: claude/native-core   Last 
 | `engine/scenes/.../render/scene/{GlUtil,Scene}.kt` | `core/viz/{Program,Quad}.hpp,.cpp`, `Scene.hpp` | ported; `GlUtil.kt` keeps only the program builder and fullscreen triangle the app's own export passes use, `Scene.kt` deleted |
 | `engine/scenes/.../render/{ThermalGovernor,CyclicPalettes,TransitionCatalog}.kt` | `core/viz/ThermalGovernor.hpp,.cpp`, palette LUT in `Renderer`, `core/viz/Transition.hpp,.cpp` | ported; the Kotlin files keep only what the UI reads (platform thermal readings, palette names, the transition library metadata) |
 | `engine/scenes/src/main/res/raw/*.glsl, *.bin` | `app/src/main/assets/shaders/` | copies deleted; `FluidShaderTemplate.kt` reads the asset |
+| `app/src/main/java/dev/geode/audio/AudioFxController.kt` (platform `Equalizer`/`BassBoost`/`LoudnessEnhancer`) | `core/audio/dsp/*` behind `app/.../audio/dsp/NativeDspProcessor.kt` | ported; the controller keeps its API and preference keys, presets are the six curves in `AudioFxPresets.kt` named from `strings.xml` |
 | `app/src/main/cpp/milkdrop_jni.c` + `engine/scenes/.../render/scene/MilkdropScene.kt` | `core/viz/scenes/MilkdropScene.hpp,.cpp` (projectM handle owned by the scene; per-instance error string) | ported; `milkdrop_jni.cpp` and `MilkdropScene.kt` deleted, `MilkdropEngine.kt` keeps only `available` |
 
 ## Checklists (copied from the prompt; tick as you go)
@@ -185,7 +190,7 @@ Phase 2 uniform usage: all three read the shared contract only (`uTime uResoluti
 
 ### Phase 5 — audio DSP and native player
 - [x] 5.1 `core/audio/dsp/{Biquad,Equalizer,Gain,Crossfeed,Limiter,DspChain}` + `geode_dsp_*`.
-- [ ] 5.2 `NativeDspProcessor : AudioProcessor`; `AudioFxController` drives native EQ; `EqualizerSettings` 10 bands.
+- [x] 5.2 `NativeDspProcessor : AudioProcessor`; `AudioFxController` drives native EQ; `EqualizerSettings` 10 bands.
 - [ ] 5.3 `third_party/taglib`; `core/library/Tags` + `geode_tags_read/write` via fd.
 - [ ] 5.4 ReplayGain on playback in `PlaybackEngine.kt`; settings in `PlaybackSettings.kt`.
 - [ ] 5.5 Tag writing from `TrackInfoEditor.kt` via SAF rw fd.
@@ -213,6 +218,7 @@ Phase 2 uniform usage: all three read the shared contract only (`uTime uResoluti
 - [ ] 8.2 Fold log into `CHANGELOG.md`, bump version, delete `docs/BUILD_STATUS.md`, final commit.
 
 ## Log (newest first; one line per commit)
+- 5.2: NativeDspProcessor in the Media3 chain, AudioFxController drives the native equalizer, built-in presets
 - 5.1: core/audio/dsp (biquad, equalizer, gain, crossfeed, lookahead limiter, chain), geode_dsp_* API, JNI, externals
 - 4.9: status ledger for the deletions (the deletion commit itself went out without this update)
 - 4.9: ported Kotlin scenes, passes, sims, compute layer, engine/gl module and res/raw shader copies deleted; VisualizerRenderer and OffscreenSceneRenderer are native adapters

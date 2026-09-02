@@ -8,6 +8,8 @@ import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import dev.geode.audio.AudioFxController
+import dev.geode.audio.AudioFxPresets
+import dev.geode.audio.dsp.NativeDspProcessor
 import dev.geode.audio.PcmRingBuffer
 import dev.geode.audio.TapRenderersFactory
 import dev.geode.data.GeodePrefsFiles
@@ -60,11 +62,13 @@ class PlaybackSession internal constructor(
                 }
         }
 
+    internal val dsp = NativeDspProcessor()
+
     // WAKE_MODE_LOCAL takes a partial wake lock while playback is active, so the CPU
     // cannot doze mid-track with the screen off. Not the WIFI variant: nothing streams.
     val player: ExoPlayer =
         ExoPlayer
-            .Builder(context, TapRenderersFactory(context, tap, clockDriver))
+            .Builder(context, TapRenderersFactory(context, tap, clockDriver, dsp = listOf(dsp)))
             .setMediaSourceFactory(
                 androidx.media3.exoplayer.source.DefaultMediaSourceFactory(
                     context,
@@ -85,7 +89,7 @@ class PlaybackSession internal constructor(
             ).setWakeMode(C.WAKE_MODE_LOCAL)
             .build()
 
-    val audioFx = AudioFxController(GeodePrefsFiles(context).audioFx)
+    val audioFx = AudioFxController(GeodePrefsFiles(context).audioFx, AudioFxPresets.all(context), dsp)
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
@@ -125,6 +129,7 @@ class PlaybackSession internal constructor(
         onAudioFormat = null
         audioFx.release()
         player.release()
+        dsp.release()
     }
 }
 

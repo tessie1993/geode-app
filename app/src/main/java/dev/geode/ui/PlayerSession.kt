@@ -15,6 +15,8 @@ import dev.geode.audio.AudioBus
 import dev.geode.audio.AudioFxState
 import dev.geode.audio.MicCapture
 import dev.geode.data.EditorProjectStore
+import dev.geode.data.SmartPlaylist
+import dev.geode.data.SmartPlaylistMatcher
 import dev.geode.data.FavouritesRepository
 import dev.geode.data.FilePresetRepository
 import dev.geode.data.FileSessionRepository
@@ -706,6 +708,18 @@ class PlayerSession internal constructor(
     }
 
     fun recentlyPlayed() = listening.recentlyPlayed()
+
+    fun saveSmartPlaylist(playlist: SmartPlaylist) = musicLibrary.saveSmartPlaylist(playlist)
+
+    fun deleteSmartPlaylist(name: String) = musicLibrary.deleteSmartPlaylist(name)
+
+    fun resolveSmartPlaylist(playlist: SmartPlaylist): List<DeviceTrack> =
+        SmartPlaylistMatcher.resolve(playlist, deviceTracks.value, listening::playCountOf, favourites.value)
+
+    fun playSmartPlaylist(playlist: SmartPlaylist) {
+        val tracks = resolveSmartPlaylist(playlist).map(PlaybackQueue::queueTrack)
+        if (tracks.isNotEmpty()) playFrom(tracks, tracks.first().uri)
+    }
 
     fun currentTrackUri(): String? = currentUri?.toString()
 

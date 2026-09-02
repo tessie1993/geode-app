@@ -73,6 +73,8 @@ Snapshot: 848a374 2026-09-02   Branch: claude/repo-actions-6.4-8.2-cs6lz6   Last
 
 - 7.1: `PlaybackService` is a `MediaLibraryService`; `LibraryTree` answers browsing from the same sources the app reads (`DeviceTrackQuery`, moved out of `MusicLibraryController` so both can call it, plus `TrackLibrary` overrides and imports, `MusicPlaylistStore`, `FavouritesStore`, `HistoryStore`). A playable id is `<parentId>|<uri>`, so `onSetMediaItems` can replay the folder a tapped row came from with the right start index, which is what the library screen does on a tap. Browsing runs on the existing resumption executor because it reads files and the MediaStore.
 
+- 7.2: a smart playlist is a rule list (text fields, minutes, days since added, play count, favourite) with all/any matching and an optional limit, stored one file per playlist beside the ordinary playlists and resolved on demand against the device tracks (play counts from `HistoryStore` through `ListeningTracker.playCountOf`, favourites from the session flow), so nothing is cached that could go stale. Duplicates are grouped by normalised title + artist (bracketed suffixes and punctuation dropped) and split where lengths differ by more than two seconds; deletion goes through `MediaStore.createDeleteRequest` (API 30+) so Android asks before a file goes.
+
 ## UNKNOWN / UNVERIFIED
 - UNVERIFIED (7.1): `MediaLibraryService.MediaLibrarySession.Builder(service, player, callback)`, `LibraryResult.ofItem/ofItemList/ofError`, `MediaLibrarySession.Callback.onGetLibraryRoot/onGetChildren/onGetItem`, `MediaSession.Callback.onSetMediaItems(session, controller, items, startIndex, startPositionMs)` and the `MediaMetadata.MEDIA_TYPE_*` constants are used from the Media3 1.x API as remembered.
 - UNVERIFIED (6.7): `androidx.media3.effect.SingleColorLut.createFromCube(int[][][])` with `cube[r][g][b]` holding ARGB ints, from the Media3 1.x API as remembered; the jar was not opened.
@@ -242,7 +244,7 @@ Phase 2 uniform usage: all three read the shared contract only (`uTime uResoluti
 
 ### Phase 7 — player features
 - [x] 7.1 Android Auto: `MediaLibraryService` browse tree, `automotive_app_desc.xml`, manifest meta-data.
-- [ ] 7.2 Smart playlists (`data/SmartPlaylistStore.kt`) + duplicate finder.
+- [x] 7.2 Smart playlists (`data/SmartPlaylistStore.kt`) + duplicate finder.
 - [ ] 7.3 Glance home-screen widget.
 - [ ] 7.4 Bookmarks for long tracks in `data/PlayerPrefs.kt`.
 - [ ] 7.5 Bit-perfect USB output toggle (API 34 gate).
@@ -252,6 +254,7 @@ Phase 2 uniform usage: all three read the shared contract only (`uTime uResoluti
 - [ ] 8.2 Fold log into `CHANGELOG.md`, bump version, delete `docs/BUILD_STATUS.md`, final commit.
 
 ## Log (newest first; one line per commit)
+- 7.2: SmartPlaylistStore + matcher, smart playlists section with a rule editor on the Playlists tab, LibraryDuplicates and a Duplicates tab with MediaStore delete requests
 - 7.1: PlaybackService as MediaLibraryService with LibraryTree (tracks, albums, artists, playlists, favourites, recent), DeviceTrackQuery shared with the library, automotive_app_desc and manifest meta-data
 - 6.7: CubeLut parser (3D and 1D .cube, domain scaling), LUT and per-channel gamma on ClipEdit through SingleColorLut, LUT picker and gamma sliders in the Studio look section
 - 6.6: ExportCodec (H.264/HEVC) with MediaCodecList check and H.264 fallback in VideoExporter, LoopRender and StudioExporter; codec in export defaults, settings tab and export dialog

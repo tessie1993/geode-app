@@ -5,6 +5,8 @@ import android.content.SharedPreferences
 import android.net.Uri
 import dev.geode.data.MusicPlaylist
 import dev.geode.data.MusicPlaylistStore
+import dev.geode.data.SmartPlaylist
+import dev.geode.data.SmartPlaylistStore
 import dev.geode.data.NativeTags
 import dev.geode.data.TrackTagEdit
 import dev.geode.util.bestEffort
@@ -32,6 +34,7 @@ data class DeviceTrack(
 data class LibraryState(
     val tracks: List<LibraryTrack> = emptyList(),
     val playlists: List<MusicPlaylist> = emptyList(),
+    val smartPlaylists: List<SmartPlaylist> = emptyList(),
     val analyzing: Boolean = false,
     val analyzeProgress: Float = 0f,
 )
@@ -45,6 +48,7 @@ internal class MusicLibraryController(
 ) {
     private val trackLibrary = TrackLibrary(application)
     private val musicPlaylists = MusicPlaylistStore(application)
+    private val smartPlaylists = SmartPlaylistStore(application)
 
     private val _library = MutableStateFlow(LibraryState())
     val library: StateFlow<LibraryState> = _library
@@ -62,9 +66,14 @@ internal class MusicLibraryController(
         scope.launch(Dispatchers.IO) {
             val tracks = trackLibrary.list()
             val playlists = musicPlaylists.list()
+            val smart = smartPlaylists.list()
             withContext(Dispatchers.Main) {
                 _library.update {
-                    if (it.tracks.isNotEmpty() || it.playlists.isNotEmpty()) it else it.copy(tracks = tracks, playlists = playlists)
+                    if (it.tracks.isNotEmpty() || it.playlists.isNotEmpty()) {
+                        it.copy(smartPlaylists = smart)
+                    } else {
+                        it.copy(tracks = tracks, playlists = playlists, smartPlaylists = smart)
+                    }
                 }
             }
         }
@@ -400,6 +409,16 @@ internal class MusicLibraryController(
     ) {
         musicPlaylists.removeTrack(playlist, uri)
         _library.update { it.copy(playlists = musicPlaylists.list()) }
+    }
+
+    fun saveSmartPlaylist(playlist: SmartPlaylist) {
+        smartPlaylists.save(playlist)
+        _library.update { it.copy(smartPlaylists = smartPlaylists.list()) }
+    }
+
+    fun deleteSmartPlaylist(name: String) {
+        smartPlaylists.delete(name)
+        _library.update { it.copy(smartPlaylists = smartPlaylists.list()) }
     }
 }
 

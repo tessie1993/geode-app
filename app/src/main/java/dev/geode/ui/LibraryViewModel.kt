@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.geode.data.MusicPlaylist
+import dev.geode.data.SmartPlaylist
 import dev.geode.di.PlayerSessionProvider
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -172,4 +173,12 @@ class LibraryViewModel
             playlist: String,
             startIndex: Int = 0,
         ) = session.playPlaylist(playlist, startIndex)
+
+        fun saveSmartPlaylist(playlist: SmartPlaylist) = session.saveSmartPlaylist(playlist)
+
+        fun deleteSmartPlaylist(name: String) = session.deleteSmartPlaylist(name)
+
+        fun resolveSmartPlaylist(playlist: SmartPlaylist): List<DeviceTrack> = session.resolveSmartPlaylist(playlist)
+
+        fun playSmartPlaylist(playlist: SmartPlaylist) = session.playSmartPlaylist(playlist)
     }

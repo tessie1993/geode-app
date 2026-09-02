@@ -109,6 +109,17 @@ void geode_viz_set_custom_shader(geode_viz* v, const char* scene_id, const char*
     if (v && scene_id && fragment_source) v->renderer.setCustomShader(scene_id, fragment_source);
 }
 
+size_t geode_viz_custom_shader(geode_viz* v, const char* scene_id, char* out, size_t capacity) {
+    if (!v || !scene_id) return 0;
+    const std::string source = v->renderer.customShaderFor(scene_id);
+    if (out && capacity > 0) {
+        const size_t n = std::min(capacity - 1, source.size());
+        std::memcpy(out, source.data(), n);
+        out[n] = '\0';
+    }
+    return source.size();
+}
+
 void geode_viz_set_lfo(geode_viz* v, int slot, const float* c, int count) {
     if (!v || !c || slot < 0 || slot >= GEODE_LFO_SLOTS || count < GEODE_LFO_CONFIG_FLOATS) return;
     LfoConfig cfg;

@@ -38,8 +38,9 @@ public:
 };
 
 struct SceneHost {
+    // "" clears the last error, as a successful compile does.
     std::function<void(const std::string&)> onShaderError;
-    std::function<void(const std::string&)> onUserSourceCompiled;
+    std::function<void(const std::string& sceneId, const std::string& source)> onUserSourceCompiled;
 };
 
 }  // namespace geode::viz

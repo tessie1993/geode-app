@@ -217,7 +217,11 @@ class VisualizerRenderer(
 
     val milkdropAvailable: Boolean get() = registry.milkdropAvailable
 
-    fun availableSceneIds(): List<String> = registry.availableSceneIds()
+    fun availableSceneIds(): List<String> {
+        nativeViz.create()
+        val kotlin = registry.availableSceneIds()
+        return kotlin + nativeViz.sceneIds().filterNot { it in kotlin }
+    }
 
     fun submitShader(
         sceneId: String,
@@ -227,7 +231,7 @@ class VisualizerRenderer(
         nativeViz.setCustomShader(sceneId, fragmentSrc)
     }
 
-    fun customShaderFor(sceneId: String): String? = registry.customShaderFor(sceneId)
+    fun customShaderFor(sceneId: String): String? = nativeViz.customShaderFor(sceneId) ?: registry.customShaderFor(sceneId)
 
     fun submitFluidInjectionShaders(
         force: String?,
@@ -427,7 +431,7 @@ class VisualizerRenderer(
         nativeViz.setScene(requestedSceneId)
         syncNativeState()
         nativeViz.render(SystemClock.elapsedRealtimeNanos() / NANOS_PER_SECOND, targetFbo = 0)
-        nativeViz.takeError()?.let(onShaderError)
+        nativeViz.pollError(onShaderError)
     }
 
     private fun syncNativeState() {

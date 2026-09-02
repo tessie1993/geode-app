@@ -19,7 +19,8 @@ Renderer::Renderer(AAssetManager* assets, std::string cacheDir)
       cacheDir_(std::move(cacheDir)),
       deviceGl_(cacheDir_),
       registry_(assets_, &programCache_,
-                SceneHost{[this](const std::string& m) { fail(m); }, [](const std::string&) {}}),
+                SceneHost{[this](const std::string& m) { fail(m); },
+                          [this](const std::string& id, const std::string& src) { rememberCustomShader(id, src); }}),
       compositePass_(assets_, &programCache_),
       pcm_(kPcmCapacity, 0.0f) {
     programCache_.install(cacheDir_);
@@ -100,7 +101,26 @@ void Renderer::setAdsrConfigs(const std::array<AdsrConfig, AdsrEngine::kCount>& 
 
 void Renderer::fail(const std::string& message) {
     lastError_ = message;
-    GEODE_LOGW(kTag, "%s", message.c_str());
+    if (!message.empty()) GEODE_LOGW(kTag, "%s", message.c_str());
+}
+
+void Renderer::rememberCustomShader(const std::string& sceneId, const std::string& source) {
+    std::lock_guard<std::mutex> lock(stateLock_);
+    for (auto& entry : customShaders_) {
+        if (entry.first == sceneId) {
+            entry.second = source;
+            return;
+        }
+    }
+    customShaders_.emplace_back(sceneId, source);
+}
+
+std::string Renderer::customShaderFor(const std::string& sceneId) const {
+    std::lock_guard<std::mutex> lock(stateLock_);
+    for (const auto& entry : customShaders_) {
+        if (entry.first == sceneId) return entry.second;
+    }
+    return {};
 }
 
 void Renderer::onSurfaceCreated() {
@@ -191,10 +211,15 @@ void Renderer::cut() {
     layerScene_ = nullptr;
 }
 
-Scene* Renderer::sceneFor(const std::string& id) {
+Scene* Renderer::builtScene(const std::string& id) {
     for (auto& entry : scenes_) {
         if (entry.first == id) return entry.second.get();
     }
+    return nullptr;
+}
+
+Scene* Renderer::sceneFor(const std::string& id) {
+    if (Scene* scene = builtScene(id)) return scene;
     auto built = buildScene(id);
     if (!built) return nullptr;
     Scene* scene = built.get();
@@ -210,6 +235,8 @@ std::unique_ptr<Scene> Renderer::buildScene(const std::string& id) {
     scene->init();
     scene->setParams(requestedParams_);
     scene->resize(renderWidth_, renderHeight_);
+    const std::string custom = customShaderFor(id);
+    if (!custom.empty()) scene->setFragmentSource(custom);
     return scene;
 }
 

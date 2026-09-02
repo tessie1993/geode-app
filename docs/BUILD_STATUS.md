@@ -28,6 +28,9 @@ Snapshot: bebd045 2026-09-01 21:11:39 +0200   Branch: claude/native-core   Last 
 - 4.4: the native thermal governor gets its platform readings from the Kotlin `ThermalGovernor` (`platformStatus`, `thermalHeadroom()`), sampled once a second by the adapter, and settles its own tier; the offscreen path pins it to Full with `geode_viz_set_offscreen`.
 - 4.4: the offscreen native path lets native apply LFO/ADSR/safety from the same configs instead of pre-applying them in Kotlin, so live and export agree by construction; `fluidAutoQuality=false` is still forced per frame.
 
+- 4.5: the native `SceneRegistry` lists the fragment styles by id and loads `shaders/<id>_frag.glsl`, which is the same file set `SceneCapabilities.SHADER_SCENES` maps through `R.raw`; the two lists must stay identical until 4.9 deletes the Kotlin one. `VisualizerRenderer.availableSceneIds()` keeps the Kotlin order and appends any id only native knows; `customShaderFor` asks native first because the native scene is the one that compiled the user's source.
+- 4.5: a compiled user shader is remembered per scene id inside the native `Renderer` (`geode_viz_custom_shader`) so a rebuilt scene after surface loss gets it back, as `SceneRegistry.activeCustomShaders` did; sources submitted for a scene that is not built are dropped, as `drainPendingShaders` dropped them.
+
 ## UNKNOWN / UNVERIFIED
 - UNVERIFIED: all `<GLES3/gl3.h>`, `<GLES3/gl31.h>`, `<EGL/egl.h>` calls in `core/viz` are written against the Khronos names (no NDK sysroot on this machine to open). `GLESv3` and `EGL` are linked by their NDK library names.
 - UNVERIFIED: no NDK is on this machine (`local.properties` absent, no `asset_manager.h` on disk), so every `AAssetManager_*`/`AAsset_*` call in `core/viz/ShaderSource.cpp` is written from the names in the prompt and not checked against the header.
@@ -101,6 +104,8 @@ Snapshot: bebd045 2026-09-01 21:11:39 +0200   Branch: claude/native-core   Last 
 | `engine/scenes/.../render/TrailPass.kt` | `core/viz/TrailPass.hpp,.cpp` | ported |
 | `engine/scenes/.../render/VisualizerRenderer.kt` | `core/viz/Renderer.hpp`, `Renderer.cpp` (lifecycle, thread-safe setters, scene cache), `RendererFrame.cpp` (frame graph), `Scene.hpp`, `SceneRegistry.hpp,.cpp` | ported; `geode_viz_*` in `core/api/geode_viz_api.cpp`, JNI `app/src/main/cpp/geode_viz_jni.cpp`, Kotlin `render/bridge/{NativeViz,SceneParamsCodec,FeatureFrameCodec,ModConfigCodec}.kt`; `VisualizerRenderer.kt` hands every frame whose scene native knows to `geode_viz_render` |
 | `engine/scenes/.../render/offscreen/{OffscreenSceneRenderer,OffscreenCompositor}.kt` | `NativeViz` path with an explicit target FBO when native knows the scene; Kotlin path (now also taking a target FBO) stays until 4.9 | adapter |
+| `engine/scenes/.../render/scene/ShaderScene.kt` + `PcmRow.kt` + `MarchBudget.kt` | `core/viz/scenes/ShaderScene.hpp,.cpp` (same uniform block, audio texture, touch upload, march budget) | ported |
+| `engine/scenes/.../render/SceneRegistry.kt` + `scene/SceneCapabilities.SHADER_SCENES` | `core/viz/SceneRegistry.hpp,.cpp` (the 30 fragment styles; other families arrive in 4.6/4.7) | partial: shader styles native, Kotlin registry keeps every family until 4.9 |
 | `app/src/main/cpp/milkdrop_jni.c` | `app/src/main/cpp/milkdrop_jni.cpp` | ported, same exported symbols |
 
 ## Checklists (copied from the prompt; tick as you go)
@@ -139,7 +144,7 @@ Phase 2 uniform usage: all three read the shared contract only (`uTime uResoluti
 - [x] 4.2 `core/viz/{GlCaps,Program,ProgramBinaryCache,Texture,Framebuffer,Quad}`.
 - [x] 4.3 `core/viz/{Params,ParamBlend,Lfo,Adsr,VisualSafety,FlashBudget,FramePacer,ThermalGovernor}`.
 - [x] 4.4 `core/viz/Renderer` frame graph + `geode_viz_*`; `VisualizerView`/`VisualizerRenderer` adapters; offscreen paths use explicit target FBO.
-- [ ] 4.5 `core/viz/scenes/ShaderScene` + native `SceneRegistry`; Kotlin registry asks native first.
+- [x] 4.5 `core/viz/scenes/ShaderScene` + native `SceneRegistry`; Kotlin registry asks native first.
 - [ ] 4.6 Port cymatics, fluid/curlflow/water, particle/simulation scenes, compute path.
 - [ ] 4.7 `milkdrop` as C++ scene; delete `milkdrop_jni.cpp` and `MilkdropEngine.kt` externals; `MilkdropScene.kt` adapter.
 - [ ] 4.8 Transitions → `core/viz/Transition`.
@@ -175,6 +180,7 @@ Phase 2 uniform usage: all three read the shared contract only (`uTime uResoluti
 - [ ] 8.2 Fold log into `CHANGELOG.md`, bump version, delete `docs/BUILD_STATUS.md`, final commit.
 
 ## Log (newest first; one line per commit)
+- 4.5: native ShaderScene, SceneRegistry with the 30 fragment styles, custom-shader memory, Kotlin registry asks native first
 - 4.4: geode_viz_* C API, JNI, NativeViz + codecs, VisualizerRenderer and offscreen adapters (explicit target FBO), band gains in the native frame graph
 - 4.4 (part 1): core/viz Renderer frame graph, CompositePass, TrailPass, TransitionCatalog, TouchField, CompositeGrade, SceneRegistry (empty until 4.5), util/Json
 - 4.3: core/viz pure logic: Params, Lfo, Adsr, LiveSignal, VisualSafety, FlashBudget, FramePacer, ThermalGovernor

@@ -143,6 +143,11 @@ object GeodeNative {
         fragmentSource: String,
     )
 
+    external fun vizCustomShader(
+        handle: Long,
+        sceneId: String,
+    ): String?
+
     external fun vizSetLfo(
         handle: Long,
         slot: Int,

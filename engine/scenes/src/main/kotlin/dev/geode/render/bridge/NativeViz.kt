@@ -106,6 +106,8 @@ class NativeViz(
         if (handle != 0L) GeodeNative.vizSetCustomShader(handle, sceneId, fragmentSource)
     }
 
+    fun customShaderFor(sceneId: String): String? = if (handle == 0L) null else GeodeNative.vizCustomShader(handle, sceneId)
+
     fun setLfoConfigs(configs: List<LfoConfig>) {
         if (handle == 0L) return
         configs.take(LfoEngine.SLOTS).forEachIndexed { slot, c -> GeodeNative.vizSetLfo(handle, slot, ModConfigCodec.packLfo(c)) }
@@ -163,13 +165,13 @@ class NativeViz(
         if (handle != 0L) GeodeNative.vizReleaseScenes(handle)
     }
 
-    /** A failure not yet handed out; null while the last one stands or nothing failed. */
-    fun takeError(): String? {
-        if (handle == 0L) return null
+    /** Reports the native error state once per change: a message, or null when it clears. */
+    fun pollError(onChange: (String?) -> Unit) {
+        if (handle == 0L) return
         val error = GeodeNative.vizLastError(handle)
-        if (error.isEmpty() || error == reportedError) return null
+        if (error == reportedError) return
         reportedError = error
-        return error
+        onChange(error.ifEmpty { null })
     }
 
     private companion object {

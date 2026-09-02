@@ -107,6 +107,16 @@ Java_dev_geode_engine_bridge_GeodeNative_vizSetCustomShader(JNIEnv* env, jobject
     geode_viz_set_custom_shader(vizOf(handle), id.get(), source.get());
 }
 
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_vizCustomShader(JNIEnv* env, jobject, jlong handle, jstring sceneId) {
+    Utf8Chars id(env, sceneId);
+    const size_t length = geode_viz_custom_shader(vizOf(handle), id.get(), nullptr, 0);
+    if (length == 0) return nullptr;
+    std::vector<char> buffer(length + 1, '\0');
+    geode_viz_custom_shader(vizOf(handle), id.get(), buffer.data(), buffer.size());
+    return env->NewStringUTF(buffer.data());
+}
+
 JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_vizSetLfo(JNIEnv* env, jobject, jlong handle, jint slot, jfloatArray config) {
     FloatElements data(env, config);

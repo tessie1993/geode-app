@@ -36,7 +36,7 @@ float Renderer::beginFrame(double timeSeconds) {
         frameFeatures_ = features_;
     }
     for (const auto& [id, src] : pending) {
-        if (Scene* scene = sceneFor(id)) scene->setFragmentSource(src);
+        if (Scene* scene = builtScene(id)) scene->setFragmentSource(src);
     }
     return dt;
 }

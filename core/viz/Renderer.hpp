@@ -46,6 +46,8 @@ public:
     void submitTouchPoints(const float* xy, int n) { touchField_.submit(xy, n); }
     void pushPcm(const float* samples, int count);
     void setCustomShader(const std::string& sceneId, const std::string& fragmentSource);
+    // The user source a scene last compiled successfully; "" when it draws its built-in style.
+    std::string customShaderFor(const std::string& sceneId) const;
     void setFlowOverlay(GLuint texture, float strength);
     void setRippleOverlay(GLuint texture, float texelW, float texelH, float strength, float specular);
     void setLfoConfigs(const std::array<LfoConfig, LfoEngine::kSlots>& configs);
@@ -72,6 +74,7 @@ private:
     };
 
     Scene* sceneFor(const std::string& id);
+    Scene* builtScene(const std::string& id);
     std::unique_ptr<Scene> buildScene(const std::string& id);
     float beginFrame(double timeSeconds);
     void applyRenderScale();
@@ -86,6 +89,7 @@ private:
     void composite(Scene& scene, const SceneParams& p, float progress, GLuint targetFbo);
     void deliverPcm(Scene& scene);
     void fail(const std::string& message);
+    void rememberCustomShader(const std::string& sceneId, const std::string& source);
 
     ShaderSource assets_;
     std::string cacheDir_;
@@ -124,6 +128,7 @@ private:
     std::vector<float> pcm_;
     int pcmCount_ = 0;
     std::vector<std::pair<std::string, std::string>> pendingShaders_;
+    std::vector<std::pair<std::string, std::string>> customShaders_;
     GLuint flowTex_ = 0;
     float flowStrength_ = 0.0f;
     GLuint rippleTex_ = 0;

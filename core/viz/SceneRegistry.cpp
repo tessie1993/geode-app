@@ -1,26 +1,47 @@
 #include "viz/SceneRegistry.hpp"
 
+#include <array>
+
+#include "viz/scenes/ShaderScene.hpp"
+
 namespace geode::viz {
 
-bool SceneRegistry::knows(const std::string& id) const {
-    for (const auto& known : availableIds()) {
-        if (known == id) return true;
+namespace {
+
+// Port of SceneCapabilities.SHADER_SCENES: id -> shaders/<id>_frag.glsl, in the catalog's order.
+constexpr std::array<const char*, 30> kShaderIds = {
+    "julia",     "tunnel",  "mandel",    "kaleido",   "plasma",    "bars",       "ring",      "scope",
+    "liss",      "warp",    "grid",      "voronoi",   "metaballs", "ripples",    "starfield", "waves",
+    "hexgrid",   "spiral",  "aurora",    "solar",     "winter",    "lava",       "vanishing", "morphogen",
+    "nebula",    "noneuclid", "kifs",    "orb_lattice", "rod_tunnel", "neon_tiles",
+};
+
+bool isShaderId(const std::string& id) {
+    for (const char* known : kShaderIds) {
+        if (id == known) return true;
     }
     return false;
 }
 
-// No scene class is native yet; 4.5 registers the fragment styles here.
+}  // namespace
+
+bool SceneRegistry::knows(const std::string& id) const {
+    return isShaderId(id);
+}
+
 std::vector<std::string> SceneRegistry::availableIds() const {
-    return {};
+    return std::vector<std::string>(kShaderIds.begin(), kShaderIds.end());
 }
 
 std::unique_ptr<Scene> SceneRegistry::create(const std::string& id, const std::string& quadVert) const {
-    (void) id;
-    (void) quadVert;
-    (void) assets_;
-    (void) cache_;
-    (void) host_;
-    return nullptr;
+    if (!isShaderId(id)) return nullptr;
+    std::string error;
+    const auto fragment = assets_.load(id + "_frag.glsl", &error);
+    if (!fragment) {
+        host_.onShaderError(error);
+        return nullptr;
+    }
+    return std::make_unique<ShaderScene>(id, quadVert, *fragment, cache_, host_);
 }
 
 }  // namespace geode::viz

@@ -2,7 +2,6 @@ package dev.geode.export
 
 import android.text.SpannableString
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.effect.OverlaySettings
 import androidx.media3.effect.StaticOverlaySettings
 import androidx.media3.effect.TextOverlay
 import dev.geode.editor.SubtitleCue
@@ -30,7 +29,7 @@ class TimedTextOverlay(
         return SpannableString(cues.firstOrNull { it.spans(atMs) }?.text ?: " ")
     }
 
-    override fun getOverlaySettings(presentationTimeUs: Long): OverlaySettings = settings
+    override fun getOverlaySettings(presentationTimeUs: Long) = settings
 
     companion object {
         /** The cues touching [startMs, endMs), re-based so the clip's first frame is 0. */

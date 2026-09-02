@@ -980,6 +980,8 @@ class PlayerSession internal constructor(
 
     fun playbackPositionMs(): Long? = if (player.isPlaying) player.currentPosition else null
 
+    fun trackDurationMs(): Long = player.duration.coerceAtLeast(0L)
+
     val playbackRepository: PlaybackRepository = SessionPlaybackRepository(this)
 
     val visualizerRepository: VisualizerRepository = SessionVisualizerRepository(this)

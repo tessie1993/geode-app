@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.media3.common.Effect
 import androidx.media3.common.MediaItem
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.effect.OverlayEffect
 import androidx.media3.transformer.Composition
 import androidx.media3.transformer.EditedMediaItem
 import androidx.media3.transformer.EditedMediaItemSequence
@@ -17,6 +18,8 @@ import dev.geode.editor.KeyframeSheet
 import dev.geode.editor.Lane
 import dev.geode.editor.LaneKind
 import dev.geode.editor.ParamId
+import dev.geode.editor.SubtitleCue
+import dev.geode.editor.Subtitles
 import dev.geode.render.TransitionCatalog
 
 /**
@@ -42,14 +45,25 @@ object ProjectComposition {
         val videoLane = project.timeline.lanes.firstOrNull { it.kind == LaneKind.Media && it.clips.any(Clip::enabled) } ?: return Outcome.NoVideo
         val clips = videoLane.clips.filter(Clip::enabled).sortedBy(Clip::startMs)
         val stores = clips.map { if (it.transition != null) TransitionFrameStore() else null }
+        val cues = Subtitles.cuesFrom(project.timeline.lanes)
         val video = EditedMediaItemSequence.Builder()
         clips.forEachIndexed { index, clip ->
             val incoming = stores[index]?.let { store -> clip.transition?.let { transition -> transitionEffect(context, clip, transition, store) } }
             val outgoing = stores.getOrNull(index + 1)?.let(::TransitionCaptureEffect)
-            video.addItem(videoItem(clip, videoLane, project.keyframes, listOfNotNull(incoming, outgoing)))
+            val captions = captionsFor(clip, cues)
+            video.addItem(videoItem(clip, videoLane, project.keyframes, listOfNotNull(incoming, outgoing), listOfNotNull(captions)))
         }
         val sequences = listOfNotNull(video.build(), audioSequence(project))
         return Outcome.Ready(Composition.Builder(sequences).build(), clips.sumOf(Clip::durationMs))
+    }
+
+    /** Text-lane clips over this clip's span, as one overlay in the clip's own time. */
+    private fun captionsFor(
+        clip: Clip,
+        cues: List<SubtitleCue>,
+    ): Effect? {
+        val local = TimedTextOverlay.forSpan(cues, clip.startMs, clip.endMs)
+        return if (local.isEmpty()) null else OverlayEffect(listOf(TimedTextOverlay(local)))
     }
 
     private fun videoItem(
@@ -57,15 +71,16 @@ object ProjectComposition {
         lane: Lane,
         sheet: KeyframeSheet,
         boundary: List<Effect>,
+        captions: List<Effect>,
     ): EditedMediaItem =
         when (val content = clip.content) {
-            is ClipContent.Video -> videoItem(clip, content, lane, sheet, boundary)
+            is ClipContent.Video -> videoItem(clip, content, lane, sheet, boundary, captions)
             is ClipContent.Still ->
                 EditedMediaItem
                     .Builder(MediaItem.fromUri(content.uri))
                     .setDurationUs(clip.durationMs * 1000L)
                     .setFrameRate(STILL_FPS)
-                    .setEffects(Effects(emptyList(), boundary))
+                    .setEffects(Effects(emptyList(), boundary + captions))
                     .build()
             is ClipContent.Scene, is ClipContent.Text, is ClipContent.Overlay, is ClipContent.Audio ->
                 throw IllegalArgumentException("not media lane content: $content")
@@ -77,6 +92,7 @@ object ProjectComposition {
         lane: Lane,
         sheet: KeyframeSheet,
         boundary: List<Effect>,
+        captions: List<Effect>,
     ): EditedMediaItem {
         val edit = content.edit
         val tracks = sheet.tracksFor(clip.id).filter { it.enabled && !it.isEmpty }
@@ -100,7 +116,7 @@ object ProjectComposition {
         return EditedMediaItem
             .Builder(item)
             .setRemoveAudio(edit.mute || lane.muted)
-            .setEffects(Effects(emptyList(), grade + boundary + listOfNotNull(edit.captionEffect())))
+            .setEffects(Effects(emptyList(), grade + boundary + listOfNotNull(edit.captionEffect()) + captions))
             .apply { (ramp ?: edit.speedProvider())?.let { setSpeed(it) } }
             .build()
     }

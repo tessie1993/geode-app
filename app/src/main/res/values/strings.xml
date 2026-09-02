@@ -643,6 +643,9 @@
     <string name="editor_transition_none">None (hard cut)</string>
     <string name="editor_transition_seconds">%1$.1f s</string>
     <string name="editor_transition_current">%1$s ✓</string>
+    <string name="editor_lyric_captions">Lyrics → captions</string>
+    <string name="editor_import_srt">Import SRT…</string>
+    <string name="editor_export_srt">Export SRT…</string>
     <string name="autocut_title">Auto-cut</string>
     <string name="autocut_source">Cut on</string>
     <string name="autocut_source_transient">Transients</string>

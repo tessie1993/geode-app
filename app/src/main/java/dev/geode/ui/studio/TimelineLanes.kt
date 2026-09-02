@@ -45,6 +45,8 @@ import dev.geode.editor.Marker
 import dev.geode.editor.MarkerId
 import dev.geode.editor.OverlapPolicy
 import dev.geode.editor.RippleScope
+import dev.geode.editor.SubtitleCue
+import dev.geode.editor.Subtitles
 import dev.geode.editor.TapInSession
 import dev.geode.editor.TapResult
 import dev.geode.editor.Timeline
@@ -145,6 +147,26 @@ fun TimelineEditor(
         )
     }
 
+    fun addCaptionClips(cues: List<SubtitleCue>) {
+        if (cues.isEmpty()) return
+        actions.edit { p -> p.withCaptionLane(cues, actions, laneNames[LaneKind.Text].orEmpty()) }
+    }
+
+    val srtImporter =
+        rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+            if (uri == null) return@rememberLauncherForActivityResult
+            val text =
+                runCatching { context.contentResolver.openInputStream(uri)?.use { it.readBytes().toString(Charsets.UTF_8) } }.getOrNull()
+                    ?: return@rememberLauncherForActivityResult
+            addCaptionClips(Subtitles.parseSrt(text))
+        }
+    val srtExporter =
+        rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument(SRT_MIME)) { uri ->
+            if (uri == null) return@rememberLauncherForActivityResult
+            val srt = Subtitles.toSrt(Subtitles.cuesFrom(project.timeline.lanes))
+            runCatching { context.contentResolver.openOutputStream(uri)?.use { it.write(srt.toByteArray(Charsets.UTF_8)) } }
+        }
+
     fun addLane(kind: LaneKind) {
         actions.edit { p ->
             val count = p.timeline.lanes.count { it.kind == kind } + 1
@@ -195,6 +217,10 @@ fun TimelineEditor(
             },
             onTapCancel = { tapSession = null },
             onAutoCut = { autoCutOpen = true },
+            hasLyrics = actions.lyricCues() != null,
+            onLyricCaptions = { addCaptionClips(actions.lyricCues().orEmpty()) },
+            onImportSrt = { srtImporter.launch(arrayOf(SRT_MIME, "text/plain", "text/*")) },
+            onExportSrt = { srtExporter.launch("geode_captions_${System.currentTimeMillis()}.srt") },
         )
         val clip = selectedClip?.let(project.timeline::clip)
         val clipLane = clip?.let { project.timeline.laneOf(it.id) }
@@ -419,6 +445,25 @@ internal fun EditorProject.withKeyOn(
         is KeyframeResult.Rejected -> this
     }
 
+/** Imported cues go on a text lane of their own, so they never overwrite captions typed by hand. */
+private fun EditorProject.withCaptionLane(
+    cues: List<SubtitleCue>,
+    actions: EditorActions,
+    laneLabel: String,
+): EditorProject {
+    val count = timeline.lanes.count { it.kind == LaneKind.Text } + 1
+    val lane = Lane(LaneId(UUID.randomUUID().toString()), LaneKind.Text, "$laneLabel $count")
+    val base = copy(timeline = timeline.copy(lanes = timeline.lanes + lane))
+    return Subtitles
+        .clipsFrom(cues) { actions.newClipId() }
+        .fold(base) { project, clip ->
+            when (val result = project.timeline.addClip(lane.id, clip, OverlapPolicy.OVERWRITE)) {
+                is EditResult.Applied -> project.apply(result)
+                is EditResult.Rejected -> project
+            }
+        }.fitted()
+}
+
 /** Auto-cut clips land on the first visual lane, overwriting what was there; a lane is made if none exists. */
 private fun EditorProject.cutVisualLane(
     hits: List<dev.geode.editor.TransientHit>,
@@ -443,6 +488,7 @@ private fun EditorProject.cutVisualLane(
 private val LANE_NAME_LABELS: List<Pair<LaneKind, Int>> =
     listOf(LaneKind.Visual, LaneKind.Media, LaneKind.Text, LaneKind.Overlay, LaneKind.Audio).map { it to laneKindLabel(it) }
 
+private const val SRT_MIME = "application/x-subrip"
 private const val MIN_CONTENT_MS = 60_000L
 private const val CONTENT_MARGIN_MS = 15_000L
 private const val SCENE_MS = 4_000L

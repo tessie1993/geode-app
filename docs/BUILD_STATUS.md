@@ -65,7 +65,10 @@ Snapshot: 848a374 2026-09-02   Branch: claude/repo-actions-6.4-8.2-cs6lz6   Last
 - 6.4: `ProjectComposition` renders the first Media lane (enabled clips, start order, gaps closed) plus the first unmuted Audio lane as a second sequence; Visual, Text and Overlay lanes are not part of the Media3 pipeline (the visualizer export is the other renderer). `ClipContent.Audio.gainDb` is not applied (no per-item gain API was read). Clip-scoped keyframe tracks: `clip.speed` becomes a `SpeedRamp` (output time sampled every 40 ms, source time integrated so the provider answers in input time, and the clip's out-point follows the material it consumes); the other four grade fields plus rotation become `KeyframedGrade` (`RgbMatrix`, hue/saturation as RGB matrices rather than Media3's HSL shader) and `KeyframedRotation` (`MatrixTransformation`, rotated in square space) so they move per frame, replacing the static effects for those fields only.
 - 6.4: the transition picker lists only the `gl_transitions.json` entries (`TransitionCatalog.library`); the live renderer's built-in styles have no Media3 form. `ClipEdit.videoEffects()` is now `gradeEffects() + captionEffect()` so the caption can be drawn after the transition and capture.
 
+- 6.5: captions are Text-lane clips. `Subtitles` converts both ways (SRT cues ↔ clips, `.lrc` lines → cues, each line until the next or 8 s) and imports always land on a new Text lane so typed captions are never overwritten. At export the Text lanes become one `TimedTextOverlay` per media item holding the cues that touch it, re-based to the item's first frame; the overlay draws a single space when no cue is on, because an empty layout cannot be a bitmap. Lyrics come from the session's already-loaded `Lyrics` (synced only), so the "Lyrics → captions" button shows only when the playing track has them.
+
 ## UNKNOWN / UNVERIFIED
+- UNVERIFIED (6.5): `TextOverlay.getText(long)` / `getOverlaySettings(long)` overridden as named in the prompt; the `OverlaySettings` interface name is from the Media3 1.x API as remembered.
 - UNVERIFIED (6.4): Media3 `GlProgram` (`setBufferAttribute`, `setSamplerTexIdUniform`, `setFloatUniform`, `setFloatsUniform`, `setIntUniform`, `bindAttributesAndUniforms`, `use`, `delete`), `GlUtil` (`getNormalizedCoordinateBounds`, `HOMOGENEOUS_COORDINATE_VECTOR_SIZE`, `createTexture(w, h, highPrecision)`, `deleteTexture`, `checkGlError`), `BaseGlShaderProgram(useHdr, poolCapacity)` with `configure`/`drawFrame`/`release`, `RgbMatrix.getMatrix(timeUs, useHdr)`, `MatrixTransformation.configure/getMatrix`, `EditedMediaItemSequence.Builder().addItem`, `Composition.Builder(List)`, `EditedMediaItem.Builder.setDurationUs/setFrameRate` (stills) are written from the Media3 1.x API as remembered; the jars were not opened.
 - UNKNOWN (6.4): whether the `presentationTimeUs` an effect receives and the `timeUs` a `SpeedProvider` is asked for start at 0 at the clip's in-point or carry the sequence offset. The effects latch their first timestamp and are safe either way; `SpeedRamp` answers as if input time starts at the in-point.
 - UNVERIFIED: all `<GLES3/gl3.h>`, `<GLES3/gl31.h>`, `<EGL/egl.h>` calls in `core/viz` are written against the Khronos names (no NDK sysroot on this machine to open). `GLESv3` and `EGL` are linked by their NDK library names.
@@ -225,7 +228,7 @@ Phase 2 uniform usage: all three read the shared contract only (`uTime uResoluti
 - [x] 6.2 Timeline UI (`ui/studio/{TimelineLanes,ClipStrip,MarkerLane,KeyframeLane,Playhead}.kt`).
 - [x] 6.3 Keyframe curve editor applied at export time.
 - [x] 6.4 Multi-clip export via `Composition` + `EditedMediaItemSequence`; GL transitions; speed ramps.
-- [ ] 6.5 Captions from `.lrc` as `TextOverlay`; SRT in `editor/Subtitles.kt`.
+- [x] 6.5 Captions from `.lrc` as `TextOverlay`; SRT in `editor/Subtitles.kt`.
 - [ ] 6.6 HEVC `ExportCodec` with capability check and H.264 fallback.
 - [ ] 6.7 LUT `.cube` import as `GlEffect`; per-channel gamma.
 
@@ -241,6 +244,7 @@ Phase 2 uniform usage: all three read the shared contract only (`uTime uResoluti
 - [ ] 8.2 Fold log into `CHANGELOG.md`, bump version, delete `docs/BUILD_STATUS.md`, final commit.
 
 ## Log (newest first; one line per commit)
+- 6.5: editor/Subtitles (SRT parse/write, lyric and lane conversions), TimedTextOverlay per media item, Lyrics → captions / Import SRT / Export SRT in the toolbar
 - 6.4: ClipTransition on clips, ProjectComposition (media lane + audio lane), GlTransitionEffect/TransitionCaptureEffect, SpeedRamp, KeyframedGrade/Rotation, composition path in StudioExporter, Render cut + Transition… in the timeline editor
 - Debug pass: first full build with the NDK on disk. Restored `dev.geode.util.bestEffort` (deleted with `engine/gl` in 4.9, still imported by ten files), fixed the four native compile errors (`AMEDIAFORMAT_KEY_PCM_ENCODING` is API 28, `geode_dsp` is not movable, explicit `UniformCache` ctor in `std::array{}`, projectM deleter signature), the Studio Kotlin errors (`snap` import, `markersFrom` argument, duplicate import), ktlint/detekt findings; CI checks out submodules.
 - 6.3: AnimatableParams catalogue, key editor with interpolation chips and bezier handles, add-track sheet, keyframes applied to the visualizer export

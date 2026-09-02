@@ -70,6 +70,10 @@ fun EditorToolbar(
     onTapDone: () -> Unit,
     onTapCancel: () -> Unit,
     onAutoCut: () -> Unit,
+    hasLyrics: Boolean,
+    onLyricCaptions: () -> Unit,
+    onImportSrt: () -> Unit,
+    onExportSrt: () -> Unit,
 ) {
     Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         if (tapSession == null) {
@@ -81,6 +85,11 @@ fun EditorToolbar(
             CrystalButton(compact = true, filled = false, onClick = onAddMarker) { Text(stringResource(R.string.editor_add_marker)) }
             CrystalButton(compact = true, filled = false, onClick = onTapStart) { Text(stringResource(R.string.editor_tap_in)) }
             CrystalButton(compact = true, filled = false, onClick = onAutoCut) { Text(stringResource(R.string.editor_auto_cut)) }
+            if (hasLyrics) {
+                CrystalButton(compact = true, filled = false, onClick = onLyricCaptions) { Text(stringResource(R.string.editor_lyric_captions)) }
+            }
+            CrystalButton(compact = true, filled = false, onClick = onImportSrt) { Text(stringResource(R.string.editor_import_srt)) }
+            CrystalButton(compact = true, filled = false, onClick = onExportSrt) { Text(stringResource(R.string.editor_export_srt)) }
         } else {
             CrystalButton(compact = true, onClick = onTap) { Text(stringResource(R.string.editor_tap)) }
             Text(

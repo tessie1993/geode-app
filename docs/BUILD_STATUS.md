@@ -52,6 +52,7 @@ Snapshot: d4d70cf 2026-09-02 00:51:54 +0000   Branch: claude/native-core   Last 
 - 5.3: TagLib's `FileStream(int fd)` wraps the descriptor with `fdopen` and `fclose`s it, so `geode_tags_read/write` own the descriptor (closing it themselves when `fdopen` failed) and `NativeTags.kt` hands over `ParcelFileDescriptor.detachFd()`. Tag text crosses JNI as UTF-8 `ByteArray`s, not `jstring`s, because `NewStringUTF` expects modified UTF-8 and would mangle supplementary characters in titles.
 - 5.3: TagLib is built static with `BUILD_TESTING`/`BUILD_BINDINGS`/`BUILD_EXAMPLES` off, `WITH_ZLIB OFF` (only ID3v2 compressed frames need it; the NDK ships no zlib CMake package to find) and `VISIBILITY_HIDDEN ON` (with `TAGLIB_STATIC` this keeps its symbols out of `libgeode.so`'s export table). Its `tag` target exports include paths for the install tree only, so `core/CMakeLists.txt` names the source dirs and the binary dir holding the generated `taglib_config.h` itself. The `third_party/oboe` submodule is committed alongside (both were pinned together) and is wired into CMake by 5.6.
 - 5.4: `ReplayGain` is a `Player.Listener` the `PlaybackSession` registers on its own `ExoPlayer`, so tags are read for every media item transition whether the UI or only the service drives playback; the read runs on IO and is dropped when the item changed underneath it. The gain is track or album gain (each falling back to the other) plus the preamp, capped at `-20·log10(peak)` when the clip guard is on and a peak is tagged; files without tags play at 0 dB (the preamp never applies alone). The three prefs travel with the other playback prefs (`PlayerPrefs`, applied through `PlayerSettingsController.applyPlaybackPrefs`).
+- 5.5: the editor writes to the file only behind an explicit switch (default off), through `openFileDescriptor(uri, "rw")` and TagLib; the app-side override is written afterwards so the list shows the new text at once. A failed write keeps the dialog open with the reason instead of silently falling back. The file's album artist is read first and carried over because the editor has no field for it. `importTracks` now also takes the persistable write grant, in a second call so a read-only grant still succeeds.
 
 ## UNKNOWN / UNVERIFIED
 - UNVERIFIED: all `<GLES3/gl3.h>`, `<GLES3/gl31.h>`, `<EGL/egl.h>` calls in `core/viz` are written against the Khronos names (no NDK sysroot on this machine to open). `GLESv3` and `EGL` are linked by their NDK library names.
@@ -68,6 +69,7 @@ Snapshot: d4d70cf 2026-09-02 00:51:54 +0000   Branch: claude/native-core   Last 
 ## BLOCKED
 
 ## Owner notes (things the owner must do or decide)
+- Tag writing covers files the app holds a write grant for (documents picked or imported through SAF). MediaStore tracks the app did not create need the user's consent through `MediaStore.createWriteRequest`, which needs an activity result launcher the library screen does not have; the editor reports the refused write instead.
 - `docs/visualizer-v2/GPU_RESOURCE_ABI.md` describes the `:engine:gl` Kotlin module that 4.9 removed; the same probe/format policy now lives in `core/viz/GlCaps*`, `GlProber`, `GlProfile`. The document was left as written.
 - F24: `compileSdk = 37` while the workflows install `platforms;android-36`; both left alone.
 - Run `git submodule update --init --recursive` after pulling; projectM is now built from `third_party/projectm`.
@@ -197,7 +199,7 @@ Phase 2 uniform usage: all three read the shared contract only (`uTime uResoluti
 - [x] 5.2 `NativeDspProcessor : AudioProcessor`; `AudioFxController` drives native EQ; `EqualizerSettings` 10 bands.
 - [x] 5.3 `third_party/taglib`; `core/library/Tags` + `geode_tags_read/write` via fd.
 - [x] 5.4 ReplayGain on playback in `PlaybackEngine.kt`; settings in `PlaybackSettings.kt`.
-- [ ] 5.5 Tag writing from `TrackInfoEditor.kt` via SAF rw fd.
+- [x] 5.5 Tag writing from `TrackInfoEditor.kt` via SAF rw fd.
 - [ ] 5.6 `third_party/oboe`; `core/audio/player/{Decoder,Resampler,Mixer,Output,Player}` + `geode_player_*`.
 - [ ] 5.7 `NativePlayer : SimpleBasePlayer`; settings toggle default off; PCM tap from native mixer.
 
@@ -222,6 +224,7 @@ Phase 2 uniform usage: all three read the shared contract only (`uTime uResoluti
 - [ ] 8.2 Fold log into `CHANGELOG.md`, bump version, delete `docs/BUILD_STATUS.md`, final commit.
 
 ## Log (newest first; one line per commit)
+- 5.5: TrackInfoEditor writes tags into the file through NativeTags behind a switch; imports take the write grant
 - 5.4: ReplayGain listener on the playback session, PlayerPrefs mode/preamp/clip guard, settings UI
 - 5.3: taglib + oboe submodules, core/library/Tags over TagLib, geode_tags_* API, JNI, NativeTags.kt
 - 5.2: NativeDspProcessor in the Media3 chain, AudioFxController drives the native equalizer, built-in presets

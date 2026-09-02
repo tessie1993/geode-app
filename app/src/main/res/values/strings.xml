@@ -104,7 +104,9 @@
     <string name="track_info_field_year">Year</string>
     <string name="track_info_field_track_no">Track #</string>
     <string name="track_info_field_comment">Comment / info</string>
-    <string name="track_info_note">Edits are stored in the app only — audio files are not modified.</string>
+    <string name="track_info_note">Edits are stored in the app; the audio file itself changes only with the switch on.</string>
+    <string name="track_info_write_file">Write tags into the audio file</string>
+    <string name="track_info_write_failed">The file could not be written. Turn the switch off to keep the edit in the app only.</string>
 
     <!-- Settings › About. -->
     <string name="about_group">About</string>

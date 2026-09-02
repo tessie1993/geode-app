@@ -7,6 +7,8 @@ import android.net.Uri
 import android.provider.MediaStore
 import dev.geode.data.MusicPlaylist
 import dev.geode.data.MusicPlaylistStore
+import dev.geode.data.NativeTags
+import dev.geode.data.TrackTagEdit
 import dev.geode.util.bestEffort
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -237,6 +239,13 @@ internal class MusicLibraryController(
                             android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION,
                         )
                     }
+                    // Taken separately: a picker that granted read only would otherwise refuse both flags.
+                    runCatching {
+                        application.contentResolver.takePersistableUriPermission(
+                            uri,
+                            android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
+                        )
+                    }
                     libraryTrackFor(uri.toString(), metadataFor(uri))
                 }
             trackLibrary.addAll(tracks)?.let { merged -> _library.update { it.copy(tracks = merged) } }
@@ -265,6 +274,35 @@ internal class MusicLibraryController(
             merged?.let { withContext(Dispatchers.Main) { _library.update { s -> s.copy(tracks = it) } } }
         }
     }
+
+    /** Writes the edit into the audio file itself, keeping its album artist; false when it is not writable. */
+    suspend fun writeTrackInfo(
+        uri: String,
+        title: String,
+        artist: String,
+        album: String,
+        genre: String,
+        year: Int,
+        trackNo: Int,
+        comment: String,
+    ): Boolean =
+        withContext(Dispatchers.IO) {
+            val target = Uri.parse(uri)
+            val resolver = application.contentResolver
+            val existing = NativeTags.read(resolver, target)
+            val edit =
+                TrackTagEdit(
+                    title = title,
+                    artist = artist,
+                    album = album,
+                    albumArtist = existing?.albumArtist.orEmpty(),
+                    genre = genre,
+                    comment = comment,
+                    year = year,
+                    track = trackNo,
+                )
+            NativeTags.write(resolver, target, edit)
+        }
 
     fun noteAnalysis(
         uri: Uri,

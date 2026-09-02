@@ -647,6 +647,17 @@ class PlayerSession internal constructor(
         comment: String,
     ) = musicLibrary.saveTrackInfo(uri, title, artist, album, genre, year, trackNo, comment)
 
+    suspend fun writeTrackInfo(
+        uri: String,
+        title: String,
+        artist: String,
+        album: String,
+        genre: String,
+        year: Int,
+        trackNo: Int,
+        comment: String,
+    ): Boolean = musicLibrary.writeTrackInfo(uri, title, artist, album, genre, year, trackNo, comment)
+
     fun importFolder(treeUri: Uri) = musicLibrary.importFolder(treeUri)
 
     fun removeMediaRoot(uriStr: String) = musicLibrary.removeMediaRoot(uriStr)

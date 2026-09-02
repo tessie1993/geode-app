@@ -64,6 +64,10 @@
       patterns the packs ship alongside them.
     -->
     <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- Bit-perfect USB output asks the platform for a mixer path through
+         AudioManager.setPreferredMixerAttributes, which needs this normal
+         permission; it is granted at install and changes nothing else. -->
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
     <!-- The live wallpaper is optional; the app is fully usable without a
          launcher that supports one. -->
     <uses-feature
@@ -122,6 +126,12 @@
                 <data
                     android:scheme="geode"
                     android:host="preset" />
+            </intent-filter>
+            <!-- Android Auto voice search: "play <something> on Geode" arrives here
+                 with a query, and the activity plays the first library match. -->
+            <intent-filter>
+                <action android:name="android.media.action.MEDIA_PLAY_FROM_SEARCH" />
+                <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
 

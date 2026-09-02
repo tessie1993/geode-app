@@ -197,6 +197,7 @@ private class GlTransitionProgram(
     }
 }
 
+@UnstableApi
 private fun GlProgram.bindQuad() {
     setBufferAttribute("aFramePosition", GlUtil.getNormalizedCoordinateBounds(), GlUtil.HOMOGENEOUS_COORDINATE_VECTOR_SIZE)
 }

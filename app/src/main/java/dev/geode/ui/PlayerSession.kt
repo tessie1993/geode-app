@@ -823,6 +823,16 @@ class PlayerSession internal constructor(
 
     fun playTrack(uri: String) = queueController.playTrack(uri)
 
+    /** Voice search: the library matches for [query] as a queue, or everything when the query is blank. */
+    fun playFromSearch(query: String) {
+        scope.launch {
+            val all = withContext(Dispatchers.IO) { DeviceTrackQuery.query(application) }
+            val matches = LibraryBrowse.search(all, query)
+            val queue = matches.map(PlaybackQueue::queueTrack)
+            if (queue.isNotEmpty()) playFrom(queue, queue.first().uri)
+        }
+    }
+
     fun playFrom(
         tracks: List<QueueTrack>,
         startUri: String,

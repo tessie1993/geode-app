@@ -190,6 +190,8 @@ class PlayerViewModel
 
         fun playNext(uri: String) = session.playNext(uri)
 
+        fun playFromSearch(query: String) = session.playFromSearch(query)
+
         fun enqueue(uri: String) = session.enqueue(uri)
 
         fun shuffleAllHistory() = session.shuffleAllHistory()

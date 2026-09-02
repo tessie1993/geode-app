@@ -1,7 +1,9 @@
 package dev.geode.ui
 
+import android.app.SearchManager
 import android.content.Intent
 import android.os.Bundle
+import android.provider.MediaStore
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -16,6 +18,14 @@ class MainActivity : ComponentActivity() {
     private val settingsViewModel: SettingsViewModel by viewModels()
 
     private val visualsViewModel: VisualsViewModel by viewModels()
+
+    private val playerViewModel: PlayerViewModel by viewModels()
+
+    private fun playFromSearch(intent: Intent?) {
+        if (intent?.action != MediaStore.INTENT_ACTION_MEDIA_PLAY_FROM_SEARCH) return
+        playerViewModel.playFromSearch(intent.getStringExtra(SearchManager.QUERY).orEmpty())
+        intent.action = null
+    }
 
     private fun importSharedPreset(intent: Intent?) {
         val data = intent?.data?.toString() ?: return
@@ -33,6 +43,7 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         importSharedPreset(intent)
+        playFromSearch(intent)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -42,6 +53,9 @@ class MainActivity : ComponentActivity() {
         setContent {
             AppRoot()
         }
-        if (savedInstanceState == null) importSharedPreset(intent)
+        if (savedInstanceState == null) {
+            importSharedPreset(intent)
+            playFromSearch(intent)
+        }
     }
 }

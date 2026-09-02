@@ -15,20 +15,21 @@ object Subtitles {
     const val MAX_LYRIC_CUE_MS: Long = 8_000L
     private const val MIN_CUE_MS: Long = MIN_CLIP_DURATION_MS
 
-    fun parseSrt(text: String): List<SubtitleCue> {
-        val cues = ArrayList<SubtitleCue>()
-        val blocks = text.replace("\r\n", "\n").split(Regex("\n\\s*\n"))
-        for (block in blocks) {
-            val lines = block.lines().map(String::trim).filter(String::isNotEmpty)
-            val timingIndex = lines.indexOfFirst { TIMING.containsMatchIn(it) }
-            if (timingIndex < 0) continue
-            val match = TIMING.find(lines[timingIndex]) ?: continue
-            val start = stampMs(match.groupValues, 1)
-            val end = stampMs(match.groupValues, 5)
-            val body = lines.drop(timingIndex + 1).joinToString("\n")
-            if (end > start && body.isNotBlank()) cues += SubtitleCue(start, end, body)
-        }
-        return cues.sortedBy { it.startMs }
+    fun parseSrt(text: String): List<SubtitleCue> =
+        text
+            .replace("\r\n", "\n")
+            .split(Regex("\n\\s*\n"))
+            .mapNotNull(::cueFromBlock)
+            .sortedBy { it.startMs }
+
+    private fun cueFromBlock(block: String): SubtitleCue? {
+        val lines = block.lines().map(String::trim).filter(String::isNotEmpty)
+        val timingIndex = lines.indexOfFirst { TIMING.containsMatchIn(it) }
+        val match = lines.getOrNull(timingIndex)?.let { TIMING.find(it) } ?: return null
+        val start = stampMs(match.groupValues, 1)
+        val end = stampMs(match.groupValues, 5)
+        val body = lines.drop(timingIndex + 1).joinToString("\n")
+        return if (end > start && body.isNotBlank()) SubtitleCue(start, end, body) else null
     }
 
     fun toSrt(cues: List<SubtitleCue>): String =

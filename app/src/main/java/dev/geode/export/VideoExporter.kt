@@ -289,17 +289,6 @@ class VideoExporter(
         onProgress: (Float) -> Unit,
         isCancelled: () -> Boolean,
     ) {
-        fun makeFormat(
-            mimeType: String,
-            fps: Int,
-            bitRate: Int,
-        ): MediaFormat =
-            MediaFormat.createVideoFormat(mimeType, aspect.width, aspect.height).apply {
-                setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface)
-                setInteger(MediaFormat.KEY_BIT_RATE, bitRate)
-                setInteger(MediaFormat.KEY_FRAME_RATE, fps)
-                setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1)
-            }
         var encoderRef: MediaCodec? = null
         var inputSurfaceRef: android.view.Surface? = null
         var muxerRef: MediaMuxer? = null
@@ -310,33 +299,13 @@ class VideoExporter(
         var muxerStarted = false
         var muxerStopped = false
         try {
-            val requested = codec.available()
-            var fps = requestedFps.coerceIn(24, 60)
+            val requestedFpsBounded = requestedFps.coerceIn(24, 60)
             // The requested codec at the requested rate first, then its reduced form, then the same pair on H.264.
             val attempts =
-                listOf(requested, ExportCodec.H264).distinct().flatMap { c ->
-                    listOf(EncoderAttempt(c, fps, aspect.bitRate), EncoderAttempt(c, 30, aspect.bitRate * 2 / 3))
+                listOf(codec.available(), ExportCodec.H264).distinct().flatMap { c ->
+                    listOf(EncoderAttempt(c, requestedFpsBounded, aspect.bitRate), EncoderAttempt(c, 30, aspect.bitRate * 2 / 3))
                 }
-            var picked: MediaCodec? = null
-            var failure: Exception? = null
-            for (attempt in attempts) {
-                val candidate = MediaCodec.createEncoderByType(attempt.codec.mimeType)
-                try {
-                    candidate.configure(
-                        makeFormat(attempt.codec.mimeType, attempt.fps, attempt.bitRate),
-                        null,
-                        null,
-                        MediaCodec.CONFIGURE_FLAG_ENCODE,
-                    )
-                    picked = candidate
-                    fps = attempt.fps
-                    break
-                } catch (e: Exception) {
-                    bestEffort(TAG, "candidate.release()") { candidate.release() }
-                    failure = e
-                }
-            }
-            val encoder: MediaCodec = picked ?: throw checkNotNull(failure)
+            val (encoder, fps) = openEncoder(aspect, attempts)
             encoderRef = encoder
             val inputSurface = encoder.createInputSurface().also { inputSurfaceRef = it }
             encoder.start()
@@ -475,6 +444,36 @@ class VideoExporter(
         val fps: Int,
         val bitRate: Int,
     )
+
+    private fun videoFormat(
+        aspect: ExportAspect,
+        attempt: EncoderAttempt,
+    ): MediaFormat =
+        MediaFormat.createVideoFormat(attempt.codec.mimeType, aspect.width, aspect.height).apply {
+            setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface)
+            setInteger(MediaFormat.KEY_BIT_RATE, attempt.bitRate)
+            setInteger(MediaFormat.KEY_FRAME_RATE, attempt.fps)
+            setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1)
+        }
+
+    /** The first attempt the device's encoder accepts, with the frame rate it was configured for. */
+    private fun openEncoder(
+        aspect: ExportAspect,
+        attempts: List<EncoderAttempt>,
+    ): Pair<MediaCodec, Int> {
+        var failure: Exception? = null
+        for (attempt in attempts) {
+            val candidate = MediaCodec.createEncoderByType(attempt.codec.mimeType)
+            try {
+                candidate.configure(videoFormat(aspect, attempt), null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
+                return candidate to attempt.fps
+            } catch (e: Exception) {
+                bestEffort(TAG, "candidate.release()") { candidate.release() }
+                failure = e
+            }
+        }
+        throw checkNotNull(failure)
+    }
 
     private fun writeSample(
         muxer: MediaMuxer,

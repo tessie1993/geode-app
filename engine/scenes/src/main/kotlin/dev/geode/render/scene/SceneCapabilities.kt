@@ -51,7 +51,7 @@ object SceneCapabilities {
             SceneIds.SOLAR to "shaders/solar_frag.glsl",
             SceneIds.WINTER to "shaders/winter_frag.glsl",
             SceneIds.LAVA to "shaders/lava_frag.glsl",
-            // The five styles built on the shared GLSL libraries (lib_scene_uniforms,
+            // The styles built on the shared GLSL libraries (lib_scene_uniforms,
             // lib_scene_grade, lib_sdf3, lib_touch) rather than on their own copy of
             // the boilerplate. Same ShaderScene, same uniform contract.
             SceneIds.VANISHING to "shaders/vanishing_frag.glsl",
@@ -62,12 +62,13 @@ object SceneCapabilities {
             SceneIds.ORB_LATTICE to "shaders/orb_lattice_frag.glsl",
             SceneIds.ROD_TUNNEL to "shaders/rod_tunnel_frag.glsl",
             SceneIds.NEON_TILES to "shaders/neon_tiles_frag.glsl",
+            SceneIds.FRACTAL_TUNNEL to "shaders/fractal_tunnel_frag.glsl",
         )
 
     /**
      * The fragment styles that raymarch, and so spend the [MarchBudget] the Detail control sets.
      *
-     * A per-STYLE set rather than a [SceneKind], because only six of the 30 shader styles march;
+     * A per-STYLE set rather than a [SceneKind], because only seven of the 31 shader styles march;
      * scoping Detail to `SceneKind.SHADER` would put a dead slider in front of anyone looking at
      * Plasma, which is exactly what [ParamScope]'s no-dead-controls rule exists to prevent.
      */
@@ -79,6 +80,7 @@ object SceneCapabilities {
             SceneIds.NONEUCLID,
             SceneIds.KIFS,
             SceneIds.ROD_TUNNEL,
+            SceneIds.FRACTAL_TUNNEL,
         )
 
     /**

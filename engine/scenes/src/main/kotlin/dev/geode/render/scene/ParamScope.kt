@@ -36,7 +36,7 @@ enum class ParamScope {
     SHADER_LOOK,
 
     /**
-     * The raymarch step budget, live only on the five marched fragment styles.
+     * The raymarch step budget, live only on the seven marched fragment styles.
      *
      * The only scope whose answer depends on the STYLE rather than the renderer behind it -
      * see [appliesTo] - because Plasma and Vanishing are both [SceneKind.SHADER] and only one

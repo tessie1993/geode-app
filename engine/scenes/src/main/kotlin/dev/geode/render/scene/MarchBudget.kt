@@ -3,9 +3,9 @@ package dev.geode.render.scene
 /**
  * The user's Detail control as a raymarch step budget.
  *
- * The marched fragment styles (VANISHING, MORPHOGEN, NEBULA, NONEUCLID, KIFS) all bound
- * their loop with a compile-time constant and BREAK on [steps], so Detail moves without
- * recompiling anything and no shader can ever iterate past its own ceiling.
+ * The marched fragment styles (VANISHING, MORPHOGEN, NEBULA, NONEUCLID, KIFS, ROD_TUNNEL,
+ * FRACTAL_TUNNEL) all bound their loop with a compile-time constant and BREAK on [steps], so
+ * Detail moves without recompiling anything and no shader can ever iterate past its own ceiling.
  *
  * It used to carry three more counts - `iterations`, `bulbIterations`, `seedIterations` -
  * for the six distance-estimator species in the Hyperspace family. That family is gone and

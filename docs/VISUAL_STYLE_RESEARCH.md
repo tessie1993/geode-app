@@ -23,6 +23,12 @@ The original `cymatics` ID also remains unchanged. Ten additional resonator prof
 
 The variants reuse the existing resonator bank, normalized modal field and audio mapping, so Cymatics controls keep the same meaning throughout the family.
 
+### Fractal Tunnel
+
+One raymarched `ShaderScene` style (`fractal_tunnel`, `app/src/main/assets/shaders/fractal_tunnel_frag.glsl`), registered beside the other marched fragment styles in `SceneCapabilities.SHADER_SCENES` and `MARCHED_SCENES` and in the native `SceneRegistry`'s id list, so it shares the uniform contract, the Detail march budget, the touch model, the palette and grade libraries, export and the visual-safety clamps without a renderer of its own.
+
+The geometry is the three-dimensional Apollonian construction: the plane y = 0 pulled back through a chain of domain repetitions and floored sphere inversions. The chain is conformal, so the distance estimate is the final plane distance divided by the accumulated scale, times a fudge for the first-order pullback. A cylinder bores the corridor the camera falls down, a wedge fold about the axis folds the cross-section into six mirrored wedges (or the user's Symmetry count when Kaleidoscope is on), and the tunnel axis bends and twists with depth. The packing moves on its own: the inversion radius breathes, a rotation between the inversions turns each level against the last, and the packing slides across the bore. Every rate is an integer number of cycles per scene-clock wrap and the flight speed an integer number of world periods per wrap, so the clock's restart is invisible.
+
 ## Crystal UI material system
 
 The old UI used one general glass/nebula treatment with different accent colors. The new material layer passes the selected `AppTheme` through a CompositionLocal and procedurally draws a different mineral structure on both the global backdrop and every crystal panel:
@@ -50,6 +56,7 @@ The implementation is original except for code already credited by the project. 
 - [`karlstav/cava`](https://github.com/karlstav/cava) — MIT. Relevant for perceptually responsive spectrum smoothing and for exposing analysis as reusable core data rather than tying it to one renderer.
 - [`flutomax/ChladniPlate2`](https://github.com/flutomax/ChladniPlate2) — public source and useful as a conceptual reference for combining waveform amplitudes, harmonic ratios and phases into a normalized level map. Its license should be reviewed directly before adapting any source; no code from it is included here.
 - [`VCHackett/naadara`](https://github.com/VCHackett/naadara) — MIT technique reference already documented in `THIRD_PARTY_NOTICES` for the narrow/wide Gaussian nodal rendering approach. No source is copied.
+- Inigo Quilez's ["Apollonian"](https://www.shadertoy.com/view/4ds3zn) (Shadertoy, 2013) — technique reference for the repeat/invert chain behind Fractal Tunnel. No source is copied; the shader is written from the construction, with its own inversion floor, rotation between the folds, shell thickness, bore and tunnel frame.
 
 ## Further creative backlog
 

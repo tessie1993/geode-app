@@ -216,6 +216,26 @@ object BuiltInPresets {
     private val SHADER_VARIANTS: List<Preset> =
         listOf(
             Preset(
+                name = "fractal_tunnel · Freefall",
+                sceneId = dev.geode.render.scene.SceneIds.FRACTAL_TUNNEL,
+                attack = 0.6f,
+                decay = 0.16f,
+                customShader = null,
+                params =
+                    SceneParams(
+                        palette = 0,
+                        palette2 = 1,
+                        paletteMix = 0.25f,
+                        speed = 1.15f,
+                        marchDetail = 1.1f,
+                        audioDrive = 1.2f,
+                        beatResponse = 1.3f,
+                        bloom = 0.5f,
+                        vignette = 0.3f,
+                        bassGain = 1.2f,
+                    ),
+            ),
+            Preset(
                 name = "orb_lattice · Deep Sea",
                 sceneId = dev.geode.render.scene.SceneIds.ORB_LATTICE,
                 attack = 0.45f,

@@ -24,6 +24,13 @@ import dev.geode.playback.ReplayGain
 
 private val SLEEP_TIMER_CHOICES = listOf(0, 15, 30, 45, 60)
 
+private val CROSSFADE_CURVES =
+    listOf(
+        0 to R.string.playback_crossfade_linear,
+        1 to R.string.playback_crossfade_equal_power,
+        2 to R.string.playback_crossfade_smooth,
+    )
+
 private val REPLAYGAIN_MODES =
     listOf(
         ReplayGain.MODE_OFF to R.string.playback_replaygain_off,
@@ -82,6 +89,7 @@ fun PlaybackSettingsSection(viewModel: SettingsViewModel) {
             )
         }
         ReplayGainSettings(prefs) { viewModel.setPlayerPrefs(it) }
+        NativeEngineSettings(prefs) { viewModel.setPlayerPrefs(it) }
         PlaybackSwitchRow(stringResource(R.string.playback_skip_silence), prefs.skipSilence) {
             viewModel.setPlayerPrefs(prefs.copy(skipSilence = it))
         }
@@ -184,6 +192,55 @@ private fun ReplayGainSettings(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+    }
+}
+
+@Composable
+private fun NativeEngineSettings(
+    prefs: PlayerPrefs,
+    onChange: (PlayerPrefs) -> Unit,
+) {
+    Column {
+        PlaybackSwitchRow(stringResource(R.string.playback_native_engine), prefs.nativeEngine) {
+            onChange(prefs.copy(nativeEngine = it))
+        }
+        Text(
+            stringResource(R.string.playback_native_engine_explainer),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        if (!prefs.nativeEngine) return
+        PlaybackSwitchRow(stringResource(R.string.playback_gapless), prefs.gapless) {
+            onChange(prefs.copy(gapless = it))
+        }
+        Text(
+            if (prefs.crossfadeMs <= 0) {
+                stringResource(R.string.playback_crossfade_off)
+            } else {
+                stringResource(R.string.playback_crossfade, "%.1f".format(prefs.crossfadeMs / 1000f))
+            },
+            style = MaterialTheme.typography.labelMedium,
+        )
+        CrystalSlider(
+            value = prefs.crossfadeMs.toFloat(),
+            onValueChange = { onChange(prefs.copy(crossfadeMs = PlaybackMath.snap(it, 500f).toInt())) },
+            valueRange = 0f..PlayerPrefs.MAX_CROSSFADE_MS.toFloat(),
+        )
+        if (prefs.crossfadeMs > 0) {
+            Text(stringResource(R.string.playback_crossfade_curve), style = MaterialTheme.typography.labelMedium)
+            Row(
+                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                CROSSFADE_CURVES.forEach { (curve, label) ->
+                    FilterChip(
+                        selected = prefs.crossfadeCurve == curve,
+                        onClick = { onChange(prefs.copy(crossfadeCurve = curve)) },
+                        label = { Text(stringResource(label), style = MaterialTheme.typography.labelSmall) },
+                    )
+                }
+            }
+        }
     }
 }
 

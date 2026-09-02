@@ -41,12 +41,17 @@ class NativeDspProcessor : BaseAudioProcessor() {
     var settings: DspSettings = DspSettings()
         private set
 
+    /** Told about every [update], for a chain that lives outside the Media3 pipeline. */
+    @Volatile
+    var onSettings: ((DspSettings) -> Unit)? = null
+
     private var scratch: ByteBuffer = ByteBuffer.allocateDirect(0).order(ByteOrder.nativeOrder())
 
     fun update(next: DspSettings) {
         settings = next
         val h = handle
         if (h != 0L) apply(h, next)
+        onSettings?.invoke(next)
     }
 
     override fun onConfigure(inputAudioFormat: AudioProcessor.AudioFormat): AudioProcessor.AudioFormat {
@@ -126,7 +131,7 @@ class NativeDspProcessor : BaseAudioProcessor() {
         retired.clear()
     }
 
-    private fun apply(
+    internal fun apply(
         h: Long,
         s: DspSettings,
     ) {

@@ -7,7 +7,6 @@ import androidx.annotation.OptIn
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.exoplayer.ExoPlayer
 import dev.geode.analysis.AudioFeatures
 import dev.geode.analysis.FeatureTimeline
 import dev.geode.analysis.IntelligenceMode
@@ -188,7 +187,7 @@ class PlayerSession internal constructor(
             },
         )
 
-    val player: ExoPlayer = playback.player
+    val player: Player = playback.player
 
     private val _uiState = MutableStateFlow(PlayerUiState())
     val uiState: StateFlow<PlayerUiState> = _uiState
@@ -1174,7 +1173,7 @@ class PlayerSession internal constructor(
         playerListener = listener
         player.addListener(listener)
         sleepTimer.onFadeVolume = fades.sleepFadeHook
-        audioFxController.attach(player.audioSessionId)
+        playback.exoPlayer?.let { audioFxController.attach(it.audioSessionId) }
         settings.refreshAudioFx()
         if (alreadyLoaded) onTrackChanged()
     }

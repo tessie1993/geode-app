@@ -11,6 +11,7 @@ import dev.geode.audio.AudioFxController
 import dev.geode.audio.AudioFxState
 import dev.geode.data.PlayerPrefs
 import dev.geode.data.PlayerPrefsRepository
+import dev.geode.playback.NativePlayer
 import dev.geode.playback.ReplayGain
 import dev.geode.ui.theme.ThemePack
 import kotlinx.coroutines.CoroutineScope
@@ -23,7 +24,7 @@ internal class PlayerSettingsController(
     private val userData: UserDataRepository,
     private val playerPrefsRepository: PlayerPrefsRepository,
     private val scope: CoroutineScope,
-    private val player: ExoPlayer,
+    private val player: Player,
     private val engine: AnalysisEngine,
     private val audioFx: AudioFxController,
     private val replayGain: ReplayGain,
@@ -69,8 +70,11 @@ internal class PlayerSettingsController(
 
     fun applyPlaybackPrefs(p: PlayerPrefs) {
         player.playbackParameters = PlaybackParameters(p.speed, PlaybackMath.semitonesToRatio(p.pitchSemitones))
-        player.skipSilenceEnabled = p.skipSilence
-        player.setHandleAudioBecomingNoisy(p.pauseOnNoisy)
+        (player as? ExoPlayer)?.let {
+            it.skipSilenceEnabled = p.skipSilence
+            it.setHandleAudioBecomingNoisy(p.pauseOnNoisy)
+        }
+        (player as? NativePlayer)?.applyPrefs(p.crossfadeMs, p.crossfadeCurve, p.gapless)
         replayGain.configure(p.replayGainMode, p.replayGainPreampDb, p.replayGainClipGuard)
     }
 

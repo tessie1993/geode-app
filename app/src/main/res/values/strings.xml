@@ -367,6 +367,15 @@
     <string name="playback_replaygain_album">Album</string>
     <string name="playback_replaygain_preamp">"Preamp  %1$s dB"</string>
     <string name="playback_replaygain_clip_guard">Prevent clipping</string>
+    <string name="playback_native_engine">Native audio engine</string>
+    <string name="playback_native_engine_explainer">Decodes and mixes inside the engine, with gapless joins and crossfades. Takes effect the next time playback starts after the app has been closed.</string>
+    <string name="playback_gapless">Gapless playback</string>
+    <string name="playback_crossfade_off">Crossfade — off</string>
+    <string name="playback_crossfade">"Crossfade  %1$ss"</string>
+    <string name="playback_crossfade_curve">Crossfade curve</string>
+    <string name="playback_crossfade_linear">Linear</string>
+    <string name="playback_crossfade_equal_power">Equal power</string>
+    <string name="playback_crossfade_smooth">Smooth</string>
     <string name="playback_replaygain_explainer">Evens out loudness between tracks from the ReplayGain tags in each file. Files without the tags play at their own level.</string>
 
     <!-- Settings › Audio › Equalizer. -->

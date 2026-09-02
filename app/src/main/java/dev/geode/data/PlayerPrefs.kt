@@ -17,6 +17,10 @@ data class PlayerPrefs(
     val replayGainMode: Int = 0,
     val replayGainPreampDb: Float = 0f,
     val replayGainClipGuard: Boolean = true,
+    val nativeEngine: Boolean = false,
+    val crossfadeMs: Int = 0,
+    val crossfadeCurve: Int = 1,
+    val gapless: Boolean = true,
 ) {
     fun coerced(): PlayerPrefs =
         copy(
@@ -27,6 +31,8 @@ data class PlayerPrefs(
             fadeMs = fadeMs.coerceIn(0, MAX_FADE_MS),
             replayGainMode = replayGainMode.coerceIn(0, MAX_REPLAYGAIN_MODE),
             replayGainPreampDb = replayGainPreampDb.coerceIn(-MAX_REPLAYGAIN_PREAMP_DB, MAX_REPLAYGAIN_PREAMP_DB),
+            crossfadeMs = crossfadeMs.coerceIn(0, MAX_CROSSFADE_MS),
+            crossfadeCurve = crossfadeCurve.coerceIn(0, MAX_CROSSFADE_CURVE),
         )
 
     companion object {
@@ -37,6 +43,8 @@ data class PlayerPrefs(
         const val MAX_PITCH_SEMITONES = 6f
         const val MAX_REPLAYGAIN_MODE = 2
         const val MAX_REPLAYGAIN_PREAMP_DB = 15f
+        const val MAX_CROSSFADE_MS = 12_000
+        const val MAX_CROSSFADE_CURVE = 2
     }
 }
 
@@ -59,6 +67,10 @@ class PlayerPrefsStore(
             replayGainMode = prefs.getInt(KEY_REPLAYGAIN_MODE, 0),
             replayGainPreampDb = prefs.getFloat(KEY_REPLAYGAIN_PREAMP, 0f),
             replayGainClipGuard = prefs.getBoolean(KEY_REPLAYGAIN_CLIP_GUARD, true),
+            nativeEngine = prefs.getBoolean(KEY_NATIVE_ENGINE, false),
+            crossfadeMs = prefs.getInt(KEY_CROSSFADE_MS, 0),
+            crossfadeCurve = prefs.getInt(KEY_CROSSFADE_CURVE, 1),
+            gapless = prefs.getBoolean(KEY_GAPLESS, true),
         ).coerced()
 
     fun save(p: PlayerPrefs) {
@@ -78,6 +90,10 @@ class PlayerPrefsStore(
             .putInt(KEY_REPLAYGAIN_MODE, p.replayGainMode)
             .putFloat(KEY_REPLAYGAIN_PREAMP, p.replayGainPreampDb)
             .putBoolean(KEY_REPLAYGAIN_CLIP_GUARD, p.replayGainClipGuard)
+            .putBoolean(KEY_NATIVE_ENGINE, p.nativeEngine)
+            .putInt(KEY_CROSSFADE_MS, p.crossfadeMs)
+            .putInt(KEY_CROSSFADE_CURVE, p.crossfadeCurve)
+            .putBoolean(KEY_GAPLESS, p.gapless)
             .apply()
     }
 
@@ -96,5 +112,9 @@ class PlayerPrefsStore(
         const val KEY_REPLAYGAIN_MODE = "replaygain_mode"
         const val KEY_REPLAYGAIN_PREAMP = "replaygain_preamp_db"
         const val KEY_REPLAYGAIN_CLIP_GUARD = "replaygain_clip_guard"
+        const val KEY_NATIVE_ENGINE = "native_engine"
+        const val KEY_CROSSFADE_MS = "crossfade_ms"
+        const val KEY_CROSSFADE_CURVE = "crossfade_curve"
+        const val KEY_GAPLESS = "gapless"
     }
 }

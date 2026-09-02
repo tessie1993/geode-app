@@ -106,6 +106,32 @@ Java_dev_geode_engine_bridge_GeodeNative_vizSetFluidInjection(JNIEnv* env, jobje
 }
 
 JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_vizLoadMilkPreset(JNIEnv* env, jobject, jlong handle, jstring path) {
+    Utf8Chars file(env, path);
+    geode_viz_load_milk_preset(vizOf(handle), file.get());
+}
+
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_vizReloadMilkPreset(JNIEnv*, jobject, jlong handle) {
+    geode_viz_reload_milk_preset(vizOf(handle));
+}
+
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_vizSetMilkTextureDir(JNIEnv* env, jobject, jlong handle, jstring dir) {
+    Utf8Chars path(env, dir);
+    geode_viz_set_milk_texture_dir(vizOf(handle), path.get());
+}
+
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_vizTakeMilkPresetLoaded(JNIEnv* env, jobject, jlong handle) {
+    const size_t length = geode_viz_take_milk_preset_loaded(vizOf(handle), nullptr, 0);
+    if (length == 0) return nullptr;
+    std::vector<char> buffer(length + 1, '\0');
+    geode_viz_take_milk_preset_loaded(vizOf(handle), buffer.data(), buffer.size());
+    return env->NewStringUTF(buffer.data());
+}
+
+JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_vizPushPcm(JNIEnv* env, jobject, jlong handle, jfloatArray mono, jint count) {
     FloatElements data(env, mono);
     if (!data.get()) return;

@@ -18,7 +18,7 @@ public:
         : loader_{assets, cache}, profile_(profile), host_(std::move(host)) {}
 
     bool knows(const std::string& id) const;
-    // Every id in the order the Kotlin registry listed them, milkdrop excluded until 4.7.
+    // Every id in the order the Kotlin registry listed them.
     std::vector<std::string> availableIds() const;
     // Builds an uninitialised scene; nullptr for an id native code cannot draw.
     std::unique_ptr<Scene> create(const std::string& id, const std::string& quadVert) const;

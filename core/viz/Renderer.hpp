@@ -52,6 +52,11 @@ public:
     std::string customShaderFor(const std::string& sceneId) const;
     void queueTouchStroke(float nx, float ny, float ndx, float ndy, float dt, float strength);
     void setFluidInjectionShaders(const std::string& forceSrc, const std::string& dyeSrc);
+    void loadMilkPreset(const std::string& path);
+    void reloadMilkPreset();
+    void setMilkTextureDir(const std::string& dir);
+    // The path of the preset the MilkDrop scene last compiled, handed out once.
+    std::string takeMilkPresetLoaded();
     void setLfoConfigs(const std::array<LfoConfig, LfoEngine::kSlots>& configs);
     void setAdsrConfigs(const std::array<AdsrConfig, AdsrEngine::kCount>& configs);
     ThermalGovernor& thermal() { return thermal_; }
@@ -93,6 +98,8 @@ private:
     void stepOverlays(Scene& scene, const SceneParams& p, float dt);
     void wireFlow(Scene& target, const SceneParams& p);
     void applyPendingFluidInjection();
+    void applyMilkRequests();
+    void notePresetLoaded(const std::string& path);
     static double monotonicSeconds();
     void fail(const std::string& message);
     void rememberCustomShader(const std::string& sceneId, const std::string& source);
@@ -140,6 +147,12 @@ private:
     std::string fluidForceSrc_;
     std::string fluidDyeSrc_;
     bool fluidInjectionDirty_ = false;
+    std::string lastMilkPreset_;
+    std::string milkPresetRequest_;
+    bool milkReloadRequested_ = false;
+    std::string milkTextureDir_;
+    bool milkTextureDirDirty_ = false;
+    std::string milkPresetLoaded_;
     bool rippleOverlayOn_ = false;
     bool smearing_ = false;
 

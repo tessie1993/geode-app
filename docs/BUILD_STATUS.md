@@ -36,6 +36,9 @@ Snapshot: bebd045 2026-09-01 21:11:39 +0200   Branch: claude/native-core   Last 
 - 4.6: `GeodeFeatureFrame` has 64 bands where the Kotlin idle frames had 16, so `FluidSceneBase::fillIdleBands` writes each Kotlin value into the four bands it spans; every consumer indexes bands by fraction, so the idle picture is unchanged.
 - 4.6: `SceneHost.pacedFps` hands the renderer's `ThermalGovernor::pacedFps` to the fluid quality ladder, replacing the Kotlin global `ThermalGovernor.pacedFps` read.
 
+- 4.7: the MilkDrop "adapter" is `VisualizerRenderer.loadMilkPreset/reloadCurrentMilkPreset/onMilkPresetLoaded` forwarding to `geode_viz_load_milk_preset/reload/take_milk_preset_loaded`; no Kotlin scene object remains because the native registry knows `milkdrop` and the Kotlin path never draws it. `MilkdropEngine.available` now means "libgeode.so loaded", since projectM is linked into it. The shared texture directory (`filesDir/milk/textures`) reaches native through `geode_viz_set_milk_texture_dir` at handle creation, and an export carries the live renderer's last preset through `SceneFactory.milkPresetPath`.
+- 4.7: preset requests from the UI thread are latched under the state lock and applied to the scene table in `beginFrame` (`applyMilkRequests`), because the table is GL-thread state; the Kotlin version reached the scene object through a volatile reference.
+
 ## UNKNOWN / UNVERIFIED
 - UNVERIFIED: all `<GLES3/gl3.h>`, `<GLES3/gl31.h>`, `<EGL/egl.h>` calls in `core/viz` are written against the Khronos names (no NDK sysroot on this machine to open). `GLESv3` and `EGL` are linked by their NDK library names.
 - UNVERIFIED: no NDK is on this machine (`local.properties` absent, no `asset_manager.h` on disk), so every `AAssetManager_*`/`AAsset_*` call in `core/viz/ShaderSource.cpp` is written from the names in the prompt and not checked against the header.
@@ -124,7 +127,7 @@ Snapshot: bebd045 2026-09-01 21:11:39 +0200   Branch: claude/native-core   Last 
 | `engine/scenes/.../render/fluid/{FluidSceneBase,FluidScene,CurlFlowScene,WaterScene}.kt` | `core/viz/scenes/{FluidSceneBase,FluidScene,CurlFlowScene,WaterScene}.hpp,.cpp` | ported |
 | `engine/scenes/.../render/OverlayEffects.kt` | `core/viz/Overlays.hpp,.cpp` (owned by `Renderer`; `geode_viz_queue_touch_stroke`) | ported |
 | `engine/scenes/.../render/BlueNoise.kt` | `core/viz/BlueNoise.hpp,.cpp` (shared by the composite and the fluid look) | ported |
-| `app/src/main/cpp/milkdrop_jni.c` | `app/src/main/cpp/milkdrop_jni.cpp` | ported, same exported symbols |
+| `app/src/main/cpp/milkdrop_jni.c` + `engine/scenes/.../render/scene/MilkdropScene.kt` | `core/viz/scenes/MilkdropScene.hpp,.cpp` (projectM handle owned by the scene; per-instance error string) | ported; `milkdrop_jni.cpp` and `MilkdropScene.kt` deleted, `MilkdropEngine.kt` keeps only `available` |
 
 ## Checklists (copied from the prompt; tick as you go)
 
@@ -164,7 +167,7 @@ Phase 2 uniform usage: all three read the shared contract only (`uTime uResoluti
 - [x] 4.4 `core/viz/Renderer` frame graph + `geode_viz_*`; `VisualizerView`/`VisualizerRenderer` adapters; offscreen paths use explicit target FBO.
 - [x] 4.5 `core/viz/scenes/ShaderScene` + native `SceneRegistry`; Kotlin registry asks native first.
 - [x] 4.6 Port cymatics, fluid/curlflow/water, particle/simulation scenes, compute path.
-- [ ] 4.7 `milkdrop` as C++ scene; delete `milkdrop_jni.cpp` and `MilkdropEngine.kt` externals; `MilkdropScene.kt` adapter.
+- [x] 4.7 `milkdrop` as C++ scene; delete `milkdrop_jni.cpp` and `MilkdropEngine.kt` externals; `MilkdropScene.kt` adapter.
 - [ ] 4.8 Transitions → `core/viz/Transition`.
 - [ ] 4.9 Delete ported Kotlin scene/pass files and `res/raw` shader copies; mapping table complete.
 
@@ -198,6 +201,7 @@ Phase 2 uniform usage: all three read the shared contract only (`uTime uResoluti
 - [ ] 8.2 Fold log into `CHANGELOG.md`, bump version, delete `docs/BUILD_STATUS.md`, final commit.
 
 ## Log (newest first; one line per commit)
+- 4.7: native MilkdropScene owning projectM, milkdrop_jni.cpp and MilkdropScene.kt deleted, preset API through geode_viz_*
 - 4.6: native cymatics, beam, silk/life/myco/acid, fluid/curlflow/water scenes, compute SimPass layer, overlays in the renderer, full native registry
 - 4.5: native ShaderScene, SceneRegistry with the 30 fragment styles, custom-shader memory, Kotlin registry asks native first
 - 4.4: geode_viz_* C API, JNI, NativeViz + codecs, VisualizerRenderer and offscreen adapters (explicit target FBO), band gains in the native frame graph

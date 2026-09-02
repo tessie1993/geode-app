@@ -1,4 +1,5 @@
 #pragma once
+#include <algorithm>
 #include <array>
 
 #include "viz/Scene.hpp"
@@ -30,5 +31,7 @@ float integrateBeatPulse(float envelope, float impulse, float dt);
 float pulseAmount(float pulse, float envelope);
 inline float pulseScale(float amount) { return 1.0f + (amount > 0.0f ? amount : 0.0f) * kPulseGain; }
 inline float brightness(float brightness, float intensity) { return brightness * intensity; }
+inline float paletteSpan(float hueRange, float paletteRange) { return std::max(hueRange, 0.0f) * std::clamp(paletteRange, 0.0f, 1.0f); }
+inline float paletteTintAmount(float tint) { return std::clamp(tint, 0.0f, 1.0f); }
 
 }  // namespace geode::viz::grade

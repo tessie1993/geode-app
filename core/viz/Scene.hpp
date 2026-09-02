@@ -42,6 +42,11 @@ public:
     virtual void queueTouchStroke(float nx, float ny, float ndx, float ndy, float dt, float strength) {
         (void) nx; (void) ny; (void) ndx; (void) ndy; (void) dt; (void) strength;
     }
+    // The surface size in pixels, which MilkDrop renders at rather than the supersampled target.
+    virtual void setWindowSize(int width, int height) { (void) width; (void) height; }
+    virtual void queueMilkPreset(const std::string& path) { (void) path; }
+    virtual void reloadMilkPreset() {}
+    virtual void setMilkTextureDir(const std::string& dir) { (void) dir; }
 };
 
 struct SceneHost {
@@ -50,6 +55,7 @@ struct SceneHost {
     std::function<void(const std::string& sceneId, const std::string& source)> onUserSourceCompiled;
     // The rate the display is being asked for (0 = free-running), for the fluid quality ladder.
     std::function<float()> pacedFps;
+    std::function<void(const std::string& path)> onMilkPresetLoaded;
 };
 
 }  // namespace geode::viz

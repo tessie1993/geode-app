@@ -11,8 +11,6 @@ import dev.geode.render.scene.BeamScene
 import dev.geode.render.scene.CymaticsScene
 import dev.geode.render.scene.GlUtil
 import dev.geode.render.scene.LifeScene
-import dev.geode.render.scene.MilkdropEngine
-import dev.geode.render.scene.MilkdropScene
 import dev.geode.render.scene.MycoScene
 import dev.geode.render.scene.Scene
 import dev.geode.render.scene.SceneCapabilities
@@ -21,7 +19,6 @@ import dev.geode.render.scene.SceneParams
 import dev.geode.render.scene.ShaderScene
 import dev.geode.render.scene.SilkScene
 import dev.geode.render.scene.VisualStyleCatalog
-import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedQueue
 
@@ -31,8 +28,6 @@ internal class SceneRegistry(
 ) {
     interface Host {
         fun onShaderError(message: String?)
-
-        fun onMilkPresetLoaded(path: String)
     }
 
     private val scenes = LinkedHashMap<String, Scene>()
@@ -51,12 +46,6 @@ internal class SceneRegistry(
     private var touchField: TouchField? = null
 
     @Volatile
-    private var milkdropScene: MilkdropScene? = null
-
-    @Volatile
-    private var lastMilkPreset: String? = null
-
-    @Volatile
     private var fluidForceSrc: String? = null
 
     @Volatile
@@ -69,10 +58,6 @@ internal class SceneRegistry(
 
     private var renderWidth = 1
     private var renderHeight = 1
-    private var windowWidth = 1
-    private var windowHeight = 1
-
-    val milkdropAvailable: Boolean get() = MilkdropEngine.available
 
     fun availableSceneIds(): List<String> =
         buildList {
@@ -81,7 +66,6 @@ internal class SceneRegistry(
             addAll(VisualStyleCatalog.mycoIds)
             addAll(VisualStyleCatalog.acidIds)
             addAll(SceneCapabilities.SHADER_SCENES.keys)
-            if (MilkdropEngine.available) add(SceneIds.MILKDROP)
             add(SceneIds.FLUID)
             add(SceneIds.CURLFLOW)
             add(SceneIds.WATER)
@@ -122,15 +106,6 @@ internal class SceneRegistry(
         }
     }
 
-    fun loadMilkPreset(path: String) {
-        lastMilkPreset = path
-        milkdropScene?.queuePreset(path)
-    }
-
-    fun reloadCurrentMilkPreset() {
-        milkdropScene?.reloadCurrent()
-    }
-
     /**
      * Drops every built scene.
      *
@@ -158,7 +133,6 @@ internal class SceneRegistry(
      * guards on a zero handle.
      */
     fun releaseAll() {
-        milkdropScene = null
         scenes.values.forEach { it.release() }
         scenes.clear()
     }
@@ -192,15 +166,10 @@ internal class SceneRegistry(
     fun resize(
         width: Int,
         height: Int,
-        windowWidth: Int,
-        windowHeight: Int,
     ) {
         renderWidth = width
         renderHeight = height
-        this.windowWidth = windowWidth
-        this.windowHeight = windowHeight
         scenes.values.forEach { it.resize(width, height) }
-        milkdropScene?.setWindowSize(windowWidth, windowHeight)
     }
 
     @Suppress("ReturnCount")
@@ -220,11 +189,6 @@ internal class SceneRegistry(
         scene.setParams(sceneParams)
         scene.resize(renderWidth, renderHeight)
         activeCustomShaders[id]?.let { (scene as? ShaderScene)?.setFragmentSource(it) }
-        if (scene is MilkdropScene) {
-            milkdropScene = scene
-            scene.setWindowSize(windowWidth, windowHeight)
-            lastMilkPreset?.let { scene.queuePreset(it) }
-        }
         if (scene is FluidScene && (fluidForceSrc != null || fluidDyeSrc != null)) {
             scene.setInjectionShaders(fluidForceSrc, fluidDyeSrc)
         }
@@ -292,14 +256,6 @@ internal class SceneRegistry(
                 BeamScene(context).also { beam ->
                     beam.onShaderError = { host.onShaderError(it) }
                 }
-            SceneIds.MILKDROP ->
-                MilkdropScene(
-                    postVertexSrc = GlUtil.loadShader(context, R.raw.fade_vert),
-                    postFragmentSrc = GlUtil.loadShader(context, R.raw.pm_post_frag),
-                    sharedTextureDir = File(context.filesDir, "milk/textures").absolutePath,
-                    onError = { host.onShaderError(it) },
-                    onPresetLoaded = { host.onMilkPresetLoaded(it) },
-                )
             else -> error("availableSceneIds offers \"$id\" but createScene cannot build it")
         }
 
@@ -310,9 +266,6 @@ internal class SceneRegistry(
         val quadVert = GlUtil.loadShader(context, R.raw.quad_vert)
         val scene = createScene(sceneId, quadVert, export = true)
         (scene as? FluidScene)?.setInjectionShaders(fluidForceSrc, fluidDyeSrc)
-        (scene as? MilkdropScene)?.let { pm ->
-            lastMilkPreset?.let { pm.queuePreset(it) }
-        }
         scene.setParams(params)
         return scene
     }

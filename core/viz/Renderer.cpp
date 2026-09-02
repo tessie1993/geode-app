@@ -22,7 +22,8 @@ Renderer::Renderer(AAssetManager* assets, std::string cacheDir)
       registry_(assets_, &programCache_, &profile_,
                 SceneHost{[this](const std::string& m) { fail(m); },
                           [this](const std::string& id, const std::string& src) { rememberCustomShader(id, src); },
-                          [this] { return thermal_.pacedFps(); }}),
+                          [this] { return thermal_.pacedFps(); },
+                          [this](const std::string& path) { notePresetLoaded(path); }}),
       compositePass_(assets_, &programCache_),
       pcm_(kPcmCapacity, 0.0f) {
     programCache_.install(cacheDir_);
@@ -91,6 +92,56 @@ void Renderer::setFluidInjectionShaders(const std::string& forceSrc, const std::
     fluidForceSrc_ = forceSrc;
     fluidDyeSrc_ = dyeSrc;
     fluidInjectionDirty_ = true;
+}
+
+void Renderer::loadMilkPreset(const std::string& path) {
+    std::lock_guard<std::mutex> lock(stateLock_);
+    lastMilkPreset_ = path;
+    milkPresetRequest_ = path;
+}
+
+void Renderer::reloadMilkPreset() {
+    std::lock_guard<std::mutex> lock(stateLock_);
+    milkReloadRequested_ = true;
+}
+
+void Renderer::setMilkTextureDir(const std::string& dir) {
+    std::lock_guard<std::mutex> lock(stateLock_);
+    milkTextureDir_ = dir;
+    milkTextureDirDirty_ = true;
+}
+
+void Renderer::notePresetLoaded(const std::string& path) {
+    std::lock_guard<std::mutex> lock(stateLock_);
+    lastMilkPreset_ = path;
+    milkPresetLoaded_ = path;
+}
+
+std::string Renderer::takeMilkPresetLoaded() {
+    std::lock_guard<std::mutex> lock(stateLock_);
+    std::string out;
+    out.swap(milkPresetLoaded_);
+    return out;
+}
+
+// GL thread: the preset requests wait here so the scene table is only ever touched on one thread.
+void Renderer::applyMilkRequests() {
+    std::string preset;
+    std::string textureDir;
+    bool reload = false;
+    {
+        std::lock_guard<std::mutex> lock(stateLock_);
+        preset.swap(milkPresetRequest_);
+        reload = milkReloadRequested_;
+        milkReloadRequested_ = false;
+        if (milkTextureDirDirty_) textureDir = milkTextureDir_;
+        milkTextureDirDirty_ = false;
+    }
+    Scene* milk = builtScene("milkdrop");
+    if (!milk) return;
+    if (!textureDir.empty()) milk->setMilkTextureDir(textureDir);
+    if (!preset.empty()) milk->queueMilkPreset(preset);
+    if (reload) milk->reloadMilkPreset();
 }
 
 void Renderer::applyPendingFluidInjection() {
@@ -210,7 +261,10 @@ void Renderer::applyRenderScale() {
     const float scale = supersampleFactor(width_, height_) * thermalTierInfo(appliedTier_).renderScale;
     renderWidth_ = std::max(static_cast<int>(width_ * scale), 1);
     renderHeight_ = std::max(static_cast<int>(height_ * scale), 1);
-    for (auto& entry : scenes_) entry.second->resize(renderWidth_, renderHeight_);
+    for (auto& entry : scenes_) {
+        entry.second->resize(renderWidth_, renderHeight_);
+        entry.second->setWindowSize(width_, height_);
+    }
     overlays_.resize(renderWidth_, renderHeight_);
     fboA_.ensure(renderWidth_, renderHeight_);
     fboB_.ensure(renderWidth_, renderHeight_);
@@ -273,6 +327,16 @@ std::unique_ptr<Scene> Renderer::buildScene(const std::string& id) {
         dye = fluidDyeSrc_;
     }
     if (!force.empty() || !dye.empty()) scene->setInjectionShaders(force, dye);
+    scene->setWindowSize(width_, height_);
+    std::string preset;
+    std::string textureDir;
+    {
+        std::lock_guard<std::mutex> lock(stateLock_);
+        preset = lastMilkPreset_;
+        textureDir = milkTextureDir_;
+    }
+    if (!textureDir.empty()) scene->setMilkTextureDir(textureDir);
+    if (!preset.empty()) scene->queueMilkPreset(preset);
     return scene;
 }
 

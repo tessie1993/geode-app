@@ -220,7 +220,6 @@ internal class OffscreenCompositor(
         dtSeconds: Float,
         features: AudioFeatures,
         isShaderScene: Boolean,
-        isProjectM: Boolean,
         params: SceneParams,
         flowTex: Int = 0,
         flowStrength: Float = 0f,
@@ -240,12 +239,7 @@ internal class OffscreenCompositor(
             dev.geode.render.LiveSignal
                 .hit(features),
         )
-        val family =
-            when {
-                isShaderScene -> CompositeGrade.SceneFamily.SHADER
-                isProjectM -> CompositeGrade.SceneFamily.MILKDROP
-                else -> CompositeGrade.SceneFamily.FLUID
-            }
+        val family = if (isShaderScene) CompositeGrade.SceneFamily.SHADER else CompositeGrade.SceneFamily.FLUID
         val gate = CompositeGrade.gateFor(family)
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, targetFbo)
         GLES30.glViewport(0, 0, width, height)

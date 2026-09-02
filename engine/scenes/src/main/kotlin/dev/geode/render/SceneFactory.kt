@@ -11,5 +11,8 @@ import dev.geode.render.scene.Scene
 interface SceneFactory {
     val sceneId: String
 
+    /** The MilkDrop preset the live renderer had loaded, for an export of the milkdrop scene. */
+    val milkPresetPath: String?
+
     fun create(): Scene
 }

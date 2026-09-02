@@ -16,7 +16,6 @@ import dev.geode.render.fluid.FluidScene
 import dev.geode.render.fluid.WaterScene
 import dev.geode.render.scene.BeamScene
 import dev.geode.render.scene.GlUtil
-import dev.geode.render.scene.MilkdropScene
 import dev.geode.render.scene.PcmChunk
 import dev.geode.render.scene.PcmSink
 import dev.geode.render.scene.Scene
@@ -135,8 +134,6 @@ class VisualizerRenderer(
             context,
             object : SceneRegistry.Host {
                 override fun onShaderError(message: String?) = this@VisualizerRenderer.onShaderError(message)
-
-                override fun onMilkPresetLoaded(path: String) = this@VisualizerRenderer.onMilkPresetLoaded(path)
             },
         )
 
@@ -215,7 +212,11 @@ class VisualizerRenderer(
     private var framePcm: PcmChunk? = null
     private var framePcmDrained = false
 
-    val milkdropAvailable: Boolean get() = registry.milkdropAvailable
+    val milkdropAvailable: Boolean
+        get() {
+            nativeViz.create()
+            return nativeViz.knows(SceneIds.MILKDROP)
+        }
 
     fun availableSceneIds(): List<String> {
         nativeViz.create()
@@ -241,9 +242,16 @@ class VisualizerRenderer(
         nativeViz.setFluidInjectionShaders(force, dye)
     }
 
-    fun loadMilkPreset(path: String) = registry.loadMilkPreset(path)
+    fun loadMilkPreset(path: String) {
+        lastMilkPreset = path
+        nativeViz.create()
+        nativeViz.loadMilkPreset(path)
+    }
 
-    fun reloadCurrentMilkPreset() = registry.reloadCurrentMilkPreset()
+    fun reloadCurrentMilkPreset() = nativeViz.reloadMilkPreset()
+
+    @Volatile
+    private var lastMilkPreset: String? = null
 
     fun warmTransition(id: String) {
         compositePass.warmTransition(id)
@@ -392,7 +400,7 @@ class VisualizerRenderer(
         val scale = supersampleFactor(width, height) * appliedThermalTier.renderScale
         renderWidth = (width * scale).toInt().coerceAtLeast(1)
         renderHeight = (height * scale).toInt().coerceAtLeast(1)
-        registry.resize(renderWidth, renderHeight, width, height)
+        registry.resize(renderWidth, renderHeight)
         overlays.resize(renderWidth, renderHeight)
         fboA.ensure(renderWidth, renderHeight)
         fboB.ensure(renderWidth, renderHeight)
@@ -438,6 +446,10 @@ class VisualizerRenderer(
         syncNativeState()
         nativeViz.render(SystemClock.elapsedRealtimeNanos() / NANOS_PER_SECOND, targetFbo = 0)
         nativeViz.pollError(onShaderError)
+        nativeViz.takeMilkPresetLoaded()?.let { path ->
+            lastMilkPreset = path
+            onMilkPresetLoaded(path)
+        }
     }
 
     private fun syncNativeState() {
@@ -775,14 +787,16 @@ class VisualizerRenderer(
     private fun compositeFamily(scene: Scene?): CompositeGrade.SceneFamily =
         when (scene) {
             is ShaderScene -> CompositeGrade.SceneFamily.SHADER
-            is MilkdropScene -> CompositeGrade.SceneFamily.MILKDROP
             else -> CompositeGrade.SceneFamily.FLUID
         }
 
     fun exportSceneFactory(sceneId: String): SceneFactory {
         val id = sceneId
+        val preset = lastMilkPreset
         return object : SceneFactory {
             override val sceneId: String = id
+
+            override val milkPresetPath: String? = preset
 
             override fun create(): Scene = registry.exportScene(id, sceneParams)
         }

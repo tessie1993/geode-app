@@ -8,13 +8,9 @@
 # ---------------------------------------------------------------------------
 # JNI bridge to libgeode.so
 # ---------------------------------------------------------------------------
-# milkdrop_jni.cpp uses static symbol registration
-# (Java_dev_geode_render_scene_MilkdropEngine_nativeCreate, ...), so both the
-# class name and the method names have to survive minification exactly.
--keepclasseswithmembernames,includedescriptorclasses class dev.geode.render.scene.MilkdropEngine {
-    native <methods>;
-}
--keep class dev.geode.render.scene.MilkdropEngine { *; }
+# geode_jni.cpp and geode_viz_jni.cpp use static symbol registration
+# (Java_dev_geode_engine_bridge_GeodeNative_*), so both the class name and the
+# method names have to survive minification exactly.
 -keepclasseswithmembernames,includedescriptorclasses class dev.geode.engine.bridge.GeodeNative {
     native <methods>;
 }

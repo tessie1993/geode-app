@@ -109,6 +109,29 @@ void geode_viz_set_fluid_injection(geode_viz* v, const char* force_source, const
     if (v) v->renderer.setFluidInjectionShaders(text(force_source), text(dye_source));
 }
 
+void geode_viz_load_milk_preset(geode_viz* v, const char* path) {
+    if (v && path) v->renderer.loadMilkPreset(path);
+}
+
+void geode_viz_reload_milk_preset(geode_viz* v) {
+    if (v) v->renderer.reloadMilkPreset();
+}
+
+void geode_viz_set_milk_texture_dir(geode_viz* v, const char* dir) {
+    if (v && dir) v->renderer.setMilkTextureDir(dir);
+}
+
+size_t geode_viz_take_milk_preset_loaded(geode_viz* v, char* out, size_t capacity) {
+    if (!v) return 0;
+    const std::string path = v->renderer.takeMilkPresetLoaded();
+    if (out && capacity > 0) {
+        const size_t n = std::min(capacity - 1, path.size());
+        std::memcpy(out, path.data(), n);
+        out[n] = '\0';
+    }
+    return path.size();
+}
+
 void geode_viz_push_pcm(geode_viz* v, const float* mono, int count) {
     if (v && mono && count > 0) v->renderer.pushPcm(mono, count);
 }

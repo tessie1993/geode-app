@@ -2,6 +2,7 @@ package dev.geode.render.bridge
 
 import android.content.Context
 import android.content.res.AssetManager
+import java.io.File
 import dev.geode.analysis.AudioFeatures
 import dev.geode.engine.bridge.FeatureFrameLayout
 import dev.geode.engine.bridge.GeodeNative
@@ -24,6 +25,7 @@ class NativeViz(
     // Kept referenced for as long as the native AAssetManager resolved from it may be used.
     private val assets: AssetManager = context.assets
     private val cacheDir: String = context.cacheDir.absolutePath
+    private val milkTextureDir: String = File(context.filesDir, "milk/textures").absolutePath
     private var handle = 0L
     private val paramFrame = FloatArray(SceneParamsCodec.FIELDS)
     private val featureFrame = FloatArray(FeatureFrameLayout.FLOATS)
@@ -35,6 +37,7 @@ class NativeViz(
         if (handle == 0L) {
             verifyLayouts()
             handle = GeodeNative.vizCreate(assets, cacheDir)
+            if (handle != 0L) GeodeNative.vizSetMilkTextureDir(handle, milkTextureDir)
         }
         return handle != 0L
     }
@@ -109,6 +112,17 @@ class NativeViz(
     ) {
         if (handle != 0L) GeodeNative.vizSetFluidInjection(handle, force, dye)
     }
+
+    fun loadMilkPreset(path: String) {
+        if (handle != 0L) GeodeNative.vizLoadMilkPreset(handle, path)
+    }
+
+    fun reloadMilkPreset() {
+        if (handle != 0L) GeodeNative.vizReloadMilkPreset(handle)
+    }
+
+    /** The preset MilkDrop last compiled, handed out once; null until the next one. */
+    fun takeMilkPresetLoaded(): String? = if (handle == 0L) null else GeodeNative.vizTakeMilkPresetLoaded(handle)
 
     fun pushPcm(
         mono: FloatArray,

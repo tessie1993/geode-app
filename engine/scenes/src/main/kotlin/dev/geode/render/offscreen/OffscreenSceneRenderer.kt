@@ -66,7 +66,6 @@ class OffscreenSceneRenderer(
     private var rippleOverlay: dev.geode.render.fluid.RippleSim? = null
 
     private var isShaderScene = false
-    private var isProjectM = false
     private var canvasPersists = false
     private var isCurlFlow = false
     private var isBeam = false
@@ -103,7 +102,6 @@ class OffscreenSceneRenderer(
         GLES30.glViewport(0, 0, spec.width, spec.height)
 
         isShaderScene = created is dev.geode.render.scene.ShaderScene
-        isProjectM = created is dev.geode.render.scene.MilkdropScene
         isCurlFlow = created is dev.geode.render.fluid.CurlFlowScene
         isBeam = created is dev.geode.render.scene.BeamScene
         canvasPersists = isCurlFlow || isBeam
@@ -140,6 +138,7 @@ class OffscreenSceneRenderer(
         native.surfaceCreated()
         native.surfaceChanged(spec.width, spec.height)
         native.setScene(sceneFactory.sceneId)
+        sceneFactory.milkPresetPath?.let { native.loadMilkPreset(it) }
         native.setTransition(TransitionStyle.CUT.name.lowercase(), 0L)
         native.setReducedMotion(spec.reducedMotion)
         if (spec.lfoConfigs.isNotEmpty()) native.setLfoConfigs(spec.lfoConfigs)
@@ -237,7 +236,6 @@ class OffscreenSceneRenderer(
             dtSeconds = dt,
             features = features,
             isShaderScene = isShaderScene,
-            isProjectM = isProjectM,
             params = p,
             flowTex = flowTex,
             flowStrength = if (flowTex != 0) p.flowStrength else 0f,

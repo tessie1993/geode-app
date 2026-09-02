@@ -84,8 +84,9 @@ add_library(geode_core STATIC
     viz/scenes/FluidScene.cpp
     viz/scenes/CurlFlowScene.cpp
     viz/scenes/WaterScene.cpp
+    viz/scenes/MilkdropScene.cpp
     util/Json.cpp
 )
 target_include_directories(geode_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_compile_options(geode_core PRIVATE ${GEODE_COMPILE_OPTIONS})
-target_link_libraries(geode_core PUBLIC kissfft::kissfft GLESv3 EGL log android)
+target_link_libraries(geode_core PUBLIC kissfft::kissfft projectM GLESv3 EGL log android)

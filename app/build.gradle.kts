@@ -174,8 +174,8 @@ val checkNativePageAlignment =
             }
             if (bad.isNotEmpty()) {
                 throw GradleException(
-                    "16 KB page-size check failed — libprojectM-4.so is rebuilt through " +
-                        ".github/workflows/native-libs.yml, libmilkdropjni.so by src/main/cpp/CMakeLists.txt:\n" +
+                    "16 KB page-size check failed — every packaged .so is built by the root CMakeLists.txt " +
+                        "with GEODE_PAGE_FLAGS:\n" +
                         bad.joinToString("\n"),
                 )
             }

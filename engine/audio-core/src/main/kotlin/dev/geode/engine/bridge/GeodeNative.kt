@@ -147,6 +147,20 @@ object GeodeNative {
         dye: String?,
     )
 
+    external fun vizLoadMilkPreset(
+        handle: Long,
+        path: String,
+    )
+
+    external fun vizReloadMilkPreset(handle: Long)
+
+    external fun vizSetMilkTextureDir(
+        handle: Long,
+        dir: String,
+    )
+
+    external fun vizTakeMilkPresetLoaded(handle: Long): String?
+
     external fun vizPushPcm(
         handle: Long,
         mono: FloatArray,

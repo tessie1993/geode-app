@@ -40,6 +40,7 @@ float Renderer::beginFrame(double timeSeconds) {
     for (const auto& [id, src] : pending) {
         if (Scene* scene = builtScene(id)) scene->setFragmentSource(src);
     }
+    applyMilkRequests();
     return dt;
 }
 

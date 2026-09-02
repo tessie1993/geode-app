@@ -51,6 +51,7 @@ Snapshot: d4d70cf 2026-09-02 00:51:54 +0000   Branch: claude/native-core   Last 
 
 - 5.3: TagLib's `FileStream(int fd)` wraps the descriptor with `fdopen` and `fclose`s it, so `geode_tags_read/write` own the descriptor (closing it themselves when `fdopen` failed) and `NativeTags.kt` hands over `ParcelFileDescriptor.detachFd()`. Tag text crosses JNI as UTF-8 `ByteArray`s, not `jstring`s, because `NewStringUTF` expects modified UTF-8 and would mangle supplementary characters in titles.
 - 5.3: TagLib is built static with `BUILD_TESTING`/`BUILD_BINDINGS`/`BUILD_EXAMPLES` off, `WITH_ZLIB OFF` (only ID3v2 compressed frames need it; the NDK ships no zlib CMake package to find) and `VISIBILITY_HIDDEN ON` (with `TAGLIB_STATIC` this keeps its symbols out of `libgeode.so`'s export table). Its `tag` target exports include paths for the install tree only, so `core/CMakeLists.txt` names the source dirs and the binary dir holding the generated `taglib_config.h` itself. The `third_party/oboe` submodule is committed alongside (both were pinned together) and is wired into CMake by 5.6.
+- 5.4: `ReplayGain` is a `Player.Listener` the `PlaybackSession` registers on its own `ExoPlayer`, so tags are read for every media item transition whether the UI or only the service drives playback; the read runs on IO and is dropped when the item changed underneath it. The gain is track or album gain (each falling back to the other) plus the preamp, capped at `-20·log10(peak)` when the clip guard is on and a peak is tagged; files without tags play at 0 dB (the preamp never applies alone). The three prefs travel with the other playback prefs (`PlayerPrefs`, applied through `PlayerSettingsController.applyPlaybackPrefs`).
 
 ## UNKNOWN / UNVERIFIED
 - UNVERIFIED: all `<GLES3/gl3.h>`, `<GLES3/gl31.h>`, `<EGL/egl.h>` calls in `core/viz` are written against the Khronos names (no NDK sysroot on this machine to open). `GLESv3` and `EGL` are linked by their NDK library names.
@@ -195,7 +196,7 @@ Phase 2 uniform usage: all three read the shared contract only (`uTime uResoluti
 - [x] 5.1 `core/audio/dsp/{Biquad,Equalizer,Gain,Crossfeed,Limiter,DspChain}` + `geode_dsp_*`.
 - [x] 5.2 `NativeDspProcessor : AudioProcessor`; `AudioFxController` drives native EQ; `EqualizerSettings` 10 bands.
 - [x] 5.3 `third_party/taglib`; `core/library/Tags` + `geode_tags_read/write` via fd.
-- [ ] 5.4 ReplayGain on playback in `PlaybackEngine.kt`; settings in `PlaybackSettings.kt`.
+- [x] 5.4 ReplayGain on playback in `PlaybackEngine.kt`; settings in `PlaybackSettings.kt`.
 - [ ] 5.5 Tag writing from `TrackInfoEditor.kt` via SAF rw fd.
 - [ ] 5.6 `third_party/oboe`; `core/audio/player/{Decoder,Resampler,Mixer,Output,Player}` + `geode_player_*`.
 - [ ] 5.7 `NativePlayer : SimpleBasePlayer`; settings toggle default off; PCM tap from native mixer.
@@ -221,6 +222,7 @@ Phase 2 uniform usage: all three read the shared contract only (`uTime uResoluti
 - [ ] 8.2 Fold log into `CHANGELOG.md`, bump version, delete `docs/BUILD_STATUS.md`, final commit.
 
 ## Log (newest first; one line per commit)
+- 5.4: ReplayGain listener on the playback session, PlayerPrefs mode/preamp/clip guard, settings UI
 - 5.3: taglib + oboe submodules, core/library/Tags over TagLib, geode_tags_* API, JNI, NativeTags.kt
 - 5.2: NativeDspProcessor in the Media3 chain, AudioFxController drives the native equalizer, built-in presets
 - 5.1: core/audio/dsp (biquad, equalizer, gain, crossfeed, lookahead limiter, chain), geode_dsp_* API, JNI, externals

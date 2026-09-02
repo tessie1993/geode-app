@@ -167,6 +167,7 @@ class PlayerSession internal constructor(
             playback.player,
             engine,
             playback.audioFx,
+            playback.replayGain,
             object : PlayerSettingsController.Host {
                 override fun redecideCachedBeats(prefs: GuiPrefs) = analysis.redecideCachedBeats(prefs)
 

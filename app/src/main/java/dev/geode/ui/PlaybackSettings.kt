@@ -20,8 +20,16 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 import dev.geode.analysis.PlaybackMath
 import dev.geode.data.PlayerPrefs
+import dev.geode.playback.ReplayGain
 
 private val SLEEP_TIMER_CHOICES = listOf(0, 15, 30, 45, 60)
+
+private val REPLAYGAIN_MODES =
+    listOf(
+        ReplayGain.MODE_OFF to R.string.playback_replaygain_off,
+        ReplayGain.MODE_TRACK to R.string.playback_replaygain_track,
+        ReplayGain.MODE_ALBUM to R.string.playback_replaygain_album,
+    )
 
 @Composable
 fun PlaybackSettingsSection(viewModel: SettingsViewModel) {
@@ -73,6 +81,7 @@ fun PlaybackSettingsSection(viewModel: SettingsViewModel) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+        ReplayGainSettings(prefs) { viewModel.setPlayerPrefs(it) }
         PlaybackSwitchRow(stringResource(R.string.playback_skip_silence), prefs.skipSilence) {
             viewModel.setPlayerPrefs(prefs.copy(skipSilence = it))
         }
@@ -134,6 +143,47 @@ fun PlaybackSettingsSection(viewModel: SettingsViewModel) {
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun ReplayGainSettings(
+    prefs: PlayerPrefs,
+    onChange: (PlayerPrefs) -> Unit,
+) {
+    Column {
+        Text(stringResource(R.string.playback_replaygain), style = MaterialTheme.typography.labelMedium)
+        Row(
+            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            REPLAYGAIN_MODES.forEach { (mode, label) ->
+                FilterChip(
+                    selected = prefs.replayGainMode == mode,
+                    onClick = { onChange(prefs.copy(replayGainMode = mode)) },
+                    label = { Text(stringResource(label), style = MaterialTheme.typography.labelSmall) },
+                )
+            }
+        }
+        if (prefs.replayGainMode != ReplayGain.MODE_OFF) {
+            Text(
+                stringResource(R.string.playback_replaygain_preamp, "%.1f".format(prefs.replayGainPreampDb)),
+                style = MaterialTheme.typography.labelMedium,
+            )
+            CrystalSlider(
+                value = prefs.replayGainPreampDb,
+                onValueChange = { onChange(prefs.copy(replayGainPreampDb = PlaybackMath.snap(it, 0.5f))) },
+                valueRange = -PlayerPrefs.MAX_REPLAYGAIN_PREAMP_DB..PlayerPrefs.MAX_REPLAYGAIN_PREAMP_DB,
+            )
+            PlaybackSwitchRow(stringResource(R.string.playback_replaygain_clip_guard), prefs.replayGainClipGuard) {
+                onChange(prefs.copy(replayGainClipGuard = it))
+            }
+        }
+        Text(
+            stringResource(R.string.playback_replaygain_explainer),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 

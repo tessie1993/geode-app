@@ -71,7 +71,10 @@ Snapshot: 848a374 2026-09-02   Branch: claude/repo-actions-6.4-8.2-cs6lz6   Last
 
 - 6.7: `ClipEdit` carries the LUT as a document URI (`lutUri`) and three gamma exponents; the table itself is parsed by `CubeLut` at each use (preview, single-clip render, cut render) because parsing needs a content resolver and the edit is a plain value that is also persisted. Both the LUT and the gamma curves go through Media3's `SingleColorLut.createFromCube` — gamma is a generated 33³ cube (`out = in^(1/γ)` per channel) so no new shader was needed. A 1D `.cube` is expanded per channel into the same shape.
 
+- 7.1: `PlaybackService` is a `MediaLibraryService`; `LibraryTree` answers browsing from the same sources the app reads (`DeviceTrackQuery`, moved out of `MusicLibraryController` so both can call it, plus `TrackLibrary` overrides and imports, `MusicPlaylistStore`, `FavouritesStore`, `HistoryStore`). A playable id is `<parentId>|<uri>`, so `onSetMediaItems` can replay the folder a tapped row came from with the right start index, which is what the library screen does on a tap. Browsing runs on the existing resumption executor because it reads files and the MediaStore.
+
 ## UNKNOWN / UNVERIFIED
+- UNVERIFIED (7.1): `MediaLibraryService.MediaLibrarySession.Builder(service, player, callback)`, `LibraryResult.ofItem/ofItemList/ofError`, `MediaLibrarySession.Callback.onGetLibraryRoot/onGetChildren/onGetItem`, `MediaSession.Callback.onSetMediaItems(session, controller, items, startIndex, startPositionMs)` and the `MediaMetadata.MEDIA_TYPE_*` constants are used from the Media3 1.x API as remembered.
 - UNVERIFIED (6.7): `androidx.media3.effect.SingleColorLut.createFromCube(int[][][])` with `cube[r][g][b]` holding ARGB ints, from the Media3 1.x API as remembered; the jar was not opened.
 - UNVERIFIED (6.5): `TextOverlay.getText(long)` / `getOverlaySettings(long)` overridden as named in the prompt; the `OverlaySettings` interface name is from the Media3 1.x API as remembered.
 - UNVERIFIED (6.4): Media3 `GlProgram` (`setBufferAttribute`, `setSamplerTexIdUniform`, `setFloatUniform`, `setFloatsUniform`, `setIntUniform`, `bindAttributesAndUniforms`, `use`, `delete`), `GlUtil` (`getNormalizedCoordinateBounds`, `HOMOGENEOUS_COORDINATE_VECTOR_SIZE`, `createTexture(w, h, highPrecision)`, `deleteTexture`, `checkGlError`), `BaseGlShaderProgram(useHdr, poolCapacity)` with `configure`/`drawFrame`/`release`, `RgbMatrix.getMatrix(timeUs, useHdr)`, `MatrixTransformation.configure/getMatrix`, `EditedMediaItemSequence.Builder().addItem`, `Composition.Builder(List)`, `EditedMediaItem.Builder.setDurationUs/setFrameRate` (stills) are written from the Media3 1.x API as remembered; the jars were not opened.
@@ -238,7 +241,7 @@ Phase 2 uniform usage: all three read the shared contract only (`uTime uResoluti
 - [x] 6.7 LUT `.cube` import as `GlEffect`; per-channel gamma.
 
 ### Phase 7 — player features
-- [ ] 7.1 Android Auto: `MediaLibraryService` browse tree, `automotive_app_desc.xml`, manifest meta-data.
+- [x] 7.1 Android Auto: `MediaLibraryService` browse tree, `automotive_app_desc.xml`, manifest meta-data.
 - [ ] 7.2 Smart playlists (`data/SmartPlaylistStore.kt`) + duplicate finder.
 - [ ] 7.3 Glance home-screen widget.
 - [ ] 7.4 Bookmarks for long tracks in `data/PlayerPrefs.kt`.
@@ -249,6 +252,7 @@ Phase 2 uniform usage: all three read the shared contract only (`uTime uResoluti
 - [ ] 8.2 Fold log into `CHANGELOG.md`, bump version, delete `docs/BUILD_STATUS.md`, final commit.
 
 ## Log (newest first; one line per commit)
+- 7.1: PlaybackService as MediaLibraryService with LibraryTree (tracks, albums, artists, playlists, favourites, recent), DeviceTrackQuery shared with the library, automotive_app_desc and manifest meta-data
 - 6.7: CubeLut parser (3D and 1D .cube, domain scaling), LUT and per-channel gamma on ClipEdit through SingleColorLut, LUT picker and gamma sliders in the Studio look section
 - 6.6: ExportCodec (H.264/HEVC) with MediaCodecList check and H.264 fallback in VideoExporter, LoopRender and StudioExporter; codec in export defaults, settings tab and export dialog
 - 6.5: editor/Subtitles (SRT parse/write, lyric and lane conversions), TimedTextOverlay per media item, Lyrics → captions / Import SRT / Export SRT in the toolbar

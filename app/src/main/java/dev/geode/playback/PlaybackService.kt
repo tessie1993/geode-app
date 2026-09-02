@@ -8,16 +8,18 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.CacheBitmapLoader
+import androidx.media3.session.LibraryResult
+import androidx.media3.session.MediaLibraryService
 import androidx.media3.session.MediaSession
-import androidx.media3.session.MediaSessionService
+import com.google.common.collect.ImmutableList
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import dev.geode.data.HistoryStore
 import dev.geode.data.SessionStore
 
 @OptIn(UnstableApi::class)
-class PlaybackService : MediaSessionService() {
-    private var session: MediaSession? = null
+class PlaybackService : MediaLibraryService() {
+    private var session: MediaLibrarySession? = null
     private var artworkLoader: SessionBitmapLoader? = null
 
     override fun onCreate() {
@@ -25,17 +27,18 @@ class PlaybackService : MediaSessionService() {
         val loader = SessionBitmapLoader(this)
         artworkLoader = loader
         session =
-            MediaSession
-                .Builder(this, PlaybackEngine.acquireForService(this).player)
+            MediaLibrarySession
+                .Builder(this, PlaybackEngine.acquireForService(this).player, LibraryCallback(this, LibraryTree(this)))
                 .setSessionActivity(openAppIntent())
-                .setCallback(ResumptionCallback(this))
                 .setBitmapLoader(CacheBitmapLoader(loader))
                 .build()
     }
 
-    private class ResumptionCallback(
+    /** Browsing answers on the resumption thread: the tree reads files and the MediaStore. */
+    private class LibraryCallback(
         private val context: Context,
-    ) : MediaSession.Callback {
+        private val tree: LibraryTree,
+    ) : MediaLibrarySession.Callback {
         @OptIn(UnstableApi::class)
         override fun onPlaybackResumption(
             mediaSession: MediaSession,
@@ -49,9 +52,79 @@ class PlaybackService : MediaSessionService() {
                 },
                 resumptionExecutor,
             )
+
+        override fun onGetLibraryRoot(
+            session: MediaLibrarySession,
+            browser: MediaSession.ControllerInfo,
+            params: LibraryParams?,
+        ): ListenableFuture<LibraryResult<MediaItem>> = Futures.immediateFuture(LibraryResult.ofItem(tree.root(), params))
+
+        override fun onGetChildren(
+            session: MediaLibrarySession,
+            browser: MediaSession.ControllerInfo,
+            parentId: String,
+            page: Int,
+            pageSize: Int,
+            params: LibraryParams?,
+        ): ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> =
+            Futures.submit(
+                java.util.concurrent.Callable {
+                    val all = tree.children(parentId)
+                    val from = (page * pageSize).coerceAtMost(all.size)
+                    val until = (from + pageSize).coerceAtMost(all.size)
+                    LibraryResult.ofItemList(ImmutableList.copyOf(all.subList(from, until)), params)
+                },
+                resumptionExecutor,
+            )
+
+        override fun onGetItem(
+            session: MediaLibrarySession,
+            browser: MediaSession.ControllerInfo,
+            mediaId: String,
+        ): ListenableFuture<LibraryResult<MediaItem>> =
+            Futures.submit(
+                java.util.concurrent.Callable {
+                    tree.item(mediaId)?.let { LibraryResult.ofItem(it, null) }
+                        ?: LibraryResult.ofError(LibraryResult.RESULT_ERROR_BAD_VALUE)
+                },
+                resumptionExecutor,
+            )
+
+        override fun onAddMediaItems(
+            mediaSession: MediaSession,
+            controller: MediaSession.ControllerInfo,
+            mediaItems: List<MediaItem>,
+        ): ListenableFuture<List<MediaItem>> =
+            Futures.submit(
+                java.util.concurrent.Callable { mediaItems.map { resolve(it) } },
+                resumptionExecutor,
+            )
+
+        /** A row tapped in a browsed folder plays that whole folder from the row, like the library screen does. */
+        override fun onSetMediaItems(
+            mediaSession: MediaSession,
+            controller: MediaSession.ControllerInfo,
+            mediaItems: List<MediaItem>,
+            startIndex: Int,
+            startPositionMs: Long,
+        ): ListenableFuture<MediaSession.MediaItemsWithStartPosition> =
+            Futures.submit(
+                java.util.concurrent.Callable {
+                    val single = mediaItems.singleOrNull()?.takeIf { it.localConfiguration == null }
+                    val queued = single?.let { tree.queueFor(it.mediaId) }
+                    if (queued != null) {
+                        MediaSession.MediaItemsWithStartPosition(queued.first, queued.second, startPositionMs)
+                    } else {
+                        MediaSession.MediaItemsWithStartPosition(mediaItems.map { resolve(it) }, startIndex, startPositionMs)
+                    }
+                },
+                resumptionExecutor,
+            )
+
+        private fun resolve(item: MediaItem): MediaItem = if (item.localConfiguration != null) item else tree.playable(item.mediaId) ?: item
     }
 
-    override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = session
+    override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaLibrarySession? = session
 
     override fun onDestroy() {
         session?.release()

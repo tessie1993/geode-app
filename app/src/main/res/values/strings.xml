@@ -238,6 +238,8 @@
     <string name="library_tab_artists">Artists</string>
     <string name="library_tab_playlists">Playlists</string>
     <string name="library_tab_folders">Folders</string>
+    <string name="auto_favourites">Favourites</string>
+    <string name="auto_recently_played">Recently played</string>
     <string name="library_permission_rationale">Grant music access to browse everything on this device.</string>
     <string name="library_permission_denied_forever">Music access is turned off for Geode, and Android will not ask again from here. Open app settings to turn on Music and audio.</string>
     <string name="library_permission_allow">Allow music access</string>

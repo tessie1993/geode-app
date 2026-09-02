@@ -4,7 +4,6 @@ kotlin = "2.4.10"
 ksp = "2.3.11"
 hilt = "2.60.1"
 media3 = "1.11.0"
-jtransforms = "3.2"
 composeBom = "2026.08.00"
 activityCompose = "1.13.0"
 lifecycle = "2.11.0"
@@ -24,7 +23,6 @@ media3-common = { module = "androidx.media3:media3-common", version.ref = "media
 media3-session = { module = "androidx.media3:media3-session", version.ref = "media3" }
 media3-transformer = { module = "androidx.media3:media3-transformer", version.ref = "media3" }
 media3-effect = { module = "androidx.media3:media3-effect", version.ref = "media3" }
-jtransforms = { module = "com.github.wendykierp:JTransforms", version.ref = "jtransforms" }
 compose-bom = { module = "androidx.compose:compose-bom", version.ref = "composeBom" }
 compose-material3 = { module = "androidx.compose.material3:material3" }
 compose-material3-adaptive = { module = "androidx.compose.material3.adaptive:adaptive", version.ref = "material3Adaptive" }

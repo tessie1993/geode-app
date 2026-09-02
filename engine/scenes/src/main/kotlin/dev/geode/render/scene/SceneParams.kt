@@ -19,9 +19,10 @@ data class SceneParams(
      * March-step budget for the raymarched fragment styles, 0.25..1.5.
      *
      * This was `hyperDetail` and belonged to the Hyperspace family, which is gone. The
-     * control outlived it because VANISHING, MORPHOGEN, NEBULA, NONEUCLID, KIFS and FRACTAL_TUNNEL
-     * are all distance-marched and all need somewhere to spend or save steps; naming it after the
-     * technique rather than a style means the next marched style inherits it for free.
+     * control outlived it because VANISHING, MORPHOGEN, NEBULA, NONEUCLID, KIFS, ROD_TUNNEL and
+     * FRACTAL_TUNNEL are all distance-marched and all need somewhere to spend or save steps;
+     * naming it after the technique rather than a style means the next marched style inherits it
+     * for free.
      * [MarchBudget.forDetail] turns it into the `uSteps` uniform every one of them breaks on.
      */
     val marchDetail: Float = 1f,

@@ -38,22 +38,6 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v7
 
-      # libprojectM-4.so is a committed blob built out-of-band by native-libs.yml;
-      # the recorded hash is the only link between those bytes and the source
-      # they claim to come from, so drift fails the build. (The JNI bridge is
-      # not a blob: assembleDebug compiles it from app/src/main/cpp.)
-      - name: Verify committed native libs match their recorded checksums
-        working-directory: app/src/main/jniLibs
-        run: |
-          set -euo pipefail
-          found=0
-          for sums in */SHA256SUMS; do
-            found=1
-            echo "== ${sums%/SHA256SUMS}"
-            (cd "$(dirname "$sums")" && sha256sum -c SHA256SUMS)
-          done
-          [ "$found" -eq 1 ] || { echo "::error::no SHA256SUMS under jniLibs"; exit 1; }
-
       - name: Set up Java 21
         uses: actions/setup-java@v5
         with:

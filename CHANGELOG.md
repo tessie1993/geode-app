@@ -30,7 +30,7 @@ a partial reconstruction, rebuilt from the references in these entries, is at
   distance - all continuous, and all still moving in silence. Bass breathes
   the spheres and the bore, mids steer the spin and the fold, treble sharpens
   the rims, and the beat throws the camera forward and adds one inversion.
-  It spends the shared Detail march budget like the other five marched
+  It spends the shared Detail march budget like the other marched
   styles, reads every touch gesture (one finger steers the bore, two open it,
   three spin it), and its flight speed is an integer number of world periods
   per scene-clock wrap, so a wallpaper running for hours never teleports.

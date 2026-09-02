@@ -12,6 +12,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -19,11 +20,14 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.geode.R
+import kotlinx.coroutines.launch
 
 private val COMMON_GENRES =
     listOf("Electronic", "Rock", "Pop", "Hip-Hop", "Jazz", "Classical", "Ambient", "Other")
@@ -45,6 +49,38 @@ fun TrackInfoEditor(
     var year by remember(initial) { mutableStateOf(if (initial.year > 0) initial.year.toString() else "") }
     var trackNo by remember(initial) { mutableStateOf(if (initial.trackNo > 0) initial.trackNo.toString() else "") }
     var comment by remember(initial) { mutableStateOf(initial.comment) }
+    var writeToFile by remember(initial) { mutableStateOf(false) }
+    var writeFailed by remember(initial) { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+
+    fun save() {
+        val savedTitle = title.trim().ifBlank { initial.title }
+        val savedYear = year.toIntOrNull() ?: 0
+        val savedTrackNo = trackNo.toIntOrNull() ?: 0
+        scope.launch {
+            if (writeToFile) {
+                val written =
+                    viewModel.writeTrackInfo(
+                        uri, savedTitle, artist.trim(), album.trim(), genre.trim(), savedYear, savedTrackNo, comment.trim(),
+                    )
+                if (!written) {
+                    writeFailed = true
+                    return@launch
+                }
+            }
+            viewModel.saveTrackInfo(
+                uri = uri,
+                title = savedTitle,
+                artist = artist.trim(),
+                album = album.trim(),
+                genre = genre.trim(),
+                year = savedYear,
+                trackNo = savedTrackNo,
+                comment = comment.trim(),
+            )
+            onDismiss()
+        }
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -117,27 +153,29 @@ fun TrackInfoEditor(
                     minLines = 3,
                     modifier = Modifier.fillMaxWidth(),
                 )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Text(stringResource(R.string.track_info_write_file), style = MaterialTheme.typography.bodyMedium)
+                    Switch(
+                        checked = writeToFile,
+                        onCheckedChange = {
+                            writeToFile = it
+                            writeFailed = false
+                        },
+                    )
+                }
                 Text(
-                    stringResource(R.string.track_info_note),
+                    stringResource(if (writeFailed) R.string.track_info_write_failed else R.string.track_info_note),
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = if (writeFailed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         },
         confirmButton = {
-            Button(onClick = {
-                viewModel.saveTrackInfo(
-                    uri = uri,
-                    title = title.trim().ifBlank { initial.title },
-                    artist = artist.trim(),
-                    album = album.trim(),
-                    genre = genre.trim(),
-                    year = year.toIntOrNull() ?: 0,
-                    trackNo = trackNo.toIntOrNull() ?: 0,
-                    comment = comment.trim(),
-                )
-                onDismiss()
-            }) { Text(stringResource(R.string.action_save)) }
+            Button(onClick = { save() }) { Text(stringResource(R.string.action_save)) }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )

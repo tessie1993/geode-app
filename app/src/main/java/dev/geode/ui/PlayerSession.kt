@@ -7,7 +7,6 @@ import androidx.annotation.OptIn
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.exoplayer.ExoPlayer
 import dev.geode.analysis.AudioFeatures
 import dev.geode.analysis.FeatureTimeline
 import dev.geode.analysis.IntelligenceMode
@@ -15,6 +14,7 @@ import dev.geode.analysis.LiveInputProfile
 import dev.geode.audio.AudioBus
 import dev.geode.audio.AudioFxState
 import dev.geode.audio.MicCapture
+import dev.geode.data.EditorProjectStore
 import dev.geode.data.FavouritesRepository
 import dev.geode.data.FilePresetRepository
 import dev.geode.data.FileSessionRepository
@@ -167,6 +167,7 @@ class PlayerSession internal constructor(
             playback.player,
             engine,
             playback.audioFx,
+            playback.replayGain,
             object : PlayerSettingsController.Host {
                 override fun redecideCachedBeats(prefs: GuiPrefs) = analysis.redecideCachedBeats(prefs)
 
@@ -187,7 +188,7 @@ class PlayerSession internal constructor(
             },
         )
 
-    val player: ExoPlayer = playback.player
+    val player: Player = playback.player
 
     private val _uiState = MutableStateFlow(PlayerUiState())
     val uiState: StateFlow<PlayerUiState> = _uiState
@@ -646,6 +647,17 @@ class PlayerSession internal constructor(
         comment: String,
     ) = musicLibrary.saveTrackInfo(uri, title, artist, album, genre, year, trackNo, comment)
 
+    suspend fun writeTrackInfo(
+        uri: String,
+        title: String,
+        artist: String,
+        album: String,
+        genre: String,
+        year: Int,
+        trackNo: Int,
+        comment: String,
+    ): Boolean = musicLibrary.writeTrackInfo(uri, title, artist, album, genre, year, trackNo, comment)
+
     fun importFolder(treeUri: Uri) = musicLibrary.importFolder(treeUri)
 
     fun removeMediaRoot(uriStr: String) = musicLibrary.removeMediaRoot(uriStr)
@@ -941,6 +953,8 @@ class PlayerSession internal constructor(
 
                 override fun adsrConfigs() = modulation.adsrs.value
 
+                override fun keyframes() = editor.state.value.project.keyframes
+
                 override suspend fun loadExportTake() = takeController.loadExportTake()
 
                 override fun publishSections(
@@ -955,6 +969,16 @@ class PlayerSession internal constructor(
         )
 
     val studio: StateFlow<StudioUiState> get() = exportController.studio
+
+    internal val editor: EditorController = EditorController(EditorProjectStore(application), scope, storeScope).also { it.open() }
+
+    fun analysisTimeline(): FeatureTimeline? = analysis.timeline
+
+    fun currentSceneId(): String = _vizState.value.sceneId
+
+    fun currentSceneParams(): SceneParams = _vizState.value.params
+
+    fun playbackPositionMs(): Long? = if (player.isPlaying) player.currentPosition else null
 
     val playbackRepository: PlaybackRepository = SessionPlaybackRepository(this)
 
@@ -1162,7 +1186,7 @@ class PlayerSession internal constructor(
         playerListener = listener
         player.addListener(listener)
         sleepTimer.onFadeVolume = fades.sleepFadeHook
-        audioFxController.attach(player.audioSessionId)
+        playback.exoPlayer?.let { audioFxController.attach(it.audioSessionId) }
         settings.refreshAudioFx()
         if (alreadyLoaded) onTrackChanged()
     }

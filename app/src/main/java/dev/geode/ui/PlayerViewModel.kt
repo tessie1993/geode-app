@@ -5,7 +5,7 @@ import android.net.Uri
 import androidx.annotation.OptIn
 import androidx.lifecycle.ViewModel
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.common.Player
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.geode.analysis.AudioFeatures
 import dev.geode.analysis.IntelligenceMode
@@ -35,7 +35,7 @@ class PlayerViewModel
         private val playback: PlaybackRepository = session.playbackRepository
         private val visualizer: VisualizerRepository = session.visualizerRepository
 
-        val player: ExoPlayer get() = session.player
+        val player: Player get() = session.player
 
         val uiState: StateFlow<PlayerUiState> get() = playback.state
 

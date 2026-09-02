@@ -72,26 +72,27 @@ class FeatureTimeline(
         if (frames.isEmpty()) return this
         val bandCount = frames[0].features.bands.size
         if (bandCount == 0) return this
-        val channels = DrumChannels(bandCount, hopRateHz, sampleRateHz)
         val out = ArrayList<TimelineFrame>(frames.size)
         var anyChanged = false
-        for (fr in frames) {
-            val f = fr.features
-            if (f.bands.size != bandCount) {
-                out += fr
-                continue
+        DrumChannels(bandCount, hopRateHz, sampleRateHz).use { channels ->
+            for (fr in frames) {
+                val f = fr.features
+                if (f.bands.size != bandCount) {
+                    out += fr
+                    continue
+                }
+                channels.step(f.bands)
+                if (channels.kick == f.kick && channels.snare == f.snare && channels.hat == f.hat) {
+                    out += fr
+                    continue
+                }
+                anyChanged = true
+                out +=
+                    TimelineFrame(
+                        fr.timeMs,
+                        f.copy(kick = channels.kick, snare = channels.snare, hat = channels.hat),
+                    )
             }
-            channels.step(f.bands)
-            if (channels.kick == f.kick && channels.snare == f.snare && channels.hat == f.hat) {
-                out += fr
-                continue
-            }
-            anyChanged = true
-            out +=
-                TimelineFrame(
-                    fr.timeMs,
-                    f.copy(kick = channels.kick, snare = channels.snare, hat = channels.hat),
-                )
         }
         return if (anyChanged) FeatureTimeline(out, hopMs, key, hopRateHz) else this
     }

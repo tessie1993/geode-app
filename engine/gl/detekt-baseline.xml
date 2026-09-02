@@ -1,7 +1,0 @@
-<?xml version="1.0" ?>
-<SmellBaseline>
-  <ManuallySuppressedIssues/>
-  <CurrentIssues>
-    <ID>ReturnCount:CapabilityCache.kt$CapabilityCache$fun decode( text: String, vendor: String, renderer: String, versionString: String, ): GlProbeReport?</ID>
-  </CurrentIssues>
-</SmellBaseline>

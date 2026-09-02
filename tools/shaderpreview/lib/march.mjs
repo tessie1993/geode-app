@@ -2,7 +2,8 @@
 //
 // Mirrors render/scene/MarchBudget.kt, constant for constant. It lived in the former
 // hyperspace-math.mjs until that style was removed; the marched FRAGMENT styles
-// (vanishing, morphogen, nebula, noneuclid, kifs, fractal_tunnel) are its consumers now, so it gets its
+// (vanishing, morphogen, nebula, noneuclid, kifs, rod_tunnel, fractal_tunnel) are its consumers now, so
+// it gets its
 // own file rather than being folded into palette.mjs, which is palette maths.
 
 export const MAX_STEPS = 128;

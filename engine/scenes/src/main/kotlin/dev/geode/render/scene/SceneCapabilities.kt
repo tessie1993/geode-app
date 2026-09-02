@@ -1,7 +1,5 @@
 package dev.geode.render.scene
 
-import dev.geode.engine.scenes.R
-
 /** Which scene class a style id builds. One entry per renderer, not per style. */
 enum class SceneKind {
     SHADER,
@@ -28,45 +26,49 @@ enum class SceneKind {
 }
 
 object SceneCapabilities {
-    val SHADER_SCENES: Map<String, Int> =
+    /** Fragment style id -> the APK asset the native ShaderScene compiles. */
+    val SHADER_SCENES: Map<String, String> =
         linkedMapOf(
-            SceneIds.JULIA to R.raw.julia_frag,
-            SceneIds.TUNNEL to R.raw.tunnel_frag,
-            SceneIds.MANDEL to R.raw.mandel_frag,
-            SceneIds.KALEIDO to R.raw.kaleido_frag,
-            SceneIds.PLASMA to R.raw.plasma_frag,
-            SceneIds.BARS to R.raw.bars_frag,
-            SceneIds.RING to R.raw.ring_frag,
-            SceneIds.SCOPE to R.raw.scope_frag,
-            SceneIds.LISS to R.raw.liss_frag,
-            SceneIds.WARP to R.raw.warp_frag,
-            SceneIds.GRID to R.raw.grid_frag,
-            SceneIds.VORONOI to R.raw.voronoi_frag,
-            SceneIds.METABALLS to R.raw.metaballs_frag,
-            SceneIds.RIPPLES to R.raw.ripples_frag,
-            SceneIds.STARFIELD to R.raw.starfield_frag,
-            SceneIds.WAVES to R.raw.waves_frag,
-            SceneIds.HEXGRID to R.raw.hexgrid_frag,
-            SceneIds.SPIRAL to R.raw.spiral_frag,
-            SceneIds.AURORA to R.raw.aurora_frag,
-            SceneIds.SOLAR to R.raw.solar_frag,
-            SceneIds.WINTER to R.raw.winter_frag,
-            SceneIds.LAVA to R.raw.lava_frag,
-            // The six styles built on the shared GLSL libraries (lib_scene_uniforms,
+            SceneIds.JULIA to "shaders/julia_frag.glsl",
+            SceneIds.TUNNEL to "shaders/tunnel_frag.glsl",
+            SceneIds.MANDEL to "shaders/mandel_frag.glsl",
+            SceneIds.KALEIDO to "shaders/kaleido_frag.glsl",
+            SceneIds.PLASMA to "shaders/plasma_frag.glsl",
+            SceneIds.BARS to "shaders/bars_frag.glsl",
+            SceneIds.RING to "shaders/ring_frag.glsl",
+            SceneIds.SCOPE to "shaders/scope_frag.glsl",
+            SceneIds.LISS to "shaders/liss_frag.glsl",
+            SceneIds.WARP to "shaders/warp_frag.glsl",
+            SceneIds.GRID to "shaders/grid_frag.glsl",
+            SceneIds.VORONOI to "shaders/voronoi_frag.glsl",
+            SceneIds.METABALLS to "shaders/metaballs_frag.glsl",
+            SceneIds.RIPPLES to "shaders/ripples_frag.glsl",
+            SceneIds.STARFIELD to "shaders/starfield_frag.glsl",
+            SceneIds.WAVES to "shaders/waves_frag.glsl",
+            SceneIds.HEXGRID to "shaders/hexgrid_frag.glsl",
+            SceneIds.SPIRAL to "shaders/spiral_frag.glsl",
+            SceneIds.AURORA to "shaders/aurora_frag.glsl",
+            SceneIds.SOLAR to "shaders/solar_frag.glsl",
+            SceneIds.WINTER to "shaders/winter_frag.glsl",
+            SceneIds.LAVA to "shaders/lava_frag.glsl",
+            // The styles built on the shared GLSL libraries (lib_scene_uniforms,
             // lib_scene_grade, lib_sdf3, lib_touch) rather than on their own copy of
             // the boilerplate. Same ShaderScene, same uniform contract.
-            SceneIds.VANISHING to R.raw.vanishing_frag,
-            SceneIds.MORPHOGEN to R.raw.morphogen_frag,
-            SceneIds.NEBULA to R.raw.nebula_frag,
-            SceneIds.NONEUCLID to R.raw.noneuclid_frag,
-            SceneIds.KIFS to R.raw.kifs_frag,
-            SceneIds.FRACTAL_TUNNEL to R.raw.fractal_tunnel_frag,
+            SceneIds.VANISHING to "shaders/vanishing_frag.glsl",
+            SceneIds.MORPHOGEN to "shaders/morphogen_frag.glsl",
+            SceneIds.NEBULA to "shaders/nebula_frag.glsl",
+            SceneIds.NONEUCLID to "shaders/noneuclid_frag.glsl",
+            SceneIds.KIFS to "shaders/kifs_frag.glsl",
+            SceneIds.ORB_LATTICE to "shaders/orb_lattice_frag.glsl",
+            SceneIds.ROD_TUNNEL to "shaders/rod_tunnel_frag.glsl",
+            SceneIds.NEON_TILES to "shaders/neon_tiles_frag.glsl",
+            SceneIds.FRACTAL_TUNNEL to "shaders/fractal_tunnel_frag.glsl",
         )
 
     /**
      * The fragment styles that raymarch, and so spend the [MarchBudget] the Detail control sets.
      *
-     * A per-STYLE set rather than a [SceneKind], because only six of the 28 shader styles march;
+     * A per-STYLE set rather than a [SceneKind], because only seven of the 31 shader styles march;
      * scoping Detail to `SceneKind.SHADER` would put a dead slider in front of anyone looking at
      * Plasma, which is exactly what [ParamScope]'s no-dead-controls rule exists to prevent.
      */
@@ -77,6 +79,7 @@ object SceneCapabilities {
             SceneIds.NEBULA,
             SceneIds.NONEUCLID,
             SceneIds.KIFS,
+            SceneIds.ROD_TUNNEL,
             SceneIds.FRACTAL_TUNNEL,
         )
 

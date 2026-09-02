@@ -47,14 +47,19 @@ import dev.geode.export.ClipLook
 import dev.geode.export.ExportQuality
 import dev.geode.export.ExportRatio
 import dev.geode.export.StudioClip
+import dev.geode.ui.studio.EditorActions
+import dev.geode.ui.studio.TimelineEditor
 import kotlin.math.roundToInt
 
 @Composable
 fun StudioRoute(viewModel: StudioViewModel = geodeViewModel()) {
     val studio by viewModel.studio.collectAsStateWithLifecycle()
+    val editor by viewModel.editor.collectAsStateWithLifecycle()
     LaunchedEffect(Unit) { viewModel.refreshStudioClips() }
     StudioScreen(
         state = studio,
+        editor = editor,
+        editorActions = viewModel,
         onDescribe = viewModel::describeStudioClip,
         onRename = viewModel::renameStudioClip,
         onDelete = viewModel::deleteStudioClip,
@@ -67,6 +72,8 @@ fun StudioRoute(viewModel: StudioViewModel = geodeViewModel()) {
 @Composable
 internal fun StudioScreen(
     state: StudioUiState,
+    editor: EditorUiState,
+    editorActions: EditorActions,
     onDescribe: (Uri, (StudioClip) -> Unit) -> Unit,
     onRename: (String, String, (Boolean) -> Unit) -> Unit,
     onDelete: (String, (Boolean) -> Unit) -> Unit,
@@ -77,6 +84,11 @@ internal fun StudioScreen(
     val context = LocalContext.current
     var editingUri by rememberSaveable { mutableStateOf<String?>(null) }
     var editing by remember { mutableStateOf<StudioClip?>(null) }
+    var timelineOpen by rememberSaveable { mutableStateOf(false) }
+    if (timelineOpen) {
+        TimelineEditor(state = editor, actions = editorActions, onClose = { timelineOpen = false })
+        return
+    }
     LaunchedEffect(editingUri) {
         val wanted: String? = editingUri
         when {
@@ -105,6 +117,9 @@ internal fun StudioScreen(
         }
         val clip = editing
         if (clip == null) {
+            Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                CrystalButton(filled = false, onClick = { timelineOpen = true }) { Text(stringResource(R.string.editor_open)) }
+            }
             ClipLibrary(
                 studio = state,
                 onOpen = {

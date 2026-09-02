@@ -112,8 +112,8 @@
       "incorporated": "Advection, divergence, pressure, gradient subtraction, curl, splats, dye, bloom and format fallbacks; reconcile with existing attributed port",
       "notIncorporated": "Browser/runtime scaffolding",
       "importedFiles": [
-        "app/src/main/res/raw/fluid_*.glsl",
-        "app/src/main/java/dev/musicviz/render/fluid/"
+        "app/src/main/assets/shaders/fluid_*.glsl",
+        "core/viz/fluid/"
       ],
       "modifications": [
         "Sim-space coordinates, boundary sampling helpers, grid-scale Jacobi, capsule emitters with velocity blending implemented clean-room from published literature."
@@ -726,15 +726,11 @@
       "incorporated": "Existing dynamically linked MilkDrop compatibility, library/preset notices and classic feedback layer",
       "notIncorporated": "New-engine foundation or static linking",
       "importedFiles": [
-        "app/src/main/jniLibs/arm64-v8a/libprojectM-4.so",
-        "app/src/main/jniLibs/arm64-v8a/libprojectmjni.so",
-        "tools/pm_jni.c"
+        "third_party/projectm/"
       ],
-      "modifications": [
-        "tools/projectm-v417-render-fbo-backport.patch backports projectm_opengl_render_frame_fbo from 4.2.0."
-      ],
-      "attribution": "LGPL-2.1: dynamic linking, licence notice, and corresponding source of the modified library. Patch and build recipe are in tools/; binaries are produced by .github/workflows/native-libs.yml.",
-      "notes": "Separate remediation track. Shipped .so files are 4 KB page-aligned while release.yml gates on 16384, and the JNI binary predates a 2026-08-11 fix to pm_jni.c.",
+      "modifications": [],
+      "attribution": "LGPL-2.1: dynamic linking and licence notice; the library is stock v4.1.7, built in-tree from the git submodule by the root CMakeLists.txt (see tools/build-projectm.md).",
+      "notes": "libprojectM-4.so and libgeode.so are built per ABI with 16 KB page alignment and checked by checkNativePageAlignment in app/build.gradle.kts; the scene adapter is core/viz/scenes/MilkdropScene.cpp.",
       "pin": {
         "commit": "e0b0a967f0ffd7d332106c366668ed271718472b",
         "source": "resolved tag on 2026-08-15"

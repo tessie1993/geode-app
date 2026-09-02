@@ -1,108 +1,124 @@
-# Geode — Android Music Visualizer
+# Geode — Android music player, visualizer and video suite
 
-Native Android music player and real-time GPU music visualizer, written in
-Kotlin (Jetpack Compose UI, OpenGL ES 3.0 rendering, a thin C/JNI layer for
-libprojectM). Everything runs on-device: the app holds no network permission,
-and nothing it hears or renders leaves the phone.
+Native Android music player, real-time GPU music visualizer and a small video
+suite. Kotlin and Jetpack Compose on top; a C++20 engine built by CMake and
+the NDK underneath (audio analysis, the GLES 3.x renderer, the DSP chain, a
+native player and tag access). Everything runs on-device: the app holds no
+network permission, and nothing it hears or renders leaves the phone.
 
-Currently v1.7.0 (versionCode 31); minSdk 26, targetSdk 36. The full version
-history is in [CHANGELOG.md](CHANGELOG.md).
+Currently v1.8.0 (versionCode 32); minSdk 26, targetSdk 36, compileSdk 37,
+ABIs arm64-v8a and x86_64. The full version history is in
+[CHANGELOG.md](CHANGELOG.md).
 
 ## Features
 
 - **Player** — MediaStore library plus SAF folder roots and imports, editable
-  queue, favourites, playlists, multi-term search; loudness-curve seek bar,
-  timed lyrics (`.lrc`), A-B repeat, fades, sleep timer, equalizer, playback
-  speed/pitch, skip silence; listening time is measured per track and per day,
-  and Home's shelves are built from that real history.
-- **Visual scenes** — particle scenes; fragment-shader scenes with an in-app
-  GLSL editor; the GPU fluid family (Fluid / Curl Flow / Water); Cymatics
-  (the standing-wave field of what is playing); MilkDrop via libprojectM 4
-  (arm64-v8a and x86_64 — the JNI bridge is compiled in-tree with the NDK from
-  `app/src/main/cpp`; engine rebuild notes in `tools/build-projectm.md`). The Customize
-  panel exposes every parameter with per-param locks, one randomizer, LFO and
-  ADSR modulation, a palette maker, presets (JSON + `.milk`), and
-  photosensitivity clamps (Settings > Visual safety).
-- **Export Studio** — deterministic offline export: scenes re-rendered
-  frame-exact from the analysis timeline into H.264 with the original audio
-  muxed alongside, then trim / grade / speed / reframe / caption editing on
-  Media3's Transformer (a trim-only edit is a lossless container rewrite).
-  Exports apply the same FX, modulation and safety clamps as the live view.
-- **Live wallpaper** — the visualizer as a home-screen wallpaper
-  (`wallpaper/VisualizerWallpaperService`), with an idle drive so it keeps
-  moving without audio.
-- **Other apps' audio** — Android 10+ playback capture feeds the same PCM
-  ring buffer the player's tap and the microphone already share, so the FFT,
-  every scene, the exporter and the wallpaper work unchanged on foreign
-  audio. Runs as a foreground service with an ongoing notification; nothing
-  captured is written to disk or sent anywhere. Apps that opt out of capture
-  (e.g. Spotify) are diagnosed explicitly and the microphone is offered
-  instead.
+  queue, favourites, playlists and smart playlists (rules over title, artist,
+  album, folder, length, age, play count and favourite), a duplicate finder,
+  multi-term search; timed lyrics (`.lrc`), A-B repeat, fades, sleep timer, a
+  ten-band equalizer, ReplayGain, playback speed/pitch, skip silence, resume
+  position for tracks over twenty minutes; tag editing that can write back
+  into the file. An optional native audio engine adds gapless joins,
+  crossfades and, on Android 14+, a bit-perfect USB output toggle. Android
+  Auto browsing (tracks, albums, artists, playlists, favourites, recently
+  played) and a home-screen now-playing widget.
+- **Visual scenes** — particle, simulation and fragment-shader scenes with an
+  in-app GLSL editor; the GPU fluid family (Fluid / Curl Flow / Water);
+  Cymatics; MilkDrop via projectM 4 built in-tree from a git submodule. Every
+  scene is rendered by the native core; the Customize panel exposes every
+  parameter with per-param locks, a randomizer, LFO and ADSR modulation, a
+  palette maker, presets (JSON + `.milk`) and photosensitivity clamps.
+- **Studio** — a multi-lane timeline (visual, media, text, overlay, audio
+  lanes) with trim, split, ripple, snapping, markers, tap-in, auto-cut from the
+  analysed track, keyframe curves for scene and clip parameters, GL
+  Transitions between clips, speed ramps, `.cube` LUTs and per-channel gamma,
+  captions from lyrics or SRT (import and export). The visualizer export is
+  frame-exact from the analysis timeline; the cut export runs on Media3
+  Transformer. Both encode H.264 or HEVC, with H.264 as the fallback when a
+  device has no HEVC encoder.
+- **Live wallpaper** — the visualizer as a home-screen wallpaper, with an idle
+  drive so it keeps moving without audio.
+- **Other apps' audio** — Android 10+ playback capture feeds the same PCM ring
+  buffer the player's tap and the microphone share, so every scene, the
+  exporter and the wallpaper work unchanged on foreign audio.
 
-## Build & test
+## Build
 
 ```bash
-./gradlew assembleDebug           # build the debug APK
-./gradlew :app:testDebugUnitTest  # headless JUnit suite
-./gradlew lintDebug               # Android lint
-./gradlew ktlintCheck             # style (CI-enforced, official Kotlin style)
-./gradlew installDebug            # install on a connected device
+git submodule update --init --recursive   # projectM, kissfft, oboe, taglib
+./gradlew assembleDebug                   # debug APK, native core included
+./gradlew installDebug                    # install on a connected device
+./gradlew ktlintCheck detekt              # style and static analysis
 ```
 
-Requires JDK 17+ and Android SDK 36; `local.properties` must point at your
-SDK.
-
-On a machine with no SDK — a fresh container, a cloud session —
-`tools/setup-android-sdk.sh` installs the packages `compileSdk` asks for and
-writes `local.properties` for you. Every package comes from `dl.google.com`
-(which `maven.google.com` redirects to), so a restricted network must allow
-both hosts; without them Gradle cannot resolve the Android plugin either, and
-the script says so rather than failing mid-download.
+Requires JDK 17+, the Android SDK with `platforms;android-37`, NDK
+`28.0.13004108` and CMake 3.22.1; `local.properties` must point at the SDK.
+`tools/setup-android-sdk.sh` installs those packages on a machine without
+them. The workflows under `.github/workflows` build the debug APK, ship a
+signed APK and cut a Play Store release; they check out the submodules.
 
 ## Architecture
 
-One Gradle module (`:app`), package `dev.musicviz`. Dependency flow is
-one-way: `ui` depends on the engine packages, never the reverse. Source lives
-under `app/src/main/java/dev/musicviz/`:
+Gradle modules, package `dev.geode`:
 
-| Package | What it holds |
+| Module | What it holds |
 |---|---|
-| `audio/` | ExoPlayer wiring and the PCM tap (`TeeAudioProcessor` → lock-free mono ring buffer), AIFF reading, mic input, other-apps playback capture |
-| `analysis/` | FFT → log-spaced bands, beat/BPM/key/section extraction, offline analyzer and the binary analysis cache |
-| `render/` | GL ES 3.0 renderer, the scene implementations (`render/scene`, `render/fluid`), composite/FX pipeline, LFO/ADSR engines, visual-safety clamps; shaders in `res/raw/*.glsl` |
-| `playback/` | Playback service, queue operations, sleep timer |
-| `export/` | Deterministic video export and the Export Studio editor |
-| `data/` | JSON-on-disk stores: presets, palettes, favourites, history, prefs |
-| `ui/` | Compose app shell, player, library, customize surfaces, settings |
-| `wallpaper/` | Live-wallpaper service |
+| `:engine:audio-core` | `GeodeNative`, the JNI binding to `libgeode.so`, and the Kotlin wrappers over the native analyzers |
+| `:engine:audio-android` | The PCM tap, presentation clock driver and other Android-side audio plumbing |
+| `:engine:scenes` | Scene ids and parameters, the GL-thread adapter over the native renderer, offscreen rendering for export, the analysis engine and its cache |
+| `:engine:runtime` | Ties the engine modules together for the app |
+| `:app` | Compose UI, playback service and media session, library and playlist stores, the editor model, the export pipelines, the wallpaper and the widget |
+
+The native core lives outside the modules and is built by the root
+`CMakeLists.txt` into one `libgeode.so` (plus `libprojectM-4.so`, LGPL,
+dynamically linked):
+
+| Directory | What it holds |
+|---|---|
+| `core/api` | `geode_api.h`, the `extern "C"` ABI — the only thing JNI calls |
+| `core/analysis` | FFT (kissfft), bands, onsets, tempo, beats, bars, key, structure, stereo field; the feature frame |
+| `core/viz` | GL capability probing, program cache, the frame graph (scene → trails → composite), transitions, safety clamps, every scene family |
+| `core/audio/dsp` | Biquad equalizer, gain, crossfeed, lookahead limiter |
+| `core/audio/player` | AMediaCodec decode, resampling, a lock-free mixer with gapless and crossfade, Oboe output |
+| `core/library` | TagLib tag reading and writing over a file descriptor |
+| `app/src/main/cpp` | The JNI files: no logic, only marshalling into `core/api` |
+| `third_party/` | Git submodules: projectm, kissfft, oboe, taglib |
+
+Shaders ship as assets under `app/src/main/assets/shaders/` and are loaded by
+the native core. Inside `:app`, dependency flow is one-way: `ui` depends on
+`playback`, `export`, `editor` and `data`, never the reverse.
 
 ## Tests
 
-The unit suite lives in `app/src/test/java/dev/musicviz/` (`*Test.kt`,
-headless JUnit plus some Robolectric). Beyond ordinary unit tests, several
-suites are *surface gates* that read main source files as text — for example
-`CustomizeSurfaceTest` regenerates `docs/PARAM_MATRIX.md` from the sources
-and fails until the committed copy matches. Renaming an identifier or moving
-a file can fail such a gate: before editing a main source file, grep
-`app/src/test` for its filename and for the identifiers you are changing, and
-update the gating test in the same change.
+Three test files exist: `app/src/test/.../PresetLinkTest.kt`,
+`app/src/androidTest/.../BuildVariantTest.kt` and
+`engine/audio-core/src/test/.../FeatureRingTest.kt`. Checks that cannot run
+headless (GL behaviour, capture, wallpaper) are listed in
+[docs/DEVICE_CHECKS.md](docs/DEVICE_CHECKS.md), a partial reconstruction.
 
-Checks that cannot run headless (GL behavior, capture, wallpaper) are listed
-in [docs/DEVICE_CHECKS.md](docs/DEVICE_CHECKS.md) — note it is a partial
-reconstruction; see the note at its top.
+## Maintainer notes
+
+- Tag writing covers files the app holds a write grant for. MediaStore tracks
+  the app did not create need the user's consent through
+  `MediaStore.createWriteRequest`, which the library screen does not launch
+  yet; the editor reports the refused write instead.
+- `ENABLE_PLAYLIST=ON` in the root `CMakeLists.txt` is kept verbatim from the
+  old prebuilt recipe and also packages `libprojectM-4-playlist.so`, which
+  nothing calls. Set it OFF to drop the file.
+- `compileSdk = 37` while the workflows install `platforms;android-36`; both
+  are left as they are.
+- `docs/visualizer-v2/GPU_RESOURCE_ABI.md` describes the former `:engine:gl`
+  Kotlin module; the same probe and format policy now lives in `core/viz`.
 
 ## Documentation
 
-- [CHANGELOG.md](CHANGELOG.md) — full version history, newest first.
-- [docs/PARAM_MATRIX.md](docs/PARAM_MATRIX.md) — param × scene-family matrix,
-  generated by the test suite (do not edit by hand).
+- [CHANGELOG.md](CHANGELOG.md) — version history, newest first.
+- [docs/AUDIO_CHAIN.md](docs/AUDIO_CHAIN.md) — where playback audio goes and
+  which stages the visuals see.
+- [docs/PARAM_MATRIX.md](docs/PARAM_MATRIX.md) — param × scene-family matrix.
 - [docs/VISUAL_STYLE_RESEARCH.md](docs/VISUAL_STYLE_RESEARCH.md) — design
-  rationale, open-source references and the style catalogue for the composite
-  visual families.
-- [docs/quality/QUALITY_BAR.md](docs/quality/QUALITY_BAR.md) — the quality
-  bar this project is held to.
-- [docs/DEVICE_CHECKS.md](docs/DEVICE_CHECKS.md) — numbered on-device
-  checklist (reconstructed).
-- [docs/wireframe.html](docs/wireframe.html) — full-app wireframe.
-- `THIRD_PARTY_NOTICES` — licenses and attributions (libprojectM is LGPL-2.1
-  and dynamically linked; the in-app notices asset mirrors this file).
+  rationale and the style catalogue.
+- [docs/DEVICE_CHECKS.md](docs/DEVICE_CHECKS.md) — on-device checklist.
+- `tools/build-projectm.md` — how projectM is built from the submodule.
+- `THIRD_PARTY_NOTICES` — licences and attributions; the in-app notices asset
+  mirrors this file.

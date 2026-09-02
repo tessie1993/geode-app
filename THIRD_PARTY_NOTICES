@@ -3,8 +3,8 @@ THIRD-PARTY NOTICES
 
 WebGL-Fluid-Simulation
 ----------------------
-The fluid simulation shaders and pipeline in engine/scenes/src/main/res/raw/fluid_*.glsl
-and engine/scenes/src/main/kotlin/dev/geode/render/fluid/ are ported in part from:
+The fluid simulation shaders and pipeline in app/src/main/assets/shaders/fluid_*.glsl
+and core/viz/fluid/ are ported in part from:
 
   https://github.com/PavelDoGreat/WebGL-Fluid-Simulation
 
@@ -38,7 +38,7 @@ GPL-licensed fluid projects is included.
 
 Naadara (technique reference)
 -----------------------------
-The CYMATICS style's nodal rendering in engine/scenes/src/main/res/raw/cymatics_field_frag.glsl
+The CYMATICS style's nodal rendering in app/src/main/assets/shaders/cymatics_field_frag.glsl
 - a narrow Gaussian on the absolute field value for the bright filigree plus a
 wide one for its halo, layered additively - follows the approach taken by:
 
@@ -198,7 +198,7 @@ IS" AND ANY EXPRESS OR IMPLIED WARRANTIES ARE DISCLAIMED.
 
 Free blue noise textures
 ------------------------
-The dither mask in engine/scenes/src/main/res/raw/blue_noise_64.bin is the red channel of
+The dither mask in app/src/main/assets/shaders/blue_noise_64.bin is the red channel of
 `64_64/LDR_LLL1_0.png` from:
 
   https://github.com/Calinou/free-blue-noise-textures
@@ -214,7 +214,7 @@ of which destroys the spectral property the mask exists for.
 
 woscope
 -------
-The oscilloscope beam maths in engine/scenes/src/main/res/raw/beam_vert.glsl and
+The oscilloscope beam maths in app/src/main/assets/shaders/beam_vert.glsl and
 beam_frag.glsl - expanding each waveform segment into a quad and integrating a
 Gaussian beam along it analytically, divided by the distance travelled so the
 trace brightens where the beam dwells - is ported from:
@@ -250,7 +250,7 @@ VBO. The error-function approximation is Abramowitz & Stegun 7.1.26.
 
 psrdnoise
 ---------
-engine/scenes/src/main/res/raw/lib_psrdnoise2.glsl is vendored verbatim, with its licence
+app/src/main/assets/shaders/lib_psrdnoise2.glsl is vendored verbatim, with its licence
 header intact, from:
 
   https://github.com/stegu/psrdnoise
@@ -260,7 +260,7 @@ header intact, from:
    Copyright (c) 2021 Stefan Gustavson and Ian McEwan."
 
 The full MIT text is in the file itself. It backs the curl-noise velocity field
-(res/raw/curl_field_frag.glsl): psrdnoise returns an ANALYTIC gradient, which is
+(app/src/main/assets/shaders/curl_field_frag.glsl): psrdnoise returns an ANALYTIC gradient, which is
 what makes that field exactly divergence-free rather than approximately so - the
 field previously took central differences, and the error in a finite difference
 IS the divergence that makes particles pile up. It also cut the field from
@@ -269,7 +269,7 @@ seamless loop would be built on.
 
 Scientific colour maps (cyclic)
 -------------------------------
-engine/scenes/src/main/res/raw/cyclic_palettes.bin packs the five CYCLIC scientific
+app/src/main/assets/shaders/cyclic_palettes.bin packs the five CYCLIC scientific
 colour maps - bamO, brocO, corkO, romaO, vikO - at 256 entries each, RGB8,
 3840 bytes for the set. Source distribution:
 

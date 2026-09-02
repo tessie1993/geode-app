@@ -81,6 +81,8 @@ Snapshot: 848a374 2026-09-02   Branch: claude/repo-actions-6.4-8.2-cs6lz6   Last
 
 - 7.5: the toggle is shown only on API 34+ and only inside the native-engine section (the item's two conditions), and applied through `PlayerSettingsController.Host.applyBitPerfect` because the controller has no context. `BitPerfectOutput` sets the preferred mixer attributes on every USB output that advertises `MIXER_BEHAVIOR_BIT_PERFECT` and clears them when the toggle goes off; whether the Oboe stream's float/stereo format then matches the DAC's bit-perfect profile is the platform's decision.
 
+- 8.1: the README's maintainer notes carry the owner notes from this ledger forward, since 8.2 deletes the ledger. The stale paths the owner flagged were corrected where the facts are in the tree: `THIRD_PARTY_NOTICES` and its asset copy now point at `app/src/main/assets/shaders/` and `core/viz/fluid/`, and `provenance.json`'s fluid and projectM entries name the submodule and the in-tree build instead of the removed `jniLibs`, `dev/musicviz` and patch paths.
+
 ## UNKNOWN / UNVERIFIED
 - UNVERIFIED (7.5): `AudioManager.getSupportedMixerAttributes(AudioDeviceInfo)`, `clearPreferredMixerAttributes(AudioAttributes, AudioDeviceInfo)` and `AudioMixerAttributes.MIXER_BEHAVIOR_BIT_PERFECT` are written from the API 34 platform as remembered; only `setPreferredMixerAttributes` is named in the prompt.
 - UNVERIFIED (7.3): `androidx.glance:glance-appwidget` version `1.1.1` was written from memory (no catalogue on disk lists it), as were the Glance names used (`GlanceAppWidget.provideGlance/provideContent`, `GlanceAppWidgetReceiver`, `ActionCallback`/`actionRunCallback`, `actionStartActivity`, `GlanceModifier.defaultWeight/cornerRadius/background`, `ImageProvider(Bitmap)`, `updateAll`, `@layout/glance_default_loading_layout`).
@@ -258,10 +260,11 @@ Phase 2 uniform usage: all three read the shared contract only (`uTime uResoluti
 - [x] 7.5 Bit-perfect USB output toggle (API 34 gate).
 
 ### Phase 8 — finish
-- [ ] 8.1 Rewrite `README.md`; delete `lines.txt`.
+- [x] 8.1 Rewrite `README.md`; delete `lines.txt`.
 - [ ] 8.2 Fold log into `CHANGELOG.md`, bump version, delete `docs/BUILD_STATUS.md`, final commit.
 
 ## Log (newest first; one line per commit)
+- 8.1: README rewritten for the module tree, native core, submodule step and the three real tests; lines.txt deleted; stale paths fixed in THIRD_PARTY_NOTICES (both copies) and provenance.json
 - 7.5: BitPerfectOutput over AudioManager.setPreferredMixerAttributes (API 34 gate), bitPerfect pref applied with the native player, settings toggle
 - 7.4: BookmarkStore and the resumeLongTracks pref in PlayerPrefs, TrackBookmarks on the session poll and track start, settings row
 - 7.3: Glance now-playing widget (artwork, title, artist, previous/play-pause/next through a MediaController), WidgetPublisher on the service's player, receiver, provider xml, icons

@@ -79,7 +79,10 @@ Snapshot: 848a374 2026-09-02   Branch: claude/repo-actions-6.4-8.2-cs6lz6   Last
 
 - 7.4: bookmarks live in the player prefs file as `bookmark:<uri>` (`BookmarkStore` in `PlayerPrefs.kt`) and only for tracks of 20 minutes or more; `TrackBookmarks` writes one every five seconds from the session's existing 500 ms poll (so a pause, a stop or a kill all leave a fresh mark) and clears it inside the last ten seconds, so a track played to the end starts over next time. The seek happens on the media-item transition and only while the player is still at the head, so a resumed session position is not overridden.
 
+- 7.5: the toggle is shown only on API 34+ and only inside the native-engine section (the item's two conditions), and applied through `PlayerSettingsController.Host.applyBitPerfect` because the controller has no context. `BitPerfectOutput` sets the preferred mixer attributes on every USB output that advertises `MIXER_BEHAVIOR_BIT_PERFECT` and clears them when the toggle goes off; whether the Oboe stream's float/stereo format then matches the DAC's bit-perfect profile is the platform's decision.
+
 ## UNKNOWN / UNVERIFIED
+- UNVERIFIED (7.5): `AudioManager.getSupportedMixerAttributes(AudioDeviceInfo)`, `clearPreferredMixerAttributes(AudioAttributes, AudioDeviceInfo)` and `AudioMixerAttributes.MIXER_BEHAVIOR_BIT_PERFECT` are written from the API 34 platform as remembered; only `setPreferredMixerAttributes` is named in the prompt.
 - UNVERIFIED (7.3): `androidx.glance:glance-appwidget` version `1.1.1` was written from memory (no catalogue on disk lists it), as were the Glance names used (`GlanceAppWidget.provideGlance/provideContent`, `GlanceAppWidgetReceiver`, `ActionCallback`/`actionRunCallback`, `actionStartActivity`, `GlanceModifier.defaultWeight/cornerRadius/background`, `ImageProvider(Bitmap)`, `updateAll`, `@layout/glance_default_loading_layout`).
 - UNVERIFIED (7.1): `MediaLibraryService.MediaLibrarySession.Builder(service, player, callback)`, `LibraryResult.ofItem/ofItemList/ofError`, `MediaLibrarySession.Callback.onGetLibraryRoot/onGetChildren/onGetItem`, `MediaSession.Callback.onSetMediaItems(session, controller, items, startIndex, startPositionMs)` and the `MediaMetadata.MEDIA_TYPE_*` constants are used from the Media3 1.x API as remembered.
 - UNVERIFIED (6.7): `androidx.media3.effect.SingleColorLut.createFromCube(int[][][])` with `cube[r][g][b]` holding ARGB ints, from the Media3 1.x API as remembered; the jar was not opened.
@@ -252,13 +255,14 @@ Phase 2 uniform usage: all three read the shared contract only (`uTime uResoluti
 - [x] 7.2 Smart playlists (`data/SmartPlaylistStore.kt`) + duplicate finder.
 - [x] 7.3 Glance home-screen widget.
 - [x] 7.4 Bookmarks for long tracks in `data/PlayerPrefs.kt`.
-- [ ] 7.5 Bit-perfect USB output toggle (API 34 gate).
+- [x] 7.5 Bit-perfect USB output toggle (API 34 gate).
 
 ### Phase 8 — finish
 - [ ] 8.1 Rewrite `README.md`; delete `lines.txt`.
 - [ ] 8.2 Fold log into `CHANGELOG.md`, bump version, delete `docs/BUILD_STATUS.md`, final commit.
 
 ## Log (newest first; one line per commit)
+- 7.5: BitPerfectOutput over AudioManager.setPreferredMixerAttributes (API 34 gate), bitPerfect pref applied with the native player, settings toggle
 - 7.4: BookmarkStore and the resumeLongTracks pref in PlayerPrefs, TrackBookmarks on the session poll and track start, settings row
 - 7.3: Glance now-playing widget (artwork, title, artist, previous/play-pause/next through a MediaController), WidgetPublisher on the service's player, receiver, provider xml, icons
 - 7.2: SmartPlaylistStore + matcher, smart playlists section with a rule editor on the Playlists tab, LibraryDuplicates and a Duplicates tab with MediaStore delete requests

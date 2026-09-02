@@ -408,6 +408,8 @@
     <string name="playback_resume_long_tracks">Remember position in long tracks</string>
     <string name="playback_resume_long_tracks_explainer">Anything over 20 minutes — a mix, an audiobook, a podcast — picks up where it was left, until it is played to the end.</string>
     <string name="playback_native_engine">Native audio engine</string>
+    <string name="playback_bit_perfect">Bit-perfect USB output</string>
+    <string name="playback_bit_perfect_explainer">Asks Android to hand the stream to a USB DAC untouched by the system mixer. Only DACs that offer that path take it; the equalizer and ReplayGain still apply inside the engine.</string>
     <string name="playback_native_engine_explainer">Decodes and mixes inside the engine, with gapless joins and crossfades. Takes effect the next time playback starts after the app has been closed.</string>
     <string name="playback_gapless">Gapless playback</string>
     <string name="playback_crossfade_off">Crossfade — off</string>

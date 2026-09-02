@@ -175,6 +175,10 @@ class PlayerSession internal constructor(
                 override fun redecideCachedBeats(prefs: GuiPrefs) = analysis.redecideCachedBeats(prefs)
 
                 override fun refreshUi() = refresh()
+
+                override fun applyBitPerfect(enabled: Boolean) {
+                    dev.geode.playback.BitPerfectOutput.apply(application, enabled)
+                }
             },
         )
 

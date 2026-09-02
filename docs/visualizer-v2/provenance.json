@@ -726,10 +726,13 @@
       "incorporated": "Existing dynamically linked MilkDrop compatibility, library/preset notices and classic feedback layer",
       "notIncorporated": "New-engine foundation or static linking",
       "importedFiles": [
-        "third_party/projectm/"
+        "third_party/projectm/",
+        "tools/projectm-v4.1.7-render-fbo-backport.patch"
       ],
-      "modifications": [],
-      "attribution": "LGPL-2.1: dynamic linking and licence notice; the library is stock v4.1.7, built in-tree from the git submodule by the root CMakeLists.txt (see tools/build-projectm.md).",
+      "modifications": [
+        "tools/projectm-v4.1.7-render-fbo-backport.patch backports projectm_opengl_render_frame_fbo from upstream master onto v4.1.7; the root CMakeLists.txt applies it to the submodule at configure time."
+      ],
+      "attribution": "LGPL-2.1: dynamic linking, licence notice, and the corresponding source of the modification (the patch in tools/); the library is built in-tree from the git submodule by the root CMakeLists.txt (see tools/build-projectm.md).",
       "notes": "libprojectM-4.so and libgeode.so are built per ABI with 16 KB page alignment and checked by checkNativePageAlignment in app/build.gradle.kts; the scene adapter is core/viz/scenes/MilkdropScene.cpp.",
       "pin": {
         "commit": "e0b0a967f0ffd7d332106c366668ed271718472b",

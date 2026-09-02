@@ -2,7 +2,6 @@
 #include <GLES3/gl3.h>
 #include <projectM-4/projectM.h>
 
-#include <array>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -10,14 +9,16 @@
 #include <type_traits>
 #include <vector>
 
+#include "viz/Framebuffer.hpp"
 #include "viz/Program.hpp"
 #include "viz/Scene.hpp"
 #include "viz/scenes/ProgramLoader.hpp"
 
 namespace geode::viz {
 
-// Port of MilkdropScene.kt and milkdrop_jni.cpp: one projectM instance rendering to the default framebuffer,
-// copied off it and graded by pm_post_frag.
+// One projectM instance rendering into a scene-owned framebuffer (projectm_opengl_render_frame_fbo,
+// backported onto v4.1.7 by tools/projectm-v4.1.7-render-fbo-backport.patch), graded by pm_post_frag.
+// The engine never touches the window surface, so the scene is independent of the EGL config.
 class MilkdropScene : public Scene {
 public:
     MilkdropScene(ProgramLoader loader, SceneHost host) : loader_(loader), host_(std::move(host)), pcm_(kPcmCapacity, 0.0f) {}
@@ -32,7 +33,6 @@ public:
     void draw(float timeSeconds) override;
     void release() override;
     void acceptPcm(const float* samples, int count) override;
-    void setWindowSize(int width, int height) override;
     void queueMilkPreset(const std::string& path) override;
     void reloadMilkPreset() override;
     void setMilkTextureDir(const std::string& dir) override;
@@ -52,14 +52,11 @@ private:
 
     static void onPresetSwitchFailed(const char* presetFilename, const char* message, void* userData);
     static double nowSeconds();
-    int effectiveWindowWidth() const { return windowWidth_ > 1 ? windowWidth_ : width_; }
-    int effectiveWindowHeight() const { return windowHeight_ > 1 ? windowHeight_ : height_; }
     void ensureEngine();
-    void ensureFrameTexture();
-    void releaseFrameTexture();
     void loadPendingPreset(double now);
     std::optional<std::string> takeError();
     void diagnoseBlackFrame();
+    void drainEngineErrors();
     void set1f(const char* name, float value) { glUniform1f(postLocs_.loc(name), value); }
 
     std::string id_ = "milkdrop";
@@ -70,12 +67,8 @@ private:
     Engine engine_;
     int width_ = 0;
     int height_ = 0;
-    int windowWidth_ = 0;
-    int windowHeight_ = 0;
     bool reportedCreateFailure_ = false;
-    GLuint frameTex_ = 0;
-    int texWidth_ = 0;
-    int texHeight_ = 0;
+    Framebuffer frame_{"milkdrop"};
     int engineWidth_ = 0;
     int engineHeight_ = 0;
     GLuint postProgram_ = 0;
@@ -90,6 +83,7 @@ private:
     SceneParams params_;
     int diagFrames_ = 0;
     bool diagDone_ = false;
+    bool reportedEngineGlError_ = false;
     std::mutex presetLock_;
     std::string pendingPresetPath_;
     std::string lastPresetPath_;

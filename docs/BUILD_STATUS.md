@@ -31,6 +31,11 @@ Snapshot: bebd045 2026-09-01 21:11:39 +0200   Branch: claude/native-core   Last 
 - 4.5: the native `SceneRegistry` lists the fragment styles by id and loads `shaders/<id>_frag.glsl`, which is the same file set `SceneCapabilities.SHADER_SCENES` maps through `R.raw`; the two lists must stay identical until 4.9 deletes the Kotlin one. `VisualizerRenderer.availableSceneIds()` keeps the Kotlin order and appends any id only native knows; `customShaderFor` asks native first because the native scene is the one that compiled the user's source.
 - 4.5: a compiled user shader is remembered per scene id inside the native `Renderer` (`geode_viz_custom_shader`) so a rebuilt scene after surface loss gets it back, as `SceneRegistry.activeCustomShaders` did; sources submitted for a scene that is not built are dropped, as `drainPendingShaders` dropped them.
 
+- 4.6: the native `SceneRegistry` now builds every family but milkdrop, so the strangler switch flips every scene except `milkdrop` to native on the next frame; the Kotlin scene classes stay in the tree until 4.9. `FluidScene.setInjectionShaders` reaches native through `geode_viz_set_fluid_injection`; the `Overlays` (flow field, ripple overlay, touch smears) moved into the native `Renderer`, which is why the 4.4 `setFlowOverlay`/`setRippleOverlay` hooks are gone.
+- 4.6: three pure diagnostics were not carried: `FluidScene`'s first-three-frames `glGetError` log, `FluidSim.probeDyeMax` (a one-off logcat line), and `FlowField.readback`/`CpuGrid` (no caller in the tree). Random splats use one `std::mt19937` per emitter instead of `kotlin.random.Random.Default`; the sequences differ, the distributions do not.
+- 4.6: `GeodeFeatureFrame` has 64 bands where the Kotlin idle frames had 16, so `FluidSceneBase::fillIdleBands` writes each Kotlin value into the four bands it spans; every consumer indexes bands by fraction, so the idle picture is unchanged.
+- 4.6: `SceneHost.pacedFps` hands the renderer's `ThermalGovernor::pacedFps` to the fluid quality ladder, replacing the Kotlin global `ThermalGovernor.pacedFps` read.
+
 ## UNKNOWN / UNVERIFIED
 - UNVERIFIED: all `<GLES3/gl3.h>`, `<GLES3/gl31.h>`, `<EGL/egl.h>` calls in `core/viz` are written against the Khronos names (no NDK sysroot on this machine to open). `GLESv3` and `EGL` are linked by their NDK library names.
 - UNVERIFIED: no NDK is on this machine (`local.properties` absent, no `asset_manager.h` on disk), so every `AAssetManager_*`/`AAsset_*` call in `core/viz/ShaderSource.cpp` is written from the names in the prompt and not checked against the header.
@@ -38,6 +43,8 @@ Snapshot: bebd045 2026-09-01 21:11:39 +0200   Branch: claude/native-core   Last 
 - Phase 2 shaders (`orb_lattice`, `rod_tunnel`, `neon_tiles`) are written against the include contract and GLSL ES 3.00; they have not been compiled (rule: no compiling). First device run is the owner's.
 
 - UNVERIFIED: `AAssetManager_fromJava` (`<android/asset_manager_jni.h>`), used by `geode_viz_jni.cpp`; the NDK headers are not on disk.
+
+- UNVERIFIED: the native simulation and fluid code calls `glTexStorage2D`, `glClearBufferuiv/fv`, `glInvalidateFramebuffer`, `glBindSampler`, `glDrawBuffers`, `glReadPixels` and `glBlendFuncSeparate` by their GLES 3.0/3.1 names; the NDK headers were not on disk to open.
 
 ## BLOCKED
 
@@ -106,6 +113,17 @@ Snapshot: bebd045 2026-09-01 21:11:39 +0200   Branch: claude/native-core   Last 
 | `engine/scenes/.../render/offscreen/{OffscreenSceneRenderer,OffscreenCompositor}.kt` | `NativeViz` path with an explicit target FBO when native knows the scene; Kotlin path (now also taking a target FBO) stays until 4.9 | adapter |
 | `engine/scenes/.../render/scene/ShaderScene.kt` + `PcmRow.kt` + `MarchBudget.kt` | `core/viz/scenes/ShaderScene.hpp,.cpp` (same uniform block, audio texture, touch upload, march budget) | ported |
 | `engine/scenes/.../render/SceneRegistry.kt` + `scene/SceneCapabilities.SHADER_SCENES` | `core/viz/SceneRegistry.hpp,.cpp` (the 30 fragment styles; other families arrive in 4.6/4.7) | partial: shader styles native, Kotlin registry keeps every family until 4.9 |
+| `engine/scenes/.../render/scene/VisualStyleCatalog.kt` | `core/viz/scenes/StyleCatalog.hpp,.cpp` (ids and numbers; labels stay Kotlin for the UI) | ported |
+| `engine/scenes/.../render/scene/{CymaticsScene,CymaticsPlate,CymaticsDrops,CymaticsMath}.kt` | `core/viz/scenes/CymaticsScene.hpp,.cpp`, `CymaticsMath.hpp,.cpp` | ported |
+| `engine/scenes/.../render/scene/{BeamScene,SilkScene,LifeScene,MycoScene,AcidScene}.kt` | `core/viz/scenes/{BeamScene,SilkScene,LifeScene,MycoScene,AcidScene}.hpp,.cpp` | ported |
+| `engine/scenes/.../render/scene/{PcmPulse,SceneTouch,ParticleLook}.kt` + `fluid/FluidHue.kt` | `core/viz/scenes/SceneCommon.hpp` | ported |
+| `engine/scenes/.../render/compute/{SimField,SimGlsl,SimPass,ComputeSimPass,FragmentSimPass}.kt` | `core/viz/compute/{SimField,SimGlsl,SimPass}.hpp,.cpp` | ported |
+| `engine/scenes/.../render/fluid/{FluidBuffers,FluidQuality}.kt` | `core/viz/fluid/FluidBuffers.hpp,.cpp`, `FluidQuality.hpp` | ported |
+| `engine/scenes/.../render/fluid/{FluidMath,WaterMath,CurlFlowMath,RippleMath,RippleOverlayDrops}.kt` | `core/viz/fluid/FluidMath.hpp,.cpp`, `RippleMath.hpp,.cpp` | ported |
+| `engine/scenes/.../render/fluid/{FluidChoreography,FluidEmitters,FluidSim,FluidParticles,FluidLook,RippleSim,FlowField}.kt` | `core/viz/fluid/{FluidChoreography,FluidEmitters,FluidSim,FluidParticles,FluidLook,RippleSim,FlowField}.hpp,.cpp` | ported (FlowField's CPU readback grid had no caller and was not carried) |
+| `engine/scenes/.../render/fluid/{FluidSceneBase,FluidScene,CurlFlowScene,WaterScene}.kt` | `core/viz/scenes/{FluidSceneBase,FluidScene,CurlFlowScene,WaterScene}.hpp,.cpp` | ported |
+| `engine/scenes/.../render/OverlayEffects.kt` | `core/viz/Overlays.hpp,.cpp` (owned by `Renderer`; `geode_viz_queue_touch_stroke`) | ported |
+| `engine/scenes/.../render/BlueNoise.kt` | `core/viz/BlueNoise.hpp,.cpp` (shared by the composite and the fluid look) | ported |
 | `app/src/main/cpp/milkdrop_jni.c` | `app/src/main/cpp/milkdrop_jni.cpp` | ported, same exported symbols |
 
 ## Checklists (copied from the prompt; tick as you go)
@@ -145,7 +163,7 @@ Phase 2 uniform usage: all three read the shared contract only (`uTime uResoluti
 - [x] 4.3 `core/viz/{Params,ParamBlend,Lfo,Adsr,VisualSafety,FlashBudget,FramePacer,ThermalGovernor}`.
 - [x] 4.4 `core/viz/Renderer` frame graph + `geode_viz_*`; `VisualizerView`/`VisualizerRenderer` adapters; offscreen paths use explicit target FBO.
 - [x] 4.5 `core/viz/scenes/ShaderScene` + native `SceneRegistry`; Kotlin registry asks native first.
-- [ ] 4.6 Port cymatics, fluid/curlflow/water, particle/simulation scenes, compute path.
+- [x] 4.6 Port cymatics, fluid/curlflow/water, particle/simulation scenes, compute path.
 - [ ] 4.7 `milkdrop` as C++ scene; delete `milkdrop_jni.cpp` and `MilkdropEngine.kt` externals; `MilkdropScene.kt` adapter.
 - [ ] 4.8 Transitions → `core/viz/Transition`.
 - [ ] 4.9 Delete ported Kotlin scene/pass files and `res/raw` shader copies; mapping table complete.
@@ -180,6 +198,7 @@ Phase 2 uniform usage: all three read the shared contract only (`uTime uResoluti
 - [ ] 8.2 Fold log into `CHANGELOG.md`, bump version, delete `docs/BUILD_STATUS.md`, final commit.
 
 ## Log (newest first; one line per commit)
+- 4.6: native cymatics, beam, silk/life/myco/acid, fluid/curlflow/water scenes, compute SimPass layer, overlays in the renderer, full native registry
 - 4.5: native ShaderScene, SceneRegistry with the 30 fragment styles, custom-shader memory, Kotlin registry asks native first
 - 4.4: geode_viz_* C API, JNI, NativeViz + codecs, VisualizerRenderer and offscreen adapters (explicit target FBO), band gains in the native frame graph
 - 4.4 (part 1): core/viz Renderer frame graph, CompositePass, TrailPass, TransitionCatalog, TouchField, CompositeGrade, SceneRegistry (empty until 4.5), util/Json

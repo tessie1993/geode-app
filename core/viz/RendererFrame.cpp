@@ -10,6 +10,8 @@
 namespace geode::viz {
 
 namespace {
+constexpr float kTouchMinOverlayStrength = 0.35f;
+
 // Port of applyBandGains: the per-scene band trims, clamped as the Kotlin path clamps them.
 GeodeFeatureFrame gainAdjusted(const GeodeFeatureFrame& f, const SceneParams& p) {
     if (p.bassGain == 1.0f && p.midGain == 1.0f && p.trebGain == 1.0f) return f;
@@ -134,7 +136,7 @@ float Renderer::drawSecondaryTargets(const SceneParams& p, float dt) {
     float progress = 1.0f;
     if (layerScene_) {
         bindSecondaryTarget();
-        layerScene_->setFlow(flowTex_ != 0 ? flowTex_ : compositePass_.zeroTex(), p.flowEnabled ? flowStrength_ : 0.0f);
+        wireFlow(*layerScene_, p);
         layerScene_->setParams(p);
         deliverPcm(*layerScene_);
         layerScene_->update(gainAdjusted(frameFeatures_, p), dt);
@@ -166,7 +168,7 @@ void Renderer::drawSceneTarget(Scene& scene, const SceneParams& p, float dt) {
     } else {
         glClear(GL_COLOR_BUFFER_BIT);
     }
-    scene.setFlow(flowTex_ != 0 ? flowTex_ : compositePass_.zeroTex(), p.flowEnabled ? flowStrength_ : 0.0f);
+    wireFlow(scene, p);
     scene.setParams(p);
     deliverPcm(scene);
     scene.update(gainAdjusted(frameFeatures_, p), dt);
@@ -183,22 +185,25 @@ void Renderer::composite(Scene& scene, const SceneParams& p, float progress, GLu
     GLuint flowTex = compositePass_.zeroTex();
     float flowStrength = 0.0f;
     if (p.flowEnabled) {
+        fluid::FlowField* ff = overlays_.flow();
         if (const GLuint own = scene.velocityTexture(); own != 0) {
             flowTex = own;
             flowStrength = p.flowStrength;
-        } else if (flowTex_ != 0) {
-            flowTex = flowTex_;
+        } else if (ff && ff->available()) {
+            flowTex = ff->velocityTex();
             flowStrength = p.flowStrength;
         }
     }
     in.flowTex = flowTex;
     in.flowStrength = flowStrength;
-    const bool rippleOn = rippleTex_ != 0 && rippleStrength_ > 0.0f;
-    in.rippleTex = rippleOn ? rippleTex_ : compositePass_.zeroTex();
-    in.rippleTexelW = rippleOn ? rippleTexelW_ : 0.0f;
-    in.rippleTexelH = rippleOn ? rippleTexelH_ : 0.0f;
-    in.rippleStrength = rippleOn ? std::clamp(rippleStrength_, 0.0f, 1.0f) : 0.0f;
-    in.rippleSpecular = rippleOn ? std::clamp(rippleSpecular_, 0.0f, 1.0f) : 0.0f;
+    fluid::RippleSim* ripple = overlays_.ripple();
+    const bool rippleOn = rippleOverlayOn_ && ripple != nullptr;
+    in.rippleTex = rippleOn ? ripple->heightTex() : compositePass_.zeroTex();
+    in.rippleTexelW = rippleOn ? ripple->texelW() : 0.0f;
+    in.rippleTexelH = rippleOn ? ripple->texelH() : 0.0f;
+    const float rippleStrength = smearing_ ? std::max(p.rippleOverlayStrength, kTouchMinOverlayStrength) : p.rippleOverlayStrength;
+    in.rippleStrength = rippleOn ? std::clamp(rippleStrength, 0.0f, 1.0f) : 0.0f;
+    in.rippleSpecular = rippleOn ? std::clamp(p.rippleOverlaySpecular, 0.0f, 1.0f) : 0.0f;
     in.progress = progress;
     in.layerMix = safety::layerMix(layerMix_, blendModeFromOrdinal(layerBlend_));
     in.blendOrdinal = layerBlend_;
@@ -224,6 +229,25 @@ void Renderer::composite(Scene& scene, const SceneParams& p, float progress, GLu
     compositePass_.draw(in);
 }
 
+void Renderer::stepOverlays(Scene& scene, const SceneParams& p, float dt) {
+    if (overlays_.wantsFlow(p, scene.isFluid())) overlays_.stepFlow(gainAdjusted(frameFeatures_, p), dt, p);
+    smearing_ = overlays_.smearing(monotonicSeconds());
+    // Stepped once per frame ahead of every draw so each scene reads the same anchor.
+    touchField_.step(dt);
+    overlays_.drainTouchStrokes(scene);
+    rippleOverlayOn_ = overlays_.rippleOverlayActive(p, smearing_, scene.isWater());
+    if (rippleOverlayOn_) overlays_.stepRippleOverlay(gainAdjusted(frameFeatures_, p), p, dt);
+}
+
+void Renderer::wireFlow(Scene& target, const SceneParams& p) {
+    fluid::FlowField* ff = overlays_.flow();
+    if (p.flowEnabled && ff) {
+        target.setFlow(ff->available() ? ff->velocityTex() : compositePass_.zeroTex(), p.flowStrength);
+    } else {
+        target.setFlow(compositePass_.zeroTex(), 0.0f);
+    }
+}
+
 void Renderer::render(double timeSeconds, GLuint targetFbo) {
     const float dt = beginFrame(timeSeconds);
     if (thermal_.tier() != appliedTier_) applyRenderScale();
@@ -236,8 +260,9 @@ void Renderer::render(double timeSeconds, GLuint targetFbo) {
         return;
     }
     const SceneParams p = resolveParams(dt);
+    applyPendingFluidInjection();
     resolveLayerScene();
-    touchField_.step(dt);
+    stepOverlays(*scene, p, dt);
     const float progress = drawSecondaryTargets(p, dt);
     drawSceneTarget(*scene, p, dt);
     composite(*scene, p, progress, targetFbo);

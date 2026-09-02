@@ -105,6 +105,10 @@ GEODE_API void        geode_viz_set_layer(geode_viz*, const char* scene_id, floa
 GEODE_API void        geode_viz_set_transition(geode_viz*, const char* id, int64_t duration_ms);
 GEODE_API void        geode_viz_begin_param_morph(geode_viz*, float seconds);
 GEODE_API void        geode_viz_set_touch(geode_viz*, const float* xy_ndc, int points);   /* 0 points = all lifted */
+/* One finger sample in 0..1 surface space with its motion, for the fluid smear and the water ripples. */
+GEODE_API void        geode_viz_queue_touch_stroke(geode_viz*, float nx, float ny, float ndx, float ndy, float dt, float strength);
+/* GLSL for the fluid style's force and dye injection; "" restores the built-in splat. */
+GEODE_API void        geode_viz_set_fluid_injection(geode_viz*, const char* force_source, const char* dye_source);
 GEODE_API void        geode_viz_push_pcm(geode_viz*, const float* mono, int count);
 GEODE_API void        geode_viz_set_custom_shader(geode_viz*, const char* scene_id, const char* fragment_source);
 /* The user source the scene last compiled; returns its full length, 0 when it draws the built-in style. */

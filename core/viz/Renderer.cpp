@@ -1,6 +1,7 @@
 #include "viz/Renderer.hpp"
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 
 #include "util/Log.hpp"
@@ -18,9 +19,10 @@ Renderer::Renderer(AAssetManager* assets, std::string cacheDir)
     : assets_(assets),
       cacheDir_(std::move(cacheDir)),
       deviceGl_(cacheDir_),
-      registry_(assets_, &programCache_,
+      registry_(assets_, &programCache_, &profile_,
                 SceneHost{[this](const std::string& m) { fail(m); },
-                          [this](const std::string& id, const std::string& src) { rememberCustomShader(id, src); }}),
+                          [this](const std::string& id, const std::string& src) { rememberCustomShader(id, src); },
+                          [this] { return thermal_.pacedFps(); }}),
       compositePass_(assets_, &programCache_),
       pcm_(kPcmCapacity, 0.0f) {
     programCache_.install(cacheDir_);
@@ -76,17 +78,37 @@ void Renderer::setCustomShader(const std::string& sceneId, const std::string& fr
     pendingShaders_.emplace_back(sceneId, fragmentSource);
 }
 
-void Renderer::setFlowOverlay(GLuint texture, float strength) {
-    flowTex_ = texture;
-    flowStrength_ = strength;
+double Renderer::monotonicSeconds() {
+    return std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
 }
 
-void Renderer::setRippleOverlay(GLuint texture, float texelW, float texelH, float strength, float specular) {
-    rippleTex_ = texture;
-    rippleTexelW_ = texelW;
-    rippleTexelH_ = texelH;
-    rippleStrength_ = strength;
-    rippleSpecular_ = specular;
+void Renderer::queueTouchStroke(float nx, float ny, float ndx, float ndy, float dt, float strength) {
+    overlays_.queueTouchStroke(nx, ny, ndx, ndy, dt, strength, monotonicSeconds());
+}
+
+void Renderer::setFluidInjectionShaders(const std::string& forceSrc, const std::string& dyeSrc) {
+    std::lock_guard<std::mutex> lock(stateLock_);
+    fluidForceSrc_ = forceSrc;
+    fluidDyeSrc_ = dyeSrc;
+    fluidInjectionDirty_ = true;
+}
+
+void Renderer::applyPendingFluidInjection() {
+    std::string force;
+    std::string dye;
+    {
+        std::lock_guard<std::mutex> lock(stateLock_);
+        if (!fluidInjectionDirty_) return;
+        force = fluidForceSrc_;
+        dye = fluidDyeSrc_;
+    }
+    Scene* fluid = builtScene("fluid");
+    if (!fluid) return;
+    {
+        std::lock_guard<std::mutex> lock(stateLock_);
+        fluidInjectionDirty_ = false;
+    }
+    fluid->setInjectionShaders(force, dye);
 }
 
 void Renderer::setLfoConfigs(const std::array<LfoConfig, LfoEngine::kSlots>& configs) {
@@ -140,6 +162,11 @@ void Renderer::onSurfaceCreated() {
     activeScene_ = nullptr;
     outgoingScene_ = nullptr;
     outgoingParams_.reset();
+    overlays_.recreate();
+    {
+        std::lock_guard<std::mutex> lock(stateLock_);
+        if (!fluidForceSrc_.empty() || !fluidDyeSrc_.empty()) fluidInjectionDirty_ = true;
+    }
 
     std::string error;
     const auto quadVert = assets_.load("quad_vert.glsl", &error);
@@ -184,6 +211,7 @@ void Renderer::applyRenderScale() {
     renderWidth_ = std::max(static_cast<int>(width_ * scale), 1);
     renderHeight_ = std::max(static_cast<int>(height_ * scale), 1);
     for (auto& entry : scenes_) entry.second->resize(renderWidth_, renderHeight_);
+    overlays_.resize(renderWidth_, renderHeight_);
     fboA_.ensure(renderWidth_, renderHeight_);
     fboB_.ensure(renderWidth_, renderHeight_);
 }
@@ -237,6 +265,14 @@ std::unique_ptr<Scene> Renderer::buildScene(const std::string& id) {
     scene->resize(renderWidth_, renderHeight_);
     const std::string custom = customShaderFor(id);
     if (!custom.empty()) scene->setFragmentSource(custom);
+    std::string force;
+    std::string dye;
+    {
+        std::lock_guard<std::mutex> lock(stateLock_);
+        force = fluidForceSrc_;
+        dye = fluidDyeSrc_;
+    }
+    if (!force.empty() || !dye.empty()) scene->setInjectionShaders(force, dye);
     return scene;
 }
 

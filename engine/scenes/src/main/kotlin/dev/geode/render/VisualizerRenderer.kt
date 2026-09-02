@@ -236,7 +236,10 @@ class VisualizerRenderer(
     fun submitFluidInjectionShaders(
         force: String?,
         dye: String?,
-    ) = registry.submitFluidInjectionShaders(force, dye)
+    ) {
+        registry.submitFluidInjectionShaders(force, dye)
+        nativeViz.setFluidInjectionShaders(force, dye)
+    }
 
     fun loadMilkPreset(path: String) = registry.loadMilkPreset(path)
 
@@ -254,7 +257,10 @@ class VisualizerRenderer(
         ndy: Float,
         dt: Float,
         strength: Float,
-    ) = overlays.queueTouchStroke(nx, ny, ndx, ndy, dt, strength)
+    ) {
+        overlays.queueTouchStroke(nx, ny, ndx, ndy, dt, strength)
+        nativeViz.queueTouchStroke(nx, ny, ndx, ndy, dt, strength)
+    }
 
     /**
      * Publish the pointers that are down right now, from the UI thread.

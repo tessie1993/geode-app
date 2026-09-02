@@ -57,6 +57,33 @@ add_library(geode_core STATIC
     viz/Renderer.cpp
     viz/RendererFrame.cpp
     viz/scenes/ShaderScene.cpp
+    viz/BlueNoise.cpp
+    viz/Overlays.cpp
+    viz/compute/SimField.cpp
+    viz/compute/SimGlsl.cpp
+    viz/compute/SimPass.cpp
+    viz/fluid/FluidBuffers.cpp
+    viz/fluid/FluidMath.cpp
+    viz/fluid/RippleMath.cpp
+    viz/fluid/FluidChoreography.cpp
+    viz/fluid/FluidEmitters.cpp
+    viz/fluid/FluidSim.cpp
+    viz/fluid/FluidParticles.cpp
+    viz/fluid/FluidLook.cpp
+    viz/fluid/RippleSim.cpp
+    viz/fluid/FlowField.cpp
+    viz/scenes/StyleCatalog.cpp
+    viz/scenes/CymaticsMath.cpp
+    viz/scenes/CymaticsScene.cpp
+    viz/scenes/BeamScene.cpp
+    viz/scenes/SilkScene.cpp
+    viz/scenes/LifeScene.cpp
+    viz/scenes/MycoScene.cpp
+    viz/scenes/AcidScene.cpp
+    viz/scenes/FluidSceneBase.cpp
+    viz/scenes/FluidScene.cpp
+    viz/scenes/CurlFlowScene.cpp
+    viz/scenes/WaterScene.cpp
     util/Json.cpp
 )
 target_include_directories(geode_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

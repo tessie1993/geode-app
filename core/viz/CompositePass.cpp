@@ -1,12 +1,9 @@
 #include "viz/CompositePass.hpp"
 
+#include "viz/BlueNoise.hpp"
 #include "viz/CompositeGrade.hpp"
 
 namespace geode::viz {
-
-namespace {
-constexpr int kNoiseSize = 64;
-}
 
 bool CompositePass::create(const std::string& fadeVert, std::string* error) {
     if (!transitions_.create(fadeVert, error)) return false;
@@ -38,22 +35,7 @@ GLuint CompositePass::createZeroTexture() {
     return tex;
 }
 
-// Port of BlueNoise.createTexture: the 64x64 R8 mask from shaders/blue_noise_64.bin.
-GLuint CompositePass::createNoiseTexture() {
-    const auto bytes = assets_.readAsset("shaders/blue_noise_64.bin");
-    if (!bytes || bytes->size() < static_cast<size_t>(kNoiseSize * kNoiseSize)) return 0;
-    GLuint tex = 0;
-    glGenTextures(1, &tex);
-    glBindTexture(GL_TEXTURE_2D, tex);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, kNoiseSize, kNoiseSize, 0, GL_RED, GL_UNSIGNED_BYTE, bytes->data());
-    glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
-    return tex;
-}
+GLuint CompositePass::createNoiseTexture() { return blue_noise::createTexture(assets_); }
 
 void CompositePass::draw(const Inputs& inputs) {
     glDisable(GL_BLEND);

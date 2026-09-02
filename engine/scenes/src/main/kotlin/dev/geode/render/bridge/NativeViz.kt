@@ -92,6 +92,24 @@ class NativeViz(
         if (handle != 0L) GeodeNative.vizSetTouch(handle, xy, n)
     }
 
+    fun queueTouchStroke(
+        nx: Float,
+        ny: Float,
+        ndx: Float,
+        ndy: Float,
+        dt: Float,
+        strength: Float,
+    ) {
+        if (handle != 0L) GeodeNative.vizQueueTouchStroke(handle, nx, ny, ndx, ndy, dt, strength)
+    }
+
+    fun setFluidInjectionShaders(
+        force: String?,
+        dye: String?,
+    ) {
+        if (handle != 0L) GeodeNative.vizSetFluidInjection(handle, force, dye)
+    }
+
     fun pushPcm(
         mono: FloatArray,
         count: Int,

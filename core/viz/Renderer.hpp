@@ -15,6 +15,7 @@
 #include "viz/Framebuffer.hpp"
 #include "viz/GlProfile.hpp"
 #include "viz/Lfo.hpp"
+#include "viz/Overlays.hpp"
 #include "viz/Params.hpp"
 #include "viz/ProgramBinaryCache.hpp"
 #include "viz/Scene.hpp"
@@ -24,6 +25,7 @@
 #include "viz/TouchField.hpp"
 #include "viz/TrailPass.hpp"
 #include "viz/VisualSafety.hpp"
+#include "viz/scenes/ProgramLoader.hpp"
 
 namespace geode::viz {
 
@@ -48,8 +50,8 @@ public:
     void setCustomShader(const std::string& sceneId, const std::string& fragmentSource);
     // The user source a scene last compiled successfully; "" when it draws its built-in style.
     std::string customShaderFor(const std::string& sceneId) const;
-    void setFlowOverlay(GLuint texture, float strength);
-    void setRippleOverlay(GLuint texture, float texelW, float texelH, float strength, float specular);
+    void queueTouchStroke(float nx, float ny, float ndx, float ndy, float dt, float strength);
+    void setFluidInjectionShaders(const std::string& forceSrc, const std::string& dyeSrc);
     void setLfoConfigs(const std::array<LfoConfig, LfoEngine::kSlots>& configs);
     void setAdsrConfigs(const std::array<AdsrConfig, AdsrEngine::kCount>& configs);
     ThermalGovernor& thermal() { return thermal_; }
@@ -88,6 +90,10 @@ private:
     void drawSceneTarget(Scene& scene, const SceneParams& p, float dt);
     void composite(Scene& scene, const SceneParams& p, float progress, GLuint targetFbo);
     void deliverPcm(Scene& scene);
+    void stepOverlays(Scene& scene, const SceneParams& p, float dt);
+    void wireFlow(Scene& target, const SceneParams& p);
+    void applyPendingFluidInjection();
+    static double monotonicSeconds();
     void fail(const std::string& message);
     void rememberCustomShader(const std::string& sceneId, const std::string& source);
 
@@ -96,7 +102,9 @@ private:
     ProgramBinaryCache programCache_;
     DeviceGl deviceGl_;
     GlProfile profile_ = GlProfile::unprobed();
+    ProgramLoader loader_{assets_, &programCache_};
     SceneRegistry registry_;
+    Overlays overlays_{loader_};
     std::vector<std::pair<std::string, std::unique_ptr<Scene>>> scenes_;
     std::string quadVert_;
 
@@ -129,13 +137,11 @@ private:
     int pcmCount_ = 0;
     std::vector<std::pair<std::string, std::string>> pendingShaders_;
     std::vector<std::pair<std::string, std::string>> customShaders_;
-    GLuint flowTex_ = 0;
-    float flowStrength_ = 0.0f;
-    GLuint rippleTex_ = 0;
-    float rippleTexelW_ = 0.0f;
-    float rippleTexelH_ = 0.0f;
-    float rippleStrength_ = 0.0f;
-    float rippleSpecular_ = 0.0f;
+    std::string fluidForceSrc_;
+    std::string fluidDyeSrc_;
+    bool fluidInjectionDirty_ = false;
+    bool rippleOverlayOn_ = false;
+    bool smearing_ = false;
 
     SceneParams displayedParams_;
     SceneParams lastFinalParams_;

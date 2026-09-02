@@ -5,6 +5,7 @@
 #include <cstring>
 
 #include "viz/LiveSignal.hpp"
+#include "viz/scenes/SceneCommon.hpp"
 
 namespace geode::viz {
 
@@ -18,25 +19,6 @@ constexpr float kMarchMaxDetail = 1.5f;
 
 float paletteRowCoordinate(int index) {
     return (static_cast<float>(std::clamp(index, 0, kPaletteRows - 1)) + 0.5f) / static_cast<float>(kPaletteRows);
-}
-
-// Port of PcmRow.fill: each destination cell keeps the largest-magnitude sample of its span.
-void fillPcmRow(float* dst, int dstSize, const float* source, int count) {
-    if (count <= 0) {
-        std::fill(dst, dst + dstSize, 0.0f);
-        return;
-    }
-    for (int i = 0; i < dstSize; ++i) {
-        const int from = i * count / dstSize;
-        const int to = std::min(std::max((i + 1) * count / dstSize, from + 1), count);
-        float extreme = 0.0f;
-        for (int j = from; j < to; ++j) {
-            const float v = source[j];
-            const float safe = std::isfinite(v) ? v : 0.0f;
-            if (std::fabs(safe) > std::fabs(extreme)) extreme = safe;
-        }
-        dst[i] = extreme;
-    }
 }
 
 float flag(bool on) { return on ? 1.0f : 0.0f; }

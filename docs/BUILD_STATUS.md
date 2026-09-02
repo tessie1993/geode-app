@@ -1,5 +1,5 @@
 # Build status — single source of truth. Read first. Update before every commit.
-Snapshot: d4d70cf 2026-09-02 00:51:54 +0000   Branch: claude/native-core   Last update: 2026-09-02
+Snapshot: d0baa72 2026-09-02   Branch: claude/codebase-debugging-1je3ao   Last update: 2026-09-02
 
 ## Decisions (why, not what)
 - `GeodeNative` lives in `engine/audio-core` (package `dev.geode.engine.bridge`): it is the lowest module both `engine/scenes` (via `api(project(":engine:audio-core"))`) and `app` (via `engine:runtime` → `engine:scenes`) reach, and Phase 3 needs it from `ReactiveAnalyzer` in that same module. It stays a JVM library: `System.loadLibrary` is plain `java.lang.System`, and `geode.jvm-library.gradle.kts` has no Android plugin to conflict with. Android-only handles (an `AssetManager`) will cross as `Any`/`jobject` when Phase 4 needs them.
@@ -82,9 +82,9 @@ Snapshot: d4d70cf 2026-09-02 00:51:54 +0000   Branch: claude/native-core   Last 
 ## Owner notes (things the owner must do or decide)
 - Tag writing covers files the app holds a write grant for (documents picked or imported through SAF). MediaStore tracks the app did not create need the user's consent through `MediaStore.createWriteRequest`, which needs an activity result launcher the library screen does not have; the editor reports the refused write instead.
 - `docs/visualizer-v2/GPU_RESOURCE_ABI.md` describes the `:engine:gl` Kotlin module that 4.9 removed; the same probe/format policy now lives in `core/viz/GlCaps*`, `GlProber`, `GlProfile`. The document was left as written.
-- F24: `compileSdk = 37` while the workflows install `platforms;android-36`; both left alone.
+- F24: `compileSdk = 37` while the workflows install `platforms;android-36`; both left alone. `tools/setup-android-sdk.sh` now installs `platforms;android-37.0` from the preview channel, the only package sdkmanager offers for API 37.
 - Run `git submodule update --init --recursive` after pulling; projectM is now built from `third_party/projectm`.
-- CI checkouts (`android.yml`, `release.yml`, `ship-apk.yml`) use `actions/checkout` without `submodules: recursive`; the native build needs it. Not added here because the prompt forbids CI additions.
+- CI checkouts (`android.yml`, `release.yml`, `ship-apk.yml`) now pass `submodules: recursive`; the native build compiles `third_party/*` from the submodules.
 - `ENABLE_PLAYLIST=ON` (kept verbatim from the old workflow) builds and packages `libprojectM-4-playlist.so`, which nothing calls. Set it OFF in the root `CMakeLists.txt` to drop it.
 - The `release.yml` "Gate on 16 KB native alignment" step scanned `app/src/main/jniLibs`, which no longer exists; it was deleted as dead. `checkNativePageAlignment` in `app/build.gradle.kts` still covers every packaged `.so`.
 - `docs/visualizer-v2/provenance.json` lists `app/src/main/jniLibs/...` under the projectM entry's `importedFiles`; the provenance check only requires the URL to appear in `THIRD_PARTY_NOTICES`, so it still passes, but the paths are stale.
@@ -235,6 +235,7 @@ Phase 2 uniform usage: all three read the shared contract only (`uTime uResoluti
 - [ ] 8.2 Fold log into `CHANGELOG.md`, bump version, delete `docs/BUILD_STATUS.md`, final commit.
 
 ## Log (newest first; one line per commit)
+- Debug pass: first full build with the NDK on disk. Restored `dev.geode.util.bestEffort` (deleted with `engine/gl` in 4.9, still imported by ten files), fixed the four native compile errors (`AMEDIAFORMAT_KEY_PCM_ENCODING` is API 28, `geode_dsp` is not movable, explicit `UniformCache` ctor in `std::array{}`, projectM deleter signature), the Studio Kotlin errors (`snap` import, `markersFrom` argument, duplicate import), ktlint/detekt findings; CI checks out submodules.
 - 6.3: AnimatableParams catalogue, key editor with interpolation chips and bezier handles, add-track sheet, keyframes applied to the visualizer export
 - 6.2: timeline editor UI (lanes, clip strip, marker lane with tap-in, keyframe lanes, ruler/playhead, auto-cut sheet) on the Studio tab
 - 6.1: EditorProjectStore + EditorProjectJson, EditorHistory undo/redo, EditorController with autosave

@@ -2,7 +2,7 @@
 # Installs the Android SDK pieces this repo's Gradle build needs, idempotently.
 #
 # Contributors and CI-like containers start here. The build wants:
-#   - platforms;android-37   (compileSdk 37, app/build.gradle.kts)
+#   - platforms;android-37.0 (compileSdk 37, app/build.gradle.kts)
 #   - build-tools;36.0.0
 #   - ndk;28.0.13004108      (ndkVersion; compiles app/src/main/cpp)
 #   - cmake;3.22.1           (externalNativeBuild.cmake.version)
@@ -28,7 +28,12 @@ GRADLE_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 CMDLINE_TOOLS_ZIP="commandlinetools-linux-16111833_latest.zip"
 CMDLINE_TOOLS_URL="https://dl.google.com/android/repository/${CMDLINE_TOOLS_ZIP}"
 
-PLATFORM="platforms;android-37"
+# sdkmanager has no "platforms;android-37": API 37 is published as the minor-versioned
+# "platforms;android-37.0", and only on the preview channel (--channel=3), which is why the
+# install below passes that flag. AGP resolves compileSdk = 37 against the android-37.0 directory.
+PLATFORM="platforms;android-37.0"
+PLATFORM_DIR="android-37.0"
+SDK_CHANNEL=3
 BUILD_TOOLS="build-tools;36.0.0"
 NDK="ndk;28.0.13004108"
 CMAKE="cmake;3.22.1"
@@ -69,7 +74,7 @@ fi
 # re-run near-instant, which is what lets a session hook call this every time.
 NEED=()
 [ -d "$SDK_DIR/platform-tools" ] || NEED+=("platform-tools")
-[ -d "$SDK_DIR/platforms/android-37" ] || NEED+=("$PLATFORM")
+[ -d "$SDK_DIR/platforms/$PLATFORM_DIR" ] || NEED+=("$PLATFORM")
 [ -d "$SDK_DIR/build-tools/36.0.0" ] || NEED+=("$BUILD_TOOLS")
 [ -d "$SDK_DIR/ndk/28.0.13004108" ] || NEED+=("$NDK")
 [ -d "$SDK_DIR/cmake/3.22.1" ] || NEED+=("$CMAKE")
@@ -78,7 +83,7 @@ if [ "${#NEED[@]}" -gt 0 ]; then
     say "accepting licenses"
     yes | "$SDKMANAGER" --sdk_root="$SDK_DIR" --licenses >/dev/null 2>&1 || true
     say "installing: ${NEED[*]}"
-    "$SDKMANAGER" --sdk_root="$SDK_DIR" "${NEED[@]}"
+    "$SDKMANAGER" --sdk_root="$SDK_DIR" --channel="$SDK_CHANNEL" "${NEED[@]}"
 else
     say "all packages already installed"
 fi

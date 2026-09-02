@@ -86,7 +86,9 @@ fun EditorToolbar(
             CrystalButton(compact = true, filled = false, onClick = onTapStart) { Text(stringResource(R.string.editor_tap_in)) }
             CrystalButton(compact = true, filled = false, onClick = onAutoCut) { Text(stringResource(R.string.editor_auto_cut)) }
             if (hasLyrics) {
-                CrystalButton(compact = true, filled = false, onClick = onLyricCaptions) { Text(stringResource(R.string.editor_lyric_captions)) }
+                CrystalButton(compact = true, filled = false, onClick = onLyricCaptions) {
+                    Text(stringResource(R.string.editor_lyric_captions))
+                }
             }
             CrystalButton(compact = true, filled = false, onClick = onImportSrt) { Text(stringResource(R.string.editor_import_srt)) }
             CrystalButton(compact = true, filled = false, onClick = onExportSrt) { Text(stringResource(R.string.editor_export_srt)) }
@@ -130,7 +132,9 @@ fun SelectionToolbar(
         if (clipSelected) {
             CrystalButton(compact = true, filled = false, onClick = onAnimateClip) { Text(stringResource(R.string.curve_animate_clip)) }
             if (canTransition) {
-                CrystalButton(compact = true, filled = false, onClick = onTransition) { Text(stringResource(R.string.editor_transition_ellipsis)) }
+                CrystalButton(compact = true, filled = false, onClick = onTransition) {
+                    Text(stringResource(R.string.editor_transition_ellipsis))
+                }
             }
             CrystalButton(compact = true, filled = false, onClick = onSplit) { Text(stringResource(R.string.editor_split)) }
             CrystalButton(compact = true, filled = false, onClick = onDelete) { Text(stringResource(R.string.editor_delete)) }

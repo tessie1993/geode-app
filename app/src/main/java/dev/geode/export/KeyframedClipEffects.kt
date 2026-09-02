@@ -1,13 +1,13 @@
 package dev.geode.export
 
 import android.graphics.Matrix
-import android.opengl.Matrix as GlMatrix
 import androidx.media3.common.util.Size
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.effect.MatrixTransformation
 import androidx.media3.effect.RgbMatrix
 import kotlin.math.cos
 import kotlin.math.sin
+import android.opengl.Matrix as GlMatrix
 
 /**
  * Brightness, contrast, saturation and hue as one colour matrix re-read every frame, so a clip's
@@ -97,9 +97,15 @@ private fun saturationMatrix(s: Float): FloatArray {
     val g = LUMA_G * (1f - s)
     val b = LUMA_B * (1f - s)
     return rows(
-        r + s, g, b,
-        r, g + s, b,
-        r, g, b + s,
+        r + s,
+        g,
+        b,
+        r,
+        g + s,
+        b,
+        r,
+        g,
+        b + s,
     )
 }
 
@@ -108,17 +114,29 @@ private fun hueMatrix(degrees: Float): FloatArray {
     val c = cos(a).toFloat()
     val s = sin(a).toFloat()
     return rows(
-        0.213f + 0.787f * c - 0.213f * s, 0.715f - 0.715f * c - 0.715f * s, 0.072f - 0.072f * c + 0.928f * s,
-        0.213f - 0.213f * c + 0.143f * s, 0.715f + 0.285f * c + 0.140f * s, 0.072f - 0.072f * c - 0.283f * s,
-        0.213f - 0.213f * c - 0.787f * s, 0.715f - 0.715f * c + 0.715f * s, 0.072f + 0.928f * c + 0.072f * s,
+        0.213f + 0.787f * c - 0.213f * s,
+        0.715f - 0.715f * c - 0.715f * s,
+        0.072f - 0.072f * c + 0.928f * s,
+        0.213f - 0.213f * c + 0.143f * s,
+        0.715f + 0.285f * c + 0.140f * s,
+        0.072f - 0.072f * c - 0.283f * s,
+        0.213f - 0.213f * c - 0.787f * s,
+        0.715f - 0.715f * c + 0.715f * s,
+        0.072f + 0.928f * c + 0.072f * s,
     )
 }
 
 /** Builds the column-major array from a 3x3 given row by row (output R, then G, then B). */
 private fun rows(
-    rr: Float, rg: Float, rb: Float,
-    gr: Float, gg: Float, gb: Float,
-    br: Float, bg: Float, bb: Float,
+    rr: Float,
+    rg: Float,
+    rb: Float,
+    gr: Float,
+    gg: Float,
+    gb: Float,
+    br: Float,
+    bg: Float,
+    bb: Float,
 ): FloatArray =
     identity().also {
         it[0] = rr

@@ -1,6 +1,7 @@
 #include "viz/scenes/MilkdropScene.hpp"
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cmath>
 
@@ -78,11 +79,6 @@ void MilkdropScene::setMilkTextureDir(const std::string& dir) {
     sharedTextureDir_ = dir;
 }
 
-void MilkdropScene::setWindowSize(int width, int height) {
-    windowWidth_ = width;
-    windowHeight_ = height;
-}
-
 void MilkdropScene::init() {
     release();
     reportedCreateFailure_ = false;
@@ -104,10 +100,10 @@ void MilkdropScene::resize(int width, int height) {
     height_ = height;
 }
 
+// The engine renders at the size the renderer asked for in resize(), like every other scene; the
+// frame target is (re)built to the same size, so projectM's viewport and the FBO always agree.
 void MilkdropScene::ensureEngine() {
-    const int w = effectiveWindowWidth();
-    const int h = effectiveWindowHeight();
-    if (w <= 1 || h <= 1) return;
+    if (width_ <= 1 || height_ <= 1) return;
     if (!engine_) {
         engine_.reset(projectm_create());
         if (!engine_) {
@@ -131,29 +127,11 @@ void MilkdropScene::ensureEngine() {
         }
         engineWidth_ = 0;
     }
-    if (engineWidth_ != w || engineHeight_ != h) {
-        projectm_set_window_size(engine_.get(), static_cast<size_t>(w), static_cast<size_t>(h));
-        engineWidth_ = w;
-        engineHeight_ = h;
+    if (engineWidth_ != width_ || engineHeight_ != height_) {
+        projectm_set_window_size(engine_.get(), static_cast<size_t>(width_), static_cast<size_t>(height_));
+        engineWidth_ = width_;
+        engineHeight_ = height_;
     }
-}
-
-void MilkdropScene::ensureFrameTexture() {
-    const int w = engineWidth_;
-    const int h = engineHeight_;
-    if (w <= 1 || h <= 1) return;
-    if (frameTex_ != 0 && texWidth_ == w && texHeight_ == h) return;
-    releaseFrameTexture();
-    glGenTextures(1, &frameTex_);
-    glBindTexture(GL_TEXTURE_2D, frameTex_);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-    glBindTexture(GL_TEXTURE_2D, 0);
-    texWidth_ = w;
-    texHeight_ = h;
 }
 
 void MilkdropScene::update(const GeodeFeatureFrame& features, float dt) {
@@ -216,35 +194,27 @@ void MilkdropScene::draw(float timeSeconds) {
     // Reset before the engine as well as after: projectM assumes default GL state and restores little.
     resetFrameState();
     ensureEngine();
-    ensureFrameTexture();
-    if (!engine_ || frameTex_ == 0) return;
+    if (!engine_ || !frame_.ensure(engineWidth_, engineHeight_)) return;
     loadPendingPreset(nowSeconds());
     const SceneParams& p = params_;
     projectm_set_beat_sensitivity(engine_.get(), std::clamp(0.2f + p.beatResponse, 0.2f, 3.0f));
 
-    projectm_opengl_render_frame(engine_.get());
+    // The engine composites its frame straight into the scene's FBO. The window surface is never
+    // read or written here, so the result does not depend on the EGL config the host chose.
+    projectm_opengl_render_frame_fbo(engine_.get(), frame_.fbo());
     if (const auto error = takeError()) host_.onShaderError(*error);
-
-    GLint prevReadFbo = 0;
-    glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &prevReadFbo);
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-    glReadBuffer(GL_BACK);
-    glBindTexture(GL_TEXTURE_2D, frameTex_);
-    glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0, texWidth_, texHeight_);
     diagnoseBlackFrame();
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, static_cast<GLuint>(prevReadFbo));
+    drainEngineErrors();
 
-    for (int drained = 0; glGetError() != GL_NO_ERROR && drained < 8; ++drained) {
-    }
     resetFrameState();
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, static_cast<GLuint>(prevFbo));
+    glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(prevFbo));
     glViewport(0, 0, width_, height_);
 
     glDisable(GL_BLEND);
     glDisable(GL_DEPTH_TEST);
     glUseProgram(postProgram_);
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, frameTex_);
+    glBindTexture(GL_TEXTURE_2D, frame_.tex());
     glUniform1i(postLocs_.loc("uTex"), 0);
     set1f("uZoom", p.zoom * (1.0f + beatPulse_ * p.beatResponse * 0.08f));
     set1f("uRotation", rotationAngle_);
@@ -266,13 +236,18 @@ void MilkdropScene::draw(float timeSeconds) {
     glUseProgram(0);
 }
 
+// Samples the scene's own target, i.e. what the post pass is about to display; a black result here
+// means the engine produced nothing, not that a copy failed somewhere in between.
 void MilkdropScene::diagnoseBlackFrame() {
     if (diagDone_ || diagFrames_ >= kDiagFrames) return;
     diagFrames_++;
     if (diagFrames_ <= kDiagWarmup) return;
+    const int w = frame_.width();
+    const int h = frame_.height();
     std::array<unsigned char, 8> px{};
-    glReadPixels(texWidth_ / 2, texHeight_ / 2, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, px.data());
-    glReadPixels(texWidth_ / 3, texHeight_ / 3, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, px.data() + 4);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, frame_.fbo());
+    glReadPixels(w / 2, h / 2, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, px.data());
+    glReadPixels(w / 3, h / 3, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, px.data() + 4);
     const bool sawLight = px[0] > 8 || px[1] > 8 || px[2] > 8 || px[4] > 8 || px[5] > 8 || px[6] > 8;
     if (sawLight) {
         diagDone_ = true;
@@ -284,23 +259,32 @@ void MilkdropScene::diagnoseBlackFrame() {
             preset = lastPresetPath_.empty() ? "idle" : lastPresetPath_.substr(lastPresetPath_.find_last_of('/') + 1);
         }
         host_.onShaderError("MilkDrop diagnostic: the engine painted a black frame for " + std::to_string(kDiagFrames) + " frames at " +
-                            std::to_string(texWidth_) + "x" + std::to_string(texHeight_) + " (preset=" + preset +
+                            std::to_string(w) + "x" + std::to_string(h) + " (preset=" + preset +
                             "). adb logcat -s milkdrop-jni for the native side.");
     }
 }
 
-void MilkdropScene::releaseFrameTexture() {
-    if (frameTex_ != 0) glDeleteTextures(1, &frameTex_);
-    frameTex_ = 0;
-    texWidth_ = 0;
-    texHeight_ = 0;
+// projectM leaves whatever GL errors its preset pipeline raised in the queue. Clear them so the
+// renderer's own probes stay attributable, but report the first one: a silent drain is how the
+// previous copy-from-window failure went unnoticed.
+void MilkdropScene::drainEngineErrors() {
+    GLenum first = GL_NO_ERROR;
+    for (int drained = 0; drained < 8; ++drained) {
+        const GLenum err = glGetError();
+        if (err == GL_NO_ERROR) break;
+        if (first == GL_NO_ERROR) first = err;
+    }
+    if (first != GL_NO_ERROR && !reportedEngineGlError_) {
+        reportedEngineGlError_ = true;
+        GEODE_LOGW(kTag, "projectM left GL error 0x%x pending after rendering (reported once)", first);
+    }
 }
 
 void MilkdropScene::release() {
     engine_.reset();
     engineWidth_ = 0;
     engineHeight_ = 0;
-    releaseFrameTexture();
+    frame_.release();
     if (postProgram_ != 0) glDeleteProgram(postProgram_);
     postProgram_ = 0;
     postProgramOk_ = false;

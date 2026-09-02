@@ -42,16 +42,23 @@ object ProjectComposition {
         context: Context,
         project: EditorProject,
     ): Outcome {
-        val videoLane = project.timeline.lanes.firstOrNull { it.kind == LaneKind.Media && it.clips.any(Clip::enabled) } ?: return Outcome.NoVideo
+        val videoLane =
+            project.timeline.lanes.firstOrNull { it.kind == LaneKind.Media && it.clips.any(Clip::enabled) }
+                ?: return Outcome.NoVideo
         val clips = videoLane.clips.filter(Clip::enabled).sortedBy(Clip::startMs)
         val stores = clips.map { if (it.transition != null) TransitionFrameStore() else null }
         val cues = Subtitles.cuesFrom(project.timeline.lanes)
         val video = EditedMediaItemSequence.Builder()
         clips.forEachIndexed { index, clip ->
-            val incoming = stores[index]?.let { store -> clip.transition?.let { transition -> transitionEffect(context, clip, transition, store) } }
+            val incoming =
+                stores[index]?.let { store ->
+                    clip.transition?.let { transition -> transitionEffect(context, clip, transition, store) }
+                }
             val outgoing = stores.getOrNull(index + 1)?.let(::TransitionCaptureEffect)
             val captions = captionsFor(clip, cues)
-            video.addItem(videoItem(context, clip, videoLane, project.keyframes, listOfNotNull(incoming, outgoing), listOfNotNull(captions)))
+            video.addItem(
+                videoItem(context, clip, videoLane, project.keyframes, listOfNotNull(incoming, outgoing), listOfNotNull(captions)),
+            )
         }
         val sequences = listOfNotNull(video.build(), audioSequence(project))
         return Outcome.Ready(Composition.Builder(sequences).build(), clips.sumOf(Clip::durationMs))

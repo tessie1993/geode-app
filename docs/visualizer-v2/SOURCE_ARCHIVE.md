@@ -144,10 +144,10 @@ battle-tested.
 - **MIT / BSD-2 / Unlicense** require the copyright line and licence text to travel with
   any copied portion.
 - **LGPL-2.1 (projectM)** requires dynamic linking (satisfied), the licence notice
-  (satisfied), and the corresponding source of the *modified* library. The engine ships
-  stock (no patches); the build recipe is `tools/build-projectm.md` and the CI workflow
-  that produces the binary is `.github/workflows/native-libs.yml`. The JNI bridge that
-  links against it is compiled from `app/src/main/cpp` by the app build.
+  (satisfied), and the corresponding source of the *modified* library. The engine is built
+  from the submodule with one local patch (`tools/projectm-v4.1.7-render-fbo-backport.patch`,
+  applied by the root `CMakeLists.txt`); the build recipe is `tools/build-projectm.md`.
+  The scene that links against it is `core/viz/scenes/MilkdropScene.cpp`, inside `libgeode.so`.
 
 **Known gap:** `checkThirdPartyNotices` is registered in `app/build.gradle.kts` and wired
 into `:app:check`. It is `:app`-scoped. Anything adapted into a new engine package is

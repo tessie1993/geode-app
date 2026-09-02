@@ -21,6 +21,41 @@ set(GEODE_LINK_OPTIONS
     -Wl,-z,common-page-size=16384
     $<$<CONFIG:Release>:-flto>)
 
+# projectM v4.1.7 can only composite a frame onto the default framebuffer; the API that targets a
+# caller's FBO (projectm_opengl_render_frame_fbo) exists upstream only on unreleased master.
+# tools/projectm-v4.1.7-render-fbo-backport.patch backports it, and MilkdropScene relies on it.
+# Applied here so the submodule stays pinned to the stock tag. Idempotent: the reverse check
+# recognises an already-patched tree, which is what every configure after the first (and each
+# per-ABI configure the Android Gradle plugin runs) sees.
+find_package(Git REQUIRED)
+set(GEODE_PROJECTM_DIR "${CMAKE_CURRENT_SOURCE_DIR}/third_party/projectm")
+set(GEODE_PROJECTM_PATCH "${CMAKE_CURRENT_SOURCE_DIR}/tools/projectm-v4.1.7-render-fbo-backport.patch")
+execute_process(
+    COMMAND "${GIT_EXECUTABLE}" apply --reverse --check "${GEODE_PROJECTM_PATCH}"
+    WORKING_DIRECTORY "${GEODE_PROJECTM_DIR}"
+    RESULT_VARIABLE geode_projectm_patched
+    OUTPUT_QUIET ERROR_QUIET)
+if(NOT geode_projectm_patched EQUAL 0)
+    execute_process(
+        COMMAND "${GIT_EXECUTABLE}" apply "${GEODE_PROJECTM_PATCH}"
+        WORKING_DIRECTORY "${GEODE_PROJECTM_DIR}"
+        RESULT_VARIABLE geode_projectm_apply)
+    if(NOT geode_projectm_apply EQUAL 0)
+        # A parallel configure may have applied it in between; only fail if it is still missing.
+        execute_process(
+            COMMAND "${GIT_EXECUTABLE}" apply --reverse --check "${GEODE_PROJECTM_PATCH}"
+            WORKING_DIRECTORY "${GEODE_PROJECTM_DIR}"
+            RESULT_VARIABLE geode_projectm_patched
+            OUTPUT_QUIET ERROR_QUIET)
+        if(NOT geode_projectm_patched EQUAL 0)
+            message(FATAL_ERROR
+                "Could not apply ${GEODE_PROJECTM_PATCH} to third_party/projectm. "
+                "Run 'git submodule update --init --recursive' and make sure the submodule is at v4.1.7 "
+                "with no other local changes.")
+        endif()
+    endif()
+endif()
+
 # Same values .github/workflows/native-libs.yml passed when the engine was a prebuilt blob.
 set(CMAKE_BUILD_TYPE Release CACHE STRING "" FORCE)
 set(BUILD_SHARED_LIBS ON CACHE BOOL "" FORCE)

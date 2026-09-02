@@ -70,7 +70,9 @@ internal fun DuplicatesTab(
                     Column(Modifier.weight(1f)) {
                         Text(track.folder.ifBlank { track.uri }, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Text(
-                            listOf(track.album, LibraryBrowse.formatDuration(track.durationMs)).filter { it.isNotBlank() }.joinToString(" · "),
+                            listOf(track.album, LibraryBrowse.formatDuration(track.durationMs))
+                                .filter { it.isNotBlank() }
+                                .joinToString(" · "),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1,

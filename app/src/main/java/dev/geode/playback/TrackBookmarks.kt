@@ -13,7 +13,11 @@ class TrackBookmarks(
     private var resumedUri: String? = null
 
     fun onTrackStarted(player: Player) {
-        val uri = player.currentMediaItem?.localConfiguration?.uri?.toString() ?: return
+        val uri =
+            player.currentMediaItem
+                ?.localConfiguration
+                ?.uri
+                ?.toString() ?: return
         if (uri == resumedUri) return
         resumedUri = uri
         if (!enabled()) return
@@ -25,7 +29,11 @@ class TrackBookmarks(
         if (!enabled()) return
         val now = System.currentTimeMillis()
         if (now - lastSavedAtMs < SAVE_EVERY_MS) return
-        val uri = player.currentMediaItem?.localConfiguration?.uri?.toString() ?: return
+        val uri =
+            player.currentMediaItem
+                ?.localConfiguration
+                ?.uri
+                ?.toString() ?: return
         val duration = player.duration
         if (duration == C.TIME_UNSET || duration < BookmarkStore.LONG_TRACK_MS) return
         lastSavedAtMs = now

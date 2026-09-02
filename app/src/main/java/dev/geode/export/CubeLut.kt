@@ -46,6 +46,7 @@ class CubeLut private constructor(
                 }
             }
             val span = FloatArray(3) { (domainMax[it] - domainMin[it]).takeIf { d -> d > 0f } ?: 1f }
+
             fun norm(
                 v: Float,
                 c: Int,
@@ -53,11 +54,28 @@ class CubeLut private constructor(
             return when {
                 size3d in 2..MAX_SIZE && rows.size >= size3d * size3d * size3d -> {
                     val n = size3d
-                    CubeLut(n, Array(n) { r -> Array(n) { g -> IntArray(n) { b -> rows[r + g * n + b * n * n].let { argb(norm(it[0], 0), norm(it[1], 1), norm(it[2], 2)) } } } })
+                    CubeLut(
+                        n,
+                        Array(n) { r ->
+                            Array(n) { g ->
+                                IntArray(n) { b ->
+                                    val row = rows[r + g * n + b * n * n]
+                                    argb(norm(row[0], 0), norm(row[1], 1), norm(row[2], 2))
+                                }
+                            }
+                        },
+                    )
                 }
                 size1d in 2..MAX_SIZE && rows.size >= size1d -> {
                     val n = size1d
-                    CubeLut(n, Array(n) { r -> Array(n) { g -> IntArray(n) { b -> argb(norm(rows[r][0], 0), norm(rows[g][1], 1), norm(rows[b][2], 2)) } } })
+                    CubeLut(
+                        n,
+                        Array(n) { r ->
+                            Array(n) { g ->
+                                IntArray(n) { b -> argb(norm(rows[r][0], 0), norm(rows[g][1], 1), norm(rows[b][2], 2)) }
+                            }
+                        },
+                    )
                 }
                 else -> null
             }
@@ -91,6 +109,12 @@ class CubeLut private constructor(
             r: Float,
             g: Float,
             b: Float,
-        ): Int = Color.argb(255, (r * 255f).roundToInt().coerceIn(0, 255), (g * 255f).roundToInt().coerceIn(0, 255), (b * 255f).roundToInt().coerceIn(0, 255))
+        ): Int =
+            Color.argb(
+                255,
+                (r * 255f).roundToInt().coerceIn(0, 255),
+                (g * 255f).roundToInt().coerceIn(0, 255),
+                (b * 255f).roundToInt().coerceIn(0, 255),
+            )
     }
 }

@@ -56,6 +56,7 @@ class StudioExporter(
         codec: ExportCodec = ExportCodec.H264,
         onProgress: (Float) -> Unit,
     ): Result {
+        val lut = edit.lutUri?.let { uri -> withContext(Dispatchers.IO) { CubeLut.load(context, uri) } }
         val item =
             MediaItem
                 .Builder()
@@ -66,7 +67,7 @@ class StudioExporter(
             EditedMediaItem
                 .Builder(item)
                 .setRemoveAudio(edit.mute)
-                .setEffects(Effects(emptyList(), edit.videoEffects()))
+                .setEffects(Effects(emptyList(), edit.videoEffects(lut)))
                 .apply { edit.speedProvider()?.let { setSpeed(it) } }
                 .build()
         val composition = Composition.Builder(EditedMediaItemSequence.Builder().addItem(edited).build()).build()

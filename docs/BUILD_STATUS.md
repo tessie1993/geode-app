@@ -69,7 +69,10 @@ Snapshot: 848a374 2026-09-02   Branch: claude/repo-actions-6.4-8.2-cs6lz6   Last
 
 - 6.6: `ExportCodec` lives in `VideoExporter.kt` and resolves itself (`available()`: HEVC only when `MediaCodecList` lists an HEVC encoder, else H.264). Both frame-by-frame encoders try the chosen codec at the requested rate, then its 30 fps / two-thirds-bitrate form, then the same pair on H.264, so a configure refusal never ends a render; the Transformer path passes the resolved MIME through `setVideoMimeType`. The choice is an export default (`ExportDefaults.codec`, both settings surfaces), carried to the visualizer export through `startExport(..., codec)` and read from the prefs store by the Studio and cut exports.
 
+- 6.7: `ClipEdit` carries the LUT as a document URI (`lutUri`) and three gamma exponents; the table itself is parsed by `CubeLut` at each use (preview, single-clip render, cut render) because parsing needs a content resolver and the edit is a plain value that is also persisted. Both the LUT and the gamma curves go through Media3's `SingleColorLut.createFromCube` — gamma is a generated 33³ cube (`out = in^(1/γ)` per channel) so no new shader was needed. A 1D `.cube` is expanded per channel into the same shape.
+
 ## UNKNOWN / UNVERIFIED
+- UNVERIFIED (6.7): `androidx.media3.effect.SingleColorLut.createFromCube(int[][][])` with `cube[r][g][b]` holding ARGB ints, from the Media3 1.x API as remembered; the jar was not opened.
 - UNVERIFIED (6.5): `TextOverlay.getText(long)` / `getOverlaySettings(long)` overridden as named in the prompt; the `OverlaySettings` interface name is from the Media3 1.x API as remembered.
 - UNVERIFIED (6.4): Media3 `GlProgram` (`setBufferAttribute`, `setSamplerTexIdUniform`, `setFloatUniform`, `setFloatsUniform`, `setIntUniform`, `bindAttributesAndUniforms`, `use`, `delete`), `GlUtil` (`getNormalizedCoordinateBounds`, `HOMOGENEOUS_COORDINATE_VECTOR_SIZE`, `createTexture(w, h, highPrecision)`, `deleteTexture`, `checkGlError`), `BaseGlShaderProgram(useHdr, poolCapacity)` with `configure`/`drawFrame`/`release`, `RgbMatrix.getMatrix(timeUs, useHdr)`, `MatrixTransformation.configure/getMatrix`, `EditedMediaItemSequence.Builder().addItem`, `Composition.Builder(List)`, `EditedMediaItem.Builder.setDurationUs/setFrameRate` (stills) are written from the Media3 1.x API as remembered; the jars were not opened.
 - UNKNOWN (6.4): whether the `presentationTimeUs` an effect receives and the `timeUs` a `SpeedProvider` is asked for start at 0 at the clip's in-point or carry the sequence offset. The effects latch their first timestamp and are safe either way; `SpeedRamp` answers as if input time starts at the in-point.
@@ -232,7 +235,7 @@ Phase 2 uniform usage: all three read the shared contract only (`uTime uResoluti
 - [x] 6.4 Multi-clip export via `Composition` + `EditedMediaItemSequence`; GL transitions; speed ramps.
 - [x] 6.5 Captions from `.lrc` as `TextOverlay`; SRT in `editor/Subtitles.kt`.
 - [x] 6.6 HEVC `ExportCodec` with capability check and H.264 fallback.
-- [ ] 6.7 LUT `.cube` import as `GlEffect`; per-channel gamma.
+- [x] 6.7 LUT `.cube` import as `GlEffect`; per-channel gamma.
 
 ### Phase 7 — player features
 - [ ] 7.1 Android Auto: `MediaLibraryService` browse tree, `automotive_app_desc.xml`, manifest meta-data.
@@ -246,6 +249,7 @@ Phase 2 uniform usage: all three read the shared contract only (`uTime uResoluti
 - [ ] 8.2 Fold log into `CHANGELOG.md`, bump version, delete `docs/BUILD_STATUS.md`, final commit.
 
 ## Log (newest first; one line per commit)
+- 6.7: CubeLut parser (3D and 1D .cube, domain scaling), LUT and per-channel gamma on ClipEdit through SingleColorLut, LUT picker and gamma sliders in the Studio look section
 - 6.6: ExportCodec (H.264/HEVC) with MediaCodecList check and H.264 fallback in VideoExporter, LoopRender and StudioExporter; codec in export defaults, settings tab and export dialog
 - 6.5: editor/Subtitles (SRT parse/write, lyric and lane conversions), TimedTextOverlay per media item, Lyrics → captions / Import SRT / Export SRT in the toolbar
 - 6.4: ClipTransition on clips, ProjectComposition (media lane + audio lane), GlTransitionEffect/TransitionCaptureEffect, SpeedRamp, KeyframedGrade/Rotation, composition path in StudioExporter, Render cut + Transition… in the timeline editor

@@ -11,6 +11,7 @@ import androidx.media3.effect.OverlayEffect
 import androidx.media3.effect.Presentation
 import androidx.media3.effect.RgbFilter
 import androidx.media3.effect.ScaleAndRotateTransformation
+import androidx.media3.effect.SingleColorLut
 import androidx.media3.effect.StaticOverlaySettings
 import androidx.media3.effect.TextOverlay
 
@@ -91,7 +92,13 @@ data class ClipEdit(
     val quality: ExportQuality = ExportQuality.FHD1080,
     val mute: Boolean = false,
     val caption: String = "",
+    val lutUri: String? = null,
+    val gammaRed: Float = 1f,
+    val gammaGreen: Float = 1f,
+    val gammaBlue: Float = 1f,
 ) {
+    val hasGamma: Boolean get() = gammaRed != 1f || gammaGreen != 1f || gammaBlue != 1f
+
     fun trimmedMs(sourceDurationMs: Long): Long {
         val end = if (endMs > 0) endMs.coerceAtMost(sourceDurationMs) else sourceDurationMs
         return (end - startMs).coerceAtLeast(0L)
@@ -112,7 +119,9 @@ data class ClipEdit(
             rotationDegrees == 0f &&
             ratio == null &&
             !mute &&
-            caption.isBlank()
+            caption.isBlank() &&
+            lutUri == null &&
+            !hasGamma
 
     fun clipping(): MediaItem.ClippingConfiguration =
         MediaItem.ClippingConfiguration
@@ -121,12 +130,13 @@ data class ClipEdit(
             .apply { if (endMs > startMs) setEndPositionMs(endMs) }
             .build()
 
+    /** [lut] is the loaded table behind [lutUri]; callers resolve it because loading needs a content resolver. */
     @UnstableApi
-    fun videoEffects(): List<Effect> = gradeEffects() + listOfNotNull(captionEffect())
+    fun videoEffects(lut: CubeLut? = null): List<Effect> = gradeEffects(lut) + listOfNotNull(captionEffect())
 
-    /** Grade, rotation and reframe, in that order; the caption is drawn after everything else. */
+    /** Grade, LUT, gamma, rotation and reframe, in that order; the caption is drawn after everything else. */
     @UnstableApi
-    fun gradeEffects(): List<Effect> =
+    fun gradeEffects(lut: CubeLut? = null): List<Effect> =
         buildList {
             if (brightness != 0f) add(Brightness(brightness))
             if (contrast != 0f) add(Contrast(contrast))
@@ -141,6 +151,8 @@ data class ClipEdit(
             }
             if (monochrome) add(RgbFilter.createGrayscaleFilter())
             if (invert) add(RgbFilter.createInvertedFilter())
+            if (lut != null) add(SingleColorLut.createFromCube(lut.cube))
+            if (hasGamma) add(SingleColorLut.createFromCube(CubeLut.gamma(gammaRed, gammaGreen, gammaBlue).cube))
             if (rotationDegrees != 0f) {
                 add(
                     ScaleAndRotateTransformation

@@ -51,7 +51,7 @@ object ProjectComposition {
             val incoming = stores[index]?.let { store -> clip.transition?.let { transition -> transitionEffect(context, clip, transition, store) } }
             val outgoing = stores.getOrNull(index + 1)?.let(::TransitionCaptureEffect)
             val captions = captionsFor(clip, cues)
-            video.addItem(videoItem(clip, videoLane, project.keyframes, listOfNotNull(incoming, outgoing), listOfNotNull(captions)))
+            video.addItem(videoItem(context, clip, videoLane, project.keyframes, listOfNotNull(incoming, outgoing), listOfNotNull(captions)))
         }
         val sequences = listOfNotNull(video.build(), audioSequence(project))
         return Outcome.Ready(Composition.Builder(sequences).build(), clips.sumOf(Clip::durationMs))
@@ -67,6 +67,7 @@ object ProjectComposition {
     }
 
     private fun videoItem(
+        context: Context,
         clip: Clip,
         lane: Lane,
         sheet: KeyframeSheet,
@@ -74,7 +75,7 @@ object ProjectComposition {
         captions: List<Effect>,
     ): EditedMediaItem =
         when (val content = clip.content) {
-            is ClipContent.Video -> videoItem(clip, content, lane, sheet, boundary, captions)
+            is ClipContent.Video -> videoItem(context, clip, content, lane, sheet, boundary, captions)
             is ClipContent.Still ->
                 EditedMediaItem
                     .Builder(MediaItem.fromUri(content.uri))
@@ -87,6 +88,7 @@ object ProjectComposition {
         }
 
     private fun videoItem(
+        context: Context,
         clip: Clip,
         content: ClipContent.Video,
         lane: Lane,
@@ -95,6 +97,7 @@ object ProjectComposition {
         captions: List<Effect>,
     ): EditedMediaItem {
         val edit = content.edit
+        val lut = edit.lutUri?.let { CubeLut.load(context, it) }
         val tracks = sheet.tracksFor(clip.id).filter { it.enabled && !it.isEmpty }
         val ramp = tracks.firstOrNull { it.paramId == SPEED }?.let { SpeedRamp.fromTrack(it, clip) }
         val graded = tracks.any { it.paramId != SPEED }
@@ -112,7 +115,7 @@ object ProjectComposition {
                         .apply { if (sourceOutMs > clip.sourceInMs) setEndPositionMs(sourceOutMs) }
                         .build(),
                 ).build()
-        val grade = if (graded) keyframedGrade(clip, edit, sheet) else edit.gradeEffects()
+        val grade = if (graded) keyframedGrade(clip, edit, sheet, lut) else edit.gradeEffects(lut)
         return EditedMediaItem
             .Builder(item)
             .setRemoveAudio(edit.mute || lane.muted)
@@ -126,9 +129,10 @@ object ProjectComposition {
         clip: Clip,
         edit: ClipEdit,
         sheet: KeyframeSheet,
+        lut: CubeLut?,
     ): List<Effect> {
         val editAt: (Long) -> ClipEdit = { ms -> AnimatableParams.applyToClip(edit, sheet.valuesAt(clip.startMs + ms, clip.id)) }
-        val statics = edit.copy(brightness = 0f, contrast = 0f, saturation = 0f, hueDegrees = 0f, rotationDegrees = 0f).gradeEffects()
+        val statics = edit.copy(brightness = 0f, contrast = 0f, saturation = 0f, hueDegrees = 0f, rotationDegrees = 0f).gradeEffects(lut)
         return listOf(KeyframedGrade(editAt), KeyframedRotation { ms -> editAt(ms).rotationDegrees }) + statics
     }
 

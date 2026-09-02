@@ -327,6 +327,13 @@
     <string name="studio_saturation">Saturation</string>
     <string name="studio_hue_shift">Hue shift</string>
     <string name="studio_speed">Speed</string>
+    <string name="studio_lut_pick">Load LUT (.cube)…</string>
+    <string name="studio_lut_clear">Remove LUT</string>
+    <string name="studio_lut_loaded">LUT: %1$s</string>
+    <string name="studio_lut_explainer">A .cube lookup table from a grading tool is applied after the sliders above and before the gamma curves.</string>
+    <string name="studio_gamma_red">Gamma · red</string>
+    <string name="studio_gamma_green">Gamma · green</string>
+    <string name="studio_gamma_blue">Gamma · blue</string>
     <string name="studio_rotate">Rotate</string>
     <string name="studio_reframe">Reframe</string>
     <string name="studio_as_shot">As shot</string>

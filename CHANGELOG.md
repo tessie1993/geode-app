@@ -9,6 +9,88 @@ their content shipped, and the original `docs/DEVICE_CHECKS.md` was lost —
 a partial reconstruction, rebuilt from the references in these entries, is at
 [docs/DEVICE_CHECKS.md](docs/DEVICE_CHECKS.md).
 
+## v1.8.0 (code 32) - Native core, Studio timeline, player features
+
+The engine's compute moved to C++ behind one `libgeode.so`, the Studio grew a
+real timeline and multi-clip export, and the player gained Android Auto, a
+widget, smart playlists and a native audio engine. The owner's first full
+build of this tree (PR #9) compiled the native core, the NDK media and GLES
+calls and the Media3 code; the three new fragment styles below have not yet
+run on a device. This section folds the build ledger that tracked the work
+(`docs/BUILD_STATUS.md`, now retired), newest phase first.
+
+- **Finish (8).** README rewritten for the module tree, the native core and
+  the submodule step, with the ledger's owner notes carried into a maintainer
+  section; the stray `lines.txt` removed; stale paths in
+  `THIRD_PARTY_NOTICES` and `docs/visualizer-v2/provenance.json` corrected.
+- **Player (7).** `PlaybackService` is a `MediaLibraryService` with an
+  Android Auto browse tree (tracks, albums, artists, playlists, favourites,
+  recently played) built from the same stores the library screen reads;
+  tapping a row in a folder queues the folder from that row. Smart playlists
+  (rules over title, artist, album, folder, length, days since added, play
+  count and favourite, all/any matching, optional limit) with an editor on
+  the Playlists tab, and a Duplicates tab that groups same title, artist and
+  length and deletes through `MediaStore.createDeleteRequest`. A Glance
+  now-playing widget (artwork, title, artist, transport through a
+  `MediaController` on the session). Tracks over twenty minutes remember
+  their position (`BookmarkStore`, saved from the session poll, cleared when
+  played to the end). A bit-perfect USB output toggle behind the native
+  engine on Android 14+, through `AudioManager.setPreferredMixerAttributes`.
+- **Video suite (6).** Editor project persistence with autosave and whole-
+  project undo/redo; a multi-lane timeline on the Studio tab (trim, split,
+  ripple, snapping, markers, tap-in, auto-cut from the analysed track);
+  keyframe curve editor with hold/linear/ease/custom bezier, applied per
+  frame at export. Multi-clip export through a Media3 `Composition` (the
+  first media lane end to end plus the first audio lane), GL Transitions
+  between clips compiled from `gl_transitions.json` into a `GlEffect` (the
+  previous clip's last frame is captured and the transition runs over the
+  next clip's opening), speed ramps from `clip.speed` keyframes as a
+  `SpeedProvider`, and per-frame grade and rotation for keyframed clips.
+  Captions: Text-lane clips become a time-varying `TextOverlay`, `.lrc`
+  lyrics and SRT files import onto a text lane, and SRT exports. HEVC
+  export in every encoder with a `MediaCodecList` check and H.264 fallback.
+  `.cube` LUTs (3D and 1D) and per-channel gamma on clip edits through
+  `SingleColorLut`.
+- **Audio DSP and native player (5).** `core/audio/dsp`: ten RBJ peaking
+  biquads on the ISO octave centres, a bass shelf, smoothed gain, headphone
+  crossfeed and a lookahead limiter, inserted into the Media3 chain as
+  `NativeDspProcessor`; `AudioFxController` drives it instead of the platform
+  effects. TagLib (static, symbols hidden) behind `geode_tags_read/write`
+  over a file descriptor: ReplayGain on playback (track/album, preamp, clip
+  guard) and tag writing from the track editor behind a switch. A native
+  player (`AMediaExtractor`/`AMediaCodec` decode, Hermite resampling, a
+  lock-free mixer with gapless joins and crossfades, Oboe output) exposed as
+  `NativePlayer : SimpleBasePlayer` behind a "Native audio engine" setting,
+  default off; the analysis tap is fed from the native mix when it is on.
+- **Renderer core (4).** Shaders moved to `app/src/main/assets/shaders/`
+  and are resolved by the native `ShaderSource` with the same `//#include`
+  rules. `core/viz` carries the GL capability probe and program-binary cache
+  (same cache files as before), the frame graph (scene → trails → composite,
+  with an explicit target FBO for export and the wallpaper), LFO/ADSR,
+  visual safety and flash budget, frame pacing, thermal tiers, transitions,
+  and every scene family: fragment styles, cymatics, fluid/curl-flow/water,
+  the particle and simulation scenes, the compute path with its fragment
+  fallback, and MilkDrop with projectM owned by the scene. The Kotlin scenes,
+  passes and the `:engine:gl` module were deleted once each port completed;
+  `VisualizerRenderer` and `OffscreenSceneRenderer` are adapters.
+- **Analysis core (3).** Every producer in `engine/audio-core` ported to
+  `core/analysis` on kissfft (windowing, spectrum, log bands, mel/MFCC,
+  chroma, spectral flux and SuperFlux, descriptors, onsets, envelopes,
+  whitening, tempo and its stability, beat grid, bars, drums, key,
+  structure, stereo field, frame levels and grid, pulse replay); the Kotlin
+  `ReactiveAnalyzer` is a thin wrapper over `geode_analysis_*`, JTransforms
+  is gone, and the offline analyzer drives the same native code so cached
+  timelines stay valid.
+- **Reference looks (2).** Three fragment styles: `orb_lattice`,
+  `rod_tunnel` (raymarched, on the kifs march budget) and `neon_tiles`, with
+  built-in presets. Not yet run on a device.
+- **Native skeleton (1).** projectM v4.1.7 as a git submodule built in-tree
+  by the root `CMakeLists.txt` (16 KB page alignment, `-fvisibility=hidden`,
+  LTO in release); `core/api/geode_api.h` as the only ABI JNI calls;
+  `GeodeNative` in `:engine:audio-core`; the prebuilt `.so` blobs, vendored
+  headers and the `native-libs.yml` workflow removed. Run
+  `git submodule update --init --recursive` after pulling.
+
 ## Composite visual families and mineral UI (working tree)
 
 - **Removed the Hyperspace style family.** All eleven looks (Original · Living

@@ -14,6 +14,7 @@ import dev.geode.analysis.LiveInputProfile
 import dev.geode.audio.AudioBus
 import dev.geode.audio.AudioFxState
 import dev.geode.audio.MicCapture
+import dev.geode.data.EditorProjectStore
 import dev.geode.data.FavouritesRepository
 import dev.geode.data.FilePresetRepository
 import dev.geode.data.FileSessionRepository
@@ -966,6 +967,14 @@ class PlayerSession internal constructor(
         )
 
     val studio: StateFlow<StudioUiState> get() = exportController.studio
+
+    internal val editor: EditorController = EditorController(EditorProjectStore(application), scope, storeScope).also { it.open() }
+
+    fun analysisTimeline(): FeatureTimeline? = analysis.timeline
+
+    fun currentSceneId(): String = _vizState.value.sceneId
+
+    fun playbackPositionMs(): Long? = if (player.isPlaying) player.currentPosition else null
 
     val playbackRepository: PlaybackRepository = SessionPlaybackRepository(this)
 

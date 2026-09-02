@@ -2,7 +2,6 @@ package dev.geode.render.bridge
 
 import android.content.Context
 import android.content.res.AssetManager
-import java.io.File
 import dev.geode.analysis.AudioFeatures
 import dev.geode.engine.bridge.FeatureFrameLayout
 import dev.geode.engine.bridge.GeodeNative
@@ -12,6 +11,7 @@ import dev.geode.render.BlendMode
 import dev.geode.render.LfoConfig
 import dev.geode.render.LfoEngine
 import dev.geode.render.scene.SceneParams
+import java.io.File
 
 /**
  * Owns one `geode_viz` handle: the native renderer behind a GL surface or an offscreen target.
@@ -50,8 +50,7 @@ class NativeViz(
 
     fun knows(sceneId: String): Boolean = handle != 0L && GeodeNative.vizKnows(handle, sceneId)
 
-    fun sceneIds(): List<String> =
-        if (handle == 0L) emptyList() else GeodeNative.vizSceneIds(handle).split('\n').filter { it.isNotEmpty() }
+    fun sceneIds(): List<String> = if (handle == 0L) emptyList() else GeodeNative.vizSceneIds(handle).split('\n').filter { it.isNotEmpty() }
 
     fun setParams(p: SceneParams) {
         if (handle == 0L) return

@@ -29,7 +29,7 @@ std::string stemOf(const std::string& path) {
 
 }  // namespace
 
-void MilkdropScene::EngineDeleter::operator()(std::remove_pointer_t<projectm_handle> h) const {
+void MilkdropScene::EngineDeleter::operator()(projectm_handle h) const {
     projectm_destroy(h);
 }
 

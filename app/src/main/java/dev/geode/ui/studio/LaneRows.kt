@@ -86,7 +86,14 @@ internal fun Lanes(
                         snapContext = project.snapContext(playheadMs),
                         onSelect = onSelectMarker,
                         onAdd = { ms -> actions.edit { p -> p.copy(markers = p.markers.add(Marker(actions.newMarkerId(), ms))) } },
-                        onMove = { id, ms, snap, context -> actions.edit { p -> p.copy(markers = p.markers.moveTo(id, ms, snap, context)) } },
+                        onMove = {
+                            id,
+                            ms,
+                            snap,
+                            context,
+                            ->
+                            actions.edit { p -> p.copy(markers = p.markers.moveTo(id, ms, snap, context)) }
+                        },
                         modifier = Modifier.fillMaxSize(),
                     )
                 }
@@ -113,7 +120,18 @@ internal fun Lanes(
                             selected = selectedKey,
                             snapContext = project.snapContext(playheadMs),
                             onSelect = onSelectKey,
-                            onAdd = { ms -> actions.edit { p -> p.withKeyOn(track, Keyframe(actions.newKeyframeId(), ms, track.valueAt(ms) ?: return@edit p)) } },
+                            onAdd = { ms ->
+                                actions.edit { p ->
+                                    p.withKeyOn(
+                                        track,
+                                        Keyframe(
+                                            actions.newKeyframeId(),
+                                            ms,
+                                            track.valueAt(ms) ?: return@edit p,
+                                        ),
+                                    )
+                                }
+                            },
                             onMove = { id, ms, snap, context ->
                                 actions.edit { p ->
                                     when (val moved = track.moveKey(id, ms, snap, context)) {
@@ -187,4 +205,3 @@ private fun HeaderToggle(
         modifier = Modifier.clickable(onClick = onClick),
     )
 }
-

@@ -5,6 +5,8 @@
 #include "audio/dsp/DspChain.hpp"
 
 struct geode_dsp {
+    geode_dsp(int sampleRate, int channels) : chain(sampleRate, channels) {}
+
     geode::audio::DspChain chain;
 };
 
@@ -19,7 +21,7 @@ extern "C" {
 
 geode_dsp* geode_dsp_create(int sample_rate, int channels) {
     if (sample_rate <= 0 || channels < 1 || channels > Equalizer::kMaxChannels) return nullptr;
-    return std::make_unique<geode_dsp>(geode_dsp{geode::audio::DspChain(sample_rate, channels)}).release();
+    return std::make_unique<geode_dsp>(sample_rate, channels).release();
 }
 
 void geode_dsp_destroy(geode_dsp* d) {

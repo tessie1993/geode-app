@@ -84,7 +84,7 @@ private:
     std::optional<DoubleFbo> grid_;
     std::optional<DoubleFbo> ink_;
     FullscreenTriangle quad_;
-    std::array<UniformCache, kProgCount> programs_{};
+    std::array<UniformCache, kProgCount> programs_;
     int programsBuilt_ = 0;
     std::mutex pendingLock_;
     std::vector<Drop> pending_;

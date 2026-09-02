@@ -6,7 +6,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -33,7 +32,6 @@ import dev.geode.editor.EditorProject
 import dev.geode.editor.Keyframe
 import dev.geode.editor.KeyframeId
 import dev.geode.editor.KeyframeResult
-import dev.geode.editor.KeyframeTrack
 import dev.geode.editor.KeyframeTrack
 import dev.geode.editor.Lane
 import dev.geode.editor.LaneId
@@ -109,8 +107,14 @@ fun TimelineEditor(
             runCatching { context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
             val text = uri.toString()
             when (target.second) {
-                PickKind.VIDEO -> actions.describeMedia(uri) { media -> addClip(target.first, ClipContent.Video(text), media.durationMs, media.durationMs) }
-                PickKind.AUDIO -> actions.describeMedia(uri) { media -> addClip(target.first, ClipContent.Audio(text), media.durationMs, media.durationMs) }
+                PickKind.VIDEO ->
+                    actions.describeMedia(
+                        uri,
+                    ) { media -> addClip(target.first, ClipContent.Video(text), media.durationMs, media.durationMs) }
+                PickKind.AUDIO ->
+                    actions.describeMedia(
+                        uri,
+                    ) { media -> addClip(target.first, ClipContent.Audio(text), media.durationMs, media.durationMs) }
                 PickKind.STILL -> addClip(target.first, ClipContent.Still(text), STILL_MS)
                 PickKind.OVERLAY -> addClip(target.first, ClipContent.Overlay(text), OVERLAY_MS)
             }
@@ -133,7 +137,13 @@ fun TimelineEditor(
     fun addLane(kind: LaneKind) {
         actions.edit { p ->
             val count = p.timeline.lanes.count { it.kind == kind } + 1
-            p.copy(timeline = p.timeline.copy(lanes = p.timeline.lanes + Lane(LaneId(UUID.randomUUID().toString()), kind, "${laneNames[kind]} $count")))
+            p.copy(
+                timeline =
+                    p.timeline.copy(
+                        lanes =
+                            p.timeline.lanes + Lane(LaneId(UUID.randomUUID().toString()), kind, "${laneNames[kind]} $count"),
+                    ),
+            )
         }
     }
 
@@ -192,7 +202,11 @@ fun TimelineEditor(
                 }
             },
             onDuplicate = { clip?.let { applyResult(project.timeline.duplicateClip(it.id, actions.newClipId())) } },
-            onToggleEnabled = { clip?.let { c -> actions.edit { p -> p.copy(timeline = p.timeline.withClip(c.copy(enabled = !c.enabled))) } } },
+            onToggleEnabled = {
+                clip?.let { c ->
+                    actions.edit { p -> p.copy(timeline = p.timeline.withClip(c.copy(enabled = !c.enabled))) }
+                }
+            },
             onDeleteMarker = {
                 selectedMarker?.let { id -> actions.edit { p -> p.copy(markers = p.markers.remove(id)) } }
                 selectedMarker = null
@@ -297,7 +311,7 @@ fun TimelineEditor(
         AutoCutSheet(
             envelopeFor = actions::transientEnvelope,
             onMarkers = { hits ->
-                actions.edit { p -> p.copy(markers = p.markers.addAll(AutoCut.markersFrom(hits) { actions.newMarkerId() })) }
+                actions.edit { p -> p.copy(markers = p.markers.addAll(AutoCut.markersFrom(hits, idFor = { actions.newMarkerId() }))) }
                 autoCutOpen = false
             },
             onClips = { hits, untilMs ->

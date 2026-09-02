@@ -21,10 +21,11 @@ class NativeTapPump(
 
     fun start(handle: Long) {
         running = true
-        thread = Thread({ loop(handle) }, "geode-native-tap").apply {
-            isDaemon = true
-            start()
-        }
+        thread =
+            Thread({ loop(handle) }, "geode-native-tap").apply {
+                isDaemon = true
+                start()
+            }
     }
 
     /** Returns once the thread has let go of the handle; call before the player is destroyed. */

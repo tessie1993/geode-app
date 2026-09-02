@@ -56,7 +56,7 @@ private:
     UniformCache sunraysMask_{0};
     UniformCache sunrays_{0};
     UniformCache blur_{0};
-    std::array<UniformCache, kDisplayVariants> display_{};
+    std::array<UniformCache, kDisplayVariants> display_;
     std::vector<Fbo> bloomMips_;
     std::optional<Fbo> bloomResult_;
     std::optional<Fbo> sunraysMaskTarget_;

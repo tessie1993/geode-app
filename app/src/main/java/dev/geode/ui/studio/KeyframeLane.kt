@@ -80,7 +80,10 @@ fun KeyframeLane(
                         onMove(
                             active.id,
                             (active.originMs + active.deltaMs).coerceAtLeast(0L),
-                            SnapMode.Magnetic(setOf(SnapTarget.PLAYHEAD, SnapTarget.MARKERS, SnapTarget.CLIP_EDGES), scale.msOf(SNAP_DP, density)),
+                            SnapMode.Magnetic(
+                                setOf(SnapTarget.PLAYHEAD, SnapTarget.MARKERS, SnapTarget.CLIP_EDGES),
+                                scale.msOf(SNAP_DP, density),
+                            ),
                             snapContext,
                         )
                     },

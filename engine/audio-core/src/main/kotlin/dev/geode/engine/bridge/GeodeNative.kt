@@ -138,6 +138,26 @@ object GeodeNative {
         frames: Int,
     )
 
+    /**
+     * Reads the tags of [fd], which native closes. Fills [texts] with UTF-8 title, artist, album, album artist,
+     * genre, comment; [ints] with year, track, duration ms, art bytes; [gains] with track gain dB, track peak,
+     * album gain dB, album peak. Returns the mask of gains present (1, 2, 4, 8), -1 when unreadable.
+     */
+    external fun tagsRead(
+        fd: Int,
+        texts: Array<ByteArray?>,
+        ints: IntArray,
+        gains: FloatArray,
+    ): Int
+
+    /** Writes the six UTF-8 [texts] plus [year] and [track] to [fd], which native closes. */
+    external fun tagsWrite(
+        fd: Int,
+        texts: Array<ByteArray>,
+        year: Int,
+        track: Int,
+    ): Boolean
+
     external fun vizCreate(
         assets: android.content.res.AssetManager,
         cacheDir: String,

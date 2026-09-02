@@ -1,5 +1,5 @@
 # Build status — single source of truth. Read first. Update before every commit.
-Snapshot: bebd045 2026-09-01 21:11:39 +0200   Branch: claude/native-core   Last update: 2026-09-01
+Snapshot: d4d70cf 2026-09-02 00:51:54 +0000   Branch: claude/native-core   Last update: 2026-09-02
 
 ## Decisions (why, not what)
 - `GeodeNative` lives in `engine/audio-core` (package `dev.geode.engine.bridge`): it is the lowest module both `engine/scenes` (via `api(project(":engine:audio-core"))`) and `app` (via `engine:runtime` → `engine:scenes`) reach, and Phase 3 needs it from `ReactiveAnalyzer` in that same module. It stays a JVM library: `System.loadLibrary` is plain `java.lang.System`, and `geode.jvm-library.gradle.kts` has no Android plugin to conflict with. Android-only handles (an `AssetManager`) will cross as `Any`/`jobject` when Phase 4 needs them.
@@ -48,6 +48,9 @@ Snapshot: bebd045 2026-09-01 21:11:39 +0200   Branch: claude/native-core   Last 
 - 5.1: `geode_dsp_process` takes a direct `ByteBuffer` through JNI (`GetDirectBufferAddress`) rather than a `FloatArray`, because `GetFloatArrayElements` may copy and the audio thread must not.
 
 - 5.2: `NativeDspProcessor` sits after Sonic in `MvzAudioProcessorChain`'s `dsp` list, so the analysis tap (first in the chain) still hears the untouched signal and speed/pitch changes are equalised too. It keeps the input encoding (16-bit or float) and converts through one direct float buffer; a format change builds a new native chain and retires the old one until `release()`, so a settings call from the main thread can never reach a freed chain. The platform effects needed an audio session id; `attach(sessionId)` stays as a no-op recorder so `PlayerSession` is untouched and the UI's "no session" branch is simply never taken.
+
+- 5.3: TagLib's `FileStream(int fd)` wraps the descriptor with `fdopen` and `fclose`s it, so `geode_tags_read/write` own the descriptor (closing it themselves when `fdopen` failed) and `NativeTags.kt` hands over `ParcelFileDescriptor.detachFd()`. Tag text crosses JNI as UTF-8 `ByteArray`s, not `jstring`s, because `NewStringUTF` expects modified UTF-8 and would mangle supplementary characters in titles.
+- 5.3: TagLib is built static with `BUILD_TESTING`/`BUILD_BINDINGS`/`BUILD_EXAMPLES` off, `WITH_ZLIB OFF` (only ID3v2 compressed frames need it; the NDK ships no zlib CMake package to find) and `VISIBILITY_HIDDEN ON` (with `TAGLIB_STATIC` this keeps its symbols out of `libgeode.so`'s export table). Its `tag` target exports include paths for the install tree only, so `core/CMakeLists.txt` names the source dirs and the binary dir holding the generated `taglib_config.h` itself. The `third_party/oboe` submodule is committed alongside (both were pinned together) and is wired into CMake by 5.6.
 
 ## UNKNOWN / UNVERIFIED
 - UNVERIFIED: all `<GLES3/gl3.h>`, `<GLES3/gl31.h>`, `<EGL/egl.h>` calls in `core/viz` are written against the Khronos names (no NDK sysroot on this machine to open). `GLESv3` and `EGL` are linked by their NDK library names.
@@ -191,7 +194,7 @@ Phase 2 uniform usage: all three read the shared contract only (`uTime uResoluti
 ### Phase 5 — audio DSP and native player
 - [x] 5.1 `core/audio/dsp/{Biquad,Equalizer,Gain,Crossfeed,Limiter,DspChain}` + `geode_dsp_*`.
 - [x] 5.2 `NativeDspProcessor : AudioProcessor`; `AudioFxController` drives native EQ; `EqualizerSettings` 10 bands.
-- [ ] 5.3 `third_party/taglib`; `core/library/Tags` + `geode_tags_read/write` via fd.
+- [x] 5.3 `third_party/taglib`; `core/library/Tags` + `geode_tags_read/write` via fd.
 - [ ] 5.4 ReplayGain on playback in `PlaybackEngine.kt`; settings in `PlaybackSettings.kt`.
 - [ ] 5.5 Tag writing from `TrackInfoEditor.kt` via SAF rw fd.
 - [ ] 5.6 `third_party/oboe`; `core/audio/player/{Decoder,Resampler,Mixer,Output,Player}` + `geode_player_*`.
@@ -218,6 +221,7 @@ Phase 2 uniform usage: all three read the shared contract only (`uTime uResoluti
 - [ ] 8.2 Fold log into `CHANGELOG.md`, bump version, delete `docs/BUILD_STATUS.md`, final commit.
 
 ## Log (newest first; one line per commit)
+- 5.3: taglib + oboe submodules, core/library/Tags over TagLib, geode_tags_* API, JNI, NativeTags.kt
 - 5.2: NativeDspProcessor in the Media3 chain, AudioFxController drives the native equalizer, built-in presets
 - 5.1: core/audio/dsp (biquad, equalizer, gain, crossfeed, lookahead limiter, chain), geode_dsp_* API, JNI, externals
 - 4.9: status ledger for the deletions (the deletion commit itself went out without this update)

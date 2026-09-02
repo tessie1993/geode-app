@@ -12,6 +12,7 @@ typedef struct geode_drums    geode_drums;
 typedef struct geode_viz      geode_viz;
 typedef struct geode_dsp      geode_dsp;
 typedef struct geode_player   geode_player;
+typedef struct geode_tags     geode_tags;
 
 #define GEODE_BAND_COUNT 64
 #define GEODE_WAVEFORM_POINTS 128
@@ -157,6 +158,35 @@ GEODE_API void       geode_dsp_set_crossfeed(geode_dsp*, int enabled);
 GEODE_API void       geode_dsp_set_limiter(geode_dsp*, int enabled);
 GEODE_API void       geode_dsp_reset(geode_dsp*);                              /* clears filter state after a seek or flush */
 GEODE_API void       geode_dsp_process(geode_dsp*, float* interleaved, size_t frames);   /* in place, RT-safe */
+
+/* Tag I/O through TagLib. Both calls take a file descriptor they own: it is closed before they return, so
+ * the caller detaches it first. Text crosses as UTF-8. */
+typedef enum GeodeTagText {
+    GEODE_TAG_TITLE = 0,
+    GEODE_TAG_ARTIST,
+    GEODE_TAG_ALBUM,
+    GEODE_TAG_ALBUM_ARTIST,
+    GEODE_TAG_GENRE,
+    GEODE_TAG_COMMENT,
+    GEODE_TAG_TEXT_COUNT
+} GeodeTagText;
+#define GEODE_TAG_TRACK_GAIN 1
+#define GEODE_TAG_TRACK_PEAK 2
+#define GEODE_TAG_ALBUM_GAIN 4
+#define GEODE_TAG_ALBUM_PEAK 8
+
+GEODE_API geode_tags* geode_tags_read(int fd);   /* NULL when TagLib cannot parse the file */
+GEODE_API void        geode_tags_destroy(geode_tags*);
+GEODE_API const char* geode_tags_text(const geode_tags*, GeodeTagText);   /* "" when absent */
+GEODE_API int         geode_tags_year(const geode_tags*);
+GEODE_API int         geode_tags_track(const geode_tags*);
+GEODE_API int         geode_tags_duration_ms(const geode_tags*);
+GEODE_API size_t      geode_tags_art_bytes(const geode_tags*);   /* every embedded picture together */
+/* Fills the four ReplayGain values and returns the GEODE_TAG_*_GAIN/PEAK mask of the ones the file carries. */
+GEODE_API int         geode_tags_replaygain(const geode_tags*, float* track_gain_db, float* track_peak,
+                                            float* album_gain_db, float* album_peak);
+/* texts holds GEODE_TAG_TEXT_COUNT UTF-8 strings in GeodeTagText order (NULL clears a field). 1 = saved. */
+GEODE_API int         geode_tags_write(int fd, const char* const* texts, int year, int track);
 
 #ifdef __cplusplus
 }

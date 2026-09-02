@@ -4,6 +4,7 @@ import dev.geode.editor.BezierCurve
 import dev.geode.editor.Clip
 import dev.geode.editor.ClipContent
 import dev.geode.editor.ClipId
+import dev.geode.editor.ClipTransition
 import dev.geode.editor.EaseShape
 import dev.geode.editor.EditorProject
 import dev.geode.editor.Interpolation
@@ -87,6 +88,7 @@ internal object EditorProjectJson {
             .put("sourceDurationMs", c.sourceDurationMs)
             .put("label", c.label)
             .put("enabled", c.enabled)
+            .putOpt("transition", c.transition?.let(::transition))
             .put("content", content(c.content))
 
     private fun clip(o: JSONObject): Clip =
@@ -99,7 +101,13 @@ internal object EditorProjectJson {
             sourceDurationMs = o.optLong("sourceDurationMs", 0L),
             label = o.optString("label", ""),
             enabled = o.optBoolean("enabled", true),
+            transition = o.optJSONObject("transition")?.let(::transition),
         )
+
+    private fun transition(t: ClipTransition): JSONObject = JSONObject().put("id", t.id).put("durationMs", t.durationMs)
+
+    private fun transition(o: JSONObject): ClipTransition =
+        ClipTransition(o.getString("id"), o.optLong("durationMs", ClipTransition.DEFAULT_TRANSITION_MS))
 
     private fun content(c: ClipContent): JSONObject =
         when (c) {
@@ -154,6 +162,10 @@ internal object EditorProjectJson {
             .put("quality", e.quality.name)
             .put("mute", e.mute)
             .put("caption", e.caption)
+            .putOpt("lutUri", e.lutUri)
+            .put("gammaRed", e.gammaRed.toDouble())
+            .put("gammaGreen", e.gammaGreen.toDouble())
+            .put("gammaBlue", e.gammaBlue.toDouble())
 
     private fun clipEdit(o: JSONObject): ClipEdit =
         ClipEdit(
@@ -172,6 +184,10 @@ internal object EditorProjectJson {
             quality = enumOr(o.optString("quality"), ExportQuality.FHD1080),
             mute = o.optBoolean("mute", false),
             caption = o.optString("caption", ""),
+            lutUri = o.stringOrNull("lutUri"),
+            gammaRed = o.optDouble("gammaRed", 1.0).toFloat(),
+            gammaGreen = o.optDouble("gammaGreen", 1.0).toFloat(),
+            gammaBlue = o.optDouble("gammaBlue", 1.0).toFloat(),
         )
 
     private fun marker(m: Marker): JSONObject =

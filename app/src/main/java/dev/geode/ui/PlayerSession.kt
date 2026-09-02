@@ -15,6 +15,8 @@ import dev.geode.audio.AudioBus
 import dev.geode.audio.AudioFxState
 import dev.geode.audio.MicCapture
 import dev.geode.data.EditorProjectStore
+import dev.geode.data.SmartPlaylist
+import dev.geode.data.SmartPlaylistMatcher
 import dev.geode.data.FavouritesRepository
 import dev.geode.data.FilePresetRepository
 import dev.geode.data.FileSessionRepository
@@ -35,6 +37,7 @@ import dev.geode.data.SharedPrefsFavouritesRepository
 import dev.geode.data.SharedPrefsPlayerPrefsRepository
 import dev.geode.data.TakeStore
 import dev.geode.export.ExportAspect
+import dev.geode.export.ExportCodec
 import dev.geode.export.ExportRange
 import dev.geode.export.StudioClip
 import dev.geode.geodeContainer
@@ -172,6 +175,10 @@ class PlayerSession internal constructor(
                 override fun redecideCachedBeats(prefs: GuiPrefs) = analysis.redecideCachedBeats(prefs)
 
                 override fun refreshUi() = refresh()
+
+                override fun applyBitPerfect(enabled: Boolean) {
+                    dev.geode.playback.BitPerfectOutput.apply(application, enabled)
+                }
             },
         )
 
@@ -377,6 +384,11 @@ class PlayerSession internal constructor(
     ) = milkImport.importMilkFolderAsync(treeUri, onDone)
 
     private var currentUri: Uri? = null
+
+    private val bookmarks =
+        dev.geode.playback.TrackBookmarks(dev.geode.data.BookmarkStore(prefsFiles.player)) {
+            settings.playerPrefs.value.resumeLongTracks
+        }
 
     private val listening: ListeningTracker =
         ListeningTracker(
@@ -706,6 +718,18 @@ class PlayerSession internal constructor(
 
     fun recentlyPlayed() = listening.recentlyPlayed()
 
+    fun saveSmartPlaylist(playlist: SmartPlaylist) = musicLibrary.saveSmartPlaylist(playlist)
+
+    fun deleteSmartPlaylist(name: String) = musicLibrary.deleteSmartPlaylist(name)
+
+    fun resolveSmartPlaylist(playlist: SmartPlaylist): List<DeviceTrack> =
+        SmartPlaylistMatcher.resolve(playlist, deviceTracks.value, listening::playCountOf, favourites.value)
+
+    fun playSmartPlaylist(playlist: SmartPlaylist) {
+        val tracks = resolveSmartPlaylist(playlist).map(PlaybackQueue::queueTrack)
+        if (tracks.isNotEmpty()) playFrom(tracks, tracks.first().uri)
+    }
+
     fun currentTrackUri(): String? = currentUri?.toString()
 
     fun toggleFavourite(uri: String? = null) {
@@ -980,6 +1004,8 @@ class PlayerSession internal constructor(
 
     fun playbackPositionMs(): Long? = if (player.isPlaying) player.currentPosition else null
 
+    fun trackDurationMs(): Long = player.duration.coerceAtLeast(0L)
+
     val playbackRepository: PlaybackRepository = SessionPlaybackRepository(this)
 
     val visualizerRepository: VisualizerRepository = SessionVisualizerRepository(this)
@@ -994,7 +1020,8 @@ class PlayerSession internal constructor(
         loopSafe: Boolean = false,
         range: ExportRange? = null,
         sceneFactoryFor: ((String) -> SceneFactory)? = null,
-    ) = exportController.startExport(aspect, fps, sceneFactory, destination, loopSafe, range, sceneFactoryFor)
+        codec: ExportCodec = ExportCodec.H264,
+    ) = exportController.startExport(aspect, fps, sceneFactory, destination, loopSafe, range, sceneFactoryFor, codec)
 
     fun cancelExport() = exportController.cancelExport()
 
@@ -1024,6 +1051,8 @@ class PlayerSession internal constructor(
     ) = exportController.startStudioExport(clip, edit)
 
     fun cancelStudioExport() = exportController.cancelStudioExport()
+
+    fun startProjectExport() = exportController.startProjectExport(editor.state.value.project)
 
     fun clearStudioResult() = exportController.clearStudioResult()
 
@@ -1129,6 +1158,7 @@ class PlayerSession internal constructor(
                             )
                         }
                         onTrackChanged()
+                        bookmarks.onTrackStarted(player)
                     }
                 }
 
@@ -1204,6 +1234,7 @@ class PlayerSession internal constructor(
             autoVisuals.advanceRandomMode()
             autoVisuals.advanceSectionStaging()
             listening.persistSession()
+            bookmarks.onPoll(player)
             delay(POLL_INTERVAL_MS)
         }
     }

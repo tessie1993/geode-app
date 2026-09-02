@@ -44,8 +44,8 @@ android {
         applicationId = "dev.geode"
         minSdk = 26
         targetSdk = 36
-        versionCode = 31
-        versionName = "1.7.0"
+        versionCode = 32
+        versionName = "1.8.0"
         ndk {
             abiFilters += listOf("arm64-v8a", "x86_64")
         }
@@ -220,6 +220,7 @@ dependencies {
     ksp(libs.hilt.compiler)
     implementation(libs.compose.material.icons.extended)
     implementation(libs.activity.compose)
+    implementation(libs.glance.appwidget)
     implementation(libs.lifecycle.viewmodel.compose)
     implementation(libs.lifecycle.runtime.compose)
     implementation(libs.kotlinx.coroutines.android)

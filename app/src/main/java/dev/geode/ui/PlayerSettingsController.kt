@@ -34,6 +34,8 @@ internal class PlayerSettingsController(
         fun redecideCachedBeats(prefs: GuiPrefs)
 
         fun refreshUi()
+
+        fun applyBitPerfect(enabled: Boolean)
     }
 
     val theme: StateFlow<ThemePack> = userData.theme
@@ -74,7 +76,10 @@ internal class PlayerSettingsController(
             it.skipSilenceEnabled = p.skipSilence
             it.setHandleAudioBecomingNoisy(p.pauseOnNoisy)
         }
-        (player as? NativePlayer)?.applyPrefs(p.crossfadeMs, p.crossfadeCurve, p.gapless)
+        (player as? NativePlayer)?.let {
+            it.applyPrefs(p.crossfadeMs, p.crossfadeCurve, p.gapless)
+            host.applyBitPerfect(p.bitPerfect)
+        }
         replayGain.configure(p.replayGainMode, p.replayGainPreampDb, p.replayGainClipGuard)
     }
 

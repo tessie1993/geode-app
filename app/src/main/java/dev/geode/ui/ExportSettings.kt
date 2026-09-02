@@ -24,7 +24,9 @@ import dev.geode.R
 import dev.geode.data.ExportDefaults
 import dev.geode.data.ExportPrefsStore
 import dev.geode.data.GeodePrefsFiles
+import dev.geode.data.exportCodecLabel
 import dev.geode.data.exportQualityLabel
+import dev.geode.export.ExportCodec
 import dev.geode.export.ExportPresets
 import dev.geode.export.ExportQuality
 import dev.geode.export.ExportRatio
@@ -106,6 +108,21 @@ internal fun ExportSettingsTab(
                             onSelect = { update(defaults.copy(ratio = ExportRatio.entries[it])) },
                         )
                     }
+                }
+                Column {
+                    Text(stringResource(R.string.export_codec), style = MaterialTheme.typography.labelMedium)
+                    CrystalSegmented(
+                        options = ExportCodec.entries.map { exportCodecLabel(it) },
+                        selected = ExportCodec.entries.indexOf(defaults.codec),
+                        onSelect = { update(defaults.copy(codec = ExportCodec.entries[it])) },
+                        modifier = Modifier.padding(top = 4.dp),
+                    )
+                    val hevcEncoder = remember { ExportCodec.hasEncoder(ExportCodec.HEVC.mimeType) }
+                    Text(
+                        stringResource(if (hevcEncoder) R.string.export_codec_explainer else R.string.export_codec_no_hevc),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
                 Column {
                     Row(verticalAlignment = Alignment.CenterVertically) {

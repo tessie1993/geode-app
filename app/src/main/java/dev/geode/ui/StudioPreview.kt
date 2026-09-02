@@ -33,9 +33,12 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import dev.geode.R
 import dev.geode.export.ClipEdit
+import dev.geode.export.CubeLut
 import dev.geode.export.ExportAspect
 import dev.geode.export.StudioClip
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 
 @UnstableApi
 @Composable
@@ -60,7 +63,8 @@ internal fun ClipPreview(
 
     LaunchedEffect(player, edit) {
         delay(REBUILD_SETTLE_MS)
-        player.setVideoEffects(edit.videoEffects())
+        val lut = edit.lutUri?.let { uri -> withContext(Dispatchers.IO) { CubeLut.load(context, uri) } }
+        player.setVideoEffects(edit.videoEffects(lut))
         player.setMediaItems(
             listOf(
                 MediaItem

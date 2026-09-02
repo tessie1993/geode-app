@@ -96,6 +96,10 @@
         android:label="@string/app_name"
         android:localeConfig="@xml/locales_config"
         android:theme="@android:style/Theme.Material.NoActionBar">
+        <!-- Android Auto: the playback service below is also a media browser. -->
+        <meta-data
+            android:name="com.google.android.gms.car.application"
+            android:resource="@xml/automotive_app_desc" />
         <activity
             android:name=".ui.MainActivity"
             android:exported="true"
@@ -156,7 +160,9 @@
             android:exported="true"
             android:foregroundServiceType="mediaPlayback">
             <intent-filter>
+                <action android:name="androidx.media3.session.MediaLibraryService" />
                 <action android:name="androidx.media3.session.MediaSessionService" />
+                <action android:name="android.media.browse.MediaBrowserService" />
             </intent-filter>
         </service>
 
@@ -226,6 +232,19 @@
                 <action android:name="android.service.notification.NotificationListenerService" />
             </intent-filter>
         </service>
+
+        <!-- Home-screen widget: artwork, title and transport, driven by the playback service's session. -->
+        <receiver
+            android:name=".widget.NowPlayingWidgetReceiver"
+            android:exported="true"
+            android:label="@string/widget_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/now_playing_widget_info" />
+        </receiver>
 
         <!-- Sharing a preset too long to be a link sends its .json; a raw
              file:// uri cannot leave the app, so it goes out through here.

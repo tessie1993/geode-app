@@ -246,12 +246,13 @@ class LoopRender(
         adsrConfigs: List<AdsrConfig> = emptyList(),
         reducedMotion: Boolean = false,
         paramsAt: ((Long) -> SceneParams)? = null,
+        codec: ExportCodec = ExportCodec.H264,
         onProgress: (Float) -> Unit,
         isCancelled: () -> Boolean,
     ): Result =
         withContext(Dispatchers.Default) {
             val choice =
-                negotiate(aspect, spec.fps)
+                negotiate(aspect, spec.fps, codec)
                     ?: return@withContext Result.Failed(
                         "This device's video encoder would not accept ${aspect.width}×${aspect.height}. " +
                             "Try a smaller size or a different aspect ratio.",
@@ -299,6 +300,7 @@ class LoopRender(
     private data class EncoderChoice(
         val fps: Int,
         val bitRate: Int,
+        val codec: ExportCodec,
     )
 
     private sealed interface StopOutcome {
@@ -384,7 +386,7 @@ class LoopRender(
         var renderer: OffscreenSceneRenderer? = null
         var stash: SeamStash? = null
         try {
-            val encoded = StopWriter.open(file, videoFormat(job.aspect, job.choice)).also { writer = it }
+            val encoded = StopWriter.open(file, videoFormat(job.aspect, job.choice), job.choice.codec.mimeType).also { writer = it }
             val surface = EncoderSurface(encoded.surface).also { egl = it }
             surface.makeCurrent()
 
@@ -530,10 +532,16 @@ class LoopRender(
     private fun negotiate(
         aspect: ExportAspect,
         fps: Int,
+        codec: ExportCodec,
     ): EncoderChoice? {
-        val requested = EncoderChoice(fps.coerceIn(LoopSpec.MIN_FPS, LoopSpec.MAX_FPS), aspect.bitRate)
-        val fallback = EncoderChoice(FALLBACK_FPS, aspect.bitRate * 2 / 3)
-        return listOf(requested, fallback).firstOrNull { accepts(aspect, it) }
+        val candidates =
+            listOf(codec.available(), ExportCodec.H264).distinct().flatMap { c ->
+                listOf(
+                    EncoderChoice(fps.coerceIn(LoopSpec.MIN_FPS, LoopSpec.MAX_FPS), aspect.bitRate, c),
+                    EncoderChoice(FALLBACK_FPS, aspect.bitRate * 2 / 3, c),
+                )
+            }
+        return candidates.firstOrNull { accepts(aspect, it) }
     }
 
     private fun accepts(
@@ -544,7 +552,7 @@ class LoopRender(
         try {
             return runCatching {
                 codec =
-                    MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_VIDEO_AVC).also {
+                    MediaCodec.createEncoderByType(choice.codec.mimeType).also {
                         it.configure(videoFormat(aspect, choice), null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
                     }
                 true
@@ -588,7 +596,7 @@ class LoopRender(
         aspect: ExportAspect,
         choice: EncoderChoice,
     ): MediaFormat =
-        MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC, aspect.width, aspect.height).apply {
+        MediaFormat.createVideoFormat(choice.codec.mimeType, aspect.width, aspect.height).apply {
             setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface)
             setInteger(MediaFormat.KEY_BIT_RATE, choice.bitRate)
             setInteger(MediaFormat.KEY_FRAME_RATE, choice.fps)
@@ -686,13 +694,14 @@ class LoopRender(
             fun open(
                 file: File,
                 format: MediaFormat,
+                mimeType: String,
             ): StopWriter {
                 var encoder: MediaCodec? = null
                 var muxer: MediaMuxer? = null
                 val opened =
                     runCatching {
                         val codec =
-                            MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_VIDEO_AVC).also {
+                            MediaCodec.createEncoderByType(mimeType).also {
                                 encoder = it
                                 it.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
                             }

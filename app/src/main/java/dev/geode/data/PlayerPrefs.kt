@@ -21,6 +21,8 @@ data class PlayerPrefs(
     val crossfadeMs: Int = 0,
     val crossfadeCurve: Int = 1,
     val gapless: Boolean = true,
+    val resumeLongTracks: Boolean = true,
+    val bitPerfect: Boolean = false,
 ) {
     fun coerced(): PlayerPrefs =
         copy(
@@ -71,6 +73,8 @@ class PlayerPrefsStore(
             crossfadeMs = prefs.getInt(KEY_CROSSFADE_MS, 0),
             crossfadeCurve = prefs.getInt(KEY_CROSSFADE_CURVE, 1),
             gapless = prefs.getBoolean(KEY_GAPLESS, true),
+            resumeLongTracks = prefs.getBoolean(KEY_RESUME_LONG, true),
+            bitPerfect = prefs.getBoolean(KEY_BIT_PERFECT, false),
         ).coerced()
 
     fun save(p: PlayerPrefs) {
@@ -94,6 +98,8 @@ class PlayerPrefsStore(
             .putInt(KEY_CROSSFADE_MS, p.crossfadeMs)
             .putInt(KEY_CROSSFADE_CURVE, p.crossfadeCurve)
             .putBoolean(KEY_GAPLESS, p.gapless)
+            .putBoolean(KEY_RESUME_LONG, p.resumeLongTracks)
+            .putBoolean(KEY_BIT_PERFECT, p.bitPerfect)
             .apply()
     }
 
@@ -116,5 +122,38 @@ class PlayerPrefsStore(
         const val KEY_CROSSFADE_MS = "crossfade_ms"
         const val KEY_CROSSFADE_CURVE = "crossfade_curve"
         const val KEY_GAPLESS = "gapless"
+        const val KEY_RESUME_LONG = "resume_long_tracks"
+        const val KEY_BIT_PERFECT = "bit_perfect"
+    }
+}
+
+/**
+ * Where a long track was left, per track, in the same prefs file as the player options. Only
+ * tracks over [LONG_TRACK_MS] get one, and a position within [EDGE_MS] of either end clears it.
+ */
+class BookmarkStore(
+    private val prefs: SharedPreferences,
+) {
+    fun positionFor(uri: String): Long? = prefs.getLong(keyOf(uri), -1L).takeIf { it > 0L }
+
+    fun note(
+        uri: String,
+        positionMs: Long,
+        durationMs: Long,
+    ) {
+        if (durationMs < LONG_TRACK_MS) return
+        if (positionMs < EDGE_MS || positionMs > durationMs - EDGE_MS) clear(uri) else prefs.edit().putLong(keyOf(uri), positionMs).apply()
+    }
+
+    fun clear(uri: String) {
+        if (prefs.contains(keyOf(uri))) prefs.edit().remove(keyOf(uri)).apply()
+    }
+
+    private fun keyOf(uri: String): String = PREFIX + uri
+
+    companion object {
+        const val LONG_TRACK_MS: Long = 20L * 60_000L
+        const val EDGE_MS: Long = 10_000L
+        private const val PREFIX = "bookmark:"
     }
 }

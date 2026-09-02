@@ -4,6 +4,7 @@ import android.content.ContentValues
 import android.content.Context
 import android.media.MediaCodec
 import android.media.MediaCodecInfo
+import android.media.MediaCodecList
 import android.media.MediaFormat
 import android.media.MediaMuxer
 import android.net.Uri
@@ -19,6 +20,24 @@ import dev.geode.util.bestEffort
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.nio.ByteBuffer
+
+enum class ExportCodec(
+    val mimeType: String,
+) {
+    H264(MediaFormat.MIMETYPE_VIDEO_AVC),
+    HEVC(MediaFormat.MIMETYPE_VIDEO_HEVC),
+    ;
+
+    /** This codec when the device has an encoder for it, otherwise H.264, which every device has. */
+    fun available(): ExportCodec = if (this == H264 || hasEncoder(mimeType)) this else H264
+
+    companion object {
+        fun hasEncoder(mimeType: String): Boolean =
+            MediaCodecList(MediaCodecList.REGULAR_CODECS).codecInfos.any { info ->
+                info.isEncoder && info.supportedTypes.any { it.equals(mimeType, ignoreCase = true) }
+            }
+    }
+}
 
 enum class ExportQuality(
     val shortSide: Int,
@@ -108,6 +127,7 @@ class VideoExporter(
         paramsAt: ((Long) -> SceneParams)? = null,
         loopSafe: Boolean = false,
         destination: Uri? = null,
+        codec: ExportCodec = ExportCodec.H264,
         onProgress: (Float) -> Unit,
         isCancelled: () -> Boolean,
     ): Result =
@@ -127,6 +147,7 @@ class VideoExporter(
                     paramsAt,
                     loopSafe,
                     range,
+                    codec,
                     onProgress,
                     isCancelled,
                 )
@@ -168,6 +189,7 @@ class VideoExporter(
                         paramsAt,
                         loopSafe,
                         range,
+                        codec,
                         onProgress,
                         isCancelled,
                     )
@@ -202,6 +224,7 @@ class VideoExporter(
         paramsAt: ((Long) -> SceneParams)?,
         loopSafe: Boolean,
         range: ExportRange?,
+        codec: ExportCodec,
         onProgress: (Float) -> Unit,
         isCancelled: () -> Boolean,
     ): Result {
@@ -228,6 +251,7 @@ class VideoExporter(
                     paramsAt,
                     loopSafe,
                     range,
+                    codec,
                     onProgress,
                     isCancelled,
                 )
@@ -261,19 +285,10 @@ class VideoExporter(
         paramsAt: ((Long) -> SceneParams)?,
         loopSafe: Boolean,
         range: ExportRange?,
+        codec: ExportCodec,
         onProgress: (Float) -> Unit,
         isCancelled: () -> Boolean,
     ) {
-        fun makeFormat(
-            fps: Int,
-            bitRate: Int,
-        ): MediaFormat =
-            MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC, aspect.width, aspect.height).apply {
-                setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface)
-                setInteger(MediaFormat.KEY_BIT_RATE, bitRate)
-                setInteger(MediaFormat.KEY_FRAME_RATE, fps)
-                setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1)
-            }
         var encoderRef: MediaCodec? = null
         var inputSurfaceRef: android.view.Surface? = null
         var muxerRef: MediaMuxer? = null
@@ -284,17 +299,14 @@ class VideoExporter(
         var muxerStarted = false
         var muxerStopped = false
         try {
-            var encoder = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_VIDEO_AVC).also { encoderRef = it }
-            var fps = requestedFps.coerceIn(24, 60)
-            try {
-                encoder.configure(makeFormat(fps, aspect.bitRate), null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
-            } catch (e: Exception) {
-                bestEffort(TAG, "encoder.release()") { encoder.release() }
-                encoderRef = null
-                encoder = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_VIDEO_AVC).also { encoderRef = it }
-                fps = 30
-                encoder.configure(makeFormat(30, aspect.bitRate * 2 / 3), null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
-            }
+            val requestedFpsBounded = requestedFps.coerceIn(24, 60)
+            // The requested codec at the requested rate first, then its reduced form, then the same pair on H.264.
+            val attempts =
+                listOf(codec.available(), ExportCodec.H264).distinct().flatMap { c ->
+                    listOf(EncoderAttempt(c, requestedFpsBounded, aspect.bitRate), EncoderAttempt(c, 30, aspect.bitRate * 2 / 3))
+                }
+            val (encoder, fps) = openEncoder(aspect, attempts)
+            encoderRef = encoder
             val inputSurface = encoder.createInputSurface().also { inputSurfaceRef = it }
             encoder.start()
 
@@ -425,6 +437,42 @@ class VideoExporter(
             bestEffort(TAG, "eglRef?.release()") { eglRef?.release() }
             aacRef?.release()
         }
+    }
+
+    private class EncoderAttempt(
+        val codec: ExportCodec,
+        val fps: Int,
+        val bitRate: Int,
+    )
+
+    private fun videoFormat(
+        aspect: ExportAspect,
+        attempt: EncoderAttempt,
+    ): MediaFormat =
+        MediaFormat.createVideoFormat(attempt.codec.mimeType, aspect.width, aspect.height).apply {
+            setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface)
+            setInteger(MediaFormat.KEY_BIT_RATE, attempt.bitRate)
+            setInteger(MediaFormat.KEY_FRAME_RATE, attempt.fps)
+            setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1)
+        }
+
+    /** The first attempt the device's encoder accepts, with the frame rate it was configured for. */
+    private fun openEncoder(
+        aspect: ExportAspect,
+        attempts: List<EncoderAttempt>,
+    ): Pair<MediaCodec, Int> {
+        var failure: Exception? = null
+        for (attempt in attempts) {
+            val candidate = MediaCodec.createEncoderByType(attempt.codec.mimeType)
+            try {
+                candidate.configure(videoFormat(aspect, attempt), null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
+                return candidate to attempt.fps
+            } catch (e: Exception) {
+                bestEffort(TAG, "candidate.release()") { candidate.release() }
+                failure = e
+            }
+        }
+        throw checkNotNull(failure)
     }
 
     private fun writeSample(

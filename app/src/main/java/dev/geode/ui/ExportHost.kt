@@ -10,6 +10,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.export.ExportAspect
+import dev.geode.export.ExportCodec
 import dev.geode.export.ExportRange
 import dev.geode.render.SceneFactory
 import dev.geode.render.VisualizerView
@@ -21,6 +22,7 @@ private data class PendingExport(
     val loopSafe: Boolean,
     val rangeStartMs: Long,
     val rangeDurationMs: Long,
+    val codec: ExportCodec,
 ) {
     val range: ExportRange? get() = if (rangeDurationMs > 0) ExportRange(rangeStartMs, rangeDurationMs) else null
 }
@@ -40,6 +42,7 @@ private val PendingExportSaver =
                     req.loopSafe,
                     req.rangeStartMs,
                     req.rangeDurationMs,
+                    req.codec.name,
                 )
             }
         },
@@ -54,6 +57,7 @@ private val PendingExportSaver =
                     loopSafe = saved[5] as Boolean,
                     rangeStartMs = saved[6] as Long,
                     rangeDurationMs = saved[7] as Long,
+                    codec = ExportCodec.valueOf(saved[8] as String),
                 )
             }
         },
@@ -94,6 +98,7 @@ fun ExportHost(
                     loopSafe = req.loopSafe,
                     range = req.range,
                     sceneFactoryFor = { id -> sceneFactoryFor(id, req.sceneId) },
+                    codec = req.codec,
                 )
             }
         }
@@ -106,7 +111,7 @@ fun ExportHost(
         onSelectTake = studioViewModel::setExportTake,
         bpm = viz.bpm,
         trackDurationMs = state.durationMs,
-        onStart = { aspect, fps, loopSafe, range ->
+        onStart = { aspect, fps, loopSafe, range, codec ->
             // Saving into the Videos library without asking is a scoped-storage privilege,
             // and scoped storage starts at Q. Below it the same insert needs
             // WRITE_EXTERNAL_STORAGE - a permission this app does not ask for and should not
@@ -122,6 +127,7 @@ fun ExportHost(
                         loopSafe,
                         range?.startMs ?: 0L,
                         range?.durationMs ?: 0L,
+                        codec,
                     )
                 destinationPicker.launch("geode_${System.currentTimeMillis()}.mp4")
             } else {
@@ -132,10 +138,11 @@ fun ExportHost(
                     loopSafe = loopSafe,
                     range = range,
                     sceneFactoryFor = { id -> sceneFactoryFor(id, viz.sceneId) },
+                    codec = codec,
                 )
             }
         },
-        onStartToDestination = { aspect, fps, loopSafe, range ->
+        onStartToDestination = { aspect, fps, loopSafe, range, codec ->
             pendingExport =
                 PendingExport(
                     aspect,
@@ -144,6 +151,7 @@ fun ExportHost(
                     loopSafe,
                     range?.startMs ?: 0L,
                     range?.durationMs ?: 0L,
+                    codec,
                 )
             destinationPicker.launch("geode_${System.currentTimeMillis()}.mp4")
         },

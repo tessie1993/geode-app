@@ -9,6 +9,8 @@ import dev.geode.editor.EditResult
 import dev.geode.editor.EditorProject
 import dev.geode.editor.KeyframeId
 import dev.geode.editor.MarkerId
+import dev.geode.editor.SubtitleCue
+import dev.geode.editor.Subtitles
 import dev.geode.editor.TransientEnvelope
 import dev.geode.editor.TransientSource
 import dev.geode.export.ClipEdit
@@ -59,6 +61,16 @@ class StudioViewModel
             uri: Uri,
             onReady: (StudioClip) -> Unit,
         ) = session.describeStudioClip(uri, onReady)
+
+        override fun exportProject() = session.startProjectExport()
+
+        override fun cancelProjectExport() = session.cancelStudioExport()
+
+        override fun lyricCues(): List<SubtitleCue>? =
+            session.lyrics.value
+                ?.takeIf { it.synced }
+                ?.let { Subtitles.fromLyrics(it.lines, session.trackDurationMs()) }
+                ?.takeIf { it.isNotEmpty() }
 
         val exportState: StateFlow<ExportUiState> get() = session.exportState
 

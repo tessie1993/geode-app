@@ -86,7 +86,7 @@ internal fun StudioScreen(
     var editing by remember { mutableStateOf<StudioClip?>(null) }
     var timelineOpen by rememberSaveable { mutableStateOf(false) }
     if (timelineOpen) {
-        TimelineEditor(state = editor, actions = editorActions, onClose = { timelineOpen = false })
+        TimelineEditor(state = editor, exportPhase = state.phase, actions = editorActions, onClose = { timelineOpen = false })
         return
     }
     LaunchedEffect(editingUri) {
@@ -505,6 +505,14 @@ private fun ClipLookSection(
     edit: ClipEdit,
     onEdit: (ClipEdit) -> Unit,
 ) {
+    val context = LocalContext.current
+    val lutPicker =
+        rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+            if (uri != null) {
+                runCatching { context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+                onEdit(edit.copy(lutUri = uri.toString()))
+            }
+        }
     StudioSection(stringResource(R.string.studio_section_look)) {
         Row(
             Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
@@ -539,8 +547,31 @@ private fun ClipLookSection(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            CrystalButton(filled = false, onClick = { lutPicker.launch(arrayOf("*/*")) }) { Text(stringResource(R.string.studio_lut_pick)) }
+            if (edit.lutUri != null) {
+                TextButton(onClick = { onEdit(edit.copy(lutUri = null)) }) { Text(stringResource(R.string.studio_lut_clear)) }
+            }
+        }
+        Text(
+            edit.lutUri?.let { stringResource(R.string.studio_lut_loaded, it.substringAfterLast('/').substringAfterLast(':')) }
+                ?: stringResource(R.string.studio_lut_explainer),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        StudioSlider(stringResource(R.string.studio_gamma_red), edit.gammaRed, GAMMA_RANGE, decimals = 2) {
+            onEdit(edit.copy(gammaRed = it))
+        }
+        StudioSlider(stringResource(R.string.studio_gamma_green), edit.gammaGreen, GAMMA_RANGE, decimals = 2) {
+            onEdit(edit.copy(gammaGreen = it))
+        }
+        StudioSlider(stringResource(R.string.studio_gamma_blue), edit.gammaBlue, GAMMA_RANGE, decimals = 2) {
+            onEdit(edit.copy(gammaBlue = it))
+        }
     }
 }
+
+private val GAMMA_RANGE = 0.5f..2f
 
 @Composable
 private fun ClipFrameSection(

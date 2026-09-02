@@ -1,6 +1,7 @@
 package dev.geode.data
 
 import android.content.SharedPreferences
+import dev.geode.export.ExportCodec
 import dev.geode.export.ExportQuality
 import dev.geode.export.ExportRatio
 
@@ -9,7 +10,14 @@ data class ExportDefaults(
     val fps: Int = 60,
     val ratio: ExportRatio = ExportRatio.R16_9,
     val loopSafe: Boolean = false,
+    val codec: ExportCodec = ExportCodec.H264,
 )
+
+internal fun exportCodecLabel(codec: ExportCodec): String =
+    when (codec) {
+        ExportCodec.H264 -> "H.264"
+        ExportCodec.HEVC -> "HEVC"
+    }
 
 internal fun exportQualityLabel(quality: ExportQuality): String =
     when (quality) {
@@ -32,6 +40,9 @@ class ExportPrefsStore(
                 runCatching { ExportRatio.valueOf(prefs.getString(KEY_RATIO, null) ?: d.ratio.name) }
                     .getOrDefault(d.ratio),
             loopSafe = prefs.getBoolean(KEY_LOOP, d.loopSafe),
+            codec =
+                runCatching { ExportCodec.valueOf(prefs.getString(KEY_CODEC, null) ?: d.codec.name) }
+                    .getOrDefault(d.codec),
         )
     }
 
@@ -42,6 +53,7 @@ class ExportPrefsStore(
             .putInt(KEY_FPS, d.fps)
             .putString(KEY_RATIO, d.ratio.name)
             .putBoolean(KEY_LOOP, d.loopSafe)
+            .putString(KEY_CODEC, d.codec.name)
             .apply()
     }
 
@@ -50,5 +62,6 @@ class ExportPrefsStore(
         const val KEY_FPS = "export_fps"
         const val KEY_RATIO = "export_ratio"
         const val KEY_LOOP = "export_loop"
+        const val KEY_CODEC = "export_codec"
     }
 }

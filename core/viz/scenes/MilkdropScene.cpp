@@ -39,6 +39,10 @@ void MilkdropScene::onPresetSwitchFailed(const char* presetFilename, const char*
     if (!self) return;
     std::lock_guard<std::mutex> lock(self->errorLock_);
     self->lastError_ = std::string(presetFilename ? presetFilename : "?") + ": " + (message ? message : "unknown error");
+    // projectM can raise this from inside a render as well as from a load, so the same broken
+    // preset reports once per frame. Only a message that has changed is worth a line.
+    if (self->lastLoggedError_ == self->lastError_) return;
+    self->lastLoggedError_ = self->lastError_;
     GEODE_LOGE(kTag, "preset switch failed: %s", self->lastError_.c_str());
 }
 
@@ -82,6 +86,15 @@ void MilkdropScene::setMilkTextureDir(const std::string& dir) {
 void MilkdropScene::init() {
     release();
     reportedCreateFailure_ = false;
+    reportedEngineGlError_ = false;
+    lastCreateAttemptSeconds_ = 0.0;
+    // A new context is a new chance for a preset that failed under the old one, and the scene
+    // must not inherit the old context's load debounce either.
+    lastLoadSeconds_ = 0.0;
+    {
+        std::lock_guard<std::mutex> lock(errorLock_);
+        lastLoggedError_.clear();
+    }
     diagFrames_ = 0;
     diagDone_ = false;
     std::string error;
@@ -102,18 +115,25 @@ void MilkdropScene::resize(int width, int height) {
 
 // The engine renders at the size the renderer asked for in resize(), like every other scene; the
 // frame target is (re)built to the same size, so projectM's viewport and the FBO always agree.
-void MilkdropScene::ensureEngine() {
+void MilkdropScene::ensureEngine(double now) {
     if (width_ <= 1 || height_ <= 1) return;
     if (!engine_) {
+        // Between attempts the scene draws its (empty) frame rather than hammering a create that
+        // has just failed. The wait is also what makes recovery possible at all: the failure is
+        // usually the context, not the engine, so the next attempt after one is worth making.
+        if (reportedCreateFailure_ && now - lastCreateAttemptSeconds_ < kCreateRetrySeconds) return;
+        lastCreateAttemptSeconds_ = now;
         engine_.reset(projectm_create());
         if (!engine_) {
+            // Once, not once per frame: ensureEngine runs from draw().
             if (!reportedCreateFailure_) {
                 reportedCreateFailure_ = true;
                 host_.onShaderError("projectM engine failed to initialize (adb logcat -s milkdrop-jni)");
+                GEODE_LOGE(kTag, "projectm_create returned NULL; retrying every %.0fs", kCreateRetrySeconds);
             }
-            GEODE_LOGE(kTag, "projectm_create returned NULL");
             return;
         }
+        reportedCreateFailure_ = false;
         projectm_set_fps(engine_.get(), 60);
         projectm_set_mesh_size(engine_.get(), 48, 32);
         projectm_set_soft_cut_duration(engine_.get(), 3.0);
@@ -121,10 +141,7 @@ void MilkdropScene::ensureEngine() {
         projectm_set_preset_locked(engine_.get(), true);
         projectm_set_aspect_correction(engine_.get(), true);
         projectm_set_preset_switch_failed_event_callback(engine_.get(), onPresetSwitchFailed, this);
-        {
-            std::lock_guard<std::mutex> lock(presetLock_);
-            if (!lastPresetPath_.empty()) pendingPresetPath_ = lastPresetPath_;
-        }
+        armLastPreset();
         engineWidth_ = 0;
     }
     if (engineWidth_ != width_ || engineHeight_ != height_) {
@@ -132,6 +149,16 @@ void MilkdropScene::ensureEngine() {
         engineWidth_ = width_;
         engineHeight_ = height_;
     }
+}
+
+// The engine is destroyed and rebuilt whenever the context is - a trip to the background and
+// back is the common case - and a rebuilt engine holds no preset. lastPresetPath_ outlives it,
+// so the scene comes back on the preset it went away on.
+void MilkdropScene::armLastPreset() {
+    std::lock_guard<std::mutex> lock(presetLock_);
+    if (lastPresetPath_.empty()) return;
+    pendingPresetPath_ = lastPresetPath_;
+    lastLoadSeconds_ = 0.0;
 }
 
 void MilkdropScene::update(const GeodeFeatureFrame& features, float dt) {
@@ -182,6 +209,12 @@ void MilkdropScene::loadPendingPreset(double now) {
             std::lock_guard<std::mutex> lock(presetLock_);
             lastPresetPath_ = path;
         }
+        {
+            // A preset that loads clears the dedupe, so if this one later starts failing the
+            // first failure is still logged.
+            std::lock_guard<std::mutex> lock(errorLock_);
+            lastLoggedError_.clear();
+        }
         if (host_.onMilkPresetLoaded) host_.onMilkPresetLoaded(path);
     }
 }
@@ -193,9 +226,10 @@ void MilkdropScene::draw(float timeSeconds) {
     glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &prevFbo);
     // Reset before the engine as well as after: projectM assumes default GL state and restores little.
     resetFrameState();
-    ensureEngine();
+    const double now = nowSeconds();
+    ensureEngine(now);
     if (!engine_ || !frame_.ensure(engineWidth_, engineHeight_)) return;
-    loadPendingPreset(nowSeconds());
+    loadPendingPreset(now);
     const SceneParams& p = params_;
     projectm_set_beat_sensitivity(engine_.get(), std::clamp(0.2f + p.beatResponse, 0.2f, 3.0f));
 

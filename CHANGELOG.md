@@ -9,6 +9,162 @@ their content shipped, and the original `docs/DEVICE_CHECKS.md` was lost —
 a partial reconstruction, rebuilt from the references in these entries, is at
 [docs/DEVICE_CHECKS.md](docs/DEVICE_CHECKS.md).
 
+## Unreleased
+
+- **Two more styles that put the fluid into three dimensions** (Styles >
+  Shaders, ids `curl_bloom`, `nectar_flow`). Both are raymarched, so unlike the
+  four flat styles below they DO spend the Detail budget and both join
+  `MARCHED_SCENES`. *Curl Bloom* is one solid body that is continuously
+  changing what it is - sphere into octahedron into torus into box and round to
+  the sphere again - while the space it sits in is being stirred, so the
+  surface is always folding through itself. The morph costs the march nothing:
+  the four primitives sit on a closed ring and neighbouring pairs are blended
+  with `mix()`, which is a convex combination of two 1-Lipschitz functions and
+  so is itself 1-Lipschitz, meaning every intermediate shape is exactly as
+  marchable as the two it lies between. *Nectar Flow* is a volume rather than a
+  surface: luminous dye wrapped around a fold-and-scale skeleton, stirred by
+  the same flow, with the camera flying through it. The fold decides where the
+  light is and the flow decides how it moves, which is the pairing the style
+  exists for - a fractal fold alone is rigid and obviously synthetic, an
+  incompressible flow alone has no structure to show off.
+
+  `lib_scene_motion` gains the 3D half of the fluid to support them.
+  `curlVelocity()` differentiates a noise field, which costs four fbm
+  evaluations - acceptable once per pixel and ruinous inside a march loop where
+  `map()` runs up to 128 times per ray. So the 3D field is analytic instead:
+  `abcFlow()`, the Arnold-Beltrami-Childress flow, a steady solution of the
+  Euler equations whose every component depends only on the other two
+  coordinates, making its divergence identically zero by construction rather
+  than approximately zero, at a cost of six trig calls. `fluidWarp3()` folds it
+  by applying it twice, and `fluidWarp3Lipschitz()` returns the bound a surface
+  march must divide its distance estimate by - derived from the row-sum norm of
+  the flow's Jacobian, which has two entries per row each at most 1, so one
+  application is bounded by `1 + 2*amount*scale`. It is a bound and not the
+  true norm, so the march takes shorter steps than it strictly must; that is
+  the correct direction to be wrong in, because an overestimated step walks the
+  ray through the surface and a distance march cannot recover from that.
+  Nectar Flow needs none of it - a fixed-step volume loop has no estimate to
+  overshoot, the same reasoning `nebula_frag` sets out for its own volume
+  march - which is also why its domain can be folded as violently as it is.
+  One built-in preset each (Stirred, Through It).
+
+- **Four new fragment styles from the reference clips** (Styles > Shaders, ids
+  `merkaba_grid`, `spiral_eye`, `blacklight_bloom`, `fractal_temple`).
+  *Merkaba Grid* is a cathedral of sacred geometry: a triangulated web filling
+  the depth, wire-frame geodesic spheres along the floor, star tetrahedra
+  hanging in the field with a glint at every vertex, and a column of light up
+  the middle that blooms where it leaves the hall. *Spiral Eye* winds a
+  turbulent cloud into a logarithmic spiral and streaks it outward - the dye is
+  sampled six times along the radial pull, which is a motion blur that costs no
+  buffer - with a small iridescent mandala burning at the centre. *Blacklight
+  Bloom* is a dense mirrored tapestry in violet and magenta, drawn three times a
+  hair apart so every edge carries cyan and green fringes, with spiral discs and
+  wire tetrahedra floating in front and a soap bubble refracting the tapestry
+  through the middle. *Fractal Temple* closes a triangulated dome overhead, hangs
+  a ring of neon lamps under it and runs a stepped causeway out to the horizon
+  between two rows of filigree spires. Each pairs its own structure with the
+  curl-advected dye and the drifting mote layer described below, so the fluid is
+  part of the style rather than something the composite adds afterwards. All
+  four are 2D perspective constructions, so none of them spends the Detail march
+  budget. One built-in preset per style (Sanctum, Event Horizon, UV Ink,
+  Causeway).
+
+- **Audio response reworked across every fragment style: smooth, and a
+  transient now means a change of state rather than a flash.** A fragment
+  shader has no frame-to-frame state, so it cannot smooth anything itself;
+  every style was therefore multiplying its structure straight by a raw band
+  envelope that is free to move 0 -> 1 between two frames. The smoothing now
+  lives in `ShaderScene::stepMotion` on the C++ side and arrives as uniforms,
+  documented in the new `app/src/main/assets/shaders/lib_scene_motion.glsl`:
+
+  - `uBassSmooth`, `uMidSmooth`, `uTrebleSmooth`, `uEnergySmooth` are the
+    slew-limited companions to the raw envelopes - same range, same meaning,
+    but an 8 Hz one-pole covers about 13% of the gap in a 60fps frame, so a
+    band spiking 0 -> 1 in one frame moves these by 0.13 rather than by 1.
+    `uSwell` is slower again: how loud this passage is, not what just happened
+    in it.
+  - `uSpike` replaces the `beatEnv * beatEnv * beatBump` idiom wherever that
+    idiom drove brightness. It is the same accent with a ~120ms rise on it, so
+    it physically cannot reach its peak inside one frame.
+  - A transient no longer moves the picture, it moves a DESTINATION, and the
+    value the style reads glides there over most of a second. There are three,
+    and they are the three things a spike is allowed to mean: `uMoveDir` (a new
+    travel direction - a bounded turn, never a reversal), `uSpawnSeed` with
+    `uSpawnAge` (a new spawn, with an age to grow it in from nothing) and
+    `uFormPhase` (a new fractal - the next plateau on a golden-ratio walk, so
+    consecutive spikes always land visibly apart instead of dithering around
+    one value). Spikes are rate-limited to one per 0.28s, so a busy drum line
+    re-aims the picture a few times a second at most rather than once a frame.
+  - `uFlowPhase` is an integrated travel clock: loudness sets its rate and
+    never its sign. This fixes a defect the styles shared. `uTime * (base + k *
+    energy)` does not speed a camera up, it teleports it - at t = 60s a rate
+    moving 1.4 -> 3.6 slides the Rod Tunnel viewpoint 132 units down the tube
+    in a single frame - and the same shape was spinning Neon Tiles' hall,
+    Mandala Dome's domes, Chroma Orb's skin and Bead Vortex's strands.
+
+  Converted: `vanishing`, `morphogen`, `nebula`, `noneuclid`, `kifs`,
+  `orb_lattice`, `rod_tunnel`, `neon_tiles`, `chroma_orb`, `mandala_dome`,
+  `bead_vortex`. Two behaviours were wrong rather than merely abrupt and are
+  fixed with them: Orb Lattice stepped its kaleidoscope 8 -> 6 -> 4 as the beat
+  envelope decayed, so it re-folded twice on the way down from every hit and
+  held none of the three, and Mandala Dome fed raw `uTreble` into a glow term,
+  which took the whole hall to white on the frame a cymbal landed. Both now sit
+  on held plateaus and slew-limited signals. The description of the three
+  styles below is superseded on this point: the beat no longer widens the
+  fringes or flares the core on the frame it lands, and energy sets a rate
+  rather than an angle.
+
+  Every converted style also gained the fluid pair from the same library:
+  `fluidWarp`, a divergence-free curl advection of the style's own domain, and
+  `fluidMotes`, sparse particles riding that same field. Deliberately computed
+  in-shader rather than read from `uFlow`: the composite pass already warps
+  every style through the shared FlowField, so a second read of that texture
+  here would apply one velocity field twice.
+
+- **MilkDrop: the repeating logcat error, and the preset that did not come back
+  from the background.** Both were the same failure seen from two ends.
+  `ensureEngine()` runs once per frame from `draw()`, and its
+  `projectm_create returned NULL` line sat outside the `reportedCreateFailure_`
+  guard, so a single failed create wrote roughly sixty error lines a second for
+  as long as the scene was on screen. It also never recovered, which is why the
+  preset stayed gone: nothing backed the retry off and nothing re-armed the
+  preset when a later attempt would have worked. A failed create now waits two
+  seconds before the next attempt, logs once rather than once per frame, and
+  clears its latch when it succeeds. `armLastPreset()` re-queues the preset the
+  scene last had on screen AND clears the load debounce, so a rebuilt engine
+  loads it on the next frame instead of having the 0.4s debounce swallow the
+  restore. `onPresetSwitchFailed` writes a line only when the message has
+  changed, and `init()` resets the debounce, the GL-error latch and the log
+  dedupe along with the rest of the per-context state.
+
+- **The Beam style is gone**, with its scene, its two shaders, its four
+  parameters (`beamXy`, `beamWidth`, `beamIntensity`, `beamTail`), its Shape-tab
+  section, its Styles tab, its `ParamScope` group and the woscope third-party
+  notice that covered the shaders. The scene parameter frame is a POSITIONAL
+  contract verified against the native library at startup, so both sides moved
+  together: `SceneParamsCodec.FIELDS` and `SceneParams::fieldNames()` go from
+  138 to 134 and the three `rippleOverlay*` fields move from slots 135-137 to
+  131-133.
+
+- **Three new fragment styles after the reference pictures** (Styles >
+  Shaders, ids `chroma_orb`, `mandala_dome`, `bead_vortex`). The earlier
+  attempts at the same three pictures (`orb_lattice`, `rod_tunnel`,
+  `neon_tiles`) stay as they are; these are new styles beside them.
+  *Chroma Orb* is a glass sphere skinned with a four-fold kaleidoscope of dot
+  lattices, a ringed tunnel bored through its centre and the whole skin drawn
+  three times at slightly different scales, so every dot has a green core with
+  blue and orange lens fringes, over a dark green field of bokeh. *Mandala
+  Dome* is a mirrored hall of eight-point stars, rings and framed tiles in
+  violet, blue and magenta with green, cyan and red fringed outlines, wrapped
+  over two domes bulging in from the sides and a patterned sphere in the
+  middle. *Bead Vortex* looks down a tunnel walled with strands of segmented
+  beads - crimson, olive and violet - winding into a white-hot core through a
+  purple haze of drifting motes. All three are 2D sphere and tunnel mappings
+  with faked lighting, so none spends the Detail march budget; bass breathes
+  the patterns and swells the beads, the beat widens the fringes and flares
+  the core, energy sets the spin, and each still moves in silence. One
+  built-in preset per style (Lens, Cathedral, Corkscrew).
+
 ## v1.8.0 (code 32) - Native core, Studio timeline, player features
 
 The engine's compute moved to C++ behind one `libgeode.so`, the Studio grew a

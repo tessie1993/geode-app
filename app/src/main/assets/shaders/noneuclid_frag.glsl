@@ -12,6 +12,7 @@ out vec4 fragColor;
 // block/aband/awave/view() first, then the palette, then grade() - which calls
 // pal() and so must come after it.
 //#include lib_scene_uniforms
+//#include lib_scene_motion
 //#include lib_palette
 //#include lib_scene_grade
 // The 3D toolkit and the touch helpers, already wired so a style author never
@@ -469,17 +470,18 @@ void main() {
 
     // Audio, normalized out of the 0..1.5 contract and clamped, so every gain
     // below is read against a 0..1 scale.
-    float bassN = clamp(uBass, 0.0, 1.5) / 1.5;
-    float midN = clamp(uMid, 0.0, 1.5) / 1.5;
-    float trebN = clamp(uTreble, 0.0, 1.5) / 1.5;
-    float energyN = clamp(uEnergy, 0.0, 1.5) / 1.5;
+    // Read off the slew-limited companions in lib_scene_motion, not the raw
+    // envelopes. Same range and same meaning; the difference is that no single
+    // frame can move one of them far, so nothing structural below can snap.
+    float bassN = clamp(uBassSmooth, 0.0, 1.5) / 1.5;
+    float midN = clamp(uMidSmooth, 0.0, 1.5) / 1.5;
+    float trebN = clamp(uTrebleSmooth, 0.0, 1.5) / 1.5;
+    float energyN = clamp(uEnergySmooth, 0.0, 1.5) / 1.5;
 
-    // The house beat idiom: the squared envelope times the phase bump, so it
-    // is a spike ON the beat and silent between hits even though the phase
-    // clock free-runs through silence.
-    float beatEnv = clamp(uBeat, 0.0, 1.0);
-    float beatBump = pow(0.5 + 0.5 * cos(TAU * uBeatPhase), 2.0);
-    float beatHit = beatEnv * beatEnv * beatBump;
+    // Was the beat-phase bump, which reaches its peak inside one frame. uSpike is
+    // the same accent with a rise on it, so it swells rather than flashing, and it
+    // is already silent between hits without needing the phase clock.
+    float beatHit = uSpike;
 
     // ---- touch -----------------------------------------------------------
     //

@@ -12,6 +12,7 @@ out vec4 fragColor;
 // block/aband/awave/view() first, then the palette, then grade() - which calls
 // pal() and so must come after it.
 //#include lib_scene_uniforms
+//#include lib_scene_motion
 //#include lib_palette
 //#include lib_scene_grade
 // The 3D toolkit and the touch helpers, already wired so a style author never
@@ -587,15 +588,20 @@ void main() {
     //
     // uBass..uEnergy are 0..1.5 auto-gained, so 0.75 puts a loud passage near
     // 1 and leaves headroom rather than clipping the middle of the range.
-    float bassAmt = clamp(uBass * 0.75, 0.0, 1.0);
-    float midAmt = clamp(uMid * 0.75, 0.0, 1.0);
-    float trebAmt = clamp(uTreble * 0.75, 0.0, 1.0);
-    float energyAmt = clamp(uEnergy * 0.7, 0.0, 1.0);
+    // Read off the slew-limited companions in lib_scene_motion, not the raw
+    // envelopes. Same range and same meaning; the difference is that no single
+    // frame can move one of them far, so nothing structural below can snap.
+    float bassAmt = clamp(uBassSmooth * 0.75, 0.0, 1.0);
+    float midAmt = clamp(uMidSmooth * 0.75, 0.0, 1.0);
+    float trebAmt = clamp(uTrebleSmooth * 0.75, 0.0, 1.0);
+    float energyAmt = clamp(uEnergySmooth * 0.7, 0.0, 1.0);
 
     // The pull is added OUTSIDE the wrap: mod()ing it would fold the dimple
     // and put a seam through the middle of it. The wrap itself is invisible
     // because the stack and the hue are both periodic at BAND_CYCLE.
-    gFall = mod(uTime * FALL_RATE + FALL_SURGE * bassAmt, BAND_CYCLE) + pull;
+    // A spike re-aims the fall rather than surging it: uFlowPhase only advances,
+    // so a loud passage descends faster and never jumps a band.
+    gFall = mod(uTime * FALL_RATE + uFlowPhase * FALL_SURGE + FALL_SURGE * bassAmt * 0.3, BAND_CYCLE) + pull;
     // Mids steer: they set how hard the stack spirals, which is the direction
     // the corridor screws away in.
     gSpiral = clamp(

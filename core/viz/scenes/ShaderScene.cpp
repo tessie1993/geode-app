@@ -23,6 +23,16 @@ float paletteRowCoordinate(int index) {
 
 float flag(bool on) { return on ? 1.0f : 0.0f; }
 
+constexpr float kTwoPiF = 6.2831853f;
+
+// Shortest signed distance from `from` to `to` on a unit-period circle.
+float wrappedDelta(float from, float to, float period) {
+    const float half = period * 0.5f;
+    float d = std::fmod(to - from + half, period);
+    if (d < 0.0f) d += period;
+    return d - half;
+}
+
 }  // namespace
 
 ShaderScene::ShaderScene(std::string id, std::string vertexSrc, std::string fragmentSrc, ProgramBinaryCache* cache, SceneHost host)
@@ -73,6 +83,57 @@ void ShaderScene::resize(int width, int height) {
     height_ = height;
 }
 
+// exp(-dt*hz) rather than a fixed per-frame fraction: the same wall-clock rise
+// on a 30fps device and a 120fps one, so the look does not change with the
+// frame rate the thermal governor happens to be pacing at.
+float ShaderScene::slew(float current, float target, float dt, float riseHz, float fallHz) {
+    const float hz = target > current ? riseHz : fallHz;
+    const float k = 1.0f - std::exp(-std::max(dt, 0.0f) * hz);
+    return current + (target - current) * k;
+}
+
+// A 32-bit LCG. Good enough to pick a plateau and a direction, and cheap enough
+// to sit in a per-frame path.
+float ShaderScene::nextSeed() {
+    seedState_ = seedState_ * 1664525u + 1013904223u;
+    return static_cast<float>((seedState_ >> 8) & 0xFFFFFFu) / static_cast<float>(0x1000000u);
+}
+
+// What a transient is allowed to change. NOT the picture: a spike moves
+// TARGETS, and the values the styles read glide toward them over the best part
+// of a second. The three things it can pick are the three the user asked a
+// spike to mean - a new travel direction, a new spawn, and a new fractal.
+void ShaderScene::stepMotion(float hit, float dt) {
+    // Capped rather than free-running: spawnAge_ is only ever read through a
+    // smoothstep with a horizon of a second or two, and an unbounded float would
+    // lose its low bits over a long session for no gain.
+    spawnAge_ = std::min(spawnAge_ + dt, kSpawnAgeMax);
+    spikeLockout_ = std::max(spikeLockout_ - dt, 0.0f);
+
+    const bool spiked = hit > kSpikeThreshold && spikeLockout_ <= 0.0f;
+    if (spiked) {
+        spikeLockout_ = kSpikeRefractorySeconds;
+        // New spawn: a fresh seed and an age of zero, so a style can grow the
+        // new thing in from nothing instead of cutting to it.
+        spawnSeed_ = nextSeed();
+        spawnAge_ = 0.0f;
+        // New fractal: the next plateau on the golden-ratio walk.
+        formTarget_ = std::fmod(formTarget_ + kFormStep, 1.0f);
+        // New direction: a bounded turn, never a reversal. Wrapped so the target
+        // cannot walk off into the range where a float has no fraction left.
+        dirTarget_ = std::fmod(dirTarget_ + (nextSeed() * 2.0f - 1.0f) * kDirMaxTurn, kTwoPiF);
+    }
+    // The envelope rises rather than steps, so even a style that keys
+    // brightness straight off it cannot flash.
+    spikeEnv_ = slew(spikeEnv_, spiked ? 1.0f : 0.0f, dt, kSpikeRiseHz, kSpikeFallHz);
+
+    formPhase_ = std::fmod(formPhase_ + wrappedDelta(formPhase_, formTarget_, 1.0f) * (1.0f - std::exp(-dt * kFormGlideHz)) + 1.0f, 1.0f);
+    dirAngle_ += wrappedDelta(dirAngle_, dirTarget_, kTwoPiF) * (1.0f - std::exp(-dt * kDirGlideHz));
+    dirAngle_ = std::fmod(dirAngle_, kTwoPiF);
+    // Monotonic: loudness sets the rate, never the sign.
+    flowPhase_ = std::fmod(flowPhase_ + dt * (kFlowBaseHz + kFlowEnergyHz * smoothEnergy_), kTimeWrapSeconds);
+}
+
 void ShaderScene::update(const GeodeFeatureFrame& features, float dt) {
     const SceneParams& p = params_;
     shaderTime_ = std::fmod(shaderTime_ + p.speed * dt, kTimeWrapSeconds);
@@ -84,7 +145,13 @@ void ShaderScene::update(const GeodeFeatureFrame& features, float dt) {
     mid_ = std::clamp(features.mid * drive, 0.0f, kAudioClamp);
     treble_ = std::clamp(features.treble * drive, 0.0f, kAudioClamp);
     energy_ = std::clamp(features.rms * drive, 0.0f, kAudioClamp);
+    smoothBass_ = slew(smoothBass_, bass_, dt, kBandRiseHz, kBandFallHz);
+    smoothMid_ = slew(smoothMid_, mid_, dt, kBandRiseHz, kBandFallHz);
+    smoothTreble_ = slew(smoothTreble_, treble_, dt, kBandRiseHz, kBandFallHz);
+    smoothEnergy_ = slew(smoothEnergy_, energy_, dt, kBandRiseHz, kBandFallHz);
+    swell_ = slew(swell_, energy_, dt, kSwellRiseHz, kSwellFallHz);
     const float hit = live::hit(features);
+    stepMotion(hit, dt);
     beatPulse_ = std::max(std::max(hit, beatPulse_ - dt * kPulseDecayPerSecond), 0.0f);
     // The heard transient resets the shared pulse ramp; between hits it free-runs.
     pulsePhase_ = hit > 0.0f ? 0.0f : std::fmod(pulsePhase_ + dt * kPulsePhaseHz, 1.0f);
@@ -133,6 +200,7 @@ void ShaderScene::draw(float timeSeconds) {
     set1f("uPalLutMix", flag(lutSelected));
     set1f("uPalLutRow", paletteRowCoordinate(std::max(p.paletteLut, 0)));
     set1f("uSteps", marchSteps(p.marchDetail));
+    uploadMotion();
     uploadTouch();
     glBindVertexArray(vao_);
     glDrawArrays(GL_TRIANGLES, 0, 3);
@@ -187,6 +255,23 @@ void ShaderScene::uploadParams() {
     set1f("uFlash", p.flash);
     set1f("uContrast", p.contrast);
     set1f("uGamma", p.gamma);
+}
+
+// Every style is handed these; the ones that read none of them link them away
+// and glUniform on a -1 location is a no-op, so this costs nothing on a style
+// that has not been converted.
+void ShaderScene::uploadMotion() {
+    set1f("uBassSmooth", smoothBass_);
+    set1f("uMidSmooth", smoothMid_);
+    set1f("uTrebleSmooth", smoothTreble_);
+    set1f("uEnergySmooth", smoothEnergy_);
+    set1f("uSwell", swell_);
+    set1f("uSpike", spikeEnv_);
+    set1f("uSpawnSeed", spawnSeed_);
+    set1f("uSpawnAge", spawnAge_);
+    set1f("uFormPhase", formPhase_);
+    set1f("uFlowPhase", flowPhase_);
+    glUniform2f(uniforms_.loc("uMoveDir"), std::cos(dirAngle_), std::sin(dirAngle_));
 }
 
 void ShaderScene::uploadTouch() {

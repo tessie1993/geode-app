@@ -12,6 +12,7 @@ out vec4 fragColor;
 // block/aband/awave/view() first, then the palette, then grade() - which calls
 // pal() and so must come after it.
 //#include lib_scene_uniforms
+//#include lib_scene_motion
 //#include lib_palette
 //#include lib_scene_grade
 // The 3D toolkit and the touch helpers, already wired so a style author never
@@ -779,9 +780,12 @@ void main() {
     gIa = mod(segf, 4.0);
     gIb = mod(segf + 1.0, 4.0);
 
-    float beatEnv = clamp(uBeat, 0.0, 1.0);
-    float beatBump = pow(0.5 + 0.5 * cos(6.2831853 * uBeatPhase), 2.0);
-    float kick = beatEnv * beatEnv * beatBump;
+    // uSpike rather than the beat-phase bump: it takes ~120ms to arrive, so the
+    // morph is nudged along rather than jolted on a single frame. beatEnv keeps
+    // its name because the shockwave below squares it - the gate is unchanged,
+    // only the signal under it is now slew-limited.
+    float beatEnv = clamp(uSpike, 0.0, 1.0);
+    float kick = beatEnv;
 
     float hold = MORPH_HOLD * (1.0 - clamp(uMorph, 0.0, 1.0));
     gMt = smoothstep(hold * 0.5, 1.0 - hold * 0.5, f);
@@ -796,16 +800,14 @@ void main() {
 
     // ---- audio, clamped before anything structural reads it ---------------
     //
-    // These bands are auto-gained and per-frame. Nothing here is slew-limited
-    // slew-limited on the Kotlin side, so they are allowed to move the
-    // body by a few per cent and no more: what VisualSafety cannot clamp is
-    // AREA, and a band value driving a size directly is how a quiet passage
-    // and a loud one end up covering different fractions of the screen from
-    // one frame to the next.
-    float bass = clamp(uBass, 0.0, 1.2);
-    float mid = clamp(uMid, 0.0, 1.2);
-    float treb = clamp(uTreble, 0.0, 1.5);
-    float energy = clamp(uEnergy, 0.0, 1.5);
+    // These are the slew-limited bands from lib_scene_motion. The few-per-cent
+    // ceiling below still stands - what VisualSafety cannot clamp is AREA - but
+    // the reason it had to be that tight was that the raw envelopes are per-frame.
+    // These cannot jump, so the same ceilings now hold on a much steadier signal.
+    float bass = clamp(uBassSmooth, 0.0, 1.2);
+    float mid = clamp(uMidSmooth, 0.0, 1.2);
+    float treb = clamp(uTrebleSmooth, 0.0, 1.5);
+    float energy = clamp(uEnergySmooth, 0.0, 1.5);
 
     // Thicker weave under bass: the sheets swell toward each other and the
     // gyroid closes up, which is the one deformation this skeleton has.

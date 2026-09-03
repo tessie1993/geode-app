@@ -10,7 +10,7 @@ import kotlin.math.sqrt
  * WHY: touch used to reach exactly two destinations — the surface in
  * [dev.geode.render.fluid.WaterScene], and otherwise a generic 2D ripple
  * overlay laid over whatever was underneath. Every other family — the fragment
- * styles, cymatics, the four field sims, the beam — was untouchable, so on 50
+ * styles, cymatics, the four field sims — was untouchable, so on 50
  * of the 58 styles a finger did nothing the style itself knew about. That is a
  * routing table, not an input: adding a family meant adding a branch, and no
  * style could be authored against "where is the user pointing" because there

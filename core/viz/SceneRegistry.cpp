@@ -3,7 +3,6 @@
 #include <array>
 
 #include "viz/scenes/AcidScene.hpp"
-#include "viz/scenes/BeamScene.hpp"
 #include "viz/scenes/CurlFlowScene.hpp"
 #include "viz/scenes/CymaticsScene.hpp"
 #include "viz/scenes/FluidScene.hpp"
@@ -20,18 +19,20 @@ namespace geode::viz {
 namespace {
 
 // Port of SceneCapabilities.SHADER_SCENES: id -> shaders/<id>_frag.glsl, in the catalog's order.
-constexpr std::array<const char*, 30> kShaderIds = {
+constexpr std::array<const char*, 39> kShaderIds = {
     "julia",     "tunnel",  "mandel",    "kaleido",   "plasma",    "bars",       "ring",      "scope",
     "liss",      "warp",    "grid",      "voronoi",   "metaballs", "ripples",    "starfield", "waves",
     "hexgrid",   "spiral",  "aurora",    "solar",     "winter",    "lava",       "vanishing", "morphogen",
     "nebula",    "noneuclid", "kifs",    "orb_lattice", "rod_tunnel", "neon_tiles",
+    "chroma_orb", "mandala_dome", "bead_vortex",
+    "merkaba_grid", "spiral_eye", "blacklight_bloom", "fractal_temple",
+    "curl_bloom", "nectar_flow",
 };
 
 constexpr const char* kMilkdrop = "milkdrop";
 constexpr const char* kFluid = "fluid";
 constexpr const char* kCurlFlow = "curlflow";
 constexpr const char* kWater = "water";
-constexpr const char* kBeam = "beam";
 
 bool isShaderId(const std::string& id) {
     for (const char* known : kShaderIds) {
@@ -48,7 +49,7 @@ void append(std::vector<std::string>& out, std::vector<std::string> ids) {
 
 bool SceneRegistry::knows(const std::string& id) const {
     return isShaderId(id) || styles::cymatics(id) || styles::silk(id) || styles::life(id) || styles::acid(id) || styles::myco(id) ||
-           id == kMilkdrop || id == kFluid || id == kCurlFlow || id == kWater || id == kBeam;
+           id == kMilkdrop || id == kFluid || id == kCurlFlow || id == kWater;
 }
 
 std::vector<std::string> SceneRegistry::availableIds() const {
@@ -63,7 +64,6 @@ std::vector<std::string> SceneRegistry::availableIds() const {
     out.emplace_back(kCurlFlow);
     out.emplace_back(kWater);
     append(out, styles::cymaticsIds());
-    out.emplace_back(kBeam);
     return out;
 }
 
@@ -86,7 +86,6 @@ std::unique_ptr<Scene> SceneRegistry::create(const std::string& id, const std::s
     if (id == kFluid) return std::make_unique<FluidScene>(loader_, host_);
     if (id == kCurlFlow) return std::make_unique<CurlFlowScene>(loader_, host_);
     if (id == kWater) return std::make_unique<WaterScene>(loader_, host_);
-    if (id == kBeam) return std::make_unique<BeamScene>(loader_, host_);
     return nullptr;
 }
 

@@ -6,6 +6,7 @@ in vec2 vUv;
 out vec4 fragColor;
 
 //#include lib_scene_uniforms
+//#include lib_scene_motion
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_touch
@@ -41,11 +42,16 @@ vec3 rgbSplit(vec2 p, float k) {
     return vec3(pattern(p * (1.0 - k)), pattern(p), pattern(p * (1.0 + k)));
 }
 
-// The user's fold count when the kaleidoscope is on; otherwise the transient
-// steps the symmetry 8 -> 6 -> 4 as the pulse decays.
-float foldCount(float beat) {
+// The user's fold count when the kaleidoscope is on; otherwise the arm count
+// the last spike chose.
+//
+// This used to step 8 -> 6 -> 4 as the beat envelope decayed, which meant the
+// whole kaleidoscope re-folded twice on the way down from every hit - three
+// different pictures per beat, none of them held. uFormPhase is a plateau: a
+// spike picks the next arm count and it stays there until the next one.
+float foldCount() {
     if (uKaleido > 0.5 && uSymmetry >= 2.0) return uSymmetry;
-    return 4.0 + 2.0 * floor(clamp(beat * uBeatResponse, 0.0, 0.999) * 3.0);
+    return 4.0 + 2.0 * floor(uFormPhase * 3.0);
 }
 
 vec3 latticeColour(vec2 q, float split, float glow) {
@@ -58,27 +64,33 @@ vec3 latticeColour(vec2 q, float split, float glow) {
 
 void main() {
     vec2 uv = view();
-    float bassA = min(uBass, 1.3);
-    float trebA = min(uTreble, 1.3);
-    float enA = min(uEnergy, 1.3);
-    float beatEnv = clamp(uBeat, 0.0, 1.0);
-    float beatBump = pow(0.5 + 0.5 * cos(ORB_TAU * uBeatPhase), 2.0);
-    float hit = beatEnv * beatEnv * beatBump;
+    // The slew-limited companions, not the raw envelopes: a band that jumps 0 -> 1
+    // between two frames used to take the zoom, the fringe width and the glow with it.
+    float bassA = min(uBassSmooth, 1.3);
+    float trebA = min(uTrebleSmooth, 1.3);
+    float enA = min(uEnergySmooth, 1.3);
+    // uSpike rather than the beat-phase bump: it rises over ~120ms, so the accent
+    // swells instead of flashing on one frame.
+    float hit = uSpike;
 
-    float folds = foldCount(uBeat);
+    float folds = foldCount();
     float split = mix(0.01, 0.04, clamp(trebA, 0.0, 1.0));
     float zoomPulse = 1.0 + 0.12 * bassA * uBeatResponse;
     vec2 p = uv / zoomPulse;
     float r2 = dot(p, p);
 
     vec3 col = vec3(0.0, 0.08, 0.04);
-    vec2 fieldQ = kaleido(uv * 0.55 + vec2(uTime * 0.02, 0.0), folds);
+    // Advected along the direction the last spike aimed at, through the integrated
+    // travel phase. `uTime * rate` would teleport the field whenever the rate moved.
+    vec2 fieldQ = kaleido(fluidWarp(uv * 0.55, 1.1, 0.09) + flowOffset(0.35), folds);
     col += latticeColour(fieldQ, split * 0.5, 0.18) * smoothstep(0.9, 1.6, length(uv));
 
     if (r2 < 1.0) {
-        vec2 s = sphereUv(p) + vec2(uTime * 0.05, 0.02 * sin(uTime * 0.17));
+        vec2 s = sphereUv(p) + flowOffset(0.9) + vec2(0.0, 0.02 * sin(uTime * 0.17));
         vec2 q = kaleido(s * 1.25, folds);
+        // The new spawn grows its offset in over a second rather than cutting to it.
         q += 0.12 * vec2(sin(uTime * 0.19), cos(uTime * 0.23));
+        q += 0.18 * (uSpawnSeed - 0.5) * spawnGrow(1.1) * uMoveDir;
         float rim = sqrt(1.0 - r2);
         vec3 orb = latticeColour(q, split, 0.35 + 0.65 * rim);
         orb += pal(0.5) * pow(rim, 6.0) * 0.08;
@@ -87,6 +99,8 @@ void main() {
     }
 
     col += enA * 0.35 * col * col;
+    // The particle half: motes riding the same curl field the lattice is warped by.
+    col += pal(0.55) * fluidMotes(uv * 0.8, 5.0, 0.16) * 0.22;
     if (!touchIdle()) {
         col += pal(0.5 + 0.15 * sin(uTime * 0.05)) * min(touchWake(uv), 3.0) * 0.05;
     }

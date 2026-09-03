@@ -32,7 +32,7 @@ public:
     virtual void setPaletteLut(GLuint texture) { (void) texture; }
     virtual void setTouchField(const TouchField* field) { (void) field; }
     virtual void setFragmentSource(const std::string& source) { (void) source; }
-    // > 0 keeps the previous frame in the scene target (Curl Flow, Beam); 0 clears it.
+    // > 0 keeps the previous frame in the scene target (Curl Flow); 0 clears it.
     virtual float trailRetention(const SceneParams& params) const { (void) params; return 0.0f; }
     virtual GLuint velocityTexture() const { return 0; }
     // The fluid scene runs its own flow field; the water scene owns the ripples and the touch smears.

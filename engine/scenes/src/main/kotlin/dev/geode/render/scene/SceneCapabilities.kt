@@ -21,8 +21,6 @@ enum class SceneKind {
     WATER,
 
     CYMATICS,
-
-    BEAM,
 }
 
 object SceneCapabilities {
@@ -62,12 +60,30 @@ object SceneCapabilities {
             SceneIds.ORB_LATTICE to "shaders/orb_lattice_frag.glsl",
             SceneIds.ROD_TUNNEL to "shaders/rod_tunnel_frag.glsl",
             SceneIds.NEON_TILES to "shaders/neon_tiles_frag.glsl",
+            // The three reference looks (see CHANGELOG): 2D tunnel and sphere
+            // mappings, no raymarch, so none of them joins MARCHED_SCENES.
+            SceneIds.CHROMA_ORB to "shaders/chroma_orb_frag.glsl",
+            SceneIds.MANDALA_DOME to "shaders/mandala_dome_frag.glsl",
+            SceneIds.BEAD_VORTEX to "shaders/bead_vortex_frag.glsl",
+            // The four looks taken from the reference clips. Each pairs its own
+            // structure with the curl-advected dye and mote layer in
+            // lib_scene_motion, so the fluid is in the style rather than bolted
+            // on by the composite. All four are 2D perspective constructions, so
+            // none of them joins MARCHED_SCENES either.
+            SceneIds.MERKABA_GRID to "shaders/merkaba_grid_frag.glsl",
+            SceneIds.SPIRAL_EYE to "shaders/spiral_eye_frag.glsl",
+            SceneIds.BLACKLIGHT_BLOOM to "shaders/blacklight_bloom_frag.glsl",
+            SceneIds.FRACTAL_TEMPLE to "shaders/fractal_temple_frag.glsl",
+            // The two that put the fluid into 3D: both march, so unlike the four
+            // above they DO spend the Detail budget and both join MARCHED_SCENES.
+            SceneIds.CURL_BLOOM to "shaders/curl_bloom_frag.glsl",
+            SceneIds.NECTAR_FLOW to "shaders/nectar_flow_frag.glsl",
         )
 
     /**
      * The fragment styles that raymarch, and so spend the [MarchBudget] the Detail control sets.
      *
-     * A per-STYLE set rather than a [SceneKind], because only six of the 30 shader styles march;
+     * A per-STYLE set rather than a [SceneKind], because only eight of the 39 shader styles march;
      * scoping Detail to `SceneKind.SHADER` would put a dead slider in front of anyone looking at
      * Plasma, which is exactly what [ParamScope]'s no-dead-controls rule exists to prevent.
      */
@@ -79,6 +95,10 @@ object SceneCapabilities {
             SceneIds.NONEUCLID,
             SceneIds.KIFS,
             SceneIds.ROD_TUNNEL,
+            // Curl Bloom marches a distance field; Nectar Flow marches a volume.
+            // Different loops, but Detail is the budget for both.
+            SceneIds.CURL_BLOOM,
+            SceneIds.NECTAR_FLOW,
         )
 
     /**
@@ -95,7 +115,6 @@ object SceneCapabilities {
             sceneId == SceneIds.FLUID -> SceneKind.FLUID
             sceneId == SceneIds.CURLFLOW -> SceneKind.CURL_FLOW
             sceneId == SceneIds.WATER -> SceneKind.WATER
-            sceneId == SceneIds.BEAM -> SceneKind.BEAM
             VisualStyleCatalog.isCymatics(sceneId) -> SceneKind.CYMATICS
             VisualStyleCatalog.life(sceneId) != null -> SceneKind.LIFE
             VisualStyleCatalog.myco(sceneId) != null -> SceneKind.MYCELIUM
@@ -106,8 +125,6 @@ object SceneCapabilities {
     fun isFluid(sceneId: String): Boolean = sceneId == SceneIds.FLUID
 
     fun isWater(sceneId: String): Boolean = sceneId == SceneIds.WATER
-
-    fun isBeam(sceneId: String): Boolean = sceneId == SceneIds.BEAM
 
     fun isCymatics(sceneId: String): Boolean = VisualStyleCatalog.isCymatics(sceneId)
 

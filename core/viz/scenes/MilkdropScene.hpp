@@ -39,6 +39,10 @@ public:
 
 private:
     static constexpr double kLoadDebounceSeconds = 0.4;
+    // How long a failed projectm_create() is left alone before the next attempt. ensureEngine()
+    // runs once per frame, so without a wait a context that cannot host the engine - the state a
+    // return from the background can leave behind - is retried sixty times a second forever.
+    static constexpr double kCreateRetrySeconds = 2.0;
     static constexpr int kDiagFrames = 90;
     static constexpr int kDiagWarmup = 20;
     static constexpr int kPcmCapacity = 8192;
@@ -52,7 +56,10 @@ private:
 
     static void onPresetSwitchFailed(const char* presetFilename, const char* message, void* userData);
     static double nowSeconds();
-    void ensureEngine();
+    void ensureEngine(double now);
+    // Re-queues the preset the scene last had on screen and clears the load debounce, so a
+    // freshly created engine loads it on the very next frame instead of waiting one window out.
+    void armLastPreset();
     void loadPendingPreset(double now);
     std::optional<std::string> takeError();
     void diagnoseBlackFrame();
@@ -68,6 +75,7 @@ private:
     int width_ = 0;
     int height_ = 0;
     bool reportedCreateFailure_ = false;
+    double lastCreateAttemptSeconds_ = 0.0;
     Framebuffer frame_{"milkdrop"};
     int engineWidth_ = 0;
     int engineHeight_ = 0;
@@ -90,6 +98,9 @@ private:
     std::string sharedTextureDir_;
     std::mutex errorLock_;
     std::string lastError_;
+    // The last message written to logcat, so a preset that fails on every frame it is retried
+    // writes one line rather than one line per frame. Guarded by errorLock_.
+    std::string lastLoggedError_;
 };
 
 }  // namespace geode::viz

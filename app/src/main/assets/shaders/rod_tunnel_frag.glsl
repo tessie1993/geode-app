@@ -6,6 +6,7 @@ in vec2 vUv;
 out vec4 fragColor;
 
 //#include lib_scene_uniforms
+//#include lib_scene_motion
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_sdf3
@@ -58,19 +59,23 @@ vec3 normalAt(vec3 p, float eps) {
 
 void main() {
     vec2 uv = view();
-    float bassA = min(uBass, 1.3);
-    float midA = min(uMid, 1.3);
-    float trebA = min(uTreble, 1.3);
-    float enA = min(uEnergy, 1.3);
-    float beatEnv = clamp(uBeat, 0.0, 1.0);
-    float beatBump = pow(0.5 + 0.5 * cos(ROD_TAU * uBeatPhase), 2.0);
-    float hit = beatEnv * beatEnv * beatBump;
+    float bassA = min(uBassSmooth, 1.3);
+    float midA = min(uMidSmooth, 1.3);
+    float trebA = min(uTrebleSmooth, 1.3);
+    float enA = min(uEnergySmooth, 1.3);
+    float hit = uSpike;
 
     gTwist = 0.25 + 0.55 * midA;
-    float fly = uTime * (1.4 + 2.2 * enA);
+    // The camera's distance down the tunnel, INTEGRATED rather than `uTime * rate`.
+    // Multiplying a running clock by a loudness-dependent rate does not speed the
+    // camera up, it teleports it: at t=60s a rate moving 1.4 -> 3.6 jumps the
+    // viewpoint 132 units down the tube in one frame. uFlowPhase only ever advances.
+    float fly = uFlowPhase * 9.0 + uTime * 1.4;
     vec3 ro = vec3(0.25 * sin(uTime * 0.31), 0.25 * cos(uTime * 0.23), fly);
     vec3 rd = normalize(vec3(uv, ROD_FOCAL));
     rd.xy = rot2(uTime * 0.08) * rd.xy;
+    // A spike banks the tunnel toward its new bearing; the turn glides in on the CPU.
+    rd.xy = flowBasis() * rd.xy;
 
     float t = 0.02;
     float hitT = -1.0;
@@ -119,6 +124,8 @@ void main() {
     }
     col += coreCol * (0.6 + 0.9 * bassA) * onAxis * 2.0 / (1.0 + 0.02 * tGlow * tGlow);
     col += coreCol * 0.06 * (0.6 + 0.9 * bassA) / (1.0 + dot(uv, uv) * 3.0);
+    // Sparks drifting between the rods, fading in with each new spawn.
+    col += mix(coreCol, vec3(1.0), 0.4) * fluidMotes(uv, 6.0, 0.13) * 0.18;
 
     if (!touchIdle()) {
         col += pal(0.5 + 0.15 * sin(uTime * 0.05)) * min(touchWake(uv), 3.0) * 0.05;

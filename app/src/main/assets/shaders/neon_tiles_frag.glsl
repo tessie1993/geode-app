@@ -6,6 +6,7 @@ in vec2 vUv;
 out vec4 fragColor;
 
 //#include lib_scene_uniforms
+//#include lib_scene_motion
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_sdf3
@@ -105,21 +106,22 @@ vec3 sphereLook(vec2 p, float R, float ior, float distort) {
 
 void main() {
     vec2 uv = view();
-    float bassA = min(uBass, 1.3);
-    float midA = min(uMid, 1.3);
-    float trebA = min(uTreble, 1.3);
-    float enA = min(uEnergy, 1.3);
-    float beatEnv = clamp(uBeat, 0.0, 1.0);
-    float beatBump = pow(0.5 + 0.5 * cos(NEON_TAU * uBeatPhase), 2.0);
-    float hit = beatEnv * beatEnv * beatBump;
+    float bassA = min(uBassSmooth, 1.3);
+    float midA = min(uMidSmooth, 1.3);
+    float trebA = min(uTrebleSmooth, 1.3);
+    float enA = min(uEnergySmooth, 1.3);
+    float hit = uSpike;
 
     gWidth = mix(0.012, 0.035, clamp(trebA, 0.0, 1.0));
-    gFolds = (uKaleido > 0.5 && uSymmetry >= 2.0) ? uSymmetry : 6.0;
+    // A spike re-tiles the hall: 4, 6 or 8 arms, held until the next one.
+    gFolds = (uKaleido > 0.5 && uSymmetry >= 2.0) ? uSymmetry : 4.0 + 2.0 * floor(uFormPhase * 3.0);
 
     vec2 m = vec2(abs(uv.x), uv.y);
-    m = rot2(uTime * 0.05 * (0.5 + midA)) * m;
+    // Integrated spin: `uTime * rate(mid)` jumps the whole hall round whenever the
+    // mid band moves, which is the snapping this style was worst for.
+    m = rot2(uFlowPhase * 1.6 + uTime * 0.03) * m;
     vec2 q = kaleido(m, gFolds);
-    vec3 col = patternOnPlane(q + vec2(uTime * 0.03, 0.0));
+    vec3 col = patternOnPlane(fluidWarp(q, 1.3, 0.05) + flowOffset(0.5));
 
     float R = 0.55 + 0.12 * hit * clamp(uBeatResponse, 0.0, 2.0);
     float distort = 1.0 + 0.8 * bassA;
@@ -131,6 +133,7 @@ void main() {
 
     col = floor(col * NEON_LEVELS + 0.5) / NEON_LEVELS;
     col += (0.25 + 0.4 * enA) * col * col;
+    col += pal(0.75) * fluidMotes(uv * 0.9, 5.5, 0.15) * 0.2;
     if (!touchIdle()) {
         col += pal(0.5 + 0.15 * sin(uTime * 0.05)) * min(touchWake(uv), 3.0) * 0.05;
     }

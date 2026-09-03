@@ -17,7 +17,7 @@ enum class ParamScope {
     /** Applied to the final frame by the composite pass, so every style honours it. */
     UNIVERSAL,
 
-    /** The scene clock. MilkDrop presets pace themselves and Beam draws the signal directly. */
+    /** The scene clock. MilkDrop presets pace themselves and read none of it. */
     SCENE_CLOCK,
 
     /** Scales the band/level envelopes a scene reads. MilkDrop takes raw PCM instead. */
@@ -29,7 +29,7 @@ enum class ParamScope {
 
     TREBLE_BAND,
 
-    /** Reads at least one band envelope. Beam and MilkDrop take raw PCM and read none. */
+    /** Reads at least one band envelope. MilkDrop takes raw PCM and reads none. */
     BAND_GAINS,
 
     /** Lives in the shader-scene fragment programs (morph, dual palette, colour map, duotone). */
@@ -80,8 +80,6 @@ enum class ParamScope {
 
     CYMATICS,
 
-    BEAM,
-
     /** The standalone FlowField sim. Fluid drives the field from its own solver instead. */
     FLOW_FIELD_SIM,
 
@@ -101,7 +99,7 @@ enum class ParamScope {
     fun appliesTo(kind: SceneKind): Boolean =
         when (this) {
             UNIVERSAL -> true
-            SCENE_CLOCK -> kind != SceneKind.MILKDROP && kind != SceneKind.BEAM
+            SCENE_CLOCK -> kind != SceneKind.MILKDROP
             AUDIO_DRIVE -> kind != SceneKind.MILKDROP
             BASS_BAND -> kind in BASS_READERS
             MID_BAND -> kind in MID_READERS
@@ -115,8 +113,8 @@ enum class ParamScope {
             TURBULENCE -> kind in TURBULENCE_READERS
             DYE_DENSITY -> kind == SceneKind.FLUID
             TRAIL_TOGGLE -> kind == SceneKind.SILK || kind == SceneKind.CURL_FLOW
-            TRAIL_LENGTH -> kind == SceneKind.SILK || kind == SceneKind.CURL_FLOW || kind == SceneKind.BEAM
-            TRAIL_ECHO -> kind == SceneKind.CURL_FLOW || kind == SceneKind.BEAM
+            TRAIL_LENGTH -> kind == SceneKind.SILK || kind == SceneKind.CURL_FLOW
+            TRAIL_ECHO -> kind == SceneKind.CURL_FLOW
             PARTICLE_SPRITE -> kind == SceneKind.FLUID || kind == SceneKind.CURL_FLOW
             MILKDROP -> kind == SceneKind.MILKDROP
             FLUID_SIM -> kind == SceneKind.FLUID
@@ -124,7 +122,6 @@ enum class ParamScope {
             JOURNEY -> kind == SceneKind.FLUID || kind == SceneKind.CURL_FLOW || kind == SceneKind.WATER
             WATER -> kind == SceneKind.WATER
             CYMATICS -> kind == SceneKind.CYMATICS
-            BEAM -> kind == SceneKind.BEAM
             FLOW_FIELD_SIM -> kind != SceneKind.FLUID
             RIPPLE_OVERLAY -> kind != SceneKind.WATER
         }
@@ -282,11 +279,10 @@ enum class ParamScope {
                     ParamKeys.IRIDESCENCE,
                     ParamKeys.CAUSTIC_SHEEN,
                 )
-                scoped(BEAM, ParamKeys.XY_PLOT, ParamKeys.BEAM_WIDTH, ParamKeys.BEAM_BRIGHTNESS, ParamKeys.BEAM_TAIL)
             }
 
-        // Per-band gain only reaches a style that reads that band's envelope. Beam and MilkDrop
-        // consume raw PCM and never look at bass/mid/treble at all.
+        // Per-band gain only reaches a style that reads that band's envelope. MilkDrop
+        // consumes raw PCM and never looks at bass/mid/treble at all.
         private val BASS_READERS =
             setOf(
                 SceneKind.SHADER,

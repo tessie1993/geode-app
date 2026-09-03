@@ -12,6 +12,7 @@ out vec4 fragColor;
 // block/aband/awave/view() first, then the palette, then grade() - which calls
 // pal() and so must come after it.
 //#include lib_scene_uniforms
+//#include lib_scene_motion
 //#include lib_palette
 //#include lib_scene_grade
 // The 3D toolkit and the touch helpers, already wired so a style author never
@@ -502,11 +503,14 @@ void main() {
     // Clamped at 1.5 because that is the documented top of the auto-gained
     // range; a transient past it would push the cloud outside its own
     // bounding sphere, which the march would then clip.
-    float bass = clamp(uBass, 0.0, 1.5);
-    float mid = clamp(uMid, 0.0, 1.5);
-    float treble = clamp(uTreble, 0.0, 1.5);
-    float energy = clamp(uEnergy, 0.0, 1.5);
-    float beatEnv = clamp(uBeat, 0.0, 1.0);
+    // Read off the slew-limited companions in lib_scene_motion, not the raw
+    // envelopes. Same range and same meaning; the difference is that no single
+    // frame can move one of them far, so nothing structural below can snap.
+    float bass = clamp(uBassSmooth, 0.0, 1.5);
+    float mid = clamp(uMidSmooth, 0.0, 1.5);
+    float treble = clamp(uTrebleSmooth, 0.0, 1.5);
+    float energy = clamp(uEnergySmooth, 0.0, 1.5);
+    float beatEnv = clamp(uSpike, 0.0, 1.0);
 
     float radius = NEB_RADIUS * (1.0 + NEB_BASS_INFLATE * bass);
     float extinction = NEB_EXTINCTION * (1.0 + NEB_BASS_EXTINCT * bass);

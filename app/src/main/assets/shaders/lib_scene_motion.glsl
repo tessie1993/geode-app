@@ -190,3 +190,62 @@ float fluidMotes(vec2 p, float density, float size) {
     float alive = step(0.62, seed);
     return mote * alive * (0.35 + 0.65 * seed) * (0.5 + 0.9 * uTrebleSmooth) * spawnGrow(0.9);
 }
+
+// ---- the 3D half: a divergence-free flow a raymarch can afford --------------
+//
+// curlVelocity() above differentiates a noise field, which costs four fbm
+// evaluations. That is fine once per pixel and ruinous inside a march loop,
+// where map() runs up to 128 times per ray.
+//
+// So the 3D field is analytic instead: the Arnold-Beltrami-Childress flow, a
+// steady solution of the Euler equations. Each component depends only on the
+// OTHER two coordinates, so every term of the divergence is identically zero -
+// it is exactly incompressible by construction, not approximately so, and it
+// costs six trig calls rather than four fbm evaluations.
+//
+// Being divergence-free is what makes it look like a fluid rather than like a
+// noise warp: incompressible flow folds and shears material without ever
+// compressing it into the hard bright knots a plain gradient displacement
+// produces.
+vec3 abcFlow(vec3 p) {
+    return vec3(sin(p.z) + cos(p.y),
+                sin(p.x) + cos(p.z),
+                sin(p.y) + cos(p.x));
+}
+
+/**
+ * Advects a point through the flow. `scale` is the eddy size (larger is
+ * finer), `amount` the displacement in world units.
+ *
+ * Two applications rather than one: a single pass of a steady field only bends
+ * space, while feeding the result back in folds it, which is what turns a
+ * smooth swirl into something that reads as stirred.
+ *
+ * The whole field drifts along the current travel direction, so a spike
+ * re-aims the flow rather than restarting it.
+ */
+vec3 fluidWarp3(vec3 p, float scale, float amount) {
+    vec3 drift = vec3(uMoveDir * (uFlowPhase * 0.30), uFlowPhase * 0.18);
+    vec3 q = p + amount * abcFlow(p * scale + drift);
+    return q + amount * 0.55 * abcFlow(q * scale * 2.07 + drift * 1.4 + 3.1);
+}
+
+/**
+ * Upper bound on fluidWarp3's Jacobian norm - divide a distance estimate
+ * measured in warped space by this before stepping a ray, exactly as
+ * touchWarpLipschitz() is used.
+ *
+ * WHY THIS NUMBER. The Jacobian of abcFlow has two non-zero entries per row,
+ * each a sine or cosine and so at most 1 in magnitude, giving a row-sum
+ * (infinity) norm of at most 2. One application of `p + a * abcFlow(p * s)`
+ * therefore has norm at most 1 + 2*a*s, and the second application at 0.55 the
+ * amplitude and 2.07 the scale composes multiplicatively.
+ *
+ * It is a bound, not the true norm, so it is conservative: the march takes
+ * shorter steps than it strictly must. That is the correct direction to be
+ * wrong in - an overestimated step walks the ray through the surface, which is
+ * the one failure a distance march cannot recover from.
+ */
+float fluidWarp3Lipschitz(float scale, float amount) {
+    return (1.0 + 2.0 * amount * scale) * (1.0 + 2.0 * 0.55 * amount * 2.07 * scale);
+}

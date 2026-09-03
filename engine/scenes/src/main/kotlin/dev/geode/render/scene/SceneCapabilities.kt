@@ -74,12 +74,16 @@ object SceneCapabilities {
             SceneIds.SPIRAL_EYE to "shaders/spiral_eye_frag.glsl",
             SceneIds.BLACKLIGHT_BLOOM to "shaders/blacklight_bloom_frag.glsl",
             SceneIds.FRACTAL_TEMPLE to "shaders/fractal_temple_frag.glsl",
+            // The two that put the fluid into 3D: both march, so unlike the four
+            // above they DO spend the Detail budget and both join MARCHED_SCENES.
+            SceneIds.CURL_BLOOM to "shaders/curl_bloom_frag.glsl",
+            SceneIds.NECTAR_FLOW to "shaders/nectar_flow_frag.glsl",
         )
 
     /**
      * The fragment styles that raymarch, and so spend the [MarchBudget] the Detail control sets.
      *
-     * A per-STYLE set rather than a [SceneKind], because only six of the 37 shader styles march;
+     * A per-STYLE set rather than a [SceneKind], because only eight of the 39 shader styles march;
      * scoping Detail to `SceneKind.SHADER` would put a dead slider in front of anyone looking at
      * Plasma, which is exactly what [ParamScope]'s no-dead-controls rule exists to prevent.
      */
@@ -91,6 +95,10 @@ object SceneCapabilities {
             SceneIds.NONEUCLID,
             SceneIds.KIFS,
             SceneIds.ROD_TUNNEL,
+            // Curl Bloom marches a distance field; Nectar Flow marches a volume.
+            // Different loops, but Detail is the budget for both.
+            SceneIds.CURL_BLOOM,
+            SceneIds.NECTAR_FLOW,
         )
 
     /**

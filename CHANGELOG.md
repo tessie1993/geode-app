@@ -11,6 +11,43 @@ a partial reconstruction, rebuilt from the references in these entries, is at
 
 ## Unreleased
 
+- **Two more styles that put the fluid into three dimensions** (Styles >
+  Shaders, ids `curl_bloom`, `nectar_flow`). Both are raymarched, so unlike the
+  four flat styles below they DO spend the Detail budget and both join
+  `MARCHED_SCENES`. *Curl Bloom* is one solid body that is continuously
+  changing what it is - sphere into octahedron into torus into box and round to
+  the sphere again - while the space it sits in is being stirred, so the
+  surface is always folding through itself. The morph costs the march nothing:
+  the four primitives sit on a closed ring and neighbouring pairs are blended
+  with `mix()`, which is a convex combination of two 1-Lipschitz functions and
+  so is itself 1-Lipschitz, meaning every intermediate shape is exactly as
+  marchable as the two it lies between. *Nectar Flow* is a volume rather than a
+  surface: luminous dye wrapped around a fold-and-scale skeleton, stirred by
+  the same flow, with the camera flying through it. The fold decides where the
+  light is and the flow decides how it moves, which is the pairing the style
+  exists for - a fractal fold alone is rigid and obviously synthetic, an
+  incompressible flow alone has no structure to show off.
+
+  `lib_scene_motion` gains the 3D half of the fluid to support them.
+  `curlVelocity()` differentiates a noise field, which costs four fbm
+  evaluations - acceptable once per pixel and ruinous inside a march loop where
+  `map()` runs up to 128 times per ray. So the 3D field is analytic instead:
+  `abcFlow()`, the Arnold-Beltrami-Childress flow, a steady solution of the
+  Euler equations whose every component depends only on the other two
+  coordinates, making its divergence identically zero by construction rather
+  than approximately zero, at a cost of six trig calls. `fluidWarp3()` folds it
+  by applying it twice, and `fluidWarp3Lipschitz()` returns the bound a surface
+  march must divide its distance estimate by - derived from the row-sum norm of
+  the flow's Jacobian, which has two entries per row each at most 1, so one
+  application is bounded by `1 + 2*amount*scale`. It is a bound and not the
+  true norm, so the march takes shorter steps than it strictly must; that is
+  the correct direction to be wrong in, because an overestimated step walks the
+  ray through the surface and a distance march cannot recover from that.
+  Nectar Flow needs none of it - a fixed-step volume loop has no estimate to
+  overshoot, the same reasoning `nebula_frag` sets out for its own volume
+  march - which is also why its domain can be folded as violently as it is.
+  One built-in preset each (Stirred, Through It).
+
 - **Four new fragment styles from the reference clips** (Styles > Shaders, ids
   `merkaba_grid`, `spiral_eye`, `blacklight_bloom`, `fractal_temple`).
   *Merkaba Grid* is a cathedral of sacred geometry: a triangulated web filling

@@ -44,4 +44,6 @@ object SceneIds {
     const val SPIRAL_EYE: String = "spiral_eye"
     const val BLACKLIGHT_BLOOM: String = "blacklight_bloom"
     const val FRACTAL_TEMPLE: String = "fractal_temple"
+    const val CURL_BLOOM: String = "curl_bloom"
+    const val NECTAR_FLOW: String = "nectar_flow"
 }

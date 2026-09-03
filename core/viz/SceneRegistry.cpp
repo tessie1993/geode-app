@@ -19,13 +19,14 @@ namespace geode::viz {
 namespace {
 
 // Port of SceneCapabilities.SHADER_SCENES: id -> shaders/<id>_frag.glsl, in the catalog's order.
-constexpr std::array<const char*, 37> kShaderIds = {
+constexpr std::array<const char*, 39> kShaderIds = {
     "julia",     "tunnel",  "mandel",    "kaleido",   "plasma",    "bars",       "ring",      "scope",
     "liss",      "warp",    "grid",      "voronoi",   "metaballs", "ripples",    "starfield", "waves",
     "hexgrid",   "spiral",  "aurora",    "solar",     "winter",    "lava",       "vanishing", "morphogen",
     "nebula",    "noneuclid", "kifs",    "orb_lattice", "rod_tunnel", "neon_tiles",
     "chroma_orb", "mandala_dome", "bead_vortex",
     "merkaba_grid", "spiral_eye", "blacklight_bloom", "fractal_temple",
+    "curl_bloom", "nectar_flow",
 };
 
 constexpr const char* kMilkdrop = "milkdrop";

@@ -312,6 +312,38 @@ object BuiltInPresets {
                     ),
             ),
             Preset(
+                name = "curl_bloom · Stirred",
+                sceneId = dev.geode.render.scene.SceneIds.CURL_BLOOM,
+                attack = 0.5f,
+                decay = 0.15f,
+                customShader = null,
+                params =
+                    SceneParams(
+                        speed = 0.7f,
+                        audioDrive = 1.15f,
+                        beatResponse = 1.2f,
+                        marchDetail = 1.0f,
+                        bloom = 0.35f,
+                        contrast = 1.1f,
+                    ),
+            ),
+            Preset(
+                name = "nectar_flow · Through It",
+                sceneId = dev.geode.render.scene.SceneIds.NECTAR_FLOW,
+                attack = 0.6f,
+                decay = 0.18f,
+                customShader = null,
+                params =
+                    SceneParams(
+                        speed = 0.85f,
+                        audioDrive = 1.25f,
+                        beatResponse = 1.2f,
+                        marchDetail = 1.1f,
+                        bloom = 0.45f,
+                        saturation = 1.15f,
+                    ),
+            ),
+            Preset(
                 name = "merkaba_grid · Sanctum",
                 sceneId = dev.geode.render.scene.SceneIds.MERKABA_GRID,
                 attack = 0.5f,

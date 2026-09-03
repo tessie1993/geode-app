@@ -6,6 +6,7 @@ in vec2 vUv;
 out vec4 fragColor;
 
 //#include lib_scene_uniforms
+//#include lib_scene_motion
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_touch
@@ -62,13 +63,18 @@ Strand strands(vec2 t, float count, float beadPulse, vec3 light) {
 float disc(vec2 g, float radius) { return smoothstep(radius, radius * 0.4, length(g)); }
 
 void main() {
-    vec2 uv = view();
+    // Advected before anything is measured off it, so the whole vortex leans the way
+    // the last spike aimed rather than sitting dead centre.
+    vec2 uv = fluidWarp(view(), 1.0, 0.06);
     float r = max(length(uv), 1e-4);
     float a = atan(uv.y, uv.x);
-    float energy = clamp(uEnergy, 0.0, 1.5);
-    float beat = clamp(uBeat * uBeatResponse, 0.0, 1.0);
-    float beadPulse = clamp(uBass * uBeatResponse, 0.0, 1.5) + touchFalloff(uv, 0.5);
-    float travel = uTime * (0.9 + 0.5 * energy);
+    float energy = clamp(uEnergySmooth, 0.0, 1.5);
+    float beat = clamp(uSpike * uBeatResponse, 0.0, 1.0);
+    float beadPulse = clamp(uBassSmooth * uBeatResponse, 0.0, 1.5) + touchFalloff(uv, 0.5);
+    // Was `uTime * (0.9 + 0.5 * energy)`: the whole strand length is a function of
+    // travel, so a change in the rate slid every bead down the tunnel at once. The
+    // integrated phase changes speed without moving anything.
+    float travel = uFlowPhase * 4.0 + uTime * 0.9;
     // 1/r depth, on a log scale so a bead near the rim and one near the core
     // shrink with perspective instead of stretching.
     float depth = log(0.32 / r);
@@ -101,5 +107,6 @@ void main() {
     float sunRings = 0.6 + 0.4 * sin(r * 110.0 - travel * 2.0);
     float halo = exp(-r * 11.0) * sunRings;
     col += vec3(1.0, 0.96, 0.75) * core * 2.6 + vec3(1.0, 0.82, 0.4) * halo * (0.5 + 0.5 * beat);
+    col += vec3(1.0, 0.9, 0.7) * fluidMotes(uv * 1.1, 6.0, 0.14) * 0.25 * hazeAmt;
     fragColor = vec4(grade(col), 1.0);
 }

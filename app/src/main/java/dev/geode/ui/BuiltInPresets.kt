@@ -312,6 +312,70 @@ object BuiltInPresets {
                     ),
             ),
             Preset(
+                name = "merkaba_grid · Sanctum",
+                sceneId = dev.geode.render.scene.SceneIds.MERKABA_GRID,
+                attack = 0.5f,
+                decay = 0.14f,
+                customShader = null,
+                params =
+                    SceneParams(
+                        speed = 0.7f,
+                        audioDrive = 1.15f,
+                        beatResponse = 1.2f,
+                        bloom = 0.4f,
+                        contrast = 1.1f,
+                        vignette = 0.35f,
+                    ),
+            ),
+            Preset(
+                name = "spiral_eye · Event Horizon",
+                sceneId = dev.geode.render.scene.SceneIds.SPIRAL_EYE,
+                attack = 0.55f,
+                decay = 0.16f,
+                customShader = null,
+                params =
+                    SceneParams(
+                        speed = 0.9f,
+                        audioDrive = 1.3f,
+                        beatResponse = 1.25f,
+                        bloom = 0.45f,
+                        contrast = 1.15f,
+                        bassGain = 1.2f,
+                    ),
+            ),
+            Preset(
+                name = "blacklight_bloom · UV Ink",
+                sceneId = dev.geode.render.scene.SceneIds.BLACKLIGHT_BLOOM,
+                attack = 0.45f,
+                decay = 0.12f,
+                customShader = null,
+                params =
+                    SceneParams(
+                        speed = 0.75f,
+                        audioDrive = 1.15f,
+                        beatResponse = 1.15f,
+                        bloom = 0.35f,
+                        saturation = 1.25f,
+                        contrast = 1.1f,
+                    ),
+            ),
+            Preset(
+                name = "fractal_temple · Causeway",
+                sceneId = dev.geode.render.scene.SceneIds.FRACTAL_TEMPLE,
+                attack = 0.5f,
+                decay = 0.14f,
+                customShader = null,
+                params =
+                    SceneParams(
+                        speed = 0.8f,
+                        audioDrive = 1.2f,
+                        beatResponse = 1.2f,
+                        bloom = 0.4f,
+                        saturation = 1.1f,
+                        vignette = 0.3f,
+                    ),
+            ),
+            Preset(
                 name = "bead_vortex · Corkscrew",
                 sceneId = dev.geode.render.scene.SceneIds.BEAD_VORTEX,
                 attack = 0.6f,

@@ -44,7 +44,7 @@
       "upstreamName": "Beam",
       "family": "sdf-volumetric",
       "disposition": "MERGE",
-      "rationale": "Existing `beam` scene ID; volumetric light shafts belong with the raymarch library.",
+      "rationale": "Volumetric light shafts belong with the raymarch library. The `beam` scene ID this once pointed at has been removed; nothing depends on it.",
       "recipeId": null,
       "tests": null,
       "screenshots": null,

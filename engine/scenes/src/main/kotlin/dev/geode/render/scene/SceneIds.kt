@@ -29,7 +29,6 @@ object SceneIds {
     const val CURLFLOW: String = "curlflow"
     const val WATER: String = "water"
     const val CYMATICS: String = "cymatics"
-    const val BEAM: String = "beam"
     const val VANISHING: String = "vanishing"
     const val MORPHOGEN: String = "morphogen"
     const val NEBULA: String = "nebula"
@@ -41,4 +40,8 @@ object SceneIds {
     const val CHROMA_ORB: String = "chroma_orb"
     const val MANDALA_DOME: String = "mandala_dome"
     const val BEAD_VORTEX: String = "bead_vortex"
+    const val MERKABA_GRID: String = "merkaba_grid"
+    const val SPIRAL_EYE: String = "spiral_eye"
+    const val BLACKLIGHT_BLOOM: String = "blacklight_bloom"
+    const val FRACTAL_TEMPLE: String = "fractal_temple"
 }

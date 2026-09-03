@@ -6,6 +6,7 @@ in vec2 vUv;
 out vec4 fragColor;
 
 //#include lib_scene_uniforms
+//#include lib_scene_motion
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_touch
@@ -130,11 +131,14 @@ vec3 dome(vec2 uv, vec2 centre, float r, float freq, float spin, float glow, flo
 
 void main() {
     vec2 uv = view();
-    float beat = clamp(uBeat * uBeatResponse, 0.0, 1.0);
-    float breathe = 1.0 + 0.05 * clamp(uBass * uBeatResponse, 0.0, 1.5);
-    float glow = 0.5 * beat + 0.4 * uTreble;
+    float beat = clamp(uSpike * uBeatResponse, 0.0, 1.0);
+    float breathe = 1.0 + 0.05 * clamp(uBassSmooth * uBeatResponse, 0.0, 1.5);
+    // uTreble straight into a glow term was the flash: a cymbal took the whole hall
+    // to white on one frame. Both halves are slew-limited now.
+    float glow = 0.5 * beat + 0.4 * uTrebleSmooth;
     float split = 0.012 + 0.012 * beat;
-    float spin = uTime * 0.05 * (0.5 + uEnergy);
+    // Integrated spin: energy sets the rate, never the angle.
+    float spin = uFlowPhase * 0.5 + uTime * 0.025;
     float finger = touchFalloff(uv, 0.5);
 
     // Mirror left/right: the reference is a symmetric hall, not a plane.
@@ -142,8 +146,8 @@ void main() {
 
     // The flat field: a plane receding toward the top, drifting slowly.
     float persp = 1.0 / (1.15 - 0.35 * m.y);
-    vec2 field = m * persp * 3.1 * breathe + vec2(0.0, uTime * 0.04);
-    vec3 col = tapestry(field, glow, split);
+    vec2 field = m * persp * 3.1 * breathe + flowOffset(0.5);
+    vec3 col = tapestry(fluidWarp(field, 0.9, 0.07), glow, split);
     col *= 0.7 + 0.3 * persp;
 
     // Side domes, then the centre sphere on top.
@@ -155,5 +159,7 @@ void main() {
 
     // A halo under the sphere so it reads as lit from within.
     col += pal(0.5) * 0.12 * exp(-max(length(uv) - 0.44, 0.0) * 6.0) * (0.6 + 0.4 * beat);
+    // Motes drifting through the hall, each new spawn fading in over a second.
+    col += pal(0.72) * fluidMotes(uv, 5.0, 0.16) * 0.2;
     fragColor = vec4(grade(col), 1.0);
 }

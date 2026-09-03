@@ -142,10 +142,6 @@ struct SceneParams {
     float cymaticsCaustic = 0.8f;
     float cymaticsFlow = 0.35f;
     float cymaticsSwirl = 0.05f;
-    bool beamXy = false;
-    float beamWidth = 1.0f;
-    float beamIntensity = 1.0f;
-    float beamTail = 0.35f;
     bool rippleOverlayEnabled = false;
     float rippleOverlayStrength = 0.4f;
     float rippleOverlaySpecular = 0.3f;
@@ -172,7 +168,7 @@ struct SceneParams {
     static const std::array<FloatField, 98>& lerpedFloats();
 
     // Every field in declaration order; the wire order of geode_viz_set_params.
-    static constexpr int kFieldCount = 138;
+    static constexpr int kFieldCount = 134;
     static const std::array<const char*, kFieldCount>& fieldNames();
 
     // Sets a field by its Kotlin property name; ints and bools are taken from the float's value.

@@ -216,16 +216,6 @@ internal fun ShapeTab(
     onChange: (SceneParams) -> Unit,
 ) {
     Column {
-        SectionHeader("Beam", ParamScope.BEAM)
-        ControlHint(
-            "The trace is drawn as a real beam: brightness comes from how long the beam " +
-                "dwells, so it glows where the signal turns and dims through fast sweeps.",
-            ParamScope.BEAM,
-        )
-        CheckRow(ParamKeys.XY_PLOT, p.beamXy) { onChange(p.copy(beamXy = it)) }
-        LabeledSlider(ParamKeys.BEAM_WIDTH, p.beamWidth, 0.2f..4f) { onChange(p.copy(beamWidth = it)) }
-        LabeledSlider(ParamKeys.BEAM_BRIGHTNESS, p.beamIntensity, 0f..3f) { onChange(p.copy(beamIntensity = it)) }
-        LabeledSlider(ParamKeys.BEAM_TAIL, p.beamTail, 0f..1f) { onChange(p.copy(beamTail = it)) }
         SectionHeader("Distortion")
         LabeledSlider(ParamKeys.DOMAIN_WARP, p.warp, 0f..1f) { onChange(p.copy(warp = it)) }
         LabeledSlider(ParamKeys.RIPPLE, p.ripple, 0f..1f) { onChange(p.copy(ripple = it)) }

@@ -124,9 +124,6 @@ const std::array<SceneParams::FloatField, 98>& SceneParams::lerpedFloats() {
         {"cymaticsCaustic", &SceneParams::cymaticsCaustic},
         {"cymaticsFlow", &SceneParams::cymaticsFlow},
         {"cymaticsSwirl", &SceneParams::cymaticsSwirl},
-        {"beamWidth", &SceneParams::beamWidth},
-        {"beamIntensity", &SceneParams::beamIntensity},
-        {"beamTail", &SceneParams::beamTail},
         {"rippleOverlayStrength", &SceneParams::rippleOverlayStrength},
         {"rippleOverlaySpecular", &SceneParams::rippleOverlaySpecular},
     }};
@@ -172,7 +169,6 @@ bool SceneParams::set(std::string_view name, float value) {
         {"fluidBloom", &SceneParams::fluidBloom},
         {"fluidSunrays", &SceneParams::fluidSunrays},
         {"flowEnabled", &SceneParams::flowEnabled},
-        {"beamXy", &SceneParams::beamXy},
         {"rippleOverlayEnabled", &SceneParams::rippleOverlayEnabled},
     };
     static const FloatField kAllFloats[] = {
@@ -274,9 +270,6 @@ bool SceneParams::set(std::string_view name, float value) {
         {"cymaticsCaustic", &SceneParams::cymaticsCaustic},
         {"cymaticsFlow", &SceneParams::cymaticsFlow},
         {"cymaticsSwirl", &SceneParams::cymaticsSwirl},
-        {"beamWidth", &SceneParams::beamWidth},
-        {"beamIntensity", &SceneParams::beamIntensity},
-        {"beamTail", &SceneParams::beamTail},
         {"rippleOverlayStrength", &SceneParams::rippleOverlayStrength},
         {"rippleOverlaySpecular", &SceneParams::rippleOverlaySpecular},
     };

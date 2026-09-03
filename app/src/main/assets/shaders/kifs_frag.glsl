@@ -12,6 +12,7 @@ out vec4 fragColor;
 // block/aband/awave/view() first, then the palette, then grade() - which calls
 // pal() and so must come after it.
 //#include lib_scene_uniforms
+//#include lib_scene_motion
 //#include lib_palette
 //#include lib_scene_grade
 // The 3D toolkit and the touch helpers, already wired so a style author never
@@ -481,17 +482,16 @@ void main() {
     // Clamped once. The audio uniforms are 0..1.5 and auto-gained; the ceiling
     // stops a loud transient from taking a coefficient somewhere its constant
     // was not chosen for.
-    float bassA = min(uBass, 1.3);
-    float midA = min(uMid, 1.3);
-    float trebA = min(uTreble, 1.3);
-    float enA = min(uEnergy, 1.3);
+    // Read off the slew-limited companions in lib_scene_motion, not the raw
+    // envelopes. Same range and same meaning; the difference is that no single
+    // frame can move one of them far, so nothing structural below can snap.
+    float bassA = min(uBassSmooth, 1.3);
+    float midA = min(uMidSmooth, 1.3);
+    float trebA = min(uTrebleSmooth, 1.3);
+    float enA = min(uEnergySmooth, 1.3);
 
-    // The house beat idiom: the ramp's bump times the SQUARED envelope, so it
-    // peaks exactly on the heard transient and is silent between hits rather
-    // than throbbing through silence at whatever the phase clock free-runs at.
-    float beatEnv = clamp(uBeat, 0.0, 1.0);
-    float beatBump = pow(0.5 + 0.5 * cos(KIFS_TAU * uBeatPhase), 2.0);
-    float hit = beatEnv * beatEnv * beatBump;
+    // uSpike: the same accent, with a rise, and already silent between hits.
+    float hit = uSpike;
 
     // ---- camera -----------------------------------------------------------
     //

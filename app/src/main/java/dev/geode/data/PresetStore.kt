@@ -268,10 +268,6 @@ class PresetStore(
                 .put("waterLiquidFlow", p.params.waterLiquidFlow.toDouble())
                 .put("waterLiquidFade", p.params.waterLiquidFade.toDouble())
                 .put("paletteLut", p.params.paletteLut)
-                .put("beamXy", p.params.beamXy)
-                .put("beamWidth", p.params.beamWidth.toDouble())
-                .put("beamIntensity", p.params.beamIntensity.toDouble())
-                .put("beamTail", p.params.beamTail.toDouble())
                 .put("cymaticsGeometry", p.params.cymaticsGeometry)
                 .put("cymaticsFundamental", p.params.cymaticsFundamental.toDouble())
                 .put("cymaticsModes", p.params.cymaticsModes)
@@ -460,10 +456,6 @@ class PresetStore(
                         waterLiquidFlow = o.optDouble("waterLiquidFlow", 1.4).toFloat(),
                         waterLiquidFade = o.optDouble("waterLiquidFade", 0.35).toFloat(),
                         paletteLut = o.optInt("paletteLut", SceneParams.NO_PALETTE_LUT),
-                        beamXy = o.optBoolean("beamXy", false),
-                        beamWidth = o.optDouble("beamWidth", 1.0).toFloat(),
-                        beamIntensity = o.optDouble("beamIntensity", 1.0).toFloat(),
-                        beamTail = o.optDouble("beamTail", 0.35).toFloat(),
                         cymaticsGeometry = o.optInt("cymaticsGeometry", 0),
                         cymaticsFundamental = o.optDouble("cymaticsFundamental", 110.0).toFloat(),
                         cymaticsModes = o.optInt("cymaticsModes", 5),

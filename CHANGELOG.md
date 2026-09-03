@@ -11,6 +11,104 @@ a partial reconstruction, rebuilt from the references in these entries, is at
 
 ## Unreleased
 
+- **Four new fragment styles from the reference clips** (Styles > Shaders, ids
+  `merkaba_grid`, `spiral_eye`, `blacklight_bloom`, `fractal_temple`).
+  *Merkaba Grid* is a cathedral of sacred geometry: a triangulated web filling
+  the depth, wire-frame geodesic spheres along the floor, star tetrahedra
+  hanging in the field with a glint at every vertex, and a column of light up
+  the middle that blooms where it leaves the hall. *Spiral Eye* winds a
+  turbulent cloud into a logarithmic spiral and streaks it outward - the dye is
+  sampled six times along the radial pull, which is a motion blur that costs no
+  buffer - with a small iridescent mandala burning at the centre. *Blacklight
+  Bloom* is a dense mirrored tapestry in violet and magenta, drawn three times a
+  hair apart so every edge carries cyan and green fringes, with spiral discs and
+  wire tetrahedra floating in front and a soap bubble refracting the tapestry
+  through the middle. *Fractal Temple* closes a triangulated dome overhead, hangs
+  a ring of neon lamps under it and runs a stepped causeway out to the horizon
+  between two rows of filigree spires. Each pairs its own structure with the
+  curl-advected dye and the drifting mote layer described below, so the fluid is
+  part of the style rather than something the composite adds afterwards. All
+  four are 2D perspective constructions, so none of them spends the Detail march
+  budget. One built-in preset per style (Sanctum, Event Horizon, UV Ink,
+  Causeway).
+
+- **Audio response reworked across every fragment style: smooth, and a
+  transient now means a change of state rather than a flash.** A fragment
+  shader has no frame-to-frame state, so it cannot smooth anything itself;
+  every style was therefore multiplying its structure straight by a raw band
+  envelope that is free to move 0 -> 1 between two frames. The smoothing now
+  lives in `ShaderScene::stepMotion` on the C++ side and arrives as uniforms,
+  documented in the new `app/src/main/assets/shaders/lib_scene_motion.glsl`:
+
+  - `uBassSmooth`, `uMidSmooth`, `uTrebleSmooth`, `uEnergySmooth` are the
+    slew-limited companions to the raw envelopes - same range, same meaning,
+    but an 8 Hz one-pole covers about 13% of the gap in a 60fps frame, so a
+    band spiking 0 -> 1 in one frame moves these by 0.13 rather than by 1.
+    `uSwell` is slower again: how loud this passage is, not what just happened
+    in it.
+  - `uSpike` replaces the `beatEnv * beatEnv * beatBump` idiom wherever that
+    idiom drove brightness. It is the same accent with a ~120ms rise on it, so
+    it physically cannot reach its peak inside one frame.
+  - A transient no longer moves the picture, it moves a DESTINATION, and the
+    value the style reads glides there over most of a second. There are three,
+    and they are the three things a spike is allowed to mean: `uMoveDir` (a new
+    travel direction - a bounded turn, never a reversal), `uSpawnSeed` with
+    `uSpawnAge` (a new spawn, with an age to grow it in from nothing) and
+    `uFormPhase` (a new fractal - the next plateau on a golden-ratio walk, so
+    consecutive spikes always land visibly apart instead of dithering around
+    one value). Spikes are rate-limited to one per 0.28s, so a busy drum line
+    re-aims the picture a few times a second at most rather than once a frame.
+  - `uFlowPhase` is an integrated travel clock: loudness sets its rate and
+    never its sign. This fixes a defect the styles shared. `uTime * (base + k *
+    energy)` does not speed a camera up, it teleports it - at t = 60s a rate
+    moving 1.4 -> 3.6 slides the Rod Tunnel viewpoint 132 units down the tube
+    in a single frame - and the same shape was spinning Neon Tiles' hall,
+    Mandala Dome's domes, Chroma Orb's skin and Bead Vortex's strands.
+
+  Converted: `vanishing`, `morphogen`, `nebula`, `noneuclid`, `kifs`,
+  `orb_lattice`, `rod_tunnel`, `neon_tiles`, `chroma_orb`, `mandala_dome`,
+  `bead_vortex`. Two behaviours were wrong rather than merely abrupt and are
+  fixed with them: Orb Lattice stepped its kaleidoscope 8 -> 6 -> 4 as the beat
+  envelope decayed, so it re-folded twice on the way down from every hit and
+  held none of the three, and Mandala Dome fed raw `uTreble` into a glow term,
+  which took the whole hall to white on the frame a cymbal landed. Both now sit
+  on held plateaus and slew-limited signals. The description of the three
+  styles below is superseded on this point: the beat no longer widens the
+  fringes or flares the core on the frame it lands, and energy sets a rate
+  rather than an angle.
+
+  Every converted style also gained the fluid pair from the same library:
+  `fluidWarp`, a divergence-free curl advection of the style's own domain, and
+  `fluidMotes`, sparse particles riding that same field. Deliberately computed
+  in-shader rather than read from `uFlow`: the composite pass already warps
+  every style through the shared FlowField, so a second read of that texture
+  here would apply one velocity field twice.
+
+- **MilkDrop: the repeating logcat error, and the preset that did not come back
+  from the background.** Both were the same failure seen from two ends.
+  `ensureEngine()` runs once per frame from `draw()`, and its
+  `projectm_create returned NULL` line sat outside the `reportedCreateFailure_`
+  guard, so a single failed create wrote roughly sixty error lines a second for
+  as long as the scene was on screen. It also never recovered, which is why the
+  preset stayed gone: nothing backed the retry off and nothing re-armed the
+  preset when a later attempt would have worked. A failed create now waits two
+  seconds before the next attempt, logs once rather than once per frame, and
+  clears its latch when it succeeds. `armLastPreset()` re-queues the preset the
+  scene last had on screen AND clears the load debounce, so a rebuilt engine
+  loads it on the next frame instead of having the 0.4s debounce swallow the
+  restore. `onPresetSwitchFailed` writes a line only when the message has
+  changed, and `init()` resets the debounce, the GL-error latch and the log
+  dedupe along with the rest of the per-context state.
+
+- **The Beam style is gone**, with its scene, its two shaders, its four
+  parameters (`beamXy`, `beamWidth`, `beamIntensity`, `beamTail`), its Shape-tab
+  section, its Styles tab, its `ParamScope` group and the woscope third-party
+  notice that covered the shaders. The scene parameter frame is a POSITIONAL
+  contract verified against the native library at startup, so both sides moved
+  together: `SceneParamsCodec.FIELDS` and `SceneParams::fieldNames()` go from
+  138 to 134 and the three `rippleOverlay*` fields move from slots 135-137 to
+  131-133.
+
 - **Three new fragment styles after the reference pictures** (Styles >
   Shaders, ids `chroma_orb`, `mandala_dome`, `bead_vortex`). The earlier
   attempts at the same three pictures (`orb_lattice`, `rod_tunnel`,

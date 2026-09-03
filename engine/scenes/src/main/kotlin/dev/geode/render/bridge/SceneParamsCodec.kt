@@ -4,7 +4,7 @@ import dev.geode.render.scene.SceneParams
 
 /** Packs [SceneParams] in `geode_viz_param_name` order; [verify] proves that order against the library once. */
 object SceneParamsCodec {
-    const val FIELDS = 138
+    const val FIELDS = 134
 
     val NAMES: List<String> =
         listOf(
@@ -139,10 +139,6 @@ object SceneParamsCodec {
             "cymaticsCaustic",
             "cymaticsFlow",
             "cymaticsSwirl",
-            "beamXy",
-            "beamWidth",
-            "beamIntensity",
-            "beamTail",
             "rippleOverlayEnabled",
             "rippleOverlayStrength",
             "rippleOverlaySpecular",
@@ -289,13 +285,9 @@ object SceneParamsCodec {
         out[128] = p.cymaticsCaustic
         out[129] = p.cymaticsFlow
         out[130] = p.cymaticsSwirl
-        out[131] = flag(p.beamXy)
-        out[132] = p.beamWidth
-        out[133] = p.beamIntensity
-        out[134] = p.beamTail
-        out[135] = flag(p.rippleOverlayEnabled)
-        out[136] = p.rippleOverlayStrength
-        out[137] = p.rippleOverlaySpecular
+        out[131] = flag(p.rippleOverlayEnabled)
+        out[132] = p.rippleOverlayStrength
+        out[133] = p.rippleOverlaySpecular
     }
 
     private fun flag(on: Boolean): Float = if (on) 1f else 0f

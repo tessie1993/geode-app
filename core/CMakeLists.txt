@@ -87,7 +87,6 @@ add_library(geode_core STATIC
     viz/scenes/StyleCatalog.cpp
     viz/scenes/CymaticsMath.cpp
     viz/scenes/CymaticsScene.cpp
-    viz/scenes/BeamScene.cpp
     viz/scenes/SilkScene.cpp
     viz/scenes/LifeScene.cpp
     viz/scenes/MycoScene.cpp

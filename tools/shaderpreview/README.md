@@ -256,8 +256,8 @@ Also, more mundanely but just as capable of misleading you:
 10. **Five scene families are wired up**: the 27
     `ShaderScene` styles and the four field-sim families
     `SilkScene`, `LifeScene`, `AcidScene` and `MycoScene` (10 styles each,
-    `--style`). The fluid family's own display passes, WATER, CYMATICS, BEAM
-    and MILKDROP have their own uniform contracts and are not covered. Adding
+    `--style`). The fluid family's own display passes, WATER, CYMATICS and
+    MILKDROP have their own uniform contracts and are not covered. Adding
     one means adding a driver to `lib/scenes.mjs` — and the audit will tell
     you when you have not finished.
 

@@ -6,6 +6,7 @@ in vec2 vUv;
 out vec4 fragColor;
 
 //#include lib_scene_uniforms
+//#include lib_scene_motion
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_touch
@@ -52,7 +53,7 @@ float tunnel(vec2 p, float folds, float pulse) {
     vec2 q = fold(p, folds);
     float ang = atan(q.y, q.x);
     float depth = log(ORB_WINDOW / max(length(p), 1e-4));
-    float ring = depth * 3.2 - uTime * 0.3;
+    float ring = depth * 3.2 - uFlowPhase * 1.5;
     // Alternate rings are offset half a dot so the dots pack like a honeycomb
     // instead of lining up into spokes.
     float stagger = 0.5 * mod(floor(ring), 2.0);
@@ -92,21 +93,24 @@ vec3 chroma(vec2 p, float folds, float spin, float pulse, float split) {
 
 vec3 bokeh(vec2 uv) {
     vec3 field = pal(0.66) * 0.09;
-    vec2 g = uv * 3.0 + vec2(uTime * 0.02, 0.0);
+    vec2 g = uv * 3.0 + flowOffset(0.4);
     vec2 cell = floor(g);
     vec2 l = fract(g) - 0.5;
     float seed = fract(sin(dot(cell, vec2(127.1, 311.7))) * 43758.5);
     l += 0.18 * vec2(cos(seed * 40.0), sin(seed * 27.0));
     float blob = smoothstep(0.3, 0.04, length(l)) * (0.25 + 0.75 * seed);
-    return field + pal(0.62) * blob * 0.16 * (0.6 + 0.4 * uEnergy);
+    return field + pal(0.62) * blob * 0.16 * (0.6 + 0.4 * uEnergySmooth);
 }
 
 void main() {
     vec2 uv = view();
-    float pulse = clamp(uBass * uBeatResponse, 0.0, 1.5);
-    float beat = clamp(uBeat * uBeatResponse, 0.0, 1.0);
+    // Smoothed bass breathes the lattice; uSpike swells the fringes. Neither can
+    // move far in one frame, which is what keeps the dots from strobing.
+    float pulse = clamp(uBassSmooth * uBeatResponse, 0.0, 1.5);
+    float beat = clamp(uSpike * uBeatResponse, 0.0, 1.0);
     float folds = foldCount();
-    float spin = uTime * 0.06 * (0.5 + uEnergy);
+    // Integrated, so loudness changes the spin RATE instead of jumping its angle.
+    float spin = uFlowPhase * 0.55 + uTime * 0.03;
     float split = 0.035 + 0.03 * beat;
     float finger = touchFalloff(uv, 0.45);
 
@@ -117,6 +121,9 @@ void main() {
     vec3 col = bokeh(uv);
     // Halo the sphere sits in; wider on a hit.
     col += pal(0.62) * 0.14 * exp(-max(rr - 1.0, 0.0) * (9.0 - 3.0 * beat));
+
+    // The particle layer, outside the glass only, drifting with the field.
+    col += pal(0.55) * fluidMotes(uv * 0.7, 4.5, 0.17) * 0.15 * smoothstep(0.9, 1.3, rr);
 
     if (rr < 1.0) {
         vec3 rgb = chroma(p, folds, spin, pulse + finger, split + 0.03 * finger);

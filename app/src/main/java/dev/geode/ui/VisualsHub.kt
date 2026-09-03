@@ -549,7 +549,7 @@ private fun StylesTab(
             }
         }
         CrystalTabs(
-            titles = listOf("Silk", "Life", "Mycelium", "Acid", "Shaders", "Fluid", "Cymatics", "Beam", "MilkDrop"),
+            titles = listOf("Silk", "Life", "Mycelium", "Acid", "Shaders", "Fluid", "Cymatics", "MilkDrop"),
             selected = sub,
             onSelect = { sub = it },
         )
@@ -561,8 +561,7 @@ private fun StylesTab(
             4 -> SceneList(SceneCapabilities.SHADER_SCENES.keys.toList(), viz.sceneId, pickScene)
             5 -> SceneList(listOf(SceneIds.FLUID, SceneIds.CURLFLOW, SceneIds.WATER), viz.sceneId, pickScene)
             6 -> SceneList(VisualStyleCatalog.cymaticsIds, viz.sceneId, pickScene)
-            7 -> SceneList(listOf(SceneIds.BEAM), viz.sceneId, pickScene)
-            8 -> MilkDropTab(viewModel, visualizerView, onOpenTextures)
+            7 -> MilkDropTab(viewModel, visualizerView, onOpenTextures)
         }
     }
 }

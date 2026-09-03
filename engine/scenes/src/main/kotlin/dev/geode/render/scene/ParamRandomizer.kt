@@ -176,10 +176,6 @@ object ParamRandomizer {
         r(ParamKeys.TURBULENCE) { it.copy(turbulence = sometimes(0.5f, 0.1f, 1f)) }
 
         section(CustomizeTab.SHAPE)
-        r(ParamKeys.XY_PLOT) { it.copy(beamXy = chance(0.35f)) }
-        r(ParamKeys.BEAM_WIDTH) { it.copy(beamWidth = f(0.4f, 2.5f)) }
-        r(ParamKeys.BEAM_BRIGHTNESS) { it.copy(beamIntensity = f(0.5f, 2f)) }
-        r(ParamKeys.BEAM_TAIL) { it.copy(beamTail = f(0.05f, 0.8f)) }
         r(ParamKeys.DOMAIN_WARP) { it.copy(warp = sometimes(0.5f, 0.1f, 0.8f)) }
         r(ParamKeys.RIPPLE) { it.copy(ripple = sometimes(0.4f, 0.1f, 0.8f)) }
         r(ParamKeys.MORPH) { it.copy(morph = sometimes(0.5f, 0.1f, 0.8f)) }

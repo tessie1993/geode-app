@@ -33,6 +33,10 @@ out vec4 fragColor;
 
 float hash11(float n) { return fract(sin(n * 127.1) * 43758.5453); }
 
+// Set in main(): the key's and the section's tint on every light in the hall.
+float gKeyShift;
+vec3 ink(float t) { return pal(t + gKeyShift); }
+
 float hash21(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 
 vec2 rot(vec2 p, float a) { return mat2(cos(a), -sin(a), sin(a), cos(a)) * p; }
@@ -92,7 +96,13 @@ float merkaba(vec2 p, float size, float width, out float glint) {
 void main() {
     vec2 uv = view();
     // Mirrored left to right: the reference is a symmetric hall.
-    vec2 m = vec2(abs(uv.x), uv.y);
+    // Beyond level (lib_scene_motion, "the music-shaped signals"). A kick
+    // swells the merkabas, a snare turns them, the hats sparkle the nodes, a
+    // buildup tightens the web, a drop widens the shaft for a while, the bar
+    // sways the floor, the key and the section tint the hall. All
+    // slew-limited upstream.
+    gKeyShift = 0.20 * (uKeyHue - 0.5) * uKeyStrength + 0.12 * uSectionPhase;
+    vec2 m = vec2(abs(uv.x), uv.y + 0.03 * uRhythmLock * sin(uBarPhase * MG_TAU));
 
     float bass = clamp(uBassSmooth, 0.0, 1.5);
     float treb = clamp(uTrebleSmooth, 0.0, 1.5);
@@ -108,17 +118,17 @@ void main() {
     // Advected along the travel direction, through the integrated phase, so a
     // change of pace never slides the hall sideways in one frame.
     vec2 field = fluidWarp(m * persp * 2.2, 0.8, 0.06) + flowOffset(0.30);
-    field *= 1.0 + 0.06 * bass;
+    field *= 1.0 + 0.06 * bass + 0.20 * uBuild;
 
     float width = 0.02 + 0.012 * persp;
     float lattice = web(field * density * 0.5, width);
-    vec3 col = pal(0.58) * lattice * (0.18 + 0.30 * persp);
+    vec3 col = ink(0.58) * lattice * (0.18 + 0.30 * persp);
     // Lit nodes: a sparse subset of the lattice cells, re-chosen on every spawn
     // and grown in over a second so a new constellation never appears at once.
     vec2 node = floor(field * density * 0.5);
     float lit = step(0.80, hash21(node + floor(uSpawnSeed * 97.0)));
-    float nodeGlow = lattice * lit * (0.4 + 0.8 * treb) * spawnGrow(1.2);
-    col += mix(pal(0.44), pal(0.86), hash21(node)) * nodeGlow * 0.55;
+    float nodeGlow = lattice * lit * (0.4 + 0.8 * treb + 0.6 * uHat) * spawnGrow(1.2);
+    col += mix(ink(0.44), ink(0.86), hash21(node)) * nodeGlow * 0.55;
 
     // ---- geodesic spheres along the floor ----------------------------------
     //
@@ -132,7 +142,7 @@ void main() {
         vec2 c = (m - vec2(x, y)) / depth;
         float radius = 0.62 - 0.10 * fi;
         float shell = geodesic(c, radius, density * 2.2, width * 1.4 / depth);
-        vec3 tint = mix(pal(0.55), pal(0.40), fi / 3.0);
+        vec3 tint = mix(ink(0.55), ink(0.40), fi / 3.0);
         // Nearer spheres sit in front, so a later row cannot draw over an
         // earlier one: max() on the coverage is enough at this depth spread.
         col = mix(col, tint * (0.25 + 0.9 * shell), min(shell * 1.4, 1.0));
@@ -147,10 +157,10 @@ void main() {
         vec2 c = m - vec2(0.15 + seed * 1.25, 0.15 + fract(seed * 3.7) * 0.9);
         c -= flowOffset(0.12) * (0.4 + seed);
         c += 0.05 * vec2(sin(uTime * (0.11 + seed * 0.07)), cos(uTime * (0.09 + seed * 0.05)));
-        c = rot(c / depth, uFlowPhase * (0.3 + seed * 0.4));
+        c = rot(c / depth, uFlowPhase * (0.3 + seed * 0.4) + 0.35 * uSnare * (0.6 + seed));
         float glint;
-        float edge = merkaba(c, 0.30, 0.026, glint);
-        vec3 tint = mix(pal(0.30), pal(0.90), seed);
+        float edge = merkaba(c, 0.30 * (1.0 + 0.15 * uKick), 0.026, glint);
+        vec3 tint = mix(ink(0.30), ink(0.90), seed);
         float show = spawnGrow(0.8 + seed);
         col += tint * edge * 0.55 * show;
         // The glint is keyed off uSpike, so a hit swells the points over
@@ -161,25 +171,25 @@ void main() {
     // ---- the column of light -----------------------------------------------
     //
     // A narrow vertical shaft that blooms where it leaves the top of the hall.
-    float shaft = exp(-m.x * m.x * (150.0 - 60.0 * swell));
+    float shaft = exp(-m.x * m.x * (150.0 - 60.0 * swell - 40.0 * uDrop));
     float rise = smoothstep(-0.9, 0.95, uv.y);
-    col += pal(0.52) * shaft * rise * (0.35 + 0.5 * bass);
+    col += ink(0.52) * shaft * rise * (0.35 + 0.5 * bass);
     // The burst at the top: a soft disc plus radial spokes that turn with the
     // travel phase.
     vec2 burst = m - vec2(0.0, 0.86);
     float br = length(burst);
     float spokes = 0.55 + 0.45 * cos(atan(burst.y, burst.x) * 12.0 + uFlowPhase * 2.0);
-    col += mix(vec3(1.0), pal(0.50), 0.4) * exp(-br * 7.0) * spokes * (0.5 + 0.55 * uSpike);
+    col += mix(vec3(1.0), ink(0.50), 0.4) * exp(-br * 7.0) * spokes * (0.5 + 0.55 * uSpike);
     col += vec3(1.0) * exp(-br * br * 220.0) * 1.6;
 
     // ---- the particle layer -------------------------------------------------
     //
     // Motes riding the same curl field the lattice is warped by: the fluid half
     // of the look, drifting through the hall rather than pinned to it.
-    col += mix(pal(0.48), vec3(1.0), 0.3) * fluidMotes(uv * 0.85, 5.5, 0.15) * 0.28;
+    col += mix(ink(0.48), vec3(1.0), 0.3) * fluidMotes(uv * 0.85, 5.5, 0.15) * 0.28;
 
     if (!touchIdle()) {
-        col += pal(0.5 + 0.15 * sin(uTime * 0.05)) * min(touchWake(uv), 3.0) * 0.05;
+        col += ink(0.5 + 0.15 * sin(uTime * 0.05)) * min(touchWake(uv), 3.0) * 0.05;
     }
     // Vignette, so the hall falls into the dark at the corners.
     col *= 0.62 + 0.38 * smoothstep(2.1, 0.4, length(uv));

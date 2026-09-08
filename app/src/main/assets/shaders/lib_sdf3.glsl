@@ -4,6 +4,15 @@
 // primitive out, deform it and blend it without inheriting an opinion about
 // what the music is doing.
 //
+// GLSL ES 3.00 gives a fragment shader's int and uint a DEFAULT precision of
+// mediump, and mediump integers are only guaranteed 16 bits. The hash below
+// is a 32-bit mixer (shifts by 16, multiplies by 32-bit constants), and at
+// 16 bits it does not degrade, it collapses: on an implementation that
+// honours mediump it returns 0 for every input, and every consumer -
+// hashCell, vnoise3, fbm3, and so the nebula's whole cloud - is silently
+// zero. Declared here, once, so every style that includes this file gets a
+// 32-bit hash whether or not it thought to declare int precision itself.
+precision highp int;
 // ---- RAYMARCH: the caps, and why they are caps ----------------------------
 //
 // Every loop in a marched style needs a COMPILE-TIME constant bound and an

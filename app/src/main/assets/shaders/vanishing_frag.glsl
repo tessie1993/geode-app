@@ -182,6 +182,8 @@ const float WALL = 0.045;
  */
 const float HOLE_BASE = 1.47;
 const float HOLE_SWING = 0.09;
+/** A kick pulls the caps in for the length of its envelope: a thud you can see in the lattice, not in the light. */
+const float HOLE_KICK = 0.05;
 /**
  * Rounds the window rims - and it is a MARCH parameter as much as a look.
  *
@@ -254,6 +256,8 @@ const float SPIN_W = 0.06017699;
 const float SPIRAL_BASE = 0.20;
 const float SPIRAL_DRIFT = 0.12;
 const float SPIRAL_MID = 0.18;
+/** A buildup screws the corridor tighter on its way to the drop. Inside the clamp, so gLip already pays for it. */
+const float SPIRAL_BUILD = 0.15;
 const float SPIRAL_MAX = 0.5;
 
 // ---- camera and march -----------------------------------------------------
@@ -335,6 +339,8 @@ const float R_MIN = 1e-4;
 const float FOG_T = 0.030;
 const float FOG_K = 0.36;
 const float FOG_OUT = 0.50;
+/** After a drop the fog thins for a while and the regress reads a band or two deeper - a state, on uDrop's slow release. */
+const float FOG_DROP = 0.35;
 /**
  * e-folds inside the viewer at which the regress is handed wholly to the core.
  *
@@ -411,6 +417,11 @@ const float GRAIN = 23.0;
 /** Palette origin and how far the six shell hues walk from it. */
 const float HUE_BASE = 0.06;
 const float HUE_SPAN = 0.65;
+/** Each section of the track moves the origin, and the musical key tints it (scaled by how surely the key is read). */
+const float SECTION_HUE = 0.25;
+const float KEY_HUE = 0.20;
+/** A nod of the whole stack about the pole once per bar, faded in with uRhythmLock. Rigid, so it costs the march nothing. */
+const float BAR_NOD = 0.05;
 
 // ---- touch ----------------------------------------------------------------
 
@@ -595,6 +606,10 @@ void main() {
     float midAmt = clamp(uMidSmooth * 0.75, 0.0, 1.0);
     float trebAmt = clamp(uTrebleSmooth * 0.75, 0.0, 1.0);
     float energyAmt = clamp(uEnergySmooth * 0.7, 0.0, 1.0);
+    // Beyond level (lib_scene_motion, "the music-shaped signals"): what kind
+    // of hit, where the track is going, what key it is in. Every one is
+    // slew-limited upstream, so they are read as freely as the smooths above.
+    float hueBase = HUE_BASE + SECTION_HUE * uSectionPhase + KEY_HUE * (uKeyHue - 0.5) * uKeyStrength;
 
     // The pull is added OUTSIDE the wrap: mod()ing it would fold the dimple
     // and put a seam through the middle of it. The wrap itself is invisible
@@ -605,12 +620,12 @@ void main() {
     // Mids steer: they set how hard the stack spirals, which is the direction
     // the corridor screws away in.
     gSpiral = clamp(
-        SPIRAL_BASE + SPIRAL_DRIFT * sin(uTime * SPIRAL_W) + SPIRAL_MID * midAmt + twist,
+        SPIRAL_BASE + SPIRAL_DRIFT * sin(uTime * SPIRAL_W) + SPIRAL_MID * midAmt + SPIRAL_BUILD * uBuild + twist,
         -SPIRAL_MAX,
         SPIRAL_MAX
     );
-    gSpin = uTime * SPIN_W + spin;
-    gHole = HOLE_BASE + HOLE_SWING * energyAmt;
+    gSpin = uTime * SPIN_W + spin + BAR_NOD * uRhythmLock * sin(uBarPhase * 6.2831853);
+    gHole = HOLE_BASE + HOLE_SWING * energyAmt + HOLE_KICK * uKick;
     gReliefAmp = RELIEF_IDLE + RELIEF_TREBLE * trebAmt;
     gReliefPhase = uTime * RELIEF_PHASE_W;
 
@@ -661,9 +676,9 @@ void main() {
     float ga = length(w) * FOV / CORE_ANG;
     float tight = exp(-ga * ga);
     float halo = exp(-ga * ga * 0.05);
-    vec3 core = pal(HUE_BASE + 0.42 + 0.10 * midAmt) *
+    vec3 core = pal(hueBase + 0.42 + 0.10 * midAmt) *
         (CORE_GAIN * tight * (0.85 + 0.95 * energyAmt) + HALO_GAIN * halo);
-    vec3 backdrop = pal(HUE_BASE + 0.62) * BACKDROP + core;
+    vec3 backdrop = pal(hueBase + 0.62) * BACKDROP + core;
 
     vec3 col = backdrop;
     if (hitT > 0.0) {
@@ -679,7 +694,7 @@ void main() {
         // without it each level of the regress is one flat colour and the frame
         // reads as a rosette rather than as a room.
         vec3 sd = p / max(length(p), R_MIN);
-        float hue = HUE_BASE + fract(hitShell / BAND_CYCLE) * HUE_SPAN +
+        float hue = hueBase + fract(hitShell / BAND_CYCLE) * HUE_SPAN +
             0.08 * midAmt + 0.05 * hitRelief + 0.06 * dot(sd, vec3(0.42, 0.74, 0.21));
         vec3 body = pal(hue);
 
@@ -700,7 +715,8 @@ void main() {
         // past three e-folds down it is finer than a pixel and would boil.
         float grain = sin(GRAIN * sd.x + gSpin) * sin(GRAIN * sd.y - gSpin) *
             sin(GRAIN * sd.z + 3.0 * kHit);
-        grain *= smoothstep(3.0, 1.2, -kHit) * (0.35 + 0.45 * trebAmt);
+        // The hats grain the walls: shading only, so they cost the march nothing.
+        grain *= smoothstep(3.0, 1.2, -kHit) * (0.35 + 0.45 * trebAmt + 0.30 * uHat);
         float emboss = 1.0 + 0.45 * hitRelief + 0.30 * grain;
 
         col = body * ((0.09 + 0.52 * dif + 0.40 * head) * emboss);
@@ -726,7 +742,7 @@ void main() {
         // as infinite; the outward one pushes the shell enclosing the viewer
         // back into being a frame rather than a wall.
         float fade = 1.0 - exp(
-            -(hitT * FOG_T + max(0.0, -kHit) * FOG_K + max(0.0, kHit) * FOG_OUT)
+            -(hitT * FOG_T + max(0.0, -kHit) * FOG_K * (1.0 - FOG_DROP * uDrop) + max(0.0, kHit) * FOG_OUT)
         );
         // Below the sub-pixel floor the march stops on whichever shell it
         // grazed and the 4-tap normal there is quantization noise. Rather than
@@ -739,7 +755,7 @@ void main() {
     // The wake sits on top of everything because it is light on the glass, not
     // in the room. touchWake() sums all five slots and is unbounded above, so
     // it is clamped before it can multiply a palette colour past the grade.
-    col += pal(HUE_BASE + 0.20) * (WAKE_GAIN * min(touchWake(uv), 2.5));
+    col += pal(hueBase + 0.20) * (WAKE_GAIN * min(touchWake(uv), 2.5));
 
     // Vignette on the RAW screen radius, not on uv: this is a property of the
     // glass, and reading the drifted/zoomed domain would slide it off frame.

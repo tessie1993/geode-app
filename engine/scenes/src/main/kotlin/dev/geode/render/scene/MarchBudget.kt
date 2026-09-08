@@ -4,7 +4,7 @@ package dev.geode.render.scene
  * The user's Detail control as a raymarch step budget.
  *
  * The marched fragment styles (VANISHING, MORPHOGEN, NEBULA, NONEUCLID, KIFS, ROD_TUNNEL,
- * CURL_BLOOM, NECTAR_FLOW) all bound their loop with a compile-time constant and BREAK on
+ * CURL_BLOOM, NECTAR_FLOW, SUPERSHAPE) all bound their loop with a compile-time constant and BREAK on
  * [steps], so Detail moves without recompiling anything and no shader can ever iterate past
  * its own ceiling. NECTAR_FLOW marches a volume rather than a surface and spends three
  * quarters of the budget, because a fixed-step volume loop pays for every step it is given

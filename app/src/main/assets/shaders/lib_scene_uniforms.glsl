@@ -72,6 +72,8 @@ uniform float uTwist;
 uniform float uTemperature;
 uniform float uSolarize;
 uniform float uFlash;
+/** The Shape morph slider: how far view() folds the plane into the supershape. */
+uniform float uShapeMorph;
 
 // ---- where the fingers are ------------------------------------------------
 //
@@ -113,6 +115,60 @@ uniform float uSteps;
 
 float aband(float x) { return texture(uAudioTex, vec2(clamp(x, 0.0, 1.0), 0.25)).r; }
 float awave(float x) { return texture(uAudioTex, vec2(clamp(x, 0.0, 1.0), 0.75)).r; }
+
+// ---- the shape tap ----------------------------------------------------------
+//
+// The music-driven Gielis superformula, sampled on the CPU (viz/SuperShape)
+// into two rows the way the audio bands are: row 0 the AZIMUTH curve r1(theta)
+// over theta in -pi..pi, periodic; row 1 the ELEVATION curve r2(phi) over phi
+// in -pi/2..pi/2. Each row is normalised to a mean radius of 1 - the shape
+// changes, the picture does not zoom - and clamped to 0.15..4.
+//
+// Read with texelFetch and a hand-rolled mix rather than with a LINEAR
+// sampler: the rows are R32F, and linear filtering of a float texture is an
+// extension (OES_texture_float_linear) that not every GPU has. This way the
+// curve is exactly as smooth on every device.
+//
+// The analytic form, the raw parameters and the 3D supershape live in
+// lib_superformula; a style that only wants the silhouette needs nothing but
+// these.
+uniform sampler2D uShapeTex;
+/** The shape's own rotation, radians, integrated on the CPU: energy sets the rate, snares turn it. */
+uniform float uShapeSpin;
+
+#define SHAPE_SAMPLES 512
+
+float shapeFetch(int i, int row) { return texelFetch(uShapeTex, ivec2(i, row), 0).r; }
+
+/** The silhouette radius at angle `theta` (radians, any range), mean 1. */
+float ashape(float theta) {
+    float x = (theta * 0.15915494 + 0.5) * float(SHAPE_SAMPLES);
+    x -= floor(x / float(SHAPE_SAMPLES)) * float(SHAPE_SAMPLES);
+    int i0 = int(floor(x));
+    i0 = clamp(i0, 0, SHAPE_SAMPLES - 1);
+    int i1 = (i0 + 1) % SHAPE_SAMPLES;
+    return mix(shapeFetch(i0, 0), shapeFetch(i1, 0), x - float(i0));
+}
+
+/** The elevation radius at latitude `phi` (radians, clamped to -pi/2..pi/2), mean 1. */
+float ashapeElev(float phi) {
+    float x = clamp((phi * 0.31830989 + 0.5) * float(SHAPE_SAMPLES - 1), 0.0, float(SHAPE_SAMPLES - 1));
+    int i0 = int(floor(x));
+    i0 = clamp(i0, 0, SHAPE_SAMPLES - 1);
+    int i1 = min(i0 + 1, SHAPE_SAMPLES - 1);
+    return mix(shapeFetch(i0, 1), shapeFetch(i1, 1), x - float(i0));
+}
+
+/**
+ * Folds the plane into the silhouette: a style's unit circle comes out drawn
+ * along r1(theta), because a point at screen radius r1(theta) now samples the
+ * style at radius 1. `amount` 0..1 is how far to go; at 0 this is the
+ * identity. Radial only, so it composes with every other step in view().
+ */
+vec2 shapeWarp(vec2 p, float amount) {
+    float r = ashape(atan(p.y, p.x) - uShapeSpin);
+    return p * mix(1.0, 1.0 / r, amount);
+}
 
 vec2 view() {
     vec2 uv = vUv * 2.0 - 1.0;
@@ -177,6 +233,11 @@ vec2 view() {
     // Tiling: repeat the plane into a uTile x uTile grid.
     if (uTile > 1.01) {
         uv = mod(uv * uTile * 0.5 + 1.0, 2.0) - 1.0;
+    }
+    // Shape morph: fold the plane into the music-driven supershape. After the
+    // tiling, like the ripple, so with Tile up every cell becomes one.
+    if (uShapeMorph > 0.001) {
+        uv = shapeWarp(uv, uShapeMorph);
     }
     // Domain warp: swirl coordinates by a sin/cos field.
     if (uWarp > 0.001) {

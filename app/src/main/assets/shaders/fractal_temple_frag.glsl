@@ -34,6 +34,10 @@ vec2 rot(vec2 p, float a) { return mat2(cos(a), -sin(a), sin(a), cos(a)) * p; }
 
 float hash11(float n) { return fract(sin(n * 127.1) * 43758.5453); }
 
+// Set in main(): the key's and the section's tint on every light in the temple.
+float gKeyShift;
+vec3 paint(float t) { return pal(t + gKeyShift); }
+
 float hash21(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 
 float wire(float d, float w) { return smoothstep(w, w * 0.25, abs(d)); }
@@ -70,6 +74,12 @@ void main() {
     float swell = clamp(uSwell, 0.0, 1.5);
     // A spike steps the dome between three tessellation densities and holds it.
     float tess = 9.0 + 4.0 * floor(uFormPhase * 3.0);
+    // Beyond level (lib_scene_motion, "the music-shaped signals"). A kick
+    // stretches the spires, a snare advances the lamps round their rings, the
+    // hats light the dome's lace, a buildup raises the dome, a drop widens
+    // the deck for a while, the bar breathes the rings, the key and the
+    // section tint the temple. All slew-limited upstream.
+    gKeyShift = 0.20 * (uKeyHue - 0.5) * uKeyStrength + 0.12 * uSectionPhase;
     // The horizon. The whole scene is split on it: dome above, ground below.
     float horizon = -0.12;
 
@@ -85,11 +95,11 @@ void main() {
         vec2 ground = vec2(m.x * d, d * 0.6 + uFlowPhase * 1.4);
         // The stair treads: one bright nosing per unit of depth.
         float tread = wire(fract(ground.y) - 0.5, 0.10 + 0.05 / d);
-        float deck = smoothstep(1.05, 0.35, m.x * d * 0.55);
-        vec3 stone = mix(pal(0.60), pal(0.46), clamp(d * 0.12, 0.0, 1.0));
+        float deck = smoothstep(1.05, 0.35, m.x * d * 0.55 * (1.0 - 0.25 * uDrop));
+        vec3 stone = mix(paint(0.60), paint(0.46), clamp(d * 0.12, 0.0, 1.0));
         col += stone * deck * (0.10 + 0.40 * tread);
         // The lit edge down each side of the way.
-        col += pal(0.42) * wire(m.x * d * 0.55 - 1.0, 0.06) * (0.4 + 0.5 * treb);
+        col += paint(0.42) * wire(m.x * d * 0.55 - 1.0, 0.06) * (0.4 + 0.5 * treb);
 
         // ---- the spires ------------------------------------------------------
         //
@@ -104,12 +114,13 @@ void main() {
             // Standing just outside the deck, leaning with the walk.
             float x = (0.55 + seed * 0.75) * scale + uMoveDir.x * 0.04 * scale;
             vec2 c = vec2(m.x - x, uv.y - horizon) / scale;
-            float lit = spire(c, 0.55 + seed * 0.5, 0.13 + seed * 0.06, 7.0 + floor(seed * 6.0));
-            vec3 tint = mix(pal(0.94), pal(0.86), seed);
+            float height = (0.55 + seed * 0.5) * (1.0 + 0.12 * uKick);
+            float lit = spire(c, height, 0.13 + seed * 0.06, 7.0 + floor(seed * 6.0));
+            vec3 tint = mix(paint(0.94), paint(0.86), seed);
             float show = spawnGrow(0.9 + seed * 0.6) * smoothstep(4.4, 3.2, z);
             col = mix(col, tint * (0.35 + 0.9 * lit), min(lit * 1.5, 1.0) * show);
             // The star on top, swelling on a spike rather than flashing.
-            vec2 tipv = c - vec2(0.0, 0.55 + seed * 0.5);
+            vec2 tipv = c - vec2(0.0, height);
             col += mix(vec3(1.0), tint, 0.3) * exp(-dot(tipv, tipv) * 900.0) * (0.5 + 0.7 * uSpike) * show;
         }
     }
@@ -119,21 +130,21 @@ void main() {
     // A hemisphere seen from inside: the projection crowds the tessellation
     // toward the springing line, which is what makes it read as curved.
     if (uv.y > horizon - 0.05) {
-        float h = clamp((uv.y - horizon) / (1.35 - 0.10 * swell), 0.0, 1.0);
+        float h = clamp((uv.y - horizon) / (1.35 - 0.10 * swell - 0.20 * uBuild), 0.0, 1.0);
         // z of the dome at this height; small near the springing, 1 at the crown.
         float z = sqrt(max(0.0, 1.0 - (1.0 - h) * (1.0 - h)));
         // Longitude compresses as the dome closes over.
         vec2 shell = vec2(m.x / max(z, 0.12), h * 1.6);
         shell = fluidWarp(shell, 0.9, 0.05) + flowOffset(0.12);
         float lace = tri(shell * tess, 0.05);
-        vec3 domeCol = mix(pal(0.58), pal(0.50), h);
+        vec3 domeCol = mix(paint(0.58), paint(0.50), h);
         float lam = smoothstep(0.0, 0.22, uv.y - horizon);
         col = mix(col, domeCol * (0.10 + 0.55 * lace) * (0.45 + 0.55 * z), lam);
         // Lit facets: a sparse subset, re-chosen on each spawn.
         vec2 cell = floor(shell * tess);
         float on = step(0.86, hash21(cell + floor(uSpawnSeed * 71.0)));
-        col += mix(pal(0.44), pal(0.90), hash21(cell)) * lace * on * lam
-             * (0.35 + 0.75 * treb) * spawnGrow(1.1);
+        col += mix(paint(0.44), paint(0.90), hash21(cell)) * lace * on * lam
+             * (0.35 + 0.75 * treb + 0.5 * uHat) * spawnGrow(1.1);
     }
 
     // ---- the portal ring -----------------------------------------------------
@@ -143,24 +154,24 @@ void main() {
     float pr = length(pc);
     float pa = atan(pc.y, pc.x);
     for (int i = 0; i < 3; i++) {
-        float radius = 0.20 + float(i) * 0.09;
+        float radius = 0.20 + float(i) * 0.09 + 0.01 * uRhythmLock * sin(uBarPhase * FT_TAU);
         // Lamps spaced round the ring, turning with the travel phase.
         float lamps = 22.0 + float(i) * 10.0;
-        float bead = 0.5 + 0.5 * cos(pa * lamps + uFlowPhase * (1.4 + float(i) * 0.4));
+        float bead = 0.5 + 0.5 * cos(pa * lamps + uFlowPhase * (1.4 + float(i) * 0.4) + 1.5 * uSnare);
         float band = exp(-pow((pr - radius) * 34.0, 2.0));
-        vec3 lampCol = mix(pal(0.92), pal(0.04), float(i) / 3.0);
+        vec3 lampCol = mix(paint(0.92), paint(0.04), float(i) / 3.0);
         col += lampCol * band * (0.25 + 0.75 * bead) * (0.55 + 0.55 * bass);
     }
     // The glow the ring throws into the hall, and its flare on a transient.
-    col += pal(0.92) * exp(-pr * 5.0) * (0.10 + 0.22 * uSpike);
+    col += paint(0.92) * exp(-pr * 5.0) * (0.10 + 0.22 * uSpike);
     // The dark eye at the middle of the portal.
     col *= 1.0 - 0.55 * exp(-pr * pr * 260.0);
 
     // ---- the particle layer ---------------------------------------------------
-    col += mix(pal(0.50), vec3(1.0), 0.35) * fluidMotes(uv * 0.9, 5.5, 0.15) * 0.26;
+    col += mix(paint(0.50), vec3(1.0), 0.35) * fluidMotes(uv * 0.9, 5.5, 0.15) * 0.26;
 
     if (!touchIdle()) {
-        col += pal(0.5 + 0.15 * sin(uTime * 0.05)) * min(touchWake(uv), 3.0) * 0.05;
+        col += paint(0.5 + 0.15 * sin(uTime * 0.05)) * min(touchWake(uv), 3.0) * 0.05;
     }
     col *= 0.66 + 0.34 * smoothstep(2.2, 0.5, length(uv));
     fragColor = vec4(grade(col), 1.0);

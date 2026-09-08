@@ -146,6 +146,8 @@ data class SceneParams(
     val rippleOverlayEnabled: Boolean = false,
     val rippleOverlayStrength: Float = 0.4f,
     val rippleOverlaySpecular: Float = 0.3f,
+    // How far a fragment style's plane folds into the music-driven superformula silhouette.
+    val shapeMorph: Float = 0f,
 ) {
     companion object {
         const val UNSET_OVERRIDE: Float = -1f

@@ -30,6 +30,11 @@ out vec4 fragColor;
 float gTwist;
 float gCellA;
 float gCellZ;
+// Set in main(): the snare's turn of the whole bundle (a rigid rotation, so
+// the march pays nothing) and the kick's swell of every rod (a capsule radius,
+// so the distance stays exact).
+float gTurn;
+float gRodR;
 
 float sdCapsule(vec3 p, vec3 a, vec3 b, float r) {
     vec3 pa = p - a;
@@ -40,7 +45,7 @@ float sdCapsule(vec3 p, vec3 a, vec3 b, float r) {
 
 float map(vec3 p) {
     float rad = length(p.xy);
-    float ang = atan(p.y, p.x) + p.z * gTwist;
+    float ang = atan(p.y, p.x) + p.z * gTwist + gTurn;
     float sector = ROD_TAU / ROD_STRANDS;
     gCellA = floor(ang / sector);
     ang = mod(ang, sector) - 0.5 * sector;
@@ -48,7 +53,7 @@ float map(vec3 p) {
     float z = mod(p.z, ROD_CELL) - 0.5 * ROD_CELL;
     vec3 q = vec3(ROD_RADIUS - rad, ang * ROD_RADIUS, z);
     float beads = 0.03 * sin(q.z * 40.0);
-    return sdCapsule(q, vec3(0.0, 0.0, -0.4), vec3(0.0, 0.0, 0.4), 0.14 + beads);
+    return sdCapsule(q, vec3(0.0, 0.0, -0.4), vec3(0.0, 0.0, 0.4), gRodR + beads);
 }
 
 vec3 normalAt(vec3 p, float eps) {
@@ -65,15 +70,23 @@ void main() {
     float enA = min(uEnergySmooth, 1.3);
     float hit = uSpike;
 
+    // Beyond level (lib_scene_motion, "the music-shaped signals"). A kick
+    // fattens the rods, a snare turns the bundle, a buildup rolls the camera,
+    // a drop clears the fog for a while, the bar sways the eye, the key and
+    // the section colour the rods. All slew-limited upstream.
+    float keyShift = 0.20 * (uKeyHue - 0.5) * uKeyStrength;
+    gTurn = 0.40 * uSnare;
+    gRodR = 0.14 * (1.0 + 0.20 * uKick);
+
     gTwist = 0.25 + 0.55 * midA;
     // The camera's distance down the tunnel, INTEGRATED rather than `uTime * rate`.
     // Multiplying a running clock by a loudness-dependent rate does not speed the
     // camera up, it teleports it: at t=60s a rate moving 1.4 -> 3.6 jumps the
     // viewpoint 132 units down the tube in one frame. uFlowPhase only ever advances.
     float fly = uFlowPhase * 9.0 + uTime * 1.4;
-    vec3 ro = vec3(0.25 * sin(uTime * 0.31), 0.25 * cos(uTime * 0.23), fly);
+    vec3 ro = vec3(0.25 * sin(uTime * 0.31) + 0.06 * uRhythmLock * sin(uBarPhase * ROD_TAU), 0.25 * cos(uTime * 0.23), fly);
     vec3 rd = normalize(vec3(uv, ROD_FOCAL));
-    rd.xy = rot2(uTime * 0.08) * rd.xy;
+    rd.xy = rot2(uTime * 0.08 + 0.25 * uBuild) * rd.xy;
     // A spike banks the tunnel toward its new bearing; the turn glides in on the CPU.
     rd.xy = flowBasis() * rd.xy;
 
@@ -94,7 +107,7 @@ void main() {
         t += max(d * 0.6, eps);
     }
 
-    float hueShift = 0.12 * hit * clamp(uBeatResponse, 0.0, 2.0);
+    float hueShift = 0.12 * hit * clamp(uBeatResponse, 0.0, 2.0) + keyShift;
     vec3 coreCol = pal(0.08 + hueShift);
     vec3 fogCol = pal(0.62 + hueShift) * 0.08;
     float onAxis = pow(max(rd.z, 0.0), 28.0);
@@ -109,7 +122,7 @@ void main() {
         float e = max(0.0012 * hitT, 0.0005);
         vec3 n = normalAt(p, e);
         float band = hash11(cellA * 7.13 + cellZ * 3.71);
-        vec3 body = pal(band * 0.5 + hueShift + 0.015 * cellZ);
+        vec3 body = pal(band * 0.5 + hueShift + 0.015 * cellZ + 0.20 * uSectionPhase);
         vec3 rimCol = pal(band * 0.5 + 0.3 + hueShift);
         vec3 fromAxis = normalize(vec3(p.xy - ro.xy, 0.0));
         float dif = clamp(dot(n, -fromAxis), 0.0, 1.0);
@@ -118,7 +131,7 @@ void main() {
         col = body * (0.15 + 0.85 * dif);
         col += rimCol * rim * (0.5 + 0.6 * trebA);
         col += mix(vec3(1.0), rimCol, 0.4) * spec * 0.4;
-        col = mix(col, fogCol, 1.0 - exp(-hitT * ROD_FOG));
+        col = mix(col, fogCol, 1.0 - exp(-hitT * ROD_FOG * (1.0 - 0.35 * uDrop)));
     } else {
         col = fogCol;
     }

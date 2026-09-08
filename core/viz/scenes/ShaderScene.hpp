@@ -7,8 +7,11 @@
 #include <string>
 #include <vector>
 
+#include "viz/MusicSignals.hpp"
 #include "viz/Program.hpp"
 #include "viz/Scene.hpp"
+#include "viz/Smoothing.hpp"
+#include "viz/SuperShape.hpp"
 #include "viz/Texture.hpp"
 
 namespace geode::viz {
@@ -17,6 +20,8 @@ namespace geode::viz {
 class ShaderScene : public Scene {
 public:
     static constexpr int kAudioTexWidth = 512;
+    // Texture units: 0 audio, 1 flow, 2 palette LUT, 3 the superformula rows.
+    static constexpr int kShapeTexUnit = 3;
 
     ShaderScene(std::string id, std::string vertexSrc, std::string fragmentSrc, ProgramBinaryCache* cache, SceneHost host);
     ~ShaderScene() override;
@@ -70,7 +75,9 @@ private:
     static constexpr float kSpikeRefractorySeconds = 0.28f;
     // The spike envelope has a RISE, not a step: a style keying brightness off
     // it cannot produce a one-frame flash because the value takes ~120ms to
-    // arrive and ~600ms to leave.
+    // arrive and ~600ms to leave. It is a HitEnvelope, not a one-pole toward a
+    // one-frame target - see Smoothing.hpp for why the latter never got past
+    // 0.13.
     static constexpr float kSpikeRiseHz = 8.0f;
     static constexpr float kSpikeFallHz = 1.7f;
 
@@ -94,12 +101,12 @@ private:
     // Well past the longest spawnGrow() horizon any style asks for.
     static constexpr float kSpawnAgeMax = 60.0f;
 
-    // One-pole toward `target`, framerate independent, with its own rate for
-    // rising and falling. Returns the new value.
-    static float slew(float current, float target, float dt, float riseHz, float fallHz);
     // Advances the spike-latched state (spawn seed, form phase, travel
     // direction, travel phase) for one frame.
     void stepMotion(float hit, float dt);
+    // Gathers what the superformula choreography reads from this frame's
+    // smoothed state.
+    SuperShape::Drive shapeDrive() const;
     float nextSeed();
 
     void compilePendingIfAny();
@@ -141,7 +148,7 @@ private:
     float smoothTreble_ = 0.0f;
     float smoothEnergy_ = 0.0f;
     float swell_ = 0.0f;
-    float spikeEnv_ = 0.0f;
+    HitEnvelope spike_{kSpikeRiseHz, kSpikeFallHz};
     // A countdown, not a timestamp. Comparing against a wrapping clock would stop
     // detecting spikes altogether the first time the clock wrapped, roughly two
     // hours in - exactly the session length a wallpaper runs to.
@@ -165,6 +172,12 @@ private:
     std::vector<float> pcm_;
     int pcmCount_ = 0;
     std::array<float, kAudioTexWidth> waveRow_{};
+
+    // The music-shaped signals and the superformula, integrated here for the
+    // same reason the band smooths are: a fragment shader has no state.
+    MusicSignals music_;
+    SuperShape shape_;
+    Texture shapeTex_;
 
     GLuint flowTex_ = 0;
     float flowStrength_ = 0.0f;

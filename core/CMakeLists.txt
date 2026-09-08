@@ -63,6 +63,8 @@ add_library(geode_core STATIC
     viz/TouchField.cpp
     viz/Transition.cpp
     viz/CompositeGrade.cpp
+    viz/MusicSignals.cpp
+    viz/SuperShape.cpp
     viz/CompositePass.cpp
     viz/TrailPass.cpp
     viz/SceneRegistry.cpp

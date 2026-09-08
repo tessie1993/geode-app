@@ -29,8 +29,8 @@ float SceneParams::paletteRange() const { return paletteRangeOverride >= 0.0f ? 
 float SceneParams::palette2Base() const { return palette2BaseOverride >= 0.0f ? palette2BaseOverride : paletteAt(palette2).base; }
 float SceneParams::palette2Range() const { return palette2RangeOverride >= 0.0f ? palette2RangeOverride : paletteAt(palette2).range; }
 
-const std::array<SceneParams::FloatField, 98>& SceneParams::lerpedFloats() {
-    static const std::array<FloatField, 98> kFields = {{
+std::span<const SceneParams::FloatField> SceneParams::lerpedFloats() {
+    static const FloatField kFields[] = {
         {"speed", &SceneParams::speed},
         {"zoom", &SceneParams::zoom},
         {"rotation", &SceneParams::rotation},
@@ -126,7 +126,8 @@ const std::array<SceneParams::FloatField, 98>& SceneParams::lerpedFloats() {
         {"cymaticsSwirl", &SceneParams::cymaticsSwirl},
         {"rippleOverlayStrength", &SceneParams::rippleOverlayStrength},
         {"rippleOverlaySpecular", &SceneParams::rippleOverlaySpecular},
-    }};
+        {"shapeMorph", &SceneParams::shapeMorph},
+    };
     return kFields;
 }
 
@@ -272,6 +273,7 @@ bool SceneParams::set(std::string_view name, float value) {
         {"cymaticsSwirl", &SceneParams::cymaticsSwirl},
         {"rippleOverlayStrength", &SceneParams::rippleOverlayStrength},
         {"rippleOverlaySpecular", &SceneParams::rippleOverlaySpecular},
+        {"shapeMorph", &SceneParams::shapeMorph},
     };
     for (const auto& f : kAllFloats) {
         if (name == f.name) { this->*f.member = value; return true; }

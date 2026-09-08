@@ -52,6 +52,10 @@ out vec4 fragColor;
 //
 // `bend` is how far each fold rotates the space before the next one; it is
 // what decides whether the result reads as crystalline or as coral.
+// Set in main(): the key's tint on every tone of the dye.
+float gKeyShift;
+vec3 nectar(float t) { return pal(t + gKeyShift); }
+
 float skeleton(vec3 p, float bend, float squash) {
     float trap = 1e9;
     float w = 1.0;
@@ -88,19 +92,26 @@ void main() {
 
     // A spike moves the fold's bend to a new plateau: the structure changes
     // species - crystalline, coral, lattice - and holds there.
-    float bend = 0.35 + 0.55 * uFormPhase;
+    // Beyond level (lib_scene_motion, "the music-shaped signals"). A kick
+    // tightens the dye onto the skeleton, a snare re-bends the fold, the hats
+    // sparkle the cores, a buildup squashes the fold finer, a drop thickens
+    // the dye for a while, the bar nods the camera, the stereo image leans
+    // it, the key tints the dye. All slew-limited upstream; the volume march
+    // is fixed-step, so none of it changes the cost.
+    gKeyShift = 0.20 * (uKeyHue - 0.5) * uKeyStrength;
+    float bend = 0.35 + 0.55 * uFormPhase + 0.10 * uSnare;
     // Kept inside 1.22..1.42. Below it the iteration barely folds and the
     // volume is fog; above it the trap outruns its own scale correction and
     // the structure turns to noise.
-    float squash = 1.26 + 0.12 * clamp(bass, 0.0, 1.0);
-    float sharp = 22.0 + 26.0 * clamp(treb, 0.0, 1.0);
+    float squash = 1.26 + 0.12 * clamp(bass, 0.0, 1.0) + 0.06 * uBuild;
+    float sharp = 22.0 + 26.0 * clamp(treb, 0.0, 1.0) + 12.0 * uKick;
     float warpScale = 0.95 + 0.30 * swell;
     float warpAmount = 0.13 + 0.10 * bass + 0.06 * finger;
 
     // The flight. Position is INTEGRATED on uFlowPhase - loudness sets how fast
     // the camera travels, never where it is - and a spike banks the heading.
-    vec3 ro = vec3(uMoveDir * 0.35, -uFlowPhase * 2.2);
-    mat3 cam = rotZ(uTime * 0.05) * rotY(uMoveDir.x * 0.30) * rotX(uMoveDir.y * 0.22);
+    vec3 ro = vec3(uMoveDir * 0.35 + vec2(0.12 * uPanSmooth, 0.0), -uFlowPhase * 2.2);
+    mat3 cam = rotZ(uTime * 0.05 + 0.04 * uRhythmLock * sin(uBarPhase * 6.2831853)) * rotY(uMoveDir.x * 0.30) * rotX(uMoveDir.y * 0.22);
     vec3 rd = cam * normalize(vec3(uv, NF_FOCAL));
 
     // ---- the volume march ---------------------------------------------------
@@ -128,10 +139,10 @@ void main() {
             // so the thin outskirts and the bright core are different hues
             // rather than the same hue at two brightnesses.
             float depth = (t - NF_NEAR) / span;
-            vec3 emit = pal(fract(0.12 + depth * 0.42 + uFormPhase * 0.25 + d * 0.30));
+            vec3 emit = nectar(fract(0.12 + depth * 0.42 + uFormPhase * 0.25 + d * 0.30));
             // The filament highlight: the top of the density range only.
-            emit += vec3(1.0) * smoothstep(0.72, 0.98, d) * (0.25 + 0.7 * treb);
-            float sigma = d * (2.6 + 2.2 * swell);
+            emit += vec3(1.0) * smoothstep(0.72, 0.98, d) * (0.25 + 0.7 * treb + 0.4 * uHat);
+            float sigma = d * (2.6 + 2.2 * swell + 1.5 * uDrop);
             // Emission-absorption: the standard front-to-back accumulation, so
             // near dye correctly hides far dye instead of summing with it.
             float a = 1.0 - exp(-sigma * dt);
@@ -143,18 +154,18 @@ void main() {
 
     vec3 col = acc;
     // The medium, so the empty parts are not flat black.
-    col += pal(0.68) * 0.045 * trans * (0.5 + 0.5 * swell);
+    col += nectar(0.68) * 0.045 * trans * (0.5 + 0.5 * swell);
 
     // The core the flight is aimed at: a small bright sun on the axis, its
     // halo swelling on a spike rather than flashing.
     float axis = pow(max(1.0 - length(uv) * 0.9, 0.0), 6.0);
-    col += pal(0.06) * axis * (0.16 + 0.26 * uSpike) * trans;
+    col += nectar(0.06) * axis * (0.16 + 0.26 * uSpike) * trans;
 
     // The particle layer, matching the rest of the family.
-    col += mix(pal(0.50), vec3(1.0), 0.35) * fluidMotes(uv * 1.1, 6.0, 0.14) * 0.22;
+    col += mix(nectar(0.50), vec3(1.0), 0.35) * fluidMotes(uv * 1.1, 6.0, 0.14) * 0.22;
 
     if (!touchIdle()) {
-        col += pal(0.5 + 0.15 * sin(uTime * 0.05)) * min(touchWake(uv), 3.0) * 0.05;
+        col += nectar(0.5 + 0.15 * sin(uTime * 0.05)) * min(touchWake(uv), 3.0) * 0.05;
     }
     col *= 0.70 + 0.30 * smoothstep(2.2, 0.4, length(uv));
     fragColor = vec4(grade(col), 1.0);

@@ -96,6 +96,12 @@ Three test files exist: `app/src/test/.../PresetLinkTest.kt`,
 headless (GL behaviour, capture, wallpaper) are listed in
 [docs/DEVICE_CHECKS.md](docs/DEVICE_CHECKS.md), a partial reconstruction.
 
+Every fragment style can be compiled headless with
+`python3 tools/validate_shaders.py [style ...]`, which resolves `//#include`
+lines exactly as `core/viz/ShaderSource.cpp` does and hands the result to
+`glslangValidator` (`apt install glslang-tools`). Run it after touching any
+`lib_*.glsl`: an include is compiled into every style that uses it.
+
 ## Maintainer notes
 
 - Tag writing covers files the app holds a write grant for. MediaStore tracks

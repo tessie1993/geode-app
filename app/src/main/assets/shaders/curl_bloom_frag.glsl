@@ -55,6 +55,12 @@ float gWarpAmount;
 float gLip;
 float gRadius;
 float gMorph;
+// The kick's bloat of the body's edges (a rounding, so the distance stays
+// exact) and the key's tint on every tone.
+float gRound;
+float gKeyShift;
+
+vec3 tone(float t) { return pal(t + gKeyShift); }
 
 // The body, in stirred space.
 //
@@ -79,7 +85,7 @@ float body(vec3 p) {
     // Rounded a little throughout: opRound is a constant offset of the field,
     // so it is exact and free, and it keeps the octahedron's points from
     // aliasing into fireflies at the rim.
-    return opRound(mix(a, b, f), r * 0.06);
+    return opRound(mix(a, b, f), r * gRound);
 }
 
 // The scene: the body, seen through the stir.
@@ -127,9 +133,17 @@ void main() {
     // is what pays for it, and a large amount makes every ray take tiny steps
     // and the body dissolve into banding at low Detail.
     gWarpScale = 1.15 + 0.25 * swell;
-    gWarpAmount = 0.10 + 0.11 * bass + 0.05 * finger;
+    // Beyond level (lib_scene_motion, "the music-shaped signals"). A kick
+    // bloats the body's edges, a snare turns the camera, a buildup stirs the
+    // space harder (folded into gLip below), a drop leaves the body swollen
+    // for a while, the hats shimmer the veins, the bar nods the camera, the
+    // stereo image moves the key light, the key tints every tone. All
+    // slew-limited upstream.
+    gWarpAmount = 0.10 + 0.11 * bass + 0.05 * finger + 0.06 * uBuild;
     gLip = fluidWarp3Lipschitz(gWarpScale, gWarpAmount);
-    gRadius = 0.86 * (1.0 + 0.07 * swell);
+    gRadius = 0.86 * (1.0 + 0.07 * swell + 0.10 * uDrop);
+    gRound = 0.06 + 0.10 * uKick;
+    gKeyShift = 0.20 * (uKeyHue - 0.5) * uKeyStrength;
     // Glides; never steps. See the morph note at the top.
     gMorph = uFormPhase * 4.0;
 
@@ -137,7 +151,8 @@ void main() {
     // a new angle every second even in silence, and a spike banks the orbit
     // toward the new travel direction.
     vec3 ro = vec3(0.0, 0.0, -3.1);
-    mat3 cam = rotY(uTime * 0.11 + uFlowPhase * 0.9) * rotX(0.32 * sin(uTime * 0.07) + uMoveDir.y * 0.25);
+    mat3 cam = rotY(uTime * 0.11 + uFlowPhase * 0.9 + 0.35 * uSnare)
+        * rotX(0.32 * sin(uTime * 0.07) + uMoveDir.y * 0.25 + 0.05 * uRhythmLock * sin(uBarPhase * CB_TAU));
     ro = cam * ro;
     vec3 rd = cam * normalize(vec3(uv, CB_FOCAL));
 
@@ -163,7 +178,7 @@ void main() {
     }
 
     // The medium the body hangs in, brightened toward the middle of the frame.
-    vec3 fog = pal(0.66) * 0.055 * (0.6 + 0.5 * swell);
+    vec3 fog = tone(0.66) * 0.055 * (0.6 + 0.5 * swell);
     vec3 col = fog;
 
     if (hitT > 0.0) {
@@ -176,11 +191,11 @@ void main() {
         // fold rather than the underlying primitive, which is what sells the
         // surface as something the flow made.
         vec3 q = fluidWarp3(p, gWarpScale, gWarpAmount);
-        float vein = fbm3(q * 3.4 + uSpawnSeed * 17.0, 3);
+        float vein = fbm3(q * (3.4 + 1.5 * uHat) + uSpawnSeed * 17.0, 3);
         // A new spawn re-seeds the veining and grows it in over a second.
         vein = mix(0.5, vein, spawnGrow(1.1));
 
-        vec3 key = normalize(vec3(-0.45, 0.62, -0.65));
+        vec3 key = normalize(vec3(-0.45 + 0.35 * uPanSmooth, 0.62, -0.65));
         float dif = clamp(dot(n, key), 0.0, 1.0);
         float back = clamp(dot(n, -key), 0.0, 1.0);
         float fres = pow(1.0 - clamp(dot(n, -rd), 0.0, 1.0), 3.5);
@@ -188,7 +203,7 @@ void main() {
 
         // Two materials mixed by the veining, so the fold lines are a colour
         // change as well as a shape one.
-        vec3 skin = mix(pal(0.58), pal(0.90), smoothstep(0.35, 0.72, vein));
+        vec3 skin = mix(tone(0.58), tone(0.90), smoothstep(0.35, 0.72, vein));
         col = skin * (0.10 + 0.75 * dif) * ao;
         // Rim, taking the treble - slew-limited, so a cymbal brightens the
         // edge over several frames rather than on the one it lands.
@@ -196,22 +211,22 @@ void main() {
         col += vec3(1.0) * spec * 0.30;
         // Subsurface: light coming through the thin parts, which is what makes
         // the torus and the octahedron's points read as translucent.
-        col += pal(0.10) * back * 0.16 * (0.5 + 0.5 * swell);
+        col += tone(0.10) * back * 0.16 * (0.5 + 0.5 * swell);
         // Depth haze.
         col = mix(col, fog, 1.0 - exp(-hitT * 0.16));
     } else {
         // The halo: rays that grazed the body without hitting it. `near` is
         // the closest approach, so this is a true silhouette glow and not a
         // radial gradient pasted behind the object.
-        col += pal(0.50) * exp(-near * 5.5) * (0.30 + 0.35 * uSpike);
+        col += tone(0.50) * exp(-near * 5.5) * (0.30 + 0.35 * uSpike);
     }
 
     // The particle layer, in screen space, riding the 2D half of the same
     // library so it matches the other styles in the family.
-    col += mix(pal(0.52), vec3(1.0), 0.35) * fluidMotes(uv, 5.5, 0.15) * 0.24;
+    col += mix(tone(0.52), vec3(1.0), 0.35) * fluidMotes(uv, 5.5, 0.15) * 0.24;
 
     if (!touchIdle()) {
-        col += pal(0.5 + 0.15 * sin(uTime * 0.05)) * min(touchWake(uv), 3.0) * 0.05;
+        col += tone(0.5 + 0.15 * sin(uTime * 0.05)) * min(touchWake(uv), 3.0) * 0.05;
     }
     col *= 0.68 + 0.32 * smoothstep(2.2, 0.4, length(uv));
     fragColor = vec4(grade(col), 1.0);

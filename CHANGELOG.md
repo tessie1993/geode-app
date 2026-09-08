@@ -11,6 +11,129 @@ a partial reconstruction, rebuilt from the references in these entries, is at
 
 ## Unreleased
 
+- **The music now shapes the picture, not just its size.** Until now a
+  fragment style could react to the LEVEL of the music - `uBassSmooth`,
+  `uSwell`, `uSpike`, the beat pulse - and level can only make a picture
+  bigger, brighter or jumpier, which is why every reaction read as a pop, a
+  zoom or a flash. The analyzer already measured the rest and none of it
+  reached a shader. `viz/MusicSignals` now turns it into seventeen more
+  uniforms, declared and documented in `lib_scene_motion.glsl`: three drum
+  envelopes with three different releases (`uKick` thuds, `uSnare` cracks,
+  `uHat` is gone almost at once), the structure of the track (`uBuild` winds
+  up through a buildup, `uDrop` is a STATE held for the seconds after a drop,
+  `uArrival` lights when music returns after silence, `uNovelty`,
+  `uSectionPhase` steps once per section), the bar clock (`uBarPhase`,
+  `uBeatInBar`, passed through unsmoothed because a smoothed clock drifts,
+  with `uRhythmLock` to fade bar-locked motion in by), tonality (`uHarmonic`
+  tonal-against-percussive, `uBrightSmooth`, `uKeyHue` the musical key as a
+  hue that glides the short way round the pitch-class circle, gated by
+  `uKeyStrength`) and stereo (`uPanSmooth`, `uWidthSmooth`). Every one is
+  slew-limited or an attack/release envelope: none can step in a frame.
+  All seventeen `view()`-based styles now read them, each in its own terms
+  and each edited against its own stated invariants (nothing enters a
+  Lipschitz-bound field that the bound does not already pay for; the large-
+  area luminance terms stay on the slow smooths). The shape of it is the
+  same everywhere and the particulars differ: a KICK moves geometry - it
+  draws Morphogen's blobs in, fattens Rod Tunnel's rods, points Mandala
+  Dome's petals, winds Spiral Eye's arms tighter, bloats Curl Bloom's edges;
+  a SNARE turns something - the fold in KIFS and Noneuclid, the crystal in
+  Morphogen, the hall in Neon Tiles, the strands in Bead Vortex; the HATS
+  touch the fine detail - grain, beads, specular, colour split, star size;
+  a BUILDUP tightens - the spiral in Vanishing, the tiling, the lattice, the
+  fold scale; a DROP is a state the style stays in - deeper fog in
+  Vanishing and Rod Tunnel, a swollen body, a wider lens or shaft, cleared
+  haze; the BAR nods or sways, faded in with `uRhythmLock`; the KEY tints
+  every palette read (the styles with many of them route `pal()` through a
+  one-line wrapper), and the SECTION moves the palette origin. The legacy
+  styles that carry their own copy of the view pipeline are unchanged. All
+  seventeen were rendered headless with the signals at zero and driven hard:
+  no failures, no dark frames, and every one of them moves.
+- **The Gielis superformula, as a shape every fragment style can morph
+  through.** `r(θ) = (|cos(mθ/4)/a|^n2 + |sin(mθ/4)/b|^n3)^(-1/n1)` draws a
+  circle, an m-gon, an m-pointed star and everything between from six real
+  numbers, and every path between two of them is a morph rather than a cut,
+  which is what makes it the right thing to hang a music reaction on.
+  `viz/SuperShape` drives it: snares walk the lobe count (climbing during a
+  buildup), a drop resets it to a bold low count, a section boundary re-rolls
+  it and reverses the spin; harmonicity sets the sharpness and a kick pinches
+  it; the spectral tilt (bass against treble) fattens or thins the lobes on
+  an exponential scale so both extremes are reachable, brightness and hats
+  split the pair; stereo pan and width weight the terms. The count is only
+  ever an integer, because `|cos(mθ/4)|` closes over 2π only for even `m` (an
+  odd `m` with unequal exponents has a seam at θ = π, a fractional `m` never
+  closes); odd counts are drawn with symmetric exponents, and a count change
+  is a crossfade from the row ON SCREEN to the new closed curve, so it is
+  seamless whenever it lands. Both curves are sampled per frame into an R32F
+  texture the way the audio bands are, read with `texelFetch` (no
+  float-linear extension needed) and mean-normalised so the shape changes
+  without the picture zooming. Three ways in: the **Shape morph** control
+  (Shape tab, `shapeMorph`, wire index 134) folds any style that goes through
+  the shared `view()` into the silhouette - KIFS's square becomes the
+  five-pointed star the snare just walked to, the orb becomes the six-lobed
+  body, each keeping its own texture. That is the eighteen styles in the new
+  `SceneCapabilities.VIEW_SCENES`; the older styles carry their own copy of
+  the view pipeline without the fold, so the control hides itself on them
+  through a style-level `ParamScope.SHAPE_MORPH`, the way Detail already
+  hides on the styles that do not march. `lib_superformula.glsl` gives a style
+  the analytic form, a 2D mask and distance, and the 3D spherical product as
+  a marchable distance estimate divided by a bound `SuperShape::lipschitz`
+  derives each frame (rigorous for the silhouette, honoured to ~70° latitude
+  for the solid, both clamped at 4 - past the clamp a march may land slightly
+  inset and thin spike tips may drop out, which was measured as invisible at
+  a p95 of 43 steps against the 64-step Detail floor); and `ashape()` /
+  `ashapeElev()` in `lib_scene_uniforms` for anything else. Shape morph is an
+  LFO and envelope target as well (`LfoTarget.SHAPE_MORPH`), appended after
+  the chain targets on both sides of the ordinal-mirrored list so every stored
+  modulation keeps its meaning.
+- **A style for the formula itself** (Styles > Shaders, id `supershape`,
+  preset *supershape · Gielis*). The 3D supershape raymarched not as a lit
+  surface but as a shell of luminous motes along its parameter lines, seen
+  through to its far side (a bounded march inside the body finds the exit and
+  a four-step bisection pins it, so that half is robust where the bound is
+  not), with the lobe tips burning white, a halo from the closest approach,
+  the musical key tinting the shell, a nod once per bar faded in with
+  `uRhythmLock`, and each section dealing its own lattice density. Almost
+  nothing in it reads a level: the body IS whatever the music has made the
+  formula, so a change in the music is a change in what is drawn. Marches, so
+  it joins `MARCHED_SCENES` and spends the Detail budget.
+- **Fix: one-hop pulses were dropped every other hop at 30fps.** The analyzer
+  hops at 62.5 Hz and `Renderer::setFeatures` kept the latest hop, so when two
+  hops landed between frames the earlier one's `beat`, `kick`, `snare`,
+  `hat`, `downbeat`, `drop`, `arrival`, `sectionBoundary` and `transient` - all
+  reported on exactly one hop - were never seen. The continuous fields still
+  take the newest hop; the pulses are now carried forward until a frame has
+  read them.
+- **Fix: `uSpike` never got past ~0.13.** `lib_scene_motion` promised it
+  "peaks near 1 on a hit", but it was a one-pole chasing a target that was 1
+  for a single frame, so an 8 Hz rise covered 13% of the gap at 60fps and
+  then released. It is now a `HitEnvelope` (`viz/Smoothing.hpp`): the hit
+  arms a peak the rise is held to until reached, then the release runs. Same
+  8 Hz / 1.7 Hz constants, same no-flash guarantee, and it now actually
+  arrives - so the seventeen styles that key an accent off `uSpike` will show
+  that accent at the weight their authors wrote, which is a visible change.
+- **Fix: `SceneParams::lerpedFloats()` was a 98-element array holding 95
+  entries.** The three the count overstated were value-initialised, and
+  `lerpParams` and `blendParams` dereferenced their null pointers-to-member
+  on every crossfade (a 4-byte write at offset -1 of the local result). The
+  table is now size-deduced behind a `std::span`.
+- **Fix: `lib_sdf3`'s integer hash was at mediump precision.** GLSL ES 3.00
+  gives a fragment shader's `int`/`uint` a default precision of mediump,
+  which the spec guarantees only 16 bits, and no style declared otherwise.
+  The hash is a 32-bit mixer (shifts by 16, 32-bit multiplies), and at 16
+  bits it does not degrade, it collapses to 0 for every input - and with it
+  `hashCell`, `vnoise3` and `fbm3`, so on an implementation that honours
+  mediump (Mesa does; Mali does in the fragment stage) the Nebula's entire
+  cloud was silently zero and Curl Bloom's veins flat. Found because the
+  headless harness rendered an empty Nebula; `precision highp int;` is now
+  declared once at the top of `lib_sdf3.glsl`, so every style that includes
+  it gets a 32-bit hash. This is worth checking on a Mali device: if the
+  Nebula had cloud there before, that GPU was promoting mediump ints, and
+  nothing changes; if it did not, it does now.
+- **`tools/validate_shaders.py`** resolves `//#include` lines exactly as
+  `ShaderSource.cpp` does (reading its whitelist from that file) and compiles
+  every style with `glslangValidator`; it was run on all 78. And
+  `docs/PARAM_MATRIX.md` no longer claims to be generated by a test that is
+  not in the repository.
 - **Two more styles that put the fluid into three dimensions** (Styles >
   Shaders, ids `curl_bloom`, `nectar_flow`). Both are raymarched, so unlike the
   four flat styles below they DO spend the Detail budget and both join

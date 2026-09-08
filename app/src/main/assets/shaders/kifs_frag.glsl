@@ -493,6 +493,13 @@ void main() {
     // uSpike: the same accent, with a rise, and already silent between hits.
     float hit = uSpike;
 
+    // Beyond level (lib_scene_motion, "the music-shaped signals"). A snare
+    // turns the fold, a kick draws the fold constant in (inside its clamp),
+    // a buildup subdivides finer, a drop flattens the mirror for a while, the
+    // hats sparkle the specular, the bar nods the fold, the key and the
+    // section colour the shells. All slew-limited upstream.
+    float keyShift = 0.20 * (uKeyHue - 0.5) * uKeyStrength + 0.10 * uSectionPhase;
+
     // ---- camera -----------------------------------------------------------
     //
     // It orbits forever on two unrelated slow rates, so the cathedral is seen
@@ -527,16 +534,16 @@ void main() {
             sin(uTime * 0.0213),
             sin(uTime * 0.0171 + 1.7),
             sin(uTime * 0.0131 + 3.1)
-        ),
+        ) - vec3(0.04, 0.04, 0.0) * uKick,
         KIFS_C_MIN,
         KIFS_C_MAX
     );
 
     // Bass subdivides the interior more finely; the silhouette does not move,
     // because the cell below is set by the centre and not by this.
-    gScale = KIFS_SCALE_BASE + KIFS_SCALE_BASS * bassA + KIFS_SCALE_DRIFT * sin(uTime * 0.0273);
+    gScale = KIFS_SCALE_BASE + KIFS_SCALE_BASS * bassA + KIFS_SCALE_DRIFT * sin(uTime * 0.0273) + 0.10 * uBuild;
 
-    gZMirror = max(KIFS_ZM_BASE + KIFS_ZM_SWING * sin(uTime * KIFS_ZM_RATE) - 0.16 * bassA, KIFS_ZM_FLOOR);
+    gZMirror = max(KIFS_ZM_BASE + KIFS_ZM_SWING * sin(uTime * KIFS_ZM_RATE) - 0.16 * bassA - 0.08 * uDrop, KIFS_ZM_FLOOR);
 
     // The cell. x and y are the magnification centre and z is the mirror
     // plane, because those are exactly the surfaces the fold maps back into
@@ -577,6 +584,8 @@ void main() {
         + KIFS_FOLD_SWING * sin(uTime * KIFS_FOLD_RATE)
         + KIFS_FOLD_MID * midA
         + KIFS_FOLD_BEAT * hit
+        + 0.20 * uSnare
+        + 0.03 * uRhythmLock * sin(uBarPhase * KIFS_TAU)
         + KIFS_TOUCH_SPIN * spin;
     gFoldRot = rotAxis(foldAxis, foldAngle);
 
@@ -692,7 +701,7 @@ void main() {
         // Two fixed WORLD lights. Fixed, not view-locked, so the cathedral
         // turning through them is what reveals its shape - a headlight would
         // flatten every fold into the same grey.
-        vec3 key = normalize(vec3(0.42, 0.78, -0.46));
+        vec3 key = normalize(vec3(0.42 + 0.35 * uPanSmooth, 0.78, -0.46));
         vec3 fill = normalize(vec3(-0.66, 0.12, 0.74));
         float dif = clamp(dot(n, key), 0.0, 1.0);
         float bnc = clamp(dot(n, fill), 0.0, 1.0);
@@ -709,7 +718,7 @@ void main() {
         // spreads them evenly across the palette instead of crushing the deep
         // ones into one colour.
         float band = log(max(trapR, 1e-6)) * 0.11;
-        float shell = band + 0.22 * trapZ + 0.07 * sin(uTime * 0.029) + 0.06 * midA;
+        float shell = band + 0.22 * trapZ + 0.07 * sin(uTime * 0.029) + 0.06 * midA + keyShift;
         vec3 body = pal(shell);
         // A related but distinct hue for the rim: 0.28 of a turn is far enough
         // to read as a different material and close enough to still be the
@@ -724,7 +733,7 @@ void main() {
 
         col = body * (0.18 + 0.80 * dif + 0.32 * bnc) * ao;
         col += rimCol * fres * (0.34 + 0.5 * trebA) * (0.55 + 0.9 * lit) * ao;
-        col += mix(vec3(1.0), rimCol, 0.5) * spec * 0.30 * (0.3 + 0.7 * trebA) * ao;
+        col += mix(vec3(1.0), rimCol, 0.5) * spec * 0.30 * (0.3 + 0.7 * trebA + 0.4 * uHat) * ao;
 
         // Depth haze, measured from the ball entry rather than from the
         // camera, so the near face is unfogged and only the depth INSIDE the

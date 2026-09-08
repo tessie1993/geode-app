@@ -120,6 +120,10 @@ enum class LfoTarget(
     LFO2_DEPTH("Slot 2 depth", ParamScope.UNIVERSAL, ModChain(1, ModChainField.DEPTH)),
     LFO3_RATE("Slot 3 rate", ParamScope.UNIVERSAL, ModChain(2, ModChainField.RATE)),
     LFO3_DEPTH("Slot 3 depth", ParamScope.UNIVERSAL, ModChain(2, ModChainField.DEPTH)),
+
+    // Appended after the chain targets so every stored ordinal keeps its meaning; viz/Lfo.hpp
+    // mirrors this order.
+    SHAPE_MORPH("Shape morph", ParamScope.SHAPE_MORPH),
 }
 
 /**
@@ -376,6 +380,7 @@ class LfoEngine {
                 LfoTarget.FLOW_STRENGTH -> r.copy(flowStrength = (r.flowStrength + v).coerceIn(0f, 1f))
                 LfoTarget.WATER_RIPPLE -> r.copy(waterRippleStrength = (r.waterRippleStrength + v).coerceIn(0f, 2f))
                 LfoTarget.RIPPLE_OVERLAY -> r.copy(rippleOverlayStrength = (r.rippleOverlayStrength + v).coerceIn(0f, 1f))
+                LfoTarget.SHAPE_MORPH -> r.copy(shapeMorph = (r.shapeMorph + v).coerceIn(0f, 1f))
                 // Slots that steer another slot write no scene parameter of their own; LfoEngine.tick
                 // has already folded them into that slot's rate/depth.
                 LfoTarget.NONE,

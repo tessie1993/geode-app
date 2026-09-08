@@ -100,6 +100,7 @@ SceneParams applyLfoTarget(const SceneParams& r, LfoTarget target, float v) {
         case LfoTarget::FlowStrength: o.flowStrength = std::clamp(r.flowStrength + v, 0.0f, 1.0f); break;
         case LfoTarget::WaterRipple: o.waterRippleStrength = std::clamp(r.waterRippleStrength + v, 0.0f, 2.0f); break;
         case LfoTarget::RippleOverlay: o.rippleOverlayStrength = std::clamp(r.rippleOverlayStrength + v, 0.0f, 1.0f); break;
+        case LfoTarget::ShapeMorph: o.shapeMorph = std::clamp(r.shapeMorph + v, 0.0f, 1.0f); break;
         case LfoTarget::None: case LfoTarget::Lfo1Rate: case LfoTarget::Lfo1Depth: case LfoTarget::Lfo2Rate:
         case LfoTarget::Lfo2Depth: case LfoTarget::Lfo3Rate: case LfoTarget::Lfo3Depth:
             break;

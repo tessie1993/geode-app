@@ -557,16 +557,24 @@ void main() {
     // fingertip, which is the gesture this style exists for.
     gPoleR2 = POLE_R2 * (1.0 + 0.30 * bassN + 0.85 * pinch + 0.65 * grab);
 
+    // Beyond level (lib_scene_motion, "the music-shaped signals"). A snare
+    // turns the fold, a kick draws its offset in, a buildup tightens the
+    // inversion, the hats swell the beads, the bar nods the world, the key
+    // and the section colour it. All slew-limited upstream; the rotations
+    // and offsets are rigid, and the inversion and bead radii carry their
+    // distance corrections already.
+    float keyShift = 0.20 * (uKeyHue - 0.5) * uKeyStrength + 0.12 * uSectionPhase;
+
     // The chain. Mids steer the fold planes: same argument as above about
     // gain, and mids are the steering band by convention.
-    float foldAngle = uTime * 0.041 + midN * 0.45 + spin;
+    float foldAngle = uTime * 0.041 + midN * 0.45 + spin + 0.30 * uSnare;
     gFoldRot = rotAxis(vec3(0.37, 0.78, -0.51), foldAngle);
     // The offset breathes slowly, so the group is never the same group twice
     // and the structure keeps reorganising with the audio at zero.
-    gFoldOff = vec3(0.62, -0.24, 0.41) * (1.0 + 0.06 * sin(uTime * 0.029));
-    gInvR2 = INV_R2 * (1.0 + 0.10 * bassN);
-    gWorldRot = rotY(uTime * 0.083) * rotX(0.26 * sin(uTime * 0.037));
-    gBead = CELL_BEAD + 0.030 * bassN;
+    gFoldOff = vec3(0.62, -0.24, 0.41) * (1.0 + 0.06 * sin(uTime * 0.029) - 0.05 * uKick);
+    gInvR2 = INV_R2 * (1.0 + 0.10 * bassN + 0.06 * uBuild);
+    gWorldRot = rotY(uTime * 0.083) * rotX(0.26 * sin(uTime * 0.037) + 0.05 * uRhythmLock * sin(uBarPhase * TAU));
+    gBead = CELL_BEAD + 0.030 * bassN + 0.020 * uHat;
 
     // Fold count - the one discrete quantity in the style, and the only thing
     // uBeat is allowed to touch.
@@ -707,12 +715,12 @@ void main() {
         // the region keeps a colour that belongs to it and loses the per-pixel
         // scatter. Not toward a constant - a flat patch reads as a hole.
         hue = mix(hue, 0.10 + 0.62 * clamp(length(p - gCenter) / BALL_R, 0.0, 1.0),
-            rough * 0.9);
+            rough * 0.9) + keyShift;
 
         vec3 body = pal(hue);
         vec3 rim = pal(hue + 0.34);
 
-        vec3 key = normalize(vec3(0.48, 0.72, -0.50));
+        vec3 key = normalize(vec3(0.48 + 0.35 * uPanSmooth, 0.72, -0.50));
         vec3 fill = normalize(vec3(-0.62, -0.18, 0.76));
         float dif = clamp(dot(n, key), 0.0, 1.0);
         float bounce = clamp(dot(n, fill), 0.0, 1.0);

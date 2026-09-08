@@ -20,6 +20,9 @@ enum class LfoTarget {
     Glitch, Fisheye, ParticleSize, TrailLength, FluidCurl, FluidRadius, FluidForce, FluidGlow, FluidFade,
     FluidCatchPull, FluidCatchRadius, FlowStrength, WaterRipple, RippleOverlay,
     Lfo1Rate, Lfo1Depth, Lfo2Rate, Lfo2Depth, Lfo3Rate, Lfo3Depth,
+    // Appended after the chain targets so every stored ordinal keeps its meaning;
+    // the Kotlin enum (render/Lfo.kt) mirrors this order.
+    ShapeMorph,
 };
 
 struct ModChain {

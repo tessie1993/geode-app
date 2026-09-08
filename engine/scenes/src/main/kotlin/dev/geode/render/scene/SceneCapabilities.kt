@@ -78,12 +78,14 @@ object SceneCapabilities {
             // above they DO spend the Detail budget and both join MARCHED_SCENES.
             SceneIds.CURL_BLOOM to "shaders/curl_bloom_frag.glsl",
             SceneIds.NECTAR_FLOW to "shaders/nectar_flow_frag.glsl",
+            // The music-driven Gielis superformula as a body; marches, so it joins MARCHED_SCENES.
+            SceneIds.SUPERSHAPE to "shaders/supershape_frag.glsl",
         )
 
     /**
      * The fragment styles that raymarch, and so spend the [MarchBudget] the Detail control sets.
      *
-     * A per-STYLE set rather than a [SceneKind], because only eight of the 39 shader styles march;
+     * A per-STYLE set rather than a [SceneKind], because only nine of the 40 shader styles march;
      * scoping Detail to `SceneKind.SHADER` would put a dead slider in front of anyone looking at
      * Plasma, which is exactly what [ParamScope]'s no-dead-controls rule exists to prevent.
      */
@@ -99,6 +101,36 @@ object SceneCapabilities {
             // Different loops, but Detail is the budget for both.
             SceneIds.CURL_BLOOM,
             SceneIds.NECTAR_FLOW,
+            SceneIds.SUPERSHAPE,
+        )
+
+    /**
+     * The fragment styles that go through the shared `view()` in `lib_scene_uniforms.glsl`, and
+     * so are the ones the Shape morph control folds into the superformula silhouette.
+     *
+     * Per-style for the same reason [MARCHED_SCENES] is: the older styles carry their own copy
+     * of the view pipeline, which does not have the fold, so on them the slider would be dead.
+     */
+    val VIEW_SCENES: Set<String> =
+        setOf(
+            SceneIds.VANISHING,
+            SceneIds.MORPHOGEN,
+            SceneIds.NEBULA,
+            SceneIds.NONEUCLID,
+            SceneIds.KIFS,
+            SceneIds.ORB_LATTICE,
+            SceneIds.ROD_TUNNEL,
+            SceneIds.NEON_TILES,
+            SceneIds.CHROMA_ORB,
+            SceneIds.MANDALA_DOME,
+            SceneIds.BEAD_VORTEX,
+            SceneIds.MERKABA_GRID,
+            SceneIds.SPIRAL_EYE,
+            SceneIds.BLACKLIGHT_BLOOM,
+            SceneIds.FRACTAL_TEMPLE,
+            SceneIds.CURL_BLOOM,
+            SceneIds.NECTAR_FLOW,
+            SceneIds.SUPERSHAPE,
         )
 
     /**

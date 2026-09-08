@@ -29,9 +29,15 @@ vec2 kaleido(vec2 p, float n) {
     return length(p) * vec2(cos(a), sin(a));
 }
 
+// Set once in main(): the dot swell a kick gives every bead, and the key's
+// tint on the lattice. Globals because pattern() is called nine times a pixel.
+float gDot;
+float gKeyShift;
+
 float dots(vec2 uv, float scale, float radius) {
     vec2 g = fract(uv * scale) - 0.5;
-    return smoothstep(radius, radius - 0.04, length(g));
+    float r = radius * gDot;
+    return smoothstep(r, r - 0.04, length(g));
 }
 
 float pattern(vec2 p) {
@@ -56,9 +62,9 @@ float foldCount() {
 
 vec3 latticeColour(vec2 q, float split, float glow) {
     vec3 rgb = rgbSplit(q, split);
-    vec3 col = rgb.g * pal(0.55 + 0.08 * sin(q.x * 0.7 + uTime * 0.2));
-    col += rgb.b * pal(0.68) * 0.7;
-    col += rgb.r * (1.0 - rgb.g) * pal(0.02) * 0.8;
+    vec3 col = rgb.g * pal(0.55 + gKeyShift + 0.08 * sin(q.x * 0.7 + uTime * 0.2));
+    col += rgb.b * pal(0.68 + gKeyShift) * 0.7;
+    col += rgb.r * (1.0 - rgb.g) * pal(0.02 + gKeyShift) * 0.8;
     return col * glow;
 }
 
@@ -73,8 +79,15 @@ void main() {
     // swells instead of flashing on one frame.
     float hit = uSpike;
 
+    // Beyond level (lib_scene_motion, "the music-shaped signals"). A kick
+    // swells the beads, a snare slides the lattice round, the hats twinkle
+    // the colour split, a buildup packs the lattice tighter, the bar sways
+    // it, the stereo image leans it, the key tints it. All slew-limited.
+    gDot = 1.0 + 0.25 * uKick;
+    gKeyShift = 0.20 * (uKeyHue - 0.5) * uKeyStrength;
+
     float folds = foldCount();
-    float split = mix(0.01, 0.04, clamp(trebA, 0.0, 1.0));
+    float split = mix(0.01, 0.04, clamp(trebA, 0.0, 1.0)) + 0.02 * uHat;
     float zoomPulse = 1.0 + 0.12 * bassA * uBeatResponse;
     vec2 p = uv / zoomPulse;
     float r2 = dot(p, p);
@@ -87,10 +100,13 @@ void main() {
 
     if (r2 < 1.0) {
         vec2 s = sphereUv(p) + flowOffset(0.9) + vec2(0.0, 0.02 * sin(uTime * 0.17));
-        vec2 q = kaleido(s * 1.25, folds);
+        vec2 q = kaleido(s * (1.25 + 0.35 * uBuild), folds);
+        float turn = 0.30 * uSnare;
+        q = mat2(cos(turn), sin(turn), -sin(turn), cos(turn)) * q;
         // The new spawn grows its offset in over a second rather than cutting to it.
         q += 0.12 * vec2(sin(uTime * 0.19), cos(uTime * 0.23));
         q += 0.18 * (uSpawnSeed - 0.5) * spawnGrow(1.1) * uMoveDir;
+        q += vec2(0.05 * uRhythmLock * sin(uBarPhase * ORB_TAU) + 0.08 * uPanSmooth, 0.0);
         float rim = sqrt(1.0 - r2);
         vec3 orb = latticeColour(q, split, 0.35 + 0.65 * rim);
         orb += pal(0.5) * pow(rim, 6.0) * 0.08;

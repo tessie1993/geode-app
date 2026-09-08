@@ -512,7 +512,15 @@ void main() {
     float energy = clamp(uEnergySmooth, 0.0, 1.5);
     float beatEnv = clamp(uSpike, 0.0, 1.0);
 
-    float radius = NEB_RADIUS * (1.0 + NEB_BASS_INFLATE * bass);
+    // Beyond level (lib_scene_motion, "the music-shaped signals"). A kick and
+    // a buildup thicken the cloud, a snare turns it, a drop leaves it swollen
+    // for a while, the hats flicker the veins, the bar nods it, the key and
+    // the section colour it. All slew-limited upstream; nothing here changes
+    // the step count.
+    float keyShift = 0.20 * (uKeyHue - 0.5) * uKeyStrength + 0.15 * uSectionPhase;
+    float thicken = 0.05 * uKick + 0.08 * uBuild;
+
+    float radius = NEB_RADIUS * (1.0 + NEB_BASS_INFLATE * bass + 0.10 * uDrop);
     float extinction = NEB_EXTINCTION * (1.0 + NEB_BASS_EXTINCT * bass);
     // Self-shadowing tracks extinction: bass that thickens the medium has to
     // darken its interior too, or the cloud gets denser and brighter at once
@@ -536,7 +544,8 @@ void main() {
     // this drift and this tumble are the whole animation, and they are what
     // keeps a silent screen alive.
     vec3 drift = vec3(0.031, -0.047, 0.019) * uTime;
-    mat3 volumeRot = rotY(NEB_TUMBLE_Y * uTime + NEB_MID_STEER * mid) * rotX(NEB_TUMBLE_X * uTime);
+    mat3 volumeRot = rotY(NEB_TUMBLE_Y * uTime + NEB_MID_STEER * mid + 0.30 * uSnare)
+        * rotX(NEB_TUMBLE_X * uTime + 0.05 * uRhythmLock * sin(uBarPhase * 6.2831853));
 
     // ---- the fingers, hoisted out of the march ----------------------------
     // One uniform branch. Every touch uniform is a literal zero on an
@@ -702,7 +711,8 @@ void main() {
             NEB_THRESHOLD
                 - NEB_WELL_THRESHOLD * well
                 - NEB_BRIDGE_THRESHOLD * bridge
-                - NEB_SHOCK_THICKEN * shock,
+                - NEB_SHOCK_THICKEN * shock
+                - thicken,
             NEB_MIN_THRESHOLD
         );
         float dens = env * max(f - thr, 0.0) * NEB_DENSITY_GAIN;
@@ -755,7 +765,7 @@ void main() {
             // every empty sample instead, which is most of them.
             float shade = clamp(dens * NEB_HUE_DENS_NORM, 0.0, 1.0);
             vec3 tint = pal(
-                NEB_HUE_BASE
+                NEB_HUE_BASE + keyShift
                     + NEB_HUE_DENSITY * shade
                     + NEB_HUE_DEPTH * lod
                     + NEB_HUE_MID * mid
@@ -764,7 +774,7 @@ void main() {
 
             float emit = NEB_AMBIENT_EMIT
                 + NEB_CORE_EMIT * lit
-                + NEB_VEIN_EMIT * vein * vein * (NEB_VEIN_BASE + treble)
+                + NEB_VEIN_EMIT * vein * vein * (NEB_VEIN_BASE + treble + 0.35 * uHat)
                 + NEB_SHOCK_EMIT * shock
                 // touchWake sums every slot and is unbounded above - five
                 // fingers sum to five. Tone-mapped rather than clamped so the

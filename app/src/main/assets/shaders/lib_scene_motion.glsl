@@ -93,6 +93,92 @@ uniform float uFormPhase;
  */
 uniform float uFlowPhase;
 
+// ---- the music-shaped signals ----------------------------------------------
+//
+// Everything above is about LEVEL: how loud, how bright, whether something
+// just hit. A picture driven by level alone has one kind of reaction. The
+// analyzer measures much more than level, and viz/MusicSignals turns it into
+// the signals below, so a kick and a hi-hat can do two different things to
+// the picture, a buildup can wind it up, a drop can change what it is.
+//
+// Same rules as the rest of this file: every one of these is slew-limited or
+// an attack/release envelope and cannot step in a single frame. The drum and
+// structure envelopes reach 1 on a full-strength event (they are HitEnvelopes,
+// not one-poles chasing a one-frame target, which is also the fix that lets
+// uSpike reach the peak documented above).
+
+/**
+ * Drum envelopes, 0..1. Same 16 Hz attack; three different releases, which is
+ * what tells them apart on screen. A kick (3 Hz release) thuds and lingers;
+ * a snare (5 Hz) cracks; a hat (9 Hz) is over almost before it started. Meant
+ * for GEOMETRY - a pinch, a turn, a re-count - rather than for brightness;
+ * keep luminance on uSpike and the smooths.
+ */
+uniform float uKick;
+uniform float uSnare;
+uniform float uHat;
+
+/**
+ * 0..1, slowly: how much the recent energy exceeds the longer-term energy.
+ * Rises through a buildup and returns to 0 once the track settles. The thing
+ * to wind a scene up with in the bars before a drop.
+ */
+uniform float uBuild;
+
+/**
+ * A STATE, not a hit: rises to 1 on a detected drop and takes seconds to
+ * leave (0.35 Hz release). The window after the drop in which a style may
+ * behave differently - bigger, simpler, slower.
+ */
+uniform float uDrop;
+
+/** Rises to 1 when music returns after two or more seconds of quiet; ~1.5 s release. */
+uniform float uArrival;
+
+/** 0..1, how much the spectrum is changing against its recent past, slewed. */
+uniform float uNovelty;
+
+/**
+ * 0..1, a plateau on the same golden-ratio walk as uFormPhase, stepped at
+ * every section boundary and every drop. "Which part of the song is this",
+ * for a style that wants each section to look like somewhere else.
+ */
+uniform float uSectionPhase;
+
+/**
+ * Position in the bar, 0..1, and which beat of the four (0..3). Passed
+ * through UNSMOOTHED: they are clocks, and a smoothed clock drifts off the
+ * beat. Multiply anything locked to them by uRhythmLock.
+ */
+uniform float uBarPhase;
+uniform float uBeatInBar;
+
+/** 0..1, how far to trust the bar clock: tempo confidence times stability, slewed. */
+uniform float uRhythmLock;
+
+/**
+ * 0..1, tonal against percussive: the fraction of the spectrum that is
+ * sustained rather than transient. 0.5 when undecided. A pad sits high, a
+ * drum break sits low.
+ */
+uniform float uHarmonic;
+
+/** 0..1, spectral brightness (centroid), slewed. */
+uniform float uBrightSmooth;
+
+/**
+ * The musical key as a hue: the circular mean of the chroma, 0..1 around the
+ * pitch-class circle (C at 0, C# at 1/12, ...), gliding the short way round.
+ * uKeyStrength is how confidently one pitch class dominates - 0 when there is
+ * nothing tonal to read, so a style should scale its use of uKeyHue by it.
+ */
+uniform float uKeyHue;
+uniform float uKeyStrength;
+
+/** Stereo pan -1..1 and width 0..1, slewed. */
+uniform float uPanSmooth;
+uniform float uWidthSmooth;
+
 // ---- helpers ---------------------------------------------------------------
 
 /** 0 at the instant of a spawn, 1 once it has grown in over `seconds`. */

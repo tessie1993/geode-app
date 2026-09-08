@@ -220,6 +220,7 @@ internal fun ShapeTab(
         LabeledSlider(ParamKeys.DOMAIN_WARP, p.warp, 0f..1f) { onChange(p.copy(warp = it)) }
         LabeledSlider(ParamKeys.RIPPLE, p.ripple, 0f..1f) { onChange(p.copy(ripple = it)) }
         LabeledSlider(ParamKeys.MORPH, p.morph, 0f..1f) { onChange(p.copy(morph = it)) }
+        LabeledSlider(ParamKeys.SHAPE_MORPH, p.shapeMorph, 0f..1f) { onChange(p.copy(shapeMorph = it)) }
         SectionHeader(ParamKeys.MARCH_DETAIL, ParamScope.MARCH_DETAIL)
         LabeledSlider(ParamKeys.MARCH_DETAIL, p.marchDetail, MarchBudget.MIN_DETAIL..MarchBudget.MAX_DETAIL) {
             onChange(p.copy(marchDetail = it))

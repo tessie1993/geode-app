@@ -44,6 +44,12 @@ enum class ParamScope {
      */
     MARCH_DETAIL,
 
+    /**
+     * The superformula fold in the shared `view()`, live only on the styles that use it
+     * ([SceneCapabilities.VIEW_SCENES]). Style-level like [MARCH_DETAIL], for the same reason.
+     */
+    SHAPE_MORPH,
+
     /** The endless-dive phase, integrated by the shader scenes and MilkDrop. */
     ENDLESS_ZOOM,
 
@@ -92,6 +98,8 @@ enum class ParamScope {
         // subset of one kind, so the id is the only thing that separates them.
         if (this == MARCH_DETAIL) {
             sceneId in SceneCapabilities.MARCHED_SCENES
+        } else if (this == SHAPE_MORPH) {
+            sceneId in SceneCapabilities.VIEW_SCENES
         } else {
             appliesTo(SceneCapabilities.kindOf(sceneId))
         }
@@ -109,6 +117,7 @@ enum class ParamScope {
             // The widest honest kind-level answer: a marched style is always a SHADER, but not
             // every SHADER marches. Callers holding a style id get the exact answer above.
             MARCH_DETAIL -> kind == SceneKind.SHADER
+            SHAPE_MORPH -> kind == SceneKind.SHADER
             ENDLESS_ZOOM -> kind == SceneKind.SHADER || kind == SceneKind.MILKDROP
             TURBULENCE -> kind in TURBULENCE_READERS
             DYE_DENSITY -> kind == SceneKind.FLUID
@@ -197,6 +206,7 @@ enum class ParamScope {
                 scoped(TREBLE_BAND, ParamKeys.TREBLE_GAIN)
                 scoped(MARCH_DETAIL, ParamKeys.MARCH_DETAIL)
                 scoped(SHADER_LOOK, ParamKeys.MORPH, ParamKeys.COLOUR_MAP, ParamKeys.PALETTE_2, ParamKeys.PALETTE_BLEND, ParamKeys.DUOTONE)
+                scoped(SHAPE_MORPH, ParamKeys.SHAPE_MORPH)
                 scoped(ENDLESS_ZOOM, ParamKeys.ENDLESS_ZOOM, ParamKeys.DIVE_SPEED)
                 scoped(TURBULENCE, ParamKeys.TURBULENCE)
                 scoped(DYE_DENSITY, ParamKeys.DENSITY)

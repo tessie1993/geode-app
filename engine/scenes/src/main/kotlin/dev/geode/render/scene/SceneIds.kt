@@ -46,4 +46,5 @@ object SceneIds {
     const val FRACTAL_TEMPLE: String = "fractal_temple"
     const val CURL_BLOOM: String = "curl_bloom"
     const val NECTAR_FLOW: String = "nectar_flow"
+    const val SUPERSHAPE: String = "supershape"
 }

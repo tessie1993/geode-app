@@ -27,7 +27,7 @@ static_assert(LfoEngine::kSlots == GEODE_LFO_SLOTS);
 static_assert(AdsrEngine::kCount == GEODE_ADSR_SLOTS);
 
 constexpr int kModSourceCount = static_cast<int>(ModSource::StereoPan) + 1;
-constexpr int kLfoTargetCount = static_cast<int>(LfoTarget::Lfo3Depth) + 1;
+constexpr int kLfoTargetCount = static_cast<int>(LfoTarget::ShapeMorph) + 1;
 constexpr int kLfoWaveCount = static_cast<int>(LfoWave::Random) + 1;
 constexpr int kModPolarityCount = static_cast<int>(ModPolarity::Negative) + 1;
 constexpr int kModCurveCount = static_cast<int>(ModCurve::Smooth) + 1;

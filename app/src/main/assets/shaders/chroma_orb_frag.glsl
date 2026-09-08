@@ -69,6 +69,9 @@ float tunnel(vec2 p, float folds, float pulse) {
 // which is what puts the diamond through the middle.
 float foldCount() { return (uKaleido > 0.5 && uSymmetry >= 2.0) ? uSymmetry : 4.0; }
 
+// Set in main(): how tightly a buildup packs the skin's lattice.
+float gLatticeScale;
+
 float skin(vec2 p, float folds, float spin, float pulse) {
     float rr = length(p);
     vec2 s = fold(rot(sphereUv(p), spin), folds);
@@ -77,7 +80,7 @@ float skin(vec2 p, float folds, float spin, float pulse) {
     float wedge = 0.5 * ORB_TAU / folds;
     float a = atan(s.y, s.x);
     float seam = smoothstep(0.0, 0.05, a) * smoothstep(0.0, 0.05, wedge - a);
-    float dots = lattice(s * 1.6, pulse) * (0.3 + 0.7 * seam);
+    float dots = lattice(s * gLatticeScale, pulse) * (0.3 + 0.7 * seam);
     float window = smoothstep(ORB_WINDOW + 0.05, ORB_WINDOW - 0.05, rr);
     // A dark ring marks the window's edge, as a bored hole would.
     float lip = 1.0 - 0.6 * smoothstep(0.06, 0.0, abs(rr - ORB_WINDOW - 0.02));
@@ -109,9 +112,16 @@ void main() {
     float pulse = clamp(uBassSmooth * uBeatResponse, 0.0, 1.5);
     float beat = clamp(uSpike * uBeatResponse, 0.0, 1.0);
     float folds = foldCount();
+    // Beyond level (lib_scene_motion, "the music-shaped signals"). A kick
+    // swells the discs, a snare turns the skin, the hats twinkle the colour
+    // split, a buildup packs the lattice, a drop widens the halo for a while,
+    // the bar sways the highlight, the stereo image moves it, the key tints
+    // the three inks. All slew-limited upstream.
+    float keyShift = 0.20 * (uKeyHue - 0.5) * uKeyStrength;
+    gLatticeScale = 1.6 * (1.0 + 0.25 * uBuild);
     // Integrated, so loudness changes the spin RATE instead of jumping its angle.
-    float spin = uFlowPhase * 0.55 + uTime * 0.03;
-    float split = 0.035 + 0.03 * beat;
+    float spin = uFlowPhase * 0.55 + uTime * 0.03 + 0.35 * uSnare;
+    float split = 0.035 + 0.03 * beat + 0.02 * uHat;
     float finger = touchFalloff(uv, 0.45);
 
     // The sphere fits the shorter axis, so a portrait phone shows the whole
@@ -120,16 +130,16 @@ void main() {
     float rr = length(p);
     vec3 col = bokeh(uv);
     // Halo the sphere sits in; wider on a hit.
-    col += pal(0.62) * 0.14 * exp(-max(rr - 1.0, 0.0) * (9.0 - 3.0 * beat));
+    col += pal(0.62 + keyShift) * 0.14 * exp(-max(rr - 1.0, 0.0) * (9.0 - 3.0 * beat - 3.0 * uDrop));
 
     // The particle layer, outside the glass only, drifting with the field.
     col += pal(0.55) * fluidMotes(uv * 0.7, 4.5, 0.17) * 0.15 * smoothstep(0.9, 1.3, rr);
 
     if (rr < 1.0) {
-        vec3 rgb = chroma(p, folds, spin, pulse + finger, split + 0.03 * finger);
-        vec3 green = mix(pal(0.62), pal(0.55), 0.3);
-        vec3 blue = pal(0.33);
-        vec3 orange = pal(0.94);
+        vec3 rgb = chroma(p, folds, spin, pulse + finger + 0.4 * uKick, split + 0.03 * finger);
+        vec3 green = mix(pal(0.62 + keyShift), pal(0.55 + keyShift), 0.3);
+        vec3 blue = pal(0.33 + keyShift);
+        vec3 orange = pal(0.94 + keyShift);
         // Green is the core of every dot; blue and orange are strongest where
         // the green copy has ended, which is what a lens fringe is, but keep
         // some of each under the core so the overlaps go cyan and yellow as
@@ -140,7 +150,7 @@ void main() {
         dots = min(dots, vec3(1.15));
         // Glass: limb darkening, a soft top-left highlight, a bright rim.
         vec3 n = vec3(p, sqrt(max(0.0, 1.0 - rr * rr)));
-        vec3 light = normalize(vec3(-0.45, 0.6, 0.66));
+        vec3 light = normalize(vec3(-0.45 + 0.20 * uRhythmLock * sin(uBarPhase * ORB_TAU) + 0.30 * uPanSmooth, 0.6, 0.66));
         float limb = 0.5 + 0.5 * n.z;
         float highlight = pow(max(dot(n, light), 0.0), 28.0);
         float rim = smoothstep(0.86, 1.0, rr);

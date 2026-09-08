@@ -179,6 +179,7 @@ object ParamRandomizer {
         r(ParamKeys.DOMAIN_WARP) { it.copy(warp = sometimes(0.5f, 0.1f, 0.8f)) }
         r(ParamKeys.RIPPLE) { it.copy(ripple = sometimes(0.4f, 0.1f, 0.8f)) }
         r(ParamKeys.MORPH) { it.copy(morph = sometimes(0.5f, 0.1f, 0.8f)) }
+        r(ParamKeys.SHAPE_MORPH) { it.copy(shapeMorph = sometimes(0.4f, 0.25f, 0.9f)) }
         r(ParamKeys.TWIST) { it.copy(twist = sometimes(0.4f, -0.8f, 0.8f)) }
         r(ParamKeys.KALEIDOSCOPE) {
             val on = chance(0.3f)

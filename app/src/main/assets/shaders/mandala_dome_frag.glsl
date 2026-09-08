@@ -11,6 +11,15 @@ out vec4 fragColor;
 //#include lib_scene_grade
 //#include lib_touch
 
+// Set in main(): the key's tint on every ink, the kick's point on every
+// petal, the hats' weight on every line. Globals because ornament() runs
+// three times a pixel per surface.
+float gKeyShift;
+float gPetal;
+float gLineW;
+
+vec3 ink(float t) { return pal(t + gKeyShift); }
+
 // Mandala Dome: a tapestry of eight-point stars, rings and diamonds, filled in
 // purples, blues and magentas and outlined in green, cyan and red, wrapped
 // over two domes bulging in from the sides and a patterned sphere in the
@@ -34,7 +43,7 @@ vec2 sphereUv(vec2 p) {
 
 // Signed distance to an n-point star drawn as a modulated circle.
 float star(vec2 l, float n, float r0, float amp) {
-    return length(l) - (r0 + amp * cos(n * atan(l.y, l.x)));
+    return length(l) - (r0 + amp * gPetal * cos(n * atan(l.y, l.x)));
 }
 
 struct Ornament {
@@ -78,10 +87,10 @@ Ornament ornament(vec2 p, float glow) {
     float dCornerDot = length(corner) - 0.035;
 
     // Fills, chosen from three purples/blues per cell.
-    vec3 violet = pal(0.20);
-    vec3 blue = pal(0.31);
-    vec3 magenta = pal(0.12);
-    vec3 base = mix(pal(0.25), pal(0.19), seed) * 0.22;
+    vec3 violet = ink(0.20);
+    vec3 blue = ink(0.31);
+    vec3 magenta = ink(0.12);
+    vec3 base = mix(ink(0.25), ink(0.19), seed) * 0.22;
     vec3 outer = mix(mix(violet, blue, step(0.33, seed)), magenta, step(0.66, seed)) * 0.7;
     vec3 fill = base;
     fill = mix(fill, outer, smoothstep(0.01, -0.01, dRing + 0.012));   // inside the ring
@@ -90,7 +99,7 @@ Ornament ornament(vec2 p, float glow) {
     fill = mix(fill, violet * 0.75, smoothstep(0.01, -0.01, dCorner));  // corner stars
 
     // Lines: cyan frames and rings, green stars, red corner stars, white hearts and dots.
-    float w = 0.02;
+    float w = gLineW;
     float lFrame = smoothstep(w, 0.0, abs(dFrame));
     float lRing = smoothstep(w, 0.0, abs(dRing));
     float lStar = smoothstep(w, 0.0, abs(dStar));
@@ -98,8 +107,8 @@ Ornament ornament(vec2 p, float glow) {
     float lWreath = smoothstep(w, 0.0, dWreath);
     float lCorner = smoothstep(w, 0.0, abs(dCorner));
     float lDot = smoothstep(w, 0.0, dCornerDot);
-    vec3 line = pal(0.42) * 0.45 * lFrame + mix(pal(0.5), pal(0.6), 0.5) * 0.9 * lRing + pal(0.64) * lStar +
-                pal(0.02) * 0.8 * lCorner + vec3(0.9, 0.8, 1.0) * lInner + pal(0.62) * 1.1 * lWreath + vec3(0.9, 0.95, 1.0) * lDot;
+    vec3 line = ink(0.42) * 0.45 * lFrame + mix(ink(0.5), ink(0.6), 0.5) * 0.9 * lRing + ink(0.64) * lStar +
+                ink(0.02) * 0.8 * lCorner + vec3(0.9, 0.8, 1.0) * lInner + ink(0.62) * 1.1 * lWreath + vec3(0.9, 0.95, 1.0) * lDot;
     return Ornament(fill, line * (1.0 + glow));
 }
 
@@ -125,7 +134,7 @@ vec3 dome(vec2 uv, vec2 centre, float r, float freq, float spin, float glow, flo
     float limb = 0.45 + 0.55 * n.z;
     float rim = smoothstep(0.8, 1.0, rr);
     float highlight = pow(max(dot(n, normalize(vec3(-0.4, 0.7, 0.6))), 0.0), 24.0);
-    col = col * limb + pal(0.5) * rim * 0.5 + vec3(0.8, 0.85, 1.0) * highlight * 0.35;
+    col = col * limb + ink(0.5) * rim * 0.5 + vec3(0.8, 0.85, 1.0) * highlight * 0.35;
     return col;
 }
 
@@ -137,16 +146,24 @@ void main() {
     // to white on one frame. Both halves are slew-limited now.
     float glow = 0.5 * beat + 0.4 * uTrebleSmooth;
     float split = 0.012 + 0.012 * beat;
+    // Beyond level (lib_scene_motion, "the music-shaped signals"). A kick
+    // points the petals, a snare turns the domes, the hats weight the lines,
+    // a buildup packs the tapestry, a drop swells the centre dome for a
+    // while, the bar sways the hall, the key tints every ink. All
+    // slew-limited upstream.
+    gKeyShift = 0.20 * (uKeyHue - 0.5) * uKeyStrength;
+    gPetal = 1.0 + 0.5 * uKick;
+    gLineW = 0.02 * (1.0 + 0.6 * uHat);
     // Integrated spin: energy sets the rate, never the angle.
-    float spin = uFlowPhase * 0.5 + uTime * 0.025;
+    float spin = uFlowPhase * 0.5 + uTime * 0.025 + 0.30 * uSnare;
     float finger = touchFalloff(uv, 0.5);
 
     // Mirror left/right: the reference is a symmetric hall, not a plane.
-    vec2 m = vec2(abs(uv.x), uv.y);
+    vec2 m = vec2(abs(uv.x), uv.y + 0.03 * uRhythmLock * sin(uBarPhase * DOME_TAU));
 
     // The flat field: a plane receding toward the top, drifting slowly.
     float persp = 1.0 / (1.15 - 0.35 * m.y);
-    vec2 field = m * persp * 3.1 * breathe + flowOffset(0.5);
+    vec2 field = m * persp * (3.1 + 0.8 * uBuild) * breathe + flowOffset(0.5);
     vec3 col = tapestry(fluidWarp(field, 0.9, 0.07), glow, split);
     col *= 0.7 + 0.3 * persp;
 
@@ -154,12 +171,12 @@ void main() {
     float mask;
     vec3 side = dome(m, vec2(1.62, 0.3), 1.0, 2.6 * breathe, spin, glow, split, mask);
     col = mix(col, side, mask);
-    vec3 centre = dome(m, vec2(0.0, -0.02), 0.44, 3.4 * breathe, -spin * 1.5, glow + finger, split, mask);
+    vec3 centre = dome(m, vec2(0.0, -0.02), 0.44 + 0.08 * uDrop, 3.4 * breathe, -spin * 1.5, glow + finger, split, mask);
     col = mix(col, centre, mask);
 
     // A halo under the sphere so it reads as lit from within.
-    col += pal(0.5) * 0.12 * exp(-max(length(uv) - 0.44, 0.0) * 6.0) * (0.6 + 0.4 * beat);
+    col += ink(0.5) * 0.12 * exp(-max(length(uv) - 0.44, 0.0) * 6.0) * (0.6 + 0.4 * beat);
     // Motes drifting through the hall, each new spawn fading in over a second.
-    col += pal(0.72) * fluidMotes(uv, 5.0, 0.16) * 0.2;
+    col += ink(0.72) * fluidMotes(uv, 5.0, 0.16) * 0.2;
     fragColor = vec4(grade(col), 1.0);
 }

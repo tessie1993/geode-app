@@ -811,9 +811,18 @@ void main() {
 
     // Thicker weave under bass: the sheets swell toward each other and the
     // gyroid closes up, which is the one deformation this skeleton has.
+    // Beyond level (lib_scene_motion, "the music-shaped signals"). A kick
+    // draws the blobs in, a snare shoves the crystal round, a buildup drives
+    // the fold deeper, the hats grain the surface, a drop leaves the body a
+    // little swollen for a while, the bar nods it, the key tints it and the
+    // stereo image moves the key light. All slew-limited upstream; the relief
+    // term is already inside gLip.
+    float keyShift = 0.20 * (uKeyHue - 0.5) * uKeyStrength;
+    float orbit = BLOB_ORBIT * (1.0 - 0.12 * uKick);
+
     gWeaveThick = 0.30 + 0.42 * bass;
     gWeaveT = uTime * GYROID_CRAWL;
-    gSwell = 1.0 + 0.10 * bass;
+    gSwell = 1.0 + 0.10 * bass + 0.08 * uDrop;
 
     // The blob cluster and the crystal's own spin, built ONCE. None of this
     // depends on the sample point, and map() runs up to 134 times per pixel:
@@ -832,19 +841,19 @@ void main() {
     // no two lobes ever fall into step.
     float bt = uTime * BLOB_RATE;
     const float TET = 0.5773503;
-    gBlobC[0] = vec3(TET, TET, TET) * (BLOB_ORBIT * (0.82 + 0.18 * sin(bt)))
+    gBlobC[0] = vec3(TET, TET, TET) * (orbit * (0.82 + 0.18 * sin(bt)))
         + vec3(sin(bt * 0.83), cos(bt * 0.61), sin(bt * 1.13)) * BLOB_WOBBLE;
-    gBlobC[1] = vec3(TET, -TET, -TET) * (BLOB_ORBIT * (0.82 + 0.18 * cos(bt * 0.71 + 2.1)))
+    gBlobC[1] = vec3(TET, -TET, -TET) * (orbit * (0.82 + 0.18 * cos(bt * 0.71 + 2.1)))
         + vec3(cos(bt * 1.07), sin(bt * 0.47), cos(bt * 0.89)) * BLOB_WOBBLE;
-    gBlobC[2] = vec3(-TET, TET, -TET) * (BLOB_ORBIT * (0.82 + 0.18 * sin(bt * 1.31 + 4.2)))
+    gBlobC[2] = vec3(-TET, TET, -TET) * (orbit * (0.82 + 0.18 * sin(bt * 1.31 + 4.2)))
         + vec3(sin(bt * 0.59), cos(bt * 1.19), sin(bt * 0.73)) * BLOB_WOBBLE;
-    gBlobC[3] = vec3(-TET, -TET, TET) * (BLOB_ORBIT * (0.82 + 0.18 * cos(bt * 0.43 + 5.0)))
+    gBlobC[3] = vec3(-TET, -TET, TET) * (orbit * (0.82 + 0.18 * cos(bt * 0.43 + 5.0)))
         + vec3(cos(bt * 0.67), sin(bt * 0.97), cos(bt * 1.27)) * BLOB_WOBBLE;
     gBlobRad[0] = 0.34 * gSwell;
     gBlobRad[1] = 0.30 * gSwell;
     gBlobRad[2] = 0.28 * gSwell;
     gBlobRad[3] = 0.32 * gSwell;
-    gCrystalRot = rotY(uTime * CRYSTAL_SPIN);
+    gCrystalRot = rotY(uTime * CRYSTAL_SPIN + 0.35 * uSnare);
     // The box-fold's scale is the parameter its whole shape lives on, so it is
     // where the fold skeleton's slow life and its mid-band steering both go.
     //
@@ -855,13 +864,13 @@ void main() {
     // gives a solid lump with the folds only on its skin. A tenth of a unit of
     // mids is a visible change of character and still well inside the band
     // where the estimator is well behaved.
-    gFoldScale = -1.95 + 0.28 * sin(uTime * 0.037) + 0.10 * mid;
+    gFoldScale = -1.95 + 0.28 * sin(uTime * 0.037) + 0.10 * mid - 0.15 * uBuild;
     // The fold loop is where the cost is, so it is what Detail buys: 3 folds
     // at uSteps 64, 4 at the default 102, 6 at 128. 6/128 is exact in binary,
     // so both ends of the Detail range land on whole numbers rather than on a
     // rounding.
     gFoldIters = int(clamp(floor(uSteps * 0.046875), 3.0, float(FOLD_MAX_ITERS)));
-    gRelief = RELIEF_AMP * bass;
+    gRelief = RELIEF_AMP * (bass + 0.6 * uHat);
 
     // The shockwave rides uBeatPhase from inside the body to just past the
     // skin, and its amplitude rides the squared envelope so it is silent
@@ -874,7 +883,7 @@ void main() {
     // The organism's own slow turn, on two unrelated rates so it never returns
     // to the same attitude. This is the motion that has to hold the screen
     // when there is no music at all.
-    gSpin = rotY(uTime * 0.058) * rotX(0.30 * sin(uTime * 0.041));
+    gSpin = rotY(uTime * 0.058) * rotX(0.30 * sin(uTime * 0.041) + 0.06 * uRhythmLock * sin(uBarPhase * 6.2831853));
 
     // Every non-rigid deform in map() multiplied together. Each factor is
     // exactly 1 when its driver is 0, so a silent untouched frame divides by
@@ -922,7 +931,7 @@ void main() {
     // colour identity, and because the clock is continuous the identity slides
     // into the next one instead of cutting at the segment wrap (an index-based
     // hue jumped a quarter of the ramp on every change).
-    float baseHue = 0.08 + clock * 0.22 + 0.10 * mid;
+    float baseHue = 0.08 + clock * 0.22 + 0.10 * mid + keyShift;
     // Once, not twice: this is two octaves of 3D value noise, and the fog mix
     // below wants the same room the miss branch draws.
     vec3 roomCol = room(rd, uv, baseHue);
@@ -981,7 +990,7 @@ void main() {
             // geometry, and that is exactly where the creases are.
             ao *= 1.0 - 0.25 * travelled;
 
-            vec3 key = normalize(vec3(0.45, 0.72, -0.52));
+            vec3 key = normalize(vec3(0.45 + 0.35 * uPanSmooth, 0.72, -0.52));
             vec3 fill = normalize(vec3(-0.65, -0.20, 0.55));
             float dif = clamp(dot(n, key), 0.0, 1.0);
             float bnc = clamp(dot(n, fill), 0.0, 1.0);

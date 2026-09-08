@@ -36,6 +36,7 @@ float Renderer::beginFrame(double timeSeconds) {
         std::lock_guard<std::mutex> lock(stateLock_);
         pending.swap(pendingShaders_);
         frameFeatures_ = features_;
+        featuresTaken_ = true;
     }
     for (const auto& [id, src] : pending) {
         if (Scene* scene = builtScene(id)) scene->setFragmentSource(src);

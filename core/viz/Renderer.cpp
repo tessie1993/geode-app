@@ -41,9 +41,32 @@ bool Renderer::setParam(const std::string& key, float value) {
     return requestedParams_.set(key, value);
 }
 
+// The analyzer hops at 62.5 Hz and a frame runs at whatever the pacer allows,
+// so two hops regularly land between one frame and the next - every other hop
+// at a 30fps tier. The frame reads the latest hop, which is right for a level
+// or a phase, but a kick, a drop or a downbeat is reported on exactly ONE hop,
+// and a last-wins latch dropped it whenever it was the earlier of the two.
+// The continuous fields still take the newer hop; the one-hop pulses are
+// carried forward until a frame has read them.
 void Renderer::setFeatures(const GeodeFeatureFrame& features) {
     std::lock_guard<std::mutex> lock(stateLock_);
+    if (featuresTaken_) {
+        features_ = features;
+        featuresTaken_ = false;
+        return;
+    }
+    const GeodeFeatureFrame pending = features_;
     features_ = features;
+    features_.beat = std::max(pending.beat, features.beat);
+    features_.beatStrength = std::max(pending.beatStrength, features.beatStrength);
+    features_.transient = std::max(pending.transient, features.transient);
+    features_.downbeat = std::max(pending.downbeat, features.downbeat);
+    features_.kick = std::max(pending.kick, features.kick);
+    features_.snare = std::max(pending.snare, features.snare);
+    features_.hat = std::max(pending.hat, features.hat);
+    features_.sectionBoundary = std::max(pending.sectionBoundary, features.sectionBoundary);
+    features_.drop = std::max(pending.drop, features.drop);
+    features_.arrival = std::max(pending.arrival, features.arrival);
 }
 
 void Renderer::setLayer(const std::string& sceneId, float mix, int blendOrdinal) {

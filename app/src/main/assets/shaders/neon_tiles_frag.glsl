@@ -54,9 +54,16 @@ float sdCross(vec2 p, float w, float l) {
 }
 
 // x = distance to the nearest motif edge, y = 1 for the star, 0 for the cross.
+// Set in main(): the hats' shrink of every star, the buildup's tightening
+// of the tiling, the key's tint. Globals because motif() runs six times a pixel.
+float gStar;
+float gTileScale;
+float gKeyShift;
+
 vec2 tiles(vec2 p, float scale) {
+    scale *= gTileScale;
     vec2 c = fract(p * scale) - 0.5;
-    float star = sdStar(c, 0.42) / scale;
+    float star = sdStar(c, gStar) / scale;
     float cross = sdCross(c, 0.06, 0.45) / scale;
     return star < cross ? vec2(star, 1.0) : vec2(cross, 0.0);
 }
@@ -81,7 +88,7 @@ vec3 patternOnPlane(vec2 q) {
         vec2 m = motif(q);
         float hue = m.y > 0.5 ? mix(0.61, 0.89, fract(0.37 * float(i) + 0.1 * sin(uTime * 0.11))) : 0.33;
         float glow = neon(m.x * scale, gWidth) / (1.0 + 0.6 * float(i));
-        col += pal(hue) * glow;
+        col += pal(hue + gKeyShift) * glow;
         q = kaleido(q * 1.8 + vec2(0.31, 0.17), gFolds);
         scale *= 1.8;
     }
@@ -112,18 +119,27 @@ void main() {
     float enA = min(uEnergySmooth, 1.3);
     float hit = uSpike;
 
-    gWidth = mix(0.012, 0.035, clamp(trebA, 0.0, 1.0));
+    // Beyond level (lib_scene_motion, "the music-shaped signals"). A kick
+    // swells the tubes, a snare turns the hall, the hats shrink the stars, a
+    // buildup tightens the tiling, a drop widens the lens for a while, the
+    // bar sways the plane, the key and the section colour the neon. All
+    // slew-limited upstream.
+    gStar = 0.42 * (1.0 - 0.15 * uHat);
+    gTileScale = 1.0 + 0.30 * uBuild;
+    gKeyShift = 0.20 * (uKeyHue - 0.5) * uKeyStrength + 0.15 * uSectionPhase;
+
+    gWidth = mix(0.012, 0.035, clamp(trebA, 0.0, 1.0)) * (1.0 + 0.5 * uKick);
     // A spike re-tiles the hall: 4, 6 or 8 arms, held until the next one.
     gFolds = (uKaleido > 0.5 && uSymmetry >= 2.0) ? uSymmetry : 4.0 + 2.0 * floor(uFormPhase * 3.0);
 
-    vec2 m = vec2(abs(uv.x), uv.y);
+    vec2 m = vec2(abs(uv.x), uv.y + 0.04 * uRhythmLock * sin(uBarPhase * NEON_TAU));
     // Integrated spin: `uTime * rate(mid)` jumps the whole hall round whenever the
     // mid band moves, which is the snapping this style was worst for.
-    m = rot2(uFlowPhase * 1.6 + uTime * 0.03) * m;
+    m = rot2(uFlowPhase * 1.6 + uTime * 0.03 + 0.35 * uSnare) * m;
     vec2 q = kaleido(m, gFolds);
     vec3 col = patternOnPlane(fluidWarp(q, 1.3, 0.05) + flowOffset(0.5));
 
-    float R = 0.55 + 0.12 * hit * clamp(uBeatResponse, 0.0, 2.0);
+    float R = 0.55 + 0.12 * hit * clamp(uBeatResponse, 0.0, 2.0) + 0.10 * uDrop;
     float distort = 1.0 + 0.8 * bassA;
     vec3 sphere = sphereLook(uv, R, NEON_IOR, distort);
     if (sphere.x >= 0.0) {

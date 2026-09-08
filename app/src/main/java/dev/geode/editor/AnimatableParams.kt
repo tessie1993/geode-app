@@ -158,6 +158,7 @@ object AnimatableParams {
             scalar("warp", ParamKeys.DOMAIN_WARP, 0f, 1f, { it.warp }) { p, v -> p.copy(warp = v) },
             scalar("ripple", ParamKeys.RIPPLE, 0f, 1f, { it.ripple }) { p, v -> p.copy(ripple = v) },
             scalar("morph", ParamKeys.MORPH, 0f, 1f, { it.morph }) { p, v -> p.copy(morph = v) },
+            scalar("shapeMorph", ParamKeys.SHAPE_MORPH, 0f, 1f, { it.shapeMorph }) { p, v -> p.copy(shapeMorph = v) },
             scalar("marchDetail", ParamKeys.MARCH_DETAIL, MarchBudget.MIN_DETAIL, MarchBudget.MAX_DETAIL, {
                 it.marchDetail
             }) { p, v -> p.copy(marchDetail = v) },

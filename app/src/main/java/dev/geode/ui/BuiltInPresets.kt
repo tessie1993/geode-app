@@ -344,6 +344,23 @@ object BuiltInPresets {
                     ),
             ),
             Preset(
+                name = "supershape · Gielis",
+                sceneId = dev.geode.render.scene.SceneIds.SUPERSHAPE,
+                attack = 0.5f,
+                decay = 0.15f,
+                customShader = null,
+                params =
+                    SceneParams(
+                        speed = 0.8f,
+                        audioDrive = 1.15f,
+                        beatResponse = 1.0f,
+                        palette = 9,
+                        marchDetail = 1.0f,
+                        bloom = 0.35f,
+                        contrast = 1.1f,
+                    ),
+            ),
+            Preset(
                 name = "merkaba_grid · Sanctum",
                 sceneId = dev.geode.render.scene.SceneIds.MERKABA_GRID,
                 attack = 0.5f,

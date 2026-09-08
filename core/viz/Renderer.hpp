@@ -131,6 +131,9 @@ private:
     mutable std::mutex stateLock_;
     SceneParams requestedParams_;
     GeodeFeatureFrame features_{};
+    // False while features_ holds a hop no frame has read yet, so a second hop
+    // landing in the same frame merges its pulses rather than replacing them.
+    bool featuresTaken_ = true;
     std::string requestedSceneId_ = "silk_web";
     std::string layerSceneId_;
     float layerMix_ = 0.5f;

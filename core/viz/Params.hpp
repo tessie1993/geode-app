@@ -1,5 +1,6 @@
 #pragma once
 #include <array>
+#include <span>
 #include <string>
 #include <string_view>
 
@@ -145,6 +146,10 @@ struct SceneParams {
     bool rippleOverlayEnabled = false;
     float rippleOverlayStrength = 0.4f;
     float rippleOverlaySpecular = 0.3f;
+    // How far view() folds a fragment style's plane into the music-driven
+    // superformula silhouette (lib_scene_uniforms shapeWarp). Appended after
+    // the older fields so every existing wire index survives.
+    float shapeMorph = 0.0f;
 
     struct Palette {
         const char* name;
@@ -165,10 +170,14 @@ struct SceneParams {
         const char* name;
         float SceneParams::*member;
     };
-    static const std::array<FloatField, 98>& lerpedFloats();
+    // A span over a table whose size is deduced from its initialisers. It was a
+    // std::array<FloatField, 98> holding 95 entries: the three the count
+    // overstated were value-initialised, and lerpParams dereferenced their null
+    // pointers-to-member on every fade.
+    static std::span<const FloatField> lerpedFloats();
 
     // Every field in declaration order; the wire order of geode_viz_set_params.
-    static constexpr int kFieldCount = 134;
+    static constexpr int kFieldCount = 135;
     static const std::array<const char*, kFieldCount>& fieldNames();
 
     // Sets a field by its Kotlin property name; ints and bools are taken from the float's value.

@@ -34,6 +34,10 @@ out vec4 fragColor;
 // Dye density at a point in log-polar space. Two advections through the curl
 // field, so the cloud folds into itself rather than reading as one noise
 // layer laid over another.
+// Set in main(): the key's and the section's tint on the dye and the iris.
+float gKeyShift;
+vec3 ink(float t) { return pal(t + gKeyShift); }
+
 float dye(vec2 lp, float detail) {
     vec2 q = fluidWarp(lp, 1.5, 0.30);
     q = fluidWarp(q + vec2(0.0, uFlowPhase * 0.25), 3.1, 0.16);
@@ -61,8 +65,14 @@ void main() {
     // The pitch of the spiral. Bass tightens the wind a little; the winding
     // itself advances on uFlowPhase, which only ever moves forward, so a loud
     // passage spins the galaxy faster and can never spin it backwards.
-    float pitch = 1.35 + 0.35 * bass;
-    float theta = a * arms + lr * pitch * arms + uFlowPhase * 1.6;
+    // Beyond level (lib_scene_motion, "the music-shaped signals"). A kick
+    // winds the arms tighter, a snare turns the whole spiral, the hats light
+    // the filaments, a buildup stretches the streaks, a drop lets the galaxy
+    // reach further out for a while, the bar breathes the iris, the key and
+    // the section tint the dye. All slew-limited upstream.
+    gKeyShift = 0.20 * (uKeyHue - 0.5) * uKeyStrength + 0.12 * uSectionPhase;
+    float pitch = 1.35 + 0.35 * bass + 0.25 * uKick;
+    float theta = a * arms + lr * pitch * arms + uFlowPhase * 1.6 + 0.5 * uSnare;
     vec2 lp = vec2(theta / SE_TAU, lr * 1.4);
 
     // ---- the streaked cloud -------------------------------------------------
@@ -77,7 +87,7 @@ void main() {
         float t = float(i) / float(SE_STREAK - 1);
         // The streak leans along the current travel direction, so a spike tips
         // the whole galaxy instead of flashing it.
-        float pull = t * (0.55 + 0.25 * swell);
+        float pull = t * (0.55 + 0.25 * swell + 0.30 * uBuild);
         vec2 s = lp + vec2(uMoveDir.x * 0.06 * t, -pull);
         float w = 1.0 - 0.72 * t;
         float d = dye(s, 2.6 + 1.4 * t);
@@ -93,27 +103,27 @@ void main() {
     // cloud is gated, so there is genuine black between the arms.
     float body = smoothstep(0.34, 0.78, cloud);
     // Density falls off with radius so the frame does not fill edge to edge.
-    float falloff = exp(-r * (1.35 - 0.35 * swell));
+    float falloff = exp(-r * (1.35 - 0.35 * swell - 0.40 * uDrop));
 
-    vec3 warm = pal(0.10);
-    vec3 cool = pal(0.55);
+    vec3 warm = ink(0.10);
+    vec3 cool = ink(0.55);
     vec3 col = mix(cool, warm, smoothstep(0.35, 0.85, cloud));
     col *= body * falloff * (0.55 + 0.75 * swell);
     // Filaments take the treble; the term is slew-limited, so a cymbal
     // brightens the edges over a few frames instead of on one.
-    col += mix(vec3(1.0), warm, 0.35) * filament * falloff * (0.30 + 0.9 * treb);
+    col += mix(vec3(1.0), warm, 0.35) * filament * falloff * (0.30 + 0.9 * treb + 0.5 * uHat);
 
     // ---- the mandala core ---------------------------------------------------
     //
     // Small, sharp and iridescent against the soft cloud: concentric rings cut
     // by radial spokes, the ring phase running on the same monotonic clock.
     float cr = r * 9.0;
-    float rings = 0.5 + 0.5 * sin(cr * 5.0 - uFlowPhase * 3.0);
+    float rings = 0.5 + 0.5 * sin(cr * 5.0 - uFlowPhase * 3.0 + 0.6 * uRhythmLock * sin(uBarPhase * SE_TAU));
     float spokes = 0.5 + 0.5 * cos(a * (8.0 + 4.0 * floor(uFormPhase * 3.0)) + uFlowPhase * 2.0);
     float coreMask = exp(-cr * cr * 0.30);
     // The hue walks with radius, which is what gives the little disc its
     // oil-on-water banding.
-    vec3 iris = pal(fract(0.15 + cr * 0.10 + uFormPhase * 0.2));
+    vec3 iris = ink(fract(0.15 + cr * 0.10 + uFormPhase * 0.2));
     col += iris * coreMask * (0.35 + 0.65 * rings * spokes) * 1.5;
     // The white-hot middle, and a halo that swells on a spike.
     col += vec3(1.0, 0.97, 0.9) * exp(-r * r * 900.0) * 2.2;
@@ -125,7 +135,7 @@ void main() {
     col += mix(vec3(1.0), warm, 0.4) * fluidMotes(uv * 1.2, 6.0, 0.14) * 0.30 * falloff;
 
     if (!touchIdle()) {
-        col += pal(0.5 + 0.15 * sin(uTime * 0.05)) * min(touchWake(uv), 3.0) * 0.06;
+        col += ink(0.5 + 0.15 * sin(uTime * 0.05)) * min(touchWake(uv), 3.0) * 0.06;
     }
     fragColor = vec4(grade(col), 1.0);
 }

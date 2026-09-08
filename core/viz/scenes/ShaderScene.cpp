@@ -25,14 +25,6 @@ float flag(bool on) { return on ? 1.0f : 0.0f; }
 
 constexpr float kTwoPiF = 6.2831853f;
 
-// Shortest signed distance from `from` to `to` on a unit-period circle.
-float wrappedDelta(float from, float to, float period) {
-    const float half = period * 0.5f;
-    float d = std::fmod(to - from + half, period);
-    if (d < 0.0f) d += period;
-    return d - half;
-}
-
 }  // namespace
 
 ShaderScene::ShaderScene(std::string id, std::string vertexSrc, std::string fragmentSrc, ProgramBinaryCache* cache, SceneHost host)
@@ -76,20 +68,15 @@ void ShaderScene::init() {
     const char* extensions = reinterpret_cast<const char*>(glGetString(GL_EXTENSIONS));
     const bool floatLinear = extensions && std::strstr(extensions, "OES_texture_float_linear") != nullptr;
     audioTex_.createImage(GL_R32F, GL_RED, GL_FLOAT, kAudioTexWidth, 2, floatLinear ? GL_LINEAR : GL_NEAREST, GL_CLAMP_TO_EDGE);
+    // NEAREST on purpose: the shaders read this with texelFetch and interpolate
+    // themselves, so the rows are read exactly on every GPU, with or without
+    // OES_texture_float_linear.
+    shapeTex_.createImage(GL_R32F, GL_RED, GL_FLOAT, SuperShape::kSamples, SuperShape::kRows, GL_NEAREST, GL_CLAMP_TO_EDGE);
 }
 
 void ShaderScene::resize(int width, int height) {
     width_ = width;
     height_ = height;
-}
-
-// exp(-dt*hz) rather than a fixed per-frame fraction: the same wall-clock rise
-// on a 30fps device and a 120fps one, so the look does not change with the
-// frame rate the thermal governor happens to be pacing at.
-float ShaderScene::slew(float current, float target, float dt, float riseHz, float fallHz) {
-    const float hz = target > current ? riseHz : fallHz;
-    const float k = 1.0f - std::exp(-std::max(dt, 0.0f) * hz);
-    return current + (target - current) * k;
 }
 
 // A 32-bit LCG. Good enough to pick a plateau and a direction, and cheap enough
@@ -122,10 +109,12 @@ void ShaderScene::stepMotion(float hit, float dt) {
         // New direction: a bounded turn, never a reversal. Wrapped so the target
         // cannot walk off into the range where a float has no fraction left.
         dirTarget_ = std::fmod(dirTarget_ + (nextSeed() * 2.0f - 1.0f) * kDirMaxTurn, kTwoPiF);
+        // The envelope rises rather than steps, so even a style that keys
+        // brightness straight off it cannot flash; and it is armed rather than
+        // targeted, so it actually reaches the peak lib_scene_motion promises.
+        spike_.trigger(1.0f);
     }
-    // The envelope rises rather than steps, so even a style that keys
-    // brightness straight off it cannot flash.
-    spikeEnv_ = slew(spikeEnv_, spiked ? 1.0f : 0.0f, dt, kSpikeRiseHz, kSpikeFallHz);
+    spike_.step(dt);
 
     formPhase_ = std::fmod(formPhase_ + wrappedDelta(formPhase_, formTarget_, 1.0f) * (1.0f - std::exp(-dt * kFormGlideHz)) + 1.0f, 1.0f);
     dirAngle_ += wrappedDelta(dirAngle_, dirTarget_, kTwoPiF) * (1.0f - std::exp(-dt * kDirGlideHz));
@@ -145,13 +134,15 @@ void ShaderScene::update(const GeodeFeatureFrame& features, float dt) {
     mid_ = std::clamp(features.mid * drive, 0.0f, kAudioClamp);
     treble_ = std::clamp(features.treble * drive, 0.0f, kAudioClamp);
     energy_ = std::clamp(features.rms * drive, 0.0f, kAudioClamp);
-    smoothBass_ = slew(smoothBass_, bass_, dt, kBandRiseHz, kBandFallHz);
-    smoothMid_ = slew(smoothMid_, mid_, dt, kBandRiseHz, kBandFallHz);
-    smoothTreble_ = slew(smoothTreble_, treble_, dt, kBandRiseHz, kBandFallHz);
-    smoothEnergy_ = slew(smoothEnergy_, energy_, dt, kBandRiseHz, kBandFallHz);
-    swell_ = slew(swell_, energy_, dt, kSwellRiseHz, kSwellFallHz);
+    smoothBass_ = slewTo(smoothBass_, bass_, dt, kBandRiseHz, kBandFallHz);
+    smoothMid_ = slewTo(smoothMid_, mid_, dt, kBandRiseHz, kBandFallHz);
+    smoothTreble_ = slewTo(smoothTreble_, treble_, dt, kBandRiseHz, kBandFallHz);
+    smoothEnergy_ = slewTo(smoothEnergy_, energy_, dt, kBandRiseHz, kBandFallHz);
+    swell_ = slewTo(swell_, energy_, dt, kSwellRiseHz, kSwellFallHz);
     const float hit = live::hit(features);
     stepMotion(hit, dt);
+    music_.step(features, dt);
+    shape_.step(shapeDrive(), dt);
     beatPulse_ = std::max(std::max(hit, beatPulse_ - dt * kPulseDecayPerSecond), 0.0f);
     // The heard transient resets the shared pulse ramp; between hits it free-runs.
     pulsePhase_ = hit > 0.0f ? 0.0f : std::fmod(pulsePhase_ + dt * kPulsePhaseHz, 1.0f);
@@ -170,12 +161,39 @@ void ShaderScene::update(const GeodeFeatureFrame& features, float dt) {
     }
 }
 
+SuperShape::Drive ShaderScene::shapeDrive() const {
+    SuperShape::Drive d;
+    d.bass = smoothBass_;
+    d.mid = smoothMid_;
+    d.treble = smoothTreble_;
+    d.energy = smoothEnergy_;
+    d.swell = swell_;
+    d.kick = music_.kick();
+    d.snare = music_.snare();
+    d.hat = music_.hat();
+    d.build = music_.build();
+    d.novelty = music_.novelty();
+    d.harmonic = music_.harmonic();
+    d.brightness = music_.brightness();
+    d.pan = music_.pan();
+    d.width = music_.width();
+    d.snareFired = music_.snareFired();
+    d.dropFired = music_.dropFired();
+    d.arrivalFired = music_.arrivalFired();
+    d.sectionFired = music_.sectionFired();
+    return d;
+}
+
 void ShaderScene::draw(float timeSeconds) {
     (void) timeSeconds;
     compilePendingIfAny();
     if (program_ == 0) return;
     glDisable(GL_BLEND);
     glUseProgram(program_);
+    glActiveTexture(GL_TEXTURE0 + kShapeTexUnit);
+    glBindTexture(GL_TEXTURE_2D, shapeTex_.id());
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, SuperShape::kSamples, SuperShape::kRows, GL_RED, GL_FLOAT, shape_.samples().data());
+    glUniform1i(uniforms_.loc("uShapeTex"), kShapeTexUnit);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, audioTex_.id());
     glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, kAudioTexWidth, 2, GL_RED, GL_FLOAT, texData_.data());
@@ -255,6 +273,7 @@ void ShaderScene::uploadParams() {
     set1f("uFlash", p.flash);
     set1f("uContrast", p.contrast);
     set1f("uGamma", p.gamma);
+    set1f("uShapeMorph", p.shapeMorph);
 }
 
 // Every style is handed these; the ones that read none of them link them away
@@ -266,12 +285,14 @@ void ShaderScene::uploadMotion() {
     set1f("uTrebleSmooth", smoothTreble_);
     set1f("uEnergySmooth", smoothEnergy_);
     set1f("uSwell", swell_);
-    set1f("uSpike", spikeEnv_);
+    set1f("uSpike", spike_.value());
     set1f("uSpawnSeed", spawnSeed_);
     set1f("uSpawnAge", spawnAge_);
     set1f("uFormPhase", formPhase_);
     set1f("uFlowPhase", flowPhase_);
     glUniform2f(uniforms_.loc("uMoveDir"), std::cos(dirAngle_), std::sin(dirAngle_));
+    music_.upload(uniforms_);
+    shape_.upload(uniforms_);
 }
 
 void ShaderScene::uploadTouch() {
@@ -332,6 +353,7 @@ void ShaderScene::release() {
     if (program_ != 0) glDeleteProgram(program_);
     if (vao_ != 0) glDeleteVertexArrays(1, &vao_);
     audioTex_.release();
+    shapeTex_.release();
     program_ = 0;
     vao_ = 0;
     uniforms_ = UniformCache(0);

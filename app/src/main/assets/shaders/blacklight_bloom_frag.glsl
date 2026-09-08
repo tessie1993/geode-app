@@ -36,6 +36,10 @@ vec2 rot(vec2 p, float a) { return mat2(cos(a), -sin(a), sin(a), cos(a)) * p; }
 
 float hash11(float n) { return fract(sin(n * 127.1) * 43758.5453); }
 
+// Set in main(): the key's and the section's tint on every ink in the room.
+float gKeyShift;
+vec3 dye(float t) { return pal(t + gKeyShift); }
+
 vec2 kaleido(vec2 p, float n) {
     float w = BB_TAU / max(n, 2.0);
     float a = mod(atan(p.y, p.x), w);
@@ -91,9 +95,9 @@ vec3 ink(vec2 p, float scale, float turn, float split) {
     float g = tapestry(p, scale, turn);
     float c = tapestry(p * (1.0 + split), scale, turn);
     float m = tapestry(p * (1.0 - split), scale, turn);
-    vec3 col = pal(0.62) * g;
-    col += pal(0.46) * c * (1.0 - 0.55 * g);
-    col += pal(0.88) * m * (1.0 - 0.55 * g);
+    vec3 col = dye(0.62) * g;
+    col += dye(0.46) * c * (1.0 - 0.55 * g);
+    col += dye(0.88) * m * (1.0 - 0.55 * g);
     return col;
 }
 
@@ -109,17 +113,24 @@ void main() {
     // The fold scale is what decides how deep the repeat reads. Kept inside
     // 1.28..1.42: past that the iteration outruns the trap and the tapestry
     // turns to noise.
-    float scale = 1.30 + 0.10 * swell;
-    float split = 0.014 + 0.016 * clamp(treb, 0.0, 1.0);
+    // Beyond level (lib_scene_motion, "the music-shaped signals"). A kick
+    // tightens the tapestry's fold, a snare turns it (which reconfigures the
+    // pattern), the hats twinkle the colour split, a buildup grows the discs,
+    // a drop widens the lens for a while, the bar sways the highlight, the
+    // key and the section tint the inks. All slew-limited upstream.
+    gKeyShift = 0.20 * (uKeyHue - 0.5) * uKeyStrength + 0.12 * uSectionPhase;
+    float scale = 1.30 + 0.10 * swell + 0.06 * uKick;
+    float split = 0.014 + 0.016 * clamp(treb, 0.0, 1.0) + 0.02 * uHat;
 
     // The plane, advected through the curl field so the whole tapestry
     // breathes like ink in water rather than sitting still.
     vec2 q = kaleido(uv, folds);
     q = fluidWarp(q * (1.0 + 0.05 * bass), 1.1, 0.10) + flowOffset(0.22);
 
-    vec3 col = ink(q, scale, 0.42 + 0.08 * sin(uTime * 0.07), split);
+    float turn = 0.42 + 0.08 * sin(uTime * 0.07) + 0.15 * uSnare;
+    vec3 col = ink(q, scale, turn, split);
     // A dim violet wash under the ink, so the black is never flat black.
-    col += pal(0.70) * 0.05 * (0.5 + 0.5 * swell);
+    col += dye(0.70) * 0.05 * (0.5 + 0.5 * swell);
 
     // ---- floaters -----------------------------------------------------------
     //
@@ -134,9 +145,9 @@ void main() {
         c += 0.06 * vec2(sin(uTime * (0.13 + seed * 0.09)), cos(uTime * (0.11 + seed * 0.07)));
         c = rot(c, uFlowPhase * (0.4 + seed * 0.5)) / depth;
         float show = spawnGrow(0.7 + seed * 0.8);
-        vec3 tint = mix(pal(0.44), pal(0.92), seed);
+        vec3 tint = mix(dye(0.44), dye(0.92), seed);
         if (seed < 0.5) {
-            float s = spiralDisc(c, 0.22, 3.0 + floor(seed * 6.0));
+            float s = spiralDisc(c, 0.22 * (1.0 + 0.30 * uBuild), 3.0 + floor(seed * 6.0));
             col += mix(vec3(1.0), tint, 0.45) * s * 0.55 * show;
         } else {
             float t = wireTri(rot(c, 0.4), 0.24, 0.02);
@@ -150,7 +161,7 @@ void main() {
     //
     // A sphere in the middle that refracts the tapestry: the coordinate is
     // pushed outward by the surface normal, which is all a thin lens does.
-    float R = 0.46 + 0.03 * swell;
+    float R = 0.46 + 0.03 * swell + 0.08 * uDrop;
     float rr = length(uv);
     if (rr < R) {
         vec3 n = vec3(uv / R, sqrt(max(0.0, 1.0 - (rr * rr) / (R * R))));
@@ -160,20 +171,21 @@ void main() {
         vec3 inside = ink(bent, scale, 0.42, split * 1.8);
         // Thin-film colour: the interference band walks with the view angle,
         // which is what makes a bubble iridescent rather than merely shiny.
-        vec3 film = pal(fract(0.2 + n.z * 0.8 + uFormPhase * 0.3));
+        vec3 film = dye(fract(0.2 + n.z * 0.8 + uFormPhase * 0.3));
         inside = inside * 1.15 + film * 0.10 * (1.0 - n.z);
         // Rim and highlight.
         float rim = smoothstep(0.86, 1.0, rr / R);
-        inside += pal(0.50) * rim * (0.30 + 0.35 * uSpike);
-        inside += vec3(0.9, 0.95, 1.0) * pow(max(dot(n, normalize(vec3(-0.4, 0.6, 0.7))), 0.0), 30.0) * 0.30;
+        inside += dye(0.50) * rim * (0.30 + 0.35 * uSpike);
+        vec3 lamp = normalize(vec3(-0.4 + 0.2 * uRhythmLock * sin(uBarPhase * BB_TAU), 0.6, 0.7));
+        inside += vec3(0.9, 0.95, 1.0) * pow(max(dot(n, lamp), 0.0), 30.0) * 0.30;
         col = mix(col, inside, smoothstep(1.0, 0.97, rr / R));
     }
 
     // ---- the particle layer -------------------------------------------------
-    col += mix(pal(0.46), vec3(1.0), 0.35) * fluidMotes(uv, 5.0, 0.15) * 0.24;
+    col += mix(dye(0.46), vec3(1.0), 0.35) * fluidMotes(uv, 5.0, 0.15) * 0.24;
 
     if (!touchIdle()) {
-        col += pal(0.5 + 0.15 * sin(uTime * 0.05)) * min(touchWake(uv), 3.0) * 0.05;
+        col += dye(0.5 + 0.15 * sin(uTime * 0.05)) * min(touchWake(uv), 3.0) * 0.05;
     }
     col *= 0.70 + 0.30 * smoothstep(2.2, 0.5, length(uv));
     fragColor = vec4(grade(col), 1.0);

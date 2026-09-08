@@ -22,6 +22,7 @@ object ParamKeys {
     const val DOMAIN_WARP = "Domain warp"
     const val RIPPLE = "Ripple"
     const val MORPH = "Morph"
+    const val SHAPE_MORPH = "Shape morph"
     const val TWIST = "Twist"
     const val KALEIDOSCOPE = "Kaleidoscope"
     const val TILE = "Tile"

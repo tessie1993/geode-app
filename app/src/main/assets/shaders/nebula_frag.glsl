@@ -20,6 +20,7 @@ out vec4 fragColor;
 // an unused one is dropped by the linker and costs nothing.
 //#include lib_sdf3
 //#include lib_touch
+//#include lib_dmt
 
 // NEBULA - a volumetric fbm cloud, lit from inside.
 //
@@ -447,8 +448,7 @@ out vec4 fragColor;
 /** Density that counts as fully dense for hue purposes. */
 #define NEB_HUE_DENS_NORM 0.9
 
-/** Deep space behind the cloud. Dim, but never black - a dead frame reads as a crash. */
-#define NEB_SKY_LEVEL 0.09
+/** Deep space behind the cloud: where the chrysanthemum sits on the palette, and its tilt with height. Never black - a dead frame reads as a crash. */
 #define NEB_SKY_HUE 0.62
 #define NEB_SKY_TILT 0.09
 
@@ -790,7 +790,11 @@ void main() {
     // What is left of the background comes through whatever the cloud did not
     // absorb - the correct composite, and the reason a thin nebula sits in
     // space rather than on top of it.
-    vec3 sky = pal(NEB_SKY_HUE + NEB_SKY_TILT * rd.y) * (NEB_SKY_LEVEL * glowGain);
+    // The sky is the chrysanthemum on the view direction (the camera looks
+    // down +z from a fixed standoff, so the world direction is its frame),
+    // tilted through the palette by height as the old ramp was. It carries
+    // its own floor, so a thin nebula still sits in a space that is not black.
+    vec3 sky = dmtChrysanthemum(rd, NEB_SKY_HUE + NEB_SKY_TILT * rd.y, energy) * glowGain;
     col += sky * trans;
 
     // Corner falloff, floored: on a wide aspect a fade to zero would black out

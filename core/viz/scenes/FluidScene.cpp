@@ -14,7 +14,7 @@ void FluidScene::init() {
     sim_.create();
     choreography_.reset();
     if (sim_.available()) {
-        look_.create(sim_.texFormats());
+        look_.create(sim_.texFormats(), style_.look);
         appliedTier_ = -1;
         appliedParticleSide_ = 0;
         applyQualityTier();
@@ -61,9 +61,11 @@ void FluidScene::draw(float timeSeconds) {
     const float pcmKick = std::clamp(pcmStrike_, 0.0f, 1.0f);
     sim_.pressureIterations = std::clamp(p.fluidIterations, 8, 40);
     sim_.pressureDamp = std::clamp(p.fluidPressure, 0.0f, 1.0f);
-    sim_.velocityDissipation = std::clamp(p.fluidVelocityDissipation, 0.0f, 4.0f);
-    sim_.curlStrength = std::clamp(p.fluidCurl, 0.0f, 50.0f) * (1.0f + p.fluidCurlAudio * f.mid + pcmKick * 0.5f);
-    sim_.densityDissipation = std::clamp(p.fluidDensityDissipation, 0.0f, 4.0f) * (1.0f + p.fluidFadeAudio * (1.0f - energy));
+    // The style's multipliers sit on the user's values, inside the same clamps.
+    sim_.velocityDissipation = std::clamp(p.fluidVelocityDissipation * style_.velocityDissipation, 0.0f, 4.0f);
+    sim_.curlStrength = std::clamp(p.fluidCurl * style_.curl, 0.0f, 50.0f) * (1.0f + p.fluidCurlAudio * f.mid + pcmKick * 0.5f);
+    sim_.densityDissipation =
+        std::clamp(p.fluidDensityDissipation * style_.densityDissipation, 0.0f, 4.0f) * (1.0f + p.fluidFadeAudio * (1.0f - energy));
     sim_.chromaticAging = std::clamp(p.fluidChromaticAging, 0.0f, 1.0f);
     sim_.audioBass = f.bass;
     sim_.audioMid = f.mid;
@@ -74,10 +76,11 @@ void FluidScene::draw(float timeSeconds) {
 
     configureChoreography();
     emitters_.applyParams(p);
+    emitters_.splatRadius = std::clamp(emitters_.splatRadius * style_.splatRadius, 0.02f, 0.4f);
     emitters_.paletteCycleSpeed = hue::paletteCycleSpeed(p.fluidPaletteCycleSpeed);
-    emitters_.forceScale = std::clamp(p.fluidSplatForce, 0.0f, 3.0f) * (1.0f + pcmKick * 0.5f);
+    emitters_.forceScale = std::clamp(p.fluidSplatForce * style_.splatForce, 0.0f, 3.0f) * (1.0f + pcmKick * 0.5f);
     const float simDt = std::clamp(lastDt_, 0.0f, 1.0f / 30.0f);
-    const float hueBase = hue::base(p.paletteBase());
+    const float hueBase = hue::base(p.paletteBase()) + style_.hueOffset;
     const float hueSpan = hue::span(p.hueRange, p.paletteRange());
     choreography_.tick(f, simDt, sim_.aspect());
     emitters_.tick(f, simDt, sim_.aspect(), hueBase, hueSpan, splats_);
@@ -87,7 +90,10 @@ void FluidScene::draw(float timeSeconds) {
         applyChoreographyTo(particles_);
         particles_.step(simDt, sim_.velocityTex(), sim_.aspect(), sim_.flowScale(), time_);
     }
-    look_.bloomIntensity = std::clamp(p.fluidBloomIntensity, 0.1f, 2.0f) * (0.6f + p.fluidBloomAudio * energy);
+    look_.bloomIntensity = std::clamp(p.fluidBloomIntensity * style_.bloom, 0.1f, 2.0f) * (0.6f + p.fluidBloomAudio * energy);
+    look_.timeSeconds = time_;
+    look_.audio = {f.bass, f.mid, f.treble, energy};
+    look_.lookHue = hueBase;
     look_.bloomThreshold = std::clamp(p.fluidBloomThreshold, 0.0f, 1.0f);
     look_.sunraysWeight = std::clamp(p.fluidSunraysWeight, 0.3f, 1.0f);
     if (p.fluidDyeEnabled) look_.process(sim_.dyeTex(), p.fluidBloom, p.fluidSunrays);

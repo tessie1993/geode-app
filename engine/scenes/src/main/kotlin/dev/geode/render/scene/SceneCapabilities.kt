@@ -112,7 +112,7 @@ object SceneCapabilities {
         when {
             sceneId in SHADER_SCENES -> SceneKind.SHADER
             sceneId == SceneIds.MILKDROP -> SceneKind.MILKDROP
-            sceneId == SceneIds.FLUID -> SceneKind.FLUID
+            VisualStyleCatalog.isFluid(sceneId) -> SceneKind.FLUID
             sceneId == SceneIds.CURLFLOW -> SceneKind.CURL_FLOW
             sceneId == SceneIds.WATER -> SceneKind.WATER
             VisualStyleCatalog.isCymatics(sceneId) -> SceneKind.CYMATICS
@@ -122,17 +122,17 @@ object SceneCapabilities {
             else -> SceneKind.SILK
         }
 
-    fun isFluid(sceneId: String): Boolean = sceneId == SceneIds.FLUID
+    fun isFluid(sceneId: String): Boolean = VisualStyleCatalog.isFluid(sceneId)
 
     fun isWater(sceneId: String): Boolean = sceneId == SceneIds.WATER
 
     fun isCymatics(sceneId: String): Boolean = VisualStyleCatalog.isCymatics(sceneId)
 
-    fun hasJourney(sceneId: String): Boolean = sceneId == SceneIds.FLUID || sceneId == SceneIds.CURLFLOW || sceneId == SceneIds.WATER
+    fun hasJourney(sceneId: String): Boolean = isFluid(sceneId) || sceneId == SceneIds.CURLFLOW || sceneId == SceneIds.WATER
 
-    fun hasEmitters(sceneId: String): Boolean = sceneId == SceneIds.FLUID || sceneId == SceneIds.WATER
+    fun hasEmitters(sceneId: String): Boolean = isFluid(sceneId) || sceneId == SceneIds.WATER
 
-    fun hasParticleLayer(sceneId: String): Boolean = sceneId == SceneIds.FLUID || sceneId == SceneIds.CURLFLOW
+    fun hasParticleLayer(sceneId: String): Boolean = isFluid(sceneId) || sceneId == SceneIds.CURLFLOW
 
     fun usesPointSprites(sceneId: String): Boolean = hasParticleLayer(sceneId)
 

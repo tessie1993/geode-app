@@ -11,11 +11,16 @@ out vec4 fragColor;
 //#include lib_scene_grade
 //#include lib_sdf3
 //#include lib_touch
+//#include lib_dmt
 
-// Curl Bloom: one solid body, raymarched, that is continuously changing what
-// it IS. Sphere becomes octahedron becomes torus becomes box and round to the
-// sphere again, while the space it sits in is being stirred by an
-// incompressible flow, so the surface is always folding through itself.
+// Curl Bloom: a host body, raymarched, that is continuously changing what it
+// IS - sphere, gem, torus, box, octahedron and round again - while the space
+// it sits in is being stirred by an incompressible flow, so the surface is
+// always folding through itself. Around it, a bank of smaller bodies of the
+// same kind, each on its own orbit and its own clock: they bud out of
+// nothing, tumble past the host and each other, and dissolve. That bank is
+// what turns one object turning into a place with things living in it, which
+// is the difference the reference material insists on.
 //
 // This is the 3D counterpart to the 2D fluid in the other new styles: the same
 // idea - advect the domain through a divergence-free field - but applied to
@@ -24,17 +29,24 @@ out vec4 fragColor;
 //
 // ---- the morph -------------------------------------------------------------
 //
-// The four primitives sit on a ring and uFormPhase walks it, blending each
-// neighbouring pair with mix(). That is a legitimate distance field and not an
-// approximation: mix(a, b, t) of two 1-Lipschitz functions is 1-Lipschitz for
-// any t in 0..1, because it is a convex combination. So the morph costs the
-// march nothing - no step scale, no correction - and every intermediate shape
-// is as marchable as the two it lies between.
-//
-// The ring is closed (box blends back into sphere), and uFormPhase glides
-// rather than jumps, so there is no value of it at which the body is
+// The primitives sit on lib_dmt's closed ring and uFormPhase walks it,
+// blending each neighbouring pair with mix(). That is a legitimate distance
+// field and not an approximation: mix(a, b, t) of two 1-Lipschitz functions is
+// 1-Lipschitz for any t in 0..1, because it is a convex combination. So the
+// morph costs the march nothing - no step scale, no correction - and every
+// intermediate shape is as marchable as the two it lies between. uFormPhase
+// glides rather than jumps, so there is no value of it at which the body is
 // discontinuous. A spike chooses the next plateau; the body takes most of a
-// second to get there.
+// second to get there. The satellites walk the same ring, each offset by its
+// own seed, so no two bodies are the same shape at the same moment.
+//
+// ---- the bank --------------------------------------------------------------
+//
+// dmtSatellites() lives OUTSIDE the stir. The host is deformed by the flow;
+// the satellites orbit it in undeformed space, so they are hard, clean jewels
+// against a body that is being folded, and the estimate for them needs no
+// Lipschitz correction at all. The min() of the two fields divides only the
+// host's term by the warp bound, which the step does below.
 //
 // ---- audio ------------------------------------------------------------------
 //
@@ -48,6 +60,11 @@ out vec4 fragColor;
 #define CB_FOCAL 1.5
 #define CB_TAU 6.2831853
 
+/** The bank: orbital radius, body radius at full life and the life cycle. */
+#define CB_SAT_ORBIT 1.75
+#define CB_SAT_RADIUS 0.26
+#define CB_SAT_PERIOD 13.0
+
 // The stir. Kept as globals because map() is called from the march, from the
 // normal taps and from the shadow loop, and all of them must see one shape.
 float gWarpScale;
@@ -56,30 +73,9 @@ float gLip;
 float gRadius;
 float gMorph;
 
-// The body, in stirred space.
-//
-// Four primitives on a closed ring. gMorph in 0..4 selects the pair; the
-// fractional part is the blend. Written as a chain of mix() rather than a
-// branch so every ray executes the same code and the field is continuous
-// across every boundary including the 4 -> 0 wrap.
+// The host, in stirred space: lib_dmt's ring, walked by gMorph.
 float body(vec3 p) {
-    float r = gRadius;
-    float t = fract(gMorph * 0.25) * 4.0;
-    float i = floor(t);
-    float f = smoothstep(0.0, 1.0, fract(t));
-
-    float sphere = sdSphere(p, r);
-    float octa = sdOctahedron(p, r * 1.25);
-    float torus = sdTorus(p, vec2(r * 0.78, r * 0.34));
-    float box = sdBox(p, vec3(r * 0.72));
-
-    // The pair either side of i, on the ring.
-    float a = i < 0.5 ? sphere : (i < 1.5 ? octa : (i < 2.5 ? torus : box));
-    float b = i < 0.5 ? octa : (i < 1.5 ? torus : (i < 2.5 ? box : sphere));
-    // Rounded a little throughout: opRound is a constant offset of the field,
-    // so it is exact and free, and it keeps the octahedron's points from
-    // aliasing into fireflies at the rim.
-    return opRound(mix(a, b, f), r * 0.06);
+    return dmtMorphBody(p, gRadius, gMorph);
 }
 
 // The scene: the body, seen through the stir.
@@ -88,9 +84,19 @@ float body(vec3 p) {
 // distance in warped space. That is an overestimate of the true distance in
 // world space by at most the warp's Lipschitz bound, which is what gLip
 // divides out at the step.
+/** Which field won the last map(): 0 the host, 1 a satellite. Read after the march, before the normal. */
+float gHitSat;
+float gSatCount;
+
 float map(vec3 p) {
     vec3 q = fluidWarp3(p, gWarpScale, gWarpAmount);
-    return body(q);
+    // The host's estimate was measured in warped space; dividing it by the
+    // warp bound here (rather than at the step) lets it sit in one min() with
+    // the satellites, which need no correction.
+    float host = body(q) / gLip;
+    float sat = dmtSatellites(p, gSatCount, CB_SAT_ORBIT, CB_SAT_RADIUS, CB_SAT_PERIOD);
+    gHitSat = sat < host ? 1.0 : 0.0;
+    return min(host, sat);
 }
 
 vec3 normalAt(vec3 p, float e) {
@@ -131,7 +137,9 @@ void main() {
     gLip = fluidWarp3Lipschitz(gWarpScale, gWarpAmount);
     gRadius = 0.86 * (1.0 + 0.07 * swell);
     // Glides; never steps. See the morph note at the top.
-    gMorph = uFormPhase * 4.0;
+    gMorph = uFormPhase;
+    // Detail buys population: three satellites at the floor, six at the top.
+    gSatCount = mix(3.0, float(DMT_MAX_SATELLITES), clamp((uSteps - 64.0) / 64.0, 0.0, 1.0));
 
     // The camera orbits on two unrelated slow rates, so the body is seen from
     // a new angle every second even in silence, and a spike banks the orbit
@@ -157,22 +165,28 @@ void main() {
             hitT = t;
             break;
         }
-        // Divided by the warp's Lipschitz bound: the estimate was measured in
-        // warped space and would otherwise overshoot the true clearance.
-        t += max(d / gLip, eps);
+        // map() already divided the host's term by the warp bound.
+        t += max(d, eps);
     }
 
-    // The medium the body hangs in, brightened toward the middle of the frame.
-    vec3 fog = pal(0.66) * 0.055 * (0.6 + 0.5 * swell);
+    // The room: the chrysanthemum on the camera-relative direction, so the
+    // mandala sits behind the host and turns as the camera orbits.
+    vec3 fog = dmtChrysanthemum(transpose(cam) * rd, 0.66, swell);
     vec3 col = fog;
 
     if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
+        // Which body was hit is captured BEFORE the normal taps overwrite it.
+        map(p);
+        float isSat = gHitSat;
+        float satHue = gDmtSatHue;
+        float satLife = gDmtSatLife;
+        float satBand = gDmtSatBand;
         float e = max(0.0012 * hitT, 0.0006);
         vec3 n = normalAt(p, e);
         float ao = occlusion(p, n);
 
-        // Where on the body we are, in stirred space: the veining follows the
+        // Where on the host we are, in stirred space: the veining follows the
         // fold rather than the underlying primitive, which is what sells the
         // surface as something the flow made.
         vec3 q = fluidWarp3(p, gWarpScale, gWarpAmount);
@@ -180,30 +194,25 @@ void main() {
         // A new spawn re-seeds the veining and grows it in over a second.
         vein = mix(0.5, vein, spawnGrow(1.1));
 
-        vec3 key = normalize(vec3(-0.45, 0.62, -0.65));
-        float dif = clamp(dot(n, key), 0.0, 1.0);
-        float back = clamp(dot(n, -key), 0.0, 1.0);
-        float fres = pow(1.0 - clamp(dot(n, -rd), 0.0, 1.0), 3.5);
-        float spec = pow(clamp(dot(reflect(rd, n), key), 0.0, 1.0), 24.0 + 60.0 * treb);
-
-        // Two materials mixed by the veining, so the fold lines are a colour
-        // change as well as a shape one.
-        vec3 skin = mix(pal(0.58), pal(0.90), smoothstep(0.35, 0.72, vein));
-        col = skin * (0.10 + 0.75 * dif) * ao;
-        // Rim, taking the treble - slew-limited, so a cymbal brightens the
-        // edge over several frames rather than on the one it lands.
-        col += mix(vec3(1.0), skin, 0.4) * fres * (0.22 + 0.55 * treb);
-        col += vec3(1.0) * spec * 0.30;
-        // Subsurface: light coming through the thin parts, which is what makes
-        // the torus and the octahedron's points read as translucent.
-        col += pal(0.10) * back * 0.16 * (0.5 + 0.5 * swell);
+        // The host is banded by its veining and coloured from one end of the
+        // palette; a satellite is banded by its distance from its own centre
+        // (a shell coordinate) and takes its hue from its seed, so the bank
+        // is a spread of related colours rather than copies of the host.
+        float hue = mix(0.58 + 0.32 * smoothstep(0.35, 0.72, vein), 0.15 + 0.7 * satHue, isSat);
+        float band = mix(vein * 0.7, satBand * 0.5, isSat);
+        // Thin where the flow has stretched the host and where a satellite
+        // is young or dying; both read as translucency.
+        float thin = mix(smoothstep(0.55, 0.9, vein) * 0.8, (1.0 - satLife) * 0.5, isSat);
+        col = dmtShade(n, rd, hue, band, ao, thin, treb);
+        // A body arriving or leaving glows; the light fades in with its life.
+        col += pal(hue + 0.45) * isSat * (1.0 - satLife) * 0.22;
         // Depth haze.
         col = mix(col, fog, 1.0 - exp(-hitT * 0.16));
     } else {
         // The halo: rays that grazed the body without hitting it. `near` is
         // the closest approach, so this is a true silhouette glow and not a
         // radial gradient pasted behind the object.
-        col += pal(0.50) * exp(-near * 5.5) * (0.30 + 0.35 * uSpike);
+        col += dmtHalo(near, 0.50, 5.5, 0.30 + 0.35 * uSpike);
     }
 
     // The particle layer, in screen space, riding the 2D half of the same

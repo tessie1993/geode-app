@@ -23,7 +23,8 @@ ABIs arm64-v8a and x86_64. The full version history is in
   Auto browsing (tracks, albums, artists, playlists, favourites, recently
   played) and a home-screen now-playing widget.
 - **Visual scenes** — particle, simulation and fragment-shader scenes with an
-  in-app GLSL editor; the GPU fluid family (Fluid / Curl Flow / Water);
+  in-app GLSL editor; the GPU fluid family (nine Fluid looks over one solver,
+  plus Curl Flow and Water);
   Cymatics; MilkDrop via projectM 4 built in-tree from a git submodule. Every
   scene is rendered by the native core; the Customize panel exposes every
   parameter with per-param locks, a randomizer, LFO and ADSR modulation, a
@@ -95,6 +96,9 @@ Three test files exist: `app/src/test/.../PresetLinkTest.kt`,
 `engine/audio-core/src/test/.../FeatureRingTest.kt`. Checks that cannot run
 headless (GL behaviour, capture, wallpaper) are listed in
 [docs/DEVICE_CHECKS.md](docs/DEVICE_CHECKS.md), a partial reconstruction.
+`tools/glslcheck` compiles and renders every fragment style and every fluid
+display variant headlessly (`node check.mjs --all`); it is a lower bound on
+portability, not a device check.
 
 ## Maintainer notes
 

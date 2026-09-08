@@ -115,6 +115,28 @@ constexpr std::array<MycoStyle, 10> kMyco = {{
      .deposit = 0.12f, .decay = 0.915f, .aniso = 0.8f, .look = 1, .hueOffset = 0.52f},
 }};
 
+// The fluid family. `fluid` is the original and keeps its saved-preset id;
+// the rest are looks over the same solver. Field order follows the struct.
+constexpr std::array<FluidStyle, 9> kFluid = {{
+    {.id = "fluid"},
+    {.id = "fluid_ink", .look = 1, .curl = 0.6f, .velocityDissipation = 1.6f, .densityDissipation = 0.5f, .splatRadius = 1.3f,
+     .splatForce = 0.7f, .bloom = 0.4f, .hueOffset = 0.58f},
+    {.id = "fluid_oilslick", .look = 2, .curl = 1.3f, .velocityDissipation = 0.7f, .densityDissipation = 0.6f, .splatRadius = 1.2f,
+     .bloom = 0.8f, .hueOffset = 0.12f},
+    {.id = "fluid_neon", .look = 3, .curl = 1.1f, .densityDissipation = 0.8f, .splatRadius = 0.9f, .splatForce = 1.2f, .bloom = 1.4f,
+     .hueOffset = 0.72f},
+    {.id = "fluid_chrome", .look = 4, .curl = 0.8f, .velocityDissipation = 1.2f, .densityDissipation = 0.45f, .splatRadius = 1.4f,
+     .splatForce = 0.8f, .bloom = 0.6f, .hueOffset = 0.5f},
+    {.id = "fluid_smoke", .look = 5, .curl = 1.5f, .velocityDissipation = 0.5f, .densityDissipation = 1.4f, .splatRadius = 1.6f,
+     .splatForce = 0.6f, .bloom = 0.3f, .hueOffset = 0.62f},
+    {.id = "fluid_lava", .look = 6, .curl = 0.5f, .velocityDissipation = 2.0f, .densityDissipation = 0.35f, .splatRadius = 1.5f,
+     .splatForce = 0.5f, .bloom = 1.5f, .hueOffset = 0.02f},
+    {.id = "fluid_marble", .look = 7, .curl = 0.9f, .velocityDissipation = 1.4f, .densityDissipation = 0.3f, .splatRadius = 1.1f,
+     .splatForce = 0.75f, .bloom = 0.5f, .hueOffset = 0.33f},
+    {.id = "fluid_aurora", .look = 8, .curl = 1.4f, .velocityDissipation = 0.6f, .densityDissipation = 0.9f, .splatRadius = 1.3f,
+     .splatForce = 0.9f, .bloom = 1.2f, .hueOffset = 0.40f},
+}};
+
 template <typename Table>
 const typename Table::value_type* find(const Table& table, const std::string& id) {
     for (const auto& style : table) {
@@ -134,12 +156,14 @@ std::vector<std::string> ids(const Table& table) {
 }  // namespace
 
 const CymaticsStyle* cymatics(const std::string& id) { return find(kCymatics, id); }
+const FluidStyle* fluid(const std::string& id) { return find(kFluid, id); }
 const SilkStyle* silk(const std::string& id) { return find(kSilk, id); }
 const LifeStyle* life(const std::string& id) { return find(kLife, id); }
 const AcidStyle* acid(const std::string& id) { return find(kAcid, id); }
 const MycoStyle* myco(const std::string& id) { return find(kMyco, id); }
 
 std::vector<std::string> cymaticsIds() { return ids(kCymatics); }
+std::vector<std::string> fluidIds() { return ids(kFluid); }
 std::vector<std::string> silkIds() { return ids(kSilk); }
 std::vector<std::string> lifeIds() { return ids(kLife); }
 std::vector<std::string> acidIds() { return ids(kAcid); }

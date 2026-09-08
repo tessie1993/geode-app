@@ -11,6 +11,87 @@ a partial reconstruction, rebuilt from the references in these entries, is at
 
 ## Unreleased
 
+- **The Fluid tab has styles now** (Styles > Fluid, ids `fluid_ink`,
+  `fluid_oilslick`, `fluid_neon`, `fluid_chrome`, `fluid_smoke`, `fluid_lava`,
+  `fluid_marble`, `fluid_aurora`, alongside `fluid`, Curl Flow and Water).
+  Every other family lists ten profiles over one engine; Fluid listed its
+  three engines and nothing else. It now has the same shape as Silk and
+  Cymatics: a `FluidStyle` table, mirrored in `StyleCatalog.cpp` and
+  `VisualStyleCatalog.kt`, where each entry is the same solver under a
+  different LOOK plus a few multipliers. The looks are eight material
+  branches of `fluid_display_frag.glsl`, selected by a `LOOK` keyword
+  `FluidLook` prepends next to SHADING/BLOOM/SUNRAYS, so the hot shader still
+  never branches on a uniform: pigment on paper, a thin-film oil slick indexed
+  by density and sheared by its gradient, glowing iso-contours, liquid chrome
+  that reflects a studio off the density gradient, smoke, a blackbody lava
+  ramp, veined marble and an aurora whose hue turns with time and height.
+  The multipliers (curl, both dissipations, splat radius and force, bloom,
+  and a hue offset on the emitters) sit ON the user's Customize values, never
+  in place of them, so no Fluid control goes dead on any style. `fluid` keeps
+  its id and its original look; built-in `fluid ·` presets match every style
+  in the family; the GLSL injection shaders reach every built fluid-solver
+  scene rather than only the one named `fluid`; Journey, Emitters and the
+  particle layer scope to the family.
+
+- **The eight raymarched styles share a premium material and a sky**
+  (`lib_dmt.glsl`, a new registered include). `lib_sdf3` is geometry only,
+  so each marched style had shaded its own hit with its own diffuse-plus-
+  fresnel block and put a flat palette ramp behind it. The reference material
+  this family is built from - the visionary-art rendering of the DMT visual
+  and the many "chrysanthemum" replications of it - is consistent about
+  neither being flat. `dmtShade()` is the one material now: nested shells of
+  hue on a banding coordinate, a thin-film sheen whose hue moves with
+  incidence (0.2 of a turn - 0.45 was tried and painted rainbow rings on every
+  sphere), a Fresnel rim with a different exponent per channel so the
+  silhouette is dispersed rather than white, a reflected softbox band that
+  reads as chrome, a treble-sharpened specular and a subsurface term for the
+  thin parts. `dmtChrysanthemum()` is the sky: a kaleidoscopic fold of the
+  ray direction with two orbit traps (knots and threads), turning at a tenth
+  of a turn a minute, never black, evaluated in each style's camera frame so
+  it sits behind the geometry from every angle. `kifs`, `noneuclid`,
+  `morphogen`, `vanishing` and `curl_bloom` shade with it and every one of
+  the eight has the mandala behind it; no fold set, march or Lipschitz
+  argument changed for that.
+
+  The library also carries the life of the frame, because the references are
+  never one object turning: `dmtLife()` (a birth-hold-dissolve envelope on a
+  per-body clock, eased at both ends so nothing pops), `dmtMorphBody()` (a
+  closed ring sphere - gem - torus - box - octahedron, blended by mix() and so
+  still 1-Lipschitz), `dmtSatellites()` (up to six such bodies on their own
+  precessing orbits, spins and clocks, culled by a bounding ball) and
+  `dmtTunnelPath()` / `dmtTunnelWarp()` / `dmtFlightRay()` (a flight path
+  that bends in every direction, leaning toward the last spike's heading, and
+  the space warp that bends a straight tube along it, bound stated).
+  - *Rod Tunnel* rides the path, so the tube curves up, down and sideways
+    ahead of the camera; each cell's rod buds, holds and dissolves on its own
+    clock; the bead chain morphs from smooth rod to a string of pearls and
+    back on uFormPhase; the chrysanthemum is what the tunnel is aimed at.
+  - *Curl Bloom* gains the satellite bank around the stirred host - Detail
+    buys population, three to six - each on the morph ring at its own offset,
+    coloured by its seed and lit as it arrives and leaves. The bank sits in
+    unstirred space, so only the host's term is divided by the warp bound.
+  - *Nectar Flow* flies the same path (a volume march needs no correction for
+    a curved camera) and the mandala sits on the flight axis behind the dye.
+
+  One bug worth recording, because it is the shape of bug a bounding-volume
+  early-out always has: `dmtSatellites()` returned the distance to a body's
+  bounding ball when outside it, and that distance is exactly zero on the
+  ball, which passes the march's hit test - every ray stopped on an invisible
+  sphere and shaded the inside of it. The same failure `kifs_frag` documents
+  for its escape ball. The bound now returns the ball distance plus the slack
+  to the body's true extent, which is still a lower bound and is 0.34 r on
+  the ball.
+
+- **`tools/glslcheck`**, a headless compile-and-render check that runs.
+  `tools/shaderpreview` reads Kotlin scene files deleted in the C++ port and
+  fails on its first line; it is marked stale. glslcheck parses the include
+  registry out of `ShaderSource.cpp`, resolves includes the way the native
+  core does, refuses to render a shader that declares a uniform its value
+  table does not cover, and writes the frame as a PNG. Every fragment style
+  and all 72 fluid display variants were compiled and rendered through it
+  for this change. It is SwiftShader, so it is a lower bound on portability
+  and not a device check; `docs/DEVICE_CHECKS.md` still applies.
+
 - **Two more styles that put the fluid into three dimensions** (Styles >
   Shaders, ids `curl_bloom`, `nectar_flow`). Both are raymarched, so unlike the
   four flat styles below they DO spend the Detail budget and both join

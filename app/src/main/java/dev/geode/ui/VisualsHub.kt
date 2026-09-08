@@ -176,6 +176,7 @@ internal fun presetReplaceTarget(
 internal fun builtInPresetSceneFamily(activeSceneId: String): String =
     when {
         VisualStyleCatalog.isCymatics(activeSceneId) -> SceneIds.CYMATICS
+        VisualStyleCatalog.isFluid(activeSceneId) -> SceneIds.FLUID
         else -> activeSceneId
     }
 
@@ -559,7 +560,7 @@ private fun StylesTab(
             2 -> SceneList(VisualStyleCatalog.mycoIds, viz.sceneId, pickScene)
             3 -> SceneList(VisualStyleCatalog.acidIds, viz.sceneId, pickScene)
             4 -> SceneList(SceneCapabilities.SHADER_SCENES.keys.toList(), viz.sceneId, pickScene)
-            5 -> SceneList(listOf(SceneIds.FLUID, SceneIds.CURLFLOW, SceneIds.WATER), viz.sceneId, pickScene)
+            5 -> SceneList(VisualStyleCatalog.fluidIds + listOf(SceneIds.CURLFLOW, SceneIds.WATER), viz.sceneId, pickScene)
             6 -> SceneList(VisualStyleCatalog.cymaticsIds, viz.sceneId, pickScene)
             7 -> MilkDropTab(viewModel, visualizerView, onOpenTextures)
         }

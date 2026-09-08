@@ -20,6 +20,7 @@ out vec4 fragColor;
 // an unused one is dropped by the linker and costs nothing.
 //#include lib_sdf3
 //#include lib_touch
+//#include lib_dmt
 
 // ===========================================================================
 //  KIFS - a kaleidoscopic crystal cathedral, breathing.
@@ -62,6 +63,13 @@ out vec4 fragColor;
 //  an isometry, so the folds may move as fast as taste allows without the
 //  march walking through anything, and the ray may take the FULL estimate as
 //  its step rather than the usual 0.8 fudge.
+//
+//  THE MATERIAL AND THE SKY are lib_dmt's. The cathedral used to be shaded
+//  with two lights, a rim and a specular; it is now dmtShade() - the banded,
+//  thin-film, dispersed-rim jewel every marched style shares - fed the orbit
+//  trap as its banding coordinate, and the vault behind it is the
+//  chrysanthemum rather than a palette ramp. Nothing about the fold set or
+//  the march changed for that.
 //
 //  DELIBERATELY NOT HERE: a normal-direction ambient-occlusion pass. The
 //  occlusion is read off the march step count instead - a ray that needed most
@@ -466,10 +474,8 @@ vec3 kifsNormal(vec3 p, float e) {
  * luminance change - the flash budget is a whole-frame quantity, and the sky
  * is the one term here that covers the whole frame.
  */
-vec3 kifsSky(vec3 rd, float energy) {
-    float band = 0.5 + 0.5 * rd.y;
-    float t = 0.55 + 0.34 * band + 0.09 * sin(uTime * 0.019);
-    return pal(t) * (0.05 + 0.06 * energy) * (0.55 + 0.45 * band);
+vec3 kifsSky(vec3 rdLocal, float energy) {
+    return dmtChrysanthemum(rdLocal, 0.55 + 0.09 * sin(uTime * 0.019), energy);
 }
 
 void main() {
@@ -672,7 +678,9 @@ void main() {
     }
 
     float budget = max(uSteps, 1.0);
-    vec3 sky = kifsSky(rd, enA);
+    // Camera-relative, so the mandala sits behind the cathedral from every
+    // point of the orbit and turns as the view does.
+    vec3 sky = kifsSky(vec3(dot(rd, right), dot(rd, up), dot(rd, fwd)), enA);
     vec3 col;
 
     if (hitT > 0.0) {
@@ -689,20 +697,6 @@ void main() {
         // Ambient occlusion, free: how much of its budget the ray spent.
         float ao = clamp(1.0 - KIFS_AO_DEPTH * max(used / budget - KIFS_AO_FREE, 0.0), KIFS_AO_FLOOR, 1.0);
 
-        // Two fixed WORLD lights. Fixed, not view-locked, so the cathedral
-        // turning through them is what reveals its shape - a headlight would
-        // flatten every fold into the same grey.
-        vec3 key = normalize(vec3(0.42, 0.78, -0.46));
-        vec3 fill = normalize(vec3(-0.66, 0.12, 0.74));
-        float dif = clamp(dot(n, key), 0.0, 1.0);
-        float bnc = clamp(dot(n, fill), 0.0, 1.0);
-        float fres = pow(1.0 - clamp(dot(n, -rd), 0.0, 1.0), 3.5);
-
-        // Treble sharpens the edge: a tighter specular lobe reads as harder,
-        // more crystalline material without touching the geometry, which is
-        // the only thing a per-frame treble value is safe to drive.
-        float spec = pow(clamp(dot(n, normalize(key - rd)), 0.0, 1.0), 22.0 + 90.0 * trebA);
-
         // The orbit trap bands the surface into nested shells. log() of the
         // SQUARED radial trap, because the shells are geometrically spaced -
         // every round of the loop is a magnification - so only a logarithm
@@ -710,11 +704,6 @@ void main() {
         // ones into one colour.
         float band = log(max(trapR, 1e-6)) * 0.11;
         float shell = band + 0.22 * trapZ + 0.07 * sin(uTime * 0.029) + 0.06 * midA;
-        vec3 body = pal(shell);
-        // A related but distinct hue for the rim: 0.28 of a turn is far enough
-        // to read as a different material and close enough to still be the
-        // same building.
-        vec3 rimCol = pal(shell + 0.28);
 
         // The shell is lit by its OWN band of the spectrum - the edge trap
         // indexes the analyser - so a bassline lights the deep shells and a
@@ -722,9 +711,13 @@ void main() {
         // 0.55 is the floor, so with silence the rim is still there.
         float lit = aband(clamp(trapZ * 2.2, 0.0, 1.0));
 
-        col = body * (0.18 + 0.80 * dif + 0.32 * bnc) * ao;
-        col += rimCol * fres * (0.34 + 0.5 * trebA) * (0.55 + 0.9 * lit) * ao;
-        col += mix(vec3(1.0), rimCol, 0.5) * spec * 0.30 * (0.3 + 0.7 * trebA) * ao;
+        // The thin parts are the ones the edge trap found: a small trapZ
+        // means the point hugged a fold plane, which is the filigree.
+        float thin = 1.0 - smoothstep(0.0, 0.35, trapZ);
+        col = dmtShade(n, rd, shell, band * 0.6, ao, thin, trebA);
+        // The spectrum on the rim, on top of the material's own.
+        float fres = pow(1.0 - clamp(dot(n, -rd), 0.0, 1.0), 3.5);
+        col += pal(shell + 0.28) * fres * 0.35 * lit * ao;
 
         // Depth haze, measured from the ball entry rather than from the
         // camera, so the near face is unfogged and only the depth INSIDE the

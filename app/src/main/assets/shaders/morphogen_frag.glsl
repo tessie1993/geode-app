@@ -20,6 +20,7 @@ out vec4 fragColor;
 // an unused one is dropped by the linker and costs nothing.
 //#include lib_sdf3
 //#include lib_touch
+//#include lib_dmt
 
 // MORPHOGEN - one organism, continuously metamorphosing between skeletons.
 //
@@ -752,9 +753,11 @@ float occlusion(vec3 p, vec3 n, float scale) {
  * mid-grey cloud; the square leaves most of it near zero and lets a few
  * regions rise, which reads as depth instead of fog.
  */
+// The room the organism hangs in: the chrysanthemum, on the view direction.
+// The camera here looks down +z from a fixed standoff, so the world direction
+// is already the frame the mandala wants.
 vec3 room(vec3 rd, vec2 uv, float hue) {
-    float f = fbm3(rd * 2.6 + vec3(0.0, uTime * 0.035, uTime * 0.021), 2);
-    vec3 c = pal(hue + 0.62 + f * 0.18) * (0.050 + 0.150 * f * f);
+    vec3 c = dmtChrysanthemum(rd, hue + 0.62, clamp(uEnergySmooth, 0.0, 1.5));
     // The wake of every finger, live and still fading, as a glow in the room
     // behind the body. Clamped because touchWake is unbounded above by design
     // - five fingers in one place sum to five - and a full-screen brightness
@@ -981,12 +984,6 @@ void main() {
             // geometry, and that is exactly where the creases are.
             ao *= 1.0 - 0.25 * travelled;
 
-            vec3 key = normalize(vec3(0.45, 0.72, -0.52));
-            vec3 fill = normalize(vec3(-0.65, -0.20, 0.55));
-            float dif = clamp(dot(n, key), 0.0, 1.0);
-            float bnc = clamp(dot(n, fill), 0.0, 1.0);
-            float fres = pow(1.0 - clamp(dot(n, -rd), 0.0, 1.0), 3.0);
-
             // THE SUBJECT. Fusion seams and the metamorphic frontier are one
             // quantity as far as the eye is concerned - both are places where
             // the surface is being negotiated between two descriptions of it -
@@ -994,23 +991,19 @@ void main() {
             float heat = clamp(hitFront + 0.85 * hitFuse, 0.0, 1.5);
 
             float hue = baseHue + 0.07 * n.y + 0.06 * heat;
-            vec3 body = pal(hue);
-            vec3 rim = pal(hue + 0.30);
             vec3 hot = pal(hue + 0.55);
 
-            // Little ambient on purpose. A fill floor high enough to see into
-            // the shadow side is what made the first pass read as a pastel
-            // balloon: with four skeletons that differ mostly in the SHAPE of
-            // their shadows, the shadows have to be dark enough to have shape.
-            col = body * (0.09 + 0.88 * dif + 0.20 * bnc) * ao;
+            // The material: lib_dmt's jewel, banded by height so the shells
+            // read as growth rings, thin along the seam where the two
+            // skeletons have not yet agreed on a solid.
+            col = dmtShade(n, rd, hue, n.y * 0.5 + 0.2 * heat, ao, clamp(heat, 0.0, 1.0) * 0.6, treb);
 
-            // Treble sharpens the silhouette, and the band under the surface's
-            // own height sharpens it further, so the outline sings the
-            // spectrum from the bottom of the body to the top.
+            // The band under the surface's own height sharpens the silhouette
+            // further, so the outline sings the spectrum from the bottom of
+            // the body to the top.
+            float fres = pow(1.0 - clamp(dot(n, -rd), 0.0, 1.0), 3.0);
             float band = aband(clamp(n.y * 0.5 + 0.5, 0.0, 1.0));
-            col += rim * fres * (0.26 + 0.42 * treb + 0.30 * band);
-            col += vec3(1.0) * pow(clamp(dot(n, normalize(key - rd)), 0.0, 1.0), 40.0)
-                * (0.22 + 0.30 * treb) * ao;
+            col += pal(hue + 0.30) * fres * 0.30 * band;
 
             // Squared, so the heat is a thin bright line on the seam rather
             // than a wash over the whole body: a narrow response is what makes

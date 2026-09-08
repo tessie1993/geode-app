@@ -29,9 +29,12 @@ a partial reconstruction, rebuilt from the references in these entries, is at
   and a hue offset on the emitters) sit ON the user's Customize values, never
   in place of them, so no Fluid control goes dead on any style. `fluid` keeps
   its id and its original look; built-in `fluid ·` presets match every style
-  in the family; the GLSL injection shaders reach every built fluid-solver
-  scene rather than only the one named `fluid`; Journey, Emitters and the
-  particle layer scope to the family.
+  in the family, and five new ones (`fluid_ink · Sumi`, `fluid_chrome ·
+  Mercury`, `fluid_neon · Pulse`, `fluid_lava · Magma`, `fluid_aurora ·
+  Curtains`) name a styled look so applying one switches to it; the GLSL
+  injection shaders reach every built fluid-solver scene rather than only the
+  one named `fluid`; Journey, Emitters and the particle layer scope to the
+  family.
 
 - **The eight raymarched styles share a premium material and a sky**
   (`lib_dmt.glsl`, a new registered include). `lib_sdf3` is geometry only,
@@ -70,6 +73,9 @@ a partial reconstruction, rebuilt from the references in these entries, is at
     buys population, three to six - each on the morph ring at its own offset,
     coloured by its seed and lit as it arrives and leaves. The bank sits in
     unstirred space, so only the host's term is divided by the warp bound.
+  - *Morphogen* gains the same bank around the organism. Its ray cull grows
+    to hold the orbits (SCENE_BOUND) while the body keeps its own clip; a
+    satellite has no seam, so the metamorphic heat is zero on it.
   - *Nectar Flow* flies the same path (a volume march needs no correction for
     a curved camera) and the mandala sits on the flight axis behind the dye.
 

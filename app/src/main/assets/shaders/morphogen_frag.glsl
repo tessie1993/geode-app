@@ -117,6 +117,25 @@ out vec4 fragColor;
 #define TOUCH_BOUND 1.36
 
 /**
+ * The bank of satellites around the organism: orbital radius, body radius at
+ * full life and the life cycle. They live in the space between the body and
+ * the camera-side cull, so the cull sphere grows to hold them - see
+ * SCENE_BOUND - while the body keeps its own clip.
+ */
+#define SAT_ORBIT 1.85
+#define SAT_RADIUS 0.17
+#define SAT_PERIOD 14.0
+
+/**
+ * Radius of the sphere the analytic ray cull uses: the widest satellite orbit
+ * (1.15 x SAT_ORBIT) plus a full-life body's containment ball
+ * (1.2 x SAT_RADIUS x DMT_SAT_BOUND_K), rounded up. Larger than the body's
+ * own bound, so rays now enter earlier and spend a few steps crossing empty
+ * space at the satellites' own containment distances, which are cheap.
+ */
+#define SCENE_BOUND 2.50
+
+/**
  * How far outside BODY_BOUND map() stops bothering with the body.
  *
  * A gate at exactly zero makes the march creep: the step lands on the sphere,
@@ -450,7 +469,11 @@ float gRelief;
 float gShellA;
 float gShellR;
 float gSpinK;
-float gSceneBound;
+/** The body's own clip radius: BODY_BOUND, or TOUCH_BOUND with a finger down. */
+float gBodyBound;
+/** Which field won the last map(): 0 the body, 1 a satellite. Read after the march, before the normal. */
+float gHitSat;
+float gSatCount;
 float gLip;
 mat3 gSpin;
 vec3 gBulgeC[TOUCH_MAX_POINTS];
@@ -632,7 +655,14 @@ float map(vec3 p) {
     // everywhere the finger could reach.
     float bound = r - BODY_BOUND;
     float db = bulgeDist(p);
-    if (bound > BODY_MARGIN) return smin(bound, db, BULGE_K);
+    // The bank orbits in undeformed space and needs no Lipschitz correction,
+    // so it sits in a plain min() with whatever the body reports.
+    float sat = dmtSatellites(p, gSatCount, SAT_ORBIT, SAT_RADIUS, SAT_PERIOD);
+    if (bound > BODY_MARGIN) {
+        float outside = smin(bound, db, BULGE_K);
+        gHitSat = sat < outside ? 1.0 : 0.0;
+        return min(outside, sat);
+    }
 
     vec3 q = p;
     // Three or more fingers wring the body about the view axis. The angle
@@ -708,7 +738,9 @@ float map(vec3 p) {
     // off, rays get killed in front of real geometry and the silhouette grows
     // a straight edge nobody can explain. An intersection with the sphere the
     // ray was culled against cannot be wrong: it makes the cull's premise true.
-    return max(d / gLip, r - gSceneBound);
+    float body = max(d / gLip, r - gBodyBound);
+    gHitSat = sat < body ? 1.0 : 0.0;
+    return min(body, sat);
 }
 
 /** Tetrahedral normal: four map() taps instead of the six a central
@@ -903,10 +935,11 @@ void main() {
         gBulgeR[gBulgeN] = BULGE_R * tp.z;
         gBulgeN++;
     }
-    // The cull sphere only grows once there is something outside the body to
-    // contain, so an untouched frame culls against the body's own radius and
-    // marches exactly the volume it did before touch existed.
-    gSceneBound = gBulgeN > 0 ? TOUCH_BOUND : BODY_BOUND;
+    // The body's clip only grows once there is a bulge outside it to contain,
+    // so an untouched frame clips the body at its own radius.
+    gBodyBound = gBulgeN > 0 ? TOUCH_BOUND : BODY_BOUND;
+    // Detail buys population: three satellites at the floor, six at the top.
+    gSatCount = mix(3.0, float(DMT_MAX_SATELLITES), clamp((uSteps - 64.0) / 64.0, 0.0, 1.0));
 
     // ---- camera ------------------------------------------------------------
     vec3 ro = vec3(0.0, 0.0, -CAM_DIST);
@@ -917,7 +950,7 @@ void main() {
     // is most of the screen, and the difference between this style running on
     // a phone and not.
     float b = dot(ro, rd);
-    float cc = dot(ro, ro) - gSceneBound * gSceneBound;
+    float cc = dot(ro, ro) - SCENE_BOUND * SCENE_BOUND;
     float h = b * b - cc;
 
     // The palette coordinate walks with the morph clock rather than with the
@@ -978,6 +1011,12 @@ void main() {
 
         if (hitT > 0.0) {
             vec3 p = ro + rd * hitT;
+            // Which body was hit is captured BEFORE the normal taps overwrite it.
+            map(p);
+            float isSat = gHitSat;
+            float satHue = gDmtSatHue;
+            float satLife = gDmtSatLife;
+            float satBand = gDmtSatBand;
             vec3 n = normalAt(p, max(HIT_EPS * hitT, 8e-4));
             float ao = occlusion(p, n, max(hitT * 0.02, 0.02));
             // A ray that needed most of its budget was crawling through folded
@@ -988,22 +1027,29 @@ void main() {
             // quantity as far as the eye is concerned - both are places where
             // the surface is being negotiated between two descriptions of it -
             // so they are summed and then read as one heat.
-            float heat = clamp(hitFront + 0.85 * hitFuse, 0.0, 1.5);
+            // A satellite has no seam: it is a hard jewel, not a negotiation.
+            float heat = clamp(hitFront + 0.85 * hitFuse, 0.0, 1.5) * (1.0 - isSat);
 
-            float hue = baseHue + 0.07 * n.y + 0.06 * heat;
+            // A satellite takes its hue from its seed, a spread around the
+            // organism's own, and is banded in its own tumbling frame.
+            float hue = mix(baseHue + 0.07 * n.y + 0.06 * heat, baseHue + 0.30 + 0.45 * satHue, isSat);
             vec3 hot = pal(hue + 0.55);
 
             // The material: lib_dmt's jewel, banded by height so the shells
             // read as growth rings, thin along the seam where the two
-            // skeletons have not yet agreed on a solid.
-            col = dmtShade(n, rd, hue, n.y * 0.5 + 0.2 * heat, ao, clamp(heat, 0.0, 1.0) * 0.6, treb);
+            // skeletons have not yet agreed on a solid - or, on a satellite,
+            // thin while it is arriving or leaving.
+            float band = mix(n.y * 0.5 + 0.2 * heat, satBand * 0.5, isSat);
+            float thin = mix(clamp(heat, 0.0, 1.0) * 0.6, (1.0 - satLife) * 0.5, isSat);
+            col = dmtShade(n, rd, hue, band, ao, thin, treb);
+            col += pal(hue + 0.45) * isSat * (1.0 - satLife) * 0.22;
 
             // The band under the surface's own height sharpens the silhouette
             // further, so the outline sings the spectrum from the bottom of
             // the body to the top.
             float fres = pow(1.0 - clamp(dot(n, -rd), 0.0, 1.0), 3.0);
-            float band = aband(clamp(n.y * 0.5 + 0.5, 0.0, 1.0));
-            col += pal(hue + 0.30) * fres * 0.30 * band;
+            float spectrum = aband(clamp(n.y * 0.5 + 0.5, 0.0, 1.0));
+            col += pal(hue + 0.30) * fres * 0.30 * spectrum;
 
             // Squared, so the heat is a thin bright line on the seam rather
             // than a wash over the whole body: a narrow response is what makes

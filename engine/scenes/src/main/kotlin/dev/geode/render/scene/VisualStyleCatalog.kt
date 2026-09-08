@@ -753,19 +753,145 @@ object VisualStyleCatalog {
             ),
         )
 
+    /**
+     * A profile over the Fluid solver. Mirrors `StyleCatalog.cpp`'s `FluidStyle` field for field.
+     *
+     * Every scalar is a MULTIPLIER on the user's own Customize value for that quantity, never a
+     * replacement, so the Fluid tab's controls keep working on every style. [look] selects the
+     * display shader's material branch (`fluid_display_frag.glsl`'s LOOK keyword) and [hueOffset]
+     * turns the emitters' base hue.
+     */
+    data class FluidStyle(
+        val id: String,
+        val label: String,
+        val look: Int = 0,
+        val curl: Float = 1f,
+        val velocityDissipation: Float = 1f,
+        val densityDissipation: Float = 1f,
+        val splatRadius: Float = 1f,
+        val splatForce: Float = 1f,
+        val bloom: Float = 1f,
+        val hueOffset: Float = 0f,
+    )
+
+    // `fluid` keeps its saved-preset id and its original look; the rest are the same solver
+    // under a different material.
+    val fluid: List<FluidStyle> =
+        listOf(
+            FluidStyle(SceneIds.FLUID, "Original · Dye"),
+            FluidStyle(
+                "fluid_ink",
+                "Ink Wash",
+                look = 1,
+                curl = 0.6f,
+                velocityDissipation = 1.6f,
+                densityDissipation = 0.5f,
+                splatRadius = 1.3f,
+                splatForce = 0.7f,
+                bloom = 0.4f,
+                hueOffset = 0.58f,
+            ),
+            FluidStyle(
+                "fluid_oilslick",
+                "Oil Slick",
+                look = 2,
+                curl = 1.3f,
+                velocityDissipation = 0.7f,
+                densityDissipation = 0.6f,
+                splatRadius = 1.2f,
+                bloom = 0.8f,
+                hueOffset = 0.12f,
+            ),
+            FluidStyle(
+                "fluid_neon",
+                "Neon Contours",
+                look = 3,
+                curl = 1.1f,
+                densityDissipation = 0.8f,
+                splatRadius = 0.9f,
+                splatForce = 1.2f,
+                bloom = 1.4f,
+                hueOffset = 0.72f,
+            ),
+            FluidStyle(
+                "fluid_chrome",
+                "Liquid Chrome",
+                look = 4,
+                curl = 0.8f,
+                velocityDissipation = 1.2f,
+                densityDissipation = 0.45f,
+                splatRadius = 1.4f,
+                splatForce = 0.8f,
+                bloom = 0.6f,
+                hueOffset = 0.5f,
+            ),
+            FluidStyle(
+                "fluid_smoke",
+                "Smoke",
+                look = 5,
+                curl = 1.5f,
+                velocityDissipation = 0.5f,
+                densityDissipation = 1.4f,
+                splatRadius = 1.6f,
+                splatForce = 0.6f,
+                bloom = 0.3f,
+                hueOffset = 0.62f,
+            ),
+            FluidStyle(
+                "fluid_lava",
+                "Lava",
+                look = 6,
+                curl = 0.5f,
+                velocityDissipation = 2.0f,
+                densityDissipation = 0.35f,
+                splatRadius = 1.5f,
+                splatForce = 0.5f,
+                bloom = 1.5f,
+                hueOffset = 0.02f,
+            ),
+            FluidStyle(
+                "fluid_marble",
+                "Marble",
+                look = 7,
+                curl = 0.9f,
+                velocityDissipation = 1.4f,
+                densityDissipation = 0.3f,
+                splatRadius = 1.1f,
+                splatForce = 0.75f,
+                bloom = 0.5f,
+                hueOffset = 0.33f,
+            ),
+            FluidStyle(
+                "fluid_aurora",
+                "Aurora",
+                look = 8,
+                curl = 1.4f,
+                velocityDissipation = 0.6f,
+                densityDissipation = 0.9f,
+                splatRadius = 1.3f,
+                splatForce = 0.9f,
+                bloom = 1.2f,
+                hueOffset = 0.40f,
+            ),
+        )
+
     val cymaticsIds: List<String> = cymatics.map { it.id }
+    val fluidIds: List<String> = fluid.map { it.id }
     val silkIds: List<String> = silk.map { it.id }
     val lifeIds: List<String> = life.map { it.id }
     val acidIds: List<String> = acid.map { it.id }
     val mycoIds: List<String> = myco.map { it.id }
 
     private val cymaticsById = cymatics.associateBy { it.id }
+    private val fluidById = fluid.associateBy { it.id }
     private val silkById = silk.associateBy { it.id }
     private val lifeById = life.associateBy { it.id }
     private val acidById = acid.associateBy { it.id }
     private val mycoById = myco.associateBy { it.id }
 
     fun cymatics(id: String): CymaticsStyle? = cymaticsById[id]
+
+    fun fluid(id: String): FluidStyle? = fluidById[id]
 
     fun silk(id: String): SilkStyle? = silkById[id]
 
@@ -777,8 +903,12 @@ object VisualStyleCatalog {
 
     fun isCymatics(id: String): Boolean = id in cymaticsById
 
+    /** True for every style that runs the Fluid solver, `fluid` itself included. */
+    fun isFluid(id: String): Boolean = id in fluidById
+
     fun label(id: String): String =
         cymaticsById[id]?.label
+            ?: fluidById[id]?.label
             ?: silkById[id]?.label
             ?: lifeById[id]?.label
             ?: acidById[id]?.label

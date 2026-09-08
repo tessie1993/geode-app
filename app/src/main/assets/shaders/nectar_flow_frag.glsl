@@ -11,6 +11,7 @@ out vec4 fragColor;
 //#include lib_scene_grade
 //#include lib_sdf3
 //#include lib_touch
+//#include lib_dmt
 
 // Nectar Flow: a volume rather than a surface. Luminous dye is wrapped around a
 // folded skeleton and then stirred by the same incompressible flow Curl Bloom
@@ -30,6 +31,20 @@ out vec4 fragColor;
 // reasoning nebula_frag sets out for its own volume loop. That is also why the
 // domain can be folded as violently as it is: a fold that would let rays
 // through a surface costs a volume nothing.
+//
+// ---- the flight ------------------------------------------------------------
+//
+// The camera rides lib_dmt's flight path rather than a straight line down -z:
+// it banks up, down, left and right through the volume, and the whole path
+// leans toward the last spike's heading (uMoveDir), so the music steers the
+// turns and they glide in. Position is integrated on uFlowPhase. The volume
+// is world-anchored, so the fold moves past the camera as it should, and a
+// volume march needs no correction for a curved camera path - there is no
+// distance estimate to overshoot.
+//
+// Behind the volume is the chrysanthemum, evaluated in the flight frame so it
+// sits on the axis the camera is flying toward and turns as the flight banks:
+// the mandala is what the tunnel of dye is aimed at.
 //
 // ---- audio ------------------------------------------------------------------
 //
@@ -98,10 +113,13 @@ void main() {
     float warpAmount = 0.13 + 0.10 * bass + 0.06 * finger;
 
     // The flight. Position is INTEGRATED on uFlowPhase - loudness sets how fast
-    // the camera travels, never where it is - and a spike banks the heading.
-    vec3 ro = vec3(uMoveDir * 0.35, -uFlowPhase * 2.2);
-    mat3 cam = rotZ(uTime * 0.05) * rotY(uMoveDir.x * 0.30) * rotX(uMoveDir.y * 0.22);
-    vec3 rd = cam * normalize(vec3(uv, NF_FOCAL));
+    // the camera travels, never where it is - and the path banks the heading.
+    float fly = uFlowPhase * 2.2;
+    float roll = uTime * 0.05;
+    vec3 ro;
+    vec3 rd;
+    dmtFlightRay(uv, NF_FOCAL, fly, roll, ro, rd);
+    mat3 flight = dmtFlightBasis(fly, roll);
 
     // ---- the volume march ---------------------------------------------------
     //
@@ -142,8 +160,8 @@ void main() {
     }
 
     vec3 col = acc;
-    // The medium, so the empty parts are not flat black.
-    col += pal(0.68) * 0.045 * trans * (0.5 + 0.5 * swell);
+    // The mandala behind the dye, seen through what the dye did not absorb.
+    col += dmtChrysanthemum(transpose(flight) * rd, 0.68, swell) * trans;
 
     // The core the flight is aimed at: a small bright sun on the axis, its
     // halo swelling on a spike rather than flashing.

@@ -11,6 +11,119 @@ a partial reconstruction, rebuilt from the references in these entries, is at
 
 ## Unreleased
 
+- **The Fluid tab has styles now** (Styles > Fluid, ids `fluid_ink`,
+  `fluid_oilslick`, `fluid_neon`, `fluid_chrome`, `fluid_smoke`, `fluid_lava`,
+  `fluid_marble`, `fluid_aurora`, alongside `fluid`, Curl Flow and Water).
+  Every other family lists ten profiles over one engine; Fluid listed its
+  three engines and nothing else. It now has the same shape as Silk and
+  Cymatics: a `FluidStyle` table, mirrored in `StyleCatalog.cpp` and
+  `VisualStyleCatalog.kt`, where each entry is the same solver under a
+  different LOOK plus a few multipliers. The looks are eight material
+  branches of `fluid_display_frag.glsl`, selected by a `LOOK` keyword
+  `FluidLook` prepends next to SHADING/BLOOM/SUNRAYS, so the hot shader still
+  never branches on a uniform: pigment on paper, a thin-film oil slick indexed
+  by density and sheared by its gradient, glowing iso-contours, liquid chrome
+  that reflects a studio off the density gradient, smoke, a blackbody lava
+  ramp, veined marble and an aurora whose hue turns with time and height.
+  The multipliers (curl, both dissipations, splat radius and force, bloom,
+  and a hue offset on the emitters) sit ON the user's Customize values, never
+  in place of them, so no Fluid control goes dead on any style. `fluid` keeps
+  its id and its original look; built-in `fluid ·` presets match every style
+  in the family, and five new ones (`fluid_ink · Sumi`, `fluid_chrome ·
+  Mercury`, `fluid_neon · Pulse`, `fluid_lava · Magma`, `fluid_aurora ·
+  Curtains`) name a styled look so applying one switches to it; the GLSL
+  injection shaders reach every built fluid-solver scene rather than only the
+  one named `fluid`; Journey, Emitters and the particle layer scope to the
+  family.
+
+- **The eight raymarched styles share a premium material and a sky**
+  (`lib_dmt.glsl`, a new registered include). `lib_sdf3` is geometry only,
+  so each marched style had shaded its own hit with its own diffuse-plus-
+  fresnel block and put a flat palette ramp behind it. The reference material
+  this family is built from - the visionary-art rendering of the DMT visual
+  and the many "chrysanthemum" replications of it - is consistent about
+  neither being flat. `dmtShade()` is the one material now: nested shells of
+  hue on a banding coordinate, a thin-film sheen whose hue moves with
+  incidence (0.2 of a turn - 0.45 was tried and painted rainbow rings on every
+  sphere), a Fresnel rim with a different exponent per channel so the
+  silhouette is dispersed rather than white, a reflected softbox band that
+  reads as chrome, a treble-sharpened specular and a subsurface term for the
+  thin parts. `dmtChrysanthemum()` is the sky: a kaleidoscopic fold of the
+  ray direction with two orbit traps (knots and threads), turning at a tenth
+  of a turn a minute, never black, evaluated in each style's camera frame so
+  it sits behind the geometry from every angle. `kifs`, `noneuclid`,
+  `morphogen`, `vanishing` and `curl_bloom` shade with it and every one of
+  the eight has the mandala behind it; no fold set, march or Lipschitz
+  argument changed for that.
+
+  The library also carries the life of the frame, because the references are
+  never one object turning: `dmtLife()` (a birth-hold-dissolve envelope on a
+  per-body clock, eased at both ends so nothing pops), `dmtMorphBody()` (a
+  closed ring sphere - gem - torus - box - octahedron, blended by mix() and so
+  still 1-Lipschitz), `dmtSatellites()` (up to six such bodies on their own
+  precessing orbits, spins and clocks, culled by a bounding ball) and
+  `dmtTunnelPath()` / `dmtTunnelWarp()` / `dmtFlightRay()` (a flight path
+  that bends in every direction, leaning toward the last spike's heading, and
+  the space warp that bends a straight tube along it, bound stated).
+  - *Rod Tunnel* rides the path, so the tube curves up, down and sideways
+    ahead of the camera; each cell's rod buds, holds and dissolves on its own
+    clock; the bead chain morphs from smooth rod to a string of pearls and
+    back on uFormPhase; the chrysanthemum is what the tunnel is aimed at.
+  - *Curl Bloom* gains the satellite bank around the stirred host - Detail
+    buys population, three to six - each on the morph ring at its own offset,
+    coloured by its seed and lit as it arrives and leaves. The bank sits in
+    unstirred space, so only the host's term is divided by the warp bound.
+  - *Morphogen* gains the same bank around the organism. Its ray cull grows
+    to hold the orbits (SCENE_BOUND) while the body keeps its own clip; a
+    satellite has no seam, so the metamorphic heat is zero on it.
+  - *KIFS*, *Non-Euclid*, *Vanishing* and *Nebula* gain the bank too, by a
+    different route. Each of those bounds its own march - an escape ball, a
+    cull ball, a support sphere - so a body outside the bound would never be
+    reached by folding it into map(), and each carries a Lipschitz division,
+    a dissolve clip or a volume integral the bank would have to be special-
+    cased through. So the bank is marched ON ITS OWN
+    (`dmtMarchSatellites()`, a handful of length() calls per step) and the
+    style takes whichever of its own hit and the bank's is nearer: occlusion
+    comes out right by construction and nothing about the style's own march
+    changes. KIFS orbits the bank outside its escape ball and lets the bank's
+    hit cap the cathedral's march; Non-Euclid and Vanishing orbit it around
+    their own centres; Nebula puts it inside the cloud, so its hit is the far
+    end of the volume slab and the dye in front of a body is integrated while
+    the dye behind it is not. `dmtSatelliteColor()` shades a bank hit the
+    same way in all four.
+  - *Nectar Flow* flies the same path (a volume march needs no correction for
+    a curved camera) and the mandala sits on the flight axis behind the dye.
+
+  One bug worth recording, because it is the shape of bug a bounding-volume
+  early-out always has: `dmtSatellites()` returned the distance to a body's
+  bounding ball when outside it, and that distance is exactly zero on the
+  ball, which passes the march's hit test - every ray stopped on an invisible
+  sphere and shaded the inside of it. The same failure `kifs_frag` documents
+  for its escape ball. The bound now returns the ball distance plus the slack
+  to the body's true extent, which is still a lower bound and is 0.34 r on
+  the ball.
+
+- **`tools/hostlink`**, a host link check for the native renderer. Every
+  translation unit `core/CMakeLists.txt` lists under `viz/` and `util/` is
+  compiled with the project's own flags and linked into one shared object
+  with `--no-undefined` against Mesa's `libGLESv2`/`libEGL`; projectM's public
+  headers come from the pinned submodule commit with the repo's render-fbo
+  backport applied, and the only stubs are the extern "C" entry points of
+  projectM, the asset manager and the logger, generated from `nm`. A changed
+  constructor or a declaration with no definition fails here as it fails in
+  the NDK link, with no SDK or device. It says nothing about clang, the
+  NDK's libc++ or the audio and library trees.
+
+- **`tools/glslcheck`**, a headless compile-and-render check that runs.
+  `tools/shaderpreview` reads Kotlin scene files deleted in the C++ port and
+  fails on its first line; it is marked stale. glslcheck parses the include
+  registry out of `ShaderSource.cpp`, resolves includes the way the native
+  core does, refuses to render a shader that declares a uniform its value
+  table does not cover, and writes the frame as a PNG. Every fragment style
+  and all 72 fluid display variants were compiled and rendered through it
+  for this change. It is SwiftShader, so it is a lower bound on portability
+  and not a device check; `docs/DEVICE_CHECKS.md` still applies.
+
 - **Two more styles that put the fluid into three dimensions** (Styles >
   Shaders, ids `curl_bloom`, `nectar_flow`). Both are raymarched, so unlike the
   four flat styles below they DO spend the Detail budget and both join

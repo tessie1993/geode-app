@@ -1,6 +1,7 @@
 #include "viz/fluid/FluidLook.hpp"
 
 #include <algorithm>
+#include <string>
 
 #include "util/Log.hpp"
 #include "viz/BlueNoise.hpp"
@@ -11,8 +12,9 @@ namespace {
 constexpr const char* kTag = "FluidSim";
 }
 
-void Look::create(const Formats& formats) {
+void Look::create(const Formats& formats, int look) {
     release();
+    look = std::clamp(look, 0, kLookCount - 1);
     formats_ = formats;
     std::string error;
     const std::string vert = loader_.source("fluid_base_vert.glsl", &error);
@@ -27,7 +29,7 @@ void Look::create(const Formats& formats) {
     std::array<GLuint, kDisplayVariants> display{};
     bool ok = prefilter && bloomBlur && bloomFinal && sunraysMask && sunrays && blur && !displaySrc.empty();
     for (int flags = 0; flags < kDisplayVariants && ok; ++flags) {
-        display[static_cast<size_t>(flags)] = loader_.buildSource(vert, withKeywords(displaySrc, flags), &error);
+        display[static_cast<size_t>(flags)] = loader_.buildSource(vert, withKeywords(displaySrc, flags, look), &error);
         ok = display[static_cast<size_t>(flags)] != 0;
     }
     if (!ok) {
@@ -168,6 +170,10 @@ void Look::drawDisplay(GLuint dyeTex, bool shadingOn, bool bloomOn, bool sunrays
     bindTex(program, "uDither", ditherTex_, 3);
     glUniform2f(program.loc("uDitherScale"), static_cast<float>(viewportW) / blue_noise::kSize, static_cast<float>(viewportH) / blue_noise::kSize);
     glUniform2f(program.loc("uTexelSize"), invW, invH);
+    // Read only by the styled looks; the linker drops them from LOOK 0 and a -1 location is a no-op.
+    glUniform1f(program.loc("uTime"), timeSeconds);
+    glUniform4f(program.loc("uAudio"), audio[0], audio[1], audio[2], audio[3]);
+    glUniform1f(program.loc("uLookHue"), lookHue);
     quad_.draw();
     glDisable(GL_BLEND);
 }
@@ -199,12 +205,12 @@ void Look::releaseTargets() {
     }
 }
 
-std::string Look::withKeywords(const std::string& src, int flags) {
-    std::string defines;
+std::string Look::withKeywords(const std::string& src, int flags, int look) {
+    // LOOK is always defined, so the shader's #if chain never sees an undefined name.
+    std::string defines = "#define LOOK " + std::to_string(look) + "\n";
     if (flags & 1) defines += "#define SHADING\n";
     if (flags & 2) defines += "#define BLOOM\n";
     if (flags & 4) defines += "#define SUNRAYS\n";
-    if (defines.empty()) return src;
     const size_t vIdx = src.find("#version");
     const size_t nl = src.find('\n', vIdx == std::string::npos ? 0 : vIdx);
     if (nl == std::string::npos) return src + "\n" + defines;

@@ -20,6 +20,7 @@ out vec4 fragColor;
 // an unused one is dropped by the linker and costs nothing.
 //#include lib_sdf3
 //#include lib_touch
+//#include lib_dmt
 
 // NONEUCLID - space turning inside-out through a point.
 //
@@ -247,6 +248,18 @@ const float GLOW_TIGHT = 3.5;
  * little enough that the back of the structure is still structure.
  */
 const float FOG_RATE = 0.115;
+
+/**
+ * The bank: a ring of lib_dmt satellites around the ball, its body radius at
+ * full life and its life cycle. The orbit clears BALL_R by a body's
+ * containment (0.14 x 1.2 x 1.7 = 0.29) with room over, so a body never
+ * enters the fold chain's ball, and it stays well short of the camera at
+ * CAM_DIST. Marched on its own - see lib_dmt - so the ball's clip and the
+ * dissolve at its edge never see a satellite.
+ */
+const float SAT_CLEAR = 0.55;
+const float SAT_RADIUS = 0.14;
+const float SAT_PERIOD = 15.0;
 /** Tone-map exposure. See the note where it is applied. */
 const float EXPOSURE = 1.30;
 
@@ -447,16 +460,17 @@ float occlusion(vec3 p, vec3 n, float h) {
  * that moved with the music is exactly the shape of thing the photosensitivity
  * budget exists to keep out.
  */
+/**
+ * The void behind the structure: the chrysanthemum, centred on the pole's
+ * projection rather than on the view axis, so the mandala is what the world
+ * is turning inside-out around and it moves with the pole (and so with the
+ * finger). The direction is re-aimed by the same lens shift the old inverted
+ * sky used, floored on rd.z for the same reason - a grazing ray under a wide
+ * Zoom must not send it to infinity.
+ */
 vec3 sky(vec3 rd, vec2 poleScreen) {
-    // Project the direction onto the focal plane. The floor on rd.z keeps a
-    // grazing ray (the Zoom control can widen the field a long way) from
-    // sending this to infinity.
     vec2 sp = rd.xy / max(rd.z, 0.2) - poleScreen;
-    // Same floored reciprocal as the geometry, for the same reason: the raw
-    // one is inf at the pole, and sin() of inf is not a gradient.
-    vec2 inv = sp / max(dot(sp, sp), 0.06);
-    float f = 0.5 + 0.5 * sin(inv.x * 1.2 + uTime * 0.061) * cos(inv.y * 1.1 - uTime * 0.047);
-    return pal(0.62 + f * 0.16) * (0.042 + 0.055 * f + 0.05 * clamp(uEnergy, 0.0, 1.5));
+    return dmtChrysanthemum(vec3(sp, 1.0), 0.62, clamp(uEnergySmooth, 0.0, 1.5));
 }
 
 void main() {
@@ -657,11 +671,20 @@ void main() {
         if (t > FAR) break;
     }
 
+    // The bank, marched on its own around the ball's centre. Its hit is
+    // taken over the structure's whenever it is nearer.
+    float satCount = dmtSatelliteCount();
+    float satT = dmtMarchSatellites(ro - gCenter, rd, FAR, uSteps * 0.5, satCount, BALL_R + SAT_CLEAR, SAT_RADIUS, SAT_PERIOD);
+    bool satWins = satT > 0.0 && (hitT < 0.0 || satT < hitT);
+
     vec2 poleScreen = gPole.xy * FOCAL / max(gPole.z, 0.5);
     vec3 background = sky(rd, poleScreen);
     vec3 col;
 
-    if (hitT > 0.0) {
+    if (satWins) {
+        col = dmtSatelliteColor(ro + rd * satT - gCenter, rd, 0.10 + 0.15 * energyN, trebN, satCount, BALL_R + SAT_CLEAR, SAT_RADIUS, SAT_PERIOD);
+        col = mix(col, background, 1.0 - exp(-satT * FOG_RATE));
+    } else if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
         // Sampled slightly wider than the surface epsilon: the epsilon is
         // where the ray was allowed to stop, the normal is what the pixel is
@@ -709,20 +732,11 @@ void main() {
         hue = mix(hue, 0.10 + 0.62 * clamp(length(p - gCenter) / BALL_R, 0.0, 1.0),
             rough * 0.9);
 
-        vec3 body = pal(hue);
-        vec3 rim = pal(hue + 0.34);
-
-        vec3 key = normalize(vec3(0.48, 0.72, -0.50));
-        vec3 fill = normalize(vec3(-0.62, -0.18, 0.76));
-        float dif = clamp(dot(n, key), 0.0, 1.0);
-        float bounce = clamp(dot(n, fill), 0.0, 1.0);
-        float fres = pow(1.0 - clamp(dot(n, -rd), 0.0, 1.0), 3.0);
-
-        // The ambient term is a constant, not an audio term: silence has to
-        // land on a lit structure, not on a black screen. 0.14 is what it
-        // takes for the inside of an arch - a surface facing neither light -
-        // to still show which way it curves.
-        col = body * (0.14 + 0.62 * dif + 0.26 * bounce) * ao;
+        // The material: lib_dmt's jewel, banded by the origin trap so the
+        // nested shells of the group are nested shells of colour, thin where
+        // the axis trap found a filament. The occlusion carries the unresolved
+        // flag with it, so sub-pixel surface stays in shadow as before.
+        col = dmtShade(n, rd, hue, trapO * 2.0, ao, (1.0 - rough) * clamp(1.0 - trapA * 1.6, 0.0, 1.0), trebN);
 
         // The orbit-trap highlight - the filament along the surfaces whose
         // orbit hugged the axis. Treble sharpens it, which is the convention
@@ -733,13 +747,6 @@ void main() {
         // moves no area, where raising its amplitude would.
         float spark = pow(clamp(1.0 - trapA * 1.6, 0.0, 1.0), mix(5.0, 22.0, trebN));
         col += pal(hue + 0.5) * spark * (0.22 + 0.55 * trebN) * (1.0 - rough);
-
-        // The rim: light gathering along the silhouette, which is where an
-        // inverted lattice is most obviously not a Euclidean one - the
-        // silhouette is made of arcs.
-        col += rim * fres * (0.30 + 0.45 * energyN);
-        col += vec3(1.0) * pow(clamp(dot(n, normalize(key - rd)), 0.0, 1.0),
-            mix(24.0, 60.0, trebN)) * 0.30 * ao * (1.0 - rough);
 
         // Into the void with distance, so the far side of the ball sits behind
         // the near side rather than beside it.

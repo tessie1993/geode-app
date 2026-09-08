@@ -20,6 +20,7 @@ out vec4 fragColor;
 // an unused one is dropped by the linker and costs nothing.
 //#include lib_sdf3
 //#include lib_touch
+//#include lib_dmt
 
 // ===========================================================================
 // VANISHING - the Droste effect, volumetric.
@@ -366,8 +367,6 @@ const float CORE_GAIN = 0.95;
  * large-area luminance step can ever be scheduled by the music.
  */
 const float HALO_GAIN = 0.20;
-/** Floor tint, so an untouched silent frame is a dark room and not a fault. */
-const float BACKDROP = 0.030;
 
 /**
  * The beat shell: born FLARE_BIRTH e-folds inside the viewer, travelling
@@ -386,6 +385,18 @@ const float BACKDROP = 0.030;
  * that peak is a little over half a palette step on lit material.
  */
 const float FLARE_BIRTH = -2.6;
+
+/**
+ * The bank: lib_dmt satellites orbiting the centre the corridor falls toward,
+ * seen through the shells' windows. Their orbit sits at 0.42, well inside the
+ * camera at CAM_DIST, with a body small enough that the innermost shells
+ * still read as the subject; a body's containment (0.06 x 1.2 x 1.7 = 0.12)
+ * keeps the bank inside 0.55. Marched on its own, so the stack's Lipschitz
+ * division and its core fade never see a satellite.
+ */
+const float SAT_ORBIT = 0.42;
+const float SAT_RADIUS = 0.06;
+const float SAT_PERIOD = 12.0;
 const float FLARE_SPAN = 3.6;
 const float FLARE_WIDTH = 0.30;
 const float FLARE_GAIN = 0.55;
@@ -663,10 +674,28 @@ void main() {
     float halo = exp(-ga * ga * 0.05);
     vec3 core = pal(HUE_BASE + 0.42 + 0.10 * midAmt) *
         (CORE_GAIN * tight * (0.85 + 0.95 * energyAmt) + HALO_GAIN * halo);
-    vec3 backdrop = pal(HUE_BASE + 0.62) * BACKDROP + core;
+    // The light at the end is the chrysanthemum: the mandala on the shifted
+    // screen direction, so it is centred on the vanishing point and travels
+    // with the finger like the core does, and the regress is falling INTO
+    // it. It carries its own floor, so an untouched silent frame is a dark
+    // room and not a fault.
+    vec3 backdrop = dmtChrysanthemum(vec3(w * FOV, 1.0), HUE_BASE + 0.62, energyAmt) + core;
+
+    // The bank, marched on its own toward the centre. Its hit is taken over
+    // the stack's whenever it is nearer, and fades toward the core the way a
+    // shell at the same depth would.
+    float satCount = dmtSatelliteCount();
+    float satT = dmtMarchSatellites(ro, rd, FAR, uSteps * 0.5, satCount, SAT_ORBIT, SAT_RADIUS, SAT_PERIOD);
+    bool satWins = satT > 0.0 && (hitT < 0.0 || satT < hitT);
 
     vec3 col = backdrop;
-    if (hitT > 0.0) {
+    if (satWins) {
+        vec3 p = ro + rd * satT;
+        col = dmtSatelliteColor(p, rd, HUE_BASE + 0.35 + 0.08 * midAmt, trebAmt, satCount, SAT_ORBIT, SAT_RADIUS, SAT_PERIOD);
+        float kSat = log(max(length(p), R_MIN));
+        float fade = 1.0 - exp(-(satT * FOG_T + max(0.0, -kSat) * FOG_K));
+        col = mix(col, backdrop, fade);
+    } else if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
         vec3 n = normalAt(p, max(EPS_SLOPE * hitT, 8e-4));
         float kHit = log(max(length(p), R_MIN));
@@ -681,21 +710,6 @@ void main() {
         vec3 sd = p / max(length(p), R_MIN);
         float hue = HUE_BASE + fract(hitShell / BAND_CYCLE) * HUE_SPAN +
             0.08 * midAmt + 0.05 * hitRelief + 0.06 * dot(sd, vec3(0.42, 0.74, 0.21));
-        vec3 body = pal(hue);
-
-        // Key plus headlight. There is no sun inside a nest of shells, so most
-        // of the modelling comes from the camera-facing term; the key exists to
-        // break the symmetry, and because the stack turns through it the same
-        // wall is lit differently on its way past.
-        vec3 key = normalize(vec3(0.42, 0.70, -0.58));
-        float dif = clamp(dot(n, key), 0.0, 1.0);
-        float head = clamp(dot(n, -rd), 0.0, 1.0);
-        // Treble sharpens edges and sparkles: it tightens the rim exponent and
-        // the specular lobe rather than adding brightness, so a bright mix
-        // reads as crisper metal instead of as a raised level.
-        float rim = pow(1.0 - head, 2.2 + 3.0 * trebAmt);
-        float spec = pow(clamp(dot(n, normalize(key - rd)), 0.0, 1.0), 22.0 + 70.0 * trebAmt);
-
         // The grain fades with depth rather than aliasing into the corridor:
         // past three e-folds down it is finer than a pixel and would boil.
         float grain = sin(GRAIN * sd.x + gSpin) * sin(GRAIN * sd.y - gSpin) *
@@ -703,9 +717,11 @@ void main() {
         grain *= smoothstep(3.0, 1.2, -kHit) * (0.35 + 0.45 * trebAmt);
         float emboss = 1.0 + 0.45 * hitRelief + 0.30 * grain;
 
-        col = body * ((0.09 + 0.52 * dif + 0.40 * head) * emboss);
-        col += pal(hue + 0.12) * (rim * (0.20 + 0.50 * trebAmt));
-        col += vec3(1.0) * (spec * (0.18 + 0.40 * trebAmt) * (0.7 + 0.5 * grain));
+        // The material: lib_dmt's jewel, banded by the shell index so every
+        // level of the regress is a ring of the same stone, thin where the
+        // relief is raised. The emboss modulates it as it modulated the
+        // diffuse, so the grain and the relief still read as surface.
+        col = dmtShade(n, rd, hue, fract(hitShell / BAND_CYCLE) * 2.0, emboss, hitRelief * 0.8, trebAmt);
 
         // The beat's shell, sweeping outward through the stack. Position off
         // uBeatPhase, amplitude off the SQUARED envelope - the house pairing,

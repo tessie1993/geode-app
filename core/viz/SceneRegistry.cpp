@@ -30,7 +30,6 @@ constexpr std::array<const char*, 39> kShaderIds = {
 };
 
 constexpr const char* kMilkdrop = "milkdrop";
-constexpr const char* kFluid = "fluid";
 constexpr const char* kCurlFlow = "curlflow";
 constexpr const char* kWater = "water";
 
@@ -49,7 +48,7 @@ void append(std::vector<std::string>& out, std::vector<std::string> ids) {
 
 bool SceneRegistry::knows(const std::string& id) const {
     return isShaderId(id) || styles::cymatics(id) || styles::silk(id) || styles::life(id) || styles::acid(id) || styles::myco(id) ||
-           id == kMilkdrop || id == kFluid || id == kCurlFlow || id == kWater;
+           styles::fluid(id) || id == kMilkdrop || id == kCurlFlow || id == kWater;
 }
 
 std::vector<std::string> SceneRegistry::availableIds() const {
@@ -60,7 +59,7 @@ std::vector<std::string> SceneRegistry::availableIds() const {
     append(out, styles::acidIds());
     out.insert(out.end(), kShaderIds.begin(), kShaderIds.end());
     out.emplace_back(kMilkdrop);
-    out.emplace_back(kFluid);
+    append(out, styles::fluidIds());
     out.emplace_back(kCurlFlow);
     out.emplace_back(kWater);
     append(out, styles::cymaticsIds());
@@ -83,7 +82,7 @@ std::unique_ptr<Scene> SceneRegistry::create(const std::string& id, const std::s
     if (const auto* style = styles::acid(id)) return std::make_unique<AcidScene>(*style, loader_, host_);
     if (const auto* style = styles::myco(id)) return std::make_unique<MycoScene>(*style, loader_, host_);
     if (id == kMilkdrop) return std::make_unique<MilkdropScene>(loader_, host_);
-    if (id == kFluid) return std::make_unique<FluidScene>(loader_, host_);
+    if (const auto* style = styles::fluid(id)) return std::make_unique<FluidScene>(*style, loader_, host_);
     if (id == kCurlFlow) return std::make_unique<CurlFlowScene>(loader_, host_);
     if (id == kWater) return std::make_unique<WaterScene>(loader_, host_);
     return nullptr;

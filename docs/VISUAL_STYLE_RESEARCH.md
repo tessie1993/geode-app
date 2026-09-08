@@ -23,6 +23,25 @@ The original `cymatics` ID also remains unchanged. Ten additional resonator prof
 
 The variants reuse the existing resonator bank, normalized modal field and audio mapping, so Cymatics controls keep the same meaning throughout the family.
 
+### Fluid
+
+The original `fluid` ID also remains unchanged. Eight profiles over the same solver are registered, each a display-shader material (`LOOK`) plus multipliers on the user's solver and emitter values:
+
+1. Ink Wash — pigment on paper: pale ground, a wash that darkens with density and at its edges.
+2. Oil Slick — thin-film interference indexed by density, sheared along the flow.
+3. Neon Contours — glowing iso-lines of the density, crawling with time.
+4. Liquid Chrome — the density gradient as a normal reflecting a studio softbox.
+5. Smoke — desaturated, cool, lifted gamma.
+6. Lava — density as heat on a blackbody-shaped ramp.
+7. Marble — veins on pale stone, tinted by the dye.
+8. Aurora — the dye's hue turning with time and height under shimmering curtains.
+
+### The raymarched styles
+
+`lib_dmt.glsl` is the shared material and sky for the eight marched fragment styles, built from the visionary-art references cited below: a banded, thin-film, dispersed-rim jewel (`dmtShade`), the rotating orbit-trap chrysanthemum on the ray direction (`dmtChrysanthemum`), a per-body life envelope, a closed morph ring, a satellite bank and a flight path that bends in every direction. Rod Tunnel and Nectar Flow fly the path; Curl Bloom carries the bank; all eight shade and sky through it.
+
+References used for the look, none of them copied: the accounts of the DMT visual collected at [qualiacomputing.com](https://qualiacomputing.com/2016/12/12/the-hyperbolic-geometry-of-dmt-experiences/) (the chrysanthemum, hyperbolic folding sheets, tessellating forms), the threshold motifs of tunnels and archways described at [chacruna.net](https://chacruna.net/dmt-liminality-and-hyperspace/), and the visionary-art tradition (Grey, Jones) for the saturated, glowing, iridescent surface treatment.
+
 ## Crystal UI material system
 
 The old UI used one general glass/nebula treatment with different accent colors. The new material layer passes the selected `AppTheme` through a CompositionLocal and procedurally draws a different mineral structure on both the global backdrop and every crystal panel:

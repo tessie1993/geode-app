@@ -1,0 +1,3 @@
+# Rendered output. Regenerate with `node preview.mjs --out out/<name>`;
+# PNGs do not belong in the history of a repo whose diffs are read.
+out/

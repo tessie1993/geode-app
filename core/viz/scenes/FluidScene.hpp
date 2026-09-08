@@ -6,14 +6,21 @@
 #include "viz/fluid/FluidParticles.hpp"
 #include "viz/fluid/FluidSim.hpp"
 #include "viz/scenes/FluidSceneBase.hpp"
+#include "viz/scenes/StyleCatalog.hpp"
 
 namespace geode::viz {
 
 // Port of FluidScene.kt: dye, particles and the look pass over one FluidSim.
+// One instance per fluid STYLE: the style picks the display look and biases
+// the solver and emitter values the user's params arrive with.
 class FluidScene : public FluidSceneBase {
 public:
-    FluidScene(ProgramLoader loader, SceneHost host)
-        : FluidSceneBase("fluid", kTimeWrapSeconds, loader, std::move(host)), sim_(loader_), look_(loader_), particles_(loader_) {
+    FluidScene(const styles::FluidStyle& style, ProgramLoader loader, SceneHost host)
+        : FluidSceneBase(style.id, kTimeWrapSeconds, loader, std::move(host)),
+          style_(style),
+          sim_(loader_),
+          look_(loader_),
+          particles_(loader_) {
         emitters_.choreography = &choreography_;
     }
     ~FluidScene() override { release(); }
@@ -35,6 +42,7 @@ private:
     static constexpr float kTimeWrapSeconds = 7100.0f;
     static constexpr float kIdleWrapSeconds = 628.31853f;
 
+    styles::FluidStyle style_;
     fluid::FluidSim sim_;
     fluid::Look look_;
     fluid::Particles particles_;

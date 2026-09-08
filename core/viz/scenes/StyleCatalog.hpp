@@ -107,13 +107,32 @@ struct MycoStyle {
     float hueSpan = 1.0f;
 };
 
+// A profile over the FluidScene engine. Every scalar is a MULTIPLIER on the
+// user's own Customize value for that quantity rather than a replacement, so
+// the Fluid tab's controls keep working on every style; `look` selects the
+// display-shader branch (fluid_display_frag's LOOK keyword) and `hueOffset`
+// turns the emitters' base hue.
+struct FluidStyle {
+    const char* id;
+    int look = 0;
+    float curl = 1.0f;
+    float velocityDissipation = 1.0f;
+    float densityDissipation = 1.0f;
+    float splatRadius = 1.0f;
+    float splatForce = 1.0f;
+    float bloom = 1.0f;
+    float hueOffset = 0.0f;
+};
+
 const CymaticsStyle* cymatics(const std::string& id);
+const FluidStyle* fluid(const std::string& id);
 const SilkStyle* silk(const std::string& id);
 const LifeStyle* life(const std::string& id);
 const AcidStyle* acid(const std::string& id);
 const MycoStyle* myco(const std::string& id);
 
 std::vector<std::string> cymaticsIds();
+std::vector<std::string> fluidIds();
 std::vector<std::string> silkIds();
 std::vector<std::string> lifeIds();
 std::vector<std::string> acidIds();

@@ -153,13 +153,20 @@ void Renderer::applyPendingFluidInjection() {
         force = fluidForceSrc_;
         dye = fluidDyeSrc_;
     }
-    Scene* fluid = builtScene("fluid");
-    if (!fluid) return;
+    // Every built scene on the fluid solver, not only the one named "fluid":
+    // the fluid styles are profiles over the same engine and the user's
+    // injection shaders belong to all of them.
+    bool applied = false;
+    for (auto& entry : scenes_) {
+        if (!entry.second->isFluid()) continue;
+        entry.second->setInjectionShaders(force, dye);
+        applied = true;
+    }
+    if (!applied) return;
     {
         std::lock_guard<std::mutex> lock(stateLock_);
         fluidInjectionDirty_ = false;
     }
-    fluid->setInjectionShaders(force, dye);
 }
 
 void Renderer::setLfoConfigs(const std::array<LfoConfig, LfoEngine::kSlots>& configs) {

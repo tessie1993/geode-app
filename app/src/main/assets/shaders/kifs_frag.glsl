@@ -71,6 +71,14 @@ out vec4 fragColor;
 //  chrysanthemum rather than a palette ramp. Nothing about the fold set or
 //  the march changed for that.
 //
+//  THE BANK. A ring of lib_dmt satellites orbits just outside the escape
+//  ball, budding and dissolving on their own clocks. They are marched on
+//  their own (dmtMarchSatellites) rather than folded into kifsMap: the
+//  cathedral's march exits at the ball, so a body outside it would never be
+//  reached, and the ball's early-out is the whole reason the background is
+//  cheap. The bank's hit simply caps the cathedral's march, and whichever is
+//  nearer is what the pixel shows.
+//
 //  DELIBERATELY NOT HERE: a normal-direction ambient-occlusion pass. The
 //  occlusion is read off the march step count instead - a ray that needed most
 //  of its budget was crawling down a fold, which is exactly where the creases
@@ -317,6 +325,17 @@ const float KIFS_EPS_FLOOR = 4e-5;
 const float KIFS_AO_FREE = 0.32;
 const float KIFS_AO_DEPTH = 1.15;
 const float KIFS_AO_FLOOR = 0.13;
+
+/**
+ * The bank: how far outside the escape ball it orbits, its body radius at
+ * full life, and its life cycle. The orbit clears the ball by its own
+ * containment (0.16 x 1.2 x 1.7 = 0.33) so no body is ever inside the
+ * cathedral's march, and stays under the camera radius by more than that so
+ * no body is ever behind the camera.
+ */
+const float KIFS_SAT_CLEAR = 0.45;
+const float KIFS_SAT_RADIUS = 0.16;
+const float KIFS_SAT_PERIOD = 15.0;
 
 /**
  * Trap value kifsMap reports outside the escape ball: a defined "far", not a
@@ -629,6 +648,13 @@ void main() {
         tExit = -bq + rootq;
     }
 
+    // The bank, marched first: cheap, and its hit is the far bound of the
+    // cathedral's march for this ray.
+    float satOrbit = gBound + KIFS_SAT_CLEAR;
+    float satCount = dmtSatelliteCount();
+    float satT = dmtMarchSatellites(ro, rd, KIFS_CAM_R * 2.2, uSteps * 0.5, satCount, satOrbit, KIFS_SAT_RADIUS, KIFS_SAT_PERIOD);
+    if (satT > 0.0) tExit = min(tExit, satT);
+
     // Started one epsilon INSIDE the ball rather than on it. kifsMap returns
     // exactly 0 on the ball's surface - that IS the early-out - and 0 passes
     // the hit test below, so entering on the boundary made every ray report a
@@ -725,6 +751,10 @@ void main() {
         // the ones behind it.
         float fog = 1.0 - exp(-max(hitT - tEnter, 0.0) * 0.18);
         col = mix(col, sky, fog);
+    } else if (satT > 0.0) {
+        vec3 p = ro + rd * satT;
+        col = dmtSatelliteColor(p, rd, 0.20 + 0.06 * midA, trebA, satCount, satOrbit, KIFS_SAT_RADIUS, KIFS_SAT_PERIOD);
+        col = mix(col, sky, 1.0 - exp(-max(satT - tEnter, 0.0) * 0.18));
     } else {
         col = sky;
         // The light through the arcades. A ray that missed but spent most of

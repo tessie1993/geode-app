@@ -248,6 +248,18 @@ const float GLOW_TIGHT = 3.5;
  * little enough that the back of the structure is still structure.
  */
 const float FOG_RATE = 0.115;
+
+/**
+ * The bank: a ring of lib_dmt satellites around the ball, its body radius at
+ * full life and its life cycle. The orbit clears BALL_R by a body's
+ * containment (0.14 x 1.2 x 1.7 = 0.29) with room over, so a body never
+ * enters the fold chain's ball, and it stays well short of the camera at
+ * CAM_DIST. Marched on its own - see lib_dmt - so the ball's clip and the
+ * dissolve at its edge never see a satellite.
+ */
+const float SAT_CLEAR = 0.55;
+const float SAT_RADIUS = 0.14;
+const float SAT_PERIOD = 15.0;
 /** Tone-map exposure. See the note where it is applied. */
 const float EXPOSURE = 1.30;
 
@@ -659,11 +671,20 @@ void main() {
         if (t > FAR) break;
     }
 
+    // The bank, marched on its own around the ball's centre. Its hit is
+    // taken over the structure's whenever it is nearer.
+    float satCount = dmtSatelliteCount();
+    float satT = dmtMarchSatellites(ro - gCenter, rd, FAR, uSteps * 0.5, satCount, BALL_R + SAT_CLEAR, SAT_RADIUS, SAT_PERIOD);
+    bool satWins = satT > 0.0 && (hitT < 0.0 || satT < hitT);
+
     vec2 poleScreen = gPole.xy * FOCAL / max(gPole.z, 0.5);
     vec3 background = sky(rd, poleScreen);
     vec3 col;
 
-    if (hitT > 0.0) {
+    if (satWins) {
+        col = dmtSatelliteColor(ro + rd * satT - gCenter, rd, 0.10 + 0.15 * energyN, trebN, satCount, BALL_R + SAT_CLEAR, SAT_RADIUS, SAT_PERIOD);
+        col = mix(col, background, 1.0 - exp(-satT * FOG_RATE));
+    } else if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
         // Sampled slightly wider than the surface epsilon: the epsilon is
         // where the ray was allowed to stop, the normal is what the pixel is

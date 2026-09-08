@@ -415,6 +415,78 @@ float dmtSatellites(vec3 p, float count, float orbit, float radius, float period
     return d;
 }
 
+// ---- marching the bank on its own --------------------------------------------
+//
+// A style whose own march is bounded - by an escape ball, a support sphere or
+// a cull radius - cannot see a satellite outside that bound by folding the
+// bank into its map(): the loop exits before it gets there. And a style whose
+// map() carries a Lipschitz division, a dissolve clip or a volume integral
+// would have to special-case the bank at every one of them.
+//
+// So the bank is marched ON ITS OWN. dmtMarchSatellites() sphere-traces the
+// satellite field alone (a handful of length() calls per step - a miss on the
+// containment ball is all most steps cost), returns the hit distance, and the
+// style takes whichever of its own hit and the bank's is nearer. Occlusion
+// between the two comes out right by construction, nothing about the style's
+// own march changes, and the cost is bounded by DMT_SAT_MAX_STEPS cheap
+// steps per pixel.
+
+/** Compile-time ceiling on the bank's own march. See lib_sdf3's RAYMARCH note. */
+#define DMT_SAT_MAX_STEPS 96
+
+/**
+ * Sphere-traces the bank alone from `ro` along `rd`, out to `tMax`, spending
+ * at most `steps` iterations. Returns the hit distance, or -1 for a miss.
+ * The bank is centred on the origin; pass `ro - centre` for a bank around
+ * another point.
+ *
+ * The step is the full estimate: every term in dmtSatellites() is
+ * 1-Lipschitz, so it cannot overestimate. The epsilon is the same slope-plus-
+ * floor the surface styles use.
+ */
+float dmtMarchSatellites(vec3 ro, vec3 rd, float tMax, float steps, float count, float orbit, float radius, float period) {
+    float t = 0.0;
+    for (int i = 0; i < DMT_SAT_MAX_STEPS; i++) {
+        if (float(i) >= steps) break;
+        vec3 p = ro + rd * t;
+        float d = dmtSatellites(p, count, orbit, radius, period);
+        float eps = 0.0009 * t + 0.0004;
+        if (d < eps) return t;
+        t += d;
+        if (t > tMax) break;
+    }
+    return -1.0;
+}
+
+/**
+ * The colour of a satellite hit at `p` (bank-relative), seen along `rd`.
+ *
+ * Re-evaluates the bank at `p` to learn which body it was, takes a
+ * tetrahedral normal off the bank field, and shades with dmtShade(): the hue
+ * is `hueBase` spread by the body's seed, the banding is the body's own
+ * latitude, it is thin while arriving or leaving, and it glows a little then
+ * too so a birth reads as light before it reads as mass.
+ */
+vec3 dmtSatelliteColor(vec3 p, vec3 rd, float hueBase, float treb, float count, float orbit, float radius, float period) {
+    dmtSatellites(p, count, orbit, radius, period);
+    float hue = hueBase + 0.45 * gDmtSatHue;
+    float life = gDmtSatLife;
+    float band = gDmtSatBand * 0.5;
+    float e = max(0.0012 * length(p), 0.0006);
+    vec2 k = vec2(1.0, -1.0);
+    vec3 n = normalize(k.xyy * dmtSatellites(p + k.xyy * e, count, orbit, radius, period)
+                     + k.yyx * dmtSatellites(p + k.yyx * e, count, orbit, radius, period)
+                     + k.yxy * dmtSatellites(p + k.yxy * e, count, orbit, radius, period)
+                     + k.xxx * dmtSatellites(p + k.xxx * e, count, orbit, radius, period));
+    vec3 col = dmtShade(n, rd, hue, band, 1.0, (1.0 - life) * 0.5, treb);
+    return col + pal(hue + 0.45) * (1.0 - life) * 0.22;
+}
+
+/** How many satellites Detail buys: three at the floor of the march budget, the full bank at the top. */
+float dmtSatelliteCount() {
+    return mix(3.0, float(DMT_MAX_SATELLITES), clamp((uSteps - 64.0) / 64.0, 0.0, 1.0));
+}
+
 // ===========================================================================
 //  the tunnel that bends in every direction
 // ===========================================================================

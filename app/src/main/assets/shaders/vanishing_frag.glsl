@@ -385,6 +385,18 @@ const float HALO_GAIN = 0.20;
  * that peak is a little over half a palette step on lit material.
  */
 const float FLARE_BIRTH = -2.6;
+
+/**
+ * The bank: lib_dmt satellites orbiting the centre the corridor falls toward,
+ * seen through the shells' windows. Their orbit sits at 0.42, well inside the
+ * camera at CAM_DIST, with a body small enough that the innermost shells
+ * still read as the subject; a body's containment (0.06 x 1.2 x 1.7 = 0.12)
+ * keeps the bank inside 0.55. Marched on its own, so the stack's Lipschitz
+ * division and its core fade never see a satellite.
+ */
+const float SAT_ORBIT = 0.42;
+const float SAT_RADIUS = 0.06;
+const float SAT_PERIOD = 12.0;
 const float FLARE_SPAN = 3.6;
 const float FLARE_WIDTH = 0.30;
 const float FLARE_GAIN = 0.55;
@@ -669,8 +681,21 @@ void main() {
     // room and not a fault.
     vec3 backdrop = dmtChrysanthemum(vec3(w * FOV, 1.0), HUE_BASE + 0.62, energyAmt) + core;
 
+    // The bank, marched on its own toward the centre. Its hit is taken over
+    // the stack's whenever it is nearer, and fades toward the core the way a
+    // shell at the same depth would.
+    float satCount = dmtSatelliteCount();
+    float satT = dmtMarchSatellites(ro, rd, FAR, uSteps * 0.5, satCount, SAT_ORBIT, SAT_RADIUS, SAT_PERIOD);
+    bool satWins = satT > 0.0 && (hitT < 0.0 || satT < hitT);
+
     vec3 col = backdrop;
-    if (hitT > 0.0) {
+    if (satWins) {
+        vec3 p = ro + rd * satT;
+        col = dmtSatelliteColor(p, rd, HUE_BASE + 0.35 + 0.08 * midAmt, trebAmt, satCount, SAT_ORBIT, SAT_RADIUS, SAT_PERIOD);
+        float kSat = log(max(length(p), R_MIN));
+        float fade = 1.0 - exp(-(satT * FOG_T + max(0.0, -kSat) * FOG_K));
+        col = mix(col, backdrop, fade);
+    } else if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
         vec3 n = normalAt(p, max(EPS_SLOPE * hitT, 8e-4));
         float kHit = log(max(length(p), R_MIN));

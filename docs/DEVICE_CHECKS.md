@@ -44,8 +44,10 @@ the original numbering as cited by the changelog.
 - **41** — The raymarched styles on `lib_dmt`. On the same two devices:
   `kifs`, `noneuclid`, `morphogen`, `vanishing`, `curl_bloom`, `rod_tunnel`,
   `nectar_flow`, `nebula` at Detail minimum and maximum. Look for the
-  chrysanthemum behind each (never black), for satellites (`curl_bloom`,
-  `morphogen`) budding and dissolving without a pop, for the rods in
+  chrysanthemum behind each (never black), for satellites (all but
+  `rod_tunnel` and `nectar_flow`, which carry rods and dye instead) budding
+  and dissolving without a pop and never popping into view in front of the
+  camera, for the rods in
   `rod_tunnel` doing the same, for the tunnel bending in `rod_tunnel` and
   `nectar_flow`, and for the material's rim staying coloured rather than
   white at grazing angles. Frame time on `morphogen` and `curl_bloom` at

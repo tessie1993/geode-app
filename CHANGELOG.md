@@ -76,6 +76,21 @@ a partial reconstruction, rebuilt from the references in these entries, is at
   - *Morphogen* gains the same bank around the organism. Its ray cull grows
     to hold the orbits (SCENE_BOUND) while the body keeps its own clip; a
     satellite has no seam, so the metamorphic heat is zero on it.
+  - *KIFS*, *Non-Euclid*, *Vanishing* and *Nebula* gain the bank too, by a
+    different route. Each of those bounds its own march - an escape ball, a
+    cull ball, a support sphere - so a body outside the bound would never be
+    reached by folding it into map(), and each carries a Lipschitz division,
+    a dissolve clip or a volume integral the bank would have to be special-
+    cased through. So the bank is marched ON ITS OWN
+    (`dmtMarchSatellites()`, a handful of length() calls per step) and the
+    style takes whichever of its own hit and the bank's is nearer: occlusion
+    comes out right by construction and nothing about the style's own march
+    changes. KIFS orbits the bank outside its escape ball and lets the bank's
+    hit cap the cathedral's march; Non-Euclid and Vanishing orbit it around
+    their own centres; Nebula puts it inside the cloud, so its hit is the far
+    end of the volume slab and the dye in front of a body is integrated while
+    the dye behind it is not. `dmtSatelliteColor()` shades a bank hit the
+    same way in all four.
   - *Nectar Flow* flies the same path (a volume march needs no correction for
     a curved camera) and the mandala sits on the flight axis behind the dye.
 
@@ -87,6 +102,17 @@ a partial reconstruction, rebuilt from the references in these entries, is at
   for its escape ball. The bound now returns the ball distance plus the slack
   to the body's true extent, which is still a lower bound and is 0.34 r on
   the ball.
+
+- **`tools/hostlink`**, a host link check for the native renderer. Every
+  translation unit `core/CMakeLists.txt` lists under `viz/` and `util/` is
+  compiled with the project's own flags and linked into one shared object
+  with `--no-undefined` against Mesa's `libGLESv2`/`libEGL`; projectM's public
+  headers come from the pinned submodule commit with the repo's render-fbo
+  backport applied, and the only stubs are the extern "C" entry points of
+  projectM, the asset manager and the logger, generated from `nm`. A changed
+  constructor or a declaration with no definition fails here as it fails in
+  the NDK link, with no SDK or device. It says nothing about clang, the
+  NDK's libc++ or the audio and library trees.
 
 - **`tools/glslcheck`**, a headless compile-and-render check that runs.
   `tools/shaderpreview` reads Kotlin scene files deleted in the C++ port and

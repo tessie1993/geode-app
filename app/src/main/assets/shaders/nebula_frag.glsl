@@ -448,6 +448,16 @@ out vec4 fragColor;
 /** Density that counts as fully dense for hue purposes. */
 #define NEB_HUE_DENS_NORM 0.9
 
+/**
+ * The bank: lib_dmt satellites orbiting inside the cloud's support, so the
+ * medium in front of one hides it and the medium behind one is hidden by it.
+ * The orbit sits between the core and the envelope's edge; the body radius
+ * is small against the cloud so a body reads as a jewel in fog, not a planet.
+ */
+#define NEB_SAT_ORBIT 1.15
+#define NEB_SAT_RADIUS 0.13
+#define NEB_SAT_PERIOD 16.0
+
 /** Deep space behind the cloud: where the chrysanthemum sits on the palette, and its tilt with height. Never black - a dead frame reads as a crash. */
 #define NEB_SKY_HUE 0.62
 #define NEB_SKY_TILT 0.09
@@ -583,6 +593,15 @@ void main() {
     float tNear = max(-b - sq, 0.0);
     float span = max((-b + sq) - tNear, 0.0);
 
+    // The bank, marched on its own before the volume: a body's hit is the
+    // far end of this ray's slab, so the dye in front of it is integrated and
+    // the dye behind it is not, which is the occlusion a surface in a volume
+    // needs. The slab length is left as it was (it sets ds); only the stop
+    // moves in.
+    float satCount = dmtSatelliteCount();
+    float satT = dmtMarchSatellites(ro, rd, tNear + span, uSteps * 0.5, satCount, NEB_SAT_ORBIT, NEB_SAT_RADIUS, NEB_SAT_PERIOD);
+    float tStop = satT > 0.0 ? satT : tNear + span;
+
     float volSteps = min(max(uSteps * NEB_STEP_SCALE, NEB_MIN_STEPS), float(NEB_MAX_STEPS));
     // A miss costs zero iterations rather than a branch around the loop.
     if (disc <= 0.0) volSteps = 0.0;
@@ -617,6 +636,7 @@ void main() {
     for (int i = 0; i < NEB_MAX_STEPS; i++) {
         if (float(i) >= volSteps) break;
         if (trans < NEB_MIN_TRANSMITTANCE) break;
+        if (t > tStop) break;
 
         vec3 pc = ro + rd * t;
 
@@ -785,6 +805,14 @@ void main() {
         }
 
         t += ds;
+    }
+
+    // A satellite, through whatever the dye in front of it did not absorb.
+    if (satT > 0.0) {
+        vec3 body = dmtSatelliteColor(ro + rd * satT, rd, NEB_HUE_BASE + 0.30 + NEB_HUE_MID * mid, treble, satCount,
+                                      NEB_SAT_ORBIT, NEB_SAT_RADIUS, NEB_SAT_PERIOD);
+        col += body * trans * glowGain * 0.6;
+        trans = 0.0;
     }
 
     // What is left of the background comes through whatever the cloud did not

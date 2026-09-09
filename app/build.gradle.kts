@@ -202,6 +202,9 @@ listOf("assembleRelease", "bundleRelease").forEach { name ->
 }
 
 dependencies {
+    // What the removed :engine:runtime aggregator re-exported to :app via api(...).
+    implementation(project(":engine:scenes"))
+    implementation(project(":engine:audio-android"))
 
     implementation(libs.core.splashscreen)
     implementation(libs.media3.exoplayer)

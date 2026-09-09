@@ -269,6 +269,15 @@ mat3 rotAxis(vec3 axis, float a) {
 
 // ---- hashing and noise ----------------------------------------------------
 //
+// GLSL ES 3.00 defaults fragment-shader int and uint to MEDIUMP, which a GPU
+// may honour at 16 bits. Every hash below is 32-bit arithmetic on a uint, and
+// floatBitsToUint() needs all 32 bits of the float, so on a GPU that honours
+// mediump the hashes collapsed (a Nebula with an empty cloud). No style
+// declares an int precision of its own, so it is declared here, at the point
+// the hashes need it; a precision statement stays in force for the rest of
+// the translation unit.
+precision highp int;
+//
 // NOT fract(sin(dot(p, k))). That hash depends on sin() being garbage far from
 // zero, and on a device that evaluates it at mediump - which GLSL ES 3.00
 // permits, and which Mali does - the argument loses the low bits that WERE the

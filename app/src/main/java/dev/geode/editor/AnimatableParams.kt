@@ -180,6 +180,7 @@ object AnimatableParams {
                 { it.milkdropBlendPresets },
             ) { p, v -> p.copy(milkdropBlendPresets = v) },
             scalar("audioDrive", ParamKeys.AUDIO_DRIVE, 0.2f, 2.5f, { it.audioDrive }) { p, v -> p.copy(audioDrive = v) },
+            scalar("formDrive", ParamKeys.FORM_DRIVE, 0f, 1f, { it.formDrive }) { p, v -> p.copy(formDrive = v) },
             scalar("beatResponse", ParamKeys.BEAT_RESPONSE, 0f, 2f, { it.beatResponse }) { p, v -> p.copy(beatResponse = v) },
             scalar("flash", ParamKeys.BEAT_FLASH, 0f, 1f, { it.flash }) { p, v -> p.copy(flash = v) },
             scalar("bassGain", ParamKeys.BASS_GAIN, 0f, 2f, { it.bassGain }) { p, v -> p.copy(bassGain = v) },

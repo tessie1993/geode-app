@@ -67,7 +67,6 @@ Gradle modules, package `dev.geode`:
 | `:engine:audio-core` | `GeodeNative`, the JNI binding to `libgeode.so`, and the Kotlin wrappers over the native analyzers |
 | `:engine:audio-android` | The PCM tap, presentation clock driver and other Android-side audio plumbing |
 | `:engine:scenes` | Scene ids and parameters, the GL-thread adapter over the native renderer, offscreen rendering for export, the analysis engine and its cache |
-| `:engine:runtime` | Ties the engine modules together for the app |
 | `:app` | Compose UI, playback service and media session, library and playlist stores, the editor model, the export pipelines, the wallpaper and the widget |
 
 The native core lives outside the modules and is built by the root
@@ -78,7 +77,7 @@ dynamically linked):
 |---|---|
 | `core/api` | `geode_api.h`, the `extern "C"` ABI — the only thing JNI calls |
 | `core/analysis` | FFT (kissfft), bands, onsets, tempo, beats, bars, key, structure, stereo field; the feature frame |
-| `core/viz` | GL capability probing, program cache, the frame graph (scene → trails → composite), transitions, safety clamps, every scene family |
+| `core/viz` | GL capability probing, program cache, the frame graph (scene → trails → composite), the superformula driver (`FormDrive`) that modulates every family's parameters with the music, transitions, safety clamps, every scene family |
 | `core/audio/dsp` | Biquad equalizer, gain, crossfeed, lookahead limiter |
 | `core/audio/player` | AMediaCodec decode, resampling, a lock-free mixer with gapless and crossfade, Oboe output |
 | `core/library` | TagLib tag reading and writing over a file descriptor |
@@ -113,8 +112,10 @@ portability, not device checks.
   nothing calls. Set it OFF to drop the file.
 - `compileSdk = 37` while the workflows install `platforms;android-36`; both
   are left as they are.
-- `docs/visualizer-v2/GPU_RESOURCE_ABI.md` describes the former `:engine:gl`
-  Kotlin module; the same probe and format policy now lives in `core/viz`.
+- `docs/visualizer-v2/` is what survives of the V2 planning set: the source
+  archive and provenance registry (which the build's provenance check reads),
+  the feature ABI and the safety model. The master plan they cite is not in
+  the tree.
 
 ## Documentation
 

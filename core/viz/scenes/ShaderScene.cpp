@@ -113,6 +113,7 @@ void ShaderScene::stepMotion(float hit, float dt) {
     const bool spiked = hit > kSpikeThreshold && spikeLockout_ <= 0.0f;
     if (spiked) {
         spikeLockout_ = kSpikeRefractorySeconds;
+        spikeAttackLeft_ = kSpikeAttackSeconds;
         // New spawn: a fresh seed and an age of zero, so a style can grow the
         // new thing in from nothing instead of cutting to it.
         spawnSeed_ = nextSeed();
@@ -124,8 +125,14 @@ void ShaderScene::stepMotion(float hit, float dt) {
         dirTarget_ = std::fmod(dirTarget_ + (nextSeed() * 2.0f - 1.0f) * kDirMaxTurn, kTwoPiF);
     }
     // The envelope rises rather than steps, so even a style that keys
-    // brightness straight off it cannot flash.
-    spikeEnv_ = slew(spikeEnv_, spiked ? 1.0f : 0.0f, dt, kSpikeRiseHz, kSpikeFallHz);
+    // brightness straight off it cannot flash; it does reach 1.0, over the
+    // attack, before it starts to leave.
+    if (spikeAttackLeft_ > 0.0f) {
+        spikeAttackLeft_ -= dt;
+        spikeEnv_ = std::min(spikeEnv_ + dt / kSpikeAttackSeconds, 1.0f);
+    } else {
+        spikeEnv_ *= std::exp(-dt * kSpikeFallHz);
+    }
 
     formPhase_ = std::fmod(formPhase_ + wrappedDelta(formPhase_, formTarget_, 1.0f) * (1.0f - std::exp(-dt * kFormGlideHz)) + 1.0f, 1.0f);
     dirAngle_ += wrappedDelta(dirAngle_, dirTarget_, kTwoPiF) * (1.0f - std::exp(-dt * kDirGlideHz));

@@ -1,7 +1,7 @@
 # Audio feature ABI — time, epoch and channels
 
 The contract every later Phase 2 and 3 slice implements against. Required by
-[`MASTER_PLAN.md`](MASTER_PLAN.md) §2.2; the design is §5.1, §5.2 and §5.4.
+the V2 master plan (not in this tree) §2.2; the design is §5.1, §5.2 and §5.4.
 
 **Status:** this covers the **time, epoch and channel** sections and the tap's position in the
 chain — V2-2-01's scope. The feature table of §5.4 is written by V2-3-03 onward, when the
@@ -196,6 +196,12 @@ processing pipeline, taking the tap with it. A float chain is built by having th
 in float internally.
 
 ### 3.1 How the order is proved
+
+> **Status (2026-09):** neither `AudioChainOrderRuntimeTest` nor
+> `AudioChainContractTest` is in the tree today (the README lists the three
+> test files that are). What follows is the record of what they proved when
+> they existed; the chain order itself is unchanged and documented in
+> `docs/AUDIO_CHAIN.md`.
 
 `AudioChainOrderRuntimeTest` builds the chain the factory installs and asserts against the
 array itself: it is non-empty, the first processor is the tap **by identity** (audio pushed

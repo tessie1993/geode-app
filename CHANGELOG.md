@@ -11,6 +11,92 @@ a partial reconstruction, rebuilt from the references in these entries, is at
 
 ## Unreleased
 
+- **Form drive: the superformula as the one driver every visual is fed
+  through.** `core/viz/FormDrive` sits in `Renderer::resolveParams`, after
+  the LFO and ADSR slots and before the safety clamp, so every family's
+  `SceneParams` pass through it: the fragment styles read the result through
+  the shared `view()` uniforms, the particle and simulation families through
+  the composite pass and their own speed/turbulence/particle/trail reads,
+  Fluid, Water and Cymatics through their solver parameters, MilkDrop
+  through zoom, rotation and hue. No style file changes. The driver is the
+  Gielis superformula `r(θ) = (|cos(mθ/4)/a|^n2 + |sin(mθ/4)/b|^n3)^(-1/n1)`
+  redrawn by the music: snares walk the lobe count `m` (upward through a
+  buildup), a drop resets it to a bold low count, a section boundary re-rolls
+  it, every change a crossfade between the frozen outgoing curve and the live
+  one; harmonicity sets the sharpness `n1` and a kick pinches it; the spectral
+  tilt, the hats and the PCM crest factor shape the lobes `n2`/`n3`; pan and
+  width are the weights `a`/`b`; energy spins it, a section boundary reverses
+  it, a snare turns it. It is fed the mono PCM block the renderer already
+  receives (block RMS, peak, crest and zero-crossing rate, read only when a
+  fresh block arrived) plus the feature frame. Eight taps around the curve,
+  normalised to a mean radius of one, are the bipolar modulators; each feeds
+  several parameters — zoom, rotation, sway, warp, ripple, morph, twist, the
+  tiling that climbs through a buildup and releases on the drop, the
+  kaleidoscope's fold count (the lobe count, when the user turned it on),
+  fisheye, chromatic aberration, the scene clock, turbulence, particle size,
+  density, trail length and warp, hue range and shift, fluid curl / splat
+  radius / splat force / stirrer speed, flow strength, water flow / ripple /
+  wave speed, the cymatics scale / ring / focus / swirl / flow. A presence
+  gate on the level fades it all out in silence. Reduced motion scales the
+  geometric part down. One new parameter, `formDrive` (Reactivity tab,
+  default 0.7, 0 = off; wire index 134, preset key `formDrive`, animatable,
+  rolled by the randomizer). Deterministic: the same audio gives the same
+  shapes, so exported frames stay reproducible. Drift is deliberately left
+  alone: `view()` and the composite both compute position as
+  `drift × time`, so a drift that changes over time teleports the picture.
+- **The musical structure now reaches the visuals.** The native analyser
+  has always computed `tempoStability`, `barPhase`, `beatInBar`, `downbeat`,
+  `downbeatConfidence`, `novelty`, `sectionBoundary`, `buildup`, `drop`,
+  `arrival`, `harmonicity` and `warmup`, and the Kotlin `ReactiveAnalyzer`
+  wrapper exposed them, but `AudioFeatures` never carried them and
+  `FeatureFrameCodec` zero-filled them, so no scene ever saw a drop, a
+  section, a bar or a buildup — every reaction could only be a level. They
+  are carried now, live and in the offline snapshot. The analysis cache
+  (`AnalysisCache`, format v2) does not store them; a timeline loaded from
+  cache still has zeros there.
+- **One-hop pulses no longer fall between display frames.** The analyser
+  fires `beat`, `beatStrength`, `transient`, `kick`, `snare`, `hat`,
+  `downbeat`, `sectionBoundary`, `drop` and `arrival` for exactly one 16 ms
+  hop; the features travel through a conflating `StateFlow` and are read once
+  per display frame, so at 30 fps (the thermal governor's paced rate) every
+  other pulse was lost before any scene saw it. `AnalysisEngine` now holds
+  each pulse for three hops. Consumers that must fire once per pulse already
+  edge-detect (`live::Edge` in the fluid emitters); the rest take a
+  max-envelope.
+- **Fix: `lerpParams`/`blendParams` wrote out of bounds on every fade.**
+  `SceneParams::lerpedFloats()` was a `std::array<FloatField, 98>` with 95
+  initialisers; the three value-initialised entries held null
+  pointers-to-member and every parameter fade or morph read and wrote
+  through them. The count is now `kLerpedFloatCount`, documented as the
+  thing to update when a lerped float is added.
+- **Fix: `uSpike` never reached its peak.** The spike envelope was a
+  one-pole chasing a target that was 1.0 for one frame, so it covered 13% of
+  the gap and chased 0.0 again: it topped out near 0.13 at 60 fps against a
+  documented "rises over ~120 ms". It is a linear attack over 120 ms now, then
+  the same release.
+- **Fix: the integer hashes in `lib_sdf3` ran at `mediump int`.** GLSL ES
+  3.00 defaults fragment ints to mediump, which a GPU may honour at 16 bits;
+  the 32-bit `uhash` family and `floatBitsToUint` collapsed there (an empty
+  Nebula cloud). `precision highp int;` is declared where the hashes need it.
+- **Fix: `geode_version()` said 1.7.0** while the app is 1.8.0.
+- **Dead code removed.** Native units compiled into `libgeode.so` but
+  included or called by nothing: `analysis/Envelope`, `MelBank`, `Mfcc`,
+  `SpectralContrast`, `SpectralFlux`, `SpectralDescriptors`, `FrameGrid`,
+  `AnalysisBranch`, `viz/FramePacer` (a C++ port shadowed by
+  `FramePacer.kt`); `analysis/FrameLevels` is kept because the form driver
+  reads it. Kotlin files referenced by nothing (checked against code, the
+  manifest, DI, XML and tests): `audio/PcmTapSink.kt` (superseded by
+  `PcmTap` in `:engine:audio-android`), `billing/AdPolicy.kt`,
+  `billing/Entitlement.kt`, `playback/ShuffleModes.kt`,
+  `publish/DescriptionMaker.kt`, `publish/ThumbnailMaker.kt`,
+  `engine/audio-core/…/RingReader.kt` and `RingReadResult.kt`,
+  `engine/scenes/…/FeatureRingBridge.kt`, and the `:engine:runtime` module
+  (`EngineComposition`, `EngineLifetime`), which `:app` depended on and
+  imported nothing from. `docs/visualizer-v2/GPU_RESOURCE_ABI.md` described
+  the former `:engine:gl` module and is gone; the other V2 documents keep
+  their content and no longer link a master plan that is not in the tree;
+  `docs/AUDIO_CHAIN.md` names the tap that exists and the tests that do not;
+  `docs/PARAM_MATRIX.md` no longer claims a generator that does not exist.
 - **The Fluid tab has styles now** (Styles > Fluid, ids `fluid_ink`,
   `fluid_oilslick`, `fluid_neon`, `fluid_chrome`, `fluid_smoke`, `fluid_lava`,
   `fluid_marble`, `fluid_aurora`, alongside `fluid`, Curl Flow and Water).

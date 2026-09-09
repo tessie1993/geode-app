@@ -1,7 +1,7 @@
 # Safety model
 
 What the app does about flashing and motion, why each limit exists, and what is still missing.
-Required by [`MASTER_PLAN.md`](MASTER_PLAN.md) §2.2; the policy is §11.
+Required by the V2 master plan (not in this tree) §2.2; the policy is §11.
 
 **Status:** the parameter-level clamp is production, tested, and **unconditional** — there is no
 setting, no off switch and no tier. The *measured* global limiter of §11.2 is still not built, so

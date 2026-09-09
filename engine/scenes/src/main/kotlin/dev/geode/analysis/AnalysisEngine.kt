@@ -70,11 +70,57 @@ class AnalysisEngine(
         _features.value = AudioFeatures.empty(bandCount)
     }
 
+    /**
+     * A one-hop pulse held for the hops a display frame can span.
+     *
+     * The analyser fires `beat`, `transient`, `kick`, `snare`, `hat`, `downbeat`, `sectionBoundary`,
+     * `drop` and `arrival` for exactly one 16 ms hop. [features] is a StateFlow, which conflates,
+     * and the renderer reads it once per display frame, so at 30 fps (the thermal governor's
+     * paced rate) every other pulse used to be lost before any scene saw it. Each pulse now
+     * stays in the emitted frame for [PULSE_HOLD_HOPS] hops, long enough for any consumer
+     * sampling at 20 Hz or better. Consumers that must fire once per pulse edge-detect already
+     * (`live::Edge` in the fluid emitters); the rest take a max-envelope, for which a held
+     * value is the same value.
+     */
+    private class PulseHold {
+        var level = 0f
+            private set
+        private var hopsLeft = 0
+
+        fun step(value: Float): Float {
+            if (value > 0f) {
+                level = maxOf(level, value)
+                hopsLeft = PULSE_HOLD_HOPS
+            } else if (hopsLeft > 0) {
+                hopsLeft--
+                if (hopsLeft == 0) level = 0f
+            }
+            return level
+        }
+
+        fun reset() {
+            level = 0f
+            hopsLeft = 0
+        }
+    }
+
     internal inner class Pass {
         private val window = MidSideWindow(ring, fftSize)
+        private val beat = PulseHold()
+        private val beatStrength = PulseHold()
+        private val transient = PulseHold()
+        private val kick = PulseHold()
+        private val snare = PulseHold()
+        private val hat = PulseHold()
+        private val downbeat = PulseHold()
+        private val sectionBoundary = PulseHold()
+        private val drop = PulseHold()
+        private val arrival = PulseHold()
 
         fun reset() {
             analyzer.reset()
+            listOf(beat, beatStrength, transient, kick, snare, hat, downbeat, sectionBoundary, drop, arrival)
+                .forEach(PulseHold::reset)
         }
 
         fun tick(): Boolean {
@@ -90,23 +136,35 @@ class AnalysisEngine(
                     mid = analyzer.mid,
                     treble = analyzer.treble,
                     onset = analyzer.onset,
-                    beat = analyzer.beat,
+                    beat = beat.step(if (analyzer.beat) 1f else 0f) > 0f,
                     bpm = analyzer.bpm,
                     centroid = analyzer.centroid,
                     flux = analyzer.fluxValue,
-                    beatStrength = analyzer.beatStrength,
-                    transient = analyzer.transient,
+                    beatStrength = beatStrength.step(analyzer.beatStrength),
+                    transient = transient.step(analyzer.transient),
                     beatPhase = analyzer.beatPhase,
                     pulseConfidence = analyzer.pulseConfidence,
                     macroEnergy = analyzer.macroEnergy,
-                    kick = analyzer.kick,
-                    snare = analyzer.snare,
-                    hat = analyzer.hat,
+                    kick = kick.step(analyzer.kick),
+                    snare = snare.step(analyzer.snare),
+                    hat = hat.step(analyzer.hat),
                     chroma = analyzer.chroma.copyOf(),
                     chromaConfidence = analyzer.chromaConfidence,
                     stereoWidth = analyzer.stereoWidth,
                     stereoCorrelation = analyzer.stereoCorrelation,
                     stereoPan = analyzer.stereoPan,
+                    tempoStability = analyzer.tempoStability,
+                    barPhase = analyzer.barPhase,
+                    beatInBar = analyzer.beatInBar,
+                    downbeat = downbeat.step(if (analyzer.downbeat) 1f else 0f) > 0f,
+                    downbeatConfidence = analyzer.downbeatConfidence,
+                    novelty = analyzer.novelty,
+                    sectionBoundary = sectionBoundary.step(if (analyzer.sectionBoundary) 1f else 0f) > 0f,
+                    buildup = analyzer.buildup,
+                    drop = drop.step(if (analyzer.drop) 1f else 0f) > 0f,
+                    arrival = arrival.step(if (analyzer.arrival) 1f else 0f) > 0f,
+                    harmonicity = analyzer.harmonicity,
+                    warmup = analyzer.warmup,
                 )
             return true
         }
@@ -149,6 +207,9 @@ class AnalysisEngine(
 
     companion object {
         private const val TICK_NS = 16_000_000L
+
+        // Three hops is 48 ms: one 30 fps display frame plus scheduling jitter.
+        private const val PULSE_HOLD_HOPS = 3
 
         internal const val HOP_RATE_HZ = 1000f / 16f
         internal const val DT_SECONDS = 16f / 1000f

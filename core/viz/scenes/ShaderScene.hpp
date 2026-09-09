@@ -69,9 +69,12 @@ private:
     static constexpr float kSpikeThreshold = 0.35f;
     static constexpr float kSpikeRefractorySeconds = 0.28f;
     // The spike envelope has a RISE, not a step: a style keying brightness off
-    // it cannot produce a one-frame flash because the value takes ~120ms to
-    // arrive and ~600ms to leave.
-    static constexpr float kSpikeRiseHz = 8.0f;
+    // it cannot produce a one-frame flash because the value takes 120ms to
+    // arrive and ~600ms to leave. A linear attack over a countdown, not a
+    // one-pole chasing a one-frame target: the one-pole covered 13% of the gap
+    // in the single frame the target was 1.0 and then chased 0.0 again, so
+    // uSpike never got past ~0.13 at 60fps.
+    static constexpr float kSpikeAttackSeconds = 0.12f;
     static constexpr float kSpikeFallHz = 1.7f;
 
     // How fast the latched values travel to the plateau a spike chose. Low
@@ -142,6 +145,7 @@ private:
     float smoothEnergy_ = 0.0f;
     float swell_ = 0.0f;
     float spikeEnv_ = 0.0f;
+    float spikeAttackLeft_ = 0.0f;
     // A countdown, not a timestamp. Comparing against a wrapping clock would stop
     // detecting spikes altogether the first time the clock wrapped, roughly two
     // hours in - exactly the session length a wallpaper runs to.

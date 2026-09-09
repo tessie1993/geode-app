@@ -2,8 +2,8 @@
 
 namespace geode::viz {
 
-const std::array<const char*, 134>& SceneParams::fieldNames() {
-    static const std::array<const char*, 134> kNames = {{
+const std::array<const char*, SceneParams::kFieldCount>& SceneParams::fieldNames() {
+    static const std::array<const char*, kFieldCount> kNames = {{
         "speed", "zoom", "rotation", "endlessZoom", "endlessZoomSpeed", "sway", "pulse", "driftX", "driftY", "shake",
         "audioDrive", "beatResponse", "turbulence", "density", "marchDetail", "trails", "trailLength", "trailZoom",
         "trailWarp", "mirror", "warp", "ripple", "symmetry", "kaleidoscope", "morph", "pixelate", "posterize",
@@ -24,7 +24,7 @@ const std::array<const char*, 134>& SceneParams::fieldNames() {
         "waterSpecular", "waterFlow", "waterLiquid", "waterLiquidFlow", "waterLiquidFade", "cymaticsGeometry",
         "cymaticsFundamental", "cymaticsModes", "cymaticsRing", "cymaticsFocus", "cymaticsScale", "cymaticsFill",
         "cymaticsLine", "cymaticsGlow", "cymaticsIridescence", "cymaticsCaustic", "cymaticsFlow", "cymaticsSwirl",
-        "rippleOverlayEnabled", "rippleOverlayStrength", "rippleOverlaySpecular",
+        "rippleOverlayEnabled", "rippleOverlayStrength", "rippleOverlaySpecular", "formDrive",
     }};
     return kNames;
 }

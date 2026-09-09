@@ -202,7 +202,6 @@ listOf("assembleRelease", "bundleRelease").forEach { name ->
 }
 
 dependencies {
-    implementation(project(":engine:runtime"))
 
     implementation(libs.core.splashscreen)
     implementation(libs.media3.exoplayer)

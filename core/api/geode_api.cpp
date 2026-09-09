@@ -22,7 +22,7 @@ struct geode_drums {
 extern "C" {
 
 const char* geode_version(void) {
-    return "1.7.0";
+    return "1.8.0";
 }
 
 geode_analysis* geode_analysis_create(int sample_rate, int fft_size, float hop_rate_hz) {

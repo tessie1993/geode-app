@@ -146,6 +146,9 @@ data class SceneParams(
     val rippleOverlayEnabled: Boolean = false,
     val rippleOverlayStrength: Float = 0.4f,
     val rippleOverlaySpecular: Float = 0.3f,
+    // How far the native superformula driver (core/viz/FormDrive) moves every family's parameters
+    // with the music; 0 switches it off. Appended so every existing wire index survives.
+    val formDrive: Float = 0.7f,
 ) {
     companion object {
         const val UNSET_OVERRIDE: Float = -1f

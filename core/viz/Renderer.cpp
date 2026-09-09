@@ -25,7 +25,8 @@ Renderer::Renderer(AAssetManager* assets, std::string cacheDir)
                           [this] { return thermal_.pacedFps(); },
                           [this](const std::string& path) { notePresetLoaded(path); }}),
       compositePass_(assets_, &programCache_),
-      pcm_(kPcmCapacity, 0.0f) {
+      pcm_(kPcmCapacity, 0.0f),
+      pcmScratch_(kPcmCapacity, 0.0f) {
     programCache_.install(cacheDir_);
 }
 
@@ -72,6 +73,7 @@ void Renderer::pushPcm(const float* samples, int count) {
     if (n <= 0) return;
     std::copy(samples + (count - n), samples + count, pcm_.begin());
     pcmCount_ = n;
+    pcmSerial_++;
 }
 
 void Renderer::setCustomShader(const std::string& sceneId, const std::string& fragmentSource) {
@@ -254,6 +256,7 @@ void Renderer::onSurfaceCreated() {
     glGenVertexArrays(1, &quadVao_);
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     lastTimeS_ = -1.0;
+    formDrive_.reset();
 }
 
 void Renderer::surfaceChanged(int width, int height) {

@@ -30,6 +30,7 @@ object ParamKeys {
     const val PARTICLE_SHAPE = "Particle shape"
     const val PARTICLE_SIZE = "Particle size"
     const val AUDIO_DRIVE = "Audio drive"
+    const val FORM_DRIVE = "Form drive"
     const val BEAT_RESPONSE = "Transient response"
     const val BEAT_FLASH = "Transient flash"
     const val BLEND_PRESET_CHANGES = "Blend preset changes"

@@ -28,6 +28,21 @@ data class AudioFeatures(
     val stereoPan: Float = 0f,
     val chroma: FloatArray = EMPTY_CHROMA,
     val chromaConfidence: Float = 0f,
+    // The musical-structure half of the native frame. The analyser has always
+    // computed these; until they were carried here FeatureFrameCodec zero-filled
+    // them, so no scene ever saw a drop, a section, a bar or a buildup.
+    val tempoStability: Float = 0f,
+    val barPhase: Float = 0f,
+    val beatInBar: Int = 0,
+    val downbeat: Boolean = false,
+    val downbeatConfidence: Float = 0f,
+    val novelty: Float = 0f,
+    val sectionBoundary: Boolean = false,
+    val buildup: Float = 0f,
+    val drop: Boolean = false,
+    val arrival: Boolean = false,
+    val harmonicity: Float = HARMONICITY_UNDECIDED,
+    val warmup: Float = 0f,
 ) {
     val hasChroma: Boolean get() = chroma.size == 12
 
@@ -44,6 +59,9 @@ data class AudioFeatures(
 
     companion object {
         const val TRANSIENT_MOTION_WEIGHT = 0.5f
+
+        /** What the native HarmonicBalance reports before it has decided (its kUndecided). */
+        const val HARMONICITY_UNDECIDED = 0.5f
 
         val EMPTY_CHROMA = FloatArray(0)
 

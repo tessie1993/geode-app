@@ -86,6 +86,12 @@ SceneParams Renderer::resolveParams(float dt) {
     const auto& lfoValues = lfo_.tick(dt, frameFeatures_, envRate_.data(), envDepth_.data());
     SceneParams p = lfo_.apply(displayedParams_, lfoValues);
     p = AdsrEngine::apply(p, adsr_.configs, envValues);
+    // The superformula driver: the one stage every family's parameters pass
+    // through, fed the PCM block and the feature frame, ahead of the safety
+    // clamp so nothing it adds can exceed the flash and motion limits.
+    feedFormDrive();
+    formDrive_.step(frameFeatures_, dt);
+    p = formDrive_.apply(p, reducedMotion_);
     p = safety::apply(p, reducedMotion_);
     if (!thermalTierInfo(thermal_.tier()).optionalPasses) {
         p.flowEnabled = false;
@@ -96,6 +102,20 @@ SceneParams Renderer::resolveParams(float dt) {
     postCyclePhase_ = grade::integrateCyclePhase(postCyclePhase_, p.cycleSpeed, dt, p.colorCycle);
     postBeatPulse_ = grade::integrateBeatPulse(postBeatPulse_, live::hit(frameFeatures_), dt);
     return p;
+}
+
+// Copies the newest PCM block out from under the lock only when a push has
+// happened since the last frame; between pushes the driver decays on its own.
+void Renderer::feedFormDrive() {
+    int count = 0;
+    {
+        std::lock_guard<std::mutex> lock(stateLock_);
+        if (pcmSerial_ == pcmSerialSeen_ || pcmCount_ <= 0) return;
+        pcmSerialSeen_ = pcmSerial_;
+        count = pcmCount_;
+        std::copy(pcm_.begin(), pcm_.begin() + count, pcmScratch_.begin());
+    }
+    formDrive_.acceptPcm(pcmScratch_.data(), count);
 }
 
 void Renderer::resolveLayerScene() {

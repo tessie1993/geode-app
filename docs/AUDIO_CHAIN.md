@@ -11,7 +11,7 @@ Sources of truth, if this doc and the code ever disagree — the code wins:
 |---|---|
 | The chain, and why the order is this order | `audio/dsp/MvzAudioProcessorChain.kt` |
 | Where it is installed | `audio/TapRenderersFactory.kt` |
-| The two rules that fail the build | `app/src/test/java/dev/musicviz/audio/AudioChainContractTest.kt` |
+| The two rules | this document; the `AudioChainContractTest` that pinned them is not in the tree (see the README's Tests section) |
 | Platform effects (a different mechanism) | `audio/AudioFxController.kt`, `ui/EqualizerSettings.kt` |
 
 ## The order
@@ -22,7 +22,7 @@ ExoPlayer
    ▼
 DefaultAudioSink  ── MvzAudioProcessorChain ──────────────────────────┐
    │                                                                  │
-   │   1. TeeAudioProcessor(PcmTapSink)   ← the analysis tap          │
+   │   1. TeeAudioProcessor(PcmTap)       ← the analysis tap          │
    │   2. SilenceSkippingAudioProcessor   ← media3's own              │
    │   3. SonicAudioProcessor             ← media3's own (speed/pitch)│
    │   4. …our DSP stages…                ← empty today              │
@@ -34,8 +34,8 @@ AudioTrack ──▶ platform audiofx (Equalizer / BassBoost / Loudness) ──�
                         outside the chain entirely
 ```
 
-The tap writes into `PcmRingBuffer`, which `AudioBus` hands to the analysis
-engine and every scene. Stages 2–4 are downstream of it.
+The tap (`engine/audio-android/.../PcmTap.kt`) writes into the PCM ring that
+`AudioBus` hands to the analysis engine and every scene. Stages 2–4 are downstream of it.
 
 ## Why the chain is owned rather than configured
 
@@ -61,7 +61,8 @@ skip-silence with no error.
 
 ## Two rules that fail the build
 
-`AudioChainContractTest` refuses both of these, so they are not conventions.
+Both were pinned by `AudioChainContractTest` when it existed; the test is not
+in the tree, so today they are conventions that this document keeps.
 
 **1. Never enable float output.** `setEnableFloatOutput(true)` reads like the
 obvious way to get a float pipeline. It is the opposite. `DefaultAudioSink`'s
@@ -133,13 +134,13 @@ others.
    internally if it needs the headroom. Do not ask the sink for float output.
 2. Pass it in `MvzAudioProcessorChain`'s `dsp` list, which keeps it after the
    tap and after media3's two stages.
-3. Add its class name to `AudioChainContractTest.DSP_STAGE_NAMES`.
+3. Add its class name to this document's stage list.
 4. Keep filter state across item transitions; reset it on seek. A stage that
    clears its history at every track boundary reintroduces the click gapless
    exists to remove. `onFlush` is the hook, but check on a device *when* media3
    actually calls it before relying on it to tell the two cases apart — this is
-   the stage-side half of the invariant `GaplessQueueTest` pins on the queue
-   side, and only the queue side is testable without a decoder.
+   the stage-side half of an invariant the queue side also depends on, and
+   only the queue side is testable without a decoder.
 5. Configuration belongs on `PlaybackSession`, never on a ViewModel: the service
    and the UI share one session and one player.
 6. Add one line of UI copy saying it will not move the visuals.

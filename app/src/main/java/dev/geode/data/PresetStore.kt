@@ -284,6 +284,7 @@ class PresetStore(
                 .put("rippleOverlayEnabled", p.params.rippleOverlayEnabled)
                 .put("rippleOverlayStrength", p.params.rippleOverlayStrength.toDouble())
                 .put("rippleOverlaySpecular", p.params.rippleOverlaySpecular.toDouble())
+                .put("formDrive", p.params.formDrive.toDouble())
                 .apply { if (p.customShader != null) put("customShader", p.customShader) }
                 .apply { if (p.milkPreset != null) put("milkPreset", p.milkPreset) }
                 .toString(2)
@@ -472,6 +473,7 @@ class PresetStore(
                         rippleOverlayEnabled = o.optBoolean("rippleOverlayEnabled", false),
                         rippleOverlayStrength = o.optDouble("rippleOverlayStrength", 0.4).toFloat(),
                         rippleOverlaySpecular = o.optDouble("rippleOverlaySpecular", 0.3).toFloat(),
+                        formDrive = o.optDouble("formDrive", 0.7).toFloat(),
                     ),
             )
         }

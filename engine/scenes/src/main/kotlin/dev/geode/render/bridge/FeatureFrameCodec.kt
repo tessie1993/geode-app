@@ -3,7 +3,7 @@ package dev.geode.render.bridge
 import dev.geode.analysis.AudioFeatures
 import dev.geode.engine.bridge.FeatureFrameLayout
 
-/** Lays an [AudioFeatures] out as a `GeodeFeatureFrame`; fields the Kotlin type does not carry stay zero. */
+/** Lays an [AudioFeatures] out as a `GeodeFeatureFrame`; every scalar the native frame has is carried. */
 object FeatureFrameCodec {
     fun pack(
         f: AudioFeatures,
@@ -26,10 +26,22 @@ object FeatureFrameCodec {
         out[FeatureFrameLayout.BEAT_PHASE] = f.beatPhase
         out[FeatureFrameLayout.PULSE_CONFIDENCE] = f.pulseConfidence
         out[FeatureFrameLayout.BPM] = f.bpm
+        out[FeatureFrameLayout.TEMPO_STABILITY] = f.tempoStability
+        out[FeatureFrameLayout.BAR_PHASE] = f.barPhase
+        out[FeatureFrameLayout.BEAT_IN_BAR] = f.beatInBar.toFloat()
+        out[FeatureFrameLayout.DOWNBEAT] = if (f.downbeat) 1f else 0f
+        out[FeatureFrameLayout.DOWNBEAT_CONFIDENCE] = f.downbeatConfidence
         out[FeatureFrameLayout.MACRO_ENERGY] = f.macroEnergy
         out[FeatureFrameLayout.KICK] = f.kick
         out[FeatureFrameLayout.SNARE] = f.snare
         out[FeatureFrameLayout.HAT] = f.hat
+        out[FeatureFrameLayout.NOVELTY] = f.novelty
+        out[FeatureFrameLayout.SECTION_BOUNDARY] = if (f.sectionBoundary) 1f else 0f
+        out[FeatureFrameLayout.BUILDUP] = f.buildup
+        out[FeatureFrameLayout.DROP] = if (f.drop) 1f else 0f
+        out[FeatureFrameLayout.ARRIVAL] = if (f.arrival) 1f else 0f
+        out[FeatureFrameLayout.HARMONICITY] = f.harmonicity
+        out[FeatureFrameLayout.WARMUP] = f.warmup
         out[FeatureFrameLayout.STEREO_WIDTH] = f.stereoWidth
         out[FeatureFrameLayout.STEREO_CORRELATION] = f.stereoCorrelation
         out[FeatureFrameLayout.STEREO_PAN] = f.stereoPan

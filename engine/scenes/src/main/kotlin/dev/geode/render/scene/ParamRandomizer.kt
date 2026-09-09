@@ -193,6 +193,7 @@ object ParamRandomizer {
 
         section(CustomizeTab.REACTIVITY)
         r(ParamKeys.AUDIO_DRIVE) { it.copy(audioDrive = f(0.6f, 1.8f)) }
+        r(ParamKeys.FORM_DRIVE) { it.copy(formDrive = f(0.3f, 1f)) }
         r(ParamKeys.BEAT_RESPONSE) { it.copy(beatResponse = f(0.3f, 2f)) }
         r(ParamKeys.BEAT_FLASH) { it.copy(flash = sometimes(0.5f, 0.1f, 0.6f)) }
         r(ParamKeys.BASS_GAIN) { it.copy(bassGain = f(0.8f, 1.4f)) }

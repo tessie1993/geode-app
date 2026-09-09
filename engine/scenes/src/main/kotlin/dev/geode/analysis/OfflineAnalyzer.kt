@@ -235,6 +235,18 @@ class OfflineAnalyzer(
                 stereoWidth = analyzer.stereoWidth,
                 stereoCorrelation = analyzer.stereoCorrelation,
                 stereoPan = analyzer.stereoPan,
+                tempoStability = analyzer.tempoStability,
+                barPhase = analyzer.barPhase,
+                beatInBar = analyzer.beatInBar,
+                downbeat = analyzer.downbeat,
+                downbeatConfidence = analyzer.downbeatConfidence,
+                novelty = analyzer.novelty,
+                sectionBoundary = analyzer.sectionBoundary,
+                buildup = analyzer.buildup,
+                drop = analyzer.drop,
+                arrival = analyzer.arrival,
+                harmonicity = analyzer.harmonicity,
+                warmup = analyzer.warmup,
             )
 
         fun finish(): FeatureTimeline {

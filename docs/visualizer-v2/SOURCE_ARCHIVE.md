@@ -7,7 +7,7 @@ from it, the modifications made, and its attribution requirements.
 [`provenance.json`](provenance.json) is the machine-readable form of the same data and is
 now the one that gates the build, in two halves. `EngineProvenanceRegistryTest` asks whether
 the registry itself is sound — schema, licence hashes, and coverage against
-[`MASTER_PLAN.md`](MASTER_PLAN.md) §3.1 in both directions. `checkEngineProvenance`, a Gradle
+the V2 master plan (not in this tree) §3.1 in both directions. `checkEngineProvenance`, a Gradle
 task on `check` in every module, asks whether the source tree obeys it: an adapted file
 carries an SPDX line and an `Origin:` marker, that origin is a registered source at its
 pinned commit under an adoptable tier, and no STUDY or EXCLUDE repository is named as an
@@ -151,7 +151,7 @@ battle-tested.
 
 **Known gap:** `checkThirdPartyNotices` is registered in `app/build.gradle.kts` and wired
 into `:app:check`. It is `:app`-scoped. Anything adapted into a new engine package is
-covered only while the engine lives inside `:app`. [MASTER_PLAN.md](MASTER_PLAN.md) §4.1
+covered only while the engine lives inside `:app`. the V2 master plan §4.1
 extracts six engine modules at V2-1-02, so this gap stops being hypothetical then: **the
 notice task must move into the convention plugin in that same commit, or Apache-2.0
 attribution silently stops being enforced.** §3.3 says the same about

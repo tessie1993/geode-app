@@ -164,6 +164,7 @@ enum class ParamScope {
                     ParamKeys.POSTERIZE,
                     ParamKeys.MIRROR,
                     ParamKeys.BEAT_RESPONSE,
+                    ParamKeys.FORM_DRIVE,
                     ParamKeys.BEAT_FLASH,
                     ParamKeys.PALETTE,
                     ParamKeys.HUE_SHIFT,

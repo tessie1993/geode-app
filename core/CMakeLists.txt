@@ -17,16 +17,10 @@ add_library(geode_core STATIC
     analysis/Spectrum.cpp
     analysis/AdaptiveRange.cpp
     analysis/LogBands.cpp
-    analysis/MelBank.cpp
-    analysis/Mfcc.cpp
     analysis/Chromagram.cpp
-    analysis/SpectralFlux.cpp
     analysis/SuperFlux.cpp
-    analysis/SpectralDescriptors.cpp
-    analysis/SpectralContrast.cpp
     analysis/HarmonicBalance.cpp
     analysis/OnsetPeakPicker.cpp
-    analysis/Envelope.cpp
     analysis/AdaptiveWhitening.cpp
     analysis/TempoTracker.cpp
     analysis/TempoStability.cpp
@@ -37,8 +31,6 @@ add_library(geode_core STATIC
     analysis/StructureTracker.cpp
     analysis/StereoField.cpp
     analysis/FrameLevels.cpp
-    analysis/AnalysisBranch.cpp
-    analysis/FrameGrid.cpp
     analysis/PulseReplay.cpp
     analysis/ReactiveAnalyzer.cpp
     analysis/AnalysisSession.cpp
@@ -57,8 +49,8 @@ add_library(geode_core STATIC
     viz/ParamsFields.cpp
     viz/Lfo.cpp
     viz/Adsr.cpp
+    viz/FormDrive.cpp
     viz/VisualSafety.cpp
-    viz/FramePacer.cpp
     viz/ThermalGovernor.cpp
     viz/TouchField.cpp
     viz/Transition.cpp

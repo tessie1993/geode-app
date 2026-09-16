@@ -21,6 +21,7 @@ import dev.geode.export.MixClip
 import dev.geode.export.LoudnessAdvice
 import dev.geode.export.LoudnessTarget
 import dev.geode.export.ProjectComposition
+import dev.geode.export.StillExporter
 import dev.geode.export.TimeOfDayDrift
 import dev.geode.export.VideoExporter
 import dev.geode.render.SceneFactory
@@ -56,6 +57,23 @@ data class LoopUiState(
     val phase: ExportPhase = ExportPhase.Idle,
 )
 
+/** The state of [ExportController.saveStillFrame] — the still export's own, smaller phase. */
+sealed interface StillPhase {
+    data object Idle : StillPhase
+
+    data object Running : StillPhase
+
+    data class Done(
+        val uri: Uri,
+    ) : StillPhase
+
+    data class Failed(
+        val message: String,
+    ) : StillPhase
+}
+
+internal val StillPhase.isBusy: Boolean get() = this is StillPhase.Running
+
 internal fun exportSceneIdFor(
     take: PerformanceTake.Timeline?,
     liveSceneId: String,
@@ -87,6 +105,9 @@ internal class ExportController(
         val sceneId: String
         val sceneParams: SceneParams
 
+        /** The playhead a still export renders at — the same position the transport shows. */
+        val positionMs: Long
+
         fun lfoConfigs(): List<dev.geode.render.LfoConfig>
 
         fun adsrConfigs(): List<dev.geode.render.AdsrConfig>
@@ -104,9 +125,15 @@ internal class ExportController(
 
     private val exporter = VideoExporter(application)
     private val studioExporter = dev.geode.export.StudioExporter(application)
+    private val stillExporter = StillExporter(application)
 
     private val _exportState = MutableStateFlow(ExportUiState())
     val exportState: StateFlow<ExportUiState> = _exportState
+
+    private val _stillState = MutableStateFlow<StillPhase>(StillPhase.Idle)
+    val stillState: StateFlow<StillPhase> = _stillState
+
+    private var stillJob: Job? = null
 
     private val _studio = MutableStateFlow(StudioUiState())
 
@@ -253,6 +280,60 @@ internal class ExportController(
 
     fun resetExportState() {
         if (!_exportState.value.phase.isBusy) _exportState.value = ExportUiState()
+    }
+
+    /**
+     * Renders one frame of the current scene at [host]'s current playback position and saves it
+     * as a PNG — the "save this frame" counterpart to [startExport]. Cheap enough, and rare
+     * enough, that it does not share [ExportRun]'s single-render guard or foreground notification
+     * with a video/loop export; it can run alongside one.
+     */
+    fun saveStillFrame(
+        aspect: ExportAspect,
+        sceneFactory: SceneFactory,
+        destination: Uri? = null,
+    ) {
+        val uri = host.exportUri ?: return
+        if (_stillState.value.isBusy) return
+        _stillState.value = StillPhase.Running
+        stillJob =
+            scope.launch(Dispatchers.Default) {
+                try {
+                    val timeline =
+                        host.cachedTimeline ?: host
+                            .analyze(uri) { }
+                            .also { if (host.exportUri == uri) host.cachedTimeline = it }
+                    val gui = host.guiPrefs
+                    val name = "geode_still_${System.currentTimeMillis()}.png"
+                    val result =
+                        stillExporter.export(
+                            timeline = timeline,
+                            sceneFactory = sceneFactory,
+                            aspect = aspect,
+                            sceneParams = host.sceneParams,
+                            positionMs = host.positionMs,
+                            fileName = name,
+                            lfoConfigs = host.lfoConfigs(),
+                            adsrConfigs = host.adsrConfigs(),
+                            reducedMotion = gui.reducedMotion,
+                            destination = destination,
+                        )
+                    _stillState.value =
+                        when (result) {
+                            is StillExporter.Result.Saved -> StillPhase.Done(result.uri)
+                            is StillExporter.Result.Failed -> StillPhase.Failed(result.message)
+                        }
+                } catch (t: kotlinx.coroutines.CancellationException) {
+                    _stillState.value = StillPhase.Idle
+                    throw t
+                } catch (t: Throwable) {
+                    _stillState.value = StillPhase.Failed("${t.javaClass.simpleName}: ${t.message ?: "no message"}")
+                }
+            }
+    }
+
+    fun resetStillState() {
+        if (!_stillState.value.isBusy) _stillState.value = StillPhase.Idle
     }
 
     fun refreshStudioClips() {

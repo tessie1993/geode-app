@@ -1046,6 +1046,7 @@ class PlayerSession internal constructor(
                 override val guiPrefs: GuiPrefs get() = settings.guiPrefs.value
                 override val sceneId: String get() = _vizState.value.sceneId
                 override val sceneParams get() = _vizState.value.params
+                override val positionMs: Long get() = player.currentPosition.coerceAtLeast(0)
 
                 override fun lfoConfigs() = modulation.lfos.value
 
@@ -1100,6 +1101,16 @@ class PlayerSession internal constructor(
     fun cancelExport() = exportController.cancelExport()
 
     fun resetExportState() = exportController.resetExportState()
+
+    val stillState: StateFlow<StillPhase> get() = exportController.stillState
+
+    fun saveStillFrame(
+        aspect: ExportAspect,
+        sceneFactory: SceneFactory,
+        destination: Uri? = null,
+    ) = exportController.saveStillFrame(aspect, sceneFactory, destination)
+
+    fun resetStillState() = exportController.resetStillState()
 
     fun refreshStudioClips() = exportController.refreshStudioClips()
 

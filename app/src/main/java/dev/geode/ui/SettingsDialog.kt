@@ -55,6 +55,8 @@ fun SettingsDialog(
     onStartToDestination: (ExportAspect, Int, Boolean, ExportRange?, ExportCodec) -> Unit,
     onCancel: () -> Unit,
     onDismiss: () -> Unit,
+    stillPhase: StillPhase = StillPhase.Idle,
+    onSaveFrame: (ExportAspect) -> Unit = {},
 ) {
     val context = LocalContext.current
     val exportPrefs = remember { ExportPrefsStore(GeodePrefsFiles(context).general) }
@@ -312,6 +314,45 @@ fun SettingsDialog(
                             modifier = Modifier.fillMaxWidth(),
                         ) {
                             Text(stringResource(R.string.export_render_to_folder))
+                        }
+                        OutlinedButton(
+                            onClick = { onSaveFrame(ExportAspect.of(quality, ratio)) },
+                            enabled = hasMedia && !stillPhase.isBusy,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text(stringResource(R.string.export_still_button))
+                        }
+                        when (stillPhase) {
+                            StillPhase.Running ->
+                                Text(
+                                    stringResource(R.string.export_still_saving),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            is StillPhase.Done -> {
+                                Text(
+                                    stringResource(R.string.export_still_saved),
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                                Button(onClick = {
+                                    val share =
+                                        Intent(Intent.ACTION_SEND).apply {
+                                            type = "image/png"
+                                            putExtra(Intent.EXTRA_STREAM, stillPhase.uri)
+                                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                        }
+                                    context.startActivity(Intent.createChooser(share, chooserTitle))
+                                }) {
+                                    Text(stringResource(R.string.export_upload_drive))
+                                }
+                            }
+                            is StillPhase.Failed ->
+                                Text(
+                                    stringResource(R.string.export_failed, stillPhase.message),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.error,
+                                )
+                            StillPhase.Idle -> Unit
                         }
                     }
                 }

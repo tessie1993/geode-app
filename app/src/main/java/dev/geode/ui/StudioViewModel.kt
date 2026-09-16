@@ -97,6 +97,16 @@ class StudioViewModel
 
         fun resetExportState() = session.resetExportState()
 
+        val stillState: StateFlow<StillPhase> get() = session.stillState
+
+        fun saveStillFrame(
+            aspect: dev.geode.export.ExportAspect,
+            sceneFactory: dev.geode.render.SceneFactory,
+            destination: Uri? = null,
+        ) = session.saveStillFrame(aspect, sceneFactory, destination)
+
+        fun resetStillState() = session.resetStillState()
+
         fun refreshStudioClips() = session.refreshStudioClips()
 
         fun describeStudioClip(

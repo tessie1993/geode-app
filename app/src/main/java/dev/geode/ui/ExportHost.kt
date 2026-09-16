@@ -145,6 +145,12 @@ private val PendingLoopExportSaver =
         },
     )
 
+private val PendingStillAspectSaver =
+    listSaver<ExportAspect?, Any>(
+        save = { aspect -> if (aspect == null) emptyList() else listOf(aspect.width, aspect.height, aspect.bitRate) },
+        restore = { saved -> if (saved.isEmpty()) null else ExportAspect(saved[0] as Int, saved[1] as Int, saved[2] as Int) },
+    )
+
 /** Which sheet [ExportHost] is showing: the picker between the two kinds of export, or one of them. */
 private enum class ExportEntryMode { Menu, Standard, Loop }
 
@@ -167,6 +173,10 @@ fun ExportHost(
         mutableStateOf<PendingLoopExport?>(null)
     }
     var chosenMode by rememberSaveable { mutableStateOf<ExportEntryMode?>(null) }
+    val stillPhase by studioViewModel.stillState.collectAsStateWithLifecycle()
+    var pendingStillAspect by rememberSaveable(stateSaver = PendingStillAspectSaver) {
+        mutableStateOf<ExportAspect?>(null)
+    }
     // A render already under way (from before this dialog was last opened) reopens onto its own
     // progress instead of the picker, so leaving and coming back never hides a running export.
     val mode =
@@ -200,6 +210,29 @@ fun ExportHost(
                 )
             }
         }
+    val stillDestinationPicker =
+        rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("image/png")) { dest ->
+            val aspect = pendingStillAspect
+            pendingStillAspect = null
+            if (dest != null && aspect != null) {
+                studioViewModel.saveStillFrame(
+                    aspect,
+                    visualizerView.visualizerRenderer.exportSceneFactory(viz.sceneId),
+                    destination = dest,
+                )
+            }
+        }
+    val onSaveFrame: (ExportAspect) -> Unit = { aspect ->
+        // Scoped storage (Q+) can insert straight into Pictures/Geode; below it a still needs the
+        // same SAF folder-picker round trip the video path takes for the same reason — see
+        // SettingsDialog's onStartToDestination comment.
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.Q) {
+            pendingStillAspect = aspect
+            stillDestinationPicker.launch("geode_still_${System.currentTimeMillis()}.png")
+        } else {
+            studioViewModel.saveStillFrame(aspect, visualizerView.visualizerRenderer.exportSceneFactory(viz.sceneId))
+        }
+    }
     val loopDestinationPicker =
         rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("video/mp4")) { dest ->
             val req = pendingLoopExport
@@ -322,8 +355,11 @@ fun ExportHost(
                 onCancel = studioViewModel::cancelExport,
                 onDismiss = {
                     studioViewModel.resetExportState()
+                    studioViewModel.resetStillState()
                     onDismiss()
                 },
+                stillPhase = stillPhase,
+                onSaveFrame = onSaveFrame,
             )
     }
 }

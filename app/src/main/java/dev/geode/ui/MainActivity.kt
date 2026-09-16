@@ -13,7 +13,6 @@ import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
 import android.util.Rational
-import android.view.KeyEvent
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -24,10 +23,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.session.MediaButtonReceiver
+import androidx.media3.session.PlaybackPendingIntentBuilder
 import dagger.hilt.android.AndroidEntryPoint
 import dev.geode.R
+import dev.geode.playback.PlaybackService
 
 /**
  * Picture-in-picture state shared across the Activity/Compose boundary.
@@ -165,8 +166,10 @@ class MainActivity : ComponentActivity() {
     }
 
     /**
-     * Play/pause and next, routed through the same [MediaButtonReceiver] the manifest already
-     * declares for hardware transport keys — the PiP window is, in effect, one more remote.
+     * Play/pause and next, delivered to [PlaybackService] as media-button intents through
+     * media3's own [PlaybackPendingIntentBuilder], exactly as its media notification does — the
+     * PiP window is, in effect, one more remote. Play/pause may start the service in the
+     * foreground when nothing is playing, since a paused session can have been stopped.
      */
     private fun pipRemoteActions(): ArrayList<RemoteAction> {
         val playing = playerViewModel.uiState.value.isPlaying
@@ -174,12 +177,13 @@ class MainActivity : ComponentActivity() {
         val playPauseLabel = getString(if (playing) R.string.action_pause else R.string.action_play)
         val nextLabel = getString(R.string.action_next)
         val actions = ArrayList<RemoteAction>(2)
-        MediaButtonReceiver.buildMediaButtonPendingIntent(this, KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE)?.let {
-            actions += RemoteAction(Icon.createWithResource(this, playPauseIcon), playPauseLabel, playPauseLabel, it)
-        }
-        MediaButtonReceiver.buildMediaButtonPendingIntent(this, KeyEvent.KEYCODE_MEDIA_NEXT)?.let {
-            actions += RemoteAction(Icon.createWithResource(this, R.drawable.ic_widget_next), nextLabel, nextLabel, it)
-        }
+        val playPause =
+            PlaybackPendingIntentBuilder(this, Player.COMMAND_PLAY_PAUSE, PlaybackService::class.java)
+                .setStartAsForegroundService(!playing)
+                .build()
+        val next = PlaybackPendingIntentBuilder(this, Player.COMMAND_SEEK_TO_NEXT, PlaybackService::class.java).build()
+        actions += RemoteAction(Icon.createWithResource(this, playPauseIcon), playPauseLabel, playPauseLabel, playPause)
+        actions += RemoteAction(Icon.createWithResource(this, R.drawable.ic_widget_next), nextLabel, nextLabel, next)
         return actions
     }
 

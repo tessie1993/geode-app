@@ -7,6 +7,7 @@ import android.media.MediaExtractor
 import android.media.MediaFormat
 import android.net.Uri
 import dev.geode.RingLog
+import dev.geode.audio.AiffPcm
 import dev.geode.util.bestEffort
 import java.io.BufferedOutputStream
 import java.io.File
@@ -139,7 +140,7 @@ class AudioTranscoder(
         if (target == LoudnessTarget.LeaveAsIs) return 1f
         val report =
             try {
-                val aiff = dev.geode.audio.AiffPcm.open(context, uri)
+                val aiff = AiffPcm.open(context, uri)
                 if (aiff != null) {
                     measureAiffLoudness(aiff, startMs, maxDurationMs)
                 } else {
@@ -156,7 +157,7 @@ class AudioTranscoder(
     /** The [sourceGain] pass over an AIFF source, which [LoudnessMeter] cannot open directly. */
     @Suppress("NestedBlockDepth")
     private fun measureAiffLoudness(
-        aiff: dev.geode.audio.AiffPcm,
+        aiff: AiffPcm,
         startMs: Long,
         maxDurationMs: Long,
     ): LoudnessReport? {
@@ -195,7 +196,7 @@ class AudioTranscoder(
 
     @Suppress("NestedBlockDepth", "ThrowsCount")
     private fun transcodeAiff(
-        aiff: dev.geode.audio.AiffPcm,
+        aiff: AiffPcm,
         maxDurationMs: Long,
         startMs: Long,
         gain: Float,
@@ -352,7 +353,7 @@ class AudioTranscoder(
         isCancelled: () -> Boolean = { false },
         onProgress: (Float) -> Unit = {},
     ): Result {
-        dev.geode.audio.AiffPcm.open(context, uri)?.let { aiff ->
+        AiffPcm.open(context, uri)?.let { aiff ->
             return transcodeAiff(aiff, maxDurationMs, startMs, gain, isCancelled, onProgress)
         }
         val extractor = MediaExtractor()
@@ -653,7 +654,9 @@ private class PcmScratch {
  * only ever reads sequentially through [size] and indexed [get] — sees the same `List` it always
  * did.
  */
-private class SampleIndex : AbstractList<AudioTranscoder.SampleInfo>(), RandomAccess {
+private class SampleIndex :
+    AbstractList<AudioTranscoder.SampleInfo>(),
+    RandomAccess {
     private var offsets = LongArray(INITIAL_CAPACITY)
     private var sizes = IntArray(INITIAL_CAPACITY)
     private var timesUs = LongArray(INITIAL_CAPACITY)

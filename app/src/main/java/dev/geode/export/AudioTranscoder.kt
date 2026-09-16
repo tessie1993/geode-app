@@ -128,6 +128,7 @@ class AudioTranscoder(
      * applying a target-driven gain costs one extra decode pass over the source, in addition to
      * [VideoExporter]'s own post-export measurement of the finished file.
      */
+    @Suppress("TooGenericExceptionCaught")
     fun sourceGain(
         uri: Uri,
         target: LoudnessTarget,
@@ -153,6 +154,7 @@ class AudioTranscoder(
     }
 
     /** The [sourceGain] pass over an AIFF source, which [LoudnessMeter] cannot open directly. */
+    @Suppress("NestedBlockDepth")
     private fun measureAiffLoudness(
         aiff: dev.geode.audio.AiffPcm,
         startMs: Long,
@@ -191,6 +193,7 @@ class AudioTranscoder(
         }
     }
 
+    @Suppress("NestedBlockDepth", "ThrowsCount")
     private fun transcodeAiff(
         aiff: dev.geode.audio.AiffPcm,
         maxDurationMs: Long,
@@ -340,6 +343,7 @@ class AudioTranscoder(
         }
     }
 
+    @Suppress("NestedBlockDepth", "ThrowsCount")
     fun transcode(
         uri: Uri,
         maxDurationMs: Long,

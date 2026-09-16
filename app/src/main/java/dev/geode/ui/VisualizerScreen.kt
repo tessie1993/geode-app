@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.PictureInPictureAlt
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -41,6 +42,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerEvent
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChanged
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntSize
@@ -82,6 +86,12 @@ fun VisualizerScreen(
     var panel by remember { mutableStateOf(PlayerPanel.TRANSPORT) }
     val chromeAlpha = maxOf(gui.barOpacity, 0.25f)
     var controlsVisible by remember { mutableStateOf(true) }
+    val context = LocalContext.current
+    // Picture-in-picture shrinks this screen to a window with no room for chrome, and no way for
+    // the person to tap a button in it anyway — every control, not just the transport bar, is
+    // gone while the platform reports the mode, and the last state comes back on exit.
+    val inPip = VisualizerPipCoordinator.inPictureInPicture
+    val showChrome = controlsVisible && !inPip
 
     val dismiss = rememberPredictiveDismiss(onDismiss = onCollapse)
 
@@ -101,7 +111,23 @@ fun VisualizerScreen(
             ),
     ) {
         if (externalDisplayName == null) {
-            VisualizerCanvasHost(visualizerView, Modifier.fillMaxSize())
+            VisualizerCanvasHost(
+                visualizerView,
+                Modifier
+                    .fillMaxSize()
+                    .onGloballyPositioned { coords ->
+                        // Window-space, not local: PictureInPictureParams.setSourceRectHint wants
+                        // the same coordinate space the platform draws the Activity's window in.
+                        val bounds = coords.boundsInWindow()
+                        VisualizerPipCoordinator.canvasBoundsPx =
+                            android.graphics.Rect(
+                                bounds.left.toInt(),
+                                bounds.top.toInt(),
+                                bounds.right.toInt(),
+                                bounds.bottom.toInt(),
+                            )
+                    },
+            )
         } else {
             CrystalBackground(Modifier.fillMaxSize(), reducedMotion = gui.reducedMotion)
             Column(
@@ -123,81 +149,17 @@ fun VisualizerScreen(
             }
         }
 
-        if (controlsVisible) {
-            Row(
-                Modifier
-                    .align(Alignment.TopStart)
-                    .statusBarsPadding()
-                    .padding(12.dp)
-                    .crystalPanel(
-                        chromeAlpha,
-                        MaterialTheme.colorScheme.surface,
-                        MaterialTheme.colorScheme.primary,
-                        corner = 12.dp,
-                        glowStrength = 0.6f,
-                        facets = 0.7f,
-                    ).padding(horizontal = 8.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                FilledTonalIconButton(onClick = onCollapse) {
-                    Icon(Icons.Filled.KeyboardArrowDown, stringResource(R.string.action_collapse))
-                }
-                Column(Modifier.weight(1f, fill = false)) {
-                    val foreign = external.active
-                    val foreignTrack = external.nowPlaying?.takeIf { it.title.isNotBlank() }
-                    val appName = stringResource(R.string.app_name)
-                    Text(
-                        when {
-                            foreign -> foreignTrack?.title ?: stringResource(R.string.source_other_apps)
-                            else -> state.title?.ifBlank { appName } ?: appName
-                        },
-                        style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    val subtitle =
-                        when {
-                            foreign ->
-                                listOfNotNull(
-                                    foreignTrack?.artist?.takeIf { it.isNotBlank() },
-                                    external.nowPlaying?.appLabel,
-                                ).joinToString(" · ")
-                                    .ifBlank { stringResource(R.string.subtitle_captured_from_another_app) }
-                            else -> state.artist?.takeIf { it.isNotBlank() }.orEmpty()
-                        }
-                    if (subtitle.isNotEmpty()) {
-                        Text(
-                            subtitle,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
-                }
-                if (state.hasMedia && !external.active) {
-                    IconButton(onClick = { viewModel.toggleFavourite() }) {
-                        StoneIconArt(
-                            StoneIcon.FAVORITE,
-                            stringResource(
-                                if (isFavourite) {
-                                    R.string.action_favourite_remove
-                                } else {
-                                    R.string.action_favourite_add
-                                },
-                            ),
-                            tint =
-                                if (isFavourite) {
-                                    MaterialTheme.colorScheme.primary
-                                } else {
-                                    MaterialTheme.colorScheme.onSurfaceVariant
-                                },
-                        )
-                    }
-                }
-            }
+        if (showChrome) {
+            VisualizerTopBar(
+                chromeAlpha = chromeAlpha,
+                externalDisplayName = externalDisplayName,
+                state = state,
+                external = external,
+                isFavourite = isFavourite,
+                onCollapse = onCollapse,
+                onEnterPip = { context.findMainActivity()?.enterVisualizerPip() },
+                onToggleFavourite = { viewModel.toggleFavourite() },
+            )
 
             if (panel != PlayerPanel.TRANSPORT) {
                 PlayerPanelSurface(
@@ -370,6 +332,105 @@ fun VisualizerScreen(
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+/**
+ * The top chrome row: collapse, PiP entry, now-playing title/subtitle, and favourite toggle.
+ *
+ * Extracted from [VisualizerScreen] purely to stay under detekt's LongMethod ceiling; it has
+ * no state of its own beyond what the screen already collects.
+ */
+@Composable
+private fun VisualizerTopBar(
+    chromeAlpha: Float,
+    externalDisplayName: String?,
+    state: PlayerUiState,
+    external: ExternalAudioState,
+    isFavourite: Boolean,
+    onCollapse: () -> Unit,
+    onEnterPip: () -> Unit,
+    onToggleFavourite: () -> Unit,
+) {
+    Row(
+        Modifier
+            .statusBarsPadding()
+            .padding(12.dp)
+            .crystalPanel(
+                chromeAlpha,
+                MaterialTheme.colorScheme.surface,
+                MaterialTheme.colorScheme.primary,
+                corner = 12.dp,
+                glowStrength = 0.6f,
+                facets = 0.7f,
+            ).padding(horizontal = 8.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        FilledTonalIconButton(onClick = onCollapse) {
+            Icon(Icons.Filled.KeyboardArrowDown, stringResource(R.string.action_collapse))
+        }
+        // Not offered on the second-screen placeholder: the visuals are rendering on the
+        // connected display, and this card has nothing worth shrinking into a PiP window.
+        if (externalDisplayName == null) {
+            IconButton(onClick = onEnterPip) {
+                Icon(Icons.Filled.PictureInPictureAlt, stringResource(R.string.action_pip))
+            }
+        }
+        Column(Modifier.weight(1f, fill = false)) {
+            val foreign = external.active
+            val foreignTrack = external.nowPlaying?.takeIf { it.title.isNotBlank() }
+            val appName = stringResource(R.string.app_name)
+            Text(
+                when {
+                    foreign -> foreignTrack?.title ?: stringResource(R.string.source_other_apps)
+                    else -> state.title?.ifBlank { appName } ?: appName
+                },
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            val subtitle =
+                when {
+                    foreign ->
+                        listOfNotNull(
+                            foreignTrack?.artist?.takeIf { it.isNotBlank() },
+                            external.nowPlaying?.appLabel,
+                        ).joinToString(" · ")
+                            .ifBlank { stringResource(R.string.subtitle_captured_from_another_app) }
+                    else -> state.artist?.takeIf { it.isNotBlank() }.orEmpty()
+                }
+            if (subtitle.isNotEmpty()) {
+                Text(
+                    subtitle,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+        if (state.hasMedia && !external.active) {
+            IconButton(onClick = onToggleFavourite) {
+                StoneIconArt(
+                    StoneIcon.FAVORITE,
+                    stringResource(
+                        if (isFavourite) {
+                            R.string.action_favourite_remove
+                        } else {
+                            R.string.action_favourite_add
+                        },
+                    ),
+                    tint =
+                        if (isFavourite) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                )
             }
         }
     }

@@ -4,6 +4,7 @@ import android.content.ContentValues
 import android.content.Context
 import android.net.Uri
 import android.os.Build
+import android.provider.DocumentsContract
 import android.provider.MediaStore
 import androidx.annotation.StringRes
 import androidx.media3.common.MediaItem
@@ -69,6 +70,7 @@ class StudioExporter(
         edit: ClipEdit,
         displayName: String,
         codec: ExportCodec = ExportCodec.H264,
+        destination: Uri? = null,
         onProgress: (Float) -> Unit,
     ): Result {
         val lut = edit.lutUri?.let { uri -> withContext(Dispatchers.IO) { CubeLut.load(context, uri) } }
@@ -86,14 +88,22 @@ class StudioExporter(
                 .apply { edit.speedProvider()?.let { setSpeed(it) } }
                 .build()
         val composition = Composition.Builder(EditedMediaItemSequence.Builder().addItem(edited).build()).build()
-        return exportComposition(composition, edit.outputMs(sourceDurationMs), displayName, codec, onProgress)
+        return exportComposition(composition, edit.outputMs(sourceDurationMs), displayName, codec, destination, onProgress)
     }
 
+    /**
+     * Renders [composition] and saves it either to Movies/Geode (when [destination] is null) or
+     * straight into the SAF document [destination] the caller already opened — the same choice
+     * [VideoExporter.exportToDestination] offers the visualizer export path. Below API 29
+     * [publish] cannot insert into MediaStore at all, so callers on those versions must always
+     * pass a [destination]; [ExportHost] enforces that by forcing its folder picker there.
+     */
     suspend fun exportComposition(
         composition: Composition,
         outputDurationMs: Long,
         displayName: String,
         codec: ExportCodec = ExportCodec.H264,
+        destination: Uri? = null,
         onProgress: (Float) -> Unit,
     ): Result {
         cancelled = false
@@ -105,11 +115,14 @@ class StudioExporter(
                 }
             if (outcome != null) return outcome
             if (cancelled) return Result.Cancelled
-            val published =
-                withContext(Dispatchers.IO) { publish(scratch, displayName) }
-            return published
-                ?.let { Result.Saved(it, outputDurationMs) }
-                ?: failed(R.string.export_error_studio_save)
+            return if (destination != null) {
+                withContext(Dispatchers.IO) { publishToDestination(scratch, destination, outputDurationMs) }
+            } else {
+                val published = withContext(Dispatchers.IO) { publish(scratch, displayName) }
+                published
+                    ?.let { Result.Saved(it, outputDurationMs) }
+                    ?: failed(R.string.export_error_studio_save)
+            }
         } finally {
             scratch.delete()
         }
@@ -221,6 +234,35 @@ class StudioExporter(
             }
             uri
         }.getOrNull()
+
+    /**
+     * Copies [file] into the SAF document [destination] the caller already created via
+     * `CreateDocument`. Mirrors [VideoExporter.exportToDestination]'s write, and cleans up the
+     * (now empty or partial) document on any failure rather than leaving a broken file behind.
+     */
+    private fun publishToDestination(
+        file: File,
+        destination: Uri,
+        outputDurationMs: Long,
+    ): Result =
+        runCatching {
+            val resolver = context.contentResolver
+            val wrote =
+                resolver.openOutputStream(destination)?.use { out -> file.inputStream().use { it.copyTo(out) } } != null
+            if (!wrote) {
+                bestEffort(TAG, "DocumentsContract.deleteDocument(resolver, de...") {
+                    DocumentsContract.deleteDocument(resolver, destination)
+                }
+                return failed(R.string.export_error_destination_write)
+            }
+            Result.Saved(destination, outputDurationMs)
+        }.getOrElse { e ->
+            bestEffort(TAG, "DocumentsContract.deleteDocument(resolver, de...") {
+                DocumentsContract.deleteDocument(context.contentResolver, destination)
+            }
+            RingLog.note(TAG, "destination write failed", e)
+            failed(R.string.export_error_destination_save)
+        }
 
     /** Turns a Transformer failure into a [Result.Failed] with a resource-backed message. */
     private fun describe(exception: ExportException): Result.Failed {

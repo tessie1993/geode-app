@@ -226,6 +226,14 @@ size_t geode_viz_scene_ids(geode_viz* v, char* out, size_t capacity) {
     return joined.size();
 }
 
+void geode_viz_set_overlay_rgba(geode_viz* v, const uint32_t* pixels, int width, int height) {
+    if (v) v->renderer.setOverlayRgba(pixels, width, height);
+}
+
+void geode_viz_set_underlay_rgba(geode_viz* v, const uint32_t* pixels, int width, int height, int blend, float amount) {
+    if (v) v->renderer.setUnderlayRgba(pixels, width, height, blend, amount);
+}
+
 // Any thread (above the GL-thread divider). Renderer::lastError() copies the
 // string out under its own lock, so this never reads a Renderer-owned buffer
 // that Renderer::fail() (GL thread) could be mutating concurrently. The

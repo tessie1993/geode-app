@@ -1122,11 +1122,12 @@ class PlayerSession internal constructor(
     fun startStudioExport(
         clip: StudioClip,
         edit: dev.geode.export.ClipEdit,
-    ) = exportController.startStudioExport(clip, edit)
+        destination: Uri? = null,
+    ) = exportController.startStudioExport(clip, edit, destination)
 
     fun cancelStudioExport() = exportController.cancelStudioExport()
 
-    fun startProjectExport() = exportController.startProjectExport(editor.state.value.project)
+    fun startProjectExport(destination: Uri? = null) = exportController.startProjectExport(editor.state.value.project, destination)
 
     fun clearStudioResult() = exportController.clearStudioResult()
 

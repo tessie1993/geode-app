@@ -409,4 +409,30 @@ object GeodeNative {
 
     /** The reason the most recent [tagsWrite] on this thread returned false; GEODE_TAGS_OK (0) otherwise. */
     external fun tagsLastError(): Int
+
+    /**
+     * Full-frame RGBA8 overlay drawn last, premultiplied alpha, over the finished composite. `pixels`
+     * is Android's `Bitmap.getPixels` ARGB layout, width*height entries; null (or a non-positive
+     * size) clears it. Any thread; latched for the next frame.
+     */
+    external fun vizSetOverlay(
+        handle: Long,
+        pixels: IntArray?,
+        width: Int,
+        height: Int,
+    )
+
+    /**
+     * Full-frame RGBA8 underlay blended UNDER/INTO the scene: [blend] 0 = screen (replaces the scene
+     * where it is black), 1 = multiply, 2 = add; [amount] 0..1. Same pixel layout as [vizSetOverlay];
+     * null (or a non-positive size) clears it. Any thread; latched for the next frame.
+     */
+    external fun vizSetUnderlay(
+        handle: Long,
+        pixels: IntArray?,
+        width: Int,
+        height: Int,
+        blend: Int,
+        amount: Float,
+    )
 }

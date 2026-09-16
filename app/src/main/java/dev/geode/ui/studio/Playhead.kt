@@ -8,18 +8,22 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import dev.geode.ui.glass.GlassPalette
+import dev.geode.ui.glass.glassSurface
 
 val LANE_HEADER_WIDTH: Dp = 76.dp
 val LANE_HEIGHT: Dp = 52.dp
@@ -34,7 +38,6 @@ fun TimeRuler(
     onScrub: (Long) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
     val density = LocalDensity.current.density
     Canvas(
         modifier
@@ -52,7 +55,7 @@ fun TimeRuler(
         val stepMs = rulerStepMs(scale)
         val textPaint =
             android.graphics.Paint().apply {
-                color = labelColor.toArgb()
+                color = GlassPalette.textSecondary.toArgb()
                 textSize = 10f * density
                 isAntiAlias = true
             }
@@ -61,7 +64,7 @@ fun TimeRuler(
             val x = scale.xOf(ms)
             val major = ms % (stepMs * 5) == 0L
             drawLine(
-                labelColor.copy(alpha = if (major) 0.9f else 0.4f),
+                GlassPalette.textPrimary.copy(alpha = if (major) 0.7f else 0.3f),
                 Offset(x, size.height),
                 Offset(x, size.height - if (major) 12f * density else 6f * density),
                 strokeWidth = 1f,
@@ -72,39 +75,68 @@ fun TimeRuler(
     }
 }
 
-/** The vertical playhead line drawn over the lanes at the current time. */
+/** The vertical playhead: a pearl (glowing white) line with a small bubble drag handle on top. */
 @Composable
 fun Playhead(
     scale: TimelineScale,
     playheadMs: Long,
     modifier: Modifier = Modifier,
 ) {
-    val color = MaterialTheme.colorScheme.primary
     Canvas(modifier.fillMaxWidth().fillMaxHeight()) {
         val x = scale.xOf(playheadMs)
-        drawLine(color, Offset(x, 0f), Offset(x, size.height), strokeWidth = 2f)
-        drawPlayheadCap(x, color)
+        drawLine(
+            brush = Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.9f), GlassPalette.mint.copy(alpha = 0.75f))),
+            start = Offset(x, 0f),
+            end = Offset(x, size.height),
+            strokeWidth = 2f,
+        )
+        drawPlayheadBubble(x)
     }
 }
 
-private fun DrawScope.drawPlayheadCap(
-    x: Float,
-    color: Color,
-) {
-    val half = 6f
-    drawLine(color, Offset(x - half, 0f), Offset(x + half, 0f), strokeWidth = 4f)
+/** A small pearl bubble sitting on the ruler edge, standing in for a drag handle. */
+private fun DrawScope.drawPlayheadBubble(x: Float) {
+    val radius = 6f
+    drawCircle(
+        brush = Brush.radialGradient(listOf(Color.White.copy(alpha = 0.5f), Color.Transparent), radius = radius * 2.4f),
+        radius = radius * 2.4f,
+        center = Offset(x, radius),
+    )
+    drawCircle(GlassPalette.glassFill, radius = radius, center = Offset(x, radius))
+    drawCircle(
+        GlassPalette.glassRim,
+        radius = radius,
+        center = Offset(x, radius),
+        style = Stroke(1.5f),
+    )
+    drawCircle(
+        Color.White.copy(alpha = 0.7f),
+        radius = radius * 0.35f,
+        center = Offset(x - radius * 0.3f, radius - radius * 0.3f),
+    )
 }
 
-/** Spacer that pads a lane's content out to the full scrollable width so every lane scrolls together. */
+/**
+ * Spacer that pads a lane's content out to the full scrollable width so every lane scrolls
+ * together; draws the translucent glass strip a lane's content sits on, tinted by lane kind.
+ */
 @Composable
 fun LaneContentBox(
     scale: TimelineScale,
     height: Dp,
     modifier: Modifier = Modifier,
+    tint: Color? = null,
     content: @Composable () -> Unit,
 ) {
-    Box(modifier.width(with(LocalDensity.current) { scale.contentPx.toDp() }).height(height)) { content() }
+    Box(
+        modifier
+            .width(with(LocalDensity.current) { scale.contentPx.toDp() })
+            .height(height)
+            .glassSurface(shape = LANE_STRIP_SHAPE, tint = tint),
+    ) { content() }
 }
+
+private val LANE_STRIP_SHAPE = RoundedCornerShape(10.dp)
 
 /** A tick every 1, 2, 5, 10, 30 or 60 seconds, whichever keeps labels at least ~60 px apart. */
 private fun rulerStepMs(scale: TimelineScale): Long {

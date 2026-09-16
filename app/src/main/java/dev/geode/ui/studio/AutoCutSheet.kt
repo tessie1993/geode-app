@@ -8,9 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -29,8 +27,10 @@ import dev.geode.editor.AutoCutSettings
 import dev.geode.editor.TransientEnvelope
 import dev.geode.editor.TransientHit
 import dev.geode.editor.TransientSource
-import dev.geode.ui.CrystalButton
-import dev.geode.ui.CrystalSlider
+import dev.geode.ui.glass.GlassButton
+import dev.geode.ui.glass.GlassPalette
+import dev.geode.ui.glass.GlassSheet
+import dev.geode.ui.glass.GlassSlider
 
 /** Runs [AutoCut] over the analysed track and hands the accepted hits back as markers or clips. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -53,32 +53,38 @@ fun AutoCutSheet(
         result = found?.let { AutoCut.detect(it, settings) }
     }
 
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    GlassSheet(onDismissRequest = onDismiss) {
         Column(Modifier.padding(horizontal = 20.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(stringResource(R.string.autocut_title), style = MaterialTheme.typography.titleMedium)
-            Text(stringResource(R.string.autocut_source), style = MaterialTheme.typography.labelMedium)
+            Text(stringResource(R.string.autocut_title), style = MaterialTheme.typography.titleMedium, color = GlassPalette.textPrimary)
+            Text(stringResource(R.string.autocut_source), style = MaterialTheme.typography.labelMedium, color = GlassPalette.textSecondary)
             Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 TransientSource.entries.forEach { source ->
-                    FilterChip(
+                    GlassButton(
+                        text = stringResource(sourceLabel(source)),
                         selected = settings.source == source,
+                        tint = if (settings.source == source) GlassPalette.lavender else null,
                         onClick = { settings = settings.copy(source = source) },
-                        label = { Text(stringResource(sourceLabel(source)), style = MaterialTheme.typography.labelSmall) },
                     )
                 }
             }
             Text(
                 stringResource(R.string.autocut_sensitivity, (settings.sensitivity * 100).toInt()),
                 style = MaterialTheme.typography.labelMedium,
+                color = GlassPalette.textSecondary,
             )
-            CrystalSlider(value = settings.sensitivity, onValueChange = { settings = settings.copy(sensitivity = it) })
-            Text(stringResource(R.string.autocut_spacing, settings.minSpacingMs), style = MaterialTheme.typography.labelMedium)
-            CrystalSlider(
+            GlassSlider(value = settings.sensitivity, onValueChange = { settings = settings.copy(sensitivity = it) })
+            Text(
+                stringResource(R.string.autocut_spacing, settings.minSpacingMs),
+                style = MaterialTheme.typography.labelMedium,
+                color = GlassPalette.textSecondary,
+            )
+            GlassSlider(
                 value = settings.minSpacingMs.toFloat(),
                 onValueChange = { settings = settings.copy(minSpacingMs = (it / 10f).toLong() * 10L) },
                 valueRange = 60f..2000f,
             )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                CrystalButton(onClick = ::detect) { Text(stringResource(R.string.autocut_detect)) }
+                GlassButton(text = stringResource(R.string.autocut_detect), tint = GlassPalette.mint, onClick = ::detect)
             }
             when (val r = result) {
                 null -> if (missingAnalysis) ResultText(stringResource(R.string.autocut_no_analysis), error = true)
@@ -86,17 +92,18 @@ fun AutoCutSheet(
                 is AutoCutResult.Suggested -> {
                     ResultText(pluralStringResource(R.plurals.autocut_found, r.hits.size, r.hits.size), error = false)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        CrystalButton(onClick = { onMarkers(r.hits) }) { Text(stringResource(R.string.autocut_as_markers)) }
-                        CrystalButton(filled = false, onClick = { onClips(r.hits, envelope?.durationMs ?: 0L) }) {
-                            Text(stringResource(R.string.autocut_as_clips))
-                        }
+                        GlassButton(text = stringResource(R.string.autocut_as_markers), onClick = { onMarkers(r.hits) })
+                        GlassButton(
+                            text = stringResource(R.string.autocut_as_clips),
+                            onClick = { onClips(r.hits, envelope?.durationMs ?: 0L) },
+                        )
                     }
                 }
             }
             Text(
                 stringResource(R.string.autocut_explainer),
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = GlassPalette.textSecondary,
             )
         }
     }
@@ -110,7 +117,7 @@ private fun ResultText(
     Text(
         text,
         style = MaterialTheme.typography.bodyMedium,
-        color = if (error) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+        color = if (error) MaterialTheme.colorScheme.error else GlassPalette.textPrimary,
     )
 }
 

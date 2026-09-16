@@ -3,7 +3,6 @@ package dev.geode.ui.studio
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -13,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -33,6 +33,7 @@ import dev.geode.editor.SnapMode
 import dev.geode.editor.SnapTarget
 import dev.geode.editor.Timeline
 import dev.geode.editor.snap
+import dev.geode.ui.glass.GlassPalette
 
 /** What a drag on a clip is doing: sliding it or pulling one of its edges. */
 private enum class DragMode {
@@ -68,7 +69,7 @@ fun ClipStrip(
     val density = LocalDensity.current.density
     val edgeZonePx = EDGE_ZONE_DP * density
     var drag by remember(lane.id) { mutableStateOf<ClipDrag?>(null) }
-    val colors = ClipColors.fromTheme()
+    val colors = ClipColors.glass()
 
     fun clipAt(x: Float): Clip? = lane.clips.firstOrNull { x >= scale.xOf(it.startMs) && x < scale.xOf(it.endMs) }
 
@@ -148,6 +149,7 @@ private fun previewSpan(
         DragMode.TRIM_END -> drag.originStartMs to (drag.originEndMs + drag.deltaMs).coerceAtLeast(drag.originStartMs + 1)
     }
 
+/** A glass pill: a pastel-tinted translucent fill, a top specular sliver and a lighter rim. */
 private fun DrawScope.drawClip(
     clip: Clip,
     x: Float,
@@ -157,26 +159,38 @@ private fun DrawScope.drawClip(
     colors: ClipColors,
     density: Float,
 ) {
-    val fill = colors.fillFor(clip.content).copy(alpha = if (clip.enabled && !muted) 0.85f else 0.35f)
+    val tint = colors.fillFor(clip.content)
+    val dim = if (clip.enabled && !muted) 1f else 0.4f
     val top = 4f * density
     val size = Size(width.coerceAtLeast(2f), this.size.height - top * 2)
-    val corner = CornerRadius(6f * density)
-    drawRoundRect(fill, Offset(x, top), size, corner)
-    if (clip.transition != null) {
-        drawRect(colors.outline.copy(alpha = 0.6f), Offset(x, top), Size(TRANSITION_BADGE_DP * density, size.height))
+    val corner = CornerRadius(size.height / 2f)
+    val origin = Offset(x, top)
+    drawRoundRect(GlassPalette.glassFill.copy(alpha = GlassPalette.glassFill.alpha * dim), origin, size, corner)
+    drawRoundRect(tint.copy(alpha = 0.30f * dim), origin, size, corner)
+    if (size.height > 8f) {
+        drawRoundRect(
+            brush = Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.30f * dim), Color.Transparent)),
+            topLeft = origin,
+            size = Size(size.width, size.height * 0.5f),
+            cornerRadius = corner,
+        )
     }
-    if (selected) drawRoundRect(colors.outline, Offset(x, top), size, corner, style = Stroke(2f * density))
+    drawRoundRect(colors.outline.copy(alpha = 0.55f * dim), origin, size, corner, style = Stroke(1f * density))
+    if (clip.transition != null) {
+        drawRoundRect(colors.outline.copy(alpha = 0.6f), origin, Size(TRANSITION_BADGE_DP * density, size.height), corner)
+    }
+    if (selected) drawRoundRect(GlassPalette.textPrimary, origin, size, corner, style = Stroke(2f * density))
     val label = clip.label.ifBlank { defaultLabel(clip.content) }
     if (width > 24f * density) {
         val paint =
             android.graphics.Paint().apply {
-                color = colors.label.toArgb()
+                color = colors.label.copy(alpha = colors.label.alpha * dim).toArgb()
                 textSize = 11f * density
                 isAntiAlias = true
             }
         drawContext.canvas.nativeCanvas.save()
         drawContext.canvas.nativeCanvas.clipRect(x, top, x + width, top + size.height)
-        drawContext.canvas.nativeCanvas.drawText(label, x + 6f * density, top + size.height / 2 + 4f * density, paint)
+        drawContext.canvas.nativeCanvas.drawText(label, x + 8f * density, top + size.height / 2 + 4f * density, paint)
         drawContext.canvas.nativeCanvas.restore()
     }
 }
@@ -210,19 +224,17 @@ private class ClipColors(
         }
 
     companion object {
-        @Composable
-        fun fromTheme(): ClipColors {
-            val cs = MaterialTheme.colorScheme
-            return ClipColors(
-                scene = cs.primary,
-                media = cs.tertiary,
-                textFill = cs.secondary,
-                overlay = cs.secondaryContainer,
-                audio = cs.tertiaryContainer,
-                outline = cs.onSurface,
-                label = cs.onPrimary,
+        /** One pastel from [GlassPalette] per lane kind, so every clip family reads distinctly. */
+        fun glass(): ClipColors =
+            ClipColors(
+                scene = GlassPalette.mint,
+                media = GlassPalette.sky,
+                textFill = GlassPalette.lavender,
+                overlay = GlassPalette.peach,
+                audio = GlassPalette.pink,
+                outline = GlassPalette.glassRim,
+                label = GlassPalette.textPrimary,
             )
-        }
     }
 }
 

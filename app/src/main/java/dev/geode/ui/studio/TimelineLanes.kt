@@ -10,11 +10,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -59,6 +56,10 @@ import dev.geode.export.ChapterMarkers
 import dev.geode.export.ChapterWriteResult
 import dev.geode.ui.EditorUiState
 import dev.geode.ui.ExportPhase
+import dev.geode.ui.glass.GlassButton
+import dev.geode.ui.glass.GlassLinearProgress
+import dev.geode.ui.glass.GlassPalette
+import dev.geode.ui.glass.GlassSheet
 import dev.geode.ui.isBusy
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -392,7 +393,7 @@ fun TimelineEditor(
             Text(
                 stringResource(R.string.editor_empty),
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = GlassPalette.textSecondary,
             )
         }
         val keyTracks = project.keyframes.tracksFor(null) + (selectedClip?.let(project.keyframes::tracksFor) ?: emptyList())
@@ -500,19 +501,15 @@ private fun ChapterFormatDialog(
     onPick: (ChapterFormat) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.editor_chapters_title)) },
-        text = {
-            Column {
-                CHAPTER_FORMAT_LABELS.forEach { (format, label) ->
-                    TextButton(onClick = { onPick(format) }) { Text(stringResource(label)) }
-                }
+    GlassSheet(onDismissRequest = onDismiss) {
+        Column(Modifier.padding(horizontal = 20.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(stringResource(R.string.editor_chapters_title), style = MaterialTheme.typography.titleMedium, color = GlassPalette.textPrimary)
+            CHAPTER_FORMAT_LABELS.forEach { (format, label) ->
+                GlassButton(text = stringResource(label), modifier = Modifier.fillMaxWidth(), onClick = { onPick(format) })
             }
-        },
-        confirmButton = {},
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
-    )
+            GlassButton(text = stringResource(R.string.action_cancel), modifier = Modifier.fillMaxWidth(), onClick = onDismiss)
+        }
+    }
 }
 
 @Composable
@@ -527,17 +524,26 @@ private fun ExportStatusRow(
                 Text(
                     stringResource(R.string.studio_rendering, (phase.progress * 100).roundToInt()),
                     style = MaterialTheme.typography.labelMedium,
+                    color = GlassPalette.textSecondary,
                     modifier = Modifier.weight(1f),
                 )
-                TextButton(onClick = onCancel) { Text(stringResource(R.string.action_cancel)) }
+                GlassButton(text = stringResource(R.string.action_cancel), onClick = onCancel)
             }
-            LinearProgressIndicator(progress = { phase.progress }, modifier = Modifier.fillMaxWidth())
+            GlassLinearProgress(progress = phase.progress, modifier = Modifier.fillMaxWidth())
         }
-        is ExportPhase.Done -> Text(stringResource(R.string.studio_saved), style = MaterialTheme.typography.labelMedium)
+        is ExportPhase.Done ->
+            Text(
+                stringResource(R.string.studio_saved),
+                style = MaterialTheme.typography.labelMedium,
+                color = GlassPalette.textPrimary,
+            )
         is ExportPhase.Failed -> Text(phase.message, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
         ExportPhase.Idle ->
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                TextButton(onClick = onExportToDestination) { Text(stringResource(R.string.export_render_to_folder)) }
+                GlassButton(
+                    text = stringResource(R.string.export_render_to_folder),
+                    onClick = onExportToDestination,
+                )
             }
         ExportPhase.Loading -> Unit
     }

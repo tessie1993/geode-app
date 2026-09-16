@@ -9,8 +9,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.vector.ImageVector
 import dev.geode.R
-import dev.geode.ui.theme.StoneIcon
+import dev.geode.ui.glass.GlassIcons
 
 /**
  * The app's top-level screens, in the order the navigation bar shows them.
@@ -21,13 +22,13 @@ import dev.geode.ui.theme.StoneIcon
  */
 enum class GeodeDestination(
     @param:StringRes val labelRes: Int,
-    val icon: StoneIcon,
+    val icon: ImageVector,
 ) {
-    PLAYER(R.string.nav_player, StoneIcon.PLAY),
-    LIBRARY(R.string.nav_library, StoneIcon.LIBRARY),
-    VISUALS(R.string.nav_visuals, StoneIcon.VISUALIZER),
-    STUDIO(R.string.nav_studio, StoneIcon.STUDIO),
-    SETTINGS(R.string.nav_settings, StoneIcon.SETTINGS),
+    PLAYER(R.string.nav_player, GlassIcons.Home),
+    LIBRARY(R.string.nav_library, GlassIcons.ListIcon),
+    VISUALS(R.string.nav_visuals, GlassIcons.Star),
+    STUDIO(R.string.nav_studio, GlassIcons.Mic),
+    SETTINGS(R.string.nav_settings, GlassIcons.Settings),
 }
 
 @Stable

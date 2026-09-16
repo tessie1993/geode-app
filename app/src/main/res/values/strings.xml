@@ -715,6 +715,7 @@
     <string name="curve_unknown_param">Parameter</string>
     <string name="editor_export">Render cut</string>
     <string name="editor_export_no_video">Put a video or still on a Media lane first — the cut renders that lane.</string>
+    <string name="editor_export_skipped_kinds">Skipped clips this export can\'t carry: %1$s</string>
     <string name="editor_transition">Transition into this clip</string>
     <string name="editor_transition_ellipsis">Transition…</string>
     <string name="editor_transition_none">None (hard cut)</string>

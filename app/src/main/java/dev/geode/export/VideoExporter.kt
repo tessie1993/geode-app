@@ -120,6 +120,7 @@ class VideoExporter(
             val messageArgs: List<Any> = emptyList(),
         ) : Result {
             /** Re-resolves [messageRes] against a live [context], for a UI layer that wants localisation. */
+            @Suppress("SpreadOperator")
             fun describe(context: Context): String = messageRes?.let { context.getString(it, *messageArgs.toTypedArray()) } ?: message
         }
 

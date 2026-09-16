@@ -60,6 +60,7 @@ import dev.geode.export.ChapterWriteResult
 import dev.geode.ui.EditorUiState
 import dev.geode.ui.ExportPhase
 import dev.geode.ui.isBusy
+import java.util.Locale
 import java.util.UUID
 import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
@@ -100,6 +101,13 @@ fun TimelineEditor(
     var sidecarMessage by remember { mutableStateOf<String?>(null) }
     val scale = TimelineScale(pxPerMs, maxOf(project.timeline.durationMs, MIN_CONTENT_MS) + CONTENT_MARGIN_MS)
     val laneNames = LANE_NAME_LABELS.associate { (kind, label) -> kind to stringResource(label) }
+    // Resolved here, not inside the export coroutines below: composition is the config-aware
+    // place to read a resource, and LocalContext.current is not.
+    val srtSavedMessage = stringResource(R.string.editor_srt_saved)
+    val srtFailedTemplate = stringResource(R.string.editor_srt_failed)
+    val chaptersSavedMessage = stringResource(R.string.editor_chapters_saved)
+    val chaptersNoneMessage = stringResource(R.string.editor_chapters_none)
+    val chaptersFailedTemplate = stringResource(R.string.editor_chapters_failed)
 
     fun applyResult(result: EditResult) {
         when (result) {
@@ -185,9 +193,9 @@ fun TimelineEditor(
                     }
                 sidecarMessage =
                     if (failure == null) {
-                        context.getString(R.string.editor_srt_saved)
+                        srtSavedMessage
                     } else {
-                        context.getString(R.string.editor_srt_failed, failure.message ?: failure.toString())
+                        String.format(Locale.getDefault(), srtFailedTemplate, failure.message ?: failure.toString())
                     }
             }
         }
@@ -208,9 +216,9 @@ fun TimelineEditor(
                 }
             sidecarMessage =
                 when (result) {
-                    ChapterWriteResult.Written -> context.getString(R.string.editor_chapters_saved)
-                    ChapterWriteResult.Skipped -> context.getString(R.string.editor_chapters_none)
-                    is ChapterWriteResult.Failed -> context.getString(R.string.editor_chapters_failed, result.message)
+                    ChapterWriteResult.Written -> chaptersSavedMessage
+                    ChapterWriteResult.Skipped -> chaptersNoneMessage
+                    is ChapterWriteResult.Failed -> String.format(Locale.getDefault(), chaptersFailedTemplate, result.message)
                 }
         }
     }

@@ -155,7 +155,9 @@ fun VideoFrame(
     LaunchedEffect(uri, atMs) {
         if (uri != null && frame == null && !inspecting) frame = VideoFrameCache.frame(context, uri, atMs)
     }
-    val shape = androidx.compose.foundation.shape.RoundedCornerShape(corner)
+    val shape =
+        androidx.compose.foundation.shape
+            .RoundedCornerShape(corner)
     Box(
         modifier
             .clip(shape)
@@ -187,7 +189,9 @@ fun TrackArtwork(
     LaunchedEffect(uri) {
         if (uri != null && art == null && !inspecting) art = ArtworkCache.load(context, uri)
     }
-    val shape = androidx.compose.foundation.shape.RoundedCornerShape(corner)
+    val shape =
+        androidx.compose.foundation.shape
+            .RoundedCornerShape(corner)
     Box(
         modifier
             .clip(shape)

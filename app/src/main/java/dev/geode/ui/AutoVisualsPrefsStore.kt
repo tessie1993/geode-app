@@ -52,6 +52,7 @@ class AutoVisualsPrefsStore(
 
         private const val KEY_RANDOM_ENABLED = "auto_random_enabled"
         private const val KEY_RANDOM_INTERVAL = "auto_random_interval_sec"
+
         // Storage key kept as-is (wave three renamed the field to randomOnSection) so a saved
         // preference still loads.
         private const val KEY_RANDOM_ON_BEAT = "auto_random_on_beat"

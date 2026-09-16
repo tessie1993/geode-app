@@ -179,7 +179,11 @@ fun TrackInfoEditor(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                Text(stringResource(R.string.track_info_write_file), style = MaterialTheme.typography.bodyMedium, color = GlassPalette.textPrimary)
+                Text(
+                    stringResource(R.string.track_info_write_file),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = GlassPalette.textPrimary,
+                )
                 GlassToggle(
                     checked = writeToFile,
                     onCheckedChange = {

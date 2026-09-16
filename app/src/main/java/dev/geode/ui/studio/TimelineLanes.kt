@@ -505,7 +505,11 @@ private fun ChapterFormatDialog(
 ) {
     GlassSheet(onDismissRequest = onDismiss) {
         Column(Modifier.padding(horizontal = 20.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(stringResource(R.string.editor_chapters_title), style = MaterialTheme.typography.titleMedium, color = GlassPalette.textPrimary)
+            Text(
+                stringResource(R.string.editor_chapters_title),
+                style = MaterialTheme.typography.titleMedium,
+                color = GlassPalette.textPrimary,
+            )
             CHAPTER_FORMAT_LABELS.forEach { (format, label) ->
                 GlassButton(text = stringResource(label), modifier = Modifier.fillMaxWidth(), onClick = { onPick(format) })
             }

@@ -76,7 +76,8 @@ internal class OverlayController(
     private var lastLineIndex = NO_LINE
 
     init {
-        composer.layers = listOf(ArtTitleLayer(_options.value), WatermarkLayer(_watermarkOptions.value, null), LyricLayer(_lyricOptions.value))
+        composer.layers =
+            listOf(ArtTitleLayer(_options.value), WatermarkLayer(_watermarkOptions.value, null), LyricLayer(_lyricOptions.value))
         storeScope.launch {
             val persisted = _watermarkOptions.value
             val uri = persisted.uri
@@ -118,7 +119,8 @@ internal class OverlayController(
         val updated = transform(_watermarkOptions.value)
         _watermarkOptions.value = updated
         storeScope.launch {
-            composer.layers = listOf(ArtTitleLayer(_options.value), WatermarkLayer(updated, watermarkBitmap), LyricLayer(_lyricOptions.value))
+            composer.layers =
+                listOf(ArtTitleLayer(_options.value), WatermarkLayer(updated, watermarkBitmap), LyricLayer(_lyricOptions.value))
             prefsStore.saveWatermark(updated)
             recompose()
         }
@@ -128,7 +130,8 @@ internal class OverlayController(
         val updated = transform(_lyricOptions.value)
         _lyricOptions.value = updated
         storeScope.launch {
-            composer.layers = listOf(ArtTitleLayer(_options.value), WatermarkLayer(_watermarkOptions.value, watermarkBitmap), LyricLayer(updated))
+            composer.layers =
+                listOf(ArtTitleLayer(_options.value), WatermarkLayer(_watermarkOptions.value, watermarkBitmap), LyricLayer(updated))
             prefsStore.saveLyric(updated)
             recompose()
         }

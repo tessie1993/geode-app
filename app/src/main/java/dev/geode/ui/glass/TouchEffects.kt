@@ -4,7 +4,6 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.gestures.AwaitPointerEventScope
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.runtime.Composable
@@ -32,10 +31,12 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.input.pointer.AwaitPointerEventScope
 import androidx.compose.ui.input.pointer.PointerId
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
@@ -110,7 +111,7 @@ fun Modifier.waterTouch(
                             null
                         }
                     val outcome =
-                        trackGesture(this, down.id, down.position, drag && !reducedMotion, state, scope, field, coords)
+                        trackGesture(down.id, down.position, drag && !reducedMotion, state, scope, field, coords)
                     holdJob?.cancel()
                     finishPress(scope, state, outcome.lastPosition, drag && !reducedMotion)
                     val rootUp = coords?.localToRoot(outcome.lastPosition) ?: outcome.lastPosition
@@ -205,9 +206,10 @@ private class GestureOutcome(
 )
 
 /** Tracks one pointer from down to up/cancel, applying the liquid-drop stretch and splatting ink
- * along the path while dragging. */
-private suspend fun trackGesture(
-    gesture: AwaitPointerEventScope,
+ * along the path while dragging. An extension on [AwaitPointerEventScope] (rather than taking one
+ * as a plain parameter) because that scope's suspend functions are restricted: only its own
+ * members/extensions may be called from within [awaitEachGesture]. */
+private suspend fun AwaitPointerEventScope.trackGesture(
     pointerId: PointerId,
     origin: Offset,
     stretching: Boolean,
@@ -221,7 +223,7 @@ private suspend fun trackGesture(
     var dyeIndex = 0
     val holdDeadline = System.currentTimeMillis() + GlassMotion.HOLD_THRESHOLD_MS
     while (true) {
-        val event = gesture.awaitPointerEvent()
+        val event = awaitPointerEvent()
         val change = event.changes.firstOrNull { it.id == pointerId } ?: return GestureOutcome(false, longPressed, lastPosition)
         if (!change.pressed) {
             return GestureOutcome(true, longPressed, change.position)

@@ -8,19 +8,19 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -28,15 +28,15 @@ import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material3.AlertDialog
+import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.KeyboardArrowRight
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -63,8 +63,20 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 import dev.geode.data.MusicPlaylist
-import dev.geode.ui.theme.StoneIcon
-import dev.geode.ui.theme.StoneIconArt
+import dev.geode.ui.glass.GlassBubbleButton
+import dev.geode.ui.glass.GlassButton
+import dev.geode.ui.glass.GlassDialog
+import dev.geode.ui.glass.GlassHorizontalTabs
+import dev.geode.ui.glass.GlassIcons
+import dev.geode.ui.glass.GlassListRow
+import dev.geode.ui.glass.GlassPalette
+import dev.geode.ui.glass.GlassSegmented
+import dev.geode.ui.glass.GlassSheet
+import dev.geode.ui.glass.GlassShapes
+import dev.geode.ui.glass.GlassTextField
+import dev.geode.ui.glass.floatOnWater
+import dev.geode.ui.glass.glassSurface
+import dev.geode.ui.glass.waterScroll
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
@@ -103,56 +115,30 @@ fun LibraryScreen(onOpenSearch: () -> Unit) {
     val shown = state.tracks
 
     Column(Modifier.fillMaxSize()) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                CrystalOverline(stringResource(R.string.app_name))
-                GlowTitle(stringResource(R.string.nav_library))
-            }
-            IconButton(onClick = onOpenSearch) { StoneIconArt(StoneIcon.SEARCH, stringResource(R.string.action_search)) }
-        }
+        LibraryHeader(onOpenSearch)
         if (!granted) {
-            val activity = LocalActivity.current
-            var asked by rememberSaveable { mutableStateOf(false) }
-            val canAskAgain =
-                activity == null ||
-                    !asked ||
-                    ActivityCompat.shouldShowRequestPermissionRationale(activity, permission)
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text(
-                    stringResource(
-                        if (canAskAgain) {
-                            R.string.library_permission_rationale
-                        } else {
-                            R.string.library_permission_denied_forever
-                        },
-                    ),
-                )
-                if (canAskAgain) {
-                    CrystalButton(onClick = {
-                        asked = true
-                        permLauncher.launch(permission)
-                    }) { Text(stringResource(R.string.library_permission_allow)) }
-                } else {
-                    val context = LocalContext.current
-                    CrystalButton(
-                        onClick = { context.openAppSettings() },
-                    ) { Text(stringResource(R.string.library_permission_open_settings)) }
-                }
-            }
+            LibraryPermissionGate(
+                permission = permission,
+                onGranted = permLauncher::launch,
+            )
             return
         }
-        CrystalTabs(titles = tabs, selected = tab, onSelect = { tab = it })
+        GlassHorizontalTabs(
+            titles = tabs,
+            selected = tab,
+            onSelect = { tab = it },
+            modifier = Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 4.dp),
+        )
         // Search and sort belong to the track-shaped tabs. Playlists are ordered by hand, and
         // re-sorting someone's running order out from under them would be a bug, not a feature.
         if (tab != PLAYLISTS_TAB && tab != DUPLICATES_TAB) {
-            OutlinedTextField(
+            GlassTextField(
                 value = state.query,
                 onValueChange = libraryViewModel::setQuery,
-                singleLine = true,
-                label = { Text(stringResource(R.string.library_search_hint)) },
+                placeholder = stringResource(R.string.library_search_hint),
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
             )
-            CrystalSegmented(
+            GlassSegmented(
                 options = LibrarySort.entries.map { stringResource(it.labelRes) },
                 selected = LibrarySort.entries.indexOf(state.sort),
                 onSelect = { libraryViewModel.setSort(LibrarySort.entries[it]) },
@@ -171,19 +157,100 @@ fun LibraryScreen(onOpenSearch: () -> Unit) {
 }
 
 @Composable
+private fun LibraryHeader(onOpenSearch: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(
+                stringResource(R.string.app_name),
+                style = MaterialTheme.typography.labelMedium,
+                color = GlassPalette.textSecondary,
+            )
+            Text(
+                stringResource(R.string.nav_library),
+                style = MaterialTheme.typography.headlineLarge,
+                color = GlassPalette.textPrimary,
+            )
+        }
+        GlassBubbleButton(
+            icon = GlassIcons.Search,
+            contentDescription = stringResource(R.string.action_search),
+            onClick = onOpenSearch,
+            size = 44.dp,
+        )
+    }
+}
+
+@Composable
+private fun LibraryPermissionGate(
+    permission: String,
+    onGranted: (String) -> Unit,
+) {
+    val activity = LocalActivity.current
+    var asked by rememberSaveable { mutableStateOf(false) }
+    val canAskAgain =
+        activity == null ||
+            !asked ||
+            ActivityCompat.shouldShowRequestPermissionRationale(activity, permission)
+    val context = LocalContext.current
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .padding(16.dp)
+            .glassSurface(shape = GlassShapes.tile)
+            .floatOnWater()
+            .padding(20.dp),
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Text(
+                stringResource(
+                    if (canAskAgain) R.string.library_permission_rationale else R.string.library_permission_denied_forever,
+                ),
+                color = GlassPalette.textPrimary,
+                style = MaterialTheme.typography.bodyLarge,
+            )
+            if (canAskAgain) {
+                GlassButton(
+                    text = stringResource(R.string.library_permission_allow),
+                    onClick = {
+                        asked = true
+                        onGranted(permission)
+                    },
+                )
+            } else {
+                GlassButton(
+                    text = stringResource(R.string.library_permission_open_settings),
+                    onClick = { context.openAppSettings() },
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun TrackList(
     tracks: List<DeviceTrack>,
     viewModel: PlayerViewModel,
     searching: Boolean = false,
 ) {
     val queue = remember(tracks) { tracks.map(PlaybackQueue::queueTrack) }
-    LazyColumn(Modifier.fillMaxSize()) {
-        items(tracks, key = { it.uri }) { t -> TrackRow(t, viewModel, queue = queue) }
+    // Collected once per list rather than per row, so a queue change recomposes this list one
+    // time instead of every currently visible row independently subscribing to the same flow.
+    val queueState by viewModel.queue.collectAsStateWithLifecycle()
+    val currentUri = queueState.tracks.getOrNull(queueState.index)?.uri
+    LazyColumn(
+        Modifier.fillMaxSize().waterScroll(),
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        items(tracks, key = { it.uri }) { t -> TrackRow(t, viewModel, queue = queue, currentUri = currentUri) }
         if (tracks.isEmpty()) {
             // An empty library and an empty result set are different problems, and telling
             // someone "no music found" mid-search would send them looking for the wrong fix.
             val empty = if (searching) R.string.library_no_results else R.string.library_no_music
-            item { Text(stringResource(empty), Modifier.padding(16.dp)) }
+            item { Text(stringResource(empty), color = GlassPalette.textSecondary) }
         }
     }
 }
@@ -194,76 +261,60 @@ private fun TrackRow(
     viewModel: PlayerViewModel,
     subtitleOverride: String? = null,
     queue: List<QueueTrack> = emptyList(),
+    currentUri: String? = null,
 ) {
     val libraryViewModel: LibraryViewModel = geodeViewModel()
     val overrides by libraryViewModel.trackOverrides.collectAsStateWithLifecycle()
     val stored = overrides[t.uri]
     val title = stored?.title?.ifBlank { null } ?: t.title
-    // Title, artist, album, duration and artwork \u2014 and nothing else. No tempo, no key, no
+    // Title, artist, album, duration and artwork — and nothing else. No tempo, no key, no
     // analysed badge: the library never waits on analysis, so it has nothing to report about it.
     val subtitle =
         subtitleOverride
             ?: listOf(
                 stored?.artist?.ifBlank { null } ?: t.artist,
                 stored?.album?.ifBlank { null } ?: t.album,
-            ).filter { it.isNotBlank() }.joinToString(" \u00b7 ")
+            ).filter { it.isNotBlank() }.joinToString(" · ")
     val duration = LibraryBrowse.formatDuration(t.durationMs)
     var menu by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf(false) }
     var addingToPlaylist by remember { mutableStateOf(false) }
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .clickable {
-                if (queue.isEmpty()) viewModel.playTrack(t.uri) else viewModel.playFrom(queue, t.uri)
-            }.padding(horizontal = 16.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        TrackArtwork(t.uri, Modifier.size(44.dp), corner = 8.dp)
-        Spacer(Modifier.width(12.dp))
-        Column(Modifier.weight(1f)) {
-            Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            if (subtitle.isNotBlank()) {
-                Text(
-                    subtitle,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-        }
-        if (duration.isNotBlank()) {
-            Text(
-                duration,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(start = 8.dp),
-            )
-        }
-        IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, stringResource(R.string.action_more)) }
-        DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-            DropdownMenuItem(text = { Text(stringResource(R.string.action_play_next)) }, onClick = {
-                viewModel.playNext(t.uri)
-                menu = false
-            })
-            DropdownMenuItem(text = { Text(stringResource(R.string.action_add_to_queue)) }, onClick = {
-                viewModel.enqueue(t.uri)
-                menu = false
-            })
-            DropdownMenuItem(text = { Text(stringResource(R.string.action_add_to_playlist)) }, onClick = {
-                addingToPlaylist = true
-                menu = false
-            })
-            DropdownMenuItem(text = { Text(stringResource(R.string.action_add_to_library_list)) }, onClick = {
-                libraryViewModel.importTracks(listOf(Uri.parse(t.uri)))
-                menu = false
-            })
-            DropdownMenuItem(text = { Text(stringResource(R.string.action_edit_track_info)) }, onClick = {
-                editing = true
-                menu = false
-            })
-        }
+    val current = currentUri == t.uri
+    val scale by animateFloatAsState(if (current) 1.03f else 1f, label = "libraryRowScale")
+    Box(Modifier.graphicsLayer { scaleX = scale; scaleY = scale }) {
+        GlassListRow(
+            title = title,
+            subtitle = subtitle.ifBlank { null },
+            selected = current,
+            leading = { TrackArtwork(t.uri, Modifier.size(40.dp)) },
+            trailing = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (duration.isNotBlank()) {
+                        Text(
+                            duration,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = GlassPalette.textSecondary,
+                            modifier = Modifier.padding(end = 4.dp),
+                        )
+                    }
+                    Box {
+                        IconButton(onClick = { menu = true }) {
+                            Icon(Icons.Filled.MoreVert, stringResource(R.string.action_more), tint = GlassPalette.textSecondary)
+                        }
+                        TrackRowMenu(
+                            expanded = menu,
+                            onDismiss = { menu = false },
+                            viewModel = viewModel,
+                            libraryViewModel = libraryViewModel,
+                            uri = t.uri,
+                            onEdit = { editing = true },
+                            onAddToPlaylist = { addingToPlaylist = true },
+                        )
+                    }
+                }
+            },
+            onClick = { if (queue.isEmpty()) viewModel.playTrack(t.uri) else viewModel.playFrom(queue, t.uri) },
+        )
     }
     if (editing) {
         TrackInfoEditor(uri = t.uri, viewModel = libraryViewModel, onDismiss = { editing = false })
@@ -273,6 +324,41 @@ private fun TrackRow(
     }
 }
 
+@Composable
+private fun TrackRowMenu(
+    expanded: Boolean,
+    onDismiss: () -> Unit,
+    viewModel: PlayerViewModel,
+    libraryViewModel: LibraryViewModel,
+    uri: String,
+    onEdit: () -> Unit,
+    onAddToPlaylist: () -> Unit,
+) {
+    DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
+        DropdownMenuItem(text = { Text(stringResource(R.string.action_play_next)) }, onClick = {
+            viewModel.playNext(uri)
+            onDismiss()
+        })
+        DropdownMenuItem(text = { Text(stringResource(R.string.action_add_to_queue)) }, onClick = {
+            viewModel.enqueue(uri)
+            onDismiss()
+        })
+        DropdownMenuItem(text = { Text(stringResource(R.string.action_add_to_playlist)) }, onClick = {
+            onAddToPlaylist()
+            onDismiss()
+        })
+        DropdownMenuItem(text = { Text(stringResource(R.string.action_add_to_library_list)) }, onClick = {
+            libraryViewModel.importTracks(listOf(Uri.parse(uri)))
+            onDismiss()
+        })
+        DropdownMenuItem(text = { Text(stringResource(R.string.action_edit_track_info)) }, onClick = {
+            onEdit()
+            onDismiss()
+        })
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AddToPlaylistDialog(
     uri: String,
@@ -294,34 +380,32 @@ private fun AddToPlaylistDialog(
         )
         return
     }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.action_add_to_playlist)) },
-        text = {
+    GlassSheet(onDismissRequest = onDismiss) {
+        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(
+                stringResource(R.string.action_add_to_playlist),
+                style = MaterialTheme.typography.titleLarge,
+                color = GlassPalette.textPrimary,
+            )
             Column(Modifier.verticalScroll(rememberScrollState())) {
                 library.playlists.forEach { pl ->
-                    Text(
-                        pl.name,
-                        Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                viewModel.addTrackToPlaylist(pl.name, uri)
-                                onDismiss()
-                            }.padding(vertical = 10.dp),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
+                    GlassListRow(
+                        title = pl.name,
+                        modifier = Modifier.padding(vertical = 4.dp),
+                        onClick = {
+                            viewModel.addTrackToPlaylist(pl.name, uri)
+                            onDismiss()
+                        },
                     )
                 }
-                Text(
-                    stringResource(R.string.playlist_new_branch),
-                    Modifier.fillMaxWidth().clickable { naming = true }.padding(vertical = 10.dp),
-                    color = accentTextColor(),
+                GlassButton(
+                    text = stringResource(R.string.playlist_new_branch),
+                    onClick = { naming = true },
+                    modifier = Modifier.padding(top = 8.dp),
                 )
             }
-        },
-        confirmButton = {},
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
-    )
+        }
+    }
 }
 
 @Composable
@@ -333,51 +417,66 @@ private fun GroupList(
     val sel = open
     val dismiss = rememberPredictiveDismiss(enabled = sel != null) { open = null }
     if (sel != null && groups.containsKey(sel)) {
-        Column(Modifier.dismissTransform(dismiss)) {
-            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    stringResource(R.string.library_back),
-                    Modifier.clickable { open = null }.padding(end = 12.dp),
-                    color = accentTextColor(),
+        GroupDetail(sel, groups.getValue(sel), viewModel, onBack = { open = null }, dismissModifier = Modifier.dismissTransform(dismiss))
+    } else {
+        LazyColumn(
+            Modifier.fillMaxSize().waterScroll(),
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            items(groups.keys.sorted()) { g ->
+                GlassListRow(
+                    title = g.ifEmpty { stringResource(R.string.library_group_unnamed) },
+                    subtitle =
+                        pluralStringResource(R.plurals.track_count, groups.getValue(g).size, groups.getValue(g).size),
+                    leading = { Icon(GlassIcons.MusicNote, null, tint = GlassPalette.textSecondary) },
+                    trailing = { Icon(Icons.Outlined.KeyboardArrowRight, null, tint = GlassPalette.textSecondary) },
+                    onClick = { open = g },
                 )
-                Text(sel, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
-            val queue = remember(sel, groups) { groups.getValue(sel).map(PlaybackQueue::queueTrack) }
-            Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                CrystalButton(compact = true, onClick = { viewModel.playAll(queue) }) { Text(stringResource(R.string.library_play_all)) }
-                CrystalButton(compact = true, filled = false, onClick = {
-                    viewModel.playAll(queue, shuffled = true)
-                }) { Text(stringResource(R.string.action_shuffle)) }
-            }
-            LazyColumn(Modifier.fillMaxSize()) {
-                items(groups.getValue(sel), key = { it.uri }) { t ->
-                    TrackRow(t, viewModel, subtitleOverride = t.album, queue = queue)
-                }
             }
         }
-    } else {
-        LazyColumn(Modifier.fillMaxSize()) {
-            items(groups.keys.sorted()) { g ->
-                Row(
-                    Modifier.fillMaxWidth().clickable { open = g }.padding(horizontal = 16.dp, vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Column(Modifier.weight(1f)) {
-                        Text(
-                            g.ifEmpty { stringResource(R.string.library_group_unnamed) },
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                        Text(
-                            pluralStringResource(
-                                R.plurals.track_count,
-                                groups.getValue(g).size,
-                                groups.getValue(g).size,
-                            ),
-                            style = MaterialTheme.typography.bodySmall,
-                        )
-                    }
-                }
+    }
+}
+
+@Composable
+private fun GroupDetail(
+    name: String,
+    tracks: List<DeviceTrack>,
+    viewModel: PlayerViewModel,
+    onBack: () -> Unit,
+    dismissModifier: Modifier,
+) {
+    Column(dismissModifier) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+            GlassBubbleButton(
+                icon = GlassIcons.Previous,
+                contentDescription = stringResource(R.string.library_back),
+                onClick = onBack,
+                size = 32.dp,
+                modifier = Modifier.padding(end = 12.dp),
+            )
+            Text(
+                name,
+                style = MaterialTheme.typography.titleMedium,
+                color = GlassPalette.textPrimary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        val queue = remember(name, tracks) { tracks.map(PlaybackQueue::queueTrack) }
+        val queueState by viewModel.queue.collectAsStateWithLifecycle()
+        val currentUri = queueState.tracks.getOrNull(queueState.index)?.uri
+        Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            GlassButton(text = stringResource(R.string.library_play_all), onClick = { viewModel.playAll(queue) })
+            GlassButton(text = stringResource(R.string.action_shuffle), onClick = { viewModel.playAll(queue, shuffled = true) })
+        }
+        LazyColumn(
+            Modifier.fillMaxSize().waterScroll(),
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            items(tracks, key = { it.uri }) { t ->
+                TrackRow(t, viewModel, subtitleOverride = t.album, queue = queue, currentUri = currentUri)
             }
         }
     }
@@ -404,154 +503,201 @@ private fun PlaylistsTab(viewModel: LibraryViewModel) {
             Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            CrystalButton(compact = true, filled = false, onClick = { creating = true }) { Text(stringResource(R.string.playlist_new)) }
-            CrystalButton(
-                compact = true,
-                filled = false,
+            GlassButton(text = stringResource(R.string.playlist_new), onClick = { creating = true })
+            GlassButton(
+                text = stringResource(R.string.playlist_import_action),
                 onClick = { importPicker.launch(arrayOf("*/*")) },
-            ) { Text(stringResource(R.string.playlist_import_action)) }
+            )
         }
-        LazyColumn(Modifier.fillMaxSize()) {
+        LazyColumn(
+            Modifier.fillMaxSize().waterScroll(),
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
             item { SmartPlaylistsSection(viewModel) }
             items(library.playlists, key = { it.name }) { pl ->
-                Column(Modifier.fillMaxWidth()) {
-                    Row(
-                        Modifier
-                            .fillMaxWidth()
-                            .clickable { expanded = if (expanded == pl.name) null else pl.name }
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Column(Modifier.weight(1f)) {
-                            Text(pl.name)
-                            Text(
-                                pluralStringResource(
-                                    R.plurals.track_count,
-                                    pl.trackUris.size,
-                                    pl.trackUris.size,
-                                ),
-                                style = MaterialTheme.typography.bodySmall,
-                            )
-                        }
-                        IconButton(onClick = {
-                            renaming = pl.name
-                            renameText = pl.name
-                        }) { StoneIconArt(StoneIcon.EDIT, stringResource(R.string.action_rename)) }
-                        IconButton(onClick = { viewModel.playPlaylist(pl.name) }) {
-                            StoneIconArt(StoneIcon.PLAY, stringResource(R.string.action_play))
-                        }
-                        IconButton(onClick = { deleting = pl.name }) {
-                            StoneIconArt(StoneIcon.CLOSE, stringResource(R.string.playlist_delete_title))
-                        }
-                    }
-                    if (expanded == pl.name) {
-                        PlaylistTracks(pl, library.tracks, viewModel)
-                    }
-                }
+                PlaylistRow(
+                    pl = pl,
+                    expanded = expanded == pl.name,
+                    onToggle = { expanded = if (expanded == pl.name) null else pl.name },
+                    onRename = {
+                        renaming = pl.name
+                        renameText = pl.name
+                    },
+                    onPlay = { viewModel.playPlaylist(pl.name) },
+                    onDelete = { deleting = pl.name },
+                    tracks = library.tracks,
+                    viewModel = viewModel,
+                )
             }
             if (library.playlists.isEmpty()) {
-                item {
-                    Text(
-                        stringResource(R.string.playlist_none_yet),
-                        Modifier.padding(16.dp),
-                    )
-                }
+                item { Text(stringResource(R.string.playlist_none_yet), color = GlassPalette.textSecondary) }
             }
         }
     }
+    PlaylistsTabDialogs(
+        viewModel = viewModel,
+        library = library,
+        creating = creating,
+        onCreatingDone = { creating = false },
+        deleting = deleting,
+        onDeletingDone = { deleting = null },
+        renaming = renaming,
+        renameText = renameText,
+        onRenameTextChange = { renameText = it },
+        onRenamingDone = { renaming = null },
+        importResult = importResult,
+        onImportResultDone = { importResult = null },
+    )
+}
+
+@Composable
+private fun PlaylistRow(
+    pl: MusicPlaylist,
+    expanded: Boolean,
+    onToggle: () -> Unit,
+    onRename: () -> Unit,
+    onPlay: () -> Unit,
+    onDelete: () -> Unit,
+    tracks: List<LibraryTrack>,
+    viewModel: LibraryViewModel,
+) {
+    Column(Modifier.fillMaxWidth()) {
+        GlassListRow(
+            title = pl.name,
+            subtitle = pluralStringResource(R.plurals.track_count, pl.trackUris.size, pl.trackUris.size),
+            leading = { Icon(GlassIcons.ListIcon, null, tint = GlassPalette.textSecondary) },
+            selected = expanded,
+            trailing = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    GlassBubbleButton(Icons.Outlined.Edit, stringResource(R.string.action_rename), onRename, size = 32.dp)
+                    GlassBubbleButton(GlassIcons.Play, stringResource(R.string.action_play), onPlay, size = 32.dp)
+                    GlassBubbleButton(GlassIcons.Close, stringResource(R.string.playlist_delete_title), onDelete, size = 32.dp)
+                }
+            },
+            onClick = onToggle,
+        )
+        if (expanded) {
+            PlaylistTracks(pl, tracks, viewModel)
+        }
+    }
+}
+
+@Composable
+private fun PlaylistsTabDialogs(
+    viewModel: LibraryViewModel,
+    library: LibraryState,
+    creating: Boolean,
+    onCreatingDone: () -> Unit,
+    deleting: String?,
+    onDeletingDone: () -> Unit,
+    renaming: String?,
+    renameText: String,
+    onRenameTextChange: (String) -> Unit,
+    onRenamingDone: () -> Unit,
+    importResult: PlaylistImportResult?,
+    onImportResultDone: () -> Unit,
+) {
     if (creating) {
         PlaylistNameDialog(
             title = stringResource(R.string.playlist_new),
             confirmLabel = stringResource(R.string.action_create),
             taken = library.playlists.map { it.name }.toSet(),
             onName = viewModel::createMusicPlaylist,
-            onDismiss = { creating = false },
+            onDismiss = onCreatingDone,
         )
     }
     deleting?.let { doomed ->
-        AlertDialog(
-            onDismissRequest = { deleting = null },
-            title = { Text(stringResource(R.string.playlist_delete_title)) },
-            text = { Text(stringResource(R.string.playlist_delete_body, doomed)) },
-            confirmButton = {
-                CrystalButton(onClick = {
-                    viewModel.deleteMusicPlaylist(doomed)
-                    deleting = null
-                }) { Text(stringResource(R.string.action_delete)) }
-            },
-            dismissButton = { TextButton(onClick = { deleting = null }) { Text(stringResource(R.string.action_cancel)) } },
-        )
-    }
-    renaming?.let { old ->
-        val proposed = renameText.trim()
-        val otherNames =
-            library.playlists
-                .map { it.name }
-                .filterNot { it == old }
-                .toSet()
-        val nameOk = playlistNameAccepted(proposed, otherNames)
-        AlertDialog(
-            onDismissRequest = { renaming = null },
-            title = { Text(stringResource(R.string.playlist_rename_title)) },
-            text = {
-                Column {
-                    OutlinedTextField(value = renameText, onValueChange = { renameText = it }, singleLine = true)
-                    if (!nameOk) {
-                        Text(
-                            if (proposed.isEmpty()) {
-                                stringResource(R.string.playlist_name_required)
-                            } else {
-                                stringResource(R.string.playlist_name_taken, proposed)
-                            },
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.error,
-                        )
-                    }
-                }
-            },
-            confirmButton = {
-                CrystalButton(enabled = nameOk, onClick = {
-                    viewModel.renameMusicPlaylist(old, proposed)
-                    renaming = null
-                }) { Text(stringResource(R.string.action_rename)) }
-            },
-            dismissButton = { TextButton(onClick = { renaming = null }) { Text(stringResource(R.string.action_cancel)) } },
-        )
-    }
-    importResult?.let { result ->
-        AlertDialog(
-            onDismissRequest = { importResult = null },
-            title = {
-                Text(
-                    stringResource(
-                        if (result is PlaylistImportResult.Imported) {
-                            R.string.playlist_import_done_title
-                        } else {
-                            R.string.playlist_import_failed_title
-                        },
-                    ),
-                )
-            },
-            text = {
-                Text(
-                    when (result) {
-                        is PlaylistImportResult.Imported ->
-                            stringResource(
-                                R.string.playlist_import_summary,
-                                result.name,
-                                result.addedCount,
-                                result.unresolvedCount,
-                                result.ambiguousCount,
-                            )
-                        // result.why is a diagnostic detail, not user-facing text; the dialog always
-                        // shows one generic, localized failure message instead.
-                        is PlaylistImportResult.Failed -> stringResource(R.string.playlist_import_failed_body)
+        GlassDialog(
+            onDismissRequest = onDeletingDone,
+            title = stringResource(R.string.playlist_delete_title),
+            text = stringResource(R.string.playlist_delete_body, doomed),
+            actions = {
+                GlassButton(text = stringResource(R.string.action_cancel), onClick = onDeletingDone)
+                GlassButton(
+                    text = stringResource(R.string.action_delete),
+                    tint = GlassPalette.pink,
+                    onClick = {
+                        viewModel.deleteMusicPlaylist(doomed)
+                        onDeletingDone()
                     },
                 )
             },
-            confirmButton = { TextButton(onClick = { importResult = null }) { Text(stringResource(R.string.action_ok)) } },
         )
     }
+    renaming?.let { old -> RenamePlaylistSheet(viewModel, library, old, renameText, onRenameTextChange, onRenamingDone) }
+    importResult?.let { result -> ImportResultDialog(result, onImportResultDone) }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun RenamePlaylistSheet(
+    viewModel: LibraryViewModel,
+    library: LibraryState,
+    old: String,
+    renameText: String,
+    onRenameTextChange: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val proposed = renameText.trim()
+    val otherNames = library.playlists.map { it.name }.filterNot { it == old }.toSet()
+    val nameOk = playlistNameAccepted(proposed, otherNames)
+    GlassSheet(onDismissRequest = onDismiss) {
+        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(stringResource(R.string.playlist_rename_title), style = MaterialTheme.typography.titleLarge, color = GlassPalette.textPrimary)
+            GlassTextField(value = renameText, onValueChange = onRenameTextChange, modifier = Modifier.fillMaxWidth())
+            if (!nameOk) {
+                Text(
+                    if (proposed.isEmpty()) {
+                        stringResource(R.string.playlist_name_required)
+                    } else {
+                        stringResource(R.string.playlist_name_taken, proposed)
+                    },
+                    style = MaterialTheme.typography.labelSmall,
+                    color = GlassPalette.pink,
+                )
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                GlassButton(text = stringResource(R.string.action_cancel), onClick = onDismiss)
+                GlassButton(
+                    text = stringResource(R.string.action_rename),
+                    onClick = {
+                        viewModel.renameMusicPlaylist(old, proposed)
+                        onDismiss()
+                    },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ImportResultDialog(
+    result: PlaylistImportResult,
+    onDismiss: () -> Unit,
+) {
+    GlassDialog(
+        onDismissRequest = onDismiss,
+        title =
+            stringResource(
+                if (result is PlaylistImportResult.Imported) R.string.playlist_import_done_title else R.string.playlist_import_failed_title,
+            ),
+        text =
+            when (result) {
+                is PlaylistImportResult.Imported ->
+                    stringResource(
+                        R.string.playlist_import_summary,
+                        result.name,
+                        result.addedCount,
+                        result.unresolvedCount,
+                        result.ambiguousCount,
+                    )
+                // result.why is a diagnostic detail, not user-facing text; the dialog always
+                // shows one generic, localized failure message instead.
+                is PlaylistImportResult.Failed -> stringResource(R.string.playlist_import_failed_body)
+            },
+        actions = { GlassButton(text = stringResource(R.string.action_ok), onClick = onDismiss) },
+    )
 }
 
 internal fun playlistDropIndex(
@@ -588,7 +734,7 @@ private fun PlaylistTracks(
     var dragOffset by remember(playlist.name) { mutableFloatStateOf(0f) }
     var rowHeight by remember(playlist.name) { mutableIntStateOf(0) }
     val dropIndex = playlistDropIndex(dragFrom, dragOffset, rowHeight, count)
-    val liftTint = MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)
+    val liftTint = GlassPalette.mint.copy(alpha = 0.14f)
     playlist.trackUris.forEachIndexed { i, uri ->
         val t = tracks.firstOrNull { it.uri == uri }
         val dragging = i == dragFrom
@@ -630,7 +776,7 @@ private fun PlaylistTracks(
                 Icons.Filled.DragHandle,
                 null,
                 Modifier.size(18.dp).padding(end = 2.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                tint = GlassPalette.textSecondary,
             )
             Text(
                 t?.title ?: stringResource(R.string.playlist_untitled_track, i + 1),
@@ -638,17 +784,23 @@ private fun PlaylistTracks(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 style = MaterialTheme.typography.bodySmall,
+                color = GlassPalette.textPrimary,
             )
             IconButton(
                 onClick = { viewModel.moveMusicPlaylistTrack(playlist.name, i, i - 1) },
                 enabled = i > 0,
-            ) { Icon(Icons.Filled.KeyboardArrowUp, stringResource(R.string.action_up)) }
+            ) { Icon(Icons.Filled.KeyboardArrowUp, stringResource(R.string.action_up), tint = GlassPalette.textSecondary) }
             IconButton(
                 onClick = { viewModel.moveMusicPlaylistTrack(playlist.name, i, i + 1) },
                 enabled = i < count - 1,
-            ) { Icon(Icons.Filled.KeyboardArrowDown, stringResource(R.string.action_down)) }
+            ) { Icon(Icons.Filled.KeyboardArrowDown, stringResource(R.string.action_down), tint = GlassPalette.textSecondary) }
             IconButton(onClick = { viewModel.removeTrackFromPlaylist(playlist.name, uri) }) {
-                StoneIconArt(StoneIcon.CLOSE, stringResource(R.string.action_remove_from_playlist), Modifier.size(18.dp))
+                Icon(
+                    GlassIcons.Close,
+                    stringResource(R.string.action_remove_from_playlist),
+                    Modifier.size(18.dp),
+                    tint = GlassPalette.textSecondary,
+                )
             }
         }
     }
@@ -671,48 +823,41 @@ private fun FoldersTab(
             stringResource(R.string.folders_library),
             Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
             style = MaterialTheme.typography.titleSmall,
+            color = GlassPalette.textPrimary,
         )
         roots.sorted().forEach { root ->
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
+            GlassListRow(
+                title =
                     java.net.URLDecoder
                         .decode(root.substringAfterLast("%3A").substringAfterLast("/"), "UTF-8")
                         .ifBlank { root },
-                    Modifier.weight(1f),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    style = MaterialTheme.typography.bodySmall,
-                )
-                IconButton(onClick = { libraryViewModel.removeMediaRoot(root) }) {
-                    StoneIconArt(StoneIcon.CLOSE, stringResource(R.string.folders_remove))
-                }
-            }
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                trailing = {
+                    GlassBubbleButton(
+                        icon = GlassIcons.Close,
+                        contentDescription = stringResource(R.string.folders_remove),
+                        onClick = { libraryViewModel.removeMediaRoot(root) },
+                        size = 32.dp,
+                    )
+                },
+            )
         }
         Row(
             Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            CrystalButton(
-                compact = true,
-                filled = false,
-                onClick = { folderPicker.launch(null) },
-            ) { Text(stringResource(R.string.folders_add)) }
-            CrystalButton(
-                compact = true,
-                filled = false,
+            GlassButton(text = stringResource(R.string.folders_add), onClick = { folderPicker.launch(null) })
+            GlassButton(
+                text = stringResource(if (scanning) R.string.folders_scanning else R.string.folders_rescan),
                 onClick = libraryViewModel::rescanMediaRoots,
                 enabled = roots.isNotEmpty() && !scanning,
-            ) {
-                Text(stringResource(if (scanning) R.string.folders_scanning else R.string.folders_rescan))
-            }
+            )
         }
         Text(
             stringResource(R.string.folders_device),
             Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
             style = MaterialTheme.typography.bodySmall,
+            color = GlassPalette.textSecondary,
         )
         GroupList(FolderTree.rows(folders), viewModel)
     }

@@ -14,7 +14,6 @@ uniform float uBass;
 uniform float uMid;
 uniform float uTreble;
 uniform float uEnergy;
-uniform float uBeat;
 uniform sampler2D uAudioTex;
 uniform float uSpeed;
 uniform float uZoom;
@@ -27,7 +26,6 @@ uniform float uBright;
 uniform float uInvert;
 uniform float uIntensity;
 uniform float uMirrorX;
-uniform float uBeatResponse;
 uniform float uTurbulence;
 uniform float uPalBase;
 uniform float uPalRange;
@@ -46,16 +44,19 @@ uniform float uMorph;
 uniform float uPixelate;
 uniform float uPosterize;
 uniform float uSway;
-uniform float uPulse;
-uniform float uBeatPhase;
 uniform float uDriftX;
 uniform float uDriftY;
-uniform float uShake;
 uniform float uTile;
 uniform float uTwist;
 uniform float uTemperature;
 uniform float uSolarize;
-uniform float uFlash;
+// ---- wave three: continuous motion (see lib_scene_motion.glsl) ------------
+uniform float uBreath;
+uniform vec2 uOrbit;
+uniform float uDrift;
+uniform float uMotion;
+uniform float uBarOsc;
+uniform float uMotionBright;
 
 float aband(float x) { return texture(uAudioTex, vec2(clamp(x, 0.0, 1.0), 0.25)).r; }
 float awave(float x) { return texture(uAudioTex, vec2(clamp(x, 0.0, 1.0), 0.75)).r; }
@@ -88,23 +89,17 @@ vec2 view() {
     // for good and stranding the user on a black screen.
     vec2 driftPhase = fract(vec2(uDriftX, uDriftY) * uTime * 0.025 + 0.25);
     uv += 1.0 - 2.0 * abs(2.0 * driftPhase - 1.0);
-    uv += uShake * uBeat * 0.03 * vec2(sin(uTime * 91.7), cos(uTime * 77.3));
-    float a = uRotation + uSway * 0.35 * sin(uTime * 0.7);
+    // Wave three: continuous breathing and a slow orbiting pan replace the
+    // beat-triggered shake; a slow accumulated drift replaces the beat pulse.
+    uv *= uBreath;
+    uv += uOrbit * 0.12 * uMotion;
+    float a = uRotation + uSway * 0.35 * sin(uTime * 0.7) + uDrift * uMotion;
     uv = mat2(cos(a), -sin(a), sin(a), cos(a)) * uv;
-    // Beat-locked pulse: peaks exactly on the musical beat (uBeatPhase=0), and
-    // rides the beat ENVELOPE so it is zero between hits. The phase clock in
-    // ShaderScene free-runs at the last detected tempo, so without the
-    // envelope the frame kept breathing once a beat through silence; every
-    // other family gets this slider as CompositeGrade.pulseAmount (the slider
-    // times the SQUARED envelope), and one slider has to mean one thing.
-    float beatEnv = clamp(uBeat, 0.0, 1.0);
-    float beatBump = pow(0.5 + 0.5 * cos(6.2831853 * uBeatPhase), 2.0);
-    float pulse = 1.0 + uPulse * 0.22 * beatEnv * beatEnv * beatBump;
     // Triangle-wave exponent: 1x -> 2x -> 1x smoothly, so the endless-zoom
     // phase wrap never causes a visible scale pop (2^1 snapping to 2^0). The
     // milkdrop post pass (pm_post_frag) already spells it this way; a sawtooth
     // exponent halved the magnification once per cycle on every scene shader.
-    float z = uZoom * pulse * pow(2.0, 1.0 - abs(2.0 * uZoomPhase - 1.0)) * (1.0 + uBeat * uBeatResponse * 0.15);
+    float z = uZoom * pow(2.0, 1.0 - abs(2.0 * uZoomPhase - 1.0));
     uv /= max(z, 0.05);
     uv += uTurbulence * 0.06 * vec2(sin(uv.y * 6.0 + uTime), cos(uv.x * 6.0 + uTime * 1.3));
     // Radial twist: rotate by an angle growing with radius.
@@ -145,7 +140,6 @@ vec3 grade(vec3 col) {
     col.r += uTemperature * 0.12;
     col.b -= uTemperature * 0.12;
     if (uSolarize > 0.5) col = abs(1.0 - 2.0 * col);
-    col += uFlash * uBeat * 0.6;
     col = col * uBright * uIntensity;
     return mix(col, max(vec3(1.0) - col, 0.0), uInvert);
 }
@@ -163,6 +157,7 @@ vec4 hexCoords(vec2 uv) {
     vec2 gv = dot(a, a) < dot(b, b) ? a : b;
     return vec4(gv, uv - gv);
 }
+// motion: uBarOsc -> phase-locked sweep across the tile edges (was beat*beatResponse), uMotionBright -> edge line weight
 void main() {
     vec2 uv = view() * (5.0 + uMorph * 6.0);
     vec4 hc = hexCoords(uv + vec2(0.0, uTime * 0.4));
@@ -170,7 +165,7 @@ void main() {
     float e = aband(band) * (0.5 + uEnergy);
     float d = hexDist(hc.xy);
     float cell = smoothstep(0.5, 0.46, d);
-    float edge = smoothstep(0.035, 0.0, abs(d - 0.45));
-    vec3 col = pal(band) * (cell * e + edge * (0.25 + uTreble + uBeat * uBeatResponse * 0.3));
+    float edge = smoothstep(0.035 + 0.02 * uMotionBright, 0.0, abs(d - 0.45));
+    vec3 col = pal(band) * (cell * e + edge * (0.25 + uTreble + uBarOsc * 0.3));
     fragColor = vec4(grade(col), 1.0);
 }

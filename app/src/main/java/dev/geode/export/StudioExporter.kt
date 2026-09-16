@@ -21,6 +21,7 @@ import dev.geode.R
 import dev.geode.RingLog
 import dev.geode.util.bestEffort
 import kotlinx.coroutines.CancellableContinuation
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -63,6 +64,13 @@ class StudioExporter(
 
     @Volatile
     private var cancelled = false
+
+    // Completed in exportComposition's finally, once the scratch file is cleaned up and the
+    // transformer field is cleared — so a caller that awaits cancel() knows it is safe to start
+    // a new export on this instance's single @Volatile transformer field. Pre-completed so that
+    // cancel() called with no export in flight returns immediately instead of hanging.
+    @Volatile
+    private var completion: CompletableDeferred<Unit> = CompletableDeferred(Unit)
 
     suspend fun export(
         source: Uri,
@@ -107,6 +115,7 @@ class StudioExporter(
         onProgress: (Float) -> Unit,
     ): Result {
         cancelled = false
+        completion = CompletableDeferred()
         val scratch = File(context.cacheDir, "studio-${System.currentTimeMillis()}.mp4")
         try {
             val outcome =
@@ -125,6 +134,7 @@ class StudioExporter(
             }
         } finally {
             scratch.delete()
+            completion.complete(Unit)
         }
     }
 
@@ -193,9 +203,16 @@ class StudioExporter(
             if (outputDurationMs <= 0L) onProgress(0f)
         }
 
-    fun cancel() {
+    /**
+     * Requests cancellation and suspends until the in-flight export (if any) has actually wound
+     * down — the Transformer stopped, the scratch file removed and [transformer] cleared — so a
+     * caller only returns to an idle UI, or starts a new export, once this instance is safe to
+     * reuse. Returns immediately when nothing is exporting.
+     */
+    suspend fun cancel() {
         cancelled = true
         bestEffort(TAG, "transformer?.cancel()") { transformer?.cancel() }
+        completion.await()
     }
 
     private fun publish(

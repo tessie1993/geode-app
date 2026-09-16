@@ -21,6 +21,7 @@ import dev.geode.render.SceneFactory
 import dev.geode.render.TransitionStyle
 import dev.geode.render.scene.PcmChunk
 import dev.geode.render.scene.SceneParams
+import dev.geode.viz.ArtTitleOptions
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import javax.inject.Inject
@@ -73,6 +74,17 @@ class PlayerViewModel
         val vizApply: SharedFlow<VizApply> get() = session.vizApply
 
         val morphFade: SharedFlow<Float> get() = session.morphFade
+
+        internal val overlayPixels: StateFlow<OverlayPixels> get() = session.overlayPixels
+
+        internal val overlayOptions: StateFlow<ArtTitleOptions> get() = session.overlayOptions
+
+        internal fun setOverlayOptions(transform: (ArtTitleOptions) -> ArtTitleOptions) = session.setOverlayOptions(transform)
+
+        internal fun setOverlaySurfaceSize(
+            width: Int,
+            height: Int,
+        ) = session.setOverlaySurfaceSize(width, height)
 
         fun setMicEnabled(enabled: Boolean): MicCapture.Failure? = session.setMicEnabled(enabled)
 

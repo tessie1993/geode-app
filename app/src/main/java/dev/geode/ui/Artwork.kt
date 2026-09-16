@@ -7,12 +7,12 @@ import android.os.Build
 import android.util.LruCache
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -23,17 +23,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import dev.geode.playback.MediaArtwork
+import dev.geode.ui.glass.GlassElevation
+import dev.geode.ui.glass.GlassPalette
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -155,11 +155,11 @@ fun VideoFrame(
     LaunchedEffect(uri, atMs) {
         if (uri != null && frame == null && !inspecting) frame = VideoFrameCache.frame(context, uri, atMs)
     }
+    val shape = androidx.compose.foundation.shape.RoundedCornerShape(corner)
     Box(
-        modifier.clip(
-            androidx.compose.foundation.shape
-                .RoundedCornerShape(corner),
-        ),
+        modifier
+            .clip(shape)
+            .border(GlassElevation.rimWidth, GlassPalette.glassRim, shape),
     ) {
         val bitmap = frame
         if (bitmap != null) {
@@ -187,11 +187,11 @@ fun TrackArtwork(
     LaunchedEffect(uri) {
         if (uri != null && art == null && !inspecting) art = ArtworkCache.load(context, uri)
     }
+    val shape = androidx.compose.foundation.shape.RoundedCornerShape(corner)
     Box(
-        modifier.clip(
-            androidx.compose.foundation.shape
-                .RoundedCornerShape(corner),
-        ),
+        modifier
+            .clip(shape)
+            .border(GlassElevation.rimWidth, GlassPalette.glassRim, shape),
     ) {
         val bitmap = art
         if (bitmap != null) {
@@ -207,20 +207,19 @@ fun TrackArtwork(
                     Icons.Filled.MusicNote,
                     null,
                     Modifier.align(Alignment.Center),
-                    tint = lerp(MaterialTheme.colorScheme.primary, Color.White, 0.75f).copy(alpha = 0.6f),
+                    tint = GlassPalette.textPrimary.copy(alpha = 0.6f),
                 )
             }
         }
     }
 }
 
+/** A pastel wash from the liquid-glass palette, picked deterministically from the track's uri. */
 fun placeholderBrush(uri: String?): Brush {
     val hash = (uri ?: "").hashCode()
-    val hue = ((hash ushr 8) % 360 + 360) % 360
-    return Brush.linearGradient(
-        listOf(
-            Color.hsv(hue.toFloat(), 0.55f, 0.42f),
-            Color.hsv(((hue + 58) % 360).toFloat(), 0.62f, 0.22f),
-        ),
-    )
+    val palette =
+        listOf(GlassPalette.mint, GlassPalette.lavender, GlassPalette.peach, GlassPalette.pink, GlassPalette.sky)
+    val from = palette[((hash ushr 4) % palette.size + palette.size) % palette.size]
+    val to = palette[((hash ushr 12) % palette.size + palette.size) % palette.size]
+    return Brush.linearGradient(listOf(from.copy(alpha = 0.55f), to.copy(alpha = 0.3f)))
 }

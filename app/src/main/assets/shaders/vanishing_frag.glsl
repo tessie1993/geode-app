@@ -22,6 +22,10 @@ out vec4 fragColor;
 //#include lib_touch
 //#include lib_dmt
 
+// motion: uFlowPhase -> the shell that sweeps outward through the stack
+// (a continuous travel phase, its rate already set by uEnergyRel on the CPU),
+// uBassRel -> its brightness
+//
 // ===========================================================================
 // VANISHING - the Droste effect, volumetric.
 //
@@ -369,13 +373,17 @@ const float CORE_GAIN = 0.95;
 const float HALO_GAIN = 0.20;
 
 /**
- * The beat shell: born FLARE_BIRTH e-folds inside the viewer, travelling
- * FLARE_SPAN e-folds outward over one beat.
+ * The travelling shell: born FLARE_BIRTH e-folds inside the viewer,
+ * travelling FLARE_SPAN e-folds outward over one FLARE_PERIOD.
  *
- * Position rides uBeatPhase, which RESETS to 0 on a heard transient, so the
- * front restarts deep in the corridor on every hit and free-runs outward
- * between them; amplitude rides the SQUARED beat envelope, so it is silent in
- * silence rather than pulsing through it at the last known tempo.
+ * Position rides a wrapped fraction of uFlowPhase, the monotonically
+ * advancing travel clock - continuous and never reset by a transient, so the
+ * front sweeps outward through the corridor and wraps back to the start
+ * rather than snapping to it. uFlowPhase's rate already answers to loudness
+ * (uEnergyRel, set on the CPU), so a loud passage sweeps the shell faster.
+ * Amplitude rides relative bass level above its running average, so it is
+ * silent in a quiet passage rather than pulsing through it at the last
+ * detected tempo.
  *
  * FLARE_TAPER is a photosensitivity term, not an aesthetic one. The front
  * covers the most screen area exactly when it reaches the shell enclosing the
@@ -385,6 +393,8 @@ const float HALO_GAIN = 0.20;
  * that peak is a little over half a palette step on lit material.
  */
 const float FLARE_BIRTH = -2.6;
+/** Bars-per-second-equivalent rate the travelling shell's phase wraps at. */
+const float FLARE_RATE = 0.11;
 
 /**
  * The bank: lib_dmt satellites orbiting the centre the corridor falls toward,
@@ -723,16 +733,17 @@ void main() {
         // diffuse, so the grain and the relief still read as surface.
         col = dmtShade(n, rd, hue, fract(hitShell / BAND_CYCLE) * 2.0, emboss, hitRelief * 0.8, trebAmt);
 
-        // The beat's shell, sweeping outward through the stack. Position off
-        // uBeatPhase, amplitude off the SQUARED envelope - the house pairing,
-        // so the front is silent between hits instead of pulsing through the
-        // quiet parts at the last detected tempo. This is the only thing in
-        // the style the beat is allowed to move: the fall, the spiral, the
-        // windows and the relief are all continuous quantities and are
-        // steered by envelopes, never by an impulse.
-        float beatEnv = clamp(uBeat, 0.0, 1.0);
-        float dk = (kHit - (FLARE_BIRTH + uBeatPhase * FLARE_SPAN)) / FLARE_WIDTH;
-        float flare = beatEnv * beatEnv * exp(-dk * dk) *
+        // The travelling shell, sweeping outward through the stack. Position
+        // off a wrapped fraction of uFlowPhase (continuous, monotonic -
+        // never a reset), gain off relative bass level above its running
+        // average, so the front is dim in a quiet passage rather than
+        // pulsing at the last detected tempo. This is the only thing in the
+        // style the travel clock is allowed to move: the fall, the spiral,
+        // the windows and the relief are all continuous quantities steered
+        // by envelopes, never by an impulse.
+        float flarePhase = fract(uFlowPhase * FLARE_RATE);
+        float dk = (kHit - (FLARE_BIRTH + flarePhase * FLARE_SPAN)) / FLARE_WIDTH;
+        float flare = clamp(uBassRel - 0.6, 0.0, 1.0) * exp(-dk * dk) *
             exp(-max(0.0, kHit + 0.8) * FLARE_TAPER);
         col += pal(hue + 0.30) * (FLARE_GAIN * flare);
 

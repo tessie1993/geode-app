@@ -67,6 +67,10 @@ class VisualizerRenderer(
     @Volatile
     var onShaderError: (String?) -> Unit = {}
 
+    /** Fired on the GL thread from [onSurfaceChanged], so a UI-layer overlay composer knows the target size. */
+    @Volatile
+    var onSurfaceSizeChanged: (Int, Int) -> Unit = { _, _ -> }
+
     // Assigned from Main (EnginePlumbing.kt) and read on the GL thread in onDrawFrame.
     @Volatile
     var onMilkPresetLoaded: (String) -> Unit = {}
@@ -156,6 +160,13 @@ class VisualizerRenderer(
         if (seconds <= 0f) return
         nativeViz.beginParamMorph(seconds)
     }
+
+    /** Full-frame ARGB overlay (title/artwork and whatever else layers over the composite). */
+    fun setOverlay(
+        pixels: IntArray?,
+        width: Int,
+        height: Int,
+    ) = nativeViz.setOverlay(pixels, width, height)
 
     override fun onSurfaceCreated(
         gl: GL10?,

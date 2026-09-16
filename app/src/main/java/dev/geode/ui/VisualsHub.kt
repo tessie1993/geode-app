@@ -79,6 +79,8 @@ fun VisualsHub(
     val tabs = listOf("Presets", "Styles", "Customize", "Textures", "Takes")
     val gui by settingsViewModel.guiPrefs.collectAsStateWithLifecycle()
     val takes by studioViewModel.takeState.collectAsStateWithLifecycle()
+    val overlayOptions by viewModel.overlayOptions.collectAsStateWithLifecycle()
+    var showLayersSheet by remember { mutableStateOf(false) }
     Box(Modifier.fillMaxSize()) {
         if (liveBackdrop) {
             VisualizerCanvasHost(visualizerView, Modifier.fillMaxSize())
@@ -147,6 +149,9 @@ fun VisualsHub(
                             tint = if (liveBackdrop) MaterialTheme.colorScheme.primary else LocalContentColor.current,
                         )
                     }
+                    CrystalButton(compact = true, filled = false, onClick = { showLayersSheet = true }) {
+                        Text(stringResource(R.string.overlay_layers_entry))
+                    }
                     CrystalButton(compact = true, filled = false, onClick = onOpenNowPlaying) { Text("View live") }
                 }
                 CrystalTabs(titles = tabs, selected = tab, onSelect = { tab = it })
@@ -159,6 +164,13 @@ fun VisualsHub(
                 }
             }
         }
+    }
+    if (showLayersSheet) {
+        LayersSheet(
+            options = overlayOptions,
+            onOptionsChange = { updated -> viewModel.setOverlayOptions { updated } },
+            onDismiss = { showLayersSheet = false },
+        )
     }
 }
 

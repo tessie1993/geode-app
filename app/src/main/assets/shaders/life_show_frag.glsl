@@ -25,7 +25,6 @@ uniform float uShowV;     // 0 = show A/u, 1 = show v (the GS pattern channel)
 uniform float uBaseHue;
 uniform float uHueSpan;
 uniform float uEnergy;
-uniform float uBeat;
 
 vec3 hsv2rgb(vec3 c) {
     vec3 p = abs(fract(c.xxx + vec3(0.0, 2.0 / 3.0, 1.0 / 3.0)) * 6.0 - 3.0);
@@ -37,6 +36,8 @@ float fieldAt(vec2 uv) {
     return mix(s.r, s.g, uShowV);
 }
 
+// motion: uEnergy -> crystal-look edge highlight (continuous loudness, was a beat pulse). This pass is only ever handed
+// uEnergy/uState by LifeScene.cpp, not the wave-three relative-signal set, so a single continuous driver is all it has.
 void main() {
     vec2 uv = vUv;
     vec4 state = texture(uState, uv);
@@ -88,7 +89,10 @@ void main() {
         float boundaryDist = 0.5 - abs(fract(v * 6.0) - 0.5);
         float edge = (1.0 - smoothstep(0.0, 0.1, boundaryDist)) * step(0.08, v);
         vec3 body = hsv2rgb(vec3(fract(uBaseHue + uHueSpan * shelves * 0.4), 0.5, 0.35 + 0.6 * shelves));
-        color = body + hsv2rgb(vec3(fract(uBaseHue + 0.5), 0.3, 1.0)) * edge * (0.5 + 0.5 * uBeat);
+        // Wave three: continuous loudness lights the shelf edges instead of a
+        // beat pulse - uEnergy is the only audio signal this present pass
+        // receives (LifeScene.cpp wires uEnergy/uState only).
+        color = body + hsv2rgb(vec3(fract(uBaseHue + 0.5), 0.3, 1.0)) * edge * (0.5 + 0.5 * uEnergy);
     } else {
         float heat = smoothstep(0.03, 0.85, v) * (0.75 + 0.45 * uEnergy);
         color = vec3(heat * 1.6, heat * heat * 1.1, heat * heat * heat * 0.9);

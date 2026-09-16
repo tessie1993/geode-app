@@ -40,11 +40,13 @@ fun VisualizerEngineBindings(
     val playerPrefs by settingsViewModel.playerPrefs.collectAsStateWithLifecycle()
     val gui by settingsViewModel.guiPrefs.collectAsStateWithLifecycle()
     val layers by LayersBus.state.collectAsStateWithLifecycle()
+    val overlay by viewModel.overlayPixels.collectAsStateWithLifecycle()
     val background by visualsViewModel.backgroundPush.collectAsStateWithLifecycle()
     val mainScope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) {
         visualizerView.visualizerRenderer.onShaderError = viewModel::reportShaderError
+        visualizerView.visualizerRenderer.onSurfaceSizeChanged = viewModel::setOverlaySurfaceSize
         visualizerView.visualizerRenderer.pcmProvider = { viewModel.latestPcm() }
         // W02: the background image is decoded to the surface's current pixel size, so a rotation
         // or a fold needs a re-decode just as much as a fresh pick does. onSurfaceSizeChanged fires
@@ -83,6 +85,12 @@ fun VisualizerEngineBindings(
     }
     LaunchedEffect(viz.params) {
         visualizerView.visualizerRenderer.sceneParams = viz.params
+    }
+    LaunchedEffect(overlay) {
+        val pixels = overlay
+        visualizerView.queueEvent {
+            visualizerView.visualizerRenderer.setOverlay(pixels.pixels, pixels.width, pixels.height)
+        }
     }
     LaunchedEffect(playerPrefs.keepScreenOn) {
         visualizerView.keepScreenOn = playerPrefs.keepScreenOn

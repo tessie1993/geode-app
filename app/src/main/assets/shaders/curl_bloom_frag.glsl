@@ -13,6 +13,8 @@ out vec4 fragColor;
 //#include lib_touch
 //#include lib_dmt
 
+// motion: uMidRel -> surface veining drift, uOrbit -> body morph target + camera lean + silhouette glow
+
 // Curl Bloom: a host body, raymarched, that is continuously changing what it
 // IS - sphere, gem, torus, box, octahedron and round again - while the space
 // it sits in is being stirred by an incompressible flow, so the surface is
@@ -29,15 +31,16 @@ out vec4 fragColor;
 //
 // ---- the morph -------------------------------------------------------------
 //
-// The primitives sit on lib_dmt's closed ring and uFormPhase walks it,
+// The primitives sit on lib_dmt's closed ring and a morph phase walks it,
 // blending each neighbouring pair with mix(). That is a legitimate distance
 // field and not an approximation: mix(a, b, t) of two 1-Lipschitz functions is
 // 1-Lipschitz for any t in 0..1, because it is a convex combination. So the
 // morph costs the march nothing - no step scale, no correction - and every
-// intermediate shape is as marchable as the two it lies between. uFormPhase
-// glides rather than jumps, so there is no value of it at which the body is
-// discontinuous. A spike chooses the next plateau; the body takes most of a
-// second to get there. The satellites walk the same ring, each offset by its
+// intermediate shape is as marchable as the two it lies between. The morph
+// phase is driven by uOrbit.x (the slow wander point, -1..1), which only
+// re-targets on a novelty rise or a section boundary and eases over three
+// seconds, so there is no value of it at which the body is discontinuous and
+// no term ever steps. The satellites walk the same ring, each offset by its
 // own seed, so no two bodies are the same shape at the same moment.
 //
 // ---- the bank --------------------------------------------------------------
@@ -51,9 +54,10 @@ out vec4 fragColor;
 // ---- audio ------------------------------------------------------------------
 //
 // uSwell inflates the body, uBassSmooth deepens the stir, uTrebleSmooth
-// sharpens the rim light. A spike picks the next primitive (uFormPhase), re-aims
-// the flow (uMoveDir) and re-seeds the surface veining (uSpawnSeed). Nothing
-// keys brightness off a raw envelope, so nothing here can flash.
+// sharpens the rim light. uOrbit picks the next primitive and leans the
+// camera; uMidRel (mids relative to their running average) steers the
+// surface veining continuously. Nothing keys brightness off a raw envelope
+// or a beat, so nothing here can flash.
 
 #define CB_MAX_STEPS 128
 #define CB_FAR 9.0
@@ -137,15 +141,15 @@ void main() {
     gLip = fluidWarp3Lipschitz(gWarpScale, gWarpAmount);
     gRadius = 0.86 * (1.0 + 0.07 * swell);
     // Glides; never steps. See the morph note at the top.
-    gMorph = uFormPhase;
+    gMorph = 0.5 + 0.5 * uOrbit.x;
     // Detail buys population: three satellites at the floor, six at the top.
     gSatCount = mix(3.0, float(DMT_MAX_SATELLITES), clamp((uSteps - 64.0) / 64.0, 0.0, 1.0));
 
     // The camera orbits on two unrelated slow rates, so the body is seen from
-    // a new angle every second even in silence, and a spike banks the orbit
-    // toward the new travel direction.
+    // a new angle every second even in silence; uOrbit.y (already bounded
+    // -1..1) leans it gently toward the current wander target.
     vec3 ro = vec3(0.0, 0.0, -3.1);
-    mat3 cam = rotY(uTime * 0.11 + uFlowPhase * 0.9) * rotX(0.32 * sin(uTime * 0.07) + uMoveDir.y * 0.25);
+    mat3 cam = rotY(uTime * 0.11 + uFlowPhase * 0.9) * rotX(0.32 * sin(uTime * 0.07) + clamp(uOrbit.y, -1.0, 1.0) * 0.25);
     ro = cam * ro;
     vec3 rd = cam * normalize(vec3(uv, CB_FOCAL));
 
@@ -188,11 +192,11 @@ void main() {
 
         // Where on the host we are, in stirred space: the veining follows the
         // fold rather than the underlying primitive, which is what sells the
-        // surface as something the flow made.
+        // surface as something the flow made. uMidRel steers the offset the
+        // pattern is sampled at, so the vein pattern drifts continuously with
+        // the mids instead of re-seeding on a spike.
         vec3 q = fluidWarp3(p, gWarpScale, gWarpAmount);
-        float vein = fbm3(q * 3.4 + uSpawnSeed * 17.0, 3);
-        // A new spawn re-seeds the veining and grows it in over a second.
-        vein = mix(0.5, vein, spawnGrow(1.1));
+        float vein = fbm3(q * 3.4 + clamp(uMidRel, 0.0, 2.0) * 4.0, 3);
 
         // The host is banded by its veining and coloured from one end of the
         // palette; a satellite is banded by its distance from its own centre
@@ -211,8 +215,9 @@ void main() {
     } else {
         // The halo: rays that grazed the body without hitting it. `near` is
         // the closest approach, so this is a true silhouette glow and not a
-        // radial gradient pasted behind the object.
-        col += dmtHalo(near, 0.50, 5.5, 0.30 + 0.35 * uSpike);
+        // radial gradient pasted behind the object; it widens continuously
+        // with how far the wander point has drifted from centre.
+        col += dmtHalo(near, 0.50, 5.5, 0.30 + 0.35 * clamp(length(uOrbit), 0.0, 1.0));
     }
 
     // The particle layer, in screen space, riding the 2D half of the same

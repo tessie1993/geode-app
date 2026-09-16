@@ -1,20 +1,26 @@
 package dev.geode.ui
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 import dev.geode.audio.AudioFxFormat
 import dev.geode.audio.AudioFxState
+import dev.geode.ui.glass.GlassButton
+import dev.geode.ui.glass.GlassKnob
+import dev.geode.ui.glass.GlassSlider
+import dev.geode.ui.glass.GlassToggle
 
 @Composable
 fun EqualizerSettings(viewModel: SettingsViewModel) {
@@ -42,7 +48,7 @@ internal fun EqualizerCard(
     SettingsGroup(
         title = stringResource(R.string.eq_title),
         header = {
-            Switch(
+            GlassToggle(
                 checked = fx.enabled && anyEffect,
                 onCheckedChange = onEnabled,
                 enabled = anyEffect,
@@ -82,10 +88,10 @@ internal fun EqualizerCard(
             Text(stringResource(R.string.eq_preset), style = MaterialTheme.typography.labelMedium)
             LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 itemsIndexed(fx.presets) { i, name ->
-                    FilterChip(
-                        selected = fx.presetIndex == i,
+                    GlassButton(
+                        text = name,
                         onClick = { onPreset(i) },
-                        label = { Text(name) },
+                        selected = fx.presetIndex == i,
                         enabled = controlsOn,
                     )
                 }
@@ -98,24 +104,13 @@ internal fun EqualizerCard(
                 )
             }
         }
-        fx.bands.forEachIndexed { i, band ->
-            Text(
-                stringResource(R.string.eq_band, band.label, AudioFxFormat.dbLabel(band.levelMb)),
-                style = MaterialTheme.typography.labelMedium,
-            )
-            CrystalSlider(
-                value = band.levelMb.toFloat(),
-                onValueChange = { onBand(i, it.toInt()) },
-                valueRange = band.minMb.toFloat()..band.maxMb.toFloat(),
-                enabled = controlsOn,
-            )
-        }
+        EqualizerBands(fx, onBand, controlsOn)
         if (fx.bassAvailable) {
             Text(
                 stringResource(R.string.eq_bass_boost, fx.bassBoost / 10),
                 style = MaterialTheme.typography.labelMedium,
             )
-            CrystalSlider(
+            GlassSlider(
                 value = fx.bassBoost.toFloat(),
                 onValueChange = { onBassBoost(it.toInt()) },
                 valueRange = 0f..1000f,
@@ -127,12 +122,52 @@ internal fun EqualizerCard(
                 stringResource(R.string.eq_loudness, AudioFxFormat.dbLabel(fx.loudness)),
                 style = MaterialTheme.typography.labelMedium,
             )
-            CrystalSlider(
+            GlassSlider(
                 value = fx.loudness.toFloat(),
                 onValueChange = { onLoudness(it.toInt()) },
                 valueRange = 0f..1000f,
                 enabled = controlsOn,
             )
+        }
+    }
+}
+
+/**
+ * The ten bands as pastel glass dials (docs/design/liquid-glass/README.md "Sliders … Charts …
+ * Knobs: glass dials with an arc"): one [GlassKnob] per band, dragged vertically, with the band's
+ * frequency label under it and its current level above — reads as a row of pastel EQ pots rather
+ * than a single horizontal slider list.
+ */
+@Composable
+private fun EqualizerBands(
+    fx: AudioFxState,
+    onBand: (Int, Int) -> Unit,
+    controlsOn: Boolean,
+) {
+    if (fx.bands.isEmpty()) return
+    LazyRow(
+        Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        itemsIndexed(fx.bands) { i, band ->
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Text(AudioFxFormat.dbLabel(band.levelMb), style = MaterialTheme.typography.labelSmall)
+                GlassKnob(
+                    value = band.levelMb.toFloat(),
+                    onValueChange = { onBand(i, it.toInt()) },
+                    valueRange = band.minMb.toFloat()..band.maxMb.toFloat(),
+                    enabled = controlsOn,
+                    knobSize = 44.dp,
+                )
+                Text(
+                    band.label,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
     }
 }

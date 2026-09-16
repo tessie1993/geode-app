@@ -31,10 +31,14 @@ void Choreography::Anchor::snap() {
     y = targetY;
 }
 
-void Choreography::tick(const GeodeFeatureFrame& f, float dt, float aspect) {
+void Choreography::tick(const GeodeFeatureFrame& f, float dt, float aspect, const MotionField::State& motion) {
     time_ = std::fmod(time_ + dt * (0.4f + 0.6f * speed), kTimeWrapSeconds);
-    if (hitEdge_.step(f)) hitCount_++;
-    beatEnv_ = std::max(live::hit(f), beatEnv_ * std::exp(-dt / 0.35f));
+    // motion: uBarOsc's own peak -> one advance per bar, replacing the
+    // transient-edge hit count.
+    const bool barRising = motion.barOsc > prevBarOsc_;
+    if (!barRising && barOscRising_) hitCount_++;
+    barOscRising_ = barRising;
+    prevBarOsc_ = motion.barOsc;
     const float bassTarget = std::clamp(f.bass * 1.2f, 0.0f, 1.0f);
     bassEnv_ += (bassTarget - bassEnv_) * std::min(bassTarget > bassEnv_ ? dt / 0.03f : dt / 0.45f, 1.0f);
 
@@ -54,7 +58,9 @@ void Choreography::tick(const GeodeFeatureFrame& f, float dt, float aspect) {
         s.targetX = std::clamp(tx, -ax, ax);
         s.targetY = std::clamp(ty, -kDomainMargin, kDomainMargin);
         const float bandE = std::clamp(f.bands[std::clamp(i * GEODE_BAND_COUNT / nS, 0, GEODE_BAND_COUNT - 1)], 0.0f, 1.0f);
-        s.energy = std::clamp(0.5f * beatEnv_ + 0.5f * bandE, 0.0f, 1.0f);
+        // motion: uEnergyRel/uBarOsc -> spawn energy, replacing the beat envelope.
+        const float energyTerm = std::clamp(motion.energyRel * 0.5f, 0.0f, 1.0f);
+        s.energy = std::clamp(0.4f * energyTerm + 0.3f * motion.barOsc + 0.3f * bandE, 0.0f, 1.0f);
     }
     const int nC = std::clamp(catchCount, 0, kMaxCatch);
     for (int i = 0; i < nC; ++i) {
@@ -81,9 +87,9 @@ void Choreography::reset() {
     hitCount_ = 0;
     lastSection_ = -1;
     sectionPhase_ = 0.0f;
-    beatEnv_ = 0.0f;
     bassEnv_ = 0.0f;
-    hitEdge_.reset();
+    prevBarOsc_ = 0.5f;
+    barOscRising_ = false;
     traverse_.reset();
 }
 

@@ -4,6 +4,7 @@
 
 #include "api/geode_api.h"
 #include "viz/LiveSignal.hpp"
+#include "viz/MotionField.hpp"
 
 namespace geode::viz::fluid {
 
@@ -42,7 +43,10 @@ public:
     const std::array<Anchor, kMaxCatch>& catches() const { return catches_; }
     int hitCount() const { return hitCount_; }
 
-    void tick(const GeodeFeatureFrame& f, float dt, float aspect);
+    // motion is defaulted so callers outside wave three's scope (WaterScene,
+    // CurlFlowScene) keep compiling unchanged, reading it as the neutral
+    // "typical" state (see MotionField::State's defaults).
+    void tick(const GeodeFeatureFrame& f, float dt, float aspect, const MotionField::State& motion = MotionField::State{});
     void reset();
     void packSpawns(float* out) const;
     void packCatches(float* out, float pull, float captureRadius) const;
@@ -63,9 +67,13 @@ private:
     int lastSection_ = -1;
     float sectionPhase_ = 0.0f;
     bool initialized_ = false;
-    float beatEnv_ = 0.0f;
     float bassEnv_ = 0.0f;
-    live::Edge hitEdge_;
+    // Wave three: hitCount_ now advances once per bar, on the bar
+    // oscillator's own peak (see MotionField::State::barOsc), instead of on
+    // a transient edge - the peak is found with a plain rising/falling
+    // check on the smoothed oscillator, never a raw hit flag.
+    float prevBarOsc_ = 0.5f;
+    bool barOscRising_ = false;
     live::Traverse traverse_;
 };
 

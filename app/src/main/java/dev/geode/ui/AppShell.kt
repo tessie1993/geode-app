@@ -289,6 +289,20 @@ fun AppRoot() {
                     },
                 )
             }
+            // Read by MainActivity to decide whether leaving the app should be treated as "enter
+            // PiP" at all — a screen other than the fullscreen visualizer has nothing worth
+            // shrinking into a window. Excludes the second-screen placeholder card too: when the
+            // visuals are mirrored to a connected display, this phone shows only a "Showing on
+            // <display>" notice, and shrinking that into a PiP window would carry nothing useful.
+            LaunchedEffect(appState.expanded, onSecondScreen) {
+                VisualizerPipCoordinator.visualizerShowing = appState.expanded && !onSecondScreen
+            }
+            // Keeps the platform's own auto-enter flag (API 31+) and the PiP window's play/pause
+            // remote action in step with what is actually true, rather than only at the moment
+            // someone taps the PiP button.
+            LaunchedEffect(gui.autoEnterPip, state.isPlaying, appState.expanded) {
+                context.findMainActivity()?.refreshPipParams()
+            }
             if (appState.expanded) {
                 VisualizerScreen(
                     viewModel = viewModel,

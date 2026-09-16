@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 
+#include "viz/MotionField.hpp"
 #include "viz/Program.hpp"
 #include "viz/Scene.hpp"
 #include "viz/Texture.hpp"
@@ -39,8 +40,6 @@ public:
 private:
     static constexpr float kTimeWrapSeconds = 7100.0f;
     static constexpr float kTwoPi = 6.2831853f;
-    static constexpr float kPulsePhaseHz = 0.6f;
-    static constexpr float kPulseDecayPerSecond = 3.0f;
     static constexpr float kAudioClamp = 1.5f;
 
     // ---- the smoothed motion layer -----------------------------------------
@@ -62,48 +61,17 @@ private:
     static constexpr float kSwellRiseHz = 1.6f;
     static constexpr float kSwellFallHz = 0.8f;
 
-    // A spike is a transient loud enough to mean something, and it is only
-    // allowed to mean something once per refractory window - otherwise a busy
-    // drum line re-rolls the spawn every frame and the result is the strobing
-    // the smoothing exists to remove.
-    static constexpr float kSpikeThreshold = 0.35f;
-    static constexpr float kSpikeRefractorySeconds = 0.28f;
-    // The spike envelope has a RISE, not a step: a style keying brightness off
-    // it cannot produce a one-frame flash because the value takes 120ms to
-    // arrive and ~600ms to leave. A linear attack over a countdown, not a
-    // one-pole chasing a one-frame target: the one-pole covered 13% of the gap
-    // in the single frame the target was 1.0 and then chased 0.0 again, so
-    // uSpike never got past ~0.13 at 60fps.
-    static constexpr float kSpikeAttackSeconds = 0.12f;
-    static constexpr float kSpikeFallHz = 1.7f;
-
-    // How fast the latched values travel to the plateau a spike chose. Low
-    // enough that the change reads as a morph; the spike sets the destination,
-    // never the picture.
-    static constexpr float kFormGlideHz = 0.9f;
-    static constexpr float kDirGlideHz = 1.1f;
-    // The step a spike adds to the form phase. The golden-ratio conjugate
-    // walks the 0..1 circle without ever repeating a plateau or landing near
-    // the one before it, so consecutive spikes always pick a visibly different
-    // fractal rather than dithering around one.
-    static constexpr float kFormStep = 0.6180339f;
-    // The widest a spike may turn the travel direction, in radians. Bounded
-    // well under a half turn so the field never appears to reverse.
-    static constexpr float kDirMaxTurn = 1.9f;
-    // The travel phase always advances, so nothing a style scrolls can run
-    // backwards; loudness only sets how fast.
-    static constexpr float kFlowBaseHz = 0.08f;
-    static constexpr float kFlowEnergyHz = 0.22f;
-    // Well past the longest spawnGrow() horizon any style asks for.
-    static constexpr float kSpawnAgeMax = 60.0f;
-
     // One-pole toward `target`, framerate independent, with its own rate for
     // rising and falling. Returns the new value.
     static float slew(float current, float target, float dt, float riseHz, float fallHz);
-    // Advances the spike-latched state (spawn seed, form phase, travel
-    // direction, travel phase) for one frame.
-    void stepMotion(float hit, float dt);
-    float nextSeed();
+
+    // ---- wave three: the continuous motion layer ----------------------------
+    //
+    // motionField_ is this scene's own instance (see viz/MotionField.hpp): it
+    // is a pure function of the same GeodeFeatureFrame/dt sequence update()
+    // already receives, so every ShaderScene settles to the same continuous
+    // uniforms without needing a channel back to Renderer's own instance
+    // (which shapes SceneParams instead - see Renderer::resolveParams).
 
     void compilePendingIfAny();
     void uploadParams();
@@ -134,8 +102,9 @@ private:
     float mid_ = 0.0f;
     float treble_ = 0.0f;
     float energy_ = 0.0f;
-    float beatPulse_ = 0.0f;
-    float pulsePhase_ = 0.0f;
+    // The analyser's own phase-locked beat phase (0..1 of a cycle), cached
+    // from update() for draw()'s uBeatPhase upload; not reset by a transient.
+    float beatPhase_ = 0.0f;
 
     // The motion layer's integrated state. All of it survives from frame to
     // frame; none of it can be reconstructed inside the shader.
@@ -144,22 +113,9 @@ private:
     float smoothTreble_ = 0.0f;
     float smoothEnergy_ = 0.0f;
     float swell_ = 0.0f;
-    float spikeEnv_ = 0.0f;
-    float spikeAttackLeft_ = 0.0f;
-    // A countdown, not a timestamp. Comparing against a wrapping clock would stop
-    // detecting spikes altogether the first time the clock wrapped, roughly two
-    // hours in - exactly the session length a wallpaper runs to.
-    float spikeLockout_ = 0.0f;
-    float spawnSeed_ = 0.0f;
-    float spawnAge_ = 0.0f;
-    float formPhase_ = 0.0f;
-    float formTarget_ = 0.0f;
-    float dirAngle_ = 0.0f;
-    float dirTarget_ = 0.0f;
-    float flowPhase_ = 0.0f;
-    // Deterministic per scene instance: the same audio gives the same picture,
-    // which is what makes an exported frame reproducible.
-    unsigned int seedState_ = 0x9e3779b9u;
+    // Wave three: the continuous replacement for the old spike-latched state
+    // (uSpike/uMoveDir/uSpawnSeed/uSpawnAge/uFormPhase). See MotionField.hpp.
+    MotionField motionField_;
     SceneParams params_;
     float rotationAngle_ = 0.0f;
     float zoomPhase_ = 0.0f;

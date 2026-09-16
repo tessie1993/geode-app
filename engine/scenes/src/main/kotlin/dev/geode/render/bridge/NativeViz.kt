@@ -204,6 +204,29 @@ class NativeViz(
         if (handle != 0L) GeodeNative.vizReleaseScenes(handle)
     }
 
+    /** Full-frame RGBA8 overlay drawn last, premultiplied alpha; null clears. Any thread; latched for the next frame. */
+    fun setOverlay(
+        pixels: IntArray?,
+        width: Int,
+        height: Int,
+    ) {
+        if (handle != 0L) GeodeNative.vizSetOverlay(handle, pixels, width, height)
+    }
+
+    /**
+     * Full-frame RGBA8 underlay blended UNDER/INTO the scene: blend 0 = replace scene where scene is
+     * black (screen), 1 = multiply, 2 = add; amount 0..1. null clears. Any thread; latched.
+     */
+    fun setUnderlay(
+        pixels: IntArray?,
+        width: Int,
+        height: Int,
+        blend: Int,
+        amount: Float,
+    ) {
+        if (handle != 0L) GeodeNative.vizSetUnderlay(handle, pixels, width, height, blend, amount)
+    }
+
     /** Reports the native error state once per change: a message, or null when it clears. */
     fun pollError(onChange: (String?) -> Unit) {
         if (handle == 0L) return

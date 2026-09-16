@@ -127,6 +127,11 @@ const std::array<SceneParams::FloatField, SceneParams::kLerpedFloatCount>& Scene
         {"rippleOverlayStrength", &SceneParams::rippleOverlayStrength},
         {"rippleOverlaySpecular", &SceneParams::rippleOverlaySpecular},
         {"formDrive", &SceneParams::formDrive},
+        {"motionAmount", &SceneParams::motionAmount},
+        {"motionBreath", &SceneParams::motionBreath},
+        {"motionOrbit", &SceneParams::motionOrbit},
+        {"motionDrift", &SceneParams::motionDrift},
+        {"motionHue", &SceneParams::motionHue},
     }};
     return kFields;
 }
@@ -274,6 +279,11 @@ bool SceneParams::set(std::string_view name, float value) {
         {"rippleOverlayStrength", &SceneParams::rippleOverlayStrength},
         {"rippleOverlaySpecular", &SceneParams::rippleOverlaySpecular},
         {"formDrive", &SceneParams::formDrive},
+        {"motionAmount", &SceneParams::motionAmount},
+        {"motionBreath", &SceneParams::motionBreath},
+        {"motionOrbit", &SceneParams::motionOrbit},
+        {"motionDrift", &SceneParams::motionDrift},
+        {"motionHue", &SceneParams::motionHue},
     };
     for (const auto& f : kAllFloats) {
         if (name == f.name) { this->*f.member = value; return true; }

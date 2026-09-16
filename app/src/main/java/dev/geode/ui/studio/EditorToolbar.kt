@@ -74,6 +74,7 @@ fun EditorToolbar(
     onLyricCaptions: () -> Unit,
     onImportSrt: () -> Unit,
     onExportSrt: () -> Unit,
+    onExportChapters: () -> Unit,
 ) {
     Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         if (tapSession == null) {
@@ -92,6 +93,9 @@ fun EditorToolbar(
             }
             CrystalButton(compact = true, filled = false, onClick = onImportSrt) { Text(stringResource(R.string.editor_import_srt)) }
             CrystalButton(compact = true, filled = false, onClick = onExportSrt) { Text(stringResource(R.string.editor_export_srt)) }
+            CrystalButton(compact = true, filled = false, onClick = onExportChapters) {
+                Text(stringResource(R.string.editor_export_chapters))
+            }
         } else {
             CrystalButton(compact = true, onClick = onTap) { Text(stringResource(R.string.editor_tap)) }
             Text(

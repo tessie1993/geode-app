@@ -131,6 +131,15 @@ GEODE_API void        geode_viz_set_offscreen(geode_viz*, int on);
 GEODE_API int         geode_viz_knows(geode_viz*, const char* scene_id);
 GEODE_API size_t      geode_viz_scene_ids(geode_viz*, char* out, size_t capacity);   /* newline-joined; returns the full length */
 GEODE_API const char* geode_viz_last_error(geode_viz*);   /* "" when clean */
+/* Full-frame RGBA8 overlay drawn last, premultiplied alpha, over the finished composite (cover art,
+ * text, lyrics, logo, background layers). `pixels` is Android's Bitmap.getPixels ARGB_8888 layout
+ * (0xAARRGGBB per int), row-major, width*height entries; NULL or a 0x0 size clears it. */
+GEODE_API void        geode_viz_set_overlay_rgba(geode_viz*, const uint32_t* pixels, int width, int height);
+/* Full-frame RGBA8 underlay blended UNDER/INTO the scene, before the composite's own post-FX:
+ * blend 0 = screen (replaces the scene where it is black), 1 = multiply, 2 = add; amount 0..1 is how
+ * much of that blend result replaces the plain scene colour. Same pixel layout as the overlay above;
+ * NULL or a 0x0 size clears it. */
+GEODE_API void        geode_viz_set_underlay_rgba(geode_viz*, const uint32_t* pixels, int width, int height, int blend, float amount);
 /* GL thread. */
 GEODE_API void        geode_viz_surface_created(geode_viz*);
 GEODE_API void        geode_viz_surface_changed(geode_viz*, int width, int height);

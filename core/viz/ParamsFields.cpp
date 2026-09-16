@@ -25,6 +25,7 @@ const std::array<const char*, SceneParams::kFieldCount>& SceneParams::fieldNames
         "cymaticsFundamental", "cymaticsModes", "cymaticsRing", "cymaticsFocus", "cymaticsScale", "cymaticsFill",
         "cymaticsLine", "cymaticsGlow", "cymaticsIridescence", "cymaticsCaustic", "cymaticsFlow", "cymaticsSwirl",
         "rippleOverlayEnabled", "rippleOverlayStrength", "rippleOverlaySpecular", "formDrive",
+        "motionAmount", "motionBreath", "motionOrbit", "motionDrift", "motionHue",
     }};
     return kNames;
 }

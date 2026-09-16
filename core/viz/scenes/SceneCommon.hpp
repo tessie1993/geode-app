@@ -5,10 +5,19 @@
 #include <cmath>
 
 #include "api/geode_api.h"
+#include "viz/MotionField.hpp"
 #include "viz/Program.hpp"
 #include "viz/TouchField.hpp"
 
 namespace geode::viz {
+
+// Wave three: every scene family drives its own continuous motion off a
+// GeodeFeatureFrame/dt pair (see ShaderScene::update, which owns one
+// MotionField for the raw uEnergyRel/uBassRel/... uniform contract in
+// lib_scene_motion.glsl). Included here, alongside the other pieces every
+// scene shares, so the CPU-side families (viz/scenes/FluidScene.cpp,
+// CymaticsScene.cpp, MilkdropScene.cpp, ...) can hold their own instance too
+// once they are converted off their beat-splat/ripple-drop state.
 
 // Port of FluidHue.kt.
 namespace hue {

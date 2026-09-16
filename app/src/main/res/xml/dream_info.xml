@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Screensaver (Daydream) metadata. No settingsActivity: the dream draws whatever style and
+  parameters the app was last left showing, the same rule the live wallpaper follows, so there is
+  nothing here that is not already a Settings screen inside the app itself.
+-->
+<dream xmlns:android="http://schemas.android.com/apk/res/android" />

@@ -1,7 +1,6 @@
 package dev.geode.ui
 
 import android.net.Uri
-import dev.geode.R
 import dev.geode.export.ExportAspect
 import dev.geode.export.ExportCodec
 import dev.geode.export.TimeOfDayDrift

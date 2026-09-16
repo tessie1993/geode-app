@@ -3,6 +3,7 @@
     <string name="app_name">Geode</string>
     <string name="wallpaper_label">Geode</string>
     <string name="wallpaper_description">Your last Geode style, reacting to whatever the app is playing and drifting gently when it is not.</string>
+    <string name="dream_label">Geode</string>
     <string name="notification_listener_label">Geode — now playing in other apps</string>
     <string name="capture_channel_name">Visualizing other apps</string>
     <string name="capture_channel_description">Shown while Geode is reading the audio another app is playing.</string>
@@ -219,6 +220,7 @@
     <string name="second_screen_showing_on">Showing on</string>
     <string name="second_screen_explainer">The visuals are on the connected display. Everything here still controls them — turn this off in Settings › Live input &amp; touch to bring them back.</string>
     <string name="action_collapse">Collapse</string>
+    <string name="action_pip">Picture-in-picture</string>
 
     <!-- Panel chips under the transport. -->
     <string name="panel_now">Now</string>
@@ -568,6 +570,9 @@
     <string name="export_loop_rendering">Rendering… %1$d%%</string>
     <string name="export_loudness_target">Loudness target</string>
     <string name="export_loudness_hint">Geode measures the finished file against this target once export completes. It does not yet change the level to match — pick the platform you\'re shipping to, or Leave as-is to ship the level you mixed.</string>
+    <string name="export_notification_permission_title">Show render progress?</string>
+    <string name="export_notification_permission_body">Geode can show a notification with the render\'s progress and time remaining, so you can check on it without reopening this dialog. Without it, the render still finishes — you just won\'t see progress outside the app.</string>
+    <string name="export_notification_permission_skip">Not now</string>
 
     <!-- Settings: Look tab. -->
     <string name="look_group_theme">Theme</string>
@@ -638,6 +643,7 @@
     <string name="behavior_group_safety">Visual safety</string>
     <string name="behavior_group_auto">Auto visuals</string>
     <string name="behavior_group_wallpaper">Live wallpaper</string>
+    <string name="behavior_group_pip">Picture-in-picture</string>
     <string name="behavior_touch_smear">Smear the visuals with a finger</string>
     <string name="behavior_touch_smear_hint">Drag on the fullscreen visualizer to push the image around: the drag raises the surface ahead of your finger and dips it behind, and whatever is on screen bends through it. On the Water style it stirs the pool itself and paints into it.</string>
     <string name="behavior_smear_strength">"Smear strength  %1$d%%"</string>
@@ -653,6 +659,8 @@
     <string name="behavior_slow_motion_hint">Slows movement, shake, drift and rotation. This one is about motion comfort rather than seizures, which is why it is a choice: the flash limit above is not. Applies to exported video as well as the screen.</string>
     <string name="behavior_wallpaper_hint">Set the visualizer as your wallpaper. It uses the style and settings the app was last showing, reacts to whatever Geode is playing, and drifts gently on its own the rest of the time. It draws nothing while another app is in front, so it is not a background battery drain.</string>
     <string name="behavior_wallpaper_button">Set as live wallpaper</string>
+    <string name="behavior_pip_auto_enter">Enter automatically</string>
+    <string name="behavior_pip_auto_enter_hint">Leaving the fullscreen visualizer while something is playing shrinks it into a picture-in-picture window instead of just backgrounding the app. Off, the PiP button on the visualizer and the platform\'s own swipe-home gesture are still there — this only changes what leaving does by default.</string>
 
     <!-- Settings: Auto visuals (rendered inside the Behavior tab). -->
     <string name="autoviz_intro">Two modes rotate the look on a clock while a track plays. Only one of them runs at a time: starting the visual playlist stops Random, and turning Random on stops the playlist.</string>
@@ -743,6 +751,7 @@
     <string name="curve_unknown_param">Parameter</string>
     <string name="editor_export">Render cut</string>
     <string name="editor_export_no_video">Put a video or still on a Media lane first — the cut renders that lane.</string>
+    <string name="editor_export_skipped_kinds">Skipped clips this export can\'t carry: %1$s</string>
     <string name="editor_transition">Transition into this clip</string>
     <string name="editor_transition_ellipsis">Transition…</string>
     <string name="editor_transition_none">None (hard cut)</string>

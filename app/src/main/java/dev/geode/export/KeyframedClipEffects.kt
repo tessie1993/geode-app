@@ -12,30 +12,33 @@ import android.opengl.Matrix as GlMatrix
 /**
  * Brightness, contrast, saturation and hue as one colour matrix re-read every frame, so a clip's
  * keyframed grade actually moves. [editAt] is asked in milliseconds from the clip's first frame.
+ *
+ * [sourceInUs] is the clip's source-in point (its [androidx.media3.common.MediaItem.ClippingConfiguration]
+ * start), in microseconds: the origin has to be this known value rather than whichever frame is
+ * presented first, because a clip trimmed into its source can have the decoder present a warm-up
+ * frame from before the trim point first, which would otherwise latch a wrong, earlier origin.
  */
 @UnstableApi
 class KeyframedGrade(
+    private val sourceInUs: Long,
     private val editAt: (Long) -> ClipEdit,
 ) : RgbMatrix {
-    private var originUs = -1L
-
     override fun getMatrix(
         presentationTimeUs: Long,
         useHdr: Boolean,
     ): FloatArray {
-        if (originUs < 0) originUs = presentationTimeUs
-        val edit = editAt((presentationTimeUs - originUs) / 1000L)
+        val edit = editAt((presentationTimeUs - sourceInUs).coerceAtLeast(0L) / 1000L)
         return gradeMatrix(edit.brightness, edit.contrast, edit.saturation, edit.hueDegrees)
     }
 }
 
-/** A rotation re-read every frame, kept undistorted by rotating in square space. */
+/** A rotation re-read every frame, kept undistorted by rotating in square space. See [KeyframedGrade] for [sourceInUs]. */
 @UnstableApi
 class KeyframedRotation(
+    private val sourceInUs: Long,
     private val degreesAt: (Long) -> Float,
 ) : MatrixTransformation {
     private var aspect = 1f
-    private var originUs = -1L
 
     override fun configure(
         inputWidth: Int,
@@ -46,8 +49,7 @@ class KeyframedRotation(
     }
 
     override fun getMatrix(presentationTimeUs: Long): Matrix {
-        if (originUs < 0) originUs = presentationTimeUs
-        val degrees = degreesAt((presentationTimeUs - originUs) / 1000L)
+        val degrees = degreesAt((presentationTimeUs - sourceInUs).coerceAtLeast(0L) / 1000L)
         return Matrix().apply {
             postScale(aspect, 1f)
             postRotate(degrees)

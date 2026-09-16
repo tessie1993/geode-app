@@ -17,6 +17,23 @@ precision highp float;
 // is clamped on read (a NaN in a feedback loop is forever), injection is
 // bounded, and hue rotation is a rate, not a strobe. The global composite and
 // flash budget run downstream like every scene.
+//
+// motion: uMid -> orbit-ribbon glow, uTreble -> glitch instability
+//
+// WAVE THREE, PARTIAL: this style is driven by AcidScene.cpp, a bespoke
+// pipeline (see core/viz/scenes/AcidScene.cpp) that is separate from
+// ShaderScene's shared MotionField/lib_scene_motion contract - the relative-
+// level, key and phase-locked-oscillator uniforms (energyRel, bassRel,
+// barOsc, orbit, drift, ...) are not uploaded here and cannot be read from
+// this file alone. The one forbidden-token read this unit's grep scope
+// covers is removed below. The strike and glitch uniforms are still computed
+// on the CPU side from a transient/onset detector (PcmPulse,
+// AcidScene::draw()'s glitch_ threshold on live::hit(f)) and are outside
+// this shader-only unit's file list; this file stops READING them and reads
+// only the already-continuous bass/mid/treble envelopes instead, in service
+// of the "nothing keyed to a transient" product intent, but a full migration
+// of this style's motion source needs a companion AcidScene.cpp change
+// outside app/src/main/assets/shaders/.
 
 in vec2 vUv;
 out vec4 fragColor;
@@ -30,14 +47,13 @@ uniform float uRotate;    // per-frame feedback rotation, radians
 uniform float uHueShift;  // per-frame hue rotation, turns
 uniform float uFeedback;  // survival gain, < 1
 uniform float uModulate;  // how far source brightness displaces the resample
-uniform float uGlitch;    // beat-gated glitch amount, 0..1
+uniform float uGlitch;    // transient-driven glitch amount, 0..1; unread below, see the wave-three note above
 uniform float uEpoch;     // integer re-roll for glitch block offsets
 uniform float uTime;
 uniform float uBass;
 uniform float uMid;
 uniform float uTreble;
-uniform float uBeat;
-uniform float uStrike;
+uniform float uStrike;    // transient/onset strike envelope; unread below, see the wave-three note above
 uniform float uDrive;
 // Twelve live spectral spokes, 0..1: the current band envelopes folded into a
 // wheel. Was a chromagram (pitch classes), which needs an analysed track and
@@ -111,7 +127,7 @@ vec3 sourceLayer(vec2 q, float r, float ang) {
         float rings = 0.0;
         rings += exp(-pow((r - 0.18 - 0.10 * uBass) * 22.0, 2.0)) * uBass;
         rings += exp(-pow((r - 0.42 - 0.08 * uMid) * 26.0, 2.0)) * uMid * 0.8;
-        rings += exp(-pow((r - 0.66 - 0.06 * uTreble) * 30.0, 2.0)) * (uTreble + uStrike * 0.5) * 0.65;
+        rings += exp(-pow((r - 0.66 - 0.06 * uTreble) * 30.0, 2.0)) * (uTreble + uMid * 0.3) * 0.65;
         return hsv2rgb(vec3(fract(uBaseHue + uHueSpan * r), 0.75, 1.0)) * rings;
     }
     if (uSource == 2) {
@@ -125,7 +141,7 @@ vec3 sourceLayer(vec2 q, float r, float ang) {
     float ph = uTime * 0.9;
     vec2 orbit = 0.45 * vec2(sin(ph * 3.0 + uBass * 2.0), sin(ph * 4.0 + 1.3));
     float d = length(q - orbit);
-    float dot1 = exp(-d * d * 260.0) * (0.5 + uStrike + uBeat);
+    float dot1 = exp(-d * d * 260.0) * (0.5 + 0.4 * clamp(uMid, 0.0, 1.0));
     return hsv2rgb(vec3(fract(uBaseHue + uTreble * 0.3), 0.7, 1.0)) * dot1 * 1.6;
 }
 
@@ -178,17 +194,21 @@ vec2 warp(vec2 q) {
         ang += 0.35 * lr * 0.15 + 0.006;
         float er = exp(lr);
         q = er * vec2(cos(ang), sin(ang));
-    } else if (uStyle == 5 && uGlitch > 0.001) {
-        // block displacement: quantized cells jump while the glitch is hot
+    } else if (uStyle == 5) {
+        // block displacement: quantized cells jump, continuously more often
+        // on a bright passage (uTreble, already a slew-limited envelope)
+        // rather than in a burst on a transient.
+        float instability = clamp(uTreble * 0.6, 0.0, 1.0);
         float cells = 14.0;
         vec2 id = floor((q * 0.5 + 0.5) * cells);
         vec2 h = hash2(id + uEpoch);
-        if (h.x < uGlitch * 0.6) q += (h - 0.5) * 0.22 * uGlitch;
+        if (h.x < instability * 0.6) q += (h - 0.5) * 0.22 * instability;
     } else if (uStyle == 6) {
         // scanline shear + slow vertical roll
+        float instability = clamp(uTreble * 0.6, 0.0, 1.0);
         float row = floor((q.y * 0.5 + 0.5) * uRes.y / 3.0);
         float h = hash2(vec2(row, uEpoch)).x;
-        q.x += (h - 0.5) * 0.05 * uGlitch;
+        q.x += (h - 0.5) * 0.05 * instability;
         q.y += 0.0035;
     } else if (uStyle == 8) {
         // four-fold mirror room: fold both axes, then slide into the corner

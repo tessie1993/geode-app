@@ -35,9 +35,10 @@ void CymaticsScene::resize(int width, int height) {
 void CymaticsScene::update(const GeodeFeatureFrame& features, float dt) {
     time_ = std::fmod(time_ + dt, kSceneTimeWrapSeconds);
     lastDt_ = dt;
-    pcmStrike_ = pcmPulse_.tick(dt);
     pending_ = features;
     hasPending_ = true;
+    // Wave three: stepped from the real incoming frame every update().
+    motionField_.step(features, dt);
 }
 
 void CymaticsScene::draw(float timeSeconds) {
@@ -48,31 +49,37 @@ void CymaticsScene::draw(float timeSeconds) {
     const float dt = std::clamp(lastDt_, 0.0f, 1.0f / 15.0f);
     const GeodeFeatureFrame f = hasPending_ ? pending_ : GeodeFeatureFrame{};
     hasPending_ = false;
+    const MotionField::State& m = motionField_.state();
+    const float bassRel = std::clamp(m.bassRel, 0.0f, 2.0f);
 
+    // motion: uBassRel -> plate excitation gain, uHarmony -> nodal sharpness (focus).
+    const float focus = std::clamp(p.cymaticsFocus * (0.6f + 0.5f * std::clamp(m.harmony, 0.0f, 1.0f)), 0.0f, 2.0f);
     plate_.excite(driveSpectrum(f, dt), GEODE_BAND_COUNT, dt, p.cymaticsFundamental,
-                  kDriveGain * cymatics::safeDrive(p.audioDrive) * (1.0f + kPcmStrikeGain * pcmStrike_), cymatics::ringSeconds(p.cymaticsRing),
-                  p.cymaticsFocus);
+                  kDriveGain * cymatics::safeDrive(p.audioDrive) * (0.7f + 0.3f * bassRel), cymatics::ringSeconds(p.cymaticsRing), focus);
     plate_.advancePhases(dt, p.speed);
     modeCount_ = plate_.snapshot(std::min(p.cymaticsModes, style_.modeCap), modes_.data(), static_cast<int>(modes_.size()));
 
     float totalAmplitude = 0.0f;
     for (int i = 0; i < modeCount_; ++i) totalAmplitude += modes_[static_cast<size_t>(i) * 4 + 2];
 
-    const float hit = live::hit(f);
-    beatPulse_ = std::clamp(std::max(hit * std::clamp(p.beatResponse, 0.0f, 2.0f), beatPulse_ - dt * 3.0f), 0.0f, 1.5f);
-
     const float speed = std::clamp(p.speed, 0.05f, 4.0f);
     const float swirlRate = std::clamp(p.cymaticsSwirl * style_.swirl, -1.0f, 1.0f) * speed;
     swirlPhase_ = cymatics::wrapPhase(swirlPhase_ + swirlRate * dt, kTwoPi);
     const float flowRate = std::clamp(p.cymaticsFlow * style_.flow, 0.0f, 1.0f) * speed;
     travelPhase_ = cymatics::wrapPhase(travelPhase_ + flowRate * kTravelOmega * dt, kTwoPi);
-    driftShift_ = cymatics::wrapPhase(driftShift_ + flowRate * kDriftRate * dt, kDriftWrap);
+    // motion: uBarOsc -> a slow tilt riding on the existing drift-shift channel.
+    const float tiltRate = flowRate * kDriftRate * (0.6f + 0.4f * std::clamp(m.barOsc, 0.0f, 1.0f));
+    driftShift_ = cymatics::wrapPhase(driftShift_ + tiltRate * dt, kDriftWrap);
 
     // The finger's ripples ring at the loudest mode's own frequency so they keep time with the plate.
     const float touchK = std::clamp(3.1415927f * plate_.dominantWavenumber(), kMinTouchK, kMaxTouchK);
     touchPhase_ = cymatics::wrapPhase(touchPhase_ + cymatics::vibrationHz(plate_.dominantWavenumber()) * speed * kTwoPi * dt, kTwoPi);
 
-    if (style_.shaderStyle == kStyleFaraday) drops_.update(dt, hit);
+    if (style_.shaderStyle == kStyleFaraday) {
+        // Faraday droplets: continuous, phase-locked to the bar oscillator's peak rather than a heard hit.
+        const float dropDrive = std::clamp(m.barOsc * (0.5f + 0.5f * bassRel), 0.0f, 1.5f);
+        drops_.update(dt, dropDrive);
+    }
 
     toneHue_ = cymatics::approachHue(toneHue_, live::brightness(f), cymatics::smoothing(dt, kToneTauSeconds));
     const float toneNudge = std::sin(toneHue_ * kTwoPi) * kToneHueSpan;
@@ -103,7 +110,8 @@ void CymaticsScene::draw(float timeSeconds) {
     glUniform1f(loc("uHueSpan"), hue::span(p.hueRange, p.paletteRange()) * style_.hueSpan);
     glUniform1f(loc("uEnergy"), clampedBand(f.rms));
     glUniform1f(loc("uTreble"), clampedBand(f.treble));
-    glUniform1f(loc("uBeat"), beatPulse_);
+    // Wave three: legacy constant - R06 removes the shader's read of this.
+    glUniform1f(loc("uBeat"), 0.0f);
     glUniform1f(loc("uExposure"), kExposure);
     glUniform1f(loc("uTouchK"), touchK);
     glUniform1f(loc("uTouchPhase"), touchPhase_);

@@ -1,6 +1,7 @@
 package dev.geode.ui.studio
 
 import android.content.Intent
+import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -9,6 +10,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -17,6 +19,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -51,9 +54,16 @@ import dev.geode.editor.TapInSession
 import dev.geode.editor.TapResult
 import dev.geode.editor.Timeline
 import dev.geode.editor.predecessorOf
+import dev.geode.export.ChapterFormat
+import dev.geode.export.ChapterMarkers
+import dev.geode.export.ChapterWriteResult
 import dev.geode.ui.EditorUiState
 import dev.geode.ui.ExportPhase
 import dev.geode.ui.isBusy
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.util.Locale
 import java.util.UUID
 import kotlin.math.roundToInt
 
@@ -73,6 +83,7 @@ fun TimelineEditor(
     onClose: () -> Unit,
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val project = state.project
     var pxPerMs by rememberSaveable { mutableStateOf(TimelineScale.DEFAULT_PX_PER_MS) }
     var selectedClip by remember { mutableStateOf<ClipId?>(null) }
@@ -86,8 +97,17 @@ fun TimelineEditor(
     var trackSheet by remember { mutableStateOf<ClipId?>(null) }
     var trackSheetOpen by remember { mutableStateOf(false) }
     var transitionSheet by remember { mutableStateOf<ClipId?>(null) }
+    var chapterFormatPicker by remember { mutableStateOf(false) }
+    var sidecarMessage by remember { mutableStateOf<String?>(null) }
     val scale = TimelineScale(pxPerMs, maxOf(project.timeline.durationMs, MIN_CONTENT_MS) + CONTENT_MARGIN_MS)
     val laneNames = LANE_NAME_LABELS.associate { (kind, label) -> kind to stringResource(label) }
+    // Resolved here, not inside the export coroutines below: composition is the config-aware
+    // place to read a resource, and LocalContext.current is not.
+    val srtSavedMessage = stringResource(R.string.editor_srt_saved)
+    val srtFailedTemplate = stringResource(R.string.editor_srt_failed)
+    val chaptersSavedMessage = stringResource(R.string.editor_chapters_saved)
+    val chaptersNoneMessage = stringResource(R.string.editor_chapters_none)
+    val chaptersFailedTemplate = stringResource(R.string.editor_chapters_failed)
 
     fun applyResult(result: EditResult) {
         when (result) {
@@ -164,8 +184,81 @@ fun TimelineEditor(
         rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument(SRT_MIME)) { uri ->
             if (uri == null) return@rememberLauncherForActivityResult
             val srt = Subtitles.toSrt(Subtitles.cuesFrom(project.timeline.lanes))
-            runCatching { context.contentResolver.openOutputStream(uri)?.use { it.write(srt.toByteArray(Charsets.UTF_8)) } }
+            scope.launch {
+                val failure =
+                    withContext(Dispatchers.IO) {
+                        runCatching {
+                            context.contentResolver.openOutputStream(uri)?.use { it.write(srt.toByteArray(Charsets.UTF_8)) }
+                        }.exceptionOrNull()
+                    }
+                sidecarMessage =
+                    if (failure == null) {
+                        srtSavedMessage
+                    } else {
+                        String.format(Locale.getDefault(), srtFailedTemplate, failure.message ?: failure.toString())
+                    }
+            }
         }
+    // Mirrors ExportHost's destination picker for the visualizer export: below API 29
+    // StudioExporter.publish cannot insert into MediaStore at all, so the project export button
+    // forces this picker there instead of trying (and failing) to save into Movies/Geode.
+    val projectDestinationPicker =
+        rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("video/mp4")) { uri ->
+            if (uri != null) actions.exportProject(uri)
+        }
+
+    fun exportProject() {
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.Q) {
+            projectDestinationPicker.launch("geode_cut_${System.currentTimeMillis()}.mp4")
+        } else {
+            actions.exportProject()
+        }
+    }
+
+    fun exportChapters(
+        format: ChapterFormat,
+        uri: Uri?,
+    ) {
+        if (uri == null) return
+        val chapters = ChapterMarkers.of(project.markers, project.timeline.durationMs)
+        scope.launch {
+            val result =
+                withContext(Dispatchers.IO) {
+                    runCatching {
+                        val stream = context.contentResolver.openOutputStream(uri)
+                        stream?.use { out -> chapters.writeTo(out, format) } ?: ChapterWriteResult.Failed(NO_OUTPUT_STREAM)
+                    }.getOrElse { e -> ChapterWriteResult.Failed(e.message ?: e.toString()) }
+                }
+            sidecarMessage =
+                when (result) {
+                    ChapterWriteResult.Written -> chaptersSavedMessage
+                    ChapterWriteResult.Skipped -> chaptersNoneMessage
+                    is ChapterWriteResult.Failed -> String.format(Locale.getDefault(), chaptersFailedTemplate, result.message)
+                }
+        }
+    }
+
+    val chapterDescriptionExporter =
+        rememberLauncherForActivityResult(
+            ActivityResultContracts.CreateDocument(ChapterFormat.DESCRIPTION.mimeType),
+        ) { uri -> exportChapters(ChapterFormat.DESCRIPTION, uri) }
+    val chapterVttExporter =
+        rememberLauncherForActivityResult(
+            ActivityResultContracts.CreateDocument(ChapterFormat.WEB_VTT.mimeType),
+        ) { uri -> exportChapters(ChapterFormat.WEB_VTT, uri) }
+    val chapterFfmetadataExporter =
+        rememberLauncherForActivityResult(
+            ActivityResultContracts.CreateDocument(ChapterFormat.FFMETADATA.mimeType),
+        ) { uri -> exportChapters(ChapterFormat.FFMETADATA, uri) }
+
+    fun launchChapterExport(format: ChapterFormat) {
+        val name = "geode_chapters_${System.currentTimeMillis()}.${format.extension}"
+        when (format) {
+            ChapterFormat.DESCRIPTION -> chapterDescriptionExporter.launch(name)
+            ChapterFormat.WEB_VTT -> chapterVttExporter.launch(name)
+            ChapterFormat.FFMETADATA -> chapterFfmetadataExporter.launch(name)
+        }
+    }
 
     fun addLane(kind: LaneKind) {
         actions.edit { p ->
@@ -199,10 +292,16 @@ fun TimelineEditor(
             onUndo = actions::undo,
             onRedo = actions::redo,
             onZoom = { pxPerMs = (pxPerMs * it).coerceIn(TimelineScale.MIN_PX_PER_MS, TimelineScale.MAX_PX_PER_MS) },
-            onExport = actions::exportProject,
+            onExport = ::exportProject,
             onClose = onClose,
         )
-        ExportStatusRow(exportPhase, onCancel = actions::cancelProjectExport)
+        ExportStatusRow(
+            phase = exportPhase,
+            onCancel = actions::cancelProjectExport,
+            onExportToDestination = {
+                projectDestinationPicker.launch("geode_cut_${System.currentTimeMillis()}.mp4")
+            },
+        )
         EditorToolbar(
             tapSession = tapSession,
             onAddLane = ::addLane,
@@ -221,6 +320,7 @@ fun TimelineEditor(
             onLyricCaptions = { addCaptionClips(actions.lyricCues().orEmpty()) },
             onImportSrt = { srtImporter.launch(arrayOf(SRT_MIME, "text/plain", "text/*")) },
             onExportSrt = { srtExporter.launch("geode_captions_${System.currentTimeMillis()}.srt") },
+            onExportChapters = { chapterFormatPicker = true },
         )
         val clip = selectedClip?.let(project.timeline::clip)
         val clipLane = clip?.let { project.timeline.laneOf(it.id) }
@@ -284,6 +384,9 @@ fun TimelineEditor(
         }
         editError?.let { error ->
             Text(editErrorMessage(error), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+        }
+        sidecarMessage?.let { message ->
+            Text(message, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         if (project.timeline.lanes.isEmpty()) {
             Text(
@@ -366,6 +469,15 @@ fun TimelineEditor(
             onDismiss = { textLane = null },
         )
     }
+    if (chapterFormatPicker) {
+        ChapterFormatDialog(
+            onPick = { format ->
+                chapterFormatPicker = false
+                launchChapterExport(format)
+            },
+            onDismiss = { chapterFormatPicker = false },
+        )
+    }
     if (autoCutOpen) {
         AutoCutSheet(
             envelopeFor = actions::transientEnvelope,
@@ -382,10 +494,32 @@ fun TimelineEditor(
     }
 }
 
+/** Which sidecar the user wants for the marker lane, before the system's own save-as sheet opens. */
+@Composable
+private fun ChapterFormatDialog(
+    onPick: (ChapterFormat) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.editor_chapters_title)) },
+        text = {
+            Column {
+                CHAPTER_FORMAT_LABELS.forEach { (format, label) ->
+                    TextButton(onClick = { onPick(format) }) { Text(stringResource(label)) }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+    )
+}
+
 @Composable
 private fun ExportStatusRow(
     phase: ExportPhase,
     onCancel: () -> Unit,
+    onExportToDestination: () -> Unit,
 ) {
     when (phase) {
         is ExportPhase.Running -> {
@@ -401,7 +535,11 @@ private fun ExportStatusRow(
         }
         is ExportPhase.Done -> Text(stringResource(R.string.studio_saved), style = MaterialTheme.typography.labelMedium)
         is ExportPhase.Failed -> Text(phase.message, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
-        ExportPhase.Idle, ExportPhase.Loading -> Unit
+        ExportPhase.Idle ->
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                TextButton(onClick = onExportToDestination) { Text(stringResource(R.string.export_render_to_folder)) }
+            }
+        ExportPhase.Loading -> Unit
     }
 }
 
@@ -488,7 +626,15 @@ private fun EditorProject.cutVisualLane(
 private val LANE_NAME_LABELS: List<Pair<LaneKind, Int>> =
     listOf(LaneKind.Visual, LaneKind.Media, LaneKind.Text, LaneKind.Overlay, LaneKind.Audio).map { it to laneKindLabel(it) }
 
+private val CHAPTER_FORMAT_LABELS: List<Pair<ChapterFormat, Int>> =
+    listOf(
+        ChapterFormat.DESCRIPTION to R.string.editor_chapters_description,
+        ChapterFormat.WEB_VTT to R.string.editor_chapters_webvtt,
+        ChapterFormat.FFMETADATA to R.string.editor_chapters_ffmetadata,
+    )
+
 private const val SRT_MIME = "application/x-subrip"
+private const val NO_OUTPUT_STREAM = "The destination could not be opened."
 private const val MIN_CONTENT_MS = 60_000L
 private const val CONTENT_MARGIN_MS = 15_000L
 private const val SCENE_MS = 4_000L

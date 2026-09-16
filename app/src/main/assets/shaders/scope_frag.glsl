@@ -14,7 +14,6 @@ uniform float uBass;
 uniform float uMid;
 uniform float uTreble;
 uniform float uEnergy;
-uniform float uBeat;
 uniform sampler2D uAudioTex;
 uniform float uSpeed;
 uniform float uZoom;
@@ -27,7 +26,6 @@ uniform float uBright;
 uniform float uInvert;
 uniform float uIntensity;
 uniform float uMirrorX;
-uniform float uBeatResponse;
 uniform float uTurbulence;
 uniform float uPalBase;
 uniform float uPalRange;
@@ -46,16 +44,13 @@ uniform float uMorph;
 uniform float uPixelate;
 uniform float uPosterize;
 uniform float uSway;
-uniform float uPulse;
 uniform float uBeatPhase;
 uniform float uDriftX;
 uniform float uDriftY;
-uniform float uShake;
 uniform float uTile;
 uniform float uTwist;
 uniform float uTemperature;
 uniform float uSolarize;
-uniform float uFlash;
 
 float aband(float x) { return texture(uAudioTex, vec2(clamp(x, 0.0, 1.0), 0.25)).r; }
 float awave(float x) { return texture(uAudioTex, vec2(clamp(x, 0.0, 1.0), 0.75)).r; }
@@ -88,7 +83,6 @@ vec2 view() {
     // for good and stranding the user on a black screen.
     vec2 driftPhase = fract(vec2(uDriftX, uDriftY) * uTime * 0.025 + 0.25);
     uv += 1.0 - 2.0 * abs(2.0 * driftPhase - 1.0);
-    uv += uShake * uBeat * 0.03 * vec2(sin(uTime * 91.7), cos(uTime * 77.3));
     // Morph: blend the plane toward a polar remap (angle,radius swap), a
     // smooth geometric metamorphosis that works on any scene.
     if (uMorph > 0.001) {
@@ -99,20 +93,10 @@ vec2 view() {
     }
     float a = uRotation + uSway * 0.35 * sin(uTime * 0.7);
     uv = mat2(cos(a), -sin(a), sin(a), cos(a)) * uv;
-    // Beat-locked pulse: peaks exactly on the musical beat (uBeatPhase=0), and
-    // rides the beat ENVELOPE so it is zero between hits. The phase clock in
-    // ShaderScene free-runs at the last detected tempo, so without the
-    // envelope the frame kept breathing once a beat through silence; every
-    // other family gets this slider as CompositeGrade.pulseAmount (the slider
-    // times the SQUARED envelope), and one slider has to mean one thing.
-    float beatEnv = clamp(uBeat, 0.0, 1.0);
-    float beatBump = pow(0.5 + 0.5 * cos(6.2831853 * uBeatPhase), 2.0);
-    float pulse = 1.0 + uPulse * 0.22 * beatEnv * beatEnv * beatBump;
-    // Triangle-wave exponent: 1x -> 2x -> 1x smoothly, so the endless-zoom
-    // phase wrap never causes a visible scale pop (2^1 snapping to 2^0). The
-    // milkdrop post pass (pm_post_frag) already spells it this way; a sawtooth
-    // exponent halved the magnification once per cycle on every scene shader.
-    float z = uZoom * pulse * pow(2.0, 1.0 - abs(2.0 * uZoomPhase - 1.0)) * (1.0 + uBeat * uBeatResponse * 0.15);
+    // Wave three: the beat-locked pulse and beat-response zoom widen are
+    // gone (they were flash/spike behaviour). Endless-zoom keeps its
+    // triangle-wave exponent (1x -> 2x -> 1x) so the phase wrap never pops.
+    float z = uZoom * pow(2.0, 1.0 - abs(2.0 * uZoomPhase - 1.0));
     uv /= max(z, 0.05);
     uv += uTurbulence * 0.06 * vec2(sin(uv.y * 6.0 + uTime), cos(uv.x * 6.0 + uTime * 1.3));
     // Radial twist: rotate by an angle growing with radius.
@@ -137,6 +121,7 @@ vec2 view() {
     return uv;
 }
 
+//#include lib_scene_motion
 //#include lib_palette
 
 vec3 grade(vec3 col) {
@@ -153,11 +138,11 @@ vec3 grade(vec3 col) {
     col.r += uTemperature * 0.12;
     col.b -= uTemperature * 0.12;
     if (uSolarize > 0.5) col = abs(1.0 - 2.0 * col);
-    col += uFlash * uBeat * 0.6;
     col = col * uBright * uIntensity;
     return mix(col, max(vec3(1.0) - col, 0.0), uInvert);
 }
 
+// motion: uKeyHue -> palette drift, uEnergyRel -> line gain
 // Oscilloscope: the raw waveform as a glowing line.
 void main() {
     vec2 uv = view();
@@ -165,7 +150,10 @@ void main() {
     float w = (awave(x) * 2.0 - 1.0) * (0.5 + uEnergy);
     float d = abs(uv.y - w * 0.6);
     float line = exp(-d * 60.0) + exp(-d * 12.0) * 0.35;
+    line *= 0.85 + 0.15 * clamp(uEnergyRel, 0.0, 2.0);
     float grid = (step(fract(uv.x * 4.0), 0.01) + step(fract(uv.y * 4.0), 0.02)) * 0.06;
-    vec3 col = pal(x * 0.5 + uEnergy * 0.3) * line + vec3(grid);
+    // sin(2*pi*uKeyHue), not a raw (uKeyHue - 0.5): uKeyHue wraps 1->0, and a
+    // linear shift of it would pop at that wrap; the sine stays continuous.
+    vec3 col = pal(x * 0.5 + uEnergy * 0.3 + 0.03 * sin(6.2831853 * uKeyHue)) * line + vec3(grid) * uBreath;
     fragColor = vec4(grade(col), 1.0);
 }

@@ -13,6 +13,10 @@ precision highp float;
 //
 // Species A and B each take their own point on the user's palette, so a
 // two-population style is legible as two organisms sharing one world.
+//
+// motion: uEnergy -> circuit-look pad glints (continuous RMS, not a beat
+// hit); the trail simulation itself (MycoScene.cpp) already drives growth
+// continuously, so this present pass needs nothing beat-shaped at all.
 
 in vec2 vUv;
 out vec4 fragColor;
@@ -25,7 +29,6 @@ uniform float uBaseHue;
 uniform float uHueSpan;
 uniform float uExposure;
 uniform float uEnergy;
-uniform float uBeat;
 
 vec3 hsv2rgb(vec3 c) {
     vec3 p = abs(fract(c.xxx + vec3(0.0, 2.0 / 3.0, 1.0 / 3.0)) * 6.0 - 3.0);
@@ -65,7 +68,7 @@ void main() {
         float traces = smoothstep(0.18, 0.32, tone);
         float pads = smoothstep(0.75, 0.95, tone);
         color = vec3(0.008, 0.02, 0.012) + mixed * traces * 0.75;
-        color += cA * pads * (0.8 + 0.6 * uBeat);
+        color += cA * pads * (0.8 + 0.4 * clamp(uEnergy, 0.0, 1.5));
     } else if (uLook == 4) {
         float heat = pow(tone, 1.4) * (0.8 + 0.4 * uEnergy);
         color = vec3(heat * 1.7, heat * heat * 1.15, heat * heat * heat);

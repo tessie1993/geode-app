@@ -285,6 +285,11 @@ class PresetStore(
                 .put("rippleOverlayStrength", p.params.rippleOverlayStrength.toDouble())
                 .put("rippleOverlaySpecular", p.params.rippleOverlaySpecular.toDouble())
                 .put("formDrive", p.params.formDrive.toDouble())
+                .put("motionAmount", p.params.motionAmount.toDouble())
+                .put("motionBreath", p.params.motionBreath.toDouble())
+                .put("motionOrbit", p.params.motionOrbit.toDouble())
+                .put("motionDrift", p.params.motionDrift.toDouble())
+                .put("motionHue", p.params.motionHue.toDouble())
                 .apply { if (p.customShader != null) put("customShader", p.customShader) }
                 .apply { if (p.milkPreset != null) put("milkPreset", p.milkPreset) }
                 .toString(2)
@@ -479,6 +484,11 @@ class PresetStore(
                         rippleOverlayStrength = o.optDouble("rippleOverlayStrength", 0.4).toFloat(),
                         rippleOverlaySpecular = o.optDouble("rippleOverlaySpecular", 0.3).toFloat(),
                         formDrive = o.optDouble("formDrive", 0.7).toFloat(),
+                        motionAmount = o.optDouble("motionAmount", 0.7).toFloat(),
+                        motionBreath = o.optDouble("motionBreath", 0.5).toFloat(),
+                        motionOrbit = o.optDouble("motionOrbit", 0.5).toFloat(),
+                        motionDrift = o.optDouble("motionDrift", 0.5).toFloat(),
+                        motionHue = o.optDouble("motionHue", 0.4).toFloat(),
                     ),
             )
         }

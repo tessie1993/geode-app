@@ -30,6 +30,7 @@ uniform float uBass;
 uniform float uMid;
 uniform float uTreble;
 uniform float uEnergy;
+/** Constant since wave three; removed in R08. Held at 0 - nothing rises on a beat hit any more. */
 uniform float uBeat;
 uniform sampler2D uAudioTex;
 uniform float uSpeed;
@@ -43,6 +44,7 @@ uniform float uBright;
 uniform float uInvert;
 uniform float uIntensity;
 uniform float uMirrorX;
+/** Constant since wave three; removed in R08. Held at 0 - the endless-zoom pulse no longer widens on a beat hit. */
 uniform float uBeatResponse;
 uniform float uTurbulence;
 uniform float uPalBase;
@@ -63,6 +65,7 @@ uniform float uPixelate;
 uniform float uPosterize;
 uniform float uSway;
 uniform float uPulse;
+/** Since wave three: the analyser's own phase-locked beat phase (0..1 of a cycle), not a clock a transient resets. */
 uniform float uBeatPhase;
 uniform float uDriftX;
 uniform float uDriftY;
@@ -142,7 +145,21 @@ vec2 view() {
     // for good and stranding the user on a black screen.
     vec2 driftPhase = fract(vec2(uDriftX, uDriftY) * uTime * 0.025 + 0.25);
     uv += 1.0 - 2.0 * abs(2.0 * driftPhase - 1.0);
-    uv += uShake * uBeat * 0.03 * vec2(sin(uTime * 91.7), cos(uTime * 77.3));
+    // Wave three: the shake and beat-locked pulse terms that lived here are
+    // gone (no flashing, nothing keyed to a hit). The continuous replacements
+    // - breath scaling the zoom and drift accumulating into the rotation -
+    // are NOT re-applied here: MotionField::apply() already folds
+    // uBreath into p.zoom (uZoom below) and uDrift*motionDrift into
+    // p.rotation (uRotation below) on the CPU before either uniform is
+    // uploaded (core/viz/MotionField.cpp), so doing it again here would
+    // double the effect. The one continuous term that belongs here - a slow
+    // uOrbit-driven offset of the view centre - could not be added: uOrbit
+    // and uMotion are declared in lib_scene_motion.glsl, which every style
+    // includes AFTER lib_scene_uniforms (see e.g. bead_vortex_frag.glsl:8-9,
+    // and ShaderSource::resolveIncludes, which concatenates includes as
+    // plain text with no forward declarations), so referencing them from
+    // view() here does not compile. Left for whoever owns reordering the
+    // uniform declarations or the per-style include order.
     // Morph: blend the plane toward a polar remap (angle,radius swap), a
     // smooth geometric metamorphosis that works on any scene.
     if (uMorph > 0.001) {
@@ -153,20 +170,11 @@ vec2 view() {
     }
     float a = uRotation + uSway * 0.35 * sin(uTime * 0.7);
     uv = mat2(cos(a), -sin(a), sin(a), cos(a)) * uv;
-    // Beat-locked pulse: peaks exactly on the musical beat (uBeatPhase=0), and
-    // rides the beat ENVELOPE so it is zero between hits. The phase clock in
-    // ShaderScene free-runs at the last detected tempo, so without the
-    // envelope the frame kept breathing once a beat through silence; every
-    // other family gets this slider as CompositeGrade.pulseAmount (the slider
-    // times the SQUARED envelope), and one slider has to mean one thing.
-    float beatEnv = clamp(uBeat, 0.0, 1.0);
-    float beatBump = pow(0.5 + 0.5 * cos(6.2831853 * uBeatPhase), 2.0);
-    float pulse = 1.0 + uPulse * 0.22 * beatEnv * beatEnv * beatBump;
     // Triangle-wave exponent: 1x -> 2x -> 1x smoothly, so the endless-zoom
     // phase wrap never causes a visible scale pop (2^1 snapping to 2^0). The
     // milkdrop post pass (pm_post_frag) already spells it this way; a sawtooth
     // exponent halved the magnification once per cycle on every scene shader.
-    float z = uZoom * pulse * pow(2.0, 1.0 - abs(2.0 * uZoomPhase - 1.0)) * (1.0 + uBeat * uBeatResponse * 0.15);
+    float z = uZoom * pow(2.0, 1.0 - abs(2.0 * uZoomPhase - 1.0));
     uv /= max(z, 0.05);
     uv += uTurbulence * 0.06 * vec2(sin(uv.y * 6.0 + uTime), cos(uv.x * 6.0 + uTime * 1.3));
     // Radial twist: rotate by an angle growing with radius.

@@ -129,6 +129,17 @@ uniform highp sampler2D uRipple; // half-float heights exceed lowp range
 uniform vec2 uRippleTexel;
 uniform float uRippleStrength;
 uniform float uRippleSpecular;
+// Underlay (W00): a full-frame RGBA8 background layer, blended into the finished composite
+// colour in main() below, just before the dither - so it applies once, identically, regardless
+// of transitions or Layers. uUnderlayBlend selects the function (0 = screen: shows through where
+// the scene is black while leaving bright scene pixels alone; 1 = multiply; 2 = add) and
+// uUnderlayAmount (0..1) is how much of that blend result replaces the plain scene colour.
+// uUnderlayAmount is 0 by default (GL's uniform default for a value never uploaded), so a program
+// that never sets it renders identically to one with no underlay pass at all. See
+// CompositePass.hpp for the full pass description.
+uniform sampler2D uUnderlay;
+uniform int uUnderlayBlend;
+uniform float uUnderlayAmount;
 
 float compHash12(vec2 p) {
     vec3 p3 = fract(vec3(p.xyx) * 0.1031);
@@ -456,6 +467,21 @@ vec3 blended() {
 
 void main() {
     vec3 col = blended();
+    // Underlay (W00): folded in here, after every transition/Layers/postFx blend above and
+    // before the dither, so it is the one place both the live composite and the offscreen export
+    // apply it - see the uUnderlay* declarations above and CompositePass.hpp.
+    if (uUnderlayAmount > 0.0001) {
+        vec3 u = texture(uUnderlay, vUv).rgb;
+        vec3 underlayBlended;
+        if (uUnderlayBlend == 1) {
+            underlayBlended = col * u;
+        } else if (uUnderlayBlend == 2) {
+            underlayBlended = col + u;
+        } else {
+            underlayBlended = vec3(1.0) - (vec3(1.0) - col) * (vec3(1.0) - u);
+        }
+        col = mix(col, clamp(underlayBlended, 0.0, 1.0), clamp(uUnderlayAmount, 0.0, 1.0));
+    }
     // Dither LAST, after every grade and effect, sampled one texel per output
     // pixel: this is fighting the 8-bit quantization of the surface being
     // written, so it has to be measured in that surface's own steps. Every

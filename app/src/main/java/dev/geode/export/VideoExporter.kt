@@ -11,12 +11,18 @@ import android.net.Uri
 import android.os.ParcelFileDescriptor
 import android.provider.DocumentsContract
 import android.provider.MediaStore
+import androidx.annotation.StringRes
+import dev.geode.R
+import dev.geode.RingLog
 import dev.geode.analysis.FeatureTimeline
 import dev.geode.render.SceneFactory
 import dev.geode.render.offscreen.OffscreenRenderSpec
 import dev.geode.render.offscreen.OffscreenSceneRenderer
+import dev.geode.render.offscreen.OffscreenUnderlay
 import dev.geode.render.scene.SceneParams
 import dev.geode.util.bestEffort
+import dev.geode.viz.BackgroundExportSpec
+import dev.geode.viz.BackgroundImage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.nio.ByteBuffer
@@ -114,10 +120,22 @@ class VideoExporter(
 
         data class Failed(
             val message: String,
-        ) : Result
+            @StringRes val messageRes: Int? = null,
+            val messageArgs: List<Any> = emptyList(),
+        ) : Result {
+            /** Re-resolves [messageRes] against a live [context], for a UI layer that wants localisation. */
+            @Suppress("SpreadOperator")
+            fun describe(context: Context): String = messageRes?.let { context.getString(it, *messageArgs.toTypedArray()) } ?: message
+        }
 
         data object Cancelled : Result
     }
+
+    /** Builds a [Result.Failed] whose [Result.Failed.message] is already resolved from [resId]. */
+    private fun failed(
+        @StringRes resId: Int,
+        vararg args: Any,
+    ): Result.Failed = Result.Failed(context.getString(resId, *args), resId, args.toList())
 
     suspend fun export(
         audioUri: Uri,
@@ -136,10 +154,14 @@ class VideoExporter(
         destination: Uri? = null,
         codec: ExportCodec = ExportCodec.H264,
         loudnessTarget: LoudnessTarget = LoudnessTarget.LeaveAsIs,
+        background: BackgroundExportSpec? = null,
         onProgress: (Float) -> Unit,
         isCancelled: () -> Boolean,
     ): Result =
         withContext(Dispatchers.Default) {
+            // Decoded once, at the export's own pixel size, and reused for whichever destination
+            // path below runs - see BackgroundImage for why this never touches Main.
+            val underlay = background?.let { BackgroundImage.decodeForExport(context, it, aspect.width, aspect.height) }
             if (destination != null) {
                 return@withContext exportToDestination(
                     destination,
@@ -157,6 +179,7 @@ class VideoExporter(
                     range,
                     codec,
                     loudnessTarget,
+                    underlay,
                     onProgress,
                     isCancelled,
                 )
@@ -173,14 +196,11 @@ class VideoExporter(
                 }
             val outUri =
                 resolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values)
-                    ?: return@withContext Result.Failed(
-                        "Your Videos library would not accept a new file. Check that storage is not full, " +
-                            "or render to a folder you choose instead.",
-                    )
+                    ?: return@withContext failed(R.string.export_error_library_insert)
             val pfd = resolver.openFileDescriptor(outUri, "w")
             if (pfd == null) {
                 bestEffort(TAG, "resolver.delete(outUri, null, null)") { resolver.delete(outUri, null, null) }
-                return@withContext Result.Failed("The new file in your Videos library could not be opened for writing.")
+                return@withContext failed(R.string.export_error_library_open)
             }
             try {
                 pfd.use {
@@ -200,6 +220,7 @@ class VideoExporter(
                         range,
                         codec,
                         loudnessTarget,
+                        underlay,
                         onProgress,
                         isCancelled,
                     )
@@ -236,16 +257,14 @@ class VideoExporter(
         range: ExportRange?,
         codec: ExportCodec,
         loudnessTarget: LoudnessTarget,
+        underlay: OffscreenUnderlay?,
         onProgress: (Float) -> Unit,
         isCancelled: () -> Boolean,
     ): Result {
         val resolver = context.contentResolver
         val pfd =
             resolver.openFileDescriptor(destination, "w")
-                ?: return Result.Failed(
-                    "The folder you chose would not let the file be written. Some cloud providers refuse " +
-                        "this; try your Videos library or a folder on the device.",
-                )
+                ?: return failed(R.string.export_error_destination_write)
         return try {
             pfd.use {
                 encodeInto(
@@ -264,6 +283,7 @@ class VideoExporter(
                     range,
                     codec,
                     loudnessTarget,
+                    underlay,
                     onProgress,
                     isCancelled,
                 )
@@ -334,6 +354,7 @@ class VideoExporter(
         range: ExportRange?,
         codec: ExportCodec,
         loudnessTarget: LoudnessTarget,
+        underlay: OffscreenUnderlay?,
         onProgress: (Float) -> Unit,
         isCancelled: () -> Boolean,
     ) {
@@ -346,6 +367,7 @@ class VideoExporter(
         var audioFeedRef: AudioFeed? = null
         var muxerStarted = false
         var muxerStopped = false
+        var sampleWritten = false
         try {
             val requestedFpsBounded = requestedFps.coerceIn(24, 60)
             // The requested codec at the requested rate first, then its reduced form, then the same pair on H.264.
@@ -416,6 +438,7 @@ class VideoExporter(
                             adsrConfigs = adsrConfigs,
                             reducedMotion = reducedMotion,
                             paramsAt = paramsAt,
+                            underlay = underlay,
                         ),
                 ).also { rendererRef = it }
             renderer.prepare()
@@ -434,13 +457,20 @@ class VideoExporter(
                 while (true) {
                     val outIndex = encoder.dequeueOutputBuffer(info, 0)
                     if (outIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
-                        videoTrack = muxer.addTrack(encoder.outputFormat)
-                        audioTrack = muxer.addTrack(aac.format)
-                        muxer.start()
-                        muxerStarted = true
+                        if (muxerStarted) {
+                            // Some vendors legally re-signal a format change after start(); the muxer
+                            // cannot add a track once running, so the original track stays in use.
+                            RingLog.note(TAG, "encoder re-signalled INFO_OUTPUT_FORMAT_CHANGED after the muxer had already started")
+                        } else {
+                            videoTrack = muxer.addTrack(encoder.outputFormat)
+                            audioTrack = muxer.addTrack(aac.format)
+                            muxer.start()
+                            muxerStarted = true
+                        }
                     } else if (outIndex >= 0) {
-                        val buf = checkNotNull(encoder.getOutputBuffer(outIndex)) { "video encoder buffer null (codec error state)" }
-                        writeSample(muxer, videoTrack, buf, info, muxerStarted)
+                        val buf =
+                            checkNotNull(encoder.getOutputBuffer(outIndex)) { context.getString(R.string.export_error_encoder_buffer_null) }
+                        if (writeSample(muxer, videoTrack, buf, info, muxerStarted)) sampleWritten = true
                         encoder.releaseOutputBuffer(outIndex, false)
                     } else {
                         break
@@ -460,14 +490,19 @@ class VideoExporter(
                 val outIndex = encoder.dequeueOutputBuffer(info, TIMEOUT_US)
                 when {
                     outIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> {
-                        videoTrack = muxer.addTrack(encoder.outputFormat)
-                        audioTrack = muxer.addTrack(aac.format)
-                        muxer.start()
-                        muxerStarted = true
+                        if (muxerStarted) {
+                            RingLog.note(TAG, "encoder re-signalled INFO_OUTPUT_FORMAT_CHANGED while draining; ignoring")
+                        } else {
+                            videoTrack = muxer.addTrack(encoder.outputFormat)
+                            audioTrack = muxer.addTrack(aac.format)
+                            muxer.start()
+                            muxerStarted = true
+                        }
                     }
                     outIndex >= 0 -> {
-                        val buf = checkNotNull(encoder.getOutputBuffer(outIndex)) { "video encoder buffer null (codec error state)" }
-                        writeSample(muxer, videoTrack, buf, info, muxerStarted)
+                        val buf =
+                            checkNotNull(encoder.getOutputBuffer(outIndex)) { context.getString(R.string.export_error_encoder_buffer_null) }
+                        if (writeSample(muxer, videoTrack, buf, info, muxerStarted)) sampleWritten = true
                         val eos = info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0
                         encoder.releaseOutputBuffer(outIndex, false)
                         if (eos) {
@@ -478,8 +513,8 @@ class VideoExporter(
                     else -> flushAttempts++
                 }
             }
-            check(muxerStarted || isCancelled()) { "Video encoder produced no output (encoder/format unsupported?)" }
-            check(sawEos || isCancelled()) { "Video encoder stalled while flushing - export incomplete" }
+            check(muxerStarted || isCancelled()) { context.getString(R.string.export_error_encoder_no_output) }
+            check(sawEos || isCancelled()) { context.getString(R.string.export_error_encoder_stalled) }
             if (muxerStarted && !isCancelled() && audioTrack >= 0) {
                 val feed =
                     audioFeedRef ?: AudioFeed(muxer, audioTrack, aac, exportDurationUs).also { audioFeedRef = it }
@@ -493,7 +528,19 @@ class VideoExporter(
         } finally {
             bestEffort(TAG, "rendererRef?.release()") { rendererRef?.release() }
             bestEffort(TAG, "audioFeedRef?.close()") { audioFeedRef?.close() }
-            if (muxerStarted && !muxerStopped) runCatching { muxerRef?.stop() }
+            if (muxerStarted && !muxerStopped) {
+                val wroteSamples = sampleWritten || audioFeedRef?.wroteSample == true
+                if (wroteSamples) {
+                    bestEffort(TAG, "muxerRef?.stop()") { muxerRef?.stop() }
+                } else {
+                    // A muxer that started (via INFO_OUTPUT_FORMAT_CHANGED) but never received a
+                    // sample — e.g. cancelled before the first frame drained — cannot be stopped:
+                    // MediaMuxer.stop() with zero samples always throws IllegalStateException. The
+                    // caller deletes the (empty/invalid) output file once it sees the cancellation
+                    // or the exception this finally block would otherwise have swallowed.
+                    RingLog.note(TAG, "muxer started but wrote no samples; skipping stop() to avoid a guaranteed IllegalStateException")
+                }
+            }
             bestEffort(TAG, "muxerRef?.release()") { muxerRef?.release() }
             bestEffort(TAG, "encoderRef?.stop()") { encoderRef?.stop() }
             bestEffort(TAG, "encoderRef?.release()") { encoderRef?.release() }
@@ -539,18 +586,20 @@ class VideoExporter(
         throw checkNotNull(failure)
     }
 
+    /** Writes one encoded video sample to [muxer], returning whether it actually wrote one. */
     private fun writeSample(
         muxer: MediaMuxer,
         track: Int,
         buffer: ByteBuffer,
         info: MediaCodec.BufferInfo,
         started: Boolean,
-    ) {
-        if (!started || track < 0 || info.size <= 0) return
-        if (info.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG != 0) return
+    ): Boolean {
+        if (!started || track < 0 || info.size <= 0) return false
+        if (info.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG != 0) return false
         buffer.position(info.offset)
         buffer.limit(info.offset + info.size)
         muxer.writeSampleData(track, buffer, info)
+        return true
     }
 
     private class AudioFeed(
@@ -563,6 +612,10 @@ class VideoExporter(
         private val info = MediaCodec.BufferInfo()
         private var scratch = ByteBuffer.allocate(64 * 1024)
         private var next = 0
+
+        /** Whether any audio sample has actually reached the muxer via [writeUpTo]. */
+        var wroteSample: Boolean = false
+            private set
 
         fun writeUpTo(upToUs: Long) {
             val channel = raf.channel
@@ -586,6 +639,7 @@ class VideoExporter(
                 scratch.flip()
                 info.set(0, read, sample.presentationTimeUs, sample.flags)
                 muxer.writeSampleData(track, scratch, info)
+                wroteSample = true
             }
         }
 

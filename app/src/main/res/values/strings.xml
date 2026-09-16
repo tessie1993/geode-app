@@ -570,9 +570,36 @@
     <string name="export_loop_rendering">Rendering… %1$d%%</string>
     <string name="export_loudness_target">Loudness target</string>
     <string name="export_loudness_hint">Geode matches the level to this target while exporting, then measures the finished file to confirm it landed there — pick the platform you\'re shipping to, or Leave as-is to ship the level you mixed.</string>
+    <string name="export_fps_24">24 fps</string>
+    <string name="export_fps_25">25 fps</string>
+    <string name="export_fps_50">50 fps</string>
     <string name="export_notification_permission_title">Show render progress?</string>
     <string name="export_notification_permission_body">Geode can show a notification with the render\'s progress and time remaining, so you can check on it without reopening this dialog. Without it, the render still finishes — you just won\'t see progress outside the app.</string>
     <string name="export_notification_permission_skip">Not now</string>
+
+    <!-- Export: failure messages. Shared by VideoExporter, StudioExporter and LoopRender. -->
+    <string name="export_error_library_insert">Your Videos library would not accept a new file. Check that storage is not full, or render to a folder you choose instead.</string>
+    <string name="export_error_library_open">The new file in your Videos library could not be opened for writing.</string>
+    <string name="export_error_destination_write">The folder you chose would not let the file be written. Some cloud providers refuse this; try your Videos library or a folder on the device.</string>
+    <string name="export_error_encoder_buffer_null">The video encoder returned an empty buffer (codec error state).</string>
+    <string name="export_error_encoder_no_output">The video encoder produced no output — this device\'s encoder or the chosen format may not be supported.</string>
+    <string name="export_error_encoder_stalled">The video encoder stalled while flushing — the export is incomplete.</string>
+    <string name="export_error_studio_save">The finished file could not be saved to Movies/Geode.</string>
+    <string name="export_error_studio_start">The export could not be started.</string>
+    <string name="export_error_destination_save">The export could not be saved to that folder.</string>
+    <string name="export_error_encoder_unsupported">This device\'s video encoder would not accept that output — try a smaller size or a different aspect ratio.</string>
+    <string name="export_error_decode_unsupported">That clip could not be read — the file may have moved, or be in a format this device cannot decode.</string>
+    <string name="export_error_no_permission">Geode does not have permission to read that file.</string>
+    <string name="export_error_generic">The export failed.</string>
+    <string name="export_error_loop_encoder_rejected">This device\'s video encoder would not accept %1$d×%2$d. Try a smaller size or a different aspect ratio.</string>
+    <string name="export_error_loop_low_gpu_memory">There is not enough graphics memory to hold even one crossfade frame at %1$d×%2$d — render the loop at a smaller size.</string>
+    <string name="export_error_loop_stopped">The loop render stopped unexpectedly.</string>
+    <string name="export_error_loop_cache_write">The loop could not be written to this device\'s cache: %1$s</string>
+    <string name="export_error_loop_shader_compile">The seam blend could not be compiled on this GPU: %1$s</string>
+    <string name="export_error_loop_encoder_busy">The video encoder was busy — close other apps that are recording or playing video and try again.</string>
+    <string name="export_error_loop_encoder_failed">This device\'s video encoder failed while rendering the loop: %1$s</string>
+    <string name="export_error_loop_no_output">The video encoder produced no output for this loop.</string>
+    <string name="export_error_loop_stalled">The video encoder stalled while finishing the loop.</string>
 
     <!-- Settings: Look tab. -->
     <string name="look_group_theme">Theme</string>
@@ -732,6 +759,16 @@
     <string name="editor_lyric_captions">Lyrics → captions</string>
     <string name="editor_import_srt">Import SRT…</string>
     <string name="editor_export_srt">Export SRT…</string>
+    <string name="editor_export_chapters">Chapters…</string>
+    <string name="editor_chapters_title">Export chapter markers</string>
+    <string name="editor_chapters_description">Description block (.txt)</string>
+    <string name="editor_chapters_webvtt">WebVTT chapters (.vtt)</string>
+    <string name="editor_chapters_ffmetadata">FFmpeg metadata (.ffmeta)</string>
+    <string name="editor_chapters_none">Add at least two markers to export chapters.</string>
+    <string name="editor_chapters_saved">Chapters saved.</string>
+    <string name="editor_chapters_failed">"Chapters could not be saved: %1$s"</string>
+    <string name="editor_srt_saved">Captions saved.</string>
+    <string name="editor_srt_failed">"Captions could not be saved: %1$s"</string>
     <string name="autocut_title">Auto-cut</string>
     <string name="autocut_source">Cut on</string>
     <string name="autocut_source_transient">Transients</string>
@@ -765,6 +802,19 @@
     <string name="action_dismiss">Dismiss</string>
     <string name="preset_link_imported">Preset \"%1$s\" imported — it is in Visuals › Presets.</string>
     <string name="preset_link_unreadable">That preset link could not be read. It may have been cut short in transit.</string>
+    <string name="background_entry_point">Background</string>
+    <string name="background_sheet_title">Background image</string>
+    <string name="background_pick">Choose an image</string>
+    <string name="background_clear">Remove</string>
+    <string name="background_none">No background image is set.</string>
+    <string name="background_blend">Blend</string>
+    <string name="background_blend_screen">Screen</string>
+    <string name="background_blend_multiply">Multiply</string>
+    <string name="background_blend_add">Add</string>
+    <string name="background_amount">Amount: %1$d%%</string>
+    <string name="background_blur">Blur: %1$d</string>
+    <string name="background_dim">Dim: %1$d%%</string>
+    <string name="background_unreadable_cleared">The saved background image could no longer be read and was removed.</string>
     <string name="template_link_imported">Template \"%1$s\" imported — open Video templates to use it.</string>
     <string name="template_link_unreadable">That template link could not be read. It may have been cut short in transit.</string>
     <string name="template_entry_point">Video templates</string>

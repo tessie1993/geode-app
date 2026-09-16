@@ -21,6 +21,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.geode.R
+import dev.geode.data.EXPORT_FPS_OPTIONS
 import dev.geode.data.ExportDefaults
 import dev.geode.data.ExportPrefsStore
 import dev.geode.data.GeodePrefsFiles
@@ -93,9 +94,9 @@ internal fun ExportSettingsTab(
                 Column {
                     Text(stringResource(R.string.export_frame_rate), style = MaterialTheme.typography.labelMedium)
                     CrystalSegmented(
-                        options = listOf(stringResource(R.string.export_fps_30), stringResource(R.string.export_fps_60)),
-                        selected = if (defaults.fps == 30) 0 else 1,
-                        onSelect = { update(defaults.copy(fps = if (it == 0) 30 else 60)) },
+                        options = fpsLabels(),
+                        selected = EXPORT_FPS_OPTIONS.indexOf(defaults.fps).coerceAtLeast(0),
+                        onSelect = { update(defaults.copy(fps = EXPORT_FPS_OPTIONS[it])) },
                         modifier = Modifier.padding(top = 4.dp),
                     )
                 }
@@ -157,8 +158,22 @@ internal fun ExportSettingsTab(
     }
 }
 
+// Shared by the settings tab and the export dialog so the frame-rate segmented control reads
+// identically ("24 fps", "25 fps", …) in both places.
 @Composable
-private fun presetCaption(
+internal fun fpsLabels(): List<String> =
+    EXPORT_FPS_OPTIONS.map { fps ->
+        when (fps) {
+            24 -> stringResource(R.string.export_fps_24)
+            25 -> stringResource(R.string.export_fps_25)
+            30 -> stringResource(R.string.export_fps_30)
+            50 -> stringResource(R.string.export_fps_50)
+            else -> stringResource(R.string.export_fps_60)
+        }
+    }
+
+@Composable
+internal fun presetCaption(
     defaults: ExportDefaults,
     baseSpec: String,
 ): String {

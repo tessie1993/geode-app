@@ -1,6 +1,7 @@
 package dev.geode.export
 
 import android.net.Uri
+import dev.geode.editor.MarkerSet
 import java.io.IOException
 import java.io.OutputStream
 import java.util.Locale
@@ -157,6 +158,33 @@ data class ChapterMarkers(
                             span.clip.title
                                 .trim()
                                 .ifEmpty { "Track ${index + 1}" },
+                    )
+                }
+            return ChapterMarkers(chapters)
+        }
+
+        /**
+         * Turns the editor's marker lane into chapters: each marker opens a chapter that runs
+         * until the next marker, or until [totalDurationMs] for the last one. A blank marker name
+         * falls back to its position in the list rather than being written out empty.
+         *
+         * A single marker yields no chapters, for the same reason a single clip does: one point in
+         * time is not a boundary between anything.
+         */
+        fun of(
+            markers: MarkerSet,
+            totalDurationMs: Long,
+        ): ChapterMarkers {
+            val ordered = markers.markers
+            if (ordered.size < 2) return None
+            val chapters =
+                ordered.mapIndexed { index, marker ->
+                    val start = marker.atMs.coerceAtLeast(0L)
+                    val end = (ordered.getOrNull(index + 1)?.atMs ?: totalDurationMs).coerceAtLeast(start)
+                    Chapter(
+                        startMs = start,
+                        durationMs = end - start,
+                        title = marker.name.trim().ifEmpty { "Chapter ${index + 1}" },
                     )
                 }
             return ChapterMarkers(chapters)

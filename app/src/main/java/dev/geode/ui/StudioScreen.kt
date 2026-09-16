@@ -1,5 +1,6 @@
 package dev.geode.ui
 
+import android.content.ClipData
 import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -724,10 +725,13 @@ private fun ClipEditorDone(
 ) {
     val context = LocalContext.current
     val chooserTitle = stringResource(R.string.studio_share_chooser)
+    // No clip title reaches this composable, so the rendered file's own name stands in for
+    // EXTRA_TITLE/SUBJECT, same as the export dialog's share button.
+    val resultName = resultUri.lastPathSegment?.substringAfterLast('/')
     Text(stringResource(R.string.studio_saved), style = MaterialTheme.typography.bodyMedium)
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         CrystalButton(
-            onClick = { context.shareVideo(resultUri, chooserTitle) },
+            onClick = { context.shareVideo(resultUri, chooserTitle, title = resultName, subject = resultName) },
         ) { Text(stringResource(R.string.studio_send_ellipsis)) }
         CrystalButton(
             filled = false,
@@ -845,15 +849,26 @@ private fun StudioChip(
 
 private fun clock(ms: Long): String = "%d:%02d".format(ms / 60_000, (ms / 1000) % 60)
 
-private fun android.content.Context.shareVideo(
+// internal (not private) so the export dialog (SettingsDialog.kt, same package) can share this
+// one implementation instead of building its own SEND intent.
+internal fun android.content.Context.shareVideo(
     uri: Uri,
     chooserTitle: String,
+    title: String? = null,
+    subject: String? = null,
 ) {
     val send =
         Intent(Intent.ACTION_SEND)
             .setType("video/mp4")
             .putExtra(Intent.EXTRA_STREAM, uri)
             .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            .apply {
+                // ClipData mirrors EXTRA_STREAM so share targets that read ClipData rather than
+                // the intent extra (most do, for a preview/thumbnail) still see the video.
+                clipData = ClipData.newUri(contentResolver, title ?: chooserTitle, uri)
+                if (title != null) putExtra(Intent.EXTRA_TITLE, title)
+                if (subject != null) putExtra(Intent.EXTRA_SUBJECT, subject)
+            }
     runCatching { startActivity(Intent.createChooser(send, chooserTitle)) }
 }
 

@@ -3,6 +3,7 @@
     <string name="app_name">Geode</string>
     <string name="wallpaper_label">Geode</string>
     <string name="wallpaper_description">Your last Geode style, reacting to whatever the app is playing and drifting gently when it is not.</string>
+    <string name="dream_label">Geode</string>
     <string name="notification_listener_label">Geode — now playing in other apps</string>
     <string name="capture_channel_name">Visualizing other apps</string>
     <string name="capture_channel_description">Shown while Geode is reading the audio another app is playing.</string>
@@ -219,6 +220,7 @@
     <string name="second_screen_showing_on">Showing on</string>
     <string name="second_screen_explainer">The visuals are on the connected display. Everything here still controls them — turn this off in Settings › Live input &amp; touch to bring them back.</string>
     <string name="action_collapse">Collapse</string>
+    <string name="action_pip">Picture-in-picture</string>
 
     <!-- Panel chips under the transport. -->
     <string name="panel_now">Now</string>
@@ -571,9 +573,36 @@
     <string name="export_still_button">Save frame</string>
     <string name="export_still_saving">Saving frame…</string>
     <string name="export_still_saved">Frame saved.</string>
+    <string name="export_fps_24">24 fps</string>
+    <string name="export_fps_25">25 fps</string>
+    <string name="export_fps_50">50 fps</string>
     <string name="export_notification_permission_title">Show render progress?</string>
     <string name="export_notification_permission_body">Geode can show a notification with the render\'s progress and time remaining, so you can check on it without reopening this dialog. Without it, the render still finishes — you just won\'t see progress outside the app.</string>
     <string name="export_notification_permission_skip">Not now</string>
+
+    <!-- Export: failure messages. Shared by VideoExporter, StudioExporter and LoopRender. -->
+    <string name="export_error_library_insert">Your Videos library would not accept a new file. Check that storage is not full, or render to a folder you choose instead.</string>
+    <string name="export_error_library_open">The new file in your Videos library could not be opened for writing.</string>
+    <string name="export_error_destination_write">The folder you chose would not let the file be written. Some cloud providers refuse this; try your Videos library or a folder on the device.</string>
+    <string name="export_error_encoder_buffer_null">The video encoder returned an empty buffer (codec error state).</string>
+    <string name="export_error_encoder_no_output">The video encoder produced no output — this device\'s encoder or the chosen format may not be supported.</string>
+    <string name="export_error_encoder_stalled">The video encoder stalled while flushing — the export is incomplete.</string>
+    <string name="export_error_studio_save">The finished file could not be saved to Movies/Geode.</string>
+    <string name="export_error_studio_start">The export could not be started.</string>
+    <string name="export_error_destination_save">The export could not be saved to that folder.</string>
+    <string name="export_error_encoder_unsupported">This device\'s video encoder would not accept that output — try a smaller size or a different aspect ratio.</string>
+    <string name="export_error_decode_unsupported">That clip could not be read — the file may have moved, or be in a format this device cannot decode.</string>
+    <string name="export_error_no_permission">Geode does not have permission to read that file.</string>
+    <string name="export_error_generic">The export failed.</string>
+    <string name="export_error_loop_encoder_rejected">This device\'s video encoder would not accept %1$d×%2$d. Try a smaller size or a different aspect ratio.</string>
+    <string name="export_error_loop_low_gpu_memory">There is not enough graphics memory to hold even one crossfade frame at %1$d×%2$d — render the loop at a smaller size.</string>
+    <string name="export_error_loop_stopped">The loop render stopped unexpectedly.</string>
+    <string name="export_error_loop_cache_write">The loop could not be written to this device\'s cache: %1$s</string>
+    <string name="export_error_loop_shader_compile">The seam blend could not be compiled on this GPU: %1$s</string>
+    <string name="export_error_loop_encoder_busy">The video encoder was busy — close other apps that are recording or playing video and try again.</string>
+    <string name="export_error_loop_encoder_failed">This device\'s video encoder failed while rendering the loop: %1$s</string>
+    <string name="export_error_loop_no_output">The video encoder produced no output for this loop.</string>
+    <string name="export_error_loop_stalled">The video encoder stalled while finishing the loop.</string>
 
     <!-- Settings: Look tab. -->
     <string name="look_group_theme">Theme</string>
@@ -616,6 +645,7 @@
     <string name="behavior_group_safety">Visual safety</string>
     <string name="behavior_group_auto">Auto visuals</string>
     <string name="behavior_group_wallpaper">Live wallpaper</string>
+    <string name="behavior_group_pip">Picture-in-picture</string>
     <string name="behavior_touch_smear">Smear the visuals with a finger</string>
     <string name="behavior_touch_smear_hint">Drag on the fullscreen visualizer to push the image around: the drag raises the surface ahead of your finger and dips it behind, and whatever is on screen bends through it. On the Water style it stirs the pool itself and paints into it.</string>
     <string name="behavior_smear_strength">"Smear strength  %1$d%%"</string>
@@ -631,6 +661,8 @@
     <string name="behavior_slow_motion_hint">Slows movement, shake, drift and rotation. This one is about motion comfort rather than seizures, which is why it is a choice: the flash limit above is not. Applies to exported video as well as the screen.</string>
     <string name="behavior_wallpaper_hint">Set the visualizer as your wallpaper. It uses the style and settings the app was last showing, reacts to whatever Geode is playing, and drifts gently on its own the rest of the time. It draws nothing while another app is in front, so it is not a background battery drain.</string>
     <string name="behavior_wallpaper_button">Set as live wallpaper</string>
+    <string name="behavior_pip_auto_enter">Enter automatically</string>
+    <string name="behavior_pip_auto_enter_hint">Leaving the fullscreen visualizer while something is playing shrinks it into a picture-in-picture window instead of just backgrounding the app. Off, the PiP button on the visualizer and the platform\'s own swipe-home gesture are still there — this only changes what leaving does by default.</string>
 
     <!-- Settings: Auto visuals (rendered inside the Behavior tab). -->
     <string name="autoviz_intro">Two modes rotate the look on a clock while a track plays. Only one of them runs at a time: starting the visual playlist stops Random, and turning Random on stops the playlist.</string>

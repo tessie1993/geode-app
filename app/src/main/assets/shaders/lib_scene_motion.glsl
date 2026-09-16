@@ -1,4 +1,4 @@
-// The smoothed audio-motion layer every style shares.
+// The continuous audio-motion layer every style shares.
 //
 // WHY THIS EXISTS
 //
@@ -9,28 +9,26 @@
 // flashing and the snapping. A fragment shader cannot fix it, because a
 // fragment shader has no frame-to-frame state and so cannot smooth anything.
 //
-// So the smoothing lives on the CPU, in ShaderScene::stepMotion, and arrives
-// here as uniforms. Everything below is already slew-limited or already
+// So the smoothing lives on the CPU, in viz/MotionField.cpp, and arrives here
+// as uniforms. Everything below is already slew-limited or already
 // integrated. Reach for these first; reach for the raw envelopes only when a
-// style genuinely wants the transient itself.
+// style genuinely wants the instantaneous value itself.
 //
 // A style includes this AFTER lib_scene_uniforms (it reads uTime) and before
 // lib_palette. A style that includes it and reads nothing from it costs
 // nothing: the linker drops the unread uniforms and the uploads become no-ops.
 //
-// WHAT A SPIKE MEANS
+// WAVE THREE: A CONTINUOUS MOTION SYSTEM, NOT A REACTION LAYER
 //
-// A transient does NOT brighten, jump or shake the frame. It picks a new
-// DESTINATION, and the value the style reads travels there over most of a
-// second. There are three destinations, and they are the three things a spike
-// is allowed to mean:
-//
-//   uMoveDir    a new direction of travel   (bounded turn, never a reversal)
-//   uSpawnSeed  a new spawn                 (with uSpawnAge to grow it in)
-//   uFormPhase  a new fractal               (a new plateau on a smooth walk)
-//
-// Spikes are rate-limited on the CPU, so a busy drum line re-aims the picture
-// a few times a second at most rather than once per frame.
+// Nothing below is a trigger, and nothing below is keyed off a drum, an
+// instrument, a transient, an onset or a beat/downbeat flag. Movement is
+// continuous: relative band levels against a running average with
+// attack/release (uEnergyRel/uBassRel/uMidRel/uTrebRel), spectral brightness
+// and harmonicity (uMotionBright/uHarmony), a chroma-derived key hue
+// (uKeyHue/uKeyStrength), tempo phase as smooth phase-locked oscillators
+// gated by confidence (uBeatOsc/uBarOsc), and slow re-targeting from novelty
+// and section boundaries that eases over seconds (uOrbit/uDrift/uBreath). See
+// core/viz/MotionField.hpp for the derivation of every uniform below.
 
 // ---- slew-limited band envelopes -------------------------------------------
 //
@@ -49,49 +47,76 @@ uniform float uEnergySmooth;
  */
 uniform float uSwell;
 
-/**
- * The transient, as an envelope that RISES (~120ms) and falls (~600ms) rather
- * than stepping. Peaks near 1 on a hit and returns to 0 between them.
- *
- * Safe to key brightness off, unlike uBeat, precisely because it cannot reach
- * its peak inside one frame. Use it for a swelling accent; use uMoveDir /
- * uSpawnSeed / uFormPhase for the change of state the same hit caused.
- */
-uniform float uSpike;
+// ---- wave three: relative levels, timbre and key --------------------------
 
-// ---- what the last spike decided -------------------------------------------
+/** rms / 20s running average, attack 0.25s / release 1.0s; 0..2, 1 = typical loudness for this track. */
+uniform float uEnergyRel;
+/** bass / 20s running average, attack 0.15s / release 0.6s; 0..2. */
+uniform float uBassRel;
+/** mid / 20s running average, attack 0.15s / release 0.6s; 0..2. */
+uniform float uMidRel;
+/** treble / 20s running average, attack 0.15s / release 0.6s; 0..2. */
+uniform float uTrebRel;
+/** Spectral centroid, smoothed over 0.5s; 0 dark, 1 bright. */
+uniform float uMotionBright;
+/** Harmonicity, smoothed over 1.0s; 0 noisy/percussive, 1 tonal. */
+uniform float uHarmony;
+/** The chroma argmax's hue, 0..1, circularly eased over 3.0s. */
+uniform float uKeyHue;
+/** How confident the key detector is right now, smoothed over 1.0s, 0..1; gates uKeyHue's effect. */
+uniform float uKeyStrength;
 
-/**
- * Unit vector, the current direction of travel. Turns to a new bearing when a
- * spike lands and glides there over roughly a second; the turn is bounded well
- * under a half circle, so a field advected along it never appears to reverse.
- */
-uniform vec2 uMoveDir;
+// ---- wave three: tempo phase, gated by confidence --------------------------
 
-/** 0..1, re-rolled on a spike. The identity of whatever is on screen now. */
-uniform float uSpawnSeed;
-
-/**
- * Seconds since uSpawnSeed was re-rolled. Zero at the instant of the spike,
- * counting up after. Feed it through spawnGrow() so a new spawn fades in
- * instead of appearing.
- */
-uniform float uSpawnAge;
-
-/**
- * 0..1, the "which fractal" dial. A spike sends it to a new plateau chosen off
- * a golden-ratio walk - so consecutive spikes always land visibly apart rather
- * than dithering around one value - and it glides there. Never jumps.
- */
-uniform float uFormPhase;
+/** 0.5 + 0.5*sin(2*pi*beatPhase) scaled by rhythmLock (pulseConfidence*tempoStability, slewed 1s); 0.5 when unlocked. */
+uniform float uBeatOsc;
+/** Same construction as uBeatOsc, from the bar phase instead of the beat phase. */
+uniform float uBarOsc;
+/** A slow wander point, -1..1; re-targeted (not stepped) on a novelty rise or a section boundary and eased over 3.0s. */
+uniform vec2 uOrbit;
+/** An accumulated rotation, radians; its sign eases rather than flips across a section. */
+uniform float uDrift;
+/** A slow, low-amplitude scale wobble around 1.0, 0.9..1.1, riding uBassRel and uBarOsc. */
+uniform float uBreath;
+/** The Reactivity tab's Motion amount dial (SceneParams.motionAmount), 0..1, verbatim. */
+uniform float uMotion;
 
 /**
  * A monotonically advancing travel phase in seconds. Loudness sets the RATE
- * (via uEnergySmooth on the CPU), never the sign, so anything scrolled or
+ * (via uEnergyRel on the CPU), never the sign, so anything scrolled or
  * advected by this can slow down and speed up but can never run backwards or
  * stall into a stutter.
  */
 uniform float uFlowPhase;
+
+// ---- legacy: constant since wave three; removed in R08 --------------------
+//
+// The spike-triggered reaction this uniform group used to carry. Nothing
+// writes these any more; ShaderScene uploads the neutral constant every
+// frame so a style that has not yet been migrated (R02-R07) still compiles
+// and draws exactly the picture it did with a silent, un-spiking input.
+
+/**
+ * The transient envelope. Held at 0: nothing rises on a hit any more, so
+ * anything still reading it (fluidWarp's eddy widening below) sees a track
+ * that is always exactly as loud as uSwell says, never momentarily louder.
+ */
+uniform float uSpike;
+
+/**
+ * Unit vector, the current direction of travel. Held at (1, 0): nothing turns
+ * it any more.
+ */
+uniform vec2 uMoveDir;
+
+/** 0..1, held at 0: nothing re-rolls the spawn identity any more. */
+uniform float uSpawnSeed;
+
+/** Seconds since uSpawnSeed was last rolled. Held at 1000, well past spawnGrow()'s horizon, so a spawn always reads as fully grown in. */
+uniform float uSpawnAge;
+
+/** 0..1, the "which fractal" dial. Held at 0: nothing sends it to a new plateau any more. */
+uniform float uFormPhase;
 
 // ---- helpers ---------------------------------------------------------------
 

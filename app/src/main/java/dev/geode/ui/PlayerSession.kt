@@ -669,8 +669,8 @@ class PlayerSession internal constructor(
 
     fun applyVizEntry(entry: VizPlaylistEntry) = autoVisuals.applyVizEntry(entry)
 
-    private val _overlayPixels = MutableStateFlow(OverlayPixels(null, 0, 0))
-    internal val overlayPixels: StateFlow<OverlayPixels> = _overlayPixels
+    private val overlayPixelsFlow = MutableStateFlow(OverlayPixels(null, 0, 0))
+    internal val overlayPixels: StateFlow<OverlayPixels> = overlayPixelsFlow
 
     private val overlay: OverlayController =
         OverlayController(
@@ -679,7 +679,7 @@ class PlayerSession internal constructor(
             storeScope,
             object : OverlayController.Host {
                 override fun publishOverlay(pixels: OverlayPixels) {
-                    _overlayPixels.value = pixels
+                    overlayPixelsFlow.value = pixels
                 }
             },
         )
@@ -697,8 +697,7 @@ class PlayerSession internal constructor(
     internal fun composeOverlayForExport(
         width: Int,
         height: Int,
-    ): OverlayPixels =
-        overlay.composeForExport(width, height, _uiState.value.title, _uiState.value.artist, currentUri?.toString())
+    ): OverlayPixels = overlay.composeForExport(width, height, _uiState.value.title, _uiState.value.artist, currentUri?.toString())
 
     val deviceTracks: StateFlow<List<DeviceTrack>> get() = musicLibrary.deviceTracks
 

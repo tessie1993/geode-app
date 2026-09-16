@@ -652,7 +652,7 @@ class PlayerSession internal constructor(
 
     fun setRandomInterval(seconds: Int) = autoVisuals.setRandomInterval(seconds)
 
-    fun setRandomOnBeat(enabled: Boolean) = autoVisuals.setRandomOnBeat(enabled)
+    fun setRandomOnSection(enabled: Boolean) = autoVisuals.setRandomOnSection(enabled)
 
     fun setRandomIncludeStyles(enabled: Boolean) = autoVisuals.setRandomIncludeStyles(enabled)
 

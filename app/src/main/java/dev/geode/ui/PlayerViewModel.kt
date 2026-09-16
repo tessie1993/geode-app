@@ -149,7 +149,7 @@ class PlayerViewModel
 
         fun setRandomInterval(seconds: Int) = session.setRandomInterval(seconds)
 
-        fun setRandomOnBeat(enabled: Boolean) = session.setRandomOnBeat(enabled)
+        fun setRandomOnSection(enabled: Boolean) = session.setRandomOnSection(enabled)
 
         fun setRandomIncludeStyles(enabled: Boolean) = session.setRandomIncludeStyles(enabled)
 

@@ -169,8 +169,6 @@ object ParamRandomizer {
         r(ParamKeys.SWAY) { it.copy(sway = sometimes(0.5f, 0.1f, 0.8f)) }
         r(ParamKeys.DRIFT_X) { it.copy(driftX = sometimes(0.3f, -0.5f, 0.5f)) }
         r(ParamKeys.DRIFT_Y) { it.copy(driftY = sometimes(0.3f, -0.5f, 0.5f)) }
-        r(ParamKeys.BEAT_PULSE) { it.copy(pulse = sometimes(0.6f, 0.15f, 0.9f)) }
-        r(ParamKeys.BEAT_SHAKE) { it.copy(shake = sometimes(0.3f, 0.1f, 0.6f)) }
         r(ParamKeys.ENDLESS_ZOOM) { it.copy(endlessZoom = chance(0.2f)) }
         r(ParamKeys.DIVE_SPEED) { it.copy(endlessZoomSpeed = f(0.1f, 0.8f)) }
         r(ParamKeys.TURBULENCE) { it.copy(turbulence = sometimes(0.5f, 0.1f, 1f)) }
@@ -193,9 +191,11 @@ object ParamRandomizer {
 
         section(CustomizeTab.REACTIVITY)
         r(ParamKeys.AUDIO_DRIVE) { it.copy(audioDrive = f(0.6f, 1.8f)) }
-        r(ParamKeys.FORM_DRIVE) { it.copy(formDrive = f(0.3f, 1f)) }
-        r(ParamKeys.BEAT_RESPONSE) { it.copy(beatResponse = f(0.3f, 2f)) }
-        r(ParamKeys.BEAT_FLASH) { it.copy(flash = sometimes(0.5f, 0.1f, 0.6f)) }
+        r(ParamKeys.MOTION_AMOUNT) { it.copy(motionAmount = f(0.3f, 1f)) }
+        r(ParamKeys.MOTION_BREATH) { it.copy(motionBreath = f(0.2f, 0.8f)) }
+        r(ParamKeys.MOTION_ORBIT) { it.copy(motionOrbit = f(0.2f, 0.8f)) }
+        r(ParamKeys.MOTION_DRIFT) { it.copy(motionDrift = f(0.2f, 0.8f)) }
+        r(ParamKeys.MOTION_HUE) { it.copy(motionHue = f(0.1f, 0.7f)) }
         r(ParamKeys.BASS_GAIN) { it.copy(bassGain = f(0.8f, 1.4f)) }
         r(ParamKeys.MID_GAIN) { it.copy(midGain = f(0.8f, 1.4f)) }
         r(ParamKeys.TREBLE_GAIN) { it.copy(trebGain = f(0.8f, 1.4f)) }
@@ -245,7 +245,6 @@ object ParamRandomizer {
         r(ParamKeys.FILM_GRAIN) { it.copy(grain = sometimes(0.3f, 0.1f, 0.4f)) }
         r(ParamKeys.GLITCH) { it.copy(glitch = sometimes(0.2f, 0.1f, 0.4f)) }
         r(ParamKeys.FISHEYE) { it.copy(fisheye = sometimes(0.25f, -0.5f, 0.5f)) }
-        r(ParamKeys.STROBE) { it.copy(strobe = sometimes(0.08f, 0.15f, 0.4f)) }
 
         section(CustomizeTab.FLUID)
         r(ParamKeys.SOLVER_ITERATIONS) { it.copy(fluidIterations = n(12, 28)) }
@@ -285,7 +284,6 @@ object ParamRandomizer {
         r(ParamKeys.CURL_FROM_MIDS) { it.copy(fluidCurlAudio = f(0.1f, 0.9f)) }
         r(ParamKeys.GLOW_FROM_LOUDNESS) { it.copy(fluidBloomAudio = f(0.1f, 0.9f)) }
         r(ParamKeys.FADE_WHEN_QUIET) { it.copy(fluidFadeAudio = f(0.2f, 0.9f)) }
-        r(ParamKeys.RADIUS_ON_BEAT) { it.copy(fluidRadiusPulse = f(0f, 0.8f)) }
 
         r(ParamKeys.FLOW_STRENGTH) { it.copy(flowStrength = f(0.1f, 0.7f)) }
         r(ParamKeys.FLOW_FORCE) { it.copy(flowForce = f(0.4f, 2f)) }

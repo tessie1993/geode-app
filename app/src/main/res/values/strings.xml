@@ -711,8 +711,8 @@
     <string name="autoviz_random_off_auto">Random is off — the Auto button on the Now Playing screen turns it on.</string>
     <string name="autoviz_shape_hint">The settings below shape it whether it is running or not, so a session can be set up before it starts — and they are remembered across restarts.</string>
     <string name="autoviz_switch_every">Switch every %1$d s</string>
-    <string name="autoviz_on_beat">Switch on a strong beat</string>
-    <string name="autoviz_on_beat_hint">Waits for a big moment in the music instead of switching the instant the timer is up, so a change lands with the track rather than across it. It still holds a look for at least half the interval, and forces a switch at twice it, so a quiet passage cannot stall the rotation.</string>
+    <string name="autoviz_on_beat">Switch on section change</string>
+    <string name="autoviz_on_beat_hint">Waits for a section change or a burst of novelty in the music instead of switching the instant the timer is up, so a change lands with the track rather than across it. It still holds a look for at least six seconds and at least half the interval, and forces a switch at twice it, so a quiet passage cannot stall the rotation.</string>
     <string name="autoviz_pick_from">Pick from</string>
     <string name="autoviz_pick_styles">Styles</string>
     <string name="autoviz_pick_presets">Saved presets</string>

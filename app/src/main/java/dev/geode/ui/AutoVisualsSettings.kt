@@ -60,7 +60,7 @@ internal fun AutoVisualsGroup(viewModel: PlayerViewModel) {
         )
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(stringResource(R.string.autoviz_on_beat), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-            GlassToggle(checked = viz.randomOnBeat, onCheckedChange = viewModel::setRandomOnBeat)
+            GlassToggle(checked = viz.randomOnSection, onCheckedChange = viewModel::setRandomOnSection)
         }
         Text(
             stringResource(R.string.autoviz_on_beat_hint),

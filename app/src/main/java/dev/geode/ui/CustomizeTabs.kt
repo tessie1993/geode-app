@@ -101,7 +101,7 @@ private fun sectionVisible(scope: ParamScope = ParamScope.UNIVERSAL): Boolean =
     LocalParamQuery.current.isBlank() && scope.appliesTo(LocalSceneId.current)
 
 @Composable
-private fun SectionHeader(
+internal fun SectionHeader(
     title: String,
     scope: ParamScope = ParamScope.UNIVERSAL,
 ) {
@@ -122,7 +122,7 @@ private fun SectionHeader(
 }
 
 @Composable
-private fun ControlHint(
+internal fun ControlHint(
     text: String,
     scope: ParamScope = ParamScope.UNIVERSAL,
 ) {
@@ -197,10 +197,6 @@ internal fun MotionTab(
         SectionHeader("Drift")
         LabeledSlider(ParamKeys.DRIFT_X, p.driftX, -1f..1f) { onChange(p.copy(driftX = it)) }
         LabeledSlider(ParamKeys.DRIFT_Y, p.driftY, -1f..1f) { onChange(p.copy(driftY = it)) }
-        SectionHeader("Transient motion")
-        ControlHint("How far the picture swells and jumps on each hit the music actually plays.")
-        LabeledSlider(ParamKeys.BEAT_PULSE, p.pulse, 0f..1f) { onChange(p.copy(pulse = it)) }
-        LabeledSlider(ParamKeys.BEAT_SHAKE, p.shake, 0f..1f) { onChange(p.copy(shake = it)) }
         SectionHeader(ParamKeys.ENDLESS_ZOOM, ParamScope.ENDLESS_ZOOM)
         ControlHint("A dive that never arrives. Dive speed sets the rate.", ParamScope.ENDLESS_ZOOM)
         CheckRow(ParamKeys.ENDLESS_ZOOM, p.endlessZoom) { onChange(p.copy(endlessZoom = it)) }
@@ -348,15 +344,7 @@ internal fun ReactivityTab(
                 "tempo to be worked out, so live input behaves exactly like a file.",
         )
         LabeledSlider(ParamKeys.AUDIO_DRIVE, p.audioDrive, 0.2f..2.5f) { onChange(p.copy(audioDrive = it)) }
-        ControlHint(
-            "Form drive is the superformula: one shape the music keeps redrawing - snares change " +
-                "its lobe count, kicks pinch it, the spectrum fattens or thins it, drops reset it - " +
-                "and every style is moved through it: zoom, spin, warp, twist, tiling, the fluid " +
-                "and plate forces, the palette span. Zero switches it off.",
-        )
-        LabeledSlider(ParamKeys.FORM_DRIVE, p.formDrive, 0f..1f) { onChange(p.copy(formDrive = it)) }
-        LabeledSlider(ParamKeys.BEAT_RESPONSE, p.beatResponse, 0f..2f) { onChange(p.copy(beatResponse = it)) }
-        LabeledSlider(ParamKeys.BEAT_FLASH, p.flash, 0f..1f) { onChange(p.copy(flash = it)) }
+        MotionSection(p, onChange)
         SectionHeader("Band balance", ParamScope.BAND_GAINS)
         LabeledSlider(ParamKeys.BASS_GAIN, p.bassGain, 0f..2f) { onChange(p.copy(bassGain = it)) }
         LabeledSlider(ParamKeys.MID_GAIN, p.midGain, 0f..2f) { onChange(p.copy(midGain = it)) }
@@ -509,7 +497,6 @@ internal fun FxTab(
         LabeledSlider(ParamKeys.FILM_GRAIN, p.grain, 0f..1f) { onChange(p.copy(grain = it)) }
         LabeledSlider(ParamKeys.GLITCH, p.glitch, 0f..1f) { onChange(p.copy(glitch = it)) }
         LabeledSlider(ParamKeys.FISHEYE, p.fisheye, -1f..1f) { onChange(p.copy(fisheye = it)) }
-        LabeledSlider(ParamKeys.STROBE, p.strobe, 0f..1f) { onChange(p.copy(strobe = it)) }
         if (sectionVisible()) LayersSection()
     }
 }
@@ -692,7 +679,7 @@ private fun ParamChips(
 }
 
 @Composable
-private fun LabeledSlider(
+internal fun LabeledSlider(
     label: String,
     value: Float,
     range: ClosedFloatingPointRange<Float>,
@@ -807,7 +794,9 @@ internal fun FluidTab(
         LabeledIntSlider(ParamKeys.STIRRERS, p.fluidStirrers, 0..4) { onChange(p.copy(fluidStirrers = it)) }
         LabeledSlider(ParamKeys.STIRRER_SPEED, p.fluidStirrerSpeed, 0f..2f) { onChange(p.copy(fluidStirrerSpeed = it)) }
         LabeledSlider(ParamKeys.FLUID_SPLAT_RADIUS, p.fluidSplatRadius, 0.02f..0.4f) { onChange(p.copy(fluidSplatRadius = it)) }
-        LabeledSlider(ParamKeys.RADIUS_ON_BEAT, p.fluidRadiusPulse, 0f..1f) { onChange(p.copy(fluidRadiusPulse = it)) }
+        // fluidRadiusPulse (was "Radius on hit") is read by FluidEmitters::applyParams for
+        // preset/UI decode but no longer multiplies anything since wave three - see the field
+        // comment in core/viz/fluid/FluidEmitters.hpp. No slider for it any more.
         LabeledSlider(ParamKeys.FLUID_SPLAT_FORCE, p.fluidSplatForce, 0f..3f) { onChange(p.copy(fluidSplatForce = it)) }
         CheckRow(ParamKeys.BASS_PUMP, p.fluidBassPump) { onChange(p.copy(fluidBassPump = it)) }
         CheckRow(ParamKeys.TREBLE_SPARKLE, p.fluidSparkle) { onChange(p.copy(fluidSparkle = it)) }

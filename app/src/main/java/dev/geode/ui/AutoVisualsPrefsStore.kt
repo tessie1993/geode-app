@@ -16,7 +16,7 @@ class AutoVisualsPrefsStore(
         return state.copy(
             randomEnabled = randomEnabled,
             randomIntervalSec = prefs.getInt(KEY_RANDOM_INTERVAL, state.randomIntervalSec).coerceIn(INTERVAL_SEC),
-            randomOnBeat = prefs.getBoolean(KEY_RANDOM_ON_BEAT, state.randomOnBeat),
+            randomOnSection = prefs.getBoolean(KEY_RANDOM_ON_BEAT, state.randomOnSection),
             randomIncludeStyles = prefs.getBoolean(KEY_RANDOM_STYLES, state.randomIncludeStyles),
             randomIncludePresets = prefs.getBoolean(KEY_RANDOM_PRESETS, state.randomIncludePresets),
             randomIncludeMilk = prefs.getBoolean(KEY_RANDOM_MILK, state.randomIncludeMilk),
@@ -34,7 +34,7 @@ class AutoVisualsPrefsStore(
             .edit()
             .putBoolean(KEY_RANDOM_ENABLED, state.randomEnabled)
             .putInt(KEY_RANDOM_INTERVAL, state.randomIntervalSec)
-            .putBoolean(KEY_RANDOM_ON_BEAT, state.randomOnBeat)
+            .putBoolean(KEY_RANDOM_ON_BEAT, state.randomOnSection)
             .putBoolean(KEY_RANDOM_STYLES, state.randomIncludeStyles)
             .putBoolean(KEY_RANDOM_PRESETS, state.randomIncludePresets)
             .putBoolean(KEY_RANDOM_MILK, state.randomIncludeMilk)
@@ -52,6 +52,8 @@ class AutoVisualsPrefsStore(
 
         private const val KEY_RANDOM_ENABLED = "auto_random_enabled"
         private const val KEY_RANDOM_INTERVAL = "auto_random_interval_sec"
+        // Storage key kept as-is (wave three renamed the field to randomOnSection) so a saved
+        // preference still loads.
         private const val KEY_RANDOM_ON_BEAT = "auto_random_on_beat"
         private const val KEY_RANDOM_STYLES = "auto_random_include_styles"
         private const val KEY_RANDOM_PRESETS = "auto_random_include_presets"

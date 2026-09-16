@@ -11,6 +11,14 @@ a partial reconstruction, rebuilt from the references in these entries, is at
 
 ## Unreleased
 
+- **Continuous motion replaces transient reaction.** `core/viz/MotionField` now reshapes every
+  family's parameters continuously, from running-average band ratios, phase-locked oscillators
+  and slow re-targets, rather than from a beat, a drum, an instrument, a transient or an onset.
+  The Reactivity tab's old transient-driven sliders (Transient pulse/shake, Form drive,
+  Transient response/flash, Strobe) are gone from the panel, replaced by a Motion section with
+  Motion amount, Breath, Orbit, Drift and Hue drift; the retired fields stay in `SceneParams` so
+  an older preset still decodes. Auto-visuals' random mode now switches on a section change or a
+  novelty spike instead of waiting for a strong beat hit.
 - **Form drive: the superformula as the one driver every visual is fed
   through.** `core/viz/FormDrive` sits in `Renderer::resolveParams`, after
   the LFO and ADSR slots and before the safety clamp, so every family's

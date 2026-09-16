@@ -46,6 +46,7 @@ class StillExporter(
      * scoped storage); a non-null [destination] — the SAF picker's result on older API levels —
      * is written to directly.
      */
+    @Suppress("TooGenericExceptionCaught")
     suspend fun export(
         timeline: FeatureTimeline,
         sceneFactory: SceneFactory,
@@ -126,6 +127,7 @@ class StillExporter(
         return flipped
     }
 
+    @Suppress("TooGenericExceptionCaught")
     private fun saveToMediaStore(
         bitmap: Bitmap,
         fileName: String,
@@ -162,6 +164,7 @@ class StillExporter(
         }
     }
 
+    @Suppress("TooGenericExceptionCaught")
     private fun saveToDestination(
         bitmap: Bitmap,
         destination: Uri,

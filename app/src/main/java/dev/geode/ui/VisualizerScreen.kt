@@ -150,87 +150,16 @@ fun VisualizerScreen(
         }
 
         if (showChrome) {
-            Row(
-                Modifier
-                    .align(Alignment.TopStart)
-                    .statusBarsPadding()
-                    .padding(12.dp)
-                    .crystalPanel(
-                        chromeAlpha,
-                        MaterialTheme.colorScheme.surface,
-                        MaterialTheme.colorScheme.primary,
-                        corner = 12.dp,
-                        glowStrength = 0.6f,
-                        facets = 0.7f,
-                    ).padding(horizontal = 8.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                FilledTonalIconButton(onClick = onCollapse) {
-                    Icon(Icons.Filled.KeyboardArrowDown, stringResource(R.string.action_collapse))
-                }
-                // Not offered on the second-screen placeholder: the visuals are rendering on the
-                // connected display, and this card has nothing worth shrinking into a PiP window.
-                if (externalDisplayName == null) {
-                    IconButton(onClick = { context.findMainActivity()?.enterVisualizerPip() }) {
-                        Icon(Icons.Filled.PictureInPictureAlt, stringResource(R.string.action_pip))
-                    }
-                }
-                Column(Modifier.weight(1f, fill = false)) {
-                    val foreign = external.active
-                    val foreignTrack = external.nowPlaying?.takeIf { it.title.isNotBlank() }
-                    val appName = stringResource(R.string.app_name)
-                    Text(
-                        when {
-                            foreign -> foreignTrack?.title ?: stringResource(R.string.source_other_apps)
-                            else -> state.title?.ifBlank { appName } ?: appName
-                        },
-                        style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    val subtitle =
-                        when {
-                            foreign ->
-                                listOfNotNull(
-                                    foreignTrack?.artist?.takeIf { it.isNotBlank() },
-                                    external.nowPlaying?.appLabel,
-                                ).joinToString(" · ")
-                                    .ifBlank { stringResource(R.string.subtitle_captured_from_another_app) }
-                            else -> state.artist?.takeIf { it.isNotBlank() }.orEmpty()
-                        }
-                    if (subtitle.isNotEmpty()) {
-                        Text(
-                            subtitle,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
-                }
-                if (state.hasMedia && !external.active) {
-                    IconButton(onClick = { viewModel.toggleFavourite() }) {
-                        StoneIconArt(
-                            StoneIcon.FAVORITE,
-                            stringResource(
-                                if (isFavourite) {
-                                    R.string.action_favourite_remove
-                                } else {
-                                    R.string.action_favourite_add
-                                },
-                            ),
-                            tint =
-                                if (isFavourite) {
-                                    MaterialTheme.colorScheme.primary
-                                } else {
-                                    MaterialTheme.colorScheme.onSurfaceVariant
-                                },
-                        )
-                    }
-                }
-            }
+            VisualizerTopBar(
+                chromeAlpha = chromeAlpha,
+                externalDisplayName = externalDisplayName,
+                state = state,
+                external = external,
+                isFavourite = isFavourite,
+                onCollapse = onCollapse,
+                onEnterPip = { context.findMainActivity()?.enterVisualizerPip() },
+                onToggleFavourite = { viewModel.toggleFavourite() },
+            )
 
             if (panel != PlayerPanel.TRANSPORT) {
                 PlayerPanelSurface(
@@ -403,6 +332,105 @@ fun VisualizerScreen(
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+/**
+ * The top chrome row: collapse, PiP entry, now-playing title/subtitle, and favourite toggle.
+ *
+ * Extracted from [VisualizerScreen] purely to stay under detekt's LongMethod ceiling; it has
+ * no state of its own beyond what the screen already collects.
+ */
+@Composable
+private fun VisualizerTopBar(
+    chromeAlpha: Float,
+    externalDisplayName: String?,
+    state: PlayerUiState,
+    external: ExternalAudioState,
+    isFavourite: Boolean,
+    onCollapse: () -> Unit,
+    onEnterPip: () -> Unit,
+    onToggleFavourite: () -> Unit,
+) {
+    Row(
+        Modifier
+            .statusBarsPadding()
+            .padding(12.dp)
+            .crystalPanel(
+                chromeAlpha,
+                MaterialTheme.colorScheme.surface,
+                MaterialTheme.colorScheme.primary,
+                corner = 12.dp,
+                glowStrength = 0.6f,
+                facets = 0.7f,
+            ).padding(horizontal = 8.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        FilledTonalIconButton(onClick = onCollapse) {
+            Icon(Icons.Filled.KeyboardArrowDown, stringResource(R.string.action_collapse))
+        }
+        // Not offered on the second-screen placeholder: the visuals are rendering on the
+        // connected display, and this card has nothing worth shrinking into a PiP window.
+        if (externalDisplayName == null) {
+            IconButton(onClick = onEnterPip) {
+                Icon(Icons.Filled.PictureInPictureAlt, stringResource(R.string.action_pip))
+            }
+        }
+        Column(Modifier.weight(1f, fill = false)) {
+            val foreign = external.active
+            val foreignTrack = external.nowPlaying?.takeIf { it.title.isNotBlank() }
+            val appName = stringResource(R.string.app_name)
+            Text(
+                when {
+                    foreign -> foreignTrack?.title ?: stringResource(R.string.source_other_apps)
+                    else -> state.title?.ifBlank { appName } ?: appName
+                },
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            val subtitle =
+                when {
+                    foreign ->
+                        listOfNotNull(
+                            foreignTrack?.artist?.takeIf { it.isNotBlank() },
+                            external.nowPlaying?.appLabel,
+                        ).joinToString(" · ")
+                            .ifBlank { stringResource(R.string.subtitle_captured_from_another_app) }
+                    else -> state.artist?.takeIf { it.isNotBlank() }.orEmpty()
+                }
+            if (subtitle.isNotEmpty()) {
+                Text(
+                    subtitle,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+        if (state.hasMedia && !external.active) {
+            IconButton(onClick = onToggleFavourite) {
+                StoneIconArt(
+                    StoneIcon.FAVORITE,
+                    stringResource(
+                        if (isFavourite) {
+                            R.string.action_favourite_remove
+                        } else {
+                            R.string.action_favourite_add
+                        },
+                    ),
+                    tint =
+                        if (isFavourite) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                )
             }
         }
     }

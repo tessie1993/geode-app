@@ -16,6 +16,11 @@ out vec4 fragColor;
 // the centre. mirror x -> kaleidoscope fold -> tiled SDF motifs (star + cross
 // on two lattice scales, repeated at three nested scales for the recursive
 // edges) -> neon outline -> sphere override -> posterize + bloom.
+//
+// motion: uBassRel -> the tile arm count's continuous plateau and uBreath's
+// slow scale wobble on the whole lattice; uBarOsc -> the centre sphere's
+// breathing radius, a phase-locked swell rather than a beat-triggered pop.
+// uKeyHue (gated by uKeyStrength) drifts the motif hue toward the track's key.
 
 #define NEON_TAU 6.2831853
 #define NEON_LEVELS 7.0
@@ -79,7 +84,7 @@ vec3 patternOnPlane(vec2 q) {
     float scale = 1.0;
     for (int i = 0; i < NEON_RECURSION; i++) {
         vec2 m = motif(q);
-        float hue = m.y > 0.5 ? mix(0.61, 0.89, fract(0.37 * float(i) + 0.1 * sin(uTime * 0.11))) : 0.33;
+        float hue = m.y > 0.5 ? mix(0.61, 0.89, fract(0.37 * float(i) + 0.1 * sin(uTime * 0.11) + 0.12 * uKeyHue * uKeyStrength)) : 0.33;
         float glow = neon(m.x * scale, gWidth) / (1.0 + 0.6 * float(i));
         col += pal(hue) * glow;
         q = kaleido(q * 1.8 + vec2(0.31, 0.17), gFolds);
@@ -110,20 +115,23 @@ void main() {
     float midA = min(uMidSmooth, 1.3);
     float trebA = min(uTrebleSmooth, 1.3);
     float enA = min(uEnergySmooth, 1.3);
-    float hit = uSpike;
+    float bassRel = clamp(uBassRel, 0.0, 2.0);
 
     gWidth = mix(0.012, 0.035, clamp(trebA, 0.0, 1.0));
-    // A spike re-tiles the hall: 4, 6 or 8 arms, held until the next one.
-    gFolds = (uKaleido > 0.5 && uSymmetry >= 2.0) ? uSymmetry : 4.0 + 2.0 * floor(uFormPhase * 3.0);
+    // Bass's relative level re-tiles the hall continuously: 4, 6 or 8 arms,
+    // moving with the low end's running average instead of stepping on a hit.
+    gFolds = (uKaleido > 0.5 && uSymmetry >= 2.0) ? uSymmetry : 4.0 + 2.0 * floor(clamp(bassRel * 0.5, 0.0, 0.999) * 3.0);
 
-    vec2 m = vec2(abs(uv.x), uv.y);
+    vec2 m = vec2(abs(uv.x), uv.y) * uBreath;
     // Integrated spin: `uTime * rate(mid)` jumps the whole hall round whenever the
     // mid band moves, which is the snapping this style was worst for.
-    m = rot2(uFlowPhase * 1.6 + uTime * 0.03) * m;
+    m = rot2(uFlowPhase * 1.6 + uTime * 0.03 + uDrift * 0.15) * m;
     vec2 q = kaleido(m, gFolds);
     vec3 col = patternOnPlane(fluidWarp(q, 1.3, 0.05) + flowOffset(0.5));
 
-    float R = 0.55 + 0.12 * hit * clamp(uBeatResponse, 0.0, 2.0);
+    // The centre sphere breathes on the bar-phase oscillator rather than
+    // popping on a beat: a slow, phase-locked swell.
+    float R = 0.55 + 0.05 * uBarOsc;
     float distort = 1.0 + 0.8 * bassA;
     vec3 sphere = sphereLook(uv, R, NEON_IOR, distort);
     if (sphere.x >= 0.0) {

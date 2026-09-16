@@ -81,6 +81,10 @@ out vec4 fragColor;
 // fold basis. Every one of those terms is exactly zero when nothing is being
 // touched, so an untouched frame is bit-identical to one from a build without
 // the touch uniforms.
+//
+// motion: uBassRel -> the ball's standoff (via uBreath) and the pole/fold
+// radii, uMidRel -> the world's roll (via uDrift) and the fold count's
+// continuous extra level. Nothing here is re-rolled or stepped on a hit.
 
 // ---- caps ------------------------------------------------------------------
 //
@@ -492,10 +496,9 @@ void main() {
     float trebN = clamp(uTrebleSmooth, 0.0, 1.5) / 1.5;
     float energyN = clamp(uEnergySmooth, 0.0, 1.5) / 1.5;
 
-    // Was the beat-phase bump, which reaches its peak inside one frame. uSpike is
-    // the same accent with a rise on it, so it swells rather than flashing, and it
-    // is already silent between hits without needing the phase clock.
-    float beatHit = uSpike;
+    // Wave three: fold count now tracks mid's relative level continuously
+    // rather than stepping on a beat hit - see gIters below.
+    float midRel = clamp(uMidRel, 0.0, 2.0);
 
     // ---- touch -----------------------------------------------------------
     //
@@ -523,10 +526,11 @@ void main() {
 
     // ---- the frame's geometry --------------------------------------------
     //
-    // Bass pushes the eye in. A camera push is a continuous quantity, so the
-    // gain is small: 7% of the standoff at a full-scale low end, which reads
-    // as the structure leaning toward you and cannot read as a cut.
-    float camZ = CAM_DIST - 0.30 * bassN;
+    // motion: bass pushes the eye in and, via uBreath, breathes the whole
+    // ball's standoff; both are continuous quantities, so the gain is small -
+    // 7% of the standoff at a full-scale low end plus uBreath's own +-10% -
+    // which reads as the structure leaning toward you and cannot read as a cut.
+    float camZ = (CAM_DIST - 0.30 * bassN) * uBreath;
     // A slow lateral wander so the structure is never quite centred. Rates are
     // chosen mutually irrational-ish (0.061 / 0.043) so the two axes do not
     // relock into a straight line every few seconds.
@@ -579,11 +583,12 @@ void main() {
     // and the structure keeps reorganising with the audio at zero.
     gFoldOff = vec3(0.62, -0.24, 0.41) * (1.0 + 0.06 * sin(uTime * 0.029));
     gInvR2 = INV_R2 * (1.0 + 0.10 * bassN);
-    gWorldRot = rotY(uTime * 0.083) * rotX(0.26 * sin(uTime * 0.037));
+    // Mid's relative level rolls the world through uDrift, in addition to
+    // its own ambient turn - the "roll" half of the family recipe.
+    gWorldRot = rotY(uTime * 0.083 + uDrift * 0.20) * rotX(0.26 * sin(uTime * 0.037));
     gBead = CELL_BEAD + 0.030 * bassN;
 
-    // Fold count - the one discrete quantity in the style, and the only thing
-    // uBeat is allowed to touch.
+    // Fold count - the one discrete quantity in the style.
     //
     // The base tracks the user's Detail through uSteps, because here the
     // per-STEP cost IS the fold chain: a Detail control that only shortened
@@ -594,15 +599,15 @@ void main() {
     // readable form left, and at one it is already unmistakably curved. This
     // construction says what it has to say in very few iterations.
     //
-    // The beat adds exactly ONE. Two was tried and is too much: it takes the
+    // Wave three: mid's relative level adds at most ONE more fold, holding
+    // for as long as the mid band stays above its own running average rather
+    // than firing once on a hit. Two was tried and is too much: it takes the
     // body from three folds to five in a frame, which reorganises the whole
     // silhouette rather than adding a level inside it - a change of AREA, and
-    // area is the quantity the photosensitivity budget is about. One fold
-    // reads as the structure gaining detail on the downbeat, which is the
-    // event that was wanted.
+    // area is the quantity the photosensitivity budget is about.
     float detail = clamp((uSteps - 64.0) / 64.0, 0.0, 1.0);
     gIters = clamp(
-        1.0 + floor(detail * 2.0 + 0.5) + floor(beatHit * clamp(uBeatResponse, 0.0, 1.0) * 1.99),
+        1.0 + floor(detail * 2.0 + 0.5) + floor(clamp(midRel - 1.0, 0.0, 1.0) * 1.99),
         1.0,
         float(MAX_FOLDS)
     );

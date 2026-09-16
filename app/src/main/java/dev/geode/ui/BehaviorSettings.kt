@@ -27,6 +27,7 @@ internal fun BehaviorSettingsTab(viewModel: SettingsViewModel) {
         item { SettingsGroup(stringResource(R.string.behavior_group_safety)) { VisualSafetyGroup(viewModel, gui) } }
         item { SettingsGroup(stringResource(R.string.behavior_group_auto)) { AutoVisualsGroup(playerViewModel) } }
         item { SettingsGroup(stringResource(R.string.behavior_group_wallpaper)) { LiveWallpaperGroup() } }
+        item { SettingsGroup(stringResource(R.string.behavior_group_pip)) { PictureInPictureGroup(viewModel, gui) } }
     }
 }
 
@@ -154,6 +155,28 @@ private fun VisualSafetyGroup(
         }
         Text(
             stringResource(R.string.behavior_slow_motion_hint),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+/** Whether swiping home from the fullscreen visualizer during playback drops into PiP on its own. */
+@Composable
+private fun PictureInPictureGroup(
+    viewModel: SettingsViewModel,
+    gui: GuiPrefs,
+) {
+    Column {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(stringResource(R.string.behavior_pip_auto_enter), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+            Switch(
+                checked = gui.autoEnterPip,
+                onCheckedChange = { viewModel.setGuiPrefs(gui.copy(autoEnterPip = it)) },
+            )
+        }
+        Text(
+            stringResource(R.string.behavior_pip_auto_enter_hint),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

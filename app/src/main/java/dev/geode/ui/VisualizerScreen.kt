@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.PictureInPictureAlt
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -41,6 +42,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerEvent
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChanged
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntSize
@@ -82,6 +86,12 @@ fun VisualizerScreen(
     var panel by remember { mutableStateOf(PlayerPanel.TRANSPORT) }
     val chromeAlpha = maxOf(gui.barOpacity, 0.25f)
     var controlsVisible by remember { mutableStateOf(true) }
+    val context = LocalContext.current
+    // Picture-in-picture shrinks this screen to a window with no room for chrome, and no way for
+    // the person to tap a button in it anyway — every control, not just the transport bar, is
+    // gone while the platform reports the mode, and the last state comes back on exit.
+    val inPip = VisualizerPipCoordinator.inPictureInPicture
+    val showChrome = controlsVisible && !inPip
 
     val dismiss = rememberPredictiveDismiss(onDismiss = onCollapse)
 
@@ -101,7 +111,23 @@ fun VisualizerScreen(
             ),
     ) {
         if (externalDisplayName == null) {
-            VisualizerCanvasHost(visualizerView, Modifier.fillMaxSize())
+            VisualizerCanvasHost(
+                visualizerView,
+                Modifier
+                    .fillMaxSize()
+                    .onGloballyPositioned { coords ->
+                        // Window-space, not local: PictureInPictureParams.setSourceRectHint wants
+                        // the same coordinate space the platform draws the Activity's window in.
+                        val bounds = coords.boundsInWindow()
+                        VisualizerPipCoordinator.canvasBoundsPx =
+                            android.graphics.Rect(
+                                bounds.left.toInt(),
+                                bounds.top.toInt(),
+                                bounds.right.toInt(),
+                                bounds.bottom.toInt(),
+                            )
+                    },
+            )
         } else {
             CrystalBackground(Modifier.fillMaxSize(), reducedMotion = gui.reducedMotion)
             Column(
@@ -123,7 +149,7 @@ fun VisualizerScreen(
             }
         }
 
-        if (controlsVisible) {
+        if (showChrome) {
             Row(
                 Modifier
                     .align(Alignment.TopStart)
@@ -142,6 +168,13 @@ fun VisualizerScreen(
             ) {
                 FilledTonalIconButton(onClick = onCollapse) {
                     Icon(Icons.Filled.KeyboardArrowDown, stringResource(R.string.action_collapse))
+                }
+                // Not offered on the second-screen placeholder: the visuals are rendering on the
+                // connected display, and this card has nothing worth shrinking into a PiP window.
+                if (externalDisplayName == null) {
+                    IconButton(onClick = { context.findMainActivity()?.enterVisualizerPip() }) {
+                        Icon(Icons.Filled.PictureInPictureAlt, stringResource(R.string.action_pip))
+                    }
                 }
                 Column(Modifier.weight(1f, fill = false)) {
                     val foreign = external.active

@@ -14,6 +14,8 @@ import dev.geode.analysis.LiveInputProfile
 import dev.geode.audio.AudioBus
 import dev.geode.audio.AudioFxState
 import dev.geode.audio.MicCapture
+import dev.geode.data.BackgroundPrefs
+import dev.geode.data.BackgroundPrefsStore
 import dev.geode.data.EditorProjectStore
 import dev.geode.data.FavouritesRepository
 import dev.geode.data.FilePresetRepository
@@ -58,6 +60,7 @@ import dev.geode.render.AdsrConfig
 import dev.geode.render.LfoConfig
 import dev.geode.render.SceneFactory
 import dev.geode.render.TransitionStyle
+import dev.geode.render.UnderlayBlend
 import dev.geode.render.scene.CustomizeTab
 import dev.geode.render.scene.PcmChunk
 import dev.geode.render.scene.SceneParams
@@ -676,8 +679,8 @@ class PlayerSession internal constructor(
 
     fun applyVizEntry(entry: VizPlaylistEntry) = autoVisuals.applyVizEntry(entry)
 
-    private val _overlayPixels = MutableStateFlow(OverlayPixels(null, 0, 0))
-    internal val overlayPixels: StateFlow<OverlayPixels> = _overlayPixels
+    private val overlayPixelsFlow = MutableStateFlow(OverlayPixels(null, 0, 0))
+    internal val overlayPixels: StateFlow<OverlayPixels> = overlayPixelsFlow
 
     private val overlay: OverlayController =
         OverlayController(
@@ -686,7 +689,7 @@ class PlayerSession internal constructor(
             storeScope,
             object : OverlayController.Host {
                 override fun publishOverlay(pixels: OverlayPixels) {
-                    _overlayPixels.value = pixels
+                    overlayPixelsFlow.value = pixels
                 }
             },
         )
@@ -1092,6 +1095,7 @@ class PlayerSession internal constructor(
                 override val guiPrefs: GuiPrefs get() = settings.guiPrefs.value
                 override val sceneId: String get() = _vizState.value.sceneId
                 override val sceneParams get() = _vizState.value.params
+                override val positionMs: Long get() = player.currentPosition.coerceAtLeast(0)
 
                 override fun lfoConfigs() = modulation.lfos.value
 
@@ -1120,6 +1124,30 @@ class PlayerSession internal constructor(
     val studio: StateFlow<StudioUiState> get() = exportController.studio
 
     internal val editor: EditorController = EditorController(EditorProjectStore(application), scope, storeScope).also { it.open() }
+
+    // W02: the background image behind the scene - see BackgroundController for why it takes no Host.
+    private val backgroundController: BackgroundController =
+        BackgroundController(application, storeScope, BackgroundPrefsStore(prefsFiles.background)).also { it.start() }
+
+    val backgroundPrefs: StateFlow<BackgroundPrefs> get() = backgroundController.prefs
+    val backgroundPush: StateFlow<BackgroundPushState> get() = backgroundController.push
+
+    fun pickBackgroundImage(uri: Uri) = backgroundController.pick(uri)
+
+    fun clearBackgroundImage() = backgroundController.clear()
+
+    fun setBackgroundBlend(blend: UnderlayBlend) = backgroundController.setBlend(blend)
+
+    fun setBackgroundAmount(amount: Float) = backgroundController.setAmount(amount)
+
+    fun setBackgroundBlurRadius(radius: Int) = backgroundController.setBlurRadius(radius)
+
+    fun setBackgroundDim(dim: Float) = backgroundController.setDim(dim)
+
+    fun setBackgroundRenderSize(
+        width: Int,
+        height: Int,
+    ) = backgroundController.setRenderSize(width, height)
 
     fun analysisTimeline(): FeatureTimeline? = analysis.timeline
 
@@ -1152,6 +1180,16 @@ class PlayerSession internal constructor(
 
     fun resetExportState() = exportController.resetExportState()
 
+    val stillState: StateFlow<StillPhase> get() = exportController.stillState
+
+    fun saveStillFrame(
+        aspect: ExportAspect,
+        sceneFactory: SceneFactory,
+        destination: Uri? = null,
+    ) = exportController.saveStillFrame(aspect, sceneFactory, destination)
+
+    fun resetStillState() = exportController.resetStillState()
+
     fun refreshStudioClips() = exportController.refreshStudioClips()
 
     fun deleteStudioClip(
@@ -1173,11 +1211,12 @@ class PlayerSession internal constructor(
     fun startStudioExport(
         clip: StudioClip,
         edit: dev.geode.export.ClipEdit,
-    ) = exportController.startStudioExport(clip, edit)
+        destination: Uri? = null,
+    ) = exportController.startStudioExport(clip, edit, destination)
 
     fun cancelStudioExport() = exportController.cancelStudioExport()
 
-    fun startProjectExport() = exportController.startProjectExport(editor.state.value.project)
+    fun startProjectExport(destination: Uri? = null) = exportController.startProjectExport(editor.state.value.project, destination)
 
     fun clearStudioResult() = exportController.clearStudioResult()
 

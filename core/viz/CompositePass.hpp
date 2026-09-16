@@ -55,12 +55,8 @@ public:
         std::string transitionId = "fade";
         float ratio = 1.0f;
         float timeSeconds = 0.0f;
-        float hitImpulse = 0.0f;
-        float flash = 0.0f;
-        float strobeHz = 0.0f;
         float postRotationAngle = 0.0f;
         float postCyclePhase = 0.0f;
-        float postBeatPulse = 0.0f;
         GLuint quadVao = 0;
         SceneParams fx;
         std::array<float, 4> gateA{};

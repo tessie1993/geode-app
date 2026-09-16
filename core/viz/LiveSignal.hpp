@@ -21,20 +21,6 @@ inline float beatImpulse(const GeodeFeatureFrame& f) {
 
 inline float motionImpulse(const GeodeFeatureFrame& f) { return std::max(beatImpulse(f), f.transient * 0.5f); }
 
-class Edge {
-public:
-    void reset() { armed_ = true; }
-    bool step(const GeodeFeatureFrame& f) {
-        const bool hot = f.transient >= kHitFloor;
-        const bool fired = hot && armed_;
-        armed_ = !hot;
-        return fired;
-    }
-
-private:
-    bool armed_ = true;
-};
-
 class Traverse {
 public:
     float position() const { return position_; }

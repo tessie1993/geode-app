@@ -62,7 +62,7 @@ class StudioViewModel
             onReady: (StudioClip) -> Unit,
         ) = session.describeStudioClip(uri, onReady)
 
-        override fun exportProject() = session.startProjectExport()
+        override fun exportProject(destination: Uri?) = session.startProjectExport(destination)
 
         override fun cancelProjectExport() = session.cancelStudioExport()
 
@@ -97,6 +97,16 @@ class StudioViewModel
 
         fun resetExportState() = session.resetExportState()
 
+        val stillState: StateFlow<StillPhase> get() = session.stillState
+
+        fun saveStillFrame(
+            aspect: dev.geode.export.ExportAspect,
+            sceneFactory: dev.geode.render.SceneFactory,
+            destination: Uri? = null,
+        ) = session.saveStillFrame(aspect, sceneFactory, destination)
+
+        fun resetStillState() = session.resetStillState()
+
         fun refreshStudioClips() = session.refreshStudioClips()
 
         fun describeStudioClip(
@@ -118,7 +128,8 @@ class StudioViewModel
         fun startStudioExport(
             clip: StudioClip,
             edit: ClipEdit,
-        ) = session.startStudioExport(clip, edit)
+            destination: Uri? = null,
+        ) = session.startStudioExport(clip, edit, destination)
 
         fun cancelStudioExport() = session.cancelStudioExport()
 

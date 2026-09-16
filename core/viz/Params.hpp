@@ -17,11 +17,14 @@ struct SceneParams {
     bool endlessZoom = false;
     float endlessZoomSpeed = 0.3f;
     float sway = 0.0f;
+    // Inert since wave three; removed with the next format bump.
     float pulse = 0.0f;
     float driftX = 0.0f;
     float driftY = 0.0f;
+    // Inert since wave three; removed with the next format bump.
     float shake = 0.0f;
     float audioDrive = 1.0f;
+    // Inert since wave three; removed with the next format bump.
     float beatResponse = 1.0f;
     float turbulence = 0.0f;
     float density = 1.0f;
@@ -69,6 +72,7 @@ struct SceneParams {
     float bassGain = 1.0f;
     float midGain = 1.0f;
     float trebGain = 1.0f;
+    // Inert since wave three; removed with the next format bump.
     float flash = 0.0f;
     float chromaAb = 0.0f;
     float vignette = 0.0f;
@@ -76,6 +80,7 @@ struct SceneParams {
     float grain = 0.0f;
     float glitch = 0.0f;
     float fisheye = 0.0f;
+    // Inert since wave three; removed with the next format bump.
     float strobe = 0.0f;
     float paramFadeSec = 0.0f;
     int fluidQuality = 2;
@@ -145,10 +150,21 @@ struct SceneParams {
     bool rippleOverlayEnabled = false;
     float rippleOverlayStrength = 0.4f;
     float rippleOverlaySpecular = 0.3f;
-    // How far the superformula driver (viz/FormDrive) moves every family's
-    // parameters with the music; 0 switches it off. Appended after the older
-    // fields so every existing wire index survives.
+    // How far the superformula driver (viz/FormDrive) moved every family's
+    // parameters with the music. Inert since wave three (viz/MotionField
+    // replaced it); kept, and 0 still switches nothing on, so a preset saved
+    // before wave three still decodes.
     float formDrive = 0.7f;
+
+    // Wave three: the continuous motion system (viz/MotionField), which
+    // replaces formDrive/beatResponse/flash/strobe/pulse/shake as the way the
+    // music moves a scene. Appended after the older fields so every existing
+    // wire index survives.
+    float motionAmount = 0.7f;
+    float motionBreath = 0.5f;
+    float motionOrbit = 0.5f;
+    float motionDrift = 0.5f;
+    float motionHue = 0.4f;
 
     struct Palette {
         const char* name;
@@ -174,11 +190,11 @@ struct SceneParams {
     // pointer-to-member is not a compile error. It was declared as 98 over 95
     // entries, and lerpParams/blendParams wrote through the three null members
     // on every fade. Count again whenever a lerped float is added.
-    static constexpr int kLerpedFloatCount = 96;
+    static constexpr int kLerpedFloatCount = 101;
     static const std::array<FloatField, kLerpedFloatCount>& lerpedFloats();
 
     // Every field in declaration order; the wire order of geode_viz_set_params.
-    static constexpr int kFieldCount = 135;
+    static constexpr int kFieldCount = 140;
     static const std::array<const char*, kFieldCount>& fieldNames();
 
     // Sets a field by its Kotlin property name; ints and bools are taken from the float's value.

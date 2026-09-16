@@ -150,6 +150,18 @@ data class GuiPrefs(
     val keyColor: Boolean = false,
     val secondScreen: Boolean = true,
     val touchTransform: Boolean = true,
+    /** Liquid-glass design system tokens (`ui/glass/`), read via `GlassMaterialTheme`. */
+    val glassTint: Float = 0.5f,
+    val glassOpacity: Float = 0.34f,
+    val bubbleDensity: Float = 0.5f,
+    val liquidMotion: Float = 1f,
+    /**
+     * Whether leaving the fullscreen visualizer while something is playing drops straight into
+     * picture-in-picture, instead of just backgrounding the app. Off by default: PiP is a
+     * deliberate action (the button on the visualizer, or the platform's own gesture on API 31+)
+     * until someone opts into it happening automatically too.
+     */
+    val autoEnterPip: Boolean = false,
 ) {
     val fontColorOverride: Int?
         get() = fontColorArgb ?: FontColorChoice.WHITE_ARGB.takeIf { whiteFont }
@@ -241,6 +253,11 @@ class ThemeStore(
             keyColor = prefs.getBoolean(KEY_KEY_COLOR, false),
             secondScreen = prefs.getBoolean(KEY_SECOND_SCREEN, true),
             micReactive = prefs.getBoolean(KEY_MIC_REACTIVE, false),
+            glassTint = prefs.getFloat(KEY_GLASS_TINT, 0.5f).coerceIn(0f, 1f),
+            glassOpacity = prefs.getFloat(KEY_GLASS_OPACITY, 0.34f).coerceIn(0f, 1f),
+            bubbleDensity = prefs.getFloat(KEY_BUBBLE_DENSITY, 0.5f).coerceIn(0f, 1f),
+            liquidMotion = prefs.getFloat(KEY_LIQUID_MOTION, 1f).coerceIn(0f, 1f),
+            autoEnterPip = prefs.getBoolean(KEY_AUTO_ENTER_PIP, false),
         )
     }
 
@@ -297,6 +314,11 @@ class ThemeStore(
             putBoolean(KEY_KEY_COLOR, gui.keyColor)
             putBoolean(KEY_SECOND_SCREEN, gui.secondScreen)
             putBoolean(KEY_MIC_REACTIVE, gui.micReactive)
+            putFloat(KEY_GLASS_TINT, gui.glassTint)
+            putFloat(KEY_GLASS_OPACITY, gui.glassOpacity)
+            putFloat(KEY_BUBBLE_DENSITY, gui.bubbleDensity)
+            putFloat(KEY_LIQUID_MOTION, gui.liquidMotion)
+            putBoolean(KEY_AUTO_ENTER_PIP, gui.autoEnterPip)
         }
     }
 
@@ -339,5 +361,10 @@ class ThemeStore(
         const val KEY_KEY_COLOR = "gui_key_color"
         const val KEY_SECOND_SCREEN = "gui_second_screen"
         const val KEY_MIC_REACTIVE = "gui_mic_reactive"
+        const val KEY_GLASS_TINT = "gui_glass_tint"
+        const val KEY_GLASS_OPACITY = "gui_glass_opacity"
+        const val KEY_BUBBLE_DENSITY = "gui_bubble_density"
+        const val KEY_LIQUID_MOTION = "gui_liquid_motion"
+        const val KEY_AUTO_ENTER_PIP = "gui_auto_enter_pip"
     }
 }

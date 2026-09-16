@@ -17,6 +17,9 @@ void FluidSceneBase::update(const GeodeFeatureFrame& features, float dt) {
     last_ = features;
     hasLast_ = true;
     featuresAgeSec_ = 0.0f;
+    // Wave three: stepped from the real incoming frame, never the idle
+    // synthesis in scaledFeatures()/idleFeatures() below.
+    motionField_.step(features, dt);
 }
 
 GeodeFeatureFrame FluidSceneBase::scaledFeatures() {
@@ -42,6 +45,22 @@ GeodeFeatureFrame FluidSceneBase::idleAudioFeatures(float bass, float mid, float
     f.mid = std::max(mid, 0.0f);
     f.treble = std::max(treble, 0.0f);
     f.stereoCorrelation = 1.0f;
+    // The CPU-side emitters (FluidEmitters/RippleMath) read beatPhase/barPhase
+    // straight off whatever frame scaledFeatures() returns, including this
+    // idle one; zeroing them here would freeze every phase-locked oscillator
+    // instead of settling it into a resting drift. Carry a slow steady phase
+    // and neutral confidence instead. motionField_ itself never sees this
+    // frame - it is stepped from the real one in update() - so this is only
+    // for direct GeodeFeatureFrame readers downstream.
+    constexpr float kIdleBeatHz = 1.8f;
+    f.beatPhase = std::fmod(time_ * kIdleBeatHz, 1.0f);
+    f.barPhase = std::fmod(time_ * kIdleBeatHz * 0.25f, 1.0f);
+    f.pulseConfidence = 0.35f;
+    f.tempoStability = 0.35f;
+    f.harmonicity = 0.5f;
+    f.novelty = 0.0f;
+    f.sectionBoundary = 0.0f;
+    for (float& c : f.chroma) c = 1.0f / static_cast<float>(GEODE_CHROMA_BINS);
     return f;
 }
 

@@ -212,7 +212,7 @@ const float KIFS_FOLD_RATE = 0.061;
 /** Mids steer the fold planes. Small for the same reason KIFS_SCALE_BASS is. */
 const float KIFS_FOLD_MID = 0.05;
 
-/** The beat-locked lurch of the fold angle: the cathedral flinches on the hit and settles. */
+/** Wave three: the fold angle's treble-relative-loudness accent (see `hit` in main()), continuous rather than beat-locked. */
 const float KIFS_FOLD_BEAT = 0.045;
 
 /**
@@ -497,11 +497,12 @@ vec3 kifsSky(vec3 rdLocal, float energy) {
     return dmtChrysanthemum(rdLocal, 0.55 + 0.09 * sin(uTime * 0.019), energy);
 }
 
+// motion: uHarmony -> extra fold/iteration depth (was a beat-triggered iteration snap), uTrebRel -> fold-angle sparkle (was the transient spike)
 void main() {
     // view() first: zoom, rotation, drift, kaleidoscope, tiling, pixelate,
-    // shake, twist, warp, ripple and the beat pulse all live in there, and a
-    // style that builds its own screen coordinates silently drops fifteen of
-    // the user's controls.
+    // twist, warp, ripple and the continuous breathe/orbit/drift terms all
+    // live in there, and a style that builds its own screen coordinates
+    // silently drops fifteen of the user's controls.
     vec2 uv = view();
 
     // Clamped once. The audio uniforms are 0..1.5 and auto-gained; the ceiling
@@ -515,8 +516,9 @@ void main() {
     float trebA = min(uTrebleSmooth, 1.3);
     float enA = min(uEnergySmooth, 1.3);
 
-    // uSpike: the same accent, with a rise, and already silent between hits.
-    float hit = uSpike;
+    // Wave three: the fold angle's transient accent is now a continuous
+    // treble-relative sparkle (see the family recipe below), never a spike.
+    float hit = clamp(uTrebRel - 1.0, 0.0, 1.0);
 
     // ---- camera -----------------------------------------------------------
     //
@@ -613,22 +615,14 @@ void main() {
     gSym = (uKaleido > 0.5 && uSymmetry >= 2.0) ? uSymmetry : 0.0;
 
     // Detail buys fold depth as well as march steps: uSteps runs 64..128, and
-    // the extra rounds are what the extra steps are for. The BEAT steps it by
-    // one more - the only discrete thing on the frame, per the audio rules.
-    // One extra round adds a level of structure finer than everything already
-    // on screen, so the silhouette does not move and the surfaces gain texture
-    // instead: a crystallization on the hit rather than a pop. Scaled by the
-    // user's Beat response, so setting that to zero really does stop it.
-    //
-    // A held snap - a fold angle jumping to a NEW value on each beat and
-    // staying there until the next one - is what this wanted to be, and it is
-    // not available: a fragment shader has no state between frames, and there
-    // is no beat INDEX in the uniform contract to hash. uBeatPhase says how
-    // long ago the last transient was, not which transient it was, and
-    // recovering an index from it needs the tempo, which is not uploaded. The
-    // lurch in foldAngle above is the continuous form of the same gesture.
-    float iterBeat = step(0.30, hit * clamp(uBeatResponse, 0.0, 2.0));
-    gIters = mix(5.0, 7.0, clamp((uSteps - 64.0) / 64.0, 0.0, 1.0)) + iterBeat;
+    // the extra rounds are what the extra steps are for. Harmony now steps it
+    // continuously instead of the old beat-triggered snap: a tonal passage
+    // (harmony near 1) gains a level of structure finer than everything
+    // already on screen, so the silhouette does not move and the surfaces
+    // gain texture instead, easing in and out with the passage rather than
+    // crystallizing on a hit.
+    float foldDepth = clamp(uHarmony, 0.0, 1.0);
+    gIters = mix(5.0, 7.0, clamp((uSteps - 64.0) / 64.0, 0.0, 1.0)) + foldDepth;
 
     // ---- march ------------------------------------------------------------
     //

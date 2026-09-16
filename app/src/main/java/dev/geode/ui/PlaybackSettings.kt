@@ -6,9 +6,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -22,6 +20,10 @@ import dev.geode.analysis.PlaybackMath
 import dev.geode.data.PlayerPrefs
 import dev.geode.playback.BitPerfectOutput
 import dev.geode.playback.ReplayGain
+import dev.geode.ui.glass.GlassButton
+import dev.geode.ui.glass.GlassPalette
+import dev.geode.ui.glass.GlassSlider
+import dev.geode.ui.glass.GlassToggle
 
 private val SLEEP_TIMER_CHOICES = listOf(0, 15, 30, 45, 60)
 
@@ -55,7 +57,7 @@ fun PlaybackSettingsSection(viewModel: SettingsViewModel) {
                 stringResource(R.string.playback_speed, "%.2f".format(prefs.speed)),
                 style = MaterialTheme.typography.labelMedium,
             )
-            CrystalSlider(
+            GlassSlider(
                 value = prefs.speed,
                 onValueChange = { viewModel.setPlayerPrefs(prefs.copy(speed = PlaybackMath.snap(it, 0.05f))) },
                 valueRange = 0.5f..2f,
@@ -66,7 +68,7 @@ fun PlaybackSettingsSection(viewModel: SettingsViewModel) {
                 stringResource(R.string.playback_pitch, "%.1f".format(prefs.pitchSemitones)),
                 style = MaterialTheme.typography.labelMedium,
             )
-            CrystalSlider(
+            GlassSlider(
                 value = prefs.pitchSemitones,
                 onValueChange = { viewModel.setPlayerPrefs(prefs.copy(pitchSemitones = PlaybackMath.snap(it, 0.5f))) },
                 valueRange = -6f..6f,
@@ -81,7 +83,7 @@ fun PlaybackSettingsSection(viewModel: SettingsViewModel) {
                 },
                 style = MaterialTheme.typography.labelMedium,
             )
-            CrystalSlider(
+            GlassSlider(
                 value = prefs.fadeMs.toFloat(),
                 onValueChange = {
                     viewModel.setPlayerPrefs(prefs.copy(fadeMs = (PlaybackMath.snap(it, 250f)).toInt()))
@@ -124,25 +126,22 @@ fun PlaybackSettingsSection(viewModel: SettingsViewModel) {
             ) {
                 val running = sleepRemainingMs != null
                 SLEEP_TIMER_CHOICES.forEach { minutes ->
-                    FilterChip(
-                        selected =
-                            if (running) {
-                                minutes != 0 && minutes == prefs.sleepTimerMinutes
+                    val selected =
+                        if (running) {
+                            minutes != 0 && minutes == prefs.sleepTimerMinutes
+                        } else {
+                            minutes == 0
+                        }
+                    GlassButton(
+                        text =
+                            if (minutes == 0) {
+                                stringResource(R.string.playback_sleep_off)
                             } else {
-                                minutes == 0
+                                stringResource(R.string.playback_sleep_minutes, minutes)
                             },
+                        selected = selected,
                         onClick = {
                             if (minutes == 0) playerViewModel.cancelSleepTimer() else playerViewModel.startSleepTimer(minutes)
-                        },
-                        label = {
-                            Text(
-                                if (minutes == 0) {
-                                    stringResource(R.string.playback_sleep_off)
-                                } else {
-                                    stringResource(R.string.playback_sleep_minutes, minutes)
-                                },
-                                style = MaterialTheme.typography.labelSmall,
-                            )
                         },
                     )
                 }
@@ -161,7 +160,7 @@ fun PlaybackSettingsSection(viewModel: SettingsViewModel) {
                         PlaybackMath.formatCountdown(remaining),
                     ),
                     style = MaterialTheme.typography.bodySmall,
-                    color = accentTextColor(),
+                    color = GlassPalette.mint,
                 )
             }
         }
@@ -180,10 +179,10 @@ private fun ReplayGainSettings(
             horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             REPLAYGAIN_MODES.forEach { (mode, label) ->
-                FilterChip(
+                GlassButton(
+                    text = stringResource(label),
                     selected = prefs.replayGainMode == mode,
                     onClick = { onChange(prefs.copy(replayGainMode = mode)) },
-                    label = { Text(stringResource(label), style = MaterialTheme.typography.labelSmall) },
                 )
             }
         }
@@ -192,7 +191,7 @@ private fun ReplayGainSettings(
                 stringResource(R.string.playback_replaygain_preamp, "%.1f".format(prefs.replayGainPreampDb)),
                 style = MaterialTheme.typography.labelMedium,
             )
-            CrystalSlider(
+            GlassSlider(
                 value = prefs.replayGainPreampDb,
                 onValueChange = { onChange(prefs.copy(replayGainPreampDb = PlaybackMath.snap(it, 0.5f))) },
                 valueRange = -PlayerPrefs.MAX_REPLAYGAIN_PREAMP_DB..PlayerPrefs.MAX_REPLAYGAIN_PREAMP_DB,
@@ -245,7 +244,7 @@ private fun NativeEngineSettings(
             },
             style = MaterialTheme.typography.labelMedium,
         )
-        CrystalSlider(
+        GlassSlider(
             value = prefs.crossfadeMs.toFloat(),
             onValueChange = { onChange(prefs.copy(crossfadeMs = PlaybackMath.snap(it, 500f).toInt())) },
             valueRange = 0f..PlayerPrefs.MAX_CROSSFADE_MS.toFloat(),
@@ -257,10 +256,10 @@ private fun NativeEngineSettings(
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 CROSSFADE_CURVES.forEach { (curve, label) ->
-                    FilterChip(
+                    GlassButton(
+                        text = stringResource(label),
                         selected = prefs.crossfadeCurve == curve,
                         onClick = { onChange(prefs.copy(crossfadeCurve = curve)) },
-                        label = { Text(stringResource(label), style = MaterialTheme.typography.labelSmall) },
                     )
                 }
             }
@@ -280,6 +279,6 @@ private fun PlaybackSwitchRow(
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         Text(label, style = MaterialTheme.typography.bodyMedium)
-        Switch(checked = checked, onCheckedChange = onChange)
+        GlassToggle(checked = checked, onCheckedChange = onChange)
     }
 }

@@ -35,9 +35,10 @@ out vec4 fragColor;
 // ---- the flight ------------------------------------------------------------
 //
 // The camera rides lib_dmt's flight path rather than a straight line down -z:
-// it banks up, down, left and right through the volume, and the whole path
-// leans toward the last spike's heading (uMoveDir), so the music steers the
-// turns and they glide in. Position is integrated on uFlowPhase. The volume
+// it banks up, down, left and right through the volume, and the bank angles
+// are the flight's own function of dist/roll, not a re-aimed heading. Position
+// is integrated on uFlowPhase, whose rate rides uEnergyRel on the CPU, so the
+// flight speeds up and slows down but never stalls or reverses. The volume
 // is world-anchored, so the fold moves past the camera as it should, and a
 // volume march needs no correction for a curved camera path - there is no
 // distance estimate to overshoot.
@@ -49,9 +50,13 @@ out vec4 fragColor;
 // ---- audio ------------------------------------------------------------------
 //
 // uSwell sets the dye's density, uBassSmooth the fold depth, uTrebleSmooth the
-// filament sharpness. A spike re-aims the flight (uMoveDir), re-seeds the dye
-// (uSpawnSeed) and moves the fold count to a new plateau (uFormPhase). The
-// core's flare rides uSpike, which has a rise on it, so it swells.
+// filament sharpness.
+//
+// motion: uMidRel -> the fold's bend (which species the structure leans
+// toward: crystalline, coral, lattice - continuously, never a plateau step),
+// uKeyHue (gated by uKeyStrength) -> the dye's hue drift and the palette
+// anchor. The core's flare rides uEnergyRel, which is a relative level and
+// so swells rather than flashing.
 
 #define NF_MAX_STEPS 96
 #define NF_FOCAL 1.35
@@ -101,9 +106,10 @@ void main() {
     float swell = clamp(uSwell, 0.0, 1.5);
     float finger = touchFalloff(uv, 0.6);
 
-    // A spike moves the fold's bend to a new plateau: the structure changes
-    // species - crystalline, coral, lattice - and holds there.
-    float bend = 0.35 + 0.55 * uFormPhase;
+    // The fold's bend rides mid's relative level continuously: the structure
+    // leans toward one species - crystalline, coral, lattice - or another as
+    // the mids move, rather than stepping to a new plateau on a hit.
+    float bend = 0.62 + 0.35 * clamp(uMidRel - 1.0, -1.0, 1.0);
     // Kept inside 1.22..1.42. Below it the iteration barely folds and the
     // volume is fog; above it the trap outruns its own scale correction and
     // the structure turns to noise.
@@ -129,7 +135,7 @@ void main() {
     // pattern.
     float span = NF_FAR - NF_NEAR;
     float dt = span / float(NF_MAX_STEPS);
-    float jitter = hash13(vec3(uv * 811.0, uSpawnSeed * 37.0));
+    float jitter = hash13(vec3(uv * 811.0, (uOrbit.x + uOrbit.y) * 37.0));
     float t = NF_NEAR + jitter * dt;
 
     vec3 acc = vec3(0.0);
@@ -146,7 +152,7 @@ void main() {
             // so the thin outskirts and the bright core are different hues
             // rather than the same hue at two brightnesses.
             float depth = (t - NF_NEAR) / span;
-            vec3 emit = pal(fract(0.12 + depth * 0.42 + uFormPhase * 0.25 + d * 0.30));
+            vec3 emit = pal(fract(0.12 + depth * 0.42 + uKeyHue * uKeyStrength * 0.25 + d * 0.30));
             // The filament highlight: the top of the density range only.
             emit += vec3(1.0) * smoothstep(0.72, 0.98, d) * (0.25 + 0.7 * treb);
             float sigma = d * (2.6 + 2.2 * swell);
@@ -164,9 +170,9 @@ void main() {
     col += dmtChrysanthemum(transpose(flight) * rd, 0.68, swell) * trans;
 
     // The core the flight is aimed at: a small bright sun on the axis, its
-    // halo swelling on a spike rather than flashing.
+    // halo swelling with energy's relative level rather than flashing.
     float axis = pow(max(1.0 - length(uv) * 0.9, 0.0), 6.0);
-    col += pal(0.06) * axis * (0.16 + 0.26 * uSpike) * trans;
+    col += pal(0.06) * axis * (0.16 + 0.24 * clamp(uEnergyRel - 1.0, 0.0, 1.0)) * trans;
 
     // The particle layer, matching the rest of the family.
     col += mix(pal(0.50), vec3(1.0), 0.35) * fluidMotes(uv * 1.1, 6.0, 0.14) * 0.22;

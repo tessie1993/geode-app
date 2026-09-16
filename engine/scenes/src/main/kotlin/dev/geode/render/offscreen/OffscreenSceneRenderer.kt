@@ -37,6 +37,25 @@ data class OffscreenRenderSpec(
      * native re-upload.
      */
     val overlay: ((positionMs: Long) -> IntArray?)? = null,
+    // W02: the background image behind the scene, decoded by the caller at [width]x[height] and
+    // latched once in [OffscreenSceneRenderer.prepare] - see NativeViz.setUnderlay.
+    val underlay: OffscreenUnderlay? = null,
+)
+
+/**
+ * A background image ready to latch into the export's native renderer; see
+ * [OffscreenRenderSpec.underlay].
+ *
+ * A plain class, not a data class: [pixels] is a large array, and the compiler-generated
+ * equals()/hashCode() a data class would get compare it by reference anyway, which is misleading
+ * (see [dev.geode.render.scene.PcmChunk] for the same reasoning).
+ */
+class OffscreenUnderlay(
+    val pixels: IntArray,
+    val width: Int,
+    val height: Int,
+    val blend: Int,
+    val amount: Float,
 )
 
 /**
@@ -78,6 +97,7 @@ class OffscreenSceneRenderer(
         if (spec.adsrConfigs.isNotEmpty()) viz.setAdsrConfigs(spec.adsrConfigs)
         // The overlay itself is latched per-frame in renderFrame(), since spec.overlay may vary
         // with position (a lyric line); this only builds the renderer.
+        spec.underlay?.let { viz.setUnderlay(it.pixels, it.width, it.height, it.blend, it.amount) }
         native = viz
     }
 

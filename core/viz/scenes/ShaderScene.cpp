@@ -4,7 +4,6 @@
 #include <cmath>
 #include <cstring>
 
-#include "viz/LiveSignal.hpp"
 #include "viz/scenes/SceneCommon.hpp"
 
 namespace geode::viz {
@@ -22,16 +21,6 @@ float paletteRowCoordinate(int index) {
 }
 
 float flag(bool on) { return on ? 1.0f : 0.0f; }
-
-constexpr float kTwoPiF = 6.2831853f;
-
-// Shortest signed distance from `from` to `to` on a unit-period circle.
-float wrappedDelta(float from, float to, float period) {
-    const float half = period * 0.5f;
-    float d = std::fmod(to - from + half, period);
-    if (d < 0.0f) d += period;
-    return d - half;
-}
 
 }  // namespace
 
@@ -92,55 +81,6 @@ float ShaderScene::slew(float current, float target, float dt, float riseHz, flo
     return current + (target - current) * k;
 }
 
-// A 32-bit LCG. Good enough to pick a plateau and a direction, and cheap enough
-// to sit in a per-frame path.
-float ShaderScene::nextSeed() {
-    seedState_ = seedState_ * 1664525u + 1013904223u;
-    return static_cast<float>((seedState_ >> 8) & 0xFFFFFFu) / static_cast<float>(0x1000000u);
-}
-
-// What a transient is allowed to change. NOT the picture: a spike moves
-// TARGETS, and the values the styles read glide toward them over the best part
-// of a second. The three things it can pick are the three the user asked a
-// spike to mean - a new travel direction, a new spawn, and a new fractal.
-void ShaderScene::stepMotion(float hit, float dt) {
-    // Capped rather than free-running: spawnAge_ is only ever read through a
-    // smoothstep with a horizon of a second or two, and an unbounded float would
-    // lose its low bits over a long session for no gain.
-    spawnAge_ = std::min(spawnAge_ + dt, kSpawnAgeMax);
-    spikeLockout_ = std::max(spikeLockout_ - dt, 0.0f);
-
-    const bool spiked = hit > kSpikeThreshold && spikeLockout_ <= 0.0f;
-    if (spiked) {
-        spikeLockout_ = kSpikeRefractorySeconds;
-        spikeAttackLeft_ = kSpikeAttackSeconds;
-        // New spawn: a fresh seed and an age of zero, so a style can grow the
-        // new thing in from nothing instead of cutting to it.
-        spawnSeed_ = nextSeed();
-        spawnAge_ = 0.0f;
-        // New fractal: the next plateau on the golden-ratio walk.
-        formTarget_ = std::fmod(formTarget_ + kFormStep, 1.0f);
-        // New direction: a bounded turn, never a reversal. Wrapped so the target
-        // cannot walk off into the range where a float has no fraction left.
-        dirTarget_ = std::fmod(dirTarget_ + (nextSeed() * 2.0f - 1.0f) * kDirMaxTurn, kTwoPiF);
-    }
-    // The envelope rises rather than steps, so even a style that keys
-    // brightness straight off it cannot flash; it does reach 1.0, over the
-    // attack, before it starts to leave.
-    if (spikeAttackLeft_ > 0.0f) {
-        spikeAttackLeft_ -= dt;
-        spikeEnv_ = std::min(spikeEnv_ + dt / kSpikeAttackSeconds, 1.0f);
-    } else {
-        spikeEnv_ *= std::exp(-dt * kSpikeFallHz);
-    }
-
-    formPhase_ = std::fmod(formPhase_ + wrappedDelta(formPhase_, formTarget_, 1.0f) * (1.0f - std::exp(-dt * kFormGlideHz)) + 1.0f, 1.0f);
-    dirAngle_ += wrappedDelta(dirAngle_, dirTarget_, kTwoPiF) * (1.0f - std::exp(-dt * kDirGlideHz));
-    dirAngle_ = std::fmod(dirAngle_, kTwoPiF);
-    // Monotonic: loudness sets the rate, never the sign.
-    flowPhase_ = std::fmod(flowPhase_ + dt * (kFlowBaseHz + kFlowEnergyHz * smoothEnergy_), kTimeWrapSeconds);
-}
-
 void ShaderScene::update(const GeodeFeatureFrame& features, float dt) {
     const SceneParams& p = params_;
     shaderTime_ = std::fmod(shaderTime_ + p.speed * dt, kTimeWrapSeconds);
@@ -157,11 +97,9 @@ void ShaderScene::update(const GeodeFeatureFrame& features, float dt) {
     smoothTreble_ = slew(smoothTreble_, treble_, dt, kBandRiseHz, kBandFallHz);
     smoothEnergy_ = slew(smoothEnergy_, energy_, dt, kBandRiseHz, kBandFallHz);
     swell_ = slew(swell_, energy_, dt, kSwellRiseHz, kSwellFallHz);
-    const float hit = live::hit(features);
-    stepMotion(hit, dt);
-    beatPulse_ = std::max(std::max(hit, beatPulse_ - dt * kPulseDecayPerSecond), 0.0f);
-    // The heard transient resets the shared pulse ramp; between hits it free-runs.
-    pulsePhase_ = hit > 0.0f ? 0.0f : std::fmod(pulsePhase_ + dt * kPulsePhaseHz, 1.0f);
+    beatPhase_ = features.beatPhase;
+    // Wave three: the continuous motion layer, never a transient/beat trigger.
+    motionField_.step(features, dt);
     for (int i = 0; i < kAudioTexWidth; ++i) {
         const int band = i * GEODE_BAND_COUNT / kAudioTexWidth;
         texData_[static_cast<size_t>(i)] = std::clamp(features.bands[band] * drive, 0.0f, kAudioClamp);
@@ -221,7 +159,8 @@ void ShaderScene::uploadParams() {
     set1f("uMid", mid_);
     set1f("uTreble", treble_);
     set1f("uEnergy", energy_);
-    set1f("uBeat", beatPulse_);
+    // Wave three: nothing produces a beat trigger any more.
+    set1f("uBeat", 0.0f);
     set1f("uSpeed", p.speed);
     set1f("uZoom", p.zoom);
     set1f("uRotation", rotationAngle_);
@@ -233,7 +172,8 @@ void ShaderScene::uploadParams() {
     set1f("uInvert", flag(p.invert));
     set1f("uIntensity", p.intensity);
     set1f("uMirrorX", flag(p.mirror));
-    set1f("uBeatResponse", p.beatResponse);
+    // Inert since wave three; p.beatResponse itself stays wire-compatible.
+    set1f("uBeatResponse", 0.0f);
     set1f("uTurbulence", p.turbulence);
     set1f("uPalBase", p.paletteBase());
     set1f("uPalRange", p.paletteRange());
@@ -251,7 +191,8 @@ void ShaderScene::uploadParams() {
     set1f("uPosterize", p.posterize);
     set1f("uSway", p.sway);
     set1f("uPulse", p.pulse);
-    set1f("uBeatPhase", pulsePhase_);
+    // The analyser's own phase-locked beat phase, not a transient-reset clock.
+    set1f("uBeatPhase", beatPhase_);
     set1f("uDriftX", p.driftX);
     set1f("uDriftY", p.driftY);
     set1f("uShake", p.shake);
@@ -273,12 +214,36 @@ void ShaderScene::uploadMotion() {
     set1f("uTrebleSmooth", smoothTreble_);
     set1f("uEnergySmooth", smoothEnergy_);
     set1f("uSwell", swell_);
-    set1f("uSpike", spikeEnv_);
-    set1f("uSpawnSeed", spawnSeed_);
-    set1f("uSpawnAge", spawnAge_);
-    set1f("uFormPhase", formPhase_);
-    set1f("uFlowPhase", flowPhase_);
-    glUniform2f(uniforms_.loc("uMoveDir"), std::cos(dirAngle_), std::sin(dirAngle_));
+
+    // Wave three: the continuous replacement for the spike-latched state.
+    // Nothing here is a trigger; every value is a running average, a
+    // phase-locked oscillator gated by confidence, or a slow re-target that
+    // eases over seconds. See viz/MotionField.hpp for the derivation.
+    const MotionField::State& m = motionField_.state();
+    set1f("uEnergyRel", m.energyRel);
+    set1f("uBassRel", m.bassRel);
+    set1f("uMidRel", m.midRel);
+    set1f("uTrebRel", m.trebRel);
+    set1f("uMotionBright", m.bright);
+    set1f("uHarmony", m.harmony);
+    set1f("uKeyHue", m.keyHue);
+    set1f("uKeyStrength", m.keyStrength);
+    set1f("uBeatOsc", m.beatOsc);
+    set1f("uBarOsc", m.barOsc);
+    glUniform2f(uniforms_.loc("uOrbit"), m.orbitX, m.orbitY);
+    set1f("uDrift", m.drift);
+    set1f("uBreath", m.breath);
+    set1f("uFlowPhase", m.flowPhase);
+    set1f("uMotion", std::clamp(params_.motionAmount, 0.0f, 1.0f));
+
+    // Legacy since wave three, held at their neutral constant until R08
+    // deletes the readers: a spike that never fires, a spawn born once and
+    // never re-rolled, a direction that never turns.
+    set1f("uSpike", 0.0f);
+    set1f("uSpawnSeed", 0.0f);
+    set1f("uSpawnAge", 1000.0f);
+    set1f("uFormPhase", 0.0f);
+    glUniform2f(uniforms_.loc("uMoveDir"), 1.0f, 0.0f);
 }
 
 void ShaderScene::uploadTouch() {

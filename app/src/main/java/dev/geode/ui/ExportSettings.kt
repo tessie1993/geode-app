@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -21,6 +20,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.geode.R
+import dev.geode.data.EXPORT_FPS_OPTIONS
 import dev.geode.data.ExportDefaults
 import dev.geode.data.ExportPrefsStore
 import dev.geode.data.GeodePrefsFiles
@@ -30,6 +30,9 @@ import dev.geode.export.ExportCodec
 import dev.geode.export.ExportPresets
 import dev.geode.export.ExportQuality
 import dev.geode.export.ExportRatio
+import dev.geode.ui.glass.GlassButton
+import dev.geode.ui.glass.GlassSegmented
+import dev.geode.ui.glass.GlassToggle
 
 @Composable
 internal fun ExportSettingsTab(
@@ -50,7 +53,7 @@ internal fun ExportSettingsTab(
                 Column {
                     Text(stringResource(R.string.export_platform_preset), style = MaterialTheme.typography.labelMedium)
                     Row(Modifier.fillMaxWidth().padding(top = 4.dp).horizontalScroll(rememberScrollState())) {
-                        CrystalSegmented(
+                        GlassSegmented(
                             options = ExportPresets.ALL.map { it.name },
                             selected =
                                 ExportPresets.indexMatching(
@@ -83,7 +86,7 @@ internal fun ExportSettingsTab(
                 }
                 Column {
                     Text(stringResource(R.string.export_quality), style = MaterialTheme.typography.labelMedium)
-                    CrystalSegmented(
+                    GlassSegmented(
                         options = ExportQuality.entries.map { exportQualityLabel(it) },
                         selected = ExportQuality.entries.indexOf(defaults.quality),
                         onSelect = { update(defaults.copy(quality = ExportQuality.entries[it])) },
@@ -92,17 +95,17 @@ internal fun ExportSettingsTab(
                 }
                 Column {
                     Text(stringResource(R.string.export_frame_rate), style = MaterialTheme.typography.labelMedium)
-                    CrystalSegmented(
-                        options = listOf(stringResource(R.string.export_fps_30), stringResource(R.string.export_fps_60)),
-                        selected = if (defaults.fps == 30) 0 else 1,
-                        onSelect = { update(defaults.copy(fps = if (it == 0) 30 else 60)) },
+                    GlassSegmented(
+                        options = fpsLabels(),
+                        selected = EXPORT_FPS_OPTIONS.indexOf(defaults.fps).coerceAtLeast(0),
+                        onSelect = { update(defaults.copy(fps = EXPORT_FPS_OPTIONS[it])) },
                         modifier = Modifier.padding(top = 4.dp),
                     )
                 }
                 Column {
                     Text(stringResource(R.string.export_aspect_ratio), style = MaterialTheme.typography.labelMedium)
                     Row(Modifier.fillMaxWidth().padding(top = 4.dp).horizontalScroll(rememberScrollState())) {
-                        CrystalSegmented(
+                        GlassSegmented(
                             options = ExportRatio.entries.map { it.label },
                             selected = ExportRatio.entries.indexOf(defaults.ratio),
                             onSelect = { update(defaults.copy(ratio = ExportRatio.entries[it])) },
@@ -111,7 +114,7 @@ internal fun ExportSettingsTab(
                 }
                 Column {
                     Text(stringResource(R.string.export_codec), style = MaterialTheme.typography.labelMedium)
-                    CrystalSegmented(
+                    GlassSegmented(
                         options = ExportCodec.entries.map { exportCodecLabel(it) },
                         selected = ExportCodec.entries.indexOf(defaults.codec),
                         onSelect = { update(defaults.copy(codec = ExportCodec.entries[it])) },
@@ -131,7 +134,7 @@ internal fun ExportSettingsTab(
                             Modifier.weight(1f),
                             style = MaterialTheme.typography.bodyMedium,
                         )
-                        Switch(
+                        GlassToggle(
                             checked = defaults.loopSafe,
                             onCheckedChange = { update(defaults.copy(loopSafe = it)) },
                         )
@@ -146,7 +149,7 @@ internal fun ExportSettingsTab(
         }
         item {
             SettingsGroup(stringResource(R.string.studio_render)) {
-                CrystalButton(onClick = onOpenExport) { Text(stringResource(R.string.export_video_button)) }
+                GlassButton(text = stringResource(R.string.export_video_button), onClick = onOpenExport)
                 Text(
                     stringResource(R.string.export_defaults_explainer),
                     style = MaterialTheme.typography.bodySmall,
@@ -157,8 +160,22 @@ internal fun ExportSettingsTab(
     }
 }
 
+// Shared by the settings tab and the export dialog so the frame-rate segmented control reads
+// identically ("24 fps", "25 fps", …) in both places.
 @Composable
-private fun presetCaption(
+internal fun fpsLabels(): List<String> =
+    EXPORT_FPS_OPTIONS.map { fps ->
+        when (fps) {
+            24 -> stringResource(R.string.export_fps_24)
+            25 -> stringResource(R.string.export_fps_25)
+            30 -> stringResource(R.string.export_fps_30)
+            50 -> stringResource(R.string.export_fps_50)
+            else -> stringResource(R.string.export_fps_60)
+        }
+    }
+
+@Composable
+internal fun presetCaption(
     defaults: ExportDefaults,
     baseSpec: String,
 ): String {

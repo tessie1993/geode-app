@@ -6,6 +6,7 @@ import android.net.Uri
 import android.os.Build
 import android.provider.DocumentsContract
 import android.provider.MediaStore
+import androidx.annotation.StringRes
 import androidx.media3.common.MediaItem
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.transformer.Composition
@@ -16,8 +17,11 @@ import androidx.media3.transformer.ExportException
 import androidx.media3.transformer.ExportResult
 import androidx.media3.transformer.ProgressHolder
 import androidx.media3.transformer.Transformer
+import dev.geode.R
+import dev.geode.RingLog
 import dev.geode.util.bestEffort
 import kotlinx.coroutines.CancellableContinuation
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -38,16 +42,35 @@ class StudioExporter(
 
         data class Failed(
             val message: String,
-        ) : Result
+            @StringRes val messageRes: Int? = null,
+            val messageArgs: List<Any> = emptyList(),
+        ) : Result {
+            /** Re-resolves [messageRes] against a live [context], for a UI layer that wants localisation. */
+            @Suppress("SpreadOperator")
+            fun describe(context: Context): String = messageRes?.let { context.getString(it, *messageArgs.toTypedArray()) } ?: message
+        }
 
         data object Cancelled : Result
     }
+
+    /** Builds a [Result.Failed] whose [Result.Failed.message] is already resolved from [resId]. */
+    private fun failed(
+        @StringRes resId: Int,
+        vararg args: Any,
+    ): Result.Failed = Result.Failed(context.getString(resId, *args), resId, args.toList())
 
     @Volatile
     private var transformer: Transformer? = null
 
     @Volatile
     private var cancelled = false
+
+    // Completed in exportComposition's finally, once the scratch file is cleaned up and the
+    // transformer field is cleared — so a caller that awaits cancel() knows it is safe to start
+    // a new export on this instance's single @Volatile transformer field. Pre-completed so that
+    // cancel() called with no export in flight returns immediately instead of hanging.
+    @Volatile
+    private var completion: CompletableDeferred<Unit> = CompletableDeferred(Unit)
 
     suspend fun export(
         source: Uri,
@@ -92,6 +115,7 @@ class StudioExporter(
         onProgress: (Float) -> Unit,
     ): Result {
         cancelled = false
+        completion = CompletableDeferred()
         val scratch = File(context.cacheDir, "studio-${System.currentTimeMillis()}.mp4")
         try {
             val outcome =
@@ -106,10 +130,11 @@ class StudioExporter(
                 val published = withContext(Dispatchers.IO) { publish(scratch, displayName) }
                 published
                     ?.let { Result.Saved(it, outputDurationMs) }
-                    ?: Result.Failed("The finished file could not be saved to Movies/Geode.")
+                    ?: failed(R.string.export_error_studio_save)
             }
         } finally {
             scratch.delete()
+            completion.complete(Unit)
         }
     }
 
@@ -145,7 +170,7 @@ class StudioExporter(
                                     if (cancelled) {
                                         Result.Cancelled
                                     } else {
-                                        Result.Failed(describe(exportException))
+                                        describe(exportException)
                                     },
                                 )
                             }
@@ -159,7 +184,9 @@ class StudioExporter(
             runCatching { built.start(composition, output.absolutePath) }
                 .onFailure {
                     transformer = null
-                    continuation.resumeOnce(Result.Failed(it.message ?: "The export could not be started."))
+                    RingLog.note(TAG, "transformer.start() failed", it)
+                    val resolved = it.message?.let { raw -> Result.Failed(raw) } ?: failed(R.string.export_error_studio_start)
+                    continuation.resumeOnce(resolved)
                     return@suspendCancellableCoroutine
                 }
             val holder = ProgressHolder()
@@ -176,9 +203,16 @@ class StudioExporter(
             if (outputDurationMs <= 0L) onProgress(0f)
         }
 
-    fun cancel() {
+    /**
+     * Requests cancellation and suspends until the in-flight export (if any) has actually wound
+     * down — the Transformer stopped, the scratch file removed and [transformer] cleared — so a
+     * caller only returns to an idle UI, or starts a new export, once this instance is safe to
+     * reuse. Returns immediately when nothing is exporting.
+     */
+    suspend fun cancel() {
         cancelled = true
         bestEffort(TAG, "transformer?.cancel()") { transformer?.cancel() }
+        completion.await()
     }
 
     private fun publish(
@@ -236,33 +270,32 @@ class StudioExporter(
                 bestEffort(TAG, "DocumentsContract.deleteDocument(resolver, de...") {
                     DocumentsContract.deleteDocument(resolver, destination)
                 }
-                return Result.Failed(
-                    "The folder you chose would not let the file be written. Some cloud providers refuse " +
-                        "this; try your Videos library or a folder on the device.",
-                )
+                return failed(R.string.export_error_destination_write)
             }
             Result.Saved(destination, outputDurationMs)
         }.getOrElse { e ->
             bestEffort(TAG, "DocumentsContract.deleteDocument(resolver, de...") {
                 DocumentsContract.deleteDocument(context.contentResolver, destination)
             }
-            Result.Failed(e.message ?: "The export could not be saved to that folder.")
+            RingLog.note(TAG, "destination write failed", e)
+            failed(R.string.export_error_destination_save)
         }
 
-    private fun describe(exception: ExportException): String =
-        when (exception.errorCode) {
+    /** Turns a Transformer failure into a [Result.Failed] with a resource-backed message. */
+    private fun describe(exception: ExportException): Result.Failed {
+        RingLog.note(TAG, "transformer export failed (errorCode=${exception.errorCode})", exception)
+        return when (exception.errorCode) {
             ExportException.ERROR_CODE_ENCODER_INIT_FAILED,
             ExportException.ERROR_CODE_ENCODING_FORMAT_UNSUPPORTED,
-            ->
-                "This device's video encoder would not accept that output — try a smaller size or a " +
-                    "different aspect ratio."
+            -> failed(R.string.export_error_encoder_unsupported)
             ExportException.ERROR_CODE_DECODER_INIT_FAILED,
             ExportException.ERROR_CODE_DECODING_FORMAT_UNSUPPORTED,
             ExportException.ERROR_CODE_IO_FILE_NOT_FOUND,
-            -> "That clip could not be read — the file may have moved, or be in a format this device cannot decode."
-            ExportException.ERROR_CODE_IO_NO_PERMISSION -> "Geode does not have permission to read that file."
-            else -> exception.message ?: "The export failed."
+            -> failed(R.string.export_error_decode_unsupported)
+            ExportException.ERROR_CODE_IO_NO_PERMISSION -> failed(R.string.export_error_no_permission)
+            else -> exception.message?.let { Result.Failed(it) } ?: failed(R.string.export_error_generic)
         }
+    }
 
     private companion object {
         const val PROGRESS_POLL_MS = 250L

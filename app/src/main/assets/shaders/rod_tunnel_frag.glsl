@@ -22,15 +22,15 @@ out vec4 fragColor;
 //
 //   - THE TUNNEL BENDS. It is warped onto lib_dmt's flight path, so it curves
 //     up, down, left and right ahead of the camera, which rides the same path
-//     looking along it. A spike leans the path toward the new heading
-//     (uMoveDir), so the turns are steered by the music and glide in.
+//     looking along it.
 //   - THE RODS ARE ALIVE. Each cell has its own life: rods bud out of the
 //     wall, hold, and dissolve, on a clock offset by the cell's hash, so at
 //     any moment some strands are thick, some are budding and some have
 //     gaps. Nothing appears in one frame - dmtLife eases both ends.
 //   - THE RODS MORPH. The bead chain is a capsule whose radius is modulated
-//     by a sine; uFormPhase walks that from a smooth rod through tight beads
-//     to a string of near-separate pearls and back, gliding, never stepping.
+//     by a sine; the phase-locked bar oscillator walks that from a smooth
+//     rod through tight beads to a string of near-separate pearls and back,
+//     gliding with the rhythm rather than stepping on a hit.
 //   - THE MATERIAL is lib_dmt's: banded by the cell, dispersed rim, thin-film
 //     sheen, a reflected softbox. The old two-light diffuse block is gone.
 //   - THE END of the tunnel is the mandala rather than a spot: the miss
@@ -112,19 +112,18 @@ vec3 normalAt(vec3 p, float eps) {
                    + k.yxy * map(p + k.yxy * eps) + k.xxx * map(p + k.xxx * eps));
 }
 
+// motion: uBarOsc -> bead/pearl morph phase, uKeyHue -> rod/core hue drift
 void main() {
     vec2 uv = view();
     float bassA = min(uBassSmooth, 1.3);
     float midA = min(uMidSmooth, 1.3);
     float trebA = min(uTrebleSmooth, 1.3);
     float enA = min(uEnergySmooth, 1.3);
-    float hit = uSpike;
 
     gTwist = 0.25 + 0.55 * midA;
-    // Rod to pearls and back: a triangle of uFormPhase, so the morph is deep
-    // in the middle of the ring and smooth at both ends, and glides because
-    // uFormPhase does.
-    gBeadDepth = 1.0 - abs(2.0 * fract(uFormPhase) - 1.0);
+    // Rod to pearls and back: the phase-locked bar oscillator, already
+    // gated by rhythm confidence and eased, drives the morph continuously.
+    gBeadDepth = uBarOsc;
 
     // The camera's distance down the tunnel, INTEGRATED rather than `uTime * rate`.
     // Multiplying a running clock by a loudness-dependent rate does not speed the
@@ -157,7 +156,9 @@ void main() {
         t += max(d * ROD_STEP, eps);
     }
 
-    float hueShift = 0.12 * hit * clamp(uBeatResponse, 0.0, 2.0);
+    // sin(2*pi*uKeyHue), not a raw (uKeyHue - 0.5): uKeyHue wraps 1->0, and a
+    // linear shift of it would pop at that wrap; the sine stays continuous.
+    float hueShift = 0.075 * uKeyStrength * sin(6.2831853 * uKeyHue);
     vec3 coreCol = pal(0.08 + hueShift);
     // The sky: the mandala on the flight direction. The camera basis from
     // dmtFlightRay has +z along the path, so the direction is taken relative

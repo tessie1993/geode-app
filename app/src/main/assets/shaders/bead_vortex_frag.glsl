@@ -11,6 +11,8 @@ out vec4 fragColor;
 //#include lib_scene_grade
 //#include lib_touch
 
+// motion: uBassRel -> bead/tube inflation, uEnergyRel -> core halo glow gain
+
 // Bead Vortex: looking down a tunnel whose walls are strands of segmented
 // beads - red, chartreuse and violet - winding clockwise into a white-hot
 // core through a purple haze of drifting motes. Two layers of strands, the
@@ -63,14 +65,19 @@ Strand strands(vec2 t, float count, float beadPulse, vec3 light) {
 float disc(vec2 g, float radius) { return smoothstep(radius, radius * 0.4, length(g)); }
 
 void main() {
-    // Advected before anything is measured off it, so the whole vortex leans the way
-    // the last spike aimed rather than sitting dead centre.
+    // Advected before anything is measured off it, so the whole vortex leans
+    // continuously with the shared curl field (see fluidWarp in
+    // lib_scene_motion.glsl) rather than sitting dead centre.
     vec2 uv = fluidWarp(view(), 1.0, 0.06);
     float r = max(length(uv), 1e-4);
     float a = atan(uv.y, uv.x);
     float energy = clamp(uEnergySmooth, 0.0, 1.5);
-    float beat = clamp(uSpike * uBeatResponse, 0.0, 1.0);
-    float beadPulse = clamp(uBassSmooth * uBeatResponse, 0.0, 1.5) + touchFalloff(uv, 0.5);
+    // uEnergyRel (loudness relative to a 20s running average) swells the
+    // core's halo continuously instead of flaring on a hit.
+    float glow = clamp(uEnergyRel - 1.0, 0.0, 1.0);
+    // uBassRel breathes the bead/tube radius; both are already
+    // attack/release smoothed, so nothing here can move far in one frame.
+    float beadPulse = clamp(uBassRel - 0.5, 0.0, 1.5) + touchFalloff(uv, 0.5);
     // Was `uTime * (0.9 + 0.5 * energy)`: the whole strand length is a function of
     // travel, so a change in the rate slid every bead down the tunnel at once. The
     // integrated phase changes speed without moving anything.
@@ -102,11 +109,11 @@ void main() {
     col = mix(col, haze, hazeAmt * 0.7);
 
     // The core: a small white-hot sun ringed like a sunflower, with a warm
-    // halo that flares on a hit.
+    // halo that swells continuously with the loudness of the passage.
     float core = exp(-r * r * 260.0);
     float sunRings = 0.6 + 0.4 * sin(r * 110.0 - travel * 2.0);
     float halo = exp(-r * 11.0) * sunRings;
-    col += vec3(1.0, 0.96, 0.75) * core * 2.6 + vec3(1.0, 0.82, 0.4) * halo * (0.5 + 0.5 * beat);
+    col += vec3(1.0, 0.96, 0.75) * core * 2.6 + vec3(1.0, 0.82, 0.4) * halo * (0.5 + 0.5 * glow);
     col += vec3(1.0, 0.9, 0.7) * fluidMotes(uv * 1.1, 6.0, 0.14) * 0.25 * hazeAmt;
     fragColor = vec4(grade(col), 1.0);
 }

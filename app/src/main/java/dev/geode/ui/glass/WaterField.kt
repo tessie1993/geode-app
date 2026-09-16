@@ -295,7 +295,8 @@ private fun clampIndex(
     w: Int,
     h: Int,
 ): Int? {
-    if (x < 0 || y < 0 || x >= w || y >= h) return null
+    if (x < 0 || x >= w) return null
+    if (y < 0 || y >= h) return null
     return y * w + x
 }
 

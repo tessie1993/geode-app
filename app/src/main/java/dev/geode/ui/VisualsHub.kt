@@ -79,6 +79,8 @@ fun VisualsHub(
     val tabs = listOf("Presets", "Styles", "Customize", "Textures", "Takes")
     val gui by settingsViewModel.guiPrefs.collectAsStateWithLifecycle()
     val takes by studioViewModel.takeState.collectAsStateWithLifecycle()
+    val overlayOptions by viewModel.overlayOptions.collectAsStateWithLifecycle()
+    var showLayersSheet by remember { mutableStateOf(false) }
     Box(Modifier.fillMaxSize()) {
         if (liveBackdrop) {
             VisualizerCanvasHost(visualizerView, Modifier.fillMaxSize())
@@ -147,6 +149,9 @@ fun VisualsHub(
                             tint = if (liveBackdrop) MaterialTheme.colorScheme.primary else LocalContentColor.current,
                         )
                     }
+                    CrystalButton(compact = true, filled = false, onClick = { showLayersSheet = true }) {
+                        Text(stringResource(R.string.overlay_layers_entry))
+                    }
                     CrystalButton(compact = true, filled = false, onClick = onOpenNowPlaying) { Text("View live") }
                 }
                 CrystalTabs(titles = tabs, selected = tab, onSelect = { tab = it })
@@ -159,6 +164,13 @@ fun VisualsHub(
                 }
             }
         }
+    }
+    if (showLayersSheet) {
+        LayersSheet(
+            options = overlayOptions,
+            onOptionsChange = { updated -> viewModel.setOverlayOptions { updated } },
+            onDismiss = { showLayersSheet = false },
+        )
     }
 }
 
@@ -205,6 +217,7 @@ private fun PresetsTreeTab(
     var deletingPreset by remember { mutableStateOf<String?>(null) }
     var replacingPreset by remember { mutableStateOf<String?>(null) }
     var showTemplates by remember { mutableStateOf(false) }
+    var showBackground by remember { mutableStateOf(false) }
     val userPresets = viz.presets.filterNot { BuiltInPresets.isBuiltIn(it.name) }.distinctBy { it.name }
     val byFolder = userPresets.groupBy { presetFolders.folderOf(it.name) }
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -236,6 +249,9 @@ private fun PresetsTreeTab(
                 }) { Text("Open a preset file") }
                 CrystalButton(compact = true, filled = false, onClick = { showTemplates = true }) {
                     Text(stringResource(R.string.template_entry_point))
+                }
+                CrystalButton(compact = true, filled = false, onClick = { showBackground = true }) {
+                    Text(stringResource(R.string.background_entry_point))
                 }
             }
             importNote?.let { note ->
@@ -483,6 +499,9 @@ private fun PresetsTreeTab(
     }
     if (showTemplates) {
         TemplatesSheet(viewModel, visualizerView, onDismiss = { showTemplates = false })
+    }
+    if (showBackground) {
+        BackgroundSheet(onDismiss = { showBackground = false })
     }
 }
 

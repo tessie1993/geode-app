@@ -8,9 +8,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -23,6 +21,9 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 import dev.geode.analysis.BeatTuning
+import dev.geode.ui.glass.GlassButton
+import dev.geode.ui.glass.GlassSlider
+import dev.geode.ui.glass.GlassToggle
 import kotlin.math.roundToInt
 
 @Composable
@@ -46,7 +47,7 @@ private fun AnalysisGroup(viewModel: SettingsViewModel) {
             stringResource(R.string.audio_beat_sensitivity, "%.1f".format(gui.beatSensitivity)),
             style = MaterialTheme.typography.labelMedium,
         )
-        CrystalSlider(
+        GlassSlider(
             value = gui.beatSensitivity,
             onValueChange = { viewModel.setGuiPrefs(gui.copy(beatSensitivity = it)) },
             valueRange = BeatTuning.SENSITIVITY_MIN..BeatTuning.SENSITIVITY_MAX,
@@ -59,14 +60,14 @@ private fun AnalysisGroup(viewModel: SettingsViewModel) {
             ),
             style = MaterialTheme.typography.labelMedium,
         )
-        CrystalSlider(
+        GlassSlider(
             value = gui.beatMinIntervalMs,
             onValueChange = { viewModel.setGuiPrefs(gui.copy(beatMinIntervalMs = it)) },
             valueRange = BeatTuning.INTERVAL_MS_MIN..BeatTuning.INTERVAL_MS_MAX,
         )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            CrystalButton(
-                filled = false,
+            GlassButton(
+                text = stringResource(R.string.audio_slow_track),
                 onClick = {
                     viewModel.setGuiPrefs(
                         gui.copy(
@@ -75,8 +76,9 @@ private fun AnalysisGroup(viewModel: SettingsViewModel) {
                         ),
                     )
                 },
-            ) { Text(stringResource(R.string.audio_slow_track)) }
-            TextButton(
+            )
+            GlassButton(
+                text = stringResource(R.string.audio_default),
                 onClick = {
                     viewModel.setGuiPrefs(
                         gui.copy(
@@ -85,12 +87,12 @@ private fun AnalysisGroup(viewModel: SettingsViewModel) {
                         ),
                     )
                 },
-            ) { Text(stringResource(R.string.audio_default)) }
+            )
         }
     }
     Column {
         Text(stringResource(R.string.audio_preset_morph, gui.presetMorphSeconds))
-        CrystalSlider(
+        GlassSlider(
             value = gui.presetMorphSeconds,
             onValueChange = { viewModel.setGuiPrefs(gui.copy(presetMorphSeconds = it)) },
             valueRange = 0f..ThemeStore.PRESET_MORPH_SECONDS_MAX,
@@ -103,7 +105,7 @@ private fun AnalysisGroup(viewModel: SettingsViewModel) {
                 Modifier.weight(1f),
                 style = MaterialTheme.typography.bodyMedium,
             )
-            Switch(checked = gui.keyColor, onCheckedChange = playerViewModel::setKeyColor)
+            GlassToggle(checked = gui.keyColor, onCheckedChange = playerViewModel::setKeyColor)
         }
         Text(
             stringResource(R.string.audio_key_colour_explainer),
@@ -129,7 +131,7 @@ private fun LiveInputGroup(viewModel: PlayerViewModel) {
                 Modifier.weight(1f),
                 style = MaterialTheme.typography.bodyMedium,
             )
-            Switch(
+            GlassToggle(
                 checked = mic.active,
                 onCheckedChange = { want ->
                     denied = false
@@ -170,11 +172,10 @@ private fun LiveInputGroup(viewModel: PlayerViewModel) {
                 dev.geode.analysis.LiveInputProfile.entries
                     .toList(),
             ) { profile ->
-                CrystalButton(
-                    compact = true,
-                    filled = false,
+                GlassButton(
+                    text = profile.label,
                     onClick = { viewModel.applyLiveInputProfile(profile) },
-                ) { Text(profile.label) }
+                )
             }
         }
         Text(

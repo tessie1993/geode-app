@@ -14,6 +14,8 @@ import dev.geode.analysis.LiveInputProfile
 import dev.geode.audio.AudioBus
 import dev.geode.audio.AudioFxState
 import dev.geode.audio.MicCapture
+import dev.geode.data.BackgroundPrefs
+import dev.geode.data.BackgroundPrefsStore
 import dev.geode.data.EditorProjectStore
 import dev.geode.data.FavouritesRepository
 import dev.geode.data.FilePresetRepository
@@ -23,6 +25,7 @@ import dev.geode.data.FileTemplateRepository
 import dev.geode.data.LfoStore
 import dev.geode.data.MilkPackImporter
 import dev.geode.data.MilkTexture
+import dev.geode.data.OverlayPrefsStore
 import dev.geode.data.PlayerPrefs
 import dev.geode.data.PlayerPrefsRepository
 import dev.geode.data.PlayerPrefsStore
@@ -57,9 +60,11 @@ import dev.geode.render.AdsrConfig
 import dev.geode.render.LfoConfig
 import dev.geode.render.SceneFactory
 import dev.geode.render.TransitionStyle
+import dev.geode.render.UnderlayBlend
 import dev.geode.render.scene.CustomizeTab
 import dev.geode.render.scene.PcmChunk
 import dev.geode.render.scene.SceneParams
+import dev.geode.viz.ArtTitleOptions
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -549,7 +554,7 @@ class PlayerSession internal constructor(
     private var playerListener: Player.Listener? = null
 
     private fun refresh() {
-        _uiState.value =
+        val next =
             PlayerUiState(
                 isPlaying = player.isPlaying,
                 positionMs = player.currentPosition.coerceAtLeast(0),
@@ -569,6 +574,8 @@ class PlayerSession internal constructor(
                 shuffle = player.shuffleModeEnabled,
                 repeatMode = player.repeatMode,
             )
+        _uiState.value = next
+        overlay.onTick(next.title, next.artist, next.positionMs, currentUri?.toString())
     }
 
     private val sleepTimer = playback.sleepTimer
@@ -664,6 +671,36 @@ class PlayerSession internal constructor(
     fun randomStepNow() = autoVisuals.randomStepNow()
 
     fun applyVizEntry(entry: VizPlaylistEntry) = autoVisuals.applyVizEntry(entry)
+
+    private val overlayPixelsFlow = MutableStateFlow(OverlayPixels(null, 0, 0))
+    internal val overlayPixels: StateFlow<OverlayPixels> = overlayPixelsFlow
+
+    private val overlay: OverlayController =
+        OverlayController(
+            application,
+            OverlayPrefsStore(prefsFiles.viz),
+            storeScope,
+            object : OverlayController.Host {
+                override fun publishOverlay(pixels: OverlayPixels) {
+                    overlayPixelsFlow.value = pixels
+                }
+            },
+        )
+
+    internal val overlayOptions: StateFlow<ArtTitleOptions> get() = overlay.options
+
+    internal fun setOverlayOptions(transform: (ArtTitleOptions) -> ArtTitleOptions) = overlay.setOptions(transform)
+
+    internal fun setOverlaySurfaceSize(
+        width: Int,
+        height: Int,
+    ) = overlay.onSurfaceSizeChanged(width, height)
+
+    /** For [ExportController]: composes the overlay at the export's own frame size. */
+    internal fun composeOverlayForExport(
+        width: Int,
+        height: Int,
+    ): OverlayPixels = overlay.composeForExport(width, height, _uiState.value.title, _uiState.value.artist, currentUri?.toString())
 
     val deviceTracks: StateFlow<List<DeviceTrack>> get() = musicLibrary.deviceTracks
 
@@ -1046,6 +1083,7 @@ class PlayerSession internal constructor(
                 override val guiPrefs: GuiPrefs get() = settings.guiPrefs.value
                 override val sceneId: String get() = _vizState.value.sceneId
                 override val sceneParams get() = _vizState.value.params
+                override val positionMs: Long get() = player.currentPosition.coerceAtLeast(0)
 
                 override fun lfoConfigs() = modulation.lfos.value
 
@@ -1063,12 +1101,41 @@ class PlayerSession internal constructor(
                         _vizState.update { it.copy(bpm = timeline.bpm, sections = timeline.detectSections()) }
                     }
                 }
+
+                override fun overlayPixelsFor(
+                    width: Int,
+                    height: Int,
+                ): IntArray? = composeOverlayForExport(width, height).pixels
             },
         )
 
     val studio: StateFlow<StudioUiState> get() = exportController.studio
 
     internal val editor: EditorController = EditorController(EditorProjectStore(application), scope, storeScope).also { it.open() }
+
+    // W02: the background image behind the scene - see BackgroundController for why it takes no Host.
+    private val backgroundController: BackgroundController =
+        BackgroundController(application, storeScope, BackgroundPrefsStore(prefsFiles.background)).also { it.start() }
+
+    val backgroundPrefs: StateFlow<BackgroundPrefs> get() = backgroundController.prefs
+    val backgroundPush: StateFlow<BackgroundPushState> get() = backgroundController.push
+
+    fun pickBackgroundImage(uri: Uri) = backgroundController.pick(uri)
+
+    fun clearBackgroundImage() = backgroundController.clear()
+
+    fun setBackgroundBlend(blend: UnderlayBlend) = backgroundController.setBlend(blend)
+
+    fun setBackgroundAmount(amount: Float) = backgroundController.setAmount(amount)
+
+    fun setBackgroundBlurRadius(radius: Int) = backgroundController.setBlurRadius(radius)
+
+    fun setBackgroundDim(dim: Float) = backgroundController.setDim(dim)
+
+    fun setBackgroundRenderSize(
+        width: Int,
+        height: Int,
+    ) = backgroundController.setRenderSize(width, height)
 
     fun analysisTimeline(): FeatureTimeline? = analysis.timeline
 
@@ -1100,6 +1167,16 @@ class PlayerSession internal constructor(
     fun cancelExport() = exportController.cancelExport()
 
     fun resetExportState() = exportController.resetExportState()
+
+    val stillState: StateFlow<StillPhase> get() = exportController.stillState
+
+    fun saveStillFrame(
+        aspect: ExportAspect,
+        sceneFactory: SceneFactory,
+        destination: Uri? = null,
+    ) = exportController.saveStillFrame(aspect, sceneFactory, destination)
+
+    fun resetStillState() = exportController.resetStillState()
 
     fun refreshStudioClips() = exportController.refreshStudioClips()
 

@@ -105,9 +105,6 @@ SceneParams Renderer::resolveParams(float dt) {
     lastFinalParams_ = p;
     postRotationAngle_ = grade::integrateRotation(postRotationAngle_, p.rotation, dt);
     postCyclePhase_ = grade::integrateCyclePhase(postCyclePhase_, p.cycleSpeed, dt, p.colorCycle);
-    // Wave three: nothing drives the post pass's beat pulse any more, since
-    // it existed to ride the transient FormDrive read.
-    postBeatPulse_ = grade::integrateBeatPulse(postBeatPulse_, 0.0f, dt);
     return p;
 }
 
@@ -238,14 +235,11 @@ void Renderer::composite(Scene& scene, const SceneParams& p, float progress, GLu
     in.timeSeconds = timeSeconds_;
     // Wave three: nothing feeds the composite pass's transient reaction any
     // more (that read live::hit(), a transient flag); flash/strobe/pulse/
-    // shake themselves are already inert (see Params.hpp).
-    in.hitImpulse = 0.0f;
+    // shake themselves are already inert (see Params.hpp), and the composite
+    // pass has dropped the uniforms/Inputs fields that carried them.
     const SceneParams& fx = lastFinalParams_;
-    in.flash = fx.flash * flashBudget_.gainFor(timeSeconds_, safety::flashImpulse(fx.flash, 0.0f));
-    in.strobeHz = safety::strobeHz();
     in.postRotationAngle = postRotationAngle_;
     in.postCyclePhase = postCyclePhase_;
-    in.postBeatPulse = postBeatPulse_;
     in.quadVao = quadVao_;
     in.fx = fx;
     in.gateA = grade::gateFor(activeScene_->family()).toVec4();

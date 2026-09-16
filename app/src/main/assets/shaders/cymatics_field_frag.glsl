@@ -1,6 +1,11 @@
 #version 300 es
 precision highp float;
 
+// motion: uBassRel -> plate excitation level (domain contraction), uHarmony
+// -> nodal-line sharpness/brightness, uBarOsc -> the levitator beads' slow
+// tilt. Plate excitation itself stays band-driven on the CPU (R07); the
+// legacy beat-trigger uniform is gone from this file entirely.
+//
 // The CYMATICS style: the standing-wave field of the sound, evaluated PER
 // PIXEL and filling the whole screen. No plate, no camera, no black surround
 // - the wave field IS the picture, edge to edge, and it flows because its
@@ -83,8 +88,9 @@ uniform float uBaseHue;
 uniform float uHueSpan;
 uniform float uEnergy;
 uniform float uTreble;
-uniform float uBeat;
 uniform float uExposure;
+
+//#include lib_scene_motion
 
 // ---- the finger as a driver ------------------------------------------------
 //
@@ -134,8 +140,10 @@ float hexLattice(vec2 p) {
  * shells, chambers and tubes without forking the audio or phase logic.
  */
 vec2 styleCoordinates(vec2 p, vec2 uv) {
-    if (uStyle == 2) { // Drumhead: the skin breathes, and dips when struck.
-        p *= 0.96 + 0.05 * sin(uTime * 0.7) - 0.06 * clamp(uBeat, 0.0, 1.0);
+    if (uStyle == 2) { // Drumhead: the skin breathes, and dips with the bass.
+        // Continuous plate-level contraction: dips further when the bass is
+        // running above its recent average, never on a single hit.
+        p *= 0.96 + 0.05 * sin(uTime * 0.7) - 0.06 * clamp(uBassRel - 1.0, 0.0, 1.0);
     } else if (uStyle == 3) { // Harmonograph: two slowly precessing pendulums.
         p += 0.24 * vec2(sin(p.y * 0.72 + uTime * 0.31), cos(p.x * 0.66 - uTime * 0.27));
     } else if (uStyle == 4) { // Faraday: subharmonic surface buckling.
@@ -449,10 +457,12 @@ void main() {
     vec3 color = body * (0.04 + 0.20 * az * az + uFill * (0.10 + 0.80 * diffuse) * live) * level;
 
     // Halo (broad, palette-coloured), then the filigree on top (near white,
-    // treble glinting on it and beats flaring it), then the caustic sheen.
+    // treble glinting on it and harmonicity sharpening it - a more tonal
+    // passage resolves crisper nodal lines than a noisy one), then the
+    // caustic sheen.
     color += body * halo * uGlow * 0.45 * level;
     vec3 ridge = mix(vec3(1.0), body, 0.4);
-    color += ridge * nodal * (0.7 + 0.45 * clamp(uTreble, 0.0, 1.5) + 0.35 * clamp(uBeat, 0.0, 1.0));
+    color += ridge * nodal * (0.7 + 0.45 * clamp(uTreble, 0.0, 1.5) + 0.35 * uHarmony);
     color += ridge * (caustic + spec * uCaustic * 0.8) * (0.2 + 0.3 * clamp(uEnergy, 0.0, 1.5)) * live;
 
     // Material signatures: each substyle's own apparatus, painted out of the
@@ -478,7 +488,7 @@ void main() {
         float lum = dot(color, vec3(0.299, 0.587, 0.114));
         color = mix(color, lum * vec3(1.05, 0.97, 0.85), 0.4); // vellum, not lacquer
         color *= 1.0 - smoothstep(0.86, 1.0, rr); // nothing past the shell
-        color += ridge * rim * (0.4 + 0.7 * clamp(uBeat, 0.0, 1.0)) * live;
+        color += ridge * rim * (0.4 + 0.7 * uHarmony) * live;
     } else if (uStyle == 3) { // Harmonograph: pendulum ink etched on dim paper.
         float etched = exp(-abs(sin(h * 15.0 + p.x * 1.2 - p.y * 0.7)) * 8.0);
         color *= 0.6;
@@ -511,8 +521,11 @@ void main() {
         vec2 bp = vec2(p.x * 3.4, (p.y + h * 0.22) * 4.6);
         vec2 cellId = floor(bp);
         float hc = hash21(cellId);
+        // A slow, bar-locked tilt sways every bead together instead of
+        // jittering each one on a hit; each bead keeps its own fixed lean
+        // direction (off hc) so the stack still reads as many beads, not one.
         vec2 centre = vec2(0.5) + (vec2(hc, fract(hc * 7.31)) - 0.5) * 0.16
-            + 0.06 * clamp(uBeat, 0.0, 1.0) * vec2(sin(uTime * 1.4 + hc * 44.0), cos(uTime * 1.1 + hc * 61.0));
+            + 0.05 * (uBarOsc - 0.5) * vec2(cos(hc * 6.2831853), sin(hc * 6.2831853));
         float bead = smoothstep(0.30, 0.14, length(fract(bp) - centre));
         float antinode = smoothstep(0.3, 0.75, az);
         color *= 0.4; // dark chamber
@@ -532,7 +545,7 @@ void main() {
         float tips = pow(max(hexCell, 0.0), 6.0) * smoothstep(0.1, 0.55, az);
         vec3 steel = mix(body, vec3(0.85, 0.9, 1.0), 0.6);
         color *= 0.3; // the fluid body is near-black
-        color += steel * (spec * spec * 2.2 + tips * (0.9 + 0.8 * clamp(uBeat, 0.0, 1.0))) * live;
+        color += steel * (spec * spec * 2.2 + tips * (0.9 + 0.8 * uHarmony)) * live;
         color += body * halo * 0.18;
     } else if (uStyle == 10) { // Kundt Tube: dust bands inside a glass bore.
         // Dust piles where the air is still (|h| small) - half-wavelength

@@ -259,6 +259,7 @@ fun TimelineEditor(
             ChapterFormat.FFMETADATA -> chapterFfmetadataExporter.launch(name)
         }
     }
+
     fun addLane(kind: LaneKind) {
         actions.edit { p ->
             val count = p.timeline.lanes.count { it.kind == kind } + 1

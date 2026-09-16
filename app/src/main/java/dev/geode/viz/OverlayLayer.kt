@@ -14,6 +14,9 @@ internal data class OverlayFrame(
     val title: String?,
     val artist: String?,
     val artwork: Bitmap?,
+    /** The synced lyric line at [positionMs], and the one after it, or null when neither applies. */
+    val currentLine: String? = null,
+    val nextLine: String? = null,
 )
 
 /**

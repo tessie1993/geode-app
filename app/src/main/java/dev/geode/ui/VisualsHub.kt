@@ -80,6 +80,7 @@ fun VisualsHub(
     val gui by settingsViewModel.guiPrefs.collectAsStateWithLifecycle()
     val takes by studioViewModel.takeState.collectAsStateWithLifecycle()
     val overlayOptions by viewModel.overlayOptions.collectAsStateWithLifecycle()
+    val overlayLyricOptions by viewModel.overlayLyricOptions.collectAsStateWithLifecycle()
     var showLayersSheet by remember { mutableStateOf(false) }
     Box(Modifier.fillMaxSize()) {
         if (liveBackdrop) {
@@ -169,6 +170,8 @@ fun VisualsHub(
         LayersSheet(
             options = overlayOptions,
             onOptionsChange = { updated -> viewModel.setOverlayOptions { updated } },
+            lyricOptions = overlayLyricOptions,
+            onLyricOptionsChange = { updated -> viewModel.setOverlayLyricOptions { updated } },
             onDismiss = { showLayersSheet = false },
         )
     }

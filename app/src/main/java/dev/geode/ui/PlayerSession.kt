@@ -62,6 +62,7 @@ import dev.geode.render.scene.CustomizeTab
 import dev.geode.render.scene.PcmChunk
 import dev.geode.render.scene.SceneParams
 import dev.geode.viz.ArtTitleOptions
+import dev.geode.viz.LyricOptions
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -538,10 +539,16 @@ class PlayerSession internal constructor(
 
     private fun loadLyricsFor(uri: Uri?) {
         _lyrics.value = null
+        overlay.setLyrics(null)
         if (uri == null) return
         scope.launch(Dispatchers.IO) {
             val found = LyricsLoader.load(application, uri)
-            withContext(Dispatchers.Main) { if (currentUri == uri) _lyrics.value = found }
+            withContext(Dispatchers.Main) {
+                if (currentUri == uri) {
+                    _lyrics.value = found
+                    overlay.setLyrics(found)
+                }
+            }
         }
     }
 
@@ -688,17 +695,21 @@ class PlayerSession internal constructor(
 
     internal fun setOverlayOptions(transform: (ArtTitleOptions) -> ArtTitleOptions) = overlay.setOptions(transform)
 
+    internal val overlayLyricOptions: StateFlow<LyricOptions> get() = overlay.lyricOptions
+
+    internal fun setOverlayLyricOptions(transform: (LyricOptions) -> LyricOptions) = overlay.setLyricOptions(transform)
+
     internal fun setOverlaySurfaceSize(
         width: Int,
         height: Int,
     ) = overlay.onSurfaceSizeChanged(width, height)
 
-    /** For [ExportController]: composes the overlay at the export's own frame size. */
-    internal fun composeOverlayForExport(
+    /** For [ExportController]: a per-position overlay provider at the export's own frame size. */
+    internal fun overlayProviderForExport(
         width: Int,
         height: Int,
-    ): OverlayPixels =
-        overlay.composeForExport(width, height, _uiState.value.title, _uiState.value.artist, currentUri?.toString())
+    ): (Long) -> IntArray? =
+        overlay.overlayProviderForExport(width, height, _uiState.value.title, _uiState.value.artist, currentUri?.toString())
 
     val deviceTracks: StateFlow<List<DeviceTrack>> get() = musicLibrary.deviceTracks
 
@@ -1102,7 +1113,7 @@ class PlayerSession internal constructor(
                 override fun overlayPixelsFor(
                     width: Int,
                     height: Int,
-                ): IntArray? = composeOverlayForExport(width, height).pixels
+                ): (Long) -> IntArray? = overlayProviderForExport(width, height)
             },
         )
 

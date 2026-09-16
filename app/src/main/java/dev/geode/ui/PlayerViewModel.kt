@@ -22,6 +22,7 @@ import dev.geode.render.TransitionStyle
 import dev.geode.render.scene.PcmChunk
 import dev.geode.render.scene.SceneParams
 import dev.geode.viz.ArtTitleOptions
+import dev.geode.viz.LyricOptions
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import javax.inject.Inject
@@ -80,6 +81,10 @@ class PlayerViewModel
         internal val overlayOptions: StateFlow<ArtTitleOptions> get() = session.overlayOptions
 
         internal fun setOverlayOptions(transform: (ArtTitleOptions) -> ArtTitleOptions) = session.setOverlayOptions(transform)
+
+        internal val overlayLyricOptions: StateFlow<LyricOptions> get() = session.overlayLyricOptions
+
+        internal fun setOverlayLyricOptions(transform: (LyricOptions) -> LyricOptions) = session.setOverlayLyricOptions(transform)
 
         internal fun setOverlaySurfaceSize(
             width: Int,

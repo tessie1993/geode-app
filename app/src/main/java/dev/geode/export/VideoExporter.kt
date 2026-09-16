@@ -135,8 +135,12 @@ class VideoExporter(
         destination: Uri? = null,
         codec: ExportCodec = ExportCodec.H264,
         loudnessTarget: LoudnessTarget = LoudnessTarget.LeaveAsIs,
-        /** Full-frame ARGB overlay (cover art/title) sized to [aspect], from `Bitmap.getPixels`; null draws none. */
-        overlay: IntArray? = null,
+        /**
+         * Full-frame ARGB overlay (cover art/title/lyrics) sized to [aspect], as a function from a
+         * track position (ms) to that frame's pixels (`Bitmap.getPixels` shape); null draws none
+         * for that frame. Null overlay draws nothing for the whole export.
+         */
+        overlay: ((positionMs: Long) -> IntArray?)? = null,
         onProgress: (Float) -> Unit,
         isCancelled: () -> Boolean,
     ): Result =
@@ -238,7 +242,7 @@ class VideoExporter(
         range: ExportRange?,
         codec: ExportCodec,
         loudnessTarget: LoudnessTarget,
-        overlay: IntArray?,
+        overlay: ((positionMs: Long) -> IntArray?)?,
         onProgress: (Float) -> Unit,
         isCancelled: () -> Boolean,
     ): Result {
@@ -336,7 +340,7 @@ class VideoExporter(
         loopSafe: Boolean,
         range: ExportRange?,
         codec: ExportCodec,
-        overlay: IntArray?,
+        overlay: ((positionMs: Long) -> IntArray?)?,
         onProgress: (Float) -> Unit,
         isCancelled: () -> Boolean,
     ) {

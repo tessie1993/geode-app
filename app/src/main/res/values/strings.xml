@@ -770,6 +770,11 @@
     <string name="overlay_size_small">Small</string>
     <string name="overlay_size_medium">Medium</string>
     <string name="overlay_size_large">Large</string>
+    <string name="overlay_lyric_sheet_title">Synced lyrics</string>
+    <string name="overlay_lyric_enable">Show current line over the visualizer</string>
+    <string name="overlay_lyric_position_top">Top</string>
+    <string name="overlay_lyric_position_center">Centre</string>
+    <string name="overlay_lyric_position_bottom">Bottom</string>
     <string name="template_link_imported">Template \"%1$s\" imported — open Video templates to use it.</string>
     <string name="template_link_unreadable">That template link could not be read. It may have been cut short in transit.</string>
     <string name="template_entry_point">Video templates</string>

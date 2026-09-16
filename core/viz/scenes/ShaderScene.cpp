@@ -159,8 +159,6 @@ void ShaderScene::uploadParams() {
     set1f("uMid", mid_);
     set1f("uTreble", treble_);
     set1f("uEnergy", energy_);
-    // Wave three: nothing produces a beat trigger any more.
-    set1f("uBeat", 0.0f);
     set1f("uSpeed", p.speed);
     set1f("uZoom", p.zoom);
     set1f("uRotation", rotationAngle_);
@@ -172,8 +170,6 @@ void ShaderScene::uploadParams() {
     set1f("uInvert", flag(p.invert));
     set1f("uIntensity", p.intensity);
     set1f("uMirrorX", flag(p.mirror));
-    // Inert since wave three; p.beatResponse itself stays wire-compatible.
-    set1f("uBeatResponse", 0.0f);
     set1f("uTurbulence", p.turbulence);
     set1f("uPalBase", p.paletteBase());
     set1f("uPalRange", p.paletteRange());
@@ -235,15 +231,6 @@ void ShaderScene::uploadMotion() {
     set1f("uBreath", m.breath);
     set1f("uFlowPhase", m.flowPhase);
     set1f("uMotion", std::clamp(params_.motionAmount, 0.0f, 1.0f));
-
-    // Legacy since wave three, held at their neutral constant until R08
-    // deletes the readers: a spike that never fires, a spawn born once and
-    // never re-rolled, a direction that never turns.
-    set1f("uSpike", 0.0f);
-    set1f("uSpawnSeed", 0.0f);
-    set1f("uSpawnAge", 1000.0f);
-    set1f("uFormPhase", 0.0f);
-    glUniform2f(uniforms_.loc("uMoveDir"), 1.0f, 0.0f);
 }
 
 void ShaderScene::uploadTouch() {

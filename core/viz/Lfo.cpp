@@ -126,7 +126,8 @@ const std::array<float, LfoEngine::kSlots>& LfoEngine::tick(float dt, const Geod
             case ModSource::Treble: raw = follow(i, features.treble, dt); break;
             case ModSource::Level: raw = follow(i, live::level(features), dt); break;
             case ModSource::Brightness: raw = follow(i, live::brightness(features), dt); break;
-            case ModSource::Transient: raw = follow(i, live::hit(features), dt); break;
+            // Wave three: Transient behaves as Level now (nothing keys off a hit); kept for wire order.
+            case ModSource::Transient: raw = follow(i, live::level(features), dt); break;
             case ModSource::StereoWidth: raw = follow(i, live::width(features), dt); break;
             case ModSource::StereoPan: raw = followBipolar(i, live::pan(features), dt); break;
         }

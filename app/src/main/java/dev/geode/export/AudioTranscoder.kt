@@ -6,11 +6,13 @@ import android.media.MediaCodecInfo
 import android.media.MediaExtractor
 import android.media.MediaFormat
 import android.net.Uri
+import dev.geode.RingLog
 import dev.geode.util.bestEffort
 import java.io.BufferedOutputStream
 import java.io.File
 import java.io.FileOutputStream
 import java.nio.ByteBuffer
+import java.nio.ByteOrder
 
 class AudioTranscoder(
     private val context: Context,
@@ -44,10 +46,11 @@ class AudioTranscoder(
         src: ByteBuffer,
         srcCh: Int,
         dstCh: Int,
+        scratch: PcmScratch,
     ): ByteBuffer {
-        val sb = src.duplicate().order(java.nio.ByteOrder.nativeOrder()).asShortBuffer()
+        val sb = src.duplicate().order(ByteOrder.nativeOrder()).asShortBuffer()
         val frames = sb.remaining() / srcCh
-        val out = ByteBuffer.allocate(frames * dstCh * 2).order(java.nio.ByteOrder.nativeOrder())
+        val out = scratch.prepare(frames * dstCh * 2)
         val ob = out.asShortBuffer()
         for (f in 0 until frames) {
             val base = f * srcCh
@@ -63,14 +66,136 @@ class AudioTranscoder(
                 ob.put((sb.get(base + 1).toInt() + fold).coerceIn(-32768, 32767).toShort())
             }
         }
-        out.limit(frames * dstCh * 2)
         return out
+    }
+
+    /**
+     * Downmixes [n] interleaved 16-bit samples at [srcCh] channels into `frames * dstCh` samples
+     * at [dstCh] (1 or 2) channels, written into [out] starting at index 0. Shared by the AIFF
+     * transcode pass and [measureAiffLoudness], which both need exactly this fold and neither can
+     * afford a fresh array per buffer.
+     */
+    private fun foldAiffFrames(
+        src: ShortArray,
+        n: Int,
+        srcCh: Int,
+        dstCh: Int,
+        out: ShortArray,
+    ) {
+        val frames = n / srcCh
+        if (srcCh <= dstCh) {
+            System.arraycopy(src, 0, out, 0, frames * dstCh)
+            return
+        }
+        for (f in 0 until frames) {
+            val base = f * srcCh
+            var rest = 0
+            for (c in 2 until srcCh) rest += src[base + c]
+            val fold = rest / (srcCh - 2) / 2
+            out[f * dstCh] = (src[base] + fold).coerceIn(-32768, 32767).toShort()
+            if (dstCh > 1) out[f * dstCh + 1] = (src[base + 1] + fold).coerceIn(-32768, 32767).toShort()
+        }
+    }
+
+    /**
+     * Scales 16-bit PCM in [pcm] (its full `position(0) until limit`) by [gain] in place, clipping
+     * to the sample range rather than wrapping. [gain] is expected to already respect a target's
+     * true-peak ceiling (see [sourceGain]), so clipping here only guards the last fraction of a dB
+     * that a block-based loudness measurement cannot promise exactly — it is not a substitute for a
+     * limiter.
+     */
+    private fun applyGain(
+        pcm: ByteBuffer,
+        gain: Float,
+    ) {
+        if (gain == 1f) return
+        val shorts = pcm.duplicate().order(ByteOrder.nativeOrder()).asShortBuffer()
+        for (i in 0 until shorts.remaining()) {
+            val scaled = shorts.get(i) * gain
+            shorts.put(i, scaled.coerceIn(-32768f, 32767f).toInt().toShort())
+        }
+    }
+
+    /**
+     * Measures [uri]'s *source* loudness — over the same [startMs]/[maxDurationMs] window
+     * [transcode] will actually export, not the whole source file it may be trimmed from — and
+     * returns the linear gain [transcode] should apply to reach [target]. Returns 1f (no change)
+     * for [LoudnessTarget.LeaveAsIs], for a target that could not be measured (unsupported channel
+     * layout, undecodable file, too short to gate), or on any failure along the way.
+     *
+     * This is a second full decode of the source, solely to read its level before any gain is
+     * baked into the AAC track: nothing upstream of [transcode] ever holds this file's PCM, so
+     * applying a target-driven gain costs one extra decode pass over the source, in addition to
+     * [VideoExporter]'s own post-export measurement of the finished file.
+     */
+    fun sourceGain(
+        uri: Uri,
+        target: LoudnessTarget,
+        startMs: Long = 0L,
+        maxDurationMs: Long = 0L,
+        isCancelled: () -> Boolean = { false },
+    ): Float {
+        if (target == LoudnessTarget.LeaveAsIs) return 1f
+        val report =
+            try {
+                val aiff = dev.geode.audio.AiffPcm.open(context, uri)
+                if (aiff != null) {
+                    measureAiffLoudness(aiff, startMs, maxDurationMs)
+                } else {
+                    val measured = LoudnessMeter(context).measureBlocking(uri, isCancelled, startMs, maxDurationMs)
+                    (measured as? LoudnessResult.Measured)?.report
+                }
+            } catch (e: Exception) {
+                RingLog.note(TAG, "Source loudness measurement failed", e)
+                null
+            }
+        return report?.let { LoudnessTargets.advise(it, target).linearGain } ?: 1f
+    }
+
+    /** The [sourceGain] pass over an AIFF source, which [LoudnessMeter] cannot open directly. */
+    private fun measureAiffLoudness(
+        aiff: dev.geode.audio.AiffPcm,
+        startMs: Long,
+        maxDurationMs: Long,
+    ): LoudnessReport? {
+        try {
+            val channels = aiff.channels.coerceAtMost(2)
+            if (!LoudnessAnalyser.supports(channels)) return null
+            val analyser = LoudnessAnalyser(aiff.sampleRate, channels)
+            val readBuf = ShortArray(16384 - (16384 % aiff.channels))
+            val foldScratch = ShortArray(readBuf.size)
+            val floats = FloatArray(readBuf.size)
+            if (startMs > 0) {
+                var toSkip = startMs * aiff.sampleRate / 1000 * aiff.channels
+                while (toSkip > 0) {
+                    val want = minOf(toSkip, readBuf.size.toLong()).toInt()
+                    val n = aiff.read(if (want == readBuf.size) readBuf else ShortArray(want))
+                    if (n <= 0) break
+                    toSkip -= n
+                }
+            }
+            val maxUs = maxDurationMs * 1000
+            var elapsedUs = 0L
+            while (maxUs <= 0 || elapsedUs <= maxUs) {
+                val n = aiff.read(readBuf)
+                if (n <= 0) break
+                val need = (n / aiff.channels) * channels
+                foldAiffFrames(readBuf, n, aiff.channels, channels, foldScratch)
+                for (i in 0 until need) floats[i] = foldScratch[i] / 32768f
+                analyser.feed(floats, need)
+                elapsedUs += (n / aiff.channels).toLong() * 1_000_000L / aiff.sampleRate
+            }
+            return if (analyser.hasCompleteBlock) analyser.finish() else null
+        } finally {
+            aiff.close()
+        }
     }
 
     private fun transcodeAiff(
         aiff: dev.geode.audio.AiffPcm,
         maxDurationMs: Long,
         startMs: Long,
+        gain: Float,
         isCancelled: () -> Boolean,
         onProgress: (Float) -> Unit,
     ): Result {
@@ -100,11 +225,13 @@ class AudioTranscoder(
             throw t
         }
         var outBytes = 0L
-        val infos = mutableListOf<SampleInfo>()
+        val infos = SampleIndex()
         var outFormat: MediaFormat? = null
         val maxUs = maxDurationMs * 1000
         val encInfo = MediaCodec.BufferInfo()
         val readBuf = ShortArray(16384 - (16384 % aiff.channels))
+        val foldScratch = ShortArray(readBuf.size)
+        val pcmScratch = PcmScratch()
         var srcDone = false
         var eosSent = false
         var encoderDone = false
@@ -131,22 +258,11 @@ class AudioTranscoder(
                     if (n <= 0 || (maxUs > 0 && carryTimeUs > maxUs)) {
                         srcDone = true
                     } else {
-                        val frames = n / aiff.channels
-                        val bb = ByteBuffer.allocate(frames * channels * 2).order(java.nio.ByteOrder.nativeOrder())
-                        val sb = bb.asShortBuffer()
-                        if (aiff.channels <= 2) {
-                            sb.put(readBuf, 0, n)
-                        } else {
-                            for (f in 0 until frames) {
-                                val base = f * aiff.channels
-                                var rest = 0
-                                for (c in 2 until aiff.channels) rest += readBuf[base + c]
-                                val fold = rest / (aiff.channels - 2) / 2
-                                sb.put((readBuf[base] + fold).coerceIn(-32768, 32767).toShort())
-                                sb.put((readBuf[base + 1] + fold).coerceIn(-32768, 32767).toShort())
-                            }
-                        }
-                        bb.limit(frames * channels * 2)
+                        val need = (n / aiff.channels) * channels
+                        foldAiffFrames(readBuf, n, aiff.channels, channels, foldScratch)
+                        val bb = pcmScratch.prepare(need * 2)
+                        bb.asShortBuffer().put(foldScratch, 0, need)
+                        applyGain(bb, gain)
                         pcmCarry = bb
                         onProgress(aiff.progress)
                     }
@@ -190,7 +306,7 @@ class AudioTranscoder(
                             buf.limit(encInfo.offset + encInfo.size)
                             val bytes = ByteArray(encInfo.size)
                             buf.get(bytes)
-                            infos += SampleInfo(outBytes, encInfo.size, encInfo.presentationTimeUs, encInfo.flags)
+                            infos.add(outBytes, encInfo.size, encInfo.presentationTimeUs, encInfo.flags)
                             out.write(bytes)
                             outBytes += encInfo.size
                         }
@@ -228,11 +344,12 @@ class AudioTranscoder(
         uri: Uri,
         maxDurationMs: Long,
         startMs: Long = 0L,
+        gain: Float = 1f,
         isCancelled: () -> Boolean = { false },
         onProgress: (Float) -> Unit = {},
     ): Result {
         dev.geode.audio.AiffPcm.open(context, uri)?.let { aiff ->
-            return transcodeAiff(aiff, maxDurationMs, startMs, isCancelled, onProgress)
+            return transcodeAiff(aiff, maxDurationMs, startMs, gain, isCancelled, onProgress)
         }
         val extractor = MediaExtractor()
         val srcFormat: MediaFormat
@@ -298,7 +415,7 @@ class AudioTranscoder(
                 }
         }
         var outBytes = 0L
-        val infos = mutableListOf<SampleInfo>()
+        val infos = SampleIndex()
         var outFormat: MediaFormat? = null
         val maxUs = maxDurationMs * 1000
         val startUs = startMs * 1000
@@ -313,12 +430,15 @@ class AudioTranscoder(
             }
         val decInfo = MediaCodec.BufferInfo()
         val encInfo = MediaCodec.BufferInfo()
+        val pcmScratch = PcmScratch()
+        val downmixScratch = PcmScratch()
         var extractorDone = false
         var decoderDone = false
         var eosSent = false
         var encoderDone = false
         var pcmCarry: ByteBuffer? = null
         var carryTimeUs = 0L
+        var nonMonotonicPtsLogged = false
         var progressed = false
         var stallIterations = 0
 
@@ -378,16 +498,15 @@ class AudioTranscoder(
                                 }
                             val copy: ByteBuffer
                             if (pcmEnc == android.media.AudioFormat.ENCODING_PCM_FLOAT) {
-                                val fb = buf.order(java.nio.ByteOrder.nativeOrder()).asFloatBuffer()
+                                val fb = buf.order(ByteOrder.nativeOrder()).asFloatBuffer()
                                 val n = fb.remaining()
-                                copy = ByteBuffer.allocate(n * 2).order(java.nio.ByteOrder.nativeOrder())
+                                copy = pcmScratch.prepare(n * 2)
                                 val sb = copy.asShortBuffer()
                                 for (i in 0 until n) {
                                     sb.put((fb.get(i).coerceIn(-1f, 1f) * 32767f).toInt().toShort())
                                 }
-                                copy.limit(n * 2)
                             } else {
-                                copy = ByteBuffer.allocate(decInfo.size)
+                                copy = pcmScratch.prepare(decInfo.size)
                                 copy.put(buf)
                                 copy.flip()
                             }
@@ -399,7 +518,7 @@ class AudioTranscoder(
                                 }
                             val mixed =
                                 if (bufChannels > channels) {
-                                    downmix(copy, bufChannels, channels)
+                                    downmix(copy, bufChannels, channels, downmixScratch)
                                 } else {
                                     copy
                                 }
@@ -408,8 +527,23 @@ class AudioTranscoder(
                                 if (decInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) decoderDone = true
                                 continue
                             }
+                            applyGain(mixed, gain)
                             pcmCarry = mixed
-                            carryTimeUs = (decInfo.presentationTimeUs - startUs).coerceAtLeast(0L)
+                            // A decoder can emit a non-monotonic PTS right after SEEK_TO_PREVIOUS_SYNC lands on
+                            // a sync frame before the real seek target; MediaMuxer rejects a timestamp that goes
+                            // backwards, so this never lets carryTimeUs fall below where it already was.
+                            val decodedUs = (decInfo.presentationTimeUs - startUs).coerceAtLeast(0L)
+                            if (decodedUs < carryTimeUs) {
+                                if (!nonMonotonicPtsLogged) {
+                                    RingLog.note(
+                                        TAG,
+                                        "Decoder PTS went backwards (${decodedUs}us < ${carryTimeUs}us); clamped to stay monotonic",
+                                    )
+                                    nonMonotonicPtsLogged = true
+                                }
+                            } else {
+                                carryTimeUs = decodedUs
+                            }
                         }
                         decoder.releaseOutputBuffer(outIndex, false)
                         if (decInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) decoderDone = true
@@ -441,7 +575,7 @@ class AudioTranscoder(
                             buf.limit(encInfo.offset + encInfo.size)
                             val bytes = ByteArray(encInfo.size)
                             buf.get(bytes)
-                            infos += SampleInfo(outBytes, encInfo.size, encInfo.presentationTimeUs, encInfo.flags)
+                            infos.add(outBytes, encInfo.size, encInfo.presentationTimeUs, encInfo.flags)
                             out.write(bytes)
                             outBytes += encInfo.size
                         }
@@ -482,6 +616,77 @@ class AudioTranscoder(
 
     private companion object {
         const val STALL_LIMIT = 1_000
+    }
+}
+
+/**
+ * A single reusable PCM byte buffer, grown (never shrunk) to the largest size ever needed instead
+ * of being reallocated for every buffer the decoder or encoder hands over — a three-minute export
+ * moves tens of thousands of these through the transcode loop.
+ */
+private class PcmScratch {
+    private var buf = ByteBuffer.allocate(INITIAL_BYTES).order(ByteOrder.nativeOrder())
+
+    /** A cleared buffer of at least [bytes] capacity, positioned at 0 and limited to [bytes]. */
+    fun prepare(bytes: Int): ByteBuffer {
+        if (buf.capacity() < bytes) buf = ByteBuffer.allocate(bytes).order(ByteOrder.nativeOrder())
+        buf.clear()
+        buf.limit(bytes)
+        return buf
+    }
+
+    private companion object {
+        const val INITIAL_BYTES = 64 * 1024
+    }
+}
+
+/**
+ * The AAC frame table for one exported track, as parallel primitive arrays rather than one
+ * [AudioTranscoder.SampleInfo] object (plus its slot in an `ArrayList`) per frame. At ~43 AAC-LC
+ * frames/s a five-minute export is well over 10,000 frames, and packed `LongArray`/`IntArray`
+ * storage is both smaller and far kinder to the garbage collector than that many boxed objects.
+ * [get] synthesizes a [AudioTranscoder.SampleInfo] on read, so [VideoExporter.AudioFeed] — which
+ * only ever reads sequentially through [size] and indexed [get] — sees the same `List` it always
+ * did.
+ */
+private class SampleIndex : AbstractList<AudioTranscoder.SampleInfo>(), RandomAccess {
+    private var offsets = LongArray(INITIAL_CAPACITY)
+    private var sizes = IntArray(INITIAL_CAPACITY)
+    private var timesUs = LongArray(INITIAL_CAPACITY)
+    private var sampleFlags = IntArray(INITIAL_CAPACITY)
+
+    override var size: Int = 0
+        private set
+
+    fun add(
+        offset: Long,
+        size: Int,
+        presentationTimeUs: Long,
+        flags: Int,
+    ) {
+        if (this.size == offsets.size) grow()
+        offsets[this.size] = offset
+        sizes[this.size] = size
+        timesUs[this.size] = presentationTimeUs
+        sampleFlags[this.size] = flags
+        this.size++
+    }
+
+    override fun get(index: Int): AudioTranscoder.SampleInfo {
+        if (index !in 0 until size) throw IndexOutOfBoundsException("index $index, size $size")
+        return AudioTranscoder.SampleInfo(offsets[index], sizes[index], timesUs[index], sampleFlags[index])
+    }
+
+    private fun grow() {
+        val newCapacity = offsets.size * 2
+        offsets = offsets.copyOf(newCapacity)
+        sizes = sizes.copyOf(newCapacity)
+        timesUs = timesUs.copyOf(newCapacity)
+        sampleFlags = sampleFlags.copyOf(newCapacity)
+    }
+
+    private companion object {
+        const val INITIAL_CAPACITY = 256
     }
 }
 

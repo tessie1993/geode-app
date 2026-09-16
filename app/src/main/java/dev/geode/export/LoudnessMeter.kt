@@ -94,7 +94,7 @@ class LoudnessMeter(
         onProgress: (Float) -> Unit = {},
     ): LoudnessResult =
         withContext(Dispatchers.IO) {
-            decode(uri, { !isActive || isCancelled() }, onProgress)
+            decode(uri, 0L, 0L, { !isActive || isCancelled() }, onProgress)
         }
 
     suspend fun measure(
@@ -103,9 +103,28 @@ class LoudnessMeter(
         onProgress: (Float) -> Unit = {},
     ): LoudnessResult = measure(Uri.fromFile(file), isCancelled, onProgress)
 
+    /**
+     * The same decode-and-measure as [measure], without the coroutine boundary, for a caller that
+     * is already running off the main thread and wants the result inline rather than suspending —
+     * [AudioTranscoder.sourceGain] computes its export gain this way, ahead of its own synchronous
+     * transcode loop.
+     *
+     * [startMs] and [maxDurationMs] (0 meaning "no bound") restrict the measurement to the same
+     * window [AudioTranscoder.transcode] will actually export, so the gain this feeds is computed
+     * against the clip that ships rather than the whole source file it was trimmed from.
+     */
+    internal fun measureBlocking(
+        uri: Uri,
+        isCancelled: () -> Boolean = { false },
+        startMs: Long = 0L,
+        maxDurationMs: Long = 0L,
+    ): LoudnessResult = decode(uri, startMs, maxDurationMs, isCancelled) {}
+
     @Suppress("ReturnCount")
     private fun decode(
         uri: Uri,
+        startMs: Long,
+        maxDurationMs: Long,
         isCancelled: () -> Boolean,
         onProgress: (Float) -> Unit,
     ): LoudnessResult {
@@ -121,6 +140,7 @@ class LoudnessMeter(
             val sourceFormat = extractor.getTrackFormat(trackIndex)
             val mime = sourceFormat.getString(MediaFormat.KEY_MIME) ?: return LoudnessResult.NoAudioTrack
             extractor.selectTrack(trackIndex)
+            if (startMs > 0) extractor.seekTo(startMs * 1000, MediaExtractor.SEEK_TO_PREVIOUS_SYNC)
             val started =
                 runCatching {
                     MediaCodec.createDecoderByType(mime).also {
@@ -134,7 +154,9 @@ class LoudnessMeter(
                         it.start()
                     }
                 }.getOrElse { return LoudnessResult.Unreadable("This device has no decoder for $mime.") }
-            return drain(started, extractor, sourceFormat, isCancelled, onProgress)
+            val startUs = startMs * 1000
+            val endUs = if (maxDurationMs > 0) startUs + maxDurationMs * 1000 else 0L
+            return drain(started, extractor, sourceFormat, startUs, endUs, isCancelled, onProgress)
         } finally {
             bestEffort(TAG, "decoder?.stop()") { decoder?.stop() }
             bestEffort(TAG, "decoder?.release()") { decoder?.release() }
@@ -147,6 +169,8 @@ class LoudnessMeter(
         decoder: MediaCodec,
         extractor: MediaExtractor,
         sourceFormat: MediaFormat,
+        startUs: Long,
+        endUs: Long,
         isCancelled: () -> Boolean,
         onProgress: (Float) -> Unit,
     ): LoudnessResult {
@@ -165,7 +189,7 @@ class LoudnessMeter(
                 if (inIndex >= 0) {
                     val input = decoder.getInputBuffer(inIndex) ?: return LoudnessResult.Unreadable(CODEC_STATE)
                     val size = extractor.readSampleData(input, 0)
-                    if (size < 0) {
+                    if (size < 0 || (endUs > 0 && extractor.sampleTime > endUs)) {
                         decoder.queueInputBuffer(inIndex, 0, 0, 0, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
                         extractorDone = true
                     } else {
@@ -179,7 +203,9 @@ class LoudnessMeter(
             val outIndex = decoder.dequeueOutputBuffer(info, DEQUEUE_TIMEOUT_US)
             if (outIndex >= 0) {
                 progressed = true
-                if (info.size > 0) {
+                // A buffer decoded from before a seek's sync frame is discarded rather than fed to
+                // the analyser, the same buffer-level bound AudioTranscoder.transcode uses to trim.
+                if (info.size > 0 && info.presentationTimeUs >= startUs) {
                     val format = decoder.outputFormat
                     val rate = format.getInteger(MediaFormat.KEY_SAMPLE_RATE)
                     val channels = format.getInteger(MediaFormat.KEY_CHANNEL_COUNT)

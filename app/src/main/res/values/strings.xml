@@ -567,7 +567,7 @@
     <string name="export_loop_start">Render loop</string>
     <string name="export_loop_rendering">Rendering… %1$d%%</string>
     <string name="export_loudness_target">Loudness target</string>
-    <string name="export_loudness_hint">Geode measures the finished file against this target once export completes. It does not yet change the level to match — pick the platform you\'re shipping to, or Leave as-is to ship the level you mixed.</string>
+    <string name="export_loudness_hint">Geode matches the level to this target while exporting, then measures the finished file to confirm it landed there — pick the platform you\'re shipping to, or Leave as-is to ship the level you mixed.</string>
 
     <!-- Settings: Look tab. -->
     <string name="look_group_theme">Theme</string>

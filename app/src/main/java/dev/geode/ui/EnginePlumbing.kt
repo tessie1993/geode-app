@@ -3,12 +3,14 @@ package dev.geode.ui
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.render.BlendMode
 import dev.geode.render.TransitionCatalog
 import dev.geode.render.VisualSafety
 import dev.geode.render.VisualizerView
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.launch
 
 data class LayersUiState(
     val enabled: Boolean = false,
@@ -38,14 +40,35 @@ fun VisualizerEngineBindings(
     val playerPrefs by settingsViewModel.playerPrefs.collectAsStateWithLifecycle()
     val gui by settingsViewModel.guiPrefs.collectAsStateWithLifecycle()
     val layers by LayersBus.state.collectAsStateWithLifecycle()
+    val background by visualsViewModel.backgroundPush.collectAsStateWithLifecycle()
+    val mainScope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) {
         visualizerView.visualizerRenderer.onShaderError = viewModel::reportShaderError
         visualizerView.visualizerRenderer.pcmProvider = { viewModel.latestPcm() }
+        // W02: the background image is decoded to the surface's current pixel size, so a rotation
+        // or a fold needs a re-decode just as much as a fresh pick does. onSurfaceSizeChanged fires
+        // on the GL thread; BackgroundController's state is only ever touched from Main, so this
+        // hops back rather than calling straight through.
+        visualizerView.visualizerRenderer.onSurfaceSizeChanged = { w, h ->
+            mainScope.launch { visualsViewModel.setBackgroundRenderSize(w, h) }
+        }
         LayersBus.availableScenes.value = visualizerView.visualizerRenderer.availableSceneIds()
         viewModel.features.collect {
             val enriched = viewModel.enrichFeatures(it)
             visualizerView.visualizerRenderer.features = enriched
+        }
+    }
+    LaunchedEffect(background) {
+        val pixels = background.pixels
+        visualizerView.queueEvent {
+            visualizerView.visualizerRenderer.setUnderlay(
+                pixels?.pixels,
+                pixels?.width ?: 0,
+                pixels?.height ?: 0,
+                background.blend,
+                background.amount,
+            )
         }
     }
     LaunchedEffect(viz.sceneId) {

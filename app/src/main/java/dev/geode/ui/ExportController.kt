@@ -2,7 +2,9 @@ package dev.geode.ui
 
 import android.app.Application
 import android.net.Uri
+import androidx.core.net.toUri
 import dev.geode.analysis.FeatureTimeline
+import dev.geode.data.BackgroundPrefsStore
 import dev.geode.data.ExportPrefsStore
 import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.PerformanceTake
@@ -17,14 +19,15 @@ import dev.geode.export.LongFormAudio
 import dev.geode.export.LoopExtend
 import dev.geode.export.LoopRender
 import dev.geode.export.LoopSpec
-import dev.geode.export.MixClip
 import dev.geode.export.LoudnessAdvice
 import dev.geode.export.LoudnessTarget
+import dev.geode.export.MixClip
 import dev.geode.export.ProjectComposition
 import dev.geode.export.TimeOfDayDrift
 import dev.geode.export.VideoExporter
 import dev.geode.render.SceneFactory
 import dev.geode.render.scene.SceneParams
+import dev.geode.viz.BackgroundExportSpec
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -215,6 +218,7 @@ internal class ExportController(
                             destination = destination,
                             codec = codec,
                             loudnessTarget = defaultLoudnessTarget(),
+                            background = defaultBackground(),
                             onProgress = { p ->
                                 val overall = 0.2f + p * 0.8f
                                 _exportState.update { it.copy(phase = ExportPhase.Running(overall)) }
@@ -315,6 +319,7 @@ internal class ExportController(
     fun startStudioExport(
         clip: dev.geode.export.StudioClip,
         edit: dev.geode.export.ClipEdit,
+        destination: Uri? = null,
     ) {
         if (_studio.value.phase.isBusy) return
         _studio.update { it.copy(phase = ExportPhase.Running(0f)) }
@@ -328,6 +333,7 @@ internal class ExportController(
                         edit = edit,
                         displayName = name,
                         codec = defaultCodec(),
+                        destination = destination,
                     ) { p -> _studio.update { it.copy(phase = ExportPhase.Running(p.coerceIn(0f, 1f))) } }
                 _studio.update { it.copy(phase = result.toPhase()) }
                 refreshStudioClips()
@@ -335,7 +341,10 @@ internal class ExportController(
             }
     }
 
-    fun startProjectExport(project: dev.geode.editor.EditorProject) {
+    fun startProjectExport(
+        project: dev.geode.editor.EditorProject,
+        destination: Uri? = null,
+    ) {
         if (_studio.value.phase.isBusy) return
         val built = ProjectComposition.build(application, project)
         if (built !is ProjectComposition.Outcome.Ready) {
@@ -347,7 +356,7 @@ internal class ExportController(
             scope.launch {
                 val name = "geode_cut_${System.currentTimeMillis()}.mp4"
                 val result =
-                    studioExporter.exportComposition(built.composition, built.durationMs, name, defaultCodec()) { p ->
+                    studioExporter.exportComposition(built.composition, built.durationMs, name, defaultCodec(), destination) { p ->
                         _studio.update { it.copy(phase = ExportPhase.Running(p.coerceIn(0f, 1f))) }
                     }
                 _studio.update { it.copy(phase = result.toPhase()) }
@@ -366,6 +375,14 @@ internal class ExportController(
         LoudnessTarget.byId(
             ExportPrefsStore(GeodePrefsFiles(application).general).load().loudnessTargetId,
         )
+
+    // Same "no per-render option wired through startExport's callers" situation as
+    // defaultLoudnessTarget() above: the background image rides along as the persisted default.
+    private fun defaultBackground(): BackgroundExportSpec? {
+        val p = BackgroundPrefsStore(GeodePrefsFiles(application).background).load()
+        val uri = p.uri ?: return null
+        return BackgroundExportSpec(uri.toUri(), p.blend, p.amount, p.blurRadius, p.dim)
+    }
 
     fun cancelStudioExport() {
         studioExporter.cancel()

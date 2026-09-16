@@ -5,6 +5,7 @@ import android.content.Context
 import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
+import androidx.annotation.StringRes
 import androidx.media3.common.MediaItem
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.transformer.Composition
@@ -15,6 +16,8 @@ import androidx.media3.transformer.ExportException
 import androidx.media3.transformer.ExportResult
 import androidx.media3.transformer.ProgressHolder
 import androidx.media3.transformer.Transformer
+import dev.geode.R
+import dev.geode.RingLog
 import dev.geode.util.bestEffort
 import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.Dispatchers
@@ -37,10 +40,21 @@ class StudioExporter(
 
         data class Failed(
             val message: String,
-        ) : Result
+            @StringRes val messageRes: Int? = null,
+            val messageArgs: List<Any> = emptyList(),
+        ) : Result {
+            /** Re-resolves [messageRes] against a live [context], for a UI layer that wants localisation. */
+            fun describe(context: Context): String = messageRes?.let { context.getString(it, *messageArgs.toTypedArray()) } ?: message
+        }
 
         data object Cancelled : Result
     }
+
+    /** Builds a [Result.Failed] whose [Result.Failed.message] is already resolved from [resId]. */
+    private fun failed(
+        @StringRes resId: Int,
+        vararg args: Any,
+    ): Result.Failed = Result.Failed(context.getString(resId, *args), resId, args.toList())
 
     @Volatile
     private var transformer: Transformer? = null
@@ -94,7 +108,7 @@ class StudioExporter(
                 withContext(Dispatchers.IO) { publish(scratch, displayName) }
             return published
                 ?.let { Result.Saved(it, outputDurationMs) }
-                ?: Result.Failed("The finished file could not be saved to Movies/Geode.")
+                ?: failed(R.string.export_error_studio_save)
         } finally {
             scratch.delete()
         }
@@ -132,7 +146,7 @@ class StudioExporter(
                                     if (cancelled) {
                                         Result.Cancelled
                                     } else {
-                                        Result.Failed(describe(exportException))
+                                        describe(exportException)
                                     },
                                 )
                             }
@@ -146,7 +160,9 @@ class StudioExporter(
             runCatching { built.start(composition, output.absolutePath) }
                 .onFailure {
                     transformer = null
-                    continuation.resumeOnce(Result.Failed(it.message ?: "The export could not be started."))
+                    RingLog.note(TAG, "transformer.start() failed", it)
+                    val resolved = it.message?.let { raw -> Result.Failed(raw) } ?: failed(R.string.export_error_studio_start)
+                    continuation.resumeOnce(resolved)
                     return@suspendCancellableCoroutine
                 }
             val holder = ProgressHolder()
@@ -205,20 +221,21 @@ class StudioExporter(
             uri
         }.getOrNull()
 
-    private fun describe(exception: ExportException): String =
-        when (exception.errorCode) {
+    /** Turns a Transformer failure into a [Result.Failed] with a resource-backed message. */
+    private fun describe(exception: ExportException): Result.Failed {
+        RingLog.note(TAG, "transformer export failed (errorCode=${exception.errorCode})", exception)
+        return when (exception.errorCode) {
             ExportException.ERROR_CODE_ENCODER_INIT_FAILED,
             ExportException.ERROR_CODE_ENCODING_FORMAT_UNSUPPORTED,
-            ->
-                "This device's video encoder would not accept that output — try a smaller size or a " +
-                    "different aspect ratio."
+            -> failed(R.string.export_error_encoder_unsupported)
             ExportException.ERROR_CODE_DECODER_INIT_FAILED,
             ExportException.ERROR_CODE_DECODING_FORMAT_UNSUPPORTED,
             ExportException.ERROR_CODE_IO_FILE_NOT_FOUND,
-            -> "That clip could not be read — the file may have moved, or be in a format this device cannot decode."
-            ExportException.ERROR_CODE_IO_NO_PERMISSION -> "Geode does not have permission to read that file."
-            else -> exception.message ?: "The export failed."
+            -> failed(R.string.export_error_decode_unsupported)
+            ExportException.ERROR_CODE_IO_NO_PERMISSION -> failed(R.string.export_error_no_permission)
+            else -> exception.message?.let { Result.Failed(it) } ?: failed(R.string.export_error_generic)
         }
+    }
 
     private companion object {
         const val PROGRESS_POLL_MS = 250L

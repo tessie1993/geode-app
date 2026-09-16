@@ -569,6 +569,29 @@
     <string name="export_loudness_target">Loudness target</string>
     <string name="export_loudness_hint">Geode measures the finished file against this target once export completes. It does not yet change the level to match — pick the platform you\'re shipping to, or Leave as-is to ship the level you mixed.</string>
 
+    <!-- Export: failure messages. Shared by VideoExporter, StudioExporter and LoopRender. -->
+    <string name="export_error_library_insert">Your Videos library would not accept a new file. Check that storage is not full, or render to a folder you choose instead.</string>
+    <string name="export_error_library_open">The new file in your Videos library could not be opened for writing.</string>
+    <string name="export_error_destination_write">The folder you chose would not let the file be written. Some cloud providers refuse this; try your Videos library or a folder on the device.</string>
+    <string name="export_error_encoder_buffer_null">The video encoder returned an empty buffer (codec error state).</string>
+    <string name="export_error_encoder_no_output">The video encoder produced no output — this device\'s encoder or the chosen format may not be supported.</string>
+    <string name="export_error_encoder_stalled">The video encoder stalled while flushing — the export is incomplete.</string>
+    <string name="export_error_studio_save">The finished file could not be saved to Movies/Geode.</string>
+    <string name="export_error_studio_start">The export could not be started.</string>
+    <string name="export_error_encoder_unsupported">This device\'s video encoder would not accept that output — try a smaller size or a different aspect ratio.</string>
+    <string name="export_error_decode_unsupported">That clip could not be read — the file may have moved, or be in a format this device cannot decode.</string>
+    <string name="export_error_no_permission">Geode does not have permission to read that file.</string>
+    <string name="export_error_generic">The export failed.</string>
+    <string name="export_error_loop_encoder_rejected">This device\'s video encoder would not accept %1$d×%2$d. Try a smaller size or a different aspect ratio.</string>
+    <string name="export_error_loop_low_gpu_memory">There is not enough graphics memory to hold even one crossfade frame at %1$d×%2$d — render the loop at a smaller size.</string>
+    <string name="export_error_loop_stopped">The loop render stopped unexpectedly.</string>
+    <string name="export_error_loop_cache_write">The loop could not be written to this device\'s cache: %1$s</string>
+    <string name="export_error_loop_shader_compile">The seam blend could not be compiled on this GPU: %1$s</string>
+    <string name="export_error_loop_encoder_busy">The video encoder was busy — close other apps that are recording or playing video and try again.</string>
+    <string name="export_error_loop_encoder_failed">This device\'s video encoder failed while rendering the loop: %1$s</string>
+    <string name="export_error_loop_no_output">The video encoder produced no output for this loop.</string>
+    <string name="export_error_loop_stalled">The video encoder stalled while finishing the loop.</string>
+
     <!-- Settings: Look tab. -->
     <string name="look_group_theme">Theme</string>
     <string name="look_accent_intensity">"Accent intensity  %1$d%%"</string>

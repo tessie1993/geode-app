@@ -8,6 +8,9 @@ import android.media.MediaMuxer
 import android.opengl.GLES30
 import android.util.Log
 import android.view.Surface
+import androidx.annotation.StringRes
+import dev.geode.R
+import dev.geode.RingLog
 import dev.geode.analysis.BarTrim
 import dev.geode.analysis.FeatureTimeline
 import dev.geode.render.AdsrConfig
@@ -229,10 +232,21 @@ class LoopRender(
 
         data class Failed(
             val message: String,
-        ) : Result
+            @StringRes val messageRes: Int? = null,
+            val messageArgs: List<Any> = emptyList(),
+        ) : Result {
+            /** Re-resolves [messageRes] against a live [context], for a UI layer that wants localisation. */
+            fun describe(context: Context): String = messageRes?.let { context.getString(it, *messageArgs.toTypedArray()) } ?: message
+        }
 
         data object Cancelled : Result
     }
+
+    /** Builds a [Result.Failed] whose [Result.Failed.message] is already resolved from [resId]. */
+    private fun failed(
+        @StringRes resId: Int,
+        vararg args: Any,
+    ): Result.Failed = Result.Failed(context.getString(resId, *args), resId, args.toList())
 
     suspend fun render(
         timeline: FeatureTimeline,
@@ -253,10 +267,7 @@ class LoopRender(
         withContext(Dispatchers.Default) {
             val choice =
                 negotiate(aspect, spec.fps, codec)
-                    ?: return@withContext Result.Failed(
-                        "This device's video encoder would not accept ${aspect.width}×${aspect.height}. " +
-                            "Try a smaller size or a different aspect ratio.",
-                    )
+                    ?: return@withContext failed(R.string.export_error_loop_encoder_rejected, aspect.width, aspect.height)
             val budgeted = budgetedSpec(spec.copy(fps = choice.fps), aspect)
             val start = clampLoopStart(loopStartMs, timeline.durationMs, budgeted.loopMs)
             renderStops(
@@ -350,13 +361,18 @@ class LoopRender(
                 if (cancelled) return discard(rendered, pending, Result.Cancelled)
             }
         } catch (e: MediaCodec.CodecException) {
-            return discard(rendered, pending, Result.Failed(codecMessage(e)))
+            RingLog.note(TAG, "loop render hit a codec exception", e)
+            return discard(rendered, pending, codecFailure(e))
         } catch (e: IllegalStateException) {
-            return discard(rendered, pending, Result.Failed(e.message ?: "The loop render stopped unexpectedly."))
+            RingLog.note(TAG, "loop render stopped unexpectedly", e)
+            val resolved = e.message?.let { Result.Failed(it) } ?: failed(R.string.export_error_loop_stopped)
+            return discard(rendered, pending, resolved)
         } catch (e: IOException) {
-            return discard(rendered, pending, Result.Failed("The loop could not be written to this device's cache: ${e.message}"))
+            RingLog.note(TAG, "loop render failed to write to cache", e)
+            return discard(rendered, pending, failed(R.string.export_error_loop_cache_write, e.message.orEmpty()))
         } catch (e: GlUtil.ShaderCompileException) {
-            return discard(rendered, pending, Result.Failed("The seam blend could not be compiled on this GPU: ${e.message}"))
+            RingLog.note(TAG, "loop render's seam shader failed to compile", e)
+            return discard(rendered, pending, failed(R.string.export_error_loop_shader_compile, e.message.orEmpty()))
         }
         onProgress(1f)
         val effective = job.spec.copy(crossfadeMs = seamFrames * 1000L / job.spec.fps)
@@ -386,15 +402,15 @@ class LoopRender(
         var renderer: OffscreenSceneRenderer? = null
         var stash: SeamStash? = null
         try {
-            val encoded = StopWriter.open(file, videoFormat(job.aspect, job.choice), job.choice.codec.mimeType).also { writer = it }
+            val encoded =
+                StopWriter.open(context, file, videoFormat(job.aspect, job.choice), job.choice.codec.mimeType).also { writer = it }
             val surface = EncoderSurface(encoded.surface).also { egl = it }
             surface.makeCurrent()
 
             val seam = SeamStash(job.aspect.width, job.aspect.height).also { stash = it }
             val seamFrames = seam.allocate(crossfadeFrames)
             check(seamFrames > 0) {
-                "There is not enough graphics memory to hold even one crossfade frame at " +
-                    "${job.aspect.width}×${job.aspect.height} — render the loop at a smaller size."
+                context.getString(R.string.export_error_loop_low_gpu_memory, job.aspect.width, job.aspect.height)
             }
             val loopFrames = job.spec.loopFrames
             val sourceFrames = loopFrames + seamFrames
@@ -605,11 +621,11 @@ class LoopRender(
             setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1)
         }
 
-    private fun codecMessage(e: MediaCodec.CodecException): String =
+    private fun codecFailure(e: MediaCodec.CodecException): Result.Failed =
         if (e.isRecoverable || e.isTransient) {
-            "The video encoder was busy — close other apps that are recording or playing video and try again."
+            failed(R.string.export_error_loop_encoder_busy)
         } else {
-            "This device's video encoder failed while rendering the loop: ${e.message}"
+            failed(R.string.export_error_loop_encoder_failed, e.message.orEmpty())
         }
 
     /**
@@ -620,6 +636,7 @@ class LoopRender(
      * mean encoding the same seconds hundreds of times.
      */
     private class StopWriter private constructor(
+        private val context: Context,
         private val encoder: MediaCodec,
         private val muxer: MediaMuxer,
     ) : Closeable {
@@ -630,6 +647,7 @@ class LoopRender(
         private var muxing = false
         private var muxed = false
         private var sawEndOfStream = false
+        private var sampleWritten = false
 
         fun start() {
             encoder.start()
@@ -654,14 +672,23 @@ class LoopRender(
         fun finish() {
             encoder.signalEndOfInputStream()
             drain(untilEndOfStream = true)
-            check(muxing) { "The video encoder produced no output for this loop." }
-            check(sawEndOfStream) { "The video encoder stalled while finishing the loop." }
+            check(muxing) { context.getString(R.string.export_error_loop_no_output) }
+            check(sawEndOfStream) { context.getString(R.string.export_error_loop_stalled) }
             muxer.stop()
             muxed = true
         }
 
         override fun close() {
-            if (muxing && !muxed) bestEffort(TAG, "muxer.stop()") { muxer.stop() }
+            if (muxing && !muxed) {
+                if (sampleWritten) {
+                    bestEffort(TAG, "muxer.stop()") { muxer.stop() }
+                } else {
+                    // Same reasoning as VideoExporter's finally block: a muxer that started but never
+                    // received a sample (e.g. cancelled before the first frame drained) cannot be
+                    // stopped — MediaMuxer.stop() with zero samples always throws.
+                    RingLog.note(TAG, "muxer started but wrote no samples; skipping stop() to avoid a guaranteed IllegalStateException")
+                }
+            }
             bestEffort(TAG, "muxer.release()") { muxer.release() }
             bestEffort(TAG, "encoder.stop()") { encoder.stop() }
             bestEffort(TAG, "encoder.release()") { encoder.release() }
@@ -680,10 +707,12 @@ class LoopRender(
             // format, and an empty buffer carries nothing; neither is a frame worth writing.
             val hasMediaPayload = info.size > 0 && info.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG == 0
             if (muxing && track >= 0 && hasMediaPayload) {
-                val buffer = checkNotNull(encoder.getOutputBuffer(index)) { "video encoder buffer null (codec error state)" }
+                val buffer =
+                    checkNotNull(encoder.getOutputBuffer(index)) { context.getString(R.string.export_error_encoder_buffer_null) }
                 buffer.position(info.offset)
                 buffer.limit(info.offset + info.size)
                 muxer.writeSampleData(track, buffer, info)
+                sampleWritten = true
             }
             encoder.releaseOutputBuffer(index, false)
             if (endOfStream) sawEndOfStream = true
@@ -692,6 +721,7 @@ class LoopRender(
 
         companion object {
             fun open(
+                context: Context,
                 file: File,
                 format: MediaFormat,
                 mimeType: String,
@@ -707,7 +737,7 @@ class LoopRender(
                             }
                         val writer =
                             MediaMuxer(file.absolutePath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4).also { muxer = it }
-                        StopWriter(codec, writer).also { it.start() }
+                        StopWriter(context, codec, writer).also { it.start() }
                     }
                 return opened.getOrElse { failure ->
                     bestEffort(TAG, "muxer?.release()") { muxer?.release() }

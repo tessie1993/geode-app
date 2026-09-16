@@ -41,8 +41,9 @@ public:
     using Queue = std::function<void(float x, float y, float radius, float amp)>;
 
     void reset();
-    // dt defaults to a nominal 60fps frame so the existing call site (which
-    // has never passed a dt) keeps compiling and behaving reasonably.
+    // dt defaults to a nominal 60fps frame for any caller that cannot supply
+    // the real one; Overlays::stepRippleOverlay passes the renderer's actual
+    // frame dt.
     void tick(const GeodeFeatureFrame& features, float aspect, const Queue& queue, float dt = 1.0f / 60.0f);
 
 private:

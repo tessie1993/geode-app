@@ -5,6 +5,7 @@
 #include <string>
 
 #include "viz/GlProfile.hpp"
+#include "viz/MotionField.hpp"
 #include "viz/Program.hpp"
 #include "viz/Scene.hpp"
 #include "viz/compute/SimPass.hpp"
@@ -29,7 +30,6 @@ public:
     void update(const GeodeFeatureFrame& features, float dt) override;
     void draw(float timeSeconds) override;
     void release() override;
-    void acceptPcm(const float* samples, int count) override { pcmPulse_.accept(samples, count); }
     void setTouchField(const TouchField* field) override { touch_ = field; }
 
 private:
@@ -38,9 +38,7 @@ private:
     static constexpr float kSeedEpochSeconds = 9.0f;
     static constexpr float kEnvRisePerSec = 8.0f;
     static constexpr float kEnvFallPerSec = 2.2f;
-    static constexpr float kRingSpeed = 2.6f;
     static constexpr float kRingMax = 3.4f;
-    static constexpr float kBeatThreshold = 0.28f;
 
     void applySimSize();
     void bindStep(sim::SimUniforms& u);
@@ -62,13 +60,16 @@ private:
     UniformCache showLocs_{0};
     bool programOk_ = false;
     GLuint vao_ = 0;
-    PcmPulse pcmPulse_;
-    float pcmStrike_ = 0.0f;
+    // Wave three: this scene's own continuous motion state, stepped every
+    // update() from the real frame - see viz/MotionField.hpp.
+    MotionField motionField_;
     float envBass_ = 0.0f;
     float envMid_ = 0.0f;
     float envTreble_ = 0.0f;
-    float beatPulse_ = 0.0f;
-    float ringRadius_ = -1.0f;
+    // Continuous strike/hit drive (uBeat/uStrike), smoothed from MotionField
+    // state - never a transient envelope.
+    float motionPulse_ = 0.0f;
+    float ringRadius_ = 0.0f;
     float slabTurn_ = 0.0f;
     float foldPhase_ = 0.0f;
     float drift_ = 0.0f;

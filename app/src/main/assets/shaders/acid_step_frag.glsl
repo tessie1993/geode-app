@@ -20,20 +20,17 @@ precision highp float;
 //
 // motion: uMid -> orbit-ribbon glow, uTreble -> glitch instability
 //
-// WAVE THREE, PARTIAL: this style is driven by AcidScene.cpp, a bespoke
-// pipeline (see core/viz/scenes/AcidScene.cpp) that is separate from
-// ShaderScene's shared MotionField/lib_scene_motion contract - the relative-
-// level, key and phase-locked-oscillator uniforms (energyRel, bassRel,
-// barOsc, orbit, drift, ...) are not uploaded here and cannot be read from
-// this file alone. The one forbidden-token read this unit's grep scope
-// covers is removed below. The strike and glitch uniforms are still computed
-// on the CPU side from a transient/onset detector (PcmPulse,
-// AcidScene::draw()'s glitch_ threshold on live::hit(f)) and are outside
-// this shader-only unit's file list; this file stops READING them and reads
-// only the already-continuous bass/mid/treble envelopes instead, in service
-// of the "nothing keyed to a transient" product intent, but a full migration
-// of this style's motion source needs a companion AcidScene.cpp change
-// outside app/src/main/assets/shaders/.
+// WAVE THREE: this style is driven by AcidScene.cpp, a bespoke pipeline (see
+// core/viz/scenes/AcidScene.cpp) that is separate from ShaderScene's shared
+// MotionField/lib_scene_motion contract - the relative-level, key and
+// phase-locked-oscillator uniforms (energyRel, bassRel, barOsc, orbit,
+// drift, ...) are not uploaded here and cannot be read from this file alone.
+// uGlitch and uStrike below are declared but unread (this file only reads
+// the already-continuous bass/mid/treble envelopes); AcidScene.cpp no longer
+// computes them from a transient/onset detector either, so they are simply
+// unset. uEpoch is the one signal this style still reads from that family,
+// and it now re-seats once per bar on the bar oscillator's own peak rather
+// than on a transient edge (see AcidScene::draw()).
 
 in vec2 vUv;
 out vec4 fragColor;
@@ -47,13 +44,13 @@ uniform float uRotate;    // per-frame feedback rotation, radians
 uniform float uHueShift;  // per-frame hue rotation, turns
 uniform float uFeedback;  // survival gain, < 1
 uniform float uModulate;  // how far source brightness displaces the resample
-uniform float uGlitch;    // transient-driven glitch amount, 0..1; unread below, see the wave-three note above
+uniform float uGlitch;    // 0..1; declared but unread and unset, see the wave-three note above
 uniform float uEpoch;     // integer re-roll for glitch block offsets
 uniform float uTime;
 uniform float uBass;
 uniform float uMid;
 uniform float uTreble;
-uniform float uStrike;    // transient/onset strike envelope; unread below, see the wave-three note above
+uniform float uStrike;    // declared but unread and unset, see the wave-three note above
 uniform float uDrive;
 // Twelve live spectral spokes, 0..1: the current band envelopes folded into a
 // wheel. Was a chromagram (pitch classes), which needs an analysed track and

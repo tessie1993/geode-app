@@ -53,11 +53,8 @@ public:
     float bassEnv() const { return bassEnv_; }
 
     void applyParams(const SceneParams& p);
-    // motion is defaulted so callers outside wave three's scope (WaterScene,
-    // FlowField) keep compiling unchanged, reading it as the neutral
-    // "typical" state (see MotionField::State's defaults).
     void tick(const GeodeFeatureFrame& f, float dt, float aspect, float baseHue, float hueSpan, std::vector<Splat>& out,
-              const MotionField::State& motion = MotionField::State{});
+              const MotionField::State& motion);
 
 private:
     static constexpr int kMaxSplatsPerFrame = 16;

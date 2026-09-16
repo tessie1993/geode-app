@@ -94,6 +94,7 @@ void WaterScene::draw(float timeSeconds) {
     resetFrameState();
     const SceneParams& p = params_;
     const GeodeFeatureFrame f = scaledFeatures();
+    const MotionField::State& m = motionField_.state();
     const bool idle = isIdle();
 
     saveGlState();
@@ -109,12 +110,14 @@ void WaterScene::draw(float timeSeconds) {
     emitters_.forceScale = std::clamp(p.fluidSplatForce, 0.0f, 3.0f);
 
     const float simDt = std::clamp(lastDt_, 0.0f, 1.0f / 30.0f);
-    choreography_.tick(f, simDt, sim_.aspect());
-    const float pcmKick = std::clamp(pcmStrike_, 0.0f, 1.0f);
+    choreography_.tick(f, simDt, sim_.aspect(), m);
+    // motion: uEnergyRel/uBarOsc -> the extra ripple kick, continuous instead
+    // of a PCM-peak strike.
+    const float motionKick = std::clamp(0.5f * (m.energyRel - 1.0f) + 0.5f * (m.barOsc - 0.5f), 0.0f, 1.0f);
     const float rippleStrength = std::clamp(p.waterRippleStrength, 0.0f, 2.0f);
     const float catchRadius = fluid::water::catchWellRadius(p.fluidCatchRadius);
     const float baseHue = hue::base(p.paletteBase());
-    emitters_.tick(f, simDt, sim_.aspect(), baseHue, hue::range(p.hueRange), splats_);
+    emitters_.tick(f, simDt, sim_.aspect(), baseHue, hue::range(p.hueRange), splats_, m);
     for (const auto& s : splats_) {
         const float speed = std::sqrt(s.velX * s.velX + s.velY * s.velY) / fluid::Emitters::kBaseSpeed;
         if (fluid::water::isCatchWell(s.r, s.g, s.b)) {
@@ -122,7 +125,7 @@ void WaterScene::draw(float timeSeconds) {
             if (std::fabs(well) > 1e-4f) sim_.queueDrop(s.curX, s.curY, catchRadius, well);
             continue;
         }
-        const float amp = (0.06f + 0.5f * std::min(speed, 2.0f)) * rippleStrength * (1.0f + pcmKick * 0.6f);
+        const float amp = (0.06f + 0.5f * std::min(speed, 2.0f)) * rippleStrength * (1.0f + motionKick * 0.6f);
         if (amp > 1e-4f) sim_.queueDrop(s.curX, s.curY, s.radius * 0.6f, amp, s.r * kInkGain, s.g * kInkGain, s.b * kInkGain);
     }
     if (idle) queueIdleRain(lastDt_);
@@ -142,7 +145,7 @@ void WaterScene::draw(float timeSeconds) {
     glUniform1f(display_.loc("uSpecular"), std::clamp(p.waterSpecular, 0.0f, 1.0f));
     glUniform1f(display_.loc("uFlowDrift"), std::clamp(p.waterFlow, 0.0f, 1.0f));
     glUniform1f(display_.loc("uRefract"), 0.9f);
-    glUniform1f(display_.loc("uTreble"), std::clamp(f.treble + pcmKick * 0.5f, 0.0f, 2.0f));
+    glUniform1f(display_.loc("uTreble"), std::clamp(f.treble + motionKick * 0.5f, 0.0f, 2.0f));
     glUniform1f(display_.loc("uBrightness"), fluid::water::kDisplayBrightness);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, sim_.heightTex());

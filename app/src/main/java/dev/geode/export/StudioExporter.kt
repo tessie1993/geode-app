@@ -4,6 +4,7 @@ import android.content.ContentValues
 import android.content.Context
 import android.net.Uri
 import android.os.Build
+import android.provider.DocumentsContract
 import android.provider.MediaStore
 import androidx.media3.common.MediaItem
 import androidx.media3.common.util.UnstableApi
@@ -54,6 +55,7 @@ class StudioExporter(
         edit: ClipEdit,
         displayName: String,
         codec: ExportCodec = ExportCodec.H264,
+        destination: Uri? = null,
         onProgress: (Float) -> Unit,
     ): Result {
         val lut = edit.lutUri?.let { uri -> withContext(Dispatchers.IO) { CubeLut.load(context, uri) } }
@@ -71,14 +73,22 @@ class StudioExporter(
                 .apply { edit.speedProvider()?.let { setSpeed(it) } }
                 .build()
         val composition = Composition.Builder(EditedMediaItemSequence.Builder().addItem(edited).build()).build()
-        return exportComposition(composition, edit.outputMs(sourceDurationMs), displayName, codec, onProgress)
+        return exportComposition(composition, edit.outputMs(sourceDurationMs), displayName, codec, destination, onProgress)
     }
 
+    /**
+     * Renders [composition] and saves it either to Movies/Geode (when [destination] is null) or
+     * straight into the SAF document [destination] the caller already opened — the same choice
+     * [VideoExporter.exportToDestination] offers the visualizer export path. Below API 29
+     * [publish] cannot insert into MediaStore at all, so callers on those versions must always
+     * pass a [destination]; [ExportHost] enforces that by forcing its folder picker there.
+     */
     suspend fun exportComposition(
         composition: Composition,
         outputDurationMs: Long,
         displayName: String,
         codec: ExportCodec = ExportCodec.H264,
+        destination: Uri? = null,
         onProgress: (Float) -> Unit,
     ): Result {
         cancelled = false
@@ -90,11 +100,14 @@ class StudioExporter(
                 }
             if (outcome != null) return outcome
             if (cancelled) return Result.Cancelled
-            val published =
-                withContext(Dispatchers.IO) { publish(scratch, displayName) }
-            return published
-                ?.let { Result.Saved(it, outputDurationMs) }
-                ?: Result.Failed("The finished file could not be saved to Movies/Geode.")
+            return if (destination != null) {
+                withContext(Dispatchers.IO) { publishToDestination(scratch, destination, outputDurationMs) }
+            } else {
+                val published = withContext(Dispatchers.IO) { publish(scratch, displayName) }
+                published
+                    ?.let { Result.Saved(it, outputDurationMs) }
+                    ?: Result.Failed("The finished file could not be saved to Movies/Geode.")
+            }
         } finally {
             scratch.delete()
         }
@@ -204,6 +217,37 @@ class StudioExporter(
             }
             uri
         }.getOrNull()
+
+    /**
+     * Copies [file] into the SAF document [destination] the caller already created via
+     * `CreateDocument`. Mirrors [VideoExporter.exportToDestination]'s write, and cleans up the
+     * (now empty or partial) document on any failure rather than leaving a broken file behind.
+     */
+    private fun publishToDestination(
+        file: File,
+        destination: Uri,
+        outputDurationMs: Long,
+    ): Result =
+        runCatching {
+            val resolver = context.contentResolver
+            val wrote =
+                resolver.openOutputStream(destination)?.use { out -> file.inputStream().use { it.copyTo(out) } } != null
+            if (!wrote) {
+                bestEffort(TAG, "DocumentsContract.deleteDocument(resolver, de...") {
+                    DocumentsContract.deleteDocument(resolver, destination)
+                }
+                return Result.Failed(
+                    "The folder you chose would not let the file be written. Some cloud providers refuse " +
+                        "this; try your Videos library or a folder on the device.",
+                )
+            }
+            Result.Saved(destination, outputDurationMs)
+        }.getOrElse { e ->
+            bestEffort(TAG, "DocumentsContract.deleteDocument(resolver, de...") {
+                DocumentsContract.deleteDocument(context.contentResolver, destination)
+            }
+            Result.Failed(e.message ?: "The export could not be saved to that folder.")
+        }
 
     private fun describe(exception: ExportException): String =
         when (exception.errorCode) {

@@ -63,7 +63,8 @@ fun StudioRoute(viewModel: StudioViewModel = geodeViewModel()) {
         onDescribe = viewModel::describeStudioClip,
         onRename = viewModel::renameStudioClip,
         onDelete = viewModel::deleteStudioClip,
-        onExport = viewModel::startStudioExport,
+        onExport = { clip, edit -> viewModel.startStudioExport(clip, edit) },
+        onExportToDestination = { clip, edit, destination -> viewModel.startStudioExport(clip, edit, destination) },
         onCancelExport = viewModel::cancelStudioExport,
         onClearResult = viewModel::clearStudioResult,
     )
@@ -78,6 +79,7 @@ internal fun StudioScreen(
     onRename: (String, String, (Boolean) -> Unit) -> Unit,
     onDelete: (String, (Boolean) -> Unit) -> Unit,
     onExport: (StudioClip, ClipEdit) -> Unit,
+    onExportToDestination: (StudioClip, ClipEdit, Uri) -> Unit,
     onCancelExport: () -> Unit,
     onClearResult: () -> Unit,
 ) {
@@ -136,6 +138,7 @@ internal fun StudioScreen(
                 clip = clip,
                 studio = state,
                 onExport = onExport,
+                onExportToDestination = onExportToDestination,
                 onCancelExport = onCancelExport,
                 onClearResult = onClearResult,
                 onClose = {
@@ -379,6 +382,7 @@ private fun ClipEditor(
     clip: StudioClip,
     studio: StudioUiState,
     onExport: (StudioClip, ClipEdit) -> Unit,
+    onExportToDestination: (StudioClip, ClipEdit, Uri) -> Unit,
     onCancelExport: () -> Unit,
     onClearResult: () -> Unit,
     onClose: () -> Unit,
@@ -386,6 +390,12 @@ private fun ClipEditor(
     var edit by remember(clip.uri) { mutableStateOf(ClipEdit()) }
     val duration = clip.durationMs.coerceAtLeast(1L)
     val dismiss = rememberPredictiveDismiss(onDismiss = onClose)
+    // Mirrors ExportHost's destination picker: below API 29 StudioExporter.publish cannot insert
+    // into MediaStore, so the render button forces this picker there instead of failing silently.
+    val destinationPicker =
+        rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("video/mp4")) { uri ->
+            if (uri != null) onExportToDestination(clip, edit, uri)
+        }
 
     LazyColumn(
         Modifier.fillMaxSize().dismissTransform(dismiss).padding(horizontal = 16.dp),
@@ -410,7 +420,16 @@ private fun ClipEditor(
                 phase = studio.phase,
                 canExport = edit.trimmedMs(duration) > 0,
                 atDefaults = edit.isIdentity(duration),
-                onExport = { onExport(clip, edit) },
+                onExport = {
+                    if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.Q) {
+                        destinationPicker.launch("geode_studio_${System.currentTimeMillis()}.mp4")
+                    } else {
+                        onExport(clip, edit)
+                    }
+                },
+                onExportToDestination = {
+                    destinationPicker.launch("geode_studio_${System.currentTimeMillis()}.mp4")
+                },
                 onCancelExport = onCancelExport,
                 onClearResult = onClearResult,
             )
@@ -662,6 +681,7 @@ private fun ClipRenderSection(
     canExport: Boolean,
     atDefaults: Boolean,
     onExport: () -> Unit,
+    onExportToDestination: () -> Unit,
     onCancelExport: () -> Unit,
     onClearResult: () -> Unit,
 ) {
@@ -675,6 +695,7 @@ private fun ClipRenderSection(
                     canExport = canExport,
                     atDefaults = atDefaults,
                     onExport = onExport,
+                    onExportToDestination = onExportToDestination,
                 )
         }
     }
@@ -727,6 +748,7 @@ private fun ClipEditorIdle(
     canExport: Boolean,
     atDefaults: Boolean,
     onExport: () -> Unit,
+    onExportToDestination: () -> Unit,
 ) {
     message?.let {
         Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
@@ -741,6 +763,9 @@ private fun ClipEditorIdle(
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         CrystalButton(enabled = canExport, onClick = onExport) {
             Text(stringResource(R.string.studio_render))
+        }
+        TextButton(enabled = canExport, onClick = onExportToDestination) {
+            Text(stringResource(R.string.export_render_to_folder))
         }
     }
     Text(

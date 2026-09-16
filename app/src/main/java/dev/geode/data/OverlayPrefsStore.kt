@@ -8,7 +8,7 @@ import dev.geode.viz.LyricSize
 import dev.geode.viz.OverlayPosition
 import dev.geode.viz.OverlaySize
 
-class OverlayPrefsStore(
+internal class OverlayPrefsStore(
     private val prefs: SharedPreferences,
 ) {
     fun load(): ArtTitleOptions {

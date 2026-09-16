@@ -41,7 +41,8 @@ internal class OverlayComposer {
         }
         val fullFrame = frame.copy(width = width, height = height)
         cached?.let {
-            if (it.width == width && it.height == height && it.layers == active && it.frame == fullFrame) {
+            val sameSize = it.width == width && it.height == height
+            if (sameSize && it.layers == active && it.frame == fullFrame) {
                 return it.pixels
             }
         }

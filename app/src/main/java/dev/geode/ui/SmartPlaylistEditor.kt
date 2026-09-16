@@ -61,7 +61,12 @@ internal fun SmartPlaylistsSection(viewModel: LibraryViewModel) {
                 leading = { Icon(GlassIcons.ListIcon, null, tint = GlassPalette.textSecondary) },
                 trailing = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        GlassBubbleButton(GlassIcons.Play, stringResource(R.string.action_play), { viewModel.playSmartPlaylist(pl) }, size = 32.dp)
+                        GlassBubbleButton(
+                            GlassIcons.Play,
+                            stringResource(R.string.action_play),
+                            { viewModel.playSmartPlaylist(pl) },
+                            size = 32.dp,
+                        )
                         GlassBubbleButton(
                             GlassIcons.Close,
                             stringResource(R.string.action_delete),

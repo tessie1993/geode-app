@@ -128,13 +128,14 @@ internal data class GlassSettings(
     val liquidMotion: Float,
 )
 
-private val defaultGlassSettings = GlassSettings(
-    reducedMotion = false,
-    tint = 0.5f,
-    opacity = 0.34f,
-    bubbleDensity = 0.5f,
-    liquidMotion = 1f,
-)
+private val defaultGlassSettings =
+    GlassSettings(
+        reducedMotion = false,
+        tint = 0.5f,
+        opacity = 0.34f,
+        bubbleDensity = 0.5f,
+        liquidMotion = 1f,
+    )
 
 internal val LocalGlass = staticCompositionLocalOf { defaultGlassSettings }
 

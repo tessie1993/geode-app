@@ -78,6 +78,7 @@ object ParamKeys {
     const val MOTION_FADE = "Motion fade"
     const val FLUID_FADE = "Fluid fade"
     const val CHROMATIC_AGING = "Chromatic aging"
+
     // Wave three: the fluid emitters run continuously, so these are no longer keyed to a hit.
     const val BEAT_PATTERN = "Emitter pattern"
     const val BEAT_SPLATS = "Emitters"

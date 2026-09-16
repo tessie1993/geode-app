@@ -115,11 +115,23 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawDroplet(
             close()
         }
     drawPath(droplet, color.copy(alpha = 0.9f))
-    drawPath(droplet, Color.White.copy(alpha = 0.35f), style = androidx.compose.ui.graphics.drawscope.Stroke(1f))
+    drawPath(
+        droplet,
+        Color.White.copy(alpha = 0.35f),
+        style =
+            androidx.compose.ui.graphics.drawscope
+                .Stroke(1f),
+    )
     drawCircle(Color.White.copy(alpha = 0.6f), radius = r * 0.25f, center = Offset(x - r * 0.25f, tipY * 0.45f))
     drawLine(color, Offset(x, tipY), Offset(x, size.height), strokeWidth = if (selected) 3f else 1.5f)
     if (selected) {
-        drawPath(droplet, outline, style = androidx.compose.ui.graphics.drawscope.Stroke(1.5f * density))
+        drawPath(
+            droplet,
+            outline,
+            style =
+                androidx.compose.ui.graphics.drawscope
+                    .Stroke(1.5f * density),
+        )
     }
 }
 

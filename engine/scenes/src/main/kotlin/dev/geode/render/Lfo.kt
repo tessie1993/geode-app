@@ -30,6 +30,7 @@ enum class ModSource(
     TREBLE("Treble band"),
     LEVEL("Level"),
     BRIGHTNESS("Brightness"),
+
     // Wave three: the native side (Lfo.cpp) now follows live::level() for this
     // source too (nothing keys off a transient) - relabelled, ordinal kept for
     // wire order. CustomizeTabs.kt (outside this unit) is the only picker that

@@ -420,7 +420,8 @@ internal fun PlaylistNameDialog(
                 horizontalArrangement = Arrangement.End,
             ) {
                 GlassButton(text = stringResource(R.string.action_cancel), onClick = onDismiss)
-                androidx.compose.foundation.layout.Spacer(Modifier.size(12.dp))
+                androidx.compose.foundation.layout
+                    .Spacer(Modifier.size(12.dp))
                 GlassButton(
                     text = confirmLabel,
                     enabled = playlistNameAccepted(name, taken),

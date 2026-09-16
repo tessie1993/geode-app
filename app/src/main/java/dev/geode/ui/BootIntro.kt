@@ -35,9 +35,9 @@ import dev.geode.ui.glass.GlassPalette
 import dev.geode.ui.glass.LocalGlass
 import dev.geode.ui.glass.LocalWaterField
 import dev.geode.ui.glass.WaterField
-import kotlin.math.max
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlin.math.max
 
 private const val DROP_FALL_MS = 650
 private const val DROP_LAND_FRACTION = 0.42f

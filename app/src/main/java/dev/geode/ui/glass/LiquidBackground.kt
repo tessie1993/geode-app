@@ -5,6 +5,7 @@ import android.graphics.BitmapShader
 import android.graphics.RuntimeShader
 import android.graphics.Shader
 import android.os.Build
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
@@ -28,12 +29,12 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.isActive
 import kotlin.math.cos
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.sin
 import kotlin.random.Random
-import kotlinx.coroutines.isActive
 
 private data class Bubble(
     val baseX: Float,
@@ -111,7 +112,7 @@ private fun DrawScope.drawCausticLayer(
     shader: RuntimeShader?,
 ) {
     val dst = IntSize(size.width.toInt().coerceAtLeast(1), size.height.toInt().coerceAtLeast(1))
-    if (shader != null) {
+    if (shader != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
         drawRefractedCaustics(image, shader, dst)
     } else {
         drawImage(image, dstSize = dst, filterQuality = FilterQuality.Low, alpha = 0.85f)
@@ -119,7 +120,10 @@ private fun DrawScope.drawCausticLayer(
 }
 
 /** Best-effort AGSL refraction pass; falls back to the plain bitmap draw on any failure so a
- * shader-compile quirk on a given device never breaks the background. */
+ * shader-compile quirk on a given device never breaks the background. RuntimeShader and its
+ * upcast to Shader are API 33, and a non-null shader is not a signal Android lint can read, so
+ * the floor is declared here and checked again at the call site. */
+@RequiresApi(Build.VERSION_CODES.TIRAMISU)
 private fun DrawScope.drawRefractedCaustics(
     image: ImageBitmap,
     shader: RuntimeShader,
@@ -140,7 +144,11 @@ private fun DrawScope.drawRefractedCaustics(
 @Composable
 private fun rememberRefractionShader(): RuntimeShader? =
     remember {
-        if (Build.VERSION.SDK_INT >= 33) runCatching { RuntimeShader(REFRACTION_AGSL) }.getOrNull() else null
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            runCatching { RuntimeShader(REFRACTION_AGSL) }.getOrNull()
+        } else {
+            null
+        }
     }
 
 /** brightness = base + k . max(0, n.L)^2, n from the height gradient, L from device tilt. */
@@ -234,8 +242,10 @@ private fun generateBubbles(density: Float): List<Bubble> {
             radiusDp = if (i % 3 == 0) random.nextFloat() * 10f + 14f else random.nextFloat() * 6f + 5f,
             phase = random.nextFloat() * TWO_PI,
             periodMs =
-                (GlassMotion.BUBBLE_DRIFT_PERIOD_MIN_MS + random.nextFloat() *
-                    (GlassMotion.BUBBLE_DRIFT_PERIOD_MAX_MS - GlassMotion.BUBBLE_DRIFT_PERIOD_MIN_MS)),
+                (
+                    GlassMotion.BUBBLE_DRIFT_PERIOD_MIN_MS + random.nextFloat() *
+                        (GlassMotion.BUBBLE_DRIFT_PERIOD_MAX_MS - GlassMotion.BUBBLE_DRIFT_PERIOD_MIN_MS)
+                ),
             clear = i % 4 == 0,
         )
     }

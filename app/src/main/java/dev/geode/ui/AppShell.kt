@@ -449,7 +449,13 @@ private fun AppShellExpanded(
     miniPlayer: @Composable () -> Unit,
     content: @Composable () -> Unit,
 ) {
-    Row(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(16.dp)) {
+    Row(
+        Modifier
+            .fillMaxSize()
+            .statusBarsPadding()
+            .navigationBarsPadding()
+            .padding(16.dp),
+    ) {
         GlassVerticalTabs(
             titles = navEntries.map { it.item.label },
             selected = navEntries.indexOfFirst { it.destination == appState.dest }.coerceAtLeast(0),

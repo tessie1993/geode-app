@@ -16,8 +16,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.getSystemService
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import kotlin.math.min
 import kotlinx.coroutines.isActive
+import kotlin.math.min
 
 /** The shared [WaterField] for the current screen, or null where no screen root has provided one
  * (glassTouch/floatOnWater degrade gracefully to their non-coupled behaviour in that case). */

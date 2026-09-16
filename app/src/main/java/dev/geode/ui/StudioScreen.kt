@@ -542,7 +542,11 @@ private fun ClipCutSection(
     val outEnd = if (edit.endMs > 0) edit.endMs else duration
     StudioSection(stringResource(R.string.studio_section_cut)) {
         Row(
-            Modifier.fillMaxWidth().height(56.dp).glassSurface(shape = RoundedCornerShape(10.dp)).padding(3.dp),
+            Modifier
+                .fillMaxWidth()
+                .height(56.dp)
+                .glassSurface(shape = RoundedCornerShape(10.dp))
+                .padding(3.dp),
             horizontalArrangement = Arrangement.spacedBy(2.dp),
         ) {
             repeat(FILMSTRIP_FRAMES) { i ->

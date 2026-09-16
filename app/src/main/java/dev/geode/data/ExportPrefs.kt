@@ -15,6 +15,10 @@ data class ExportDefaults(
     val loudnessTargetId: String = LoudnessTarget.LeaveAsIs.id,
 )
 
+// Kept in sync with VideoExporter's `requestedFps.coerceIn(24, 60)`: these are the frame rates
+// offered anywhere in the UI, so nothing outside this set is ever persisted or requested.
+internal val EXPORT_FPS_OPTIONS: List<Int> = listOf(24, 25, 30, 50, 60)
+
 internal fun exportCodecLabel(codec: ExportCodec): String =
     when (codec) {
         ExportCodec.H264 -> "H.264"
@@ -37,7 +41,7 @@ class ExportPrefsStore(
             quality =
                 runCatching { ExportQuality.valueOf(prefs.getString(KEY_QUALITY, null) ?: d.quality.name) }
                     .getOrDefault(d.quality),
-            fps = prefs.getInt(KEY_FPS, d.fps).let { if (it == 30) 30 else 60 },
+            fps = prefs.getInt(KEY_FPS, d.fps).let { if (it in EXPORT_FPS_OPTIONS) it else d.fps },
             ratio =
                 runCatching { ExportRatio.valueOf(prefs.getString(KEY_RATIO, null) ?: d.ratio.name) }
                     .getOrDefault(d.ratio),

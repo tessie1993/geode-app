@@ -3,7 +3,6 @@ package dev.geode.ui
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -14,6 +13,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 import dev.geode.render.scene.MilkdropEngine
+import dev.geode.ui.glass.GlassPalette
+import dev.geode.ui.glass.GlassSlider
+import dev.geode.ui.glass.GlassToggle
 import kotlin.math.roundToInt
 
 private val INTERVAL_RANGE =
@@ -28,7 +30,7 @@ internal fun AutoVisualsGroup(viewModel: PlayerViewModel) {
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
-    CrystalOverline(stringResource(R.string.autoviz_random_overline), color = MaterialTheme.colorScheme.onSurfaceVariant)
+    SettingsOverline(stringResource(R.string.autoviz_random_overline))
     Column {
         Text(
             stringResource(
@@ -41,7 +43,7 @@ internal fun AutoVisualsGroup(viewModel: PlayerViewModel) {
                 },
             ),
             style = MaterialTheme.typography.labelMedium,
-            color = if (viz.randomEnabled) accentTextColor() else MaterialTheme.colorScheme.onSurfaceVariant,
+            color = if (viz.randomEnabled) GlassPalette.mint else MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Text(
             stringResource(R.string.autoviz_shape_hint),
@@ -51,14 +53,14 @@ internal fun AutoVisualsGroup(viewModel: PlayerViewModel) {
     }
     Column {
         Text(stringResource(R.string.autoviz_switch_every, viz.randomIntervalSec), style = MaterialTheme.typography.labelMedium)
-        CrystalSlider(
+        GlassSlider(
             value = viz.randomIntervalSec.toFloat(),
             onValueChange = { viewModel.setRandomInterval(it.roundToInt()) },
             valueRange = INTERVAL_RANGE,
         )
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(stringResource(R.string.autoviz_on_beat), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-            Switch(checked = viz.randomOnBeat, onCheckedChange = viewModel::setRandomOnBeat)
+            GlassToggle(checked = viz.randomOnBeat, onCheckedChange = viewModel::setRandomOnBeat)
         }
         Text(
             stringResource(R.string.autoviz_on_beat_hint),
@@ -70,16 +72,16 @@ internal fun AutoVisualsGroup(viewModel: PlayerViewModel) {
         Text(stringResource(R.string.autoviz_pick_from), style = MaterialTheme.typography.labelMedium)
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(stringResource(R.string.autoviz_pick_styles), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-            Switch(checked = viz.randomIncludeStyles, onCheckedChange = viewModel::setRandomIncludeStyles)
+            GlassToggle(checked = viz.randomIncludeStyles, onCheckedChange = viewModel::setRandomIncludeStyles)
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(stringResource(R.string.autoviz_pick_presets), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-            Switch(checked = viz.randomIncludePresets, onCheckedChange = viewModel::setRandomIncludePresets)
+            GlassToggle(checked = viz.randomIncludePresets, onCheckedChange = viewModel::setRandomIncludePresets)
         }
         if (MilkdropEngine.available) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(stringResource(R.string.autoviz_pick_milk), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-                Switch(checked = viz.randomIncludeMilk, onCheckedChange = viewModel::setRandomIncludeMilk)
+                GlassToggle(checked = viz.randomIncludeMilk, onCheckedChange = viewModel::setRandomIncludeMilk)
             }
         }
         Text(
@@ -98,7 +100,7 @@ internal fun AutoVisualsGroup(viewModel: PlayerViewModel) {
     Column {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(stringResource(R.string.autoviz_roll_colors), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-            Switch(checked = viz.randomizeColors, onCheckedChange = viewModel::setRandomizeColors)
+            GlassToggle(checked = viz.randomizeColors, onCheckedChange = viewModel::setRandomizeColors)
         }
         Text(
             stringResource(R.string.autoviz_roll_colors_hint),
@@ -106,11 +108,11 @@ internal fun AutoVisualsGroup(viewModel: PlayerViewModel) {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
-    CrystalOverline(stringResource(R.string.autoviz_playlist_overline), color = MaterialTheme.colorScheme.onSurfaceVariant)
+    SettingsOverline(stringResource(R.string.autoviz_playlist_overline))
     Column {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(stringResource(R.string.autoviz_playlist_play), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-            Switch(checked = viz.vizPlaylistEnabled, onCheckedChange = viewModel::setVizPlaylistEnabled)
+            GlassToggle(checked = viz.vizPlaylistEnabled, onCheckedChange = viewModel::setVizPlaylistEnabled)
         }
         Text(
             when {
@@ -129,14 +131,14 @@ internal fun AutoVisualsGroup(viewModel: PlayerViewModel) {
     }
     Column {
         Text(stringResource(R.string.autoviz_switch_every, viz.vizPlaylistIntervalSec), style = MaterialTheme.typography.labelMedium)
-        CrystalSlider(
+        GlassSlider(
             value = viz.vizPlaylistIntervalSec.toFloat(),
             onValueChange = { viewModel.setVizPlaylistInterval(it.roundToInt()) },
             valueRange = INTERVAL_RANGE,
         )
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(stringResource(R.string.autoviz_wait_strong), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-            Switch(checked = viz.vizPlaylistIntelligent, onCheckedChange = viewModel::setVizPlaylistIntelligent)
+            GlassToggle(checked = viz.vizPlaylistIntelligent, onCheckedChange = viewModel::setVizPlaylistIntelligent)
         }
         Text(
             stringResource(R.string.autoviz_wait_strong_hint),

@@ -4,6 +4,7 @@
 #include <array>
 #include <string>
 
+#include "viz/MotionField.hpp"
 #include "viz/Scene.hpp"
 #include "viz/ThermalGovernor.hpp"
 #include "viz/fluid/FluidChoreography.hpp"
@@ -51,6 +52,11 @@ protected:
     ProgramLoader loader_;
     SceneHost host_;
     fluid::Choreography choreography_;
+    // Wave three: this scene's own continuous motion state, stepped every
+    // update() from the real frame (never the idle synthesis below) - the
+    // same mechanism ShaderScene uses for its uniform contract. See
+    // viz/MotionField.hpp.
+    MotionField motionField_;
     PerformanceMonitor monitor_;
     float pcmStrike_ = 0.0f;
     SceneParams params_;

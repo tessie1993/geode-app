@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -15,6 +14,10 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
+import dev.geode.ui.glass.GlassButton
+import dev.geode.ui.glass.GlassSegmented
+import dev.geode.ui.glass.GlassSlider
+import dev.geode.ui.glass.GlassToggle
 
 @Composable
 internal fun BehaviorSettingsTab(viewModel: SettingsViewModel) {
@@ -44,7 +47,7 @@ private fun IntentGroup(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        CrystalSegmented(
+        GlassSegmented(
             options = UserIntent.entries.map { stringResource(it.labelRes) },
             selected = UserIntent.entries.indexOf(gui.intent ?: UserIntent.BOTH),
             onSelect = { viewModel.setGuiPrefs(gui.copy(intent = UserIntent.entries[it])) },
@@ -66,7 +69,7 @@ private fun TouchGroup(
     Column {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(stringResource(R.string.behavior_touch_smear), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-            Switch(
+            GlassToggle(
                 checked = gui.touchSmear,
                 onCheckedChange = { viewModel.setGuiPrefs(gui.copy(touchSmear = it)) },
             )
@@ -81,7 +84,7 @@ private fun TouchGroup(
                 stringResource(R.string.behavior_smear_strength, (gui.touchSmearStrength * 100).toInt()),
                 style = MaterialTheme.typography.labelMedium,
             )
-            CrystalSlider(
+            GlassSlider(
                 value = gui.touchSmearStrength,
                 onValueChange = { viewModel.setGuiPrefs(gui.copy(touchSmearStrength = it)) },
                 valueRange = 0.2f..2f,
@@ -91,7 +94,7 @@ private fun TouchGroup(
     Column {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(stringResource(R.string.behavior_touch_transform), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-            Switch(
+            GlassToggle(
                 checked = gui.touchTransform,
                 onCheckedChange = { viewModel.setGuiPrefs(gui.copy(touchTransform = it)) },
             )
@@ -113,7 +116,7 @@ private fun ConnectedDisplayGroup(
     Column {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(stringResource(R.string.behavior_display_use), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-            Switch(
+            GlassToggle(
                 checked = gui.secondScreen,
                 onCheckedChange = { viewModel.setGuiPrefs(gui.copy(secondScreen = it)) },
             )
@@ -148,7 +151,7 @@ private fun VisualSafetyGroup(
     Column {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(stringResource(R.string.behavior_slow_motion), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-            Switch(
+            GlassToggle(
                 checked = gui.reducedMotion,
                 onCheckedChange = { viewModel.setGuiPrefs(gui.copy(reducedMotion = it)) },
             )
@@ -170,7 +173,7 @@ private fun PictureInPictureGroup(
     Column {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(stringResource(R.string.behavior_pip_auto_enter), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-            Switch(
+            GlassToggle(
                 checked = gui.autoEnterPip,
                 onCheckedChange = { viewModel.setGuiPrefs(gui.copy(autoEnterPip = it)) },
             )
@@ -191,23 +194,26 @@ private fun LiveWallpaperGroup() {
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
-    CrystalButton(onClick = {
-        val direct =
-            android.content
-                .Intent(
-                    android.app.WallpaperManager.ACTION_CHANGE_LIVE_WALLPAPER,
-                ).putExtra(
-                    android.app.WallpaperManager.EXTRA_LIVE_WALLPAPER_COMPONENT,
-                    android.content.ComponentName(
-                        ctx,
-                        dev.geode.wallpaper.VisualizerWallpaperService::class.java,
-                    ),
-                )
-        val ok = runCatching { ctx.startActivity(direct) }.isSuccess
-        if (!ok) {
-            runCatching {
-                ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_SET_WALLPAPER))
+    GlassButton(
+        text = stringResource(R.string.behavior_wallpaper_button),
+        onClick = {
+            val direct =
+                android.content
+                    .Intent(
+                        android.app.WallpaperManager.ACTION_CHANGE_LIVE_WALLPAPER,
+                    ).putExtra(
+                        android.app.WallpaperManager.EXTRA_LIVE_WALLPAPER_COMPONENT,
+                        android.content.ComponentName(
+                            ctx,
+                            dev.geode.wallpaper.VisualizerWallpaperService::class.java,
+                        ),
+                    )
+            val ok = runCatching { ctx.startActivity(direct) }.isSuccess
+            if (!ok) {
+                runCatching {
+                    ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_SET_WALLPAPER))
+                }
             }
-        }
-    }) { Text(stringResource(R.string.behavior_wallpaper_button)) }
+        },
+    )
 }

@@ -83,6 +83,7 @@ fun EditorToolbar(
     onLyricCaptions: () -> Unit,
     onImportSrt: () -> Unit,
     onExportSrt: () -> Unit,
+    onExportChapters: () -> Unit,
 ) {
     Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         if (tapSession == null) {
@@ -97,6 +98,7 @@ fun EditorToolbar(
             }
             GlassButton(text = stringResource(R.string.editor_import_srt), onClick = onImportSrt)
             GlassButton(text = stringResource(R.string.editor_export_srt), onClick = onExportSrt)
+            GlassButton(text = stringResource(R.string.editor_export_chapters), onClick = onExportChapters)
         } else {
             GlassButton(text = stringResource(R.string.editor_tap), tint = GlassPalette.mint, onClick = onTap)
             Text(

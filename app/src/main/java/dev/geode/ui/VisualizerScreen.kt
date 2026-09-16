@@ -161,34 +161,26 @@ fun VisualizerScreen(
                 onToggleFavourite = { viewModel.toggleFavourite() },
             )
 
-            if (panel != PlayerPanel.TRANSPORT) {
-                PlayerPanelSurface(
-                    Modifier
-                        .align(Alignment.Center)
-                        .fillMaxWidth()
-                        .padding(horizontal = 12.dp)
-                        .padding(top = 88.dp, bottom = 210.dp)
-                        .fillMaxSize(),
-                ) {
-                    when (panel) {
-                        PlayerPanel.LYRICS ->
-                            LyricsPanel(
-                                lyrics = lyrics,
-                                positionMs = state.positionMs,
-                                onSeek = { viewModel.seekToMs(it) },
-                                modifier = Modifier.fillMaxSize(),
-                            )
-                        else ->
-                            QueuePanel(
-                                queue = queue,
-                                favourites = favourites,
-                                onPlayIndex = viewModel::playQueueIndex,
-                                onMoveUp = { viewModel.moveQueueItem(it, it - 1) },
-                                onRemove = viewModel::removeQueueItem,
-                                modifier = Modifier.fillMaxSize(),
-                            )
-                    }
-                }
+            // The panels are glass sheets now (G02), so they present themselves and report
+            // their own dismissal; the old framed surface is gone.
+            when (panel) {
+                PlayerPanel.LYRICS ->
+                    LyricsPanel(
+                        lyrics = lyrics,
+                        positionMs = state.positionMs,
+                        onSeek = { viewModel.seekToMs(it) },
+                        onDismissRequest = { panel = PlayerPanel.TRANSPORT },
+                    )
+                PlayerPanel.QUEUE ->
+                    QueuePanel(
+                        queue = queue,
+                        favourites = favourites,
+                        onPlayIndex = viewModel::playQueueIndex,
+                        onMoveUp = { viewModel.moveQueueItem(it, it - 1) },
+                        onRemove = viewModel::removeQueueItem,
+                        onDismissRequest = { panel = PlayerPanel.TRANSPORT },
+                    )
+                PlayerPanel.TRANSPORT -> Unit
             }
 
             Box(

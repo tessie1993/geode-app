@@ -28,6 +28,25 @@ data class OffscreenRenderSpec(
     val adsrConfigs: List<AdsrConfig> = emptyList(),
     val reducedMotion: Boolean = false,
     val paramsAt: ((Long) -> SceneParams)? = null,
+    // W02: the background image behind the scene, decoded by the caller at [width]x[height] and
+    // latched once in [OffscreenSceneRenderer.prepare] - see NativeViz.setUnderlay.
+    val underlay: OffscreenUnderlay? = null,
+)
+
+/**
+ * A background image ready to latch into the export's native renderer; see
+ * [OffscreenRenderSpec.underlay].
+ *
+ * A plain class, not a data class: [pixels] is a large array, and the compiler-generated
+ * equals()/hashCode() a data class would get compare it by reference anyway, which is misleading
+ * (see [dev.geode.render.scene.PcmChunk] for the same reasoning).
+ */
+class OffscreenUnderlay(
+    val pixels: IntArray,
+    val width: Int,
+    val height: Int,
+    val blend: Int,
+    val amount: Float,
 )
 
 /**
@@ -60,6 +79,7 @@ class OffscreenSceneRenderer(
         viz.setReducedMotion(spec.reducedMotion)
         if (spec.lfoConfigs.isNotEmpty()) viz.setLfoConfigs(spec.lfoConfigs)
         if (spec.adsrConfigs.isNotEmpty()) viz.setAdsrConfigs(spec.adsrConfigs)
+        spec.underlay?.let { viz.setUnderlay(it.pixels, it.width, it.height, it.blend, it.amount) }
         native = viz
     }
 

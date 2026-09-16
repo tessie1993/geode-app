@@ -128,7 +128,6 @@ private:
     TrailPass trailPass_;
     CompositePass compositePass_;
     CompositePass::Inputs compositeInputs_;
-    FlashBudget flashBudget_;
     ThermalGovernor thermal_;
     LfoEngine lfo_;
     AdsrEngine adsr_;
@@ -188,7 +187,6 @@ private:
     std::array<float, LfoEngine::kSlots> envDepth_{};
     float postRotationAngle_ = 0.0f;
     float postCyclePhase_ = 0.0f;
-    float postBeatPulse_ = 0.0f;
     Scene* activeScene_ = nullptr;
     Scene* outgoingScene_ = nullptr;
     Scene* layerScene_ = nullptr;

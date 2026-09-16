@@ -3,7 +3,6 @@ package dev.geode.ui.studio
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -22,6 +21,7 @@ import dev.geode.editor.MarkerSet
 import dev.geode.editor.SnapContext
 import dev.geode.editor.SnapMode
 import dev.geode.editor.SnapTarget
+import dev.geode.ui.glass.GlassPalette
 import kotlin.math.abs
 
 private data class MarkerDrag(
@@ -48,7 +48,7 @@ fun MarkerLane(
     val density = LocalDensity.current.density
     val hitPx = HIT_DP * density
     var drag by remember { mutableStateOf<MarkerDrag?>(null) }
-    val outline = MaterialTheme.colorScheme.onSurface
+    val outline = GlassPalette.textPrimary
 
     fun markerAt(x: Float): Marker? =
         markers.markers.minByOrNull { abs(scale.xOf(it.atMs) - x) }?.takeIf {
@@ -92,35 +92,34 @@ fun MarkerLane(
         for (marker in markers.markers) {
             val active = drag?.takeIf { it.id == marker.id }
             val atMs = if (active == null) marker.atMs else (active.originMs + active.deltaMs).coerceAtLeast(0L)
-            drawFlag(scale.xOf(atMs), Color(marker.colour.argb), marker.id == selected, outline, density)
+            drawDroplet(scale.xOf(atMs), Color(marker.colour.argb), marker.id == selected, outline, density)
         }
     }
 }
 
-private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawFlag(
+/** A droplet: a rounded teardrop hanging from the top edge, with a small specular highlight. */
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawDroplet(
     x: Float,
     color: Color,
     selected: Boolean,
     outline: Color,
     density: Float,
 ) {
-    val flag =
+    val r = 5f * density
+    val tipY = 8f * density
+    val droplet =
         Path().apply {
             moveTo(x, 0f)
-            lineTo(x + 9f * density, 5f * density)
-            lineTo(x, 10f * density)
+            cubicTo(x + r * 1.4f, tipY * 0.5f, x + r, tipY, x, tipY)
+            cubicTo(x - r, tipY, x - r * 1.4f, tipY * 0.5f, x, 0f)
             close()
         }
-    drawPath(flag, color)
-    drawLine(color, Offset(x, 0f), Offset(x, size.height), strokeWidth = if (selected) 3f else 1.5f)
+    drawPath(droplet, color.copy(alpha = 0.9f))
+    drawPath(droplet, Color.White.copy(alpha = 0.35f), style = androidx.compose.ui.graphics.drawscope.Stroke(1f))
+    drawCircle(Color.White.copy(alpha = 0.6f), radius = r * 0.25f, center = Offset(x - r * 0.25f, tipY * 0.45f))
+    drawLine(color, Offset(x, tipY), Offset(x, size.height), strokeWidth = if (selected) 3f else 1.5f)
     if (selected) {
-        drawPath(
-            flag,
-            outline,
-            style =
-                androidx.compose.ui.graphics.drawscope
-                    .Stroke(1.5f * density),
-        )
+        drawPath(droplet, outline, style = androidx.compose.ui.graphics.drawscope.Stroke(1.5f * density))
     }
 }
 

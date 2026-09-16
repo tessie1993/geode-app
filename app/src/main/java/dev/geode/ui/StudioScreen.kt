@@ -4,7 +4,7 @@ import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -15,17 +15,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RangeSlider
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -35,11 +32,15 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 import dev.geode.export.ClipEdit
@@ -47,6 +48,17 @@ import dev.geode.export.ClipLook
 import dev.geode.export.ExportQuality
 import dev.geode.export.ExportRatio
 import dev.geode.export.StudioClip
+import dev.geode.ui.glass.GlassButton
+import dev.geode.ui.glass.GlassLinearProgress
+import dev.geode.ui.glass.GlassPalette
+import dev.geode.ui.glass.GlassShapes
+import dev.geode.ui.glass.GlassSlider
+import dev.geode.ui.glass.GlassTextField
+import dev.geode.ui.glass.GlassTile
+import dev.geode.ui.glass.GlassToggle
+import dev.geode.ui.glass.GlassTopBar
+import dev.geode.ui.glass.floatOnWater
+import dev.geode.ui.glass.glassSurface
 import dev.geode.ui.studio.EditorActions
 import dev.geode.ui.studio.TimelineEditor
 import kotlin.math.roundToInt
@@ -111,16 +123,11 @@ internal fun StudioScreen(
 
     val chooserTitle = stringResource(R.string.studio_share_chooser)
     Column(Modifier.fillMaxSize()) {
-        Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp)) {
-            CrystalOverline(stringResource(R.string.app_name))
-            GlowTitle(
-                stringResource(if (editing == null) R.string.nav_studio else R.string.studio_edit),
-            )
-        }
+        GlassTopBar(title = stringResource(if (editing == null) R.string.nav_studio else R.string.studio_edit))
         val clip = editing
         if (clip == null) {
             Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                CrystalButton(filled = false, onClick = { timelineOpen = true }) { Text(stringResource(R.string.editor_open)) }
+                GlassButton(text = stringResource(R.string.editor_open), onClick = { timelineOpen = true })
             }
             ClipLibrary(
                 studio = state,
@@ -218,7 +225,7 @@ private fun ClipList(
     ) {
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                CrystalButton(onClick = onPick) { Text(stringResource(R.string.studio_open_video)) }
+                GlassButton(text = stringResource(R.string.studio_open_video), tint = GlassPalette.mint, onClick = onPick)
             }
         }
         if (studio.clips.isEmpty() && studio.phase != ExportPhase.Loading) {
@@ -245,22 +252,20 @@ private fun ClipLibraryEmpty() {
     Column(
         Modifier
             .fillMaxWidth()
-            .crystalPanel(
-                0.32f,
-                MaterialTheme.colorScheme.surfaceVariant,
-                MaterialTheme.colorScheme.primary,
-                corner = 20.dp,
-            ).padding(16.dp),
+            .glassSurface(shape = GlassShapes.tile)
+            .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        CrystalOverline(stringResource(R.string.studio_empty_title))
+        Text(stringResource(R.string.studio_empty_title), style = MaterialTheme.typography.titleSmall, color = GlassPalette.textPrimary)
         Text(
             stringResource(R.string.studio_empty_body),
             style = MaterialTheme.typography.bodyMedium,
+            color = GlassPalette.textSecondary,
         )
     }
 }
 
+/** A clip in the library, shown as a glass tile with its artwork thumbnail. */
 @Composable
 private fun ClipRow(
     clip: StudioClip,
@@ -269,36 +274,34 @@ private fun ClipRow(
     onRename: () -> Unit,
     onDelete: () -> Unit,
 ) {
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .crystalPanel(
-                0.28f,
-                MaterialTheme.colorScheme.surfaceVariant,
-                MaterialTheme.colorScheme.primary,
-                corner = 18.dp,
-                glowStrength = 0.4f,
-            ).clickable(onClick = onOpen)
-            .padding(10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        VideoFrame(clip.uri, atMs = clip.durationMs / 3, modifier = Modifier.width(96.dp).height(56.dp))
-        Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
-            Text(
-                clip.name,
-                style = MaterialTheme.typography.bodyMedium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-                clip.summary(),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+    GlassTile(onClick = onOpen, modifier = Modifier.fillMaxWidth(), contentPadding = PaddingValues(10.dp)) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.width(96.dp).height(56.dp).glassSurface(shape = RoundedCornerShape(12.dp))) {
+                VideoFrame(clip.uri, atMs = clip.durationMs / 3, modifier = Modifier.fillMaxSize())
+            }
+            Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
+                Text(
+                    clip.name,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = GlassPalette.textPrimary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    clip.summary(),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = GlassPalette.textSecondary,
+                )
+            }
+            GlassButton(text = stringResource(R.string.studio_send), onClick = onShare)
+            GlassButton(text = stringResource(R.string.action_rename), modifier = Modifier.padding(start = 6.dp), onClick = onRename)
+            GlassButton(
+                text = stringResource(R.string.action_delete),
+                tint = GlassPalette.pink,
+                modifier = Modifier.padding(start = 6.dp),
+                onClick = onDelete,
             )
         }
-        TextButton(onClick = onShare) { Text(stringResource(R.string.studio_send)) }
-        TextButton(onClick = onRename) { Text(stringResource(R.string.action_rename)) }
-        TextButton(onClick = onDelete) { Text(stringResource(R.string.action_delete)) }
     }
 }
 
@@ -313,8 +316,37 @@ private fun ClipStorageFooter(clips: List<StudioClip>) {
                 stringResource(R.string.studio_size_gb, bytes / (1024f * 1024f * 1024f)),
             ),
         style = MaterialTheme.typography.labelSmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        color = GlassPalette.textSecondary,
     )
+}
+
+/** A glass card dialog with a title and a row of actions; used where the body needs more than a
+ * plain message (here, a text field), so [dev.geode.ui.glass.GlassDialog] does not fit. */
+@Composable
+private fun StudioGlassDialog(
+    onDismissRequest: () -> Unit,
+    title: String,
+    modifier: Modifier = Modifier,
+    body: @Composable () -> Unit = {},
+    actions: @Composable () -> Unit,
+) {
+    Dialog(onDismissRequest = onDismissRequest) {
+        Column(
+            modifier
+                .glassSurface(shape = GlassShapes.tile)
+                .padding(24.dp),
+        ) {
+            Text(title, style = MaterialTheme.typography.titleLarge, color = GlassPalette.textPrimary)
+            body()
+            Row(
+                Modifier.padding(top = 20.dp).fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                actions()
+            }
+        }
+    }
 }
 
 @Composable
@@ -324,24 +356,27 @@ private fun RenameClipDialog(
     onDismiss: () -> Unit,
 ) {
     var name by remember(clip.uri) { mutableStateOf(clip.name.substringBeforeLast('.')) }
-    AlertDialog(
+    StudioGlassDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.studio_rename_title)) },
-        text = {
-            OutlinedTextField(
+        title = stringResource(R.string.studio_rename_title),
+        body = {
+            GlassTextField(
                 value = name,
                 onValueChange = { name = it },
-                singleLine = true,
-                label = { Text(stringResource(R.string.studio_rename_field)) },
+                placeholder = stringResource(R.string.studio_rename_field),
+                modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
             )
         },
-        confirmButton = {
-            TextButton(
+        actions = {
+            GlassButton(text = stringResource(R.string.action_cancel), onClick = onDismiss)
+            GlassButton(
+                text = stringResource(R.string.action_rename),
                 enabled = name.isNotBlank(),
+                tint = GlassPalette.mint,
+                modifier = Modifier.padding(start = 8.dp),
                 onClick = { onConfirm(name) },
-            ) { Text(stringResource(R.string.action_rename)) }
+            )
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )
 }
 
@@ -351,14 +386,26 @@ private fun DeleteClipDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    AlertDialog(
+    StudioGlassDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.studio_delete_title)) },
-        text = { Text(stringResource(R.string.studio_delete_body, clip.name)) },
-        confirmButton = {
-            TextButton(onClick = onConfirm) { Text(stringResource(R.string.action_delete)) }
+        title = stringResource(R.string.studio_delete_title),
+        body = {
+            Text(
+                stringResource(R.string.studio_delete_body, clip.name),
+                Modifier.padding(top = 12.dp),
+                style = MaterialTheme.typography.bodyMedium,
+                color = GlassPalette.textSecondary,
+            )
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+        actions = {
+            GlassButton(text = stringResource(R.string.action_cancel), onClick = onDismiss)
+            GlassButton(
+                text = stringResource(R.string.action_delete),
+                tint = GlassPalette.pink,
+                modifier = Modifier.padding(start = 8.dp),
+                onClick = onConfirm,
+            )
+        },
     )
 }
 
@@ -367,11 +414,13 @@ private fun StudioNoticeDialog(
     message: String,
     onDismiss: () -> Unit,
 ) {
-    AlertDialog(
+    StudioGlassDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.studio_notice_title)) },
-        text = { Text(message) },
-        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_ok)) } },
+        title = stringResource(R.string.studio_notice_title),
+        body = {
+            Text(message, Modifier.padding(top = 12.dp), style = MaterialTheme.typography.bodyMedium, color = GlassPalette.textSecondary)
+        },
+        actions = { GlassButton(text = stringResource(R.string.action_ok), onClick = onDismiss) },
     )
 }
 
@@ -446,17 +495,23 @@ private fun ClipEditorHeader(
 ) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
-            Text(clip.name, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(
+                clip.name,
+                style = MaterialTheme.typography.bodyMedium,
+                color = GlassPalette.textPrimary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
             Text(
                 clip.summary(),
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = GlassPalette.textSecondary,
             )
         }
         if (resettable) {
-            TextButton(onClick = onReset) { Text(stringResource(R.string.studio_reset)) }
+            GlassButton(text = stringResource(R.string.studio_reset), onClick = onReset)
         }
-        TextButton(onClick = onClose) { Text(stringResource(R.string.action_back)) }
+        GlassButton(text = stringResource(R.string.action_back), modifier = Modifier.padding(start = 6.dp), onClick = onClose)
     }
 }
 
@@ -466,11 +521,13 @@ private fun ClipEditorPreview(
     clip: StudioClip,
     edit: ClipEdit,
 ) {
-    ClipPreview(clip, edit)
+    Box(Modifier.fillMaxWidth().glassSurface(shape = GlassShapes.tile).padding(4.dp)) {
+        ClipPreview(clip, edit)
+    }
     Text(
         stringResource(R.string.studio_preview_hint),
         style = MaterialTheme.typography.labelSmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        color = GlassPalette.textSecondary,
     )
 }
 
@@ -483,7 +540,10 @@ private fun ClipCutSection(
 ) {
     val outEnd = if (edit.endMs > 0) edit.endMs else duration
     StudioSection(stringResource(R.string.studio_section_cut)) {
-        Row(Modifier.fillMaxWidth().height(56.dp), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+        Row(
+            Modifier.fillMaxWidth().height(56.dp).glassSurface(shape = RoundedCornerShape(10.dp)).padding(3.dp),
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
             repeat(FILMSTRIP_FRAMES) { i ->
                 VideoFrame(
                     clip.uri,
@@ -493,7 +553,7 @@ private fun ClipCutSection(
                 )
             }
         }
-        RangeSlider(
+        ClipTrimSlider(
             value = edit.startMs.toFloat()..outEnd.toFloat(),
             onValueChange = { range ->
                 onEdit(
@@ -507,6 +567,59 @@ private fun ClipCutSection(
         )
         ClipTrimSummary(edit = edit, duration = duration, outEnd = outEnd)
     }
+}
+
+/**
+ * The trim range, styled to match [dev.geode.ui.glass.GlassSlider]'s pearl thumbs and iridescent
+ * fill: an [RangeSlider] with a glass track and two pearl thumbs, since the shared glass primitives
+ * (`ui/glass/`) do not include a dual-thumb slider.
+ */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+private fun ClipTrimSlider(
+    value: ClosedFloatingPointRange<Float>,
+    onValueChange: (ClosedFloatingPointRange<Float>) -> Unit,
+    valueRange: ClosedFloatingPointRange<Float>,
+) {
+    val pearlThumb: @Composable (androidx.compose.material3.RangeSliderState) -> Unit = {
+        Box(Modifier.size(20.dp).glassSurface(shape = GlassShapes.bubble, tint = GlassPalette.mint, glow = 0.5f))
+    }
+    RangeSlider(
+        value = value,
+        onValueChange = onValueChange,
+        modifier = Modifier.fillMaxWidth(),
+        valueRange = valueRange,
+        startThumb = pearlThumb,
+        endThumb = pearlThumb,
+        track = { state ->
+            val span = valueRange.endInclusive - valueRange.start
+            val startFraction = if (span > 0f) (state.activeRangeStart - valueRange.start) / span else 0f
+            val endFraction = if (span > 0f) (state.activeRangeEnd - valueRange.start) / span else 0f
+            Box(Modifier.fillMaxWidth().height(14.dp)) {
+                Box(Modifier.matchParentSize().glassSurface(shape = GlassShapes.pill))
+                Canvas(Modifier.matchParentSize()) {
+                    val y = size.height / 2f
+                    val startX = size.width * startFraction.coerceIn(0f, 1f)
+                    val endX = size.width * endFraction.coerceIn(0f, 1f)
+                    if (endX > startX) {
+                        drawLine(
+                            brush =
+                                Brush.horizontalGradient(
+                                    listOf(GlassPalette.mint, GlassPalette.lavender, GlassPalette.peach),
+                                    startX = startX,
+                                    endX = endX,
+                                ),
+                            start = Offset(startX, y),
+                            end = Offset(endX, y),
+                            strokeWidth = 6.dp.toPx(),
+                            cap = StrokeCap.Round,
+                            alpha = 0.85f,
+                        )
+                    }
+                }
+            }
+        },
+    )
 }
 
 @Composable
@@ -528,7 +641,7 @@ private fun ClipTrimSummary(
                 ""
             },
         style = MaterialTheme.typography.labelMedium,
-        color = accentTextColor(),
+        color = GlassPalette.mint,
     )
 }
 
@@ -577,19 +690,19 @@ private fun ClipLookSection(
         Text(
             stringResource(R.string.studio_look_explainer),
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = GlassPalette.textSecondary,
         )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            CrystalButton(filled = false, onClick = { lutPicker.launch(arrayOf("*/*")) }) { Text(stringResource(R.string.studio_lut_pick)) }
+            GlassButton(text = stringResource(R.string.studio_lut_pick), onClick = { lutPicker.launch(arrayOf("*/*")) })
             if (edit.lutUri != null) {
-                TextButton(onClick = { onEdit(edit.copy(lutUri = null)) }) { Text(stringResource(R.string.studio_lut_clear)) }
+                GlassButton(text = stringResource(R.string.studio_lut_clear), onClick = { onEdit(edit.copy(lutUri = null)) })
             }
         }
         Text(
             edit.lutUri?.let { stringResource(R.string.studio_lut_loaded, it.substringAfterLast('/').substringAfterLast(':')) }
                 ?: stringResource(R.string.studio_lut_explainer),
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = GlassPalette.textSecondary,
         )
         StudioSlider(stringResource(R.string.studio_gamma_red), edit.gammaRed, GAMMA_RANGE, decimals = 2) {
             onEdit(edit.copy(gammaRed = it))
@@ -617,7 +730,7 @@ private fun ClipFrameSection(
         StudioSlider(stringResource(R.string.studio_rotate), edit.rotationDegrees, -180f..180f, unit = "°") {
             onEdit(edit.copy(rotationDegrees = it))
         }
-        Text(stringResource(R.string.studio_reframe), style = MaterialTheme.typography.labelMedium)
+        Text(stringResource(R.string.studio_reframe), style = MaterialTheme.typography.labelMedium, color = GlassPalette.textSecondary)
         Row(
             Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -646,7 +759,7 @@ private fun ClipQualityPicker(
     Text(
         stringResource(R.string.studio_reframe_explainer),
         style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        color = GlassPalette.textSecondary,
     )
 }
 
@@ -657,20 +770,24 @@ private fun ClipSoundSection(
 ) {
     StudioSection(stringResource(R.string.studio_section_sound)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(stringResource(R.string.studio_mute), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-            Switch(checked = edit.mute, onCheckedChange = { onEdit(edit.copy(mute = it)) })
+            Text(
+                stringResource(R.string.studio_mute),
+                Modifier.weight(1f),
+                style = MaterialTheme.typography.bodyMedium,
+                color = GlassPalette.textPrimary,
+            )
+            GlassToggle(checked = edit.mute, onCheckedChange = { onEdit(edit.copy(mute = it)) })
         }
-        OutlinedTextField(
+        GlassTextField(
             value = edit.caption,
             onValueChange = { onEdit(edit.copy(caption = it)) },
-            label = { Text(stringResource(R.string.studio_caption)) },
-            singleLine = true,
+            placeholder = stringResource(R.string.studio_caption),
             modifier = Modifier.fillMaxWidth(),
         )
         Text(
             stringResource(R.string.studio_caption_explainer),
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = GlassPalette.textSecondary,
         )
     }
 }
@@ -706,15 +823,13 @@ private fun ClipEditorRunning(
     progress: Float,
     onCancel: () -> Unit,
 ) {
-    LinearProgressIndicator(
-        progress = { progress },
-        modifier = Modifier.fillMaxWidth(),
-    )
+    GlassLinearProgress(progress = progress, modifier = Modifier.fillMaxWidth())
     Text(
         stringResource(R.string.studio_rendering, (progress * 100).roundToInt()),
         style = MaterialTheme.typography.labelMedium,
+        color = GlassPalette.textSecondary,
     )
-    CrystalButton(filled = false, onClick = onCancel) { Text(stringResource(R.string.action_cancel)) }
+    GlassButton(text = stringResource(R.string.action_cancel), onClick = onCancel)
 }
 
 @Composable
@@ -724,21 +839,20 @@ private fun ClipEditorDone(
 ) {
     val context = LocalContext.current
     val chooserTitle = stringResource(R.string.studio_share_chooser)
-    Text(stringResource(R.string.studio_saved), style = MaterialTheme.typography.bodyMedium)
+    Text(stringResource(R.string.studio_saved), style = MaterialTheme.typography.bodyMedium, color = GlassPalette.textPrimary)
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        CrystalButton(
+        GlassButton(
+            text = stringResource(R.string.studio_send_ellipsis),
+            tint = GlassPalette.mint,
             onClick = { context.shareVideo(resultUri, chooserTitle) },
-        ) { Text(stringResource(R.string.studio_send_ellipsis)) }
-        CrystalButton(
-            filled = false,
-            onClick = { context.viewVideo(resultUri) },
-        ) { Text(stringResource(R.string.studio_play)) }
-        TextButton(onClick = onClearResult) { Text(stringResource(R.string.studio_edit_again)) }
+        )
+        GlassButton(text = stringResource(R.string.studio_play), onClick = { context.viewVideo(resultUri) })
+        GlassButton(text = stringResource(R.string.studio_edit_again), onClick = onClearResult)
     }
     Text(
         stringResource(R.string.studio_send_explainer),
         style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        color = GlassPalette.textSecondary,
     )
 }
 
@@ -757,26 +871,23 @@ private fun ClipEditorIdle(
         Text(
             stringResource(R.string.studio_nothing_changed),
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = GlassPalette.textSecondary,
         )
     }
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        CrystalButton(enabled = canExport, onClick = onExport) {
-            Text(stringResource(R.string.studio_render))
-        }
-        TextButton(enabled = canExport, onClick = onExportToDestination) {
-            Text(stringResource(R.string.export_render_to_folder))
-        }
+        GlassButton(text = stringResource(R.string.studio_render), enabled = canExport, tint = GlassPalette.mint, onClick = onExport)
+        GlassButton(text = stringResource(R.string.export_render_to_folder), enabled = canExport, onClick = onExportToDestination)
     }
     Text(
         stringResource(R.string.studio_renders_new_file),
         style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        color = GlassPalette.textSecondary,
     )
 }
 
 private const val FILMSTRIP_FRAMES = 6
 
+/** A section of the clip editor: a glass tile with a title and its controls. */
 @Composable
 private fun StudioSection(
     title: String,
@@ -785,16 +896,12 @@ private fun StudioSection(
     Column(
         Modifier
             .fillMaxWidth()
-            .crystalPanel(
-                0.28f,
-                MaterialTheme.colorScheme.surfaceVariant,
-                MaterialTheme.colorScheme.primary,
-                corner = 20.dp,
-                glowStrength = 0.45f,
-            ).padding(14.dp),
+            .glassSurface(shape = GlassShapes.tile)
+            .floatOnWater(strength = 0.3f)
+            .padding(14.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        CrystalOverline(title)
+        Text(title, style = MaterialTheme.typography.titleSmall, color = GlassPalette.textPrimary)
         content()
     }
 }
@@ -812,35 +919,25 @@ private fun StudioSlider(
         Text(
             stringResource(R.string.studio_slider_value, label, "%.${decimals}f".format(value), unit),
             style = MaterialTheme.typography.labelMedium,
+            color = GlassPalette.textSecondary,
         )
-        CrystalSlider(value = value, onValueChange = onChange, valueRange = range)
+        GlassSlider(value = value, onValueChange = onChange, valueRange = range)
     }
 }
 
+/** A pastel-tinted glass pill; selecting it swells the tint, matching a segmented choice chip. */
 @Composable
 private fun StudioChip(
     label: String,
     selected: Boolean,
     onClick: () -> Unit,
 ) {
-    Box(
-        Modifier
-            .crystalPanel(
-                if (selected) 0.5f else 0.2f,
-                MaterialTheme.colorScheme.surfaceVariant,
-                MaterialTheme.colorScheme.primary,
-                corner = 14.dp,
-                glowStrength = if (selected) 1f else 0.3f,
-                prismatic = selected,
-            ).clickable(onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 7.dp),
-    ) {
-        Text(
-            label,
-            style = MaterialTheme.typography.labelMedium,
-            color = if (selected) accentTextColor() else MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
+    GlassButton(
+        text = label,
+        selected = selected,
+        tint = if (selected) GlassPalette.lavender else null,
+        onClick = onClick,
+    )
 }
 
 private fun clock(ms: Long): String = "%d:%02d".format(ms / 60_000, (ms / 1000) % 60)

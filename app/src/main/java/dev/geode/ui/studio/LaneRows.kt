@@ -24,6 +24,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -39,6 +40,7 @@ import dev.geode.editor.Lane
 import dev.geode.editor.LaneKind
 import dev.geode.editor.Marker
 import dev.geode.editor.MarkerId
+import dev.geode.ui.glass.GlassPalette
 
 /** Header column beside the scrolling content column; every row height is fixed so the two stay aligned. */
 @Composable
@@ -64,14 +66,24 @@ internal fun Lanes(
         Column(Modifier.width(LANE_HEADER_WIDTH)) {
             Spacer(Modifier.height(RULER_HEIGHT))
             Box(Modifier.height(MARKER_LANE_HEIGHT), contentAlignment = Alignment.CenterStart) {
-                Text(stringResource(R.string.editor_markers), style = MaterialTheme.typography.labelSmall)
+                Text(
+                    stringResource(R.string.editor_markers),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = GlassPalette.textSecondary,
+                )
             }
             project.timeline.lanes.forEach { lane ->
                 LaneHeader(lane, actions, onAddClip = { onAddClip(lane) }, onAddStill = { onAddStill(lane) })
             }
             keyTracks.forEach { track ->
                 Box(Modifier.height(KEYFRAME_LANE_HEIGHT), contentAlignment = Alignment.CenterStart) {
-                    Text(track.paramId.value, style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(
+                        track.paramId.value,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = GlassPalette.textSecondary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
                 }
             }
         }
@@ -98,7 +110,7 @@ internal fun Lanes(
                     )
                 }
                 project.timeline.lanes.forEach { lane ->
-                    LaneContentBox(scale, LANE_HEIGHT) {
+                    LaneContentBox(scale, LANE_HEIGHT, tint = laneTintFor(lane.kind)) {
                         ClipStrip(
                             timeline = project.timeline,
                             lane = lane,
@@ -159,7 +171,13 @@ private fun LaneHeader(
 ) {
     var menu by remember { mutableStateOf(false) }
     Column(Modifier.height(LANE_HEIGHT), verticalArrangement = Arrangement.Center) {
-        Text(lane.name, style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(
+            lane.name,
+            style = MaterialTheme.typography.labelSmall,
+            color = GlassPalette.textPrimary,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             HeaderToggle(stringResource(R.string.editor_mute_short), lane.muted) {
                 actions.edit { p -> p.copy(timeline = p.timeline.withLane(lane.copy(muted = !lane.muted))) }
@@ -201,7 +219,17 @@ private fun HeaderToggle(
     Text(
         label,
         style = MaterialTheme.typography.labelSmall,
-        color = if (on) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+        color = if (on) GlassPalette.mint else GlassPalette.textSecondary,
         modifier = Modifier.clickable(onClick = onClick),
     )
 }
+
+/** One pastel per lane kind, so the glass strips (and their clips) read distinctly at a glance. */
+private fun laneTintFor(kind: LaneKind): Color =
+    when (kind) {
+        LaneKind.Visual -> GlassPalette.mint
+        LaneKind.Media -> GlassPalette.sky
+        LaneKind.Text -> GlassPalette.lavender
+        LaneKind.Overlay -> GlassPalette.peach
+        LaneKind.Audio -> GlassPalette.pink
+    }

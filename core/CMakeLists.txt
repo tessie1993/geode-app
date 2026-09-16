@@ -49,7 +49,7 @@ add_library(geode_core STATIC
     viz/ParamsFields.cpp
     viz/Lfo.cpp
     viz/Adsr.cpp
-    viz/FormDrive.cpp
+    viz/MotionField.cpp
     viz/VisualSafety.cpp
     viz/ThermalGovernor.cpp
     viz/TouchField.cpp

@@ -150,6 +150,13 @@ data class GuiPrefs(
     val keyColor: Boolean = false,
     val secondScreen: Boolean = true,
     val touchTransform: Boolean = true,
+    /**
+     * Whether leaving the fullscreen visualizer while something is playing drops straight into
+     * picture-in-picture, instead of just backgrounding the app. Off by default: PiP is a
+     * deliberate action (the button on the visualizer, or the platform's own gesture on API 31+)
+     * until someone opts into it happening automatically too.
+     */
+    val autoEnterPip: Boolean = false,
 ) {
     val fontColorOverride: Int?
         get() = fontColorArgb ?: FontColorChoice.WHITE_ARGB.takeIf { whiteFont }
@@ -241,6 +248,7 @@ class ThemeStore(
             keyColor = prefs.getBoolean(KEY_KEY_COLOR, false),
             secondScreen = prefs.getBoolean(KEY_SECOND_SCREEN, true),
             micReactive = prefs.getBoolean(KEY_MIC_REACTIVE, false),
+            autoEnterPip = prefs.getBoolean(KEY_AUTO_ENTER_PIP, false),
         )
     }
 
@@ -297,6 +305,7 @@ class ThemeStore(
             putBoolean(KEY_KEY_COLOR, gui.keyColor)
             putBoolean(KEY_SECOND_SCREEN, gui.secondScreen)
             putBoolean(KEY_MIC_REACTIVE, gui.micReactive)
+            putBoolean(KEY_AUTO_ENTER_PIP, gui.autoEnterPip)
         }
     }
 
@@ -339,5 +348,6 @@ class ThemeStore(
         const val KEY_KEY_COLOR = "gui_key_color"
         const val KEY_SECOND_SCREEN = "gui_second_screen"
         const val KEY_MIC_REACTIVE = "gui_mic_reactive"
+        const val KEY_AUTO_ENTER_PIP = "gui_auto_enter_pip"
     }
 }

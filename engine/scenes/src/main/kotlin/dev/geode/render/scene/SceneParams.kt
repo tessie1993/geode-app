@@ -7,11 +7,14 @@ data class SceneParams(
     val endlessZoom: Boolean = false,
     val endlessZoomSpeed: Float = 0.3f,
     val sway: Float = 0f,
+    // Inert since wave three; removed with the next format bump.
     val pulse: Float = 0f,
     val driftX: Float = 0f,
     val driftY: Float = 0f,
+    // Inert since wave three; removed with the next format bump.
     val shake: Float = 0f,
     val audioDrive: Float = 1f,
+    // Inert since wave three; removed with the next format bump.
     val beatResponse: Float = 1f,
     val turbulence: Float = 0f,
     val density: Float = 1f,
@@ -70,6 +73,7 @@ data class SceneParams(
     val bassGain: Float = 1f,
     val midGain: Float = 1f,
     val trebGain: Float = 1f,
+    // Inert since wave three; removed with the next format bump.
     val flash: Float = 0f,
     val chromaAb: Float = 0f,
     val vignette: Float = 0f,
@@ -77,6 +81,7 @@ data class SceneParams(
     val grain: Float = 0f,
     val glitch: Float = 0f,
     val fisheye: Float = 0f,
+    // Inert since wave three; removed with the next format bump.
     val strobe: Float = 0f,
     val paramFadeSec: Float = 0f,
     val fluidQuality: Int = 2,
@@ -146,9 +151,18 @@ data class SceneParams(
     val rippleOverlayEnabled: Boolean = false,
     val rippleOverlayStrength: Float = 0.4f,
     val rippleOverlaySpecular: Float = 0.3f,
-    // How far the native superformula driver (core/viz/FormDrive) moves every family's parameters
-    // with the music; 0 switches it off. Appended so every existing wire index survives.
+    // How far the native superformula driver (core/viz/FormDrive) moved every family's parameters
+    // with the music. Inert since wave three (core/viz/MotionField replaced it); kept so a preset
+    // saved before wave three still decodes.
     val formDrive: Float = 0.7f,
+    // Wave three: the continuous motion system (core/viz/MotionField), which replaces
+    // formDrive/beatResponse/flash/strobe/pulse/shake as the way the music moves a scene.
+    // Appended after the older fields so every existing wire index survives.
+    val motionAmount: Float = 0.7f,
+    val motionBreath: Float = 0.5f,
+    val motionOrbit: Float = 0.5f,
+    val motionDrift: Float = 0.5f,
+    val motionHue: Float = 0.4f,
 ) {
     companion object {
         const val UNSET_OVERRIDE: Float = -1f

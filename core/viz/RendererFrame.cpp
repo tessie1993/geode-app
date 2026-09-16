@@ -4,7 +4,6 @@
 #include <cmath>
 
 #include "viz/CompositeGrade.hpp"
-#include "viz/LiveSignal.hpp"
 #include "viz/Quad.hpp"
 
 namespace geode::viz {
@@ -45,6 +44,7 @@ float Renderer::beginFrame(double timeSeconds) {
         if (Scene* scene = builtScene(id)) scene->setFragmentSource(src);
     }
     applyMilkRequests();
+    applyOverlayUploads();
     return dt;
 }
 
@@ -90,13 +90,13 @@ SceneParams Renderer::resolveParams(float dt) {
     const auto& lfoValues = lfo_.tick(dt, frameFeatures_, envRate_.data(), envDepth_.data());
     SceneParams p = lfo_.apply(displayedParams_, lfoValues);
     p = AdsrEngine::apply(p, adsr_.configs, envValues);
-    // The superformula driver: the one stage every family's parameters pass
-    // through, fed the PCM block and the feature frame, ahead of the safety
-    // clamp so nothing it adds can exceed the flash and motion limits.
-    feedFormDrive();
-    formDrive_.step(frameFeatures_, dt);
+    // The continuous motion system: the one stage every family's parameters
+    // pass through, fed only the feature frame (never a one-hop PCM/drum
+    // impulse), ahead of the safety clamp so nothing it adds can exceed the
+    // flash and motion limits.
+    motionField_.step(frameFeatures_, dt);
     const bool reducedMotion = reducedMotion_.load(std::memory_order_relaxed);
-    p = formDrive_.apply(p, reducedMotion);
+    p = motionField_.apply(p, reducedMotion);
     p = safety::apply(p, reducedMotion);
     if (!thermalTierInfo(thermal_.tier()).optionalPasses) {
         p.flowEnabled = false;
@@ -105,22 +105,10 @@ SceneParams Renderer::resolveParams(float dt) {
     lastFinalParams_ = p;
     postRotationAngle_ = grade::integrateRotation(postRotationAngle_, p.rotation, dt);
     postCyclePhase_ = grade::integrateCyclePhase(postCyclePhase_, p.cycleSpeed, dt, p.colorCycle);
-    postBeatPulse_ = grade::integrateBeatPulse(postBeatPulse_, live::hit(frameFeatures_), dt);
+    // Wave three: nothing drives the post pass's beat pulse any more, since
+    // it existed to ride the transient FormDrive read.
+    postBeatPulse_ = grade::integrateBeatPulse(postBeatPulse_, 0.0f, dt);
     return p;
-}
-
-// Copies the newest PCM block out from under the lock only when a push has
-// happened since the last frame; between pushes the driver decays on its own.
-void Renderer::feedFormDrive() {
-    int count = 0;
-    {
-        std::lock_guard<std::mutex> lock(stateLock_);
-        if (pcmSerial_ == pcmSerialSeen_ || pcmCount_ <= 0) return;
-        pcmSerialSeen_ = pcmSerial_;
-        count = pcmCount_;
-        std::copy(pcm_.begin(), pcm_.begin() + count, pcmScratch_.begin());
-    }
-    formDrive_.acceptPcm(pcmScratch_.data(), count);
 }
 
 void Renderer::resolveLayerScene() {
@@ -248,10 +236,12 @@ void Renderer::composite(Scene& scene, const SceneParams& p, float progress, GLu
     in.transitionStyle = safety::transitionStyle(TransitionCatalog::builtIn(frameTransitionId_).value_or(TransitionStyle::Fade));
     in.ratio = static_cast<float>(renderWidth_) / static_cast<float>(renderHeight_);
     in.timeSeconds = timeSeconds_;
-    const float hit = live::hit(frameFeatures_);
-    in.hitImpulse = hit;
+    // Wave three: nothing feeds the composite pass's transient reaction any
+    // more (that read live::hit(), a transient flag); flash/strobe/pulse/
+    // shake themselves are already inert (see Params.hpp).
+    in.hitImpulse = 0.0f;
     const SceneParams& fx = lastFinalParams_;
-    in.flash = fx.flash * flashBudget_.gainFor(timeSeconds_, safety::flashImpulse(fx.flash, hit));
+    in.flash = fx.flash * flashBudget_.gainFor(timeSeconds_, safety::flashImpulse(fx.flash, 0.0f));
     in.strobeHz = safety::strobeHz();
     in.postRotationAngle = postRotationAngle_;
     in.postCyclePhase = postCyclePhase_;
@@ -261,7 +251,16 @@ void Renderer::composite(Scene& scene, const SceneParams& p, float progress, GLu
     in.gateA = grade::gateFor(activeScene_->family()).toVec4();
     Scene* other = layerScene_ ? layerScene_ : outgoingScene_ ? outgoingScene_ : activeScene_;
     in.gateB = grade::gateFor(other->family()).toVec4();
+    // W00: read this frame's latched underlay straight from CompositePass (it owns the texture -
+    // see CompositePass.hpp), the same way uFlow/uRipple above are read from Overlays.
+    in.underlayTex = compositePass_.underlayTexOrZero();
+    in.underlayBlend = compositePass_.underlayBlendMode();
+    in.underlayAmount = compositePass_.underlayAmount();
     compositePass_.draw(in);
+    // W00: overlay is its own draw call, over whatever composite() just wrote to targetFbo, so it
+    // never enters postFx/transitions/Layers and comes out identical live, in the wallpaper and in
+    // the offscreen export.
+    compositePass_.drawOverlay(quadVao_);
 }
 
 void Renderer::stepOverlays(Scene& scene, const SceneParams& p, float dt) {

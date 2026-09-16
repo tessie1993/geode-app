@@ -62,7 +62,7 @@ class StudioViewModel
             onReady: (StudioClip) -> Unit,
         ) = session.describeStudioClip(uri, onReady)
 
-        override fun exportProject() = session.startProjectExport()
+        override fun exportProject(destination: Uri?) = session.startProjectExport(destination)
 
         override fun cancelProjectExport() = session.cancelStudioExport()
 
@@ -118,7 +118,8 @@ class StudioViewModel
         fun startStudioExport(
             clip: StudioClip,
             edit: ClipEdit,
-        ) = session.startStudioExport(clip, edit)
+            destination: Uri? = null,
+        ) = session.startStudioExport(clip, edit, destination)
 
         fun cancelStudioExport() = session.cancelStudioExport()
 

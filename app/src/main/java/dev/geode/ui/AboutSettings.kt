@@ -10,9 +10,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -27,6 +25,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import dev.geode.BuildConfig
 import dev.geode.R
+import dev.geode.ui.glass.GlassButton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -54,12 +53,15 @@ fun AboutSection() {
             style = MaterialTheme.typography.bodySmall,
         )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(onClick = { showLicenses = true }) { Text(stringResource(R.string.about_licenses)) }
-            OutlinedButton(onClick = {
-                runCatching {
-                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(PRIVACY_POLICY_URL)))
-                }
-            }) { Text(stringResource(R.string.about_privacy_policy)) }
+            GlassButton(text = stringResource(R.string.about_licenses), onClick = { showLicenses = true })
+            GlassButton(
+                text = stringResource(R.string.about_privacy_policy),
+                onClick = {
+                    runCatching {
+                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(PRIVACY_POLICY_URL)))
+                    }
+                },
+            )
         }
     }
     if (showLicenses) {
@@ -80,6 +82,9 @@ private fun LicensesDialog(onDismiss: () -> Unit) {
                 }.getOrElse { unavailable }
             }
     }
+    // GlassDialog only carries a plain title/text/actions layout, no scrollable custom body, so
+    // this one long-form dialog stays on the stock AlertDialog; GlassMaterialTheme's colour scheme
+    // still applies to it.
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.about_licenses)) },
@@ -95,6 +100,6 @@ private fun LicensesDialog(onDismiss: () -> Unit) {
                 )
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) } },
+        confirmButton = { GlassButton(text = stringResource(R.string.action_close), onClick = onDismiss) },
     )
 }

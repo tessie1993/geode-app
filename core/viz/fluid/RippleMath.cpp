@@ -60,22 +60,57 @@ std::pair<float, float> overlayDropPosition(int index, float aspect) {
 void OverlayDrops::reset() {
     frame_ = 0;
     dropIndex_ = 0;
-    hitEdge_.reset();
+    bassAvg_ = 1.0f;
+    trebAvg_ = 1.0f;
+    bassWarm_ = 0.0f;
+    trebWarm_ = 0.0f;
+    rhythmLock_ = 0.0f;
+    prevBarOsc_ = 0.5f;
+    barOscRising_ = false;
+    sparklePhase_ = 0.0f;
 }
 
-void OverlayDrops::tick(const GeodeFeatureFrame& features, float aspect, const Queue& queue) {
+void OverlayDrops::tick(const GeodeFeatureFrame& features, float aspect, const Queue& queue, float dt) {
     frame_++;
-    const float hit = live::hit(features);
-    if (hitEdge_.step(features)) {
-        const float amp = (0.22f + 0.4f * std::clamp(features.bass, 0.0f, 1.5f)) * hit;
+    dt = std::clamp(dt, 0.0f, 0.1f);
+
+    // Relative bass/treble levels: band / running average, the same shape as
+    // MotionField's (see viz/MotionField.hpp), kept local to this class.
+    bassWarm_ += dt;
+    trebWarm_ += dt;
+    const float bassTau = std::max(std::min(kAvgSeconds, bassWarm_), std::max(dt, 1e-3f));
+    const float trebTau = std::max(std::min(kAvgSeconds, trebWarm_), std::max(dt, 1e-3f));
+    const float bassSample = std::clamp(features.bass, 0.0f, 1.5f);
+    const float trebSample = std::clamp(features.treble, 0.0f, 1.5f);
+    bassAvg_ += (bassSample - bassAvg_) * (1.0f - std::exp(-dt / bassTau));
+    trebAvg_ += (trebSample - trebAvg_) * (1.0f - std::exp(-dt / trebTau));
+    const float bassRel = std::clamp(bassSample / std::max(bassAvg_, 0.02f), 0.0f, 2.0f);
+    const float trebRel = std::clamp(trebSample / std::max(trebAvg_, 0.02f), 0.0f, 2.0f);
+
+    // The bar oscillator: phase-locked, gated by confidence, same formula as
+    // MotionField::step's uBarOsc.
+    const float lockTarget = std::clamp(features.pulseConfidence, 0.0f, 1.0f) * std::clamp(features.tempoStability, 0.0f, 1.0f);
+    rhythmLock_ += (lockTarget - rhythmLock_) * (1.0f - std::exp(-dt / kRhythmLockSeconds));
+    const float barOsc = 0.5f + 0.5f * std::sin(kTwoPi * features.barPhase) * rhythmLock_;
+
+    // One ring per bar, right after the oscillator's peak; amplitude from bassRel.
+    const bool rising = barOsc > prevBarOsc_;
+    if (!rising && barOscRising_) {
+        const float amp = (0.22f + 0.4f * bassRel) * std::clamp(barOsc, 0.0f, 1.0f);
         for (int i = 0; i < kBeatDrops; ++i) {
             const auto [x, y] = overlayDropPosition(dropIndex_++, aspect);
             queue(x, y, 0.055f, amp);
         }
     }
-    if (features.treble > kSparkleThreshold && frame_ % kSparkleInterval == 0) {
+    barOscRising_ = rising;
+    prevBarOsc_ = barOsc;
+
+    // Continuous sparkle: rate follows trebRel, no threshold gate.
+    sparklePhase_ += dt * (0.4f + 1.6f * trebRel);
+    if (sparklePhase_ >= 1.0f) {
+        sparklePhase_ -= 1.0f;
         const auto [x, y] = overlayDropPosition(dropIndex_++, aspect);
-        queue(x, y, 0.03f, 0.1f * std::min(features.treble, 2.0f));
+        queue(x, y, 0.03f, 0.1f * trebRel);
     }
 }
 

@@ -3,6 +3,7 @@ package dev.geode.ui
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dev.geode.data.BackgroundPrefs
 import dev.geode.data.MilkTexture
 import dev.geode.data.Preset
 import dev.geode.data.PresetFolders
@@ -14,6 +15,7 @@ import dev.geode.data.VideoTemplate
 import dev.geode.di.PlayerSessionProvider
 import dev.geode.render.AdsrConfig
 import dev.geode.render.LfoConfig
+import dev.geode.render.UnderlayBlend
 import dev.geode.render.scene.CustomizeTab
 import dev.geode.render.scene.SceneParams
 import kotlinx.coroutines.flow.StateFlow
@@ -69,6 +71,27 @@ class VisualsViewModel
         val presetLocked: StateFlow<Boolean> get() = session.presetLocked
 
         val presetFolders: StateFlow<PresetFolders> get() = session.presetFolders
+
+        val backgroundPrefs: StateFlow<BackgroundPrefs> get() = session.backgroundPrefs
+
+        val backgroundPush: StateFlow<BackgroundPushState> get() = session.backgroundPush
+
+        fun pickBackgroundImage(uri: Uri) = session.pickBackgroundImage(uri)
+
+        fun clearBackgroundImage() = session.clearBackgroundImage()
+
+        fun setBackgroundBlend(blend: UnderlayBlend) = session.setBackgroundBlend(blend)
+
+        fun setBackgroundAmount(amount: Float) = session.setBackgroundAmount(amount)
+
+        fun setBackgroundBlurRadius(radius: Int) = session.setBackgroundBlurRadius(radius)
+
+        fun setBackgroundDim(dim: Float) = session.setBackgroundDim(dim)
+
+        fun setBackgroundRenderSize(
+            width: Int,
+            height: Int,
+        ) = session.setBackgroundRenderSize(width, height)
 
         fun toggleParamLock(label: String) = session.toggleParamLock(label)
 

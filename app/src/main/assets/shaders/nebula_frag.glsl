@@ -57,9 +57,16 @@ out vec4 fragColor;
 // shader brighter than NEB_EMIT_CEILING, whatever the music or the fingers do.
 // Louder music cannot brighten the frame past it - it can only reach it sooner.
 //
-// The one term with real transient energy, the beat shock, is a THIN expanding
-// shell: a ring on screen, never a full field, and it fades as it travels.
-// Nothing here changes large-area luminance in one frame.
+// The shell term is a THIN ring on screen, never a full field, and it now
+// breathes on the bar phase rather than launching outward from a hit - see
+// the motion note in main(). Nothing here changes large-area luminance in
+// one frame.
+//
+// motion: uBarOsc -> the breathing shell's radius (swells and eases once a
+// bar), uBassRel -> the shell's amplitude (visible only above the running
+// bass average). Geometry/emission elsewhere still reads uBassSmooth for
+// inflation/extinction and uTrebleSmooth for the veins, both already
+// slew-limited.
 
 // ---- march budget ---------------------------------------------------------
 
@@ -520,7 +527,7 @@ void main() {
     float mid = clamp(uMidSmooth, 0.0, 1.5);
     float treble = clamp(uTrebleSmooth, 0.0, 1.5);
     float energy = clamp(uEnergySmooth, 0.0, 1.5);
-    float beatEnv = clamp(uSpike, 0.0, 1.0);
+    float bassRel = clamp(uBassRel, 0.0, 2.0);
 
     float radius = NEB_RADIUS * (1.0 + NEB_BASS_INFLATE * bass);
     float extinction = NEB_EXTINCTION * (1.0 + NEB_BASS_EXTINCT * bass);
@@ -530,14 +537,14 @@ void main() {
     float extRatio = extinction / NEB_EXTINCTION;
     float glowGain = NEB_ENERGY_BASE + NEB_ENERGY_GAIN * energy;
 
-    // The beat shell. A DISCRETE event: uBeatPhase resets to 0 on a heard
-    // transient, so the shell is born at the core on the hit and its radius is
-    // the phase ramp. Its brightness rides the SQUARED beat envelope - the
-    // same gate the house beat-bump idiom uses - so the free-running phase
-    // clock cannot keep launching shells through silence. Fades with
-    // (1 - phase) so it dissipates rather than reaching the edge and stopping.
-    float shockAmp = beatEnv * beatEnv * clamp(uBeatResponse, 0.0, 2.0) * (1.0 - uBeatPhase);
-    float shockR = uBeatPhase * NEB_SHOCK_SPEED;
+    // motion: a slow BREATHING shell, never a launched front. uBarOsc (a
+    // continuous, phase-locked oscillator - 0.5 when the tempo is not
+    // locked) sets the radius, so it swells out and eases back once a bar
+    // instead of firing outward from a transient and fading; uBassRel gates
+    // the amplitude, so the shell is only visible while the low end sits
+    // above its own running average.
+    float shockAmp = clamp(bassRel - 1.0, 0.0, 1.0);
+    float shockR = mix(radius * 0.32, radius * 1.05, uBarOsc);
 
     // Ambient life. Both of these run at a constant rate off uTime, which is
     // already ShaderScene's speed-INTEGRATED clock - multiplying by uSpeed

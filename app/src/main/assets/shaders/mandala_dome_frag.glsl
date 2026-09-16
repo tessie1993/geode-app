@@ -129,14 +129,16 @@ vec3 dome(vec2 uv, vec2 centre, float r, float freq, float spin, float glow, flo
     return col;
 }
 
+// motion: uHarmony -> glow/split intensity (fold blend, replaces the dead beat*beatResponse term), uTrebRel -> edge sparkle; uBreath -> dome breathing (already smoothed by the lib)
 void main() {
     vec2 uv = view();
-    float beat = clamp(uSpike * uBeatResponse, 0.0, 1.0);
-    float breathe = 1.0 + 0.05 * clamp(uBassSmooth * uBeatResponse, 0.0, 1.5);
+    float glowDrive = clamp(uHarmony, 0.0, 1.0);
+    float sparkle = clamp(uTrebRel - 1.0, 0.0, 1.0);
+    float breathe = uBreath;
     // uTreble straight into a glow term was the flash: a cymbal took the whole hall
     // to white on one frame. Both halves are slew-limited now.
-    float glow = 0.5 * beat + 0.4 * uTrebleSmooth;
-    float split = 0.012 + 0.012 * beat;
+    float glow = 0.5 * glowDrive + 0.4 * uTrebleSmooth;
+    float split = 0.012 + 0.012 * sparkle;
     // Integrated spin: energy sets the rate, never the angle.
     float spin = uFlowPhase * 0.5 + uTime * 0.025;
     float finger = touchFalloff(uv, 0.5);
@@ -158,7 +160,7 @@ void main() {
     col = mix(col, centre, mask);
 
     // A halo under the sphere so it reads as lit from within.
-    col += pal(0.5) * 0.12 * exp(-max(length(uv) - 0.44, 0.0) * 6.0) * (0.6 + 0.4 * beat);
+    col += pal(0.5) * 0.12 * exp(-max(length(uv) - 0.44, 0.0) * 6.0) * (0.6 + 0.4 * glowDrive);
     // Motes drifting through the hall, each new spawn fading in over a second.
     col += pal(0.72) * fluidMotes(uv, 5.0, 0.16) * 0.2;
     fragColor = vec4(grade(col), 1.0);

@@ -1,18 +1,22 @@
 package dev.geode.ui
 
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 import dev.geode.export.ExportAspect
@@ -21,6 +25,8 @@ import dev.geode.export.ExportRange
 import dev.geode.export.TimeOfDayDrift
 import dev.geode.render.SceneFactory
 import dev.geode.render.VisualizerView
+import dev.geode.ui.glass.GlassButton
+import dev.geode.ui.glass.GlassDialog
 
 private data class PendingExport(
     val aspect: ExportAspect,
@@ -145,6 +151,12 @@ private val PendingLoopExportSaver =
         },
     )
 
+private val PendingStillAspectSaver =
+    listSaver<ExportAspect?, Any>(
+        save = { aspect -> if (aspect == null) emptyList() else listOf(aspect.width, aspect.height, aspect.bitRate) },
+        restore = { saved -> if (saved.isEmpty()) null else ExportAspect(saved[0] as Int, saved[1] as Int, saved[2] as Int) },
+    )
+
 /** Which sheet [ExportHost] is showing: the picker between the two kinds of export, or one of them. */
 private enum class ExportEntryMode { Menu, Standard, Loop }
 
@@ -155,10 +167,31 @@ fun ExportHost(
     onDismiss: () -> Unit,
 ) {
     val studioViewModel: StudioViewModel = geodeViewModel()
+    val context = LocalContext.current
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val viz by viewModel.vizState.collectAsStateWithLifecycle()
     val export by studioViewModel.exportState.collectAsStateWithLifecycle()
     val loop by studioViewModel.loopState.collectAsStateWithLifecycle()
+
+    // On API 33+ a render's progress notification (ExportService, foreground since it must
+    // survive the Activity going away) is silently suppressed for anyone who has never granted
+    // POST_NOTIFICATIONS — nothing else in the app asks for it unless audio capture is turned on.
+    // Ask once, right as the first render starts, with one rationale dialog first; the render
+    // proceeds either way, whether the permission is granted, denied, or never asked at all.
+    var notificationPermissionAsked by rememberSaveable { mutableStateOf(false) }
+    var notificationRationaleVisible by rememberSaveable { mutableStateOf(false) }
+    val notificationPermission =
+        rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
+    val requestNotificationPermissionOnce = {
+        val alreadyGranted =
+            Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+                ContextCompat.checkSelfPermission(context, android.Manifest.permission.POST_NOTIFICATIONS) ==
+                PackageManager.PERMISSION_GRANTED
+        if (!notificationPermissionAsked && !alreadyGranted) {
+            notificationPermissionAsked = true
+            notificationRationaleVisible = true
+        }
+    }
 
     var pendingExport by rememberSaveable(stateSaver = PendingExportSaver) {
         mutableStateOf<PendingExport?>(null)
@@ -167,6 +200,10 @@ fun ExportHost(
         mutableStateOf<PendingLoopExport?>(null)
     }
     var chosenMode by rememberSaveable { mutableStateOf<ExportEntryMode?>(null) }
+    val stillPhase by studioViewModel.stillState.collectAsStateWithLifecycle()
+    var pendingStillAspect by rememberSaveable(stateSaver = PendingStillAspectSaver) {
+        mutableStateOf<ExportAspect?>(null)
+    }
     // A render already under way (from before this dialog was last opened) reopens onto its own
     // progress instead of the picker, so leaving and coming back never hides a running export.
     val mode =
@@ -200,6 +237,29 @@ fun ExportHost(
                 )
             }
         }
+    val stillDestinationPicker =
+        rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("image/png")) { dest ->
+            val aspect = pendingStillAspect
+            pendingStillAspect = null
+            if (dest != null && aspect != null) {
+                studioViewModel.saveStillFrame(
+                    aspect,
+                    visualizerView.visualizerRenderer.exportSceneFactory(viz.sceneId),
+                    destination = dest,
+                )
+            }
+        }
+    val onSaveFrame: (ExportAspect) -> Unit = { aspect ->
+        // Scoped storage (Q+) can insert straight into Pictures/Geode; below it a still needs the
+        // same SAF folder-picker round trip the video path takes for the same reason — see
+        // SettingsDialog's onStartToDestination comment.
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.Q) {
+            pendingStillAspect = aspect
+            stillDestinationPicker.launch("geode_still_${System.currentTimeMillis()}.png")
+        } else {
+            studioViewModel.saveStillFrame(aspect, visualizerView.visualizerRenderer.exportSceneFactory(viz.sceneId))
+        }
+    }
     val loopDestinationPicker =
         rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("video/mp4")) { dest ->
             val req = pendingLoopExport
@@ -221,25 +281,27 @@ fun ExportHost(
     val takes by studioViewModel.takeState.collectAsStateWithLifecycle()
     when (mode) {
         ExportEntryMode.Menu ->
-            AlertDialog(
+            GlassDialog(
                 onDismissRequest = onDismiss,
-                title = { Text(stringResource(R.string.export_loop_menu_title)) },
-                text = { Text(stringResource(R.string.export_loop_menu_subtitle)) },
-                confirmButton = {
-                    TextButton(onClick = { chosenMode = ExportEntryMode.Standard }) {
-                        Text(stringResource(R.string.export_loop_menu_standard))
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = { chosenMode = ExportEntryMode.Loop }) {
-                        Text(stringResource(R.string.export_loop_menu_loop))
-                    }
+                title = stringResource(R.string.export_loop_menu_title),
+                text = stringResource(R.string.export_loop_menu_subtitle),
+                actions = {
+                    GlassButton(
+                        text = stringResource(R.string.export_loop_menu_loop),
+                        onClick = { chosenMode = ExportEntryMode.Loop },
+                    )
+                    GlassButton(
+                        text = stringResource(R.string.export_loop_menu_standard),
+                        onClick = { chosenMode = ExportEntryMode.Standard },
+                        modifier = Modifier.padding(start = 8.dp),
+                    )
                 },
             )
         ExportEntryMode.Loop ->
             LoopRenderSheet(
                 state = loop,
                 onStart = { req ->
+                    requestNotificationPermissionOnce()
                     if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.Q) {
                         pendingLoopExport = PendingLoopExport.from(req)
                         loopDestinationPicker.launch("geode_loop_${System.currentTimeMillis()}.mp4")
@@ -257,6 +319,7 @@ fun ExportHost(
                     }
                 },
                 onStartToDestination = { req ->
+                    requestNotificationPermissionOnce()
                     pendingLoopExport = PendingLoopExport.from(req)
                     loopDestinationPicker.launch("geode_loop_${System.currentTimeMillis()}.mp4")
                 },
@@ -276,6 +339,7 @@ fun ExportHost(
                 bpm = viz.bpm,
                 trackDurationMs = state.durationMs,
                 onStart = { aspect, fps, loopSafe, range, codec ->
+                    requestNotificationPermissionOnce()
                     // Saving into the Videos library without asking is a scoped-storage privilege,
                     // and scoped storage starts at Q. Below it the same insert needs
                     // WRITE_EXTERNAL_STORAGE - a permission this app does not ask for and should not
@@ -307,6 +371,7 @@ fun ExportHost(
                     }
                 },
                 onStartToDestination = { aspect, fps, loopSafe, range, codec ->
+                    requestNotificationPermissionOnce()
                     pendingExport =
                         PendingExport(
                             aspect,
@@ -322,8 +387,33 @@ fun ExportHost(
                 onCancel = studioViewModel::cancelExport,
                 onDismiss = {
                     studioViewModel.resetExportState()
+                    studioViewModel.resetStillState()
                     onDismiss()
                 },
+                stillPhase = stillPhase,
+                onSaveFrame = onSaveFrame,
             )
+    }
+
+    if (notificationRationaleVisible) {
+        GlassDialog(
+            onDismissRequest = { notificationRationaleVisible = false },
+            title = stringResource(R.string.export_notification_permission_title),
+            text = stringResource(R.string.export_notification_permission_body),
+            actions = {
+                GlassButton(
+                    text = stringResource(R.string.export_notification_permission_skip),
+                    onClick = { notificationRationaleVisible = false },
+                )
+                GlassButton(
+                    text = stringResource(R.string.action_ok),
+                    onClick = {
+                        notificationRationaleVisible = false
+                        notificationPermission.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+                    },
+                    modifier = Modifier.padding(start = 8.dp),
+                )
+            },
+        )
     }
 }

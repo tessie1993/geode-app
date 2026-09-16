@@ -25,29 +25,52 @@ void Emitters::applyParams(const SceneParams& p) {
     bassPump = p.fluidBassPump;
     sparkle = p.fluidSparkle;
     splatRadius = std::clamp(p.fluidSplatRadius, 0.02f, 0.4f);
+    // radiusPulse stays wired for preset decode/UI but no longer drives
+    // anything - see the comment on the field in FluidEmitters.hpp.
     radiusPulse = std::clamp(p.fluidRadiusPulse, 0.0f, 1.0f);
     catchSuction = std::clamp(p.fluidCatchPull, 0.0f, 3.0f);
-    beatResponse = p.beatResponse;
 }
 
-void Emitters::tick(const GeodeFeatureFrame& f, float dt, float aspect, float baseHue, float hueSpan, std::vector<Splat>& out) {
+void Emitters::tick(const GeodeFeatureFrame& f, float dt, float aspect, float baseHue, float hueSpan, std::vector<Splat>& out,
+                    const MotionField::State& motion) {
     out.clear();
-    beatEnvRaw_ = std::max(live::hit(f), beatEnvRaw_ * std::exp(-dt / 0.3f));
-    beatEnv_ = beatEnvRaw_ * std::clamp(beatResponse, 0.0f, 2.0f);
     const float bassTarget = std::clamp(f.bass * 1.2f, 0.0f, 1.0f);
     bassEnv_ += (bassTarget - bassEnv_) * std::min(bassTarget > bassEnv_ ? dt / 0.03f : dt / 0.4f, 1.0f);
     trebleMean_ += (f.treble - trebleMean_) * std::min(dt / 0.32f, 1.0f);
     palettePhase_ = std::fmod(palettePhase_ + dt * paletteCycleSpeed * 0.05f, 1.0f);
     suctionPhase_ = std::fmod(suctionPhase_ + dt, kPhaseWrapSeconds);
 
-    const float radius = splatRadius * std::min(1.0f + radiusPulse * beatEnv_, kMaxRadiusSwell);
-    const float speed = kBaseSpeed * forceScale * (0.4f + 1.6f * f.bass) * (0.3f + 0.7f * beatEnv_);
-    const bool beatEdge = hitEdge_.step(f);
+    const float bassRel = std::clamp(motion.bassRel, 0.0f, 2.0f);
+    const float energyRel = std::clamp(motion.energyRel, 0.0f, 2.0f);
+    const float trebRel = std::clamp(motion.trebRel, 0.0f, 2.0f);
 
-    if (beatEdge && beatSplats > 0 && beatResponse > kBeatResponseGate) beatSplatsFor(out, f, aspect, baseHue, hueSpan, radius, speed);
+    const float radius = splatRadius;
+    // motion: uEnergyRel -> splat force.
+    const float speed = kBaseSpeed * forceScale * (0.7f + 0.3f * energyRel);
+
+    // motion: uBassRel -> emission rate (0.5-2 Hz per emitter), uBarPhase ->
+    // orbit angle (see orbitSplat). Each of `beatSplats` emitters fires
+    // independently and continuously, instead of all together on a beat edge.
+    const int n = std::clamp(beatSplats, 1, kMaxOrbitEmitters);
+    const float rateHz = 0.5f + 1.5f * std::clamp(bassRel * 0.5f, 0.0f, 1.0f);
+    for (int i = 0; i < n; ++i) {
+        float& phase = emitPhase_[static_cast<size_t>(i)];
+        phase += rateHz * dt;
+        if (phase >= 1.0f) {
+            phase -= 1.0f;
+            orbitSplat(out, f, i, n, aspect, baseHue, hueSpan, radius, speed, energyRel);
+        }
+    }
     stirrerSplats(out, f, dt, aspect, baseHue, hueSpan, radius);
     suctionSplats(out, radius);
-    if (sparkle && f.treble > trebleMean_ * 1.6f && f.treble > 0.08f) sparkleSplats(out, aspect, baseHue, hueSpan, radius);
+    // motion: uTrebRel -> continuous fine-emitter rate, no threshold gate.
+    if (sparkle) {
+        fineEmitPhase_ += dt * (0.6f + 1.8f * trebRel);
+        if (fineEmitPhase_ >= 1.0f) {
+            fineEmitPhase_ -= 1.0f;
+            sparkleSplats(out, aspect, baseHue, hueSpan, radius);
+        }
+    }
     if (bassPump && bassEnv_ > 0.15f) pumpSplats(out, baseHue, hueSpan, radius);
     if (out.size() > static_cast<size_t>(kMaxSplatsPerFrame)) out.resize(static_cast<size_t>(kMaxSplatsPerFrame));
 }
@@ -99,54 +122,55 @@ void Emitters::stirrerSplats(std::vector<Splat>& out, const GeodeFeatureFrame& f
     }
 }
 
-void Emitters::beatSplatsFor(std::vector<Splat>& out, const GeodeFeatureFrame& f, float aspect, float baseHue, float hueSpan, float radius,
-                             float speed) {
-    const int n = std::clamp(beatSplats, 1, 8);
-    const float dyeGain = 1.5f * (0.15f + 0.85f * beatEnv_);
-    for (int i = 0; i < n; ++i) {
-        const float frac = static_cast<float>(i) / static_cast<float>(n);
-        hue::hsv(std::fmod(baseHue + palettePhase_ + frac * hueSpan, 1.0f), 0.9f, 1.0f, rgb_.data());
-        const float cr = rgb_[0];
-        const float cg = rgb_[1];
-        const float cb = rgb_[2];
-        anchor(i, aspect);
-        const float ax = anchorX_;
-        const float ay = anchorY_;
-        switch (beatPattern) {
-            case kPatternCenter: {
-                const float a = frac * 2.0f * kPi + palettePhase_ * 6.0f;
-                out.push_back(capsule(ax, ay, ax + std::cos(a) * 0.06f, ay + std::sin(a) * 0.06f, radius, std::cos(a) * speed,
-                                      std::sin(a) * speed, cr, cg, cb, dyeGain));
-                break;
-            }
-            case kPatternRandom: {
-                const float x = ax + (nextFloat() * 2.0f - 1.0f) * 0.25f;
-                const float y = ay + (nextFloat() * 2.0f - 1.0f) * 0.25f;
-                const float a = nextFloat() * 2.0f * kPi;
-                out.push_back(capsule(x, y, x + std::cos(a) * 0.05f, y + std::sin(a) * 0.05f, radius, std::cos(a) * speed,
-                                      std::sin(a) * speed, cr, cg, cb, dyeGain));
-                break;
-            }
-            case kPatternSpectrumArc: {
-                const int bandIdx = std::clamp(static_cast<int>(frac * (GEODE_BAND_COUNT - 1)), 0, GEODE_BAND_COUNT - 1);
-                const float bandE = std::clamp(f.bands[bandIdx], 0.0f, 1.5f);
-                const float x = (frac * 2.0f - 1.0f) * 0.7f * aspect;
-                const float y = std::clamp(ay * 0.35f - 0.6f, -0.9f, -0.35f);
-                const float v = speed * (0.4f + 1.6f * bandE) / std::max(0.4f + 1.6f * f.bass, 0.4f);
-                out.push_back(capsule(x, y, x, y + 0.06f, radius, 0.0f, v, cr, cg, cb, dyeGain * (0.4f + bandE)));
-                break;
-            }
-            default: {
-                const float a = frac * 2.0f * kPi + palettePhase_ * 6.0f;
-                const float ringR = 0.16f;
-                const float x = ax + std::cos(a) * ringR;
-                const float y = ay + std::sin(a) * ringR;
-                const float tx = -std::sin(a);
-                const float ty = std::cos(a);
-                out.push_back(capsule(x - tx * 0.04f, y - ty * 0.04f, x + tx * 0.04f, y + ty * 0.04f, radius, tx * speed, ty * speed, cr,
-                                      cg, cb, dyeGain));
-                break;
-            }
+void Emitters::orbitSplat(std::vector<Splat>& out, const GeodeFeatureFrame& f, int i, int n, float aspect, float baseHue, float hueSpan,
+                          float radius, float speed, float energyRel) {
+    const float frac = static_cast<float>(i) / static_cast<float>(n);
+    // motion: uBarPhase drives the orbit angle continuously (replacing the
+    // old trigger-driven palette-phase sweep); uEnergyRel drives dye intensity.
+    const float orbitAngle = f.barPhase * 2.0f * kPi;
+    const float dyeGain = 0.6f + 0.4f * energyRel;
+    hue::hsv(std::fmod(baseHue + palettePhase_ + frac * hueSpan, 1.0f), 0.9f, 1.0f, rgb_.data());
+    const float cr = rgb_[0];
+    const float cg = rgb_[1];
+    const float cb = rgb_[2];
+    anchor(i, aspect);
+    const float ax = anchorX_;
+    const float ay = anchorY_;
+    switch (beatPattern) {
+        case kPatternCenter: {
+            const float a = frac * 2.0f * kPi + orbitAngle;
+            out.push_back(capsule(ax, ay, ax + std::cos(a) * 0.06f, ay + std::sin(a) * 0.06f, radius, std::cos(a) * speed,
+                                  std::sin(a) * speed, cr, cg, cb, dyeGain));
+            break;
+        }
+        case kPatternRandom: {
+            const float x = ax + (nextFloat() * 2.0f - 1.0f) * 0.25f;
+            const float y = ay + (nextFloat() * 2.0f - 1.0f) * 0.25f;
+            const float a = orbitAngle + frac * 2.0f * kPi;
+            out.push_back(capsule(x, y, x + std::cos(a) * 0.05f, y + std::sin(a) * 0.05f, radius, std::cos(a) * speed,
+                                  std::sin(a) * speed, cr, cg, cb, dyeGain));
+            break;
+        }
+        case kPatternSpectrumArc: {
+            const int bandIdx = std::clamp(static_cast<int>(frac * (GEODE_BAND_COUNT - 1)), 0, GEODE_BAND_COUNT - 1);
+            const float bandE = std::clamp(f.bands[bandIdx], 0.0f, 1.5f);
+            const float x = (frac * 2.0f - 1.0f) * 0.7f * aspect;
+            const float y = std::clamp(ay * 0.35f - 0.6f, -0.9f, -0.35f);
+            const float v = speed * (0.4f + 1.6f * bandE) / std::max(0.4f + 1.6f * f.bass, 0.4f);
+            out.push_back(capsule(x, y, x, y + 0.06f, radius, 0.0f, v, cr, cg, cb, 0.4f + bandE));
+            break;
+        }
+        default: {
+            // motion: uEnergyRel -> orbit radius.
+            const float ringR = 0.16f * (0.85f + 0.3f * energyRel);
+            const float a = frac * 2.0f * kPi + orbitAngle;
+            const float x = ax + std::cos(a) * ringR;
+            const float y = ay + std::sin(a) * ringR;
+            const float tx = -std::sin(a);
+            const float ty = std::cos(a);
+            out.push_back(capsule(x - tx * 0.04f, y - ty * 0.04f, x + tx * 0.04f, y + ty * 0.04f, radius, tx * speed, ty * speed, cr,
+                                  cg, cb, dyeGain));
+            break;
         }
     }
 }

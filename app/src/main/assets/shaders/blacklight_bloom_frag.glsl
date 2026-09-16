@@ -11,6 +11,8 @@ out vec4 fragColor;
 //#include lib_scene_grade
 //#include lib_touch
 
+// motion: uKeyStrength -> kaleidoscope fold count + bubble film hue anchor (uKeyHue), uTrebRel -> floater rim glow
+
 // Blacklight Bloom: a dense mirrored tapestry in violet and magenta, the kind
 // that looks painted in UV ink - every edge outlined in cyan and green because
 // the whole thing is drawn three times a hair apart. Flat spiral discs and
@@ -24,10 +26,12 @@ out vec4 fragColor;
 // without a raymarch: this stays off MARCHED_SCENES.
 //
 // Audio: uSwell breathes the fold scale, uBassSmooth the ink weight,
-// uTrebleSmooth the outline separation. A spike picks a new fold count
-// (uFormPhase), re-seeds which floaters are present (uSpawnSeed) and re-aims
-// the drift (uMoveDir). No term steps, and nothing keys brightness off a raw
-// envelope.
+// uTrebleSmooth the outline separation. uKeyStrength (how confident the key
+// detector is right now) eases the fold count between two plateaus and the
+// bubble's thin-film colour anchors to uKeyHue; the floaters are permanent
+// residents that breathe in and out on the shared bar oscillator rather than
+// being re-rolled. No term steps, and nothing keys brightness off a raw
+// envelope or a beat.
 
 #define BB_TAU 6.2831853
 #define BB_ITERS 6
@@ -103,9 +107,10 @@ void main() {
     float bass = clamp(uBassSmooth, 0.0, 1.5);
     float treb = clamp(uTrebleSmooth, 0.0, 1.5);
     float swell = clamp(uSwell, 0.0, 1.5);
-    // Kaleidoscope arms: the user's when they have set one, otherwise the
-    // plateau the last spike chose. Held, not stepped per beat.
-    float folds = (uKaleido > 0.5 && uSymmetry >= 2.0) ? uSymmetry : 6.0 + 2.0 * floor(uFormPhase * 3.0);
+    // Kaleidoscope arms: the user's when they have set one, otherwise eased
+    // continuously between 6 and 12 by how confident the key detector is
+    // right now, never stepped by a beat.
+    float folds = (uKaleido > 0.5 && uSymmetry >= 2.0) ? uSymmetry : mix(6.0, 12.0, clamp(uKeyStrength, 0.0, 1.0));
     // The fold scale is what decides how deep the repeat reads. Kept inside
     // 1.28..1.42: past that the iteration outruns the trap and the tapestry
     // turns to noise.
@@ -123,17 +128,19 @@ void main() {
 
     // ---- floaters -----------------------------------------------------------
     //
-    // Spiral discs and wire tetrahedra in front of the tapestry. Which ones
-    // exist is re-rolled on a spike, and each fades in over its own second.
+    // Spiral discs and wire tetrahedra in front of the tapestry. All six are
+    // permanent residents (a fixed per-index seed, never re-rolled); each
+    // breathes in and out on the shared bar oscillator, its own phase offset
+    // by its seed, so they fade in turn rather than snapping into existence.
     for (int i = 0; i < 6; i++) {
         float fi = float(i);
-        float seed = hash11(fi * 5.17 + floor(uSpawnSeed * 53.0));
+        float seed = hash11(fi * 5.17);
         float depth = 0.55 + seed * 0.8;
         vec2 c = uv - (vec2(hash11(seed * 3.1), hash11(seed * 7.9)) * 2.2 - 1.1);
         c -= flowOffset(0.18) * (0.5 + seed);
         c += 0.06 * vec2(sin(uTime * (0.13 + seed * 0.09)), cos(uTime * (0.11 + seed * 0.07)));
         c = rot(c, uFlowPhase * (0.4 + seed * 0.5)) / depth;
-        float show = spawnGrow(0.7 + seed * 0.8);
+        float show = mix(0.55, 1.0, 0.5 + 0.5 * sin(6.2831853 * fract(uBarOsc + seed)));
         vec3 tint = mix(pal(0.44), pal(0.92), seed);
         if (seed < 0.5) {
             float s = spiralDisc(c, 0.22, 3.0 + floor(seed * 6.0));
@@ -158,13 +165,15 @@ void main() {
         vec2 bent = kaleido(uv + n.xy * (0.30 + 0.10 * bass) * (1.0 - n.z), folds);
         bent = fluidWarp(bent, 1.4, 0.08) + flowOffset(0.22);
         vec3 inside = ink(bent, scale, 0.42, split * 1.8);
-        // Thin-film colour: the interference band walks with the view angle,
-        // which is what makes a bubble iridescent rather than merely shiny.
-        vec3 film = pal(fract(0.2 + n.z * 0.8 + uFormPhase * 0.3));
+        // Thin-film colour: the interference band walks with the view angle
+        // AND is anchored to the track's detected key hue, which is what
+        // makes a bubble iridescent rather than merely shiny.
+        vec3 film = pal(fract(0.2 + n.z * 0.8 + uKeyHue * 0.3));
         inside = inside * 1.15 + film * 0.10 * (1.0 - n.z);
-        // Rim and highlight.
+        // Rim and highlight. uTrebRel (treble relative to its running
+        // average) brightens the rim continuously with a bright passage.
         float rim = smoothstep(0.86, 1.0, rr / R);
-        inside += pal(0.50) * rim * (0.30 + 0.35 * uSpike);
+        inside += pal(0.50) * rim * (0.30 + 0.35 * clamp(uTrebRel - 1.0, 0.0, 1.0));
         inside += vec3(0.9, 0.95, 1.0) * pow(max(dot(n, normalize(vec3(-0.4, 0.6, 0.7))), 0.0), 30.0) * 0.30;
         col = mix(col, inside, smoothstep(1.0, 0.97, rr / R));
     }

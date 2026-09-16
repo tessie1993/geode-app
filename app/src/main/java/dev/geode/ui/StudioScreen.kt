@@ -1,5 +1,6 @@
 package dev.geode.ui
 
+import android.content.ClipData
 import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -63,7 +64,8 @@ fun StudioRoute(viewModel: StudioViewModel = geodeViewModel()) {
         onDescribe = viewModel::describeStudioClip,
         onRename = viewModel::renameStudioClip,
         onDelete = viewModel::deleteStudioClip,
-        onExport = viewModel::startStudioExport,
+        onExport = { clip, edit -> viewModel.startStudioExport(clip, edit) },
+        onExportToDestination = { clip, edit, destination -> viewModel.startStudioExport(clip, edit, destination) },
         onCancelExport = viewModel::cancelStudioExport,
         onClearResult = viewModel::clearStudioResult,
     )
@@ -78,6 +80,7 @@ internal fun StudioScreen(
     onRename: (String, String, (Boolean) -> Unit) -> Unit,
     onDelete: (String, (Boolean) -> Unit) -> Unit,
     onExport: (StudioClip, ClipEdit) -> Unit,
+    onExportToDestination: (StudioClip, ClipEdit, Uri) -> Unit,
     onCancelExport: () -> Unit,
     onClearResult: () -> Unit,
 ) {
@@ -136,6 +139,7 @@ internal fun StudioScreen(
                 clip = clip,
                 studio = state,
                 onExport = onExport,
+                onExportToDestination = onExportToDestination,
                 onCancelExport = onCancelExport,
                 onClearResult = onClearResult,
                 onClose = {
@@ -379,6 +383,7 @@ private fun ClipEditor(
     clip: StudioClip,
     studio: StudioUiState,
     onExport: (StudioClip, ClipEdit) -> Unit,
+    onExportToDestination: (StudioClip, ClipEdit, Uri) -> Unit,
     onCancelExport: () -> Unit,
     onClearResult: () -> Unit,
     onClose: () -> Unit,
@@ -386,6 +391,12 @@ private fun ClipEditor(
     var edit by remember(clip.uri) { mutableStateOf(ClipEdit()) }
     val duration = clip.durationMs.coerceAtLeast(1L)
     val dismiss = rememberPredictiveDismiss(onDismiss = onClose)
+    // Mirrors ExportHost's destination picker: below API 29 StudioExporter.publish cannot insert
+    // into MediaStore, so the render button forces this picker there instead of failing silently.
+    val destinationPicker =
+        rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("video/mp4")) { uri ->
+            if (uri != null) onExportToDestination(clip, edit, uri)
+        }
 
     LazyColumn(
         Modifier.fillMaxSize().dismissTransform(dismiss).padding(horizontal = 16.dp),
@@ -410,7 +421,16 @@ private fun ClipEditor(
                 phase = studio.phase,
                 canExport = edit.trimmedMs(duration) > 0,
                 atDefaults = edit.isIdentity(duration),
-                onExport = { onExport(clip, edit) },
+                onExport = {
+                    if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.Q) {
+                        destinationPicker.launch("geode_studio_${System.currentTimeMillis()}.mp4")
+                    } else {
+                        onExport(clip, edit)
+                    }
+                },
+                onExportToDestination = {
+                    destinationPicker.launch("geode_studio_${System.currentTimeMillis()}.mp4")
+                },
                 onCancelExport = onCancelExport,
                 onClearResult = onClearResult,
             )
@@ -662,6 +682,7 @@ private fun ClipRenderSection(
     canExport: Boolean,
     atDefaults: Boolean,
     onExport: () -> Unit,
+    onExportToDestination: () -> Unit,
     onCancelExport: () -> Unit,
     onClearResult: () -> Unit,
 ) {
@@ -675,6 +696,7 @@ private fun ClipRenderSection(
                     canExport = canExport,
                     atDefaults = atDefaults,
                     onExport = onExport,
+                    onExportToDestination = onExportToDestination,
                 )
         }
     }
@@ -703,10 +725,13 @@ private fun ClipEditorDone(
 ) {
     val context = LocalContext.current
     val chooserTitle = stringResource(R.string.studio_share_chooser)
+    // No clip title reaches this composable, so the rendered file's own name stands in for
+    // EXTRA_TITLE/SUBJECT, same as the export dialog's share button.
+    val resultName = resultUri.lastPathSegment?.substringAfterLast('/')
     Text(stringResource(R.string.studio_saved), style = MaterialTheme.typography.bodyMedium)
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         CrystalButton(
-            onClick = { context.shareVideo(resultUri, chooserTitle) },
+            onClick = { context.shareVideo(resultUri, chooserTitle, title = resultName, subject = resultName) },
         ) { Text(stringResource(R.string.studio_send_ellipsis)) }
         CrystalButton(
             filled = false,
@@ -727,6 +752,7 @@ private fun ClipEditorIdle(
     canExport: Boolean,
     atDefaults: Boolean,
     onExport: () -> Unit,
+    onExportToDestination: () -> Unit,
 ) {
     message?.let {
         Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
@@ -741,6 +767,9 @@ private fun ClipEditorIdle(
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         CrystalButton(enabled = canExport, onClick = onExport) {
             Text(stringResource(R.string.studio_render))
+        }
+        TextButton(enabled = canExport, onClick = onExportToDestination) {
+            Text(stringResource(R.string.export_render_to_folder))
         }
     }
     Text(
@@ -820,15 +849,26 @@ private fun StudioChip(
 
 private fun clock(ms: Long): String = "%d:%02d".format(ms / 60_000, (ms / 1000) % 60)
 
-private fun android.content.Context.shareVideo(
+// internal (not private) so the export dialog (SettingsDialog.kt, same package) can share this
+// one implementation instead of building its own SEND intent.
+internal fun android.content.Context.shareVideo(
     uri: Uri,
     chooserTitle: String,
+    title: String? = null,
+    subject: String? = null,
 ) {
     val send =
         Intent(Intent.ACTION_SEND)
             .setType("video/mp4")
             .putExtra(Intent.EXTRA_STREAM, uri)
             .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            .apply {
+                // ClipData mirrors EXTRA_STREAM so share targets that read ClipData rather than
+                // the intent extra (most do, for a preview/thumbnail) still see the video.
+                clipData = ClipData.newUri(contentResolver, title ?: chooserTitle, uri)
+                if (title != null) putExtra(Intent.EXTRA_TITLE, title)
+                if (subject != null) putExtra(Intent.EXTRA_SUBJECT, subject)
+            }
     runCatching { startActivity(Intent.createChooser(send, chooserTitle)) }
 }
 

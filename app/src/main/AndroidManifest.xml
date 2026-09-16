@@ -73,6 +73,15 @@
     <uses-feature
         android:name="android.software.live_wallpaper"
         android:required="false" />
+    <!-- Picture-in-picture and the screensaver (Daydream) are both optional the same way: the
+         visualizer works fullscreen and as a wallpaper with neither, on a device or launcher
+         that offers no PiP window and no dock/desktop-dream trigger. -->
+    <uses-feature
+        android:name="android.software.picture-in-picture"
+        android:required="false" />
+    <uses-feature
+        android:name="android.software.daydream"
+        android:required="false" />
 
     <!-- "Now playing in other apps" labels the capture with the app it is hearing.
          Android 11's package visibility filtering hides other packages from
@@ -108,7 +117,8 @@
             android:name=".ui.MainActivity"
             android:exported="true"
             android:theme="@style/Theme.Geode.Splash"
-            android:configChanges="orientation|screenSize|keyboardHidden">
+            android:supportsPictureInPicture="true"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -154,6 +164,25 @@
             <meta-data
                 android:name="android.service.wallpaper"
                 android:resource="@xml/wallpaper" />
+        </service>
+
+        <!--
+          The visualizer as a screensaver (Daydream): the same renderer again, started by the
+          system while the device is docked or charging and idle rather than by the launcher.
+          Exported and permission-gated the same way the notification listener below is — the
+          only caller is meant to be the system, and BIND_DREAM_SERVICE is what enforces that.
+        -->
+        <service
+            android:name=".wallpaper.VisualizerDreamService"
+            android:exported="true"
+            android:label="@string/dream_label"
+            android:permission="android.permission.BIND_DREAM_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.dreams.DreamService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.service.dream"
+                android:resource="@xml/dream_info" />
         </service>
 
         <!--

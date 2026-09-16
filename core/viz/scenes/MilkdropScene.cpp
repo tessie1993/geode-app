@@ -7,7 +7,6 @@
 
 #include "util/Log.hpp"
 #include "viz/CompositeGrade.hpp"
-#include "viz/LiveSignal.hpp"
 #include "viz/Quad.hpp"
 
 namespace geode::viz {
@@ -166,7 +165,6 @@ void MilkdropScene::update(const GeodeFeatureFrame& features, float dt) {
     rotationAngle_ = std::fmod(rotationAngle_ + p.rotation * dt, kTwoPi);
     zoomPhase_ = p.endlessZoom ? std::fmod(zoomPhase_ + p.endlessZoomSpeed * dt, 1.0f) : 0.0f;
     if (p.colorCycle) cyclePhase_ = std::fmod(cyclePhase_ + p.cycleSpeed * dt, 1.0f);
-    beatPulse_ = std::max(std::max(live::hit(features), beatPulse_ - dt * 3.0f), 0.0f);
     if (!engine_) return;
     if (pcmCount_ > 0) {
         const int n = std::min(pcmCount_, kEnginePcmSamples);
@@ -250,7 +248,8 @@ void MilkdropScene::draw(float timeSeconds) {
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, frame_.tex());
     glUniform1i(postLocs_.loc("uTex"), 0);
-    set1f("uZoom", p.zoom * (1.0f + beatPulse_ * p.beatResponse * 0.08f));
+    // Wave three: no more beat-triggered zoom bump - projectM's own preset motion carries this.
+    set1f("uZoom", p.zoom);
     set1f("uRotation", rotationAngle_);
     set1f("uZoomPhase", zoomPhase_);
     set1f("uMirrorX", p.mirror ? 1.0f : 0.0f);

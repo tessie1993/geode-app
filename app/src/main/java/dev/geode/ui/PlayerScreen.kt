@@ -1,11 +1,9 @@
 package dev.geode.ui
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -17,11 +15,12 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.Cast
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Repeat
+import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -32,17 +31,24 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.Player
 import dev.geode.R
-import dev.geode.ui.theme.StoneIcon
-import dev.geode.ui.theme.StoneIconArt
+import dev.geode.ui.glass.GlassBubbleButton
+import dev.geode.ui.glass.GlassButton
+import dev.geode.ui.glass.GlassIcons
+import dev.geode.ui.glass.GlassListRow
+import dev.geode.ui.glass.GlassPalette
+import dev.geode.ui.glass.GlassShapes
+import dev.geode.ui.glass.GlassTopBar
+import dev.geode.ui.glass.GlassTransportBar
+import dev.geode.ui.glass.floatOnWater
+import dev.geode.ui.glass.glassSurface
+import dev.geode.ui.glass.glassTouch
 import kotlinx.coroutines.delay
 
 @Composable
@@ -65,6 +71,7 @@ fun PlayerScreen(
     val sleepRemainingMs by viewModel.sleepTimerRemainingMs.collectAsStateWithLifecycle()
     val canShuffle = remember(tick) { viewModel.recentlyPlayed().isNotEmpty() }
     var showQueue by rememberSaveable { mutableStateOf(true) }
+    var showQueuePanel by rememberSaveable { mutableStateOf(false) }
     val upNext = remember(queue) { queue.tracks.drop(queue.index + 1).take(3) }
 
     LazyColumn(
@@ -75,16 +82,11 @@ fun PlayerScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         item {
-            Row(
-                Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column(Modifier.weight(1f)) {
-                    CrystalOverline(stringResource(R.string.app_name))
-                    GlowTitle(stringResource(R.string.nav_player))
-                }
-                IconButton(onClick = onOpenSearch) { StoneIconArt(StoneIcon.SEARCH, stringResource(R.string.action_search)) }
-            }
+            GlassTopBar(
+                title = stringResource(R.string.app_name),
+                onClose = onOpenLibrary,
+                onMenu = onOpenSearch,
+            )
         }
 
         item {
@@ -103,7 +105,7 @@ fun PlayerScreen(
         }
 
         item {
-            TransportCard(
+            TransportSection(
                 viewModel = viewModel,
                 state = state,
                 waveform = waveform,
@@ -112,6 +114,8 @@ fun PlayerScreen(
                 queueSize = queue.tracks.size,
                 queueOpen = showQueue,
                 onToggleQueue = { showQueue = !showQueue },
+                onOpenQueuePanel = { showQueuePanel = true },
+                onOpenLibrary = onOpenLibrary,
                 modifier = Modifier.padding(horizontal = 16.dp),
             )
         }
@@ -120,7 +124,7 @@ fun PlayerScreen(
             LiveSpectrum(
                 viewModel,
                 live = state.isPlaying || mic.active || external.active,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).height(44.dp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
             )
         }
 
@@ -137,12 +141,24 @@ fun PlayerScreen(
         item {
             QuickActions(
                 viewModel = viewModel,
+                state = state,
                 micActive = mic.active,
                 external = external,
                 sleepRunning = sleepRemainingMs != null,
                 canShuffle = canShuffle,
             )
         }
+    }
+
+    if (showQueuePanel) {
+        QueuePanel(
+            queue = queue,
+            favourites = favourites,
+            onPlayIndex = viewModel::playQueueIndex,
+            onMoveUp = { viewModel.moveQueueItem(it, it - 1) },
+            onRemove = viewModel::removeQueueItem,
+            onDismissRequest = { showQueuePanel = false },
+        )
     }
 }
 
@@ -167,106 +183,102 @@ private fun PlayerHero(
     Column(
         modifier
             .fillMaxWidth()
-            .crystalPanel(
-                0.42f,
-                MaterialTheme.colorScheme.surfaceVariant,
-                MaterialTheme.colorScheme.primary,
-                corner = 24.dp,
-                glowStrength = if (state.isPlaying || foreign || micActive) 1.2f else 0.7f,
-            ).clickable(enabled = hasSource, onClick = onExpand)
-            .padding(14.dp),
+            .glassTouch(enabled = hasSource, onClick = onExpand),
+        horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        TrackArtwork(
-            if (foreign || micActive) null else uri,
-            Modifier.fillMaxWidth().aspectRatio(1f),
-            corner = 18.dp,
+        Box(
+            Modifier
+                .size(HERO_BUBBLE_SIZE)
+                .glassSurface(
+                    shape = GlassShapes.bubble,
+                    glow = if (state.isPlaying || foreign || micActive) 0.6f else 0.25f,
+                ).floatOnWater(strength = 1.3f),
+        ) {
+            TrackArtwork(
+                if (foreign || micActive) null else uri,
+                Modifier.matchParentSize().padding(14.dp),
+                corner = HERO_ARTWORK_CORNER,
+            )
+        }
+        Text(
+            when {
+                foreign -> external.nowPlaying?.appLabel ?: stringResource(R.string.source_other_apps)
+                micActive -> stringResource(R.string.source_live_input)
+                state.isPlaying -> stringResource(R.string.state_now_playing)
+                state.hasMedia -> stringResource(R.string.state_paused)
+                else -> stringResource(R.string.state_nothing_playing)
+            },
+            style = MaterialTheme.typography.labelMedium,
+            color = GlassPalette.textSecondary,
+            maxLines = 1,
         )
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                CrystalOverline(
-                    when {
-                        foreign -> external.nowPlaying?.appLabel ?: stringResource(R.string.source_other_apps)
-                        micActive -> stringResource(R.string.source_live_input)
-                        state.isPlaying -> stringResource(R.string.state_now_playing)
-                        state.hasMedia -> stringResource(R.string.state_paused)
-                        else -> stringResource(R.string.state_nothing_playing)
-                    },
-                )
-                Text(
-                    when {
-                        foreign -> foreignTrack?.title ?: stringResource(R.string.title_whatever_is_playing)
-                        micActive -> stringResource(R.string.title_the_room)
-                        state.hasMedia -> state.title ?: stringResource(R.string.title_untitled)
-                        else -> stringResource(R.string.title_pick_something)
-                    },
-                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Text(
-                    when {
-                        external.refusedByApp ->
-                            stringResource(
-                                R.string.subtitle_capture_refused,
-                                external.refusingApp
-                                    ?: stringResource(R.string.subtitle_capture_refused_unknown_app),
-                            )
-                        foreign ->
-                            foreignTrack?.artist?.ifBlank { null }
-                                ?: stringResource(R.string.subtitle_captured_from_another_app)
-                        micActive -> stringResource(R.string.subtitle_microphone_hears)
-                        state.hasMedia ->
-                            state.artist?.takeIf { it.isNotBlank() }
-                                ?: stringResource(R.string.subtitle_unknown_artist)
-                        else -> stringResource(R.string.subtitle_nothing_playing)
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    color =
-                        if (external.refusedByApp) {
-                            MaterialTheme.colorScheme.error
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        },
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
+        Row(
+            Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                when {
+                    foreign -> foreignTrack?.title ?: stringResource(R.string.title_whatever_is_playing)
+                    micActive -> stringResource(R.string.title_the_room)
+                    state.hasMedia -> state.title ?: stringResource(R.string.title_untitled)
+                    else -> stringResource(R.string.title_pick_something)
+                },
+                Modifier.weight(1f),
+                style = MaterialTheme.typography.headlineSmall,
+                color = GlassPalette.textPrimary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
             if (state.hasMedia && !foreign) {
-                IconButton(onClick = { viewModel.toggleFavourite() }) {
-                    StoneIconArt(
-                        StoneIcon.FAVORITE,
-                        stringResource(
-                            if (isFavourite) R.string.action_favourite_remove else R.string.action_favourite_add,
-                        ),
-                        tint =
-                            if (isFavourite) {
-                                MaterialTheme.colorScheme.primary
-                            } else {
-                                MaterialTheme.colorScheme.onSurfaceVariant
-                            },
-                    )
-                }
+                GlassBubbleButton(
+                    icon = GlassIcons.Heart,
+                    contentDescription =
+                        stringResource(if (isFavourite) R.string.action_favourite_remove else R.string.action_favourite_add),
+                    onClick = { viewModel.toggleFavourite() },
+                    size = 36.dp,
+                    tint = if (isFavourite) GlassPalette.pink else null,
+                )
             }
         }
+        Text(
+            when {
+                external.refusedByApp ->
+                    stringResource(
+                        R.string.subtitle_capture_refused,
+                        external.refusingApp ?: stringResource(R.string.subtitle_capture_refused_unknown_app),
+                    )
+                foreign -> foreignTrack?.artist?.ifBlank { null } ?: stringResource(R.string.subtitle_captured_from_another_app)
+                micActive -> stringResource(R.string.subtitle_microphone_hears)
+                state.hasMedia -> state.artist?.takeIf { it.isNotBlank() } ?: stringResource(R.string.subtitle_unknown_artist)
+                else -> stringResource(R.string.subtitle_nothing_playing)
+            },
+            style = MaterialTheme.typography.bodyMedium,
+            color = if (external.refusedByApp) GlassPalette.pink else GlassPalette.textSecondary,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             SceneChip(styleLabel)
-            Box(Modifier.weight(1f))
             if (foreign) {
-                CrystalButton(filled = false, compact = true, onClick = viewModel::stopExternalAudio) {
-                    Text(stringResource(R.string.action_stop_capture))
-                }
+                GlassButton(
+                    text = stringResource(R.string.action_stop_capture),
+                    onClick = viewModel::stopExternalAudio,
+                )
             }
         }
         if (!hasSource) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                CrystalButton(enabled = canResume, onClick = viewModel::resumeLastPlayed) {
-                    Text(stringResource(R.string.action_resume_last_played))
-                }
-                CrystalButton(filled = false, onClick = onOpenLibrary) { Text(stringResource(R.string.action_open_library)) }
+                GlassButton(
+                    text = stringResource(R.string.action_resume_last_played),
+                    enabled = canResume,
+                    tint = GlassPalette.mint,
+                    onClick = viewModel::resumeLastPlayed,
+                )
+                GlassButton(text = stringResource(R.string.action_open_library), onClick = onOpenLibrary)
             }
         }
     }
@@ -274,27 +286,13 @@ private fun PlayerHero(
 
 @Composable
 private fun SceneChip(label: String) {
-    Box(
-        Modifier
-            .crystalPanel(
-                0.25f,
-                MaterialTheme.colorScheme.surfaceVariant,
-                MaterialTheme.colorScheme.primary,
-                corner = 12.dp,
-                glowStrength = 0.4f,
-            ).padding(horizontal = 10.dp, vertical = 4.dp),
-    ) {
-        Text(
-            label,
-            style = MaterialTheme.typography.labelMedium,
-            color = accentTextColor(),
-            maxLines = 1,
-        )
+    Box(Modifier.glassSurface(shape = GlassShapes.pill, tint = GlassPalette.lavender).padding(horizontal = 12.dp, vertical = 6.dp)) {
+        Text(label, style = MaterialTheme.typography.labelMedium, color = GlassPalette.textPrimary, maxLines = 1)
     }
 }
 
 @Composable
-private fun TransportCard(
+private fun TransportSection(
     viewModel: PlayerViewModel,
     state: PlayerUiState,
     waveform: FloatArray?,
@@ -303,25 +301,17 @@ private fun TransportCard(
     queueSize: Int,
     queueOpen: Boolean,
     onToggleQueue: () -> Unit,
+    onOpenQueuePanel: () -> Unit,
+    onOpenLibrary: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(
-        modifier
-            .fillMaxWidth()
-            .crystalPanel(
-                0.35f,
-                MaterialTheme.colorScheme.surfaceVariant,
-                MaterialTheme.colorScheme.primary,
-                corner = 24.dp,
-                glowStrength = 0.8f,
-            ).padding(horizontal = 14.dp, vertical = 10.dp),
-    ) {
+    Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(
             Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Text(formatClock(state.positionMs), style = MaterialTheme.typography.labelSmall)
+            Text(formatClock(state.positionMs), style = MaterialTheme.typography.labelSmall, color = GlassPalette.textSecondary)
             WaveformSeekBar(
                 waveform = waveform,
                 positionMs = state.positionMs,
@@ -331,99 +321,53 @@ private fun TransportCard(
                 onSeek = viewModel::seekTo,
                 modifier = Modifier.weight(1f).height(40.dp),
             )
-            Text(formatClock(state.durationMs), style = MaterialTheme.typography.labelSmall)
+            Text(formatClock(state.durationMs), style = MaterialTheme.typography.labelSmall, color = GlassPalette.textSecondary)
         }
+        // GlassTransportBar has no per-button enabled slot (docs/design/liquid-glass/README.md);
+        // the callbacks themselves guard on hasMedia so previous/play/next stay inert with an
+        // empty queue, matching the disabled state the old transport row had.
+        GlassTransportBar(
+            playing = state.isPlaying,
+            onPlayPause = { if (state.hasMedia) viewModel.togglePlayPause() },
+            onPrevious = { if (state.hasMedia) viewModel.previous() },
+            onNext = { if (state.hasMedia) viewModel.next() },
+            onLibrary = onOpenLibrary,
+            onProfile = onOpenQueuePanel,
+        )
         Row(
             Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceEvenly,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            IconButton(onClick = viewModel::toggleShuffle) {
-                StoneIconArt(
-                    StoneIcon.SHUFFLE,
-                    stringResource(R.string.action_shuffle),
-                    tint =
-                        if (state.shuffle) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        },
-                )
-            }
-            IconButton(onClick = viewModel::previous, enabled = state.hasMedia) {
-                StoneIconArt(StoneIcon.PREVIOUS, stringResource(R.string.action_previous))
-            }
-            CrystalPlayButton(
-                icon = if (state.isPlaying) StoneIcon.PAUSE else StoneIcon.PLAY,
-                contentDescription = stringResource(if (state.isPlaying) R.string.action_pause else R.string.action_play),
-                onClick = viewModel::togglePlayPause,
-                enabled = state.hasMedia,
-            )
-            IconButton(onClick = viewModel::next, enabled = state.hasMedia) {
-                StoneIconArt(StoneIcon.NEXT, stringResource(R.string.action_next))
-            }
-            IconButton(onClick = viewModel::cycleRepeatMode) {
-                StoneIconArt(
-                    StoneIcon.REPEAT,
-                    stringResource(R.string.action_repeat),
-                    tint =
-                        if (state.repeatMode != Player.REPEAT_MODE_OFF) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        },
-                )
-            }
-        }
-        Row(
-            Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-            TextButton(onClick = viewModel::cycleAbLoop, enabled = state.hasMedia) {
-                Text(
+            GlassButton(
+                text =
                     when {
                         abLoop == null -> stringResource(R.string.ab_loop_idle)
                         abLoop.endMs == null -> stringResource(R.string.ab_loop_set_b)
                         else -> stringResource(R.string.ab_loop_looping)
                     },
-                    style = MaterialTheme.typography.labelMedium,
-                    color =
-                        if (abLoop != null) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        },
-                )
-            }
-            TextButton(onClick = viewModel::cycleAutoMode) {
-                Text(
+                selected = abLoop != null,
+                onClick = viewModel::cycleAbLoop,
+            )
+            GlassButton(
+                text =
                     when (autoMode) {
                         1 -> stringResource(R.string.auto_random)
                         2 -> stringResource(R.string.auto_smart)
                         3 -> stringResource(R.string.auto_sections)
                         else -> stringResource(R.string.auto_off)
                     },
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            TextButton(onClick = onToggleQueue) {
-                Text(
+                onClick = viewModel::cycleAutoMode,
+            )
+            GlassButton(
+                text =
                     if (queueSize > 1) {
                         stringResource(R.string.queue_with_count, queueSize)
                     } else {
                         stringResource(R.string.queue)
                     },
-                    style = MaterialTheme.typography.labelMedium,
-                    color =
-                        if (queueOpen) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        },
-                )
-            }
+                selected = queueOpen,
+                onClick = onToggleQueue,
+            )
         }
     }
 }
@@ -434,33 +378,18 @@ private fun QueuePreview(
     onExpand: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(
-        modifier
-            .fillMaxWidth()
-            .crystalPanel(
-                0.3f,
-                MaterialTheme.colorScheme.surfaceVariant,
-                MaterialTheme.colorScheme.primary,
-                corner = 20.dp,
-                glowStrength = 0.5f,
-            ).padding(start = 14.dp, end = 14.dp, top = 12.dp, bottom = 4.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        val untitled = stringResource(R.string.title_untitled)
-        CrystalOverline(stringResource(R.string.queue_up_next))
-        upNext.forEach { t ->
-            Text(
-                t.title.ifBlank { untitled },
-                Modifier.fillMaxWidth().clickable(onClick = onExpand),
-                style = MaterialTheme.typography.bodyMedium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
+    val untitled = stringResource(R.string.title_untitled)
+    Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(stringResource(R.string.queue_up_next), style = MaterialTheme.typography.labelLarge, color = GlassPalette.textSecondary)
+        upNext.forEach { track ->
+            GlassListRow(
+                title = track.title.ifBlank { untitled },
+                subtitle = track.artist.takeIf { it.isNotBlank() },
+                onClick = onExpand,
             )
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-            TextButton(onClick = onExpand) {
-                Text(stringResource(R.string.action_open_queue), style = MaterialTheme.typography.labelMedium, color = accentTextColor())
-            }
+            GlassButton(text = stringResource(R.string.action_open_queue), onClick = onExpand)
         }
     }
 }
@@ -474,30 +403,30 @@ private fun LiveSpectrum(
     val bars by produceState(initialValue = FloatArray(BARS), live) {
         driveSpectrum(live, { viewModel.features.value.bands }) { value = it }
     }
-    val primary = MaterialTheme.colorScheme.primary
-    val secondary = MaterialTheme.colorScheme.secondary
-    androidx.compose.foundation.Canvas(modifier) {
-        val gap = size.width / (BARS * 6f)
-        val barWidth = (size.width - gap * (BARS - 1)) / BARS
-        val brush =
-            Brush.verticalGradient(
-                listOf(secondary.copy(alpha = 0.95f), primary.copy(alpha = 0.75f)),
-            )
-        for (i in 0 until BARS) {
-            val v = bars.getOrElse(i) { 0f }.coerceIn(0f, 1f)
-            val h = (size.height * (0.06f + 0.94f * v)).coerceAtLeast(2f)
-            drawRoundRect(
-                brush = brush,
-                topLeft =
-                    androidx.compose.ui.geometry
-                        .Offset(i * (barWidth + gap), size.height - h),
-                size =
-                    androidx.compose.ui.geometry
-                        .Size(barWidth, h),
-                cornerRadius =
-                    androidx.compose.ui.geometry
-                        .CornerRadius(barWidth / 2f),
-            )
+    Box(modifier.glassSurface(shape = GlassShapes.tile).height(60.dp).padding(10.dp)) {
+        androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
+            val gap = size.width / (BARS * 6f)
+            val barWidth = (size.width - gap * (BARS - 1)) / BARS
+            val brush =
+                Brush.verticalGradient(
+                    listOf(GlassPalette.mint.copy(alpha = 0.9f), GlassPalette.lavender.copy(alpha = 0.6f)),
+                )
+            for (i in 0 until BARS) {
+                val v = bars.getOrElse(i) { 0f }.coerceIn(0f, 1f)
+                val h = (size.height * (0.06f + 0.94f * v)).coerceAtLeast(2f)
+                drawRoundRect(
+                    brush = brush,
+                    topLeft =
+                        androidx.compose.ui.geometry
+                            .Offset(i * (barWidth + gap), size.height - h),
+                    size =
+                        androidx.compose.ui.geometry
+                            .Size(barWidth, h),
+                    cornerRadius =
+                        androidx.compose.ui.geometry
+                            .CornerRadius(barWidth / 2f),
+                )
+            }
         }
     }
 }
@@ -540,6 +469,7 @@ internal suspend fun driveSpectrum(
 @Composable
 private fun QuickActions(
     viewModel: PlayerViewModel,
+    state: PlayerUiState,
     micActive: Boolean,
     external: ExternalAudioState,
     sleepRunning: Boolean,
@@ -588,7 +518,7 @@ private fun QuickActions(
     ) {
         item {
             QuickAction(
-                StoneIcon.MICROPHONE,
+                GlassIcons.Mic,
                 stringResource(if (micActive) R.string.quick_room_on else R.string.source_live_input),
                 active = micActive,
             ) {
@@ -635,7 +565,21 @@ private fun QuickActions(
             }
         }
         item {
-            QuickAction(StoneIcon.SHUFFLE, stringResource(R.string.quick_shuffle_all), enabled = canShuffle) {
+            QuickAction(Icons.Filled.Shuffle, stringResource(R.string.action_shuffle), active = state.shuffle) {
+                viewModel.toggleShuffle()
+            }
+        }
+        item {
+            QuickAction(
+                Icons.Filled.Repeat,
+                stringResource(R.string.action_repeat),
+                active = state.repeatMode != Player.REPEAT_MODE_OFF,
+            ) {
+                viewModel.cycleRepeatMode()
+            }
+        }
+        item {
+            QuickAction(Icons.Filled.History, stringResource(R.string.quick_shuffle_all), enabled = canShuffle) {
                 viewModel.shuffleAllHistory()
             }
         }
@@ -644,52 +588,33 @@ private fun QuickActions(
 
 @Composable
 private fun QuickAction(
-    icon: StoneIcon,
-    label: String,
-    enabled: Boolean = true,
-    active: Boolean = false,
-    onClick: () -> Unit,
-) = QuickActionShell(label, enabled, active, onClick) { StoneIconArt(icon, null, Modifier.size(22.dp), tint = it) }
-
-@Composable
-private fun QuickAction(
     icon: ImageVector,
     label: String,
     enabled: Boolean = true,
     active: Boolean = false,
     onClick: () -> Unit,
-) = QuickActionShell(label, enabled, active, onClick) { Icon(icon, null, Modifier.size(22.dp), tint = it) }
-
-@Composable
-private fun QuickActionShell(
-    label: String,
-    enabled: Boolean,
-    active: Boolean,
-    onClick: () -> Unit,
-    icon: @Composable (Color) -> Unit,
 ) {
     val tint =
         when {
-            !enabled -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
-            active -> MaterialTheme.colorScheme.primary
-            else -> MaterialTheme.colorScheme.onSurface
+            !enabled -> GlassPalette.textSecondary.copy(alpha = 0.4f)
+            active -> GlassPalette.mint
+            else -> GlassPalette.textPrimary
         }
     Column(
-        Modifier
-            .width(84.dp)
-            .crystalPanel(
-                if (active) 0.5f else 0.28f,
-                MaterialTheme.colorScheme.surfaceVariant,
-                MaterialTheme.colorScheme.primary,
-                corner = 18.dp,
-                glowStrength = if (active) 1.1f else 0.45f,
-                prismatic = active,
-            ).clickable(enabled = enabled, onClick = onClick)
-            .padding(vertical = 12.dp),
+        Modifier.width(84.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        icon(tint)
+        Box(
+            Modifier
+                .size(56.dp)
+                .glassSurface(shape = GlassShapes.bubble, tint = if (active) GlassPalette.mint else null, glow = if (active) 0.5f else 0f)
+                .floatOnWater(strength = 0.6f)
+                .glassTouch(enabled = enabled, onClick = onClick),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(22.dp))
+        }
         Text(
             label,
             style = MaterialTheme.typography.labelSmall,
@@ -707,3 +632,6 @@ internal fun formatClock(ms: Long): String {
     val seconds = total % 60
     return if (hours > 0) "%d:%02d:%02d".format(hours, minutes, seconds) else "%d:%02d".format(minutes, seconds)
 }
+
+private val HERO_BUBBLE_SIZE = 240.dp
+private val HERO_ARTWORK_CORNER = 999.dp

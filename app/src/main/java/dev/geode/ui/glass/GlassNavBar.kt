@@ -18,17 +18,11 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-
-/** One item in a [GlassNavBar]; the same shape as `CrystalNavItem` so `AppShell` can swap it 1:1. */
-data class GlassNavItem(
-    val label: String,
-    val icon: ImageVector,
-)
 
 /** A bottom row of glass bubbles with labels. */
 @Composable
@@ -42,6 +36,7 @@ fun GlassNavBar(
     Box(
         modifier
             .fillMaxWidth()
+            .alpha(opacity.coerceIn(0f, 1f))
             .glassSurface(shape = GlassShapes.sheet)
             .floatOnWater(strength = 0.15f),
     ) {

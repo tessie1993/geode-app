@@ -6,10 +6,10 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -26,8 +26,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
-import dev.geode.ui.theme.StoneIcon
-import dev.geode.ui.theme.StoneIconArt
+import dev.geode.ui.glass.GlassButton
+import dev.geode.ui.glass.GlassIcons
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -84,11 +84,15 @@ private fun PresetFolderGroup(
             style = MaterialTheme.typography.labelMedium,
         )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            CrystalButton(filled = false, onClick = { folderPicker.launch(null) }) { Text(stringResource(R.string.folders_choose_preset)) }
+            GlassButton(
+                text = stringResource(R.string.folders_choose_preset),
+                onClick = { folderPicker.launch(null) },
+            )
             if (gui.presetMirrorUri != null) {
-                TextButton(
+                GlassButton(
+                    text = stringResource(R.string.action_clear),
                     onClick = { viewModel.setGuiPrefs(gui.copy(presetMirrorUri = null)) },
-                ) { Text(stringResource(R.string.action_clear)) }
+                )
             }
         }
         Text(
@@ -130,24 +134,20 @@ internal fun MusicFoldersEditor(viewModel: LibraryViewModel) {
                     style = MaterialTheme.typography.bodySmall,
                 )
                 IconButton(onClick = { viewModel.removeMediaRoot(root) }) {
-                    StoneIconArt(StoneIcon.CLOSE, stringResource(R.string.folders_remove))
+                    Icon(GlassIcons.Close, contentDescription = stringResource(R.string.folders_remove))
                 }
             }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            CrystalButton(
-                compact = true,
-                filled = false,
+            GlassButton(
+                text = stringResource(R.string.folders_add),
                 onClick = { folderPicker.launch(null) },
-            ) { Text(stringResource(R.string.folders_add)) }
-            CrystalButton(
-                compact = true,
-                filled = false,
+            )
+            GlassButton(
+                text = stringResource(if (scanning) R.string.folders_scanning else R.string.folders_rescan),
                 onClick = viewModel::rescanMediaRoots,
                 enabled = roots.isNotEmpty() && !scanning,
-            ) {
-                Text(stringResource(if (scanning) R.string.folders_scanning else R.string.folders_rescan))
-            }
+            )
         }
         Text(
             stringResource(R.string.folders_rescan_explainer),
@@ -183,11 +183,14 @@ private fun AnalysisCacheGroup() {
             Modifier.weight(1f),
             style = MaterialTheme.typography.bodySmall,
         )
-        TextButton(onClick = {
-            dev.geode.analysis.AnalysisCache
-                .clear(context.applicationContext)
-            cacheBump++
-        }) { Text(stringResource(R.string.action_clear)) }
+        GlassButton(
+            text = stringResource(R.string.action_clear),
+            onClick = {
+                dev.geode.analysis.AnalysisCache
+                    .clear(context.applicationContext)
+                cacheBump++
+            },
+        )
     }
     Text(
         stringResource(R.string.folders_cache_explainer),

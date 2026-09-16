@@ -4,7 +4,6 @@
 #include <vector>
 
 #include "api/geode_api.h"
-#include "viz/LiveSignal.hpp"
 
 namespace geode::viz::fluid::ripple {
 
@@ -28,22 +27,39 @@ float inkDissipation(float dissipation, float dt);
 std::vector<StrokeDrop> strokeDrops(float x, float y, float dx, float dy, float dt, float radius, float strength);
 std::pair<float, float> overlayDropPosition(int index, float aspect);
 
-// Port of RippleOverlayDrops.kt: rings on the heard transient, sparkles on bright treble.
+// Port of RippleOverlayDrops.kt. Wave three: rings ring phase-locked to the
+// bar oscillator (one per bar, at its peak) instead of on a heard transient;
+// sparkles run continuously at a rate set by the relative treble level. This
+// class is fed straight from Overlays::stepRippleOverlay (out of this unit's
+// scope), which has no MotionField instance to hand it, so it keeps its own
+// small self-contained copy of the relative-level/rhythm-lock math (see
+// viz/MotionField.hpp) rather than reading a beat/transient flag.
 class OverlayDrops {
 public:
     static constexpr int kBeatDrops = 2;
-    static constexpr int kSparkleInterval = 6;
-    static constexpr float kSparkleThreshold = 0.5f;
 
     using Queue = std::function<void(float x, float y, float radius, float amp)>;
 
     void reset();
-    void tick(const GeodeFeatureFrame& features, float aspect, const Queue& queue);
+    // dt defaults to a nominal 60fps frame so the existing call site (which
+    // has never passed a dt) keeps compiling and behaving reasonably.
+    void tick(const GeodeFeatureFrame& features, float aspect, const Queue& queue, float dt = 1.0f / 60.0f);
 
 private:
+    static constexpr float kAvgSeconds = 20.0f;
+    static constexpr float kRhythmLockSeconds = 1.0f;
+    static constexpr float kTwoPi = 6.2831853f;
+
     int frame_ = 0;
     int dropIndex_ = 0;
-    live::Edge hitEdge_;
+    float bassAvg_ = 1.0f;
+    float trebAvg_ = 1.0f;
+    float bassWarm_ = 0.0f;
+    float trebWarm_ = 0.0f;
+    float rhythmLock_ = 0.0f;
+    float prevBarOsc_ = 0.5f;
+    bool barOscRising_ = false;
+    float sparklePhase_ = 0.0f;
 };
 
 }  // namespace geode::viz::fluid::ripple

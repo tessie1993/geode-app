@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -24,6 +23,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 import dev.geode.audio.CaptureFailure
 import dev.geode.audio.PlaybackCaptureService
+import dev.geode.ui.glass.GlassButton
+import dev.geode.ui.glass.GlassPalette
+import dev.geode.ui.glass.GlassShapes
+import dev.geode.ui.glass.GlassToggle
+import dev.geode.ui.glass.floatOnWater
+import dev.geode.ui.glass.glassSurface
 
 @Composable
 fun ExternalAudioSettings(viewModel: PlayerViewModel) {
@@ -70,7 +75,7 @@ fun ExternalAudioSettings(viewModel: PlayerViewModel) {
                 Modifier.weight(1f),
                 style = MaterialTheme.typography.bodyMedium,
             )
-            Switch(
+            GlassToggle(
                 checked = external.active || external.awaitingConsent,
                 onCheckedChange = { want ->
                     if (!want) {
@@ -101,7 +106,7 @@ fun ExternalAudioSettings(viewModel: PlayerViewModel) {
                 Text(
                     stringResource(R.string.ext_waiting_permission),
                     style = MaterialTheme.typography.bodySmall,
-                    color = accentTextColor(),
+                    color = GlassPalette.mint,
                 )
             external.refusedByApp -> RefusedNotice(viewModel, external)
             external.active ->
@@ -109,7 +114,7 @@ fun ExternalAudioSettings(viewModel: PlayerViewModel) {
                     external.nowPlaying?.let { stringResource(R.string.ext_listening_to, it.appLabel) }
                         ?: stringResource(R.string.ext_listening_idle),
                     style = MaterialTheme.typography.bodySmall,
-                    color = accentTextColor(),
+                    color = GlassPalette.mint,
                 )
             else ->
                 external.failure?.let { failure ->
@@ -136,13 +141,13 @@ fun ExternalAudioSettings(viewModel: PlayerViewModel) {
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                CrystalButton(
-                    filled = false,
+                GlassButton(
+                    text = stringResource(R.string.ext_allow_reading),
                     modifier = Modifier.padding(top = 6.dp),
                     onClick = {
                         runCatching { context.startActivity(viewModel.notificationAccessIntent()) }
                     },
-                ) { Text(stringResource(R.string.ext_allow_reading)) }
+                )
             }
         }
     }
@@ -157,16 +162,16 @@ private fun RefusedNotice(
     Column(
         Modifier
             .fillMaxWidth()
-            .crystalPanel(
-                0.32f,
-                MaterialTheme.colorScheme.surfaceVariant,
-                MaterialTheme.colorScheme.error,
-                corner = 16.dp,
-                glowStrength = 0.5f,
-            ).padding(12.dp),
+            .glassSurface(shape = GlassShapes.tile, tint = MaterialTheme.colorScheme.error)
+            .floatOnWater(strength = 0.15f)
+            .padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        CrystalOverline(stringResource(R.string.ext_silence_title), color = MaterialTheme.colorScheme.error)
+        Text(
+            stringResource(R.string.ext_silence_title),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.error,
+        )
         Text(
             stringResource(R.string.ext_refused_body, app),
             style = MaterialTheme.typography.bodySmall,
@@ -176,10 +181,13 @@ private fun RefusedNotice(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        CrystalButton(onClick = {
-            viewModel.stopExternalAudio()
-            viewModel.setMicEnabled(true)
-        }) { Text(stringResource(R.string.ext_use_mic_instead)) }
+        GlassButton(
+            text = stringResource(R.string.ext_use_mic_instead),
+            onClick = {
+                viewModel.stopExternalAudio()
+                viewModel.setMicEnabled(true)
+            },
+        )
     }
 }
 

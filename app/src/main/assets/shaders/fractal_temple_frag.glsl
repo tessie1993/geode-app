@@ -11,6 +11,8 @@ out vec4 fragColor;
 //#include lib_scene_grade
 //#include lib_touch
 
+// motion: uHarmony -> dome tessellation density (smooth, never a step), uMotionBright -> spire-tip and portal glow
+
 // Fractal Temple: a triangulated dome closing overhead, a ring of neon lamps
 // hanging in the middle of it, a stepped causeway running out to the horizon,
 // and a city of filigree spires standing on either side of the way.
@@ -23,10 +25,11 @@ out vec4 fragColor;
 // raymarch, so this stays off MARCHED_SCENES.
 //
 // Audio: uSwell opens the dome and lengthens the causeway, uBassSmooth lights
-// the portal, uTrebleSmooth picks out the filigree. A spike re-seeds the
-// skyline (uSpawnSeed), steps the dome's tessellation (uFormPhase) and leans
-// the walk (uMoveDir). The portal's flare rides uSpike, which has a rise on
-// it, so the ring swells rather than strobing.
+// the portal, uTrebleSmooth picks out the filigree. uHarmony (tonal 1, noisy
+// 0) eases the dome's tessellation between two densities, never stepping it;
+// uDrift leans the walk. The portal's flare and the spire-tip stars ride
+// uMotionBright (the spectral centroid, smoothed over half a second), so
+// they brighten with a bright passage rather than strobing on a hit.
 
 #define FT_TAU 6.2831853
 
@@ -68,8 +71,9 @@ void main() {
     float bass = clamp(uBassSmooth, 0.0, 1.5);
     float treb = clamp(uTrebleSmooth, 0.0, 1.5);
     float swell = clamp(uSwell, 0.0, 1.5);
-    // A spike steps the dome between three tessellation densities and holds it.
-    float tess = 9.0 + 4.0 * floor(uFormPhase * 3.0);
+    // uHarmony eases the dome continuously between two tessellation
+    // densities rather than stepping it.
+    float tess = mix(9.0, 21.0, clamp(uHarmony, 0.0, 1.0));
     // The horizon. The whole scene is split on it: dome above, ground below.
     float horizon = -0.12;
 
@@ -93,24 +97,27 @@ void main() {
 
         // ---- the spires ------------------------------------------------------
         //
-        // Two rows standing off the edge of the causeway, receding. Which ones
-        // are there is re-rolled on a spike and grown in over a second.
+        // Two rows standing off the edge of the causeway, receding. All six
+        // are permanent residents (a fixed per-index seed) that recede
+        // endlessly along the causeway as uFlowPhase advances.
         for (int i = 0; i < 6; i++) {
             float fi = float(i);
-            float seed = hash11(fi * 9.13 + floor(uSpawnSeed * 41.0));
+            float seed = hash11(fi * 9.13);
             // Depth along the way, wrapped so the row is endless.
             float z = fract(seed + uFlowPhase * 0.20) * 4.0 + 0.35;
             float scale = 1.0 / z;
-            // Standing just outside the deck, leaning with the walk.
-            float x = (0.55 + seed * 0.75) * scale + uMoveDir.x * 0.04 * scale;
+            // Standing just outside the deck, leaning with the accumulated
+            // drift (bounded through sin, so it can never run away).
+            float x = (0.55 + seed * 0.75) * scale + sin(uDrift) * 0.04 * scale;
             vec2 c = vec2(m.x - x, uv.y - horizon) / scale;
             float lit = spire(c, 0.55 + seed * 0.5, 0.13 + seed * 0.06, 7.0 + floor(seed * 6.0));
             vec3 tint = mix(pal(0.94), pal(0.86), seed);
-            float show = spawnGrow(0.9 + seed * 0.6) * smoothstep(4.4, 3.2, z);
+            float show = smoothstep(4.4, 3.2, z);
             col = mix(col, tint * (0.35 + 0.9 * lit), min(lit * 1.5, 1.0) * show);
-            // The star on top, swelling on a spike rather than flashing.
+            // The star on top, brightening with the spectral centroid rather
+            // than flashing on a hit.
             vec2 tipv = c - vec2(0.0, 0.55 + seed * 0.5);
-            col += mix(vec3(1.0), tint, 0.3) * exp(-dot(tipv, tipv) * 900.0) * (0.5 + 0.7 * uSpike) * show;
+            col += mix(vec3(1.0), tint, 0.3) * exp(-dot(tipv, tipv) * 900.0) * (0.5 + 0.7 * clamp(uMotionBright, 0.0, 1.0)) * show;
         }
     }
 
@@ -129,11 +136,11 @@ void main() {
         vec3 domeCol = mix(pal(0.58), pal(0.50), h);
         float lam = smoothstep(0.0, 0.22, uv.y - horizon);
         col = mix(col, domeCol * (0.10 + 0.55 * lace) * (0.45 + 0.55 * z), lam);
-        // Lit facets: a sparse subset, re-chosen on each spawn.
+        // Lit facets: a fixed sparse subset of the tessellation.
         vec2 cell = floor(shell * tess);
-        float on = step(0.86, hash21(cell + floor(uSpawnSeed * 71.0)));
+        float on = step(0.86, hash21(cell));
         col += mix(pal(0.44), pal(0.90), hash21(cell)) * lace * on * lam
-             * (0.35 + 0.75 * treb) * spawnGrow(1.1);
+             * (0.35 + 0.75 * treb);
     }
 
     // ---- the portal ring -----------------------------------------------------
@@ -151,8 +158,9 @@ void main() {
         vec3 lampCol = mix(pal(0.92), pal(0.04), float(i) / 3.0);
         col += lampCol * band * (0.25 + 0.75 * bead) * (0.55 + 0.55 * bass);
     }
-    // The glow the ring throws into the hall, and its flare on a transient.
-    col += pal(0.92) * exp(-pr * 5.0) * (0.10 + 0.22 * uSpike);
+    // The glow the ring throws into the hall, brightening with the spectral
+    // centroid rather than flaring on a transient.
+    col += pal(0.92) * exp(-pr * 5.0) * (0.10 + 0.22 * clamp(uMotionBright, 0.0, 1.0));
     // The dark eye at the middle of the portal.
     col *= 1.0 - 0.55 * exp(-pr * pr * 260.0);
 

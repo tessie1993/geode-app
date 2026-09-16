@@ -18,8 +18,11 @@ import dev.geode.analysis.FeatureTimeline
 import dev.geode.render.SceneFactory
 import dev.geode.render.offscreen.OffscreenRenderSpec
 import dev.geode.render.offscreen.OffscreenSceneRenderer
+import dev.geode.render.offscreen.OffscreenUnderlay
 import dev.geode.render.scene.SceneParams
 import dev.geode.util.bestEffort
+import dev.geode.viz.BackgroundExportSpec
+import dev.geode.viz.BackgroundImage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.nio.ByteBuffer
@@ -150,10 +153,14 @@ class VideoExporter(
         destination: Uri? = null,
         codec: ExportCodec = ExportCodec.H264,
         loudnessTarget: LoudnessTarget = LoudnessTarget.LeaveAsIs,
+        background: BackgroundExportSpec? = null,
         onProgress: (Float) -> Unit,
         isCancelled: () -> Boolean,
     ): Result =
         withContext(Dispatchers.Default) {
+            // Decoded once, at the export's own pixel size, and reused for whichever destination
+            // path below runs - see BackgroundImage for why this never touches Main.
+            val underlay = background?.let { BackgroundImage.decodeForExport(context, it, aspect.width, aspect.height) }
             if (destination != null) {
                 return@withContext exportToDestination(
                     destination,
@@ -171,6 +178,7 @@ class VideoExporter(
                     range,
                     codec,
                     loudnessTarget,
+                    underlay,
                     onProgress,
                     isCancelled,
                 )
@@ -210,6 +218,7 @@ class VideoExporter(
                         loopSafe,
                         range,
                         codec,
+                        underlay,
                         onProgress,
                         isCancelled,
                     )
@@ -246,6 +255,7 @@ class VideoExporter(
         range: ExportRange?,
         codec: ExportCodec,
         loudnessTarget: LoudnessTarget,
+        underlay: OffscreenUnderlay?,
         onProgress: (Float) -> Unit,
         isCancelled: () -> Boolean,
     ): Result {
@@ -270,6 +280,7 @@ class VideoExporter(
                     loopSafe,
                     range,
                     codec,
+                    underlay,
                     onProgress,
                     isCancelled,
                 )
@@ -324,6 +335,7 @@ class VideoExporter(
         return (result as? LoudnessResult.Measured)?.let { LoudnessTargets.advise(it.report, target) }
     }
 
+    @Suppress("NestedBlockDepth")
     private fun encodeInto(
         pfd: ParcelFileDescriptor,
         audioUri: Uri,
@@ -339,6 +351,7 @@ class VideoExporter(
         loopSafe: Boolean,
         range: ExportRange?,
         codec: ExportCodec,
+        underlay: OffscreenUnderlay?,
         onProgress: (Float) -> Unit,
         isCancelled: () -> Boolean,
     ) {
@@ -406,6 +419,7 @@ class VideoExporter(
                             adsrConfigs = adsrConfigs,
                             reducedMotion = reducedMotion,
                             paramsAt = paramsAt,
+                            underlay = underlay,
                         ),
                 ).also { rendererRef = it }
             renderer.prepare()

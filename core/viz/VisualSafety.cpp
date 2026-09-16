@@ -1,7 +1,6 @@
 #include "viz/VisualSafety.hpp"
 
 #include <algorithm>
-#include <limits>
 
 namespace geode::viz {
 
@@ -66,37 +65,5 @@ float layerMix(float requested, BlendMode mode) {
 }
 
 }  // namespace safety
-
-void FlashBudget::reset() {
-    head_ = 0;
-    count_ = 0;
-    above_ = false;
-    lastTime_ = -std::numeric_limits<float>::infinity();
-}
-
-float FlashBudget::gainFor(float timeSeconds, float impulse) {
-    if (timeSeconds < lastTime_) reset();
-    lastTime_ = timeSeconds;
-    const bool risky = impulse > kRiskThreshold;
-    const bool rising = risky && !above_;
-    above_ = risky;
-    dropOlderThan(timeSeconds - kWindowSeconds);
-    if (!rising) return 1.0f;
-    if (static_cast<float>(count_) < maxPerSecond_) {
-        record(timeSeconds);
-        return 1.0f;
-    }
-    return std::clamp(kRiskThreshold * kSuppressedScale / impulse, kMinGain, 1.0f);
-}
-
-void FlashBudget::dropOlderThan(float cutoff) {
-    while (count_ > 0 && edges_[(head_ - count_ + kCapacity) % kCapacity] <= cutoff) count_--;
-}
-
-void FlashBudget::record(float timeSeconds) {
-    edges_[head_] = timeSeconds;
-    head_ = (head_ + 1) % kCapacity;
-    if (count_ < kCapacity) count_++;
-}
 
 }  // namespace geode::viz

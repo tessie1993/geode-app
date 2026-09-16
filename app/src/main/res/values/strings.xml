@@ -573,6 +573,11 @@
     <string name="export_still_button">Save frame</string>
     <string name="export_still_saving">Saving frame…</string>
     <string name="export_still_saved">Frame saved.</string>
+    <string name="export_error_codec">This device\'s video encoder could not keep up with that render — try a lower quality, a smaller size, or a different codec in the Export tab.</string>
+    <string name="export_error_io">The export could not read or write a file it needed. Check that the source clip is still there and that storage is not full.</string>
+    <string name="export_error_invalid_project">That could not be turned into a video — check that its clips still point at files Geode can read.</string>
+    <string name="export_error_out_of_memory">The device ran out of memory during the render. Try a shorter clip, a lower quality, or freeing up memory first.</string>
+    <string name="export_error_generic_detail">The export failed (%1$s).</string>
     <string name="export_fps_24">24 fps</string>
     <string name="export_fps_25">25 fps</string>
     <string name="export_fps_50">50 fps</string>
@@ -604,23 +609,32 @@
     <string name="export_error_loop_no_output">The video encoder produced no output for this loop.</string>
     <string name="export_error_loop_stalled">The video encoder stalled while finishing the loop.</string>
 
-    <!-- Settings: Look tab. -->
+    <!-- Settings: Look tab. The glass theme is the only theme now: no pack picker, corner style
+         or font colour, just the tokens the liquid-glass system reads (ui/glass/GlassTheme.kt). -->
     <string name="look_group_theme">Theme</string>
+    <string name="look_glass_tint">"Glass tint  %1$d%%"</string>
+    <string name="look_glass_tint_hint">Shifts the pastel wash mixed into every glass surface.</string>
+    <string name="look_glass_opacity">"Glass opacity  %1$d%%"</string>
     <string name="look_accent_intensity">"Accent intensity  %1$d%%"</string>
     <string name="look_background_dim">"Background dim  %1$d%%"</string>
     <string name="look_follow_system">Follow system light/dark</string>
     <string name="look_group_text">Text</string>
     <string name="look_text_size">"Text size  %1$d%%"</string>
     <string name="look_text_size_hint">Scales every font in the app, live - including this one.</string>
-    <string name="look_font_color">Font color</string>
-    <string name="look_font_color_light_hint">Pale colors are greyed out on this light theme - they could not be read on its surfaces.</string>
-    <string name="look_font_color_hint">Recolors the writing everywhere; Auto returns to the theme\'s own text colors.</string>
+    <string name="look_group_motion">Motion</string>
+    <string name="look_bubble_density">"Bubble density  %1$d%%"</string>
+    <string name="look_bubble_density_hint">How many bubbles and droplets drift across the water background.</string>
+    <string name="look_liquid_motion">"Liquid motion  %1$d%%"</string>
+    <string name="look_liquid_motion_hint">How much the water surface drifts, ripples and reacts to touch.</string>
+    <string name="look_reduced_motion">Reduce motion</string>
+    <string name="look_reduced_motion_hint">Same switch as Behavior › Visual safety: stops drift, ink swirls and floating everywhere, not just here.</string>
     <string name="look_group_layout">Layout</string>
     <string name="look_bar_opacity">"Bar opacity  %1$d%%"</string>
     <string name="look_player_position">Player position</string>
     <string name="look_position_top">Top</string>
     <string name="look_position_bottom">Bottom</string>
-    <string name="look_corner_style">Corner style</string>
+    <!-- Unused by this tab now (the glass theme has one corner style everywhere); kept because
+         CornerStyle.labelRes (ui/AppTheme.kt) still points at them until G07 removes the enum. -->
     <string name="look_corner_sharp">Sharp</string>
     <string name="look_corner_rounded">Rounded</string>
     <string name="look_corner_pill">Pill</string>
@@ -628,6 +642,34 @@
     <string name="look_clear_visuals_menu">Clear-overlay Visuals menu</string>
     <string name="look_clear_visuals_hint">Text-only Visuals menu over the live visuals, so adjustments are visible as you make them.</string>
     <string name="look_boot_animation">Boot animation</string>
+
+    <!-- Liquid-glass design system (ui/glass/). Only strings the gallery/preview itself renders;
+         screen units add their own copy as they rewrite onto these primitives. -->
+    <string name="glass_profile">Profile</string>
+    <string name="glass_gallery_title">Liquid glass gallery</string>
+    <string name="glass_gallery_section_buttons">Buttons</string>
+    <string name="glass_gallery_section_slider">Slider</string>
+    <string name="glass_gallery_section_toggle">Toggle</string>
+    <string name="glass_gallery_section_knob">Knob</string>
+    <string name="glass_gallery_section_progress">Progress</string>
+    <string name="glass_gallery_section_list_row">List row</string>
+    <string name="glass_gallery_section_top_bar">Top bar</string>
+    <string name="glass_gallery_section_transport_bar">Transport bar</string>
+    <string name="glass_gallery_section_tabs">Tabs</string>
+    <string name="glass_gallery_section_segmented">Segmented</string>
+    <string name="glass_gallery_section_nav_bar">Nav bar</string>
+    <string name="glass_gallery_section_text_field">Text field</string>
+    <string name="glass_gallery_section_dialog">Dialog</string>
+    <string name="glass_gallery_button_label">Glass button</string>
+    <string name="glass_gallery_list_row_title">Track title</string>
+    <string name="glass_gallery_list_row_subtitle">Artist name</string>
+    <string name="glass_gallery_text_field_placeholder">Search</string>
+    <string name="glass_gallery_dialog_open">Open dialog</string>
+    <string name="glass_gallery_dialog_title">Glass dialog</string>
+    <string name="glass_gallery_dialog_message">This is a glass dialog card, drawn over `Dialog` with the same frosted surface as every other primitive.</string>
+    <string name="glass_gallery_segment_one">One</string>
+    <string name="glass_gallery_segment_two">Two</string>
+    <string name="glass_gallery_segment_three">Three</string>
 
     <!-- Font colour swatches. Mineral names; the argb value is what persists. -->
     <string name="font_color_auto">Auto</string>
@@ -762,6 +804,16 @@
     <string name="editor_lyric_captions">Lyrics → captions</string>
     <string name="editor_import_srt">Import SRT…</string>
     <string name="editor_export_srt">Export SRT…</string>
+    <string name="editor_export_chapters">Chapters…</string>
+    <string name="editor_chapters_title">Export chapter markers</string>
+    <string name="editor_chapters_description">Description block (.txt)</string>
+    <string name="editor_chapters_webvtt">WebVTT chapters (.vtt)</string>
+    <string name="editor_chapters_ffmetadata">FFmpeg metadata (.ffmeta)</string>
+    <string name="editor_chapters_none">Add at least two markers to export chapters.</string>
+    <string name="editor_chapters_saved">Chapters saved.</string>
+    <string name="editor_chapters_failed">"Chapters could not be saved: %1$s"</string>
+    <string name="editor_srt_saved">Captions saved.</string>
+    <string name="editor_srt_failed">"Captions could not be saved: %1$s"</string>
     <string name="autocut_title">Auto-cut</string>
     <string name="autocut_source">Cut on</string>
     <string name="autocut_source_transient">Transients</string>
@@ -795,6 +847,19 @@
     <string name="action_dismiss">Dismiss</string>
     <string name="preset_link_imported">Preset \"%1$s\" imported — it is in Visuals › Presets.</string>
     <string name="preset_link_unreadable">That preset link could not be read. It may have been cut short in transit.</string>
+    <string name="background_entry_point">Background</string>
+    <string name="background_sheet_title">Background image</string>
+    <string name="background_pick">Choose an image</string>
+    <string name="background_clear">Remove</string>
+    <string name="background_none">No background image is set.</string>
+    <string name="background_blend">Blend</string>
+    <string name="background_blend_screen">Screen</string>
+    <string name="background_blend_multiply">Multiply</string>
+    <string name="background_blend_add">Add</string>
+    <string name="background_amount">Amount: %1$d%%</string>
+    <string name="background_blur">Blur: %1$d</string>
+    <string name="background_dim">Dim: %1$d%%</string>
+    <string name="background_unreadable_cleared">The saved background image could no longer be read and was removed.</string>
     <string name="template_link_imported">Template \"%1$s\" imported — open Video templates to use it.</string>
     <string name="template_link_unreadable">That template link could not be read. It may have been cut short in transit.</string>
     <string name="template_entry_point">Video templates</string>

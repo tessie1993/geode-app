@@ -24,9 +24,9 @@ out vec4 fragColor;
 // uv -> log-polar -> curl-advected dye, sampled along the streak -> core.
 //
 // Audio: the spiral's pitch and the cloud's density breathe on uBassSmooth and
-// uSwell; treble lights the filaments. A spike does not brighten anything -
-// it re-aims the streak (uMoveDir), re-seeds the cloud (uSpawnSeed) and moves
-// the arm count to a new plateau (uFormPhase). Nothing steps in one frame.
+// uSwell; treble lights the filaments. The arm count and streak lean now
+// drift continuously with the mids and the shared slow wander target, rather
+// than re-aiming or re-seeding on a hit.
 
 #define SE_TAU 6.2831853
 #define SE_STREAK 6
@@ -42,6 +42,7 @@ float dye(vec2 lp, float detail) {
     return d / 1.45;
 }
 
+// motion: uMidRel -> arm count / spoke density, uOrbit -> streak lean and core wander
 void main() {
     vec2 uv = view();
     float r = max(length(uv), 1e-4);
@@ -50,8 +51,10 @@ void main() {
     float bass = clamp(uBassSmooth, 0.0, 1.5);
     float treb = clamp(uTrebleSmooth, 0.0, 1.5);
     float swell = clamp(uSwell, 0.0, 1.5);
-    // A spike steps the spiral between 2, 3 and 4 arms and holds it.
-    float arms = 2.0 + floor(uFormPhase * 3.0);
+    // The mids drift the arm count smoothly between 2 and 4, replacing the
+    // old spike-stepped plateau.
+    float midDrift = clamp(uMidRel - 1.0, -1.0, 1.0);
+    float arms = 3.0 + midDrift;
 
     // ---- log-polar --------------------------------------------------------
     //
@@ -75,10 +78,10 @@ void main() {
     float wsum = 0.0;
     for (int i = 0; i < SE_STREAK; i++) {
         float t = float(i) / float(SE_STREAK - 1);
-        // The streak leans along the current travel direction, so a spike tips
-        // the whole galaxy instead of flashing it.
+        // The streak leans toward the shared slow wander target instead of a
+        // spike-reset travel direction, so it tips gradually.
         float pull = t * (0.55 + 0.25 * swell);
-        vec2 s = lp + vec2(uMoveDir.x * 0.06 * t, -pull);
+        vec2 s = lp + vec2(uOrbit.x * 0.06 * t, -pull);
         float w = 1.0 - 0.72 * t;
         float d = dye(s, 2.6 + 1.4 * t);
         cloud += d * w;
@@ -109,15 +112,17 @@ void main() {
     // by radial spokes, the ring phase running on the same monotonic clock.
     float cr = r * 9.0;
     float rings = 0.5 + 0.5 * sin(cr * 5.0 - uFlowPhase * 3.0);
-    float spokes = 0.5 + 0.5 * cos(a * (8.0 + 4.0 * floor(uFormPhase * 3.0)) + uFlowPhase * 2.0);
+    float spokes = 0.5 + 0.5 * cos(a * (8.0 + 4.0 * midDrift) + uFlowPhase * 2.0);
     float coreMask = exp(-cr * cr * 0.30);
-    // The hue walks with radius, which is what gives the little disc its
-    // oil-on-water banding.
-    vec3 iris = pal(fract(0.15 + cr * 0.10 + uFormPhase * 0.2));
+    // The hue walks with radius and the shared key hue, which is what gives
+    // the little disc its oil-on-water banding; sin(2*pi*uKeyHue) rather
+    // than a raw multiple of it, since uKeyHue wraps 1->0 and a linear use
+    // of it would pop at that wrap.
+    vec3 iris = pal(fract(0.15 + cr * 0.10 + 0.1 * (1.0 + sin(6.2831853 * uKeyHue))));
     col += iris * coreMask * (0.35 + 0.65 * rings * spokes) * 1.5;
-    // The white-hot middle, and a halo that swells on a spike.
+    // The white-hot middle, and a halo that breathes with the loudness.
     col += vec3(1.0, 0.97, 0.9) * exp(-r * r * 900.0) * 2.2;
-    col += warm * exp(-r * 14.0) * (0.35 + 0.45 * uSpike);
+    col += warm * exp(-r * 14.0) * (0.35 + 0.15 * clamp(uEnergyRel - 1.0, -1.0, 1.0));
 
     // ---- the particle layer -------------------------------------------------
     //

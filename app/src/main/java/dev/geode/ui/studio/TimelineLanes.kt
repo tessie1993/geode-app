@@ -199,6 +199,21 @@ fun TimelineEditor(
                     }
             }
         }
+    // Mirrors ExportHost's destination picker for the visualizer export: below API 29
+    // StudioExporter.publish cannot insert into MediaStore at all, so the project export button
+    // forces this picker there instead of trying (and failing) to save into Movies/Geode.
+    val projectDestinationPicker =
+        rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("video/mp4")) { uri ->
+            if (uri != null) actions.exportProject(uri)
+        }
+
+    fun exportProject() {
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.Q) {
+            projectDestinationPicker.launch("geode_cut_${System.currentTimeMillis()}.mp4")
+        } else {
+            actions.exportProject()
+        }
+    }
 
     fun exportChapters(
         format: ChapterFormat,
@@ -276,10 +291,16 @@ fun TimelineEditor(
             onUndo = actions::undo,
             onRedo = actions::redo,
             onZoom = { pxPerMs = (pxPerMs * it).coerceIn(TimelineScale.MIN_PX_PER_MS, TimelineScale.MAX_PX_PER_MS) },
-            onExport = actions::exportProject,
+            onExport = ::exportProject,
             onClose = onClose,
         )
-        ExportStatusRow(exportPhase, onCancel = actions::cancelProjectExport)
+        ExportStatusRow(
+            phase = exportPhase,
+            onCancel = actions::cancelProjectExport,
+            onExportToDestination = {
+                projectDestinationPicker.launch("geode_cut_${System.currentTimeMillis()}.mp4")
+            },
+        )
         EditorToolbar(
             tapSession = tapSession,
             onAddLane = ::addLane,
@@ -497,6 +518,7 @@ private fun ChapterFormatDialog(
 private fun ExportStatusRow(
     phase: ExportPhase,
     onCancel: () -> Unit,
+    onExportToDestination: () -> Unit,
 ) {
     when (phase) {
         is ExportPhase.Running -> {
@@ -512,7 +534,11 @@ private fun ExportStatusRow(
         }
         is ExportPhase.Done -> Text(stringResource(R.string.studio_saved), style = MaterialTheme.typography.labelMedium)
         is ExportPhase.Failed -> Text(phase.message, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
-        ExportPhase.Idle, ExportPhase.Loading -> Unit
+        ExportPhase.Idle ->
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                TextButton(onClick = onExportToDestination) { Text(stringResource(R.string.export_render_to_folder)) }
+            }
+        ExportPhase.Loading -> Unit
     }
 }
 

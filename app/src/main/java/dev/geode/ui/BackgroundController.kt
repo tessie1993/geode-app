@@ -96,7 +96,8 @@ internal class BackgroundController(
         width: Int,
         height: Int,
     ) {
-        if (width <= 0 || height <= 0 || (width == renderWidth && height == renderHeight)) return
+        if (width <= 0 || height <= 0) return
+        if (width == renderWidth && height == renderHeight) return
         renderWidth = width
         renderHeight = height
         redecode(0L)

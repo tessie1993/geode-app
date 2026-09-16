@@ -239,4 +239,44 @@ Java_dev_geode_engine_bridge_GeodeNative_vizReleaseScenes(JNIEnv*, jobject, jlon
     geode_viz_release_scenes(vizOf(handle));
 }
 
+// W00: pixels is a Java IntArray? (ARGB per Android's Bitmap.getPixels), so a null array is a
+// valid "clear" call rather than a JNI error - handled before touching the (possibly null) array.
+// width*height is checked against the array's actual length (mirroring vizPushPcm's count clamp
+// above) and treated as a clear when it doesn't fit, so a stale/mismatched width or height can
+// never make geode_viz_set_overlay_rgba read past the JVM-owned buffer.
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_vizSetOverlay(JNIEnv* env, jobject, jlong handle, jintArray pixels, jint width, jint height) {
+    if (!pixels) {
+        geode_viz_set_overlay_rgba(vizOf(handle), nullptr, 0, 0);
+        return;
+    }
+    jint* data = env->GetIntArrayElements(pixels, nullptr);
+    if (!data) return;
+    const jlong needed = static_cast<jlong>(width) * static_cast<jlong>(height);
+    if (width > 0 && height > 0 && needed <= env->GetArrayLength(pixels)) {
+        geode_viz_set_overlay_rgba(vizOf(handle), reinterpret_cast<const uint32_t*>(data), width, height);
+    } else {
+        geode_viz_set_overlay_rgba(vizOf(handle), nullptr, 0, 0);
+    }
+    env->ReleaseIntArrayElements(pixels, data, JNI_ABORT);
+}
+
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_vizSetUnderlay(JNIEnv* env, jobject, jlong handle, jintArray pixels, jint width, jint height,
+                                                        jint blend, jfloat amount) {
+    if (!pixels) {
+        geode_viz_set_underlay_rgba(vizOf(handle), nullptr, 0, 0, blend, amount);
+        return;
+    }
+    jint* data = env->GetIntArrayElements(pixels, nullptr);
+    if (!data) return;
+    const jlong needed = static_cast<jlong>(width) * static_cast<jlong>(height);
+    if (width > 0 && height > 0 && needed <= env->GetArrayLength(pixels)) {
+        geode_viz_set_underlay_rgba(vizOf(handle), reinterpret_cast<const uint32_t*>(data), width, height, blend, amount);
+    } else {
+        geode_viz_set_underlay_rgba(vizOf(handle), nullptr, 0, 0, blend, amount);
+    }
+    env->ReleaseIntArrayElements(pixels, data, JNI_ABORT);
+}
+
 }

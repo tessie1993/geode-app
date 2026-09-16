@@ -61,6 +61,11 @@ public:
     std::string takeMilkPresetLoaded();
     void setLfoConfigs(const std::array<LfoConfig, LfoEngine::kSlots>& configs);
     void setAdsrConfigs(const std::array<AdsrConfig, AdsrEngine::kCount>& configs);
+    // W00: full-frame overlay/underlay layers, latched here and uploaded to GL textures at the
+    // start of the next frame; see CompositePass.hpp for the pass itself. `pixels` is Android's
+    // Bitmap.getPixels ARGB layout; null (or a non-positive size) clears the layer.
+    void setOverlayRgba(const uint32_t* pixels, int width, int height);
+    void setUnderlayRgba(const uint32_t* pixels, int width, int height, int blend, float amount);
     ThermalGovernor& thermal() { return thermal_; }
     // Any thread: returns a copy (see Renderer.cpp) since fail() mutates lastError_ concurrently.
     std::string lastError() const;
@@ -103,6 +108,7 @@ private:
     void wireFlow(Scene& target, const SceneParams& p);
     void applyPendingFluidInjection();
     void applyMilkRequests();
+    void applyOverlayUploads();
     void notePresetLoaded(const std::string& path);
     static double monotonicSeconds();
     void fail(const std::string& message);
@@ -159,6 +165,19 @@ private:
     std::string fluidForceSrc_;
     std::string fluidDyeSrc_;
     bool fluidInjectionDirty_ = false;
+    // W00: overlay/underlay layers. Retained (not just "pending") so a surface recreation can
+    // re-arm the dirty flag and re-upload, the same way fluidForceSrc_/fluidDyeSrc_ do above;
+    // see onSurfaceCreated() and applyOverlayUploads(). Empty = cleared.
+    std::vector<uint32_t> overlayPixels_;
+    int overlayWidth_ = 0;
+    int overlayHeight_ = 0;
+    bool overlayDirty_ = false;
+    std::vector<uint32_t> underlayPixels_;
+    int underlayWidth_ = 0;
+    int underlayHeight_ = 0;
+    int underlayBlend_ = 0;
+    float underlayAmount_ = 0.0f;
+    bool underlayDirty_ = false;
     std::string lastMilkPreset_;
     std::string milkPresetRequest_;
     bool milkReloadRequested_ = false;

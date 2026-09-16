@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -24,12 +23,17 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import dev.geode.R
+import dev.geode.ui.glass.GlassButton
+import dev.geode.ui.glass.GlassPalette
+import dev.geode.ui.glass.GlassShapes
+import dev.geode.ui.glass.GlassToggle
+import dev.geode.ui.glass.floatOnWater
+import dev.geode.ui.glass.glassSurface
 
 /**
  * The walkthrough, over the live app.
@@ -64,7 +68,7 @@ fun TutorialOverlay(
             // Consumes taps so a tour step cannot be dismissed by prodding the app underneath it,
             // and so a stray tap does not start playback behind the card.
             .clickable(enabled = true, onClick = {})
-            .background(Color.Black.copy(alpha = 0.45f)),
+            .background(GlassPalette.base.copy(alpha = 0.35f)),
     ) {
         Column(
             Modifier
@@ -72,36 +76,37 @@ fun TutorialOverlay(
                 .navigationBarsPadding()
                 .padding(16.dp)
                 .fillMaxWidth()
-                .crystalPanel(
-                    0.92f,
-                    MaterialTheme.colorScheme.surface,
-                    MaterialTheme.colorScheme.primary,
-                    corner = 20.dp,
-                    glowStrength = 0.7f,
-                ).padding(18.dp),
+                .glassSurface(shape = GlassShapes.tile)
+                .floatOnWater(strength = 0.2f)
+                .padding(18.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            CrystalOverline(stringResource(R.string.tutorial_progress, index + 1, steps.size))
+            Text(
+                stringResource(R.string.tutorial_progress, index + 1, steps.size),
+                style = MaterialTheme.typography.labelMedium,
+                color = GlassPalette.textSecondary,
+            )
             Text(
                 stringResource(step.titleRes),
                 style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface,
+                color = GlassPalette.textPrimary,
                 modifier = Modifier.semantics { heading() },
             )
             Text(
                 stringResource(step.bodyRes),
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = GlassPalette.textSecondary,
             )
 
             // Offered on every step, not just the last: someone who is skipping on step one is
             // exactly the person most likely to mean "and don't ask me again".
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Checkbox(checked = dontShowAgain, onCheckedChange = onDontShowAgainChange)
+                GlassToggle(checked = dontShowAgain, onCheckedChange = onDontShowAgainChange)
+                Spacer(Modifier.width(10.dp))
                 Text(
                     stringResource(R.string.tutorial_dont_show),
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = GlassPalette.textSecondary,
                 )
             }
 
@@ -128,14 +133,15 @@ private fun TutorialActions(
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         // Skip stays put at the left on every step, including the last, so it never becomes a
         // moving target and nobody has to hunt for the way out.
-        CrystalButton(onClick = onSkip) { Text(stringResource(R.string.tutorial_skip)) }
+        GlassButton(text = stringResource(R.string.tutorial_skip), onClick = onSkip)
         Spacer(Modifier.weight(1f))
         if (!atFirst) {
-            CrystalButton(onClick = onBack) { Text(stringResource(R.string.tutorial_back)) }
+            GlassButton(text = stringResource(R.string.tutorial_back), onClick = onBack)
             Spacer(Modifier.width(8.dp))
         }
-        CrystalButton(onClick = onNext) {
-            Text(stringResource(if (atLast) R.string.tutorial_finish else R.string.tutorial_next))
-        }
+        GlassButton(
+            text = stringResource(if (atLast) R.string.tutorial_finish else R.string.tutorial_next),
+            onClick = onNext,
+        )
     }
 }

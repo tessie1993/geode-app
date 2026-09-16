@@ -627,6 +627,10 @@
     <string name="glass_gallery_segment_two">Two</string>
     <string name="glass_gallery_segment_three">Three</string>
 
+    <!-- Boot intro wordmark, shown as the glass drop lands (ui/BootIntro.kt). -->
+    <string name="boot_wordmark">Geode</string>
+    <string name="boot_tagline">VISUALIZE THE INVISIBLE</string>
+
     <!-- Font colour swatches. Mineral names; the argb value is what persists. -->
     <string name="font_color_auto">Auto</string>
     <string name="font_color_white">White</string>

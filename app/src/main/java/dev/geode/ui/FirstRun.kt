@@ -5,8 +5,8 @@ import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -37,6 +37,11 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
+import dev.geode.ui.glass.GlassButton
+import dev.geode.ui.glass.GlassPalette
+import dev.geode.ui.glass.GlassShapes
+import dev.geode.ui.glass.floatOnWater
+import dev.geode.ui.glass.glassSurface
 
 /** The audio-read permission for this device's API level. */
 internal val audioPermission: String
@@ -112,30 +117,35 @@ fun FirstRunSetup(
     onDone: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(
-        modifier =
-            modifier
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
-                .systemBarsPadding()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 24.dp, vertical = 32.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally,
+    Box(
+        modifier = modifier.fillMaxSize().systemBarsPadding().padding(24.dp),
+        contentAlignment = Alignment.Center,
     ) {
-        // Access first, and its own screen. The folder step is downstream of it in every sense:
-        // it is worded against a library that is already loading, and most people never need it.
-        if (!granted && !refused) {
-            AccessStep(onRequestAccess = onRequestAccess, onSkip = onDone)
-        } else {
-            FolderStep(
-                granted = granted,
-                folderCount = folderCount,
-                trackCount = trackCount,
-                scanning = scanning,
-                onPickFolder = onPickFolder,
-                onDone = onDone,
-            )
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .glassSurface(shape = GlassShapes.tile)
+                .floatOnWater(strength = 0.2f)
+                .padding(horizontal = 24.dp, vertical = 32.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            // Access first, and its own screen. The folder step is downstream of it in every
+            // sense: it is worded against a library that is already loading, and most people
+            // never need it.
+            if (!granted && !refused) {
+                AccessStep(onRequestAccess = onRequestAccess, onSkip = onDone)
+            } else {
+                FolderStep(
+                    granted = granted,
+                    folderCount = folderCount,
+                    trackCount = trackCount,
+                    scanning = scanning,
+                    onPickFolder = onPickFolder,
+                    onDone = onDone,
+                )
+            }
         }
     }
 }
@@ -150,15 +160,19 @@ private fun AccessStep(
         body = stringResource(R.string.first_run_access_body),
     )
     Spacer(Modifier.height(24.dp))
-    CrystalButton(onClick = onRequestAccess, modifier = Modifier.fillMaxWidth()) {
-        Text(stringResource(R.string.first_run_access_allow))
-    }
+    GlassButton(
+        text = stringResource(R.string.first_run_access_allow),
+        onClick = onRequestAccess,
+        modifier = Modifier.fillMaxWidth(),
+    )
     Spacer(Modifier.height(10.dp))
     // A refusable prompt. The app still opens, still visualises live input, and still plays a
     // folder someone picks by hand, so "not now" is a real answer rather than a dead end.
-    CrystalButton(onClick = onSkip, modifier = Modifier.fillMaxWidth()) {
-        Text(stringResource(R.string.first_run_access_skip))
-    }
+    GlassButton(
+        text = stringResource(R.string.first_run_access_skip),
+        onClick = onSkip,
+        modifier = Modifier.fillMaxWidth(),
+    )
 }
 
 @Composable
@@ -170,7 +184,11 @@ private fun FolderStep(
     onPickFolder: () -> Unit,
     onDone: () -> Unit,
 ) {
-    CrystalOverline(stringResource(R.string.first_run_optional))
+    Text(
+        stringResource(R.string.first_run_optional),
+        style = MaterialTheme.typography.labelMedium,
+        color = GlassPalette.textSecondary,
+    )
     Spacer(Modifier.height(8.dp))
     StepHeading(
         title = stringResource(R.string.first_run_folder_title),
@@ -179,13 +197,17 @@ private fun FolderStep(
     Spacer(Modifier.height(16.dp))
     ScanStatus(granted = granted, scanning = scanning, trackCount = trackCount, folderCount = folderCount)
     Spacer(Modifier.height(20.dp))
-    CrystalButton(onClick = onPickFolder, modifier = Modifier.fillMaxWidth()) {
-        Text(stringResource(R.string.first_run_folder_pick))
-    }
+    GlassButton(
+        text = stringResource(R.string.first_run_folder_pick),
+        onClick = onPickFolder,
+        modifier = Modifier.fillMaxWidth(),
+    )
     Spacer(Modifier.height(10.dp))
-    CrystalButton(onClick = onDone, modifier = Modifier.fillMaxWidth()) {
-        Text(stringResource(R.string.first_run_done))
-    }
+    GlassButton(
+        text = stringResource(R.string.first_run_done),
+        onClick = onDone,
+        modifier = Modifier.fillMaxWidth(),
+    )
 }
 
 /**
@@ -213,7 +235,7 @@ private fun ScanStatus(
     Text(
         line,
         style = MaterialTheme.typography.labelMedium,
-        color = if (granted) accentTextColor() else MaterialTheme.colorScheme.onSurfaceVariant,
+        color = if (granted) GlassPalette.mint else GlassPalette.textSecondary,
         textAlign = TextAlign.Center,
     )
 }

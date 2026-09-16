@@ -67,7 +67,7 @@ private fun NowPlaying(
             GlanceModifier
                 .fillMaxSize()
                 .background(ColorProvider(BACKGROUND))
-                .cornerRadius(18.dp)
+                .cornerRadius(24.dp)
                 .padding(12.dp)
                 .clickable(actionStartActivity<MainActivity>()),
         verticalAlignment = Alignment.CenterVertically,
@@ -75,7 +75,7 @@ private fun NowPlaying(
         Image(
             provider = art ?: ImageProvider(R.drawable.ic_widget_art),
             contentDescription = null,
-            modifier = GlanceModifier.size(56.dp).cornerRadius(10.dp),
+            modifier = GlanceModifier.size(56.dp).cornerRadius(16.dp),
         )
         Column(modifier = GlanceModifier.defaultWeight().padding(horizontal = 12.dp)) {
             Text(
@@ -147,6 +147,9 @@ class WidgetTransportAction : ActionCallback {
     }
 }
 
-private val BACKGROUND = Color(0xFF101418)
-private val FOREGROUND = Color(0xFFF2F4F8)
-private val MUTED = Color(0xFFA9B1BD)
+// The liquid-glass palette (docs/design/liquid-glass/README.md), flattened to opaque colours: a
+// home-screen widget surface cannot be translucent, so this is the base tone and its text tones
+// rather than the frosted-glass draw every in-app control uses.
+private val BACKGROUND = Color(0xFF8C95BB)
+private val FOREGROUND = Color(0xFFF5F3FF)
+private val MUTED = Color(0xFFC7CCE6)

@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Stone ground for the geode. Deep indigo with a lighter diagonal wedge so the
-  icon reads as a lit rock face rather than a flat tile; the wedge runs the same
-  way as the crystal highlight in the foreground.
+  Liquid-glass launcher background: the periwinkle water base with a lighter
+  diagonal wedge, echoing the caustic light the water surface always carries
+  (see docs/design/liquid-glass/README.md, GlassPalette.base/baseLight).
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
@@ -11,11 +11,11 @@
     android:viewportHeight="108">
     <path
         android:pathData="M0,0h108v108h-108z"
-        android:fillColor="#0E0620" />
+        android:fillColor="#8C95BB" />
     <path
         android:pathData="M0,108 L108,0 L108,108 Z"
-        android:fillColor="#190D36" />
+        android:fillColor="#9AA2C4" />
     <path
         android:pathData="M0,108 L108,30 L108,108 Z"
-        android:fillColor="#1F1145" />
+        android:fillColor="#A4ACCB" />
 </vector>

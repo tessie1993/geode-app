@@ -1,6 +1,5 @@
 package dev.geode.ui
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -9,13 +8,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.IconButton
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -32,8 +29,13 @@ import dev.geode.data.RuleField
 import dev.geode.data.RuleOp
 import dev.geode.data.SmartPlaylist
 import dev.geode.data.SmartRule
-import dev.geode.ui.theme.StoneIcon
-import dev.geode.ui.theme.StoneIconArt
+import dev.geode.ui.glass.GlassBubbleButton
+import dev.geode.ui.glass.GlassButton
+import dev.geode.ui.glass.GlassIcons
+import dev.geode.ui.glass.GlassListRow
+import dev.geode.ui.glass.GlassPalette
+import dev.geode.ui.glass.GlassSheet
+import dev.geode.ui.glass.GlassTextField
 
 /** The smart playlists under the hand-made ones: each row plays its current matches; the editor writes rules. */
 @Composable
@@ -41,31 +43,35 @@ internal fun SmartPlaylistsSection(viewModel: LibraryViewModel) {
     val library by viewModel.library.collectAsStateWithLifecycle()
     var editing by remember { mutableStateOf<SmartPlaylist?>(null) }
     var creating by remember { mutableStateOf(false) }
-    Column(Modifier.fillMaxWidth()) {
-        Row(Modifier.padding(horizontal = 16.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(stringResource(R.string.smart_playlists), style = MaterialTheme.typography.labelMedium, modifier = Modifier.weight(1f))
-            CrystalButton(compact = true, filled = false, onClick = { creating = true }) { Text(stringResource(R.string.smart_new)) }
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                stringResource(R.string.smart_playlists),
+                style = MaterialTheme.typography.labelMedium,
+                color = GlassPalette.textSecondary,
+                modifier = Modifier.weight(1f),
+            )
+            GlassButton(text = stringResource(R.string.smart_new), onClick = { creating = true })
         }
         library.smartPlaylists.forEach { pl ->
             val count = remember(pl, library) { viewModel.resolveSmartPlaylist(pl).size }
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .clickable { editing = pl }
-                    .padding(horizontal = 16.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column(Modifier.weight(1f)) {
-                    Text(pl.name)
-                    Text(pluralStringResource(R.plurals.track_count, count, count), style = MaterialTheme.typography.bodySmall)
-                }
-                IconButton(onClick = { viewModel.playSmartPlaylist(pl) }) {
-                    StoneIconArt(StoneIcon.PLAY, stringResource(R.string.action_play))
-                }
-                IconButton(onClick = { viewModel.deleteSmartPlaylist(pl.name) }) {
-                    StoneIconArt(StoneIcon.CLOSE, stringResource(R.string.action_delete))
-                }
-            }
+            GlassListRow(
+                title = pl.name,
+                subtitle = pluralStringResource(R.plurals.track_count, count, count),
+                leading = { Icon(GlassIcons.ListIcon, null, tint = GlassPalette.textSecondary) },
+                trailing = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        GlassBubbleButton(GlassIcons.Play, stringResource(R.string.action_play), { viewModel.playSmartPlaylist(pl) }, size = 32.dp)
+                        GlassBubbleButton(
+                            GlassIcons.Close,
+                            stringResource(R.string.action_delete),
+                            { viewModel.deleteSmartPlaylist(pl.name) },
+                            size = 32.dp,
+                        )
+                    }
+                },
+                onClick = { editing = pl },
+            )
         }
     }
     if (creating || editing != null) {
@@ -90,6 +96,7 @@ internal fun SmartPlaylistsSection(viewModel: LibraryViewModel) {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SmartPlaylistDialog(
     initial: SmartPlaylist,
@@ -99,56 +106,63 @@ private fun SmartPlaylistDialog(
 ) {
     var draft by remember { mutableStateOf(initial) }
     val nameOk = draft.name.isNotBlank() && draft.name.trim() !in taken
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(if (initial.name.isBlank()) R.string.smart_new else R.string.smart_edit)) },
-        text = {
-            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(
-                    value = draft.name,
-                    onValueChange = { draft = draft.copy(name = it) },
-                    singleLine = true,
-                    label = { Text(stringResource(R.string.studio_rename_field)) },
+    GlassSheet(onDismissRequest = onDismiss) {
+        Column(
+            Modifier.padding(20.dp).verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Text(
+                stringResource(if (initial.name.isBlank()) R.string.smart_new else R.string.smart_edit),
+                style = MaterialTheme.typography.titleLarge,
+                color = GlassPalette.textPrimary,
+            )
+            GlassTextField(
+                value = draft.name,
+                onValueChange = { draft = draft.copy(name = it) },
+                placeholder = stringResource(R.string.studio_rename_field),
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                FilterChip(
+                    selected = draft.matchAll,
+                    onClick = { draft = draft.copy(matchAll = true) },
+                    label = { Text(stringResource(R.string.smart_match_all), style = MaterialTheme.typography.labelSmall) },
                 )
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    FilterChip(
-                        selected = draft.matchAll,
-                        onClick = { draft = draft.copy(matchAll = true) },
-                        label = { Text(stringResource(R.string.smart_match_all), style = MaterialTheme.typography.labelSmall) },
-                    )
-                    FilterChip(
-                        selected = !draft.matchAll,
-                        onClick = { draft = draft.copy(matchAll = false) },
-                        label = { Text(stringResource(R.string.smart_match_any), style = MaterialTheme.typography.labelSmall) },
-                    )
-                }
-                draft.rules.forEachIndexed { index, rule ->
-                    RuleRow(
-                        rule = rule,
-                        onChange = { changed ->
-                            draft = draft.copy(rules = draft.rules.mapIndexed { i, r -> if (i == index) changed else r })
-                        },
-                        onRemove = { draft = draft.copy(rules = draft.rules.filterIndexed { i, _ -> i != index }) },
-                    )
-                }
-                TextButton(onClick = { draft = draft.copy(rules = draft.rules + SmartRule(RuleField.ARTIST, RuleOp.CONTAINS, "")) }) {
-                    Text(stringResource(R.string.smart_add_rule))
-                }
-                OutlinedTextField(
-                    value = if (draft.limit > 0) draft.limit.toString() else "",
-                    onValueChange = { draft = draft.copy(limit = it.filter(Char::isDigit).toIntOrNull() ?: 0) },
-                    singleLine = true,
-                    label = { Text(stringResource(R.string.smart_limit)) },
+                FilterChip(
+                    selected = !draft.matchAll,
+                    onClick = { draft = draft.copy(matchAll = false) },
+                    label = { Text(stringResource(R.string.smart_match_any), style = MaterialTheme.typography.labelSmall) },
                 )
             }
-        },
-        confirmButton = {
-            CrystalButton(enabled = nameOk, onClick = { onSave(draft.copy(name = draft.name.trim())) }) {
-                Text(stringResource(R.string.action_save))
+            draft.rules.forEachIndexed { index, rule ->
+                RuleRow(
+                    rule = rule,
+                    onChange = { changed ->
+                        draft = draft.copy(rules = draft.rules.mapIndexed { i, r -> if (i == index) changed else r })
+                    },
+                    onRemove = { draft = draft.copy(rules = draft.rules.filterIndexed { i, _ -> i != index }) },
+                )
             }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
-    )
+            GlassButton(
+                text = stringResource(R.string.smart_add_rule),
+                onClick = { draft = draft.copy(rules = draft.rules + SmartRule(RuleField.ARTIST, RuleOp.CONTAINS, "")) },
+            )
+            GlassTextField(
+                value = if (draft.limit > 0) draft.limit.toString() else "",
+                onValueChange = { draft = draft.copy(limit = it.filter(Char::isDigit).toIntOrNull() ?: 0) },
+                placeholder = stringResource(R.string.smart_limit),
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                GlassButton(text = stringResource(R.string.action_cancel), onClick = onDismiss)
+                GlassButton(
+                    text = stringResource(R.string.action_save),
+                    enabled = nameOk,
+                    onClick = { onSave(draft.copy(name = draft.name.trim())) },
+                )
+            }
+        }
+    }
 }
 
 @Composable
@@ -176,16 +190,15 @@ private fun RuleRow(
                 )
             }
         }
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             if (!rule.field.isFlag) {
-                OutlinedTextField(
+                GlassTextField(
                     value = rule.value,
                     onValueChange = { onChange(rule.copy(value = it)) },
-                    singleLine = true,
                     modifier = Modifier.weight(1f),
                 )
             }
-            TextButton(onClick = onRemove) { Text(stringResource(R.string.action_delete)) }
+            GlassBubbleButton(GlassIcons.Close, stringResource(R.string.action_delete), onRemove, size = 32.dp)
         }
     }
 }

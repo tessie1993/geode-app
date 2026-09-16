@@ -178,7 +178,7 @@ fun ExportHost(
         val alreadyGranted =
             Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
                 ContextCompat.checkSelfPermission(context, android.Manifest.permission.POST_NOTIFICATIONS) ==
-                    PackageManager.PERMISSION_GRANTED
+                PackageManager.PERMISSION_GRANTED
         if (!notificationPermissionAsked && !alreadyGranted) {
             notificationPermissionAsked = true
             notificationRationaleVisible = true

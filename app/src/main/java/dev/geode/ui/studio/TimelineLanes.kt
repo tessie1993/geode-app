@@ -173,6 +173,7 @@ fun TimelineEditor(
         rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("video/mp4")) { uri ->
             if (uri != null) actions.exportProject(uri)
         }
+
     fun exportProject() {
         if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.Q) {
             projectDestinationPicker.launch("geode_cut_${System.currentTimeMillis()}.mp4")

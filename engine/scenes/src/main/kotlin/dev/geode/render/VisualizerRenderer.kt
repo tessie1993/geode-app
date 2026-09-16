@@ -67,16 +67,13 @@ class VisualizerRenderer(
     @Volatile
     var onShaderError: (String?) -> Unit = {}
 
-    /** Fired on the GL thread from [onSurfaceChanged], so a UI-layer overlay composer knows the target size. */
-    @Volatile
-    var onSurfaceSizeChanged: (Int, Int) -> Unit = { _, _ -> }
-
     // Assigned from Main (EnginePlumbing.kt) and read on the GL thread in onDrawFrame.
     @Volatile
     var onMilkPresetLoaded: (String) -> Unit = {}
 
-    // W02: lets the UI re-decode/re-crop the background image to the surface's new pixel size.
-    // Assigned from Main (EnginePlumbing.kt), invoked on the GL thread from onSurfaceChanged.
+    // Fired on the GL thread from onSurfaceChanged so the UI layer can size the overlay composer
+    // and re-decode the background image to the surface's new pixel size. Assigned once from Main
+    // (EnginePlumbing.kt), which fans it out to both consumers.
     @Volatile
     var onSurfaceSizeChanged: (width: Int, height: Int) -> Unit = { _, _ -> }
 

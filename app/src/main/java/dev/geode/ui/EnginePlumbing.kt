@@ -46,13 +46,14 @@ fun VisualizerEngineBindings(
 
     LaunchedEffect(Unit) {
         visualizerView.visualizerRenderer.onShaderError = viewModel::reportShaderError
-        visualizerView.visualizerRenderer.onSurfaceSizeChanged = viewModel::setOverlaySurfaceSize
         visualizerView.visualizerRenderer.pcmProvider = { viewModel.latestPcm() }
-        // W02: the background image is decoded to the surface's current pixel size, so a rotation
-        // or a fold needs a re-decode just as much as a fresh pick does. onSurfaceSizeChanged fires
-        // on the GL thread; BackgroundController's state is only ever touched from Main, so this
-        // hops back rather than calling straight through.
+        // One surface-size callback feeds both consumers: the overlay composer takes the size
+        // directly, and the background image is re-decoded to the surface's current pixel size
+        // (a rotation or a fold needs that just as much as a fresh pick does). The callback fires
+        // on the GL thread; BackgroundController's state is only ever touched from Main, so that
+        // half hops back rather than calling straight through.
         visualizerView.visualizerRenderer.onSurfaceSizeChanged = { w, h ->
+            viewModel.setOverlaySurfaceSize(w, h)
             mainScope.launch { visualsViewModel.setBackgroundRenderSize(w, h) }
         }
         LayersBus.availableScenes.value = visualizerView.visualizerRenderer.availableSceneIds()

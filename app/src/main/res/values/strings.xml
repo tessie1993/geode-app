@@ -568,6 +568,9 @@
     <string name="export_loop_rendering">Rendering… %1$d%%</string>
     <string name="export_loudness_target">Loudness target</string>
     <string name="export_loudness_hint">Geode measures the finished file against this target once export completes. It does not yet change the level to match — pick the platform you\'re shipping to, or Leave as-is to ship the level you mixed.</string>
+    <string name="export_fps_24">24 fps</string>
+    <string name="export_fps_25">25 fps</string>
+    <string name="export_fps_50">50 fps</string>
 
     <!-- Settings: Look tab. -->
     <string name="look_group_theme">Theme</string>

@@ -1,6 +1,5 @@
 package dev.geode.ui
 
-import android.content.Intent
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -30,6 +29,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
+import dev.geode.data.EXPORT_FPS_OPTIONS
 import dev.geode.data.ExportDefaults
 import dev.geode.data.ExportPrefsStore
 import dev.geode.data.GeodePrefsFiles
@@ -37,6 +37,7 @@ import dev.geode.data.exportCodecLabel
 import dev.geode.data.exportQualityLabel
 import dev.geode.export.ExportAspect
 import dev.geode.export.ExportCodec
+import dev.geode.export.ExportPresets
 import dev.geode.export.ExportQuality
 import dev.geode.export.ExportRange
 import dev.geode.export.ExportRatio
@@ -137,14 +138,11 @@ fun SettingsDialog(
                             )
                         }
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            // No track title reaches this dialog, so the rendered file's own
+                            // name (e.g. "geode_1234567890.mp4") stands in for EXTRA_TITLE/SUBJECT.
+                            val resultName = phase.resultUri.lastPathSegment?.substringAfterLast('/')
                             Button(onClick = {
-                                val share =
-                                    Intent(Intent.ACTION_SEND).apply {
-                                        type = "video/mp4"
-                                        putExtra(Intent.EXTRA_STREAM, phase.resultUri)
-                                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                    }
-                                context.startActivity(Intent.createChooser(share, chooserTitle))
+                                context.shareVideo(phase.resultUri, chooserTitle, title = resultName, subject = resultName)
                             }) {
                                 Text(stringResource(R.string.export_upload_drive))
                             }
@@ -154,6 +152,32 @@ fun SettingsDialog(
                         Text(stringResource(R.string.export_failed, phase.message), color = MaterialTheme.colorScheme.error)
                     }
                     ExportPhase.Idle, ExportPhase.Loading -> {
+                        Text(stringResource(R.string.export_platform_preset), style = MaterialTheme.typography.labelMedium)
+                        Row(
+                            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            CrystalSegmented(
+                                options = ExportPresets.ALL.map { it.name },
+                                selected = ExportPresets.indexMatching(quality, ratio, fps, loopSafe),
+                                onSelect = {
+                                    val preset = ExportPresets.ALL[it]
+                                    quality = preset.quality
+                                    ratio = preset.ratio
+                                    fps = preset.fps
+                                    loopSafe = preset.loopSafe
+                                    persistDefaults()
+                                },
+                            )
+                        }
+                        Text(
+                            presetCaption(
+                                ExportDefaults(quality, fps, ratio, loopSafe, codec, loudnessTargetId),
+                                stringResource(R.string.export_spec, ratio.label, exportQualityLabel(quality), fps),
+                            ),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                         Text(stringResource(R.string.export_quality), style = MaterialTheme.typography.labelMedium)
                         Row(
                             modifier = Modifier.horizontalScroll(rememberScrollState()),
@@ -167,14 +191,15 @@ fun SettingsDialog(
                             }
                         }
                         Text(stringResource(R.string.export_frame_rate), style = MaterialTheme.typography.labelMedium)
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            QualityChip(stringResource(R.string.export_fps_30), fps == 30) {
-                                fps = 30
-                                persistDefaults()
-                            }
-                            QualityChip(stringResource(R.string.export_fps_60), fps == 60) {
-                                fps = 60
-                                persistDefaults()
+                        Row(
+                            modifier = Modifier.horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            EXPORT_FPS_OPTIONS.zip(fpsLabels()).forEach { (option, label) ->
+                                QualityChip(label, fps == option) {
+                                    fps = option
+                                    persistDefaults()
+                                }
                             }
                         }
                         Text(stringResource(R.string.export_codec), style = MaterialTheme.typography.labelMedium)

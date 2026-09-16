@@ -71,6 +71,11 @@ class VisualizerRenderer(
     @Volatile
     var onMilkPresetLoaded: (String) -> Unit = {}
 
+    // W02: lets the UI re-decode/re-crop the background image to the surface's new pixel size.
+    // Assigned from Main (EnginePlumbing.kt), invoked on the GL thread from onSurfaceChanged.
+    @Volatile
+    var onSurfaceSizeChanged: (width: Int, height: Int) -> Unit = { _, _ -> }
+
     @Volatile
     var pcmProvider: () -> PcmChunk? = { null }
 
@@ -167,7 +172,23 @@ class VisualizerRenderer(
         gl: GL10?,
         width: Int,
         height: Int,
-    ) = nativeViz.surfaceChanged(width, height)
+    ) {
+        nativeViz.surfaceChanged(width, height)
+        onSurfaceSizeChanged(width, height)
+    }
+
+    /**
+     * Full-frame RGBA8 background image blended under the scene; see [dev.geode.render.bridge.NativeViz.setUnderlay].
+     * Any thread; latched for the next frame, so the UI calls this directly (or via
+     * `VisualizerView.queueEvent {}`) rather than waiting for [onDrawFrame].
+     */
+    fun setUnderlay(
+        pixels: IntArray?,
+        width: Int,
+        height: Int,
+        blend: UnderlayBlend,
+        amount: Float,
+    ) = nativeViz.setUnderlay(pixels, width, height, blend.ordinal, amount)
 
     override fun onDrawFrame(gl: GL10?) {
         nativeViz.setScene(requestedSceneId)

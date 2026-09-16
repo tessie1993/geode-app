@@ -205,6 +205,7 @@ private fun PresetsTreeTab(
     var deletingPreset by remember { mutableStateOf<String?>(null) }
     var replacingPreset by remember { mutableStateOf<String?>(null) }
     var showTemplates by remember { mutableStateOf(false) }
+    var showBackground by remember { mutableStateOf(false) }
     val userPresets = viz.presets.filterNot { BuiltInPresets.isBuiltIn(it.name) }.distinctBy { it.name }
     val byFolder = userPresets.groupBy { presetFolders.folderOf(it.name) }
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -236,6 +237,9 @@ private fun PresetsTreeTab(
                 }) { Text("Open a preset file") }
                 CrystalButton(compact = true, filled = false, onClick = { showTemplates = true }) {
                     Text(stringResource(R.string.template_entry_point))
+                }
+                CrystalButton(compact = true, filled = false, onClick = { showBackground = true }) {
+                    Text(stringResource(R.string.background_entry_point))
                 }
             }
             importNote?.let { note ->
@@ -483,6 +487,9 @@ private fun PresetsTreeTab(
     }
     if (showTemplates) {
         TemplatesSheet(viewModel, visualizerView, onDismiss = { showTemplates = false })
+    }
+    if (showBackground) {
+        BackgroundSheet(onDismiss = { showBackground = false })
     }
 }
 

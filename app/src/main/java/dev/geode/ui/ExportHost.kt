@@ -1,6 +1,8 @@
 package dev.geode.ui
 
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material3.AlertDialog
@@ -12,7 +14,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 import dev.geode.export.ExportAspect
@@ -155,10 +159,31 @@ fun ExportHost(
     onDismiss: () -> Unit,
 ) {
     val studioViewModel: StudioViewModel = geodeViewModel()
+    val context = LocalContext.current
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val viz by viewModel.vizState.collectAsStateWithLifecycle()
     val export by studioViewModel.exportState.collectAsStateWithLifecycle()
     val loop by studioViewModel.loopState.collectAsStateWithLifecycle()
+
+    // On API 33+ a render's progress notification (ExportService, foreground since it must
+    // survive the Activity going away) is silently suppressed for anyone who has never granted
+    // POST_NOTIFICATIONS — nothing else in the app asks for it unless audio capture is turned on.
+    // Ask once, right as the first render starts, with one rationale dialog first; the render
+    // proceeds either way, whether the permission is granted, denied, or never asked at all.
+    var notificationPermissionAsked by rememberSaveable { mutableStateOf(false) }
+    var notificationRationaleVisible by rememberSaveable { mutableStateOf(false) }
+    val notificationPermission =
+        rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
+    val requestNotificationPermissionOnce = {
+        val alreadyGranted =
+            Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+                ContextCompat.checkSelfPermission(context, android.Manifest.permission.POST_NOTIFICATIONS) ==
+                PackageManager.PERMISSION_GRANTED
+        if (!notificationPermissionAsked && !alreadyGranted) {
+            notificationPermissionAsked = true
+            notificationRationaleVisible = true
+        }
+    }
 
     var pendingExport by rememberSaveable(stateSaver = PendingExportSaver) {
         mutableStateOf<PendingExport?>(null)
@@ -240,6 +265,7 @@ fun ExportHost(
             LoopRenderSheet(
                 state = loop,
                 onStart = { req ->
+                    requestNotificationPermissionOnce()
                     if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.Q) {
                         pendingLoopExport = PendingLoopExport.from(req)
                         loopDestinationPicker.launch("geode_loop_${System.currentTimeMillis()}.mp4")
@@ -257,6 +283,7 @@ fun ExportHost(
                     }
                 },
                 onStartToDestination = { req ->
+                    requestNotificationPermissionOnce()
                     pendingLoopExport = PendingLoopExport.from(req)
                     loopDestinationPicker.launch("geode_loop_${System.currentTimeMillis()}.mp4")
                 },
@@ -276,6 +303,7 @@ fun ExportHost(
                 bpm = viz.bpm,
                 trackDurationMs = state.durationMs,
                 onStart = { aspect, fps, loopSafe, range, codec ->
+                    requestNotificationPermissionOnce()
                     // Saving into the Videos library without asking is a scoped-storage privilege,
                     // and scoped storage starts at Q. Below it the same insert needs
                     // WRITE_EXTERNAL_STORAGE - a permission this app does not ask for and should not
@@ -307,6 +335,7 @@ fun ExportHost(
                     }
                 },
                 onStartToDestination = { aspect, fps, loopSafe, range, codec ->
+                    requestNotificationPermissionOnce()
                     pendingExport =
                         PendingExport(
                             aspect,
@@ -325,5 +354,26 @@ fun ExportHost(
                     onDismiss()
                 },
             )
+    }
+
+    if (notificationRationaleVisible) {
+        AlertDialog(
+            onDismissRequest = { notificationRationaleVisible = false },
+            title = { Text(stringResource(R.string.export_notification_permission_title)) },
+            text = { Text(stringResource(R.string.export_notification_permission_body)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        notificationRationaleVisible = false
+                        notificationPermission.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+                    },
+                ) { Text(stringResource(R.string.action_ok)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { notificationRationaleVisible = false }) {
+                    Text(stringResource(R.string.export_notification_permission_skip))
+                }
+            },
+        )
     }
 }

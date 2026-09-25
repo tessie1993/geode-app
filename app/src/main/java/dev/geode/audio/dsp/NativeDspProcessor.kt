@@ -102,6 +102,13 @@ class NativeDspProcessor : BaseAudioProcessor() {
         if (h != 0L) GeodeNative.dspProcess(h, scratch, frames)
         val output = replaceOutputBuffer(samples * bytesPerSample)
         floats.position(0)
+        // scratch is grown but never shrunk, so asFloatBuffer()'s limit is the CAPACITY in
+        // floats, not this buffer's sample count. Without this bound the float branch below
+        // copies capacity/4 floats into room for `samples` and throws BufferOverflowException
+        // on the playback thread the first time a buffer is smaller than the largest seen -
+        // which the final buffer of a stream always is. The 16-bit branch is immune because
+        // it indexes absolutely.
+        floats.limit(samples)
         if (format.encoding == C.ENCODING_PCM_FLOAT) {
             output.asFloatBuffer().put(floats)
         } else {

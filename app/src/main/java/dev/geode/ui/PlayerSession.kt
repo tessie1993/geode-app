@@ -258,8 +258,6 @@ class PlayerSession internal constructor(
 
     val userDataLoaded: StateFlow<Boolean> get() = container.userData.loaded
 
-    val theme: StateFlow<dev.geode.ui.theme.ThemePack> get() = settings.theme
-
     val guiPrefs: StateFlow<GuiPrefs> get() = settings.guiPrefs
 
     val playerPrefs: StateFlow<PlayerPrefs> get() = settings.playerPrefs
@@ -267,8 +265,6 @@ class PlayerSession internal constructor(
     val audioFx: StateFlow<AudioFxState> get() = settings.audioFxState
 
     fun setGuiPrefs(prefs: GuiPrefs) = settings.setGuiPrefs(prefs)
-
-    fun setTheme(theme: dev.geode.ui.theme.ThemePack) = settings.setTheme(theme)
 
     fun setPlayerPrefs(prefs: PlayerPrefs) = settings.setPlayerPrefs(prefs)
 
@@ -765,14 +761,17 @@ class PlayerSession internal constructor(
 
     fun rescanMediaRoots() = musicLibrary.rescanMediaRoots()
 
-    fun createMusicPlaylist(name: String) = musicLibrary.createMusicPlaylist(name)
+    fun createMusicPlaylist(
+        name: String,
+        uris: List<String> = emptyList(),
+    ) = musicLibrary.createMusicPlaylist(name, uris)
 
     suspend fun importPlaylistFile(uri: Uri): PlaylistImportResult = musicLibrary.importPlaylistFile(uri)
 
     fun renameMusicPlaylist(
         oldName: String,
         newName: String,
-    ): Boolean = musicLibrary.renameMusicPlaylist(oldName, newName)
+    ) = musicLibrary.renameMusicPlaylist(oldName, newName)
 
     fun moveMusicPlaylistTrack(
         name: String,

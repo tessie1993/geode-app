@@ -11,6 +11,16 @@ a partial reconstruction, rebuilt from the references in these entries, is at
 
 ## Unreleased
 
+- **The shell is gone; the flow is code.** Every screen, view model and liquid-glass
+  component under `dev.geode.ui` was removed to make room for a new design system. In its
+  place `dev.geode.nav` defines the navigation as pure Kotlin — five sections with a stack
+  each, pages and sheets, overlays, gates, predictive back, deep links, restore — and
+  `nav/connect` holds the seams the design system fills: motion policy, transitions, touch
+  feedback (ripples, ink, stretch), gravity, haptics. `MainActivity` moved to `dev.geode`,
+  hosts the navigator and draws nothing yet. `DeviceTrack`, `DeviceTrackQuery`,
+  `TrackLibrary` and `PresetLink` moved to `dev.geode.data`, `Lyrics` to `dev.geode.editor`,
+  and the wallpaper and screensaver read reduced motion through `data/MotionPrefs`. See
+  `docs/NAVIGATION.md`.
 - **Continuous motion replaces transient reaction.** `core/viz/MotionField` now reshapes every
   family's parameters continuously, from running-average band ratios, phase-locked oscillators
   and slow re-targets, rather than from a beat, a drum, an instrument, a transient or an onset.

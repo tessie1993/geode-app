@@ -1,6 +1,9 @@
 # Build output
 .gradle/
 build/
+# Bundled runtime sources are shipped assets, not Gradle output.
+!app/src/main/assets/opaline/vendor/three/build/
+!app/src/main/assets/opaline/vendor/three/build/*.js
 .cxx/
 .kotlin/
 local.properties
@@ -21,12 +24,14 @@ secrets.properties
 google-services.json
 
 # Agent tooling is local-only and is not tracked in this repository.
+/.worktrees/
+/geode-app/
 .claude/
 .agents/
 .codex/
+graphify/
 AGENTS.md
+.reference/
+.verification/
 __pycache__/
 *.logcat
-
-# Local source design package
-.opaline-reference/

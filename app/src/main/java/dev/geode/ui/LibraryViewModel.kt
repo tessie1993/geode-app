@@ -145,14 +145,17 @@ class LibraryViewModel
             comment: String,
         ): TagWriteOutcome = session.writeTrackInfo(uri, title, artist, album, genre, year, trackNo, comment)
 
-        fun createMusicPlaylist(name: String) = session.createMusicPlaylist(name)
+        fun createMusicPlaylist(
+            name: String,
+            uris: List<String> = emptyList(),
+        ) = session.createMusicPlaylist(name, uris)
 
         suspend fun importPlaylistFile(uri: Uri): PlaylistImportResult = session.importPlaylistFile(uri)
 
         fun renameMusicPlaylist(
             oldName: String,
             newName: String,
-        ): Boolean = session.renameMusicPlaylist(oldName, newName)
+        ) = session.renameMusicPlaylist(oldName, newName)
 
         fun moveMusicPlaylistTrack(
             name: String,

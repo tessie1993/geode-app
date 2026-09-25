@@ -21,7 +21,7 @@ import dev.geode.editor.MarkerSet
 import dev.geode.editor.SnapContext
 import dev.geode.editor.SnapMode
 import dev.geode.editor.SnapTarget
-import dev.geode.ui.glass.GlassPalette
+import dev.geode.ui.opaline.creative.CreativeColors
 import kotlin.math.abs
 
 private data class MarkerDrag(
@@ -48,7 +48,7 @@ fun MarkerLane(
     val density = LocalDensity.current.density
     val hitPx = HIT_DP * density
     var drag by remember { mutableStateOf<MarkerDrag?>(null) }
-    val outline = GlassPalette.textPrimary
+    val outline = CreativeColors.textPrimary
 
     fun markerAt(x: Float): Marker? =
         markers.markers.minByOrNull { abs(scale.xOf(it.atMs) - x) }?.takeIf {

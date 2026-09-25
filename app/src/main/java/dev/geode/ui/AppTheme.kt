@@ -8,42 +8,10 @@ import androidx.compose.material3.Shapes
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.unit.dp
 import androidx.core.content.edit
 import dev.geode.R
 import dev.geode.analysis.BeatTuning
-import dev.geode.ui.theme.ThemePack
-import dev.geode.ui.theme.ThemePackCatalog
-
-object ThemeContrast {
-    const val LIGHT_CONTRAST_MIN = 0.5f
-
-    const val BODY_CONTRAST_MIN = 4.5f
-
-    const val HINT_CONTRAST_MIN = 3.0f
-}
-
-fun ThemePack.resolvedFontColor(
-    fontColorArgb: Int?,
-    backgroundDim: Float = 0f,
-): Int? {
-    if (fontColorArgb == null || !isLight) return fontColorArgb
-    val painted = Color(ColorDerive.dim(palette.background.toArgbInt(), backgroundDim))
-    val diff = kotlin.math.abs(Color(fontColorArgb).luminance() - painted.luminance())
-    return if (diff >= ThemeContrast.LIGHT_CONTRAST_MIN) fontColorArgb else null
-}
-
-fun ThemePack.fontColorActive(
-    fontColorArgb: Int?,
-    backgroundDim: Float = 0f,
-): Boolean = resolvedFontColor(fontColorArgb, backgroundDim) != null
-
-private fun Color.toArgbInt(): Int =
-    ((alpha * 255f + 0.5f).toInt() shl 24) or
-        ((red * 255f + 0.5f).toInt() shl 16) or
-        ((green * 255f + 0.5f).toInt() shl 8) or
-        (blue * 255f + 0.5f).toInt()
 
 internal val LocalFontColor = staticCompositionLocalOf<Color?> { null }
 
@@ -180,12 +148,6 @@ data class GuiPrefs(
 class ThemeStore(
     private val prefs: SharedPreferences,
 ) {
-    fun load(): ThemePack = ThemePackCatalog.bySlug(migrateLegacyName(prefs.getString(KEY, null)))
-
-    fun save(pack: ThemePack) {
-        prefs.edit { putString(KEY, pack.slug) }
-    }
-
     /** Reads the morph length, converting a beat count saved by an older build. */
     private fun readPresetMorphSeconds(prefs: SharedPreferences): Float {
         if (prefs.contains(KEY_PRESET_MORPH_SEC)) {
@@ -194,13 +156,6 @@ class ThemeStore(
         val beats = prefs.getInt(LEGACY_KEY_MORPH_BEATS, 4)
         return (beats * 60f / LEGACY_MORPH_BPM).coerceIn(0f, PRESET_MORPH_SECONDS_MAX)
     }
-
-    private fun migrateLegacyName(raw: String?): String? =
-        when (raw) {
-            "CLEAR_QUARTZ" -> "clear-quartz"
-            "SUGILITE" -> "sugilite"
-            else -> raw
-        }
 
     fun loadGui(): GuiPrefs {
         val fontColor =
@@ -333,7 +288,6 @@ class ThemeStore(
         const val KEY_SAFETY_CHOICE = "gui_safety_choice"
         const val LEGACY_CHOICE_REDUCED_MOTION = "REDUCED_MOTION"
 
-        const val KEY = "app_theme"
         const val KEY_POS = "gui_player_pos"
         const val KEY_CORNER = "gui_corner"
         const val KEY_OPACITY = "gui_opacity"

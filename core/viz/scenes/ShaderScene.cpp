@@ -87,7 +87,7 @@ void ShaderScene::update(const GeodeFeatureFrame& features, float dt) {
     rotationAngle_ = std::fmod(rotationAngle_ + p.rotation * dt, kTwoPi);
     zoomPhase_ = p.endlessZoom ? std::fmod(zoomPhase_ + p.endlessZoomSpeed * dt, 1.0f) : 0.0f;
     if (p.colorCycle) cyclePhase_ = std::fmod(cyclePhase_ + p.cycleSpeed * dt, 1.0f);
-    const float drive = p.audioDrive;
+    const float drive = safeAudioDrive(p.audioDrive);
     bass_ = std::clamp(features.bass * drive, 0.0f, kAudioClamp);
     mid_ = std::clamp(features.mid * drive, 0.0f, kAudioClamp);
     treble_ = std::clamp(features.treble * drive, 0.0f, kAudioClamp);

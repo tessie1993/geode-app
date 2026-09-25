@@ -22,8 +22,8 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import dev.geode.ui.glass.GlassPalette
-import dev.geode.ui.glass.glassSurface
+import dev.geode.ui.opaline.creative.CreativeColors
+import dev.geode.ui.opaline.creative.creativeSurface
 
 val LANE_HEADER_WIDTH: Dp = 76.dp
 val LANE_HEIGHT: Dp = 52.dp
@@ -55,7 +55,7 @@ fun TimeRuler(
         val stepMs = rulerStepMs(scale)
         val textPaint =
             android.graphics.Paint().apply {
-                color = GlassPalette.textSecondary.toArgb()
+                color = CreativeColors.textSecondary.toArgb()
                 textSize = 10f * density
                 isAntiAlias = true
             }
@@ -64,7 +64,7 @@ fun TimeRuler(
             val x = scale.xOf(ms)
             val major = ms % (stepMs * 5) == 0L
             drawLine(
-                GlassPalette.textPrimary.copy(alpha = if (major) 0.7f else 0.3f),
+                CreativeColors.textPrimary.copy(alpha = if (major) 0.7f else 0.3f),
                 Offset(x, size.height),
                 Offset(x, size.height - if (major) 12f * density else 6f * density),
                 strokeWidth = 1f,
@@ -85,7 +85,7 @@ fun Playhead(
     Canvas(modifier.fillMaxWidth().fillMaxHeight()) {
         val x = scale.xOf(playheadMs)
         drawLine(
-            brush = Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.9f), GlassPalette.mint.copy(alpha = 0.75f))),
+            brush = Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.9f), CreativeColors.mint.copy(alpha = 0.75f))),
             start = Offset(x, 0f),
             end = Offset(x, size.height),
             strokeWidth = 2f,
@@ -102,9 +102,9 @@ private fun DrawScope.drawPlayheadBubble(x: Float) {
         radius = radius * 2.4f,
         center = Offset(x, radius),
     )
-    drawCircle(GlassPalette.glassFill, radius = radius, center = Offset(x, radius))
+    drawCircle(CreativeColors.glassFill, radius = radius, center = Offset(x, radius))
     drawCircle(
-        GlassPalette.glassRim,
+        CreativeColors.glassRim,
         radius = radius,
         center = Offset(x, radius),
         style = Stroke(1.5f),
@@ -132,7 +132,7 @@ fun LaneContentBox(
         modifier
             .width(with(LocalDensity.current) { scale.contentPx.toDp() })
             .height(height)
-            .glassSurface(shape = LANE_STRIP_SHAPE, tint = tint),
+            .creativeSurface(shape = LANE_STRIP_SHAPE, tint = tint),
     ) { content() }
 }
 

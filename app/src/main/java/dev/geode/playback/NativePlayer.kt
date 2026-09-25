@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
+import android.os.ParcelFileDescriptor
 import androidx.annotation.OptIn
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
@@ -154,10 +155,20 @@ class NativePlayer(
         // Cancel any in-flight open/queue task instead of letting it run to completion against a
         // handle we're about to destroy; the worker bodies also bail out early once released.
         worker.shutdownNow()
-        bestEffort(TAG, "await worker shutdown") { worker.awaitTermination(500, TimeUnit.MILLISECONDS) }
+        val drained =
+            try {
+                worker.awaitTermination(500, TimeUnit.MILLISECONDS)
+            } catch (e: InterruptedException) {
+                Thread.currentThread().interrupt()
+                false
+            }
         tap.stop()
         dsp.release()
-        GeodeNative.playerDestroy(handle)
+        if (drained) {
+            GeodeNative.playerDestroy(handle)
+        } else {
+            RingLog.note(TAG, "worker did not terminate; skipping playerDestroy to avoid use-after-free")
+        }
         return done()
     }
 
@@ -313,6 +324,10 @@ class NativePlayer(
                     }
                     return@Callable
                 }
+                if (released) {
+                    bestEffort(TAG, "close fd after release") { ParcelFileDescriptor.adoptFd(fd.first).close() }
+                    return@Callable
+                }
                 GeodeNative.playerOpen(handle, fd.first, 0L, fd.second, id)
                 if (positionMs > 0L) GeodeNative.playerSeek(handle, positionMs * 1000L)
                 if (play) GeodeNative.playerPlay(handle)
@@ -343,6 +358,10 @@ class NativePlayer(
             // Same race as openCurrent(): don't call into the native handle once released.
             if (released) return@execute
             val fd = openFd(entry.item) ?: return@execute
+            if (released) {
+                bestEffort(TAG, "close fd after release") { ParcelFileDescriptor.adoptFd(fd.first).close() }
+                return@execute
+            }
             GeodeNative.playerSetNext(handle, fd.first, 0L, fd.second, id)
         }
     }
@@ -385,6 +404,9 @@ class NativePlayer(
     private companion object {
         const val TAG = "NativePlayer"
         const val POLL_MS = 200L
+
+        /** Bound on waiting for the open/queue worker at release; matches the rest of the codebase. */
+        const val WORKER_DRAIN_MS = 500L
 
         // GeodePlayerState in core/api/geode_api.h.
         const val ENGINE_IDLE = 0

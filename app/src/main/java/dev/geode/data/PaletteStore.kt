@@ -165,8 +165,8 @@ class PaletteStore(
             return CustomPalette(
                 id = o.optString("id").ifBlank { idFor(name) },
                 name = name,
-                baseHue = o.optDouble("baseHue", 0.0).toFloat().coerceIn(0f, 1f),
-                hueSpan = o.optDouble("hueSpan", 1.0).toFloat().coerceIn(0f, 1f),
+                baseHue = o.finiteDouble("baseHue", 0.0).toFloat().coerceIn(0f, 1f),
+                hueSpan = o.finiteDouble("hueSpan", 1.0).toFloat().coerceIn(0f, 1f),
             )
         }
     }

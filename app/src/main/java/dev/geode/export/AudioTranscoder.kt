@@ -6,6 +6,7 @@ import android.media.MediaCodecInfo
 import android.media.MediaExtractor
 import android.media.MediaFormat
 import android.net.Uri
+import dev.geode.R
 import dev.geode.RingLog
 import dev.geode.audio.AiffPcm
 import dev.geode.util.bestEffort
@@ -327,7 +328,7 @@ class AudioTranscoder(
                 if (progressed) {
                     stallIterations = 0
                 } else if (++stallIterations > STALL_LIMIT) {
-                    throw IllegalStateException("Audio transcode stalled (codec made no progress)")
+                    throw ExportFailure(R.string.export_error_audio_transcode_stalled)
                 }
             }
             out.flush()
@@ -568,7 +569,7 @@ class AudioTranscoder(
                 }
                 while (true) {
                     val enc = encoder ?: break
-                    val outIndex = enc.dequeueOutputBuffer(encInfo, 0)
+                    val outIndex = enc.dequeueOutputBuffer(encInfo, if (eosSent) 10_000 else 0)
                     if (outIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
                         outFormat = enc.outputFormat
                         progressed = true
@@ -597,7 +598,7 @@ class AudioTranscoder(
                 if (progressed) {
                     stallIterations = 0
                 } else if (++stallIterations > STALL_LIMIT) {
-                    throw IllegalStateException("Audio transcode stalled (codec made no progress)")
+                    throw ExportFailure(R.string.export_error_audio_transcode_stalled)
                 }
             }
             out.flush()
@@ -621,6 +622,13 @@ class AudioTranscoder(
 
     private companion object {
         const val STALL_LIMIT = 1_000
+
+        /**
+         * How long to wait on the encoder once EOS is in. Matches the AIFF path's own drain
+         * timeout; without it nothing in the post-EOS loop blocks and [STALL_LIMIT] expires
+         * before the codec has had a chance to emit its last buffer.
+         */
+        const val DRAIN_TIMEOUT_US = 10_000L
     }
 }
 

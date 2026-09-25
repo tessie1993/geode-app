@@ -36,7 +36,7 @@ internal data class LyricOptions(
  * over any scene, the same way [ArtTitleLayer] does.
  *
  * Reads [OverlayFrame.currentLine] / [OverlayFrame.nextLine] rather than [OverlayFrame.positionMs]
- * itself - [dev.geode.ui.OverlayController] is what turns a position into a line, throttled to
+ * itself - the overlay controller that will sit above this turns a position into a line, throttled to
  * when the line actually changes.
  */
 internal data class LyricLayer(

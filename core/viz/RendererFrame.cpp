@@ -83,7 +83,12 @@ SceneParams Renderer::resolveParams(float dt) {
             morph = 0.0f;
         }
     }
-    const float fade = std::max(requested.paramFadeSec, morph);
+    // std::max propagates a NaN, and a NaN fade sends the lerp below to k = NaN, which turns
+    // every interpolated parameter into a NaN that then feeds back through displayedParams_ on
+    // the next frame and never recovers. SceneParams::set now rejects non-finite input, so this
+    // is belt-and-braces for morph state and for params set before that guard existed.
+    float fade = std::max(requested.paramFadeSec, morph);
+    if (!std::isfinite(fade)) fade = 0.0f;
     displayedParams_ = fade <= 0.01f ? requested : lerpParams(displayedParams_, requested, std::clamp(dt / fade, 0.0f, 1.0f));
     const auto& envValues = adsr_.tick(dt, frameFeatures_);
     AdsrEngine::lfoOffsets(adsr_.configs, envValues, envRate_, envDepth_);

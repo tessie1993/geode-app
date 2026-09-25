@@ -1,0 +1,242 @@
+{
+  "schemaVersion": 1,
+  "renderCount": 7,
+  "note": "Only successfully rendered PNGs are counted. A batch command supports more models; unrendered combinations are not counted.",
+  "renders": [
+    {
+      "id": "A01",
+      "view": "threequarter",
+      "name": "A01-tidal-threequarter",
+      "file": "assets/pathtraced/A01-tidal-threequarter.png",
+      "engine": "Blender Cycles",
+      "blenderVersion": "4.5.3 LTS",
+      "samplesMaximum": 128,
+      "adaptiveThreshold": 0.008,
+      "denoised": true,
+      "resolution": [
+        1024,
+        1024
+      ],
+      "theme": "tidal",
+      "seconds": 127.31,
+      "transparent": true,
+      "source": "Original GLB geometry rendered offline, not image-generation output",
+      "transport": "RGB path tracing; volumetric absorption/scattering; dielectric refraction; thin-film approximation. No spectral dispersion claim.",
+      "png": {
+        "width": 1024,
+        "height": 1024,
+        "bitDepth": 16,
+        "colorType": 6,
+        "bytes": 1142411
+      },
+      "scene": "assets/blender/A01-tidal-threequarter.blend",
+      "sourceModels": [
+        "assets/models/A01.glb"
+      ]
+    },
+    {
+      "id": "B01",
+      "view": "threequarter",
+      "name": "B01-tidal-threequarter",
+      "file": "assets/pathtraced/B01-tidal-threequarter.png",
+      "engine": "Blender Cycles",
+      "blenderVersion": "4.5.3 LTS",
+      "samplesMaximum": 128,
+      "adaptiveThreshold": 0.008,
+      "denoised": true,
+      "resolution": [
+        1024,
+        1024
+      ],
+      "theme": "tidal",
+      "seconds": 91.54,
+      "transparent": true,
+      "source": "Original GLB geometry rendered offline, not image-generation output",
+      "transport": "RGB path tracing; volumetric absorption/scattering; dielectric refraction; thin-film approximation. No spectral dispersion claim.",
+      "png": {
+        "width": 1024,
+        "height": 1024,
+        "bitDepth": 16,
+        "colorType": 6,
+        "bytes": 614274
+      },
+      "scene": "assets/blender/B01-tidal-threequarter.blend",
+      "sourceModels": [
+        "assets/models/B01.glb"
+      ]
+    },
+    {
+      "id": "C03",
+      "view": "threequarter",
+      "name": "C03-tidal-threequarter",
+      "file": "assets/pathtraced/C03-tidal-threequarter.png",
+      "engine": "Blender Cycles",
+      "blenderVersion": "4.5.3 LTS",
+      "samplesMaximum": 128,
+      "adaptiveThreshold": 0.008,
+      "denoised": true,
+      "resolution": [
+        1024,
+        1024
+      ],
+      "theme": "tidal",
+      "seconds": 167.7,
+      "transparent": true,
+      "source": "Original GLB geometry rendered offline, not image-generation output",
+      "transport": "RGB path tracing; volumetric absorption/scattering; dielectric refraction; thin-film approximation. No spectral dispersion claim.",
+      "png": {
+        "width": 1024,
+        "height": 1024,
+        "bitDepth": 16,
+        "colorType": 6,
+        "bytes": 1168570
+      },
+      "scene": "assets/blender/C03-tidal-threequarter.blend",
+      "sourceModels": [
+        "assets/models/C03.glb"
+      ]
+    },
+    {
+      "id": "C10",
+      "view": "threequarter",
+      "name": "C10-tidal-threequarter",
+      "file": "assets/pathtraced/C10-tidal-threequarter.png",
+      "engine": "Blender Cycles",
+      "blenderVersion": "4.5.3 LTS",
+      "samplesMaximum": 128,
+      "adaptiveThreshold": 0.008,
+      "denoised": true,
+      "resolution": [
+        1024,
+        1024
+      ],
+      "theme": "tidal",
+      "seconds": 298.97,
+      "transparent": true,
+      "source": "Original GLB geometry rendered offline, not image-generation output",
+      "transport": "RGB path tracing; volumetric absorption/scattering; dielectric refraction; thin-film approximation. No spectral dispersion claim.",
+      "png": {
+        "width": 1024,
+        "height": 1024,
+        "bitDepth": 16,
+        "colorType": 6,
+        "bytes": 1391285
+      },
+      "scene": "assets/blender/C10-tidal-threequarter.blend",
+      "sourceModels": [
+        "assets/models/C10.glb"
+      ]
+    },
+    {
+      "id": "E08",
+      "view": "threequarter",
+      "name": "E08-tidal-threequarter",
+      "file": "assets/pathtraced/E08-tidal-threequarter.png",
+      "engine": "Blender Cycles",
+      "blenderVersion": "4.5.3 LTS",
+      "samplesMaximum": 128,
+      "adaptiveThreshold": 0.008,
+      "denoised": true,
+      "resolution": [
+        1024,
+        1024
+      ],
+      "theme": "tidal",
+      "seconds": 145.84,
+      "transparent": true,
+      "source": "Original GLB geometry rendered offline, not image-generation output",
+      "transport": "RGB path tracing; volumetric absorption/scattering; dielectric refraction; thin-film approximation. No spectral dispersion claim.",
+      "png": {
+        "width": 1024,
+        "height": 1024,
+        "bitDepth": 16,
+        "colorType": 6,
+        "bytes": 942519
+      },
+      "scene": "assets/blender/E08-tidal-threequarter.blend",
+      "sourceModels": [
+        "assets/models/E08.glb"
+      ]
+    },
+    {
+      "id": "F01",
+      "view": "threequarter",
+      "name": "F01-tidal-threequarter",
+      "file": "assets/pathtraced/F01-tidal-threequarter.png",
+      "engine": "Blender Cycles",
+      "blenderVersion": "4.5.3 LTS",
+      "samplesMaximum": 128,
+      "adaptiveThreshold": 0.008,
+      "denoised": true,
+      "resolution": [
+        1024,
+        1024
+      ],
+      "theme": "tidal",
+      "seconds": 132.31,
+      "transparent": true,
+      "source": "Original GLB geometry rendered offline, not image-generation output",
+      "transport": "RGB path tracing; volumetric absorption/scattering; dielectric refraction; thin-film approximation. No spectral dispersion claim.",
+      "renderDevice": "CPU",
+      "png": {
+        "width": 1024,
+        "height": 1024,
+        "bitDepth": 16,
+        "colorType": 6,
+        "bytes": 1698811
+      },
+      "scene": "assets/blender/F01-tidal-threequarter.blend",
+      "sourceModels": [
+        "assets/models/F01.glb"
+      ]
+    },
+    {
+      "ids": [
+        "A01",
+        "B01",
+        "C03",
+        "C10",
+        "C11",
+        "E08",
+        "F01"
+      ],
+      "view": "staged perspective",
+      "background": "Original abstract geometric satin stage, no photograph",
+      "caustics": "Cycles reflective/refractive paths and shadow-caustic object/light flags enabled. Noise/convergence depends on sample count; this is not a spectral caustic solution.",
+      "name": "specimen-tidal",
+      "file": "assets/pathtraced/specimen-tidal.png",
+      "engine": "Blender Cycles",
+      "blenderVersion": "4.5.3 LTS",
+      "samplesMaximum": 128,
+      "adaptiveThreshold": 0.008,
+      "denoised": true,
+      "resolution": [
+        1024,
+        768
+      ],
+      "theme": "tidal",
+      "seconds": 365.57,
+      "transparent": false,
+      "source": "Original GLB geometry rendered offline, not image-generation output",
+      "transport": "RGB path tracing; volumetric absorption/scattering; dielectric refraction; thin-film approximation. No spectral dispersion claim.",
+      "renderDevice": "CPU",
+      "png": {
+        "width": 1024,
+        "height": 768,
+        "bitDepth": 16,
+        "colorType": 6,
+        "bytes": 3887257
+      },
+      "scene": "assets/blender/specimen-tidal.blend",
+      "sourceModels": [
+        "assets/models/A01.glb",
+        "assets/models/B01.glb",
+        "assets/models/C03.glb",
+        "assets/models/C10.glb",
+        "assets/models/C11.glb",
+        "assets/models/E08.glb",
+        "assets/models/F01.glb"
+      ]
+    }
+  ]
+}

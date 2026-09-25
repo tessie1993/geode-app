@@ -14,14 +14,14 @@ import dev.geode.R
  * not point at something that is not there.
  */
 enum class TutorialStep(
-    val destination: GeodeDestination,
+    val destination: dev.geode.nav.Section,
     @param:StringRes val titleRes: Int,
     @param:StringRes val bodyRes: Int,
     val requiresStudio: Boolean = false,
 ) {
-    PLAYER(GeodeDestination.PLAYER, R.string.tutorial_player_title, R.string.tutorial_player_body),
-    LIBRARY(GeodeDestination.LIBRARY, R.string.tutorial_library_title, R.string.tutorial_library_body),
-    VISUALS(GeodeDestination.VISUALS, R.string.tutorial_visuals_title, R.string.tutorial_visuals_body),
+    PLAYER(dev.geode.nav.Section.PLAYER, R.string.tutorial_player_title, R.string.tutorial_player_body),
+    LIBRARY(dev.geode.nav.Section.LIBRARY, R.string.tutorial_library_title, R.string.tutorial_library_body),
+    VISUALS(dev.geode.nav.Section.VISUALS, R.string.tutorial_visuals_title, R.string.tutorial_visuals_body),
 
     /**
      * Touch gets its own step on the Visuals tab rather than sharing the one above.
@@ -29,9 +29,9 @@ enum class TutorialStep(
      * It is the least discoverable thing in the app — nothing on screen suggests that a finger
      * does anything — and it is the feature most likely to be missed entirely.
      */
-    TOUCH(GeodeDestination.VISUALS, R.string.tutorial_touch_title, R.string.tutorial_touch_body),
-    STUDIO(GeodeDestination.STUDIO, R.string.tutorial_studio_title, R.string.tutorial_studio_body, requiresStudio = true),
-    SETTINGS(GeodeDestination.SETTINGS, R.string.tutorial_settings_title, R.string.tutorial_settings_body),
+    TOUCH(dev.geode.nav.Section.VISUALS, R.string.tutorial_touch_title, R.string.tutorial_touch_body),
+    STUDIO(dev.geode.nav.Section.STUDIO, R.string.tutorial_studio_title, R.string.tutorial_studio_body, requiresStudio = true),
+    SETTINGS(dev.geode.nav.Section.SETTINGS, R.string.tutorial_settings_title, R.string.tutorial_settings_body),
     ;
 
     companion object {

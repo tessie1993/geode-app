@@ -43,8 +43,19 @@ bool Renderer::setParam(const std::string& key, float value) {
 }
 
 void Renderer::setFeatures(const GeodeFeatureFrame& features) {
+    // The feature frame is another trust boundary: geode_viz_set_features memcpy's the caller's
+    // floats verbatim, and a NaN band reaching a scene is sticky - the slew() smoothers in the
+    // scene families never recover from one. GeodeFeatureFrame is all-float by construction
+    // (GEODE_FEATURE_FRAME_FLOATS asserts the count), so scrub it as a flat array on the way in.
+    static_assert(sizeof(GeodeFeatureFrame) == GEODE_FEATURE_FRAME_FLOATS * sizeof(float),
+                  "GeodeFeatureFrame must stay a flat float struct for the finiteness scrub below");
+    GeodeFeatureFrame clean = features;
+    float* values = reinterpret_cast<float*>(&clean);
+    for (size_t i = 0; i < GEODE_FEATURE_FRAME_FLOATS; ++i) {
+        if (!std::isfinite(values[i])) values[i] = 0.0f;
+    }
     std::lock_guard<std::mutex> lock(stateLock_);
-    features_ = features;
+    features_ = clean;
 }
 
 void Renderer::setLayer(const std::string& sceneId, float mix, int blendOrdinal) {

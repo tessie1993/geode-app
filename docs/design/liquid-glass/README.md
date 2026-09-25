@@ -1,5 +1,9 @@
 # Liquid glass design system
 
+> The implementation this describes (`app/src/main/java/dev/geode/ui/glass/`) has been removed;
+> the shell is being rebuilt on `dev.geode.nav` (see `docs/NAVIGATION.md`). The references and
+> the notes below stay as source material for the design system that replaces it.
+
 Source of truth for the "liquid glass" UI (`app/src/main/java/dev/geode/ui/glass/`). Ten still
 references (`ref-01.jpg` … `ref-10.jpg`) and four video frame strips (`video-v1.jpg` …
 `video-v4.jpg`) are committed alongside this file so every worker and reviewer sees the same

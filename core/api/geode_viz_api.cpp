@@ -77,7 +77,14 @@ int geode_viz_set_param(geode_viz* v, const char* name, float value) {
 }
 
 void geode_viz_set_features(geode_viz* v, const GeodeFeatureFrame* frame) {
-    if (v && frame) v->renderer.setFeatures(*frame);
+    if (v && frame) {
+        GeodeFeatureFrame clean = *frame;
+        auto* floats = reinterpret_cast<float*>(&clean);
+        for (size_t i = 0; i < sizeof(GeodeFeatureFrame) / sizeof(float); ++i) {
+            if (!std::isfinite(floats[i])) floats[i] = 0.0f;
+        }
+        v->renderer.setFeatures(clean);
+    }
 }
 
 void geode_viz_set_reduced_motion(geode_viz* v, int on) {

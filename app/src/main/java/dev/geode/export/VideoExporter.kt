@@ -9,7 +9,6 @@ import android.media.MediaFormat
 import android.media.MediaMuxer
 import android.net.Uri
 import android.os.ParcelFileDescriptor
-import android.provider.DocumentsContract
 import android.provider.MediaStore
 import androidx.annotation.StringRes
 import dev.geode.R
@@ -25,6 +24,8 @@ import dev.geode.viz.BackgroundExportSpec
 import dev.geode.viz.BackgroundImage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.io.File
+import java.io.FileOutputStream
 import java.nio.ByteBuffer
 
 enum class ExportCodec(
@@ -154,8 +155,12 @@ class VideoExporter(
         destination: Uri? = null,
         codec: ExportCodec = ExportCodec.H264,
         loudnessTarget: LoudnessTarget = LoudnessTarget.LeaveAsIs,
-        /** Full-frame ARGB overlay (cover art/title) sized to [aspect], from `Bitmap.getPixels`; null draws none. */
-        overlay: IntArray? = null,
+        /**
+         * Full-frame ARGB overlay (cover art/title/lyrics/watermark) sized to [aspect], as a
+         * function from a track position (ms) to that frame's pixels (`Bitmap.getPixels` shape);
+         * null draws none for that frame. Null overlay draws nothing for the whole export.
+         */
+        overlay: ((positionMs: Long) -> IntArray?)? = null,
         background: BackgroundExportSpec? = null,
         onProgress: (Float) -> Unit,
         isCancelled: () -> Boolean,
@@ -261,15 +266,17 @@ class VideoExporter(
         range: ExportRange?,
         codec: ExportCodec,
         loudnessTarget: LoudnessTarget,
-        overlay: IntArray?,
+        overlay: ((positionMs: Long) -> IntArray?)?,
         underlay: OffscreenUnderlay?,
         onProgress: (Float) -> Unit,
         isCancelled: () -> Boolean,
     ): Result {
-        val resolver = context.contentResolver
+        val scratchFile = File.createTempFile("geode_export_", ".mp4", context.cacheDir)
         val pfd =
-            resolver.openFileDescriptor(destination, "w")
-                ?: return failed(R.string.export_error_destination_write)
+            ParcelFileDescriptor.open(
+                scratchFile,
+                ParcelFileDescriptor.MODE_READ_WRITE,
+            ) ?: return failed(R.string.export_error_destination_write)
         return try {
             pfd.use {
                 encodeInto(
@@ -295,19 +302,42 @@ class VideoExporter(
                 )
             }
             if (isCancelled()) {
-                bestEffort(
-                    TAG,
-                    "DocumentsContract.deleteDocument(resolver, de...",
-                ) { DocumentsContract.deleteDocument(resolver, destination) }
                 Result.Cancelled
             } else {
-                Result.Saved(destination, measureLoudness(destination, loudnessTarget))
+                val wrote = runCatching { publishScratch(scratchFile, destination) }.getOrDefault(false)
+                if (!wrote) {
+                    failed(R.string.export_error_destination_write)
+                } else {
+                    Result.Saved(destination, measureLoudness(destination, loudnessTarget))
+                }
             }
-        } catch (e: Exception) {
-            bestEffort(TAG, "DocumentsContract.deleteDocument(resolver, de...") { DocumentsContract.deleteDocument(resolver, destination) }
-            throw e
+        } finally {
+            bestEffort(TAG, "scratchFile.delete()") { scratchFile.delete() }
         }
     }
+
+    /**
+     * Copies the finished render onto the user's chosen document, returning false if the resolver
+     * would not open it. `"wt"` truncates: a shorter render must not leave the tail of whatever the
+     * file held before showing through.
+     */
+    private fun publishScratch(
+        scratch: File,
+        destination: Uri,
+    ): Boolean =
+        context.contentResolver.openFileDescriptor(destination, "wt")?.use { out ->
+            FileOutputStream(out.fileDescriptor).use { sink ->
+                scratch.inputStream().use { source -> source.copyTo(sink) }
+            }
+            true
+        } ?: false
+
+    /**
+     * The encoder's output buffer for [index]. [MediaCodec.getOutputBuffer] returns null once the
+     * codec has entered an error state, which is a failed export, not an empty frame to skip.
+     */
+    private fun MediaCodec.requireOutputBuffer(index: Int): ByteBuffer =
+        getOutputBuffer(index) ?: throw ExportFailure(R.string.export_error_encoder_buffer_null)
 
     /**
      * Measures the audio Geode just muxed into [uri] and, if it decoded, turns that measurement
@@ -360,7 +390,7 @@ class VideoExporter(
         range: ExportRange?,
         codec: ExportCodec,
         loudnessTarget: LoudnessTarget,
-        overlay: IntArray?,
+        overlay: ((positionMs: Long) -> IntArray?)?,
         underlay: OffscreenUnderlay?,
         onProgress: (Float) -> Unit,
         isCancelled: () -> Boolean,
@@ -476,8 +506,7 @@ class VideoExporter(
                             muxerStarted = true
                         }
                     } else if (outIndex >= 0) {
-                        val buf =
-                            checkNotNull(encoder.getOutputBuffer(outIndex)) { context.getString(R.string.export_error_encoder_buffer_null) }
+                        val buf = encoder.requireOutputBuffer(outIndex)
                         if (writeSample(muxer, videoTrack, buf, info, muxerStarted)) sampleWritten = true
                         encoder.releaseOutputBuffer(outIndex, false)
                     } else {
@@ -508,8 +537,7 @@ class VideoExporter(
                         }
                     }
                     outIndex >= 0 -> {
-                        val buf =
-                            checkNotNull(encoder.getOutputBuffer(outIndex)) { context.getString(R.string.export_error_encoder_buffer_null) }
+                        val buf = encoder.requireOutputBuffer(outIndex)
                         if (writeSample(muxer, videoTrack, buf, info, muxerStarted)) sampleWritten = true
                         val eos = info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0
                         encoder.releaseOutputBuffer(outIndex, false)
@@ -521,8 +549,12 @@ class VideoExporter(
                     else -> flushAttempts++
                 }
             }
-            check(muxerStarted || isCancelled()) { context.getString(R.string.export_error_encoder_no_output) }
-            check(sawEos || isCancelled()) { context.getString(R.string.export_error_encoder_stalled) }
+            if (!muxerStarted && !isCancelled()) {
+                throw ExportFailure(R.string.export_error_encoder_no_output)
+            }
+            if (!sawEos && !isCancelled()) {
+                throw ExportFailure(R.string.export_error_encoder_stalled)
+            }
             if (muxerStarted && !isCancelled() && audioTrack >= 0) {
                 val feed =
                     audioFeedRef ?: AudioFeed(muxer, audioTrack, aac, exportDurationUs).also { audioFeedRef = it }

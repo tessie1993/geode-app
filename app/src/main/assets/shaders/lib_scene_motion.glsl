@@ -89,40 +89,28 @@ uniform float uMotion;
  */
 uniform float uFlowPhase;
 
-// ---- legacy: constant since wave three; removed in R08 --------------------
-//
-// The spike-triggered reaction this uniform group used to carry. Nothing
-// writes these any more; ShaderScene uploads the neutral constant every
-// frame so a style that has not yet been migrated (R02-R07) still compiles
-// and draws exactly the picture it did with a silent, un-spiking input.
-
-/**
- * The transient envelope. Held at 0: nothing rises on a hit any more, so
- * anything still reading it (fluidWarp's eddy widening below) sees a track
- * that is always exactly as loud as uSwell says, never momentarily louder.
- */
-uniform float uSpike;
-
-/**
- * Unit vector, the current direction of travel. Held at (1, 0): nothing turns
- * it any more.
- */
-uniform vec2 uMoveDir;
-
-/** 0..1, held at 0: nothing re-rolls the spawn identity any more. */
-uniform float uSpawnSeed;
-
-/** Seconds since uSpawnSeed was last rolled. Held at 1000, well past spawnGrow()'s horizon, so a spawn always reads as fully grown in. */
-uniform float uSpawnAge;
-
-/** 0..1, the "which fractal" dial. Held at 0: nothing sends it to a new plateau any more. */
-uniform float uFormPhase;
-
 // ---- helpers ---------------------------------------------------------------
+//
+// R08 removed the spike-triggered uniform group this section used to read
+// (uSpike, uMoveDir, uSpawnSeed, uSpawnAge, uFormPhase - ShaderScene held
+// them at a neutral constant since wave three, so this is a behaviour-
+// preserving rewrite, not a new recipe). Every helper below keeps its old
+// signature so R02-R07's callers keep compiling; each now derives its
+// answer from a continuous uniform instead.
 
-/** 0 at the instant of a spawn, 1 once it has grown in over `seconds`. */
+/** Wave three: the current direction of travel, from the CPU's slow accumulated rotation (uDrift) instead of a spike-set heading. Always unit length. */
+vec2 moveDir() {
+    return vec2(cos(uDrift), sin(uDrift));
+}
+
+/**
+ * 0 at the instant of a spawn, 1 once it has grown in over `seconds`. Wave
+ * three: nothing re-spawns any more (the CPU held the old uSpawnAge at 1000,
+ * far past every caller's horizon), so this already always read as fully
+ * grown in - the constant below is that same steady state, not a new one.
+ */
 float spawnGrow(float seconds) {
-    return smoothstep(0.0, max(seconds, 1e-3), uSpawnAge);
+    return 1.0;
 }
 
 /** 1 at the instant of a spawn, decaying to 0: the complement of spawnGrow. */
@@ -132,7 +120,7 @@ float spawnFresh(float seconds) {
 
 /** The travel offset a field should be advected by, in style units. */
 vec2 flowOffset(float rate) {
-    return uMoveDir * (uFlowPhase * rate);
+    return moveDir() * (uFlowPhase * rate);
 }
 
 /**
@@ -140,7 +128,8 @@ vec2 flowOffset(float rate) {
  * that turn a whole structure rather than sliding it.
  */
 mat2 flowBasis() {
-    return mat2(uMoveDir.x, -uMoveDir.y, uMoveDir.y, uMoveDir.x);
+    vec2 d = moveDir();
+    return mat2(d.x, -d.y, d.y, d.x);
 }
 
 /**
@@ -176,7 +165,7 @@ float motionFbm(vec2 p) {
 /**
  * Divergence-free velocity at `p`. `scale` is the eddy size in style units;
  * larger is coarser. Already advected along the current travel direction, so
- * the whole field drifts the way a spike last pointed it.
+ * the whole field drifts the way uDrift is currently pointed.
  */
 vec2 curlVelocity(vec2 p, float scale) {
     vec2 q = p * scale + flowOffset(0.35);
@@ -187,11 +176,12 @@ vec2 curlVelocity(vec2 p, float scale) {
 }
 
 /**
- * Advects `p` through the curl field. `amount` in style units; a hit widens
- * the eddies through uSpike rather than displacing anything instantly.
+ * Advects `p` through the curl field. `amount` in style units; a louder-
+ * than-average passage widens the eddies through uEnergyRel, continuously,
+ * rather than a hit displacing anything instantly.
  */
 vec2 fluidWarp(vec2 p, float scale, float amount) {
-    return p + curlVelocity(p, scale) * amount * (0.7 + 0.5 * uSwell + 0.3 * uSpike);
+    return p + curlVelocity(p, scale) * amount * (0.7 + 0.5 * uSwell + 0.3 * clamp(uEnergyRel - 1.0, 0.0, 1.0));
 }
 
 /**
@@ -205,7 +195,8 @@ float fluidMotes(vec2 p, float density, float size) {
     vec2 q = fluidWarp(p, 1.4, 0.22) * density + flowOffset(0.9) * density * 0.15;
     vec2 cell = floor(q);
     vec2 local = fract(q) - 0.5;
-    float seed = motionHash(cell + floor(uSpawnSeed * 64.0));
+    // Wave three: identity drifts slowly with travel time instead of re-rolling on a hit.
+    float seed = motionHash(cell + floor(uFlowPhase * 0.08));
     // Scatter each mote inside its cell and let it orbit slowly, so the layer
     // reads as drifting particles rather than as a lit grid.
     float phase = uFlowPhase * (0.4 + seed) + seed * 6.2831853;
@@ -246,11 +237,11 @@ vec3 abcFlow(vec3 p) {
  * space, while feeding the result back in folds it, which is what turns a
  * smooth swirl into something that reads as stirred.
  *
- * The whole field drifts along the current travel direction, so a spike
- * re-aims the flow rather than restarting it.
+ * The whole field drifts along the current travel direction, so uDrift
+ * re-aims the flow continuously rather than a spike restarting it.
  */
 vec3 fluidWarp3(vec3 p, float scale, float amount) {
-    vec3 drift = vec3(uMoveDir * (uFlowPhase * 0.30), uFlowPhase * 0.18);
+    vec3 drift = vec3(moveDir() * (uFlowPhase * 0.30), uFlowPhase * 0.18);
     vec3 q = p + amount * abcFlow(p * scale + drift);
     return q + amount * 0.55 * abcFlow(q * scale * 2.07 + drift * 1.4 + 3.1);
 }

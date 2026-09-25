@@ -1,0 +1,10 @@
+{"suite":"optics","checks":10,"status":"pass","features":["Snell","Fresnel","TIR","reflection","split-energy-budget","voxel-DDA","resolution-normalization","optical-motion-invalidation","evolved-film-thickness"]}
+✔ tests/optics.test.mjs (1243.598871ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1274.450026

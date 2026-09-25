@@ -30,8 +30,6 @@ uniform float uBass;
 uniform float uMid;
 uniform float uTreble;
 uniform float uEnergy;
-/** Constant since wave three; removed in R08. Held at 0 - nothing rises on a beat hit any more. */
-uniform float uBeat;
 uniform sampler2D uAudioTex;
 uniform float uSpeed;
 uniform float uZoom;
@@ -44,8 +42,6 @@ uniform float uBright;
 uniform float uInvert;
 uniform float uIntensity;
 uniform float uMirrorX;
-/** Constant since wave three; removed in R08. Held at 0 - the endless-zoom pulse no longer widens on a beat hit. */
-uniform float uBeatResponse;
 uniform float uTurbulence;
 uniform float uPalBase;
 uniform float uPalRange;
@@ -64,17 +60,14 @@ uniform float uMorph;
 uniform float uPixelate;
 uniform float uPosterize;
 uniform float uSway;
-uniform float uPulse;
 /** Since wave three: the analyser's own phase-locked beat phase (0..1 of a cycle), not a clock a transient resets. */
 uniform float uBeatPhase;
 uniform float uDriftX;
 uniform float uDriftY;
-uniform float uShake;
 uniform float uTile;
 uniform float uTwist;
 uniform float uTemperature;
 uniform float uSolarize;
-uniform float uFlash;
 
 // ---- where the fingers are ------------------------------------------------
 //

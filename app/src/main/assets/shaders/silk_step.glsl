@@ -47,9 +47,9 @@ uniform float uDrive;      // audio drive onto injection brightness
 uniform float uBass;       // slewed band envelopes, 0..~1.2
 uniform float uMid;
 uniform float uTreble;
-uniform float uBeat;       // graded beat envelope, 0..1.5
-uniform float uStrike;     // raw-PCM transient, 0..1.5
-uniform float uBeatRing;   // expanding ring radius since the last beat, <0 = none
+uniform float uBeat;       // continuous energy/bar-phase drive, 0..1 (never a transient)
+uniform float uStrike;     // same continuous drive as uBeat, 0..1
+uniform float uBeatRing;   // ring radius, cycling 0..~kRingMax once per bar (always >= 0)
 
 // There is no uRes and no uStateScale here any more. The grid size arrives as
 // simStep's `size` argument, and the dye's range is the layer's business: it
@@ -231,7 +231,8 @@ vec4 simStep(ivec2 texel, ivec2 size, vec4 prev) {
     }
     v = clamp(v, vec2(-4.0), vec2(4.0));
 
-    // Beat impulse: a radial push away from centre, decaying with uBeat.
+    // Continuous radial push away from centre, riding uBeat rather than
+    // decaying after a hit.
     v += normalize(q + vec2(1e-4)) * uBeat * 0.35;
 
     vec2 back = uv - v * uAdvect / vec2(aspect, 1.0);
@@ -250,7 +251,7 @@ vec4 simStep(ivec2 texel, ivec2 size, vec4 prev) {
     vec2 dir = normalize(v + vec2(1e-4));
     vec3 add = strokes(q, dir) * (0.55 * uDrive);
 
-    // The expanding beat ring deposits into the bass lane.
+    // The ring, cycling once per bar, deposits into the bass lane.
     if (uBeatRing >= 0.0) {
         float ring = exp(-pow((length(q) - uBeatRing) * 9.0, 2.0));
         add.r += ring * uBeat * 0.8;

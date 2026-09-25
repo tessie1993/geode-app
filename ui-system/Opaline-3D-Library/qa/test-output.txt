@@ -1,0 +1,38 @@
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> opaline-3d-library@3.0.0 test
+> node --test tests/*.test.mjs
+
+✔ closed bubble mesh has positive volume and near-spherical gas capacity (69.65751ms)
+✔ gas-volume constraint recovers compression without nonfinite geometry (485.383532ms)
+✔ gravity drainage transports film downwards while conserving liquid mass and thickness bounds (462.110435ms)
+✔ local bubble contact with a rigid plane flattens the contact while retaining gas (1364.475906ms)
+✔ paired bubbles flatten into distinct contact caps without losing film mass (315.169439ms)
+✔ bubble grab cancellation preserves liquid mass through local deformation (343.270809ms)
+✔ tetrahedral grid encloses the analytic box volume with a closed outward surface (71.313697ms)
+✔ XPBD edge and volume constraints recover compression without inversion (353.927712ms)
+✔ local simultaneous grabs deform gel; cancellation retains a valid moving state (232.407004ms)
+✔ gel collisions prevent plane and sphere penetration (419.401594ms)
+✔ fixed stepping gives identical states independent of frame chunking (267.295324ms)
+✔ timing overload is observable and backlog is retained (0.752202ms)
+✔ PBF density constraints reduce a compressed block density error (127.336538ms)
+✔ liquid has finite 3D state inside collision boundaries for 240 substeps (2841.232572ms)
+✔ particle transfer carries mass, velocity, pigment, and a complete ledger (5.000688ms)
+✔ pairwise diffusion conserves total pigment and viscosity conserves momentum (12.684384ms)
+✔ two-body coupling transfers equal and opposite momentum (4.977699ms)
+✔ colliding peer particles conserve momentum and obey restitution (2.931924ms)
+✔ pinned cloth responds in depth and retains edge lengths (102.618372ms)
+✔ rod preserves chain lengths and fixed root under load (23.529441ms)
+✔ all 18 particle and 12 field presets produce finite deterministic state (104.435881ms)
+✔ invalid inputs fail explicitly rather than poisoning numerical state (3.153858ms)
+✔ contact recipes author different local constraints and release interrupted input (291.089097ms)
+{"suite":"transitions","checks":25,"ids":18,"status":"pass"}
+✔ tests/transitions.test.mjs (1967.592307ms)
+ℹ tests 24
+ℹ suites 0
+ℹ pass 24
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5706.580933

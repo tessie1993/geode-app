@@ -65,6 +65,8 @@ import dev.geode.render.scene.CustomizeTab
 import dev.geode.render.scene.PcmChunk
 import dev.geode.render.scene.SceneParams
 import dev.geode.viz.ArtTitleOptions
+import dev.geode.viz.LyricOptions
+import dev.geode.viz.WatermarkOptions
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -256,8 +258,6 @@ class PlayerSession internal constructor(
 
     val userDataLoaded: StateFlow<Boolean> get() = container.userData.loaded
 
-    val theme: StateFlow<dev.geode.ui.theme.ThemePack> get() = settings.theme
-
     val guiPrefs: StateFlow<GuiPrefs> get() = settings.guiPrefs
 
     val playerPrefs: StateFlow<PlayerPrefs> get() = settings.playerPrefs
@@ -265,8 +265,6 @@ class PlayerSession internal constructor(
     val audioFx: StateFlow<AudioFxState> get() = settings.audioFxState
 
     fun setGuiPrefs(prefs: GuiPrefs) = settings.setGuiPrefs(prefs)
-
-    fun setTheme(theme: dev.geode.ui.theme.ThemePack) = settings.setTheme(theme)
 
     fun setPlayerPrefs(prefs: PlayerPrefs) = settings.setPlayerPrefs(prefs)
 
@@ -541,10 +539,16 @@ class PlayerSession internal constructor(
 
     private fun loadLyricsFor(uri: Uri?) {
         _lyrics.value = null
+        overlay.setLyrics(null)
         if (uri == null) return
         scope.launch(Dispatchers.IO) {
             val found = LyricsLoader.load(application, uri)
-            withContext(Dispatchers.Main) { if (currentUri == uri) _lyrics.value = found }
+            withContext(Dispatchers.Main) {
+                if (currentUri == uri) {
+                    _lyrics.value = found
+                    overlay.setLyrics(found)
+                }
+            }
         }
     }
 
@@ -656,7 +660,7 @@ class PlayerSession internal constructor(
 
     fun setRandomInterval(seconds: Int) = autoVisuals.setRandomInterval(seconds)
 
-    fun setRandomOnBeat(enabled: Boolean) = autoVisuals.setRandomOnBeat(enabled)
+    fun setRandomOnSection(enabled: Boolean) = autoVisuals.setRandomOnSection(enabled)
 
     fun setRandomIncludeStyles(enabled: Boolean) = autoVisuals.setRandomIncludeStyles(enabled)
 
@@ -691,16 +695,29 @@ class PlayerSession internal constructor(
 
     internal fun setOverlayOptions(transform: (ArtTitleOptions) -> ArtTitleOptions) = overlay.setOptions(transform)
 
+    internal val overlayLyricOptions: StateFlow<LyricOptions> get() = overlay.lyricOptions
+
+    internal fun setOverlayLyricOptions(transform: (LyricOptions) -> LyricOptions) = overlay.setLyricOptions(transform)
+
     internal fun setOverlaySurfaceSize(
         width: Int,
         height: Int,
     ) = overlay.onSurfaceSizeChanged(width, height)
 
-    /** For [ExportController]: composes the overlay at the export's own frame size. */
-    internal fun composeOverlayForExport(
+    internal val watermarkOptions: StateFlow<WatermarkOptions> get() = overlay.watermarkOptions
+
+    internal fun setWatermarkOptions(transform: (WatermarkOptions) -> WatermarkOptions) = overlay.setWatermarkOptions(transform)
+
+    internal fun pickWatermarkImage(uri: Uri) = overlay.pickWatermarkImage(uri)
+
+    internal fun clearWatermarkImage() = overlay.clearWatermarkImage()
+
+    /** For [ExportController]: a per-position overlay provider at the export's own frame size. */
+    internal fun overlayProviderForExport(
         width: Int,
         height: Int,
-    ): OverlayPixels = overlay.composeForExport(width, height, _uiState.value.title, _uiState.value.artist, currentUri?.toString())
+    ): (Long) -> IntArray? =
+        overlay.overlayProviderForExport(width, height, _uiState.value.title, _uiState.value.artist, currentUri?.toString())
 
     val deviceTracks: StateFlow<List<DeviceTrack>> get() = musicLibrary.deviceTracks
 
@@ -744,14 +761,17 @@ class PlayerSession internal constructor(
 
     fun rescanMediaRoots() = musicLibrary.rescanMediaRoots()
 
-    fun createMusicPlaylist(name: String) = musicLibrary.createMusicPlaylist(name)
+    fun createMusicPlaylist(
+        name: String,
+        uris: List<String> = emptyList(),
+    ) = musicLibrary.createMusicPlaylist(name, uris)
 
     suspend fun importPlaylistFile(uri: Uri): PlaylistImportResult = musicLibrary.importPlaylistFile(uri)
 
     fun renameMusicPlaylist(
         oldName: String,
         newName: String,
-    ): Boolean = musicLibrary.renameMusicPlaylist(oldName, newName)
+    ) = musicLibrary.renameMusicPlaylist(oldName, newName)
 
     fun moveMusicPlaylistTrack(
         name: String,
@@ -1105,7 +1125,7 @@ class PlayerSession internal constructor(
                 override fun overlayPixelsFor(
                     width: Int,
                     height: Int,
-                ): IntArray? = composeOverlayForExport(width, height).pixels
+                ): (Long) -> IntArray? = overlayProviderForExport(width, height)
             },
         )
 

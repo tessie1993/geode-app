@@ -1,0 +1,20 @@
+{
+  "id": "C10",
+  "view": "threequarter",
+  "name": "C10-tidal-threequarter",
+  "file": "assets/pathtraced/C10-tidal-threequarter.png",
+  "engine": "Blender Cycles",
+  "blenderVersion": "4.5.3 LTS",
+  "samplesMaximum": 128,
+  "adaptiveThreshold": 0.008,
+  "denoised": true,
+  "resolution": [
+    1024,
+    1024
+  ],
+  "theme": "tidal",
+  "seconds": 298.97,
+  "transparent": true,
+  "source": "Original GLB geometry rendered offline, not image-generation output",
+  "transport": "RGB path tracing; volumetric absorption/scattering; dielectric refraction; thin-film approximation. No spectral dispersion claim."
+}

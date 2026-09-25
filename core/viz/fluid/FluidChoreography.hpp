@@ -43,10 +43,7 @@ public:
     const std::array<Anchor, kMaxCatch>& catches() const { return catches_; }
     int hitCount() const { return hitCount_; }
 
-    // motion is defaulted so callers outside wave three's scope (WaterScene,
-    // CurlFlowScene) keep compiling unchanged, reading it as the neutral
-    // "typical" state (see MotionField::State's defaults).
-    void tick(const GeodeFeatureFrame& f, float dt, float aspect, const MotionField::State& motion = MotionField::State{});
+    void tick(const GeodeFeatureFrame& f, float dt, float aspect, const MotionField::State& motion);
     void reset();
     void packSpawns(float* out) const;
     void packCatches(float* out, float pull, float captureRadius) const;

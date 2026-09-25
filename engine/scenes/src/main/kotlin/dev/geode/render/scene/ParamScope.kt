@@ -153,8 +153,10 @@ enum class ParamScope {
                     ParamKeys.SWAY,
                     ParamKeys.DRIFT_X,
                     ParamKeys.DRIFT_Y,
-                    ParamKeys.BEAT_PULSE,
-                    ParamKeys.BEAT_SHAKE,
+                    ParamKeys.MOTION_AMOUNT,
+                    ParamKeys.MOTION_BREATH,
+                    ParamKeys.MOTION_DRIFT,
+                    ParamKeys.MOTION_HUE,
                     ParamKeys.DOMAIN_WARP,
                     ParamKeys.RIPPLE,
                     ParamKeys.TWIST,
@@ -163,9 +165,6 @@ enum class ParamScope {
                     ParamKeys.PIXELATE,
                     ParamKeys.POSTERIZE,
                     ParamKeys.MIRROR,
-                    ParamKeys.BEAT_RESPONSE,
-                    ParamKeys.FORM_DRIVE,
-                    ParamKeys.BEAT_FLASH,
                     ParamKeys.PALETTE,
                     ParamKeys.HUE_SHIFT,
                     ParamKeys.HUE_RANGE,
@@ -186,7 +185,6 @@ enum class ParamScope {
                     ParamKeys.FILM_GRAIN,
                     ParamKeys.GLITCH,
                     ParamKeys.FISHEYE,
-                    ParamKeys.STROBE,
                     ParamKeys.FLOW_STRENGTH,
                     ParamKeys.WAVE_SPEED,
                     ParamKeys.DAMPING,
@@ -197,7 +195,18 @@ enum class ParamScope {
                 scoped(MID_BAND, ParamKeys.MID_GAIN)
                 scoped(TREBLE_BAND, ParamKeys.TREBLE_GAIN)
                 scoped(MARCH_DETAIL, ParamKeys.MARCH_DETAIL)
-                scoped(SHADER_LOOK, ParamKeys.MORPH, ParamKeys.COLOUR_MAP, ParamKeys.PALETTE_2, ParamKeys.PALETTE_BLEND, ParamKeys.DUOTONE)
+                scoped(
+                    SHADER_LOOK,
+                    ParamKeys.MORPH,
+                    ParamKeys.COLOUR_MAP,
+                    ParamKeys.PALETTE_2,
+                    ParamKeys.PALETTE_BLEND,
+                    ParamKeys.DUOTONE,
+                    // motionOrbit only ever reaches uOrbit, a raw uniform view() (the shared
+                    // shader-family boilerplate) reads - see core/viz/MotionField.cpp's comment
+                    // on why it is not one of the fields MotionField::apply reshapes.
+                    ParamKeys.MOTION_ORBIT,
+                )
                 scoped(ENDLESS_ZOOM, ParamKeys.ENDLESS_ZOOM, ParamKeys.DIVE_SPEED)
                 scoped(TURBULENCE, ParamKeys.TURBULENCE)
                 scoped(DYE_DENSITY, ParamKeys.DENSITY)
@@ -242,7 +251,6 @@ enum class ParamScope {
                     ParamKeys.FLUID_SPLAT_FORCE,
                     ParamKeys.BASS_PUMP,
                     ParamKeys.TREBLE_SPARKLE,
-                    ParamKeys.RADIUS_ON_BEAT,
                 )
                 scoped(
                     JOURNEY,

@@ -1,0 +1,476 @@
+{
+  "fields": {
+    "H01": {
+      "name": "Shared wind volume",
+      "kind": "wind",
+      "options": {
+        "strength": 0.45,
+        "gust": 0.25
+      }
+    },
+    "H02": {
+      "name": "Directional gust",
+      "kind": "wind",
+      "options": {
+        "direction": [
+          1,
+          0.2,
+          0.15
+        ],
+        "strength": 1.1,
+        "gust": 0.95,
+        "frequency": 1.7,
+        "turbulence": 0.04
+      }
+    },
+    "H03": {
+      "name": "Crosswind shear",
+      "kind": "wind",
+      "options": {
+        "strength": 0.2,
+        "shear": 1.1,
+        "gust": 0.05,
+        "turbulence": 0
+      }
+    },
+    "H04": {
+      "name": "Vortex column",
+      "kind": "vortex",
+      "options": {
+        "strength": 1.4,
+        "radial": 0.5,
+        "lift": 0.4
+      }
+    },
+    "H05": {
+      "name": "Vortex ring",
+      "kind": "ring",
+      "options": {
+        "radius": 0.8,
+        "core": 0.5,
+        "strength": 1.3,
+        "speed": 0.05
+      }
+    },
+    "H06": {
+      "name": "Obstacle wake study",
+      "kind": "wind",
+      "options": {
+        "strength": 0.7,
+        "gust": 0.4,
+        "turbulence": 0.8,
+        "scale": 5
+      },
+      "limitation": "Prescribed correlated wake-like forcing; not a resolved obstacle-flow simulation."
+    },
+    "H07": {
+      "name": "Touch attractor",
+      "kind": "radial",
+      "options": {
+        "strength": 2,
+        "radius": 2,
+        "attract": true
+      }
+    },
+    "H08": {
+      "name": "Touch repulsor",
+      "kind": "radial",
+      "options": {
+        "strength": 4,
+        "radius": 2,
+        "attract": false
+      }
+    },
+    "H09": {
+      "name": "Surface current",
+      "kind": "wind",
+      "options": {
+        "direction": [
+          0.8,
+          0,
+          0.5
+        ],
+        "strength": 0.4,
+        "gust": 0.1,
+        "turbulence": 0
+      },
+      "limitation": "World-space tangent-direction current; host must update direction from surface."
+    },
+    "H10": {
+      "name": "Buoyancy region",
+      "kind": "buoyancy",
+      "options": {
+        "surfaceY": 0.5,
+        "bodyDensity": 650
+      }
+    },
+    "H11": {
+      "name": "Quiet volume",
+      "kind": "quiet",
+      "options": {
+        "strength": 0,
+        "turbulence": 0
+      },
+      "limitation": "Pair with raised system drag; spatial drag blending is host controlled."
+    },
+    "H12": {
+      "name": "Turbulent inflow",
+      "kind": "wind",
+      "options": {
+        "direction": [
+          0.5,
+          0.05,
+          0.2
+        ],
+        "strength": 0.7,
+        "gust": 0.6,
+        "frequency": 1.2,
+        "turbulence": 1,
+        "scale": 3
+      },
+      "limitation": "Analytic divergence-free trigonometric disturbance, not a turbulence cascade solver."
+    }
+  },
+  "particles": {
+    "G01": {
+      "name": "Glow floaters",
+      "shape": "sphere",
+      "radius": 0.024,
+      "count": 96,
+      "color": [
+        0.2,
+        0.85,
+        1
+      ],
+      "emission": 3,
+      "gravity": [
+        0,
+        0.02,
+        0
+      ],
+      "field": "H01",
+      "drag": 1.2
+    },
+    "G02": {
+      "name": "Clear microbeads",
+      "shape": "sphere",
+      "radius": 0.025,
+      "count": 112,
+      "color": [
+        0.62,
+        0.89,
+        1
+      ],
+      "transmission": 1,
+      "field": "H09",
+      "gravity": [
+        0,
+        -0.03,
+        0
+      ]
+    },
+    "G03": {
+      "name": "Milky microbeads",
+      "shape": "sphere",
+      "radius": 0.034,
+      "count": 80,
+      "color": [
+        0.84,
+        0.84,
+        1
+      ],
+      "field": "H03",
+      "gravity": [
+        0,
+        -0.1,
+        0
+      ]
+    },
+    "G04": {
+      "name": "Pearl seeds",
+      "shape": "ellipsoid",
+      "radius": 0.036,
+      "count": 64,
+      "color": [
+        0.9,
+        0.79,
+        0.99
+      ],
+      "field": "H01",
+      "spin": 2,
+      "gravity": [
+        0,
+        -0.05,
+        0
+      ]
+    },
+    "G05": {
+      "name": "Botanical spores",
+      "shape": "seed",
+      "radius": 0.014,
+      "count": 160,
+      "color": [
+        0.56,
+        0.94,
+        0.77
+      ],
+      "field": "H02",
+      "spread": 0.2,
+      "gravity": [
+        0,
+        -0.025,
+        0
+      ],
+      "drag": 1.1
+    },
+    "G06": {
+      "name": "Petal fragments",
+      "shape": "petal",
+      "radius": 0.04,
+      "count": 52,
+      "color": [
+        0.91,
+        0.66,
+        0.87
+      ],
+      "field": "H12",
+      "spin": 5,
+      "gravity": [
+        0,
+        -0.08,
+        0
+      ],
+      "limitation": "Prescribed tumble angular velocity; full aerodynamic torque requires a shell body."
+    },
+    "G07": {
+      "name": "Glowing seed tails",
+      "shape": "seed",
+      "radius": 0.026,
+      "count": 64,
+      "color": [
+        0.46,
+        0.93,
+        1
+      ],
+      "field": "H04",
+      "emission": 2,
+      "trailLength": 20,
+      "gravity": [
+        0,
+        0,
+        0
+      ]
+    },
+    "G08": {
+      "name": "Buoyant bubbles",
+      "shape": "sphere",
+      "radius": 0.045,
+      "count": 64,
+      "color": [
+        0.75,
+        0.92,
+        1
+      ],
+      "transmission": 1,
+      "field": "H10",
+      "gravity": [
+        0,
+        -9.81,
+        0
+      ],
+      "drag": 2,
+      "limitation": "Buoyant particle spheres, not explicit gas-film surfaces."
+    },
+    "G09": {
+      "name": "Impact spray",
+      "shape": "sphere",
+      "radius": 0.02,
+      "count": 84,
+      "color": [
+        0.55,
+        0.86,
+        1
+      ],
+      "field": "H01",
+      "gravity": [
+        0,
+        -4,
+        0
+      ],
+      "burst": true,
+      "restitution": 0.25
+    },
+    "G10": {
+      "name": "Pinch-off satellites",
+      "shape": "sphere",
+      "radius": 0.012,
+      "count": 80,
+      "color": [
+        0.45,
+        0.7,
+        1
+      ],
+      "field": "H03",
+      "gravity": [
+        0,
+        -0.8,
+        0
+      ],
+      "spread": 0.35,
+      "limitation": "Emission accepts supplied source velocity; automatic topology/pinch-off detection is not included."
+    },
+    "G11": {
+      "name": "Mist condensate",
+      "shape": "sphere",
+      "radius": 0.01,
+      "count": 170,
+      "color": [
+        0.84,
+        0.94,
+        1
+      ],
+      "field": "H01",
+      "gravity": [
+        0,
+        -0.2,
+        0
+      ],
+      "drag": 1.5,
+      "limitation": "Droplet dynamics; no humidity/phase-change solver."
+    },
+    "G12": {
+      "name": "Contact shedding",
+      "shape": "seed",
+      "radius": 0.019,
+      "count": 80,
+      "color": [
+        0.61,
+        0.76,
+        1
+      ],
+      "field": "H02",
+      "gravity": [
+        0,
+        -1.2,
+        0
+      ],
+      "burst": true,
+      "limitation": "Host collision event must call burst() with contact velocity."
+    },
+    "G13": {
+      "name": "Orbital particle band",
+      "shape": "sphere",
+      "radius": 0.02,
+      "count": 96,
+      "color": [
+        0.39,
+        0.81,
+        1
+      ],
+      "field": "H04",
+      "gravity": [
+        0,
+        0,
+        0
+      ],
+      "ring": true,
+      "trailLength": 12
+    },
+    "G14": {
+      "name": "Wake tracers",
+      "shape": "sphere",
+      "radius": 0.012,
+      "count": 120,
+      "color": [
+        0.54,
+        1,
+        0.9
+      ],
+      "field": "H06",
+      "gravity": [
+        0,
+        0,
+        0
+      ],
+      "trailLength": 24,
+      "limitation": "Analytic wake forcing unless host supplies simulated velocity/force field."
+    },
+    "G15": {
+      "name": "Adhesive bead scatter",
+      "shape": "sphere",
+      "radius": 0.026,
+      "count": 92,
+      "color": [
+        0.63,
+        0.75,
+        1
+      ],
+      "field": "H01",
+      "gravity": [
+        0,
+        -1,
+        0
+      ],
+      "adhesionAcceleration": 2,
+      "stickSpeed": 2,
+      "limitation": "Threshold adhesion law to static colliders; no surface-energy wetting model."
+    },
+    "G16": {
+      "name": "Elastic bead cluster",
+      "shape": "sphere",
+      "radius": 0.056,
+      "count": 48,
+      "color": [
+        0.57,
+        0.86,
+        1
+      ],
+      "field": "H07",
+      "gravity": [
+        0,
+        -0.03,
+        0
+      ],
+      "spread": 0.4,
+      "restitution": 0.8
+    },
+    "G17": {
+      "name": "Particle tether chain",
+      "shape": "sphere",
+      "radius": 0.026,
+      "count": 36,
+      "color": [
+        0.46,
+        0.92,
+        1
+      ],
+      "field": "H02",
+      "gravity": [
+        0,
+        -0.25,
+        0
+      ],
+      "chain": true,
+      "trailLength": 0
+    },
+    "G18": {
+      "name": "Collision burst emitter",
+      "shape": "sphere",
+      "radius": 0.016,
+      "count": 112,
+      "color": [
+        0.44,
+        0.86,
+        1
+      ],
+      "field": "H01",
+      "gravity": [
+        0,
+        -1.8,
+        0
+      ],
+      "burst": true,
+      "emission": 1.5
+    }
+  }
+}

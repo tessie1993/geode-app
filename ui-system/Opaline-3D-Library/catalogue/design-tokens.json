@@ -1,0 +1,190 @@
+{
+  "version": "3.0.0",
+  "units": {
+    "length": "metres",
+    "angle": "radians",
+    "time": "seconds",
+    "mass": "kilograms",
+    "temperature": "kelvin"
+  },
+  "coordinates": {
+    "handedness": "right",
+    "up": [
+      0,
+      1,
+      0
+    ],
+    "front": [
+      0,
+      0,
+      1
+    ],
+    "right": [
+      1,
+      0,
+      0
+    ],
+    "rotationOrder": "XYZ",
+    "geometryScale": "authoring scene metres; map to app physical scale explicitly"
+  },
+  "spacing": {
+    "micro": 0.025,
+    "small": 0.05,
+    "medium": 0.1,
+    "large": 0.2,
+    "section": 0.4,
+    "environment": 0.8
+  },
+  "surfaces": {
+    "controlMinThickness": 0.12,
+    "panelDefaultThickness": 0.28,
+    "contentLift": 0.02,
+    "touchInset": 0.04,
+    "quietContentMargin": 0.08,
+    "colliderSkin": 0.008
+  },
+  "lighting": {
+    "keyDirection": [
+      -0.45,
+      0.8,
+      0.5
+    ],
+    "keyTemperature": 5600,
+    "fillTemperature": 7200,
+    "rimTemperature": 6400,
+    "rule": "one shared scene light rig, all parts receive it"
+  },
+  "camera": {
+    "perspectiveFovDegrees": 38,
+    "productView": [
+      4,
+      3,
+      7
+    ],
+    "detailView": [
+      2,
+      1.3,
+      4
+    ],
+    "orthographicForMeasurementOnly": true
+  },
+  "materials": {
+    "gel": {
+      "family": "dense opaline elastomer",
+      "ior": 1.39,
+      "opticalRole": "soft body"
+    },
+    "water": {
+      "family": "clear liquid",
+      "ior": 1.333,
+      "opticalRole": "liquid"
+    },
+    "shell": {
+      "family": "clear structural shell",
+      "ior": 1.46,
+      "opticalRole": "container"
+    },
+    "film": {
+      "family": "thin interference film",
+      "ior": 1.333,
+      "opticalRole": "bubble skin"
+    },
+    "nacre": {
+      "family": "milky pearl solid",
+      "ior": 1.52,
+      "opticalRole": "support"
+    },
+    "stone": {
+      "family": "wet mineral",
+      "ior": 1.5,
+      "opticalRole": "rigid environment"
+    },
+    "leaf": {
+      "family": "botanical solid",
+      "ior": 1.35,
+      "opticalRole": "vegetation"
+    },
+    "glow": {
+      "family": "emissive solid",
+      "ior": 1.37,
+      "opticalRole": "particle or core"
+    },
+    "pigment": {
+      "family": "colour carrier",
+      "ior": 1.37,
+      "opticalRole": "inner content"
+    },
+    "blue": {
+      "family": "blue opaline elastomer",
+      "ior": 1.4,
+      "opticalRole": "accent body"
+    }
+  },
+  "themes": [
+    {
+      "id": "tidal",
+      "name": "Tidal",
+      "gel": "#c6f0f3",
+      "accent": "#a8fff1",
+      "environment": "#122b3c",
+      "nature": "#467c66"
+    },
+    {
+      "id": "opal",
+      "name": "Opal",
+      "gel": "#f1e5f3",
+      "accent": "#fff0c9",
+      "environment": "#252c44",
+      "nature": "#77978c"
+    },
+    {
+      "id": "moss",
+      "name": "Moss",
+      "gel": "#cee7cb",
+      "accent": "#d9f8a7",
+      "environment": "#162f28",
+      "nature": "#7fa665"
+    },
+    {
+      "id": "obsidian",
+      "name": "Obsidian",
+      "gel": "#788296",
+      "accent": "#a3dcf0",
+      "environment": "#0b111d",
+      "nature": "#476477"
+    },
+    {
+      "id": "aurora",
+      "name": "Aurora",
+      "gel": "#d0cef5",
+      "accent": "#a0ffe0",
+      "environment": "#171e39",
+      "nature": "#829c99"
+    },
+    {
+      "id": "amber",
+      "name": "Amber",
+      "gel": "#f0d7af",
+      "accent": "#ffe4a3",
+      "environment": "#302c2a",
+      "nature": "#8b976a"
+    }
+  ],
+  "motion": {
+    "fixedDt": 0.008333333333333333,
+    "contact": "localized force at hit point",
+    "release": "remove pin and preserve velocity",
+    "cancel": "release ownership and contact constraints",
+    "content": "keep semantic content on a stable attachment plane",
+    "worldCoupling": "share collision and field state where the solver API supports it"
+  },
+  "accessibilityContract": {
+    "textBakedIntoAssets": false,
+    "hostOwnsSemantics": true,
+    "focusVisible": true,
+    "keyboardAndIme": "required in host adapter",
+    "reducedMotion": "host should offer a settled scene and explicit transitions",
+    "flashPolicy": "avoid repetitive full-scene flashes"
+  },
+  "note": "Design targets and assembly defaults. Numerical material shader values live in src/materials.js and can differ where required by its renderer."
+}

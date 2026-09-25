@@ -41,7 +41,7 @@ data class VizUiState(
     val transitionDurationSec: Float = 1.2f,
     val randomEnabled: Boolean = false,
     val randomIntervalSec: Int = 20,
-    val randomOnBeat: Boolean = true,
+    val randomOnSection: Boolean = true,
     val randomIncludeStyles: Boolean = true,
     val randomIncludePresets: Boolean = true,
     val randomIncludeMilk: Boolean = false,

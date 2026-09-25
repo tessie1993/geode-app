@@ -32,6 +32,20 @@ object VisualSafety {
     const val REDUCED_MOTION_SCALE = 0.4f
 
     /**
+     * Clamps, but substitutes [min] for anything non-finite.
+     *
+     * `coerceIn` and `coerceAtMost` are NOT safe against NaN: every IEEE comparison with a NaN is
+     * false, so both fall through and hand the NaN straight back. This object is the
+     * photosensitivity guard, so it cannot be the one clamp a preset talks its way past. (+/-Inf
+     * clamps correctly on its own; NaN is the hole.) The same guard is applied natively in
+     * `core/viz/VisualSafety.cpp`, which is the copy that actually runs each frame.
+     */
+    private fun Float.safeClamp(
+        min: Float,
+        max: Float,
+    ): Float = if (isFinite()) coerceIn(min, max) else min
+
+    /**
      * Clamps [p] to the flash limit, then optionally slows it for reduced motion.
      *
      * Inversion and solarize are left alone on purpose. A statically inverted picture is not a
@@ -44,13 +58,15 @@ object VisualSafety {
     ): SceneParams {
         var out =
             p.copy(
-                strobe = p.strobe.coerceIn(0f, MAX_FLASH_DEPTH / STROBE_SHADER_DEPTH),
-                flash = p.flash.coerceIn(0f, MAX_FLASH_DEPTH / FLASH_SHADER_DEPTH),
-                glitch = p.glitch.coerceAtMost(MAX_FLASH_DEPTH),
-                bloom = p.bloom.coerceAtMost(MAX_FLASH_DEPTH),
-                brightness = p.brightness.coerceIn(0f, 1f + MAX_FLASH_DEPTH),
-                intensity = p.intensity.coerceIn(0f, 1f + MAX_FLASH_DEPTH),
-                contrast = p.contrast.coerceIn(0f, 1f + MAX_FLASH_DEPTH),
+                strobe = p.strobe.safeClamp(0f, MAX_FLASH_DEPTH / STROBE_SHADER_DEPTH),
+                flash = p.flash.safeClamp(0f, MAX_FLASH_DEPTH / FLASH_SHADER_DEPTH),
+                // glitch and bloom previously had no lower bound at all, so a large negative
+                // finite value passed too; they are luminance terms like the rest.
+                glitch = p.glitch.safeClamp(0f, MAX_FLASH_DEPTH),
+                bloom = p.bloom.safeClamp(0f, MAX_FLASH_DEPTH),
+                brightness = p.brightness.safeClamp(0f, 1f + MAX_FLASH_DEPTH),
+                intensity = p.intensity.safeClamp(0f, 1f + MAX_FLASH_DEPTH),
+                contrast = p.contrast.safeClamp(0f, 1f + MAX_FLASH_DEPTH),
             )
         if (reducedMotion) {
             out =

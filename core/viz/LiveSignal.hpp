@@ -8,12 +8,19 @@ namespace geode::viz::live {
 
 constexpr float kHitFloor = 0.06f;
 
+// removed with R08b: AcidScene/SilkScene/LifeScene/MycoScene and
+// CurlFlowScene still call hit() (core/viz/scenes/*), so it - and the
+// beatImpulse/motionImpulse pair below that exist only for it - stay until
+// that unit migrates them off it. R08c already moved every OTHER caller
+// (Lfo.cpp, Adsr.cpp) onto level().
 inline float hit(const GeodeFeatureFrame& f) { return f.transient >= kHitFloor ? std::clamp(f.transient, 0.0f, 1.0f) : 0.0f; }
 inline float level(const GeodeFeatureFrame& f) { return std::clamp(f.rms, 0.0f, 1.0f); }
 inline float brightness(const GeodeFeatureFrame& f) { return std::clamp(f.centroid, 0.0f, 1.0f); }
 inline float width(const GeodeFeatureFrame& f) { return std::clamp(f.stereoWidth, 0.0f, 1.0f); }
 inline float pan(const GeodeFeatureFrame& f) { return std::clamp(f.stereoPan, -1.0f, 1.0f); }
 
+// removed with R08b: unused now that Lfo.cpp/Adsr.cpp no longer call hit(),
+// kept only because deleting hit() first would break the callers above.
 inline float beatImpulse(const GeodeFeatureFrame& f) {
     if (f.beat <= 0.0f) return 0.0f;
     return f.beatStrength > 0.0f ? f.beatStrength : 1.0f;

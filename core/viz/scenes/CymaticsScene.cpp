@@ -110,8 +110,6 @@ void CymaticsScene::draw(float timeSeconds) {
     glUniform1f(loc("uHueSpan"), hue::span(p.hueRange, p.paletteRange()) * style_.hueSpan);
     glUniform1f(loc("uEnergy"), clampedBand(f.rms));
     glUniform1f(loc("uTreble"), clampedBand(f.treble));
-    // Wave three: legacy constant - R06 removes the shader's read of this.
-    glUniform1f(loc("uBeat"), 0.0f);
     glUniform1f(loc("uExposure"), kExposure);
     glUniform1f(loc("uTouchK"), touchK);
     glUniform1f(loc("uTouchPhase"), touchPhase_);

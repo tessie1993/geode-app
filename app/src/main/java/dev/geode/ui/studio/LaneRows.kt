@@ -40,7 +40,7 @@ import dev.geode.editor.Lane
 import dev.geode.editor.LaneKind
 import dev.geode.editor.Marker
 import dev.geode.editor.MarkerId
-import dev.geode.ui.glass.GlassPalette
+import dev.geode.ui.opaline.creative.CreativeColors
 
 /** Header column beside the scrolling content column; every row height is fixed so the two stay aligned. */
 @Composable
@@ -69,7 +69,7 @@ internal fun Lanes(
                 Text(
                     stringResource(R.string.editor_markers),
                     style = MaterialTheme.typography.labelSmall,
-                    color = GlassPalette.textSecondary,
+                    color = CreativeColors.textSecondary,
                 )
             }
             project.timeline.lanes.forEach { lane ->
@@ -80,7 +80,7 @@ internal fun Lanes(
                     Text(
                         track.paramId.value,
                         style = MaterialTheme.typography.labelSmall,
-                        color = GlassPalette.textSecondary,
+                        color = CreativeColors.textSecondary,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
@@ -174,7 +174,7 @@ private fun LaneHeader(
         Text(
             lane.name,
             style = MaterialTheme.typography.labelSmall,
-            color = GlassPalette.textPrimary,
+            color = CreativeColors.textPrimary,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
@@ -219,7 +219,7 @@ private fun HeaderToggle(
     Text(
         label,
         style = MaterialTheme.typography.labelSmall,
-        color = if (on) GlassPalette.mint else GlassPalette.textSecondary,
+        color = if (on) CreativeColors.mint else CreativeColors.textSecondary,
         modifier = Modifier.clickable(onClick = onClick),
     )
 }
@@ -227,9 +227,9 @@ private fun HeaderToggle(
 /** One pastel per lane kind, so the glass strips (and their clips) read distinctly at a glance. */
 private fun laneTintFor(kind: LaneKind): Color =
     when (kind) {
-        LaneKind.Visual -> GlassPalette.mint
-        LaneKind.Media -> GlassPalette.sky
-        LaneKind.Text -> GlassPalette.lavender
-        LaneKind.Overlay -> GlassPalette.peach
-        LaneKind.Audio -> GlassPalette.pink
+        LaneKind.Visual -> CreativeColors.mint
+        LaneKind.Media -> CreativeColors.sky
+        LaneKind.Text -> CreativeColors.lavender
+        LaneKind.Overlay -> CreativeColors.peach
+        LaneKind.Audio -> CreativeColors.pink
     }

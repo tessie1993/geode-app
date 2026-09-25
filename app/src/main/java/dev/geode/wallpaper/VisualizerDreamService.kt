@@ -4,12 +4,17 @@ import android.service.dreams.DreamService
 import android.view.ViewGroup
 import dev.geode.audio.AudioBus
 import dev.geode.data.GeodePrefsFiles
+import dev.geode.data.MotionPrefs
 import dev.geode.data.PlayerPrefsStore
 import dev.geode.data.PresetStore
 import dev.geode.render.VisualizerRenderer
 import dev.geode.render.VisualizerView
-import dev.geode.ui.ThemeStore
-import dev.geode.util.bestEffort
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 /**
  * The visualizer as a screensaver (Daydream): the same renderer [VisualizerWallpaperService]
@@ -21,13 +26,14 @@ import dev.geode.util.bestEffort
  * its own scene teardown on `onDetachedFromWindow`, all apply completely unmodified — nothing
  * here re-implements them. Only the audio feed — [AudioBus.features] when something is playing,
  * an idle drift otherwise — has to be supplied, for the same reason [VisualizerWallpaperService]
- * supplies it too: a Dream, like a wallpaper, has no `PlayerViewModel` of its own to read it from.
+ * supplies it too: a Dream, like a wallpaper, has no player state of its own to read it from.
  */
 class VisualizerDreamService : DreamService() {
     private var visualizerView: VisualizerView? = null
     private val idle = IdleFeatures()
     private var lastFrameMs = 0L
-    private var feeder: Thread? = null
+    private var feeder: Job? = null
+    private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
 
     @Volatile
     private var running = false
@@ -93,7 +99,7 @@ class VisualizerDreamService : DreamService() {
         prefs.getString("milk_path", null)?.let { path ->
             if (java.io.File(path).isFile) engine.loadMilkPreset(path)
         }
-        engine.reducedMotion = ThemeStore(prefsFiles.general).loadGui().reducedMotion
+        engine.reducedMotion = MotionPrefs.reducedMotion(prefsFiles.general)
     }
 
     private fun startFeeding(engine: VisualizerRenderer) {
@@ -103,27 +109,23 @@ class VisualizerDreamService : DreamService() {
         running = true
         lastFrameMs = android.os.SystemClock.elapsedRealtime()
         feeder =
-            Thread {
+            scope.launch {
                 while (running && feedGeneration == generation) {
                     val now = android.os.SystemClock.elapsedRealtime()
                     val dt = ((now - lastFrameMs).coerceIn(1, 100)) / 1000f
                     lastFrameMs = now
                     engine.features = AudioBus.features() ?: idle.tick(dt)
-                    Thread.sleep(FEED_INTERVAL_MS)
+                    delay(FEED_INTERVAL_MS)
                 }
-            }.apply {
-                isDaemon = true
-                name = "geode-dream-audio"
-                start()
             }
     }
 
     private fun stopFeeding() {
-        val thread = feeder ?: return
+        val job = feeder ?: return
         running = false
         feedGeneration++
         AudioBus.removeConsumer()
-        bestEffort(TAG, "await feeder") { thread.join(FEEDER_JOIN_MS) }
+        job.cancel()
         feeder = null
     }
 

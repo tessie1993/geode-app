@@ -171,13 +171,11 @@ void MotionField::step(const GeodeFeatureFrame& f, float dt) {
 // the caller passed in and go through the safety clamp unchanged.
 SceneParams MotionField::apply(const SceneParams& p, bool reducedMotion) const {
     const float g = reducedMotion ? safety::kReducedMotionScale : 1.0f;
-    // motionOrbit is not read here: uOrbit is a raw shader uniform (see
-    // lib_scene_motion.glsl), and its own motionOrbit scaling happens in
-    // view() (wave three's R01), not in this SceneParams-facing table.
     const float motionAmount = std::clamp(p.motionAmount, 0.0f, 1.0f) * g;
     const float motionBreath = std::clamp(p.motionBreath, 0.0f, 1.0f) * g;
     const float motionDrift = std::clamp(p.motionDrift, 0.0f, 1.0f) * g;
     const float motionHue = std::clamp(p.motionHue, 0.0f, 1.0f) * g;
+    const float motionOrbit = std::clamp(p.motionOrbit, 0.0f, 1.0f) * g;
     const auto& s = state_;
     SceneParams o = p;
 
@@ -187,6 +185,17 @@ SceneParams MotionField::apply(const SceneParams& p, bool reducedMotion) const {
     const float breath = 1.0f + (s.breath - 1.0f) * motionBreath;
     o.zoom = std::clamp(p.zoom * breath, 0.3f, 3.0f);
     o.rotation = std::clamp(p.rotation + s.drift * motionDrift, -3.0f, 3.0f);
+    // uOrbit itself cannot be read from view() (lib_scene_motion.glsl, which
+    // declares it, is included after lib_scene_uniforms.glsl - see the note
+    // that used to live here), so the orbit reaches the picture through
+    // driftX/driftY instead, which view() already consumes. kOrbitToDrift
+    // caps the orbit's contribution at 10% of driftX/driftY's own -1..1
+    // range, so at the orbit's full swing and motionOrbit at max it reads as
+    // a gentle bias on top of the user's own drift, never a second drift
+    // dial in disguise.
+    constexpr float kOrbitToDrift = 0.1f;
+    o.driftX = std::clamp(p.driftX + s.orbitX * motionOrbit * kOrbitToDrift, -1.0f, 1.0f);
+    o.driftY = std::clamp(p.driftY + s.orbitY * motionOrbit * kOrbitToDrift, -1.0f, 1.0f);
     o.sway = std::clamp(p.sway + motionAmount * 0.35f * std::fabs(barSin_) * rhythmLock_, 0.0f, 1.0f);
     o.warp = std::clamp(p.warp + motionAmount * 0.3f * (1.0f - s.harmony), 0.0f, 1.0f);
     o.morph = std::clamp(p.morph + motionAmount * (1.0f - s.harmony), 0.0f, 1.0f);

@@ -36,11 +36,19 @@ public:
 
 private:
     static constexpr float kChainRateHz = 4.0f;
+    // Wave three: the gate that used to fire on live::hit() is a continuous
+    // level crossing against a slow average of the envelope's own band
+    // energy instead - see tick().
+    static constexpr float kEnergyAvgTauSeconds = 4.0f;
+    static constexpr float kGateOpenRatio = 1.25f;
+    static constexpr float kGateCloseRatio = 1.0f;
 
     std::array<float, kCount> level_{};
     std::array<int, kCount> stage_{};
     std::array<float, kCount> out_{};
     std::array<float, kCount> peak_{1.0f, 1.0f};
+    std::array<float, kCount> energyAvg_{};
+    std::array<bool, kCount> aboveAvg_{};
 };
 
 }  // namespace geode::viz

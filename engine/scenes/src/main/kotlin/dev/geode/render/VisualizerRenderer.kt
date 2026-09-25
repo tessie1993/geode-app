@@ -107,7 +107,7 @@ class VisualizerRenderer(
         return nativeViz.sceneIds()
     }
 
-    /** Frees the native renderer; only when this renderer is being discarded, on the GL thread. */
+    /** Frees the native instance on the GL thread; durable configuration survives reattachment. */
     fun releaseScenes() = nativeViz.destroy()
 
     fun submitShader(

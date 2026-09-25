@@ -1,0 +1,6 @@
+# Keep generated local Graphify analysis out of the source library.
+Opaline-3D-Library/graphify-out/
+
+# The library's bundled Three.js build is source material, not Gradle output.
+!Opaline-3D-Library/vendor/three/build/
+!Opaline-3D-Library/vendor/three/build/**

@@ -49,8 +49,8 @@ uniform vec2 uDiff;        // GS diffusion (Du, Dv)
 uniform float uAniso;      // 0 isotropic; >0 favours x growth (frost)
 uniform float uSeed;       // 1 on reset, decays; scatters a starting culture
 uniform float uSeedJitter; // seed lattice scale
-uniform float uKick;       // beat blob strength this frame
-uniform vec2 uKickPos;     // beat blob position, uv
+uniform float uKick;       // seeding-blob strength, continuous from relative bass (never a threshold)
+uniform vec2 uKickPos;     // seeding-blob position, uv - orbits continuously with the bar oscillator
 uniform float uSprinkle;   // treble speckle strength
 uniform float uTime;
 

@@ -4,7 +4,6 @@
 #include <cmath>
 #include <limits>
 
-#include "viz/LiveSignal.hpp"
 #include "viz/Quad.hpp"
 
 namespace geode::viz {
@@ -50,9 +49,9 @@ void LifeScene::resize(int width, int height) {
 void LifeScene::update(const GeodeFeatureFrame& features, float dt) {
     time_ = std::fmod(time_ + dt, kSceneTimeWrapSeconds);
     lastDt_ = dt;
-    pcmStrike_ = pcmPulse_.tick(dt);
     pending_ = features;
     hasPending_ = true;
+    motionField_.step(features, dt);
 }
 
 fluid::DoubleFbo* LifeScene::ensureState() {
@@ -120,16 +119,15 @@ void LifeScene::draw(float timeSeconds) {
 
     const float speed = std::clamp(p.speed, 0.05f, 4.0f);
     const float drive = safeAudioDrive(p.audioDrive);
+    const MotionField::State& m = motionField_.state();
     envTreble_ = slewEnvelope(envTreble_, clampedBand(f.treble), dt, kEnvRisePerSec, kEnvFallPerSec);
-    const float hit = live::hit(f);
-    beatPulse_ = std::clamp(std::max(hit * std::clamp(p.beatResponse, 0.0f, 2.0f), beatPulse_ - dt * 3.0f), 0.0f, 1.5f);
-    kick_ = std::max(kick_ - dt * 5.0f, 0.0f);
-    if (hit * p.beatResponse > kBeatThreshold) {
-        kick_ = (0.4f + 0.6f * std::clamp(hit, 0.0f, 1.5f)) * drive;
-        kickAngle_ += kGoldenAngle;
-        kickX_ = 0.5f + 0.32f * std::cos(kickAngle_);
-        kickY_ = 0.5f + 0.32f * std::sin(kickAngle_);
-    }
+    // motion: uBarOsc -> the seeding blob orbits continuously instead of
+    // jumping to a golden-angle step on a hit; uBassRel -> its strength,
+    // never a threshold.
+    const float angle = m.barOsc * kTwoPi;
+    seedX_ = 0.5f + 0.32f * std::cos(angle);
+    seedY_ = 0.5f + 0.32f * std::sin(angle);
+    seedStrength_ = std::clamp(0.5f * (m.bassRel - 1.0f), 0.0f, 1.0f) * drive;
     seedRemain_ = std::max(seedRemain_ - dt, 0.0f);
     censusAge_ += dt;
     if (censusAge_ >= kCensusSeconds) {
@@ -168,15 +166,16 @@ void LifeScene::draw(float timeSeconds) {
         glUniform1i(stepLocs_.loc("uPrev"), 0);
         const bool first = pass == 0;
         glUniform1f(stepLocs_.loc("uSeed"), first ? seedRemain_ / kSeedSeconds : 0.0f);
-        glUniform1f(stepLocs_.loc("uKick"), first ? kick_ : 0.0f);
-        glUniform2f(stepLocs_.loc("uKickPos"), kickX_, kickY_);
-        glUniform1f(stepLocs_.loc("uSprinkle"), first ? (envTreble_ + pcmStrike_ * 0.5f) * drive : 0.0f);
+        glUniform1f(stepLocs_.loc("uKick"), first ? seedStrength_ : 0.0f);
+        glUniform2f(stepLocs_.loc("uKickPos"), seedX_, seedY_);
+        // motion: uTrebRel -> sprinkle boost on top of the slewed treble
+        // envelope, never a PCM-peak term.
+        glUniform1f(stepLocs_.loc("uSprinkle"), first ? (envTreble_ + 0.5f * std::clamp(m.trebRel - 1.0f, 0.0f, 1.0f)) * drive : 0.0f);
         // Injections land once per frame, not once per substep.
         uploadSceneTouch(stepLocs_, touch_, first);
         glDrawArrays(GL_TRIANGLES, 0, 3);
         field->swap();
     }
-    kick_ = 0.0f;
 
     glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(prevFbo));
     glViewport(prevViewport[0], prevViewport[1], prevViewport[2], prevViewport[3]);
@@ -191,7 +190,6 @@ void LifeScene::draw(float timeSeconds) {
     glUniform1f(showLocs_.loc("uBaseHue"), hue::base(p.paletteBase()) + style_.hueOffset);
     glUniform1f(showLocs_.loc("uHueSpan"), hue::span(p.hueRange, p.paletteRange()) * style_.hueSpan);
     glUniform1f(showLocs_.loc("uEnergy"), clampedBand(f.rms));
-    glUniform1f(showLocs_.loc("uBeat"), beatPulse_);
     glDrawArrays(GL_TRIANGLES, 0, 3);
     glBindVertexArray(0);
     glUseProgram(0);

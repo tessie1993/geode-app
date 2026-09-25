@@ -1,0 +1,76 @@
+{
+  "N01": {
+    "name": "Seed button",
+    "geometry": "Asymmetric thick seed body with raised seam and separate dew indicator",
+    "connections": [
+      "mount",
+      "touchRegion",
+      "lightReceiver",
+      "eventOut"
+    ]
+  },
+  "N02": {
+    "name": "Three-compartment leaf tray",
+    "geometry": "Curved leaf silhouette with three real recessed cavities, closed floor and flexible stem",
+    "connections": [
+      "mount",
+      "contentFrame",
+      "collider",
+      "wetBoundary",
+      "eventOut"
+    ]
+  },
+  "N03": {
+    "name": "Dew lens",
+    "geometry": "Closed biconvex water lens in an independent curved meniscus seat",
+    "connections": [
+      "mount",
+      "touchRegion",
+      "lightReceiver",
+      "wetBoundary"
+    ]
+  },
+  "N04": {
+    "name": "Tendril connector",
+    "geometry": "Three-dimensional branching tendril with curled side shoot and typed end sockets",
+    "connections": [
+      "mount",
+      "collider",
+      "eventOut",
+      "lightReceiver"
+    ]
+  },
+  "N05": {
+    "name": "Glass fern frond",
+    "geometry": "Curving transparent stem with independently articulated finite-thickness glass leaflets",
+    "connections": [
+      "mount",
+      "windReceiver",
+      "collider",
+      "lightReceiver"
+    ]
+  },
+  "N06": {
+    "name": "Luminous spore",
+    "geometry": "Hollow curved shell around an isolated luminous core, glass fins and flexible trailing tail",
+    "connections": [
+      "mount",
+      "windReceiver",
+      "collider",
+      "lightEmitter",
+      "eventOut"
+    ]
+  },
+  "N07": {
+    "name": "Water-root panel",
+    "geometry": "Hollow glass panel enclosing a nonintersecting water volume with flexible roots and terminal dew",
+    "connections": [
+      "mount",
+      "contentFrame",
+      "touchRegion",
+      "windReceiver",
+      "collider",
+      "wetBoundary"
+    ]
+  }
+}

@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#071f26">
+  <title>Opaline · Material world</title>
+  <link rel="stylesheet" href="styles.css">
+  <script type="importmap">{"imports":{"three":"./vendor/three/build/three.module.js","three/addons/":"./vendor/three/examples/jsm/"}}</script>
+</head>
+<body>
+<div id="app">
+  <aside id="library-panel" aria-label="Element library">
+    <a class="brand" href="./"><span class="brand-orb"></span><div>opaline<span class="brand-caption">A MATERIAL WORLD</span></div></a>
+    <div class="library-heading"><h1>Element library</h1><span id="element-count">240</span></div>
+    <p class="intro">Shape, light, liquid, life.<br>One interconnected 3D language.</p>
+    <label class="search-label"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="10" r="6"></circle><path d="m15 15 5 5"></path></svg><input id="search" type="search" placeholder="Find an element…" aria-label="Search elements"></label>
+    <nav id="families" aria-label="Element families"></nav>
+    <div class="list-heading"><span id="list-label">ALL ELEMENTS</span><span id="list-count"></span></div>
+    <div id="elements" role="list"></div>
+    <div class="library-foot"><span class="live-dot"></span> LOCAL 3D WORKBENCH <span>v3.0</span></div>
+  </aside>
+  <main id="stage">
+    <div id="viewport" tabindex="0" aria-label="Interactive three-dimensional element preview. Drag objects to interact; drag empty space to orbit. Arrow keys adjust the selected control."></div>
+    <header class="stage-header">
+      <button id="toggle-library" class="icon-btn" aria-label="Toggle library" title="Toggle library">☷</button>
+      <div class="mode-switch" role="group" aria-label="Preview mode"><button data-mode="world" class="active">Material world</button><button data-mode="specimen">Specimen</button><button data-mode="composition">Compositions</button></div>
+      <div class="header-right"><span id="performance" title="Live frame rate">LIVE 3D</span><button id="screenshot" class="icon-btn" title="Save PNG" aria-label="Save PNG image"><svg viewBox="0 0 24 24"><path d="M4 6h4l2-2h4l2 2h4v13H4z"></path><circle cx="12" cy="12" r="4"></circle></svg></button></div>
+    </header>
+    <div class="world-caption"><span class="eyebrow">THE OPALINE COLLECTION</span><h2 id="scene-title">A softer kind<br>of interface.</h2><p id="scene-subtitle">Sculpted in gel. Suspended in light.</p><button id="seed-demo">Wake the seed <span>↗</span></button></div>
+    <div id="composition-picker" hidden><label for="composition">ASSEMBLY</label><select id="composition"></select></div>
+    <div id="loading"><span class="loading-orb"></span><p>Bringing the material world to life…</p></div>
+    <div id="error" hidden></div>
+    <div class="scene-tag"><span class="live-dot"></span><span id="scene-tag">TRANSMISSIVE GEL · VOLUMETRIC LIGHT</span></div>
+    <div id="inspector">
+      <div class="inspector-top"><div><span id="selected-code" class="eyebrow">OPALINE / 001</span><h3 id="selected-name">Connected by nature</h3></div><button id="export-glb" class="text-btn" title="Export current selection as GLB">Export GLB ↗</button></div>
+      <p id="selected-description">Touch a body to compress it. Pull a slider. Turn a dial. Drag the open water to explore the perspective.</p>
+      <div class="inspection-data"><span id="material-label">PHYSICAL TRANSMISSION</span><span id="interaction-state">READY TO TOUCH</span></div>
+      <div class="controls-grid">
+        <label>Palette<select id="theme"><option value="tidal">Tidal opal</option><option value="opal">Pearl dawn</option><option value="moss">Forest mineral</option><option value="obsidian">Midnight onyx</option><option value="aurora">Aurora</option><option value="amber">Amber spring</option></select></label>
+        <label>Render<select id="quality"><option value="high">High fidelity</option><option value="ultra">Ultra / 2×</option><option value="native">Native resolution</option></select></label>
+      </div>
+      <div class="controls-row"><button id="camera-front">Front</button><button id="camera-three" class="active">¾ view</button><button id="camera-side">Side</button><button id="camera-top">Above</button><button id="reset" title="Reset camera and selected interaction">Reset</button></div>
+      <div class="control-toggles"><label><input type="checkbox" id="autorotate">Slow orbit</label><label><input type="checkbox" id="motion" checked>Motion</label><label><input type="checkbox" id="bloom" checked>Light bloom</label></div>
+    </div>
+    <footer class="stage-footer"><span>DRAG TO ORBIT <i>·</i> SCROLL TO EXPLORE <i>·</i> TOUCH TO RESPOND</span><span id="stats">PERSPECTIVE / PHYSICAL</span></footer>
+    <div id="toast" role="status"></div>
+  </main>
+</div>
+<script type="module" src="src/workbench.js"></script>
+</body>
+</html>

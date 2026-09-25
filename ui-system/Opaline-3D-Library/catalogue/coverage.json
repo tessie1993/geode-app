@@ -1,0 +1,30 @@
+{
+  "catalogueEntries": 247,
+  "originalResearchTargets": 240,
+  "addedNatureGeometryEntries": 7,
+  "physicalGeometryEntries": 157,
+  "genericCompositionRecipes": 76,
+  "compositionPartInstances": 247,
+  "statusCounts": {
+    "authored-3d-geometry": 118,
+    "authored-liquid-domain": 24,
+    "numeric-film-specimen": 4,
+    "numeric-film-contact-partial": 4,
+    "authored-film-geometry": 4,
+    "numeric-membrane-specimen": 1,
+    "numeric-particle-preset": 18,
+    "analytic-force-field": 12,
+    "optical-module": 8,
+    "optical-module-partial": 6,
+    "visual-study-with-gap": 4,
+    "bounded-volume-domain": 2,
+    "scene-light-rig": 1,
+    "solver-supported": 10,
+    "solver-supported-partial": 12,
+    "authored-geometry-with-gap": 1,
+    "authored-3d-transition": 18
+  },
+  "individuallyValidatedFullReferenceTargets": 0,
+  "countingRule": "No recolour, export format, PNG camera view or composition part instance is counted as another physical element.",
+  "note": "Implementation statuses distinguish authored geometry/choreography, numerical solvers and remaining physical specializations."
+}

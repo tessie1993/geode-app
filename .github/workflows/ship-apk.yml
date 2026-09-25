@@ -24,6 +24,10 @@ on:
     paths:
       - "app/**"
       - "engine/**"
+      - "core/**"
+      - "CMakeLists.txt"
+      - "third_party/**"
+      - "config/**"
       - "build-logic/**"
       - "gradle/**"
       - "*.gradle.kts"

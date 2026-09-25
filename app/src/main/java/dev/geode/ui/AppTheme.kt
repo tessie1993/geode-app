@@ -12,6 +12,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.edit
 import dev.geode.R
 import dev.geode.analysis.BeatTuning
+import dev.geode.ui.opaline.OpalineThemeId
 
 internal val LocalFontColor = staticCompositionLocalOf<Color?> { null }
 
@@ -130,6 +131,8 @@ data class GuiPrefs(
      * until someone opts into it happening automatically too.
      */
     val autoEnterPip: Boolean = false,
+    /** Which of the Opaline library's six coordinated material themes the interface uses. */
+    val materialTheme: OpalineThemeId = OpalineThemeId.DEFAULT,
 ) {
     val fontColorOverride: Int?
         get() = fontColorArgb ?: FontColorChoice.WHITE_ARGB.takeIf { whiteFont }
@@ -213,6 +216,7 @@ class ThemeStore(
             bubbleDensity = prefs.getFloat(KEY_BUBBLE_DENSITY, 0.5f).coerceIn(0f, 1f),
             liquidMotion = prefs.getFloat(KEY_LIQUID_MOTION, 1f).coerceIn(0f, 1f),
             autoEnterPip = prefs.getBoolean(KEY_AUTO_ENTER_PIP, false),
+            materialTheme = OpalineThemeId.fromName(prefs.getString(KEY_MATERIAL_THEME, null)),
         )
     }
 
@@ -274,6 +278,7 @@ class ThemeStore(
             putFloat(KEY_BUBBLE_DENSITY, gui.bubbleDensity)
             putFloat(KEY_LIQUID_MOTION, gui.liquidMotion)
             putBoolean(KEY_AUTO_ENTER_PIP, gui.autoEnterPip)
+            putString(KEY_MATERIAL_THEME, gui.materialTheme.name)
         }
     }
 
@@ -320,5 +325,6 @@ class ThemeStore(
         const val KEY_BUBBLE_DENSITY = "gui_bubble_density"
         const val KEY_LIQUID_MOTION = "gui_liquid_motion"
         const val KEY_AUTO_ENTER_PIP = "gui_auto_enter_pip"
+        const val KEY_MATERIAL_THEME = "gui_material_theme"
     }
 }

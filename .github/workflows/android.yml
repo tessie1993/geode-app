@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - codex/opaline-redesign
+      - main
   pull_request:
     paths:
       - "app/**"

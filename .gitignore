@@ -24,6 +24,8 @@ secrets.properties
 google-services.json
 
 # Agent tooling is local-only and is not tracked in this repository.
+/.worktrees/
+/geode-app/
 .claude/
 .agents/
 .codex/

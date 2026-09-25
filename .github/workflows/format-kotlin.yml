@@ -8,13 +8,13 @@ permissions:
 
 jobs:
   format:
-    if: github.ref == 'refs/heads/codex/opaline-redesign'
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: codex/opaline-redesign
+          ref: main
       - uses: actions/setup-java@v5
         with:
           distribution: temurin

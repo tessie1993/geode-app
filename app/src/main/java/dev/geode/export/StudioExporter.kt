@@ -4,7 +4,6 @@ import android.content.ContentValues
 import android.content.Context
 import android.net.Uri
 import android.os.Build
-import android.provider.DocumentsContract
 import android.provider.MediaStore
 import androidx.annotation.StringRes
 import androidx.media3.common.MediaItem
@@ -211,7 +210,16 @@ class StudioExporter(
      */
     suspend fun cancel() {
         cancelled = true
-        bestEffort(TAG, "transformer?.cancel()") { transformer?.cancel() }
+        // Transformer verifies it is called on the thread it was built on, and it is built inside
+        // withContext(Dispatchers.Main) below — while this is called from ExportRun.scope, which is
+        // Dispatchers.Default. Cancelling from there threw, the throw was swallowed, and the codec
+        // kept encoding into a scratch file the caller had already deleted. Hop to Main, and log a
+        // failure rather than hiding it: an API-contract violation is exactly what bestEffort was
+        // concealing here.
+        withContext(Dispatchers.Main) {
+            runCatching { transformer?.cancel() }
+                .onFailure { RingLog.note(TAG, "transformer cancel failed: ${it.message}") }
+        }
         completion.await()
     }
 
@@ -267,16 +275,10 @@ class StudioExporter(
             val wrote =
                 resolver.openOutputStream(destination)?.use { out -> file.inputStream().use { it.copyTo(out) } } != null
             if (!wrote) {
-                bestEffort(TAG, "DocumentsContract.deleteDocument(resolver, de...") {
-                    DocumentsContract.deleteDocument(resolver, destination)
-                }
                 return failed(R.string.export_error_destination_write)
             }
             Result.Saved(destination, outputDurationMs)
         }.getOrElse { e ->
-            bestEffort(TAG, "DocumentsContract.deleteDocument(resolver, de...") {
-                DocumentsContract.deleteDocument(context.contentResolver, destination)
-            }
             RingLog.note(TAG, "destination write failed", e)
             failed(R.string.export_error_destination_save)
         }

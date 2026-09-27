@@ -54,7 +54,27 @@ object ExportRun {
     var cancelRequested: Boolean = false
         private set
 
+    /**
+     * Why the run was abandoned, when it was abandoned by something that is not the render and is
+     * not the user — see [abort]. Null for an ordinary cancel.
+     */
+    @Volatile
+    var abortReason: String? = null
+        private set
+
     fun requestCancel() {
+        cancelRequested = true
+    }
+
+    /**
+     * Cancels the run and records why, for a caller outside the render that has made it impossible
+     * to continue — the foreground service being refused, say. A render only ever learns that it
+     * was cancelled, so without the reason the user would be told they cancelled an export they
+     * never cancelled, or shown nothing at all. [finish] substitutes [reason] for a bare
+     * [Result.Cancelled].
+     */
+    fun abort(reason: String) {
+        abortReason = reason
         cancelRequested = true
     }
 
@@ -64,6 +84,7 @@ object ExportRun {
     ) {
         eta.reset()
         cancelRequested = false
+        abortReason = null
         _state.value = State(running = true, kind = kind, progress = null, label = label)
     }
 
@@ -79,9 +100,13 @@ object ExportRun {
 
     /** Ends the run, publishing [result] for the owning controller to read back on resume. */
     fun finish(result: Result) {
+        // An aborted run reaches here as Cancelled, because cancelling is all the render was told
+        // to do. Reporting that as a plain cancel would hide the only thing the user needs to know.
+        val outcome = abortReason?.takeIf { result is Result.Cancelled }?.let { Result.Failed(it) } ?: result
         eta.reset()
         cancelRequested = false
-        _state.value = State(running = false, kind = _state.value.kind, result = result)
+        abortReason = null
+        _state.value = State(running = false, kind = _state.value.kind, result = outcome)
     }
 
     /**

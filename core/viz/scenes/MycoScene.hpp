@@ -4,6 +4,7 @@
 #include <optional>
 #include <string>
 
+#include "viz/MotionField.hpp"
 #include "viz/Program.hpp"
 #include "viz/Scene.hpp"
 #include "viz/fluid/FluidBuffers.hpp"
@@ -28,12 +29,10 @@ public:
     void update(const GeodeFeatureFrame& features, float dt) override;
     void draw(float timeSeconds) override;
     void release() override;
-    void acceptPcm(const float* samples, int count) override { pcmPulse_.accept(samples, count); }
     void setTouchField(const TouchField* field) override { touch_ = field; }
 
 private:
     static constexpr int kTrailRes = 384;
-    static constexpr float kBeatThreshold = 0.3f;
     static constexpr float kEnvRisePerSec = 9.0f;
     static constexpr float kEnvFallPerSec = 2.4f;
     static constexpr float kByteFallbackDeposit = 0.125f;
@@ -64,11 +63,12 @@ private:
     std::optional<fluid::DoubleFbo> trail_;
     bool byteTrail_ = false;
     bool agentsSeeded_ = false;
-    PcmPulse pcmPulse_;
-    float pcmStrike_ = 0.0f;
+    // Wave three: this scene's own continuous motion state, stepped every
+    // update() from the real frame - see viz/MotionField.hpp.
+    MotionField motionField_;
     float envBass_ = 0.0f;
     float envTreble_ = 0.0f;
-    float beatPulse_ = 0.0f;
+    float breath_ = 0.0f;
     float reaim_ = 0.0f;
     const TouchField* touch_ = nullptr;
 };

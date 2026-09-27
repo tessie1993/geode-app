@@ -84,7 +84,7 @@ internal class BackgroundController(
 
     fun setAmount(amount: Float) = setPrefs(_prefs.value.copy(amount = amount.coerceIn(0f, 1f)), redecode = false)
 
-    // Debounced: CrystalSlider reports every point of a drag, and a full decode (bitmap decode,
+    // Debounced: GlassSlider reports every point of a drag, and a full decode (bitmap decode,
     // crop, scale, blur) is too heavy to redo for each of them - see redecode()'s debounceMs.
     fun setBlurRadius(radius: Int) =
         setPrefs(_prefs.value.copy(blurRadius = radius.coerceIn(BackgroundPrefsStore.BLUR_RANGE)), debounceMs = SLIDER_DEBOUNCE_MS)

@@ -37,7 +37,16 @@ const std::array<float, AdsrEngine::kCount>& AdsrEngine::tick(float dt, const Ge
         energy = std::clamp(energy, 0.0f, 1.5f);
         const bool gateOpen = energy >= c.gateThreshold;
         const bool gateHolds = energy >= c.gateThreshold * 0.85f;
-        const float hit = live::hit(features);
+        // Wave three: no transient trigger. A slow (4s one-pole) running
+        // average of this same energy replaces it with a level crossing -
+        // hysteresis (open above 1.25x, close below 1.0x) so it re-fires on
+        // a rise above the recent passage rather than on a hit, and does not
+        // chatter right at the threshold.
+        energyAvg_[i] += (energy - energyAvg_[i]) * std::min(dt / kEnergyAvgTauSeconds, 1.0f);
+        const bool aboveNow = aboveAvg_[i] ? energy >= energyAvg_[i] * kGateCloseRatio : energy > energyAvg_[i] * kGateOpenRatio;
+        const bool crossedUp = aboveNow && !aboveAvg_[i];
+        aboveAvg_[i] = aboveNow;
+        const float hit = crossedUp ? std::clamp(energy, 0.0f, 1.0f) : 0.0f;
         if (hit > 0.0f && (c.retrigger || stage_[i] == 0 || stage_[i] == 4)) {
             const bool wasAttacking = stage_[i] == 1;
             stage_[i] = 1;

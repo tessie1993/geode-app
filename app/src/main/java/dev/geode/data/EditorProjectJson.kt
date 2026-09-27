@@ -133,15 +133,15 @@ internal object EditorProjectJson {
         when (val type = o.getString("type")) {
             "scene" -> ClipContent.Scene(o.getString("sceneId"), o.stringOrNull("presetId"), o.stringOrNull("milkPath"))
             "video" -> ClipContent.Video(o.getString("uri"), o.optJSONObject("edit")?.let(::clipEdit) ?: ClipEdit())
-            "still" -> ClipContent.Still(o.getString("uri"), o.optDouble("kenBurns", 0.0).toFloat())
+            "still" -> ClipContent.Still(o.getString("uri"), o.finiteDouble("kenBurns", 0.0).toFloat())
             "text" -> ClipContent.Text(o.getString("text"), o.stringOrNull("styleId"))
             "overlay" ->
                 ClipContent.Overlay(
                     o.getString("uri"),
                     enumOr(o.optString("blend"), OverlayBlend.SCREEN),
-                    o.optDouble("opacity", 1.0).toFloat(),
+                    o.finiteDouble("opacity", 1.0).toFloat(),
                 )
-            "audio" -> ClipContent.Audio(o.getString("uri"), o.optDouble("gainDb", 0.0).toFloat())
+            "audio" -> ClipContent.Audio(o.getString("uri"), o.finiteDouble("gainDb", 0.0).toFloat())
             else -> throw IllegalArgumentException("unknown clip content: $type")
         }
 
@@ -172,22 +172,22 @@ internal object EditorProjectJson {
             startMs = o.optLong("startMs", 0L),
             endMs = o.optLong("endMs", 0L),
             look = enumOr(o.optString("look"), ClipLook.NONE),
-            brightness = o.optDouble("brightness", 0.0).toFloat(),
-            contrast = o.optDouble("contrast", 0.0).toFloat(),
-            saturation = o.optDouble("saturation", 0.0).toFloat(),
-            hueDegrees = o.optDouble("hueDegrees", 0.0).toFloat(),
+            brightness = o.finiteDouble("brightness", 0.0).toFloat(),
+            contrast = o.finiteDouble("contrast", 0.0).toFloat(),
+            saturation = o.finiteDouble("saturation", 0.0).toFloat(),
+            hueDegrees = o.finiteDouble("hueDegrees", 0.0).toFloat(),
             monochrome = o.optBoolean("monochrome", false),
             invert = o.optBoolean("invert", false),
-            speed = o.optDouble("speed", 1.0).toFloat(),
-            rotationDegrees = o.optDouble("rotationDegrees", 0.0).toFloat(),
+            speed = o.finiteDouble("speed", 1.0).toFloat(),
+            rotationDegrees = o.finiteDouble("rotationDegrees", 0.0).toFloat(),
             ratio = o.stringOrNull("ratio")?.let { name -> ExportRatio.entries.firstOrNull { it.name == name } },
             quality = enumOr(o.optString("quality"), ExportQuality.FHD1080),
             mute = o.optBoolean("mute", false),
             caption = o.optString("caption", ""),
             lutUri = o.stringOrNull("lutUri"),
-            gammaRed = o.optDouble("gammaRed", 1.0).toFloat(),
-            gammaGreen = o.optDouble("gammaGreen", 1.0).toFloat(),
-            gammaBlue = o.optDouble("gammaBlue", 1.0).toFloat(),
+            gammaRed = o.finiteDouble("gammaRed", 1.0).toFloat(),
+            gammaGreen = o.finiteDouble("gammaGreen", 1.0).toFloat(),
+            gammaBlue = o.finiteDouble("gammaBlue", 1.0).toFloat(),
         )
 
     private fun marker(m: Marker): JSONObject =
@@ -229,8 +229,8 @@ internal object EditorProjectJson {
                         "tapped" -> MarkerOrigin.TappedIn(o.getLong("rawAtMs"), o.getLong("latencyMs"))
                         "detected" ->
                             MarkerOrigin.Detected(
-                                o.optDouble("confidence", 0.0).toFloat(),
-                                o.optDouble("strength", 0.0).toFloat(),
+                                o.finiteDouble("confidence", 0.0).toFloat(),
+                                o.finiteDouble("strength", 0.0).toFloat(),
                             )
                         else -> throw IllegalArgumentException("unknown marker origin: $type")
                     }
@@ -285,14 +285,18 @@ internal object EditorProjectJson {
 
     private fun value(o: JSONObject): ParamValue =
         when (val kind = o.getString("kind")) {
-            "scalar" -> ParamValue.Scalar(o.getDouble("value").toFloat())
-            "vector2" -> ParamValue.Vector2(o.getDouble("x").toFloat(), o.getDouble("y").toFloat())
+            "scalar" -> ParamValue.Scalar(o.finiteRequiredDouble("value", 0.0).toFloat())
+            "vector2" ->
+                ParamValue.Vector2(
+                    o.finiteRequiredDouble("x", 0.0).toFloat(),
+                    o.finiteRequiredDouble("y", 0.0).toFloat(),
+                )
             "colour" ->
                 ParamValue.Colour(
-                    o.getDouble("r").toFloat(),
-                    o.getDouble("g").toFloat(),
-                    o.getDouble("b").toFloat(),
-                    o.optDouble("a", 1.0).toFloat(),
+                    o.finiteRequiredDouble("r", 0.0).toFloat(),
+                    o.finiteRequiredDouble("g", 0.0).toFloat(),
+                    o.finiteRequiredDouble("b", 0.0).toFloat(),
+                    o.finiteDouble("a", 1.0).toFloat(),
                 )
             "toggle" -> ParamValue.Toggle(o.getBoolean("on"))
             "choice" -> ParamValue.Choice(o.getInt("index"))
@@ -321,10 +325,10 @@ internal object EditorProjectJson {
             "custom" ->
                 Interpolation.Custom(
                     BezierCurve(
-                        o.getDouble("c1x").toFloat(),
-                        o.getDouble("c1y").toFloat(),
-                        o.getDouble("c2x").toFloat(),
-                        o.getDouble("c2y").toFloat(),
+                        o.finiteRequiredDouble("c1x", 0.0).toFloat(),
+                        o.finiteRequiredDouble("c1y", 0.0).toFloat(),
+                        o.finiteRequiredDouble("c2x", 1.0).toFloat(),
+                        o.finiteRequiredDouble("c2y", 1.0).toFloat(),
                     ),
                 )
             else -> throw IllegalArgumentException("unknown interpolation: $type")

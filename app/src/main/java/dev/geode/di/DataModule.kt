@@ -9,7 +9,6 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import dev.geode.data.GeodePrefsFiles
 import dev.geode.geodeContainer
-import dev.geode.ui.UserDataRepository
 import javax.inject.Qualifier
 import javax.inject.Singleton
 
@@ -35,5 +34,5 @@ object DataModule {
     @Singleton
     fun provideUserDataRepository(
         @ApplicationContext context: Context,
-    ): UserDataRepository = context.geodeContainer.userData
+    ): dev.geode.ui.UserDataRepository = context.geodeContainer.userData
 }

@@ -1,0 +1,12 @@
+{
+  "verified": true,
+  "method": "Instantiated every actual composition part with geometry factory, checked requested dimensions vs measured bounds and finite vertex coordinates.",
+  "recipes": 76,
+  "partInstances": 247,
+  "meshInstances": 580,
+  "vertices": 1591435,
+  "maxDimensionAbsoluteError": 4.440892098500626e-16,
+  "limits": [
+    "Does not certify aesthetic layout, semantic UI functionality or physical simulation acceptance."
+  ]
+}

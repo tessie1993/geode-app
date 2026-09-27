@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
+import android.os.ParcelFileDescriptor
 import androidx.annotation.OptIn
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
@@ -48,12 +49,14 @@ class NativePlayer(
             Thread(runnable, "geode-native-player").apply { isDaemon = true }
         }
     private val entries = ArrayList<Entry>()
-    private val loads = HashMap<Long, Int>()
+    private val loads = HashMap<Long, Long>()
     private var nextUid = 1L
     private var nextLoad = 1L
     private var currentIndex = 0
     private var prepared = false
     private var playWhenReady = false
+    private var playWhenReadyReason = Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST
+    private var focusState = PlaybackFocusState.State()
     private var repeatMode = Player.REPEAT_MODE_OFF
     private var shuffle = false
     private var shuffleOrder: List<Int> = emptyList()
@@ -62,9 +65,31 @@ class NativePlayer(
     private var crossfadeMs = 0
     private var loadedId = -1L
     private var queuedId = -1L
-    private var queuedIndex = -1
     private var error: PlaybackException? = null
+    @Volatile
     private var released = false
+    private val audioFocus = NativeAudioFocus(
+        context,
+        main,
+        onChange = { state ->
+            synchronized(this) {
+                if (!released) {
+                    if (!state.playRequested) playWhenReadyReason = Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_FOCUS_LOSS
+                    applyFocusState(state)
+                    invalidateState()
+                }
+            }
+        },
+        onNoisy = {
+            synchronized(this) {
+                if (!released) {
+                    audioFocusAbandon()
+                    playWhenReadyReason = Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_BECOMING_NOISY
+                    invalidateState()
+                }
+            }
+        },
+    )
 
     private val poll =
         object : Runnable {
@@ -83,31 +108,40 @@ class NativePlayer(
     }
 
     /** Crossfade and gapless choices from the playback prefs. */
+    @Synchronized
     fun applyPrefs(
         crossfadeMs: Int,
         curve: Int,
         gapless: Boolean,
+        pauseOnNoisy: Boolean = true,
     ) {
         this.crossfadeMs = crossfadeMs
         this.gapless = gapless
+        audioFocus.setPauseOnNoisy(pauseOnNoisy)
         GeodeNative.playerSetCrossfade(handle, crossfadeMs, curve)
         queueNext()
     }
 
     override fun getState(): State {
         val engine = if (released) ENGINE_IDLE else GeodeNative.playerState(handle)
+        val currentLoaded = !released && loadedId >= 0 && GeodeNative.playerCurrentToken(handle) == loadedId
         val playbackState =
             when {
                 error != null || !prepared || entries.isEmpty() -> Player.STATE_IDLE
+                !currentLoaded -> Player.STATE_BUFFERING
                 engine == ENGINE_READY -> Player.STATE_READY
                 engine == ENGINE_ENDED -> Player.STATE_ENDED
                 else -> Player.STATE_BUFFERING
             }
-        val positionMs = if (released) 0L else GeodeNative.playerPositionUs(handle) / 1000L
+        val positionMs = if (currentLoaded) GeodeNative.playerPositionUs(handle) / 1000L else 0L
         return State
             .Builder()
             .setAvailableCommands(COMMANDS)
-            .setPlayWhenReady(playWhenReady, Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST)
+            .setPlayWhenReady(playWhenReady, playWhenReadyReason)
+            .setPlaybackSuppressionReason(
+                if (playWhenReady && !focusState.canPlay) Player.PLAYBACK_SUPPRESSION_REASON_TRANSIENT_AUDIO_FOCUS_LOSS
+                else Player.PLAYBACK_SUPPRESSION_REASON_NONE,
+            )
             .setPlaybackState(playbackState)
             .setPlayerError(error)
             .setRepeatMode(repeatMode)
@@ -128,45 +162,67 @@ class NativePlayer(
             .build()
     }
 
+    @Synchronized
     override fun handleSetPlayWhenReady(playWhenReady: Boolean): ListenableFuture<*> {
-        this.playWhenReady = playWhenReady
-        if (playWhenReady) GeodeNative.playerPlay(handle) else GeodeNative.playerPause(handle)
+        playWhenReadyReason = Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST
+        if (playWhenReady) {
+            applyFocusState(audioFocus.requestPlay())
+            if (!this.playWhenReady) playWhenReadyReason = Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_FOCUS_LOSS
+        } else {
+            audioFocusAbandon()
+        }
         return done()
     }
 
+    @Synchronized
     override fun handlePrepare(): ListenableFuture<*> {
         prepared = true
         error = null
         return if (loadedId < 0) openCurrent(0L) else done()
     }
 
+    @Synchronized
     override fun handleStop(): ListenableFuture<*> {
         prepared = false
         loadedId = -1
         queuedId = -1
+        audioFocusAbandon()
         GeodeNative.playerStop(handle)
         return done()
     }
 
     override fun handleRelease(): ListenableFuture<*> {
-        released = true
+        synchronized(this) { released = true }
+        audioFocus.abandon()
         main.removeCallbacksAndMessages(null)
         // Cancel any in-flight open/queue task instead of letting it run to completion against a
         // handle we're about to destroy; the worker bodies also bail out early once released.
         worker.shutdownNow()
-        bestEffort(TAG, "await worker shutdown") { worker.awaitTermination(500, TimeUnit.MILLISECONDS) }
+        val drained =
+            try {
+                worker.awaitTermination(WORKER_DRAIN_MS, TimeUnit.MILLISECONDS)
+            } catch (e: InterruptedException) {
+                Thread.currentThread().interrupt()
+                false
+            }
         tap.stop()
         dsp.release()
-        GeodeNative.playerDestroy(handle)
+        if (drained) {
+            GeodeNative.playerDestroy(handle)
+        } else {
+            RingLog.note(TAG, "worker did not terminate; skipping playerDestroy to avoid use-after-free")
+        }
         return done()
     }
 
+    @Synchronized
     override fun handleSetRepeatMode(repeatMode: Int): ListenableFuture<*> {
         this.repeatMode = repeatMode
         queueNext()
         return done()
     }
 
+    @Synchronized
     override fun handleSetShuffleModeEnabled(shuffleModeEnabled: Boolean): ListenableFuture<*> {
         shuffle = shuffleModeEnabled
         reshuffle()
@@ -174,12 +230,14 @@ class NativePlayer(
         return done()
     }
 
+    @Synchronized
     override fun handleSetVolume(volume: Float): ListenableFuture<*> {
         this.volume = volume.coerceIn(0f, 1f)
-        GeodeNative.playerSetVolume(handle, this.volume)
+        GeodeNative.playerSetVolume(handle, this.volume * focusState.volumeMultiplier)
         return done()
     }
 
+    @Synchronized
     override fun handleSeek(
         mediaItemIndex: Int,
         positionMs: Long,
@@ -188,7 +246,7 @@ class NativePlayer(
         if (entries.isEmpty()) return done()
         val index = mediaItemIndex.coerceIn(0, entries.lastIndex)
         val position = if (positionMs == C.TIME_UNSET) 0L else positionMs.coerceAtLeast(0L)
-        if (index != currentIndex || loadedId < 0) {
+        if (index != currentIndex || loadedId < 0 || GeodeNative.playerCurrentToken(handle) != loadedId) {
             currentIndex = index
             error = null
             return openCurrent(position)
@@ -197,6 +255,7 @@ class NativePlayer(
         return done()
     }
 
+    @Synchronized
     override fun handleSetMediaItems(
         mediaItems: List<MediaItem>,
         startIndex: Int,
@@ -216,6 +275,7 @@ class NativePlayer(
         return if (prepared) openCurrent(if (startPositionMs == C.TIME_UNSET) 0L else startPositionMs) else done()
     }
 
+    @Synchronized
     override fun handleAddMediaItems(
         index: Int,
         mediaItems: List<MediaItem>,
@@ -234,6 +294,7 @@ class NativePlayer(
         return done()
     }
 
+    @Synchronized
     override fun handleRemoveMediaItems(
         fromIndex: Int,
         toIndex: Int,
@@ -259,6 +320,7 @@ class NativePlayer(
         return if (prepared) openCurrent(0L) else done()
     }
 
+    @Synchronized
     override fun handleMoveMediaItems(
         fromIndex: Int,
         toIndex: Int,
@@ -274,14 +336,17 @@ class NativePlayer(
         return done()
     }
 
+    @Synchronized
     private fun syncFromEngine() {
         val playing = GeodeNative.playerCurrentToken(handle)
-        if (playing >= 0 && playing != loadedId) {
+        if (playing >= 0 && playing == queuedId) {
             // The engine joined into the pre-rolled track on its own.
-            val index = loads[playing] ?: return
+            val uid = loads[playing] ?: return
+            val index = entries.indexOfFirst { it.uid == uid }
+            if (index < 0) return
             loadedId = playing
             queuedId = -1
-            currentIndex = index.coerceAtMost(entries.lastIndex)
+            currentIndex = index
             queueNext()
         }
         loads.keys.retainAll { it == loadedId || it == queuedId }
@@ -289,17 +354,28 @@ class NativePlayer(
             error = PlaybackException(GeodeNative.playerLastError(handle), null, PlaybackException.ERROR_CODE_DECODING_FAILED)
         }
         val durationUs = GeodeNative.playerDurationUs(handle)
-        if (durationUs > 0) entries.getOrNull(currentIndex)?.durationUs = durationUs
+        if (playing == loadedId && durationUs > 0) entries.getOrNull(currentIndex)?.durationUs = durationUs
+        if (prepared && loadedId >= 0 && playing == loadedId && GeodeNative.playerState(handle) == ENGINE_ENDED) {
+            val following = nextIndex()
+            if (following >= 0) {
+                currentIndex = following
+                openCurrent(0L)
+            } else {
+                audioFocusAbandon()
+            }
+        }
         dsp.sync()
     }
 
     private fun openCurrent(positionMs: Long): ListenableFuture<*> {
         val entry = entries.getOrNull(currentIndex) ?: return done()
         val id = nextLoad++
-        loads[id] = currentIndex
+        loads[id] = entry.uid
         loadedId = id
         queuedId = -1
-        val play = playWhenReady
+        // A slow content provider must not leave the previous selection playing in the meantime.
+        GeodeNative.playerPause(handle)
+        GeodeNative.playerSetNext(handle, -1, 0L, 0L, 0L)
         return Futures.submit(
             Callable {
                 // A shutdownNow() from handleRelease() can still let a queued task start; don't
@@ -308,21 +384,30 @@ class NativePlayer(
                 val fd = openFd(entry.item)
                 if (fd == null) {
                     main.post {
-                        error =
-                            PlaybackException("cannot open ${entry.item.mediaId}", null, PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND)
+                        if (!released && loadedId == id) {
+                            error = PlaybackException("cannot open ${entry.item.mediaId}", null, PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND)
+                            invalidateState()
+                        }
                     }
                     return@Callable
                 }
-                GeodeNative.playerOpen(handle, fd.first, 0L, fd.second, id)
-                if (positionMs > 0L) GeodeNative.playerSeek(handle, positionMs * 1000L)
-                if (play) GeodeNative.playerPlay(handle)
-                main.post { queueNext() }
+                synchronized(this@NativePlayer) {
+                    if (released || loadedId != id) {
+                        bestEffort(TAG, "close superseded fd") { ParcelFileDescriptor.adoptFd(fd.first).close() }
+                        return@Callable
+                    }
+                    GeodeNative.playerOpen(handle, fd.first, 0L, fd.second, id)
+                    if (positionMs > 0L) GeodeNative.playerSeek(handle, positionMs * 1000L)
+                    if (playWhenReady && focusState.canPlay) GeodeNative.playerPlay(handle)
+                    main.post { if (!released && loadedId == id) queueNext() }
+                }
             },
             worker,
         )
     }
 
     /** Pre-rolls the track that follows so the engine can join into it; a change of mind clears it. */
+    @Synchronized
     private fun queueNext() {
         if (released || loadedId < 0) return
         val index = if (gapless || crossfadeMs > 0) nextIndex() else -1
@@ -333,17 +418,24 @@ class NativePlayer(
             }
             return
         }
-        if (queuedId >= 0 && queuedIndex == index) return
         val entry = entries[index]
+        if (queuedId >= 0 && loads[queuedId] == entry.uid) return
+        // Clear a replaced pre-roll immediately, including while opening its replacement.
+        if (queuedId >= 0) GeodeNative.playerSetNext(handle, -1, 0L, 0L, 0L)
         val id = nextLoad++
-        loads[id] = index
+        loads[id] = entry.uid
         queuedId = id
-        queuedIndex = index
         worker.execute {
             // Same race as openCurrent(): don't call into the native handle once released.
             if (released) return@execute
             val fd = openFd(entry.item) ?: return@execute
-            GeodeNative.playerSetNext(handle, fd.first, 0L, fd.second, id)
+            synchronized(this@NativePlayer) {
+                if (released || queuedId != id) {
+                    bestEffort(TAG, "close superseded fd") { ParcelFileDescriptor.adoptFd(fd.first).close() }
+                    return@execute
+                }
+                GeodeNative.playerSetNext(handle, fd.first, 0L, fd.second, id)
+            }
         }
     }
 
@@ -382,9 +474,28 @@ class NativePlayer(
 
     private fun done(): ListenableFuture<*> = Futures.immediateVoidFuture()
 
+    private fun applyFocusState(state: PlaybackFocusState.State) {
+        focusState = state
+        playWhenReady = state.playRequested
+        GeodeNative.playerSetVolume(handle, volume * state.volumeMultiplier)
+        if (state.canPlay && prepared && loadedId >= 0 && GeodeNative.playerCurrentToken(handle) == loadedId) {
+            GeodeNative.playerPlay(handle)
+        } else {
+            GeodeNative.playerPause(handle)
+        }
+    }
+
+    private fun audioFocusAbandon() {
+        audioFocus.abandon()
+        applyFocusState(PlaybackFocusState.State())
+    }
+
     private companion object {
         const val TAG = "NativePlayer"
         const val POLL_MS = 200L
+
+        /** Bound on waiting for the open/queue worker at release; matches the rest of the codebase. */
+        const val WORKER_DRAIN_MS = 500L
 
         // GeodePlayerState in core/api/geode_api.h.
         const val ENGINE_IDLE = 0

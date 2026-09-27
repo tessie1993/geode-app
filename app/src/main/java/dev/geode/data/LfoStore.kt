@@ -73,13 +73,13 @@ class LfoStore(
                         runCatching { LfoTarget.valueOf(a.getString(i)) }.getOrNull()?.let { add(it) }
                     }
                 },
-            attack = o.optDouble("attack", 0.05).toFloat(),
-            decay = o.optDouble("decay", 0.25).toFloat(),
-            sustain = o.optDouble("sustain", 0.5).toFloat(),
-            release = o.optDouble("release", 0.35).toFloat(),
-            amount = o.optDouble("amount", 0.5).toFloat(),
+            attack = o.finiteDouble("attack", 0.05).toFloat(),
+            decay = o.finiteDouble("decay", 0.25).toFloat(),
+            sustain = o.finiteDouble("sustain", 0.5).toFloat(),
+            release = o.finiteDouble("release", 0.35).toFloat(),
+            amount = o.finiteDouble("amount", 0.5).toFloat(),
             band = runCatching { EnvBand.valueOf(o.getString("band")) }.getOrDefault(EnvBand.BASS),
-            gateThreshold = o.optDouble("gateThreshold", 0.25).toFloat(),
+            gateThreshold = o.finiteDouble("gateThreshold", 0.25).toFloat(),
             sustainTrack = o.optBoolean("sustainTrack", false),
             retrigger = o.optBoolean("retrigger", true),
         )
@@ -102,7 +102,7 @@ class LfoStore(
             target = runCatching { LfoTarget.valueOf(o.getString("target")) }.getOrDefault(LfoTarget.NONE),
             wave = runCatching { LfoWave.valueOf(o.getString("wave")) }.getOrDefault(LfoWave.SINE),
             rateSeconds = readRateSeconds(o),
-            depth = o.optDouble("depth", 0.3).toFloat(),
+            depth = o.finiteDouble("depth", 0.3).toFloat(),
             polarity = runCatching { ModPolarity.valueOf(o.getString("polarity")) }.getOrDefault(ModPolarity.BIPOLAR),
             curve = runCatching { ModCurve.valueOf(o.getString("curve")) }.getOrDefault(ModCurve.LINEAR),
         )
@@ -117,11 +117,11 @@ class LfoStore(
     private fun readRateSeconds(o: JSONObject): Float =
         if (o.has("rateSeconds")) {
             o
-                .optDouble("rateSeconds", LfoConfig.DEFAULT_RATE_SECONDS.toDouble())
+                .finiteDouble("rateSeconds", LfoConfig.DEFAULT_RATE_SECONDS.toDouble())
                 .toFloat()
                 .coerceIn(LfoConfig.MIN_RATE_SECONDS, LfoConfig.MAX_RATE_SECONDS)
         } else {
-            val hz = o.optDouble("rateHz", 0.0).toFloat()
+            val hz = o.finiteDouble("rateHz", 0.0).toFloat()
             if (hz <= 0f) {
                 LfoConfig.DEFAULT_RATE_SECONDS
             } else {

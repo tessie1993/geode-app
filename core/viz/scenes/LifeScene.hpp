@@ -5,6 +5,7 @@
 #include <optional>
 #include <string>
 
+#include "viz/MotionField.hpp"
 #include "viz/Program.hpp"
 #include "viz/Scene.hpp"
 #include "viz/fluid/FluidBuffers.hpp"
@@ -29,14 +30,11 @@ public:
     void update(const GeodeFeatureFrame& features, float dt) override;
     void draw(float timeSeconds) override;
     void release() override;
-    void acceptPcm(const float* samples, int count) override { pcmPulse_.accept(samples, count); }
     void setTouchField(const TouchField* field) override { touch_ = field; }
 
 private:
     static constexpr int kSimRes = 288;
     static constexpr float kSeedSeconds = 0.5f;
-    static constexpr float kGoldenAngle = 2.399963f;
-    static constexpr float kBeatThreshold = 0.3f;
     static constexpr float kCensusSeconds = 4.0f;
     static constexpr float kStarved = 0.004f;
     static constexpr float kOvergrown = 0.985f;
@@ -66,15 +64,14 @@ private:
     std::optional<fluid::Formats> formats_;
     std::optional<fluid::DoubleFbo> state_;
     bool byteState_ = false;
-    PcmPulse pcmPulse_;
-    float pcmStrike_ = 0.0f;
+    // Wave three: this scene's own continuous motion state, stepped every
+    // update() from the real frame - see viz/MotionField.hpp.
+    MotionField motionField_;
     float envTreble_ = 0.0f;
-    float beatPulse_ = 0.0f;
     float seedRemain_ = 0.0f;
-    float kick_ = 0.0f;
-    float kickAngle_ = 0.0f;
-    float kickX_ = 0.5f;
-    float kickY_ = 0.5f;
+    float seedStrength_ = 0.0f;
+    float seedX_ = 0.5f;
+    float seedY_ = 0.5f;
     float censusAge_ = 0.0f;
     const TouchField* touch_ = nullptr;
 };

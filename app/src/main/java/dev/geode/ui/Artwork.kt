@@ -32,8 +32,7 @@ import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import dev.geode.playback.MediaArtwork
-import dev.geode.ui.glass.GlassElevation
-import dev.geode.ui.glass.GlassPalette
+import dev.geode.ui.opaline.OpalineColors
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -155,11 +154,13 @@ fun VideoFrame(
     LaunchedEffect(uri, atMs) {
         if (uri != null && frame == null && !inspecting) frame = VideoFrameCache.frame(context, uri, atMs)
     }
-    val shape = androidx.compose.foundation.shape.RoundedCornerShape(corner)
+    val shape =
+        androidx.compose.foundation.shape
+            .RoundedCornerShape(corner)
     Box(
         modifier
             .clip(shape)
-            .border(GlassElevation.rimWidth, GlassPalette.glassRim, shape),
+            .border(1.dp, OpalineColors.glassRim, shape),
     ) {
         val bitmap = frame
         if (bitmap != null) {
@@ -187,11 +188,13 @@ fun TrackArtwork(
     LaunchedEffect(uri) {
         if (uri != null && art == null && !inspecting) art = ArtworkCache.load(context, uri)
     }
-    val shape = androidx.compose.foundation.shape.RoundedCornerShape(corner)
+    val shape =
+        androidx.compose.foundation.shape
+            .RoundedCornerShape(corner)
     Box(
         modifier
             .clip(shape)
-            .border(GlassElevation.rimWidth, GlassPalette.glassRim, shape),
+            .border(1.dp, OpalineColors.glassRim, shape),
     ) {
         val bitmap = art
         if (bitmap != null) {
@@ -207,7 +210,7 @@ fun TrackArtwork(
                     Icons.Filled.MusicNote,
                     null,
                     Modifier.align(Alignment.Center),
-                    tint = GlassPalette.textPrimary.copy(alpha = 0.6f),
+                    tint = OpalineColors.textPrimary.copy(alpha = 0.6f),
                 )
             }
         }
@@ -218,7 +221,7 @@ fun TrackArtwork(
 fun placeholderBrush(uri: String?): Brush {
     val hash = (uri ?: "").hashCode()
     val palette =
-        listOf(GlassPalette.mint, GlassPalette.lavender, GlassPalette.peach, GlassPalette.pink, GlassPalette.sky)
+        listOf(OpalineColors.mint, OpalineColors.lavender, OpalineColors.peach, OpalineColors.pink, OpalineColors.sky)
     val from = palette[((hash ushr 4) % palette.size + palette.size) % palette.size]
     val to = palette[((hash ushr 12) % palette.size + palette.size) % palette.size]
     return Brush.linearGradient(listOf(from.copy(alpha = 0.55f), to.copy(alpha = 0.3f)))

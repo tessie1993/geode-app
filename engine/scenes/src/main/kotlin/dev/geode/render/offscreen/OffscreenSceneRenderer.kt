@@ -28,8 +28,15 @@ data class OffscreenRenderSpec(
     val adsrConfigs: List<AdsrConfig> = emptyList(),
     val reducedMotion: Boolean = false,
     val paramsAt: ((Long) -> SceneParams)? = null,
-    /** Full-frame ARGB overlay pixels (from `Bitmap.getPixels`, sized [width]x[height]) latched for every exported frame; null draws none. */
-    val overlay: IntArray? = null,
+    /**
+     * Full-frame ARGB overlay pixels (from `Bitmap.getPixels`, sized [width]x[height]) for the
+     * frame at a track position (ms, measured the same way [FeatureTimeline.featuresAt] is:
+     * [rangeStartMs] plus the frame's offset into the export); null for a position draws none for
+     * that frame. Consulted once per frame in [OffscreenSceneRenderer.renderFrame]; returning the
+     * same array instance across calls (a fixed overlay, or an unchanged lyric line) skips the
+     * native re-upload.
+     */
+    val overlay: ((positionMs: Long) -> IntArray?)? = null,
     // W02: the background image behind the scene, decoded by the caller at [width]x[height] and
     // latched once in [OffscreenSceneRenderer.prepare] - see NativeViz.setUnderlay.
     val underlay: OffscreenUnderlay? = null,
@@ -66,6 +73,13 @@ class OffscreenSceneRenderer(
 ) {
     private var native: NativeViz? = null
 
+    // Tracks the last overlay array uploaded to the native renderer, by reference rather than
+    // content, so renderFrame() only calls setOverlay() when spec.overlay actually returns a new
+    // instance - see spec.overlay's doc. Starting at null means a spec with no overlay (or one
+    // whose first frame has nothing to draw) never calls setOverlay() at all, matching the old
+    // latch-once behaviour for the art/title-only case.
+    private var lastOverlayPixels: IntArray? = null
+
     /** Builds the native renderer and its scene; must run with the target GL context current. */
     fun prepare() {
         val viz = NativeViz(context)
@@ -81,7 +95,8 @@ class OffscreenSceneRenderer(
         viz.setReducedMotion(spec.reducedMotion)
         if (spec.lfoConfigs.isNotEmpty()) viz.setLfoConfigs(spec.lfoConfigs)
         if (spec.adsrConfigs.isNotEmpty()) viz.setAdsrConfigs(spec.adsrConfigs)
-        if (spec.overlay != null) viz.setOverlay(spec.overlay, spec.width, spec.height)
+        // The overlay itself is latched per-frame in renderFrame(), since spec.overlay may vary
+        // with position (a lyric line, or a watermark once enabled); this only builds the renderer.
         spec.underlay?.let { viz.setUnderlay(it.pixels, it.width, it.height, it.blend, it.amount) }
         native = viz
     }
@@ -100,11 +115,17 @@ class OffscreenSceneRenderer(
         val fps = spec.fps
         val timeMs = frame * 1000L / fps
         val nextTimeMs = (frame + 1) * 1000L / fps
-        val features = timeline.featuresAt(spec.rangeStartMs + timeMs, nextTimeMs - timeMs)
+        val absoluteMs = spec.rangeStartMs + timeMs
+        val features = timeline.featuresAt(absoluteMs, nextTimeMs - timeMs)
         // Quality never adapts downward in an export; the thermal half is the offscreen pin above.
         val p = (spec.paramsAt?.invoke(timeMs) ?: spec.baseParams).copy(fluidAutoQuality = false)
         viz.setParams(p)
         viz.setFeatures(features)
+        val overlayPixels = spec.overlay?.invoke(absoluteMs)
+        if (overlayPixels !== lastOverlayPixels) {
+            viz.setOverlay(overlayPixels, spec.width, spec.height)
+            lastOverlayPixels = overlayPixels
+        }
         viz.render(timeMs / 1000.0, targetFbo)
     }
 

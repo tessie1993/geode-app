@@ -1,0 +1,186 @@
+[
+  {
+    "code": "A",
+    "name": "Gel bodies",
+    "count": 24,
+    "kind": "physical element",
+    "connections": [
+      "mount",
+      "contentFrame",
+      "touchRegion",
+      "collider",
+      "wetBoundary",
+      "lightReceiver",
+      "eventOut"
+    ]
+  },
+  {
+    "code": "B",
+    "name": "Precision controls",
+    "count": 24,
+    "kind": "composite physical element",
+    "connections": [
+      "mount",
+      "contentFrame",
+      "touchRegion",
+      "collider",
+      "fluidIn",
+      "fluidOut",
+      "eventOut"
+    ]
+  },
+  {
+    "code": "C",
+    "name": "Containers and surfaces",
+    "count": 24,
+    "kind": "physical element",
+    "connections": [
+      "mount",
+      "contentFrame",
+      "touchRegion",
+      "collider",
+      "wetBoundary",
+      "fluidIn",
+      "fluidOut",
+      "lightReceiver"
+    ]
+  },
+  {
+    "code": "D",
+    "name": "Spatial assemblies and connections",
+    "count": 18,
+    "kind": "assembly",
+    "connections": [
+      "mount",
+      "contentFrame",
+      "touchRegion",
+      "collider",
+      "wetBoundary",
+      "eventOut"
+    ]
+  },
+  {
+    "code": "E",
+    "name": "Liquid structures",
+    "count": 24,
+    "kind": "fluid element",
+    "connections": [
+      "mount",
+      "collider",
+      "wetBoundary",
+      "fluidIn",
+      "fluidOut",
+      "fieldRegion",
+      "lightReceiver",
+      "eventOut"
+    ]
+  },
+  {
+    "code": "F",
+    "name": "Films and bubbles",
+    "count": 12,
+    "kind": "film element",
+    "connections": [
+      "collider",
+      "fieldRegion",
+      "lightReceiver",
+      "eventOut"
+    ]
+  },
+  {
+    "code": "G",
+    "name": "Particles and floaters",
+    "count": 18,
+    "kind": "particle component",
+    "connections": [
+      "collider",
+      "fieldRegion",
+      "wetBoundary",
+      "lightSource",
+      "eventOut"
+    ]
+  },
+  {
+    "code": "H",
+    "name": "Wind and force fields",
+    "count": 12,
+    "kind": "field module",
+    "connections": [
+      "fieldRegion",
+      "collider",
+      "eventOut"
+    ]
+  },
+  {
+    "code": "I",
+    "name": "Light and optical coupling",
+    "count": 18,
+    "kind": "optical component",
+    "connections": [
+      "lightSource",
+      "lightReceiver",
+      "collider",
+      "fieldRegion",
+      "eventOut"
+    ]
+  },
+  {
+    "code": "J",
+    "name": "Environment components",
+    "count": 24,
+    "kind": "environment element",
+    "connections": [
+      "mount",
+      "collider",
+      "wetBoundary",
+      "fluidIn",
+      "fluidOut",
+      "fieldRegion",
+      "lightReceiver"
+    ]
+  },
+  {
+    "code": "K",
+    "name": "Touch contact and collision behaviors",
+    "count": 24,
+    "kind": "behavior module",
+    "connections": [
+      "touchRegion",
+      "collider",
+      "mount",
+      "wetBoundary",
+      "fluidIn",
+      "fluidOut",
+      "eventOut"
+    ]
+  },
+  {
+    "code": "L",
+    "name": "Spatial transitions",
+    "count": 18,
+    "kind": "transition module",
+    "connections": [
+      "mount",
+      "contentFrame",
+      "collider",
+      "fluidIn",
+      "fluidOut",
+      "fieldRegion",
+      "eventOut"
+    ]
+  },
+  {
+    "code": "N",
+    "name": "Nature-derived interface elements",
+    "count": 7,
+    "kind": "physical element",
+    "connections": [
+      "mount",
+      "contentFrame",
+      "touchRegion",
+      "windReceiver",
+      "collider",
+      "lightReceiver"
+    ]
+  }
+]

@@ -113,8 +113,8 @@ private:
     float smoothTreble_ = 0.0f;
     float smoothEnergy_ = 0.0f;
     float swell_ = 0.0f;
-    // Wave three: the continuous replacement for the old spike-latched state
-    // (uSpike/uMoveDir/uSpawnSeed/uSpawnAge/uFormPhase). See MotionField.hpp.
+    // Wave three: the continuous replacement for the old spike-latched state;
+    // R08 deleted that uniform group's declarations. See MotionField.hpp.
     MotionField motionField_;
     SceneParams params_;
     float rotationAngle_ = 0.0f;

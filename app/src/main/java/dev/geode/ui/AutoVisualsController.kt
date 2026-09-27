@@ -12,6 +12,15 @@ import kotlinx.coroutines.flow.StateFlow
 /** A switch waits for a hit this strong — the live transient, not a tracked beat. */
 private const val STRONG_MOMENT_IMPULSE = 0.6f
 
+/** Random mode's minimum dwell on a look before a section change or novelty spike can switch it. */
+private const val RANDOM_SECTION_MIN_DWELL_MS = 6_000L
+
+/** Time constant for the running average [AutoVisualsController] compares `novelty` against. */
+private const val NOVELTY_AVG_SECONDS = 10f
+
+/** A `novelty` reading this far above its running average counts as a structural spike. */
+private const val NOVELTY_SPIKE_RATIO = 1.5f
+
 internal class AutoVisualsController(
     private val prefsStore: AutoVisualsPrefsStore,
     private val host: Host,
@@ -46,6 +55,11 @@ internal class AutoVisualsController(
     private var vizPlaylistIndex = 0
     private var lastRandomSwitchMs = 0L
     private val randomRng = kotlin.random.Random(android.os.SystemClock.elapsedRealtime())
+
+    // Running average `advanceRandomMode` compares the live `novelty` reading against to flag a
+    // structural spike, mirroring core/viz/MotionField's own noveltyAvg_/kNoveltyJumpRatio.
+    private var noveltyAvg = 0f
+    private var lastNoveltyUpdateMs = 0L
 
     private var cachedMilkFiles: List<MilkFile> = emptyList()
 
@@ -127,8 +141,8 @@ internal class AutoVisualsController(
         persistAutoVisuals()
     }
 
-    fun setRandomOnBeat(enabled: Boolean) {
-        host.updateViz { it.copy(randomOnBeat = enabled) }
+    fun setRandomOnSection(enabled: Boolean) {
+        host.updateViz { it.copy(randomOnSection = enabled) }
         persistAutoVisuals()
     }
 
@@ -211,15 +225,35 @@ internal class AutoVisualsController(
         val elapsed = now - lastRandomSwitchMs
         val intervalMs = s.randomIntervalSec * 1000L
         val due =
-            if (s.randomOnBeat) {
+            if (s.randomOnSection) {
                 val f = host.features()
-                val minDwell = maxOf(6_000L, intervalMs / 2)
-                (elapsed >= minDwell && LiveSignal.hit(f) >= STRONG_MOMENT_IMPULSE) || elapsed >= intervalMs * 2
+                val minDwell = maxOf(RANDOM_SECTION_MIN_DWELL_MS, intervalMs / 2)
+                val noveltySpike = updateNoveltyAverage(f.novelty, now)
+                (elapsed >= minDwell && (f.sectionBoundary || noveltySpike)) || elapsed >= intervalMs * 2
             } else {
                 elapsed >= intervalMs
             }
         if (!due) return
         randomStepNow()
+    }
+
+    /**
+     * Reports whether [novelty] is a spike against the running average as it stood BEFORE this
+     * sample (so the sample cannot inflate the average it is being judged against), then folds
+     * it into that average. The 1.5x threshold mirrors `core/viz/MotionField`'s own
+     * `kNoveltyJumpRatio`, which the orbit re-target uses for the same job natively.
+     */
+    private fun updateNoveltyAverage(
+        novelty: Float,
+        nowMs: Long,
+    ): Boolean {
+        val sample = novelty.coerceAtLeast(0f)
+        val spike = noveltyAvg > 1e-3f && sample > noveltyAvg * NOVELTY_SPIKE_RATIO
+        val dtSeconds = if (lastNoveltyUpdateMs == 0L) 0f else (nowMs - lastNoveltyUpdateMs).coerceAtLeast(0L) / 1000f
+        lastNoveltyUpdateMs = nowMs
+        val k = if (dtSeconds <= 0f) 1f else 1f - kotlin.math.exp(-dtSeconds / NOVELTY_AVG_SECONDS)
+        noveltyAvg += (sample - noveltyAvg) * k
+        return spike
     }
 
     fun randomStepNow() {

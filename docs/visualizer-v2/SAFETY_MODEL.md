@@ -52,7 +52,9 @@ modulator can push it back into the hazardous range.
 | `beatMinIntervalMs` | the floor between beat-driven hits |
 | `layerMix` | ADD and DIFFERENCE blends, which reach the screen after `apply` |
 | `transitionStyle` / `transitionId` | a hard cut becomes a crossfade |
-| `FlashBudget` | how *often* the flash may fire — three rising edges per rolling second |
+
+`FlashBudget`, which used to rate-limit how often the flash fired, was removed along with the
+additive flash effect itself in wave three (R08) — there is nothing left to rate-limit.
 
 Inversion and solarize are deliberately **not** forced off. A statically inverted picture is not a
 flash; the hazard is toggling it quickly, which the rate limits above already bound. Forcing them

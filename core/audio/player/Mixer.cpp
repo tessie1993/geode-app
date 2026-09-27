@@ -96,13 +96,20 @@ void Mixer::render(float* out, size_t frames) {
         const size_t got = pull(*current, out, frames);
         Deck* next = next_.load(std::memory_order_relaxed);
         const int64_t fadeFrames = crossfadeFrames_.load(std::memory_order_relaxed);
+        const int64_t fadeStart = current->durationFrames - fadeFrames;
         const bool fadeWindow = next && fadeFrames > 0 && current->durationFrames > fadeFrames &&
-                                firstFrame + static_cast<int64_t>(frames) > current->durationFrames - fadeFrames;
+                                firstFrame + static_cast<int64_t>(got) > fadeStart;
         const bool ranDry = got < frames && current->endOfStream.load(std::memory_order_acquire);
         if (fadeWindow) {
-            const size_t gotNext = pull(*next, scratch_.data(), frames);
-            std::fill_n(scratch_.data() + gotNext * kChannels, (frames - gotNext) * kChannels, 0.0f);
-            fade(out, scratch_.data(), frames, firstFrame, current->durationFrames - fadeFrames, fadeFrames);
+            // A callback can straddle the fade boundary. Do not consume the next deck for the
+            // prefix whose incoming gain is zero. On decoder starvation, advance neither deck
+            // beyond the available outgoing frames (except at real EOF).
+            const size_t prefix = static_cast<size_t>(std::max<int64_t>(0, fadeStart - firstFrame));
+            const size_t overlap = (ranDry ? frames : got) - prefix;
+            const size_t gotNext = pull(*next, scratch_.data(), overlap);
+            std::fill_n(scratch_.data() + gotNext * kChannels, (overlap - gotNext) * kChannels, 0.0f);
+            fade(out + prefix * kChannels, scratch_.data(), overlap,
+                 firstFrame + static_cast<int64_t>(prefix), fadeStart, fadeFrames);
             if (ranDry || current->position() >= current->durationFrames) beginTransition(current, next);
         } else if (ranDry) {
             if (next) {

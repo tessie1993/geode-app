@@ -14,6 +14,9 @@ import dev.geode.render.scene.SceneParams
 
 /** Everything the timeline UI needs from the session, so the composables stay free of the view model. */
 interface EditorActions {
+    /** The loaded project currently owned by the editor, including after this UI leaves composition. */
+    fun currentProjectIdentity(): Pair<String, EditorProject>? = null
+
     fun edit(transform: (EditorProject) -> EditorProject)
 
     fun apply(result: EditResult)

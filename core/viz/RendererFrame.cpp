@@ -83,7 +83,12 @@ SceneParams Renderer::resolveParams(float dt) {
             morph = 0.0f;
         }
     }
-    const float fade = std::max(requested.paramFadeSec, morph);
+    // std::max propagates a NaN, and a NaN fade sends the lerp below to k = NaN, which turns
+    // every interpolated parameter into a NaN that then feeds back through displayedParams_ on
+    // the next frame and never recovers. SceneParams::set now rejects non-finite input, so this
+    // is belt-and-braces for morph state and for params set before that guard existed.
+    float fade = std::max(requested.paramFadeSec, morph);
+    if (!std::isfinite(fade)) fade = 0.0f;
     displayedParams_ = fade <= 0.01f ? requested : lerpParams(displayedParams_, requested, std::clamp(dt / fade, 0.0f, 1.0f));
     const auto& envValues = adsr_.tick(dt, frameFeatures_);
     AdsrEngine::lfoOffsets(adsr_.configs, envValues, envRate_, envDepth_);
@@ -234,7 +239,7 @@ void Renderer::composite(Scene& scene, const SceneParams& p, float progress, GLu
     in.ratio = static_cast<float>(renderWidth_) / static_cast<float>(renderHeight_);
     in.timeSeconds = timeSeconds_;
     // Wave three: nothing feeds the composite pass's transient reaction any
-    // more (that read live::hit(), a transient flag); flash/strobe/pulse/
+    // more (that read a raw transient/hit flag); flash/strobe/pulse/
     // shake themselves are already inert (see Params.hpp), and the composite
     // pass has dropped the uniforms/Inputs fields that carried them.
     const SceneParams& fx = lastFinalParams_;
@@ -258,7 +263,7 @@ void Renderer::composite(Scene& scene, const SceneParams& p, float progress, GLu
 }
 
 void Renderer::stepOverlays(Scene& scene, const SceneParams& p, float dt) {
-    if (overlays_.wantsFlow(p, scene.isFluid())) overlays_.stepFlow(gainAdjusted(frameFeatures_, p), dt, p);
+    if (overlays_.wantsFlow(p, scene.isFluid())) overlays_.stepFlow(gainAdjusted(frameFeatures_, p), dt, p, motionField_.state());
     smearing_ = overlays_.smearing(monotonicSeconds());
     // Stepped once per frame ahead of every draw so each scene reads the same anchor.
     touchField_.step(dt);

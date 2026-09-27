@@ -1,0 +1,39 @@
+<!doctype html><html lang="en"><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Opaline adapter verification</title>
+<style>
+body{margin:0;background:#050c14;font-family:system-ui,sans-serif;color:#e2f6fa;display:grid;place-items:center;min-height:100vh}
+#phone{position:relative;width:390px;height:844px;overflow:hidden;box-shadow:0 0 70px #14394b}
+iframe{border:0;position:absolute;inset:0;width:100%;height:100%}#content{position:absolute;inset:0}
+.label{position:absolute;text-align:center;box-sizing:border-box;display:grid;place-items:center;cursor:pointer;user-select:none}
+h1{font:500 34px Georgia,serif;position:absolute;top:46px;left:28px;margin:0}.eyebrow{position:absolute;top:24px;left:28px;font-size:10px;letter-spacing:.22em;color:#a0cec9}
+.title{position:absolute;top:360px;left:20px;width:350px;text-align:center;font:500 25px Georgia,serif}.sub{position:absolute;top:398px;width:100%;text-align:center;font-size:13px;color:#afc3d1}
+.caption{position:absolute;top:503px;left:30px;font-size:11px;color:#94adbb}#status{position:absolute;bottom:8px;font-size:9px;width:100%;text-align:center;color:#76a6b3}
+button{position:absolute;top:10px;right:8px;background:#143347;border:1px solid #57798a;color:#ceeaf0;border-radius:12px;padding:6px;z-index:3;font-size:10px}
+</style>
+<div id="phone"><iframe id="scene" src="../../app/src/main/assets/opaline/index.html"></iframe>
+<div id="content"><div class="eyebrow">GEODE / YOUR LISTENING ROOM</div><h1>Now playing</h1>
+<div class="title">A softer kind of space</div><div class="sub">Opaline Sessions · Studio collection</div><div class="caption">1:28 <span style="margin-left:292px">4:32</span></div></div>
+<button id="motion">Reduce motion</button><div id="status">Loading local WebGL scene</div></div>
+<script>
+const frame=document.getElementById('scene'),content=document.getElementById('content');
+const parts=[
+{id:'album',element:'C20',x:76,y:118,width:238,height:238,label:'<span style="font:italic 36px Georgia;color:#b3ece9">g.</span>'},
+{id:'previous',element:'A03',x:81,y:424,width:55,height:55,label:'‹'},
+{id:'play',element:'A22',x:156,y:416,width:78,height:72,label:'Ⅱ'},
+{id:'next',element:'A03',x:254,y:424,width:55,height:55,label:'›'},
+{id:'seek',element:'B07',x:30,y:528,width:330,height:35,value:.37,label:''},
+{id:'panel',element:'C01',x:24,y:591,width:342,height:104,label:'<span style="font-size:12px;letter-spacing:.12em">THE SOUND, SHAPED BY YOU<br><br><span style="letter-spacing:0;color:#c5dfe6">Open your sonic studio →</span></span>'},
+{id:'dock',element:'D03',x:20,y:733,width:350,height:82,label:''},
+{id:'player',element:'A03',x:42,y:742,width:58,height:48,selected:true,label:'<span style="font-size:11px;color:#12323c">Listen</span>'},
+{id:'library',element:'A03',x:123,y:747,width:58,height:48,label:'<span style="font-size:11px;color:#12323c">Library</span>'},
+{id:'visuals',element:'A03',x:205,y:747,width:58,height:48,label:'<span style="font-size:11px;color:#12323c">Visuals</span>'},
+{id:'studio',element:'A03',x:287,y:742,width:58,height:48,label:'<span style="font-size:11px;color:#12323c">Studio</span>'}];
+let reduced=false;
+function update(){frame.contentWindow.Opaline?.update({width:390,height:844,parts,reducedMotion:reduced,active:true,section:'player'});}
+for(const p of parts){const label=document.createElement('div');label.className='label';label.style.cssText=`left:${p.x}px;top:${p.y}px;width:${p.width}px;height:${p.height}px;${p.element==='C01'?'background:#08233288;border-radius:20px':''}`;label.innerHTML=p.label;label.dataset.id=p.id;content.append(label);
+label.addEventListener('pointerdown',e=>{label.setPointerCapture(e.pointerId);frame.contentWindow.Opaline.touch({id:p.id,pointer:e.pointerId,action:'down',x:e.offsetX/p.width,y:e.offsetY/p.height});});
+label.addEventListener('pointerup',e=>{frame.contentWindow.Opaline.touch({id:p.id,pointer:e.pointerId,action:'up',x:e.offsetX/p.width,y:e.offsetY/p.height});if(p.id==='play'){label.innerHTML=label.innerHTML==='Ⅱ'?'▶':'Ⅱ';}if(p.id==='seek'){p.value=e.offsetX/p.width;update();}});}
+document.getElementById('motion').onclick=()=>{reduced=!reduced;document.getElementById('motion').textContent=reduced?'Restore motion':'Reduce motion';update();};
+const timer=setInterval(()=>{const api=frame.contentWindow.Opaline;if(api?.status==='ready'){update();document.getElementById('status').textContent='3D adapter · '+JSON.stringify(api.stats());clearInterval(timer);}else if(api?.status==='failed'){document.getElementById('status').textContent='WebGL unavailable';clearInterval(timer);}},150);
+</script></html>

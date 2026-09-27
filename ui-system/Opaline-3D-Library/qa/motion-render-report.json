@@ -1,0 +1,17 @@
+{
+  "width": 640,
+  "height": 360,
+  "duration": 8,
+  "frames": 120,
+  "modules": [
+    "B07",
+    "F01",
+    "L03",
+    "N01"
+  ],
+  "layout": "four simultaneous text-free 3D specimens",
+  "filmDrainageTimeScale": 80000,
+  "fps": 15,
+  "errors": [],
+  "renderer": "Three.js WebGL actual library modules on Chromium SwiftShader; no image interpolation"
+}

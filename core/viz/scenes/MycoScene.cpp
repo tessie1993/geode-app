@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <cmath>
 
-#include "viz/LiveSignal.hpp"
 #include "viz/Quad.hpp"
 
 namespace geode::viz {
@@ -46,9 +45,9 @@ void MycoScene::resize(int width, int height) {
 void MycoScene::update(const GeodeFeatureFrame& features, float dt) {
     time_ = std::fmod(time_ + dt, kSceneTimeWrapSeconds);
     lastDt_ = dt;
-    pcmStrike_ = pcmPulse_.tick(dt);
     pending_ = features;
     hasPending_ = true;
+    motionField_.step(features, dt);
 }
 
 bool MycoScene::ensureBuffers() {
@@ -96,11 +95,16 @@ void MycoScene::draw(float timeSeconds) {
 
     const float speed = std::clamp(p.speed, 0.05f, 4.0f);
     const float drive = safeAudioDrive(p.audioDrive);
+    const MotionField::State& m = motionField_.state();
     envBass_ = slewEnvelope(envBass_, clampedBand(f.bass), dt, kEnvRisePerSec, kEnvFallPerSec);
     envTreble_ = slewEnvelope(envTreble_, clampedBand(f.treble), dt, kEnvRisePerSec, kEnvFallPerSec);
-    const float hit = live::hit(f);
-    beatPulse_ = std::clamp(std::max(hit * std::clamp(p.beatResponse, 0.0f, 2.0f), beatPulse_ - dt * 3.0f), 0.0f, 1.5f);
-    reaim_ = hit * p.beatResponse > kBeatThreshold ? style_.reaim : 0.0f;
+    // motion: uBassRel -> sensor-distance breath, smoothed the same way the
+    // band envelopes above are (never a beat hit).
+    const float breathTarget = std::clamp((m.bassRel - 1.0f) * drive, -1.5f, 1.5f);
+    breath_ = slewEnvelope(breath_, breathTarget, dt, kEnvRisePerSec, kEnvFallPerSec);
+    // motion: uEnergyRel/uBarOsc -> the reaimed fraction, continuous instead
+    // of a hashed subset gated on a transient.
+    reaim_ = style_.reaim * std::clamp(0.5f * (m.energyRel - 1.0f) + 0.5f * (m.barOsc - 0.5f), 0.0f, 1.0f);
 
     glDisable(GL_BLEND);
     glDisable(GL_DEPTH_TEST);
@@ -123,7 +127,7 @@ void MycoScene::draw(float timeSeconds) {
     glUniform1f(agent_.loc("uTurnAngle"), style_.turnAngle);
     glUniform1f(agent_.loc("uMoveStep"), style_.moveStep * speed * (1.0f + 0.5f * envBass_ * drive));
     glUniform4f(agent_.loc("uMatrix"), style_.selfA, style_.crossAb, style_.crossBa, style_.selfB);
-    glUniform1f(agent_.loc("uBreath"), beatPulse_ * drive);
+    glUniform1f(agent_.loc("uBreath"), breath_);
     glUniform1f(agent_.loc("uJitter"), style_.jitter + 0.35f * envTreble_ * drive + std::clamp(p.turbulence, 0.0f, 1.0f) * 0.5f);
     glUniform1f(agent_.loc("uSnap"), style_.snap);
     glUniform1f(agent_.loc("uReaim"), reaim_);
@@ -173,7 +177,6 @@ void MycoScene::draw(float timeSeconds) {
     glUniform1f(show_.loc("uHueSpan"), hue::span(p.hueRange, p.paletteRange()) * style_.hueSpan);
     glUniform1f(show_.loc("uExposure"), style_.exposure * (byteTrail_ ? 1.0f / kByteFallbackDeposit : 1.0f));
     glUniform1f(show_.loc("uEnergy"), clampedBand(f.rms));
-    glUniform1f(show_.loc("uBeat"), beatPulse_);
     glDrawArrays(GL_TRIANGLES, 0, 3);
     glBindVertexArray(0);
     glUseProgram(0);

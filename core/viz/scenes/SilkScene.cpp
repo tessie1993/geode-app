@@ -4,7 +4,6 @@
 #include <cmath>
 
 #include "util/Log.hpp"
-#include "viz/LiveSignal.hpp"
 #include "viz/Quad.hpp"
 #include "viz/fluid/FluidBuffers.hpp"
 
@@ -57,9 +56,9 @@ void SilkScene::applySimSize() {
 void SilkScene::update(const GeodeFeatureFrame& features, float dt) {
     time_ = std::fmod(time_ + dt, kSceneTimeWrapSeconds);
     lastDt_ = dt;
-    pcmStrike_ = pcmPulse_.tick(dt);
     pending_ = features;
     hasPending_ = true;
+    motionField_.step(features, dt);
 }
 
 void SilkScene::draw(float timeSeconds) {
@@ -72,16 +71,16 @@ void SilkScene::draw(float timeSeconds) {
     hasPending_ = false;
 
     const float speed = std::clamp(p.speed, 0.05f, 4.0f);
+    const MotionField::State& m = motionField_.state();
     envBass_ = slewEnvelope(envBass_, clampedBand(f.bass), dt, kEnvRisePerSec, kEnvFallPerSec);
     envMid_ = slewEnvelope(envMid_, clampedBand(f.mid), dt, kEnvRisePerSec, kEnvFallPerSec);
     envTreble_ = slewEnvelope(envTreble_, clampedBand(f.treble), dt, kEnvRisePerSec, kEnvFallPerSec);
-    const float hit = live::hit(f);
-    beatPulse_ = std::clamp(std::max(hit * std::clamp(p.beatResponse, 0.0f, 2.0f), beatPulse_ - dt * 3.0f), 0.0f, 1.5f);
-    if (hit * p.beatResponse > kBeatThreshold) ringRadius_ = 0.0f;
-    if (ringRadius_ >= 0.0f) {
-        ringRadius_ += dt * kRingSpeed * speed;
-        if (ringRadius_ > kRingMax) ringRadius_ = -1.0f;
-    }
+    // motion: uEnergyRel/uBarOsc -> the radial push and ring strength
+    // (uBeat/uStrike below), a smoothed continuous value instead of a
+    // transient envelope; the bar phase -> the ring's own radius, cycling
+    // once per bar instead of resetting on a hit.
+    motionPulse_ = std::clamp(0.5f * (m.energyRel - 1.0f) + 0.5f * (m.barOsc - 0.5f), 0.0f, 1.0f);
+    ringRadius_ = f.barPhase * kRingMax;
 
     slabTurn_ = std::fmod(slabTurn_ + dt * style_.slabRate * speed, 1.0f);
     foldPhase_ = std::fmod(foldPhase_ + dt * 0.03f * speed * kTwoPi, kTwoPi);
@@ -131,8 +130,8 @@ void SilkScene::bindStep(sim::SimUniforms& u) {
     u.f1("uBass", envBass_);
     u.f1("uMid", envMid_);
     u.f1("uTreble", envTreble_);
-    u.f1("uBeat", beatPulse_);
-    u.f1("uStrike", std::clamp(pcmStrike_, 0.0f, 1.5f));
+    u.f1("uBeat", motionPulse_);
+    u.f1("uStrike", motionPulse_);
     u.f1("uBeatRing", ringRadius_);
     const int count = touch_ ? touch_->count() : 0;
     u.i1("uTouchCount", count);

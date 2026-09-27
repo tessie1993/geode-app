@@ -365,10 +365,11 @@ float gDmtSatBand;
  *   radius   body radius at full life
  *   period   life cycle in seconds
  *
- * Identity is by INDEX, not by uSpawnSeed: a spike re-rolling the seed would
- * swap every body for a different one in one frame, which is a pop. A spike
- * instead re-aims the whole bank through uMoveDir (the orbits' precession
- * leans toward it) and moves every body's morph target through uFormPhase.
+ * Identity is by INDEX, fixed for the body's whole life - nothing re-rolls
+ * it, so nothing pops. The whole bank leans its orbits toward moveDir() (the
+ * CPU's slow accumulated rotation, uDrift) and every body's morph target
+ * advances continuously with uFlowPhase, both re-aiming and re-shaping the
+ * bank gradually rather than on a hit.
  *
  * 1-Lipschitz: a rotation and a translation per body, an exact radius scale,
  * and a min() over bodies and their bounding balls.
@@ -379,6 +380,7 @@ float dmtSatellites(vec3 p, float count, float orbit, float radius, float period
     gDmtSatLife = 0.0;
     gDmtSatBand = 0.0;
     float clock = uTime * 0.21 + uFlowPhase * 0.35;
+    vec2 dir = moveDir();
     for (int i = 0; i < DMT_MAX_SATELLITES; i++) {
         if (float(i) >= count) break;
         float fi = float(i);
@@ -389,9 +391,9 @@ float dmtSatellites(vec3 p, float count, float orbit, float radius, float period
         if (life < 0.02) continue;
 
         // The orbit: a plane tilted by the seed, precessing slowly, leaning
-        // toward the current travel direction so a spike swings the whole
-        // constellation rather than restarting it.
-        vec3 axis = normalize(vec3(sin(seed * DMT_TAU) + 0.6 * uMoveDir.x, 0.75 + 0.5 * seed2, cos(seed * DMT_TAU) + 0.6 * uMoveDir.y));
+        // toward the current travel direction (moveDir(), the CPU's slow
+        // accumulated uDrift) so the whole constellation swings continuously.
+        vec3 axis = normalize(vec3(sin(seed * DMT_TAU) + 0.6 * dir.x, 0.75 + 0.5 * seed2, cos(seed * DMT_TAU) + 0.6 * dir.y));
         float ang = clock * (0.35 + 0.65 * seed2) + seed * DMT_TAU;
         vec3 c = rotAxis(axis, ang) * vec3(orbit * (0.85 + 0.3 * seed), 0.0, 0.0);
         vec3 q = p - c;
@@ -404,7 +406,10 @@ float dmtSatellites(vec3 p, float count, float orbit, float radius, float period
         }
         // The body's own tumble, on a rate that is its own.
         q = rotAxis(vec3(seed2 - 0.5, 0.8, seed - 0.5), clock * (0.8 + 1.4 * seed)) * q;
-        float body = dmtMorphBody(q, r, uFormPhase + seed);
+        // Wave three: the morph target advances continuously with travel time
+        // (uFlowPhase) instead of stepping on a hit; each body's own seed
+        // still keeps it out of phase with its neighbours.
+        float body = dmtMorphBody(q, r, uFlowPhase * 0.05 + seed);
         if (body < d) {
             d = body;
             gDmtSatHue = seed;
@@ -494,8 +499,9 @@ float dmtSatelliteCount() {
 /**
  * The flight path's lateral offset at depth z: two incommensurate sines per
  * axis (a tight weave inside a long sweep), plus a lean toward the current
- * travel direction. Because the lean is on uMoveDir, a spike banks the whole
- * tunnel ahead toward the new heading and the turn glides in on the CPU.
+ * travel direction. The lean is on moveDir() (the CPU's slow accumulated
+ * uDrift), so the tunnel ahead banks toward the current heading gradually,
+ * never on a hit.
  *
  * The camera rides this path and the tunnel is warped onto it, so the tube
  * curves up, down, left and right ahead of the viewer and the view is always
@@ -504,7 +510,7 @@ float dmtSatelliteCount() {
 vec2 dmtTunnelPath(float z) {
     return vec2(1.4 * sin(z * 0.21) + 2.6 * sin(z * 0.043 + 1.3),
                 1.2 * cos(z * 0.17 + 0.7) + 2.2 * cos(z * 0.031))
-         + uMoveDir * z * 0.12;
+         + moveDir() * z * 0.12;
 }
 
 /**

@@ -1,0 +1,1580 @@
+{
+  "method": "WebGL2 physically based geometry render, not ImageGen or path traced",
+  "resolution": [
+    768,
+    768
+  ],
+  "errors": [],
+  "assets": [
+    {
+      "id": "A01",
+      "bounds": [
+        1.8505167961120605,
+        1.3200000524520874,
+        0.7637859582901001
+      ],
+      "triangles": 3968,
+      "filename": "assets/previews/A01.png"
+    },
+    {
+      "id": "A02",
+      "bounds": [
+        2.5999999046325684,
+        0.9761840105056763,
+        0.6800000071525574
+      ],
+      "triangles": 3968,
+      "filename": "assets/previews/A02.png"
+    },
+    {
+      "id": "A03",
+      "bounds": [
+        1.6399999856948853,
+        1.6399999856948853,
+        0.6399999856948853
+      ],
+      "triangles": 3968,
+      "filename": "assets/previews/A03.png"
+    },
+    {
+      "id": "A04",
+      "bounds": [
+        1.659999966621399,
+        1.5199999809265137,
+        0.699999988079071
+      ],
+      "triangles": 3968,
+      "filename": "assets/previews/A04.png"
+    },
+    {
+      "id": "A05",
+      "bounds": [
+        2.300321102142334,
+        0.8799999952316284,
+        0.5
+      ],
+      "triangles": 1296,
+      "filename": "assets/previews/A05.png"
+    },
+    {
+      "id": "A06",
+      "bounds": [
+        0.8799999952316284,
+        2.000339984893799,
+        0.5800000131130219
+      ],
+      "triangles": 1296,
+      "filename": "assets/previews/A06.png"
+    },
+    {
+      "id": "A07",
+      "bounds": [
+        2.2627417335144306,
+        2.2627417335144306,
+        0.699999988079071
+      ],
+      "triangles": 3968,
+      "filename": "assets/previews/A07.png"
+    },
+    {
+      "id": "A08",
+      "bounds": [
+        0.9246096611022949,
+        1.940000057220459,
+        0.6195845603942871
+      ],
+      "triangles": 3968,
+      "filename": "assets/previews/A08.png"
+    },
+    {
+      "id": "A09",
+      "bounds": [
+        1.226842999458313,
+        2,
+        0.8434545993804932
+      ],
+      "triangles": 3968,
+      "filename": "assets/previews/A09.png"
+    },
+    {
+      "id": "A10",
+      "bounds": [
+        1.2909497022628784,
+        1.659999966621399,
+        0.4408270865678787
+      ],
+      "triangles": 3968,
+      "filename": "assets/previews/A10.png"
+    },
+    {
+      "id": "A11",
+      "bounds": [
+        1.8726500272750854,
+        1.7248350977897644,
+        0.699999988079071
+      ],
+      "triangles": 3968,
+      "filename": "assets/previews/A11.png"
+    },
+    {
+      "id": "A12",
+      "bounds": [
+        2,
+        1.340000033378601,
+        0.7483183592557907
+      ],
+      "triangles": 3968,
+      "filename": "assets/previews/A12.png"
+    },
+    {
+      "id": "A13",
+      "bounds": [
+        2.2799999713897705,
+        0.9646673202514648,
+        0.6242523789405823
+      ],
+      "triangles": 3968,
+      "filename": "assets/previews/A13.png"
+    },
+    {
+      "id": "A14",
+      "bounds": [
+        1.801620602607727,
+        1.6486466526985168,
+        0.7200000286102295
+      ],
+      "triangles": 3968,
+      "filename": "assets/previews/A14.png"
+    },
+    {
+      "id": "A15",
+      "bounds": [
+        2,
+        1.7400000095367432,
+        0.47999998927116394
+      ],
+      "triangles": 3840,
+      "filename": "assets/previews/A15.png"
+    },
+    {
+      "id": "A16",
+      "bounds": [
+        2.0390687584877014,
+        2.0071650743484497,
+        0.4399999976158142
+      ],
+      "triangles": 2920,
+      "filename": "assets/previews/A16.png"
+    },
+    {
+      "id": "A17",
+      "bounds": [
+        2.286189317703247,
+        1.7112115025520325,
+        0.47999998927116394
+      ],
+      "triangles": 2920,
+      "filename": "assets/previews/A17.png"
+    },
+    {
+      "id": "A18",
+      "bounds": [
+        1.9864000082015991,
+        1.3863999843597412,
+        0.44999999791383744
+      ],
+      "triangles": 5028,
+      "filename": "assets/previews/A18.png"
+    },
+    {
+      "id": "A19",
+      "bounds": [
+        3,
+        0.9408000111579895,
+        0.6633999943733215
+      ],
+      "triangles": 3968,
+      "filename": "assets/previews/A19.png"
+    },
+    {
+      "id": "A20",
+      "bounds": [
+        1.8799999952316284,
+        1.3799999952316284,
+        0.7068411409854889
+      ],
+      "triangles": 3968,
+      "filename": "assets/previews/A20.png"
+    },
+    {
+      "id": "A21",
+      "bounds": [
+        1.8799999952316284,
+        1.6399999856948853,
+        0.789999994635582
+      ],
+      "triangles": 7936,
+      "filename": "assets/previews/A21.png"
+    },
+    {
+      "id": "A22",
+      "bounds": [
+        1.4800000190734863,
+        1.4800000190734863,
+        0.550000011920929
+      ],
+      "triangles": 1348,
+      "filename": "assets/previews/A22.png"
+    },
+    {
+      "id": "A23",
+      "bounds": [
+        2.0399999618530273,
+        0.9800000190734863,
+        0.6549999970197677
+      ],
+      "triangles": 9284,
+      "filename": "assets/previews/A23.png"
+    },
+    {
+      "id": "A24",
+      "bounds": [
+        1.9600000381469727,
+        1.399999976158142,
+        0.7948434054851532
+      ],
+      "triangles": 3968,
+      "filename": "assets/previews/A24.png"
+    },
+    {
+      "id": "B01",
+      "bounds": [
+        2.5999999046325684,
+        0.7300000190734863,
+        0.8100000017881394
+      ],
+      "triangles": 10452,
+      "filename": "assets/previews/B01.png"
+    },
+    {
+      "id": "B02",
+      "bounds": [
+        2.2871036529541016,
+        0.8977268755435943,
+        0.6399999976158142
+      ],
+      "triangles": 6888,
+      "filename": "assets/previews/B02.png"
+    },
+    {
+      "id": "B03",
+      "bounds": [
+        0.6899999976158148,
+        2.5999999046325684,
+        0.8100000017881394
+      ],
+      "triangles": 6612,
+      "filename": "assets/previews/B03.png"
+    },
+    {
+      "id": "B04",
+      "bounds": [
+        2.5999999046325684,
+        0.6899999976158142,
+        0.8100000017881394
+      ],
+      "triangles": 10580,
+      "filename": "assets/previews/B04.png"
+    },
+    {
+      "id": "B05",
+      "bounds": [
+        2.5999999046325684,
+        0.6899999976158142,
+        0.8100000017881394
+      ],
+      "triangles": 16692,
+      "filename": "assets/previews/B05.png"
+    },
+    {
+      "id": "B06",
+      "bounds": [
+        2.5999999046325684,
+        0.945000022649765,
+        0.8100000017881394
+      ],
+      "triangles": 10708,
+      "filename": "assets/previews/B06.png"
+    },
+    {
+      "id": "B07",
+      "bounds": [
+        2.7200000286102295,
+        0.6684368252754211,
+        0.5872248411178589
+      ],
+      "triangles": 12288,
+      "filename": "assets/previews/B07.png"
+    },
+    {
+      "id": "B08",
+      "bounds": [
+        2.5999999046325684,
+        0.6899999976158142,
+        1.0500000017881392
+      ],
+      "triangles": 9532,
+      "filename": "assets/previews/B08.png"
+    },
+    {
+      "id": "B09",
+      "bounds": [
+        1.7159999370574952,
+        0.6899999976158142,
+        0.8100000017881394
+      ],
+      "triangles": 14292,
+      "filename": "assets/previews/B09.png"
+    },
+    {
+      "id": "B10",
+      "bounds": [
+        2.5999999046325684,
+        0.6899999976158142,
+        0.8100000017881394
+      ],
+      "triangles": 18260,
+      "filename": "assets/previews/B10.png"
+    },
+    {
+      "id": "B11",
+      "bounds": [
+        2.200000047683716,
+        1.3000000715255737,
+        0.4900000023841858
+      ],
+      "triangles": 2788,
+      "filename": "assets/previews/B11.png"
+    },
+    {
+      "id": "B12",
+      "bounds": [
+        2.5999999046325684,
+        0.6899999976158142,
+        0.8100000017881394
+      ],
+      "triangles": 10932,
+      "filename": "assets/previews/B12.png"
+    },
+    {
+      "id": "B13",
+      "bounds": [
+        1.7799999713897705,
+        1.7799999713897705,
+        0.699999988079071
+      ],
+      "triangles": 11776,
+      "filename": "assets/previews/B13.png"
+    },
+    {
+      "id": "B14",
+      "bounds": [
+        1.7799999713897705,
+        1.7799999713897705,
+        0.699999988079071
+      ],
+      "triangles": 138752,
+      "filename": "assets/previews/B14.png"
+    },
+    {
+      "id": "B15",
+      "bounds": [
+        2.3799999952316284,
+        2.380000114440918,
+        0.6200000137090683
+      ],
+      "triangles": 11648,
+      "filename": "assets/previews/B15.png"
+    },
+    {
+      "id": "B16",
+      "bounds": [
+        2.1986563205718994,
+        1.984527349472046,
+        0.5499999964237213
+      ],
+      "triangles": 6888,
+      "filename": "assets/previews/B16.png"
+    },
+    {
+      "id": "B17",
+      "bounds": [
+        1.8799999952316284,
+        1.999999988079071,
+        0.5200000005960465
+      ],
+      "triangles": 7808,
+      "filename": "assets/previews/B17.png"
+    },
+    {
+      "id": "B18",
+      "bounds": [
+        1.600000023841858,
+        1.600000023841858,
+        1.1799999475479126
+      ],
+      "triangles": 5408,
+      "filename": "assets/previews/B18.png"
+    },
+    {
+      "id": "B19",
+      "bounds": [
+        1.2799999713897705,
+        1.2799999713897705,
+        1.1700000005960465
+      ],
+      "triangles": 8328,
+      "filename": "assets/previews/B19.png"
+    },
+    {
+      "id": "B20",
+      "bounds": [
+        1.850000023841858,
+        1.4500000476837158,
+        0.6000000014901161
+      ],
+      "triangles": 5316,
+      "filename": "assets/previews/B20.png"
+    },
+    {
+      "id": "B21",
+      "bounds": [
+        2,
+        1.340000033378601,
+        0.9999999678134919
+      ],
+      "triangles": 7936,
+      "filename": "assets/previews/B21.png"
+    },
+    {
+      "id": "B22",
+      "bounds": [
+        1.4600000381469727,
+        1.2699999809265137,
+        0.9370000094175339
+      ],
+      "triangles": 74764,
+      "filename": "assets/previews/B22.png"
+    },
+    {
+      "id": "B23",
+      "bounds": [
+        2.2399999809265134,
+        1.1098449367284775,
+        0.7798448950052261
+      ],
+      "triangles": 10856,
+      "filename": "assets/previews/B23.png"
+    },
+    {
+      "id": "B24",
+      "bounds": [
+        2.200000047683716,
+        2.200000047683716,
+        0.26299999552965164
+      ],
+      "triangles": 36608,
+      "filename": "assets/previews/B24.png"
+    },
+    {
+      "id": "C01",
+      "bounds": [
+        1.899999976158142,
+        1.399999976158142,
+        0.3799999952316284
+      ],
+      "triangles": 1348,
+      "filename": "assets/previews/C01.png"
+    },
+    {
+      "id": "C02",
+      "bounds": [
+        3.200000047683716,
+        1.5,
+        0.42000000178813934
+      ],
+      "triangles": 1348,
+      "filename": "assets/previews/C02.png"
+    },
+    {
+      "id": "C03",
+      "bounds": [
+        1.5,
+        2.5,
+        0.43000002205371857
+      ],
+      "triangles": 1348,
+      "filename": "assets/previews/C03.png"
+    },
+    {
+      "id": "C04",
+      "bounds": [
+        3.200000047683716,
+        0.6200000047683716,
+        0.3099999874830246
+      ],
+      "triangles": 1348,
+      "filename": "assets/previews/C04.png"
+    },
+    {
+      "id": "C05",
+      "bounds": [
+        2.3925687074661255,
+        1.5373970866203308,
+        0.39000000059604645
+      ],
+      "triangles": 4268,
+      "filename": "assets/previews/C05.png"
+    },
+    {
+      "id": "C06",
+      "bounds": [
+        2.3925687074661255,
+        1.5373970866203308,
+        0.39000000059604645
+      ],
+      "triangles": 4268,
+      "filename": "assets/previews/C06.png"
+    },
+    {
+      "id": "C07",
+      "bounds": [
+        2.299999952316284,
+        0.6200000047683716,
+        0.3799999952316284
+      ],
+      "triangles": 2644,
+      "filename": "assets/previews/C07.png"
+    },
+    {
+      "id": "C08",
+      "bounds": [
+        1.899999976158142,
+        1.899999976158142,
+        0.41999998688697815
+      ],
+      "triangles": 1440,
+      "filename": "assets/previews/C08.png"
+    },
+    {
+      "id": "C09",
+      "bounds": [
+        2.700000047683716,
+        1.440000057220459,
+        0.4300000071525574
+      ],
+      "triangles": 1440,
+      "filename": "assets/previews/C09.png"
+    },
+    {
+      "id": "C10",
+      "bounds": [
+        2.2119998931884766,
+        1.5119999647140503,
+        0.48999999910593034
+      ],
+      "triangles": 5028,
+      "filename": "assets/previews/C10.png"
+    },
+    {
+      "id": "C11",
+      "bounds": [
+        1.7000000476837158,
+        1.7000000476837158,
+        1.25
+      ],
+      "triangles": 5408,
+      "filename": "assets/previews/C11.png"
+    },
+    {
+      "id": "C12",
+      "bounds": [
+        1.1200000047683716,
+        1.1200000047683716,
+        0.8500000238418579
+      ],
+      "triangles": 2788,
+      "filename": "assets/previews/C12.png"
+    },
+    {
+      "id": "C13",
+      "bounds": [
+        2.190000057220459,
+        1.5399999618530273,
+        0.4399999979138374
+      ],
+      "triangles": 5028,
+      "filename": "assets/previews/C13.png"
+    },
+    {
+      "id": "C14",
+      "bounds": [
+        2.5,
+        1.2059552669525146,
+        0.41968677937984467
+      ],
+      "triangles": 4268,
+      "filename": "assets/previews/C14.png"
+    },
+    {
+      "id": "C15",
+      "bounds": [
+        2.2799999809265135,
+        1.5599999713897705,
+        0.95
+      ],
+      "triangles": 4044,
+      "filename": "assets/previews/C15.png"
+    },
+    {
+      "id": "C16",
+      "bounds": [
+        2.8618978828825714,
+        1.7000000476837158,
+        0.5368430479580275
+      ],
+      "triangles": 5616,
+      "filename": "assets/previews/C16.png"
+    },
+    {
+      "id": "C17",
+      "bounds": [
+        2.200000047683716,
+        1.600000023841858,
+        0.43985503911972046
+      ],
+      "triangles": 4096,
+      "filename": "assets/previews/C17.png"
+    },
+    {
+      "id": "C18",
+      "bounds": [
+        2.200000047683716,
+        1.600000023841858,
+        0.8189999908208847
+      ],
+      "triangles": 4096,
+      "filename": "assets/previews/C18.png"
+    },
+    {
+      "id": "C19",
+      "bounds": [
+        2.228800058364868,
+        1.6288000345230103,
+        0.3100000023841858
+      ],
+      "triangles": 3680,
+      "filename": "assets/previews/C19.png"
+    },
+    {
+      "id": "C20",
+      "bounds": [
+        2.119999885559082,
+        2.119999885559082,
+        0.4000000059604645
+      ],
+      "triangles": 7680,
+      "filename": "assets/previews/C20.png"
+    },
+    {
+      "id": "C21",
+      "bounds": [
+        2.111588954925537,
+        2.010017216205597,
+        0.3199999928474426
+      ],
+      "triangles": 2920,
+      "filename": "assets/previews/C21.png"
+    },
+    {
+      "id": "C22",
+      "bounds": [
+        2.286400079727173,
+        1.7364000082015991,
+        0.5450000047683716
+      ],
+      "triangles": 8708,
+      "filename": "assets/previews/C22.png"
+    },
+    {
+      "id": "C23",
+      "bounds": [
+        1.840000033378601,
+        1.5600000619888306,
+        0.7299999952316284
+      ],
+      "triangles": 24480,
+      "filename": "assets/previews/C23.png"
+    },
+    {
+      "id": "C24",
+      "bounds": [
+        2.76387357711792,
+        0.6202626973390579,
+        0.3982500284910202
+      ],
+      "triangles": 4360,
+      "filename": "assets/previews/C24.png"
+    },
+    {
+      "id": "D01",
+      "bounds": [
+        3.0999999046325684,
+        1.159999966621399,
+        0.6350000008940697
+      ],
+      "triangles": 19328,
+      "filename": "assets/previews/D01.png"
+    },
+    {
+      "id": "D02",
+      "bounds": [
+        3.200000047683716,
+        0.6700000166893005,
+        0.4100000008940697
+      ],
+      "triangles": 20548,
+      "filename": "assets/previews/D02.png"
+    },
+    {
+      "id": "D03",
+      "bounds": [
+        2.9577808380126953,
+        1.2935426235198975,
+        0.6987129747867584
+      ],
+      "triangles": 22120,
+      "filename": "assets/previews/D03.png"
+    },
+    {
+      "id": "D04",
+      "bounds": [
+        2.4000000953674316,
+        1.609999976158142,
+        0.9250000002980233
+      ],
+      "triangles": 15564,
+      "filename": "assets/previews/D04.png"
+    },
+    {
+      "id": "D05",
+      "bounds": [
+        2.859999895095825,
+        2.870000011920929,
+        0.5950000104308129
+      ],
+      "triangles": 26880,
+      "filename": "assets/previews/D05.png"
+    },
+    {
+      "id": "D06",
+      "bounds": [
+        2.3700000119209292,
+        1.8350061094760894,
+        0.35896687358617785
+      ],
+      "triangles": 29960,
+      "filename": "assets/previews/D06.png"
+    },
+    {
+      "id": "D07",
+      "bounds": [
+        3.3,
+        1.0850000059604645,
+        0.4850000002980232
+      ],
+      "triangles": 22376,
+      "filename": "assets/previews/D07.png"
+    },
+    {
+      "id": "D08",
+      "bounds": [
+        2.8216347018467367,
+        1.5632255672470283,
+        1.0657395673670718
+      ],
+      "triangles": 23680,
+      "filename": "assets/previews/D08.png"
+    },
+    {
+      "id": "D09",
+      "bounds": [
+        2.630000011920929,
+        2.351332851792561,
+        0.5199999809265137
+      ],
+      "triangles": 44528,
+      "filename": "assets/previews/D09.png"
+    },
+    {
+      "id": "D10",
+      "bounds": [
+        2.8799999928474427,
+        0.7448496584206103,
+        0.6796589563510436
+      ],
+      "triangles": 35712,
+      "filename": "assets/previews/D10.png"
+    },
+    {
+      "id": "D11",
+      "bounds": [
+        3.1733275842666626,
+        0.9742048247776037,
+        0.8081092776416772
+      ],
+      "triangles": 58880,
+      "filename": "assets/previews/D11.png"
+    },
+    {
+      "id": "D12",
+      "bounds": [
+        2.479999989271164,
+        0.649999989271164,
+        0.42080724239349365
+      ],
+      "triangles": 10856,
+      "filename": "assets/previews/D12.png"
+    },
+    {
+      "id": "D13",
+      "bounds": [
+        2.550000011920929,
+        1.100000011920929,
+        0.6892687082290649
+      ],
+      "triangles": 24616,
+      "filename": "assets/previews/D13.png"
+    },
+    {
+      "id": "D14",
+      "bounds": [
+        2.1761670112609863,
+        0.8359513282775879,
+        0.472200870513916
+      ],
+      "triangles": 5840,
+      "filename": "assets/previews/D14.png"
+    },
+    {
+      "id": "D15",
+      "bounds": [
+        1.739999978542328,
+        1,
+        0.3199999928474426
+      ],
+      "triangles": 10632,
+      "filename": "assets/previews/D15.png"
+    },
+    {
+      "id": "D16",
+      "bounds": [
+        1.7799999713897705,
+        1.100000023841858,
+        0.25999999046325684
+      ],
+      "triangles": 5616,
+      "filename": "assets/previews/D16.png"
+    },
+    {
+      "id": "D17",
+      "bounds": [
+        1.059999942779541,
+        1.059999942779541,
+        1.2949999928474427
+      ],
+      "triangles": 8328,
+      "filename": "assets/previews/D17.png"
+    },
+    {
+      "id": "D18",
+      "bounds": [
+        2.2799999892711638,
+        1.6400000000000001,
+        0.9400000083446503
+      ],
+      "triangles": 31520,
+      "filename": "assets/previews/D18.png"
+    },
+    {
+      "id": "E01",
+      "bounds": [
+        2.6500000953674316,
+        1.7999999523162842,
+        0.6000000044703484
+      ],
+      "triangles": 4044,
+      "filename": "assets/previews/E01.png"
+    },
+    {
+      "id": "E02",
+      "bounds": [
+        2.3399999141693115,
+        1.7599999904632568,
+        0.8500000238418579
+      ],
+      "triangles": 30656,
+      "filename": "assets/previews/E02.png"
+    },
+    {
+      "id": "E03",
+      "bounds": [
+        2.689213991165161,
+        1.7599999904632568,
+        0.20000000298023224
+      ],
+      "triangles": 3968,
+      "filename": "assets/previews/E03.png"
+    },
+    {
+      "id": "E04",
+      "bounds": [
+        2.200000047683716,
+        1.600000023841858,
+        1.159999966621399
+      ],
+      "triangles": 7936,
+      "filename": "assets/previews/E04.png"
+    },
+    {
+      "id": "E05",
+      "bounds": [
+        1.5467826905488047,
+        1.6772116324985444,
+        1.0137031322717667
+      ],
+      "triangles": 49728,
+      "filename": "assets/previews/E05.png"
+    },
+    {
+      "id": "E06",
+      "bounds": [
+        2.200000047683716,
+        0.8983521163463593,
+        1.5716140270233154
+      ],
+      "triangles": 4096,
+      "filename": "assets/previews/E06.png"
+    },
+    {
+      "id": "E07",
+      "bounds": [
+        2.075347423553467,
+        1.7608608603477478,
+        0.556481808423996
+      ],
+      "triangles": 2920,
+      "filename": "assets/previews/E07.png"
+    },
+    {
+      "id": "E08",
+      "bounds": [
+        1.2575141191482544,
+        1.899999976158142,
+        0.8894611597061157
+      ],
+      "triangles": 3968,
+      "filename": "assets/previews/E08.png"
+    },
+    {
+      "id": "E09",
+      "bounds": [
+        0.9991222620010376,
+        2,
+        0.7850246429443359
+      ],
+      "triangles": 7808,
+      "filename": "assets/previews/E09.png"
+    },
+    {
+      "id": "E10",
+      "bounds": [
+        1.0049391984939575,
+        1.3799999952316284,
+        0.9647416472434998
+      ],
+      "triangles": 3968,
+      "filename": "assets/previews/E10.png"
+    },
+    {
+      "id": "E11",
+      "bounds": [
+        1.1000378131866455,
+        2.010000005960465,
+        0.8499999940395355
+      ],
+      "triangles": 6560,
+      "filename": "assets/previews/E11.png"
+    },
+    {
+      "id": "E12",
+      "bounds": [
+        2.700000047683716,
+        0.800000011920929,
+        0.6800000071525574
+      ],
+      "triangles": 10932,
+      "filename": "assets/previews/E12.png"
+    },
+    {
+      "id": "E13",
+      "bounds": [
+        2.329239249229431,
+        1.432551920413971,
+        0.7385618835687637
+      ],
+      "triangles": 16936,
+      "filename": "assets/previews/E13.png"
+    },
+    {
+      "id": "E14",
+      "bounds": [
+        2.0399999618530273,
+        2.0399999618530273,
+        0.4399999976158142
+      ],
+      "triangles": 14440,
+      "filename": "assets/previews/E14.png"
+    },
+    {
+      "id": "E15",
+      "bounds": [
+        1.6986275911331177,
+        1.9365580081939697,
+        0.5200685858726501
+      ],
+      "triangles": 54776,
+      "filename": "assets/previews/E15.png"
+    },
+    {
+      "id": "E16",
+      "bounds": [
+        1.73428875207901,
+        1.802928864955902,
+        0.25999847054481506
+      ],
+      "triangles": 9936,
+      "filename": "assets/previews/E16.png"
+    },
+    {
+      "id": "E17",
+      "bounds": [
+        1.8952857851982117,
+        1.3400341272354126,
+        0.7672321498394012
+      ],
+      "triangles": 2920,
+      "filename": "assets/previews/E17.png"
+    },
+    {
+      "id": "E18",
+      "bounds": [
+        2.4000000953674316,
+        1.7000000476837158,
+        0.8600000143051147
+      ],
+      "triangles": 24192,
+      "filename": "assets/previews/E18.png"
+    },
+    {
+      "id": "E19",
+      "bounds": [
+        1.1501653194427492,
+        2,
+        0.8434545993804932
+      ],
+      "triangles": 6888,
+      "filename": "assets/previews/E19.png"
+    },
+    {
+      "id": "E20",
+      "bounds": [
+        1.6740391850471497,
+        1.4365209937095642,
+        0.3694107383489609
+      ],
+      "triangles": 8760,
+      "filename": "assets/previews/E20.png"
+    },
+    {
+      "id": "E21",
+      "bounds": [
+        2.299999952316284,
+        2.299999952316284,
+        0.760000005364418
+      ],
+      "triangles": 10296,
+      "filename": "assets/previews/E21.png"
+    },
+    {
+      "id": "E22",
+      "bounds": [
+        2.680000029802322,
+        1.2200000286102295,
+        0.7000000071525574
+      ],
+      "triangles": 10856,
+      "filename": "assets/previews/E22.png"
+    },
+    {
+      "id": "E23",
+      "bounds": [
+        1.6799999475479126,
+        2.340000021457672,
+        0.5367438197135925
+      ],
+      "triangles": 11904,
+      "filename": "assets/previews/E23.png"
+    },
+    {
+      "id": "E24",
+      "bounds": [
+        2.169331669807434,
+        1.3542858362197876,
+        1.294465720653534
+      ],
+      "triangles": 10508,
+      "filename": "assets/previews/E24.png"
+    },
+    {
+      "id": "F01",
+      "bounds": [
+        1.5199999809265137,
+        1.5199999809265137,
+        1.5199999809265137
+      ],
+      "triangles": 7936,
+      "filename": "assets/previews/F01.png"
+    },
+    {
+      "id": "F02",
+      "bounds": [
+        1.100000023841858,
+        2.1600000858306885,
+        1.159999966621399
+      ],
+      "triangles": 7936,
+      "filename": "assets/previews/F02.png"
+    },
+    {
+      "id": "F03",
+      "bounds": [
+        2.230000042915344,
+        1.3800000429153443,
+        1.340000033378601
+      ],
+      "triangles": 23808,
+      "filename": "assets/previews/F03.png"
+    },
+    {
+      "id": "F04",
+      "bounds": [
+        1.759999966621399,
+        1.8528202896489498,
+        1.159999966621399
+      ],
+      "triangles": 26728,
+      "filename": "assets/previews/F04.png"
+    },
+    {
+      "id": "F05",
+      "bounds": [
+        2.1125916938721887,
+        2.0523014632034506,
+        1.3227580969758377
+      ],
+      "triangles": 71424,
+      "filename": "assets/previews/F05.png"
+    },
+    {
+      "id": "F06",
+      "bounds": [
+        0.8799999952316284,
+        1.6540000014007095,
+        0.8799999952316284
+      ],
+      "triangles": 18048,
+      "filename": "assets/previews/F06.png"
+    },
+    {
+      "id": "F07",
+      "bounds": [
+        1.6460000276565552,
+        1.600000023841858,
+        0.30700000934302807
+      ],
+      "triangles": 14032,
+      "filename": "assets/previews/F07.png"
+    },
+    {
+      "id": "F08",
+      "bounds": [
+        1.6082507371902466,
+        1.600000023841858,
+        1.6082507371902466
+      ],
+      "triangles": 46336,
+      "filename": "assets/previews/F08.png"
+    },
+    {
+      "id": "F09",
+      "bounds": [
+        1.600000023841858,
+        1.600000023841858,
+        1.600000023841858
+      ],
+      "triangles": 7936,
+      "filename": "assets/previews/F09.png"
+    },
+    {
+      "id": "F10",
+      "bounds": [
+        2.0999999046325684,
+        0.8174558281898499,
+        0.7504512667655945
+      ],
+      "triangles": 7936,
+      "filename": "assets/previews/F10.png"
+    },
+    {
+      "id": "F11",
+      "bounds": [
+        1.940000057220459,
+        1.058746576309204,
+        0.9935929775238037
+      ],
+      "triangles": 7936,
+      "filename": "assets/previews/F11.png"
+    },
+    {
+      "id": "F12",
+      "bounds": [
+        1.5797770023345947,
+        1.5797770023345952,
+        1.5383402850047505
+      ],
+      "triangles": 17520,
+      "filename": "assets/previews/F12.png"
+    },
+    {
+      "id": "J01",
+      "bounds": [
+        3.700000047683716,
+        0.6849999907612805,
+        2.700000047683716
+      ],
+      "triangles": 16836,
+      "filename": "assets/previews/J01.png"
+    },
+    {
+      "id": "J02",
+      "bounds": [
+        5.3971600604057315,
+        0.6021299064159393,
+        4.113466286659241
+      ],
+      "triangles": 56900,
+      "filename": "assets/previews/J02.png"
+    },
+    {
+      "id": "J03",
+      "bounds": [
+        3.4518699293345176,
+        0.5161113739013672,
+        2.5432129687455802
+      ],
+      "triangles": 152132,
+      "filename": "assets/previews/J03.png"
+    },
+    {
+      "id": "J04",
+      "bounds": [
+        3.7064108848571777,
+        0.9886877238750458,
+        2.299999952316284
+      ],
+      "triangles": 7188,
+      "filename": "assets/previews/J04.png"
+    },
+    {
+      "id": "J05",
+      "bounds": [
+        2.2821675094124476,
+        0.5535275768036263,
+        2.2087943146512936
+      ],
+      "triangles": 71424,
+      "filename": "assets/previews/J05.png"
+    },
+    {
+      "id": "J06",
+      "bounds": [
+        1.8046460151672363,
+        0.9898669123649597,
+        1.2818924188613892
+      ],
+      "triangles": 11904,
+      "filename": "assets/previews/J06.png"
+    },
+    {
+      "id": "J07",
+      "bounds": [
+        1.6897428035736084,
+        1.1356093895435333,
+        1.4232147932052612
+      ],
+      "triangles": 11904,
+      "filename": "assets/previews/J07.png"
+    },
+    {
+      "id": "J08",
+      "bounds": [
+        1.6246270537376404,
+        1.3400858241319655,
+        1.3146252632141113
+      ],
+      "triangles": 11904,
+      "filename": "assets/previews/J08.png"
+    },
+    {
+      "id": "J09",
+      "bounds": [
+        3,
+        0.7766346633434296,
+        2.4000000953674316
+      ],
+      "triangles": 17220,
+      "filename": "assets/previews/J09.png"
+    },
+    {
+      "id": "J10",
+      "bounds": [
+        3.200000047683716,
+        0.8275852213489727,
+        2.25
+      ],
+      "triangles": 4044,
+      "filename": "assets/previews/J10.png"
+    },
+    {
+      "id": "J11",
+      "bounds": [
+        2.759999990463257,
+        0.8000000119209294,
+        2.200000047683716
+      ],
+      "triangles": 4228,
+      "filename": "assets/previews/J11.png"
+    },
+    {
+      "id": "J12",
+      "bounds": [
+        2.390721559524536,
+        1.858620822429657,
+        0.4783298671245575
+      ],
+      "triangles": 14600,
+      "filename": "assets/previews/J12.png"
+    },
+    {
+      "id": "J13",
+      "bounds": [
+        0.8570399914688678,
+        1.972755444291772,
+        0.2128750008940697
+      ],
+      "triangles": 137680,
+      "filename": "assets/previews/J13.png"
+    },
+    {
+      "id": "J14",
+      "bounds": [
+        2.1188759024660713,
+        2.0081803795531927,
+        0.37948499310743067
+      ],
+      "triangles": 688400,
+      "filename": "assets/previews/J14.png"
+    },
+    {
+      "id": "J15",
+      "bounds": [
+        1.837895393371582,
+        0.8835513654351235,
+        1.3906376361846924
+      ],
+      "triangles": 722176,
+      "filename": "assets/previews/J15.png"
+    },
+    {
+      "id": "J16",
+      "bounds": [
+        0.7819381961115548,
+        2.0318377053737637,
+        0.18748618632555009
+      ],
+      "triangles": 49200,
+      "filename": "assets/previews/J16.png"
+    },
+    {
+      "id": "J17",
+      "bounds": [
+        1.3409480632517146,
+        0.23187499493360542,
+        1.963453344038479
+      ],
+      "triangles": 9512,
+      "filename": "assets/previews/J17.png"
+    },
+    {
+      "id": "J18",
+      "bounds": [
+        1.5009034129712906,
+        1.322261382427714,
+        1.8258583424207593
+      ],
+      "triangles": 34368,
+      "filename": "assets/previews/J18.png"
+    },
+    {
+      "id": "J19",
+      "bounds": [
+        2.5999999046325684,
+        0.699999988079071,
+        1.600000023841858
+      ],
+      "triangles": 0,
+      "filename": "assets/previews/J19.png"
+    },
+    {
+      "id": "J20",
+      "bounds": [
+        3.5999999046325684,
+        0.4000000059604645,
+        0.8500000238418579
+      ],
+      "triangles": 0,
+      "filename": "assets/previews/J20.png"
+    },
+    {
+      "id": "J21",
+      "bounds": [
+        5.5015613738906755,
+        3.1318568883151467,
+        1.33870802581384
+      ],
+      "triangles": 826080,
+      "filename": "assets/previews/J21.png"
+    },
+    {
+      "id": "J22",
+      "bounds": [
+        2.459898829460144,
+        0.7904559084137145,
+        1.6318961381912231
+      ],
+      "triangles": 341408,
+      "filename": "assets/previews/J22.png"
+    },
+    {
+      "id": "J23",
+      "bounds": [
+        2.062223434448242,
+        1.779998540878296,
+        0.6391121447086334
+      ],
+      "triangles": 9936,
+      "filename": "assets/previews/J23.png"
+    },
+    {
+      "id": "J24",
+      "bounds": [
+        0,
+        0,
+        0
+      ],
+      "triangles": 0,
+      "filename": "assets/previews/J24.png"
+    },
+    {
+      "id": "N01",
+      "bounds": [
+        1.4555178392254622,
+        1.9907587188187184,
+        0.6592513766884804
+      ],
+      "triangles": 10856,
+      "filename": "assets/previews/N01.png"
+    },
+    {
+      "id": "N02",
+      "bounds": [
+        1.461273193359375,
+        3.3289682865142822,
+        0.4000000059604645
+      ],
+      "triangles": 6084,
+      "filename": "assets/previews/N02.png"
+    },
+    {
+      "id": "N03",
+      "bounds": [
+        1.5199999809265137,
+        1.3799999952316284,
+        0.7210417985916138
+      ],
+      "triangles": 10728,
+      "filename": "assets/previews/N03.png"
+    },
+    {
+      "id": "N04",
+      "bounds": [
+        2.630000011920929,
+        1.5090072405338288,
+        0.3705757111310959
+      ],
+      "triangles": 16440,
+      "filename": "assets/previews/N04.png"
+    },
+    {
+      "id": "N05",
+      "bounds": [
+        0.8826050817642642,
+        2.117260242354319,
+        0.3070999964237213
+      ],
+      "triangles": 100584,
+      "filename": "assets/previews/N05.png"
+    },
+    {
+      "id": "N06",
+      "bounds": [
+        0.9249279729138296,
+        1.8287839138507844,
+        0.6800000071525574
+      ],
+      "triangles": 24712,
+      "filename": "assets/previews/N06.png"
+    },
+    {
+      "id": "N07",
+      "bounds": [
+        2.4580665826797485,
+        3.1558162499650964,
+        0.23999999642372133
+      ],
+      "triangles": 41404,
+      "filename": "assets/previews/N07.png"
+    }
+  ]
+}

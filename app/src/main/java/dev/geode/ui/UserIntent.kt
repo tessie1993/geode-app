@@ -28,10 +28,10 @@ enum class UserIntent(
     val showsStudio: Boolean get() = this != LISTENING
 
     /** Where the app opens. Video-first users land in Studio, everyone else on the Stage. */
-    val landingDestination: GeodeDestination
+    val landingDestination: dev.geode.nav.Section
         get() =
             when (this) {
-                LISTENING, BOTH -> GeodeDestination.PLAYER
-                MAKING_VIDEOS -> GeodeDestination.STUDIO
+                LISTENING, BOTH -> dev.geode.nav.Section.PLAYER
+                MAKING_VIDEOS -> dev.geode.nav.Section.STUDIO
             }
 }

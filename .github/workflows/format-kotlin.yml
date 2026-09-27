@@ -1,0 +1,37 @@
+name: Format Kotlin on GitHub
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  format:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@v6
+      - name: Format Kotlin sources
+        run: ./gradlew ktlintFormat --continue --no-daemon
+      - name: Return formatting patch for review
+        if: ${{ !cancelled() }}
+        run: |
+          git diff --binary -- '*.kt' '*.kts' > formatting.patch
+          echo 'OPALINE_FORMAT_PATCH_BEGIN'
+          gzip -c formatting.patch | base64 -w 100
+          echo 'OPALINE_FORMAT_PATCH_END'
+      - name: Report static analysis
+        if: ${{ !cancelled() }}
+        run: ./gradlew detekt --continue --no-daemon
+      - name: Print static analysis findings
+        if: ${{ failure() }}
+        run: find . -path '*/build/reports/detekt/detekt.txt' -exec cat {} \;

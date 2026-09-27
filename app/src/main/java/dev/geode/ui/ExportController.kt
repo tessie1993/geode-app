@@ -12,6 +12,7 @@ import dev.geode.editor.AnimatableParams
 import dev.geode.editor.KeyframeSheet
 import dev.geode.export.ExportAspect
 import dev.geode.export.ExportCodec
+import dev.geode.export.ExportFailure
 import dev.geode.export.ExportRange
 import dev.geode.export.ExportRun
 import dev.geode.export.ExportService
@@ -125,11 +126,16 @@ internal class ExportController(
             timeline: FeatureTimeline,
         )
 
-        /** The cover-art/title overlay composed at an export's own frame size, or null when off. */
+        /**
+         * The cover-art/title/lyric/watermark overlay for an export at its own frame size: a
+         * function from a track position (ms) to that frame's ARGB pixels, or null when nothing is
+         * enabled. Callers may call it once for a fixed overlay or once per rendered frame for a
+         * position-driven one (lyrics) - see [dev.geode.render.offscreen.OffscreenRenderSpec.overlay].
+         */
         fun overlayPixelsFor(
             width: Int,
             height: Int,
-        ): IntArray?
+        ): (Long) -> IntArray?
     }
 
     private val exporter = VideoExporter(application)
@@ -206,6 +212,11 @@ internal class ExportController(
         }
     }
 
+    // Written from ExportRun.scope (Dispatchers.Default) and read from Main by
+    // publishStudioProgress, which is what performs the cooperative cancel. A stale read
+    // there silently skips that cancel. StudioExporter and NativeDspProcessor mark their
+    // cross-thread fields the same way.
+    @Volatile
     private var studioJob: Job? = null
 
     fun startExport(
@@ -317,9 +328,9 @@ internal class ExportController(
                         _exportState.value = ExportUiState()
                         throw t
                     } else if (ExportRun.cancelRequested) {
-                        _exportState.value = ExportUiState()
+                        _exportState.value = ExportUiState(phase = cancelledPhase())
                     } else {
-                        val message = describeExportFailure(t)
+                        val message = describeExportFailure(t, ExportRun.Kind.Visualizer)
                         _exportState.value = ExportUiState(phase = ExportPhase.Failed(message))
                         runResult = ExportRun.Result.Failed(message)
                     }
@@ -493,10 +504,10 @@ internal class ExportController(
                     // is stopped by cancelling this job, not by checking a flag) so cancellation
                     // always arrives here as a CancellationException, not as a Cancelled result.
                     if (t is kotlinx.coroutines.CancellationException) {
-                        _studio.update { it.copy(phase = ExportPhase.Idle) }
+                        _studio.update { it.copy(phase = cancelledPhase()) }
                         throw t
                     } else {
-                        val message = describeExportFailure(t)
+                        val message = describeExportFailure(t, ExportRun.Kind.Studio)
                         _studio.update { it.copy(phase = ExportPhase.Failed(message)) }
                         runResult = ExportRun.Result.Failed(message)
                     }
@@ -551,6 +562,7 @@ internal class ExportController(
                                 describeExportFailure(
                                     built.exceptionOrNull()
                                         ?: IllegalStateException("ProjectComposition.build returned no outcome and no exception"),
+                                    ExportRun.Kind.Project,
                                 )
                             _studio.update { it.copy(phase = ExportPhase.Failed(message)) }
                             runResult = ExportRun.Result.Failed(message)
@@ -576,10 +588,10 @@ internal class ExportController(
                     }
                 } catch (t: Throwable) {
                     if (t is kotlinx.coroutines.CancellationException) {
-                        _studio.update { it.copy(phase = ExportPhase.Idle) }
+                        _studio.update { it.copy(phase = cancelledPhase()) }
                         throw t
                     } else {
-                        val message = describeExportFailure(t)
+                        val message = describeExportFailure(t, ExportRun.Kind.Project)
                         _studio.update { it.copy(phase = ExportPhase.Failed(message)) }
                         runResult = ExportRun.Result.Failed(message)
                     }
@@ -690,9 +702,9 @@ internal class ExportController(
                         _loopState.value = LoopUiState()
                         throw t
                     } else if (ExportRun.cancelRequested) {
-                        _loopState.value = LoopUiState()
+                        _loopState.value = LoopUiState(phase = cancelledPhase())
                     } else {
-                        val message = describeExportFailure(t)
+                        val message = describeExportFailure(t, ExportRun.Kind.Loop)
                         _loopState.value = LoopUiState(phase = ExportPhase.Failed(message))
                         runResult = ExportRun.Result.Failed(message)
                     }
@@ -764,20 +776,61 @@ internal class ExportController(
     }
 
     /**
+     * The phase a cancelled run should leave on screen. A cancel the user asked for just clears the
+     * dialog, which is why these branches blank the state. An *abort* — [ExportRun.abort], i.e.
+     * something outside the render made it impossible to continue, such as the foreground service
+     * being refused — is not something they asked for, so its reason stays up instead of the dialog
+     * closing on its own and leaving no trace of a half-finished export.
+     *
+     * The studio paths reach this through their `CancellationException` branch rather than a
+     * `cancelRequested` one: [publishStudioProgress] is what notices the cancel, and it acts on it
+     * by cancelling the job.
+     */
+    private fun cancelledPhase(): ExportPhase = ExportRun.abortReason?.let { ExportPhase.Failed(it) } ?: ExportPhase.Idle
+
+    /**
+     * Whether [t]'s own message is fit to put in front of someone.
+     *
+     * The exporters raise plenty of `IllegalState`/`IllegalArgument` failures whose message is a
+     * precise, readable sentence, and those beat any generic string this class could substitute.
+     * The guards reject the ones that are not: a blank message, one that reads like a `toString()`
+     * or a stack frame rather than prose - which is where "Exception" and "@" turn up - and
+     * anything too long to take in from a dialog.
+     */
+    private fun hasPresentableMessage(t: Throwable): Boolean {
+        if (t !is IllegalStateException && t !is IllegalArgumentException) return false
+        val msg = t.message.orEmpty()
+        val readsLikeATrace = msg.contains("Exception") || msg.contains("@")
+        return msg.isNotBlank() && !readsLikeATrace && msg.length < MAX_PRESENTABLE_MESSAGE_CHARS
+    }
+
+    /**
      * Turns an unexpected export failure into a sentence a user can act on, logging the raw
      * exception (class, message, stack) to [dev.geode.RingLog] for support/debugging — that raw
      * text used to go straight into the UI as `"${simpleName}: ${message}"`, which is not
      * something most people can do anything with.
      */
-    private fun describeExportFailure(t: Throwable): String {
+    private fun describeExportFailure(
+        t: Throwable,
+        kind: ExportRun.Kind? = null,
+    ): String {
         dev.geode.RingLog.note(TAG, "export failed", t)
+        if (hasPresentableMessage(t)) return t.message.orEmpty()
         return when (t) {
+            is ExportFailure ->
+                application.getString(t.stringResId)
             is android.media.MediaCodec.CodecException ->
                 application.getString(dev.geode.R.string.export_error_codec)
             is java.io.IOException ->
                 application.getString(dev.geode.R.string.export_error_io)
-            is IllegalArgumentException, is IllegalStateException ->
-                application.getString(dev.geode.R.string.export_error_invalid_project)
+            is IllegalArgumentException ->
+                if (kind == ExportRun.Kind.Project || kind == ExportRun.Kind.Studio) {
+                    application.getString(dev.geode.R.string.export_error_invalid_project)
+                } else {
+                    application.getString(dev.geode.R.string.export_error_generic)
+                }
+            is IllegalStateException ->
+                application.getString(dev.geode.R.string.export_error_generic)
             is OutOfMemoryError ->
                 application.getString(dev.geode.R.string.export_error_out_of_memory)
             else ->
@@ -787,6 +840,9 @@ internal class ExportController(
 
     private companion object {
         private const val TAG = "ExportController"
+
+        /** Longer than this and a failure message is a dump, not a sentence someone can read. */
+        private const val MAX_PRESENTABLE_MESSAGE_CHARS = 200
 
         // Analysing the track is quick against the render itself; extending mostly copies
         // already-encoded samples, so it gets less of the bar than the GPU render does.

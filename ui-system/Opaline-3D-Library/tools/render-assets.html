@@ -1,0 +1,40 @@
+<!doctype html><meta charset="utf-8"><title>Opaline asset renderer</title>
+<style>html,body{margin:0;background:transparent}canvas{display:block}</style>
+<script type="importmap">{"imports":{"three":"../vendor/three/build/three.module.js","three/addons/":"../vendor/three/examples/jsm/"}}</script>
+<script type="module">
+import * as THREE from 'three';
+import {RoomEnvironment} from 'three/addons/environments/RoomEnvironment.js';
+import {createElement,listGeometryIds} from '../src/geometry.js';
+import {createMaterials,updateMaterials,createVolumeMaterial} from '../src/materials.js';
+const renderer=new THREE.WebGLRenderer({antialias:true,alpha:true,preserveDrawingBuffer:true});
+renderer.setSize(768,768);renderer.setPixelRatio(1);renderer.setClearColor(0,0);
+renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=.86;
+renderer.outputColorSpace=THREE.SRGBColorSpace;document.body.append(renderer.domElement);
+const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(34,1,.01,200);
+const pmrem=new THREE.PMREMGenerator(renderer);const room=new RoomEnvironment();
+scene.environment=pmrem.fromScene(room,.045).texture;scene.environmentIntensity=.65;
+room.dispose();pmrem.dispose();scene.add(new THREE.HemisphereLight(0xd9eeff,0x354865,.65));
+for(const [pos,color,intensity] of [[[-4,7,6],0xf3f8ff,2.5],[[5,1,-4],0x4dcaff,2],[[0,-4,3],0x779fde,.5]]){const l=new THREE.DirectionalLight(color,intensity);l.position.fromArray(pos);scene.add(l);}
+let object,materials=createMaterials('tidal');
+window.renderAsset=async(id,theme='tidal',angle='threequarter',size=768)=>{
+ if(object){scene.remove(object);object.traverse(o=>o.geometry?.dispose());}
+ for(const m of Object.values(materials))m.dispose();materials=createMaterials(theme);updateMaterials(materials,1.1);
+ object=createElement(id,materials);scene.add(object);object.updateMatrixWorld(true);
+ if(id==='J19'||id==='J20'){
+  object.traverse(o=>{if(o.isMesh){o.visible=false;}});
+  const bounds=id==='J19'?[1.7,.85,1.2]:[2.6,.65,1];
+  const mat=createVolumeMaterial({shape:'box',bounds,density:.24,color:'#8fbddd',lightPosition:[2,3,2]});
+  const volume=new THREE.Mesh(new THREE.BoxGeometry(...bounds.map(v=>v*2)),mat);mat.userData.bindVolume(volume);object.add(volume);
+ }
+ // A light rig has no visible mesh; show its illumination on three reference bodies.
+ if(id==='J24')for(let i=0;i<3;i++){const body=new THREE.Mesh(new THREE.SphereGeometry(.55,40,28),[materials.gel,materials.blue,materials.nacre][i]);body.position.set((i-1)*1.25,0,0);object.add(body);}
+ const box=new THREE.Box3().setFromObject(object),center=box.getCenter(new THREE.Vector3()),sz=box.getSize(new THREE.Vector3());
+ const radius=Math.max(sz.x,sz.y,sz.z)*.5,dist=radius/Math.tan(camera.fov*Math.PI/360)*1.55;
+ const dir=id[0]==='J'?new THREE.Vector3(.6,.68,1):new THREE.Vector3(.38,.22,1);
+ if(angle==='front')dir.set(0,.02,1);if(angle==='side')dir.set(1,.08,.18);if(angle==='underside')dir.set(.28,-.7,1);
+ camera.position.copy(center).addScaledVector(dir.normalize(),Math.max(dist,.25));camera.lookAt(center);camera.near=Math.max(.005,dist/200);camera.far=dist*10+100;camera.updateProjectionMatrix();
+ renderer.setSize(size,size);await renderer.compileAsync(scene,camera);renderer.render(scene,camera);
+ return {png:renderer.domElement.toDataURL('image/png'),bounds:sz.toArray(),triangles:renderer.info.render.triangles};
+};
+window.assetIds=listGeometryIds();window.ready=true;
+</script>

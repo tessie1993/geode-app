@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <cmath>
 
-#include "viz/LiveSignal.hpp"
 #include "viz/Quad.hpp"
 
 namespace geode::viz {
@@ -42,9 +41,9 @@ void AcidScene::resize(int width, int height) {
 void AcidScene::update(const GeodeFeatureFrame& features, float dt) {
     time_ = std::fmod(time_ + dt, kSceneTimeWrapSeconds);
     lastDt_ = dt;
-    pcmStrike_ = pcmPulse_.tick(dt);
     pending_ = features;
     hasPending_ = true;
+    motionField_.step(features, dt);
 }
 
 fluid::DoubleFbo* AcidScene::ensureState() {
@@ -74,16 +73,19 @@ void AcidScene::draw(float timeSeconds) {
     hasPending_ = false;
 
     const float speed = std::clamp(p.speed, 0.05f, 4.0f);
+    const MotionField::State& m = motionField_.state();
     envBass_ = slewEnvelope(envBass_, clampedBand(f.bass), dt, kEnvRisePerSec, kEnvFallPerSec);
     envMid_ = slewEnvelope(envMid_, clampedBand(f.mid), dt, kEnvRisePerSec, kEnvFallPerSec);
     envTreble_ = slewEnvelope(envTreble_, clampedBand(f.treble), dt, kEnvRisePerSec, kEnvFallPerSec);
-    const float hit = live::hit(f);
-    beatPulse_ = std::clamp(std::max(hit * std::clamp(p.beatResponse, 0.0f, 2.0f), beatPulse_ - dt * 3.0f), 0.0f, 1.5f);
-    if (hit * p.beatResponse > kGlitchThreshold) {
-        glitch_ = 1.0f;
-        glitchEpoch_ = std::fmod(glitchEpoch_ + 1.0f, 1024.0f);
-    }
-    glitch_ = std::max(glitch_ - dt * kGlitchDecay, 0.0f);
+    // motion: uEnergyRel/uBarOsc -> the fold's drive (see uHit below), a
+    // smoothed continuous value instead of a transient envelope.
+    const float motionHit = std::clamp(0.5f * (m.energyRel - 1.0f) + 0.5f * (m.barOsc - 0.5f), 0.0f, 1.0f);
+    // The block-glitch epoch re-seats once per bar, on the bar oscillator's
+    // own peak, instead of on a transient edge.
+    const bool barRising = m.barOsc > prevBarOsc_;
+    if (!barRising && barOscRising_) glitchEpoch_ = std::fmod(glitchEpoch_ + 1.0f, 1024.0f);
+    barOscRising_ = barRising;
+    prevBarOsc_ = m.barOsc;
     fillSpokes(f.bands);
 
     const float frames = dt * 60.0f;
@@ -110,14 +112,14 @@ void AcidScene::draw(float timeSeconds) {
     glUniform1f(step_.loc("uHueShift"), hueShift);
     glUniform1f(step_.loc("uFeedback"), feedback);
     glUniform1f(step_.loc("uModulate"), style_.modulate);
-    glUniform1f(step_.loc("uGlitch"), glitch_ * style_.glitch);
+    // uGlitch/uStrike/uBeat are unread by this pass (see the wave-three note
+    // above) and no longer computed on the CPU side either; uEpoch is the
+    // one still-live signal from that family, now re-seated on the bar peak.
     glUniform1f(step_.loc("uEpoch"), glitchEpoch_);
     glUniform1f(step_.loc("uTime"), time_);
     glUniform1f(step_.loc("uBass"), envBass_);
     glUniform1f(step_.loc("uMid"), envMid_);
     glUniform1f(step_.loc("uTreble"), envTreble_);
-    glUniform1f(step_.loc("uBeat"), beatPulse_);
-    glUniform1f(step_.loc("uStrike"), std::clamp(pcmStrike_, 0.0f, 1.5f));
     glUniform1f(step_.loc("uDrive"), safeAudioDrive(p.audioDrive));
     glUniform1fv(step_.loc("uSpokes"), kSpokes, spokes_.data());
     glUniform1f(step_.loc("uBaseHue"), hue::base(p.paletteBase()) + style_.hueOffset);
@@ -139,7 +141,7 @@ void AcidScene::draw(float timeSeconds) {
     glUniform1f(show_.loc("uSat"), style_.saturation);
     glUniform1f(show_.loc("uFloorHue"), hue::base(p.paletteBase()) + style_.hueOffset);
     glUniform1f(show_.loc("uOverdrive"), style_.overdrive);
-    glUniform1f(show_.loc("uHit"), std::clamp(pcmStrike_ + 0.5f * beatPulse_, 0.0f, 1.0f));
+    glUniform1f(show_.loc("uHit"), motionHit);
     glDrawArrays(GL_TRIANGLES, 0, 3);
     glBindVertexArray(0);
     glUseProgram(0);

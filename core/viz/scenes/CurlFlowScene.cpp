@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <cmath>
 
-#include "viz/LiveSignal.hpp"
 #include "viz/fluid/FluidMath.hpp"
 
 namespace geode::viz {
@@ -53,6 +52,10 @@ void CurlFlowScene::update(const GeodeFeatureFrame& features, float dt) {
     hasPending_ = true;
     lastDt_ = std::clamp(dt, 0.0f, 1.0f / 30.0f);
     pcmKick_ = std::clamp(tickPcm(dt), 0.0f, 1.0f);
+    // Wave three: this scene overrides update() rather than calling
+    // FluidSceneBase::update(), so it steps its own inherited motionField_
+    // here (see viz/MotionField.hpp).
+    motionField_.step(features, dt);
 }
 
 void CurlFlowScene::draw(float timeSeconds) {
@@ -63,13 +66,16 @@ void CurlFlowScene::draw(float timeSeconds) {
 
     if (hasPending_) {
         const GeodeFeatureFrame& f = pending_;
+        const MotionField::State& m = motionField_.state();
         wallTime_ = std::fmod(wallTime_ + lastDt_, kWallWrapSeconds);
-        beatEnv_ = std::max(live::hit(f), beatEnv_ * std::exp(-lastDt_ / 0.35f));
+        // motion: uEnergyRel/uBarOsc -> the field's drive envelope, smoothed
+        // continuous instead of a transient-triggered decay.
+        beatEnv_ = std::clamp(0.5f * (m.energyRel - 1.0f) + 0.5f * (m.barOsc - 0.5f), 0.0f, 1.0f);
         beatDrive_ = fluid::curl::beatDrive(beatEnv_, params_.beatResponse);
         noiseTime_ = std::fmod(noiseTime_ + lastDt_ * (0.15f + f.mid * 1.4f) * fluid::Choreography::sceneSpeed(params_.speed), kNoiseWrapSeconds);
 
         configureChoreography();
-        choreography_.tick(f, lastDt_, aspect_);
+        choreography_.tick(f, lastDt_, aspect_, m);
 
         glDisable(GL_BLEND);
         quad_.bind();

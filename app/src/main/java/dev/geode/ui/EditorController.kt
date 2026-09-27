@@ -1,6 +1,7 @@
 package dev.geode.ui
 
 import dev.geode.data.EditorProjectStore
+import dev.geode.data.PresetStore
 import dev.geode.editor.ClipId
 import dev.geode.editor.EditResult
 import dev.geode.editor.EditorHistory
@@ -8,6 +9,7 @@ import dev.geode.editor.EditorProject
 import dev.geode.editor.KeyframeId
 import dev.geode.editor.MarkerId
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
@@ -36,15 +38,53 @@ internal class EditorController(
     private val _state = MutableStateFlow(EditorUiState())
     val state: StateFlow<EditorUiState> = _state
 
-    fun open(name: String = DEFAULT_PROJECT) {
+    private val _projectNames = MutableStateFlow<List<String>>(emptyList())
+    val projectNames: StateFlow<List<String>> = _projectNames
+    private var openJob: Job? = null
+
+    fun refreshProjectNames() {
         scope.launch {
-            val loaded = withContext(storeScope.coroutineContext) { store.load(name) } ?: EditorProject()
-            _state.value = EditorUiState(name = name, history = EditorHistory(loaded), loaded = true)
+            _projectNames.value = withContext(storeScope.coroutineContext) { store.names() }
+        }
+    }
+
+    fun open(name: String = DEFAULT_PROJECT) {
+        if (_state.value.loaded && _state.value.name == name) return
+        openJob?.cancel()
+        _state.update { it.copy(loaded = false) }
+        openJob =
+            scope.launch {
+                val loaded = withContext(storeScope.coroutineContext) { store.load(name) } ?: EditorProject()
+                _state.value = EditorUiState(name = name, history = EditorHistory(loaded), loaded = true)
+                refreshProjectNames()
+            }
+    }
+
+    fun create(
+        name: String,
+        onCreated: (Boolean) -> Unit,
+    ) {
+        val clean = name.trim()
+        if (clean.isEmpty() || clean != PresetStore.safeFileName(clean)) {
+            onCreated(false)
+            return
+        }
+        scope.launch {
+            val saved =
+                withContext(storeScope.coroutineContext) {
+                    if (store.fileOf(clean).exists()) false else store.save(clean, EditorProject())
+                }
+            if (saved) {
+                open(clean)
+                refreshProjectNames()
+            }
+            onCreated(saved)
         }
     }
 
     fun edit(transform: (EditorProject) -> EditorProject) {
         val current = _state.value
+        if (!current.loaded) return
         val next = current.history.push(transform(current.project))
         if (next === current.history) return
         _state.value = current.copy(history = next)
@@ -69,6 +109,7 @@ internal class EditorController(
 
     private fun step(move: (EditorHistory) -> EditorHistory) {
         val current = _state.value
+        if (!current.loaded) return
         val next = move(current.history)
         if (next === current.history) return
         _state.value = current.copy(history = next)
@@ -79,7 +120,10 @@ internal class EditorController(
         name: String,
         project: EditorProject,
     ) {
-        storeScope.launch { store.save(name, project) }
+        storeScope.launch {
+            store.save(name, project)
+            _projectNames.value = store.names()
+        }
     }
 
     companion object {

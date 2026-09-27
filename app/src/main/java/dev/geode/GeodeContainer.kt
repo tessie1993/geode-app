@@ -6,8 +6,6 @@ import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
 import dev.geode.data.GeodePrefsFiles
-import dev.geode.ui.SharedPrefsUserDataRepository
-import dev.geode.ui.UserDataRepository
 import dev.geode.util.bestEffort
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -22,7 +20,8 @@ class GeodeContainer(
 
     val prefsFiles = GeodePrefsFiles(context)
 
-    val userData: UserDataRepository = SharedPrefsUserDataRepository(prefsFiles.general, appScope)
+    val userData: dev.geode.ui.UserDataRepository =
+        dev.geode.ui.SharedPrefsUserDataRepository(prefsFiles.general, appScope)
 
     init {
         sweepStaleRenderScratch(context.applicationContext.cacheDir)
@@ -112,7 +111,7 @@ class GeodeContainer(
         const val PENDING_EXPORT_GRACE_MS = 5 * 60 * 1000L
 
         /** Kept in step with AudioTranscoder, LoopRender and StudioExporter. */
-        val RENDER_SCRATCH_PREFIXES = listOf("geode_aac_", "geode_loop_", "studio-")
+        val RENDER_SCRATCH_PREFIXES = listOf("geode_aac_", "geode_loop_", "geode_video_", "studio-")
 
         fun isRenderScratch(name: String): Boolean = RENDER_SCRATCH_PREFIXES.any { name.startsWith(it) }
     }

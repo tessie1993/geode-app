@@ -137,6 +137,13 @@ const std::array<SceneParams::FloatField, SceneParams::kLerpedFloatCount>& Scene
 }
 
 bool SceneParams::set(std::string_view name, float value) {
+    // The C ABI is a trust boundary: geode_viz_set_param hands us whatever float the caller has,
+    // and a preset decoded from JSON can carry a NaN. Storing one is not a transient glitch -
+    // lerpParams below feeds displayedParams_ back into itself every frame, so a single NaN
+    // poisons every interpolated field for the life of the handle, and the safety clamp cannot
+    // recover it. Reject non-finite values here rather than downstream: this closes the whole
+    // class, including the int and bool tables (lround(NaN) is undefined, NaN > 0.5f is false).
+    if (!std::isfinite(value)) return false;
     struct IntField { const char* name; int SceneParams::*member; };
     struct BoolField { const char* name; bool SceneParams::*member; };
     static const IntField kInts[] = {
@@ -286,7 +293,11 @@ bool SceneParams::set(std::string_view name, float value) {
         {"motionHue", &SceneParams::motionHue},
     };
     for (const auto& f : kAllFloats) {
-        if (name == f.name) { this->*f.member = value; return true; }
+        if (name == f.name) {
+            if (!std::isfinite(value)) return false;
+            this->*f.member = value;
+            return true;
+        }
     }
     for (const auto& f : kInts) {
         if (name == f.name) { this->*f.member = static_cast<int>(std::lround(value)); return true; }

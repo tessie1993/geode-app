@@ -32,12 +32,12 @@ import dev.geode.editor.EaseShape
 import dev.geode.editor.Interpolation
 import dev.geode.editor.Keyframe
 import dev.geode.editor.ParamValue
-import dev.geode.ui.glass.GlassButton
-import dev.geode.ui.glass.GlassPalette
-import dev.geode.ui.glass.GlassSheet
-import dev.geode.ui.glass.GlassSlider
-import dev.geode.ui.glass.GlassToggle
-import dev.geode.ui.glass.glassSurface
+import dev.geode.ui.opaline.creative.CreativeButton
+import dev.geode.ui.opaline.creative.CreativeColors
+import dev.geode.ui.opaline.creative.CreativeSheet
+import dev.geode.ui.opaline.creative.CreativeSlider
+import dev.geode.ui.opaline.creative.CreativeToggle
+import dev.geode.ui.opaline.creative.creativeSurface
 
 /** Interpolation, curve handles and the value of one key. Every change is a new [Keyframe]. */
 @Composable
@@ -49,14 +49,14 @@ fun KeyEditor(
     Column(
         Modifier
             .fillMaxWidth()
-            .glassSurface(shape = RoundedCornerShape(20.dp))
+            .creativeSurface(shape = RoundedCornerShape(20.dp))
             .padding(14.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Text(
             stringResource(R.string.curve_key_at, paramLabel(param), clockLabel(key.atMs)),
             style = MaterialTheme.typography.labelMedium,
-            color = GlassPalette.textPrimary,
+            color = CreativeColors.textPrimary,
         )
         InterpolationChips(key.interpolation) { onChange(key.copy(interpolation = it)) }
         (key.interpolation as? Interpolation.Custom)?.let { custom ->
@@ -86,10 +86,10 @@ private fun InterpolationChips(
         choices.forEach { (label, interpolation) ->
             val selected =
                 if (interpolation is Interpolation.Custom) current is Interpolation.Custom else interpolation == current
-            GlassButton(
+            CreativeButton(
                 text = stringResource(label),
                 selected = selected,
-                tint = if (selected) GlassPalette.lavender else null,
+                tint = if (selected) CreativeColors.lavender else null,
                 onClick = { onPick(interpolation) },
             )
         }
@@ -102,9 +102,9 @@ private fun BezierHandles(
     curve: BezierCurve,
     onCurve: (BezierCurve) -> Unit,
 ) {
-    val line = GlassPalette.mint
-    val grid = GlassPalette.textSecondary
-    val handle = GlassPalette.lavender
+    val line = CreativeColors.mint
+    val grid = CreativeColors.textSecondary
+    val handle = CreativeColors.lavender
     Canvas(
         Modifier
             .size(CURVE_SIZE)
@@ -177,8 +177,8 @@ private fun ValueEditor(
         }
         is ParamValue.Toggle ->
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(stringResource(R.string.curve_toggle), style = MaterialTheme.typography.bodyMedium, color = GlassPalette.textPrimary)
-                GlassToggle(checked = value.on, onCheckedChange = { onChange(ParamValue.Toggle(it)) })
+                Text(stringResource(R.string.curve_toggle), style = MaterialTheme.typography.bodyMedium, color = CreativeColors.textPrimary)
+                CreativeToggle(checked = value.on, onCheckedChange = { onChange(ParamValue.Toggle(it)) })
             }
         is ParamValue.Choice -> {
             val labels = param?.choices.orEmpty()
@@ -186,10 +186,10 @@ private fun ValueEditor(
                 val count = if (labels.isEmpty()) value.index + 2 else labels.size
                 repeat(count) { index ->
                     val selected = value.index == index
-                    GlassButton(
+                    CreativeButton(
                         text = labels.getOrNull(index) ?: index.toString(),
                         selected = selected,
-                        tint = if (selected) GlassPalette.lavender else null,
+                        tint = if (selected) CreativeColors.lavender else null,
                         onClick = { onChange(ParamValue.Choice(index)) },
                     )
                 }
@@ -207,8 +207,8 @@ private fun LabeledValueSlider(
     onChange: (Float) -> Unit,
 ) {
     Column {
-        Text(label, style = MaterialTheme.typography.labelMedium, color = GlassPalette.textSecondary)
-        GlassSlider(value = value.coerceIn(min, max), onValueChange = onChange, valueRange = min..max)
+        Text(label, style = MaterialTheme.typography.labelMedium, color = CreativeColors.textSecondary)
+        CreativeSlider(value = value.coerceIn(min, max), onValueChange = onChange, valueRange = min..max)
     }
 }
 
@@ -220,12 +220,12 @@ fun AddTrackSheet(
     onPick: (AnimatableParam) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    GlassSheet(onDismissRequest = onDismiss) {
+    CreativeSheet(onDismissRequest = onDismiss) {
         Column(Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) {
-            Text(stringResource(R.string.curve_add_track), style = MaterialTheme.typography.titleMedium, color = GlassPalette.textPrimary)
+            Text(stringResource(R.string.curve_add_track), style = MaterialTheme.typography.titleMedium, color = CreativeColors.textPrimary)
             LazyColumn {
                 items(params, key = { it.id.value }) { param ->
-                    GlassButton(text = paramLabel(param), modifier = Modifier.fillMaxWidth(), onClick = { onPick(param) })
+                    CreativeButton(text = paramLabel(param), modifier = Modifier.fillMaxWidth(), onClick = { onPick(param) })
                 }
             }
         }

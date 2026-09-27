@@ -58,7 +58,6 @@ protected:
     // viz/MotionField.hpp.
     MotionField motionField_;
     PerformanceMonitor monitor_;
-    float pcmStrike_ = 0.0f;
     SceneParams params_;
     float time_ = 0.0f;
     float lastDt_ = 1.0f / 60.0f;

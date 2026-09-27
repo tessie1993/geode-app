@@ -1,0 +1,82 @@
+{
+  "physicalModules": 157,
+  "meshes": 1003,
+  "vertices": 2389244,
+  "morphAttributeArrays": 14,
+  "invalidAttributes": [],
+  "dimensionNormalizationFailures": [],
+  "specific": {
+    "B07": {
+      "morphTargets": 7,
+      "volumeVariationPercent": 0.014
+    },
+    "E24": {
+      "components": 1,
+      "nonManifoldEdges": 0,
+      "signedVolume": 1.9166176104403867
+    },
+    "N02": {
+      "components": 1,
+      "nonManifoldEdges": 0,
+      "signedVolume": 0.8478366352073716
+    },
+    "B19": {
+      "crownParent": "joystick-pivot"
+    }
+  },
+  "checks": [
+    "All157 factory geometries instantiate with finite attributes",
+    "All156 physical dimension overrides match requested extents; native light rig excluded",
+    "B07 has7 absolute position and normal morph targets with approximately volume-preserving traveling mass",
+    "E24 reconstructed single smooth liquid surface",
+    "N02 single closed three-compartment leaf-tray solid",
+    "All157 current GLBs successfully round-tripped through GLTFLoader",
+    "All1003 exported mesh material slots use Tidal base PBR",
+    "B07 retains7 position morph targets after GLB loading",
+    "Sampled inner-cavity containment for E12/E14/E18/N06/N07 with independent ray classification"
+  ],
+  "limits": [
+    "The static liquid states and slider morphs are authored surfaces, not proof of Navier–Stokes convergence.",
+    "Dynamic liquid topology and water response belong to the runtime solvers.",
+    "J19/J20 encode volume bounds. GLB J24 preserves hemisphere settings as metadata."
+  ],
+  "glbRoundtrips": 157,
+  "glbLoadedMeshes": 1003,
+  "glbMorphPositionTargets": 7,
+  "glbMaterialTheme": "Tidal",
+  "glbMaterialThemeErrors": [],
+  "glbBytes": 98656664,
+  "triangles": 3470080,
+  "nestedCavityContainmentSamples": [
+    {
+      "id": "E12",
+      "fill": "carrier-fluid",
+      "samples": 253,
+      "verticesOutsideCavity": 0
+    },
+    {
+      "id": "E14",
+      "fill": "annular-fluid",
+      "samples": 255,
+      "verticesOutsideCavity": 0
+    },
+    {
+      "id": "E18",
+      "fill": "clear-carrier",
+      "samples": 269,
+      "verticesOutsideCavity": 0
+    },
+    {
+      "id": "N06",
+      "fill": "spore-luminous-core",
+      "samples": 269,
+      "verticesOutsideCavity": 0
+    },
+    {
+      "id": "N07",
+      "fill": "water-root-panel-fluid",
+      "samples": 253,
+      "verticesOutsideCavity": 0
+    }
+  ]
+}

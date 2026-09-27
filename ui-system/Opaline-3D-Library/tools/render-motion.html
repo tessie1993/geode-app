@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Opaline motion renderer</title>
+<style>html,body{margin:0;background:#11233c}canvas{display:block;width:640px;height:360px}</style>
+<script type="importmap">{"imports":{"three":"../vendor/three/build/three.module.js","three/addons/":"../vendor/three/examples/jsm/"}}</script></head><body>
+<script type="module">
+import * as THREE from 'three';
+import {RoomEnvironment} from 'three/addons/environments/RoomEnvironment.js';
+import {createElement} from '../src/geometry.js';
+import {createMaterials,updateMaterials,cloneMaterial,enableFilmThickness} from '../src/materials.js';
+import {MotionController} from '../src/motion.js';
+import {TransitionSystem} from '../src/transitions.js';
+import {BubbleFilm,makeBubbleMesh,PhysicsWorld} from '../src/physics/index.js';
+
+const renderer=new THREE.WebGLRenderer({antialias:true,alpha:false,preserveDrawingBuffer:true,powerPreference:'high-performance'});
+renderer.setPixelRatio(1);renderer.setSize(640,360);renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=.92;renderer.outputColorSpace=THREE.SRGBColorSpace;
+renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;document.body.append(renderer.domElement);
+const scene=new THREE.Scene();scene.background=new THREE.Color('#142840');
+const camera=new THREE.PerspectiveCamera(31,640/360,.05,60);camera.position.set(1.25,1.7,10.7);camera.lookAt(0,0,0);
+const pmrem=new THREE.PMREMGenerator(renderer),room=new RoomEnvironment(),environment=pmrem.fromScene(room,.055);scene.environment=environment.texture;scene.environmentIntensity=.62;room.dispose();pmrem.dispose();
+scene.add(new THREE.HemisphereLight(0xe0f0ff,0x142838,1.1));
+const key=new THREE.DirectionalLight(0xf4f6ff,2.5);key.position.set(-3,5,7);key.castShadow=true;key.shadow.mapSize.set(1024,1024);key.shadow.camera.left=-5;key.shadow.camera.right=5;key.shadow.camera.top=4;key.shadow.camera.bottom=-4;key.shadow.camera.near=.1;key.shadow.camera.far=20;key.shadow.normalBias=.018;scene.add(key);
+const rim=new THREE.DirectionalLight(0x67b9ec,1.7);rim.position.set(5,2,-3);scene.add(rim);
+const fill=new THREE.PointLight(0xc6bafa,13,15,2);fill.position.set(-1,-3,4);scene.add(fill);
+const materials=createMaterials('tidal'),stage=new THREE.Group();scene.add(stage);
+const backdropMaterial=new THREE.MeshStandardMaterial({color:0x18334e,roughness:.46,metalness:.05});
+const tileMaterial=new THREE.MeshPhysicalMaterial({color:0x224360,roughness:.28,clearcoat:.6,clearcoatRoughness:.15,metalness:.06});
+const back=new THREE.Mesh(new THREE.PlaneGeometry(13,8),backdropMaterial);back.position.z=-.9;back.receiveShadow=true;stage.add(back);
+for(const [x,y] of [[-1.7,1.03],[1.7,1.03],[-1.7,-1.03],[1.7,-1.03]]){
+  const plate=createElement('C01',{...materials,gel:tileMaterial},{dimensions:[3.05,1.77,.16]});plate.position.set(x,y,-.58);plate.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});stage.add(plate);
+}
+let dynamic,slider,seed,sliderMotion,seedMotion,bubble,bubbleMesh,world,transitions,lenses,radialCore,radialStarted=false,time=0,tick=0;
+const fixedDt=1/120;
+function makeModel(id,position,scale=1){const root=createElement(id,materials);root.position.fromArray(position);root.scale.setScalar(scale);root.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});dynamic.add(root);return root;}
+function reset(){
+  if(dynamic){transitions?.dispose();sliderMotion?.dispose();seedMotion?.dispose();scene.remove(dynamic);dynamic.traverse(o=>{o.geometry?.dispose();if(o===bubbleMesh)o.material?.dispose();});}
+  dynamic=new THREE.Group();scene.add(dynamic);time=0;tick=0;radialStarted=false;
+  slider=makeModel('B07',[-1.7,1.04,.04],.98);slider.rotation.y=.08;sliderMotion=new MotionController(slider,{id:'B07'});sliderMotion.value.reset(.13);for(const p of sliderMotion.parts)p.value.reset(.13);
+  seed=makeModel('N01',[1.7,-1.03,.05],.7);seed.rotation.y=-.18;seedMotion=new MotionController(seed,{id:'N01'});
+  bubble=new BubbleFilm({...makeBubbleMesh({subdivisions:3,radius:.61,center:[0,0,0]}),thickness:380e-9,gasCompliance:1e-9,edgeCompliance:8e-4,drainageTimeScale:80000,damping:2,iterations:10});
+  world=new PhysicsWorld({fixedDt,maxSubsteps:4});world.add(bubble);
+  const geometry=new THREE.BufferGeometry();geometry.setAttribute('position',new THREE.BufferAttribute(bubble.positions,3));geometry.setAttribute('filmThickness',new THREE.BufferAttribute(bubble.thickness,1));geometry.setIndex(new THREE.BufferAttribute(bubble.triangles,1));geometry.computeVertexNormals();
+  const film=cloneMaterial(materials.film);enableFilmThickness(film);bubbleMesh=new THREE.Mesh(geometry,film);bubbleMesh.position.set(1.7,1.03,.08);bubbleMesh.castShadow=true;dynamic.add(bubbleMesh);
+  radialCore=makeModel('A03',[-1.7,-1.03,.12],.24);lenses=[];
+  for(let i=0;i<8;i++){const lens=makeModel('A03',[-1.7,-1.03,.13+i*.005],.17);lenses.push(lens);}
+  transitions=new TransitionSystem({scene:dynamic});dynamic.updateMatrixWorld(true);
+}
+function simulateOne(){
+  time+=fixedDt;tick++;
+  updateMaterials(materials,time);
+  const slide=.5-.39*Math.cos(time*Math.PI*.65);
+  sliderMotion.setValue(slide);sliderMotion.pressure.target=.58+.15*Math.sin(time*2.3);sliderMotion.contact.set((slide-.5)*1.88,0,.34);sliderMotion.update(fixedDt,time);
+  const seedPhase=time%3.2,seedPressed=seedPhase>.38&&seedPhase<1.05;
+  if(seedPressed&&!seedMotion.active){seed.updateMatrixWorld(true);seedMotion.begin(seed.localToWorld(new THREE.Vector3(-.13,.05,.32)));}
+  if(!seedPressed&&seedMotion.active)seedMotion.release();seedMotion.update(fixedDt,time);
+  const filmPhase=time%3.6;
+  if(filmPhase>.45&&filmPhase<1.65){
+    if(!bubble.grabs.has('preview')){const candidates=[];for(let i=0;i<bubble.count;i++){const k=i*3;const d=(bubble.positions[k]-.18)**2+(bubble.positions[k+1]-.12)**2+(bubble.positions[k+2]-.58)**2;candidates.push([d,i]);}candidates.sort((a,b)=>a[0]-b[0]);bubble.grab('preview',candidates.slice(0,5).map(x=>x[1]),[.18,.12,.54],1e-6);}
+    const press=Math.sin((filmPhase-.45)/1.2*Math.PI);bubble.moveGrab('preview',[.18+.08*press,.12-.055*press,.54-.24*press]);
+  }else bubble.releaseGrab('preview');
+  world.advance(1);
+  if(!radialStarted&&time>=.55){transitions.play('L03',{objects:lenses,center:[-1.7,-1.03,.15],radialReveal:true,centerObject:radialCore,radius:.66,lift:0,arcHeight:.12,targets:lenses.map((_,i)=>{const a=i/8*Math.PI*2;return [-1.7+Math.cos(a)*.68,-1.03+Math.sin(a)*.64,.2+Math.sin(a)*.22];}),duration:2.8,connectionRadius:.008,connectionLights:false});radialStarted=true;}
+  transitions.update(fixedDt);
+}
+reset();
+await renderer.compileAsync(scene,camera);
+window.renderMotion=async(frameIndex,total=120)=>{
+  if(!Number.isInteger(frameIndex)||frameIndex<0||!Number.isInteger(total)||total<2)throw new RangeError('frameIndex >= 0 and total >= 2 required');
+  const target=Math.round(Math.min(frameIndex,total-1)/(total-1)*8/fixedDt);
+  if(target<tick)reset();while(tick<target)simulateOne();
+  bubbleMesh.geometry.attributes.position.needsUpdate=true;bubbleMesh.geometry.attributes.filmThickness.needsUpdate=true;bubbleMesh.geometry.computeVertexNormals();bubbleMesh.geometry.computeBoundingSphere();updateMaterials([bubbleMesh.material],time);
+  // A slight optical orbit reveals material thickness while preserving tile layout.
+  camera.position.set(1.25+Math.sin(time*.38)*.35,1.7+Math.sin(time*.31)*.18,10.7);camera.lookAt(0,0,0);scene.updateMatrixWorld(true);
+  renderer.render(scene,camera);return renderer.domElement.toDataURL('image/png');
+};
+window.motionInfo={width:640,height:360,duration:8,frames:120,modules:['B07','F01','L03','N01'],layout:'four simultaneous text-free 3D specimens',filmDrainageTimeScale:80000};
+window.ready=true;
+await window.renderMotion(0);
+</script></body></html>

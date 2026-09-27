@@ -2,6 +2,7 @@ package dev.geode.render
 
 import android.content.Context
 import android.opengl.GLSurfaceView
+import android.view.MotionEvent
 import android.view.SurfaceHolder
 import dev.geode.util.bestEffort
 import java.util.concurrent.CountDownLatch
@@ -11,6 +12,7 @@ class VisualizerView(
     context: Context,
 ) : GLSurfaceView(context) {
     val visualizerRenderer: VisualizerRenderer = VisualizerRenderer(context)
+    private val touchPoints = FloatArray(TouchField.MAX_POINTS * 2)
 
     /**
      * Vsync, not `eglSwapBuffers` back-pressure, is what asks for a frame here. `requestRender`
@@ -64,6 +66,7 @@ class VisualizerView(
     override fun onDetachedFromWindow() {
         // Before super, which tears down the GL thread: no point asking it for one more frame.
         framePacer.stop()
+        clearTouches()
         releaseScenesOnGlThread()
         super.onDetachedFromWindow()
     }
@@ -101,8 +104,41 @@ class VisualizerView(
      */
     override fun onWindowVisibilityChanged(visibility: Int) {
         super.onWindowVisibilityChanged(visibility)
+        if (visibility != VISIBLE) clearTouches()
         syncPacer()
     }
+
+    // The native view only receives gestures begun on the canvas. Compose controls above it
+    // retain their own gestures, so changing tracks never injects touches into the simulation.
+    override fun onTouchEvent(event: MotionEvent): Boolean {
+        if (event.actionMasked == MotionEvent.ACTION_UP || event.actionMasked == MotionEvent.ACTION_CANCEL) {
+            clearTouches()
+            if (event.actionMasked == MotionEvent.ACTION_UP) performClick()
+            return true
+        }
+        val leaving = if (event.actionMasked == MotionEvent.ACTION_POINTER_UP) event.actionIndex else -1
+        val count =
+            packTouchPoints(
+                event.pointerCount,
+                leaving,
+                width,
+                height,
+                touchPoints,
+                xAt = { event.getX(it) },
+                yAt = { event.getY(it) },
+            )
+        visualizerRenderer.submitTouchPoints(touchPoints, count)
+        return true
+    }
+
+    override fun performClick(): Boolean = super.performClick()
+
+    override fun onWindowFocusChanged(hasWindowFocus: Boolean) {
+        super.onWindowFocusChanged(hasWindowFocus)
+        if (!hasWindowFocus) clearTouches()
+    }
+
+    private fun clearTouches() = visualizerRenderer.submitTouchPoints(touchPoints, 0)
 
     private fun syncPacer() {
         val watched = isAttachedToWindow && windowVisibility == VISIBLE

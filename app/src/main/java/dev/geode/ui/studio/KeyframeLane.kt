@@ -22,7 +22,7 @@ import dev.geode.editor.KeyframeTrack
 import dev.geode.editor.SnapContext
 import dev.geode.editor.SnapMode
 import dev.geode.editor.SnapTarget
-import dev.geode.ui.glass.GlassPalette
+import dev.geode.ui.opaline.creative.CreativeColors
 import kotlin.math.abs
 
 private data class KeyDrag(
@@ -49,7 +49,7 @@ fun KeyframeLane(
     val density = LocalDensity.current.density
     val hitPx = HIT_DP * density
     var drag by remember(track.paramId, track.clipId) { mutableStateOf<KeyDrag?>(null) }
-    val line = GlassPalette.textSecondary
+    val line = CreativeColors.textSecondary
 
     fun keyAt(x: Float): Keyframe? = track.keys.minByOrNull { abs(scale.xOf(it.atMs) - x) }?.takeIf { abs(scale.xOf(it.atMs) - x) <= hitPx }
 
@@ -109,18 +109,18 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawPearlKey(
 ) {
     val alpha = if (enabled) 1f else 0.4f
     drawCircle(
-        brush = Brush.radialGradient(listOf(Color.White.copy(alpha = alpha), GlassPalette.mint.copy(alpha = alpha * 0.85f))),
+        brush = Brush.radialGradient(listOf(Color.White.copy(alpha = alpha), CreativeColors.mint.copy(alpha = alpha * 0.85f))),
         radius = radius,
         center = center,
     )
-    drawCircle(GlassPalette.glassRim.copy(alpha = alpha), radius = radius, center = center, style = Stroke(1f))
+    drawCircle(CreativeColors.glassRim.copy(alpha = alpha), radius = radius, center = center, style = Stroke(1f))
     drawCircle(
         Color.White.copy(alpha = 0.8f * alpha),
         radius = radius * 0.3f,
         center = center + Offset(-radius * 0.3f, -radius * 0.3f),
     )
     if (selected) {
-        drawCircle(GlassPalette.textPrimary, radius = radius + 2f, center = center, style = Stroke(2f))
+        drawCircle(CreativeColors.textPrimary, radius = radius + 2f, center = center, style = Stroke(2f))
     }
 }
 

@@ -21,7 +21,7 @@ import dev.geode.editor.MarkerSet
 import dev.geode.editor.SnapContext
 import dev.geode.editor.SnapMode
 import dev.geode.editor.SnapTarget
-import dev.geode.ui.glass.GlassPalette
+import dev.geode.ui.opaline.creative.CreativeColors
 import kotlin.math.abs
 
 private data class MarkerDrag(
@@ -48,7 +48,7 @@ fun MarkerLane(
     val density = LocalDensity.current.density
     val hitPx = HIT_DP * density
     var drag by remember { mutableStateOf<MarkerDrag?>(null) }
-    val outline = GlassPalette.textPrimary
+    val outline = CreativeColors.textPrimary
 
     fun markerAt(x: Float): Marker? =
         markers.markers.minByOrNull { abs(scale.xOf(it.atMs) - x) }?.takeIf {
@@ -115,11 +115,23 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawDroplet(
             close()
         }
     drawPath(droplet, color.copy(alpha = 0.9f))
-    drawPath(droplet, Color.White.copy(alpha = 0.35f), style = androidx.compose.ui.graphics.drawscope.Stroke(1f))
+    drawPath(
+        droplet,
+        Color.White.copy(alpha = 0.35f),
+        style =
+            androidx.compose.ui.graphics.drawscope
+                .Stroke(1f),
+    )
     drawCircle(Color.White.copy(alpha = 0.6f), radius = r * 0.25f, center = Offset(x - r * 0.25f, tipY * 0.45f))
     drawLine(color, Offset(x, tipY), Offset(x, size.height), strokeWidth = if (selected) 3f else 1.5f)
     if (selected) {
-        drawPath(droplet, outline, style = androidx.compose.ui.graphics.drawscope.Stroke(1.5f * density))
+        drawPath(
+            droplet,
+            outline,
+            style =
+                androidx.compose.ui.graphics.drawscope
+                    .Stroke(1.5f * density),
+        )
     }
 }
 

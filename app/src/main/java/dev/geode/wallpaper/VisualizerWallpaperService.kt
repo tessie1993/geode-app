@@ -7,13 +7,19 @@ import android.view.MotionEvent
 import android.view.SurfaceHolder
 import dev.geode.audio.AudioBus
 import dev.geode.data.GeodePrefsFiles
+import dev.geode.data.MotionPrefs
 import dev.geode.data.PresetStore
 import dev.geode.render.FramePacer
 import dev.geode.render.FrameRatePolicy
 import dev.geode.render.TouchField
 import dev.geode.render.VisualizerRenderer
-import dev.geode.ui.ThemeStore
 import dev.geode.util.bestEffort
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 class VisualizerWallpaperService : WallpaperService() {
     override fun onCreateEngine(): Engine = VisualizerEngine()
@@ -23,7 +29,8 @@ class VisualizerWallpaperService : WallpaperService() {
         private var renderer: VisualizerRenderer? = null
         private val idle = IdleFeatures()
         private var lastFrameMs = 0L
-        private var feeder: Thread? = null
+        private var feeder: Job? = null
+        private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
 
         /**
          * Each engine instance — preview and home screen can both be live at once — owns its
@@ -105,7 +112,7 @@ class VisualizerWallpaperService : WallpaperService() {
             prefs.getString("milk_path", null)?.let { path ->
                 if (java.io.File(path).isFile) engine.loadMilkPreset(path)
             }
-            engine.reducedMotion = ThemeStore(prefsFiles.general).loadGui().reducedMotion
+            engine.reducedMotion = MotionPrefs.reducedMotion(prefsFiles.general)
         }
 
         private fun startFeeding(engine: VisualizerRenderer) {
@@ -115,27 +122,23 @@ class VisualizerWallpaperService : WallpaperService() {
             running = true
             lastFrameMs = android.os.SystemClock.elapsedRealtime()
             feeder =
-                Thread {
+                scope.launch {
                     while (running && feedGeneration == generation) {
                         val now = android.os.SystemClock.elapsedRealtime()
                         val dt = ((now - lastFrameMs).coerceIn(1, 100)) / 1000f
                         lastFrameMs = now
                         engine.features = AudioBus.features() ?: idle.tick(dt)
-                        Thread.sleep(FEED_INTERVAL_MS)
+                        delay(FEED_INTERVAL_MS)
                     }
-                }.apply {
-                    isDaemon = true
-                    name = "geode-wallpaper-audio"
-                    start()
                 }
         }
 
         private fun stopFeeding() {
-            val thread = feeder ?: return
+            val job = feeder ?: return
             running = false
             feedGeneration++
             AudioBus.removeConsumer()
-            runCatching { thread.join(FEEDER_JOIN_MS) }
+            job.cancel()
             feeder = null
         }
 

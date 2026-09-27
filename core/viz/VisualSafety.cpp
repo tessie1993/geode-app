@@ -1,6 +1,7 @@
 #include "viz/VisualSafety.hpp"
 
 #include <algorithm>
+#include <cmath>
 
 namespace geode::viz {
 
@@ -19,17 +20,36 @@ BlendMode blendModeFromOrdinal(int i) {
     return (i >= 0 && i <= static_cast<int>(BlendMode::Darken)) ? static_cast<BlendMode>(i) : BlendMode::Screen;
 }
 
+namespace {
+inline float safeClamp(float v, float lo, float hi) {
+    return std::isfinite(v) ? std::clamp(v, lo, hi) : lo;
+}
+}  // namespace
+
 namespace safety {
+
+namespace {
+
+// std::clamp and std::min are NOT safe against NaN: every IEEE comparison with a NaN is false, so
+// both fall through and hand the NaN straight back. This clamp is the photosensitivity guard - the
+// one number in the renderer a preset must never be able to talk its way past - so it substitutes
+// the floor for anything non-finite rather than propagating it. (+/-Inf clamps correctly on its
+// own; NaN is the hole.) Same reasoning as safeAudioDrive in scenes/SceneCommon.hpp.
+inline float safeClamp(float v, float lo, float hi) { return std::isfinite(v) ? std::clamp(v, lo, hi) : lo; }
+
+}  // namespace
 
 SceneParams apply(const SceneParams& p, bool reducedMotion) {
     SceneParams out = p;
-    out.strobe = std::clamp(p.strobe, 0.0f, kMaxFlashDepth / kStrobeShaderDepth);
-    out.flash = std::clamp(p.flash, 0.0f, kMaxFlashDepth / kFlashShaderDepth);
-    out.glitch = std::min(p.glitch, kMaxFlashDepth);
-    out.bloom = std::min(p.bloom, kMaxFlashDepth);
-    out.brightness = std::clamp(p.brightness, 0.0f, 1.0f + kMaxFlashDepth);
-    out.intensity = std::clamp(p.intensity, 0.0f, 1.0f + kMaxFlashDepth);
-    out.contrast = std::clamp(p.contrast, 0.0f, 1.0f + kMaxFlashDepth);
+    out.strobe = safeClamp(p.strobe, 0.0f, kMaxFlashDepth / kStrobeShaderDepth);
+    out.flash = safeClamp(p.flash, 0.0f, kMaxFlashDepth / kFlashShaderDepth);
+    // glitch and bloom previously had no lower bound at all, so a large negative finite value
+    // passed as well; they are luminance terms and belong in the same range as the rest.
+    out.glitch = safeClamp(p.glitch, 0.0f, kMaxFlashDepth);
+    out.bloom = safeClamp(p.bloom, 0.0f, kMaxFlashDepth);
+    out.brightness = safeClamp(p.brightness, 0.0f, 1.0f + kMaxFlashDepth);
+    out.intensity = safeClamp(p.intensity, 0.0f, 1.0f + kMaxFlashDepth);
+    out.contrast = safeClamp(p.contrast, 0.0f, 1.0f + kMaxFlashDepth);
     if (reducedMotion) {
         out.speed *= kReducedMotionScale;
         out.shake *= kReducedMotionScale;
@@ -46,10 +66,14 @@ SceneParams apply(const SceneParams& p, bool reducedMotion) {
 }
 
 float limitLfoRate(float rateHz, LfoTarget target) {
+    if (!std::isfinite(rateHz)) return 0.0f;
     return isLuminanceTarget(target) ? std::min(rateHz, kWcagFlashesPerSecond) : rateHz;
 }
 
-float beatMinIntervalMs(float requestedMs) { return std::max(requestedMs, 1000.0f / kWcagFlashesPerSecond); }
+float beatMinIntervalMs(float requestedMs) {
+    if (!std::isfinite(requestedMs)) return 1000.0f / kWcagFlashesPerSecond;
+    return std::max(requestedMs, 1000.0f / kWcagFlashesPerSecond);
+}
 
 TransitionStyle transitionStyle(TransitionStyle requested) {
     return requested == TransitionStyle::Cut ? TransitionStyle::Fade : requested;
@@ -60,7 +84,7 @@ std::string transitionId(const std::string& requested) {
 }
 
 float layerMix(float requested, BlendMode mode) {
-    const float mix = std::clamp(requested, 0.0f, 1.0f);
+    const float mix = safeClamp(requested, 0.0f, 1.0f);
     return (mode == BlendMode::Difference || mode == BlendMode::Add) ? std::min(mix, kMaxFlashDepth) : mix;
 }
 

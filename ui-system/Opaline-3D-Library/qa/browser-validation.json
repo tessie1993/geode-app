@@ -1,0 +1,131 @@
+{
+  "errors": [
+    "page.selectOption: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('#composition')\u001b[22m\n\u001b[2m    - locator resolved to <select id=\"composition\">…</select>\u001b[22m\n\u001b[2m  - attempting select option action\u001b[22m\n\u001b[2m    2 × waiting for element to be visible and enabled\u001b[22m\n\u001b[2m      - element is not visible\u001b[22m\n\u001b[2m    - retrying select option action\u001b[22m\n\u001b[2m    - waiting 20ms\u001b[22m\n\u001b[2m    2 × waiting for element to be visible and enabled\u001b[22m\n\u001b[2m      - element is not visible\u001b[22m\n\u001b[2m    - retrying select option action\u001b[22m\n\u001b[2m      - waiting 100ms\u001b[22m\n\u001b[2m    58 × waiting for element to be visible and enabled\u001b[22m\n\u001b[2m       - element is not visible\u001b[22m\n\u001b[2m     - retrying select option action\u001b[22m\n\u001b[2m       - waiting 500ms\u001b[22m\n\n    at /workspace/scratch/e935ddf5a720/qa-final.mjs:26:13"
+  ],
+  "selections": [
+    {
+      "id": "A01",
+      "mesh": 1,
+      "nonfinite": 0,
+      "physics": null
+    },
+    {
+      "id": "B07",
+      "mesh": 1,
+      "nonfinite": 0,
+      "physics": null
+    },
+    {
+      "id": "E03",
+      "mesh": 1,
+      "nonfinite": 0,
+      "physics": "pbf"
+    },
+    {
+      "id": "F01",
+      "mesh": 1,
+      "nonfinite": 0,
+      "physics": "bubble-film"
+    },
+    {
+      "id": "F03",
+      "mesh": 2,
+      "nonfinite": 0,
+      "physics": "bubble-film"
+    },
+    {
+      "id": "F07",
+      "mesh": 1,
+      "nonfinite": 0,
+      "physics": "xpbd-cloth"
+    },
+    {
+      "id": "G15",
+      "mesh": 1,
+      "nonfinite": 0,
+      "physics": "particle-field"
+    },
+    {
+      "id": "H04",
+      "mesh": 1,
+      "nonfinite": 0,
+      "physics": "particle-field"
+    },
+    {
+      "id": "I02",
+      "mesh": 1,
+      "nonfinite": 0,
+      "physics": null
+    },
+    {
+      "id": "I04",
+      "mesh": 1,
+      "nonfinite": 0,
+      "physics": null
+    },
+    {
+      "id": "K10",
+      "mesh": 2,
+      "nonfinite": 0,
+      "physics": "xpbd"
+    },
+    {
+      "id": "K12",
+      "mesh": 2,
+      "nonfinite": 0,
+      "physics": "xpbd"
+    },
+    {
+      "id": "K14",
+      "mesh": 2,
+      "nonfinite": 0,
+      "physics": "bubble-film"
+    },
+    {
+      "id": "K17",
+      "mesh": 1,
+      "nonfinite": 0,
+      "physics": "particle-field"
+    },
+    {
+      "id": "K19",
+      "mesh": 2,
+      "nonfinite": 0,
+      "physics": "xpbd"
+    },
+    {
+      "id": "K22",
+      "mesh": 2,
+      "nonfinite": 0,
+      "physics": "xpbd"
+    },
+    {
+      "id": "L03",
+      "mesh": 3,
+      "nonfinite": 0,
+      "physics": null
+    },
+    {
+      "id": "N02",
+      "mesh": 2,
+      "nonfinite": 0,
+      "physics": null
+    }
+  ],
+  "checks": [
+    {
+      "name": "keyboard slider changes value",
+      "before": 0.5,
+      "after": 0.55,
+      "pass": true
+    },
+    {
+      "name": "search filters catalogue",
+      "pass": true
+    },
+    {
+      "name": "film thickness attribute compiled and rendered",
+      "pass": true
+    }
+  ]
+}

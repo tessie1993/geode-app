@@ -1,0 +1,511 @@
+{
+  "version": "3.0.0",
+  "artDirection": "Abstract sculptural liquid and mineral environments; text-free reusable elements.",
+  "entries": [
+    {
+      "artwork": "assets/artwork/background-amber.png",
+      "geometryOrEffectIds": [
+        "E01",
+        "E03",
+        "J04",
+        "J06",
+        "J08",
+        "J10",
+        "J24"
+      ],
+      "compositionIds": [
+        "UI071",
+        "UI072",
+        "UI074"
+      ],
+      "motionRole": "abstract environment",
+      "anatomy": "Distant PNG plane plus real near-field liquid/mineral meshes; perspective parallax and contacts belong to geometry.",
+      "bakedArtwork": true,
+      "isPhysicalMap": false,
+      "limitations": [
+        "Not a depth/normal/roughness/displacement measurement.",
+        "Baked light and shadows do not prove live geometry, solver or dynamic optical behavior."
+      ]
+    },
+    {
+      "artwork": "assets/artwork/background-aurora.png",
+      "geometryOrEffectIds": [
+        "E01",
+        "E03",
+        "J04",
+        "J06",
+        "J08",
+        "J10",
+        "J24"
+      ],
+      "compositionIds": [
+        "UI071",
+        "UI072",
+        "UI074"
+      ],
+      "motionRole": "abstract environment",
+      "anatomy": "Distant PNG plane plus real near-field liquid/mineral meshes; perspective parallax and contacts belong to geometry.",
+      "bakedArtwork": true,
+      "isPhysicalMap": false,
+      "limitations": [
+        "Not a depth/normal/roughness/displacement measurement.",
+        "Baked light and shadows do not prove live geometry, solver or dynamic optical behavior."
+      ]
+    },
+    {
+      "artwork": "assets/artwork/background-moss.png",
+      "geometryOrEffectIds": [
+        "E01",
+        "E03",
+        "J04",
+        "J06",
+        "J08",
+        "J10",
+        "J24"
+      ],
+      "compositionIds": [
+        "UI071",
+        "UI072",
+        "UI074"
+      ],
+      "motionRole": "abstract environment",
+      "anatomy": "Distant PNG plane plus real near-field liquid/mineral meshes; perspective parallax and contacts belong to geometry.",
+      "bakedArtwork": true,
+      "isPhysicalMap": false,
+      "limitations": [
+        "Not a depth/normal/roughness/displacement measurement.",
+        "Baked light and shadows do not prove live geometry, solver or dynamic optical behavior."
+      ]
+    },
+    {
+      "artwork": "assets/artwork/background-obsidian.png",
+      "geometryOrEffectIds": [
+        "E01",
+        "E03",
+        "J04",
+        "J06",
+        "J08",
+        "J10",
+        "J24"
+      ],
+      "compositionIds": [
+        "UI071",
+        "UI072",
+        "UI074"
+      ],
+      "motionRole": "abstract environment",
+      "anatomy": "Distant PNG plane plus real near-field liquid/mineral meshes; perspective parallax and contacts belong to geometry.",
+      "bakedArtwork": true,
+      "isPhysicalMap": false,
+      "limitations": [
+        "Not a depth/normal/roughness/displacement measurement.",
+        "Baked light and shadows do not prove live geometry, solver or dynamic optical behavior."
+      ]
+    },
+    {
+      "artwork": "assets/artwork/background-opal.png",
+      "geometryOrEffectIds": [
+        "E01",
+        "E03",
+        "J04",
+        "J06",
+        "J08",
+        "J10",
+        "J24"
+      ],
+      "compositionIds": [
+        "UI071",
+        "UI072",
+        "UI074"
+      ],
+      "motionRole": "abstract environment",
+      "anatomy": "Distant PNG plane plus real near-field liquid/mineral meshes; perspective parallax and contacts belong to geometry.",
+      "bakedArtwork": true,
+      "isPhysicalMap": false,
+      "limitations": [
+        "Not a depth/normal/roughness/displacement measurement.",
+        "Baked light and shadows do not prove live geometry, solver or dynamic optical behavior."
+      ]
+    },
+    {
+      "artwork": "assets/artwork/background-tidal.png",
+      "geometryOrEffectIds": [
+        "E01",
+        "E03",
+        "J04",
+        "J06",
+        "J08",
+        "J10",
+        "J24"
+      ],
+      "compositionIds": [
+        "UI071",
+        "UI072",
+        "UI074"
+      ],
+      "motionRole": "abstract environment",
+      "anatomy": "Distant PNG plane plus real near-field liquid/mineral meshes; perspective parallax and contacts belong to geometry.",
+      "bakedArtwork": true,
+      "isPhysicalMap": false,
+      "limitations": [
+        "Not a depth/normal/roughness/displacement measurement.",
+        "Baked light and shadows do not prove live geometry, solver or dynamic optical behavior."
+      ]
+    },
+    {
+      "artwork": "assets/artwork/bottom-dock.png",
+      "geometryOrEffectIds": [
+        "D01",
+        "D02",
+        "D03"
+      ],
+      "compositionIds": [
+        "UI034"
+      ],
+      "motionRole": "shared support with child mounts",
+      "anatomy": "Child bodies compress locally; global support motion is a separate constraint.",
+      "bakedArtwork": true,
+      "isPhysicalMap": false,
+      "limitations": [
+        "Not a depth/normal/roughness/displacement measurement.",
+        "Baked light and shadows do not prove live geometry, solver or dynamic optical behavior."
+      ]
+    },
+    {
+      "artwork": "assets/artwork/button-pebble.png",
+      "geometryOrEffectIds": [
+        "A01",
+        "A03",
+        "A04",
+        "A22"
+      ],
+      "compositionIds": [
+        "UI001",
+        "UI002",
+        "UI003"
+      ],
+      "motionRole": "localized gel contact",
+      "anatomy": "Separate closed body, mount and stable content plane; local force, release and contact light.",
+      "bakedArtwork": true,
+      "isPhysicalMap": false,
+      "limitations": [
+        "Not a depth/normal/roughness/displacement measurement.",
+        "Baked light and shadows do not prove live geometry, solver or dynamic optical behavior."
+      ]
+    },
+    {
+      "artwork": "assets/artwork/dial-ring.png",
+      "geometryOrEffectIds": [
+        "B13",
+        "B15",
+        "B17"
+      ],
+      "compositionIds": [
+        "UI023",
+        "UI024"
+      ],
+      "motionRole": "angular motion",
+      "anatomy": "Rotor moves independently of the collar; application value is a stable angular coordinate.",
+      "bakedArtwork": true,
+      "isPhysicalMap": false,
+      "limitations": [
+        "Not a depth/normal/roughness/displacement measurement.",
+        "Baked light and shadows do not prove live geometry, solver or dynamic optical behavior."
+      ]
+    },
+    {
+      "artwork": "assets/artwork/floating-droplet.png",
+      "geometryOrEffectIds": [
+        "A09",
+        "E08",
+        "E09",
+        "E10"
+      ],
+      "compositionIds": [
+        "UI072",
+        "UI074"
+      ],
+      "motionRole": "gravity, drag and draining",
+      "anatomy": "Separate a non-tearing gel drop from a free liquid domain; topology breakup is a different solver.",
+      "bakedArtwork": true,
+      "isPhysicalMap": false,
+      "limitations": [
+        "Not a depth/normal/roughness/displacement measurement.",
+        "Baked light and shadows do not prove live geometry, solver or dynamic optical behavior."
+      ]
+    },
+    {
+      "artwork": "assets/artwork/glow-seed.png",
+      "geometryOrEffectIds": [
+        "A08",
+        "G01",
+        "G04",
+        "G07"
+      ],
+      "compositionIds": [
+        "UI071",
+        "UI074"
+      ],
+      "motionRole": "wind and delayed trail emission",
+      "anatomy": "Use live particle history for tails and shared force fields; emission follows events.",
+      "bakedArtwork": true,
+      "isPhysicalMap": false,
+      "limitations": [
+        "Not a depth/normal/roughness/displacement measurement.",
+        "Baked light and shadows do not prove live geometry, solver or dynamic optical behavior."
+      ]
+    },
+    {
+      "artwork": "assets/artwork/input-capsule.png",
+      "geometryOrEffectIds": [
+        "A05",
+        "C02",
+        "D14"
+      ],
+      "compositionIds": [
+        "UI011",
+        "UI013",
+        "UI014"
+      ],
+      "motionRole": "focus and local compression",
+      "anatomy": "Keep editable content rigid; host focus excites the separate light conduit.",
+      "bakedArtwork": true,
+      "isPhysicalMap": false,
+      "limitations": [
+        "Not a depth/normal/roughness/displacement measurement.",
+        "Baked light and shadows do not prove live geometry, solver or dynamic optical behavior."
+      ]
+    },
+    {
+      "artwork": "assets/artwork/menu-panel.png",
+      "geometryOrEffectIds": [
+        "C03",
+        "C15",
+        "A05"
+      ],
+      "compositionIds": [
+        "UI027",
+        "UI028",
+        "UI030",
+        "UI031"
+      ],
+      "motionRole": "independent row contacts",
+      "anatomy": "Parent lift and row-local contact have separate ownership; content remains empty.",
+      "bakedArtwork": true,
+      "isPhysicalMap": false,
+      "limitations": [
+        "Not a depth/normal/roughness/displacement measurement.",
+        "Baked light and shadows do not prove live geometry, solver or dynamic optical behavior."
+      ]
+    },
+    {
+      "artwork": "assets/artwork/modal-shell.png",
+      "geometryOrEffectIds": [
+        "C01",
+        "C03",
+        "C15"
+      ],
+      "compositionIds": [
+        "UI042",
+        "UI043",
+        "UI044"
+      ],
+      "motionRole": "foreground lift",
+      "anatomy": "Move through actual depth with occlusion; no baked backdrop shadow should be duplicated.",
+      "bakedArtwork": true,
+      "isPhysicalMap": false,
+      "limitations": [
+        "Not a depth/normal/roughness/displacement measurement.",
+        "Baked light and shadows do not prove live geometry, solver or dynamic optical behavior."
+      ]
+    },
+    {
+      "artwork": "assets/artwork/nature-dew-button.png",
+      "geometryOrEffectIds": [
+        "N03"
+      ],
+      "compositionIds": [
+        "UI075"
+      ],
+      "motionRole": "separate lens and meniscus",
+      "anatomy": "Closed biconvex volume with its own curved seat; optical depth follows geometry.",
+      "bakedArtwork": true,
+      "isPhysicalMap": false,
+      "limitations": [
+        "Not a depth/normal/roughness/displacement measurement.",
+        "Baked light and shadows do not prove live geometry, solver or dynamic optical behavior."
+      ]
+    },
+    {
+      "artwork": "assets/artwork/nature-fern-frond.png",
+      "geometryOrEffectIds": [
+        "N05",
+        "J13"
+      ],
+      "compositionIds": [
+        "UI076"
+      ],
+      "motionRole": "wind-loaded glass foliage",
+      "anatomy": "Separate leaflets and stem; host binds cloth/rod or authored wind response.",
+      "bakedArtwork": true,
+      "isPhysicalMap": false,
+      "limitations": [
+        "Not a depth/normal/roughness/displacement measurement.",
+        "Baked light and shadows do not prove live geometry, solver or dynamic optical behavior."
+      ]
+    },
+    {
+      "artwork": "assets/artwork/nature-leaf-tray.png",
+      "geometryOrEffectIds": [
+        "N02"
+      ],
+      "compositionIds": [
+        "UI075"
+      ],
+      "motionRole": "shared leaf support",
+      "anatomy": "Three true recessed compartments support independent child controls.",
+      "bakedArtwork": true,
+      "isPhysicalMap": false,
+      "limitations": [
+        "Not a depth/normal/roughness/displacement measurement.",
+        "Baked light and shadows do not prove live geometry, solver or dynamic optical behavior."
+      ]
+    },
+    {
+      "artwork": "assets/artwork/nature-moss-pedestal.png",
+      "geometryOrEffectIds": [
+        "J08",
+        "J15"
+      ],
+      "compositionIds": [
+        "UI071"
+      ],
+      "motionRole": "rigid receiving support",
+      "anatomy": "Mineral support receives light and contact; small moss forms remain separate.",
+      "bakedArtwork": true,
+      "isPhysicalMap": false,
+      "limitations": [
+        "Not a depth/normal/roughness/displacement measurement.",
+        "Baked light and shadows do not prove live geometry, solver or dynamic optical behavior."
+      ]
+    },
+    {
+      "artwork": "assets/artwork/nature-seed-button.png",
+      "geometryOrEffectIds": [
+        "N01",
+        "A08"
+      ],
+      "compositionIds": [
+        "UI075"
+      ],
+      "motionRole": "local seed contact",
+      "anatomy": "Thick asymmetric closed body, separate seam and dew indicator.",
+      "bakedArtwork": true,
+      "isPhysicalMap": false,
+      "limitations": [
+        "Not a depth/normal/roughness/displacement measurement.",
+        "Baked light and shadows do not prove live geometry, solver or dynamic optical behavior."
+      ]
+    },
+    {
+      "artwork": "assets/artwork/nature-tendril.png",
+      "geometryOrEffectIds": [
+        "N04",
+        "D12",
+        "D14"
+      ],
+      "compositionIds": [
+        "UI075"
+      ],
+      "motionRole": "connector bend and light travel",
+      "anatomy": "Actual curved branch/socket geometry; rod mechanics and light excitation need explicit bindings.",
+      "bakedArtwork": true,
+      "isPhysicalMap": false,
+      "limitations": [
+        "Not a depth/normal/roughness/displacement measurement.",
+        "Baked light and shadows do not prove live geometry, solver or dynamic optical behavior."
+      ]
+    },
+    {
+      "artwork": "assets/artwork/slider-capsule.png",
+      "geometryOrEffectIds": [
+        "B01",
+        "B07",
+        "E12"
+      ],
+      "compositionIds": [
+        "UI019",
+        "UI049",
+        "UI073"
+      ],
+      "motionRole": "bounded travel and meniscus",
+      "anatomy": "Travel changes thumb geometry; full free-surface meniscus conservation needs solver binding.",
+      "bakedArtwork": true,
+      "isPhysicalMap": false,
+      "limitations": [
+        "Not a depth/normal/roughness/displacement measurement.",
+        "Baked light and shadows do not prove live geometry, solver or dynamic optical behavior."
+      ]
+    },
+    {
+      "artwork": "assets/artwork/textarea-panel.png",
+      "geometryOrEffectIds": [
+        "C01",
+        "C03",
+        "B23"
+      ],
+      "compositionIds": [
+        "UI012"
+      ],
+      "motionRole": "panel shell and resize grip",
+      "anatomy": "Resize changes layout and physical dimensions; caret and content stay on a separate plane.",
+      "bakedArtwork": true,
+      "isPhysicalMap": false,
+      "limitations": [
+        "Not a depth/normal/roughness/displacement measurement.",
+        "Baked light and shadows do not prove live geometry, solver or dynamic optical behavior."
+      ]
+    },
+    {
+      "artwork": "assets/artwork/toggle-capsule.png",
+      "geometryOrEffectIds": [
+        "B09",
+        "B10",
+        "B12"
+      ],
+      "compositionIds": [
+        "UI008",
+        "UI009",
+        "UI073"
+      ],
+      "motionRole": "velocity-linked pearl stretch",
+      "anatomy": "Round at rest, stretch along travel while moving, recover at declared detents.",
+      "bakedArtwork": true,
+      "isPhysicalMap": false,
+      "limitations": [
+        "Not a depth/normal/roughness/displacement measurement.",
+        "Baked light and shadows do not prove live geometry, solver or dynamic optical behavior."
+      ]
+    },
+    {
+      "artwork": "assets/artwork/tooltip-shell.png",
+      "geometryOrEffectIds": [
+        "C05",
+        "C06",
+        "C07"
+      ],
+      "compositionIds": [
+        "UI045",
+        "UI046"
+      ],
+      "motionRole": "anchored lift",
+      "anatomy": "Tail is actual geometry, and empty content frame stays readable.",
+      "bakedArtwork": true,
+      "isPhysicalMap": false,
+      "limitations": [
+        "Not a depth/normal/roughness/displacement measurement.",
+        "Baked light and shadows do not prove live geometry, solver or dynamic optical behavior."
+      ]
+    }
+  ]
+}

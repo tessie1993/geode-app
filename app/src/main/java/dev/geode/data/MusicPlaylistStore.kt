@@ -58,6 +58,18 @@ class MusicPlaylistStore(
         return updated
     }
 
+    fun addTracks(
+        name: String,
+        uris: List<String>,
+    ): MusicPlaylist {
+        val current = current(name) ?: return MusicPlaylist(name)
+        val existing = current.trackUris.toSet()
+        val toAdd = uris.filterNot { existing.contains(it) }
+        val updated = if (toAdd.isEmpty()) current else current.copy(trackUris = current.trackUris + toAdd)
+        save(updated)
+        return updated
+    }
+
     fun rename(
         oldName: String,
         newName: String,

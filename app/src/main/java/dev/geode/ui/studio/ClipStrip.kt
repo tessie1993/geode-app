@@ -33,7 +33,7 @@ import dev.geode.editor.SnapMode
 import dev.geode.editor.SnapTarget
 import dev.geode.editor.Timeline
 import dev.geode.editor.snap
-import dev.geode.ui.glass.GlassPalette
+import dev.geode.ui.opaline.creative.CreativeColors
 
 /** What a drag on a clip is doing: sliding it or pulling one of its edges. */
 private enum class DragMode {
@@ -165,7 +165,7 @@ private fun DrawScope.drawClip(
     val size = Size(width.coerceAtLeast(2f), this.size.height - top * 2)
     val corner = CornerRadius(size.height / 2f)
     val origin = Offset(x, top)
-    drawRoundRect(GlassPalette.glassFill.copy(alpha = GlassPalette.glassFill.alpha * dim), origin, size, corner)
+    drawRoundRect(CreativeColors.glassFill.copy(alpha = CreativeColors.glassFill.alpha * dim), origin, size, corner)
     drawRoundRect(tint.copy(alpha = 0.30f * dim), origin, size, corner)
     if (size.height > 8f) {
         drawRoundRect(
@@ -179,7 +179,7 @@ private fun DrawScope.drawClip(
     if (clip.transition != null) {
         drawRoundRect(colors.outline.copy(alpha = 0.6f), origin, Size(TRANSITION_BADGE_DP * density, size.height), corner)
     }
-    if (selected) drawRoundRect(GlassPalette.textPrimary, origin, size, corner, style = Stroke(2f * density))
+    if (selected) drawRoundRect(CreativeColors.textPrimary, origin, size, corner, style = Stroke(2f * density))
     val label = clip.label.ifBlank { defaultLabel(clip.content) }
     if (width > 24f * density) {
         val paint =
@@ -224,16 +224,16 @@ private class ClipColors(
         }
 
     companion object {
-        /** One pastel from [GlassPalette] per lane kind, so every clip family reads distinctly. */
+        /** One pastel from [CreativeColors] per lane kind, so every clip family reads distinctly. */
         fun glass(): ClipColors =
             ClipColors(
-                scene = GlassPalette.mint,
-                media = GlassPalette.sky,
-                textFill = GlassPalette.lavender,
-                overlay = GlassPalette.peach,
-                audio = GlassPalette.pink,
-                outline = GlassPalette.glassRim,
-                label = GlassPalette.textPrimary,
+                scene = CreativeColors.mint,
+                media = CreativeColors.sky,
+                textFill = CreativeColors.lavender,
+                overlay = CreativeColors.peach,
+                audio = CreativeColors.pink,
+                outline = CreativeColors.glassRim,
+                label = CreativeColors.textPrimary,
             )
     }
 }

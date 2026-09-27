@@ -32,6 +32,22 @@ class StudioViewModel
 
         val editor: StateFlow<EditorUiState> get() = session.editor.state
 
+        override fun currentProjectIdentity(): Pair<String, EditorProject>? =
+            session.editor.state.value
+                .takeIf { it.loaded }
+                ?.let { it.name to it.project }
+
+        val projectNames: StateFlow<List<String>> get() = session.editor.projectNames
+
+        fun openProject(name: String) = session.editor.open(name)
+
+        fun refreshProjects() = session.editor.refreshProjectNames()
+
+        fun createProject(
+            name: String,
+            onCreated: (Boolean) -> Unit,
+        ) = session.editor.create(name, onCreated)
+
         override fun edit(transform: (EditorProject) -> EditorProject) = session.editor.edit(transform)
 
         override fun apply(result: EditResult) = session.editor.apply(result)

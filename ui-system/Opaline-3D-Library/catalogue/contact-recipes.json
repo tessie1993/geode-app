@@ -1,0 +1,441 @@
+{
+  "K01": {
+    "name": "Local gel press",
+    "operation": "press",
+    "contacts": [
+      {
+        "region": [
+          0,
+          0.5,
+          0
+        ],
+        "radius": 0.35,
+        "delta": [
+          0,
+          -0.16,
+          0
+        ]
+      }
+    ]
+  },
+  "K02": {
+    "name": "Sustained hold",
+    "operation": "hold",
+    "duration": 5,
+    "hold": 3.4,
+    "contacts": [
+      {
+        "region": [
+          0,
+          0.5,
+          0
+        ],
+        "radius": 0.35,
+        "delta": [
+          0,
+          -0.16,
+          0
+        ]
+      }
+    ],
+    "limitation": "Elastic held compression; no calibrated viscoelastic creep constitutive model."
+  },
+  "K03": {
+    "name": "Off-centre shear",
+    "operation": "shear",
+    "contacts": [
+      {
+        "region": [
+          0.28,
+          0.5,
+          0
+        ],
+        "radius": 0.26,
+        "delta": [
+          0.16,
+          -0.08,
+          0.08
+        ]
+      }
+    ]
+  },
+  "K04": {
+    "name": "Pinch compression",
+    "operation": "pinch",
+    "contacts": [
+      {
+        "region": [
+          -0.5,
+          0,
+          0
+        ],
+        "radius": 0.38,
+        "delta": [
+          0.17,
+          0,
+          0
+        ]
+      },
+      {
+        "region": [
+          0.5,
+          0,
+          0
+        ],
+        "radius": 0.38,
+        "delta": [
+          -0.17,
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  "K05": {
+    "name": "Elastic pull",
+    "operation": "pull",
+    "contacts": [
+      {
+        "region": [
+          0,
+          0.5,
+          0
+        ],
+        "radius": 0.28,
+        "delta": [
+          0.05,
+          0.26,
+          0
+        ]
+      }
+    ]
+  },
+  "K06": {
+    "name": "Twist contact",
+    "operation": "twist",
+    "twistAngle": 0.6,
+    "contacts": [
+      {
+        "region": [
+          -0.32,
+          0.42,
+          0
+        ],
+        "radius": 0.25,
+        "delta": [
+          0,
+          0,
+          0.18
+        ]
+      },
+      {
+        "region": [
+          0.32,
+          0.42,
+          0
+        ],
+        "radius": 0.25,
+        "delta": [
+          0,
+          0,
+          -0.18
+        ]
+      }
+    ]
+  },
+  "K07": {
+    "name": "Drag with inertia",
+    "operation": "drag",
+    "retainReleaseVelocity": true,
+    "cancelAt": 0.32,
+    "contacts": [
+      {
+        "region": [
+          0,
+          0.5,
+          0
+        ],
+        "radius": 0.32,
+        "delta": [
+          0.33,
+          0.12,
+          0.12
+        ]
+      }
+    ]
+  },
+  "K08": {
+    "name": "Surface stroke",
+    "operation": "stroke",
+    "contacts": [
+      {
+        "region": [
+          -0.32,
+          0.5,
+          0
+        ],
+        "radius": 0.26,
+        "delta": [
+          0.55,
+          -0.08,
+          0
+        ]
+      }
+    ],
+    "limitation": "Solid surface shear; liquid wake requires coupled fluid domain."
+  },
+  "K09": {
+    "name": "Immersion press",
+    "operation": "immersion",
+    "contacts": [
+      {
+        "region": [
+          0,
+          0.5,
+          0
+        ],
+        "radius": 0.65,
+        "delta": [
+          0,
+          -0.3,
+          0
+        ]
+      }
+    ],
+    "impulse": [
+      0,
+      -0.025,
+      0
+    ],
+    "limitation": "Attach PBF plus bilateral coupling for liquid displacement; no capillary contact-angle model."
+  },
+  "K10": {
+    "name": "Gel-to-gel collision",
+    "operation": "collision",
+    "impulse": [
+      0.06,
+      0,
+      0
+    ],
+    "contacts": [],
+    "restitution": 0.12,
+    "limitation": "Needs two SoftBody systems and ParticleCoupling."
+  },
+  "K11": {
+    "name": "Gel-to-rigid collision",
+    "operation": "rigidCollision",
+    "contacts": [
+      {
+        "region": [
+          0,
+          0.5,
+          0
+        ],
+        "radius": 0.35,
+        "delta": [
+          0,
+          -0.16,
+          0
+        ]
+      }
+    ],
+    "restitution": 0.08
+  },
+  "K12": {
+    "name": "Particle-to-gel collision",
+    "operation": "particleImpact",
+    "contacts": [],
+    "impulse": [
+      0,
+      -0.025,
+      0
+    ],
+    "limitation": "Needs emitter and bilateral coupling."
+  },
+  "K13": {
+    "name": "Liquid-to-solid impact",
+    "operation": "fluidImpact",
+    "contacts": [],
+    "impulse": [
+      0,
+      -0.08,
+      0
+    ],
+    "limitation": "Use PBF domain with collider; restitution/friction boundaries, no wetting model."
+  },
+  "K14": {
+    "name": "Bubble-to-bubble contact",
+    "operation": "filmContact",
+    "contacts": [],
+    "limitation": "Explicit shared-film topology is not provided by these solvers."
+  },
+  "K15": {
+    "name": "Frictional slide",
+    "operation": "slide",
+    "friction": 0.75,
+    "contacts": [
+      {
+        "region": [
+          0,
+          0.5,
+          0
+        ],
+        "radius": 0.42,
+        "delta": [
+          0.28,
+          -0.11,
+          0
+        ]
+      }
+    ]
+  },
+  "K16": {
+    "name": "Restitution response",
+    "operation": "bounce",
+    "restitution": 0.75,
+    "contacts": [],
+    "impulse": [
+      0,
+      -0.08,
+      0
+    ]
+  },
+  "K17": {
+    "name": "Adhesion and release",
+    "operation": "adhesion",
+    "contacts": [
+      {
+        "region": [
+          0,
+          0.5,
+          0
+        ],
+        "radius": 0.35,
+        "delta": [
+          0,
+          -0.16,
+          0
+        ]
+      }
+    ],
+    "limitation": "ParticleSystem supports threshold adhesion to static colliders; gel adhesive surface energy is not modelled."
+  },
+  "K18": {
+    "name": "Wetting and dewetting",
+    "operation": "wetting",
+    "contacts": [],
+    "limitation": "Requires a capillary/free-surface contact model; not implemented by this contact recipe."
+  },
+  "K19": {
+    "name": "Buoyant bob and roll",
+    "operation": "buoyancy",
+    "contacts": [],
+    "impulse": [
+      0.005,
+      -0.02,
+      0.003
+    ],
+    "limitation": "BuoyancyField is a submerged-fraction particle model; no displaced rigid-volume hydrostatics."
+  },
+  "K20": {
+    "name": "Constrained hover",
+    "operation": "hover",
+    "contacts": [
+      {
+        "region": [
+          0,
+          0,
+          0
+        ],
+        "radius": 1,
+        "delta": [
+          0.12,
+          0.16,
+          0.08
+        ]
+      }
+    ]
+  },
+  "K21": {
+    "name": "Dock and undock",
+    "operation": "dock",
+    "contacts": [
+      {
+        "region": [
+          0,
+          0,
+          0
+        ],
+        "radius": 1,
+        "delta": [
+          0,
+          0.28,
+          0.1
+        ]
+      }
+    ]
+  },
+  "K22": {
+    "name": "Neighbour impulse transfer",
+    "operation": "neighbor",
+    "contacts": [],
+    "impulse": [
+      0.06,
+      0,
+      0
+    ],
+    "limitation": "Needs bilateral coupling or shared attachment constraints."
+  },
+  "K23": {
+    "name": "Interruption recovery",
+    "operation": "cancel",
+    "cancelAt": 0.65,
+    "contacts": [
+      {
+        "region": [
+          0.18,
+          0.5,
+          0
+        ],
+        "radius": 0.3,
+        "delta": [
+          0.13,
+          -0.14,
+          0
+        ]
+      }
+    ]
+  },
+  "K24": {
+    "name": "Multi-contact arbitration",
+    "operation": "multi",
+    "contacts": [
+      {
+        "region": [
+          -0.3,
+          0.5,
+          0
+        ],
+        "radius": 0.27,
+        "delta": [
+          -0.09,
+          -0.17,
+          0.08
+        ]
+      },
+      {
+        "region": [
+          0.3,
+          0.5,
+          0
+        ],
+        "radius": 0.27,
+        "delta": [
+          0.12,
+          0.13,
+          -0.09
+        ]
+      }
+    ]
+  }
+}

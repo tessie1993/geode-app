@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="opaline_back">Back</string>
+    <string name="opaline_theme_tidal">Tidal</string>
+    <string name="opaline_theme_opal">Opal</string>
+    <string name="opaline_theme_moss">Moss</string>
+    <string name="opaline_theme_obsidian">Obsidian</string>
+    <string name="opaline_theme_aurora">Aurora</string>
+    <string name="opaline_theme_amber">Amber</string>
+</resources>

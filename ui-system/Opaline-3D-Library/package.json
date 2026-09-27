@@ -1,0 +1,13 @@
+{
+  "name": "opaline-3d-library",
+  "version": "3.0.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "serve": "python3 -m http.server 8080",
+    "test": "node --test tests/*.test.mjs"
+  },
+  "dependencies": {
+    "three": "0.186.1"
+  }
+}

@@ -24,9 +24,9 @@ import androidx.compose.ui.unit.dp
 import dev.geode.R
 import dev.geode.editor.ClipTransition
 import dev.geode.render.TransitionCatalog
-import dev.geode.ui.glass.GlassButton
-import dev.geode.ui.glass.GlassPalette
-import dev.geode.ui.glass.GlassSheet
+import dev.geode.ui.opaline.creative.CreativeButton
+import dev.geode.ui.opaline.creative.CreativeColors
+import dev.geode.ui.opaline.creative.CreativeSheet
 
 /** Picks the GL Transition a clip opens with, and how long it runs; "None" clears it. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -39,27 +39,31 @@ fun TransitionSheet(
     val context = LocalContext.current
     val library = remember { TransitionCatalog.library(context) }
     var durationMs by remember { mutableStateOf(current?.boundedDurationMs ?: ClipTransition.DEFAULT_TRANSITION_MS) }
-    GlassSheet(onDismissRequest = onDismiss) {
+    CreativeSheet(onDismissRequest = onDismiss) {
         Column(Modifier.padding(horizontal = 20.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(stringResource(R.string.editor_transition), style = MaterialTheme.typography.titleMedium, color = GlassPalette.textPrimary)
+            Text(
+                stringResource(R.string.editor_transition),
+                style = MaterialTheme.typography.titleMedium,
+                color = CreativeColors.textPrimary,
+            )
             Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 ClipTransition.DURATION_CHOICES_MS.forEach { choice ->
-                    GlassButton(
+                    CreativeButton(
                         text = stringResource(R.string.editor_transition_seconds, choice / 1000f),
                         selected = choice == durationMs,
-                        tint = if (choice == durationMs) GlassPalette.mint else null,
+                        tint = if (choice == durationMs) CreativeColors.mint else null,
                         onClick = { durationMs = choice },
                     )
                 }
             }
-            GlassButton(
+            CreativeButton(
                 text = stringResource(R.string.editor_transition_none),
                 modifier = Modifier.fillMaxWidth(),
                 onClick = { onPick(null) },
             )
             LazyColumn {
                 items(library, key = { it.name }) { def ->
-                    GlassButton(
+                    CreativeButton(
                         text = if (def.name == current?.id) stringResource(R.string.editor_transition_current, def.name) else def.name,
                         modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
                         onClick = { onPick(ClipTransition(def.name, durationMs)) },

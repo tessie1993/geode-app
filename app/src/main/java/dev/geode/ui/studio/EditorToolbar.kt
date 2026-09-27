@@ -23,11 +23,11 @@ import dev.geode.R
 import dev.geode.editor.EditError
 import dev.geode.editor.LaneKind
 import dev.geode.editor.TapInSession
-import dev.geode.ui.glass.GlassButton
-import dev.geode.ui.glass.GlassPalette
-import dev.geode.ui.glass.GlassShapes
-import dev.geode.ui.glass.GlassTextField
-import dev.geode.ui.glass.glassSurface
+import dev.geode.ui.opaline.creative.CreativeButton
+import dev.geode.ui.opaline.creative.CreativeColors
+import dev.geode.ui.opaline.creative.CreativeShapes
+import dev.geode.ui.opaline.creative.CreativeTextField
+import dev.geode.ui.opaline.creative.creativeSurface
 
 /** Back, title, undo/redo and zoom, as a row of bubble buttons. */
 @Composable
@@ -47,21 +47,21 @@ fun EditorHeader(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        GlassButton(text = stringResource(R.string.action_back), onClick = onClose)
+        CreativeButton(text = stringResource(R.string.action_back), onClick = onClose)
         Text(
             stringResource(R.string.editor_playhead, clockLabel(playheadMs)),
             style = MaterialTheme.typography.labelMedium,
-            color = GlassPalette.textSecondary,
+            color = CreativeColors.textSecondary,
             modifier = Modifier.padding(horizontal = 8.dp),
         )
-        GlassButton(text = stringResource(R.string.editor_undo), enabled = canUndo, onClick = onUndo)
-        GlassButton(text = stringResource(R.string.editor_redo), enabled = canRedo, onClick = onRedo)
-        GlassButton(text = stringResource(R.string.editor_zoom_out), onClick = { onZoom(1f / ZOOM_STEP) })
-        GlassButton(text = stringResource(R.string.editor_zoom_in), onClick = { onZoom(ZOOM_STEP) })
-        GlassButton(
+        CreativeButton(text = stringResource(R.string.editor_undo), enabled = canUndo, onClick = onUndo)
+        CreativeButton(text = stringResource(R.string.editor_redo), enabled = canRedo, onClick = onRedo)
+        CreativeButton(text = stringResource(R.string.editor_zoom_out), onClick = { onZoom(1f / ZOOM_STEP) })
+        CreativeButton(text = stringResource(R.string.editor_zoom_in), onClick = { onZoom(ZOOM_STEP) })
+        CreativeButton(
             text = stringResource(R.string.editor_export),
             enabled = !exporting,
-            tint = GlassPalette.mint,
+            tint = CreativeColors.mint,
             onClick = onExport,
         )
     }
@@ -88,28 +88,28 @@ fun EditorToolbar(
     Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         if (tapSession == null) {
             LANE_KINDS.forEach { (kind, label) ->
-                GlassButton(text = stringResource(R.string.editor_add_lane, stringResource(label)), onClick = { onAddLane(kind) })
+                CreativeButton(text = stringResource(R.string.editor_add_lane, stringResource(label)), onClick = { onAddLane(kind) })
             }
-            GlassButton(text = stringResource(R.string.editor_add_marker), onClick = onAddMarker)
-            GlassButton(text = stringResource(R.string.editor_tap_in), onClick = onTapStart)
-            GlassButton(text = stringResource(R.string.editor_auto_cut), onClick = onAutoCut)
+            CreativeButton(text = stringResource(R.string.editor_add_marker), onClick = onAddMarker)
+            CreativeButton(text = stringResource(R.string.editor_tap_in), onClick = onTapStart)
+            CreativeButton(text = stringResource(R.string.editor_auto_cut), onClick = onAutoCut)
             if (hasLyrics) {
-                GlassButton(text = stringResource(R.string.editor_lyric_captions), onClick = onLyricCaptions)
+                CreativeButton(text = stringResource(R.string.editor_lyric_captions), onClick = onLyricCaptions)
             }
-            GlassButton(text = stringResource(R.string.editor_import_srt), onClick = onImportSrt)
-            GlassButton(text = stringResource(R.string.editor_export_srt), onClick = onExportSrt)
-            GlassButton(text = stringResource(R.string.editor_export_chapters), onClick = onExportChapters)
+            CreativeButton(text = stringResource(R.string.editor_import_srt), onClick = onImportSrt)
+            CreativeButton(text = stringResource(R.string.editor_export_srt), onClick = onExportSrt)
+            CreativeButton(text = stringResource(R.string.editor_export_chapters), onClick = onExportChapters)
         } else {
-            GlassButton(text = stringResource(R.string.editor_tap), tint = GlassPalette.mint, onClick = onTap)
+            CreativeButton(text = stringResource(R.string.editor_tap), tint = CreativeColors.mint, onClick = onTap)
             Text(
                 stringResource(R.string.editor_tap_count, tapSession.count),
                 style = MaterialTheme.typography.labelMedium,
-                color = GlassPalette.textSecondary,
+                color = CreativeColors.textSecondary,
                 modifier = Modifier.align(Alignment.CenterVertically),
             )
-            GlassButton(text = stringResource(R.string.editor_tap_undo), enabled = tapSession.count > 0, onClick = onTapUndo)
-            GlassButton(text = stringResource(R.string.editor_tap_done), onClick = onTapDone)
-            GlassButton(text = stringResource(R.string.action_cancel), onClick = onTapCancel)
+            CreativeButton(text = stringResource(R.string.editor_tap_undo), enabled = tapSession.count > 0, onClick = onTapUndo)
+            CreativeButton(text = stringResource(R.string.editor_tap_done), onClick = onTapDone)
+            CreativeButton(text = stringResource(R.string.action_cancel), onClick = onTapCancel)
         }
     }
 }
@@ -134,26 +134,26 @@ fun SelectionToolbar(
     onAnimateClip: () -> Unit,
 ) {
     Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        GlassButton(text = stringResource(R.string.curve_animate_scene), onClick = onAnimateProgramme)
+        CreativeButton(text = stringResource(R.string.curve_animate_scene), onClick = onAnimateProgramme)
         if (clipSelected) {
-            GlassButton(text = stringResource(R.string.curve_animate_clip), onClick = onAnimateClip)
+            CreativeButton(text = stringResource(R.string.curve_animate_clip), onClick = onAnimateClip)
             if (canTransition) {
-                GlassButton(text = stringResource(R.string.editor_transition_ellipsis), onClick = onTransition)
+                CreativeButton(text = stringResource(R.string.editor_transition_ellipsis), onClick = onTransition)
             }
-            GlassButton(text = stringResource(R.string.editor_split), onClick = onSplit)
-            GlassButton(text = stringResource(R.string.editor_delete), tint = GlassPalette.pink, onClick = onDelete)
-            GlassButton(text = stringResource(R.string.editor_ripple_delete), tint = GlassPalette.pink, onClick = onRippleDelete)
-            GlassButton(text = stringResource(R.string.editor_duplicate), onClick = onDuplicate)
-            GlassButton(
+            CreativeButton(text = stringResource(R.string.editor_split), onClick = onSplit)
+            CreativeButton(text = stringResource(R.string.editor_delete), tint = CreativeColors.pink, onClick = onDelete)
+            CreativeButton(text = stringResource(R.string.editor_ripple_delete), tint = CreativeColors.pink, onClick = onRippleDelete)
+            CreativeButton(text = stringResource(R.string.editor_duplicate), onClick = onDuplicate)
+            CreativeButton(
                 text = stringResource(if (clipEnabled) R.string.editor_disable else R.string.editor_enable),
                 onClick = onToggleEnabled,
             )
         }
         if (markerSelected) {
-            GlassButton(text = stringResource(R.string.editor_delete_marker), tint = GlassPalette.pink, onClick = onDeleteMarker)
+            CreativeButton(text = stringResource(R.string.editor_delete_marker), tint = CreativeColors.pink, onClick = onDeleteMarker)
         }
         if (keySelected) {
-            GlassButton(text = stringResource(R.string.editor_delete_key), tint = GlassPalette.pink, onClick = onDeleteKey)
+            CreativeButton(text = stringResource(R.string.editor_delete_key), tint = CreativeColors.pink, onClick = onDeleteKey)
         }
     }
 }
@@ -167,18 +167,22 @@ fun TextClipDialog(
     Dialog(onDismissRequest = onDismiss) {
         Column(
             Modifier
-                .glassSurface(shape = GlassShapes.tile)
+                .creativeSurface(shape = CreativeShapes.tile)
                 .padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text(stringResource(R.string.editor_text_title), style = MaterialTheme.typography.titleLarge, color = GlassPalette.textPrimary)
-            GlassTextField(value = text, onValueChange = { text = it }, modifier = Modifier.fillMaxWidth())
+            Text(
+                stringResource(R.string.editor_text_title),
+                style = MaterialTheme.typography.titleLarge,
+                color = CreativeColors.textPrimary,
+            )
+            CreativeTextField(value = text, onValueChange = { text = it }, modifier = Modifier.fillMaxWidth())
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                GlassButton(text = stringResource(R.string.action_cancel), onClick = onDismiss)
-                GlassButton(
+                CreativeButton(text = stringResource(R.string.action_cancel), onClick = onDismiss)
+                CreativeButton(
                     text = stringResource(R.string.action_save),
                     enabled = text.isNotBlank(),
-                    tint = GlassPalette.mint,
+                    tint = CreativeColors.mint,
                     modifier = Modifier.padding(start = 8.dp),
                     onClick = { onConfirm(text.trim()) },
                 )

@@ -5,6 +5,7 @@
 #include <optional>
 #include <string>
 
+#include "viz/MotionField.hpp"
 #include "viz/Program.hpp"
 #include "viz/Scene.hpp"
 #include "viz/fluid/FluidBuffers.hpp"
@@ -29,14 +30,11 @@ public:
     void update(const GeodeFeatureFrame& features, float dt) override;
     void draw(float timeSeconds) override;
     void release() override;
-    void acceptPcm(const float* samples, int count) override { pcmPulse_.accept(samples, count); }
     void setTouchField(const TouchField* field) override { touch_ = field; }
 
 private:
     static constexpr int kSimRes = 540;
     static constexpr float kFeedbackCap = 0.975f;
-    static constexpr float kGlitchThreshold = 0.32f;
-    static constexpr float kGlitchDecay = 2.4f;
     static constexpr float kEnvRisePerSec = 9.0f;
     static constexpr float kEnvFallPerSec = 2.4f;
     static constexpr int kSpokes = 12;
@@ -60,14 +58,18 @@ private:
     bool programOk_ = false;
     GLuint vao_ = 0;
     std::optional<fluid::DoubleFbo> state_;
-    PcmPulse pcmPulse_;
-    float pcmStrike_ = 0.0f;
+    // Wave three: this scene's own continuous motion state, stepped every
+    // update() from the real frame - see viz/MotionField.hpp.
+    MotionField motionField_;
     float envBass_ = 0.0f;
     float envMid_ = 0.0f;
     float envTreble_ = 0.0f;
-    float beatPulse_ = 0.0f;
-    float glitch_ = 0.0f;
     float glitchEpoch_ = 0.0f;
+    // Block-glitch epoch now re-seats once per bar, on the bar oscillator's
+    // own peak (see MotionField::State::barOsc), instead of on a transient
+    // edge - the same rising/falling idiom as FluidChoreography's hitCount_.
+    float prevBarOsc_ = 0.5f;
+    bool barOscRising_ = false;
     const TouchField* touch_ = nullptr;
     std::array<float, kSpokes> spokes_{};
 };

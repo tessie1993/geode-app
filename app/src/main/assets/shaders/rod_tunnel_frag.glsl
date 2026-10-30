@@ -85,7 +85,17 @@ const float ROD_LIFE_PERIOD = 11.0;
 /** The step fraction the angular repeat and twist already needed; now also carries the two bounds above. */
 const float ROD_STEP = 0.6 / (DMT_TUNNEL_LIP * ROD_BEAD_LIP);
 
+/**
+ * The standing twist, radians per unit depth: 0.25 rounded so that one 8192
+ * travel wrap turns it by a whole number (4563) of strand sectors, and the
+ * rods land on themselves across the wrap.
+ */
+#define ROD_TWIST_BASE (4563.0 * ROD_TAU / (ROD_STRANDS * 8192.0))
+
+/** The mids' extra twist, radians per unit depth, measured from the eye (gFly). */
 float gTwist;
+/** The eye's depth down the tube. */
+float gFly;
 float gCellA;
 float gCellZ;
 float gBeadDepth;
@@ -103,11 +113,16 @@ float map(vec3 p) {
     // the tunnel is a cylinder down +z.
     p = dmtTunnelWarp(p);
     float rad = length(p.xy);
-    float ang = atan(p.y, p.x) + p.z * gTwist;
+    // The mids' twist is anchored at the eye. Anchored at depth 0 as it was,
+    // a slewed mid level times a depth of thousands turned the tube by whole
+    // sectors per frame, so the rods spun on every change in the mids.
+    float ang = atan(p.y, p.x) + p.z * ROD_TWIST_BASE + (p.z - gFly) * gTwist;
     float sector = ROD_TAU / ROD_STRANDS;
-    gCellA = floor(ang / sector);
+    // Strand and ring ids wrapped (14 strands, 1024 rings) so the hashes and
+    // hues repeat over the 8192 travel wrap.
+    gCellA = mod(floor(ang / sector), ROD_STRANDS);
     ang = mod(ang, sector) - 0.5 * sector;
-    gCellZ = floor(p.z / ROD_CELL);
+    gCellZ = mod(floor(p.z / ROD_CELL), 1024.0);
     float z = mod(p.z, ROD_CELL) - 0.5 * ROD_CELL;
     vec3 q = vec3(ROD_RADIUS - rad, ang * ROD_RADIUS, z);
     // The cell's own life. The seed is the cell's hash, so each rod's clock
@@ -134,7 +149,7 @@ void main() {
     float enA = min(uEnergySmooth, 1.3);
     float hit = clamp(uHits.w, 0.0, 1.0);
 
-    gTwist = 0.25 + 0.55 * midA;
+    gTwist = 0.55 * midA;
     // Rod to pearls and back: a triangle of uFormPhase, so the morph is deep
     // in the middle of the ring and smooth at both ends, and glides because
     // uFormPhase does.
@@ -149,6 +164,7 @@ void main() {
     // never teleports); the eye goes back onto the tube's centreline at that
     // depth, a little off the axis so the wall is not seen dead centre.
     float fly = ro.z;
+    gFly = fly;
     ro.xy = dmtTunnelPath(fly) + vec2(0.25 * sin(uTime * 0.31), 0.25 * cos(uTime * 0.23));
     // Framing: the bend's tangent and the old slow roll, so the horizon of the
     // tube turns as it banks. The rig's own look is applied inside it.

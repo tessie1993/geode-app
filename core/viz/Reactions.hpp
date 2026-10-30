@@ -27,8 +27,13 @@ enum class ReactSource {
     // Events: an instant rise and an exponential fall, so a one-hop flag
     // becomes something a picture can follow without snapping.
     Onset, Beat, Downbeat, Drop, Section, PitchChange, TimbreJump,
+    // Appended after the events, so they break the grouping but no wire value.
+    // MacroEnergy: the song's level against its own 20 s peak (the analyser's
+    // macroEnergy), smoothed over seconds: where the track is in its arc.
+    // Arrival: an event when the music comes back after two quiet seconds.
+    MacroEnergy, Arrival,
 };
-constexpr int kReactSourceCount = static_cast<int>(ReactSource::TimbreJump) + 1;
+constexpr int kReactSourceCount = static_cast<int>(ReactSource::Arrival) + 1;
 
 // Follow: target += amount * curve(source).
 // Step: each rising edge of the source adds amount to an accumulator (a hue
@@ -67,6 +72,7 @@ private:
     static constexpr float kPeakDecaySeconds = 6.0f;
     static constexpr float kPeakFloor = 0.03f;
     static constexpr float kSwellSeconds = 20.0f;
+    static constexpr float kMacroSeconds = 1.5f;
 
     float normalised(int slot, float x, float dt);
     void trigger(ReactSource s, float strength);
@@ -76,6 +82,7 @@ private:
     std::array<float, kReactSourceCount> peaks_{};
     float swellAvg_ = 0.0f;
     float swellWarm_ = 0.0f;
+    float macro_ = 0.0f;
     int lastKey_ = -1;
     float lastCentroid_ = 0.0f;
     float centroidSlow_ = 0.0f;

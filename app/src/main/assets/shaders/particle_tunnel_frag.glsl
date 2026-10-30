@@ -52,6 +52,11 @@ void main() {
     vec3 ro;
     vec3 rd;
     camFly(uv, ro, rd);
+    // Every z term tiles with a period dividing 1024, so this shift is
+    // invisible and exact (power of two). Without it, far down the 8192
+    // travel a highp z has ~0.001 of fraction left: every sample and the
+    // finite-difference normals quantise into speckle.
+    ro.z = mod(ro.z, PT_ZWRAP);
 
     float swell = clamp(uSwell, 0.0, 1.5);
     float energy = clamp(uEnergySmooth, 0.0, 1.5);

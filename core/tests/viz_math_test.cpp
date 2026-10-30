@@ -86,6 +86,24 @@ void eventsDecayAndSilenceIsQuiet() {
     check(s.value(ReactSource::Kick) == 0.0f && s.value(ReactSource::Onset) == 0.0f, "silence leaves hits at zero");
 }
 
+void macroEnergyIsSlowAndArrivalIsAnEvent() {
+    static_assert(kReactSourceCount == 30, "dev.geode.render.ReactSource has 30 entries");
+    ReactSignals s;
+    GeodeFeatureFrame f = silence();
+    f.macroEnergy = 1.0f;
+    s.step(f, 1.0f / 60.0f);
+    check(s.value(ReactSource::MacroEnergy) < 0.05f, "one loud hop barely moves song energy");
+    for (int i = 0; i < 600; ++i) s.step(f, 1.0f / 60.0f);
+    check(s.value(ReactSource::MacroEnergy) > 0.95f, "song energy settles on the analyser's value");
+    f.macroEnergy = 0.0f;
+    f.arrival = 1.0f;
+    s.step(f, 1.0f / 60.0f);
+    check(s.value(ReactSource::Arrival) > 0.99f, "arrival rises instantly");
+    f.arrival = 0.0f;
+    for (int i = 0; i < 900; ++i) s.step(f, 1.0f / 60.0f);
+    check(s.value(ReactSource::Arrival) < 0.05f, "arrival decays over seconds");
+}
+
 void deterministicForExport() {
     ReactionEngine a;
     ReactionEngine b;
@@ -205,6 +223,7 @@ int main() {
     stepRouteJumpsOncePerEdge();
     luminanceRoutesAreSlewLimited();
     eventsDecayAndSilenceIsQuiet();
+    macroEnergyIsSlowAndArrivalIsAnEvent();
     deterministicForExport();
     cameraTravelsAndStaysOrthonormal();
     cameraSpringsInsteadOfSnapping();

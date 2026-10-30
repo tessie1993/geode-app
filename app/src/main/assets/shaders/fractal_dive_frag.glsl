@@ -98,6 +98,10 @@ void main() {
     vec3 ro;
     vec3 rd;
     camFly(uv, ro, rd);
+    // The world tiles every 4 along z, so this shift is invisible and exact
+    // (power of two). Without it, far down the 8192 travel a highp z has only
+    // ~0.001 of fraction left, which quantises every sample and the normals.
+    ro.z = mod(ro.z, 4.0);
 
     float t = 0.02;
     float hitT = -1.0;

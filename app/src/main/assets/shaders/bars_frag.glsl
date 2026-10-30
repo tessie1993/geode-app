@@ -238,5 +238,9 @@ void main() {
         float depth = floorY - uv.y;
         col = barsColumn(seg, xf, depth, h, cap) * BARS_REFLECT * exp(-depth * BARS_REFLECT_FADE);
     }
+    // The row spans uv.x -1..1. Past it x is clamped to an edge bar with
+    // xf = 0, which drew that bar as one solid slab across the rest of a
+    // landscape frame (16:9 export, wallpaper).
+    col *= step(abs(uv.x), 1.0);
     fragColor = vec4(grade(col), 1.0);
 }

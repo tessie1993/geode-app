@@ -60,6 +60,8 @@ float gH;
 vec2 gCentre;
 vec2 gHalf;
 float gMat;
+/** The eye, z rebased into 0..1024 (see main). */
+vec3 gEye;
 
 /** One of the eight band regions, picked by h in 0..1. */
 float bandPick(float h) {
@@ -96,7 +98,7 @@ float map(vec3 p) {
     float dg = p.y - NC_GROUND;
     gMat = dg < db ? 1.0 : 0.0;
     d = min(d, dg);
-    d = max(d, NC_BUBBLE - length(p - uCamPos));
+    d = max(d, NC_BUBBLE - length(p - gEye));
 
     gTop = top;
     gBand = band;
@@ -143,6 +145,12 @@ void main() {
     vec3 ro;
     vec3 rd;
     camFly(uv, ro, rd);
+    // Every z term tiles with a period dividing 1024, so this shift is
+    // invisible and exact (power of two). Without it, far down the 8192
+    // travel a highp z has ~0.001 of fraction left: every sample and the
+    // finite-difference normals quantise into speckle.
+    ro.z = mod(ro.z, NC_ZWRAP * NC_CELL);
+    gEye = ro;
 
     float swell = clamp(uSwell, 0.0, 1.5);
     float energy = clamp(uEnergySmooth, 0.0, 1.5);
@@ -210,7 +218,7 @@ void main() {
             float wid = hashCell(ivec3(int(mod(floor(wc.x), NC_WINWRAP)), int(floor(wc.y)), int(gH * 4096.0)));
             float lit = step(wid, 0.22 + 0.35 * gBand);
             // A slow sweep keeps the lights moving in silence.
-            float dist = length(p.xz - uCamPos.xz);
+            float dist = length(p.xz - gEye.xz);
             float sweep = 0.5 + 0.5 * sin(dist * 0.35 - uTime * 1.2 + gH * 6.0);
             // The snare ring: it starts under the eye and runs outward as the
             // envelope falls, lighting nearly every window it passes.

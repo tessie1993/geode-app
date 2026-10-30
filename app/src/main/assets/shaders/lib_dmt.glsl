@@ -500,10 +500,16 @@ float dmtSatelliteCount() {
  * The camera rides this path and the tunnel is warped onto it, so the tube
  * curves up, down, left and right ahead of the viewer and the view is always
  * along it - the wormhole of the references rather than a straight pipe.
+ *
+ * Each frequency is a whole multiple of 2pi / 8192 (0.21, 0.043, 0.17 and
+ * 0.031 rounded to 274, 56, 222 and 40 of them), so a style that flies it on
+ * the camera rig's depth repeats over the rig's 8192 travel wrap. The lean is
+ * linear, but every user measures the tube relative to the eye on the same
+ * path, where it cancels.
  */
 vec2 dmtTunnelPath(float z) {
-    return vec2(1.4 * sin(z * 0.21) + 2.6 * sin(z * 0.043 + 1.3),
-                1.2 * cos(z * 0.17 + 0.7) + 2.2 * cos(z * 0.031))
+    return vec2(1.4 * sin(z * 0.2101554) + 2.6 * sin(z * 0.0429515 + 1.3),
+                1.2 * cos(z * 0.1702718 + 0.7) + 2.2 * cos(z * 0.0306796))
          + uMoveDir * z * 0.12;
 }
 

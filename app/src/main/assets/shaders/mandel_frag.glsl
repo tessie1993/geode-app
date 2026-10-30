@@ -159,17 +159,18 @@ vec2 hashSpot(float n) {
  *
  * The SPOT is chosen by the onset count and eased from the previous count's
  * spot to the new one by the onset envelope: when an onset lands, uHitCount
- * steps and uHits.w jumps to 1 on the same frame, so the mix starts exactly at
- * the old spot and glides to the new one as the envelope falls - it moves
- * without ever stepping. HOW FAR the point travels toward the spot is the
+ * steps and uHits.w jumps to at least 0.4 on the same frame (viz/Reactions
+ * triggers it at 0.4..1, not 1), so the mix, measured from 0.4, starts exactly
+ * at the old spot and glides to the new one as the envelope falls - it moves
+ * without ever stepping. The previous count is wrapped like uHitCount itself
+ * (4096), so the count's own wrap is not a jump either. HOW FAR the point travels toward the spot is the
  * pitch-change envelope shaped into a hump (4e(1-e)), which is 0 both before
  * the event (e = 0) and at its instant rise (e = 1), so the point eases out
  * to the spot and back over the envelope's fall rather than snapping there.
  */
 vec2 pitchGlide() {
-    float g = 1.0 - clamp(uHits.w, 0.0, 1.0);
-    g = g * g * (3.0 - 2.0 * g);
-    vec2 spot = mix(hashSpot(uHitCount - 1.0), hashSpot(uHitCount), g);
+    float g = smoothstep(0.4, 0.05, clamp(uHits.w, 0.0, 1.0));
+    vec2 spot = mix(hashSpot(mod(uHitCount - 1.0, 4096.0)), hashSpot(uHitCount), g);
     float e = clamp(uEvents.w, 0.0, 1.0);
     return spot * (4.0 * e * (1.0 - e));
 }

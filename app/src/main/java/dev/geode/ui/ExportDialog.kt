@@ -31,6 +31,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
+import dev.geode.analysis.BarTrim
 import dev.geode.data.EXPORT_FPS_OPTIONS
 import dev.geode.data.ExportDefaults
 import dev.geode.data.ExportPrefsStore
@@ -39,7 +40,6 @@ import dev.geode.data.exportCodecLabel
 import dev.geode.data.exportQualityLabel
 import dev.geode.export.ExportAspect
 import dev.geode.export.ExportCodec
-import dev.geode.export.ExportPresets
 import dev.geode.export.ExportQuality
 import dev.geode.export.ExportRange
 import dev.geode.export.ExportRatio
@@ -163,29 +163,6 @@ fun ExportDialog(
                         Text(stringResource(R.string.export_failed, phase.message), color = MaterialTheme.colorScheme.error)
                     }
                     ExportPhase.Idle, ExportPhase.Loading -> {
-                        Text(stringResource(R.string.export_platform_preset), style = MaterialTheme.typography.labelMedium)
-                        // Chips that wrap, not a segmented row: a phone is too narrow for every preset,
-                        // and a row that scrolled sideways hid the selected one off the right edge.
-                        val presetIndex = ExportPresets.indexMatching(quality, ratio, fps, loopSafe)
-                        ChipRow {
-                            ExportPresets.ALL.forEachIndexed { i, preset ->
-                                QualityChip(stringResource(preset.nameRes), i == presetIndex) {
-                                    quality = preset.quality
-                                    ratio = preset.ratio
-                                    fps = preset.fps
-                                    loopSafe = preset.loopSafe
-                                    persistDefaults()
-                                }
-                            }
-                        }
-                        Text(
-                            presetCaption(
-                                ExportDefaults(quality, fps, ratio, loopSafe, codec, loudnessTargetId),
-                                stringResource(R.string.export_spec, ratio.label, exportQualityLabel(quality), fps),
-                            ),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
                         Text(stringResource(R.string.export_quality), style = MaterialTheme.typography.labelMedium)
                         ChipRow {
                             ExportQuality.entries.forEach { q ->
@@ -235,6 +212,14 @@ fun ExportDialog(
                                     persistDefaults()
                                 }
                             }
+                        }
+                        PlatformFillMenu { preset ->
+                            quality = preset.quality
+                            ratio = preset.ratio
+                            fps = preset.fps
+                            // A loop-safe cut needs the track's tempo; without one the chip below is off.
+                            loopSafe = preset.loopSafe && BarTrim.barDurationUs(bpm) != null
+                            persistDefaults()
                         }
                         if (trackDurationMs > 0) {
                             Text(stringResource(R.string.export_length), style = MaterialTheme.typography.labelMedium)

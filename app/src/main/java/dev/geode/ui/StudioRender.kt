@@ -1,6 +1,7 @@
 package dev.geode.ui
 
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -9,6 +10,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -32,7 +38,9 @@ import dev.geode.data.ExportPrefsStore
 import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.exportCodecLabel
 import dev.geode.data.exportQualityLabel
+import dev.geode.data.filledFrom
 import dev.geode.export.ExportCodec
+import dev.geode.export.ExportPreset
 import dev.geode.export.ExportPresets
 import dev.geode.export.ExportQuality
 import dev.geode.export.ExportRatio
@@ -131,40 +139,6 @@ private fun LazyListScope.exportDefaultsItems(
     item {
         SettingsGroup(stringResource(R.string.export_group_defaults)) {
             Column {
-                Text(stringResource(R.string.export_platform_preset), style = MaterialTheme.typography.labelMedium)
-                Row(Modifier.fillMaxWidth().padding(top = 4.dp).horizontalScroll(rememberScrollState())) {
-                    CrystalSegmented(
-                        options = ExportPresets.ALL.map { stringResource(it.nameRes) },
-                        selected =
-                            ExportPresets.indexMatching(
-                                defaults.quality,
-                                defaults.ratio,
-                                defaults.fps,
-                                defaults.loopSafe,
-                            ),
-                        onSelect = {
-                            val preset = ExportPresets.ALL[it]
-                            update(
-                                defaults.copy(
-                                    quality = preset.quality,
-                                    ratio = preset.ratio,
-                                    fps = preset.fps,
-                                    loopSafe = preset.loopSafe,
-                                ),
-                            )
-                        },
-                    )
-                }
-                Text(
-                    presetCaption(
-                        defaults,
-                        stringResource(R.string.export_spec, defaults.ratio.label, exportQualityLabel(defaults.quality), defaults.fps),
-                    ),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            Column {
                 Text(stringResource(R.string.export_quality), style = MaterialTheme.typography.labelMedium)
                 CrystalSegmented(
                     options = ExportQuality.entries.map { exportQualityLabel(it) },
@@ -225,6 +199,7 @@ private fun LazyListScope.exportDefaultsItems(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+            PlatformFillMenu { update(defaults.filledFrom(it)) }
         }
     }
 }
@@ -243,15 +218,49 @@ internal fun fpsLabels(): List<String> =
         }
     }
 
+/**
+ * "Fill from platform ▾": sets the options above to a platform's usual combination, once. It sits
+ * below the options on purpose: they are what the user picks, and a platform is only a shortcut
+ * many people never use. Nothing stays selected afterwards, so a later change never snaps back.
+ */
 @Composable
-internal fun presetCaption(
-    defaults: ExportDefaults,
-    baseSpec: String,
-): String {
-    val spec =
-        if (defaults.loopSafe) stringResource(R.string.export_spec_loop_safe, baseSpec) else baseSpec
-    return ExportPresets
-        .matching(defaults.quality, defaults.ratio, defaults.fps, defaults.loopSafe)
-        ?.let { stringResource(R.string.export_named_preset, stringResource(it.nameRes), spec) }
-        ?: stringResource(R.string.export_custom_preset, spec)
+internal fun PlatformFillMenu(onFill: (ExportPreset) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    Column {
+        Box {
+            CrystalButton(filled = false, compact = true, onClick = { open = true }) {
+                Text(stringResource(R.string.export_fill_from_platform))
+                Icon(Icons.Filled.ArrowDropDown, contentDescription = null)
+            }
+            DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+                ExportPresets.ALL.forEach { preset ->
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                stringResource(
+                                    R.string.export_platform_entry,
+                                    stringResource(preset.nameRes),
+                                    stringResource(
+                                        R.string.export_spec,
+                                        preset.ratio.label,
+                                        exportQualityLabel(preset.quality),
+                                        preset.fps,
+                                    ),
+                                ),
+                            )
+                        },
+                        onClick = {
+                            open = false
+                            onFill(preset)
+                        },
+                    )
+                }
+            }
+        }
+        Text(
+            stringResource(R.string.export_fill_from_platform_hint),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
 }

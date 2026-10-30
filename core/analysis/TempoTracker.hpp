@@ -17,7 +17,8 @@ public:
 
 private:
     float clarity(float bestScore);
-    float bpmOf(int periodFrames) const { return 60.0f * hopRateHz_ / periodFrames; }
+    float refinedPeriod(size_t best) const;
+    float bpmOf(float periodFrames) const { return 60.0f * hopRateHz_ / periodFrames; }
     std::vector<int> buildPeriods(int count) const;
 
     float hopRateHz_;

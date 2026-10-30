@@ -5,6 +5,7 @@ import android.media.MediaCodec
 import android.media.MediaExtractor
 import android.media.MediaFormat
 import android.net.Uri
+import dev.geode.engine.audio.AnalysisFft
 import dev.geode.engine.audio.ReactiveAnalyzer
 import dev.geode.util.bestEffort
 import kotlinx.coroutines.CancellationException
@@ -12,6 +13,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
 import java.nio.ByteOrder
+import kotlin.math.roundToLong
 
 class OfflineAnalyzer(
     private val context: Context,
@@ -148,26 +150,22 @@ class OfflineAnalyzer(
     }
 
     internal class StreamingPipeline(
-        sigma: Float,
-        minIntervalMs: Float,
+        private val sigma: Float,
+        private val minIntervalMs: Float,
     ) : AutoCloseable {
-        private val analyzer =
-            ReactiveAnalyzer(
-                bandCount = AnalysisEngine.DEFAULT_BAND_COUNT,
-                fftSize = AnalysisEngine.DEFAULT_FFT_SIZE,
-                hopRateHz = HOP_RATE_HZ,
-            ).also {
-                it.sensitivity = BeatTuning.clampSensitivity(sigma)
-                it.refractoryMs = BeatTuning.clampIntervalMs(minIntervalMs)
-                it.attackSeconds = BeatTuning.envelopeSeconds(AnalysisEngine.DEFAULT_ATTACK)
-                it.releaseSeconds = BeatTuning.envelopeSeconds(AnalysisEngine.DEFAULT_DECAY)
-            }
+        // Built on the first decoded buffer, once the stream's rate is known: the FFT size follows
+        // the rate (AnalysisFft.sizeFor), so a 96 kHz file gets the same band edges as a 48 kHz one.
+        private var analyzerOrNull: ReactiveAnalyzer? = null
+        private val analyzer: ReactiveAnalyzer get() = checkNotNull(analyzerOrNull) { "no audio fed yet" }
 
         private val frames = FrameAccumulator()
-        private var scratch = FloatArray(AnalysisEngine.DEFAULT_FFT_SIZE * 4)
-        private var sampleRate = 44100
-        private var hopSamples = sampleRate / 60
+        private var scratch = FloatArray(AnalysisFft.REFERENCE_FFT_SIZE * 4)
+        private var sampleRate = 0
+        private var hopSamples = 0
 
+        // Frame times are originMs plus the samples pulled since the last rate change, so a stream
+        // that changes rate mid-way keeps one continuous clock.
+        private var originMs = 0L
         private var absSample = 0L
 
         fun feed(
@@ -180,8 +178,7 @@ class OfflineAnalyzer(
             val n = pcm.remaining()
             if (scratch.size < n) scratch = FloatArray(n.coerceAtLeast(scratch.size * 2))
             for (i in 0 until n) scratch[i] = pcm.get(pcm.position() + i) / 32768f
-            analyzer.push(scratch, n / channels, channels)
-            drain()
+            pushAndDrain(n / channels, channels)
         }
 
         fun feedFloat(
@@ -194,21 +191,64 @@ class OfflineAnalyzer(
             val n = pcm.remaining()
             if (scratch.size < n) scratch = FloatArray(n.coerceAtLeast(scratch.size * 2))
             pcm.duplicate().get(scratch, 0, n)
-            analyzer.push(scratch, n / channels, channels)
-            drain()
+            pushAndDrain(n / channels, channels)
+        }
+
+        /**
+         * The native session buffers at most a few FFT windows and drops the oldest samples past
+         * that, which would slip every later frame's timestamp. A decoder buffer larger than one
+         * window (big FLAC blocks) is therefore pushed a window at a time, draining in between.
+         */
+        private fun pushAndDrain(
+            frameCount: Int,
+            channels: Int,
+        ) {
+            val window = analyzer.fftSize
+            if (frameCount <= window) {
+                analyzer.push(scratch, frameCount, channels)
+                drain()
+                return
+            }
+            var at = 0
+            while (at < frameCount) {
+                val n = minOf(window, frameCount - at)
+                analyzer.push(scratch.copyOfRange(at * channels, (at + n) * channels), n, channels)
+                drain()
+                at += n
+            }
         }
 
         private fun adoptSampleRate(sampleRateHz: Int) {
-            if (sampleRateHz != sampleRate) {
-                sampleRate = sampleRateHz
-                hopSamples = (sampleRate / 60).coerceAtLeast(1)
+            if (sampleRateHz == sampleRate) return
+            val existing = analyzerOrNull
+            if (existing == null) {
+                analyzerOrNull =
+                    ReactiveAnalyzer(
+                        bandCount = AnalysisEngine.DEFAULT_BAND_COUNT,
+                        fftSize = AnalysisFft.sizeFor(sampleRateHz),
+                        sampleRateHz = sampleRateHz,
+                        hopRateHz = HOP_RATE_HZ,
+                    ).also {
+                        it.sensitivity = BeatTuning.clampSensitivity(sigma)
+                        it.refractoryMs = BeatTuning.clampIntervalMs(minIntervalMs)
+                        it.attackSeconds = BeatTuning.envelopeSeconds(AnalysisEngine.DEFAULT_ATTACK)
+                        it.releaseSeconds = BeatTuning.envelopeSeconds(AnalysisEngine.DEFAULT_DECAY)
+                    }
+            } else {
+                originMs += AnalysisFft.sampleToMs(absSample, sampleRate)
+                absSample = 0L
+                existing.sampleRateHz = sampleRateHz
             }
-            analyzer.sampleRateHz = sampleRate
+            sampleRate = sampleRateHz
+            // The hop the native session actually advances by, clamp included: stamping frames
+            // with sampleRate / 60 while the session clamped its hop to the FFT stretched the
+            // timeline (1.56x at 192 kHz against a fixed 2048 FFT).
+            hopSamples = AnalysisFft.hopSamples(sampleRateHz, HOP_RATE_HZ, analyzer.fftSize)
         }
 
         private fun drain() {
             while (analyzer.pull()) {
-                val timeMs = absSample * 1000L / sampleRate
+                val timeMs = originMs + AnalysisFft.sampleToMs(absSample, sampleRate)
                 frames.add(TimelineFrame(timeMs, snapshot()))
                 absSample += hopSamples
             }
@@ -259,14 +299,15 @@ class OfflineAnalyzer(
             val group = frames.groupSize
             return FeatureTimeline(
                 out,
-                hopMs = group * 1000L / 60,
-                key = analyzer.key(),
+                hopMs = (group * 1000f / HOP_RATE_HZ).roundToLong(),
+                key = analyzerOrNull?.key().orEmpty(),
                 hopRateHz = HOP_RATE_HZ / group,
+                sampleRateHz = if (sampleRate > 0) sampleRate else FeatureTimeline.DEFAULT_SAMPLE_RATE_HZ,
             )
         }
 
         override fun close() {
-            analyzer.close()
+            analyzerOrNull?.close()
         }
 
         private companion object {

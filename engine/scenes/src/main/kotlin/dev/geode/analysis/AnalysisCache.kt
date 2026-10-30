@@ -17,7 +17,9 @@ object AnalysisCache {
     // warmup, beatStrength, beatPhase, transient, pulseConfidence, macroEnergy, kick,
     // snare, hat, stereoWidth, stereoCorrelation, stereoPan, chroma, chromaConfidence).
     // A v2 file fails the version check below and is treated as a cache miss.
-    private const val VERSION = 3
+    // v4 records the decoded sample rate after hopRateHz, so the drum channels re-derived on
+    // load use the track's rate instead of an assumed 48 kHz.
+    private const val VERSION = 4
     private const val MAX_ENTRIES = 15
 
     private fun dir(context: Context): File = File(context.filesDir, "analysis").apply { mkdirs() }
@@ -86,6 +88,8 @@ object AnalysisCache {
                     if (d.readInt() != MAGIC || d.readInt() != VERSION) return@runCatching null
                     val hopMs = d.readLong()
                     val hopRateHz = d.readFloat()
+                    val sampleRateHz = d.readInt()
+                    if (sampleRateHz <= 0) return@runCatching null
                     val key = d.readUTF()
                     val frameCount = d.readInt()
                     val bandCount = d.readInt()
@@ -179,7 +183,7 @@ object AnalysisCache {
                             )
                     }
                     f.setLastModified(System.currentTimeMillis())
-                    FeatureTimeline(frames, hopMs, key, hopRateHz)
+                    FeatureTimeline(frames, hopMs, key, hopRateHz, sampleRateHz)
                 }
             }.getOrNull()
         if (loaded == null) {
@@ -204,6 +208,7 @@ object AnalysisCache {
                 d.writeInt(VERSION)
                 d.writeLong(t.hopMs)
                 d.writeFloat(t.hopRateHz)
+                d.writeInt(t.sampleRateHz)
                 d.writeUTF(t.key)
                 d.writeInt(t.frames.size)
                 val bandCount =

@@ -2,7 +2,6 @@ package dev.geode.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -109,16 +108,7 @@ fun AppRoot() {
             visualizerView.onPause()
         }
     }
-    val themePack by settingsViewModel.theme.collectAsStateWithLifecycle()
     val gui by settingsViewModel.guiPrefs.collectAsStateWithLifecycle()
-    val systemDark = isSystemInDarkTheme()
-    val effectiveTheme =
-        if (gui.followSystemDark && !systemDark) {
-            dev.geode.ui.theme.ThemePackCatalog.all
-                .firstOrNull { it.isLight } ?: themePack
-        } else {
-            themePack
-        }
     val externalDisplay = rememberExternalDisplay()
     val appState = rememberGeodeAppState(externalDisplay)
     // Read on IO: at cold start this is the first touch of the general prefs file, and a
@@ -156,10 +146,7 @@ fun AppRoot() {
     }
     VisualizerEngineBindings(viewModel, visualizerView)
     androidx.activity.compose.BackHandler(enabled = !appState.onPlayer) { appState.resetToPlayer() }
-    CrystalMaterialTheme(
-        pack = effectiveTheme,
-        gui = gui,
-    ) {
+    CrystalMaterialTheme(gui = gui) {
         val miniPlayer: @Composable () -> Unit = {
             MiniPlayer(
                 title =
@@ -449,7 +436,6 @@ private fun MiniPlayer(
                 MaterialTheme.colorScheme.primary,
                 corner = 0.dp,
                 glowStrength = 0.6f,
-                facets = 0.8f,
             ).clickable(onClick = onExpand),
     ) {
         Row(

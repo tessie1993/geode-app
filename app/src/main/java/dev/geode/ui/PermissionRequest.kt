@@ -90,6 +90,7 @@ fun rememberPermissionRequest(
         remember(permission) {
             mutableStateOf(if (context.isGranted(permission)) PermissionStatus.GRANTED else PermissionStatus.NOT_ASKED)
         }
+
     fun rationale(): Boolean = context.findActivity()?.shouldShowRequestPermissionRationale(permission) ?: false
 
     val rationaleBefore = remember(permission) { booleanArrayOf(false) }

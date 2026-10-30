@@ -166,6 +166,8 @@ fun PlayerScreen(
         // this pane rather than the window, so the Player half of the two-pane Library stays one
         // column.
         val sideBySide = maxWidth >= SIDE_BY_SIDE_MIN_WIDTH || (maxWidth > maxHeight && maxHeight < SHORT_HEIGHT)
+        // Read here: inside the Row below, BoxWithConstraints' scope is not an implicit receiver.
+        val paneHeight = maxHeight
         if (sideBySide) {
             Row(Modifier.fillMaxSize()) {
                 Column(
@@ -178,7 +180,7 @@ fun PlayerScreen(
                 ) {
                     header()
                     // The art takes what height is left under the header and the title rows.
-                    hero((maxHeight - HERO_CHROME).coerceIn(MIN_ART, MAX_ART))
+                    hero((paneHeight - HERO_CHROME).coerceIn(MIN_ART, MAX_ART))
                 }
                 LazyColumn(
                     Modifier.weight(1f).fillMaxHeight(),

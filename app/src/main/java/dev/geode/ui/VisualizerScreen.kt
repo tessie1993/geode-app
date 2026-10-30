@@ -118,9 +118,9 @@ fun VisualizerScreen(
     // A phone on its side: the transport folds into two rows so it doesn't cover half the visuals.
     val shortWindow =
         !currentWindowAdaptiveInfo().windowSizeClass.isHeightAtLeastBreakpoint(WindowSizeClass.HEIGHT_DP_MEDIUM_LOWER_BOUND)
+    var controlsVisible by remember { mutableStateOf(true) }
     val toggleControlsLabel =
         stringResource(if (controlsVisible) R.string.a11y_hide_controls else R.string.a11y_show_controls)
-    var controlsVisible by remember { mutableStateOf(true) }
     val context = LocalContext.current
     // Picture-in-picture shrinks this screen to a window with no room for chrome, and no way for
     // the person to tap a button in it anyway — every control, not just the transport bar, is

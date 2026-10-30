@@ -16,16 +16,21 @@ object AnalysisFft {
     /** The rate [REFERENCE_FFT_SIZE] is calibrated for: 23.4 Hz bins. */
     const val REFERENCE_SAMPLE_RATE_HZ = 48_000
 
+    /** Twice the native waveform's 128 points, so its averaging step is never below two samples. */
+    const val MIN_FFT_SIZE = 256
+
     /** 768 kHz worth; past this the input is not audio this app plays. */
     const val MAX_FFT_SIZE = 32_768
 
     /**
-     * The smallest power of two whose bin width is no wider than the reference's: 2048 up to
-     * 48 kHz, 4096 at 88.2/96 kHz, 8192 at 176.4/192 kHz. Lower rates keep 2048 (finer bins,
-     * a longer window), which is what they always had.
+     * The smallest power of two whose bin width is no wider than the reference's: 1024 at
+     * 22.05 kHz, 2048 at 44.1/48 kHz, 4096 at 88.2/96 kHz, 8192 at 176.4/192 kHz. Low rates used
+     * to keep 2048, which doubled their window in time (93 ms at 22.05 kHz against 43 ms at
+     * 48 kHz), so transients smeared and onsets landed late on exactly the files that already
+     * had the least detail.
      */
     fun sizeFor(sampleRateHz: Int): Int {
-        var size = REFERENCE_FFT_SIZE
+        var size = MIN_FFT_SIZE
         while (size < MAX_FFT_SIZE && size.toLong() * REFERENCE_SAMPLE_RATE_HZ < REFERENCE_FFT_SIZE.toLong() * sampleRateHz) {
             size *= 2
         }

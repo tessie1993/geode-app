@@ -2,6 +2,7 @@ package dev.geode.ui
 
 import androidx.annotation.StringRes
 import dev.geode.R
+import dev.geode.model.DeviceTrack
 
 /**
  * How the track list is ordered. Exhaustive by construction: adding an order is a compile error

@@ -1,7 +1,7 @@
 package dev.geode.data
 
 import android.content.Context
-import dev.geode.ui.DeviceTrack
+import dev.geode.model.DeviceTrack
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File

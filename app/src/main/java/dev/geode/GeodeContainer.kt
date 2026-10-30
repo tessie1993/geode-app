@@ -6,8 +6,8 @@ import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
 import dev.geode.data.GeodePrefsFiles
-import dev.geode.ui.SharedPrefsUserDataRepository
-import dev.geode.ui.UserDataRepository
+import dev.geode.data.SharedPrefsUserDataRepository
+import dev.geode.data.UserDataRepository
 import dev.geode.util.bestEffort
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers

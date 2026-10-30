@@ -46,9 +46,9 @@ import androidx.glance.unit.ColorProvider
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import dev.geode.R
+import dev.geode.appLaunchIntent
 import dev.geode.playback.MediaArtwork
 import dev.geode.playback.PlaybackService
-import dev.geode.ui.MainActivity
 import java.io.File
 import kotlin.math.roundToInt
 
@@ -128,7 +128,7 @@ private fun NowPlaying(
                 .background(ImageProvider(R.drawable.widget_glass_background))
                 .cornerRadius(R.dimen.widget_corner_radius)
                 .padding(horizontal = 12.dp, vertical = if (layout == WidgetLayout.LARGE) 12.dp else 0.dp)
-                .clickable(actionStartActivity<MainActivity>()),
+                .clickable(actionStartActivity(LocalContext.current.appLaunchIntent())),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         when (layout) {

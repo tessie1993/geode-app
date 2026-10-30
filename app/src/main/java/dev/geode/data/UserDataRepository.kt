@@ -1,4 +1,4 @@
-package dev.geode.ui
+package dev.geode.data
 
 import android.content.SharedPreferences
 import kotlinx.coroutines.CoroutineScope

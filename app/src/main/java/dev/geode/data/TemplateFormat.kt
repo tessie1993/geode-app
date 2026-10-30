@@ -74,9 +74,9 @@
 
 package dev.geode.data
 
+import dev.geode.model.PresetLink
 import dev.geode.render.scene.SceneIds
 import dev.geode.render.scene.SceneParams
-import dev.geode.ui.PresetLink
 import org.json.JSONArray
 import org.json.JSONObject
 

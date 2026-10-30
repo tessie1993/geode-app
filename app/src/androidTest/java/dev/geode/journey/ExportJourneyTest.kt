@@ -31,9 +31,8 @@ class ExportJourneyTest {
     @Test
     fun exportDialogStartButtonIsReachable() {
         compose.awaitEmptyPlayer()
-        compose.tap("Settings")
-        compose.tap("Export")
-        compose.tap("Export video…")
+        compose.tap("Studio")
+        compose.tap("Render")
         compose.tap("Video export…")
 
         // "Render 1080p MP4 30fps"; not "Render to chosen folder…", and not the fps chips.

@@ -122,8 +122,8 @@ fun ComposeTestRule.tap(what: SemanticsMatcher) {
 }
 
 /**
- * A LazyColumn composes only the rows on screen, so a button further down (Settings › Export's
- * "Export video…") has no node until something scrolls to it. Asks every lazy list on screen to
+ * A LazyColumn composes only the rows on screen, so a button further down (a Settings tab's
+ * lower rows) has no node until something scrolls to it. Asks every lazy list on screen to
  * scroll to [matcher]; the ones that don't hold it fail, and that failure is ignored.
  */
 fun ComposeTestRule.scrollLazyListsTo(matcher: SemanticsMatcher) {

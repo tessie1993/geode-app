@@ -69,7 +69,7 @@ class AbSnapshotTest {
                 }
 
                 override fun setKnobs(values: List<Float>) {
-                    knobs = values
+                    this@AbSnapshotTest.knobs = values
                 }
             },
         )

@@ -52,4 +52,12 @@ object SceneIds {
     const val CHROME_NEBULA: String = "chrome_nebula"
     const val FRACTAL_DIVE: String = "fractal_dive"
     const val AURORA_OCEAN: String = "aurora_ocean"
+    const val SPECTRUM_TERRAIN: String = "spectrum_terrain"
+    const val OUTRUN_DRIVE: String = "outrun_drive"
+    const val MENGER_CORE: String = "menger_core"
+    const val GYROID_CAVERN: String = "gyroid_cavern"
+    const val RINGED_PLANET: String = "ringed_planet"
+    const val JELLY_ABYSS: String = "jelly_abyss"
+    const val RIBBON_STORM: String = "ribbon_storm"
+    const val PRISM_RAIN: String = "prism_rain"
 }

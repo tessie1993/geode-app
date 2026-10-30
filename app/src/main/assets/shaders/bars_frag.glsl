@@ -96,7 +96,7 @@ vec2 view() {
     if (uMorph > 0.001) {
         float mr = length(uv);
         float ma = atan(uv.y, uv.x);
-        vec2 polar = vec2(ma / 3.14159, (mr - 0.7) * 1.6);
+        vec2 polar = vec2(abs(ma) / 1.5707963 - 1.0, (mr - 0.7) * 1.6);
         uv = mix(uv, polar, uMorph * (0.6 + 0.15 * sin(uTime * 0.31)));
     }
     float a = uRotation + uSway * 0.35 * sin(uTime * 0.7);
@@ -238,5 +238,9 @@ void main() {
         float depth = floorY - uv.y;
         col = barsColumn(seg, xf, depth, h, cap) * BARS_REFLECT * exp(-depth * BARS_REFLECT_FADE);
     }
+    // The row spans uv.x -1..1. Past it x is clamped to an edge bar with
+    // xf = 0, which drew that bar as one solid slab across the rest of a
+    // landscape frame (16:9 export, wallpaper).
+    col *= step(abs(uv.x), 1.0);
     fragColor = vec4(grade(col), 1.0);
 }

@@ -654,6 +654,9 @@ private fun ReactionsSection(
 private val NEW_REACTION =
     ReactionRoute(source = ReactSource.ONSET, target = LfoTarget.COLOR_SHIFT, mode = ReactMode.STEP, amount = 0.15f)
 
+// The whole range native accepts: the style DNA draws drop surges above 1.
+private val REACT_AMOUNT_RANGE = ReactionRoute.MIN_AMOUNT..ReactionRoute.MAX_AMOUNT
+
 private enum class ReactionPick { SOURCE, TARGET }
 
 @Composable
@@ -686,7 +689,7 @@ private fun ReactionCard(
             ChipRow(ReactMode.entries.map { it.label }, ReactMode.entries.indexOf(route.mode)) {
                 onChange(route.copy(mode = ReactMode.entries[it]))
             }
-            LabeledSlider(REACT_DEPTH, route.amount, -1f..1f, scope = ParamScope.UNIVERSAL) { onChange(route.copy(amount = it)) }
+            LabeledSlider(REACT_DEPTH, route.amount, REACT_AMOUNT_RANGE, scope = ParamScope.UNIVERSAL) { onChange(route.copy(amount = it)) }
             LabeledSlider(REACT_ATTACK, route.attackSeconds, 0f..1f, scope = ParamScope.UNIVERSAL) {
                 onChange(route.copy(attackSeconds = it))
             }

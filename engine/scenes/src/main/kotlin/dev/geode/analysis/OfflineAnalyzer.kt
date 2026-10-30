@@ -178,8 +178,7 @@ class OfflineAnalyzer(
             val n = pcm.remaining()
             if (scratch.size < n) scratch = FloatArray(n.coerceAtLeast(scratch.size * 2))
             for (i in 0 until n) scratch[i] = pcm.get(pcm.position() + i) / 32768f
-            analyzer.push(scratch, n / channels, channels)
-            drain()
+            pushAndDrain(n / channels, channels)
         }
 
         fun feedFloat(
@@ -192,8 +191,31 @@ class OfflineAnalyzer(
             val n = pcm.remaining()
             if (scratch.size < n) scratch = FloatArray(n.coerceAtLeast(scratch.size * 2))
             pcm.duplicate().get(scratch, 0, n)
-            analyzer.push(scratch, n / channels, channels)
-            drain()
+            pushAndDrain(n / channels, channels)
+        }
+
+        /**
+         * The native session buffers at most a few FFT windows and drops the oldest samples past
+         * that, which would slip every later frame's timestamp. A decoder buffer larger than one
+         * window (big FLAC blocks) is therefore pushed a window at a time, draining in between.
+         */
+        private fun pushAndDrain(
+            frameCount: Int,
+            channels: Int,
+        ) {
+            val window = analyzer.fftSize
+            if (frameCount <= window) {
+                analyzer.push(scratch, frameCount, channels)
+                drain()
+                return
+            }
+            var at = 0
+            while (at < frameCount) {
+                val n = minOf(window, frameCount - at)
+                analyzer.push(scratch.copyOfRange(at * channels, (at + n) * channels), n, channels)
+                drain()
+                at += n
+            }
         }
 
         private fun adoptSampleRate(sampleRateHz: Int) {

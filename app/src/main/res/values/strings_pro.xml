@@ -31,7 +31,7 @@
     <string name="pro_compare_free">Free</string>
     <string name="pro_compare_pro">Pro</string>
     <string name="pro_row_styles">Visual styles</string>
-    <string name="pro_row_styles_free">Starter set</string>
+    <string name="pro_row_styles_free">Shader styles</string>
     <string name="pro_row_styles_pro">All styles</string>
     <string name="pro_row_resolution">Export resolution</string>
     <string name="pro_row_resolution_free">Up to 1080p</string>

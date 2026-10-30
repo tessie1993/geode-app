@@ -39,7 +39,7 @@ out vec4 fragColor;
 // uWarp add per-branch jitter and a noisy flutter to the wind; uTwist adds a
 // standing spiral curl. Colour: sky, sun and rim come from pal(), with a fixed
 // dusk tint underneath. Energy: uIntensity scales the bass lean and the air
-// glints. Space: view()'s zoom and pan.
+// glints. Space: the view zoom and pan.
 
 #define GR_LEVELS 9.0
 #define GR_FAR_LEVELS 7.0
@@ -53,7 +53,7 @@ float ridgeY(float x) {
 }
 
 void main() {
-    vec2 uv = view();
+    vec2 uv = arbView();
     float px = max(length(fwidth(uv)), 1e-4);
     float t = uTime * uSpeed;
     float energy = uIntensity;

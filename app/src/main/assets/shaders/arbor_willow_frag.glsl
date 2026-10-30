@@ -112,7 +112,7 @@ vec3 skyCol(vec3 rd, vec3 moonDir, float hue) {
 }
 
 void main() {
-    vec2 uv = view();
+    vec2 uv = arbView();
 
     float t = uTime * uSpeed;
     float energy = uIntensity;

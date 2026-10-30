@@ -36,7 +36,6 @@ data class StyleFamily(
 }
 
 object StyleFamilies {
-    // <generated>
     /** Fractal trees: branching folded distance fields, flown through or orbited. */
     val ARBOR: StyleFamily =
         StyleFamily(
@@ -48,10 +47,25 @@ object StyleFamilies {
                 listOf(
                     "arbor_grove",
                     "arbor_willow",
+                    "arbor_coral",
+                    "arbor_frost",
+                    "arbor_bolt",
+                    "arbor_roots",
+                    "arbor_bonsai",
+                    "arbor_canopy",
+                    "arbor_rosette",
+                    "arbor_spire",
+                    "arbor_synapse",
+                    "arbor_sakura",
                 ),
             marchedIds = 
                 setOf(
                     "arbor_willow",
+                    "arbor_coral",
+                    "arbor_bonsai",
+                    "arbor_canopy",
+                    "arbor_spire",
+                    "arbor_synapse",
                 ),
         )
 
@@ -146,7 +160,6 @@ object StyleFamilies {
                 ),
             marchedIds = emptySet(),
         )
-    // </generated>
 
     /** In picker order. */
     val all: List<StyleFamily> = listOf(ARBOR, BULB, CHRYSANTHEMUM, LUCID)

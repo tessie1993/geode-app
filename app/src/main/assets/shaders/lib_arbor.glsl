@@ -3,8 +3,9 @@
 //
 // Include after lib_scene_uniforms and lib_sdf3 (it calls rot2() and hash11()).
 // The tree functions read no uniform at all. The macro helpers at the bottom
-// read uSteps, uMorph, uTurbulence and uWarp, each only inside the helper that
-// needs it, so a style that never calls one leaves that uniform to the linker.
+// read uSteps, uMorph, uTurbulence and uWarp, and arbView() the view controls,
+// each only inside the helper that needs it, so a style that never calls one
+// leaves that uniform to the linker.
 //
 // ---- the Customize macros --------------------------------------------------------
 //
@@ -13,8 +14,11 @@
 // Complexity (uMorph) adds fold levels within the march budget (arbLevels),
 // Chaos (uTurbulence + uWarp, arbChaos) adds per-branch jitter and sway noise
 // and uTwist a spiral twist, Colour is pal(), Energy (uIntensity) scales the
-// in-shader audio amounts, Space is the camera rig or view()'s zoom. They live
-// here so "Complexity" adds levels the same way in all twelve.
+// in-shader audio amounts, Space is the camera rig or the zoom. They live
+// here so "Complexity" adds levels the same way in all twelve. arbView()
+// replaces view() so those four uniforms are not ALSO applied as screen warps.
+// arbView() reads vUv, so include this file only in a fragment style that
+// declares `in vec2 vUv` (every style does).
 //
 // ---- why a fold, not a recursion ---------------------------------------------
 //
@@ -295,6 +299,54 @@ float arborDendrite2(vec2 p, float side, float mainRatio, float sideRatio, float
     gArbPath = path;
     gArbTip = tipD;
     return best;
+}
+
+/**
+ * view() without its four screen warps: Morph's polar remap, Turbulence,
+ * Twist and Warp. Every Arbor style reads its uv from this instead.
+ *
+ * Those four uniforms are the Complexity and Chaos macros here, and they
+ * already mean something inside the tree (more levels, per-branch jitter, a
+ * spiral in the forks). view() would ALSO bend the finished picture with
+ * them, and a marched style's rays with it, so a Complexity of 1 turned the
+ * scene into a polar smear instead of a denser tree. Everything else view()
+ * does (aspect, pixelate, mirror, kaleidoscope, drift, rotation and sway, the
+ * beat pulse and zoom, ripple) is kept line for line, so those sliders mean
+ * what they mean on every other style.
+ */
+vec2 arbView() {
+    vec2 uv = vUv * 2.0 - 1.0;
+    uv.x *= uResolution.x / uResolution.y;
+    if (uPixelate > 0.001) {
+        float px = mix(1.0, 12.0, uPixelate) * 24.0;
+        uv = floor(uv * px) / px;
+    }
+    if (uMirrorX > 0.5) uv.x = abs(uv.x);
+    if (uKaleido > 0.5 && uSymmetry >= 2.0) {
+        float ang = atan(uv.y, uv.x);
+        float rad = length(uv);
+        float seg = 6.2831853 / uSymmetry;
+        ang = abs(mod(ang, seg) - seg * 0.5);
+        uv = vec2(cos(ang), sin(ang)) * rad;
+    }
+    vec2 driftPhase = fract(vec2(uDriftX, uDriftY) * uTime * 0.025 + 0.25);
+    uv += 1.0 - 2.0 * abs(2.0 * driftPhase - 1.0);
+    uv += uShake * uBeat * 0.03 * vec2(sin(uTime * 91.7), cos(uTime * 77.3));
+    float a = uRotation + uSway * 0.35 * sin(uTime * 0.7);
+    uv = mat2(cos(a), -sin(a), sin(a), cos(a)) * uv;
+    float beatEnv = clamp(uBeat, 0.0, 1.0);
+    float beatBump = pow(0.5 + 0.5 * cos(6.2831853 * uBeatPhase), 2.0);
+    float pulse = 1.0 + uPulse * 0.22 * beatEnv * beatEnv * beatBump;
+    float z = uZoom * pulse * pow(2.0, 1.0 - abs(2.0 * uZoomPhase - 1.0)) * (1.0 + uBeat * uBeatResponse * 0.15);
+    uv /= max(z, 0.05);
+    if (uTile > 1.01) {
+        uv = mod(uv * uTile * 0.5 + 1.0, 2.0) - 1.0;
+    }
+    if (uRipple > 0.001) {
+        float r = length(uv);
+        uv *= 1.0 + uRipple * 0.15 * sin(r * 14.0 - uTime * 3.0 + uBass * 4.0);
+    }
+    return uv;
 }
 
 /** The Complexity macro, 0..1 (uMorph; neutral 0). */

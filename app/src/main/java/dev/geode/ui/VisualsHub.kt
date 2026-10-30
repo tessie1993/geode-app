@@ -61,6 +61,7 @@ import dev.geode.render.VisualizerView
 import dev.geode.render.scene.CustomizeTab
 import dev.geode.render.scene.SceneCapabilities
 import dev.geode.render.scene.SceneIds
+import dev.geode.render.scene.StyleFamilies
 import dev.geode.render.scene.VisualStyleCatalog
 import dev.geode.ui.pro.ProBadge
 import dev.geode.ui.theme.StoneIcon
@@ -73,6 +74,7 @@ fun VisualsHub(
     viewModel: PlayerViewModel,
     visualizerView: VisualizerView,
     onOpenNowPlaying: () -> Unit,
+    onOpenStudioRender: () -> Unit,
     liveBackdrop: Boolean = false,
     canvasFree: Boolean = false,
 ) {
@@ -140,6 +142,11 @@ fun VisualsHub(
                                     LocalContentColor.current
                                 },
                         )
+                    }
+                    // Export lives in Studio › Render; this only takes you there, even when the
+                    // Studio tab is hidden from the bar for someone who came to listen.
+                    IconButton(onClick = onOpenStudioRender) {
+                        StoneIconArt(StoneIcon.STUDIO, stringResource(R.string.visuals_open_render))
                     }
                     IconButton(onClick = {
                         settingsViewModel.setGuiPrefs(gui.copy(clearVisualsMenu = !gui.clearVisualsMenu))
@@ -577,7 +584,7 @@ private fun StylesTab(
             }
         }
         CrystalTabs(
-            titles = listOf("Silk", "Life", "Mycelium", "Acid", "Shaders", "Fluid", "Cymatics", "MilkDrop"),
+            titles = listOf("Silk", "Life", "Mycelium", "Acid", "Shaders", "Families", "Fluid", "Cymatics", "MilkDrop"),
             selected = sub,
             onSelect = { sub = it },
         )
@@ -586,10 +593,11 @@ private fun StylesTab(
             1 -> SceneList(VisualStyleCatalog.lifeIds, viz.sceneId, locked, pickScene)
             2 -> SceneList(VisualStyleCatalog.mycoIds, viz.sceneId, locked, pickScene)
             3 -> SceneList(VisualStyleCatalog.acidIds, viz.sceneId, locked, pickScene)
-            4 -> SceneList(SceneCapabilities.SHADER_SCENES.keys.toList(), viz.sceneId, locked, pickScene)
-            5 -> SceneList(VisualStyleCatalog.fluidIds + listOf(SceneIds.CURLFLOW, SceneIds.WATER), viz.sceneId, locked, pickScene)
-            6 -> SceneList(VisualStyleCatalog.cymaticsIds, viz.sceneId, locked, pickScene)
-            7 -> MilkDropTab(viewModel, visualizerView, onOpenTextures)
+            4 -> SceneList(SceneCapabilities.SHADER_SCENES.keys.filterNot { it in StyleFamilies.ids }, viz.sceneId, locked, pickScene)
+            5 -> FamilyList(viz.sceneId, locked, pickScene)
+            6 -> SceneList(VisualStyleCatalog.fluidIds + listOf(SceneIds.CURLFLOW, SceneIds.WATER), viz.sceneId, locked, pickScene)
+            7 -> SceneList(VisualStyleCatalog.cymaticsIds, viz.sceneId, locked, pickScene)
+            8 -> MilkDropTab(viewModel, visualizerView, onOpenTextures)
         }
     }
 }
@@ -629,6 +637,48 @@ private fun SceneList(
                 )
                 // Says up front what a tap would otherwise discover through the paywall.
                 if (locked(id)) ProBadge()
+            }
+        }
+    }
+}
+
+/**
+ * The style families, each under its own heading, in family order. Forty-eight styles in one flat
+ * list would bury the family a style belongs to, and the family is what tells a free user why one
+ * style in twelve is theirs and the other eleven carry a Pro badge.
+ */
+@Composable
+private fun FamilyList(
+    current: String,
+    locked: (String) -> Boolean,
+    onPick: (String) -> Unit,
+) {
+    LazyColumn(Modifier.fillMaxSize()) {
+        StyleFamilies.all.forEach { family ->
+            item(key = "family_${family.name}") {
+                Text(
+                    family.label,
+                    Modifier.padding(start = 16.dp, top = 14.dp, bottom = 2.dp),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            items(family.ids, key = { it }) { id ->
+                val sel = id == current
+                Row(
+                    Modifier.fillMaxWidth().clickable { onPick(id) }.padding(horizontal = 16.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(Modifier.size(6.dp), contentAlignment = Alignment.Center) {
+                        if (sel) CrystalGem(MaterialTheme.colorScheme.primary, size = 6.dp)
+                    }
+                    Text(
+                        sceneDisplayLabel(id),
+                        Modifier.padding(start = 10.dp).weight(1f),
+                        color = if (sel) accentTextColor() else LocalContentColor.current,
+                    )
+                    if (locked(id)) ProBadge()
+                }
             }
         }
     }

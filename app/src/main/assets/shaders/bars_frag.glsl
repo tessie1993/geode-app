@@ -78,6 +78,19 @@ vec2 view() {
         ang = abs(mod(ang, seg) - seg * 0.5);
         uv = vec2(cos(ang), sin(ang)) * rad;
     }
+    // Morph: blend the plane toward a polar remap (angle,radius swap), a
+    // smooth geometric metamorphosis that works on any scene.
+    if (uMorph > 0.001) {
+        float mr = length(uv);
+        float ma = atan(uv.y, uv.x);
+        vec2 polar = vec2(abs(ma) / 1.5707963 - 1.0, (mr - 0.7) * 1.6);
+        uv = mix(uv, polar, uMorph * (0.6 + 0.15 * sin(uTime * 0.31)));
+    }
+    float a = uRotation + uSway * 0.35 * sin(uTime * 0.7);
+    uv = mat2(cos(a), -sin(a), sin(a), cos(a)) * uv;
+    // Drift and shake move the picture after the spin and the morph. Added
+    // before them, the rotation pivoted on -drift and the morph's pinch rode
+    // the drift, so the whole frame spun around a wandering off-centre point.
     // Drift ping-pongs rather than running away. The composite pass wraps its
     // own drift with fract() because it samples a BOUNDED image ("Wrap so the
     // image scrolls instead of smearing at the clamped edge"), but uv here
@@ -91,16 +104,6 @@ vec2 view() {
     vec2 driftPhase = fract(vec2(uDriftX, uDriftY) * uTime * 0.025 + 0.25);
     uv += 1.0 - 2.0 * abs(2.0 * driftPhase - 1.0);
     uv += uShake * uBeat * 0.03 * vec2(sin(uTime * 91.7), cos(uTime * 77.3));
-    // Morph: blend the plane toward a polar remap (angle,radius swap), a
-    // smooth geometric metamorphosis that works on any scene.
-    if (uMorph > 0.001) {
-        float mr = length(uv);
-        float ma = atan(uv.y, uv.x);
-        vec2 polar = vec2(ma / 3.14159, (mr - 0.7) * 1.6);
-        uv = mix(uv, polar, uMorph * (0.6 + 0.15 * sin(uTime * 0.31)));
-    }
-    float a = uRotation + uSway * 0.35 * sin(uTime * 0.7);
-    uv = mat2(cos(a), -sin(a), sin(a), cos(a)) * uv;
     // Beat-locked pulse: peaks exactly on the musical beat (uBeatPhase=0), and
     // rides the beat ENVELOPE so it is zero between hits. The phase clock in
     // ShaderScene free-runs at the last detected tempo, so without the
@@ -122,9 +125,11 @@ vec2 view() {
         float tr = length(uv) * uTwist * 2.0;
         uv = mat2(cos(tr), -sin(tr), sin(tr), cos(tr)) * uv;
     }
-    // Tiling: repeat the plane into a uTile x uTile grid.
+    // Tiling: repeat the plane into a uTile x uTile grid, every other tile
+    // mirrored so neighbours meet edge to edge. A hard mod() wrap cracked the
+    // picture along every tile boundary, and the macros drive uTile live.
     if (uTile > 1.01) {
-        uv = mod(uv * uTile * 0.5 + 1.0, 2.0) - 1.0;
+        uv = 1.0 - abs(mod(uv * uTile * 0.5 + 1.0, 4.0) - 2.0);
     }
     // Domain warp: swirl coordinates by a sin/cos field.
     if (uWarp > 0.001) {
@@ -238,5 +243,9 @@ void main() {
         float depth = floorY - uv.y;
         col = barsColumn(seg, xf, depth, h, cap) * BARS_REFLECT * exp(-depth * BARS_REFLECT_FADE);
     }
+    // The row spans uv.x -1..1. Past it x is clamped to an edge bar with
+    // xf = 0, which drew that bar as one solid slab across the rest of a
+    // landscape frame (16:9 export, wallpaper).
+    col *= step(abs(uv.x), 1.0);
     fragColor = vec4(grade(col), 1.0);
 }

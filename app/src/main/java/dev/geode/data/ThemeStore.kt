@@ -185,16 +185,31 @@ class ThemeStore(
      * Anyone who answered the old "what did you come here to do" question had, by answering it,
      * finished setup — so they are not walked through it again. The question is gone; the fact
      * that they got past it carries over.
+     *
+     * Only while the explicit flag has never been written, though: [saveGui] writes the intent on
+     * every save, so once it has run, a stored intent no longer means anyone answered anything. Read
+     * it the other way and acknowledging the safety notice mid-setup would skip the rest of setup on
+     * the next launch.
      */
-    private fun loadSetupDone(): Boolean = prefs.getBoolean(KEY_SETUP_DONE, false) || prefs.getString(KEY_INTENT, null) != null
+    private fun loadSetupDone(): Boolean =
+        if (prefs.contains(KEY_SETUP_DONE)) {
+            prefs.getBoolean(KEY_SETUP_DONE, false)
+        } else {
+            prefs.getString(KEY_INTENT, null) != null
+        }
 
     /**
      * Reduced motion survives the same migration: it used to be one of the three answers, and it is
-     * the only one of them that described something other than the flash clamp.
+     * the only one of them that described something other than the flash clamp. The old answer is
+     * never deleted, so it seeds the setting only until the setting has been saved once; after that
+     * turning reduced motion off has to stick.
      */
     private fun loadReducedMotion(): Boolean =
-        prefs.getBoolean(KEY_REDUCED_MOTION, false) ||
+        if (prefs.contains(KEY_REDUCED_MOTION)) {
+            prefs.getBoolean(KEY_REDUCED_MOTION, false)
+        } else {
             prefs.getString(KEY_SAFETY_CHOICE, null) == LEGACY_CHOICE_REDUCED_MOTION
+        }
 
     fun saveGui(gui: GuiPrefs) {
         val fontColor = gui.fontColorOverride

@@ -76,7 +76,7 @@ Vec3 CameraRig::pathPoint(int path, float orbit, float s) {
     }
 }
 
-void CameraRig::step(const SceneParams& p, const LookInput& look, float dt, bool reducedMotion) {
+void CameraRig::step(const SceneParams& p, const LookInput& look, float dt, bool reducedMotion, bool bankFlat) {
     // Same frame-time rule as viz/Reactions: non-finite is no time at all.
     dt = std::isfinite(dt) ? std::clamp(dt, 0.0f, 0.1f) : 0.0f;
     const float g = reducedMotion ? safety::kReducedMotionScale : 1.0f;
@@ -148,7 +148,7 @@ void CameraRig::step(const SceneParams& p, const LookInput& look, float dt, bool
     pose_.roll = roll;
     // Flat projection: the path's lateral wander becomes a gentle pan, the
     // dolly and FOV become zoom, and the look tilts the image plane.
-    pose_.flat = {0.05f * here[0], 0.05f * here[1], (1.0f + 0.35f * dolly_.x) / std::max(fov_.x, 0.25f), roll};
+    pose_.flat = {0.05f * here[0], 0.05f * here[1], (1.0f + 0.35f * dolly_.x) / std::max(fov_.x, 0.25f), bankFlat ? roll : roll_.x};
     pose_.tilt = {std::clamp(yaw, -1.0f, 1.0f) * kFlatTilt, std::clamp(pitch, -1.0f, 1.0f) * kFlatTilt};
 }
 

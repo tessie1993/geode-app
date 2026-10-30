@@ -115,21 +115,28 @@ class FeatureTimeline(
         if (spanMs <= 0L || frameSpacingMs <= 0.0) return f
         val last = (indexAt(timeMs + spanMs) - 1).coerceIn(first, frames.size - 1)
         if (last <= first) return f
-        var beat = f.beat
-        var onset = f.onset
-        var flux = f.flux
-        var strength = f.beatStrength
-        var transient = f.transient
+        // Every one-hop pulse live holds (AnalysisEngine.PulseHold) is folded over the span here,
+        // so a 30 fps export sees the drop, section, downbeat and drum hits a 60 Hz hop flagged.
+        var out = f
         for (i in first + 1..last) {
             val g = frames[i].features
-            beat = beat || g.beat
-            onset = maxOf(onset, g.onset)
-            flux = maxOf(flux, g.flux)
-            strength = maxOf(strength, g.beatStrength)
-            transient = maxOf(transient, g.transient)
+            out =
+                out.copy(
+                    beat = out.beat || g.beat,
+                    onset = maxOf(out.onset, g.onset),
+                    flux = maxOf(out.flux, g.flux),
+                    beatStrength = maxOf(out.beatStrength, g.beatStrength),
+                    transient = maxOf(out.transient, g.transient),
+                    kick = maxOf(out.kick, g.kick),
+                    snare = maxOf(out.snare, g.snare),
+                    hat = maxOf(out.hat, g.hat),
+                    downbeat = out.downbeat || g.downbeat,
+                    sectionBoundary = out.sectionBoundary || g.sectionBoundary,
+                    drop = out.drop || g.drop,
+                    arrival = out.arrival || g.arrival,
+                )
         }
-        if (beat == f.beat && onset == f.onset && flux == f.flux && strength == f.beatStrength && transient == f.transient) return f
-        return f.copy(beat = beat, onset = onset, flux = flux, beatStrength = strength, transient = transient)
+        return out
     }
 
     fun progressionAt(

@@ -91,6 +91,10 @@ class PlayerViewModel
 
         fun setMicEnabled(enabled: Boolean): MicCapture.Failure? = session.setMicEnabled(enabled)
 
+        fun onAppBackground() = session.onAppBackground()
+
+        fun onAppForeground() = session.onAppForeground()
+
         fun hasMicPermission(): Boolean = session.hasMicPermission()
 
         fun noteExternalAudioConsentPending() = session.noteExternalAudioConsentPending()

@@ -52,6 +52,23 @@ class BuildStyleReactionsUseCaseTest {
     }
 
     @Test
+    fun onlyTurningStylesSpinOrRollByDefault() {
+        val turning = setOf(LfoTarget.ROTATION, LfoTarget.CAM_ROLL)
+        styles.forEach { id ->
+            (0..4).forEach { seed ->
+                val spins = build(id, seed).any { it.target in turning }
+                if (id !in SceneCapabilities.SPINNING_SCENES) assertTrue("$id seed $seed spins", !spins)
+            }
+        }
+        assertTrue(build(SceneIds.KALEIDO, 0).any { it.target == LfoTarget.ROTATION })
+    }
+
+    @Test
+    fun someStylesRideTheSongEnergy() {
+        assertTrue(styles.any { id -> build(id, 0).any { it.source == ReactSource.MACRO_ENERGY } })
+    }
+
+    @Test
     fun amountsAndTimesStayInsideWhatNativeAccepts() {
         styles.forEach { id ->
             build(id, 7).forEach { r ->

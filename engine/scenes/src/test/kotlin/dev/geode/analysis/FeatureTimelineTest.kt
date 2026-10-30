@@ -41,6 +41,17 @@ class FeatureTimelineTest {
     }
 
     @Test
+    fun aFrameSpanKeepsEveryOneHopPulse() {
+        // A 30 fps export frame covers two 16 ms hops; a drop on the second must not be lost.
+        val hit = AudioFeatures.empty(4).copy(drop = true, sectionBoundary = true, kick = 0.9f)
+        val frames = (0 until 4).map { i -> TimelineFrame(i * 16L, if (i == 1) hit else AudioFeatures.empty(4)) }
+        val f = FeatureTimeline(frames, hopMs = 16).featuresAt(0, 33)
+        assertEquals(true, f.drop)
+        assertEquals(true, f.sectionBoundary)
+        assertEquals(0.9f, f.kick)
+    }
+
+    @Test
     fun timelineCarriesItsSampleRateThroughCopies() {
         val t = FeatureTimeline(listOf(frame(0, 120f, 1f)), hopMs = 16, sampleRateHz = 96_000)
         assertEquals(96_000, t.withBeatSensitivity(1f, 100f).sampleRateHz)

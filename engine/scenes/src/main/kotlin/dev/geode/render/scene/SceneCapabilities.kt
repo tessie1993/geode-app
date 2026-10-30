@@ -85,12 +85,25 @@ object SceneCapabilities {
             SceneIds.CHROME_NEBULA to "shaders/chrome_nebula_frag.glsl",
             SceneIds.FRACTAL_DIVE to "shaders/fractal_dive_frag.glsl",
             SceneIds.AURORA_OCEAN to "shaders/aurora_ocean_frag.glsl",
-        )
+            // The second set of rig styles: each maps kick, snare, hats, onsets, drops and
+            // pitch changes to different properties rather than one shared pulse.
+            SceneIds.SPECTRUM_TERRAIN to "shaders/spectrum_terrain_frag.glsl",
+            SceneIds.OUTRUN_DRIVE to "shaders/outrun_drive_frag.glsl",
+            SceneIds.MENGER_CORE to "shaders/menger_core_frag.glsl",
+            SceneIds.GYROID_CAVERN to "shaders/gyroid_cavern_frag.glsl",
+            SceneIds.RINGED_PLANET to "shaders/ringed_planet_frag.glsl",
+            SceneIds.JELLY_ABYSS to "shaders/jelly_abyss_frag.glsl",
+            SceneIds.RIBBON_STORM to "shaders/ribbon_storm_frag.glsl",
+            SceneIds.PRISM_RAIN to "shaders/prism_rain_frag.glsl",
+        ).apply {
+            // The style families, twelve styles each, after the loose styles and in family order.
+            StyleFamilies.ids.forEach { id -> put(id, "shaders/${id}_frag.glsl") }
+        }
 
     /**
      * The fragment styles that raymarch, and so spend the [MarchBudget] the Detail control sets.
      *
-     * A per-STYLE set rather than a [SceneKind], because only fourteen of the 45 shader styles march;
+     * A per-STYLE set rather than a [SceneKind], because only some of the shader styles march;
      * scoping Detail to `SceneKind.SHADER` would put a dead slider in front of anyone looking at
      * Plasma, which is exactly what [ParamScope]'s no-dead-controls rule exists to prevent.
      */
@@ -112,6 +125,46 @@ object SceneCapabilities {
             SceneIds.CHROME_NEBULA,
             SceneIds.FRACTAL_DIVE,
             SceneIds.AURORA_OCEAN,
+            SceneIds.SPECTRUM_TERRAIN,
+            SceneIds.MENGER_CORE,
+            SceneIds.GYROID_CAVERN,
+            SceneIds.JELLY_ABYSS,
+            SceneIds.PRISM_RAIN,
+        ) + StyleFamilies.marchedIds
+
+    /**
+     * Styles whose look is a turning one - kaleidoscopes, mandalas, spirals, vortices, tunnels -
+     * and so spin by default. Every other style holds still unless the user asks: bars, scopes,
+     * grids, fields, landscapes and trees read as broken when they slowly roll, so for them the
+     * style DNA draws no spin or roll route, the motion field adds no drift spin or sway, and the
+     * rig does not bank the flat picture. The Rotation and Sway sliders, the camera roll and the
+     * user's own reaction routes still turn any style.
+     *
+     * core/viz/SceneRegistry.cpp keeps its own copy (kSpinningIds) for the native half, with
+     * each style's own spin rate and direction so no two of them turn alike.
+     */
+    val SPINNING_SCENES: Set<String> =
+        setOf(
+            SceneIds.KALEIDO,
+            SceneIds.MANDALA_DOME,
+            SceneIds.ORB_LATTICE,
+            SceneIds.CHROMA_ORB,
+            SceneIds.KIFS,
+            SceneIds.SPIRAL,
+            SceneIds.SPIRAL_EYE,
+            SceneIds.BEAD_VORTEX,
+            SceneIds.MERKABA_GRID,
+            SceneIds.TUNNEL,
+            SceneIds.ROD_TUNNEL,
+            SceneIds.PARTICLE_TUNNEL,
+            "lucid_mandala",
+            "lucid_mirror",
+            "lucid_spiral",
+            "lucid_vortex",
+            "lucid_tunnel",
+            "lucid_disc",
+            "chrys_kaleido",
+            "chrys_tunnel",
         )
 
     /**

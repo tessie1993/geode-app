@@ -86,6 +86,24 @@ void eventsDecayAndSilenceIsQuiet() {
     check(s.value(ReactSource::Kick) == 0.0f && s.value(ReactSource::Onset) == 0.0f, "silence leaves hits at zero");
 }
 
+void macroEnergyIsSlowAndArrivalIsAnEvent() {
+    static_assert(kReactSourceCount == 30, "dev.geode.render.ReactSource has 30 entries");
+    ReactSignals s;
+    GeodeFeatureFrame f = silence();
+    f.macroEnergy = 1.0f;
+    s.step(f, 1.0f / 60.0f);
+    check(s.value(ReactSource::MacroEnergy) < 0.05f, "one loud hop barely moves song energy");
+    for (int i = 0; i < 600; ++i) s.step(f, 1.0f / 60.0f);
+    check(s.value(ReactSource::MacroEnergy) > 0.95f, "song energy settles on the analyser's value");
+    f.macroEnergy = 0.0f;
+    f.arrival = 1.0f;
+    s.step(f, 1.0f / 60.0f);
+    check(s.value(ReactSource::Arrival) > 0.99f, "arrival rises instantly");
+    f.arrival = 0.0f;
+    for (int i = 0; i < 900; ++i) s.step(f, 1.0f / 60.0f);
+    check(s.value(ReactSource::Arrival) < 0.05f, "arrival decays over seconds");
+}
+
 void deterministicForExport() {
     ReactionEngine a;
     ReactionEngine b;
@@ -197,6 +215,25 @@ void zeroDtFreezesTheCameraAndHugeDtIsOneClampedStep() {
     check(std::fabs(a.pose().travel - b.pose().travel) < 1e-5f, "a huge dt is treated as the 0.1 s cap");
 }
 
+void stillStylesKeepTheBankOutOfTheFlatRoll() {
+    // A style that does not turn (SceneRegistry::spinRate 0) must not roll as
+    // the glide path curves; the turning ones still bank.
+    SceneParams p;
+    p.camFly = 1.0f;
+    CameraRig still;
+    CameraRig turning;
+    float maxStill = 0.0f;
+    float maxTurning = 0.0f;
+    for (int i = 0; i < 1200; ++i) {
+        still.step(p, {}, 1.0f / 60.0f, false, false);
+        turning.step(p, {}, 1.0f / 60.0f, false, true);
+        maxStill = std::fmax(maxStill, std::fabs(still.pose().flat[3]));
+        maxTurning = std::fmax(maxTurning, std::fabs(turning.pose().flat[3]));
+    }
+    check(maxStill < 1e-6f, "a still style's flat picture never rolls on its own");
+    check(maxTurning > 0.01f, "a turning style still banks into the curve");
+}
+
 }  // namespace
 
 int main() {
@@ -205,6 +242,7 @@ int main() {
     stepRouteJumpsOncePerEdge();
     luminanceRoutesAreSlewLimited();
     eventsDecayAndSilenceIsQuiet();
+    macroEnergyIsSlowAndArrivalIsAnEvent();
     deterministicForExport();
     cameraTravelsAndStaysOrthonormal();
     cameraSpringsInsteadOfSnapping();
@@ -212,6 +250,7 @@ int main() {
     reducedMotionSlowsTravel();
     oddFrameTimesStayFiniteAndBounded();
     zeroDtFreezesTheCameraAndHugeDtIsOneClampedStep();
+    stillStylesKeepTheBankOutOfTheFlatRoll();
     if (failures == 0) std::printf("viz_math_test: all passed\n");
     return failures == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
 }

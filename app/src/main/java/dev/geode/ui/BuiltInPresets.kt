@@ -3,6 +3,7 @@ package dev.geode.ui
 import dev.geode.data.Preset
 import dev.geode.render.scene.SceneCapabilities
 import dev.geode.render.scene.SceneParams
+import dev.geode.render.scene.StyleFamilies
 
 object BuiltInPresets {
     private data class Look(
@@ -896,8 +897,10 @@ object BuiltInPresets {
             ),
         )
 
+    // Not the style families: each of their 48 styles is already its own tuned look, and
+    // thirteen generic looks apiece would add 624 rows that bury the presets people made.
     val ALL: List<Preset> =
-        SceneCapabilities.SHADER_SCENES.keys.flatMap { id ->
+        SceneCapabilities.SHADER_SCENES.keys.filterNot { it in StyleFamilies.ids }.flatMap { id ->
             LOOKS.map { look ->
                 Preset(
                     name = "$id · ${look.name}",

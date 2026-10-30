@@ -2,6 +2,7 @@ package dev.geode.pro
 
 import dev.geode.render.scene.SceneCapabilities
 import dev.geode.render.scene.SceneIds
+import dev.geode.render.scene.StyleFamilies
 
 /**
  * The shape of the free tier, in one place, meant to be edited by hand.
@@ -13,13 +14,16 @@ import dev.geode.render.scene.SceneIds
  */
 object FreeTier {
     /**
-     * Styles a free user can select and keep: the whole fragment-shader family (julia, tunnel,
-     * bars, ring, scope, plasma, nebula and the rest of [SceneCapabilities.SHADER_SCENES]), so a
-     * shader style added later is free too. Everything else (silk, fluid, water, MilkDrop, cymatics
-     * and the other dedicated renderers) is Pro, shows a Pro badge and opens the paywall when picked.
-     * A renamed or removed id simply stops matching, which makes that style Pro rather than crashing.
+     * Styles a free user can select and keep: the fragment-shader styles (julia, tunnel, bars,
+     * ring, scope, plasma, nebula and the rest of [SceneCapabilities.SHADER_SCENES]), so a loose
+     * shader style added later is free too, minus [StyleFamilies.proIds]. A style family gives away
+     * its first, most basic style and keeps the other eleven for Pro: a free user can try every
+     * family, and buying Pro is what opens the range. Everything else (silk, fluid, water, MilkDrop,
+     * cymatics and the other dedicated renderers) is Pro, shows a Pro badge and opens the paywall
+     * when picked. A renamed or removed id simply stops matching, which makes that style Pro rather
+     * than crashing.
      */
-    val freeStyleIds: Set<String> = SceneCapabilities.SHADER_SCENES.keys
+    val freeStyleIds: Set<String> = SceneCapabilities.SHADER_SCENES.keys - StyleFamilies.proIds
 
     /**
      * Where a free user lands when the style on screen is no longer theirs (a new install, whose

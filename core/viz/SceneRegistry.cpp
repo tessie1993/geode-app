@@ -19,7 +19,7 @@ namespace geode::viz {
 namespace {
 
 // Port of SceneCapabilities.SHADER_SCENES: id -> shaders/<id>_frag.glsl, in the catalog's order.
-constexpr std::array<const char*, 45> kShaderIds = {
+constexpr std::array<const char*, 101> kShaderIds = {
     "julia",     "tunnel",  "mandel",    "kaleido",   "plasma",    "bars",       "ring",      "scope",
     "liss",      "warp",    "grid",      "voronoi",   "metaballs", "ripples",    "starfield", "waves",
     "hexgrid",   "spiral",  "aurora",    "solar",     "winter",    "lava",       "vanishing", "morphogen",
@@ -28,8 +28,48 @@ constexpr std::array<const char*, 45> kShaderIds = {
     "merkaba_grid", "spiral_eye", "blacklight_bloom", "fractal_temple",
     "curl_bloom", "nectar_flow",
     "crystal_canyon", "neon_city", "particle_tunnel", "chrome_nebula", "fractal_dive", "aurora_ocean",
+    "spectrum_terrain", "outrun_drive", "menger_core", "gyroid_cavern",
+    "ringed_planet", "jelly_abyss", "ribbon_storm", "prism_rain",
+    // style families (StyleFamilies.kt), in family order
+    "arbor_grove", "arbor_willow", "arbor_coral", "arbor_frost", "arbor_bolt", "arbor_roots",
+    "arbor_bonsai", "arbor_canopy", "arbor_rosette", "arbor_spire", "arbor_synapse", "arbor_sakura",
+    "bulb_classic", "bulb_julia", "bulb_slice", "bulb_lotus", "bulb_ink", "bulb_glow",
+    "bulb_cavern", "bulb_shell", "bulb_prism", "bulb_contour", "bulb_chrome", "bulb_hybrid",
+    "chrys_bloom", "chrys_phyllo", "chrys_dahlia", "chrys_lotus", "chrys_meadow", "chrys_corolla",
+    "chrys_glass", "chrys_ink", "chrys_neon", "chrys_fall", "chrys_kaleido", "chrys_tunnel",
+    "lucid_weave", "lucid_mandala", "lucid_spiral", "lucid_tunnel", "lucid_disc", "lucid_hive",
+    "lucid_ink", "lucid_mirror", "lucid_bulge", "lucid_petal", "lucid_lattice", "lucid_vortex",
 };
 
+// Port of SceneCapabilities.SPINNING_SCENES: the styles whose look is a turning
+// one, each with its own rate and direction for the motion field's drift spin so
+// no two turn alike (a vortex winds fast, a dome barely creeps, tunnels counter).
+struct Spin {
+    const char* id;
+    float rate;
+};
+constexpr std::array<Spin, 20> kSpinningIds = {{
+    {"kaleido", 1.0f},
+    {"mandala_dome", 0.45f},
+    {"orb_lattice", 0.7f},
+    {"chroma_orb", -0.6f},
+    {"kifs", 0.8f},
+    {"spiral", 1.2f},
+    {"spiral_eye", -0.9f},
+    {"bead_vortex", 1.4f},
+    {"merkaba_grid", 0.4f},
+    {"tunnel", -0.5f},
+    {"rod_tunnel", 0.6f},
+    {"particle_tunnel", -0.8f},
+    {"lucid_mandala", 0.6f},
+    {"lucid_mirror", -0.7f},
+    {"lucid_spiral", 1.1f},
+    {"lucid_vortex", -1.3f},
+    {"lucid_tunnel", 0.5f},
+    {"lucid_disc", 0.35f},
+    {"chrys_kaleido", -0.8f},
+    {"chrys_tunnel", 0.6f},
+}};
 constexpr const char* kMilkdrop = "milkdrop";
 constexpr const char* kCurlFlow = "curlflow";
 constexpr const char* kWater = "water";
@@ -46,6 +86,13 @@ void append(std::vector<std::string>& out, std::vector<std::string> ids) {
 }
 
 }  // namespace
+
+float SceneRegistry::spinRate(const std::string& id) {
+    for (const Spin& known : kSpinningIds) {
+        if (id == known.id) return known.rate;
+    }
+    return 0.0f;
+}
 
 bool SceneRegistry::knows(const std::string& id) const {
     return isShaderId(id) || styles::cymatics(id) || styles::silk(id) || styles::life(id) || styles::acid(id) || styles::myco(id) ||

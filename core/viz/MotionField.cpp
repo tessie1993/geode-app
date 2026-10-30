@@ -169,7 +169,7 @@ void MotionField::step(const GeodeFeatureFrame& f, float dt) {
 // computed. Nothing here is a trigger, and nothing here writes brightness,
 // intensity, contrast, flash, strobe, pulse or shake: those stay exactly what
 // the caller passed in and go through the safety clamp unchanged.
-SceneParams MotionField::apply(const SceneParams& p, bool reducedMotion) const {
+SceneParams MotionField::apply(const SceneParams& p, bool reducedMotion, float spin) const {
     const float g = reducedMotion ? safety::kReducedMotionScale : 1.0f;
     // motionOrbit is not read here: uOrbit is a raw shader uniform (see
     // lib_scene_motion.glsl), and its own motionOrbit scaling happens in
@@ -186,8 +186,10 @@ SceneParams MotionField::apply(const SceneParams& p, bool reducedMotion) const {
     // than freezing it.
     const float breath = 1.0f + (s.breath - 1.0f) * motionBreath;
     o.zoom = std::clamp(p.zoom * breath, 0.3f, 3.0f);
-    o.rotation = std::clamp(p.rotation + s.drift * motionDrift, -3.0f, 3.0f);
-    o.sway = std::clamp(p.sway + motionAmount * 0.35f * std::fabs(barSin_) * rhythmLock_, 0.0f, 1.0f);
+    if (spin != 0.0f) {
+        o.rotation = std::clamp(p.rotation + s.drift * motionDrift * spin, -3.0f, 3.0f);
+        o.sway = std::clamp(p.sway + motionAmount * 0.35f * std::fabs(barSin_) * rhythmLock_, 0.0f, 1.0f);
+    }
     o.warp = std::clamp(p.warp + motionAmount * 0.3f * (1.0f - s.harmony), 0.0f, 1.0f);
     o.morph = std::clamp(p.morph + motionAmount * (1.0f - s.harmony), 0.0f, 1.0f);
     o.speed = std::clamp(p.speed * (0.7f + 0.5f * s.energyRel), 0.05f, 4.0f);

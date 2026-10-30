@@ -163,6 +163,9 @@ private:
     std::string transitionId_ = "fade";
     int64_t transitionDurationMs_ = 1200;
     std::atomic<bool> reducedMotion_{false};
+    // SceneRegistry::spinRate of the requested scene, set by setScene so the
+    // frame never compares ids.
+    std::atomic<float> sceneSpin_{0.0f};
     float morphFadeSec_ = 0.0f;
     float morphRemainSec_ = 0.0f;
     std::vector<float> pcm_;

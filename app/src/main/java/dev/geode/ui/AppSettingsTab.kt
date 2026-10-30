@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -29,8 +30,7 @@ import dev.geode.ui.pro.GoProSettingsRow
 @Composable
 internal fun AppSettingsTab(
     viewModel: PlayerViewModel,
-    exportOpen: Boolean = false,
-    onOpenExport: () -> Unit,
+    onOpenStudioRender: () -> Unit,
     onStartTutorial: () -> Unit,
 ) {
     val settingsViewModel: SettingsViewModel = geodeViewModel()
@@ -53,12 +53,32 @@ internal fun AppSettingsTab(
         when (tab) {
             0 -> LookSettingsTab(settingsViewModel)
             1 -> AudioSettingsTab(viewModel)
-            2 -> ExportSettingsTab(exportOpen, onOpenExport)
+            2 -> ExportLinkTab(onOpenStudioRender)
             3 -> FolderSettingsTab()
             4 -> BehaviorSettingsTab(settingsViewModel)
             5 -> HelpSettingsTab(settingsViewModel, onStartTutorial)
             6 -> BackupSettingsTab()
             else -> AboutSettingsTab()
+        }
+    }
+}
+
+/**
+ * Export, loop render and their defaults belong to Studio › Render; this tab only points there,
+ * so someone who looks for them in Settings (where they used to be) still finds the way.
+ */
+@Composable
+private fun ExportLinkTab(onOpenStudioRender: () -> Unit) {
+    SettingsTabColumn {
+        item {
+            SettingsGroup(stringResource(R.string.settings_tab_export)) {
+                Text(
+                    stringResource(R.string.settings_export_moved),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                CrystalButton(onClick = onOpenStudioRender) { Text(stringResource(R.string.settings_export_open_studio)) }
+            }
         }
     }
 }

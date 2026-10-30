@@ -60,7 +60,9 @@ float geodesic(vec2 p, float radius, float density, float width) {
     // z of the unit hemisphere, which is what compresses the wires at the edge.
     float z = sqrt(max(0.0, 1.0 - rr * rr));
     vec2 s = vec2(atan(p.y, p.x) / MG_TAU, z);
-    float lines = web(s * density, width * 1.6);
+    // Longitude lines go once round, so their count must be whole or the web
+    // tears along atan's branch cut; density * 2.2 at the call site is not.
+    float lines = web(vec2(s.x * floor(density + 0.5), s.y * density), width * 1.6);
     // Latitude rings, denser near the limb.
     lines = max(lines, wire(fract(z * density * 0.55) - 0.5, width * 1.4));
     // A soft skin under the wires so the sphere reads as a solid volume.

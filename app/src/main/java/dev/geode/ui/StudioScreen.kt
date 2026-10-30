@@ -111,13 +111,8 @@ internal fun StudioScreen(
         }
 
     val chooserTitle = stringResource(R.string.studio_share_chooser)
+    // The title and the Edit | Render tabs above this belong to [StudioHub].
     Column(Modifier.fillMaxSize()) {
-        Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp)) {
-            CrystalOverline(stringResource(R.string.app_name))
-            GlowTitle(
-                stringResource(if (editing == null) R.string.nav_studio else R.string.studio_edit),
-            )
-        }
         val clip = editing
         if (clip == null) {
             Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
@@ -849,7 +844,7 @@ private fun StudioChip(
 
 private fun clock(ms: Long): String = "%d:%02d".format(ms / 60_000, (ms / 1000) % 60)
 
-// internal (not private) so the export dialog (SettingsDialog.kt, same package) can share this
+// internal (not private) so the export dialog (ExportDialog.kt, same package) can share this
 // one implementation instead of building its own SEND intent.
 internal fun android.content.Context.shareVideo(
     uri: Uri,

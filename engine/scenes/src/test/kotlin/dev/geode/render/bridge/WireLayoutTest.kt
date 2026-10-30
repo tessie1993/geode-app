@@ -43,8 +43,9 @@ class WireLayoutTest {
 
     @Test
     fun enumOrdinalsMatchTheNativeEnums() {
-        // core/viz/Reactions.hpp: TimbreJump is last, Spin is last; core/viz/Lfo.hpp: CamShake is last.
-        assertEquals(28, ReactSource.entries.size)
+        // core/viz/Reactions.hpp: Arrival is last, Spin is last; core/viz/Lfo.hpp: CamShake is last.
+        assertEquals(30, ReactSource.entries.size)
+        assertEquals(28, ReactSource.MACRO_ENERGY.ordinal)
         assertEquals(3, ReactMode.entries.size)
         assertEquals(LfoTarget.entries.last(), LfoTarget.CAM_SHAKE)
         assertEquals(52, LfoTarget.CAM_SHAKE.ordinal)

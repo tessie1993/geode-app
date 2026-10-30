@@ -246,6 +246,9 @@ class PlayerSession internal constructor(
     private val _uiState = MutableStateFlow(PlayerUiState())
     val uiState: StateFlow<PlayerUiState> = _uiState
 
+    private val _positionMs = MutableStateFlow(0L)
+    val positionMs: StateFlow<Long> = _positionMs
+
     private val _vizState get() = vizStateStore.state
     val vizState: StateFlow<VizUiState> get() = vizStateStore.state
 
@@ -411,7 +414,9 @@ class PlayerSession internal constructor(
     fun enrichFeatures(f: AudioFeatures): AudioFeatures {
         val ui = _uiState.value
         if (ui.durationMs <= 0L) return f
-        val pos = ui.positionMs.coerceIn(0L, ui.durationMs)
+        // Read from the player, not the 500 ms poll: this runs once per rendered frame on Main,
+        // and progress-driven visuals stepped twice a second on the polled value.
+        val pos = player.currentPosition.coerceIn(0L, ui.durationMs)
         val sections = _vizState.value.sections
         var idx = 0
         for (s in sections) {
@@ -594,10 +599,10 @@ class PlayerSession internal constructor(
     private var playerListener: Player.Listener? = null
 
     private fun refresh() {
+        _positionMs.value = player.currentPosition.coerceAtLeast(0)
         _uiState.value =
             PlayerUiState(
                 isPlaying = player.isPlaying,
-                positionMs = player.currentPosition.coerceAtLeast(0),
                 durationMs = player.duration.coerceAtLeast(0),
                 artist = player.mediaMetadata.artist?.toString(),
                 title =
@@ -659,7 +664,7 @@ class PlayerSession internal constructor(
                 override fun updateViz(transform: (VizUiState) -> VizUiState) = _vizState.update(transform)
 
                 override val isPlaying: Boolean get() = _uiState.value.isPlaying
-                override val positionMs: Long get() = _uiState.value.positionMs
+                override val positionMs: Long get() = _positionMs.value
 
                 override fun features() = engine.features.value
 
@@ -1254,6 +1259,7 @@ class PlayerSession internal constructor(
         captureController.shutdown()
         AudioBus.removeConsumer()
         playerListener?.let { player.removeListener(it) }
+        queueController.release()
         playerListener = null
         if (playback.onAudioFormat === captureController.audioFormatHook) playback.onAudioFormat = null
         if (sleepTimer.onFadeVolume === fades.sleepFadeHook) sleepTimer.onFadeVolume = null

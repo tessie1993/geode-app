@@ -6,13 +6,11 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -70,13 +68,11 @@ private fun ThemeGroup(
         )
     }
     Column {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(stringResource(R.string.look_ui_sounds), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-            Switch(
-                checked = gui.uiSounds,
-                onCheckedChange = { viewModel.setGuiPrefs(gui.copy(uiSounds = it)) },
-            )
-        }
+        LabeledSwitch(
+            stringResource(R.string.look_ui_sounds),
+            checked = gui.uiSounds,
+            onCheckedChange = { viewModel.setGuiPrefs(gui.copy(uiSounds = it)) },
+        )
         Text(
             stringResource(R.string.look_ui_sounds_hint),
             style = MaterialTheme.typography.bodySmall,
@@ -212,21 +208,17 @@ private fun LayoutGroup(
             modifier = Modifier.padding(top = 4.dp),
         )
     }
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(stringResource(R.string.look_compact_player), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-        Switch(
-            checked = gui.compactPlayer,
-            onCheckedChange = { viewModel.setGuiPrefs(gui.copy(compactPlayer = it)) },
-        )
-    }
+    LabeledSwitch(
+        stringResource(R.string.look_compact_player),
+        checked = gui.compactPlayer,
+        onCheckedChange = { viewModel.setGuiPrefs(gui.copy(compactPlayer = it)) },
+    )
     Column {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(stringResource(R.string.look_clear_visuals_menu), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-            Switch(
-                checked = gui.clearVisualsMenu,
-                onCheckedChange = { viewModel.setGuiPrefs(gui.copy(clearVisualsMenu = it)) },
-            )
-        }
+        LabeledSwitch(
+            stringResource(R.string.look_clear_visuals_menu),
+            checked = gui.clearVisualsMenu,
+            onCheckedChange = { viewModel.setGuiPrefs(gui.copy(clearVisualsMenu = it)) },
+        )
         Text(
             stringResource(R.string.look_clear_visuals_hint),
             style = MaterialTheme.typography.bodySmall,
@@ -244,11 +236,13 @@ private fun BootAnimationRow() {
     // stays disabled for the moment that takes. save() uses apply(), which is already async.
     var bootAnim by remember { mutableStateOf<Boolean?>(null) }
     LaunchedEffect(store) { bootAnim = withContext(Dispatchers.IO) { store.load() } }
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(stringResource(R.string.look_boot_animation), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-        Switch(checked = bootAnim ?: true, enabled = bootAnim != null, onCheckedChange = {
+    LabeledSwitch(
+        stringResource(R.string.look_boot_animation),
+        checked = bootAnim ?: true,
+        onCheckedChange = {
             bootAnim = it
             store.save(it)
-        })
-    }
+        },
+        enabled = bootAnim != null,
+    )
 }

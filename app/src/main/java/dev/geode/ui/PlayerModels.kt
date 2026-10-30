@@ -7,9 +7,14 @@ import dev.geode.render.TransitionStyle
 import dev.geode.render.scene.SceneIds
 import dev.geode.render.scene.SceneParams
 
+/**
+ * What playback looks like, apart from the position. The position moves every poll tick, and as a
+ * field here it made every collector of this state (the shell, the Player, the live view)
+ * recompose twice a second for as long as music played; it lives in its own flow instead
+ * ([PlaybackRepository.positionMs]), read only by the seek bars and clocks that draw it.
+ */
 data class PlayerUiState(
     val isPlaying: Boolean = false,
-    val positionMs: Long = 0,
     val durationMs: Long = 0,
     val title: String? = null,
     val artist: String? = null,

@@ -11,7 +11,7 @@ import kotlin.random.Random
  * A style's reaction DNA: the default routing of the reaction matrix for [sceneId].
  *
  * Every style gets the same *kinds* of reaction (a camera that answers kicks, drops and
- * section changes, a sound event that changes colour, one that reshapes, one that spins, a band
+ * section changes, a sound event that changes colour, one that reshapes, one that spins (on styles that turn), a band
  * that makes it grow, a texture that follows the top end), but which sound drives which, and
  * by how much, is drawn from a generator seeded by the style id and [seed]. Two styles hear the
  * same bar differently, and re-rolling the seed gives one style a new personality without
@@ -47,8 +47,12 @@ class BuildStyleReactionsUseCase {
         rng.maybe {
             add(route(ReactSource.STEREO_PAN, LfoTarget.CAM_YAW, ReactMode.FOLLOW, rng.range(0.2f, 0.45f), 0.3f, 0.6f))
         }
+        // Roll and spin only on styles that turn (SceneCapabilities.SPINNING_SCENES). The
+        // numbers are drawn either way, so every later route keeps the value its seed gave it.
+        val spins = sceneId in SceneCapabilities.SPINNING_SCENES
         rng.maybe {
-            add(route(ReactSource.DOWNBEAT, LfoTarget.CAM_ROLL, ReactMode.STEP, rng.sign() * rng.range(0.15f, 0.35f), 0.4f, 0.4f))
+            val roll = route(ReactSource.DOWNBEAT, LfoTarget.CAM_ROLL, ReactMode.STEP, rng.sign() * rng.range(0.15f, 0.35f), 0.4f, 0.4f)
+            if (spins) add(roll)
         }
 
         // A sound event changes the colour.
@@ -56,7 +60,8 @@ class BuildStyleReactionsUseCase {
         // One reshapes it: morph, twist, warp or ripple, from a hit.
         add(route(rng.pick(SHAPE_SOURCES), rng.pick(SHAPE_TARGETS), ReactMode.FOLLOW, rng.range(0.2f, 0.5f), 0.03f, 0.35f, ModCurve.SMOOTH))
         // One spins it while the sound lasts.
-        add(route(rng.pick(SPIN_SOURCES), LfoTarget.ROTATION, ReactMode.FOLLOW, rng.sign() * rng.range(0.2f, 0.5f), 0.1f, 0.6f))
+        val spin = route(rng.pick(SPIN_SOURCES), LfoTarget.ROTATION, ReactMode.FOLLOW, rng.sign() * rng.range(0.2f, 0.5f), 0.1f, 0.6f)
+        if (spins) add(spin)
         // A band makes it grow.
         add(route(rng.pick(GROW_SOURCES), LfoTarget.ZOOM, ReactMode.FOLLOW, rng.range(0.08f, 0.22f), 0.06f, 0.4f, ModCurve.SMOOTH))
         // The top end gives it texture.

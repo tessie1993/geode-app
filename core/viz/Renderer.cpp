@@ -404,6 +404,7 @@ bool Renderer::setScene(const std::string& sceneId) {
     if (!registry_.knows(sceneId)) return false;
     std::lock_guard<std::mutex> lock(stateLock_);
     requestedSceneId_ = sceneId;
+    sceneSpin_.store(SceneRegistry::spinRate(sceneId), std::memory_order_relaxed);
     return true;
 }
 

@@ -31,7 +31,7 @@ class TutorialCarouselTest {
     @get:Rule
     val compose = createComposeRule()
 
-    private val tour = TutorialTour(listOf(TutorialChapter.WELCOME, TutorialChapter.PLAYER))
+    private val tour = TutorialTour(listOf(TutorialChapter.WELCOME, TutorialChapter.SETTINGS))
     private val moves = mutableListOf<Pair<Int, Int>>()
     private val completed = mutableListOf<TutorialChapter>()
     private val shown = mutableListOf<TutorialTarget>()
@@ -95,7 +95,7 @@ class TutorialCarouselTest {
         show()
         click(R.string.tutorial_next)
         click(R.string.tutorial_next)
-        assertShowing(R.string.tutorial_player_1_title)
+        assertShowing(R.string.tutorial_settings_1_title)
         assertEquals(listOf(TutorialChapter.WELCOME), completed)
     }
 
@@ -103,7 +103,7 @@ class TutorialCarouselTest {
     fun skip_chapter_jumps_ahead_without_completing() {
         show()
         click(R.string.tutorial_skip_chapter)
-        assertShowing(R.string.tutorial_player_1_title)
+        assertShowing(R.string.tutorial_settings_1_title)
         assertTrue(completed.isEmpty())
     }
 
@@ -112,7 +112,7 @@ class TutorialCarouselTest {
         show()
         click(R.string.tutorial_skip_chapter)
         click(R.string.tutorial_show_me)
-        assertEquals(listOf(TutorialTarget.PLAYER), shown)
+        assertEquals(listOf(TutorialTarget.SETTINGS), shown)
     }
 
     @Test
@@ -121,7 +121,6 @@ class TutorialCarouselTest {
         click(R.string.tutorial_skip_all)
         assertEquals(1, skippedAll)
         click(R.string.tutorial_skip_chapter)
-        click(R.string.tutorial_next)
         click(R.string.tutorial_next)
         click(R.string.tutorial_finish)
         assertEquals(1, finished)

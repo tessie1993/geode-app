@@ -60,7 +60,7 @@ class WidgetPublisher(
             artJob?.cancel()
             artJob =
                 scope.launch {
-                    val art = uri?.let { MediaArtwork.decodeEmbedded(appContext, it, ART_PX) }
+                    val art = uri?.let { MediaArtwork.decodeEmbedded(appContext, it) }
                     val path = WidgetState.writeArt(appContext, art)
                     WidgetState.save(appContext, WidgetState.load(appContext).copy(artPath = path))
                     NowPlayingWidget().updateAll(appContext)
@@ -81,8 +81,4 @@ class WidgetPublisher(
         metadata: MediaMetadata,
         uri: String?,
     ): String = metadata.title?.toString()?.ifBlank { null } ?: uri?.substringAfterLast('/').orEmpty()
-
-    private companion object {
-        const val ART_PX = 256
-    }
 }

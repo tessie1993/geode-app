@@ -117,8 +117,9 @@ app under Settings.
 
 ## Changes to this policy
 
-If this policy changes, the new version will be published at the same address and the
-date above will change.
+The policy ships inside the app: *Settings → About → Privacy policy* always shows the
+version that matches the app you have. If it changes, an app update carries the new
+version, it is published at the same address as before, and the date above changes.
 
 ## Contact
 

@@ -132,6 +132,7 @@
     <string name="about_privacy_policy">Privacy policy</string>
     <string name="about_licenses_unavailable">Third-party notices could not be loaded.</string>
     <string name="about_licenses_loading">Loading…</string>
+    <string name="about_privacy_unavailable">The privacy policy could not be loaded.</string>
 
     <!-- Settings › Backup. One zip, saved and opened through the system file picker. -->
     <string name="backup_tab">Backup</string>

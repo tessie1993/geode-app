@@ -54,7 +54,8 @@ A REAL MUSIC PLAYER
 
 PRIVATE BY DESIGN
 MuzViz has no internet permission. No accounts, no ads, no tracking, no analytics.
-Your music and everything you make stay on your device.
+Your music and everything you make stay on your device. The full privacy policy is
+in the app under Settings › About › Privacy policy, and at the link on this page.
 
 SAFE TO WATCH
 The engine limits flashing to at most three flashes per second — on screen and in
@@ -72,7 +73,7 @@ one-time purchase — no subscription:
 ```
 
 Measured length: check with `python -c "print(len(open('x').read()))"` after any edit;
-the text above is about 2,050 characters, well under the limit.
+the text above is about 2,170 characters, well under the limit.
 
 ## Category and tags
 

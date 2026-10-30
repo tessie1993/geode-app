@@ -69,8 +69,15 @@ _Avoid_: Settings, knobs
 The groups the scene params are edited in: Events first, then the detail tabs (Shape, Colour, Motion, FX, Reactivity, Scene) and the per-family tabs.
 
 **Reaction route**:
-One line of the reaction matrix: a sound (band, level or event) moves one scene param, by following, stepping or spinning.
+One line of the reaction matrix: a sound (band, level or event) moves one scene param, by following, stepping, spinning or jumping.
 _Avoid_: Binding, mapping
+
+**Jump**:
+A route mode: each hit holds a new random value for its target (sample and hold), seeded so an export draws the same ones.
+
+**Phrase**:
+Eight bars of music, or fewer when the analyser hears a section change. Phrase beat A fires on the beat in even phrases and phrase beat B in odd ones, so a style can answer the beat one way, then another.
+_Avoid_: Section (that is the analyser's structure boundary)
 
 **Style DNA**:
 The reaction routes a style plays until the user edits them, generated from the style id and a seed.

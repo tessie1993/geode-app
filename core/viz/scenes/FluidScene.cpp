@@ -18,7 +18,10 @@ void FluidScene::init() {
         appliedTier_ = -1;
         appliedParticleSide_ = 0;
         applyQualityTier();
-    } else {
+    } else if (!sim_.texFormats().ok) {
+        // Only the format probe failing means half floats. A shader the driver
+        // rejected also leaves the sim unavailable, but create() has already
+        // reported that error, and this message would overwrite it.
         host_.onShaderError("Fluid style unavailable: this GPU can't render half-float buffers");
     }
 }

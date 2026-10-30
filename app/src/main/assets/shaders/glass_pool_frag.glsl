@@ -93,6 +93,6 @@ void main() {
     col += vec3(1.0, 0.97, 0.9) * spec * 0.6 + water * pow(1.0 - n.z, 1.5) * 0.35;
 
     col *= 0.85 + 0.15 * swell;
-    col *= 0.8 + 0.2 * smoothstep(2.2, 0.4, length(uv));
+    col *= 0.8 + 0.2 * (1.0 - smoothstep(0.4, 2.2, length(uv)));
     fragColor = vec4(grade(col), 1.0);
 }

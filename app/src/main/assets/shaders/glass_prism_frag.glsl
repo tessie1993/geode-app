@@ -147,7 +147,7 @@ void main() {
     // Inside or outside the glass.
     float inside = -1e3;
     for (int i = 0; i < 3; i++) inside = max(inside, dot(gN[i], uv - gC) - PR_INRADIUS);
-    float body = smoothstep(0.004, -0.004, inside);
+    float body = (1.0 - smoothstep(-0.004, 0.004, inside));
 
     // The fan: the angle about the virtual apex, from the red ray to the blue.
     float cr = cross2(dR, dB);
@@ -158,7 +158,7 @@ void main() {
     float angB = atan(cr, dot(dR, dB));
     float s = angU / angB;
     float along = dot(uv - peG, dG);
-    float band = smoothstep(-0.08, 0.06, s) * smoothstep(1.08, 0.94, s);
+    float band = smoothstep(-0.08, 0.06, s) * (1.0 - smoothstep(0.94, 1.08, s));
     float fan = band * smoothstep(0.0, 0.05, along) * (1.0 - body) * step(0.0, dot(u, dG));
     vec3 rainbow = mix(glassSpectrum(clamp(s, 0.0, 1.0)), pal(hue + 0.7 * s), 0.3);
     col += rainbow * fan * 0.95 / (1.0 + 0.7 * max(along, 0.0)) * dust;

@@ -332,7 +332,7 @@ float glassPanel(vec3 d, vec3 c, vec2 halfSize, float soft) {
     vec2 q = vec2(dot(d, r), dot(d, u)) / k;
     vec2 e = abs(q) - halfSize;
     float dist = length(max(e, 0.0)) + min(max(e.x, e.y), 0.0);
-    return smoothstep(soft, -soft, dist);
+    return 1.0 - smoothstep(-soft, soft, dist);
 }
 
 /**
@@ -366,7 +366,7 @@ vec3 glassBackdrop(vec3 d, float hue) {
     vec3 col = mix(horizon, zenith, smoothstep(0.0, 0.9, y));
     if (y < 0.0) {
         vec2 f = d.xz / max(-y, 0.02);
-        col = mix(col, glassFloorGrid(f, length(f), hue), smoothstep(0.0, -0.12, y));
+        col = mix(col, glassFloorGrid(f, length(f), hue), (1.0 - smoothstep(-0.12, 0.0, y)));
     }
     col += pal(hue + 0.12) * 0.12 * exp(-abs(y) * 10.0);
     col += vec3(1.0, 0.95, 0.88) * 1.35 * glassPanel(d, normalize(vec3(-0.35, 1.0, -0.45)), vec2(0.55, 0.32), 0.12);

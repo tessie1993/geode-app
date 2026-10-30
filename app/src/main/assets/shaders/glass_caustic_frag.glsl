@@ -89,6 +89,8 @@ void main() {
     } else {
         float ts = glassPlane(ro, rd, vec3(0.0, 1.0, 0.0), CS_SURF);
         if (ts > 0.0) {
+            // The shafts stop at the surface: no light above the water.
+            span = min(ts, span);
             vec3 s3 = ro + rd * ts;
             vec4 w = glassWaves(s3.xz * 0.9 + drift * 0.25, t * 0.7, chop, focus);
             vec3 n = normalize(vec3(-w.y, 1.0, -w.z));
@@ -114,6 +116,6 @@ void main() {
     col += shallow * fluidMotes(uv, 16.0, 0.09) * 0.12;
 
     col *= 0.85 + 0.15 * swell;
-    col *= 0.78 + 0.22 * smoothstep(2.2, 0.3, length(uv));
+    col *= 0.78 + 0.22 * (1.0 - smoothstep(0.3, 2.2, length(uv)));
     fragColor = vec4(grade(col), 1.0);
 }

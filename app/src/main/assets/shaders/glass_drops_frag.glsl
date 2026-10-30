@@ -53,7 +53,7 @@ vec3 bokeh(vec2 x, float cell, float blur, float hue, float seed, float t) {
     vec2 off = (h2 - 0.5) * 2.0 * max(0.5 - rad - 0.15, 0.0);
     float d = length(f - off) - rad;
     float soft = 0.015 + blur;
-    float disc = smoothstep(soft, -soft, d) * (0.75 + 0.25 * smoothstep(-rad, 0.0, d));
+    float disc = (1.0 - smoothstep(-soft, soft, d)) * (0.75 + 0.25 * smoothstep(-rad, 0.0, d));
     vec3 c = mix(vec3(1.0, 0.62, 0.25), pal(hue + h2.y * 0.45), 0.55);
     float flick = 0.85 + 0.15 * sin(t * (0.6 + 2.0 * h) + h * 30.0);
     return c * disc * step(0.45, h) * flick * (0.45 + 0.55 * h);
@@ -62,8 +62,8 @@ vec3 bokeh(vec2 x, float cell, float blur, float hue, float seed, float t) {
 /** The city behind the glass, softened by `blur` (in light-cell units, up to about 0.13). */
 vec3 city(vec2 x, float blur, float hue, float t) {
     vec3 col = mix(pal(hue + 0.08) * 0.16 + vec3(0.09, 0.045, 0.02), pal(hue + 0.62) * 0.04 + vec3(0.01, 0.01, 0.03), smoothstep(-0.9, 0.7, x.y));
-    col += bokeh(x, 0.26, blur, hue, 0.0, t) * smoothstep(0.9, -0.6, x.y);
-    col += bokeh(x + vec2(0.13, 0.07), 0.15, blur, hue, 5.0, t) * 0.7 * smoothstep(0.6, -0.9, x.y);
+    col += bokeh(x, 0.26, blur, hue, 0.0, t) * (1.0 - smoothstep(-0.6, 0.9, x.y));
+    col += bokeh(x + vec2(0.13, 0.07), 0.15, blur, hue, 5.0, t) * 0.7 * (1.0 - smoothstep(-0.9, 0.6, x.y));
     return col;
 }
 
@@ -85,7 +85,7 @@ vec3 drops(vec2 x, float cell, float slide, float seed, float density, out vec2 
     vec2 lc = f - c;
     vec2 ls = vec2(lc.x * (1.0 + 0.35 * clamp(lc.y / rad, 0.0, 1.0)), lc.y * 0.9);
     float r = length(ls) / rad;
-    float mask = smoothstep(1.0, 0.9, r) * present;
+    float mask = (1.0 - smoothstep(0.9, 1.0, r)) * present;
     float trail = smoothstep(rad * 0.55, rad * 0.15, abs(lc.x)) * step(0.0, lc.y) * smoothstep(0.5 - c.y, 0.0, lc.y) * present;
     l = ls * cell;
     return vec3(mask, trail * 0.85, rad * cell);
@@ -99,7 +99,7 @@ vec3 dropShade(vec2 x, vec2 l, float rad, float hue, float t, float chaos) {
     vec2 wob = chaos * 0.2 * vec2(sin(q.y * 6.0 + t), cos(q.x * 5.0 - t * 0.8));
     vec3 c = city(centre - (l + wob * rad) * 6.0, 0.02, hue, t) * 1.2;
     c *= mix(1.0, 0.3, smoothstep(0.5, 1.0, rr));
-    c += pal(hue + 0.1) * 0.22 * smoothstep(0.7, 0.95, rr) * smoothstep(0.1, -0.5, q.y);
+    c += pal(hue + 0.1) * 0.22 * smoothstep(0.7, 0.95, rr) * (1.0 - smoothstep(-0.5, 0.1, q.y));
     c += vec3(1.0, 0.97, 0.92) * exp(-dot(q - vec2(-0.3, 0.38), q - vec2(-0.3, 0.38)) * 40.0) * 0.6;
     return c;
 }
@@ -128,13 +128,13 @@ void main() {
     vec2 mg = uv / 0.045;
     vec2 mf = fract(mg) - 0.5;
     vec2 mh = glassHash2(floor(mg) + 21.0);
-    float mist = smoothstep(0.2, 0.12, length(mf - (mh - 0.5) * 0.4)) * step(0.55, mh.x);
+    float mist = (1.0 - smoothstep(0.12, 0.2, length(mf - (mh - 0.5) * 0.4))) * step(0.55, mh.x);
     col += vec3(0.6, 0.65, 0.7) * mist * 0.05 * (1.0 - clear);
 
     if (small.x > 0.0) col = mix(col, dropShade(uv, l2, small.z, hue, t, chaos), small.x);
     if (big.x > 0.0) col = mix(col, dropShade(uv, l1, big.z, hue, t, chaos), big.x);
 
     col *= 0.85 + 0.15 * swell;
-    col *= 0.8 + 0.2 * smoothstep(2.2, 0.4, length(uv));
+    col *= 0.8 + 0.2 * (1.0 - smoothstep(0.4, 2.2, length(uv)));
     fragColor = vec4(grade(col), 1.0);
 }

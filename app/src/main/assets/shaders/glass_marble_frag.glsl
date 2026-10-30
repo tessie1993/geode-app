@@ -52,11 +52,11 @@ float gWidth;
 vec4 vanes(vec3 q, vec3 light) {
     float a = gTwist * q.y;
     vec2 d = vec2(cos(a), sin(a));
-    float inside = smoothstep(0.8, 0.66, length(q));
+    float inside = (1.0 - smoothstep(0.66, 0.8, length(q)));
     float across = dot(q.xz, d);
     float off = dot(q.xz, vec2(-d.y, d.x));
-    float v1 = smoothstep(0.1, 0.025, abs(off)) * smoothstep(gWidth, gWidth - 0.12, abs(across));
-    float v2 = smoothstep(0.1, 0.025, abs(across)) * smoothstep(gWidth, gWidth - 0.12, abs(off));
+    float v1 = (1.0 - smoothstep(0.025, 0.1, abs(off))) * (1.0 - smoothstep(gWidth - 0.12, gWidth, abs(across)));
+    float v2 = (1.0 - smoothstep(0.025, 0.1, abs(across))) * (1.0 - smoothstep(gWidth - 0.12, gWidth, abs(off)));
     float f1 = abs(dot(vec3(-d.y, 0.0, d.x), light));
     float f2 = abs(dot(vec3(d.x, 0.0, d.y), light));
     return vec4(v1 * inside, v2 * inside, f1, f2);
@@ -113,6 +113,6 @@ void main() {
     }
 
     col *= 0.85 + 0.18 * swell;
-    col *= 0.78 + 0.22 * smoothstep(2.2, 0.3, length(uv));
+    col *= 0.78 + 0.22 * (1.0 - smoothstep(0.3, 2.2, length(uv)));
     fragColor = vec4(grade(col), 1.0);
 }

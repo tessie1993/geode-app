@@ -88,7 +88,7 @@ void main() {
         float rad = 0.25 + 0.14 * glassHash1(fi * 5.1 + 2.2);
         vec2 sq = (uv - c - vec2(0.07, -0.09)) / rad;
         float sr2 = dot(sq, sq);
-        shade *= 1.0 - 0.38 * smoothstep(1.3, 0.75, sr2);
+        shade *= 1.0 - 0.38 * (1.0 - smoothstep(0.75, 1.3, sr2));
         spot += exp(-sr2 * 28.0) * 0.5;
         vec2 q = (uv - c) / rad;
         float r = length(q);
@@ -115,13 +115,13 @@ void main() {
         lc *= 1.1 + 0.1 * hitFocus;
         float rim = smoothstep(0.8, 1.0, hitR);
         lc = mix(lc, lc * 0.45 + pal(hue + 0.55) * 0.06, rim * 0.6);
-        lc += vec3(1.0, 0.97, 0.92) * smoothstep(0.92, 0.975, hitR) * smoothstep(1.0, 0.975, hitR) * (0.35 + 0.2 * hitFocus);
-        float hl = smoothstep(0.45, 0.9, dot(hitQ, vec2(-0.6, 0.8))) * smoothstep(1.0, 0.86, hitR);
+        lc += vec3(1.0, 0.97, 0.92) * smoothstep(0.92, 0.975, hitR) * (1.0 - smoothstep(0.975, 1.0, hitR)) * (0.35 + 0.2 * hitFocus);
+        float hl = smoothstep(0.45, 0.9, dot(hitQ, vec2(-0.6, 0.8))) * (1.0 - smoothstep(0.86, 1.0, hitR));
         lc += vec3(0.95, 0.97, 1.0) * hl * 0.2;
-        col = mix(col, lc, smoothstep(1.0, 0.985, hitR));
+        col = mix(col, lc, (1.0 - smoothstep(0.985, 1.0, hitR)));
     }
 
     col *= 0.85 + 0.15 * swell;
-    col *= 0.8 + 0.2 * smoothstep(2.2, 0.4, length(uv));
+    col *= 0.8 + 0.2 * (1.0 - smoothstep(0.4, 2.2, length(uv)));
     fragColor = vec4(grade(col), 1.0);
 }

@@ -49,7 +49,7 @@ float filmThickness(vec3 l, float base, float t, float seed) {
     float nm = base * (1.0 - 0.45 * l.y);
     nm += 90.0 * sin(l.x * 5.0 + l.z * 3.0 + t * 0.6 + seed);
     nm += 60.0 * sin(l.y * 9.0 - l.x * 2.0 - t * 0.45 + seed * 2.3);
-    nm *= 0.2 + 0.8 * smoothstep(1.0, 0.55, l.y);
+    nm *= 0.2 + 0.8 * (1.0 - smoothstep(0.55, 1.0, l.y));
     return max(nm, 0.0);
 }
 
@@ -73,7 +73,7 @@ void main() {
         float fi = float(i);
         vec4 h = vec4(glassHash1(fi * 1.31 + 0.7), glassHash1(fi * 2.17 + 3.1), glassHash1(fi * 3.91 + 5.3), glassHash1(fi * 4.73 + 8.9));
         float phase = fract(t * (0.018 + 0.02 * h.x) + h.y);
-        float life = smoothstep(0.0, 0.07, phase) * smoothstep(1.0, 0.9, phase);
+        float life = smoothstep(0.0, 0.07, phase) * (1.0 - smoothstep(0.9, 1.0, phase));
         float rad = (0.35 + 0.5 * h.z) * life;
         if (rad < 0.02) continue;
         vec3 c = vec3((h.w - 0.5) * 5.0 + 0.3 * sin(t * 0.4 + fi * 1.9),
@@ -100,6 +100,6 @@ void main() {
     }
 
     col *= 0.85 + 0.18 * swell;
-    col *= 0.78 + 0.22 * smoothstep(2.2, 0.3, length(uv));
+    col *= 0.78 + 0.22 * (1.0 - smoothstep(0.3, 2.2, length(uv)));
     fragColor = vec4(grade(col), 1.0);
 }

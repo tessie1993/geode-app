@@ -20,7 +20,7 @@ Read before you change structure:
 
 | Module | Holds | Packages |
 |---|---|---|
-| `:engine:audio-core` | `GeodeNative` (every JNI `external fun`), the PCM ring (`SampleRing`), feature ring, presentation clock | `dev.geode.engine.audio`, `dev.geode.engine.bridge` |
+| `:engine:audio-core` | `GeodeNative` (every JNI `external fun`), the PCM ring (`SampleRing`), presentation clock, `AnalysisFft` (FFT size and hop for a stream's sample rate) | `dev.geode.engine.audio`, `dev.geode.engine.bridge` |
 | `:engine:audio-android` | Media3 PCM tap (`PcmTap`), sink clock driver | `dev.geode.engine.audioandroid` |
 | `:engine:scenes` | Live and offline analysis (`AnalysisEngine`, `OfflineAnalyzer`, `FeatureTimeline`, `AnalysisCache`); the GL adapter (`VisualizerView`, `VisualizerRenderer`, `render/bridge/NativeViz`); offscreen rendering for export; scene ids, params, catalogues | `dev.geode.analysis`, `dev.geode.render.*`, `dev.geode.audio`, `dev.geode.util` |
 | `:app` | Everything else: UI, playback service, stores, editor model, export, wallpaper, widget | `dev.geode.*` |
@@ -43,7 +43,7 @@ The native core is built by the root `CMakeLists.txt`, plus `core/CMakeLists.txt
 | `audio/dsp` | The Media3 processor chain order, native DSP | `MvzAudioProcessorChain` |
 | `data` | Stores (SharedPreferences, JSON files) and their repositories, template and preset formats | `PresetStore`, `TemplateRepository`, `VideoTemplate`, `GeodePrefsFiles` |
 | `editor` | The Studio project model: pure Kotlin, no `android.*` | `Timeline`, `Keyframes`, `Markers`, `AutoCut` |
-| `export` | Visualizer export (MediaCodec + offscreen GL), Studio export (Media3 Transformer), loop render, loudness, chapters, captions | `VideoExporter`, `StudioExporter`, `LoopRender`, `ExportRun`, `ExportService` |
+| `export` | Visualizer export (MediaCodec + offscreen GL), Studio export (Media3 Transformer), loop render, loudness, chapters, captions, `PcmResampler` (hi-res sources down to an AAC-supported rate) | `VideoExporter`, `StudioExporter`, `LoopRender`, `ExportRun`, `ExportService` |
 | `viz` | Background image layer | `BackgroundImage` |
 | `wallpaper` | Live wallpaper and the dream. Each builds its own `VisualizerView` | `VisualizerWallpaperService`, `VisualizerDreamService` |
 | `widget` | Glance now-playing widget | `NowPlayingWidget`, `WidgetPublisher` |

@@ -17,6 +17,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
+import dev.geode.audio.MicCapture
 import dev.geode.analysis.BeatTuning
 import kotlin.math.roundToInt
 
@@ -113,52 +114,20 @@ private fun LiveInputGroup(viewModel: PlayerViewModel) {
     val mic by viewModel.micState.collectAsStateWithLifecycle()
     val micPermission =
         rememberPermissionRequest(android.Manifest.permission.RECORD_AUDIO) { viewModel.setMicEnabled(true) }
-    val denied = micPermission.refused
     Column {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                stringResource(R.string.audio_react_mic),
-                Modifier.weight(1f),
-                style = MaterialTheme.typography.bodyMedium,
-            )
-            Switch(
-                checked = mic.active,
-                onCheckedChange = { want ->
-                    if (!want) {
-                        viewModel.setMicEnabled(false)
-                    } else if (viewModel.hasMicPermission()) {
-                        viewModel.setMicEnabled(true)
-                    } else {
-                        micPermission.request()
-                    }
-                },
-            )
-        }
-        Text(
-            stringResource(R.string.audio_react_mic_explainer),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        when {
-            denied || mic.failure == dev.geode.audio.MicCapture.Failure.PERMISSION -> {
-                Text(
-                    stringResource(R.string.audio_mic_denied),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error,
-                )
-                if (micPermission.status == PermissionStatus.PERMANENTLY_DENIED) {
-                    CrystalButton(onClick = micPermission::openSettings, compact = true, filled = false) {
-                        Text(stringResource(R.string.permission_open_settings))
-                    }
+        MicToggleRow(
+            active = mic.active,
+            onToggle = { want ->
+                if (!want) {
+                    viewModel.setMicEnabled(false)
+                } else if (viewModel.hasMicPermission()) {
+                    viewModel.setMicEnabled(true)
+                } else {
+                    micPermission.request()
                 }
-            }
-            mic.failure == dev.geode.audio.MicCapture.Failure.UNAVAILABLE ->
-                Text(
-                    stringResource(R.string.audio_mic_busy),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error,
-                )
-        }
+            },
+        )
+        MicStatusNotice(micPermission, mic.failure)
     }
     Column {
         Text(stringResource(R.string.audio_tune_room), style = MaterialTheme.typography.labelMedium)
@@ -185,5 +154,53 @@ private fun LiveInputGroup(viewModel: PlayerViewModel) {
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+    }
+}
+
+@Composable
+private fun MicToggleRow(
+    active: Boolean,
+    onToggle: (Boolean) -> Unit,
+) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            stringResource(R.string.audio_react_mic),
+            Modifier.weight(1f),
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        Switch(checked = active, onCheckedChange = onToggle)
+    }
+    Text(
+        stringResource(R.string.audio_react_mic_explainer),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+}
+
+/** Why live input is off, when it is, and the way back to Settings once Android stops asking. */
+@Composable
+private fun MicStatusNotice(
+    permission: PermissionRequestState,
+    failure: MicCapture.Failure?,
+) {
+    when {
+        permission.refused || failure == MicCapture.Failure.PERMISSION -> {
+            Text(
+                stringResource(R.string.audio_mic_denied),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+            )
+            if (permission.status == PermissionStatus.PERMANENTLY_DENIED) {
+                CrystalButton(onClick = permission::openSettings, compact = true, filled = false) {
+                    Text(stringResource(R.string.permission_open_settings))
+                }
+            }
+        }
+        failure == MicCapture.Failure.UNAVAILABLE ->
+            Text(
+                stringResource(R.string.audio_mic_busy),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+            )
     }
 }

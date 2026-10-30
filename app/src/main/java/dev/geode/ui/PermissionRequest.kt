@@ -35,11 +35,26 @@ enum class PermissionStatus {
 }
 
 /**
- * The status of [permission] as of the last result, given whether Android would still show a
- * rationale for it. A refusal that Android will not explain again is final from inside the app.
+ * What a refusal means, from whether Android would show a rationale before ([rationaleBefore])
+ * and after ([rationaleAfter]) the request, and the status the request was made from.
+ *
+ * "No rationale" after a refusal is ambiguous on its own: it is what Android reports after "don't
+ * ask again", but also after a first dialog the person simply dismissed, and on the first tap after
+ * a restart for a permission refused for good in an earlier session (the dialog never shows). So a
+ * refusal only counts as final when the evidence says Android stopped asking: a rationale that was
+ * on and went off, or a second rationale-less refusal in a row. Otherwise it is an ordinary
+ * refusal, which the screen explains, and the next tap settles it.
  */
-internal fun statusAfterRefusal(shouldShowRationale: Boolean): PermissionStatus =
-    if (shouldShowRationale) PermissionStatus.DENIED else PermissionStatus.PERMANENTLY_DENIED
+internal fun statusAfterRefusal(
+    rationaleBefore: Boolean,
+    rationaleAfter: Boolean,
+    previous: PermissionStatus,
+): PermissionStatus =
+    when {
+        rationaleAfter -> PermissionStatus.DENIED
+        rationaleBefore || previous == PermissionStatus.DENIED -> PermissionStatus.PERMANENTLY_DENIED
+        else -> PermissionStatus.DENIED
+    }
 
 @Stable
 class PermissionRequestState internal constructor(
@@ -75,14 +90,15 @@ fun rememberPermissionRequest(
         remember(permission) {
             mutableStateOf(if (context.isGranted(permission)) PermissionStatus.GRANTED else PermissionStatus.NOT_ASKED)
         }
+    fun rationale(): Boolean = context.findActivity()?.shouldShowRequestPermissionRationale(permission) ?: false
+    val rationaleBefore = remember(permission) { booleanArrayOf(false) }
     val launcher =
         rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { allowed ->
             if (allowed) {
                 status.value = PermissionStatus.GRANTED
                 currentOnGranted()
             } else {
-                val rationale = context.findActivity()?.shouldShowRequestPermissionRationale(permission) ?: false
-                status.value = statusAfterRefusal(rationale)
+                status.value = statusAfterRefusal(rationaleBefore[0], rationale(), status.value)
             }
         }
     LifecycleResumeEffect(permission) {
@@ -98,7 +114,10 @@ fun rememberPermissionRequest(
     return remember(status, launcher) {
         PermissionRequestState(
             state = status,
-            launch = { launcher.launch(permission) },
+            launch = {
+                rationaleBefore[0] = rationale()
+                launcher.launch(permission)
+            },
             settings = { context.openAppSettings() },
         )
     }

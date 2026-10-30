@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- MuzViz Pro: the paywall, the locked-feature panels and the export wordmark.
+     Kept apart from strings.xml so the paywall stays self-contained while the rest of the UI is
+     restyled. -->
+<resources>
+    <!-- Burnt into free exports, bottom-right. Product name: not translated. -->
+    <string name="pro_watermark_text" translatable="false">MuzViz Studio Pro</string>
+
+    <string name="pro_badge">PRO</string>
+    <string name="pro_badge_description">Pro feature</string>
+    <string name="pro_close">Close</string>
+
+    <!-- Headlines, by what opened the paywall. -->
+    <string name="pro_title_default">Music comes to life</string>
+    <string name="pro_title_onboarding">Make your music come to life</string>
+    <string name="pro_title_trial_ended">Your Pro hour is up</string>
+    <string name="pro_title_export_4k">Export in stunning 4K</string>
+    <string name="pro_title_export_60fps">Silky 60 fps exports</string>
+    <string name="pro_title_watermark">Export without the watermark</string>
+    <string name="pro_title_studio">Unlock the Studio</string>
+    <string name="pro_title_wallpaper">Your visuals, on your home screen</string>
+    <string name="pro_title_screensaver">Your visuals, as a screensaver</string>
+    <string name="pro_title_styles">Every visual style, unlocked</string>
+    <string name="pro_title_customization">Shape every detail</string>
+    <string name="pro_subtitle">One payment. Every style, every tool, yours to keep. No subscription.</string>
+    <string name="pro_subtitle_trial_ended">Liked what you saw? Keep it all with a single payment. No subscription.</string>
+
+    <!-- Comparison table. -->
+    <string name="pro_compare_feature">Feature</string>
+    <string name="pro_compare_free">Free</string>
+    <string name="pro_compare_pro">Pro</string>
+    <string name="pro_row_styles">Visual styles</string>
+    <string name="pro_row_styles_free">Starter set</string>
+    <string name="pro_row_styles_pro">All styles</string>
+    <string name="pro_row_resolution">Export resolution</string>
+    <string name="pro_row_resolution_free">Up to 1080p</string>
+    <string name="pro_row_resolution_pro">Up to 4K</string>
+    <string name="pro_row_fps">Frame rate</string>
+    <string name="pro_row_fps_free">30 fps</string>
+    <string name="pro_row_fps_pro">60 fps</string>
+    <string name="pro_row_watermark">Watermark</string>
+    <string name="pro_row_watermark_free">Corner mark</string>
+    <string name="pro_row_watermark_pro">None</string>
+    <string name="pro_row_studio">Studio editor</string>
+    <string name="pro_row_wallpaper">Live wallpaper and screensaver</string>
+    <string name="pro_row_customization">Advanced look controls</string>
+    <string name="pro_included">Included</string>
+    <string name="pro_not_included">Not included</string>
+    <!-- Spoken for each comparison row: "Export resolution. Free: Up to 1080p. Pro: Up to 4K." -->
+    <string name="pro_row_spoken">%1$s. Free: %2$s. Pro: %3$s.</string>
+
+    <!-- Purchase. -->
+    <string name="pro_buy">Unlock Pro · %1$s</string>
+    <string name="pro_price_loading">Getting the price…</string>
+    <string name="pro_price_note">One-time purchase, billed by Google Play. No subscription.</string>
+    <string name="pro_restore">Restore purchase</string>
+    <string name="pro_retry">Try again</string>
+    <string name="pro_trial_start">Try everything free for 1 hour</string>
+    <string name="pro_trial_note">Starts now and runs for an hour, once. Trial exports keep the corner mark.</string>
+    <plurals name="pro_trial_active">
+        <item quantity="one">Pro trial: %d minute left</item>
+        <item quantity="other">Pro trial: %d minutes left</item>
+    </plurals>
+
+    <!-- Status. -->
+    <string name="pro_status_pending">Payment pending. Pro unlocks as soon as Google Play confirms it, even if you close the app.</string>
+    <string name="pro_status_cancelled">Purchase cancelled. Nothing was charged.</string>
+    <string name="pro_error_unavailable">Google Play isn\'t available on this device or account, so Pro can\'t be bought here.</string>
+    <string name="pro_error_network">Google Play couldn\'t be reached. Check your connection and try again.</string>
+    <string name="pro_error_product">Pro isn\'t available in your country yet.</string>
+    <string name="pro_error_unknown">Something went wrong with Google Play. Please try again.</string>
+    <string name="pro_restore_running">Checking your purchases…</string>
+    <string name="pro_restore_done">Pro restored. Welcome back.</string>
+    <string name="pro_restore_nothing">No Pro purchase found on this Google account.</string>
+    <string name="pro_restore_pending">Your Pro purchase is still pending with Google Play.</string>
+
+    <!-- Purchased. -->
+    <string name="pro_owned_title">You\'re Pro</string>
+    <string name="pro_owned_body">Every style and every tool is unlocked, for good. Thank you for supporting MuzViz.</string>
+    <string name="pro_done">Start creating</string>
+
+    <!-- Locked panels and the Settings row. -->
+    <string name="pro_locked_studio_title">The Studio is part of Pro</string>
+    <string name="pro_locked_studio_body">Cut multi-clip music videos with keyframes, transitions, auto-cut, captions and chapters.</string>
+    <string name="pro_locked_cta">See what Pro unlocks</string>
+    <string name="pro_settings_title">MuzViz Pro</string>
+    <string name="pro_settings_free">Unlock every style, 4K 60 fps exports, the Studio and the live wallpaper. One payment.</string>
+    <string name="pro_settings_owned">Unlocked. Thank you for supporting MuzViz.</string>
+    <string name="pro_settings_go">Go Pro</string>
+
+    <!-- Debug builds only: the fake billing panel. Never shown in a store build. -->
+    <string name="pro_debug_title" translatable="false">Debug billing (fake)</string>
+    <string name="pro_debug_owned" translatable="false">Owns Pro</string>
+    <string name="pro_debug_next" translatable="false">Next purchase</string>
+    <string name="pro_debug_complete_pending" translatable="false">Complete pending payment</string>
+</resources>

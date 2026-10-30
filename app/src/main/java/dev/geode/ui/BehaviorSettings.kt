@@ -186,12 +186,18 @@ private fun PictureInPictureGroup(
 @Composable
 private fun LiveWallpaperGroup() {
     val ctx = LocalContext.current
+    val paywall: dev.geode.ui.pro.PaywallViewModel = geodeViewModel()
+    val gate by paywall.gate.collectAsStateWithLifecycle()
     Text(
         stringResource(R.string.behavior_wallpaper_hint),
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
     CrystalButton(onClick = {
+        if (!gate.allows(dev.geode.pro.ProFeature.LIVE_WALLPAPER)) {
+            paywall.open(dev.geode.pro.PaywallTrigger.Feature(dev.geode.pro.ProFeature.LIVE_WALLPAPER))
+            return@CrystalButton
+        }
         val direct =
             android.content
                 .Intent(

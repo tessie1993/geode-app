@@ -34,16 +34,19 @@ The native core is built by the root `CMakeLists.txt`, plus `core/CMakeLists.txt
 | Package | Responsibility | Open first |
 |---|---|---|
 | (root) | `Application`, crash file, the `GeodeContainer` service locator | `GeodeApp`, `GeodeContainer`, `RingLog` |
-| `di` | Hilt modules. Very thin: most objects are built by hand | `DataModule`, `PlayerSessionProvider` |
+| `di` | Hilt modules. Very thin: most objects are built by hand | `DataModule`, `BillingModule`, `PlayerSessionProvider` |
+| `pro` | Pure Kotlin (no `android.*`): Pro entitlement rules, the free tier, the billing and trial interfaces, the one gate use case, the paywall request | `FreeTier` (edit to tune the free tier), `FeatureGate`, `GetFeatureGateUseCase`, `BillingRepository`, `PaywallNavigator` |
+| `billing` | Play Billing (PBL 9) behind `BillingRepository`, the fake for debug and tests, entitlement cache, trial store, purchase signature check | `PlayBillingRepository`, `FakeBillingRepository`, `ProSnapshot` |
 | `ui` | Every screen, the five ViewModels, `PlayerSession` with its ~20 `*Controller`s, settings screens, theme glue | `MainActivity`, `AppShell`, `GeodeAppState`, `PlayerSession`, `*ViewModel` |
 | `ui/studio` | Studio timeline widgets: lanes, playhead, curve editor, toolbar | `TimelineLanes`, `EditorActions` |
+| `ui/pro` | Self-contained paywall (own palette, no theme-pack APIs), Pro badge, locked-destination gate, Settings "Go Pro" row | `PaywallViewModel`, `PaywallScreen`, `ProComponents` |
 | `ui/theme` | Theme packs and the Stone design system | `ThemePack`, `ThemePackCatalog`, `StoneTheme`, `StoneIcon` |
 | `playback` | `PlaybackEngine` (process-wide holder of ExoPlayer or `NativePlayer`, ring and analysis), `PlaybackService` (MediaLibraryService), queue, sleep timer, ReplayGain | `PlaybackEngine`, `PlaybackService`, `NativePlayer` |
 | `audio` | Capture sources (mic, other apps' audio), `AudioBus` (features for non-UI surfaces), platform FX, media chain | `AudioBus`, `AudioCapturePump`, `PlaybackCaptureService`, `TapRenderersFactory` |
 | `audio/dsp` | The Media3 processor chain order, native DSP | `MvzAudioProcessorChain` |
 | `data` | Stores (SharedPreferences, JSON files) and their repositories, template and preset formats | `PresetStore`, `TemplateRepository`, `VideoTemplate`, `GeodePrefsFiles` |
 | `editor` | The Studio project model: pure Kotlin, no `android.*` | `Timeline`, `Keyframes`, `Markers`, `AutoCut` |
-| `export` | Visualizer export (MediaCodec + offscreen GL), Studio export (Media3 Transformer), loop render, loudness, chapters, captions | `VideoExporter`, `StudioExporter`, `LoopRender`, `ExportRun`, `ExportService` |
+| `export` | Visualizer export (MediaCodec + offscreen GL), Studio export (Media3 Transformer), loop render, loudness, chapters, captions, the free-tier wordmark | `VideoExporter`, `StudioExporter`, `LoopRender`, `ExportRun`, `ExportService`, `WatermarkOverlay` |
 | `viz` | Background image layer | `BackgroundImage` |
 | `wallpaper` | Live wallpaper and the dream. Each builds its own `VisualizerView` | `VisualizerWallpaperService`, `VisualizerDreamService` |
 | `widget` | Glance now-playing widget | `NowPlayingWidget`, `WidgetPublisher` |
@@ -75,6 +78,13 @@ The native core is built by the root `CMakeLists.txt`, plus `core/CMakeLists.txt
 - `AppRoot` / `AppShell` in `ui/AppShell.kt` switch with `when (appState.dest)` and build the bar and rail from `GeodeDestination.entries`. STUDIO is hidden unless `showsStudio`.
 - There is no NavHost and no back stack. Sheets and dialogs are local Compose state. All five ViewModels live in the Activity's store. `PlayerSessionProvider`'s KDoc depends on that, and `PlayerViewModel.onCleared` shuts the session down. Read ADR 0001 § Consequences before you add per-destination stores.
 
+## Pro (one-time unlock)
+
+- Product id `muzviz_pro` (`BillingRepository.PRO_PRODUCT_ID`). Every gate asks a `FeatureGate` from `GetFeatureGateUseCase` (Pro beats the 1-hour trial beats free); what free keeps is `pro/FreeTier.kt` alone.
+- Gates: `PlayerViewModel.startExport`/`startLoopRender` (4K, 60 fps, watermark), `PlayerSession.selectScene`/`applyPreset` via `PlayerSessionProvider` (styles; auto-visuals skips locked ones silently), `ProGate` on the Studio tab, the wallpaper button, and `ProSnapshot` in the wallpaper and dream services.
+- `PaywallNavigator.request` is state; `PaywallHost` (a `Dialog`, drawn from `AppRoot`) shows it. Debug builds bill against `FakeBillingRepository` (`BuildConfig.USE_FAKE_BILLING`) with a debug panel on the paywall.
+- Store and console steps: [`docs/play/`](docs/play/).
+
 ## DI
 
 - Hilt: `GeodeApp`, `MainActivity` and five `@HiltViewModel`s, resolved through `geodeViewModel()` in `ui/GeodeViewModelFactory.kt`. `DataModule` provides `GeodePrefsFiles`, `@GeneralPrefs SharedPreferences` and `UserDataRepository`, all taken from `GeodeContainer`.
@@ -84,9 +94,9 @@ The native core is built by the root `CMakeLists.txt`, plus `core/CMakeLists.txt
 ## Build, test, CI
 
 - **Don't build locally.** Push to `claude/**`. `.github/workflows/android.yml` runs detekt, `:app:assembleDebug`, `:app:testDebugUnitTest`, `:app:lintDebug`, `ktlintCheck`, plus an emulator job (`connectedDebugAndroidTest`, API 30). Read the results with `gh run list --branch <b>` and `gh run view <id> --log-failed`.
-- `ship-apk.yml` (push to `main`) and `release.yml` (tag `v*`) publish. `arch-map.yml` is the gate described below.
+- `ship-apk.yml` (push to `main`) publishes a debug APK. `release.yml` builds the Play AAB on PRs (unsigned without the upload-key secrets) and on tags `v*` (must be signed), then checks the merged manifest (no INTERNET, targetSdk), R8 and the baseline profile. `arch-map.yml` is the gate described below.
 - Submodules: `git submodule update --init --recursive`, needed only for native work. Your `local.properties` needs `sdk.dir`.
-- Tests: there are only three: `app/src/test/.../ui/PresetLinkTest.kt`, `app/src/androidTest/.../BuildVariantTest.kt` and `engine/audio-core/src/test/.../FeatureRingTest.kt`. Put new pure tests in a JVM module where you can. Use `docs/DEVICE_CHECKS.md` for anything that needs a device. `tools/glslcheck` and `tools/hostlink` check shaders and the native link on the host.
+- Tests: few. `app/src/test/.../ui/PresetLinkTest.kt`, `.../ui/pro/PaywallViewModelTest.kt`, `.../pro/FeatureGateTest.kt`, `app/src/androidTest/.../BuildVariantTest.kt` and `engine/audio-core/src/test/.../FeatureRingTest.kt`. Put new pure tests in a JVM module where you can. Use `docs/DEVICE_CHECKS.md` for anything that needs a device. `tools/glslcheck` and `tools/hostlink` check shaders and the native link on the host.
 
 ## Conventions
 
@@ -95,7 +105,7 @@ The native core is built by the root `CMakeLists.txt`, plus `core/CMakeLists.txt
 - Use `bestEffort(TAG, "what")` (`dev.geode.util`) for best-effort failures. Failures go to `RingLog`.
 - Scratch files use the prefixes `geode_aac_`, `geode_loop_` and `studio-`; `GeodeContainer` sweeps them. Renders insert with `IS_PENDING`.
 - The tap stays first in the audio chain, and the chain never gets float output (see `docs/AUDIO_CHAIN.md`).
-- The app is offline by design: there is no network permission.
+- The app is offline by design: there is no network permission. The manifest removes INTERNET explicitly; Play Billing works over IPC to the Play Store app.
 
 ## Large files to split (lines)
 
@@ -114,7 +124,7 @@ The native core is built by the root `CMakeLists.txt`, plus `core/CMakeLists.txt
 - **One-shot events.** `PlayerViewModel` exposes `vizApply` and `morphFade` as `SharedFlow`.
 - **Mixed module.** `:engine:scenes` is an Android library, but most of its files are pure Kotlin. `editor/*` and much of `data/*` are pure too, except for `org.json` (`TemplateFormat`, `EditorProjectJson`, `PerformanceTake`). There is no `kotlinx.serialization` yet.
 - **Navigation.** Enum and `when`, not Nav3.
-- **Quality items not set up:** no domain layer or use cases, almost no ViewModel or repository tests, no Baseline Profile, `reportFullyDrawn`, JankStats, Macrobenchmark or GWP-ASan.
+- **Quality items not set up:** one use case only (`GetFeatureGateUseCase`), almost no ViewModel or repository tests, a hand-written (not generated) baseline profile (`app/src/main/baseline-prof.txt`), no `reportFullyDrawn`, JankStats, Macrobenchmark or GWP-ASan.
 
 ## Keeping this map current
 

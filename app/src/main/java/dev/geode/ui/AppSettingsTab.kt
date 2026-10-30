@@ -44,6 +44,7 @@ internal fun AppSettingsTab(
             stringResource(R.string.settings_tab_about),
         )
     Column(Modifier.fillMaxSize()) {
+        dev.geode.ui.pro.GoProSettingsRow()
         CrystalTabs(titles = tabTitles, selected = tab, onSelect = { tab = it })
         when (tab) {
             0 -> LookSettingsTab(settingsViewModel)

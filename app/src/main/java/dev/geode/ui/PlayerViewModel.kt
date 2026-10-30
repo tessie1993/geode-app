@@ -4,6 +4,7 @@ import android.content.Intent
 import android.net.Uri
 import androidx.annotation.OptIn
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -17,12 +18,18 @@ import dev.geode.di.PlayerSessionProvider
 import dev.geode.export.ExportAspect
 import dev.geode.export.ExportCodec
 import dev.geode.export.ExportRange
+import dev.geode.pro.FeatureGate
+import dev.geode.pro.GetFeatureGateUseCase
+import dev.geode.pro.PaywallNavigator
+import dev.geode.pro.PaywallTrigger
 import dev.geode.render.SceneFactory
 import dev.geode.render.TransitionStyle
 import dev.geode.render.scene.PcmChunk
 import dev.geode.render.scene.SceneParams
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.stateIn
 import javax.inject.Inject
 
 @OptIn(UnstableApi::class)
@@ -31,8 +38,13 @@ class PlayerViewModel
     @Inject
     constructor(
         private val sessions: PlayerSessionProvider,
+        getFeatureGate: GetFeatureGateUseCase,
+        private val paywall: PaywallNavigator,
     ) : ViewModel() {
         private val session: PlayerSession = sessions.get()
+
+        /** What exports may do: resolution, frame rate, and whether they carry the wordmark. */
+        private val gate: StateFlow<FeatureGate> = getFeatureGate().stateIn(viewModelScope, SharingStarted.Eagerly, FeatureGate.FREE)
         private val playback: PlaybackRepository = session.playbackRepository
         private val visualizer: VisualizerRepository = session.visualizerRepository
 
@@ -263,7 +275,10 @@ class PlayerViewModel
             range: ExportRange? = null,
             sceneFactoryFor: ((String) -> SceneFactory)? = null,
             codec: ExportCodec = ExportCodec.H264,
-        ) = session.startExport(aspect, fps, sceneFactory, destination, loopSafe, range, sceneFactoryFor, codec)
+        ) {
+            if (openPaywallIfLocked(aspect, fps)) return
+            session.startExport(aspect, fps, sceneFactory, destination, loopSafe, range, sceneFactoryFor, codec, gate.value.watermarksExports)
+        }
 
         fun startLoopRender(
             aspect: ExportAspect,
@@ -275,7 +290,31 @@ class PlayerViewModel
             drift: dev.geode.export.TimeOfDayDrift,
             audioClips: List<Uri>,
             destination: Uri? = null,
-        ) = session.startLoopRender(aspect, codec, fps, sceneFactory, loopMs, crossfadeMs, drift, audioClips, destination)
+        ) {
+            if (openPaywallIfLocked(aspect, fps)) return
+            session.startLoopRender(
+                aspect,
+                codec,
+                fps,
+                sceneFactory,
+                loopMs,
+                crossfadeMs,
+                drift,
+                audioClips,
+                destination,
+                gate.value.watermarksExports,
+            )
+        }
+
+        /** 4K and 60 fps are Pro: a locked size or rate opens the paywall instead of rendering. */
+        private fun openPaywallIfLocked(
+            aspect: ExportAspect,
+            fps: Int,
+        ): Boolean {
+            val blocking = gate.value.blockingExportFeature(minOf(aspect.width, aspect.height), fps) ?: return false
+            paywall.open(PaywallTrigger.Feature(blocking))
+            return true
+        }
 
         /**
          * This ViewModel owns the session's teardown. `AppRoot` creates it unconditionally and

@@ -156,6 +156,8 @@ class VideoExporter(
         background: BackgroundExportSpec? = null,
         onProgress: (Float) -> Unit,
         isCancelled: () -> Boolean,
+        // The free tier's corner wordmark; see WatermarkOverlay.
+        watermark: Boolean = false,
     ): Result =
         withContext(Dispatchers.Default) {
             // Decoded once, at the export's own pixel size, and reused for whichever destination
@@ -181,6 +183,7 @@ class VideoExporter(
                     underlay,
                     onProgress,
                     isCancelled,
+                    watermark = watermark,
                 )
             }
             val resolver = context.contentResolver
@@ -221,6 +224,7 @@ class VideoExporter(
                         underlay,
                         onProgress,
                         isCancelled,
+                        watermark = watermark,
                     )
                 }
                 if (isCancelled()) {
@@ -258,6 +262,7 @@ class VideoExporter(
         underlay: OffscreenUnderlay?,
         onProgress: (Float) -> Unit,
         isCancelled: () -> Boolean,
+        watermark: Boolean,
     ): Result {
         val resolver = context.contentResolver
         val pfd =
@@ -283,6 +288,7 @@ class VideoExporter(
                     underlay,
                     onProgress,
                     isCancelled,
+                    watermark = watermark,
                 )
             }
             if (isCancelled()) {
@@ -354,8 +360,10 @@ class VideoExporter(
         underlay: OffscreenUnderlay?,
         onProgress: (Float) -> Unit,
         isCancelled: () -> Boolean,
+        watermark: Boolean,
     ) {
         var encoderRef: MediaCodec? = null
+        var watermarkRef: WatermarkOverlay? = null
         var inputSurfaceRef: android.view.Surface? = null
         var muxerRef: MediaMuxer? = null
         var aacRef: AudioTranscoder.Result? = null
@@ -423,6 +431,14 @@ class VideoExporter(
                         ),
                 ).also { rendererRef = it }
             renderer.prepare()
+            val mark =
+                if (watermark) {
+                    WatermarkOverlay(context.getString(R.string.pro_watermark_text))
+                        .also { watermarkRef = it }
+                        .apply { prepare(aspect.width, aspect.height) }
+                } else {
+                    null
+                }
 
             var videoTrack = -1
             var audioTrack = -1
@@ -431,6 +447,7 @@ class VideoExporter(
             for (frame in 0 until totalFrames) {
                 if (isCancelled()) break
                 renderer.renderFrame(frame)
+                mark?.draw()
                 val timeMs = frame * 1000L / fps
                 egl.setPresentationTimeNs(frame * frameDurationNs)
                 egl.swapBuffers()
@@ -507,6 +524,7 @@ class VideoExporter(
                 muxerStopped = true
             }
         } finally {
+            bestEffort(TAG, "watermarkRef?.release()") { watermarkRef?.release() }
             bestEffort(TAG, "rendererRef?.release()") { rendererRef?.release() }
             bestEffort(TAG, "audioFeedRef?.close()") { audioFeedRef?.close() }
             if (muxerStarted && !muxerStopped) {

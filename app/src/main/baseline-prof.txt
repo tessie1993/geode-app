@@ -1,0 +1,38 @@
+# Baseline profile for the app's own code (AGP compiles this into the bundle as
+# baseline.prof; R8 rewrites it to the obfuscated names). The AndroidX and Compose
+# libraries ship their own profiles, which are merged in automatically.
+#
+# Hand-written for now: the cold-start path from Application.onCreate to the first
+# usable player frame, plus the paywall, which first-run users see right after
+# onboarding. A Macrobenchmark-generated profile replaces this when the module split
+# (ADR 0001) adds a :baselineprofile module; until then these rules keep the startup
+# path out of the interpreter on a fresh install.
+#
+# H = hot, S = run at startup, P = run after startup; ** matches any members.
+
+HSPLdev/geode/GeodeApp;->**(**)**
+HSPLdev/geode/GeodeContainer;->**(**)**
+HSPLdev/geode/RingLog;->**(**)**
+HSPLdev/geode/di/**;->**(**)**
+HSPLdev/geode/ui/MainActivity;->**(**)**
+HSPLdev/geode/ui/AppShellKt**;->**(**)**
+HSPLdev/geode/ui/GeodeAppState**;->**(**)**
+HSPLdev/geode/ui/PlayerViewModel**;->**(**)**
+HSPLdev/geode/ui/SettingsViewModel**;->**(**)**
+HSPLdev/geode/ui/PlayerSession**;->**(**)**
+HSPLdev/geode/ui/PlayerScreenKt**;->**(**)**
+HSPLdev/geode/ui/BootIntroKt**;->**(**)**
+HSPLdev/geode/ui/ThemeStore**;->**(**)**
+HSPLdev/geode/data/GeodePrefsFiles;->**(**)**
+HSPLdev/geode/data/PlayerPrefs**;->**(**)**
+HSPLdev/geode/playback/PlaybackEngine**;->**(**)**
+HSPLdev/geode/render/VisualizerView**;->**(**)**
+HSPLdev/geode/render/VisualizerRenderer**;->**(**)**
+HSPLdev/geode/pro/**;->**(**)**
+HSPLdev/geode/billing/**;->**(**)**
+HPLdev/geode/ui/pro/**;->**(**)**
+
+Ldev/geode/GeodeApp;
+Ldev/geode/ui/MainActivity;
+Ldev/geode/ui/PlayerViewModel;
+Ldev/geode/render/VisualizerView;

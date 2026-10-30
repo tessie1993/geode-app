@@ -58,6 +58,14 @@
     <uses-permission
         android:name="android.permission.ACCESS_NETWORK_STATE"
         tools:node="remove" />
+    <!-- The same promise, held against any library that would merge it in. Play Billing does
+         not need it: the purchase sheet, the price and the purchase records all come from the
+         Play Store app over its bound service (com.android.vending.BILLING, which the billing
+         library declares), and the Play Store app does the networking. CI fails the release
+         build if the merged manifest ever carries INTERNET (see release.yml). -->
+    <uses-permission
+        android:name="android.permission.INTERNET"
+        tools:node="remove" />
     <!--
       The crystal packs' haptic cues name Android feedback constants that all
       landed after minSdk 26, so older devices fall back to the vibration

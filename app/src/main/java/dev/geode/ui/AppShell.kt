@@ -62,7 +62,12 @@ import dev.geode.R
 import dev.geode.analysis.SearchMatcher
 import dev.geode.data.BootAnimationStore
 import dev.geode.data.GeodePrefsFiles
+import dev.geode.pro.PaywallTrigger
+import dev.geode.pro.ProFeature
 import dev.geode.render.VisualizerView
+import dev.geode.ui.pro.PaywallHost
+import dev.geode.ui.pro.PaywallViewModel
+import dev.geode.ui.pro.ProGate
 import dev.geode.ui.theme.StoneIcon
 import dev.geode.ui.theme.StoneIconArt
 import kotlinx.coroutines.Dispatchers
@@ -86,6 +91,7 @@ private data class NavEntry(
 fun AppRoot() {
     val viewModel: PlayerViewModel = geodeViewModel()
     val settingsViewModel: SettingsViewModel = geodeViewModel()
+    val paywallViewModel: PaywallViewModel = geodeViewModel()
     val context = LocalContext.current
     val visualizerView = remember { VisualizerView(context) }
     // GLSurfaceView renders continuously and only ever stops when its host says so. Without this
@@ -236,7 +242,7 @@ fun AppRoot() {
                         onOpenNowPlaying = appState::expand,
                         liveBackdrop = gui.clearVisualsMenu && !appState.expanded && !onSecondScreen,
                     )
-                GeodeDestination.STUDIO -> StudioRoute()
+                GeodeDestination.STUDIO -> ProGate(ProFeature.STUDIO) { StudioRoute() }
                 GeodeDestination.SETTINGS -> SettingsScreen(viewModel, visualizerView, onStartTutorial = { tutorialRunning = true })
             }
         }
@@ -325,6 +331,8 @@ fun AppRoot() {
                     onDone = {
                         settingsViewModel.setGuiPrefs(gui.copy(setupDone = true))
                         appState.navigateTo(gui.intent.landingDestination)
+                        // The end-of-onboarding paywall: once, skippable, after setup is saved.
+                        paywallViewModel.open(PaywallTrigger.Onboarding)
                     },
                 )
             } else if (tutorialRunning) {
@@ -344,6 +352,7 @@ fun AppRoot() {
             if (bootAnimEnabled && !appState.bootDone) {
                 BootIntro(onDone = { appState.bootDone = true })
             }
+            PaywallHost(reducedMotion = gui.reducedMotion)
         }
     }
 }

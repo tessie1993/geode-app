@@ -49,13 +49,13 @@
     <string name="tutorial_visuals_3_body">Auto visuals can switch styles at random, at each section of the song, or smartly to match the music. Sit back.</string>
 
     <string name="tutorial_customize_1_title">Six big knobs</string>
-    <string name="tutorial_customize_1_body">Macros come first: Energy, Speed, Complexity, Mood, Space and Chaos. Each one turns several controls at once, and you can watch them follow.</string>
+    <string name="tutorial_customize_1_body">Customize opens on Macros: six knobs for Energy, Speed, Complexity, Mood, Space and Chaos. Twist one and several controls follow it at once. With Pro, Edit macros lets you choose what each knob turns.</string>
     <string name="tutorial_customize_2_title">Make it hit on the beat</string>
-    <string name="tutorial_customize_2_body">The Events tab has one-tap reactions such as Kick punch, Snare crack and Drop burst. They work in exported videos too.</string>
+    <string name="tutorial_customize_2_body">Events, the next tab, has one-tap reactions such as Kick punch, Snare crack and Drop burst, plus the reaction routes and the Manual, Suggest and Auto style switching. They work in exported videos too.</string>
     <string name="tutorial_customize_3_title">Every detail, if you want it</string>
-    <string name="tutorial_customize_3_body">Shape, Colour, Motion, FX, Reactivity and Scene hold every control the style can use. Anything off its default shows a Reset.</string>
+    <string name="tutorial_customize_3_body">Shape, Colour, Motion, FX, Reactivity and Scene hold every control the style can use, and Scene's Layers put a second style on top. Anything off its default shows a Reset.</string>
     <string name="tutorial_customize_4_title">Feeling lucky?</string>
-    <string name="tutorial_customize_4_body">Randomize or Surprise rolls a new look. Undo and Redo are right beside it, and A/B lets you flip between two versions.</string>
+    <string name="tutorial_customize_4_body">Randomize, or Surprise on Macros, rolls a new look. Undo and Redo sit beside it, and further down A/B lets you keep two versions and blend between them.</string>
 
     <string name="tutorial_live_1_title">Go full screen</string>
     <string name="tutorial_live_1_body">The live view is the visualizer with nothing in the way. The controls fade after a few seconds; tap to bring them back.</string>

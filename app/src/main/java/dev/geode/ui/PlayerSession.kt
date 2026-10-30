@@ -26,6 +26,7 @@ import dev.geode.data.FileTakeRepository
 import dev.geode.data.FileTemplateRepository
 import dev.geode.data.GuiPrefs
 import dev.geode.data.LfoStore
+import dev.geode.data.MacroSetStore
 import dev.geode.data.MilkPackImporter
 import dev.geode.data.MilkTexture
 import dev.geode.data.PlayerPrefs
@@ -67,6 +68,7 @@ import dev.geode.render.SceneFactory
 import dev.geode.render.TransitionStyle
 import dev.geode.render.UnderlayBlend
 import dev.geode.render.scene.CustomizeTab
+import dev.geode.render.scene.MacroSet
 import dev.geode.render.scene.PcmChunk
 import dev.geode.render.scene.SceneParams
 import kotlinx.coroutines.CoroutineScope
@@ -324,7 +326,8 @@ class PlayerSession internal constructor(
 
     fun toggleParamLock(label: String) = modulation.toggleParamLock(label)
 
-    fun randomizeParams(tab: CustomizeTab? = null) = modulation.randomizeParams(tab)
+    fun randomizeParams(tab: CustomizeTab? = null) =
+        if (tab == CustomizeTab.MACROS) macros.surprise() else modulation.randomizeParams(tab)
 
     fun editSceneParams(params: SceneParams) = modulation.editSceneParams(params)
 
@@ -332,11 +335,33 @@ class PlayerSession internal constructor(
 
     fun redoParams() = modulation.redo()
 
-    fun resetCustomizeTab(tab: CustomizeTab) = modulation.resetTab(tab)
+    fun resetCustomizeTab(tab: CustomizeTab) = if (tab == CustomizeTab.MACROS) macros.resetKnobs() else modulation.resetTab(tab)
 
     fun resetAllCustomize() = modulation.resetAll()
 
-    fun resetMacros() = modulation.resetMacros()
+    /** The macro knobs and the active macro set (see [MacroController]). */
+    internal val macros: MacroController by lazy {
+        MacroController(
+            MacroSetStore(application.filesDir, prefsFiles.modulation),
+            object : MacroController.Host {
+                override val params: SceneParams get() = _vizState.value.params
+
+                override val sceneId: String get() = _vizState.value.sceneId
+
+                override val reactions get() = modulation.reactions.value
+
+                override fun setReactions(routes: List<dev.geode.render.ReactionRoute>?) = modulation.setReactions(routes)
+
+                override fun editSceneParams(params: SceneParams) = modulation.editSceneParams(params)
+
+                override fun commitSceneParams(params: SceneParams) = modulation.commitSceneParams(params)
+            },
+        )
+    }
+
+    val macroSet: StateFlow<MacroSet> get() = macros.set
+
+    val macroStore: MacroSetStore get() = macros.store
 
     fun captureSnapshotA() = modulation.captureA()
 

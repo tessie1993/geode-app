@@ -36,8 +36,9 @@ enum class ProFeature {
     PREMIUM_STYLES,
 
     /**
-     * Deeper look controls beyond the free basics. Reserved for gates the free tier is still being
-     * tuned around (see [FreeTier]); nothing is lost by gating a control behind it later.
+     * Deeper look controls beyond the free basics: today the macro editor and the macro-preset
+     * folder (the six standard knobs stay free). Further gates the free tier is still being tuned
+     * around (see [FreeTier]) can join it later.
      */
     ADVANCED_CUSTOMIZATION,
 }

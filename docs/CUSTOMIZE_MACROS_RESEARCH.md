@@ -58,6 +58,30 @@ The research leans toward an offset layer. These choices replace it where they d
 | Space | zoom 1.6–0.7, field of view 0.75–1.4, swing 0.1–0.9, trail length 0.3–0.85, water depth 0.3–0.95 |
 | Chaos | turbulence →1.2, sway →0.7, handheld shake →0.5, chromatic aberration →0.6, glitch →0.15, fisheye →0.4 |
 
+## Revision (2026-10-30, later): knobs like Serum 2
+
+The user then asked for the Macros screen to show twist knobs, not sliders, with the title under
+each. They wanted a macro editor where the standard macros can be changed or a new set made,
+"like macros in Serum 2", and a folder of macro presets. The user also decided:
+
+- **Knobs, Serum-style.** Each knob has any number of destinations. Each destination has its own
+  amount: how far a full turn moves it, as a share of its slider range, and negative runs it the
+  other way. Serum macros also offset destinations by their own amounts
+  ([Serum 2 manual](https://xferrecords.com/web-manual/serum-2/welcome)). The knob's value is now
+  stored with the set, not read back. Turning still writes the params, so the sliders follow.
+  This replaces the curve model above. The six standard knobs keep the same destinations, with
+  the "top" values turned into amounts.
+- **Sounds per knob.** A knob can list sounds (Kick, Drop, …) that turn it by themselves. They
+  are compiled into reaction routes on the knob's destinations, so they run natively and the same
+  way in exports.
+- **Any number of knobs** in a set. One active set for all styles; presets do not carry it.
+- **Editor:** name, icon, bipolar, destinations (pick from a list, or "record current look"),
+  amounts and sounds. **Folder:** save in folders, load, delete, share as text, and paste a shared
+  set. The editor and folder are Pro (`ProFeature.ADVANCED_CUSTOMIZATION`); the standard knobs
+  are free.
+- **Not done:** cooldown and quantize for sounds, `geode://` links for sets, macro sets in
+  Settings › Backup, and undo of the knob positions (undo restores the params; the knob stays).
+
 ## Findings per tool
 
 ### Ableton Live: Rack Macro Controls

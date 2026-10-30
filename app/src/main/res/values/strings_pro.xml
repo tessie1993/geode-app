@@ -47,7 +47,7 @@
     <string name="pro_row_watermark_pro">None</string>
     <string name="pro_row_studio">Studio editor</string>
     <string name="pro_row_wallpaper">Live wallpaper and screensaver</string>
-    <string name="pro_row_customization">Advanced look controls</string>
+    <string name="pro_row_customization">Your own macro knobs and macro presets</string>
     <string name="pro_included">Included</string>
     <string name="pro_not_included">Not included</string>
     <!-- Spoken for each comparison row: "Export resolution. Free: Up to 1080p. Pro: Up to 4K." -->

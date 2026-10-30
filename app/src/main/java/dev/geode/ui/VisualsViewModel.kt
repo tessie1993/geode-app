@@ -2,11 +2,13 @@ package dev.geode.ui
 
 import android.net.Uri
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.geode.data.BackgroundPrefs
 import dev.geode.data.MilkTexture
 import dev.geode.data.Preset
 import dev.geode.data.PresetFolders
+import dev.geode.data.SavedMacroSet
 import dev.geode.data.TemplateFormat
 import dev.geode.data.TemplateId
 import dev.geode.data.TemplateImport
@@ -18,8 +20,14 @@ import dev.geode.render.AdsrConfig
 import dev.geode.render.LfoConfig
 import dev.geode.render.UnderlayBlend
 import dev.geode.render.scene.CustomizeTab
+import dev.geode.render.scene.MacroSet
+import dev.geode.render.scene.MacroSetCodec
 import dev.geode.render.scene.SceneParams
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 import javax.inject.Inject
 
@@ -115,7 +123,67 @@ class VisualsViewModel
 
         fun resetAllCustomize() = session.resetAllCustomize()
 
-        fun resetMacros() = session.resetMacros()
+        val macroSet: StateFlow<MacroSet> get() = session.macroSet
+
+        /** Turns knob [index] of the active set to [to]; a drag folds into one undo entry. */
+        fun turnMacro(
+            index: Int,
+            to: Float,
+        ) = session.macros.turn(index, to)
+
+        fun resetMacroKnobs() = session.macros.resetKnobs()
+
+        fun setMacroSet(set: MacroSet) = session.macros.setActive(set)
+
+        fun restoreStandardMacros() = session.macros.restoreStandard()
+
+        private val _savedMacroSets = MutableStateFlow<List<SavedMacroSet>>(emptyList())
+
+        /** The macro-preset folder, refreshed by [refreshMacroSets] and every save or delete. */
+        val savedMacroSets: StateFlow<List<SavedMacroSet>> = _savedMacroSets
+
+        fun refreshMacroSets() {
+            viewModelScope.launch { _savedMacroSets.value = withContext(Dispatchers.IO) { session.macroStore.list() } }
+        }
+
+        /** Saves the active set into [folder]; [onDone] gets false when the write failed. */
+        fun saveMacroSet(
+            folder: String,
+            onDone: (Boolean) -> Unit,
+        ) {
+            val set = macroSet.value
+            viewModelScope.launch {
+                val saved = withContext(Dispatchers.IO) { session.macroStore.save(set, folder) }
+                refreshMacroSets()
+                onDone(saved != null)
+            }
+        }
+
+        /** Makes a saved set active; [onDone] gets false when it could not be read. */
+        fun loadMacroSet(
+            saved: SavedMacroSet,
+            onDone: (Boolean) -> Unit,
+        ) {
+            viewModelScope.launch {
+                val set = withContext(Dispatchers.IO) { session.macroStore.load(saved) }
+                set?.let(::setMacroSet)
+                onDone(set != null)
+            }
+        }
+
+        fun deleteMacroSet(saved: SavedMacroSet) {
+            viewModelScope.launch {
+                withContext(Dispatchers.IO) { session.macroStore.delete(saved) }
+                refreshMacroSets()
+            }
+        }
+
+        /** Makes the set in shared [text] active; false when it is not a macro set. */
+        fun importMacroSet(text: String): Boolean {
+            val set = MacroSetCodec.decode(text)?.takeIf { it.macros.isNotEmpty() } ?: return false
+            setMacroSet(set)
+            return true
+        }
 
         fun captureSnapshotA() = session.captureSnapshotA()
 

@@ -330,6 +330,9 @@ class PlayerViewModel
             }
 
         /** 4K and 60 fps are Pro: a locked size or rate opens the paywall instead of rendering. */
+        /** Opens the paywall on [feature], for a locked control that has no gate of its own here. */
+        fun requestPro(feature: ProFeature) = paywall.open(PaywallTrigger.Feature(feature))
+
         private fun openPaywallIfLocked(
             aspect: ExportAspect,
             fps: Int,

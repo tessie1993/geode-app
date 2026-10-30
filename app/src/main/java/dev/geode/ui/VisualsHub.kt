@@ -58,6 +58,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 import dev.geode.data.Preset
+import dev.geode.pro.ProFeature
 import dev.geode.render.VisualizerView
 import dev.geode.render.scene.CustomizeTab
 import dev.geode.render.scene.SceneCapabilities
@@ -961,8 +962,7 @@ private fun CustomizeTabBody(
     val p = viz.params
     val onChange: (dev.geode.render.scene.SceneParams) -> Unit = visualsViewModel::editSceneParams
     when (tab) {
-        CustomizeTab.MACROS ->
-            MacrosTab(p, onChange, onReset = visualsViewModel::resetMacros)
+        CustomizeTab.MACROS -> MacrosPage(viewModel, visualsViewModel, viz.sceneId, p)
         CustomizeTab.EVENTS -> {
             val reactions by visualsViewModel.reactions.collectAsStateWithLifecycle()
             EventsTab(
@@ -1022,6 +1022,52 @@ private fun CustomizeTabBody(
             )
         CustomizeTab.CYMATICS -> CymaticsTab(p, onChange)
         null -> GlslHubTab(viewModel, visualizerView)
+    }
+}
+
+/** The Macros tab and, behind "Edit macros" (Pro), the macro editor with its preset folder. */
+@Composable
+private fun MacrosPage(
+    viewModel: PlayerViewModel,
+    visualsViewModel: VisualsViewModel,
+    sceneId: String,
+    look: dev.geode.render.scene.SceneParams,
+) {
+    val set by visualsViewModel.macroSet.collectAsStateWithLifecycle()
+    val gate by viewModel.gate.collectAsStateWithLifecycle()
+    val locked = !gate.allows(ProFeature.ADVANCED_CUSTOMIZATION)
+    var editing by rememberSaveable { mutableStateOf(false) }
+    MacrosTab(
+        set = set,
+        onTurn = visualsViewModel::turnMacro,
+        onEdit = {
+            if (locked) {
+                viewModel.requestPro(ProFeature.ADVANCED_CUSTOMIZATION)
+            } else {
+                visualsViewModel.refreshMacroSets()
+                editing = true
+            }
+        },
+        editLocked = locked,
+    )
+    if (editing && !locked) {
+        val saved by visualsViewModel.savedMacroSets.collectAsStateWithLifecycle()
+        MacroEditorDialog(
+            set = set,
+            onChange = visualsViewModel::setMacroSet,
+            sceneId = sceneId,
+            look = look,
+            actions =
+                MacroEditorActions(
+                    saved = saved,
+                    onSave = visualsViewModel::saveMacroSet,
+                    onLoad = visualsViewModel::loadMacroSet,
+                    onDelete = visualsViewModel::deleteMacroSet,
+                    onImport = visualsViewModel::importMacroSet,
+                    onRestoreStandard = visualsViewModel::restoreStandardMacros,
+                ),
+            onDismiss = { editing = false },
+        )
     }
 }
 

@@ -10,7 +10,6 @@ import dev.geode.render.LfoEngine
 import dev.geode.render.ParamBlend
 import dev.geode.render.ReactionRoute
 import dev.geode.render.scene.CustomizeTab
-import dev.geode.render.scene.Macros
 import dev.geode.render.scene.ParamRandomizer
 import dev.geode.render.scene.SceneParams
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -128,12 +127,11 @@ internal class ModulationController(
     }
 
     /**
-     * Rolls [tab], or everything when null. Macros and Events own no params of their own, so
-     * "Randomize" there means Surprise (every macro somewhere new) and a new style DNA.
+     * Rolls [tab], or everything when null. Events owns no params of its own, so "Randomize"
+     * there means a new style DNA. (Macros are routed to [MacroController] by the session.)
      */
     fun randomizeParams(tab: CustomizeTab? = null) {
         when (tab) {
-            CustomizeTab.MACROS -> return surpriseMacros()
             CustomizeTab.EVENTS -> return rerollReactions()
             else -> Unit
         }
@@ -150,18 +148,11 @@ internal class ModulationController(
     /** Puts one tab's parameters back to their defaults and leaves every other tab alone. */
     fun resetTab(tab: CustomizeTab) =
         when (tab) {
-            CustomizeTab.MACROS -> resetMacros()
             CustomizeTab.EVENTS -> setReactions(null)
             else -> commitSceneParams(ParamRandomizer.resetTab(host.params, tab))
         }
 
     fun resetAll() = commitSceneParams(SceneParams.DEFAULT)
-
-    /** Every macro to a random middle-ish position; one undo entry. */
-    fun surpriseMacros() = commitSceneParams(Macros.surprise(host.params, host.sceneId))
-
-    /** Every parameter a macro drives back to its default; one undo entry. */
-    fun resetMacros() = commitSceneParams(Macros.reset(host.params))
 
     fun captureA() = _ab.update { it.copy(a = host.params) }
 

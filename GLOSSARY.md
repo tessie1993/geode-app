@@ -53,11 +53,20 @@ _Avoid_: Settings, knobs
 The groups the scene params are edited in: Macros and Events first, then the detail tabs (Shape, Colour, Motion, FX, Reactivity, Scene) and the per-family tabs.
 
 **Macro**:
-One of six knobs (Energy, Speed, Complexity, Mood, Space, Chaos) that each move several scene params at once. A macro stores nothing of its own: its position is read back from the params it drives.
+A twist knob on the Macros tab that turns several scene params at once, each by its own amount (Serum-style). Turning it writes the params, so the sliders follow. Bipolar knobs rest in the middle; others rest at zero.
 _Avoid_: Master, preset slider
 
-**Macro target**:
-One scene param a macro drives, with its value at the knob's bottom, neutral and top. Each param belongs to at most one macro.
+**Macro set**:
+The knobs on the Macros tab: the standard six (Energy, Speed, Complexity, Mood, Space, Chaos) or one the user made in the macro editor. One set is active for every style.
+
+**Macro destination**:
+One scene param a macro turns, with how far a full turn moves it (a share of the param's slider range).
+
+**Macro sound**:
+A sound that turns a macro by itself; played as reaction routes on the macro's destinations.
+
+**Macro preset**:
+A saved macro set in the macro-preset folder (`.mvzmacro` text), shareable as text.
 
 **Reaction route**:
 One line of the reaction matrix: a sound (band, level or event) moves one scene param, by following, stepping or spinning.

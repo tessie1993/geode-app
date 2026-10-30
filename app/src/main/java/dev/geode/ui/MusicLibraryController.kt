@@ -3,6 +3,7 @@ package dev.geode.ui
 import android.app.Application
 import android.content.SharedPreferences
 import android.net.Uri
+import dev.geode.data.DeviceTrackQuery
 import dev.geode.data.MusicPlaylist
 import dev.geode.data.MusicPlaylistStore
 import dev.geode.data.NativeTags
@@ -11,7 +12,10 @@ import dev.geode.data.PlaylistParse
 import dev.geode.data.SmartPlaylist
 import dev.geode.data.SmartPlaylistStore
 import dev.geode.data.TagWriteOutcome
+import dev.geode.data.TrackLibrary
 import dev.geode.data.TrackTagEdit
+import dev.geode.model.DeviceTrack
+import dev.geode.model.LibraryTrack
 import dev.geode.util.bestEffort
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -23,16 +27,6 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-
-data class DeviceTrack(
-    val uri: String,
-    val title: String,
-    val artist: String,
-    val album: String,
-    val folder: String,
-    val durationMs: Long,
-    val addedSec: Long = 0L,
-)
 
 /** Outcome of [MusicLibraryController.importPlaylistFile], shown to the user as a single result. */
 sealed interface PlaylistImportResult {

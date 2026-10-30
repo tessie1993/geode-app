@@ -1,27 +1,10 @@
-package dev.geode.ui
+package dev.geode.data
 
 import android.content.Context
-import dev.geode.data.AtomicWrite
+import dev.geode.model.LibraryTrack
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
-
-data class LibraryTrack(
-    val uri: String,
-    val title: String,
-    val artist: String = "",
-    val durationMs: Long = 0L,
-    val bpm: Float = 0f,
-    val key: String = "",
-    val analyzed: Boolean = false,
-    val album: String = "",
-    val genre: String = "",
-    val year: Int = 0,
-    val trackNo: Int = 0,
-    val comment: String = "",
-    val fileName: String = "",
-    val sizeBytes: Long = 0L,
-)
 
 class TrackLibrary(
     context: Context,

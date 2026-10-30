@@ -3,7 +3,9 @@ package dev.geode.ui
 import androidx.lifecycle.ViewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.geode.audio.AudioFxState
+import dev.geode.data.GuiPrefs
 import dev.geode.data.PlayerPrefs
+import dev.geode.data.UserDataRepository
 import dev.geode.di.PlayerSessionProvider
 import kotlinx.coroutines.flow.StateFlow
 import javax.inject.Inject

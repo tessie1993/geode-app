@@ -1,4 +1,4 @@
-package dev.geode.ui
+package dev.geode.data
 
 import androidx.annotation.StringRes
 import dev.geode.R
@@ -26,12 +26,4 @@ enum class UserIntent(
 
     /** Studio is hidden for pure listeners; everyone else gets it. */
     val showsStudio: Boolean get() = this != LISTENING
-
-    /** Where the app opens. Video-first users land in Studio, everyone else on the Stage. */
-    val landingDestination: GeodeDestination
-        get() =
-            when (this) {
-                LISTENING, BOTH -> GeodeDestination.PLAYER
-                MAKING_VIDEOS -> GeodeDestination.STUDIO
-            }
 }

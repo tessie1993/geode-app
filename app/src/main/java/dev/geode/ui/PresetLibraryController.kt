@@ -6,6 +6,7 @@ import dev.geode.data.Preset
 import dev.geode.data.PresetFolders
 import dev.geode.data.PresetRepository
 import dev.geode.data.PresetStore
+import dev.geode.model.PresetLink
 import dev.geode.render.scene.SceneIds
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers

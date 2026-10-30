@@ -38,6 +38,7 @@ import dev.geode.data.ExportPrefsStore
 import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.exportCodecLabel
 import dev.geode.data.exportQualityLabel
+import dev.geode.data.filledFrom
 import dev.geode.export.ExportAspect
 import dev.geode.export.ExportCodec
 import dev.geode.export.ExportQuality
@@ -214,11 +215,13 @@ fun ExportDialog(
                             }
                         }
                         PlatformFillMenu { preset ->
-                            quality = preset.quality
-                            ratio = preset.ratio
-                            fps = preset.fps
+                            // The same one rule as Studio › Render (ExportDefaults.filledFrom).
+                            val filled = ExportDefaults(quality, fps, ratio, loopSafe, codec, loudnessTargetId).filledFrom(preset)
+                            quality = filled.quality
+                            ratio = filled.ratio
+                            fps = filled.fps
                             // A loop-safe cut needs the track's tempo; without one the chip below is off.
-                            loopSafe = preset.loopSafe && BarTrim.barDurationUs(bpm) != null
+                            loopSafe = filled.loopSafe && BarTrim.barDurationUs(bpm) != null
                             persistDefaults()
                         }
                         if (trackDurationMs > 0) {

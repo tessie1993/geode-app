@@ -146,6 +146,11 @@ vec2 view() {
     vec2 driftPhase = fract(vec2(uDriftX, uDriftY) * uTime * 0.025 + 0.25);
     uv += 1.0 - 2.0 * abs(2.0 * driftPhase - 1.0);
     uv += uShake * uBeat * 0.03 * vec2(sin(uTime * 91.7), cos(uTime * 77.3));
+    // VIEW_OWNS_SHAPE: a style that spends uMorph, uTurbulence and uWarp on
+    // its own geometry (the style families: Complexity and Chaos macros move
+    // these) defines it before including this file, so the generic screen
+    // distortions below do not bend its picture a second time.
+#ifndef VIEW_OWNS_SHAPE
     // Morph: blend the plane toward a polar remap (angle,radius swap), a
     // smooth geometric metamorphosis that works on any scene.
     // The angle is folded (abs) rather than taken raw: atan jumps from +pi to
@@ -158,6 +163,7 @@ vec2 view() {
         vec2 polar = vec2(abs(ma) / 1.5707963 - 1.0, (mr - 0.7) * 1.6);
         uv = mix(uv, polar, uMorph * (0.6 + 0.15 * sin(uTime * 0.31)));
     }
+#endif
     float a = uRotation + uSway * 0.35 * sin(uTime * 0.7);
     uv = mat2(cos(a), -sin(a), sin(a), cos(a)) * uv;
     // Beat-locked pulse: peaks exactly on the musical beat (uBeatPhase=0), and
@@ -175,7 +181,9 @@ vec2 view() {
     // exponent halved the magnification once per cycle on every scene shader.
     float z = uZoom * pulse * pow(2.0, 1.0 - abs(2.0 * uZoomPhase - 1.0)) * (1.0 + uBeat * uBeatResponse * 0.15);
     uv /= max(z, 0.05);
+#ifndef VIEW_OWNS_SHAPE
     uv += uTurbulence * 0.06 * vec2(sin(uv.y * 6.0 + uTime), cos(uv.x * 6.0 + uTime * 1.3));
+#endif
     // Radial twist: rotate by an angle growing with radius.
     if (abs(uTwist) > 0.001) {
         float tr = length(uv) * uTwist * 2.0;
@@ -187,11 +195,13 @@ vec2 view() {
     if (uTile > 1.01) {
         uv = 1.0 - abs(mod(uv * uTile * 0.5 + 1.0, 4.0) - 2.0);
     }
+#ifndef VIEW_OWNS_SHAPE
     // Domain warp: swirl coordinates by a sin/cos field.
     if (uWarp > 0.001) {
         float w = uWarp * 0.5;
         uv += w * vec2(sin(uv.y * 3.0 + uTime * 1.1), cos(uv.x * 3.0 + uTime * 0.9));
     }
+#endif
     // Concentric ripple distortion driven by radius.
     if (uRipple > 0.001) {
         float r = length(uv);

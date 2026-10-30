@@ -95,12 +95,15 @@ object SceneCapabilities {
             SceneIds.JELLY_ABYSS to "shaders/jelly_abyss_frag.glsl",
             SceneIds.RIBBON_STORM to "shaders/ribbon_storm_frag.glsl",
             SceneIds.PRISM_RAIN to "shaders/prism_rain_frag.glsl",
-        )
+        ).apply {
+            // The style families, twelve styles each, after the loose styles and in family order.
+            StyleFamilies.ids.forEach { id -> put(id, "shaders/${id}_frag.glsl") }
+        }
 
     /**
      * The fragment styles that raymarch, and so spend the [MarchBudget] the Detail control sets.
      *
-     * A per-STYLE set rather than a [SceneKind], because only fourteen of the 45 shader styles march;
+     * A per-STYLE set rather than a [SceneKind], because only some of the shader styles march;
      * scoping Detail to `SceneKind.SHADER` would put a dead slider in front of anyone looking at
      * Plasma, which is exactly what [ParamScope]'s no-dead-controls rule exists to prevent.
      */
@@ -127,7 +130,7 @@ object SceneCapabilities {
             SceneIds.GYROID_CAVERN,
             SceneIds.JELLY_ABYSS,
             SceneIds.PRISM_RAIN,
-        )
+        ) + StyleFamilies.marchedIds
 
     /**
      * The renderer [sceneId] builds.

@@ -25,8 +25,27 @@ class GeodeContainer(
     val userData: UserDataRepository = SharedPrefsUserDataRepository(prefsFiles.general, appScope)
 
     init {
+        warmPlaybackPrefs()
         sweepStaleRenderScratch(context.applicationContext.cacheDir)
         sweepOrphanedPendingExports(context.applicationContext)
+    }
+
+    /**
+     * Starts the disk load of the prefs files [dev.geode.playback.PlaybackSession] reads in its
+     * constructor (the engine choice, the audio FX state).
+     *
+     * That constructor runs on Main the first time the UI or the playback service acquires the
+     * session, and it has to stay synchronous: the engine choice decides which `Player` is built,
+     * and callers get the player back from `acquireForUi`/`acquireForService` directly. What made
+     * the read a stall was the parse, since a SharedPreferences getter blocks until its file is
+     * loaded. Opening the files here, at process start and on IO, means the parse has normally
+     * finished long before the session asks, so its read is a map lookup.
+     */
+    private fun warmPlaybackPrefs() {
+        appScope.launch(Dispatchers.IO) {
+            prefsFiles.player
+            prefsFiles.audioFx
+        }
     }
 
     /**

@@ -346,14 +346,16 @@ internal class ExportController(
         destination: Uri? = null,
     ) {
         if (_studio.value.phase.isBusy) return
-        val built = ProjectComposition.build(application, project)
-        if (built !is ProjectComposition.Outcome.Ready) {
-            _studio.update { it.copy(phase = ExportPhase.Failed(application.getString(dev.geode.R.string.editor_export_no_video))) }
-            return
-        }
         _studio.update { it.copy(phase = ExportPhase.Running(0f)) }
         studioJob =
             scope.launch {
+                // build() reads the export defaults from prefs, so it runs on IO with them.
+                val built = withContext(Dispatchers.IO) { ProjectComposition.build(application, project) }
+                if (built !is ProjectComposition.Outcome.Ready) {
+                    _studio.update { it.copy(phase = ExportPhase.Failed(application.getString(dev.geode.R.string.editor_export_no_video))) }
+                    studioJob = null
+                    return@launch
+                }
                 val name = "geode_cut_${System.currentTimeMillis()}.mp4"
                 val result =
                     studioExporter.exportComposition(built.composition, built.durationMs, name, defaultCodec(), destination) { p ->
@@ -365,7 +367,9 @@ internal class ExportController(
             }
     }
 
-    private fun defaultCodec(): ExportCodec = ExportPrefsStore(GeodePrefsFiles(application).general).load().codec
+    // Called from [scope], which is Main: the prefs read itself goes to IO.
+    private suspend fun defaultCodec(): ExportCodec =
+        withContext(Dispatchers.IO) { ExportPrefsStore(GeodePrefsFiles(application).general).load().codec }
 
     // The main export's UI (SettingsDialog) has no path to this controller's public API for
     // per-render options that aren't already threaded through startExport's callers, so the

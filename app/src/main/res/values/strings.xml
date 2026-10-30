@@ -223,6 +223,9 @@
     <string name="action_favourite_add">Add to favourites</string>
     <string name="action_favourite_remove">Remove from favourites</string>
     <string name="a11y_favourite">Favourite</string>
+    <string name="a11y_show_controls">Show controls</string>
+    <string name="a11y_hide_controls">Hide controls</string>
+    <string name="a11y_state_on">On</string>
     <string name="action_stop_capture">Stop capture</string>
     <string name="action_resume_last_played">Resume last played</string>
     <string name="action_open_library">Open library</string>
@@ -976,4 +979,39 @@
     <!-- Library a11y -->
     <string name="library_move_track_up">Move %1$s up</string>
     <string name="library_move_track_down">Move %1$s down</string>
+    <!-- Studio a11y -->
+    <string name="studio_a11y_playing">Playing</string>
+    <string name="studio_a11y_playhead">Playhead</string>
+    <plurals name="studio_a11y_clip_lane">
+        <item quantity="one">%1$s, %2$d clip</item>
+        <item quantity="other">%1$s, %2$d clips</item>
+    </plurals>
+    <plurals name="studio_a11y_marker_lane">
+        <item quantity="one">Markers, %1$d marker</item>
+        <item quantity="other">Markers, %1$d markers</item>
+    </plurals>
+    <plurals name="studio_a11y_key_lane">
+        <item quantity="one">%1$s keyframes, %2$d key</item>
+        <item quantity="other">%1$s keyframes, %2$d keys</item>
+    </plurals>
+    <string name="studio_a11y_selected_at">%1$s selected, at %2$s</string>
+    <string name="studio_a11y_marker">Marker</string>
+    <string name="studio_a11y_key">Key</string>
+    <string name="studio_a11y_select_next">Select next</string>
+    <string name="studio_a11y_select_previous">Select previous</string>
+    <string name="studio_a11y_nudge_earlier">Nudge earlier</string>
+    <string name="studio_a11y_nudge_later">Nudge later</string>
+    <string name="studio_a11y_split_at_playhead">Split clip at playhead</string>
+    <string name="studio_a11y_add_marker_at_playhead">Add marker at playhead</string>
+    <string name="studio_a11y_add_key_at_playhead">Add keyframe at playhead</string>
+    <string name="studio_a11y_curve">Curve handles</string>
+    <string name="studio_a11y_curve_state">First handle %1$.2f, %2$.2f. Second handle %3$.2f, %4$.2f</string>
+    <string name="studio_a11y_curve_first_left">Move first handle left</string>
+    <string name="studio_a11y_curve_first_right">Move first handle right</string>
+    <string name="studio_a11y_curve_first_up">Move first handle up</string>
+    <string name="studio_a11y_curve_first_down">Move first handle down</string>
+    <string name="studio_a11y_curve_second_left">Move second handle left</string>
+    <string name="studio_a11y_curve_second_right">Move second handle right</string>
+    <string name="studio_a11y_curve_second_up">Move second handle up</string>
+    <string name="studio_a11y_curve_second_down">Move second handle down</string>
 </resources>

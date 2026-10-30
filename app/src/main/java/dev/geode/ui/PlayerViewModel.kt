@@ -53,6 +53,8 @@ class PlayerViewModel
 
         val uiState: StateFlow<PlayerUiState> get() = playback.state
 
+        val positionMs: StateFlow<Long> get() = playback.positionMs
+
         val queue: StateFlow<QueueUiState> get() = playback.queue
 
         val abLoop: StateFlow<AbLoop?> get() = playback.abLoop

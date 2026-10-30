@@ -58,7 +58,7 @@ object StyleFamilies {
                     "arbor_synapse",
                     "arbor_sakura",
                 ),
-            marchedIds = 
+            marchedIds =
                 setOf(
                     "arbor_willow",
                     "arbor_coral",
@@ -91,7 +91,7 @@ object StyleFamilies {
                     "bulb_chrome",
                     "bulb_hybrid",
                 ),
-            marchedIds = 
+            marchedIds =
                 setOf(
                     "bulb_classic",
                     "bulb_julia",
@@ -130,7 +130,7 @@ object StyleFamilies {
                     "chrys_kaleido",
                     "chrys_tunnel",
                 ),
-            marchedIds = 
+            marchedIds =
                 setOf(
                     "chrys_corolla",
                 ),

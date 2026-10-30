@@ -45,7 +45,7 @@ The native core is built by the root `CMakeLists.txt`, plus `core/CMakeLists.txt
 | `audio` | Capture sources (mic, other apps' audio), `AudioBus` (features for non-UI surfaces), platform FX, media chain | `AudioBus`, `AudioCapturePump`, `PlaybackCaptureService`, `TapRenderersFactory` |
 | `audio/dsp` | The Media3 processor chain order, native DSP | `MvzAudioProcessorChain` |
 | `data` | Stores (SharedPreferences, JSON files) and their repositories, template and preset formats, the GUI prefs (`ThemeStore`, `GuiPrefs`, `UserIntent`), the track list (`TrackLibrary`) and the MediaStore query (`DeviceTrackQuery`) | `PresetStore`, `TemplateRepository`, `VideoTemplate`, `GeodePrefsFiles`, `UserDataRepository` |
-| `model` | Pure value types shared across layers, staged for `:core:model` (ADR 0001 step 2). No `android.*` | `DeviceTrack`, `LibraryTrack`, `LyricLine`, `PresetLink` |
+| `model` | Pure value types shared across layers, staged for `:core:model` (ADR 0001 step 2). No `android.*` | `DeviceTrack`, `LibraryTrack`, `LyricLine`, `PresetLink`, `Tutorial` (tour chapters, page maths, saved progress) |
 | `data/backup` | Manual backup zip (Settings › Backup). Format, allowlist, checks and migrations are pure Kotlin; `BackupRepository` does the picker, filesDir and prefs I/O | `BackupFormat`, `BackupArchive`, `BackupRepository` |
 | `editor` | The Studio project model: pure Kotlin, no `android.*` | `Timeline`, `Keyframes`, `Markers`, `AutoCut` |
 | `export` | Visualizer export (MediaCodec + offscreen GL), Studio export (Media3 Transformer), loop render, loudness, chapters, captions, `PcmResampler` (hi-res sources down to an AAC-supported rate), the non-Pro watermark | `VideoExporter`, `StudioExporter`, `LoopRender`, `ExportRun`, `ExportService`, `WatermarkOverlay` |
@@ -80,6 +80,7 @@ The native core is built by the root `CMakeLists.txt`, plus `core/CMakeLists.txt
 - Studio (`StudioHub` in `ui/StudioRender.kt`) owns every render: Edit (clip editor, `StudioScreen`) and Render (visualizer export `ExportDialog` and `LoopRenderSheet` through `ExportHost`, plus the export defaults). Settings › Export and the Visuals export icon only open it (`GeodeAppState.openStudioRender`).
 - `AppRoot` / `AppShell` in `ui/AppShell.kt` switch with `when (appState.dest)` and build the bar and rail from `GeodeDestination.entries`. STUDIO is hidden unless `showsStudio`.
 - There is no NavHost and no back stack. Sheets and dialogs are local Compose state. All six ViewModels live in the Activity's store. `PlayerSessionProvider`'s KDoc depends on that, and `PlayerViewModel.onCleared` shuts the session down. Read ADR 0001 § Consequences before you add per-destination stores.
+- The new-user tour: `TutorialHost` (`ui/TutorialOverlay.kt`) is a chaptered card carousel in a `Dialog`, drawn from `AppRoot`, offered once after FirstRun and resumable. Cards are in `TutorialCards`, the Canvas art and the Wave mascot in `TutorialArt`. Settings › Tutorials (`TutorialSettings`) replays any chapter.
 
 ## Pro (one-time unlock)
 

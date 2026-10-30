@@ -226,6 +226,7 @@
     <string name="a11y_show_controls">Show controls</string>
     <string name="a11y_hide_controls">Hide controls</string>
     <string name="a11y_state_on">On</string>
+    <string name="visuals_live_overlay">Live overlay</string>
     <string name="action_stop_capture">Stop capture</string>
     <string name="action_resume_last_played">Resume last played</string>
     <string name="action_open_library">Open library</string>

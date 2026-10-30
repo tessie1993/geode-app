@@ -120,12 +120,12 @@ fun VisualsHub(
                             when {
                                 takes.recording -> "● Recording  ${formatTakeTime(takes.recordedMs)}"
                                 takes.replaying != null -> "▶ ${takes.replaying}"
-                                liveBackdrop -> "Live overlay"
-                                else -> "MuzViz"
+                                liveBackdrop -> stringResource(R.string.visuals_live_overlay)
+                                else -> stringResource(R.string.app_name)
                             },
                             color = if (takes.recording) MaterialTheme.colorScheme.error else accentTextColor(),
                         )
-                        GlowTitle("Visuals")
+                        GlowTitle(stringResource(R.string.nav_visuals))
                     }
                     IconButton(onClick = {
                         if (takes.recording) studioViewModel.stopRecording() else studioViewModel.startRecording()

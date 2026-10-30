@@ -222,9 +222,9 @@ fun TrackInfoEditor(
                     stringResource(R.string.track_info_write_file),
                     checked = writeToFile,
                     onCheckedChange = {
-                            writeToFile = it
-                            writeFailed = false
-                        },
+                        writeToFile = it
+                        writeFailed = false
+                    },
                 )
                 Text(
                     stringResource(if (writeFailed) R.string.track_info_write_failed else R.string.track_info_note),

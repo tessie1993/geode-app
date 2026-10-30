@@ -65,20 +65,20 @@ fun ExternalAudioSettings(viewModel: PlayerViewModel) {
             stringResource(R.string.ext_visualize_other_apps),
             checked = external.active || external.awaitingConsent,
             onCheckedChange = { want ->
-                    if (!want) {
-                        viewModel.stopExternalAudio()
-                    } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                        permissions.launch(
-                            arrayOf(
-                                android.Manifest.permission.RECORD_AUDIO,
-                                android.Manifest.permission.POST_NOTIFICATIONS,
-                            ),
-                        )
-                    } else if (viewModel.hasMicPermission()) {
-                        askConsent()
-                    } else {
-                        permissions.launch(arrayOf(android.Manifest.permission.RECORD_AUDIO))
-                    }
+                if (!want) {
+                    viewModel.stopExternalAudio()
+                } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    permissions.launch(
+                        arrayOf(
+                            android.Manifest.permission.RECORD_AUDIO,
+                            android.Manifest.permission.POST_NOTIFICATIONS,
+                        ),
+                    )
+                } else if (viewModel.hasMicPermission()) {
+                    askConsent()
+                } else {
+                    permissions.launch(arrayOf(android.Manifest.permission.RECORD_AUDIO))
+                }
                 },
         )
         Text(

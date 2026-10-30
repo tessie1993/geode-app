@@ -42,6 +42,7 @@ object GeodeColors {
     val OnCanvas = Color(0xFFECECF0)
     val OnSurface = Color(0xFFE6E6EB)
     val OnSurfaceVariant = Color(0xFFA6A8B2)
+
     // Switch borders, unchecked thumbs and segmented-button edges are drawn in this, so it has to
     // clear the 3:1 non-text minimum against black and the Switch track (4.6:1 and 3.3:1).
     val Outline = Color(0xFF74767F)

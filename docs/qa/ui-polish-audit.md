@@ -152,7 +152,16 @@ core tokens: OnSurface 16.9:1, OnSurfaceVariant 8.9:1, Primary 12.0:1 on black.
 - **Outline token:** raise it to 74767F.
 - **Position ticks:** split position out of `PlayerUiState` into its own flow, in this PR.
 
-## 6. Suggested order
+## 6. Status in this PR
+
+| Fixed here | Fixed earlier (qa-fixes, #100) | Left, and why |
+|---|---|---|
+| E1, E2 (rail and Search use `safeDrawing`), E3 | E4 (immersive live view), E5 (slider gesture exclusion), A3 repeat icon and label, D6 auto-hide | E2 for the live view's top bar was already handled by #100 |
+| D1, D2, D3, D4 (live transport capped at 720 dp; Player art capped), D6 (one-row transport), D7, D8, D9, D10 | — | D4 for the Settings and preset lists: a shared `readableWidth()` touches every settings file, so it's a follow-up. D5 (collapsing headers): follow-up. D11 (previews): follow-up |
+| P1, P2, P4, P5, P6, P7, P8, P10, P11, P12, P13, P14, P15, P16, P19 | — | P3 (customize-macros), P9 (studio-export), P17 and P18 (low value) |
+| A1 (Settings, TrackInfoEditor, EQ), A3 shuffle and mini player, A4, A5, A6, A7, A8, A9 (live-view chips, Studio lane toggles), A10 (`GlowTitle`, `SettingsGroup`), A12, A13, A14 lyrics, A15, A17, A18 (Library sort, quick actions), A19 (`CrystalButton`, Library Back), A21 | — | A2, A16, A1 `CheckRow`, A10 Customize headers, A14 LockChip (customize-macros); A11 and the LoopRenderSheet rows (studio-export); A9 `StudioChip` and A10 `StudioSection` (`StudioScreen.kt` is being rewritten in #105); A20 (literal strings across `VisualsHub`: a separate l10n pass) |
+
+## 7. Suggested order
 
 1. **Shared-component a11y** (A1 for non-Customize rows, A3, A4, A10, A13, A14, A19). Few files,
    a large share of the issues.

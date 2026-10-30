@@ -2,6 +2,7 @@ package dev.geode.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,6 +14,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
@@ -26,6 +28,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
@@ -64,8 +67,10 @@ fun TutorialOverlay(
         modifier
             .fillMaxSize()
             // Consumes taps so a tour step cannot be dismissed by prodding the app underneath it,
-            // and so a stray tap does not start playback behind the card.
-            .clickable(enabled = true, onClick = {})
+            // and so a stray tap does not start playback behind the card. A gesture detector, not
+            // clickable: a clickable here is a full-screen "double-tap to activate" node that
+            // TalkBack reads, merging in the card's text, and that does nothing.
+            .pointerInput(Unit) { detectTapGestures { } }
             .background(Color.Black.copy(alpha = 0.45f)),
     ) {
         Column(
@@ -73,6 +78,8 @@ fun TutorialOverlay(
                 .align(Alignment.BottomCenter)
                 .navigationBarsPadding()
                 .padding(16.dp)
+                // A reading width on a tablet rather than a 2,500px-wide strip.
+                .widthIn(max = 560.dp)
                 .fillMaxWidth()
                 .crystalPanel(
                     0.92f,

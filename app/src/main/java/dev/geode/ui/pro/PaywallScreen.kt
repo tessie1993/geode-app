@@ -743,6 +743,7 @@ internal object ProColors {
     val muted = Color(0xFFA1A1B5)
     val error = Color(0xFFFCA5A5)
     val highlight = Color(0x338B5CF6)
+
     // White 16sp text sits on this, so its ends are a shade deeper than accent and pink: 5.7:1 and
     // 6.0:1, where the lighter pair measured 4.2:1 and 3.5:1.
     val ctaBrush = Brush.horizontalGradient(listOf(Color(0xFF7C3AED), Color(0xFFBE185D)))

@@ -29,16 +29,17 @@ fun Modifier.stonePress(interaction: InteractionSource): Modifier {
     }
     // Kept as State and read inside graphicsLayer, so a press animates in the draw phase instead of
     // recomposing the button on every frame of the spring.
-    val scale = animateFloatAsState(
-        targetValue = if (pressed && !reducedMotion) GeodeMotion.PRESS_SCALE else 1f,
-        animationSpec =
-            if (pressed) {
-                tween(GeodeMotion.PRESS)
-            } else {
-                spring(dampingRatio = 0.78f, stiffness = 380f)
-            },
-        label = "stone-press",
-    )
+    val scale =
+        animateFloatAsState(
+            targetValue = if (pressed && !reducedMotion) GeodeMotion.PRESS_SCALE else 1f,
+            animationSpec =
+                if (pressed) {
+                    tween(GeodeMotion.PRESS)
+                } else {
+                    spring(dampingRatio = 0.78f, stiffness = 380f)
+                },
+            label = "stone-press",
+        )
     return graphicsLayer {
         scaleX = scale.value
         scaleY = scale.value

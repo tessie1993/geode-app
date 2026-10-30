@@ -127,7 +127,16 @@ internal class ModulationController(
         publishHistory()
     }
 
+    /**
+     * Rolls [tab], or everything when null. Macros and Events own no params of their own, so
+     * "Randomize" there means Surprise (every macro somewhere new) and a new style DNA.
+     */
     fun randomizeParams(tab: CustomizeTab? = null) {
+        when (tab) {
+            CustomizeTab.MACROS -> return surpriseMacros()
+            CustomizeTab.EVENTS -> return rerollReactions()
+            else -> Unit
+        }
         commitSceneParams(
             ParamRandomizer.randomize(
                 current = host.params,
@@ -139,7 +148,12 @@ internal class ModulationController(
     }
 
     /** Puts one tab's parameters back to their defaults and leaves every other tab alone. */
-    fun resetTab(tab: CustomizeTab) = commitSceneParams(ParamRandomizer.resetTab(host.params, tab))
+    fun resetTab(tab: CustomizeTab) =
+        when (tab) {
+            CustomizeTab.MACROS -> resetMacros()
+            CustomizeTab.EVENTS -> setReactions(null)
+            else -> commitSceneParams(ParamRandomizer.resetTab(host.params, tab))
+        }
 
     fun resetAll() = commitSceneParams(SceneParams.DEFAULT)
 

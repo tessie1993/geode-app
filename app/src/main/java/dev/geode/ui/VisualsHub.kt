@@ -26,6 +26,8 @@ import androidx.compose.material.icons.filled.Casino
 import androidx.compose.material.icons.filled.FiberManualRecord
 import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.LayersClear
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.StopCircle
 import androidx.compose.material3.Icon
@@ -926,7 +928,8 @@ internal fun CustomizePanel(
 /**
  * Whether a tab has anything to show for the style on screen.
  *
- * The five spec tabs plus Scene are always there; the per-family ones appear only with their
+ * Macros, Events, the five spec tabs and Scene are always there (a macro or recipe with
+ * nothing to move on this style hides itself, not the tab); the per-family ones appear only with their
  * family. Fluid stays because it also holds the two "all styles" sections (FlowField and the
  * shared water-ripple overlay), which every style can use.
  */
@@ -935,6 +938,8 @@ private fun tabAppliesTo(
     sceneId: String,
 ): Boolean =
     when (tab) {
+        CustomizeTab.MACROS,
+        CustomizeTab.EVENTS,
         CustomizeTab.SHAPE,
         CustomizeTab.COLOR,
         CustomizeTab.MOTION,
@@ -957,14 +962,26 @@ private fun CustomizeTabBody(
     val p = viz.params
     val onChange: (dev.geode.render.scene.SceneParams) -> Unit = visualsViewModel::editSceneParams
     when (tab) {
+        CustomizeTab.MACROS ->
+            MacrosTab(p, onChange, onSurprise = visualsViewModel::surpriseMacros, onReset = visualsViewModel::resetMacros)
+        CustomizeTab.EVENTS -> {
+            val reactions by visualsViewModel.reactions.collectAsStateWithLifecycle()
+            EventsTab(
+                p,
+                onChange,
+                reactions = reactions,
+                onReactionsChange = visualsViewModel::setReactions,
+                onRerollReactions = visualsViewModel::rerollReactions,
+                intelligenceMode = viz.intelligenceMode,
+                onIntelligenceModeChange = viewModel::setIntelligenceMode,
+            )
+        }
         CustomizeTab.MOTION -> MotionTab(p, onChange)
         CustomizeTab.SHAPE -> ShapeTab(p, onChange)
         CustomizeTab.SCENE ->
             SceneTab(
                 p,
                 onChange,
-                intelligenceMode = viz.intelligenceMode,
-                onIntelligenceModeChange = viewModel::setIntelligenceMode,
                 transitionId = viz.transitionId,
                 transitionDurationSec = viz.transitionDurationSec,
                 onTransitionId = viewModel::setTransitionId,
@@ -973,7 +990,6 @@ private fun CustomizeTabBody(
         CustomizeTab.REACTIVITY -> {
             val lfos by visualsViewModel.lfos.collectAsStateWithLifecycle()
             val adsrs by visualsViewModel.adsrs.collectAsStateWithLifecycle()
-            val reactions by visualsViewModel.reactions.collectAsStateWithLifecycle()
             ReactivityTab(
                 p,
                 onChange,
@@ -984,9 +1000,6 @@ private fun CustomizeTabBody(
                 onLfoChange = visualsViewModel::setLfo,
                 adsr = adsrs,
                 onAdsrChange = visualsViewModel::setAdsr,
-                reactions = reactions,
-                onReactionsChange = visualsViewModel::setReactions,
-                onRerollReactions = visualsViewModel::rerollReactions,
             )
         }
         CustomizeTab.COLOR -> {
@@ -1013,6 +1026,13 @@ private fun CustomizeTabBody(
     }
 }
 
+/** One line of the Customize toolbar's More menu. */
+private class MenuAction(
+    val label: String,
+    val enabled: Boolean,
+    val run: () -> Unit,
+)
+
 @Composable
 private fun CustomizeToolbar(
     viewModel: PlayerViewModel,
@@ -1029,18 +1049,15 @@ private fun CustomizeToolbar(
     var savingPreset by remember { mutableStateOf(false) }
     var presetName by remember { mutableStateOf("") }
     val changed = remember(params) { CustomizeSummary.changedCount(params) }
+    var searchOpen by rememberSaveable { mutableStateOf(false) }
+    var moreOpen by remember { mutableStateOf(false) }
+    // The everyday four stay in sight; the rest (reset, save, A/B) sit behind More, so the
+    // controls start where the eye lands instead of under two rows of buttons.
     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
-        OutlinedTextField(
-            value = query,
-            onValueChange = onQuery,
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            label = { Text("Search every parameter", style = MaterialTheme.typography.labelSmall) },
-        )
         Row(
-            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(top = 6.dp),
+            Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             CrystalButton(
                 compact = true,
@@ -1049,7 +1066,7 @@ private fun CustomizeToolbar(
             ) {
                 Icon(Icons.Filled.Casino, contentDescription = null, modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(6.dp))
-                Text(if (tab == null) "Randomize" else "Randomize ${tab.title}")
+                Text(if (tab == CustomizeTab.MACROS) "Surprise" else "Randomize")
             }
             CrystalButton(compact = true, filled = false, enabled = history.canUndo, onClick = visualsViewModel::undoParams) {
                 Text("Undo")
@@ -1057,44 +1074,53 @@ private fun CustomizeToolbar(
             CrystalButton(compact = true, filled = false, enabled = history.canRedo, onClick = visualsViewModel::redoParams) {
                 Text("Redo")
             }
-            CrystalButton(
-                compact = true,
-                filled = false,
-                enabled = tab != null,
-                onClick = { tab?.let(visualsViewModel::resetCustomizeTab) },
-            ) {
-                Text(if (tab == null) "Reset tab" else "Reset ${tab.title}")
+            Spacer(Modifier.weight(1f))
+            IconButton(onClick = { searchOpen = !searchOpen }) {
+                Icon(Icons.Filled.Search, contentDescription = "Search every parameter")
             }
-            CrystalButton(compact = true, filled = false, enabled = changed > 0, onClick = { confirmReset = true }) {
-                Text("Reset all")
+            Box {
+                IconButton(onClick = { moreOpen = true }) {
+                    Icon(Icons.Filled.MoreVert, contentDescription = "More Customize actions")
+                }
+                androidx.compose.material3.DropdownMenu(expanded = moreOpen, onDismissRequest = { moreOpen = false }) {
+                    val entries =
+                        listOf(
+                            MenuAction(if (tab == null) "Reset tab" else "Reset ${tab.title}", tab != null) {
+                                tab?.let(visualsViewModel::resetCustomizeTab)
+                            },
+                            MenuAction("Reset all…", changed > 0) { confirmReset = true },
+                            MenuAction("Save as preset…", true) { savingPreset = true },
+                            MenuAction("Set A", true, visualsViewModel::captureSnapshotA),
+                            MenuAction("Recall A", ab.a != null, visualsViewModel::recallSnapshotA),
+                            MenuAction("Set B", true, visualsViewModel::captureSnapshotB),
+                            MenuAction("Recall B", ab.b != null, visualsViewModel::recallSnapshotB),
+                        )
+                    entries.forEach { entry ->
+                        androidx.compose.material3.DropdownMenuItem(
+                            text = { Text(entry.label) },
+                            enabled = entry.enabled,
+                            onClick = {
+                                moreOpen = false
+                                entry.run()
+                            },
+                        )
+                    }
+                }
             }
-            CrystalButton(compact = true, filled = false, onClick = { savingPreset = true }) { Text("Save as preset") }
-            Text(
-                if (changed == 0) "defaults" else "$changed changed",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
         }
-        Row(
-            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(top = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Text("A/B", style = MaterialTheme.typography.labelSmall, color = accentTextColor())
-            CrystalButton(compact = true, filled = false, onClick = visualsViewModel::captureSnapshotA) { Text("Set A") }
-            CrystalButton(
-                compact = true,
-                filled = false,
-                enabled = ab.a != null,
-                onClick = visualsViewModel::recallSnapshotA,
-            ) { Text("Recall A") }
-            CrystalButton(compact = true, filled = false, onClick = visualsViewModel::captureSnapshotB) { Text("Set B") }
-            CrystalButton(
-                compact = true,
-                filled = false,
-                enabled = ab.b != null,
-                onClick = visualsViewModel::recallSnapshotB,
-            ) { Text("Recall B") }
+        Text(
+            if (changed == 0) "Everything at its default" else "$changed controls changed",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        if (searchOpen || query.isNotBlank()) {
+            OutlinedTextField(
+                value = query,
+                onValueChange = onQuery,
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                label = { Text("Search every parameter", style = MaterialTheme.typography.labelSmall) },
+            )
         }
         if (ab.canBlend) {
             Text("Blend A → B ${"%.2f".format(ab.blend)}", style = MaterialTheme.typography.labelSmall)

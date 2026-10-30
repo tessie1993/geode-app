@@ -9,13 +9,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import dev.geode.analysis.IntelligenceMode
 import dev.geode.render.EventRecipe
@@ -80,7 +81,13 @@ class ReactivityTabTest {
         text: String,
         substring: Boolean = false,
     ) {
-        compose.onNodeWithText(text, substring = substring).performScrollTo().performClick()
+        // The click action itself, not a touch at the node's centre: the panel above the routes
+        // (recipe chips, a slot note that comes and goes) can move a row between the scroll and
+        // the tap, and a coordinate tap then lands on whatever slid under it.
+        compose
+            .onNodeWithText(text, substring = substring)
+            .performScrollTo()
+            .performSemanticsAction(SemanticsActions.OnClick)
     }
 
     private fun openRoute(r: ReactionRoute) = clickText(summary(r), substring = true)

@@ -37,7 +37,6 @@ import kotlin.math.roundToInt
 internal fun MacrosTab(
     p: SceneParams,
     onChange: (SceneParams) -> Unit,
-    onSurprise: () -> Unit,
     onReset: () -> Unit,
 ) {
     val sceneId = LocalSceneId.current
@@ -51,10 +50,8 @@ internal fun MacrosTab(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                CrystalButton(compact = true, onClick = onSurprise) { Text("Surprise me") }
-                CrystalButton(compact = true, filled = false, onClick = onReset) { Text("Reset macros") }
-            }
+            // Surprise lives in the toolbar above (Randomize becomes Surprise on this tab).
+            CrystalButton(compact = true, filled = false, onClick = onReset) { Text("Reset macros") }
         }
         Macro.entries
             .filter { Macros.targets(it, sceneId).isNotEmpty() }

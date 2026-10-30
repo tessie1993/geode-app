@@ -962,7 +962,7 @@ private fun CustomizeTabBody(
     val onChange: (dev.geode.render.scene.SceneParams) -> Unit = visualsViewModel::editSceneParams
     when (tab) {
         CustomizeTab.MACROS ->
-            MacrosTab(p, onChange, onSurprise = visualsViewModel::surpriseMacros, onReset = visualsViewModel::resetMacros)
+            MacrosTab(p, onChange, onReset = visualsViewModel::resetMacros)
         CustomizeTab.EVENTS -> {
             val reactions by visualsViewModel.reactions.collectAsStateWithLifecycle()
             EventsTab(

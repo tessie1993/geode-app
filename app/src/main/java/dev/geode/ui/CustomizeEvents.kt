@@ -63,7 +63,8 @@ internal fun EventsTab(
             }
             if (EventRecipe.entries.any { !it.isOn(routes, sceneId) && !it.fits(routes, sceneId) }) {
                 Text(
-                    "All ${ReactionRoute.MAX_ROUTES} reaction slots are in use. Remove one below to add more.",
+                    "${routes.size} of ${ReactionRoute.MAX_ROUTES} reaction slots used, so the greyed-out " +
+                        "reactions don't fit. Remove a route below to make room.",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

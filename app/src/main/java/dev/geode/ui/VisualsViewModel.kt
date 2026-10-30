@@ -115,8 +115,6 @@ class VisualsViewModel
 
         fun resetAllCustomize() = session.resetAllCustomize()
 
-        fun surpriseMacros() = session.surpriseMacros()
-
         fun resetMacros() = session.resetMacros()
 
         fun captureSnapshotA() = session.captureSnapshotA()

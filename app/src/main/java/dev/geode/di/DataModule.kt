@@ -10,12 +10,19 @@ import dagger.hilt.components.SingletonComponent
 import dev.geode.data.GeodePrefsFiles
 import dev.geode.geodeContainer
 import dev.geode.ui.UserDataRepository
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import javax.inject.Qualifier
 import javax.inject.Singleton
 
 @Qualifier
 @Retention(AnnotationRetention.BINARY)
 annotation class GeneralPrefs
+
+/** The dispatcher blocking file and prefs I/O runs on; a test passes its own. */
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class IoDispatcher
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -36,4 +43,8 @@ object DataModule {
     fun provideUserDataRepository(
         @ApplicationContext context: Context,
     ): UserDataRepository = context.geodeContainer.userData
+
+    @Provides
+    @IoDispatcher
+    fun provideIoDispatcher(): CoroutineDispatcher = Dispatchers.IO
 }

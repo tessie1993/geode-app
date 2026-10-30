@@ -3,6 +3,7 @@ package dev.geode.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -174,14 +175,14 @@ fun Modifier.crystalPanel(
 
 fun Modifier.luminousHairline(glow: Color): Modifier = background(glow.copy(alpha = glow.alpha * 0.5f))
 
-/** The app canvas behind every screen: black, with a barely-there lift towards the top. */
+/** The app canvas behind every screen: black, with a barely-there lift towards the top. Fills its parent. */
 @Composable
 fun CrystalBackground(
     modifier: Modifier = Modifier,
     @Suppress("UNUSED_PARAMETER") reducedMotion: Boolean = false,
 ) {
     Box(
-        modifier.background(
+        modifier.fillMaxSize().background(
             Brush.verticalGradient(
                 0f to GeodeColors.CanvasRaised,
                 0.6f to GeodeColors.Canvas,

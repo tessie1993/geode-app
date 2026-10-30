@@ -40,57 +40,65 @@ import dev.geode.ui.theme.isReadableOnCanvas
 internal fun LookSettingsTab(viewModel: SettingsViewModel) {
     val gui by viewModel.guiPrefs.collectAsStateWithLifecycle()
     SettingsTabColumn {
-        item {
-            SettingsGroup(stringResource(R.string.look_group_theme)) {
-                Column {
-                    Text(
-                        stringResource(R.string.look_accent_intensity, (gui.accentIntensity * 100).toInt()),
-                        style = MaterialTheme.typography.labelMedium,
-                    )
-                    CrystalSlider(
-                        value = gui.accentIntensity,
-                        onValueChange = { viewModel.setGuiPrefs(gui.copy(accentIntensity = it)) },
-                        valueRange = 0.5f..1.5f,
-                    )
-                }
-                Column {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(stringResource(R.string.look_ui_sounds), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-                        Switch(
-                            checked = gui.uiSounds,
-                            onCheckedChange = { viewModel.setGuiPrefs(gui.copy(uiSounds = it)) },
-                        )
-                    }
-                    Text(
-                        stringResource(R.string.look_ui_sounds_hint),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-        }
-        item {
-            SettingsGroup(stringResource(R.string.look_group_text)) {
-                FontColorRow(viewModel, gui)
-                Column {
-                    Text(
-                        stringResource(R.string.look_text_size, (gui.textScale * 100).toInt()),
-                        style = MaterialTheme.typography.labelMedium,
-                    )
-                    CrystalSlider(
-                        value = gui.textScale,
-                        onValueChange = { viewModel.setGuiPrefs(gui.copy(textScale = it)) },
-                        valueRange = GuiPrefs.TEXT_SCALE_MIN..GuiPrefs.TEXT_SCALE_MAX,
-                    )
-                    Text(
-                        stringResource(R.string.look_text_size_hint),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-        }
+        item { SettingsGroup(stringResource(R.string.look_group_theme)) { ThemeGroup(viewModel, gui) } }
+        item { SettingsGroup(stringResource(R.string.look_group_text)) { TextGroup(viewModel, gui) } }
         item { SettingsGroup(stringResource(R.string.look_group_layout)) { LayoutGroup(viewModel, gui) } }
+    }
+}
+
+@Composable
+private fun ThemeGroup(
+    viewModel: SettingsViewModel,
+    gui: GuiPrefs,
+) {
+    Column {
+        Text(
+            stringResource(R.string.look_accent_intensity, (gui.accentIntensity * 100).toInt()),
+            style = MaterialTheme.typography.labelMedium,
+        )
+        CrystalSlider(
+            value = gui.accentIntensity,
+            onValueChange = { viewModel.setGuiPrefs(gui.copy(accentIntensity = it)) },
+            valueRange = 0.5f..1.5f,
+        )
+    }
+    Column {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(stringResource(R.string.look_ui_sounds), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+            Switch(
+                checked = gui.uiSounds,
+                onCheckedChange = { viewModel.setGuiPrefs(gui.copy(uiSounds = it)) },
+            )
+        }
+        Text(
+            stringResource(R.string.look_ui_sounds_hint),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
+private fun TextGroup(
+    viewModel: SettingsViewModel,
+    gui: GuiPrefs,
+) {
+    FontColorRow(viewModel, gui)
+    Column {
+        Text(
+            stringResource(R.string.look_text_size, (gui.textScale * 100).toInt()),
+            style = MaterialTheme.typography.labelMedium,
+        )
+        CrystalSlider(
+            value = gui.textScale,
+            onValueChange = { viewModel.setGuiPrefs(gui.copy(textScale = it)) },
+            valueRange = GuiPrefs.TEXT_SCALE_MIN..GuiPrefs.TEXT_SCALE_MAX,
+        )
+        Text(
+            stringResource(R.string.look_text_size_hint),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 
@@ -99,7 +107,6 @@ private fun FontColorRow(
     viewModel: SettingsViewModel,
     gui: GuiPrefs,
 ) {
-    val cs = MaterialTheme.colorScheme
     Column {
         Text(stringResource(R.string.look_font_color), style = MaterialTheme.typography.labelMedium)
         LazyRow(
@@ -107,53 +114,62 @@ private fun FontColorRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             items(FontColorChoice.CHOICES) { choice ->
-                val usable = choice.argb == null || isReadableOnCanvas(Color(choice.argb))
-                val sel = gui.fontColorArgb == choice.argb
-                val shape = crystalShardShape(8.dp, 3.dp)
-                val fill =
-                    choice.argb?.let { argb ->
-                        val c = Color(argb)
-                        Brush.verticalGradient(listOf(c, lerp(c, Color.Black, 0.22f)))
-                    } ?: Brush.verticalGradient(listOf(cs.primary, cs.secondary))
-                Column(
-                    Modifier
-                        .graphicsLayer { alpha = if (usable) 1f else 0.35f }
-                        .clickable(enabled = usable) {
-                            viewModel.setGuiPrefs(gui.copy(fontColorArgb = choice.argb, whiteFont = false))
-                        }.padding(2.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
-                    Box(
-                        Modifier
-                            .size(30.dp)
-                            .clip(shape)
-                            .background(fill)
-                            .border(
-                                1.dp,
-                                if (sel) Color.White.copy(alpha = 0.9f) else cs.primary.copy(alpha = 0.35f),
-                                shape,
-                            ),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        if (sel) {
-                            val swatch = choice.argb?.let { Color(it) } ?: cs.primary
-                            CrystalGem(if (swatch.luminance() > 0.55f) Color.Black else Color.White, size = 7.dp)
-                        }
-                    }
-                    Text(
-                        stringResource(choice.labelRes),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = if (sel) accentTextColor() else cs.onSurfaceVariant,
-                        maxLines = 1,
-                    )
-                }
+                FontColorSwatch(
+                    choice = choice,
+                    selected = gui.fontColorArgb == choice.argb,
+                    onSelect = { viewModel.setGuiPrefs(gui.copy(fontColorArgb = choice.argb, whiteFont = false)) },
+                )
             }
         }
         Text(
             stringResource(R.string.look_font_color_hint),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+/** One text-colour choice. Colours too dark to read on black are shown but can't be picked. */
+@Composable
+private fun FontColorSwatch(
+    choice: FontColorChoice,
+    selected: Boolean,
+    onSelect: () -> Unit,
+) {
+    val cs = MaterialTheme.colorScheme
+    val usable = choice.argb == null || isReadableOnCanvas(Color(choice.argb))
+    val shape = crystalShardShape(8.dp, 3.dp)
+    val fill =
+        choice.argb?.let { argb ->
+            val c = Color(argb)
+            Brush.verticalGradient(listOf(c, lerp(c, Color.Black, 0.22f)))
+        } ?: Brush.verticalGradient(listOf(cs.primary, cs.secondary))
+    Column(
+        Modifier
+            .graphicsLayer { alpha = if (usable) 1f else 0.35f }
+            .clickable(enabled = usable, onClick = onSelect)
+            .padding(2.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Box(
+            Modifier
+                .size(30.dp)
+                .clip(shape)
+                .background(fill)
+                .border(1.dp, if (selected) Color.White.copy(alpha = 0.9f) else cs.outline, shape),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (selected) {
+                val swatch = choice.argb?.let { Color(it) } ?: cs.primary
+                CrystalGem(if (swatch.luminance() > 0.55f) Color.Black else Color.White, size = 7.dp)
+            }
+        }
+        Text(
+            stringResource(choice.labelRes),
+            style = MaterialTheme.typography.labelSmall,
+            color = if (selected) accentTextColor() else cs.onSurfaceVariant,
+            maxLines = 1,
         )
     }
 }

@@ -6,7 +6,7 @@ applicationId `com.muzviz.studiopro`. Kotlin packages stay `dev.geode.*`. minSdk
 Read before you change structure:
 - [`docs/ANDROID_ARCHITECTURE_GUIDE.md`](docs/ANDROID_ARCHITECTURE_GUIDE.md): the target rules. Where the code disagrees, the code is the debt.
 - [`docs/ANDROID_ARCHITECTURE_REFERENCE.md`](docs/ANDROID_ARCHITECTURE_REFERENCE.md): the reasons and code shapes behind those rules (layers, modularization, Navigation 3).
-- [`docs/adr/`](docs/adr/): decisions. [`0001`](docs/adr/0001-target-module-split.md) is the target module split and the Nav3 plan.
+- [`docs/adr/`](docs/adr/): decisions. [`0001`](docs/adr/0001-target-module-split.md) is the target module split and the Nav3 plan; [`0002`](docs/adr/0002-release-before-restructure.md) puts the Play release before steps 2–6. [`docs/ARCHITECTURE_FINISH_PLAN.md`](docs/ARCHITECTURE_FINISH_PLAN.md) is the prioritized plan.
 - [`GLOSSARY.md`](GLOSSARY.md): domain words. Name things with them.
 - [`docs/AUDIO_CHAIN.md`](docs/AUDIO_CHAIN.md): read it before touching the playback audio path.
 
@@ -33,7 +33,7 @@ The native core is built by the root `CMakeLists.txt`, plus `core/CMakeLists.txt
 
 | Package | Responsibility | Open first |
 |---|---|---|
-| (root) | `Application`, crash file, the `GeodeContainer` service locator | `GeodeApp`, `GeodeContainer`, `RingLog` |
+| (root) | `Application`, crash file, the `GeodeContainer` service locator, the app's launch intent (`appLaunchIntent`, for the widget and notifications) | `GeodeApp`, `GeodeContainer`, `RingLog`, `AppLaunch` |
 | `di` | Hilt modules. Very thin: most objects are built by hand | `DataModule`, `BillingModule`, `PlayerSessionProvider` |
 | `pro` | Pure Kotlin (no `android.*`): Pro entitlement rules, the free tier, the billing and trial interfaces, the one gate use case, the paywall request | `FreeTier` (edit to tune the free tier), `FeatureGate`, `GetFeatureGateUseCase`, `BillingRepository`, `PaywallNavigator` |
 | `billing` | Play Billing (PBL 9) behind `BillingRepository`, the fake for debug and tests, entitlement cache, trial store, purchase signature check | `PlayBillingRepository`, `FakeBillingRepository`, `ProSnapshot` |
@@ -44,7 +44,8 @@ The native core is built by the root `CMakeLists.txt`, plus `core/CMakeLists.txt
 | `playback` | `PlaybackEngine` (process-wide holder of ExoPlayer or `NativePlayer`, ring and analysis), `PlaybackService` (MediaLibraryService), queue, sleep timer, ReplayGain | `PlaybackEngine`, `PlaybackService`, `NativePlayer` |
 | `audio` | Capture sources (mic, other apps' audio), `AudioBus` (features for non-UI surfaces), platform FX, media chain | `AudioBus`, `AudioCapturePump`, `PlaybackCaptureService`, `TapRenderersFactory` |
 | `audio/dsp` | The Media3 processor chain order, native DSP | `MvzAudioProcessorChain` |
-| `data` | Stores (SharedPreferences, JSON files) and their repositories, template and preset formats | `PresetStore`, `TemplateRepository`, `VideoTemplate`, `GeodePrefsFiles` |
+| `data` | Stores (SharedPreferences, JSON files) and their repositories, template and preset formats, the GUI prefs (`ThemeStore`, `GuiPrefs`, `UserIntent`), the track list (`TrackLibrary`) and the MediaStore query (`DeviceTrackQuery`) | `PresetStore`, `TemplateRepository`, `VideoTemplate`, `GeodePrefsFiles`, `UserDataRepository` |
+| `model` | Pure value types shared across layers, staged for `:core:model` (ADR 0001 step 2). No `android.*` | `DeviceTrack`, `LibraryTrack`, `LyricLine`, `PresetLink` |
 | `data/backup` | Manual backup zip (Settings › Backup). Format, allowlist, checks and migrations are pure Kotlin; `BackupRepository` does the picker, filesDir and prefs I/O | `BackupFormat`, `BackupArchive`, `BackupRepository` |
 | `editor` | The Studio project model: pure Kotlin, no `android.*` | `Timeline`, `Keyframes`, `Markers`, `AutoCut` |
 | `export` | Visualizer export (MediaCodec + offscreen GL), Studio export (Media3 Transformer), loop render, loudness, chapters, captions, `PcmResampler` (hi-res sources down to an AAC-supported rate), the non-Pro watermark | `VideoExporter`, `StudioExporter`, `LoopRender`, `ExportRun`, `ExportService`, `WatermarkOverlay` |
@@ -95,7 +96,7 @@ The native core is built by the root `CMakeLists.txt`, plus `core/CMakeLists.txt
 ## Build, test, CI
 
 - **Don't build locally.** Push to `claude/**`. `.github/workflows/android.yml` runs detekt, `:app:assembleDebug`, every module's unit tests, `:app:lintDebug`, `ktlintCheck`, plus an emulator job (`connectedDebugAndroidTest`, API 30). Read the results with `gh run list --branch <b>` and `gh run view <id> --log-failed`.
-- `ship-apk.yml` (push to `main`) publishes a debug APK. `release.yml` builds the Play AAB unsigned on PRs (no secrets reach PR code) and signed on tags `v*` and manual runs, then checks the merged manifest (no INTERNET, targetSdk), R8 and the baseline profile. `arch-map.yml` is the gate described below.
+- `ship-apk.yml` (push to `main`) publishes a debug APK. `release.yml` builds the Play AAB unsigned on PRs (no secrets reach PR code) and signed on tags `v*` and manual runs, then checks the merged manifest (no INTERNET, targetSdk), R8 and the baseline profile. `arch-map.yml` holds the two gates described below.
 - Debug builds sign with the committed `app/debug.keystore` so CI APKs install over each other.
 - Submodules: `git submodule update --init --recursive`, needed only for native work. Your `local.properties` needs `sdk.dir`.
 - Tests: JVM unit tests live in `app/src/test` and `engine/*/src/test` (CI runs every module's), instrumented ones in `app/src/androidTest`. Among them: `engine/scenes/src/test/` (style DNA, wire layouts, the saved-reactions codec, randomizer coverage) and `app/src/androidTest/.../ui/ReactivityTabTest.kt` (Compose UI test of the reaction editor, run by the emulator job). CI also runs `core/tests/viz_math_test.cpp` (reaction and camera math, host compiler) and `tools/check_shaders.py` (every style through the NDK's glslc). Put new pure tests in a JVM module where you can; keep parsing that must be tested off-device out of `org.json`, which is a stub in local tests (see `render/ReactionRouteCodec`). Use `docs/DEVICE_CHECKS.md` for anything that needs a device. `tools/glslcheck` and `tools/hostlink` check shaders and the native link on the host.
@@ -118,13 +119,8 @@ The native core is built by the root `CMakeLists.txt`, plus `core/CMakeLists.txt
 ## Where the code breaks the architecture guide
 
 - **God object.** Every ViewModel reads `PlayerSession`, which builds ~20 controllers and its repositories by hand. That's a service locator (`GeodeContainer`, `context.geodeContainer`) sitting beside Hilt.
-- **Reverse dependencies into `ui`.** These lower layers import from `ui`, although the README says they never do:
-  - `data/SmartPlaylistStore` and `playback/LibraryTree` import `ui.DeviceTrack`.
-  - `data/TemplateFormat` imports `ui.PresetLink`.
-  - `editor/Subtitles` imports `ui.LyricLine`.
-  - `wallpaper/*` import `ui.ThemeStore`.
-  - `widget/NowPlayingWidget` imports `ui.MainActivity`.
-- **Data layer lives in `ui`.** Stores and MediaStore access (`*Controller`, `VizStateStore`, `AutoVisualsPrefsStore`, `DeviceTrackQuery`, `UserDataRepository`) sit there, and some composables call `contentResolver` themselves (`StudioScreen`, `ui/studio/TimelineLanes`, `TrackInfoEditor`, `DuplicatesTab`, `FolderSettings`, `LoopRenderSheet`).
+- **Layer rule (enforced).** Nothing outside `ui/` and `di/` may name `dev.geode.ui`; `tools/layer-gate.sh` fails the PR otherwise. Move a type down instead: `model` if it is pure, `data` if it touches storage.
+- **Data layer lives in `ui`.** Stores and MediaStore access (`*Controller`, `VizStateStore`, `AutoVisualsPrefsStore`) sit there, and some composables call `contentResolver` themselves (`StudioScreen`, `ui/studio/TimelineLanes`, `TrackInfoEditor`, `DuplicatesTab`, `FolderSettings`, `LoopRenderSheet`).
 - **One-shot events.** `PlayerViewModel` exposes `vizApply` and `morphFade` as `SharedFlow`.
 - **Mixed module.** `:engine:scenes` is an Android library, but most of its files are pure Kotlin. `editor/*` and much of `data/*` are pure too, except for `org.json` (`TemplateFormat`, `EditorProjectJson`, `PerformanceTake`). There is no `kotlinx.serialization` yet.
 - **Navigation.** Enum and `when`, not Nav3.
@@ -132,6 +128,6 @@ The native core is built by the root `CMakeLists.txt`, plus `core/CMakeLists.txt
 
 ## Keeping this map current
 
-- **Gate.** `.github/workflows/arch-map.yml` runs `tools/arch-map-gate.sh` on every PR into `claude/geode-finish` or `main`. The check fails when the PR changes structure without touching `AGENTS.md`. Structure means `settings.gradle.kts`, any `build.gradle.kts`, any `CMakeLists.txt`, or a file added, deleted or renamed under `app/src/main/java/` or `engine/`. There is no override.
+- **Gate.** `.github/workflows/arch-map.yml` runs `tools/arch-map-gate.sh` on every PR into `claude/geode-finish` or `main`. The check fails when the PR changes structure without touching `AGENTS.md`. The same workflow runs `tools/layer-gate.sh` (the layer rule above). Structure means `settings.gradle.kts`, any `build.gradle.kts`, any `CMakeLists.txt`, or a file added, deleted or renamed under `app/src/main/java/` or `engine/`. There is no override.
 - **When you refactor,** update the tables above in the same PR: module, package, entry point, thread, large-file line counts. Then update the "breaks the guide" list. When a split step from ADR 0001 lands, rewrite the Modules section to match, and record any change of plan as a new ADR.
 - Verify every path you name. Keep this file under 200 lines; push detail into `docs/`.

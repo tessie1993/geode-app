@@ -1,6 +1,6 @@
 package dev.geode.editor
 
-import dev.geode.ui.LyricLine
+import dev.geode.model.LyricLine
 
 data class SubtitleCue(
     val startMs: Long,

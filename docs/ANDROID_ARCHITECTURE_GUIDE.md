@@ -66,7 +66,7 @@ Ship Android only, but keep porting cheap.
   between features.
 - Pass IDs between destinations, never objects. The destination loads the object
   from the data layer.
-- Features don't know each other. Cross-feature navigation goes through the app
+- Features know only other features' `:api` (their `NavKey`s), never their `:impl`. Cross-feature navigation goes through the app
   module (callbacks or an injected navigator).
 
 ## Modules

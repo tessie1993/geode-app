@@ -8,6 +8,7 @@ import dev.geode.analysis.FeatureTimeline
 import dev.geode.analysis.IntelligenceMode
 import dev.geode.analysis.OfflineAnalyzer
 import dev.geode.analysis.SceneSuggester
+import dev.geode.data.GuiPrefs
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers

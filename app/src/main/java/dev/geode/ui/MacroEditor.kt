@@ -1,6 +1,5 @@
 package dev.geode.ui
 
-import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import androidx.compose.foundation.background
@@ -40,7 +39,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import dev.geode.data.SavedMacroSet
 import dev.geode.render.ReactSource
 import dev.geode.render.scene.MacroDestination
 import dev.geode.render.scene.MacroIcons
@@ -53,16 +51,6 @@ import dev.geode.render.scene.SceneParams
 import dev.geode.render.scene.UserMacro
 import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
-
-/** What the editor needs from the session: the set's folder and the look to record from. */
-internal class MacroEditorActions(
-    val saved: List<SavedMacroSet>,
-    val onSave: (folder: String, done: (Boolean) -> Unit) -> Unit,
-    val onLoad: (SavedMacroSet, done: (Boolean) -> Unit) -> Unit,
-    val onDelete: (SavedMacroSet) -> Unit,
-    val onImport: (String) -> Boolean,
-    val onRestoreStandard: () -> Unit,
-)
 
 /**
  * The macro editor: every knob of the active set, Serum-style. Per knob: its name and icon,
@@ -435,12 +423,6 @@ private fun shareMacroSet(
             .putExtra(Intent.EXTRA_SUBJECT, "MuzViz macro set: ${set.name}")
             .putExtra(Intent.EXTRA_TEXT, MacroSetCodec.encode(set))
     context.startActivity(Intent.createChooser(send, "Share macro set"))
-}
-
-private fun clipboardText(context: Context): String? {
-    val clipboard = context.getSystemService(ClipboardManager::class.java) ?: return null
-    val clip = clipboard.primaryClip?.takeIf { it.itemCount > 0 } ?: return null
-    return clip.getItemAt(0).coerceToText(context)?.toString()
 }
 
 private fun signedPercent(amount: Float): String = "%+d%%".format((amount * PERCENT_SCALE).roundToInt())

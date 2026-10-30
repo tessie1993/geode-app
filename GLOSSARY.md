@@ -45,6 +45,22 @@ _Avoid_: Visualizer, effect, mode
 A named look within a scene family, picked from the style catalogue.
 _Avoid_: Variant, skin
 
+**Style family**:
+Twelve fragment-shader styles built on one shared GLSL library (`lib_<family>`), each with its own geometry and its own way of hearing the music. The first is the basic one and is free; the rest are Pro. The families are Arbor, Bulb, Chrysanthemum and Lucid.
+_Avoid_: Pack, collection, scene family (that is the renderer, such as Cymatics or Fluid)
+
+**Arbor**:
+The fractal-tree style family: branching folded distance fields, flown through or orbited.
+
+**Bulb**:
+The Mandelbulb style family: ray-marched power-N fractals and their Julia relatives.
+
+**Chrysanthemum**:
+The petal style family: polar petal fields and mandalas that bloom out of a glowing core.
+
+**Lucid**:
+The domain-warp style family: a noise field sampled through itself several levels deep, often folded into a kaleidoscope.
+
 **Scene params**:
 The full set of tunable values a scene is drawn with at one moment.
 _Avoid_: Settings, knobs

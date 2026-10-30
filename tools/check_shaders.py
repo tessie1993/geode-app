@@ -19,13 +19,15 @@ DEFINES = {"fluid_display_frag.glsl": "#define LOOK 0\n"}
 INCLUDE = re.compile(r"^\s*//#include\s+(\w+)\s*$", re.M)
 
 
-def resolve(text, seen):
+def resolve(text, path):
+    # Mirrors core/viz/ShaderSource.cpp: an include repeated outside its own
+    # chain is pasted again, not skipped, so a double include fails here the
+    # way it fails on the device (redefinition) instead of passing silently.
     def expand(m):
         name = m.group(1)
-        if name in seen:
-            return ""
-        seen.add(name)
-        return resolve((SHADERS / f"{name}.glsl").read_text(encoding="utf-8"), seen)
+        if name in path:
+            raise SystemExit(f"circular shader include '{name}'")
+        return resolve((SHADERS / f"{name}.glsl").read_text(encoding="utf-8"), path + (name,))
 
     return INCLUDE.sub(expand, text)
 
@@ -36,7 +38,7 @@ def main():
     failed = []
     with tempfile.TemporaryDirectory() as tmp:
         for name in names:
-            src = resolve((SHADERS / name).read_text(encoding="utf-8"), set())
+            src = resolve((SHADERS / name).read_text(encoding="utf-8"), ())
             src = src.replace("#version 300 es", "#version 310 es\n" + DEFINES.get(name, ""), 1)
             out = pathlib.Path(tmp) / name
             out.write_text(src, encoding="utf-8")

@@ -1,6 +1,7 @@
 package dev.geode.ui
 
 import dev.geode.data.MacroSetStore
+import dev.geode.data.SavedMacroSet
 import dev.geode.render.ReactionRoute
 import dev.geode.render.scene.BuildStyleReactionsUseCase
 import dev.geode.render.scene.MacroKnobs
@@ -150,3 +151,13 @@ internal class MacroController(
 
 /** The knob a new macro starts as in the editor. */
 internal fun newMacro(index: Int): UserMacro = UserMacro(name = "Macro ${index + 1}")
+
+/** What the editor needs from the session: the set's folder and the look to record from. */
+internal class MacroEditorActions(
+    val saved: List<SavedMacroSet>,
+    val onSave: (folder: String, done: (Boolean) -> Unit) -> Unit,
+    val onLoad: (SavedMacroSet, done: (Boolean) -> Unit) -> Unit,
+    val onDelete: (SavedMacroSet) -> Unit,
+    val onImport: (String) -> Boolean,
+    val onRestoreStandard: () -> Unit,
+)

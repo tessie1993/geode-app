@@ -28,17 +28,33 @@ object TestTrack {
     private const val RATE = 44_100
     private const val TONE_HZ = 440.0
     private const val HEADER_BYTES = 44
+    private const val AMPLITUDE = 8_000.0
+
+    private fun ascii(tag: String) = tag.toByteArray(Charsets.US_ASCII)
 
     fun write(seconds: Double = 3.0): Uri {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val frames = (RATE * seconds).toInt()
         val data = frames * 2
         val buf = ByteBuffer.allocate(HEADER_BYTES + data).order(ByteOrder.LITTLE_ENDIAN)
-        buf.put("RIFF".toByteArray()).putInt(36 + data).put("WAVE".toByteArray())
-        buf.put("fmt ".toByteArray()).putInt(16).putShort(1).putShort(1)
-        buf.putInt(RATE).putInt(RATE * 2).putShort(2).putShort(16)
-        buf.put("data".toByteArray()).putInt(data)
-        repeat(frames) { i -> buf.putShort((sin(2 * PI * TONE_HZ * i / RATE) * 8_000).toInt().toShort()) }
+        // RIFF header, then a mono 16-bit PCM "fmt " chunk, then the samples.
+        buf.put(ascii("RIFF"))
+        buf.putInt(36 + data)
+        buf.put(ascii("WAVE"))
+        buf.put(ascii("fmt "))
+        buf.putInt(16)
+        buf.putShort(1) // PCM
+        buf.putShort(1) // mono
+        buf.putInt(RATE)
+        buf.putInt(RATE * 2) // byte rate
+        buf.putShort(2) // block align
+        buf.putShort(16) // bits per sample
+        buf.put(ascii("data"))
+        buf.putInt(data)
+        repeat(frames) { i ->
+            val sample = sin(2 * PI * TONE_HZ * i / RATE) * AMPLITUDE
+            buf.putShort(sample.toInt().toShort())
+        }
         val file = File(context.cacheDir, "journey-tone.wav")
         file.writeBytes(buf.array())
         return Uri.fromFile(file)

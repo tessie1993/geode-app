@@ -39,7 +39,11 @@ class ExportJourneyTest {
         // "Render 1080p MP4 30fps"; not "Render to chosen folder…", and not the fps chips.
         val start = hasTextMatching(Regex("""Render \d+p .+ \d+fps""")) and hasClickAction()
         compose.awaitNode(start)
-        compose.onAllNodes(start).onFirst().performScrollTo().assertIsDisplayed()
-        compose.onAllNodes(hasText("Close") and hasClickAction()).onFirst().performScrollTo().assertIsDisplayed()
+        val startButton = compose.onAllNodes(start).onFirst()
+        startButton.performScrollTo()
+        startButton.assertIsDisplayed()
+        val close = compose.onAllNodes(hasText("Close") and hasClickAction()).onFirst()
+        close.performScrollTo()
+        close.assertIsDisplayed()
     }
 }

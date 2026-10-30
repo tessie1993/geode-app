@@ -2,6 +2,7 @@ package dev.geode.journey
 
 import android.content.Context
 import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
@@ -79,5 +80,6 @@ fun ComposeTestRule.tap(what: SemanticsMatcher) {
 /** Matches a node whose text matches [regex] in full. */
 fun hasTextMatching(regex: Regex): SemanticsMatcher =
     SemanticsMatcher("text matches $regex") { node ->
-        node.config.getOrNull(SemanticsProperties.Text).orEmpty().any { regex.matches(it.text) }
+        val texts = node.config.getOrNull(SemanticsProperties.Text).orEmpty()
+        texts.any { regex.matches(it.text) }
     }

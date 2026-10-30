@@ -1,6 +1,7 @@
 package dev.geode.journey
 
 import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
@@ -75,13 +76,13 @@ class PlayerJourneyTest {
         val spoken = mutableListOf<String>()
         repeat(3) {
             compose.awaitNode(repeat)
-            compose.onAllNodes(repeat).onFirst().performClick()
+            val button = compose.onAllNodes(repeat).onFirst()
+            button.performClick()
             compose.waitForIdle()
-            val config = compose.onAllNodes(repeat).onFirst().fetchSemanticsNode().config
-            spoken +=
-                (config.getOrElse(SemanticsProperties.ContentDescription) { emptyList() } +
-                    listOfNotNull(config.getOrNull(SemanticsProperties.StateDescription)))
-                    .joinToString(" ")
+            val config = button.fetchSemanticsNode().config
+            val descriptions = config.getOrElse(SemanticsProperties.ContentDescription) { emptyList() }
+            val state = listOfNotNull(config.getOrNull(SemanticsProperties.StateDescription))
+            spoken += (descriptions + state).joinToString(" ")
         }
         // OFF → ALL → ONE → OFF: three different modes, three different descriptions.
         assertThat(spoken.toSet()).hasSize(3)

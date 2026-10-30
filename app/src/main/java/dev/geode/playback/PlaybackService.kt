@@ -38,6 +38,12 @@ class PlaybackService : MediaLibraryService() {
                 .setSessionActivity(openAppIntent())
                 .setBitmapLoader(CacheBitmapLoader(loader))
                 .build()
+                // The app plays through PlaybackEngine directly, so no MediaController ever
+                // connects to fetch the session through onGetSession. Until a session is added,
+                // MediaSessionService neither posts the playback notification nor calls
+                // startForeground, and the startForegroundService() from ensureRunning() ends in
+                // ForegroundServiceDidNotStartInTimeException a few seconds into every track.
+                .also { addSession(it) }
         widget =
             WidgetPublisher(this, player).also {
                 player.addListener(it)

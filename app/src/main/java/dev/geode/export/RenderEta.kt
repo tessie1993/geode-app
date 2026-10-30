@@ -1,5 +1,9 @@
 package dev.geode.export
 
+import android.content.res.Resources
+import androidx.annotation.PluralsRes
+import dev.geode.R
+
 class RenderEta(
     private val windowSeconds: Float = 12f,
     private val minProgress: Float = 0.02f,
@@ -52,12 +56,21 @@ class RenderEta(
     }
 
     companion object {
-        fun describe(secondsRemaining: Long): String =
+        fun describe(
+            res: Resources,
+            secondsRemaining: Long,
+        ): String =
             when {
-                secondsRemaining < 30 -> "almost done"
-                secondsRemaining < 90 -> "about a minute left"
-                secondsRemaining < 3600 -> "about ${(secondsRemaining + 30) / 60} min left"
-                else -> "about ${(secondsRemaining + 1800) / 3600} h left"
+                secondsRemaining < 30 -> res.getString(R.string.export_eta_almost_done)
+                secondsRemaining < 90 -> res.getString(R.string.export_eta_one_minute)
+                secondsRemaining < 3600 -> count(res, R.plurals.export_eta_minutes, (secondsRemaining + 30) / 60)
+                else -> count(res, R.plurals.export_eta_hours, (secondsRemaining + 1800) / 3600)
             }
+
+        private fun count(
+            res: Resources,
+            @PluralsRes id: Int,
+            n: Long,
+        ): String = res.getQuantityString(id, n.toInt(), n.toInt())
     }
 }

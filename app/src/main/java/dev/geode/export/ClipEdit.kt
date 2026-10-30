@@ -1,5 +1,6 @@
 package dev.geode.export
 
+import androidx.annotation.StringRes
 import androidx.media3.common.Effect
 import androidx.media3.common.MediaItem
 import androidx.media3.common.audio.SpeedProvider
@@ -14,17 +15,18 @@ import androidx.media3.effect.ScaleAndRotateTransformation
 import androidx.media3.effect.SingleColorLut
 import androidx.media3.effect.StaticOverlaySettings
 import androidx.media3.effect.TextOverlay
+import dev.geode.R
 
 enum class ClipLook(
-    val label: String,
+    @param:StringRes val labelRes: Int,
 ) {
-    NONE("As shot"),
-    PUNCH("Punch"),
-    BLEACH("Bleach"),
-    NEON("Neon"),
-    NIGHT("Night"),
-    MONO("Mono"),
-    INVERT("Invert"),
+    NONE(R.string.studio_as_shot),
+    PUNCH(R.string.studio_look_punch),
+    BLEACH(R.string.studio_look_bleach),
+    NEON(R.string.studio_look_neon),
+    NIGHT(R.string.studio_look_night),
+    MONO(R.string.studio_look_mono),
+    INVERT(R.string.studio_look_invert),
     ;
 
     fun applyTo(edit: ClipEdit): ClipEdit =

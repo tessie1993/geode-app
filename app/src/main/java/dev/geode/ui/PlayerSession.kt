@@ -466,6 +466,7 @@ class PlayerSession internal constructor(
                     sceneId: String,
                 ) = visual.emitApply(VizApply(milkPath = path, sceneId = sceneId))
             },
+            takeName = { application.getString(dev.geode.R.string.take_default_name, it) },
         )
 
     val takeState: StateFlow<TakeUiState> get() = takeController.state

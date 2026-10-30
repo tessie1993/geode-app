@@ -35,7 +35,7 @@ The native core is built by the root `CMakeLists.txt`, plus `core/CMakeLists.txt
 |---|---|---|
 | (root) | `Application`, crash file, the `GeodeContainer` service locator | `GeodeApp`, `GeodeContainer`, `RingLog` |
 | `di` | Hilt modules. Very thin: most objects are built by hand | `DataModule`, `PlayerSessionProvider` |
-| `ui` | Every screen, the five ViewModels, `PlayerSession` with its ~20 `*Controller`s, settings screens, theme glue, first run (`SafetyConsent` → `FirstRun` on `OnboardingScaffold`), in-context runtime permissions (`rememberPermissionRequest`: rationale, retry, Settings after permanent denial) | `MainActivity`, `AppShell`, `GeodeAppState`, `PlayerSession`, `*ViewModel` |
+| `ui` | Every screen, the five ViewModels, `PlayerSession` with its ~20 `*Controller`s, settings screens, theme glue | `MainActivity`, `AppShell`, `GeodeAppState`, `PlayerSession`, `*ViewModel` |
 | `ui/studio` | Studio timeline widgets: lanes, playhead, curve editor, toolbar | `TimelineLanes`, `EditorActions` |
 | `ui/theme` | The one "black glass" theme: design tokens (colour, glass alphas, spacing, radius, motion), the M3 colour scheme and type scale, icons, press feedback, haptics, interface sounds. No screen code; ready to move into `:core:designsystem` | `GeodeTokens`, `GeodeTheme` (`geodeColorScheme`, `geodeTypography`), `StoneIcon`, `StonePress`, `UiSounds` |
 | `playback` | `PlaybackEngine` (process-wide holder of ExoPlayer or `NativePlayer`, ring and analysis), `PlaybackService` (MediaLibraryService), queue, sleep timer, ReplayGain | `PlaybackEngine`, `PlaybackService`, `NativePlayer` |
@@ -96,6 +96,7 @@ The native core is built by the root `CMakeLists.txt`, plus `core/CMakeLists.txt
 - Scratch files use the prefixes `geode_aac_`, `geode_loop_` and `studio-`; `GeodeContainer` sweeps them. Renders insert with `IS_PENDING`.
 - The tap stays first in the audio chain, and the chain never gets float output (see `docs/AUDIO_CHAIN.md`).
 - The app is offline by design: there is no network permission.
+- Runtime permissions are asked for in context through `ui/PermissionRequest.kt` (`rememberPermissionRequest`: rationale first, retry after a refusal, app Settings once Android stops asking). Only music access is asked at first run (`SafetyConsent` → `FirstRun`, on `OnboardingScaffold`).
 
 ## Large files to split (lines)
 

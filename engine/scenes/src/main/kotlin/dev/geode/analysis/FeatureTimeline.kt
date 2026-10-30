@@ -2,6 +2,7 @@ package dev.geode.analysis
 
 import dev.geode.engine.audio.DrumChannels
 import dev.geode.engine.audio.PulseReplay
+import kotlin.math.roundToInt
 import kotlin.math.sqrt
 
 data class TimelineFrame(
@@ -14,13 +15,13 @@ class FeatureTimeline(
     val hopMs: Long,
     val key: String = "",
     val hopRateHz: Float = 60f,
+    /** The decoded stream's rate. The drum channels are re-derived from it on a cache load. */
+    val sampleRateHz: Int = DEFAULT_SAMPLE_RATE_HZ,
 ) {
     val durationMs: Long = frames.lastOrNull()?.timeMs ?: 0L
     val averageEnergy: Float = if (frames.isEmpty()) 0f else frames.map { it.features.rms }.average().toFloat()
     val averageCentroid: Float = if (frames.isEmpty()) 0f else frames.map { it.features.centroid }.average().toFloat()
-    val bpm: Float = frames.lastOrNull()?.features?.bpm ?: 0f
-    val beatDensity: Float =
-        if (frames.isEmpty()) 0f else frames.count { it.features.beat } / (frames.size / 60f + 1e-6f)
+    val bpm: Float = trackBpm(frames)
 
     private val frameSpacingMs: Double =
         if (frames.size > 1) durationMs.toDouble() / (frames.size - 1) else hopMs.toDouble()
@@ -65,10 +66,10 @@ class FeatureTimeline(
                 }
         }
         if (!anyChanged) return this
-        return FeatureTimeline(out, hopMs, key, hopRateHz)
+        return FeatureTimeline(out, hopMs, key, hopRateHz, this.sampleRateHz)
     }
 
-    fun withDrumChannels(sampleRateHz: Int = 48_000): FeatureTimeline {
+    fun withDrumChannels(sampleRateHz: Int = this.sampleRateHz): FeatureTimeline {
         if (frames.isEmpty()) return this
         val bandCount = frames[0].features.bands.size
         if (bandCount == 0) return this
@@ -94,7 +95,7 @@ class FeatureTimeline(
                     )
             }
         }
-        return if (anyChanged) FeatureTimeline(out, hopMs, key, hopRateHz) else this
+        return if (anyChanged) FeatureTimeline(out, hopMs, key, hopRateHz, this.sampleRateHz) else this
     }
 
     private fun indexAt(timeMs: Long): Int =
@@ -150,8 +151,8 @@ class FeatureTimeline(
     }
 
     fun detectSections(
-        windowFrames: Int = 90,
-        minGapFrames: Int = 300,
+        windowFrames: Int = (SECTION_WINDOW_SECONDS * hopRateHz).roundToInt(),
+        minGapFrames: Int = (SECTION_MIN_GAP_SECONDS * hopRateHz).roundToInt(),
     ): List<Long> {
         if (frames.size < windowFrames * 2) return emptyList()
         val novelty = FloatArray(frames.size)
@@ -188,5 +189,43 @@ class FeatureTimeline(
             }
         }
         return boundaries
+    }
+
+    companion object {
+        /** What a timeline built before the rate was recorded assumed. */
+        const val DEFAULT_SAMPLE_RATE_HZ = 48_000
+
+        /** Each side of the novelty comparison: 90 frames at the 60 Hz offline hop. */
+        private const val SECTION_WINDOW_SECONDS = 1.5f
+
+        /** No two section boundaries closer than this: 300 frames at 60 Hz. */
+        private const val SECTION_MIN_GAP_SECONDS = 5f
+
+        /**
+         * The track's tempo: the median of every frame's BPM, weighted by the tracker's
+         * confidence in it.
+         *
+         * Taking the last frame's value, as this did, reported whatever the tracker believed
+         * during the fade-out or the closing silence, and that one number seeds bar trims, loop
+         * lengths and the library's BPM column. Frames with no tempo (warm-up, silence) carry no
+         * weight; if no frame has any confidence, every frame with a tempo counts equally.
+         */
+        fun trackBpm(frames: List<TimelineFrame>): Float {
+            val rated = frames.map { it.features }.filter { it.bpm > 0f }.sortedBy { it.bpm }
+            if (rated.isEmpty()) return 0f
+            val anyConfidence = rated.any { it.pulseConfidence > 0f }
+            val weights = rated.map { if (anyConfidence) it.pulseConfidence.coerceAtLeast(0f) else 1f }
+            val half = weights.sum() / 2f
+            var acc = 0f
+            var median = rated.last().bpm
+            for (i in rated.indices) {
+                acc += weights[i]
+                if (acc >= half) {
+                    median = rated[i].bpm
+                    break
+                }
+            }
+            return median
+        }
     }
 }

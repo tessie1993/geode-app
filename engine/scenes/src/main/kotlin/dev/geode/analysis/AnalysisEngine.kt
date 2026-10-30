@@ -1,5 +1,6 @@
 package dev.geode.analysis
 
+import dev.geode.engine.audio.AnalysisFft
 import dev.geode.engine.audio.MidSideWindow
 import dev.geode.engine.audio.ReactiveAnalyzer
 import dev.geode.engine.audio.SampleRing
@@ -11,49 +12,78 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.yield
 
 class AnalysisEngine(
     private val ring: SampleRing,
     val bandCount: Int = DEFAULT_BAND_COUNT,
-    private val fftSize: Int = DEFAULT_FFT_SIZE,
 ) {
-    private val analyzer =
+    /**
+     * Held for every use of [analyzer]. The loop swaps the analyzer for one with a larger FFT
+     * when the stream's rate needs it ([AnalysisFft.sizeFor]), and the tuning setters and
+     * [close] run on other threads. Uncontended outside a format change or a settings drag, and
+     * the loop is a Default-dispatcher coroutine, not the audio callback.
+     */
+    private val analyzerLock = Any()
+
+    /** The stream's rate as the tap reports it. The loop applies it before its next hop. */
+    @Volatile
+    var sampleRateHz: Int = INITIAL_SAMPLE_RATE_HZ
+
+    private var analyzer =
         ReactiveAnalyzer(
             bandCount = bandCount,
-            fftSize = fftSize,
+            fftSize = AnalysisFft.sizeFor(INITIAL_SAMPLE_RATE_HZ),
+            sampleRateHz = INITIAL_SAMPLE_RATE_HZ,
             hopRateHz = HOP_RATE_HZ,
         )
-
-    @Volatile
-    var sampleRateHz: Int = 44100
-        set(value) {
-            field = value
-            analyzer.sampleRateHz = value
-        }
 
     var attack: Float = DEFAULT_ATTACK
         set(value) {
             field = value
-            analyzer.attackSeconds = BeatTuning.envelopeSeconds(value)
+            synchronized(analyzerLock) { analyzer.attackSeconds = BeatTuning.envelopeSeconds(value) }
         }
 
     var decay: Float = DEFAULT_DECAY
         set(value) {
             field = value
-            analyzer.releaseSeconds = BeatTuning.envelopeSeconds(value)
+            synchronized(analyzerLock) { analyzer.releaseSeconds = BeatTuning.envelopeSeconds(value) }
         }
 
     var beatSensitivity: Float = BeatTuning.SENSITIVITY_DEFAULT
         set(value) {
             field = BeatTuning.clampSensitivity(value)
-            analyzer.sensitivity = field
+            synchronized(analyzerLock) { analyzer.sensitivity = field }
         }
 
     var beatMinIntervalMs: Float = BeatTuning.INTERVAL_MS_DEFAULT
         set(value) {
             field = BeatTuning.clampIntervalMs(value)
-            analyzer.refractoryMs = field
+            synchronized(analyzerLock) { analyzer.refractoryMs = field }
         }
+
+    /**
+     * Brings [analyzer] to the tap's current rate; caller holds [analyzerLock]. A rate that
+     * needs a different FFT size gets a new analyzer carrying the current tuning, since the
+     * native session's buffers and band map are sized at creation.
+     */
+    private fun syncAnalyzerToRate() {
+        val rate = sampleRateHz
+        if (rate <= 0 || rate == analyzer.sampleRateHz) return
+        val fft = AnalysisFft.sizeFor(rate)
+        if (fft == analyzer.fftSize) {
+            analyzer.sampleRateHz = rate
+            return
+        }
+        analyzer.close()
+        analyzer =
+            ReactiveAnalyzer(bandCount = bandCount, fftSize = fft, sampleRateHz = rate, hopRateHz = HOP_RATE_HZ).also {
+                it.attackSeconds = BeatTuning.envelopeSeconds(attack)
+                it.releaseSeconds = BeatTuning.envelopeSeconds(decay)
+                it.sensitivity = beatSensitivity
+                it.refractoryMs = beatMinIntervalMs
+            }
+    }
 
     private val _features = MutableStateFlow(AudioFeatures.empty(bandCount))
     val features: StateFlow<AudioFeatures> = _features
@@ -106,7 +136,7 @@ class AnalysisEngine(
     }
 
     internal inner class Pass {
-        private val window = MidSideWindow(ring, fftSize)
+        private var window = MidSideWindow(ring, synchronized(analyzerLock) { analyzer.fftSize })
         private val beat = PulseHold()
         private val beatStrength = PulseHold()
         private val transient = PulseHold()
@@ -119,15 +149,26 @@ class AnalysisEngine(
         private val arrival = PulseHold()
 
         fun reset() {
-            analyzer.reset()
+            synchronized(analyzerLock) { analyzer.reset() }
             listOf(beat, beatStrength, transient, kick, snare, hat, downbeat, sectionBoundary, drop, arrival)
                 .forEach(PulseHold::reset)
         }
 
         fun tick(): Boolean {
-            if (!window.refresh()) return false
-            analyzer.analyze(window.mid, window.side, DT_SECONDS)
+            synchronized(analyzerLock) {
+                // Checked under the lock close() takes, so no hop can start on a destroyed handle.
+                if (closed) return false
+                syncAnalyzerToRate()
+                if (window.mid.size != analyzer.fftSize) window = MidSideWindow(ring, analyzer.fftSize)
+                if (!window.refresh()) return false
+                analyzer.analyze(window.mid, window.side, DT_SECONDS)
+                publish()
+            }
+            return true
+        }
 
+        // Caller holds analyzerLock.
+        private fun publish() {
             _features.value =
                 AudioFeatures(
                     bands = analyzer.bands.copyOf(),
@@ -167,7 +208,6 @@ class AnalysisEngine(
                     harmonicity = analyzer.harmonicity,
                     warmup = analyzer.warmup,
                 )
-            return true
         }
     }
 
@@ -177,11 +217,9 @@ class AnalysisEngine(
     private val jobLock = Any()
     private var job: Job? = null
 
-    // Set before close() cancels the loop's job, and checked by the loop before it re-enters
-    // pass.tick() (which makes native analyzer.analyze calls): close() is not required to wait
-    // for job.cancel() to take effect, so this flag closes most of the window in which the loop
-    // could still be inside a native call - or about to start one - after analyzer.close() has
-    // destroyed the native handle. It does not close that window entirely; closeAndJoin() does.
+    // Set before close() cancels the loop's job, and checked by pass.tick() under analyzerLock,
+    // which close() also takes before destroying the native handle: a hop already in flight
+    // finishes first, and none starts afterwards.
     @Volatile
     private var closed = false
 
@@ -200,11 +238,20 @@ class AnalysisEngine(
                         pass.tick()
                         deadlineNs += TICK_NS
                         val now = System.nanoTime()
-                        if (deadlineNs < now) deadlineNs = now
-                        // Never delay(0): it returns without suspending, so a tick that
-                        // overruns the budget would leave this loop with no suspension
-                        // point at all - uncancellable, and spinning a core flat out.
-                        delay(maxOf(1L, (deadlineNs - now) / 1_000_000))
+                        // Behind schedule: run the missed hops back to back instead of skipping
+                        // them. The tempo tracker counts hops, not seconds, so every dropped hop
+                        // shortened the beat periods it spanned and the BPM read high whenever
+                        // the loop was starved. Further behind than MAX_CATCH_UP_HOPS the loop
+                        // was stopped rather than slow (a frozen process, a debugger), and the
+                        // schedule restarts from now.
+                        if (now - deadlineNs > MAX_CATCH_UP_HOPS * TICK_NS) deadlineNs = now
+                        if (deadlineNs > now) {
+                            delay(maxOf(1L, (deadlineNs - now) / 1_000_000))
+                        } else {
+                            // Never delay(0): it returns without suspending. yield() keeps a
+                            // catch-up run cancellable without sleeping through the hop it owes.
+                            yield()
+                        }
                     }
                 }
         }
@@ -221,7 +268,7 @@ class AnalysisEngine(
     fun close() {
         closed = true
         stop()
-        analyzer.close()
+        synchronized(analyzerLock) { analyzer.close() }
     }
 
     /** Cancels the loop and waits for it to actually stop before destroying the native handle, so no in-flight native call can race the destroy. */
@@ -229,11 +276,17 @@ class AnalysisEngine(
         closed = true
         val current = synchronized(jobLock) { job.also { job = null } }
         current?.cancelAndJoin()
-        analyzer.close()
+        synchronized(analyzerLock) { analyzer.close() }
     }
 
     companion object {
         private const val TICK_NS = 16_000_000L
+
+        /** 128 ms of hops: past this the loop was suspended, not slow. */
+        private const val MAX_CATCH_UP_HOPS = 8L
+
+        /** Until the tap reports the stream's format; the loop rebuilds for the real rate. */
+        private const val INITIAL_SAMPLE_RATE_HZ = 48_000
 
         // Three hops is 48 ms: one 30 fps display frame plus scheduling jitter.
         private const val PULSE_HOLD_HOPS = 3
@@ -242,8 +295,6 @@ class AnalysisEngine(
         internal const val DT_SECONDS = 16f / 1000f
 
         const val DEFAULT_BAND_COUNT = 64
-
-        const val DEFAULT_FFT_SIZE = 2048
 
         const val DEFAULT_ATTACK = 0.6f
         const val DEFAULT_DECAY = 0.12f

@@ -966,3 +966,24 @@ INCLUDING ANY GENERAL, SPECIAL, INDIRECT, INCIDENTAL, OR CONSEQUENTIAL
 DAMAGES, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 FROM, OUT OF THE USE OR INABILITY TO USE THE FONT SOFTWARE OR FROM
 OTHER DEALINGS IN THE FONT SOFTWARE.
+
+
+Style families: techniques studied (no code used)
+--------------------------------------------------
+The Arbor, Bulb, Chrysanthemum and Lucid style families
+(app/src/main/assets/shaders/lib_arbor.glsl, lib_bulb.glsl, lib_chrys.glsl,
+lib_lucid.glsl and their arbor_*, bulb_*, chrys_*, lucid_* styles) are original
+code. The following Shadertoy works are licensed for non-commercial use only
+(CC BY-NC-SA 3.0, stated or the Shadertoy default), so none of their code is
+used; they are credited here as the pieces whose techniques were studied:
+
+  "fractal trees gif" by macbooktall   https://www.shadertoy.com/view/llXfRr
+    (folded IFS branching distance field)
+  "mandelbulb_" by EvilRyu             https://www.shadertoy.com/view/MdXSWn
+    (power-8 Mandelbulb distance estimate, after White and Nylander, 2009)
+  "Breakthrough Chrysanthemum" by OneHung
+                                       https://www.shadertoy.com/view/s3ySzz
+    (polar petal fields, blooms that hide a scene change)
+  "dmt, no! not the drug" by Arrangemonk
+                                       https://www.shadertoy.com/view/sdyXWW
+    (recursive domain warping, after Inigo Quilez's articles on the technique)

@@ -19,7 +19,7 @@ namespace geode::viz {
 namespace {
 
 // Port of SceneCapabilities.SHADER_SCENES: id -> shaders/<id>_frag.glsl, in the catalog's order.
-constexpr std::array<const char*, 53> kShaderIds = {
+constexpr std::array<const char*, 101> kShaderIds = {
     "julia",     "tunnel",  "mandel",    "kaleido",   "plasma",    "bars",       "ring",      "scope",
     "liss",      "warp",    "grid",      "voronoi",   "metaballs", "ripples",    "starfield", "waves",
     "hexgrid",   "spiral",  "aurora",    "solar",     "winter",    "lava",       "vanishing", "morphogen",
@@ -30,6 +30,15 @@ constexpr std::array<const char*, 53> kShaderIds = {
     "crystal_canyon", "neon_city", "particle_tunnel", "chrome_nebula", "fractal_dive", "aurora_ocean",
     "spectrum_terrain", "outrun_drive", "menger_core", "gyroid_cavern",
     "ringed_planet", "jelly_abyss", "ribbon_storm", "prism_rain",
+    // style families (StyleFamilies.kt), in family order
+    "arbor_grove", "arbor_willow", "arbor_coral", "arbor_frost", "arbor_bolt", "arbor_roots",
+    "arbor_bonsai", "arbor_canopy", "arbor_rosette", "arbor_spire", "arbor_synapse", "arbor_sakura",
+    "bulb_classic", "bulb_julia", "bulb_slice", "bulb_lotus", "bulb_ink", "bulb_glow",
+    "bulb_cavern", "bulb_shell", "bulb_prism", "bulb_contour", "bulb_chrome", "bulb_hybrid",
+    "chrys_bloom", "chrys_phyllo", "chrys_dahlia", "chrys_lotus", "chrys_meadow", "chrys_corolla",
+    "chrys_glass", "chrys_ink", "chrys_neon", "chrys_fall", "chrys_kaleido", "chrys_tunnel",
+    "lucid_weave", "lucid_mandala", "lucid_spiral", "lucid_tunnel", "lucid_disc", "lucid_hive",
+    "lucid_ink", "lucid_mirror", "lucid_bulge", "lucid_petal", "lucid_lattice", "lucid_vortex",
 };
 
 constexpr const char* kMilkdrop = "milkdrop";

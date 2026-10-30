@@ -2,6 +2,7 @@ package dev.geode.pro
 
 import dev.geode.billing.CachedEntitlement
 import dev.geode.render.scene.SceneIds
+import dev.geode.render.scene.StyleFamilies
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -46,6 +47,18 @@ class FeatureGateTest {
         assertTrue(FreeTier.FALLBACK_STYLE_ID in FreeTier.freeStyleIds)
         assertTrue(free.allowsStyle(FreeTier.FALLBACK_STYLE_ID))
         assertFalse("silk is a Pro renderer", free.allowsStyle(SceneIds.DEFAULT))
+    }
+
+    @Test
+    fun `each style family gives away its first style and keeps the rest for Pro`() {
+        StyleFamilies.all.forEach { family ->
+            assertTrue(family.freeId, free.allowsStyle(family.freeId))
+            family.proIds.forEach { id ->
+                assertFalse(id, free.allowsStyle(id))
+                assertTrue(id, trial.allowsStyle(id))
+                assertTrue(id, pro.allowsStyle(id))
+            }
+        }
     }
 
     @Test

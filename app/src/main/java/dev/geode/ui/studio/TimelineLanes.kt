@@ -240,7 +240,7 @@ fun TimelineEditor(
                     ChapterWriteResult.Written -> chaptersSavedMessage
                     ChapterWriteResult.Skipped -> chaptersNoneMessage
                     is ChapterWriteResult.Failed ->
-                        String.format(Locale.getDefault(), chaptersFailedTemplate, result.message ?: chaptersUnwritableMessage)
+                        String.format(Locale.getDefault(), chaptersFailedTemplate, result.reason(chaptersUnwritableMessage))
                 }
         }
     }

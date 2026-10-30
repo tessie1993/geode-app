@@ -67,7 +67,9 @@ sealed interface ChapterWriteResult {
     /** [message] is the stream's own reason, or null when it gave none. */
     data class Failed(
         val message: String?,
-    ) : ChapterWriteResult
+    ) : ChapterWriteResult {
+        fun reason(fallback: String): String = message ?: fallback
+    }
 }
 
 data class ChapterMarkers(

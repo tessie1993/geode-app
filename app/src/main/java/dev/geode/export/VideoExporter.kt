@@ -378,7 +378,10 @@ class VideoExporter(
             // The requested codec at the requested rate first, then its reduced form, then the same pair on H.264.
             val attempts =
                 listOf(codec.available(), ExportCodec.H264).distinct().flatMap { c ->
-                    listOf(EncoderAttempt(c, requestedFpsBounded, aspect.bitRate), EncoderAttempt(c, 30, aspect.bitRate * 2 / 3))
+                    listOf(
+                        EncoderAttempt(c, requestedFpsBounded, aspect.bitRate),
+                        EncoderAttempt(c, dev.geode.data.fallbackExportFps(requestedFpsBounded), aspect.bitRate * 2 / 3),
+                    )
                 }
             val (encoder, fps) = openEncoder(aspect, attempts)
             encoderRef = encoder

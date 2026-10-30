@@ -42,6 +42,7 @@ internal fun AppSettingsTab(
             stringResource(R.string.settings_tab_folders),
             stringResource(R.string.settings_tab_behavior),
             stringResource(R.string.settings_tab_help),
+            stringResource(R.string.backup_tab),
             stringResource(R.string.settings_tab_about),
         )
     Column(Modifier.fillMaxSize()) {
@@ -54,6 +55,7 @@ internal fun AppSettingsTab(
             3 -> FolderSettingsTab()
             4 -> BehaviorSettingsTab(settingsViewModel)
             5 -> HelpSettingsTab(settingsViewModel, onStartTutorial)
+            6 -> BackupSettingsTab()
             else -> AboutSettingsTab()
         }
     }

@@ -13,7 +13,6 @@ import dev.geode.data.PlayerPrefs
 import dev.geode.data.PlayerPrefsRepository
 import dev.geode.playback.NativePlayer
 import dev.geode.playback.ReplayGain
-import dev.geode.ui.theme.ThemePack
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -38,8 +37,6 @@ internal class PlayerSettingsController(
         fun applyBitPerfect(enabled: Boolean)
     }
 
-    val theme: StateFlow<ThemePack> = userData.theme
-
     val guiPrefs: StateFlow<GuiPrefs> = userData.guiPrefs
 
     val playerPrefs: StateFlow<PlayerPrefs> = playerPrefsRepository.prefs
@@ -58,10 +55,6 @@ internal class PlayerSettingsController(
             previous.beatSensitivity != prefs.beatSensitivity ||
                 previous.effectiveBeatMinIntervalMs != prefs.effectiveBeatMinIntervalMs
         if (sensitivityChanged) host.redecideCachedBeats(prefs)
-    }
-
-    fun setTheme(theme: ThemePack) {
-        scope.launch { userData.setTheme(theme) }
     }
 
     fun setPlayerPrefs(prefs: PlayerPrefs) {

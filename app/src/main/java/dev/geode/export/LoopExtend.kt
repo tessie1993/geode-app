@@ -349,7 +349,14 @@ class LoopExtend(
             runCatching {
                 clips.forEachIndexed { index, clip ->
                     val result =
-                        transcoder.transcode(uri = clip.uri, maxDurationMs = 0L, startMs = 0L, isCancelled = isCancelled) { progress ->
+                        transcoder.transcode(
+                            uri = clip.uri,
+                            maxDurationMs = 0L,
+                            startMs = 0L,
+                            // One AAC track carries one rate, so every clip is brought to the same one.
+                            outputRateHz = PcmResampler.MIX_RATE_HZ,
+                            isCancelled = isCancelled,
+                        ) { progress ->
                             onProgress(AUDIO_PROGRESS_SPAN * (index + progress) / clips.size)
                         }
                     done += TranscodedClip(clip, result, startUs)
@@ -365,9 +372,10 @@ class LoopExtend(
     }
 
     /**
-     * The clips become one AAC track, so they must already agree on sample rate and channel
-     * count — a track carries one codec configuration and nothing here resamples. Rejecting the
-     * mix up front beats writing an hour of audio that plays at the wrong speed.
+     * The clips become one AAC track, so they must agree on sample rate and channel count — a
+     * track carries one codec configuration. [transcode] brings every clip to
+     * [PcmResampler.MIX_RATE_HZ], so in practice this now catches a mono clip among stereo ones.
+     * Rejecting the mix up front beats writing an hour of audio that plays at the wrong speed.
      */
     private fun joinable(clips: List<TranscodedClip>): AudioBuild {
         val first = clips.first().audio.format

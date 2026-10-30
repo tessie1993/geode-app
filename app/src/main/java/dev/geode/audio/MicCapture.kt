@@ -72,7 +72,10 @@ class MicCapture(
 
     private fun openRecord(): AudioRecord? {
         val source = preferredSource()
-        for (rate in intArrayOf(DEFAULT_RATE, 48_000, 22_050)) {
+        // The device's own rate first: any other rate is resampled by the audio HAL, which costs
+        // latency and, on some devices, the UNPROCESSED path. 44.1 kHz was tried first before.
+        val rates = (listOfNotNull(deviceRateHz()) + FALLBACK_RATES).distinct()
+        for (rate in rates) {
             for (encoding in intArrayOf(AudioFormat.ENCODING_PCM_FLOAT, AudioFormat.ENCODING_PCM_16BIT)) {
                 val min = AudioRecord.getMinBufferSize(rate, AudioFormat.CHANNEL_IN_MONO, encoding)
                 if (min <= 0) continue
@@ -97,6 +100,14 @@ class MicCapture(
         return null
     }
 
+    private fun deviceRateHz(): Int? =
+        runCatching {
+            (context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager)
+                ?.getProperty(AudioManager.PROPERTY_OUTPUT_SAMPLE_RATE)
+                ?.toIntOrNull()
+                ?.takeIf { it > 0 }
+        }.getOrNull()
+
     private fun preferredSource(): Int {
         val supported =
             runCatching {
@@ -111,7 +122,11 @@ class MicCapture(
     }
 
     private companion object {
-        const val DEFAULT_RATE = 44_100
+        /** Reported until [openRecord] has opened a stream and set the rate it actually got. */
+        const val DEFAULT_RATE = 48_000
+
+        /** Tried after the device's rate, most common first; 22.05 kHz for very old hardware. */
+        val FALLBACK_RATES = listOf(48_000, 44_100, 22_050)
     }
 }
 

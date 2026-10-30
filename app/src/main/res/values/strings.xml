@@ -225,6 +225,9 @@
     <string name="a11y_favourite">Favourite</string>
     <string name="a11y_show_controls">Show controls</string>
     <string name="a11y_hide_controls">Hide controls</string>
+    <string name="a11y_preview_resize">Preview size. Drag down to enlarge, up to shrink</string>
+    <string name="a11y_preview_larger">Larger preview</string>
+    <string name="a11y_preview_smaller">Smaller preview</string>
     <string name="a11y_state_on">On</string>
     <string name="visuals_live_overlay">Live overlay</string>
     <string name="action_stop_capture">Stop capture</string>

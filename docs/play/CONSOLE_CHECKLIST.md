@@ -85,6 +85,9 @@ sign uploads with an **upload key** you create and keep.
       - **A public GitHub Gist** of `docs/privacy-policy.md`.
       - Your own domain.
       It must be a live HTML page (not a PDF, not editable by others) and name the app.
+      The app also shows the same text offline (Settings > About > Privacy policy) and the
+      store description points there, but Play still requires this URL: the in-app copy
+      doesn't replace it.
 - [ ] **Ads**: No.
 - [ ] **App access**: "All functionality is available without special access". There's no
       login. Pro is a purchase, and the free 1-hour trial opens every Pro feature, which
@@ -107,6 +110,14 @@ sign uploads with an **upload key** you create and keep.
       | `dataSync` | Video export (Android 14 and below) | The same render on versions without `mediaProcessing` |
 - [ ] **Photosensitivity**: no console form, but keep the warning text from
       [CONTENT_RATING.md](CONTENT_RATING.md) in the listing.
+
+- [ ] **Android Auto** (the listing promises it): Release > Advanced settings > **Form
+      factors** > add Android Auto and accept its terms. Auto apps go through a separate
+      Auto quality review on every release; it checks the browse tree, voice search
+      ("play X on MuzViz", handled by `MEDIA_PLAY_FROM_SEARCH`) and that nothing visual
+      plays on the car screen. Until it's approved the app doesn't appear in Auto. If you'd
+      rather ship without that review, remove "Android Auto" from the full description in
+      [STORE_LISTING.md](STORE_LISTING.md) and skip this step.
 
 ## 8. Store listing
 

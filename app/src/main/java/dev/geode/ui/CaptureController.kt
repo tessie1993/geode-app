@@ -66,7 +66,35 @@ internal class CaptureController(
 
     val externalAudio: StateFlow<ExternalAudioState> = _externalAudio
 
-    val micActive: Boolean get() = micCapture.active
+    /** The mic was stopped because the app left the screen, and comes back with it ([onForeground]). */
+    private var micPausedInBackground = false
+
+    /**
+     * Live input is on, whether or not it is reading right now. Counting the background pause
+     * as on matters: pressing play on the notification while the app is away goes through the
+     * same "playback started, so drop the mic" path as pressing it on screen, and the mic must
+     * not come back over the music when the app does.
+     */
+    val micActive: Boolean get() = micCapture.active || micPausedInBackground
+
+    /**
+     * The app left the screen. Live input exists to drive visuals someone is looking at, and
+     * without a microphone foreground service Android gives a background app silence anyway,
+     * so the AudioRecord and its reader thread are released instead of reading zeros. The
+     * preference and the on-screen state stay as they are for [onForeground] to resume.
+     */
+    fun onBackground() {
+        if (!micCapture.active) return
+        micCapture.stop()
+        micPausedInBackground = true
+    }
+
+    /** The app is back on screen: resume the mic [onBackground] stopped, unless access went meanwhile. */
+    fun onForeground() {
+        if (!micPausedInBackground) return
+        micPausedInBackground = false
+        if (hasMicPermission()) setMicEnabled(true) else refreshMicState()
+    }
 
     @Volatile
     private var tapSampleRateHz: Int = 0
@@ -125,6 +153,7 @@ internal class CaptureController(
 
     fun setMicEnabled(enabled: Boolean): MicCapture.Failure? {
         if (!enabled) {
+            micPausedInBackground = false
             micCapture.stop()
             host.resetAnalysis()
             host.setAnalysisRate(playbackRateFallback())

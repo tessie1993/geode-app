@@ -122,9 +122,11 @@ vec2 view() {
         float tr = length(uv) * uTwist * 2.0;
         uv = mat2(cos(tr), -sin(tr), sin(tr), cos(tr)) * uv;
     }
-    // Tiling: repeat the plane into a uTile x uTile grid.
+    // Tiling: repeat the plane into a uTile x uTile grid, every other tile
+    // mirrored so neighbours meet edge to edge. A hard mod() wrap cracked the
+    // picture along every tile boundary, and the macros drive uTile live.
     if (uTile > 1.01) {
-        uv = mod(uv * uTile * 0.5 + 1.0, 2.0) - 1.0;
+        uv = 1.0 - abs(mod(uv * uTile * 0.5 + 1.0, 4.0) - 2.0);
     }
     // Domain warp: swirl coordinates by a sin/cos field.
     if (uWarp > 0.001) {
@@ -191,7 +193,7 @@ float kalFolds(float n) {
 float kalPattern(vec2 uv, float seg, out vec2 folded) {
     float a = atan(uv.y, uv.x);
     float r = length(uv);
-    a = abs(mod(a, 6.2831 / seg) - 3.1415 / seg);
+    a = abs(mod(a, 6.2831853 / seg) - 3.1415927 / seg);
     folded = vec2(cos(a), sin(a)) * r;
     return sin(folded.x * 7.0 + uTime) * cos(folded.y * 7.0 - uTime * 0.8)
         + aband(fract(r + uTime * 0.05)) * 1.2;

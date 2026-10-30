@@ -242,7 +242,10 @@ vec2 geo(vec2 uv, vec4 gate, float camOn) {
         p = fract(p + vec2(uPostDriftX, uPostDriftY) * uTime * 0.1);
     }
     if (geoOn && uPostTile > 1.01) {
-        p = fract(p * uPostTile);
+        // Mirrored repeats about the centre: fract() cracked the frame along every
+        // tile boundary (one sat exactly on the centre line at Tile 2), and the
+        // Clean macro moves uPostTile live.
+        p = 1.0 - abs(1.0 - mod((p - 0.5) * uPostTile + 0.5, 2.0));
     }
     if (geoOn && uPostPixelate > 0.001) {
         float px = mix(512.0, 40.0, uPostPixelate);

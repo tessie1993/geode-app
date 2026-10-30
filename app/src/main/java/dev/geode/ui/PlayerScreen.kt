@@ -3,22 +3,30 @@ package dev.geode.ui
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.Cast
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -31,14 +39,24 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.media3.common.Player
 import dev.geode.R
 import dev.geode.ui.theme.StoneIcon
@@ -53,6 +71,8 @@ fun PlayerScreen(
     onOpenLibrary: () -> Unit,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    // Not delegated: only the seek bar and the clock read .value, so a tick recomposes just those.
+    val position = viewModel.positionMs.collectAsStateWithLifecycle()
     val viz by viewModel.vizState.collectAsStateWithLifecycle()
     val mic by viewModel.micState.collectAsStateWithLifecycle()
     val external by viewModel.externalAudio.collectAsStateWithLifecycle()
@@ -67,45 +87,40 @@ fun PlayerScreen(
     var showQueue by rememberSaveable { mutableStateOf(true) }
     val upNext = remember(queue) { queue.tracks.drop(queue.index + 1).take(3) }
 
-    LazyColumn(
-        Modifier.fillMaxSize(),
-        contentPadding =
-            androidx.compose.foundation.layout
-                .PaddingValues(bottom = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        item {
-            Row(
-                Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column(Modifier.weight(1f)) {
-                    CrystalOverline(stringResource(R.string.app_name))
-                    GlowTitle(stringResource(R.string.nav_player))
-                }
-                IconButton(onClick = onOpenSearch) { StoneIconArt(StoneIcon.SEARCH, stringResource(R.string.action_search)) }
+    val header: @Composable () -> Unit = {
+        Row(
+            Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f)) {
+                CrystalOverline(stringResource(R.string.app_name))
+                GlowTitle(stringResource(R.string.nav_player))
             }
+            IconButton(onClick = onOpenSearch) { StoneIconArt(StoneIcon.SEARCH, stringResource(R.string.action_search)) }
         }
+    }
+    val hero: @Composable (Dp) -> Unit = { artMax ->
+        PlayerHero(
+            viewModel = viewModel,
+            state = state,
+            styleLabel = sceneDisplayLabel(viz.sceneId),
+            micActive = mic.active,
+            external = external,
+            favourites = favourites,
+            canResume = canShuffle,
+            onExpand = onExpand,
+            onOpenLibrary = onOpenLibrary,
+            artMax = artMax,
+            modifier = Modifier.padding(horizontal = 16.dp),
+        )
+    }
 
-        item {
-            PlayerHero(
-                viewModel = viewModel,
-                state = state,
-                styleLabel = sceneDisplayLabel(viz.sceneId),
-                micActive = mic.active,
-                external = external,
-                favourites = favourites,
-                canResume = canShuffle,
-                onExpand = onExpand,
-                onOpenLibrary = onOpenLibrary,
-                modifier = Modifier.padding(horizontal = 16.dp),
-            )
-        }
-
+    val controls: LazyListScope.() -> Unit = {
         item {
             TransportCard(
                 viewModel = viewModel,
                 state = state,
+                position = { position.value },
                 waveform = waveform,
                 abLoop = abLoop,
                 autoMode = autoMode,
@@ -144,7 +159,63 @@ fun PlayerScreen(
             )
         }
     }
+
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        // Side by side once the pane is wide enough for two readable columns, or on a short
+        // landscape window, where one column would push the transport below the fold. Measured on
+        // this pane rather than the window, so the Player half of the two-pane Library stays one
+        // column.
+        val sideBySide = maxWidth >= SIDE_BY_SIDE_MIN_WIDTH || (maxWidth > maxHeight && maxHeight < SHORT_HEIGHT)
+        // Read here: inside the Row below, BoxWithConstraints' scope is not an implicit receiver.
+        val paneHeight = maxHeight
+        if (sideBySide) {
+            Row(Modifier.fillMaxSize()) {
+                Column(
+                    Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .verticalScroll(rememberScrollState())
+                        .padding(bottom = 24.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    header()
+                    // The art takes what height is left under the header and the title rows.
+                    hero((paneHeight - HERO_CHROME).coerceIn(MIN_ART, MAX_ART))
+                }
+                LazyColumn(
+                    Modifier.weight(1f).fillMaxHeight(),
+                    contentPadding = PaddingValues(top = 16.dp, bottom = 24.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    controls()
+                }
+            }
+        } else {
+            LazyColumn(
+                Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(bottom = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                item { header() }
+                item { hero(MAX_ART) }
+                controls()
+            }
+        }
+    }
 }
+
+/** Below this the pane gets one column; at and above it, art and controls sit side by side. */
+private val SIDE_BY_SIDE_MIN_WIDTH = 720.dp
+
+/** A landscape pane shorter than this is a phone on its side. */
+private val SHORT_HEIGHT = 480.dp
+
+/** On a phone the art fills the width; on anything wider it stops here. */
+private val MAX_ART = 420.dp
+private val MIN_ART = 160.dp
+
+/** Header, title rows, chips and buttons around the art in the side-by-side hero. */
+private val HERO_CHROME = 300.dp
 
 @Composable
 private fun PlayerHero(
@@ -157,6 +228,7 @@ private fun PlayerHero(
     canResume: Boolean,
     onExpand: () -> Unit,
     onOpenLibrary: () -> Unit,
+    artMax: Dp,
     modifier: Modifier = Modifier,
 ) {
     val uri = remember(state.title, state.artist) { viewModel.currentTrackUri() }
@@ -177,9 +249,15 @@ private fun PlayerHero(
             .padding(14.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
+        // Square and as wide as the card on a phone, but never taller than [artMax]: on a tablet a
+        // full-width square pushed the title and transport two screens down.
         TrackArtwork(
             if (foreign || micActive) null else uri,
-            Modifier.fillMaxWidth().aspectRatio(1f),
+            Modifier
+                .align(Alignment.CenterHorizontally)
+                .widthIn(max = artMax)
+                .fillMaxWidth()
+                .aspectRatio(1f),
             corner = 18.dp,
         )
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -289,6 +367,7 @@ private fun SceneChip(label: String) {
             style = MaterialTheme.typography.labelMedium,
             color = accentTextColor(),
             maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
         )
     }
 }
@@ -297,6 +376,7 @@ private fun SceneChip(label: String) {
 private fun TransportCard(
     viewModel: PlayerViewModel,
     state: PlayerUiState,
+    position: () -> Long,
     waveform: FloatArray?,
     abLoop: AbLoop?,
     autoMode: Int,
@@ -321,10 +401,10 @@ private fun TransportCard(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Text(formatClock(state.positionMs), style = MaterialTheme.typography.labelSmall)
+            PositionClock(position)
             WaveformSeekBar(
                 waveform = waveform,
-                positionMs = state.positionMs,
+                positionMs = position,
                 durationMs = state.durationMs,
                 loopStartMs = abLoop?.startMs,
                 loopEndMs = abLoop?.endMs,
@@ -338,18 +418,7 @@ private fun TransportCard(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceEvenly,
         ) {
-            IconButton(onClick = viewModel::toggleShuffle) {
-                StoneIconArt(
-                    StoneIcon.SHUFFLE,
-                    stringResource(R.string.action_shuffle),
-                    tint =
-                        if (state.shuffle) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        },
-                )
-            }
+            ShuffleButton(state.shuffle, viewModel::toggleShuffle)
             IconButton(onClick = viewModel::previous, enabled = state.hasMedia) {
                 StoneIconArt(StoneIcon.PREVIOUS, stringResource(R.string.action_previous))
             }
@@ -460,34 +529,51 @@ private fun LiveSpectrum(
     live: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    val bars by produceState(initialValue = FloatArray(BARS), live) {
-        driveSpectrum(live, { viewModel.features.value.bands }) { value = it }
-    }
+    // Kept as State and read only in the draw block: the 20 Hz bars redraw the Canvas without
+    // recomposing anything, and the loop stops while the Activity is in the background.
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    val bars =
+        produceState(initialValue = FloatArray(BARS), live, lifecycle) {
+            lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                driveSpectrum(live, { viewModel.features.value.bands }) { value = it }
+            }
+        }
     val primary = MaterialTheme.colorScheme.primary
     val secondary = MaterialTheme.colorScheme.secondary
-    androidx.compose.foundation.Canvas(modifier) {
-        val gap = size.width / (BARS * 6f)
-        val barWidth = (size.width - gap * (BARS - 1)) / BARS
-        val brush =
-            Brush.verticalGradient(
-                listOf(secondary.copy(alpha = 0.95f), primary.copy(alpha = 0.75f)),
-            )
-        for (i in 0 until BARS) {
-            val v = bars.getOrElse(i) { 0f }.coerceIn(0f, 1f)
-            val h = (size.height * (0.06f + 0.94f * v)).coerceAtLeast(2f)
-            drawRoundRect(
-                brush = brush,
-                topLeft =
-                    androidx.compose.ui.geometry
-                        .Offset(i * (barWidth + gap), size.height - h),
-                size =
-                    androidx.compose.ui.geometry
-                        .Size(barWidth, h),
-                cornerRadius =
-                    androidx.compose.ui.geometry
-                        .CornerRadius(barWidth / 2f),
-            )
-        }
+    Spacer(
+        modifier.drawWithCache {
+            val gap = size.width / (BARS * 6f)
+            val barWidth = (size.width - gap * (BARS - 1)) / BARS
+            val brush =
+                Brush.verticalGradient(
+                    listOf(secondary.copy(alpha = 0.95f), primary.copy(alpha = 0.75f)),
+                )
+            onDrawBehind { drawBars(bars.value, gap, barWidth, brush) }
+        },
+    )
+}
+
+private fun DrawScope.drawBars(
+    bars: FloatArray,
+    gap: Float,
+    barWidth: Float,
+    brush: Brush,
+) {
+    for (i in 0 until BARS) {
+        val v = bars.getOrElse(i) { 0f }.coerceIn(0f, 1f)
+        val h = (size.height * (0.06f + 0.94f * v)).coerceAtLeast(2f)
+        drawRoundRect(
+            brush = brush,
+            topLeft =
+                androidx.compose.ui.geometry
+                    .Offset(i * (barWidth + gap), size.height - h),
+            size =
+                androidx.compose.ui.geometry
+                    .Size(barWidth, h),
+            cornerRadius =
+                androidx.compose.ui.geometry
+                    .CornerRadius(barWidth / 2f),
+        )
     }
 }
 
@@ -662,9 +748,11 @@ private fun QuickActionShell(
             active -> MaterialTheme.colorScheme.primary
             else -> MaterialTheme.colorScheme.onSurface
         }
+    val onLabel = stringResource(R.string.a11y_state_on)
     Column(
         Modifier
-            .width(84.dp)
+            // A minimum, not a fixed width, so "Shuffle all" at 200% font wraps instead of "Shu…".
+            .widthIn(min = 84.dp, max = 120.dp)
             .crystalPanel(
                 if (active) 0.5f else 0.28f,
                 MaterialTheme.colorScheme.surfaceVariant,
@@ -672,8 +760,9 @@ private fun QuickActionShell(
                 corner = 18.dp,
                 glowStrength = if (active) 1.1f else 0.45f,
                 prismatic = active,
-            ).clickable(enabled = enabled, onClick = onClick)
-            .padding(vertical = 12.dp),
+            ).semantics { if (active) stateDescription = onLabel }
+            .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
+            .padding(vertical = 12.dp, horizontal = 6.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
@@ -682,7 +771,8 @@ private fun QuickActionShell(
             label,
             style = MaterialTheme.typography.labelSmall,
             color = tint,
-            maxLines = 1,
+            textAlign = TextAlign.Center,
+            maxLines = 2,
             overflow = TextOverflow.Ellipsis,
         )
     }
@@ -694,6 +784,21 @@ internal fun formatClock(ms: Long): String {
     val minutes = (total % 3600) / 60
     val seconds = total % 60
     return if (hours > 0) "%d:%02d:%02d".format(hours, minutes, seconds) else "%d:%02d".format(minutes, seconds)
+}
+
+/** A toggle, not a plain button, so TalkBack says whether shuffle is on rather than leaving it to the tint. */
+@Composable
+internal fun ShuffleButton(
+    shuffle: Boolean,
+    onToggle: () -> Unit,
+) {
+    IconToggleButton(checked = shuffle, onCheckedChange = { onToggle() }) {
+        StoneIconArt(
+            StoneIcon.SHUFFLE,
+            stringResource(R.string.action_shuffle),
+            tint = if (shuffle) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
 }
 
 /** Repeat-one gets its own icon, and the label names the mode, so all and one are told apart. */

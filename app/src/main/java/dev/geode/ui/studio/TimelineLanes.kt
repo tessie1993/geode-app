@@ -20,6 +20,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -100,6 +101,9 @@ fun TimelineEditor(
     var chapterFormatPicker by remember { mutableStateOf(false) }
     var sidecarMessage by remember { mutableStateOf<String?>(null) }
     val scale = TimelineScale(pxPerMs, maxOf(project.timeline.durationMs, MIN_CONTENT_MS) + CONTENT_MARGIN_MS)
+    // One State the lanes read through a provider: the lambda stays the same instance while the
+    // playhead moves, so a scrub redraws the ruler and playhead line without recomposing the lanes.
+    val playhead = rememberUpdatedState(state.playheadMs)
     val laneNames = LANE_NAME_LABELS.associate { (kind, label) -> kind to stringResource(label) }
     // Resolved here, not inside the export coroutines below: composition is the config-aware
     // place to read a resource, and LocalContext.current is not.
@@ -406,7 +410,7 @@ fun TimelineEditor(
         Lanes(
             project = project,
             scale = scale,
-            playheadMs = state.playheadMs,
+            playheadMs = { playhead.value },
             keyTracks = keyTracks,
             selectedClip = selectedClip,
             selectedMarker = selectedMarker,

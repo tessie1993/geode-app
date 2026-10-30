@@ -98,6 +98,10 @@ void main() {
     vec3 ro;
     vec3 rd;
     camFly(uv, ro, rd);
+    // The world tiles every 4 along z, so this shift is invisible and exact
+    // (power of two). Without it, far down the 8192 travel a highp z has only
+    // ~0.001 of fraction left, which quantises every sample and the normals.
+    ro.z = mod(ro.z, 4.0);
 
     float t = 0.02;
     float hitT = -1.0;
@@ -138,13 +142,13 @@ void main() {
         float ao = clamp(1.0 - used / max(uSteps, 1.0) * 1.2, 0.25, 1.0);
         col = base * (0.3 + 0.9 * diff) * ao + pal(hue + 0.5) * fill * 0.12 * ao + vec3(spec) * 0.35 * ao;
         // Trap glow on the thinnest shells: the filigree lights up.
-        col += pal(hue + 0.1) * smoothstep(0.06, 0.0, trap) * 0.25;
+        col += pal(hue + 0.1) * (1.0 - smoothstep(0.0, 0.06, trap)) * 0.25;
         col = mix(col, fogCol, 1.0 - exp(-hitT * FD_FOG));
     }
     // Light threaded past the walls, coloured off the corridor's hue.
     col += pal(hue + 0.15) * glow * (0.6 + 0.3 * swell);
 
     col *= 0.85 + 0.2 * swell;
-    col *= 0.72 + 0.28 * smoothstep(2.2, 0.4, length(uv));
+    col *= 0.72 + 0.28 * (1.0 - smoothstep(0.4, 2.2, length(uv)));
     fragColor = vec4(grade(col), 1.0);
 }

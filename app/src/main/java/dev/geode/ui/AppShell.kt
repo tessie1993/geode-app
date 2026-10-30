@@ -66,11 +66,9 @@ import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.GuiPrefs
 import dev.geode.data.PlayerPosition
 import dev.geode.pro.PaywallTrigger
-import dev.geode.pro.ProFeature
 import dev.geode.render.VisualizerView
 import dev.geode.ui.pro.PaywallHost
 import dev.geode.ui.pro.PaywallViewModel
-import dev.geode.ui.pro.ProGate
 import dev.geode.ui.theme.StoneIcon
 import dev.geode.ui.theme.StoneIconArt
 import kotlinx.coroutines.Dispatchers
@@ -240,13 +238,20 @@ fun AppRoot() {
                             viewModel,
                             visualizerView,
                             onOpenNowPlaying = appState::expand,
+                            onOpenStudioRender = appState::openStudioRender,
                             liveBackdrop = gui.clearVisualsMenu && !appState.expanded && !onSecondScreen,
                             // The one VisualizerView has one parent: the Customize preview may take it
                             // only while the fullscreen view and the second screen don't hold it.
                             canvasFree = !appState.expanded && !onSecondScreen,
                         )
-                    GeodeDestination.STUDIO -> ProGate(ProFeature.STUDIO) { StudioRoute() }
-                    GeodeDestination.SETTINGS -> SettingsScreen(viewModel, visualizerView, onStartTutorial = { tutorialRunning = true })
+                    GeodeDestination.STUDIO ->
+                        StudioHub(viewModel, visualizerView, appState.studioSection, onSection = { appState.studioSection = it })
+                    GeodeDestination.SETTINGS ->
+                        SettingsScreen(
+                            viewModel,
+                            onOpenStudioRender = appState::openStudioRender,
+                            onStartTutorial = { tutorialRunning = true },
+                        )
                 }
             }
         }
@@ -498,10 +503,9 @@ private fun MiniPlayer(
 @Composable
 fun SettingsScreen(
     viewModel: PlayerViewModel,
-    visualizerView: VisualizerView,
+    onOpenStudioRender: () -> Unit,
     onStartTutorial: () -> Unit,
 ) {
-    var showExport by rememberSaveable { mutableStateOf(false) }
     Column(Modifier.fillMaxSize()) {
         Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp)) {
             CrystalOverline(stringResource(R.string.app_name))
@@ -509,13 +513,9 @@ fun SettingsScreen(
         }
         AppSettingsTab(
             viewModel,
-            exportOpen = showExport,
-            onOpenExport = { showExport = true },
+            onOpenStudioRender = onOpenStudioRender,
             onStartTutorial = onStartTutorial,
         )
-    }
-    if (showExport) {
-        ExportHost(viewModel, visualizerView) { showExport = false }
     }
 }
 

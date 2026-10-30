@@ -5,6 +5,7 @@ import android.content.Context
 import android.net.Uri
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
+import androidx.media3.common.Player
 import androidx.media3.session.MediaBrowser
 import androidx.media3.session.SessionToken
 import androidx.test.core.app.ApplicationProvider
@@ -14,6 +15,7 @@ import java.io.File
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.PI
 import kotlin.math.sin
 
@@ -27,7 +29,7 @@ object TestTrack {
     private const val TONE_HZ = 440.0
     private const val HEADER_BYTES = 44
 
-    fun write(seconds: Double = 1.5): Uri {
+    fun write(seconds: Double = 3.0): Uri {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val frames = (RATE * seconds).toInt()
         val data = frames * 2
@@ -80,3 +82,32 @@ fun connectBrowser(): MediaBrowser {
     val future = onMain { MediaBrowser.Builder(context, token).buildAsync() }
     return future.get(JOURNEY_TIMEOUT_MS, TimeUnit.MILLISECONDS)
 }
+
+/**
+ * Latches once the player reports it is playing, from a listener rather than a poll: a poll can
+ * miss a short track's whole playing window, a listener cannot. Call on the test thread.
+ */
+fun MediaBrowser.latchPlaying(): AtomicBoolean {
+    val played = AtomicBoolean(false)
+    onMain {
+        addListener(
+            object : Player.Listener {
+                override fun onIsPlayingChanged(isPlaying: Boolean) {
+                    if (isPlaying) played.set(true)
+                }
+            },
+        )
+    }
+    return played
+}
+
+/**
+ * Stops and empties the process-wide player before letting go of the browser, so nothing keeps
+ * playing into the next test even where Orchestrator isn't in use (a run from the IDE).
+ */
+fun MediaBrowser.stopAndRelease() =
+    onMain {
+        stop()
+        clearMediaItems()
+        release()
+    }

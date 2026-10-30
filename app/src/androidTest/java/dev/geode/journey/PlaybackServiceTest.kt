@@ -28,7 +28,7 @@ class PlaybackServiceTest {
 
     @After
     fun release() {
-        onMain { browser.release() }
+        browser.stopAndRelease()
     }
 
     @Test
@@ -45,15 +45,16 @@ class PlaybackServiceTest {
 
     @Test
     fun playsATrackToTheEnd() {
-        val item = TestTrack.mediaItem(TestTrack.write(seconds = 1.0))
+        val item = TestTrack.mediaItem(TestTrack.write())
+        val played = browser.latchPlaying()
         onMain {
             browser.repeatMode = Player.REPEAT_MODE_OFF
             browser.setMediaItem(item)
             browser.prepare()
             browser.play()
         }
-        awaitMain("playback to start") { browser.isPlaying }
-        awaitMain("the track to end") { browser.playbackState == Player.STATE_ENDED }
+        awaitMain("the track to end", timeoutMs = 3 * JOURNEY_TIMEOUT_MS) { browser.playbackState == Player.STATE_ENDED }
+        assertThat(played.get()).isTrue()
         assertThat(onMain { browser.isPlaying }).isFalse()
     }
 }

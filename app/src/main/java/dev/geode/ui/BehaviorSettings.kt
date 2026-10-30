@@ -15,6 +15,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
+import dev.geode.pro.PaywallTrigger
+import dev.geode.pro.ProFeature
+import dev.geode.ui.pro.PaywallViewModel
 
 @Composable
 internal fun BehaviorSettingsTab(viewModel: SettingsViewModel) {
@@ -186,7 +189,7 @@ private fun PictureInPictureGroup(
 @Composable
 private fun LiveWallpaperGroup() {
     val ctx = LocalContext.current
-    val paywall: dev.geode.ui.pro.PaywallViewModel = geodeViewModel()
+    val paywall: PaywallViewModel = geodeViewModel()
     val gate by paywall.gate.collectAsStateWithLifecycle()
     Text(
         stringResource(R.string.behavior_wallpaper_hint),
@@ -194,8 +197,8 @@ private fun LiveWallpaperGroup() {
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
     CrystalButton(onClick = {
-        if (!gate.allows(dev.geode.pro.ProFeature.LIVE_WALLPAPER)) {
-            paywall.open(dev.geode.pro.PaywallTrigger.Feature(dev.geode.pro.ProFeature.LIVE_WALLPAPER))
+        if (!gate.allows(ProFeature.LIVE_WALLPAPER)) {
+            paywall.open(PaywallTrigger.Feature(ProFeature.LIVE_WALLPAPER))
             return@CrystalButton
         }
         val direct =

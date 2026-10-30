@@ -1,6 +1,7 @@
 package dev.geode.pro
 
 import dev.geode.billing.CachedEntitlement
+import dev.geode.render.scene.SceneIds
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -44,7 +45,7 @@ class FeatureGateTest {
     fun `the free styles are the shader family and include the fallback`() {
         assertTrue(FreeTier.FALLBACK_STYLE_ID in FreeTier.freeStyleIds)
         assertTrue(free.allowsStyle(FreeTier.FALLBACK_STYLE_ID))
-        assertFalse("silk is a Pro renderer", free.allowsStyle(dev.geode.render.scene.SceneIds.DEFAULT))
+        assertFalse("silk is a Pro renderer", free.allowsStyle(SceneIds.DEFAULT))
     }
 
     @Test

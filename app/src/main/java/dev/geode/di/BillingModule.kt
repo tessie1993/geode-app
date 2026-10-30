@@ -1,6 +1,7 @@
 package dev.geode.di
 
 import android.content.Context
+import dagger.Lazy
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -47,7 +48,7 @@ object BillingModule {
         @ApplicationContext context: Context,
         activities: ForegroundActivityTracker,
         store: EntitlementStore,
-        fake: dagger.Lazy<FakeBillingRepository>,
+        fake: Lazy<FakeBillingRepository>,
     ): BillingRepository =
         if (BuildConfig.USE_FAKE_BILLING) {
             fake.get()

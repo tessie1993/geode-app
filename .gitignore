@@ -20,10 +20,10 @@ keystore.properties
 secrets.properties
 google-services.json
 
-# Agent tooling is local-only and is not tracked in this repository.
+# Agent tooling is local-only and is not tracked in this repository. AGENTS.md is
+# the exception: it is the architecture map, kept current by .github/workflows/arch-map.yml.
 .claude/
 .agents/
 .codex/
-AGENTS.md
 __pycache__/
 *.logcat

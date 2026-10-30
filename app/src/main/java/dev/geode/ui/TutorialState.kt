@@ -127,13 +127,15 @@ class TutorialState internal constructor(
         val Saver: Saver<TutorialState, List<Any>> =
             Saver(
                 save = {
-                    val chapters = it.tour?.chapters.orEmpty().joinToString(",") { c -> c.name }
-                    listOf(chapters, it.page, it.open, it.firstRun, it.autoOfferUsed)
+                    val chapters = it.tour?.chapters.orEmpty()
+                    listOf(chapters.joinToString(",") { c -> c.name }, it.page, it.open, it.firstRun, it.autoOfferUsed)
                 },
                 restore = {
                     TutorialState(
                         chapters =
-                            (it[0] as String).split(',').mapNotNull { n -> TutorialChapter.entries.firstOrNull { c -> c.name == n } },
+                            (it[0] as String)
+                                .split(',')
+                                .mapNotNull { n -> TutorialChapter.entries.firstOrNull { c -> c.name == n } },
                         page = it[1] as Int,
                         open = it[2] as Boolean,
                         firstRun = it[3] as Boolean,

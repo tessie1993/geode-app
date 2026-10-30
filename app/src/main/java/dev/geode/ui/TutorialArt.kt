@@ -638,6 +638,7 @@ private fun DrawScope.film(t: Float) {
 
 private fun DrawScope.loop(t: Float) {
     val a = size.width * 0.36f
+
     fun at(u: Float): Offset {
         val th = u * TAU
         val d = 1f + sin(th) * sin(th)

@@ -371,11 +371,11 @@ fun AppRoot() {
             }
             // Offered once setup is out of the way, so the tour talks about a real app with a real
             // library, and held back while the boot intro, the notice, setup or the paywall is up.
-            val paywallUp = paywallViewModel.uiState.collectAsStateWithLifecycle().value.visible
+            val paywall by paywallViewModel.uiState.collectAsStateWithLifecycle()
             TutorialHost(
                 state = tutorial,
                 gui = gui,
-                blocked = (bootAnimEnabled != false && !appState.bootDone) || !gui.safetyAcknowledged || !gui.setupDone || paywallUp,
+                blocked = (bootAnimEnabled != false && !appState.bootDone) || !gui.safetyAcknowledged || !gui.setupDone || paywall.visible,
                 onGuiChange = settingsViewModel::setGuiPrefs,
                 onShowMe = { target -> showTutorialTarget(target, appState) { paywallViewModel.open(PaywallTrigger.Settings) } },
             )

@@ -217,4 +217,3 @@ val TutorialChapter.cardContent: List<TutorialCard>
                     TutorialCard(R.string.tutorial_settings_2_title, R.string.tutorial_settings_2_body, TutorialArt.CONFETTI),
                 )
         }
-

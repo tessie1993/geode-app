@@ -104,7 +104,12 @@ data class TutorialProgress(
             resume: String?,
         ): TutorialProgress =
             TutorialProgress(
-                done = done.orEmpty().split(',').mapNotNull(::chapterNamed).toSet(),
+                done =
+                    done
+                        .orEmpty()
+                        .split(',')
+                        .mapNotNull(::chapterNamed)
+                        .toSet(),
                 resume =
                     resume?.split(':')?.takeIf { it.size == 2 }?.let { (name, card) ->
                         val chapter = chapterNamed(name) ?: return@let null

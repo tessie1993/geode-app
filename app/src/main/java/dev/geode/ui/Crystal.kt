@@ -31,6 +31,7 @@ import dev.geode.ui.theme.LocalReducedMotion
 import dev.geode.ui.theme.LocalUiSounds
 import dev.geode.ui.theme.geodeColorScheme
 import dev.geode.ui.theme.geodeTypography
+import dev.geode.ui.theme.isReadableOnCanvas
 import dev.geode.ui.theme.rememberUiSounds
 import kotlin.math.max
 
@@ -45,7 +46,7 @@ internal fun CrystalMaterialTheme(
     gui: GuiPrefs,
     content: @Composable () -> Unit,
 ) {
-    val fontColor = gui.fontColorOverride?.let { Color(it) }?.takeIf { dev.geode.ui.theme.isReadableOnCanvas(it) }
+    val fontColor = gui.fontColorOverride?.let { Color(it) }?.takeIf { isReadableOnCanvas(it) }
     val scheme = geodeColorScheme(accentIntensity = gui.accentIntensity, fontColorOverride = fontColor)
     // The system's "remove animations" switch counts as reduced motion too.
     val reducedMotion = gui.reducedMotion || !android.animation.ValueAnimator.areAnimatorsEnabled()

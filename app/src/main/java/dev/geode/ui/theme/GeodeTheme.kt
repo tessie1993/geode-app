@@ -8,6 +8,7 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.isSpecified
+import dev.geode.ui.ColorDerive
 
 /**
  * The colour scheme, built from [GeodeColors].
@@ -19,7 +20,7 @@ fun geodeColorScheme(
     accentIntensity: Float = 1f,
     fontColorOverride: Color? = null,
 ): ColorScheme {
-    fun Color.intensity(): Color = Color(dev.geode.ui.ColorDerive.scaleSaturation(toArgbInt(), accentIntensity))
+    fun Color.intensity(): Color = Color(ColorDerive.scaleSaturation(toArgbInt(), accentIntensity))
     val base =
         darkColorScheme(
             primary = GeodeColors.Primary.intensity(),

@@ -34,6 +34,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 import dev.geode.data.BootAnimationStore
 import dev.geode.data.GeodePrefsFiles
+import dev.geode.ui.theme.isReadableOnCanvas
 
 @Composable
 internal fun LookSettingsTab(viewModel: SettingsViewModel) {
@@ -106,7 +107,7 @@ private fun FontColorRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             items(FontColorChoice.CHOICES) { choice ->
-                val usable = choice.argb == null || dev.geode.ui.theme.isReadableOnCanvas(Color(choice.argb))
+                val usable = choice.argb == null || isReadableOnCanvas(Color(choice.argb))
                 val sel = gui.fontColorArgb == choice.argb
                 val shape = crystalShardShape(8.dp, 3.dp)
                 val fill =

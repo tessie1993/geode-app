@@ -13,20 +13,19 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.PrimaryScrollableTabRow
 import androidx.compose.material3.ProvideTextStyle
-import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRowDefaults
-import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
@@ -207,6 +206,7 @@ fun CrystalNavBar(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CrystalTabs(
     titles: List<String>,
@@ -215,17 +215,12 @@ fun CrystalTabs(
     modifier: Modifier = Modifier,
 ) {
     val cs = MaterialTheme.colorScheme
-    ScrollableTabRow(
+    PrimaryScrollableTabRow(
         selectedTabIndex = selected,
         modifier = modifier,
         edgePadding = GeodeSpacing.S,
         containerColor = Color.Transparent,
         contentColor = accentTextColor(),
-        indicator = { positions ->
-            if (selected in positions.indices) {
-                TabRowDefaults.PrimaryIndicator(Modifier.tabIndicatorOffset(positions[selected]))
-            }
-        },
         divider = { Box(Modifier.fillMaxWidth().height(1.dp).background(cs.outlineVariant)) },
     ) {
         titles.forEachIndexed { i, title ->

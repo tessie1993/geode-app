@@ -71,6 +71,12 @@ class PlayerJourneyTest {
     @Test
     fun repeatButtonNamesItsMode() {
         compose.awaitEmptyPlayer()
+        // The transport row, Repeat included, is only drawn once something is queued.
+        val b = connectBrowser().also { browser = it }
+        onMain {
+            b.setMediaItem(TestTrack.mediaItem(TestTrack.write()))
+            b.prepare()
+        }
         val repeat = hasContentDescription("Repeat", substring = true) and hasClickAction()
         val spoken = mutableListOf<String>()
         repeat(3) {

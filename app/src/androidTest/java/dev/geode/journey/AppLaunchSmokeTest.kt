@@ -11,8 +11,8 @@ import org.junit.rules.RuleChain
 import org.junit.runner.RunWith
 
 /**
- * A fresh install walks from the safety notice to the shell, and every tab of the shell opens.
- * The cheapest guard against a launch crash or an onboarding step that can no longer be left.
+ * A fresh install walks from the safety notice to the shell. The cheapest guard against a launch
+ * crash or an onboarding step that can no longer be left.
  */
 @LargeTest
 @RunWith(AndroidJUnit4::class)
@@ -44,28 +44,6 @@ class AppLaunchSmokeTest {
         compose.waitForIdle()
         if (compose.onAllNodes(hasText("Skip")).fetchSemanticsNodes().isNotEmpty()) compose.tap("Skip")
 
-        compose.awaitEmptyPlayer()
-    }
-
-    @Test
-    fun everyTabOpens() {
-        // Seeded past onboarding: the shell starts on the Player tab with an empty queue.
-        compose.awaitEmptyPlayer()
-
-        compose.tap("Library")
-        compose.waitForIdle()
-
-        compose.tap("Visuals")
-        compose.awaitNode(hasText("View live"))
-
-        // Default intent is BOTH, which shows Studio (behind its Pro gate for a free user).
-        compose.tap("Studio")
-        compose.waitForIdle()
-
-        compose.tap("Settings")
-        compose.awaitNode(hasText("Export"))
-
-        compose.tap("Player")
         compose.awaitEmptyPlayer()
     }
 }

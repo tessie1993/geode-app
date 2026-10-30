@@ -7,12 +7,14 @@ import androidx.compose.ui.test.ComposeTimeoutException
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.test.junit4.ComposeTestRule
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.printToLog
 import androidx.core.content.edit
 import androidx.test.core.app.ApplicationProvider
@@ -111,11 +113,24 @@ fun ComposeTestRule.tap(label: String) = tap(hasText(label) or hasContentDescrip
 /** [tap] for a label only a matcher can pin down, such as one with a price in it. */
 fun ComposeTestRule.tap(what: SemanticsMatcher) {
     val matcher = what and hasClickAction()
+    scrollLazyListsTo(matcher)
     awaitNode(matcher)
     val node = onAllNodes(matcher).onFirst()
     // performScrollTo throws when no ancestor scrolls; most of the shell doesn't.
     runCatching { node.performScrollTo() }
     node.performClick()
+}
+
+/**
+ * A LazyColumn composes only the rows on screen, so a button further down (Settings › Export's
+ * "Export video…") has no node until something scrolls to it. Asks every lazy list on screen to
+ * scroll to [matcher]; the ones that don't hold it fail, and that failure is ignored.
+ */
+fun ComposeTestRule.scrollLazyListsTo(matcher: SemanticsMatcher) {
+    waitForIdle()
+    if (onAllNodes(matcher).fetchSemanticsNodes().isNotEmpty()) return
+    val lists = onAllNodes(hasScrollToNodeAction())
+    lists.fetchSemanticsNodes().indices.forEach { i -> runCatching { lists[i].performScrollToNode(matcher) } }
 }
 
 /** Matches a node whose text matches [regex] in full. */

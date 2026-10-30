@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
+import android.os.Build
 import androidx.annotation.OptIn
 import androidx.core.content.ContextCompat
 import androidx.media3.common.MediaItem
@@ -74,9 +75,11 @@ class PlaybackService : MediaLibraryService() {
          * - apps preinstalled on the system image (Android Auto on Android 10+, an Automotive
          *   head unit's media centre, the OEM's own launcher);
          * - Android Auto, Wear OS and the Google app installed from the store, recognised by
-         *   name *and* by being signed with the same certificate as Google Play services, so an
-         *   app that merely borrows one of those package names on a device without them gets
-         *   nothing. On a device without Play services that check fails closed.
+         *   name *and* by Google Play being the installer. Play never lets anyone else publish
+         *   under those package names, so an app that borrows one gets nothing unless it was
+         *   sideloaded and also lies about its installer, which takes adb. A signature check
+         *   would be stricter in theory, but it needs those apps' certificates pinned here, and
+         *   a pin that is wrong or rotated silently cuts Android Auto off.
          */
         override fun onConnect(
             session: MediaSession,
@@ -108,9 +111,19 @@ class PlaybackService : MediaLibraryService() {
             if (systemApp && controller.isPackageNameVerified) return true
             return pkg in GOOGLE_BROWSERS &&
                 controller.isPackageNameVerified &&
-                runCatching { pm.checkSignatures(pkg, GOOGLE_PLAY_SERVICES) == PackageManager.SIGNATURE_MATCH }
-                    .getOrDefault(false)
+                runCatching { installerOf(pm, pkg) == PLAY_STORE }.getOrDefault(false)
         }
+
+        @Suppress("DEPRECATION")
+        private fun installerOf(
+            pm: PackageManager,
+            pkg: String,
+        ): String? =
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                pm.getInstallSourceInfo(pkg).installingPackageName
+            } else {
+                pm.getInstallerPackageName(pkg)
+            }
 
         @OptIn(UnstableApi::class)
         override fun onPlaybackResumption(
@@ -244,8 +257,7 @@ class PlaybackService : MediaLibraryService() {
                 "com.google.android.googlequicksearchbox",
             )
 
-        /** Listed in the manifest's `<queries>`, so the signature check can see it. */
-        private const val GOOGLE_PLAY_SERVICES = "com.google.android.gms"
+        private const val PLAY_STORE = "com.android.vending"
 
         /**
          * An untrusted controller's player commands: Media3's read-only set (state, position,

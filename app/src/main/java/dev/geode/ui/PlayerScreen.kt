@@ -362,18 +362,7 @@ private fun TransportCard(
             IconButton(onClick = viewModel::next, enabled = state.hasMedia) {
                 StoneIconArt(StoneIcon.NEXT, stringResource(R.string.action_next))
             }
-            IconButton(onClick = viewModel::cycleRepeatMode) {
-                StoneIconArt(
-                    StoneIcon.REPEAT,
-                    stringResource(R.string.action_repeat),
-                    tint =
-                        if (state.repeatMode != Player.REPEAT_MODE_OFF) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        },
-                )
-            }
+            RepeatButton(state.repeatMode, viewModel::cycleRepeatMode)
         }
         Row(
             Modifier.fillMaxWidth(),
@@ -705,4 +694,30 @@ internal fun formatClock(ms: Long): String {
     val minutes = (total % 3600) / 60
     val seconds = total % 60
     return if (hours > 0) "%d:%02d:%02d".format(hours, minutes, seconds) else "%d:%02d".format(minutes, seconds)
+}
+
+/** Repeat-one gets its own icon, and the label names the mode, so all and one are told apart. */
+@Composable
+internal fun RepeatButton(
+    repeatMode: Int,
+    onClick: () -> Unit,
+) {
+    IconButton(onClick = onClick) {
+        StoneIconArt(
+            if (repeatMode == Player.REPEAT_MODE_ONE) StoneIcon.REPEAT_ONE else StoneIcon.REPEAT,
+            stringResource(
+                when (repeatMode) {
+                    Player.REPEAT_MODE_ALL -> R.string.action_repeat_all
+                    Player.REPEAT_MODE_ONE -> R.string.action_repeat_one
+                    else -> R.string.action_repeat_off
+                },
+            ),
+            tint =
+                if (repeatMode != Player.REPEAT_MODE_OFF) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
+        )
+    }
 }

@@ -166,7 +166,7 @@ internal class ExportController(
                         host.cachedTimeline ?: host
                             .analyze(uri) { p ->
                                 _exportState.update { it.copy(phase = ExportPhase.Running(p * 0.2f)) }
-                                ExportRun.publish(p * 0.2f)
+                                ExportRun.publish(p * 0.2f, steady = false)
                             }.also { if (host.exportUri == uri) host.cachedTimeline = it }
                     val gui = host.guiPrefs
                     val t =
@@ -227,7 +227,7 @@ internal class ExportController(
                             onProgress = { p ->
                                 val overall = 0.2f + p * 0.8f
                                 _exportState.update { it.copy(phase = ExportPhase.Running(overall)) }
-                                ExportRun.publish(overall)
+                                ExportRun.publish(overall, steady = p >= VideoExporter.AUDIO_PROGRESS_SPAN)
                             },
                             isCancelled = { exportCancelled || ExportRun.cancelRequested },
                             watermark = watermark,
@@ -449,7 +449,7 @@ internal class ExportController(
                     val analysed =
                         host.cachedTimeline ?: host
                             .analyze(uri) { p ->
-                                publishLoopProgress(p * ANALYSIS_SPAN)
+                                publishLoopProgress(p * ANALYSIS_SPAN, steady = false)
                             }.also { if (host.exportUri == uri) host.cachedTimeline = it }
                     val gui = host.guiPrefs
                     val spec = LoopSpec.of(loopMs, crossfadeMs, fps = fps, bpm = analysed.bpm)
@@ -532,10 +532,13 @@ internal class ExportController(
             }
         }
 
-    private fun publishLoopProgress(overall: Float) {
+    private fun publishLoopProgress(
+        overall: Float,
+        steady: Boolean = true,
+    ) {
         val clamped = overall.coerceIn(0f, 1f)
         _loopState.update { it.copy(phase = ExportPhase.Running(clamped)) }
-        ExportRun.publish(clamped)
+        ExportRun.publish(clamped, steady)
     }
 
     fun cancelLoopRender() {

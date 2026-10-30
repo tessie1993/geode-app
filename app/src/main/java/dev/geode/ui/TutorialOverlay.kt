@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -26,6 +27,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -96,8 +98,11 @@ fun TutorialOverlay(
 
             // Offered on every step, not just the last: someone who is skipping on step one is
             // exactly the person most likely to mean "and don't ask me again".
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Checkbox(checked = dontShowAgain, onCheckedChange = onDontShowAgainChange)
+            Row(
+                Modifier.toggleable(value = dontShowAgain, role = Role.Checkbox, onValueChange = onDontShowAgainChange),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Checkbox(checked = dontShowAgain, onCheckedChange = null)
                 Text(
                     stringResource(R.string.tutorial_dont_show),
                     style = MaterialTheme.typography.bodySmall,

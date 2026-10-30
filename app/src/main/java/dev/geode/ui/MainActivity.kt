@@ -283,6 +283,17 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onStart() {
+        super.onStart()
+        playerViewModel.onAppForeground()
+    }
+
+    /** Not called while the visualizer is in a PiP window, which is still on screen. */
+    override fun onStop() {
+        super.onStop()
+        if (!isChangingConfigurations) playerViewModel.onAppBackground()
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)

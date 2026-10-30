@@ -142,6 +142,10 @@ class PlayerSession internal constructor(
 
     fun setMicEnabled(enabled: Boolean): MicCapture.Failure? = captureController.setMicEnabled(enabled)
 
+    fun onAppBackground() = captureController.onBackground()
+
+    fun onAppForeground() = captureController.onForeground()
+
     fun hasMicPermission(): Boolean = captureController.hasMicPermission()
 
     fun noteExternalAudioConsentPending() = captureController.noteExternalAudioConsentPending()

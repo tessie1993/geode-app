@@ -127,6 +127,6 @@ void main() {
     vec3 bg = pal(0.66 + key) * 0.012 + nebStars(nebSky(rd), 7.0, 2, vec2(0.0), 0.8, 0.16, hats, gT) * 0.7;
     vec3 col = acc.rgb + acc.a * bg;
     col *= 0.85 + 0.15 * swell;
-    col *= 0.78 + 0.22 * smoothstep(2.2, 0.4, length(uv));
+    col *= 0.78 + 0.22 * (1.0 - smoothstep(0.4, 2.2, length(uv)));
     fragColor = vec4(grade(col), 1.0);
 }

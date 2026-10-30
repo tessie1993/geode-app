@@ -140,6 +140,6 @@ void main() {
     bg += nebStars(sky, 6.0, 2, vec2(0.0), 1.0, 0.2, hats, gT);
 
     vec3 col = acc.rgb + acc.a * bg;
-    col *= 0.75 + 0.25 * smoothstep(2.2, 0.4, length(uv));
+    col *= 0.75 + 0.25 * (1.0 - smoothstep(0.4, 2.2, length(uv)));
     fragColor = vec4(grade(col), 1.0);
 }

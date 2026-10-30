@@ -76,7 +76,7 @@ void main() {
     vec3 col = (warm * threadA + cool * threadB) * 1.5 * gain;
     // The diffuse glow the threads sit in, and a faint wash inside the shell.
     col += mix(warm, cool, 0.5) * 0.07 * band * (0.5 + fa);
-    col += cool * 0.02 * smoothstep(2.6, 1.2, R);
+    col += cool * 0.02 * (1.0 - smoothstep(1.2, 2.6, R));
 
     col += nebStars(uv, 8.0, 2, vec2(0.0), 1.0, 0.2, hats, t) * (1.0 - 0.4 * band);
     col *= 0.85 + 0.15 * swell;

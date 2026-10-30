@@ -139,7 +139,20 @@ core tokens: OnSurface 16.9:1, OnSurfaceVariant 8.9:1, Primary 12.0:1 on black.
 | A20 | L | `VisualsHub.kt:296-353`, `:1231-1335` | ~16 literal content descriptions ("Apply", "Delete" with no preset name) and ~87 literal `Text("…")`. | 2.4.6, l10n | `stringResource(R.string.x, presetName)`. |
 | A21 | L | `LibraryScreen.kt:647/651`, `PlayerPanels.kt:325`, `AppShell.kt:448`, `PlayerScreen.kt:176/454` | "Up"/"Down" with no track name; a literal "★" (TalkBack reads "black star"); expand rows have no `onClickLabel`. | 2.4.6 | Name the track; `onClickLabel = "Open player"`. |
 
-## 5. Suggested order
+## 5. Decisions (user, 2026-10-30)
+
+- **Scope:** all four areas are in this PR: shared a11y components, adaptive layout, performance,
+  and edge-to-edge/IME. Customize and the export UI stay with their own sessions.
+- **Two-pane Library:** only at EXPANDED width (840 dp+). Phone landscape and foldables get one pane
+  with the rail.
+- **Tablet Player:** artwork and controls side by side at EXPANDED width or COMPACT height.
+- **Live view:** controls and system bars auto-hide after ~4 s idle (not under reduced motion). A tap,
+  or a TalkBack action, brings them back. A one-row transport at COMPACT height.
+- **Paywall CTA:** darken the gradient to 7C3AED→BE185D.
+- **Outline token:** raise it to 74767F.
+- **Position ticks:** split position out of `PlayerUiState` into its own flow, in this PR.
+
+## 6. Suggested order
 
 1. **Shared-component a11y** (A1 for non-Customize rows, A3, A4, A10, A13, A14, A19). Few files,
    a large share of the issues.

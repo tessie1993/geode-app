@@ -11,7 +11,6 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
@@ -54,10 +53,14 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -671,51 +674,60 @@ private fun VisualHero(
     reducedMotion: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    val phase =
+    // The phase is kept as State and read only inside the draw block, so the animation redraws the
+    // hero each frame without recomposing it; the brushes that never change are built once per size.
+    val phase: State<Float> =
         if (reducedMotion) {
-            STILL_PHASE
+            remember { mutableFloatStateOf(STILL_PHASE) }
         } else {
-            val transition = rememberInfiniteTransition(label = "paywall-hero")
-            val animated by transition.animateFloat(
+            rememberInfiniteTransition(label = "paywall-hero").animateFloat(
                 initialValue = 0f,
                 targetValue = TWO_PI,
                 animationSpec = infiniteRepeatable(tween(HERO_LOOP_MS, easing = LinearEasing), RepeatMode.Restart),
                 label = "paywall-hero-phase",
             )
-            animated
         }
-    Canvas(modifier.clearAndSetSemantics { }) {
-        drawRect(Brush.verticalGradient(listOf(ProColors.heroTop, ProColors.background)))
-        val blobs = listOf(ProColors.accent to 0f, ProColors.cyan to 2.1f, ProColors.pink to 4.2f)
-        blobs.forEach { (color, offset) ->
-            val center =
-                Offset(
-                    size.width * (0.5f + 0.32f * cos(phase + offset)),
-                    size.height * (0.45f + 0.22f * sin(phase * 2f + offset)),
-                )
-            drawCircle(
-                Brush.radialGradient(listOf(color.copy(alpha = 0.55f), Color.Transparent), center, size.minDimension * 0.55f),
-                radius = size.minDimension * 0.55f,
-                center = center,
-            )
-        }
-        val ringCenter = Offset(size.width / 2f, size.height * 0.5f)
-        val inner = size.minDimension * 0.22f
-        for (i in 0 until HERO_BARS) {
-            val angle = TWO_PI * i / HERO_BARS
-            val energy = 0.5f + 0.5f * sin(phase * 3f + i * 0.45f) * cos(phase * 2f - i * 0.21f)
-            val length = size.minDimension * (0.05f + 0.16f * energy)
-            val dir = Offset(cos(angle), sin(angle))
-            drawLine(
-                brush = Brush.linearGradient(listOf(ProColors.cyan, ProColors.pink)),
-                start = ringCenter + dir * inner,
-                end = ringCenter + dir * (inner + length),
-                strokeWidth = size.minDimension * 0.012f,
-                cap = StrokeCap.Round,
-            )
-        }
-    }
+    Spacer(
+        modifier.clearAndSetSemantics { }.drawWithCache {
+            val backdrop = Brush.verticalGradient(listOf(ProColors.heroTop, ProColors.background))
+            val barBrush = Brush.linearGradient(listOf(ProColors.cyan, ProColors.pink))
+            val ringCenter = Offset(size.width / 2f, size.height * 0.5f)
+            val inner = size.minDimension * 0.22f
+            val blobRadius = size.minDimension * 0.55f
+            onDrawBehind {
+                val t = phase.value
+                drawRect(backdrop)
+                HERO_BLOBS.forEach { (color, offset) ->
+                    val center =
+                        Offset(
+                            size.width * (0.5f + 0.32f * cos(t + offset)),
+                            size.height * (0.45f + 0.22f * sin(t * 2f + offset)),
+                        )
+                    drawCircle(
+                        Brush.radialGradient(listOf(color.copy(alpha = 0.55f), Color.Transparent), center, blobRadius),
+                        radius = blobRadius,
+                        center = center,
+                    )
+                }
+                for (i in 0 until HERO_BARS) {
+                    val angle = TWO_PI * i / HERO_BARS
+                    val energy = 0.5f + 0.5f * sin(t * 3f + i * 0.45f) * cos(t * 2f - i * 0.21f)
+                    val length = size.minDimension * (0.05f + 0.16f * energy)
+                    val dir = Offset(cos(angle), sin(angle))
+                    drawLine(
+                        brush = barBrush,
+                        start = ringCenter + dir * inner,
+                        end = ringCenter + dir * (inner + length),
+                        strokeWidth = size.minDimension * 0.012f,
+                        cap = StrokeCap.Round,
+                    )
+                }
+            }
+        },
+    )
 }
+
+private val HERO_BLOBS = listOf(ProColors.accent to 0f, ProColors.cyan to 2.1f, ProColors.pink to 4.2f)
 
 /** The paywall's own palette, deliberately independent of the app theme being restyled. */
 internal object ProColors {
@@ -731,7 +743,9 @@ internal object ProColors {
     val muted = Color(0xFFA1A1B5)
     val error = Color(0xFFFCA5A5)
     val highlight = Color(0x338B5CF6)
-    val ctaBrush = Brush.horizontalGradient(listOf(accent, pink))
+    // White 16sp text sits on this, so its ends are a shade deeper than accent and pink: 5.7:1 and
+    // 6.0:1, where the lighter pair measured 4.2:1 and 3.5:1.
+    val ctaBrush = Brush.horizontalGradient(listOf(Color(0xFF7C3AED), Color(0xFFBE185D)))
     val disabledBrush = Brush.horizontalGradient(listOf(surface, surface))
 }
 

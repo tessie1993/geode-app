@@ -45,6 +45,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.progressBarRangeInfo
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.setProgress
 import androidx.compose.ui.text.font.FontWeight
@@ -212,7 +213,9 @@ fun LyricsPanel(
                     when {
                         active -> accentTextColor()
                         !lyrics.synced -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f)
-                        index < current -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
+                        // 0.55, not lower: sung lines are still text someone may want to read back,
+                        // and 0.35 measured 2.6:1 on black.
+                        index < current -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
                         else -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f)
                     },
             )
@@ -306,6 +309,7 @@ fun QueuePanel(
                 Row(
                     Modifier
                         .fillMaxWidth()
+                        .semantics { selected = playing }
                         .clickable {
                             follows.value = true
                             onPlayIndex(index)
@@ -321,12 +325,19 @@ fun QueuePanel(
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
-                        Text(
+                        val favourite = track.uri in favourites
+                        val artist = track.artist.takeIf { it.isNotBlank() }
+                        // The star is drawn, but read as a word: TalkBack says "black star" otherwise.
+                        val spoken =
                             listOfNotNull(
-                                track.artist.takeIf { it.isNotBlank() },
-                                "★".takeIf { track.uri in favourites },
-                            ).joinToString("  ")
+                                artist ?: stringResource(R.string.subtitle_unknown_artist),
+                                stringResource(R.string.a11y_favourite).takeIf { favourite },
+                            ).joinToString(", ")
+                        Text(
+                            listOfNotNull(artist, "★".takeIf { favourite })
+                                .joinToString("  ")
                                 .ifBlank { stringResource(R.string.subtitle_unknown_artist) },
+                            modifier = Modifier.semantics { contentDescription = spoken },
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1,

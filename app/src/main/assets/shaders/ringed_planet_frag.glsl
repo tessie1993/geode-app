@@ -89,7 +89,7 @@ float planetShadow(vec3 p) {
 float ringDensity(float r) {
     float x = (r - RP_RIN) / (RP_ROUT - RP_RIN);
     if (x <= 0.0 || x >= 1.0) return 0.0;
-    float edge = smoothstep(0.0, 0.05, x) * smoothstep(1.0, 0.97, x);
+    float edge = smoothstep(0.0, 0.05, x) * (1.0 - smoothstep(0.97, 1.0, x));
     float bands = 0.55 + 0.22 * sin(r * 47.0) + 0.13 * sin(r * 113.0 + 1.3) + 0.1 * sin(r * 19.0 + 0.4);
     float gapA = smoothstep(0.012, 0.035, abs(x - gGaps.x));
     float gapB = smoothstep(0.004, 0.014, abs(x - gGaps.y));
@@ -161,7 +161,7 @@ vec3 shadePlanet(vec3 P, vec3 rd, float snare, float onset) {
 
     // High bands: the auroral ovals, fixed to the spin axis (lp, not q).
     float al = abs(lat);
-    float oval = smoothstep(0.8, 0.9, al) * smoothstep(0.995, 0.93, al);
+    float oval = smoothstep(0.8, 0.9, al) * (1.0 - smoothstep(0.93, 0.995, al));
     float lon = atan(lp.z, lp.x + 1e-7);
     float cur = 0.5 + 0.5 * sin(lon * 9.0 + uTime * 0.9 + 2.5 * sin(lon * 2.0 - uTime * 0.3));
     vec3 auroraCol = mix(pal(gAtmHue + 0.4), vec3(0.35, 1.0, 0.6), 0.35);
@@ -183,7 +183,7 @@ vec3 sky(vec3 rd, float hats) {
     vec3 col = vec3(0.004, 0.005, 0.01);
     vec3 sc = rd * 120.0;
     float h = hashCell(ivec3(floor(sc)));
-    float s = step(0.985, h) * smoothstep(0.35, 0.0, length(fract(sc) - 0.5));
+    float s = step(0.985, h) * (1.0 - smoothstep(0.0, 0.35, length(fract(sc) - 0.5)));
     float tw = 0.5 + 0.5 * sin(uTime * (3.0 + 9.0 * fract(h * 31.0)) + h * 80.0);
     float twinkles = step(0.5, fract(h * 57.0));
     col += mix(vec3(1.0), pal(fract(h * 13.0)), 0.3) * s * (0.45 + 0.15 * tw + hats * twinkles * 1.6 * tw);
@@ -209,12 +209,12 @@ void main() {
 
     // 0 on the hit frame (an onset triggers to 0.4..1), 1 once it has fallen:
     // the storm's wind-up is continuous across the hit.
-    float prog = smoothstep(0.4, 0.05, onset);
+    float prog = (1.0 - smoothstep(0.05, 0.4, onset));
     gMorph = uHitCount - 1.0 + prog;
 
     // ---- section: palette, ring gaps and moons ------------------------------
     float sec = floor(uSectionCount);
-    float secBlend = smoothstep(0.95, 0.15, clamp(uEvents.z, 0.0, 1.0));
+    float secBlend = (1.0 - smoothstep(0.15, 0.95, clamp(uEvents.z, 0.0, 1.0)));
     float hPrev = hash11(sec - 1.0 + 0.37);
     float hCur = hash11(sec + 0.37);
     float secHue = mix(0.25 * floor(hPrev * 4.0), 0.25 * floor(hCur * 4.0), secBlend);
@@ -326,6 +326,6 @@ void main() {
     }
 
     col *= 0.85 + 0.2 * swell;
-    col *= 0.75 + 0.25 * smoothstep(2.2, 0.4, length(uv));
+    col *= 0.75 + 0.25 * (1.0 - smoothstep(0.4, 2.2, length(uv)));
     fragColor = vec4(grade(col), 1.0);
 }

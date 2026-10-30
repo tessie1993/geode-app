@@ -139,7 +139,7 @@ void main() {
     gW = mix(gcVariant(mod(uSectionCount - 1.0, 4096.0)), gcVariant(uSectionCount), sw);
 
     // Onset glide from the previous count's stretch to the new one.
-    float og = smoothstep(0.4, 0.05, clamp(uHits.w, 0.0, 1.0));
+    float og = (1.0 - smoothstep(0.05, 0.4, clamp(uHits.w, 0.0, 1.0)));
     vec3 stretch = mix(gcOnsetStretch(mod(uHitCount - 1.0, 4096.0)), gcOnsetStretch(uHitCount), og);
     // A slow idle breath so silence still moves; the drop opens everything.
     vec3 idle = 1.0 + 0.04 * vec3(sin(uTime * 0.07), sin(uTime * 0.05 + 2.0), sin(uTime * 0.06 + 4.0));
@@ -240,13 +240,13 @@ void main() {
                    + 0.12 * vec2(sin(uTime * 0.4 + h * 30.0), cos(uTime * 0.33 + h2 * 30.0));
             float pxi = ti * 2.0 / (max(uCamFocal, 0.1) * uResolution.y);
             float r = 0.035 + pxi;
-            float m = smoothstep(r, 0.0, length(xy - c)) * min(1.0, 0.035 / r);
+            float m = (1.0 - smoothstep(0.0, r, length(xy - c))) * min(1.0, 0.035 / r);
             float tw = 0.5 + 0.5 * sin(uTime * (7.0 + 11.0 * h2) + h * 50.0);
             col += moteCol * m * (0.12 + 1.6 * hat * tw) * exp(-ti * fogK);
         }
     }
 
     col *= 0.85 + 0.2 * swell;
-    col *= 0.72 + 0.28 * smoothstep(2.2, 0.4, length(uv));
+    col *= 0.72 + 0.28 * (1.0 - smoothstep(0.4, 2.2, length(uv)));
     fragColor = vec4(grade(col), 1.0);
 }

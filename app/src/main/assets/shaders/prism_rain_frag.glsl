@@ -273,7 +273,7 @@ void main() {
         vec3 gp = gQ * 9.0;
         float g = hashCell(ivec3(floor(gp)) + ivec3(int(gH * 977.0)));
         float tw = 0.5 + 0.5 * sin(uTime * (10.0 + 14.0 * g) + g * 70.0);
-        float pt = smoothstep(0.32, 0.0, length(fract(gp) - 0.5));
+        float pt = (1.0 - smoothstep(0.0, 0.32, length(fract(gp) - 0.5)));
         col += spectrum(g + 0.2 * uTime) * step(0.9 - 0.12 * hats, g) * pt * tw * (0.05 + 1.6 * hats);
 
         // The shockwave lights the glass it is shoving.
@@ -283,7 +283,7 @@ void main() {
     }
 
     col *= 0.80 + 0.30 * swell + 0.08 * energy;
-    col *= 0.7 + 0.3 * smoothstep(2.2, 0.5, length(uv));
+    col *= 0.7 + 0.3 * (1.0 - smoothstep(0.5, 2.2, length(uv)));
     // Exposure shoulder before grade(): the scene is mostly dark water or sky, and
     // grade()'s contrast pivots on 0.5, so lift the darks ~2.2x and roll the
     // highlights off rather than clip them.

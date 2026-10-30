@@ -127,7 +127,7 @@ vec3 skyColour(vec3 rd, float hueBase) {
     col += pal(hueBase + 0.08) * (0.30 * pow(ahead, 10.0) + 0.08 * ahead * ahead);
     vec3 sp = rd * 140.0;
     float s = hashCell(ivec3(floor(sp)));
-    float star = smoothstep(0.3, 0.0, length(fract(sp) - 0.5)) * step(0.996, s);
+    float star = (1.0 - smoothstep(0.0, 0.3, length(fract(sp) - 0.5))) * step(0.996, s);
     col += vec3(0.8) * star * smoothstep(0.05, 0.3, up) * (0.6 + 0.4 * sin(uTime * 3.0 + s * 500.0));
     return col;
 }
@@ -208,7 +208,7 @@ void main() {
         vec3 gp = vec3(p.xy, mod(p.z, CC_ZWRAP)) * 7.0;
         float g = hashCell(ivec3(floor(gp)));
         float tw = 0.5 + 0.5 * sin(uTime * (9.0 + 13.0 * g) + g * 60.0);
-        float pt = smoothstep(0.32, 0.0, length(fract(gp) - 0.5));
+        float pt = (1.0 - smoothstep(0.0, 0.32, length(fract(gp) - 0.5)));
         col += mix(vec3(1.0), prism, 0.3) * step(0.93 - 0.06 * air, g) * pt * tw
              * (0.12 + 1.4 * air) * (0.3 + 0.7 * fres + spec);
 
@@ -216,6 +216,6 @@ void main() {
     }
 
     col *= 0.78 + 0.30 * swell + 0.10 * energy;
-    col *= 0.7 + 0.3 * smoothstep(2.2, 0.5, length(uv));
+    col *= 0.7 + 0.3 * (1.0 - smoothstep(0.5, 2.2, length(uv)));
     fragColor = vec4(grade(col), 1.0);
 }

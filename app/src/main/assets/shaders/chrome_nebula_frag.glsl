@@ -70,7 +70,7 @@ vec3 nebula(vec3 d, float hue, float stars) {
         vec3 sc = d * 110.0;
         vec3 cell = floor(sc);
         float h = hashCell(ivec3(cell));
-        float s = step(0.986, h) * smoothstep(0.32, 0.0, length(fract(sc) - 0.5));
+        float s = step(0.986, h) * (1.0 - smoothstep(0.0, 0.32, length(fract(sc) - 0.5)));
         c += vec3(s) * (0.55 + 0.45 * sin(uTime * 1.7 + h * 60.0));
     }
     return c;
@@ -86,7 +86,7 @@ void main() {
 
     // ---- the blobs ----------------------------------------------------------
     // 0 on the hit frame (the envelope is >= 0.4 then), 1 once it has fallen.
-    float prog = smoothstep(0.4, 0.05, onset);
+    float prog = (1.0 - smoothstep(0.05, 0.4, onset));
     float morph = uHitCount - 1.0 + prog;
     float grow = 1.0 + 0.26 * bass + 0.06 * swell;
     float tm = uTime * 0.22 + uFlowPhase * 0.04;
@@ -164,6 +164,6 @@ void main() {
     }
 
     col *= 0.85 + 0.2 * swell;
-    col *= 0.72 + 0.28 * smoothstep(2.2, 0.4, length(uv));
+    col *= 0.72 + 0.28 * (1.0 - smoothstep(0.4, 2.2, length(uv)));
     fragColor = vec4(grade(col), 1.0);
 }

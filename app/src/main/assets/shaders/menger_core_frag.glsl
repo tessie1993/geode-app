@@ -179,7 +179,7 @@ void main() {
 
     // Onset glide: the count steps as the envelope jumps to >= 0.4, so the
     // mix starts exactly at the previous offset and eases to the new one.
-    float og = smoothstep(0.4, 0.05, clamp(uHits.w, 0.0, 1.0));
+    float og = (1.0 - smoothstep(0.05, 0.4, clamp(uHits.w, 0.0, 1.0)));
     vec3 onOff = mix(mcOnsetOffset(mod(uHitCount - 1.0, 4096.0)), mcOnsetOffset(uHitCount), og);
 
     gHole0 = 0.333 + 0.05 * kick;
@@ -257,7 +257,7 @@ void main() {
         vec3 gp = vec3(f.xy, mod(f.z, MC_ZWRAP)) * 5.0;
         float g = hashCell(ivec3(floor(gp)));
         float tw = 0.5 + 0.5 * sin(uTime * (8.0 + 14.0 * g) + g * 70.0);
-        float pt = smoothstep(0.35, 0.0, length(fract(gp) - 0.5));
+        float pt = (1.0 - smoothstep(0.0, 0.35, length(fract(gp) - 0.5)));
         float onEdge = 1.0 - smoothstep(0.0, 0.14, edge);
         vec3 glint = mix(vec3(1.0), seamCol, 0.3) * step(0.86 - 0.14 * hat, g) * pt * tw * onEdge
                    * (0.08 + 1.5 * hat);
@@ -268,6 +268,6 @@ void main() {
     col += seamCol * glow * (0.6 + 0.4 * swell);
 
     col *= 0.85 + 0.2 * swell;
-    col *= 0.72 + 0.28 * smoothstep(2.2, 0.4, length(uv));
+    col *= 0.72 + 0.28 * (1.0 - smoothstep(0.4, 2.2, length(uv)));
     fragColor = vec4(grade(col), 1.0);
 }

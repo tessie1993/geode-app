@@ -197,7 +197,7 @@ void main() {
         // land (1024 * 3 is whole) so they do not re-hash at the rebase.
         vec2 g = vec2(p.x, mod(p.z, ST_ZWRAP)) * 3.0;
         float sh = motionHash(floor(g) + 41.0);
-        float glint = step(0.88, sh) * smoothstep(0.32, 0.0, length(fract(g) - 0.5));
+        float glint = step(0.88, sh) * (1.0 - smoothstep(0.0, 0.32, length(fract(g) - 0.5)));
         float top = smoothstep(2.4, 4.0, h0);
         col += mix(pal(ch + 0.15), vec3(1.0), 0.5) * glint * top * hats * 1.6 * fade;
 
@@ -215,13 +215,13 @@ void main() {
         // Stars at night; air makes them twinkle.
         vec3 sc = rd * 150.0;
         float s = hashCell(ivec3(floor(sc)));
-        float star = step(0.993, s) * smoothstep(0.35, 0.0, length(fract(sc) - 0.5));
+        float star = step(0.993, s) * (1.0 - smoothstep(0.0, 0.35, length(fract(sc) - 0.5)));
         float tw = mix(1.0, 0.5 + 0.5 * sin(uTime * 11.0 + s * 500.0), 0.2 + 0.8 * air);
         col += vec3(0.7) * star * tw * night * smoothstep(0.03, 0.25, up);
     }
 
     col *= 0.8 + 0.25 * swell;
-    col *= 0.75 + 0.25 * smoothstep(2.2, 0.4, length(uv));
+    col *= 0.75 + 0.25 * (1.0 - smoothstep(0.4, 2.2, length(uv)));
     // Exposure shoulder before grade(): the scene is mostly dark water or sky, and
     // grade()'s contrast pivots on 0.5, so lift the darks ~1.9x and roll the
     // highlights off rather than clip them.

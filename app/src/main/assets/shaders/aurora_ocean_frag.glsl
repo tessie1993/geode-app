@@ -80,7 +80,7 @@ vec3 sky(vec3 rd, vec3 ro, float hue, float drop, float dropLean, float snare) {
 
     vec3 sc = rd * 140.0;
     float h = hashCell(ivec3(floor(sc)));
-    col += vec3(step(0.991, h) * smoothstep(0.35, 0.0, length(fract(sc) - 0.5))) * 0.6 * smoothstep(0.05, 0.3, up);
+    col += vec3(step(0.991, h) * (1.0 - smoothstep(0.0, 0.35, length(fract(sc) - 0.5)))) * 0.6 * smoothstep(0.05, 0.3, up);
 
     if (rd.y > 0.02) {
         vec3 acc = vec3(0.0);
@@ -99,7 +99,7 @@ vec3 sky(vec3 rd, vec3 ro, float hue, float drop, float dropLean, float snare) {
             q.x += fi * 0.06 * dropLean;
             float tm = uTime * 0.06;
             float v = q.x + 0.9 * sin(q.y * (13.0 * AO_QK) + tm * 2.0) + 0.35 * sin(q.y * (40.0 * AO_QK) - tm * 3.0 + q.x * 0.6);
-            float rib = smoothstep(0.24, 0.0, abs(fract(v * 0.35) - 0.5));
+            float rib = (1.0 - smoothstep(0.0, 0.24, abs(fract(v * 0.35) - 0.5)));
             // Vertical rays inside the ribbon.
             rib *= 0.65 + 0.35 * sin(v * 23.0 + q.y * (70.0 * AO_QK) + tm * 5.0);
             // The snare's shimmer: a bright pulse racing along the ribbon's length.
@@ -183,7 +183,7 @@ void main() {
         vec2 cell = floor(g);
         cell.y = mod(cell.y, 320.0);
         float sh = hashCell(ivec3(int(cell.x), int(cell.y), 7));
-        float glint = step(0.93, sh) * smoothstep(0.3, 0.0, length(fract(g) - 0.5));
+        float glint = step(0.93, sh) * (1.0 - smoothstep(0.0, 0.3, length(fract(g) - 0.5)));
         glint *= smoothstep(0.1, 0.5, r.y) * exp(-hitT * 0.06);
         col += mix(pal(hue + 0.1), vec3(1.0), 0.5) * glint * hats * 1.5;
         col = mix(col, horizon, 1.0 - exp(-hitT * 0.045));
@@ -194,6 +194,6 @@ void main() {
     }
 
     col *= 0.8 + 0.25 * swell;
-    col *= 0.75 + 0.25 * smoothstep(2.2, 0.4, length(uv));
+    col *= 0.75 + 0.25 * (1.0 - smoothstep(0.4, 2.2, length(uv)));
     fragColor = vec4(grade(col), 1.0);
 }

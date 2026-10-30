@@ -147,6 +147,6 @@ void main() {
     col += pal(0.62 + hueStep) * (0.03 + 0.25 * endGlow) + pal(0.80 + hueStep) * 0.015;
 
     col *= 0.85 + 0.35 * swell + 0.10 * energy;
-    col *= 0.7 + 0.3 * smoothstep(2.2, 0.5, length(uv));
+    col *= 0.7 + 0.3 * (1.0 - smoothstep(0.5, 2.2, length(uv)));
     fragColor = vec4(grade(col), 1.0);
 }

@@ -210,11 +210,11 @@ void main() {
     gJet = 4.0 * kick * (1.0 - kick);
     gSway = 0.15 + 0.25 * clamp(uBassSmooth, 0.0, 1.5) / 1.5 + 0.2 * clamp(uBandsLo.x, 0.0, 1.0);
     // 0 on the onset's frame (it triggers to 0.4..1), 1 once it has fallen.
-    gOnsetProg = smoothstep(0.4, 0.05, onset);
+    gOnsetProg = (1.0 - smoothstep(0.05, 0.4, onset));
 
     // ---- depth zone, eased across a section change ---------------------------
     float sec = floor(uSectionCount);
-    float secBlend = smoothstep(0.95, 0.15, clamp(uEvents.z, 0.0, 1.0));
+    float secBlend = (1.0 - smoothstep(0.15, 0.95, clamp(uEvents.z, 0.0, 1.0)));
     vec3 waterP;
     vec3 waterC;
     vec4 prmP;
@@ -285,7 +285,7 @@ void main() {
             // the rim, with four radial canals that ride the high bands.
             float fr = pow(1.0 - abs(dot(n, -rd)), 2.0);
             float ang = atan(gQ.z, gQ.x + 1e-7);
-            float canal = smoothstep(0.55, 1.0, 0.5 + 0.5 * cos(ang * 4.0)) * smoothstep(0.75, 0.15, length(gQ.xz)) * step(0.0, gQ.y);
+            float canal = smoothstep(0.55, 1.0, 0.5 + 0.5 * cos(ang * 4.0)) * (1.0 - smoothstep(0.15, 0.75, length(gQ.xz))) * step(0.0, gQ.y);
             float rim = exp(-max(gQ.y + 0.08, 0.0) * 10.0);
             jc = fogCol * 0.6 + pal(hue) * (0.12 + 0.9 * fr + 0.6 * canal * (0.4 + 1.2 * hiBand) + 0.7 * rim) * glowMul;
             jc += vec3(0.8, 0.9, 1.0) * pow(max(dot(reflect(rd, n), vec3(0.0, 1.0, 0.0)), 0.0), 20.0) * 0.25 * prm.y;
@@ -342,19 +342,19 @@ void main() {
             vec2 jit = vec2(fract(h * 13.1), fract(h * 71.7)) - 0.5;
             float dd = length(fract(g) - 0.5 - jit * 0.6);
             float fade = exp(-ts * fogD * 1.2) * smoothstep(0.3, 1.0, ts);
-            float flake = step(0.55, h) * smoothstep(0.07, 0.0, dd) * fade;
+            float flake = step(0.55, h) * (1.0 - smoothstep(0.0, 0.07, dd)) * fade;
             float tw = 0.5 + 0.5 * sin(uTime * 25.0 + h * 90.0);
             float sparkle = step(0.8, fract(h * 37.0)) * hats * tw;
             snow += vec3(0.75, 0.85, 0.9) * flake * (0.35 + 1.8 * sparkle) * prm.w;
             // The drop's swarm: a share of the flakes glows in the palette.
-            float swarm = step(fract(h * 5.3), 0.6 * drop) * smoothstep(0.16, 0.0, dd) * fade;
+            float swarm = step(fract(h * 5.3), 0.6 * drop) * (1.0 - smoothstep(0.0, 0.16, dd)) * fade;
             snow += pal(gZoneHue + 0.2 + 0.3 * fract(h * 3.7)) * swarm * 1.4;
         }
         col += snow * smoothstep(0.08, 0.3, az);
     }
 
     col *= 0.8 + 0.25 * swell;
-    col *= 0.72 + 0.28 * smoothstep(2.2, 0.4, length(uv));
+    col *= 0.72 + 0.28 * (1.0 - smoothstep(0.4, 2.2, length(uv)));
     // Exposure shoulder before grade(): the scene is mostly dark water or sky, and
     // grade()'s contrast pivots on 0.5, so lift the darks ~2.4x and roll the
     // highlights off rather than clip them.

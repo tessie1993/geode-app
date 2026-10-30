@@ -129,13 +129,13 @@ vec3 skyColour(vec3 rd, float glowY) {
     // Gaps widen toward the bottom of the disc and drift slowly down.
     float gap = clamp(-below / 0.19, 0.0, 1.0) * 0.6;
     float stripes = below > 0.0 ? 1.0 : step(gap, fract(below * 26.0 + uTime * 0.25));
-    float disc = smoothstep(0.19, 0.183, r) * stripes;
-    col += mix(pal(0.08), pal(0.95), smoothstep(0.19, -0.19, below)) * disc * 0.85;
-    col += pal(0.02) * 0.10 * smoothstep(0.7, 0.0, r);
+    float disc = (1.0 - smoothstep(0.183, 0.19, r)) * stripes;
+    col += mix(pal(0.08), pal(0.95), (1.0 - smoothstep(-0.19, 0.19, below))) * disc * 0.85;
+    col += pal(0.02) * 0.10 * (1.0 - smoothstep(0.0, 0.7, r));
 
     vec3 sp = rd * 150.0;
     float s = hashCell(ivec3(floor(sp)));
-    float star = smoothstep(0.3, 0.0, length(fract(sp) - 0.5)) * step(0.996, s);
+    float star = (1.0 - smoothstep(0.0, 0.3, length(fract(sp) - 0.5))) * step(0.996, s);
     col += vec3(0.7) * star * smoothstep(glowY + 0.15, glowY + 0.4, y);
     return col;
 }
@@ -193,7 +193,7 @@ void main() {
             // Streets: neon grid lines on the cell boundaries.
             vec2 g = abs(fract(p.xz / NC_CELL + 0.5) - 0.5) * NC_CELL;
             float w = 0.03 + 0.0025 * hitT;
-            float line = smoothstep(w, 0.0, min(g.x, g.y));
+            float line = (1.0 - smoothstep(0.0, w, min(g.x, g.y)));
             col = pal(0.70) * 0.02 + pal(0.85) * line * 0.8 + horizon * fres * 0.3;
         } else {
             vec3 L = normalize(vec3(0.3, 0.7, -0.6));
@@ -206,15 +206,15 @@ void main() {
             float et = gTop - p.y;
             float second = max(min(ex, ez), min(max(ex, ez), et));
             float ew = 0.025 + 0.002 * hitT;
-            float edge = smoothstep(ew, 0.0, second);
+            float edge = (1.0 - smoothstep(0.0, ew, second));
 
             // Windows on the side faces.
             float sideFace = 1.0 - step(0.5, n.y);
             float along = abs(n.x) > abs(n.z) ? p.z : p.x;
             vec2 wc = vec2(along * 3.0, p.y * 2.2);
             vec2 wf = fract(wc);
-            float shape = smoothstep(0.18, 0.26, wf.x) * smoothstep(0.82, 0.74, wf.x)
-                        * smoothstep(0.25, 0.33, wf.y) * smoothstep(0.85, 0.77, wf.y);
+            float shape = smoothstep(0.18, 0.26, wf.x) * (1.0 - smoothstep(0.74, 0.82, wf.x))
+                        * smoothstep(0.25, 0.33, wf.y) * (1.0 - smoothstep(0.77, 0.85, wf.y));
             float wid = hashCell(ivec3(int(mod(floor(wc.x), NC_WINWRAP)), int(floor(wc.y)), int(gH * 4096.0)));
             float lit = step(wid, 0.22 + 0.35 * gBand);
             // A slow sweep keeps the lights moving in silence.
@@ -234,6 +234,6 @@ void main() {
     }
 
     col *= 0.80 + 0.30 * swell + 0.08 * energy;
-    col *= 0.72 + 0.28 * smoothstep(2.2, 0.5, length(uv));
+    col *= 0.72 + 0.28 * (1.0 - smoothstep(0.5, 2.2, length(uv)));
     fragColor = vec4(grade(col), 1.0);
 }

@@ -243,7 +243,7 @@ void main() {
         // along with the ribbon instead of sitting still in space.
         float slot = bestU * 30.0;
         float hs = hashCell(ivec3(i, int(floor(slot)), 41));
-        float along = smoothstep(0.45, 0.05, abs(fract(slot) - 0.5));
+        float along = (1.0 - smoothstep(0.05, 0.45, abs(fract(slot) - 0.5)));
         float tw = 0.5 + 0.5 * sin(uTime * (11.0 + 13.0 * hs) + hs * 50.0);
         float es = (bestKey - 0.85) / 0.4;
         col += mix(vec3(1.0), rc, 0.25) * hats * step(0.5, hs) * exp(-es * es) * along * tw * 1.2 * fade;
@@ -261,6 +261,6 @@ void main() {
     col *= 0.80 + 0.30 * swell + 0.10 * energy;
     // A soft shoulder: six cores crossing in one pixel would otherwise clip flat.
     col = 1.0 - exp(-1.25 * col);
-    col *= 0.7 + 0.3 * smoothstep(2.2, 0.5, length(uv));
+    col *= 0.7 + 0.3 * (1.0 - smoothstep(0.5, 2.2, length(uv)));
     fragColor = vec4(grade(col), 1.0);
 }

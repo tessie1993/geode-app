@@ -169,7 +169,7 @@ vec2 hashSpot(float n) {
  * to the spot and back over the envelope's fall rather than snapping there.
  */
 vec2 pitchGlide() {
-    float g = smoothstep(0.4, 0.05, clamp(uHits.w, 0.0, 1.0));
+    float g = (1.0 - smoothstep(0.05, 0.4, clamp(uHits.w, 0.0, 1.0)));
     vec2 spot = mix(hashSpot(mod(uHitCount - 1.0, 4096.0)), hashSpot(uHitCount), g);
     float e = clamp(uEvents.w, 0.0, 1.0);
     return spot * (4.0 * e * (1.0 - e));

@@ -171,8 +171,8 @@ void main() {
         if (ax < OR_ROAD + 0.6) {
             float road = smoothstep(OR_ROAD + 0.05, OR_ROAD - 0.05, ax);
             col *= 1.0 - 0.6 * road;
-            float edge = smoothstep(0.12, 0.04, abs(ax - (OR_ROAD - 0.15)));
-            float dash = step(0.5, fract(fp.y * 0.25)) * smoothstep(0.1, 0.03, ax);
+            float edge = (1.0 - smoothstep(0.04, 0.12, abs(ax - (OR_ROAD - 0.15))));
+            float dash = step(0.5, fract(fp.y * 0.25)) * (1.0 - smoothstep(0.03, 0.1, ax));
             col += pal(skyHue) * (edge * 0.9 + dash * 0.6) * fade;
         }
 
@@ -199,7 +199,7 @@ void main() {
         // Stars; hats deepen and quicken the twinkle.
         vec3 sc = rd * 150.0;
         float s = hashCell(ivec3(floor(sc)));
-        float star = step(0.993, s) * smoothstep(0.35, 0.0, length(fract(sc) - 0.5));
+        float star = step(0.993, s) * (1.0 - smoothstep(0.0, 0.35, length(fract(sc) - 0.5)));
         float tw = mix(1.0, 0.5 + 0.5 * sin(uTime * (5.0 + 12.0 * hats) + s * 600.0), 0.25 + 0.75 * hats);
         col += vec3(0.75) * star * tw * (1.0 + 0.8 * hats) * smoothstep(0.08, 0.3, e);
 
@@ -211,12 +211,12 @@ void main() {
         float gh = motionHash(vec2(floor(sp.y * 10.0), fract(uHitCount * 0.618) * 97.0));
         sp.x += snare * step(0.55, gh) * (gh - 0.75) * 0.7;
         float r = length(sp);
-        float disc = smoothstep(1.0, 0.97, r);
+        float disc = (1.0 - smoothstep(0.97, 1.0, r));
         vec3 sunCol = mix(pal(gridHue + 0.9), pal(skyHue + 0.65), smoothstep(-1.0, 1.0, sp.y)) * 1.4 + 0.08;
         // Stripes across the lower half, gaps widening downward; the snare
         // slides them half a stripe and they settle back as it decays.
         float band = fract(sp.y * 5.0 + uTime * 0.12 + snare * 0.5);
-        float gap = mix(0.0, 0.5, smoothstep(0.25, -1.0, sp.y));
+        float gap = mix(0.0, 0.5, (1.0 - smoothstep(-1.0, 0.25, sp.y)));
         float cut = step(sp.y, 0.25) * (1.0 - smoothstep(gap - 0.04, gap, band));
         col = mix(col, sunCol, disc * (1.0 - cut));
         col += pal(gridHue + 0.9) * 0.3 * exp(-max(r - 1.0, 0.0) * 2.5) * (1.0 - disc);
@@ -239,6 +239,6 @@ void main() {
     }
 
     col *= 0.8 + 0.25 * swell;
-    col *= 0.75 + 0.25 * smoothstep(2.2, 0.4, length(uv));
+    col *= 0.75 + 0.25 * (1.0 - smoothstep(0.4, 2.2, length(uv)));
     fragColor = vec4(grade(col), 1.0);
 }

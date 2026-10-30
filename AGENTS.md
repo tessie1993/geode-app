@@ -86,7 +86,7 @@ The native core is built by the root `CMakeLists.txt`, plus `core/CMakeLists.txt
 - **Don't build locally.** Push to `claude/**`. `.github/workflows/android.yml` runs detekt, `:app:assembleDebug`, `:app:testDebugUnitTest`, `:app:lintDebug`, `ktlintCheck`, plus an emulator job (`connectedDebugAndroidTest`, API 30). Read the results with `gh run list --branch <b>` and `gh run view <id> --log-failed`.
 - `ship-apk.yml` (push to `main`) and `release.yml` (tag `v*`) publish. `arch-map.yml` is the gate described below.
 - Submodules: `git submodule update --init --recursive`, needed only for native work. Your `local.properties` needs `sdk.dir`.
-- Tests: there are only three: `app/src/test/.../ui/PresetLinkTest.kt`, `app/src/androidTest/.../BuildVariantTest.kt` and `engine/audio-core/src/test/.../FeatureRingTest.kt`. Put new pure tests in a JVM module where you can. Use `docs/DEVICE_CHECKS.md` for anything that needs a device. `tools/glslcheck` and `tools/hostlink` check shaders and the native link on the host.
+- Tests: JVM unit tests live in `app/src/test` and `engine/*/src/test` (CI runs every module's), instrumented ones in `app/src/androidTest`. Put new pure tests in a JVM module where you can. Use `docs/DEVICE_CHECKS.md` for anything that needs a device. `tools/glslcheck` and `tools/hostlink` check shaders and the native link on the host.
 
 ## Conventions
 

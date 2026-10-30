@@ -52,10 +52,19 @@ out of the merged manifest by a CI check, every foreground service has a type, e
 - **S3:** the Android Auto opt-in step is in [CONSOLE_CHECKLIST.md](CONSOLE_CHECKLIST.md) §7.
 - **N1:** Live input releases the mic in `MainActivity.onStop` and resumes in `onStart`.
 
-Device checks still to do (not covered by CI): Android Auto (DHU) still browses the
-library; a third-party controller app gets play/pause but no browse tree; tapping a
-`geode://` link shows the dialog and Cancel writes nothing; the mic indicator goes off
-when the app is sent home with Live input on and comes back on return.
+Device checks, 2026-10-30, emulator (API 37.1, small_phone), debug build of the PR merge
+commit e9cca06:
+- **Privacy dialog:** Settings › About › Privacy policy opens offline; headings, bullets
+  and the table (as "What: why. Where." bullets) read cleanly. Pass.
+- **Deep link:** `am start -a VIEW -c BROWSABLE -d geode://preset/…` shows "Import shared
+  preset?" with the preset's name. Cancel leaves `files/presets/` untouched; Import writes
+  `Link Test.json`. Pass. (The template Replace path wasn't exercised.)
+- **Mic:** with Live input on, `dumpsys audio` shows an active, unsilenced recording;
+  HOME logs `rec stop`; returning starts a new recording. Pass.
+- **Session:** playing a track gives the foreground media notification with transport,
+  system controllers connect, and hardware PLAY/PAUSE keys reach the session. Pass.
+- **Not checked:** an untrusted third-party controller being refused the browse tree, and
+  Android Auto (DHU) browsing. Both need an extra app on the device.
 
 ## Checked and fine
 

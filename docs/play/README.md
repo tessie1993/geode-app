@@ -12,6 +12,7 @@ answers it points to.
 | [GRAPHICS.md](GRAPHICS.md) | Icon, feature graphic spec, the screenshot list |
 | [DATA_SAFETY.md](DATA_SAFETY.md) | Data safety form answers, derived from the merged manifest and the code |
 | [POLICY_AUDIT.md](POLICY_AUDIT.md) | Automated Play policy audit of the code (play-policy-insights, 2026-10-30): compliant, two suggestions |
+| [RELEASE_READINESS.md](RELEASE_READINESS.md) | What still blocks a production release, ranked, plus the manifest and intent security pass |
 | [CONTENT_RATING.md](CONTENT_RATING.md) | IARC questionnaire answers, target audience, photosensitivity warning |
 | [../privacy-policy.md](../privacy-policy.md) / [../privacy-policy.html](../privacy-policy.html) | The privacy policy to host at a public URL |
 

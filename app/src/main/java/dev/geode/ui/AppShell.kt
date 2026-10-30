@@ -37,6 +37,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -120,7 +121,12 @@ fun AppRoot() {
         }
     val externalDisplay = rememberExternalDisplay()
     val appState = rememberGeodeAppState(externalDisplay)
-    val bootAnimEnabled = remember { BootAnimationStore(GeodePrefsFiles(context).general).load() }
+    // Read on IO: at cold start this is the first touch of the general prefs file, and a
+    // SharedPreferences read blocks until the whole file has been parsed. Null until it lands,
+    // and nothing below that depends on it (the notice, setup, the intro) draws until then.
+    val bootAnimEnabled by produceState<Boolean?>(null) {
+        value = withContext(Dispatchers.IO) { BootAnimationStore(GeodePrefsFiles(context).general).load() }
+    }
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val onSecondScreen = gui.secondScreen && externalDisplay != null
     if (onSecondScreen) {
@@ -315,11 +321,11 @@ fun AppRoot() {
                     },
                 )
             }
-            if ((!bootAnimEnabled || appState.bootDone) && !gui.safetyAcknowledged) {
+            if ((bootAnimEnabled == false || appState.bootDone) && !gui.safetyAcknowledged) {
                 SafetyConsent(
                     onAcknowledge = { settingsViewModel.setGuiPrefs(gui.copy(safetyAcknowledged = true)) },
                 )
-            } else if ((!bootAnimEnabled || appState.bootDone) && !gui.setupDone) {
+            } else if ((bootAnimEnabled == false || appState.bootDone) && !gui.setupDone) {
                 // Setup runs only after the notice is acknowledged, and only until it is done.
                 FirstRunGate(
                     onDone = {
@@ -341,7 +347,7 @@ fun AppRoot() {
                     },
                 )
             }
-            if (bootAnimEnabled && !appState.bootDone) {
+            if (bootAnimEnabled == true && !appState.bootDone) {
                 BootIntro(onDone = { appState.bootDone = true })
             }
         }

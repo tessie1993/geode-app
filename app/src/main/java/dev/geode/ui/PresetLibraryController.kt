@@ -85,7 +85,7 @@ internal class PresetLibraryController(
         folder: String = "",
     ) {
         @Suppress("NAME_SHADOWING")
-        val name = name.replace(" · ", " - ").trim().ifEmpty { "Preset" }
+        val name = name.replace(" · ", " - ").trim().ifEmpty { application.getString(dev.geode.R.string.preset_untitled) }
         val s = host.vizState.value
         val milkPath = host.activeMilkPath
         storeScope.launch {
@@ -181,7 +181,7 @@ internal class PresetLibraryController(
             incoming.name
                 .replace(" · ", " - ")
                 .trim()
-                .ifBlank { "Shared preset" }
+                .ifBlank { application.getString(dev.geode.R.string.preset_shared_untitled) }
         var name = base
         var n = 2
         while (name in existing) {

@@ -1,5 +1,8 @@
 package dev.geode.export
 
+import android.content.res.Resources
+import androidx.annotation.StringRes
+import dev.geode.R
 import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.pow
@@ -28,7 +31,9 @@ data class LoudnessWindow(
  */
 sealed interface LoudnessTarget {
     val id: String
-    val label: String
+
+    @get:StringRes
+    val labelRes: Int
     val summary: String
 
     /**
@@ -39,44 +44,43 @@ sealed interface LoudnessTarget {
         val window: LoudnessWindow
 
         /** How the target reads in prose, e.g. "about -14 LUFS". */
-        val levelPhrase: String
+        @get:StringRes
+        val levelPhraseRes: Int
 
         /** What the platform does to a file that arrives under the target. */
-        val quietNote: String
+        @get:StringRes
+        val quietNoteRes: Int
 
         /** What the platform does to a file that arrives over it. */
-        val loudNote: String
+        @get:StringRes
+        val loudNoteRes: Int
     }
 
     data object YouTube : Normalising {
         override val id: String = "youtube"
-        override val label: String = "YouTube"
+        override val labelRes: Int = R.string.export_preset_youtube
         override val summary: String = "About -14 LUFS with 1 dB of true-peak headroom."
         override val window: LoudnessWindow =
             LoudnessWindow(aimLufs = -14.0, lowLufs = -15.0, highLufs = -13.0, ceilingDbtp = -1.0)
-        override val levelPhrase: String = "about -14 LUFS"
-        override val quietNote: String =
-            "YouTube only ever turns audio down, never up, so a quiet upload simply plays quiet next to everything else"
-        override val loudNote: String =
-            "YouTube will pull it back to about -14 LUFS on playback whatever you do, so nothing here is broken"
+        override val levelPhraseRes: Int = R.string.export_loudness_youtube_level
+        override val quietNoteRes: Int = R.string.export_loudness_youtube_quiet
+        override val loudNoteRes: Int = R.string.export_loudness_youtube_loud
     }
 
     data object ShortsAndTikTok : Normalising {
         override val id: String = "shorts"
-        override val label: String = "Shorts & TikTok"
+        override val labelRes: Int = R.string.export_loudness_shorts
         override val summary: String = "About -10 to -12 LUFS — phone-speaker loud, the way short-form feeds sit."
         override val window: LoudnessWindow =
             LoudnessWindow(aimLufs = -11.0, lowLufs = -12.0, highLufs = -10.0, ceilingDbtp = -1.0)
-        override val levelPhrase: String = "-10 to -12 LUFS"
-        override val quietNote: String =
-            "short-form feeds normalise loosely and phone speakers are heard in noisy rooms, so a quiet upload gets lost"
-        override val loudNote: String =
-            "pushed much past this the feeds pull it back anyway, and over-loud short-form audio is what sounds crushed"
+        override val levelPhraseRes: Int = R.string.export_loudness_shorts_level
+        override val quietNoteRes: Int = R.string.export_loudness_shorts_quiet
+        override val loudNoteRes: Int = R.string.export_loudness_shorts_loud
     }
 
     data object LeaveAsIs : LoudnessTarget {
         override val id: String = "as-is"
-        override val label: String = "Leave as-is"
+        override val labelRes: Int = R.string.export_loudness_as_is
         override val summary: String = "Ship the level you mixed. Geode still measures the file and says what a platform will do."
     }
 
@@ -101,11 +105,14 @@ enum class GainDirection {
  *
  * [gainDb] is always the gain to apply on export, so a caller that only wants the number never has
  * to unpack the variant. [headline] fits a row or a button; [detail] is the paragraph underneath.
+ * Both read their wording from the given [Resources]; the numbers in it come from [LoudnessTargets].
  */
 sealed interface LoudnessAdvice {
     val gainDb: Double
-    val headline: String
-    val detail: String
+
+    fun headline(res: Resources): String
+
+    fun detail(res: Resources): String
 
     /** [gainDb] as a multiplier, ready for a gain stage. */
     val linearGain: Float
@@ -113,10 +120,10 @@ sealed interface LoudnessAdvice {
 
     data object NothingToMeasure : LoudnessAdvice {
         override val gainDb: Double = 0.0
-        override val headline: String = "No audio to measure"
-        override val detail: String =
-            "Nothing in this file rises above the -70 LUFS gate, so there is no loudness to report. If the export was " +
-                "meant to have sound, it did not capture any."
+
+        override fun headline(res: Resources): String = res.getString(R.string.export_loudness_none_headline)
+
+        override fun detail(res: Resources): String = res.getString(R.string.export_loudness_none_detail)
     }
 
     data class AsMixed(
@@ -124,22 +131,34 @@ sealed interface LoudnessAdvice {
         val truePeakDbtp: Double,
     ) : LoudnessAdvice {
         override val gainDb: Double = 0.0
-        override val headline: String = "Leaving the level alone"
 
-        override val detail: String
-            get() =
-                buildString {
-                    append("Measured ${LoudnessTargets.lufsText(lufs)}, true peak ${LoudnessTargets.dbtpText(truePeakDbtp)}. ")
-                    append("MuzViz applies no gain, so the file goes out exactly as mixed.")
-                    val underYouTube = LoudnessTarget.YouTube.window.aimLufs - lufs
-                    if (underYouTube > QUIET_HINT_LU) {
-                        append(" For reference: ${LoudnessTarget.YouTube.quietNote}, and this sits ")
-                        append("${LoudnessTargets.luText(underYouTube)} under it.")
-                    }
-                    if (truePeakDbtp > YOUTUBE_CEILING_DBTP) {
-                        append(" The true peak is above -1 dBTP, which is where lossy encoders start to distort.")
-                    }
+        override fun headline(res: Resources): String = res.getString(R.string.export_loudness_as_mixed_headline)
+
+        override fun detail(res: Resources): String =
+            buildString {
+                append(
+                    res.getString(
+                        R.string.export_loudness_as_mixed_detail,
+                        LoudnessTargets.lufsText(lufs),
+                        LoudnessTargets.dbtpText(truePeakDbtp),
+                    ),
+                )
+                val underYouTube = LoudnessTarget.YouTube.window.aimLufs - lufs
+                if (underYouTube > QUIET_HINT_LU) {
+                    append(' ')
+                    append(
+                        res.getString(
+                            R.string.export_loudness_as_mixed_quiet,
+                            res.getString(LoudnessTarget.YouTube.quietNoteRes),
+                            LoudnessTargets.luText(underYouTube),
+                        ),
+                    )
                 }
+                if (truePeakDbtp > YOUTUBE_CEILING_DBTP) {
+                    append(' ')
+                    append(res.getString(R.string.export_loudness_peak_warning))
+                }
+            }
     }
 
     data class OnTarget(
@@ -148,13 +167,19 @@ sealed interface LoudnessAdvice {
         val truePeakDbtp: Double,
     ) : LoudnessAdvice {
         override val gainDb: Double = 0.0
-        override val headline: String = "Already at the ${target.label} level"
 
-        override val detail: String
-            get() =
-                "Measured ${LoudnessTargets.lufsText(lufs)}, inside the ${target.levelPhrase} ${target.label} plays at, " +
-                    "and the true peak of ${LoudnessTargets.dbtpText(truePeakDbtp)} clears the " +
-                    "${LoudnessTargets.dbtpText(target.window.ceilingDbtp)} ceiling. Nothing to apply."
+        override fun headline(res: Resources): String =
+            res.getString(R.string.export_loudness_on_target_headline, res.getString(target.labelRes))
+
+        override fun detail(res: Resources): String =
+            res.getString(
+                R.string.export_loudness_on_target_detail,
+                LoudnessTargets.lufsText(lufs),
+                res.getString(target.levelPhraseRes),
+                res.getString(target.labelRes),
+                LoudnessTargets.dbtpText(truePeakDbtp),
+                LoudnessTargets.dbtpText(target.window.ceilingDbtp),
+            )
     }
 
     /**
@@ -183,71 +208,108 @@ sealed interface LoudnessAdvice {
         val ceilingLimited: Boolean
             get() = gainDb < gainForLevelDb - LoudnessTargets.GAIN_TOLERANCE_DB
 
-        override val headline: String
-            get() =
-                when (direction) {
-                    GainDirection.UP -> "Turn it up ${LoudnessTargets.dbText(gainDb)} for ${target.label}"
-                    GainDirection.DOWN -> "Turn it down ${LoudnessTargets.dbText(gainDb)} for ${target.label}"
-                    GainDirection.UNCHANGED -> "Already at the ${target.label} level"
-                }
+        override fun headline(res: Resources): String {
+            val label = res.getString(target.labelRes)
+            return when (direction) {
+                GainDirection.UP -> res.getString(R.string.export_loudness_up_headline, LoudnessTargets.dbText(gainDb), label)
+                GainDirection.DOWN -> res.getString(R.string.export_loudness_down_headline, LoudnessTargets.dbText(gainDb), label)
+                GainDirection.UNCHANGED -> res.getString(R.string.export_loudness_on_target_headline, label)
+            }
+        }
 
-        override val detail: String
-            get() =
-                when (direction) {
-                    GainDirection.UP -> raiseDetail()
-                    GainDirection.DOWN -> lowerDetail()
-                    GainDirection.UNCHANGED -> "Measured ${LoudnessTargets.lufsText(lufs)}. Close enough to leave alone."
-                }
-
-        private fun raiseDetail(): String =
-            buildString {
-                append("Measured ${LoudnessTargets.lufsText(lufs)}, ")
-                append("${LoudnessTargets.luText(gainForLevelDb)} under the ${target.levelPhrase} ${target.label} plays at. ")
-                append("${target.quietNote.replaceFirstChar { it.uppercase() }}. ")
-                if (ceilingLimited) {
-                    append("Going the whole way would push the true peak past the ")
-                    append("${LoudnessTargets.dbtpText(target.window.ceilingDbtp)} ceiling, so Geode will add only ")
-                    append("${LoudnessTargets.dbText(gainDb)}, landing at ${LoudnessTargets.lufsText(resultingLufs)}. ")
-                    append("Closing the rest of the gap needs a limiter on the mix, not more gain.")
-                } else {
-                    append("MuzViz will add ${LoudnessTargets.dbText(gainDb)} on export, landing at ")
-                    append("${LoudnessTargets.lufsText(resultingLufs)} with a true peak of ")
-                    append("${LoudnessTargets.dbtpText(resultingTruePeakDbtp)}.")
-                }
+        override fun detail(res: Resources): String =
+            when (direction) {
+                GainDirection.UP -> raiseDetail(res)
+                GainDirection.DOWN -> lowerDetail(res)
+                GainDirection.UNCHANGED -> res.getString(R.string.export_loudness_unchanged_detail, LoudnessTargets.lufsText(lufs))
             }
 
-        private fun lowerDetail(): String =
-            buildString {
-                append("Measured ${LoudnessTargets.lufsText(lufs)}, true peak ${LoudnessTargets.dbtpText(truePeakDbtp)}. ")
-                when {
-                    // Quiet, but already clipping: gain cannot help, only a limiter can.
-                    lufs < target.window.lowLufs -> {
-                        append("That is under the ${target.levelPhrase} ${target.label} plays at, but the peak is already ")
-                        append("over the ${LoudnessTargets.dbtpText(target.window.ceilingDbtp)} ceiling, and gain alone can ")
-                        append("only make that worse. Geode will take off ${LoudnessTargets.dbText(gainDb)} to get the ")
-                        append("peak legal; getting louder as well needs a limiter on the mix.")
-                    }
-                    // Genuinely louder than the platform plays at.
-                    lufs > target.window.highLufs -> {
-                        append("That is ${LoudnessTargets.luText(gainForLevelDb)} over the ${target.levelPhrase} ")
-                        append("${target.label} plays at — ${target.loudNote}. Geode will take off ")
-                        append("${LoudnessTargets.dbText(gainDb)}")
-                        if (ceilingLimited) {
-                            append(" — a shade more than the level alone needs, so the true peak clears the ")
-                            append("${LoudnessTargets.dbtpText(target.window.ceilingDbtp)} ceiling too")
-                        }
-                        append(", landing at ${LoudnessTargets.lufsText(resultingLufs)} with a true peak of ")
-                        append("${LoudnessTargets.dbtpText(resultingTruePeakDbtp)}.")
-                    }
-                    // Level is fine; the ceiling is the only reason to touch it.
-                    else -> {
-                        append("The level is where ${target.label} wants it, but the peak is over the ")
-                        append("${LoudnessTargets.dbtpText(target.window.ceilingDbtp)} ceiling, where lossy encoders start ")
-                        append("to distort. Geode will take off ${LoudnessTargets.dbText(gainDb)}, landing at ")
-                        append("${LoudnessTargets.lufsText(resultingLufs)}.")
-                    }
-                }
+        private fun raiseDetail(res: Resources): String =
+            if (ceilingLimited) {
+                res.getString(
+                    R.string.export_loudness_raise_limited_detail,
+                    LoudnessTargets.lufsText(lufs),
+                    LoudnessTargets.luText(gainForLevelDb),
+                    res.getString(target.levelPhraseRes),
+                    res.getString(target.labelRes),
+                    res.getString(target.quietNoteRes).replaceFirstChar { it.uppercase() },
+                    LoudnessTargets.dbtpText(target.window.ceilingDbtp),
+                    LoudnessTargets.dbText(gainDb),
+                    LoudnessTargets.lufsText(resultingLufs),
+                )
+            } else {
+                res.getString(
+                    R.string.export_loudness_raise_detail,
+                    LoudnessTargets.lufsText(lufs),
+                    LoudnessTargets.luText(gainForLevelDb),
+                    res.getString(target.levelPhraseRes),
+                    res.getString(target.labelRes),
+                    res.getString(target.quietNoteRes).replaceFirstChar { it.uppercase() },
+                    LoudnessTargets.dbText(gainDb),
+                    LoudnessTargets.lufsText(resultingLufs),
+                    LoudnessTargets.dbtpText(resultingTruePeakDbtp),
+                )
             }
+
+        private fun lowerDetail(res: Resources): String {
+            val measured = LoudnessTargets.lufsText(lufs)
+            val peak = LoudnessTargets.dbtpText(truePeakDbtp)
+            val ceiling = LoudnessTargets.dbtpText(target.window.ceilingDbtp)
+            val label = res.getString(target.labelRes)
+            val level = res.getString(target.levelPhraseRes)
+            return when {
+                // Quiet, but already clipping: gain cannot help, only a limiter can.
+                lufs < target.window.lowLufs ->
+                    res.getString(
+                        R.string.export_loudness_lower_clipping_detail,
+                        measured,
+                        peak,
+                        level,
+                        label,
+                        ceiling,
+                        LoudnessTargets.dbText(gainDb),
+                    )
+                // Genuinely louder than the platform plays at.
+                lufs > target.window.highLufs && ceilingLimited ->
+                    res.getString(
+                        R.string.export_loudness_lower_loud_limited_detail,
+                        measured,
+                        peak,
+                        LoudnessTargets.luText(gainForLevelDb),
+                        level,
+                        label,
+                        res.getString(target.loudNoteRes),
+                        LoudnessTargets.dbText(gainDb),
+                        ceiling,
+                        LoudnessTargets.lufsText(resultingLufs),
+                        LoudnessTargets.dbtpText(resultingTruePeakDbtp),
+                    )
+                lufs > target.window.highLufs ->
+                    res.getString(
+                        R.string.export_loudness_lower_loud_detail,
+                        measured,
+                        peak,
+                        LoudnessTargets.luText(gainForLevelDb),
+                        level,
+                        label,
+                        res.getString(target.loudNoteRes),
+                        LoudnessTargets.dbText(gainDb),
+                        LoudnessTargets.lufsText(resultingLufs),
+                        LoudnessTargets.dbtpText(resultingTruePeakDbtp),
+                    )
+                // Level is fine; the ceiling is the only reason to touch it.
+                else ->
+                    res.getString(
+                        R.string.export_loudness_lower_peak_detail,
+                        measured,
+                        peak,
+                        label,
+                        ceiling,
+                        LoudnessTargets.dbText(gainDb),
+                        LoudnessTargets.lufsText(resultingLufs),
+                    )
+            }
+        }
     }
 }
 

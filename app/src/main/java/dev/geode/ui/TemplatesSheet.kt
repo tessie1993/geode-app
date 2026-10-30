@@ -2,6 +2,7 @@ package dev.geode.ui
 
 import android.content.Context
 import android.content.Intent
+import android.content.res.Resources
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -26,6 +27,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -57,6 +59,7 @@ fun TemplatesSheet(
     // Resolved here rather than inside the click lambda: lint (LocalContextGetResourceValueCall)
     // rejects Context.getString through LocalContext because it is not configuration-aware.
     val clipboardEmptyNote = stringResource(R.string.template_clipboard_empty)
+    val resources = LocalResources.current
     var note by remember { mutableStateOf<String?>(null) }
     var saveName by remember { mutableStateOf("") }
     var deleting by remember { mutableStateOf<VideoTemplate?>(null) }
@@ -64,7 +67,7 @@ fun TemplatesSheet(
     val filePicker =
         rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
             if (uri != null) {
-                visualsViewModel.importTemplateFile(uri) { outcome -> note = messageFor(outcome) }
+                visualsViewModel.importTemplateFile(uri) { outcome -> note = messageFor(outcome, resources) }
             }
         }
 
@@ -83,7 +86,7 @@ fun TemplatesSheet(
                         if (pasted.isNullOrBlank()) {
                             note = clipboardEmptyNote
                         } else {
-                            visualsViewModel.importTemplateText(pasted) { outcome -> note = messageFor(outcome) }
+                            visualsViewModel.importTemplateText(pasted) { outcome -> note = messageFor(outcome, resources) }
                         }
                     }) { Text(stringResource(R.string.template_paste_link)) }
                     CrystalButton(compact = true, filled = false, onClick = {
@@ -119,7 +122,7 @@ fun TemplatesSheet(
                             visualsViewModel.saveCurrentAsTemplate(trimmed, shader) { result ->
                                 note =
                                     when (result) {
-                                        TemplateWrite.Written -> "Saved \"$trimmed\"."
+                                        TemplateWrite.Written -> resources.getString(R.string.template_saved, trimmed)
                                         is TemplateWrite.Failed -> result.why
                                     }
                             }
@@ -165,7 +168,7 @@ fun TemplatesSheet(
                     onApply = { visualsViewModel.applyTemplate(t) },
                     onShare = null,
                     onTrailing = {
-                        visualsViewModel.adoptTemplate(t) { outcome -> note = messageFor(outcome) }
+                        visualsViewModel.adoptTemplate(t) { outcome -> note = messageFor(outcome, resources) }
                     },
                     trailingIsDestructive = false,
                 )
@@ -219,10 +222,13 @@ private fun TemplateRow(
     }
 }
 
-private fun messageFor(outcome: TemplateImport): String =
+private fun messageFor(
+    outcome: TemplateImport,
+    res: Resources,
+): String =
     when (outcome) {
-        is TemplateImport.Added -> "Imported \"${outcome.template.name}\"."
-        is TemplateImport.Replaced -> "Updated \"${outcome.template.name}\"."
+        is TemplateImport.Added -> res.getString(R.string.template_imported, outcome.template.name)
+        is TemplateImport.Replaced -> res.getString(R.string.template_updated, outcome.template.name)
         is TemplateImport.Unreadable -> outcome.why
         is TemplateImport.WriteFailed -> outcome.why
     }
@@ -236,7 +242,7 @@ private fun shareTemplate(
     val send =
         Intent(Intent.ACTION_SEND).apply {
             type = "text/plain"
-            putExtra(Intent.EXTRA_SUBJECT, "MuzViz template: ${template.name}")
+            putExtra(Intent.EXTRA_SUBJECT, context.getString(R.string.template_share_subject, template.name))
             putExtra(Intent.EXTRA_TEXT, link)
         }
     runCatching { context.startActivity(Intent.createChooser(send, context.getString(R.string.template_share))) }

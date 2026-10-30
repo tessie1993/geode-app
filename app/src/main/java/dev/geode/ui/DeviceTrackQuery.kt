@@ -51,9 +51,9 @@ object DeviceTrackQuery {
                         out +=
                             DeviceTrack(
                                 uri = uri.toString(),
-                                title = c.getString(ti) ?: "Unknown",
-                                artist = c.getString(ar) ?: "Unknown artist",
-                                album = c.getString(al) ?: "Unknown album",
+                                title = c.getString(ti) ?: context.getString(dev.geode.R.string.library_unknown_title),
+                                artist = c.getString(ar) ?: context.getString(dev.geode.R.string.subtitle_unknown_artist),
+                                album = c.getString(al) ?: context.getString(dev.geode.R.string.library_unknown_album),
                                 folder = path.substringBeforeLast('/', ""),
                                 durationMs = c.getLong(du),
                                 addedSec = c.getLong(ad),

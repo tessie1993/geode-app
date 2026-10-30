@@ -25,6 +25,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -105,7 +106,7 @@ fun SettingsDialog(
                                 stringResource(R.string.export_rendering_offline),
                                 run.secondsRemaining?.let {
                                     dev.geode.export.RenderEta
-                                        .describe(it)
+                                        .describe(LocalResources.current, it)
                                 },
                             ).joinToString(" · "),
                         )
@@ -130,9 +131,9 @@ fun SettingsDialog(
                             ),
                         )
                         export.loudnessAdvice?.let { advice ->
-                            Text(advice.headline, style = MaterialTheme.typography.labelMedium)
+                            Text(advice.headline(LocalResources.current), style = MaterialTheme.typography.labelMedium)
                             Text(
-                                advice.detail,
+                                advice.detail(LocalResources.current),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -158,7 +159,7 @@ fun SettingsDialog(
                             horizontalArrangement = Arrangement.spacedBy(6.dp),
                         ) {
                             CrystalSegmented(
-                                options = ExportPresets.ALL.map { it.name },
+                                options = ExportPresets.ALL.map { stringResource(it.nameRes) },
                                 selected = ExportPresets.indexMatching(quality, ratio, fps, loopSafe),
                                 onSelect = {
                                     val preset = ExportPresets.ALL[it]
@@ -217,7 +218,7 @@ fun SettingsDialog(
                             horizontalArrangement = Arrangement.spacedBy(6.dp),
                         ) {
                             LoudnessTarget.ALL.forEach { target ->
-                                QualityChip(target.label, loudnessTarget.id == target.id) {
+                                QualityChip(stringResource(target.labelRes), loudnessTarget.id == target.id) {
                                     loudnessTargetId = target.id
                                     persistDefaults()
                                 }

@@ -90,9 +90,8 @@ the native core. Inside `:app`, dependency flow is one-way: `ui` depends on
 
 ## Tests
 
-Three test files exist: `app/src/test/.../PresetLinkTest.kt`,
-`app/src/androidTest/.../BuildVariantTest.kt` and
-`engine/audio-core/src/test/.../FeatureRingTest.kt`. Checks that cannot run
+JVM unit tests live in `app/src/test` and `engine/*/src/test`, and CI runs
+every module's; instrumented tests live in `app/src/androidTest`. Checks that cannot run
 headless (GL behaviour, capture, wallpaper) are listed in
 [docs/DEVICE_CHECKS.md](docs/DEVICE_CHECKS.md), a partial reconstruction.
 `tools/glslcheck` compiles and renders every fragment style and every fluid

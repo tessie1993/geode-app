@@ -229,7 +229,7 @@ internal class QueueController(
                     .query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
                     ?.use { c -> if (c.moveToFirst()) c.getString(0) else null }
             }.getOrNull()?.substringBeforeLast('.')
-        return (name ?: "Track") to ""
+        return (name ?: application.getString(dev.geode.R.string.library_untitled_track)) to ""
     }
 
     private fun playOrder(): List<Int> {
@@ -260,7 +260,7 @@ internal class QueueController(
                                 ?.lastPathSegment
                                 ?.substringAfterLast('/')
                                 ?.substringBeforeLast('.')
-                            ?: "Track ${position + 1}",
+                            ?: application.getString(dev.geode.R.string.playlist_untitled_track, position + 1),
                     artist =
                         item.mediaMetadata.artist
                             ?.toString()
@@ -299,7 +299,7 @@ internal class QueueController(
                     ?.lastPathSegment
                     ?.substringAfterLast('/')
                     ?.substringBeforeLast('.')
-                ?: "Track ${position + 1}"
+                ?: application.getString(dev.geode.R.string.playlist_untitled_track, position + 1)
         }
 
     fun playQueueIndex(index: Int) {

@@ -52,7 +52,7 @@ internal fun ExportSettingsTab(
                     Text(stringResource(R.string.export_platform_preset), style = MaterialTheme.typography.labelMedium)
                     Row(Modifier.fillMaxWidth().padding(top = 4.dp).horizontalScroll(rememberScrollState())) {
                         CrystalSegmented(
-                            options = ExportPresets.ALL.map { it.name },
+                            options = ExportPresets.ALL.map { stringResource(it.nameRes) },
                             selected =
                                 ExportPresets.indexMatching(
                                     defaults.quality,
@@ -181,6 +181,6 @@ internal fun presetCaption(
         if (defaults.loopSafe) stringResource(R.string.export_spec_loop_safe, baseSpec) else baseSpec
     return ExportPresets
         .matching(defaults.quality, defaults.ratio, defaults.fps, defaults.loopSafe)
-        ?.let { stringResource(R.string.export_named_preset, it.name, spec) }
+        ?.let { stringResource(R.string.export_named_preset, stringResource(it.nameRes), spec) }
         ?: stringResource(R.string.export_custom_preset, spec)
 }

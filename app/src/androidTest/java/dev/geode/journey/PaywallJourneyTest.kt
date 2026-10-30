@@ -43,7 +43,7 @@ class PaywallJourneyTest {
     }
 
     private fun openVisualsStyles() {
-        compose.awaitNode(hasText("Nothing playing"))
+        compose.awaitEmptyPlayer()
         compose.tap("Visuals")
         compose.awaitNode(hasText("View live"))
     }

@@ -3,14 +3,17 @@ package dev.geode.journey
 import android.content.Context
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
+import androidx.compose.ui.test.ComposeTimeoutException
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.test.junit4.ComposeTestRule
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.printToLog
 import androidx.core.content.edit
 import androidx.test.core.app.ApplicationProvider
 import dev.geode.data.GeodePrefsFiles
@@ -51,13 +54,51 @@ const val JOURNEY_TIMEOUT_MS = 10_000L
 fun ComposeTestRule.awaitNode(
     matcher: SemanticsMatcher,
     timeoutMs: Long = JOURNEY_TIMEOUT_MS,
-) = waitUntil(timeoutMs) { onAllNodes(matcher).fetchSemanticsNodes().isNotEmpty() }
+) {
+    awaitOrDump("a node with ${matcher.description}", timeoutMs) {
+        onAllNodes(matcher).fetchSemanticsNodes().isNotEmpty()
+    }
+}
 
 /** Waits until no node matches, e.g. a dialog that should have closed. */
 fun ComposeTestRule.awaitNoNode(
     matcher: SemanticsMatcher,
     timeoutMs: Long = JOURNEY_TIMEOUT_MS,
-) = waitUntil(timeoutMs) { onAllNodes(matcher).fetchSemanticsNodes().isEmpty() }
+) {
+    awaitOrDump("no node with ${matcher.description}", timeoutMs) {
+        onAllNodes(matcher).fetchSemanticsNodes().isEmpty()
+    }
+}
+
+/**
+ * The Player tab with an empty queue. Its "Nothing playing" overline is drawn uppercased by
+ * CrystalOverline, so the title under it is the stable thing to look for.
+ */
+fun ComposeTestRule.awaitEmptyPlayer() = awaitNode(hasText("Pick something to play"))
+
+/**
+ * [ComposeTestRule.waitUntil] that, on timeout, prints every window's semantics tree to logcat
+ * (tag [DUMP_TAG]) before failing. CI keeps each test's logcat, so a journey that stalls on an
+ * unexpected screen shows which screen it was.
+ */
+private fun ComposeTestRule.awaitOrDump(
+    what: String,
+    timeoutMs: Long,
+    condition: () -> Boolean,
+) {
+    try {
+        waitUntil(timeoutMs, condition)
+    } catch (e: ComposeTimeoutException) {
+        runCatching {
+            onAllNodes(isRoot()).fetchSemanticsNodes().indices.forEach { i ->
+                onAllNodes(isRoot())[i].printToLog(DUMP_TAG, maxDepth = Int.MAX_VALUE)
+            }
+        }
+        throw AssertionError("Timed out after $timeoutMs ms waiting for $what", e)
+    }
+}
+
+private const val DUMP_TAG = "JourneyTree"
 
 /**
  * Taps the first clickable thing labelled [label], the way a user would look for it: by its

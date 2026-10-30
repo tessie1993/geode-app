@@ -30,7 +30,7 @@ class ExportJourneyTest {
 
     @Test
     fun exportDialogStartButtonIsReachable() {
-        compose.awaitNode(hasText("Nothing playing"))
+        compose.awaitEmptyPlayer()
         compose.tap("Settings")
         compose.tap("Export")
         compose.tap("Export video…")

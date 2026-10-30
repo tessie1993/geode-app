@@ -44,13 +44,13 @@ class AppLaunchSmokeTest {
         compose.waitForIdle()
         if (compose.onAllNodes(hasText("Skip")).fetchSemanticsNodes().isNotEmpty()) compose.tap("Skip")
 
-        compose.awaitNode(hasText("Nothing playing"))
+        compose.awaitEmptyPlayer()
     }
 
     @Test
     fun everyTabOpens() {
         // Seeded past onboarding: the shell starts on the Player tab with an empty queue.
-        compose.awaitNode(hasText("Nothing playing"))
+        compose.awaitEmptyPlayer()
 
         compose.tap("Library")
         compose.waitForIdle()
@@ -66,6 +66,6 @@ class AppLaunchSmokeTest {
         compose.awaitNode(hasText("Export"))
 
         compose.tap("Player")
-        compose.awaitNode(hasText("Nothing playing"))
+        compose.awaitEmptyPlayer()
     }
 }

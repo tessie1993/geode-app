@@ -31,7 +31,7 @@ class VisualsJourneyTest {
     val rules: RuleChain = RuleChain.outerRule(Onboarded()).around(compose)
 
     private fun openVisuals() {
-        compose.awaitNode(hasText("Nothing playing"))
+        compose.awaitEmptyPlayer()
         compose.tap("Visuals")
         compose.awaitNode(hasText("View live"))
     }

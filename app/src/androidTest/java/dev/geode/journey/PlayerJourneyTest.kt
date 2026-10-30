@@ -44,7 +44,7 @@ class PlayerJourneyTest {
     /** QA #5: ExoPlayer ignores play() in STATE_ENDED; the Play button must restart the track. */
     @Test
     fun playRestartsATrackThatHasEnded() {
-        compose.awaitNode(hasText("Nothing playing"))
+        compose.awaitEmptyPlayer()
         val b = connectBrowser().also { browser = it }
         val item = TestTrack.mediaItem(TestTrack.write())
         onMain {
@@ -53,7 +53,9 @@ class PlayerJourneyTest {
             b.prepare()
             b.play()
         }
-        awaitMain("the track to end", timeoutMs = 3 * JOURNEY_TIMEOUT_MS) { b.playbackState == Player.STATE_ENDED }
+        awaitMain("the track to end", timeoutMs = 3 * JOURNEY_TIMEOUT_MS) {
+            b.playbackState == Player.STATE_ENDED
+        }
 
         // Latched from a listener: the restarted track plays for only three seconds.
         val restarted = b.latchPlaying()
@@ -69,7 +71,7 @@ class PlayerJourneyTest {
      */
     @Test
     fun repeatButtonNamesItsMode() {
-        compose.awaitNode(hasText("Nothing playing"))
+        compose.awaitEmptyPlayer()
         val repeat = hasContentDescription("Repeat", substring = true) and hasClickAction()
         val spoken = mutableListOf<String>()
         repeat(3) {

@@ -53,7 +53,9 @@ class PlaybackServiceTest {
             browser.prepare()
             browser.play()
         }
-        awaitMain("the track to end", timeoutMs = 3 * JOURNEY_TIMEOUT_MS) { browser.playbackState == Player.STATE_ENDED }
+        awaitMain("the track to end", timeoutMs = 3 * JOURNEY_TIMEOUT_MS) {
+            browser.playbackState == Player.STATE_ENDED
+        }
         assertThat(played.get()).isTrue()
         assertThat(onMain { browser.isPlaying }).isFalse()
     }

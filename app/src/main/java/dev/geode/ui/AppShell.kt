@@ -346,6 +346,7 @@ fun AppRoot() {
                 BootIntro(onDone = { appState.bootDone = true })
             }
             PaywallHost(reducedMotion = gui.reducedMotion)
+            SharedLinkConfirm()
         }
     }
 }

@@ -20,9 +20,15 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.annotation.OptIn
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
@@ -53,6 +59,92 @@ internal object VisualizerPipCoordinator {
 }
 
 /**
+ * Hands a shared link from the Activity's intent to the UI, which asks before importing
+ * ([SharedLinkConfirm], drawn by `AppRoot` inside the theme). Activity-scoped state in a
+ * process-wide object, like [VisualizerPipCoordinator]: there is one Activity.
+ */
+internal object SharedLinkInbox {
+    var offer by mutableStateOf<SharedLinkOffer?>(null)
+}
+
+/** "Import shared preset?" / "Replace template?" for the link waiting in [SharedLinkInbox]. */
+@Composable
+internal fun SharedLinkConfirm() {
+    val offer = SharedLinkInbox.offer ?: return
+    val visualsViewModel: VisualsViewModel = geodeViewModel()
+    val context = LocalContext.current
+    val dismiss = { SharedLinkInbox.offer = null }
+    val replaces = (offer as? SharedLinkOffer.Template)?.replaces
+    val title =
+        when {
+            offer is SharedLinkOffer.Preset -> R.string.link_offer_preset_title
+            replaces != null -> R.string.link_offer_replace_title
+            else -> R.string.link_offer_template_title
+        }
+    val body =
+        when {
+            offer is SharedLinkOffer.Preset ->
+                stringResource(
+                    R.string.link_offer_preset_body,
+                    offer.name.ifBlank { stringResource(R.string.preset_shared_untitled) },
+                )
+            replaces != null -> stringResource(R.string.link_offer_replace_body, replaces)
+            else ->
+                stringResource(
+                    R.string.link_offer_template_body,
+                    offer.name.ifBlank { stringResource(R.string.link_offer_untitled_template) },
+                )
+        }
+    val confirm = if (replaces != null) R.string.link_offer_replace else R.string.link_offer_import
+    AlertDialog(
+        onDismissRequest = dismiss,
+        title = { Text(stringResource(title)) },
+        text = { Text(body) },
+        confirmButton = {
+            TextButton(onClick = {
+                dismiss()
+                when (offer) {
+                    is SharedLinkOffer.Preset -> importSharedPreset(context, visualsViewModel, offer.link)
+                    is SharedLinkOffer.Template -> importSharedTemplate(context, visualsViewModel, offer.link)
+                }
+            }) { Text(stringResource(confirm)) }
+        },
+        dismissButton = { TextButton(onClick = dismiss) { Text(stringResource(R.string.action_cancel)) } },
+    )
+}
+
+private fun importSharedPreset(
+    context: Context,
+    visualsViewModel: VisualsViewModel,
+    data: String,
+) {
+    val message =
+        when (val result = visualsViewModel.importSharedPreset(data)) {
+            PresetLinkImport.NotALink -> return
+            is PresetLinkImport.Imported -> context.getString(R.string.preset_link_imported, result.name)
+            PresetLinkImport.Unreadable -> context.getString(R.string.preset_link_unreadable)
+        }
+    Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+}
+
+private fun importSharedTemplate(
+    context: Context,
+    visualsViewModel: VisualsViewModel,
+    data: String,
+) {
+    if (!visualsViewModel.isTemplateLink(data)) return
+    visualsViewModel.importSharedTemplate(data) { result ->
+        val message =
+            when (result) {
+                is TemplateLinkImport.Imported -> context.getString(R.string.template_link_imported, result.name)
+                is TemplateLinkImport.Replaced -> context.getString(R.string.template_link_imported, result.name)
+                is TemplateLinkImport.Unreadable -> context.getString(R.string.template_link_unreadable)
+            }
+        Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+    }
+}
+
+/**
  * Unwraps to the hosting [MainActivity], if any — `LocalContext.current` is usually it directly,
  * but is not guaranteed to be.
  */
@@ -78,35 +170,24 @@ class MainActivity : ComponentActivity() {
         intent.action = null
     }
 
-    private fun importSharedPreset(intent: Intent?) {
-        val data = intent?.data?.toString() ?: return
-        val message =
-            when (val result = visualsViewModel.importSharedPreset(data)) {
-                PresetLinkImport.NotALink -> return
-                is PresetLinkImport.Imported -> getString(R.string.preset_link_imported, result.name)
-                PresetLinkImport.Unreadable -> getString(R.string.preset_link_unreadable)
-            }
-        Toast.makeText(this, message, Toast.LENGTH_LONG).show()
-        intent.data = null
-    }
-
     /**
-     * Mirrors [importSharedPreset]: only consumes the intent's data once it is confirmed
-     * to be a template link, so a preset link that reached here first is left alone for
-     * it to have handled and a link neither of them recognises is left for the platform.
+     * A `geode://preset` or `geode://template` link. Anything can send one, so a readable link
+     * is parked in [SharedLinkInbox] for the user to confirm; an unreadable one goes straight
+     * to the import path, which writes nothing and says why. The intent's data is consumed only
+     * when it was one of ours, so anything else is left for the platform.
      */
-    private fun importSharedTemplate(intent: Intent?) {
+    private fun receiveSharedLink(intent: Intent?) {
         val data = intent?.data?.toString() ?: return
-        if (!visualsViewModel.isTemplateLink(data)) return
-        intent.data = null
-        visualsViewModel.importSharedTemplate(data) { result ->
-            val message =
-                when (result) {
-                    is TemplateLinkImport.Imported -> getString(R.string.template_link_imported, result.name)
-                    is TemplateLinkImport.Replaced -> getString(R.string.template_link_imported, result.name)
-                    is TemplateLinkImport.Unreadable -> getString(R.string.template_link_unreadable)
-                }
-            Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+        val offer = visualsViewModel.offerFor(data)
+        if (offer != null) {
+            SharedLinkInbox.offer = offer
+            intent.data = null
+            return
+        }
+        if (PresetLink.isPresetLink(data) || visualsViewModel.isTemplateLink(data)) {
+            importSharedPreset(this, visualsViewModel, data)
+            importSharedTemplate(this, visualsViewModel, data)
+            intent.data = null
         }
     }
 
@@ -205,8 +286,7 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        importSharedPreset(intent)
-        importSharedTemplate(intent)
+        receiveSharedLink(intent)
         playFromSearch(intent)
     }
 
@@ -223,8 +303,7 @@ class MainActivity : ComponentActivity() {
             AppRoot()
         }
         if (savedInstanceState == null) {
-            importSharedPreset(intent)
-            importSharedTemplate(intent)
+            receiveSharedLink(intent)
             playFromSearch(intent)
         }
     }

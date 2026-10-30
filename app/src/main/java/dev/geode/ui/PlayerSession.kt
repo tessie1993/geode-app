@@ -331,6 +331,10 @@ class PlayerSession internal constructor(
 
     fun resetAllCustomize() = modulation.resetAll()
 
+    fun surpriseMacros() = modulation.surpriseMacros()
+
+    fun resetMacros() = modulation.resetMacros()
+
     fun captureSnapshotA() = modulation.captureA()
 
     fun captureSnapshotB() = modulation.captureB()

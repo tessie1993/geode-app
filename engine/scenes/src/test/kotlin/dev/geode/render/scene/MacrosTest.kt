@@ -135,6 +135,26 @@ class MacrosTest {
         }
     }
 
+    @Test
+    fun surpriseMovesTheMacrosButNeverToTheirEnds() {
+        val rng = kotlin.random.Random(42)
+        repeat(20) {
+            val out = Macros.surprise(SceneParams.DEFAULT, shader, rng)
+            assertNotEquals(SceneParams.DEFAULT, out)
+            Macro.entries.forEach { m ->
+                val pos = Macros.position(out, m, shader)
+                assertTrue("${m.name} $pos", pos in 0.15f..0.85f || (m.neutral == 0f && pos <= 0.6f))
+            }
+        }
+    }
+
+    @Test
+    fun resetPutsEveryMacroBackAndLeavesTheRestAlone() {
+        val start = SceneParams.DEFAULT.copy(palette = 4, kaleidoscope = true)
+        val moved = Macro.entries.fold(start) { p, m -> Macros.set(p, m, 0.9f, shader) }
+        assertEquals(start, Macros.reset(moved))
+    }
+
     private companion object {
         val ALL_STYLES: List<String> =
             SceneCapabilities.SHADER_SCENES.keys.toList() +

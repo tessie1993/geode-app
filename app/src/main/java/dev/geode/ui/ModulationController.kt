@@ -10,6 +10,7 @@ import dev.geode.render.LfoEngine
 import dev.geode.render.ParamBlend
 import dev.geode.render.ReactionRoute
 import dev.geode.render.scene.CustomizeTab
+import dev.geode.render.scene.Macros
 import dev.geode.render.scene.ParamRandomizer
 import dev.geode.render.scene.SceneParams
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -141,6 +142,12 @@ internal class ModulationController(
     fun resetTab(tab: CustomizeTab) = commitSceneParams(ParamRandomizer.resetTab(host.params, tab))
 
     fun resetAll() = commitSceneParams(SceneParams.DEFAULT)
+
+    /** Every macro to a random middle-ish position; one undo entry. */
+    fun surpriseMacros() = commitSceneParams(Macros.surprise(host.params, host.sceneId))
+
+    /** Every parameter a macro drives back to its default; one undo entry. */
+    fun resetMacros() = commitSceneParams(Macros.reset(host.params))
 
     fun captureA() = _ab.update { it.copy(a = host.params) }
 

@@ -105,6 +105,40 @@ object Macros {
         return out
     }
 
+    /**
+     * Every macro at a random position: bipolar ones somewhere in [SURPRISE_BIPOLAR] around the
+     * middle, Complexity and Chaos no further than [SURPRISE_UNIPOLAR_MAX]. The ends stay out of
+     * reach because "surprise me" should give a different look, not an extreme one.
+     */
+    fun surprise(
+        params: SceneParams,
+        sceneId: String,
+        rng: kotlin.random.Random = kotlin.random.Random.Default,
+    ): SceneParams =
+        Macro.entries.fold(params) { p, m ->
+            val to =
+                if (m.neutral > 0f) {
+                    SURPRISE_BIPOLAR.start + rng.nextFloat() * (SURPRISE_BIPOLAR.endInclusive - SURPRISE_BIPOLAR.start)
+                } else {
+                    rng.nextFloat() * SURPRISE_UNIPOLAR_MAX
+                }
+            set(p, m, to, sceneId)
+        }
+
+    /**
+     * [params] with every parameter [macros] drive back at its default, and nothing else touched.
+     *
+     * Not the same as moving the knob to [Macro.neutral]: that keeps the look's balance between
+     * the targets (one may sit above its default, another below), while this clears them.
+     */
+    fun reset(
+        params: SceneParams,
+        macros: Collection<Macro> = Macro.entries,
+    ): SceneParams = macros.flatMap(::allTargets).fold(params) { p, t -> t.put(p, t.mid) }
+
+    private val SURPRISE_BIPOLAR = 0.2f..0.8f
+    private const val SURPRISE_UNIPOLAR_MAX = 0.55f
+
     /** The targets of [macro] that the style [sceneId] can actually show. */
     fun targets(
         macro: Macro,

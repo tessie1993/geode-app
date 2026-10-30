@@ -120,9 +120,11 @@ vec2 view() {
         float tr = length(uv) * uTwist * 2.0;
         uv = mat2(cos(tr), -sin(tr), sin(tr), cos(tr)) * uv;
     }
-    // Tiling: repeat the plane into a uTile x uTile grid.
+    // Tiling: repeat the plane into a uTile x uTile grid, every other tile
+    // mirrored so neighbours meet edge to edge. A hard mod() wrap cracked the
+    // picture along every tile boundary, and the macros drive uTile live.
     if (uTile > 1.01) {
-        uv = mod(uv * uTile * 0.5 + 1.0, 2.0) - 1.0;
+        uv = 1.0 - abs(mod(uv * uTile * 0.5 + 1.0, 4.0) - 2.0);
     }
     // Domain warp: swirl coordinates by a sin/cos field.
     if (uWarp > 0.001) {
@@ -161,7 +163,7 @@ vec3 grade(vec3 col) {
 // Circular spectrum: bands radiate from a bass-pulsing core.
 void main() {
     vec2 uv = view();
-    float angle = fract(atan(uv.y, uv.x) / 6.2831 + 0.5 + uTime * 0.02);
+    float angle = fract(atan(uv.y, uv.x) / 6.2831853 + 0.5 + uTime * 0.02);
     float r = length(uv);
     float band = aband(abs(angle * 2.0 - 1.0));
     float inner = 0.35 + uBass * uBeatResponse * 0.12;

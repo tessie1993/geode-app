@@ -120,9 +120,11 @@ vec2 view() {
         float tr = length(uv) * uTwist * 2.0;
         uv = mat2(cos(tr), -sin(tr), sin(tr), cos(tr)) * uv;
     }
-    // Tiling: repeat the plane into a uTile x uTile grid.
+    // Tiling: repeat the plane into a uTile x uTile grid, every other tile
+    // mirrored so neighbours meet edge to edge. A hard mod() wrap cracked the
+    // picture along every tile boundary, and the macros drive uTile live.
     if (uTile > 1.01) {
-        uv = mod(uv * uTile * 0.5 + 1.0, 2.0) - 1.0;
+        uv = 1.0 - abs(mod(uv * uTile * 0.5 + 1.0, 4.0) - 2.0);
     }
     // Domain warp: swirl coordinates by a sin/cos field.
     if (uWarp > 0.001) {
@@ -167,7 +169,7 @@ void main() {
     vec3 col = vec3(0.0);
     float t = uTime * (0.5 + uEnergy * 2.5 + uBeat * uBeatResponse * 0.8);
     for (float layer = 0.0; layer < 3.0; layer++) {
-        float cell = floor(a * (40.0 + layer * 20.0) / 6.2831);
+        float cell = floor(a * (40.0 + layer * 20.0) / 6.2831853);
         float h = hash(vec2(cell, layer));
         float d = fract(h * 7.0 + t * (0.3 + h * 0.7) - r);
         float star = exp(-d * 24.0) * exp(-r * 1.2) * (0.4 + aband(h) * 1.4);

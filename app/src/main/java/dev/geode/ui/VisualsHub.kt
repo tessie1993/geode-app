@@ -63,7 +63,6 @@ import dev.geode.render.scene.SceneCapabilities
 import dev.geode.render.scene.SceneIds
 import dev.geode.render.scene.StyleFamilies
 import dev.geode.render.scene.VisualStyleCatalog
-import dev.geode.ui.pro.PaywallViewModel
 import dev.geode.ui.pro.ProBadge
 import dev.geode.ui.theme.StoneIcon
 import dev.geode.ui.theme.StoneIconArt
@@ -76,6 +75,7 @@ fun VisualsHub(
     visualizerView: VisualizerView,
     onOpenNowPlaying: () -> Unit,
     liveBackdrop: Boolean = false,
+    canvasFree: Boolean = false,
 ) {
     val settingsViewModel: SettingsViewModel = geodeViewModel()
     val studioViewModel: StudioViewModel = geodeViewModel()
@@ -157,7 +157,7 @@ fun VisualsHub(
                 when (tab) {
                     0 -> PresetsTreeTab(viewModel, visualizerView)
                     1 -> StylesTab(viewModel, visualizerView, onOpenTextures = { tab = 3 })
-                    2 -> CustomizePanel(viewModel, visualizerView)
+                    2 -> CustomizePanel(viewModel, visualizerView, preview = canvasFree && !liveBackdrop)
                     3 -> TexturesHubTab(viewModel, visualizerView)
                     4 -> TakesTab(studioViewModel)
                 }
@@ -558,6 +558,8 @@ private fun StylesTab(
     var sub by rememberSaveable { mutableStateOf(0) }
     val viz by viewModel.vizState.collectAsStateWithLifecycle()
     val pickScene: (String) -> Unit = { viewModel.selectScene(it) }
+    val gate by viewModel.gate.collectAsStateWithLifecycle()
+    val locked: (String) -> Boolean = { !gate.allowsStyle(it) }
     Column(Modifier.fillMaxSize()) {
         suggestedSceneToOffer(viz.suggestedSceneId, viz.sceneId)?.let { suggested ->
             Row(
@@ -581,14 +583,14 @@ private fun StylesTab(
             onSelect = { sub = it },
         )
         when (sub) {
-            0 -> SceneList(VisualStyleCatalog.silkIds, viz.sceneId, pickScene)
-            1 -> SceneList(VisualStyleCatalog.lifeIds, viz.sceneId, pickScene)
-            2 -> SceneList(VisualStyleCatalog.mycoIds, viz.sceneId, pickScene)
-            3 -> SceneList(VisualStyleCatalog.acidIds, viz.sceneId, pickScene)
-            4 -> SceneList(SceneCapabilities.SHADER_SCENES.keys.filterNot { it in StyleFamilies.ids }, viz.sceneId, pickScene)
-            5 -> FamilyList(viz.sceneId, pickScene)
-            6 -> SceneList(VisualStyleCatalog.fluidIds + listOf(SceneIds.CURLFLOW, SceneIds.WATER), viz.sceneId, pickScene)
-            7 -> SceneList(VisualStyleCatalog.cymaticsIds, viz.sceneId, pickScene)
+            0 -> SceneList(VisualStyleCatalog.silkIds, viz.sceneId, locked, pickScene)
+            1 -> SceneList(VisualStyleCatalog.lifeIds, viz.sceneId, locked, pickScene)
+            2 -> SceneList(VisualStyleCatalog.mycoIds, viz.sceneId, locked, pickScene)
+            3 -> SceneList(VisualStyleCatalog.acidIds, viz.sceneId, locked, pickScene)
+            4 -> SceneList(SceneCapabilities.SHADER_SCENES.keys.filterNot { it in StyleFamilies.ids }, viz.sceneId, locked, pickScene)
+            5 -> FamilyList(viz.sceneId, locked, pickScene)
+            6 -> SceneList(VisualStyleCatalog.fluidIds + listOf(SceneIds.CURLFLOW, SceneIds.WATER), viz.sceneId, locked, pickScene)
+            7 -> SceneList(VisualStyleCatalog.cymaticsIds, viz.sceneId, locked, pickScene)
             8 -> MilkDropTab(viewModel, visualizerView, onOpenTextures)
         }
     }
@@ -609,6 +611,7 @@ internal fun sceneDisplayLabel(id: String): String {
 private fun SceneList(
     ids: List<String>,
     current: String,
+    locked: (String) -> Boolean,
     onPick: (String) -> Unit,
 ) {
     LazyColumn(Modifier.fillMaxSize()) {
@@ -623,9 +626,11 @@ private fun SceneList(
                 }
                 Text(
                     sceneDisplayLabel(id),
-                    Modifier.padding(start = 10.dp),
+                    Modifier.padding(start = 10.dp).weight(1f),
                     color = if (sel) accentTextColor() else LocalContentColor.current,
                 )
+                // Says up front what a tap would otherwise discover through the paywall.
+                if (locked(id)) ProBadge()
             }
         }
     }
@@ -634,15 +639,14 @@ private fun SceneList(
 /**
  * The style families, each under its own heading, in family order. Forty-eight styles in one flat
  * list would bury the family a style belongs to, and the family is what tells a free user why one
- * style of four is theirs and the other eleven carry a Pro badge.
+ * style in twelve is theirs and the other eleven carry a Pro badge.
  */
 @Composable
 private fun FamilyList(
     current: String,
+    locked: (String) -> Boolean,
     onPick: (String) -> Unit,
 ) {
-    val paywall: PaywallViewModel = geodeViewModel()
-    val gate by paywall.gate.collectAsStateWithLifecycle()
     LazyColumn(Modifier.fillMaxSize()) {
         StyleFamilies.all.forEach { family ->
             item(key = "family_${family.name}") {
@@ -667,7 +671,7 @@ private fun FamilyList(
                         Modifier.padding(start = 10.dp).weight(1f),
                         color = if (sel) accentTextColor() else LocalContentColor.current,
                     )
-                    if (!gate.allowsStyle(id)) ProBadge()
+                    if (locked(id)) ProBadge()
                 }
             }
         }
@@ -913,6 +917,7 @@ private fun selectMilk(
 internal fun CustomizePanel(
     viewModel: PlayerViewModel,
     visualizerView: VisualizerView,
+    preview: Boolean = false,
 ) {
     val visualsViewModel: VisualsViewModel = geodeViewModel()
     val viz by viewModel.vizState.collectAsStateWithLifecycle()
@@ -930,6 +935,10 @@ internal fun CustomizePanel(
         }
     }
     Column(Modifier.fillMaxSize()) {
+        // A live strip above the controls, so a slider's effect shows as it moves instead of
+        // after a trip to "View live" and back. It sits outside the scrolling column: the
+        // canvas is a SurfaceView, which does not scroll or clip like a Compose layer.
+        if (preview) VisualizerCanvasHost(visualizerView, Modifier.fillMaxWidth().height(150.dp))
         CrystalTabs(
             titles = titles,
             selected = sub,

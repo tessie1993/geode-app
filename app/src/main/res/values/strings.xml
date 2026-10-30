@@ -32,6 +32,7 @@
     <string name="first_run_access_allow">Allow music access</string>
     <string name="first_run_access_skip">Not now</string>
     <string name="first_run_access_rationale">Without it, MuzViz can still visualise live sound and play folders you pick by hand. With it, your whole library is here from the start.</string>
+    <string name="first_run_access_skipped">Music access is off for now. A folder you pick here still plays, and Library can ask again whenever you like.</string>
     <string name="first_run_access_retry">Try again</string>
     <string name="permission_open_settings">Open settings</string>
     <string name="onboarding_step">Step %1$d of %2$d</string>

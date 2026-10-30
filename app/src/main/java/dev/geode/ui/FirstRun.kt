@@ -95,7 +95,7 @@ fun FirstRunSetup(
     // plays without any permission, so it is the way in for someone who said no.
     var accessSkipped by rememberSaveable { mutableStateOf(false) }
     if (access == PermissionStatus.GRANTED || accessSkipped) {
-        FolderStep(access == PermissionStatus.GRANTED, folderCount, trackCount, scanning, onPickFolder, onDone, modifier)
+        FolderStep(access, folderCount, trackCount, scanning, onPickFolder, onDone, modifier)
     } else {
         AccessStep(access, onRequestAccess, onSkip = { accessSkipped = true }, modifier = modifier)
     }
@@ -141,7 +141,7 @@ private fun AccessStep(
 
 @Composable
 private fun FolderStep(
-    granted: Boolean,
+    access: PermissionStatus,
     folderCount: Int,
     trackCount: Int,
     scanning: Boolean,
@@ -158,7 +158,7 @@ private fun FolderStep(
         modifier = modifier,
         extra = {
             Spacer(Modifier.height(GeodeSpacing.L))
-            ScanStatus(granted = granted, scanning = scanning, trackCount = trackCount, folderCount = folderCount)
+            ScanStatus(access = access, scanning = scanning, trackCount = trackCount, folderCount = folderCount)
         },
     ) {
         CrystalButton(onClick = onDone, modifier = Modifier.fillMaxWidth()) {
@@ -179,14 +179,18 @@ private fun FolderStep(
  */
 @Composable
 private fun ScanStatus(
-    granted: Boolean,
+    access: PermissionStatus,
     scanning: Boolean,
     trackCount: Int,
     folderCount: Int,
 ) {
+    val granted = access == PermissionStatus.GRANTED
+    // "Android will not ask again" is only true after a permanent refusal; someone who tapped
+    // "Not now" hears that the door is still open.
     val line =
         when {
-            !granted -> stringResource(R.string.first_run_access_denied)
+            access == PermissionStatus.PERMANENTLY_DENIED -> stringResource(R.string.first_run_access_denied)
+            !granted -> stringResource(R.string.first_run_access_skipped)
             trackCount > 0 -> pluralStringResource(R.plurals.first_run_scanning, trackCount, trackCount)
             scanning -> stringResource(R.string.first_run_scanning_working)
             folderCount > 0 -> pluralStringResource(R.plurals.first_run_folder_added, folderCount, folderCount)

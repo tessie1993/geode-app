@@ -222,5 +222,9 @@ void main() {
 
     col *= 0.8 + 0.25 * swell;
     col *= 0.75 + 0.25 * smoothstep(2.2, 0.4, length(uv));
+    // Exposure shoulder before grade(): the scene is mostly dark water or sky, and
+    // grade()'s contrast pivots on 0.5, so lift the darks ~1.9x and roll the
+    // highlights off rather than clip them.
+    col = vec3(1.0) - exp(-max(col, 0.0) * 1.9);
     fragColor = vec4(grade(col), 1.0);
 }

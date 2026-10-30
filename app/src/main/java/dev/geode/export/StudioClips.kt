@@ -69,7 +69,7 @@ object StudioClips {
                                             MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
                                             c.getLong(id),
                                         ).toString(),
-                                name = c.getString(name) ?: "Clip",
+                                name = c.getString(name) ?: context.getString(dev.geode.R.string.studio_clip_untitled),
                                 durationMs = c.getLong(duration),
                                 sizeBytes = c.getLong(size),
                                 width = c.getInt(width),
@@ -113,7 +113,7 @@ object StudioClips {
                 androidx.documentfile.provider.DocumentFile
                     .fromSingleUri(context, uri)
                     ?.name
-            }.getOrNull() ?: uri.lastPathSegment ?: "Clip"
+            }.getOrNull() ?: uri.lastPathSegment ?: context.getString(dev.geode.R.string.studio_clip_untitled)
         return StudioClip(uri.toString(), name, durationMs, 0L, width, height)
     }
 

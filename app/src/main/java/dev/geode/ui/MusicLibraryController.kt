@@ -154,7 +154,9 @@ internal class MusicLibraryController(
         val openable = openableInfoFor(uri)
         if (title == null) title = openable.first.ifBlank { null }?.substringBeforeLast('.')
         return FileMeta(
-            title = title ?: uri.lastPathSegment?.substringAfterLast('/')?.substringBeforeLast('.') ?: "Track",
+            title =
+                title ?: uri.lastPathSegment?.substringAfterLast('/')?.substringBeforeLast('.')
+                    ?: application.getString(dev.geode.R.string.library_untitled_track),
             artist = artist ?: "",
             album = album,
             genre = genre,
@@ -464,7 +466,8 @@ internal class MusicLibraryController(
                             .filter { it.fileName.isNotBlank() }
                             .groupBy({ it.fileName.lowercase() }, { it.uri })
                     val resolution = PlaylistFormats.resolve(parsed.entries, urisByFileName)
-                    val name = uniquePlaylistName(parsed.name.ifBlank { fileName.ifBlank { "Playlist" } })
+                    val untitled = application.getString(dev.geode.R.string.playlist_untitled)
+                    val name = uniquePlaylistName(parsed.name.ifBlank { fileName.ifBlank { untitled } })
                     musicPlaylists.save(MusicPlaylist(name, resolution.uris))
                     withContext(Dispatchers.Main) { _library.update { it.copy(playlists = musicPlaylists.list()) } }
                     PlaylistImportResult.Imported(

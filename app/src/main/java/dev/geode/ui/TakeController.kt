@@ -31,6 +31,8 @@ internal class TakeController(
     private val scope: CoroutineScope,
     private val storeScope: CoroutineScope,
     private val host: Host,
+    /** The default name of the [n]th take, e.g. "Take 2". */
+    private val takeName: (n: Int) -> String,
 ) {
     interface Host {
         val vizState: StateFlow<VizUiState>
@@ -120,8 +122,8 @@ internal class TakeController(
     private suspend fun defaultTakeName(): String {
         val taken = takes.list().map { it.name }.toSet()
         var n = 1
-        while ("Take $n" in taken) n++
-        return "Take $n"
+        while (takeName(n) in taken) n++
+        return takeName(n)
     }
 
     fun playTake(name: String) {

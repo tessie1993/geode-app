@@ -242,7 +242,8 @@ internal class ExportController(
                     } else if (exportCancelled) {
                         _exportState.value = ExportUiState()
                     } else {
-                        val detail = "${t.javaClass.simpleName}: ${t.message ?: "no message"}"
+                        val reason = t.message ?: application.getString(dev.geode.R.string.export_error_no_message)
+                        val detail = "${t.javaClass.simpleName}: $reason"
                         _exportState.value = ExportUiState(phase = ExportPhase.Failed(detail))
                     }
                 } finally {
@@ -468,7 +469,8 @@ internal class ExportController(
                     } else if (loopCancelled) {
                         _loopState.value = LoopUiState()
                     } else {
-                        val detail = "${t.javaClass.simpleName}: ${t.message ?: "no message"}"
+                        val reason = t.message ?: application.getString(dev.geode.R.string.export_error_no_message)
+                        val detail = "${t.javaClass.simpleName}: $reason"
                         _loopState.value = LoopUiState(phase = ExportPhase.Failed(detail))
                     }
                 } finally {

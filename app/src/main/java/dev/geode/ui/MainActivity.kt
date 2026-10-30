@@ -35,6 +35,7 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.PlaybackPendingIntentBuilder
 import dagger.hilt.android.AndroidEntryPoint
 import dev.geode.R
+import dev.geode.model.PresetLink
 import dev.geode.playback.PlaybackService
 
 /**

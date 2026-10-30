@@ -39,7 +39,12 @@ object MacroSetCodec {
 
     /** The set in [text], or null when it is not a macro set this version can read. */
     fun decode(text: String): MacroSet? {
-        val lines = text.lineSequence().map { it.trim() }.filter { it.isNotEmpty() }.toList()
+        val lines =
+            text
+                .lineSequence()
+                .map { it.trim() }
+                .filter { it.isNotEmpty() }
+                .toList()
         val header = lines.firstOrNull()?.split(' ') ?: return null
         val version = header.getOrNull(1)?.toIntOrNull()
         if (header.firstOrNull() != MAGIC || version == null || version > VERSION) return null

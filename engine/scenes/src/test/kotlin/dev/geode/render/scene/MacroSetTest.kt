@@ -90,7 +90,8 @@ class MacroSetTest {
 
     @Test
     fun everyDestinationOfTheStandardSetIsInTheCatalogue() {
-        StandardMacros.SET.macros.flatMap { it.destinations }.forEach { d ->
+        val destinations = StandardMacros.SET.macros.flatMap { it.destinations }
+        destinations.forEach { d ->
             assertTrue(d.key, MacroParams.of(d.key) != null)
         }
     }
@@ -101,7 +102,8 @@ class MacroSetTest {
             assertTrue(p.key, p.key in PARAM_KEY_NAMES)
             assertTrue(p.key, p.get(SceneParams.DEFAULT) in p.range)
         }
-        assertEquals(MacroParams.ALL.size, MacroParams.ALL.map { it.key }.toSet().size)
+        val keys = MacroParams.ALL.map { it.key }
+        assertEquals(keys.size, keys.toSet().size)
     }
 
     @Test
@@ -140,8 +142,9 @@ class MacroSetTest {
             """.trimIndent()
         val set = MacroSetCodec.decode(text)!!
         assertEquals("Odd one", set.name)
-        assertEquals(listOf(ParamKeys.SPEED), set.macros.single().destinations.map { it.key })
-        assertEquals(1f, set.macros.single().sounds.single().amount, eps)
+        val macro = set.macros.single()
+        assertEquals(listOf(ParamKeys.SPEED), macro.destinations.map { it.key })
+        assertEquals(1f, macro.sounds.single().amount, eps)
         assertNull(MacroSetCodec.decode("{\"name\":\"a preset\"}"))
         assertNull(MacroSetCodec.decode("mvzmacro 99\nset Too new"))
     }

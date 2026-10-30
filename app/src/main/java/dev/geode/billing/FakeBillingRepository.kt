@@ -6,6 +6,7 @@ import dev.geode.pro.ProProduct
 import dev.geode.pro.ProductLoad
 import dev.geode.pro.PurchaseStatus
 import dev.geode.pro.RestoreResult
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -71,7 +72,14 @@ class FakeBillingRepository(
     override suspend fun launchPurchase() {
         if (status.value == PurchaseStatus.InProgress) return
         status.value = PurchaseStatus.InProgress
-        delay(latencyMs)
+        try {
+            delay(latencyMs)
+        } catch (e: CancellationException) {
+            // The caller went away mid-purchase (the paywall closed): no attempt is running any
+            // more, and leaving InProgress would refuse every later purchase.
+            status.value = PurchaseStatus.Idle
+            throw e
+        }
         status.value =
             when (nextOutcome.value) {
                 FakePurchaseOutcome.SUCCEED -> {

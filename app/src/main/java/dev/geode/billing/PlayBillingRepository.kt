@@ -21,6 +21,7 @@ import dev.geode.pro.ProProduct
 import dev.geode.pro.ProductLoad
 import dev.geode.pro.PurchaseStatus
 import dev.geode.pro.RestoreResult
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -109,6 +110,18 @@ class PlayBillingRepository(
     override suspend fun launchPurchase() {
         if (status.value == PurchaseStatus.InProgress) return
         status.value = PurchaseStatus.InProgress
+        try {
+            startPurchase()
+        } catch (e: CancellationException) {
+            // Cancelled before Play's sheet opened (connecting, loading the product): nothing is
+            // in flight, and a stuck InProgress would refuse every later purchase. Once the sheet
+            // is up the coroutine has already returned, and onPurchasesUpdated settles the status.
+            status.value = PurchaseStatus.Idle
+            throw e
+        }
+    }
+
+    private suspend fun startPurchase() {
         val connected = connect()
         if (connected.responseCode != BillingResponseCode.OK) {
             status.value = PurchaseStatus.Failed(connected.toError())

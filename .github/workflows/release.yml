@@ -3,9 +3,9 @@ name: Play release bundle
 # Builds the Android App Bundle (.aab) that goes to Play Console, and checks the
 # things Play and the app's own promises depend on before anyone uploads it.
 #
-# Signed when the upload-key secrets exist, unsigned otherwise, so the build
-# itself is verified on every pull request even before the key is made. A tag
-# push (v*) is a real release: there a missing key is an error, not a warning.
+# Pull requests always build UNSIGNED (the upload key never reaches PR code), so the
+# build itself is verified on every PR. Tags (v*) and manual runs sign with the
+# upload key; on a tag, a missing key or licence key is an error, not a warning.
 #
 # Repository secrets (Settings > Secrets and variables > Actions > Secrets):
 #   MUZVIZ_UPLOAD_KEYSTORE_BASE64   base64 of the upload keystore (.jks):
@@ -75,39 +75,58 @@ jobs:
           yes | "$SDKMANAGER" --licenses >/dev/null || true
           "$SDKMANAGER" "platforms;android-36" "build-tools;36.0.0" "ndk;28.0.13004108" "cmake;3.22.1"
 
+      # Signing secrets never reach pull_request runs: a PR builds arbitrary branch code with
+      # Gradle, and the upload key must not be readable by it. PRs always build unsigned; tags
+      # and manual runs sign, and a tag without the full secret set fails.
       - name: Decode upload keystore
         id: keystore
+        if: github.event_name != 'pull_request'
         env:
           KEYSTORE_BASE64: ${{ secrets.MUZVIZ_UPLOAD_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.MUZVIZ_UPLOAD_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.MUZVIZ_UPLOAD_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.MUZVIZ_UPLOAD_KEY_PASSWORD }}
+          LICENSE_KEY: ${{ vars.PLAY_LICENSE_KEY }}
           IS_TAG: ${{ startsWith(github.ref, 'refs/tags/') }}
         run: |
           set -euo pipefail
-          if [ -z "${KEYSTORE_BASE64:-}" ]; then
+          if [ "$IS_TAG" = "true" ] && [ -z "${LICENSE_KEY:-}" ]; then
+            echo "::error::PLAY_LICENSE_KEY (repository variable) is not set; a store release must verify purchase signatures."
+            exit 1
+          fi
+          if [ -z "${KEYSTORE_BASE64:-}" ] || [ -z "${STORE_PASSWORD:-}" ] || [ -z "${KEY_ALIAS:-}" ] || [ -z "${KEY_PASSWORD:-}" ]; then
             if [ "$IS_TAG" = "true" ]; then
-              echo "::error::MUZVIZ_UPLOAD_KEYSTORE_BASE64 is not set; a tagged release must be signed."
+              echo "::error::The four MUZVIZ_UPLOAD_* secrets are not all set; a tagged release must be signed."
               exit 1
             fi
-            echo "::warning::No upload key secrets: building an UNSIGNED bundle. Play rejects unsigned uploads; see docs/play/CONSOLE_CHECKLIST.md."
+            echo "::warning::Upload key secrets incomplete: building an UNSIGNED bundle. See docs/play/CONSOLE_CHECKLIST.md."
             echo "signed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/upload.jks"
           echo "signed=true" >> "$GITHUB_OUTPUT"
 
-      # app/build.gradle.kts reads the GEODE_* names; an incomplete set leaves
-      # signingConfigs empty and produces an unsigned bundle, which the
-      # signature check below then catches.
+      - name: Build unsigned release AAB (pull request)
+        if: github.event_name == 'pull_request'
+        env:
+          PLAY_LICENSE_KEY: ${{ vars.PLAY_LICENSE_KEY }}
+        run: ./gradlew :app:bundleRelease --stacktrace --no-daemon
+
+      # app/build.gradle.kts reads the GEODE_* names; all four are required to sign.
       - name: Build release AAB
+        if: github.event_name != 'pull_request'
         env:
           GEODE_KEYSTORE: ${{ steps.keystore.outputs.signed == 'true' && format('{0}/upload.jks', runner.temp) || '' }}
-          GEODE_KEYSTORE_PASSWORD: ${{ secrets.MUZVIZ_UPLOAD_STORE_PASSWORD }}
-          GEODE_KEY_ALIAS: ${{ secrets.MUZVIZ_UPLOAD_KEY_ALIAS }}
-          GEODE_KEY_PASSWORD: ${{ secrets.MUZVIZ_UPLOAD_KEY_PASSWORD }}
+          GEODE_KEYSTORE_PASSWORD: ${{ steps.keystore.outputs.signed == 'true' && secrets.MUZVIZ_UPLOAD_STORE_PASSWORD || '' }}
+          GEODE_KEY_ALIAS: ${{ steps.keystore.outputs.signed == 'true' && secrets.MUZVIZ_UPLOAD_KEY_ALIAS || '' }}
+          GEODE_KEY_PASSWORD: ${{ steps.keystore.outputs.signed == 'true' && secrets.MUZVIZ_UPLOAD_KEY_PASSWORD || '' }}
           PLAY_LICENSE_KEY: ${{ vars.PLAY_LICENSE_KEY }}
         run: |
           set -euo pipefail
-          # An empty GEODE_KEYSTORE must read as unset, or the build tries to open "".
-          [ -n "$GEODE_KEYSTORE" ] || unset GEODE_KEYSTORE
+          # Empty values must read as unset, or the build tries to sign with "".
+          for v in GEODE_KEYSTORE GEODE_KEYSTORE_PASSWORD GEODE_KEY_ALIAS GEODE_KEY_PASSWORD; do
+            [ -n "${!v}" ] || unset "$v"
+          done
           ./gradlew :app:bundleRelease --stacktrace --no-daemon
 
       - name: Check the bundle against Play and the app's promises
@@ -157,7 +176,11 @@ jobs:
             || echo "::warning::No baseline profile in the bundle"
 
           if [ "$SIGNED" = "true" ]; then
-            jarsigner -verify "$aab" >/dev/null || { echo "::error::$aab is not validly signed"; exit 1; }
+            # jarsigner exits 0 on an UNSIGNED jar ("jar is unsigned"), so the verdict is read
+            # from its output, not its exit code.
+            verdict=$(jarsigner -verify "$aab" 2>&1 || true)
+            echo "$verdict" | tail -n 3
+            echo "$verdict" | grep -q '^jar verified'               || { echo "::error::$aab is not signed with the upload key"; exit 1; }
             echo "Signed with the upload key."
           else
             echo "::notice::Unsigned bundle (no upload key secrets). Fine for CI; Play needs it signed."

@@ -97,3 +97,9 @@ object GeodeMotion {
     const val REDUCED = 0
     const val PRESS_SCALE = 0.97f
 }
+
+/** Minimum contrast ratios, from WCAG 2.1 AA. */
+object GeodeContrast {
+    const val BODY_MIN = 4.5f
+    const val HINT_MIN = 3.0f
+}

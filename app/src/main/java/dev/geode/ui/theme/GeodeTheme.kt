@@ -9,12 +9,6 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.isSpecified
 
-/** Minimum contrast ratios, from WCAG 2.1 AA. */
-object GeodeContrast {
-    const val BODY_MIN = 4.5f
-    const val HINT_MIN = 3.0f
-}
-
 /**
  * The colour scheme, built from [GeodeColors].
  *

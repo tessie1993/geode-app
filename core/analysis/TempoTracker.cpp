@@ -57,9 +57,27 @@ void TempoTracker::step(float onset) {
         return;
     }
 
-    periodFrames_ = static_cast<float>(periods_[best]);
-    bpm_ = bpmOf(periods_[best]);
+    periodFrames_ = refinedPeriod(static_cast<size_t>(best));
+    bpm_ = bpmOf(periodFrames_);
     confidence_ = clarity(bestScore);
+}
+
+// The resonators sit on whole-hop periods, so the raw winner can only report 116.1, 120 or 124.1
+// BPM at a 60 Hz hop, and the live (62.5 Hz) and offline (60 Hz) analyses landed on different
+// grid points for the same track. A parabola through the winner and its two neighbours puts the
+// period between them; it is only fitted where the neighbours are the adjacent whole periods,
+// which holds across the range the resonators cover densely.
+float TempoTracker::refinedPeriod(size_t best) const {
+    const float period = static_cast<float>(periods_[best]);
+    if (best == 0 || best + 1 >= periods_.size()) return period;
+    if (periods_[best - 1] != periods_[best] - 1 || periods_[best + 1] != periods_[best] + 1) return period;
+    const float before = scores_[best - 1];
+    const float at = scores_[best];
+    const float after = scores_[best + 1];
+    const float curvature = before - 2.0f * at + after;
+    if (curvature >= 0.0f) return period;
+    const float offset = std::clamp(0.5f * (before - after) / curvature, -0.5f, 0.5f);
+    return period + offset;
 }
 
 void TempoTracker::reset() {

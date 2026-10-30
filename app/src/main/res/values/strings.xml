@@ -80,7 +80,7 @@
     <string name="tutorial_touch_title">Touch the visuals</string>
     <string name="tutorial_touch_body">On the full-screen visualizer, your finger is part of the picture: one finger sets a point the style builds itself around, two set an axis, three or more open a swirl. Pinch and twist zoom and rotate.</string>
     <string name="tutorial_studio_title">Studio makes videos</string>
-    <string name="tutorial_studio_body">Record a performance as you play with the controls, then render it out at any quality. Hide this tab in Settings if you only came to listen.</string>
+    <string name="tutorial_studio_body">Every video is made here. Render exports the visualizer or a seamless loop; Edit cuts clips together. Hide this tab in Settings if you only came to listen.</string>
     <string name="tutorial_settings_title">Everything else is in Settings</string>
     <string name="tutorial_settings_body">Themes, audio, playback, folders and safety. Help lives here too — you can replay this walkthrough any time.</string>
 

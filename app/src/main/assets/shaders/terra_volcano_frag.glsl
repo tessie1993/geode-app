@@ -68,7 +68,7 @@ float vein(vec2 xz, float width, float t) {
     float r = max(length(w), 1e-3);
     vec2 dir = w / r;
     float n = terraNoise(dir * 7.0 + vec2(0.0, r * 0.7 - t * 0.05));
-    return (1.0 - smoothstep(0.0, width, abs(n - 0.5))) * smoothstep(0.45, 0.75, r) * smoothstep(2.8, 1.6, r);
+    return (1.0 - smoothstep(0.0, width, abs(n - 0.5))) * smoothstep(0.45, 0.75, r) * (1.0 - smoothstep(1.6, 2.8, r));
 }
 
 void main() {
@@ -135,7 +135,7 @@ void main() {
         // Crater light falls on the upper flanks and the bowl.
         float up = smoothstep(0.4, 1.9, p.y);
         col += lava * rock * up * (3.0 + 1.5 * bass) * (0.5 + 0.5 * n.y);
-        float inBowl = smoothstep(0.6, 0.3, r) * smoothstep(2.1, 1.7, p.y);
+        float inBowl = (1.0 - smoothstep(0.3, 0.6, r)) * (1.0 - smoothstep(1.7, 2.1, p.y));
         col += lava * inBowl * (0.6 + 0.3 * bass + 0.4 * kick);
         float v = vein(p.xz, 0.035 + 0.03 * kick, t0);
         float heat = 0.35 + 0.9 * kick + 0.2 * bass;
@@ -146,6 +146,6 @@ void main() {
     col += horizon * 0.25 * exp(-max(rd.y + 0.1, 0.0) * 8.0);
 
     col *= 0.84 + 0.18 * swell;
-    col *= 0.78 + 0.22 * smoothstep(2.2, 0.3, length(uv));
+    col *= 0.78 + 0.22 * (1.0 - smoothstep(0.3, 2.2, length(uv)));
     fragColor = vec4(grade(col), 1.0);
 }

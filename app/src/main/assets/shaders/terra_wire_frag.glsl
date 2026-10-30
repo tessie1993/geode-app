@@ -118,7 +118,7 @@ void main() {
         // Core and halo of each line, in pixels; fade to an even glow once a
         // cell is under a few pixels.
         vec2 lit = exp(-d * d * 0.35) + 0.25 * exp(-d * 0.35);
-        vec2 fade = smoothstep(0.45, 0.15, fw);
+        vec2 fade = (1.0 - smoothstep(0.15, 0.45, fw));
         lit = lit * fade + (1.0 - fade) * 0.18;
         float band = rowBand(p.z);
         vec3 rowCol = mix(vec3(1.0, 0.2, 0.75), pal(0.85 + 0.5 * band), 0.45);
@@ -129,6 +129,6 @@ void main() {
     }
 
     col *= 0.85 + 0.17 * swell;
-    col *= 0.8 + 0.2 * smoothstep(2.2, 0.3, length(uv));
+    col *= 0.8 + 0.2 * (1.0 - smoothstep(0.3, 2.2, length(uv)));
     fragColor = vec4(grade(col), 1.0);
 }

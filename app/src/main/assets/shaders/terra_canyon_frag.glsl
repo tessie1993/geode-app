@@ -128,7 +128,7 @@ void main() {
         float strata = 0.5 + 0.5 * sin(p.y * 9.0 + 2.0 * terraNoise(vec2(p.y * 3.0, wz * 0.25)));
         vec3 rock = mix(vec3(0.72, 0.36, 0.20), pal(0.04 + 0.12 * strata), 0.2) * (0.75 + 0.35 * strata);
         // The dry floor either side of the river: pale sand and gravel.
-        rock = mix(rock, vec3(0.62, 0.52, 0.40), smoothstep(0.35, 0.1, p.y) * smoothstep(0.8, 0.95, n.y));
+        rock = mix(rock, vec3(0.62, 0.52, 0.40), (1.0 - smoothstep(0.1, 0.35, p.y)) * smoothstep(0.8, 0.95, n.y));
         col = rock * (dif * sunCol * 1.3 + sky * zenith * 0.8 + 0.08) * ao;
         // The river: the flat floor of the channel, a dark mirror of the sky.
         float water = (1.0 - smoothstep(0.6, 0.9, abs(p.x - channel(wz)))) * (1.0 - smoothstep(0.08, 0.2, p.y));
@@ -148,6 +148,6 @@ void main() {
     }
 
     col *= 0.84 + 0.18 * swell;
-    col *= 0.78 + 0.22 * smoothstep(2.2, 0.3, length(uv));
+    col *= 0.78 + 0.22 * (1.0 - smoothstep(0.3, 2.2, length(uv)));
     fragColor = vec4(grade(col), 1.0);
 }

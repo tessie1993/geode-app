@@ -79,7 +79,7 @@ void main() {
     vec3 col = tint * (0.5 + 0.65 * shade);
 
     // Lakes below the lowest contour: flat water, its own shoreline.
-    float lake = smoothstep(TP_LAKE + 0.004, TP_LAKE - 0.004, h);
+    float lake = (1.0 - smoothstep(TP_LAKE - 0.004, TP_LAKE + 0.004, h));
     col = mix(col, mix(vec3(0.42, 0.62, 0.78), pal(hue + 0.6) * 0.7, 0.2), lake);
 
     // Contours: distance to the nearest level, in pixels of that level.
@@ -100,6 +100,6 @@ void main() {
     col = mix(col, vec3(0.2, 0.3, 0.45), (1.0 - smoothstep(0.4, 1.2, min(g.x, g.y))) * 0.3);
 
     col *= 0.85 + 0.17 * swell;
-    col *= 0.8 + 0.2 * smoothstep(2.4, 0.4, length(uv));
+    col *= 0.8 + 0.2 * (1.0 - smoothstep(0.4, 2.4, length(uv)));
     fragColor = vec4(grade(col), 1.0);
 }

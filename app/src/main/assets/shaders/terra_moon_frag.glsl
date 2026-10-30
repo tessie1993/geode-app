@@ -69,7 +69,7 @@ vec2 crater(vec2 xz, float scale, vec2 seed, float chance) {
     vec2 ctr = 0.5 + (vec2(terraHash(c + vec2(5.0, 71.0)), terraHash(c + vec2(83.0, 29.0))) - 0.5) * 2.0 * room;
     float d = length(fract(q) - ctr) / rr;
     float prof = min(d * d - 1.0, 0.0) * 0.9 + 0.35 * exp(-(d - 1.0) * (d - 1.0) * 10.0);
-    prof *= smoothstep(1.8, 1.4, d);
+    prof *= (1.0 - smoothstep(1.4, 1.8, d));
     return vec2(prof * rr * 2.0 / scale, d);
 }
 
@@ -164,7 +164,7 @@ void main() {
         // Ejecta: a bright ring spreading from the newest craters' rims.
         float d = crater(w + 2.0, 1.0, vec2(gGen.x * 17.0, gGen.x * 31.0), 0.12).y;
         float ringR = 1.0 + 0.6 * (1.0 - onset);
-        float ring = exp(-pow((d - ringR) * 7.0, 2.0)) * smoothstep(1.8, 1.55, d) * onset;
+        float ring = exp(-pow((d - ringR) * 7.0, 2.0)) * (1.0 - smoothstep(1.55, 1.8, d)) * onset;
         col += mix(vec3(1.0, 0.85, 0.6), pal(0.08), 0.3) * ring * 0.7 * min(energy, 1.5);
         col *= exp(-hitT * 0.025);
     }

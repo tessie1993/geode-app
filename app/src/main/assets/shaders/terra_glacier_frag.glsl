@@ -120,19 +120,19 @@ void main() {
         float fres = pow(1.0 - max(dot(n, -rd), 0.0), 5.0);
         float spec = pow(max(dot(reflect(rd, n), sun), 0.0), 40.0);
         vec3 deep = mix(vec3(0.05, 0.30, 0.55), pal(0.6) * 0.6, 0.25) * (1.0 + 0.5 * bass);
-        vec3 ice = mix(vec3(0.82, 0.90, 0.98), vec3(0.45, 0.70, 0.90), smoothstep(0.9, 0.5, n.y));
+        vec3 ice = mix(vec3(0.82, 0.90, 0.98), vec3(0.45, 0.70, 0.90), (1.0 - smoothstep(0.5, 0.9, n.y)));
         ice = mix(ice, deep, cr);
         col = ice * (dif * sunCol * 0.9 + sky * zenith * 0.7) * terraStepAO(used);
         col += deep * cr * 0.25;
         col += sunCol * spec * 0.6 + horizon * fres * 0.35;
         // Snare glints: tiny cells on the crack lips catch the light.
-        float lip = smoothstep(0.05, 0.4, cr) * smoothstep(0.95, 0.6, cr);
+        float lip = smoothstep(0.05, 0.4, cr) * (1.0 - smoothstep(0.6, 0.95, cr));
         float g = terraHash3(vec3(floor(w * 30.0), floor(t0 * 6.0)));
         col += vec3(0.85, 0.95, 1.0) * step(0.9, g) * lip * snare * exp(-hitT * 0.08) * 1.5;
         col = terraFog(col, rd, hitT, 0.04, horizon, sun, sunCol);
     }
 
     col *= 0.82 + 0.18 * swell;
-    col *= 0.8 + 0.2 * smoothstep(2.2, 0.3, length(uv));
+    col *= 0.8 + 0.2 * (1.0 - smoothstep(0.3, 2.2, length(uv)));
     fragColor = vec4(grade(col), 1.0);
 }

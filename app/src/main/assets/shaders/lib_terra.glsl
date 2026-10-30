@@ -323,5 +323,5 @@ float terraStars(vec3 rd, float density) {
     float h = terraHash3(i);
     float on = step(1.0 - density, h);
     float d = length(c - i - 0.5);
-    return on * smoothstep(0.45, 0.05, d) * (0.4 + 0.6 * fract(h * 37.0));
+    return on * (1.0 - smoothstep(0.05, 0.45, d)) * (0.4 + 0.6 * fract(h * 37.0));
 }

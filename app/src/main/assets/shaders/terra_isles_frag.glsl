@@ -132,12 +132,12 @@ void main() {
         vec3 water = mix(deepC, shallowC, exp(-max(depth, 0.0) * 5.0));
         col = mix(water, refl, fres);
         // Surf: a broken white line where the water is thinnest.
-        float surf = smoothstep(0.05, 0.0, depth) * (0.6 + 0.4 * sin(pa * 2.0 + wob * 6.0));
+        float surf = (1.0 - smoothstep(0.0, 0.05, depth)) * (0.6 + 0.4 * sin(pa * 2.0 + wob * 6.0));
         col = mix(col, vec3(0.92, 0.96, 1.0), clamp(surf, 0.0, 1.0) * 0.8);
         col = terraFog(col, rd, tSea, 0.03, horizon, sun, sunCol);
     }
 
     col *= 0.84 + 0.18 * swell;
-    col *= 0.8 + 0.2 * smoothstep(2.2, 0.3, length(uv));
+    col *= 0.8 + 0.2 * (1.0 - smoothstep(0.3, 2.2, length(uv)));
     fragColor = vec4(grade(col), 1.0);
 }

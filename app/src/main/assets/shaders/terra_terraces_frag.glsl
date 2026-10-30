@@ -115,16 +115,16 @@ void main() {
         float sky = 0.5 + 0.5 * n.y;
         vec3 grass = mix(vec3(0.22, 0.42, 0.14), pal(0.28) * 0.5, 0.25);
         vec3 bank = mix(vec3(0.36, 0.30, 0.20), grass, 0.5);
-        col = mix(bank, grass, smoothstep(0.86, 0.8, f)) * (dif * sunCol + sky * zenith * 0.6);
+        col = mix(bank, grass, (1.0 - smoothstep(0.8, 0.86, f))) * (dif * sunCol + sky * zenith * 0.6);
         // The tread: water or rice, inside the bund.
-        float tread = smoothstep(0.80, 0.74, f) * smoothstep(0.9, 0.97, n.y);
+        float tread = (1.0 - smoothstep(0.74, 0.80, f)) * smoothstep(0.9, 0.97, n.y);
         if (tread > 0.0) {
             vec2 wq = terraWrap(p.xz);
             // Ripple rings: one per 2-unit cell, centred in it and dying out
             // before the cell's edge, so the pattern is continuous.
             vec2 cell = fract(wq * 0.5) - 0.5;
             float rr = length(cell);
-            float ring = exp(-pow((rr - 0.08 - 0.34 * (1.0 - beat)) * 22.0, 2.0)) * beat * smoothstep(0.5, 0.4, rr);
+            float ring = exp(-pow((rr - 0.08 - 0.34 * (1.0 - beat)) * 22.0, 2.0)) * beat * (1.0 - smoothstep(0.4, 0.5, rr));
             vec2 shiver = 0.012 * vec2(sin(wq.x * 9.0 + t0 * 1.7), sin(wq.y * (TERRA_TAU * 1467.0 / TERRA_PERIOD) - t0 * 1.3));
             vec2 tilt = shiver + 0.12 * ring * cell / max(rr, 1e-3);
             vec3 wn = normalize(vec3(tilt.x, 1.0, tilt.y));
@@ -142,6 +142,6 @@ void main() {
     }
 
     col *= 0.84 + 0.18 * swell;
-    col *= 0.82 + 0.18 * smoothstep(2.2, 0.3, length(uv));
+    col *= 0.82 + 0.18 * (1.0 - smoothstep(0.3, 2.2, length(uv)));
     fragColor = vec4(grade(col), 1.0);
 }

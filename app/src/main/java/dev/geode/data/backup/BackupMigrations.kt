@@ -5,13 +5,13 @@ import java.io.File
 /**
  * One step that turns a backup at version [from] into version `from + 1`.
  *
- * [apply] gets the manifest and the directory the archive was unpacked into, already checked
+ * [transform] gets the manifest and the directory the archive was unpacked into, already checked
  * against the manifest's sizes and hashes. It may move, rewrite or drop files there, and returns
  * a manifest whose sections and entries describe what it left behind; the version is set for it.
  */
 class BackupMigration(
     val from: Int,
-    val apply: (manifest: BackupManifest, root: File) -> BackupManifest,
+    val transform: (manifest: BackupManifest, root: File) -> BackupManifest,
 )
 
 object BackupMigrations {
@@ -34,7 +34,7 @@ object BackupMigrations {
             val step =
                 steps.firstOrNull { it.from == current.version }
                     ?: fail(BackupProblem.DAMAGED, "no migration from version ${current.version}")
-            current = step.apply(current, root).copy(version = current.version + 1)
+            current = step.transform(current, root).copy(version = current.version + 1)
         }
         return current
     }

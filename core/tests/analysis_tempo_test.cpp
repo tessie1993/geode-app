@@ -83,6 +83,30 @@ void weakEighthsDoNotDoubleTheTempo() {
     }
 }
 
+// Confidence is how much of the envelope repeats at the period: near 1 for a steady pulse, low for noise, so
+// BeatGrid locks onto the first and not the second.
+void confidenceSeparatesAPulseFromNoise() {
+    TempoTracker pulse(93.75f);
+    TempoTracker noise(93.75f);
+    Noise pulseNoise;
+    Noise source;
+    std::vector<float> noiseConfidence;
+    const int hops = static_cast<int>(30.0f * 93.75f);
+    for (int i = 0; i < hops; i++) {
+        pulse.step(envelope(static_cast<float>(i), 93.75f, 120.0f, 0.0f, pulseNoise));
+        noise.step(source.next());
+        if (i > hops / 3) noiseConfidence.push_back(noise.confidence());
+    }
+    std::nth_element(noiseConfidence.begin(), noiseConfidence.begin() + noiseConfidence.size() / 2,
+                     noiseConfidence.end());
+    const float noiseMedian = noiseConfidence[noiseConfidence.size() / 2];
+    if (pulse.confidence() < 0.9f || noiseMedian > 0.25f) {
+        std::printf("  pulse %.2f, noise median %.2f
+", pulse.confidence(), noiseMedian);
+        check(false, "confidence separates a pulse from noise");
+    }
+}
+
 void noOnsetsNoTempo() {
     TempoTracker tracker(93.75f);
     for (int i = 0; i < 1000; i++) tracker.step(0.0f);
@@ -94,6 +118,7 @@ void noOnsetsNoTempo() {
 int main() {
     reportsEachTempoAsItself();
     weakEighthsDoNotDoubleTheTempo();
+    confidenceSeparatesAPulseFromNoise();
     noOnsetsNoTempo();
     if (failures == 0) std::printf("analysis_tempo_test: all passed\n");
     return failures == 0 ? EXIT_SUCCESS : EXIT_FAILURE;

@@ -20,6 +20,7 @@ import dev.geode.render.AdsrConfig
 import dev.geode.render.LfoConfig
 import dev.geode.render.UnderlayBlend
 import dev.geode.render.scene.CustomizeTab
+import dev.geode.render.scene.MacroSet
 import dev.geode.render.scene.SceneParams
 import kotlinx.coroutines.flow.StateFlow
 import java.io.File
@@ -138,6 +139,16 @@ class VisualsViewModel
         fun resetCustomizeTab(tab: CustomizeTab) = session.resetCustomizeTab(tab)
 
         fun resetAllCustomize() = session.resetAllCustomize()
+
+        val macroSet: StateFlow<MacroSet> get() = session.macroSet
+
+        /** Turns knob [index] of the active set to [to]; a drag folds into one undo entry. */
+        fun turnMacro(
+            index: Int,
+            to: Float,
+        ) = session.macros.turn(index, to)
+
+        fun resetMacroKnobs() = session.macros.resetKnobs()
 
         fun captureSnapshotA() = session.captureSnapshotA()
 

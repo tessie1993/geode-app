@@ -1067,7 +1067,8 @@ private val PREVIEW_HANDLE_HEIGHT = 28.dp
 /**
  * Whether a tab has anything to show for the style on screen.
  *
- * The five spec tabs plus Scene are always there; the per-family ones appear only with their
+ * Macros, the five spec tabs and Scene are always there (a macro with nothing to move on this
+ * style still shows); the per-family ones appear only with their
  * family. Fluid stays because it also holds the two "all styles" sections (FlowField and the
  * shared water-ripple overlay), which every style can use.
  */
@@ -1076,6 +1077,7 @@ private fun tabAppliesTo(
     sceneId: String,
 ): Boolean =
     when (tab) {
+        CustomizeTab.MACROS,
         CustomizeTab.SHAPE,
         CustomizeTab.COLOR,
         CustomizeTab.MOTION,
@@ -1098,6 +1100,10 @@ private fun CustomizeTabBody(
     val p = viz.params
     val onChange: (dev.geode.render.scene.SceneParams) -> Unit = visualsViewModel::editSceneParams
     when (tab) {
+        CustomizeTab.MACROS -> {
+            val set by visualsViewModel.macroSet.collectAsStateWithLifecycle()
+            MacrosTab(set, onTurn = visualsViewModel::turnMacro)
+        }
         CustomizeTab.MOTION -> MotionTab(p, onChange)
         CustomizeTab.SHAPE -> ShapeTab(p, onChange)
         CustomizeTab.SCENE ->
@@ -1190,7 +1196,13 @@ private fun CustomizeToolbar(
             ) {
                 Icon(Icons.Filled.Casino, contentDescription = null, modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(6.dp))
-                Text(if (tab == null) "Randomize" else "Randomize ${tab.title}")
+                Text(
+                    when (tab) {
+                        null -> "Randomize"
+                        CustomizeTab.MACROS -> "Surprise"
+                        else -> "Randomize ${tab.title}"
+                    },
+                )
             }
             CrystalButton(compact = true, filled = false, enabled = history.canUndo, onClick = visualsViewModel::undoParams) {
                 Text("Undo")

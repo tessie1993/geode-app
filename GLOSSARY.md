@@ -66,7 +66,20 @@ The full set of tunable values a scene is drawn with at one moment.
 _Avoid_: Settings, knobs
 
 **Customize tabs**:
-The groups the scene params are edited in: Shape, Color, Motion, FX, Reactivity, Scene, plus per-family tabs.
+The groups the scene params are edited in: Macros first, then Shape, Color, Motion, FX, Reactivity, Scene, plus per-family tabs.
+
+**Macro**:
+A twist knob on the Macros tab that turns several scene params at once, each by its own amount (Serum-style). Turning it writes the params, so the sliders follow. Bipolar knobs rest in the middle; others rest at zero.
+_Avoid_: Master, preset slider
+
+**Macro set**:
+The knobs on the Macros tab: the standard six (Energy, Speed, Complexity, Mood, Space, Chaos). One set is active for every style.
+
+**Macro destination**:
+One scene param a macro turns, with how far a full turn moves it (a share of the param's slider range).
+
+**Macro sound**:
+A sound that turns a macro by itself; played as reaction routes on the macro's destinations.
 
 **Modulation**:
 LFOs and ADSR envelopes that move scene params over time or on hits.

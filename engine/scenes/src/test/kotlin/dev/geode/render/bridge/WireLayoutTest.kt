@@ -42,6 +42,24 @@ class WireLayoutTest {
     }
 
     @Test
+    fun styleDnaUnpacksWhatPackWrote() {
+        val routes =
+            listOf(
+                ReactionRoute(true, ReactSource.PHRASE_BEAT_A, LfoTarget.COLOR_SHIFT, ReactMode.JUMP, 0.4f, attackSeconds = 0.08f),
+                ReactionRoute(true, ReactSource.DROP, LfoTarget.CAM_FLY, ReactMode.FOLLOW, 1.2f, releaseSeconds = 2.2f),
+            )
+        val packed = ModConfigCodec.packReactions(routes).copyOf(routes.size * ModConfigCodec.REACT_ROUTE_FLOATS)
+        assertEquals(routes, ModConfigCodec.unpackReactions(packed))
+    }
+
+    @Test
+    fun unknownOrdinalsFromNativeAreDropped() {
+        val packed = ModConfigCodec.packReactions(listOf(ReactionRoute(target = LfoTarget.ZOOM))).copyOf(ModConfigCodec.REACT_ROUTE_FLOATS)
+        packed[1] = 999f
+        assertEquals(emptyList<ReactionRoute>(), ModConfigCodec.unpackReactions(packed))
+    }
+
+    @Test
     fun enumOrdinalsMatchTheNativeEnums() {
         // core/viz/Reactions.hpp: Phrase is last, Jump is last; core/viz/Lfo.hpp: CamShake is last.
         assertEquals(34, ReactSource.entries.size)

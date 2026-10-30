@@ -87,6 +87,8 @@ void append(std::vector<std::string>& out, std::vector<std::string> ids) {
 
 }  // namespace
 
+bool SceneRegistry::isShaderStyle(const std::string& id) { return isShaderId(id); }
+
 float SceneRegistry::spinRate(const std::string& id) {
     for (const Spin& known : kSpinningIds) {
         if (id == known.id) return known.rate;

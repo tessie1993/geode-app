@@ -10,7 +10,6 @@
     <string name="tutorial_resume">Resume tour</string>
     <string name="tutorial_progress">%1$s · %2$d of %3$d</string>
     <string name="tutorial_chapter_done">%1$s done!</string>
-    <string name="tutorial_mascot_description">Wave, your guide</string>
 
     <string name="tutorial_chapter_welcome">Welcome</string>
     <string name="tutorial_chapter_player">Player</string>

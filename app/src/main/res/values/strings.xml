@@ -379,7 +379,7 @@
     <string name="studio_edit">Edit</string>
     <string name="studio_open_video">Open a video…</string>
     <string name="studio_empty_title">Nothing rendered yet</string>
-    <string name="studio_empty_body">Render a visual from Settings › Export video and it lands here, ready to be cut, graded and sent somewhere. Any other video on the phone can be opened with the button above.</string>
+    <string name="studio_empty_body">Render a visual from Studio › Render and it lands here, ready to be cut, graded and sent somewhere. Any other video on the phone can be opened with the button above.</string>
     <string name="studio_send">Send</string>
     <string name="studio_send_ellipsis">Send…</string>
     <string name="studio_share_chooser">Send video</string>
@@ -574,8 +574,9 @@
     <string name="export_loop_safe">Loop-safe</string>
     <string name="export_loop_safe_default">Loop-safe by default</string>
     <string name="export_loop_safe_explainer">Loop-safe trims the end of the render to a bar boundary so the clip repeats cleanly when a platform autoplays it. It needs a detected tempo, so a track that has not been analysed falls back to full length for that render.</string>
-    <string name="export_video_button">Export video…</string>
-    <string name="export_defaults_explainer">Starts from the defaults above; each render can change them for one video. The destination — your Videos library or a folder you pick — is chosen at render time, per export.</string>
+    <string name="studio_render_free_limits">Free and trial renders stop at 1 minute, up to 1080p at 30 fps, with a watermark. Loop renders need Pro.</string>
+    <string name="settings_export_moved">Export, loop render and the export defaults live in Studio › Render.</string>
+    <string name="settings_export_open_studio">Open Studio › Render</string>
     <string name="export_spec">%1$s, %2$s, %3$d fps</string>
     <string name="export_spec_loop_safe">%1$s, loop-safe</string>
     <string name="export_named_preset">%1$s — %2$s</string>
@@ -605,7 +606,6 @@
     <string name="export_render_button">Render %1$dp %2$s %3$dfps</string>
     <string name="export_render_to_folder">Render to chosen folder…</string>
     <string name="export_cancel">Cancel export</string>
-    <string name="export_loop_menu_title">Export</string>
     <string name="export_loop_menu_subtitle">A regular video export, or a seamless loop repeated into a long-form video?</string>
     <string name="export_loop_menu_standard">Video export…</string>
     <string name="export_loop_menu_loop">Loop / long-form…</string>

@@ -55,7 +55,7 @@ vec4 cord(float d, float hw, float px, vec3 tint) {
     float crown = sqrt(1.0 - cu * cu);
     float groove = smoothstep(0.012, 0.03 + px, ad);
     vec3 c = tint * (0.22 + 0.78 * crown) * (0.3 + 0.7 * groove);
-    c *= smoothstep(1.0, 0.86, ad / hw);
+    c *= (1.0 - smoothstep(0.86, 1.0, ad / hw));
     return vec4(c * cover, cover);
 }
 
@@ -117,6 +117,6 @@ void main() {
     col = col * (1.0 - k.a) + k.rgb;
 
     col *= 0.85 + 0.12 * swell;
-    col *= 0.78 + 0.22 * smoothstep(2.2, 0.3, length(uv));
+    col *= 0.78 + 0.22 * (1.0 - smoothstep(0.3, 2.2, length(uv)));
     fragColor = vec4(grade(col), 1.0);
 }

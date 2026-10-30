@@ -89,6 +89,6 @@ void main() {
     vec3 leadC = vec3(0.05) + pal(hue + 0.3) * 0.03;
     col = mix(col, leadC, g.x);
 
-    col *= 0.78 + 0.22 * smoothstep(2.2, 0.3, length(uv));
+    col *= 0.78 + 0.22 * (1.0 - smoothstep(0.3, 2.2, length(uv)));
     fragColor = vec4(grade(col), 1.0);
 }

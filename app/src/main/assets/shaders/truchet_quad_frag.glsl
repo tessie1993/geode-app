@@ -79,7 +79,7 @@ float bandMask(vec2 f, float bit, float s, float px) {
 /** Paint the disc of a tiling vertex of grid level k over the ink. */
 float disc(float ink, vec2 p, vec2 v, float k, float px) {
     float r = exp2(-k) / 6.0;
-    return mix(ink, 1.0 - mod(k, 2.0), smoothstep(px, -px, length(p - v) - r));
+    return mix(ink, 1.0 - mod(k, 2.0), 1.0 - smoothstep(-px, px, length(p - v) - r));
 }
 
 void main() {
@@ -144,6 +144,6 @@ void main() {
     col *= 1.0 - 0.45 * clamp(fwidth(ink) * 1.2, 0.0, 1.0);
 
     col *= 0.85 + 0.12 * swell;
-    col *= 0.78 + 0.22 * smoothstep(2.2, 0.3, length(uv));
+    col *= 0.78 + 0.22 * (1.0 - smoothstep(0.3, 2.2, length(uv)));
     fragColor = vec4(grade(col), 1.0);
 }

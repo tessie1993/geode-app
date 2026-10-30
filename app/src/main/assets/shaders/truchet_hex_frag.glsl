@@ -69,12 +69,12 @@ void main() {
     vec3 cord = mix(pal(hue + 0.12 + 0.12 * field), pal(hue + 0.32 + 0.12 * field), smoothstep(0.35, 0.65, band));
     vec3 lit = cord * (0.25 + 0.75 * crown) + vec3(1.0) * pow(crown, 12.0) * 0.18;
     // Dark lip at the ribbon edge, so neighbouring cords separate.
-    lit *= smoothstep(1.0, 0.75, abs(u));
+    lit *= (1.0 - smoothstep(0.75, 1.0, abs(u)));
     // Ground shadow hugging the ribbon.
     col *= 0.55 + 0.45 * smoothstep(hw, hw + 0.08, abs(a.d));
     col = mix(col, lit, body);
 
     col *= 0.85 + 0.12 * swell;
-    col *= 0.78 + 0.22 * smoothstep(2.2, 0.3, length(uv));
+    col *= 0.78 + 0.22 * (1.0 - smoothstep(0.3, 2.2, length(uv)));
     fragColor = vec4(grade(col), 1.0);
 }

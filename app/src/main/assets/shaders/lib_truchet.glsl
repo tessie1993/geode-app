@@ -201,8 +201,10 @@ float truchetLine(float d, float hw, float px) {
 
 /**
  * Which tile a cell holds now, and how far through a re-roll it is.
- * x = the old tile's hash, y = the new tile's hash, z = eased progress 0..1
- * (1 = settled; x == y then). `hits` = floor(uHitCount), `env` = uHits.w,
+ * x = the old tile's hash, y = the new tile's hash, z = eased progress 0..1:
+ * mix old to new by z. z reaches 1 as the onset envelope falls, so z == 1
+ * with x != y is the new tile in full; x == y only once no re-roll is due.
+ * `hits` = floor(uHitCount), `env` = uHits.w,
  * `period` = on average a cell re-rolls on one onset in `period`.
  */
 vec3 truchetRoll(vec2 id, float hits, float env, float period) {
@@ -290,7 +292,7 @@ TruchetArc truchetSquare(vec2 p, float hits, float env, float period) {
 
 /** Smooth two-tone fill from an arc: the cap colour inside, the band colour outside, one pixel of blend. */
 float truchetTone(TruchetArc a, float px) {
-    return mix(1.0 - a.cap, a.cap, smoothstep(px, -px, a.d));
+    return mix(1.0 - a.cap, a.cap, 1.0 - smoothstep(-px, px, a.d));
 }
 
 // ---- the hexagonal three-arc tile ---------------------------------------------------------

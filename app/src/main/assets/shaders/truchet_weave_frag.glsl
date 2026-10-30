@@ -46,7 +46,7 @@ vec4 ribbon(TruchetArc a, float hw, float px, vec3 tint, float threads) {
     float crown = sqrt(1.0 - u * u);
     float thread = 0.82 + 0.18 * cos(u * threads * TRUCHET_PI);
     vec3 c = tint * (0.3 + 0.7 * crown) * thread + vec3(0.9) * pow(crown, 16.0) * 0.12;
-    c *= smoothstep(1.0, 0.8, abs(u));
+    c *= (1.0 - smoothstep(0.8, 1.0, abs(u)));
     return vec4(c, cover);
 }
 
@@ -88,11 +88,11 @@ void main() {
     col *= 0.5 + 0.5 * shadowAll;
     col = mix(col, under.rgb, under.a);
     // The over ribbon shades the under one where it crosses.
-    float shade = 1.0 - smoothstep(hw + 0.07, hw, abs(dOver));
+    float shade = smoothstep(hw, hw + 0.07, abs(dOver));
     col *= 1.0 - 0.55 * shade * under.a;
     col = mix(col, over.rgb, over.a);
 
     col *= 0.85 + 0.12 * swell;
-    col *= 0.78 + 0.22 * smoothstep(2.2, 0.3, length(uv));
+    col *= 0.78 + 0.22 * (1.0 - smoothstep(0.3, 2.2, length(uv)));
     fragColor = vec4(grade(col), 1.0);
 }

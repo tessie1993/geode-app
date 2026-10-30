@@ -70,7 +70,7 @@ float floorHeight(vec2 xz) {
     TruchetArc a = truchetSquareAt(id, fract(p) - 0.5, gHits, uHits.w, 3.0);
     float g = clamp(abs(a.d) / TR_W, 0.0, 1.0);
     float groove = 0.5 + 0.5 * cos(TRUCHET_PI * g);
-    gTone = mix(1.0 - a.cap, a.cap, smoothstep(TR_W * 0.8, -TR_W * 0.8, a.d));
+    gTone = mix(1.0 - a.cap, a.cap, 1.0 - smoothstep(-TR_W * 0.8, TR_W * 0.8, a.d));
     return TR_TOP * gTone - gDepth * groove;
 }
 
@@ -169,6 +169,6 @@ void main() {
     if (hitT < 0.0 || along < hitT) col += pal(hue + 0.15) * 0.06 / (1.0 + miss * miss * 60.0);
 
     col *= 0.85 + 0.12 * swell;
-    col *= 0.78 + 0.22 * smoothstep(2.2, 0.3, length(uv));
+    col *= 0.78 + 0.22 * (1.0 - smoothstep(0.3, 2.2, length(uv)));
     fragColor = vec4(grade(col), 1.0);
 }

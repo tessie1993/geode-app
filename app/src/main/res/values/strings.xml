@@ -570,7 +570,7 @@
     <string name="export_title">Export</string>
     <string name="export_group_defaults">Defaults</string>
     <string name="export_fill_from_platform">Fill from platform</string>
-    <string name="export_fill_from_platform_hint">Sets quality, frame rate, aspect and looping to a platform's usual values. Change any of them afterwards.</string>
+    <string name="export_fill_from_platform_hint">Sets quality, frame rate, aspect and looping to a platform\'s usual values. Change any of them afterwards.</string>
     <string name="export_platform_entry">%1$s · %2$s</string>
     <string name="export_quality">Quality</string>
     <string name="export_frame_rate">Frame rate</string>

@@ -161,8 +161,137 @@ object StyleFamilies {
             marchedIds = emptySet(),
         )
 
+    /** Ray-traced glass: refraction, dispersion, thin films and caustic light. */
+    val GLASS: StyleFamily =
+        StyleFamily(
+            name = "glass",
+            label = "Glass",
+            prefix = "glass_",
+            library = "lib_glass",
+            ids =
+                listOf(
+                    "glass_orb",
+                    "glass_pool",
+                    "glass_prism",
+                    "glass_lens",
+                    "glass_drops",
+                    "glass_bubbles",
+                    "glass_marble",
+                    "glass_caustic",
+                    "glass_cubes",
+                    "glass_gem",
+                    "glass_ice",
+                    "glass_knot",
+                ),
+            marchedIds =
+                setOf(
+                    "glass_cubes",
+                    "glass_gem",
+                    "glass_ice",
+                    "glass_knot",
+                ),
+        )
+
+    /** Galaxies and gas clouds: layered dust, spiral arms, and volumes flown through. */
+    val NEBULA: StyleFamily =
+        StyleFamily(
+            name = "nebula",
+            label = "Nebula",
+            prefix = "nebula_",
+            library = "lib_nebula",
+            ids =
+                listOf(
+                    "nebula_dust",
+                    "nebula_spiral",
+                    "nebula_ring",
+                    "nebula_veil",
+                    "nebula_pulsar",
+                    "nebula_cluster",
+                    "nebula_nova",
+                    "nebula_horizon",
+                    "nebula_pillars",
+                    "nebula_flight",
+                    "nebula_storm",
+                    "nebula_web",
+                ),
+            marchedIds =
+                setOf(
+                    "nebula_pillars",
+                    "nebula_flight",
+                    "nebula_storm",
+                    "nebula_web",
+                ),
+        )
+
+    /** Fly-through dives along five camera paths through lattices, jewels, mushrooms, gyroscopes and mandalas. */
+    val DIVE: StyleFamily =
+        StyleFamily(
+            name = "dive",
+            label = "Dive",
+            prefix = "dive_",
+            library = "lib_dive",
+            ids =
+                listOf(
+                    "dive_lattice",
+                    "dive_jewel",
+                    "dive_mushroom",
+                    "dive_gyro",
+                    "dive_mandala",
+                    "dive_serpent",
+                    "dive_helix",
+                    "dive_accordion",
+                    "dive_orbit",
+                    "dive_neon",
+                    "dive_cycle",
+                    "dive_show",
+                ),
+            marchedIds =
+                setOf(
+                    "dive_lattice",
+                    "dive_jewel",
+                    "dive_mushroom",
+                    "dive_gyro",
+                    "dive_mandala",
+                    "dive_serpent",
+                    "dive_helix",
+                    "dive_accordion",
+                    "dive_orbit",
+                    "dive_neon",
+                    "dive_cycle",
+                    "dive_show",
+                ),
+        )
+
+    /** Truchet tilings: randomly turned tiles whose arcs join into paths that rewire on the beat. */
+    val TRUCHET: StyleFamily =
+        StyleFamily(
+            name = "truchet",
+            label = "Truchet",
+            prefix = "truchet_",
+            library = "lib_truchet",
+            ids =
+                listOf(
+                    "truchet_arcs",
+                    "truchet_hex",
+                    "truchet_weave",
+                    "truchet_maze",
+                    "truchet_tri",
+                    "truchet_quad",
+                    "truchet_tubes",
+                    "truchet_neon",
+                    "truchet_flow",
+                    "truchet_knot",
+                    "truchet_tunnel",
+                    "truchet_relief",
+                ),
+            marchedIds =
+                setOf(
+                    "truchet_relief",
+                ),
+        )
+
     /** In picker order. */
-    val all: List<StyleFamily> = listOf(ARBOR, BULB, CHRYSANTHEMUM, LUCID)
+    val all: List<StyleFamily> = listOf(ARBOR, BULB, CHRYSANTHEMUM, LUCID, GLASS, NEBULA, DIVE, TRUCHET)
 
     /** Every family style id, in picker order. */
     val ids: List<String> = all.flatMap { it.ids }

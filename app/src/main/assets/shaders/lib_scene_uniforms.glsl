@@ -153,10 +153,14 @@ vec2 view() {
 #ifndef VIEW_OWNS_SHAPE
     // Morph: blend the plane toward a polar remap (angle,radius swap), a
     // smooth geometric metamorphosis that works on any scene.
+    // The angle is folded (abs) rather than taken raw: atan jumps from +pi to
+    // -pi along the negative x axis, so a raw ma / pi tore every morphing
+    // frame from the left edge to the centre, and MotionField keeps morph
+    // above zero for most music.
     if (uMorph > 0.001) {
         float mr = length(uv);
         float ma = atan(uv.y, uv.x);
-        vec2 polar = vec2(ma / 3.14159, (mr - 0.7) * 1.6);
+        vec2 polar = vec2(abs(ma) / 1.5707963 - 1.0, (mr - 0.7) * 1.6);
         uv = mix(uv, polar, uMorph * (0.6 + 0.15 * sin(uTime * 0.31)));
     }
 #endif

@@ -55,6 +55,8 @@ float gH2;
 float gWall;
 float gTop;
 float gMat;
+/** The eye, z rebased into 0..1024 (see main). */
+vec3 gEye;
 
 float canyonWidth(float z) {
     return CC_WIDTH + 0.7 * sin(z * (CC_TAU / 64.0));
@@ -77,7 +79,7 @@ float map(vec3 p) {
     float wall = wallAt(ax, cc.y);
     float kickAll = clamp(uHits.x, 0.0, 1.0);
     // Only the crystals just ahead of the eye answer the kick.
-    float kick = kickAll * exp(-abs(cc.y - uCamPos.z - 4.0) * 0.14);
+    float kick = kickAll * exp(-abs(cc.y - gEye.z - 4.0) * 0.14);
     float top = CC_FLOOR + 0.25 + 0.7 * h + CC_RISE * wall * (0.62 + 0.38 * h2)
               + CC_KICK * kick * (0.3 + 0.7 * wall);
     // Largest apothem 0.341 plus the 0.07 jitter stays inside the half-cell.
@@ -102,7 +104,7 @@ float map(vec3 p) {
     float df = p.y - CC_FLOOR;
     gMat = df < dc ? 1.0 : 0.0;
     d = min(d, df);
-    d = max(d, CC_BUBBLE - length(p - uCamPos));
+    d = max(d, CC_BUBBLE - length(p - gEye));
 
     gH = h;
     gH2 = h2;
@@ -125,7 +127,7 @@ vec3 skyColour(vec3 rd, float hueBase) {
     col += pal(hueBase + 0.08) * (0.30 * pow(ahead, 10.0) + 0.08 * ahead * ahead);
     vec3 sp = rd * 140.0;
     float s = hashCell(ivec3(floor(sp)));
-    float star = smoothstep(0.3, 0.0, length(fract(sp) - 0.5)) * step(0.996, s);
+    float star = (1.0 - smoothstep(0.0, 0.3, length(fract(sp) - 0.5))) * step(0.996, s);
     col += vec3(0.8) * star * smoothstep(0.05, 0.3, up) * (0.6 + 0.4 * sin(uTime * 3.0 + s * 500.0));
     return col;
 }
@@ -135,6 +137,12 @@ void main() {
     vec3 ro;
     vec3 rd;
     camFly(uv, ro, rd);
+    // Every z term tiles with a period dividing 1024, so this shift is
+    // invisible and exact (power of two). Without it, far down the 8192
+    // travel a highp z has ~0.001 of fraction left: every sample and the
+    // finite-difference normals quantise into speckle.
+    ro.z = mod(ro.z, CC_ZWRAP);
+    gEye = ro;
 
     float swell = clamp(uSwell, 0.0, 1.5);
     float energy = clamp(uEnergySmooth, 0.0, 1.5);
@@ -195,10 +203,12 @@ void main() {
 
         // Glints: sparse points on the facets that twinkle; air brings more of
         // them and brightens them. Each is a few pixels, never the frame.
-        vec3 gp = p * 7.0;
+        // z wrapped like the cells (1024 * 7 is whole, so the seam is a cell
+        // wall), or the glints would re-hash at every rebase of the eye.
+        vec3 gp = vec3(p.xy, mod(p.z, CC_ZWRAP)) * 7.0;
         float g = hashCell(ivec3(floor(gp)));
         float tw = 0.5 + 0.5 * sin(uTime * (9.0 + 13.0 * g) + g * 60.0);
-        float pt = smoothstep(0.32, 0.0, length(fract(gp) - 0.5));
+        float pt = (1.0 - smoothstep(0.0, 0.32, length(fract(gp) - 0.5)));
         col += mix(vec3(1.0), prism, 0.3) * step(0.93 - 0.06 * air, g) * pt * tw
              * (0.12 + 1.4 * air) * (0.3 + 0.7 * fres + spec);
 
@@ -206,6 +216,6 @@ void main() {
     }
 
     col *= 0.78 + 0.30 * swell + 0.10 * energy;
-    col *= 0.7 + 0.3 * smoothstep(2.2, 0.5, length(uv));
+    col *= 0.7 + 0.3 * (1.0 - smoothstep(0.5, 2.2, length(uv)));
     fragColor = vec4(grade(col), 1.0);
 }

@@ -22,7 +22,8 @@ out vec4 fragColor;
 //
 // Every wave's z wavenumber is a whole multiple of 2pi/64, so the sea tiles
 // along z with period 64 and the rig's 8192 travel wrap is invisible. The
-// sky depends on direction only, so it needs no tiling.
+// sky also parallaxes with the eye's xz: its z wavenumbers along q.y are whole
+// multiples of AO_QK so it repeats over the travel wrap too.
 //
 // ---- audio ------------------------------------------------------------------
 //
@@ -37,6 +38,12 @@ out vec4 fragColor;
 #define AO_FAR 60.0
 /** 2pi / 64: the z wavenumber unit that keeps the sea periodic over the travel wrap. */
 #define AO_KZ 0.09817477
+/**
+ * 2pi / 147.456: the curtains' q.y wavenumber unit. One 8192 travel wrap moves
+ * q.y by 8192 * 0.15 * 0.12 = 147.456, so every q.y term must be a whole
+ * multiple of this or the whole sky jumps at the wrap.
+ */
+#define AO_QK 0.04261057
 
 float gAmp;
 
@@ -73,7 +80,7 @@ vec3 sky(vec3 rd, vec3 ro, float hue, float drop, float dropLean, float snare) {
 
     vec3 sc = rd * 140.0;
     float h = hashCell(ivec3(floor(sc)));
-    col += vec3(step(0.991, h) * smoothstep(0.35, 0.0, length(fract(sc) - 0.5))) * 0.6 * smoothstep(0.05, 0.3, up);
+    col += vec3(step(0.991, h) * (1.0 - smoothstep(0.0, 0.35, length(fract(sc) - 0.5)))) * 0.6 * smoothstep(0.05, 0.3, up);
 
     if (rd.y > 0.02) {
         vec3 acc = vec3(0.0);
@@ -91,12 +98,12 @@ vec3 sky(vec3 rd, vec3 ro, float hue, float drop, float dropLean, float snare) {
             // The drop leans the curtain: every layer slides further along x.
             q.x += fi * 0.06 * dropLean;
             float tm = uTime * 0.06;
-            float v = q.x + 0.9 * sin(q.y * 0.55 + tm * 2.0) + 0.35 * sin(q.y * 1.7 - tm * 3.0 + q.x * 0.6);
-            float rib = smoothstep(0.24, 0.0, abs(fract(v * 0.35) - 0.5));
+            float v = q.x + 0.9 * sin(q.y * (13.0 * AO_QK) + tm * 2.0) + 0.35 * sin(q.y * (40.0 * AO_QK) - tm * 3.0 + q.x * 0.6);
+            float rib = (1.0 - smoothstep(0.0, 0.24, abs(fract(v * 0.35) - 0.5)));
             // Vertical rays inside the ribbon.
-            rib *= 0.65 + 0.35 * sin(v * 23.0 + q.y * 3.0 + tm * 5.0);
+            rib *= 0.65 + 0.35 * sin(v * 23.0 + q.y * (70.0 * AO_QK) + tm * 5.0);
             // The snare's shimmer: a bright pulse racing along the ribbon's length.
-            float run = 0.5 + 0.5 * sin(q.y * 2.4 - uTime * 7.0);
+            float run = 0.5 + 0.5 * sin(q.y * (56.0 * AO_QK) - uTime * 7.0);
             rib *= 1.0 + snare * 1.2 * run * run * run * run;
             // Bottom edge brightest and greener, fading out up the curtain.
             float fade = exp(-fi * 0.22) * smoothstep(0.0, 1.5, fi + 0.5);
@@ -128,7 +135,13 @@ void main() {
     vec3 ro;
     vec3 rd;
     camFly(uv, ro, rd);
+    // The sky parallaxes on the true eye; the sea is marched with z rebased
+    // into one 64 tile (exact, power of two), since far down the 8192 travel
+    // a highp z has ~0.001 of fraction left and the normals would speckle.
+    vec3 eye = ro;
+    ro.z = mod(ro.z, 64.0);
     ro.y = max(ro.y, AO_SEA_Y + sea(ro.xz) + 0.45);
+    eye.y = ro.y;
 
     vec3 col;
     float hitT = -1.0;
@@ -163,24 +176,24 @@ void main() {
         r.y = abs(r.y);
         float fres = 0.02 + 0.98 * pow(1.0 - clamp(dot(n, -rd), 0.0, 1.0), 5.0);
         vec3 deep = pal(hue + 0.55) * 0.012 + vec3(0.002, 0.004, 0.008);
-        col = mix(deep, sky(r, ro, hue, drop, dropLean, snare) * 1.2, fres);
+        col = mix(deep, sky(r, eye, hue, drop, dropLean, snare) * 1.2, fres);
         // Hat sparkles: hashed glints on a grid tiled every 64 along z, lit only
         // where a facet tilts toward the curtains.
         vec2 g = p.xz * 5.0;
         vec2 cell = floor(g);
         cell.y = mod(cell.y, 320.0);
         float sh = hashCell(ivec3(int(cell.x), int(cell.y), 7));
-        float glint = step(0.93, sh) * smoothstep(0.3, 0.0, length(fract(g) - 0.5));
+        float glint = step(0.93, sh) * (1.0 - smoothstep(0.0, 0.3, length(fract(g) - 0.5)));
         glint *= smoothstep(0.1, 0.5, r.y) * exp(-hitT * 0.06);
         col += mix(pal(hue + 0.1), vec3(1.0), 0.5) * glint * hats * 1.5;
         col = mix(col, horizon, 1.0 - exp(-hitT * 0.045));
     } else if (rd.y < 0.0) {
         col = horizon;
     } else {
-        col = sky(rd, ro, hue, drop, dropLean, snare);
+        col = sky(rd, eye, hue, drop, dropLean, snare);
     }
 
     col *= 0.8 + 0.25 * swell;
-    col *= 0.75 + 0.25 * smoothstep(2.2, 0.4, length(uv));
+    col *= 0.75 + 0.25 * (1.0 - smoothstep(0.4, 2.2, length(uv)));
     fragColor = vec4(grade(col), 1.0);
 }

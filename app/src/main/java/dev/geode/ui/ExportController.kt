@@ -7,6 +7,7 @@ import dev.geode.analysis.FeatureTimeline
 import dev.geode.data.BackgroundPrefsStore
 import dev.geode.data.ExportPrefsStore
 import dev.geode.data.GeodePrefsFiles
+import dev.geode.data.GuiPrefs
 import dev.geode.data.PerformanceTake
 import dev.geode.editor.AnimatableParams
 import dev.geode.editor.KeyframeSheet

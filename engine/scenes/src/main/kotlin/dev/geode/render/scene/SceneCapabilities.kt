@@ -85,6 +85,16 @@ object SceneCapabilities {
             SceneIds.CHROME_NEBULA to "shaders/chrome_nebula_frag.glsl",
             SceneIds.FRACTAL_DIVE to "shaders/fractal_dive_frag.glsl",
             SceneIds.AURORA_OCEAN to "shaders/aurora_ocean_frag.glsl",
+            // The second set of rig styles: each maps kick, snare, hats, onsets, drops and
+            // pitch changes to different properties rather than one shared pulse.
+            SceneIds.SPECTRUM_TERRAIN to "shaders/spectrum_terrain_frag.glsl",
+            SceneIds.OUTRUN_DRIVE to "shaders/outrun_drive_frag.glsl",
+            SceneIds.MENGER_CORE to "shaders/menger_core_frag.glsl",
+            SceneIds.GYROID_CAVERN to "shaders/gyroid_cavern_frag.glsl",
+            SceneIds.RINGED_PLANET to "shaders/ringed_planet_frag.glsl",
+            SceneIds.JELLY_ABYSS to "shaders/jelly_abyss_frag.glsl",
+            SceneIds.RIBBON_STORM to "shaders/ribbon_storm_frag.glsl",
+            SceneIds.PRISM_RAIN to "shaders/prism_rain_frag.glsl",
         ).apply {
             // The style families, twelve styles each, after the loose styles and in family order.
             StyleFamilies.ids.forEach { id -> put(id, "shaders/${id}_frag.glsl") }
@@ -115,6 +125,11 @@ object SceneCapabilities {
             SceneIds.CHROME_NEBULA,
             SceneIds.FRACTAL_DIVE,
             SceneIds.AURORA_OCEAN,
+            SceneIds.SPECTRUM_TERRAIN,
+            SceneIds.MENGER_CORE,
+            SceneIds.GYROID_CAVERN,
+            SceneIds.JELLY_ABYSS,
+            SceneIds.PRISM_RAIN,
         ) + StyleFamilies.marchedIds
 
     /**

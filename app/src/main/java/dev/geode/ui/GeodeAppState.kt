@@ -10,6 +10,7 @@ import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import dev.geode.R
+import dev.geode.data.UserIntent
 import dev.geode.ui.theme.StoneIcon
 
 /**
@@ -100,3 +101,11 @@ fun rememberGeodeAppState(externalDisplay: Display?): GeodeAppState {
     state.externalDisplay = externalDisplay
     return state
 }
+
+/** Where the app opens. Video-first users land in Studio, everyone else on the Stage. */
+val UserIntent.landingDestination: GeodeDestination
+    get() =
+        when (this) {
+            UserIntent.LISTENING, UserIntent.BOTH -> GeodeDestination.PLAYER
+            UserIntent.MAKING_VIDEOS -> GeodeDestination.STUDIO
+        }

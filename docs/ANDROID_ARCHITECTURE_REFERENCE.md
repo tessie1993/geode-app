@@ -2,7 +2,8 @@
 
 This is the "why and how" behind [ANDROID_ARCHITECTURE_GUIDE.md](ANDROID_ARCHITECTURE_GUIDE.md).
 The guide holds the rules. This file holds the patterns, trade-offs and code shapes from
-developer.android.com, paraphrased (fetched 2026-10-30 with `android docs fetch kb://...`).
+developer.android.com, paraphrased (fetched 2026-10-30 with `android docs fetch kb://...`;
+verified the same day against the release notes, see "Corrections of 2026-10-30" at the end).
 Read the section you need; don't read the whole file. Notes marked **(derived)** apply the
 docs to this repo and aren't official text. Re-fetch a `kb://` URL when you need exact
 API signatures.
@@ -46,9 +47,18 @@ Sources: `kb://android/topic/architecture/ui-layer/index`, `.../ui-layer/stateho
   a field that updates far more often. Every emission re-renders, so add `distinctUntilChanged()`
   where it helps.
 - Loading is a boolean. Errors are data (`userMessages: List<Message>`) so they can carry text and
-  a retry action. `PagingData` isn't immutable, so expose it as its own `Flow`.
-- State-driven navigation (`isSignedIn = true`) is consumed like other state, and the navigation
-  layer acts on it. Collect with `collectAsStateWithLifecycle()`.
+  a retry action. After showing a message the UI calls back (`userMessageShown(id)`) and the
+  ViewModel removes it: consuming an event is itself a user input
+  ([events](https://developer.android.com/topic/architecture/ui-layer/events#consuming-trigger-updates)). `PagingData` isn't
+  immutable, so expose it as its own `Flow`.
+- State-driven navigation (`isSignedIn = true`) is collected in the UI (`LaunchedEffect` +
+  `flowWithLifecycle`). If the source screen **stays on the back stack**, the UI must tell the
+  ViewModel it consumed the state (`onNavigatedToNext()` resets the flag), or returning to the
+  screen navigates again ([events](https://developer.android.com/topic/architecture/ui-layer/events#navigation-events)).
+- Why not `Channel`/`SharedFlow` for ViewModel-to-UI events: they don't guarantee delivery when
+  the producer outlives the consumer
+  ([events](https://developer.android.com/topic/architecture/ui-layer/events#other-use-cases)). This is the concrete reason
+  `PlayerViewModel.vizApply`/`morphFade` are listed as debt.
 
 ### State holders
 - **Business-logic holder** = a ViewModel. It produces screen state from the data and domain
@@ -193,11 +203,13 @@ Sources: `kb://android/topic/modularization/index`, `kb://android/topic/modulari
 | Type | Contains | Public API | Depends on |
 |---|---|---|---|
 | Data (`:core:data`, `:data:x`) | repositories, data sources, models for one domain | repositories only; sources `internal` | other data/core modules |
-| Feature (`:feature:x`) | screens and ViewModels for one feature (often one bottom-bar tab or flow) | entry points / nav keys | data modules, core UI. **Never other features** |
+| Feature (`:feature:x`) | screens and ViewModels for one feature (often one bottom-bar tab or flow) | entry points / nav keys | data modules, core UI, other features' `:api` (keys only). **Never another feature's `:impl`** ([patterns](https://developer.android.com/topic/modularization/patterns#feature-modules), [Nav3 modularize](https://developer.android.com/guide/navigation/navigation-3/modularize)) |
 | App (`:app`) | Activity, root navigation, DI wiring | none | all features; picks implementations |
 | Common/core | `core:ui`/designsystem, analytics, network, utilities | small helpers | nothing feature-level |
 | Test | shared fakes, fixtures, integration tests | test-only | the APIs it fakes |
 
+- **Don't over-modularize.** If the codebase won't grow, a small project may keep its data layer
+  in a single module ([pitfalls](https://developer.android.com/topic/modularization#common-pitfalls)).
 - One **app module per device type** (phone, Auto, TV, Wear) keeps platform dependencies apart.
   Build variants come from one app module.
 
@@ -237,8 +249,14 @@ there's also the `navigation-3` skill).
 
 **Dependencies (as of fetch):** `androidx.navigation3:navigation3-runtime`/`-ui` `1.2.0`,
 `androidx.lifecycle:lifecycle-viewmodel-navigation3` `2.11.0`, and optionally
-`androidx.compose.material3.adaptive:adaptive-navigation3`, plus the KotlinX Serialization plugin.
-Needs **compileSdk 36, minSdk 23**. Compose-only; Views go through interop.
+`androidx.compose.material3.adaptive:adaptive-navigation3` `1.3.0`, plus the KotlinX Serialization
+plugin. **minSdk 23.** The migration guide still says compileSdk 36, but Nav3 1.2.0-alpha03 moved to
+compileSdk 37 with Compose, and lifecycle 2.11 / androidx.hilt 1.4 need **AGP 9.2.0 or later** for
+that ([nav3 notes](https://developer.android.com/jetpack/androidx/releases/navigation3),
+[lifecycle 2.11.0](https://developer.android.com/jetpack/androidx/releases/lifecycle#2.11.0)). This repo (compileSdk 37,
+AGP 9.3.1) meets both. Compose-only; Views go through interop. The recommendations page now rates
+"single-activity application, use Navigation 3" as **strongly recommended**
+([recommendations](https://developer.android.com/topic/architecture/recommendations)).
 
 ### Keys and the back stack you own
 - The back stack holds **keys** (references to content), never content. A key is usually a
@@ -272,6 +290,27 @@ Needs **compileSdk 36, minSdk 23**. Compose-only; Views go through interop.
 - **`rememberViewModelStoreNavEntryDecorator()`** gives each entry its own `ViewModelStore`, keyed
   by `contentKey`. A ViewModel is created when its key is pushed and **cleared when it's popped**.
   Without this decorator, ViewModels fall back to the Activity store and live forever.
+- **Lifecycle 2.11.0 changed the decorator**
+  ([notes](https://developer.android.com/jetpack/androidx/releases/lifecycle#2.11.0)): it takes a parent
+  `ViewModelStoreOwner`, which passes default `CreationExtras` and factories (Hilt's) down; a new
+  `rememberViewModelStoreNavEntryDecorator(viewModelStoreProvider)` overload hoists a
+  `ViewModelStoreProvider` for multiple back stacks where the same entry needs separate state.
+  `removeViewModelStoreOnPop` and `ViewModelStoreNavEntryDecoratorDefaults` are **deprecated**: all
+  decorator state clears together on pop.
+- **Activity-scoped ViewModels under Nav3** (derived): inside an entry `LocalViewModelStoreOwner` is
+  the entry's store, so plain `hiltViewModel()` is entry-scoped. To keep one in the Activity store,
+  capture the owner **above** `NavDisplay` and pass it:
+  `hiltViewModel<VM>(viewModelStoreOwner = activityOwner)`
+  ([ViewModel APIs](https://developer.android.com/topic/libraries/architecture/viewmodel/viewmodel-apis)). For state shared
+  across screens the official answer is an `@ActivityRetainedScoped`/`@Singleton` holder, not a
+  shared ViewModel ([Hilt and Jetpack](https://developer.android.com/training/dependency-injection/hilt-jetpack)).
+- **`hiltViewModel` moved.** Since androidx.hilt 1.3.0 it lives in
+  `androidx.hilt:hilt-lifecycle-viewmodel-compose`, package
+  `androidx.hilt.lifecycle.viewmodel.compose`; both overloads in `androidx.hilt.navigation.compose`
+  are `@Deprecated` ([hilt notes](https://developer.android.com/jetpack/androidx/releases/hilt#1.3.0)). This repo still uses
+  the old path (`hilt-navigation-compose` in the catalog, `ui/GeodeViewModelFactory.kt`).
+  `rememberHiltViewModelFactory()` (1.4.0) gives a Hilt factory to `rememberViewModelStoreOwner`
+  scopes.
 - **Hilt plus a key argument.** Use assisted injection:
   `@HiltViewModel(assistedFactory = F::class) class VM @AssistedInject constructor(@Assisted key: K)`,
   then in the entry `hiltViewModel<VM, VM.Factory>(creationCallback = { it.create(key) })`. The
@@ -282,7 +321,10 @@ Needs **compileSdk 36, minSdk 23**. Compose-only; Views go through interop.
   Use it only for genuine flows; app-wide shared data still belongs in a repository.
 - **Results.** `rememberResultEventBusNavEntryDecorator()` (1.2.0). The sender calls
   `LocalResultEventBus.current.sendResult<T>(…)`; the receiver uses `ResultEffect<T> { … }` or
-  `conflateAsState()`. **It's in-memory and doesn't survive process death.** To persist a result,
+  `conflateAsState()`. **It's in-memory: results are lost on process death and on activity
+  recreation.** Type-keyed observers don't receive results sent with an explicit `resultKey`;
+  `ResultEffect` is queued, `conflateAsState` keeps only the latest
+  ([return results](https://developer.android.com/guide/navigation/navigation-3/return-results)). To persist a result,
   put it in the key, `rememberSaveable`, or a ViewModel's `SavedStateHandle`.
 
 ```kotlin
@@ -295,6 +337,7 @@ NavDisplay(
     ),
     entryProvider = entryProvider {
         entry<TrackDetail> { key ->
+            // androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel, not ...navigation.compose
             val vm = hiltViewModel<TrackDetailViewModel, TrackDetailViewModel.Factory>(
                 creationCallback = { it.create(key) })
             TrackDetailScreen(vm.uiState.collectAsStateWithLifecycle().value, onBack = { backStack.removeLastOrNull() })
@@ -328,7 +371,16 @@ NavDisplay(
   through a `SharedFlow` event that the tab root collects to scroll to top. This is UI-to-UI,
   which is allowed.
 - Simpler alternative (`common-ui` recipe): a `TopLevelBackStack` that flattens the tab stacks.
-  A tab's history is **discarded** when the user backs out of it.
+  A tab's history is **discarded** when the user backs out of it. It is held in plain `remember`,
+  so it is **not saved** across config change or process death
+  ([common-ui](https://developer.android.com/guide/navigation/navigation-3/recipes/common-ui)).
+- **Scene decorators** (1.1.0): `SceneDecoratorStrategy` plus `NavDisplay(sceneDecoratorStrategies,
+  sharedTransitionScope)`. The `navscenedecorator` recipe draws the **bar or rail at scene level**,
+  which fits this app's bar/rail switch
+  ([scene decorators](https://developer.android.com/guide/navigation/navigation-3/scenes/scene-decorators)).
+- 1.2.0 details: the default `contentKey` is `key.toString()` plus the class (same-named
+  `data object`s no longer collide); `NavDisplay` takes a `List<SceneStrategy>` and the `then`
+  chaining is deprecated.
 - Not covered by the guide or recipes: more than one level of nested navigation, and destinations
   that **move between stacks**.
 
@@ -444,7 +496,22 @@ Sources: `kb://JetBrains/kotlin-multiplatform-dev-docs/topics/development/multip
   `Uri` or `R`.
 - KMP-safe libraries: coroutines, serialization, DataStore, ViewModel, Navigation 3 (its runtime
   lives in `navigation3-runtime/src/commonMain`; `DeepLinkUri` is a typealias of `android.net.Uri`
-  only on Android). **Verify** the artifact publishes a JVM target before making a
-  `:feature:*:api` a Kotlin/JVM module; otherwise keep `api` a thin Android library.
+  only on Android). `navigation3-runtime` publishes a **JVM** target (since 1.0.0-alpha08;
+  `navigation3-ui` doesn't), so a `:feature:*:api` or `:core:navigation` can be Kotlin/JVM. Check
+  Gradle resolution from a plain `kotlin("jvm")` module in CI before relying on it.
 - Keep `android.*`, `Context`, `R` and Compose types out of models and keys. Use `String` or `Long`
   IDs (not `Uri` or `Parcelable`). Hilt `@Module`s stay on the Android side.
+
+---
+
+## Corrections of 2026-10-30
+Checked against the release notes and reference pages the same day. Current stable versions:
+`navigation3` **1.2.0** (Sep 23, 2026), lifecycle incl. `lifecycle-viewmodel-navigation3`
+**2.11.0** (Jun 17, 2026), `androidx.hilt` **1.4.0** (Jul 1, 2026), `adaptive-navigation3`
+**1.3.0** (Aug 12, 2026), Dagger/Hilt **2.60.1** (Jul 6, 2026). Corrected above: event
+consumption, feature-to-feature dependencies, compileSdk, the 2.11 ViewModel decorator, the
+`hiltViewModel` package, results across recreation, scene decorators, the JVM target.
+**Unconfirmed:** whether `UriDeepLinkMatcher` accepts custom schemes such as `geode://` (the docs
+only show http(s)), and whether AGP enforces compileSdk 37 on consumers. **(derived)** Apply a
+deep-link back stack only when `savedInstanceState == null` or in `onNewIntent`, so a restored
+stack isn't overwritten.

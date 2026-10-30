@@ -7,6 +7,8 @@ import androidx.core.net.toUri
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
+import dev.geode.model.DeviceTrack
+import dev.geode.model.LibraryTrack
 import dev.geode.playback.MediaArtwork
 import dev.geode.playback.QueueOps
 import kotlinx.coroutines.CoroutineScope

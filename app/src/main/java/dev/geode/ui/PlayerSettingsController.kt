@@ -9,8 +9,10 @@ import dev.geode.analysis.AnalysisEngine
 import dev.geode.analysis.PlaybackMath
 import dev.geode.audio.AudioFxController
 import dev.geode.audio.AudioFxState
+import dev.geode.data.GuiPrefs
 import dev.geode.data.PlayerPrefs
 import dev.geode.data.PlayerPrefsRepository
+import dev.geode.data.UserDataRepository
 import dev.geode.playback.NativePlayer
 import dev.geode.playback.ReplayGain
 import kotlinx.coroutines.CoroutineScope

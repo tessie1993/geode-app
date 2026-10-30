@@ -1,8 +1,9 @@
-package dev.geode.ui
+package dev.geode.data
 
 import android.content.ContentUris
 import android.content.Context
 import android.provider.MediaStore
+import dev.geode.model.DeviceTrack
 
 /** The music MediaStore already indexes, read the same way for the library screen and the Android Auto tree. */
 object DeviceTrackQuery {

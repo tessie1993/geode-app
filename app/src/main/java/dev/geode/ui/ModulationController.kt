@@ -191,6 +191,9 @@ internal class ModulationController(
     private fun currentLook() = AbLook(host.params, _reactions.value, _lfos.value, _adsrs.value, LayersBus.state.value)
 
     // Only what differs is written, so a blend drag does not rewrite the stores every frame.
+    // ponytail: undo covers the params only, as it always has for edits on the reaction, LFO,
+    // envelope and layer controls; Undo after a recall puts the params back and leaves the rest.
+    // Widen the history to AbLook if that bites.
     private fun applyLook(
         look: AbLook,
         commit: Boolean,

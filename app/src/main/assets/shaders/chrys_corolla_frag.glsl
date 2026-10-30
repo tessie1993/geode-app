@@ -1,4 +1,5 @@
 #version 300 es
+#define VIEW_OWNS_SHAPE
 precision highp float;
 precision highp sampler2D;
 
@@ -39,6 +40,16 @@ out vec4 fragColor;
 // never snaps. uSwell opens the rest pose a little, so loud passages sit
 // fuller. The bass band breathes the core's radius by a few percent. The head
 // turns on its own axis with uDrift. Brightness follows uSwell only.
+//
+// ---- macros -----------------------------------------------------------------
+//
+// Speed: uSpeed scales the head's own spin and the hue clock. Complexity:
+// uMorph adds a fourth, innermost ring (high-quality path only; the march
+// ceiling is unchanged). Chaos: uTurbulence + uWarp give each petal its own
+// length and lift, a shaggy, wind-tossed head; uTwist swirls the rings into
+// a pinwheel around the axis. Energy: uIntensity scales the drop unfold and
+// the bass breath. Colour: pal() for petals, core and backdrop. Camera: the
+// rig, via camAround (uZoom still applies through view()).
 
 #define CO_MAX_STEPS 112
 #define CO_BOUND 1.8
@@ -52,6 +63,8 @@ float gBass;
 bool gLowQ;
 float gMat;
 float gU;
+float gChaos;
+float gRings;
 
 vec3 toFlower(vec3 p) {
     vec3 q = vec3(p.x, dot(p, CO_AXIS), dot(p, CO_SIDE));
@@ -62,11 +75,13 @@ vec3 toFlower(vec3 p) {
 // One ring of petals. Returns (distance, u along the petal).
 vec2 petalRing(vec3 q, float count, float r0, float len, float width, float elev, float bend, float twist) {
     float rho = length(q.xz);
-    float phi = atan(q.z, q.x) + twist;
+    float phi = atan(q.z, q.x) + twist + uTwist * rho;
     float sector = CHRYS_TAU / count;
     float id = floor(phi / sector + 0.5);
     float across = (phi - id * sector) * rho;
-    float l = len * (0.9 + 0.2 * chrysHash1(mod(id, count) + r0 * 31.0));
+    float hid = chrysHash1(mod(id, count) + r0 * 31.0);
+    float l = len * (0.9 + 0.2 * hid) * (1.0 + 0.2 * gChaos * (chrysHash1(hid * 7.0 + 1.0) - 0.5));
+    elev += 0.25 * gChaos * (hid - 0.5);
     // The centreline: a circle of radius 1/bend leaving (r0, 0) at angle elev.
     float k = abs(bend) < 0.05 ? (bend < 0.0 ? -0.05 : 0.05) : bend;
     float rad = 1.0 / k;
@@ -91,15 +106,15 @@ float map(vec3 p) {
     float d = core;
     gMat = 0.0;
     gU = 0.0;
-    int rings = gLowQ ? 2 : 3;
-    for (int i = 0; i < 3; i++) {
-        if (i >= rings) break;
+    float rings = gLowQ ? 2.0 : gRings;
+    for (int i = 0; i < 4; i++) {
         float k = float(i);
-        float t = k * 0.5;
+        if (k >= rings) break;
+        float t = min(k * 0.5, 1.0);
         float elev = mix(mix(1.2, 1.5, t), mix(0.1, 0.95, t), gOpen);
         float bend = mix(mix(1.5, 2.6, t), mix(-0.6, -0.15, t), gOpen);
-        float count = 16.0 - 3.0 * k;
-        vec2 pr = petalRing(q, count, 0.26 - 0.045 * k, 1.3 - 0.3 * k, 0.42 + 0.04 * k, elev, bend, k * 0.37);
+        float count = max(16.0 - 3.0 * k, 6.0);
+        vec2 pr = petalRing(q, count, 0.26 - 0.045 * k, max(1.3 - 0.3 * k, 0.45), 0.42 + 0.04 * k, elev, bend, k * 0.37);
         if (pr.x < d) {
             d = pr.x;
             gMat = 1.0 + k;
@@ -118,12 +133,15 @@ vec3 normalAt(vec3 p, float eps) {
 void main() {
     vec2 uv = view();
     float swell = clamp(uSwell, 0.0, 1.5);
+    float t = uTime * uSpeed;
     float drop = clamp(uEvents.y, 0.0, 1.0);
-    gBass = clamp(uBandsLo.y, 0.0, 1.0);
-    gOpen = clamp(0.36 + 0.12 * swell + 0.6 * chrysBump(drop), 0.0, 1.0);
-    gSpin = uTime * 0.04 + uDrift * 0.1;
+    gBass = clamp(uBandsLo.y * uIntensity, 0.0, 1.5);
+    gOpen = clamp(0.36 + 0.12 * swell + 0.6 * uIntensity * chrysBump(drop), 0.0, 1.0);
+    gSpin = t * 0.04 + uDrift * 0.1;
     gLowQ = uSteps < 72.0;
-    float hue = 0.04 + 0.03 * sin(uTime * 0.025);
+    gChaos = clamp(uTurbulence + uWarp, 0.0, 2.0);
+    gRings = 3.0 + step(0.5, uMorph);
+    float hue = 0.04 + 0.03 * sin(t * 0.025);
 
     vec3 ro;
     vec3 rd;

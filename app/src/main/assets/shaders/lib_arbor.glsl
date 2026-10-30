@@ -76,7 +76,12 @@ struct ArborForm {
     float arms;
     /** Angle of a child off its parent's axis, radians. */
     float tilt;
-    /** Added to tilt at every level: positive droops (willow), negative curls up (coral). */
+    /**
+     * Gravity, radians per level: each child turns toward world DOWN by bend
+     * times the sine of its angle off vertical, so a horizontal limb sags most
+     * and a hanging one stops. Negative turns toward UP (coral, phototropism).
+     * Parent-relative tilt cannot do this: with any twist the tilts spiral.
+     */
     float bend;
     /** Turn about the child's own axis per level; it is what makes a mirror tree 3D. */
     float twist;
@@ -124,9 +129,15 @@ float arborTree(vec3 p, ArborForm f, float grow) {
     float s = 1.0;
     float r = f.girth * f.len;
     float best = 1e9;
-    float tilt = f.tilt;
     float path = 0.0;
     float tipD = 1e9;
+    vec3 tipP = p;
+    float tipS = 1.0;
+    // World down, carried through every frame change the point goes through,
+    // so a limb deep in the tree still knows which way gravity pulls.
+    vec3 g = vec3(0.0, -1.0, 0.0);
+    mat2 tiltM = rot2(-f.tilt);
+    mat2 twistM = rot2(f.twist);
     gArbLevel = 0.0;
     gArbAlong = 0.0;
     for (int i = 0; i <= ARB_MAX_LEVELS; i++) {
@@ -135,8 +146,11 @@ float arborTree(vec3 p, ArborForm f, float grow) {
         if (i > 0) {
             p.y -= f.len;
             if (f.arms < 2.5) {
-                path = path * 2.0 + step(0.0, p.x);
-                p.x = abs(p.x);
+                float side = step(0.0, p.x);
+                path = path * 2.0 + side;
+                float m = 2.0 * side - 1.0;
+                p.x *= m;
+                g.x *= m;
             } else {
                 float w = ARB_TAU / f.arms;
                 float a = atan(p.z, p.x) + 0.5 * w;
@@ -144,14 +158,32 @@ float arborTree(vec3 p, ArborForm f, float grow) {
                 path = path * f.arms + mod(k, f.arms);
                 a -= (k + 0.5) * w;
                 p.xz = length(p.xz) * vec2(cos(a), sin(a));
+                float c = cos(k * w);
+                float sn = sin(k * w);
+                g.xz = vec2(c * g.x + sn * g.z, c * g.z - sn * g.x);
             }
             // Onto the child's axis (it leans toward +x), then the twist that
             // turns the NEXT fork's plane.
-            p.xy = rot2(-tilt) * p.xy;
-            p.xz = rot2(f.twist) * p.xz;
+            p.xy = tiltM * p.xy;
+            g.xy = tiltM * g.xy;
+            p.xz = twistM * p.xz;
+            g.xz = twistM * g.xz;
+            // Gravity: turn the child's axis toward g's sideways part.
+            float gl = length(g.xz);
+            if (gl > 1e-4) {
+                vec2 h = g.xz / gl;
+                float beta = f.bend * gl;
+                float cb = cos(beta);
+                float sb = sin(beta);
+                float pa = dot(p.xz, h);
+                vec2 pr = p.xz - pa * h;
+                p = vec3(pr.x + (cb * pa - sb * p.y) * h.x, sb * pa + cb * p.y, pr.y + (cb * pa - sb * p.y) * h.y);
+                float ga = dot(g.xz, h);
+                vec2 gr = g.xz - ga * h;
+                g = vec3(gr.x + (cb * ga - sb * g.y) * h.x, sb * ga + cb * g.y, gr.y + (cb * ga - sb * g.y) * h.y);
+            }
             p /= f.ratio;
             s *= f.ratio;
-            tilt += f.bend;
         }
         float h = f.len * fill;
         float al;
@@ -161,8 +193,10 @@ float arborTree(vec3 p, ArborForm f, float grow) {
             gArbLevel = float(i);
             gArbAlong = al;
         }
-        tipD = length(p - vec3(0.0, h, 0.0)) * s;
+        tipP = p - vec3(0.0, h, 0.0);
+        tipS = s;
     }
+    tipD = length(tipP) * tipS;
     gArbPath = path;
     gArbTip = tipD;
     return best;

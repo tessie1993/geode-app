@@ -1,4 +1,5 @@
 #version 300 es
+#define VIEW_OWNS_SHAPE
 precision highp float;
 precision highp sampler2D;
 
@@ -31,16 +32,26 @@ out vec4 fragColor;
 // flower, their places re-seeded by uHitCount so every onset throws a new
 // pattern. The flower itself turns slowly on uDrift. Brightness never
 // follows the music: this is paper, and paper is always the same white.
+//
+// ---- macros -----------------------------------------------------------------
+//
+// Speed: uSpeed scales the flower's slow sway. Complexity: uMorph adds a
+// fourth ring of short, tight strokes in the heart. Chaos: uTurbulence +
+// uWarp make the brush rougher (a raggeder bleed, wilder petal lengths);
+// uTwist hooks every quill harder. Energy: uIntensity scales the bleed and
+// the splatter. Colour: pal() tints the ink, the heart wash and the seal;
+// the paper is a fixed warm white. Space: uZoom via view().
 
 #define INK_FLOWER vec2(0.22, 0.14)
 
 float gBleed;
+float gChaos;
 
 // Wet ink of one stroke from its signed distance; ragged at the bleed edge,
 // darker where it pooled. Returns coverage 0..1.
 float inkStroke(float d, vec2 fibre, float tone) {
     float n = motionNoise(fibre * 70.0) - 0.5;
-    float dn = d + gBleed * 1.4 * n;
+    float dn = d + (gBleed * 1.4 + 0.012 * gChaos) * n;
     float body = smoothstep(gBleed, -gBleed * 0.3 - 0.002, dn);
     float pool = exp(-abs(dn) / (gBleed * 0.5 + 0.0015)) * smoothstep(gBleed, 0.0, dn);
     return clamp(body * tone + pool * 0.35, 0.0, 1.0);
@@ -48,10 +59,13 @@ float inkStroke(float d, vec2 fibre, float tone) {
 
 void main() {
     vec2 uv = view();
-    float lowmid = clamp(uBandsLo.z, 0.0, 1.0);
-    float flux = clamp(uBandsHi.w, 0.0, 1.0);
+    float t = uTime * uSpeed;
+    gChaos = clamp(uTurbulence + uWarp, 0.0, 2.0);
+    float lowmid = clamp(uBandsLo.z * uIntensity, 0.0, 1.5);
+    float flux = clamp(uBandsHi.w * uIntensity, 0.0, 1.5);
+    float rings = 3.0 + step(0.5, uMorph);
     gBleed = 0.003 + 0.02 * lowmid;
-    float hue = 0.1 + 0.02 * sin(uTime * 0.02);
+    float hue = 0.1 + 0.02 * sin(t * 0.02);
 
     // Paper: warm, with fibre and slow blotches.
     vec3 paper = vec3(0.93, 0.89, 0.81);
@@ -59,7 +73,7 @@ void main() {
     paper *= 1.0 - 0.18 * smoothstep(0.8, 2.0, length(uv));
 
     float ink = 0.0;
-    vec2 fp = chrysTurn(uDrift * 0.08 + 0.15 * sin(uTime * 0.03)) * (uv - INK_FLOWER);
+    vec2 fp = chrysTurn(uDrift * 0.08 + 0.15 * sin(t * 0.03)) * (uv - INK_FLOWER);
 
     // Stem: a bowed stroke from the flower down off the sheet.
     float sy = INK_FLOWER.y - uv.y;
@@ -83,17 +97,18 @@ void main() {
     }
 
     // The flower: three rings, outer to inner, each petal its own length.
-    for (int i = 0; i < 3; i++) {
+    for (int i = 0; i < 4; i++) {
         float k = float(i);
-        float count = 22.0 - 5.5 * k;
-        float r0 = 0.08 - 0.025 * k;
-        float len = 0.55 - 0.18 * k;
-        float width = 0.16 + 0.1 * k;
-        float hook = k < 0.5 ? 2.6 : (k < 1.5 ? -3.5 : 0.0);
+        if (k >= rings) break;
+        float count = floor(22.0 - 5.5 * k);
+        float r0 = max(0.08 - 0.025 * k, 0.012);
+        float len = max(0.55 - 0.18 * k, 0.1);
+        float width = min(0.16 + 0.1 * k, 0.45);
+        float hook = (k < 0.5 ? 2.6 : (k < 1.5 ? -3.5 : 0.0)) * (1.0 + uTwist);
         vec2 q = chrysHook(chrysTurn(chrysRingOffset(k, count)) * fp, hook, r0);
         float id = mod(chrysPetal(q, count, r0, len, width, 0.0, 0.3, 0.9).w, count);
-        float lenScale = 0.62 + 0.55 * chrysHash1(id + 13.0 * k);
-        vec4 pet = chrysPetal(q, count, r0, len * lenScale, width, 0.0, mix(0.2, 0.85, k * 0.5), 0.95);
+        float lenScale = 0.62 + 0.55 * chrysHash1(id + 13.0 * k) * (1.0 + 0.6 * gChaos);
+        vec4 pet = chrysPetal(q, count, r0, len * lenScale, width, 0.0, mix(0.2, 0.85, min(k * 0.5, 1.0)), 0.95);
         float u = clamp(pet.y, 0.0, 1.0);
         // Dry brush: the stroke breaks into streaks toward the tip.
         float dry = motionNoise(vec2(pet.z * 3.5 + id * 7.0, u * 2.0));

@@ -1,4 +1,5 @@
 #version 300 es
+#define VIEW_OWNS_SHAPE
 precision highp float;
 precision highp sampler2D;
 
@@ -140,7 +141,8 @@ void main() {
         float ndv = max(dot(n, -rd), 0.0);
         float ao = bulbStepAO(used) * (0.55 + 0.45 * smoothstep(0.05, 0.8, trap.x));
         // Cobalt brushwork in the bands near the pole axis.
-        float brush = smoothstep(0.10 + 0.12 * harmony, 0.02, abs(fract(trap.z * 4.0) - 0.5) - 0.3);
+        float bandW = 0.06 + 0.12 * harmony;
+        float brush = 1.0 - smoothstep(bandW, bandW + 0.04, abs(fract(trap.z * 4.0) - 0.5));
         vec3 porcelain = vec3(0.92, 0.91, 0.88);
         vec3 cobalt = pal(hue) * 0.35;
         vec3 body = mix(porcelain, cobalt, brush * 0.85);

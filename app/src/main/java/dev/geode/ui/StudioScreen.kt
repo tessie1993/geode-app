@@ -111,13 +111,8 @@ internal fun StudioScreen(
         }
 
     val chooserTitle = stringResource(R.string.studio_share_chooser)
+    // The title and the Edit | Render tabs above this belong to [StudioHub].
     Column(Modifier.fillMaxSize()) {
-        Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp)) {
-            CrystalOverline(stringResource(R.string.app_name))
-            GlowTitle(
-                stringResource(if (editing == null) R.string.nav_studio else R.string.studio_edit),
-            )
-        }
         val clip = editing
         if (clip == null) {
             Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {

@@ -30,12 +30,21 @@ enum class GeodeDestination(
     SETTINGS(R.string.nav_settings, StoneIcon.SETTINGS),
 }
 
+/**
+ * The two halves of [GeodeDestination.STUDIO]. Studio owns everything that makes a video:
+ * [EDIT] is the Pro clip editor, [RENDER] the visualizer export, loop render and their defaults.
+ * [RENDER] is open to free and trial users too (within `pro/FreeTier`), so it is reachable from
+ * the Visuals export button and from Settings even when the Studio tab is hidden from the bar.
+ */
+enum class StudioSection { EDIT, RENDER }
+
 @Stable
 class GeodeAppState(
     dest: GeodeDestination = GeodeDestination.PLAYER,
     expanded: Boolean = false,
     searching: Boolean = false,
     bootDone: Boolean = false,
+    studioSection: StudioSection = StudioSection.EDIT,
 ) {
     var dest by mutableStateOf(dest)
 
@@ -44,6 +53,8 @@ class GeodeAppState(
     var searching by mutableStateOf(searching)
 
     var bootDone by mutableStateOf(bootDone)
+
+    var studioSection by mutableStateOf(studioSection)
 
     var externalDisplay: Display? = null
         internal set
@@ -70,6 +81,12 @@ class GeodeAppState(
         dest = destination
     }
 
+    /** Opens Studio › Render: the one place export, loop render and their defaults live. */
+    fun openStudioRender() {
+        studioSection = StudioSection.RENDER
+        dest = GeodeDestination.STUDIO
+    }
+
     fun resetToPlayer() {
         dest = GeodeDestination.PLAYER
     }
@@ -79,7 +96,7 @@ class GeodeAppState(
             Saver(
                 // Saved as the enum name, not its ordinal: reordering the navigation bar then
                 // cannot silently restore a process-death survivor onto a different screen.
-                save = { listOf(it.dest.name, it.expanded, it.searching, it.bootDone) },
+                save = { listOf(it.dest.name, it.expanded, it.searching, it.bootDone, it.studioSection.name) },
                 restore = {
                     GeodeAppState(
                         dest =
@@ -88,6 +105,9 @@ class GeodeAppState(
                         expanded = it[1] as Boolean,
                         searching = it[2] as Boolean,
                         bootDone = it[3] as Boolean,
+                        studioSection =
+                            StudioSection.entries.firstOrNull { s -> s.name == it.getOrNull(4) }
+                                ?: StudioSection.EDIT,
                     )
                 },
             )

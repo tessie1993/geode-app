@@ -149,13 +149,18 @@ private val PendingLoopExportSaver =
         },
     )
 
-/** Which sheet [ExportHost] is showing: the picker between the two kinds of export, or one of them. */
-private enum class ExportEntryMode { Menu, Standard, Loop }
+/** Which sheet [ExportHost] is showing: the standard visualizer export or the loop render. */
+enum class ExportEntryMode { Standard, Loop }
 
+/**
+ * The visualizer export and the loop render, opened from Studio › Render (their only home).
+ * [requested] is the button that was pressed; a render already under way still wins over it.
+ */
 @Composable
 fun ExportHost(
     viewModel: PlayerViewModel,
     visualizerView: VisualizerView,
+    requested: ExportEntryMode,
     onDismiss: () -> Unit,
 ) {
     val studioViewModel: StudioViewModel = geodeViewModel()
@@ -191,14 +196,13 @@ fun ExportHost(
     var pendingLoopExport by rememberSaveable(stateSaver = PendingLoopExportSaver) {
         mutableStateOf<PendingLoopExport?>(null)
     }
-    var chosenMode by rememberSaveable { mutableStateOf<ExportEntryMode?>(null) }
     // A render already under way (from before this dialog was last opened) reopens onto its own
-    // progress instead of the picker, so leaving and coming back never hides a running export.
+    // progress instead of the sheet that was asked for, so coming back never hides a running export.
     val mode =
-        chosenMode ?: when {
+        when {
             loop.phase.isBusy || loop.phase.resultUriOrNull != null || loop.phase.errorOrNull != null -> ExportEntryMode.Loop
             export.phase.isBusy || export.phase.resultUriOrNull != null || export.phase.errorOrNull != null -> ExportEntryMode.Standard
-            else -> ExportEntryMode.Menu
+            else -> requested
         }
 
     val sceneFactoryFor: (String, String) -> SceneFactory =
@@ -245,22 +249,6 @@ fun ExportHost(
         }
     val takes by studioViewModel.takeState.collectAsStateWithLifecycle()
     when (mode) {
-        ExportEntryMode.Menu ->
-            AlertDialog(
-                onDismissRequest = onDismiss,
-                title = { Text(stringResource(R.string.export_loop_menu_title)) },
-                text = { Text(stringResource(R.string.export_loop_menu_subtitle)) },
-                confirmButton = {
-                    TextButton(onClick = { chosenMode = ExportEntryMode.Standard }) {
-                        Text(stringResource(R.string.export_loop_menu_standard))
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = { chosenMode = ExportEntryMode.Loop }) {
-                        Text(stringResource(R.string.export_loop_menu_loop))
-                    }
-                },
-            )
         ExportEntryMode.Loop ->
             LoopRenderSheet(
                 state = loop,

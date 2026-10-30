@@ -24,10 +24,8 @@ class PurchaseVerifier(
 ) {
     private val key: PublicKey? =
         base64PublicKey.takeIf { it.isNotBlank() }?.let { encoded ->
-            runCatching {
-                val bytes = Base64.decode(encoded, Base64.DEFAULT)
-                KeyFactory.getInstance(KEY_ALGORITHM).generatePublic(X509EncodedKeySpec(bytes))
-            }.onFailure { RingLog.note(TAG, "licence key does not parse: ${it.javaClass.simpleName}") }
+            runCatching { KeyFactory.getInstance(KEY_ALGORITHM).generatePublic(X509EncodedKeySpec(Base64.decode(encoded, Base64.DEFAULT))) }
+                .onFailure { RingLog.note(TAG, "licence key does not parse: ${it.javaClass.simpleName}") }
                 .getOrNull()
         }
 

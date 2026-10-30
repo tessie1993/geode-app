@@ -277,7 +277,8 @@ class PlayerViewModel
             codec: ExportCodec = ExportCodec.H264,
         ) {
             if (openPaywallIfLocked(aspect, fps)) return
-            session.startExport(aspect, fps, sceneFactory, destination, loopSafe, range, sceneFactoryFor, codec, gate.value.watermarksExports)
+            val watermark = gate.value.watermarksExports
+            session.startExport(aspect, fps, sceneFactory, destination, loopSafe, range, sceneFactoryFor, codec, watermark)
         }
 
         fun startLoopRender(

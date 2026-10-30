@@ -122,7 +122,8 @@ class PaywallViewModelTest {
 
             assertEquals(PurchaseStatus.Purchased, f.state.purchase)
             assertEquals(Entitlement.Pro, f.state.gate.entitlement)
-            assertTrue(f.viewModel.gate.value.allows(ProFeature.STUDIO))
+            val gate = f.viewModel.gate.value
+            assertTrue(gate.allows(ProFeature.STUDIO))
             assertFalse(f.state.canPurchase)
         }
 
@@ -252,7 +253,8 @@ class PaywallViewModelTest {
             f.trialStore.startedAt = 0L
             f.billing.setOwned(true)
             advanceTimeBy(FreeTier.TRIAL_DURATION_MS * 2)
-            val fresh = PaywallViewModel(f.billing, StoredTrialRepository(f.trialStore, f.clock), GetFeatureGateUseCase(f.billing, f.trial), f.navigator)
+            val trial = StoredTrialRepository(f.trialStore, f.clock)
+            val fresh = PaywallViewModel(f.billing, trial, GetFeatureGateUseCase(f.billing, trial), f.navigator)
             advanceUntilIdle()
 
             assertNull(f.navigator.request.value)

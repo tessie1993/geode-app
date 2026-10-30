@@ -457,7 +457,12 @@ private fun ComparisonTable(highlighted: ProFeature?) {
                 .padding(horizontal = 16.dp, vertical = 8.dp)
                 .clearAndSetSemantics { },
         ) {
-            Text(stringResource(R.string.pro_compare_feature), Modifier.weight(LABEL_WEIGHT), style = headerStyle(), color = ProColors.muted)
+            Text(
+                stringResource(R.string.pro_compare_feature),
+                Modifier.weight(LABEL_WEIGHT),
+                style = headerStyle(),
+                color = ProColors.muted,
+            )
             Text(
                 stringResource(R.string.pro_compare_free),
                 Modifier.weight(1f),
@@ -583,7 +588,10 @@ private fun DebugPanel(
             Switch(checked = debug.owned, onCheckedChange = actions.onOwnedChange)
         }
         Text(stringResource(R.string.pro_debug_next), style = MaterialTheme.typography.labelMedium, color = ProColors.muted)
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+        ) {
             FakePurchaseOutcome.entries.forEach { outcome ->
                 FilterChip(
                     selected = debug.nextOutcome == outcome,

@@ -143,10 +143,7 @@ internal fun PaletteMakerCard(
     var name by rememberSaveable { mutableStateOf("") }
     Column {
         Text(
-            "Build a gradient: the base hue is where it starts, the span is " +
-                "how far around the colour wheel it sweeps (0 = one flat " +
-                "colour). Apply auditions it on the scene; Save adds it to the " +
-                "palette row above and to every preset you save afterwards.",
+            stringResource(R.string.palette_explainer),
             style = MaterialTheme.typography.labelSmall,
         )
         GradientPreview(baseHue, hueSpan, modifier = Modifier.fillMaxWidth())

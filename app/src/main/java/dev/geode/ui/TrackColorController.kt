@@ -4,6 +4,7 @@ import android.app.Application
 import android.graphics.BitmapFactory
 import android.media.MediaMetadataRetriever
 import android.net.Uri
+import dev.geode.R
 import dev.geode.analysis.ArtPalette
 import dev.geode.analysis.KeyPalette
 import dev.geode.data.PaletteStore
@@ -58,7 +59,7 @@ internal class TrackColorController(
     fun applyArtworkPalette() {
         val uri =
             host.currentUri ?: run {
-                _artPaletteNote.value = "Nothing is playing."
+                _artPaletteNote.value = application.getString(R.string.palette_art_nothing_playing)
                 return
             }
         scope.launch(Dispatchers.IO) {
@@ -67,16 +68,16 @@ internal class TrackColorController(
             withContext(Dispatchers.Main) {
                 if (host.currentUri != uri) return@withContext
                 when {
-                    pixels == null -> _artPaletteNote.value = "This track has no embedded artwork."
+                    pixels == null -> _artPaletteNote.value = application.getString(R.string.palette_art_no_artwork)
                     extracted == null ->
                         _artPaletteNote.value =
-                            "The artwork has no colour to take — it is greyscale or nearly black."
+                            application.getString(R.string.palette_art_greyscale)
                     else -> {
                         host.setSceneParams(
                             PaletteStore.applyGradient(host.params, extracted.baseHue, extracted.span),
                         )
                         _artPaletteNote.value =
-                            "Palette taken from the artwork (${(extracted.confidence * 100).roundToInt()}% of it had colour)."
+                            application.getString(R.string.palette_art_taken, (extracted.confidence * 100).roundToInt())
                     }
                 }
             }

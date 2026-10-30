@@ -234,6 +234,9 @@
     <string name="lyrics_none_explainer">Drop an .lrc file next to the track — same name, .lrc extension — and it shows up here, timed and following the music. Words written into the file\'s own tags are read too. Nothing is fetched: the app has no network access.</string>
     <string name="lyrics_source_timed">Timed lyrics from %1$s. Tap a line to jump there.</string>
     <string name="lyrics_source_untimed">Untimed lyrics from %1$s.</string>
+    <!-- Where the lyrics came from; fills the %1$s of lyrics_source_timed / _untimed. -->
+    <string name="lyrics_source_sidecar">an .lrc file next to the track</string>
+    <string name="lyrics_source_tags">the track\'s own tags</string>
 
     <!-- Queue panel. -->
     <string name="queue_empty_explainer">Nothing queued. Playing anything from a list — the library, a shelf on Home, a search result — queues that whole list.</string>
@@ -277,6 +280,8 @@
     <string name="widget_pause">Pause</string>
     <string name="widget_next">Next track</string>
     <string name="widget_previous">Previous track</string>
+    <string name="widget_preview_title">Night Drive</string>
+    <string name="widget_preview_artist">MuzViz</string>
     <string name="auto_favourites">Favourites</string>
     <string name="auto_recently_played">Recently played</string>
     <string name="library_permission_rationale">Grant music access to browse everything on this device.</string>
@@ -294,6 +299,12 @@
     <string name="library_sort_album">Album</string>
     <string name="library_sort_duration">Length</string>
     <string name="library_sort_added">Added</string>
+
+    <!-- Library: names given to a track or playlist that arrives without one. -->
+    <string name="library_unknown_title">Unknown</string>
+    <string name="library_unknown_album">Unknown album</string>
+    <string name="library_untitled_track">Track</string>
+    <string name="playlist_untitled">Playlist</string>
 
     <string name="action_more">More</string>
     <string name="action_play_next">Play next</string>
@@ -394,6 +405,15 @@
     <string name="studio_nothing_changed">Nothing is changed yet — rendering now would just copy the clip.</string>
     <string name="studio_renders_new_file">Renders a NEW file. The original is never overwritten.</string>
     <string name="studio_slider_value">"%1$s  %2$s%3$s"</string>
+
+    <!-- Studio: the Look section's preset chips ("As shot" is studio_as_shot), and the name of a clip that has none. -->
+    <string name="studio_look_punch">Punch</string>
+    <string name="studio_look_bleach">Bleach</string>
+    <string name="studio_look_neon">Neon</string>
+    <string name="studio_look_night">Night</string>
+    <string name="studio_look_mono">Mono</string>
+    <string name="studio_look_invert">Invert</string>
+    <string name="studio_clip_untitled">Clip</string>
 
     <!-- Settings › Audio › Playback. -->
     <string name="playback_speed">"Speed  %1$sx"</string>
@@ -547,6 +567,8 @@
     <string name="export_group_performance">Performance</string>
     <string name="export_live_settings">Live settings</string>
     <string name="export_take_explainer">Renders the take\'s parameter automation — every slider, colour and effect moving as you performed it. A style SWITCH inside the take is not reproduced: the render draws through the style selected now, for its whole length.</string>
+    <!-- The name a recorded performance take gets when none is typed. -->
+    <string name="take_default_name">Take %1$d</string>
     <string name="export_4k_fallback">4K depends on your device\'s encoder; it falls back automatically if unsupported.</string>
     <string name="export_render_button">Render %1$dp %2$s %3$dfps</string>
     <string name="export_render_to_folder">Render to chosen folder…</string>
@@ -577,6 +599,55 @@
     <string name="export_notification_permission_body">MuzViz can show a notification with the render\'s progress and time remaining, so you can check on it without reopening this dialog. Without it, the render still finishes — you just won\'t see progress outside the app.</string>
     <string name="export_notification_permission_skip">Not now</string>
 
+    <!-- Export: platform presets. Brand names stay as the platforms spell them. -->
+    <string name="export_preset_tiktok">TikTok</string>
+    <string name="export_preset_shorts">Shorts</string>
+    <string name="export_preset_feed">Feed</string>
+    <string name="export_preset_square">Square</string>
+    <string name="export_preset_youtube">YouTube</string>
+    <string name="export_preset_master">Master</string>
+
+    <!-- Export: time left on a render, in the export dialog and the progress notification. -->
+    <string name="export_eta_almost_done">almost done</string>
+    <string name="export_eta_one_minute">about a minute left</string>
+    <plurals name="export_eta_minutes">
+        <item quantity="one">about %1$d min left</item>
+        <item quantity="other">about %1$d min left</item>
+    </plurals>
+    <plurals name="export_eta_hours">
+        <item quantity="one">about %1$d h left</item>
+        <item quantity="other">about %1$d h left</item>
+    </plurals>
+
+    <!-- Export: loudness targets, and the advice shown once a render is measured. Readouts such as
+         "-14.0 LUFS", "0.8 dBTP" or "3.2 dB" arrive already formatted. The _level, _quiet and _loud
+         phrases are dropped into the sentences below, so they start lower-case and have no full stop. -->
+    <string name="export_loudness_shorts">Shorts &amp; TikTok</string>
+    <string name="export_loudness_as_is">Leave as-is</string>
+    <string name="export_loudness_youtube_level">about -14 LUFS</string>
+    <string name="export_loudness_youtube_quiet">YouTube only ever turns audio down, never up, so a quiet upload simply plays quiet next to everything else</string>
+    <string name="export_loudness_youtube_loud">YouTube will pull it back to about -14 LUFS on playback whatever you do, so nothing here is broken</string>
+    <string name="export_loudness_shorts_level">-10 to -12 LUFS</string>
+    <string name="export_loudness_shorts_quiet">short-form feeds normalise loosely and phone speakers are heard in noisy rooms, so a quiet upload gets lost</string>
+    <string name="export_loudness_shorts_loud">pushed much past this the feeds pull it back anyway, and over-loud short-form audio is what sounds crushed</string>
+    <string name="export_loudness_none_headline">No audio to measure</string>
+    <string name="export_loudness_none_detail">Nothing in this file rises above the -70 LUFS gate, so there is no loudness to report. If the export was meant to have sound, it did not capture any.</string>
+    <string name="export_loudness_as_mixed_headline">Leaving the level alone</string>
+    <string name="export_loudness_as_mixed_detail">Measured %1$s, true peak %2$s. MuzViz applies no gain, so the file goes out exactly as mixed.</string>
+    <string name="export_loudness_as_mixed_quiet">For reference: %1$s, and this sits %2$s under it.</string>
+    <string name="export_loudness_peak_warning">The true peak is above -1 dBTP, which is where lossy encoders start to distort.</string>
+    <string name="export_loudness_on_target_headline">Already at the %1$s level</string>
+    <string name="export_loudness_on_target_detail">Measured %1$s, inside the %2$s %3$s plays at, and the true peak of %4$s clears the %5$s ceiling. Nothing to apply.</string>
+    <string name="export_loudness_up_headline">Turn it up %1$s for %2$s</string>
+    <string name="export_loudness_down_headline">Turn it down %1$s for %2$s</string>
+    <string name="export_loudness_unchanged_detail">Measured %1$s. Close enough to leave alone.</string>
+    <string name="export_loudness_raise_detail">Measured %1$s, %2$s under the %3$s %4$s plays at. %5$s. MuzViz will add %6$s on export, landing at %7$s with a true peak of %8$s.</string>
+    <string name="export_loudness_raise_limited_detail">Measured %1$s, %2$s under the %3$s %4$s plays at. %5$s. Going the whole way would push the true peak past the %6$s ceiling, so Geode will add only %7$s, landing at %8$s. Closing the rest of the gap needs a limiter on the mix, not more gain.</string>
+    <string name="export_loudness_lower_clipping_detail">Measured %1$s, true peak %2$s. That is under the %3$s %4$s plays at, but the peak is already over the %5$s ceiling, and gain alone can only make that worse. Geode will take off %6$s to get the peak legal; getting louder as well needs a limiter on the mix.</string>
+    <string name="export_loudness_lower_loud_detail">Measured %1$s, true peak %2$s. That is %3$s over the %4$s %5$s plays at — %6$s. Geode will take off %7$s, landing at %8$s with a true peak of %9$s.</string>
+    <string name="export_loudness_lower_loud_limited_detail">Measured %1$s, true peak %2$s. That is %3$s over the %4$s %5$s plays at — %6$s. Geode will take off %7$s — a shade more than the level alone needs, so the true peak clears the %8$s ceiling too, landing at %9$s with a true peak of %10$s.</string>
+    <string name="export_loudness_lower_peak_detail">Measured %1$s, true peak %2$s. The level is where %3$s wants it, but the peak is over the %4$s ceiling, where lossy encoders start to distort. Geode will take off %5$s, landing at %6$s.</string>
+
     <!-- Export: failure messages. Shared by VideoExporter, StudioExporter and LoopRender. -->
     <string name="export_error_library_insert">Your Videos library would not accept a new file. Check that storage is not full, or render to a folder you choose instead.</string>
     <string name="export_error_library_open">The new file in your Videos library could not be opened for writing.</string>
@@ -600,6 +671,19 @@
     <string name="export_error_loop_encoder_failed">This device\'s video encoder failed while rendering the loop: %1$s</string>
     <string name="export_error_loop_no_output">The video encoder produced no output for this loop.</string>
     <string name="export_error_loop_stalled">The video encoder stalled while finishing the loop.</string>
+    <string name="export_error_no_message">no message</string>
+
+    <!-- Export: loop / long-form failures (LoopExtend). Destination errors reuse the export_error_* above. -->
+    <string name="export_error_extend_no_loop">There is no rendered loop to extend.</string>
+    <string name="export_error_extend_empty_soundtrack">That soundtrack decoded to nothing — the file may be empty or corrupt.</string>
+    <string name="export_error_extend_assemble">The long-form file could not be assembled.</string>
+    <string name="export_error_extend_copy">The rendered loop could not be copied into the long file: %1$s</string>
+    <string name="export_error_extend_write">Writing the long-form file failed — check there is room on the device. (%1$s)</string>
+    <string name="export_error_extend_track_no_audio">One of the tracks in this mix has no audio Geode can read: %1$s</string>
+    <string name="export_error_extend_track_unreadable">One of the tracks in this mix could not be read — it may have moved or been deleted.</string>
+    <string name="export_error_extend_soundtrack">The soundtrack could not be prepared.</string>
+    <string name="export_error_extend_too_big">%1$.1f h at this quality would come to about %2$.1f GB, past the %3$.0f GB an MP4 written on Android can address. Render the loop at about %4$.1f Mbps (a smaller size or lower quality) or make the video shorter.</string>
+    <string name="export_error_extend_library_pre_q">On this version of Android, Geode cannot add to your Videos library directly. Render to a folder you choose instead.</string>
 
     <!-- Settings: Look tab. -->
     <string name="look_group_theme">Theme</string>
@@ -769,6 +853,9 @@
     <string name="editor_chapters_failed">"Chapters could not be saved: %1$s"</string>
     <string name="editor_srt_saved">Captions saved.</string>
     <string name="editor_srt_failed">"Captions could not be saved: %1$s"</string>
+    <string name="editor_chapter_untitled">Chapter %1$d</string>
+    <string name="editor_chapters_unwritable">The chapter list could not be written.</string>
+    <string name="editor_destination_unopenable">The destination could not be opened.</string>
     <string name="autocut_title">Auto-cut</string>
     <string name="autocut_source">Cut on</string>
     <string name="autocut_source_transient">Transients</string>
@@ -802,6 +889,9 @@
     <string name="action_dismiss">Dismiss</string>
     <string name="preset_link_imported">Preset \"%1$s\" imported — it is in Visuals › Presets.</string>
     <string name="preset_link_unreadable">That preset link could not be read. It may have been cut short in transit.</string>
+    <!-- Presets: the name a preset gets when it arrives without one. -->
+    <string name="preset_untitled">Preset</string>
+    <string name="preset_shared_untitled">Shared preset</string>
     <string name="background_entry_point">Background</string>
     <string name="background_sheet_title">Background image</string>
     <string name="background_pick">Choose an image</string>
@@ -831,6 +921,12 @@
     <string name="template_delete_title">Delete \"%1$s\"?</string>
     <string name="template_delete_body">Removes this template and its file for good — there is no undo. Share it first if you might want it back.</string>
     <string name="template_adopt">Use</string>
+    <!-- Video templates: what a save, import or share says. -->
+    <string name="template_saved">Saved \"%1$s\".</string>
+    <string name="template_imported">Imported \"%1$s\".</string>
+    <string name="template_updated">Updated \"%1$s\".</string>
+    <string name="template_share_subject">MuzViz template: %1$s</string>
+    <string name="template_untitled">Template</string>
     <string name="palette_base_hue">Base hue %1$s</string>
     <string name="palette_hue_span">Hue span %1$s</string>
     <string name="palette_apply_gradient">Apply gradient</string>
@@ -841,4 +937,10 @@
     <string name="palette_none_yet">None yet — build a gradient above and save it.</string>
     <string name="palette_edit">Edit</string>
     <string name="palette_delete">Delete</string>
+    <!-- Palette maker and the palette taken from a track's artwork. -->
+    <string name="palette_explainer">Build a gradient: the base hue is where it starts, the span is how far around the colour wheel it sweeps (0 = one flat colour). Apply auditions it on the scene; Save adds it to the palette row above and to every preset you save afterwards.</string>
+    <string name="palette_art_nothing_playing">Nothing is playing.</string>
+    <string name="palette_art_no_artwork">This track has no embedded artwork.</string>
+    <string name="palette_art_greyscale">The artwork has no colour to take — it is greyscale or nearly black.</string>
+    <string name="palette_art_taken">Palette taken from the artwork (%1$d%% of it had colour).</string>
 </resources>

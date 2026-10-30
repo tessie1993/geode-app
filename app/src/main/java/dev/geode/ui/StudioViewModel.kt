@@ -50,6 +50,7 @@ class StudioViewModel
             paywall.open(PaywallTrigger.Feature(ProFeature.FULL_LENGTH_EXPORT))
             return true
         }
+
         val studio: StateFlow<StudioUiState> get() = session.studio
 
         val editor: StateFlow<EditorUiState> get() = session.editor.state

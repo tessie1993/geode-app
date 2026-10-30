@@ -3,7 +3,6 @@ package dev.geode.render
 import android.os.Build
 import android.view.Choreographer
 import android.view.Surface
-import kotlin.math.ceil
 
 /**
  * Receives one call per paced frame, on the thread that owns the Choreographer.
@@ -45,23 +44,6 @@ sealed interface FrameRatePolicy {
 }
 
 /**
- * Frame-time distribution over the pacer's recent window.
- *
- * Mean alone hides the failure users actually notice. Android's vitals "slow sessions" metric
- * and §4.3 of the quality bar both judge on the tail, so the tail is what this reports.
- */
-data class FrameStats(
-    val frames: Int,
-    val meanMs: Float,
-    val p95Ms: Float,
-    val p99Ms: Float,
-) {
-    companion object {
-        val EMPTY: FrameStats = FrameStats(frames = 0, meanMs = 0f, p95Ms = 0f, p99Ms = 0f)
-    }
-}
-
-/**
  * Choreographer-driven tick source for a visualizer surface.
  *
  * The renderer used to free-run: `RENDERMODE_CONTINUOUSLY` draws as fast as `eglSwapBuffers`
@@ -72,7 +54,7 @@ data class FrameStats(
  *
  * Threading: [start], [stop] and [applyTo] must be called from a thread with a Looper (the main
  * thread for both `GLSurfaceView` and `WallpaperService.Engine`), because that is the thread the
- * Choreographer callbacks arrive on. [stats] and [dtSeconds] are safe to read from any thread.
+ * Choreographer callbacks arrive on. [dtSeconds] is safe to read from any thread.
  */
 class FramePacer(
     initialPolicy: FrameRatePolicy = FrameRatePolicy.Capped(DEFAULT_TARGET_FPS),
@@ -120,30 +102,16 @@ class FramePacer(
     private var vsyncsSinceDrawn = 0
     private var divisor = 1
 
-    /**
-     * Guards the ring below. Uncontended `synchronized` on the Choreographer thread is a thin
-     * lock and allocates nothing; the alternative — letting a poller read a half-written ring —
-     * would make the p99 it reports meaningless exactly when someone is chasing a hitch.
-     */
-    private val statsLock = Any()
-    private val frameNanos = LongArray(WINDOW_FRAMES)
-    private val sortScratch = LongArray(WINDOW_FRAMES)
-    private var writeIndex = 0
-    private var sampleCount = 0
-    private var sumNanos = 0L
-
     /** Idempotent: a second call while running is a no-op, so lifecycle callbacks can overlap. */
     fun start() {
         if (running) return
         val instance = Choreographer.getInstance()
         choreographer = instance
         running = true
-        // A resume must not inherit the gap it was paused across, and the old window describes a
-        // display and a scene that may both be gone.
+        // A resume must not inherit the gap it was paused across.
         lastDrawnNanos = 0L
         lastVsyncNanos = 0L
         vsyncsSinceDrawn = 0
-        resetStats()
         // A pacer that starts twice without stopping (start() is idempotent, so this only runs
         // once per start) must not end up twice in the stack ahead of itself.
         synchronized(runningStack) {
@@ -214,29 +182,6 @@ class FramePacer(
         }
     }
 
-    /**
-     * Snapshot of the recent frame-time distribution. Allocates one small object per call, so
-     * poll it at HUD or thermal-sampling rates (~1 Hz), never per frame.
-     */
-    fun stats(): FrameStats =
-        synchronized(statsLock) {
-            val n = sampleCount
-            if (n == 0) {
-                FrameStats.EMPTY
-            } else {
-                // Before the ring wraps, [0, n) is exactly the live set; after it wraps, n is the
-                // whole array. Sorting makes the ring's write order irrelevant either way.
-                frameNanos.copyInto(sortScratch, 0, 0, n)
-                sortScratch.sort(0, n)
-                FrameStats(
-                    frames = n,
-                    meanMs = sumNanos / n / NANOS_PER_MS,
-                    p95Ms = percentileMs(n, P95),
-                    p99Ms = percentileMs(n, P99),
-                )
-            }
-        }
-
     private fun onVsync(frameTimeNanos: Long) {
         if (!running) return
         // Re-post first: the cadence has to survive a slow sink, and a frame we skip still has to
@@ -264,7 +209,6 @@ class FramePacer(
             return
         }
         val elapsedNanos = frameTimeNanos - previous
-        record(elapsedNanos)
         val dt = (elapsedNanos / NANOS_PER_SECOND).coerceIn(MIN_DT_SECONDS, MAX_DT_SECONDS)
         dtSeconds = dt
         sink.onFrame(dt)
@@ -310,35 +254,6 @@ class FramePacer(
         return ((panelHz / fps) + DIVISOR_EPSILON).toInt().coerceIn(1, MAX_DIVISOR)
     }
 
-    private fun record(elapsedNanos: Long) {
-        synchronized(statsLock) {
-            if (sampleCount == WINDOW_FRAMES) sumNanos -= frameNanos[writeIndex]
-            // Recorded unclamped, unlike dt: a 400 ms stall is precisely what p99 exists to show,
-            // and clamping it here would hide the hitch from the report that is chasing it.
-            frameNanos[writeIndex] = elapsedNanos
-            sumNanos += elapsedNanos
-            writeIndex = (writeIndex + 1) % WINDOW_FRAMES
-            if (sampleCount < WINDOW_FRAMES) sampleCount++
-        }
-    }
-
-    private fun resetStats() {
-        synchronized(statsLock) {
-            writeIndex = 0
-            sampleCount = 0
-            sumNanos = 0L
-        }
-    }
-
-    /** Nearest-rank percentile over [sortScratch]; caller holds [statsLock]. */
-    private fun percentileMs(
-        n: Int,
-        fraction: Float,
-    ): Float {
-        val rank = ceil(fraction * n).toInt().coerceIn(1, n)
-        return sortScratch[rank - 1] / NANOS_PER_MS
-    }
-
     companion object {
         /**
          * Every currently running pacer, in start order — the view's and the wallpaper's can both
@@ -363,12 +278,7 @@ class FramePacer(
 
         private const val DEFAULT_DT_SECONDS = 1f / 60f
 
-        /** Four seconds at 60 fps: long enough for a stable p99, short enough to track a scene. */
-        private const val WINDOW_FRAMES = 240
-
         private const val NANOS_PER_SECOND = 1_000_000_000f
-
-        private const val NANOS_PER_MS = 1_000_000f
 
         /** 250 Hz and 45 Hz: outside the range of any panel this app will meet. */
         private const val MIN_VSYNC_NANOS = 4_000_000L
@@ -387,9 +297,5 @@ class FramePacer(
          * looking like a fast visualizer instead of a frozen one.
          */
         private const val MAX_DIVISOR = 8
-
-        private const val P95 = 0.95f
-
-        private const val P99 = 0.99f
     }
 }

@@ -84,7 +84,10 @@ jobs:
       # class of bug is caught at PR time instead of the next audit.
       - name: detekt
         working-directory: ${{ env.PROJECT_DIR }}
-        run: ./gradlew :app:detekt --stacktrace --no-daemon
+        # Every module, not just :app: build-logic applies detekt (and a per-module
+        # baseline) to all four, but a gate CI never runs is not a gate. --continue
+        # so one module's failure still produces the other modules' reports.
+        run: ./gradlew :app:detekt :engine:audio-core:detekt :engine:scenes:detekt :engine:audio-android:detekt --continue --stacktrace --no-daemon
 
       # detekt prints only "Analysis failed with N weighted issues" and a stack
       # trace; the findings themselves go to a report file. Without this, reading
@@ -94,21 +97,23 @@ jobs:
         if: failure()
         working-directory: ${{ env.PROJECT_DIR }}
         run: |
-          dir=app/build/reports/detekt
-          if [ -f "$dir/detekt.txt" ]; then
-            echo "::group::detekt findings"
-            cat "$dir/detekt.txt"
-            echo "::endgroup::"
-          elif [ -f "$dir/detekt.xml" ]; then
-            # The XML carries the same findings one <error> element per issue;
-            # enough to name the rule, file and line without the artifact.
-            echo "::group::detekt findings (xml)"
-            grep -oE '<file name="[^"]*"|<error line="[0-9]+" column="[0-9]+" severity="[^"]*" message="[^"]*" source="[^"]*"' "$dir/detekt.xml" || cat "$dir/detekt.xml"
-            echo "::endgroup::"
-          else
-            echo "No detekt report found under $dir. Present:"
-            ls -la "$dir" 2>/dev/null || echo "  (directory absent)"
-          fi
+          for module in app engine/audio-core engine/scenes engine/audio-android; do
+            dir=$module/build/reports/detekt
+            if [ -f "$dir/detekt.txt" ]; then
+              echo "::group::detekt findings ($module)"
+              cat "$dir/detekt.txt"
+              echo "::endgroup::"
+            elif [ -f "$dir/detekt.xml" ]; then
+              # The XML carries the same findings one <error> element per issue;
+              # enough to name the rule, file and line without the artifact.
+              echo "::group::detekt findings ($module, xml)"
+              grep -oE '<file name="[^"]*"|<error line="[0-9]+" column="[0-9]+" severity="[^"]*" message="[^"]*" source="[^"]*"' "$dir/detekt.xml" || cat "$dir/detekt.xml"
+              echo "::endgroup::"
+            else
+              echo "No detekt report found under $dir. Present:"
+              ls -la "$dir" 2>/dev/null || echo "  (directory absent)"
+            fi
+          done
 
       - name: Assemble debug APK
         working-directory: ${{ env.PROJECT_DIR }}
@@ -158,7 +163,7 @@ jobs:
       # still available from the workflow run for device testing.
       - name: Run unit tests
         working-directory: ${{ env.PROJECT_DIR }}
-        run: ./gradlew :app:testDebugUnitTest --stacktrace --no-daemon
+        run: ./gradlew :app:testDebugUnitTest :engine:audio-core:test :engine:scenes:testDebugUnitTest :engine:audio-android:testDebugUnitTest --stacktrace --no-daemon
 
       - name: Run Android lint
         working-directory: ${{ env.PROJECT_DIR }}
@@ -176,6 +181,8 @@ jobs:
           path: |
             app/build/reports/
             app/build/test-results/
+            engine/*/build/reports/
+            engine/*/build/test-results/
           if-no-files-found: ignore
           retention-days: 14
 

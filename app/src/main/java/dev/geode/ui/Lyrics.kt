@@ -3,6 +3,7 @@ package dev.geode.ui
 import android.content.Context
 import android.net.Uri
 import androidx.documentfile.provider.DocumentFile
+import dev.geode.R
 
 data class LyricLine(
     val timeMs: Long,
@@ -47,7 +48,7 @@ object LyricsLoader {
                 "file" -> {
                     val path = trackUri.path ?: return null
                     val lrc = java.io.File(path.substringBeforeLast('.', path) + ".lrc")
-                    if (lrc.isFile) parse(lrc.readText(), "an .lrc file next to the track") else null
+                    if (lrc.isFile) parse(lrc.readText(), context.getString(R.string.lyrics_source_sidecar)) else null
                 }
                 "content" -> {
                     val doc = DocumentFile.fromSingleUri(context, trackUri) ?: return null
@@ -58,7 +59,7 @@ object LyricsLoader {
                             it.name.equals("$stem.lrc", ignoreCase = true)
                         } ?: return null
                     context.contentResolver.openInputStream(sibling.uri)?.use {
-                        parse(it.readBytes().toString(Charsets.UTF_8), "an .lrc file next to the track")
+                        parse(it.readBytes().toString(Charsets.UTF_8), context.getString(R.string.lyrics_source_sidecar))
                     }
                 }
                 else -> null
@@ -78,7 +79,7 @@ object LyricsLoader {
                 } finally {
                     retriever.release()
                 }
-            raw?.takeIf { it.isNotBlank() }?.let { parse(it, "the track's own tags") }
+            raw?.takeIf { it.isNotBlank() }?.let { parse(it, context.getString(R.string.lyrics_source_tags)) }
         }.getOrNull()
 
     fun parse(

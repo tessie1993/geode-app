@@ -993,8 +993,9 @@ internal fun CustomizePanel(
                     shownTitle = titles[it]
                 },
             )
-            CustomizeToolbar(viewModel, visualizerView, viz.params, tabs.getOrNull(sub), query) { query = it }
+            // The toolbar scrolls with the controls: pinned above them it left a phone one row of sliders.
             Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
+                CustomizeToolbar(viewModel, visualizerView, viz.params, tabs.getOrNull(sub), query) { query = it }
                 val locked by visualsViewModel.lockedParams.collectAsStateWithLifecycle()
                 androidx.compose.runtime.CompositionLocalProvider(
                     LocalParamLocks provides (locked to visualsViewModel::toggleParamLock),
@@ -1240,7 +1241,7 @@ private fun CustomizeToolbar(
     var moreOpen by remember { mutableStateOf(false) }
     // The everyday four and A/B stay in sight; reset and save sit behind More, so the controls
     // start where the eye lands. (A/B lived behind More for a while and read as gone.)
-    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
+    Column(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
         Row(
             Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,

@@ -76,7 +76,7 @@ The native core is built by the root `CMakeLists.txt`, plus `core/CMakeLists.txt
 ## Navigation today
 
 - `GeodeDestination` enum in `ui/GeodeAppState.kt` (PLAYER, LIBRARY, VISUALS, STUDIO, SETTINGS). `GeodeAppState.dest` and `studioSection` are saved by name through `rememberSaveable`.
-- Studio (`StudioHub` in `ui/StudioRender.kt`) owns every render: Edit (clip editor, `StudioScreen`) and Render (visualizer export and loop render through `ExportHost`, plus the export defaults). Settings › Export only links there (`GeodeAppState.openStudioRender`).
+- Studio (`StudioHub` in `ui/StudioRender.kt`) owns every render: Edit (clip editor, `StudioScreen`) and Render (visualizer export `ExportDialog` and `LoopRenderSheet` through `ExportHost`, plus the export defaults). Settings › Export and the Visuals export icon only open it (`GeodeAppState.openStudioRender`).
 - `AppRoot` / `AppShell` in `ui/AppShell.kt` switch with `when (appState.dest)` and build the bar and rail from `GeodeDestination.entries`. STUDIO is hidden unless `showsStudio`.
 - There is no NavHost and no back stack. Sheets and dialogs are local Compose state. All six ViewModels live in the Activity's store. `PlayerSessionProvider`'s KDoc depends on that, and `PlayerViewModel.onCleared` shuts the session down. Read ADR 0001 § Consequences before you add per-destination stores.
 
@@ -113,7 +113,7 @@ The native core is built by the root `CMakeLists.txt`, plus `core/CMakeLists.txt
 
 ## Large files to split (lines)
 
-`ui/VisualsHub.kt` 1406 · `ui/PlayerSession.kt` 1371 · `ui/CustomizeTabs.kt` 1302 · `ui/BuiltInPresets.kt` 914 · `export/LoopRender.kt` 893 · `ui/StudioScreen.kt` 881 · `ui/AppShell.kt` 744 · `editor/Timeline.kt` 730 · `data/TemplateRepository.kt` 726 · `ui/LibraryScreen.kt` 719 · `ui/PlayerScreen.kt` 709 · `export/LoopExtend.kt` 701 · `ui/VisualizerScreen.kt` 691
+`ui/VisualsHub.kt` 1424 · `ui/PlayerSession.kt` 1371 · `ui/CustomizeTabs.kt` 1302 · `ui/BuiltInPresets.kt` 914 · `export/LoopRender.kt` 893 · `ui/StudioScreen.kt` 876 · `ui/AppShell.kt` 762 · `editor/Timeline.kt` 730 · `data/TemplateRepository.kt` 726 · `ui/LibraryScreen.kt` 719 · `ui/PlayerScreen.kt` 709 · `export/LoopExtend.kt` 701 · `ui/VisualizerScreen.kt` 691
 
 ## Where the code breaks the architecture guide
 

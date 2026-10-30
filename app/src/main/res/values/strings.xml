@@ -579,6 +579,7 @@
     <string name="studio_render_free_limits">Free and trial renders stop at 1 minute, up to 1080p at 30 fps, with a watermark. Loop renders need Pro.</string>
     <string name="settings_export_moved">Export, loop render and the export defaults live in Studio › Render.</string>
     <string name="settings_export_open_studio">Open Studio › Render</string>
+    <string name="visuals_open_render">Export this visual in Studio › Render</string>
     <string name="export_spec">%1$s, %2$s, %3$d fps</string>
     <string name="export_spec_loop_safe">%1$s, loop-safe</string>
     <string name="export_named_preset">%1$s — %2$s</string>

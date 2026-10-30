@@ -282,7 +282,7 @@ fun ExportHost(
                 },
             )
         ExportEntryMode.Standard ->
-            SettingsDialog(
+            ExportDialog(
                 export = export,
                 hasMedia = state.hasMedia,
                 takes = takes.takes.map { it.name },

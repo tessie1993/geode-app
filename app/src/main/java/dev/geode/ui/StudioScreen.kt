@@ -844,7 +844,7 @@ private fun StudioChip(
 
 private fun clock(ms: Long): String = "%d:%02d".format(ms / 60_000, (ms / 1000) % 60)
 
-// internal (not private) so the export dialog (SettingsDialog.kt, same package) can share this
+// internal (not private) so the export dialog (ExportDialog.kt, same package) can share this
 // one implementation instead of building its own SEND intent.
 internal fun android.content.Context.shareVideo(
     uri: Uri,

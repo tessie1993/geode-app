@@ -96,7 +96,7 @@ vec2 view() {
     if (uMorph > 0.001) {
         float mr = length(uv);
         float ma = atan(uv.y, uv.x);
-        vec2 polar = vec2(ma / 3.14159, (mr - 0.7) * 1.6);
+        vec2 polar = vec2(abs(ma) / 1.5707963 - 1.0, (mr - 0.7) * 1.6);
         uv = mix(uv, polar, uMorph * (0.6 + 0.15 * sin(uTime * 0.31)));
     }
     float a = uRotation + uSway * 0.35 * sin(uTime * 0.7);

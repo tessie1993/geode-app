@@ -37,14 +37,19 @@ object ExportRun {
         _state.value = State(running = true, progress = null, label = label)
     }
 
+    /**
+     * [steady] is false for the quick lead-in phases (analysis, audio transcode): they move the
+     * bar but say nothing about how fast the render will go, so [RenderEta] skips them.
+     */
     fun publish(
         progress: Float,
+        steady: Boolean = true,
         atMs: Long = android.os.SystemClock.elapsedRealtime(),
     ) {
         val current = _state.value
         if (!current.running) return
         val clamped = progress.coerceIn(0f, 1f)
-        _state.value = current.copy(progress = clamped, secondsRemaining = eta.sample(clamped, atMs))
+        _state.value = current.copy(progress = clamped, secondsRemaining = eta.sample(clamped, atMs, steady))
     }
 
     fun finish() {

@@ -7,6 +7,7 @@ import androidx.core.net.toUri
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.util.BitmapLoader
 import androidx.media3.common.util.UnstableApi
+import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import com.google.common.util.concurrent.MoreExecutors
 import java.util.concurrent.Executors
@@ -55,13 +56,25 @@ class SessionBitmapLoader(
      * cache and re-run a full MediaMetadataRetriever open plus decode on this single thread, with
      * the artwork blinking out while the future is pending. One slot is enough: refreshes repeat
      * the *current* item.
+     *
+     * A memoised load that has already failed means the file has no picture, and the answer
+     * becomes null ("this item has no artwork") rather than the failed future again: media3's
+     * notification provider logs every failed bitmap future, so handing back the same failure
+     * on each refresh wrote one warning with a stack per play/pause for every track without art.
+     * The first refresh of such a track still sees the failure once, because whether a file
+     * carries a picture is only known after the retriever has opened it off the main thread.
      */
     @Synchronized
-    private fun loadEmbedded(uri: String): ListenableFuture<Bitmap> {
-        lastFuture?.let { if (uri == lastUri) return it }
-        return loadBitmap(uri.toUri()).also {
-            lastUri = uri
-            lastFuture = it
+    private fun loadEmbedded(uri: String): ListenableFuture<Bitmap>? {
+        val cached = lastFuture?.takeIf { uri == lastUri }
+        return when {
+            cached == null ->
+                loadBitmap(uri.toUri()).also {
+                    lastUri = uri
+                    lastFuture = it
+                }
+            cached.isDone && runCatching { Futures.getDone(cached) }.isFailure -> null
+            else -> cached
         }
     }
 

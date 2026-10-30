@@ -77,22 +77,20 @@ internal class PcmResampler(
         val end = inFrames + frames
         val out = ShortArray((frames.toLong() * outRateHz / inRateHz + 2).toInt() * channels)
         var written = 0
-        while (true) {
-            // Output frame k sits at input position k * in / out.
-            val num = outFrames * inRateHz
+        // Output frame k sits at input position k * in / out; it needs input frames i0 and i0 + 1.
+        var num = outFrames * inRateHz
+        while (num / outRateHz + 1 < end) {
             val i0 = num / outRateHz
-            if (i0 + 1 >= end) break
-            if (i0 < first) {
-                outFrames++
-                continue
-            }
-            val frac = (num % outRateHz).toFloat() / outRateHz
-            for (c in 0 until channels) {
-                val a = sampleAt(input, i0, c).toFloat()
-                val b = sampleAt(input, i0 + 1, c).toFloat()
-                out[written++] = (a + (b - a) * frac).toInt().toShort()
+            if (i0 >= first) {
+                val frac = (num % outRateHz).toFloat() / outRateHz
+                for (c in 0 until channels) {
+                    val a = sampleAt(input, i0, c).toFloat()
+                    val b = sampleAt(input, i0 + 1, c).toFloat()
+                    out[written++] = (a + (b - a) * frac).toInt().toShort()
+                }
             }
             outFrames++
+            num = outFrames * inRateHz
         }
         for (c in 0 until channels) last[c] = input[(frames - 1) * channels + c]
         inFrames = end

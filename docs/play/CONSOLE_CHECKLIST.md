@@ -63,7 +63,8 @@ sign uploads with an **upload key** you create and keep.
       workflow (`.github/workflows/release.yml`) builds the signed AAB, checks it (no
       INTERNET permission, targetSdk ≥ 36, R8 mapping, baseline profile, signature) and
       uploads it as the `muzviz-release-<n>` artifact. You can also run it by hand from the
-      Actions tab (workflow_dispatch).
+      Actions tab (workflow_dispatch). Pull-request builds of the same workflow are always
+      unsigned: the upload key is only handed to tag and manual runs.
 - [ ] Download `app-release.aab` (and `mapping.txt`) from the run.
 - [ ] Testing > **Internal testing** > Create release > upload the AAB. The R8 mapping is
       embedded in the bundle by AGP; if Play still asks, upload `mapping.txt` under

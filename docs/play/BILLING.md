@@ -31,7 +31,8 @@ Monetization setup).
     "Base64-encoded RSA public key". It is public, not a secret. Put it in a GitHub
     **repository variable** named `PLAY_LICENSE_KEY` (or the Gradle property
     `muzviz.playLicenseKey` for local release builds). Without it, signatures are not
-    checked (the app logs this) and purchases still work.
+    checked (the app logs this) and purchases still work, but a tagged release (`v*`)
+    refuses to build without it.
 - **Pending purchases** (cash, bank transfer): the paywall says so; Pro unlocks when Play
   reports the payment complete, even across app restarts.
 - **Restore**: the paywall's "Restore purchase" re-reads purchases from Play. A purchase on

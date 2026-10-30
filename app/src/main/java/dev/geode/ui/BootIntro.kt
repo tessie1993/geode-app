@@ -21,14 +21,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import dev.geode.R
+import dev.geode.ui.theme.LocalReducedMotion
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.max
@@ -48,7 +50,13 @@ fun BootIntro(onDone: () -> Unit) {
     val textScale = remember { Animatable(0.7f) }
     val rings = remember { List(RING_COUNT) { Animatable(0f) } }
 
+    val reducedMotion = LocalReducedMotion.current
     LaunchedEffect(Unit) {
+        // Reduced motion means no intro at all, not a slower one.
+        if (reducedMotion) {
+            onDone()
+            return@LaunchedEffect
+        }
         launch { textAlpha.animateTo(1f, tween(TEXT_IN_MS, easing = LinearOutSlowInEasing)) }
         launch { textScale.animateTo(1f, tween(TEXT_IN_MS + 100, easing = FastOutSlowInEasing)) }
         rings.forEachIndexed { i, ring ->
@@ -70,7 +78,7 @@ fun BootIntro(onDone: () -> Unit) {
         Modifier
             .fillMaxSize()
             .graphicsLayer { alpha = overlayAlpha.value }
-            .background(lerp(Color(0xFFEEEAE3), primary, 0.08f))
+            .background(MaterialTheme.colorScheme.background)
             .pointerInput(Unit) { detectTapGestures { onDone() } },
         contentAlignment = Alignment.Center,
     ) {
@@ -136,15 +144,12 @@ fun BootIntro(onDone: () -> Unit) {
                 },
         ) {
             Text(
-                "MuzViz",
+                stringResource(R.string.boot_wordmark),
                 color = wordmark,
-                style =
-                    MaterialTheme.typography.headlineLarge.copy(
-                        shadow = Shadow(color = primary, blurRadius = 36f),
-                    ),
+                style = MaterialTheme.typography.displaySmall,
             )
             Text(
-                "VISUALIZE THE INVISIBLE",
+                stringResource(R.string.boot_tagline).uppercase(),
                 color = primary.copy(alpha = 0.85f),
                 style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 3.5.sp),
                 modifier = Modifier.padding(top = 10.dp),

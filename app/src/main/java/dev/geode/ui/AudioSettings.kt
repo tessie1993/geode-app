@@ -1,7 +1,5 @@
 package dev.geode.ui
 
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -13,9 +11,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -116,12 +111,9 @@ private fun AnalysisGroup(viewModel: SettingsViewModel) {
 @Composable
 private fun LiveInputGroup(viewModel: PlayerViewModel) {
     val mic by viewModel.micState.collectAsStateWithLifecycle()
-    var denied by rememberSaveable { mutableStateOf(false) }
     val micPermission =
-        rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-            denied = !granted
-            if (granted) viewModel.setMicEnabled(true)
-        }
+        rememberPermissionRequest(android.Manifest.permission.RECORD_AUDIO) { viewModel.setMicEnabled(true) }
+    val denied = micPermission.refused
     Column {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
@@ -132,13 +124,12 @@ private fun LiveInputGroup(viewModel: PlayerViewModel) {
             Switch(
                 checked = mic.active,
                 onCheckedChange = { want ->
-                    denied = false
                     if (!want) {
                         viewModel.setMicEnabled(false)
                     } else if (viewModel.hasMicPermission()) {
                         viewModel.setMicEnabled(true)
                     } else {
-                        micPermission.launch(android.Manifest.permission.RECORD_AUDIO)
+                        micPermission.request()
                     }
                 },
             )
@@ -149,12 +140,18 @@ private fun LiveInputGroup(viewModel: PlayerViewModel) {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         when {
-            denied || mic.failure == dev.geode.audio.MicCapture.Failure.PERMISSION ->
+            denied || mic.failure == dev.geode.audio.MicCapture.Failure.PERMISSION -> {
                 Text(
                     stringResource(R.string.audio_mic_denied),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error,
                 )
+                if (micPermission.status == PermissionStatus.PERMANENTLY_DENIED) {
+                    CrystalButton(onClick = micPermission::openSettings, compact = true, filled = false) {
+                        Text(stringResource(R.string.permission_open_settings))
+                    }
+                }
+            }
             mic.failure == dev.geode.audio.MicCapture.Failure.UNAVAILABLE ->
                 Text(
                     stringResource(R.string.audio_mic_busy),

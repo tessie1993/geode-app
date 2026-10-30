@@ -18,6 +18,8 @@
     <!-- First-run photosensitivity notice. Safety copy: translate carefully,
          the flash rate is factual and must survive translation. This is an
          acknowledgement, not a choice — there is no setting behind it. -->
+    <string name="boot_wordmark" translatable="false">MuzViz</string>
+    <string name="boot_tagline">Visualize the invisible</string>
     <string name="safety_title">Before the visuals start</string>
     <string name="safety_warning">MuzViz reacts to music with light, and the visuals are intense — bright, fast and full-screen.</string>
     <string name="safety_prompt">The flash rate is limited in the engine, by design. Nothing on screen can flash more than three times a second, no preset or imported file can raise that, and the video you export is held to the same limit as the screen you saw. There is no setting for this and nothing to switch off.</string>
@@ -29,6 +31,10 @@
     <string name="first_run_access_body">MuzViz needs access to the audio on this device. Nothing leaves your phone — there is no account and no sign-in.</string>
     <string name="first_run_access_allow">Allow music access</string>
     <string name="first_run_access_skip">Not now</string>
+    <string name="first_run_access_rationale">Without it, MuzViz can still visualise live sound and play folders you pick by hand. With it, your whole library is here from the start.</string>
+    <string name="first_run_access_retry">Try again</string>
+    <string name="permission_open_settings">Open settings</string>
+    <string name="onboarding_step">Step %1$d of %2$d</string>
     <string name="first_run_access_denied">Music access is off, and Android will not ask again from here. You can turn it on in app settings whenever you like.</string>
     <string name="first_run_access_granted">Music access granted</string>
     <plurals name="first_run_scanning">

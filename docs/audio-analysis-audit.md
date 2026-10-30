@@ -87,6 +87,7 @@ math constant, with why. **Follow-up** = real, but out of this change's scope.
 | `MicCapture.kt:126,129`, `PlaybackCapture.kt:82,118` (48k/44.1k/22.05k tries) | **Kept** | the device's own rate is tried first; these are fallbacks, and the opened rate is reported |
 | `PcmTap.kt:104` `STAGING_FRAMES = 4096`, `NativeTapPump.kt:63` 2048, `AudioCapturePump.kt:122` 1024 | **Kept** | copy chunk sizes, not signal properties |
 | `PlaybackEngine.kt:35` ring 65536 frames | **Kept** | capacity (1.4 s at 48 kHz) |
+| `VisualizerWallpaperService.kt:283`, `VisualizerDreamService.kt:145` `FEED_INTERVAL_MS = 16` | **Kept** | a display-side poll of `AudioBus` with the real `dt` measured; analysis pulses are held 48 ms, so a 16 ms poll catches each one |
 | `BeatTuning.kt:23` `REFERENCE_HOP_HZ = 62.5` | **Removed** as a hop rate | renamed `SETTING_STEP_SECONDS = 0.016`: the unit the saved attack/decay settings are stored in, converted to seconds once |
 | `AudioPresentationClock` / `SinkClockDriver` built but unread; the tap leads the speaker by the sink buffer (~250 ms on ExoPlayer) | **Follow-up** | read the window at `inputPositionAt(player position)`, i.e. the sink's real timestamp; needs on-device sync checks |
 | playback speed ≠ 1 | **Follow-up** | BPM is reported in content tempo (the tap is before Sonic); the heard tempo needs the clock's `speed` |

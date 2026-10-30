@@ -22,6 +22,7 @@ import dev.geode.pro.FeatureGate
 import dev.geode.pro.GetFeatureGateUseCase
 import dev.geode.pro.PaywallNavigator
 import dev.geode.pro.PaywallTrigger
+import dev.geode.pro.ProFeature
 import dev.geode.render.SceneFactory
 import dev.geode.render.TransitionStyle
 import dev.geode.render.scene.PcmChunk
@@ -277,8 +278,9 @@ class PlayerViewModel
             codec: ExportCodec = ExportCodec.H264,
         ) {
             if (openPaywallIfLocked(aspect, fps)) return
-            val watermark = gate.value.watermarksExports
-            session.startExport(aspect, fps, sceneFactory, destination, loopSafe, range, sceneFactoryFor, codec, watermark)
+            val limits = gate.value
+            val capped = capRange(range, limits.exportCapMs)
+            session.startExport(aspect, fps, sceneFactory, destination, loopSafe, capped, sceneFactoryFor, codec, limits.watermarksExports)
         }
 
         fun startLoopRender(
@@ -293,6 +295,11 @@ class PlayerViewModel
             destination: Uri? = null,
         ) {
             if (openPaywallIfLocked(aspect, fps)) return
+            // A loop render is a long-form video by construction, so it is the full-length tier.
+            if (!gate.value.allows(ProFeature.FULL_LENGTH_EXPORT)) {
+                paywall.open(PaywallTrigger.Feature(ProFeature.FULL_LENGTH_EXPORT))
+                return
+            }
             session.startLoopRender(
                 aspect,
                 codec,
@@ -306,6 +313,21 @@ class PlayerViewModel
                 gate.value.watermarksExports,
             )
         }
+
+        /**
+         * Without Pro an export stops at [capMs]: the requested range, shortened, or the track's first
+         * minute. The audio transcode stops at the range's end, so a shorter track is unaffected.
+         */
+        private fun capRange(
+            range: ExportRange?,
+            capMs: Long?,
+        ): ExportRange? =
+            when {
+                capMs == null -> range
+                range == null -> ExportRange(0L, capMs)
+                range.durationMs > capMs -> ExportRange(range.startMs, capMs)
+                else -> range
+            }
 
         /** 4K and 60 fps are Pro: a locked size or rate opens the paywall instead of rendering. */
         private fun openPaywallIfLocked(

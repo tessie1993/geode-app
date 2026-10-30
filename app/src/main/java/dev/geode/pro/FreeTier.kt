@@ -1,5 +1,6 @@
 package dev.geode.pro
 
+import dev.geode.render.scene.SceneCapabilities
 import dev.geode.render.scene.SceneIds
 
 /**
@@ -12,16 +13,19 @@ import dev.geode.render.scene.SceneIds
  */
 object FreeTier {
     /**
-     * Styles a free user can select and keep. Everything else shows a Pro badge and opens the
-     * paywall when picked. Ids come from [SceneIds]; a renamed or removed id simply stops matching,
-     * which makes that style Pro rather than crashing.
+     * Styles a free user can select and keep: the whole fragment-shader family (julia, tunnel,
+     * bars, ring, scope, plasma, nebula and the rest of [SceneCapabilities.SHADER_SCENES]), so a
+     * shader style added later is free too. Everything else (silk, fluid, water, MilkDrop, cymatics
+     * and the other dedicated renderers) is Pro, shows a Pro badge and opens the paywall when picked.
+     * A renamed or removed id simply stops matching, which makes that style Pro rather than crashing.
      */
-    val freeStyleIds: Set<String> =
-        setOf(
-            SceneIds.DEFAULT,
-            SceneIds.BARS,
-            SceneIds.RING,
-        )
+    val freeStyleIds: Set<String> = SceneCapabilities.SHADER_SCENES.keys
+
+    /**
+     * Where a free user lands when the style on screen is no longer theirs (a new install, whose
+     * default is silk; a trial that ran out). Must be in [freeStyleIds].
+     */
+    const val FALLBACK_STYLE_ID: String = SceneIds.BARS
 
     /** Pro features given away in full. Empty: the free tier is the styles above plus basics. */
     val freeFeatures: Set<ProFeature> = emptySet()
@@ -32,12 +36,16 @@ object FreeTier {
     /** The highest frame rate a free export may have. */
     const val FREE_MAX_FPS: Int = 30
 
+    /** The longest a non-Pro export may be: one minute, the rest of the track is cut. */
+    const val FREE_MAX_EXPORT_MS: Long = 60_000L
+
     /** One hour, once per install, measured on the wall clock from the moment it is started. */
     const val TRIAL_DURATION_MS: Long = 60L * 60L * 1000L
 
     /**
-     * Whether exports made during the trial are clean. Off: the trial is for trying every style and
-     * tool, and a clean 4K render is the thing Pro is bought for, so trial renders keep the mark.
+     * Whether trial exports are held to the free limits: one minute, full-frame watermark. On: the
+     * trial is for trying every style, tool and resolution, and a finished, clean, full-length video
+     * is the thing Pro is bought for.
      */
-    const val TRIAL_REMOVES_WATERMARK: Boolean = false
+    const val TRIAL_EXPORTS_LIMITED: Boolean = true
 }

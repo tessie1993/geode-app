@@ -26,7 +26,7 @@ data class FeatureGate(
     fun allows(feature: ProFeature): Boolean =
         when (entitlement) {
             Entitlement.Pro -> true
-            is Entitlement.Trial -> feature != ProFeature.NO_WATERMARK || FreeTier.TRIAL_REMOVES_WATERMARK
+            is Entitlement.Trial -> feature !in EXPORT_LIMITS || !FreeTier.TRIAL_EXPORTS_LIMITED
             Entitlement.Free -> feature in FreeTier.freeFeatures
         }
 
@@ -46,10 +46,16 @@ data class FeatureGate(
             else -> null
         }
 
-    /** Whether a finished export carries the corner wordmark. */
+    /** Whether a finished export carries the full-frame wordmark. */
     val watermarksExports: Boolean get() = !allows(ProFeature.NO_WATERMARK)
+
+    /** The longest an export may run, or null for no limit. */
+    val exportCapMs: Long? get() = if (allows(ProFeature.FULL_LENGTH_EXPORT)) null else FreeTier.FREE_MAX_EXPORT_MS
 
     companion object {
         val FREE: FeatureGate = FeatureGate(Entitlement.Free)
+
+        /** What separates a Pro export from a trial one. */
+        private val EXPORT_LIMITS = setOf(ProFeature.NO_WATERMARK, ProFeature.FULL_LENGTH_EXPORT)
     }
 }

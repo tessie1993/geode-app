@@ -69,7 +69,7 @@ class PlayerSessionProvider
         private fun leaveLockedStyle(session: PlayerSession) {
             if (!gateKnown) return
             val current = session.visualizerRepository.viz.value.sceneId
-            if (!gate.allowsStyle(current)) FreeTier.freeStyleIds.firstOrNull()?.let(session::selectScene)
+            if (!gate.allowsStyle(current)) session.selectScene(FreeTier.FALLBACK_STYLE_ID)
         }
 
         /** The shared session, built on first use. Safe for any ViewModel to call. */

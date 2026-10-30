@@ -128,4 +128,5 @@ sign uploads with an **upload key** you create and keep.
       means the product isn't active or the app isn't installed from Play).
 - [ ] A purchase with a test card unlocks Pro and survives an app restart in airplane mode.
 - [ ] Restore works on a second device.
-- [ ] The free export carries the corner mark; a Pro export doesn't.
+- [ ] A free export stops at 1 minute and carries the full-frame mark; a Pro export runs the
+      whole track and is clean.

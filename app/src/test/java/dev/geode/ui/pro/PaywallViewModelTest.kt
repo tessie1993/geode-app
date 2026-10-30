@@ -217,7 +217,7 @@ class PaywallViewModelTest {
         }
 
     @Test
-    fun `the trial unlocks for an hour, keeps the watermark, then shows the trial-ended paywall once`() =
+    fun `the trial unlocks for an hour with limited exports, then shows the trial-ended paywall once`() =
         runTest(dispatcher) {
             val f = Fixture(this)
             f.viewModel.open(PaywallTrigger.Settings)
@@ -230,7 +230,7 @@ class PaywallViewModelTest {
             assertTrue(entitlement is Entitlement.Trial)
             assertTrue(f.state.gate.allows(ProFeature.EXPORT_4K))
             assertTrue(f.state.gate.allowsStyle("any-premium-style"))
-            assertEquals(!FreeTier.TRIAL_REMOVES_WATERMARK, f.state.gate.watermarksExports)
+            assertEquals(FreeTier.TRIAL_EXPORTS_LIMITED, f.state.gate.watermarksExports)
             assertNull("starting the trial closes the paywall", f.state.trigger)
             assertFalse("the trial runs once", f.state.canStartTrial)
 

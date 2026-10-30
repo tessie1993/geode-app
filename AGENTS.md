@@ -81,7 +81,7 @@ The native core is built by the root `CMakeLists.txt`, plus `core/CMakeLists.txt
 ## Pro (one-time unlock)
 
 - Product id `muzviz_pro` (`BillingRepository.PRO_PRODUCT_ID`). Every gate asks a `FeatureGate` from `GetFeatureGateUseCase` (Pro beats the 1-hour trial beats free); what free keeps is `pro/FreeTier.kt` alone.
-- Gates: `PlayerViewModel.startExport`/`startLoopRender` (4K, 60 fps, watermark), `PlayerSession.selectScene`/`applyPreset` via `PlayerSessionProvider` (styles; auto-visuals skips locked ones silently), `ProGate` on the Studio tab, the wallpaper button, and `ProSnapshot` in the wallpaper and dream services.
+- Gates: `PlayerViewModel.startExport`/`startLoopRender` (4K, 60 fps, the 1-minute cap, the full-frame watermark; loop renders need Pro), `StudioViewModel` exports (Pro only), `PlayerSession.selectScene`/`applyPreset` via `PlayerSessionProvider` (styles; auto-visuals skips locked ones silently), `ProGate` on the Studio tab, the wallpaper button, and `ProSnapshot` in the wallpaper and dream services.
 - `PaywallNavigator.request` is state; `PaywallHost` (a `Dialog`, drawn from `AppRoot`) shows it. Debug builds bill against `FakeBillingRepository` (`BuildConfig.USE_FAKE_BILLING`) with a debug panel on the paywall.
 - Store and console steps: [`docs/play/`](docs/play/).
 

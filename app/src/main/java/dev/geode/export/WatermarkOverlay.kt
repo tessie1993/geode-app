@@ -13,16 +13,18 @@ import java.nio.ByteOrder
 import java.nio.FloatBuffer
 
 /**
- * The free tier's corner wordmark, composited over each exported frame.
+ * The non-Pro watermark: the wordmark tiled diagonally across the whole frame, composited over
+ * each exported frame. The video stays watchable as a preview, and unusable as a finished one.
  *
  * Drawn on the export's own EGL context straight after the scene, into the default framebuffer
  * the encoder reads, so it needs nothing from the native renderer and cannot disturb a scene: it
- * saves nothing and restores what it changes (blend, program, texture, buffer binding). The text
- * is rasterised once at [prepare] into a texture sized for the frame; per frame it is one quad.
+ * restores what it changes (blend, program, texture, buffer binding). One tile, the wordmark
+ * rotated by [ANGLE_DEGREES], is rasterised once at [prepare] into a power-of-two texture (so
+ * GL_REPEAT is legal on any GLES version); per frame it is one full-screen quad whose texture
+ * coordinates repeat that tile.
  *
- * Sized at [HEIGHT_FRACTION] of the frame's short side and inset by [MARGIN_FRACTION], so it reads
- * the same on a 9:16 short and a 21:9 master, and sits bottom-right where players put their own
- * controls least often.
+ * The tile is sized from the frame's short side ([TEXT_FRACTION]), so the pattern has the same
+ * density on a 9:16 short and a 21:9 master.
  */
 class WatermarkOverlay(
     private val text: String,
@@ -43,25 +45,22 @@ class WatermarkOverlay(
         width = frameWidth
         height = frameHeight
         val shortSide = minOf(frameWidth, frameHeight)
-        val bitmap = rasterise(shortSide)
+        val bitmap = rasteriseTile(shortSide)
         texture = IntArray(1).also { GLES20.glGenTextures(1, it, 0) }[0]
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, texture)
         GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_LINEAR)
         GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR)
-        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_CLAMP_TO_EDGE)
-        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_CLAMP_TO_EDGE)
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_REPEAT)
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_REPEAT)
         GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, 0, bitmap, 0)
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, 0)
 
-        // The quad in clip space, bottom-right, at the bitmap's own pixel size.
-        val margin = shortSide * MARGIN_FRACTION
-        val right = 1f - 2f * margin / frameWidth
-        val left = right - 2f * bitmap.width / frameWidth
-        val bottom = -1f + 2f * margin / frameHeight
-        val top = bottom + 2f * bitmap.height / frameHeight
+        // The whole frame, with texture coordinates counting tiles: frame pixels / tile pixels.
+        val u = frameWidth / bitmap.width.toFloat()
+        val v = frameHeight / bitmap.height.toFloat()
         bitmap.recycle()
         // x, y, u, v per corner. Bitmaps are top-down, GL textures bottom-up, hence v flipped.
-        val vertices = floatArrayOf(left, bottom, 0f, 1f, right, bottom, 1f, 1f, left, top, 0f, 0f, right, top, 1f, 0f)
+        val vertices = floatArrayOf(-1f, -1f, 0f, v, 1f, -1f, u, v, -1f, 1f, 0f, 0f, 1f, 1f, u, 0f)
         quad =
             ByteBuffer
                 .allocateDirect(vertices.size * Float.SIZE_BYTES)
@@ -119,8 +118,8 @@ class WatermarkOverlay(
         quad = null
     }
 
-    private fun rasterise(shortSide: Int): Bitmap {
-        val textPx = (shortSide * HEIGHT_FRACTION).coerceAtLeast(MIN_TEXT_PX)
+    private fun rasteriseTile(shortSide: Int): Bitmap {
+        val textPx = (shortSide * TEXT_FRACTION).coerceAtLeast(MIN_TEXT_PX)
         val paint =
             Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = Color.WHITE
@@ -128,16 +127,21 @@ class WatermarkOverlay(
                 textSize = textPx
                 typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
                 letterSpacing = LETTER_SPACING
-                setShadowLayer(textPx * SHADOW_FRACTION, 0f, textPx * SHADOW_FRACTION / 2f, Color.argb(SHADOW_ALPHA, 0, 0, 0))
+                setShadowLayer(textPx * SHADOW_FRACTION, 0f, 0f, Color.argb(SHADOW_ALPHA, 0, 0, 0))
             }
-        val pad = (textPx * SHADOW_FRACTION * 2f).toInt() + 2
-        val width = paint.measureText(text).toInt() + pad * 2
-        val metrics = paint.fontMetrics
-        val height = (metrics.descent - metrics.ascent).toInt() + pad * 2
-        return Bitmap.createBitmap(width.coerceAtLeast(1), height.coerceAtLeast(1), Bitmap.Config.ARGB_8888).also {
-            Canvas(it).drawText(text, pad.toFloat(), pad - metrics.ascent, paint)
+        // Room for the rotated text plus a gap, rounded up to a power of two for GL_REPEAT.
+        val textWidth = paint.measureText(text)
+        val size = nextPowerOfTwo((textWidth * TILE_SPACING).toInt().coerceAtLeast(MIN_TILE_PX))
+        return Bitmap.createBitmap(size, nextPowerOfTwo(size / 2), Bitmap.Config.ARGB_8888).also { tile ->
+            Canvas(tile).apply {
+                rotate(ANGLE_DEGREES, tile.width / 2f, tile.height / 2f)
+                val metrics = paint.fontMetrics
+                drawText(text, (tile.width - textWidth) / 2f, tile.height / 2f - (metrics.ascent + metrics.descent) / 2f, paint)
+            }
         }
     }
+
+    private fun nextPowerOfTwo(value: Int): Int = Integer.highestOneBit((value - 1).coerceAtLeast(1)) shl 1
 
     private fun link(
         vertexSource: String,
@@ -164,11 +168,13 @@ class WatermarkOverlay(
         }
 
     private companion object {
-        const val HEIGHT_FRACTION = 0.03f
-        const val MARGIN_FRACTION = 0.025f
+        const val TEXT_FRACTION = 0.045f
         const val MIN_TEXT_PX = 14f
-        const val TEXT_ALPHA = 170
-        const val SHADOW_ALPHA = 110
+        const val MIN_TILE_PX = 64
+        const val TILE_SPACING = 1.35f
+        const val ANGLE_DEGREES = -24f
+        const val TEXT_ALPHA = 92
+        const val SHADOW_ALPHA = 70
         const val SHADOW_FRACTION = 0.12f
         const val LETTER_SPACING = 0.04f
         const val STRIDE = 4 * Float.SIZE_BYTES

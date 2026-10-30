@@ -3,7 +3,7 @@
      Kept apart from strings.xml so the paywall stays self-contained while the rest of the UI is
      restyled. -->
 <resources>
-    <!-- Burnt into free exports, bottom-right. Product name: not translated. -->
+    <!-- Tiled diagonally across non-Pro exports. Product name: not translated. -->
     <string name="pro_watermark_text" translatable="false">MuzViz Studio Pro</string>
 
     <string name="pro_badge">PRO</string>
@@ -17,6 +17,7 @@
     <string name="pro_title_export_4k">Export in stunning 4K</string>
     <string name="pro_title_export_60fps">Silky 60 fps exports</string>
     <string name="pro_title_watermark">Export without the watermark</string>
+    <string name="pro_title_full_length">Export the whole track, clean</string>
     <string name="pro_title_studio">Unlock the Studio</string>
     <string name="pro_title_wallpaper">Your visuals, on your home screen</string>
     <string name="pro_title_screensaver">Your visuals, as a screensaver</string>
@@ -39,7 +40,10 @@
     <string name="pro_row_fps_free">30 fps</string>
     <string name="pro_row_fps_pro">60 fps</string>
     <string name="pro_row_watermark">Watermark</string>
-    <string name="pro_row_watermark_free">Corner mark</string>
+    <string name="pro_row_watermark_free">Across the video</string>
+    <string name="pro_row_length">Export length</string>
+    <string name="pro_row_length_free">1 minute</string>
+    <string name="pro_row_length_pro">Full track</string>
     <string name="pro_row_watermark_pro">None</string>
     <string name="pro_row_studio">Studio editor</string>
     <string name="pro_row_wallpaper">Live wallpaper and screensaver</string>
@@ -56,7 +60,7 @@
     <string name="pro_restore">Restore purchase</string>
     <string name="pro_retry">Try again</string>
     <string name="pro_trial_start">Try everything free for 1 hour</string>
-    <string name="pro_trial_note">Starts now and runs for an hour, once. Trial exports keep the corner mark.</string>
+    <string name="pro_trial_note">Starts now and runs for an hour, once. Trial exports stay at 1 minute with the watermark.</string>
     <plurals name="pro_trial_active">
         <item quantity="one">Pro trial: %d minute left</item>
         <item quantity="other">Pro trial: %d minutes left</item>
@@ -84,7 +88,7 @@
     <string name="pro_locked_studio_body">Cut multi-clip music videos with keyframes, transitions, auto-cut, captions and chapters.</string>
     <string name="pro_locked_cta">See what Pro unlocks</string>
     <string name="pro_settings_title">MuzViz Pro</string>
-    <string name="pro_settings_free">Unlock every style, 4K 60 fps exports, the Studio and the live wallpaper. One payment.</string>
+    <string name="pro_settings_free">Unlock every style, full-length 4K 60 fps exports, the Studio and the live wallpaper. One payment.</string>
     <string name="pro_settings_owned">Unlocked. Thank you for supporting MuzViz.</string>
     <string name="pro_settings_go">Go Pro</string>
 

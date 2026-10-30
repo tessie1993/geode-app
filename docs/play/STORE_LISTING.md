@@ -61,11 +61,11 @@ The engine limits flashing to at most three flashes per second — on screen and
 every exported video — and there is a "slow the motion down" option for motion comfort.
 
 FREE TO TRY, PRO TO KEEP
-MuzViz is free to download with a starter set of styles and HD exports. Try every Pro
-feature free for one hour, then unlock MuzViz Pro with a single one-time purchase —
-no subscription:
+MuzViz is free to download with dozens of shader styles and 1-minute HD preview exports.
+Try every Pro style and tool free for one hour, then unlock MuzViz Pro with a single
+one-time purchase — no subscription:
 • Every visual style
-• 4K and 60 fps exports without the watermark
+• Full-length 4K and 60 fps exports without the watermark
 • The Studio editor
 • Live wallpaper and screensaver
 • Advanced look controls

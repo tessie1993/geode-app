@@ -24,7 +24,7 @@ are summarised at the end.
 
 | Question | Answer |
 |---|---|
-| Does your app collect or share any of the required user data types? | **Yes**. Only because of purchase history, see below. If you prefer the narrower reading (see "Purchase history: the judgement call"), answer **No** and skip the rest |
+| Does your app collect or share any of the required user data types? | **Yes**. Only because of purchase history, see below |
 | Is all of the user data collected by your app encrypted in transit? | **Yes**. The only transfer is the Play Store app's own TLS connection to Google |
 | Do you provide a way for users to request that their data is deleted? | **No**. There's no account and nothing held off-device by you. (Google Play order history is Google's; users manage it in their Google account.) If the form requires a deletion path, answer Yes and give the in-app route: *Settings → Apps → MuzViz Studio Pro → Storage → Clear data* |
 
@@ -51,24 +51,22 @@ Everything else: **not collected, not shared.** In particular:
 "Shared" is No for purchase history: Google Play is processing the purchase as the
 platform's payment system, not receiving data from the app for its own use.
 
-## Purchase history: the judgement call
+## Purchase history: why it's declared
 
-The app asks the Play Store app for the user's purchases, receives a purchase record
+**Decision (2026-10-30): declare it.** The app asks the Play Store app for the user's purchases, receives a purchase record
 (product, time, order id, token), and sends the token back to Play to **acknowledge**
 the purchase. That acknowledgement leaves the device, through the Play Store app.
 
-- **Declare it (recommended, used above).** It's the conservative reading of "a library
+- **Declared (the choice above).** It's the conservative reading of "a library
   in your app transmits data off the device", and the Android docs' Data safety guidance
   lists "Uses Google Play's Billing Library" under Financial info. Over-declaring
   purchase history has no downside for a paid unlock: the listing shows it as
   "Financial info: Purchase history", with "App functionality" as the purpose.
-- **Don't declare it.** Some developers read Google's billing processing as Google's own
-  collection. If the console's help text at the time you fill this in says data handled
-  by Google Play Billing need not be declared, this is valid too. Keep the privacy policy
-  either way; it describes the exchange.
+- The alternative, not declaring it, treats Google's billing processing as Google's own
+  collection. It was considered and not taken: a "No data collected" label that a reviewer
+  could dispute isn't worth the cleaner look.
 
-Whichever you choose, keep it consistent with `docs/privacy-policy.md` ("Buying MuzViz
-Pro").
+Keep this consistent with `docs/privacy-policy.md` ("Buying MuzViz Pro").
 
 ## Security practices
 
@@ -85,7 +83,7 @@ Pro").
 | Videos | Manual sharing through the share sheet: exempt |
 | Files and docs, crash logs, device ID, user account | Local only or not accessed |
 | Performance diagnostics | False positive: the debug-only fake billing panel (`USE_FAKE_BILLING=false` in release) |
-| **Purchase history** | **IMPORTANT: declare (or consciously not), as discussed above** |
+| **Purchase history** | **IMPORTANT: declared, as discussed above** |
 | Permissions | Four foreground service types, each typed and with a notification. The FGS declaration is needed in the console: see [CONSOLE_CHECKLIST.md](CONSOLE_CHECKLIST.md) §7 |
 | User accounts | None: no login, so no account-deletion requirement and no demo credentials needed for review |
 

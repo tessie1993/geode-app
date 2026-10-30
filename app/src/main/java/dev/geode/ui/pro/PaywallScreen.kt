@@ -404,6 +404,7 @@ private fun titleFor(trigger: PaywallTrigger?): Int =
                 ProFeature.EXPORT_4K -> R.string.pro_title_export_4k
                 ProFeature.EXPORT_60FPS -> R.string.pro_title_export_60fps
                 ProFeature.NO_WATERMARK -> R.string.pro_title_watermark
+                ProFeature.FULL_LENGTH_EXPORT -> R.string.pro_title_full_length
                 ProFeature.STUDIO -> R.string.pro_title_studio
                 ProFeature.LIVE_WALLPAPER -> R.string.pro_title_wallpaper
                 ProFeature.SCREENSAVER -> R.string.pro_title_screensaver
@@ -431,6 +432,12 @@ private val COMPARE_ROWS =
             setOf(ProFeature.EXPORT_4K),
         ),
         CompareRow(R.string.pro_row_fps, R.string.pro_row_fps_free, R.string.pro_row_fps_pro, setOf(ProFeature.EXPORT_60FPS)),
+        CompareRow(
+            R.string.pro_row_length,
+            R.string.pro_row_length_free,
+            R.string.pro_row_length_pro,
+            setOf(ProFeature.FULL_LENGTH_EXPORT),
+        ),
         CompareRow(
             R.string.pro_row_watermark,
             R.string.pro_row_watermark_free,

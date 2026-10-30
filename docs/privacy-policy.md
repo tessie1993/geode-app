@@ -87,8 +87,8 @@ settings at any time.
 ## Video export
 
 Exported videos are MP4 files saved where you choose. They stay on your device unless
-*you* share them; the app you share to handles them under its own policy. Free-tier
-exports carry a small "MuzViz Studio Pro" mark in the corner.
+*you* share them; the app you share to handles them under its own policy. Exports made
+without Pro are limited to one minute and carry a "MuzViz Studio Pro" watermark.
 
 ## Backups
 

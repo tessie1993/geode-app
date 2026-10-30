@@ -20,6 +20,7 @@ class FeatureGateTest {
         FreeTier.freeStyleIds.forEach { assertTrue(it, free.allowsStyle(it)) }
         assertFalse(free.allowsStyle("not-a-free-style"))
         assertTrue(free.watermarksExports)
+        assertEquals(FreeTier.FREE_MAX_EXPORT_MS, free.exportCapMs)
     }
 
     @Test
@@ -27,12 +28,23 @@ class FeatureGateTest {
         ProFeature.entries.forEach { assertTrue(it.name, pro.allows(it)) }
         assertTrue(pro.allowsStyle("not-a-free-style"))
         assertFalse(pro.watermarksExports)
+        assertNull(pro.exportCapMs)
     }
 
     @Test
-    fun `the trial allows everything except a clean export`() {
-        ProFeature.entries.filter { it != ProFeature.NO_WATERMARK }.forEach { assertTrue(it.name, trial.allows(it)) }
-        assertEquals(FreeTier.TRIAL_REMOVES_WATERMARK, trial.allows(ProFeature.NO_WATERMARK))
+    fun `the trial allows everything except a clean, full-length export`() {
+        val exportLimits = setOf(ProFeature.NO_WATERMARK, ProFeature.FULL_LENGTH_EXPORT)
+        ProFeature.entries.filter { it !in exportLimits }.forEach { assertTrue(it.name, trial.allows(it)) }
+        exportLimits.forEach { assertEquals(it.name, !FreeTier.TRIAL_EXPORTS_LIMITED, trial.allows(it)) }
+        assertEquals(FreeTier.TRIAL_EXPORTS_LIMITED, trial.watermarksExports)
+        assertEquals(if (FreeTier.TRIAL_EXPORTS_LIMITED) FreeTier.FREE_MAX_EXPORT_MS else null, trial.exportCapMs)
+    }
+
+    @Test
+    fun `the free styles are the shader family and include the fallback`() {
+        assertTrue(FreeTier.FALLBACK_STYLE_ID in FreeTier.freeStyleIds)
+        assertTrue(free.allowsStyle(FreeTier.FALLBACK_STYLE_ID))
+        assertFalse("silk is a Pro renderer", free.allowsStyle(dev.geode.render.scene.SceneIds.DEFAULT))
     }
 
     @Test

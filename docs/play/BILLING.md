@@ -6,7 +6,7 @@
 |---|---|
 | Product ID | **`muzviz_pro`**. Must match `BillingRepository.PRO_PRODUCT_ID`. Can't be changed or reused after creation |
 | Name | MuzViz Pro |
-| Description | Every visual style, 4K and 60 fps exports without the watermark, the Studio editor, live wallpaper and screensaver. One payment, yours to keep. |
+| Description | Every visual style, full-length 4K and 60 fps exports without the watermark, the Studio editor, live wallpaper and screensaver. One payment, yours to keep. |
 | Purchase option | One "Buy" option, **not** consumable-by-the-app (the app never consumes it; it is a permanent unlock) |
 | Price | **USD 9.99** as the base. Let Play convert the other countries, then round the ones you care about |
 | Availability | All countries where the app is distributed |
@@ -40,8 +40,9 @@ Monetization setup).
 - **Offline**: the entitlement is cached on the device. If the Play Store can't be reached,
   Pro stays unlocked for 30 days from the last confirmation. A refund or revoked order
   removes Pro the next time Play answers.
-- **Trial**: one hour of all Pro features except clean exports, once per install, on the
-  device clock. This is not a Play free trial (Play offers trials only on subscriptions),
+- **Trial**: one hour of every Pro style, tool and export setting, once per install, on the
+  device clock. Exports stay at the free limits (1 minute, full-frame watermark), and Studio
+  exports and loop renders ask to unlock. This is not a Play free trial (Play offers trials only on subscriptions),
   so there is nothing to configure in the console.
 
 ## Testing before release
@@ -53,8 +54,8 @@ Monetization setup).
    for the real `com.muzviz.studiopro` id signed with the upload key, installed from
    Play. Debug builds (`.debug` id) use the fake billing instead.
 3. Install from the internal-testing opt-in link, open the paywall, buy with a test card.
-   Then check: the Pro unlock, the watermark is gone, Studio opens, and Restore on a
-   second device.
+   Then check: the Pro unlock, the watermark is gone, the export runs the full track, Studio
+   opens and exports, and Restore on a second device.
 4. Refund it from Order management, reopen the app, and check that Pro goes away.
 
 Debug builds: the paywall shows a red **Debug billing (fake)** panel to own/unown Pro and
@@ -65,5 +66,10 @@ client instead. That only helps once the id and signature match a console app.
 ## Tuning the free tier
 
 Everything a free user keeps is in `app/src/main/java/dev/geode/pro/FreeTier.kt`:
-`freeStyleIds` (styles that stay free), `freeFeatures`, the 1080p / 30 fps export
-ceiling, the trial length, and whether trial exports are clean.
+`freeStyleIds` (styles that stay free: the whole fragment-shader family), `freeFeatures`,
+the 1080p / 30 fps / 1-minute export ceiling, the trial length, and whether trial exports
+keep those limits (`TRIAL_EXPORTS_LIMITED`).
+
+What a non-Pro export gets: at most 1080p, 30 fps and **1 minute** (the rest of the track is
+cut), with the wordmark **tiled diagonally across the whole frame**. Loop renders and Studio
+exports need Pro.

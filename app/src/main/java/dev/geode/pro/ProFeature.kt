@@ -17,8 +17,11 @@ enum class ProFeature {
     /** Exports above [FreeTier.FREE_MAX_FPS]. */
     EXPORT_60FPS,
 
-    /** Exports without the corner wordmark. */
+    /** Exports without the full-frame wordmark. */
     NO_WATERMARK,
+
+    /** Exports longer than [FreeTier.FREE_MAX_EXPORT_MS], loop renders, and Studio exports. */
+    FULL_LENGTH_EXPORT,
 
     /** The multi-clip Studio editor: timeline, keyframes, transitions, auto-cut, captions. */
     STUDIO,

@@ -66,7 +66,18 @@ The full set of tunable values a scene is drawn with at one moment.
 _Avoid_: Settings, knobs
 
 **Customize tabs**:
-The groups the scene params are edited in: Shape, Color, Motion, FX, Reactivity, Scene, plus per-family tabs.
+The groups the scene params are edited in: Events first, then the detail tabs (Shape, Colour, Motion, FX, Reactivity, Scene) and the per-family tabs.
+
+**Reaction route**:
+One line of the reaction matrix: a sound (band, level or event) moves one scene param, by following, stepping or spinning.
+_Avoid_: Binding, mapping
+
+**Style DNA**:
+The reaction routes a style plays until the user edits them, generated from the style id and a seed.
+
+**Event recipe**:
+A named bundle of reaction routes offered in the Events tab ("Kick punch", "Drop burst"), turned on and off as one.
+_Avoid_: Trigger preset
 
 **Modulation**:
 LFOs and ADSR envelopes that move scene params over time or on hits.

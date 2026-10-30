@@ -22,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.geode.R
+import dev.geode.ui.pro.GoProSettingsRow
 
 @Composable
 internal fun AppSettingsTab(
@@ -45,6 +46,7 @@ internal fun AppSettingsTab(
             stringResource(R.string.settings_tab_about),
         )
     Column(Modifier.fillMaxSize()) {
+        GoProSettingsRow()
         CrystalTabs(titles = tabTitles, selected = tab, onSelect = { tab = it })
         when (tab) {
             0 -> LookSettingsTab(settingsViewModel)

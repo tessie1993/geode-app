@@ -2,6 +2,7 @@ package dev.geode.ui
 
 import android.net.Uri
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.geode.di.PlayerSessionProvider
 import dev.geode.editor.ClipId
@@ -15,9 +16,16 @@ import dev.geode.editor.TransientEnvelope
 import dev.geode.editor.TransientSource
 import dev.geode.export.ClipEdit
 import dev.geode.export.StudioClip
+import dev.geode.pro.FeatureGate
+import dev.geode.pro.GetFeatureGateUseCase
+import dev.geode.pro.PaywallNavigator
+import dev.geode.pro.PaywallTrigger
+import dev.geode.pro.ProFeature
 import dev.geode.render.scene.SceneParams
 import dev.geode.ui.studio.EditorActions
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.stateIn
 import javax.inject.Inject
 
 @HiltViewModel
@@ -25,9 +33,24 @@ class StudioViewModel
     @Inject
     constructor(
         private val sessions: PlayerSessionProvider,
+        getFeatureGate: GetFeatureGateUseCase,
+        private val paywall: PaywallNavigator,
     ) : ViewModel(),
         EditorActions {
         private val session: PlayerSession = sessions.get()
+
+        /**
+         * Studio exports go through Media3 Transformer, which has no free-tier cap or wordmark, so
+         * they need the full Pro tier: the trial edits in the Studio, and exporting asks to unlock.
+         */
+        private val gate: StateFlow<FeatureGate> = getFeatureGate().stateIn(viewModelScope, SharingStarted.Eagerly, FeatureGate.FREE)
+
+        private fun studioExportLocked(): Boolean {
+            if (gate.value.allows(ProFeature.FULL_LENGTH_EXPORT) && gate.value.allows(ProFeature.NO_WATERMARK)) return false
+            paywall.open(PaywallTrigger.Feature(ProFeature.FULL_LENGTH_EXPORT))
+            return true
+        }
+
         val studio: StateFlow<StudioUiState> get() = session.studio
 
         val editor: StateFlow<EditorUiState> get() = session.editor.state
@@ -62,7 +85,10 @@ class StudioViewModel
             onReady: (StudioClip) -> Unit,
         ) = session.describeStudioClip(uri, onReady)
 
-        override fun exportProject(destination: Uri?) = session.startProjectExport(destination)
+        override fun exportProject(destination: Uri?) {
+            if (studioExportLocked()) return
+            session.startProjectExport(destination)
+        }
 
         override fun cancelProjectExport() = session.cancelStudioExport()
 
@@ -119,7 +145,10 @@ class StudioViewModel
             clip: StudioClip,
             edit: ClipEdit,
             destination: Uri? = null,
-        ) = session.startStudioExport(clip, edit, destination)
+        ) {
+            if (studioExportLocked()) return
+            session.startStudioExport(clip, edit, destination)
+        }
 
         fun cancelStudioExport() = session.cancelStudioExport()
 

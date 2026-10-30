@@ -265,6 +265,8 @@ class LoopRender(
         codec: ExportCodec = ExportCodec.H264,
         onProgress: (Float) -> Unit,
         isCancelled: () -> Boolean,
+        // The free tier's corner wordmark; see WatermarkOverlay.
+        watermark: Boolean = false,
     ): Result =
         withContext(Dispatchers.Default) {
             val choice =
@@ -288,6 +290,7 @@ class LoopRender(
                     reactions = reactions,
                     reducedMotion = reducedMotion,
                     paramsAt = paramsAt,
+                    watermarkText = if (watermark) context.getString(R.string.pro_watermark_text) else null,
                 ),
                 onProgress,
                 isCancelled,
@@ -310,6 +313,7 @@ class LoopRender(
         val reactions: List<dev.geode.render.ReactionRoute>?,
         val reducedMotion: Boolean,
         val paramsAt: ((Long) -> SceneParams)?,
+        val watermarkText: String?,
     )
 
     private data class EncoderChoice(
@@ -405,6 +409,7 @@ class LoopRender(
         var egl: EncoderSurface? = null
         var renderer: OffscreenSceneRenderer? = null
         var stash: SeamStash? = null
+        var mark: WatermarkOverlay? = null
         try {
             val encoded =
                 StopWriter.open(context, file, videoFormat(job.aspect, job.choice), job.choice.codec.mimeType).also { writer = it }
@@ -420,6 +425,9 @@ class LoopRender(
             val sourceFrames = loopFrames + seamFrames
             val scene = prepareRenderer(job, stop, sourceFrames).also { renderer = it }
             scene.prepare()
+            job.watermarkText?.let { text ->
+                mark = WatermarkOverlay(text).apply { prepare(job.aspect.width, job.aspect.height) }
+            }
 
             val outcome =
                 drawFrames(
@@ -434,10 +442,12 @@ class LoopRender(
                     progressSpan = progressSpan,
                     onProgress = onProgress,
                     isCancelled = isCancelled,
+                    mark = mark,
                 )
             if (outcome is StopOutcome.Done) encoded.finish()
             return outcome
         } finally {
+            bestEffort(TAG, "mark?.release()") { mark?.release() }
             bestEffort(TAG, "renderer?.release()") { renderer?.release() }
             bestEffort(TAG, "stash?.close()") { stash?.close() }
             bestEffort(TAG, "writer?.close()") { writer?.close() }
@@ -465,6 +475,7 @@ class LoopRender(
         progressSpan: Float,
         onProgress: (Float) -> Unit,
         isCancelled: () -> Boolean,
+        mark: WatermarkOverlay?,
     ): StopOutcome {
         val sourceFrames = loopFrames + seamFrames
         val frameDurationNs = 1_000_000_000L / fps
@@ -481,6 +492,7 @@ class LoopRender(
             } else {
                 val tail = frame - loopFrames
                 if (tail >= 0) seam.blendOver(tail, seamWeight(tail, seamFrames))
+                mark?.draw()
                 egl.setPresentationTimeNs((frame - seamFrames) * frameDurationNs)
                 egl.swapBuffers()
                 writer.drain(untilEndOfStream = false)

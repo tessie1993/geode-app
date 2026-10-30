@@ -2,14 +2,20 @@ package dev.geode
 
 import android.app.Application
 import dagger.hilt.android.HiltAndroidApp
+import dev.geode.billing.ForegroundActivityTracker
 import java.io.File
+import javax.inject.Inject
 
 @HiltAndroidApp
 class GeodeApp : Application() {
     val container: GeodeContainer by lazy { GeodeContainer(this) }
 
+    @Inject lateinit var activityTracker: ForegroundActivityTracker
+
     override fun onCreate() {
         super.onCreate()
+        // A weak reference to the resumed activity, for Play's purchase sheet; costs nothing.
+        registerActivityLifecycleCallbacks(activityTracker)
         if (BuildConfig.DEBUG) {
             // Logcat echo is a debug convenience; release keeps failures in the
             // ring buffer alone, where the crash report already includes them.

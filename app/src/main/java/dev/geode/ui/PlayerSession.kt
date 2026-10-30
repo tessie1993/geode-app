@@ -625,9 +625,15 @@ class PlayerSession internal constructor(
 
                 override val presetLocked: Boolean get() = _presetLocked.value
 
-                override fun selectScene(sceneId: String) = visual.selectScene(sceneId)
+                // Auto-visuals only cycles through styles the user may keep; it never opens the
+                // paywall on its own.
+                override fun selectScene(sceneId: String) {
+                    if (allowsStyle(sceneId)) visual.selectScene(sceneId)
+                }
 
-                override fun applyPreset(preset: Preset) = visual.applyPreset(preset)
+                override fun applyPreset(preset: Preset) {
+                    if (allowsStyle(preset.sceneId)) visual.applyPreset(preset)
+                }
 
                 override fun applyMilk(
                     path: String,
@@ -947,7 +953,16 @@ class PlayerSession internal constructor(
 
     fun setExportTake(name: String?) = takeController.setExportTake(name)
 
-    fun selectScene(sceneId: String) = visual.selectScene(sceneId)
+    /**
+     * The Pro style gate, set by [dev.geode.di.PlayerSessionProvider] from the entitlement use
+     * case. Open until set, so a session built outside the provider (a test) behaves as before.
+     */
+    internal var allowsStyle: (String) -> Boolean = { true }
+
+    /** What a refused style does: the provider opens the paywall. */
+    internal var onStyleLocked: () -> Unit = {}
+
+    fun selectScene(sceneId: String) = if (allowsStyle(sceneId)) visual.selectScene(sceneId) else onStyleLocked()
 
     fun setReactivity(
         attack: Float,
@@ -973,7 +988,7 @@ class PlayerSession internal constructor(
 
     fun setTransitionDuration(seconds: Float) = visual.setTransitionDuration(seconds)
 
-    fun applyPreset(preset: Preset) = visual.applyPreset(preset)
+    fun applyPreset(preset: Preset) = if (allowsStyle(preset.sceneId)) visual.applyPreset(preset) else onStyleLocked()
 
     fun savePreset(
         name: String,
@@ -1126,7 +1141,8 @@ class PlayerSession internal constructor(
         range: ExportRange? = null,
         sceneFactoryFor: ((String) -> SceneFactory)? = null,
         codec: ExportCodec = ExportCodec.H264,
-    ) = exportController.startExport(aspect, fps, sceneFactory, destination, loopSafe, range, sceneFactoryFor, codec)
+        watermark: Boolean = false,
+    ) = exportController.startExport(aspect, fps, sceneFactory, destination, loopSafe, range, sceneFactoryFor, codec, watermark)
 
     fun cancelExport() = exportController.cancelExport()
 
@@ -1174,7 +1190,8 @@ class PlayerSession internal constructor(
         drift: dev.geode.export.TimeOfDayDrift,
         audioClips: List<Uri>,
         destination: Uri? = null,
-    ) = exportController.startLoopRender(aspect, codec, fps, sceneFactory, loopMs, crossfadeMs, drift, audioClips, destination)
+        watermark: Boolean = false,
+    ) = exportController.startLoopRender(aspect, codec, fps, sceneFactory, loopMs, crossfadeMs, drift, audioClips, destination, watermark)
 
     fun cancelLoopRender() = exportController.cancelLoopRender()
 

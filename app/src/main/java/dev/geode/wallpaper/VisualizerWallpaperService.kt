@@ -6,8 +6,10 @@ import android.service.wallpaper.WallpaperService
 import android.view.MotionEvent
 import android.view.SurfaceHolder
 import dev.geode.audio.AudioBus
+import dev.geode.billing.ProSnapshot
 import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.PresetStore
+import dev.geode.pro.ProFeature
 import dev.geode.render.FramePacer
 import dev.geode.render.FrameRatePolicy
 import dev.geode.render.TouchField
@@ -147,10 +149,20 @@ class VisualizerWallpaperService : WallpaperService() {
 
         private fun syncRunState() {
             val engine = renderer ?: return
-            if (surfaceAvailable && visible) {
+            // Pro feature. Re-read on every visibility change, so a purchase or a trial made in
+            // the app animates the wallpaper the next time the home screen shows.
+            val animated = ProSnapshot.gate(this@VisualizerWallpaperService).allows(ProFeature.LIVE_WALLPAPER)
+            if (surfaceAvailable && visible && animated) {
                 glView?.onResume()
                 pacer.start()
                 startFeeding(engine)
+            } else if (surfaceAvailable && visible) {
+                // Without Pro: one still frame of the style, no pacing and no audio feed, so it
+                // costs nothing while it sits on the home screen.
+                pacer.stop()
+                stopFeeding()
+                glView?.onResume()
+                glView?.requestRender()
             } else {
                 // Stopped first, and on this same main-thread callback: the vsync callback is gone
                 // before onPause is even asked for, so no frame can be requested after the

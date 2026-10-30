@@ -27,3 +27,6 @@ google-services.json
 .codex/
 __pycache__/
 *.logcat
+
+# Local audit scratch (play-policy-insights skill).
+.scratch/

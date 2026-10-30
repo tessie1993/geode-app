@@ -56,6 +56,14 @@ android {
         }
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // The public half of the Play licence key (Play Console > Monetization setup > Licensing),
+        // used to check purchase signatures on the device. Public, not a secret; empty skips the
+        // check. Supplied as the muzviz.playLicenseKey property or PLAY_LICENSE_KEY env variable.
+        val playLicenseKey =
+            (findProperty("muzviz.playLicenseKey") as String?)
+                ?: System.getenv("PLAY_LICENSE_KEY").orEmpty()
+        buildConfigField("String", "PLAY_LICENSE_KEY", "\"${playLicenseKey.trim()}\"")
     }
 
     signingConfigs {
@@ -82,6 +90,10 @@ android {
                 "proguard-rules.pro",
             )
             if (hasReleaseSigning) signingConfig = signingConfigs.getByName("release")
+            buildConfigField("boolean", "USE_FAKE_BILLING", "false")
+            // Symbol tables for libgeode.so and libprojectM-4.so go into the bundle, so Play
+            // Console symbolicates native crashes and ANRs instead of warning that it cannot.
+            ndk { debugSymbolLevel = "SYMBOL_TABLE" }
         }
         debug {
             isMinifyEnabled = false
@@ -94,6 +106,10 @@ android {
             applicationIdSuffix = ".debug"
             versionNameSuffix = "-debug"
             isDebuggable = true
+            // Play does not know the .debug application id, so debug builds bill against
+            // FakeBillingRepository unless -Pmuzviz.fakeBilling=false asks for the real client.
+            val fakeBilling = (findProperty("muzviz.fakeBilling") as String?)?.toBoolean() ?: true
+            buildConfigField("boolean", "USE_FAKE_BILLING", fakeBilling.toString())
         }
     }
 
@@ -226,6 +242,8 @@ dependencies {
     implementation(libs.lifecycle.viewmodel.compose)
     implementation(libs.lifecycle.runtime.compose)
     implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.billing)
+    implementation(libs.profileinstaller)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)

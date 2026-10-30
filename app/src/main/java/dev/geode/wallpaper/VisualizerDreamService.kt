@@ -3,9 +3,11 @@ package dev.geode.wallpaper
 import android.service.dreams.DreamService
 import android.view.ViewGroup
 import dev.geode.audio.AudioBus
+import dev.geode.billing.ProSnapshot
 import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.PlayerPrefsStore
 import dev.geode.data.PresetStore
+import dev.geode.pro.ProFeature
 import dev.geode.render.VisualizerRenderer
 import dev.geode.render.VisualizerView
 import dev.geode.ui.ThemeStore
@@ -43,6 +45,11 @@ class VisualizerDreamService : DreamService() {
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
+        // Pro feature: without it the dream ends at once and the system falls back to its own.
+        if (!ProSnapshot.gate(this).allows(ProFeature.SCREENSAVER)) {
+            finish()
+            return
+        }
         isInteractive = false
         isFullscreen = true
         val prefsFiles = GeodePrefsFiles(this)

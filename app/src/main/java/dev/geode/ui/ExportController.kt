@@ -146,6 +146,7 @@ internal class ExportController(
         range: ExportRange? = null,
         sceneFactoryFor: ((String) -> SceneFactory)? = null,
         codec: ExportCodec = ExportCodec.H264,
+        watermark: Boolean = false,
     ) {
         val uri = host.exportUri ?: return
         if (_exportState.value.phase.isBusy || ExportRun.running) return
@@ -228,6 +229,7 @@ internal class ExportController(
                                 ExportRun.publish(overall)
                             },
                             isCancelled = { exportCancelled || ExportRun.cancelRequested },
+                            watermark = watermark,
                         )
                     _exportState.value =
                         ExportUiState(
@@ -432,6 +434,7 @@ internal class ExportController(
         drift: TimeOfDayDrift,
         audioClips: List<Uri>,
         destination: Uri? = null,
+        watermark: Boolean = false,
     ) {
         val uri = host.exportUri ?: return
         if (_loopState.value.phase.isBusy || ExportRun.running) return
@@ -464,6 +467,7 @@ internal class ExportController(
                             codec = codec,
                             onProgress = { p -> publishLoopProgress(ANALYSIS_SPAN + p * RENDER_SPAN) },
                             isCancelled = { loopCancelled || ExportRun.cancelRequested },
+                            watermark = watermark,
                         )
                     _loopState.value = LoopUiState(phase = finishLoopRender(renderResult, uri, audioClips, destination))
                 } catch (t: Throwable) {

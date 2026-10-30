@@ -12,7 +12,7 @@ rejected but is a real defect; **nice-to-have** is polish.
 
 | # | Finding | Where | Who |
 |---|---|---|---|
-| B1 | **Privacy policy is not hosted.** Play requires a public privacy policy URL for any app that asks for a sensitive permission (`RECORD_AUDIO`, MediaProjection capture) and for the Data safety form. `https://tessie1993.github.io/geode-app/privacy-policy.html` returns 404: Pages is switched on, but it builds from the stale branch `claude/repo-audit-fix-plan-rfw176-u12` and no workflow on `claude/geode-finish` or `main` publishes the policy. The text itself (`docs/privacy-policy.md`/`.html`) is complete and matches the code. | Repo Pages settings, `.github/workflows/` | Code (a Pages workflow) + you (Pages source) |
+| B1 | **Privacy policy is not hosted.** *(Decided 2026-10-30: the policy now also ships in the app and the store description points to it. Play's App content form still needs a public URL.)* Play requires a public privacy policy URL for any app that asks for a sensitive permission (`RECORD_AUDIO`, MediaProjection capture) and for the Data safety form. `https://tessie1993.github.io/geode-app/privacy-policy.html` returns 404: Pages is switched on, but it builds from the stale branch `claude/repo-audit-fix-plan-rfw176-u12` and no workflow on `claude/geode-finish` or `main` publishes the policy. The text itself (`docs/privacy-policy.md`/`.html`) is complete and matches the code. | Repo Pages settings, `.github/workflows/` | Code (a Pages workflow) + you (Pages source) |
 | B2 | **No release secrets or variables in the repo.** `gh secret list` and `gh variable list` are empty. Without `MUZVIZ_UPLOAD_*` the tag build is unsigned; without the `PLAY_LICENSE_KEY` variable `release.yml` refuses a `v*` tag build, by design. | Repo settings, [CONSOLE_CHECKLIST.md](CONSOLE_CHECKLIST.md) | You |
 | B3 | **Console declarations.** Foreground service declaration for all four types, each with a short video (mediaPlayback, mediaProjection, mediaProcessing, dataSync). Data safety, content rating, target audience and ads declaration ("no ads") are all prepared in this folder but must be entered. | Play Console > App content | You |
 | B4 | **Personal developer accounts** need a closed test with 12 opted-in testers for 14 consecutive days before production access. | Play Console > Testing | You |
@@ -37,6 +37,25 @@ out of the merged manifest by a CI check, every foreground service has a type, e
 | N1 | Live input keeps its `AudioRecord` thread open while the app is in the background. On targetSdk 36 without a microphone FGS type the platform hands it silence, so nothing is heard, but the loop still runs. Pause on `ProcessLifecycleOwner` ON_STOP, resume on ON_START (already in POLICY_AUDIT.md). | `ui/CaptureController.kt` |
 | N2 | `NowPlayingWidgetReceiver` is exported for `APPWIDGET_UPDATE`, as Glance requires. Any app can send it an explicit update; the worst case is a redraw. Leave it. | Manifest |
 | N3 | The entitlement cache is in Auto Backup. Restored to a device on a different Google account it reads "owned" until the first foreground refresh asks Play. The refresh corrects it within seconds; excluding the file would also drop the useful case (same account, offline). Leave it unless the grace window grows. | `billing/EntitlementStore.kt`, `res/xml/*backup*` |
+
+## Fixed on this branch (`claude/play-readiness-50643f`)
+
+- **B1, partly:** the About screen's privacy button opened a dead URL
+  (`tessie1993.github.io/music-visualizer-2/…`). The policy now ships as an asset and opens
+  in a dialog, offline; `PrivacyPolicyTest` keeps the asset equal to `docs/privacy-policy.md`.
+  The store description points to it. The console URL is still yours to provide.
+- **S1:** `PlaybackService.onConnect` gives untrusted controllers transport and the current
+  item only; library browsing goes to trusted controllers, system apps, and Android Auto,
+  Wear OS and the Google app when signed like Play services.
+- **S2:** a readable `geode://` link opens an Import / Replace dialog; nothing is written
+  until the user confirms.
+- **S3:** the Android Auto opt-in step is in [CONSOLE_CHECKLIST.md](CONSOLE_CHECKLIST.md) §7.
+- **N1:** Live input releases the mic in `MainActivity.onStop` and resumes in `onStart`.
+
+Device checks still to do (not covered by CI): Android Auto (DHU) still browses the
+library; a third-party controller app gets play/pause but no browse tree; tapping a
+`geode://` link shows the dialog and Cancel writes nothing; the mic indicator goes off
+when the app is sent home with Live input on and comes back on return.
 
 ## Checked and fine
 

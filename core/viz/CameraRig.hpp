@@ -56,7 +56,9 @@ public:
     void reset();
     // reducedMotion scales travel, orbit, roll and shake, the vestibular
     // terms; the look still follows a finger.
-    void step(const SceneParams& p, const LookInput& look, float dt, bool reducedMotion);
+    // bankFlat false keeps the path's banking out of the flat picture's roll
+    // (a style that does not turn); the 3D basis still banks.
+    void step(const SceneParams& p, const LookInput& look, float dt, bool reducedMotion, bool bankFlat = true);
     const CameraPose& pose() const { return pose_; }
 
     // The path centre line at travel s, before look/dolly; public for tests.

@@ -1,6 +1,6 @@
 name: Ship Geode APK
 
-# Builds the debug-signed APK from main and publishes it as a GitHub Release,
+# Builds the debug-signed APK from main and claude/geode-finish and publishes it as a GitHub Release,
 # so it can be downloaded and sideloaded without a GitHub login and without the
 # 30-day expiry that applies to the workflow artifacts in android.yml.
 #
@@ -18,17 +18,12 @@ on:
         description: Mark the GitHub Release as a pre-release
         type: boolean
         default: true
+  # Every merge into main or the integration branch ships a pre-release,
+  # docs-only merges included, so each merged PR has an installable build.
   push:
     branches:
       - main
-    paths:
-      - "app/**"
-      - "engine/**"
-      - "build-logic/**"
-      - "gradle/**"
-      - "*.gradle.kts"
-      - "gradle.properties"
-      - ".github/workflows/ship-apk.yml"
+      - claude/geode-finish
 
 permissions:
   contents: write

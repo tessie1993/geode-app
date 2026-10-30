@@ -100,7 +100,7 @@ SceneParams Renderer::resolveParams(float dt) {
     // flash and motion limits.
     motionField_.step(frameFeatures_, dt);
     const bool reducedMotion = reducedMotion_.load(std::memory_order_relaxed);
-    p = motionField_.apply(p, reducedMotion);
+    p = motionField_.apply(p, reducedMotion, sceneSpin_.load(std::memory_order_relaxed));
     p = safety::apply(p, reducedMotion);
     if (!thermalTierInfo(thermal_.tier()).optionalPasses) {
         p.flowEnabled = false;
@@ -296,7 +296,7 @@ void Renderer::stepCamera(const SceneParams& p, float dt) {
     }
     look.yaw = std::clamp(look.yaw, -1.0f, 1.0f);
     look.pitch = std::clamp(look.pitch, -1.0f, 1.0f);
-    camera_.step(p, look, dt, reducedMotion_.load(std::memory_order_relaxed));
+    camera_.step(p, look, dt, reducedMotion_.load(std::memory_order_relaxed), sceneSpin_.load(std::memory_order_relaxed) != 0.0f);
 }
 
 void Renderer::wireFlow(Scene& target, const SceneParams& p) {

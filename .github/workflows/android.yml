@@ -172,7 +172,7 @@ jobs:
       # still available from the workflow run for device testing.
       - name: Run unit tests
         working-directory: ${{ env.PROJECT_DIR }}
-        run: ./gradlew :app:testDebugUnitTest :engine:scenes:testDebugUnitTest :engine:audio-core:testDebugUnitTest --stacktrace --no-daemon
+        run: ./gradlew :app:testDebugUnitTest :engine:scenes:testDebugUnitTest :engine:audio-core:test --stacktrace --no-daemon
 
       - name: Run Android lint
         working-directory: ${{ env.PROJECT_DIR }}

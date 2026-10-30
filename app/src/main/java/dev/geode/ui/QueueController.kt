@@ -62,6 +62,40 @@ internal class QueueController(
     // detect it is stale and skip applying its results.
     private var openGeneration = 0
 
+    // Starts true so the first poll publishes whatever the process-wide player already holds.
+    private var queueStale = true
+
+    /**
+     * Marks the queue stale only when the player says its contents, order or position changed.
+     * It only sets a flag: a title resolution batch replaces items one by one, and rebuilding the
+     * whole queue for each of those events would cost more than the poll this replaced.
+     * Repeat mode is left out because [playOrder] ignores it.
+     */
+    private val queueListener =
+        object : Player.Listener {
+            override fun onEvents(
+                player: Player,
+                events: Player.Events,
+            ) {
+                val changed =
+                    events.containsAny(
+                        Player.EVENT_TIMELINE_CHANGED,
+                        Player.EVENT_MEDIA_ITEM_TRANSITION,
+                        Player.EVENT_SHUFFLE_MODE_ENABLED_CHANGED,
+                    )
+                if (changed) queueStale = true
+            }
+        }
+
+    init {
+        player.addListener(queueListener)
+    }
+
+    /** Detaches from the player, which outlives this controller's session. */
+    fun release() {
+        player.removeListener(queueListener)
+    }
+
     fun playTrack(uri: String) = playFrom(PlaybackQueue.contextFor(uri, lastBrowseContext, host.deviceTracks, host.libraryTracks), uri)
 
     fun playFrom(
@@ -244,7 +278,16 @@ internal class QueueController(
         )
     }
 
+    /**
+     * Called by the session's 500 ms poll. It used to rebuild every [QueueTrack] on Main each tick;
+     * now it rebuilds only after [queueListener] saw a change, so an idle queue costs one flag check.
+     */
     fun refreshQueue() {
+        if (queueStale) rebuildQueue()
+    }
+
+    private fun rebuildQueue() {
+        queueStale = false
         val order = playOrder()
         val tracks =
             order.mapIndexed { position, i ->
@@ -277,7 +320,7 @@ internal class QueueController(
         val timelineIndex = QueueOps.timelineIndexOf(playOrder(), index)
         if (timelineIndex < 0) return
         player.removeMediaItem(timelineIndex)
-        refreshQueue()
+        rebuildQueue()
     }
 
     fun moveQueueItem(
@@ -289,7 +332,7 @@ internal class QueueController(
         val timelineTo = QueueOps.timelineIndexOf(order, to)
         if (timelineFrom < 0 || timelineTo < 0 || timelineFrom == timelineTo) return
         player.moveMediaItem(timelineFrom, timelineTo)
-        refreshQueue()
+        rebuildQueue()
     }
 
     fun queueTitles(): List<String> =

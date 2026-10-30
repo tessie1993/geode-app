@@ -1,6 +1,9 @@
 package dev.geode.ui
 
+import androidx.annotation.OptIn
 import androidx.media3.common.Player
+import androidx.media3.common.util.UnstableApi
+import androidx.media3.common.util.Util
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -70,6 +73,7 @@ internal class PlaybackFades(
         fadeJob = self
     }
 
+    @OptIn(UnstableApi::class)
     fun togglePlayPauseFaded() {
         host.stopLiveInput()
         val player = host.player
@@ -79,7 +83,8 @@ internal class PlaybackFades(
             fadeVolume = 0f
             applyVolume()
             fadeThen(0f, 1f) {}
-            player.play()
+            // play() alone is a no-op once the track has ENDED (repeat off); this rewinds first.
+            Util.handlePlayButtonAction(player)
         }
     }
 

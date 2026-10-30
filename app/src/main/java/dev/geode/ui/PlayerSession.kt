@@ -7,6 +7,7 @@ import androidx.annotation.OptIn
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.common.util.Util
 import dev.geode.analysis.AudioFeatures
 import dev.geode.analysis.FeatureTimeline
 import dev.geode.analysis.IntelligenceMode
@@ -904,7 +905,8 @@ class PlayerSession internal constructor(
         } else if (player.isPlaying) {
             player.pause()
         } else {
-            player.play()
+            // play() alone is a no-op once the track has ENDED (repeat off); this rewinds first.
+            Util.handlePlayButtonAction(player)
         }
     }
 

@@ -31,6 +31,9 @@ enum class Macro(
     CHAOS("Chaos", "Turbulence, shake and glitch on top of the look.", "Calm", "Wild", 0f),
 }
 
+/** Macro to the parameters it drives, for one style or family. See [Macros.mappingFor]. */
+typealias MacroMapping = Map<Macro, List<MacroTarget>>
+
 /**
  * One parameter a macro drives: its value at the knob's bottom ([low]), at [Macro.neutral]
  * ([mid], always the [SceneParams.DEFAULT] value so the authored look reads as neutral) and at
@@ -142,14 +145,52 @@ object Macros {
     private val SURPRISE_BIPOLAR = 0.2f..0.8f
     private const val SURPRISE_UNIPOLAR_MAX = 0.55f
 
-    /** The targets of [macro] that the style [sceneId] can actually show. */
+    /** The targets of [macro] that the style [sceneId] can actually show, from its [mappingFor]. */
     fun targets(
         macro: Macro,
         sceneId: String,
-    ): List<MacroTarget> = allTargets(macro).filter { ParamScope.of(it.key).appliesTo(sceneId) }
+    ): List<MacroTarget> = targetsIn(mappingFor(sceneId), macro, sceneId)
 
-    /** Every target of [macro], whatever the style. */
-    fun allTargets(macro: Macro): List<MacroTarget> = TABLE.getValue(macro)
+    /**
+     * Every target [macro] has anywhere: the default table and every family's own. Reset uses
+     * this, so "Reset macros" clears a family's targets too, whatever style is on screen.
+     */
+    fun allTargets(macro: Macro): List<MacroTarget> =
+        (listOf(DEFAULT_MAPPING) + FAMILY_MAPPINGS.values)
+            .flatMap { it[macro].orEmpty() }
+            .distinctBy { it.key }
+
+    /**
+     * The macro table for [sceneId]: [DEFAULT_MAPPING], with any macro a style family declares
+     * in [families] replaced by the family's own list. A family that declares nothing (or leaves
+     * a macro out) gets the default, which already reaches every [SceneKind.SHADER] style through
+     * the standard uniforms.
+     */
+    internal fun mappingFor(
+        sceneId: String,
+        families: Map<String, MacroMapping> = FAMILY_MAPPINGS,
+    ): MacroMapping {
+        val family = families.entries.firstOrNull { sceneId.startsWith(it.key) }?.value ?: return DEFAULT_MAPPING
+        return DEFAULT_MAPPING + family
+    }
+
+    internal fun targetsIn(
+        mapping: MacroMapping,
+        macro: Macro,
+        sceneId: String,
+    ): List<MacroTarget> = mapping[macro].orEmpty().filter { ParamScope.of(it.key).appliesTo(sceneId) }
+
+    /**
+     * A [MacroTarget] whose neutral is the [SceneParams.DEFAULT] value, so the authored look reads
+     * as neutral. Use this to build a family mapping; [low] is unused by Complexity and Chaos.
+     */
+    fun target(
+        key: String,
+        low: Float,
+        high: Float,
+        get: (SceneParams) -> Float,
+        put: (SceneParams, Float) -> SceneParams,
+    ) = MacroTarget(key, low, get(SceneParams.DEFAULT), high, get, put)
 
     private fun toKnob(
         t: MacroTarget,
@@ -187,14 +228,6 @@ object Macros {
             t.mid + (t.low - t.mid) * f
         }
 
-    private fun target(
-        key: String,
-        low: Float,
-        high: Float,
-        get: (SceneParams) -> Float,
-        put: (SceneParams, Float) -> SceneParams,
-    ) = MacroTarget(key, low, get(SceneParams.DEFAULT), high, get, put)
-
     /**
      * The mapping, macro to parameters. The research behind each choice is in
      * docs/CUSTOMIZE_MACROS_RESEARCH.md. Ranges stay inside each control's own slider range, so a
@@ -202,7 +235,7 @@ object Macros {
      * belongs to two macros (two knobs sharing one would drag each other around). [COMPLEXITY]
      * and [CHAOS] start at zero, so their [MacroTarget.low] is the default and is never used.
      */
-    private val TABLE: Map<Macro, List<MacroTarget>> =
+    val DEFAULT_MAPPING: MacroMapping =
         mapOf(
             Macro.ENERGY to
                 listOf(
@@ -267,4 +300,13 @@ object Macros {
                     target(ParamKeys.FISHEYE, 0f, 0.4f, { it.fisheye }) { p, v -> p.copy(fisheye = v) },
                 ),
         )
+
+    /**
+     * Style families that drive some macros through their own parameters, keyed by style-id
+     * prefix (`StyleFamily.prefix`). Empty: every family so far reads the standard uniforms the
+     * default table already moves. A family that needs its own adds
+     * `prefix to mapOf(Macro.COMPLEXITY to listOf(target(...)))`; the macro it names is replaced
+     * for its styles, the rest stay default, and MacrosTest checks the one-owner rule per family.
+     */
+    internal val FAMILY_MAPPINGS: Map<String, MacroMapping> = emptyMap()
 }

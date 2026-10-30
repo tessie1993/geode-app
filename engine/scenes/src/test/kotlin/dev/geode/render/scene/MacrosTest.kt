@@ -101,10 +101,27 @@ class MacrosTest {
 
     @Test
     fun noParameterBelongsToTwoMacros() {
-        // Two macros sharing a parameter would drag each other's knob around.
-        val owners = Macro.entries.flatMap { m -> Macros.allTargets(m).map { it.key to m } }
-        val shared = owners.groupBy({ it.first }, { it.second }).filterValues { it.size > 1 }
-        assertEquals(emptyMap<String, List<Macro>>(), shared)
+        // Two macros sharing a parameter would drag each other's knob around. Checked for the
+        // default table and for every family's table as it resolves on that family's styles.
+        val tables = listOf(Macros.DEFAULT_MAPPING) + Macros.FAMILY_MAPPINGS.keys.map { Macros.mappingFor(it + "x") }
+        tables.forEach { table ->
+            val owners = table.flatMap { (m, ts) -> ts.map { it.key to m } }
+            val shared = owners.groupBy({ it.first }, { it.second }).filterValues { it.size > 1 }
+            assertEquals(emptyMap<String, List<Macro>>(), shared)
+        }
+    }
+
+    @Test
+    fun aFamilyMappingReplacesOnlyTheMacrosItNames() {
+        val family =
+            mapOf(
+                "fam_" to
+                    mapOf(Macro.COMPLEXITY to listOf(Macros.target(ParamKeys.MORPH, 0f, 1f, { it.morph }) { p, v -> p.copy(morph = v) })),
+            )
+        val table = Macros.mappingFor("fam_one", family)
+        assertEquals(listOf(ParamKeys.MORPH), table.getValue(Macro.COMPLEXITY).map { it.key })
+        assertEquals(Macros.DEFAULT_MAPPING.getValue(Macro.ENERGY), table.getValue(Macro.ENERGY))
+        assertEquals(Macros.DEFAULT_MAPPING, Macros.mappingFor("plasma", family))
     }
 
     @Test

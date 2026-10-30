@@ -280,6 +280,8 @@
     <string name="widget_pause">Pause</string>
     <string name="widget_next">Next track</string>
     <string name="widget_previous">Previous track</string>
+    <string name="widget_preview_title">Night Drive</string>
+    <string name="widget_preview_artist">MuzViz</string>
     <string name="auto_favourites">Favourites</string>
     <string name="auto_recently_played">Recently played</string>
     <string name="library_permission_rationale">Grant music access to browse everything on this device.</string>

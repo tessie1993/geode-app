@@ -21,22 +21,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 import dev.geode.export.ExportAspect
 import dev.geode.export.ExportCodec
-import dev.geode.export.ExportRange
 import dev.geode.export.TimeOfDayDrift
 import dev.geode.render.SceneFactory
 import dev.geode.render.VisualizerView
-
-internal data class PendingExport(
-    val aspect: ExportAspect,
-    val fps: Int,
-    val sceneId: String,
-    val loopSafe: Boolean,
-    val rangeStartMs: Long,
-    val rangeDurationMs: Long,
-    val codec: ExportCodec,
-) {
-    val range: ExportRange? get() = if (rangeDurationMs > 0) ExportRange(rangeStartMs, rangeDurationMs) else null
-}
 
 private val PendingExportSaver =
     listSaver<PendingExport?, Any>(

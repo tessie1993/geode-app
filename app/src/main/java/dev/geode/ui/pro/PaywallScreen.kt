@@ -20,15 +20,21 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.windowInsetsTopHeight
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -59,6 +65,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
@@ -148,39 +155,56 @@ fun PaywallScreen(
             .fillMaxSize()
             .background(ProColors.background),
     ) {
-        Column(
-            Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .systemBarsPadding(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            VisualHero(reducedMotion = reducedMotion, modifier = Modifier.fillMaxWidth().height(HERO_HEIGHT))
+        Column(Modifier.fillMaxSize()) {
+            // The offer scrolls; the price and the button stay pinned below it (PurchaseBar), so
+            // the one thing the screen is for is never below the fold.
             Column(
                 Modifier
-                    .widthIn(max = CONTENT_MAX_WIDTH)
+                    .weight(1f)
                     .fillMaxWidth()
-                    .padding(horizontal = 20.dp),
+                    .verticalScroll(rememberScrollState())
+                    .statusBarsPadding(),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                AnimatedContent(
-                    targetState = state.gate.isPro,
-                    transitionSpec = { fadeIn() togetherWith fadeOut() },
-                    label = "paywall-owned",
-                ) { owned ->
-                    if (owned) {
-                        OwnedContent(onDone = onClose)
-                    } else {
-                        OfferContent(state, onPurchase, onRestore, onRetry, onStartTrial)
+                VisualHero(reducedMotion = reducedMotion, modifier = Modifier.fillMaxWidth().height(HERO_HEIGHT))
+                Column(
+                    Modifier
+                        .widthIn(max = CONTENT_MAX_WIDTH)
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    AnimatedContent(
+                        targetState = state.gate.isPro,
+                        transitionSpec = { fadeIn() togetherWith fadeOut() },
+                        label = "paywall-owned",
+                    ) { owned ->
+                        if (owned) {
+                            OwnedContent(onDone = onClose)
+                        } else {
+                            OfferContent(state, onRestore, onStartTrial)
+                        }
                     }
-                }
-                if (state.debug != null && debugActions != null) {
+                    if (state.debug != null && debugActions != null) {
+                        Spacer(Modifier.height(24.dp))
+                        DebugPanel(state.debug, debugActions)
+                    }
                     Spacer(Modifier.height(24.dp))
-                    DebugPanel(state.debug, debugActions)
                 }
-                Spacer(Modifier.height(32.dp))
+            }
+            if (state.gate.isPro) {
+                Spacer(Modifier.navigationBarsPadding())
+            } else {
+                PurchaseBar(state, onPurchase, onRetry)
             }
         }
+        // Content scrolls under a translucent status bar; this keeps the clock legible over it.
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .windowInsetsTopHeight(WindowInsets.statusBars)
+                .background(ProColors.background.copy(alpha = STATUS_SCRIM_ALPHA)),
+        )
         IconButton(
             onClick = onClose,
             modifier =
@@ -198,9 +222,7 @@ fun PaywallScreen(
 @Composable
 private fun OfferContent(
     state: PaywallUiState,
-    onPurchase: () -> Unit,
     onRestore: () -> Unit,
-    onRetry: () -> Unit,
     onStartTrial: () -> Unit,
 ) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -223,23 +245,42 @@ private fun OfferContent(
         )
         Spacer(Modifier.height(24.dp))
         ComparisonTable(highlighted = state.highlighted)
-        Spacer(Modifier.height(16.dp))
-        StatusMessage(state)
-        Spacer(Modifier.height(16.dp))
-        PurchaseButton(state, onPurchase, onRetry)
-        Spacer(Modifier.height(8.dp))
-        Text(
-            stringResource(R.string.pro_price_note),
-            style = MaterialTheme.typography.bodySmall,
-            color = ProColors.muted,
-            textAlign = TextAlign.Center,
-        )
         TrialRow(state, onStartTrial)
         TextButton(
             onClick = onRestore,
             enabled = !state.isBusy,
             modifier = Modifier.heightIn(min = MIN_TOUCH),
         ) { Text(stringResource(R.string.pro_restore), color = ProColors.accentLight) }
+    }
+}
+
+/** The pinned bottom bar: what happened (if anything), the button with the price, the terms. */
+@Composable
+private fun PurchaseBar(
+    state: PaywallUiState,
+    onPurchase: () -> Unit,
+    onRetry: () -> Unit,
+) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .background(ProColors.background)
+            .border(1.dp, ProColors.hairline)
+            .navigationBarsPadding()
+            .padding(horizontal = 20.dp, vertical = 12.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Column(Modifier.widthIn(max = CONTENT_MAX_WIDTH), horizontalAlignment = Alignment.CenterHorizontally) {
+            StatusMessage(state)
+            PurchaseButton(state, onPurchase, onRetry)
+            Spacer(Modifier.height(6.dp))
+            Text(
+                stringResource(R.string.pro_price_note),
+                style = MaterialTheme.typography.bodySmall,
+                color = ProColors.muted,
+                textAlign = TextAlign.Center,
+            )
+        }
     }
 }
 
@@ -371,6 +412,7 @@ private fun StatusMessage(state: PaywallUiState) {
                 textAlign = TextAlign.Center,
                 modifier =
                     Modifier
+                        .padding(bottom = 10.dp)
                         .fillMaxWidth()
                         .background(ProColors.surface, RoundedCornerShape(12.dp))
                         .padding(12.dp),
@@ -590,9 +632,15 @@ private fun DebugPanel(
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Text(stringResource(R.string.pro_debug_title), style = MaterialTheme.typography.titleSmall, color = ProColors.error)
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .heightIn(min = MIN_TOUCH)
+                .toggleable(value = debug.owned, role = Role.Switch, onValueChange = actions.onOwnedChange),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             Text(stringResource(R.string.pro_debug_owned), Modifier.weight(1f), color = Color.White)
-            Switch(checked = debug.owned, onCheckedChange = actions.onOwnedChange)
+            Switch(checked = debug.owned, onCheckedChange = null)
         }
         Text(stringResource(R.string.pro_debug_next), style = MaterialTheme.typography.labelMedium, color = ProColors.muted)
         Row(
@@ -687,11 +735,12 @@ internal object ProColors {
     val disabledBrush = Brush.horizontalGradient(listOf(surface, surface))
 }
 
-private val HERO_HEIGHT = 240.dp
+private val HERO_HEIGHT = 200.dp
 private val CONTENT_MAX_WIDTH = 560.dp
 private val CTA_HEIGHT = 56.dp
 private val MIN_TOUCH = 48.dp
 private const val LABEL_WEIGHT = 1.6f
+private const val STATUS_SCRIM_ALPHA = 0.85f
 private const val HERO_BARS = 56
 private const val HERO_LOOP_MS = 14_000
 private const val TWO_PI = (2.0 * PI).toFloat()

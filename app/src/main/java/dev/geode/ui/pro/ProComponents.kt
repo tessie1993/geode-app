@@ -2,6 +2,7 @@ package dev.geode.ui.pro
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,6 +23,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -120,10 +122,13 @@ private fun ProLockedPanel(
 fun GoProSettingsRow(modifier: Modifier = Modifier) {
     val viewModel: PaywallViewModel = geodeViewModel()
     val gate by viewModel.gate.collectAsStateWithLifecycle()
+    // The whole row opens the paywall: the offer when free, the "You're Pro" screen when owned.
     Row(
         modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 8.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .clickable { viewModel.open(PaywallTrigger.Settings) }
             .background(ProColors.surface, RoundedCornerShape(16.dp))
             .border(1.dp, ProColors.hairline, RoundedCornerShape(16.dp))
             .padding(horizontal = 16.dp, vertical = 12.dp),

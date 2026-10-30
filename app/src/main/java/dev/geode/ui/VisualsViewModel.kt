@@ -268,7 +268,10 @@ class VisualsViewModel
             }
             val link = TemplateFormat.linkIn(data) ?: return null
             val template = (TemplateFormat.decode(link) as? TemplateParse.Parsed)?.template ?: return null
-            val replaces = session.templates.value.firstOrNull { it.id == template.id }?.name
+            val replaces =
+                session.templates.value
+                    .firstOrNull { it.id == template.id }
+                    ?.name
             return SharedLinkOffer.Template(data, template.name.trim(), replaces)
         }
 

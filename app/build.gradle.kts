@@ -56,6 +56,10 @@ android {
         }
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        // Orchestrator runs every test in its own instrumentation and wipes the app's data
+        // between them, so a journey that writes prefs or the PlayerSession singleton can't
+        // leak state into the next one. Tests that need a past first run seed it themselves.
+        testInstrumentationRunnerArguments["clearPackageData"] = "true"
 
         // The public half of the Play licence key (Play Console > Monetization setup > Licensing),
         // used to check purchase signatures on the device. Public, not a secret; empty skips the
@@ -153,6 +157,7 @@ android {
     }
 
     testOptions {
+        execution = "ANDROIDX_TEST_ORCHESTRATOR"
         unitTests {
             // Give unit tests the real resource table rather than a stub, so a test
             // may read a string or an xml the code under test reaches for.
@@ -260,6 +265,12 @@ dependencies {
 
     androidTestImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.androidx.test.core)
+    androidTestImplementation(libs.androidx.test.rules)
+    androidTestImplementation(libs.androidx.test.ext.truth)
+    androidTestImplementation(libs.androidx.test.espresso.core)
+    androidTestUtil(libs.androidx.test.orchestrator)
+    androidTestUtil(libs.androidx.test.services)
     androidTestImplementation(platform(libs.compose.bom))
     androidTestImplementation(libs.compose.ui.test.junit4)
     // The empty ComponentActivity createComposeRule() launches; debug only, never shipped.

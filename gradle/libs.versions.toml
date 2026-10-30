@@ -13,6 +13,14 @@ glance = "1.1.1"
 junit = "4.13.2"
 androidxTestJunit = "1.3.0"
 androidxTestRunner = "1.7.0"
+# AndroidX Test (github.com/android/android-test). core, rules and ext:truth release with the
+# runner; Orchestrator and test services have their own line. Checked on Google Maven 2026-10-30.
+androidxTestCore = "1.7.0"
+androidxTestRules = "1.7.0"
+androidxTestTruth = "1.7.0"
+androidxTestOrchestrator = "1.6.1"
+androidxTestServices = "1.6.0"
+espresso = "3.7.0"
 ktlint = "14.2.0"
 detekt = "1.23.8"
 # Play Billing Library. 9.1.0 (2026-06-18) is the latest stable; PBL 9 needs compileSdk 35+.
@@ -47,6 +55,12 @@ kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-t
 org-json = { module = "org.json:json", version = "20240303" }
 androidx-test-ext-junit = { module = "androidx.test.ext:junit", version.ref = "androidxTestJunit" }
 androidx-test-runner = { module = "androidx.test:runner", version.ref = "androidxTestRunner" }
+androidx-test-core = { module = "androidx.test:core-ktx", version.ref = "androidxTestCore" }
+androidx-test-rules = { module = "androidx.test:rules", version.ref = "androidxTestRules" }
+androidx-test-ext-truth = { module = "androidx.test.ext:truth", version.ref = "androidxTestTruth" }
+androidx-test-orchestrator = { module = "androidx.test:orchestrator", version.ref = "androidxTestOrchestrator" }
+androidx-test-services = { module = "androidx.test.services:test-services", version.ref = "androidxTestServices" }
+androidx-test-espresso-core = { module = "androidx.test.espresso:espresso-core", version.ref = "espresso" }
 
 ktlint-gradle = { module = "org.jlleitschuh.gradle.ktlint:org.jlleitschuh.gradle.ktlint.gradle.plugin", version.ref = "ktlint" }
 detekt-gradle = { module = "io.gitlab.arturbosch.detekt:detekt-gradle-plugin", version.ref = "detekt" }

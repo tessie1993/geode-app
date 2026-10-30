@@ -1,12 +1,10 @@
 package dev.geode.ui
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
@@ -15,53 +13,47 @@ import androidx.compose.material3.Typography
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.graphics.drawscope.clipRect
-import androidx.compose.ui.graphics.lerp
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.imageResource
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import dev.geode.render.VisualizerView
-import dev.geode.ui.theme.LocalThemePack
-import dev.geode.ui.theme.ThemePack
-import dev.geode.ui.theme.colorScheme
-import dev.geode.ui.theme.stoneTypography
+import dev.geode.ui.theme.GeodeColors
+import dev.geode.ui.theme.GeodeGlass
+import dev.geode.ui.theme.LocalReducedMotion
+import dev.geode.ui.theme.LocalUiSounds
+import dev.geode.ui.theme.geodeColorScheme
+import dev.geode.ui.theme.geodeTypography
+import dev.geode.ui.theme.rememberUiSounds
 import kotlin.math.max
-import kotlin.math.roundToInt
 
+/**
+ * The app's one theme: black glass on the Material 3 type scale.
+ *
+ * The `Crystal*` names are kept as the seam every screen already calls through; what they draw
+ * is now plain Material with the [GeodeColors]/[GeodeGlass] tokens.
+ */
 @Composable
 internal fun CrystalMaterialTheme(
-    pack: ThemePack,
     gui: GuiPrefs,
     content: @Composable () -> Unit,
 ) {
-    val fontColor = pack.resolvedFontColor(gui.fontColorOverride, gui.backgroundDim)
-    val scheme =
-        pack.colorScheme(
-            accentIntensity = gui.accentIntensity,
-            backgroundDim = gui.backgroundDim,
-            fontColorOverride = fontColor?.let { Color(it) },
-        )
+    val fontColor = gui.fontColorOverride?.let { Color(it) }?.takeIf { dev.geode.ui.theme.isReadableOnCanvas(it) }
+    val scheme = geodeColorScheme(accentIntensity = gui.accentIntensity, fontColorOverride = fontColor)
+    // The system's "remove animations" switch counts as reduced motion too.
+    val reducedMotion = gui.reducedMotion || !android.animation.ValueAnimator.areAnimatorsEnabled()
     CompositionLocalProvider(
-        LocalThemePack provides pack,
-        LocalFontColor provides fontColor?.let { Color(it) },
+        LocalFontColor provides fontColor,
         LocalContentColor provides scheme.onBackground,
+        LocalReducedMotion provides reducedMotion,
+        LocalUiSounds provides rememberUiSounds(gui.uiSounds),
     ) {
         MaterialTheme(
             colorScheme = scheme,
@@ -73,28 +65,28 @@ internal fun CrystalMaterialTheme(
 }
 
 fun crystalTypography(textScale: Float = 1f): Typography =
-    stoneTypography(
+    geodeTypography(
         textScale.coerceIn(GuiPrefs.TEXT_SCALE_MIN, GuiPrefs.TEXT_SCALE_MAX),
     )
 
 fun crystalShardShape(
     cut: Dp = 12.dp,
     minor: Dp = 4.dp,
-): Shape = RoundedCornerShape((cut + minor) * 1.2f)
+): Shape = RoundedCornerShape(cut + minor)
 
+/** A small selection dot: the indicator under the selected tab and nav item. */
 @Composable
 fun CrystalGem(
     color: Color,
     modifier: Modifier = Modifier,
     size: Dp = 7.dp,
-    glow: Boolean = true,
+    @Suppress("UNUSED_PARAMETER") glow: Boolean = true,
 ) {
     Box(
         modifier
             .size(size)
-            .then(if (glow) Modifier.softGlow(color, size) else Modifier)
-            .rotate(45f)
-            .background(Brush.linearGradient(listOf(lerp(color, Color.White, 0.55f), color))),
+            .clip(CircleShape)
+            .background(color),
     )
 }
 
@@ -109,10 +101,10 @@ fun CrystalOverline(
         modifier,
         style =
             MaterialTheme.typography.labelSmall.copy(
-                letterSpacing = 2.6.sp,
+                letterSpacing = 1.2.sp,
                 fontWeight = FontWeight.Medium,
             ),
-        color = color.copy(alpha = 0.9f),
+        color = color,
     )
 }
 
@@ -121,16 +113,12 @@ fun GlowTitle(
     text: String,
     modifier: Modifier = Modifier,
     style: TextStyle = MaterialTheme.typography.headlineSmall,
-    glow: Color = MaterialTheme.colorScheme.primary,
+    @Suppress("UNUSED_PARAMETER") glow: Color = MaterialTheme.colorScheme.primary,
 ) {
-    Text(
-        text,
-        modifier,
-        style = style.copy(shadow = Shadow(color = glow.copy(alpha = 0.8f), blurRadius = 28f)),
-        color = MaterialTheme.colorScheme.onBackground,
-    )
+    Text(text, modifier, style = style, color = MaterialTheme.colorScheme.onBackground)
 }
 
+/** A faint halo behind an active control. Kept subtle: black glass lights things, it doesn't glow. */
 fun Modifier.softGlow(
     color: Color,
     radius: Dp = 16.dp,
@@ -141,7 +129,7 @@ fun Modifier.softGlow(
         drawCircle(
             brush =
                 Brush.radialGradient(
-                    0f to color.copy(alpha = 0.45f * strength),
+                    0f to color.copy(alpha = 0.16f * strength),
                     1f to Color.Transparent,
                     center = center,
                     radius = r,
@@ -151,105 +139,54 @@ fun Modifier.softGlow(
         )
     }
 
+/**
+ * A glass panel: [tint] at [opacity] over whatever is behind it, a faint top sheen and a hairline
+ * edge. [glow] tints the edge, [glowStrength] how visible it is; [prismatic] marks a selected
+ * panel with a brighter edge.
+ */
 fun Modifier.crystalPanel(
     opacity: Float,
     tint: Color,
     glow: Color,
     corner: Dp = 18.dp,
     glowStrength: Float = 1f,
-    facets: Float = 1f,
     prismatic: Boolean = false,
-    sheen: Color = glow,
-): Modifier =
-    composed {
-        val pack = LocalThemePack.current
-        val tile = ImageBitmap.imageResource(pack.material.tile)
-        val alpha = opacity.coerceIn(0f, 1f)
-        val texAlpha = (pack.material.surfaceOpacity * facets.coerceIn(0f, 1.5f)).coerceIn(0f, 1f)
-        val shape = RoundedCornerShape(corner)
-        val borderBrush =
-            if (prismatic) {
-                Brush.sweepGradient(
-                    listOf(
-                        glow.copy(alpha = 0.9f),
-                        Color.White.copy(alpha = 0.95f),
-                        sheen.copy(alpha = 0.85f),
-                        glow.copy(alpha = 0.35f),
-                        sheen.copy(alpha = 0.8f),
-                        Color.White.copy(alpha = 0.9f),
-                        glow.copy(alpha = 0.9f),
-                    ),
-                )
-            } else {
-                Brush.verticalGradient(
-                    0f to glow.copy(alpha = (0.85f * glowStrength).coerceAtMost(1f)),
-                    0.55f to glow.copy(alpha = 0.22f * glowStrength),
-                    1f to glow.copy(alpha = 0.45f * glowStrength),
-                )
-            }
-        this
-            .clip(shape)
-            .background(tint.copy(alpha = alpha))
-            .drawBehind {
-                if (texAlpha > 0f) {
-                    val tw = tile.width
-                    val th = tile.height
-                    if (tw > 0 && th > 0) {
-                        clipRect {
-                            var y = 0
-                            while (y < size.height.roundToInt()) {
-                                var x = 0
-                                while (x < size.width.roundToInt()) {
-                                    drawImage(
-                                        tile,
-                                        dstOffset = IntOffset(x, y),
-                                        dstSize = IntSize(tw, th),
-                                        alpha = texAlpha,
-                                    )
-                                    x += tw
-                                }
-                                y += th
-                            }
-                        }
-                    }
-                }
-            }.border(1.dp, borderBrush, shape)
-    }
+): Modifier {
+    val shape = RoundedCornerShape(corner)
+    val fill = tint.copy(alpha = opacity.coerceIn(0f, 1f))
+    val edge =
+        if (prismatic) {
+            glow.copy(alpha = GeodeGlass.EDGE_SELECTED)
+        } else {
+            Color.White.copy(alpha = (GeodeGlass.EDGE * glowStrength.coerceIn(0.4f, 1.4f)).coerceAtMost(1f))
+        }
+    return this
+        .clip(shape)
+        .background(fill)
+        .background(
+            Brush.verticalGradient(
+                0f to Color.White.copy(alpha = GeodeGlass.SHEEN),
+                0.5f to Color.Transparent,
+            ),
+        ).border(1.dp, edge, shape)
+}
 
-fun Modifier.luminousHairline(glow: Color): Modifier =
-    background(
-        Brush.horizontalGradient(
-            0f to Color.Transparent,
-            0.5f to glow.copy(alpha = 0.7f),
-            1f to Color.Transparent,
-        ),
-    )
+fun Modifier.luminousHairline(glow: Color): Modifier = background(glow.copy(alpha = glow.alpha * 0.5f))
 
+/** The app canvas behind every screen: black, with a barely-there lift towards the top. */
 @Composable
 fun CrystalBackground(
     modifier: Modifier = Modifier,
     @Suppress("UNUSED_PARAMETER") reducedMotion: Boolean = false,
 ) {
-    val pack = LocalThemePack.current
-    val cs = MaterialTheme.colorScheme
-    BoxWithConstraints(modifier) {
-        val art =
-            when {
-                maxWidth > maxHeight -> pack.material.ambientLandscape
-                else -> pack.material.ambientPortrait
-            }
-        Image(
-            painter = painterResource(art),
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier.fillMaxSize(),
-        )
-        Box(
-            Modifier
-                .fillMaxSize()
-                .background(cs.background.copy(alpha = 0.16f)),
-        )
-    }
+    Box(
+        modifier.background(
+            Brush.verticalGradient(
+                0f to GeodeColors.CanvasRaised,
+                0.6f to GeodeColors.Canvas,
+            ),
+        ),
+    )
 }
 
 @Composable

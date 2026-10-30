@@ -8,42 +8,10 @@ import androidx.compose.material3.Shapes
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.unit.dp
 import androidx.core.content.edit
 import dev.geode.R
 import dev.geode.analysis.BeatTuning
-import dev.geode.ui.theme.ThemePack
-import dev.geode.ui.theme.ThemePackCatalog
-
-object ThemeContrast {
-    const val LIGHT_CONTRAST_MIN = 0.5f
-
-    const val BODY_CONTRAST_MIN = 4.5f
-
-    const val HINT_CONTRAST_MIN = 3.0f
-}
-
-fun ThemePack.resolvedFontColor(
-    fontColorArgb: Int?,
-    backgroundDim: Float = 0f,
-): Int? {
-    if (fontColorArgb == null || !isLight) return fontColorArgb
-    val painted = Color(ColorDerive.dim(palette.background.toArgbInt(), backgroundDim))
-    val diff = kotlin.math.abs(Color(fontColorArgb).luminance() - painted.luminance())
-    return if (diff >= ThemeContrast.LIGHT_CONTRAST_MIN) fontColorArgb else null
-}
-
-fun ThemePack.fontColorActive(
-    fontColorArgb: Int?,
-    backgroundDim: Float = 0f,
-): Boolean = resolvedFontColor(fontColorArgb, backgroundDim) != null
-
-private fun Color.toArgbInt(): Int =
-    ((alpha * 255f + 0.5f).toInt() shl 24) or
-        ((red * 255f + 0.5f).toInt() shl 16) or
-        ((green * 255f + 0.5f).toInt() shl 8) or
-        (blue * 255f + 0.5f).toInt()
 
 internal val LocalFontColor = staticCompositionLocalOf<Color?> { null }
 
@@ -102,9 +70,7 @@ data class GuiPrefs(
      */
     val presetMorphSeconds: Float = 2f,
     val accentIntensity: Float = 1f,
-    val backgroundDim: Float = 0f,
     val compactPlayer: Boolean = false,
-    val followSystemDark: Boolean = false,
     val clearVisualsMenu: Boolean = false,
     val whiteFont: Boolean = false,
     val fontColorArgb: Int? = null,
@@ -157,6 +123,8 @@ data class GuiPrefs(
      * until someone opts into it happening automatically too.
      */
     val autoEnterPip: Boolean = false,
+    /** Interface sounds on taps and tab changes; still silent when the system's touch sounds are off. */
+    val uiSounds: Boolean = true,
 ) {
     val fontColorOverride: Int?
         get() = fontColorArgb ?: FontColorChoice.WHITE_ARGB.takeIf { whiteFont }
@@ -175,12 +143,6 @@ data class GuiPrefs(
 class ThemeStore(
     private val prefs: SharedPreferences,
 ) {
-    fun load(): ThemePack = ThemePackCatalog.bySlug(migrateLegacyName(prefs.getString(KEY, null)))
-
-    fun save(pack: ThemePack) {
-        prefs.edit { putString(KEY, pack.slug) }
-    }
-
     /** Reads the morph length, converting a beat count saved by an older build. */
     private fun readPresetMorphSeconds(prefs: SharedPreferences): Float {
         if (prefs.contains(KEY_PRESET_MORPH_SEC)) {
@@ -189,13 +151,6 @@ class ThemeStore(
         val beats = prefs.getInt(LEGACY_KEY_MORPH_BEATS, 4)
         return (beats * 60f / LEGACY_MORPH_BPM).coerceIn(0f, PRESET_MORPH_SECONDS_MAX)
     }
-
-    private fun migrateLegacyName(raw: String?): String? =
-        when (raw) {
-            "CLEAR_QUARTZ" -> "clear-quartz"
-            "SUGILITE" -> "sugilite"
-            else -> raw
-        }
 
     fun loadGui(): GuiPrefs {
         val fontColor =
@@ -223,9 +178,7 @@ class ThemeStore(
             presetMirrorUri = prefs.getString("preset_mirror_uri", null),
             presetMorphSeconds = readPresetMorphSeconds(prefs),
             accentIntensity = prefs.getFloat(KEY_ACCENT, 1f),
-            backgroundDim = prefs.getFloat(KEY_DIM, 0f),
             compactPlayer = prefs.getBoolean(KEY_COMPACT, false),
-            followSystemDark = prefs.getBoolean(KEY_FOLLOW_DARK, false),
             clearVisualsMenu = prefs.getBoolean(KEY_CLEAR_VIZ_MENU, false),
             fontColorArgb = fontColor,
             textScale =
@@ -249,6 +202,7 @@ class ThemeStore(
             secondScreen = prefs.getBoolean(KEY_SECOND_SCREEN, true),
             micReactive = prefs.getBoolean(KEY_MIC_REACTIVE, false),
             autoEnterPip = prefs.getBoolean(KEY_AUTO_ENTER_PIP, false),
+            uiSounds = prefs.getBoolean(KEY_UI_SOUNDS, true),
         )
     }
 
@@ -286,12 +240,14 @@ class ThemeStore(
             putString("preset_mirror_uri", gui.presetMirrorUri)
             putFloat(KEY_PRESET_MORPH_SEC, gui.presetMorphSeconds)
             putFloat(KEY_ACCENT, gui.accentIntensity)
-            putFloat(KEY_DIM, gui.backgroundDim)
             putBoolean(KEY_COMPACT, gui.compactPlayer)
-            putBoolean(KEY_FOLLOW_DARK, gui.followSystemDark)
             putBoolean(KEY_CLEAR_VIZ_MENU, gui.clearVisualsMenu)
             if (fontColor != null) putInt(KEY_FONT_COLOR, fontColor) else remove(KEY_FONT_COLOR)
             remove(KEY_WHITE_FONT)
+            // The gem theme packs, their light variant and the background dim are gone.
+            remove(KEY)
+            remove(KEY_DIM)
+            remove(KEY_FOLLOW_DARK)
             putFloat(KEY_TEXT_SCALE, gui.textScale)
             putBoolean(KEY_SAFETY_ACKNOWLEDGED, gui.safetyAcknowledged)
             putBoolean(KEY_SETUP_DONE, gui.setupDone)
@@ -306,6 +262,7 @@ class ThemeStore(
             putBoolean(KEY_SECOND_SCREEN, gui.secondScreen)
             putBoolean(KEY_MIC_REACTIVE, gui.micReactive)
             putBoolean(KEY_AUTO_ENTER_PIP, gui.autoEnterPip)
+            putBoolean(KEY_UI_SOUNDS, gui.uiSounds)
         }
     }
 
@@ -320,6 +277,7 @@ class ThemeStore(
         const val KEY_SAFETY_CHOICE = "gui_safety_choice"
         const val LEGACY_CHOICE_REDUCED_MOTION = "REDUCED_MOTION"
 
+        /** Retired with the gem theme packs; removed on the next save. */
         const val KEY = "app_theme"
         const val KEY_POS = "gui_player_pos"
         const val KEY_CORNER = "gui_corner"
@@ -349,5 +307,6 @@ class ThemeStore(
         const val KEY_SECOND_SCREEN = "gui_second_screen"
         const val KEY_MIC_REACTIVE = "gui_mic_reactive"
         const val KEY_AUTO_ENTER_PIP = "gui_auto_enter_pip"
+        const val KEY_UI_SOUNDS = "gui_ui_sounds"
     }
 }

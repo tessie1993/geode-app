@@ -15,6 +15,7 @@ import android.provider.MediaStore
 import android.util.Rational
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
@@ -212,7 +213,12 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen().setKeepOnScreenCondition { !settingsViewModel.userDataLoaded.value }
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        // The UI is dark in every system mode, so the bar icons are always light: SystemBarStyle.auto
+        // would turn them dark under a light system theme and leave them invisible on black.
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
+        )
         setContent {
             AppRoot()
         }

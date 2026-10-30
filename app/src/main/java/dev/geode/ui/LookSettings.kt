@@ -9,14 +9,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -31,7 +29,6 @@ import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
@@ -41,11 +38,9 @@ import dev.geode.data.GeodePrefsFiles
 @Composable
 internal fun LookSettingsTab(viewModel: SettingsViewModel) {
     val gui by viewModel.guiPrefs.collectAsStateWithLifecycle()
-    val appTheme by viewModel.theme.collectAsStateWithLifecycle()
     SettingsTabColumn {
         item {
             SettingsGroup(stringResource(R.string.look_group_theme)) {
-                ThemePickerRow(viewModel, appTheme)
                 Column {
                     Text(
                         stringResource(R.string.look_accent_intensity, (gui.accentIntensity * 100).toInt()),
@@ -58,28 +53,24 @@ internal fun LookSettingsTab(viewModel: SettingsViewModel) {
                     )
                 }
                 Column {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(stringResource(R.string.look_ui_sounds), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                        Switch(
+                            checked = gui.uiSounds,
+                            onCheckedChange = { viewModel.setGuiPrefs(gui.copy(uiSounds = it)) },
+                        )
+                    }
                     Text(
-                        stringResource(R.string.look_background_dim, (gui.backgroundDim * 100).toInt()),
-                        style = MaterialTheme.typography.labelMedium,
-                    )
-                    CrystalSlider(
-                        value = gui.backgroundDim,
-                        onValueChange = { viewModel.setGuiPrefs(gui.copy(backgroundDim = it)) },
-                        valueRange = 0f..0.6f,
-                    )
-                }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(stringResource(R.string.look_follow_system), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-                    Switch(
-                        checked = gui.followSystemDark,
-                        onCheckedChange = { viewModel.setGuiPrefs(gui.copy(followSystemDark = it)) },
+                        stringResource(R.string.look_ui_sounds_hint),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
         }
         item {
             SettingsGroup(stringResource(R.string.look_group_text)) {
-                FontColorRow(viewModel, gui, appTheme)
+                FontColorRow(viewModel, gui)
                 Column {
                     Text(
                         stringResource(R.string.look_text_size, (gui.textScale * 100).toInt()),
@@ -103,49 +94,9 @@ internal fun LookSettingsTab(viewModel: SettingsViewModel) {
 }
 
 @Composable
-private fun ThemePickerRow(
-    viewModel: SettingsViewModel,
-    current: dev.geode.ui.theme.ThemePack,
-) {
-    LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        items(dev.geode.ui.theme.ThemePackCatalog.all) { t ->
-            val sel = t.slug == current.slug
-            CompositionLocalProvider(dev.geode.ui.theme.LocalThemePack provides t) {
-                Column(
-                    Modifier
-                        .width(88.dp)
-                        .crystalPanel(
-                            if (sel) 0.95f else 0.8f,
-                            t.palette.surface,
-                            t.palette.primary,
-                            corner = 14.dp,
-                            glowStrength = if (sel) 1.1f else 0.35f,
-                            prismatic = sel,
-                            sheen = t.palette.secondary,
-                        ).clickable { viewModel.setTheme(t) }
-                        .padding(horizontal = 8.dp, vertical = 10.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    CrystalGem(t.palette.primary, size = 9.dp, glow = sel)
-                    Text(
-                        t.name,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = t.palette.onSurface,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
 private fun FontColorRow(
     viewModel: SettingsViewModel,
     gui: GuiPrefs,
-    appTheme: dev.geode.ui.theme.ThemePack,
 ) {
     val cs = MaterialTheme.colorScheme
     Column {
@@ -155,7 +106,7 @@ private fun FontColorRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             items(FontColorChoice.CHOICES) { choice ->
-                val usable = choice.argb == null || appTheme.fontColorActive(choice.argb, gui.backgroundDim)
+                val usable = choice.argb == null || dev.geode.ui.theme.isReadableOnCanvas(Color(choice.argb))
                 val sel = gui.fontColorArgb == choice.argb
                 val shape = crystalShardShape(8.dp, 3.dp)
                 val fill =
@@ -199,9 +150,7 @@ private fun FontColorRow(
             }
         }
         Text(
-            stringResource(
-                if (appTheme.isLight) R.string.look_font_color_light_hint else R.string.look_font_color_hint,
-            ),
+            stringResource(R.string.look_font_color_hint),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

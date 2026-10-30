@@ -254,8 +254,6 @@ class PlayerSession internal constructor(
 
     val userDataLoaded: StateFlow<Boolean> get() = container.userData.loaded
 
-    val theme: StateFlow<dev.geode.ui.theme.ThemePack> get() = settings.theme
-
     val guiPrefs: StateFlow<GuiPrefs> get() = settings.guiPrefs
 
     val playerPrefs: StateFlow<PlayerPrefs> get() = settings.playerPrefs
@@ -263,8 +261,6 @@ class PlayerSession internal constructor(
     val audioFx: StateFlow<AudioFxState> get() = settings.audioFxState
 
     fun setGuiPrefs(prefs: GuiPrefs) = settings.setGuiPrefs(prefs)
-
-    fun setTheme(theme: dev.geode.ui.theme.ThemePack) = settings.setTheme(theme)
 
     fun setPlayerPrefs(prefs: PlayerPrefs) = settings.setPlayerPrefs(prefs)
 

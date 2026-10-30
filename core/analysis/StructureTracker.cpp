@@ -20,6 +20,7 @@ StructureTracker::StructureTracker(int bandCount, float hopRateHz)
       fastEnergyPole_(poleFor(1.0f)),
       slowEnergyPole_(poleFor(6.0f)),
       noveltySmoothPole_(poleFor(0.25f)),
+      noveltyPeakDecay_(std::exp(-dt_ / kNoveltyPeakSeconds)),
       fast_(static_cast<size_t>(bandCount)),
       slow_(static_cast<size_t>(bandCount)),
       sinceSection_(kFar),
@@ -30,7 +31,7 @@ float StructureTracker::poleFor(float seconds) const {
     return 1.0f - std::exp(-1.0f / (seconds * hopRateHz_));
 }
 
-void StructureTracker::step(const float* bands, float rms, float onset) {
+void StructureTracker::step(const float* bands, float level, float onset) {
     warmupSeconds_ += dt_;
     sinceSection_ += dt_;
     sinceDip_ += dt_;
@@ -45,7 +46,7 @@ void StructureTracker::step(const float* bands, float rms, float onset) {
         distance += static_cast<double>(d) * d;
     }
     const float raw = static_cast<float>(std::sqrt(distance / bandCount_));
-    noveltyPeak_ = std::max(raw, std::max(noveltyPeak_ * kPeakDecay, kNoveltyPeakFloor));
+    noveltyPeak_ = std::max(raw, std::max(noveltyPeak_ * noveltyPeakDecay_, kNoveltyPeakFloor));
     const float normalized = std::clamp(raw / noveltyPeak_, 0.0f, 1.0f);
     novelty_ += (normalized - novelty_) * noveltySmoothPole_;
 
@@ -62,7 +63,7 @@ void StructureTracker::step(const float* bands, float rms, float onset) {
         sectionArmed_ = true;
     }
 
-    const float energy = 0.5f * rms + 0.5f * onset;
+    const float energy = 0.5f * level + 0.5f * onset;
     if (!energySeeded_) {
         energySeeded_ = true;
         fastEnergy_ = energy;
@@ -73,7 +74,7 @@ void StructureTracker::step(const float* bands, float rms, float onset) {
     buildup_ = std::clamp((fastEnergy_ - slowEnergy_) / kBuildupScale, 0.0f, 1.0f);
     buildupMemory_ = std::max(buildup_, buildupMemory_ * std::exp(-dt_ / kBuildupMemorySeconds));
 
-    if (rms < slowEnergy_ * kDipFraction) {
+    if (level < slowEnergy_ * kDipFraction) {
         dipSeconds_ += dt_;
         if (dipSeconds_ >= kMinDipSeconds) sinceDip_ = 0.0f;
     } else {
@@ -82,18 +83,18 @@ void StructureTracker::step(const float* bands, float rms, float onset) {
 
     drop_ = false;
     if (warmupSeconds_ > kWarmupSeconds && sinceDrop_ > kDropRefractorySeconds && buildupMemory_ > kDropBuildup &&
-        sinceDip_ < kDropDipWindowSeconds && rms > kDropSlamLevel && rms > slowEnergy_ + kDropSlamMargin) {
+        sinceDip_ < kDropDipWindowSeconds && level > kDropSlamLevel && level > slowEnergy_ + kDropSlamMargin) {
         drop_ = true;
         sinceDrop_ = 0.0f;
         buildupMemory_ = 0.0f;
     }
 
     arrival_ = false;
-    if (rms < kArrivalQuietLevel) {
+    if (level < kArrivalQuietLevel) {
         quietSeconds_ += dt_;
         if (quietSeconds_ >= kArrivalQuietSeconds) arrivalArmed_ = true;
     } else {
-        if (arrivalArmed_ && rms > kArrivalRecoveryLevel && warmupSeconds_ > kWarmupSeconds) {
+        if (arrivalArmed_ && level > kArrivalRecoveryLevel && warmupSeconds_ > kWarmupSeconds) {
             arrival_ = true;
             arrivalArmed_ = false;
         }

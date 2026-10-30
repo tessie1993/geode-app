@@ -53,6 +53,12 @@ void ReactiveAnalyzer::analyze(const float* samples, float dtSeconds) {
             tempoStability_ = stability_.value();
         }
         silenceOutputs();
+        // Silence is part of the music's shape: the loudness reference keeps decaying through it, and the
+        // structure tracker has to see it to count the quiet that an arrival comes back from.
+        macroEnergyOf(0.0f, dtSeconds);
+        structure_.step(bands_.data(), 0.0f, 0.0f);
+        novelty_ = structure_.novelty();
+        buildup_ = structure_.buildup();
         return;
     }
 
@@ -98,7 +104,10 @@ void ReactiveAnalyzer::analyze(const float* samples, float dtSeconds) {
     downbeat_ = bar_.downbeat();
     downbeatConfidence_ = bar_.confidence();
 
-    structure_.step(bands_.data(), rms_, onset_);
+    // The structure thresholds (drop, arrival, dip) are fractions of the track's own recent loudness peak,
+    // which macroEnergy already is, rather than absolute RMS: a drop at -12 dBFS on a quiet master and one at
+    // -6 dBFS on a loud one are the same event.
+    structure_.step(bands_.data(), macroEnergy_, onset_);
     novelty_ = structure_.novelty();
     sectionBoundary_ = structure_.sectionBoundary();
     buildup_ = structure_.buildup();

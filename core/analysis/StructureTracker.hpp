@@ -9,12 +9,15 @@ public:
     static constexpr float kSectionFloor = 0.5f;
     static constexpr float kSectionRearm = 0.35f;
     static constexpr float kSectionRefractorySeconds = 8.0f;
-    static constexpr float kPeakDecay = 0.9997f;
+    // The novelty peak's memory. Was a per-hop 0.9997, which is 55 s at a 60 Hz hop and something else at
+    // any other hop rate.
+    static constexpr float kNoveltyPeakSeconds = 55.0f;
     static constexpr float kNoveltyPeakFloor = 0.05f;
     static constexpr float kBuildupScale = 0.3f;
     static constexpr float kBuildupMemorySeconds = 3.0f;
     static constexpr float kDropBuildup = 0.4f;
     static constexpr float kDropDipWindowSeconds = 1.0f;
+    // The level thresholds below are fractions of the analyser's running loudness peak (macroEnergy), not RMS.
     static constexpr float kDropSlamLevel = 0.75f;
     static constexpr float kDropSlamMargin = 0.15f;
     static constexpr float kDropRefractorySeconds = 4.0f;
@@ -32,7 +35,7 @@ public:
     float buildup() const { return buildup_; }
     bool drop() const { return drop_; }
     bool arrival() const { return arrival_; }
-    void step(const float* bands, float rms, float onset);
+    void step(const float* bands, float level, float onset);
     void reset();
 
 private:
@@ -47,6 +50,7 @@ private:
     float fastEnergyPole_;
     float slowEnergyPole_;
     float noveltySmoothPole_;
+    float noveltyPeakDecay_;
     std::vector<float> fast_;
     std::vector<float> slow_;
     float noveltyPeak_ = kNoveltyPeakFloor;

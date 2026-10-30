@@ -35,13 +35,14 @@ The native core is built by the root `CMakeLists.txt`, plus `core/CMakeLists.txt
 |---|---|---|
 | (root) | `Application`, crash file, the `GeodeContainer` service locator | `GeodeApp`, `GeodeContainer`, `RingLog` |
 | `di` | Hilt modules. Very thin: most objects are built by hand | `DataModule`, `PlayerSessionProvider` |
-| `ui` | Every screen, the five ViewModels, `PlayerSession` with its ~20 `*Controller`s, settings screens, theme glue | `MainActivity`, `AppShell`, `GeodeAppState`, `PlayerSession`, `*ViewModel` |
+| `ui` | Every screen, the six ViewModels, `PlayerSession` with its ~20 `*Controller`s, settings screens, theme glue | `MainActivity`, `AppShell`, `GeodeAppState`, `PlayerSession`, `*ViewModel` |
 | `ui/studio` | Studio timeline widgets: lanes, playhead, curve editor, toolbar | `TimelineLanes`, `EditorActions` |
 | `ui/theme` | Theme packs and the Stone design system | `ThemePack`, `ThemePackCatalog`, `StoneTheme`, `StoneIcon` |
 | `playback` | `PlaybackEngine` (process-wide holder of ExoPlayer or `NativePlayer`, ring and analysis), `PlaybackService` (MediaLibraryService), queue, sleep timer, ReplayGain | `PlaybackEngine`, `PlaybackService`, `NativePlayer` |
 | `audio` | Capture sources (mic, other apps' audio), `AudioBus` (features for non-UI surfaces), platform FX, media chain | `AudioBus`, `AudioCapturePump`, `PlaybackCaptureService`, `TapRenderersFactory` |
 | `audio/dsp` | The Media3 processor chain order, native DSP | `MvzAudioProcessorChain` |
 | `data` | Stores (SharedPreferences, JSON files) and their repositories, template and preset formats | `PresetStore`, `TemplateRepository`, `VideoTemplate`, `GeodePrefsFiles` |
+| `data/backup` | Manual backup zip (Settings › Backup). Format, allowlist, checks and migrations are pure Kotlin; `BackupRepository` does the picker, filesDir and prefs I/O | `BackupFormat`, `BackupArchive`, `BackupRepository` |
 | `editor` | The Studio project model: pure Kotlin, no `android.*` | `Timeline`, `Keyframes`, `Markers`, `AutoCut` |
 | `export` | Visualizer export (MediaCodec + offscreen GL), Studio export (Media3 Transformer), loop render, loudness, chapters, captions | `VideoExporter`, `StudioExporter`, `LoopRender`, `ExportRun`, `ExportService` |
 | `viz` | Background image layer | `BackgroundImage` |
@@ -73,11 +74,11 @@ The native core is built by the root `CMakeLists.txt`, plus `core/CMakeLists.txt
 
 - `GeodeDestination` enum in `ui/GeodeAppState.kt` (PLAYER, LIBRARY, VISUALS, STUDIO, SETTINGS). `GeodeAppState.dest` is saved by name through `rememberSaveable`.
 - `AppRoot` / `AppShell` in `ui/AppShell.kt` switch with `when (appState.dest)` and build the bar and rail from `GeodeDestination.entries`. STUDIO is hidden unless `showsStudio`.
-- There is no NavHost and no back stack. Sheets and dialogs are local Compose state. All five ViewModels live in the Activity's store. `PlayerSessionProvider`'s KDoc depends on that, and `PlayerViewModel.onCleared` shuts the session down. Read ADR 0001 § Consequences before you add per-destination stores.
+- There is no NavHost and no back stack. Sheets and dialogs are local Compose state. All six ViewModels live in the Activity's store. `PlayerSessionProvider`'s KDoc depends on that, and `PlayerViewModel.onCleared` shuts the session down. Read ADR 0001 § Consequences before you add per-destination stores.
 
 ## DI
 
-- Hilt: `GeodeApp`, `MainActivity` and five `@HiltViewModel`s, resolved through `geodeViewModel()` in `ui/GeodeViewModelFactory.kt`. `DataModule` provides `GeodePrefsFiles`, `@GeneralPrefs SharedPreferences` and `UserDataRepository`, all taken from `GeodeContainer`.
+- Hilt: `GeodeApp`, `MainActivity` and six `@HiltViewModel`s, resolved through `geodeViewModel()` in `ui/GeodeViewModelFactory.kt`. `DataModule` provides `GeodePrefsFiles`, `@GeneralPrefs SharedPreferences` and `UserDataRepository`, all taken from `GeodeContainer`, plus `@IoDispatcher`. `BackupRepository` is constructor-injected.
 - `PlayerSessionProvider` (`@Singleton`) builds one `PlayerSession` by hand. That session builds its repositories and controllers itself, and the ViewModels get repositories from it: `session.playbackRepository`, `session.visualizerRepository`, `session.userDataRepository`.
 - Services, the wallpaper and the widget don't inject. They use `PlaybackEngine.acquireForService`, `AudioBus`, `context.geodeContainer` or construct stores directly.
 
@@ -86,7 +87,7 @@ The native core is built by the root `CMakeLists.txt`, plus `core/CMakeLists.txt
 - **Don't build locally.** Push to `claude/**`. `.github/workflows/android.yml` runs detekt, `:app:assembleDebug`, `:app:testDebugUnitTest`, `:app:lintDebug`, `ktlintCheck`, plus an emulator job (`connectedDebugAndroidTest`, API 30). Read the results with `gh run list --branch <b>` and `gh run view <id> --log-failed`.
 - `ship-apk.yml` (push to `main`) and `release.yml` (tag `v*`) publish. `arch-map.yml` is the gate described below.
 - Submodules: `git submodule update --init --recursive`, needed only for native work. Your `local.properties` needs `sdk.dir`.
-- Tests: there are only three: `app/src/test/.../ui/PresetLinkTest.kt`, `app/src/androidTest/.../BuildVariantTest.kt` and `engine/audio-core/src/test/.../FeatureRingTest.kt`. Put new pure tests in a JVM module where you can. Use `docs/DEVICE_CHECKS.md` for anything that needs a device. `tools/glslcheck` and `tools/hostlink` check shaders and the native link on the host.
+- Tests: there are only four: `app/src/test/.../ui/PresetLinkTest.kt`, `app/src/test/.../data/backup/BackupArchiveTest.kt`, `app/src/androidTest/.../BuildVariantTest.kt` and `engine/audio-core/src/test/.../FeatureRingTest.kt`. Put new pure tests in a JVM module where you can. Use `docs/DEVICE_CHECKS.md` for anything that needs a device. `tools/glslcheck` and `tools/hostlink` check shaders and the native link on the host.
 
 ## Conventions
 

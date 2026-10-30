@@ -61,6 +61,20 @@ class PcmResamplerTest {
     }
 
     @Test
+    fun pcmDurationUsesTheRateTheBytesAreAt() {
+        // One second of stereo 16-bit PCM at each rate.
+        assertEquals(1_000_000L, PcmResampler.pcmBytesToUs(44_100L * 4, 44_100, 2))
+        assertEquals(1_000_000L, PcmResampler.pcmBytesToUs(48_000L * 4, 48_000, 2))
+        assertEquals(1_000_000L, PcmResampler.pcmBytesToUs(96_000L * 4, 96_000, 2))
+        // A 96 kHz source resampled to 48 kHz: the encoder's bytes are timed at 48k. Timing them at
+        // the source rate would halve every timestamp.
+        val r = PcmResampler(96_000, 48_000, channels = 2)
+        val out = r.process(ShortArray(96_000 * 2), 96_000)
+        assertEquals(1_000_000L, PcmResampler.pcmBytesToUs(out.size * 2L, r.outRateHz, 2))
+        assertEquals(500_000L, PcmResampler.pcmBytesToUs(out.size * 2L, 96_000, 2))
+    }
+
+    @Test
     fun upsamplingInterpolatesBetweenSamples() {
         val r = PcmResampler(24_000, 48_000, channels = 1)
         assertArrayEquals(shortArrayOf(0, 50, 100, 150, 200, 250), r.process(shortArrayOf(0, 100, 200, 300), 4))

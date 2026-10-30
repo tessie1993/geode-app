@@ -122,6 +122,15 @@ internal class PcmResampler(
                 else -> AAC_MAX_RATE_HZ
             }
 
+        /** Duration of [bytes] of interleaved 16-bit PCM at [rateHz]; pass the rate the bytes are at. */
+        fun pcmBytesToUs(
+            bytes: Long,
+            rateHz: Int,
+            channels: Int,
+        ): Long = bytes * MICROS_PER_SECOND / (rateHz.toLong() * channels * BYTES_PER_SAMPLE)
+
         private const val CD_RATE_HZ = 44_100
+        private const val MICROS_PER_SECOND = 1_000_000L
+        private const val BYTES_PER_SAMPLE = 2
     }
 }

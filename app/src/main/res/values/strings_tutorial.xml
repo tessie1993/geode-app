@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The new-user tour (ui/TutorialOverlay.kt, ui/TutorialCards.kt) and Settings › Tutorials. -->
+<!-- The new-user tour (ui/TutorialState.kt, ui/TutorialCards.kt) and Settings › Tutorials. -->
 <resources>
     <string name="tutorial_next">Next</string>
     <string name="tutorial_back">Back</string>

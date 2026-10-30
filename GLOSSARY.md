@@ -50,7 +50,25 @@ The full set of tunable values a scene is drawn with at one moment.
 _Avoid_: Settings, knobs
 
 **Customize tabs**:
-The groups the scene params are edited in: Shape, Color, Motion, FX, Reactivity, Scene, plus per-family tabs.
+The groups the scene params are edited in: Macros and Events first, then the detail tabs (Shape, Colour, Motion, FX, Reactivity, Scene) and the per-family tabs.
+
+**Macro**:
+One of six knobs (Energy, Speed, Complexity, Mood, Space, Chaos) that each move several scene params at once. A macro stores nothing of its own: its position is read back from the params it drives.
+_Avoid_: Master, preset slider
+
+**Macro target**:
+One scene param a macro drives, with its value at the knob's bottom, neutral and top. Each param belongs to at most one macro.
+
+**Reaction route**:
+One line of the reaction matrix: a sound (band, level or event) moves one scene param, by following, stepping or spinning.
+_Avoid_: Binding, mapping
+
+**Style DNA**:
+The reaction routes a style plays until the user edits them, generated from the style id and a seed.
+
+**Event recipe**:
+A named bundle of reaction routes offered in the Events tab ("Kick punch", "Drop burst"), turned on and off as one.
+_Avoid_: Trigger preset
 
 **Modulation**:
 LFOs and ADSR envelopes that move scene params over time or on hits.

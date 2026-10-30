@@ -1,27 +1,19 @@
 package dev.geode.ui
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.systemBarsPadding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.FlashOn
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.heading
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import dev.geode.R
+import dev.geode.ui.theme.GeodeSpacing
 
 /**
  * The first-run photosensitivity notice.
@@ -35,43 +27,31 @@ fun SafetyConsent(
     onAcknowledge: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(
-        modifier =
-            modifier
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
-                .systemBarsPadding()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 24.dp, vertical = 32.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally,
+    // Mandatory: there is no skip. The notice is one screen and one button.
+    OnboardingScaffold(
+        step = 0,
+        stepCount = ONBOARDING_STEPS,
+        icon = Icons.Rounded.FlashOn,
+        title = stringResource(R.string.safety_title),
+        body = stringResource(R.string.safety_warning),
+        modifier = modifier,
+        extra = {
+            Spacer(Modifier.height(GeodeSpacing.M))
+            Text(
+                stringResource(R.string.safety_prompt),
+                Modifier
+                    .crystalPanel(
+                        0.6f,
+                        MaterialTheme.colorScheme.surfaceContainer,
+                        MaterialTheme.colorScheme.primary,
+                        corner = 16.dp,
+                    ).padding(GeodeSpacing.L),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+        },
     ) {
-        Text(
-            stringResource(R.string.safety_title),
-            style = MaterialTheme.typography.headlineSmall,
-            color = MaterialTheme.colorScheme.onBackground,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.semantics { heading() },
-        )
-        Spacer(Modifier.height(16.dp))
-        Text(
-            stringResource(R.string.safety_warning),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-        )
-        Spacer(Modifier.height(12.dp))
-        Text(
-            stringResource(R.string.safety_prompt),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-        )
-        Spacer(Modifier.height(28.dp))
-        CrystalButton(
-            onClick = onAcknowledge,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
+        CrystalButton(onClick = onAcknowledge, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.safety_acknowledge))
         }
     }

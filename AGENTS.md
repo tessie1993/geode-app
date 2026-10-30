@@ -95,7 +95,7 @@ The native core is built by the root `CMakeLists.txt`, plus `core/CMakeLists.txt
 ## Build, test, CI
 
 - **Don't build locally.** Push to `claude/**`. `.github/workflows/android.yml` runs detekt, `:app:assembleDebug`, `:app:testDebugUnitTest`, `:app:lintDebug`, `ktlintCheck`, plus an emulator job (`connectedDebugAndroidTest`, API 30). Read the results with `gh run list --branch <b>` and `gh run view <id> --log-failed`.
-- `ship-apk.yml` (push to `main`) publishes a debug APK. `release.yml` builds the Play AAB on PRs (unsigned without the upload-key secrets) and on tags `v*` (must be signed), then checks the merged manifest (no INTERNET, targetSdk), R8 and the baseline profile. `arch-map.yml` is the gate described below.
+- `ship-apk.yml` (push to `main`) publishes a debug APK. `release.yml` builds the Play AAB unsigned on PRs (no secrets reach PR code) and signed on tags `v*` and manual runs, then checks the merged manifest (no INTERNET, targetSdk), R8 and the baseline profile. `arch-map.yml` is the gate described below.
 - Submodules: `git submodule update --init --recursive`, needed only for native work. Your `local.properties` needs `sdk.dir`.
 - Tests: JVM unit tests live in `app/src/test` and `engine/*/src/test` (CI runs every module's), instrumented ones in `app/src/androidTest`. Put new pure tests in a JVM module where you can. Use `docs/DEVICE_CHECKS.md` for anything that needs a device. `tools/glslcheck` and `tools/hostlink` check shaders and the native link on the host.
 
@@ -107,6 +107,7 @@ The native core is built by the root `CMakeLists.txt`, plus `core/CMakeLists.txt
 - Scratch files use the prefixes `geode_aac_`, `geode_loop_` and `studio-`; `GeodeContainer` sweeps them. Renders insert with `IS_PENDING`.
 - The tap stays first in the audio chain, and the chain never gets float output (see `docs/AUDIO_CHAIN.md`).
 - The app is offline by design: there is no network permission. The manifest removes INTERNET explicitly; Play Billing works over IPC to the Play Store app.
+- Runtime permissions are asked for in context through `ui/PermissionRequest.kt` (`rememberPermissionRequest`: rationale first, retry after a refusal, app Settings once Android stops asking). Only music access is asked at first run (`SafetyConsent` → `FirstRun`, on `OnboardingScaffold`).
 
 ## Large files to split (lines)
 

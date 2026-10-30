@@ -546,11 +546,10 @@ private fun QuickActions(
     canShuffle: Boolean,
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
+    // Once Android stops showing the dialog, request() opens the app's Settings page instead, so
+    // the button never silently does nothing.
     val micPermission =
-        androidx.activity.compose.rememberLauncherForActivityResult(
-            androidx.activity.result.contract.ActivityResultContracts
-                .RequestPermission(),
-        ) { granted -> if (granted) viewModel.setMicEnabled(true) }
+        rememberPermissionRequest(android.Manifest.permission.RECORD_AUDIO) { viewModel.setMicEnabled(true) }
     val projectionLauncher =
         androidx.activity.compose.rememberLauncherForActivityResult(
             androidx.activity.result.contract.ActivityResultContracts
@@ -597,7 +596,7 @@ private fun QuickActions(
                 } else if (viewModel.hasMicPermission()) {
                     viewModel.setMicEnabled(true)
                 } else {
-                    micPermission.launch(android.Manifest.permission.RECORD_AUDIO)
+                    micPermission.request()
                 }
             }
         }

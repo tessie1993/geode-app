@@ -987,3 +987,11 @@ used; they are credited here as the pieces whose techniques were studied:
   "dmt, no! not the drug" by Arrangemonk
                                        https://www.shadertoy.com/view/sdyXWW
     (recursive domain warping, after Inigo Quilez's articles on the technique)
+
+
+The Glass style family (app/src/main/assets/shaders/lib_glass.glsl and its
+glass_* styles) is original code written from the published technique:
+
+  Christophe Schlick, "An Inexpensive BRDF Model for Physically-based
+  Rendering", Computer Graphics Forum 13(3), 1994
+    (the Fresnel approximation behind the family's reflections)

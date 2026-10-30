@@ -19,7 +19,7 @@ namespace geode::viz {
 namespace {
 
 // Port of SceneCapabilities.SHADER_SCENES: id -> shaders/<id>_frag.glsl, in the catalog's order.
-constexpr std::array<const char*, 101> kShaderIds = {
+constexpr std::array<const char*, 113> kShaderIds = {
     "julia",     "tunnel",  "mandel",    "kaleido",   "plasma",    "bars",       "ring",      "scope",
     "liss",      "warp",    "grid",      "voronoi",   "metaballs", "ripples",    "starfield", "waves",
     "hexgrid",   "spiral",  "aurora",    "solar",     "winter",    "lava",       "vanishing", "morphogen",
@@ -39,6 +39,8 @@ constexpr std::array<const char*, 101> kShaderIds = {
     "chrys_glass", "chrys_ink", "chrys_neon", "chrys_fall", "chrys_kaleido", "chrys_tunnel",
     "lucid_weave", "lucid_mandala", "lucid_spiral", "lucid_tunnel", "lucid_disc", "lucid_hive",
     "lucid_ink", "lucid_mirror", "lucid_bulge", "lucid_petal", "lucid_lattice", "lucid_vortex",
+    "glass_orb", "glass_pool", "glass_prism", "glass_lens", "glass_drops", "glass_bubbles",
+    "glass_marble", "glass_caustic", "glass_cubes", "glass_gem", "glass_ice", "glass_knot",
 };
 
 // Port of SceneCapabilities.SPINNING_SCENES: the styles whose look is a turning

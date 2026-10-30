@@ -37,7 +37,7 @@ The native core is built by the root `CMakeLists.txt`, plus `core/CMakeLists.txt
 | `di` | Hilt modules. Very thin: most objects are built by hand | `DataModule`, `PlayerSessionProvider` |
 | `ui` | Every screen, the five ViewModels, `PlayerSession` with its ~20 `*Controller`s, settings screens, theme glue | `MainActivity`, `AppShell`, `GeodeAppState`, `PlayerSession`, `*ViewModel` |
 | `ui/studio` | Studio timeline widgets: lanes, playhead, curve editor, toolbar | `TimelineLanes`, `EditorActions` |
-| `ui/theme` | Theme packs and the Stone design system | `ThemePack`, `ThemePackCatalog`, `StoneTheme`, `StoneIcon` |
+| `ui/theme` | The one "black glass" theme: design tokens (colour, glass alphas, spacing, radius, motion), the M3 colour scheme and type scale, icons, press feedback, haptics, interface sounds. No screen code; ready to move into `:core:designsystem` | `GeodeTokens`, `GeodeTheme` (`geodeColorScheme`, `geodeTypography`), `StoneIcon`, `StonePress`, `UiSounds` |
 | `playback` | `PlaybackEngine` (process-wide holder of ExoPlayer or `NativePlayer`, ring and analysis), `PlaybackService` (MediaLibraryService), queue, sleep timer, ReplayGain | `PlaybackEngine`, `PlaybackService`, `NativePlayer` |
 | `audio` | Capture sources (mic, other apps' audio), `AudioBus` (features for non-UI surfaces), platform FX, media chain | `AudioBus`, `AudioCapturePump`, `PlaybackCaptureService`, `TapRenderersFactory` |
 | `audio/dsp` | The Media3 processor chain order, native DSP | `MvzAudioProcessorChain` |
@@ -99,7 +99,7 @@ The native core is built by the root `CMakeLists.txt`, plus `core/CMakeLists.txt
 
 ## Large files to split (lines)
 
-`ui/theme/ThemePackCatalog.kt` 2010 · `ui/VisualsHub.kt` 1395 · `ui/PlayerSession.kt` 1367 · `ui/CustomizeTabs.kt` 1132 · `ui/BuiltInPresets.kt` 914 · `export/LoopRender.kt` 889 · `ui/StudioScreen.kt` 881 · `ui/AppShell.kt` 752 · `editor/Timeline.kt` 730 · `data/TemplateRepository.kt` 726 · `ui/LibraryScreen.kt` 719 · `ui/PlayerScreen.kt` 709 · `export/LoopExtend.kt` 698 · `ui/VisualizerScreen.kt` 692
+`ui/VisualsHub.kt` 1395 · `ui/PlayerSession.kt` 1367 · `ui/CustomizeTabs.kt` 1132 · `ui/BuiltInPresets.kt` 914 · `export/LoopRender.kt` 889 · `ui/StudioScreen.kt` 881 · `ui/AppShell.kt` 752 · `editor/Timeline.kt` 730 · `data/TemplateRepository.kt` 726 · `ui/LibraryScreen.kt` 719 · `ui/PlayerScreen.kt` 709 · `export/LoopExtend.kt` 698 · `ui/VisualizerScreen.kt` 692
 
 ## Where the code breaks the architecture guide
 

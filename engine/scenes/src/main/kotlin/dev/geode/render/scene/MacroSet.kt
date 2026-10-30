@@ -65,7 +65,7 @@ object MacroIcons {
         listOf(DEFAULT, "bolt", "speed", "layers", "mood", "space", "chaos", "palette", "camera", "waves", "sparkle", "blur")
 }
 
-/** What a knob does to the parameters: pure, so the controller and the tests share it. */
+/** What a knob does to the parameters: pure, so the editor, the store and the tests share it. */
 object MacroKnobs {
     private const val EPSILON = 1e-4f
 

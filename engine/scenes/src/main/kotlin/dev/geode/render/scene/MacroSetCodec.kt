@@ -3,7 +3,7 @@ package dev.geode.render.scene
 import dev.geode.render.ReactSource
 
 /**
- * Macro sets as text: how the active set is kept between launches.
+ * Macro sets as text: what the macro folder stores and what Share sends.
  *
  * Plain lines rather than JSON so it parses in local JVM tests (org.json is a stub there; see
  * AGENTS.md) and reads in a message. A free-text name always ends its line, so it may contain
@@ -22,6 +22,9 @@ import dev.geode.render.ReactSource
 object MacroSetCodec {
     const val MAGIC = "mvzmacro"
     const val VERSION = 1
+
+    /** The file extension the folder and Share use. */
+    const val EXTENSION = "mvzmacro"
 
     fun encode(set: MacroSet): String =
         buildString {

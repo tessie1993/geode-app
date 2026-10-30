@@ -1067,8 +1067,8 @@ private val PREVIEW_HANDLE_HEIGHT = 28.dp
 /**
  * Whether a tab has anything to show for the style on screen.
  *
- * Macros, the five spec tabs and Scene are always there (a macro with nothing to move on this
- * style still shows); the per-family ones appear only with their
+ * Macros, Events, the five spec tabs and Scene are always there (a macro or recipe with nothing
+ * to move on this style hides itself, not the tab); the per-family ones appear only with their
  * family. Fluid stays because it also holds the two "all styles" sections (FlowField and the
  * shared water-ripple overlay), which every style can use.
  */
@@ -1078,6 +1078,7 @@ private fun tabAppliesTo(
 ): Boolean =
     when (tab) {
         CustomizeTab.MACROS,
+        CustomizeTab.EVENTS,
         CustomizeTab.SHAPE,
         CustomizeTab.COLOR,
         CustomizeTab.MOTION,
@@ -1104,14 +1105,24 @@ private fun CustomizeTabBody(
             val set by visualsViewModel.macroSet.collectAsStateWithLifecycle()
             MacrosTab(set, onTurn = visualsViewModel::turnMacro)
         }
+        CustomizeTab.EVENTS -> {
+            val reactions by visualsViewModel.reactions.collectAsStateWithLifecycle()
+            EventsTab(
+                p,
+                onChange,
+                reactions = reactions,
+                onReactionsChange = visualsViewModel::setReactions,
+                onRerollReactions = visualsViewModel::rerollReactions,
+                intelligenceMode = viz.intelligenceMode,
+                onIntelligenceModeChange = viewModel::setIntelligenceMode,
+            )
+        }
         CustomizeTab.MOTION -> MotionTab(p, onChange)
         CustomizeTab.SHAPE -> ShapeTab(p, onChange)
         CustomizeTab.SCENE ->
             SceneTab(
                 p,
                 onChange,
-                intelligenceMode = viz.intelligenceMode,
-                onIntelligenceModeChange = viewModel::setIntelligenceMode,
                 transitionId = viz.transitionId,
                 transitionDurationSec = viz.transitionDurationSec,
                 onTransitionId = viewModel::setTransitionId,
@@ -1120,7 +1131,6 @@ private fun CustomizeTabBody(
         CustomizeTab.REACTIVITY -> {
             val lfos by visualsViewModel.lfos.collectAsStateWithLifecycle()
             val adsrs by visualsViewModel.adsrs.collectAsStateWithLifecycle()
-            val reactions by visualsViewModel.reactions.collectAsStateWithLifecycle()
             ReactivityTab(
                 p,
                 onChange,
@@ -1131,9 +1141,6 @@ private fun CustomizeTabBody(
                 onLfoChange = visualsViewModel::setLfo,
                 adsr = adsrs,
                 onAdsrChange = visualsViewModel::setAdsr,
-                reactions = reactions,
-                onReactionsChange = visualsViewModel::setReactions,
-                onRerollReactions = visualsViewModel::rerollReactions,
             )
         }
         CustomizeTab.COLOR -> {

@@ -219,7 +219,9 @@ class BackupRepository
             val values = PrefsJson.decode(file.readText()).filterKeys { BackupFormat.isPortableKey(name, it) }
             val prefs = prefsFile(name)
             val editor = prefs.edit()
-            prefs.all.keys.filter { BackupFormat.isPortableKey(name, it) }.forEach { editor.remove(it) }
+            for (key in prefs.all.keys) {
+                if (BackupFormat.isPortableKey(name, key)) editor.remove(key)
+            }
             for ((key, value) in values) {
                 when (value) {
                     is String -> editor.putString(key, value)

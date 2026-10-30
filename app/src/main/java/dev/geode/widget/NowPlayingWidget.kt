@@ -35,6 +35,7 @@ import androidx.glance.layout.Alignment
 import androidx.glance.layout.Column
 import androidx.glance.layout.ContentScale
 import androidx.glance.layout.Row
+import androidx.glance.layout.RowScope
 import androidx.glance.layout.fillMaxSize
 import androidx.glance.layout.padding
 import androidx.glance.layout.size
@@ -131,35 +132,51 @@ private fun NowPlaying(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         when (layout) {
-            WidgetLayout.SMALL -> {
-                PlayPauseButton(state.playing)
-                TrackText(
-                    state,
-                    titleSize = 14.sp,
-                    artistSize = null,
-                    modifier = GlanceModifier.defaultWeight().padding(start = 10.dp),
-                )
-            }
-
-            WidgetLayout.MEDIUM -> {
-                Artwork(art, MEDIUM_ART)
-                TrackText(
-                    state,
-                    titleSize = 14.sp,
-                    artistSize = 12.sp,
-                    modifier = GlanceModifier.defaultWeight().padding(horizontal = 10.dp),
-                )
-                Transport(state.playing)
-            }
-
-            WidgetLayout.LARGE -> {
-                Artwork(art, LARGE_ART)
-                Column(modifier = GlanceModifier.defaultWeight().padding(start = 10.dp)) {
-                    TrackText(state, titleSize = 16.sp, artistSize = 13.sp)
-                    Row(verticalAlignment = Alignment.CenterVertically) { Transport(state.playing) }
-                }
-            }
+            WidgetLayout.SMALL -> SmallLayout(state)
+            WidgetLayout.MEDIUM -> MediumLayout(state, art)
+            WidgetLayout.LARGE -> LargeLayout(state, art)
         }
+    }
+}
+
+/** 2x1: play/pause and the title. */
+@Composable
+private fun RowScope.SmallLayout(state: WidgetState) {
+    PlayPauseButton(state.playing)
+    TrackText(
+        state,
+        titleSize = 14.sp,
+        artistSize = null,
+        modifier = GlanceModifier.defaultWeight().padding(start = 10.dp),
+    )
+}
+
+/** 4x1: art, title/artist, prev/play/next. */
+@Composable
+private fun RowScope.MediumLayout(
+    state: WidgetState,
+    art: ImageProvider?,
+) {
+    Artwork(art, MEDIUM_ART)
+    TrackText(
+        state,
+        titleSize = 14.sp,
+        artistSize = 12.sp,
+        modifier = GlanceModifier.defaultWeight().padding(horizontal = 10.dp),
+    )
+    Transport(state.playing)
+}
+
+/** 4x2 and up: larger art beside title/artist over the transport row. */
+@Composable
+private fun RowScope.LargeLayout(
+    state: WidgetState,
+    art: ImageProvider?,
+) {
+    Artwork(art, LARGE_ART)
+    Column(modifier = GlanceModifier.defaultWeight().padding(start = 10.dp)) {
+        TrackText(state, titleSize = 16.sp, artistSize = 13.sp)
+        Row(verticalAlignment = Alignment.CenterVertically) { Transport(state.playing) }
     }
 }
 

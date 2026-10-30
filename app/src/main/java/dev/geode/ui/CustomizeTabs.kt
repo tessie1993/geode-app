@@ -51,6 +51,10 @@ import dev.geode.render.LfoWave
 import dev.geode.render.ModCurve
 import dev.geode.render.ModPolarity
 import dev.geode.render.ModSource
+import dev.geode.render.ReactMode
+import dev.geode.render.ReactSource
+import dev.geode.render.ReactionRoute
+import dev.geode.render.scene.BuildStyleReactionsUseCase
 import dev.geode.render.scene.CymaticsMath
 import dev.geode.render.scene.MarchBudget
 import dev.geode.render.scene.ParamKeys
@@ -197,10 +201,7 @@ internal fun MotionTab(
         SectionHeader("Drift")
         LabeledSlider(ParamKeys.DRIFT_X, p.driftX, -1f..1f) { onChange(p.copy(driftX = it)) }
         LabeledSlider(ParamKeys.DRIFT_Y, p.driftY, -1f..1f) { onChange(p.copy(driftY = it)) }
-        SectionHeader("Transient motion")
-        ControlHint("How far the picture swells and jumps on each hit the music actually plays.")
-        LabeledSlider(ParamKeys.BEAT_PULSE, p.pulse, 0f..1f) { onChange(p.copy(pulse = it)) }
-        LabeledSlider(ParamKeys.BEAT_SHAKE, p.shake, 0f..1f) { onChange(p.copy(shake = it)) }
+        CameraSection(p, onChange)
         SectionHeader(ParamKeys.ENDLESS_ZOOM, ParamScope.ENDLESS_ZOOM)
         ControlHint("A dive that never arrives. Dive speed sets the rate.", ParamScope.ENDLESS_ZOOM)
         CheckRow(ParamKeys.ENDLESS_ZOOM, p.endlessZoom) { onChange(p.copy(endlessZoom = it)) }
@@ -220,11 +221,12 @@ internal fun ShapeTab(
         LabeledSlider(ParamKeys.DOMAIN_WARP, p.warp, 0f..1f) { onChange(p.copy(warp = it)) }
         LabeledSlider(ParamKeys.RIPPLE, p.ripple, 0f..1f) { onChange(p.copy(ripple = it)) }
         LabeledSlider(ParamKeys.MORPH, p.morph, 0f..1f) { onChange(p.copy(morph = it)) }
+        LabeledSlider(ParamKeys.TWIST, p.twist, -1f..1f) { onChange(p.copy(twist = it)) }
         SectionHeader(ParamKeys.MARCH_DETAIL, ParamScope.MARCH_DETAIL)
+        ControlHint("Fewer march steps on slower phones; the picture stays, the edges soften.", ParamScope.MARCH_DETAIL)
         LabeledSlider(ParamKeys.MARCH_DETAIL, p.marchDetail, MarchBudget.MIN_DETAIL..MarchBudget.MAX_DETAIL) {
             onChange(p.copy(marchDetail = it))
         }
-        LabeledSlider(ParamKeys.TWIST, p.twist, -1f..1f) { onChange(p.copy(twist = it)) }
         SectionHeader("Symmetry & tiling")
         CheckRow(ParamKeys.KALEIDOSCOPE, p.kaleidoscope) { on ->
             val folds = if (on && p.symmetry < 2) SceneParams.DEFAULT_SYMMETRY_FOLDS else p.symmetry
@@ -270,7 +272,8 @@ internal fun SceneTab(
                         .library(ctx)
                 }
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                dev.geode.render.TransitionCatalog.BUILT_IN_IDS.forEach { id ->
+                // "cut" is left out: VisualSafety always plays it as a fade, so its chip lied.
+                dev.geode.render.TransitionCatalog.BUILT_IN_IDS.filter { it != "cut" }.forEach { id ->
                     FilterChip(
                         selected = transitionId == id,
                         onClick = { onTransitionId(id) },
@@ -339,6 +342,9 @@ internal fun ReactivityTab(
     onLfoChange: (Int, LfoConfig) -> Unit,
     adsr: List<AdsrConfig>,
     onAdsrChange: (Int, AdsrConfig) -> Unit,
+    reactions: List<ReactionRoute>?,
+    onReactionsChange: (List<ReactionRoute>?) -> Unit,
+    onRerollReactions: () -> Unit,
 ) {
     Column {
         SectionHeader("Audio response")
@@ -348,15 +354,16 @@ internal fun ReactivityTab(
                 "tempo to be worked out, so live input behaves exactly like a file.",
         )
         LabeledSlider(ParamKeys.AUDIO_DRIVE, p.audioDrive, 0.2f..2.5f) { onChange(p.copy(audioDrive = it)) }
+        ReactionsSection(p, onChange, reactions, onReactionsChange, onRerollReactions)
+        SectionHeader("Continuous motion")
         ControlHint(
-            "Form drive is the superformula: one shape the music keeps redrawing - snares change " +
-                "its lobe count, kicks pinch it, the spectrum fattens or thins it, drops reset it - " +
-                "and every style is moved through it: zoom, spin, warp, twist, tiling, the fluid " +
-                "and plate forces, the palette span. Zero switches it off.",
+            "The slow layer under the reactions: the picture breathes with the bass, drifts with " +
+                "the mids and leans its colour toward the song's key. Zero settles it.",
         )
-        LabeledSlider(ParamKeys.FORM_DRIVE, p.formDrive, 0f..1f) { onChange(p.copy(formDrive = it)) }
-        LabeledSlider(ParamKeys.BEAT_RESPONSE, p.beatResponse, 0f..2f) { onChange(p.copy(beatResponse = it)) }
-        LabeledSlider(ParamKeys.BEAT_FLASH, p.flash, 0f..1f) { onChange(p.copy(flash = it)) }
+        LabeledSlider(ParamKeys.MOTION_AMOUNT, p.motionAmount, 0f..1f) { onChange(p.copy(motionAmount = it)) }
+        LabeledSlider(ParamKeys.MOTION_BREATH, p.motionBreath, 0f..1f) { onChange(p.copy(motionBreath = it)) }
+        LabeledSlider(ParamKeys.MOTION_DRIFT, p.motionDrift, 0f..1f) { onChange(p.copy(motionDrift = it)) }
+        LabeledSlider(ParamKeys.MOTION_HUE, p.motionHue, 0f..1f) { onChange(p.copy(motionHue = it)) }
         SectionHeader("Band balance", ParamScope.BAND_GAINS)
         LabeledSlider(ParamKeys.BASS_GAIN, p.bassGain, 0f..2f) { onChange(p.copy(bassGain = it)) }
         LabeledSlider(ParamKeys.MID_GAIN, p.midGain, 0f..2f) { onChange(p.copy(midGain = it)) }
@@ -474,13 +481,14 @@ internal fun ColorTab(
         }
         SectionHeader("Grading")
         LabeledSlider(ParamKeys.SATURATION, p.saturation, 0f..1.5f) { onChange(p.copy(saturation = it)) }
-        LabeledSlider(ParamKeys.BRIGHTNESS, p.brightness, 0.2f..2f) { onChange(p.copy(brightness = it)) }
-        LabeledSlider(ParamKeys.CONTRAST, p.contrast, 0.3f..2.5f) { onChange(p.copy(contrast = it)) }
+        // Upper ends are the engine's flash clamp (1 + VisualSafety.MAX_FLASH_DEPTH); past it a slider did nothing.
+        LabeledSlider(ParamKeys.BRIGHTNESS, p.brightness, 0.2f..1.25f) { onChange(p.copy(brightness = it)) }
+        LabeledSlider(ParamKeys.CONTRAST, p.contrast, 0.3f..1.25f) { onChange(p.copy(contrast = it)) }
         LabeledSlider(ParamKeys.GAMMA, p.gamma, 0.3f..2.5f) { onChange(p.copy(gamma = it)) }
-        LabeledSlider(ParamKeys.INTENSITY, p.intensity, 0.2f..2f) { onChange(p.copy(intensity = it)) }
+        LabeledSlider(ParamKeys.INTENSITY, p.intensity, 0.2f..1.25f) { onChange(p.copy(intensity = it)) }
         LabeledSlider(ParamKeys.TEMPERATURE, p.temperature, -1f..1f) { onChange(p.copy(temperature = it)) }
         SectionHeader("Tone effects")
-        LabeledSlider(ParamKeys.BLOOM, p.bloom, 0f..1f) { onChange(p.copy(bloom = it)) }
+        LabeledSlider(ParamKeys.BLOOM, p.bloom, 0f..0.25f) { onChange(p.copy(bloom = it)) }
         LabeledSlider(ParamKeys.POSTERIZE, p.posterize, 0f..1f) { onChange(p.copy(posterize = it)) }
         CheckRow(ParamKeys.DUOTONE, p.duotone) { onChange(p.copy(duotone = it)) }
         CheckRow(ParamKeys.SOLARIZE, p.solarize) { onChange(p.copy(solarize = it)) }
@@ -507,9 +515,8 @@ internal fun FxTab(
         LabeledSlider(ParamKeys.VIGNETTE, p.vignette, 0f..1f) { onChange(p.copy(vignette = it)) }
         LabeledSlider(ParamKeys.SCANLINES, p.scanlines, 0f..1f) { onChange(p.copy(scanlines = it)) }
         LabeledSlider(ParamKeys.FILM_GRAIN, p.grain, 0f..1f) { onChange(p.copy(grain = it)) }
-        LabeledSlider(ParamKeys.GLITCH, p.glitch, 0f..1f) { onChange(p.copy(glitch = it)) }
+        LabeledSlider(ParamKeys.GLITCH, p.glitch, 0f..0.25f) { onChange(p.copy(glitch = it)) }
         LabeledSlider(ParamKeys.FISHEYE, p.fisheye, -1f..1f) { onChange(p.copy(fisheye = it)) }
-        LabeledSlider(ParamKeys.STROBE, p.strobe, 0f..1f) { onChange(p.copy(strobe = it)) }
         if (sectionVisible()) LayersSection()
     }
 }
@@ -561,6 +568,164 @@ private fun LayersSection() {
         valueRange = 0f..1f,
         modifier = Modifier.fillMaxWidth(),
     )
+}
+
+@Composable
+private fun CameraSection(
+    p: SceneParams,
+    onChange: (SceneParams) -> Unit,
+) {
+    SectionHeader("Camera")
+    ControlHint(
+        "One camera for every style, the wallpaper and exports. 3D styles fly through their " +
+            "world; flat styles are seen on a plane the camera pans, tilts and pushes toward. " +
+            "Push, turn, tilt and roll are where the reactions start from.",
+    )
+    if (visible(ParamKeys.CAM_PATH, ParamScope.UNIVERSAL)) {
+        ControlLabelRow(ParamKeys.CAM_PATH, ParamKeys.CAM_PATH)
+        ChipRow(SceneParams.CAMERA_PATHS, p.camPath.coerceIn(0, SceneParams.CAMERA_PATHS.lastIndex)) {
+            onChange(p.copy(camPath = it))
+        }
+    }
+    LabeledSlider(ParamKeys.CAM_FLY, p.camFly, 0f..2f) { onChange(p.copy(camFly = it)) }
+    LabeledSlider(ParamKeys.CAM_ORBIT, p.camOrbit, 0f..1f) { onChange(p.copy(camOrbit = it)) }
+    LabeledSlider(ParamKeys.CAM_FOV, p.camFov, 0.5f..2f) { onChange(p.copy(camFov = it)) }
+    LabeledSlider(ParamKeys.CAM_PUSH, p.camPush, -1f..1f) { onChange(p.copy(camPush = it)) }
+    LabeledSlider(ParamKeys.CAM_YAW, p.camYaw, -1f..1f) { onChange(p.copy(camYaw = it)) }
+    LabeledSlider(ParamKeys.CAM_PITCH, p.camPitch, -1f..1f) { onChange(p.copy(camPitch = it)) }
+    LabeledSlider(ParamKeys.CAM_ROLL, p.camRoll, -1f..1f) { onChange(p.copy(camRoll = it)) }
+    LabeledSlider(ParamKeys.CAM_SHAKE, p.camShake, 0f..1f) { onChange(p.copy(camShake = it)) }
+    LabeledSlider(ParamKeys.CAM_SMOOTH, p.camSmooth, 0f..1f) { onChange(p.copy(camSmooth = it)) }
+    CheckRow(ParamKeys.CAM_TOUCH, p.camTouch) { onChange(p.copy(camTouch = it)) }
+    CheckRow(ParamKeys.CAM_GYRO, p.camGyro) { onChange(p.copy(camGyro = it)) }
+    ControlHint("Exports always fly the recorded path; the phone's tilt is never baked in.")
+}
+
+/**
+ * The reaction matrix: which sound moves what.
+ *
+ * Shows the style's DNA until the user edits a route; the first edit copies the DNA into the
+ * user's own list, and "Back to style DNA" drops it again.
+ */
+@Composable
+private fun ReactionsSection(
+    p: SceneParams,
+    onChange: (SceneParams) -> Unit,
+    reactions: List<ReactionRoute>?,
+    onReactionsChange: (List<ReactionRoute>?) -> Unit,
+    onReroll: () -> Unit,
+) {
+    val sceneId = LocalSceneId.current
+    SectionHeader("Reactions")
+    ControlHint(
+        if (reactions == null) {
+            "Each style has its own reaction DNA: which sounds push the camera, change the " +
+                "colour, reshape, spin or grow it. Re-roll for a new personality; edit any route " +
+                "to make it yours."
+        } else {
+            "Your own routes, used on every style. Back to style DNA lets each style choose again."
+        },
+    )
+    LabeledSlider(ParamKeys.REACT_AMOUNT, p.reactAmount, 0f..2f) { onChange(p.copy(reactAmount = it)) }
+    if (!sectionVisible()) return
+    val dna = remember(sceneId, p.reactSeed) { BuildStyleReactionsUseCase()(sceneId, p.reactSeed) }
+    val routes = reactions ?: dna
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        CrystalButton(compact = true, filled = false, onClick = onReroll) { Text("Re-roll DNA") }
+        if (reactions != null) {
+            CrystalButton(compact = true, filled = false, onClick = { onReactionsChange(null) }) { Text("Back to style DNA") }
+        }
+        if (routes.size < ReactionRoute.MAX_ROUTES) {
+            CrystalButton(compact = true, filled = false, onClick = { onReactionsChange(routes + NEW_REACTION) }) { Text("Add") }
+        }
+    }
+    routes.forEachIndexed { i, route ->
+        ReactionCard(
+            route = route,
+            onChange = { changed -> onReactionsChange(routes.toMutableList().also { it[i] = changed }) },
+            onRemove = { onReactionsChange(routes.filterIndexed { j, _ -> j != i }) },
+        )
+    }
+}
+
+private val NEW_REACTION =
+    ReactionRoute(source = ReactSource.ONSET, target = LfoTarget.COLOR_SHIFT, mode = ReactMode.STEP, amount = 0.15f)
+
+private enum class ReactionPick { SOURCE, TARGET }
+
+@Composable
+private fun ReactionCard(
+    route: ReactionRoute,
+    onChange: (ReactionRoute) -> Unit,
+    onRemove: () -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    var picking by remember { mutableStateOf<ReactionPick?>(null) }
+    val sceneId = LocalSceneId.current
+    Column(modifier = Modifier.padding(vertical = 4.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                "${route.source.label} → ${route.target.label} · ${route.mode.label} ${"%+.2f".format(route.amount)}",
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.weight(1f).clickable { expanded = !expanded },
+            )
+            Switch(checked = route.enabled, onCheckedChange = { onChange(route.copy(enabled = it)) })
+        }
+        if (route.target != LfoTarget.NONE && !route.target.scope.appliesTo(sceneId)) {
+            ControlHint("${route.target.label} does nothing on this style.")
+        }
+        if (expanded) {
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                TextButton(onClick = { picking = ReactionPick.SOURCE }) { Text("Sound: ${route.source.label}") }
+                TextButton(onClick = { picking = ReactionPick.TARGET }) { Text("Moves: ${route.target.label}") }
+            }
+            ChipRow(ReactMode.entries.map { it.label }, ReactMode.entries.indexOf(route.mode)) {
+                onChange(route.copy(mode = ReactMode.entries[it]))
+            }
+            LabeledSlider(REACT_DEPTH, route.amount, -1f..1f, scope = ParamScope.UNIVERSAL) { onChange(route.copy(amount = it)) }
+            LabeledSlider(REACT_ATTACK, route.attackSeconds, 0f..1f, scope = ParamScope.UNIVERSAL) {
+                onChange(route.copy(attackSeconds = it))
+            }
+            LabeledSlider(REACT_RELEASE, route.releaseSeconds, 0f..3f, scope = ParamScope.UNIVERSAL) {
+                onChange(route.copy(releaseSeconds = it))
+            }
+            ChipRow(ModCurve.entries.map { it.label }, ModCurve.entries.indexOf(route.curve)) {
+                onChange(route.copy(curve = ModCurve.entries[it]))
+            }
+            TextButton(onClick = onRemove) { Text("Remove") }
+        }
+    }
+    picking?.let { which ->
+        AlertDialog(
+            onDismissRequest = { picking = null },
+            title = { Text(if (which == ReactionPick.SOURCE) "Which sound" else "What it moves") },
+            text = {
+                Column(modifier = Modifier.height(360.dp).verticalScroll(rememberScrollState())) {
+                    if (which == ReactionPick.SOURCE) {
+                        ReactSource.entries.forEach { s ->
+                            TextButton(onClick = {
+                                onChange(route.copy(source = s))
+                                picking = null
+                            }) {
+                                val mark = if (s == route.source) "▶ " else ""
+                                Text(mark + s.label + if (s.isEvent) " (event)" else "")
+                            }
+                        }
+                    } else {
+                        LfoTarget.entries
+                            .filter { it != LfoTarget.NONE && it.chain == null && it.scope.appliesTo(sceneId) }
+                            .forEach { t ->
+                                TextButton(onClick = {
+                                    onChange(route.copy(target = t))
+                                    picking = null
+                                }) { Text(if (t == route.target) "▶ ${t.label}" else t.label) }
+                            }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { picking = null }) { Text("Close") } },
+        )
+    }
 }
 
 @Composable
@@ -1102,6 +1267,9 @@ private const val REACTIVITY_ATTACK = "Envelope attack"
 private const val REACTIVITY_DECAY = "Envelope decay"
 private const val PARAM_FADE = "Fade time (s)"
 private const val MOD_DEPTH = "Slot depth"
+private const val REACT_DEPTH = "Amount"
+private const val REACT_ATTACK = "Rise (s)"
+private const val REACT_RELEASE = "Fall (s)"
 private const val ENV_ATTACK = "Env attack"
 private const val ENV_DECAY = "Env decay"
 private const val ENV_SUSTAIN = "Sustain"

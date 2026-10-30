@@ -11,6 +11,9 @@ import dev.geode.render.LfoWave
 import dev.geode.render.ModCurve
 import dev.geode.render.ModPolarity
 import dev.geode.render.ModSource
+import dev.geode.render.ReactMode
+import dev.geode.render.ReactSource
+import dev.geode.render.ReactionRoute
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -48,6 +51,47 @@ class LfoStore(
         envs.take(AdsrEngine.COUNT).forEach { arr.put(adsrToJson(it)) }
         prefs.edit().putString(KEY_ADSR, arr.toString()).apply()
     }
+
+    /** The user's own reaction routes, or null while the style's DNA plays (nothing saved). */
+    fun loadReactions(): List<ReactionRoute>? =
+        runCatching {
+            val raw = prefs.getString(KEY_REACTIONS, null) ?: return null
+            val arr = JSONArray(raw)
+            (0 until minOf(arr.length(), ReactionRoute.MAX_ROUTES)).map { reactionFromJson(arr.getJSONObject(it)) }
+        }.getOrNull()
+
+    fun saveReactions(routes: List<ReactionRoute>?) {
+        if (routes == null) {
+            prefs.edit().remove(KEY_REACTIONS).apply()
+            return
+        }
+        val arr = JSONArray()
+        routes.take(ReactionRoute.MAX_ROUTES).forEach { arr.put(reactionToJson(it)) }
+        prefs.edit().putString(KEY_REACTIONS, arr.toString()).apply()
+    }
+
+    private fun reactionToJson(r: ReactionRoute): JSONObject =
+        JSONObject()
+            .put("enabled", r.enabled)
+            .put("source", r.source.name)
+            .put("target", r.target.name)
+            .put("mode", r.mode.name)
+            .put("amount", r.amount.toDouble())
+            .put("curve", r.curve.name)
+            .put("attack", r.attackSeconds.toDouble())
+            .put("release", r.releaseSeconds.toDouble())
+
+    private fun reactionFromJson(o: JSONObject): ReactionRoute =
+        ReactionRoute(
+            enabled = o.optBoolean("enabled", true),
+            source = runCatching { ReactSource.valueOf(o.getString("source")) }.getOrDefault(ReactSource.BASS),
+            target = runCatching { LfoTarget.valueOf(o.getString("target")) }.getOrDefault(LfoTarget.NONE),
+            mode = runCatching { ReactMode.valueOf(o.getString("mode")) }.getOrDefault(ReactMode.FOLLOW),
+            amount = o.optDouble("amount", 0.3).toFloat().coerceIn(ReactionRoute.MIN_AMOUNT, ReactionRoute.MAX_AMOUNT),
+            curve = runCatching { ModCurve.valueOf(o.getString("curve")) }.getOrDefault(ModCurve.LINEAR),
+            attackSeconds = o.optDouble("attack", 0.05).toFloat().coerceIn(0f, ReactionRoute.MAX_ATTACK_SECONDS),
+            releaseSeconds = o.optDouble("release", 0.3).toFloat().coerceIn(0f, ReactionRoute.MAX_RELEASE_SECONDS),
+        )
 
     private fun adsrToJson(c: AdsrConfig): JSONObject =
         JSONObject()
@@ -132,5 +176,6 @@ class LfoStore(
     private companion object {
         const val KEY = "lfos"
         const val KEY_ADSR = "adsrs"
+        const val KEY_REACTIONS = "reactions"
     }
 }

@@ -65,6 +65,14 @@ uniform float uStrobeHz;
 // same value in both slots (it never transitions).
 uniform vec4 uGateA;
 uniform vec4 uGateB;
+// The shared camera rig (core/viz/CameraRig.cpp) seen through a flat image:
+// every scene that does not march the rig's 3D pose itself is viewed as a
+// picture on a plane the camera pans, tilts, rolls and dollies toward.
+// uCamGate is per texture (x = uTexA, y = uTexB), like the gates above:
+// 0 for a scene that already drew the camera.
+uniform vec4 uCamFlat;  // panX, panY, zoom, roll
+uniform vec2 uCamTilt;  // yaw, pitch of the image plane, radians
+uniform vec2 uCamGate;
 // Universal geometric + color post effects, applied here so they work on
 // EVERY scene type - including particle scenes, whose vertex pipeline can't
 // honor screen-space shape params on its own.
@@ -159,12 +167,29 @@ vec3 hueRotate(vec3 c, float a) {
 
 // Applies geometric transforms to a [0,1] uv, operating in centered space.
 // [gate] is this texture's uGateA/uGateB (see their declaration).
-vec2 geo(vec2 uv, vec4 gate) {
+// Intersects the view ray through centred point c with the tilted image
+// plane, then rolls, zooms and pans it.
+vec2 camFlat(vec2 c) {
+    vec3 d = vec3(c, 1.0);
+    float cy = cos(uCamTilt.x);
+    float sy = sin(uCamTilt.x);
+    float cp = cos(uCamTilt.y);
+    float sp = sin(uCamTilt.y);
+    d = vec3(cy * d.x + sy * d.z, d.y, -sy * d.x + cy * d.z);
+    d = vec3(d.x, cp * d.y - sp * d.z, sp * d.y + cp * d.z);
+    c = d.xy / max(d.z, 0.2);
+    float r = uCamFlat.w;
+    c = mat2(cos(r), -sin(r), sin(r), cos(r)) * c;
+    return c / max(uCamFlat.z, 0.05) + uCamFlat.xy;
+}
+
+vec2 geo(vec2 uv, vec4 gate, float camOn) {
     bool geoOn = gate.x > 0.5;
     bool mirrorOn = gate.y > 0.5;
     bool gradeOn = gate.z > 0.5;
     bool pulseOn = gate.w > 0.5;
     vec2 c = uv - 0.5;
+    if (camOn > 0.5) c = camFlat(c);
     // Rotation and sway share one angle, exactly like plasma_frag's view()
     // (a = uRotation + uSway * 0.35 * sin(uTime * 0.7)). uPostRotation is an
     // angle, not a rate: the renderer integrates rotation * dt so the slider
@@ -223,6 +248,9 @@ vec2 geo(vec2 uv, vec4 gate) {
         float px = mix(512.0, 40.0, uPostPixelate);
         p = (floor(p * px) + 0.5) / px;
     }
+    // Mirror-wrap so a camera that zooms out or tilts past the edge sees the
+    // picture reflected, never the clamped edge smeared across the frame.
+    if (camOn > 0.5) p = 1.0 - abs(1.0 - mod(p, 2.0));
     return p;
 }
 
@@ -231,11 +259,11 @@ vec2 geo(vec2 uv, vec4 gate) {
 // transitions. Order: geometry -> distortion (fisheye, glitch) -> sample
 // (chromatic aberration) -> shading (posterize, scanlines, grain, vignette,
 // bloom, strobe, invert).
-vec3 postFx(sampler2D tex, vec2 uv, vec4 gate) {
+vec3 postFx(sampler2D tex, vec2 uv, vec4 gate, float camOn) {
     bool geoOn = gate.x > 0.5;
     bool invertOn = gate.y > 0.5;
     bool gradeOn = gate.z > 0.5;
-    vec2 p = geo(uv, gate);
+    vec2 p = geo(uv, gate, camOn);
     if (uFlowStrength > 0.001) {
         // Soft-limit the field to the +-6 range the 0.015 scale was tuned
         // for: emitter velocities reach ~36 (splat force x audio), and an
@@ -368,8 +396,8 @@ vec3 postFx(sampler2D tex, vec2 uv, vec4 gate) {
 #ifdef MV_TRANSITION
 #define progress uProgress
 #define ratio uRatio
-vec4 getFromColor(vec2 uv) { return vec4(postFx(uTexB, clamp(uv, 0.0, 1.0), uGateB), 1.0); }
-vec4 getToColor(vec2 uv) { return vec4(postFx(uTexA, clamp(uv, 0.0, 1.0), uGateA), 1.0); }
+vec4 getFromColor(vec2 uv) { return vec4(postFx(uTexB, clamp(uv, 0.0, 1.0), uGateB, uCamGate.y), 1.0); }
+vec4 getToColor(vec2 uv) { return vec4(postFx(uTexA, clamp(uv, 0.0, 1.0), uGateA, uCamGate.x), 1.0); }
 // __GL_TRANSITION_SOURCE__
 #endif
 
@@ -428,38 +456,38 @@ vec3 blended() {
         return transition(vUv).rgb;
     }
 #endif
-    vec3 a = postFx(uTexA, vUv, uGateA);
+    vec3 a = postFx(uTexA, vUv, uGateA, uCamGate.x);
     // uStyle 6 is Layers, and it is checked BEFORE the uProgress short-circuit
     // below: uProgress is a transition's clock and sits at 1.0 whenever no
     // transition is running, which is precisely when a layer IS running.
     // Reusing uProgress as the mix would have made the two mutually exclusive
     // for no reason and coupled a persistent setting to a timer.
     if (uStyle == 6) {
-        vec3 b = postFx(uTexB, vUv, uGateB);
+        vec3 b = postFx(uTexB, vUv, uGateB, uCamGate.y);
         return mix(b, layerBlend(b, a, uBlendMode), clamp(uLayerMix, 0.0, 1.0));
     }
     if (uStyle == 0 || uProgress >= 1.0) {
         return a;
     }
     if (uStyle == 1) {
-        vec3 b = postFx(uTexB, vUv, uGateB);
+        vec3 b = postFx(uTexB, vUv, uGateB, uCamGate.y);
         return mix(b, a, uProgress);
     } else if (uStyle == 3) {
         float sh = smoothstep(0.0, 1.0, uProgress);
-        vec3 aSlide = postFx(uTexA, clamp(vUv + vec2(1.0 - sh, 0.0), 0.0, 1.0), uGateA);
-        vec3 bSlide = postFx(uTexB, clamp(vUv - vec2(sh, 0.0), 0.0, 1.0), uGateB);
+        vec3 aSlide = postFx(uTexA, clamp(vUv + vec2(1.0 - sh, 0.0), 0.0, 1.0), uGateA, uCamGate.x);
+        vec3 bSlide = postFx(uTexB, clamp(vUv - vec2(sh, 0.0), 0.0, 1.0), uGateB, uCamGate.y);
         return vUv.x < sh ? aSlide : bSlide;
     } else if (uStyle == 4) {
         float sh = smoothstep(0.0, 1.0, uProgress);
         vec2 zUv = (vUv - 0.5) / (1.0 + sh * 2.5) + 0.5;
-        vec3 bZoom = postFx(uTexB, clamp(zUv, 0.0, 1.0), uGateB);
+        vec3 bZoom = postFx(uTexB, clamp(zUv, 0.0, 1.0), uGateB, uCamGate.y);
         vec2 aUv = (vUv - 0.5) * (1.0 + (1.0 - sh) * 0.35) + 0.5;
-        vec3 aZoom = postFx(uTexA, clamp(aUv, 0.0, 1.0), uGateA);
+        vec3 aZoom = postFx(uTexA, clamp(aUv, 0.0, 1.0), uGateA, uCamGate.x);
         return mix(bZoom, aZoom, sh);
     } else {
         float lumB = dot(texture(uTexB, vUv).rgb, vec3(0.299, 0.587, 0.114));
         vec2 melted = vUv + vec2(0.0, uProgress * (0.25 + lumB * 0.6));
-        vec3 bMelt = postFx(uTexB, clamp(melted, 0.0, 1.0), uGateB);
+        vec3 bMelt = postFx(uTexB, clamp(melted, 0.0, 1.0), uGateB, uCamGate.y);
         float reveal = smoothstep(0.0, 1.0, uProgress * 1.4 - lumB * 0.4);
         return mix(bMelt, a, clamp(reveal, 0.0, 1.0));
     }

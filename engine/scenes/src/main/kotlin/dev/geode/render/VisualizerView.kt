@@ -23,6 +23,19 @@ class VisualizerView(
      */
     val framePacer: FramePacer = FramePacer { requestRender() }
 
+    private val gyroLook =
+        GyroLook(context) { yaw, pitch ->
+            visualizerRenderer.lookYaw = yaw
+            visualizerRenderer.lookPitch = pitch
+        }
+
+    /** The camera's "Tilt phone to look" setting; the sensor only runs while this view is also watched. */
+    var gyroWanted: Boolean = false
+        set(on) {
+            field = on
+            syncPacer()
+        }
+
     /**
      * GLSurfaceView installs its own holder callback; a second one is additive. The surface is
      * the only place the frame-rate preference can be stated, and it has to be restated on every
@@ -107,6 +120,7 @@ class VisualizerView(
     private fun syncPacer() {
         val watched = isAttachedToWindow && windowVisibility == VISIBLE
         if (watched) framePacer.start() else framePacer.stop()
+        gyroLook.setActive(watched && gyroWanted)
     }
 
     private companion object {

@@ -93,6 +93,8 @@ internal class ExportController(
         fun lfoConfigs(): List<dev.geode.render.LfoConfig>
 
         fun adsrConfigs(): List<dev.geode.render.AdsrConfig>
+        
+        fun reactions(): List<dev.geode.render.ReactionRoute>?
 
         /** The open editor project's tracks; programme-level scene tracks animate the export. */
         fun keyframes(): KeyframeSheet
@@ -210,6 +212,7 @@ internal class ExportController(
                             sceneParams = host.sceneParams,
                             lfoConfigs = host.lfoConfigs(),
                             adsrConfigs = host.adsrConfigs(),
+                            reactions = host.reactions(),
                             reducedMotion = gui.reducedMotion,
                             requestedFps = fps,
                             paramsAt = paramsAt,
@@ -451,6 +454,7 @@ internal class ExportController(
                             drift = drift,
                             lfoConfigs = host.lfoConfigs(),
                             adsrConfigs = host.adsrConfigs(),
+                            reactions = host.reactions(),
                             reducedMotion = gui.reducedMotion,
                             codec = codec,
                             onProgress = { p -> publishLoopProgress(ANALYSIS_SPAN + p * RENDER_SPAN) },

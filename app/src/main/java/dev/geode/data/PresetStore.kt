@@ -290,6 +290,20 @@ class PresetStore(
                 .put("motionOrbit", p.params.motionOrbit.toDouble())
                 .put("motionDrift", p.params.motionDrift.toDouble())
                 .put("motionHue", p.params.motionHue.toDouble())
+                .put("camFly", p.params.camFly.toDouble())
+                .put("camOrbit", p.params.camOrbit.toDouble())
+                .put("camPush", p.params.camPush.toDouble())
+                .put("camYaw", p.params.camYaw.toDouble())
+                .put("camPitch", p.params.camPitch.toDouble())
+                .put("camRoll", p.params.camRoll.toDouble())
+                .put("camFov", p.params.camFov.toDouble())
+                .put("camShake", p.params.camShake.toDouble())
+                .put("camSmooth", p.params.camSmooth.toDouble())
+                .put("reactAmount", p.params.reactAmount.toDouble())
+                .put("camPath", p.params.camPath)
+                .put("reactSeed", p.params.reactSeed)
+                .put("camTouch", p.params.camTouch)
+                .put("camGyro", p.params.camGyro)
                 .apply { if (p.customShader != null) put("customShader", p.customShader) }
                 .apply { if (p.milkPreset != null) put("milkPreset", p.milkPreset) }
                 .toString(2)
@@ -489,6 +503,20 @@ class PresetStore(
                         motionOrbit = o.optDouble("motionOrbit", 0.5).toFloat(),
                         motionDrift = o.optDouble("motionDrift", 0.5).toFloat(),
                         motionHue = o.optDouble("motionHue", 0.4).toFloat(),
+                        camFly = o.optDouble("camFly", SceneParams.DEFAULT.camFly.toDouble()).toFloat(),
+                        camOrbit = o.optDouble("camOrbit", SceneParams.DEFAULT.camOrbit.toDouble()).toFloat(),
+                        camPush = o.optDouble("camPush", SceneParams.DEFAULT.camPush.toDouble()).toFloat(),
+                        camYaw = o.optDouble("camYaw", SceneParams.DEFAULT.camYaw.toDouble()).toFloat(),
+                        camPitch = o.optDouble("camPitch", SceneParams.DEFAULT.camPitch.toDouble()).toFloat(),
+                        camRoll = o.optDouble("camRoll", SceneParams.DEFAULT.camRoll.toDouble()).toFloat(),
+                        camFov = o.optDouble("camFov", SceneParams.DEFAULT.camFov.toDouble()).toFloat(),
+                        camShake = o.optDouble("camShake", SceneParams.DEFAULT.camShake.toDouble()).toFloat(),
+                        camSmooth = o.optDouble("camSmooth", SceneParams.DEFAULT.camSmooth.toDouble()).toFloat(),
+                        reactAmount = o.optDouble("reactAmount", SceneParams.DEFAULT.reactAmount.toDouble()).toFloat(),
+                        camPath = o.optInt("camPath", SceneParams.DEFAULT.camPath),
+                        reactSeed = o.optInt("reactSeed", SceneParams.DEFAULT.reactSeed),
+                        camTouch = o.optBoolean("camTouch", SceneParams.DEFAULT.camTouch),
+                        camGyro = o.optBoolean("camGyro", SceneParams.DEFAULT.camGyro),
                     ),
             )
         }

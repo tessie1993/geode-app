@@ -57,6 +57,8 @@ uniform float uTemperature;
 uniform float uSolarize;
 uniform float uFlash;
 
+//#include lib_react
+
 float aband(float x) { return texture(uAudioTex, vec2(clamp(x, 0.0, 1.0), 0.25)).r; }
 float awave(float x) { return texture(uAudioTex, vec2(clamp(x, 0.0, 1.0), 0.75)).r; }
 
@@ -159,16 +161,69 @@ vec3 grade(vec3 col) {
 }
 
 // Kaleidoscope: angular mirror folds over a flowing audio pattern.
-void main() {
-    vec2 uv = view();
-    float seg = 6.0;
+//
+// What reacts to what (sound events via lib_react; camera motion is the
+// composite's, applied to this picture automatically):
+//   - a section change re-picks the fold count (4 to 9 wedges, hashed from
+//     uSectionCount) and crossfades the old count into the new one over the
+//     section envelope (uEvents.z), then holds it until the next section.
+//   - hats (uHits.z) sparkle: a sparse, hashed scatter of points across the
+//     folded plane, re-scattered on every onset, so the sparkles mirror into
+//     every wedge. Local points only, never the frame.
+//   - the pattern flows with the analyser bands and bass lifts it, as before.
+
+/** Sparkle grid density across the folded plane. */
+#define KAL_SPARKLE_CELLS 22.0
+
+/** PCG integer hash: exact on every device, unlike a sin() hash. */
+uint kalHash(uint h) {
+    h = h * 747796405u + 2891336453u;
+    h = ((h >> ((h >> 28u) + 4u)) ^ h) * 277803737u;
+    return (h >> 22u) ^ h;
+}
+
+/** The fold count for section number `n`: 4..9. */
+float kalFolds(float n) {
+    return 4.0 + float(kalHash(uint(max(n, 0.0))) % 6u);
+}
+
+/** One kaleidoscope at `seg` wedges: the folded point and the pattern value at it. */
+float kalPattern(vec2 uv, float seg, out vec2 folded) {
     float a = atan(uv.y, uv.x);
     float r = length(uv);
     a = abs(mod(a, 6.2831 / seg) - 3.1415 / seg);
-    uv = vec2(cos(a), sin(a)) * r;
-    float f = sin(uv.x * 7.0 + uTime) * cos(uv.y * 7.0 - uTime * 0.8)
+    folded = vec2(cos(a), sin(a)) * r;
+    return sin(folded.x * 7.0 + uTime) * cos(folded.y * 7.0 - uTime * 0.8)
         + aband(fract(r + uTime * 0.05)) * 1.2;
+}
+
+void main() {
+    vec2 uv = view();
+    float r = length(uv);
+
+    // The section crossfade, without frame-to-frame state: when a section
+    // lands, uSectionCount steps and uEvents.z jumps to 1 on the same frame,
+    // so the weight starts at the OLD count and eases to the new one as the
+    // envelope falls. Both counts are drawn and mixed, so nothing pops.
+    float w = 1.0 - clamp(uEvents.z, 0.0, 1.0);
+    w = w * w * (3.0 - 2.0 * w);
+    vec2 foldOld;
+    vec2 foldNew;
+    float fOld = kalPattern(uv, kalFolds(uSectionCount - 1.0), foldOld);
+    float fNew = kalPattern(uv, kalFolds(uSectionCount), foldNew);
+    float f = mix(fOld, fNew, w);
     vec3 col = pal(f * 0.3 + r * 0.4) * (0.3 + f * 0.5 + uBass * 0.6);
+
+    // Hat sparkles on the folded plane, so every wedge mirrors them. A cell
+    // carries one when its hash, re-rolled per onset, clears the bar.
+    vec2 folded = mix(foldOld, foldNew, w);
+    vec2 cell = floor(folded * KAL_SPARKLE_CELLS);
+    vec2 local = fract(folded * KAL_SPARKLE_CELLS) - 0.5;
+    uvec2 c = uvec2(ivec2(cell));
+    float pick = float(kalHash(c.x ^ kalHash(c.y ^ kalHash(uint(max(uHitCount, 0.0))))) & 0xffffu) * (1.0 / 65536.0);
+    float sparkle = step(0.94, pick) * (1.0 - smoothstep(0.0, 0.32, length(local))) * clamp(uHits.z, 0.0, 1.0);
+    col += pal(f * 0.3 + 0.5) * sparkle * 0.9;
+
     col *= smoothstep(1.6, 0.2, r);
     fragColor = vec4(grade(col), 1.0);
 }

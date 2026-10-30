@@ -12,6 +12,7 @@
 
 #include "api/geode_api.h"
 #include "viz/Adsr.hpp"
+#include "viz/CameraRig.hpp"
 #include "viz/CompositePass.hpp"
 #include "viz/Framebuffer.hpp"
 #include "viz/GlProfile.hpp"
@@ -20,6 +21,7 @@
 #include "viz/Overlays.hpp"
 #include "viz/Params.hpp"
 #include "viz/ProgramBinaryCache.hpp"
+#include "viz/Reactions.hpp"
 #include "viz/Scene.hpp"
 #include "viz/SceneRegistry.hpp"
 #include "viz/ShaderSource.hpp"
@@ -61,6 +63,12 @@ public:
     std::string takeMilkPresetLoaded();
     void setLfoConfigs(const std::array<LfoConfig, LfoEngine::kSlots>& configs);
     void setAdsrConfigs(const std::array<AdsrConfig, AdsrEngine::kCount>& configs);
+    void setReactionRoutes(const std::array<ReactRoute, ReactionEngine::kRoutes>& routes);
+    // Gyro look, -1..1 per axis; read by the camera only while camGyro is on.
+    void setLook(float yaw, float pitch) {
+        lookYaw_.store(yaw, std::memory_order_relaxed);
+        lookPitch_.store(pitch, std::memory_order_relaxed);
+    }
     // W00: full-frame overlay/underlay layers, latched here and uploaded to GL textures at the
     // start of the next frame; see CompositePass.hpp for the pass itself. `pixels` is Android's
     // Bitmap.getPixels ARGB layout; null (or a non-positive size) clears the layer.
@@ -104,6 +112,7 @@ private:
     void composite(Scene& scene, const SceneParams& p, float progress, GLuint targetFbo);
     void deliverPcm(Scene& scene);
     void stepOverlays(Scene& scene, const SceneParams& p, float dt);
+    void stepCamera(const SceneParams& p, float dt);
     void wireFlow(Scene& target, const SceneParams& p);
     void applyPendingFluidInjection();
     void applyMilkRequests();
@@ -135,6 +144,10 @@ private:
     // Wave three's continuous replacement for FormDrive: the one stage every
     // family's SceneParams pass through so nothing can key off a drum hit.
     MotionField motionField_;
+    ReactionEngine reactions_;
+    CameraRig camera_;
+    std::atomic<float> lookYaw_{0.0f};
+    std::atomic<float> lookPitch_{0.0f};
     Framebuffer fboA_{"sceneA"};
     Framebuffer fboB_{"sceneB"};
     GLuint quadVao_ = 0;

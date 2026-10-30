@@ -132,6 +132,16 @@ const std::array<SceneParams::FloatField, SceneParams::kLerpedFloatCount>& Scene
         {"motionOrbit", &SceneParams::motionOrbit},
         {"motionDrift", &SceneParams::motionDrift},
         {"motionHue", &SceneParams::motionHue},
+        {"camFly", &SceneParams::camFly},
+        {"camOrbit", &SceneParams::camOrbit},
+        {"camPush", &SceneParams::camPush},
+        {"camYaw", &SceneParams::camYaw},
+        {"camPitch", &SceneParams::camPitch},
+        {"camRoll", &SceneParams::camRoll},
+        {"camFov", &SceneParams::camFov},
+        {"camShake", &SceneParams::camShake},
+        {"camSmooth", &SceneParams::camSmooth},
+        {"reactAmount", &SceneParams::reactAmount},
     }};
     return kFields;
 }
@@ -155,6 +165,8 @@ bool SceneParams::set(std::string_view name, float value) {
         {"fluidCatchPoints", &SceneParams::fluidCatchPoints},
         {"cymaticsGeometry", &SceneParams::cymaticsGeometry},
         {"cymaticsModes", &SceneParams::cymaticsModes},
+        {"camPath", &SceneParams::camPath},
+        {"reactSeed", &SceneParams::reactSeed},
     };
     static const BoolField kBools[] = {
         {"endlessZoom", &SceneParams::endlessZoom},
@@ -176,6 +188,8 @@ bool SceneParams::set(std::string_view name, float value) {
         {"fluidSunrays", &SceneParams::fluidSunrays},
         {"flowEnabled", &SceneParams::flowEnabled},
         {"rippleOverlayEnabled", &SceneParams::rippleOverlayEnabled},
+        {"camTouch", &SceneParams::camTouch},
+        {"camGyro", &SceneParams::camGyro},
     };
     static const FloatField kAllFloats[] = {
         {"speed", &SceneParams::speed},
@@ -284,6 +298,16 @@ bool SceneParams::set(std::string_view name, float value) {
         {"motionOrbit", &SceneParams::motionOrbit},
         {"motionDrift", &SceneParams::motionDrift},
         {"motionHue", &SceneParams::motionHue},
+        {"camFly", &SceneParams::camFly},
+        {"camOrbit", &SceneParams::camOrbit},
+        {"camPush", &SceneParams::camPush},
+        {"camYaw", &SceneParams::camYaw},
+        {"camPitch", &SceneParams::camPitch},
+        {"camRoll", &SceneParams::camRoll},
+        {"camFov", &SceneParams::camFov},
+        {"camShake", &SceneParams::camShake},
+        {"camSmooth", &SceneParams::camSmooth},
+        {"reactAmount", &SceneParams::reactAmount},
     };
     for (const auto& f : kAllFloats) {
         if (name == f.name) { this->*f.member = value; return true; }

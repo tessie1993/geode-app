@@ -4,6 +4,8 @@ import android.content.Context
 import dev.geode.analysis.FeatureTimeline
 import dev.geode.render.AdsrConfig
 import dev.geode.render.LfoConfig
+import dev.geode.render.ReactionRoute
+import dev.geode.render.StyleReactionsCache
 import dev.geode.render.SceneFactory
 import dev.geode.render.TransitionStyle
 import dev.geode.render.bridge.NativeViz
@@ -26,6 +28,8 @@ data class OffscreenRenderSpec(
     val baseParams: SceneParams,
     val lfoConfigs: List<LfoConfig> = emptyList(),
     val adsrConfigs: List<AdsrConfig> = emptyList(),
+    // The user's reaction routes; null plays the style's DNA, exactly as the live renderer does.
+    val reactions: List<ReactionRoute>? = null,
     val reducedMotion: Boolean = false,
     val paramsAt: ((Long) -> SceneParams)? = null,
     // W02: the background image behind the scene, decoded by the caller at [width]x[height] and
@@ -63,6 +67,8 @@ class OffscreenSceneRenderer(
     private val spec: OffscreenRenderSpec,
 ) {
     private var native: NativeViz? = null
+    private val styleReactions = StyleReactionsCache()
+    private var nativeReactions: List<ReactionRoute>? = null
 
     /** Builds the native renderer and its scene; must run with the target GL context current. */
     fun prepare() {
@@ -101,6 +107,12 @@ class OffscreenSceneRenderer(
         // Quality never adapts downward in an export; the thermal half is the offscreen pin above.
         val p = (spec.paramsAt?.invoke(timeMs) ?: spec.baseParams).copy(fluidAutoQuality = false)
         viz.setParams(p)
+        // Keyframes can change reactSeed mid-export, so this resolves per frame like live does.
+        val routes = spec.reactions ?: styleReactions.routesFor(sceneFactory.sceneId, p.reactSeed)
+        if (routes !== nativeReactions) {
+            viz.setReactions(routes)
+            nativeReactions = routes
+        }
         viz.setFeatures(features)
         viz.render(timeMs / 1000.0, targetFbo)
     }

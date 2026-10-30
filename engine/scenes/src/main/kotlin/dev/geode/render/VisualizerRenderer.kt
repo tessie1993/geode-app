@@ -85,11 +85,28 @@ class VisualizerRenderer(
 
     val adsrEngine = AdsrEngine()
 
+    /**
+     * The user's own reaction routes, or null to play the style's DNA
+     * ([BuildStyleReactionsUseCase] for the current scene and `reactSeed`).
+     */
+    @Volatile
+    var reactions: List<ReactionRoute>? = null
+
+    /** Gyro look, -1..1 per axis, written by the sensor listener; native reads it only while camGyro is on. */
+    @Volatile
+    var lookYaw: Float = 0f
+
+    @Volatile
+    var lookPitch: Float = 0f
+
+    private val styleReactions = StyleReactionsCache()
+
     private val appContext = context.applicationContext
     private val nativeViz = NativeViz(context)
     private var nativeParams: SceneParams? = null
     private var nativeLfo: List<LfoConfig>? = null
     private var nativeAdsr: List<AdsrConfig>? = null
+    private var nativeReactions: List<ReactionRoute>? = null
     private var nativeThermalSampleMs = 0L
 
     @Volatile
@@ -166,6 +183,7 @@ class VisualizerRenderer(
         nativeParams = null
         nativeLfo = null
         nativeAdsr = null
+        nativeReactions = null
     }
 
     override fun onSurfaceChanged(
@@ -217,6 +235,12 @@ class VisualizerRenderer(
             nativeViz.setAdsrConfigs(adsr)
             nativeAdsr = adsr
         }
+        val routes = reactions ?: styleReactions.routesFor(requestedSceneId, p.reactSeed)
+        if (routes !== nativeReactions) {
+            nativeViz.setReactions(routes)
+            nativeReactions = routes
+        }
+        nativeViz.setLook(lookYaw, lookPitch)
         nativeViz.setFeatures(features)
         nativeViz.setReducedMotion(reducedMotion)
         nativeViz.setLayer(layerSceneId, layerMix, layerBlend)

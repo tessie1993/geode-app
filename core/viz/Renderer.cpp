@@ -268,6 +268,11 @@ void Renderer::setAdsrConfigs(const std::array<AdsrConfig, AdsrEngine::kCount>& 
     adsr_.configs = configs;
 }
 
+void Renderer::setReactionRoutes(const std::array<ReactRoute, ReactionEngine::kRoutes>& routes) {
+    std::lock_guard<std::mutex> lock(stateLock_);
+    reactions_.routes = routes;
+}
+
 void Renderer::fail(const std::string& message) {
     {
         std::lock_guard<std::mutex> lock(stateLock_);
@@ -363,6 +368,8 @@ void Renderer::onSurfaceCreated() {
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     lastTimeS_ = -1.0;
     motionField_.reset();
+    reactions_.reset();
+    camera_.reset();
 }
 
 void Renderer::surfaceChanged(int width, int height) {
@@ -446,6 +453,7 @@ std::unique_ptr<Scene> Renderer::buildScene(const std::string& id) {
     }
     if (paletteLutTex_ != 0) scene->setPaletteLut(paletteLutTex_);
     scene->setTouchField(&touchField_);
+    scene->setCamera(&camera_.pose());
     scene->init();
     scene->setParams(initialParams);
     scene->resize(renderWidth_, renderHeight_);

@@ -9,6 +9,7 @@
 
 #include "viz/MotionField.hpp"
 #include "viz/Program.hpp"
+#include "viz/Reactions.hpp"
 #include "viz/Scene.hpp"
 #include "viz/Texture.hpp"
 
@@ -35,6 +36,8 @@ public:
     void setFlow(GLuint texture, float strength) override;
     void setPaletteLut(GLuint texture) override { paletteLutTex_ = texture; }
     void setTouchField(const TouchField* field) override { touchField_ = field; }
+    void setCamera(const CameraPose* pose) override { camera_ = pose; }
+    bool drawsCamera() const override { return drawsCamera_; }
     void setFragmentSource(const std::string& source) override;
 
 private:
@@ -77,6 +80,7 @@ private:
     void uploadParams();
     void uploadMotion();
     void uploadTouch();
+    void uploadCameraAndReactions();
     void set1f(const char* name, float value);
     float marchSteps(float detail);
 
@@ -130,6 +134,18 @@ private:
     float flowStrength_ = 0.0f;
     GLuint paletteLutTex_ = 0;
     const TouchField* touchField_ = nullptr;
+    const CameraPose* camera_ = nullptr;
+    // True when the compiled program reads uCamBasis (lib_camera): the style
+    // marches the rig's pose itself and the composite leaves it alone.
+    bool drawsCamera_ = false;
+    // This scene's own copy of the reaction sources (lib_react's uniforms),
+    // a pure function of the frames update() receives, like motionField_.
+    ReactSignals reactSignals_;
+    // SubBass..Air then Flux, slewed: uBandsLo, uBandsHi.
+    std::array<float, 8> bandsSmooth_{};
+    // Kick, snare, hat, peak-held: uHits.xyz.
+    std::array<float, 3> hitsSmooth_{};
+    static constexpr float kHitFallHz = 6.5f;
     std::array<float, TouchField::kPointStride> touchAnchor_{};
     std::array<float, TouchField::kMaxPoints * TouchField::kPointStride> touchPoints_{};
 

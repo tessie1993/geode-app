@@ -143,6 +143,60 @@ void reducedMotionSlowsTravel() {
     check(slow.pose().travel < fast.pose().travel * 0.6f, "reduced motion slows the fly-through");
 }
 
+bool finite3(const std::array<float, 3>& v) { return std::isfinite(v[0]) && std::isfinite(v[1]) && std::isfinite(v[2]); }
+
+GeodeFeatureFrame busyFrame(int i) {
+    GeodeFeatureFrame f = silence();
+    for (int k = 0; k < GEODE_BAND_COUNT; ++k) f.bands[k] = 0.5f + 0.5f * std::sin(0.3f * static_cast<float>(i + k));
+    f.kick = (i % 7 == 0) ? 1.0f : 0.1f;
+    f.transient = (i % 5 == 0) ? 0.8f : 0.0f;
+    f.drop = (i % 50 == 0) ? 1.0f : 0.0f;
+    f.sectionBoundary = (i % 40 == 0) ? 1.0f : 0.0f;
+    return f;
+}
+
+void oddFrameTimesStayFiniteAndBounded() {
+    const float odd[] = {0.0f, -1.0f, -1e9f, 1e6f, NAN, INFINITY, -INFINITY};
+    for (float dt : odd) {
+        ReactionEngine e;
+        e.routes[0] = {true, ReactSource::Bass, LfoTarget::Rotation, ReactMode::Spin, 1.0f, ModCurve::Linear, 0.05f, 0.3f};
+        e.routes[1] = {true, ReactSource::Kick, LfoTarget::CamPush, ReactMode::Follow, 0.5f, ModCurve::Smooth, 0.0f, 0.2f};
+        e.routes[2] = {true, ReactSource::Section, LfoTarget::CamYaw, ReactMode::Step, 0.6f, ModCurve::Linear, 0.5f, 0.5f};
+        CameraRig rig;
+        SceneParams p;
+        p.camFly = 2.0f;
+        p.camShake = 1.0f;
+        for (int i = 0; i < 120; ++i) {
+            e.tick(busyFrame(i), dt);
+            const SceneParams q = e.apply(p);
+            rig.step(q, {0.5f, -0.5f}, dt, false);
+            for (int r = 0; r < 3; ++r) check(std::isfinite(e.output(r)) && std::fabs(e.output(r)) <= 1.0001f, "route output finite and bounded for odd dt");
+        }
+        const CameraPose& c = rig.pose();
+        check(finite3(c.pos) && finite3(c.fwd) && finite3(c.up) && finite3(c.right), "camera pose finite for odd dt");
+        check(std::isfinite(c.focal) && c.focal > 0.0f, "camera focal finite and positive for odd dt");
+        if (!(dt > 0.0f) || !std::isfinite(dt)) check(c.travel == 0.0f, "no time passing means no travel");
+    }
+}
+
+void zeroDtFreezesTheCameraAndHugeDtIsOneClampedStep() {
+    SceneParams p;
+    p.camFly = 1.0f;
+    CameraRig a;
+    CameraRig b;
+    for (int i = 0; i < 30; ++i) {
+        a.step(p, {}, 1.0f / 60.0f, false);
+        b.step(p, {}, 1.0f / 60.0f, false);
+    }
+    const float before = a.pose().travel;
+    a.step(p, {}, 0.0f, false);
+    check(a.pose().travel == before, "dt = 0 does not move the camera");
+    a.step(p, {}, 1e6f, false);
+    b.step(p, {}, 0.0f, false);
+    b.step(p, {}, 0.1f, false);
+    check(std::fabs(a.pose().travel - b.pose().travel) < 1e-5f, "a huge dt is treated as the 0.1 s cap");
+}
+
 }  // namespace
 
 int main() {
@@ -156,6 +210,8 @@ int main() {
     cameraSpringsInsteadOfSnapping();
     cameraPathRepeatsAcrossTheWrap();
     reducedMotionSlowsTravel();
+    oddFrameTimesStayFiniteAndBounded();
+    zeroDtFreezesTheCameraAndHugeDtIsOneClampedStep();
     if (failures == 0) std::printf("viz_math_test: all passed\n");
     return failures == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
 }

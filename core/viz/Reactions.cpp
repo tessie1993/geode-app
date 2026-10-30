@@ -36,6 +36,11 @@ constexpr float kMinTempoBpm = 60.0f;
 constexpr float kMaxTempoBpm = 180.0f;
 constexpr float kTwoPi = 6.2831853f;
 
+// A NaN or infinite frame time (a clock glitch) is a frame that did not
+// happen; anything else is clamped to [0, 0.1] s so one long stall cannot
+// fling an envelope or an accumulator.
+float sanitizeDt(float dt) { return std::isfinite(dt) ? std::clamp(dt, 0.0f, 0.1f) : 0.0f; }
+
 float onePoleK(float dt, float tau) { return 1.0f - std::exp(-std::max(dt, 0.0f) / std::max(tau, 1e-4f)); }
 
 float regionMean(const GeodeFeatureFrame& f, BandRange r) {
@@ -78,7 +83,7 @@ void ReactSignals::decay(ReactSource s, float dt, float seconds) {
 }
 
 void ReactSignals::step(const GeodeFeatureFrame& f, float dt) {
-    dt = std::clamp(dt, 0.0f, 0.1f);
+    dt = sanitizeDt(dt);
     auto set = [&](ReactSource s, float v) { values_[static_cast<size_t>(s)] = v; };
 
     for (size_t i = 0; i < kRegions.size(); ++i) {
@@ -157,7 +162,7 @@ float ReactionEngine::fold(float accumulator) {
 }
 
 void ReactionEngine::tick(const GeodeFeatureFrame& f, float dt) {
-    dt = std::clamp(dt, 0.0f, 0.1f);
+    dt = sanitizeDt(dt);
     signals_.step(f, dt);
     for (int i = 0; i < kRoutes; ++i) {
         const ReactRoute& r = routes[static_cast<size_t>(i)];

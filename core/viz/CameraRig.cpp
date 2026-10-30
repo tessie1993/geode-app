@@ -77,7 +77,8 @@ Vec3 CameraRig::pathPoint(int path, float orbit, float s) {
 }
 
 void CameraRig::step(const SceneParams& p, const LookInput& look, float dt, bool reducedMotion) {
-    dt = std::clamp(dt, 0.0f, 0.1f);
+    // Same frame-time rule as viz/Reactions: non-finite is no time at all.
+    dt = std::isfinite(dt) ? std::clamp(dt, 0.0f, 0.1f) : 0.0f;
     const float g = reducedMotion ? safety::kReducedMotionScale : 1.0f;
     const float soft = 0.08f + 0.72f * std::clamp(p.camSmooth, 0.0f, 1.0f);
     const float lookYaw = p.camYaw * kMaxYaw + (p.camTouch || p.camGyro ? look.yaw * kTouchLook : 0.0f);

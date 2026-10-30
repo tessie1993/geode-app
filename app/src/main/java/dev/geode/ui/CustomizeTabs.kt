@@ -27,6 +27,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -659,7 +660,8 @@ private fun ReactionCard(
     onChange: (ReactionRoute) -> Unit,
     onRemove: () -> Unit,
 ) {
-    var expanded by remember { mutableStateOf(false) }
+    // Saveable: an open card survives rotation and process death like the rest of the panel.
+    var expanded by rememberSaveable { mutableStateOf(false) }
     var picking by remember { mutableStateOf<ReactionPick?>(null) }
     val sceneId = LocalSceneId.current
     Column(modifier = Modifier.padding(vertical = 4.dp)) {

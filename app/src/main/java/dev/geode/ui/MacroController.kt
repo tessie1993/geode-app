@@ -80,6 +80,21 @@ internal class MacroController(
         settle(current.copy(macros = turned), params)
     }
 
+    /**
+     * Every knob back to its rest without touching the params: for when the look was replaced
+     * from outside (undo, redo, reset all). A knob's position is a nudge from the look it was
+     * turned on, so once that look is gone the old position would make [resetKnobs] and
+     * [surprise] push the new look off by the old turn.
+     */
+    fun restKnobs() {
+        // ponytail: undo of a knob turn rests every knob rather than putting each back where it was;
+        // keep knob positions in the param history if that ever matters.
+        val current = _set.value
+        anchor = null
+        if (current.macros.all { it.value == it.rest }) return
+        publish(current.copy(macros = current.macros.map { it.copy(value = it.rest) }))
+    }
+
     /** Every knob back to its rest, taking its destinations back with it; one undo entry. */
     fun resetKnobs() {
         val current = _set.value

@@ -576,6 +576,30 @@
     <string name="render_nothing_playing">Nothing is playing. Play a track to render it.</string>
     <string name="render_button">Render</string>
     <string name="render_saved_named">Saved %1$s to Movies/MuzViz.</string>
+    <string name="render_scope_queue">Play queue</string>
+    <string name="render_scope_playlist">Playlist</string>
+    <string name="render_scope_chosen">Chosen tracks</string>
+    <string name="render_scope_pick_playlist">Choose a playlist…</string>
+    <string name="render_scope_pick_tracks">Choose tracks…</string>
+    <string name="render_no_playlists">No playlists yet. Make one in Library.</string>
+    <string name="render_tracks_search">Search tracks</string>
+    <string name="render_cancel">Cancel</string>
+    <string name="render_group_look">Look</string>
+    <string name="render_look_current">Current look</string>
+    <string name="render_look_hint">Every track in the batch renders with this look.</string>
+    <string name="render_batch_hint">A batch renders each track whole, one after another, into Movies/MuzViz. A track that cannot be rendered is skipped.</string>
+    <string name="render_batch_label">Rendering %1$d tracks</string>
+    <string name="render_batch_progress">Track %1$d of %2$d · %3$s</string>
+    <string name="render_batch_summary">%1$d of %2$d rendered to Movies/MuzViz.</string>
+    <string name="render_batch_failed_track">%1$s: %2$s</string>
+    <plurals name="render_tracks_count">
+        <item quantity="one">%d track</item>
+        <item quantity="other">%d tracks</item>
+    </plurals>
+    <plurals name="render_use_tracks">
+        <item quantity="one">Use %d track</item>
+        <item quantity="other">Use %d tracks</item>
+    </plurals>
     <string name="render_open">Open</string>
     <string name="render_share">Share</string>
     <string name="render_show_in_folder">Show in folder</string>

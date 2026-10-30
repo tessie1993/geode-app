@@ -97,6 +97,9 @@
          package names instead of "Spotify". Scoped to media apps only - this is not
          QUERY_ALL_PACKAGES and requests nothing from the user. -->
     <queries>
+        <!-- PlaybackService lets Android Auto, Wear OS and the Google app browse the library when
+             they are signed like Play services; checkSignatures needs Play services visible. -->
+        <package android:name="com.google.android.gms" />
         <intent>
             <action android:name="android.media.browse.MediaBrowserService" />
         </intent>

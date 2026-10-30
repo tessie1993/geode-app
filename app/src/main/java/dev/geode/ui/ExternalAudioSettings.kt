@@ -79,7 +79,7 @@ fun ExternalAudioSettings(viewModel: PlayerViewModel) {
                 } else {
                     permissions.launch(arrayOf(android.Manifest.permission.RECORD_AUDIO))
                 }
-                },
+            },
         )
         Text(
             stringResource(R.string.ext_explainer),

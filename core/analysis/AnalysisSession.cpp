@@ -11,34 +11,18 @@ namespace {
 // push()'s buffer_/sideBuffer_ are capped at this many FFT windows so a producer that pushes without ever
 // pulling cannot grow them without bound.
 constexpr size_t kMaxBufferedWindows = 8;
-
-// Clamped to fftSize so pull() always has at least one full window buffered before it advances past the
-// window it just analyzed; without this, a hop rate too low for the sample rate (e.g. 60 Hz at 192 kHz with
-// a 2048 FFT) would produce hopSamples_ > fftSize_ and underflow `buffered_ - hop` in pull(). The clamp keeps
-// analysis running with a degraded (too-frequent) hop instead of crashing.
-int hopFor(int sampleRateHz, float hopRateHz, int fftSize) {
-    const int hop = std::max(static_cast<int>(sampleRateHz / hopRateHz), 1);
-    return std::min(hop, fftSize);
-}
 }  // namespace
 
-AnalysisSession::AnalysisSession(int sampleRateHz, int fftSize, float hopRateHz)
+AnalysisSession::AnalysisSession(int sampleRateHz, int fftSize)
     : sampleRateHz_(sampleRateHz),
       fftSize_(fftSize),
-      hopRateHz_(hopRateHz),
-      hopSamples_(hopFor(sampleRateHz, hopRateHz, fftSize)),
-      analyzer_(GEODE_BAND_COUNT, fftSize, sampleRateHz, hopRateHz),
-      chroma_(hopRateHz),
+      hopSamples_(std::max(fftSize / kHopDivisor, 1)),
+      hopRateHz_(static_cast<float>(sampleRateHz) / static_cast<float>(hopSamples_)),
+      analyzer_(GEODE_BAND_COUNT, fftSize, sampleRateHz, hopRateHz_),
+      chroma_(hopRateHz_),
       spectrum_(static_cast<size_t>(fftSize / 2)),
       buffer_(static_cast<size_t>(fftSize) * 4),
       sideBuffer_(static_cast<size_t>(fftSize) * 4) {}
-
-void AnalysisSession::setSampleRateHz(int value) {
-    if (value <= 0 || value == sampleRateHz_) return;
-    sampleRateHz_ = value;
-    hopSamples_ = hopFor(value, hopRateHz_, fftSize_);
-    analyzer_.setSampleRateHz(value);
-}
 
 void AnalysisSession::setTuning(float sensitivity, float refractoryMs, float attackSeconds, float releaseSeconds) {
     analyzer_.setSensitivity(sensitivity);
@@ -51,15 +35,6 @@ void AnalysisSession::reset() {
     analyzer_.reset();
     chroma_.reset();
     buffered_ = 0;
-}
-
-void AnalysisSession::analyze(const float* mid, const float* side, size_t frames, float dtSeconds, GeodeFeatureFrame& out) {
-    if (frames < static_cast<size_t>(fftSize_)) return;
-    analyzer_.analyze(mid, dtSeconds);
-    analyzer_.spectrumInto(spectrum_.data());
-    chroma_.step(spectrum_.data(), static_cast<int>(spectrum_.size()), sampleRateHz_, fftSize_);
-    fill(mid, side, out);
-    averagedWaveform(mid, out.waveform);
 }
 
 void AnalysisSession::push(const float* interleaved, size_t frames, int channels) {
@@ -107,10 +82,10 @@ bool AnalysisSession::pull(GeodeFeatureFrame& out) {
     key_.accumulate(spectrum_.data(), static_cast<int>(spectrum_.size()), sampleRateHz_, fftSize_);
     chroma_.step(spectrum_.data(), static_cast<int>(spectrum_.size()), sampleRateHz_, fftSize_);
     fill(mid, side, out);
-    decimatedWaveform(mid, out.waveform);
+    averagedWaveform(mid, out.waveform);
 
-    // hopSamples_ is clamped to fftSize_ at construction/setSampleRateHz, and buffered_ >= fftSize_ here
-    // (the guard above), so hop <= buffered_ always; the extra clamp is defense in depth.
+    // hopSamples_ <= fftSize_ by construction and buffered_ >= fftSize_ here (the guard above), so
+    // hop <= buffered_ always; the extra clamp is defense in depth.
     const size_t hop = std::min(static_cast<size_t>(hopSamples_), buffered_);
     const size_t remaining = buffered_ - hop;
     std::memmove(buffer_.data(), buffer_.data() + hop, remaining * sizeof(float));
@@ -167,11 +142,6 @@ void AnalysisSession::averagedWaveform(const float* mid, float* out) const {
         for (int j = 0; j < step; j++) acc += mid[base + j];
         out[i] = acc / step;
     }
-}
-
-void AnalysisSession::decimatedWaveform(const float* mid, float* out) const {
-    const int step = std::max(fftSize_ / GEODE_WAVEFORM_POINTS, 1);
-    for (int i = 0; i < GEODE_WAVEFORM_POINTS; i++) out[i] = mid[i * step];
 }
 
 }  // namespace geode::analysis

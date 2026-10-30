@@ -14,7 +14,7 @@ public:
     static constexpr double kSilence = 1e-7;
     static constexpr const char* kNames[12] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
 
-    explicit Chromagram(float hopRateHz = 60.0f, float attackSeconds = kAttackSeconds,
+    explicit Chromagram(float hopRateHz, float attackSeconds = kAttackSeconds,
                         float releaseSeconds = kReleaseSeconds);
 
     const std::array<float, 12>& bins() const { return bins_; }

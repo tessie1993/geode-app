@@ -66,18 +66,28 @@ class SampleRing(
         written = w
     }
 
-    fun snapshotLatest(out: Array<FloatArray>): Boolean {
-        val frames = out.minOf { it.size }
-        if (frames > capacityFrames) return false
-        val w = written
-        if (w < frames) return false
-        for (c in out.indices.take(channelCount)) {
+    /**
+     * Copies [count] frames from [firstFrame] into [out], interleaved as [outChannels] channels
+     * (the ring's first [outChannels]). False if any of them is not in the ring: not written yet,
+     * or already overwritten.
+     */
+    fun readInterleaved(
+        firstFrame: Long,
+        count: Int,
+        outChannels: Int,
+        out: FloatArray,
+    ): Boolean {
+        require(outChannels in 1..channelCount) { "outChannels must be in 1..$channelCount, was $outChannels" }
+        require(count.toLong() * outChannels <= out.size) { "$count frames x $outChannels channels exceeds ${out.size}" }
+        if (firstFrame < oldestAvailable || firstFrame + count > written) return false
+        for (c in 0 until outChannels) {
             val src = channels[c]
-            val dst = out[c]
-            var r = w - frames
-            for (i in 0 until frames) {
-                dst[i] = src[(r and mask).toInt()]
+            var r = firstFrame
+            var w = c
+            repeat(count) {
+                out[w] = src[(r and mask).toInt()]
                 r++
+                w += outChannels
             }
         }
         return true
@@ -85,21 +95,5 @@ class SampleRing(
 
     companion object {
         const val DEFAULT_RUNWAY_DIVISOR = 4
-    }
-
-    internal fun copyInto(
-        firstSample: Long,
-        count: Int,
-        out: Array<FloatArray>,
-    ) {
-        for (c in out.indices.take(channelCount)) {
-            val src = channels[c]
-            val dst = out[c]
-            var r = firstSample
-            for (i in 0 until count) {
-                dst[i] = src[(r and mask).toInt()]
-                r++
-            }
-        }
     }
 }

@@ -34,8 +34,8 @@ Java_dev_geode_engine_bridge_GeodeNative_featureFrameFloats(JNIEnv*, jobject) {
 }
 
 JNIEXPORT jlong JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_analysisCreate(JNIEnv*, jobject, jint sampleRate, jint fftSize, jfloat hopRateHz) {
-    return reinterpret_cast<jlong>(geode_analysis_create(sampleRate, fftSize, hopRateHz));
+Java_dev_geode_engine_bridge_GeodeNative_analysisCreate(JNIEnv*, jobject, jint sampleRate, jint fftSize) {
+    return reinterpret_cast<jlong>(geode_analysis_create(sampleRate, fftSize));
 }
 
 JNIEXPORT void JNICALL
@@ -43,9 +43,9 @@ Java_dev_geode_engine_bridge_GeodeNative_analysisDestroy(JNIEnv*, jobject, jlong
     geode_analysis_destroy(analysisOf(handle));
 }
 
-JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_analysisSetSampleRate(JNIEnv*, jobject, jlong handle, jint sampleRate) {
-    geode_analysis_set_sample_rate(analysisOf(handle), sampleRate);
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_analysisHopSamples(JNIEnv*, jobject, jlong handle) {
+    return geode_analysis_hop_samples(analysisOf(handle));
 }
 
 JNIEXPORT void JNICALL
@@ -57,18 +57,6 @@ Java_dev_geode_engine_bridge_GeodeNative_analysisSetTuning(JNIEnv*, jobject, jlo
 JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_analysisReset(JNIEnv*, jobject, jlong handle) {
     geode_analysis_reset(analysisOf(handle));
-}
-
-JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_analysisAnalyze(JNIEnv* env, jobject, jlong handle, jfloatArray mid,
-                                                         jfloatArray side, jfloat dtSeconds, jfloatArray out) {
-    FloatElements midData(env, mid);
-    FloatElements sideData(env, side);
-    if (!midData.get()) return;
-    const jsize frames = sideData.get() && sideData.length() < midData.length() ? sideData.length() : midData.length();
-    GeodeFeatureFrame frame{};
-    geode_analysis_analyze(analysisOf(handle), midData.get(), sideData.get(), static_cast<size_t>(frames), dtSeconds, &frame);
-    writeFrame(env, frame, out);
 }
 
 JNIEXPORT void JNICALL

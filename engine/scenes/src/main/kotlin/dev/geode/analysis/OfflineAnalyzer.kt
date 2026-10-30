@@ -154,7 +154,8 @@ class OfflineAnalyzer(
         private val minIntervalMs: Float,
     ) : AutoCloseable {
         // Built on the first decoded buffer, once the stream's rate is known: the FFT size follows
-        // the rate (AnalysisFft.sizeFor), so a 96 kHz file gets the same band edges as a 48 kHz one.
+        // the rate (AnalysisFft.sizeFor), so a 96 kHz file gets the same band edges as a 48 kHz one,
+        // and the hop follows the FFT, so the frame rate is the stream's too.
         private var analyzerOrNull: ReactiveAnalyzer? = null
         private val analyzer: ReactiveAnalyzer get() = checkNotNull(analyzerOrNull) { "no audio fed yet" }
 
@@ -162,6 +163,10 @@ class OfflineAnalyzer(
         private var scratch = FloatArray(AnalysisFft.REFERENCE_FFT_SIZE * 4)
         private var sampleRate = 0
         private var hopSamples = 0
+
+        // The first rate's frame rate. A timeline has one; a mid-stream rate change (rare: chained
+        // streams) keeps its timestamps right but its frames come a little faster or slower.
+        private var hopRateHz = 0f
 
         // Frame times are originMs plus the samples pulled since the last rate change, so a stream
         // that changes rate mid-way keeps one continuous clock.
@@ -220,35 +225,30 @@ class OfflineAnalyzer(
 
         private fun adoptSampleRate(sampleRateHz: Int) {
             if (sampleRateHz == sampleRate) return
-            val existing = analyzerOrNull
-            if (existing == null) {
-                analyzerOrNull =
-                    ReactiveAnalyzer(
-                        bandCount = AnalysisEngine.DEFAULT_BAND_COUNT,
-                        fftSize = AnalysisFft.sizeFor(sampleRateHz),
-                        sampleRateHz = sampleRateHz,
-                        hopRateHz = HOP_RATE_HZ,
-                    ).also {
-                        it.sensitivity = BeatTuning.clampSensitivity(sigma)
-                        it.refractoryMs = BeatTuning.clampIntervalMs(minIntervalMs)
-                        it.attackSeconds = BeatTuning.envelopeSeconds(AnalysisEngine.DEFAULT_ATTACK)
-                        it.releaseSeconds = BeatTuning.envelopeSeconds(AnalysisEngine.DEFAULT_DECAY)
-                    }
-            } else {
-                originMs += AnalysisFft.sampleToMs(absSample, sampleRate)
-                absSample = 0L
-                existing.sampleRateHz = sampleRateHz
-            }
+            // A stream that changes rate mid-way keeps one continuous clock, but gets a fresh
+            // analyser: the FFT, the hop and every time constant inside follow the rate.
+            if (sampleRate > 0) originMs += AnalysisFft.sampleToMs(absSample, sampleRate)
+            absSample = 0L
+            analyzerOrNull?.close()
+            val fresh =
+                ReactiveAnalyzer(sampleRateHz = sampleRateHz, bandCount = AnalysisEngine.DEFAULT_BAND_COUNT).also {
+                    it.sensitivity = BeatTuning.clampSensitivity(sigma)
+                    it.refractoryMs = BeatTuning.clampIntervalMs(minIntervalMs)
+                    it.attackSeconds = BeatTuning.envelopeSeconds(AnalysisEngine.DEFAULT_ATTACK)
+                    it.releaseSeconds = BeatTuning.envelopeSeconds(AnalysisEngine.DEFAULT_DECAY)
+                }
+            analyzerOrNull = fresh
+            if (hopRateHz == 0f) hopRateHz = fresh.hopRateHz
             sampleRate = sampleRateHz
-            // The hop the native session actually advances by, clamp included: stamping frames
-            // with sampleRate / 60 while the session clamped its hop to the FFT stretched the
-            // timeline (1.56x at 192 kHz against a fixed 2048 FFT).
-            hopSamples = AnalysisFft.hopSamples(sampleRateHz, HOP_RATE_HZ, analyzer.fftSize)
+            hopSamples = fresh.hopSamples
         }
 
         private fun drain() {
             while (analyzer.pull()) {
-                val timeMs = originMs + AnalysisFft.sampleToMs(absSample, sampleRate)
+                // Stamped at the window's end, which is when live analysis has the same frame: live
+                // cannot see a window until its last sample has arrived. Stamping the start made
+                // exports react one window (43 ms) ahead of the screen.
+                val timeMs = originMs + AnalysisFft.sampleToMs(absSample + analyzer.fftSize, sampleRate)
                 frames.add(TimelineFrame(timeMs, snapshot()))
                 absSample += hopSamples
             }
@@ -297,11 +297,12 @@ class OfflineAnalyzer(
         fun finish(): FeatureTimeline {
             val out = frames.finish()
             val group = frames.groupSize
+            val frameRate = if (hopRateHz > 0f) hopRateHz / group else 0f
             return FeatureTimeline(
                 out,
-                hopMs = (group * 1000f / HOP_RATE_HZ).roundToLong(),
+                hopMs = if (frameRate > 0f) (1000f / frameRate).roundToLong() else 0L,
                 key = analyzerOrNull?.key().orEmpty(),
-                hopRateHz = HOP_RATE_HZ / group,
+                hopRateHz = frameRate,
                 sampleRateHz = if (sampleRate > 0) sampleRate else FeatureTimeline.DEFAULT_SAMPLE_RATE_HZ,
             )
         }
@@ -309,14 +310,6 @@ class OfflineAnalyzer(
         override fun close() {
             analyzerOrNull?.close()
         }
-
-        private companion object {
-            const val HOP_RATE_HZ = OFFLINE_HOP_RATE_HZ
-        }
-    }
-
-    companion object {
-        const val OFFLINE_HOP_RATE_HZ = 60f
     }
 }
 

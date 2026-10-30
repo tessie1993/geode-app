@@ -62,19 +62,17 @@ typedef struct GeodeFeatureFrame {
 
 GEODE_API const char* geode_version(void);
 
-/* hop_rate_hz sets every tempo-domain filter; the hop in samples for push/pull is sample_rate / hop_rate_hz,
- * clamped to fft_size. fft_size must be a power of two >= GEODE_WAVEFORM_POINTS (so the waveform decimation
- * step is never zero); NULL on any other value. */
-GEODE_API geode_analysis* geode_analysis_create(int sample_rate, int fft_size, float hop_rate_hz);
+/* The hop is fft_size / 4 samples, and every time-based filter runs at sample_rate / hop: both come from the
+ * stream and the window, there is no frame rate to choose. A new rate means a new session. fft_size must be a
+ * power of two >= GEODE_WAVEFORM_POINTS (so the waveform averaging step is never zero); NULL on any other value. */
+GEODE_API geode_analysis* geode_analysis_create(int sample_rate, int fft_size);
 GEODE_API void            geode_analysis_destroy(geode_analysis*);
-GEODE_API void            geode_analysis_set_sample_rate(geode_analysis*, int sample_rate);
+GEODE_API int             geode_analysis_hop_samples(geode_analysis*);   /* samples each pulled frame advances; 0 if null */
 GEODE_API void            geode_analysis_set_tuning(geode_analysis*, float sensitivity, float refractory_ms,
                                                     float attack_seconds, float release_seconds);
 GEODE_API void            geode_analysis_reset(geode_analysis*);
-/* One window (fft_size mono samples, optional side channel) analysed now; waveform is block-averaged. */
-GEODE_API void            geode_analysis_analyze(geode_analysis*, const float* mid, const float* side, size_t frames,
-                                                 float dt_seconds, GeodeFeatureFrame* out);   /* frames >= fft_size */
-/* Hop-locked path: push interleaved PCM, pull one frame per hop; waveform is decimated and the key accumulates. */
+/* Push interleaved PCM, pull one frame per hop; the waveform is block-averaged and the key accumulates. Live and
+ * offline analysis both run this path, so the same PCM gives the same frames. */
 GEODE_API void            geode_analysis_push(geode_analysis*, const float* interleaved, size_t frames, int channels);
 GEODE_API int             geode_analysis_pull(geode_analysis*, GeodeFeatureFrame* out);   /* 1 = new frame */
 GEODE_API size_t          geode_analysis_key(geode_analysis*, char* out, size_t capacity); /* "" until decided */

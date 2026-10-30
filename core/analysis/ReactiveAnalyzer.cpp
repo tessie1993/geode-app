@@ -30,14 +30,6 @@ ReactiveAnalyzer::ReactiveAnalyzer(int bandCount, int fftSize, int sampleRateHz,
       bands_(static_cast<size_t>(bandCount)),
       smoothingState_(static_cast<size_t>(bandCount)) {}
 
-void ReactiveAnalyzer::setSampleRateHz(int value) {
-    if (value != sampleRateHz_) {
-        sampleRateHz_ = value;
-        logBands_.setSampleRateHz(value);
-        drums_->setSampleRateHz(value);
-    }
-}
-
 void ReactiveAnalyzer::setSensitivity(float value) {
     picker_.setSensitivity(value);
     drums_->setSensitivity(value);

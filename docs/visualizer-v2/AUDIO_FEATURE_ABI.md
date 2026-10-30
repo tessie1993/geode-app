@@ -15,9 +15,13 @@ Every captured frame carries an absolute input sample index, sample rate, channe
 source epoch and discontinuity generation. Analysis hops are triggered by new sample
 availability, never by a wall-clock timer.
 
-Today's engine does the opposite: the live analyzer runs a **62.5 Hz wall-clock loop** taking
-"newest window", while the offline path is 60 Hz sample-locked. Different hop *and* different
-alignment, and under load the live one silently drops or repeats audio.
+The engine does this. The hop is a quarter of the FFT window in samples, so frames come at
+`sampleRate / hop` (86.1 Hz for 44.1 kHz audio, 93.75 Hz for 48 kHz). Live analysis
+(`AnalysisEngine`) reads the `SampleRing` through a `HopCursor`, which feeds every sample once, in
+order, and feeds silence when the source stops. It drives the same native push/pull path as
+offline analysis (`OfflineAnalyzer`), so the same PCM gives the same frames. The 62.5 Hz
+wall-clock loop that analysed the newest window, and the separate 60 Hz offline clock, are gone
+(see `docs/audio-analysis-audit.md`).
 
 ### 1.1 Reading the ring
 

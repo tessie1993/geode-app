@@ -3,11 +3,16 @@ package dev.geode.engine.audio
 import dev.geode.engine.bridge.FeatureFrameLayout
 import dev.geode.engine.bridge.GeodeNative
 
+/**
+ * One native analysis session for one stream rate. The FFT follows the rate
+ * ([AnalysisFft.sizeFor]) and the hop follows the FFT, so [hopSamples] and [hopRateHz] are read
+ * back from the session rather than chosen. A different rate is a different analyser: every
+ * time constant inside was built for this one's hop rate.
+ */
 class ReactiveAnalyzer(
+    val sampleRateHz: Int,
+    val fftSize: Int = AnalysisFft.sizeFor(sampleRateHz),
     val bandCount: Int = FeatureFrameLayout.BAND_COUNT,
-    val fftSize: Int = 2048,
-    sampleRateHz: Int = 48_000,
-    private val hopRateHz: Float = 62.5f,
 ) : AutoCloseable {
     init {
         require(bandCount == FeatureFrameLayout.BAND_COUNT) {
@@ -18,20 +23,25 @@ class ReactiveAnalyzer(
         }
     }
 
-    private var handle: Long = GeodeNative.analysisCreate(sampleRateHz, fftSize, hopRateHz)
+    private var handle: Long = GeodeNative.analysisCreate(sampleRateHz, fftSize)
+
+    init {
+        check(handle != 0L) { "native analysis refused $sampleRateHz Hz with a $fftSize-point FFT" }
+    }
+
+    /** Samples each pulled frame advances: the native session's hop. */
+    val hopSamples: Int = GeodeNative.analysisHopSamples(handle)
+
+    /** Frames per second of audio, which is what every time constant inside runs at. */
+    val hopRateHz: Float = sampleRateHz.toFloat() / hopSamples
+
+    /** Seconds of audio one frame advances. */
+    val hopSeconds: Float = hopSamples.toFloat() / sampleRateHz
     private val frame = FloatArray(FeatureFrameLayout.FLOATS).also { blank(it) }
 
     val bands: FloatArray = FloatArray(bandCount)
     val waveform: FloatArray = FloatArray(FeatureFrameLayout.WAVEFORM_POINTS)
     val chroma: FloatArray = FloatArray(FeatureFrameLayout.CHROMA_BINS)
-
-    var sampleRateHz: Int = sampleRateHz
-        set(value) {
-            if (value != field) {
-                field = value
-                GeodeNative.analysisSetSampleRate(handle, value)
-            }
-        }
 
     @Volatile
     var attackSeconds: Float = 0.02f
@@ -96,21 +106,6 @@ class ReactiveAnalyzer(
     val stereoCorrelation: Float get() = frame[FeatureFrameLayout.STEREO_CORRELATION]
     val stereoPan: Float get() = frame[FeatureFrameLayout.STEREO_PAN]
     val chromaConfidence: Float get() = frame[FeatureFrameLayout.CHROMA_CONFIDENCE]
-
-    fun analyze(
-        samples: FloatArray,
-        dtSeconds: Float,
-    ) = analyze(samples, null, dtSeconds)
-
-    fun analyze(
-        mid: FloatArray,
-        side: FloatArray?,
-        dtSeconds: Float,
-    ) {
-        require(mid.size >= fftSize) { "need $fftSize samples, got ${mid.size}" }
-        GeodeNative.analysisAnalyze(handle, mid, side, dtSeconds, frame)
-        unpack()
-    }
 
     fun push(
         interleaved: FloatArray,

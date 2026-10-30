@@ -14,7 +14,8 @@ class FeatureTimeline(
     val frames: List<TimelineFrame>,
     val hopMs: Long,
     val key: String = "",
-    val hopRateHz: Float = 60f,
+    /** Frames per second of audio: the stream's rate over the analysis hop, after any decimation. */
+    val hopRateHz: Float,
     /** The decoded stream's rate. The drum channels are re-derived from it on a cache load. */
     val sampleRateHz: Int = DEFAULT_SAMPLE_RATE_HZ,
 ) {
@@ -116,7 +117,7 @@ class FeatureTimeline(
         val last = (indexAt(timeMs + spanMs) - 1).coerceIn(first, frames.size - 1)
         if (last <= first) return f
         // Every one-hop pulse live holds (AnalysisEngine.PulseHold) is folded over the span here,
-        // so a 30 fps export sees the drop, section, downbeat and drum hits a 60 Hz hop flagged.
+        // so a 30 fps export sees the drop, section, downbeat and drum hits a single hop flagged.
         var out = f
         for (i in first + 1..last) {
             val g = frames[i].features
@@ -202,10 +203,10 @@ class FeatureTimeline(
         /** What a timeline built before the rate was recorded assumed. */
         const val DEFAULT_SAMPLE_RATE_HZ = 48_000
 
-        /** Each side of the novelty comparison: 90 frames at the 60 Hz offline hop. */
+        /** Each side of the novelty comparison. */
         private const val SECTION_WINDOW_SECONDS = 1.5f
 
-        /** No two section boundaries closer than this: 300 frames at 60 Hz. */
+        /** No two section boundaries closer than this. */
         private const val SECTION_MIN_GAP_SECONDS = 5f
 
         /**

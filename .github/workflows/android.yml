@@ -116,7 +116,8 @@ jobs:
           done
 
       # Seconds, not minutes: the pure render-thread math (reaction matrix,
-      # camera rig) built with the runner's own compiler, and every fragment
+      # camera rig) and the audio analysis core (core/tests/analysis_*_test.cpp,
+      # synthetic PCM at several rates) built with the runner's own compiler, and every fragment
       # style compiled by the NDK's glslc with its //#include lines resolved.
       # Both fail fast, before the 20-minute native build.
       - name: Native host tests
@@ -124,6 +125,14 @@ jobs:
         run: |
           g++ -std=c++20 -O1 -Wall -Wextra -Icore -Icore/tests/stub             core/tests/viz_math_test.cpp core/viz/Reactions.cpp core/viz/CameraRig.cpp core/viz/Lfo.cpp             core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/VisualSafety.cpp -o viz_math_test
           ./viz_math_test
+          # Every core/tests/analysis_*_test.cpp, against the whole analysis core and kissfft.
+          gcc -O1 -Ithird_party/kissfft -c third_party/kissfft/kiss_fft.c third_party/kissfft/kiss_fftr.c
+          for t in core/tests/analysis_*_test.cpp; do
+            [ -e "$t" ] || continue
+            n=$(basename "$t" .cpp)
+            g++ -std=c++20 -O1 -Wall -Wextra -Icore -Icore/tests/stub -Ithird_party/kissfft               "$t" core/analysis/*.cpp kiss_fft.o kiss_fftr.o -o "$n"
+            ./"$n"
+          done
 
       - name: Shader compile check
         working-directory: ${{ env.PROJECT_DIR }}

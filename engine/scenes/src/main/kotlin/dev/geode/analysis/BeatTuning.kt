@@ -1,6 +1,5 @@
 package dev.geode.analysis
 
-import kotlin.math.exp
 import kotlin.math.ln
 
 object BeatTuning {
@@ -20,7 +19,13 @@ object BeatTuning {
 
     const val SLOW_INTERVAL_MS: Float = 700f
 
-    const val REFERENCE_HOP_HZ: Float = 62.5f
+    /**
+     * The step the attack/decay settings are defined against. They are stored (prefs, presets,
+     * templates) as "the fraction of the way to the target per 16 ms step", so this is the unit of
+     * that saved number, converted to seconds once by [envelopeSeconds]. It has nothing to do with
+     * the analysis frame rate, which is the stream's (see `AnalysisSession.hpp`).
+     */
+    private const val SETTING_STEP_SECONDS: Float = 0.016f
 
     fun clampSensitivity(value: Float): Float = value.coerceIn(SENSITIVITY_MIN, SENSITIVITY_MAX)
 
@@ -31,13 +36,7 @@ object BeatTuning {
         val f = perTickFraction.coerceIn(0f, 1f)
         if (f >= 1f) return 0f
         if (f <= 0f) return MAX_ENVELOPE_SECONDS
-        val dt = 1f / REFERENCE_HOP_HZ
-        return (-dt / ln(1f - f)).coerceIn(0f, MAX_ENVELOPE_SECONDS)
-    }
-
-    fun envelopeFraction(seconds: Float): Float {
-        if (seconds <= 0f) return 1f
-        return (1f - exp(-1f / (REFERENCE_HOP_HZ * seconds))).coerceIn(0f, 1f)
+        return (-SETTING_STEP_SECONDS / ln(1f - f)).coerceIn(0f, MAX_ENVELOPE_SECONDS)
     }
 
     private const val MAX_ENVELOPE_SECONDS = 4f

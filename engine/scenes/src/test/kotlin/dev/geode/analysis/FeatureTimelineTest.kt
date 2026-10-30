@@ -14,7 +14,7 @@ class FeatureTimelineTest {
     fun trackBpmIgnoresATrailingFadeOut() {
         val body = (0 until 100).map { frame(it * 16L, 128f, 0.9f) }
         val fade = (100 until 110).map { frame(it * 16L, 96f, 0.2f) }
-        assertEquals(128f, FeatureTimeline(body + fade, hopMs = 16).bpm)
+        assertEquals(128f, FeatureTimeline(body + fade, hopMs = 16, hopRateHz = FRAME_HZ).bpm)
     }
 
     @Test
@@ -45,7 +45,7 @@ class FeatureTimelineTest {
         // A 30 fps export frame covers two 16 ms hops; a drop on the second must not be lost.
         val hit = AudioFeatures.empty(4).copy(drop = true, sectionBoundary = true, kick = 0.9f)
         val frames = (0 until 4).map { i -> TimelineFrame(i * 16L, if (i == 1) hit else AudioFeatures.empty(4)) }
-        val f = FeatureTimeline(frames, hopMs = 16).featuresAt(0, 33)
+        val f = FeatureTimeline(frames, hopMs = 16, hopRateHz = FRAME_HZ).featuresAt(0, 33)
         assertEquals(true, f.drop)
         assertEquals(true, f.sectionBoundary)
         assertEquals(0.9f, f.kick)
@@ -53,8 +53,13 @@ class FeatureTimelineTest {
 
     @Test
     fun timelineCarriesItsSampleRateThroughCopies() {
-        val t = FeatureTimeline(listOf(frame(0, 120f, 1f)), hopMs = 16, sampleRateHz = 96_000)
+        val t = FeatureTimeline(listOf(frame(0, 120f, 1f)), hopMs = 16, hopRateHz = FRAME_HZ, sampleRateHz = 96_000)
         assertEquals(96_000, t.withBeatSensitivity(1f, 100f).sampleRateHz)
-        assertEquals(FeatureTimeline.DEFAULT_SAMPLE_RATE_HZ, FeatureTimeline(emptyList(), hopMs = 16).sampleRateHz)
+        assertEquals(FeatureTimeline.DEFAULT_SAMPLE_RATE_HZ, FeatureTimeline(emptyList(), hopMs = 16, hopRateHz = FRAME_HZ).sampleRateHz)
+    }
+
+    private companion object {
+        /** The 16 ms spacing these fixtures are written at. */
+        const val FRAME_HZ = 1000f / 16f
     }
 }

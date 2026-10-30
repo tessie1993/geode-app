@@ -21,23 +21,6 @@ class AnalysisFftTest {
     }
 
     @Test
-    fun offlineHopNeverClampsOnceTheFftIsScaled() {
-        for (rate in listOf(44_100, 48_000, 88_200, 96_000, 176_400, 192_000)) {
-            val fft = AnalysisFft.sizeFor(rate)
-            assertEquals((rate / 60f).toInt(), AnalysisFft.hopSamples(rate, 60f, fft))
-        }
-    }
-
-    @Test
-    fun hopMirrorsTheNativeClampAgainstAFixedFft() {
-        // The bug this replaces: 192 kHz / 60 Hz = 3200 samples, but the native session clamps the
-        // hop to a 2048 FFT. Stamping frames with 3200 stretched the timeline 1.56x.
-        assertEquals(2048, AnalysisFft.hopSamples(192_000, 60f, 2048))
-        assertEquals(735, AnalysisFft.hopSamples(44_100, 60f, 2048))
-        assertEquals(800, AnalysisFft.hopSamples(48_000, 60f, 2048))
-    }
-
-    @Test
     fun samplesToMillisecondsUseTheStreamRate() {
         assertEquals(1000L, AnalysisFft.sampleToMs(44_100, 44_100))
         assertEquals(1000L, AnalysisFft.sampleToMs(48_000, 48_000))

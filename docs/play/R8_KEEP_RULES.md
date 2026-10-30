@@ -35,7 +35,7 @@ No `-dontoptimize`, `-dontobfuscate` or `-dontshrink` is in effect. Full mode is
 ### `-keep class dev.geode.engine.bridge.GeodeNative { *; }` (`:17`)
 
 - **Keeps**: 95 items (0.06%). Classes: 1, Fields: 1 (`INSTANCE`), Methods: 93 (92 native, plus `<init>`).
-- **Kept items**: `GeodeNative.analysisAnalyze`, `GeodeNative.analysisCreate`, `GeodeNative.INSTANCE`
+- **Kept items**: `GeodeNative.analysisCreate`, `GeodeNative.INSTANCE`
 - **Action**: **Remove**. Native code never calls back into Java (`core/` and `app/src/main/cpp` have no `FindClass`, `GetMethodID`, `GetFieldID` or `RegisterNatives`). Only the class name and the native method names have to survive. The AGP default `-keepclasseswithmembernames,includedescriptorclasses class * { native <methods>; }` already keeps those names, and it also lets R8 drop native methods nothing calls.
 
 ### `-keepclassmembers class kotlinx.coroutines.** { volatile <fields>; }` (`:37`)

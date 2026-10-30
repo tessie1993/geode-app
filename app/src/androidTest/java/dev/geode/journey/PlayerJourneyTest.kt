@@ -15,7 +15,6 @@ import androidx.test.filters.LargeTest
 import com.google.common.truth.Truth.assertThat
 import dev.geode.ui.MainActivity
 import org.junit.After
-import org.junit.Ignore
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.RuleChain
@@ -64,11 +63,10 @@ class PlayerJourneyTest {
     }
 
     /**
-     * QA #14: Repeat cycles off, all, one with the same icon in two of them and a description
-     * that never changes, so TalkBack (and the user) can't tell the modes apart. Expects the
-     * mode in the content or state description; fails on geode-finish.
+     * QA #14: Repeat cycled off, all, one with the same icon in two of them and a description
+     * that never changed, so TalkBack (and the user) couldn't tell the modes apart. The mode
+     * must be in the content or state description.
      */
-    @Ignore("QA #14: the Repeat button doesn't describe its mode; the fix is not merged")
     @Test
     fun repeatButtonNamesItsMode() {
         compose.awaitNode(hasText("Nothing playing"))

@@ -2,7 +2,6 @@ package dev.geode.journey
 
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
-import androidx.compose.ui.test.hasAnySibling
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isToggleable
@@ -14,7 +13,6 @@ import androidx.test.espresso.Espresso
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.LargeTest
 import dev.geode.ui.MainActivity
-import org.junit.Ignore
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.RuleChain
@@ -68,24 +66,25 @@ class VisualsJourneyTest {
         compose.tap("Shape")
     }
 
-    private val kaleidoscopeBox = isToggleable() and hasAnySibling(hasText("Kaleidoscope"))
+    /** The whole CheckRow is the toggleable node (role Checkbox), its label merged into it. */
+    private val kaleidoscopeBox = isToggleable() and hasText("Kaleidoscope")
 
     @Test
     fun kaleidoscopeCheckboxTogglesAndRevealsFolds() {
         openCustomizeShape()
         compose.awaitNode(kaleidoscopeBox)
         val box = compose.onAllNodes(kaleidoscopeBox).onFirst()
-        box.performScrollTo().assertIsOff().performClick()
+        box.performScrollTo()
+        box.assertIsOff()
+        box.performClick()
         box.assertIsOn()
         compose.awaitNode(hasText("Folds"))
     }
 
     /**
-     * QA #13: the label is a separate, unclickable Text beside the Checkbox, so tapping the word
-     * (or an accessibility click on it) does nothing. Fails on geode-finish until the row itself
-     * is made toggleable.
+     * QA #13: the label used to be a separate, unclickable Text beside the Checkbox, so tapping
+     * the word (or an accessibility click on it) did nothing. The row is toggleable now.
      */
-    @Ignore("QA #13: Customize checkbox labels don't toggle; the fix is not merged")
     @Test
     fun tappingTheKaleidoscopeLabelTogglesIt() {
         openCustomizeShape()

@@ -61,6 +61,22 @@ vec3 hueTurn(vec3 c, float a) {
     return fromYiq * yiq;
 }
 
+/**
+ * Highlight roll-off for the looks that draw a bright material (lava, marble).
+ * Linear up to the knee, so everything below it is drawn exactly as the look
+ * made it; above, an exponential shoulder with slope 1 at the knee that only
+ * approaches knee + room. The dye is half-float and unbounded, and the bloom
+ * is added on top, so without it a dense pool clips every channel to a flat
+ * white; with it the brightest these looks can draw is 0.94 (240), and two
+ * different over-bright values stay two different colours.
+ */
+vec3 shoulder(vec3 c) {
+    const float knee = 0.72;
+    const float room = 0.22;
+    vec3 over = max(c - knee, vec3(0.0));
+    return min(c, vec3(knee)) + room * (1.0 - exp(-over / room));
+}
+
 vec3 linearToGamma(vec3 c) {
     c = max(c, vec3(0.0));
     return max(1.055 * pow(c, vec3(0.416666667)) - 0.055, vec3(0.0));
@@ -150,9 +166,16 @@ void main() {
     c = pow(max(c, vec3(0.0)), vec3(0.8));
 #elif LOOK == 6
     // Lava. Density as temperature on a blackbody-shaped ramp: black through
-    // red and orange to white, so the hot core of every splat is white and
+    // red and orange to near white, so the hot core of every splat is pale and
     // the skirts glow red. Energy raises the whole temperature.
-    float heat = clamp(luma(c) * (1.3 + 0.5 * uAudio.w), 0.0, 1.0);
+    //
+    // The dye has no ceiling and Lava's slow fade lets it pile up far past 1,
+    // so a linear heat clamped at 1 put every dense texel on the white end of
+    // the ramp: one flat white blob. Reinhard keeps the thin skirts where they
+    // were (luma 0.2 is still ~0.25 heat) but needs ~10x the density to reach
+    // white, so a dense pool keeps its orange-to-yellow structure.
+    float heatIn = luma(c) * (1.5 + 0.6 * uAudio.w);
+    float heat = heatIn / (1.0 + heatIn);
     c = vec3(smoothstep(0.0, 0.42, heat),
              smoothstep(0.28, 0.80, heat) * 0.85,
              smoothstep(0.66, 1.0, heat) * 0.70);
@@ -164,7 +187,9 @@ void main() {
     float lum = luma(c);
     float vein = smoothstep(0.72, 1.0, abs(sin(lum * 18.0 + slope * 7.0 + uLookHue * 6.2831)));
     vein *= smoothstep(0.015, 0.25, lum);
-    vec3 stone = vec3(0.84, 0.82, 0.79) * (0.92 + 0.08 * lum);
+    // The stone's lift reads density 0..1 only: lum is unbounded, and at the
+    // densities Marble's slow fade builds the stone itself went past white.
+    vec3 stone = vec3(0.84, 0.82, 0.79) * (0.92 + 0.08 * min(lum, 1.0));
     c = mix(stone, tintOf(c) * 0.42, vein);
     a = 1.0;
 #elif LOOK == 8
@@ -187,6 +212,12 @@ void main() {
     bloom += noise / 255.0;
     bloom = linearToGamma(bloom);
     c += bloom;
+#endif
+
+#if LOOK == 6 || LOOK == 7
+    // After the bloom, which the bloom pass takes from the raw dye and so is
+    // strongest exactly where these looks are already brightest.
+    c = shoulder(c);
 #endif
 
     fragColor = vec4(c, a);

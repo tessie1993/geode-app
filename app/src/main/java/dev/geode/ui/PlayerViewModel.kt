@@ -44,8 +44,8 @@ class PlayerViewModel
     ) : ViewModel() {
         private val session: PlayerSession = sessions.get()
 
-        /** What exports may do: resolution, frame rate, and whether they carry the wordmark. */
-        private val gate: StateFlow<FeatureGate> = getFeatureGate().stateIn(viewModelScope, SharingStarted.Eagerly, FeatureGate.FREE)
+        /** What exports may do (resolution, frame rate, wordmark), and which styles are locked. */
+        val gate: StateFlow<FeatureGate> = getFeatureGate().stateIn(viewModelScope, SharingStarted.Eagerly, FeatureGate.FREE)
         private val playback: PlaybackRepository = session.playbackRepository
         private val visualizer: VisualizerRepository = session.visualizerRepository
 

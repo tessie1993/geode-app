@@ -104,6 +104,12 @@ class VideoExporter(
         private const val TIMEOUT_US: Long = 10_000
 
         private const val FLUSH_ATTEMPT_LIMIT = 1_000
+
+        /**
+         * Share of [export]'s progress spent transcoding the audio before the first frame. Public
+         * so the caller can tell that quick lead-in from the frame loop when it estimates time left.
+         */
+        const val AUDIO_PROGRESS_SPAN = 0.1f
     }
 
     sealed interface Result {
@@ -406,7 +412,7 @@ class VideoExporter(
                         maxDurationMs = range?.durationMs ?: 0L,
                         startMs = rangeStartMs,
                         isCancelled = isCancelled,
-                    ) { onProgress(it * 0.1f) }
+                    ) { onProgress(it * AUDIO_PROGRESS_SPAN) }
                     .also { aacRef = it }
             val egl = EncoderSurface(inputSurface).also { eglRef = it }
             egl.makeCurrent()
@@ -492,7 +498,7 @@ class VideoExporter(
                         audioFeedRef ?: AudioFeed(muxer, audioTrack, aac, exportDurationUs).also { audioFeedRef = it }
                     feed.writeUpTo(timeMs * 1000L)
                 }
-                onProgress(0.1f + frame / totalFrames.toFloat() * 0.85f)
+                onProgress(AUDIO_PROGRESS_SPAN + frame / totalFrames.toFloat() * 0.85f)
             }
             encoder.signalEndOfInputStream()
             var flushAttempts = 0

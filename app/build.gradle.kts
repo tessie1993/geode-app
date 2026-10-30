@@ -67,6 +67,15 @@ android {
     }
 
     signingConfigs {
+        // One committed debug key, so every CI debug APK installs over the previous one
+        // (a fresh runner would otherwise mint its own key and the update would fail with
+        // INSTALL_FAILED_UPDATE_INCOMPATIBLE). Debug only and not secret; release never uses it.
+        getByName("debug") {
+            storeFile = file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
         if (hasReleaseSigning) {
             create("release") {
                 storeFile = file(releaseStorePath!!)

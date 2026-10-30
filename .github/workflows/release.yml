@@ -129,6 +129,11 @@ jobs:
             echo "::error::The merged release manifest requests INTERNET; the app promises not to."
             exit 1
           fi
+          # The console's Advertising ID declaration says "not used".
+          if grep -q 'com.google.android.gms.permission.AD_ID' "$manifest"; then
+            echo "::error::The merged release manifest carries AD_ID; the Advertising ID declaration says it is unused."
+            exit 1
+          fi
           grep -q 'com.android.vending.BILLING' "$manifest" \
             || { echo "::error::Play Billing's BILLING permission is missing from the merged manifest"; exit 1; }
 

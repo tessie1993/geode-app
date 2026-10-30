@@ -96,6 +96,7 @@ The native core is built by the root `CMakeLists.txt`, plus `core/CMakeLists.txt
 - Scratch files use the prefixes `geode_aac_`, `geode_loop_` and `studio-`; `GeodeContainer` sweeps them. Renders insert with `IS_PENDING`.
 - The tap stays first in the audio chain, and the chain never gets float output (see `docs/AUDIO_CHAIN.md`).
 - The app is offline by design: there is no network permission.
+- Runtime permissions are asked for in context through `ui/PermissionRequest.kt` (`rememberPermissionRequest`: rationale first, retry after a refusal, app Settings once Android stops asking). Only music access is asked at first run (`SafetyConsent` → `FirstRun`, on `OnboardingScaffold`).
 
 ## Large files to split (lines)
 

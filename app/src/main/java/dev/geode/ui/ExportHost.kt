@@ -268,7 +268,7 @@ fun ExportHost(
                     requestNotificationPermissionOnce()
                     if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.Q) {
                         pendingLoopExport = PendingLoopExport.from(req)
-                        loopDestinationPicker.launch("geode_loop_${System.currentTimeMillis()}.mp4")
+                        loopDestinationPicker.launch("muzviz_loop_${System.currentTimeMillis()}.mp4")
                     } else {
                         viewModel.startLoopRender(
                             req.aspect,
@@ -285,7 +285,7 @@ fun ExportHost(
                 onStartToDestination = { req ->
                     requestNotificationPermissionOnce()
                     pendingLoopExport = PendingLoopExport.from(req)
-                    loopDestinationPicker.launch("geode_loop_${System.currentTimeMillis()}.mp4")
+                    loopDestinationPicker.launch("muzviz_loop_${System.currentTimeMillis()}.mp4")
                 },
                 onCancel = studioViewModel::cancelLoopRender,
                 onDismiss = {
@@ -321,7 +321,7 @@ fun ExportHost(
                                 range?.durationMs ?: 0L,
                                 codec,
                             )
-                        destinationPicker.launch("geode_${System.currentTimeMillis()}.mp4")
+                        destinationPicker.launch("muzviz_${System.currentTimeMillis()}.mp4")
                     } else {
                         viewModel.startExport(
                             aspect,
@@ -346,7 +346,7 @@ fun ExportHost(
                             range?.durationMs ?: 0L,
                             codec,
                         )
-                    destinationPicker.launch("geode_${System.currentTimeMillis()}.mp4")
+                    destinationPicker.launch("muzviz_${System.currentTimeMillis()}.mp4")
                 },
                 onCancel = studioViewModel::cancelExport,
                 onDismiss = {

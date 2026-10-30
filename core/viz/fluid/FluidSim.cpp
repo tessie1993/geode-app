@@ -39,7 +39,14 @@ void FluidSim::create() {
     std::string error;
     baseVertSrc_ = loader_.source("fluid_base_vert.glsl", &error);
     for (int i = 0; i < kProgCount; ++i) {
-        const GLuint program = loader_.buildSource(baseVertSrc_, loader_.source(progAsset(i), &error), &error);
+        std::string frag = loader_.source(progAsset(i), &error);
+        // The display shader's #if chain needs LOOK defined (GLSL ES rejects an undefined name in
+        // #if). Look prepends it for its variants; this plain fallback is LOOK 0, no keywords.
+        if (i == kDisplay) {
+            const size_t nl = frag.find('\n');
+            frag.insert(nl == std::string::npos ? frag.size() : nl + 1, "#define LOOK 0\n");
+        }
+        const GLuint program = loader_.buildSource(baseVertSrc_, frag, &error);
         if (program == 0) {
             GEODE_LOGW(kTag, "base shader rejected by driver: %s", error.c_str());
             onShaderError("Fluid unavailable on this GPU: " + error);

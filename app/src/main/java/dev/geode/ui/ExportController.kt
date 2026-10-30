@@ -174,7 +174,7 @@ internal class ExportController(
                             gui.effectiveBeatMinIntervalMs,
                         )
                     host.publishSections(uri, t)
-                    val name = "geode_${System.currentTimeMillis()}.mp4"
+                    val name = "muzviz_${System.currentTimeMillis()}.mp4"
                     val exportTake = host.loadExportTake()
                     val sheet = host.keyframes()
                     val animated =
@@ -331,7 +331,7 @@ internal class ExportController(
         _studio.update { it.copy(phase = ExportPhase.Running(0f)) }
         studioJob =
             scope.launch {
-                val name = "geode_studio_${System.currentTimeMillis()}.mp4"
+                val name = "muzviz_studio_${System.currentTimeMillis()}.mp4"
                 val result =
                     studioExporter.export(
                         source = Uri.parse(clip.uri),
@@ -362,7 +362,7 @@ internal class ExportController(
                     studioJob = null
                     return@launch
                 }
-                val name = "geode_cut_${System.currentTimeMillis()}.mp4"
+                val name = "muzviz_cut_${System.currentTimeMillis()}.mp4"
                 val result =
                     studioExporter.exportComposition(built.composition, built.durationMs, name, defaultCodec(), destination) { p ->
                         _studio.update { it.copy(phase = ExportPhase.Running(p.coerceIn(0f, 1f))) }
@@ -510,7 +510,7 @@ internal class ExportController(
                                 },
                             )
                         }
-                    val name = "geode_loop_${System.currentTimeMillis()}.mp4"
+                    val name = "muzviz_loop_${System.currentTimeMillis()}.mp4"
                     val extended =
                         loopExtender.extend(
                             reel = reel,

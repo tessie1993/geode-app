@@ -246,6 +246,9 @@ class VideoExporter(
             }
         }
 
+    // ponytail: 21 params since reactions (#94) and watermark (#91) both landed; fold them into
+    // an export-request object when this signature next grows.
+    @Suppress("LongParameterList")
     private suspend fun exportToDestination(
         destination: Uri,
         audioUri: Uri,

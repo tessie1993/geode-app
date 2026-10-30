@@ -212,7 +212,7 @@ fun TimelineEditor(
 
     fun exportProject() {
         if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.Q) {
-            projectDestinationPicker.launch("geode_cut_${System.currentTimeMillis()}.mp4")
+            projectDestinationPicker.launch("muzviz_cut_${System.currentTimeMillis()}.mp4")
         } else {
             actions.exportProject()
         }
@@ -259,7 +259,7 @@ fun TimelineEditor(
         ) { uri -> exportChapters(ChapterFormat.FFMETADATA, uri) }
 
     fun launchChapterExport(format: ChapterFormat) {
-        val name = "geode_chapters_${System.currentTimeMillis()}.${format.extension}"
+        val name = "muzviz_chapters_${System.currentTimeMillis()}.${format.extension}"
         when (format) {
             ChapterFormat.DESCRIPTION -> chapterDescriptionExporter.launch(name)
             ChapterFormat.WEB_VTT -> chapterVttExporter.launch(name)
@@ -306,7 +306,7 @@ fun TimelineEditor(
             phase = exportPhase,
             onCancel = actions::cancelProjectExport,
             onExportToDestination = {
-                projectDestinationPicker.launch("geode_cut_${System.currentTimeMillis()}.mp4")
+                projectDestinationPicker.launch("muzviz_cut_${System.currentTimeMillis()}.mp4")
             },
         )
         EditorToolbar(
@@ -326,7 +326,7 @@ fun TimelineEditor(
             hasLyrics = actions.lyricCues() != null,
             onLyricCaptions = { addCaptionClips(actions.lyricCues().orEmpty()) },
             onImportSrt = { srtImporter.launch(arrayOf(SRT_MIME, "text/plain", "text/*")) },
-            onExportSrt = { srtExporter.launch("geode_captions_${System.currentTimeMillis()}.srt") },
+            onExportSrt = { srtExporter.launch("muzviz_captions_${System.currentTimeMillis()}.srt") },
             onExportChapters = { chapterFormatPicker = true },
         )
         val clip = selectedClip?.let(project.timeline::clip)

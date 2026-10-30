@@ -50,7 +50,8 @@ void appendPreamble(std::ostringstream& out, const StateEncoding& e, bool sample
     out << "precision highp float;\nprecision highp int;\n\n"
         << "uniform " << info.samplerType << " " << kUniformState << ";\n"
         << "uniform ivec2 " << kUniformSize << ";\n"
-        << "const float SIM_STATE_SCALE = " << e.stateScale << ";\n\n"
+        // showpoint: a scale of 1 must print as "1.0" - GLSL ES has no implicit int-to-float.
+        << "const float SIM_STATE_SCALE = " << std::showpoint << e.stateScale << std::noshowpoint << ";\n\n"
         << "vec2 simUv(ivec2 texel) {\n    return (vec2(texel) + 0.5) / vec2(" << kUniformSize << ");\n}\n\n"
         << "vec4 simLoad(ivec2 texel) {\n"
         << "    ivec2 at = clamp(texel, ivec2(0), " << kUniformSize << " - ivec2(1));\n"

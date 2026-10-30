@@ -7,34 +7,19 @@ import org.junit.Test
 class AnalysisFftTest {
     @Test
     fun fftSizeKeepsTheReferenceBinWidth() {
-        assertEquals(2048, AnalysisFft.sizeFor(22_050))
+        assertEquals(1024, AnalysisFft.sizeFor(22_050))
         assertEquals(2048, AnalysisFft.sizeFor(44_100))
         assertEquals(2048, AnalysisFft.sizeFor(48_000))
         assertEquals(4096, AnalysisFft.sizeFor(88_200))
         assertEquals(4096, AnalysisFft.sizeFor(96_000))
         assertEquals(8192, AnalysisFft.sizeFor(176_400))
         assertEquals(8192, AnalysisFft.sizeFor(192_000))
-        for (rate in listOf(44_100, 48_000, 88_200, 96_000, 176_400, 192_000, 384_000)) {
+        for (rate in listOf(8_000, 16_000, 22_050, 32_000, 44_100, 48_000, 88_200, 96_000, 176_400, 192_000, 384_000)) {
             val binHz = rate.toFloat() / AnalysisFft.sizeFor(rate)
             assertTrue("$rate Hz gives $binHz Hz bins", binHz <= 48_000f / 2048f)
+            // And no finer than half the reference: the window stays the same length in time.
+            assertTrue("$rate Hz gives $binHz Hz bins", rate < 16_000 || binHz > 48_000f / 4096f)
         }
-    }
-
-    @Test
-    fun offlineHopNeverClampsOnceTheFftIsScaled() {
-        for (rate in listOf(44_100, 48_000, 88_200, 96_000, 176_400, 192_000)) {
-            val fft = AnalysisFft.sizeFor(rate)
-            assertEquals((rate / 60f).toInt(), AnalysisFft.hopSamples(rate, 60f, fft))
-        }
-    }
-
-    @Test
-    fun hopMirrorsTheNativeClampAgainstAFixedFft() {
-        // The bug this replaces: 192 kHz / 60 Hz = 3200 samples, but the native session clamps the
-        // hop to a 2048 FFT. Stamping frames with 3200 stretched the timeline 1.56x.
-        assertEquals(2048, AnalysisFft.hopSamples(192_000, 60f, 2048))
-        assertEquals(735, AnalysisFft.hopSamples(44_100, 60f, 2048))
-        assertEquals(800, AnalysisFft.hopSamples(48_000, 60f, 2048))
     }
 
     @Test

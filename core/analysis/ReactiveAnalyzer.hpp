@@ -21,12 +21,13 @@ namespace geode::analysis {
 
 class ReactiveAnalyzer {
 public:
-    ReactiveAnalyzer(int bandCount = 64, int fftSize = 2048, int sampleRateHz = 48000, float hopRateHz = 62.5f);
+    // No defaults: the rate is the stream's, the FFT follows the rate and the hop rate follows both
+    // (AnalysisSession), so there is nothing sensible to assume.
+    ReactiveAnalyzer(int bandCount, int fftSize, int sampleRateHz, float hopRateHz);
 
     int bandCount() const { return bandCount_; }
     int fftSize() const { return fftSize_; }
     int sampleRateHz() const { return sampleRateHz_; }
-    void setSampleRateHz(int value);
     float attackSeconds() const { return attackSeconds_; }
     void setAttackSeconds(float value) { attackSeconds_ = value; }
     float releaseSeconds() const { return releaseSeconds_; }

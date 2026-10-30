@@ -25,18 +25,17 @@ const char* geode_version(void) {
     return "1.8.0";
 }
 
-geode_analysis* geode_analysis_create(int sample_rate, int fft_size, float hop_rate_hz) {
-    if (sample_rate <= 0 || fft_size < GEODE_WAVEFORM_POINTS || (fft_size & (fft_size - 1)) != 0 || hop_rate_hz <= 0.0f)
-        return nullptr;
-    return std::make_unique<geode_analysis>(geode_analysis{geode::analysis::AnalysisSession(sample_rate, fft_size, hop_rate_hz)}).release();
+geode_analysis* geode_analysis_create(int sample_rate, int fft_size) {
+    if (sample_rate <= 0 || fft_size < GEODE_WAVEFORM_POINTS || (fft_size & (fft_size - 1)) != 0) return nullptr;
+    return std::make_unique<geode_analysis>(geode_analysis{geode::analysis::AnalysisSession(sample_rate, fft_size)}).release();
 }
 
 void geode_analysis_destroy(geode_analysis* a) {
     std::unique_ptr<geode_analysis> owned(a);
 }
 
-void geode_analysis_set_sample_rate(geode_analysis* a, int sample_rate) {
-    if (a) a->session.setSampleRateHz(sample_rate);
+int geode_analysis_hop_samples(geode_analysis* a) {
+    return a ? a->session.hopSamples() : 0;
 }
 
 void geode_analysis_set_tuning(geode_analysis* a, float sensitivity, float refractory_ms, float attack_seconds,
@@ -46,11 +45,6 @@ void geode_analysis_set_tuning(geode_analysis* a, float sensitivity, float refra
 
 void geode_analysis_reset(geode_analysis* a) {
     if (a) a->session.reset();
-}
-
-void geode_analysis_analyze(geode_analysis* a, const float* mid, const float* side, size_t frames, float dt_seconds,
-                            GeodeFeatureFrame* out) {
-    if (a && mid && out) a->session.analyze(mid, side, frames, dt_seconds, *out);
 }
 
 void geode_analysis_push(geode_analysis* a, const float* interleaved, size_t frames, int channels) {

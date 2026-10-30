@@ -12,12 +12,17 @@ namespace geode::analysis {
 
 class AnalysisSession {
 public:
-    AnalysisSession(int sampleRateHz, int fftSize, float hopRateHz);
+    // The hop is a quarter of the window, as aubio and madmom's online trackers use: 75% overlap, so every
+    // sample is analysed four times under the Hann window. Everything time-based then runs at
+    // sampleRateHz / hopSamples, which comes from the stream and the window, not from a chosen frame rate.
+    static constexpr int kHopDivisor = 4;
 
-    void setSampleRateHz(int value);
+    AnalysisSession(int sampleRateHz, int fftSize);
+
+    int hopSamples() const { return hopSamples_; }
+    float hopRateHz() const { return hopRateHz_; }
     void setTuning(float sensitivity, float refractoryMs, float attackSeconds, float releaseSeconds);
     void reset();
-    void analyze(const float* mid, const float* side, size_t frames, float dtSeconds, GeodeFeatureFrame& out);
     void push(const float* interleaved, size_t frames, int channels);
     bool pull(GeodeFeatureFrame& out);
     std::string key() const { return key_.finish(); }
@@ -25,12 +30,11 @@ public:
 private:
     void fill(const float* mid, const float* side, GeodeFeatureFrame& out) const;
     void averagedWaveform(const float* mid, float* out) const;
-    void decimatedWaveform(const float* mid, float* out) const;
 
     int sampleRateHz_;
     int fftSize_;
-    float hopRateHz_;
     int hopSamples_;
+    float hopRateHz_;
     ReactiveAnalyzer analyzer_;
     Chromagram chroma_;
     KeyDetector key_;

@@ -12,15 +12,11 @@ object GeodeNative {
     external fun analysisCreate(
         sampleRate: Int,
         fftSize: Int,
-        hopRateHz: Float,
     ): Long
 
     external fun analysisDestroy(handle: Long)
 
-    external fun analysisSetSampleRate(
-        handle: Long,
-        sampleRate: Int,
-    )
+    external fun analysisHopSamples(handle: Long): Int
 
     external fun analysisSetTuning(
         handle: Long,
@@ -31,14 +27,6 @@ object GeodeNative {
     )
 
     external fun analysisReset(handle: Long)
-
-    external fun analysisAnalyze(
-        handle: Long,
-        mid: FloatArray,
-        side: FloatArray?,
-        dtSeconds: Float,
-        out: FloatArray,
-    )
 
     external fun analysisPush(
         handle: Long,

@@ -93,7 +93,7 @@ internal class ExportController(
         fun lfoConfigs(): List<dev.geode.render.LfoConfig>
 
         fun adsrConfigs(): List<dev.geode.render.AdsrConfig>
-        
+
         fun reactions(): List<dev.geode.render.ReactionRoute>?
 
         /** The open editor project's tracks; programme-level scene tracks animate the export. */

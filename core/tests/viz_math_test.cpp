@@ -49,7 +49,7 @@ void followRouteTracksSource() {
 
 void stepRouteJumpsOncePerEdge() {
     ReactionEngine e;
-    e.routes[0] = {true, ReactSource::Section, LfoTarget::ColorShift, ReactMode::Step, 0.25f, ModCurve::Linear, 0.0f, 0.0f};
+    e.routes[0] = {true, ReactSource::Section, LfoTarget::CamYaw, ReactMode::Step, 0.25f, ModCurve::Linear, 0.0f, 0.0f};
     GeodeFeatureFrame f = silence();
     f.sectionBoundary = 1.0f;
     e.tick(f, 1.0f / 60.0f);

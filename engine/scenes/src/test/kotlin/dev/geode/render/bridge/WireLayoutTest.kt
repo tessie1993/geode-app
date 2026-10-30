@@ -27,7 +27,8 @@ class WireLayoutTest {
 
     @Test
     fun reactionsPackEverySlotAndDisableTheRest() {
-        val route = ReactionRoute(true, ReactSource.DROP, LfoTarget.CAM_FLY, ReactMode.STEP, 0.8f, attackSeconds = 0.2f, releaseSeconds = 2f)
+        val route =
+            ReactionRoute(true, ReactSource.DROP, LfoTarget.CAM_FLY, ReactMode.STEP, 0.8f, attackSeconds = 0.2f, releaseSeconds = 2f)
         val out = ModConfigCodec.packReactions(listOf(route))
         assertEquals(ReactionRoute.MAX_ROUTES * ModConfigCodec.REACT_ROUTE_FLOATS, out.size)
         assertEquals(1f, out[0])

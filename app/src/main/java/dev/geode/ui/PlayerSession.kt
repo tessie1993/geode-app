@@ -1058,7 +1058,7 @@ class PlayerSession internal constructor(
                 override fun lfoConfigs() = modulation.lfos.value
 
                 override fun adsrConfigs() = modulation.adsrs.value
-                
+
                 override fun reactions() = modulation.reactions.value
 
                 override fun keyframes() = editor.state.value.project.keyframes

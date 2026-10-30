@@ -29,6 +29,7 @@ class BuildStyleReactionsUseCase {
     ): List<ReactionRoute> {
         val rng = Random(sceneId.hashCode() * GOLDEN + seed)
         val routes = mutableListOf<ReactionRoute>()
+
         fun add(route: ReactionRoute) {
             if (route.target.scope.appliesTo(sceneId) && routes.none { it.target == route.target && it.source == route.source }) {
                 routes += route
@@ -91,7 +92,8 @@ class BuildStyleReactionsUseCase {
         const val GOLDEN = -0x61c88647 // 0x9E3779B9: spreads consecutive seeds apart
 
         val KICKS = listOf(ReactSource.KICK, ReactSource.KICK, ReactSource.SUB_BASS, ReactSource.BEAT)
-        val COLOUR_EVENTS = listOf(ReactSource.PITCH_CHANGE, ReactSource.SECTION, ReactSource.DOWNBEAT, ReactSource.ONSET, ReactSource.TIMBRE_JUMP)
+        val COLOUR_EVENTS =
+            listOf(ReactSource.PITCH_CHANGE, ReactSource.SECTION, ReactSource.DOWNBEAT, ReactSource.ONSET, ReactSource.TIMBRE_JUMP)
         val SHAPE_SOURCES = listOf(ReactSource.SNARE, ReactSource.ONSET, ReactSource.HAT, ReactSource.FLUX, ReactSource.KICK)
         val SHAPE_TARGETS = listOf(LfoTarget.MORPH, LfoTarget.TWIST, LfoTarget.WARP, LfoTarget.RIPPLE)
         val SPIN_SOURCES = listOf(ReactSource.MID, ReactSource.HIGH_MID, ReactSource.SNARE, ReactSource.BAR_OSC, ReactSource.LOW_MID)

@@ -1,14 +1,11 @@
 package dev.geode.ui
 
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -69,13 +66,11 @@ private fun TouchGroup(
     gui: GuiPrefs,
 ) {
     Column {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(stringResource(R.string.behavior_touch_smear), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-            Switch(
-                checked = gui.touchSmear,
-                onCheckedChange = { viewModel.setGuiPrefs(gui.copy(touchSmear = it)) },
-            )
-        }
+        LabeledSwitch(
+            stringResource(R.string.behavior_touch_smear),
+            checked = gui.touchSmear,
+            onCheckedChange = { viewModel.setGuiPrefs(gui.copy(touchSmear = it)) },
+        )
         Text(
             stringResource(R.string.behavior_touch_smear_hint),
             style = MaterialTheme.typography.bodySmall,
@@ -94,13 +89,11 @@ private fun TouchGroup(
         }
     }
     Column {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(stringResource(R.string.behavior_touch_transform), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-            Switch(
-                checked = gui.touchTransform,
-                onCheckedChange = { viewModel.setGuiPrefs(gui.copy(touchTransform = it)) },
-            )
-        }
+        LabeledSwitch(
+            stringResource(R.string.behavior_touch_transform),
+            checked = gui.touchTransform,
+            onCheckedChange = { viewModel.setGuiPrefs(gui.copy(touchTransform = it)) },
+        )
         Text(
             stringResource(R.string.behavior_touch_transform_hint),
             style = MaterialTheme.typography.bodySmall,
@@ -116,13 +109,11 @@ private fun ConnectedDisplayGroup(
 ) {
     val external = rememberExternalDisplay()
     Column {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(stringResource(R.string.behavior_display_use), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-            Switch(
-                checked = gui.secondScreen,
-                onCheckedChange = { viewModel.setGuiPrefs(gui.copy(secondScreen = it)) },
-            )
-        }
+        LabeledSwitch(
+            stringResource(R.string.behavior_display_use),
+            checked = gui.secondScreen,
+            onCheckedChange = { viewModel.setGuiPrefs(gui.copy(secondScreen = it)) },
+        )
         Text(
             if (external != null) {
                 stringResource(R.string.behavior_display_connected, external.name)
@@ -151,13 +142,11 @@ private fun VisualSafetyGroup(
         )
     }
     Column {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(stringResource(R.string.behavior_slow_motion), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-            Switch(
-                checked = gui.reducedMotion,
-                onCheckedChange = { viewModel.setGuiPrefs(gui.copy(reducedMotion = it)) },
-            )
-        }
+        LabeledSwitch(
+            stringResource(R.string.behavior_slow_motion),
+            checked = gui.reducedMotion,
+            onCheckedChange = { viewModel.setGuiPrefs(gui.copy(reducedMotion = it)) },
+        )
         Text(
             stringResource(R.string.behavior_slow_motion_hint),
             style = MaterialTheme.typography.bodySmall,
@@ -173,13 +162,11 @@ private fun PictureInPictureGroup(
     gui: GuiPrefs,
 ) {
     Column {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(stringResource(R.string.behavior_pip_auto_enter), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-            Switch(
-                checked = gui.autoEnterPip,
-                onCheckedChange = { viewModel.setGuiPrefs(gui.copy(autoEnterPip = it)) },
-            )
-        }
+        LabeledSwitch(
+            stringResource(R.string.behavior_pip_auto_enter),
+            checked = gui.autoEnterPip,
+            onCheckedChange = { viewModel.setGuiPrefs(gui.copy(autoEnterPip = it)) },
+        )
         Text(
             stringResource(R.string.behavior_pip_auto_enter_hint),
             style = MaterialTheme.typography.bodySmall,

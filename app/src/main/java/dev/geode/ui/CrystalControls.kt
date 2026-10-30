@@ -12,8 +12,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.systemGestureExclusion
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
@@ -26,8 +28,10 @@ import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Slider
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -35,6 +39,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -75,6 +83,8 @@ fun CrystalButton(
         }
     Box(
         modifier
+            // A compact button draws 36dp tall but still answers to a 48dp touch target.
+            .minimumInteractiveComponentSize()
             .stonePress(interaction)
             .defaultMinSize(minHeight = if (compact) 36.dp else GeodeSpacing.TouchTarget)
             .clip(shape)
@@ -84,6 +94,7 @@ fun CrystalButton(
                 interactionSource = interaction,
                 indication = ripple(),
                 enabled = enabled,
+                role = Role.Button,
                 onClick = {
                     sounds.play(if (filled && !compact) UiSound.CONFIRM else UiSound.TAP)
                     onClick()
@@ -127,10 +138,14 @@ fun CrystalPlayButton(
             .stonePress(interaction)
             .clip(CircleShape)
             .background(if (enabled) cs.primary else cs.onSurface.copy(alpha = 0.12f))
+            // The label goes on the clickable node itself, not only on the icon inside it, so
+            // accessibility clicks and UI tests that find "Play" land on something that acts.
+            .semantics { this.contentDescription = contentDescription }
             .clickable(
                 interactionSource = interaction,
                 indication = ripple(color = cs.onPrimary),
                 enabled = enabled,
+                role = Role.Button,
                 onClick = {
                     sounds.play(UiSound.TAP)
                     onClick()
@@ -140,7 +155,7 @@ fun CrystalPlayButton(
     ) {
         StoneIconArt(
             icon,
-            contentDescription,
+            null,
             Modifier.size(30.dp),
             tint = if (enabled) cs.onPrimary else cs.onSurface.copy(alpha = GeodeGlass.DISABLED_CONTENT),
         )
@@ -165,6 +180,53 @@ fun CrystalSlider(
         steps = steps,
         enabled = enabled,
     )
+}
+
+/**
+ * A switch with its label as one control: the whole row toggles, and TalkBack reads the label with
+ * the state ("Interface sounds, on, switch"). A bare Switch next to a Text announces only "on".
+ */
+@Composable
+fun LabeledSwitch(
+    label: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    style: TextStyle = MaterialTheme.typography.bodyMedium,
+) {
+    Row(
+        modifier
+            .fillMaxWidth()
+            .toggleable(value = checked, enabled = enabled, role = Role.Switch, onValueChange = onCheckedChange)
+            .minimumInteractiveComponentSize(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(GeodeSpacing.S),
+    ) {
+        Text(label, Modifier.weight(1f), style = style)
+        Switch(checked = checked, onCheckedChange = null, enabled = enabled)
+    }
+}
+
+/** [LabeledSwitch]'s checkbox twin: the row toggles and carries the label. */
+@Composable
+fun LabeledCheckbox(
+    label: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    style: TextStyle = MaterialTheme.typography.bodyMedium,
+) {
+    Row(
+        modifier
+            .toggleable(value = checked, enabled = enabled, role = Role.Checkbox, onValueChange = onCheckedChange)
+            .minimumInteractiveComponentSize(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Checkbox(checked = checked, onCheckedChange = null, enabled = enabled)
+        Text(label, style = style)
+    }
 }
 
 data class CrystalNavItem(

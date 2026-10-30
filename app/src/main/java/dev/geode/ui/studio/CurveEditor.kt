@@ -20,6 +20,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -27,6 +28,11 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import dev.geode.R
 import dev.geode.editor.AnimatableParam
@@ -86,7 +92,11 @@ private fun InterpolationChips(
     }
 }
 
-/** The bezier's two handles, draggable; the curve is drawn from the same [BezierCurve.eval] the export uses. */
+/**
+ * The bezier's two handles, draggable; the curve is drawn from the same [BezierCurve.eval] the export uses.
+ * TalkBack reads the handle positions and moves either handle a step at a time through custom
+ * actions, clamped to the same ranges as the drag.
+ */
 @Composable
 private fun BezierHandles(
     curve: BezierCurve,
@@ -95,11 +105,37 @@ private fun BezierHandles(
     val line = MaterialTheme.colorScheme.primary
     val grid = MaterialTheme.colorScheme.onSurfaceVariant
     val handle = MaterialTheme.colorScheme.secondary
+    // One path, rewound per draw, rather than a new Path every frame of a drag.
+    val path = remember { Path() }
+    val description = stringResource(R.string.studio_a11y_curve)
+    val handleState = stringResource(R.string.studio_a11y_curve_state, curve.c1x, curve.c1y, curve.c2x, curve.c2y)
+    val moves =
+        listOf(
+            R.string.studio_a11y_curve_first_left to curve.moved(first = true, dx = -CURVE_STEP),
+            R.string.studio_a11y_curve_first_right to curve.moved(first = true, dx = CURVE_STEP),
+            R.string.studio_a11y_curve_first_up to curve.moved(first = true, dy = CURVE_STEP),
+            R.string.studio_a11y_curve_first_down to curve.moved(first = true, dy = -CURVE_STEP),
+            R.string.studio_a11y_curve_second_left to curve.moved(first = false, dx = -CURVE_STEP),
+            R.string.studio_a11y_curve_second_right to curve.moved(first = false, dx = CURVE_STEP),
+            R.string.studio_a11y_curve_second_up to curve.moved(first = false, dy = CURVE_STEP),
+            R.string.studio_a11y_curve_second_down to curve.moved(first = false, dy = -CURVE_STEP),
+        ).map { (label, moved) ->
+            CustomAccessibilityAction(stringResource(label)) {
+                // At a clamp the step changes nothing; say so instead of a silent success.
+                val changed = moved != curve
+                if (changed) onCurve(moved)
+                changed
+            }
+        }
     Canvas(
         Modifier
             .size(CURVE_SIZE)
             .padding(4.dp)
-            .pointerInput(curve) {
+            .semantics {
+                contentDescription = description
+                stateDescription = handleState
+                customActions = moves
+            }.pointerInput(curve) {
                 var dragging = -1
                 detectDragGestures(
                     onDragStart = { offset ->
@@ -112,7 +148,7 @@ private fun BezierHandles(
                     onDrag = { change, _ ->
                         change.consume()
                         val x = (change.position.x / size.width).coerceIn(0f, 1f)
-                        val y = (1f - change.position.y / size.height).coerceIn(-0.5f, 1.5f)
+                        val y = (1f - change.position.y / size.height).coerceIn(HANDLE_Y_MIN, HANDLE_Y_MAX)
                         onCurve(if (dragging == 0) curve.copy(c1x = x, c1y = y) else curve.copy(c2x = x, c2y = y))
                     },
                 )
@@ -121,16 +157,14 @@ private fun BezierHandles(
         val w = size.width
         val h = size.height
         drawLine(grid.copy(alpha = 0.5f), Offset(0f, h), Offset(w, 0f), strokeWidth = 1f)
-        val path =
-            Path().apply {
-                moveTo(0f, h)
-                var i = 1
-                while (i <= CURVE_SAMPLES) {
-                    val x = i / CURVE_SAMPLES.toFloat()
-                    lineTo(x * w, (1f - curve.eval(x)) * h)
-                    i++
-                }
-            }
+        path.rewind()
+        path.moveTo(0f, h)
+        var i = 1
+        while (i <= CURVE_SAMPLES) {
+            val x = i / CURVE_SAMPLES.toFloat()
+            path.lineTo(x * w, (1f - curve.eval(x)) * h)
+            i++
+        }
         drawPath(path, line, style = Stroke(3f))
         val first = Offset(curve.c1x * w, (1f - curve.c1y) * h)
         val second = Offset(curve.c2x * w, (1f - curve.c2y) * h)
@@ -140,6 +174,18 @@ private fun BezierHandles(
         drawCircle(handle, radius = 8f, center = second)
     }
 }
+
+/** One handle stepped by ([dx], [dy]), clamped to the ranges the drag allows. */
+private fun BezierCurve.moved(
+    first: Boolean,
+    dx: Float = 0f,
+    dy: Float = 0f,
+): BezierCurve =
+    if (first) {
+        copy(c1x = (c1x + dx).coerceIn(0f, 1f), c1y = (c1y + dy).coerceIn(HANDLE_Y_MIN, HANDLE_Y_MAX))
+    } else {
+        copy(c2x = (c2x + dx).coerceIn(0f, 1f), c2y = (c2y + dy).coerceIn(HANDLE_Y_MIN, HANDLE_Y_MAX))
+    }
 
 @Composable
 private fun ValueEditor(
@@ -232,4 +278,9 @@ fun paramLabel(param: AnimatableParam?): String =
 
 private val CURVE_SIZE = 180.dp
 private const val CURVE_SAMPLES = 48
+
+// A handle may overshoot vertically (for a bounce) but never leave the 0..1 time axis.
+private const val HANDLE_Y_MIN = -0.5f
+private const val HANDLE_Y_MAX = 1.5f
+private const val CURVE_STEP = 0.05f
 private const val VECTOR_RANGE = 2f

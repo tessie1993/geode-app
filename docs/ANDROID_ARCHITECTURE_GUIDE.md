@@ -16,6 +16,32 @@ the code is the debt, not the rule — but fix it only inside your session's sco
   ViewModels or a ViewModel grows too complex. Not mandatory.
 - Layers talk through coroutines and Flow.
 
+## Domain layer (use cases)
+Source: `kb://android/topic/architecture/domain-layer`. This is Android's meaning
+of the term, not clean architecture's.
+- Optional. Add a use case only for complex logic or logic reused by more than one
+  ViewModel or service. Example: mapping audio features to visual parameters, which
+  is shared by the player, the wallpaper, the dream and export.
+- Name: verb + noun + `UseCase` (`MapAudioToSceneParamsUseCase`). One job, called
+  through `operator fun invoke`.
+- No mutable state and no lifecycle of its own. Callers get a fresh instance; don't
+  scope it as a singleton.
+- Depends on repositories and other use cases. Called from ViewModels, services or
+  `Application`.
+- Main-safe: blocking work moves to an injected dispatcher. Heavy work that is
+  cached and reused belongs in the data layer.
+- Prefer a use case to a `Util` object.
+
+## Kotlin Multiplatform readiness (decision 2026-10-30)
+Ship Android only, but keep porting cheap.
+- Domain models, settings and presets, use cases and pure audio→visual mapping logic
+  live in modules with **no `android.*` imports**. Only plain Kotlin plus
+  KMP-ready libraries: coroutines, serialization, DataStore, ViewModel,
+  Navigation 3.
+- Platform code stays in Android modules behind interfaces that the pure modules
+  define: Media3, MediaStore, Oboe/JNI, GLES, wallpaper, Billing.
+- Don't convert to `kotlin("multiplatform")` now; just don't block it.
+
 ## ViewModels
 - Screen-level only. Reusable components use plain state-holder classes with hoisted state.
 - No `Activity`, `Context`, `Resources` or `Application`; no `AndroidViewModel`.

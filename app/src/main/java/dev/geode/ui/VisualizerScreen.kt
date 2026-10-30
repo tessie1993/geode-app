@@ -1,5 +1,7 @@
 package dev.geode.ui
 
+import android.os.Build
+import android.view.accessibility.AccessibilityManager
 import androidx.annotation.StringRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -15,12 +17,15 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.PictureInPictureAlt
@@ -31,28 +36,36 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerEvent
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastAny
 import androidx.compose.ui.util.fastForEach
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.media3.common.Player
 import dev.geode.R
 import dev.geode.render.TouchField
 import dev.geode.render.VisualizerRenderer
@@ -60,6 +73,7 @@ import dev.geode.render.VisualizerView
 import dev.geode.render.scene.TouchTransform
 import dev.geode.ui.theme.StoneIcon
 import dev.geode.ui.theme.StoneIconArt
+import kotlinx.coroutines.delay
 import kotlin.math.PI
 import kotlin.math.abs
 
@@ -92,6 +106,19 @@ fun VisualizerScreen(
     // gone while the platform reports the mode, and the last state comes back on exit.
     val inPip = VisualizerPipCoordinator.inPictureInPicture
     val showChrome = controlsVisible && !inPip
+    // Bumped on every finger down and up anywhere on the screen, chrome included; each bump
+    // restarts the auto-hide countdown. Moves are not counted, so a long drag recomposes
+    // nothing — the lift that ends it restarts the countdown instead.
+    var touches by remember { mutableIntStateOf(0) }
+
+    ImmersiveSystemBars()
+    AutoHideChrome(
+        // Not while paused (the chrome is how playback resumes), and not while the lyrics or
+        // queue panel is open, which someone is reading rather than watching past.
+        armed = controlsVisible && state.isPlaying && panel == PlayerPanel.TRANSPORT,
+        touches = touches,
+        onHide = { controlsVisible = false },
+    )
 
     val dismiss = rememberPredictiveDismiss(onDismiss = onCollapse)
 
@@ -101,6 +128,15 @@ fun VisualizerScreen(
             .dismissTransform(dismiss)
             .background(Color.Black)
             .pointerInput(Unit) {
+                // The Initial pass reaches this ancestor before any child, and nothing is
+                // consumed, so taps on the transport buttons count without being stolen.
+                awaitPointerEventScope {
+                    while (true) {
+                        val type = awaitPointerEvent(PointerEventPass.Initial).type
+                        if (type == PointerEventType.Press || type == PointerEventType.Release) touches++
+                    }
+                }
+            }.pointerInput(Unit) {
                 detectTapGestures(onTap = { controlsVisible = !controlsVisible })
             }.visualizerTouch(
                 renderer = visualizerView.visualizerRenderer,
@@ -204,8 +240,9 @@ fun VisualizerScreen(
                     Modifier
                         .align(Alignment.BottomCenter)
                         .fillMaxWidth()
-                        .navigationBarsPadding()
-                        .padding(horizontal = 12.dp)
+                        .windowInsetsPadding(
+                            WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal),
+                        ).padding(horizontal = 12.dp)
                         .padding(bottom = 16.dp)
                         .crystalPanel(
                             chromeAlpha,
@@ -263,18 +300,7 @@ fun VisualizerScreen(
                         IconButton(onClick = viewModel::next, enabled = state.hasMedia) {
                             StoneIconArt(StoneIcon.NEXT, stringResource(R.string.action_next))
                         }
-                        IconButton(onClick = viewModel::cycleRepeatMode) {
-                            StoneIconArt(
-                                StoneIcon.REPEAT,
-                                stringResource(R.string.action_repeat),
-                                tint =
-                                    if (state.repeatMode != Player.REPEAT_MODE_OFF) {
-                                        MaterialTheme.colorScheme.primary
-                                    } else {
-                                        MaterialTheme.colorScheme.onSurfaceVariant
-                                    },
-                            )
-                        }
+                        RepeatButton(state.repeatMode, viewModel::cycleRepeatMode)
                     }
                     Row(
                         Modifier.fillMaxWidth(),
@@ -338,6 +364,63 @@ fun VisualizerScreen(
 }
 
 /**
+ * Hides the status and navigation bars for as long as the live view is composed, and gives them
+ * back when it leaves.
+ *
+ * The live view is something to watch, and a status bar across the top of it is the one piece of
+ * chrome the auto-hide below cannot reach. Swiping from an edge still reveals the bars, over the
+ * visuals and only for a moment, so the clock and notifications stay a gesture away.
+ */
+@Composable
+private fun ImmersiveSystemBars() {
+    val window = LocalContext.current.findMainActivity()?.window ?: return
+    val view = LocalView.current
+    DisposableEffect(window, view) {
+        val controller = WindowInsetsControllerCompat(window, view)
+        val behaviourBefore = controller.systemBarsBehavior
+        controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        controller.hide(WindowInsetsCompat.Type.systemBars())
+        onDispose {
+            controller.show(WindowInsetsCompat.Type.systemBars())
+            controller.systemBarsBehavior = behaviourBefore
+        }
+    }
+}
+
+/**
+ * Hides the chrome after [CHROME_TIMEOUT_MS] with no touch, while [armed]. Every change of
+ * [touches] restarts the countdown.
+ *
+ * Two accessibility settings win over the countdown. The timeout is stretched to the user's
+ * "time to take action" choice (API 29+), and with touch exploration on (TalkBack) the chrome
+ * never hides by itself: a screen reader user finds buttons by feel, and controls that vanish
+ * while being explored cannot be found at all.
+ */
+@Composable
+private fun AutoHideChrome(
+    armed: Boolean,
+    touches: Int,
+    onHide: () -> Unit,
+) {
+    val context = LocalContext.current
+    val hide by rememberUpdatedState(onHide)
+    LaunchedEffect(armed, touches) {
+        if (!armed) return@LaunchedEffect
+        val a11y = context.getSystemService(AccessibilityManager::class.java)
+        val recommendedMs =
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                a11y?.getRecommendedTimeoutMillis(CHROME_TIMEOUT_MS, AccessibilityManager.FLAG_CONTENT_CONTROLS)
+            } else {
+                null
+            }
+        delay((recommendedMs ?: CHROME_TIMEOUT_MS).toLong())
+        if (a11y?.isTouchExplorationEnabled != true) hide()
+    }
+}
+
+private const val CHROME_TIMEOUT_MS = 4_000
+
+/**
  * The top chrome row: collapse, PiP entry, now-playing title/subtitle, and favourite toggle.
  *
  * Extracted from [VisualizerScreen] purely to stay under detekt's LongMethod ceiling; it has
@@ -354,9 +437,11 @@ private fun VisualizerTopBar(
     onEnterPip: () -> Unit,
     onToggleFavourite: () -> Unit,
 ) {
+    // Safe drawing rather than status bars: the bars are hidden on this screen, so their inset is
+    // zero, and the camera cutout is what would otherwise sit on the buttons.
     Row(
         Modifier
-            .statusBarsPadding()
+            .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
             .padding(12.dp)
             .crystalPanel(
                 chromeAlpha,

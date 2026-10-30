@@ -346,7 +346,7 @@ fun SettingsDialog(
  * sat off-screen while the caption above named it, and nothing hinted the row could scroll.
  */
 @Composable
-private fun ChipRow(content: @Composable () -> Unit) {
+internal fun ChipRow(content: @Composable () -> Unit) {
     FlowRow(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -354,7 +354,7 @@ private fun ChipRow(content: @Composable () -> Unit) {
 }
 
 @Composable
-private fun QualityChip(
+internal fun QualityChip(
     label: String,
     selected: Boolean,
     enabled: Boolean = true,

@@ -7,13 +7,17 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.systemGestures
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.systemGestureExclusion
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
@@ -159,8 +163,12 @@ fun CrystalSlider(
     Slider(
         value = value,
         onValueChange = onValueChange,
-        // A thumb at 0 sits in the back-gesture strip; without this a drag from it leaves the screen.
-        modifier = modifier.systemGestureExclusion(),
+        // A thumb at 0 sat in the back-gesture strip, so dragging it went Back. Exclusion rects
+        // can't fix that: Android honours only ~200dp of them per edge, and a column of sliders
+        // runs past it. So the track starts after the gesture inset (zero with 3-button nav).
+        // ponytail: adds the full inset on top of the screen's own padding; subtract the
+        // slider's measured x if the extra margin ever looks wrong.
+        modifier = modifier.windowInsetsPadding(WindowInsets.systemGestures.only(WindowInsetsSides.Horizontal)),
         valueRange = valueRange,
         steps = steps,
         enabled = enabled,

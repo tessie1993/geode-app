@@ -1,11 +1,9 @@
 package dev.geode.ui
 
-import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -50,28 +48,23 @@ internal fun ExportSettingsTab(
             SettingsGroup(stringResource(R.string.export_group_defaults)) {
                 Column {
                     Text(stringResource(R.string.export_platform_preset), style = MaterialTheme.typography.labelMedium)
-                    Row(Modifier.fillMaxWidth().padding(top = 4.dp).horizontalScroll(rememberScrollState())) {
-                        CrystalSegmented(
-                            options = ExportPresets.ALL.map { stringResource(it.nameRes) },
-                            selected =
-                                ExportPresets.indexMatching(
-                                    defaults.quality,
-                                    defaults.ratio,
-                                    defaults.fps,
-                                    defaults.loopSafe,
-                                ),
-                            onSelect = {
-                                val preset = ExportPresets.ALL[it]
-                                update(
-                                    defaults.copy(
-                                        quality = preset.quality,
-                                        ratio = preset.ratio,
-                                        fps = preset.fps,
-                                        loopSafe = preset.loopSafe,
-                                    ),
-                                )
-                            },
-                        )
+                    // Wraps rather than scrolls, so the selected preset is always on screen.
+                    val presetIndex = ExportPresets.indexMatching(defaults.quality, defaults.ratio, defaults.fps, defaults.loopSafe)
+                    Box(Modifier.padding(top = 4.dp)) {
+                        ChipRow {
+                            ExportPresets.ALL.forEachIndexed { i, preset ->
+                                QualityChip(stringResource(preset.nameRes), selected = i == presetIndex) {
+                                    update(
+                                        defaults.copy(
+                                            quality = preset.quality,
+                                            ratio = preset.ratio,
+                                            fps = preset.fps,
+                                            loopSafe = preset.loopSafe,
+                                        ),
+                                    )
+                                }
+                            }
+                        }
                     }
                     Text(
                         presetCaption(
@@ -102,12 +95,12 @@ internal fun ExportSettingsTab(
                 }
                 Column {
                     Text(stringResource(R.string.export_aspect_ratio), style = MaterialTheme.typography.labelMedium)
-                    Row(Modifier.fillMaxWidth().padding(top = 4.dp).horizontalScroll(rememberScrollState())) {
-                        CrystalSegmented(
-                            options = ExportRatio.entries.map { it.label },
-                            selected = ExportRatio.entries.indexOf(defaults.ratio),
-                            onSelect = { update(defaults.copy(ratio = ExportRatio.entries[it])) },
-                        )
+                    Box(Modifier.padding(top = 4.dp)) {
+                        ChipRow {
+                            ExportRatio.entries.forEach { ratio ->
+                                QualityChip(ratio.label, selected = ratio == defaults.ratio) { update(defaults.copy(ratio = ratio)) }
+                            }
+                        }
                     }
                 }
                 Column {

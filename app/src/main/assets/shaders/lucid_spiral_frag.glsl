@@ -54,7 +54,7 @@ void main() {
     float swell = clamp(uSwell, 0.0, 1.5);
 
     int depth = lucidDetail(3, 2);
-    int oct = lucidDetail(4, 2);
+    int oct = lucidDetail(3, 2);
 
     vec2 lp = lucidLogPolar(uv);
     float r = exp(lp.x);
@@ -70,9 +70,14 @@ void main() {
     float arm = floor(a / seg);
     float v = abs(mod(a, seg) - 0.5 * seg) / seg;
 
-    vec2 q = vec2(u * 2.4, v * 2.8);
+    vec2 q = vec2(u * 1.5, v * 1.9);
     q += lucidJitter(q, t);
-    vec4 n = lucidNest(q, depth, 1.25 * lucidChaos(), t * 0.2, LUCID_RIDGED, oct);
+    // Warp with smooth simplex, read the creases ridged at the end: a ridged
+    // field fed back through the nest has unbounded slope at every crease and
+    // turned the arms into static.
+    float strength = 0.9 * lucidChaos();
+    vec4 n = lucidNest(q, depth, strength, t * 0.2, LUCID_SIMPLEX, oct);
+    n.z = lucidFbm(q + strength * n.xy + vec2(1.7, 9.2), LUCID_RIDGED, oct);
 
     float ridge = 0.5 + 0.5 * n.z;
     float crease = smoothstep(0.55 - 0.1 * clamp(treb, 0.0, 1.0), 0.98, ridge);

@@ -77,7 +77,11 @@ void main() {
     int depth = lucidDetail(3, 2);
     float chaos = lucidChaos();
 
-    vec2 p = uv * (6.0 - 0.6 * beat);
+    // Fine enough that a phone screen holds a few dozen rosettes (a wave
+    // every ~0.15 of the half-height). At 6 the
+    // frame held one and a half, so the crystal never showed: it read as a
+    // soft hue gradient, the same picture as any smooth Lucid nest.
+    vec2 p = uv * (42.0 - 4.0 * beat);
     p += lucidJitter(p, t) * 3.0;
     float phase = t * 0.35 + flow * 0.4;
 
@@ -89,8 +93,12 @@ void main() {
         vec2 pi = lucidRot(0.4 * lv) * p * exp2(-0.5 * lv) + w;
         quasi(pi, waves, phase * (1.0 - 0.2 * lv), g);
         // Ridged mode folds the warp too: the gradient's sign flips at the creases.
-        vec2 ridged = abs(g) - 0.6;
-        w = 0.55 * chaos * mix(ridged, g, smoothness);
+        // The gradient's length grows with the wave count (up to ~sqrt(waves)
+        // per wave), so it is normalised here: unnormalised it pushed the read
+        // point several rosettes away and smeared the crystal into mush.
+        g /= sqrt(waves);
+        vec2 ridged = abs(g) - 0.3;
+        w = 0.45 * chaos * mix(ridged, g, smoothness);
     }
     vec2 g;
     float f = quasi(p + w, waves, phase, g);

@@ -160,21 +160,27 @@ vec3 grade(vec3 col) {
     return mix(col, max(vec3(1.0) - col, 0.0), uInvert);
 }
 
-// Synthwave horizon: perspective floor grid pumping with bass.
+// Laser corridor: a perspective grid on the floor AND mirrored on the ceiling,
+// racing toward a horizon line where the spectrum stands up and hangs down as
+// bars of light. No sun: Outrun Drive owns the sunset horizon and Neon City
+// the moonlit one; when all three had a striped sun they read as one picture. Bass pumps the
+// floor's speed; the bars are aband() along the horizon.
 void main() {
     vec2 uv = view();
-    vec3 col = vec3(0.0);
-    if (uv.y < 0.0) {
-        float pz = 1.0 / (-uv.y + 0.05);
-        vec2 g = vec2(uv.x * pz, pz + uTime * (2.0 + uBass * 6.0));
-        float line = max(exp(-abs(fract(g.x) - 0.5) * 24.0), exp(-abs(fract(g.y) - 0.5) * 24.0));
-        float h = aband(fract(abs(g.x) * 0.12));
-        col = pal(0.75) * line * exp(-pz * 0.12) * (0.5 + h * 1.4);
-    } else {
-        float sunR = 0.35 + uBass * uBeatResponse * 0.1;
-        float d = length(uv - vec2(0.0, 0.28));
-        float sun = smoothstep(sunR, sunR - 0.02, d) * step(fract(uv.y * 24.0 + uTime * 0.5), 0.8);
-        col = pal(uv.y * 0.6) * sun + pal(0.05) * exp(-d * 3.0) * 0.4;
-    }
+    float ay = abs(uv.y);
+    float pz = 1.0 / (ay + 0.05);
+    vec2 g = vec2(uv.x * pz, pz + uTime * (2.0 + uBass * 6.0));
+    float line = max(exp(-abs(fract(g.x) - 0.5) * 24.0), exp(-abs(fract(g.y) - 0.5) * 24.0));
+    float h = aband(fract(abs(g.x) * 0.12));
+    vec3 tint = uv.y < 0.0 ? pal(0.75) : pal(0.25);
+    vec3 col = tint * line * exp(-pz * 0.12) * (0.5 + h * 1.4);
+
+    // The spectrum on the horizon: 48 bars, mirrored above and below the line.
+    float bx = (uv.x + 2.0) * 24.0;
+    float band = fract(floor(bx) / 48.0);
+    float tall = 0.03 + 0.22 * aband(band) * uBeatResponse;
+    float bar = step(abs(fract(bx) - 0.5), 0.34) * (1.0 - smoothstep(tall - 0.01, tall, ay));
+    col += pal(band + 0.1) * bar * (1.0 - 0.7 * ay / tall);
+    col += pal(0.05) * exp(-ay * 60.0) * 0.8;
     fragColor = vec4(grade(col), 1.0);
 }

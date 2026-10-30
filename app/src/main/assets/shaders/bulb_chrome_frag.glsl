@@ -43,7 +43,7 @@ out vec4 fragColor;
 
 #define BM_MAX_STEPS 128
 #define BM_BOUND 1.3
-#define BM_CAM_R 2.9
+#define BM_CAM_R 3.5
 const float BM_SPIN = 5.0 * CAM_SPIN_UNIT;
 
 vec2 gPhase;
@@ -63,13 +63,20 @@ vec3 normalAt(vec3 p, float e) {
                    + k.yxy * map(p + k.yxy * e) + k.xxx * map(p + k.xxx * e));
 }
 
+// A HIGH-KEY studio: a white cyclorama that grades from a mid-grey floor up
+// to a bright ceiling, broad softboxes and the coloured strips. Chrome is only
+// ever as bright as what it reflects; in a black room the metal read as a
+// dark lump that could be any Bulb. In this one it is the family's only
+// bright, mirror-silver body.
 vec3 studio(vec3 r) {
-    vec3 c = mix(vec3(0.012), vec3(0.07, 0.075, 0.09), smoothstep(-0.25, 0.7, r.y));
+    vec3 c = mix(vec3(0.10, 0.10, 0.11), vec3(0.62, 0.64, 0.68), smoothstep(-0.35, 0.8, r.y));
     float ang = atan(r.z, r.x + 1e-12) + gStudioTurn;
     float strips = pow(max(1.0 - abs(sin(ang * 2.0)), 0.0), gStrip);
-    c += pal(gHue + 0.25 * floor(mod((ang + 3.14159) / 1.5708, 4.0))) * strips * smoothstep(-0.15, 0.25, r.y) * 0.9;
-    c += vec3(1.0, 0.97, 0.92) * pow(max(1.0 - abs(r.y - 0.18) / 0.12, 0.0), 2.0) * 0.6;
-    c += vec3(1.0) * smoothstep(0.9, 0.99, r.y) * 1.4;
+    c += pal(gHue + 0.25 * floor(mod((ang + 3.14159) / 1.5708, 4.0))) * strips * smoothstep(-0.3, 0.2, r.y) * 1.3;
+    c += vec3(1.0, 0.97, 0.92) * pow(max(1.0 - abs(r.y - 0.18) / 0.2, 0.0), 2.0) * 1.1;
+    c += vec3(1.0) * smoothstep(0.6, 0.95, r.y) * 1.6;
+    // The floor's dark seam at the horizon, which is what makes a mirror read as one.
+    c *= 0.35 + 0.65 * smoothstep(0.0, 0.08, abs(r.y + 0.05));
     return c;
 }
 
@@ -82,7 +89,7 @@ void main() {
     gPhase = vec2(0.85 * mid * bulbEnergy(), jitter);
     gStudioTurn = 0.03 * bulbTime();
     gHue = 0.55 + 0.04 * sin(bulbTime() * 0.013);
-    gStrip = 10.0 + 30.0 * hat * bulbEnergy();
+    gStrip = 3.0 + 14.0 * hat * bulbEnergy();
     gIters = bulbIters(6);
 
     vec3 ro;
@@ -108,15 +115,14 @@ void main() {
         }
     }
 
-    vec3 col = studio(rd) * 0.35;
+    vec3 col = studio(rd) * 0.55;
     if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
         vec3 n = normalAt(p, bulbEps(hitT));
         float ndv = max(dot(n, -rd), 0.0);
         float ao = bulbStepAO(used);
-        ao *= ao;
-        vec3 metal = mix(vec3(0.72, 0.74, 0.78), pal(gHue + 0.1), 0.15);
-        float fres = 0.65 + 0.35 * pow(1.0 - ndv, 4.0);
+        vec3 metal = mix(vec3(0.9, 0.92, 0.95), pal(gHue + 0.1), 0.12);
+        float fres = 0.75 + 0.25 * pow(1.0 - ndv, 4.0);
         col = studio(reflect(rd, n)) * metal * fres * ao;
         // Heat-blued film at mid angles.
         col += pal(gHue + 0.6 + 0.5 * ndv) * ndv * (1.0 - ndv) * 0.35 * ao;

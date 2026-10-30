@@ -42,4 +42,5 @@ Dependency rule: `feature → core:{domain,data,playback,export,designsystem,nav
 
 - **Do step 4 before step 5.** `PlayerSessionProvider`'s KDoc relies on all five ViewModels sharing the Activity's store and being cleared together, and `PlayerViewModel.onCleared` tears the shared session down. Nav3's per-entry `ViewModelStore` breaks that: popping the Player entry would kill the session the other screens are still reading.
 - `ExportRun.scope` and `PlaybackEngine` are process-scoped on purpose: renders and playback outlive the Activity. They become `@Singleton` holders in `:core:export` and `:core:playback`. They do not become entry-scoped ViewModels.
+- The injected `Navigator` must hold a saveable back stack (`rememberNavBackStack`, or a `NavigationState` per tab). The official modular-Hilt recipe keeps its back stack in an in-memory list, which loses the user's place when the process dies.
 - `wallpaper/*` and the dream build their own `VisualizerView` and read `AudioBus` directly. They stay outside the Nav3 graph.

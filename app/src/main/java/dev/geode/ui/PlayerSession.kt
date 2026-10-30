@@ -337,22 +337,13 @@ class PlayerSession internal constructor(
 
     fun editSceneParams(params: SceneParams) = modulation.editSceneParams(params)
 
-    fun undoParams() {
-        modulation.undo()
-        macros.restKnobs()
-    }
+    fun undoParams() = macros.followLook { modulation.undo() }
 
-    fun redoParams() {
-        modulation.redo()
-        macros.restKnobs()
-    }
+    fun redoParams() = macros.followLook { modulation.redo() }
 
     fun resetCustomizeTab(tab: CustomizeTab) = if (tab == CustomizeTab.MACROS) macros.resetKnobs() else modulation.resetTab(tab)
 
-    fun resetAllCustomize() {
-        modulation.resetAll()
-        macros.restKnobs()
-    }
+    fun resetAllCustomize() = macros.followLook(rest = true) { modulation.resetAll() }
 
     /** The macro knobs and the active macro set (see [MacroController]). */
     internal val macros: MacroController by lazy {

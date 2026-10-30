@@ -49,6 +49,14 @@ internal class MacroController(
     private var anchorValue = 0f
     private var lastWritten: SceneParams? = null
 
+    // Where the knobs sat at each look a knob wrote or started from, so undo and redo, which only
+    // restore params, can put every knob back where it was for that look. Bounded a little past
+    // two entries per undo step; a look that has fallen out simply leaves the knobs alone.
+    private val knobsAt =
+        object : LinkedHashMap<SceneParams, List<Float>>() {
+            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<SceneParams, List<Float>>?) = size > MEMORY
+        }
+
     fun turn(
         index: Int,
         to: Float,
@@ -60,11 +68,16 @@ internal class MacroController(
             anchor = host.params
             anchorIndex = index
             anchorValue = macro.value
+            remember(host.params)
+        } else if (host.params != from) {
+            // Mid-drag looks are not undo steps; only where the drag ends is.
+            knobsAt.remove(host.params)
         }
         val out = MacroKnobs.turn(checkNotNull(anchor), macro, anchorValue, to, host.sceneId)
         lastWritten = out
         publish(current.withValue(index, to.coerceIn(0f, 1f)))
         host.editSceneParams(out)
+        remember(out)
     }
 
     /** Every knob somewhere new, away from the extremes; one undo entry for the params. */
@@ -81,18 +94,24 @@ internal class MacroController(
     }
 
     /**
-     * Every knob back to its rest without touching the params: for when the look was replaced
-     * from outside (undo, redo, reset all). A knob's position is a nudge from the look it was
-     * turned on, so once that look is gone the old position would make [resetKnobs] and
-     * [surprise] push the new look off by the old turn.
+     * Runs [replace], which swaps the look from outside (undo, redo, reset all), then moves the
+     * knobs, never the params, to match: where they sat at the look it lands on, or their rest
+     * when [rest]. A knob's position is a nudge from the look it was turned on, so a stale one
+     * would make [resetKnobs] and [surprise] push the new look off by the old turn.
      */
-    fun restKnobs() {
-        // ponytail: undo of a knob turn rests every knob rather than putting each back where it was;
-        // keep knob positions in the param history if that ever matters.
-        val current = _set.value
+    fun followLook(
+        rest: Boolean = false,
+        replace: () -> Unit,
+    ) {
+        remember(host.params)
+        replace()
         anchor = null
-        if (current.macros.all { it.value == it.rest }) return
-        publish(current.copy(macros = current.macros.map { it.copy(value = it.rest) }))
+        val current = _set.value
+        val values = if (rest) current.macros.map { it.rest } else knobsAt[host.params] ?: return
+        if (values.size == current.macros.size && values != current.knobs) {
+            publish(current.copy(macros = current.macros.zip(values) { m, v -> m.copy(value = v) }))
+        }
+        remember(host.params)
     }
 
     /** Every knob back to its rest, taking its destinations back with it; one undo entry. */
@@ -108,8 +127,9 @@ internal class MacroController(
     }
 
     /**
-     * Makes [next] the active set (the standard six, or a set made elsewhere). Knob positions are kept as [next] has them; the params are not touched, because a
-     * set describes how knobs move things, not a look. Sounds are swapped in the route list.
+     * Makes [next] the active set (the standard six, or a set made elsewhere). Knob positions are
+     * kept as [next] has them; the params are not touched, because a set describes how knobs move
+     * things, not a look. Sounds are swapped in the route list.
      */
     fun setActive(next: MacroSet) {
         val previous = _set.value
@@ -123,9 +143,17 @@ internal class MacroController(
         params: SceneParams,
     ) {
         anchor = null
+        remember(host.params)
         publish(next)
         host.commitSceneParams(params)
+        remember(params)
     }
+
+    private fun remember(params: SceneParams) {
+        knobsAt[params] = _set.value.knobs
+    }
+
+    private val MacroSet.knobs: List<Float> get() = macros.map { it.value }
 
     private fun publish(next: MacroSet) {
         _set.value = next
@@ -155,5 +183,6 @@ internal class MacroController(
         const val SURPRISE_LOW = 0.2f
         const val SURPRISE_SPAN = 0.6f
         const val SURPRISE_UNIPOLAR = 0.55f
+        const val MEMORY = 160
     }
 }

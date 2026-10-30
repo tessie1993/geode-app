@@ -18,7 +18,6 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import dev.geode.analysis.IntelligenceMode
 import dev.geode.data.LfoStore
 import dev.geode.render.AdsrConfig
 import dev.geode.render.BlendMode
@@ -37,7 +36,7 @@ import org.junit.runner.RunWith
 
 /**
  * A/B on every Customize subtab. Each subtab keeps its edits somewhere different: the params
- * (Shape, Colour, Motion, FX, Scene, Fluid, Cymatics), the reaction routes, the LFOs and
+ * (Shape, Colour, Motion, FX, Scene, Fluid, Cymatics), the reaction routes (Events), the LFOs and
  * envelopes (Reactivity) and the layer (Scene). A snapshot that held only the params made Set and
  * Recall look broken on the others, so each is checked here.
  */
@@ -106,7 +105,7 @@ class AbSnapshotTest {
     ) {
         assertEquals("params (Shape, Colour, Motion, FX…)", zoom, params.zoom, EPS)
         assertEquals("params (Colour)", hue, params.hueRange, EPS)
-        assertEquals("reactions (Reactivity)", dna(sceneId, seed), modulation.reactions.value)
+        assertEquals("reactions (Events)", dna(sceneId, seed), modulation.reactions.value)
         assertEquals("LFO (Reactivity)", lfoTarget, modulation.lfos.value[0].target)
         assertEquals("envelope (Reactivity)", listOf(lfoTarget), modulation.adsrs.value[0].targets)
         assertEquals("layer (Scene)", layer, LayersBus.state.value)
@@ -153,7 +152,7 @@ class AbSnapshotTest {
             MaterialTheme {
                 CompositionLocalProvider(LocalSceneId provides sceneId, LocalParamQuery provides query) {
                     Column(Modifier.verticalScroll(rememberScrollState())) {
-                        SceneTab(SceneParams.DEFAULT, {}, IntelligenceMode.MANUAL, {}, null, 1f, {}, {})
+                        SceneTab(SceneParams.DEFAULT, {}, null, 1f, {}, {})
                     }
                 }
             }

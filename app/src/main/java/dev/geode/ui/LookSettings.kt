@@ -15,6 +15,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -35,6 +36,8 @@ import dev.geode.R
 import dev.geode.data.BootAnimationStore
 import dev.geode.data.GeodePrefsFiles
 import dev.geode.ui.theme.isReadableOnCanvas
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 @Composable
 internal fun LookSettingsTab(viewModel: SettingsViewModel) {
@@ -233,10 +236,13 @@ private fun LayoutGroup(
 private fun BootAnimationRow() {
     val ctx = LocalContext.current
     val store = remember { BootAnimationStore(GeodePrefsFiles(ctx).general) }
-    var bootAnim by remember { mutableStateOf(store.load()) }
+    // Read on IO: opening a prefs file is disk I/O, and this runs in composition. The switch
+    // stays disabled for the moment that takes. save() uses apply(), which is already async.
+    var bootAnim by remember { mutableStateOf<Boolean?>(null) }
+    LaunchedEffect(store) { bootAnim = withContext(Dispatchers.IO) { store.load() } }
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(stringResource(R.string.look_boot_animation), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-        Switch(checked = bootAnim, onCheckedChange = {
+        Switch(checked = bootAnim ?: true, enabled = bootAnim != null, onCheckedChange = {
             bootAnim = it
             store.save(it)
         })

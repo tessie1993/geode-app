@@ -9,7 +9,10 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
@@ -39,12 +42,15 @@ internal fun EqualizerCard(
     onLoudness: (Int) -> Unit,
 ) {
     val anyEffect = fx.available || fx.bassAvailable || fx.loudnessAvailable
+    val title = stringResource(R.string.eq_title)
     SettingsGroup(
-        title = stringResource(R.string.eq_title),
+        title = title,
         header = {
             Switch(
                 checked = fx.enabled && anyEffect,
                 onCheckedChange = onEnabled,
+                // The group title is the switch's only label; it sits in a separate node.
+                modifier = Modifier.semantics { contentDescription = title },
                 enabled = anyEffect,
             )
         },

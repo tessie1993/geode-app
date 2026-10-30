@@ -479,7 +479,7 @@ private fun MiniPlayer(
             IconButton(onClick = onPlayPause) {
                 StoneIconArt(
                     if (isPlaying) StoneIcon.PAUSE else StoneIcon.PLAY,
-                    stringResource(R.string.action_play_pause),
+                    stringResource(if (isPlaying) R.string.action_pause else R.string.action_play),
                 )
             }
             IconButton(onClick = onNext) { StoneIconArt(StoneIcon.NEXT, stringResource(R.string.action_next)) }

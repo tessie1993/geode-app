@@ -193,7 +193,6 @@
 
     <!-- Transport controls. Spoken by screen readers, so they name the action. -->
     <string name="action_previous">Previous</string>
-    <string name="action_play_pause">Play/Pause</string>
     <string name="action_next">Next</string>
     <string name="action_add_to_queue">Add to queue</string>
 
@@ -325,7 +324,6 @@
     <string name="library_permission_open_settings">Open app settings</string>
     <string name="library_no_music">No music found on device.</string>
     <string name="library_group_unnamed">(no name)</string>
-    <string name="library_back">‹ Back</string>
     <string name="library_play_all">Play all</string>
     <string name="library_search_hint">Search titles, artists, albums</string>
     <string name="library_no_results">Nothing matches that.</string>
@@ -349,8 +347,6 @@
     <string name="action_rename">Rename</string>
     <string name="action_delete">Delete</string>
     <string name="action_create">Create</string>
-    <string name="action_up">Up</string>
-    <string name="action_down">Down</string>
     <string name="action_ok">OK</string>
 
     <!-- The analysed badge announces itself as one phrase; the gem is decoration. -->
@@ -977,4 +973,7 @@
     <string name="palette_art_no_artwork">This track has no embedded artwork.</string>
     <string name="palette_art_greyscale">The artwork has no colour to take — it is greyscale or nearly black.</string>
     <string name="palette_art_taken">Palette taken from the artwork (%1$d%% of it had colour).</string>
+    <!-- Library a11y -->
+    <string name="library_move_track_up">Move %1$s up</string>
+    <string name="library_move_track_down">Move %1$s down</string>
 </resources>

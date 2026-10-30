@@ -19,6 +19,8 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
@@ -117,7 +119,8 @@ fun GlowTitle(
     style: TextStyle = MaterialTheme.typography.headlineSmall,
     @Suppress("UNUSED_PARAMETER") glow: Color = MaterialTheme.colorScheme.primary,
 ) {
-    Text(text, modifier, style = style, color = MaterialTheme.colorScheme.onBackground)
+    // Every top-level screen opens with this, so it is the heading TalkBack users jump between.
+    Text(text, modifier.semantics { heading() }, style = style, color = MaterialTheme.colorScheme.onBackground)
 }
 
 /** A faint halo behind an active control. Kept subtle: black glass lights things, it doesn't glow. */

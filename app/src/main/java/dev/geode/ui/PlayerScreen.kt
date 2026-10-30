@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.Cast
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -338,18 +339,7 @@ private fun TransportCard(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceEvenly,
         ) {
-            IconButton(onClick = viewModel::toggleShuffle) {
-                StoneIconArt(
-                    StoneIcon.SHUFFLE,
-                    stringResource(R.string.action_shuffle),
-                    tint =
-                        if (state.shuffle) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        },
-                )
-            }
+            ShuffleButton(state.shuffle, viewModel::toggleShuffle)
             IconButton(onClick = viewModel::previous, enabled = state.hasMedia) {
                 StoneIconArt(StoneIcon.PREVIOUS, stringResource(R.string.action_previous))
             }
@@ -694,6 +684,21 @@ internal fun formatClock(ms: Long): String {
     val minutes = (total % 3600) / 60
     val seconds = total % 60
     return if (hours > 0) "%d:%02d:%02d".format(hours, minutes, seconds) else "%d:%02d".format(minutes, seconds)
+}
+
+/** A toggle, not a plain button, so TalkBack says whether shuffle is on rather than leaving it to the tint. */
+@Composable
+internal fun ShuffleButton(
+    shuffle: Boolean,
+    onToggle: () -> Unit,
+) {
+    IconToggleButton(checked = shuffle, onCheckedChange = { onToggle() }) {
+        StoneIconArt(
+            StoneIcon.SHUFFLE,
+            stringResource(R.string.action_shuffle),
+            tint = if (shuffle) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
 }
 
 /** Repeat-one gets its own icon, and the label names the mode, so all and one are told apart. */

@@ -7,15 +7,12 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -64,15 +61,10 @@ fun ExternalAudioSettings(viewModel: PlayerViewModel) {
             return@Column
         }
 
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                stringResource(R.string.ext_visualize_other_apps),
-                Modifier.weight(1f),
-                style = MaterialTheme.typography.bodyMedium,
-            )
-            Switch(
-                checked = external.active || external.awaitingConsent,
-                onCheckedChange = { want ->
+        LabeledSwitch(
+            stringResource(R.string.ext_visualize_other_apps),
+            checked = external.active || external.awaitingConsent,
+            onCheckedChange = { want ->
                     if (!want) {
                         viewModel.stopExternalAudio()
                     } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -88,8 +80,7 @@ fun ExternalAudioSettings(viewModel: PlayerViewModel) {
                         permissions.launch(arrayOf(android.Manifest.permission.RECORD_AUDIO))
                     }
                 },
-            )
-        }
+        )
         Text(
             stringResource(R.string.ext_explainer),
             style = MaterialTheme.typography.bodySmall,

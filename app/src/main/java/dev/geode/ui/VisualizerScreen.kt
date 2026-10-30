@@ -275,18 +275,7 @@ fun VisualizerScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceEvenly,
                     ) {
-                        IconButton(onClick = viewModel::toggleShuffle) {
-                            StoneIconArt(
-                                StoneIcon.SHUFFLE,
-                                stringResource(R.string.action_shuffle),
-                                tint =
-                                    if (state.shuffle) {
-                                        MaterialTheme.colorScheme.primary
-                                    } else {
-                                        MaterialTheme.colorScheme.onSurfaceVariant
-                                    },
-                            )
-                        }
+                        ShuffleButton(state.shuffle, viewModel::toggleShuffle)
                         IconButton(onClick = viewModel::previous, enabled = state.hasMedia) {
                             StoneIconArt(StoneIcon.PREVIOUS, stringResource(R.string.action_previous))
                         }

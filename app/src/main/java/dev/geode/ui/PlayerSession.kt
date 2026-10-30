@@ -1215,6 +1215,7 @@ class PlayerSession internal constructor(
         captureController.shutdown()
         AudioBus.removeConsumer()
         playerListener?.let { player.removeListener(it) }
+        queueController.release()
         playerListener = null
         if (playback.onAudioFormat === captureController.audioFormatHook) playback.onAudioFormat = null
         if (sleepTimer.onFadeVolume === fades.sleepFadeHook) sleepTimer.onFadeVolume = null

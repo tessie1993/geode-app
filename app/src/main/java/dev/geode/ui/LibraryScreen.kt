@@ -10,6 +10,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -22,15 +23,19 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -39,6 +44,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -152,18 +158,32 @@ fun LibraryScreen(onOpenSearch: () -> Unit) {
                 label = { Text(stringResource(R.string.library_search_hint)) },
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
             )
-            CrystalSegmented(
-                options = LibrarySort.entries.map { stringResource(it.labelRes) },
-                selected = LibrarySort.entries.indexOf(state.sort),
-                onSelect = { libraryViewModel.setSort(LibrarySort.entries[it]) },
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-            )
+            // Chips in a scrolling row, not a segmented bar: equal-width segments split "Artist"
+            // mid-word at large font scales, while a chip keeps its label whole and scrolls instead.
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .selectableGroup()
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                LibrarySort.entries.forEach { sort ->
+                    FilterChip(
+                        selected = sort == state.sort,
+                        onClick = { libraryViewModel.setSort(sort) },
+                        label = { Text(stringResource(sort.labelRes), maxLines = 1, softWrap = false) },
+                    )
+                }
+            }
         }
+        // Grouping walks the whole library, so it runs when the shown tracks change, not on
+        // every recomposition of the screen.
         when (tab) {
-            0 -> TrackList(shown, playerViewModel, state.isSearching)
-            1 -> GroupList(shown.groupBy { it.album }, playerViewModel)
-            2 -> GroupList(shown.groupBy { it.artist }, playerViewModel)
-            3 -> FoldersTab(shown.groupBy { it.folder }, playerViewModel)
+            0 -> TrackList(shown, playerViewModel, libraryViewModel, state.isSearching)
+            1 -> GroupList(remember(shown) { shown.groupBy { it.album } }, playerViewModel, libraryViewModel)
+            2 -> GroupList(remember(shown) { shown.groupBy { it.artist } }, playerViewModel, libraryViewModel)
+            3 -> FoldersTab(remember(shown) { shown.groupBy { it.folder } }, playerViewModel)
             PLAYLISTS_TAB -> PlaylistsTab(libraryViewModel)
             DUPLICATES_TAB -> DuplicatesTab(state.tracks, playerViewModel, onDeleted = { reloadKey++ })
         }
@@ -174,16 +194,21 @@ fun LibraryScreen(onOpenSearch: () -> Unit) {
 private fun TrackList(
     tracks: List<DeviceTrack>,
     viewModel: PlayerViewModel,
+    libraryViewModel: LibraryViewModel,
     searching: Boolean = false,
 ) {
     val queue = remember(tracks) { tracks.map(PlaybackQueue::queueTrack) }
+    // Collected once for the list: per row it was a ViewModel lookup and a collector per item.
+    val overrides by libraryViewModel.trackOverrides.collectAsStateWithLifecycle()
     LazyColumn(Modifier.fillMaxSize()) {
-        items(tracks, key = { it.uri }) { t -> TrackRow(t, viewModel, queue = queue) }
+        items(tracks, key = { it.uri }, contentType = { "track" }) { t ->
+            TrackRow(t, viewModel, libraryViewModel, overrides[t.uri], queue = queue)
+        }
         if (tracks.isEmpty()) {
             // An empty library and an empty result set are different problems, and telling
             // someone "no music found" mid-search would send them looking for the wrong fix.
             val empty = if (searching) R.string.library_no_results else R.string.library_no_music
-            item { Text(stringResource(empty), Modifier.padding(16.dp)) }
+            item(key = "empty", contentType = "empty") { Text(stringResource(empty), Modifier.padding(16.dp)) }
         }
     }
 }
@@ -192,12 +217,11 @@ private fun TrackList(
 private fun TrackRow(
     t: DeviceTrack,
     viewModel: PlayerViewModel,
+    libraryViewModel: LibraryViewModel,
+    stored: LibraryTrack?,
     subtitleOverride: String? = null,
     queue: List<QueueTrack> = emptyList(),
 ) {
-    val libraryViewModel: LibraryViewModel = geodeViewModel()
-    val overrides by libraryViewModel.trackOverrides.collectAsStateWithLifecycle()
-    val stored = overrides[t.uri]
     val title = stored?.title?.ifBlank { null } ?: t.title
     // Title, artist, album, duration and artwork \u2014 and nothing else. No tempo, no key, no
     // analysed badge: the library never waits on analysis, so it has nothing to report about it.
@@ -328,19 +352,31 @@ private fun AddToPlaylistDialog(
 private fun GroupList(
     groups: Map<String, List<DeviceTrack>>,
     viewModel: PlayerViewModel,
+    libraryViewModel: LibraryViewModel,
 ) {
     var open by rememberSaveable { mutableStateOf<String?>(null) }
     val sel = open
     val dismiss = rememberPredictiveDismiss(enabled = sel != null) { open = null }
     if (sel != null && groups.containsKey(sel)) {
+        val overrides by libraryViewModel.trackOverrides.collectAsStateWithLifecycle()
         Column(Modifier.dismissTransform(dismiss)) {
-            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                // A real button rather than a text link: the link's touch target was its 24 dp line height.
+                TextButton(
+                    onClick = { open = null },
+                    colors = ButtonDefaults.textButtonColors(contentColor = accentTextColor()),
+                ) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, Modifier.size(18.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text(stringResource(R.string.action_back))
+                }
                 Text(
-                    stringResource(R.string.library_back),
-                    Modifier.clickable { open = null }.padding(end = 12.dp),
-                    color = accentTextColor(),
+                    sel,
+                    Modifier.padding(end = 12.dp),
+                    style = MaterialTheme.typography.titleMedium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
-                Text(sel, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             val queue = remember(sel, groups) { groups.getValue(sel).map(PlaybackQueue::queueTrack) }
             Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -350,14 +386,15 @@ private fun GroupList(
                 }) { Text(stringResource(R.string.action_shuffle)) }
             }
             LazyColumn(Modifier.fillMaxSize()) {
-                items(groups.getValue(sel), key = { it.uri }) { t ->
-                    TrackRow(t, viewModel, subtitleOverride = t.album, queue = queue)
+                items(groups.getValue(sel), key = { it.uri }, contentType = { "track" }) { t ->
+                    TrackRow(t, viewModel, libraryViewModel, overrides[t.uri], subtitleOverride = t.album, queue = queue)
                 }
             }
         }
     } else {
+        val names = remember(groups) { groups.keys.sorted() }
         LazyColumn(Modifier.fillMaxSize()) {
-            items(groups.keys.sorted()) { g ->
+            items(names, key = { it }, contentType = { "group" }) { g ->
                 Row(
                     Modifier.fillMaxWidth().clickable { open = g }.padding(horizontal = 16.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -411,9 +448,12 @@ private fun PlaylistsTab(viewModel: LibraryViewModel) {
                 onClick = { importPicker.launch(arrayOf("*/*")) },
             ) { Text(stringResource(R.string.playlist_import_action)) }
         }
+        // Three kinds of item share this list, so each declares its type and lazy layout reuses
+        // a playlist row's slot only for another playlist row. Playlist keys carry a prefix so a
+        // playlist named like the fixed items cannot collide with them.
         LazyColumn(Modifier.fillMaxSize()) {
-            item { SmartPlaylistsSection(viewModel) }
-            items(library.playlists, key = { it.name }) { pl ->
+            item(key = "smart", contentType = "smart") { SmartPlaylistsSection(viewModel) }
+            items(library.playlists, key = { "playlist:${it.name}" }, contentType = { "playlist" }) { pl ->
                 Column(Modifier.fillMaxWidth()) {
                     Row(
                         Modifier
@@ -450,7 +490,7 @@ private fun PlaylistsTab(viewModel: LibraryViewModel) {
                 }
             }
             if (library.playlists.isEmpty()) {
-                item {
+                item(key = "empty", contentType = "empty") {
                     Text(
                         stringResource(R.string.playlist_none_yet),
                         Modifier.padding(16.dp),
@@ -587,10 +627,17 @@ private fun PlaylistTracks(
     var dragFrom by remember(playlist.name) { mutableIntStateOf(-1) }
     var dragOffset by remember(playlist.name) { mutableFloatStateOf(0f) }
     var rowHeight by remember(playlist.name) { mutableIntStateOf(0) }
-    val dropIndex = playlistDropIndex(dragFrom, dragOffset, rowHeight, count)
+    // dragOffset changes on every pointer event; read through derivedStateOf, the rows recompose
+    // only when the drop slot moves, while the lifted row follows the finger in graphicsLayer.
+    // Keyed like the states it reads, so another playlist never sees this one's drag.
+    val dropIndex by remember(playlist.name, count) {
+        derivedStateOf { playlistDropIndex(dragFrom, dragOffset, rowHeight, count) }
+    }
+    // One pass over the library instead of a linear search per row.
+    val byUri = remember(tracks) { tracks.associateBy { it.uri } }
     val liftTint = MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)
     playlist.trackUris.forEachIndexed { i, uri ->
-        val t = tracks.firstOrNull { it.uri == uri }
+        val title = byUri[uri]?.title ?: stringResource(R.string.playlist_untitled_track, i + 1)
         val dragging = i == dragFrom
         val shift by animateFloatAsState(
             if (dragFrom < 0) 0f else (playlistRowShift(i, dragFrom, dropIndex) * rowHeight).toFloat(),
@@ -633,20 +680,21 @@ private fun PlaylistTracks(
                 tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
             )
             Text(
-                t?.title ?: stringResource(R.string.playlist_untitled_track, i + 1),
+                title,
                 Modifier.weight(1f).padding(start = 6.dp),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 style = MaterialTheme.typography.bodySmall,
             )
+            // Named per track: a run of bare "Up" buttons tells a screen reader nothing about what moves.
             IconButton(
                 onClick = { viewModel.moveMusicPlaylistTrack(playlist.name, i, i - 1) },
                 enabled = i > 0,
-            ) { Icon(Icons.Filled.KeyboardArrowUp, stringResource(R.string.action_up)) }
+            ) { Icon(Icons.Filled.KeyboardArrowUp, stringResource(R.string.library_move_track_up, title)) }
             IconButton(
                 onClick = { viewModel.moveMusicPlaylistTrack(playlist.name, i, i + 1) },
                 enabled = i < count - 1,
-            ) { Icon(Icons.Filled.KeyboardArrowDown, stringResource(R.string.action_down)) }
+            ) { Icon(Icons.Filled.KeyboardArrowDown, stringResource(R.string.library_move_track_down, title)) }
             IconButton(onClick = { viewModel.removeTrackFromPlaylist(playlist.name, uri) }) {
                 StoneIconArt(StoneIcon.CLOSE, stringResource(R.string.action_remove_from_playlist), Modifier.size(18.dp))
             }
@@ -714,6 +762,6 @@ private fun FoldersTab(
             Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
             style = MaterialTheme.typography.bodySmall,
         )
-        GroupList(FolderTree.rows(folders), viewModel)
+        GroupList(remember(folders) { FolderTree.rows(folders) }, viewModel, libraryViewModel)
     }
 }

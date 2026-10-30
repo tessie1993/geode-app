@@ -3,14 +3,11 @@ package dev.geode.ui
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -64,17 +61,12 @@ internal fun HelpSettingsTab(
                         ),
                     )
                 }
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        stringResource(R.string.help_tutorial_on_first_run),
-                        style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.weight(1f),
-                    )
-                    Switch(
-                        checked = gui.tutorialOnFirstRun,
-                        onCheckedChange = { settingsViewModel.setGuiPrefs(gui.copy(tutorialOnFirstRun = it)) },
-                    )
-                }
+                LabeledSwitch(
+                    stringResource(R.string.help_tutorial_on_first_run),
+                    checked = gui.tutorialOnFirstRun,
+                    onCheckedChange = { settingsViewModel.setGuiPrefs(gui.copy(tutorialOnFirstRun = it)) },
+                    style = MaterialTheme.typography.bodySmall,
+                )
             }
         }
         item {

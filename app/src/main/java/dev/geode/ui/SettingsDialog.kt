@@ -1,8 +1,8 @@
 package dev.geode.ui
 
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -159,22 +159,19 @@ fun SettingsDialog(
                     }
                     ExportPhase.Idle, ExportPhase.Loading -> {
                         Text(stringResource(R.string.export_platform_preset), style = MaterialTheme.typography.labelMedium)
-                        Row(
-                            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        ) {
-                            CrystalSegmented(
-                                options = ExportPresets.ALL.map { stringResource(it.nameRes) },
-                                selected = ExportPresets.indexMatching(quality, ratio, fps, loopSafe),
-                                onSelect = {
-                                    val preset = ExportPresets.ALL[it]
+                        // Chips that wrap, not a segmented row: a phone is too narrow for every preset,
+                        // and a row that scrolled sideways hid the selected one off the right edge.
+                        val presetIndex = ExportPresets.indexMatching(quality, ratio, fps, loopSafe)
+                        ChipRow {
+                            ExportPresets.ALL.forEachIndexed { i, preset ->
+                                QualityChip(stringResource(preset.nameRes), i == presetIndex) {
                                     quality = preset.quality
                                     ratio = preset.ratio
                                     fps = preset.fps
                                     loopSafe = preset.loopSafe
                                     persistDefaults()
-                                },
-                            )
+                                }
+                            }
                         }
                         Text(
                             presetCaption(
@@ -185,10 +182,7 @@ fun SettingsDialog(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         Text(stringResource(R.string.export_quality), style = MaterialTheme.typography.labelMedium)
-                        Row(
-                            modifier = Modifier.horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        ) {
+                        ChipRow {
                             ExportQuality.entries.forEach { q ->
                                 QualityChip(exportQualityLabel(q), quality == q) {
                                     quality = q
@@ -197,10 +191,7 @@ fun SettingsDialog(
                             }
                         }
                         Text(stringResource(R.string.export_frame_rate), style = MaterialTheme.typography.labelMedium)
-                        Row(
-                            modifier = Modifier.horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        ) {
+                        ChipRow {
                             EXPORT_FPS_OPTIONS.zip(fpsLabels()).forEach { (option, label) ->
                                 QualityChip(label, fps == option) {
                                     fps = option
@@ -209,7 +200,7 @@ fun SettingsDialog(
                             }
                         }
                         Text(stringResource(R.string.export_codec), style = MaterialTheme.typography.labelMedium)
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        ChipRow {
                             ExportCodec.entries.forEach { c ->
                                 QualityChip(exportCodecLabel(c), codec == c) {
                                     codec = c
@@ -218,10 +209,7 @@ fun SettingsDialog(
                             }
                         }
                         Text(stringResource(R.string.export_loudness_target), style = MaterialTheme.typography.labelMedium)
-                        Row(
-                            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        ) {
+                        ChipRow {
                             LoudnessTarget.ALL.forEach { target ->
                                 QualityChip(stringResource(target.labelRes), loudnessTarget.id == target.id) {
                                     loudnessTargetId = target.id
@@ -235,10 +223,7 @@ fun SettingsDialog(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         Text(stringResource(R.string.export_aspect_ratio), style = MaterialTheme.typography.labelMedium)
-                        Row(
-                            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        ) {
+                        ChipRow {
                             ExportRatio.entries.forEach { r ->
                                 QualityChip(r.label, ratio == r) {
                                     ratio = r
@@ -248,7 +233,7 @@ fun SettingsDialog(
                         }
                         if (trackDurationMs > 0) {
                             Text(stringResource(R.string.export_length), style = MaterialTheme.typography.labelMedium)
-                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            ChipRow {
                                 QualityChip(stringResource(R.string.export_whole_track), !segment) { segment = false }
                                 QualityChip(stringResource(R.string.export_segment), segment) { segment = true }
                             }
@@ -284,7 +269,7 @@ fun SettingsDialog(
                             dev.geode.analysis.BarTrim
                                 .barDurationUs(bpm)
                         Text(stringResource(R.string.export_looping), style = MaterialTheme.typography.labelMedium)
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        ChipRow {
                             QualityChip(stringResource(R.string.export_full_length), !loopSafe) {
                                 loopSafe = false
                                 persistDefaults()
@@ -308,10 +293,7 @@ fun SettingsDialog(
                         )
                         if (takes.isNotEmpty()) {
                             Text(stringResource(R.string.export_group_performance), style = MaterialTheme.typography.labelMedium)
-                            Row(
-                                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            ) {
+                            ChipRow {
                                 QualityChip(stringResource(R.string.export_live_settings), selectedTake == null) { onSelectTake(null) }
                                 takes.forEach { name ->
                                     QualityChip(name, selectedTake == name) { onSelectTake(name) }
@@ -356,6 +338,19 @@ fun SettingsDialog(
             }
         },
     )
+}
+
+/**
+ * Every option row in this dialog wraps instead of scrolling sideways. A horizontally scrolled
+ * row started at its left end, so on a phone the selected chip (YouTube, 60 fps, "Leave as-is")
+ * sat off-screen while the caption above named it, and nothing hinted the row could scroll.
+ */
+@Composable
+private fun ChipRow(content: @Composable () -> Unit) {
+    FlowRow(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) { content() }
 }
 
 @Composable

@@ -19,6 +19,7 @@ import androidx.compose.material.icons.rounded.Movie
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Repeat
+import androidx.compose.material.icons.rounded.RepeatOne
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Share
@@ -54,6 +55,7 @@ enum class StoneIcon(
     PREVIOUS(Icons.Rounded.SkipPrevious),
     QUEUE(Icons.AutoMirrored.Rounded.QueueMusic),
     REPEAT(Icons.Rounded.Repeat),
+    REPEAT_ONE(Icons.Rounded.RepeatOne),
     SEARCH(Icons.Rounded.Search),
     SETTINGS(Icons.Rounded.Settings),
     SHARE(Icons.Rounded.Share),

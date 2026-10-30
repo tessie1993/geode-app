@@ -22,12 +22,12 @@ Read before you change structure:
 |---|---|---|
 | `:engine:audio-core` | `GeodeNative` (every JNI `external fun`), the PCM ring (`SampleRing`), presentation clock, `AnalysisFft` (FFT size and hop for a stream's sample rate) | `dev.geode.engine.audio`, `dev.geode.engine.bridge` |
 | `:engine:audio-android` | Media3 PCM tap (`PcmTap`), sink clock driver | `dev.geode.engine.audioandroid` |
-| `:engine:scenes` | Live and offline analysis (`AnalysisEngine`, `OfflineAnalyzer`, `FeatureTimeline`, `AnalysisCache`); the GL adapter (`VisualizerView`, `VisualizerRenderer`, `render/bridge/NativeViz`); offscreen rendering for export; scene ids, params, catalogues | `dev.geode.analysis`, `dev.geode.render.*`, `dev.geode.audio`, `dev.geode.util` |
+| `:engine:scenes` | Live and offline analysis (`AnalysisEngine`, `OfflineAnalyzer`, `FeatureTimeline`, `AnalysisCache`); the GL adapter (`VisualizerView`, `VisualizerRenderer`, `render/bridge/NativeViz`); offscreen rendering for export; scene ids, params, catalogues, the style families (`StyleFamilies`) | `dev.geode.analysis`, `dev.geode.render.*`, `dev.geode.audio`, `dev.geode.util` |
 | `:app` | Everything else: UI, playback service, stores, editor model, export, wallpaper, widget | `dev.geode.*` |
 
 Convention plugins live in `build-logic/src/main/kotlin/`: `geode.kotlin-common` (ktlint, detekt, toolchain), `geode.jvm-library`, `geode.android-library` and `geode.provenance`. The version catalog is `gradle/libs.versions.toml`.
 
-The native core is built by the root `CMakeLists.txt`, plus `core/CMakeLists.txt` for the `geode_core` static library. `app/src/main/cpp/*_jni.cpp` only marshal values into the `extern "C"` ABI in `core/api/geode_api.h`. The code itself is in `core/analysis` (FFT, onsets, tempo, key, structure), `core/viz` (renderer, scene registry, `scenes/`, `fluid/`, `compute/`; per frame the renderer runs LFO → ADSR → `Reactions` (the reaction matrix) → `MotionField` → `safety::apply`, then steps `CameraRig`, the one camera every render path shares), `core/audio/player` (AMediaCodec decode, mixer, Oboe output), `core/audio/dsp` and `core/library` (TagLib). The submodules are `third_party/{projectm,kissfft,oboe,taglib}`. projectM gets `tools/projectm-v4.1.7-render-fbo-backport.patch` at configure time. Shaders ship in `app/src/main/assets/shaders/`; styles include `lib_*` files by `//#include`, allow-listed in `core/viz/ShaderSource.cpp`. 3D styles read the rig through `lib_camera`, sound events through `lib_react`.
+The native core is built by the root `CMakeLists.txt`, plus `core/CMakeLists.txt` for the `geode_core` static library. `app/src/main/cpp/*_jni.cpp` only marshal values into the `extern "C"` ABI in `core/api/geode_api.h`. The code itself is in `core/analysis` (FFT, onsets, tempo, key, structure), `core/viz` (renderer, scene registry, `scenes/`, `fluid/`, `compute/`; per frame the renderer runs LFO → ADSR → `Reactions` (the reaction matrix) → `MotionField` → `safety::apply`, then steps `CameraRig`, the one camera every render path shares), `core/audio/player` (AMediaCodec decode, mixer, Oboe output), `core/audio/dsp` and `core/library` (TagLib). The submodules are `third_party/{projectm,kissfft,oboe,taglib}`. projectM gets `tools/projectm-v4.1.7-render-fbo-backport.patch` at configure time. Shaders ship in `app/src/main/assets/shaders/`; styles include `lib_*` files by `//#include`, allow-listed in `core/viz/ShaderSource.cpp`. 3D styles read the rig through `lib_camera`, sound events through `lib_react`. A style family's twelve styles (`arbor_*`, `bulb_*`, `chrys_*`, `lucid_*`) share `lib_<family>` and are listed in `StyleFamilies`.
 
 ## `:app` packages (`app/src/main/java/dev/geode/`)
 
@@ -81,7 +81,7 @@ The native core is built by the root `CMakeLists.txt`, plus `core/CMakeLists.txt
 
 ## Pro (one-time unlock)
 
-- Product id `muzviz_pro` (`BillingRepository.PRO_PRODUCT_ID`). Every gate asks a `FeatureGate` from `GetFeatureGateUseCase` (Pro beats the 1-hour trial beats free); what free keeps is `pro/FreeTier.kt` alone.
+- Product id `muzviz_pro` (`BillingRepository.PRO_PRODUCT_ID`). Every gate asks a `FeatureGate` from `GetFeatureGateUseCase` (Pro beats the 1-hour trial beats free); what free keeps is `pro/FreeTier.kt` alone. Free gets the loose shader styles and the first style of each style family; the other eleven per family are Pro (`StyleFamilies.proIds`).
 - Gates: `PlayerViewModel.startExport`/`startLoopRender` (4K, 60 fps, the 1-minute cap, the full-frame watermark; loop renders need Pro), `StudioViewModel` exports (Pro only), `PlayerSession.selectScene`/`applyPreset` via `PlayerSessionProvider` (styles; auto-visuals skips locked ones silently), `ProGate` on the Studio tab, the wallpaper button, and `ProSnapshot` in the wallpaper and dream services.
 - `PaywallNavigator.request` is state; `PaywallHost` (a `Dialog`, drawn from `AppRoot`) shows it. Debug builds bill against `FakeBillingRepository` (`BuildConfig.USE_FAKE_BILLING`) with a debug panel on the paywall.
 - Store and console steps: [`docs/play/`](docs/play/).
@@ -111,7 +111,7 @@ The native core is built by the root `CMakeLists.txt`, plus `core/CMakeLists.txt
 
 ## Large files to split (lines)
 
-`ui/VisualsHub.kt` 1406 · `ui/PlayerSession.kt` 1371 · `ui/CustomizeTabs.kt` 1302 · `ui/BuiltInPresets.kt` 914 · `export/LoopRender.kt` 893 · `ui/StudioScreen.kt` 881 · `ui/AppShell.kt` 744 · `editor/Timeline.kt` 730 · `data/TemplateRepository.kt` 726 · `ui/LibraryScreen.kt` 719 · `ui/PlayerScreen.kt` 709 · `export/LoopExtend.kt` 701 · `ui/VisualizerScreen.kt` 691
+`ui/VisualsHub.kt` 1453 · `ui/PlayerSession.kt` 1371 · `ui/CustomizeTabs.kt` 1302 · `ui/BuiltInPresets.kt` 914 · `export/LoopRender.kt` 893 · `ui/StudioScreen.kt` 881 · `ui/AppShell.kt` 744 · `editor/Timeline.kt` 730 · `data/TemplateRepository.kt` 726 · `ui/LibraryScreen.kt` 719 · `ui/PlayerScreen.kt` 709 · `export/LoopExtend.kt` 701 · `ui/VisualizerScreen.kt` 691
 
 ## Where the code breaks the architecture guide
 

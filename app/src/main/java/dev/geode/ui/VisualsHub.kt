@@ -61,7 +61,10 @@ import dev.geode.render.VisualizerView
 import dev.geode.render.scene.CustomizeTab
 import dev.geode.render.scene.SceneCapabilities
 import dev.geode.render.scene.SceneIds
+import dev.geode.render.scene.StyleFamilies
 import dev.geode.render.scene.VisualStyleCatalog
+import dev.geode.ui.pro.PaywallViewModel
+import dev.geode.ui.pro.ProBadge
 import dev.geode.ui.theme.StoneIcon
 import dev.geode.ui.theme.StoneIconArt
 import kotlinx.coroutines.Dispatchers
@@ -573,7 +576,7 @@ private fun StylesTab(
             }
         }
         CrystalTabs(
-            titles = listOf("Silk", "Life", "Mycelium", "Acid", "Shaders", "Fluid", "Cymatics", "MilkDrop"),
+            titles = listOf("Silk", "Life", "Mycelium", "Acid", "Shaders", "Families", "Fluid", "Cymatics", "MilkDrop"),
             selected = sub,
             onSelect = { sub = it },
         )
@@ -582,10 +585,11 @@ private fun StylesTab(
             1 -> SceneList(VisualStyleCatalog.lifeIds, viz.sceneId, pickScene)
             2 -> SceneList(VisualStyleCatalog.mycoIds, viz.sceneId, pickScene)
             3 -> SceneList(VisualStyleCatalog.acidIds, viz.sceneId, pickScene)
-            4 -> SceneList(SceneCapabilities.SHADER_SCENES.keys.toList(), viz.sceneId, pickScene)
-            5 -> SceneList(VisualStyleCatalog.fluidIds + listOf(SceneIds.CURLFLOW, SceneIds.WATER), viz.sceneId, pickScene)
-            6 -> SceneList(VisualStyleCatalog.cymaticsIds, viz.sceneId, pickScene)
-            7 -> MilkDropTab(viewModel, visualizerView, onOpenTextures)
+            4 -> SceneList(SceneCapabilities.SHADER_SCENES.keys.filterNot { it in StyleFamilies.ids }, viz.sceneId, pickScene)
+            5 -> FamilyList(viz.sceneId, pickScene)
+            6 -> SceneList(VisualStyleCatalog.fluidIds + listOf(SceneIds.CURLFLOW, SceneIds.WATER), viz.sceneId, pickScene)
+            7 -> SceneList(VisualStyleCatalog.cymaticsIds, viz.sceneId, pickScene)
+            8 -> MilkDropTab(viewModel, visualizerView, onOpenTextures)
         }
     }
 }
@@ -622,6 +626,49 @@ private fun SceneList(
                     Modifier.padding(start = 10.dp),
                     color = if (sel) accentTextColor() else LocalContentColor.current,
                 )
+            }
+        }
+    }
+}
+
+/**
+ * The style families, each under its own heading, in family order. Forty-eight styles in one flat
+ * list would bury the family a style belongs to, and the family is what tells a free user why one
+ * style of four is theirs and the other eleven carry a Pro badge.
+ */
+@Composable
+private fun FamilyList(
+    current: String,
+    onPick: (String) -> Unit,
+) {
+    val paywall: PaywallViewModel = geodeViewModel()
+    val gate by paywall.gate.collectAsStateWithLifecycle()
+    LazyColumn(Modifier.fillMaxSize()) {
+        StyleFamilies.all.forEach { family ->
+            item(key = "family_${family.name}") {
+                Text(
+                    family.label,
+                    Modifier.padding(start = 16.dp, top = 14.dp, bottom = 2.dp),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            items(family.ids, key = { it }) { id ->
+                val sel = id == current
+                Row(
+                    Modifier.fillMaxWidth().clickable { onPick(id) }.padding(horizontal = 16.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(Modifier.size(6.dp), contentAlignment = Alignment.Center) {
+                        if (sel) CrystalGem(MaterialTheme.colorScheme.primary, size = 6.dp)
+                    }
+                    Text(
+                        sceneDisplayLabel(id),
+                        Modifier.padding(start = 10.dp).weight(1f),
+                        color = if (sel) accentTextColor() else LocalContentColor.current,
+                    )
+                    if (!gate.allowsStyle(id)) ProBadge()
+                }
             }
         }
     }

@@ -85,12 +85,15 @@ object SceneCapabilities {
             SceneIds.CHROME_NEBULA to "shaders/chrome_nebula_frag.glsl",
             SceneIds.FRACTAL_DIVE to "shaders/fractal_dive_frag.glsl",
             SceneIds.AURORA_OCEAN to "shaders/aurora_ocean_frag.glsl",
-        )
+        ).apply {
+            // The style families, twelve styles each, after the loose styles and in family order.
+            StyleFamilies.ids.forEach { id -> put(id, "shaders/${id}_frag.glsl") }
+        }
 
     /**
      * The fragment styles that raymarch, and so spend the [MarchBudget] the Detail control sets.
      *
-     * A per-STYLE set rather than a [SceneKind], because only fourteen of the 45 shader styles march;
+     * A per-STYLE set rather than a [SceneKind], because only some of the shader styles march;
      * scoping Detail to `SceneKind.SHADER` would put a dead slider in front of anyone looking at
      * Plasma, which is exactly what [ParamScope]'s no-dead-controls rule exists to prevent.
      */
@@ -112,7 +115,7 @@ object SceneCapabilities {
             SceneIds.CHROME_NEBULA,
             SceneIds.FRACTAL_DIVE,
             SceneIds.AURORA_OCEAN,
-        )
+        ) + StyleFamilies.marchedIds
 
     /**
      * The renderer [sceneId] builds.

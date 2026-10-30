@@ -19,7 +19,8 @@ void WaterScene::init() {
     autoDowngrade_ = 0;
     displayOk_ = false;
     if (!sim_.available()) {
-        host_.onShaderError("Water style unavailable: this GPU can't render half-float buffers");
+        // A rejected shader is reported by create() itself; only a failed format probe is half floats.
+        if (!sim_.texFormats().ok) host_.onShaderError("Water style unavailable: this GPU can't render half-float buffers");
         return;
     }
     std::string error;

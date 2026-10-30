@@ -57,6 +57,8 @@ uniform float uTemperature;
 uniform float uSolarize;
 uniform float uFlash;
 
+//#include lib_react
+
 float aband(float x) { return texture(uAudioTex, vec2(clamp(x, 0.0, 1.0), 0.25)).r; }
 float awave(float x) { return texture(uAudioTex, vec2(clamp(x, 0.0, 1.0), 0.75)).r; }
 
@@ -158,16 +160,83 @@ vec3 grade(vec3 col) {
     return mix(col, max(vec3(1.0) - col, 0.0), uInvert);
 }
 
-// Classic mirrored spectrum analyzer bars with glow.
+// Spectrum analyzer bars with glow, standing on a reflecting floor.
+//
+// What reacts to what (sound events via lib_react; camera motion is the
+// composite's, applied to this picture automatically):
+//   - each bar's height is its analyser band, as before.
+//   - every bar wears a peak cap. On each beat (uEvents.x) the caps are
+//     thrown up above their bars, by as much as their band region
+//     (uBandsLo/uBandsHi) is loud, and fall back onto them as the beat
+//     envelope decays - accelerating, like something dropped.
+//   - the snare (uHits.y) tilts the row into a travelling wave: bars, caps
+//     and their reflections ride up and down it. Position only.
+//   - the floor reflects the whole row, dimmed and fading with depth - a
+//     fixed fraction of the bars above it, never driven by a hit.
+
+/** Bar count across the screen. */
+#define BARS_N 48.0
+/** The floor line, in view() units. */
+#define BARS_FLOOR -0.45
+/** Bar height per unit of band level. */
+#define BARS_GAIN 1.1
+/** How far a beat throws a cap above its bar, at full region level. */
+#define BARS_CAP_THROW 0.3
+/** Cap thickness. */
+#define BARS_CAP_H 0.018
+/** Reflection strength and how fast it fades below the floor. */
+#define BARS_REFLECT 0.35
+#define BARS_REFLECT_FADE 3.5
+
+/**
+ * The band region a bar position 0..1 falls in, as lib_react carries it:
+ * viz/Reactions' seven regions over the analyser's 64 bands (boundaries at
+ * bands 8, 16, 26, 36, 46 and 55).
+ */
+float barsRegion(float x) {
+    if (x < 0.125) return uBandsLo.x;
+    if (x < 0.25) return uBandsLo.y;
+    if (x < 0.40625) return uBandsLo.z;
+    if (x < 0.5625) return uBandsLo.w;
+    if (x < 0.71875) return uBandsHi.x;
+    if (x < 0.859375) return uBandsHi.y;
+    return uBandsHi.z;
+}
+
+/** One bar column at height y above its floor: body, glow and cap. */
+vec3 barsColumn(float seg, float xf, float y, float h, float cap) {
+    float bar = step(0.0, y) * step(y, h) * step(xf, 0.8);
+    float glow = exp(-max(y - h, 0.0) * 9.0) * 0.5 * step(0.0, y);
+    float cells = step(fract(y * 24.0), 0.8);
+    float capped = step(cap, y) * step(y, cap + BARS_CAP_H) * step(xf, 0.8);
+    return pal(seg) * (bar * cells * (0.4 + h) + glow * h) + pal(seg + 0.12) * capped * 0.9;
+}
+
 void main() {
     vec2 uv = view();
     float x = clamp(uv.x * 0.5 + 0.5, 0.0, 1.0);
-    float seg = floor(x * 48.0) / 48.0;
-    float h = aband(seg) * (0.6 + uBass * uBeatResponse * 0.5);
-    float y = abs(uv.y);
-    float bar = step(y, h) * step(fract(x * 48.0), 0.8);
-    float glow = exp(-max(y - h, 0.0) * 9.0) * 0.5;
-    float cells = step(fract(y * 24.0), 0.8);
-    vec3 col = pal(seg) * (bar * cells * (0.4 + h) + glow * h);
+    float seg = floor(x * BARS_N) / BARS_N;
+    float xf = fract(x * BARS_N);
+    float h = aband(seg) * 0.6 * BARS_GAIN;
+
+    // The cap: thrown up on the beat and falling back with gravity's shape -
+    // 1 - (1 - e)^2 holds near the top and then drops faster and faster.
+    float beat = clamp(uEvents.x, 0.0, 1.0);
+    float fall = 1.0 - (1.0 - beat) * (1.0 - beat);
+    float cap = h + 0.012 + BARS_CAP_THROW * fall * barsRegion(seg);
+
+    // The snare's wave: a vertical offset per bar, travelling along the row.
+    float tilt = 0.18 * clamp(uHits.y, 0.0, 1.0) * sin(seg * 9.0 - uTime * 3.0);
+    float floorY = BARS_FLOOR + tilt;
+
+    vec3 col;
+    if (uv.y >= floorY) {
+        col = barsColumn(seg, xf, uv.y - floorY, h, cap);
+    } else {
+        // The reflection: the same column mirrored in the floor, dimmed and
+        // fading with depth.
+        float depth = floorY - uv.y;
+        col = barsColumn(seg, xf, depth, h, cap) * BARS_REFLECT * exp(-depth * BARS_REFLECT_FADE);
+    }
     fragColor = vec4(grade(col), 1.0);
 }

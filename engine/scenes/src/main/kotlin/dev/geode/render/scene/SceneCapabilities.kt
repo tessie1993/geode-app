@@ -78,12 +78,19 @@ object SceneCapabilities {
             // above they DO spend the Detail budget and both join MARCHED_SCENES.
             SceneIds.CURL_BLOOM to "shaders/curl_bloom_frag.glsl",
             SceneIds.NECTAR_FLOW to "shaders/nectar_flow_frag.glsl",
+            // The fly-throughs built on the shared camera rig (lib_camera); all march.
+            SceneIds.CRYSTAL_CANYON to "shaders/crystal_canyon_frag.glsl",
+            SceneIds.NEON_CITY to "shaders/neon_city_frag.glsl",
+            SceneIds.PARTICLE_TUNNEL to "shaders/particle_tunnel_frag.glsl",
+            SceneIds.CHROME_NEBULA to "shaders/chrome_nebula_frag.glsl",
+            SceneIds.FRACTAL_DIVE to "shaders/fractal_dive_frag.glsl",
+            SceneIds.AURORA_OCEAN to "shaders/aurora_ocean_frag.glsl",
         )
 
     /**
      * The fragment styles that raymarch, and so spend the [MarchBudget] the Detail control sets.
      *
-     * A per-STYLE set rather than a [SceneKind], because only eight of the 39 shader styles march;
+     * A per-STYLE set rather than a [SceneKind], because only fourteen of the 45 shader styles march;
      * scoping Detail to `SceneKind.SHADER` would put a dead slider in front of anyone looking at
      * Plasma, which is exactly what [ParamScope]'s no-dead-controls rule exists to prevent.
      */
@@ -99,6 +106,12 @@ object SceneCapabilities {
             // Different loops, but Detail is the budget for both.
             SceneIds.CURL_BLOOM,
             SceneIds.NECTAR_FLOW,
+            SceneIds.CRYSTAL_CANYON,
+            SceneIds.NEON_CITY,
+            SceneIds.PARTICLE_TUNNEL,
+            SceneIds.CHROME_NEBULA,
+            SceneIds.FRACTAL_DIVE,
+            SceneIds.AURORA_OCEAN,
         )
 
     /**

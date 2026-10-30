@@ -13,6 +13,8 @@ out vec4 fragColor;
 // pal() and so must come after it.
 //#include lib_scene_uniforms
 //#include lib_scene_motion
+//#include lib_camera
+//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 // The 3D toolkit and the touch helpers, already wired so a style author never
@@ -78,6 +80,18 @@ out vec4 fragColor;
 //  reached, and the ball's early-out is the whole reason the background is
 //  cheap. The bank's hit simply caps the cathedral's march, and whichever is
 //  nearer is what the pixel shows.
+//
+//  THE CAMERA is the shared rig's object-centred one (lib_camera's
+//  camAround) at this style's own framing radius: the rig's travel walks the
+//  eye around the cathedral, and its look, banking, dolly and FOV all come
+//  through, so the composite leaves this picture alone. What is left of the
+//  style's own camera is framing: the long lens (as a ratio to the rig's base
+//  focal), the slow pitch wander, and bass pushing the eye in.
+//
+//  WHAT REACTS TO WHAT: bass breathes the magnification and pushes the eye
+//  in, mids turn the folds, treble sharpens the material, energy lifts the
+//  sky (all slew-limited); the beat (uEvents.x) lurches the fold angle and
+//  settles. Nothing on a hit changes brightness.
 //
 //  DELIBERATELY NOT HERE: a normal-direction ambient-occlusion pass. The
 //  occlusion is read off the march step count instead - a ray that needed most
@@ -283,6 +297,12 @@ const float KIFS_SEED_MIX_MAX = 0.5;
 
 /** Far enough out that the camera stays outside the escape ball at every centre this style can reach. */
 const float KIFS_CAM_R = 4.15;
+
+/** One turn about the cathedral per 1024 / 6 world units of rig travel: about three minutes at the default fly speed. */
+const float KIFS_CAM_SPIN = 6.0 * CAM_SPIN_UNIT;
+
+/** CameraRig::kBaseFocal - uCamFocal at the default FOV. KIFS_FOCAL is kept as a lens ratio to it. */
+const float KIFS_RIG_FOCAL = 1.6;
 
 /** Bass pushes the camera in as well as subdividing the structure - the two together read as one breath. */
 const float KIFS_CAM_PUSH = 0.20;
@@ -515,24 +535,35 @@ void main() {
     float trebA = min(uTrebleSmooth, 1.3);
     float enA = min(uEnergySmooth, 1.3);
 
-    // uSpike: the same accent, with a rise, and already silent between hits.
-    float hit = uSpike;
+    // The beat event: an accent with an instant rise and a 0.3 s fall, so
+    // the lurch below flinches and settles rather than jittering with a
+    // drum level.
+    float hit = clamp(uEvents.x, 0.0, 1.0);
 
     // ---- camera -----------------------------------------------------------
     //
-    // It orbits forever on two unrelated slow rates, so the cathedral is seen
-    // from a new angle every second even in silence, and the yaw never repeats
-    // against the pitch inside a listening session. The pitch stays under 0.35
-    // rad, which is also what keeps the world up vector well away from the
-    // view direction so the basis below can never degenerate.
-    float yaw = uTime * 0.037;
-    float pitch = 0.34 * sin(uTime * 0.0231);
+    // The rig's object-centred camera at this style's radius, with bass
+    // pushing in. uv is scaled so the rig's default focal lands on
+    // KIFS_FOCAL and the FOV dial still widens or narrows it.
     float camR = KIFS_CAM_R - KIFS_CAM_PUSH * bassA;
-    vec3 ro = vec3(cos(pitch) * sin(yaw), sin(pitch), cos(pitch) * cos(yaw)) * camR;
-    vec3 fwd = normalize(-ro);
-    vec3 right = normalize(cross(vec3(0.0, 1.0, 0.0), fwd));
+    vec3 ro;
+    vec3 rd;
+    camAround(uv * (KIFS_RIG_FOCAL / KIFS_FOCAL), camR, KIFS_CAM_SPIN, ro, rd);
+    // camAround does not hand back its basis, and touch and the sky need it.
+    // The eye sits on -forward, and one more ray at uv (1, 0) gives right.
+    vec3 roX;
+    vec3 rdX;
+    camAround(vec2(1.0, 0.0), camR, KIFS_CAM_SPIN, roX, rdX);
+    vec3 fwd = -normalize(ro);
+    vec3 right = normalize(rdX - dot(rdX, fwd) * fwd);
     vec3 up = cross(fwd, right);
-    vec3 rd = normalize(right * uv.x + up * uv.y + fwd * KIFS_FOCAL);
+    // The old slow pitch wander, kept as framing: the eye rises and falls
+    // about the view's own right axis, still looking at the cathedral.
+    mat3 framing = rotAxis(right, 0.34 * sin(uTime * 0.0231));
+    ro = framing * ro;
+    rd = framing * rd;
+    fwd = framing * fwd;
+    up = framing * up;
 
     // ---- the fold set, built once per fragment ----------------------------
 
@@ -613,22 +644,11 @@ void main() {
     gSym = (uKaleido > 0.5 && uSymmetry >= 2.0) ? uSymmetry : 0.0;
 
     // Detail buys fold depth as well as march steps: uSteps runs 64..128, and
-    // the extra rounds are what the extra steps are for. The BEAT steps it by
-    // one more - the only discrete thing on the frame, per the audio rules.
-    // One extra round adds a level of structure finer than everything already
-    // on screen, so the silhouette does not move and the surfaces gain texture
-    // instead: a crystallization on the hit rather than a pop. Scaled by the
-    // user's Beat response, so setting that to zero really does stop it.
-    //
-    // A held snap - a fold angle jumping to a NEW value on each beat and
-    // staying there until the next one - is what this wanted to be, and it is
-    // not available: a fragment shader has no state between frames, and there
-    // is no beat INDEX in the uniform contract to hash. uBeatPhase says how
-    // long ago the last transient was, not which transient it was, and
-    // recovering an index from it needs the tempo, which is not uploaded. The
-    // lurch in foldAngle above is the continuous form of the same gesture.
-    float iterBeat = step(0.30, hit * clamp(uBeatResponse, 0.0, 2.0));
-    gIters = mix(5.0, 7.0, clamp((uSteps - 64.0) / 64.0, 0.0, 1.0)) + iterBeat;
+    // the extra rounds are what the extra steps are for. (The beat used to
+    // step one more round in; that rode uBeatResponse, held at zero since
+    // wave three, and is gone. The beat's lurch in foldAngle above is the
+    // continuous form of the same gesture.)
+    gIters = mix(5.0, 7.0, clamp((uSteps - 64.0) / 64.0, 0.0, 1.0));
 
     // ---- march ------------------------------------------------------------
     //
@@ -768,7 +788,7 @@ void main() {
         // flat fog. Squared so only the rays that really crawled contribute.
         float threaded = used / budget;
         float glowHue = log(max(glowTrap, 1e-6)) * 0.16 + 0.46;
-        col += pal(glowHue) * threaded * threaded * (0.55 + 0.9 * enA) * (1.0 + 0.25 * hit);
+        col += pal(glowHue) * threaded * threaded * (0.55 + 0.9 * enA);
     }
 
     // TOUCH, everywhere: the wake. Immediate feedback under the finger, before

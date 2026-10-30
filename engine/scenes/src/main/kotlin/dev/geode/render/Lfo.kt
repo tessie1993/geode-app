@@ -114,6 +114,17 @@ enum class LfoTarget(
     LFO2_DEPTH("Slot 2 depth", ParamScope.UNIVERSAL, ModChain(1, ModChainField.DEPTH)),
     LFO3_RATE("Slot 3 rate", ParamScope.UNIVERSAL, ModChain(2, ModChainField.RATE)),
     LFO3_DEPTH("Slot 3 depth", ParamScope.UNIVERSAL, ModChain(2, ModChainField.DEPTH)),
+
+    // The camera rig's offsets (core/viz/CameraRig). Every family is viewed through the rig,
+    // directly or through the composite's flat projection, so all of these are universal.
+    CAM_FLY("Camera speed", ParamScope.UNIVERSAL),
+    CAM_ORBIT("Camera swing", ParamScope.UNIVERSAL),
+    CAM_PUSH("Camera push", ParamScope.UNIVERSAL),
+    CAM_YAW("Camera turn", ParamScope.UNIVERSAL),
+    CAM_PITCH("Camera tilt", ParamScope.UNIVERSAL),
+    CAM_ROLL("Camera roll", ParamScope.UNIVERSAL),
+    CAM_FOV("Camera FOV", ParamScope.UNIVERSAL),
+    CAM_SHAKE("Camera shake", ParamScope.UNIVERSAL),
 }
 
 /**

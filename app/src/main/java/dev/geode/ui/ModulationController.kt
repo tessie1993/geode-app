@@ -8,6 +8,7 @@ import dev.geode.render.AdsrEngine
 import dev.geode.render.LfoConfig
 import dev.geode.render.LfoEngine
 import dev.geode.render.ParamBlend
+import dev.geode.render.ReactionRoute
 import dev.geode.render.scene.CustomizeTab
 import dev.geode.render.scene.ParamRandomizer
 import dev.geode.render.scene.SceneParams
@@ -56,6 +57,10 @@ internal class ModulationController(
 
     private val _adsrs = MutableStateFlow(lfoStore.loadAdsrs())
     val adsrs: StateFlow<List<AdsrConfig>> = _adsrs
+
+    // Null while the style's DNA plays; the first edit copies the DNA into a list of the user's own.
+    private val _reactions = MutableStateFlow(lfoStore.loadReactions())
+    val reactions: StateFlow<List<ReactionRoute>?> = _reactions
 
     private val _lockedParams =
         MutableStateFlow<Set<String>>(prefs.getStringSet("locked_params", emptySet()) ?: emptySet())
@@ -183,6 +188,19 @@ internal class ModulationController(
             _lfos.value = list
             lfoStore.save(list)
         }
+    }
+
+    /** [routes] null hands the matrix back to the style's DNA. */
+    fun setReactions(routes: List<ReactionRoute>?) {
+        val list = routes?.take(ReactionRoute.MAX_ROUTES)
+        _reactions.value = list
+        lfoStore.saveReactions(list)
+    }
+
+    /** A new personality for this style: the next DNA variant, and back to DNA if it was custom. */
+    fun rerollReactions() {
+        setReactions(null)
+        commitSceneParams(host.params.copy(reactSeed = host.params.reactSeed + 1))
     }
 
     private fun pushUndo(params: SceneParams) {

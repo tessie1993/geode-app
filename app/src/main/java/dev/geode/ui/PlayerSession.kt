@@ -311,6 +311,7 @@ class PlayerSession internal constructor(
 
     val lfos: StateFlow<List<LfoConfig>> get() = modulation.lfos
     val adsrs: StateFlow<List<AdsrConfig>> get() = modulation.adsrs
+    val reactions: StateFlow<List<dev.geode.render.ReactionRoute>?> get() = modulation.reactions
     val lockedParams: StateFlow<Set<String>> get() = modulation.lockedParams
     val paramHistory: StateFlow<ParamHistoryState> get() = modulation.history
     val abSnapshots: StateFlow<AbSnapshotState> get() = modulation.ab
@@ -348,6 +349,10 @@ class PlayerSession internal constructor(
         index: Int,
         config: LfoConfig,
     ) = modulation.setLfo(index, config)
+
+    fun setReactions(routes: List<dev.geode.render.ReactionRoute>?) = modulation.setReactions(routes)
+
+    fun rerollReactions() = modulation.rerollReactions()
 
     fun importTextures(
         uris: List<Uri>,
@@ -1050,6 +1055,8 @@ class PlayerSession internal constructor(
                 override fun lfoConfigs() = modulation.lfos.value
 
                 override fun adsrConfigs() = modulation.adsrs.value
+
+                override fun reactions() = modulation.reactions.value
 
                 override fun keyframes() = editor.state.value.project.keyframes
 

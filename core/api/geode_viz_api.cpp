@@ -25,9 +25,11 @@ using namespace geode::viz;
 
 static_assert(LfoEngine::kSlots == GEODE_LFO_SLOTS);
 static_assert(AdsrEngine::kCount == GEODE_ADSR_SLOTS);
+static_assert(ReactionEngine::kRoutes == GEODE_REACT_ROUTES);
+static_assert(ReactionEngine::kConfigFloats == GEODE_REACT_ROUTE_FLOATS);
 
 constexpr int kModSourceCount = static_cast<int>(ModSource::StereoPan) + 1;
-constexpr int kLfoTargetCount = static_cast<int>(LfoTarget::Lfo3Depth) + 1;
+constexpr int kLfoTargetCount = static_cast<int>(LfoTarget::CamShake) + 1;
 constexpr int kLfoWaveCount = static_cast<int>(LfoWave::Random) + 1;
 constexpr int kModPolarityCount = static_cast<int>(ModPolarity::Negative) + 1;
 constexpr int kModCurveCount = static_cast<int>(ModCurve::Smooth) + 1;
@@ -186,6 +188,29 @@ void geode_viz_set_adsr(geode_viz* v, int slot, const float* c, int count) {
     std::lock_guard<std::mutex> lock(v->configLock);
     v->adsr[static_cast<size_t>(slot)] = std::move(cfg);
     v->renderer.setAdsrConfigs(v->adsr);
+}
+
+void geode_viz_set_reactions(geode_viz* v, const float* c, int count) {
+    if (!v || !c || count < 0) return;
+    std::array<ReactRoute, ReactionEngine::kRoutes> routes{};
+    const int n = std::min(count / GEODE_REACT_ROUTE_FLOATS, ReactionEngine::kRoutes);
+    for (int i = 0; i < n; ++i) {
+        const float* r = c + i * GEODE_REACT_ROUTE_FLOATS;
+        ReactRoute& out = routes[static_cast<size_t>(i)];
+        out.enabled = flag(r[0]);
+        out.source = enumAt<ReactSource>(r[1], kReactSourceCount);
+        out.target = enumAt<LfoTarget>(r[2], kLfoTargetCount);
+        out.mode = enumAt<ReactMode>(r[3], kReactModeCount);
+        out.amount = std::clamp(r[4], -2.0f, 2.0f);
+        out.curve = enumAt<ModCurve>(r[5], kModCurveCount);
+        out.attackSeconds = std::clamp(r[6], 0.0f, 5.0f);
+        out.releaseSeconds = std::clamp(r[7], 0.0f, 10.0f);
+    }
+    v->renderer.setReactionRoutes(routes);
+}
+
+void geode_viz_set_look(geode_viz* v, float yaw, float pitch) {
+    if (v) v->renderer.setLook(std::clamp(yaw, -1.0f, 1.0f), std::clamp(pitch, -1.0f, 1.0f));
 }
 
 void geode_viz_set_thermal(geode_viz* v, int platform_status, float headroom) {

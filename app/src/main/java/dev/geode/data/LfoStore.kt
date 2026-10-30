@@ -11,6 +11,8 @@ import dev.geode.render.LfoWave
 import dev.geode.render.ModCurve
 import dev.geode.render.ModPolarity
 import dev.geode.render.ModSource
+import dev.geode.render.ReactionRoute
+import dev.geode.render.ReactionRouteCodec
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -47,6 +49,15 @@ class LfoStore(
         val arr = JSONArray()
         envs.take(AdsrEngine.COUNT).forEach { arr.put(adsrToJson(it)) }
         prefs.edit().putString(KEY_ADSR, arr.toString()).apply()
+    }
+
+    /** The user's own reaction routes, or null while the style's DNA plays (nothing saved, or unreadable). */
+    fun loadReactions(): List<ReactionRoute>? = ReactionRouteCodec.decode(prefs.getString(KEY_REACTIONS, null))
+
+    fun saveReactions(routes: List<ReactionRoute>?) {
+        val edit = prefs.edit()
+        if (routes == null) edit.remove(KEY_REACTIONS) else edit.putString(KEY_REACTIONS, ReactionRouteCodec.encode(routes))
+        edit.apply()
     }
 
     private fun adsrToJson(c: AdsrConfig): JSONObject =
@@ -132,5 +143,6 @@ class LfoStore(
     private companion object {
         const val KEY = "lfos"
         const val KEY_ADSR = "adsrs"
+        const val KEY_REACTIONS = "reactions"
     }
 }

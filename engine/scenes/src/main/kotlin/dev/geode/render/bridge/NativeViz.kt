@@ -10,6 +10,7 @@ import dev.geode.render.AdsrEngine
 import dev.geode.render.BlendMode
 import dev.geode.render.LfoConfig
 import dev.geode.render.LfoEngine
+import dev.geode.render.ReactionRoute
 import dev.geode.render.scene.SceneParams
 import java.io.File
 
@@ -155,6 +156,17 @@ class NativeViz(
     fun setAdsrConfigs(configs: List<AdsrConfig>) {
         if (handle == 0L) return
         configs.take(AdsrEngine.COUNT).forEachIndexed { slot, c -> GeodeNative.vizSetAdsr(handle, slot, ModConfigCodec.packAdsr(c)) }
+    }
+
+    fun setReactions(routes: List<ReactionRoute>) {
+        if (handle != 0L) GeodeNative.vizSetReactions(handle, ModConfigCodec.packReactions(routes))
+    }
+
+    fun setLook(
+        yaw: Float,
+        pitch: Float,
+    ) {
+        if (handle != 0L) GeodeNative.vizSetLook(handle, yaw, pitch)
     }
 
     fun setThermal(

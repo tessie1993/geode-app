@@ -13,6 +13,8 @@ out vec4 fragColor;
 // pal() and so must come after it.
 //#include lib_scene_uniforms
 //#include lib_scene_motion
+//#include lib_camera
+//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 // The 3D toolkit and the touch helpers, already wired so a style author never
@@ -57,9 +59,21 @@ out vec4 fragColor;
 // shader brighter than NEB_EMIT_CEILING, whatever the music or the fingers do.
 // Louder music cannot brighten the frame past it - it can only reach it sooner.
 //
-// The one term with real transient energy, the beat shock, is a THIN expanding
-// shell: a ring on screen, never a full field, and it fades as it travels.
-// Nothing here changes large-area luminance in one frame.
+// The one term with real transient energy, the beat shock (uEvents.x), is a
+// THIN expanding shell that only compresses the medium and turns its hue as it
+// passes: it moves structure and colour, never emission, and it fades as it
+// travels. Nothing here changes large-area luminance in one frame.
+//
+// ---- the camera -------------------------------------------------------------
+//
+// The shared rig's object-centred camera (lib_camera's camAround) at the
+// style's own standoff, so the rig's travel walks the eye around the cloud and
+// its look, banking, dolly and FOV come through; the composite leaves this
+// picture alone. The march itself still runs in the CAMERA's frame, where the
+// eye is at (0, 0, -D) looking down +z exactly as before, so the touch maths
+// below (which is defined in that frame) is untouched. Only the noise lookup
+// turns the point into world space, which is what makes the structure turn
+// as the eye goes round it.
 
 // ---- march budget ---------------------------------------------------------
 
@@ -121,6 +135,10 @@ out vec4 fragColor;
  */
 #define NEB_FOCAL 3.1
 #define NEB_CAM_DIST 3.1
+/** CameraRig::kBaseFocal - uCamFocal at the default FOV. NEB_FOCAL is kept as a lens ratio to it, so D == F holds at the default FOV. */
+#define NEB_RIG_FOCAL 1.6
+/** One turn about the cloud per 1024 / 6 world units of rig travel: about three minutes at the default fly speed. */
+#define NEB_CAM_SPIN (6.0 * CAM_SPIN_UNIT)
 
 // ---- the cloud's envelope -------------------------------------------------
 
@@ -348,9 +366,9 @@ out vec4 fragColor;
  * the existence of detail.
  */
 #define NEB_VEIN_BASE 0.55
-/** Peak brightness of the beat shell. */
-#define NEB_SHOCK_EMIT 0.8
-/** World units the shell travels over one beat phase - just past the support radius. */
+/** How far round the palette the beat shell turns the medium it passes through. Hue, not brightness. */
+#define NEB_SHOCK_HUE 0.18
+/** World units the shell travels over the beat envelope's fall - just past the support radius. */
 #define NEB_SHOCK_SPEED 2.6
 /** Shell half-width. Thin enough to read as a front, wide enough to survive a 0.1 step. */
 #define NEB_SHOCK_WIDTH 0.17
@@ -506,8 +524,22 @@ void main() {
     // smearing an image afterwards.
     vec2 uv = view();
 
-    vec3 ro = vec3(0.0, 0.0, -NEB_CAM_DIST);
-    vec3 rd = normalize(vec3(uv, NEB_FOCAL));
+    // The rig's eye, in world space: it orbits the cloud as the rig travels.
+    vec3 roW;
+    vec3 rdW;
+    camAround(uv * (NEB_RIG_FOCAL / NEB_FOCAL), NEB_CAM_DIST, NEB_CAM_SPIN, roW, rdW);
+    // camAround does not hand back its basis. The eye sits on -forward, and
+    // one more ray at uv (1, 0) gives right.
+    vec3 roX;
+    vec3 rdX;
+    camAround(vec2(1.0, 0.0), NEB_CAM_DIST, NEB_CAM_SPIN, roX, rdX);
+    vec3 camF = -normalize(roW);
+    vec3 camR = normalize(rdX - dot(rdX, camF) * camF);
+    mat3 camB = mat3(camR, cross(camF, camR), camF);
+    // The same ray in the camera's own frame: the eye at (0, 0, -D) looking
+    // down +z, which is the frame every line below was written in.
+    vec3 ro = roW * camB;
+    vec3 rd = rdW * camB;
 
     // ---- what the music is doing to the medium ----------------------------
     // Clamped at 1.5 because that is the documented top of the auto-gained
@@ -520,7 +552,7 @@ void main() {
     float mid = clamp(uMidSmooth, 0.0, 1.5);
     float treble = clamp(uTrebleSmooth, 0.0, 1.5);
     float energy = clamp(uEnergySmooth, 0.0, 1.5);
-    float beatEnv = clamp(uSpike, 0.0, 1.0);
+    float beatEnv = clamp(uEvents.x, 0.0, 1.0);
 
     float radius = NEB_RADIUS * (1.0 + NEB_BASS_INFLATE * bass);
     float extinction = NEB_EXTINCTION * (1.0 + NEB_BASS_EXTINCT * bass);
@@ -530,14 +562,13 @@ void main() {
     float extRatio = extinction / NEB_EXTINCTION;
     float glowGain = NEB_ENERGY_BASE + NEB_ENERGY_GAIN * energy;
 
-    // The beat shell. A DISCRETE event: uBeatPhase resets to 0 on a heard
-    // transient, so the shell is born at the core on the hit and its radius is
-    // the phase ramp. Its brightness rides the SQUARED beat envelope - the
-    // same gate the house beat-bump idiom uses - so the free-running phase
-    // clock cannot keep launching shells through silence. Fades with
-    // (1 - phase) so it dissipates rather than reaching the edge and stopping.
-    float shockAmp = beatEnv * beatEnv * clamp(uBeatResponse, 0.0, 2.0) * (1.0 - uBeatPhase);
-    float shockR = uBeatPhase * NEB_SHOCK_SPEED;
+    // The beat shell. A DISCRETE event: the beat envelope jumps to 1 on the
+    // beat and falls, so the shell is born at the core on the hit and its
+    // radius is how far the envelope has fallen. Its strength is the envelope
+    // itself, so it dissipates as it travels rather than reaching the edge
+    // and stopping, and silence launches nothing.
+    float shockAmp = beatEnv;
+    float shockR = (1.0 - beatEnv) * NEB_SHOCK_SPEED;
 
     // Ambient life. Both of these run at a constant rate off uTime, which is
     // already ShaderScene's speed-INTEGRATED clock - multiplying by uSpeed
@@ -599,7 +630,9 @@ void main() {
     // needs. The slab length is left as it was (it sets ds); only the stop
     // moves in.
     float satCount = dmtSatelliteCount();
-    float satT = dmtMarchSatellites(ro, rd, tNear + span, uSteps * 0.5, satCount, NEB_SAT_ORBIT, NEB_SAT_RADIUS, NEB_SAT_PERIOD);
+    // In world space: the bank orbits the cloud, not the camera. t is the
+    // same in both frames, the basis being a rotation.
+    float satT = dmtMarchSatellites(roW, rdW, tNear + span, uSteps * 0.5, satCount, NEB_SAT_ORBIT, NEB_SAT_RADIUS, NEB_SAT_PERIOD);
     float tStop = satT > 0.0 ? satT : tNear + span;
 
     float volSteps = min(max(uSteps * NEB_STEP_SCALE, NEB_MIN_STEPS), float(NEB_MAX_STEPS));
@@ -665,10 +698,11 @@ void main() {
         }
         float r = sqrt(rSq);
 
-        // Rotate into the volume's own frame before drifting and warping, so
-        // the tumble turns the STRUCTURE and not the envelope (which is
-        // spherical and would not notice).
-        vec3 pn = volumeRot * pw;
+        // Out of the camera's frame into the world's (camB), then into the
+        // volume's own frame before drifting and warping, so both the eye
+        // going round and the tumble turn the STRUCTURE and not the envelope
+        // (which is spherical and would not notice).
+        vec3 pn = volumeRot * (camB * pw);
         vec3 q = nebWarpCoord(pn + drift);
 
         // Octaves fall away with depth. A slab at the far side of the volume
@@ -780,12 +814,12 @@ void main() {
                     + NEB_HUE_DEPTH * lod
                     + NEB_HUE_MID * mid
                     - NEB_HUE_CORE * geom
+                    + NEB_SHOCK_HUE * shock
             );
 
             float emit = NEB_AMBIENT_EMIT
                 + NEB_CORE_EMIT * lit
                 + NEB_VEIN_EMIT * vein * vein * (NEB_VEIN_BASE + treble)
-                + NEB_SHOCK_EMIT * shock
                 // touchWake sums every slot and is unbounded above - five
                 // fingers sum to five. Tone-mapped rather than clamped so the
                 // fifth finger still adds something and nothing ever clips.
@@ -809,7 +843,7 @@ void main() {
 
     // A satellite, through whatever the dye in front of it did not absorb.
     if (satT > 0.0) {
-        vec3 body = dmtSatelliteColor(ro + rd * satT, rd, NEB_HUE_BASE + 0.30 + NEB_HUE_MID * mid, treble, satCount,
+        vec3 body = dmtSatelliteColor(roW + rdW * satT, rdW, NEB_HUE_BASE + 0.30 + NEB_HUE_MID * mid, treble, satCount,
                                       NEB_SAT_ORBIT, NEB_SAT_RADIUS, NEB_SAT_PERIOD);
         col += body * trans * glowGain * 0.6;
         trans = 0.0;
@@ -818,8 +852,8 @@ void main() {
     // What is left of the background comes through whatever the cloud did not
     // absorb - the correct composite, and the reason a thin nebula sits in
     // space rather than on top of it.
-    // The sky is the chrysanthemum on the view direction (the camera looks
-    // down +z from a fixed standoff, so the world direction is its frame),
+    // The sky is the chrysanthemum on the view direction in the camera's own
+    // frame, so the mandala sits behind the cloud from every side of it,
     // tilted through the palette by height as the old ramp was. It carries
     // its own floor, so a thin nebula still sits in a space that is not black.
     vec3 sky = dmtChrysanthemum(rd, NEB_SKY_HUE + NEB_SKY_TILT * rd.y, energy) * glowGain;

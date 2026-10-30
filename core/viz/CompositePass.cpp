@@ -147,6 +147,9 @@ void CompositePass::draw(const Inputs& inputs) {
 
     glUniform4fv(program.loc("uGateA"), 1, inputs.gateA.data());
     glUniform4fv(program.loc("uGateB"), 1, inputs.gateB.data());
+    glUniform4fv(program.loc("uCamFlat"), 1, inputs.camFlat.data());
+    glUniform2fv(program.loc("uCamTilt"), 1, inputs.camTilt.data());
+    glUniform2fv(program.loc("uCamGate"), 1, inputs.camGate.data());
     glBindVertexArray(inputs.quadVao);
     glDrawArrays(GL_TRIANGLES, 0, 3);
     glBindVertexArray(0);

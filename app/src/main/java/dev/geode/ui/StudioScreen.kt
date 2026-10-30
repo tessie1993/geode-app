@@ -423,13 +423,13 @@ private fun ClipEditor(
                 atDefaults = edit.isIdentity(duration),
                 onExport = {
                     if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.Q) {
-                        destinationPicker.launch("geode_studio_${System.currentTimeMillis()}.mp4")
+                        destinationPicker.launch("muzviz_studio_${System.currentTimeMillis()}.mp4")
                     } else {
                         onExport(clip, edit)
                     }
                 },
                 onExportToDestination = {
-                    destinationPicker.launch("geode_studio_${System.currentTimeMillis()}.mp4")
+                    destinationPicker.launch("muzviz_studio_${System.currentTimeMillis()}.mp4")
                 },
                 onCancelExport = onCancelExport,
                 onClearResult = onClearResult,

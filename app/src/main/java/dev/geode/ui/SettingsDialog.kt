@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
@@ -96,7 +97,11 @@ fun SettingsDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.export_title)) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            // Scrolls: on a phone the options run past the dialog and hid the Start button.
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
                 when (val phase = export.phase) {
                     is ExportPhase.Running -> {
                         val run by dev.geode.export.ExportRun.state
@@ -140,7 +145,7 @@ fun SettingsDialog(
                         }
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             // No track title reaches this dialog, so the rendered file's own
-                            // name (e.g. "geode_1234567890.mp4") stands in for EXTRA_TITLE/SUBJECT.
+                            // name (e.g. "muzviz_1234567890.mp4") stands in for EXTRA_TITLE/SUBJECT.
                             val resultName = phase.resultUri.lastPathSegment?.substringAfterLast('/')
                             Button(onClick = {
                                 context.shareVideo(phase.resultUri, chooserTitle, title = resultName, subject = resultName)

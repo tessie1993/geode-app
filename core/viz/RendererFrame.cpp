@@ -90,6 +90,10 @@ SceneParams Renderer::resolveParams(float dt) {
     const auto& lfoValues = lfo_.tick(dt, frameFeatures_, envRate_.data(), envDepth_.data());
     SceneParams p = lfo_.apply(displayedParams_, lfoValues);
     p = AdsrEngine::apply(p, adsr_.configs, envValues);
+    // The reaction matrix: per-style routes from many features to many
+    // targets. Ahead of the motion field and the safety clamp, like the LFOs.
+    reactions_.tick(frameFeatures_, dt);
+    p = reactions_.apply(p);
     // The continuous motion system: the one stage every family's parameters
     // pass through, fed only the feature frame (never a one-hop PCM/drum
     // impulse), ahead of the safety clamp so nothing it adds can exceed the
@@ -251,6 +255,11 @@ void Renderer::composite(Scene& scene, const SceneParams& p, float progress, GLu
     in.gateA = grade::gateFor(activeScene_->family()).toVec4();
     Scene* other = layerScene_ ? layerScene_ : outgoingScene_ ? outgoingScene_ : activeScene_;
     in.gateB = grade::gateFor(other->family()).toVec4();
+    // The rig's flat projection, for every scene that does not march the 3D pose itself.
+    const CameraPose& cam = camera_.pose();
+    in.camFlat = cam.flat;
+    in.camTilt = cam.tilt;
+    in.camGate = {activeScene_->drawsCamera() ? 0.0f : 1.0f, other->drawsCamera() ? 0.0f : 1.0f};
     // W00: read this frame's latched underlay straight from CompositePass (it owns the texture -
     // see CompositePass.hpp), the same way uFlow/uRipple above are read from Overlays.
     in.underlayTex = compositePass_.underlayTexOrZero();
@@ -271,6 +280,23 @@ void Renderer::stepOverlays(Scene& scene, const SceneParams& p, float dt) {
     overlays_.drainTouchStrokes(scene);
     rippleOverlayOn_ = overlays_.rippleOverlayActive(p, smearing_, scene.isWater());
     if (rippleOverlayOn_) overlays_.stepRippleOverlay(gainAdjusted(frameFeatures_, p), p, dt);
+}
+
+// After stepOverlays, so the look follows this frame's touch anchor.
+void Renderer::stepCamera(const SceneParams& p, float dt) {
+    CameraRig::LookInput look;
+    if (p.camGyro) {
+        look.yaw = lookYaw_.load(std::memory_order_relaxed);
+        look.pitch = lookPitch_.load(std::memory_order_relaxed);
+    }
+    if (p.camTouch) {
+        const float s = touchField_.anchorStrength();
+        look.yaw += touchField_.anchorX() * s;
+        look.pitch += touchField_.anchorY() * s;
+    }
+    look.yaw = std::clamp(look.yaw, -1.0f, 1.0f);
+    look.pitch = std::clamp(look.pitch, -1.0f, 1.0f);
+    camera_.step(p, look, dt, reducedMotion_.load(std::memory_order_relaxed));
 }
 
 void Renderer::wireFlow(Scene& target, const SceneParams& p) {
@@ -297,6 +323,7 @@ void Renderer::render(double timeSeconds, GLuint targetFbo) {
     applyPendingFluidInjection();
     resolveLayerScene();
     stepOverlays(*scene, p, dt);
+    stepCamera(p, dt);
     const float progress = drawSecondaryTargets(p, dt);
     drawSceneTarget(*scene, p, dt);
     composite(*scene, p, progress, targetFbo);

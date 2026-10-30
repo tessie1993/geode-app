@@ -5,6 +5,9 @@ import kotlin.random.Random
 object ParamRandomizer {
     private const val REROLLS = 8
 
+    /** The lock/roll key for the reaction DNA seed; the Reactivity tab's Re-roll button is its control. */
+    const val REACTION_DNA = "Reaction DNA"
+
     val NEVER_ROLLED: Map<String, String> =
         mapOf(
             "paletteBaseOverride" to "a user-made palette's own hue",
@@ -21,6 +24,23 @@ object ParamRandomizer {
             "fluidDyeEnabled" to "the fluid ink layer's master switch",
             "flowEnabled" to "the FlowField's master switch",
             "rippleOverlayEnabled" to "the water-ripple overlay's master switch",
+            "marchDetail" to "a performance budget, not a look",
+            "camPush" to "a modulation offset the reaction routes drive",
+            "camYaw" to "a modulation offset the reaction routes drive",
+            "camPitch" to "a modulation offset the reaction routes drive",
+            "camRoll" to "a modulation offset the reaction routes drive",
+            "camSmooth" to "a comfort preference, not a look",
+            "camTouch" to "an input preference, not a look",
+            "camGyro" to "an input preference, not a look",
+            "reactAmount" to "how much the user wants the music to move things",
+            // Inert since wave three (see SceneParams): no reader, so no control and no roll.
+            "pulse" to "inert since wave three",
+            "shake" to "inert since wave three",
+            "beatResponse" to "inert since wave three",
+            "flash" to "inert since wave three",
+            "strobe" to "inert since wave three",
+            "formDrive" to "inert since wave three",
+            "motionOrbit" to "no native reader",
         )
 
     /**
@@ -169,8 +189,11 @@ object ParamRandomizer {
         r(ParamKeys.SWAY) { it.copy(sway = sometimes(0.5f, 0.1f, 0.8f)) }
         r(ParamKeys.DRIFT_X) { it.copy(driftX = sometimes(0.3f, -0.5f, 0.5f)) }
         r(ParamKeys.DRIFT_Y) { it.copy(driftY = sometimes(0.3f, -0.5f, 0.5f)) }
-        r(ParamKeys.BEAT_PULSE) { it.copy(pulse = sometimes(0.6f, 0.15f, 0.9f)) }
-        r(ParamKeys.BEAT_SHAKE) { it.copy(shake = sometimes(0.3f, 0.1f, 0.6f)) }
+        r(ParamKeys.CAM_PATH) { it.copy(camPath = rng.nextInt(SceneParams.CAMERA_PATHS.size)) }
+        r(ParamKeys.CAM_FLY) { it.copy(camFly = f(0.2f, 1.4f)) }
+        r(ParamKeys.CAM_ORBIT) { it.copy(camOrbit = f(0.1f, 0.8f)) }
+        r(ParamKeys.CAM_FOV) { it.copy(camFov = f(0.8f, 1.4f)) }
+        r(ParamKeys.CAM_SHAKE) { it.copy(camShake = sometimes(0.25f, 0.1f, 0.5f)) }
         r(ParamKeys.ENDLESS_ZOOM) { it.copy(endlessZoom = chance(0.2f)) }
         r(ParamKeys.DIVE_SPEED) { it.copy(endlessZoomSpeed = f(0.1f, 0.8f)) }
         r(ParamKeys.TURBULENCE) { it.copy(turbulence = sometimes(0.5f, 0.1f, 1f)) }
@@ -193,9 +216,12 @@ object ParamRandomizer {
 
         section(CustomizeTab.REACTIVITY)
         r(ParamKeys.AUDIO_DRIVE) { it.copy(audioDrive = f(0.6f, 1.8f)) }
-        r(ParamKeys.FORM_DRIVE) { it.copy(formDrive = f(0.3f, 1f)) }
-        r(ParamKeys.BEAT_RESPONSE) { it.copy(beatResponse = f(0.3f, 2f)) }
-        r(ParamKeys.BEAT_FLASH) { it.copy(flash = sometimes(0.5f, 0.1f, 0.6f)) }
+        r(ParamKeys.MOTION_AMOUNT) { it.copy(motionAmount = f(0.3f, 1f)) }
+        r(ParamKeys.MOTION_BREATH) { it.copy(motionBreath = f(0.2f, 0.9f)) }
+        r(ParamKeys.MOTION_DRIFT) { it.copy(motionDrift = f(0.1f, 0.9f)) }
+        r(ParamKeys.MOTION_HUE) { it.copy(motionHue = f(0.1f, 0.8f)) }
+        // A new reaction personality for the style: see BuildStyleReactionsUseCase.
+        r(REACTION_DNA) { it.copy(reactSeed = rng.nextInt(1, Int.MAX_VALUE)) }
         r(ParamKeys.BASS_GAIN) { it.copy(bassGain = f(0.8f, 1.4f)) }
         r(ParamKeys.MID_GAIN) { it.copy(midGain = f(0.8f, 1.4f)) }
         r(ParamKeys.TREBLE_GAIN) { it.copy(trebGain = f(0.8f, 1.4f)) }
@@ -223,12 +249,13 @@ object ParamRandomizer {
         r(ParamKeys.COLOR_CYCLE) { it.copy(colorCycle = chance(0.3f)) }
         r(ParamKeys.CYCLE_SPEED) { it.copy(cycleSpeed = f(0.02f, 0.3f)) }
         r(ParamKeys.SATURATION) { it.copy(saturation = f(0.4f, 1.4f)) }
-        r(ParamKeys.BRIGHTNESS) { it.copy(brightness = f(0.7f, 1.3f)) }
-        r(ParamKeys.CONTRAST) { it.copy(contrast = f(0.8f, 1.4f)) }
+        // Upper bounds are the safety clamp's (1 + VisualSafety.MAX_FLASH_DEPTH); above it a roll is invisible.
+        r(ParamKeys.BRIGHTNESS) { it.copy(brightness = f(0.7f, 1.25f)) }
+        r(ParamKeys.CONTRAST) { it.copy(contrast = f(0.8f, 1.25f)) }
         r(ParamKeys.GAMMA) { it.copy(gamma = f(0.8f, 1.3f)) }
-        r(ParamKeys.INTENSITY) { it.copy(intensity = f(0.7f, 1.4f)) }
+        r(ParamKeys.INTENSITY) { it.copy(intensity = f(0.7f, 1.25f)) }
         r(ParamKeys.TEMPERATURE) { it.copy(temperature = sometimes(0.4f, -0.6f, 0.6f)) }
-        r(ParamKeys.BLOOM) { it.copy(bloom = sometimes(0.5f, 0.1f, 0.7f)) }
+        r(ParamKeys.BLOOM) { it.copy(bloom = sometimes(0.5f, 0.1f, 0.25f)) }
         r(ParamKeys.POSTERIZE) { it.copy(posterize = sometimes(0.15f, 0.2f, 0.6f)) }
         r(ParamKeys.DUOTONE) { it.copy(duotone = chance(0.1f)) }
         r(ParamKeys.SOLARIZE) { it.copy(solarize = chance(0.05f)) }
@@ -243,9 +270,8 @@ object ParamRandomizer {
         r(ParamKeys.VIGNETTE) { it.copy(vignette = sometimes(0.5f, 0.1f, 0.6f)) }
         r(ParamKeys.SCANLINES) { it.copy(scanlines = sometimes(0.25f, 0.15f, 0.5f)) }
         r(ParamKeys.FILM_GRAIN) { it.copy(grain = sometimes(0.3f, 0.1f, 0.4f)) }
-        r(ParamKeys.GLITCH) { it.copy(glitch = sometimes(0.2f, 0.1f, 0.4f)) }
+        r(ParamKeys.GLITCH) { it.copy(glitch = sometimes(0.2f, 0.1f, 0.25f)) }
         r(ParamKeys.FISHEYE) { it.copy(fisheye = sometimes(0.25f, -0.5f, 0.5f)) }
-        r(ParamKeys.STROBE) { it.copy(strobe = sometimes(0.08f, 0.15f, 0.4f)) }
 
         section(CustomizeTab.FLUID)
         r(ParamKeys.SOLVER_ITERATIONS) { it.copy(fluidIterations = n(12, 28)) }

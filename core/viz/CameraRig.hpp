@@ -1,0 +1,81 @@
+#pragma once
+#include <array>
+
+#include "viz/Params.hpp"
+
+namespace geode::viz {
+
+// The viewer, shared by every render path: live view, wallpaper, dream and
+// export all step one of these from the same final SceneParams, so an export
+// flies the same path the screen did.
+//
+// The rig never reads audio. Music reaches it only through SceneParams
+// (camFly, camPush, camYaw, ... written by reaction routes and LFOs), and it
+// springs toward those values, so a route can jump while the view glides.
+//
+// Pure: no GL, no allocation, no locks.
+struct CameraPose {
+    std::array<float, 3> pos{0.0f, 0.0f, 0.0f};
+    std::array<float, 3> right{1.0f, 0.0f, 0.0f};
+    std::array<float, 3> up{0.0f, 1.0f, 0.0f};
+    std::array<float, 3> fwd{0.0f, 0.0f, 1.0f};
+    float focal = 1.6f;    // 1 / tan(fov / 2) for a unit-height screen
+    float travel = 0.0f;   // distance along the path, wraps at kTravelWrap
+    float dolly = 0.0f;    // smoothed camPush, -1..1
+    float yaw = 0.0f;      // smoothed look offsets, radians
+    float pitch = 0.0f;
+    float roll = 0.0f;
+    // The flat-image projection of the same pose, for the families that draw
+    // a 2D picture (composite pass): pan, zoom multiplier, tilt and roll.
+    std::array<float, 4> flat{0.0f, 0.0f, 1.0f, 0.0f};  // panX, panY, zoom, roll
+    std::array<float, 2> tilt{0.0f, 0.0f};              // yaw, pitch for the plane
+};
+
+class CameraRig {
+public:
+    // The path functions use whole multiples of 2*pi/kPathPeriod, so the path
+    // repeats exactly and travel can wrap without a jump. A style that tiles
+    // its world along z with a power-of-two period wraps seamlessly too.
+    static constexpr float kPathPeriod = 1024.0f;
+    static constexpr float kTravelWrap = 8192.0f;
+    static constexpr float kBaseSpeed = 1.6f;      // world units / s at camFly 1
+    static constexpr float kMaxYaw = 0.6f;         // radians at camYaw 1
+    static constexpr float kMaxPitch = 0.45f;
+    static constexpr float kMaxRoll = 0.8f;
+    static constexpr float kTouchLook = 0.9f;      // radians at the screen edge
+    static constexpr float kDollyReach = 0.9f;     // world units at camPush 1
+    static constexpr float kBaseFocal = 1.6f;
+    static constexpr float kShakeRadians = 0.025f;
+    static constexpr float kFlatTilt = 0.35f;      // 2D plane tilt is gentler than the 3D look
+
+    struct LookInput {
+        float yaw = 0.0f;    // -1..1, touch anchor or gyro
+        float pitch = 0.0f;
+    };
+
+    void reset();
+    // reducedMotion scales travel, orbit, roll and shake, the vestibular
+    // terms; the look still follows a finger.
+    void step(const SceneParams& p, const LookInput& look, float dt, bool reducedMotion);
+    const CameraPose& pose() const { return pose_; }
+
+    // The path centre line at travel s, before look/dolly; public for tests.
+    static std::array<float, 3> pathPoint(int path, float orbit, float s);
+
+private:
+    struct Spring {
+        float x = 0.0f;
+        float v = 0.0f;
+        void reset(float to) { x = to; v = 0.0f; }
+        // Critically damped; exact for constant target, stable for any dt.
+        void step(float target, float dt, float seconds);
+    };
+
+    Spring yaw_, pitch_, roll_, dolly_, fov_, speed_, orbit_;
+    float travel_ = 0.0f;
+    float time_ = 0.0f;
+    bool primed_ = false;
+    CameraPose pose_;
+};
+
+}  // namespace geode::viz

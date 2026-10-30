@@ -20,6 +20,8 @@ enum class LfoTarget {
     Glitch, Fisheye, ParticleSize, TrailLength, FluidCurl, FluidRadius, FluidForce, FluidGlow, FluidFade,
     FluidCatchPull, FluidCatchRadius, FlowStrength, WaterRipple, RippleOverlay,
     Lfo1Rate, Lfo1Depth, Lfo2Rate, Lfo2Depth, Lfo3Rate, Lfo3Depth,
+    // Appended: the camera rig's offsets (viz/CameraRig). Ordinals above are wire values.
+    CamFly, CamOrbit, CamPush, CamYaw, CamPitch, CamRoll, CamFov, CamShake,
 };
 
 struct ModChain {

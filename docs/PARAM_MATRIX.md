@@ -170,11 +170,35 @@ reach every style through the composite pass, which is its own column.
 | `rippleOverlayEnabled` | Fluid | — | `rippleOverlayEnabled` |   |   |   |   |   |   |   |   |   |   | · | · |
 | `rippleOverlayStrength` | Fluid | `Ripple overlay strength` | `rippleOverlayStrength` |   |   |   |   |   |   |   |   |   |   | · | · |
 | `rippleOverlaySpecular` | Fluid | `Ripple glint` | `rippleOverlaySpecular` |   |   |   |   |   |   |   |   |   |   | · | · |
+| `motionAmount` | Reactivity | `Motion amount` | `motionAmount` | · |   |   |   |   |   |   |   |   |   | · | · |
+| `motionBreath` | Reactivity | `Breath` | `motionBreath` | · |   |   |   |   |   |   |   |   |   | · | · |
+| `motionDrift` | Reactivity | `Spin drift` | `motionDrift` | · |   |   |   |   |   |   |   |   |   | · | · |
+| `motionHue` | Reactivity | `Key colour` | `motionHue` | · |   |   |   |   |   |   |   |   |   | · | · |
+| `camFly` | Motion | `Fly speed` | `camFly` | · |   |   |   |   |   |   |   |   |   | · | · |
+| `camPath` | Motion | `Camera path` | `camPath` | · |   |   |   |   |   |   |   |   |   | · | · |
+| `camOrbit` | Motion | `Swing` | `camOrbit` | · |   |   |   |   |   |   |   |   |   | · | · |
+| `camFov` | Motion | `Field of view` | `camFov` | · |   |   |   |   |   |   |   |   |   | · | · |
+| `camShake` | Motion | `Handheld shake` | `camShake` | · |   |   |   |   |   |   |   |   |   | · | · |
+| `camPush` | Motion | — | `camPush` | · |   |   |   |   |   |   |   |   |   | · | · |
+| `camYaw` | Motion | — | `camYaw` | · |   |   |   |   |   |   |   |   |   | · | · |
+| `camPitch` | Motion | — | `camPitch` | · |   |   |   |   |   |   |   |   |   | · | · |
+| `camRoll` | Motion | — | `camRoll` | · |   |   |   |   |   |   |   |   |   | · | · |
+| `camSmooth` | Motion | — | `camSmooth` | · |   |   |   |   |   |   |   |   |   | · | · |
+| `camTouch` | Motion | — | `camTouch` | · |   |   |   |   |   |   |   |   |   | · | · |
+| `camGyro` | Motion | — | `camGyro` | · |   |   |   |   |   |   |   |   |   | · | · |
+| `reactAmount` | Reactivity | — | `reactAmount` | · |   |   |   |   |   |   |   |   |   | · | · |
+| `reactSeed` | Reactivity | `Reaction DNA` | `reactSeed` | · |   |   |   |   |   |   |   |   |   | · | · |
 
 ## Never randomized
 
-Declared in `ParamRandomizer.NEVER_ROLLED`; the test checks the list against
-the parameters no roll actually writes, in both directions.
+Declared in `ParamRandomizer.NEVER_ROLLED`. `ParamRandomizerTest` checks one
+direction: every field no tab resets is on this list (or `NOT_RENDERED`).
+
+The camera and motion rows above are read by `core/viz/CameraRig.cpp` and
+`core/viz/MotionField.cpp` for every family: 3D styles read the rig through
+`lib_camera`, every other scene is moved by the composite's flat projection.
+`pulse`, `shake`, `beatResponse`, `flash`, `strobe`, `formDrive` and
+`motionOrbit` have no reader and no control any more; their rows are history.
 
 | Parameter | Why |
 |---|---|

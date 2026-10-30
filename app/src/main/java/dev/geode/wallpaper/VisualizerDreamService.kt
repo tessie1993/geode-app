@@ -101,6 +101,12 @@ class VisualizerDreamService : DreamService() {
             if (java.io.File(path).isFile) engine.loadMilkPreset(path)
         }
         engine.reducedMotion = ThemeStore(prefsFiles.general).loadGui().reducedMotion
+        // The user's modulation too: without it the wallpaper and the dream drew the look
+        // with every LFO, envelope and custom reaction switched off.
+        val modulation = dev.geode.data.LfoStore(prefsFiles.general)
+        engine.lfoEngine.configs = modulation.load()
+        engine.adsrEngine.configs = modulation.loadAdsrs()
+        engine.reactions = modulation.loadReactions()
     }
 
     private fun startFeeding(engine: VisualizerRenderer) {

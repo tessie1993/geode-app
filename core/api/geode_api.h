@@ -94,6 +94,8 @@ GEODE_API int          geode_drums_band_count(geode_drums*);
 #define GEODE_LFO_SLOTS 3
 #define GEODE_LFO_CONFIG_FLOATS 8   /* enabled, source, target, wave, rate_seconds, depth, polarity, curve */
 #define GEODE_ADSR_SLOTS 2
+#define GEODE_REACT_ROUTES 12
+#define GEODE_REACT_ROUTE_FLOATS 8  /* enabled, source, target, mode, amount, curve, attack_seconds, release_seconds */
 #define GEODE_ADSR_CONFIG_FLOATS 10 /* enabled, attack, decay, sustain, release, amount, band, gate_threshold,
                                        sustain_track, retrigger; followed by the target ordinals */
 
@@ -125,6 +127,10 @@ GEODE_API void        geode_viz_set_custom_shader(geode_viz*, const char* scene_
 GEODE_API size_t      geode_viz_custom_shader(geode_viz*, const char* scene_id, char* out, size_t capacity);
 GEODE_API void        geode_viz_set_lfo(geode_viz*, int slot, const float* config, int count);
 GEODE_API void        geode_viz_set_adsr(geode_viz*, int slot, const float* config, int count);
+/* Every reaction route at once, GEODE_REACT_ROUTE_FLOATS per route; routes past count / ROUTE_FLOATS are disabled. */
+GEODE_API void        geode_viz_set_reactions(geode_viz*, const float* routes, int count);
+/* Gyro look, -1..1 per axis; the camera reads it only while camGyro is on. */
+GEODE_API void        geode_viz_set_look(geode_viz*, float yaw, float pitch);
 GEODE_API void        geode_viz_set_thermal(geode_viz*, int platform_status, float headroom); /* status < 0 = unknown */
 GEODE_API void        geode_viz_set_paced_fps(geode_viz*, float fps);
 GEODE_API void        geode_viz_set_offscreen(geode_viz*, int on);

@@ -37,6 +37,7 @@ fun VisualizerEngineBindings(
     val viz by viewModel.vizState.collectAsStateWithLifecycle()
     val lfos by visualsViewModel.lfos.collectAsStateWithLifecycle()
     val adsrs by visualsViewModel.adsrs.collectAsStateWithLifecycle()
+    val reactions by visualsViewModel.reactions.collectAsStateWithLifecycle()
     val playerPrefs by settingsViewModel.playerPrefs.collectAsStateWithLifecycle()
     val gui by settingsViewModel.guiPrefs.collectAsStateWithLifecycle()
     val layers by LayersBus.state.collectAsStateWithLifecycle()
@@ -90,6 +91,12 @@ fun VisualizerEngineBindings(
     LaunchedEffect(lfos, adsrs) {
         visualizerView.visualizerRenderer.lfoEngine.configs = lfos
         visualizerView.visualizerRenderer.adsrEngine.configs = adsrs
+    }
+    LaunchedEffect(viz.params.camGyro) {
+        visualizerView.gyroWanted = viz.params.camGyro
+    }
+    LaunchedEffect(reactions) {
+        visualizerView.visualizerRenderer.reactions = reactions
     }
     LaunchedEffect(viz.transitionId, viz.transitionDurationSec) {
         val id = VisualSafety.transitionId(viz.transitionId)

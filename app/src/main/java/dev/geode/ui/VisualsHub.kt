@@ -961,6 +961,7 @@ private fun CustomizeTabBody(
         CustomizeTab.REACTIVITY -> {
             val lfos by visualsViewModel.lfos.collectAsStateWithLifecycle()
             val adsrs by visualsViewModel.adsrs.collectAsStateWithLifecycle()
+            val reactions by visualsViewModel.reactions.collectAsStateWithLifecycle()
             ReactivityTab(
                 p,
                 onChange,
@@ -971,6 +972,9 @@ private fun CustomizeTabBody(
                 onLfoChange = visualsViewModel::setLfo,
                 adsr = adsrs,
                 onAdsrChange = visualsViewModel::setAdsr,
+                reactions = reactions,
+                onReactionsChange = visualsViewModel::setReactions,
+                onRerollReactions = visualsViewModel::rerollReactions,
             )
         }
         CustomizeTab.COLOR -> {

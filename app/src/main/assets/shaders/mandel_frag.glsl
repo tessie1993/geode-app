@@ -57,6 +57,8 @@ uniform float uTemperature;
 uniform float uSolarize;
 uniform float uFlash;
 
+//#include lib_react
+
 float aband(float x) { return texture(uAudioTex, vec2(clamp(x, 0.0, 1.0), 0.25)).r; }
 float awave(float x) { return texture(uAudioTex, vec2(clamp(x, 0.0, 1.0), 0.75)).r; }
 
@@ -139,6 +141,39 @@ vec2 view() {
 
 //#include lib_palette
 
+/**
+ * A hashed point in the unit disc for event number `n` (PCG integer hash, so
+ * it is exact on every device). Used to pick where the next glide goes.
+ */
+vec2 hashSpot(float n) {
+    uint h = uint(max(n, 0.0)) * 747796405u + 2891336453u;
+    h = ((h >> ((h >> 28u) + 4u)) ^ h) * 277803737u;
+    h = (h >> 22u) ^ h;
+    float a = float(h & 0xffffu) * (6.2831853 / 65536.0);
+    float r = sqrt(float(h >> 16u) * (1.0 / 65536.0));
+    return vec2(cos(a), sin(a)) * r;
+}
+
+/**
+ * The pitch-change glide, without frame-to-frame state.
+ *
+ * The SPOT is chosen by the onset count and eased from the previous count's
+ * spot to the new one by the onset envelope: when an onset lands, uHitCount
+ * steps and uHits.w jumps to 1 on the same frame, so the mix starts exactly at
+ * the old spot and glides to the new one as the envelope falls - it moves
+ * without ever stepping. HOW FAR the point travels toward the spot is the
+ * pitch-change envelope shaped into a hump (4e(1-e)), which is 0 both before
+ * the event (e = 0) and at its instant rise (e = 1), so the point eases out
+ * to the spot and back over the envelope's fall rather than snapping there.
+ */
+vec2 pitchGlide() {
+    float g = 1.0 - clamp(uHits.w, 0.0, 1.0);
+    g = g * g * (3.0 - 2.0 * g);
+    vec2 spot = mix(hashSpot(uHitCount - 1.0), hashSpot(uHitCount), g);
+    float e = clamp(uEvents.w, 0.0, 1.0);
+    return spot * (4.0 * e * (1.0 - e));
+}
+
 vec3 grade(vec3 col) {
     if (uBloom > 0.001) col += uBloom * col * col;
     if (uPosterize > 0.001) {
@@ -159,9 +194,22 @@ vec3 grade(vec3 col) {
 }
 
 // Mandelbrot dive: pair with Endless zoom for an infinite descent.
+//
+// What reacts to what (sound events via lib_react; camera motion is the
+// composite's, applied to this picture automatically):
+//   - a pitch change (uEvents.w) glides the focus point out to a hashed spot
+//     and back, the spot re-picked per onset (see pitchGlide). The reach is in
+//     screen units, so the glide is the same size on screen at any zoom.
+//   - an onset (uHits.w) gives the palette a brief hue phase step.
+//   - the kick (uHits.x) grows the zoom slightly.
+//   - bass shifts the escape bands, each lit by its own analyser band.
 void main() {
-    vec2 uv = view() * 1.3;
-    vec2 c = uv + vec2(-0.743643, 0.131825);
+    // The kick grows the zoom by up to 6%: scale, not brightness.
+    vec2 uv = view() * 1.3 / (1.0 + 0.06 * clamp(uHits.x, 0.0, 1.0));
+    // view() divides by this same zoom, so dividing the glide by it too keeps
+    // its reach a fixed fraction of the screen.
+    float zoom = max(uZoom * pow(2.0, 1.0 - abs(2.0 * uZoomPhase - 1.0)), 0.05);
+    vec2 c = uv + vec2(-0.743643, 0.131825) + pitchGlide() * (0.35 / zoom);
     vec2 z = vec2(0.0);
     float iter = 0.0;
     const float maxIter = 80.0;
@@ -172,7 +220,8 @@ void main() {
     }
     float f = iter / maxIter;
     float smoothF = f + uBass * 0.1;
-    vec3 col = pal(smoothF * 2.0 + uTime * 0.02) * (0.2 + f * 1.4 + aband(f) * 0.7);
+    float hueStep = 0.12 * clamp(uHits.w, 0.0, 1.0);
+    vec3 col = pal(smoothF * 2.0 + uTime * 0.02 + hueStep) * (0.2 + f * 1.4 + aband(f) * 0.7);
     if (iter >= maxIter - 1.0) col *= 0.1;
     fragColor = vec4(grade(col), 1.0);
 }

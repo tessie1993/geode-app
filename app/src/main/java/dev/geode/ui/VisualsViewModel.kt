@@ -66,6 +66,8 @@ class VisualsViewModel
 
         val adsrs: StateFlow<List<AdsrConfig>> get() = session.adsrs
 
+        val reactions: StateFlow<List<dev.geode.render.ReactionRoute>?> get() = session.reactions
+
         val lockedParams: StateFlow<Set<String>> get() = session.lockedParams
 
         val presetLocked: StateFlow<Boolean> get() = session.presetLocked
@@ -131,6 +133,10 @@ class VisualsViewModel
             index: Int,
             config: LfoConfig,
         ) = session.setLfo(index, config)
+
+        fun setReactions(routes: List<dev.geode.render.ReactionRoute>?) = session.setReactions(routes)
+
+        fun rerollReactions() = session.rerollReactions()
 
         fun importTextures(
             uris: List<Uri>,

@@ -65,6 +65,10 @@ public:
         SceneParams fx;
         std::array<float, 4> gateA{};
         std::array<float, 4> gateB{};
+        // CameraRig's flat projection and, per texture, whether to apply it.
+        std::array<float, 4> camFlat{0.0f, 0.0f, 1.0f, 0.0f};
+        std::array<float, 2> camTilt{};
+        std::array<float, 2> camGate{};
         // W00: underlay, read each frame from CompositePass's own latched texture (see the class
         // comment above) via underlayTexOrZero()/underlayBlendMode()/underlayAmount().
         GLuint underlayTex = 0;

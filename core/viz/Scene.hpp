@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "api/geode_api.h"
+#include "viz/CameraRig.hpp"
 #include "viz/Params.hpp"
 #include "viz/TouchField.hpp"
 
@@ -31,6 +32,10 @@ public:
     virtual void setFlow(GLuint texture, float strength) { (void) texture; (void) strength; }
     virtual void setPaletteLut(GLuint texture) { (void) texture; }
     virtual void setTouchField(const TouchField* field) { (void) field; }
+    // The renderer's camera rig pose, stable for the scene's lifetime; stepped once per frame before draw.
+    virtual void setCamera(const CameraPose* pose) { (void) pose; }
+    // True when the scene draws the rig's 3D pose itself, so the composite must not also apply its flat projection.
+    virtual bool drawsCamera() const { return false; }
     virtual void setFragmentSource(const std::string& source) { (void) source; }
     // > 0 keeps the previous frame in the scene target (Curl Flow); 0 clears it.
     virtual float trailRetention(const SceneParams& params) const { (void) params; return 0.0f; }

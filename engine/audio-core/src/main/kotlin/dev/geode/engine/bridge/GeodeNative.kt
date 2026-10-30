@@ -346,6 +346,19 @@ object GeodeNative {
         config: FloatArray,
     )
 
+    /** Every reaction route, `REACT_ROUTE_FLOATS` per route (geode_viz_set_reactions). */
+    external fun vizSetReactions(
+        handle: Long,
+        routes: FloatArray,
+    )
+
+    /** Gyro look, -1..1 per axis; read only while camGyro is on. */
+    external fun vizSetLook(
+        handle: Long,
+        yaw: Float,
+        pitch: Float,
+    )
+
     external fun vizSetThermal(
         handle: Long,
         platformStatus: Int,

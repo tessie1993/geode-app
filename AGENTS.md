@@ -27,7 +27,7 @@ Read before you change structure:
 
 Convention plugins live in `build-logic/src/main/kotlin/`: `geode.kotlin-common` (ktlint, detekt, toolchain), `geode.jvm-library`, `geode.android-library` and `geode.provenance`. The version catalog is `gradle/libs.versions.toml`.
 
-The native core is built by the root `CMakeLists.txt`, plus `core/CMakeLists.txt` for the `geode_core` static library. `app/src/main/cpp/*_jni.cpp` only marshal values into the `extern "C"` ABI in `core/api/geode_api.h`. The code itself is in `core/analysis` (FFT, onsets, tempo, key, structure), `core/viz` (renderer, scene registry, `scenes/`, `fluid/`, `compute/`), `core/audio/player` (AMediaCodec decode, mixer, Oboe output), `core/audio/dsp` and `core/library` (TagLib). The submodules are `third_party/{projectm,kissfft,oboe,taglib}`. projectM gets `tools/projectm-v4.1.7-render-fbo-backport.patch` at configure time. Shaders ship in `app/src/main/assets/shaders/`.
+The native core is built by the root `CMakeLists.txt`, plus `core/CMakeLists.txt` for the `geode_core` static library. `app/src/main/cpp/*_jni.cpp` only marshal values into the `extern "C"` ABI in `core/api/geode_api.h`. The code itself is in `core/analysis` (FFT, onsets, tempo, key, structure), `core/viz` (renderer, scene registry, `scenes/`, `fluid/`, `compute/`; per frame the renderer runs LFO → ADSR → `Reactions` (the reaction matrix) → `MotionField` → `safety::apply`, then steps `CameraRig`, the one camera every render path shares), `core/audio/player` (AMediaCodec decode, mixer, Oboe output), `core/audio/dsp` and `core/library` (TagLib). The submodules are `third_party/{projectm,kissfft,oboe,taglib}`. projectM gets `tools/projectm-v4.1.7-render-fbo-backport.patch` at configure time. Shaders ship in `app/src/main/assets/shaders/`; styles include `lib_*` files by `//#include`, allow-listed in `core/viz/ShaderSource.cpp`. 3D styles read the rig through `lib_camera`, sound events through `lib_react`.
 
 ## `:app` packages (`app/src/main/java/dev/geode/`)
 
@@ -69,7 +69,7 @@ The native core is built by the root `CMakeLists.txt`, plus `core/CMakeLists.txt
 1. **Source → `SampleRing`.** ExoPlayer runs `MvzAudioProcessorChain` on its playback thread, and the `PcmTap` there comes first, before any DSP. The native player's Oboe callback is real-time; the `geode-native-tap` thread (`NativeTapPump`) copies its tap into the ring, and player commands go to the `geode-native-player` executor. Mic and capture use one `AudioCapturePump` worker thread each. There is one ring for all sources.
 2. **Analysis.** `AnalysisEngine` loops on `Dispatchers.Default`, calling `GeodeNative.analysis*` (JNI into `core/analysis`), and publishes `features: StateFlow<AudioFeatures>`. It runs only while `AudioBus` has consumers. `PlaybackEngine` wires this on `Main.immediate`.
 3. **UI hand-off.** `VisualizerEngineBindings` in `ui/EnginePlumbing.kt` collects `features` on Main and writes `VisualizerRenderer.features`.
-4. **Render.** The `GLSurfaceView` GL thread runs `VisualizerRenderer.onDrawFrame`, which calls `NativeViz`, then JNI `geode_viz_jni.cpp`, then the `core/viz` renderer and its scene. The wallpaper and dream feed their renderer from `AudioBus.features()` on their own feeder thread.
+4. **Render.** The `GLSurfaceView` GL thread runs `VisualizerRenderer.onDrawFrame`, which calls `NativeViz`, then JNI `geode_viz_jni.cpp`, then the `core/viz` renderer and its scene. Reaction routes are the user's (`LfoStore`) or the style's DNA from `BuildStyleReactionsUseCase`, resolved on the GL thread by `StyleReactionsCache`; `OffscreenSceneRenderer` resolves them the same way, so exports react like the screen. `GyroLook` (in `VisualizerView`) feeds the camera's look while it is visible. The wallpaper and dream feed their renderer from `AudioBus.features()` on their own feeder thread.
 5. **Export.** `TrackAnalysisController` runs `OfflineAnalyzer` on Default to build a `FeatureTimeline`, cached by `AnalysisCache`. `VideoExporter` and `LoopRender` run on Default inside `ExportRun.scope`. They render through `OffscreenSceneRenderer` and `EncoderSurface` (EGL on the export thread) into MediaCodec and MediaMuxer, and write MediaStore rows with `IS_PENDING` set. `StudioExporter` uses Media3 `Transformer`.
 6. **Persistence.** `PlayerSession.storeScope` is `Dispatchers.IO.limitedParallelism(1)`.
 
@@ -94,10 +94,10 @@ The native core is built by the root `CMakeLists.txt`, plus `core/CMakeLists.txt
 
 ## Build, test, CI
 
-- **Don't build locally.** Push to `claude/**`. `.github/workflows/android.yml` runs detekt, `:app:assembleDebug`, `:app:testDebugUnitTest`, `:app:lintDebug`, `ktlintCheck`, plus an emulator job (`connectedDebugAndroidTest`, API 30). Read the results with `gh run list --branch <b>` and `gh run view <id> --log-failed`.
+- **Don't build locally.** Push to `claude/**`. `.github/workflows/android.yml` runs detekt, `:app:assembleDebug`, every module's unit tests, `:app:lintDebug`, `ktlintCheck`, plus an emulator job (`connectedDebugAndroidTest`, API 30). Read the results with `gh run list --branch <b>` and `gh run view <id> --log-failed`.
 - `ship-apk.yml` (push to `main`) publishes a debug APK. `release.yml` builds the Play AAB unsigned on PRs (no secrets reach PR code) and signed on tags `v*` and manual runs, then checks the merged manifest (no INTERNET, targetSdk), R8 and the baseline profile. `arch-map.yml` is the gate described below.
 - Submodules: `git submodule update --init --recursive`, needed only for native work. Your `local.properties` needs `sdk.dir`.
-- Tests: JVM unit tests live in `app/src/test` and `engine/*/src/test` (CI runs every module's), instrumented ones in `app/src/androidTest`. Put new pure tests in a JVM module where you can. Use `docs/DEVICE_CHECKS.md` for anything that needs a device. `tools/glslcheck` and `tools/hostlink` check shaders and the native link on the host.
+- Tests: JVM unit tests live in `app/src/test` and `engine/*/src/test` (CI runs every module's), instrumented ones in `app/src/androidTest`. Among them: `engine/scenes/src/test/` (style DNA, wire layouts, the saved-reactions codec, randomizer coverage) and `app/src/androidTest/.../ui/ReactivityTabTest.kt` (Compose UI test of the reaction editor, run by the emulator job). CI also runs `core/tests/viz_math_test.cpp` (reaction and camera math, host compiler) and `tools/check_shaders.py` (every style through the NDK's glslc). Put new pure tests in a JVM module where you can; keep parsing that must be tested off-device out of `org.json`, which is a stub in local tests (see `render/ReactionRouteCodec`). Use `docs/DEVICE_CHECKS.md` for anything that needs a device. `tools/glslcheck` and `tools/hostlink` check shaders and the native link on the host.
 
 ## Conventions
 
@@ -111,7 +111,7 @@ The native core is built by the root `CMakeLists.txt`, plus `core/CMakeLists.txt
 
 ## Large files to split (lines)
 
-`ui/VisualsHub.kt` 1395 · `ui/PlayerSession.kt` 1367 · `ui/CustomizeTabs.kt` 1132 · `ui/BuiltInPresets.kt` 914 · `export/LoopRender.kt` 889 · `ui/StudioScreen.kt` 881 · `ui/AppShell.kt` 752 · `editor/Timeline.kt` 730 · `data/TemplateRepository.kt` 726 · `ui/LibraryScreen.kt` 719 · `ui/PlayerScreen.kt` 709 · `export/LoopExtend.kt` 698 · `ui/VisualizerScreen.kt` 692
+`ui/VisualsHub.kt` 1406 · `ui/PlayerSession.kt` 1371 · `ui/CustomizeTabs.kt` 1302 · `ui/BuiltInPresets.kt` 914 · `export/LoopRender.kt` 893 · `ui/StudioScreen.kt` 881 · `ui/AppShell.kt` 744 · `editor/Timeline.kt` 730 · `data/TemplateRepository.kt` 726 · `ui/LibraryScreen.kt` 719 · `ui/PlayerScreen.kt` 709 · `export/LoopExtend.kt` 701 · `ui/VisualizerScreen.kt` 691
 
 ## Where the code breaks the architecture guide
 
@@ -126,7 +126,7 @@ The native core is built by the root `CMakeLists.txt`, plus `core/CMakeLists.txt
 - **One-shot events.** `PlayerViewModel` exposes `vizApply` and `morphFade` as `SharedFlow`.
 - **Mixed module.** `:engine:scenes` is an Android library, but most of its files are pure Kotlin. `editor/*` and much of `data/*` are pure too, except for `org.json` (`TemplateFormat`, `EditorProjectJson`, `PerformanceTake`). There is no `kotlinx.serialization` yet.
 - **Navigation.** Enum and `when`, not Nav3.
-- **Quality items not set up:** one use case only (`GetFeatureGateUseCase`), almost no ViewModel or repository tests, a hand-written (not generated) baseline profile (`app/src/main/baseline-prof.txt`), no `reportFullyDrawn`, JankStats, Macrobenchmark or GWP-ASan.
+- **Quality items not set up:** two use cases so far (`pro/GetFeatureGateUseCase`, `render/scene/BuildStyleReactionsUseCase`), almost no ViewModel or repository tests, a hand-written (not generated) baseline profile (`app/src/main/baseline-prof.txt`), no `reportFullyDrawn`, JankStats, Macrobenchmark or GWP-ASan.
 
 ## Keeping this map current
 

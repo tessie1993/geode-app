@@ -16,10 +16,13 @@ class MacroControllerTest {
 
         override val sceneId: String = SceneIds.PLASMA
 
-        override var reactions: List<ReactionRoute>? = null
+        // A plain `var` would clash with setReactions on the JVM.
+        private var routes: List<ReactionRoute>? = null
+
+        override val reactions: List<ReactionRoute>? get() = routes
 
         override fun setReactions(routes: List<ReactionRoute>?) {
-            reactions = routes
+            this.routes = routes
         }
 
         override fun editSceneParams(params: SceneParams) {

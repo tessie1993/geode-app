@@ -55,25 +55,41 @@ internal fun BackupSettingsTab() {
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    CrystalButton(
-                        onClick = { exportPicker.launch(BackupFormat.defaultFileName(LocalDate.now())) },
-                        modifier = Modifier.weight(1f),
-                        enabled = idle,
-                    ) { Text(stringResource(R.string.backup_export)) }
-                    CrystalButton(
-                        onClick = { importPicker.launch(zipMimeTypes) },
-                        modifier = Modifier.weight(1f),
-                        enabled = idle,
-                        filled = false,
-                    ) { Text(stringResource(R.string.backup_import)) }
-                }
+                BackupActions(
+                    enabled = idle,
+                    onExport = { exportPicker.launch(BackupFormat.defaultFileName(LocalDate.now())) },
+                    onImport = { importPicker.launch(zipMimeTypes) },
+                )
                 BackupStatus(state, onDismiss = viewModel::dismiss)
             }
         }
     }
-    when (val current = state) {
-        is BackupUiState.Choosing -> RestoreChoiceDialog(current, viewModel)
+    BackupDialogs(state, viewModel)
+}
+
+@Composable
+private fun BackupActions(
+    enabled: Boolean,
+    onExport: () -> Unit,
+    onImport: () -> Unit,
+) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        CrystalButton(onClick = onExport, modifier = Modifier.weight(1f), enabled = enabled) {
+            Text(stringResource(R.string.backup_export))
+        }
+        CrystalButton(onClick = onImport, modifier = Modifier.weight(1f), enabled = enabled, filled = false) {
+            Text(stringResource(R.string.backup_import))
+        }
+    }
+}
+
+@Composable
+private fun BackupDialogs(
+    state: BackupUiState,
+    viewModel: BackupViewModel,
+) {
+    when (state) {
+        is BackupUiState.Choosing -> RestoreChoiceDialog(state, viewModel)
         BackupUiState.Restored -> RestartDialog()
         else -> Unit
     }

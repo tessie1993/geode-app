@@ -1,5 +1,6 @@
 package dev.geode.ui
 
+import dev.geode.model.DeviceTrack
 import kotlin.math.abs
 
 data class DuplicateGroup(

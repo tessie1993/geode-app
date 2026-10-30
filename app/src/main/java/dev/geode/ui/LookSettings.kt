@@ -34,7 +34,11 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 import dev.geode.data.BootAnimationStore
+import dev.geode.data.CornerStyle
+import dev.geode.data.FontColorChoice
 import dev.geode.data.GeodePrefsFiles
+import dev.geode.data.GuiPrefs
+import dev.geode.data.PlayerPosition
 import dev.geode.ui.theme.isReadableOnCanvas
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext

@@ -1,4 +1,4 @@
-package dev.geode.ui
+package dev.geode.data
 
 import androidx.annotation.StringRes
 import dev.geode.R

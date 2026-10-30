@@ -25,6 +25,7 @@ constexpr float kDropDecay = 2.50f;
 constexpr float kSectionDecay = 1.50f;
 constexpr float kPitchDecay = 0.50f;
 constexpr float kTimbreDecay = 0.40f;
+constexpr float kArrivalDecay = 2.50f;
 
 // A chroma argmax only counts as a pitch change when the detector is this sure.
 constexpr float kPitchConfidence = 0.35f;
@@ -56,6 +57,7 @@ void ReactSignals::reset() {
     peaks_.fill(0.0f);
     swellAvg_ = 0.0f;
     swellWarm_ = 0.0f;
+    macro_ = 0.0f;
     lastKey_ = -1;
     lastCentroid_ = 0.0f;
     centroidSlow_ = 0.0f;
@@ -107,6 +109,9 @@ void ReactSignals::step(const GeodeFeatureFrame& f, float dt) {
     set(ReactSource::Kick, normalised(static_cast<int>(ReactSource::Kick), f.kick, dt));
     set(ReactSource::Snare, normalised(static_cast<int>(ReactSource::Snare), f.snare, dt));
     set(ReactSource::Hat, normalised(static_cast<int>(ReactSource::Hat), f.hat, dt));
+    // Already normalised by the analyser; smoothed here so a single loud hop is not a section.
+    macro_ += (std::clamp(f.macroEnergy, 0.0f, 1.0f) - macro_) * onePoleK(dt, kMacroSeconds);
+    set(ReactSource::MacroEnergy, macro_);
 
     decay(ReactSource::Onset, dt, kOnsetDecay);
     decay(ReactSource::Beat, dt, kBeatDecay);
@@ -115,6 +120,7 @@ void ReactSignals::step(const GeodeFeatureFrame& f, float dt) {
     decay(ReactSource::Section, dt, kSectionDecay);
     decay(ReactSource::PitchChange, dt, kPitchDecay);
     decay(ReactSource::TimbreJump, dt, kTimbreDecay);
+    decay(ReactSource::Arrival, dt, kArrivalDecay);
 
     // An onset is the rising edge of the transient, not every hop it stays high.
     const bool hot = f.transient >= live::kHitFloor;
@@ -126,6 +132,7 @@ void ReactSignals::step(const GeodeFeatureFrame& f, float dt) {
     if (f.beat > 0.0f) trigger(ReactSource::Beat, live::beatImpulse(f));
     if (f.downbeat > 0.0f) trigger(ReactSource::Downbeat, 1.0f);
     if (f.drop > 0.0f) trigger(ReactSource::Drop, 1.0f);
+    if (f.arrival > 0.0f) trigger(ReactSource::Arrival, 1.0f);
     if (f.sectionBoundary > 0.0f) {
         trigger(ReactSource::Section, 1.0f);
         sectionCount_ = std::fmod(sectionCount_ + 1.0f, kOnsetCountWrap);

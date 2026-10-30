@@ -52,6 +52,11 @@ class BuildStyleReactionsUseCaseTest {
     }
 
     @Test
+    fun someStylesRideTheSongEnergy() {
+        assertTrue(styles.any { id -> build(id, 0).any { it.source == ReactSource.MACRO_ENERGY } })
+    }
+
+    @Test
     fun amountsAndTimesStayInsideWhatNativeAccepts() {
         styles.forEach { id ->
             build(id, 7).forEach { r ->

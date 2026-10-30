@@ -4,11 +4,7 @@ import android.content.Context
 import android.net.Uri
 import androidx.documentfile.provider.DocumentFile
 import dev.geode.R
-
-data class LyricLine(
-    val timeMs: Long,
-    val text: String,
-)
+import dev.geode.model.LyricLine
 
 data class Lyrics(
     val lines: List<LyricLine>,

@@ -1,4 +1,4 @@
-package dev.geode.ui
+package dev.geode.model
 
 import java.io.ByteArrayOutputStream
 import java.util.zip.GZIPInputStream

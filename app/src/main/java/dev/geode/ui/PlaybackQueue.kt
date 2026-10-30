@@ -1,5 +1,8 @@
 package dev.geode.ui
 
+import dev.geode.model.DeviceTrack
+import dev.geode.model.LibraryTrack
+
 object PlaybackQueue {
     const val PREV_RESTART_MS: Long = 3_000L
 

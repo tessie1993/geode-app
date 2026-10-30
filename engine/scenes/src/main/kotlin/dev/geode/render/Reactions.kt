@@ -43,6 +43,12 @@ enum class ReactSource(
     SECTION("Section change", isEvent = true),
     PITCH_CHANGE("Pitch change", isEvent = true),
     TIMBRE_JUMP("Timbre jump", isEvent = true),
+
+    /** The analyser's macroEnergy (level over its 20 s peak), smoothed over seconds: the song's arc. */
+    MACRO_ENERGY("Song energy"),
+
+    /** The music coming back after two quiet seconds. */
+    ARRIVAL("Arrival", isEvent = true),
 }
 
 /**

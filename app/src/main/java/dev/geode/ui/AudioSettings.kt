@@ -19,6 +19,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 import dev.geode.analysis.BeatTuning
 import dev.geode.audio.MicCapture
+import dev.geode.data.ThemeStore
 import kotlin.math.roundToInt
 
 @Composable

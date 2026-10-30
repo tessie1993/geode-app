@@ -378,7 +378,7 @@ internal class ExportController(
     private suspend fun defaultCodec(): ExportCodec =
         withContext(Dispatchers.IO) { ExportPrefsStore(GeodePrefsFiles(application).general).load().codec }
 
-    // The main export's UI (SettingsDialog) has no path to this controller's public API for
+    // The main export's UI (ExportDialog) has no path to this controller's public API for
     // per-render options that aren't already threaded through startExport's callers, so the
     // loudness target rides along as a persisted default instead, the same way defaultCodec()
     // above does for studio exports.

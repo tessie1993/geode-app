@@ -74,6 +74,7 @@ fun VisualsHub(
     viewModel: PlayerViewModel,
     visualizerView: VisualizerView,
     onOpenNowPlaying: () -> Unit,
+    onOpenStudioRender: () -> Unit,
     liveBackdrop: Boolean = false,
     canvasFree: Boolean = false,
 ) {
@@ -141,6 +142,11 @@ fun VisualsHub(
                                     LocalContentColor.current
                                 },
                         )
+                    }
+                    // Export lives in Studio › Render; this only takes you there, even when the
+                    // Studio tab is hidden from the bar for someone who came to listen.
+                    IconButton(onClick = onOpenStudioRender) {
+                        StoneIconArt(StoneIcon.STUDIO, stringResource(R.string.visuals_open_render))
                     }
                     IconButton(onClick = {
                         settingsViewModel.setGuiPrefs(gui.copy(clearVisualsMenu = !gui.clearVisualsMenu))

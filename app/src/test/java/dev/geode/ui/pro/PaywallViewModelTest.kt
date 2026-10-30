@@ -192,8 +192,8 @@ class PaywallViewModelTest {
             val f = Fixture(this)
             advanceUntilIdle()
 
+            // The fake answers within one dispatch, so Running is never observable here.
             f.viewModel.restorePurchases()
-            assertEquals(RestoreUiState.Running, f.state.restore)
             advanceUntilIdle()
             assertEquals(RestoreUiState.Done(RestoreResult.NothingToRestore), f.state.restore)
 

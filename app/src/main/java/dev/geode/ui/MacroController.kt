@@ -109,6 +109,20 @@ internal class MacroController(
 
     fun restoreStandard() = setActive(StandardMacros.SET)
 
+    /** Where each knob sits, for an A/B snapshot. */
+    val knobs: List<Float> get() = _set.value.macros.map { it.value }
+
+    /**
+     * Puts the knobs back where an A/B snapshot had them without moving the params (the snapshot
+     * brings its own). Ignored when the set has changed shape since.
+     */
+    fun restoreKnobs(values: List<Float>) {
+        val current = _set.value
+        if (values.size != current.macros.size) return
+        anchor = null
+        publish(current.copy(macros = current.macros.zip(values) { m, v -> m.copy(value = v.coerceIn(0f, 1f)) }))
+    }
+
     private fun settle(
         next: MacroSet,
         params: SceneParams,

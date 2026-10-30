@@ -44,7 +44,12 @@ class MacroSetStore(
             .walkTopDown()
             .filter { it.isFile && it.extension == MacroSetCodec.EXTENSION }
             .map { f ->
-                val folder = f.parentFile?.relativeTo(root)?.path.orEmpty().replace(File.separatorChar, '/')
+                val folder =
+                    f.parentFile
+                        ?.relativeTo(root)
+                        ?.path
+                        .orEmpty()
+                        .replace(File.separatorChar, '/')
                 SavedMacroSet(folder, f.nameWithoutExtension, f)
             }.sortedWith(compareBy({ it.folder.lowercase() }, { it.name.lowercase() }))
             .toList()
@@ -62,8 +67,7 @@ class MacroSetStore(
             SavedMacroSet(folder, file.nameWithoutExtension, file)
         }
 
-    fun load(saved: SavedMacroSet): MacroSet? =
-        attempt("load macro set") { MacroSetCodec.decode(saved.file.readText()) }
+    fun load(saved: SavedMacroSet): MacroSet? = attempt("load macro set") { MacroSetCodec.decode(saved.file.readText()) }
 
     fun delete(saved: SavedMacroSet) {
         bestEffort(TAG, "delete macro set") { saved.file.delete() }

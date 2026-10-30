@@ -4,6 +4,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -1146,8 +1147,8 @@ private fun CustomizeToolbar(
     val changed = remember(params) { CustomizeSummary.changedCount(params) }
     var searchOpen by rememberSaveable { mutableStateOf(false) }
     var moreOpen by remember { mutableStateOf(false) }
-    // The everyday four stay in sight; the rest (reset, save, A/B) sit behind More, so the
-    // controls start where the eye lands instead of under two rows of buttons.
+    // The everyday four and A/B stay in sight; reset and save sit behind More, so the controls
+    // start where the eye lands. (A/B lived behind More for a while and read as gone.)
     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
         Row(
             Modifier.fillMaxWidth(),
@@ -1185,10 +1186,6 @@ private fun CustomizeToolbar(
                             },
                             MenuAction("Reset all…", changed > 0) { confirmReset = true },
                             MenuAction("Save as preset…", true) { savingPreset = true },
-                            MenuAction("Set A", true, visualsViewModel::captureSnapshotA),
-                            MenuAction("Recall A", ab.a != null, visualsViewModel::recallSnapshotA),
-                            MenuAction("Set B", true, visualsViewModel::captureSnapshotB),
-                            MenuAction("Recall B", ab.b != null, visualsViewModel::recallSnapshotB),
                         )
                     entries.forEach { entry ->
                         androidx.compose.material3.DropdownMenuItem(
@@ -1216,6 +1213,27 @@ private fun CustomizeToolbar(
                 singleLine = true,
                 label = { Text("Search every parameter", style = MaterialTheme.typography.labelSmall) },
             )
+        }
+        Row(
+            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(top = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text("A/B", style = MaterialTheme.typography.labelSmall, color = accentTextColor())
+            CrystalButton(compact = true, filled = false, onClick = visualsViewModel::captureSnapshotA) { Text("Set A") }
+            CrystalButton(
+                compact = true,
+                filled = false,
+                enabled = ab.a != null,
+                onClick = visualsViewModel::recallSnapshotA,
+            ) { Text("Recall A") }
+            CrystalButton(compact = true, filled = false, onClick = visualsViewModel::captureSnapshotB) { Text("Set B") }
+            CrystalButton(
+                compact = true,
+                filled = false,
+                enabled = ab.b != null,
+                onClick = visualsViewModel::recallSnapshotB,
+            ) { Text("Recall B") }
         }
         if (ab.canBlend) {
             Text("Blend A → B ${"%.2f".format(ab.blend)}", style = MaterialTheme.typography.labelSmall)

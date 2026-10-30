@@ -317,7 +317,11 @@ class PlayerSession internal constructor(
 
                 override val sceneId: String get() = _vizState.value.sceneId
 
+                override val knobs: List<Float> get() = macros.knobs
+
                 override fun setSceneParams(params: SceneParams) = visual.setSceneParams(params)
+
+                override fun setKnobs(values: List<Float>) = macros.restoreKnobs(values)
             },
         )
 
@@ -330,8 +334,7 @@ class PlayerSession internal constructor(
 
     fun toggleParamLock(label: String) = modulation.toggleParamLock(label)
 
-    fun randomizeParams(tab: CustomizeTab? = null) =
-        if (tab == CustomizeTab.MACROS) macros.surprise() else modulation.randomizeParams(tab)
+    fun randomizeParams(tab: CustomizeTab? = null) = if (tab == CustomizeTab.MACROS) macros.surprise() else modulation.randomizeParams(tab)
 
     fun editSceneParams(params: SceneParams) = modulation.editSceneParams(params)
 

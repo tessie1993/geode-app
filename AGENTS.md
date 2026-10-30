@@ -80,7 +80,7 @@ The native core is built by the root `CMakeLists.txt`, plus `core/CMakeLists.txt
 - Studio (`StudioHub` in `ui/StudioRender.kt`) owns every render: Edit (clip editor, `StudioScreen`) and Render (visualizer export `ExportDialog` and `LoopRenderSheet` through `ExportHost`, plus the export defaults). Settings › Export and the Visuals export icon only open it (`GeodeAppState.openStudioRender`).
 - `AppRoot` / `AppShell` in `ui/AppShell.kt` switch with `when (appState.dest)` and build the bar and rail from `GeodeDestination.entries`. STUDIO is hidden unless `showsStudio`.
 - There is no NavHost and no back stack. Sheets and dialogs are local Compose state. All six ViewModels live in the Activity's store. `PlayerSessionProvider`'s KDoc depends on that, and `PlayerViewModel.onCleared` shuts the session down. Read ADR 0001 § Consequences before you add per-destination stores.
-- The new-user tour: `TutorialHost` (`ui/TutorialOverlay.kt`) is a chaptered card carousel in a `Dialog`, drawn from `AppRoot`, offered once after FirstRun and resumable. Cards are in `TutorialCards`, the Canvas art and the Wave mascot in `TutorialArt`. Settings › Tutorials (`TutorialSettings`) replays any chapter.
+- The new-user tour: `TutorialHost` (`ui/TutorialState.kt`) is a chaptered card carousel in a `Dialog`, drawn from `AppRoot`, offered once after FirstRun and resumable. Cards are in `TutorialCards`, the Canvas art and the Wave mascot in `TutorialArt`. Settings › Tutorials (`TutorialSettings`) replays any chapter.
 
 ## Pro (one-time unlock)
 

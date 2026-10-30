@@ -1,16 +1,22 @@
-name: Build Geode Debug APK
+name: Build MuzViz Debug APK
 
 # Pull-request CI, plus a manual build when an APK is wanted from a branch.
 # Pushes to main are handled by ship-apk.yml, which runs the same build and
 # checks and then publishes the APK as a GitHub Release — running both on main
 # would build the app twice per push for the same result.
+# Pushes to claude/** work branches run it too, so agent sessions offload
+# build, lint and tests here instead of building locally.
 
 on:
   workflow_dispatch:
+  push:
+    branches: ["claude/**"]
   pull_request:
     paths:
       - "app/**"
       - "engine/**"
+      - "core/**"
+      - "CMakeLists.txt"
       - "build-logic/**"
       - "gradle/**"
       - "*.gradle.kts"
@@ -116,7 +122,7 @@ jobs:
           VERSION_NAME=$(sed -n 's/^[[:space:]]*versionName = "\([^"]*\)".*/\1/p' \
             "$PROJECT_DIR/app/build.gradle.kts" | head -n 1)
           SHORT_SHA="${GITHUB_SHA::7}"
-          FILE_NAME="Geode-${VERSION_NAME:-debug}-${SHORT_SHA}-debug.apk"
+          FILE_NAME="MuzViz-${VERSION_NAME:-debug}-${SHORT_SHA}-debug.apk"
 
           mkdir -p dist
           cp "$APK_SOURCE" "dist/$FILE_NAME"

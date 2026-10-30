@@ -35,7 +35,7 @@ object PlaybackErrors {
                     "$subject is missing. It may have been moved, renamed or deleted."
 
                 PlaybackException.ERROR_CODE_IO_NO_PERMISSION ->
-                    "Geode can no longer read $subject. Re-add the folder to restore access."
+                    "MuzViz can no longer read $subject. Re-add the folder to restore access."
 
                 PlaybackException.ERROR_CODE_DECODING_FAILED,
                 PlaybackException.ERROR_CODE_DECODER_INIT_FAILED,

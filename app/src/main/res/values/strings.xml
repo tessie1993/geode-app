@@ -1,32 +1,32 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Geode</string>
-    <string name="wallpaper_label">Geode</string>
-    <string name="wallpaper_description">Your last Geode style, reacting to whatever the app is playing and drifting gently when it is not.</string>
-    <string name="dream_label">Geode</string>
-    <string name="notification_listener_label">Geode — now playing in other apps</string>
+    <string name="app_name">MuzViz Studio Pro</string>
+    <string name="wallpaper_label">MuzViz Studio Pro</string>
+    <string name="wallpaper_description">Your last MuzViz style, reacting to whatever the app is playing and drifting gently when it is not.</string>
+    <string name="dream_label">MuzViz Studio Pro</string>
+    <string name="notification_listener_label">MuzViz — now playing in other apps</string>
     <string name="capture_channel_name">Visualizing other apps</string>
-    <string name="capture_channel_description">Shown while Geode is reading the audio another app is playing.</string>
+    <string name="capture_channel_description">Shown while MuzViz is reading the audio another app is playing.</string>
     <string name="capture_notification_title">Visualizing other apps</string>
-    <string name="capture_notification_text">Geode is reading the audio playing on this device.</string>
+    <string name="capture_notification_text">MuzViz is reading the audio playing on this device.</string>
     <string name="capture_notification_stop">Stop</string>
     <string name="export_channel_name">Rendering video</string>
-    <string name="export_channel_description">Shown while Geode is rendering a video, so the render is not interrupted.</string>
+    <string name="export_channel_description">Shown while MuzViz is rendering a video, so the render is not interrupted.</string>
     <string name="export_notification_title">Rendering video</string>
-    <string name="export_notification_text">Geode is rendering your visuals.</string>
+    <string name="export_notification_text">MuzViz is rendering your visuals.</string>
 
     <!-- First-run photosensitivity notice. Safety copy: translate carefully,
          the flash rate is factual and must survive translation. This is an
          acknowledgement, not a choice — there is no setting behind it. -->
     <string name="safety_title">Before the visuals start</string>
-    <string name="safety_warning">Geode reacts to music with light, and the visuals are intense — bright, fast and full-screen.</string>
+    <string name="safety_warning">MuzViz reacts to music with light, and the visuals are intense — bright, fast and full-screen.</string>
     <string name="safety_prompt">The flash rate is limited in the engine, by design. Nothing on screen can flash more than three times a second, no preset or imported file can raise that, and the video you export is held to the same limit as the screen you saw. There is no setting for this and nothing to switch off.</string>
     <string name="safety_acknowledge">I understand</string>
 
     <!-- First run, after the notice: where the music is, and what you came here to do. -->
     <!-- First run: permission, then an optional folder. Nothing else is asked. -->
     <string name="first_run_access_title">Let\'s find your music</string>
-    <string name="first_run_access_body">Geode needs access to the audio on this device. Nothing leaves your phone — there is no account and no sign-in.</string>
+    <string name="first_run_access_body">MuzViz needs access to the audio on this device. Nothing leaves your phone — there is no account and no sign-in.</string>
     <string name="first_run_access_allow">Allow music access</string>
     <string name="first_run_access_skip">Not now</string>
     <string name="first_run_access_denied">Music access is off, and Android will not ask again from here. You can turn it on in app settings whenever you like.</string>
@@ -47,7 +47,7 @@
     <string name="first_run_done">Start listening</string>
 
     <!-- The intent setting. No longer asked at first run; it lives in Settings > Behaviour. -->
-    <string name="settings_intent_title">What do you use Geode for?</string>
+    <string name="settings_intent_title">What do you use MuzViz for?</string>
     <string name="settings_intent_body">Sets where the app opens and whether Studio appears in the navigation bar.</string>
     <string name="settings_intent_listening">Listening</string>
     <string name="settings_intent_listening_detail">Opens on the player. Studio stays out of the way.</string>
@@ -94,7 +94,7 @@
     <string name="help_tutorial_on_first_run">Offer it on a fresh install</string>
     <string name="help_topics_group">How things work</string>
     <string name="help_topic_library">Library and folders</string>
-    <string name="help_topic_library_body">Geode reads the audio Android already indexes. If you keep music somewhere it does not look — an SD card, or Downloads — add that folder in Settings › Folders.</string>
+    <string name="help_topic_library_body">MuzViz reads the audio Android already indexes. If you keep music somewhere it does not look — an SD card, or Downloads — add that folder in Settings › Folders.</string>
     <string name="help_topic_visuals">Styles, presets and Customize</string>
     <string name="help_topic_visuals_body">A style is the renderer; a preset is a style plus every control around it. Customize hides controls a style cannot use, so an empty section means that style ignores it rather than that something is broken.</string>
     <string name="help_topic_touch">Touch on the visualizer</string>
@@ -139,7 +139,7 @@
     <!-- Offered once, after a run that crashed. -->
     <string name="crash_dialog_title">Previous crash captured</string>
     <string name="crash_dialog_body">The last run crashed. Copy the report to share it, then dismiss.\n\n%1$s</string>
-    <string name="crash_clip_label">Geode crash</string>
+    <string name="crash_clip_label">MuzViz crash</string>
 
     <!-- Search across tracks, playlists and presets. -->
     <string name="search_placeholder">Search tracks, playlists &amp; presets</string>
@@ -270,8 +270,8 @@
     <string name="smart_op_is_not">is not</string>
     <string name="smart_op_at_least">at least</string>
     <string name="smart_op_at_most">at most</string>
-    <string name="widget_label">Geode now playing</string>
-    <string name="widget_description">Artwork, title and transport for what Geode is playing.</string>
+    <string name="widget_label">MuzViz now playing</string>
+    <string name="widget_description">Artwork, title and transport for what MuzViz is playing.</string>
     <string name="widget_nothing_playing">Nothing playing</string>
     <string name="widget_play">Play</string>
     <string name="widget_pause">Pause</string>
@@ -280,7 +280,7 @@
     <string name="auto_favourites">Favourites</string>
     <string name="auto_recently_played">Recently played</string>
     <string name="library_permission_rationale">Grant music access to browse everything on this device.</string>
-    <string name="library_permission_denied_forever">Music access is turned off for Geode, and Android will not ask again from here. Open app settings to turn on Music and audio.</string>
+    <string name="library_permission_denied_forever">Music access is turned off for MuzViz, and Android will not ask again from here. Open app settings to turn on Music and audio.</string>
     <string name="library_permission_allow">Allow music access</string>
     <string name="library_permission_open_settings">Open app settings</string>
     <string name="library_no_music">No music found on device.</string>
@@ -322,7 +322,7 @@
     <string name="playlist_import_done_title">Playlist imported</string>
     <string name="playlist_import_summary">\"%1$s\" — %2$d track(s) added, %3$d not found, %4$d matched more than one file (first used).</string>
     <string name="playlist_import_failed_title">Couldn\'t import playlist</string>
-    <string name="playlist_import_failed_body">That file isn\'t a playlist Geode can read (M3U, PLS or XSPF).</string>
+    <string name="playlist_import_failed_body">That file isn\'t a playlist MuzViz can read (M3U, PLS or XSPF).</string>
     <string name="action_remove_from_playlist">Remove from playlist</string>
 
     <string name="folders_library">Library folders</string>
@@ -340,13 +340,13 @@
     <string name="studio_send">Send</string>
     <string name="studio_send_ellipsis">Send…</string>
     <string name="studio_share_chooser">Send video</string>
-    <string name="studio_storage_used">%1$s in Movies/Geode</string>
+    <string name="studio_storage_used">%1$s in Movies/MuzViz</string>
     <string name="studio_rename_title">Rename clip</string>
     <string name="studio_rename_field">Name</string>
     <string name="studio_rename_failed">Could not rename that clip.</string>
     <string name="studio_delete_title">Delete clip?</string>
     <string name="studio_delete_body">\"%1$s\" will be deleted from this device. This cannot be undone.</string>
-    <string name="studio_delete_failed">Android would not let Geode delete that file.</string>
+    <string name="studio_delete_failed">Android would not let MuzViz delete that file.</string>
     <string name="studio_notice_title">Didn\'t work</string>
     <string name="action_back">Back</string>
 
@@ -385,10 +385,10 @@
     <string name="studio_caption">Burnt-in caption</string>
     <string name="studio_caption_explainer">Drawn into the frame after everything else, so it is not graded or cropped with the picture. Leave it empty for none.</string>
     <string name="studio_rendering">Rendering… %1$d%%</string>
-    <string name="studio_saved">Saved to Movies/Geode.</string>
+    <string name="studio_saved">Saved to Movies/MuzViz.</string>
     <string name="studio_play">Play</string>
     <string name="studio_edit_again">Edit again</string>
-    <string name="studio_send_explainer">Send opens the phone\'s own share sheet — YouTube, Instagram, TikTok, Drive, a message, whatever is installed and signed in. Geode has no network access of its own and never uploads anything itself.</string>
+    <string name="studio_send_explainer">Send opens the phone\'s own share sheet — YouTube, Instagram, TikTok, Drive, a message, whatever is installed and signed in. MuzViz has no network access of its own and never uploads anything itself.</string>
     <string name="studio_render">Render</string>
     <string name="studio_reset">Reset</string>
     <string name="studio_nothing_changed">Nothing is changed yet — rendering now would just copy the clip.</string>
@@ -454,7 +454,7 @@
     <string name="folders_group_music">Music folders</string>
     <string name="folders_group_cache">Analysis cache</string>
     <string name="folders_group_export">Export destination</string>
-    <string name="folders_export_explainer">Exports land in your Videos library (Movies/Geode), or in a folder you pick at render time — there is no standing export folder to configure. Defaults for quality and size live in the Export tab.</string>
+    <string name="folders_export_explainer">Exports land in your Videos library (Movies/MuzViz), or in a folder you pick at render time — there is no standing export folder to configure. Defaults for quality and size live in the Export tab.</string>
     <string name="folders_preset_chosen">Preset folder: chosen — saves are mirrored there</string>
     <string name="folders_preset_internal">Preset folder: internal only</string>
     <string name="folders_choose_preset">Choose preset folder</string>
@@ -482,7 +482,7 @@
     <string name="audio_key_colour_explainer">Sets Hue shift from the key the analyser found, around the circle of fifths — so a track keeps the same colour every time you play it, and two songs that sound related look related. It moves the ordinary Hue shift slider, so you can always disagree with it; switching this off gives your own value back.</string>
     <string name="audio_react_mic">React to the microphone</string>
     <string name="audio_react_mic_explainer">Plays nothing and drives the visuals from what the phone hears — a room, an instrument, a speaker across the street. Playback pauses while it is on, because the analyzer has one input and a track plus the room would just blur together. Audio is analysed live and never recorded, saved or sent anywhere.</string>
-    <string name="audio_mic_denied">Microphone access is off for Geode. Turn it on in Android Settings › Apps › Geode › Permissions to use live input.</string>
+    <string name="audio_mic_denied">Microphone access is off for MuzViz. Turn it on in Android Settings › Apps › MuzViz › Permissions to use live input.</string>
     <string name="audio_mic_busy">The microphone could not be opened — another app may be using it.</string>
     <string name="audio_tune_room">Tune for what the phone is hearing</string>
     <string name="audio_profiles_explainer">Each sets the beat threshold, the reactivity envelope and the band balance together — they are one decision, and they live on three different screens. Every value stays an ordinary slider afterwards.</string>
@@ -496,14 +496,14 @@
     <string name="ext_listening_idle">Listening. Start something playing in any app.</string>
     <string name="ext_now_playing_line">%1$s: %2$s</string>
     <string name="ext_now_playing_line_with_artist">%1$s: %2$s — %3$s</string>
-    <string name="ext_read_now_playing_explainer">Geode can also show WHAT the other app is playing — the track and artist, on the visualizer. That reads the media session, which Android gates behind notification access. Optional: the visuals work on the sound alone.</string>
+    <string name="ext_read_now_playing_explainer">MuzViz can also show WHAT the other app is playing — the track and artist, on the visualizer. That reads the media session, which Android gates behind notification access. Optional: the visuals work on the sound alone.</string>
     <string name="ext_allow_reading">Allow reading now playing</string>
     <string name="ext_silence_title">Silence, on purpose</string>
     <string name="ext_refused_body">%1$s does not allow other apps to capture its audio. Android honours that, and there is no setting on either side that changes it — the capture is running and being handed digital silence. Most other apps (YouTube, podcast players, games) do allow it and work here.</string>
     <string name="ext_mic_alternative">The microphone still hears your speaker. It picks up the room with it, so it is a rougher signal — but it reacts to %1$s.</string>
     <string name="ext_use_mic_instead">Use the microphone instead</string>
     <string name="ext_fail_unsupported">This device is older than Android 10, which introduced audio capture between apps.</string>
-    <string name="ext_fail_permission">Microphone access is off for Geode. Android requires it for audio capture of any kind — turn it on in Android Settings › Apps › Geode › Permissions.</string>
+    <string name="ext_fail_permission">Microphone access is off for MuzViz. Android requires it for audio capture of any kind — turn it on in Android Settings › Apps › MuzViz › Permissions.</string>
     <string name="ext_fail_consent">Capture permission was not given. Nothing is being read.</string>
     <string name="ext_fail_unavailable">The device would not open an audio capture at any format — another app may be holding it.</string>
 
@@ -529,9 +529,9 @@
     <string name="export_named_preset">%1$s — %2$s</string>
     <string name="export_custom_preset">Custom — %1$s</string>
     <string name="export_rendering_offline">Rendering offline…</string>
-    <string name="export_leave_hint">You can leave Geode — the render keeps going and finishes in the background.</string>
+    <string name="export_leave_hint">You can leave MuzViz — the render keeps going and finishes in the background.</string>
     <string name="export_saved_folder">Saved to your chosen folder.</string>
-    <string name="export_saved_library">Saved to your Videos library (Movies/Geode).</string>
+    <string name="export_saved_library">Saved to your Videos library (Movies/MuzViz).</string>
     <string name="export_failed">Failed: %1$s</string>
     <string name="export_upload_share_to">Upload / share to</string>
     <string name="export_upload_drive">Upload to Drive / Share</string>
@@ -569,12 +569,12 @@
     <string name="export_loop_start">Render loop</string>
     <string name="export_loop_rendering">Rendering… %1$d%%</string>
     <string name="export_loudness_target">Loudness target</string>
-    <string name="export_loudness_hint">Geode measures the finished file against this target once export completes. It does not yet change the level to match — pick the platform you\'re shipping to, or Leave as-is to ship the level you mixed.</string>
+    <string name="export_loudness_hint">MuzViz measures the finished file against this target once export completes. It does not yet change the level to match — pick the platform you\'re shipping to, or Leave as-is to ship the level you mixed.</string>
     <string name="export_fps_24">24 fps</string>
     <string name="export_fps_25">25 fps</string>
     <string name="export_fps_50">50 fps</string>
     <string name="export_notification_permission_title">Show render progress?</string>
-    <string name="export_notification_permission_body">Geode can show a notification with the render\'s progress and time remaining, so you can check on it without reopening this dialog. Without it, the render still finishes — you just won\'t see progress outside the app.</string>
+    <string name="export_notification_permission_body">MuzViz can show a notification with the render\'s progress and time remaining, so you can check on it without reopening this dialog. Without it, the render still finishes — you just won\'t see progress outside the app.</string>
     <string name="export_notification_permission_skip">Not now</string>
 
     <!-- Export: failure messages. Shared by VideoExporter, StudioExporter and LoopRender. -->
@@ -584,12 +584,12 @@
     <string name="export_error_encoder_buffer_null">The video encoder returned an empty buffer (codec error state).</string>
     <string name="export_error_encoder_no_output">The video encoder produced no output — this device\'s encoder or the chosen format may not be supported.</string>
     <string name="export_error_encoder_stalled">The video encoder stalled while flushing — the export is incomplete.</string>
-    <string name="export_error_studio_save">The finished file could not be saved to Movies/Geode.</string>
+    <string name="export_error_studio_save">The finished file could not be saved to Movies/MuzViz.</string>
     <string name="export_error_studio_start">The export could not be started.</string>
     <string name="export_error_destination_save">The export could not be saved to that folder.</string>
     <string name="export_error_encoder_unsupported">This device\'s video encoder would not accept that output — try a smaller size or a different aspect ratio.</string>
     <string name="export_error_decode_unsupported">That clip could not be read — the file may have moved, or be in a format this device cannot decode.</string>
-    <string name="export_error_no_permission">Geode does not have permission to read that file.</string>
+    <string name="export_error_no_permission">MuzViz does not have permission to read that file.</string>
     <string name="export_error_generic">The export failed.</string>
     <string name="export_error_loop_encoder_rejected">This device\'s video encoder would not accept %1$d×%2$d. Try a smaller size or a different aspect ratio.</string>
     <string name="export_error_loop_low_gpu_memory">There is not enough graphics memory to hold even one crossfade frame at %1$d×%2$d — render the loop at a smaller size.</string>
@@ -653,10 +653,10 @@
     <string name="behavior_display_none">Nothing connected. Plug in HDMI or start casting, and the visuals move to that screen while the phone keeps the controls.</string>
     <string name="behavior_group_intent">What you\'re here for</string>
     <string name="behavior_safety_title">Flashing and motion</string>
-    <string name="behavior_flash_guidance">Nothing in Geode can flash more than three times a second. Published guidance (WCAG 2.3.1) puts the general limit there, and the clamp sits in the render path itself — it applies to every scene, every preset and every imported file, on screen and in exported video alike. It is not a setting, so there is nothing here to adjust.</string>
+    <string name="behavior_flash_guidance">Nothing in MuzViz can flash more than three times a second. Published guidance (WCAG 2.3.1) puts the general limit there, and the clamp sits in the render path itself — it applies to every scene, every preset and every imported file, on screen and in exported video alike. It is not a setting, so there is nothing here to adjust.</string>
     <string name="behavior_slow_motion">Slow the motion down</string>
     <string name="behavior_slow_motion_hint">Slows movement, shake, drift and rotation. This one is about motion comfort rather than seizures, which is why it is a choice: the flash limit above is not. Applies to exported video as well as the screen.</string>
-    <string name="behavior_wallpaper_hint">Set the visualizer as your wallpaper. It uses the style and settings the app was last showing, reacts to whatever Geode is playing, and drifts gently on its own the rest of the time. It draws nothing while another app is in front, so it is not a background battery drain.</string>
+    <string name="behavior_wallpaper_hint">Set the visualizer as your wallpaper. It uses the style and settings the app was last showing, reacts to whatever MuzViz is playing, and drifts gently on its own the rest of the time. It draws nothing while another app is in front, so it is not a background battery drain.</string>
     <string name="behavior_wallpaper_button">Set as live wallpaper</string>
     <string name="behavior_pip_auto_enter">Enter automatically</string>
     <string name="behavior_pip_auto_enter_hint">Leaving the fullscreen visualizer while something is playing shrinks it into a picture-in-picture window instead of just backgrounding the app. Off, the PiP button on the visualizer and the platform\'s own swipe-home gesture are still there — this only changes what leaving does by default.</string>

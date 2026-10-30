@@ -189,7 +189,7 @@ class VideoExporter(
                     put(MediaStore.Video.Media.DISPLAY_NAME, fileName)
                     put(MediaStore.Video.Media.MIME_TYPE, "video/mp4")
                     if (android.os.Build.VERSION.SDK_INT >= 29) {
-                        put(MediaStore.Video.Media.RELATIVE_PATH, "Movies/Geode")
+                        put(MediaStore.Video.Media.RELATIVE_PATH, "Movies/MuzViz")
                         put(MediaStore.Video.Media.IS_PENDING, 1)
                     }
                 }

@@ -92,7 +92,7 @@ class StudioExporter(
     }
 
     /**
-     * Renders [composition] and saves it either to Movies/Geode (when [destination] is null) or
+     * Renders [composition] and saves it either to Movies/MuzViz (when [destination] is null) or
      * straight into the SAF document [destination] the caller already opened — the same choice
      * [VideoExporter.exportToDestination] offers the visualizer export path. Below API 29
      * [publish] cannot insert into MediaStore at all, so callers on those versions must always
@@ -212,7 +212,7 @@ class StudioExporter(
                     put(MediaStore.Video.Media.DISPLAY_NAME, displayName)
                     put(MediaStore.Video.Media.MIME_TYPE, "video/mp4")
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                        put(MediaStore.Video.Media.RELATIVE_PATH, "Movies/Geode")
+                        put(MediaStore.Video.Media.RELATIVE_PATH, "Movies/MuzViz")
                         put(MediaStore.Video.Media.IS_PENDING, 1)
                     }
                 }

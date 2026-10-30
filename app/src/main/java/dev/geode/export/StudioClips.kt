@@ -43,7 +43,7 @@ object StudioClips {
             }
         val args =
             arrayOf(
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) "Movies/Geode%" else "%/Movies/Geode/%",
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) "Movies/MuzViz%" else "%/Movies/MuzViz/%",
             )
         runCatching {
             context.contentResolver

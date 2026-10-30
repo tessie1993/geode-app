@@ -19,7 +19,7 @@ class GeodeApp : Application() {
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
             runCatching {
                 File(filesDir, "crash-latest.txt").writeText(
-                    "Geode ${BuildConfig.VERSION_NAME}\n" +
+                    "MuzViz ${BuildConfig.VERSION_NAME}\n" +
                         "Thread: ${thread.name}\n\n" +
                         android.util.Log.getStackTraceString(throwable) +
                         "\n\n-- recent non-fatal failures --\n" +

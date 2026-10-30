@@ -41,11 +41,11 @@ android {
     ndkVersion = "28.0.13004108"
 
     defaultConfig {
-        applicationId = "dev.geode"
+        applicationId = "com.muzviz.studiopro"
         minSdk = 26
         targetSdk = 36
-        versionCode = 32
-        versionName = "1.8.0"
+        versionCode = 33
+        versionName = "1.8.1"
         ndk {
             abiFilters += listOf("arm64-v8a", "x86_64")
         }

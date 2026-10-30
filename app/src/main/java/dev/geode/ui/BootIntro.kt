@@ -136,7 +136,7 @@ fun BootIntro(onDone: () -> Unit) {
                 },
         ) {
             Text(
-                "Geode",
+                "MuzViz",
                 color = wordmark,
                 style =
                     MaterialTheme.typography.headlineLarge.copy(

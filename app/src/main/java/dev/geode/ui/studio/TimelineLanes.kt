@@ -201,7 +201,7 @@ fun TimelineEditor(
         }
     // Mirrors ExportHost's destination picker for the visualizer export: below API 29
     // StudioExporter.publish cannot insert into MediaStore at all, so the project export button
-    // forces this picker there instead of trying (and failing) to save into Movies/Geode.
+    // forces this picker there instead of trying (and failing) to save into Movies/MuzViz.
     val projectDestinationPicker =
         rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("video/mp4")) { uri ->
             if (uri != null) actions.exportProject(uri)

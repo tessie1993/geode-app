@@ -118,7 +118,7 @@ fun VisualsHub(
                                 takes.recording -> "● Recording  ${formatTakeTime(takes.recordedMs)}"
                                 takes.replaying != null -> "▶ ${takes.replaying}"
                                 liveBackdrop -> "Live overlay"
-                                else -> "Geode"
+                                else -> "MuzViz"
                             },
                             color = if (takes.recording) MaterialTheme.colorScheme.error else accentTextColor(),
                         )
@@ -514,7 +514,7 @@ private fun sharePreset(
         if (link != null) {
             android.content.Intent(android.content.Intent.ACTION_SEND).apply {
                 type = "text/plain"
-                putExtra(android.content.Intent.EXTRA_SUBJECT, "Geode preset: $name")
+                putExtra(android.content.Intent.EXTRA_SUBJECT, "MuzViz preset: $name")
                 putExtra(android.content.Intent.EXTRA_TEXT, link)
             }
         } else {

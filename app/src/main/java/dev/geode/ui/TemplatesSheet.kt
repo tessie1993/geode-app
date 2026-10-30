@@ -236,7 +236,7 @@ private fun shareTemplate(
     val send =
         Intent(Intent.ACTION_SEND).apply {
             type = "text/plain"
-            putExtra(Intent.EXTRA_SUBJECT, "Geode template: ${template.name}")
+            putExtra(Intent.EXTRA_SUBJECT, "MuzViz template: ${template.name}")
             putExtra(Intent.EXTRA_TEXT, link)
         }
     runCatching { context.startActivity(Intent.createChooser(send, context.getString(R.string.template_share))) }

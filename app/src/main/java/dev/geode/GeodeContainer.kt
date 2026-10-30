@@ -60,7 +60,7 @@ class GeodeContainer(
      * [dev.geode.export.LoopExtend] all insert with `IS_PENDING` set and clear it on success or
      * delete the row on a clean failure; nothing runs `START_STICKY` or persists the run for a
      * retry, so a row that is still pending once the app restarts belongs to nobody and never
-     * finishes on its own. It would otherwise sit in Movies/Geode or Pictures/Geode forever, a
+     * finishes on its own. It would otherwise sit in Movies/MuzViz or Pictures/MuzViz forever, a
      * broken, unplayable, ever-growing invisible file.
      *
      * `IS_PENDING` only exists from API 29 (scoped storage), so there is nothing to sweep below
@@ -93,8 +93,8 @@ class GeodeContainer(
             arrayOf(
                 context.packageName,
                 cutoffSeconds.toString(),
-                "Movies/Geode%",
-                "Pictures/Geode%",
+                "Movies/MuzViz%",
+                "Pictures/MuzViz%",
             )
         resolver.query(collection, arrayOf(MediaStore.MediaColumns._ID), selection, args, null)?.use { cursor ->
             val idColumn = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns._ID)

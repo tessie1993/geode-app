@@ -130,7 +130,7 @@ sealed interface LoudnessAdvice {
             get() =
                 buildString {
                     append("Measured ${LoudnessTargets.lufsText(lufs)}, true peak ${LoudnessTargets.dbtpText(truePeakDbtp)}. ")
-                    append("Geode applies no gain, so the file goes out exactly as mixed.")
+                    append("MuzViz applies no gain, so the file goes out exactly as mixed.")
                     val underYouTube = LoudnessTarget.YouTube.window.aimLufs - lufs
                     if (underYouTube > QUIET_HINT_LU) {
                         append(" For reference: ${LoudnessTarget.YouTube.quietNote}, and this sits ")
@@ -210,7 +210,7 @@ sealed interface LoudnessAdvice {
                     append("${LoudnessTargets.dbText(gainDb)}, landing at ${LoudnessTargets.lufsText(resultingLufs)}. ")
                     append("Closing the rest of the gap needs a limiter on the mix, not more gain.")
                 } else {
-                    append("Geode will add ${LoudnessTargets.dbText(gainDb)} on export, landing at ")
+                    append("MuzViz will add ${LoudnessTargets.dbText(gainDb)} on export, landing at ")
                     append("${LoudnessTargets.lufsText(resultingLufs)} with a true peak of ")
                     append("${LoudnessTargets.dbtpText(resultingTruePeakDbtp)}.")
                 }

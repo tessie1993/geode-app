@@ -646,7 +646,7 @@ private fun sanitizeFileStem(raw: String): String =
         .trim()
         .take(MAX_FILE_STEM)
         .trim()
-        .ifBlank { "Geode video" }
+        .ifBlank { "MuzViz video" }
 
 private val UNSAFE_FILE_CHARS = Regex("""[\\/:*?"<>|]""")
 

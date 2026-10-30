@@ -552,7 +552,7 @@ private fun ClipLookSection(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             ClipLook.entries.forEach { look ->
-                StudioChip(look.label, selected = edit.look == look) {
+                StudioChip(stringResource(look.labelRes), selected = edit.look == look) {
                     onEdit(look.applyTo(edit).copy(look = look))
                 }
             }

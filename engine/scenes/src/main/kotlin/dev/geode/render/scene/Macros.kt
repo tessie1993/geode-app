@@ -1,5 +1,7 @@
 package dev.geode.render.scene
 
+import kotlin.random.Random
+
 /**
  * The six macros at the top of Customize: one knob each, driving several detail parameters at once.
  *
@@ -63,7 +65,8 @@ object Macros {
     ): Float {
         val read = targets(macro, sceneId).filter { readsKnob(it, macro) }
         if (read.isEmpty()) return macro.neutral
-        return read.map { toKnob(it, it.get(params), macro.neutral) }.average().toFloat().coerceIn(0f, 1f)
+        val mean = read.map { toKnob(it, it.get(params), macro.neutral) }.average()
+        return mean.toFloat().coerceIn(0f, 1f)
     }
 
     /** False for a [position] follower: see there. */
@@ -113,7 +116,7 @@ object Macros {
     fun surprise(
         params: SceneParams,
         sceneId: String,
-        rng: kotlin.random.Random = kotlin.random.Random.Default,
+        rng: Random = Random.Default,
     ): SceneParams =
         Macro.entries.fold(params) { p, m ->
             val to =

@@ -4,6 +4,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import kotlin.random.Random
 
 class MacrosTest {
     private val shader = SceneIds.PLASMA
@@ -137,7 +138,7 @@ class MacrosTest {
 
     @Test
     fun surpriseMovesTheMacrosButNeverToTheirEnds() {
-        val rng = kotlin.random.Random(42)
+        val rng = Random(42)
         repeat(20) {
             val out = Macros.surprise(SceneParams.DEFAULT, shader, rng)
             assertNotEquals(SceneParams.DEFAULT, out)

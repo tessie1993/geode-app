@@ -113,7 +113,7 @@ The native core is built by the root `CMakeLists.txt`, plus `core/CMakeLists.txt
 
 ## Large files to split (lines)
 
-`ui/CustomizeTabs.kt` 1481 · `ui/VisualsHub.kt` 1444 · `ui/PlayerSession.kt` 1394 · `ui/BuiltInPresets.kt` 914 · `export/LoopRender.kt` 893 · `ui/StudioScreen.kt` 881 · `ui/AppShell.kt` 744 · `editor/Timeline.kt` 730 · `data/TemplateRepository.kt` 726 · `ui/LibraryScreen.kt` 719 · `ui/PlayerScreen.kt` 709 · `export/LoopExtend.kt` 701 · `ui/VisualizerScreen.kt` 691
+`ui/CustomizeTabs.kt` 1484 · `ui/VisualsHub.kt` 1443 · `ui/PlayerSession.kt` 1397 · `ui/BuiltInPresets.kt` 914 · `export/LoopRender.kt` 893 · `ui/StudioScreen.kt` 881 · `ui/AppShell.kt` 744 · `editor/Timeline.kt` 730 · `data/TemplateRepository.kt` 726 · `ui/LibraryScreen.kt` 719 · `ui/PlayerScreen.kt` 709 · `export/LoopExtend.kt` 701 · `ui/VisualizerScreen.kt` 691
 
 ## Where the code breaks the architecture guide
 

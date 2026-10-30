@@ -17,8 +17,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
-import dev.geode.audio.MicCapture
 import dev.geode.analysis.BeatTuning
+import dev.geode.audio.MicCapture
 import kotlin.math.roundToInt
 
 @Composable

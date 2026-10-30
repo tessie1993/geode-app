@@ -108,6 +108,9 @@ fun TimelineEditor(
     val chaptersSavedMessage = stringResource(R.string.editor_chapters_saved)
     val chaptersNoneMessage = stringResource(R.string.editor_chapters_none)
     val chaptersFailedTemplate = stringResource(R.string.editor_chapters_failed)
+    val chaptersUnwritableMessage = stringResource(R.string.editor_chapters_unwritable)
+    val chapterTitleTemplate = stringResource(R.string.editor_chapter_untitled)
+    val destinationUnopenableMessage = stringResource(R.string.editor_destination_unopenable)
 
     fun applyResult(result: EditResult) {
         when (result) {
@@ -220,20 +223,24 @@ fun TimelineEditor(
         uri: Uri?,
     ) {
         if (uri == null) return
-        val chapters = ChapterMarkers.of(project.markers, project.timeline.durationMs)
+        val chapters =
+            ChapterMarkers.of(project.markers, project.timeline.durationMs) {
+                String.format(Locale.getDefault(), chapterTitleTemplate, it)
+            }
         scope.launch {
             val result =
                 withContext(Dispatchers.IO) {
                     runCatching {
                         val stream = context.contentResolver.openOutputStream(uri)
-                        stream?.use { out -> chapters.writeTo(out, format) } ?: ChapterWriteResult.Failed(NO_OUTPUT_STREAM)
+                        stream?.use { out -> chapters.writeTo(out, format) } ?: ChapterWriteResult.Failed(destinationUnopenableMessage)
                     }.getOrElse { e -> ChapterWriteResult.Failed(e.message ?: e.toString()) }
                 }
             sidecarMessage =
                 when (result) {
                     ChapterWriteResult.Written -> chaptersSavedMessage
                     ChapterWriteResult.Skipped -> chaptersNoneMessage
-                    is ChapterWriteResult.Failed -> String.format(Locale.getDefault(), chaptersFailedTemplate, result.message)
+                    is ChapterWriteResult.Failed ->
+                        String.format(Locale.getDefault(), chaptersFailedTemplate, result.message ?: chaptersUnwritableMessage)
                 }
         }
     }
@@ -634,7 +641,6 @@ private val CHAPTER_FORMAT_LABELS: List<Pair<ChapterFormat, Int>> =
     )
 
 private const val SRT_MIME = "application/x-subrip"
-private const val NO_OUTPUT_STREAM = "The destination could not be opened."
 private const val MIN_CONTENT_MS = 60_000L
 private const val CONTENT_MARGIN_MS = 15_000L
 private const val SCENE_MS = 4_000L

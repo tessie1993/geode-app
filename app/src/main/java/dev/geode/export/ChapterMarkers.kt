@@ -64,8 +64,9 @@ sealed interface ChapterWriteResult {
     /** Nothing to write: a soundtrack with one clip has no boundaries to mark. */
     data object Skipped : ChapterWriteResult
 
+    /** [message] is the stream's own reason, or null when it gave none. */
     data class Failed(
-        val message: String,
+        val message: String?,
     ) : ChapterWriteResult
 }
 
@@ -106,7 +107,7 @@ data class ChapterMarkers(
             out.flush()
             ChapterWriteResult.Written
         } catch (e: IOException) {
-            ChapterWriteResult.Failed(e.message ?: "The chapter list could not be written.")
+            ChapterWriteResult.Failed(e.message)
         }
     }
 
@@ -166,7 +167,7 @@ data class ChapterMarkers(
         /**
          * Turns the editor's marker lane into chapters: each marker opens a chapter that runs
          * until the next marker, or until [totalDurationMs] for the last one. A blank marker name
-         * falls back to its position in the list rather than being written out empty.
+         * falls back to [untitled] of its 1-based position rather than being written out empty.
          *
          * A single marker yields no chapters, for the same reason a single clip does: one point in
          * time is not a boundary between anything.
@@ -174,6 +175,7 @@ data class ChapterMarkers(
         fun of(
             markers: MarkerSet,
             totalDurationMs: Long,
+            untitled: (Int) -> String,
         ): ChapterMarkers {
             val ordered = markers.markers
             if (ordered.size < 2) return None
@@ -184,7 +186,7 @@ data class ChapterMarkers(
                     Chapter(
                         startMs = start,
                         durationMs = end - start,
-                        title = marker.name.trim().ifEmpty { "Chapter ${index + 1}" },
+                        title = marker.name.trim().ifEmpty { untitled(index + 1) },
                     )
                 }
             return ChapterMarkers(chapters)

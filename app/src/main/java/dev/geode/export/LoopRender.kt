@@ -553,9 +553,10 @@ class LoopRender(
     ): EncoderChoice? {
         val candidates =
             listOf(codec.available(), ExportCodec.H264).distinct().flatMap { c ->
+                val requested = fps.coerceIn(LoopSpec.MIN_FPS, LoopSpec.MAX_FPS)
                 listOf(
-                    EncoderChoice(fps.coerceIn(LoopSpec.MIN_FPS, LoopSpec.MAX_FPS), aspect.bitRate, c),
-                    EncoderChoice(FALLBACK_FPS, aspect.bitRate * 2 / 3, c),
+                    EncoderChoice(requested, aspect.bitRate, c),
+                    EncoderChoice(dev.geode.data.fallbackExportFps(requested), aspect.bitRate * 2 / 3, c),
                 )
             }
         return candidates.firstOrNull { accepts(aspect, it) }
@@ -873,7 +874,6 @@ class LoopRender(
     }
 
     private companion object {
-        const val FALLBACK_FPS = 30
         const val TIMEOUT_US = 10_000L
         const val FLUSH_ATTEMPT_LIMIT = 1_000
         const val BYTES_PER_PIXEL = 4L

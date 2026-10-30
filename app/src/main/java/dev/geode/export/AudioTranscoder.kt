@@ -67,15 +67,33 @@ class AudioTranscoder(
         return out
     }
 
+    /** Native-order 16-bit PCM through [resampler]; passthrough returns [pcm] untouched. */
+    private fun resample(
+        pcm: ByteBuffer,
+        resampler: PcmResampler,
+        channels: Int,
+    ): ByteBuffer {
+        if (resampler.isPassthrough) return pcm
+        val sb = pcm.duplicate().order(java.nio.ByteOrder.nativeOrder()).asShortBuffer()
+        val src = ShortArray(sb.remaining())
+        sb.get(src)
+        val converted = resampler.process(src, src.size / channels)
+        val out = ByteBuffer.allocate(converted.size * 2).order(java.nio.ByteOrder.nativeOrder())
+        out.asShortBuffer().put(converted)
+        return out
+    }
+
     private fun transcodeAiff(
         aiff: dev.geode.audio.AiffPcm,
         maxDurationMs: Long,
         startMs: Long,
+        outputRateHz: Int?,
         isCancelled: () -> Boolean,
         onProgress: (Float) -> Unit,
     ): Result {
         val channels = aiff.channels.coerceAtMost(2)
-        val sampleRate = aiff.sampleRate
+        val resampler = PcmResampler(aiff.sampleRate, outputRateHz ?: PcmResampler.aacRateFor(aiff.sampleRate), channels)
+        val sampleRate = resampler.outRateHz
         val encFormat =
             MediaFormat.createAudioFormat(MediaFormat.MIMETYPE_AUDIO_AAC, sampleRate, channels).apply {
                 setInteger(MediaFormat.KEY_AAC_PROFILE, MediaCodecInfo.CodecProfileLevel.AACObjectLC)
@@ -147,7 +165,7 @@ class AudioTranscoder(
                             }
                         }
                         bb.limit(frames * channels * 2)
-                        pcmCarry = bb
+                        pcmCarry = resample(bb, resampler, channels)
                         onProgress(aiff.progress)
                     }
                     progressed = true
@@ -224,15 +242,21 @@ class AudioTranscoder(
         }
     }
 
+    /**
+     * [outputRateHz] forces the AAC rate (a mix needs every clip at one rate); null picks
+     * [PcmResampler.aacRateFor] the source, which keeps it unless it is above what AAC encoders
+     * accept. Hi-res sources used to be handed to the encoder at their own 88.2-192 kHz.
+     */
     fun transcode(
         uri: Uri,
         maxDurationMs: Long,
         startMs: Long = 0L,
+        outputRateHz: Int? = null,
         isCancelled: () -> Boolean = { false },
         onProgress: (Float) -> Unit = {},
     ): Result {
         dev.geode.audio.AiffPcm.open(context, uri)?.let { aiff ->
-            return transcodeAiff(aiff, maxDurationMs, startMs, isCancelled, onProgress)
+            return transcodeAiff(aiff, maxDurationMs, startMs, outputRateHz, isCancelled, onProgress)
         }
         val extractor = MediaExtractor()
         val srcFormat: MediaFormat
@@ -241,6 +265,7 @@ class AudioTranscoder(
         var channels: Int
         val decoder: MediaCodec
         var encoder: MediaCodec? = null
+        var resampler: PcmResampler? = null
         val outFile: File
         val out: BufferedOutputStream
         var decoderRef: MediaCodec? = null
@@ -284,8 +309,10 @@ class AudioTranscoder(
                     channels = srcChannels.coerceAtMost(2)
                 }
             }
+            val converter = PcmResampler(sampleRate, outputRateHz ?: PcmResampler.aacRateFor(sampleRate), channels)
+            resampler = converter
             val encFormat =
-                MediaFormat.createAudioFormat(MediaFormat.MIMETYPE_AUDIO_AAC, sampleRate, channels).apply {
+                MediaFormat.createAudioFormat(MediaFormat.MIMETYPE_AUDIO_AAC, converter.outRateHz, channels).apply {
                     setInteger(MediaFormat.KEY_AAC_PROFILE, MediaCodecInfo.CodecProfileLevel.AACObjectLC)
                     setInteger(MediaFormat.KEY_BIT_RATE, 192_000)
                     setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, 65536)
@@ -331,7 +358,9 @@ class AudioTranscoder(
             val toWrite = minOf(inBuf.remaining(), carry.remaining())
             val slice = carry.duplicate().apply { limit(position() + toWrite) }
             inBuf.put(slice)
-            val bytesPerUs = sampleRate.toLong() * channels * 2 / 1_000_000.0
+            // The encoder's rate, which is the resampler's output rate, not the source's.
+            val encoderRate = resampler?.outRateHz ?: sampleRate
+            val bytesPerUs = encoderRate.toLong() * channels * 2 / 1_000_000.0
             enc.queueInputBuffer(inIndex, 0, toWrite, carryTimeUs, 0)
             carryTimeUs += (toWrite / bytesPerUs).toLong()
             carry.position(carry.position() + toWrite)
@@ -408,7 +437,7 @@ class AudioTranscoder(
                                 if (decInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) decoderDone = true
                                 continue
                             }
-                            pcmCarry = mixed
+                            pcmCarry = resample(mixed, checkNotNull(resampler), channels)
                             carryTimeUs = (decInfo.presentationTimeUs - startUs).coerceAtLeast(0L)
                         }
                         decoder.releaseOutputBuffer(outIndex, false)

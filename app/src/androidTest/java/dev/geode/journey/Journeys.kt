@@ -17,7 +17,7 @@ import androidx.compose.ui.test.printToLog
 import androidx.core.content.edit
 import androidx.test.core.app.ApplicationProvider
 import dev.geode.data.GeodePrefsFiles
-import dev.geode.ui.ThemeStore
+import dev.geode.data.ThemeStore
 import org.junit.rules.ExternalResource
 
 /**

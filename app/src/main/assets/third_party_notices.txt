@@ -987,3 +987,12 @@ used; they are credited here as the pieces whose techniques were studied:
   "dmt, no! not the drug" by Arrangemonk
                                        https://www.shadertoy.com/view/sdyXWW
     (recursive domain warping, after Inigo Quilez's articles on the technique)
+
+
+The Truchet style family (app/src/main/assets/shaders/lib_truchet.glsl and its
+truchet_* styles) is original code written from the published technique:
+
+  Sebastien Truchet, "Memoire sur les combinaisons" (1704), and Cyril Stanley
+  Smith, "The Tiling Patterns of Sebastien Truchet and the Topology of
+  Structural Hierarchy", Leonardo 20(4), 1987
+    (randomly oriented tiles whose arcs join into continuous paths)

@@ -26,7 +26,7 @@ import dev.geode.export.TimeOfDayDrift
 import dev.geode.render.SceneFactory
 import dev.geode.render.VisualizerView
 
-private data class PendingExport(
+internal data class PendingExport(
     val aspect: ExportAspect,
     val fps: Int,
     val sceneId: String,
@@ -149,62 +149,67 @@ private val PendingLoopExportSaver =
         },
     )
 
-/** Which sheet [ExportHost] is showing: the standard visualizer export or the loop render. */
-enum class ExportEntryMode { Standard, Loop }
-
 /**
- * The visualizer export and the loop render, opened from Studio › Render (their only home).
- * [requested] is the button that was pressed; a render already under way still wins over it.
+ * Asks for POST_NOTIFICATIONS once, right as the first render starts, with one rationale dialog
+ * first. On API 33+ a render's progress notification (ExportService, foreground since it must
+ * survive the Activity going away) is silently suppressed for anyone who has never granted it, and
+ * nothing else in the app asks unless audio capture is turned on. The render proceeds either way.
+ * Returns the ask; the rationale dialog is drawn where this is called.
  */
 @Composable
-fun ExportHost(
-    viewModel: PlayerViewModel,
-    visualizerView: VisualizerView,
-    requested: ExportEntryMode,
-    onDismiss: () -> Unit,
-) {
-    val studioViewModel: StudioViewModel = geodeViewModel()
+internal fun rememberRenderNotificationAsk(): () -> Unit {
     val context = LocalContext.current
-    val state by viewModel.uiState.collectAsStateWithLifecycle()
-    val viz by viewModel.vizState.collectAsStateWithLifecycle()
-    val export by studioViewModel.exportState.collectAsStateWithLifecycle()
-    val loop by studioViewModel.loopState.collectAsStateWithLifecycle()
-
-    // On API 33+ a render's progress notification (ExportService, foreground since it must
-    // survive the Activity going away) is silently suppressed for anyone who has never granted
-    // POST_NOTIFICATIONS — nothing else in the app asks for it unless audio capture is turned on.
-    // Ask once, right as the first render starts, with one rationale dialog first; the render
-    // proceeds either way, whether the permission is granted, denied, or never asked at all.
-    var notificationPermissionAsked by rememberSaveable { mutableStateOf(false) }
-    var notificationRationaleVisible by rememberSaveable { mutableStateOf(false) }
-    val notificationPermission =
-        rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
-    val requestNotificationPermissionOnce = {
+    var asked by rememberSaveable { mutableStateOf(false) }
+    var rationaleVisible by rememberSaveable { mutableStateOf(false) }
+    val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
+    if (rationaleVisible) {
+        AlertDialog(
+            onDismissRequest = { rationaleVisible = false },
+            title = { Text(stringResource(R.string.export_notification_permission_title)) },
+            text = { Text(stringResource(R.string.export_notification_permission_body)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        rationaleVisible = false
+                        permission.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+                    },
+                ) { Text(stringResource(R.string.action_ok)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { rationaleVisible = false }) {
+                    Text(stringResource(R.string.export_notification_permission_skip))
+                }
+            },
+        )
+    }
+    return {
         val alreadyGranted =
             Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
                 ContextCompat.checkSelfPermission(context, android.Manifest.permission.POST_NOTIFICATIONS) ==
                 PackageManager.PERMISSION_GRANTED
-        if (!notificationPermissionAsked && !alreadyGranted) {
-            notificationPermissionAsked = true
-            notificationRationaleVisible = true
+        if (!asked && !alreadyGranted) {
+            asked = true
+            rationaleVisible = true
         }
     }
+}
 
+/**
+ * Starts one visualizer export of the current track through [PlayerViewModel.startExport] (which
+ * holds the Pro gates). Passing true first asks where to save; below Q it always asks:
+ * saving into the Videos library without asking is a scoped-storage privilege, and below Q the same
+ * insert needs WRITE_EXTERNAL_STORAGE, a permission this app does not ask for, so the write failed
+ * with a SecurityException the user saw raw. The folder picker is the same save by another route.
+ */
+@Composable
+internal fun rememberVisualizerExport(
+    viewModel: PlayerViewModel,
+    visualizerView: VisualizerView,
+): (PendingExport, Boolean) -> Unit {
+    val askNotifications = rememberRenderNotificationAsk()
     var pendingExport by rememberSaveable(stateSaver = PendingExportSaver) {
         mutableStateOf<PendingExport?>(null)
     }
-    var pendingLoopExport by rememberSaveable(stateSaver = PendingLoopExportSaver) {
-        mutableStateOf<PendingLoopExport?>(null)
-    }
-    // A render already under way (from before this dialog was last opened) reopens onto its own
-    // progress instead of the sheet that was asked for, so coming back never hides a running export.
-    val mode =
-        when {
-            loop.phase.isBusy || loop.phase.resultUriOrNull != null || loop.phase.errorOrNull != null -> ExportEntryMode.Loop
-            export.phase.isBusy || export.phase.resultUriOrNull != null || export.phase.errorOrNull != null -> ExportEntryMode.Standard
-            else -> requested
-        }
-
     val sceneFactoryFor: (String, String) -> SceneFactory =
         { requested, fallback ->
             val renderer = visualizerView.visualizerRenderer
@@ -212,23 +217,52 @@ fun ExportHost(
                 if (requested in renderer.availableSceneIds()) requested else fallback,
             )
         }
+    val start: (PendingExport, Uri?) -> Unit = { req, dest ->
+        viewModel.startExport(
+            req.aspect,
+            req.fps,
+            visualizerView.visualizerRenderer.exportSceneFactory(req.sceneId),
+            destination = dest,
+            loopSafe = req.loopSafe,
+            range = req.range,
+            sceneFactoryFor = { id -> sceneFactoryFor(id, req.sceneId) },
+            codec = req.codec,
+        )
+    }
     val destinationPicker =
         rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("video/mp4")) { dest ->
             val req = pendingExport
             pendingExport = null
-            if (dest != null && req != null) {
-                viewModel.startExport(
-                    req.aspect,
-                    req.fps,
-                    visualizerView.visualizerRenderer.exportSceneFactory(req.sceneId),
-                    destination = dest,
-                    loopSafe = req.loopSafe,
-                    range = req.range,
-                    sceneFactoryFor = { id -> sceneFactoryFor(id, req.sceneId) },
-                    codec = req.codec,
-                )
-            }
+            if (dest != null && req != null) start(req, dest)
         }
+    return { req, toFolder ->
+        askNotifications()
+        if (toFolder || Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            pendingExport = req
+            destinationPicker.launch("muzviz_${System.currentTimeMillis()}.mp4")
+        } else {
+            start(req, null)
+        }
+    }
+}
+
+/**
+ * The loop render sheet, opened from Studio › Render. A loop render already under way, finished
+ * or failed reopens onto its own state; the standard export lives on the Render page itself.
+ */
+@Composable
+fun ExportHost(
+    viewModel: PlayerViewModel,
+    visualizerView: VisualizerView,
+    onDismiss: () -> Unit,
+) {
+    val studioViewModel: StudioViewModel = geodeViewModel()
+    val viz by viewModel.vizState.collectAsStateWithLifecycle()
+    val loop by studioViewModel.loopState.collectAsStateWithLifecycle()
+    val askNotifications = rememberRenderNotificationAsk()
+    var pendingLoopExport by rememberSaveable(stateSaver = PendingLoopExportSaver) {
+        mutableStateOf<PendingLoopExport?>(null)
+    }
     val loopDestinationPicker =
         rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("video/mp4")) { dest ->
             val req = pendingLoopExport
@@ -247,121 +281,35 @@ fun ExportHost(
                 )
             }
         }
-    val takes by studioViewModel.takeState.collectAsStateWithLifecycle()
-    when (mode) {
-        ExportEntryMode.Loop ->
-            LoopRenderSheet(
-                state = loop,
-                onStart = { req ->
-                    requestNotificationPermissionOnce()
-                    if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.Q) {
-                        pendingLoopExport = PendingLoopExport.from(req)
-                        loopDestinationPicker.launch("muzviz_loop_${System.currentTimeMillis()}.mp4")
-                    } else {
-                        viewModel.startLoopRender(
-                            req.aspect,
-                            req.codec,
-                            req.fps,
-                            visualizerView.visualizerRenderer.exportSceneFactory(viz.sceneId),
-                            req.loopMs,
-                            req.crossfadeMs,
-                            req.drift,
-                            req.audioClips,
-                        )
-                    }
-                },
-                onStartToDestination = { req ->
-                    requestNotificationPermissionOnce()
-                    pendingLoopExport = PendingLoopExport.from(req)
-                    loopDestinationPicker.launch("muzviz_loop_${System.currentTimeMillis()}.mp4")
-                },
-                onCancel = studioViewModel::cancelLoopRender,
-                onDismiss = {
-                    studioViewModel.clearLoopResult()
-                    onDismiss()
-                },
-            )
-        ExportEntryMode.Standard ->
-            ExportDialog(
-                export = export,
-                hasMedia = state.hasMedia,
-                takes = takes.takes.map { it.name },
-                selectedTake = takes.exportTake,
-                onSelectTake = studioViewModel::setExportTake,
-                bpm = viz.bpm,
-                trackDurationMs = state.durationMs,
-                onStart = { aspect, fps, loopSafe, range, codec ->
-                    requestNotificationPermissionOnce()
-                    // Saving into the Videos library without asking is a scoped-storage privilege,
-                    // and scoped storage starts at Q. Below it the same insert needs
-                    // WRITE_EXTERNAL_STORAGE - a permission this app does not ask for and should not
-                    // start asking for - so the write failed with a SecurityException the user saw
-                    // raw. The folder picker is the same save by another route and has always worked
-                    // here, so on those versions the primary button opens it.
-                    if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.Q) {
-                        pendingExport =
-                            PendingExport(
-                                aspect,
-                                fps,
-                                viz.sceneId,
-                                loopSafe,
-                                range?.startMs ?: 0L,
-                                range?.durationMs ?: 0L,
-                                codec,
-                            )
-                        destinationPicker.launch("muzviz_${System.currentTimeMillis()}.mp4")
-                    } else {
-                        viewModel.startExport(
-                            aspect,
-                            fps,
-                            visualizerView.visualizerRenderer.exportSceneFactory(viz.sceneId),
-                            loopSafe = loopSafe,
-                            range = range,
-                            sceneFactoryFor = { id -> sceneFactoryFor(id, viz.sceneId) },
-                            codec = codec,
-                        )
-                    }
-                },
-                onStartToDestination = { aspect, fps, loopSafe, range, codec ->
-                    requestNotificationPermissionOnce()
-                    pendingExport =
-                        PendingExport(
-                            aspect,
-                            fps,
-                            viz.sceneId,
-                            loopSafe,
-                            range?.startMs ?: 0L,
-                            range?.durationMs ?: 0L,
-                            codec,
-                        )
-                    destinationPicker.launch("muzviz_${System.currentTimeMillis()}.mp4")
-                },
-                onCancel = studioViewModel::cancelExport,
-                onDismiss = {
-                    studioViewModel.resetExportState()
-                    onDismiss()
-                },
-            )
-    }
-
-    if (notificationRationaleVisible) {
-        AlertDialog(
-            onDismissRequest = { notificationRationaleVisible = false },
-            title = { Text(stringResource(R.string.export_notification_permission_title)) },
-            text = { Text(stringResource(R.string.export_notification_permission_body)) },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        notificationRationaleVisible = false
-                        notificationPermission.launch(android.Manifest.permission.POST_NOTIFICATIONS)
-                    },
-                ) { Text(stringResource(R.string.action_ok)) }
-            },
-            dismissButton = {
-                TextButton(onClick = { notificationRationaleVisible = false }) {
-                    Text(stringResource(R.string.export_notification_permission_skip))
-                }
-            },
-        )
-    }
+    LoopRenderSheet(
+        state = loop,
+        onStart = { req ->
+            askNotifications()
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+                pendingLoopExport = PendingLoopExport.from(req)
+                loopDestinationPicker.launch("muzviz_loop_${System.currentTimeMillis()}.mp4")
+            } else {
+                viewModel.startLoopRender(
+                    req.aspect,
+                    req.codec,
+                    req.fps,
+                    visualizerView.visualizerRenderer.exportSceneFactory(viz.sceneId),
+                    req.loopMs,
+                    req.crossfadeMs,
+                    req.drift,
+                    req.audioClips,
+                )
+            }
+        },
+        onStartToDestination = { req ->
+            askNotifications()
+            pendingLoopExport = PendingLoopExport.from(req)
+            loopDestinationPicker.launch("muzviz_loop_${System.currentTimeMillis()}.mp4")
+        },
+        onCancel = studioViewModel::cancelLoopRender,
+        onDismiss = {
+            studioViewModel.clearLoopResult()
+            onDismiss()
+        },
+    )
 }

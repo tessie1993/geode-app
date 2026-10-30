@@ -53,6 +53,11 @@ data class ExportUiState(
      * the resulting gain, so this is a readout, not a correction — see [ExportController.startExport].
      */
     val loudnessAdvice: LoudnessAdvice? = null,
+    /**
+     * The finished file's name in Movies/MuzViz, so the Render bar can say what was made. Null for a
+     * folder the user picked: that name is the picker's, and the result URI is a SAF document id.
+     */
+    val fileName: String? = null,
 )
 
 /** Progress and result of a loop render + long-form extend, mirroring [ExportUiState]. */
@@ -237,6 +242,7 @@ internal class ExportController(
                             customDestination = destination != null,
                             phase = result.toPhase(),
                             loudnessAdvice = (result as? VideoExporter.Result.Saved)?.loudnessAdvice,
+                            fileName = name.takeIf { destination == null },
                         )
                 } catch (t: Throwable) {
                     // Cancellation is tested before the user's own cancel flag: when the two
@@ -378,7 +384,7 @@ internal class ExportController(
     private suspend fun defaultCodec(): ExportCodec =
         withContext(Dispatchers.IO) { ExportPrefsStore(GeodePrefsFiles(application).general).load().codec }
 
-    // The main export's UI (ExportDialog) has no path to this controller's public API for
+    // The main export's UI (Studio › Render) has no path to this controller's public API for
     // per-render options that aren't already threaded through startExport's callers, so the
     // loudness target rides along as a persisted default instead, the same way defaultCodec()
     // above does for studio exports.

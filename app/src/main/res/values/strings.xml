@@ -567,8 +567,18 @@
     <string name="ext_fail_unavailable">The device would not open an audio capture at any format — another app may be holding it.</string>
 
     <!-- Export: shared by the Export tab and the export dialog. -->
-    <string name="export_title">Export</string>
-    <string name="export_group_defaults">Defaults</string>
+    <string name="render_group_video">Video</string>
+    <string name="render_group_sound">Sound</string>
+    <string name="render_group_save">Save to</string>
+    <string name="render_save_library">Videos library (Movies/MuzViz)</string>
+    <string name="render_save_ask">Ask where each time</string>
+    <string name="render_scope_current">Current track</string>
+    <string name="render_nothing_playing">Nothing is playing. Play a track to render it.</string>
+    <string name="render_button">Render</string>
+    <string name="render_saved_named">Saved %1$s to Movies/MuzViz.</string>
+    <string name="render_open">Open</string>
+    <string name="render_share">Share</string>
+    <string name="render_show_in_folder">Show in folder</string>
     <string name="export_fill_from_platform">Fill from platform</string>
     <string name="export_fill_from_platform_hint">Sets quality, frame rate, aspect and looping to a platform's usual values. Change any of them afterwards.</string>
     <string name="export_platform_entry">%1$s · %2$s</string>
@@ -581,8 +591,6 @@
     <string name="export_fps_30">30 fps</string>
     <string name="export_fps_60">60 fps</string>
     <string name="export_loop_safe">Loop-safe</string>
-    <string name="export_loop_safe_default">Loop-safe by default</string>
-    <string name="export_loop_safe_explainer">Loop-safe trims the end of the render to a bar boundary so the clip repeats cleanly when a platform autoplays it. It needs a detected tempo, so a track that has not been analysed falls back to full length for that render.</string>
     <string name="studio_render_free_limits">Free and trial renders stop at 1 minute, up to 1080p at 30 fps, with a watermark. Loop renders need Pro.</string>
     <string name="settings_export_moved">Export, loop render and the export defaults live in Studio › Render.</string>
     <string name="settings_export_open_studio">Open Studio › Render</string>
@@ -603,18 +611,15 @@
     <string name="export_looping">Looping</string>
     <string name="export_full_length">Full length</string>
     <string name="export_loop_safe_bar_hint">Loop-safe cuts on a bar boundary (%1$s BPM, %2$s s per bar) so the last beat runs into the first — what a short clip needs when a platform autoplays it on repeat. Up to one bar is trimmed from the end.</string>
-    <string name="export_loop_safe_needs_tempo">Loop-safe needs a detected tempo. Analyse the track (Now Playing › Auto) and reopen this dialog.</string>
+    <string name="export_loop_safe_needs_tempo">Loop-safe needs a detected tempo. Analyse the track (Now Playing › Auto) to use it.</string>
     <string name="export_group_performance">Performance</string>
     <string name="export_live_settings">Live settings</string>
     <string name="export_take_explainer">Renders the take\'s parameter automation — every slider, colour and effect moving as you performed it. A style SWITCH inside the take is not reproduced: the render draws through the style selected now, for its whole length.</string>
     <!-- The name a recorded performance take gets when none is typed. -->
     <string name="take_default_name">Take %1$d</string>
     <string name="export_4k_fallback">4K depends on your device\'s encoder; it falls back automatically if unsupported.</string>
-    <string name="export_render_button">Render %1$dp %2$s %3$dfps</string>
     <string name="export_render_to_folder">Render to chosen folder…</string>
     <string name="export_cancel">Cancel export</string>
-    <string name="export_loop_menu_subtitle">A regular video export, or a seamless loop repeated into a long-form video?</string>
-    <string name="export_loop_menu_standard">Video export…</string>
     <string name="export_loop_menu_loop">Loop / long-form…</string>
     <string name="export_loop_title">Loop / long-form export</string>
     <string name="export_loop_source_hint">Loops the current track\'s visuals and repeats them into one long file. The soundtrack is the current track unless you add clips below.</string>

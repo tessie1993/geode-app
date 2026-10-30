@@ -39,6 +39,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -194,49 +195,57 @@ fun AppRoot() {
             GeodeDestination.entries
                 .filter { it != GeodeDestination.STUDIO || showsStudio }
                 .map { NavEntry(it, CrystalNavItem(stringResource(it.labelRes), it.icon)) }
+        // Keyed by destination, not by position: rotating swaps the bar layout for the rail
+        // layout, which would otherwise drop every screen's saved tab and scroll state.
+        val destinationState = rememberSaveableStateHolder()
         val destinationContent: @Composable (twoPane: Boolean) -> Unit = { twoPane ->
             PlaybackNoticeBanner(viewModel)
-            when (appState.dest) {
-                GeodeDestination.PLAYER ->
-                    PlayerScreen(
-                        viewModel,
-                        onOpenSearch = appState::openSearch,
-                        onExpand = appState::expand,
-                        onOpenLibrary = { appState.navigateTo(GeodeDestination.LIBRARY) },
-                    )
-                GeodeDestination.LIBRARY ->
-                    if (twoPane) {
-                        Row(Modifier.fillMaxSize()) {
-                            Box(Modifier.weight(1f)) {
-                                LibraryScreen(onOpenSearch = appState::openSearch)
-                            }
-                            Box(
-                                Modifier
-                                    .width(1.dp)
-                                    .fillMaxHeight()
-                                    .luminousHairline(MaterialTheme.colorScheme.primary),
-                            )
-                            Box(Modifier.weight(1f)) {
-                                PlayerScreen(
-                                    viewModel,
-                                    onOpenSearch = appState::openSearch,
-                                    onExpand = appState::expand,
-                                    onOpenLibrary = {},
+            destinationState.SaveableStateProvider(appState.dest.name) {
+                when (appState.dest) {
+                    GeodeDestination.PLAYER ->
+                        PlayerScreen(
+                            viewModel,
+                            onOpenSearch = appState::openSearch,
+                            onExpand = appState::expand,
+                            onOpenLibrary = { appState.navigateTo(GeodeDestination.LIBRARY) },
+                        )
+                    GeodeDestination.LIBRARY ->
+                        if (twoPane) {
+                            Row(Modifier.fillMaxSize()) {
+                                Box(Modifier.weight(1f)) {
+                                    LibraryScreen(onOpenSearch = appState::openSearch)
+                                }
+                                Box(
+                                    Modifier
+                                        .width(1.dp)
+                                        .fillMaxHeight()
+                                        .luminousHairline(MaterialTheme.colorScheme.primary),
                                 )
+                                Box(Modifier.weight(1f)) {
+                                    PlayerScreen(
+                                        viewModel,
+                                        onOpenSearch = appState::openSearch,
+                                        onExpand = appState::expand,
+                                        onOpenLibrary = {},
+                                    )
+                                }
                             }
+                        } else {
+                            LibraryScreen(onOpenSearch = appState::openSearch)
                         }
-                    } else {
-                        LibraryScreen(onOpenSearch = appState::openSearch)
-                    }
-                GeodeDestination.VISUALS ->
-                    VisualsHub(
-                        viewModel,
-                        visualizerView,
-                        onOpenNowPlaying = appState::expand,
-                        liveBackdrop = gui.clearVisualsMenu && !appState.expanded && !onSecondScreen,
-                    )
-                GeodeDestination.STUDIO -> ProGate(ProFeature.STUDIO) { StudioRoute() }
-                GeodeDestination.SETTINGS -> SettingsScreen(viewModel, visualizerView, onStartTutorial = { tutorialRunning = true })
+                    GeodeDestination.VISUALS ->
+                        VisualsHub(
+                            viewModel,
+                            visualizerView,
+                            onOpenNowPlaying = appState::expand,
+                            liveBackdrop = gui.clearVisualsMenu && !appState.expanded && !onSecondScreen,
+                            // The one VisualizerView has one parent: the Customize preview may take it
+                            // only while the fullscreen view and the second screen don't hold it.
+                            canvasFree = !appState.expanded && !onSecondScreen,
+                        )
+                    GeodeDestination.STUDIO -> ProGate(ProFeature.STUDIO) { StudioRoute() }
+                    GeodeDestination.SETTINGS -> SettingsScreen(viewModel, visualizerView, onStartTutorial = { tutorialRunning = true })
+                }
             }
         }
         Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {

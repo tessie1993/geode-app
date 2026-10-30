@@ -19,7 +19,7 @@ namespace geode::viz {
 namespace {
 
 // Port of SceneCapabilities.SHADER_SCENES: id -> shaders/<id>_frag.glsl, in the catalog's order.
-constexpr std::array<const char*, 149> kShaderIds = {
+constexpr std::array<const char*, 161> kShaderIds = {
     "julia",     "tunnel",  "mandel",    "kaleido",   "plasma",    "bars",       "ring",      "scope",
     "liss",      "warp",    "grid",      "voronoi",   "metaballs", "ripples",    "starfield", "waves",
     "hexgrid",   "spiral",  "aurora",    "solar",     "winter",    "lava",       "vanishing", "morphogen",
@@ -47,6 +47,8 @@ constexpr std::array<const char*, 149> kShaderIds = {
     "dive_helix", "dive_accordion", "dive_orbit", "dive_neon", "dive_cycle", "dive_show",
     "truchet_arcs", "truchet_hex", "truchet_weave", "truchet_maze", "truchet_tri", "truchet_quad",
     "truchet_tubes", "truchet_neon", "truchet_flow", "truchet_knot", "truchet_tunnel", "truchet_relief",
+    "terra_ridge", "terra_dunes", "terra_canyon", "terra_glacier", "terra_isles", "terra_mesa",
+    "terra_volcano", "terra_terraces", "terra_moon", "terra_night", "terra_topo", "terra_wire",
 };
 
 // Port of SceneCapabilities.SPINNING_SCENES: the styles whose look is a turning

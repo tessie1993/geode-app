@@ -290,8 +290,46 @@ object StyleFamilies {
                 ),
         )
 
+    /** Ray-marched heightfield landscapes: ridges, dunes, canyons and islands, flown over. */
+    val TERRAIN: StyleFamily =
+        StyleFamily(
+            name = "terrain",
+            label = "Terrain",
+            prefix = "terra_",
+            library = "lib_terra",
+            ids =
+                listOf(
+                    "terra_ridge",
+                    "terra_dunes",
+                    "terra_canyon",
+                    "terra_glacier",
+                    "terra_isles",
+                    "terra_mesa",
+                    "terra_volcano",
+                    "terra_terraces",
+                    "terra_moon",
+                    "terra_night",
+                    "terra_topo",
+                    "terra_wire",
+                ),
+            marchedIds =
+                setOf(
+                    "terra_ridge",
+                    "terra_dunes",
+                    "terra_canyon",
+                    "terra_glacier",
+                    "terra_isles",
+                    "terra_mesa",
+                    "terra_volcano",
+                    "terra_terraces",
+                    "terra_moon",
+                    "terra_night",
+                    "terra_wire",
+                ),
+        )
+
     /** In picker order. */
-    val all: List<StyleFamily> = listOf(ARBOR, BULB, CHRYSANTHEMUM, LUCID, GLASS, NEBULA, DIVE, TRUCHET)
+    val all: List<StyleFamily> = listOf(ARBOR, BULB, CHRYSANTHEMUM, LUCID, GLASS, NEBULA, DIVE, TRUCHET, TERRAIN)
 
     /** Every family style id, in picker order. */
     val ids: List<String> = all.flatMap { it.ids }

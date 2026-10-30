@@ -6,7 +6,6 @@ import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onFirst
-import androidx.compose.ui.test.performClick
 import androidx.media3.common.Player
 import androidx.media3.session.MediaBrowser
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -80,11 +79,16 @@ class PlayerJourneyTest {
         val repeat = hasContentDescription("Repeat", substring = true) and hasClickAction()
         val spoken = mutableListOf<String>()
         repeat(3) {
-            compose.awaitNode(repeat)
-            val button = compose.onAllNodes(repeat).onFirst()
-            button.performClick()
+            // tap() scrolls first: on a phone the transport row sits below the fold, and a click
+            // on an off-screen node lands outside the window.
+            compose.tap(repeat)
             compose.waitForIdle()
-            val config = button.fetchSemanticsNode().config
+            val config =
+                compose
+                    .onAllNodes(repeat)
+                    .onFirst()
+                    .fetchSemanticsNode()
+                    .config
             val descriptions = config.getOrElse(SemanticsProperties.ContentDescription) { emptyList() }
             val state = listOfNotNull(config.getOrNull(SemanticsProperties.StateDescription))
             spoken += (descriptions + state).joinToString(" ")

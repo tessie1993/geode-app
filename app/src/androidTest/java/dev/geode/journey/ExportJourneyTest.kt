@@ -42,8 +42,8 @@ class ExportJourneyTest {
         val startButton = compose.onAllNodes(start).onFirst()
         startButton.performScrollTo()
         startButton.assertIsDisplayed()
+        // Close sits in the dialog's fixed button row, outside the scrolling options.
         val close = compose.onAllNodes(hasText("Close") and hasClickAction()).onFirst()
-        close.performScrollTo()
         close.assertIsDisplayed()
     }
 }

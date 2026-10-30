@@ -45,8 +45,13 @@ import dev.geode.export.ExportRange
 import dev.geode.export.ExportRatio
 import dev.geode.export.LoudnessTarget
 
+/**
+ * The visualizer export: preset, quality, frame rate, codec, loudness, ratio and length for one
+ * render. Opened from Studio › Render through [ExportHost]; it used to be named `SettingsDialog`,
+ * which is how export came to look like a Settings feature.
+ */
 @Composable
-fun SettingsDialog(
+fun ExportDialog(
     export: ExportUiState,
     hasMedia: Boolean,
     takes: List<String>,

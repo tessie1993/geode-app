@@ -258,15 +258,19 @@ void main() {
         vec3 rr = refract(rd, n, 0.66 - disp);
         vec3 rg = refract(rd, n, 0.66);
         vec3 rb = refract(rd, n, 0.66 + disp);
-        vec3 thru = vec3(pow(max(dot(rr, L), 0.0), 5.0), pow(max(dot(rg, L), 0.0), 5.0), pow(max(dot(rb, L), 0.0), 5.0));
+        vec3 thru = vec3(pow(max(dot(rr, L), 0.0), 3.0), pow(max(dot(rg, L), 0.0), 3.0), pow(max(dot(rb, L), 0.0), 3.0));
         vec3 bow = spectrum(hueBase + 2.2 * dot(rg, L) + 0.6 * rim + 0.3 * gH);
         vec3 rf = reflect(rd, n);
         float spec = pow(max(dot(rf, L), 0.0), 60.0);
 
-        vec3 glass = pal(hueBase + 0.55 + 0.2 * gH) * (0.05 + 0.08 * max(dot(n, L), 0.0));
-        col = glass + lightCol * thru * (0.55 + 0.4 * highB)
+        // The body is lit, and the sky seen through it (along the refracted ray) is
+        // what makes it read as glass: without that term the prisms drew as dark
+        // cut-outs against the sky on the device.
+        vec3 glass = pal(hueBase + 0.55 + 0.2 * gH) * (0.14 + 0.30 * max(dot(n, L), 0.0));
+        col = glass + skyColour(rg, L, lightCol, hueBase) * 0.6 * (1.0 - fres)
+            + lightCol * thru * (0.55 + 0.4 * highB)
             + skyColour(rf, L, lightCol, hueBase) * fres
-            + bow * rim * (0.06 + 0.7 * highB)
+            + bow * rim * (0.18 + 0.7 * highB)
             + lightCol * spec * 0.8;
 
         // Hat sparkles, hashed in the prism's own frame so they ride on it.

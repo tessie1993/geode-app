@@ -80,7 +80,7 @@
     <string name="tutorial_touch_title">Touch the visuals</string>
     <string name="tutorial_touch_body">On the full-screen visualizer, your finger is part of the picture: one finger sets a point the style builds itself around, two set an axis, three or more open a swirl. Pinch and twist zoom and rotate.</string>
     <string name="tutorial_studio_title">Studio makes videos</string>
-    <string name="tutorial_studio_body">Record a performance as you play with the controls, then render it out at any quality. Hide this tab in Settings if you only came to listen.</string>
+    <string name="tutorial_studio_body">Every video is made here. Render exports the visualizer or a seamless loop; Edit cuts clips together. Hide this tab in Settings if you only came to listen.</string>
     <string name="tutorial_settings_title">Everything else is in Settings</string>
     <string name="tutorial_settings_body">Themes, audio, playback, folders and safety. Help lives here too — you can replay this walkthrough any time.</string>
 
@@ -132,6 +132,7 @@
     <string name="about_privacy_policy">Privacy policy</string>
     <string name="about_licenses_unavailable">Third-party notices could not be loaded.</string>
     <string name="about_licenses_loading">Loading…</string>
+    <string name="about_privacy_unavailable">The privacy policy could not be loaded.</string>
 
     <!-- Settings › Backup. One zip, saved and opened through the system file picker. -->
     <string name="backup_tab">Backup</string>
@@ -381,7 +382,7 @@
     <string name="studio_edit">Edit</string>
     <string name="studio_open_video">Open a video…</string>
     <string name="studio_empty_title">Nothing rendered yet</string>
-    <string name="studio_empty_body">Render a visual from Settings › Export video and it lands here, ready to be cut, graded and sent somewhere. Any other video on the phone can be opened with the button above.</string>
+    <string name="studio_empty_body">Render a visual from Studio › Render and it lands here, ready to be cut, graded and sent somewhere. Any other video on the phone can be opened with the button above.</string>
     <string name="studio_send">Send</string>
     <string name="studio_send_ellipsis">Send…</string>
     <string name="studio_share_chooser">Send video</string>
@@ -576,8 +577,10 @@
     <string name="export_loop_safe">Loop-safe</string>
     <string name="export_loop_safe_default">Loop-safe by default</string>
     <string name="export_loop_safe_explainer">Loop-safe trims the end of the render to a bar boundary so the clip repeats cleanly when a platform autoplays it. It needs a detected tempo, so a track that has not been analysed falls back to full length for that render.</string>
-    <string name="export_video_button">Export video…</string>
-    <string name="export_defaults_explainer">Starts from the defaults above; each render can change them for one video. The destination — your Videos library or a folder you pick — is chosen at render time, per export.</string>
+    <string name="studio_render_free_limits">Free and trial renders stop at 1 minute, up to 1080p at 30 fps, with a watermark. Loop renders need Pro.</string>
+    <string name="settings_export_moved">Export, loop render and the export defaults live in Studio › Render.</string>
+    <string name="settings_export_open_studio">Open Studio › Render</string>
+    <string name="visuals_open_render">Export this visual in Studio › Render</string>
     <string name="export_spec">%1$s, %2$s, %3$d fps</string>
     <string name="export_spec_loop_safe">%1$s, loop-safe</string>
     <string name="export_named_preset">%1$s — %2$s</string>
@@ -607,7 +610,6 @@
     <string name="export_render_button">Render %1$dp %2$s %3$dfps</string>
     <string name="export_render_to_folder">Render to chosen folder…</string>
     <string name="export_cancel">Cancel export</string>
-    <string name="export_loop_menu_title">Export</string>
     <string name="export_loop_menu_subtitle">A regular video export, or a seamless loop repeated into a long-form video?</string>
     <string name="export_loop_menu_standard">Video export…</string>
     <string name="export_loop_menu_loop">Loop / long-form…</string>
@@ -940,6 +942,15 @@
     <string name="background_unreadable_cleared">The saved background image could no longer be read and was removed.</string>
     <string name="template_link_imported">Template \"%1$s\" imported — open Video templates to use it.</string>
     <string name="template_link_unreadable">That template link could not be read. It may have been cut short in transit.</string>
+    <string name="link_offer_preset_title">Import shared preset?</string>
+    <string name="link_offer_preset_body">A link opened MuzViz with the preset \"%1$s\". Importing adds it to Visuals › Presets.</string>
+    <string name="link_offer_template_title">Import shared template?</string>
+    <string name="link_offer_template_body">A link opened MuzViz with the video template \"%1$s\". Importing adds it to your templates.</string>
+    <string name="link_offer_replace_title">Replace template?</string>
+    <string name="link_offer_replace_body">A link opened MuzViz with another version of your template \"%1$s\". Importing replaces yours.</string>
+    <string name="link_offer_untitled_template">Shared template</string>
+    <string name="link_offer_import">Import</string>
+    <string name="link_offer_replace">Replace</string>
     <string name="template_entry_point">Video templates</string>
     <string name="template_sheet_title">Video templates</string>
     <string name="template_paste_link">Paste a shared template</string>

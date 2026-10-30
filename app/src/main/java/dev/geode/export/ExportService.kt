@@ -10,6 +10,7 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
+import dev.geode.appLaunchIntent
 import dev.geode.util.bestEffort
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -78,7 +79,7 @@ class ExportService : Service() {
             PendingIntent.getActivity(
                 this,
                 0,
-                Intent(this, dev.geode.ui.MainActivity::class.java),
+                appLaunchIntent(),
                 PendingIntent.FLAG_IMMUTABLE,
             )
         val builder =

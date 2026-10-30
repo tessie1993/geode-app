@@ -9,12 +9,12 @@ import dev.geode.audio.AudioBus
 import dev.geode.billing.ProSnapshot
 import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.PresetStore
+import dev.geode.data.ThemeStore
 import dev.geode.pro.ProFeature
 import dev.geode.render.FramePacer
 import dev.geode.render.FrameRatePolicy
 import dev.geode.render.TouchField
 import dev.geode.render.VisualizerRenderer
-import dev.geode.ui.ThemeStore
 import dev.geode.util.bestEffort
 
 class VisualizerWallpaperService : WallpaperService() {

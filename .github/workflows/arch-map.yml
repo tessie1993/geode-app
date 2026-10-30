@@ -56,3 +56,21 @@ jobs:
           git diff --name-status -M \
             "${{ github.event.pull_request.base.sha }}...${{ github.event.pull_request.head.sha }}" \
             | bash tools/arch-map-gate.sh
+
+      # Pins the layer gate the same way: a planted reverse dependency must fail it.
+      - name: Self-test the layer gate
+        shell: bash
+        run: |
+          set -u
+          t=$(mktemp -d)
+          mkdir -p "$t/app/src/main/java/dev/geode/ui" "$t/app/src/main/java/dev/geode/data" "$t/engine"
+          echo 'import dev.geode.data.Store' > "$t/app/src/main/java/dev/geode/ui/Screen.kt"
+          echo 'import dev.geode.ui.Screen' > "$t/app/src/main/java/dev/geode/ui/Other.kt"
+          bash tools/layer-gate.sh "$t" >/dev/null || { echo "::error::layer gate self-test: clean tree failed"; exit 1; }
+          echo 'val x = dev.geode.ui.Screen::class' > "$t/app/src/main/java/dev/geode/data/Store.kt"
+          if bash tools/layer-gate.sh "$t" >/dev/null; then echo "::error::layer gate self-test: reverse dependency passed"; exit 1; fi
+          echo "layer gate self-test passed"
+
+      - name: Nothing below ui names ui
+        shell: bash
+        run: bash tools/layer-gate.sh

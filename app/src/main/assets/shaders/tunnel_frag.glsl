@@ -50,7 +50,7 @@ void main() {
     vec3 rd;
     camFly(uv, ro, rd);
 
-    float angle = atan(rd.y, rd.x) / 6.2831 + 0.5;
+    float angle = atan(rd.y, rd.x) / 6.2831853 + 0.5;
     // Where this ray meets the wall, measured along the tube from the eye.
     float wall = TUN_RADIUS * rd.z / (length(rd.xy) + 0.0001) * TUN_DEPTH_SCALE;
     float depth = (uCamTravel + 0.9 * uCamDolly) * TUN_DEPTH_SCALE + wall;
@@ -67,6 +67,6 @@ void main() {
     float wave = awave(fract(angle * 2.0));
     vec3 col = pal(depth * 0.125) * (0.15 + band * 1.6) * rings;
     col += pal(0.6) * wave * uTreble * 0.6;
-    col *= smoothstep(1.8, 0.35, length(uv) * uZoom);
+    col *= 1.0 - smoothstep(0.35, 1.8, length(uv) * uZoom);
     fragColor = vec4(grade(col), 1.0);
 }

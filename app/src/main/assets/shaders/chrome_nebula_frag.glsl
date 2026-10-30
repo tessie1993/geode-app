@@ -21,9 +21,11 @@ out vec4 fragColor;
 //
 // Bass (uBandsLo.y) swells the blobs. An onset (uHits.w) buds a droplet out of
 // one blob (picked by uHitCount) that flies out and dissolves, and turns every
-// orbit a step further: the turn is driven by uHitCount - uHits.w, which is
-// continuous across the hit and eases in as the envelope falls, so the
-// arrangement morphs rather than jumps. A pitch change (uEvents.w) shifts the
+// orbit a step further: the turn is driven by uHitCount - 1 plus the onset's
+// progress (0 at the hit, 1 once the envelope has fallen), which is
+// continuous across the hit, so the arrangement morphs rather than jumps.
+// The progress is measured from 0.4 because an onset triggers to 0.4..1
+// (viz/Reactions), never reliably to 1. A pitch change (uEvents.w) shifts the
 // nebula's hue. Overall level follows uSwell only.
 
 #define CN_MAX_STEPS 96
@@ -68,7 +70,7 @@ vec3 nebula(vec3 d, float hue, float stars) {
         vec3 sc = d * 110.0;
         vec3 cell = floor(sc);
         float h = hashCell(ivec3(cell));
-        float s = step(0.986, h) * smoothstep(0.32, 0.0, length(fract(sc) - 0.5));
+        float s = step(0.986, h) * (1.0 - smoothstep(0.0, 0.32, length(fract(sc) - 0.5)));
         c += vec3(s) * (0.55 + 0.45 * sin(uTime * 1.7 + h * 60.0));
     }
     return c;
@@ -83,7 +85,9 @@ void main() {
     float hue = 0.58 + 0.03 * sin(uTime * 0.05) + 0.16 * clamp(uEvents.w, 0.0, 1.0);
 
     // ---- the blobs ----------------------------------------------------------
-    float morph = uHitCount - onset;
+    // 0 on the hit frame (the envelope is >= 0.4 then), 1 once it has fallen.
+    float prog = (1.0 - smoothstep(0.05, 0.4, onset));
+    float morph = uHitCount - 1.0 + prog;
     float grow = 1.0 + 0.26 * bass + 0.06 * swell;
     float tm = uTime * 0.22 + uFlowPhase * 0.04;
     float seed = fract(floor(uHitCount) * 0.618034);
@@ -110,7 +114,7 @@ void main() {
     }
     // The bud: born inside its parent at the onset, flung out as the envelope
     // falls, and zero-sized at both ends so neither end of its life pops.
-    float life = 1.0 - onset;
+    float life = prog;
     vec3 budDir = normalize(vec3(hash11(seed * 91.0 + 1.0), hash11(seed * 53.0 + 2.0), hash11(seed * 17.0 + 3.0)) - 0.5 + 1e-3);
     gBud = parentPos + budDir * parentR * (0.3 + 1.5 * life);
     gBudR = 0.38 * grow * sin(3.14159 * pow(life, 0.6)) * step(0.5, uHitCount);
@@ -160,6 +164,6 @@ void main() {
     }
 
     col *= 0.85 + 0.2 * swell;
-    col *= 0.72 + 0.28 * smoothstep(2.2, 0.4, length(uv));
+    col *= 0.72 + 0.28 * (1.0 - smoothstep(0.4, 2.2, length(uv)));
     fragColor = vec4(grade(col), 1.0);
 }

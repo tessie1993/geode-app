@@ -61,6 +61,11 @@ class BuildStyleReactionsUseCase {
         add(route(rng.pick(GROW_SOURCES), LfoTarget.ZOOM, ReactMode.FOLLOW, rng.range(0.08f, 0.22f), 0.06f, 0.4f, ModCurve.SMOOTH))
         // The top end gives it texture.
         add(route(rng.pick(TEXTURE_SOURCES), rng.pick(TEXTURE_TARGETS), ReactMode.FOLLOW, rng.range(0.15f, 0.4f), 0.05f, 0.3f))
+        // Some styles cruise faster through the loud parts of the song. Drawn last, so it never
+        // changes a route drawn above for an existing seed; if the list is already full it is dropped.
+        rng.maybe {
+            add(route(ReactSource.MACRO_ENERGY, LfoTarget.CAM_FLY, ReactMode.FOLLOW, rng.range(0.3f, 0.6f), 1.5f, 3f, ModCurve.SMOOTH))
+        }
 
         return routes.take(ReactionRoute.MAX_ROUTES)
     }

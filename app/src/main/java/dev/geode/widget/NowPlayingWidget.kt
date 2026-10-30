@@ -20,13 +20,13 @@ import androidx.glance.LocalContext
 import androidx.glance.LocalSize
 import androidx.glance.action.ActionParameters
 import androidx.glance.action.actionParametersOf
-import androidx.glance.action.actionStartActivity
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
 import androidx.glance.appwidget.SizeMode
 import androidx.glance.appwidget.action.ActionCallback
 import androidx.glance.appwidget.action.actionRunCallback
+import androidx.glance.appwidget.action.actionStartActivity
 import androidx.glance.appwidget.appWidgetBackground
 import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.provideContent
@@ -46,9 +46,9 @@ import androidx.glance.unit.ColorProvider
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import dev.geode.R
+import dev.geode.appLaunchIntent
 import dev.geode.playback.MediaArtwork
 import dev.geode.playback.PlaybackService
-import dev.geode.ui.MainActivity
 import java.io.File
 import kotlin.math.roundToInt
 
@@ -128,7 +128,7 @@ private fun NowPlaying(
                 .background(ImageProvider(R.drawable.widget_glass_background))
                 .cornerRadius(R.dimen.widget_corner_radius)
                 .padding(horizontal = 12.dp, vertical = if (layout == WidgetLayout.LARGE) 12.dp else 0.dp)
-                .clickable(actionStartActivity<MainActivity>()),
+                .clickable(actionStartActivity(LocalContext.current.appLaunchIntent())),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         when (layout) {

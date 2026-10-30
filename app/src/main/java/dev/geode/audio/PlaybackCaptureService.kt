@@ -13,6 +13,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import dev.geode.appLaunchIntent
 import dev.geode.util.bestEffort
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -96,7 +97,7 @@ class PlaybackCaptureService : Service() {
             android.app.PendingIntent.getActivity(
                 this,
                 0,
-                Intent(this, dev.geode.ui.MainActivity::class.java),
+                appLaunchIntent(),
                 android.app.PendingIntent.FLAG_IMMUTABLE,
             )
         val stop =

@@ -150,10 +150,7 @@ internal class ModulationController(
      * there means a new style DNA. (Macros are routed to [MacroController] by the session.)
      */
     fun randomizeParams(tab: CustomizeTab? = null) {
-        when (tab) {
-            CustomizeTab.EVENTS -> return rerollReactions()
-            else -> Unit
-        }
+        if (tab == CustomizeTab.EVENTS) return rerollReactions()
         commitSceneParams(
             ParamRandomizer.randomize(
                 current = host.params,

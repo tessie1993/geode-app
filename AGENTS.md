@@ -101,6 +101,7 @@ The native core is built by the root `CMakeLists.txt`, plus `core/CMakeLists.txt
 - Debug builds sign with the committed `app/debug.keystore` so CI APKs install over each other.
 - Submodules: `git submodule update --init --recursive`, needed only for native work. Your `local.properties` needs `sdk.dir`.
 - Tests: JVM unit tests live in `app/src/test` and `engine/*/src/test` (CI runs every module's), instrumented ones in `app/src/androidTest`. Among them: `engine/scenes/src/test/` (style DNA, wire layouts, the saved-reactions codec, randomizer coverage) and `app/src/androidTest/.../ui/ReactivityTabTest.kt` (Compose UI test of the reaction editor, run by the emulator job). CI also runs `core/tests/viz_math_test.cpp` (reaction and camera math, host compiler) and `tools/check_shaders.py` (every style through the NDK's glslc). Put new pure tests in a JVM module where you can; keep parsing that must be tested off-device out of `org.json`, which is a stub in local tests (see `render/ReactionRouteCodec`). Use `docs/DEVICE_CHECKS.md` for anything that needs a device. `tools/glslcheck` and `tools/hostlink` check shaders and the native link on the host.
+- Journeys: `app/src/androidTest/.../journey/` drives `MainActivity` end to end with AndroidX Test (Compose test + Espresso, Truth) under Orchestrator with `clearPackageData`; seed past onboarding with the `Onboarded` rule; `@Ignore` a regression whose fix is unmerged, with its QA number.
 
 ## Conventions
 
@@ -114,7 +115,7 @@ The native core is built by the root `CMakeLists.txt`, plus `core/CMakeLists.txt
 
 ## Large files to split (lines)
 
-`ui/VisualsHub.kt` 1539 · `ui/CustomizeTabs.kt` 1484 · `ui/PlayerSession.kt` 1426 · `ui/BuiltInPresets.kt` 917 · `export/LoopRender.kt` 905 · `ui/StudioScreen.kt` 876 · `ui/VisualizerScreen.kt` 776 · `ui/AppShell.kt` 765 · `ui/pro/PaywallScreen.kt` 749 · `editor/Timeline.kt` 730 · `data/TemplateRepository.kt` 726 · `ui/PlayerScreen.kt` 723 · `ui/LibraryScreen.kt` 721 · `export/LoopExtend.kt` 701
+`ui/VisualsHub.kt` 1649 · `ui/CustomizeTabs.kt` 1485 · `ui/PlayerSession.kt` 1435 · `ui/BuiltInPresets.kt` 917 · `export/LoopRender.kt` 905 · `ui/StudioScreen.kt` 876 · `ui/VisualizerScreen.kt` 855 · `ui/PlayerScreen.kt` 828 · `ui/AppShell.kt` 822 · `ui/LibraryScreen.kt` 769 · `ui/pro/PaywallScreen.kt` 764 · `editor/Timeline.kt` 730 · `data/TemplateRepository.kt` 726 · `export/LoopExtend.kt` 701
 
 ## Where the code breaks the architecture guide
 

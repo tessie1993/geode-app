@@ -48,20 +48,20 @@ internal fun EventsTab(
             )
             val dna = remember(sceneId, p.reactSeed) { BuildStyleReactionsUseCase()(sceneId, p.reactSeed) }
             val routes = reactions ?: dna
+            // One list for the chips and the slot note, so the note only ever speaks of chips on screen.
+            val shown = remember(sceneId) { EventRecipe.entries.filter { it.routesFor(sceneId).isNotEmpty() } }
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                EventRecipe.entries
-                    .filter { it.routesFor(sceneId).isNotEmpty() }
-                    .forEach { recipe ->
-                        val on = recipe.isOn(routes, sceneId)
-                        FilterChip(
-                            selected = on,
-                            enabled = on || recipe.fits(routes, sceneId),
-                            onClick = { onReactionsChange(recipe.toggle(routes, sceneId)) },
-                            label = { Text(recipe.title, style = MaterialTheme.typography.labelSmall) },
-                        )
-                    }
+                shown.forEach { recipe ->
+                    val on = recipe.isOn(routes, sceneId)
+                    FilterChip(
+                        selected = on,
+                        enabled = on || recipe.fits(routes, sceneId),
+                        onClick = { onReactionsChange(recipe.toggle(routes, sceneId)) },
+                        label = { Text(recipe.title, style = MaterialTheme.typography.labelSmall) },
+                    )
+                }
             }
-            if (EventRecipe.entries.any { !it.isOn(routes, sceneId) && !it.fits(routes, sceneId) }) {
+            if (shown.any { !it.isOn(routes, sceneId) && !it.fits(routes, sceneId) }) {
                 Text(
                     "${routes.size} of ${ReactionRoute.MAX_ROUTES} reaction slots used, so the greyed-out " +
                         "reactions don't fit. Remove a route below to make room.",

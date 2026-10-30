@@ -40,16 +40,21 @@ before release buys no user anything and moves every file other sessions are edi
 4. **G7:** `reportFullyDrawn` once the player is usable, a generated baseline profile, GWP-ASan in
    debug. Coordinate with play-readiness; don't duplicate.
 
+5. **Hilt artifact:** swap `androidx.hilt:hilt-navigation-compose` for
+   `hilt-lifecycle-viewmodel-compose` (same 1.4.0) and import `hiltViewModel` from
+   `androidx.hilt.lifecycle.viewmodel.compose` in `ui/GeodeViewModelFactory.kt`. The old package is
+   deprecated since 1.3.0 (see the reference doc's Hilt notes). One file and the catalog.
+
 ### After the release (in ADR 0001 order)
 
-5. `:core:model` + `:engine:scene-model`, then `kotlinx.serialization` behind the golden files (G6).
-6. `:core:designsystem` (after the black-glass restyle has settled).
-7. Dissolve `PlayerSession` and `GeodeContainer` into Hilt-bound repositories and use cases (G3),
+6. `:core:model` + `:engine:scene-model`, then `kotlinx.serialization` behind the golden files (G6).
+7. `:core:designsystem` (after the black-glass restyle has settled).
+8. Dissolve `PlayerSession` and `GeodeContainer` into Hilt-bound repositories and use cases (G3),
    one controller per PR, smallest first. Turn `vizApply`/`morphFade` into state on the way (G4).
-8. Navigation 3 (G5), only after 7: per-entry `ViewModelStore`s would otherwise tear down the shared
+9. Navigation 3 (G5), only after 8: per-entry `ViewModelStore`s would otherwise tear down the shared
    session when Player is popped. Per-tab back stacks, `geode://` deep links as matchers, the paywall
    as a dialog entry.
-9. Feature modules, smallest first.
+10. Feature modules, smallest first.
 
 ## Decisions taken with the user (2026-10-30)
 

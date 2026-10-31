@@ -70,6 +70,7 @@ import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.GuiPrefs
 import dev.geode.data.PlayerPosition
 import dev.geode.model.TutorialChapter
+import dev.geode.model.TutorialProgress
 import dev.geode.pro.PaywallTrigger
 import dev.geode.render.VisualizerView
 import dev.geode.ui.pro.PaywallHost
@@ -244,7 +245,11 @@ fun AppRoot() {
                         SettingsScreen(
                             viewModel,
                             onOpenStudioRender = appState::openStudioRender,
-                            onStartTutorial = { tutorial.start(TutorialChapter.entries) },
+                            onPlayTutorial = { tutorial.start(it) },
+                            onResetTutorials = {
+                                tutorial.autoOfferUsed = true
+                                settingsViewModel.setGuiPrefs(gui.copy(tutorialSeen = false, tutorialProgress = TutorialProgress()))
+                            },
                         )
                 }
             }
@@ -552,7 +557,8 @@ private fun MiniPlayer(
 fun SettingsScreen(
     viewModel: PlayerViewModel,
     onOpenStudioRender: () -> Unit,
-    onStartTutorial: () -> Unit,
+    onPlayTutorial: (List<TutorialChapter>) -> Unit,
+    onResetTutorials: () -> Unit,
 ) {
     Column(Modifier.fillMaxSize()) {
         Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp)) {
@@ -562,7 +568,8 @@ fun SettingsScreen(
         AppSettingsTab(
             viewModel,
             onOpenStudioRender = onOpenStudioRender,
-            onStartTutorial = onStartTutorial,
+            onPlayTutorial = onPlayTutorial,
+            onResetTutorials = onResetTutorials,
         )
     }
 }

@@ -3,15 +3,11 @@ package dev.geode.ui
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 
 /**
@@ -32,37 +28,10 @@ private enum class HelpTopic(
     PERFORMANCE(R.string.help_topic_performance, R.string.help_topic_performance_body),
 }
 
-/**
- * Settings › Help.
- *
- * The walkthrough is not a first-run-only thing. It is the only place the app explains touch on
- * the visualizer at all, and someone who skipped it on day one is exactly the person who needs
- * to find it on day three — so it lives here permanently, replayable, next to the toggle that
- * decides whether a fresh install offers it.
- */
+/** Settings › Help: answers to the questions people actually arrive with. The tour is in Tutorials. */
 @Composable
-internal fun HelpSettingsTab(
-    settingsViewModel: SettingsViewModel,
-    onStartTutorial: () -> Unit,
-) {
-    val gui by settingsViewModel.guiPrefs.collectAsStateWithLifecycle()
+internal fun HelpSettingsTab() {
     SettingsTabColumn {
-        item {
-            SettingsGroup(stringResource(R.string.help_tutorial_group)) {
-                Text(
-                    stringResource(R.string.help_tutorial_body),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                CrystalButton(onClick = onStartTutorial, modifier = Modifier.fillMaxWidth()) {
-                    Text(
-                        stringResource(
-                            if (gui.tutorialSeen) R.string.help_tutorial_replay else R.string.help_tutorial_start,
-                        ),
-                    )
-                }
-            }
-        }
         item {
             SettingsGroup(stringResource(R.string.help_topics_group)) {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The new-user tour (ui/TutorialState.kt, ui/TutorialCards.kt). -->
+<!-- The new-user tour (ui/TutorialState.kt, ui/TutorialCards.kt) and Settings › Tutorials. -->
 <resources>
     <string name="tutorial_next">Next</string>
     <string name="tutorial_back">Back</string>
@@ -23,4 +23,17 @@
     <string name="tutorial_settings_1_body">Look, Audio, Folders and Behavior hold the rest, including reduced motion and visual safety. Backup saves your presets and settings to a file.</string>
     <string name="tutorial_settings_2_title">See you around!</string>
     <string name="tutorial_settings_2_body">That\'s the tour. Replay any chapter in Settings › Tutorials. Now play something loud and watch me go.</string>
+
+    <string name="settings_tab_tutorials">Tutorials</string>
+    <string name="tutorials_group">Tour chapters</string>
+    <string name="tutorials_progress">%1$d of %2$d done</string>
+    <string name="tutorials_play_all">Play the whole tour</string>
+    <string name="tutorials_reset">Reset all</string>
+    <string name="tutorials_reset_done">Progress cleared. The tour greets you next launch.</string>
+    <string name="tutorials_chapter_done">Done</string>
+    <string name="tutorials_chapter_not_done">Not done yet</string>
+    <plurals name="tutorials_chapter_cards">
+        <item quantity="one">%1$d card</item>
+        <item quantity="other">%1$d cards</item>
+    </plurals>
 </resources>

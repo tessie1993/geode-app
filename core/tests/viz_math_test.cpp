@@ -255,7 +255,7 @@ void playBeats(ReactionEngine& e, int beats, int& count) {
 }
 
 void jumpHoldsANewSeededValuePerHit() {
-    static_assert(kReactModeCount == 4, "dev.geode.render.ReactMode has 4 entries");
+    static_assert(kReactModeCount == 5, "dev.geode.render.ReactMode has 5 entries");
     ReactionEngine a;
     ReactionEngine b;
     a.reset();
@@ -275,6 +275,19 @@ void jumpHoldsANewSeededValuePerHit() {
         check(a.output(0) == b.output(0), "jump draws the same values for the same frames");
     }
     check(moved == 12, "every hit lands at least half a unit from the last");
+}
+
+void toggleFlipsBetweenZeroAndAmount() {
+    ReactionEngine e;
+    e.reset();
+    e.routes[0] = {true, ReactSource::Beat, LfoTarget::Twist, ReactMode::Toggle, 1.0f, ModCurve::Linear, 0.0f, 0.0f};
+    // The bug Toggle replaces: Step by 2 folds back to 0 on every edge.
+    check(ReactionEngine::fold(2.0f) == ReactionEngine::fold(0.0f), "a step of 2 never moves");
+    int count = 0;
+    for (int hit = 0; hit < 6; ++hit) {
+        playBeats(e, 1, count);
+        check(e.output(0) == (hit % 2 == 0 ? 1.0f : 0.0f), "each beat flips the toggle");
+    }
 }
 
 void phraseBeatsAlternateEveryEightBars() {
@@ -443,6 +456,7 @@ int main() {
     macroEnergyIsSlowAndArrivalIsAnEvent();
     deterministicForExport();
     jumpHoldsANewSeededValuePerHit();
+    toggleFlipsBetweenZeroAndAmount();
     phraseBeatsAlternateEveryEightBars();
     sectionStartsAPhraseAndOnsetsStandInForBeats();
     backbeatIsCountsTwoAndFour();

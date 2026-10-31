@@ -199,7 +199,7 @@ StyleDna buildStyleDna(std::string_view styleId, int seed, const StyleTraits& tr
     // Colour over the song: a calm hue step per phrase, section or key change when
     // the beat does not already move colour; otherwise the palette swaps per phrase.
     if (b.uses(LfoTarget::ColorShift)) {
-        if (traits.shaderLook) b.add(ReactSource::Phrase, LfoTarget::PaletteMix, ReactMode::Step, 2.0f, 0.6f, 0.6f);
+        if (traits.shaderLook) b.add(ReactSource::Phrase, LfoTarget::PaletteMix, ReactMode::Toggle, 1.0f, 0.6f, 0.6f);
         else b.add(ReactSource::Phrase, LfoTarget::Temperature, ReactMode::Jump, d.range(0.3f, 0.5f), 0.6f, 0.6f);
     } else {
         const std::array events = {ReactSource::Phrase, ReactSource::Section, ReactSource::PitchChange, ReactSource::Downbeat};

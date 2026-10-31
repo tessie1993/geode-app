@@ -61,12 +61,13 @@ class WireLayoutTest {
 
     @Test
     fun enumOrdinalsMatchTheNativeEnums() {
-        // core/viz/Reactions.hpp: Phrase is last, Jump is last; core/viz/Lfo.hpp: CamShake is last.
+        // core/viz/Reactions.hpp: Phrase is last, Toggle is last; core/viz/Lfo.hpp: CamShake is last.
         assertEquals(34, ReactSource.entries.size)
         assertEquals(28, ReactSource.MACRO_ENERGY.ordinal)
         assertEquals(30, ReactSource.PHRASE_BEAT_A.ordinal)
-        assertEquals(4, ReactMode.entries.size)
+        assertEquals(5, ReactMode.entries.size)
         assertEquals(3, ReactMode.JUMP.ordinal)
+        assertEquals(4, ReactMode.TOGGLE.ordinal)
         assertEquals(LfoTarget.entries.last(), LfoTarget.CAM_SHAKE)
         assertEquals(52, LfoTarget.CAM_SHAKE.ordinal)
     }

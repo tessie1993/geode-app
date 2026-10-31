@@ -63,27 +63,6 @@
     <string name="settings_intent_both">Both</string>
     <string name="settings_intent_both_detail">Opens on the player, with Studio one tap away.</string>
 
-    <!-- Walkthrough. Each step navigates to the tab it describes, so the app underneath
-         is the thing being pointed at rather than a picture of it. -->
-    <string name="tutorial_skip">Skip</string>
-    <string name="tutorial_back">Back</string>
-    <string name="tutorial_next">Next</string>
-    <string name="tutorial_finish">Got it</string>
-    <string name="tutorial_progress">%1$d of %2$d</string>
-    <string name="tutorial_dont_show">Don\'t show this next time</string>
-    <string name="tutorial_player_title">This is the Player</string>
-    <string name="tutorial_player_body">Your track, the transport, and a live spectrum. Tap the artwork to go full screen — that is where the visuals live.</string>
-    <string name="tutorial_library_title">Your music lives here</string>
-    <string name="tutorial_library_body">Tracks, albums, artists, folders and playlists. Tapping any track queues everything you are looking at, so Next and Previous behave the way you expect.</string>
-    <string name="tutorial_visuals_title">Sixty-odd visual styles</string>
-    <string name="tutorial_visuals_body">Pick a style, then open Customize to change how it moves. Presets save a whole look; Randomize on any tab is the fastest way to find one you like.</string>
-    <string name="tutorial_touch_title">Touch the visuals</string>
-    <string name="tutorial_touch_body">On the full-screen visualizer, your finger is part of the picture: one finger sets a point the style builds itself around, two set an axis, three or more open a swirl. Pinch and twist zoom and rotate.</string>
-    <string name="tutorial_studio_title">Studio makes videos</string>
-    <string name="tutorial_studio_body">Every video is made here. Render exports the visualizer or a seamless loop; Edit cuts clips together. Hide this tab in Settings if you only came to listen.</string>
-    <string name="tutorial_settings_title">Everything else is in Settings</string>
-    <string name="tutorial_settings_body">Themes, audio, playback, folders and safety. Help lives here too — you can replay this walkthrough any time.</string>
-
     <!-- Settings tab bar. In the same order the tabs are shown. -->
     <string name="settings_tab_look">Look</string>
     <string name="settings_tab_audio">Audio</string>
@@ -116,11 +95,6 @@
     <string name="perf_export_note">Applies to the visualizer, wallpaper and screensaver. Exports always render at full quality.</string>
 
     <!-- Settings > Help -->
-    <string name="help_tutorial_group">Walkthrough</string>
-    <string name="help_tutorial_body">A short tour of the Player, Library, Visuals and Studio. It navigates the app as it goes, so you see the real thing.</string>
-    <string name="help_tutorial_start">Start the walkthrough</string>
-    <string name="help_tutorial_replay">Replay the walkthrough</string>
-    <string name="help_tutorial_on_first_run">Offer it on a fresh install</string>
     <string name="help_topics_group">How things work</string>
     <string name="help_topic_library">Library and folders</string>
     <string name="help_topic_library_body">MuzViz reads the audio Android already indexes. If you keep music somewhere it does not look — an SD card, or Downloads — add that folder in Settings › Folders.</string>

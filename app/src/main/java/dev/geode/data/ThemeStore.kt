@@ -5,6 +5,7 @@ import androidx.annotation.StringRes
 import androidx.core.content.edit
 import dev.geode.R
 import dev.geode.analysis.BeatTuning
+import dev.geode.model.TutorialProgress
 
 enum class PlayerPosition(
     @param:StringRes val labelRes: Int,
@@ -68,14 +69,11 @@ data class GuiPrefs(
     /** Whether the walkthrough has been finished or skipped at least once. */
     val tutorialSeen: Boolean = false,
     /**
-     * The walkthrough's "don't show this next time" toggle.
-     *
-     * Separate from [tutorialSeen] because they answer different questions: seen is history and
-     * cannot be un-set, this is a preference the person controls. Someone who skips the tour on
-     * a fresh install but leaves this on gets offered it again next launch, which is what
-     * skipping usually means.
+     * The chapters finished (Settings › Tutorials ticks) and where the first-run tour picks up if
+     * the app was closed mid-tour. Kept apart from [tutorialSeen], which only says the first-run
+     * tour has ended (finished or Skip all) and so is not offered again.
      */
-    val tutorialOnFirstRun: Boolean = true,
+    val tutorialProgress: TutorialProgress = TutorialProgress(),
     val reducedMotion: Boolean = false,
     val micReactive: Boolean = false,
     val touchSmear: Boolean = false,
@@ -160,7 +158,11 @@ class ThemeStore(
                     ?.let { stored -> UserIntent.entries.firstOrNull { it.name == stored } }
                     ?: UserIntent.BOTH,
             tutorialSeen = prefs.getBoolean(KEY_TUTORIAL_SEEN, false),
-            tutorialOnFirstRun = prefs.getBoolean(KEY_TUTORIAL_ON_FIRST_RUN, true),
+            tutorialProgress =
+                TutorialProgress.decode(
+                    prefs.getString(KEY_TUTORIAL_DONE, null),
+                    prefs.getString(KEY_TUTORIAL_RESUME, null),
+                ),
             reducedMotion = loadReducedMotion(),
             touchSmear = prefs.getBoolean(KEY_TOUCH_SMEAR, false),
             touchSmearStrength = prefs.getFloat(KEY_TOUCH_SMEAR_STRENGTH, 1f).coerceIn(0.2f, 2f),
@@ -235,7 +237,10 @@ class ThemeStore(
             putBoolean(KEY_SETUP_DONE, gui.setupDone)
             putString(KEY_INTENT, gui.intent.name)
             putBoolean(KEY_TUTORIAL_SEEN, gui.tutorialSeen)
-            putBoolean(KEY_TUTORIAL_ON_FIRST_RUN, gui.tutorialOnFirstRun)
+            // The old "offer it on a fresh install" switch is gone: the tour offers itself once.
+            remove(KEY_TUTORIAL_ON_FIRST_RUN)
+            putString(KEY_TUTORIAL_DONE, gui.tutorialProgress.encodeDone())
+            putString(KEY_TUTORIAL_RESUME, gui.tutorialProgress.encodeResume())
             putBoolean(KEY_REDUCED_MOTION, gui.reducedMotion)
             putBoolean(KEY_TOUCH_SMEAR, gui.touchSmear)
             putFloat(KEY_TOUCH_SMEAR_STRENGTH, gui.touchSmearStrength)
@@ -254,6 +259,8 @@ class ThemeStore(
         const val KEY_SETUP_DONE = "gui_setup_done"
         const val KEY_TUTORIAL_SEEN = "gui_tutorial_seen"
         const val KEY_TUTORIAL_ON_FIRST_RUN = "gui_tutorial_on_first_run"
+        const val KEY_TUTORIAL_DONE = "gui_tutorial_done"
+        const val KEY_TUTORIAL_RESUME = "gui_tutorial_resume"
 
         /** Read-only now: the old three-way answer, kept solely to migrate existing installs. */
         const val KEY_SAFETY_CHOICE = "gui_safety_choice"

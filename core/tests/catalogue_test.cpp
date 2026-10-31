@@ -212,7 +212,7 @@ void spinRateAndShaderStyleAgree() {
     for (const char* id : {"silk_web", "milkdrop", "fluid", "water", "curlflow", "cymatics", "no_such_style"}) {
         check(!catalogue::isShaderStyle(id), std::string(id) + " is not a shader style");
     }
-    check(catalogue::allIds().size() == 223, "223 ids");
+    check(catalogue::allIds().size() == 224, "224 ids");
     check(catalogue::allIds().front() == "silk_web", "the default comes first");
 }
 

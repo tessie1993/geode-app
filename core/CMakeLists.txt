@@ -53,6 +53,7 @@ add_library(geode_core STATIC
     viz/Lfo.cpp
     viz/Adsr.cpp
     viz/MotionField.cpp
+    viz/ReactionDna.cpp
     viz/Reactions.cpp
     viz/CameraRig.cpp
     viz/VisualSafety.cpp

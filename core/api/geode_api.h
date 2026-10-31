@@ -142,6 +142,10 @@ GEODE_API void        geode_viz_set_lfo(geode_viz*, int slot, const float* confi
 GEODE_API void        geode_viz_set_adsr(geode_viz*, int slot, const float* config, int count);
 /* Every reaction route at once, GEODE_REACT_ROUTE_FLOATS per route; routes past count / ROUTE_FLOATS are disabled. */
 GEODE_API void        geode_viz_set_reactions(geode_viz*, const float* routes, int count);
+/* A style's DNA (core/viz/ReactionDna): the routes it plays until the user edits them, in the
+   geode_viz_set_reactions layout. Writes at most capacity / GEODE_REACT_ROUTE_FLOATS routes into
+   out and returns how many. Pure: no viz handle, the same id and seed always give the same routes. */
+GEODE_API int         geode_style_reactions(const char* style_id, int seed, float* out, int capacity);
 /* Gyro look, -1..1 per axis; the camera reads it only while camGyro is on. */
 GEODE_API void        geode_viz_set_look(geode_viz*, float yaw, float pitch);
 GEODE_API void        geode_viz_set_thermal(geode_viz*, int platform_status, float headroom); /* status < 0 = unknown */

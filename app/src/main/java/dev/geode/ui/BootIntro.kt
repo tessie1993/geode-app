@@ -5,12 +5,15 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -18,14 +21,12 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.res.colorResource
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -34,7 +35,6 @@ import dev.geode.ui.theme.LocalReducedMotion
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.max
-import kotlin.math.min
 
 private const val RING_COUNT = 3
 private const val RING_STAGGER_MS = 160
@@ -42,6 +42,16 @@ private const val RING_TRAVEL_MS = 900
 private const val TEXT_IN_MS = 450
 private const val FADE_START_MS = 1100L
 private const val FADE_OUT_MS = 300
+
+/**
+ * The system splash's icon box when the icon has no background of its own: 288dp, with the mark
+ * inside its 192dp circle. Drawing the same drawable at the same size, centred on the same colour,
+ * makes BootIntro's first frame the splash's last, so the two read as one intro, not two.
+ */
+private val SPLASH_ICON_SIZE = 288.dp
+
+/** The iris, where the rings start: r=15 of the mark's 108-unit viewport, at [SPLASH_ICON_SIZE]. */
+private val IRIS_RADIUS = SPLASH_ICON_SIZE * (15f / 108f)
 
 @Composable
 fun BootIntro(onDone: () -> Unit) {
@@ -78,39 +88,14 @@ fun BootIntro(onDone: () -> Unit) {
         Modifier
             .fillMaxSize()
             .graphicsLayer { alpha = overlayAlpha.value }
-            .background(MaterialTheme.colorScheme.background)
+            .background(colorResource(R.color.brand_night))
             .pointerInput(Unit) { detectTapGestures { onDone() } },
         contentAlignment = Alignment.Center,
     ) {
         Canvas(Modifier.fillMaxSize()) {
-            val startRadius = min(size.width, size.height) * 0.16f
+            val startRadius = IRIS_RADIUS.toPx()
             val endRadius = max(size.width, size.height) * 0.72f
             val strokeWidth = 2.dp.toPx()
-            val gem = textAlpha.value
-            if (gem > 0f) {
-                val settle = 1f - textScale.value
-
-                fun gemOutline(
-                    radius: Float,
-                    baseDeg: Float,
-                    color: Color,
-                    alpha: Float,
-                    width: Float,
-                ) {
-                    rotate(baseDeg + 24f * settle, center) {
-                        drawRect(
-                            color = color.copy(alpha = alpha * gem),
-                            topLeft = Offset(center.x - radius, center.y - radius),
-                            size = Size(radius * 2f, radius * 2f),
-                            style = Stroke(width = width),
-                        )
-                    }
-                }
-                val r = startRadius * 1.15f * textScale.value
-                gemOutline(r, 45f, primary, 0.10f, strokeWidth * 5f)
-                gemOutline(r, 45f, glint, 0.35f, strokeWidth)
-                gemOutline(r * 0.72f, 15f, primary, 0.45f, strokeWidth)
-            }
             rings.forEach { ring ->
                 val p = ring.value
                 if (p > 0f && p < 1f) {
@@ -134,14 +119,22 @@ fun BootIntro(onDone: () -> Unit) {
                 }
             }
         }
+        Image(
+            painterResource(R.drawable.ic_launcher_foreground),
+            contentDescription = null,
+            modifier = Modifier.size(SPLASH_ICON_SIZE),
+        )
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
+            // Below the mark, whose lids reach 57dp under the centre at this size.
             modifier =
-                Modifier.graphicsLayer {
-                    alpha = textAlpha.value
-                    scaleX = textScale.value
-                    scaleY = textScale.value
-                },
+                Modifier
+                    .offset(y = 112.dp)
+                    .graphicsLayer {
+                        alpha = textAlpha.value
+                        scaleX = textScale.value
+                        scaleY = textScale.value
+                    },
         ) {
             Text(
                 stringResource(R.string.boot_wordmark),

@@ -129,6 +129,9 @@ fun VisualizerEngineBindings(
         renderer.transitionDurationMs = (viz.transitionDurationSec * 1000).toLong()
         visualizerView.queueEvent { renderer.warmTransition(id) }
     }
+    LaunchedEffect(gui.soundTuning) {
+        visualizerView.visualizerRenderer.soundTuning = gui.soundTuning
+    }
     LaunchedEffect(performance) {
         visualizerView.applyPerformance(performance)
     }

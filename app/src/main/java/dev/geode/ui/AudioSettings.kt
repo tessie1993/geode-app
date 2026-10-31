@@ -10,13 +10,16 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
-import dev.geode.analysis.BeatTuning
 import dev.geode.audio.MicCapture
 import dev.geode.data.ThemeStore
+import dev.geode.engine.audio.SoundTuning
 import kotlin.math.roundToInt
 
 @Composable
@@ -36,51 +39,7 @@ private fun AnalysisGroup(viewModel: SettingsViewModel) {
     val playerViewModel: PlayerViewModel = geodeViewModel()
     val gui by viewModel.guiPrefs.collectAsStateWithLifecycle()
     Column {
-        Text(
-            stringResource(R.string.audio_beat_sensitivity, "%.1f".format(gui.beatSensitivity)),
-            style = MaterialTheme.typography.labelMedium,
-        )
-        CrystalSlider(
-            value = gui.beatSensitivity,
-            onValueChange = { viewModel.setGuiPrefs(gui.copy(beatSensitivity = it)) },
-            valueRange = BeatTuning.SENSITIVITY_MIN..BeatTuning.SENSITIVITY_MAX,
-        )
-        Text(
-            stringResource(
-                R.string.audio_beat_min_gap,
-                gui.beatMinIntervalMs.roundToInt(),
-                (60_000f / gui.beatMinIntervalMs).roundToInt(),
-            ),
-            style = MaterialTheme.typography.labelMedium,
-        )
-        CrystalSlider(
-            value = gui.beatMinIntervalMs,
-            onValueChange = { viewModel.setGuiPrefs(gui.copy(beatMinIntervalMs = it)) },
-            valueRange = BeatTuning.INTERVAL_MS_MIN..BeatTuning.INTERVAL_MS_MAX,
-        )
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            CrystalButton(
-                filled = false,
-                onClick = {
-                    viewModel.setGuiPrefs(
-                        gui.copy(
-                            beatSensitivity = BeatTuning.SLOW_SENSITIVITY,
-                            beatMinIntervalMs = BeatTuning.SLOW_INTERVAL_MS,
-                        ),
-                    )
-                },
-            ) { Text(stringResource(R.string.audio_slow_track)) }
-            TextButton(
-                onClick = {
-                    viewModel.setGuiPrefs(
-                        gui.copy(
-                            beatSensitivity = BeatTuning.SENSITIVITY_DEFAULT,
-                            beatMinIntervalMs = BeatTuning.INTERVAL_MS_DEFAULT,
-                        ),
-                    )
-                },
-            ) { Text(stringResource(R.string.audio_default)) }
-        }
+        SoundTuningControls(gui.soundTuning) { viewModel.setGuiPrefs(gui.copy(soundTuning = it.clamped())) }
     }
     Column {
         Text(stringResource(R.string.audio_preset_morph, gui.presetMorphSeconds))
@@ -195,4 +154,99 @@ private fun MicStatusNotice(
                 color = MaterialTheme.colorScheme.error,
             )
     }
+}
+
+/**
+ * The sound engine's tuning (core/sound GeodeSoundTuning): Reactivity and Speed up front, the
+ * TouchDesigner-style per-band shaping, the drums and the event thresholds under Advanced. Global,
+ * so the screen, the wallpaper, the dream and every export hear the music the same way.
+ */
+@Composable
+private fun SoundTuningControls(
+    tuning: SoundTuning,
+    onChange: (SoundTuning) -> Unit,
+) {
+    var advanced by rememberSaveable { mutableStateOf(false) }
+    Column {
+        val reactivity = stringResource(R.string.audio_reactivity, "%.2f".format(tuning.reactivity))
+        TuningSlider(reactivity, tuning.reactivity, SoundTuning.REACTIVITY) { onChange(tuning.copy(reactivity = it)) }
+        TuningSlider(stringResource(R.string.audio_speed, "%.2f".format(tuning.speed)), tuning.speed, SoundTuning.SPEED) {
+            onChange(tuning.copy(speed = it))
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            CrystalButton(filled = false, onClick = { advanced = !advanced }) { Text(stringResource(R.string.audio_advanced)) }
+            TextButton(onClick = { onChange(SoundTuning()) }) { Text(stringResource(R.string.audio_default)) }
+        }
+        if (advanced) AdvancedTuning(tuning, onChange)
+    }
+}
+
+@Composable
+private fun AdvancedTuning(
+    tuning: SoundTuning,
+    onChange: (SoundTuning) -> Unit,
+) {
+    fun List<Float>.with(
+        i: Int,
+        v: Float,
+    ) = toMutableList().also { it[i] = v }
+    val bands = listOf(R.string.audio_band_low, R.string.audio_band_middle, R.string.audio_band_high)
+    bands.forEachIndexed { i, name ->
+        Text(stringResource(name), style = MaterialTheme.typography.titleSmall)
+        TuningSlider(stringResource(R.string.audio_band_gain, "%.2f".format(tuning.gain[i])), tuning.gain[i], SoundTuning.GAIN) {
+            onChange(tuning.copy(gain = tuning.gain.with(i, it)))
+        }
+        TuningSlider(stringResource(R.string.audio_band_threshold, "%.2f".format(tuning.threshold[i])), tuning.threshold[i], 0f..1f) {
+            onChange(tuning.copy(threshold = tuning.threshold.with(i, it)))
+        }
+        TuningSlider(stringResource(R.string.audio_band_attack, (tuning.attack[i] * 1000).roundToInt()), tuning.attack[i], 0f..1f) {
+            onChange(tuning.copy(attack = tuning.attack.with(i, it)))
+        }
+        TuningSlider(stringResource(R.string.audio_band_release, (tuning.release[i] * 1000).roundToInt()), tuning.release[i], 0f..2f) {
+            onChange(tuning.copy(release = tuning.release.with(i, it)))
+        }
+    }
+    Text(stringResource(R.string.audio_drums), style = MaterialTheme.typography.titleSmall)
+    listOf(R.string.audio_drum_kick, R.string.audio_drum_snare, R.string.audio_drum_hat).forEachIndexed { i, label ->
+        TuningSlider(
+            stringResource(label, "%.2f".format(tuning.drum[i]), (tuning.drumDecay[i] * 1000).roundToInt()),
+            tuning.drum[i],
+            SoundTuning.DRUM,
+        ) { onChange(tuning.copy(drum = tuning.drum.with(i, it))) }
+        CrystalSlider(
+            value = tuning.drumDecay[i],
+            onValueChange = { onChange(tuning.copy(drumDecay = tuning.drumDecay.with(i, it))) },
+            valueRange = 0.02f..1f,
+        )
+    }
+    Text(stringResource(R.string.audio_events), style = MaterialTheme.typography.titleSmall)
+    TuningSlider(stringResource(R.string.audio_onset_threshold, "%.1f".format(tuning.onsetThreshold)), tuning.onsetThreshold, 1f..4f) {
+        onChange(tuning.copy(onsetThreshold = it))
+    }
+    TuningSlider(stringResource(R.string.audio_hard_cut_level, "%.1f".format(tuning.hardCutLevel)), tuning.hardCutLevel, 1.5f..4f) {
+        onChange(tuning.copy(hardCutLevel = it))
+    }
+    TuningSlider(stringResource(R.string.audio_hard_cut_half_life, tuning.hardCutHalfLife.roundToInt()), tuning.hardCutHalfLife, 5f..180f) {
+        onChange(tuning.copy(hardCutHalfLife = it))
+    }
+    TuningSlider(stringResource(R.string.audio_pitch_threshold, "%.2f".format(tuning.pitchThreshold)), tuning.pitchThreshold, 0.1f..0.9f) {
+        onChange(tuning.copy(pitchThreshold = it))
+    }
+    TuningSlider(stringResource(R.string.audio_note_hold, (tuning.noteHold * 1000).roundToInt()), tuning.noteHold, 0.02f..0.5f) {
+        onChange(tuning.copy(noteHold = it))
+    }
+    TuningSlider(stringResource(R.string.audio_silence, tuning.silenceDb.roundToInt()), tuning.silenceDb, -90f..-30f) {
+        onChange(tuning.copy(silenceDb = it))
+    }
+}
+
+@Composable
+private fun TuningSlider(
+    label: String,
+    value: Float,
+    range: ClosedFloatingPointRange<Float>,
+    onChange: (Float) -> Unit,
+) {
+    Text(label, style = MaterialTheme.typography.labelMedium)
+    CrystalSlider(value = value, onValueChange = onChange, valueRange = range)
 }

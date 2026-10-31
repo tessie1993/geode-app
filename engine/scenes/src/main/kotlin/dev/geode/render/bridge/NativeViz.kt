@@ -156,6 +156,11 @@ class NativeViz(
         if (handle != 0L) GeodeNative.vizResetAudio(handle)
     }
 
+    /** Settings › Audio, as [dev.geode.engine.audio.SoundTuning.toFloats]. */
+    fun setSoundTuning(floats: FloatArray) {
+        if (handle != 0L) GeodeNative.vizSetSoundTuning(handle, floats)
+    }
+
     /** The frame the last [render] stepped, as [dev.geode.engine.audio.SoundFrameLayout] floats. */
     fun soundFrame(out: FloatArray) {
         if (handle != 0L) GeodeNative.vizSoundFrame(handle, out)

@@ -103,7 +103,9 @@ class VisualizerDreamService : DreamService() {
         prefs.getString("milk_path", null)?.let { path ->
             if (java.io.File(path).isFile) engine.loadMilkPreset(path)
         }
-        engine.reducedMotion = ThemeStore(prefsFiles.general).loadGui().reducedMotion
+        val gui = ThemeStore(prefsFiles.general).loadGui()
+        engine.reducedMotion = gui.reducedMotion
+        engine.soundTuning = gui.soundTuning
         // The user's modulation too: without it the wallpaper and the dream drew the look
         // with every LFO, envelope and custom reaction switched off.
         val modulation = dev.geode.data.LfoStore(prefsFiles.general)

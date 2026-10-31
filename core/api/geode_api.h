@@ -142,6 +142,7 @@ GEODE_API int         geode_react_source_catalog(char* out, int capacity);
  * thread before geode_viz_render; the next render steps it with that frame's dt. */
 GEODE_API void        geode_viz_write_audio(geode_viz*, const float* interleaved, int frames, int channels, int sample_rate);
 GEODE_API void        geode_viz_reset_audio(geode_viz*);
+GEODE_API void        geode_viz_set_sound_tuning(geode_viz*, const GeodeSoundTuning*);
 GEODE_API void        geode_viz_sound_frame(geode_viz*, GeodeSoundFrame* out);
 GEODE_API void        geode_viz_set_custom_shader(geode_viz*, const char* scene_id, const char* fragment_source);
 /* The user source the scene last compiled; returns its full length, 0 when it draws the built-in style. */

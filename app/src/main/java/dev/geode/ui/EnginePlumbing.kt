@@ -66,9 +66,8 @@ fun VisualizerEngineBindings(
         // Only while the Activity is visible (STARTED still covers picture-in-picture): the session
         // stays an AudioBus consumer for its whole life, so without this the 60 Hz hand-off kept
         // running on Main behind a stopped Activity, feeding a GL surface nobody could see.
-        // Pinned to Main: enrichFeatures reads the ExoPlayer, which throws off its application
-        // thread. Under the Compose test clock the effect's own dispatcher could resume this
-        // collector on a Default worker (the emitting thread), which failed the journey tests.
+        // Pinned to Main: enrichFeatures reads ExoPlayer, which throws off its application thread,
+        // and the effect's own dispatcher is not Main under the Compose test runner.
         lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
             withContext(Dispatchers.Main.immediate) {
                 viewModel.features.collect {

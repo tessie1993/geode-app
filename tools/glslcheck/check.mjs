@@ -32,6 +32,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { execFileSync } from 'node:child_process';
 import { launch } from '../shaderpreview/lib/cdp.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -202,7 +203,7 @@ function withKeywords(src, defines) {
 }
 
 function parseArgs(argv) {
-  const a = { size: 240, height: null, shaders: [], all: false, list: false, fluidDisplay: false, out: null, time: null, snd: {} };
+  const a = { size: 240, height: null, shaders: [], all: false, list: false, fluidDisplay: false, out: null, time: null, snd: {}, track: null, audio: null, every: 1 };
   for (let i = 0; i < argv.length; i++) {
     const v = argv[i];
     if (v === '--list') a.list = true;
@@ -213,6 +214,9 @@ function parseArgs(argv) {
     else if (v === '--size') a.size = Number(argv[++i]);
     else if (v === '--out') a.out = argv[++i];
     else if (v === '--time') a.time = Number(argv[++i]);
+    else if (v === '--track') a.track = argv[++i];
+    else if (v === '--audio') a.audio = argv[++i];
+    else if (v === '--every') a.every = Number(argv[++i]);
     else if (v === '--snd') {
       const [k, val] = argv[++i].split('=');
       a.snd[k] = Number(val);
@@ -220,6 +224,26 @@ function parseArgs(argv) {
     else throw new Error(`unknown flag ${v}`);
   }
   return a;
+}
+
+// --track --out DIR: each style's frames become DIR/<id>.mp4 (with the music when --audio is given) and
+// DIR/<id>_sheet.jpg, eight frames across the clip, to look at in one image.
+function clips(args, jobs) {
+  const ids = [...new Set(jobs.filter((j) => j.id).map((j) => j.id))];
+  const track = jobs.find((j) => j.track).track;
+  const fps = track.fps / args.every;
+  for (const id of ids) {
+    const dir = path.join(args.out, id);
+    const count = fs.readdirSync(dir).filter((f) => f.endsWith('.png')).length;
+    const mp4 = path.join(args.out, `${id}.mp4`);
+    const input = ['-y', '-v', 'error', '-framerate', String(fps), '-i', path.join(dir, 'f%04d.png')];
+    const audio = args.audio ? ['-ss', String(track.from), '-t', String(count / fps), '-i', args.audio, '-shortest'] : [];
+    execFileSync('ffmpeg', [...input, ...audio, '-pix_fmt', 'yuv420p', '-c:v', 'libx264', mp4]);
+    const step = Math.max(1, Math.floor(count / 8));
+    execFileSync('ffmpeg', ['-y', '-v', 'error', '-framerate', String(fps), '-i', path.join(dir, 'f%04d.png'),
+      '-vf', `select='not(mod(n\,${step}))',tile=8x1`, '-frames:v', '1', path.join(args.out, `${id}_sheet.jpg`)]);
+    console.log(`clip ${mp4} (${count} frames), sheet ${id}_sheet.jpg`);
+  }
 }
 
 function report(name, r) {
@@ -247,10 +271,27 @@ async function main() {
     const file = path.join(SHADERS, `${id}_frag.glsl`);
     if (!fs.existsSync(file)) throw new Error(`no such fragment style: ${id}`);
     const frag = resolveIncludes(fs.readFileSync(file, 'utf8'), registry);
+    const uniforms = parseUniforms(frag);
+    if (args.track) {
+      // One job per track frame (track.py): the sound frame, its counters, the clock and the rig's travel.
+      const track = JSON.parse(fs.readFileSync(args.track, 'utf8'));
+      track.frames.forEach((fr, n) => {
+        if (n % args.every !== 0) return;
+        const { counts, travel, ...snd } = fr;
+        const values = { ...SHADER_VALUES, uTime: track.from + n / track.fps, uSound: soundFrame({ ...snd, ...args.snd }) };
+        values.uSoundCounts = counts;
+        values.uCamPos = [0, 0, travel];
+        values.uCamTravel = travel;
+        values.uFlowPhase = travel;
+        const name = `${id}/f${String(n / args.every).padStart(4, '0')}`;
+        jobs.push({ name, vert: quadVert, frag, uniforms: plan(uniforms, values, SHADER_TEXTURES, args.size, args.height ?? args.size), track, id });
+      });
+      continue;
+    }
     const values = { ...SHADER_VALUES };
     if (args.time !== null) values.uTime = args.time;
     values.uSound = soundFrame(args.snd);
-    jobs.push({ name: id, vert: quadVert, frag, uniforms: plan(parseUniforms(frag), values, SHADER_TEXTURES, args.size, args.height ?? args.size) });
+    jobs.push({ name: id, vert: quadVert, frag, uniforms: plan(uniforms, values, SHADER_TEXTURES, args.size, args.height ?? args.size) });
   }
   if (args.fluidDisplay) {
     const vert = fs.readFileSync(path.join(SHADERS, 'fluid_base_vert.glsl'), 'utf8');
@@ -280,15 +321,18 @@ async function main() {
   try {
     const page = await browser.openPage(pathToFileURL(path.join(HERE, 'page.html')).href);
     for (const job of jobs) {
-      const r = await page.call('__render', { ...job, width: args.size, height: args.height ?? args.size });
-      allOk = report(job.name, r) && allOk;
+      const { track, id, ...payload } = job;
+      const r = await page.call('__render', { ...payload, width: args.size, height: args.height ?? args.size });
+      if (!track || r.error || job.name.endsWith('f0000')) allOk = report(job.name, r) && allOk;
       if (args.out && r.png) {
-        const dest = jobs.length === 1 ? args.out : path.join(args.out, `${job.name.replace(/[^\w]+/g, '_')}.png`);
+        const dest = id ? path.join(args.out, `${job.name}.png`)
+          : jobs.length === 1 ? args.out : path.join(args.out, `${job.name.replace(/[^\w]+/g, '_')}.png`);
         fs.mkdirSync(path.dirname(dest), { recursive: true });
         fs.writeFileSync(dest, Buffer.from(r.png, 'base64'));
       }
     }
     for (const line of page.drainConsole()) console.log(`  [page] ${line}`);
+    if (args.track && args.out) clips(args, jobs);
   } finally {
     await browser.close();
   }

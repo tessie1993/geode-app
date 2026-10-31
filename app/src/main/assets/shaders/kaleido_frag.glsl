@@ -48,7 +48,7 @@ out vec4 fragColor;
 //     old section's over the section envelope (SND_HELD_HARD_CUT): the map is
 //     evaluated at both counts for that second and mixed, so nothing pops.
 //   - the crystals turn on the mids' clock (SND_MID_TIME, still in silence) and
-//     swell on the relative bass beat (SND_BASS over its average SND_BASS_ATT,
+//     swell on the relative bass beat (SND_BASS above 1, its own running mean:
 //     MilkDrop's beat idiom) and the kick envelope.
 //   - the flower-of-life lines flare on the kick (SND_KICK_ENV); hats
 //     (SND_HAT_ENV) light a hashed scatter of lattice nodes, re-rolled per onset.
@@ -217,8 +217,9 @@ void main() {
     float treb = min(SND_TREBLE_PRESENCE, 1.3);
     float energy = min((SND_BASS_PRESENCE + SND_MID_PRESENCE + SND_TREBLE_PRESENCE) / 3.0, 1.3);
     float kick = clamp(SND_KICK_ENV, 0.0, 1.0);
-    // MilkDrop's beat: the level over its own average, so quiet and loud songs both pulse.
-    float relBeat = clamp((SND_BASS - SND_BASS_ATT) * 2.0, 0.0, 1.0);
+    // The relative beat (MilkDrop's idea): SND_BASS is already the bass over its own ~4 s mean, so
+    // 1 is typical and anything above it is a hit, in quiet songs and loud ones alike.
+    float relBeat = clamp((SND_BASS - 1.05) * 1.2, 0.0, 1.0);
 
     // Section crossfade weight, no frame-to-frame state: SND_CUT_COUNT steps and
     // SND_HELD_HARD_CUT jumps to 1 on the same frame, then the envelope falls.
@@ -262,7 +263,8 @@ void main() {
     }
 
     float pitchHue = SND_PITCH_CLASS * clamp(SND_PITCH_CONFIDENCE * 1.5, 0.0, 1.0);
-    float hue = 0.12 + 0.6 * pitchHue;
+    // A held note leans the hue, it does not repaint the frame: notes change several times a second.
+    float hue = 0.12 + 0.28 * pitchHue;
     vec3 rdLocal = rd * flight;
     vec3 sky = dmtChrysanthemum(rdLocal, hue + 0.5, energy);
 

@@ -131,12 +131,10 @@ vec3 dome(vec2 uv, vec2 centre, float r, float freq, float spin, float glow, flo
 
 void main() {
     vec2 uv = view();
-    float beat = clamp(uSpike * uBeatResponse, 0.0, 1.0);
-    float breathe = 1.0 + 0.05 * clamp(uBassSmooth * uBeatResponse, 0.0, 1.5);
-    // uTreble straight into a glow term was the flash: a cymbal took the whole hall
+    // sndShaped(SND_HIGH) straight into a glow term was the flash: a cymbal took the whole hall
     // to white on one frame. Both halves are slew-limited now.
-    float glow = 0.5 * beat + 0.4 * uTrebleSmooth;
-    float split = 0.012 + 0.012 * beat;
+    float glow = 0.4 * sndShaped(SND_HIGH);
+    float split = 0.012;
     // Integrated spin: energy sets the rate, never the angle.
     float spin = uFlowPhase * 0.5 + uTime * 0.025;
     float finger = touchFalloff(uv, 0.5);
@@ -146,19 +144,19 @@ void main() {
 
     // The flat field: a plane receding toward the top, drifting slowly.
     float persp = 1.0 / (1.15 - 0.35 * m.y);
-    vec2 field = m * persp * 3.1 * breathe + flowOffset(0.5);
+    vec2 field = m * persp * 3.1 + flowOffset(0.5);
     vec3 col = tapestry(fluidWarp(field, 0.9, 0.07), glow, split);
     col *= 0.7 + 0.3 * persp;
 
     // Side domes, then the centre sphere on top.
     float mask;
-    vec3 side = dome(m, vec2(1.62, 0.3), 1.0, 2.6 * breathe, spin, glow, split, mask);
+    vec3 side = dome(m, vec2(1.62, 0.3), 1.0, 2.6, spin, glow, split, mask);
     col = mix(col, side, mask);
-    vec3 centre = dome(m, vec2(0.0, -0.02), 0.44, 3.4 * breathe, -spin * 1.5, glow + finger, split, mask);
+    vec3 centre = dome(m, vec2(0.0, -0.02), 0.44, 3.4, -spin * 1.5, glow + finger, split, mask);
     col = mix(col, centre, mask);
 
     // A halo under the sphere so it reads as lit from within.
-    col += pal(0.5) * 0.12 * exp(-max(length(uv) - 0.44, 0.0) * 6.0) * (0.6 + 0.4 * beat);
+    col += pal(0.5) * 0.12 * exp(-max(length(uv) - 0.44, 0.0) * 6.0) * 0.6;
     // Motes drifting through the hall, each new spawn fading in over a second.
     col += pal(0.72) * fluidMotes(uv, 5.0, 0.16) * 0.2;
     fragColor = vec4(grade(col), 1.0);

@@ -8,7 +8,6 @@ out vec4 fragColor;
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_sdf3
@@ -28,18 +27,18 @@ out vec4 fragColor;
 // ---- audio ------------------------------------------------------------------
 //
 // Each sound moves a different property:
-//   bands (uBandsLo.xyzw, uBandsHi.xyz)  ridge heights across x
-//   kick (uHits.x)        a shock ring that rises out of the land ahead and
+//   bands (vec4(sndSpectrum(0.10), sndLevel(SND_BASS_ATT), sndSpectrum(0.41), sndLevel(SND_MID_ATT)), vec3(sndSpectrum(0.70), sndShaped(SND_HIGH), sndSpectrum(0.93)))  ridge heights across x
+//   kick (SND_KICK_ENV)        a shock ring that rises out of the land ahead and
 //                         spreads as the kick decays (geometry, the eye rides it)
-//   snare (uHits.y)       the contour lines flip toward the complementary hue
-//   hat (uHits.z)         sparkles on the ridge tops only
-//   flux (uBandsHi.w)     thicker contour lines
-//   drop (uEvents.y)      swings the sky half a day round (dusk <-> dawn,
+//   snare (SND_SNARE_ENV)       the contour lines flip toward the complementary hue
+//   hat (SND_HAT_ENV)         sparkles on the ridge tops only
+//   flux (sndLevel(SND_FLUX))     thicker contour lines
+//   drop (SND_HELD_SURGE)      swings the sky half a day round (dusk <-> dawn,
 //                         night <-> day) and back over the drop's envelope
-//   section (uSectionCount, uEvents.z) steps the time of day, cross-faded
-//   pitch change (uEvents.w) with the key (uKeyHue)  rotates the land's hue
-//   air (uBandsHi.z)      star twinkle; bass (uBassSmooth) valley mist
-// Overall level follows uSwell.
+//   section (SND_CUT_COUNT, SND_HELD_HARD_CUT) steps the time of day, cross-faded
+//   pitch change (SND_HELD_NOTE_CHANGE) with the key (uKeyHue)  rotates the land's hue
+//   air (sndSpectrum(0.93))      star twinkle; bass (SND_BASS_PRESENCE) valley mist
+// Overall level follows SND_LEVEL.
 
 #define ST_MAX_STEPS 112
 #define ST_FAR 70.0
@@ -104,18 +103,18 @@ float terrain(vec2 xz) {
 void main() {
     vec2 uv = view();
 
-    float swell = clamp(uSwell, 0.0, 1.5);
-    float bass = clamp(uBassSmooth, 0.0, 1.5);
-    float kick = clamp(uHits.x, 0.0, 1.0);
-    float snare = clamp(uHits.y, 0.0, 1.0);
-    float hats = clamp(uHits.z, 0.0, 1.0);
-    float drop = clamp(uEvents.y, 0.0, 1.0);
-    float secEnv = clamp(uEvents.z, 0.0, 1.0);
-    float pitch = clamp(uEvents.w, 0.0, 1.0);
-    float air = clamp(uBandsHi.z, 0.0, 1.0);
-    float flux = clamp(uBandsHi.w, 0.0, 1.0);
-    gLo = clamp(uBandsLo, 0.0, 1.0);
-    gHi = clamp(uBandsHi.xyz, 0.0, 1.0);
+    float swell = clamp(SND_LEVEL, 0.0, 1.5);
+    float bass = clamp(SND_BASS_PRESENCE, 0.0, 1.5);
+    float kick = clamp(SND_KICK_ENV, 0.0, 1.0);
+    float snare = clamp(SND_SNARE_ENV, 0.0, 1.0);
+    float hats = clamp(SND_HAT_ENV, 0.0, 1.0);
+    float drop = clamp(SND_HELD_SURGE, 0.0, 1.0);
+    float secEnv = clamp(SND_HELD_HARD_CUT, 0.0, 1.0);
+    float pitch = clamp(SND_HELD_NOTE_CHANGE, 0.0, 1.0);
+    float air = clamp(sndSpectrum(0.93), 0.0, 1.0);
+    float flux = clamp(sndLevel(SND_FLUX), 0.0, 1.0);
+    gLo = clamp(vec4(sndSpectrum(0.10), sndLevel(SND_BASS_ATT), sndSpectrum(0.41), sndLevel(SND_MID_ATT)), 0.0, 1.0);
+    gHi = clamp(vec3(sndSpectrum(0.70), sndShaped(SND_HIGH), sndSpectrum(0.93)), 0.0, 1.0);
     gSpecAmp = 0.75 + 0.35 * min(swell, 1.0);
 
     // ---- time of day ----
@@ -123,7 +122,7 @@ void main() {
     // one; subtracting the section envelope (1 at the change, falling to 0)
     // starts the step at the previous section's value, so it glides rather
     // than cuts. A drop swings it half a day further and back.
-    float tod = uSectionCount - secEnv + 2.0 * 4.0 * drop * (1.0 - drop);
+    float tod = SND_CUT_COUNT - secEnv + 2.0 * 4.0 * drop * (1.0 - drop);
     float night = 0.5 + 0.5 * cos((tod - 1.0) * (ST_TAU / 4.0));
     float day = 0.5 + 0.5 * cos((tod - 3.0) * (ST_TAU / 4.0));
     float skyHue = tod * 0.25;

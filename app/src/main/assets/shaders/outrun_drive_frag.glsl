@@ -8,7 +8,6 @@ out vec4 fragColor;
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_sdf3
@@ -31,17 +30,17 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-//   kick (uHits.x)          a glow wave rolls along the grid toward the horizon
-//   snare (uHits.y)         the sun's stripes slide, and a few rows of the sun
-//                           tear sideways (rows picked per hit by uHitCount)
-//   hat (uHits.z)           stars twinkle; the road lights stretch into streaks
-//   drop (uEvents.y)        palette swap (grid and sky trade hue sets) and a
+//   kick (SND_KICK_ENV)          a glow wave rolls along the grid toward the horizon
+//   snare (SND_SNARE_ENV)         the sun's stripes slide, and a few rows of the sun
+//                           tear sideways (rows picked per hit by floor(SND_HIT_TIME))
+//   hat (SND_HAT_ENV)           stars twinkle; the road lights stretch into streaks
+//   drop (SND_HELD_SURGE)        palette swap (grid and sky trade hue sets) and a
 //                           bigger sun
-//   section (uSectionCount) a new mountain layout, morphed over uEvents.z; the
+//   section (SND_CUT_COUNT) a new mountain layout, morphed over SND_HELD_HARD_CUT; the
 //                           palette set also alternates per section
-//   low bands (uBandsLo.xy with uBassSmooth)  bend the side hills
-//   mid (uBandsLo.w)        mountain rim glow
-// Road light speed follows uFlowPhase (loudness sets the rate); level, uSwell.
+//   low bands (vec2(sndLevel(SND_SUB_ATT), sndSpectrum(0.23)) with sndShaped(SND_LOW))  bend the side hills
+//   mid (sndSpectrum(0.57))        mountain rim glow
+// Road light speed follows uFlowPhase (loudness sets the rate); level, (0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)).
 
 #define OR_FLOOR -2.2
 #define OR_FAR 90.0
@@ -82,20 +81,20 @@ float mountain(float az, float seed) {
 void main() {
     vec2 uv = view();
 
-    float swell = clamp(uSwell, 0.0, 1.5);
-    float kick = clamp(uHits.x, 0.0, 1.0);
-    float snare = clamp(uHits.y, 0.0, 1.0);
-    float hats = clamp(uHits.z, 0.0, 1.0);
-    float drop = clamp(uEvents.y, 0.0, 1.0);
-    float secEnv = clamp(uEvents.z, 0.0, 1.0);
-    float mid = clamp(uBandsLo.w, 0.0, 1.0);
-    gBend = clamp(0.5 * uBassSmooth + 0.3 * uBandsLo.x + 0.2 * uBandsLo.y, 0.0, 1.0);
+    float swell = clamp((0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)), 0.0, 1.5);
+    float kick = clamp(SND_KICK_ENV, 0.0, 1.0);
+    float snare = clamp(SND_SNARE_ENV, 0.0, 1.0);
+    float hats = clamp(SND_HAT_ENV, 0.0, 1.0);
+    float drop = clamp(SND_HELD_SURGE, 0.0, 1.0);
+    float secEnv = clamp(SND_HELD_HARD_CUT, 0.0, 1.0);
+    float mid = clamp(sndSpectrum(0.57), 0.0, 1.0);
+    gBend = clamp(0.5 * sndShaped(SND_LOW) + 0.3 * sndLevel(SND_SUB_ATT) + 0.2 * sndSpectrum(0.23), 0.0, 1.0);
 
     // ---- palette set ----
     // The section's parity picks a set, cross-faded over the section envelope
     // (it starts at the previous section's value); a drop flips it for as
     // long as it holds. 0: grid on hue 0, sky opposite; 1: they trade roles.
-    float sec = uSectionCount;
+    float sec = SND_CUT_COUNT;
     float base = mix(mod(sec - 1.0, 2.0), mod(sec, 2.0), 1.0 - secEnv);
     float swap = abs(base - smoothstep(0.05, 0.3, drop));
     float gridHue = mix(0.0, 0.30, swap);
@@ -208,7 +207,7 @@ void main() {
         float sunR = 0.26 * (1.0 + 0.5 * dropBump);
         vec2 sp = vec2(az, e - 0.12) / sunR;
         // Snare glitch: some rows (new ones each hit) tear sideways.
-        float gh = motionHash(vec2(floor(sp.y * 10.0), fract(uHitCount * 0.618) * 97.0));
+        float gh = motionHash(vec2(floor(sp.y * 10.0), fract(floor(SND_HIT_TIME) * 0.618) * 97.0));
         sp.x += snare * step(0.55, gh) * (gh - 0.75) * 0.7;
         float r = length(sp);
         float disc = (1.0 - smoothstep(0.97, 1.0, r));

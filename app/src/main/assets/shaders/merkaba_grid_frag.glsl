@@ -23,7 +23,7 @@ out vec4 fragColor;
 // off MARCHED_SCENES and never spends the Detail budget.
 //
 // The audio contract is the one in lib_scene_motion. Bass breathes the web
-// spacing through uBassSmooth, treble picks out the glints, and a transient
+// spacing through SND_BASS_PRESENCE, treble picks out the glints, and a transient
 // re-aims the drift (uMoveDir), re-seeds which lattice nodes are lit
 // (uSpawnSeed) and steps the web's fold count to a new plateau (uFormPhase).
 // No term in this file can reach its peak inside one frame.
@@ -96,9 +96,9 @@ void main() {
     // Mirrored left to right: the reference is a symmetric hall.
     vec2 m = vec2(abs(uv.x), uv.y);
 
-    float bass = clamp(uBassSmooth, 0.0, 1.5);
-    float treb = clamp(uTrebleSmooth, 0.0, 1.5);
-    float swell = clamp(uSwell, 0.0, 1.5);
+    float bass = clamp(SND_BASS_PRESENCE, 0.0, 1.5);
+    float treb = clamp(sndShaped(SND_HIGH), 0.0, 1.5);
+    float swell = clamp(SND_LEVEL, 0.0, 1.5);
     // A spike steps the web between 5, 6 and 7 subdivisions and holds it there.
     float density = 5.0 + floor(uFormPhase * 3.0);
 

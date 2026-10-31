@@ -300,8 +300,36 @@ object StyleFamilies {
                 ),
         )
 
+    /** Truchet tilings: randomly turned tiles whose arcs join into paths that rewire on the beat. */
+    val TRUCHET: StyleFamily =
+        StyleFamily(
+            name = "truchet",
+            label = "Truchet",
+            prefix = "truchet_",
+            library = "lib_truchet",
+            ids =
+                listOf(
+                    "truchet_arcs",
+                    "truchet_hex",
+                    "truchet_weave",
+                    "truchet_maze",
+                    "truchet_tri",
+                    "truchet_quad",
+                    "truchet_tubes",
+                    "truchet_neon",
+                    "truchet_flow",
+                    "truchet_knot",
+                    "truchet_tunnel",
+                    "truchet_relief",
+                ),
+            marchedIds =
+                setOf(
+                    "truchet_relief",
+                ),
+        )
+
     /** In picker order. */
-    val all: List<StyleFamily> = listOf(ARBOR, BULB, CHRYSANTHEMUM, LUCID, DIVE, GLASS, NEBULA, TERRAIN)
+    val all: List<StyleFamily> = listOf(ARBOR, BULB, CHRYSANTHEMUM, LUCID, DIVE, GLASS, NEBULA, TERRAIN, TRUCHET)
 
     /** Every family style id, in picker order. */
     val ids: List<String> = all.flatMap { it.ids }

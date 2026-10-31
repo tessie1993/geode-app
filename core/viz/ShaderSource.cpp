@@ -10,7 +10,7 @@ namespace geode::viz {
 
 namespace {
 
-constexpr std::array<const char*, 20> kIncludes = {
+constexpr std::array<const char*, 21> kIncludes = {
     "lib_palette",      "lib_scene_uniforms",  "lib_scene_grade",    "lib_sdf3",
     "lib_touch",        "lib_psrdnoise2",      "lib_particle_common", "lib_particle_shade",
     "lib_scene_motion", "lib_dmt",             "lib_camera",          "lib_react",
@@ -20,6 +20,7 @@ constexpr std::array<const char*, 20> kIncludes = {
     "lib_glass",
     "lib_nebula",
     "lib_terra",
+    "lib_truchet",
 };
 
 struct AssetClose {

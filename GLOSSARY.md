@@ -46,7 +46,7 @@ A named look within a scene family, picked from the style catalogue.
 _Avoid_: Variant, skin
 
 **Style family**:
-Twelve fragment-shader styles built on one shared GLSL library (`lib_<family>`), each with its own geometry and its own way of hearing the music. The first is the basic one and is free; the rest are Pro. The families are Arbor, Bulb, Chrysanthemum, Lucid, Dive, Glass, Nebula and Terrain.
+Twelve fragment-shader styles built on one shared GLSL library (`lib_<family>`), each with its own geometry and its own way of hearing the music. The first is the basic one and is free; the rest are Pro. The families are Arbor, Bulb, Chrysanthemum, Lucid, Dive, Glass, Nebula, Terrain and Truchet.
 _Avoid_: Pack, collection, scene family (that is the renderer, such as Cymatics or Fluid)
 
 **Arbor**:
@@ -72,6 +72,9 @@ The space style family: layered dust, spiral galaxies and gas volumes flown thro
 
 **Terrain**:
 The landscape style family: ray-marched heightfields (ridges, dunes, canyons, islands, moonscapes) flown over or framed.
+
+**Truchet**:
+The tiling style family: randomly turned tiles whose arcs and lines join into continuous paths, rewired by onsets.
 
 **Scene params**:
 The full set of tunable values a scene is drawn with at one moment.

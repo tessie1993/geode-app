@@ -144,6 +144,7 @@ CameraRig::Moves camera(const MacroKnobs& k) {
     m.shake = std::max(0.0f, 1.0f + 1.5f * chaos);
     m.reframe = 1.0f + chaos;
     m.cut = 1.0f + chaos;
+    m.turn = space;
     return m;
 }
 

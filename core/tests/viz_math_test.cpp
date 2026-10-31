@@ -507,6 +507,40 @@ void routedCutsAndCraneMoveTheRig() {
     check(m.orbit == 1.0f && m.dolly == 1.0f, "channels without a route keep the rig's move");
 }
 
+void turnsSwingOnTheBarsAndStayBounded() {
+    SceneParams p;
+    CameraRig rig;
+    GeodeSoundFrame f = playing();
+    f.intensity = 1.0f;
+    float lo = 0.0f;
+    float hi = 0.0f;
+    for (int i = 0; i < 60 * 40; ++i) {
+        f.kick8 = (i % 240 == 0) ? 1.0f : 0.0f;  // every eighth kick at 120 bpm: every 4 s
+        rig.step(p, {}, 1.0f / 60.0f, false, true, &f);
+        lo = std::min(lo, rig.pose().yaw);
+        hi = std::max(hi, rig.pose().yaw);
+    }
+    check(lo < -0.15f && hi > 0.15f, "the music's turns swing both ways");
+    check(lo > -1.4f && hi < 1.4f, "and stay bounded: a turn, never a spin");
+    CameraRig::Moves none;
+    none.turn = 0.0f;
+    CameraRig still;
+    still.setMoves(none);
+    CameraRig base;
+    CameraRig::Moves keep;
+    keep.turn = 0.0f;
+    base.setMoves(keep);
+    for (int i = 0; i < 600; ++i) {
+        f.kick8 = (i % 240 == 0) ? 1.0f : 0.0f;
+        still.step(p, {}, 1.0f / 60.0f, false, true, &f);
+        base.step(p, {}, 1.0f / 60.0f, false, true, &f);
+    }
+    check(std::fabs(still.pose().yaw - base.pose().yaw) < 1e-6f, "turn 0 turns them off");
+    std::array<ReactRoute, ReactionEngine::kRoutes> routes{};
+    routes[0] = matrix::cell(ReactSource::StereoPan, LfoTarget::CamYaw, 0.5f);
+    check(CameraRig::stepAside(CameraRig::Moves{}, routes).turn == 0.0f, "a routed yaw replaces the turns");
+}
+
 void layersFallSpawnAndGrowAlike() {
     SceneParams p;
     Layers a;
@@ -755,6 +789,7 @@ int main() {
     stillStylesKeepTheBankOutOfTheFlatRoll();
     hardCutsJumpWithoutATweenAndKeepTheirGap();
     routedCutsAndCraneMoveTheRig();
+    turnsSwingOnTheBarsAndStayBounded();
     layersFallSpawnAndGrowAlike();
     silenceAndTheMotionDialStillTheMusicMoves();
     traumaShakeIsBoundedAndFinite();

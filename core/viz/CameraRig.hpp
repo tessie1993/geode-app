@@ -71,6 +71,7 @@ public:
         float shake = 1.0f;    // kick/snare trauma
         float reframe = 1.0f;  // the new framing every 16th kick: 0 never
         float cut = 1.0f;      // hard cuts: 0 never, 2 twice as often
+        float turn = 1.0f;     // the banked turn every eighth kick: 0 never
     };
     void setMoves(const Moves& m) { moves_ = m; }
     // A route on a camera channel (Customize › Camera) replaces the rig's own move for that channel,
@@ -94,6 +95,11 @@ public:
     static constexpr float kReframeHoldSeconds = 4.0f;
     static constexpr float kReframeGapSeconds = 8.0f;
     static constexpr float kTraumaRadians = 0.04f;
+    // The music's turns: every eighth kick (two bars) the view swings into a banked turn the other way,
+    // like a road winding through the scene, at most this often and at most kMaxTurn off the path.
+    static constexpr float kTurnGapSeconds = 6.0f;
+    static constexpr float kMaxTurn = 0.6f;
+    static constexpr float kTurnLean = 0.5f;  // roll per radian of turn: the horizon leans into it
     // Cuts so far: a test hook, and how a scene could tell the view jumped.
     int cuts() const { return cuts_; }
     const CameraPose& pose() const { return pose_; }
@@ -110,7 +116,7 @@ private:
         void step(float target, float dt, float seconds);
     };
 
-    Spring yaw_, pitch_, roll_, dolly_, fov_, speed_, orbit_, crane_;
+    Spring yaw_, pitch_, roll_, dolly_, fov_, speed_, orbit_, crane_, turn_;
     bool cutHigh_ = false;
     float travel_ = 0.0f;
     float time_ = 0.0f;
@@ -127,6 +133,8 @@ private:
     float noteLook_ = 0.0f;
     float dollyKick_ = 0.0f;
     float lissPhase_ = 0.0f;
+    float turnTarget_ = 0.0f;   // where the current turn heads, radians, before the music's amp
+    float sinceTurn_ = kTurnGapSeconds;
     int cuts_ = 0;
     unsigned int seed_ = 0x2545F491u;
     float nextRandom();

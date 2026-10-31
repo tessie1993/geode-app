@@ -49,7 +49,9 @@ void CameraRig::Spring::step(float target, float dt, float seconds) {
 }
 
 void CameraRig::reset() {
-    yaw_ = pitch_ = roll_ = dolly_ = fov_ = speed_ = orbit_ = crane_ = Spring{};
+    yaw_ = pitch_ = roll_ = dolly_ = fov_ = speed_ = orbit_ = crane_ = turn_ = Spring{};
+    turnTarget_ = 0.0f;
+    sinceTurn_ = kTurnGapSeconds;
     cutHigh_ = false;
     travel_ = 0.0f;
     time_ = 0.0f;
@@ -80,7 +82,8 @@ CameraRig::Moves CameraRig::stepAside(Moves m, const std::array<ReactRoute, Reac
         if (!r.enabled) continue;
         switch (r.target) {
             case LfoTarget::CamPush: m.dolly = 0.0f; break;
-            case LfoTarget::CamYaw: case LfoTarget::CamPitch: m.orbit = 0.0f; break;
+            case LfoTarget::CamYaw: m.orbit = 0.0f; m.turn = 0.0f; break;
+            case LfoTarget::CamPitch: m.orbit = 0.0f; break;
             case LfoTarget::CamRoll: m.roll = 0.0f; break;
             case LfoTarget::CamFov: m.breath = 0.0f; break;
             case LfoTarget::CamShake: m.shake = 0.0f; break;
@@ -132,8 +135,10 @@ void CameraRig::step(const SceneParams& p, const LookInput& look, float dt, bool
     float soundPitch = 0.0f;
     float soundRoll = 0.0f;
     float soundDolly = 0.0f;
+    float turnTarget = 0.0f;
     bool cut = false;
     sinceCut_ += dt;
+    sinceTurn_ += dt;
     // A routed cut (Customize › Camera): camCut crossing 0.5 upward, re-armed below 0.3 like a Step route.
     const bool cutEdge = p.camCut >= 0.5f && !cutHigh_;
     cutHigh_ = p.camCut >= 0.3f && (p.camCut >= 0.5f || cutHigh_);
@@ -167,6 +172,16 @@ void CameraRig::step(const SceneParams& p, const LookInput& look, float dt, bool
             sinceReframe_ = 0.0f;
             lissPhase_ += 1.5f * std::min(m.reframe, 2.0f) * (2.0f * std::clamp(val(s.kickRandom), 0.0f, 1.0f) - 1.0f);
         }
+
+        // Turns: every eighth kick the view swings the other way into a new banked turn, a random
+        // depth each time, and holds it through the phrase; a cut turns somewhere new at once. The
+        // target is scaled by amp every frame, so the turn straightens out as the music fades.
+        if (m.turn > 0.0f && ((val(s.kick8) > 0.0f && sinceTurn_ >= kTurnGapSeconds) || cut)) {
+            sinceTurn_ = 0.0f;
+            const float side = turnTarget_ > 0.0f ? -1.0f : 1.0f;
+            turnTarget_ = side * (0.45f + 0.55f * nextRandom()) * kMaxTurn;
+        }
+        turnTarget = turnTarget_ * amp * std::min(m.turn, 2.0f);
 
         // The orbit on the mid clock: a Lissajous look path whose rates never line up, so it never
         // repeats, and whose speed follows the mids. A slow roll sway on the loudness clock, for
@@ -231,6 +246,7 @@ void CameraRig::step(const SceneParams& p, const LookInput& look, float dt, bool
         if (!primed_) speed_.reset(speedTarget);
         orbit_.reset(p.camOrbit * g);
         crane_.reset(craneTarget);
+        if (!primed_) turn_.reset(turnTarget);
         primed_ = true;
     }
     yaw_.step(lookYawTarget, dt, soft);
@@ -243,6 +259,8 @@ void CameraRig::step(const SceneParams& p, const LookInput& look, float dt, bool
     orbit_.step(std::clamp(p.camOrbit, 0.0f, 1.0f) * g, dt, soft * 3.0f);
     // A crane move is heavy: it eases like the dolly, a little slower.
     crane_.step(craneTarget, dt, soft * 0.8f);
+    // A turn is a long, smooth swing: it takes about a bar to come round.
+    turn_.step(std::clamp(turnTarget, -2.0f * kMaxTurn, 2.0f * kMaxTurn), dt, 0.6f + soft * 3.0f);
 
     time_ = std::fmod(time_ + dt, kPathPeriod);
     travel_ = std::fmod(travel_ + std::max(speed_.x, 0.0f) * dt, kTravelWrap);
@@ -267,9 +285,9 @@ void CameraRig::step(const SceneParams& p, const LookInput& look, float dt, bool
     const float trauma = trauma_ * trauma_ * kTraumaRadians;
     const float sYaw = shake * wobble(time_, 7.3f, 11.9f) + trauma * wobble(traumaClock_, 1.0f, 1.618f);
     const float sPitch = shake * wobble(time_, 8.9f, 13.1f) + trauma * wobble(traumaClock_, 1.27f, 2.09f);
-    const float yaw = yaw_.x + sYaw;
+    const float yaw = yaw_.x + sYaw + turn_.x;
     const float pitch = pitch_.x + sPitch;
-    const float roll = roll_.x + bank;
+    const float roll = roll_.x + bank - kTurnLean * turn_.x;
 
     fwd = rotate(fwd, up, yaw);
     right = rotate(right, up, yaw);

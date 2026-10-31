@@ -216,7 +216,7 @@ class VideoExporter(
                     encodeInto(
                         it,
                         audioUri,
-                            sceneFactory,
+                        sceneFactory,
                         aspect,
                         sceneParams,
                         lfoConfigs,
@@ -225,7 +225,7 @@ class VideoExporter(
                         reducedMotion,
                         requestedFps,
                         paramsAt,
-                            range,
+                        range,
                         codec,
                         underlay,
                         soundTuning,

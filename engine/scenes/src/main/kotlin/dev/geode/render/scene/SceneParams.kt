@@ -184,6 +184,7 @@ data class SceneParams(
     val reactSeed: Int = 0,
     // Customize › Camera and the layers (core/viz/Layers, drawn in the composite pass). Reaction routes
     // write these; the base values stay 0 unless the user sets one. Appended to keep the wire.
+
     /** Camera rise, -1..1: up, looking down a little. */
     val camCrane: Float = 0f,
     /** A rising edge past 0.5 cuts the camera to a new place on its path. */

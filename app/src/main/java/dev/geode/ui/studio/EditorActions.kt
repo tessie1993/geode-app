@@ -7,8 +7,6 @@ import dev.geode.editor.EditorProject
 import dev.geode.editor.KeyframeId
 import dev.geode.editor.MarkerId
 import dev.geode.editor.SubtitleCue
-import dev.geode.editor.TransientEnvelope
-import dev.geode.editor.TransientSource
 import dev.geode.export.StudioClip
 import dev.geode.render.scene.SceneParams
 
@@ -29,9 +27,6 @@ interface EditorActions {
     fun newMarkerId(): MarkerId
 
     fun newKeyframeId(): KeyframeId
-
-    /** The analysed track's envelope, or null until the current track has been analysed. */
-    fun transientEnvelope(source: TransientSource): TransientEnvelope?
 
     fun currentSceneId(): String
 

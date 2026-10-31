@@ -8,11 +8,6 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.common.util.Util
-import dev.geode.analysis.AudioFeatures
-import dev.geode.analysis.FeatureTimeline
-import dev.geode.analysis.IntelligenceMode
-import dev.geode.analysis.LiveInputProfile
-import dev.geode.audio.AudioBus
 import dev.geode.audio.AudioFxState
 import dev.geode.audio.MicCapture
 import dev.geode.data.BackgroundPrefs
@@ -98,8 +93,6 @@ class PlayerSession internal constructor(
 
     private val ring = playback.ring
 
-    private val engine = playback.analysis
-
     @OptIn(ExperimentalCoroutinesApi::class)
     private val storeScope = CoroutineScope(SupervisorJob() + Dispatchers.IO.limitedParallelism(1))
 
@@ -125,13 +118,12 @@ class PlayerSession internal constructor(
             object : CaptureController.Host {
                 override fun pausePlayback() = player.pause()
 
-                override fun resetAnalysis() {
+                override fun resetSound() {
                     playback.sampleRing.beginEpoch()
-                    engine.reset()
                 }
 
-                override fun setAnalysisRate(rateHz: Int) {
-                    engine.sampleRateHz = rateHz
+                override fun setSoundRate(rateHz: Int) {
+                    playback.sampleRateHz = rateHz
                 }
 
                 override fun setMicReactivePref(on: Boolean) {
@@ -213,12 +205,9 @@ class PlayerSession internal constructor(
             playerPrefsRepository,
             container.appScope,
             playback.player,
-            engine,
             playback.audioFx,
             playback.replayGain,
             object : PlayerSettingsController.Host {
-                override fun redecideCachedBeats(prefs: GuiPrefs) = analysis.redecideCachedBeats(prefs)
-
                 override fun refreshUi() = refresh()
 
                 override fun applyBitPerfect(enabled: Boolean) {
@@ -229,12 +218,9 @@ class PlayerSession internal constructor(
 
     private val visual: VisualSettingsController =
         VisualSettingsController(
-            engine,
             vizStateStore,
             object : VisualSettingsController.Host {
                 override val guiPrefs: GuiPrefs get() = settings.guiPrefs.value
-
-                override fun setGuiPrefs(prefs: GuiPrefs) = settings.setGuiPrefs(prefs)
 
                 override fun milkPathFor(preset: Preset): String? = presetLibrary.milkPresetPathFor(preset)
             },
@@ -250,13 +236,6 @@ class PlayerSession internal constructor(
 
     private val _vizState get() = vizStateStore.state
     val vizState: StateFlow<VizUiState> get() = vizStateStore.state
-
-    init {
-        engine.beatSensitivity = settings.guiPrefs.value.beatSensitivity
-        engine.beatMinIntervalMs = settings.guiPrefs.value.effectiveBeatMinIntervalMs
-        engine.attack = _vizState.value.attack
-        engine.decay = _vizState.value.decay
-    }
 
     val exportState: StateFlow<ExportUiState> get() = exportController.exportState
 
@@ -294,8 +273,6 @@ class PlayerSession internal constructor(
     fun toggleShuffle() = settings.toggleShuffle()
 
     fun cycleRepeatMode() = settings.cycleRepeatMode()
-
-    fun applyLiveInputProfile(profile: LiveInputProfile) = visual.applyLiveInputProfile(profile)
 
     private val textureController: TextureController =
         TextureController(
@@ -379,26 +356,6 @@ class PlayerSession internal constructor(
         name: String,
         onReady: (String) -> Unit,
     ) = textureController.useTexture(name, onReady)
-
-    val features: StateFlow<AudioFeatures> = engine.features
-
-    fun enrichFeatures(f: AudioFeatures): AudioFeatures {
-        val ui = _uiState.value
-        if (ui.durationMs <= 0L) return f
-        // Read from the player, not the 500 ms poll: this runs once per rendered frame on Main,
-        // and progress-driven visuals stepped twice a second on the polled value.
-        val pos = player.currentPosition.coerceIn(0L, ui.durationMs)
-        val sections = _vizState.value.sections
-        var idx = 0
-        for (s in sections) {
-            if (s <= pos) idx++ else break
-        }
-        return f.copy(
-            progress = pos.toFloat() / ui.durationMs,
-            sectionIndex = idx,
-            sectionCount = sections.size + 1,
-        )
-    }
 
     private val pcmScratch = FloatArray(4096)
     private var pcmCursor = 0L
@@ -497,59 +454,15 @@ class PlayerSession internal constructor(
             scope,
             object : TrackColorController.Host {
                 override val currentUri: Uri? get() = this@PlayerSession.currentUri
-                override val keyColorEnabled: Boolean get() = guiPrefs.value.keyColor
                 override val params: SceneParams get() = _vizState.value.params
-                override val currentTrackKey: String? get() = currentTrackKey()
 
                 override fun setSceneParams(params: SceneParams) = visual.setSceneParams(params)
-
-                override fun persistKeyColorPref(enabled: Boolean) {
-                    setGuiPrefs(guiPrefs.value.copy(keyColor = enabled))
-                }
             },
         )
 
     val artPaletteNote: StateFlow<String?> get() = trackColor.artPaletteNote
 
-    fun applyKeyColor(key: String) = trackColor.applyKeyColor(key)
-
-    fun setKeyColor(enabled: Boolean) = trackColor.setKeyColor(enabled)
-
     fun applyArtworkPalette() = trackColor.applyArtworkPalette()
-
-    fun currentTrackKey(): String? {
-        val uri = currentUri?.toString() ?: return null
-        return library.value.tracks
-            .firstOrNull { it.uri == uri }
-            ?.key
-            ?.takeIf { it.isNotBlank() }
-    }
-
-    private val analysis: TrackAnalysisController =
-        TrackAnalysisController(
-            application,
-            scope,
-            object : TrackAnalysisController.Host {
-                override val currentUri: Uri? get() = this@PlayerSession.currentUri
-                override val guiPrefs: GuiPrefs get() = settings.guiPrefs.value
-                override val vizState: MutableStateFlow<VizUiState> get() = _vizState
-                override val playerPositionMs: Long get() = player.currentPosition
-                override val presetLocked: Boolean get() = _presetLocked.value
-
-                override fun applyKeyColor(key: String) = trackColor.applyKeyColor(key)
-
-                override fun noteAnalysis(
-                    uri: Uri,
-                    timeline: FeatureTimeline,
-                ) = musicLibrary.noteAnalysis(uri, timeline)
-            },
-        )
-
-    val waveform: StateFlow<FloatArray?> get() = analysis.waveform
-
-    fun setIntelligenceMode(mode: IntelligenceMode) = analysis.setIntelligenceMode(mode)
-
-    fun analyzeCurrentTrack() = analysis.analyzeCurrentTrack()
 
     private val _lyrics = MutableStateFlow<Lyrics?>(null)
 
@@ -635,9 +548,6 @@ class PlayerSession internal constructor(
                 override fun updateViz(transform: (VizUiState) -> VizUiState) = _vizState.update(transform)
 
                 override val isPlaying: Boolean get() = _uiState.value.isPlaying
-                override val positionMs: Long get() = _positionMs.value
-
-                override fun features() = engine.features.value
 
                 override val presetLocked: Boolean get() = _presetLocked.value
 
@@ -656,8 +566,6 @@ class PlayerSession internal constructor(
                     sceneId: String,
                 ) = visual.emitApply(VizApply(milkPath = path, sceneId = sceneId))
 
-                override fun analyzeCurrentTrack() = analysis.analyzeCurrentTrack()
-
                 override fun milkFilesAsync(onDone: (List<MilkFile>) -> Unit) = milkPresetFilesAsync(onDone)
             },
         )
@@ -668,15 +576,11 @@ class PlayerSession internal constructor(
 
     fun setVizPlaylistEnabled(enabled: Boolean) = autoVisuals.setVizPlaylistEnabled(enabled)
 
-    fun setVizPlaylistIntelligent(enabled: Boolean) = autoVisuals.setVizPlaylistIntelligent(enabled)
-
     fun setVizPlaylistInterval(seconds: Int) = autoVisuals.setVizPlaylistInterval(seconds)
 
     fun setRandomEnabled(enabled: Boolean) = autoVisuals.setRandomEnabled(enabled)
 
     fun setRandomInterval(seconds: Int) = autoVisuals.setRandomInterval(seconds)
-
-    fun setRandomOnBeat(enabled: Boolean) = autoVisuals.setRandomOnBeat(enabled)
 
     fun setRandomIncludeStyles(enabled: Boolean) = autoVisuals.setRandomIncludeStyles(enabled)
 
@@ -685,8 +589,6 @@ class PlayerSession internal constructor(
     fun setRandomIncludeMilk(enabled: Boolean) = autoVisuals.setRandomIncludeMilk(enabled)
 
     fun setRandomizeColors(enabled: Boolean) = autoVisuals.setRandomizeColors(enabled)
-
-    fun setSectionStaging(enabled: Boolean) = autoVisuals.setSectionStaging(enabled)
 
     fun randomStepNow() = autoVisuals.randomStepNow()
 
@@ -827,11 +729,9 @@ class PlayerSession internal constructor(
     }
 
     fun cycleAutoMode() {
-        val next = (_autoMode.value + 1) % 4
+        val next = (_autoMode.value + 1) % 2
         _autoMode.value = next
         setRandomEnabled(next == 1)
-        setIntelligenceMode(if (next == 2) IntelligenceMode.AUTO else IntelligenceMode.MANUAL)
-        setSectionStaging(next == 3)
     }
 
     fun playNext(uri: String) = queueController.playNext(uri)
@@ -930,17 +830,8 @@ class PlayerSession internal constructor(
     fun seekTo(fraction: Float) = queueController.seekTo(fraction)
 
     private fun onTrackChanged() {
-        engine.reset()
-        autoVisuals.onTrackChanged()
-        analysis.timeline = null
         clearAbLoop()
         loadLyricsFor(currentUri)
-        _vizState.update { it.copy(suggestedSceneId = null, bpm = 0f, sections = emptyList()) }
-        if (_vizState.value.intelligenceMode != IntelligenceMode.MANUAL) {
-            analyzeCurrentTrack()
-        } else {
-            analysis.loadCachedForManualMode()
-        }
     }
 
     private val _playbackNotice = MutableStateFlow<String?>(null)
@@ -1069,17 +960,6 @@ class PlayerSession internal constructor(
             scope,
             object : ExportController.Host {
                 override val exportUri: Uri? get() = currentUri
-                override var cachedTimeline: FeatureTimeline?
-                    get() = analysis.timeline
-                    set(value) {
-                        analysis.timeline = value
-                    }
-
-                override suspend fun analyze(
-                    uri: Uri,
-                    onProgress: (Float) -> Unit,
-                ): FeatureTimeline = analysis.analyzeCached(uri, onProgress)
-
                 override val guiPrefs: GuiPrefs get() = settings.guiPrefs.value
                 override val sceneId: String get() = _vizState.value.sceneId
                 override val sceneParams get() = _vizState.value.params
@@ -1093,15 +973,6 @@ class PlayerSession internal constructor(
                 override fun keyframes() = editor.state.value.project.keyframes
 
                 override suspend fun loadExportTake() = takeController.loadExportTake()
-
-                override fun publishSections(
-                    uri: Uri,
-                    timeline: FeatureTimeline,
-                ) {
-                    if (currentUri == uri && _vizState.value.sections.isEmpty()) {
-                        _vizState.update { it.copy(bpm = timeline.bpm, sections = timeline.detectSections()) }
-                    }
-                }
             },
         )
 
@@ -1133,8 +1004,6 @@ class PlayerSession internal constructor(
         height: Int,
     ) = backgroundController.setRenderSize(width, height)
 
-    fun analysisTimeline(): FeatureTimeline? = analysis.timeline
-
     fun currentSceneId(): String = _vizState.value.sceneId
 
     fun currentSceneParams(): SceneParams = _vizState.value.params
@@ -1154,12 +1023,11 @@ class PlayerSession internal constructor(
         fps: Int,
         sceneFactory: SceneFactory,
         destination: Uri? = null,
-        loopSafe: Boolean = false,
         range: ExportRange? = null,
         sceneFactoryFor: ((String) -> SceneFactory)? = null,
         codec: ExportCodec = ExportCodec.H264,
         watermark: Boolean = false,
-    ) = exportController.startExport(aspect, fps, sceneFactory, destination, loopSafe, range, sceneFactoryFor, codec, watermark)
+    ) = exportController.startExport(aspect, fps, sceneFactory, destination, range, sceneFactoryFor, codec, watermark)
 
     fun startBatch(
         tracks: List<BatchTrack>,
@@ -1167,10 +1035,9 @@ class PlayerSession internal constructor(
         fps: Int,
         sceneFactory: SceneFactory,
         sceneParams: SceneParams?,
-        loopSafe: Boolean,
         codec: ExportCodec,
         watermark: Boolean,
-    ) = exportController.startBatch(tracks, aspect, fps, sceneFactory, sceneParams, loopSafe, codec, watermark)
+    ) = exportController.startBatch(tracks, aspect, fps, sceneFactory, sceneParams, codec, watermark)
 
     fun cancelExport() = exportController.cancelExport()
 
@@ -1239,7 +1106,6 @@ class PlayerSession internal constructor(
                 .toList()
 
         captureController.shutdown()
-        AudioBus.removeConsumer()
         playerListener?.let { player.removeListener(it) }
         queueController.release()
         playerListener = null
@@ -1276,7 +1142,6 @@ class PlayerSession internal constructor(
     }
 
     init {
-        AudioBus.addConsumer()
         // Last init block in the class, so every field above is assigned by now — which is what
         // the capture controller needs before it may call back into this session.
         captureController.start()
@@ -1330,18 +1195,6 @@ class PlayerSession internal constructor(
                         }
                         onTrackChanged()
                         bookmarks.onTrackStarted(player)
-                    }
-                }
-
-                override fun onPositionDiscontinuity(
-                    oldPosition: Player.PositionInfo,
-                    newPosition: Player.PositionInfo,
-                    reason: Int,
-                ) {
-                    if (reason == Player.DISCONTINUITY_REASON_SEEK ||
-                        reason == Player.DISCONTINUITY_REASON_SEEK_ADJUSTMENT
-                    ) {
-                        engine.reset()
                     }
                 }
 
@@ -1400,10 +1253,8 @@ class PlayerSession internal constructor(
             queueController.refreshQueue()
             captureController.refreshExternalAudio()
             captureController.refreshMicState()
-            analysis.applyIntelligence()
             autoVisuals.advanceVizPlaylist()
             autoVisuals.advanceRandomMode()
-            autoVisuals.advanceSectionStaging()
             listening.persistSession()
             bookmarks.onPoll(player)
             delay(POLL_INTERVAL_MS)

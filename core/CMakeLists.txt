@@ -21,27 +21,6 @@ add_library(geode_core STATIC
     audio/dsp/PcmResampler.cpp
     audio/dsp/Loudness.cpp
     api/geode_export_dsp_api.cpp
-    analysis/WindowTable.cpp
-    analysis/Spectrum.cpp
-    analysis/AdaptiveRange.cpp
-    analysis/LogBands.cpp
-    analysis/Chromagram.cpp
-    analysis/SuperFlux.cpp
-    analysis/HarmonicBalance.cpp
-    analysis/OnsetPeakPicker.cpp
-    analysis/AdaptiveWhitening.cpp
-    analysis/TempoTracker.cpp
-    analysis/TempoStability.cpp
-    analysis/BeatGrid.cpp
-    analysis/BarTracker.cpp
-    analysis/DrumChannels.cpp
-    analysis/KeyDetector.cpp
-    analysis/StructureTracker.cpp
-    analysis/StereoField.cpp
-    analysis/FrameLevels.cpp
-    analysis/PulseReplay.cpp
-    analysis/ReactiveAnalyzer.cpp
-    analysis/AnalysisSession.cpp
     viz/ShaderSource.cpp
     viz/GlCaps.cpp
     viz/GlProber.cpp

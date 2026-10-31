@@ -45,7 +45,6 @@ public:
     // Any thread.
     void setParams(const SceneParams& params);
     bool setParam(const std::string& key, float value);
-    void setFeatures(const GeodeFeatureFrame& features);
     void setReducedMotion(bool on) { reducedMotion_.store(on, std::memory_order_relaxed); }
     // Settings › Performance, live surfaces only: an offscreen (export) renderer never calls this,
     // so it keeps full quality. renderScale and marchScale are 0..1 multipliers stacked under the
@@ -176,7 +175,6 @@ private:
 
     mutable std::mutex stateLock_;
     SceneParams requestedParams_;
-    GeodeFeatureFrame features_{};
     std::string requestedSceneId_ = "silk_web";
     std::string layerSceneId_;
     float layerMix_ = 0.5f;
@@ -247,8 +245,7 @@ private:
     double lastTimeS_ = -1.0;
     double frameNowS_ = 0.0;
     float timeSeconds_ = 0.0f;
-    GeodeFeatureFrame frameFeatures_{};
-    // Latched once per frame in beginFrame alongside frameFeatures_, so the
+    // Latched once per frame in beginFrame, so the
     // rest of the frame (composite(), drawSecondaryTargets(), ...) reads a
     // stable snapshot instead of racing setLayer()/setTransition() on
     // stateLock_.

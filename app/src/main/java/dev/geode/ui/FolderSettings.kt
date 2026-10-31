@@ -11,16 +11,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -29,8 +23,6 @@ import dev.geode.R
 import dev.geode.data.GuiPrefs
 import dev.geode.ui.theme.StoneIcon
 import dev.geode.ui.theme.StoneIconArt
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 
 @Composable
 internal fun FolderSettingsTab() {
@@ -40,7 +32,6 @@ internal fun FolderSettingsTab() {
     SettingsTabColumn {
         item { SettingsGroup(stringResource(R.string.folders_group_preset)) { PresetFolderGroup(settingsViewModel, gui) } }
         item { SettingsGroup(stringResource(R.string.folders_group_music)) { MusicFoldersEditor(libraryViewModel) } }
-        item { SettingsGroup(stringResource(R.string.folders_group_cache)) { AnalysisCacheGroup() } }
         item {
             SettingsGroup(stringResource(R.string.folders_group_export)) {
                 Text(
@@ -156,43 +147,4 @@ internal fun MusicFoldersEditor(viewModel: LibraryViewModel) {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
-}
-
-@Composable
-private fun AnalysisCacheGroup() {
-    val context = LocalContext.current
-    val resources = LocalResources.current
-    val measuring = stringResource(R.string.folders_cache_measuring)
-    var cacheInfo by remember { mutableStateOf(measuring) }
-    var cacheBump by remember { mutableIntStateOf(0) }
-    LaunchedEffect(cacheBump) {
-        cacheInfo =
-            withContext(Dispatchers.IO) {
-                val app = context.applicationContext
-                val n =
-                    dev.geode.analysis.AnalysisCache
-                        .entryCount(app)
-                val mb =
-                    dev.geode.analysis.AnalysisCache
-                        .sizeBytes(app) / (1024f * 1024f)
-                resources.getString(R.string.folders_cache_summary, n, mb)
-            }
-    }
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(
-            stringResource(R.string.folders_cache_label, cacheInfo),
-            Modifier.weight(1f),
-            style = MaterialTheme.typography.bodySmall,
-        )
-        TextButton(onClick = {
-            dev.geode.analysis.AnalysisCache
-                .clear(context.applicationContext)
-            cacheBump++
-        }) { Text(stringResource(R.string.action_clear)) }
-    }
-    Text(
-        stringResource(R.string.folders_cache_explainer),
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
 }

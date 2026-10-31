@@ -331,4 +331,41 @@ object SceneParamsCodec {
     }
 
     private fun flag(on: Boolean): Float = if (on) 1f else 0f
+
+    /** [p] as a fresh frame. */
+    fun pack(p: SceneParams): FloatArray = FloatArray(FIELDS).also { pack(p, it) }
+
+    /**
+     * The inverse of [pack]: a frame back into parameters, ints rounded and flags over 0.5. The two
+     * Kotlin-only fields (the saved palette slots' ids, [SceneParams.NOT_RENDERED]) come from [base];
+     * an id is dropped when the frame cleared the hue overrides it stands for, since a saved palette
+     * IS its overrides (see [SceneParams.withoutCustomPalette]).
+     */
+    fun unpack(
+        values: FloatArray,
+        base: SceneParams,
+    ): SceneParams {
+        check(values.size >= FIELDS) { "scene parameter frame needs $FIELDS floats, got ${values.size}" }
+        val out = base.copy()
+        NAMES.forEachIndexed { index, name ->
+            val field = FIELD_BY_NAME.getValue(name)
+            val v = values[index]
+            when (field.type) {
+                Float::class.javaPrimitiveType -> field.setFloat(out, v)
+                Int::class.javaPrimitiveType -> field.setInt(out, Math.round(v))
+                Boolean::class.javaPrimitiveType -> field.setBoolean(out, v > 0.5f)
+                else -> error("$name is not a wire type")
+            }
+        }
+        var result = out
+        if (!result.usesCustomPalette) result = result.copy(customPaletteId = SceneParams.NO_CUSTOM_PALETTE)
+        if (!result.usesCustomPalette2) result = result.copy(customPalette2Id = SceneParams.NO_CUSTOM_PALETTE)
+        return result
+    }
+
+    private val FIELD_BY_NAME: Map<String, java.lang.reflect.Field> =
+        SceneParams::class.java.declaredFields
+            .filter { it.name in NAMES }
+            .onEach { it.isAccessible = true }
+            .associateBy { it.name }
 }

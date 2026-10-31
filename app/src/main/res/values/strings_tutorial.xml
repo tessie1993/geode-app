@@ -18,6 +18,7 @@
     <string name="tutorial_chapter_customize">Customize</string>
     <string name="tutorial_chapter_live_view">Live view</string>
     <string name="tutorial_chapter_studio">Studio</string>
+    <string name="tutorial_chapter_anywhere">Beyond the app</string>
     <string name="tutorial_chapter_settings">Settings</string>
 
     <string name="tutorial_welcome_1_title">Hi, I\'m Wave!</string>
@@ -68,6 +69,13 @@
     <string name="tutorial_studio_2_body">Loop render makes a clip that ends exactly where it began, ready for a canvas, a story or a stream background.</string>
     <string name="tutorial_studio_3_title">Cut it together</string>
     <string name="tutorial_studio_3_body">Studio › Edit is a timeline: clips, keyframes, markers, and an auto-cut that drops a cut on every hit in the music.</string>
+
+    <string name="tutorial_anywhere_1_title">Live wallpaper</string>
+    <string name="tutorial_anywhere_1_body">Your last style can live on your home screen, reacting to whatever MuzViz is playing. Set it up in Settings › Behavior.</string>
+    <string name="tutorial_anywhere_2_title">Screen saver</string>
+    <string name="tutorial_anywhere_2_body">On the charger, Android\'s screen saver can show MuzViz too. Pick it in your phone\'s display settings.</string>
+    <string name="tutorial_anywhere_3_title">Now playing widget</string>
+    <string name="tutorial_anywhere_3_body">Long-press your home screen, add the MuzViz widget, and play, pause or skip without opening the app.</string>
 
     <string name="tutorial_settings_1_title">Make it yours</string>
     <string name="tutorial_settings_1_body">Look, Audio, Folders and Behavior hold the rest, including reduced motion and visual safety. Backup saves your presets and settings to a file.</string>

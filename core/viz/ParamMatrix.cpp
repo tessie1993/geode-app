@@ -218,6 +218,48 @@ const TargetRow& target(LfoTarget t) {
 }
 
 const std::array<SourceRow, kReactSourceCount>& sources() { return kSources; }
+
+Poles poles(ReactSource s) {
+    switch (s) {
+        case ReactSource::KickEnv: case ReactSource::Kick: return {"between kicks", "on the kick"};
+        case ReactSource::SnareEnv: case ReactSource::Snare: return {"between snares", "on the snare"};
+        case ReactSource::HatEnv: case ReactSource::Hat: return {"between hats", "on the hat"};
+        case ReactSource::OnsetEnv: case ReactSource::Onset: return {"held", "a note starts"};
+        case ReactSource::Kick2: case ReactSource::Kick4: case ReactSource::Kick8: case ReactSource::Kick16:
+        case ReactSource::Snare2: case ReactSource::Snare4: return {"counting", "on the count"};
+        case ReactSource::KickToggle: case ReactSource::SnareToggle: return {"off", "on"};
+        case ReactSource::KickRandom: case ReactSource::NoteRandom: return {"one way", "another"};
+        case ReactSource::HardCut: return {"same section", "big moment"};
+        case ReactSource::Silence: return {"playing", "just stopped"};
+        case ReactSource::Returned: return {"silent", "back in"};
+        case ReactSource::Surge: return {"steady", "surge"};
+        case ReactSource::NoteChange: return {"held note", "new note"};
+        case ReactSource::Legato: return {"struck", "slide"};
+        case ReactSource::Reattack: return {"new notes", "same note again"};
+        case ReactSource::PitchClass: return {"C", "B"};
+        case ReactSource::PitchHeight: case ReactSource::PeakFreq: return {"low note", "high note"};
+        case ReactSource::PitchConfidence: return {"no tune", "clear tune"};
+        case ReactSource::Interval: return {"melody down", "melody up"};
+        case ReactSource::Glide: return {"steady", "sliding"};
+        case ReactSource::Vibrato: return {"steady", "wobbling"};
+        case ReactSource::Evenness: return {"hollow", "full"};
+        case ReactSource::RunDensity: return {"held notes", "busy run"};
+        case ReactSource::Centroid: return {"dark", "bright"};
+        case ReactSource::Rolloff: return {"dull", "airy"};
+        case ReactSource::Flatness: return {"tonal", "noisy"};
+        case ReactSource::DensitySlow: case ReactSource::DensityFast: return {"sparse", "dense"};
+        case ReactSource::Flux: return {"steady", "changing"};
+        case ReactSource::EnergyTrend: return {"falling", "rising"};
+        case ReactSource::PeakMag: return {"weak", "strong"};
+        case ReactSource::StereoWidth: return {"mono", "wide"};
+        case ReactSource::StereoPan: return {"left", "right"};
+        case ReactSource::Presence: return {"silence", "playing"};
+        case ReactSource::Intensity: return {"calm", "intense"};
+        case ReactSource::BassPresence: case ReactSource::MidPresence: case ReactSource::TreblePresence: return {"resting", "busy"};
+        default: break;
+    }
+    return source(s).kind == SourceKind::Clock ? Poles{"still", "racing"} : Poles{"soft", "loud"};
+}
 const std::array<TargetRow, kTargetCount>& targets() { return kTargets; }
 
 SmartRoute smart(ReactSource s) {
@@ -315,7 +357,12 @@ std::string catalogueText() {
         text += s.label;
         text += '|';
         text += s.group;
-        text += s.event() ? "|1\n" : "|0\n";
+        text += s.event() ? "|1|" : "|0|";
+        const Poles ends = poles(s.id);
+        text += ends.low;
+        text += '|';
+        text += ends.high;
+        text += '\n';
     }
     for (const TargetRow& t : kTargets) {
         text += "T|";

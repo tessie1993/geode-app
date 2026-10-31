@@ -631,7 +631,8 @@ void smartCellsFitTheSource() {
     const ReactRoute r = matrix::cell(ReactSource::KickEnv, LfoTarget::Zoom, 5.0f);
     check(r.enabled && near(r.amount, 2.0f), "a cell clamps its depth");
     const std::string text = matrix::catalogueText();
-    check(text.rfind("S|BASS|Bass|LEVELS|0\n", 0) == 0, "the catalogue starts with the first source");
+    check(text.rfind("S|BASS|Bass|LEVELS|0|soft|loud\n", 0) == 0, "the catalogue starts with the first source and its poles");
+    check(text.find("S|PITCH_HEIGHT|Pitch height|MELODY|0|low note|high note\n") != std::string::npos, "poles speak in the music's terms");
     check(text.find("T|CAM_SHAKE|Camera shake|CAMERA|0\n") != std::string::npos, "the catalogue lists the targets");
 }
 

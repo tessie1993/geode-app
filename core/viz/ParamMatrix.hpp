@@ -61,6 +61,15 @@ struct TargetRow {
 constexpr int kTargetCount = static_cast<int>(LfoTarget::ParticleFall) + 1;
 
 const SourceRow& source(ReactSource s);
+
+// What the two ends of a source mean, in words: the ends of a parameter's range slider in Customize
+// ("low note … high note", "dark … bright", "between kicks … on the kick"), so a range reads in the
+// music's terms and not as quiet … loud for everything.
+struct Poles {
+    const char* low;
+    const char* high;
+};
+Poles poles(ReactSource s);
 const TargetRow& target(LfoTarget t);
 const std::array<SourceRow, kReactSourceCount>& sources();
 const std::array<TargetRow, kTargetCount>& targets();

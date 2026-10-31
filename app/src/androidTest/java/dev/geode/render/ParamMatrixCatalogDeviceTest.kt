@@ -16,9 +16,9 @@ class ParamMatrixCatalogDeviceTest {
 
     @Test
     fun theSourceMirrorMatchesTheNativeCatalogue() {
-        val mirror =
-            ReactSource.entries.map { ReactSourceInfo(it.ordinal, it.name, it.label, it.group.name, it.isEvent) }
-        assertEquals(mirror, native.sources)
+        val mirror = ReactSource.entries.map { listOf(it.name, it.label, it.group.name, it.isEvent.toString()) }
+        assertEquals(mirror, native.sources.map { listOf(it.name, it.label, it.group, it.isEvent.toString()) })
+        native.sources.forEach { assert(it.low.isNotBlank() && it.high.isNotBlank()) { "${it.name} names both ends" } }
     }
 
     @Test

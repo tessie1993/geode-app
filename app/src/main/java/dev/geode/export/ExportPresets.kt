@@ -3,6 +3,10 @@ package dev.geode.export
 import androidx.annotation.StringRes
 import dev.geode.R
 
+/**
+ * One platform's usual combination of options. It only fills the options in
+ * ([dev.geode.data.filledFrom]); the user can pick any combination with or without one.
+ */
 data class ExportPreset(
     @param:StringRes val nameRes: Int,
     val quality: ExportQuality,
@@ -21,25 +25,4 @@ object ExportPresets {
             ExportPreset(R.string.export_preset_youtube, ExportQuality.FHD1080, ExportRatio.R16_9, fps = 60, loopSafe = false),
             ExportPreset(R.string.export_preset_master, ExportQuality.UHD4K, ExportRatio.R16_9, fps = 60, loopSafe = false),
         )
-
-    fun matching(
-        quality: ExportQuality,
-        ratio: ExportRatio,
-        fps: Int,
-        loopSafe: Boolean,
-    ): ExportPreset? = ALL.firstOrNull { it.isFor(quality, ratio, fps, loopSafe) }
-
-    fun indexMatching(
-        quality: ExportQuality,
-        ratio: ExportRatio,
-        fps: Int,
-        loopSafe: Boolean,
-    ): Int = ALL.indexOfFirst { it.isFor(quality, ratio, fps, loopSafe) }
-
-    private fun ExportPreset.isFor(
-        quality: ExportQuality,
-        ratio: ExportRatio,
-        fps: Int,
-        loopSafe: Boolean,
-    ): Boolean = this.quality == quality && this.ratio == ratio && this.fps == fps && this.loopSafe == loopSafe
 }

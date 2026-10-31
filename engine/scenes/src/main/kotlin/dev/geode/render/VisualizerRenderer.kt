@@ -102,15 +102,18 @@ class VisualizerRenderer(
     private val styleReactions = StyleReactionsCache()
 
     private val appContext = context.applicationContext
-    private val nativeViz = NativeViz(context)
+    // Outlives nativeViz's handle, which VisualizerView destroys on every detach; each new handle
+    // starts on the preset this remembers rather than on projectM's idle preset.
+    private val milkPreset = MilkPresetMemory()
+    private val nativeViz =
+        NativeViz(context).also { viz ->
+            viz.onCreated = { milkPreset.restorePath?.let(viz::loadMilkPreset) }
+        }
     private var nativeParams: SceneParams? = null
     private var nativeLfo: List<LfoConfig>? = null
     private var nativeAdsr: List<AdsrConfig>? = null
     private var nativeReactions: List<ReactionRoute>? = null
     private var nativeThermalSampleMs = 0L
-
-    @Volatile
-    private var lastMilkPreset: String? = null
 
     val milkdropAvailable: Boolean
         get() {
@@ -144,8 +147,14 @@ class VisualizerRenderer(
         nativeViz.setFluidInjectionShaders(force, dye)
     }
 
+    /**
+     * When no handle exists yet, [NativeViz.create] first queues [MilkPresetMemory.restorePath]
+     * through `onCreated`, and the load below then queues [path]. Native keeps one pending request
+     * (`Renderer::loadMilkPreset`) and only the GL frame consumes it, so the second replaces the
+     * first: the scene never loads the older preset, nor this one twice.
+     */
     fun loadMilkPreset(path: String) {
-        lastMilkPreset = path
+        milkPreset.request(path)
         nativeViz.create()
         nativeViz.loadMilkPreset(path)
     }
@@ -214,7 +223,7 @@ class VisualizerRenderer(
         nativeViz.render(SystemClock.elapsedRealtimeNanos() / NANOS_PER_SECOND, targetFbo = 0)
         nativeViz.pollError(onShaderError)
         nativeViz.takeMilkPresetLoaded()?.let { path ->
-            lastMilkPreset = path
+            milkPreset.loaded(path)
             onMilkPresetLoaded(path)
         }
     }
@@ -256,7 +265,7 @@ class VisualizerRenderer(
 
     fun exportSceneFactory(sceneId: String): SceneFactory {
         val id = sceneId
-        val preset = lastMilkPreset
+        val preset = milkPreset.restorePath
         return object : SceneFactory {
             override val sceneId: String = id
 

@@ -25,13 +25,15 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import dev.geode.R
+import dev.geode.model.TutorialChapter
 import dev.geode.ui.pro.GoProSettingsRow
 
 @Composable
 internal fun AppSettingsTab(
     viewModel: PlayerViewModel,
     onOpenStudioRender: () -> Unit,
-    onStartTutorial: () -> Unit,
+    onPlayTutorial: (List<TutorialChapter>) -> Unit,
+    onResetTutorials: () -> Unit,
 ) {
     val settingsViewModel: SettingsViewModel = geodeViewModel()
     var tab by rememberSaveable { mutableIntStateOf(0) }
@@ -44,6 +46,7 @@ internal fun AppSettingsTab(
             stringResource(R.string.settings_tab_folders),
             stringResource(R.string.settings_tab_behavior),
             stringResource(R.string.settings_tab_help),
+            stringResource(R.string.settings_tab_tutorials),
             stringResource(R.string.backup_tab),
             stringResource(R.string.settings_tab_about),
         )
@@ -56,8 +59,9 @@ internal fun AppSettingsTab(
             2 -> ExportLinkTab(onOpenStudioRender)
             3 -> FolderSettingsTab()
             4 -> BehaviorSettingsTab(settingsViewModel)
-            5 -> HelpSettingsTab(settingsViewModel, onStartTutorial)
-            6 -> BackupSettingsTab()
+            5 -> HelpSettingsTab()
+            6 -> TutorialSettingsTab(settingsViewModel, onPlay = onPlayTutorial, onReset = onResetTutorials)
+            7 -> BackupSettingsTab()
             else -> AboutSettingsTab()
         }
     }

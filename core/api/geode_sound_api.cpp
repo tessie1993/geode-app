@@ -22,7 +22,15 @@ void geode_sound_destroy(geode_sound* s) {
 }
 
 void geode_sound_write(geode_sound* s, const float* interleaved, size_t frames, int channels) {
-    if (s && interleaved) s->engine.write(interleaved, static_cast<int>(frames), channels);
+    if (!s || !interleaved || channels < 1) return;
+    // The engine counts frames in int; hand over anything longer in pieces rather than narrowing.
+    constexpr size_t kChunk = 1 << 20;
+    while (frames > 0) {
+        const size_t n = frames < kChunk ? frames : kChunk;
+        s->engine.write(interleaved, static_cast<int>(n), channels);
+        interleaved += n * static_cast<size_t>(channels);
+        frames -= n;
+    }
 }
 
 void geode_sound_step(geode_sound* s, float dt_seconds, GeodeSoundFrame* out) {

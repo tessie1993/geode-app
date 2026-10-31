@@ -124,7 +124,8 @@ internal fun PlaylistPickerDialog(
                 Text(stringResource(R.string.render_no_playlists))
             } else {
                 LazyColumn(Modifier.heightIn(max = 420.dp)) {
-                    items(playlists, key = { it.name }) { playlist ->
+                    // No key: a saved and a smart playlist may share a name, and a duplicate key crashes.
+                    items(playlists) { playlist ->
                         Column(
                             Modifier
                                 .fillMaxWidth()
@@ -157,7 +158,8 @@ internal fun TrackChecklistDialog(
     onDone: (List<String>) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    var picked by remember { mutableStateOf(chosen) }
+    // Saveable (as an ArrayList, which a Bundle holds), so ticks survive a rotation mid-pick.
+    var picked by rememberSaveable { mutableStateOf(ArrayList(chosen)) }
     var query by rememberSaveable { mutableStateOf("") }
     val shown = if (query.isBlank()) tracks else tracks.filter { it.title.contains(query.trim(), ignoreCase = true) }
     AlertDialog(
@@ -173,13 +175,14 @@ internal fun TrackChecklistDialog(
                     modifier = Modifier.fillMaxWidth(),
                 )
                 LazyColumn(Modifier.heightIn(max = 380.dp).padding(top = 8.dp)) {
-                    items(shown, key = { it.uri }) { track ->
+                    // No key: the library can list one URI twice (two folders' scans), and a duplicate key crashes.
+                    items(shown) { track ->
                         val checked = track.uri in picked
                         Row(
                             Modifier
                                 .fillMaxWidth()
                                 .toggleable(value = checked, role = Role.Checkbox) { on ->
-                                    picked = if (on) picked + track.uri else picked - track.uri
+                                    picked = ArrayList(if (on) picked + track.uri else picked - track.uri)
                                 }.padding(vertical = 4.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {

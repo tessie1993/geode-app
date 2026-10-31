@@ -272,9 +272,10 @@ internal class ExportController(
     /**
      * Renders [tracks] one after another through the same exporter as [startExport], each to its
      * own `muzviz_*.mp4` in Movies/MuzViz, under one [ExportRun] so the foreground service and its
-     * notification cover the whole batch. A track that fails is recorded and the next one starts;
-     * Cancel stops after the track rendering now. Every track uses [sceneParams] (the current look,
-     * or the preset the user chose), whole length, with no performance take or editor keyframes:
+     * notification cover the whole batch. A track that fails is recorded and the next one starts.
+     * Cancel stops the track rendering now, the same way it stops a single render, and marks it
+     * and every track after it cancelled; files already finished stay. Every track uses
+     * [sceneParams] (the current look, or the preset the user chose), whole length, with no performance take or editor keyframes:
      * those belong to the track playing now, not to the rest of a playlist.
      */
     fun startBatch(
@@ -340,9 +341,10 @@ internal class ExportController(
         publish: (Float) -> Unit,
     ): BatchOutcome {
         val uri = track.uri.toUri()
-        val analysed =
-            host.cachedTimeline.takeIf { host.exportUri == uri }
-                ?: host.analyze(uri) { p -> publish(p * 0.2f) }
+        // Always by this track's own URI. The playing track's cached timeline is not used here:
+        // reading it and the playing URI are two separate reads, and a track change between them
+        // would pair this track with another song's analysis. analyze() goes through AnalysisCache.
+        val analysed = host.analyze(uri) { p -> publish(p * 0.2f) }
         val name = "muzviz_${System.currentTimeMillis()}.mp4"
         val result =
             exporter.export(

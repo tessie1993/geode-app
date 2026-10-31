@@ -12,8 +12,13 @@ namespace {
 
 // splitmix64: tiny, fast, and the same stream on every platform, which the standard
 // distributions are not (libc++ and libstdc++ map engine bits to floats differently).
+//
+// `bounds` is the style's own range for the control being rolled (boundsFor). Every roll draws its
+// float through f() at most once and its on/off odds through chance() at most once, so swapping
+// the numbers there narrows a roll without each roll knowing about styles.
 struct Rng {
     uint64_t state;
+    const Bounds* bounds = nullptr;
 
     uint64_t next() {
         uint64_t z = (state += 0x9E3779B97F4A7C15ull);
@@ -23,11 +28,17 @@ struct Rng {
     }
     // 0 <= unit < 1, 24 bits.
     float unit() { return static_cast<float>(next() >> 40) * (1.0f / 16777216.0f); }
-    float f(float lo, float hi) { return lo + unit() * (hi - lo); }
+    float f(float lo, float hi) {
+        if (bounds && bounds->hasRange) {
+            lo = bounds->lo;
+            hi = bounds->hi;
+        }
+        return lo + unit() * (hi - lo);
+    }
     // lo..hi inclusive.
     int n(int lo, int hi) { return lo + static_cast<int>(next() % static_cast<uint64_t>(hi - lo + 1)); }
     int below(int count) { return n(0, count - 1); }
-    bool chance(float p) { return unit() < p; }
+    bool chance(float p) { return unit() < (bounds && bounds->chance >= 0.0f ? bounds->chance : p); }
     float sometimes(float p, float lo, float hi) { return chance(p) ? f(lo, hi) : 0.0f; }
 };
 

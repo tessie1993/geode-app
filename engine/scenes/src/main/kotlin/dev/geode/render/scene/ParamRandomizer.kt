@@ -332,7 +332,7 @@ object ParamRandomizer {
         section(CustomizeTab.CYMATICS)
         r(ParamKeys.GEOMETRY) { it.copy(cymaticsGeometry = rng.nextInt(SceneParams.CYMATICS_GEOMETRIES.size)) }
         r(ParamKeys.FUNDAMENTAL_HZ) { it.copy(cymaticsFundamental = f(55f, 260f)) }
-        r(ParamKeys.STANDING_WAVES) { it.copy(cymaticsModes = n(2, CymaticsMath.MAX_RENDERED_MODES)) }
+        r(ParamKeys.STANDING_WAVES) { it.copy(cymaticsModes = n(2, Catalogue.range(ParamKeys.STANDING_WAVES).endInclusive.toInt())) }
         r(ParamKeys.TONAL_FOCUS) { it.copy(cymaticsFocus = f(0.35f, 1f)) }
         r(ParamKeys.PLATE_RING) { it.copy(cymaticsRing = f(0.15f, 0.8f)) }
         r(ParamKeys.FIELD_SCALE) { it.copy(cymaticsScale = f(1.6f, 5.5f)) }

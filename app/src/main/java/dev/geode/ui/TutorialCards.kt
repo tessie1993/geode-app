@@ -30,6 +30,7 @@ val TutorialChapter.titleRes: Int
             TutorialChapter.WELCOME -> R.string.tutorial_chapter_welcome
             TutorialChapter.PLAYER -> R.string.tutorial_chapter_player
             TutorialChapter.LIBRARY -> R.string.tutorial_chapter_library
+            TutorialChapter.VISUALS -> R.string.tutorial_chapter_visuals
             TutorialChapter.SETTINGS -> R.string.tutorial_chapter_settings
         }
 
@@ -82,6 +83,27 @@ val TutorialChapter.cardContent: List<TutorialCard>
                         R.string.tutorial_library_3_body,
                         TutorialArt.SEARCH,
                         TutorialTarget.LIBRARY,
+                    ),
+                )
+            TutorialChapter.VISUALS ->
+                listOf(
+                    TutorialCard(
+                        R.string.tutorial_visuals_1_title,
+                        R.string.tutorial_visuals_1_body,
+                        TutorialArt.STYLES,
+                        TutorialTarget.VISUALS,
+                    ),
+                    TutorialCard(
+                        R.string.tutorial_visuals_2_title,
+                        R.string.tutorial_visuals_2_body,
+                        TutorialArt.MORPH,
+                        TutorialTarget.VISUALS,
+                    ),
+                    TutorialCard(
+                        R.string.tutorial_visuals_3_title,
+                        R.string.tutorial_visuals_3_body,
+                        TutorialArt.AUTO,
+                        TutorialTarget.VISUALS,
                     ),
                 )
             TutorialChapter.SETTINGS ->

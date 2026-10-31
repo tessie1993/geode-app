@@ -104,7 +104,8 @@ function upload(program, u) {
     case 'mat3': gl.uniformMatrix3fv(loc, false, v); break;
     case 'vec4': {
       const arr = new Float32Array(u.count * 4);
-      for (let i = 0; i < u.count; i++) arr.set(v, i * 4);
+      if (v.length === u.count * 4) arr.set(v);
+      else for (let i = 0; i < u.count; i++) arr.set(v, i * 4);
       gl.uniform4fv(loc, arr);
       break;
     }

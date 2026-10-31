@@ -38,7 +38,7 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..', '..');
 const SHADERS = path.join(ROOT, 'app', 'src', 'main', 'assets', 'shaders');
 const SHADER_SOURCE_CPP = path.join(ROOT, 'core', 'viz', 'ShaderSource.cpp');
-const SCENE_REGISTRY_CPP = path.join(ROOT, 'core', 'viz', 'SceneRegistry.cpp');
+const CATALOGUE_CPP = path.join(ROOT, 'core', 'viz', 'Catalogue.cpp');
 const FLUID_LOOK_HPP = path.join(ROOT, 'core', 'viz', 'fluid', 'FluidLook.hpp');
 
 // ---- includes, as ShaderSource.cpp does them ------------------------------
@@ -64,16 +64,21 @@ function resolveIncludes(source, registry) {
     if (!registry.includes(m[1])) throw new Error(`unknown shader include '${m[1]}'`);
     const file = path.join(SHADERS, `${m[1]}.glsl`);
     if (!fs.existsSync(file)) throw new Error(`missing shader include '${m[1]}'`);
-    out.push(fs.readFileSync(file, 'utf8'));
+    // Nested includes resolve too (lib_scene_uniforms pastes lib_sound), as ShaderSource.cpp does.
+    out.push(resolveIncludes(fs.readFileSync(file, 'utf8'), registry));
   }
   return out.join('\n');
 }
 
 function shaderIds() {
-  const src = fs.readFileSync(SCENE_REGISTRY_CPP, 'utf8');
-  const m = src.match(/kShaderIds\s*=\s*\{([\s\S]*?)\};/);
-  if (!m) throw new Error(`could not find kShaderIds in ${SCENE_REGISTRY_CPP}`);
-  return [...m[1].matchAll(/"([A-Za-z0-9_]+)"/g)].map((x) => x[1]);
+  // The catalogue lists the loose styles (kLooseShaders) and each family's twelve (kFamilies);
+  // every one compiles shaders/<id>_frag.glsl.
+  const src = fs.readFileSync(CATALOGUE_CPP, 'utf8');
+  const loose = src.match(/kLooseShaders\s*=\s*\{([\s\S]*?)\};/);
+  const families = src.match(/kFamilies\s*=\s*\{\{([\s\S]*?)\}\};/);
+  if (!loose || !families) throw new Error(`could not find kLooseShaders / kFamilies in ${CATALOGUE_CPP}`);
+  const ids = [...loose[1].matchAll(/"([A-Za-z0-9_]+)"/g), ...families[1].matchAll(/"([A-Za-z0-9_]+)"/g)].map((x) => x[1]);
+  return [...new Set(ids)].filter((id) => fs.existsSync(path.join(SHADERS, `${id}_frag.glsl`)));
 }
 
 function fluidLookCount() {
@@ -131,9 +136,33 @@ const SHADER_VALUES = {
   // CameraRig at rest: eye on the path at the base height, looking down +z, base focal.
   uCamPos: [0, 0, 37], uCamBasis: [1, 0, 0, 0, 1, 0, 0, 0, 1], uCamFocal: 1.6, uCamTravel: 37,
   uCamDolly: 0, uCamLook: [0, 0, 0],
+  uSound: null, uSoundDrive: 1, uSoundEvents: [0, 0, 0, 0], uSoundCounts: [41, 3],
 };
 
-const SHADER_TEXTURES = { uAudioTex: 'audio', uPalLut: 'palette', uFlow: 'flow' };
+// The sound engine's frame (lib_sound: uSound[19] by SND_* name), mid-loudness and mid-song: every
+// band near its average, the music clocks well along, a held note. --snd NAME=value overrides one
+// (SND_KICK_ENV=1 is a kick landing). Unnamed slots read 0.4.
+const LIB_SOUND = path.join(SHADERS, 'lib_sound.glsl');
+const SOUND_DEFAULTS = {
+  SND_BASS: 0.55, SND_BASS_ATT: 0.5, SND_MID: 0.45, SND_MID_ATT: 0.45, SND_TREBLE: 0.35, SND_TREBLE_ATT: 0.35,
+  SND_KICK_ENV: 0.3, SND_SNARE_ENV: 0.2, SND_HAT_ENV: 0.25, SND_ONSET_ENV: 0.3,
+  SND_BASS_TIME: 31, SND_MID_TIME: 27, SND_TREBLE_TIME: 23, SND_CURVED_TIME: 29, SND_HIT_TIME: 25, SND_NOTE_TIME: 21,
+  SND_HARD_CUT: 0, SND_HELD_HARD_CUT: 0, SND_SURGE: 0, SND_HELD_SURGE: 0, SND_SILENCE: 0, SND_RETURNED: 0,
+  SND_HELD_RETURNED: 0, SND_HELD_NOTE_CHANGE: 0, SND_KICK: 0, SND_SNARE: 0, SND_HAT: 0, SND_ONSET: 0,
+  SND_PITCH_CLASS: 0.42, SND_PITCH_CONFIDENCE: 0.7, SND_PRESENCE: 1, SND_INTENSITY: 0.5, SND_ENERGY_TREND: 0.2,
+};
+function soundFrame(overrides) {
+  const src = fs.readFileSync(LIB_SOUND, 'utf8');
+  const lanes = { x: 0, y: 1, z: 2, w: 3 };
+  const frame = new Array(19 * 4).fill(0.4);
+  const values = { ...SOUND_DEFAULTS, ...overrides };
+  for (const m of src.matchAll(/#define\s+(SND_\w+)\s+uSound\[(\d+)\]\.([xyzw])/g)) {
+    if (m[1] in values) frame[Number(m[2]) * 4 + lanes[m[3]]] = values[m[1]];
+  }
+  return frame;
+}
+
+const SHADER_TEXTURES = { uAudioTex: 'audio', uPalLut: 'palette', uFlow: 'flow', uSoundTex: 'audio' };
 
 // FluidLook::drawDisplay with mid-loudness audio.
 const FLUID_VALUES = {
@@ -173,7 +202,7 @@ function withKeywords(src, defines) {
 }
 
 function parseArgs(argv) {
-  const a = { size: 240, height: null, shaders: [], all: false, list: false, fluidDisplay: false, out: null, time: null };
+  const a = { size: 240, height: null, shaders: [], all: false, list: false, fluidDisplay: false, out: null, time: null, snd: {} };
   for (let i = 0; i < argv.length; i++) {
     const v = argv[i];
     if (v === '--list') a.list = true;
@@ -184,6 +213,10 @@ function parseArgs(argv) {
     else if (v === '--size') a.size = Number(argv[++i]);
     else if (v === '--out') a.out = argv[++i];
     else if (v === '--time') a.time = Number(argv[++i]);
+    else if (v === '--snd') {
+      const [k, val] = argv[++i].split('=');
+      a.snd[k] = Number(val);
+    }
     else throw new Error(`unknown flag ${v}`);
   }
   return a;
@@ -216,6 +249,7 @@ async function main() {
     const frag = resolveIncludes(fs.readFileSync(file, 'utf8'), registry);
     const values = { ...SHADER_VALUES };
     if (args.time !== null) values.uTime = args.time;
+    values.uSound = soundFrame(args.snd);
     jobs.push({ name: id, vert: quadVert, frag, uniforms: plan(parseUniforms(frag), values, SHADER_TEXTURES, args.size, args.height ?? args.size) });
   }
   if (args.fluidDisplay) {

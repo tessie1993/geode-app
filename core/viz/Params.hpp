@@ -185,6 +185,14 @@ struct SceneParams {
     float reactAmount = 1.0f; // global scale of every reaction route, 0..2
     int reactSeed = 0;        // which variant of the style's reaction DNA
 
+    // Appended for Customize › Camera and the layers (composite pass, viz/Layers). Routes write these;
+    // the base values stay 0 unless the user sets one.
+    float camCrane = 0.0f;    // camera rise, -1..1: up and looking down a little
+    float camCut = 0.0f;      // a rising edge past 0.5 cuts the camera to a new place
+    float fall = 0.0f;        // fall through itself, -1..1: + falls in, - falls back out
+    float fractal = 0.0f;     // fractal growth, 0..1: mirrored copies grow outward
+    float spawn = 0.0f;       // a rising edge past 0.5 spawns a copy that grows and dissolves
+
     struct Palette {
         const char* name;
         float base;
@@ -209,11 +217,11 @@ struct SceneParams {
     // pointer-to-member is not a compile error. It was declared as 98 over 95
     // entries, and lerpParams/blendParams wrote through the three null members
     // on every fade. Count again whenever a lerped float is added.
-    static constexpr int kLerpedFloatCount = 111;
+    static constexpr int kLerpedFloatCount = 116;
     static const std::array<FloatField, kLerpedFloatCount>& lerpedFloats();
 
     // Every field in declaration order; the wire order of geode_viz_set_params.
-    static constexpr int kFieldCount = 154;
+    static constexpr int kFieldCount = 159;
     static const std::array<const char*, kFieldCount>& fieldNames();
 
     // Sets a field by its Kotlin property name; ints and bools are taken from the float's value.

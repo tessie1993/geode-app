@@ -394,6 +394,7 @@ void Renderer::onSurfaceCreated() {
     reactions_.reset();
     macroReactions_.reset();
     camera_.reset();
+    layers_.reset();
 }
 
 void Renderer::surfaceChanged(int width, int height) {

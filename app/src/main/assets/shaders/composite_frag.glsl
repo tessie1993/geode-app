@@ -155,6 +155,102 @@ float compHash12(vec2 p) {
     return fract((p3.x + p3.y) * p3.z);
 }
 
+// ---- Layers (core/viz/Layers): fall through, fractal growth and spawns, over every style ----
+// Reaction routes drive them (the fall, fractal and spawn params); Layers.cpp steps the state.
+// uLayerOn is 0 when nothing is showing, so a frame without layers costs one branch.
+uniform float uLayerOn;
+uniform vec2 uLayerFall;     // x: octave phase 0..1, y: mix 0..1
+uniform vec2 uLayerFractal;  // x: generations grown 0..4, y: turn per generation (radians)
+uniform vec4 uSpawn[6];      // x, y (0..1), age 0..1 (1 = gone), seed 0..1
+
+// Mirror-wraps uv so a zoomed-out copy tiles without seams.
+vec2 layerWrap(vec2 p) { return 1.0 - abs(1.0 - mod(p, 2.0)); }
+
+float layerNoise(vec2 p) {
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    f = f * f * (3.0 - 2.0 * f);
+    float a = compHash12(i);
+    float b = compHash12(i + vec2(1.0, 0.0));
+    float c = compHash12(i + vec2(0.0, 1.0));
+    float d = compHash12(i + vec2(1.0, 1.0));
+    return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+}
+
+// Fall through: the frame at three octave scales, each fading in at one end of the stack and out at
+// the other, so the stack moving by one octave is the same picture again and the zoom never ends.
+// The phase runs forward (falls in) or back (falls out).
+vec3 layerFall(sampler2D tex, vec2 p, vec3 base) {
+    vec2 c = p - 0.5;
+    vec3 acc = vec3(0.0);
+    float wsum = 0.0;
+    for (int i = 0; i < 3; i++) {
+        float t = (float(i) + uLayerFall.x) / 3.0;
+        float scale = exp2(3.0 * t - 1.5);
+        float w = sin(3.14159265 * t);
+        w *= w;
+        acc += w * texture(tex, layerWrap(0.5 + c / scale)).rgb;
+        wsum += w;
+    }
+    return mix(base, acc / max(wsum, 1e-3), uLayerFall.y);
+}
+
+// Fractal growth: each generation folds the plane once more (mirror, shift, turn, halve) and lays its
+// copy over a ring further out, so the picture branches outward the more it has grown.
+vec3 layerFractal(sampler2D tex, vec2 p, vec3 base) {
+    vec2 a = vec2(max(uRatio, 0.1), 1.0);
+    vec2 c = (p - 0.5) * a;
+    float r = length(c);
+    vec2 q = c;
+    float s = 1.0;
+    float ct = cos(uLayerFractal.y);
+    float st = sin(uLayerFractal.y);
+    vec3 col = base;
+    for (int i = 0; i < 4; i++) {
+        float vis = clamp(uLayerFractal.x - float(i), 0.0, 1.0);
+        if (vis <= 0.0) break;
+        q = abs(q) - 0.22;
+        q = mat2(ct, -st, st, ct) * q;
+        s *= 0.62;
+        float ring = smoothstep(0.08 + 0.13 * float(i), 0.2 + 0.13 * float(i), r);
+        vec3 copy = texture(tex, layerWrap(0.5 + (q / s) / a * 0.5)).rgb;
+        col = mix(col, max(col, copy), vis * ring);
+    }
+    return col;
+}
+
+// Spawns: each is a turned, enlarged copy of the picture in a disc that grows from its birth point and
+// dissolves through noise as it ages, with a glowing rim on the dissolve front.
+vec3 layerSpawns(sampler2D tex, vec2 p, vec3 col) {
+    vec2 a = vec2(max(uRatio, 0.1), 1.0);
+    for (int i = 0; i < 6; i++) {
+        vec4 s = uSpawn[i];
+        if (s.z >= 1.0) continue;
+        vec2 d = (p - s.xy) * a;
+        float radius = mix(0.04, 0.42, sqrt(s.z)) * (0.6 + 0.8 * s.w);
+        float inside = 1.0 - smoothstep(radius * 0.85, radius, length(d));
+        if (inside <= 0.0) continue;
+        float ang = 6.2831853 * s.w;
+        vec2 q = mat2(cos(ang), -sin(ang), sin(ang), cos(ang)) * d / a;
+        vec3 copy = texture(tex, layerWrap(0.5 + q * 1.6)).rgb;
+        float n = layerNoise(d * 9.0 + s.w * 37.0);
+        float alive = smoothstep(s.z - 0.04, s.z + 0.04, n);
+        float rim = (1.0 - smoothstep(0.0, 0.06, abs(n - s.z))) * (1.0 - s.z);
+        col = mix(col, copy * 1.15, inside * alive);
+        col += inside * rim * 0.6 * (copy + 0.15);
+    }
+    return col;
+}
+
+// The scene colour at p with every live layer laid over it.
+vec3 layered(sampler2D tex, vec2 p) {
+    vec3 col = texture(tex, clamp(p, 0.0, 1.0)).rgb;
+    if (uLayerOn < 0.5) return col;
+    if (uLayerFall.y > 0.001) col = layerFall(tex, p, col);
+    if (uLayerFractal.x > 0.001) col = layerFractal(tex, p, col);
+    return layerSpawns(tex, p, col);
+}
+
 // Hue rotation about the grey axis, byte-for-byte the same formula as
 // pm_post_frag's hueRotate (and mirrored by CompositeGrade.hueRotate).
 vec3 hueRotate(vec3 c, float a) {
@@ -305,11 +401,11 @@ vec3 postFx(sampler2D tex, vec2 uv, vec4 gate, float camOn) {
     vec3 col;
     if (uChroma > 0.001) {
         vec2 dir = (p - 0.5) * uChroma * 0.03;
-        col.r = texture(tex, clamp(p + dir, 0.0, 1.0)).r;
-        col.g = texture(tex, clamp(p, 0.0, 1.0)).g;
-        col.b = texture(tex, clamp(p - dir, 0.0, 1.0)).b;
+        col.r = layered(tex, p + dir).r;
+        col.g = layered(tex, p).g;
+        col.b = layered(tex, p - dir).b;
     } else {
-        col = texture(tex, clamp(p, 0.0, 1.0)).rgb;
+        col = layered(tex, p);
     }
     // Ripple overlay glint: Blinn specular from the wave normal (same light
     // rig as water_display_frag) plus a small gradient-magnitude shimmer so

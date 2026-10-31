@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 
+#include "viz/Layers.hpp"
 #include "viz/Params.hpp"
 #include "viz/Texture.hpp"
 #include "viz/Transition.hpp"
@@ -69,6 +70,8 @@ public:
         std::array<float, 4> camFlat{0.0f, 0.0f, 1.0f, 0.0f};
         std::array<float, 2> camTilt{};
         std::array<float, 2> camGate{};
+        // Fall through, fractal growth and spawns (viz/Layers), drawn over every style.
+        Layers::Uniforms layers;
         // W00: underlay, read each frame from CompositePass's own latched texture (see the class
         // comment above) via underlayTexOrZero()/underlayBlendMode()/underlayAmount().
         GLuint underlayTex = 0;

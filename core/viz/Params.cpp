@@ -142,6 +142,16 @@ const std::array<SceneParams::FloatField, SceneParams::kLerpedFloatCount>& Scene
         {"camShake", &SceneParams::camShake},
         {"camSmooth", &SceneParams::camSmooth},
         {"reactAmount", &SceneParams::reactAmount},
+        {"camCrane", &SceneParams::camCrane},
+        {"camCut", &SceneParams::camCut},
+        {"fall", &SceneParams::fall},
+        {"fractal", &SceneParams::fractal},
+        {"spawn", &SceneParams::spawn},
+        {"camCrane", &SceneParams::camCrane},
+        {"camCut", &SceneParams::camCut},
+        {"fall", &SceneParams::fall},
+        {"fractal", &SceneParams::fractal},
+        {"spawn", &SceneParams::spawn},
     }};
     return kFields;
 }
@@ -309,6 +319,16 @@ const SceneParams::FloatField kAllFloats[] = {
         {"camShake", &SceneParams::camShake},
         {"camSmooth", &SceneParams::camSmooth},
         {"reactAmount", &SceneParams::reactAmount},
+        {"camCrane", &SceneParams::camCrane},
+        {"camCut", &SceneParams::camCut},
+        {"fall", &SceneParams::fall},
+        {"fractal", &SceneParams::fractal},
+        {"spawn", &SceneParams::spawn},
+        {"camCrane", &SceneParams::camCrane},
+        {"camCut", &SceneParams::camCut},
+        {"fall", &SceneParams::fall},
+        {"fractal", &SceneParams::fractal},
+        {"spawn", &SceneParams::spawn},
 };
 }  // namespace
 

@@ -10,6 +10,7 @@
 #include <string>
 
 #include "viz/CameraRig.hpp"
+#include "viz/Layers.hpp"
 #include "viz/Macros.hpp"
 #include "viz/MotionField.hpp"
 #include "viz/ParamMatrix.hpp"
@@ -273,7 +274,7 @@ void playBeats(ReactionEngine& e, int beats, int& count) {
 }
 
 void jumpHoldsANewSeededValuePerHit() {
-    static_assert(kReactModeCount == 5, "dev.geode.render.ReactMode has 5 entries");
+    static_assert(kReactModeCount == 6, "dev.geode.render.ReactMode has 6 entries");
     ReactionEngine a;
     ReactionEngine b;
     a.reset();
@@ -463,6 +464,74 @@ void hardCutsJumpWithoutATweenAndKeepTheirGap() {
     f.hardCut = 1.0f;
     rig.step(p, {}, 1.0f / 60.0f, false, true, &f);
     check(rig.cuts() == 2, "a cut after the gap cuts again");
+}
+
+void routedCutsAndCraneMoveTheRig() {
+    SceneParams p;
+    CameraRig rig;
+    for (int i = 0; i < 60; ++i) rig.step(p, {}, 1.0f / 60.0f, false);
+    p.camCut = 1.0f;
+    rig.step(p, {}, 1.0f / 60.0f, false);
+    check(rig.cuts() == 1, "camCut's rising edge cuts");
+    rig.step(p, {}, 1.0f / 60.0f, false);
+    check(rig.cuts() == 1, "a held camCut cuts once");
+    p.camCut = 0.0f;
+    for (int i = 0; i < 30; ++i) rig.step(p, {}, 1.0f / 60.0f, false);
+    p.camCut = 1.0f;
+    rig.step(p, {}, 1.0f / 60.0f, false);
+    check(rig.cuts() == 1, "routed cuts keep a gap of about a bar");
+    p.camCut = 0.0f;
+    for (int i = 0; i < 90; ++i) rig.step(p, {}, 1.0f / 60.0f, false);
+    p.camCut = 1.0f;
+    rig.step(p, {}, 1.0f / 60.0f, false);
+    check(rig.cuts() == 2, "a routed cut after the gap cuts again");
+
+    SceneParams flat;
+    flat.camFly = 0.0f;
+    CameraRig low;
+    CameraRig high;
+    SceneParams up = flat;
+    up.camCrane = 1.0f;
+    for (int i = 0; i < 240; ++i) {
+        low.step(flat, {}, 1.0f / 60.0f, false);
+        high.step(up, {}, 1.0f / 60.0f, false);
+    }
+    check(high.pose().pos[1] > low.pose().pos[1] + 1.0f, "the crane lifts the eye");
+    check(high.pose().fwd[1] < low.pose().fwd[1] - 0.1f, "and tips the view down to keep the subject");
+
+    std::array<ReactRoute, ReactionEngine::kRoutes> routes{};
+    routes[0] = matrix::cell(ReactSource::KickEnv, LfoTarget::CamShake, 0.5f);
+    routes[1] = matrix::cell(ReactSource::HardCut, LfoTarget::CamCut, 1.0f);
+    const CameraRig::Moves m = CameraRig::stepAside(CameraRig::Moves{}, routes);
+    check(m.shake == 0.0f && m.cut == 0.0f && m.reframe == 0.0f, "a routed channel replaces the rig's own move");
+    check(m.orbit == 1.0f && m.dolly == 1.0f, "channels without a route keep the rig's move");
+}
+
+void layersFallSpawnAndGrowAlike() {
+    SceneParams p;
+    Layers a;
+    Layers b;
+    check(!a.uniforms().any(), "no layers until a route drives one");
+    p.fall = 1.0f;
+    p.fractal = 1.0f;
+    for (int i = 0; i < 120; ++i) {
+        p.spawn = (i % 30) < 2 ? 1.0f : 0.0f;
+        a.step(p, 1.0f / 60.0f, false);
+        b.step(p, 1.0f / 60.0f, false);
+    }
+    const Layers::Uniforms& u = a.uniforms();
+    check(u.fallMix > 0.9f, "falling shows the fall layer");
+    check(u.fractal > 3.0f, "fractal growth grows generations");
+    int alive = 0;
+    for (const auto& s : u.spawn) alive += s[2] < 1.0f ? 1 : 0;
+    check(alive == 4, "every edge spawns one copy");
+    for (int k = 0; k < Layers::kSpawns; ++k) {
+        check(u.spawn[static_cast<size_t>(k)] == b.uniforms().spawn[static_cast<size_t>(k)], "spawns land alike in two runs (export = screen)");
+    }
+    const float phase = u.fallPhase;
+    p.fall = -1.0f;
+    a.step(p, 0.1f, false);
+    check(std::fabs(std::fmod(phase - a.uniforms().fallPhase + 1.0f, 1.0f) - 0.06f) < 1e-3f, "a negative fall runs the stack back out");
 }
 
 void silenceAndTheMotionDialStillTheMusicMoves() {
@@ -683,6 +752,8 @@ int main() {
     zeroDtFreezesTheCameraAndHugeDtIsOneClampedStep();
     stillStylesKeepTheBankOutOfTheFlatRoll();
     hardCutsJumpWithoutATweenAndKeepTheirGap();
+    routedCutsAndCraneMoveTheRig();
+    layersFallSpawnAndGrowAlike();
     silenceAndTheMotionDialStillTheMusicMoves();
     traumaShakeIsBoundedAndFinite();
     motionFieldVariantsDiffer();

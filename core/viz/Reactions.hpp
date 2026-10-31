@@ -63,8 +63,12 @@ constexpr int kReactSourceCount = static_cast<int>(ReactSource::Eq22k) + 1;
 //   this: an amount of 2 folds back to 0 on every edge.
 // Step and Spin accumulators are folded through a triangle wave into -1..1, so
 // a target stepped forever stays bounded and never wraps with a pop.
-enum class ReactMode { Follow, Step, Spin, Jump, Toggle };
-constexpr int kReactModeCount = static_cast<int>(ReactMode::Toggle) + 1;
+// Drive: the music is what moves the target. A motion that would otherwise run all the time (rotation,
+//   scene speed, sway, drift, camera fly, colour cycle, dive) runs at its slider's rate times how busy
+//   the source is (typical music = the slider, silence = still); see matrix::drive. Without a Drive
+//   route a motion target still waits for the music, on its default source in ParamMatrix.
+enum class ReactMode { Follow, Step, Spin, Jump, Toggle, Drive };
+constexpr int kReactModeCount = static_cast<int>(ReactMode::Drive) + 1;
 
 struct ReactRoute {
     bool enabled = false;

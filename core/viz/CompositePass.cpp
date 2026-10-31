@@ -150,6 +150,11 @@ void CompositePass::draw(const Inputs& inputs) {
     glUniform4fv(program.loc("uCamFlat"), 1, inputs.camFlat.data());
     glUniform2fv(program.loc("uCamTilt"), 1, inputs.camTilt.data());
     glUniform2fv(program.loc("uCamGate"), 1, inputs.camGate.data());
+    const Layers::Uniforms& lay = inputs.layers;
+    glUniform1f(program.loc("uLayerOn"), lay.any() ? 1.0f : 0.0f);
+    glUniform2f(program.loc("uLayerFall"), lay.fallPhase, lay.fallMix);
+    glUniform2f(program.loc("uLayerFractal"), lay.fractal, lay.fractalTurn);
+    glUniform4fv(program.loc("uSpawn"), Layers::kSpawns, lay.spawn[0].data());
     glBindVertexArray(inputs.quadVao);
     glDrawArrays(GL_TRIANGLES, 0, 3);
     glBindVertexArray(0);

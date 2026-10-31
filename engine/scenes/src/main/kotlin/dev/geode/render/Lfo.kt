@@ -124,6 +124,18 @@ enum class LfoTarget(
     CAM_ROLL("Camera roll", ParamScope.UNIVERSAL),
     CAM_FOV("Camera FOV", ParamScope.UNIVERSAL),
     CAM_SHAKE("Camera shake", ParamScope.UNIVERSAL),
+
+    // Customize › Camera's rise and cut, and the layers the composite pass draws over every style
+    // (core/viz/Layers), so these are universal too.
+    CAM_CRANE("Camera rise", ParamScope.UNIVERSAL),
+    CAM_CUT("Camera cut", ParamScope.UNIVERSAL),
+    FALL("Fall through", ParamScope.UNIVERSAL),
+    FRACTAL("Fractal growth", ParamScope.UNIVERSAL),
+    SPAWN("Spawn", ParamScope.UNIVERSAL),
+
+    // The last two motions that ran on a slider alone, so the music can drive them too.
+    CYCLE_SPEED("Colour cycle speed", ParamScope.UNIVERSAL),
+    DIVE_SPEED("Dive speed", ParamScope.ENDLESS_ZOOM),
 }
 
 /**

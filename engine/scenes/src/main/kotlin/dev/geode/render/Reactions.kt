@@ -139,6 +139,9 @@ enum class ReactMode(
     SPIN("Spin"),
     JUMP("Jump"),
     TOGGLE("Toggle"),
+
+    /** The music is what moves the target: the slider's rate times how busy the source is (core/viz/ParamMatrix). */
+    DRIVE("Drive"),
 }
 
 /** One route of the reaction matrix: [source] moves [target] by [amount], smoothed. */

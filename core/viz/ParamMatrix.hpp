@@ -58,7 +58,7 @@ struct TargetRow {
     bool wraps;
 };
 
-constexpr int kTargetCount = static_cast<int>(LfoTarget::CamShake) + 1;
+constexpr int kTargetCount = static_cast<int>(LfoTarget::DiveSpeed) + 1;
 
 const SourceRow& source(ReactSource s);
 const TargetRow& target(LfoTarget t);
@@ -77,6 +77,23 @@ SmartRoute smart(ReactSource s);
 
 // One route from a cell: smart mode and timing, the given depth.
 ReactRoute cell(ReactSource s, LfoTarget t, float amount);
+
+// The motions that used to run all the time on a slider (rotation, scene speed, sway, drift, camera
+// fly, colour cycle, dive). The music moves them now: each runs at its slider's value times a gate of
+// 0 (silence) .. ~1 (typical music) .. 2.5 (busy), read from its Drive routes if it has any, else from
+// its default source here. Default sources differ per motion, so the bass turns it while the hits
+// carry it sideways and the loudness flies it forward: never everything on one sound.
+struct DriveRow {
+    LfoTarget target;
+    ReactSource source;
+};
+constexpr int kDriveCount = 8;
+const std::array<DriveRow, kDriveCount>& drives();
+// The default source for a motion target, or false if the target is not a motion.
+bool defaultDrive(LfoTarget t, ReactSource& out);
+// Scales each motion field by its gate. Runs after the routes' signals are stepped and before their
+// offsets are added, so a route's push lands on top of the music-driven base.
+SceneParams drive(const SceneParams& p, const ReactSignals& s, const std::array<ReactRoute, ReactionEngine::kRoutes>& routes);
 
 // "S|NAME|Label|GROUP|event\n" per source, then "T|NAME|Label|GROUP|luminance\n" per target, in wire
 // order: what Kotlin parses (ParamMatrixCatalog).

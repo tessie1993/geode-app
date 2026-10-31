@@ -109,6 +109,9 @@ void ReactionEngine::tick(const GeodeSoundFrame& f, float dt) {
         const float src = signals_.value(r.source);
         float target = 0.0f;
         switch (r.mode) {
+            case ReactMode::Drive:
+                // Read by matrix::drive, which scales the target instead of adding to it.
+                break;
             case ReactMode::Follow:
                 target = shape(src, r.curve) * r.amount;
                 break;
@@ -156,7 +159,7 @@ SceneParams ReactionEngine::apply(const SceneParams& p) const {
     for (int i = 0; i < kRoutes; ++i) {
         const ReactRoute& r = routes[static_cast<size_t>(i)];
         ModChain chain{};
-        if (!r.enabled || r.target == LfoTarget::None || chainOf(r.target, chain)) continue;
+        if (!r.enabled || r.mode == ReactMode::Drive || r.target == LfoTarget::None || chainOf(r.target, chain)) continue;
         o = applyLfoTarget(o, r.target, out_[static_cast<size_t>(i)] * scale);
     }
     return o;

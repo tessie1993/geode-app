@@ -3,6 +3,7 @@
 
 #include "api/geode_api.h"
 #include "viz/Params.hpp"
+#include "viz/Reactions.hpp"
 
 namespace geode::viz {
 
@@ -52,6 +53,8 @@ public:
     static constexpr float kBaseFocal = 1.6f;
     static constexpr float kShakeRadians = 0.025f;
     static constexpr float kFlatTilt = 0.35f;      // 2D plane tilt is gentler than the 3D look
+    static constexpr float kCraneReach = 1.4f;     // world units up at camCrane 1
+    static constexpr float kCraneLook = 0.3f;      // radians the view tips down at camCrane 1, to keep the subject
 
     struct LookInput {
         float yaw = 0.0f;    // -1..1, touch anchor or gyro
@@ -60,7 +63,8 @@ public:
 
     // How hard the music moves below play, from Customize › Macros (viz/Macros); 1 everywhere is as styled.
     struct Moves {
-        float orbit = 1.0f;    // the mid-clock Lissajous look and the roll sway
+        float orbit = 1.0f;    // the mid-clock Lissajous look
+        float roll = 1.0f;     // the loudness-clock roll sway
         float lean = 1.0f;     // stereo pan, melody height and the note look
         float dolly = 1.0f;    // surge push, return pull, the rise creep
         float breath = 1.0f;   // the bass FOV breath
@@ -69,6 +73,9 @@ public:
         float cut = 1.0f;      // hard cuts: 0 never, 2 twice as often
     };
     void setMoves(const Moves& m) { moves_ = m; }
+    // A route on a camera channel (Customize › Camera) replaces the rig's own move for that channel,
+    // so the user's choice of sound is what moves it rather than one more push on top of the default.
+    static Moves stepAside(Moves m, const std::array<ReactRoute, ReactionEngine::kRoutes>& routes);
 
     void reset();
     // reducedMotion scales travel, orbit, roll and shake, the vestibular
@@ -81,6 +88,8 @@ public:
 
     // Hard cuts closer together than this are ignored; projectM's default minimum preset time is 20 s.
     static constexpr float kCutGapSeconds = 15.0f;
+    // A cut the user routed (camCut) may come much sooner: about a fast bar, never a strobe of cuts.
+    static constexpr float kRoutedCutGapSeconds = 1.3f;
     // After a cut, the counted reframe holds off, so two structural moves never land together.
     static constexpr float kReframeHoldSeconds = 4.0f;
     static constexpr float kReframeGapSeconds = 8.0f;
@@ -101,7 +110,8 @@ private:
         void step(float target, float dt, float seconds);
     };
 
-    Spring yaw_, pitch_, roll_, dolly_, fov_, speed_, orbit_;
+    Spring yaw_, pitch_, roll_, dolly_, fov_, speed_, orbit_, crane_;
+    bool cutHigh_ = false;
     float travel_ = 0.0f;
     float time_ = 0.0f;
     bool primed_ = false;

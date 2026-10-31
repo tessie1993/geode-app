@@ -182,6 +182,18 @@ data class SceneParams(
     val reactAmount: Float = 1f,
     /** Which variant of the style's reaction DNA ([BuildStyleReactionsUseCase]) plays. */
     val reactSeed: Int = 0,
+    // Customize › Camera and the layers (core/viz/Layers, drawn in the composite pass). Reaction routes
+    // write these; the base values stay 0 unless the user sets one. Appended to keep the wire.
+    /** Camera rise, -1..1: up, looking down a little. */
+    val camCrane: Float = 0f,
+    /** A rising edge past 0.5 cuts the camera to a new place on its path. */
+    val camCut: Float = 0f,
+    /** Fall through itself, -1..1: positive falls in, negative falls back out. */
+    val fall: Float = 0f,
+    /** Fractal growth, 0..1: mirrored copies of the picture grow outward. */
+    val fractal: Float = 0f,
+    /** A rising edge past 0.5 spawns a copy of the picture that grows and dissolves. */
+    val spawn: Float = 0f,
 ) {
     companion object {
         const val UNSET_OVERRIDE: Float = -1f

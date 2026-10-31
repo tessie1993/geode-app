@@ -1,6 +1,7 @@
 #include "viz/ParamMatrix.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <cstring>
 
 namespace geode::viz::matrix {
@@ -165,6 +166,13 @@ constexpr std::array<TargetRow, kTargetCount> kTargets = {{
     GEODE_TGT(CamRoll, "CAM_ROLL", "Camera roll", "CAMERA", camRoll, 1.0f, -1.0f, 1.0f, false),
     GEODE_TGT(CamFov, "CAM_FOV", "Camera FOV", "CAMERA", camFov, 1.0f, 0.5f, 2.0f, false),
     GEODE_TGT(CamShake, "CAM_SHAKE", "Camera shake", "CAMERA", camShake, 1.0f, 0.0f, 1.0f, false),
+    GEODE_TGT(CamCrane, "CAM_CRANE", "Camera rise", "CAMERA", camCrane, 1.0f, -1.0f, 1.0f, false),
+    GEODE_TGT(CamCut, "CAM_CUT", "Camera cut", "CAMERA", camCut, 1.0f, 0.0f, 1.0f, false),
+    GEODE_TGT(Fall, "FALL", "Fall through", "LAYERS", fall, 1.0f, -1.0f, 1.0f, false),
+    GEODE_TGT(Fractal, "FRACTAL", "Fractal growth", "LAYERS", fractal, 1.0f, 0.0f, 1.0f, false),
+    GEODE_TGT(Spawn, "SPAWN", "Spawn", "LAYERS", spawn, 1.0f, 0.0f, 1.0f, false),
+    GEODE_TGT(CycleSpeed, "CYCLE_SPEED", "Colour cycle speed", "COLOUR", cycleSpeed, 0.3f, 0.0f, 0.6f, false),
+    GEODE_TGT(DiveSpeed, "DIVE_SPEED", "Dive speed", "MOTION", endlessZoomSpeed, 0.6f, 0.0f, 1.2f, false),
 }};
 
 #undef GEODE_TGT
@@ -241,6 +249,56 @@ SmartRoute smart(ReactSource s) {
 ReactRoute cell(ReactSource s, LfoTarget t, float amount) {
     const SmartRoute m = smart(s);
     return {true, s, t, m.mode, std::clamp(amount, -2.0f, 2.0f), ModCurve::Linear, m.attackSeconds, m.releaseSeconds};
+}
+
+namespace {
+
+constexpr std::array<DriveRow, kDriveCount> kDrives = {{
+    {LfoTarget::Speed, ReactSource::MidTime},
+    {LfoTarget::Rotation, ReactSource::BassTime},
+    {LfoTarget::Sway, ReactSource::TrebleTime},
+    {LfoTarget::DriftX, ReactSource::HitTime},
+    {LfoTarget::DriftY, ReactSource::HitTime},
+    {LfoTarget::CamFly, ReactSource::CurvedTime},
+    {LfoTarget::CycleSpeed, ReactSource::NoteTime},
+    {LfoTarget::DiveSpeed, ReactSource::CurvedTime},
+}};
+
+constexpr float kMaxGate = 2.5f;
+
+}  // namespace
+
+const std::array<DriveRow, kDriveCount>& drives() { return kDrives; }
+
+bool defaultDrive(LfoTarget t, ReactSource& out) {
+    for (const DriveRow& d : kDrives) {
+        if (d.target == t) {
+            out = d.source;
+            return true;
+        }
+    }
+    return false;
+}
+
+SceneParams drive(const SceneParams& p, const ReactSignals& s, const std::array<ReactRoute, ReactionEngine::kRoutes>& routes) {
+    SceneParams o = p;
+    // Silence stills everything, whatever the source says.
+    const float presence = s.value(ReactSource::Presence);
+    for (const DriveRow& d : kDrives) {
+        float gate = 0.0f;
+        bool routed = false;
+        for (const ReactRoute& r : routes) {
+            if (!r.enabled || r.mode != ReactMode::Drive || r.target != d.target) continue;
+            gate += 2.0f * shape(std::fabs(s.value(r.source)), r.curve) * r.amount;
+            routed = true;
+        }
+        if (!routed) gate = 2.0f * s.value(d.source);
+        gate = std::clamp(gate * presence, 0.0f, kMaxGate);
+        const TargetRow& row = target(d.target);
+        const float lo = std::min(row.min, 0.0f);
+        o.*row.field = std::clamp(p.*row.field * gate, lo, row.max);
+    }
+    return o;
 }
 
 std::string catalogueText() {

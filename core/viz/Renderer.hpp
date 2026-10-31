@@ -14,6 +14,7 @@
 #include "sound/SoundEngine.hpp"
 #include "viz/Adsr.hpp"
 #include "viz/CameraRig.hpp"
+#include "viz/Layers.hpp"
 #include "viz/CompositePass.hpp"
 #include "viz/Framebuffer.hpp"
 #include "viz/GlProfile.hpp"
@@ -162,6 +163,7 @@ private:
     ReactionEngine reactions_;
     ReactionEngine macroReactions_;
     CameraRig camera_;
+    Layers layers_;
     // One engine per renderer (one per surface), so each is frame-locked to its own dt. Guarded by soundLock_
     // only because writeAudio and soundFrame are public; in practice one thread does everything.
     mutable std::mutex soundLock_;

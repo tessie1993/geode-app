@@ -137,6 +137,7 @@ CameraRig::Moves camera(const MacroKnobs& k) {
     const float chaos = knob(k, Macro::Chaos);
     CameraRig::Moves m;
     m.orbit = space;
+    m.roll = space;
     m.lean = space;
     m.dolly = space;
     m.breath = space;

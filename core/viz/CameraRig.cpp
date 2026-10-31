@@ -49,7 +49,8 @@ void CameraRig::Spring::step(float target, float dt, float seconds) {
 }
 
 void CameraRig::reset() {
-    yaw_ = pitch_ = roll_ = dolly_ = fov_ = speed_ = orbit_ = Spring{};
+    yaw_ = pitch_ = roll_ = dolly_ = fov_ = speed_ = orbit_ = crane_ = Spring{};
+    cutHigh_ = false;
     travel_ = 0.0f;
     time_ = 0.0f;
     primed_ = false;
@@ -72,6 +73,23 @@ float CameraRig::nextRandom() {
     seed_ ^= seed_ >> 17;
     seed_ ^= seed_ << 5;
     return static_cast<float>(seed_ >> 8) / 16777216.0f;
+}
+
+CameraRig::Moves CameraRig::stepAside(Moves m, const std::array<ReactRoute, ReactionEngine::kRoutes>& routes) {
+    for (const ReactRoute& r : routes) {
+        if (!r.enabled) continue;
+        switch (r.target) {
+            case LfoTarget::CamPush: m.dolly = 0.0f; break;
+            case LfoTarget::CamYaw: case LfoTarget::CamPitch: m.orbit = 0.0f; break;
+            case LfoTarget::CamRoll: m.roll = 0.0f; break;
+            case LfoTarget::CamFov: m.breath = 0.0f; break;
+            case LfoTarget::CamShake: m.shake = 0.0f; break;
+            case LfoTarget::CamCrane: m.lean = 0.0f; break;
+            case LfoTarget::CamCut: m.cut = 0.0f; m.reframe = 0.0f; break;
+            default: break;
+        }
+    }
+    return m;
 }
 
 Vec3 CameraRig::pathPoint(int path, float orbit, float s) {
@@ -115,13 +133,16 @@ void CameraRig::step(const SceneParams& p, const LookInput& look, float dt, bool
     float soundRoll = 0.0f;
     float soundDolly = 0.0f;
     bool cut = false;
+    sinceCut_ += dt;
+    // A routed cut (Customize › Camera): camCut crossing 0.5 upward, re-armed below 0.3 like a Step route.
+    const bool cutEdge = p.camCut >= 0.5f && !cutHigh_;
+    cutHigh_ = p.camCut >= 0.3f && (p.camCut >= 0.5f || cutHigh_);
     if (sound != nullptr) {
         const GeodeSoundFrame& s = *sound;
         auto val = [](float v) { return std::isfinite(v) ? v : 0.0f; };
         const float intensity = std::clamp(val(s.intensity), 0.0f, 1.0f);
         const float amp = std::clamp(p.motionAmount, 0.0f, 1.0f) * g * std::clamp(val(s.presence), 0.0f, 1.0f) *
                           (0.3f + 0.7f * std::pow(intensity, 1.5f));
-        sinceCut_ += dt;
         sinceReframe_ += dt;
         sinceNoteLook_ += dt;
 
@@ -155,7 +176,7 @@ void CameraRig::step(const SceneParams& p, const LookInput& look, float dt, bool
         soundPitch += 0.09f * amp * m.orbit * (0.75f * std::sin(0.4f * c) + 0.25f * std::sin(1.324f * c));
         if (bankFlat) {
             const float k = std::fmod(val(s.curvedTime), kTwoPi * 100.0f);
-            soundRoll += 0.05f * amp * m.orbit * (0.6f * std::sin(0.31f * k) + 0.4f * std::sin(0.73f * k));
+            soundRoll += 0.05f * amp * m.roll * (0.6f * std::sin(0.31f * k) + 0.4f * std::sin(0.73f * k));
         }
         // Lean with the stereo field; rise with the melody while there is one.
         soundYaw += 0.08f * amp * m.lean * std::clamp(val(s.stereoPan), -1.0f, 1.0f);
@@ -185,8 +206,19 @@ void CameraRig::step(const SceneParams& p, const LookInput& look, float dt, bool
         trauma_ = std::max(0.0f, trauma_ - 1.2f * dt);
         traumaClock_ = std::fmod(traumaClock_ + dt * (8.0f + 5.0f * std::clamp(val(s.flux), 0.0f, 2.0f)), kPathPeriod);
     }
+    if (cutEdge && sinceCut_ >= kRoutedCutGapSeconds && g > 0.5f) {
+        cut = true;
+        sinceCut_ = 0.0f;
+        sinceReframe_ = 0.0f;
+        travel_ = std::fmod(travel_ + 40.0f + 160.0f * nextRandom(), kTravelWrap);
+        lissPhase_ = std::fmod(lissPhase_ + 1.0f + 4.0f * nextRandom(), kTwoPi * 8.0f);
+        trauma_ = 0.0f;
+        dollyKick_ = 0.0f;
+        ++cuts_;
+    }
+    const float craneTarget = std::clamp(p.camCrane, -1.0f, 1.0f) * g;
     const float lookYawTarget = lookYaw + soundYaw;
-    const float lookPitchTarget = lookPitch + soundPitch;
+    const float lookPitchTarget = lookPitch + soundPitch - craneTarget * kCraneLook;
     const float rollTarget = p.camRoll * kMaxRoll * g + soundRoll;
     const float dollyTarget = std::clamp(p.camPush + soundDolly, -1.0f, 1.0f);
     fovTarget = std::clamp(fovTarget, 0.5f, 2.0f);
@@ -198,6 +230,7 @@ void CameraRig::step(const SceneParams& p, const LookInput& look, float dt, bool
         fov_.reset(fovTarget);
         if (!primed_) speed_.reset(speedTarget);
         orbit_.reset(p.camOrbit * g);
+        crane_.reset(craneTarget);
         primed_ = true;
     }
     yaw_.step(lookYawTarget, dt, soft);
@@ -208,6 +241,8 @@ void CameraRig::step(const SceneParams& p, const LookInput& look, float dt, bool
     // Speed eases slower than the look: a surge should feel like thrust.
     speed_.step(speedTarget, dt, soft * 2.0f);
     orbit_.step(std::clamp(p.camOrbit, 0.0f, 1.0f) * g, dt, soft * 3.0f);
+    // A crane move is heavy: it eases like the dolly, a little slower.
+    crane_.step(craneTarget, dt, soft * 0.8f);
 
     time_ = std::fmod(time_ + dt, kPathPeriod);
     travel_ = std::fmod(travel_ + std::max(speed_.x, 0.0f) * dt, kTravelWrap);
@@ -243,7 +278,7 @@ void CameraRig::step(const SceneParams& p, const LookInput& look, float dt, bool
     right = rotate(right, fwd, roll);
     up = rotate(up, fwd, roll);
 
-    pose_.pos = add(here, scale(fwd, dolly_.x * kDollyReach));
+    pose_.pos = add(add(here, scale(fwd, dolly_.x * kDollyReach)), scale(worldUp, crane_.x * kCraneReach));
     pose_.fwd = fwd;
     pose_.right = right;
     pose_.up = up;
@@ -255,7 +290,7 @@ void CameraRig::step(const SceneParams& p, const LookInput& look, float dt, bool
     pose_.roll = roll;
     // Flat projection: the path's lateral wander becomes a gentle pan, the
     // dolly and FOV become zoom, and the look tilts the image plane.
-    pose_.flat = {0.05f * here[0], 0.05f * here[1], (1.0f + 0.35f * dolly_.x) / std::max(fov_.x, 0.25f), bankFlat ? roll : roll_.x};
+    pose_.flat = {0.05f * here[0], 0.05f * here[1] + 0.12f * crane_.x, (1.0f + 0.35f * dolly_.x) / std::max(fov_.x, 0.25f), bankFlat ? roll : roll_.x};
     pose_.tilt = {std::clamp(yaw, -1.0f, 1.0f) * kFlatTilt, std::clamp(pitch, -1.0f, 1.0f) * kFlatTilt};
 }
 

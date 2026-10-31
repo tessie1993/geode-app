@@ -42,6 +42,7 @@ add_library(geode_core STATIC
     viz/ReactionDna.cpp
     viz/Reactions.cpp
     viz/CameraRig.cpp
+    viz/Layers.cpp
     viz/VisualSafety.cpp
     viz/ThermalGovernor.cpp
     viz/TouchField.cpp

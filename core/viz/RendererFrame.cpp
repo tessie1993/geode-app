@@ -4,6 +4,7 @@
 #include <cmath>
 
 #include "viz/CompositeGrade.hpp"
+#include "viz/ParamMatrix.hpp"
 #include "viz/Quad.hpp"
 
 namespace geode::viz {
@@ -113,6 +114,8 @@ SceneParams Renderer::resolveParams(float dt) {
     // The reaction matrix: per-style routes from the sound frame to many
     // targets. Ahead of the motion field and the safety clamp, like the LFOs.
     reactions_.tick(soundFrame_, dt);
+    // The music moves the motions (rotation, speed, fly, ...): each slider is how fast at typical music.
+    p = matrix::drive(p, reactions_.signals(), reactions_.routes);
     p = reactions_.apply(p);
     // The macros' own routes, in an engine of their own so they never take a user slot.
     macroReactions_.routes = macros::routes(frameKnobs_);
@@ -286,6 +289,7 @@ void Renderer::composite(Scene& scene, const SceneParams& p, float progress, GLu
     in.camFlat = cam.flat;
     in.camTilt = cam.tilt;
     in.camGate = {activeScene_->drawsCamera() ? 0.0f : 1.0f, other->drawsCamera() ? 0.0f : 1.0f};
+    in.layers = layers_.uniforms();
     // W00: read this frame's latched underlay straight from CompositePass (it owns the texture -
     // see CompositePass.hpp), the same way uFlow/uRipple above are read from Overlays.
     in.underlayTex = compositePass_.underlayTexOrZero();
@@ -322,9 +326,11 @@ void Renderer::stepCamera(const SceneParams& p, float dt) {
     }
     look.yaw = std::clamp(look.yaw, -1.0f, 1.0f);
     look.pitch = std::clamp(look.pitch, -1.0f, 1.0f);
-    camera_.setMoves(macros::camera(frameKnobs_));
+    camera_.setMoves(CameraRig::stepAside(macros::camera(frameKnobs_), reactions_.routes));
     camera_.step(p, look, dt, reducedMotion_.load(std::memory_order_relaxed), sceneSpin_.load(std::memory_order_relaxed) != 0.0f,
                  &soundFrame_);
+    // The layers read the same final params, so they step beside the camera.
+    layers_.step(p, dt, reducedMotion_.load(std::memory_order_relaxed));
 }
 
 void Renderer::wireFlow(Scene& target, const SceneParams& p) {

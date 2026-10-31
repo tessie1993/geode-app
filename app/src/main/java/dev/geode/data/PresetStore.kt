@@ -304,6 +304,11 @@ class PresetStore(
                 .put("reactSeed", p.params.reactSeed)
                 .put("camTouch", p.params.camTouch)
                 .put("camGyro", p.params.camGyro)
+                .put("camCrane", p.params.camCrane.toDouble())
+                .put("camCut", p.params.camCut.toDouble())
+                .put("fall", p.params.fall.toDouble())
+                .put("fractal", p.params.fractal.toDouble())
+                .put("spawn", p.params.spawn.toDouble())
                 .apply { if (p.customShader != null) put("customShader", p.customShader) }
                 .apply { if (p.milkPreset != null) put("milkPreset", p.milkPreset) }
                 .toString(2)
@@ -517,6 +522,11 @@ class PresetStore(
                         reactSeed = o.optInt("reactSeed", SceneParams.DEFAULT.reactSeed),
                         camTouch = o.optBoolean("camTouch", SceneParams.DEFAULT.camTouch),
                         camGyro = o.optBoolean("camGyro", SceneParams.DEFAULT.camGyro),
+                        camCrane = o.optDouble("camCrane", SceneParams.DEFAULT.camCrane.toDouble()).toFloat(),
+                        camCut = o.optDouble("camCut", SceneParams.DEFAULT.camCut.toDouble()).toFloat(),
+                        fall = o.optDouble("fall", SceneParams.DEFAULT.fall.toDouble()).toFloat(),
+                        fractal = o.optDouble("fractal", SceneParams.DEFAULT.fractal.toDouble()).toFloat(),
+                        spawn = o.optDouble("spawn", SceneParams.DEFAULT.spawn.toDouble()).toFloat(),
                     ),
             )
         }

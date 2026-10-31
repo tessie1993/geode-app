@@ -72,7 +72,7 @@ vec2 view() {
     // smooth geometric metamorphosis that works on any scene.
     if (uMorph > 0.001) {
         float mr = length(uv);
-        float ma = atan(uv.y, uv.x);
+        float ma = mr > 1e-5 ? atan(uv.y, uv.x) : 0.0; // atan(0, 0) is undefined in GLSL ES
         vec2 polar = vec2(abs(ma) / 1.5707963 - 1.0, (mr - 0.7) * 1.6);
         // Faded to nothing at the centre: atan has no angle at r = 0, so every
         // angle met at one point and the centre of the frame drew as a pinched

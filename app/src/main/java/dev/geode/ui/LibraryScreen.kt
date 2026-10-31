@@ -66,6 +66,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 import dev.geode.data.MusicPlaylist
@@ -94,6 +95,14 @@ fun LibraryScreen(onOpenSearch: () -> Unit) {
     }
     val permLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted = it }
+    // "Open settings" sends the user away to grant it; coming back doesn't recreate the screen,
+    // so re-read the grant on every resume or the library stays empty until a restart.
+    LifecycleResumeEffect(permission) {
+        if (!granted && ContextCompat.checkSelfPermission(context, permission) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            granted = true
+        }
+        onPauseOrDispose { }
+    }
     var reloadKey by remember { mutableStateOf(0) }
     val state by libraryViewModel.uiState.collectAsStateWithLifecycle()
     LaunchedEffect(granted, reloadKey) { if (granted) libraryViewModel.refreshDeviceTracks() }

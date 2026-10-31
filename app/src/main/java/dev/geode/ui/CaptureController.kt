@@ -48,8 +48,8 @@ internal class CaptureController(
 
         fun setMicReactivePref(on: Boolean)
 
-        /** The persisted "mic was on" preference, read once on [start] to restore capture. */
-        val micReactivePref: Boolean
+        /** The persisted "mic was on" preference once loaded, read once on [start] to restore capture. */
+        suspend fun loadedMicReactivePref(): Boolean
     }
 
     private val micCapture = MicCapture(application, capture)
@@ -120,8 +120,11 @@ internal class CaptureController(
         // mic toggle but never read back, so a restart silently dropped it. Never request the
         // permission here: if it has since been revoked, leave the pref as-is and stay silent —
         // the person can re-enable it from the mic control, which will prompt as usual.
-        if (host.micReactivePref && !micCapture.active && hasMicPermission()) {
-            setMicEnabled(true)
+        // Waits for the prefs to load: read synchronously, the pref was still its default here.
+        scope.launch {
+            if (host.loadedMicReactivePref() && !micCapture.active && hasMicPermission()) {
+                setMicEnabled(true)
+            }
         }
         scope.launch {
             dev.geode.audio.MediaProjectionHolder.projection

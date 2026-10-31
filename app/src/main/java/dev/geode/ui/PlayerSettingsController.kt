@@ -16,6 +16,7 @@ import dev.geode.playback.applyPlayerPrefs
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 @OptIn(UnstableApi::class)
@@ -42,6 +43,12 @@ internal class PlayerSettingsController(
     val playerPrefs: StateFlow<PlayerPrefs> = playerPrefsRepository.prefs
 
     suspend fun loadedPlayerPrefs(): PlayerPrefs = playerPrefsRepository.loaded()
+
+    /** [guiPrefs] once the store has read them; before that the flow holds the defaults. */
+    suspend fun loadedGuiPrefs(): GuiPrefs {
+        userData.loaded.first { it }
+        return guiPrefs.value
+    }
 
     private val _audioFxState = MutableStateFlow(audioFx.snapshot())
     val audioFxState: StateFlow<AudioFxState> = _audioFxState

@@ -138,7 +138,7 @@ class PlayerSession internal constructor(
                     setGuiPrefs(guiPrefs.value.copy(micReactive = on))
                 }
 
-                override val micReactivePref: Boolean get() = guiPrefs.value.micReactive
+                override suspend fun loadedMicReactivePref(): Boolean = settings.loadedGuiPrefs().micReactive
             },
         )
 
@@ -252,10 +252,15 @@ class PlayerSession internal constructor(
     val vizState: StateFlow<VizUiState> get() = vizStateStore.state
 
     init {
-        engine.beatSensitivity = settings.guiPrefs.value.beatSensitivity
-        engine.beatMinIntervalMs = settings.guiPrefs.value.effectiveBeatMinIntervalMs
         engine.attack = _vizState.value.attack
         engine.decay = _vizState.value.decay
+        // The GUI prefs load on IO and can't land before this constructor returns, so reading
+        // them synchronously here always applied the defaults to live analysis.
+        scope.launch {
+            val gui = settings.loadedGuiPrefs()
+            engine.beatSensitivity = gui.beatSensitivity
+            engine.beatMinIntervalMs = gui.effectiveBeatMinIntervalMs
+        }
     }
 
     val exportState: StateFlow<ExportUiState> get() = exportController.exportState

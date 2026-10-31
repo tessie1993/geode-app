@@ -87,6 +87,9 @@ class VisualizerView(
     override fun onDetachedFromWindow() {
         // Before super, which tears down the GL thread: no point asking it for one more frame.
         framePacer.stop()
+        // Detaching reports GONE while windowVisibility still reads VISIBLE, so syncPacer kept
+        // the rotation sensor running at game rate after the view left Visuals.
+        gyroLook.setActive(false)
         releaseScenesOnGlThread()
         super.onDetachedFromWindow()
     }

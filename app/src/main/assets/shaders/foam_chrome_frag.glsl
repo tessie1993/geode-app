@@ -29,7 +29,7 @@ out vec4 fragColor;
 void main() {
     vec2 uv = view();
     foamSetup();
-    gFoamTwist += 1.0;
+    gFoamTwist = 3.0;
     vec3 ro;
     vec3 rd;
     foamCamera(uv, ro, rd);

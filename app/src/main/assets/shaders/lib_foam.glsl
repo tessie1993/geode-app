@@ -62,9 +62,9 @@
 //
 // ---- the Customize macros ---------------------------------------------------
 //
-// Speed: uSpeed scales the slide and breath clocks. Complexity: uMorph adds a
-// level to the packing and leans its folds. Chaos: uWarp and uTurbulence twist
-// the bore harder and slide the packing further. Energy: foamEnergy(), the
+// Speed: uTime already runs at its rate, so it hurries the fold's sway and the
+// slide. Complexity: uMorph leans the folds. Chaos: uWarp and uTurbulence wobble
+// the bore's twist and slide the packing further. Energy: foamEnergy(), the
 // gain on every in-shader reaction, 0..2. Colour: pal(). Space: the rig.
 //
 // INCLUDE ORDER: last, after lib_scene_uniforms (with VIEW_OWNS_SHAPE
@@ -85,6 +85,8 @@
 #define FOAM_FALL_RATE 1.6
 /** A rate completing k cycles per sound-clock wrap (3600 s), so sin(clock * FOAM_RATE(k)) never jumps. */
 #define FOAM_RATE(k) (FOAM_TAU * (k) / 3600.0)
+/** The same for uTime, which wraps at 7100 s (ShaderScene). uTime already runs at the Speed control's rate. */
+#define FOAM_SCENE_RATE(k) (FOAM_TAU * (k) / 7100.0)
 
 #define FOAM_INV_FLOOR 0.02
 #define FOAM_SCALE_CAP 1.0e30
@@ -112,8 +114,10 @@ int gFoamShape;
 float gFoamRadius;
 /** Path lobe amplitude, world units; 0 is a straight bore. */
 float gFoamBend;
-/** Whole turns of the bore about its axis per FOAM_PERIOD. */
+/** Whole turns of the bore about its axis per FOAM_PERIOD (whole, or the period breaks). */
 float gFoamTwist;
+/** A periodic wobble on top of the twist, radians: Chaos's share, continuous where a whole-turn step would pop. */
+float gFoamWobble;
 float gFoamInvS;
 float gFoamIters;
 mat2 gFoamFold;
@@ -189,7 +193,6 @@ vec2 foamSeatFor(float sec) {
  */
 void foamSetup() {
     float e = foamEnergy();
-    float clock = uTime * uSpeed;
     float morph = foamSat(uMorph);
     float chaos = clamp(uWarp, 0.0, 2.0) + clamp(uTurbulence, 0.0, 2.0);
 
@@ -211,25 +214,30 @@ void foamSetup() {
     float hold = smoothstep(0.0, 1.0, foamSat(SND_HELD_HARD_CUT));
     gFoamSection = sec;
     gFoamWedgeHold = hold;
-    gFoamWedgesNew = (uKaleido > 0.5) ? uSymmetry : foamWedgesFor(sec);
-    gFoamWedgesOld = (uKaleido > 0.5) ? uSymmetry : foamWedgesFor(sec - 1.0);
+    // The user's count rounded: a fractional wedge count tears a seam where atan jumps.
+    float userWedges = floor(uSymmetry + 0.5);
+    gFoamWedgesNew = (uKaleido > 0.5) ? userWedges : foamWedgesFor(sec);
+    gFoamWedgesOld = (uKaleido > 0.5) ? userWedges : foamWedgesFor(sec - 1.0);
     vec2 seat = mix(foamSeatFor(sec), foamSeatFor(sec - 1.0), hold);
 
     gFoamShape = FOAM_BORE;
     gFoamRadius = 0.85 * (1.0 - 0.22 * tension) * (1.0 + 0.4 * gFoamSurgeBump);
     gFoamBend = 0.75;
-    gFoamTwist = 2.0 + floor(chaos + 0.5);
+    gFoamTwist = 2.0;
+    gFoamWobble = 0.35 * chaos;
     gFoamFall = 1.0;
     // Tonal and dark opens the packing (larger s), noisy and bright packs it.
     gFoamInvS = 1.06 + 0.16 * harmony + 0.14 * (1.0 - smoothstep(0.2, 0.75, bright))
               + 0.06 * sin(SND_BASS_TIME * FOAM_RATE(37.0));
-    gFoamFold = rot2(0.28 * sin(clock * 0.05) + 0.25 * morph + 0.45 * flux);
+    gFoamFold = rot2(0.28 * sin(uTime * FOAM_SCENE_RATE(57.0)) + 0.25 * morph + 0.45 * flux);
     float slide = 0.4 * (1.0 + 0.5 * chaos);
-    gFoamShift = vec3(seat + slide * vec2(sin(SND_MID_TIME * FOAM_RATE(61.0)), sin(clock * 0.037 + 2.0)), 0.0);
+    gFoamShift = vec3(seat + slide * vec2(sin(SND_MID_TIME * FOAM_RATE(61.0)), sin(uTime * FOAM_SCENE_RATE(42.0) + 2.0)), 0.0);
     gFoamSpin = SND_MID_TIME * FOAM_RATE(240.0);
     gFoamShell = 0.012 * (1.0 + 0.8 * gFoamKick);
     float detail = foamSat((uSteps - 64.0) / 64.0);
-    gFoamIters = 6.0 + floor(detail * 2.0 + 0.5) + step(0.5, morph);
+    // Detail only: it is a quality setting, not a live control. Complexity moving a whole
+    // level would pop the packing as it crossed a threshold, so Complexity leans the fold instead.
+    gFoamIters = 6.0 + floor(detail * 2.0 + 0.5);
 
     // Colour: the key slides the palette, each section turns it a little.
     gFoamHue = 0.5 * uKeyHue * foamSat(uKeyStrength) + 0.13 * mix(sec, sec - 1.0, hold);
@@ -294,7 +302,8 @@ float foamMap(vec3 p) {
         q = vec3(xz.x, p.y, xz.y);
     } else {
         vec2 c = p.xy - foamPath(p.z);
-        c = rot2(gFoamTwist * FOAM_TAU / FOAM_PERIOD * p.z + gFoamSpin) * c;
+        float zw = FOAM_TAU / FOAM_PERIOD * p.z;
+        c = rot2(gFoamTwist * zw + gFoamWobble * sin(3.0 * zw) + gFoamSpin) * c;
         float r = length(c);
         cutD = gFoamRadius - r;
         if (cutD > FOAM_BORE_MARGIN) {

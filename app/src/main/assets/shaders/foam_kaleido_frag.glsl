@@ -29,7 +29,7 @@ void main() {
     vec2 uv = view();
     foamSetup();
     gFoamBend = 0.0;
-    gFoamTwist += 2.0;
+    gFoamTwist = 4.0;
     gFoamSpin *= 3.0;
     if (uKaleido < 0.5) {
         gFoamWedgesNew *= 2.0;

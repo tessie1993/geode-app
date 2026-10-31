@@ -18,6 +18,7 @@ enum class TutorialChapter(
     LIBRARY(3),
     VISUALS(3),
     CUSTOMIZE(4),
+    LIVE_VIEW(3),
     SETTINGS(2),
 }
 

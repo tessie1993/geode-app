@@ -16,6 +16,7 @@
     <string name="tutorial_chapter_library">Library</string>
     <string name="tutorial_chapter_visuals">Visuals</string>
     <string name="tutorial_chapter_customize">Customize</string>
+    <string name="tutorial_chapter_live_view">Live view</string>
     <string name="tutorial_chapter_settings">Settings</string>
 
     <string name="tutorial_welcome_1_title">Hi, I\'m Wave!</string>
@@ -52,6 +53,13 @@
     <string name="tutorial_customize_3_body">Shape, Colour, Motion, FX, Reactivity and Scene hold every control the style can use, and Scene\'s Layers put a second style on top. Anything off its default shows a Reset.</string>
     <string name="tutorial_customize_4_title">Feeling lucky?</string>
     <string name="tutorial_customize_4_body">Randomize, or Surprise on Macros, rolls a new look. Undo and Redo sit beside it, and further down A/B lets you keep two versions and blend between them.</string>
+
+    <string name="tutorial_live_1_title">Go full screen</string>
+    <string name="tutorial_live_1_body">The live view is the visualizer with nothing in the way. The controls fade after a few seconds; tap to bring them back.</string>
+    <string name="tutorial_live_2_title">Your finger is part of it</string>
+    <string name="tutorial_live_2_body">One finger sets a point the style builds around, two set an axis, three or more open a swirl. Pinch and twist to zoom and rotate.</string>
+    <string name="tutorial_live_3_title">Take it with you</string>
+    <string name="tutorial_live_3_body">Picture-in-picture keeps it playing in a small window. Plug into a TV or monitor and the visuals move to the big screen.</string>
 
     <string name="tutorial_settings_1_title">Make it yours</string>
     <string name="tutorial_settings_1_body">Look, Audio, Folders and Behavior hold the rest, including reduced motion and visual safety. Backup saves your presets and settings to a file.</string>

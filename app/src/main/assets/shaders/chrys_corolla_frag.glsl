@@ -9,7 +9,6 @@ out vec4 fragColor;
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_chrys
@@ -33,13 +32,13 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// The drop (uEvents.y) UNFOLDS the flower: across its 2.5 s envelope every
+// The drop (SND_HELD_SURGE) UNFOLDS the flower: across its 2.5 s envelope every
 // ring's elevation and curvature swing from the half-open rest pose to a full
 // bloom, the outer petals laid nearly flat with drooping tips, and fold back.
 // chrysBump shapes it, so the unfolding starts from rest on the drop and
-// never snaps. uSwell opens the rest pose a little, so loud passages sit
+// never snaps. SND_ENERGY_TREND opens the rest pose a little, so loud passages sit
 // fuller. The bass band breathes the core's radius by a few percent. The head
-// turns on its own axis with uDrift. Brightness follows uSwell only.
+// turns on its own axis with uDrift. Brightness follows SND_ENERGY_TREND only.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -137,10 +136,10 @@ vec3 normalAt(vec3 p, float eps) {
 
 void main() {
     vec2 uv = view();
-    float swell = clamp(uSwell, 0.0, 1.5);
+    float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
     float t = uTime * uSpeed;
-    float drop = clamp(uEvents.y, 0.0, 1.0);
-    gBass = clamp(uBandsLo.y * uIntensity, 0.0, 1.5);
+    float drop = clamp(SND_HELD_SURGE, 0.0, 1.0);
+    gBass = clamp(sndLevel(SND_BASS_ATT) * uIntensity, 0.0, 1.5);
     gOpen = clamp(0.55 + 0.12 * swell + 0.4 * uIntensity * chrysBump(drop), 0.0, 1.0);
     gSpin = t * 0.04 + uDrift * 0.1;
     gLowQ = uSteps < 72.0;

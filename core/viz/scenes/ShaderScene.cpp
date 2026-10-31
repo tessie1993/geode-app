@@ -33,19 +33,11 @@ ShaderScene::ShaderScene(std::string id, std::string vertexSrc, std::string frag
       vertexSrc_(std::move(vertexSrc)),
       currentFragment_(std::move(fragmentSrc)),
       cache_(cache),
-      host_(std::move(host)),
-      pcm_(static_cast<size_t>(kAudioTexWidth) * 8, 0.0f) {
+      host_(std::move(host)) {
     pendingFragment_ = currentFragment_;
 }
 
 ShaderScene::~ShaderScene() { release(); }
-
-void ShaderScene::acceptPcm(const float* samples, int count) {
-    const int n = std::min(count, static_cast<int>(pcm_.size()));
-    if (n <= 0) return;
-    std::copy(samples + (count - n), samples + count, pcm_.begin());
-    pcmCount_ = n;
-}
 
 void ShaderScene::setFlow(GLuint texture, float strength) {
     flowTex_ = texture;
@@ -59,6 +51,7 @@ void ShaderScene::setFragmentSource(const std::string& source) {
 }
 
 void ShaderScene::init() {
+    motionField_.setVariant(styleVariantSeed(id_));
     program_ = 0;
     uniforms_ = UniformCache(0);
     {
@@ -68,7 +61,8 @@ void ShaderScene::init() {
     glGenVertexArrays(1, &vao_);
     const char* extensions = reinterpret_cast<const char*>(glGetString(GL_EXTENSIONS));
     const bool floatLinear = extensions && std::strstr(extensions, "OES_texture_float_linear") != nullptr;
-    audioTex_.createImage(GL_R32F, GL_RED, GL_FLOAT, kAudioTexWidth, 2, floatLinear ? GL_LINEAR : GL_NEAREST, GL_CLAMP_TO_EDGE);
+    soundTex_.createImage(GL_R32F, GL_RED, GL_FLOAT, kSoundTexWidth, kSoundTexRows, floatLinear ? GL_LINEAR : GL_NEAREST,
+                          GL_CLAMP_TO_EDGE);
 }
 
 void ShaderScene::resize(int width, int height) {
@@ -76,61 +70,16 @@ void ShaderScene::resize(int width, int height) {
     height_ = height;
 }
 
-// exp(-dt*hz) rather than a fixed per-frame fraction: the same wall-clock rise
-// on a 30fps device and a 120fps one, so the look does not change with the
-// frame rate the thermal governor happens to be pacing at.
-float ShaderScene::slew(float current, float target, float dt, float riseHz, float fallHz) {
-    const float hz = target > current ? riseHz : fallHz;
-    const float k = 1.0f - std::exp(-std::max(dt, 0.0f) * hz);
-    return current + (target - current) * k;
-}
-
-void ShaderScene::update(const GeodeFeatureFrame& features, float dt) {
+void ShaderScene::update(const GeodeSoundFrame& sound, float dt) {
+    sound_ = sound;
     const SceneParams& p = params_;
     shaderTime_ = std::fmod(shaderTime_ + p.speed * dt, kTimeWrapSeconds);
     rotationAngle_ = std::fmod(rotationAngle_ + p.rotation * dt, kTwoPi);
     zoomPhase_ = p.endlessZoom ? std::fmod(zoomPhase_ + p.endlessZoomSpeed * dt, 1.0f) : 0.0f;
     if (p.colorCycle) cyclePhase_ = std::fmod(cyclePhase_ + p.cycleSpeed * dt, 1.0f);
-    const float drive = p.audioDrive;
-    bass_ = std::clamp(features.bass * drive, 0.0f, kAudioClamp);
-    mid_ = std::clamp(features.mid * drive, 0.0f, kAudioClamp);
-    treble_ = std::clamp(features.treble * drive, 0.0f, kAudioClamp);
-    energy_ = std::clamp(features.rms * drive, 0.0f, kAudioClamp);
-    smoothBass_ = slew(smoothBass_, bass_, dt, kBandRiseHz, kBandFallHz);
-    smoothMid_ = slew(smoothMid_, mid_, dt, kBandRiseHz, kBandFallHz);
-    smoothTreble_ = slew(smoothTreble_, treble_, dt, kBandRiseHz, kBandFallHz);
-    smoothEnergy_ = slew(smoothEnergy_, energy_, dt, kBandRiseHz, kBandFallHz);
-    swell_ = slew(swell_, energy_, dt, kSwellRiseHz, kSwellFallHz);
-    beatPhase_ = features.beatPhase;
     // Wave three: the continuous motion layer, never a transient/beat trigger.
-    motionField_.step(features, dt);
-    reactSignals_.step(features, dt);
-    // Band regions feed geometry directly (heights, swells), so they get the
-    // same rise/fall slew as uBassSmooth rather than arriving hop-raw.
-    for (int i = 0; i < 8; ++i) {
-        const float raw = reactSignals_.value(static_cast<ReactSource>(static_cast<int>(ReactSource::SubBass) + i));
-        bandsSmooth_[static_cast<size_t>(i)] = slew(bandsSmooth_[static_cast<size_t>(i)], raw, dt, kBandRiseHz, kBandFallHz);
-    }
-    // Drum levels arrive hop-raw; peak-hold them so a shader reads an envelope
-    // (instant rise, ~0.15 s fall) rather than a level that chatters.
-    for (int i = 0; i < 3; ++i) {
-        const float raw = reactSignals_.value(static_cast<ReactSource>(static_cast<int>(ReactSource::Kick) + i));
-        float& held = hitsSmooth_[static_cast<size_t>(i)];
-        held = std::max(raw, held * std::exp(-std::max(dt, 0.0f) * kHitFallHz));
-    }
-    for (int i = 0; i < kAudioTexWidth; ++i) {
-        const int band = i * GEODE_BAND_COUNT / kAudioTexWidth;
-        texData_[static_cast<size_t>(i)] = std::clamp(features.bands[band] * drive, 0.0f, kAudioClamp);
-    }
-    if (pcmCount_ > 0) {
-        fillPcmRow(waveRow_.data(), kAudioTexWidth, pcm_.data(), pcmCount_);
-        pcmCount_ = 0;
-    } else {
-        fillPcmRow(waveRow_.data(), kAudioTexWidth, features.waveform, GEODE_WAVEFORM_POINTS);
-    }
-    for (int i = 0; i < kAudioTexWidth; ++i) {
-        texData_[static_cast<size_t>(kAudioTexWidth + i)] = std::clamp(waveRow_[static_cast<size_t>(i)] * drive * 0.5f + 0.5f, 0.0f, 1.0f);
-    }
+    motionField_.step(sound_, dt);
+    reactSignals_.step(sound_, dt);
 }
 
 void ShaderScene::draw(float timeSeconds) {
@@ -139,12 +88,8 @@ void ShaderScene::draw(float timeSeconds) {
     if (program_ == 0) return;
     glDisable(GL_BLEND);
     glUseProgram(program_);
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, audioTex_.id());
-    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, kAudioTexWidth, 2, GL_RED, GL_FLOAT, texData_.data());
     uploadParams();
     glUniform2f(uniforms_.loc("uResolution"), static_cast<float>(width_), static_cast<float>(height_));
-    glUniform1i(uniforms_.loc("uAudioTex"), 0);
     if (flowTex_ != 0) {
         glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_2D, flowTex_);
@@ -166,21 +111,52 @@ void ShaderScene::draw(float timeSeconds) {
     set1f("uSteps", std::max(std::round(marchSteps(p.marchDetail) * marchScale), kMarchMinScaledSteps));
     uploadMotion();
     uploadTouch();
-    uploadCameraAndReactions();
+    uploadCamera();
+    uploadSound();
     glBindVertexArray(vao_);
     glDrawArrays(GL_TRIANGLES, 0, 3);
     glBindVertexArray(0);
 }
 
+namespace {
+// Linear resample of `src` (n points) across `width` texels, so every row of uSoundTex reads 0..1 in x
+// whatever the engine's point count.
+void resampleRow(const float* src, int n, float* dst, int width) {
+    for (int i = 0; i < width; ++i) {
+        const float x = width > 1 ? static_cast<float>(i) * static_cast<float>(n - 1) / static_cast<float>(width - 1) : 0.0f;
+        const int a = std::min(static_cast<int>(x), n - 1);
+        const int b = std::min(a + 1, n - 1);
+        const float t = x - static_cast<float>(a);
+        dst[i] = src[a] + (src[b] - src[a]) * t;
+    }
+}
+}  // namespace
+
+// The whole GeodeSoundFrame, raw: scalars as uSound (lib_sound names them), the arrays as uSoundTex on
+// unit 3. No drive, clamp or slew here; the engine's values are already dt-scaled and bounded, and
+// styles shape them themselves. Unused by a style, both cost one call the driver drops.
+void ShaderScene::uploadSound() {
+    const float* scalars = reinterpret_cast<const float*>(&sound_);
+    std::copy(scalars, scalars + GEODE_SOUND_SCALARS, soundScalars_.begin());
+    glUniform4fv(uniforms_.loc("uSound"), kSoundVec4s, soundScalars_.data());
+    resampleRow(sound_.spectrum, GEODE_SOUND_SPECTRUM_POINTS, soundTexData_.data(), kSoundTexWidth);
+    resampleRow(sound_.waveform, GEODE_SOUND_WAVEFORM_POINTS, soundTexData_.data() + kSoundTexWidth, kSoundTexWidth);
+    resampleRow(sound_.eq, GEODE_SOUND_EQ_BANDS, soundTexData_.data() + 2 * kSoundTexWidth, kSoundTexWidth);
+    glActiveTexture(GL_TEXTURE3);
+    glBindTexture(GL_TEXTURE_2D, soundTex_.id());
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, kSoundTexWidth, kSoundTexRows, GL_RED, GL_FLOAT, soundTexData_.data());
+    glUniform1i(uniforms_.loc("uSoundTex"), 3);
+    glActiveTexture(GL_TEXTURE0);
+    set1f("uSoundDrive", std::max(params_.audioDrive, 0.0f));
+    const ReactSignals& r = reactSignals_;
+    glUniform4f(uniforms_.loc("uSoundEvents"), r.value(ReactSource::HardCut), r.value(ReactSource::Surge), r.value(ReactSource::Returned),
+                r.value(ReactSource::NoteChange));
+    glUniform2f(uniforms_.loc("uSoundCounts"), r.onsetCount(), r.cutCount());
+}
+
 void ShaderScene::uploadParams() {
     const SceneParams& p = params_;
     set1f("uTime", shaderTime_);
-    set1f("uBass", bass_);
-    set1f("uMid", mid_);
-    set1f("uTreble", treble_);
-    set1f("uEnergy", energy_);
-    // Wave three: nothing produces a beat trigger any more.
-    set1f("uBeat", 0.0f);
     set1f("uSpeed", p.speed);
     set1f("uZoom", p.zoom);
     set1f("uRotation", rotationAngle_);
@@ -192,8 +168,6 @@ void ShaderScene::uploadParams() {
     set1f("uInvert", flag(p.invert));
     set1f("uIntensity", p.intensity);
     set1f("uMirrorX", flag(p.mirror));
-    // Inert since wave three; p.beatResponse itself stays wire-compatible.
-    set1f("uBeatResponse", 0.0f);
     set1f("uTurbulence", p.turbulence);
     set1f("uPalBase", p.paletteBase());
     set1f("uPalRange", p.paletteRange());
@@ -211,8 +185,6 @@ void ShaderScene::uploadParams() {
     set1f("uPosterize", p.posterize);
     set1f("uSway", p.sway);
     set1f("uPulse", p.pulse);
-    // The analyser's own phase-locked beat phase, not a transient-reset clock.
-    set1f("uBeatPhase", beatPhase_);
     set1f("uDriftX", p.driftX);
     set1f("uDriftY", p.driftY);
     set1f("uShake", p.shake);
@@ -229,12 +201,6 @@ void ShaderScene::uploadParams() {
 // and glUniform on a -1 location is a no-op, so this costs nothing on a style
 // that has not been converted.
 void ShaderScene::uploadMotion() {
-    set1f("uBassSmooth", smoothBass_);
-    set1f("uMidSmooth", smoothMid_);
-    set1f("uTrebleSmooth", smoothTreble_);
-    set1f("uEnergySmooth", smoothEnergy_);
-    set1f("uSwell", swell_);
-
     // Wave three: the continuous replacement for the spike-latched state.
     // Nothing here is a trigger; every value is a running average, a
     // phase-locked oscillator gated by confidence, or a slow re-target that
@@ -283,7 +249,7 @@ void ShaderScene::uploadTouch() {
     set1f("uTouchSpin", touchField_ ? touchField_->spin() : 0.0f);
 }
 
-void ShaderScene::uploadCameraAndReactions() {
+void ShaderScene::uploadCamera() {
     if (camera_) {
         const CameraPose& c = *camera_;
         const float basis[9] = {c.right[0], c.right[1], c.right[2], c.up[0], c.up[1], c.up[2], c.fwd[0], c.fwd[1], c.fwd[2]};
@@ -294,14 +260,6 @@ void ShaderScene::uploadCameraAndReactions() {
         set1f("uCamDolly", c.dolly);
         glUniform3f(uniforms_.loc("uCamLook"), c.yaw, c.pitch, c.roll);
     }
-    const ReactSignals& r = reactSignals_;
-    auto v = [&](ReactSource s) { return r.value(s); };
-    glUniform4f(uniforms_.loc("uHits"), hitsSmooth_[0], hitsSmooth_[1], hitsSmooth_[2], v(ReactSource::Onset));
-    glUniform4f(uniforms_.loc("uEvents"), v(ReactSource::Beat), v(ReactSource::Drop), v(ReactSource::Section), v(ReactSource::PitchChange));
-    glUniform4fv(uniforms_.loc("uBandsLo"), 1, bandsSmooth_.data());
-    glUniform4fv(uniforms_.loc("uBandsHi"), 1, bandsSmooth_.data() + 4);
-    set1f("uHitCount", r.onsetCount());
-    set1f("uSectionCount", r.sectionCount());
 }
 
 void ShaderScene::set1f(const char* name, float value) {
@@ -345,7 +303,7 @@ void ShaderScene::compilePendingIfAny() {
 void ShaderScene::release() {
     if (program_ != 0) glDeleteProgram(program_);
     if (vao_ != 0) glDeleteVertexArrays(1, &vao_);
-    audioTex_.release();
+    soundTex_.release();
     program_ = 0;
     vao_ = 0;
     uniforms_ = UniformCache(0);

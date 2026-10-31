@@ -47,7 +47,7 @@
 //
 // ---- envelopes ------------------------------------------------------------
 //
-// lib_react's events rise INSTANTLY and fall exponentially. Any monotonic
+// lib_sound's events rise INSTANTLY and fall exponentially. Any monotonic
 // function of one therefore snaps on the frame the event fires, which on a
 // petal reads as a glitch, not as a bloom. chrysBump() is zero at both ends
 // of the envelope, so a petal driven by it starts moving from rest, peaks
@@ -183,7 +183,7 @@ float chrysPetalShade(vec4 pet, float cup) {
     return body * tuck * vein;
 }
 
-/** 0 at both ends of a lib_react envelope, 1 halfway: a snap-free bloom. */
+/** 0 at both ends of a lib_sound envelope, 1 halfway: a snap-free bloom. */
 float chrysBump(float env) {
     return sin(CHRYS_PI * clamp(env, 0.0, 1.0));
 }

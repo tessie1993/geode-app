@@ -152,97 +152,121 @@ Personality pickPersonality(Draw& d, const StyleTraits& t, int avoidGroup) {
     return pool[static_cast<size_t>(d.below(n))];
 }
 
+// One of `pool`, drawn: no layer of the DNA has a fixed source, so two styles with the same
+// personality still listen to different parts of the music.
+template <size_t N>
+ReactSource pick(Draw& d, const std::array<ReactSource, N>& pool) {
+    return pool[static_cast<size_t>(d.below(static_cast<int>(N)))];
+}
+
 }  // namespace
 
 StyleDna buildStyleDna(std::string_view styleId, int seed, const StyleTraits& traits) {
     Draw d(mix(fnv1a(styleId) ^ (static_cast<std::uint32_t>(seed) * 0x9E3779B9u)));
     Builder b;
 
-    // The beat: one personality for phrase A, one from another group for phrase B.
+    // The pulse: one personality on the kick side, one from another group on the snare side, so
+    // the two halves of a groove look different. Which kick and which snare is the style's own:
+    // every hit, every other one, or the note starts.
     b.dna.lead = pickPersonality(d, traits, -1);
     b.dna.second = pickPersonality(d, traits, groupOf(b.dna.lead));
-    addBeat(b, d, b.dna.lead, ReactSource::PhraseBeatA, traits);
-    addBeat(b, d, b.dna.second, ReactSource::PhraseBeatB, traits);
+    addBeat(b, d, b.dna.lead, pick(d, std::array{ReactSource::Kick, ReactSource::Kick, ReactSource::Kick2, ReactSource::Onset}), traits);
+    addBeat(b, d, b.dna.second, pick(d, std::array{ReactSource::Snare, ReactSource::Snare2, ReactSource::Hat, ReactSource::NoteChange}),
+            traits);
 
-    // The drop: always a surge forward, plus one look the beat does not already use.
-    b.add(ReactSource::Drop, LfoTarget::CamFly, ReactMode::Follow, d.range(0.8f, 1.4f), 0.25f, 2.2f);
+    // The big moment (a hard cut, or the level surging back): always a surge forward, plus one
+    // look the pulse does not already use.
+    const ReactSource big = pick(d, std::array{ReactSource::HardCut, ReactSource::HardCut, ReactSource::Surge});
+    b.add(big, LfoTarget::CamFly, ReactMode::Follow, d.range(0.8f, 1.4f), 0.25f, 2.2f);
     switch (b.freeTarget(d, std::array{LfoTarget::Bloom, LfoTarget::Twist, LfoTarget::CamFov, LfoTarget::ColorShift}, traits)) {
-        case LfoTarget::Bloom: b.add(ReactSource::Drop, LfoTarget::Bloom, ReactMode::Follow, d.range(0.5f, 0.8f), 0.2f, 2.0f); break;
-        case LfoTarget::Twist: b.add(ReactSource::Drop, LfoTarget::Twist, ReactMode::Follow, d.range(0.4f, 0.7f), 0.2f, 2.0f, ModCurve::Smooth); break;
-        case LfoTarget::CamFov: b.add(ReactSource::Drop, LfoTarget::CamFov, ReactMode::Follow, d.range(0.2f, 0.4f), 0.15f, 1.8f); break;
-        case LfoTarget::ColorShift: b.add(ReactSource::Drop, LfoTarget::ColorShift, ReactMode::Step, d.range(0.4f, 0.6f), 0.3f, 0.3f); break;
+        case LfoTarget::Bloom: b.add(big, LfoTarget::Bloom, ReactMode::Follow, d.range(0.5f, 0.8f), 0.2f, 2.0f); break;
+        case LfoTarget::Twist: b.add(big, LfoTarget::Twist, ReactMode::Follow, d.range(0.4f, 0.7f), 0.2f, 2.0f, ModCurve::Smooth); break;
+        case LfoTarget::CamFov: b.add(big, LfoTarget::CamFov, ReactMode::Follow, d.range(0.2f, 0.4f), 0.15f, 1.8f); break;
+        case LfoTarget::ColorShift: b.add(big, LfoTarget::ColorShift, ReactMode::Step, d.range(0.4f, 0.6f), 0.3f, 0.3f); break;
         default: break;
     }
 
-    // Styles that turn keep turning while the sound lasts, in their own direction.
+    // Styles that turn keep turning at a speed the music sets: a clock's rate, spun.
     if (traits.spinRate != 0.0f) {
-        const std::array spins = {ReactSource::Mid, ReactSource::HighMid, ReactSource::Snare, ReactSource::BarOsc, ReactSource::LowMid};
-        b.add(spins[static_cast<size_t>(d.below(static_cast<int>(spins.size())))], LfoTarget::Rotation, ReactMode::Follow,
-              (traits.spinRate < 0.0f ? -1.0f : 1.0f) * d.range(0.2f, 0.45f), 0.1f, 0.6f);
+        const ReactSource clock = pick(d, std::array{ReactSource::MidTime, ReactSource::BassTime, ReactSource::CurvedTime,
+                                                     ReactSource::TrebleTime, ReactSource::HitTime});
+        b.add(clock, LfoTarget::Rotation, ReactMode::Spin, (traits.spinRate < 0.0f ? -1.0f : 1.0f) * d.range(0.15f, 0.35f), 0.1f, 0.6f);
     }
 
-    // The body: a sustained band moves something continuous, not another beat thing.
+    // The body: a sustained level moves something continuous, not another hit thing.
     {
+        const ReactSource body = pick(d, std::array{ReactSource::BassAtt, ReactSource::Low, ReactSource::SubAtt, ReactSource::VolAtt,
+                                                    ReactSource::Level, ReactSource::BassPresence, ReactSource::MidAtt});
         const std::array bodies = {LfoTarget::Zoom, LfoTarget::Saturation, LfoTarget::Ripple, LfoTarget::Bloom,
                                    LfoTarget::Fisheye, LfoTarget::CamOrbit};
         switch (b.freeTarget(d, bodies, traits)) {
-            case LfoTarget::Zoom: b.add(ReactSource::Bass, LfoTarget::Zoom, ReactMode::Follow, d.range(0.06f, 0.12f), 0.08f, 0.45f, ModCurve::Smooth); break;
-            case LfoTarget::Saturation: b.add(ReactSource::Swell, LfoTarget::Saturation, ReactMode::Follow, d.range(0.2f, 0.4f), 0.3f, 0.8f); break;
-            case LfoTarget::Ripple: b.add(ReactSource::LowMid, LfoTarget::Ripple, ReactMode::Follow, d.range(0.2f, 0.4f), 0.1f, 0.5f, ModCurve::Smooth); break;
-            case LfoTarget::Bloom: b.add(ReactSource::Loudness, LfoTarget::Bloom, ReactMode::Follow, d.range(0.15f, 0.3f), 0.2f, 0.6f); break;
-            case LfoTarget::Fisheye: b.add(ReactSource::SubBass, LfoTarget::Fisheye, ReactMode::Follow, d.range(0.15f, 0.3f), 0.08f, 0.5f, ModCurve::Smooth); break;
-            case LfoTarget::CamOrbit: b.add(ReactSource::Mid, LfoTarget::CamOrbit, ReactMode::Follow, d.range(0.3f, 0.6f), 0.4f, 1.0f); break;
+            case LfoTarget::Zoom: b.add(body, LfoTarget::Zoom, ReactMode::Follow, d.range(0.06f, 0.12f), 0.08f, 0.45f, ModCurve::Smooth); break;
+            case LfoTarget::Saturation: b.add(body, LfoTarget::Saturation, ReactMode::Follow, d.range(0.2f, 0.4f), 0.3f, 0.8f); break;
+            case LfoTarget::Ripple: b.add(body, LfoTarget::Ripple, ReactMode::Follow, d.range(0.2f, 0.4f), 0.1f, 0.5f, ModCurve::Smooth); break;
+            case LfoTarget::Bloom: b.add(body, LfoTarget::Bloom, ReactMode::Follow, d.range(0.15f, 0.3f), 0.2f, 0.6f); break;
+            case LfoTarget::Fisheye: b.add(body, LfoTarget::Fisheye, ReactMode::Follow, d.range(0.15f, 0.3f), 0.08f, 0.5f, ModCurve::Smooth); break;
+            case LfoTarget::CamOrbit: b.add(body, LfoTarget::CamOrbit, ReactMode::Follow, d.range(0.3f, 0.6f), 0.4f, 1.0f); break;
             default: break;
         }
     }
 
-    // Colour over the song: a calm hue step per phrase, section or key change when
-    // the beat does not already move colour; otherwise the palette swaps per phrase.
+    // Colour over the song, with no fixed driver: the melody's pitch class, a note change, every
+    // sixteenth kick, a hard cut, a per-hit random or the timbre. When the pulse already moves
+    // colour, the palette swaps or the temperature lands somewhere new every sixteen kicks instead.
     if (b.uses(LfoTarget::ColorShift)) {
-        if (traits.shaderLook) b.add(ReactSource::Phrase, LfoTarget::PaletteMix, ReactMode::Toggle, 1.0f, 0.6f, 0.6f);
-        else b.add(ReactSource::Phrase, LfoTarget::Temperature, ReactMode::Jump, d.range(0.3f, 0.5f), 0.6f, 0.6f);
+        if (traits.shaderLook) b.add(ReactSource::Kick16, LfoTarget::PaletteMix, ReactMode::Toggle, 1.0f, 0.6f, 0.6f);
+        else b.add(ReactSource::Kick16, LfoTarget::Temperature, ReactMode::Jump, d.range(0.3f, 0.5f), 0.6f, 0.6f);
     } else {
-        const std::array events = {ReactSource::Phrase, ReactSource::Section, ReactSource::PitchChange, ReactSource::Downbeat};
-        b.add(events[static_cast<size_t>(d.below(static_cast<int>(events.size())))], LfoTarget::ColorShift, ReactMode::Step,
-              d.range(0.1f, 0.3f), 0.25f, 0.25f);
+        switch (d.below(6)) {
+            case 0: b.add(ReactSource::PitchClass, LfoTarget::ColorShift, ReactMode::Follow, d.range(0.4f, 0.8f), 0.4f, 0.8f); break;
+            case 1: b.add(ReactSource::NoteChange, LfoTarget::ColorShift, ReactMode::Step, d.range(0.08f, 0.2f), 0.25f, 0.25f); break;
+            case 2: b.add(ReactSource::Kick16, LfoTarget::ColorShift, ReactMode::Step, d.range(0.15f, 0.3f), 0.3f, 0.3f); break;
+            case 3: b.add(ReactSource::HardCut, LfoTarget::ColorShift, ReactMode::Jump, d.range(0.3f, 0.5f), 0.4f, 0.4f); break;
+            case 4: b.add(ReactSource::KickRandom, LfoTarget::ColorShift, ReactMode::Follow, d.range(0.1f, 0.25f), 0.3f, 0.6f); break;
+            default: b.add(ReactSource::Centroid, LfoTarget::ColorShift, ReactMode::Follow, d.range(0.2f, 0.4f), 0.6f, 1.2f); break;
+        }
     }
 
     // The top end gives it texture.
     {
-        const std::array tops = {ReactSource::Air, ReactSource::Presence, ReactSource::Hat, ReactSource::Noisiness, ReactSource::Brightness};
-        const ReactSource top = tops[static_cast<size_t>(d.below(static_cast<int>(tops.size())))];
+        const ReactSource top = pick(d, std::array{ReactSource::TrebleAtt, ReactSource::High, ReactSource::HatEnv, ReactSource::Flatness,
+                                                   ReactSource::Centroid, ReactSource::DensityFast, ReactSource::TreblePresence});
         const LfoTarget target = b.freeTarget(
             d, std::array{LfoTarget::ChromaAb, LfoTarget::Saturation, LfoTarget::Temperature, LfoTarget::PaletteMix, LfoTarget::Vignette}, traits);
         if (target != LfoTarget::None) b.add(top, target, ReactMode::Follow, d.range(0.15f, 0.4f), 0.05f, 0.3f);
     }
 
-    // Some styles accent the backbeat with something of their own.
+    // Some styles accent a counted hit with something of their own.
     if (d.coin()) {
+        const ReactSource accent = pick(d, std::array{ReactSource::Snare2, ReactSource::Kick4, ReactSource::Snare4, ReactSource::Reattack});
         const std::array accents = {LfoTarget::Ripple, LfoTarget::ColorShift, LfoTarget::Twist, LfoTarget::CamRoll, LfoTarget::Warp};
         switch (b.freeTarget(d, accents, traits)) {
-            case LfoTarget::Ripple: b.add(ReactSource::Backbeat, LfoTarget::Ripple, ReactMode::Follow, d.range(0.3f, 0.5f), 0.02f, 0.3f); break;
-            case LfoTarget::ColorShift: b.add(ReactSource::Backbeat, LfoTarget::ColorShift, ReactMode::Step, d.range(0.08f, 0.15f), 0.2f, 0.2f); break;
-            case LfoTarget::Twist: b.add(ReactSource::Backbeat, LfoTarget::Twist, ReactMode::Jump, d.range(0.15f, 0.3f), 0.03f, 0.3f); break;
-            case LfoTarget::CamRoll: b.add(ReactSource::Backbeat, LfoTarget::CamRoll, ReactMode::Step, d.sign() * d.range(0.1f, 0.2f), 0.3f, 0.3f); break;
-            case LfoTarget::Warp: b.add(ReactSource::Backbeat, LfoTarget::Warp, ReactMode::Follow, d.range(0.25f, 0.4f), 0.03f, 0.3f, ModCurve::Smooth); break;
+            case LfoTarget::Ripple: b.add(accent, LfoTarget::Ripple, ReactMode::Follow, d.range(0.3f, 0.5f), 0.02f, 0.3f); break;
+            case LfoTarget::ColorShift: b.add(accent, LfoTarget::ColorShift, ReactMode::Step, d.range(0.08f, 0.15f), 0.2f, 0.2f); break;
+            case LfoTarget::Twist: b.add(accent, LfoTarget::Twist, ReactMode::Jump, d.range(0.15f, 0.3f), 0.03f, 0.3f); break;
+            case LfoTarget::CamRoll: b.add(accent, LfoTarget::CamRoll, ReactMode::Step, d.sign() * d.range(0.1f, 0.2f), 0.3f, 0.3f); break;
+            case LfoTarget::Warp: b.add(accent, LfoTarget::Warp, ReactMode::Follow, d.range(0.25f, 0.4f), 0.03f, 0.3f, ModCurve::Smooth); break;
             default: break;
         }
     }
 
-    // A build-up tightens something until the drop releases it.
+    // A rise (the level climbing over its 8 s average) tightens something until a big moment releases it.
     if (d.coin()) {
         switch (b.freeTarget(d, std::array{LfoTarget::CamFov, LfoTarget::ChromaAb, LfoTarget::Vignette}, traits)) {
-            case LfoTarget::CamFov: b.add(ReactSource::Buildup, LfoTarget::CamFov, ReactMode::Follow, -d.range(0.15f, 0.3f), 0.5f, 0.5f); break;
-            case LfoTarget::ChromaAb: b.add(ReactSource::Buildup, LfoTarget::ChromaAb, ReactMode::Follow, d.range(0.3f, 0.5f), 0.5f, 0.5f); break;
-            case LfoTarget::Vignette: b.add(ReactSource::Buildup, LfoTarget::Vignette, ReactMode::Follow, d.range(0.3f, 0.5f), 0.5f, 0.5f); break;
+            case LfoTarget::CamFov: b.add(ReactSource::EnergyTrend, LfoTarget::CamFov, ReactMode::Follow, -d.range(0.15f, 0.3f), 0.5f, 0.5f); break;
+            case LfoTarget::ChromaAb: b.add(ReactSource::EnergyTrend, LfoTarget::ChromaAb, ReactMode::Follow, d.range(0.3f, 0.5f), 0.5f, 0.5f); break;
+            case LfoTarget::Vignette: b.add(ReactSource::EnergyTrend, LfoTarget::Vignette, ReactMode::Follow, d.range(0.3f, 0.5f), 0.5f, 0.5f); break;
             default: break;
         }
     }
 
-    // Some cruise faster through the loud parts of the song, or lean with the stereo field.
-    if (d.coin()) b.add(ReactSource::MacroEnergy, LfoTarget::CamFly, ReactMode::Follow, d.range(0.3f, 0.6f), 1.5f, 3.0f, ModCurve::Smooth);
+    // Some cruise faster the longer the song stays loud, lean with the stereo field, or rise with the melody.
+    if (d.coin()) b.add(ReactSource::Intensity, LfoTarget::CamFly, ReactMode::Follow, d.range(0.3f, 0.6f), 1.5f, 3.0f, ModCurve::Smooth);
     if (d.coin() && !b.uses(LfoTarget::CamYaw)) {
         b.add(ReactSource::StereoPan, LfoTarget::CamYaw, ReactMode::Follow, d.range(0.2f, 0.45f), 0.3f, 0.6f);
+    }
+    if (d.coin() && !b.uses(LfoTarget::CamPitch)) {
+        b.add(ReactSource::PitchHeight, LfoTarget::CamPitch, ReactMode::Follow, d.range(0.1f, 0.25f), 0.6f, 1.2f, ModCurve::Smooth);
     }
 
     return b.dna;

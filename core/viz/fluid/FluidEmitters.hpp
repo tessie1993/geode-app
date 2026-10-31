@@ -51,7 +51,7 @@ public:
     float bassEnv() const { return bassEnv_; }
 
     void applyParams(const SceneParams& p);
-    void tick(const GeodeFeatureFrame& f, float dt, float aspect, float baseHue, float hueSpan, std::vector<Splat>& out);
+    void tick(const GeodeSoundFrame& f, float dt, float aspect, float baseHue, float hueSpan, std::vector<Splat>& out);
 
 private:
     static constexpr int kMaxSplatsPerFrame = 16;
@@ -59,8 +59,8 @@ private:
     static constexpr float kMaxRadiusSwell = 2.0f;
 
     void anchor(int i, float aspect);
-    void stirrerSplats(std::vector<Splat>& out, const GeodeFeatureFrame& f, float dt, float aspect, float baseHue, float hueSpan, float radius);
-    void beatSplatsFor(std::vector<Splat>& out, const GeodeFeatureFrame& f, float aspect, float baseHue, float hueSpan, float radius, float speed);
+    void stirrerSplats(std::vector<Splat>& out, const GeodeSoundFrame& f, float dt, float aspect, float baseHue, float hueSpan, float radius);
+    void beatSplatsFor(std::vector<Splat>& out, const GeodeSoundFrame& f, float aspect, float baseHue, float hueSpan, float radius, float speed);
     void suctionSplats(std::vector<Splat>& out, float radius);
     void sparkleSplats(std::vector<Splat>& out, float aspect, float baseHue, float hueSpan, float radius);
     void pumpSplats(std::vector<Splat>& out, float baseHue, float hueSpan, float radius);

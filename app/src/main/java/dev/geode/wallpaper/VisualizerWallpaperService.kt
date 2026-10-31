@@ -86,6 +86,7 @@ class VisualizerWallpaperService : WallpaperService() {
             renderer = engine
             restoreLiveState(engine)
             engine.pcmProvider = { null }
+            engine.soundInput = { AudioBus.soundInput }
             glView =
                 WallpaperGlSurfaceView(this@VisualizerWallpaperService).apply {
                     setEGLContextClientVersion(3)
@@ -106,7 +107,9 @@ class VisualizerWallpaperService : WallpaperService() {
                 }
             }
             // The MilkDrop preset needs nothing here: the renderer restores the app's (MilkPresetMemory).
-            engine.reducedMotion = ThemeStore(prefsFiles.general).loadGui().reducedMotion
+            val gui = ThemeStore(prefsFiles.general).loadGui()
+            engine.reducedMotion = gui.reducedMotion
+            engine.soundTuning = gui.soundTuning
             // Settings › Performance; the wallpaper keeps its own pacer, so the cap goes there.
             val performance = PerformanceStore(prefsFiles.general, this@VisualizerWallpaperService).settings.value
             engine.performance = performance

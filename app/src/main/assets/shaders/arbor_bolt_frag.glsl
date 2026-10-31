@@ -7,7 +7,6 @@ out vec4 fragColor;
 
 //#include lib_scene_uniforms
 //#include lib_scene_motion
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_sdf3
@@ -28,11 +27,11 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// Onsets STRIKE. uHitCount is the bolt's seed: every onset is a new strike,
+// Onsets STRIKE. SND_ONSET_COUNT is the bolt's seed: every onset is a new strike,
 // with its own channel, kinks, side sparks and landing point. The onset
-// envelope (uHits.w, 0.22 s) is the strike's progress, the new bolt racing
-// down from the cloud while the last one fades. Bass (uBassSmooth) churns the
-// clouds, air (uBandsHi.z) thickens the rain. Brightness follows uSwell only.
+// envelope (SND_ONSET_ENV, 0.22 s) is the strike's progress, the new bolt racing
+// down from the cloud while the last one fades. Bass (SND_BASS_PRESENCE) churns the
+// clouds, air (sndSpectrum(0.93)) thickens the rain. Brightness follows SND_LEVEL only.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -60,11 +59,11 @@ void main() {
     float t = uTime * uSpeed;
     float energy = uIntensity;
     float chaos = arbChaos();
-    float swell = clamp(uSwell, 0.0, 1.5);
-    float bass = clamp(uBassSmooth, 0.0, 1.5) * energy;
-    float air = clamp(uBandsHi.z, 0.0, 1.0) * energy;
-    float onset = clamp(uHits.w, 0.0, 1.0);
-    float n = floor(uHitCount);
+    float swell = clamp(SND_LEVEL, 0.0, 1.5);
+    float bass = clamp(SND_BASS_PRESENCE, 0.0, 1.5) * energy;
+    float air = clamp(sndSpectrum(0.93), 0.0, 1.0) * energy;
+    float onset = clamp(SND_ONSET_ENV, 0.0, 1.0);
+    float n = floor(SND_ONSET_COUNT);
 
     float hue = 0.74 + 0.03 * sin(t * 0.04);
 

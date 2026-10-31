@@ -1,7 +1,7 @@
 #version 300 es
 precision highp float;
 // GLSL ES 3.00 defaults fragment sampler2D to LOWP (range [-2,2), ~8
-// fraction bits). uAudioTex is R32F; on GPUs honoring sampler precision
+// fraction bits). uSoundTex is R32F; on GPUs honoring sampler precision
 // (Mali) every read is clamped and quantized.
 precision highp sampler2D;
 
@@ -11,7 +11,6 @@ out vec4 fragColor;
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 
@@ -28,7 +27,7 @@ out vec4 fragColor;
 //     dolly lurches the eye down the tube with it.
 //   - ring brightness rides the analyser band under each ring, the wave
 //     overlay the treble, as before.
-//   - kick (uHits.x) launches a ripple down the tube: a front that leaves the
+//   - kick (SND_KICK_ENV) launches a ripple down the tube: a front that leaves the
 //     eye on the hit and travels away as the envelope falls, shifting ring
 //     positions as it passes. It moves rings, never their brightness.
 
@@ -57,16 +56,16 @@ void main() {
 
     // The kick ripple: 1 at the hit, so the front starts at the eye and runs
     // away down the tube as the envelope decays.
-    float kick = clamp(uHits.x, 0.0, 1.0);
+    float kick = clamp(SND_KICK_ENV, 0.0, 1.0);
     float front = (1.0 - kick) * TUN_RIPPLE_REACH;
     float dFront = wall - front;
     float ripple = kick * 0.35 * sin(dFront * 6.0) * exp(-abs(dFront) * 1.2);
 
-    float band = aband(fract(angle + depth * 0.0625));
+    float band = (0.5 * sndEq(fract(angle + depth * 0.0625)));
     float rings = smoothstep(0.35, 0.9, fract(depth * 2.0 + ripple));
-    float wave = awave(fract(angle * 2.0));
+    float wave = sndWave01(fract(angle * 2.0));
     vec3 col = pal(depth * 0.125) * (0.15 + band * 1.6) * rings;
-    col += pal(0.6) * wave * uTreble * 0.6;
+    col += pal(0.6) * wave * sndShaped(SND_HIGH) * 0.6;
     col *= 1.0 - smoothstep(0.35, 1.8, length(uv) * uZoom);
     fragColor = vec4(grade(col), 1.0);
 }

@@ -8,7 +8,6 @@ out vec4 fragColor;
 
 //#include lib_scene_uniforms
 //#include lib_scene_motion
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_truchet
@@ -25,12 +24,12 @@ out vec4 fragColor;
 // ---- audio ------------------------------------------------------------------
 //
 // The TEMPO sets the speed: the dashes advance exactly one dash spacing per
-// beat, on the analyser's phase-locked beat phase (uBeatPhase), plus a slow
-// drift so they never stop. The mids (uMidSmooth) set the density - longer
+// beat, on the analyser's beat-clock phase (sndPhase(SND_CURVED_TIME, 2.0)), plus a slow
+// drift so they never stop. The mids (SND_MID_PRESENCE) set the density - longer
 // dashes that close into a near-solid stream on a busy middle, short dots on
 // a sparse one. Onsets swing a scattered quarter of the tiles, so the traffic
 // is re-routed on the hit. The bass breathes the scale. Brightness follows
-// uSwell only.
+// (0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)) only.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -43,21 +42,21 @@ void main() {
     vec2 uv = view();
     float t = truchetTime();
     float e = truchetEnergy();
-    float swell = clamp(uSwell, 0.0, 1.5);
-    float mids = clamp(uMidSmooth * e, 0.0, 1.0);
+    float swell = clamp((0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)), 0.0, 1.5);
+    float mids = clamp(SND_MID_PRESENCE * e, 0.0, 1.0);
     float morph = truchetMorph();
 
-    float scale = 2.6 * truchetBreath(uBassSmooth);
+    float scale = 2.6 * truchetBreath(sndShaped(SND_LOW));
     vec2 p = truchetWarp(uv * scale, t);
     float px = truchetPx(p);
 
-    TruchetArc a = truchetSquare(p, floor(uHitCount), uHits.w, 4.0);
+    TruchetArc a = truchetSquare(p, floor(SND_HIT_TIME), SND_ONSET_ENV, 4.0);
 
     // Dashes per quarter arc: a whole number, so the stream joins up.
     float per = 3.0 + floor(morph * 2.0 + 0.5);
     float arcLen = TRUCHET_PI * 0.25;
     float seg = arcLen / per;
-    float phase = a.s * per - fract(uBeatPhase) - t * 0.12;
+    float phase = a.s * per - sndPhase(SND_CURVED_TIME, 2.0) - t * 0.12;
     float k = fract(phase);
     float duty = 0.22 + 0.55 * mids;
     // Rounded dash: a capsule along the arc, measured in cell units.

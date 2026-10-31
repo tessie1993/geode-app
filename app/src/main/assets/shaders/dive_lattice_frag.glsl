@@ -9,7 +9,6 @@ out vec4 fragColor;
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_dive
@@ -22,10 +21,10 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// Kick (uHits.x) swells every girder a little, so the whole frame tightens
+// Kick (SND_KICK_ENV) swells every girder a little, so the whole frame tightens
 // round the channel on the beat and relaxes. Each knuckle is coloured from
 // its cell's hash; the palette switches on section changes and every 16
-// onsets, crossfading (lib_dive). Brightness follows uSwell mildly.
+// onsets, crossfading (lib_dive). Brightness follows SND_ENERGY_TREND mildly.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -53,6 +52,6 @@ void main() {
         col = diveShade(n, rd, hitT, used, base, 24.0);
     }
 
-    col *= 0.85 + 0.2 * clamp(uSwell, 0.0, 1.5);
+    col *= 0.85 + 0.2 * clamp(SND_ENERGY_TREND, 0.0, 1.5);
     fragColor = vec4(grade(col), 1.0);
 }

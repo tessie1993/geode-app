@@ -9,7 +9,6 @@ out vec4 fragColor;
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_dive
@@ -21,10 +20,10 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// Kick (uHits.x) PULSES THE CAPS: every cap in the tunnel swells on the kick
+// Kick (SND_KICK_ENV) PULSES THE CAPS: every cap in the tunnel swells on the kick
 // and settles as the envelope falls. The glow under the caps is constant;
 // only the geometry moves on a hit. Palette switching as in lib_dive.
-// Brightness follows uSwell mildly.
+// Brightness follows SND_LEVEL mildly.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -60,6 +59,6 @@ void main() {
         }
     }
 
-    col *= 0.85 + 0.2 * clamp(uSwell, 0.0, 1.5);
+    col *= 0.85 + 0.2 * clamp(SND_LEVEL, 0.0, 1.5);
     fragColor = vec4(grade(col), 1.0);
 }

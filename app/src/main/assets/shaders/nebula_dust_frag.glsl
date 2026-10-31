@@ -8,7 +8,6 @@ out vec4 fragColor;
 
 //#include lib_scene_uniforms
 //#include lib_scene_motion
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_nebula
@@ -27,12 +26,12 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// Bass (uBassSmooth, steadied with the bass band region) DEEPENS THE COLOUR:
+// Bass (sndShaped(SND_LOW), steadied with the bass band region) DEEPENS THE COLOUR:
 // the gas threshold drops so the glow spreads into more of the field, its hue
 // saturates (nebRich), and the dust lanes thicken - a heavy low end pulls the
 // whole cloud denser and richer, a quiet passage thins it to wisps. The hats
 // set the stars twinkling. The key turns the gas hue a little. Overall level
-// follows uSwell gently.
+// follows SND_INTENSITY gently.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -47,9 +46,9 @@ void main() {
     float t = nebTime();
     float flow = nebFlow();
     float e = nebEnergy();
-    float bass = clamp(0.6 * uBassSmooth + 0.4 * uBandsLo.y, 0.0, 1.3) * e;
-    float swell = clamp(uSwell, 0.0, 1.5);
-    float hats = clamp(uHits.z, 0.0, 1.0);
+    float bass = clamp(0.6 * sndShaped(SND_LOW) + 0.4 * sndSpectrum(0.23), 0.0, 1.3) * e;
+    float swell = clamp(SND_INTENSITY, 0.0, 1.5);
+    float hats = clamp(SND_HAT_ENV, 0.0, 1.0);
     float oct = nebOctaves(4.0);
     float key = nebKeyShift(0.12);
 

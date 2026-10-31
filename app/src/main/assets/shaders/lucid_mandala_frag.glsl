@@ -8,7 +8,6 @@ out vec4 fragColor;
 
 //#include lib_scene_uniforms
 //#include lib_scene_motion
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_lucid
@@ -26,12 +25,12 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// Hats (uHits.z) add FOLD SEGMENTS: the mandala has 8 arms at rest and grows
+// Hats (SND_HAT_ENV) add FOLD SEGMENTS: the mandala has 8 arms at rest and grows
 // toward 12 as the hats get busy. Segment counts are integers, so the fold is
 // cross-faded between the two neighbouring even counts by the fractional
 // part: arms split and merge instead of popping. The slow accumulated turn
-// (uDrift) spins the whole figure; uMidSmooth sharpens the jewel contrast.
-// Brightness follows uSwell gently.
+// (uDrift) spins the whole figure; sndShaped(SND_MIDDLE) sharpens the jewel contrast.
+// Brightness follows SND_LEVEL gently.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -54,9 +53,9 @@ void main() {
     vec2 uv = lucidView(false);
     float t = uTime * uSpeed;
     float flow = uFlowPhase * uSpeed;
-    float hat = clamp(uHits.z, 0.0, 1.0) * uIntensity;
-    float mid = clamp(uMidSmooth, 0.0, 1.5);
-    float swell = clamp(uSwell, 0.0, 1.5);
+    float hat = clamp(SND_HAT_ENV, 0.0, 1.0) * uIntensity;
+    float mid = clamp(sndShaped(SND_MIDDLE), 0.0, 1.5);
+    float swell = clamp(SND_LEVEL, 0.0, 1.5);
 
     int depth = lucidDetail(4, 3);
     int oct = lucidDetail(3, 2);

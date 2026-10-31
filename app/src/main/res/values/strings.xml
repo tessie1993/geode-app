@@ -226,7 +226,11 @@
     <string name="a11y_preview_larger">Larger preview</string>
     <string name="a11y_preview_smaller">Smaller preview</string>
     <string name="a11y_state_on">On</string>
-    <string name="visuals_live_overlay">Live overlay</string>
+    <string name="visuals_stage_hint">Swipe for the next style · hold to hide the panel</string>
+    <string name="visuals_stage_hint_hidden">Hold to bring the panel back</string>
+    <string name="a11y_next_style">Next style</string>
+    <string name="a11y_previous_style">Previous style</string>
+    <string name="a11y_toggle_visuals_panel">Show or hide the Visuals panel</string>
     <string name="action_stop_capture">Stop capture</string>
     <string name="action_resume_last_played">Resume last played</string>
     <string name="action_open_library">Open library</string>
@@ -436,6 +440,7 @@
     <string name="studio_edit_again">Edit again</string>
     <string name="studio_send_explainer">Send opens the phone\'s own share sheet — YouTube, Instagram, TikTok, Drive, a message, whatever is installed and signed in. MuzViz has no network access of its own and never uploads anything itself.</string>
     <string name="studio_render">Render</string>
+    <string name="studio_takes">Takes</string>
     <string name="studio_reset">Reset</string>
     <string name="studio_nothing_changed">Nothing is changed yet — rendering now would just copy the clip.</string>
     <string name="studio_renders_new_file">Renders a NEW file. The original is never overwritten.</string>
@@ -528,10 +533,29 @@
     <!-- Shown once per audio-DSP screen (playback/EQ), so nobody files "the visuals didn't
          change" as a bug per feature. See docs/AUDIO_CHAIN.md, "DSP does not move the visuals". -->
     <string name="audio_dsp_visuals_notice">Nothing on this screen touches the visuals. The picture is drawn from the raw audio before the equalizer, ReplayGain or any other effect here runs, so turning a knob changes what you hear and never what you see.</string>
-    <string name="audio_beat_sensitivity">"Beat sensitivity  %1$sσ — drag right for LESS sensitive (fewer beat flashes)"</string>
-    <string name="audio_beat_min_gap">"Minimum gap between beats  %1$d ms — never flash faster than %2$d BPM"</string>
-    <string name="audio_slow_track">Slow track</string>
     <string name="audio_default">Default</string>
+    <!-- The sound engine's tuning (core/sound GeodeSoundTuning). -->
+    <string name="audio_reactivity">"Reactivity  %1$s× — how strongly the visuals answer the music"</string>
+    <string name="audio_speed">"Clock speed  %1$s× — how fast the music-driven motion runs"</string>
+    <string name="audio_advanced">Advanced</string>
+    <string name="audio_band_low">Low</string>
+    <string name="audio_band_middle">Middle</string>
+    <string name="audio_band_high">High</string>
+    <string name="audio_band_gain">"Gain  %1$s×"</string>
+    <string name="audio_band_threshold">"Threshold  %1$s"</string>
+    <string name="audio_band_attack">"Attack  %1$d ms"</string>
+    <string name="audio_band_release">"Release  %1$d ms"</string>
+    <string name="audio_drums">Drums</string>
+    <string name="audio_drum_kick">"Kick: needs a hit of %1$s, fades in %2$d ms"</string>
+    <string name="audio_drum_snare">"Snare: needs a hit of %1$s, fades in %2$d ms"</string>
+    <string name="audio_drum_hat">"Hi-hat: needs a hit of %1$s, fades in %2$d ms"</string>
+    <string name="audio_events">Events</string>
+    <string name="audio_onset_threshold">"Note start needs  %1$s× the usual change"</string>
+    <string name="audio_hard_cut_level">"Big moment needs  %1$s× the usual level"</string>
+    <string name="audio_hard_cut_half_life">"Big moments settle over  %1$d s"</string>
+    <string name="audio_pitch_threshold">"Pitch counts when  %1$s sure"</string>
+    <string name="audio_note_hold">"A new note must hold  %1$d ms"</string>
+    <string name="audio_silence">"Silence below  %1$d dB"</string>
     <string name="audio_preset_morph">Preset morph: %1$.1f s (0 = snap)</string>
     <string name="audio_key_colour">Colour from the musical key</string>
     <string name="audio_key_colour_explainer">Sets Hue shift from the key the analyser found, around the circle of fifths — so a track keeps the same colour every time you play it, and two songs that sound related look related. It moves the ordinary Hue shift slider, so you can always disagree with it; switching this off gives your own value back.</string>
@@ -769,8 +793,6 @@
     <string name="look_corner_rounded">Rounded</string>
     <string name="look_corner_pill">Pill</string>
     <string name="look_compact_player">Compact mini-player</string>
-    <string name="look_clear_visuals_menu">Clear-overlay Visuals menu</string>
-    <string name="look_clear_visuals_hint">Text-only Visuals menu over the live visuals, so adjustments are visible as you make them.</string>
     <string name="look_boot_animation">Boot animation</string>
 
     <!-- Font colour swatches. Mineral names; the argb value is what persists. -->

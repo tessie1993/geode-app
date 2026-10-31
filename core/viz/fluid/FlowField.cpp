@@ -18,7 +18,7 @@ void FlowField::queueKick(float clipX, float clipY, float velX, float velY, floa
     sim_.queueSplat({x, clipY, x, clipY, std::clamp(radius, 0.02f, 0.4f), velX * a * kKickForce, velY * kKickForce, 0.0f, 0.0f, 0.0f});
 }
 
-void FlowField::step(const GeodeFeatureFrame& features, float dt, const SceneParams& p) {
+void FlowField::step(const GeodeSoundFrame& features, float dt, const SceneParams& p) {
     if (!sim_.available()) return;
     sim_.curlStrength = std::clamp(p.flowCurl, 0.0f, 50.0f);
     emitters_.forceScale = std::clamp(p.flowForce, 0.0f, 3.0f);

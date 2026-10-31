@@ -8,7 +8,6 @@ out vec4 fragColor;
 
 //#include lib_scene_uniforms
 //#include lib_scene_motion
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_chrys
@@ -23,13 +22,13 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// The hi-hat (uHits.z) FLIPS the petals: each one rolls over about its own
+// The hi-hat (SND_HAT_ENV) FLIPS the petals: each one rolls over about its own
 // length by up to a half turn on a hat, the direction its own (hashed), so a
 // run of hats sets the whole air flickering between top and underside, and
-// the petals roll back as the level falls. The air band (uBandsHi.z)
+// the petals roll back as the level falls. The air band (sndSpectrum(0.93))
 // shimmers a thin light along the petal edges (an edge highlight moving
 // along the rim, never a full-frame lift). The fall rides uFlowPhase, so
-// loudness sets the speed and never the direction. Brightness follows uSwell
+// loudness sets the speed and never the direction. Brightness follows SND_ENERGY_TREND
 // only.
 //
 // ---- macros -----------------------------------------------------------------
@@ -46,9 +45,9 @@ out vec4 fragColor;
 void main() {
     vec2 uv = view();
     float t = uTime * uSpeed;
-    float swell = clamp(uSwell, 0.0, 1.5);
-    float hat = clamp(uHits.z * uIntensity, 0.0, 1.5);
-    float air = clamp(uBandsHi.z * uIntensity, 0.0, 1.5);
+    float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
+    float hat = clamp(SND_HAT_ENV * uIntensity, 0.0, 1.5);
+    float air = clamp(sndSpectrum(0.93) * uIntensity, 0.0, 1.5);
     float chaos = clamp(uTurbulence + uWarp, 0.0, 2.0);
     float fill = mix(0.5, 0.05, clamp(uMorph, 0.0, 1.0));
     float hue = 0.9 + 0.02 * sin(t * 0.02);

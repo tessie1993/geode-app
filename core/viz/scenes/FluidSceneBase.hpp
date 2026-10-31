@@ -23,15 +23,15 @@ public:
     SceneFamily family() const override { return SceneFamily::Fluid; }
     void setParams(const SceneParams& params) override { params_ = params; }
     void acceptPcm(const float* samples, int count) override { pcmPulse_.accept(samples, count); }
-    void update(const GeodeFeatureFrame& features, float dt) override;
+    void update(const GeodeSoundFrame& features, float dt) override;
 
 protected:
     float tickPcm(float dt) { return pcmPulse_.tick(dt); }
-    virtual GeodeFeatureFrame idleFeatures(float dt) = 0;
-    GeodeFeatureFrame scaledFeatures();
+    virtual GeodeSoundFrame idleFeatures(float dt) = 0;
+    GeodeSoundFrame scaledFeatures();
     bool isIdle() const { return !hasPending_ && featuresAgeSec_ >= 0.25f; }
     void fillIdleBands(float t, float amp);
-    GeodeFeatureFrame idleAudioFeatures(float bass, float mid, float treble, float rms) const;
+    GeodeSoundFrame idleAudioFeatures(float bass, float mid, float treble, float rms) const;
     virtual bool tierApplied() const { return true; }
     virtual void onApplyQualityTier(int index, bool userChanged) = 0;
     void applyQualityTier();
@@ -57,9 +57,9 @@ protected:
     float time_ = 0.0f;
     float lastDt_ = 1.0f / 60.0f;
     bool hasPending_ = false;
-    GeodeFeatureFrame pending_{};
+    GeodeSoundFrame pending_{};
     bool hasLast_ = false;
-    GeodeFeatureFrame last_{};
+    GeodeSoundFrame last_{};
     float featuresAgeSec_ = 0.0f;
     int autoDowngrade_ = 0;
     int lastUserQuality_ = -1;
@@ -73,7 +73,7 @@ private:
     bool blendWas_ = false;
     std::array<float, fluid::Choreography::kMaxSpawn * 4> spawnPack_{};
     std::array<float, fluid::Choreography::kMaxCatch * 4> catchPack_{};
-    std::array<float, GEODE_BAND_COUNT> idleBands_{};
+    std::array<float, GEODE_SOUND_SPECTRUM_POINTS> idleBands_{};
 };
 
 }  // namespace geode::viz

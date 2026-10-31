@@ -18,5 +18,4 @@ object VisualSafety {
 
     /** Floors the gap between beat-driven hits so they cannot outrun the flash limit. */
     fun beatMinIntervalMs(requestedMs: Float): Float = maxOf(requestedMs, 1000f / WCAG_FLASHES_PER_SECOND)
-
 }

@@ -9,7 +9,6 @@ out vec4 fragColor;
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_glass
@@ -33,11 +32,11 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// Snares (uHits.y) breathe the windings: each snare pushes the strands out
+// Snares (SND_SNARE_ENV) breathe the windings: each snare pushes the strands out
 // from the torus's core circle and lets them settle back as the envelope falls
 // (glassBump), so the knot loosens and re-tightens on the backbeat. Bass
-// (uBassSmooth, with uBandsLo.y) thickens the tube. The key (uKeyHue,
-// uKeyStrength) drifts the room's palette. Brightness follows uSwell only.
+// (sndShaped(SND_LOW), with sndSpectrum(0.23)) thickens the tube. The key (uKeyHue,
+// uKeyStrength) drifts the room's palette. Brightness follows (0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)) only.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -80,12 +79,12 @@ void main() {
     vec2 uv = view();
     float t = glassTime();
     float energy = glassEnergy();
-    float swell = clamp(uSwell, 0.0, 1.5);
-    float bass = clamp(0.6 * uBassSmooth + 0.4 * uBandsLo.y, 0.0, 1.2);
+    float swell = clamp((0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)), 0.0, 1.5);
+    float bass = clamp(0.6 * sndShaped(SND_LOW) + 0.4 * sndSpectrum(0.23), 0.0, 1.2);
     float hue = 0.04 * sin(t * 0.02) + 0.12 * uKeyStrength * sin(GLASS_TAU * uKeyHue);
 
     gQ = glassComplexity() >= 0.5 ? 5.0 : 3.0;
-    gWind = 0.42 + 0.09 * glassBump(uHits.y) * energy;
+    gWind = 0.42 + 0.09 * glassBump(SND_SNARE_ENV) * energy;
     gTube = 0.15 + 0.05 * bass * energy;
     float strand = gWind * gQ / (2.0 * max(KN_R - gWind - gTube, 0.2));
     gLip = sqrt(1.0 + strand * strand);

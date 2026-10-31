@@ -26,7 +26,7 @@ public:
     void init() override;
     void setParams(const SceneParams& params) override { params_ = params; }
     void resize(int width, int height) override;
-    void update(const GeodeFeatureFrame& features, float dt) override;
+    void update(const GeodeSoundFrame& features, float dt) override;
     void draw(float timeSeconds) override;
     void release() override;
     void acceptPcm(const float* samples, int count) override { pcmPulse_.accept(samples, count); }
@@ -50,7 +50,7 @@ private:
     SceneHost host_;
     SceneParams params_;
     bool hasPending_ = false;
-    GeodeFeatureFrame pending_{};
+    GeodeSoundFrame pending_{};
     int width_ = 1;
     int height_ = 1;
     float time_ = 0.0f;

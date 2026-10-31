@@ -8,7 +8,6 @@ out vec4 fragColor;
 
 //#include lib_scene_uniforms
 //#include lib_scene_motion
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_lucid
@@ -26,10 +25,10 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// The kick (uHits.x) pulses ZOOM DEPTH: each kick pushes the dive a short way
+// The kick (SND_KICK_ENV) pulses ZOOM DEPTH: each kick pushes the dive a short way
 // further down the spiral (log-radius offset), on top of the steady descent
 // carried by uFlowPhase. It is a geometric push, never a brightness change.
-// uTrebleSmooth tightens the ridges' crease width. Brightness follows uSwell
+// SND_TREBLE_PRESENCE tightens the ridges' crease width. Brightness follows (0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE))
 // gently.
 //
 // ---- macros -----------------------------------------------------------------
@@ -49,9 +48,9 @@ void main() {
     vec2 uv = lucidView(false);
     float t = uTime * uSpeed;
     float flow = uFlowPhase * uSpeed;
-    float kick = clamp(uHits.x, 0.0, 1.0) * uIntensity;
-    float treb = clamp(uTrebleSmooth, 0.0, 1.5);
-    float swell = clamp(uSwell, 0.0, 1.5);
+    float kick = clamp(SND_KICK_ENV, 0.0, 1.0) * uIntensity;
+    float treb = clamp(SND_TREBLE_PRESENCE, 0.0, 1.5);
+    float swell = clamp((0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)), 0.0, 1.5);
 
     int depth = lucidDetail(3, 2);
     int oct = lucidDetail(3, 2);

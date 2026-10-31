@@ -29,7 +29,7 @@ public:
     void init() override;
     void setParams(const SceneParams& params) override { params_ = params; }
     void resize(int width, int height) override;
-    void update(const GeodeFeatureFrame& features, float dt) override;
+    void update(const GeodeSoundFrame& features, float dt) override;
     void draw(float timeSeconds) override;
     void release() override;
     void acceptPcm(const float* samples, int count) override;

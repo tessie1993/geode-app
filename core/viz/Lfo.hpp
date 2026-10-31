@@ -60,7 +60,7 @@ public:
 
     std::array<LfoConfig, kSlots> configs{};
 
-    const std::array<float, kSlots>& tick(float dt, const GeodeFeatureFrame& features, const float* extRateAdd = nullptr,
+    const std::array<float, kSlots>& tick(float dt, const GeodeSoundFrame& sound, const float* extRateAdd = nullptr,
                                           const float* extDepthAdd = nullptr);
     SceneParams apply(const SceneParams& p, const std::array<float, kSlots>& values) const;
 

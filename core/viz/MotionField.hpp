@@ -1,22 +1,34 @@
 #pragma once
+#include <cstdint>
+#include <string_view>
+
 #include "api/geode_api.h"
 #include "viz/Params.hpp"
 
 namespace geode::viz {
 
+// FNV-1a of a style id: MotionField::setVariant's seed, the same wherever the style is drawn.
+inline std::uint32_t styleVariantSeed(std::string_view id) {
+    std::uint32_t h = 2166136261u;
+    for (const char c : id) {
+        h ^= static_cast<std::uint8_t>(c);
+        h *= 16777619u;
+    }
+    return h;
+}
+
 // Wave three's continuous replacement for FormDrive. Nothing here is a
-// trigger: every output is either a running-average ratio with attack/release
-// smoothing, a phase-locked oscillator gated by confidence, or a slow
-// re-target that eases over seconds. Nothing reads kick/snare/hat/drop,
-// transient, onset, flux, beat, downbeat or any one-hop flag - see
-// GeodeFeatureFrame in core/api/geode_api.h for what those are and why they
-// are excluded.
+// trigger: every output is either the sound engine's relative level with
+// attack/release smoothing, an oscillator on a music-driven clock, or a slow
+// re-target that eases over seconds. Nothing follows a single drum hit; the
+// only triggers read are the rare structural ones (a hard cut, and for some
+// styles every sixteenth kick) that re-aim the orbit and the drift.
 //
 // Two independent instances of this class exist in the running app: one owned
 // by Renderer (Renderer::resolveParams), whose apply() reshapes the
 // SceneParams every family reads; and one owned by each ShaderScene, whose
 // state() feeds the raw uniform contract in lib_scene_motion.glsl. Both are
-// pure functions of the same GeodeFeatureFrame/dt sequence, so both settle to
+// pure functions of the same GeodeSoundFrame/dt sequence, so both settle to
 // nearly the same values without being bit-identical to each other; each is
 // deterministic given its own input sequence, which is what keeps an
 // exported frame reproducible.
@@ -31,11 +43,11 @@ public:
         float midRel = 1.0f;      // uMidRel
         float trebRel = 1.0f;     // uTrebRel
         float bright = 0.0f;      // uBright: spectral centroid, 0..1
-        float harmony = 0.5f;     // uHarmony: harmonicity, 0..1
-        float keyHue = 0.0f;      // uKeyHue: chroma argmax hue, 0..1
-        float keyStrength = 0.0f; // uKeyStrength: chromaConfidence, 0..1
-        float beatOsc = 0.5f;     // uBeatOsc: phase-locked oscillator, 0..1
-        float barOsc = 0.5f;      // uBarOsc: phase-locked oscillator, 0..1
+        float harmony = 0.5f;     // uHarmony: tonality (1 - flatness), 0..1
+        float keyHue = 0.0f;      // uKeyHue: the style's hue driver, eased round the wheel, 0..1
+        float keyStrength = 0.0f; // uKeyStrength: how much that driver is worth trusting, 0..1
+        float beatOsc = 0.5f;     // uBeatOsc: oscillator on a music-driven clock, 0..1
+        float barOsc = 0.5f;      // uBarOsc: the same clock, a quarter as fast, 0..1
         float orbitX = 0.0f;      // uOrbit.x, -1..1
         float orbitY = 0.0f;      // uOrbit.y, -1..1
         float drift = 0.0f;       // uDrift: accumulated angle, radians
@@ -46,8 +58,13 @@ public:
     MotionField();
 
     void reset();
-    // Advances every running average, oscillator and integrator by one frame.
-    void step(const GeodeFeatureFrame& f, float dt);
+    // Which hue driver, oscillator clock and orbit re-target this instance
+    // uses, picked from the style id's hash, so styles differ (the user asked
+    // for no fixed default). The renderer's and the scene's instances get the
+    // same seed for the same style, so they agree.
+    void setVariant(std::uint32_t seed);
+    // Advances every average, oscillator and integrator by one frame.
+    void step(const GeodeSoundFrame& f, float dt);
     // Reshapes p with the state step() just computed; never touches
     // brightness/intensity/contrast/flash/strobe/pulse/shake. Reduced motion
     // scales the geometric terms the same way safety::apply scales rates.
@@ -59,10 +76,6 @@ public:
     const State& state() const { return state_; }
 
 private:
-    // Running-average time constants (seconds).
-    static constexpr float kRmsAvgSeconds = 20.0f;
-    static constexpr float kBandAvgSeconds = 20.0f;
-    static constexpr float kNoveltyAvgSeconds = 10.0f;
 
     // Relative-level attack/release (seconds).
     static constexpr float kEnergyAttackSeconds = 0.25f;
@@ -78,11 +91,10 @@ private:
     static constexpr float kRhythmLockSeconds = 1.0f;
     static constexpr float kBreathSeconds = 0.5f;
 
-    // Orbit: novelty threshold, target ease and radius.
-    static constexpr float kNoveltyJumpRatio = 1.5f;
+    // Orbit: target ease and radius.
     static constexpr float kOrbitEaseSeconds = 3.0f;
     static constexpr float kOrbitRadius = 0.8f;
-    // Minimum spacing between re-targets so a noisy novelty signal cannot
+    // Minimum spacing between re-targets so a burst of big moments cannot
     // re-draw the target every frame once it crosses the threshold.
     static constexpr float kOrbitRetargetRefractorySeconds = 1.0f;
 
@@ -106,26 +118,11 @@ private:
 
     static float slew(float current, float target, float dt, float riseSeconds, float fallSeconds);
     static float oneOle(float current, float target, float dt, float tauSeconds);
-    // Exponential running average with a warm-up so the first seconds do not
-    // divide by ~0: the average starts equal to the first sample and its
-    // effective time constant ramps from `dt` up to `tauSeconds`.
-    static float runningAverage(float current, float sample, float dt, float tauSeconds, float& warmSeconds);
     // Shortest signed distance from `from` to `to` on a unit-period circle.
     static float wrappedDelta01(float from, float to);
     float nextRandom();
 
-    // Warm-up accumulators for the running averages (seconds observed so far).
-    float rmsWarm_ = 0.0f;
-    float bassWarm_ = 0.0f;
-    float midWarm_ = 0.0f;
-    float trebWarm_ = 0.0f;
-    float noveltyWarm_ = 0.0f;
 
-    float rmsAvg_ = 1.0f;
-    float bassAvg_ = 1.0f;
-    float midAvg_ = 1.0f;
-    float trebAvg_ = 1.0f;
-    float noveltyAvg_ = 0.0f;
 
     float rhythmLock_ = 0.0f;
 
@@ -142,8 +139,14 @@ private:
     float driftSignTarget_ = 1.0f;
 
     // The current bar phase's sine, cached from step() for sway in apply();
-    // apply() has no GeodeFeatureFrame of its own to read barPhase from.
+    // apply() has no frame of its own to read the clock from.
     float barSin_ = 0.0f;
+    // setVariant's picks: hue from pitch class (0), centroid (1), note random
+    // (2) or kick random (3); oscillators on the hit (0), bass (1) or
+    // loudness (2) clock; the orbit also re-aims every sixteenth kick.
+    int hueSource_ = 0;
+    int oscClock_ = 0;
+    bool retargetOnKick16_ = false;
 
     State state_;
 

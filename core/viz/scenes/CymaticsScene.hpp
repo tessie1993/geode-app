@@ -26,7 +26,7 @@ public:
     void init() override;
     void setParams(const SceneParams& params) override { params_ = params; }
     void resize(int width, int height) override;
-    void update(const GeodeFeatureFrame& features, float dt) override;
+    void update(const GeodeSoundFrame& features, float dt) override;
     void draw(float timeSeconds) override;
     void release() override;
     void acceptPcm(const float* samples, int count) override { pcmPulse_.accept(samples, count); }
@@ -49,7 +49,7 @@ private:
     static constexpr float kMinTouchK = 5.0f;
     static constexpr float kMaxTouchK = 26.0f;
 
-    const float* driveSpectrum(const GeodeFeatureFrame& f, float dt);
+    const float* driveSpectrum(const GeodeSoundFrame& f, float dt);
     GLint loc(const char* name) { return uniforms_.loc(name); }
 
     std::string id_;
@@ -64,7 +64,7 @@ private:
     float time_ = 0.0f;
     float lastDt_ = 1.0f / 60.0f;
     bool hasPending_ = false;
-    GeodeFeatureFrame pending_{};
+    GeodeSoundFrame pending_{};
     int width_ = 1;
     int height_ = 1;
     GLuint program_ = 0;
@@ -82,8 +82,8 @@ private:
     float idlePhase_ = 0.0f;
     const TouchField* touch_ = nullptr;
     float touchPhase_ = 0.0f;
-    std::array<float, GEODE_BAND_COUNT> idleBands_{};
-    std::array<float, GEODE_BAND_COUNT> driveBands_{};
+    std::array<float, GEODE_SOUND_SPECTRUM_POINTS> idleBands_{};
+    std::array<float, GEODE_SOUND_SPECTRUM_POINTS> driveBands_{};
 };
 
 }  // namespace geode::viz

@@ -1,6 +1,7 @@
 #pragma once
 #include <array>
 
+#include "api/geode_api.h"
 #include "viz/Params.hpp"
 
 namespace geode::viz {
@@ -9,9 +10,13 @@ namespace geode::viz {
 // export all step one of these from the same final SceneParams, so an export
 // flies the same path the screen did.
 //
-// The rig never reads audio. Music reaches it only through SceneParams
-// (camFly, camPush, camYaw, ... written by reaction routes and LFOs), and it
-// springs toward those values, so a route can jump while the view glides.
+// Music reaches it two ways. Reaction routes and LFOs write SceneParams
+// (camFly, camPush, camYaw, ...) and the rig springs toward them, so a route
+// can jump while the view glides. And the rig reads the sound frame itself for
+// the moves a route cannot make: a cut (a jump with no tween), a trauma shake
+// that piles up over hits, an orbit that runs on a music clock. See
+// SoundMoves in CameraRig.cpp; every one fades with the music (presence) and
+// grows with the song's intensity, scaled by the Motion dial.
 //
 // Pure: no GL, no allocation, no locks.
 struct CameraPose {
@@ -58,7 +63,18 @@ public:
     // terms; the look still follows a finger.
     // bankFlat false keeps the path's banking out of the flat picture's roll
     // (a style that does not turn); the 3D basis still banks.
-    void step(const SceneParams& p, const LookInput& look, float dt, bool reducedMotion, bool bankFlat = true);
+    // sound: this frame's GeodeSoundFrame, or null for no music moves (tests, a renderer with no audio).
+    void step(const SceneParams& p, const LookInput& look, float dt, bool reducedMotion, bool bankFlat = true,
+              const GeodeSoundFrame* sound = nullptr);
+
+    // Hard cuts closer together than this are ignored; projectM's default minimum preset time is 20 s.
+    static constexpr float kCutGapSeconds = 15.0f;
+    // After a cut, the counted reframe holds off, so two structural moves never land together.
+    static constexpr float kReframeHoldSeconds = 4.0f;
+    static constexpr float kReframeGapSeconds = 8.0f;
+    static constexpr float kTraumaRadians = 0.04f;
+    // Cuts so far: a test hook, and how a scene could tell the view jumped.
+    int cuts() const { return cuts_; }
     const CameraPose& pose() const { return pose_; }
 
     // The path centre line at travel s, before look/dolly; public for tests.
@@ -78,6 +94,19 @@ private:
     float time_ = 0.0f;
     bool primed_ = false;
     CameraPose pose_;
+
+    // The music's own moves (SoundMoves in CameraRig.cpp).
+    float trauma_ = 0.0f;
+    float traumaClock_ = 0.0f;
+    float sinceCut_ = kCutGapSeconds;
+    float sinceReframe_ = kReframeGapSeconds;
+    float sinceNoteLook_ = 1.0f;
+    float noteLook_ = 0.0f;
+    float dollyKick_ = 0.0f;
+    float lissPhase_ = 0.0f;
+    int cuts_ = 0;
+    unsigned int seed_ = 0x2545F491u;
+    float nextRandom();
 };
 
 }  // namespace geode::viz

@@ -323,6 +323,42 @@ void testStarvedGoesQuiet() {
     CHECK(f.rms == 0.0f, "rms after starving %f", f.rms);
 }
 
+// A loud entrance after a quiet intro is MilkDrop's hard cut: it fires at once, and only once. Steady
+// music never cuts. On soft-limited ratios (below 4) the starting threshold of 5 could never be reached.
+void testHardCut() {
+    const int rate = 44100;
+    SoundEngine e(rate);
+    auto quiet = noise(0.01f);
+    auto loud = noise(0.5f);
+    int cuts = 0;
+    double firstCut = -1.0;
+    run(
+        e,
+        [&](int64_t s, float& l, float& r) {
+            if (static_cast<double>(s) / rate < 6.0) {
+                quiet(s, l, r);
+            } else {
+                loud(s, l, r);
+            }
+        },
+        12.0, 60.0,
+        [&](double t, const GeodeSoundFrame& f) {
+            if (f.hardCut > 0) {
+                cuts++;
+                if (firstCut < 0) firstCut = t;
+            }
+        });
+    CHECK(cuts == 1, "hard cuts on one entrance %d", cuts);
+    CHECK(firstCut >= 6.0 && firstCut < 6.1, "hard cut at %f s, entrance at 6", firstCut);
+
+    SoundEngine steady(rate);
+    int steadyCuts = 0;
+    run(steady, noise(0.3f), 20.0, 60.0, [&](double, const GeodeSoundFrame& f) {
+        if (f.hardCut > 0) steadyCuts++;
+    });
+    CHECK(steadyCuts == 0, "hard cuts on steady noise %d", steadyCuts);
+}
+
 }  // namespace
 
 int main() {
@@ -337,6 +373,7 @@ int main() {
     testSilenceAndReturn();
     testWaveformHoldsStill();
     testStarvedGoesQuiet();
+    testHardCut();
     if (failures == 0) std::printf("sound_test: all passed\n");
     return failures == 0 ? 0 : 1;
 }

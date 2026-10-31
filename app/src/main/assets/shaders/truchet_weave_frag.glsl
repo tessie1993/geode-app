@@ -8,7 +8,6 @@ out vec4 fragColor;
 
 //#include lib_scene_uniforms
 //#include lib_scene_motion
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_truchet
@@ -27,9 +26,9 @@ out vec4 fragColor;
 //
 // Onsets re-roll a scattered quarter of each layer's tiles, the two layers on
 // different cells (each has its own ids), so the cloth re-weaves itself
-// patch by patch. The kick (uHits.x) widens the ribbons for a moment - the
+// patch by patch. The kick (SND_KICK_ENV) widens the ribbons for a moment - the
 // weave tightens on the drum - and the bass breathes the scale. Brightness
-// follows uSwell only.
+// follows SND_INTENSITY only.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -54,21 +53,21 @@ void main() {
     vec2 uv = view();
     float t = truchetTime();
     float e = truchetEnergy();
-    float swell = clamp(uSwell, 0.0, 1.5);
-    float kick = clamp(uHits.x, 0.0, 1.0) * e;
+    float swell = clamp(SND_INTENSITY, 0.0, 1.5);
+    float kick = clamp(SND_KICK_ENV, 0.0, 1.0) * e;
     float morph = truchetMorph();
-    float hits = floor(uHitCount);
+    float hits = floor(SND_HIT_TIME);
 
-    float scale = (2.6 + 1.4 * morph) * truchetBreath(uBassSmooth);
+    float scale = (2.6 + 1.4 * morph) * truchetBreath(sndShaped(SND_LOW));
     vec2 p = truchetWarp(uv * scale + vec2(t * 0.04, 0.0), t);
     float px = truchetPx(p);
 
     // Layer A on the plain grid; layer B shifted half a cell in x, with its
     // ids moved far off so its tiles do not echo A's.
     vec2 idA = floor(p);
-    TruchetArc a = truchetSquareAt(idA, fract(p) - 0.5, hits, uHits.w, 4.0);
+    TruchetArc a = truchetSquareAt(idA, fract(p) - 0.5, hits, SND_ONSET_ENV, 4.0);
     vec2 pb = p + vec2(0.5, 0.0);
-    TruchetArc b = truchetSquareAt(floor(pb) + vec2(131.0, 518.0), fract(pb) - 0.5, hits, uHits.w, 4.0);
+    TruchetArc b = truchetSquareAt(floor(pb) + vec2(131.0, 518.0), fract(pb) - 0.5, hits, SND_ONSET_ENV, 4.0);
     float aOver = 1.0 - mod(idA.x + idA.y, 2.0);
 
     float hue = 0.04 * sin(t * 0.02) + 0.1 * uKeyStrength * sin(TRUCHET_TAU * uKeyHue);

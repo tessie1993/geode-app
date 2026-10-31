@@ -1,4 +1,5 @@
 #include "viz/fluid/FluidMath.hpp"
+#include "viz/LiveSignal.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -118,15 +119,13 @@ float bloomPrefilterScale(float br, float threshold, float softKnee) {
 
 }  // namespace math
 
-GeodeFeatureFrame scaledFeatures(const GeodeFeatureFrame& features, float audioDrive) {
+GeodeSoundFrame scaledFeatures(const GeodeSoundFrame& features, float audioDrive) {
     const float d = std::clamp(audioDrive, math::kMinAudioDrive, math::kMaxAudioDrive);
     if (d == 1.0f) return features;
-    GeodeFeatureFrame out = features;
-    for (float& band : out.bands) band = math::driven(band, d);
+    GeodeSoundFrame out = features;
+    for (float& band : out.spectrum) band = math::driven(band, d);
     out.rms = math::driven(features.rms, d);
-    out.bass = math::driven(features.bass, d);
-    out.mid = math::driven(features.mid, d);
-    out.treble = math::driven(features.treble, d);
+    live::setBands(out, math::driven(live::bass(features), d), math::driven(live::mid(features), d), math::driven(live::treble(features), d));
     return out;
 }
 

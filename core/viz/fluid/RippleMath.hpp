@@ -38,7 +38,7 @@ public:
     using Queue = std::function<void(float x, float y, float radius, float amp)>;
 
     void reset();
-    void tick(const GeodeFeatureFrame& features, float aspect, const Queue& queue);
+    void tick(const GeodeSoundFrame& features, float aspect, const Queue& queue);
 
 private:
     int frame_ = 0;

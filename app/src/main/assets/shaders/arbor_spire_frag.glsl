@@ -8,7 +8,6 @@ out vec4 fragColor;
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_sdf3
@@ -33,9 +32,9 @@ out vec4 fragColor;
 // half a second) bends the divergence angle off golden: a bright, airy mix
 // winds the branches into one set of spiral arms, a dark, bassy one into the
 // other, and the golden scatter lives in between. Because branch k turns by
-// k times the angle, the top of the spire sweeps furthest. Kick (uHits.x)
-// lifts every branch toward the sky and lets it settle. Hat (uHits.z) swells
-// the neon beads on the twig tips. Brightness follows uSwell only.
+// k times the angle, the top of the spire sweeps furthest. Kick (SND_KICK_ENV)
+// lifts every branch toward the sky and lets it settle. Hat (SND_HAT_ENV) swells
+// the neon beads on the twig tips. Brightness follows (0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)) only.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -109,10 +108,10 @@ void main() {
     vec2 uv = arbView();
     float t = uTime * uSpeed;
     float energy = uIntensity;
-    float swell = clamp(uSwell, 0.0, 1.5);
+    float swell = clamp((0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)), 0.0, 1.5);
     float bright = clamp(uMotionBright, 0.0, 1.0);
-    float kick = clamp(uHits.x * energy, 0.0, 1.0);
-    float hat = clamp(uHits.z * energy, 0.0, 1.0);
+    float kick = clamp(SND_KICK_ENV * energy, 0.0, 1.0);
+    float hat = clamp(SND_HAT_ENV * energy, 0.0, 1.0);
 
     gChaos = arbChaos();
     gDiv = 2.39996 + 0.16 * (bright - 0.5) * 2.0 * energy;

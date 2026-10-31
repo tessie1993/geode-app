@@ -8,7 +8,6 @@ out vec4 fragColor;
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_sdf3
@@ -24,13 +23,13 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// Each block is assigned one of the eight band regions (uBandsLo, uBandsHi) by
+// Each block is assigned one of the eight band regions (vec4(sndLevel(SND_SUB_ATT), sndSpectrum(0.23), sndShaped(SND_LOW), sndSpectrum(0.57)), vec4(sndLevel(SND_MID_HIGH_ATT), sndSpectrum(0.80), sndLevel(SND_TREBLE_ATT), sndLevel(SND_FLUX))) by
 // its hash, and its height follows that band, so the skyline is a spectrum
-// laid out at random. A snare (uHits.y) sends a ring of window light outward
+// laid out at random. A snare (SND_SNARE_ENV) sends a ring of window light outward
 // from under the eye through the blocks: it is a moving band, not a flash. A
-// drop (uEvents.y) stretches every building and lifts the moon and the horizon
+// drop (SND_HELD_SURGE) stretches every building and lifts the moon and the horizon
 // glow higher in the sky; they move, they do not brighten. Overall level
-// rides uSwell.
+// rides SND_INTENSITY.
 //
 // ---- why the estimate is safe ----------------------------------------------
 //
@@ -70,7 +69,7 @@ float bandPick(float h) {
     float k = floor(h * 8.0);
     vec4 lo = vec4(equal(vec4(k), vec4(0.0, 1.0, 2.0, 3.0)));
     vec4 hi = vec4(equal(vec4(k), vec4(4.0, 5.0, 6.0, 7.0)));
-    return dot(lo, uBandsLo) + dot(hi, uBandsHi);
+    return dot(lo, vec4(sndLevel(SND_SUB_ATT), sndSpectrum(0.23), sndShaped(SND_LOW), sndSpectrum(0.57))) + dot(hi, vec4(sndLevel(SND_MID_HIGH_ATT), sndSpectrum(0.80), sndLevel(SND_TREBLE_ATT), sndLevel(SND_FLUX)));
 }
 
 float map(vec3 p) {
@@ -154,10 +153,10 @@ void main() {
     ro.z = mod(ro.z, NC_ZWRAP * NC_CELL);
     gEye = ro;
 
-    float swell = clamp(uSwell, 0.0, 1.5);
-    float energy = clamp(uEnergySmooth, 0.0, 1.5);
-    float drop = clamp(uEvents.y, 0.0, 1.0);
-    float snare = clamp(uHits.y, 0.0, 1.0);
+    float swell = clamp(SND_INTENSITY, 0.0, 1.5);
+    float energy = clamp(((SND_BASS_PRESENCE + SND_MID_PRESENCE + SND_TREBLE_PRESENCE) / 3.0), 0.0, 1.5);
+    float drop = clamp(SND_HELD_SURGE, 0.0, 1.0);
+    float snare = clamp(SND_SNARE_ENV, 0.0, 1.0);
 
     gStretch = 1.0 + 0.55 * drop;
     gCap = uCamPos.y - NC_CLEAR;

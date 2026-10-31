@@ -9,7 +9,6 @@ out vec4 fragColor;
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_dive
@@ -23,10 +22,10 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// The beat envelope (uEvents.x) swells every petal at once and lets it
+// The beat envelope (SND_KICK_TOGGLE) swells every petal at once and lets it
 // settle, so the mandala breathes on the beat. Petals and beads take hue by
 // their distance from the axis, so the rings of colour stay concentric.
-// Palette switching as in lib_dive. Brightness follows uSwell mildly.
+// Palette switching as in lib_dive. Brightness follows SND_ENERGY_TREND mildly.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -58,6 +57,6 @@ void main() {
         if (mat > 1.5) col += diveColor(0.9) * 0.25 * max(dot(n, -rd), 0.0) * exp(-0.055 * hitT);
     }
 
-    col *= 0.85 + 0.2 * clamp(uSwell, 0.0, 1.5);
+    col *= 0.85 + 0.2 * clamp(SND_ENERGY_TREND, 0.0, 1.5);
     fragColor = vec4(grade(col), 1.0);
 }

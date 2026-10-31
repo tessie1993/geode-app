@@ -8,7 +8,6 @@ out vec4 fragColor;
 
 //#include lib_scene_uniforms
 //#include lib_scene_motion
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_chrys
@@ -24,13 +23,13 @@ out vec4 fragColor;
 // ---- audio ------------------------------------------------------------------
 //
 // The meadow IS a spectrum analyser. Each flower reads the spectrum
-// (aband) at the frequency of where its centre sits across the screen - bass
+// (the spectrum) at the frequency of where its centre sits across the screen - bass
 // at the left edge, air at the right - and opens that far, so a kick blooms
 // a drift of flowers down the left side of the field and a hi-hat flickers
 // the right. Every row shows the whole spectrum, near rows large, far rows
 // small. Forward travel rides uFlowPhase (loudness sets the speed, never the
 // direction). The flowers' centres take uKeyHue when the key is confident.
-// Brightness follows uSwell only.
+// Brightness follows (0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)) only.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -46,7 +45,7 @@ out vec4 fragColor;
 
 void main() {
     vec2 uv = view();
-    float swell = clamp(uSwell, 0.0, 1.5);
+    float swell = clamp((0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)), 0.0, 1.5);
     float aspect = uResolution.x / uResolution.y;
     float t = uTime * uSpeed;
     float chaos = clamp(uTurbulence + uWarp, 0.0, 2.0);
@@ -79,7 +78,7 @@ void main() {
         // Which frequency this flower hears: its centre's place across the screen.
         float cx = (cell.x + 0.5 + jitter.x) / density - 1.7 * sin(t * 0.031);
         float freq = clamp(0.5 + 0.5 * (cx / z) / aspect, 0.0, 1.0);
-        float open = 0.22 + 0.78 * clamp(aband(freq) * uIntensity, 0.0, 1.15);
+        float open = 0.22 + 0.78 * clamp(sndSpectrum(freq) * uIntensity, 0.0, 1.15);
 
         float count = 8.0 + floor(h1 * 9.0);
         float len = 0.3 * open;

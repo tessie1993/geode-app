@@ -106,10 +106,10 @@ vec3 sphereLook(vec2 p, float R, float ior, float distort) {
 
 void main() {
     vec2 uv = view();
-    float bassA = min(uBassSmooth, 1.3);
-    float midA = min(uMidSmooth, 1.3);
-    float trebA = min(uTrebleSmooth, 1.3);
-    float enA = min(uEnergySmooth, 1.3);
+    float bassA = min(SND_BASS_PRESENCE, 1.3);
+    float midA = min(sndShaped(SND_MIDDLE), 1.3);
+    float trebA = min(sndShaped(SND_HIGH), 1.3);
+    float enA = min(sndShaped(SND_LEVEL), 1.3);
     float hit = uSpike;
 
     gWidth = mix(0.012, 0.035, clamp(trebA, 0.0, 1.0));
@@ -123,7 +123,7 @@ void main() {
     vec2 q = kaleido(m, gFolds);
     vec3 col = patternOnPlane(fluidWarp(q, 1.3, 0.05) + flowOffset(0.5));
 
-    float R = 0.55 + 0.12 * hit * clamp(uBeatResponse, 0.0, 2.0);
+    float R = 0.55;
     float distort = 1.0 + 0.8 * bassA;
     vec3 sphere = sphereLook(uv, R, NEON_IOR, distort);
     if (sphere.x >= 0.0) {

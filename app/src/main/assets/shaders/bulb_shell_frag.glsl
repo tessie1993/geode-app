@@ -9,7 +9,6 @@ out vec4 fragColor;
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_sdf3
@@ -30,11 +29,11 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// SUB-BASS opens the windows. The sub band (uBandsLo.x, steadied with
-// uBassSmooth) widens every aperture from a pinhole to most of its cell, so a
+// SUB-BASS opens the windows. The sub band (sndSpectrum(0.10), steadied with
+// SND_BASS_PRESENCE) widens every aperture from a pinhole to most of its cell, so a
 // sub drop throws the lantern open and the quiet passages leave it shuttered
 // and glowing through slits. The core's colour walks with uKeyHue. Brightness
-// follows uSwell only: the core burns a little hotter in loud passages.
+// follows SND_ENERGY_TREND only: the core burns a little hotter in loud passages.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -87,8 +86,8 @@ vec3 normalAt(vec3 p, float e) {
 
 void main() {
     vec2 uv = view();
-    float swell = clamp(uSwell, 0.0, 1.5);
-    float sub = clamp(0.6 * uBandsLo.x + 0.4 * uBassSmooth / 1.5, 0.0, 1.0);
+    float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
+    float sub = clamp(0.6 * sndSpectrum(0.10) + 0.4 * SND_BASS_PRESENCE / 1.5, 0.0, 1.0);
     gWin = 0.04 + 0.17 * clamp(sub * bulbEnergy(), 0.0, 1.0);
     gLatticeTurn = 0.04 * bulbTime();
     gCore = 0.22;

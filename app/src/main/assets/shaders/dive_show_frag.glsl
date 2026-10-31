@@ -9,7 +9,6 @@ out vec4 fragColor;
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_dive
@@ -27,8 +26,8 @@ out vec4 fragColor;
 // Everything the single styles do, live: kick swells girders and pulses
 // caps, mids turn gyroscopes, the beat swells petals, bass works the
 // accordion and widens the serpent, a drop widens the helix, hats glint the
-// facets. A drop (uEvents.y) also leans every hue along the palette while it
-// rings. Palette switching as in lib_dive. Brightness follows uSwell mildly.
+// facets. A drop (SND_HELD_SURGE) also leans every hue along the palette while it
+// rings. Palette switching as in lib_dive. Brightness follows (0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)) mildly.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -46,11 +45,11 @@ void main() {
     int cam = 1 + int(mod(2.0 * seg + floor(seg / 5.0), 5.0));
     diveSetup(scene);
     float e = diveEnergy();
-    if (cam == DIVE_CAM_SERPENT) gDiveSway = 0.6 + 0.4 * clamp(uBassSmooth * e, 0.0, 1.2);
-    if (cam == DIVE_CAM_HELIX) gDiveHelixR = 0.4 + 0.25 * clamp(uEvents.y * e, 0.0, 1.0);
-    if (cam == DIVE_CAM_ACCORDION) gDiveBreath = clamp(0.78 + 0.5 * uBassSmooth * e, 0.75, 1.4);
-    if (cam == DIVE_CAM_ORBIT) gDiveSwing = 0.5 + 0.2 * clamp(uSwell, 0.0, 1.5);
-    float lean = 0.2 * clamp(uEvents.y * e, 0.0, 1.0);
+    if (cam == DIVE_CAM_SERPENT) gDiveSway = 0.6 + 0.4 * clamp(sndShaped(SND_LOW) * e, 0.0, 1.2);
+    if (cam == DIVE_CAM_HELIX) gDiveHelixR = 0.4 + 0.25 * clamp(SND_HELD_SURGE * e, 0.0, 1.0);
+    if (cam == DIVE_CAM_ACCORDION) gDiveBreath = clamp(0.78 + 0.5 * sndShaped(SND_LOW) * e, 0.75, 1.4);
+    if (cam == DIVE_CAM_ORBIT) gDiveSwing = 0.5 + 0.2 * clamp((0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)), 0.0, 1.5);
+    float lean = 0.2 * clamp(SND_HELD_SURGE * e, 0.0, 1.0);
 
     vec3 ro;
     vec3 rd;
@@ -70,12 +69,12 @@ void main() {
         float fres = pow(1.0 - max(dot(n, -rd), 0.0), 3.0);
         col += diveColor(0.3 + 0.5 * refl.y + lean) * 0.25 * fres * fog;
         if (scene == DIVE_JEWEL) {
-            float pick = step(0.66, dive_hash11(id * 91.0 + fract(uHitCount * 0.618) * 37.0));
-            col += vec3(pick * clamp(uHits.z * e, 0.0, 1.0) * pow(max(dot(refl, -rd), 0.0), 6.0) * 0.6 * fog);
+            float pick = step(0.66, dive_hash11(id * 91.0 + fract(floor(SND_HIT_TIME) * 0.618) * 37.0));
+            col += vec3(pick * clamp(SND_HAT_ENV * e, 0.0, 1.0) * pow(max(dot(refl, -rd), 0.0), 6.0) * 0.6 * fog);
         }
     }
 
     col *= diveIris();
-    col *= 0.85 + 0.2 * clamp(uSwell, 0.0, 1.5);
+    col *= 0.85 + 0.2 * clamp((0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)), 0.0, 1.5);
     fragColor = vec4(grade(col), 1.0);
 }

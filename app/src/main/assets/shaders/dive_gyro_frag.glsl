@@ -9,7 +9,6 @@ out vec4 fragColor;
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_dive
@@ -21,10 +20,10 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// Mids (uMidSmooth) drive the rings: they push every gimbal ahead while the
+// Mids (SND_MID_PRESENCE) drive the rings: they push every gimbal ahead while the
 // mids climb, on top of a base rate that loudness sets (uFlowPhase, which
 // only ever advances, so the rings never stutter backwards). Palette switching
-// as in lib_dive. Brightness follows uSwell mildly.
+// as in lib_dive. Brightness follows (0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)) mildly.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -54,6 +53,6 @@ void main() {
         col += diveColor(0.3 + 0.5 * refl.y + gDiveHitId) * 0.35 * fres * exp(-0.055 * hitT);
     }
 
-    col *= 0.85 + 0.2 * clamp(uSwell, 0.0, 1.5);
+    col *= 0.85 + 0.2 * clamp((0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)), 0.0, 1.5);
     fragColor = vec4(grade(col), 1.0);
 }

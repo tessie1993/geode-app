@@ -79,6 +79,32 @@ void Renderer::pushPcm(const float* samples, int count) {
     pcmCount_ = n;
 }
 
+void Renderer::writeAudio(const float* interleaved, int frames, int channels, int sampleRateHz) {
+    if (!interleaved || frames <= 0 || channels <= 0 || sampleRateHz <= 0) return;
+    std::lock_guard<std::mutex> lock(soundLock_);
+    if (!sound_ || sound_->sampleRateHz() != sampleRateHz) {
+        sound_ = std::make_unique<sound::SoundEngine>(sampleRateHz);
+        sound_->setTuning(soundTuning_);
+    }
+    sound_->write(interleaved, frames, channels);
+}
+
+void Renderer::resetAudio() {
+    std::lock_guard<std::mutex> lock(soundLock_);
+    if (sound_) sound_->reset();
+}
+
+void Renderer::setSoundTuning(const GeodeSoundTuning& tuning) {
+    std::lock_guard<std::mutex> lock(soundLock_);
+    soundTuning_ = tuning;
+    if (sound_) sound_->setTuning(tuning);
+}
+
+GeodeSoundFrame Renderer::soundFrame() const {
+    std::lock_guard<std::mutex> lock(soundLock_);
+    return soundFrame_;
+}
+
 void Renderer::setCustomShader(const std::string& sceneId, const std::string& fragmentSource) {
     std::lock_guard<std::mutex> lock(stateLock_);
     pendingShaders_.emplace_back(sceneId, fragmentSource);

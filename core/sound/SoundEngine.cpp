@@ -528,7 +528,11 @@ void SoundEngine::events(float dt, bool warm, GeodeSoundFrame& out) {
     State& s = state_;
     const GeodeSoundTuning& t = tuning_;
     const float silenceOn = std::pow(10.0f, t.silenceDb / 20.0f);
-    out.hardCut = warm || s.silent ? 0.0f : s.hardCut.step(out.vol, t.hardCutLevel, t.hardCutHalfLife, dt);
+    // MilkDrop's hard cut reads the unbounded ratios (Σ imm_rel > 3·T). `vol` is soft-limited below 4, and
+    // the threshold starts at 5 and doubles on each cut, so on `vol` no cut could fire until it had relaxed
+    // for 40–65 s: a slow timer instead of "an even bigger moment".
+    const float rawVol = (s.band[kBass].rawRatio() + s.band[kMid].rawRatio() + s.band[kTreble].rawRatio()) / 3.0f;
+    out.hardCut = warm || s.silent ? 0.0f : s.hardCut.step(rawVol, t.hardCutLevel, t.hardCutHalfLife, dt);
     out.onset = s.onset.step(out.flux, std::max(1.1f, t.onsetThreshold), 0.06f, dt);
     out.onsetEnv = s.envelope[3].step(out.onset, 0.005f, 0.2f, dt);
 

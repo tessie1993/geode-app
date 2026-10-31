@@ -8,7 +8,6 @@ out vec4 fragColor;
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_sdf3
@@ -19,14 +18,14 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// Bass (uBandsLo.y) swells the blobs. An onset (uHits.w) buds a droplet out of
-// one blob (picked by uHitCount) that flies out and dissolves, and turns every
-// orbit a step further: the turn is driven by uHitCount - 1 plus the onset's
+// Bass (sndSpectrum(0.23)) swells the blobs. An onset (SND_ONSET_ENV) buds a droplet out of
+// one blob (picked by floor(SND_HIT_TIME)) that flies out and dissolves, and turns every
+// orbit a step further: the turn is driven by floor(SND_HIT_TIME) - 1 plus the onset's
 // progress (0 at the hit, 1 once the envelope has fallen), which is
 // continuous across the hit, so the arrangement morphs rather than jumps.
 // The progress is measured from 0.4 because an onset triggers to 0.4..1
-// (viz/Reactions), never reliably to 1. A pitch change (uEvents.w) shifts the
-// nebula's hue. Overall level follows uSwell only.
+// (viz/Reactions), never reliably to 1. A pitch change (SND_HELD_NOTE_CHANGE) shifts the
+// nebula's hue. Overall level follows (0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)) only.
 
 #define CN_MAX_STEPS 96
 #define CN_BLOBS 6
@@ -79,18 +78,18 @@ vec3 nebula(vec3 d, float hue, float stars) {
 void main() {
     vec2 uv = view();
 
-    float swell = clamp(uSwell, 0.0, 1.5);
-    float bass = clamp(uBandsLo.y, 0.0, 1.0);
-    float onset = clamp(uHits.w, 0.0, 1.0);
-    float hue = 0.58 + 0.03 * sin(uTime * 0.05) + 0.16 * clamp(uEvents.w, 0.0, 1.0);
+    float swell = clamp((0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)), 0.0, 1.5);
+    float bass = clamp(sndSpectrum(0.23), 0.0, 1.0);
+    float onset = clamp(SND_ONSET_ENV, 0.0, 1.0);
+    float hue = 0.58 + 0.03 * sin(uTime * 0.05) + 0.16 * clamp(SND_HELD_NOTE_CHANGE, 0.0, 1.0);
 
     // ---- the blobs ----------------------------------------------------------
     // 0 on the hit frame (the envelope is >= 0.4 then), 1 once it has fallen.
     float prog = (1.0 - smoothstep(0.05, 0.4, onset));
-    float morph = uHitCount - 1.0 + prog;
+    float morph = floor(SND_HIT_TIME) - 1.0 + prog;
     float grow = 1.0 + 0.26 * bass + 0.06 * swell;
     float tm = uTime * 0.22 + uFlowPhase * 0.04;
-    float seed = fract(floor(uHitCount) * 0.618034);
+    float seed = fract(floor(SND_HIT_TIME) * 0.618034);
     float parentF = floor(seed * float(CN_BLOBS));
     vec3 parentPos = vec3(0.0);
     float parentR = 0.5;
@@ -117,7 +116,7 @@ void main() {
     float life = prog;
     vec3 budDir = normalize(vec3(hash11(seed * 91.0 + 1.0), hash11(seed * 53.0 + 2.0), hash11(seed * 17.0 + 3.0)) - 0.5 + 1e-3);
     gBud = parentPos + budDir * parentR * (0.3 + 1.5 * life);
-    gBudR = 0.38 * grow * sin(3.14159 * pow(life, 0.6)) * step(0.5, uHitCount);
+    gBudR = 0.38 * grow * sin(3.14159 * pow(life, 0.6)) * step(0.5, floor(SND_HIT_TIME));
 
     // ---- march --------------------------------------------------------------
     vec3 ro;

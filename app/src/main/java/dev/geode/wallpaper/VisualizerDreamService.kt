@@ -63,6 +63,7 @@ class VisualizerDreamService : DreamService() {
         restoreLiveState(view.visualizerRenderer, prefsFiles)
         view.applyPerformance(PerformanceStore(prefsFiles.general, this).settings.value)
         view.visualizerRenderer.pcmProvider = { null }
+        view.visualizerRenderer.soundInput = { AudioBus.soundInput }
         setContentView(view)
     }
 
@@ -100,7 +101,9 @@ class VisualizerDreamService : DreamService() {
             }
         }
         // The MilkDrop preset needs nothing here: the renderer restores the app's (MilkPresetMemory).
-        engine.reducedMotion = ThemeStore(prefsFiles.general).loadGui().reducedMotion
+        val gui = ThemeStore(prefsFiles.general).loadGui()
+        engine.reducedMotion = gui.reducedMotion
+        engine.soundTuning = gui.soundTuning
         // The user's modulation too: without it the wallpaper and the dream drew the look
         // with every LFO, envelope and custom reaction switched off.
         val modulation = dev.geode.data.LfoStore(prefsFiles.general)

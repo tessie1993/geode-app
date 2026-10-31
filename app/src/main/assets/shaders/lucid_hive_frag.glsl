@@ -8,7 +8,6 @@ out vec4 fragColor;
 
 //#include lib_scene_uniforms
 //#include lib_scene_motion
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_lucid
@@ -25,12 +24,12 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// The SNARE (uHits.y) turns every cell inside out: the cell's local frame is
+// The SNARE (SND_SNARE_ENV) turns every cell inside out: the cell's local frame is
 // blended toward its circle inversion (r -> R^2 / r), so the rim of each
 // world swaps with its heart. The blend rides lucidBump of the snare - it
 // starts at zero on the hit, swells as the hit decays and relaxes back - so
 // the inversion breathes rather than snapping. uHarmony slows the cells'
-// turning on tonal passages. Brightness follows uSwell gently.
+// turning on tonal passages. Brightness follows SND_LEVEL gently.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -46,8 +45,8 @@ void main() {
     vec2 uv = lucidView(true);
     float t = uTime * uSpeed;
     float flow = uFlowPhase * uSpeed;
-    float snare = clamp(uHits.y, 0.0, 1.0);
-    float swell = clamp(uSwell, 0.0, 1.5);
+    float snare = clamp(SND_SNARE_ENV, 0.0, 1.0);
+    float swell = clamp(SND_LEVEL, 0.0, 1.5);
     float calm = clamp(uHarmony, 0.0, 1.0);
 
     int depth = lucidDetail(3, 2);

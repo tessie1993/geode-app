@@ -5,6 +5,7 @@
 
 #include "util/Log.hpp"
 #include "viz/fluid/FluidMath.hpp"
+#include "viz/LiveSignal.hpp"
 
 namespace geode::viz {
 
@@ -50,7 +51,7 @@ void WaterScene::onApplyQualityTier(int index, bool userChanged) {
     sim_.applyResolution(gridResFor(index));
 }
 
-GeodeFeatureFrame WaterScene::idleFeatures(float dt) {
+GeodeSoundFrame WaterScene::idleFeatures(float dt) {
     idlePhase_ = std::fmod(idlePhase_ + dt, kTimeWrapSeconds);
     const float t = idlePhase_;
     const float bass = 0.16f + 0.10f * std::sin(t * 0.6f);
@@ -94,7 +95,7 @@ void WaterScene::draw(float timeSeconds) {
     if (!sim_.available() || !displayOk_) return;
     resetFrameState();
     const SceneParams& p = params_;
-    const GeodeFeatureFrame f = scaledFeatures();
+    const GeodeSoundFrame f = scaledFeatures();
     const bool idle = isIdle();
 
     saveGlState();
@@ -143,7 +144,7 @@ void WaterScene::draw(float timeSeconds) {
     glUniform1f(display_.loc("uSpecular"), std::clamp(p.waterSpecular, 0.0f, 1.0f));
     glUniform1f(display_.loc("uFlowDrift"), std::clamp(p.waterFlow, 0.0f, 1.0f));
     glUniform1f(display_.loc("uRefract"), 0.9f);
-    glUniform1f(display_.loc("uTreble"), std::clamp(f.treble + pcmKick * 0.5f, 0.0f, 2.0f));
+    glUniform1f(display_.loc("uTreble"), std::clamp(live::treble(f) + pcmKick * 0.5f, 0.0f, 2.0f));
     glUniform1f(display_.loc("uBrightness"), fluid::water::kDisplayBrightness);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, sim_.heightTex());

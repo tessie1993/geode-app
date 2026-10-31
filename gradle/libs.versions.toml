@@ -9,6 +9,7 @@ activityCompose = "1.13.0"
 lifecycle = "2.11.0"
 coroutines = "1.11.0"
 material3Adaptive = "1.3.0"
+nav3 = "1.2.0"
 glance = "1.1.1"
 junit = "4.13.2"
 androidxTestJunit = "1.3.0"
@@ -70,6 +71,8 @@ kotlin-gradle-plugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", v
 android-gradle-plugin = { module = "com.android.tools.build:gradle", version.ref = "agp" }
 hilt-android = { module = "com.google.dagger:hilt-android", version.ref = "hilt" }
 hilt-compiler = { module = "com.google.dagger:hilt-android-compiler", version.ref = "hilt" }
+navigation3-runtime = { module = "androidx.navigation3:navigation3-runtime", version.ref = "nav3" }
+navigation3-ui = { module = "androidx.navigation3:navigation3-ui", version.ref = "nav3" }
 hilt-navigation-compose = { module = "androidx.hilt:hilt-navigation-compose", version = "1.4.0" }
 
 [plugins]

@@ -14,33 +14,49 @@ namespace geode::viz {
 // styles hear the same bar of music differently.
 //
 // Pure: no GL, no allocation, no locks. tick() runs on the render thread once
-// per frame with the frame's features; the same feature/dt sequence always
+// per frame with the frame's sound (core/sound); the same frame/dt sequence always
 // gives the same output, which is what keeps an exported frame equal to the
 // one on screen.
 
 // Wire ordinals; mirrored by dev.geode.render.ReactSource. Append only.
+//
+// One source per GeodeSoundFrame value (core/sound/SoundFrame.h), grouped as the Customize picker shows
+// them. This is the second numbering: the old analyser's 34 sources were replaced wholesale, and saved
+// routes from before it are dropped (ReactionRouteCodec's "reactions/2"), so each style restarts on its DNA.
+// What a route reads for each source is a 0..1 (StereoPan and Interval -1..1) view of the field; see
+// kSourceTable in Reactions.cpp for how each kind is shaped.
 enum class ReactSource {
-    // Continuous, 0..1, each normalised against its own slow running peak.
-    SubBass, Bass, LowMid, Mid, HighMid, Presence, Air,
-    Loudness, Swell, Brightness, Noisiness, StereoWidth, StereoPan /* -1..1 */,
-    BeatOsc, BarOsc, Tempo, Buildup, Flux, Kick, Snare, Hat,
-    // Events: an instant rise and an exponential fall, so a one-hop flag
-    // becomes something a picture can follow without snapping.
-    Onset, Beat, Downbeat, Drop, Section, PitchChange, TimbreJump,
-    // Appended after the events, so they break the grouping but no wire value.
-    // MacroEnergy: the song's level against its own 20 s peak (the analyser's
-    // macroEnergy), smoothed over seconds: where the track is in its arc.
-    // Arrival: an event when the music comes back after two quiet seconds.
-    MacroEnergy, Arrival,
-    // Phrase-aware beats, so one style can answer the beat one way for a phrase
-    // and another way for the next (see ReactSignals::countBeat). A phrase is
-    // eight bars, or shorter when the analyser hears a section change.
-    // PhraseBeatA: the beat in even phrases; PhraseBeatB: in odd ones.
-    // Backbeat: the beat on counts two and four only.
-    // Phrase: an event when a new phrase starts.
-    PhraseBeatA, PhraseBeatB, Backbeat, Phrase,
+    // Levels: relative to the song (~0.5 typical, 1 a strong hit), then the shaped 0..1 layer.
+    Bass, Mid, Treble, Vol, BassAtt, MidAtt, TrebleAtt, VolAtt, Sub, SubAtt, MidHigh, MidHighAtt,
+    Low, Middle, High, Level, BassPresence, MidPresence, TreblePresence, Intensity, Presence,
+    // Clocks: how fast each clock runs right now (Spin integrates it back into the clock).
+    BassTime, MidTime, TrebleTime, CurvedTime, HitTime, NoteTime,
+    // Texture.
+    Loudness, Centroid, Rolloff, Flatness, DensitySlow, DensityFast, Flux, EnergyTrend, PeakFreq, PeakMag,
+    StereoWidth, StereoPan /* -1..1 */,
+    // Drums: envelopes, toggles and the per-hit random, then the triggers (every hit, every Nth).
+    KickEnv, SnareEnv, HatEnv, OnsetEnv, KickToggle, SnareToggle, KickRandom,
+    Kick, Snare, Hat, Kick2, Kick4, Kick8, Kick16, Snare2, Snare4,
+    // Events.
+    HardCut, Onset, Silence, Returned, Surge,
+    // Melody.
+    NoteChange, Legato, Reattack, NoteRandom, PitchClass, PitchHeight, PitchConfidence, Interval /* -1..1 */,
+    Glide, Vibrato, Evenness, RunDensity,
 };
-constexpr int kReactSourceCount = static_cast<int>(ReactSource::Phrase) + 1;
+constexpr int kReactSourceCount = static_cast<int>(ReactSource::RunDensity) + 1;
+
+// The source catalogue: what the Customize picker, the Events recipes and the saved formats call each
+// source. C++ owns it (the user's rule: the reaction feature lives in C++); Kotlin reads it over JNI
+// (geode_react_source_catalog) and does not keep its own list. `name` is the stable saved name,
+// `group` the picker section (LEVELS, DRUMS, EVENTS, MELODY, CLOCKS, TEXTURE), `event` a trigger
+// held as an envelope rather than a level.
+struct ReactSourceInfo {
+    const char* name;
+    const char* label;
+    const char* group;
+    bool event;
+};
+const ReactSourceInfo& reactSourceInfo(ReactSource s);
 
 // Follow: target += amount * curve(source).
 // Step: each rising edge of the source adds amount to an accumulator (a hue
@@ -73,50 +89,21 @@ struct ReactRoute {
 class ReactSignals {
 public:
     void reset();
-    void step(const GeodeFeatureFrame& f, float dt);
+    void step(const GeodeSoundFrame& f, float dt);
     float value(ReactSource s) const { return values_[static_cast<size_t>(s)]; }
-    // Onsets seen so far, wrapping at kOnsetCountWrap: a per-hit seed for shaders.
+    // Onsets seen so far, wrapping at kCountWrap: a per-hit seed for shaders.
     float onsetCount() const { return onsetCount_; }
-    // Section boundaries seen so far, same wrap: lets a shader hold a variation per section.
-    float sectionCount() const { return sectionCount_; }
-    // Phrases started so far: the parity picks PhraseBeatA or PhraseBeatB.
-    int phraseCount() const { return phraseCount_; }
-    static constexpr float kOnsetCountWrap = 4096.0f;
-    // A phrase is this many bars unless a section change starts one sooner.
-    static constexpr int kPhraseBars = 8;
-    // Without a beat for this long, onsets stand in for beats (rubato, ambient).
-    static constexpr float kBeatlessSeconds = 2.0f;
-    // Without any bar for this long, a phrase still turns over on time.
-    static constexpr float kPhraseMaxSeconds = 20.0f;
+    // Hard cuts seen so far, same wrap: lets a shader hold a variation per big moment.
+    float cutCount() const { return cutCount_; }
+    static constexpr float kCountWrap = 4096.0f;
 
 private:
-    static constexpr float kPeakDecaySeconds = 6.0f;
-    static constexpr float kPeakFloor = 0.03f;
-    static constexpr float kSwellSeconds = 20.0f;
-    static constexpr float kMacroSeconds = 1.5f;
-
-    float normalised(int slot, float x, float dt);
-    void trigger(ReactSource s, float strength);
-    void decay(ReactSource s, float dt, float seconds);
-    void countBeat(const GeodeFeatureFrame& f, bool onset, float dt);
-    void startPhrase();
-
     std::array<float, kReactSourceCount> values_{};
-    std::array<float, kReactSourceCount> peaks_{};
-    float swellAvg_ = 0.0f;
-    float swellWarm_ = 0.0f;
-    float macro_ = 0.0f;
-    int lastKey_ = -1;
-    float lastCentroid_ = 0.0f;
-    float centroidSlow_ = 0.0f;
-    float onsetArmed_ = 1.0f;
+    // The clocks' values last frame, for their rates.
+    std::array<float, kReactSourceCount> lastClock_{};
+    bool clocksPrimed_ = false;
     float onsetCount_ = 0.0f;
-    float sectionCount_ = 0.0f;
-    int phraseCount_ = 0;
-    int barsInPhrase_ = 0;
-    int beatsInBar_ = 0;
-    float sinceBeat_ = kBeatlessSeconds;
-    float sincePhrase_ = 0.0f;
+    float cutCount_ = 0.0f;
 };
 
 class ReactionEngine {
@@ -127,7 +114,7 @@ public:
     std::array<ReactRoute, kRoutes> routes{};
 
     void reset();
-    void tick(const GeodeFeatureFrame& f, float dt);
+    void tick(const GeodeSoundFrame& f, float dt);
     SceneParams apply(const SceneParams& p) const;
 
     const ReactSignals& signals() const { return signals_; }

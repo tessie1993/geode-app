@@ -8,10 +8,10 @@ import org.junit.Test
 class ReactionRouteCodecTest {
     private val dna =
         listOf(
-            ReactionRoute(true, ReactSource.PHRASE_BEAT_A, LfoTarget.COLOR_SHIFT, ReactMode.JUMP, 0.35f, ModCurve.LINEAR, 0.08f, 0.35f),
-            ReactionRoute(true, ReactSource.PHRASE_BEAT_B, LfoTarget.WARP, ReactMode.FOLLOW, 0.6f, ModCurve.SMOOTH, 0.03f, 0.45f),
-            ReactionRoute(true, ReactSource.DROP, LfoTarget.CAM_FLY, ReactMode.FOLLOW, 1.1f, ModCurve.LINEAR, 0.25f, 2.2f),
-            ReactionRoute(false, ReactSource.BACKBEAT, LfoTarget.ROTATION, ReactMode.STEP, -0.2f, ModCurve.LINEAR, 0.12f, 0.12f),
+            ReactionRoute(true, ReactSource.KICK, LfoTarget.COLOR_SHIFT, ReactMode.JUMP, 0.35f, ModCurve.LINEAR, 0.08f, 0.35f),
+            ReactionRoute(true, ReactSource.SNARE_2, LfoTarget.WARP, ReactMode.FOLLOW, 0.6f, ModCurve.SMOOTH, 0.03f, 0.45f),
+            ReactionRoute(true, ReactSource.HARD_CUT, LfoTarget.CAM_FLY, ReactMode.FOLLOW, 1.1f, ModCurve.LINEAR, 0.25f, 2.2f),
+            ReactionRoute(false, ReactSource.KICK_4, LfoTarget.ROTATION, ReactMode.STEP, -0.2f, ModCurve.LINEAR, 0.12f, 0.12f),
         )
 
     @Test
@@ -34,15 +34,21 @@ class ReactionRouteCodecTest {
     }
 
     @Test
+    fun routesSavedForTheOldAnalyserResetToTheDna() {
+        // KICK meant a level then and is a hit now: reading it back would change what the route does.
+        assertNull(ReactionRouteCodec.decode("reactions/1\ntrue|KICK|ZOOM|FOLLOW|0.3|LINEAR|0.05|0.3"))
+    }
+
+    @Test
     fun corruptedLinesDropOnlyThemselves() {
         val text =
             """
-            reactions/1
+            reactions/2
             true|KICK|ZOOM|FOLLOW|0.3|LINEAR|0.05|0.3
             this line is garbage
             true|SNARE|TWIST
             ||||||||
-            true|DROP|CAM_FLY|STEP|1.0|SMOOTH|0.2|2.0
+            true|HARD_CUT|CAM_FLY|STEP|1.0|SMOOTH|0.2|2.0
             """.trimIndent()
         val routes = ReactionRouteCodec.decode(text)!!
         assertEquals(listOf(LfoTarget.ZOOM, LfoTarget.CAM_FLY), routes.map { it.target })
@@ -52,7 +58,7 @@ class ReactionRouteCodecTest {
     fun unknownSourcesAndTargetsDropTheRouteUnknownModesAndCurvesTakeDefaults() {
         val text =
             """
-            reactions/1
+            reactions/2
             true|THEREMIN|ZOOM|FOLLOW|0.3|LINEAR|0.05|0.3
             true|KICK|WARP_DRIVE|FOLLOW|0.3|LINEAR|0.05|0.3
             true|KICK|NONE|FOLLOW|0.3|LINEAR|0.05|0.3
@@ -72,7 +78,7 @@ class ReactionRouteCodecTest {
     fun badNumbersTakeDefaultsAndRangesAreClamped() {
         val text =
             """
-            reactions/1
+            reactions/2
             true|KICK|ZOOM|FOLLOW|NaN|LINEAR|-4|1e9
             true|KICK|TWIST|FOLLOW|99|LINEAR|abc|Infinity
             """.trimIndent()
@@ -90,6 +96,6 @@ class ReactionRouteCodecTest {
         val many = List(40) { ReactionRoute(source = ReactSource.KICK, target = LfoTarget.ZOOM) }
         val line = "true|KICK|ZOOM|FOLLOW|0.3|LINEAR|0.05|0.3"
         assertTrue(ReactionRouteCodec.encode(many).lines().size <= ReactionRoute.MAX_ROUTES + 1)
-        assertEquals(ReactionRoute.MAX_ROUTES, ReactionRouteCodec.decode("reactions/1\n" + List(40) { line }.joinToString("\n"))!!.size)
+        assertEquals(ReactionRoute.MAX_ROUTES, ReactionRouteCodec.decode("reactions/2\n" + List(40) { line }.joinToString("\n"))!!.size)
     }
 }

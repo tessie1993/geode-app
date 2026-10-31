@@ -9,7 +9,6 @@ out vec4 fragColor;
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_terra
@@ -26,11 +25,11 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// The SPECTRUM (aband) PUSHES THE ROWS: each row of the grid ahead is lifted
+// The SPECTRUM (the spectrum) PUSHES THE ROWS: each row of the grid ahead is lifted
 // by one band of the spectrum, bass on the nearest rows through to the air
 // band on the far ones, so the hills either side become a running spectrum
 // display that the flight sweeps along. The rows' colour follows their band
-// through the palette. Brightness follows uSwell only.
+// through the palette. Brightness follows SND_INTENSITY only.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -57,13 +56,13 @@ float rowBand(float z) {
 float height(vec2 xz) {
     float f = terraFbm(terraChaos(terraWrap(xz)), gOct);
     float side = smoothstep(0.6, 2.8, abs(xz.x - gEye.x));
-    float band = aband(0.02 + 0.7 * rowBand(xz.y));
+    float band = sndSpectrum(0.02 + 0.7 * rowBand(xz.y));
     return 0.25 * f + side * (0.35 + 0.9 * f) * (0.4 + gPush * clamp(band, 0.0, 1.0));
 }
 
 void main() {
     vec2 uv = view();
-    float swell = clamp(uSwell, 0.0, 1.5);
+    float swell = clamp(SND_INTENSITY, 0.0, 1.5);
     gPush = min(0.8 * terraEnergy(), 1.0);
     gOct = terraOctaves(3.0);
     float hMax = 0.25 + 1.25 * (0.4 + gPush);

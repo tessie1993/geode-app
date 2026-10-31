@@ -218,6 +218,12 @@ struct SceneParams {
 
     // Sets a field by its Kotlin property name; ints and bools are taken from the float's value.
     bool set(std::string_view name, float value);
+    // Reads a field by its Kotlin property name; ints and bools come back as floats (0 for an unknown name).
+    float get(std::string_view name) const;
+
+    // The geode_viz_set_params wire: kFieldCount floats in fieldNames() order.
+    static SceneParams fromWire(const float* values);
+    void toWire(float* out) const;
 };
 
 SceneParams lerpParams(const SceneParams& from, const SceneParams& to, float k);

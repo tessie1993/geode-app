@@ -306,6 +306,7 @@ class PlayerSession internal constructor(
     val reactions: StateFlow<List<dev.geode.render.ReactionRoute>?> get() = modulation.reactions
     val lockedParams: StateFlow<Set<String>> get() = modulation.lockedParams
     val paramHistory: StateFlow<ParamHistoryState> get() = modulation.history
+
     fun toggleParamLock(label: String) = modulation.toggleParamLock(label)
 
     fun randomizeParams(tab: CustomizeTab? = null) = modulation.randomizeParams(tab)

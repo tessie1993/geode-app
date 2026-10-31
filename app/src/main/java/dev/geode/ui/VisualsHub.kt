@@ -75,7 +75,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.ui.NavDisplay
 import dev.geode.R
+import dev.geode.data.MacroStore
 import dev.geode.data.Preset
+import dev.geode.pro.PaywallTrigger
+import dev.geode.pro.ProFeature
 import dev.geode.render.VisualizerView
 import dev.geode.render.scene.CustomizeTab
 import dev.geode.render.scene.SceneCapabilities
@@ -1217,16 +1220,16 @@ private fun CustomizeTabBody(
     when (tab) {
         CustomizeTab.MACROS -> {
             val context = androidx.compose.ui.platform.LocalContext.current
-            val store = remember { dev.geode.data.MacroStore.get(context) }
+            val store = remember { MacroStore.get(context) }
             val macros by store.state.collectAsStateWithLifecycle()
             val paywall: dev.geode.ui.pro.PaywallViewModel = geodeViewModel()
             val gate by paywall.gate.collectAsStateWithLifecycle()
             MacrosTab(
                 macros,
                 store,
-                canSavePresets = gate.allows(dev.geode.pro.ProFeature.ADVANCED_CUSTOMIZATION),
+                canSavePresets = gate.allows(ProFeature.ADVANCED_CUSTOMIZATION),
                 onLockedSave = {
-                    paywall.open(dev.geode.pro.PaywallTrigger.Feature(dev.geode.pro.ProFeature.ADVANCED_CUSTOMIZATION))
+                    paywall.open(PaywallTrigger.Feature(ProFeature.ADVANCED_CUSTOMIZATION))
                 },
             )
         }
@@ -1306,7 +1309,7 @@ private fun CustomizeToolbar(
     var presetName by remember { mutableStateOf("") }
     val changed = remember(params) { CustomizeSummary.changedCount(params) }
     val context = androidx.compose.ui.platform.LocalContext.current
-    val macroStore = remember { dev.geode.data.MacroStore.get(context) }
+    val macroStore = remember { MacroStore.get(context) }
     val onMacros = tab == CustomizeTab.MACROS
     Column(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
         OutlinedTextField(

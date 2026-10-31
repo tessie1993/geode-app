@@ -129,19 +129,19 @@ class MacroStore private constructor(
             }
 
         /** The built-in presets from core/viz/Macros, "As styled" first. */
-        fun starters(): List<MacroPreset> =
-            runCatching { parsePresets(GeodeNative.macroStarters()) }.getOrDefault(emptyList())
+        fun starters(): List<MacroPreset> = runCatching { parsePresets(GeodeNative.macroStarters()) }.getOrDefault(emptyList())
 
         /** "Name|v,v,v,v,v,v" lines; a malformed line is skipped. */
         fun parsePresets(text: String): List<MacroPreset> =
-            text.lineSequence().mapNotNull { line ->
-                val bar = line.lastIndexOf('|')
-                if (bar <= 0) return@mapNotNull null
-                parseKnobs(line.substring(bar + 1))?.let { MacroPreset(line.substring(0, bar), it) }
-            }.toList()
+            text
+                .lineSequence()
+                .mapNotNull { line ->
+                    val bar = line.lastIndexOf('|')
+                    if (bar <= 0) return@mapNotNull null
+                    parseKnobs(line.substring(bar + 1))?.let { MacroPreset(line.substring(0, bar), it) }
+                }.toList()
 
-        fun formatPresets(presets: List<MacroPreset>): String =
-            presets.joinToString("\n") { p -> p.name + "|" + p.knobs.joinToString(",") }
+        fun formatPresets(presets: List<MacroPreset>): String = presets.joinToString("\n") { p -> p.name + "|" + p.knobs.joinToString(",") }
 
         private fun parseKnobs(text: String?): List<Float>? {
             val v = text?.split(',')?.map { it.trim().toFloatOrNull() ?: return null } ?: return null

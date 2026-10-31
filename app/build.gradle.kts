@@ -253,6 +253,8 @@ dependencies {
     implementation(libs.compose.material3.adaptive)
     implementation(libs.hilt.android)
     implementation(libs.hilt.navigation.compose)
+    implementation(libs.navigation3.runtime)
+    implementation(libs.navigation3.ui)
     ksp(libs.hilt.compiler)
     implementation(libs.compose.material.icons.extended)
     implementation(libs.activity.compose)

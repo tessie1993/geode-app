@@ -1,10 +1,13 @@
 package dev.geode.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.horizontalScroll
@@ -29,33 +32,36 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Casino
 import androidx.compose.material.icons.filled.FiberManualRecord
-import androidx.compose.material.icons.filled.Layers
-import androidx.compose.material.icons.filled.LayersClear
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.StopCircle
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.LocalContentColor
-import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.ProvideTextStyle
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshots.SnapshotStateList
+import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
@@ -66,6 +72,8 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation3.runtime.NavEntry
+import androidx.navigation3.ui.NavDisplay
 import dev.geode.R
 import dev.geode.data.Preset
 import dev.geode.render.VisualizerView
@@ -79,122 +87,260 @@ import dev.geode.ui.theme.StoneIcon
 import dev.geode.ui.theme.StoneIconArt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlin.math.abs
 
+/**
+ * The pages of the Visuals panel, in tab order. [STYLES] is always the root of the back stack and
+ * every other page sits on it, so system back steps toward the styles before it leaves Visuals.
+ * [TEXTURES] has no tab: MilkDrop opens it, since textures only matter to MilkDrop presets.
+ */
+private enum class VisualsPage(
+    val title: String,
+) {
+    STYLES("Styles"),
+    CUSTOMIZE("Customize"),
+    PRESETS("Presets"),
+    TEXTURES("Textures"),
+}
+
+private val VisualsTabs = listOf(VisualsPage.STYLES, VisualsPage.CUSTOMIZE, VisualsPage.PRESETS)
+
+/** Saved by name, like the shell's destination, so reordering the pages cannot restore the wrong one. */
+private val VisualsBackStackSaver =
+    listSaver<SnapshotStateList<VisualsPage>, String>(
+        save = { stack -> stack.map { it.name } },
+        restore = { names ->
+            val pages = names.mapNotNull { n -> VisualsPage.entries.firstOrNull { it.name == n } }
+            // Styles is always the root; a stack saved by an older build without it starts over there.
+            (if (pages.firstOrNull() == VisualsPage.STYLES) pages else listOf(VisualsPage.STYLES)).toMutableStateList()
+        },
+    )
+
+/**
+ * Visuals is a stage: the live canvas on top, where every pick and slider shows as it happens,
+ * and a panel under it whose pages (Styles first, then Customize and Presets) are a Navigation 3
+ * back stack. It used to open on a form of preset text fields with no visuals on screen at all;
+ * the art was one "View live" away and Customize had its own black preview strip.
+ *
+ * The stage takes gestures: a horizontal swipe steps to the next or previous style the user may
+ * use, and a hold hides the panel so the stage fills the screen (another hold brings it back).
+ * TalkBack gets both as custom actions. The handle between stage and panel trades one for the
+ * other. No per-entry ViewModel decorator: every ViewModel here stays in the Activity's store,
+ * which `PlayerSessionProvider` depends on (ADR 0001 § Consequences).
+ */
 @Composable
 fun VisualsHub(
     viewModel: PlayerViewModel,
     visualizerView: VisualizerView,
     onOpenNowPlaying: () -> Unit,
     onOpenStudioRender: () -> Unit,
-    liveBackdrop: Boolean = false,
     canvasFree: Boolean = false,
 ) {
-    val settingsViewModel: SettingsViewModel = geodeViewModel()
     val studioViewModel: StudioViewModel = geodeViewModel()
-    var tab by rememberSaveable { mutableStateOf(0) }
-    val tabs = listOf("Presets", "Styles", "Customize", "Textures", "Takes")
-    val gui by settingsViewModel.guiPrefs.collectAsStateWithLifecycle()
     val takes by studioViewModel.takeState.collectAsStateWithLifecycle()
-    // Out here rather than in the Customize tab, so a size the user dragged to survives a trip to
-    // another tab and back.
-    var previewHeightDp by rememberSaveable { mutableFloatStateOf(PREVIEW_DEFAULT_DP) }
-    Box(Modifier.fillMaxSize()) {
-        if (liveBackdrop) {
-            VisualizerCanvasHost(visualizerView, Modifier.fillMaxSize())
-            Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.1f)))
-        }
-        val bodyStyle =
-            if (liveBackdrop) {
-                LocalTextStyle.current.copy(
-                    shadow = Shadow(color = MaterialTheme.colorScheme.scrim.copy(alpha = 0.9f), blurRadius = 10f),
+    val viz by viewModel.vizState.collectAsStateWithLifecycle()
+    val gate by viewModel.gate.collectAsStateWithLifecycle()
+    val backStack = rememberSaveable(saver = VisualsBackStackSaver) { mutableStateListOf(VisualsPage.STYLES) }
+    val openTab: (VisualsPage) -> Unit = { page ->
+        while (backStack.size > 1) backStack.removeAt(backStack.lastIndex)
+        if (page != VisualsPage.STYLES) backStack.add(page)
+    }
+    var panelShown by rememberSaveable { mutableStateOf(true) }
+    // Out here, not per page, so the size the user dragged to holds across every page.
+    var stageHeightDp by rememberSaveable { mutableFloatStateOf(STAGE_DEFAULT_DP) }
+    val stepStyle: (Int) -> Unit = { step ->
+        nextStageStyle(stageStyleOrder(), viz.sceneId, step) { !gate.allowsStyle(it) }?.let(viewModel::selectScene)
+    }
+    // Hiding the panel is a view state, not a page: back brings the panel back before anything else.
+    BackHandler(enabled = !panelShown) { panelShown = true }
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val maxStageDp = (maxHeight * STAGE_MAX_FRACTION).value
+        // A short window (split screen, a phone on its side) can have less room than the floor.
+        val minStageDp = minOf(STAGE_MIN_DP, maxStageDp)
+        Column(Modifier.fillMaxSize()) {
+            val stageSize =
+                if (panelShown) {
+                    Modifier.fillMaxWidth().height(stageHeightDp.coerceIn(minStageDp, maxStageDp).dp)
+                } else {
+                    Modifier.fillMaxWidth().weight(1f)
+                }
+            Box(stageSize) {
+                // The one VisualizerView has one parent: while the fullscreen view or a second
+                // screen holds it, the stage shows the shell's background instead.
+                if (canvasFree) VisualizerCanvasHost(visualizerView, Modifier.fillMaxSize())
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .stageGestures(onHold = { panelShown = !panelShown }, onSwipe = stepStyle),
                 )
-            } else {
-                LocalTextStyle.current
+                StageHeader(
+                    styleName = sceneDisplayLabel(viz.sceneId),
+                    recordingLabel =
+                        when {
+                            takes.recording -> "● Recording  ${formatTakeTime(takes.recordedMs)}"
+                            takes.replaying != null -> "▶ ${takes.replaying}"
+                            else -> null
+                        },
+                    recording = takes.recording,
+                    onRecord = { if (takes.recording) studioViewModel.stopRecording() else studioViewModel.startRecording() },
+                    onOpenStudioRender = onOpenStudioRender,
+                    onOpenNowPlaying = onOpenNowPlaying,
+                )
+                Text(
+                    stringResource(if (panelShown) R.string.visuals_stage_hint else R.string.visuals_stage_hint_hidden),
+                    Modifier.align(Alignment.BottomCenter).padding(bottom = 6.dp),
+                    style =
+                        MaterialTheme.typography.labelSmall.copy(
+                            shadow = Shadow(color = MaterialTheme.colorScheme.scrim, blurRadius = 8f),
+                        ),
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
+                )
             }
-        val plate =
-            if (liveBackdrop) {
-                Modifier
-                    .padding(horizontal = 8.dp, vertical = 6.dp)
-                    .readingPlate(
-                        opacity = (gui.barOpacity * 0.62f).coerceIn(0.18f, 0.7f),
-                        tint = MaterialTheme.colorScheme.surface,
-                        corner = 20.dp,
-                        glow = MaterialTheme.colorScheme.primary,
-                    )
-            } else {
-                Modifier
-            }
-        ProvideTextStyle(bodyStyle) {
-            Column(Modifier.fillMaxSize().then(plate)) {
-                Row(
-                    Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
-                    Column(Modifier.weight(1f)) {
-                        CrystalOverline(
-                            when {
-                                takes.recording -> "● Recording  ${formatTakeTime(takes.recordedMs)}"
-                                takes.replaying != null -> "▶ ${takes.replaying}"
-                                liveBackdrop -> stringResource(R.string.visuals_live_overlay)
-                                else -> stringResource(R.string.app_name)
-                            },
-                            color = if (takes.recording) MaterialTheme.colorScheme.error else accentTextColor(),
-                        )
-                        // Customize needs every row it can get for the preview and its sliders; the
-                        // tab strip already says where the user is.
-                        if (tab != CUSTOMIZE_TAB) GlowTitle(stringResource(R.string.nav_visuals))
-                    }
-                    IconButton(onClick = {
-                        if (takes.recording) studioViewModel.stopRecording() else studioViewModel.startRecording()
-                    }) {
-                        Icon(
-                            if (takes.recording) Icons.Filled.StopCircle else Icons.Filled.FiberManualRecord,
-                            if (takes.recording) "Stop recording this take" else "Record a take",
-                            tint =
-                                if (takes.recording) {
-                                    MaterialTheme.colorScheme.error
-                                } else {
-                                    LocalContentColor.current
-                                },
-                        )
-                    }
-                    // Export lives in Studio › Render; this only takes you there, even when the
-                    // Studio tab is hidden from the bar for someone who came to listen.
-                    IconButton(onClick = onOpenStudioRender) {
-                        StoneIconArt(StoneIcon.STUDIO, stringResource(R.string.visuals_open_render))
-                    }
-                    IconButton(onClick = {
-                        settingsViewModel.setGuiPrefs(gui.copy(clearVisualsMenu = !gui.clearVisualsMenu))
-                    }) {
-                        Icon(
-                            if (liveBackdrop) Icons.Filled.LayersClear else Icons.Filled.Layers,
-                            if (liveBackdrop) "Solid menu" else "Clear overlay on live visuals",
-                            tint = if (liveBackdrop) MaterialTheme.colorScheme.primary else LocalContentColor.current,
-                        )
-                    }
-                    CrystalButton(compact = true, filled = false, onClick = onOpenNowPlaying) { Text("View live") }
-                }
-                CrystalTabs(titles = tabs, selected = tab, onSelect = { tab = it })
-                when (tab) {
-                    0 -> PresetsTreeTab(viewModel, visualizerView)
-                    1 -> StylesTab(viewModel, visualizerView, onOpenTextures = { tab = 3 })
-                    CUSTOMIZE_TAB ->
-                        CustomizePanel(
-                            viewModel,
-                            visualizerView,
-                            preview = canvasFree && !liveBackdrop,
-                            previewHeightDp = previewHeightDp,
-                            onResizePreview = { delta, max ->
-                                previewHeightDp = (previewHeightDp + delta).coerceIn(0f, max)
-                            },
-                        )
-                    3 -> TexturesHubTab(viewModel, visualizerView)
-                    4 -> TakesTab(studioViewModel)
-                }
+            if (panelShown) {
+                PreviewResizeHandle(onResize = { stageHeightDp = (stageHeightDp + it).coerceIn(minStageDp, maxStageDp) })
+                val top = backStack.last()
+                CrystalTabs(
+                    titles = VisualsTabs.map { it.title },
+                    // Textures belongs to Styles (MilkDrop opens it), so Styles stays lit there.
+                    selected = VisualsTabs.indexOf(top).takeIf { it >= 0 } ?: 0,
+                    onSelect = { openTab(VisualsTabs[it]) },
+                )
+                NavDisplay(
+                    backStack = backStack,
+                    onBack = { backStack.removeLastOrNull() },
+                    modifier = Modifier.weight(1f),
+                    entryProvider = { page ->
+                        NavEntry(page) {
+                            when (page) {
+                                VisualsPage.STYLES ->
+                                    StylesTab(viewModel, visualizerView, onOpenTextures = { backStack.add(VisualsPage.TEXTURES) })
+                                VisualsPage.CUSTOMIZE -> CustomizePanel(viewModel, visualizerView)
+                                VisualsPage.PRESETS -> PresetsTreeTab(viewModel, visualizerView)
+                                VisualsPage.TEXTURES -> TexturesHubTab(viewModel, visualizerView)
+                            }
+                        }
+                    },
+                )
             }
         }
     }
+}
+
+/** The stage's top row: what is on screen, and the record, render and fullscreen actions. */
+@Composable
+private fun StageHeader(
+    styleName: String,
+    recordingLabel: String?,
+    recording: Boolean,
+    onRecord: () -> Unit,
+    onOpenStudioRender: () -> Unit,
+    onOpenNowPlaying: () -> Unit,
+) {
+    val scrim = MaterialTheme.colorScheme.scrim
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .background(Brush.verticalGradient(listOf(scrim.copy(alpha = 0.7f), scrim.copy(alpha = 0f))))
+            .padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Column(Modifier.weight(1f)) {
+            CrystalOverline(
+                recordingLabel ?: stringResource(R.string.nav_visuals),
+                color = if (recording) MaterialTheme.colorScheme.error else accentTextColor(),
+            )
+            Text(styleName, style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        IconButton(onClick = onRecord) {
+            Icon(
+                if (recording) Icons.Filled.StopCircle else Icons.Filled.FiberManualRecord,
+                if (recording) "Stop recording this take" else "Record a take",
+                tint = if (recording) MaterialTheme.colorScheme.error else LocalContentColor.current,
+            )
+        }
+        // Export, loop render and the takes list live in Studio; this only takes you there, even
+        // when the Studio tab is hidden from the bar for someone who came to listen.
+        IconButton(onClick = onOpenStudioRender) {
+            StoneIconArt(StoneIcon.STUDIO, stringResource(R.string.visuals_open_render))
+        }
+        CrystalButton(compact = true, filled = false, onClick = onOpenNowPlaying) { Text("View live") }
+    }
+}
+
+/**
+ * A hold toggles the panel; a horizontal swipe past [STAGE_SWIPE_DP] steps the style (left is
+ * next, like turning a page). The callbacks go through [rememberUpdatedState] because
+ * `pointerInput(Unit)` keeps its first lambda for as long as the stage is on screen.
+ */
+@Composable
+private fun Modifier.stageGestures(
+    onHold: () -> Unit,
+    onSwipe: (Int) -> Unit,
+): Modifier {
+    val hold by rememberUpdatedState(onHold)
+    val swipe by rememberUpdatedState(onSwipe)
+    val next = stringResource(R.string.a11y_next_style)
+    val previous = stringResource(R.string.a11y_previous_style)
+    val toggle = stringResource(R.string.a11y_toggle_visuals_panel)
+    return this
+        .pointerInput(Unit) { detectTapGestures(onLongPress = { hold() }) }
+        .pointerInput(Unit) {
+            var dx = 0f
+            detectHorizontalDragGestures(
+                onDragStart = { dx = 0f },
+                onDragEnd = { if (abs(dx) > STAGE_SWIPE_DP.dp.toPx()) swipe(if (dx < 0) 1 else -1) },
+            ) { _, delta -> dx += delta }
+        }.semantics {
+            customActions =
+                listOf(
+                    CustomAccessibilityAction(next) {
+                        swipe(1)
+                        true
+                    },
+                    CustomAccessibilityAction(previous) {
+                        swipe(-1)
+                        true
+                    },
+                    CustomAccessibilityAction(toggle) {
+                        hold()
+                        true
+                    },
+                )
+        }
+}
+
+/**
+ * Every style the stage swipes through, in the order the Styles page lists them. MilkDrop is left
+ * out: its presets are a library of their own, picked from the MilkDrop page.
+ */
+internal fun stageStyleOrder(): List<String> =
+    (
+        StyleFamilies.ids +
+            VisualStyleCatalog.silkIds + VisualStyleCatalog.lifeIds + VisualStyleCatalog.mycoIds + VisualStyleCatalog.acidIds +
+            SceneCapabilities.SHADER_SCENES.keys.filterNot { it in StyleFamilies.ids } +
+            VisualStyleCatalog.fluidIds + listOf(SceneIds.CURLFLOW, SceneIds.WATER) + VisualStyleCatalog.cymaticsIds
+    ).distinct()
+
+/**
+ * The style [step] places (+1 next, -1 previous) from [current] in [order], wrapping at the ends
+ * and skipping [locked] ones: a swipe that opened the paywall would stop the browse dead. A style
+ * outside [order] (MilkDrop) starts from the first. Null when nothing else is open to the user.
+ */
+internal fun nextStageStyle(
+    order: List<String>,
+    current: String,
+    step: Int,
+    locked: (String) -> Boolean,
+): String? {
+    if (order.isEmpty()) return null
+    val here = order.indexOf(current)
+    val start = if (here >= 0) here else if (step > 0) -1 else 0
+    for (i in 1..order.size) {
+        val id = order[Math.floorMod(start + step * i, order.size)]
+        if (id != current && !locked(id)) return id
+    }
+    return null
 }
 
 internal fun vizPlaylistIndexOf(
@@ -609,17 +755,17 @@ private fun StylesTab(
             }
         }
         CrystalTabs(
-            titles = listOf("Silk", "Life", "Mycelium", "Acid", "Shaders", "Families", "Fluid", "Cymatics", "MilkDrop"),
+            titles = listOf("Families", "Silk", "Life", "Mycelium", "Acid", "Shaders", "Fluid", "Cymatics", "MilkDrop"),
             selected = sub,
             onSelect = { sub = it },
         )
         when (sub) {
-            0 -> SceneList(VisualStyleCatalog.silkIds, viz.sceneId, locked, pickScene)
-            1 -> SceneList(VisualStyleCatalog.lifeIds, viz.sceneId, locked, pickScene)
-            2 -> SceneList(VisualStyleCatalog.mycoIds, viz.sceneId, locked, pickScene)
-            3 -> SceneList(VisualStyleCatalog.acidIds, viz.sceneId, locked, pickScene)
-            4 -> SceneList(SceneCapabilities.SHADER_SCENES.keys.filterNot { it in StyleFamilies.ids }, viz.sceneId, locked, pickScene)
-            5 -> FamilyList(viz.sceneId, locked, pickScene)
+            0 -> FamilyList(viz.sceneId, locked, pickScene)
+            1 -> SceneList(VisualStyleCatalog.silkIds, viz.sceneId, locked, pickScene)
+            2 -> SceneList(VisualStyleCatalog.lifeIds, viz.sceneId, locked, pickScene)
+            3 -> SceneList(VisualStyleCatalog.mycoIds, viz.sceneId, locked, pickScene)
+            4 -> SceneList(VisualStyleCatalog.acidIds, viz.sceneId, locked, pickScene)
+            5 -> SceneList(SceneCapabilities.SHADER_SCENES.keys.filterNot { it in StyleFamilies.ids }, viz.sceneId, locked, pickScene)
             6 -> SceneList(VisualStyleCatalog.fluidIds + listOf(SceneIds.CURLFLOW, SceneIds.WATER), viz.sceneId, locked, pickScene)
             7 -> SceneList(VisualStyleCatalog.cymaticsIds, viz.sceneId, locked, pickScene)
             8 -> MilkDropTab(viewModel, visualizerView, onOpenTextures)
@@ -948,9 +1094,6 @@ private fun selectMilk(
 internal fun CustomizePanel(
     viewModel: PlayerViewModel,
     visualizerView: VisualizerView,
-    preview: Boolean = false,
-    previewHeightDp: Float = PREVIEW_DEFAULT_DP,
-    onResizePreview: (deltaDp: Float, maxDp: Float) -> Unit = { _, _ -> },
 ) {
     val visualsViewModel: VisualsViewModel = geodeViewModel()
     val viz by viewModel.vizState.collectAsStateWithLifecycle()
@@ -967,44 +1110,29 @@ internal fun CustomizePanel(
             shownTitle = titles[sub]
         }
     }
-    BoxWithConstraints(Modifier.fillMaxSize()) {
-        // The preview may take most of the panel, but never so much that the tabs and a row of
-        // controls are pushed off screen.
-        val maxPreviewDp = (maxHeight * PREVIEW_MAX_FRACTION).value
-        Column(Modifier.fillMaxSize()) {
-            // A live strip above the controls, so a slider's effect shows as it moves instead of
-            // after a trip to "View live" and back. It sits outside the scrolling column: the
-            // canvas is a SurfaceView, which does not scroll or clip like a Compose layer. The handle
-            // under it trades preview for controls: drag down for a bigger picture, up (to nothing)
-            // to see more sliders at once.
-            if (preview) {
-                val shownDp = previewHeightDp.coerceIn(0f, maxPreviewDp)
-                VisualizerCanvasHost(visualizerView, Modifier.fillMaxWidth().height(shownDp.dp))
-                PreviewResizeHandle(onResize = { onResizePreview(it, maxPreviewDp) })
-            }
-            CrystalTabs(
-                titles = titles,
-                selected = sub,
-                onSelect = {
-                    sub = it
-                    shownTitle = titles[it]
-                },
-            )
-            // The toolbar scrolls with the controls: pinned above them it left a phone one row of sliders.
-            Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
-                CustomizeToolbar(viewModel, visualizerView, viz.params, tabs.getOrNull(sub), query) { query = it }
-                val locked by visualsViewModel.lockedParams.collectAsStateWithLifecycle()
-                androidx.compose.runtime.CompositionLocalProvider(
-                    LocalParamLocks provides (locked to visualsViewModel::toggleParamLock),
-                ) {
-                    ParamSurface(sceneId = viz.sceneId, query = query) {
-                        if (query.isBlank()) {
-                            CustomizeTabBody(viewModel, visualizerView, tabs.getOrNull(sub))
-                        } else {
-                            // Search reaches EVERY tab, not just the one on screen: "where did the
-                            // vignette slider go" is exactly the question search exists to answer.
-                            tabs.filterNotNull().forEach { tab -> CustomizeTabBody(viewModel, visualizerView, tab) }
-                        }
+    Column(Modifier.fillMaxSize()) {
+        CrystalTabs(
+            titles = titles,
+            selected = sub,
+            onSelect = {
+                sub = it
+                shownTitle = titles[it]
+            },
+        )
+        // The toolbar scrolls with the controls: pinned above them it left a phone one row of sliders.
+        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
+            CustomizeToolbar(viewModel, visualizerView, viz.params, tabs.getOrNull(sub), query) { query = it }
+            val locked by visualsViewModel.lockedParams.collectAsStateWithLifecycle()
+            androidx.compose.runtime.CompositionLocalProvider(
+                LocalParamLocks provides (locked to visualsViewModel::toggleParamLock),
+            ) {
+                ParamSurface(sceneId = viz.sceneId, query = query) {
+                    if (query.isBlank()) {
+                        CustomizeTabBody(viewModel, visualizerView, tabs.getOrNull(sub))
+                    } else {
+                        // Search reaches EVERY tab, not just the one on screen: "where did the
+                        // vignette slider go" is exactly the question search exists to answer.
+                        tabs.filterNotNull().forEach { tab -> CustomizeTabBody(viewModel, visualizerView, tab) }
                     }
                 }
             }
@@ -1013,7 +1141,7 @@ internal fun CustomizePanel(
 }
 
 /**
- * The grip under the Customize preview. Drags report deltas rather than a new height, so the
+ * The grip under the Visuals stage. Drags report deltas rather than a new height, so the
  * owner adds them to its own state: several drag events can land before a recomposition, and a
  * height read from the last composition would drop all but one of them. TalkBack gets the same
  * control as two actions, since a drag is out of its reach.
@@ -1055,13 +1183,15 @@ private fun PreviewResizeHandle(onResize: (deltaDp: Float) -> Unit) {
     }
 }
 
-private const val CUSTOMIZE_TAB = 2
+private const val STAGE_DEFAULT_DP = 300f
 
-private const val PREVIEW_DEFAULT_DP = 150f
+private const val STAGE_MIN_DP = 120f
+
+private const val STAGE_MAX_FRACTION = 0.75f
+
+private const val STAGE_SWIPE_DP = 72f
 
 private const val PREVIEW_STEP_DP = 80f
-
-private const val PREVIEW_MAX_FRACTION = 0.7f
 
 private val PREVIEW_HANDLE_HEIGHT = 28.dp
 
@@ -1322,7 +1452,7 @@ private fun formatTakeTime(ms: Long): String {
 }
 
 @Composable
-private fun TakesTab(viewModel: StudioViewModel) {
+internal fun TakesTab(viewModel: StudioViewModel) {
     val studioViewModel = viewModel
     val takes by studioViewModel.takeState.collectAsStateWithLifecycle()
     var renaming by remember { mutableStateOf<String?>(null) }
@@ -1336,11 +1466,11 @@ private fun TakesTab(viewModel: StudioViewModel) {
             Text(
                 if (takes.recording) {
                     "Recording — ${takes.recordedEvents} keyframes, ${formatTakeTime(takes.recordedMs)}. " +
-                        "Go and perform; press the stop button in the header when you are done."
+                        "Go and perform; press the stop button on the Visuals stage when you are done."
                 } else {
                     "A take stores what the visuals were doing, moment by moment — every slider, " +
                         "colour and style change, as you made them. It replays over the live canvas " +
-                        "and can be re-rendered at any quality later. Press ● in the header to start."
+                        "and can be re-rendered at any quality later. Press ● on the Visuals stage to start."
                 },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,

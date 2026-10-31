@@ -234,8 +234,7 @@ fun AppRoot() {
                             visualizerView,
                             onOpenNowPlaying = appState::expand,
                             onOpenStudioRender = appState::openStudioRender,
-                            liveBackdrop = gui.clearVisualsMenu && !appState.expanded && !onSecondScreen,
-                            // The one VisualizerView has one parent: the Customize preview may take it
+                            // The one VisualizerView has one parent: the Visuals stage may take it
                             // only while the fullscreen view and the second screen don't hold it.
                             canvasFree = !appState.expanded && !onSecondScreen,
                         )

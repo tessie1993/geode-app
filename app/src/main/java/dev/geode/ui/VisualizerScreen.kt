@@ -158,9 +158,11 @@ fun VisualizerScreen(
                     }
                 }
             }.pointerInput(Unit) {
-                detectTapGestures(onTap = { controlsVisible = !controlsVisible })
+                // A hold, not a tap: a tap on the canvas is a touch on the art (smear, steer), and
+                // hiding the player under every such touch made playing with the visuals fight it.
+                detectTapGestures(onLongPress = { controlsVisible = !controlsVisible })
             }.semantics {
-                // The tap above is invisible to TalkBack; with the chrome hidden, this action is
+                // The hold above is invisible to TalkBack; with the chrome hidden, this action is
                 // the only way a screen reader user can bring the controls back.
                 onClick(label = toggleControlsLabel) {
                     controlsVisible = !controlsVisible
@@ -338,7 +340,7 @@ private fun VisualizerTransport(
     }
     val extras: @Composable RowScope.() -> Unit = {
         TextButton(onClick = onOpenVisuals) {
-            StoneIconArt(StoneIcon.SETTINGS, null)
+            StoneIconArt(StoneIcon.VISUALIZER, null)
             Text("  " + stringResource(R.string.nav_visuals))
         }
         TextButton(onClick = viewModel::cycleAutoMode) {

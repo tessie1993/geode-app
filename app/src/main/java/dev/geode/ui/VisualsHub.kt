@@ -109,7 +109,11 @@ private val VisualsTabs = listOf(VisualsPage.STYLES, VisualsPage.CUSTOMIZE, Visu
 private val VisualsBackStackSaver =
     listSaver<SnapshotStateList<VisualsPage>, String>(
         save = { stack -> stack.map { it.name } },
-        restore = { names -> names.mapNotNull { n -> VisualsPage.entries.firstOrNull { it.name == n } }.toMutableStateList() },
+        restore = { names ->
+            val pages = names.mapNotNull { n -> VisualsPage.entries.firstOrNull { it.name == n } }
+            // Styles is always the root; a stack saved by an older build without it starts over there.
+            (if (pages.firstOrNull() == VisualsPage.STYLES) pages else listOf(VisualsPage.STYLES)).toMutableStateList()
+        },
     )
 
 /**
@@ -151,10 +155,12 @@ fun VisualsHub(
     BackHandler(enabled = !panelShown) { panelShown = true }
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val maxStageDp = (maxHeight * STAGE_MAX_FRACTION).value
+        // A short window (split screen, a phone on its side) can have less room than the floor.
+        val minStageDp = minOf(STAGE_MIN_DP, maxStageDp)
         Column(Modifier.fillMaxSize()) {
             val stageSize =
                 if (panelShown) {
-                    Modifier.fillMaxWidth().height(stageHeightDp.coerceIn(STAGE_MIN_DP, maxStageDp).dp)
+                    Modifier.fillMaxWidth().height(stageHeightDp.coerceIn(minStageDp, maxStageDp).dp)
                 } else {
                     Modifier.fillMaxWidth().weight(1f)
                 }
@@ -191,7 +197,7 @@ fun VisualsHub(
                 )
             }
             if (panelShown) {
-                PreviewResizeHandle(onResize = { stageHeightDp = (stageHeightDp + it).coerceIn(STAGE_MIN_DP, maxStageDp) })
+                PreviewResizeHandle(onResize = { stageHeightDp = (stageHeightDp + it).coerceIn(minStageDp, maxStageDp) })
                 val top = backStack.last()
                 CrystalTabs(
                     titles = VisualsTabs.map { it.title },
@@ -758,7 +764,8 @@ private fun StylesTab(
             1 -> SceneList(VisualStyleCatalog.silkIds, viz.sceneId, locked, pickScene)
             2 -> SceneList(VisualStyleCatalog.lifeIds, viz.sceneId, locked, pickScene)
             3 -> SceneList(VisualStyleCatalog.mycoIds, viz.sceneId, locked, pickScene)
-            4 -> SceneList(SceneCapabilities.SHADER_SCENES.keys.filterNot { it in StyleFamilies.ids }, viz.sceneId, locked, pickScene)
+            4 -> SceneList(VisualStyleCatalog.acidIds, viz.sceneId, locked, pickScene)
+            5 -> SceneList(SceneCapabilities.SHADER_SCENES.keys.filterNot { it in StyleFamilies.ids }, viz.sceneId, locked, pickScene)
             6 -> SceneList(VisualStyleCatalog.fluidIds + listOf(SceneIds.CURLFLOW, SceneIds.WATER), viz.sceneId, locked, pickScene)
             7 -> SceneList(VisualStyleCatalog.cymaticsIds, viz.sceneId, locked, pickScene)
             8 -> MilkDropTab(viewModel, visualizerView, onOpenTextures)

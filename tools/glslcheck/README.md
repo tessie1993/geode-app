@@ -16,6 +16,7 @@ node check.mjs --shader kifs --out out/kifs.png
 node check.mjs --all --size 96                 # every fragment style, compile + frame stats
 node check.mjs --fluid-display --out out/fluid # every SHADING/BLOOM/SUNRAYS x LOOK variant
 node check.mjs --shader curl_bloom --time 61   # a different point on the clocks
+node check.mjs --shader bulb_prism --size 270 --height 480 --out out/p.png  # phone-shaped frame
 ```
 
 ## How it stays honest
@@ -44,4 +45,4 @@ Mali or an Adreno. This is a lower bound on portability, not a device check.
 `docs/DEVICE_CHECKS.md` is still the authority.
 
 The Chromium binary comes from `/opt/pw-browsers/chromium`; override with
-`MUSICVIZ_CHROMIUM`. Rendered output goes under `out/`, which is ignored.
+`MUSICVIZ_CHROMIUM` (on Windows, point it at an installed `chrome.exe`). Rendered output goes under `out/`, which is ignored.

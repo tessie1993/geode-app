@@ -56,6 +56,8 @@ out vec4 fragColor;
 
 const vec3 CO_AXIS = vec3(0.0, 0.5, -0.8660254);
 const vec3 CO_SIDE = vec3(0.0, 0.8660254, 0.5);
+/** How far below the orbit centre the core sits, along the head's axis. */
+#define CO_LIFT 0.35
 
 float gOpen;
 float gSpin;
@@ -67,7 +69,10 @@ float gChaos;
 float gRings;
 
 vec3 toFlower(vec3 p) {
-    vec3 q = vec3(p.x, dot(p, CO_AXIS), dot(p, CO_SIDE));
+    // The head's visual mass sits up its axis from the core, so the core is
+    // dropped below the orbit centre: centred on the core, the petals hung off
+    // one edge of the frame and the style read as a dark screen with a fringe.
+    vec3 q = vec3(p.x, dot(p, CO_AXIS) + CO_LIFT, dot(p, CO_SIDE));
     q.xz = chrysTurn(gSpin) * q.xz;
     return q;
 }
@@ -136,7 +141,7 @@ void main() {
     float t = uTime * uSpeed;
     float drop = clamp(uEvents.y, 0.0, 1.0);
     gBass = clamp(uBandsLo.y * uIntensity, 0.0, 1.5);
-    gOpen = clamp(0.36 + 0.12 * swell + 0.6 * uIntensity * chrysBump(drop), 0.0, 1.0);
+    gOpen = clamp(0.55 + 0.12 * swell + 0.4 * uIntensity * chrysBump(drop), 0.0, 1.0);
     gSpin = t * 0.04 + uDrift * 0.1;
     gLowQ = uSteps < 72.0;
     gChaos = clamp(uTurbulence + uWarp, 0.0, 2.0);

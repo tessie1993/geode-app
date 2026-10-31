@@ -10,7 +10,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
-import java.io.File
 import java.util.concurrent.atomic.AtomicBoolean
 
 internal class VizStateStore(
@@ -20,8 +19,9 @@ internal class VizStateStore(
 ) {
     val state = MutableStateFlow(restore(autoVisualsPrefsStore))
 
-    private val _activeMilkPath =
-        MutableStateFlow(prefs.getString(KEY_MILK_PATH, null)?.takeIf { File(it).isFile })
+    // Session-only on purpose: a cold start shows black until a preset is chosen. KEY_MILK_PATH is
+    // still written, because the wallpaper and the dream read it to show what the app last did.
+    private val _activeMilkPath = MutableStateFlow<String?>(null)
     val activeMilkPath: StateFlow<String?> = _activeMilkPath
 
     @Volatile

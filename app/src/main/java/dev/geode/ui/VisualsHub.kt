@@ -668,7 +668,7 @@ private fun SceneList(
 }
 
 /**
- * The style families, each under its own heading, in family order. Forty-eight styles in one flat
+ * The style families, each under its own heading, in family order. Every family's styles in one flat
  * list would bury the family a style belongs to, and the family is what tells a free user why one
  * style in twelve is theirs and the other eleven carry a Pro badge.
  */

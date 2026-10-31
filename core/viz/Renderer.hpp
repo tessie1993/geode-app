@@ -190,6 +190,9 @@ private:
     float underlayAmount_ = 0.0f;
     bool underlayDirty_ = false;
     std::string lastMilkPreset_;
+    // lastMilkPreset_ is the latest request, which may have failed; this is the latest preset that
+    // compiled. A rebuilt scene is seeded with both (buildScene).
+    std::string lastGoodMilkPreset_;
     std::string milkPresetRequest_;
     bool milkReloadRequested_ = false;
     std::string milkTextureDir_;

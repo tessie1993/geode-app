@@ -127,7 +127,10 @@ void CameraRig::step(const SceneParams& p, const LookInput& look, float dt, bool
 
         // A hard cut: a new place on the path and a new orbit phase, with no tween (the springs are
         // snapped below) and the shake and dolly kick cleared, at most once per kCutGapSeconds.
-        if (val(s.hardCut) > 0.0f && sinceCut_ >= kCutGapSeconds && amp > 0.0f) {
+        const Moves& m = moves_;
+        // The Chaos macro shortens the gap between cuts (cut 2 = half) or stops them (cut 0).
+        const float cutGap = m.cut > 0.05f ? kCutGapSeconds / m.cut : INFINITY;
+        if (val(s.hardCut) > 0.0f && sinceCut_ >= cutGap && amp > 0.0f) {
             cut = true;
             sinceCut_ = 0.0f;
             sinceReframe_ = 0.0f;
@@ -139,30 +142,30 @@ void CameraRig::step(const SceneParams& p, const LookInput& look, float dt, bool
         }
         // Every sixteenth kick, a new framing: the orbit's phase moves by up to 1.5 rad and the
         // springs ease there. Held off after a cut and spaced, so it reads as phrasing.
-        if (val(s.kick16) > 0.0f && sinceReframe_ >= kReframeGapSeconds && sinceCut_ >= kReframeHoldSeconds) {
+        if (val(s.kick16) > 0.0f && m.reframe > 0.0f && sinceReframe_ >= kReframeGapSeconds && sinceCut_ >= kReframeHoldSeconds) {
             sinceReframe_ = 0.0f;
-            lissPhase_ += 1.5f * (2.0f * std::clamp(val(s.kickRandom), 0.0f, 1.0f) - 1.0f);
+            lissPhase_ += 1.5f * std::min(m.reframe, 2.0f) * (2.0f * std::clamp(val(s.kickRandom), 0.0f, 1.0f) - 1.0f);
         }
 
         // The orbit on the mid clock: a Lissajous look path whose rates never line up, so it never
         // repeats, and whose speed follows the mids. A slow roll sway on the loudness clock, for
         // styles that turn.
         const float c = std::fmod(val(s.midTime), kTwoPi * 100.0f) + lissPhase_;
-        soundYaw += 0.15f * amp * std::sin(0.6f * c);
-        soundPitch += 0.09f * amp * (0.75f * std::sin(0.4f * c) + 0.25f * std::sin(1.324f * c));
+        soundYaw += 0.15f * amp * m.orbit * std::sin(0.6f * c);
+        soundPitch += 0.09f * amp * m.orbit * (0.75f * std::sin(0.4f * c) + 0.25f * std::sin(1.324f * c));
         if (bankFlat) {
             const float k = std::fmod(val(s.curvedTime), kTwoPi * 100.0f);
-            soundRoll += 0.05f * amp * (0.6f * std::sin(0.31f * k) + 0.4f * std::sin(0.73f * k));
+            soundRoll += 0.05f * amp * m.orbit * (0.6f * std::sin(0.31f * k) + 0.4f * std::sin(0.73f * k));
         }
         // Lean with the stereo field; rise with the melody while there is one.
-        soundYaw += 0.08f * amp * std::clamp(val(s.stereoPan), -1.0f, 1.0f);
-        soundPitch += 0.1f * amp * (std::clamp(val(s.pitchHeight), 0.0f, 1.0f) - 0.5f) * std::clamp(val(s.pitchConfidence), 0.0f, 1.0f);
+        soundYaw += 0.08f * amp * m.lean * std::clamp(val(s.stereoPan), -1.0f, 1.0f);
+        soundPitch += 0.1f * amp * m.lean * (std::clamp(val(s.pitchHeight), 0.0f, 1.0f) - 0.5f) * std::clamp(val(s.pitchConfidence), 0.0f, 1.0f);
         // A new note looks somewhere a little different, at most twice a second.
         if (val(s.noteChange) > 0.0f && sinceNoteLook_ >= 0.5f) {
             sinceNoteLook_ = 0.0f;
             noteLook_ = 0.05f * (2.0f * std::clamp(val(s.noteRandom), 0.0f, 1.0f) - 1.0f);
         }
-        soundYaw += noteLook_ * amp;
+        soundYaw += noteLook_ * amp * m.lean;
 
         // A surge pushes in; sound coming back after silence pulls back out; both settle over ~2 s.
         // A rise (energyTrend over 0.5) creeps in until a big moment releases it.
@@ -170,15 +173,15 @@ void CameraRig::step(const SceneParams& p, const LookInput& look, float dt, bool
         if (val(s.returned) > 0.0f) dollyKick_ = std::min(dollyKick_, -0.4f);
         dollyKick_ *= std::exp(-dt / 2.0f);
         const float creep = 0.3f * std::clamp(2.0f * (val(s.energyTrend) - 0.5f), 0.0f, 1.0f);
-        soundDolly = amp * (dollyKick_ + creep);
+        soundDolly = amp * m.dolly * (dollyKick_ + creep);
 
         // The bass breathes the lens: up to 6% narrower on a strong bass, which reads as a punch in.
-        fovTarget *= 1.0f - 0.06f * amp * std::clamp(val(s.bassAtt) - 1.0f, 0.0f, 1.0f);
+        fovTarget *= 1.0f - 0.06f * amp * m.breath * std::clamp(val(s.bassAtt) - 1.0f, 0.0f, 1.0f);
 
         // Trauma: hits pile it up, it bleeds off over a second, and the shake grows with its square,
         // so single hits stay subtle and a run of them builds. Busy highs quicken the noise, never
         // its size.
-        trauma_ = std::min(1.0f, trauma_ + 0.3f * std::clamp(val(s.kick), 0.0f, 1.0f) * amp + 0.2f * std::clamp(val(s.snare), 0.0f, 1.0f) * amp);
+        trauma_ = std::min(1.0f, trauma_ + m.shake * amp * (0.3f * std::clamp(val(s.kick), 0.0f, 1.0f) + 0.2f * std::clamp(val(s.snare), 0.0f, 1.0f)));
         trauma_ = std::max(0.0f, trauma_ - 1.2f * dt);
         traumaClock_ = std::fmod(traumaClock_ + dt * (8.0f + 5.0f * std::clamp(val(s.flux), 0.0f, 2.0f)), kPathPeriod);
     }

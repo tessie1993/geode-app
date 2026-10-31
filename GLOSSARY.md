@@ -100,6 +100,13 @@ _Avoid_: Section (that is the analyser's structure boundary)
 **Style DNA**:
 The reaction routes a style plays until the user edits them, generated from the style id and a seed.
 
+**Macro**:
+One of the six Customize knobs (Energy, Speed, Complexity, Mood, Space, Chaos), -1..1 with "as styled" at the centre, laid over every style by `core/viz/Macros`. It never writes a slider; it shapes the look, the sound tuning, the camera's music moves and a few routes of its own.
+_Avoid_: Meta control, master knob
+
+**Macro preset**:
+A named set of the six knob positions: the built-in starters (Calm, Groove, Rave, Dreamy, Wide, Glitch) or the user's own (saving is Pro). Separate from look presets.
+
 **Event recipe**:
 A named bundle of reaction routes offered in the Events tab ("Kick punch", "Drop burst"), turned on and off as one.
 _Avoid_: Trigger preset

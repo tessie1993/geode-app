@@ -2,8 +2,6 @@ package dev.geode.render.bridge
 
 import android.content.Context
 import android.content.res.AssetManager
-import dev.geode.analysis.AudioFeatures
-import dev.geode.engine.bridge.FeatureFrameLayout
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.render.AdsrConfig
 import dev.geode.render.AdsrEngine
@@ -35,7 +33,6 @@ class NativeViz(
     @Volatile
     private var handle = 0L
     private val paramFrame = FloatArray(SceneParamsCodec.FIELDS)
-    private val featureFrame = FloatArray(FeatureFrameLayout.FLOATS)
     private var reportedError = ""
 
     val isCreated: Boolean get() = handle != 0L
@@ -75,12 +72,6 @@ class NativeViz(
         if (handle == 0L) return
         SceneParamsCodec.pack(p, paramFrame)
         GeodeNative.vizSetParams(handle, paramFrame)
-    }
-
-    fun setFeatures(f: AudioFeatures) {
-        if (handle == 0L) return
-        FeatureFrameCodec.pack(f, featureFrame)
-        GeodeNative.vizSetFeatures(handle, featureFrame)
     }
 
     fun setReducedMotion(on: Boolean) {
@@ -289,9 +280,6 @@ class NativeViz(
         fun verifyLayouts() {
             if (verified) return
             SceneParamsCodec.verify(GeodeNative.vizParamNames())
-            check(GeodeNative.featureFrameFloats() == FeatureFrameLayout.FLOATS) {
-                "GeodeFeatureFrame has ${GeodeNative.featureFrameFloats()} floats, FeatureFrameLayout expects ${FeatureFrameLayout.FLOATS}"
-            }
             verified = true
         }
     }

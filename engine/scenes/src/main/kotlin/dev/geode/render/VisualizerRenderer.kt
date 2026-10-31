@@ -3,7 +3,6 @@ package dev.geode.render
 import android.content.Context
 import android.opengl.GLSurfaceView
 import android.os.SystemClock
-import dev.geode.analysis.AudioFeatures
 import dev.geode.render.bridge.NativeViz
 import dev.geode.engine.audio.SoundCursor
 import dev.geode.engine.audio.SoundInput
@@ -34,9 +33,6 @@ class VisualizerRenderer(
                 "palette2RangeOverride" to "UNSET_OVERRIDE sentinel, as paletteBaseOverride",
             )
     }
-
-    @Volatile
-    var features: AudioFeatures = AudioFeatures.empty()
 
     @Volatile
     var requestedSceneId: String = SceneIds.DEFAULT
@@ -273,7 +269,6 @@ class VisualizerRenderer(
             nativeReactions = routes
         }
         nativeViz.setLook(lookYaw, lookPitch)
-        nativeViz.setFeatures(features)
         nativeViz.setReducedMotion(reducedMotion)
         nativeViz.setLayer(layerSceneId, layerMix, layerBlend)
         nativeViz.setTransition(transitionId, transitionDurationMs)

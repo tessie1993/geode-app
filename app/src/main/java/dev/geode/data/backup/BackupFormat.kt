@@ -105,9 +105,9 @@ object BackupFormat {
      * Keys that describe this phone or this install rather than the user's choices. They are
      * left out of an export, and a restore neither writes nor removes them.
      *
-     * - "Seen it" flags (safety notice, first-run setup, tutorial): a new phone should show
-     *   the photosensitivity notice and the tour again; the user's answers themselves (reduced
-     *   motion, intent, "offer the tour on a fresh install") are restored.
+     * - "Seen it" flags (safety notice, first-run setup, tutorial and its progress): a new phone
+     *   should show the photosensitivity notice and the tour again; the user's answers themselves
+     *   (reduced motion, intent) are restored.
      * - Folder and image URIs picked through the system picker: their read grant belongs to
      *   this install and does not survive a reinstall, so a restored URI points at nothing.
      *
@@ -117,7 +117,14 @@ object BackupFormat {
     val deviceLocalKeys: Map<String, Set<String>> =
         mapOf(
             GeodePrefsFiles.GENERAL to
-                setOf("gui_safety_acknowledged", "gui_setup_done", "gui_tutorial_seen", "preset_mirror_uri"),
+                setOf(
+                    "gui_safety_acknowledged",
+                    "gui_setup_done",
+                    "gui_tutorial_seen",
+                    "gui_tutorial_done",
+                    "gui_tutorial_resume",
+                    "preset_mirror_uri",
+                ),
             GeodePrefsFiles.LIBRARY to setOf("roots"),
             GeodePrefsFiles.BACKGROUND to setOf("background_uri"),
         )

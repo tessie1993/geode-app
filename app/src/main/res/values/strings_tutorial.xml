@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The new-user tour (ui/TutorialState.kt, ui/TutorialCards.kt). -->
+<resources>
+    <string name="tutorial_next">Next</string>
+    <string name="tutorial_back">Back</string>
+    <string name="tutorial_finish">Let\'s go</string>
+    <string name="tutorial_show_me">Show me</string>
+    <string name="tutorial_skip_chapter">Skip chapter</string>
+    <string name="tutorial_skip_all">Skip all</string>
+    <string name="tutorial_resume">Resume tour</string>
+    <string name="tutorial_progress">%1$s · %2$d of %3$d</string>
+    <string name="tutorial_chapter_done">%1$s done!</string>
+
+    <string name="tutorial_chapter_welcome">Welcome</string>
+    <string name="tutorial_chapter_settings">Settings</string>
+
+    <string name="tutorial_welcome_1_title">Hi, I\'m Wave!</string>
+    <string name="tutorial_welcome_1_body">I\'m made of sound, so I wiggle when things get loud. I\'ll show you around MuzViz: a player, a visualizer that dances to your music, and a studio that turns it into video.</string>
+    <string name="tutorial_welcome_2_title">Your tour, your pace</string>
+    <string name="tutorial_welcome_2_body">Swipe or tap Next. Skip a chapter you know, or skip the lot. Tap Show me to jump to the real thing; I\'ll wait with a Resume button. Every chapter lives on in Settings › Tutorials.</string>
+
+    <string name="tutorial_settings_1_title">Make it yours</string>
+    <string name="tutorial_settings_1_body">Look, Audio, Folders and Behavior hold the rest, including reduced motion and visual safety. Backup saves your presets and settings to a file.</string>
+    <string name="tutorial_settings_2_title">See you around!</string>
+    <string name="tutorial_settings_2_body">That\'s the tour. Replay any chapter in Settings › Tutorials. Now play something loud and watch me go.</string>
+</resources>

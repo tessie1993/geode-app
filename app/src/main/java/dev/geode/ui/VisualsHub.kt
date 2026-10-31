@@ -94,7 +94,7 @@ import kotlin.math.abs
  * every other page sits on it, so system back steps toward the styles before it leaves Visuals.
  * [TEXTURES] has no tab: MilkDrop opens it, since textures only matter to MilkDrop presets.
  */
-enum class VisualsPage(
+private enum class VisualsPage(
     val title: String,
 ) {
     STYLES("Styles"),

@@ -684,6 +684,34 @@ void endlessZoomPhaseWrapsForEverInBothDirections() {
     check(endless::advance(0.0f, -1e-9f, 1.0f) < 1.0f, "a tiny negative step never lands on 1.0");
 }
 
+// The music pushes the dive the MilkDrop way, on the relative bass (over the song's own mean),
+// and never on loudness: the user removed loudness tracking on purpose.
+void endlessZoomFollowsTheBassNotTheLoudness() {
+    GeodeSoundFrame s = silence();
+    check(endless::musicRate(s, 1.0f) == 1.0f, "silence dives at exactly Dive speed");
+    s.presence = 1.0f;
+    s.bassAtt = 1.0f;
+    check(std::fabs(endless::musicRate(s, 1.0f) - 1.0f) < 1e-6f, "typical bass dives at Dive speed");
+    s.bassAtt = 2.0f;
+    const float hit = endless::musicRate(s, 1.0f);
+    check(hit > 1.2f, "a bass hit pushes the dive");
+    GeodeSoundFrame loud = s;
+    loud.vol = loud.volAtt = 3.0f;
+    loud.rms = 0.9f;
+    loud.loudness = 1.0f;
+    loud.intensity = 1.0f;
+    loud.energyTrend = 1.0f;
+    loud.surge = 1.0f;
+    check(endless::musicRate(loud, 1.0f) == hit, "loudness never changes the dive rate");
+    s.bassAtt = 0.0f;
+    check(endless::musicRate(s, 2.0f) >= endless::kMinRate, "a bass drop slows the dive but never stalls it");
+    check(endless::musicRate(s, 0.0f) == 1.0f, "Audio drive 0 leaves the dive steady");
+    s.bassAtt = NAN;
+    s.presence = INFINITY;
+    const float odd = endless::musicRate(s, NAN);
+    check(std::isfinite(odd) && odd >= endless::kMinRate, "non-finite sound leaves a finite rate");
+}
+
 void endlessZoomDrivesTheRigForward() {
     CameraRig still;
     CameraRig diving;
@@ -737,6 +765,7 @@ int main() {
     startersAreNamedAndInRange();
     endlessZoomOnlyDivesIn();
     endlessZoomPhaseWrapsForEverInBothDirections();
+    endlessZoomFollowsTheBassNotTheLoudness();
     endlessZoomDrivesTheRigForward();
     if (failures == 0) std::printf("viz_math_test: all passed\n");
     return failures == 0 ? EXIT_SUCCESS : EXIT_FAILURE;

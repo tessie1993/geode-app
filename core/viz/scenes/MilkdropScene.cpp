@@ -171,7 +171,7 @@ void MilkdropScene::armLastPreset() {
 void MilkdropScene::update(const GeodeSoundFrame& features, float dt) {
     const SceneParams& p = params_;
     rotationAngle_ = std::fmod(rotationAngle_ + p.rotation * dt, kTwoPi);
-    zoomPhase_ = p.endlessZoom ? endless::advance(zoomPhase_, p.endlessZoomSpeed, dt) : 0.0f;
+    zoomPhase_ = p.endlessZoom ? endless::advance(zoomPhase_, p.endlessZoomSpeed * endless::musicRate(features, p.audioDrive), dt) : 0.0f;
     if (p.colorCycle) cyclePhase_ = std::fmod(cyclePhase_ + p.cycleSpeed * dt, 1.0f);
     beatPulse_ = std::max(std::max(live::hit(features), beatPulse_ - dt * 3.0f), 0.0f);
     if (!engine_) return;

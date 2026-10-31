@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 
+#include "viz/EndlessZoom.hpp"
 #include "viz/VisualSafety.hpp"
 
 namespace geode::viz {
@@ -107,7 +108,10 @@ void CameraRig::step(const SceneParams& p, const LookInput& look, float dt, bool
     // Endless zoom is a dive. The 2D styles draw it as an octave crossfade (EndlessZoom.hpp);
     // a 3D style would have to march every ray twice for that, so it dives the way a camera
     // does instead, by flying further in. ShaderScene keeps those styles at one layer, 1x.
-    if (p.endlessZoom) speedTarget += std::clamp(p.endlessZoomSpeed, 0.0f, 1.2f) * kDivePerOctave * g;
+    if (p.endlessZoom) {
+        const float music = sound != nullptr ? endless::musicRate(*sound, p.audioDrive) : 1.0f;
+        speedTarget += std::clamp(p.endlessZoomSpeed, 0.0f, 1.2f) * music * kDivePerOctave * g;
+    }
 
     // ---- SoundMoves: what the music does to the camera by itself ----------------------------
     // Sources: MilkDrop's zoom on bass_att and its slow rot on time; TouchDesigner's lag-shaped

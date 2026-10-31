@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <cmath>
 
+#include "sound/SoundFrame.h"
+
 namespace geode::viz::endless {
 
 // Endless zoom: "a dive that never arrives".
@@ -47,6 +49,28 @@ inline float advance(float phase, float octavesPerSecond, float dt) {
     const float next = phase + step;
     const float wrapped = next - std::floor(next);
     return wrapped >= 1.0f ? 0.0f : wrapped;  // -1e-9 floors to 1.0 in float
+}
+
+/** How hard a bass hit pushes the dive: bassAtt 2 (a strong hit) dives 1.35x as fast. */
+inline constexpr float kBassPush = 0.35f;
+/** The dive never stalls or backs out, however far below its mean the bass falls. */
+inline constexpr float kMinRate = 0.25f;
+
+/**
+ * The music's hand on the dive rate, a multiplier on Dive speed. MilkDrop dives by a per-frame
+ * zoom that presets nudge with the bass, `zoom = 1 + k (bass_att - 1)`; this is that idiom on the
+ * sound engine's own bassAtt (core/sound/SoundFrame.h), the MilkDrop 3 relative level: the band
+ * over its own ~4 s running mean, 1.0 typical for this song right now. So the dive surges on the
+ * hits and eases between them, and over a song it averages back to the slider. It reads no
+ * loudness: a loud song dives no faster than a quiet one. presence fades it out over silence,
+ * and Audio drive scales it like the rest of the music's reach.
+ */
+inline float musicRate(const GeodeSoundFrame& s, float audioDrive) {
+    auto val = [](float v, float fallback) { return std::isfinite(v) ? v : fallback; };
+    const float presence = std::clamp(val(s.presence, 0.0f), 0.0f, 1.0f);
+    const float bass = std::clamp(val(s.bassAtt, 1.0f), 0.0f, 4.0f);
+    const float drive = std::clamp(val(audioDrive, 1.0f), 0.0f, 2.0f);
+    return std::max(1.0f + kBassPush * drive * presence * (bass - 1.0f), kMinRate);
 }
 
 inline float fadeIn(float phase) {

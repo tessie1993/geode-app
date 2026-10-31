@@ -72,7 +72,7 @@ void ShaderScene::update(const GeodeSoundFrame& sound, float dt) {
     const SceneParams& p = params_;
     shaderTime_ = std::fmod(shaderTime_ + p.speed * dt, kTimeWrapSeconds);
     rotationAngle_ = std::fmod(rotationAngle_ + p.rotation * dt, kTwoPi);
-    zoomPhase_ = p.endlessZoom ? endless::advance(zoomPhase_, p.endlessZoomSpeed, dt) : 0.0f;
+    zoomPhase_ = p.endlessZoom ? endless::advance(zoomPhase_, p.endlessZoomSpeed * endless::musicRate(sound, p.audioDrive), dt) : 0.0f;
     if (p.colorCycle) cyclePhase_ = std::fmod(cyclePhase_ + p.cycleSpeed * dt, 1.0f);
     // Wave three: the continuous motion layer, never a transient/beat trigger.
     motionField_.step(sound, dt);

@@ -501,4 +501,95 @@ object GeodeNative {
         blend: Int,
         amount: Float,
     )
+
+    /**
+     * The scene and style catalogue (core/viz/Catalogue) as its versioned line table: style ids and
+     * kinds, the style families, which controls reach which styles, the control ranges. Static; parse
+     * once (dev.geode.render.scene.Catalogue does).
+     */
+    external fun catalogueText(): String
+
+    /** Every rolled control as `TAB|ParamKeys string` lines, in roll order (core/viz/ParamRandomizer). Static. */
+    external fun paramsRollKeys(): String
+
+    /**
+     * Rolls a new look (core/viz/ParamRandomizer) from [input], a SceneParamsCodec frame, into [output]:
+     * the controls of [tab] (a CustomizeTab name; null = every tab) that reach [styleId] (null = any),
+     * except the newline-joined ParamKeys in [locked]. Same arguments, same look. True when it changed
+     * something.
+     */
+    external fun paramsRandomize(
+        styleId: String?,
+        tab: String?,
+        locked: String?,
+        seed: Long,
+        input: FloatArray,
+        output: FloatArray,
+    ): Boolean
+
+    /** [input] with exactly the fields [tab] (a CustomizeTab name) rolls put back to their defaults, into [output]. */
+    external fun paramsResetTab(
+        tab: String,
+        input: FloatArray,
+        output: FloatArray,
+    )
+
+    /** The A/B blend of two SceneParamsCodec frames: floats glide, choices snap at [t] = 0.5. */
+    external fun paramsBlend(
+        a: FloatArray,
+        b: FloatArray,
+        t: Float,
+        output: FloatArray,
+    )
+
+    // Export resampler (core/audio/dsp/PcmResampler): interleaved 16-bit PCM to the AAC rate.
+
+    /** 0 for a bad rate or channel count. */
+    external fun resamplerCreate(
+        inRate: Int,
+        outRate: Int,
+        channels: Int,
+    ): Long
+
+    external fun resamplerDestroy(handle: Long)
+
+    /**
+     * Converts [frames] interleaved frames of [input] (at the handle's channel count); returns the
+     * interleaved output, state carrying over. Empty when [input] holds fewer than [frames] frames.
+     */
+    external fun resamplerProcess(
+        handle: Long,
+        input: ShortArray,
+        frames: Int,
+    ): ShortArray
+
+    // Export loudness meter (core/audio/dsp/Loudness): BS.1770-4 integrated loudness and true peak.
+
+    external fun loudnessSupports(channels: Int): Boolean
+
+    /** 0 for a bad rate or a channel count [loudnessSupports] refuses. */
+    external fun loudnessCreate(
+        sampleRate: Int,
+        channels: Int,
+    ): Long
+
+    external fun loudnessDestroy(handle: Long)
+
+    /** Consumes [count] interleaved samples (not frames) of [samples], each in -1..1. */
+    external fun loudnessFeed(
+        handle: Long,
+        samples: FloatArray,
+        count: Int,
+    )
+
+    external fun loudnessHasBlock(handle: Long): Boolean
+
+    /**
+     * Fills [out] (5 doubles: integrated LUFS, true peak dBTP, sample peak dBFS, measured ms, gated
+     * blocks); returns false when nothing cleared the -70 LUFS gate, in which case out[0] is meaningless.
+     */
+    external fun loudnessFinish(
+        handle: Long,
+        out: DoubleArray,
+    ): Boolean
 }

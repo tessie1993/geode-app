@@ -46,7 +46,7 @@ A named look within a scene family, picked from the style catalogue.
 _Avoid_: Variant, skin
 
 **Style family**:
-Twelve fragment-shader styles built on one shared GLSL library (`lib_<family>`), each with its own geometry and its own way of hearing the music. The first is the basic one and is free; the rest are Pro. The families are Arbor, Bulb, Chrysanthemum, Lucid, Dive and Terrain.
+Twelve fragment-shader styles built on one shared GLSL library (`lib_<family>`), each with its own geometry and its own way of hearing the music. The first is the basic one and is free; the rest are Pro. The families are Arbor, Bulb, Chrysanthemum, Lucid, Dive, Glass, Nebula and Terrain.
 _Avoid_: Pack, collection, scene family (that is the renderer, such as Cymatics or Fluid)
 
 **Arbor**:
@@ -64,6 +64,12 @@ The domain-warp style family: a noise field sampled through itself several level
 **Dive**:
 The fly-through style family: one camera diving along a path (straight, serpent, helix, accordion, orbit) through repeating lattices, jewels, mushrooms, gyroscopes and mandalas, switching its own cosine palettes on drops.
 
+**Glass**:
+The refraction style family: ray-traced glass shapes, dispersion, thin-film bubbles and caustic light.
+
+**Nebula**:
+The space style family: layered dust, spiral galaxies and gas volumes flown through. Not the loose `nebula` style, which predates it.
+
 **Terrain**:
 The landscape style family: ray-marched heightfields (ridges, dunes, canyons, islands, moonscapes) flown over or framed.
 
@@ -75,8 +81,18 @@ _Avoid_: Settings, knobs
 The groups the scene params are edited in: Events first, then the detail tabs (Shape, Colour, Motion, FX, Reactivity, Scene) and the per-family tabs.
 
 **Reaction route**:
-One line of the reaction matrix: a sound (band, level or event) moves one scene param, by following, stepping or spinning.
+One line of the reaction matrix: a sound (band, level or event) moves one scene param, by following, stepping, spinning or jumping.
 _Avoid_: Binding, mapping
+
+**Jump**:
+A route mode: each hit holds a new random value for its target (sample and hold), seeded so an export draws the same ones.
+
+**Toggle**:
+A route mode: each hit flips its target between rest and the full amount, such as a palette swap per phrase.
+
+**Phrase**:
+Eight bars of music, or fewer when the analyser hears a section change. Phrase beat A fires on the beat in even phrases and phrase beat B in odd ones, so a style can answer the beat one way, then another.
+_Avoid_: Section (that is the analyser's structure boundary)
 
 **Style DNA**:
 The reaction routes a style plays until the user edits them, generated from the style id and a seed.

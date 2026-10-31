@@ -71,6 +71,11 @@ void MilkdropScene::queueMilkPreset(const std::string& path) {
     pendingPresetPath_ = path;
 }
 
+void MilkdropScene::setMilkFallbackPreset(const std::string& path) {
+    std::lock_guard<std::mutex> lock(presetLock_);
+    lastPresetPath_ = path;
+}
+
 void MilkdropScene::reloadMilkPreset() {
     std::lock_guard<std::mutex> lock(presetLock_);
     if (lastPresetPath_.empty()) return;
@@ -134,6 +139,7 @@ void MilkdropScene::ensureEngine(double now) {
             return;
         }
         reportedCreateFailure_ = false;
+        engineHasPreset_ = false;
         projectm_set_fps(engine_.get(), 60);
         projectm_set_mesh_size(engine_.get(), 48, 32);
         projectm_set_soft_cut_duration(engine_.get(), 3.0);
@@ -156,9 +162,9 @@ void MilkdropScene::ensureEngine(double now) {
 // so the scene comes back on the preset it went away on.
 void MilkdropScene::armLastPreset() {
     std::lock_guard<std::mutex> lock(presetLock_);
-    if (lastPresetPath_.empty()) return;
-    pendingPresetPath_ = lastPresetPath_;
     lastLoadSeconds_ = 0.0;
+    if (lastPresetPath_.empty() || !pendingPresetPath_.empty()) return;
+    pendingPresetPath_ = lastPresetPath_;
 }
 
 void MilkdropScene::update(const GeodeFeatureFrame& features, float dt) {
@@ -200,11 +206,21 @@ void MilkdropScene::loadPendingPreset(double now) {
         std::lock_guard<std::mutex> lock(errorLock_);
         lastError_.clear();
     }
-    projectm_load_preset_file(engine_.get(), path.c_str(), params_.milkdropBlendPresets);
+    projectm_load_preset_file(engine_.get(), path.c_str(), engineHasPreset_ && params_.milkdropBlendPresets);
     projectm_set_preset_locked(engine_.get(), true);
     const auto error = takeError();
     host_.onShaderError(error.value_or(""));
+    if (error && !engineHasPreset_) {
+        // projectM keeps the preset it had when a load fails, and a new engine's is the idle one.
+        // The last preset that did load goes back on instead, on the next frame.
+        std::lock_guard<std::mutex> lock(presetLock_);
+        if (pendingPresetPath_.empty() && !lastPresetPath_.empty() && lastPresetPath_ != path) {
+            pendingPresetPath_ = lastPresetPath_;
+            lastLoadSeconds_ = 0.0;
+        }
+    }
     if (!error) {
+        engineHasPreset_ = true;
         {
             std::lock_guard<std::mutex> lock(presetLock_);
             lastPresetPath_ = path;
@@ -230,6 +246,14 @@ void MilkdropScene::draw(float timeSeconds) {
     ensureEngine(now);
     if (!engine_ || !frame_.ensure(engineWidth_, engineHeight_)) return;
     loadPendingPreset(now);
+    if (!engineHasPreset_) {
+        // Nothing of ours to show yet: black, never projectM's idle preset.
+        glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(prevFbo));
+        glViewport(0, 0, width_, height_);
+        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
+        return;
+    }
     const SceneParams& p = params_;
     projectm_set_beat_sensitivity(engine_.get(), std::clamp(0.2f + p.beatResponse, 0.2f, 3.0f));
 

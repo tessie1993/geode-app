@@ -109,7 +109,9 @@ vec3 sky(vec3 rd, vec3 ro, float hue, float drop, float dropLean, float snare) {
             float fade = exp(-fi * 0.22) * smoothstep(0.0, 1.5, fi + 0.5);
             acc += pal(hue + fi * 0.035) * rib * fade;
         }
-        acc *= 0.16 * smoothstep(0.02, 0.18, rd.y);
+        // Bright enough to read as aurora on a phone: at 0.16 the curtains were a
+        // faint teal smudge and the style read as a black screen.
+        acc *= 0.45 * smoothstep(0.02, 0.18, rd.y);
         acc *= 1.0 + drop * 1.8 * patchMask;
         col += acc;
     }

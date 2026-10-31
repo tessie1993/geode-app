@@ -2,6 +2,10 @@ package dev.geode.render.bridge
 
 import dev.geode.render.AdsrConfig
 import dev.geode.render.LfoConfig
+import dev.geode.render.LfoTarget
+import dev.geode.render.ModCurve
+import dev.geode.render.ReactMode
+import dev.geode.render.ReactSource
 import dev.geode.render.ReactionRoute
 
 /** The float layouts `geode_viz_set_lfo`, `_adsr` and `_reactions` read; enums travel as ordinals. */
@@ -56,6 +60,20 @@ object ModConfigCodec {
         }
         return out
     }
+
+    /**
+     * The routes native wrote in the [packReactions] layout (geode_style_reactions). A route whose
+     * source, target or mode this build does not know is dropped rather than misread.
+     */
+    fun unpackReactions(floats: FloatArray): List<ReactionRoute> =
+        (0 until floats.size / REACT_ROUTE_FLOATS).mapNotNull { i ->
+            val o = i * REACT_ROUTE_FLOATS
+            val source = ReactSource.entries.getOrNull(floats[o + 1].toInt()) ?: return@mapNotNull null
+            val target = LfoTarget.entries.getOrNull(floats[o + 2].toInt()) ?: return@mapNotNull null
+            val mode = ReactMode.entries.getOrNull(floats[o + 3].toInt()) ?: return@mapNotNull null
+            val curve = ModCurve.entries.getOrNull(floats[o + 5].toInt()) ?: ModCurve.LINEAR
+            ReactionRoute(floats[o] > 0.5f, source, target, mode, floats[o + 4], curve, floats[o + 6], floats[o + 7])
+        }
 
     private fun flag(on: Boolean): Float = if (on) 1f else 0f
 }

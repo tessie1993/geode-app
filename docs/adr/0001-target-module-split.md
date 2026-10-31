@@ -20,7 +20,7 @@ status: proposed
 | `:feature:player` | Android lib | `PlayerScreen`, `PlayerPanels`, `Lyrics`, `PlaybackSettings`, `PlayerViewModel` |
 | `:feature:library` | Android lib | `LibraryScreen`, `LibraryBrowse`, `TrackLibrary` UI, `FolderTree`, `SmartPlaylistEditor`, `DuplicatesTab`, `TrackInfoEditor`, `LibraryViewModel` |
 | `:feature:visuals` | Android lib | `VisualsHub` (split), `VisualizerScreen`, `CustomizeTabs` (one file per tab), `PaletteMaker`, `BackgroundSheet`, `TemplatesSheet`, `EnginePlumbing`, `VisualsViewModel` |
-| `:feature:studio` | Android lib | `StudioScreen` (split), `StudioRender` (`StudioHub`), `ui/studio/*`, `StudioPreview`, `LoopRenderSheet`, `ExportHost`, `ExportDialog`, `StudioViewModel` |
+| `:feature:studio` | Android lib | `StudioScreen` (split), `StudioRender` (`StudioHub`), `ui/studio/*`, `StudioPreview`, `LoopRenderSheet`, `ExportHost`, `RenderBar`, `StudioViewModel` |
 | `:feature:settings` | Android lib | `*Settings.kt`, `AppSettingsTab`, `SettingsViewModel` |
 | `:feature:onboarding` | Android lib | `FirstRun`, `BootIntro`, `TutorialOverlay`, `TutorialStep`, `SafetyConsent` |
 | `:app` | Application | `MainActivity`, `GeodeApp`, top-level `NavDisplay`, nav bar and rail (`AppShell` reduced to the shell), the `Navigator` implementation, DI wiring, `wallpaper/*`, `widget/*`, the manifest |

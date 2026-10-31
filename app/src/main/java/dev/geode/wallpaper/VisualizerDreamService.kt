@@ -63,6 +63,7 @@ class VisualizerDreamService : DreamService() {
         restoreLiveState(view.visualizerRenderer, prefsFiles)
         view.applyPerformance(PerformanceStore(prefsFiles.general, this).settings.value)
         view.visualizerRenderer.pcmProvider = { null }
+        view.visualizerRenderer.soundInput = { AudioBus.soundInput }
         setContentView(view)
     }
 

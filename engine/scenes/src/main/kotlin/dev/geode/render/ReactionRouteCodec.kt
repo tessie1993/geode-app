@@ -7,14 +7,16 @@ package dev.geode.render
  * Plain text rather than org.json so it is pure Kotlin and testable off-device (org.json is a
  * stub in local unit tests). Decoding is forgiving the way a store read must be: a file written
  * by a later build, or damaged on disk, loses only what it cannot read.
- * - Missing or unknown version line: null, so the caller falls back to the style's DNA.
+ * - Missing or unknown version line: null, so the caller falls back to the style's DNA. That is how
+ *   the move to the sound engine's sources reset saved routes: `reactions/1` named the old analyser's
+ *   sources, some under names the new set reuses with another meaning (KICK was a level, now a hit).
  * - A line with the wrong field count, or naming a source or target this build does not know:
  *   that route is dropped (a route without its source or target means nothing).
  * - An unknown mode or curve, or a number that does not parse or is not finite: that field takes
  *   its default. Numbers are clamped to what native accepts.
  */
 object ReactionRouteCodec {
-    private const val VERSION = "reactions/1"
+    private const val VERSION = "reactions/2"
     private const val SEP = '|'
     private const val FIELDS = 8
     private val DEFAULT = ReactionRoute()

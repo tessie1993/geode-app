@@ -56,16 +56,15 @@ import dev.geode.render.ModPolarity
 import dev.geode.render.ModSource
 import dev.geode.render.ReactMode
 import dev.geode.render.ReactSource
+import dev.geode.render.ReactSourceGroup
 import dev.geode.render.ReactionRoute
 import dev.geode.render.scene.BuildStyleReactionsUseCase
-import dev.geode.render.scene.CymaticsMath
-import dev.geode.render.scene.MarchBudget
+import dev.geode.render.scene.Catalogue
 import dev.geode.render.scene.ParamKeys
 import dev.geode.render.scene.ParamRandomizer
 import dev.geode.render.scene.ParamScope
 import dev.geode.render.scene.SceneIds
 import dev.geode.render.scene.SceneParams
-import dev.geode.render.scene.VisualStyleCatalog
 import kotlin.math.abs
 import kotlin.math.ln
 import kotlin.math.pow
@@ -236,7 +235,7 @@ internal fun ShapeTab(
         LabeledSlider(
             ParamKeys.MARCH_DETAIL,
             p.marchDetail,
-            MarchBudget.MIN_DETAIL..MarchBudget.MAX_DETAIL,
+            Catalogue.range(ParamKeys.MARCH_DETAIL),
             default = SceneParams.DEFAULT.marchDetail,
         ) {
             onChange(p.copy(marchDetail = it))
@@ -755,13 +754,21 @@ private fun ReactionCard(
             text = {
                 Column(modifier = Modifier.height(360.dp).verticalScroll(rememberScrollState())) {
                     if (which == ReactionPick.SOURCE) {
-                        ReactSource.entries.forEach { s ->
-                            TextButton(onClick = {
-                                onChange(route.copy(source = s))
-                                picking = null
-                            }) {
-                                val mark = if (s == route.source) "▶ " else ""
-                                Text(mark + s.label + if (s.isEvent) " (event)" else "")
+                        // The sound engine's sources, in the picker's sections (Levels, Drums, ...).
+                        ReactSourceGroup.entries.forEach { group ->
+                            Text(
+                                group.label,
+                                style = MaterialTheme.typography.labelLarge,
+                                modifier = Modifier.padding(top = 8.dp, start = 12.dp),
+                            )
+                            ReactSource.entries.filter { it.group == group }.forEach { s ->
+                                TextButton(onClick = {
+                                    onChange(route.copy(source = s))
+                                    picking = null
+                                }) {
+                                    val mark = if (s == route.source) "▶ " else ""
+                                    Text(mark + s.label + if (s.isEvent) " (event)" else "")
+                                }
                             }
                         }
                     } else {
@@ -1283,10 +1290,9 @@ internal fun CymaticsTab(
             ParamScope.CYMATICS,
         )
         val forcedGeometry =
-            VisualStyleCatalog
-                .cymatics(activeSceneId)
-                ?.geometryOverride
-                ?.let { SceneParams.CYMATICS_GEOMETRIES.getOrNull(it) }
+            Catalogue
+                .override(activeSceneId, ParamKeys.GEOMETRY)
+                ?.let { SceneParams.CYMATICS_GEOMETRIES.getOrNull(it.toInt()) }
         if (forcedGeometry != null) {
             ControlHint("Geometry set by this style: $forcedGeometry.", ParamScope.CYMATICS)
         } else {
@@ -1297,9 +1303,9 @@ internal fun CymaticsTab(
         LabeledSlider(
             ParamKeys.FUNDAMENTAL_HZ,
             p.cymaticsFundamental,
-            CymaticsMath.MIN_FUNDAMENTAL_HZ..CymaticsMath.MAX_FUNDAMENTAL_HZ,
+            Catalogue.range(ParamKeys.FUNDAMENTAL_HZ),
         ) { onChange(p.copy(cymaticsFundamental = it)) }
-        LabeledIntSlider(ParamKeys.STANDING_WAVES, p.cymaticsModes, 1..CymaticsMath.MAX_RENDERED_MODES) {
+        LabeledIntSlider(ParamKeys.STANDING_WAVES, p.cymaticsModes, 1..Catalogue.range(ParamKeys.STANDING_WAVES).endInclusive.toInt()) {
             onChange(p.copy(cymaticsModes = it))
         }
         LabeledSlider(ParamKeys.TONAL_FOCUS, p.cymaticsFocus, 0f..1f, default = SceneParams.DEFAULT.cymaticsFocus) {

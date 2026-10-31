@@ -34,6 +34,9 @@ public:
     virtual void setTouchField(const TouchField* field) { (void) field; }
     // The renderer's camera rig pose, stable for the scene's lifetime; stepped once per frame before draw.
     virtual void setCamera(const CameraPose* pose) { (void) pose; }
+    // The renderer's sound frame (core/sound), stable for the scene's lifetime; stepped once per frame in
+    // beginFrame, before any scene updates or draws.
+    virtual void setSound(const GeodeSoundFrame* sound) { (void) sound; }
     // True when the scene draws the rig's 3D pose itself, so the composite must not also apply its flat projection.
     virtual bool drawsCamera() const { return false; }
     virtual void setFragmentSource(const std::string& source) { (void) source; }

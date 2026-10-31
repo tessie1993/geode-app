@@ -6,8 +6,10 @@
 #include <cstdlib>
 
 #include <set>
+#include <string>
 
 #include "viz/CameraRig.hpp"
+#include "viz/MotionField.hpp"
 #include "viz/ReactionDna.hpp"
 #include "viz/Reactions.hpp"
 
@@ -24,7 +26,7 @@ void check(bool ok, const char* what) {
     }
 }
 
-GeodeFeatureFrame silence() { return GeodeFeatureFrame{}; }
+GeodeSoundFrame silence() { return GeodeSoundFrame{}; }
 
 void foldIsBoundedAndContinuous() {
     float prev = ReactionEngine::fold(0.0f);
@@ -40,71 +42,82 @@ void foldIsBoundedAndContinuous() {
 
 void followRouteTracksSource() {
     ReactionEngine e;
-    e.routes[0] = {true, ReactSource::Kick, LfoTarget::Zoom, ReactMode::Follow, 0.5f, ModCurve::Linear, 0.0f, 0.0f};
-    GeodeFeatureFrame f = silence();
-    f.kick = 0.8f;
+    e.routes[0] = {true, ReactSource::KickEnv, LfoTarget::Zoom, ReactMode::Follow, 0.5f, ModCurve::Linear, 0.0f, 0.0f};
+    GeodeSoundFrame f = silence();
+    f.kickEnv = 0.8f;
     e.tick(f, 1.0f / 60.0f);
-    // The first kick is its own running peak, so the normalised source is 1.
-    check(std::fabs(e.output(0) - 0.5f) < 1e-4f, "follow with zero smoothing outputs amount * source");
+    check(std::fabs(e.output(0) - 0.4f) < 1e-4f, "follow with zero smoothing outputs amount * source");
     const SceneParams p = e.apply(SceneParams{});
-    check(std::fabs(p.zoom - 1.5f) < 1e-4f, "follow route lands on its target param");
+    check(std::fabs(p.zoom - 1.4f) < 1e-4f, "follow route lands on its target param");
 }
 
 void stepRouteJumpsOncePerEdge() {
     ReactionEngine e;
-    e.routes[0] = {true, ReactSource::Section, LfoTarget::CamYaw, ReactMode::Step, 0.25f, ModCurve::Linear, 0.0f, 0.0f};
-    GeodeFeatureFrame f = silence();
-    f.sectionBoundary = 1.0f;
+    e.routes[0] = {true, ReactSource::HardCut, LfoTarget::CamYaw, ReactMode::Step, 0.25f, ModCurve::Linear, 0.0f, 0.0f};
+    GeodeSoundFrame f = silence();
+    f.hardCut = 1.0f;
     e.tick(f, 1.0f / 60.0f);
     check(std::fabs(e.output(0) - 0.25f) < 1e-4f, "step adds amount on the rising edge");
-    // The envelope is still high: holding must not add again.
-    f.sectionBoundary = 0.0f;
+    // The held envelope is still high: holding must not add again.
+    f.hardCut = 0.0f;
     for (int i = 0; i < 10; ++i) e.tick(f, 1.0f / 60.0f);
     check(std::fabs(e.output(0) - 0.25f) < 1e-4f, "step does not re-fire while the envelope stays high");
-    // Let the 1.5 s envelope fall below the re-arm level, then fire again.
+    // Let the 2.5 s envelope fall below the re-arm level, then fire again.
     for (int i = 0; i < 240; ++i) e.tick(f, 1.0f / 60.0f);
-    f.sectionBoundary = 1.0f;
+    f.hardCut = 1.0f;
     e.tick(f, 1.0f / 60.0f);
     check(std::fabs(e.output(0) - 0.5f) < 1e-4f, "step fires again after re-arming");
 }
 
 void luminanceRoutesAreSlewLimited() {
     ReactionEngine e;
-    e.routes[0] = {true, ReactSource::Kick, LfoTarget::Brightness, ReactMode::Follow, 1.0f, ModCurve::Linear, 0.0f, 0.0f};
-    GeodeFeatureFrame f = silence();
-    f.kick = 1.0f;
+    e.routes[0] = {true, ReactSource::KickEnv, LfoTarget::Brightness, ReactMode::Follow, 1.0f, ModCurve::Linear, 0.0f, 0.0f};
+    GeodeSoundFrame f = silence();
+    f.kickEnv = 1.0f;
     e.tick(f, 1.0f / 60.0f);
     check(e.output(0) < 0.25f, "a brightness route cannot reach full depth in one frame");
 }
 
-void eventsDecayAndSilenceIsQuiet() {
+void triggersHoldAndSilenceIsQuiet() {
     ReactSignals s;
-    GeodeFeatureFrame f = silence();
-    f.drop = 1.0f;
+    GeodeSoundFrame f = silence();
+    f.hardCut = 1.0f;
     s.step(f, 1.0f / 60.0f);
-    check(s.value(ReactSource::Drop) > 0.99f, "drop rises instantly");
-    f.drop = 0.0f;
+    check(s.value(ReactSource::HardCut) > 0.99f, "a hard cut rises instantly");
+    f.hardCut = 0.0f;
     for (int i = 0; i < 600; ++i) s.step(f, 1.0f / 60.0f);
-    check(s.value(ReactSource::Drop) < 0.05f, "drop decays over seconds");
+    check(s.value(ReactSource::HardCut) < 0.05f, "a hard cut decays over seconds");
     check(s.value(ReactSource::Kick) == 0.0f && s.value(ReactSource::Onset) == 0.0f, "silence leaves hits at zero");
+    f.kick = 0.1f;
+    s.step(f, 1.0f / 60.0f);
+    check(s.value(ReactSource::Kick) >= 0.5f, "even a soft hit crosses the edge Step, Jump and Toggle listen for");
 }
 
-void macroEnergyIsSlowAndArrivalIsAnEvent() {
-    static_assert(kReactSourceCount == 34, "dev.geode.render.ReactSource has 34 entries");
+void sourcesReadTheirFieldsInRange() {
+    static_assert(kReactSourceCount == 72, "dev.geode.render.ReactSource has 72 entries");
     ReactSignals s;
-    GeodeFeatureFrame f = silence();
-    f.macroEnergy = 1.0f;
+    GeodeSoundFrame f = silence();
+    f.bass = 1.0f;
+    f.low = 0.7f;
+    f.stereoPan = -0.4f;
+    f.bassTime = 0.0f;
+    s.step(f, 0.1f);
+    f.bassTime = 0.1f;  // one second of clock per second
+    s.step(f, 0.1f);
+    check(std::fabs(s.value(ReactSource::Bass) - 0.5f) < 1e-5f, "a typical relative level reads 0.5");
+    check(std::fabs(s.value(ReactSource::Low) - 0.7f) < 1e-5f, "a shaped level reads as it is");
+    check(std::fabs(s.value(ReactSource::StereoPan) + 0.4f) < 1e-5f, "pan keeps its sign");
+    check(std::fabs(s.value(ReactSource::BassTime) - 0.5f) < 1e-4f, "a clock reads its rate");
+    f.bassTime = 0.0f;  // the clock wrapped
+    s.step(f, 0.1f);
+    check(s.value(ReactSource::BassTime) == 0.0f, "a wrapping clock reads one still frame, not a leap");
+    f = silence();
+    for (int k = 0; k < GEODE_SOUND_SCALARS; ++k) reinterpret_cast<float*>(&f)[k] = (k % 3 == 0) ? 9.0f : NAN;
     s.step(f, 1.0f / 60.0f);
-    check(s.value(ReactSource::MacroEnergy) < 0.05f, "one loud hop barely moves song energy");
-    for (int i = 0; i < 600; ++i) s.step(f, 1.0f / 60.0f);
-    check(s.value(ReactSource::MacroEnergy) > 0.95f, "song energy settles on the analyser's value");
-    f.macroEnergy = 0.0f;
-    f.arrival = 1.0f;
-    s.step(f, 1.0f / 60.0f);
-    check(s.value(ReactSource::Arrival) > 0.99f, "arrival rises instantly");
-    f.arrival = 0.0f;
-    for (int i = 0; i < 900; ++i) s.step(f, 1.0f / 60.0f);
-    check(s.value(ReactSource::Arrival) < 0.05f, "arrival decays over seconds");
+    for (int k = 0; k < kReactSourceCount; ++k) {
+        const float v = s.value(static_cast<ReactSource>(k));
+        check(std::isfinite(v) && v >= -1.0f && v <= 1.0f, "every source stays finite and in range on a wild frame");
+    }
 }
 
 void deterministicForExport() {
@@ -112,8 +125,8 @@ void deterministicForExport() {
     ReactionEngine b;
     a.routes[0] = b.routes[0] = {true, ReactSource::Bass, LfoTarget::Warp, ReactMode::Spin, 0.7f, ModCurve::Smooth, 0.05f, 0.2f};
     for (int i = 0; i < 500; ++i) {
-        GeodeFeatureFrame f = silence();
-        for (int k = 0; k < GEODE_BAND_COUNT; ++k) f.bands[k] = 0.5f + 0.5f * std::sin(0.1f * static_cast<float>(i + k));
+        GeodeSoundFrame f = silence();
+        f.bass = 1.0f + 0.8f * std::sin(0.1f * static_cast<float>(i));
         a.tick(f, 1.0f / 30.0f);
         b.tick(f, 1.0f / 30.0f);
     }
@@ -166,13 +179,14 @@ void reducedMotionSlowsTravel() {
 
 bool finite3(const std::array<float, 3>& v) { return std::isfinite(v[0]) && std::isfinite(v[1]) && std::isfinite(v[2]); }
 
-GeodeFeatureFrame busyFrame(int i) {
-    GeodeFeatureFrame f = silence();
-    for (int k = 0; k < GEODE_BAND_COUNT; ++k) f.bands[k] = 0.5f + 0.5f * std::sin(0.3f * static_cast<float>(i + k));
-    f.kick = (i % 7 == 0) ? 1.0f : 0.1f;
-    f.transient = (i % 5 == 0) ? 0.8f : 0.0f;
-    f.drop = (i % 50 == 0) ? 1.0f : 0.0f;
-    f.sectionBoundary = (i % 40 == 0) ? 1.0f : 0.0f;
+GeodeSoundFrame busyFrame(int i) {
+    GeodeSoundFrame f = silence();
+    f.bass = 1.0f + 0.5f * std::sin(0.3f * static_cast<float>(i));
+    f.kick = (i % 7 == 0) ? 1.0f : 0.0f;
+    f.kickEnv = (i % 7 == 0) ? 1.0f : 0.2f;
+    f.onset = (i % 5 == 0) ? 0.8f : 0.0f;
+    f.surge = (i % 50 == 0) ? 1.0f : 0.0f;
+    f.hardCut = (i % 40 == 0) ? 1.0f : 0.0f;
     return f;
 }
 
@@ -182,7 +196,7 @@ void oddFrameTimesStayFiniteAndBounded() {
         ReactionEngine e;
         e.routes[0] = {true, ReactSource::Bass, LfoTarget::Rotation, ReactMode::Spin, 1.0f, ModCurve::Linear, 0.05f, 0.3f};
         e.routes[1] = {true, ReactSource::Kick, LfoTarget::CamPush, ReactMode::Follow, 0.5f, ModCurve::Smooth, 0.0f, 0.2f};
-        e.routes[2] = {true, ReactSource::Section, LfoTarget::CamYaw, ReactMode::Step, 0.6f, ModCurve::Linear, 0.5f, 0.5f};
+        e.routes[2] = {true, ReactSource::HardCut, LfoTarget::CamYaw, ReactMode::Step, 0.6f, ModCurve::Linear, 0.5f, 0.5f};
         CameraRig rig;
         SceneParams p;
         p.camFly = 2.0f;
@@ -237,17 +251,12 @@ void stillStylesKeepTheBankOutOfTheFlatRoll() {
     check(maxTurning > 0.01f, "a turning style still banks into the curve");
 }
 
-// One beat (and a downbeat on count one) per 0.5 s at 60 fps, for `beats` beats.
+// One kick per 0.5 s at 60 fps, for `beats` kicks.
 void playBeats(ReactionEngine& e, int beats, int& count) {
     for (int b = 0; b < beats; ++b) {
         for (int i = 0; i < 30; ++i) {
-            GeodeFeatureFrame f = silence();
-            if (i == 0) {
-                f.beat = 1.0f;
-                f.beatStrength = 1.0f;
-                f.pulseConfidence = 1.0f;
-                if (count % 4 == 0) f.downbeat = 1.0f;
-            }
+            GeodeSoundFrame f = silence();
+            if (i == 0) f.kick = 1.0f;
             e.tick(f, 1.0f / 60.0f);
         }
         ++count;
@@ -260,7 +269,7 @@ void jumpHoldsANewSeededValuePerHit() {
     ReactionEngine b;
     a.reset();
     b.reset();
-    a.routes[0] = b.routes[0] = {true, ReactSource::Beat, LfoTarget::Twist, ReactMode::Jump, 1.0f, ModCurve::Linear, 0.0f, 0.0f};
+    a.routes[0] = b.routes[0] = {true, ReactSource::Kick, LfoTarget::Twist, ReactMode::Jump, 1.0f, ModCurve::Linear, 0.0f, 0.0f};
     int ca = 0;
     int cb = 0;
     float last = 0.0f;
@@ -280,68 +289,14 @@ void jumpHoldsANewSeededValuePerHit() {
 void toggleFlipsBetweenZeroAndAmount() {
     ReactionEngine e;
     e.reset();
-    e.routes[0] = {true, ReactSource::Beat, LfoTarget::Twist, ReactMode::Toggle, 1.0f, ModCurve::Linear, 0.0f, 0.0f};
+    e.routes[0] = {true, ReactSource::Kick, LfoTarget::Twist, ReactMode::Toggle, 1.0f, ModCurve::Linear, 0.0f, 0.0f};
     // The bug Toggle replaces: Step by 2 folds back to 0 on every edge.
     check(ReactionEngine::fold(2.0f) == ReactionEngine::fold(0.0f), "a step of 2 never moves");
     int count = 0;
     for (int hit = 0; hit < 6; ++hit) {
         playBeats(e, 1, count);
-        check(e.output(0) == (hit % 2 == 0 ? 1.0f : 0.0f), "each beat flips the toggle");
+        check(e.output(0) == (hit % 2 == 0 ? 1.0f : 0.0f), "each kick flips the toggle");
     }
-}
-
-void phraseBeatsAlternateEveryEightBars() {
-    ReactionEngine e;
-    e.reset();
-    e.routes[0] = {true, ReactSource::PhraseBeatA, LfoTarget::Zoom, ReactMode::Step, 0.1f, ModCurve::Linear, 0.0f, 0.0f};
-    e.routes[1] = {true, ReactSource::PhraseBeatB, LfoTarget::Twist, ReactMode::Step, 0.1f, ModCurve::Linear, 0.0f, 0.0f};
-    int count = 0;
-    playBeats(e, 32, count);  // phrase 0: eight bars of four
-    check(std::fabs(e.output(0) - ReactionEngine::fold(3.2f)) < 1e-3f, "phrase A hears every beat of its phrase");
-    check(e.output(1) == 0.0f, "phrase B is silent during phrase A");
-    check(e.signals().phraseCount() == 0, "eight bars are still one phrase");
-    const float a = e.output(0);
-    playBeats(e, 32, count);
-    check(e.signals().phraseCount() == 1, "the ninth bar starts the next phrase");
-    check(e.output(0) == a, "phrase A is silent during phrase B");
-    check(e.output(1) != 0.0f, "phrase B hears its own phrase");
-}
-
-void sectionStartsAPhraseAndOnsetsStandInForBeats() {
-    ReactSignals s;
-    GeodeFeatureFrame f = silence();
-    f.beat = 1.0f;
-    f.downbeat = 1.0f;
-    s.step(f, 1.0f / 60.0f);
-    f = silence();
-    for (int i = 0; i < 30; ++i) s.step(f, 1.0f / 60.0f);
-    f.sectionBoundary = 1.0f;
-    s.step(f, 1.0f / 60.0f);
-    check(s.phraseCount() == 1, "a section change starts a phrase");
-    check(s.value(ReactSource::Phrase) > 0.99f, "the phrase event fires");
-    // Three beatless seconds, then an onset: it stands in for the beat.
-    f = silence();
-    for (int i = 0; i < 180; ++i) s.step(f, 1.0f / 60.0f);
-    f.transient = 1.0f;
-    s.step(f, 1.0f / 60.0f);
-    check(s.value(ReactSource::PhraseBeatB) > 0.5f, "an onset drives the phrase beat when no beat comes");
-    check(s.phraseCount() == 1, "a lone onset does not start a phrase");
-}
-
-void backbeatIsCountsTwoAndFour() {
-    ReactionEngine e;
-    e.reset();
-    e.routes[0] = {true, ReactSource::Backbeat, LfoTarget::Warp, ReactMode::Step, 0.1f, ModCurve::Linear, 0.0f, 0.0f};
-    int count = 0;
-    playBeats(e, 8, count);
-    check(std::fabs(e.output(0) - ReactionEngine::fold(0.4f)) < 1e-3f, "two backbeats a bar");
-}
-
-void phrasesTurnOverWithoutBars() {
-    ReactSignals s;
-    GeodeFeatureFrame f = silence();
-    for (int i = 0; i < 60 * 21; ++i) s.step(f, 1.0f / 60.0f);
-    check(s.phraseCount() == 1, "a phrase turns over on time with no bars at all");
 }
 
 // A spread of real style ids with made-up traits: every fourth one turns, two
@@ -387,32 +342,54 @@ void stylesGetDifferentPersonalities() {
         if (dna.lead == Personality::Pulse) ++pulses;
         for (int r = 0; r < dna.count; ++r) {
             const ReactRoute& route = dna.routes[static_cast<size_t>(r)];
-            const bool beat = route.source == ReactSource::PhraseBeatA || route.source == ReactSource::PhraseBeatB ||
-                              route.source == ReactSource::Beat || route.source == ReactSource::Kick;
+            const bool beat = route.source == ReactSource::Kick || route.source == ReactSource::Kick2 ||
+                              route.source == ReactSource::KickEnv || route.source == ReactSource::Onset;
             if (beat && (route.target == LfoTarget::CamPush || route.target == LfoTarget::Zoom)) {
                 ++beatZooms;
                 break;
             }
         }
     }
-    check(leads.size() >= 6, "thirty styles draw at least six different beat personalities");
-    check(pulses * 4 <= kStyleCount, "at most a quarter of styles push in on the beat");
-    check(beatZooms * 3 <= kStyleCount, "most styles do not zoom on the beat at all");
+    check(leads.size() >= 6, "thirty styles draw at least six different pulse personalities");
+    check(pulses * 4 <= kStyleCount, "at most a quarter of styles push in on the kick");
+    check(beatZooms * 3 <= kStyleCount, "most styles do not zoom on the kick at all");
 }
 
-void phrasesAnswerTheBeatDifferently() {
+bool kickSide(ReactSource s) { return s == ReactSource::Kick || s == ReactSource::Kick2 || s == ReactSource::Onset; }
+bool snareSide(ReactSource s) {
+    return s == ReactSource::Snare || s == ReactSource::Snare2 || s == ReactSource::Hat || s == ReactSource::NoteChange;
+}
+
+void kickAndSnareSidesAnswerDifferently() {
     for (int i = 0; i < kStyleCount; ++i) {
         const StyleDna dna = buildStyleDna(kStyleIds[i], 0, traitsAt(i));
         std::set<int> a;
         std::set<int> b;
         for (int r = 0; r < dna.count; ++r) {
             const ReactRoute& route = dna.routes[static_cast<size_t>(r)];
-            if (route.source == ReactSource::PhraseBeatA) a.insert(static_cast<int>(route.target));
-            if (route.source == ReactSource::PhraseBeatB) b.insert(static_cast<int>(route.target));
+            if (kickSide(route.source)) a.insert(static_cast<int>(route.target));
+            if (snareSide(route.source)) b.insert(static_cast<int>(route.target));
         }
-        check(!a.empty() && !b.empty(), "both phrases answer the beat");
-        check(dna.lead != dna.second && a != b, "the two phrases answer it differently");
+        check(!a.empty() && !b.empty(), "both sides of the groove move something");
+        check(dna.lead != dna.second && a != b, "the two sides answer it differently");
     }
+}
+
+void dnaSourcesVaryAcrossStyles() {
+    // The user asked for no fixed default reaction: no layer may listen to the same source in
+    // every style. Count the distinct sources the thirty styles use, layer by layer (route index).
+    std::set<int> sources;
+    std::set<int> hues;
+    for (int i = 0; i < kStyleCount; ++i) {
+        const StyleDna dna = buildStyleDna(kStyleIds[i], 0, traitsAt(i));
+        for (int r = 0; r < dna.count; ++r) {
+            const ReactRoute& route = dna.routes[static_cast<size_t>(r)];
+            sources.insert(static_cast<int>(route.source));
+            if (route.target == LfoTarget::ColorShift) hues.insert(static_cast<int>(route.source));
+        }
+    }
+    check(sources.size() >= 20, "thirty styles listen to at least twenty different sources");
+    check(hues.size() >= 4, "hue follows at least four different sources across styles");
 }
 
 void dnaRespectsStyleTraits() {
@@ -445,6 +422,113 @@ void dnaLeavesRoomAndStaysInRange() {
     }
 }
 
+
+// Music playing at a steady level, for the camera's own moves.
+GeodeSoundFrame playing() {
+    GeodeSoundFrame f = silence();
+    f.presence = 1.0f;
+    f.intensity = 1.0f;
+    f.bassAtt = 1.0f;
+    return f;
+}
+
+void hardCutsJumpWithoutATweenAndKeepTheirGap() {
+    SceneParams p;
+    p.camFly = 1.0f;
+    CameraRig rig;
+    GeodeSoundFrame f = playing();
+    for (int i = 0; i < 60; ++i) rig.step(p, {}, 1.0f / 60.0f, false, true, &f);
+    const float before = rig.pose().travel;
+    f.hardCut = 1.0f;
+    rig.step(p, {}, 1.0f / 60.0f, false, true, &f);
+    check(rig.cuts() == 1, "a hard cut cuts");
+    check(std::fabs(rig.pose().travel - before) > 30.0f, "a cut lands somewhere else on the path");
+    // Another cut five seconds later is ignored: cuts keep their gap.
+    f.hardCut = 0.0f;
+    for (int i = 0; i < 300; ++i) rig.step(p, {}, 1.0f / 60.0f, false, true, &f);
+    f.hardCut = 1.0f;
+    rig.step(p, {}, 1.0f / 60.0f, false, true, &f);
+    check(rig.cuts() == 1, "cuts closer than the gap are ignored");
+    f.hardCut = 0.0f;
+    for (int i = 0; i < 60 * 15; ++i) rig.step(p, {}, 1.0f / 60.0f, false, true, &f);
+    f.hardCut = 1.0f;
+    rig.step(p, {}, 1.0f / 60.0f, false, true, &f);
+    check(rig.cuts() == 2, "a cut after the gap cuts again");
+}
+
+void silenceAndTheMotionDialStillTheMusicMoves() {
+    SceneParams p;
+    p.camFly = 1.0f;
+    CameraRig quiet;
+    CameraRig none;
+    CameraRig still;
+    SceneParams noMotion = p;
+    noMotion.motionAmount = 0.0f;
+    GeodeSoundFrame f = silence();  // presence 0: no music
+    GeodeSoundFrame loud = playing();
+    for (int i = 0; i < 600; ++i) {
+        f.midTime = loud.midTime = 0.01f * static_cast<float>(i);
+        f.kick = loud.kick = (i % 30 == 0) ? 1.0f : 0.0f;
+        f.hardCut = loud.hardCut = (i == 300) ? 1.0f : 0.0f;
+        quiet.step(p, {}, 1.0f / 60.0f, false, true, &f);
+        none.step(p, {}, 1.0f / 60.0f, false, true, nullptr);
+        still.step(noMotion, {}, 1.0f / 60.0f, false, true, &loud);
+    }
+    check(std::fabs(quiet.pose().yaw - none.pose().yaw) < 1e-5f && quiet.cuts() == 0, "with no music the camera moves as if it had no sound");
+    check(std::fabs(still.pose().yaw - none.pose().yaw) < 1e-5f && still.cuts() == 0, "Motion at 0 turns the music's moves off");
+}
+
+void traumaShakeIsBoundedAndFinite() {
+    SceneParams p;
+    CameraRig rig;
+    GeodeSoundFrame f = playing();
+    float maxYaw = 0.0f;
+    for (int i = 0; i < 600; ++i) {
+        f.kick = 1.0f;
+        f.snare = 1.0f;
+        f.flux = 4.0f;
+        f.midTime = 1e7f;
+        rig.step(p, {}, 1.0f / 60.0f, false, true, &f);
+        maxYaw = std::fmax(maxYaw, std::fabs(rig.pose().yaw));
+        check(std::isfinite(rig.pose().yaw) && std::isfinite(rig.pose().pitch), "shake stays finite");
+    }
+    check(maxYaw < 0.4f, "a wall of hits still shakes within bounds");
+    f = playing();
+    f.kick = NAN;
+    f.presence = INFINITY;
+    rig.step(p, {}, 1.0f / 60.0f, false, true, &f);
+    check(std::isfinite(rig.pose().yaw) && std::isfinite(rig.pose().focal), "a wild frame leaves the camera finite");
+}
+
+void motionFieldVariantsDiffer() {
+    std::set<int> hues;
+    GeodeSoundFrame f = playing();
+    f.pitchClass = 0.25f;
+    f.pitchConfidence = 1.0f;
+    f.centroid = 0.75f;
+    f.noteRandom = 0.5f;
+    f.kickRandom = 0.0f;
+    for (int i = 0; i < kStyleCount; ++i) {
+        MotionField m;
+        m.setVariant(styleVariantSeed(kStyleIds[i]));
+        for (int k = 0; k < 600; ++k) m.step(f, 1.0f / 30.0f);
+        hues.insert(static_cast<int>(std::lround(m.state().keyHue * 100.0f)));
+    }
+    check(hues.size() >= 3, "styles follow different hue drivers");
+}
+void sourceCatalogueIsCompleteAndUnique() {
+    std::set<std::string> names;
+    const std::set<std::string> groups = {"LEVELS", "DRUMS", "EVENTS", "MELODY", "CLOCKS", "TEXTURE"};
+    for (int i = 0; i < kReactSourceCount; ++i) {
+        const ReactSourceInfo& s = reactSourceInfo(static_cast<ReactSource>(i));
+        check(s.name != nullptr && s.label != nullptr && s.name[0] != '\0' && s.label[0] != '\0', "every source has a name and a label");
+        names.insert(s.name);
+        check(groups.count(s.group) == 1, "every source sits in a picker section");
+    }
+    check(static_cast<int>(names.size()) == kReactSourceCount, "source names are unique (they are the saved names)");
+    check(reactSourceInfo(ReactSource::Kick).event && !reactSourceInfo(ReactSource::KickEnv).event, "hits are events, envelopes are levels");
+}
+
 }  // namespace
 
 int main() {
@@ -452,18 +536,15 @@ int main() {
     followRouteTracksSource();
     stepRouteJumpsOncePerEdge();
     luminanceRoutesAreSlewLimited();
-    eventsDecayAndSilenceIsQuiet();
-    macroEnergyIsSlowAndArrivalIsAnEvent();
+    triggersHoldAndSilenceIsQuiet();
+    sourcesReadTheirFieldsInRange();
     deterministicForExport();
     jumpHoldsANewSeededValuePerHit();
     toggleFlipsBetweenZeroAndAmount();
-    phraseBeatsAlternateEveryEightBars();
-    sectionStartsAPhraseAndOnsetsStandInForBeats();
-    backbeatIsCountsTwoAndFour();
-    phrasesTurnOverWithoutBars();
     dnaIsDeterministicAndSeeded();
     stylesGetDifferentPersonalities();
-    phrasesAnswerTheBeatDifferently();
+    kickAndSnareSidesAnswerDifferently();
+    dnaSourcesVaryAcrossStyles();
     dnaRespectsStyleTraits();
     dnaLeavesRoomAndStaysInRange();
     cameraTravelsAndStaysOrthonormal();
@@ -473,6 +554,11 @@ int main() {
     oddFrameTimesStayFiniteAndBounded();
     zeroDtFreezesTheCameraAndHugeDtIsOneClampedStep();
     stillStylesKeepTheBankOutOfTheFlatRoll();
+    hardCutsJumpWithoutATweenAndKeepTheirGap();
+    silenceAndTheMotionDialStillTheMusicMoves();
+    traumaShakeIsBoundedAndFinite();
+    motionFieldVariantsDiffer();
+    sourceCatalogueIsCompleteAndUnique();
     if (failures == 0) std::printf("viz_math_test: all passed\n");
     return failures == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
 }

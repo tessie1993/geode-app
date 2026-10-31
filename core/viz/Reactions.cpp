@@ -2,41 +2,148 @@
 
 #include <algorithm>
 #include <cmath>
-
-#include "viz/LiveSignal.hpp"
+#include <cstddef>
 
 namespace geode::viz {
 
 namespace {
 
-// 64 log bands split into seven perceptual regions; the boundaries are band
-// indices, not Hz, because the analyser's band edges are what the frame carries.
-struct BandRange {
-    int from;
-    int to;  // exclusive
+// How a GeodeSoundFrame field becomes a route's 0..1.
+enum class Kind {
+    Relative,  // ~1.0 typical, 2 a strong hit, never past 4: halved, so typical reads 0.5
+    Unit,      // already 0..1
+    Signed,    // already -1..1
+    Clock,     // a clock that only moves forward: its rate per second, times `scale`
+    Trigger,   // > 0 on the one frame it fires: a held envelope (instant rise, `scale` seconds fall)
 };
-constexpr std::array<BandRange, 7> kRegions = {{{0, 8}, {8, 16}, {16, 26}, {26, 36}, {36, 46}, {46, 55}, {55, GEODE_BAND_COUNT}}};
 
-// Event decay times (seconds): how long a hit stays readable after the hop that flagged it.
-constexpr float kOnsetDecay = 0.22f;
-constexpr float kBeatDecay = 0.30f;
-constexpr float kDownbeatDecay = 0.60f;
-constexpr float kDropDecay = 2.50f;
-constexpr float kSectionDecay = 1.50f;
-constexpr float kPitchDecay = 0.50f;
-constexpr float kTimbreDecay = 0.40f;
-constexpr float kArrivalDecay = 2.50f;
-constexpr float kPhraseDecay = 1.00f;
+struct SourceSpec {
+    ReactSource source;
+    size_t offset;
+    Kind kind;
+    float scale;
+};
 
-// A chroma argmax only counts as a pitch change when the detector is this sure.
-constexpr float kPitchConfidence = 0.35f;
-// A centroid this far from its 1 s average reads as a timbre jump.
-constexpr float kTimbreJump = 0.12f;
-constexpr float kTimbreSlowSeconds = 1.0f;
+#define GEODE_SRC(src, field, kind, scale) SourceSpec{ReactSource::src, offsetof(GeodeSoundFrame, field), Kind::kind, scale}
 
-constexpr float kMinTempoBpm = 60.0f;
-constexpr float kMaxTempoBpm = 180.0f;
-constexpr float kTwoPi = 6.2831853f;
+// Clock scales: bandTime runs at its band's att (~1/s typical), curvedTime at vol_att^2.5, hitTime at
+// hits per second, noteTime at notes per second; each scaled so a busy passage reads near 1.
+constexpr std::array<SourceSpec, kReactSourceCount> kSourceTable = {{
+    GEODE_SRC(Bass, bass, Relative, 0), GEODE_SRC(Mid, mid, Relative, 0), GEODE_SRC(Treble, treble, Relative, 0),
+    GEODE_SRC(Vol, vol, Relative, 0), GEODE_SRC(BassAtt, bassAtt, Relative, 0), GEODE_SRC(MidAtt, midAtt, Relative, 0),
+    GEODE_SRC(TrebleAtt, trebleAtt, Relative, 0), GEODE_SRC(VolAtt, volAtt, Relative, 0), GEODE_SRC(Sub, sub, Relative, 0),
+    GEODE_SRC(SubAtt, subAtt, Relative, 0), GEODE_SRC(MidHigh, midHigh, Relative, 0), GEODE_SRC(MidHighAtt, midHighAtt, Relative, 0),
+    GEODE_SRC(Low, low, Unit, 0), GEODE_SRC(Middle, middle, Unit, 0), GEODE_SRC(High, high, Unit, 0), GEODE_SRC(Level, level, Unit, 0),
+    GEODE_SRC(BassPresence, bassPresence, Unit, 0), GEODE_SRC(MidPresence, midPresence, Unit, 0),
+    GEODE_SRC(TreblePresence, treblePresence, Unit, 0), GEODE_SRC(Intensity, intensity, Unit, 0), GEODE_SRC(Presence, presence, Unit, 0),
+    GEODE_SRC(BassTime, bassTime, Clock, 0.5f), GEODE_SRC(MidTime, midTime, Clock, 0.5f), GEODE_SRC(TrebleTime, trebleTime, Clock, 0.5f),
+    GEODE_SRC(CurvedTime, curvedTime, Clock, 0.5f), GEODE_SRC(HitTime, hitTime, Clock, 0.25f), GEODE_SRC(NoteTime, noteTime, Clock, 0.125f),
+    GEODE_SRC(Loudness, loudness, Unit, 0), GEODE_SRC(Centroid, centroid, Unit, 0), GEODE_SRC(Rolloff, rolloff, Unit, 0),
+    GEODE_SRC(Flatness, flatness, Unit, 0), GEODE_SRC(DensitySlow, densitySlow, Unit, 0), GEODE_SRC(DensityFast, densityFast, Unit, 0),
+    GEODE_SRC(Flux, flux, Relative, 0), GEODE_SRC(EnergyTrend, energyTrend, Unit, 0), GEODE_SRC(PeakFreq, peakFreq, Unit, 0),
+    GEODE_SRC(PeakMag, peakMag, Unit, 0), GEODE_SRC(StereoWidth, stereoWidth, Unit, 0), GEODE_SRC(StereoPan, stereoPan, Signed, 0),
+    GEODE_SRC(KickEnv, kickEnv, Unit, 0), GEODE_SRC(SnareEnv, snareEnv, Unit, 0), GEODE_SRC(HatEnv, hatEnv, Unit, 0),
+    GEODE_SRC(OnsetEnv, onsetEnv, Unit, 0), GEODE_SRC(KickToggle, kickToggle, Unit, 0), GEODE_SRC(SnareToggle, snareToggle, Unit, 0),
+    GEODE_SRC(KickRandom, kickRandom, Unit, 0),
+    GEODE_SRC(Kick, kick, Trigger, 0.25f), GEODE_SRC(Snare, snare, Trigger, 0.25f), GEODE_SRC(Hat, hat, Trigger, 0.15f),
+    GEODE_SRC(Kick2, kick2, Trigger, 0.35f), GEODE_SRC(Kick4, kick4, Trigger, 0.5f), GEODE_SRC(Kick8, kick8, Trigger, 0.8f),
+    GEODE_SRC(Kick16, kick16, Trigger, 1.2f), GEODE_SRC(Snare2, snare2, Trigger, 0.35f), GEODE_SRC(Snare4, snare4, Trigger, 0.5f),
+    GEODE_SRC(HardCut, hardCut, Trigger, 2.5f), GEODE_SRC(Onset, onset, Trigger, 0.22f), GEODE_SRC(Silence, silence, Trigger, 1.5f),
+    GEODE_SRC(Returned, returned, Trigger, 2.5f), GEODE_SRC(Surge, surge, Trigger, 2.0f),
+    GEODE_SRC(NoteChange, noteChange, Trigger, 0.5f), GEODE_SRC(Legato, legato, Trigger, 0.5f), GEODE_SRC(Reattack, reattack, Trigger, 0.3f),
+    GEODE_SRC(NoteRandom, noteRandom, Unit, 0), GEODE_SRC(PitchClass, pitchClass, Unit, 0), GEODE_SRC(PitchHeight, pitchHeight, Unit, 0),
+    GEODE_SRC(PitchConfidence, pitchConfidence, Unit, 0), GEODE_SRC(Interval, interval, Signed, 0), GEODE_SRC(Glide, glide, Unit, 0),
+    GEODE_SRC(Vibrato, vibrato, Unit, 0), GEODE_SRC(Evenness, evenness, Unit, 0), GEODE_SRC(RunDensity, runDensity, Unit, 0),
+}};
+
+#undef GEODE_SRC
+
+constexpr bool tableInOrder() {
+    for (size_t i = 0; i < kSourceTable.size(); ++i) {
+        if (static_cast<size_t>(kSourceTable[i].source) != i) return false;
+    }
+    return true;
+}
+static_assert(tableInOrder(), "kSourceTable must list every ReactSource in enum order");
+
+constexpr std::array<ReactSourceInfo, kReactSourceCount> kSourceInfo = {{
+    {"BASS", "Bass", "LEVELS", false},
+    {"MID", "Mids", "LEVELS", false},
+    {"TREBLE", "Treble", "LEVELS", false},
+    {"VOL", "Volume", "LEVELS", false},
+    {"BASS_ATT", "Bass, fast", "LEVELS", false},
+    {"MID_ATT", "Mids, fast", "LEVELS", false},
+    {"TREBLE_ATT", "Treble, fast", "LEVELS", false},
+    {"VOL_ATT", "Volume, fast", "LEVELS", false},
+    {"SUB", "Sub", "LEVELS", false},
+    {"SUB_ATT", "Sub, fast", "LEVELS", false},
+    {"MID_HIGH", "Presence band", "LEVELS", false},
+    {"MID_HIGH_ATT", "Presence band, fast", "LEVELS", false},
+    {"LOW", "Low (shaped)", "LEVELS", false},
+    {"MIDDLE", "Middle (shaped)", "LEVELS", false},
+    {"HIGH", "High (shaped)", "LEVELS", false},
+    {"LEVEL", "Level", "LEVELS", false},
+    {"BASS_PRESENCE", "Bass activity", "LEVELS", false},
+    {"MID_PRESENCE", "Mid activity", "LEVELS", false},
+    {"TREBLE_PRESENCE", "Treble activity", "LEVELS", false},
+    {"INTENSITY", "Intensity", "LEVELS", false},
+    {"PRESENCE", "Music playing", "LEVELS", false},
+    {"BASS_TIME", "Bass clock", "CLOCKS", false},
+    {"MID_TIME", "Mid clock", "CLOCKS", false},
+    {"TREBLE_TIME", "Treble clock", "CLOCKS", false},
+    {"CURVED_TIME", "Loudness clock", "CLOCKS", false},
+    {"HIT_TIME", "Hit clock", "CLOCKS", false},
+    {"NOTE_TIME", "Note clock", "CLOCKS", false},
+    {"LOUDNESS", "Loudness", "TEXTURE", false},
+    {"CENTROID", "Brightness", "TEXTURE", false},
+    {"ROLLOFF", "Roll-off", "TEXTURE", false},
+    {"FLATNESS", "Noisiness", "TEXTURE", false},
+    {"DENSITY_SLOW", "Density", "TEXTURE", false},
+    {"DENSITY_FAST", "Density, fast", "TEXTURE", false},
+    {"FLUX", "Spectral flux", "TEXTURE", false},
+    {"ENERGY_TREND", "Rise", "TEXTURE", false},
+    {"PEAK_FREQ", "Peak pitch", "TEXTURE", false},
+    {"PEAK_MAG", "Peak level", "TEXTURE", false},
+    {"STEREO_WIDTH", "Stereo width", "TEXTURE", false},
+    {"STEREO_PAN", "L/R pan", "TEXTURE", false},
+    {"KICK_ENV", "Kick", "DRUMS", false},
+    {"SNARE_ENV", "Snare", "DRUMS", false},
+    {"HAT_ENV", "Hi-hat", "DRUMS", false},
+    {"ONSET_ENV", "Note start", "DRUMS", false},
+    {"KICK_TOGGLE", "Kick toggle", "DRUMS", false},
+    {"SNARE_TOGGLE", "Snare toggle", "DRUMS", false},
+    {"KICK_RANDOM", "Kick random", "DRUMS", false},
+    {"KICK", "Kick hit", "DRUMS", true},
+    {"SNARE", "Snare hit", "DRUMS", true},
+    {"HAT", "Hi-hat hit", "DRUMS", true},
+    {"KICK_2", "Every 2nd kick", "DRUMS", true},
+    {"KICK_4", "Every 4th kick", "DRUMS", true},
+    {"KICK_8", "Every 8th kick", "DRUMS", true},
+    {"KICK_16", "Every 16th kick", "DRUMS", true},
+    {"SNARE_2", "Every 2nd snare", "DRUMS", true},
+    {"SNARE_4", "Every 4th snare", "DRUMS", true},
+    {"HARD_CUT", "Big moment", "EVENTS", true},
+    {"ONSET", "Onset", "EVENTS", true},
+    {"SILENCE", "Silence", "EVENTS", true},
+    {"RETURNED", "Sound returns", "EVENTS", true},
+    {"SURGE", "Surge", "EVENTS", true},
+    {"NOTE_CHANGE", "Note change", "MELODY", true},
+    {"LEGATO", "Slide", "MELODY", true},
+    {"REATTACK", "Same note again", "MELODY", true},
+    {"NOTE_RANDOM", "Note random", "MELODY", false},
+    {"PITCH_CLASS", "Pitch class", "MELODY", false},
+    {"PITCH_HEIGHT", "Pitch height", "MELODY", false},
+    {"PITCH_CONFIDENCE", "Pitch clarity", "MELODY", false},
+    {"INTERVAL", "Interval", "MELODY", false},
+    {"GLIDE", "Glide", "MELODY", false},
+    {"VIBRATO", "Vibrato", "MELODY", false},
+    {"EVENNESS", "Evenness", "MELODY", false},
+    {"RUN_DENSITY", "Busy melody", "MELODY", false},
+}};
+
+// A fired trigger always crosses Step/Jump/Toggle's 0.5 edge, however soft the hit; its strength
+// shows in how far above 0.5 it lands.
+constexpr float kTriggerFloor = 0.5f;
 
 // A NaN or infinite frame time (a clock glitch) is a frame that did not
 // happen; anything else is clamped to [0, 0.1] s so one long stall cannot
@@ -45,159 +152,52 @@ float sanitizeDt(float dt) { return std::isfinite(dt) ? std::clamp(dt, 0.0f, 0.1
 
 float onePoleK(float dt, float tau) { return 1.0f - std::exp(-std::max(dt, 0.0f) / std::max(tau, 1e-4f)); }
 
-float regionMean(const GeodeFeatureFrame& f, BandRange r) {
-    float sum = 0.0f;
-    for (int i = r.from; i < r.to; ++i) sum += f.bands[i];
-    return sum / static_cast<float>(r.to - r.from);
+float field(const GeodeSoundFrame& f, size_t offset) {
+    const float v = *reinterpret_cast<const float*>(reinterpret_cast<const unsigned char*>(&f) + offset);
+    return std::isfinite(v) ? v : 0.0f;
 }
 
 }  // namespace
 
+const ReactSourceInfo& reactSourceInfo(ReactSource s) {
+    const int i = std::clamp(static_cast<int>(s), 0, kReactSourceCount - 1);
+    return kSourceInfo[static_cast<size_t>(i)];
+}
+
 void ReactSignals::reset() {
     values_.fill(0.0f);
-    peaks_.fill(0.0f);
-    swellAvg_ = 0.0f;
-    swellWarm_ = 0.0f;
-    macro_ = 0.0f;
-    lastKey_ = -1;
-    lastCentroid_ = 0.0f;
-    centroidSlow_ = 0.0f;
-    onsetArmed_ = 1.0f;
+    lastClock_.fill(0.0f);
+    clocksPrimed_ = false;
     onsetCount_ = 0.0f;
-    sectionCount_ = 0.0f;
-    phraseCount_ = 0;
-    barsInPhrase_ = 0;
-    beatsInBar_ = 0;
-    sinceBeat_ = kBeatlessSeconds;
-    sincePhrase_ = 0.0f;
+    cutCount_ = 0.0f;
 }
 
-// x over a running peak that decays over seconds, so a quiet track still uses
-// the whole 0..1 range and a loud one does not pin every route at 1.
-float ReactSignals::normalised(int slot, float x, float dt) {
-    const float v = std::max(x, 0.0f);
-    float& peak = peaks_[static_cast<size_t>(slot)];
-    peak = std::max(v, peak * std::exp(-std::max(dt, 0.0f) / kPeakDecaySeconds));
-    return std::clamp(v / std::max(peak, kPeakFloor), 0.0f, 1.0f);
-}
-
-void ReactSignals::trigger(ReactSource s, float strength) {
-    float& v = values_[static_cast<size_t>(s)];
-    v = std::max(v, std::clamp(strength, 0.0f, 1.0f));
-}
-
-void ReactSignals::decay(ReactSource s, float dt, float seconds) {
-    values_[static_cast<size_t>(s)] *= std::exp(-std::max(dt, 0.0f) / seconds);
-}
-
-void ReactSignals::startPhrase() {
-    phraseCount_ = (phraseCount_ + 1) % 4096;
-    barsInPhrase_ = 0;
-    sincePhrase_ = 0.0f;
-    trigger(ReactSource::Phrase, 1.0f);
-}
-
-// Counts beats into bars and bars into phrases, and routes each beat to the
-// phrase's own source. A detected downbeat starts a bar; four beats without one
-// count as a bar too, so a track the bar tracker cannot lock still has phrases.
-// When no beat has come for kBeatlessSeconds, onsets stand in, so free-time
-// music still drives the beat routes.
-void ReactSignals::countBeat(const GeodeFeatureFrame& f, bool onset, float dt) {
-    sinceBeat_ += dt;
-    sincePhrase_ += dt;
-    const bool beat = f.beat > 0.0f;
-    const bool standIn = !beat && onset && sinceBeat_ >= kBeatlessSeconds;
-    if (beat) sinceBeat_ = 0.0f;
-    if (f.downbeat > 0.0f || (beat && beatsInBar_ >= 4)) {
-        // A bar starts; the ninth one starts the next phrase.
-        beatsInBar_ = 0;
-        if (barsInPhrase_ >= kPhraseBars) startPhrase();
-        ++barsInPhrase_;
-    }
-    if (sincePhrase_ >= kPhraseMaxSeconds) startPhrase();
-    if (!beat && !standIn) return;
-    const float strength = beat ? live::beatImpulse(f) : values_[static_cast<size_t>(ReactSource::Onset)];
-    trigger(phraseCount_ % 2 == 0 ? ReactSource::PhraseBeatA : ReactSource::PhraseBeatB, strength);
-    if (beatsInBar_ % 2 == 1) trigger(ReactSource::Backbeat, strength);
-    ++beatsInBar_;
-}
-
-void ReactSignals::step(const GeodeFeatureFrame& f, float dt) {
+void ReactSignals::step(const GeodeSoundFrame& f, float dt) {
     dt = sanitizeDt(dt);
-    auto set = [&](ReactSource s, float v) { values_[static_cast<size_t>(s)] = v; };
-
-    for (size_t i = 0; i < kRegions.size(); ++i) {
-        const int slot = static_cast<int>(ReactSource::SubBass) + static_cast<int>(i);
-        values_[static_cast<size_t>(slot)] = normalised(slot, regionMean(f, kRegions[i]), dt);
+    for (const SourceSpec& spec : kSourceTable) {
+        const size_t k = static_cast<size_t>(spec.source);
+        const float x = field(f, spec.offset);
+        float& v = values_[k];
+        switch (spec.kind) {
+            case Kind::Relative: v = std::clamp(0.5f * x, 0.0f, 1.0f); break;
+            case Kind::Unit: v = std::clamp(x, 0.0f, 1.0f); break;
+            case Kind::Signed: v = std::clamp(x, -1.0f, 1.0f); break;
+            case Kind::Clock: {
+                // A wrap (an hour, or 4096 counts) reads as one still frame, not a backwards leap.
+                const float delta = clocksPrimed_ ? x - lastClock_[k] : 0.0f;
+                lastClock_[k] = x;
+                v = dt > 0.0f && delta > 0.0f ? std::clamp(delta / dt * spec.scale, 0.0f, 1.0f) : (dt > 0.0f ? 0.0f : v);
+                break;
+            }
+            case Kind::Trigger:
+                v *= std::exp(-dt / spec.scale);
+                if (x > 0.0f) v = std::max(v, kTriggerFloor + (1.0f - kTriggerFloor) * std::clamp(x, 0.0f, 1.0f));
+                break;
+        }
     }
-    set(ReactSource::Loudness, normalised(static_cast<int>(ReactSource::Loudness), live::level(f), dt));
-    swellWarm_ += dt;
-    swellAvg_ += (live::level(f) - swellAvg_) * onePoleK(dt, std::min(kSwellSeconds, std::max(swellWarm_, dt)));
-    set(ReactSource::Swell, std::clamp(0.5f * live::level(f) / std::max(swellAvg_, 0.02f), 0.0f, 1.0f));
-    set(ReactSource::Brightness, live::brightness(f));
-    set(ReactSource::Noisiness, std::clamp(1.0f - f.harmonicity, 0.0f, 1.0f));
-    set(ReactSource::StereoWidth, live::width(f));
-    set(ReactSource::StereoPan, live::pan(f));
-    const float lock = std::clamp(f.pulseConfidence, 0.0f, 1.0f);
-    set(ReactSource::BeatOsc, 0.5f + 0.5f * std::cos(kTwoPi * f.beatPhase) * lock);
-    set(ReactSource::BarOsc, 0.5f + 0.5f * std::cos(kTwoPi * f.barPhase) * lock);
-    set(ReactSource::Tempo, f.bpm > 0.0f ? std::clamp((f.bpm - kMinTempoBpm) / (kMaxTempoBpm - kMinTempoBpm), 0.0f, 1.0f) : 0.0f);
-    set(ReactSource::Buildup, std::clamp(f.buildup, 0.0f, 1.0f));
-    set(ReactSource::Flux, std::clamp(f.onset, 0.0f, 1.0f));
-    set(ReactSource::Kick, normalised(static_cast<int>(ReactSource::Kick), f.kick, dt));
-    set(ReactSource::Snare, normalised(static_cast<int>(ReactSource::Snare), f.snare, dt));
-    set(ReactSource::Hat, normalised(static_cast<int>(ReactSource::Hat), f.hat, dt));
-    // Already normalised by the analyser; smoothed here so a single loud hop is not a section.
-    macro_ += (std::clamp(f.macroEnergy, 0.0f, 1.0f) - macro_) * onePoleK(dt, kMacroSeconds);
-    set(ReactSource::MacroEnergy, macro_);
-
-    decay(ReactSource::Onset, dt, kOnsetDecay);
-    decay(ReactSource::Beat, dt, kBeatDecay);
-    decay(ReactSource::Downbeat, dt, kDownbeatDecay);
-    decay(ReactSource::Drop, dt, kDropDecay);
-    decay(ReactSource::Section, dt, kSectionDecay);
-    decay(ReactSource::PitchChange, dt, kPitchDecay);
-    decay(ReactSource::TimbreJump, dt, kTimbreDecay);
-    decay(ReactSource::Arrival, dt, kArrivalDecay);
-    decay(ReactSource::PhraseBeatA, dt, kBeatDecay);
-    decay(ReactSource::PhraseBeatB, dt, kBeatDecay);
-    decay(ReactSource::Backbeat, dt, kBeatDecay);
-    decay(ReactSource::Phrase, dt, kPhraseDecay);
-
-    // An onset is the rising edge of the transient, not every hop it stays high.
-    const bool hot = f.transient >= live::kHitFloor;
-    const bool onset = hot && onsetArmed_ > 0.5f;
-    if (onset) {
-        trigger(ReactSource::Onset, 0.4f + 0.6f * f.transient);
-        onsetCount_ = std::fmod(onsetCount_ + 1.0f, kOnsetCountWrap);
-    }
-    onsetArmed_ = hot ? 0.0f : 1.0f;
-    if (f.beat > 0.0f) trigger(ReactSource::Beat, live::beatImpulse(f));
-    if (f.downbeat > 0.0f) trigger(ReactSource::Downbeat, 1.0f);
-    if (f.drop > 0.0f) trigger(ReactSource::Drop, 1.0f);
-    if (f.arrival > 0.0f) trigger(ReactSource::Arrival, 1.0f);
-    if (f.sectionBoundary > 0.0f) {
-        trigger(ReactSource::Section, 1.0f);
-        sectionCount_ = std::fmod(sectionCount_ + 1.0f, kOnsetCountWrap);
-        // A new section is a new phrase, unless one has only just started.
-        if (barsInPhrase_ > 0) startPhrase();
-    }
-    countBeat(f, onset, dt);
-
-    int key = 0;
-    for (int i = 1; i < GEODE_CHROMA_BINS; ++i) {
-        if (f.chroma[i] > f.chroma[key]) key = i;
-    }
-    if (f.chromaConfidence >= kPitchConfidence) {
-        if (lastKey_ >= 0 && key != lastKey_) trigger(ReactSource::PitchChange, f.chromaConfidence);
-        lastKey_ = key;
-    }
-
-    const float centroid = live::brightness(f);
-    centroidSlow_ += (centroid - centroidSlow_) * onePoleK(dt, kTimbreSlowSeconds);
-    const float jump = std::fabs(centroid - centroidSlow_);
-    if (jump >= kTimbreJump && std::fabs(lastCentroid_ - centroidSlow_) < kTimbreJump) trigger(ReactSource::TimbreJump, jump * 4.0f);
-    lastCentroid_ = centroid;
+    clocksPrimed_ = true;
+    if (f.onset > 0.0f) onsetCount_ = std::fmod(onsetCount_ + 1.0f, kCountWrap);
+    if (f.hardCut > 0.0f) cutCount_ = std::fmod(cutCount_ + 1.0f, kCountWrap);
 }
 
 void ReactionEngine::reset() {
@@ -231,7 +231,7 @@ float ReactionEngine::fold(float accumulator) {
     return u < 2.0f ? u - 1.0f : 3.0f - u;
 }
 
-void ReactionEngine::tick(const GeodeFeatureFrame& f, float dt) {
+void ReactionEngine::tick(const GeodeSoundFrame& f, float dt) {
     dt = sanitizeDt(dt);
     signals_.step(f, dt);
     for (int i = 0; i < kRoutes; ++i) {

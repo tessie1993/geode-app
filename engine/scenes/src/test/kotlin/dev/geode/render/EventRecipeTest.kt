@@ -33,9 +33,9 @@ class EventRecipeTest {
 
     @Test
     fun addingReplacesTheSameSoundOnTheSameTargetInsteadOfStacking() {
-        val start = listOf(ReactionRoute(source = ReactSource.KICK, target = LfoTarget.CAM_PUSH, amount = 0.9f))
+        val start = listOf(ReactionRoute(source = ReactSource.KICK_ENV, target = LfoTarget.CAM_PUSH, amount = 0.9f))
         val on = EventRecipe.KICK_PUNCH.toggle(start, shader)
-        assertEquals(1, on.count { it.source == ReactSource.KICK && it.target == LfoTarget.CAM_PUSH })
+        assertEquals(1, on.count { it.source == ReactSource.KICK_ENV && it.target == LfoTarget.CAM_PUSH })
     }
 
     @Test
@@ -48,7 +48,7 @@ class EventRecipeTest {
 
     @Test
     fun aFullMatrixRefusesARecipeRatherThanDroppingRoutes() {
-        val full = List(ReactionRoute.MAX_ROUTES) { ReactionRoute(source = ReactSource.AIR, target = LfoTarget.WARP) }
+        val full = List(ReactionRoute.MAX_ROUTES) { ReactionRoute(source = ReactSource.HIGH, target = LfoTarget.WARP) }
         assertFalse(EventRecipe.DROP_BURST.fits(full, shader))
         assertEquals(full, EventRecipe.DROP_BURST.toggle(full, shader))
     }
@@ -61,6 +61,6 @@ class EventRecipeTest {
     @Test
     fun aRouteReadsAsASentence() {
         val route = ReactionRoute(source = ReactSource.KICK, target = LfoTarget.CAM_PUSH)
-        assertEquals("When Kick → Camera push", EventRecipe.sentence(route))
+        assertEquals("When Kick hit → Camera push", EventRecipe.sentence(route))
     }
 }

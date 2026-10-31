@@ -122,10 +122,33 @@ jobs:
       - name: Native host tests
         working-directory: ${{ env.PROJECT_DIR }}
         run: |
-          g++ -std=c++20 -O1 -Wall -Wextra -Icore -Icore/tests/stub             core/tests/viz_math_test.cpp core/viz/Reactions.cpp core/viz/ReactionDna.cpp core/viz/CameraRig.cpp core/viz/Lfo.cpp             core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/VisualSafety.cpp -o viz_math_test
+          g++ -std=c++20 -O1 -Wall -Wextra -Icore -Icore/tests/stub             core/tests/viz_math_test.cpp core/viz/Reactions.cpp core/viz/ReactionDna.cpp core/viz/CameraRig.cpp core/viz/MotionField.cpp core/viz/Lfo.cpp             core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/VisualSafety.cpp -o viz_math_test
           ./viz_math_test
           g++ -std=c++20 -O1 -Wall -Wextra -Icore core/tests/sound_test.cpp core/sound/Fft.cpp core/sound/SoundEngine.cpp -o sound_test
           ./sound_test
+
+      # The scene and style catalogue (core/viz/Catalogue): ids, families, param scopes, ranges, and
+      # its text table byte-equal to core/tests/catalogue.txt, the copy the JVM tests read.
+      - name: Catalogue host tests
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          g++ -std=c++20 -O1 -Wall -Wextra -Icore core/tests/catalogue_test.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp -o catalogue_test
+          ./catalogue_test core/tests/catalogue.txt
+      # The export DSP (resampler, BS.1770 loudness meter), ported from Kotlin (ADR 0003).
+      - name: Native export DSP tests
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/resampler_test.cpp core/audio/dsp/PcmResampler.cpp core/audio/dsp/Loudness.cpp core/api/geode_export_dsp_api.cpp -o resampler_test
+          ./resampler_test
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/loudness_test.cpp core/audio/dsp/PcmResampler.cpp core/audio/dsp/Loudness.cpp core/api/geode_export_dsp_api.cpp -o loudness_test
+          ./loudness_test
+
+      # The Customize randomizer, Reset tab and A/B blend (core/viz/ParamRandomizer, core/viz/Params).
+      - name: Params host tests
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          g++ -std=c++20 -O1 -Wall -Wextra -Icore core/tests/params_test.cpp core/viz/ParamRandomizer.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp -o params_test
+          ./params_test
 
       - name: Shader compile check
         working-directory: ${{ env.PROJECT_DIR }}

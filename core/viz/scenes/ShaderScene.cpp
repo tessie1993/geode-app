@@ -4,6 +4,7 @@
 #include <cmath>
 #include <cstring>
 
+#include "viz/Catalogue.hpp"
 #include "viz/scenes/SceneCommon.hpp"
 
 namespace geode::viz {
@@ -13,8 +14,9 @@ namespace {
 constexpr int kPaletteRows = 5;
 constexpr int kMarchMaxSteps = 128;
 constexpr int kMarchFloorSteps = 64;
-constexpr float kMarchMinDetail = 0.25f;
-constexpr float kMarchMaxDetail = 1.5f;
+// The Detail range is the catalogue's: the shell's slider quotes the same numbers.
+constexpr float kMarchMinDetail = catalogue::kMarchDetail.min;
+constexpr float kMarchMaxDetail = catalogue::kMarchDetail.max;
 // The fewest steps Settings › Performance may scale a march down to; below this most SDFs miss surfaces.
 constexpr float kMarchMinScaledSteps = 24.0f;
 
@@ -57,6 +59,7 @@ void ShaderScene::setFragmentSource(const std::string& source) {
 }
 
 void ShaderScene::init() {
+    motionField_.setVariant(styleVariantSeed(id_));
     program_ = 0;
     uniforms_ = UniformCache(0);
     {
@@ -67,6 +70,8 @@ void ShaderScene::init() {
     const char* extensions = reinterpret_cast<const char*>(glGetString(GL_EXTENSIONS));
     const bool floatLinear = extensions && std::strstr(extensions, "OES_texture_float_linear") != nullptr;
     audioTex_.createImage(GL_R32F, GL_RED, GL_FLOAT, kAudioTexWidth, 2, floatLinear ? GL_LINEAR : GL_NEAREST, GL_CLAMP_TO_EDGE);
+    soundTex_.createImage(GL_R32F, GL_RED, GL_FLOAT, kSoundTexWidth, kSoundTexRows, floatLinear ? GL_LINEAR : GL_NEAREST,
+                          GL_CLAMP_TO_EDGE);
 }
 
 void ShaderScene::resize(int width, int height) {
@@ -101,21 +106,19 @@ void ShaderScene::update(const GeodeFeatureFrame& features, float dt) {
     swell_ = slew(swell_, energy_, dt, kSwellRiseHz, kSwellFallHz);
     beatPhase_ = features.beatPhase;
     // Wave three: the continuous motion layer, never a transient/beat trigger.
-    motionField_.step(features, dt);
-    reactSignals_.step(features, dt);
-    // Band regions feed geometry directly (heights, swells), so they get the
-    // same rise/fall slew as uBassSmooth rather than arriving hop-raw.
-    for (int i = 0; i < 8; ++i) {
-        const float raw = reactSignals_.value(static_cast<ReactSource>(static_cast<int>(ReactSource::SubBass) + i));
-        bandsSmooth_[static_cast<size_t>(i)] = slew(bandsSmooth_[static_cast<size_t>(i)], raw, dt, kBandRiseHz, kBandFallHz);
+    if (sound_ != nullptr) motionField_.step(*sound_, dt);
+    if (sound_ != nullptr) reactSignals_.step(*sound_, dt);
+    // lib_react's band regions, low to high, then flux, from the sound frame. They feed geometry
+    // directly (heights, swells), so they get the same rise/fall slew as uBassSmooth.
+    static constexpr std::array<ReactSource, 8> kBandSources = {ReactSource::Sub,    ReactSource::Bass,   ReactSource::Low,
+                                                                 ReactSource::Mid,    ReactSource::MidHigh, ReactSource::High,
+                                                                 ReactSource::Treble, ReactSource::Flux};
+    for (size_t i = 0; i < kBandSources.size(); ++i) {
+        bandsSmooth_[i] = slew(bandsSmooth_[i], reactSignals_.value(kBandSources[i]), dt, kBandRiseHz, kBandFallHz);
     }
-    // Drum levels arrive hop-raw; peak-hold them so a shader reads an envelope
-    // (instant rise, ~0.15 s fall) rather than a level that chatters.
-    for (int i = 0; i < 3; ++i) {
-        const float raw = reactSignals_.value(static_cast<ReactSource>(static_cast<int>(ReactSource::Kick) + i));
-        float& held = hitsSmooth_[static_cast<size_t>(i)];
-        held = std::max(raw, held * std::exp(-std::max(dt, 0.0f) * kHitFallHz));
-    }
+    // The engine's drum envelopes already rise instantly and decay; they are uHits.xyz as they are.
+    static constexpr std::array<ReactSource, 3> kHitSources = {ReactSource::KickEnv, ReactSource::SnareEnv, ReactSource::HatEnv};
+    for (size_t i = 0; i < kHitSources.size(); ++i) hitsSmooth_[i] = reactSignals_.value(kHitSources[i]);
     for (int i = 0; i < kAudioTexWidth; ++i) {
         const int band = i * GEODE_BAND_COUNT / kAudioTexWidth;
         texData_[static_cast<size_t>(i)] = std::clamp(features.bands[band] * drive, 0.0f, kAudioClamp);
@@ -165,9 +168,42 @@ void ShaderScene::draw(float timeSeconds) {
     uploadMotion();
     uploadTouch();
     uploadCameraAndReactions();
+    uploadSound();
     glBindVertexArray(vao_);
     glDrawArrays(GL_TRIANGLES, 0, 3);
     glBindVertexArray(0);
+}
+
+namespace {
+// Linear resample of `src` (n points) across `width` texels, so every row of uSoundTex reads 0..1 in x
+// whatever the engine's point count.
+void resampleRow(const float* src, int n, float* dst, int width) {
+    for (int i = 0; i < width; ++i) {
+        const float x = width > 1 ? static_cast<float>(i) * static_cast<float>(n - 1) / static_cast<float>(width - 1) : 0.0f;
+        const int a = std::min(static_cast<int>(x), n - 1);
+        const int b = std::min(a + 1, n - 1);
+        const float t = x - static_cast<float>(a);
+        dst[i] = src[a] + (src[b] - src[a]) * t;
+    }
+}
+}  // namespace
+
+// The whole GeodeSoundFrame, raw: scalars as uSound (lib_sound names them), the arrays as uSoundTex on
+// unit 3. No drive, clamp or slew here; the engine's values are already dt-scaled and bounded, and
+// styles shape them themselves. Unused by a style, both cost one call the driver drops.
+void ShaderScene::uploadSound() {
+    if (sound_ == nullptr) return;
+    const float* scalars = reinterpret_cast<const float*>(sound_);
+    std::copy(scalars, scalars + GEODE_SOUND_SCALARS, soundScalars_.begin());
+    glUniform4fv(uniforms_.loc("uSound"), kSoundVec4s, soundScalars_.data());
+    resampleRow(sound_->spectrum, GEODE_SOUND_SPECTRUM_POINTS, soundTexData_.data(), kSoundTexWidth);
+    resampleRow(sound_->waveform, GEODE_SOUND_WAVEFORM_POINTS, soundTexData_.data() + kSoundTexWidth, kSoundTexWidth);
+    resampleRow(sound_->eq, GEODE_SOUND_EQ_BANDS, soundTexData_.data() + 2 * kSoundTexWidth, kSoundTexWidth);
+    glActiveTexture(GL_TEXTURE3);
+    glBindTexture(GL_TEXTURE_2D, soundTex_.id());
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, kSoundTexWidth, kSoundTexRows, GL_RED, GL_FLOAT, soundTexData_.data());
+    glUniform1i(uniforms_.loc("uSoundTex"), 3);
+    glActiveTexture(GL_TEXTURE0);
 }
 
 void ShaderScene::uploadParams() {
@@ -295,11 +331,13 @@ void ShaderScene::uploadCameraAndReactions() {
     const ReactSignals& r = reactSignals_;
     auto v = [&](ReactSource s) { return r.value(s); };
     glUniform4f(uniforms_.loc("uHits"), hitsSmooth_[0], hitsSmooth_[1], hitsSmooth_[2], v(ReactSource::Onset));
-    glUniform4f(uniforms_.loc("uEvents"), v(ReactSource::Beat), v(ReactSource::Drop), v(ReactSource::Section), v(ReactSource::PitchChange));
+    // lib_react's events until the styles move to lib_sound: the kick for the beat, a surge for the
+    // drop, a hard cut for the section, a note change for the key.
+    glUniform4f(uniforms_.loc("uEvents"), v(ReactSource::Kick), v(ReactSource::Surge), v(ReactSource::HardCut), v(ReactSource::NoteChange));
     glUniform4fv(uniforms_.loc("uBandsLo"), 1, bandsSmooth_.data());
     glUniform4fv(uniforms_.loc("uBandsHi"), 1, bandsSmooth_.data() + 4);
     set1f("uHitCount", r.onsetCount());
-    set1f("uSectionCount", r.sectionCount());
+    set1f("uSectionCount", r.cutCount());
 }
 
 void ShaderScene::set1f(const char* name, float value) {
@@ -344,6 +382,7 @@ void ShaderScene::release() {
     if (program_ != 0) glDeleteProgram(program_);
     if (vao_ != 0) glDeleteVertexArrays(1, &vao_);
     audioTex_.release();
+    soundTex_.release();
     program_ = 0;
     vao_ = 0;
     uniforms_ = UniformCache(0);

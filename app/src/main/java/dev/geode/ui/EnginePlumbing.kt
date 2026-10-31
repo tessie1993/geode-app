@@ -11,8 +11,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import dev.geode.geodeContainer
 import dev.geode.render.BlendMode
-import dev.geode.render.TransitionCatalog
-import dev.geode.render.VisualSafety
 import dev.geode.render.VisualizerView
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -59,6 +57,7 @@ fun VisualizerEngineBindings(
     LaunchedEffect(Unit) {
         visualizerView.visualizerRenderer.onShaderError = viewModel::reportShaderError
         visualizerView.visualizerRenderer.pcmProvider = { viewModel.latestPcm() }
+        visualizerView.visualizerRenderer.soundInput = { dev.geode.audio.AudioBus.soundInput }
         // W02: the background image is decoded to the surface's current pixel size, so a rotation
         // or a fold needs a re-decode just as much as a fresh pick does. onSurfaceSizeChanged fires
         // on the GL thread; BackgroundController's state is only ever touched from Main, so this
@@ -123,10 +122,10 @@ fun VisualizerEngineBindings(
         visualizerView.visualizerRenderer.reactions = reactions
     }
     LaunchedEffect(viz.transitionId, viz.transitionDurationSec) {
-        val id = VisualSafety.transitionId(viz.transitionId)
+        // A requested cut becomes a fade natively (core/viz/VisualSafety, applied by Renderer::setTransition).
+        val id = viz.transitionId
         val renderer = visualizerView.visualizerRenderer
         renderer.transitionId = id
-        TransitionCatalog.builtIn(id)?.let { renderer.transitionStyle = it }
         renderer.transitionDurationMs = (viz.transitionDurationSec * 1000).toLong()
         visualizerView.queueEvent { renderer.warmTransition(id) }
     }

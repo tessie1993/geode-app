@@ -4,10 +4,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
+import dev.geode.geodeContainer
 import dev.geode.render.BlendMode
 import dev.geode.render.TransitionCatalog
 import dev.geode.render.VisualSafety
@@ -48,6 +50,8 @@ fun VisualizerEngineBindings(
     val playerPrefs by settingsViewModel.playerPrefs.collectAsStateWithLifecycle()
     val gui by settingsViewModel.guiPrefs.collectAsStateWithLifecycle()
     val layers by LayersBus.state.collectAsStateWithLifecycle()
+    val performanceStore = LocalContext.current.geodeContainer.performance
+    val performance by performanceStore.settings.collectAsStateWithLifecycle()
     val background by visualsViewModel.backgroundPush.collectAsStateWithLifecycle()
     val mainScope = rememberCoroutineScope()
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -125,6 +129,9 @@ fun VisualizerEngineBindings(
         TransitionCatalog.builtIn(id)?.let { renderer.transitionStyle = it }
         renderer.transitionDurationMs = (viz.transitionDurationSec * 1000).toLong()
         visualizerView.queueEvent { renderer.warmTransition(id) }
+    }
+    LaunchedEffect(performance) {
+        visualizerView.applyPerformance(performance)
     }
     LaunchedEffect(gui.reducedMotion) {
         visualizerView.visualizerRenderer.reducedMotion = gui.reducedMotion

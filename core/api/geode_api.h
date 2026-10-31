@@ -150,6 +150,8 @@ GEODE_API int         geode_style_reactions(const char* style_id, int seed, floa
 GEODE_API void        geode_viz_set_look(geode_viz*, float yaw, float pitch);
 GEODE_API void        geode_viz_set_thermal(geode_viz*, int platform_status, float headroom); /* status < 0 = unknown */
 GEODE_API void        geode_viz_set_paced_fps(geode_viz*, float fps);
+/* Settings › Performance (live surfaces): scales 0..1, post_fx / adaptive 0 or 1. Export never calls it. */
+GEODE_API void        geode_viz_set_quality(geode_viz*, float render_scale, float march_scale, int post_fx, int adaptive);
 GEODE_API void        geode_viz_set_offscreen(geode_viz*, int on);
 GEODE_API int         geode_viz_knows(geode_viz*, const char* scene_id);
 GEODE_API size_t      geode_viz_scene_ids(geode_viz*, char* out, size_t capacity);   /* newline-joined; returns the full length */

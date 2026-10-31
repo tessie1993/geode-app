@@ -42,7 +42,7 @@ void main() {
         vec3 flesh = mix(foamColor(0.02 + 0.3 * s.trapR), vec3(1.0, 0.5, 0.42), 0.45);
         float wrap = (dot(s.n, -rd) + 0.5) / 1.5;
         float through = foamSat(dot(s.n, gFoamFwd) + 0.3);
-        col = flesh * (0.1 + 0.6 * foamSat(wrap)) * (0.7 + 0.5 * s.lit) * s.ao;
+        col = flesh * (0.2 + 0.85 * foamSat(wrap)) * (0.8 + 0.5 * s.lit) * s.ao;
         col += vec3(1.0, 0.35, 0.25) * through * 0.25 * s.fres;
         col += foamAccents(s, vec3(1.0, 0.9, 0.7), 0.6);
     }

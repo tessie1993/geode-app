@@ -234,7 +234,9 @@ void foamSetup() {
     gFoamWobble = 0.35 * chaos;
     gFoamFall = 1.0;
     // Tonal and dark opens the packing (larger s), noisy and bright packs it.
-    gFoamInvS = 1.06 + 0.16 * harmony + 0.14 * (1.0 - smoothstep(0.2, 0.75, bright))
+    // About 1.30 in silence (Fractal Tunnel's resting packing, where the cut shows round
+    // cavities), 1.16 for noisy bright sound, 1.46 for a dark held chord.
+    gFoamInvS = 1.16 + 0.16 * harmony + 0.14 * (1.0 - smoothstep(0.2, 0.75, bright))
               + 0.06 * sin(SND_BASS_TIME * FOAM_RATE(37.0));
     // Kept small: a turned cell no longer tiles, so a large turn shreds the
     // packing at every cell border into torn shards instead of round shells.

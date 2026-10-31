@@ -44,15 +44,15 @@ void main() {
         float ad = abs(gFoamD);
         // Inside the bore step by the bore's distance; among the shells, by the
         // distance to the nearest one either side, floored so the walk goes on.
-        float stepLen = gFoamMask < 0.5 ? max(d, 0.03) : max(ad * 0.8, 0.025);
+        float stepLen = gFoamMask < 0.5 ? max(d, 0.03) : max(ad * 0.8, 0.012);
         float trap = foamSat(sqrt(min(gFoamOrb.w, FOAM_TRAP_FAR)) * 0.75);
-        float shell = exp(-ad * 45.0) * gFoamMask;
+        float shell = exp(-ad * 90.0) * gFoamMask;
         acc += foamColor(0.2 + 0.6 * trap) * shell * stepLen * (0.5 + 0.9 * sndSpectrum(trap)) * exp(-0.12 * t);
         rings += foamRingAt(p) * shell * stepLen;
         t += stepLen;
         if (t > GH_FAR) break;
     }
-    vec3 col = foamBackdrop(rd) * 0.4 + acc * 6.0;
+    vec3 col = foamBackdrop(rd) * 0.4 + acc * 10.0;
     col += gFoamAccent * (1.0 - exp(-rings * 8.0)) * (0.2 + 0.8 * gFoamOnset);
     fragColor = foamFinish(col);
 }

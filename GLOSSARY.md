@@ -84,6 +84,9 @@ _Avoid_: Binding, mapping
 **Jump**:
 A route mode: each hit holds a new random value for its target (sample and hold), seeded so an export draws the same ones.
 
+**Toggle**:
+A route mode: each hit flips its target between rest and the full amount, such as a palette swap per phrase.
+
 **Phrase**:
 Eight bars of music, or fewer when the analyser hears a section change. Phrase beat A fires on the beat in even phrases and phrase beat B in odd ones, so a style can answer the beat one way, then another.
 _Avoid_: Section (that is the analyser's structure boundary)

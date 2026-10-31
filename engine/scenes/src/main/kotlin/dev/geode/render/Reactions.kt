@@ -74,7 +74,8 @@ enum class ReactSource(
  * camera angle). [SPIN] keeps adding amount × source per second (keeps turning while the sound
  * lasts). Stepped and spun values fold through a triangle wave, so they stay bounded forever.
  * [JUMP] holds a new seeded random value in -amount..amount on each rising edge (sample and
- * hold), so every hit lands somewhere new.
+ * hold), so every hit lands somewhere new. [TOGGLE] flips between 0 and amount on each rising
+ * edge (a palette swap per phrase).
  */
 enum class ReactMode(
     val label: String,
@@ -83,6 +84,7 @@ enum class ReactMode(
     STEP("Step"),
     SPIN("Spin"),
     JUMP("Jump"),
+    TOGGLE("Toggle"),
 }
 
 /** One route of the reaction matrix: [source] moves [target] by [amount], smoothed. */

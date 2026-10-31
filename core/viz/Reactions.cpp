@@ -265,6 +265,13 @@ void ReactionEngine::tick(const GeodeFeatureFrame& f, float dt) {
                 target = acc_[k] * r.amount;
                 break;
             }
+            case ReactMode::Toggle: {
+                const bool high = src >= 0.5f;
+                if (high && !high_[k]) acc_[k] = acc_[k] > 0.5f ? 0.0f : 1.0f;
+                high_[k] = src >= 0.3f && (high || high_[k]);
+                target = acc_[k] * r.amount;
+                break;
+            }
         }
         float attack = std::max(r.attackSeconds, 0.0f);
         float release = std::max(r.releaseSeconds, 0.0f);

@@ -50,10 +50,13 @@ constexpr int kReactSourceCount = static_cast<int>(ReactSource::Phrase) + 1;
 // Jump: each rising edge holds a new seeded random value in -amount..amount
 //   (sample and hold), glided by the route smoothing: a new hue, angle or
 //   warp per hit instead of the same push every time.
+// Toggle: each rising edge flips the target between 0 and amount (a palette
+//   swap, a mirror on or off), glided by the route smoothing. Step cannot do
+//   this: an amount of 2 folds back to 0 on every edge.
 // Step and Spin accumulators are folded through a triangle wave into -1..1, so
 // a target stepped forever stays bounded and never wraps with a pop.
-enum class ReactMode { Follow, Step, Spin, Jump };
-constexpr int kReactModeCount = static_cast<int>(ReactMode::Jump) + 1;
+enum class ReactMode { Follow, Step, Spin, Jump, Toggle };
+constexpr int kReactModeCount = static_cast<int>(ReactMode::Toggle) + 1;
 
 struct ReactRoute {
     bool enabled = false;

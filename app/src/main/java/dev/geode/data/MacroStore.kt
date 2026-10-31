@@ -28,7 +28,7 @@ data class MacroState(
  * Customize › Macros' storage, process-wide.
  *
  * The knobs are a layer over every style (core/viz/Macros does all the work), so they live outside
- * presets and A/B: they survive a style change, and the screen, exports, the wallpaper and the dream all
+ * look presets: they survive a style change, and the screen, exports, the wallpaper and the dream all
  * read the one copy the engine holds. Every change is handed to native at once; [GeodeApp] pushes the
  * saved knobs at start, so a wallpaper that starts before the app does still sees them.
  */
@@ -129,19 +129,19 @@ class MacroStore private constructor(
             }
 
         /** The built-in presets from core/viz/Macros, "As styled" first. */
-        fun starters(): List<MacroPreset> =
-            runCatching { parsePresets(GeodeNative.macroStarters()) }.getOrDefault(emptyList())
+        fun starters(): List<MacroPreset> = runCatching { parsePresets(GeodeNative.macroStarters()) }.getOrDefault(emptyList())
 
         /** "Name|v,v,v,v,v,v" lines; a malformed line is skipped. */
         fun parsePresets(text: String): List<MacroPreset> =
-            text.lineSequence().mapNotNull { line ->
-                val bar = line.lastIndexOf('|')
-                if (bar <= 0) return@mapNotNull null
-                parseKnobs(line.substring(bar + 1))?.let { MacroPreset(line.substring(0, bar), it) }
-            }.toList()
+            text
+                .lineSequence()
+                .mapNotNull { line ->
+                    val bar = line.lastIndexOf('|')
+                    if (bar <= 0) return@mapNotNull null
+                    parseKnobs(line.substring(bar + 1))?.let { MacroPreset(line.substring(0, bar), it) }
+                }.toList()
 
-        fun formatPresets(presets: List<MacroPreset>): String =
-            presets.joinToString("\n") { p -> p.name + "|" + p.knobs.joinToString(",") }
+        fun formatPresets(presets: List<MacroPreset>): String = presets.joinToString("\n") { p -> p.name + "|" + p.knobs.joinToString(",") }
 
         private fun parseKnobs(text: String?): List<Float>? {
             val v = text?.split(',')?.map { it.trim().toFloatOrNull() ?: return null } ?: return null

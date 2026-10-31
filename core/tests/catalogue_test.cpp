@@ -207,12 +207,12 @@ void spinRateAndShaderStyleAgree() {
     }
     check(spinning == oldSpinning, "the spinning styles are the old SPINNING_SCENES");
     for (const auto& id : spinning) check(catalogue::isShaderStyle(id), id + " spins and is a shader style");
-    check(shaders == 161, "161 shader styles (53 loose + 108 family), got " + std::to_string(shaders));
+    check(shaders == 163, "163 shader styles (55 loose + 108 family), got " + std::to_string(shaders));
     check(catalogue::spinRate("bead_vortex") == 1.4f && catalogue::spinRate("tunnel") == -0.5f, "spin rates kept");
     for (const char* id : {"silk_web", "milkdrop", "fluid", "water", "curlflow", "cymatics", "no_such_style"}) {
         check(!catalogue::isShaderStyle(id), std::string(id) + " is not a shader style");
     }
-    check(catalogue::allIds().size() == 224, "224 ids");
+    check(catalogue::allIds().size() == 226, "226 ids");
     check(catalogue::allIds().front() == "silk_web", "the default comes first");
 }
 
@@ -222,10 +222,10 @@ void marchedStylesMatchTheOldSet() {
         "bulb_cavern", "bulb_chrome", "bulb_classic", "bulb_contour", "bulb_glow", "bulb_hybrid", "bulb_ink", "bulb_julia",
         "bulb_lotus", "bulb_prism", "bulb_shell", "bulb_slice", "chrome_nebula", "chrys_corolla", "crystal_canyon",
         "curl_bloom", "dive_accordion", "dive_cycle", "dive_gyro", "dive_helix", "dive_jewel", "dive_lattice",
-        "dive_mandala", "dive_mushroom", "dive_neon", "dive_orbit", "dive_serpent", "dive_show", "fractal_dive",
+        "dive_mandala", "dive_mushroom", "dive_neon", "dive_orbit", "dive_serpent", "dive_show", "fractal_dive", "fractal_tunnel",
         "glass_cubes", "glass_gem", "glass_ice", "glass_knot", "gyroid_cavern", "jelly_abyss", "kifs", "menger_core",
         "morphogen", "nebula", "nebula_flight", "nebula_pillars", "nebula_storm", "nebula_web", "nectar_flow", "neon_city",
-        "noneuclid", "particle_tunnel", "prism_rain", "rod_tunnel", "spectrum_terrain", "terra_canyon", "terra_dunes",
+        "noneuclid", "particle_tunnel", "prism_rain", "rod_tunnel", "spectrum_terrain", "supershape", "terra_canyon", "terra_dunes",
         "terra_glacier", "terra_isles", "terra_mesa", "terra_moon", "terra_night", "terra_ridge", "terra_terraces",
         "terra_volcano", "terra_wire", "truchet_relief", "vanishing"};
     std::set<std::string> marched;

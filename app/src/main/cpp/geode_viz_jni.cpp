@@ -114,11 +114,12 @@ Java_dev_geode_engine_bridge_GeodeNative_vizSetMilkTextureDir(JNIEnv* env, jobje
 
 JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_vizTakeMilkPresetLoaded(JNIEnv* env, jobject, jlong handle) {
-    const size_t length = geode_viz_take_milk_preset_loaded(vizOf(handle), nullptr, 0);
-    if (length == 0) return nullptr;
-    std::vector<char> buffer(length + 1, '\0');
-    geode_viz_take_milk_preset_loaded(vizOf(handle), buffer.data(), buffer.size());
-    return env->NewStringUTF(buffer.data());
+    // One call: the take hands the path out once, so a length query first would leave the copy
+    // empty. A path longer than PATH_MAX cannot be a file the renderer loaded.
+    char buffer[4096];
+    const size_t length = geode_viz_take_milk_preset_loaded(vizOf(handle), buffer, sizeof(buffer));
+    if (length == 0 || length >= sizeof(buffer)) return nullptr;
+    return env->NewStringUTF(buffer);
 }
 
 JNIEXPORT void JNICALL
@@ -403,19 +404,6 @@ Java_dev_geode_engine_bridge_GeodeNative_paramsResetTab(JNIEnv* env, jobject, js
     env->GetFloatArrayRegion(in, 0, static_cast<jsize>(input.size()), input.data());
     geode_params_reset_tab(tabName.get(), input.data(), output.data());
     env->SetFloatArrayRegion(out, 0, static_cast<jsize>(output.size()), output.data());
-}
-
-JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_paramsBlend(JNIEnv* env, jobject, jfloatArray a, jfloatArray b, jfloat t, jfloatArray out) {
-    const jsize n = geode_viz_param_count();
-    if (!a || !b || !out || env->GetArrayLength(a) < n || env->GetArrayLength(b) < n || env->GetArrayLength(out) < n) return;
-    std::vector<float> from(static_cast<size_t>(n));
-    std::vector<float> to(from.size());
-    std::vector<float> mixed(from.size());
-    env->GetFloatArrayRegion(a, 0, n, from.data());
-    env->GetFloatArrayRegion(b, 0, n, to.data());
-    geode_params_blend(from.data(), to.data(), t, mixed.data());
-    env->SetFloatArrayRegion(out, 0, n, mixed.data());
 }
 
 }

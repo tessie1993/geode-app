@@ -60,4 +60,6 @@ object SceneIds {
     const val JELLY_ABYSS: String = "jelly_abyss"
     const val RIBBON_STORM: String = "ribbon_storm"
     const val PRISM_RAIN: String = "prism_rain"
+    const val SUPERSHAPE: String = "supershape"
+    const val FRACTAL_TUNNEL: String = "fractal_tunnel"
 }

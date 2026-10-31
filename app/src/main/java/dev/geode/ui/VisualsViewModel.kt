@@ -126,8 +126,6 @@ class VisualsViewModel
 
         val paramHistory: StateFlow<ParamHistoryState> get() = session.paramHistory
 
-        val abSnapshots: StateFlow<AbSnapshotState> get() = session.abSnapshots
-
         /** The one write path for a Customize edit, so the panel's undo covers every control. */
         fun editSceneParams(params: SceneParams) = session.editSceneParams(params)
 
@@ -138,16 +136,6 @@ class VisualsViewModel
         fun resetCustomizeTab(tab: CustomizeTab) = session.resetCustomizeTab(tab)
 
         fun resetAllCustomize() = session.resetAllCustomize()
-
-        fun captureSnapshotA() = session.captureSnapshotA()
-
-        fun captureSnapshotB() = session.captureSnapshotB()
-
-        fun recallSnapshotA() = session.recallSnapshotA()
-
-        fun recallSnapshotB() = session.recallSnapshotB()
-
-        fun blendSnapshots(t: Float) = session.blendSnapshots(t)
 
         fun setAdsr(
             index: Int,

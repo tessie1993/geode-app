@@ -165,8 +165,7 @@ private fun sameKnobs(
 ): Boolean = a.size == b.size && a.indices.all { abs(a[it] - b[it]) < KNOB_EPSILON }
 
 /** "As styled", or how far off centre, for the label and TalkBack. */
-private fun knobText(v: Float): String =
-    if (abs(v) < KNOB_EPSILON) "as styled" else "%+d%%".format((v * PERCENT).roundToInt())
+private fun knobText(v: Float): String = if (abs(v) < KNOB_EPSILON) "as styled" else "%+d%%".format((v * PERCENT).roundToInt())
 
 @Composable
 private fun MacroKnob(

@@ -59,6 +59,7 @@ import dev.geode.playback.PlaybackErrors
 import dev.geode.playback.PlaybackService
 import dev.geode.render.AdsrConfig
 import dev.geode.render.LfoConfig
+import dev.geode.render.MilkPresetMemory
 import dev.geode.render.SceneFactory
 import dev.geode.render.TransitionStyle
 import dev.geode.render.UnderlayBlend
@@ -196,7 +197,7 @@ class PlayerSession internal constructor(
         )
 
     private val autoVisualsPrefsStore = AutoVisualsPrefsStore(prefsFiles.viz)
-    private val vizStateStore = VizStateStore(prefsFiles.viz, scope, autoVisualsPrefsStore)
+    private val vizStateStore = VizStateStore(prefsFiles.viz, scope, autoVisualsPrefsStore, MilkPresetMemory.shared(application))
     private val audioFxController = playback.audioFx
 
     private val settings: PlayerSettingsController =
@@ -305,7 +306,6 @@ class PlayerSession internal constructor(
     val reactions: StateFlow<List<dev.geode.render.ReactionRoute>?> get() = modulation.reactions
     val lockedParams: StateFlow<Set<String>> get() = modulation.lockedParams
     val paramHistory: StateFlow<ParamHistoryState> get() = modulation.history
-    val abSnapshots: StateFlow<AbSnapshotState> get() = modulation.ab
 
     fun toggleParamLock(label: String) = modulation.toggleParamLock(label)
 
@@ -320,16 +320,6 @@ class PlayerSession internal constructor(
     fun resetCustomizeTab(tab: CustomizeTab) = modulation.resetTab(tab)
 
     fun resetAllCustomize() = modulation.resetAll()
-
-    fun captureSnapshotA() = modulation.captureA()
-
-    fun captureSnapshotB() = modulation.captureB()
-
-    fun recallSnapshotA() = modulation.recallA()
-
-    fun recallSnapshotB() = modulation.recallB()
-
-    fun blendSnapshots(t: Float) = modulation.blendAb(t)
 
     fun setAdsr(
         index: Int,

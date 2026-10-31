@@ -3,6 +3,7 @@ package dev.geode
 import android.app.Application
 import dagger.hilt.android.HiltAndroidApp
 import dev.geode.billing.ForegroundActivityTracker
+import dev.geode.data.MacroStore
 import java.io.File
 import javax.inject.Inject
 
@@ -18,7 +19,7 @@ class GeodeApp : Application() {
         registerActivityLifecycleCallbacks(activityTracker)
         // Customize › Macros are process-wide in the engine: hand the saved knobs over before any
         // surface (the app, the wallpaper, the dream, an export) builds a renderer.
-        dev.geode.data.MacroStore.get(this)
+        MacroStore.get(this)
         if (BuildConfig.DEBUG) {
             // Logcat echo is a debug convenience; release keeps failures in the
             // ring buffer alone, where the crash report already includes them.

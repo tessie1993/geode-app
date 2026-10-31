@@ -106,9 +106,7 @@ class VisualizerWallpaperService : WallpaperService() {
                     engine.sceneParams = preset.params
                 }
             }
-            prefs.getString("milk_path", null)?.let { path ->
-                if (java.io.File(path).isFile) engine.loadMilkPreset(path)
-            }
+            // The MilkDrop preset needs nothing here: the renderer restores the app's (MilkPresetMemory).
             val gui = ThemeStore(prefsFiles.general).loadGui()
             engine.reducedMotion = gui.reducedMotion
             engine.soundTuning = gui.soundTuning

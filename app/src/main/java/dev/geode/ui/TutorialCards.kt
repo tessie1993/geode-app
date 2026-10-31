@@ -35,6 +35,7 @@ val TutorialChapter.titleRes: Int
             TutorialChapter.LIVE_VIEW -> R.string.tutorial_chapter_live_view
             TutorialChapter.STUDIO -> R.string.tutorial_chapter_studio
             TutorialChapter.ANYWHERE -> R.string.tutorial_chapter_anywhere
+            TutorialChapter.PRO -> R.string.tutorial_chapter_pro
             TutorialChapter.SETTINGS -> R.string.tutorial_chapter_settings
         }
 
@@ -187,6 +188,23 @@ val TutorialChapter.cardContent: List<TutorialCard>
                     ),
                     TutorialCard(R.string.tutorial_anywhere_2_title, R.string.tutorial_anywhere_2_body, TutorialArt.DREAM, pro = true),
                     TutorialCard(R.string.tutorial_anywhere_3_title, R.string.tutorial_anywhere_3_body, TutorialArt.WIDGET),
+                )
+            TutorialChapter.PRO ->
+                listOf(
+                    TutorialCard(
+                        R.string.tutorial_pro_1_title,
+                        R.string.tutorial_pro_1_body,
+                        TutorialArt.GEM,
+                        TutorialTarget.PAYWALL,
+                        pro = true,
+                    ),
+                    TutorialCard(
+                        R.string.tutorial_pro_2_title,
+                        R.string.tutorial_pro_2_body,
+                        TutorialArt.TRIAL,
+                        TutorialTarget.PAYWALL,
+                        pro = true,
+                    ),
                 )
             TutorialChapter.SETTINGS ->
                 listOf(

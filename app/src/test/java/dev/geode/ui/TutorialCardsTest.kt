@@ -16,8 +16,8 @@ class TutorialCardsTest {
     }
 
     @Test
-    fun `no two cards share a drawing`() {
+    fun `every drawing is used by exactly one card`() {
         val arts = TutorialChapter.entries.flatMap { it.cardContent }.map { it.art }
-        assertEquals(arts.distinct(), arts)
+        assertEquals(TutorialArt.entries.toList(), arts.sortedBy { it.ordinal })
     }
 }

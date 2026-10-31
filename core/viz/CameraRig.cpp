@@ -94,7 +94,8 @@ Vec3 CameraRig::pathPoint(int path, float orbit, float s) {
     }
 }
 
-void CameraRig::step(const SceneParams& p, const LookInput& look, float dt, bool reducedMotion, bool bankFlat) {
+void CameraRig::step(const SceneParams& p, const LookInput& look, float dt, bool reducedMotion, bool bankFlat,
+                     const GeodeSoundFrame* sound) {
     // Same frame-time rule as viz/Reactions: non-finite is no time at all.
     dt = std::isfinite(dt) ? std::clamp(dt, 0.0f, 0.1f) : 0.0f;
     const float g = reducedMotion ? safety::kReducedMotionScale : 1.0f;

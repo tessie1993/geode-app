@@ -20,6 +20,7 @@ enum class TutorialChapter(
     CUSTOMIZE(4),
     LIVE_VIEW(3),
     STUDIO(3),
+    ANYWHERE(3),
     SETTINGS(2),
 }
 

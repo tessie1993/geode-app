@@ -28,6 +28,7 @@ val TutorialChapter.titleRes: Int
     get() =
         when (this) {
             TutorialChapter.WELCOME -> R.string.tutorial_chapter_welcome
+            TutorialChapter.PLAYER -> R.string.tutorial_chapter_player
             TutorialChapter.SETTINGS -> R.string.tutorial_chapter_settings
         }
 
@@ -39,6 +40,27 @@ val TutorialChapter.cardContent: List<TutorialCard>
                 listOf(
                     TutorialCard(R.string.tutorial_welcome_1_title, R.string.tutorial_welcome_1_body, TutorialArt.HELLO),
                     TutorialCard(R.string.tutorial_welcome_2_title, R.string.tutorial_welcome_2_body, TutorialArt.CHAPTERS),
+                )
+            TutorialChapter.PLAYER ->
+                listOf(
+                    TutorialCard(
+                        R.string.tutorial_player_1_title,
+                        R.string.tutorial_player_1_body,
+                        TutorialArt.TRANSPORT,
+                        TutorialTarget.PLAYER,
+                    ),
+                    TutorialCard(
+                        R.string.tutorial_player_2_title,
+                        R.string.tutorial_player_2_body,
+                        TutorialArt.LYRICS,
+                        TutorialTarget.PLAYER,
+                    ),
+                    TutorialCard(
+                        R.string.tutorial_player_3_title,
+                        R.string.tutorial_player_3_body,
+                        TutorialArt.TIMER,
+                        TutorialTarget.PLAYER,
+                    ),
                 )
             TutorialChapter.SETTINGS ->
                 listOf(

@@ -14,6 +14,7 @@ enum class TutorialChapter(
     val cards: Int,
 ) {
     WELCOME(2),
+    PLAYER(3),
     SETTINGS(2),
 }
 

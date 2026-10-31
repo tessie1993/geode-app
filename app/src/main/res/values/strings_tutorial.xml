@@ -12,12 +12,20 @@
     <string name="tutorial_chapter_done">%1$s done!</string>
 
     <string name="tutorial_chapter_welcome">Welcome</string>
+    <string name="tutorial_chapter_player">Player</string>
     <string name="tutorial_chapter_settings">Settings</string>
 
     <string name="tutorial_welcome_1_title">Hi, I\'m Wave!</string>
     <string name="tutorial_welcome_1_body">I\'m made of sound, so I wiggle when things get loud. I\'ll show you around MuzViz: a player, a visualizer that dances to your music, and a studio that turns it into video.</string>
     <string name="tutorial_welcome_2_title">Your tour, your pace</string>
     <string name="tutorial_welcome_2_body">Swipe or tap Next. Skip a chapter you know, or skip the lot. Tap Show me to jump to the real thing; I\'ll wait with a Resume button. Every chapter lives on in Settings › Tutorials.</string>
+
+    <string name="tutorial_player_1_title">Press play</string>
+    <string name="tutorial_player_1_body">The Player has your track, the transport and a live spectrum. Tap the artwork to go full screen, which is where the visuals live.</string>
+    <string name="tutorial_player_2_title">Queue and lyrics</string>
+    <string name="tutorial_player_2_body">Open the queue to reorder what\'s next or save it as a playlist. Drop an .lrc file beside a track and its lyrics follow along, line by line.</string>
+    <string name="tutorial_player_3_title">Little helpers</string>
+    <string name="tutorial_player_3_body">The quick row holds a sleep timer, shuffle all and an A–B loop. Switch the source to the mic or to another app\'s audio and the visuals react to that instead.</string>
 
     <string name="tutorial_settings_1_title">Make it yours</string>
     <string name="tutorial_settings_1_body">Look, Audio, Folders and Behavior hold the rest, including reduced motion and visual safety. Backup saves your presets and settings to a file.</string>

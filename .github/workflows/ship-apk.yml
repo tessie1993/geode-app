@@ -6,6 +6,9 @@ name: Ship Geode APK
 #
 # Releases are marked pre-release: this is Android's debug signing key, not the
 # Play upload key. The Play Store build is release.yml.
+#
+# Pre-release N (the Nth GitHub release) is "Geode <base>.N", tag apk-v<base>.N,
+# versionName <base>.N; see the "Reserve release number" step.
 
 on:
   workflow_dispatch:
@@ -89,30 +92,52 @@ jobs:
         working-directory: ${{ env.PROJECT_DIR }}
         run: chmod +x gradlew
 
+      # Each pre-release gets its own number N (versionName <base>.N, tag apk-v<base>.N):
+      # releases so far + 1, reserved by pushing the tag first so concurrent runs never
+      # share one. The base lives in gradle.properties; the rule in the root build.gradle.kts.
+      - name: Reserve release number
+        id: number
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          BASE=$(sed -n 's/^geode\.versionBase=//p' gradle.properties | tr -d '\r')
+          N=$(tools/release-number.sh "$BASE" "$(git rev-parse HEAD)" reserve)
+          echo "Release number $N (version $BASE.$N)"
+          { echo "n=$N"; echo "base=$BASE"; } >> "$GITHUB_OUTPUT"
+
       - name: Assemble debug APK
         working-directory: ${{ env.PROJECT_DIR }}
-        run: ./gradlew :app:assembleDebug --stacktrace --no-daemon
+        run: ./gradlew :app:assembleDebug -PreleaseNumber=${{ steps.number.outputs.n }} --stacktrace --no-daemon
 
       # Nothing gets published that has not passed the same checks android.yml
       # runs, so a release asset is always a verified build.
       - name: Verify (ktlint, unit tests, lint)
         working-directory: ${{ env.PROJECT_DIR }}
-        run: ./gradlew ktlintCheck :app:testDebugUnitTest :app:lintDebug --stacktrace --no-daemon
+        run: ./gradlew ktlintCheck :app:testDebugUnitTest :app:lintDebug -PreleaseNumber=${{ steps.number.outputs.n }} --stacktrace --no-daemon
 
       - name: Package APK and checksum
         id: package
         shell: bash
         run: |
           set -euo pipefail
-          VERSION_NAME=$(sed -n 's/^[[:space:]]*versionName = "\([^"]*\)".*/\1/p' \
-            "$PROJECT_DIR/app/build.gradle.kts" | head -n 1)
-          VERSION_CODE=$(sed -n 's/^[[:space:]]*versionCode = \([0-9]*\).*/\1/p' \
-            "$PROJECT_DIR/app/build.gradle.kts" | head -n 1)
+          # Read the version from the APK itself, and refuse to publish one whose
+          # name is not the reserved release number.
+          AAPT2="${ANDROID_HOME:-$ANDROID_SDK_ROOT}/build-tools/36.0.0/aapt2"
+          BADGING=$("$AAPT2" dump badging "$APK_SOURCE" | head -n 1)
+          VERSION_NAME=$(sed -n "s/.*versionName='\([^']*\)'.*/\1/p" <<< "$BADGING")
+          VERSION_CODE=$(sed -n "s/.*versionCode='\([0-9]*\)'.*/\1/p" <<< "$BADGING")
+          EXPECTED="${{ steps.number.outputs.base }}.${{ steps.number.outputs.n }}"
+          if [ "$VERSION_NAME" != "$EXPECTED" ]; then
+            echo "::error::APK versionName is '$VERSION_NAME', expected '$EXPECTED'"
+            exit 1
+          fi
           # The checkout may be a different ref than the one that triggered the
           # run, so tag the commit actually built.
           BUILT_SHA=$(git rev-parse HEAD)
           SHORT_SHA=${BUILT_SHA::7}
-          FILE_NAME="Geode-${VERSION_NAME:-debug}-${SHORT_SHA}-debug.apk"
+          FILE_NAME="Geode-${VERSION_NAME}-debug.apk"
 
           mkdir -p dist
           cp "$APK_SOURCE" "dist/$FILE_NAME"
@@ -120,11 +145,11 @@ jobs:
 
           {
             echo "file_name=$FILE_NAME"
-            echo "version_name=${VERSION_NAME:-debug}"
-            echo "version_code=${VERSION_CODE:-0}"
+            echo "version_name=$VERSION_NAME"
+            echo "version_code=$VERSION_CODE"
             echo "built_sha=$BUILT_SHA"
             echo "short_sha=$SHORT_SHA"
-            echo "tag=apk-v${VERSION_NAME:-debug}-${SHORT_SHA}"
+            echo "tag=apk-v$VERSION_NAME"
           } >> "$GITHUB_OUTPUT"
 
       - name: Publish GitHub Release
@@ -168,8 +193,8 @@ jobs:
             PRERELEASE_FLAG=(--prerelease)
           fi
 
-          # Re-running the workflow on the same commit refreshes the assets of
-          # the existing release rather than failing on the duplicate tag.
+          # The tag already exists (reserved above). Re-running the workflow on
+          # the same commit refreshes the assets of its release instead.
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" \
               "dist/$FILE_NAME" "dist/$FILE_NAME.sha256" --clobber
@@ -177,7 +202,7 @@ jobs:
             gh release create "$TAG" \
               "dist/$FILE_NAME" "dist/$FILE_NAME.sha256" \
               --target "$BUILT_SHA" \
-              --title "Geode $VERSION_NAME ($SHORT_SHA)" \
+              --title "Geode $VERSION_NAME" \
               --notes "$NOTES" \
               "${PRERELEASE_FLAG[@]}"
           fi
@@ -194,6 +219,13 @@ jobs:
             echo "- Release: ${{ steps.release.outputs.url }}"
             echo "- Commit: \`${{ steps.package.outputs.built_sha }}\`"
           } >> "$GITHUB_STEP_SUMMARY"
+
+      # A run that failed before publishing hands its number back, so the next
+      # release takes it and there is one number per release.
+      - name: Release the reserved number
+        if: failure() && steps.number.outputs.n != '' && steps.release.outcome != 'success'
+        shell: bash
+        run: git push origin --delete "refs/tags/apk-v${{ steps.number.outputs.base }}.${{ steps.number.outputs.n }}" || true
 
       - name: Upload reports when the build fails
         if: failure()

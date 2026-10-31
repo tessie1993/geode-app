@@ -19,8 +19,10 @@ fi
 
 count=$(gh release list --limit 10000 --json tagName --jq length)
 if [ "$mode" != reserve ]; then
-  echo "::warning::$sha has no apk-v$base.N tag; using the latest release number, $count." >&2
-  echo "$count"
+  # Numbers can be skipped (a run lost a race), so the latest is the highest tag, not the count.
+  latest=$(git tag --list "apk-v$base.*" | sed "s/^apk-v$base\.//" | grep -E '^[0-9]+$' | sort -n | tail -n 1 || true)
+  echo "::warning::$sha has no apk-v$base.N tag; using the latest release number, ${latest:-$count}." >&2
+  echo "${latest:-$count}"
   exit 0
 fi
 

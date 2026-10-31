@@ -125,7 +125,7 @@ jobs:
           # Read the version from the APK itself, and refuse to publish one whose
           # name is not the reserved release number.
           AAPT2="${ANDROID_HOME:-$ANDROID_SDK_ROOT}/build-tools/36.0.0/aapt2"
-          BADGING=$("$AAPT2" dump badging "$APK_SOURCE" | head -n 1)
+          BADGING=$("$AAPT2" dump badging "$APK_SOURCE")
           VERSION_NAME=$(sed -n "s/.*versionName='\([^']*\)'.*/\1/p" <<< "$BADGING")
           VERSION_CODE=$(sed -n "s/.*versionCode='\([0-9]*\)'.*/\1/p" <<< "$BADGING")
           EXPECTED="${{ steps.number.outputs.base }}.${{ steps.number.outputs.n }}"
@@ -220,12 +220,21 @@ jobs:
             echo "- Commit: \`${{ steps.package.outputs.built_sha }}\`"
           } >> "$GITHUB_STEP_SUMMARY"
 
-      # A run that failed before publishing hands its number back, so the next
-      # release takes it and there is one number per release.
+      # A run that failed or was cancelled before publishing hands its number
+      # back, so the next release takes it. A tag that already has a release
+      # (a re-run that failed later) is never touched.
       - name: Release the reserved number
-        if: failure() && steps.number.outputs.n != '' && steps.release.outcome != 'success'
+        if: (failure() || cancelled()) && steps.number.outputs.n != ''
         shell: bash
-        run: git push origin --delete "refs/tags/apk-v${{ steps.number.outputs.base }}.${{ steps.number.outputs.n }}" || true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: apk-v${{ steps.number.outputs.base }}.${{ steps.number.outputs.n }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "$TAG has a release; keeping it."
+          else
+            git push origin --delete "refs/tags/$TAG" || true
+          fi
 
       - name: Upload reports when the build fails
         if: failure()

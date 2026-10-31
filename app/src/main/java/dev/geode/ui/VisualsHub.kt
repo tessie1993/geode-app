@@ -1077,6 +1077,7 @@ private fun tabAppliesTo(
     sceneId: String,
 ): Boolean =
     when (tab) {
+        CustomizeTab.MACROS,
         CustomizeTab.EVENTS,
         CustomizeTab.SHAPE,
         CustomizeTab.COLOR,
@@ -1100,6 +1101,21 @@ private fun CustomizeTabBody(
     val p = viz.params
     val onChange: (dev.geode.render.scene.SceneParams) -> Unit = visualsViewModel::editSceneParams
     when (tab) {
+        CustomizeTab.MACROS -> {
+            val context = androidx.compose.ui.platform.LocalContext.current
+            val store = remember { dev.geode.data.MacroStore.get(context) }
+            val macros by store.state.collectAsStateWithLifecycle()
+            val paywall: dev.geode.ui.pro.PaywallViewModel = geodeViewModel()
+            val gate by paywall.gate.collectAsStateWithLifecycle()
+            MacrosTab(
+                macros,
+                store,
+                canSavePresets = gate.allows(dev.geode.pro.ProFeature.ADVANCED_CUSTOMIZATION),
+                onLockedSave = {
+                    paywall.open(dev.geode.pro.PaywallTrigger.Feature(dev.geode.pro.ProFeature.ADVANCED_CUSTOMIZATION))
+                },
+            )
+        }
         CustomizeTab.EVENTS -> {
             val reactions by visualsViewModel.reactions.collectAsStateWithLifecycle()
             EventsTab(
@@ -1178,6 +1194,9 @@ private fun CustomizeToolbar(
     var savingPreset by remember { mutableStateOf(false) }
     var presetName by remember { mutableStateOf("") }
     val changed = remember(params) { CustomizeSummary.changedCount(params) }
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val macroStore = remember { dev.geode.data.MacroStore.get(context) }
+    val onMacros = tab == CustomizeTab.MACROS
     Column(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
         OutlinedTextField(
             value = query,
@@ -1194,11 +1213,17 @@ private fun CustomizeToolbar(
             CrystalButton(
                 compact = true,
                 enabled = tab != null,
-                onClick = { tab?.let(visualsViewModel::randomizeParams) },
+                onClick = { if (onMacros) macroStore.surprise() else tab?.let(visualsViewModel::randomizeParams) },
             ) {
                 Icon(Icons.Filled.Casino, contentDescription = null, modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(6.dp))
-                Text(if (tab == null) "Randomize" else "Randomize ${tab.title}")
+                Text(
+                    when {
+                        onMacros -> "Surprise"
+                        tab == null -> "Randomize"
+                        else -> "Randomize ${tab.title}"
+                    },
+                )
             }
             CrystalButton(compact = true, filled = false, enabled = history.canUndo, onClick = visualsViewModel::undoParams) {
                 Text("Undo")
@@ -1210,7 +1235,7 @@ private fun CustomizeToolbar(
                 compact = true,
                 filled = false,
                 enabled = tab != null,
-                onClick = { tab?.let(visualsViewModel::resetCustomizeTab) },
+                onClick = { if (onMacros) macroStore.resetKnobs() else tab?.let(visualsViewModel::resetCustomizeTab) },
             ) {
                 Text(if (tab == null) "Reset tab" else "Reset ${tab.title}")
             }

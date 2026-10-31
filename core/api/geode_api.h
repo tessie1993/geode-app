@@ -138,6 +138,11 @@ GEODE_API void        geode_viz_push_pcm(geode_viz*, const float* mono, int coun
 /* The reaction source catalogue, one line per source in wire order: "NAME|Label|GROUP|event(0/1)\n".
  * Writes at most capacity bytes (NUL-terminated when it fits) and returns the length it needs. */
 GEODE_API int         geode_react_source_catalog(char* out, int capacity);
+/* Customize › Macros (core/viz/Macros): six knobs, -1..1, process-wide, read by every renderer each frame.
+ * surprise writes `count` knobs to out; starters lists "Name|e,s,c,m,sp,ch" lines like the source catalogue. */
+GEODE_API void        geode_macros_set(const float* knobs, int count);
+GEODE_API void        geode_macros_surprise(const float* knobs, int count, unsigned lock_mask, long long seed, float* out);
+GEODE_API int         geode_macro_starters(char* out, int capacity);
 /* The renderer's own sound engine: interleaved PCM in play order, every sample once, written on the render
  * thread before geode_viz_render; the next render steps it with that frame's dt. */
 GEODE_API void        geode_viz_write_audio(geode_viz*, const float* interleaved, int frames, int channels, int sample_rate);

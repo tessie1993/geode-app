@@ -16,6 +16,9 @@ class GeodeApp : Application() {
         super.onCreate()
         // A weak reference to the resumed activity, for Play's purchase sheet; costs nothing.
         registerActivityLifecycleCallbacks(activityTracker)
+        // Customize › Macros are process-wide in the engine: hand the saved knobs over before any
+        // surface (the app, the wallpaper, the dream, an export) builds a renderer.
+        dev.geode.data.MacroStore.get(this)
         if (BuildConfig.DEBUG) {
             // Logcat echo is a debug convenience; release keeps failures in the
             // ring buffer alone, where the crash report already includes them.

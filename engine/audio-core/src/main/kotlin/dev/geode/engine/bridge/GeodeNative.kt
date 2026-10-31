@@ -340,6 +340,19 @@ object GeodeNative {
     /** The reaction source catalogue (core/viz/Reactions.cpp), see `dev.geode.render.ReactSourceCatalog`. */
     external fun reactSourceCatalog(): String
 
+    /** Customize › Macros (core/viz/Macros): the six knobs, -1..1, for every renderer in the process. */
+    external fun macrosSet(knobs: FloatArray)
+
+    /** Surprise: unlocked knobs (bit i of [lockMask] locks knob i) to new spots, seeded. */
+    external fun macrosSurprise(
+        knobs: FloatArray,
+        lockMask: Int,
+        seed: Long,
+    ): FloatArray
+
+    /** The built-in macro presets, "Name|e,s,c,m,sp,ch" lines. */
+    external fun macroStarters(): String
+
     external fun vizPushPcm(
         handle: Long,
         mono: FloatArray,

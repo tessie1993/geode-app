@@ -9,6 +9,7 @@
 #include <string>
 
 #include "viz/CameraRig.hpp"
+#include "viz/Macros.hpp"
 #include "viz/MotionField.hpp"
 #include "viz/ReactionDna.hpp"
 #include "viz/Reactions.hpp"
@@ -529,6 +530,97 @@ void sourceCatalogueIsCompleteAndUnique() {
     check(reactSourceInfo(ReactSource::Kick).event && !reactSourceInfo(ReactSource::KickEnv).event, "hits are events, envelopes are levels");
 }
 
+// ---- Customize › Macros (viz/Macros) ----
+
+MacroKnobs knobs(Macro m, float v) {
+    MacroKnobs k{};
+    k[static_cast<size_t>(m)] = v;
+    return k;
+}
+
+void macrosAtRestChangeNothing() {
+    SceneParams p;
+    p.speed = 1.7f;
+    p.vignette = 0.3f;
+    const SceneParams q = macros::apply(p, MacroKnobs{});
+    check(q.speed == p.speed && q.vignette == p.vignette && q.zoom == p.zoom && q.bloom == p.bloom, "knobs at centre leave the look as styled");
+    GeodeSoundTuning t{};
+    t.reactivity = 1.3f;
+    t.speed = 0.8f;
+    const GeodeSoundTuning u = macros::tuning(t, MacroKnobs{});
+    check(u.reactivity == 1.3f && u.speed == 0.8f, "knobs at centre leave Settings › Audio as set");
+    const CameraRig::Moves m = macros::camera(MacroKnobs{});
+    check(m.orbit == 1.0f && m.shake == 1.0f && m.cut == 1.0f, "knobs at centre leave the camera's music moves as styled");
+    for (const ReactRoute& r : macros::routes(MacroKnobs{})) check(!r.enabled, "knobs at centre add no routes");
+}
+
+void macrosTurnTowardTheEndsAndStayInRange() {
+    SceneParams p;
+    const SceneParams up = macros::apply(p, knobs(Macro::Speed, 1.0f));
+    check(std::fabs(up.speed - 4.0f) < 1e-5f, "a full turn up reaches the top of the range");
+    const SceneParams half = macros::apply(p, knobs(Macro::Speed, 0.5f));
+    check(half.speed > p.speed && half.speed < up.speed, "half a turn goes part of the way");
+    const SceneParams down = macros::apply(p, knobs(Macro::Speed, -1.0f));
+    check(std::fabs(down.speed - 0.05f) < 1e-5f, "a full turn down reaches the bottom");
+    const SceneParams wide = macros::apply(p, knobs(Macro::Space, 1.0f));
+    check(wide.zoom < p.zoom && wide.vignette <= p.vignette && wide.camFov > p.camFov, "Space up widens: zoom out, less vignette, wider lens");
+    SceneParams wild = p;
+    wild.bloom = 9.0f;
+    check(macros::apply(wild, knobs(Macro::Energy, 1.0f)).bloom <= 0.25f, "a knob never pushes a field past its slider");
+    check(macros::apply(p, knobs(Macro::Mood, 1.0f)).speed == p.speed, "a knob only moves its own fields");
+}
+
+void macrosScaleTheSoundAndTheCamera() {
+    GeodeSoundTuning t{};
+    t.reactivity = 1.0f;
+    t.speed = 1.0f;
+    check(std::fabs(macros::tuning(t, knobs(Macro::Energy, 1.0f)).reactivity - 2.0f) < 1e-5f, "Energy up doubles Reactivity");
+    check(std::fabs(macros::tuning(t, knobs(Macro::Speed, -1.0f)).speed - 0.5f) < 1e-5f, "Speed down halves the clocks");
+    check(macros::camera(knobs(Macro::Chaos, -1.0f)).cut == 0.0f, "Chaos all the way down stops hard cuts");
+    check(macros::camera(knobs(Macro::Space, 1.0f)).orbit == 2.0f, "Space up doubles the orbit");
+    int on = 0;
+    for (const ReactRoute& r : macros::routes(knobs(Macro::Chaos, 0.5f))) {
+        if (!r.enabled) continue;
+        ++on;
+        check(r.amount > 0.0f && r.amount <= 0.25f + 1e-5f, "a half turn plays its routes at half depth");
+    }
+    check(on == 2, "Chaos up adds its two routes and nothing else");
+}
+
+void chaosDownStopsCameraCuts() {
+    SceneParams p;
+    p.camFly = 1.0f;
+    CameraRig rig;
+    rig.setMoves(macros::camera(knobs(Macro::Chaos, -1.0f)));
+    GeodeSoundFrame f = playing();
+    for (int i = 0; i < 60; ++i) rig.step(p, {}, 1.0f / 60.0f, false, true, &f);
+    f.hardCut = 1.0f;
+    rig.step(p, {}, 1.0f / 60.0f, false, true, &f);
+    check(rig.cuts() == 0, "with Chaos all the way down a big moment does not cut");
+}
+
+void surpriseIsSeededAndKeepsLocks() {
+    const MacroKnobs start = knobs(Macro::Mood, 0.9f);
+    const unsigned moodLock = 1u << static_cast<int>(Macro::Mood);
+    const MacroKnobs a = macros::surprise(start, moodLock, 42);
+    check(a == macros::surprise(start, moodLock, 42), "the same seed draws the same knobs");
+    check(a[static_cast<size_t>(Macro::Mood)] == 0.9f, "a locked knob stays where it was");
+    const MacroKnobs c = macros::surprise(start, 0, 42);
+    check(a[0] == c[0], "locking one knob does not change what the others draw");
+    for (float v : c) check(std::fabs(v) <= 0.8f + 1e-6f, "Surprise stays within most of each knob's reach");
+    check(macros::surprise(start, 0, 43) != c, "a new seed draws a new look");
+}
+
+void startersAreNamedAndInRange() {
+    std::set<std::string> names;
+    for (const macros::Starter& s : macros::starters()) {
+        names.insert(s.name);
+        for (float v : s.knobs) check(v >= -1.0f && v <= 1.0f, "a starter's knobs are in range");
+    }
+    check(static_cast<int>(names.size()) == macros::kStarterCount, "starter names are unique");
+    check(macros::starters()[0].knobs == MacroKnobs{}, "the first starter is As styled");
+}
+
 }  // namespace
 
 int main() {
@@ -559,6 +651,12 @@ int main() {
     traumaShakeIsBoundedAndFinite();
     motionFieldVariantsDiffer();
     sourceCatalogueIsCompleteAndUnique();
+    macrosAtRestChangeNothing();
+    macrosTurnTowardTheEndsAndStayInRange();
+    macrosScaleTheSoundAndTheCamera();
+    chaosDownStopsCameraCuts();
+    surpriseIsSeededAndKeepsLocks();
+    startersAreNamedAndInRange();
     if (failures == 0) std::printf("viz_math_test: all passed\n");
     return failures == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
 }

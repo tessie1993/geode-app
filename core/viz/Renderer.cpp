@@ -84,7 +84,7 @@ void Renderer::writeAudio(const float* interleaved, int frames, int channels, in
     std::lock_guard<std::mutex> lock(soundLock_);
     if (!sound_ || sound_->sampleRateHz() != sampleRateHz) {
         sound_ = std::make_unique<sound::SoundEngine>(sampleRateHz);
-        sound_->setTuning(soundTuning_);
+        sound_->setTuning(macros::tuning(soundTuning_, tunedKnobs_));
     }
     sound_->write(interleaved, frames, channels);
 }
@@ -97,7 +97,7 @@ void Renderer::resetAudio() {
 void Renderer::setSoundTuning(const GeodeSoundTuning& tuning) {
     std::lock_guard<std::mutex> lock(soundLock_);
     soundTuning_ = tuning;
-    if (sound_) sound_->setTuning(tuning);
+    if (sound_) sound_->setTuning(macros::tuning(tuning, tunedKnobs_));
 }
 
 GeodeSoundFrame Renderer::soundFrame() const {
@@ -397,6 +397,7 @@ void Renderer::onSurfaceCreated() {
     lastTimeS_ = -1.0;
     motionField_.reset();
     reactions_.reset();
+    macroReactions_.reset();
     camera_.reset();
 }
 

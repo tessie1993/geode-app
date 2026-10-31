@@ -58,6 +58,18 @@ public:
         float pitch = 0.0f;
     };
 
+    // How hard the music moves below play, from Customize › Macros (viz/Macros); 1 everywhere is as styled.
+    struct Moves {
+        float orbit = 1.0f;    // the mid-clock Lissajous look and the roll sway
+        float lean = 1.0f;     // stereo pan, melody height and the note look
+        float dolly = 1.0f;    // surge push, return pull, the rise creep
+        float breath = 1.0f;   // the bass FOV breath
+        float shake = 1.0f;    // kick/snare trauma
+        float reframe = 1.0f;  // the new framing every 16th kick: 0 never
+        float cut = 1.0f;      // hard cuts: 0 never, 2 twice as often
+    };
+    void setMoves(const Moves& m) { moves_ = m; }
+
     void reset();
     // reducedMotion scales travel, orbit, roll and shake, the vestibular
     // terms; the look still follows a finger.
@@ -96,6 +108,7 @@ private:
     CameraPose pose_;
 
     // The music's own moves (SoundMoves in CameraRig.cpp).
+    Moves moves_;
     float trauma_ = 0.0f;
     float traumaClock_ = 0.0f;
     float sinceCut_ = kCutGapSeconds;

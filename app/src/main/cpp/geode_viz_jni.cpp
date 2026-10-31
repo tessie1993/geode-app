@@ -180,6 +180,35 @@ Java_dev_geode_engine_bridge_GeodeNative_reactSourceCatalog(JNIEnv* env, jobject
 }
 
 JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_macrosSet(JNIEnv* env, jobject, jfloatArray knobs) {
+    if (!knobs) return;
+    const jsize n = std::min<jsize>(env->GetArrayLength(knobs), 16);
+    float k[16]{};
+    env->GetFloatArrayRegion(knobs, 0, n, k);
+    geode_macros_set(k, n);
+}
+
+JNIEXPORT jfloatArray JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_macrosSurprise(JNIEnv* env, jobject, jfloatArray knobs, jint lockMask, jlong seed) {
+    const jsize n = knobs ? std::min<jsize>(env->GetArrayLength(knobs), 16) : 0;
+    float k[16]{};
+    float out[16]{};
+    if (n > 0) env->GetFloatArrayRegion(knobs, 0, n, k);
+    geode_macros_surprise(k, n, static_cast<unsigned>(lockMask), static_cast<long long>(seed), out);
+    jfloatArray result = env->NewFloatArray(n);
+    if (result) env->SetFloatArrayRegion(result, 0, n, out);
+    return result;
+}
+
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_macroStarters(JNIEnv* env, jobject) {
+    const int need = geode_macro_starters(nullptr, 0);
+    std::vector<char> text(static_cast<size_t>(need) + 1);
+    geode_macro_starters(text.data(), need + 1);
+    return env->NewStringUTF(text.data());
+}
+
+JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_vizSetCustomShader(JNIEnv* env, jobject, jlong handle, jstring sceneId,
                                                             jstring fragmentSource) {
     Utf8Chars id(env, sceneId);

@@ -338,6 +338,9 @@ object GeodeNative {
         out: FloatArray,
     )
 
+    /** The reaction source catalogue (core/viz/Reactions.cpp), see `dev.geode.render.ReactSourceCatalog`. */
+    external fun reactSourceCatalog(): String
+
     external fun vizPushPcm(
         handle: Long,
         mono: FloatArray,

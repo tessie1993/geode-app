@@ -135,6 +135,9 @@ GEODE_API void        geode_viz_set_milk_texture_dir(geode_viz*, const char* dir
 /* The preset MilkDrop last compiled successfully, once; returns the full length, 0 when none is pending. */
 GEODE_API size_t      geode_viz_take_milk_preset_loaded(geode_viz*, char* out, size_t capacity);
 GEODE_API void        geode_viz_push_pcm(geode_viz*, const float* mono, int count);
+/* The reaction source catalogue, one line per source in wire order: "NAME|Label|GROUP|event(0/1)\n".
+ * Writes at most capacity bytes (NUL-terminated when it fits) and returns the length it needs. */
+GEODE_API int         geode_react_source_catalog(char* out, int capacity);
 /* The renderer's own sound engine: interleaved PCM in play order, every sample once, written on the render
  * thread before geode_viz_render; the next render steps it with that frame's dt. */
 GEODE_API void        geode_viz_write_audio(geode_viz*, const float* interleaved, int frames, int channels, int sample_rate);

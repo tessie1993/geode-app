@@ -171,6 +171,14 @@ Java_dev_geode_engine_bridge_GeodeNative_vizSoundFrame(JNIEnv* env, jobject, jlo
     env->SetFloatArrayRegion(out, 0, GEODE_SOUND_FRAME_FLOATS, reinterpret_cast<const jfloat*>(&frame));
 }
 
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_reactSourceCatalog(JNIEnv* env, jobject) {
+    const int need = geode_react_source_catalog(nullptr, 0);
+    std::vector<char> text(static_cast<size_t>(need) + 1);
+    geode_react_source_catalog(text.data(), need + 1);
+    return env->NewStringUTF(text.data());
+}
+
 JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_vizSetCustomShader(JNIEnv* env, jobject, jlong handle, jstring sceneId,
                                                             jstring fragmentSource) {

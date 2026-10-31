@@ -63,4 +63,10 @@ class EventRecipeTest {
         val route = ReactionRoute(source = ReactSource.KICK, target = LfoTarget.CAM_PUSH)
         assertEquals("When Kick → Camera push", EventRecipe.sentence(route))
     }
+
+    @Test
+    fun recipesTogetherListenToEverySoundGroupButTheEq() {
+        val groups = EventRecipe.entries.flatMap { r -> r.routes.map { it.source.group } }.toSet()
+        assertEquals(ReactSourceGroup.entries.toSet() - setOfNotNull(ReactSourceGroup.entries.find { it.name == "EQ" }), groups)
+    }
 }

@@ -127,6 +127,13 @@ jobs:
           g++ -std=c++20 -O1 -Wall -Wextra -Icore core/tests/sound_test.cpp core/sound/Fft.cpp core/sound/SoundEngine.cpp -o sound_test
           ./sound_test
 
+      # The scene and style catalogue (core/viz/Catalogue): ids, families, param scopes, ranges, and
+      # its text table byte-equal to core/tests/catalogue.txt, the copy the JVM tests read.
+      - name: Catalogue host tests
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          g++ -std=c++20 -O1 -Wall -Wextra -Icore core/tests/catalogue_test.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp -o catalogue_test
+          ./catalogue_test core/tests/catalogue.txt
       # The export DSP (resampler, BS.1770 loudness meter), ported from Kotlin (ADR 0003).
       - name: Native export DSP tests
         working-directory: ${{ env.PROJECT_DIR }}

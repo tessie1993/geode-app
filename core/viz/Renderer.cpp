@@ -381,8 +381,11 @@ void Renderer::surfaceChanged(int width, int height) {
 }
 
 void Renderer::setUserQuality(float renderScale, float marchScale, bool postFx, bool adaptive) {
-    userScale_.store(std::clamp(renderScale, 0.25f, 1.0f), std::memory_order_relaxed);
-    marchScale_.store(std::clamp(marchScale, 0.25f, 1.0f), std::memory_order_relaxed);
+    // std::clamp passes NaN through, and a NaN scale would never equal appliedUserScale_ again,
+    // resizing every frame; a corrupt pref means full quality instead.
+    const auto unit = [](float v) { return std::isfinite(v) ? std::clamp(v, 0.25f, 1.0f) : 1.0f; };
+    userScale_.store(unit(renderScale), std::memory_order_relaxed);
+    marchScale_.store(unit(marchScale), std::memory_order_relaxed);
     userPostFx_.store(postFx, std::memory_order_relaxed);
     thermal_.setAdaptive(adaptive);
 }

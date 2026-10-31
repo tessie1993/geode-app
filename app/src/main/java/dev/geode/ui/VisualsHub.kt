@@ -335,7 +335,12 @@ internal fun nextStageStyle(
 ): String? {
     if (order.isEmpty()) return null
     val here = order.indexOf(current)
-    val start = if (here >= 0) here else if (step > 0) -1 else 0
+    val start =
+        when {
+            here >= 0 -> here
+            step > 0 -> -1
+            else -> 0
+        }
     for (i in 1..order.size) {
         val id = order[Math.floorMod(start + step * i, order.size)]
         if (id != current && !locked(id)) return id

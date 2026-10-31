@@ -5,7 +5,6 @@ import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
-import dev.geode.analysis.AnalysisEngine
 import dev.geode.analysis.PlaybackMath
 import dev.geode.audio.AudioFxController
 import dev.geode.audio.AudioFxState
@@ -26,14 +25,11 @@ internal class PlayerSettingsController(
     private val playerPrefsRepository: PlayerPrefsRepository,
     private val scope: CoroutineScope,
     private val player: Player,
-    private val engine: AnalysisEngine,
     private val audioFx: AudioFxController,
     private val replayGain: ReplayGain,
     private val host: Host,
 ) {
     interface Host {
-        fun redecideCachedBeats(prefs: GuiPrefs)
-
         fun refreshUi()
 
         fun applyBitPerfect(enabled: Boolean)
@@ -49,14 +45,7 @@ internal class PlayerSettingsController(
     val audioFxState: StateFlow<AudioFxState> = _audioFxState
 
     fun setGuiPrefs(prefs: GuiPrefs) {
-        val previous = guiPrefs.value
         scope.launch { userData.setGuiPrefs(prefs) }
-        engine.beatSensitivity = prefs.beatSensitivity
-        engine.beatMinIntervalMs = prefs.effectiveBeatMinIntervalMs
-        val sensitivityChanged =
-            previous.beatSensitivity != prefs.beatSensitivity ||
-                previous.effectiveBeatMinIntervalMs != prefs.effectiveBeatMinIntervalMs
-        if (sensitivityChanged) host.redecideCachedBeats(prefs)
     }
 
     fun setPlayerPrefs(prefs: PlayerPrefs) {

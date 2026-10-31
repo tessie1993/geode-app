@@ -24,7 +24,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.launch
 
 @OptIn(UnstableApi::class)
 class PlaybackSession internal constructor(
@@ -53,7 +52,7 @@ class PlaybackSession internal constructor(
             if (hook != null) {
                 hook(format.sampleRateHz, format.channelCount, format.encoding)
             } else {
-                analysis.sampleRateHz = format.sampleRateHz
+                sampleRateHz = format.sampleRateHz
             }
         }.apply {
             boundaryListener =
@@ -109,28 +108,20 @@ class PlaybackSession internal constructor(
 
     val sleepTimer = SleepTimer(player, scope)
 
-    val analysis = dev.geode.analysis.AnalysisEngine(sampleRing)
+    /**
+     * The rate of whichever source writes [sampleRing] right now: the tap's format when nothing else
+     * claims it, otherwise what the UI session's capture controller sets (mic, other apps' audio, or
+     * back to the player). Written from the playback and capture threads, read on every GL thread.
+     */
+    @Volatile
+    var sampleRateHz: Int = DEFAULT_SAMPLE_RATE_HZ
 
     /** What every surface's sound engine reads; the rate follows whichever source owns the ring. */
-    val soundInput = dev.geode.engine.audio.SoundInput(sampleRing) { analysis.sampleRateHz }
-
-    private val interestHook: () -> Unit = { syncAnalysis() }
+    val soundInput = dev.geode.engine.audio.SoundInput(sampleRing) { sampleRateHz }
 
     init {
         player.addListener(replayGain)
-        dev.geode.audio.AudioBus.onInterestChanged = interestHook
         dev.geode.audio.AudioBus.soundInput = soundInput
-        syncAnalysis()
-        scope.launch {
-            analysis.features.collect {
-                dev.geode.audio.AudioBus
-                    .publish(it)
-            }
-        }
-    }
-
-    private fun syncAnalysis() {
-        if (dev.geode.audio.AudioBus.hasConsumers) analysis.start(scope) else analysis.stop()
     }
 
     val playbackWanted: Boolean
@@ -140,10 +131,6 @@ class PlaybackSession internal constructor(
                 player.playbackState != Player.STATE_ENDED
 
     internal fun release() {
-        analysis.close()
-        if (dev.geode.audio.AudioBus.onInterestChanged === interestHook) {
-            dev.geode.audio.AudioBus.onInterestChanged = null
-        }
         if (dev.geode.audio.AudioBus.soundInput === soundInput) dev.geode.audio.AudioBus.soundInput = null
         scope.cancel()
         onAudioFormat = null
@@ -151,6 +138,10 @@ class PlaybackSession internal constructor(
         player.removeListener(replayGain)
         player.release()
         dsp.release()
+    }
+
+    private companion object {
+        const val DEFAULT_SAMPLE_RATE_HZ = 48_000
     }
 }
 

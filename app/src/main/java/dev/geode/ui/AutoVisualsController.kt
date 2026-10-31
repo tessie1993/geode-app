@@ -1,16 +1,11 @@
 package dev.geode.ui
 
-import dev.geode.analysis.AudioFeatures
 import dev.geode.data.PaletteStore
 import dev.geode.data.Preset
-import dev.geode.render.LiveSignal
 import dev.geode.render.scene.MilkdropEngine
 import dev.geode.render.scene.SceneIds
 import dev.geode.render.scene.SceneParams
 import kotlinx.coroutines.flow.StateFlow
-
-/** A switch waits for a hit this strong — the live transient, not a tracked beat. */
-private const val STRONG_MOMENT_IMPULSE = 0.6f
 
 internal class AutoVisualsController(
     private val prefsStore: AutoVisualsPrefsStore,
@@ -22,9 +17,6 @@ internal class AutoVisualsController(
         fun updateViz(transform: (VizUiState) -> VizUiState)
 
         val isPlaying: Boolean
-        val positionMs: Long
-
-        fun features(): AudioFeatures
 
         val presetLocked: Boolean
 
@@ -36,8 +28,6 @@ internal class AutoVisualsController(
             path: String,
             sceneId: String,
         )
-
-        fun analyzeCurrentTrack()
 
         fun milkFilesAsync(onDone: (List<MilkFile>) -> Unit)
     }
@@ -79,11 +69,6 @@ internal class AutoVisualsController(
         persistAutoVisuals()
     }
 
-    fun setVizPlaylistIntelligent(enabled: Boolean) {
-        host.updateViz { it.copy(vizPlaylistIntelligent = enabled) }
-        persistAutoVisuals()
-    }
-
     fun setVizPlaylistInterval(seconds: Int) {
         host.updateViz { it.copy(vizPlaylistIntervalSec = seconds.coerceIn(AutoVisualsPrefsStore.INTERVAL_SEC)) }
         persistAutoVisuals()
@@ -93,17 +78,7 @@ internal class AutoVisualsController(
         val s = host.vizState.value
         if (!s.vizPlaylistEnabled || s.vizPlaylist.size < 2 || !host.isPlaying) return
         val now = android.os.SystemClock.elapsedRealtime()
-        val elapsed = now - lastVizSwitchMs
-        val intervalMs = s.vizPlaylistIntervalSec * 1000L
-        val due =
-            if (s.vizPlaylistIntelligent) {
-                val f = host.features()
-                val minDwell = maxOf(8_000L, intervalMs / 2)
-                (elapsed >= minDwell && LiveSignal.hit(f) >= STRONG_MOMENT_IMPULSE) || elapsed >= intervalMs * 2
-            } else {
-                elapsed >= intervalMs
-            }
-        if (!due) return
+        if (now - lastVizSwitchMs < s.vizPlaylistIntervalSec * 1000L) return
         lastVizSwitchMs = now
         vizPlaylistIndex = (vizPlaylistIndex + 1) % s.vizPlaylist.size
         applyVizEntry(s.vizPlaylist[vizPlaylistIndex])
@@ -124,11 +99,6 @@ internal class AutoVisualsController(
 
     fun setRandomInterval(seconds: Int) {
         host.updateViz { it.copy(randomIntervalSec = seconds.coerceIn(AutoVisualsPrefsStore.INTERVAL_SEC)) }
-        persistAutoVisuals()
-    }
-
-    fun setRandomOnBeat(enabled: Boolean) {
-        host.updateViz { it.copy(randomOnBeat = enabled) }
         persistAutoVisuals()
     }
 
@@ -161,64 +131,10 @@ internal class AutoVisualsController(
         host.milkFilesAsync { cachedMilkFiles = it }
     }
 
-    private fun currentSectionIndex(): Int {
-        val sections = host.vizState.value.sections
-        if (sections.isEmpty()) return 0
-        val pos = host.positionMs
-        var idx = 0
-        for (boundary in sections) {
-            if (boundary <= pos) idx++ else break
-        }
-        return idx
-    }
-
-    private var lastStagedSection = -1
-
-    fun onTrackChanged() {
-        lastStagedSection = -1
-    }
-
-    fun advanceSectionStaging() {
-        val s = host.vizState.value
-        if (!s.sectionStaging || !host.isPlaying) return
-        val index = currentSectionIndex()
-        if (index == lastStagedSection) return
-        lastStagedSection = index
-        if (s.vizPlaylist.isNotEmpty()) {
-            applyVizEntry(s.vizPlaylist[index % s.vizPlaylist.size])
-            return
-        }
-        val pool = s.presets.filter { it.sceneId == s.sceneId }
-        if (pool.isNotEmpty()) host.applyPreset(pool[index % pool.size])
-    }
-
-    fun setSectionStaging(enabled: Boolean) {
-        host.updateViz { it.copy(sectionStaging = enabled) }
-        lastStagedSection = -1
-        if (enabled &&
-            host.vizState.value.sections
-                .isEmpty()
-        ) {
-            host.analyzeCurrentTrack()
-        }
-        persistAutoVisuals()
-    }
-
     fun advanceRandomMode() {
         val s = host.vizState.value
         if (!s.randomEnabled || !host.isPlaying) return
-        val now = android.os.SystemClock.elapsedRealtime()
-        val elapsed = now - lastRandomSwitchMs
-        val intervalMs = s.randomIntervalSec * 1000L
-        val due =
-            if (s.randomOnBeat) {
-                val f = host.features()
-                val minDwell = maxOf(6_000L, intervalMs / 2)
-                (elapsed >= minDwell && LiveSignal.hit(f) >= STRONG_MOMENT_IMPULSE) || elapsed >= intervalMs * 2
-            } else {
-                elapsed >= intervalMs
-            }
-        if (!due) return
+        if (android.os.SystemClock.elapsedRealtime() - lastRandomSwitchMs < s.randomIntervalSec * 1000L) return
         randomStepNow()
     }
 

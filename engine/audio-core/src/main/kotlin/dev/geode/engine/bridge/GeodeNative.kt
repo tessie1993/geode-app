@@ -317,6 +317,21 @@ object GeodeNative {
 
     external fun vizTakeMilkPresetLoaded(handle: Long): String?
 
+    external fun vizWriteAudio(
+        handle: Long,
+        interleaved: FloatArray,
+        frames: Int,
+        channels: Int,
+        sampleRate: Int,
+    )
+
+    external fun vizResetAudio(handle: Long)
+
+    external fun vizSoundFrame(
+        handle: Long,
+        out: FloatArray,
+    )
+
     external fun vizPushPcm(
         handle: Long,
         mono: FloatArray,

@@ -30,6 +30,11 @@ float Renderer::beginFrame(double timeSeconds) {
     lastTimeS_ = timeSeconds;
     thermal_.onFrame(dt);
     timeSeconds_ = std::fmod(timeSeconds_ + dt, kTimeWrapSeconds);
+    {
+        // Before anything reads it this frame. No engine yet (nothing written) leaves the frame silent.
+        std::lock_guard<std::mutex> lock(soundLock_);
+        if (sound_) sound_->step(dt, soundFrame_);
+    }
     std::vector<std::pair<std::string, std::string>> pending;
     {
         std::lock_guard<std::mutex> lock(stateLock_);

@@ -19,6 +19,11 @@ namespace geode::viz {
 class ShaderScene : public Scene {
 public:
     static constexpr int kAudioTexWidth = 512;
+    // uSoundTex: row 0 spectrum, row 1 waveform, row 2 EQ, each resampled to this width (lib_sound).
+    static constexpr int kSoundTexWidth = 128;
+    static constexpr int kSoundTexRows = 3;
+    // GEODE_SOUND_SCALARS rounded up to whole vec4s: uSound[kSoundVec4s].
+    static constexpr int kSoundVec4s = (GEODE_SOUND_SCALARS + 3) / 4;
 
     ShaderScene(std::string id, std::string vertexSrc, std::string fragmentSrc, ProgramBinaryCache* cache, SceneHost host);
     ~ShaderScene() override;
@@ -37,6 +42,7 @@ public:
     void setPaletteLut(GLuint texture) override { paletteLutTex_ = texture; }
     void setTouchField(const TouchField* field) override { touchField_ = field; }
     void setCamera(const CameraPose* pose) override { camera_ = pose; }
+    void setSound(const GeodeSoundFrame* sound) override { sound_ = sound; }
     bool drawsCamera() const override { return drawsCamera_; }
     void setFragmentSource(const std::string& source) override;
 
@@ -81,6 +87,7 @@ private:
     void uploadMotion();
     void uploadTouch();
     void uploadCameraAndReactions();
+    void uploadSound();
     void set1f(const char* name, float value);
     float marchSteps(float detail);
 
@@ -135,6 +142,11 @@ private:
     GLuint paletteLutTex_ = 0;
     const TouchField* touchField_ = nullptr;
     const CameraPose* camera_ = nullptr;
+    // The renderer's sound frame (setSound); uploaded as uSound and uSoundTex in draw().
+    const GeodeSoundFrame* sound_ = nullptr;
+    Texture soundTex_;
+    std::array<float, kSoundVec4s * 4> soundScalars_{};
+    std::array<float, kSoundTexWidth * kSoundTexRows> soundTexData_{};
     // True when the compiled program reads uCamBasis (lib_camera): the style
     // marches the rig's pose itself and the composite leaves it alone.
     bool drawsCamera_ = false;

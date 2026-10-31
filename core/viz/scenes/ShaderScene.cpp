@@ -69,6 +69,8 @@ void ShaderScene::init() {
     const char* extensions = reinterpret_cast<const char*>(glGetString(GL_EXTENSIONS));
     const bool floatLinear = extensions && std::strstr(extensions, "OES_texture_float_linear") != nullptr;
     audioTex_.createImage(GL_R32F, GL_RED, GL_FLOAT, kAudioTexWidth, 2, floatLinear ? GL_LINEAR : GL_NEAREST, GL_CLAMP_TO_EDGE);
+    soundTex_.createImage(GL_R32F, GL_RED, GL_FLOAT, kSoundTexWidth, kSoundTexRows, floatLinear ? GL_LINEAR : GL_NEAREST,
+                          GL_CLAMP_TO_EDGE);
 }
 
 void ShaderScene::resize(int width, int height) {
@@ -167,9 +169,42 @@ void ShaderScene::draw(float timeSeconds) {
     uploadMotion();
     uploadTouch();
     uploadCameraAndReactions();
+    uploadSound();
     glBindVertexArray(vao_);
     glDrawArrays(GL_TRIANGLES, 0, 3);
     glBindVertexArray(0);
+}
+
+namespace {
+// Linear resample of `src` (n points) across `width` texels, so every row of uSoundTex reads 0..1 in x
+// whatever the engine's point count.
+void resampleRow(const float* src, int n, float* dst, int width) {
+    for (int i = 0; i < width; ++i) {
+        const float x = width > 1 ? static_cast<float>(i) * static_cast<float>(n - 1) / static_cast<float>(width - 1) : 0.0f;
+        const int a = std::min(static_cast<int>(x), n - 1);
+        const int b = std::min(a + 1, n - 1);
+        const float t = x - static_cast<float>(a);
+        dst[i] = src[a] + (src[b] - src[a]) * t;
+    }
+}
+}  // namespace
+
+// The whole GeodeSoundFrame, raw: scalars as uSound (lib_sound names them), the arrays as uSoundTex on
+// unit 3. No drive, clamp or slew here; the engine's values are already dt-scaled and bounded, and
+// styles shape them themselves. Unused by a style, both cost one call the driver drops.
+void ShaderScene::uploadSound() {
+    if (sound_ == nullptr) return;
+    const float* scalars = reinterpret_cast<const float*>(sound_);
+    std::copy(scalars, scalars + GEODE_SOUND_SCALARS, soundScalars_.begin());
+    glUniform4fv(uniforms_.loc("uSound"), kSoundVec4s, soundScalars_.data());
+    resampleRow(sound_->spectrum, GEODE_SOUND_SPECTRUM_POINTS, soundTexData_.data(), kSoundTexWidth);
+    resampleRow(sound_->waveform, GEODE_SOUND_WAVEFORM_POINTS, soundTexData_.data() + kSoundTexWidth, kSoundTexWidth);
+    resampleRow(sound_->eq, GEODE_SOUND_EQ_BANDS, soundTexData_.data() + 2 * kSoundTexWidth, kSoundTexWidth);
+    glActiveTexture(GL_TEXTURE3);
+    glBindTexture(GL_TEXTURE_2D, soundTex_.id());
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, kSoundTexWidth, kSoundTexRows, GL_RED, GL_FLOAT, soundTexData_.data());
+    glUniform1i(uniforms_.loc("uSoundTex"), 3);
+    glActiveTexture(GL_TEXTURE0);
 }
 
 void ShaderScene::uploadParams() {
@@ -346,6 +381,7 @@ void ShaderScene::release() {
     if (program_ != 0) glDeleteProgram(program_);
     if (vao_ != 0) glDeleteVertexArrays(1, &vao_);
     audioTex_.release();
+    soundTex_.release();
     program_ = 0;
     vao_ = 0;
     uniforms_ = UniformCache(0);

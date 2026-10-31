@@ -15,6 +15,7 @@ enum class TutorialChapter(
 ) {
     WELCOME(2),
     PLAYER(3),
+    LIBRARY(3),
     SETTINGS(2),
 }
 

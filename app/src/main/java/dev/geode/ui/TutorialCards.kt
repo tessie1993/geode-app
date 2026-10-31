@@ -29,6 +29,7 @@ val TutorialChapter.titleRes: Int
         when (this) {
             TutorialChapter.WELCOME -> R.string.tutorial_chapter_welcome
             TutorialChapter.PLAYER -> R.string.tutorial_chapter_player
+            TutorialChapter.LIBRARY -> R.string.tutorial_chapter_library
             TutorialChapter.SETTINGS -> R.string.tutorial_chapter_settings
         }
 
@@ -60,6 +61,27 @@ val TutorialChapter.cardContent: List<TutorialCard>
                         R.string.tutorial_player_3_body,
                         TutorialArt.TIMER,
                         TutorialTarget.PLAYER,
+                    ),
+                )
+            TutorialChapter.LIBRARY ->
+                listOf(
+                    TutorialCard(
+                        R.string.tutorial_library_1_title,
+                        R.string.tutorial_library_1_body,
+                        TutorialArt.ALBUMS,
+                        TutorialTarget.LIBRARY,
+                    ),
+                    TutorialCard(
+                        R.string.tutorial_library_2_title,
+                        R.string.tutorial_library_2_body,
+                        TutorialArt.LIST,
+                        TutorialTarget.LIBRARY,
+                    ),
+                    TutorialCard(
+                        R.string.tutorial_library_3_title,
+                        R.string.tutorial_library_3_body,
+                        TutorialArt.SEARCH,
+                        TutorialTarget.LIBRARY,
                     ),
                 )
             TutorialChapter.SETTINGS ->

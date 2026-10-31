@@ -146,10 +146,11 @@ const std::array<SceneParams::FloatField, SceneParams::kLerpedFloatCount>& Scene
     return kFields;
 }
 
-bool SceneParams::set(std::string_view name, float value) {
-    struct IntField { const char* name; int SceneParams::*member; };
-    struct BoolField { const char* name; bool SceneParams::*member; };
-    static const IntField kInts[] = {
+namespace {
+// Every field by name, grouped by type: what set(), get() and the wire go through.
+struct IntField { const char* name; int SceneParams::*member; };
+struct BoolField { const char* name; bool SceneParams::*member; };
+const IntField kInts[] = {
         {"symmetry", &SceneParams::symmetry},
         {"particleShape", &SceneParams::particleShape},
         {"palette", &SceneParams::palette},
@@ -168,7 +169,7 @@ bool SceneParams::set(std::string_view name, float value) {
         {"camPath", &SceneParams::camPath},
         {"reactSeed", &SceneParams::reactSeed},
     };
-    static const BoolField kBools[] = {
+const BoolField kBools[] = {
         {"endlessZoom", &SceneParams::endlessZoom},
         {"trails", &SceneParams::trails},
         {"mirror", &SceneParams::mirror},
@@ -191,7 +192,7 @@ bool SceneParams::set(std::string_view name, float value) {
         {"camTouch", &SceneParams::camTouch},
         {"camGyro", &SceneParams::camGyro},
     };
-    static const FloatField kAllFloats[] = {
+const SceneParams::FloatField kAllFloats[] = {
         {"speed", &SceneParams::speed},
         {"zoom", &SceneParams::zoom},
         {"rotation", &SceneParams::rotation},
@@ -308,7 +309,10 @@ bool SceneParams::set(std::string_view name, float value) {
         {"camShake", &SceneParams::camShake},
         {"camSmooth", &SceneParams::camSmooth},
         {"reactAmount", &SceneParams::reactAmount},
-    };
+};
+}  // namespace
+
+bool SceneParams::set(std::string_view name, float value) {
     for (const auto& f : kAllFloats) {
         if (name == f.name) { this->*f.member = value; return true; }
     }
@@ -319,6 +323,31 @@ bool SceneParams::set(std::string_view name, float value) {
         if (name == f.name) { this->*f.member = value > 0.5f; return true; }
     }
     return false;
+}
+
+float SceneParams::get(std::string_view name) const {
+    for (const auto& f : kAllFloats) {
+        if (name == f.name) return this->*f.member;
+    }
+    for (const auto& f : kInts) {
+        if (name == f.name) return static_cast<float>(this->*f.member);
+    }
+    for (const auto& f : kBools) {
+        if (name == f.name) return this->*f.member ? 1.0f : 0.0f;
+    }
+    return 0.0f;
+}
+
+SceneParams SceneParams::fromWire(const float* values) {
+    SceneParams p;
+    const auto& names = fieldNames();
+    for (size_t i = 0; i < names.size(); ++i) p.set(names[i], values[i]);
+    return p;
+}
+
+void SceneParams::toWire(float* out) const {
+    const auto& names = fieldNames();
+    for (size_t i = 0; i < names.size(); ++i) out[i] = get(names[i]);
 }
 
 SceneParams lerpParams(const SceneParams& from, const SceneParams& to, float k) {

@@ -460,50 +460,78 @@ internal class ExportController(
         edit: dev.geode.export.ClipEdit,
         destination: Uri? = null,
     ) {
-        if (_studio.value.phase.isBusy) return
-        _studio.update { it.copy(phase = ExportPhase.Running(0f)) }
-        studioJob =
-            scope.launch {
-                val name = "muzviz_studio_${System.currentTimeMillis()}.mp4"
-                val result =
-                    studioExporter.export(
-                        source = Uri.parse(clip.uri),
-                        sourceDurationMs = clip.durationMs,
-                        edit = edit,
-                        displayName = name,
-                        codec = defaultCodec(),
-                        destination = destination,
-                    ) { p -> _studio.update { it.copy(phase = ExportPhase.Running(p.coerceIn(0f, 1f))) } }
-                _studio.update { it.copy(phase = result.toPhase()) }
-                refreshStudioClips()
-                studioJob = null
-            }
+        val name = "muzviz_studio_${System.currentTimeMillis()}.mp4"
+        runStudioExport(name) {
+            val result =
+                studioExporter.export(
+                    source = Uri.parse(clip.uri),
+                    sourceDurationMs = clip.durationMs,
+                    edit = edit,
+                    displayName = name,
+                    codec = defaultCodec(),
+                    destination = destination,
+                    onProgress = ::publishStudioProgress,
+                )
+            _studio.update { it.copy(phase = result.toPhase()) }
+            refreshStudioClips()
+        }
     }
 
     fun startProjectExport(
         project: dev.geode.editor.EditorProject,
         destination: Uri? = null,
     ) {
-        if (_studio.value.phase.isBusy) return
+        val name = "muzviz_cut_${System.currentTimeMillis()}.mp4"
+        runStudioExport(name) {
+            // build() reads the export defaults from prefs, so it runs on IO with them.
+            val built = withContext(Dispatchers.IO) { ProjectComposition.build(application, project) }
+            if (built !is ProjectComposition.Outcome.Ready) {
+                _studio.update { it.copy(phase = ExportPhase.Failed(application.getString(dev.geode.R.string.editor_export_no_video))) }
+                return@runStudioExport
+            }
+            val result =
+                studioExporter.exportComposition(
+                    built.composition,
+                    built.durationMs,
+                    name,
+                    defaultCodec(),
+                    destination,
+                    ::publishStudioProgress,
+                )
+            _studio.update { it.copy(phase = result.toPhase()) }
+            refreshStudioClips()
+        }
+    }
+
+    /**
+     * Studio exports stay on [scope] (Transformer wants the main looper) but share [ExportRun]'s
+     * single-render guard and [ExportService]'s foreground notification with every other render:
+     * without them a long Transformer export died once the user left the app, and a visualizer
+     * render could start beside it and fight it for the encoder.
+     */
+    private fun runStudioExport(
+        label: String,
+        work: suspend () -> Unit,
+    ) {
+        if (_studio.value.phase.isBusy || ExportRun.running) return
         _studio.update { it.copy(phase = ExportPhase.Running(0f)) }
+        ExportRun.begin(label)
+        ExportService.start(application)
         studioJob =
             scope.launch {
-                // build() reads the export defaults from prefs, so it runs on IO with them.
-                val built = withContext(Dispatchers.IO) { ProjectComposition.build(application, project) }
-                if (built !is ProjectComposition.Outcome.Ready) {
-                    _studio.update { it.copy(phase = ExportPhase.Failed(application.getString(dev.geode.R.string.editor_export_no_video))) }
+                try {
+                    work()
+                } finally {
+                    ExportRun.finish()
                     studioJob = null
-                    return@launch
                 }
-                val name = "muzviz_cut_${System.currentTimeMillis()}.mp4"
-                val result =
-                    studioExporter.exportComposition(built.composition, built.durationMs, name, defaultCodec(), destination) { p ->
-                        _studio.update { it.copy(phase = ExportPhase.Running(p.coerceIn(0f, 1f))) }
-                    }
-                _studio.update { it.copy(phase = result.toPhase()) }
-                refreshStudioClips()
-                studioJob = null
             }
+    }
+
+    private fun publishStudioProgress(p: Float) {
+        val clamped = p.coerceIn(0f, 1f)
+        _studio.update { it.copy(phase = ExportPhase.Running(clamped)) }
+        ExportRun.publish(clamped)
     }
 
     // Called from [scope], which is Main: the prefs read itself goes to IO.

@@ -101,6 +101,7 @@ class GeodeContainer(
         }
     }
 
+    @androidx.annotation.RequiresApi(Build.VERSION_CODES.Q)
     private fun deletePendingRowsOlderThan(
         context: Context,
         collection: Uri,
@@ -119,10 +120,26 @@ class GeodeContainer(
                 "Movies/MuzViz%",
                 "Pictures/MuzViz%",
             )
-        resolver.query(collection, arrayOf(MediaStore.MediaColumns._ID), selection, args, null)?.use { cursor ->
-            val idColumn = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns._ID)
-            while (cursor.moveToNext()) {
-                val uri = ContentUris.withAppendedId(collection, cursor.getLong(idColumn))
+        val projection = arrayOf(MediaStore.MediaColumns._ID)
+        // A plain query leaves pending rows out (MATCH_EXCLUDE by default), so without opting in
+        // the IS_PENDING = 1 selection matched nothing and no orphan was ever swept.
+        val cursor =
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                val query =
+                    android.os.Bundle().apply {
+                        putString(android.content.ContentResolver.QUERY_ARG_SQL_SELECTION, selection)
+                        putStringArray(android.content.ContentResolver.QUERY_ARG_SQL_SELECTION_ARGS, args)
+                        putInt(MediaStore.QUERY_ARG_MATCH_PENDING, MediaStore.MATCH_INCLUDE)
+                    }
+                resolver.query(collection, projection, query, null)
+            } else {
+                @Suppress("DEPRECATION")
+                resolver.query(MediaStore.setIncludePending(collection), projection, selection, args, null)
+            }
+        cursor?.use { rows ->
+            val idColumn = rows.getColumnIndexOrThrow(MediaStore.MediaColumns._ID)
+            while (rows.moveToNext()) {
+                val uri = ContentUris.withAppendedId(collection, rows.getLong(idColumn))
                 bestEffort(TAG, "resolver.delete(orphaned pending row)") { resolver.delete(uri, null, null) }
             }
         }

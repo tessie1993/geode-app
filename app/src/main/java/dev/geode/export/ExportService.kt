@@ -18,6 +18,8 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
 class ExportService : Service() {
@@ -31,13 +33,18 @@ class ExportService : Service() {
         bestEffort(TAG, "startForegroundNotification(ExportRun.state.v...") { startForegroundNotification(ExportRun.state.value) }
         watcher =
             scope.launch {
-                ExportRun.state.collectLatest { state ->
-                    if (!state.running) {
-                        stopSelf()
-                        return@collectLatest
+                // The render publishes every frame; rounded to whole percent, the notification is
+                // rebuilt (two binder calls on Main) a hundred times per render, not thirty a second.
+                ExportRun.state
+                    .map { it.copy(progress = it.progress?.let { p -> (p * PERCENT).toInt() / PERCENT }) }
+                    .distinctUntilChanged()
+                    .collectLatest { state ->
+                        if (!state.running) {
+                            stopSelf()
+                            return@collectLatest
+                        }
+                        bestEffort(TAG, "startForegroundNotification(state)") { startForegroundNotification(state) }
                     }
-                    bestEffort(TAG, "startForegroundNotification(state)") { startForegroundNotification(state) }
-                }
             }
     }
 
@@ -119,6 +126,7 @@ class ExportService : Service() {
         private const val CHANNEL_ID = "geode-export"
         private const val NOTIFICATION_ID = 4711
         private const val PROGRESS_MAX = 1000
+        private const val PERCENT = 100f
 
         fun start(context: Context) {
             runCatching {

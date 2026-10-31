@@ -1,5 +1,6 @@
 package dev.geode.ui
 
+import android.os.Build
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -83,7 +84,9 @@ internal fun RenderScopeChooser(
             )
         }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-            RenderScope.entries.forEach { option ->
+            // Batches write straight to MediaStore; below Android 10 that needs a storage
+            // permission the app doesn't hold (single renders ask for a file instead).
+            RenderScope.entries.filter { !it.isBatch || Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q }.forEach { option ->
                 DropdownMenuItem(
                     text = {
                         Text(

@@ -111,6 +111,26 @@ class VideoExporter(
          * so the caller can tell that quick lead-in from the frame loop when it estimates time left.
          */
         const val AUDIO_PROGRESS_SPAN = 0.1f
+
+        /** What [AudioTranscoder] encodes the soundtrack at. */
+        private const val AUDIO_BIT_RATE = 192_000
+
+        /**
+         * [bitRate], lowered when a file of [durationUs] at that rate would pass
+         * [LoopExtend.MUXER_SAFE_BYTES]: MediaMuxer writes 32-bit offsets, so a long 4K mix used to
+         * finish as "Saved" and stop playing at four gigabytes. A quarter of headroom covers the
+         * encoder overshooting its target and the sample tables.
+         */
+        fun bitRateUnderMuxerLimit(
+            bitRate: Int,
+            durationUs: Long,
+        ): Int {
+            val seconds = (durationUs / 1_000_000L).coerceAtLeast(1L)
+            val fitting = LoopExtend.MUXER_SAFE_BYTES * 3 / 4 * 8 / seconds - AUDIO_BIT_RATE
+            return minOf(bitRate.toLong(), fitting.coerceAtLeast(MIN_VIDEO_BIT_RATE)).toInt()
+        }
+
+        private const val MIN_VIDEO_BIT_RATE = 500_000L
     }
 
     sealed interface Result {
@@ -398,12 +418,13 @@ class VideoExporter(
         var sampleWritten = false
         try {
             val requestedFpsBounded = requestedFps.coerceIn(24, 60)
+            val bitRate = bitRateUnderMuxerLimit(aspect.bitRate, (range?.durationMs ?: timeline.durationMs) * 1000)
             // The requested codec at the requested rate first, then its reduced form, then the same pair on H.264.
             val attempts =
                 listOf(codec.available(), ExportCodec.H264).distinct().flatMap { c ->
                     listOf(
-                        EncoderAttempt(c, requestedFpsBounded, aspect.bitRate),
-                        EncoderAttempt(c, dev.geode.data.fallbackExportFps(requestedFpsBounded), aspect.bitRate * 2 / 3),
+                        EncoderAttempt(c, requestedFpsBounded, bitRate),
+                        EncoderAttempt(c, dev.geode.data.fallbackExportFps(requestedFpsBounded), bitRate * 2 / 3),
                     )
                 }
             val (encoder, fps) = openEncoder(aspect, attempts)

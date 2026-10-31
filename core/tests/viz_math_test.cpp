@@ -8,6 +8,7 @@
 #include <set>
 
 #include "viz/CameraRig.hpp"
+#include "viz/MotionField.hpp"
 #include "viz/ReactionDna.hpp"
 #include "viz/Reactions.hpp"
 
@@ -420,6 +421,100 @@ void dnaLeavesRoomAndStaysInRange() {
     }
 }
 
+
+// Music playing at a steady level, for the camera's own moves.
+GeodeSoundFrame playing() {
+    GeodeSoundFrame f = silence();
+    f.presence = 1.0f;
+    f.intensity = 1.0f;
+    f.bassAtt = 1.0f;
+    return f;
+}
+
+void hardCutsJumpWithoutATweenAndKeepTheirGap() {
+    SceneParams p;
+    p.camFly = 1.0f;
+    CameraRig rig;
+    GeodeSoundFrame f = playing();
+    for (int i = 0; i < 60; ++i) rig.step(p, {}, 1.0f / 60.0f, false, true, &f);
+    const float before = rig.pose().travel;
+    f.hardCut = 1.0f;
+    rig.step(p, {}, 1.0f / 60.0f, false, true, &f);
+    check(rig.cuts() == 1, "a hard cut cuts");
+    check(std::fabs(rig.pose().travel - before) > 30.0f, "a cut lands somewhere else on the path");
+    // Another cut five seconds later is ignored: cuts keep their gap.
+    f.hardCut = 0.0f;
+    for (int i = 0; i < 300; ++i) rig.step(p, {}, 1.0f / 60.0f, false, true, &f);
+    f.hardCut = 1.0f;
+    rig.step(p, {}, 1.0f / 60.0f, false, true, &f);
+    check(rig.cuts() == 1, "cuts closer than the gap are ignored");
+    f.hardCut = 0.0f;
+    for (int i = 0; i < 60 * 15; ++i) rig.step(p, {}, 1.0f / 60.0f, false, true, &f);
+    f.hardCut = 1.0f;
+    rig.step(p, {}, 1.0f / 60.0f, false, true, &f);
+    check(rig.cuts() == 2, "a cut after the gap cuts again");
+}
+
+void silenceAndTheMotionDialStillTheMusicMoves() {
+    SceneParams p;
+    p.camFly = 1.0f;
+    CameraRig quiet;
+    CameraRig none;
+    CameraRig still;
+    SceneParams noMotion = p;
+    noMotion.motionAmount = 0.0f;
+    GeodeSoundFrame f = silence();  // presence 0: no music
+    GeodeSoundFrame loud = playing();
+    for (int i = 0; i < 600; ++i) {
+        f.midTime = loud.midTime = 0.01f * static_cast<float>(i);
+        f.kick = loud.kick = (i % 30 == 0) ? 1.0f : 0.0f;
+        f.hardCut = loud.hardCut = (i == 300) ? 1.0f : 0.0f;
+        quiet.step(p, {}, 1.0f / 60.0f, false, true, &f);
+        none.step(p, {}, 1.0f / 60.0f, false, true, nullptr);
+        still.step(noMotion, {}, 1.0f / 60.0f, false, true, &loud);
+    }
+    check(std::fabs(quiet.pose().yaw - none.pose().yaw) < 1e-5f && quiet.cuts() == 0, "with no music the camera moves as if it had no sound");
+    check(std::fabs(still.pose().yaw - none.pose().yaw) < 1e-5f && still.cuts() == 0, "Motion at 0 turns the music's moves off");
+}
+
+void traumaShakeIsBoundedAndFinite() {
+    SceneParams p;
+    CameraRig rig;
+    GeodeSoundFrame f = playing();
+    float maxYaw = 0.0f;
+    for (int i = 0; i < 600; ++i) {
+        f.kick = 1.0f;
+        f.snare = 1.0f;
+        f.flux = 4.0f;
+        f.midTime = 1e7f;
+        rig.step(p, {}, 1.0f / 60.0f, false, true, &f);
+        maxYaw = std::fmax(maxYaw, std::fabs(rig.pose().yaw));
+        check(std::isfinite(rig.pose().yaw) && std::isfinite(rig.pose().pitch), "shake stays finite");
+    }
+    check(maxYaw < 0.4f, "a wall of hits still shakes within bounds");
+    f = playing();
+    f.kick = NAN;
+    f.presence = INFINITY;
+    rig.step(p, {}, 1.0f / 60.0f, false, true, &f);
+    check(std::isfinite(rig.pose().yaw) && std::isfinite(rig.pose().focal), "a wild frame leaves the camera finite");
+}
+
+void motionFieldVariantsDiffer() {
+    std::set<int> hues;
+    GeodeSoundFrame f = playing();
+    f.pitchClass = 0.25f;
+    f.pitchConfidence = 1.0f;
+    f.centroid = 0.75f;
+    f.noteRandom = 0.5f;
+    f.kickRandom = 0.0f;
+    for (int i = 0; i < kStyleCount; ++i) {
+        MotionField m;
+        m.setVariant(styleVariantSeed(kStyleIds[i]));
+        for (int k = 0; k < 600; ++k) m.step(f, 1.0f / 30.0f);
+        hues.insert(static_cast<int>(std::lround(m.state().keyHue * 100.0f)));
+    }
+    check(hues.size() >= 3, "styles follow different hue drivers");
+}
 }  // namespace
 
 int main() {
@@ -445,6 +540,10 @@ int main() {
     oddFrameTimesStayFiniteAndBounded();
     zeroDtFreezesTheCameraAndHugeDtIsOneClampedStep();
     stillStylesKeepTheBankOutOfTheFlatRoll();
+    hardCutsJumpWithoutATweenAndKeepTheirGap();
+    silenceAndTheMotionDialStillTheMusicMoves();
+    traumaShakeIsBoundedAndFinite();
+    motionFieldVariantsDiffer();
     if (failures == 0) std::printf("viz_math_test: all passed\n");
     return failures == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
 }

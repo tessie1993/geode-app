@@ -71,6 +71,7 @@ Scene* Renderer::resolveActiveScene() {
         }
         activeScene_ = requested;
         sceneJustSwitched_ = true;
+        motionField_.setVariant(styleVariantSeed(requestedId));
     }
     return activeScene_;
 }
@@ -100,10 +101,10 @@ SceneParams Renderer::resolveParams(float dt) {
     reactions_.tick(soundFrame_, dt);
     p = reactions_.apply(p);
     // The continuous motion system: the one stage every family's parameters
-    // pass through, fed only the feature frame (never a one-hop PCM/drum
+    // pass through, fed the sound frame (never a single drum hit or PCM
     // impulse), ahead of the safety clamp so nothing it adds can exceed the
     // flash and motion limits.
-    motionField_.step(frameFeatures_, dt);
+    motionField_.step(soundFrame_, dt);
     const bool reducedMotion = reducedMotion_.load(std::memory_order_relaxed);
     p = motionField_.apply(p, reducedMotion, sceneSpin_.load(std::memory_order_relaxed));
     p = safety::apply(p, reducedMotion);
@@ -301,7 +302,8 @@ void Renderer::stepCamera(const SceneParams& p, float dt) {
     }
     look.yaw = std::clamp(look.yaw, -1.0f, 1.0f);
     look.pitch = std::clamp(look.pitch, -1.0f, 1.0f);
-    camera_.step(p, look, dt, reducedMotion_.load(std::memory_order_relaxed), sceneSpin_.load(std::memory_order_relaxed) != 0.0f);
+    camera_.step(p, look, dt, reducedMotion_.load(std::memory_order_relaxed), sceneSpin_.load(std::memory_order_relaxed) != 0.0f,
+                 &soundFrame_);
 }
 
 void Renderer::wireFlow(Scene& target, const SceneParams& p) {

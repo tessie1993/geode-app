@@ -55,6 +55,7 @@ void ShaderScene::setFragmentSource(const std::string& source) {
 }
 
 void ShaderScene::init() {
+    motionField_.setVariant(styleVariantSeed(id_));
     program_ = 0;
     uniforms_ = UniformCache(0);
     {
@@ -101,7 +102,7 @@ void ShaderScene::update(const GeodeFeatureFrame& features, float dt) {
     swell_ = slew(swell_, energy_, dt, kSwellRiseHz, kSwellFallHz);
     beatPhase_ = features.beatPhase;
     // Wave three: the continuous motion layer, never a transient/beat trigger.
-    motionField_.step(features, dt);
+    if (sound_ != nullptr) motionField_.step(*sound_, dt);
     if (sound_ != nullptr) reactSignals_.step(*sound_, dt);
     // lib_react's band regions, low to high, then flux, from the sound frame. They feed geometry
     // directly (heights, swells), so they get the same rise/fall slew as uBassSmooth.

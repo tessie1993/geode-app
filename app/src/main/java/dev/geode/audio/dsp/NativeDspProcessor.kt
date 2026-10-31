@@ -58,7 +58,9 @@ class NativeDspProcessor : BaseAudioProcessor() {
         if (inputAudioFormat.encoding != C.ENCODING_PCM_16BIT && inputAudioFormat.encoding != C.ENCODING_PCM_FLOAT) {
             throw UnhandledAudioFormatException(inputAudioFormat)
         }
-        if (inputAudioFormat.channelCount !in 1..2) throw UnhandledAudioFormatException(inputAudioFormat)
+        // The native chain is mono/stereo. A 5.1 file (API 32+ hands the chain all its channels)
+        // passes through untouched instead: throwing here failed the AudioTrack and skipped the track.
+        if (inputAudioFormat.channelCount !in 1..2) return AudioProcessor.AudioFormat.NOT_SET
         ensureChain(inputAudioFormat.sampleRate, inputAudioFormat.channelCount)
         return inputAudioFormat
     }

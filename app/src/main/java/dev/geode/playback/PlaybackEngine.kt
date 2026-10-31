@@ -4,15 +4,19 @@ import android.content.Context
 import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
+import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
+import dev.geode.BuildConfig
+import dev.geode.analysis.PlaybackMath
 import dev.geode.audio.AudioFxController
 import dev.geode.audio.AudioFxPresets
 import dev.geode.audio.PcmRingBuffer
 import dev.geode.audio.TapRenderersFactory
 import dev.geode.audio.dsp.NativeDspProcessor
 import dev.geode.data.GeodePrefsFiles
+import dev.geode.data.PlayerPrefs
 import dev.geode.data.PlayerPrefsStore
 import dev.geode.engine.audio.AudioPresentationClock
 import dev.geode.engine.audio.PcmSink
@@ -68,8 +72,12 @@ class PlaybackSession internal constructor(
 
     private val prefsFiles = GeodePrefsFiles(context)
 
-    /** Read once here: the engine choice is fixed for the life of the session. */
-    val nativeEngine: Boolean = PlayerPrefsStore(prefsFiles.player).load().nativeEngine
+    /**
+     * Read once here: the engine choice is fixed for the life of the session. Release builds always
+     * use ExoPlayer: the native engine still lacks audio focus and becoming-noisy handling, and its
+     * index-keyed pre-roll plays the wrong track after a queue edit (docs/BUG_HUNT_2026-10.md).
+     */
+    val nativeEngine: Boolean = BuildConfig.DEBUG && PlayerPrefsStore(prefsFiles.player).load().nativeEngine
 
     // WAKE_MODE_LOCAL takes a partial wake lock while playback is active, so the CPU
     // cannot doze mid-track with the screen off. Not the WIFI variant: nothing streams.
@@ -119,6 +127,14 @@ class PlaybackSession internal constructor(
 
     init {
         player.addListener(replayGain)
+        // A session the service starts on its own (a headset's play button after process death,
+        // Android Auto) never builds the UI's PlayerSession, which is what used to apply these: it
+        // played with Media3 defaults, so unplugging headphones moved the music to the speaker.
+        PlayerPrefsStore(prefsFiles.player).load().coerced().let { prefs ->
+            player.shuffleModeEnabled = prefs.shuffle
+            player.repeatMode = prefs.repeatMode
+            applyPlayerPrefs(player, replayGain, prefs)
+        }
         dev.geode.audio.AudioBus.onInterestChanged = interestHook
         dev.geode.audio.AudioBus.soundInput = soundInput
         syncAnalysis()
@@ -205,4 +221,24 @@ object PlaybackEngine {
         session = null
         app = null
     }
+}
+
+/**
+ * The prefs that live on the player itself rather than in the UI: speed and pitch, becoming-noisy,
+ * skip-silence, crossfade and gapless, ReplayGain. One function so the session's own start-up and
+ * Settings apply exactly the same set.
+ */
+@OptIn(UnstableApi::class)
+fun applyPlayerPrefs(
+    player: Player,
+    replayGain: ReplayGain,
+    p: PlayerPrefs,
+) {
+    player.playbackParameters = PlaybackParameters(p.speed, PlaybackMath.semitonesToRatio(p.pitchSemitones))
+    (player as? ExoPlayer)?.let {
+        it.skipSilenceEnabled = p.skipSilence
+        it.setHandleAudioBecomingNoisy(p.pauseOnNoisy)
+    }
+    (player as? NativePlayer)?.applyPrefs(p.crossfadeMs, p.crossfadeCurve, p.gapless)
+    replayGain.configure(p.replayGainMode, p.replayGainPreampDb, p.replayGainClipGuard)
 }

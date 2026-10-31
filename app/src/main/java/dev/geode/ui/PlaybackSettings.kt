@@ -15,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import dev.geode.BuildConfig
 import dev.geode.R
 import dev.geode.analysis.PlaybackMath
 import dev.geode.data.PlayerPrefs
@@ -93,7 +94,9 @@ fun PlaybackSettingsSection(viewModel: SettingsViewModel) {
             )
         }
         ReplayGainSettings(prefs) { viewModel.setPlayerPrefs(it) }
-        NativeEngineSettings(prefs) { viewModel.setPlayerPrefs(it) }
+        // Debug only until NativePlayer has audio focus, becoming-noisy and a uid-keyed pre-roll
+        // (docs/BUG_HUNT_2026-10.md); PlaybackSession ignores the pref in release builds too.
+        if (BuildConfig.DEBUG) NativeEngineSettings(prefs) { viewModel.setPlayerPrefs(it) }
         PlaybackSwitchRow(stringResource(R.string.playback_skip_silence), prefs.skipSilence) {
             viewModel.setPlayerPrefs(prefs.copy(skipSilence = it))
         }

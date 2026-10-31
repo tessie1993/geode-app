@@ -1,12 +1,9 @@
 package dev.geode.ui
 
 import androidx.annotation.OptIn
-import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.exoplayer.ExoPlayer
 import dev.geode.analysis.AnalysisEngine
-import dev.geode.analysis.PlaybackMath
 import dev.geode.audio.AudioFxController
 import dev.geode.audio.AudioFxState
 import dev.geode.data.GuiPrefs
@@ -15,6 +12,7 @@ import dev.geode.data.PlayerPrefsRepository
 import dev.geode.data.UserDataRepository
 import dev.geode.playback.NativePlayer
 import dev.geode.playback.ReplayGain
+import dev.geode.playback.applyPlayerPrefs
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -66,16 +64,8 @@ internal class PlayerSettingsController(
     }
 
     fun applyPlaybackPrefs(p: PlayerPrefs) {
-        player.playbackParameters = PlaybackParameters(p.speed, PlaybackMath.semitonesToRatio(p.pitchSemitones))
-        (player as? ExoPlayer)?.let {
-            it.skipSilenceEnabled = p.skipSilence
-            it.setHandleAudioBecomingNoisy(p.pauseOnNoisy)
-        }
-        (player as? NativePlayer)?.let {
-            it.applyPrefs(p.crossfadeMs, p.crossfadeCurve, p.gapless)
-            host.applyBitPerfect(p.bitPerfect)
-        }
-        replayGain.configure(p.replayGainMode, p.replayGainPreampDb, p.replayGainClipGuard)
+        applyPlayerPrefs(player, replayGain, p)
+        if (player is NativePlayer) host.applyBitPerfect(p.bitPerfect)
     }
 
     private fun persistPlayerOptions() {

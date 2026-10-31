@@ -118,6 +118,7 @@ void Renderer::setMilkTextureDir(const std::string& dir) {
 void Renderer::notePresetLoaded(const std::string& path) {
     std::lock_guard<std::mutex> lock(stateLock_);
     lastMilkPreset_ = path;
+    lastGoodMilkPreset_ = path;
     milkPresetLoaded_ = path;
 }
 
@@ -443,6 +444,7 @@ std::unique_ptr<Scene> Renderer::buildScene(const std::string& id) {
     std::string force;
     std::string dye;
     std::string preset;
+    std::string goodPreset;
     std::string textureDir;
     {
         std::lock_guard<std::mutex> lock(stateLock_);
@@ -450,6 +452,7 @@ std::unique_ptr<Scene> Renderer::buildScene(const std::string& id) {
         force = fluidForceSrc_;
         dye = fluidDyeSrc_;
         preset = lastMilkPreset_;
+        goodPreset = lastGoodMilkPreset_;
         textureDir = milkTextureDir_;
     }
     if (paletteLutTex_ != 0) scene->setPaletteLut(paletteLutTex_);
@@ -463,6 +466,7 @@ std::unique_ptr<Scene> Renderer::buildScene(const std::string& id) {
     if (!force.empty() || !dye.empty()) scene->setInjectionShaders(force, dye);
     scene->setWindowSize(width_, height_);
     if (!textureDir.empty()) scene->setMilkTextureDir(textureDir);
+    if (!goodPreset.empty()) scene->setMilkFallbackPreset(goodPreset);
     if (!preset.empty()) scene->queueMilkPreset(preset);
     return scene;
 }

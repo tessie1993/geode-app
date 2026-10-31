@@ -51,6 +51,7 @@ import dev.geode.data.TemplateRepository
 import dev.geode.data.TemplateWrite
 import dev.geode.data.UserDataRepository
 import dev.geode.data.VideoTemplate
+import dev.geode.export.BatchTrack
 import dev.geode.export.ExportAspect
 import dev.geode.export.ExportCodec
 import dev.geode.export.ExportRange
@@ -1183,6 +1184,17 @@ class PlayerSession internal constructor(
         codec: ExportCodec = ExportCodec.H264,
         watermark: Boolean = false,
     ) = exportController.startExport(aspect, fps, sceneFactory, destination, loopSafe, range, sceneFactoryFor, codec, watermark)
+
+    fun startBatch(
+        tracks: List<BatchTrack>,
+        aspect: ExportAspect,
+        fps: Int,
+        sceneFactory: SceneFactory,
+        sceneParams: SceneParams?,
+        loopSafe: Boolean,
+        codec: ExportCodec,
+        watermark: Boolean,
+    ) = exportController.startBatch(tracks, aspect, fps, sceneFactory, sceneParams, loopSafe, codec, watermark)
 
     fun cancelExport() = exportController.cancelExport()
 

@@ -26,6 +26,7 @@ constexpr float kSectionDecay = 1.50f;
 constexpr float kPitchDecay = 0.50f;
 constexpr float kTimbreDecay = 0.40f;
 constexpr float kArrivalDecay = 2.50f;
+constexpr float kPhraseDecay = 1.00f;
 
 // A chroma argmax only counts as a pitch change when the detector is this sure.
 constexpr float kPitchConfidence = 0.35f;
@@ -64,6 +65,11 @@ void ReactSignals::reset() {
     onsetArmed_ = 1.0f;
     onsetCount_ = 0.0f;
     sectionCount_ = 0.0f;
+    phraseCount_ = 0;
+    barsInPhrase_ = 0;
+    beatsInBar_ = 0;
+    sinceBeat_ = kBeatlessSeconds;
+    sincePhrase_ = 0.0f;
 }
 
 // x over a running peak that decays over seconds, so a quiet track still uses
@@ -82,6 +88,38 @@ void ReactSignals::trigger(ReactSource s, float strength) {
 
 void ReactSignals::decay(ReactSource s, float dt, float seconds) {
     values_[static_cast<size_t>(s)] *= std::exp(-std::max(dt, 0.0f) / seconds);
+}
+
+void ReactSignals::startPhrase() {
+    phraseCount_ = (phraseCount_ + 1) % 4096;
+    barsInPhrase_ = 0;
+    sincePhrase_ = 0.0f;
+    trigger(ReactSource::Phrase, 1.0f);
+}
+
+// Counts beats into bars and bars into phrases, and routes each beat to the
+// phrase's own source. A detected downbeat starts a bar; four beats without one
+// count as a bar too, so a track the bar tracker cannot lock still has phrases.
+// When no beat has come for kBeatlessSeconds, onsets stand in, so free-time
+// music still drives the beat routes.
+void ReactSignals::countBeat(const GeodeFeatureFrame& f, bool onset, float dt) {
+    sinceBeat_ += dt;
+    sincePhrase_ += dt;
+    const bool beat = f.beat > 0.0f;
+    const bool standIn = !beat && onset && sinceBeat_ >= kBeatlessSeconds;
+    if (beat) sinceBeat_ = 0.0f;
+    if (f.downbeat > 0.0f || (beat && beatsInBar_ >= 4)) {
+        // A bar starts; the ninth one starts the next phrase.
+        beatsInBar_ = 0;
+        if (barsInPhrase_ >= kPhraseBars) startPhrase();
+        ++barsInPhrase_;
+    }
+    if (sincePhrase_ >= kPhraseMaxSeconds) startPhrase();
+    if (!beat && !standIn) return;
+    const float strength = beat ? live::beatImpulse(f) : values_[static_cast<size_t>(ReactSource::Onset)];
+    trigger(phraseCount_ % 2 == 0 ? ReactSource::PhraseBeatA : ReactSource::PhraseBeatB, strength);
+    if (beatsInBar_ % 2 == 1) trigger(ReactSource::Backbeat, strength);
+    ++beatsInBar_;
 }
 
 void ReactSignals::step(const GeodeFeatureFrame& f, float dt) {
@@ -121,10 +159,15 @@ void ReactSignals::step(const GeodeFeatureFrame& f, float dt) {
     decay(ReactSource::PitchChange, dt, kPitchDecay);
     decay(ReactSource::TimbreJump, dt, kTimbreDecay);
     decay(ReactSource::Arrival, dt, kArrivalDecay);
+    decay(ReactSource::PhraseBeatA, dt, kBeatDecay);
+    decay(ReactSource::PhraseBeatB, dt, kBeatDecay);
+    decay(ReactSource::Backbeat, dt, kBeatDecay);
+    decay(ReactSource::Phrase, dt, kPhraseDecay);
 
     // An onset is the rising edge of the transient, not every hop it stays high.
     const bool hot = f.transient >= live::kHitFloor;
-    if (hot && onsetArmed_ > 0.5f) {
+    const bool onset = hot && onsetArmed_ > 0.5f;
+    if (onset) {
         trigger(ReactSource::Onset, 0.4f + 0.6f * f.transient);
         onsetCount_ = std::fmod(onsetCount_ + 1.0f, kOnsetCountWrap);
     }
@@ -136,7 +179,10 @@ void ReactSignals::step(const GeodeFeatureFrame& f, float dt) {
     if (f.sectionBoundary > 0.0f) {
         trigger(ReactSource::Section, 1.0f);
         sectionCount_ = std::fmod(sectionCount_ + 1.0f, kOnsetCountWrap);
+        // A new section is a new phrase, unless one has only just started.
+        if (barsInPhrase_ > 0) startPhrase();
     }
+    countBeat(f, onset, dt);
 
     int key = 0;
     for (int i = 1; i < GEODE_CHROMA_BINS; ++i) {
@@ -159,6 +205,23 @@ void ReactionEngine::reset() {
     acc_.fill(0.0f);
     out_.fill(0.0f);
     high_.fill(false);
+    for (int i = 0; i < kRoutes; ++i) jumpSeed_[static_cast<size_t>(i)] = 0x9E3779B9u * static_cast<unsigned int>(i + 1);
+}
+
+// The next held value for a Jump route, -1..1, seeded per route so a replayed
+// feature sequence (an export) draws the same values. Each draw lands at least
+// half a unit from the last, so a jump is always visible.
+float ReactionEngine::nextJump(int route) {
+    unsigned int& x = jumpSeed_[static_cast<size_t>(route)];
+    if (x == 0u) x = 0x9E3779B9u * static_cast<unsigned int>(route + 1);
+    x ^= x << 13;
+    x ^= x >> 17;
+    x ^= x << 5;
+    const float u = static_cast<float>(x >> 8) / 16777216.0f;  // 0..1
+    const float last = acc_[static_cast<size_t>(route)];
+    float v = 2.0f * u - 1.0f;
+    if (std::fabs(v - last) < 0.5f) v = v > 0.0f ? v - 1.0f : v + 1.0f;
+    return std::clamp(v, -1.0f, 1.0f);
 }
 
 // Triangle wave of period 4 through -1..1: continuous, bounded, slope 1 at 0.
@@ -195,6 +258,13 @@ void ReactionEngine::tick(const GeodeFeatureFrame& f, float dt) {
                 acc_[k] = std::fmod(acc_[k] + shape(src, r.curve) * r.amount * dt, 4.0f);
                 target = fold(acc_[k]);
                 break;
+            case ReactMode::Jump: {
+                const bool high = src >= 0.5f;
+                if (high && !high_[k]) acc_[k] = nextJump(i);
+                high_[k] = src >= 0.3f && (high || high_[k]);
+                target = acc_[k] * r.amount;
+                break;
+            }
         }
         float attack = std::max(r.attackSeconds, 0.0f);
         float release = std::max(r.releaseSeconds, 0.0f);

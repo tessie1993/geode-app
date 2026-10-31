@@ -84,7 +84,10 @@ void main() {
     gTwist = 0.32 * dropBump * bulbEnergy();
     // Twisting by k*y stretches by at most sqrt(1 + (k*rho)^2); rho stays under ~4 in the room.
     gTwistLip = 1.0 + abs(gTwist) * 4.0;
-    gIters = bulbIters(6);
+    // Four iterations, not six: inverted, the finest crust lands as a fur of
+    // pixel-sized stalactites the march crawls through and never resolves.
+    // Fewer iterations leave wet, rounded stone the lantern can light.
+    gIters = bulbIters(4);
 
     // The eye's loop through the room, and a frame that looks along it. The
     // rig's basis rides on top, so its look, banking and shake still apply.
@@ -96,7 +99,7 @@ void main() {
     vec3 rd = normalize(frame * (uCamBasis * vec3(uv, uCamFocal)));
 
     float hue = 0.48 + 0.03 * sin(bulbTime() * 0.019);
-    vec3 fog = pal(hue) * 0.05 + vec3(0.004, 0.012, 0.014);
+    vec3 fog = pal(hue) * 0.09 + vec3(0.01, 0.05, 0.06);
 
     float t = 0.02;
     float hitT = -1.0;
@@ -107,7 +110,7 @@ void main() {
         if (t > BV_FAR) break;
         used = float(i);
         float d = map(ro + rd * t);
-        float eps = bulbEps(t);
+        float eps = bulbEps(t) * 2.5;
         if (d < eps) {
             hitT = t;
             trap = gTrap;
@@ -115,24 +118,34 @@ void main() {
         }
         t += max(d, eps * 0.5);
     }
+    // Inside a fractal room the 0.6-scaled march often runs out of steps a
+    // hair short of a crease. Those rays are AT the wall, not in open fog:
+    // shade them as hits, or half the room paints as empty fog.
+    if (hitT < 0.0 && t < BV_FAR) {
+        hitT = t;
+        trap = gTrap;
+    }
 
     vec3 col = fog;
     if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
         vec3 n = normalAt(p, bulbEps(hitT) * 1.5);
         // The lantern: at the eye, falling off with distance.
-        float lamp = 1.0 / (1.0 + 0.35 * hitT * hitT);
+        // Warm and strong: the cave is the one Bulb seen from INSIDE, and it
+        // has to read as a lit room, amber stone against teal depth, not as
+        // a black frame (its old stone albedo of 0.05 put it there).
+        float lamp = 2.4 / (1.0 + 0.3 * hitT * hitT);
         float dif = max(dot(n, -rd), 0.0);
         vec3 h = normalize(-rd + vec3(0.0, 0.35, 0.0));
         float wet = pow(max(dot(n, h), 0.0), 60.0);
-        float ao = bulbStepAO(used);
-        vec3 stone = mix(vec3(0.05, 0.05, 0.055), pal(hue + 0.55) * 0.18, 0.4);
+        float ao = mix(1.0, bulbStepAO(used), 0.6);
+        vec3 stone = mix(vec3(0.62, 0.38, 0.18), pal(hue + 0.55) * 0.5, 0.2);
         col = stone * (0.25 + 0.9 * dif) * lamp * ao;
         col += vec3(0.9, 0.95, 1.0) * wet * lamp * 0.5 * ao;
         // Veins: where the orbit hugged the equatorial plane, the rock glows.
         float vein = smoothstep(0.05, 0.0, trap.y) * (0.6 + 0.4 * sin(sqrt(trap.x) * 9.0 + bulbTime() * 0.3));
-        col += pal(hue + 0.12 + 0.2 * sqrt(trap.x)) * vein * (0.35 + 0.15 * swell);
-        col = mix(col, fog, 1.0 - exp(-hitT * 0.32));
+        col += pal(hue + 0.12 + 0.2 * sqrt(trap.x)) * vein * (0.6 + 0.2 * swell);
+        col = mix(col, fog, 1.0 - exp(-hitT * 0.22));
     }
 
     col *= 0.85 + 0.15 * swell;

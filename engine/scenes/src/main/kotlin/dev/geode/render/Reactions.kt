@@ -49,6 +49,22 @@ enum class ReactSource(
 
     /** The music coming back after two quiet seconds. */
     ARRIVAL("Arrival", isEvent = true),
+
+    /**
+     * The beat, only in even phrases (eight bars, or less when the section changes). Paired with
+     * [PHRASE_BEAT_B], one style answers the beat one way for a phrase and another way for the
+     * next. Onsets stand in when no beat has come for two seconds.
+     */
+    PHRASE_BEAT_A("Beat, phrase A", isEvent = true),
+
+    /** The beat, only in odd phrases. See [PHRASE_BEAT_A]. */
+    PHRASE_BEAT_B("Beat, phrase B", isEvent = true),
+
+    /** The beat on counts two and four only. */
+    BACKBEAT("Backbeat", isEvent = true),
+
+    /** A new phrase starting. */
+    PHRASE("Phrase", isEvent = true),
 }
 
 /**
@@ -57,6 +73,8 @@ enum class ReactSource(
  * [FOLLOW] adds amount × source. [STEP] adds amount once per rising edge (a hue jump, a new
  * camera angle). [SPIN] keeps adding amount × source per second (keeps turning while the sound
  * lasts). Stepped and spun values fold through a triangle wave, so they stay bounded forever.
+ * [JUMP] holds a new seeded random value in -amount..amount on each rising edge (sample and
+ * hold), so every hit lands somewhere new.
  */
 enum class ReactMode(
     val label: String,
@@ -64,6 +82,7 @@ enum class ReactMode(
     FOLLOW("Follow"),
     STEP("Step"),
     SPIN("Spin"),
+    JUMP("Jump"),
 }
 
 /** One route of the reaction matrix: [source] moves [target] by [amount], smoothed. */

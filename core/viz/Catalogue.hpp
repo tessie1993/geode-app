@@ -85,7 +85,7 @@ bool isMarched(const std::string& id);
 // How the style turns by default: a signed multiplier on the motion field's drift spin, 0 for a
 // style that holds still (bars, grids, landscapes and trees read as broken when they roll).
 float spinRate(const std::string& id);
-const std::array<Family, 9>& families();
+const std::array<Family, 10>& families();
 
 // The scope of a Customize control, named by its ParamKeys string. Anything unlisted is Universal.
 Scope scopeOf(const std::string& paramKey);

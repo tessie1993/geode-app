@@ -1021,3 +1021,11 @@ truchet_* styles) is original code written from the published technique:
   Smith, "The Tiling Patterns of Sebastien Truchet and the Topology of
   Structural Hierarchy", Leonardo 20(4), 1987
     (randomly oriented tiles whose arcs join into continuous paths)
+
+
+The Sphere Foam style family (app/src/main/assets/shaders/lib_foam.glsl and its
+foam_* styles) is original code written from the published technique; no
+Shadertoy code is used. Credited as the best-known demonstration of it:
+
+  "Apollonian" by iq                   https://www.shadertoy.com/view/4ds3zn
+    (sphere inversion and domain repetition into an Apollonian packing)

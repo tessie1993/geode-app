@@ -84,6 +84,7 @@ object VisualStyleCatalog {
             "nebula" to "Nebula",
             "terrain" to "Terrain",
             "truchet" to "Truchet",
+            "foam" to "Sphere Foam",
         )
 
     val cymaticsIds: List<String> = idsOf(SceneKind.CYMATICS)

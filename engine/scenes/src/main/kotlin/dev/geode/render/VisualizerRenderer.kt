@@ -122,6 +122,7 @@ class VisualizerRenderer(
     private val styleReactions = StyleReactionsCache()
 
     private val appContext = context.applicationContext
+
     // Outlives nativeViz's handle, which VisualizerView destroys on every detach; each new handle
     // starts on the preset this remembers rather than on projectM's idle preset.
     private val milkPreset = MilkPresetMemory()

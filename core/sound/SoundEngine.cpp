@@ -15,7 +15,9 @@ constexpr float kReturnAfter = 1.0f;
 constexpr float kWarmSeconds = 50.0f / 30.0f;
 constexpr float kRewarmAfter = 2.0f;  // silence this long re-arms the warm-up (a new track)
 constexpr float kStarved = 0.1f;
-constexpr float kBandFloor = 3e-4f;   // -70 dB of a full-scale sine, for the untilted EQ and drum bands
+// A band quieter than this, relative to the track's own peak level (-60 dB), holds nothing worth measuring:
+// relative to the track rather than to full scale, so a quiet master keeps its top bands.
+constexpr float kBandFloorRel = 1e-3f;
 constexpr float kTiltTop = 22050.0f;
 constexpr float kTimeWrap = 3600.0f;
 constexpr float kCountWrap = 4096.0f;
@@ -91,7 +93,7 @@ SoundEngine::SoundEngine(int sampleRateHz)
       windowed_(static_cast<size_t>(n_)),
       mag_(static_cast<size_t>(n_ / 2 + 1)),
       tilted_(static_cast<size_t>(n_ / 2 + 1)),
-      prevLogMag_(static_cast<size_t>(n_ / 2 + 1)),
+      prevLogMag_(static_cast<size_t>(kFluxSlots * (n_ / 2 + 1))),
       pitchMono_(static_cast<size_t>(2 * n_)),
       pitchMag_(static_cast<size_t>(n_ + 1)),
       waveRaw_(GEODE_SOUND_WAVEFORM_POINTS + kWaveSlack),
@@ -197,7 +199,10 @@ void SoundEngine::step(float dtSeconds, GeodeSoundFrame& out) {
 
     for (int i = 0; i < kSlices; i++) {
         const float level = bank_[i].take();
+        const float punch = bank_[i].takePunch();
         sliceNow_[i] = starved_ ? 0.0f : level;
+        punchNow_[i] = starved_ ? 0.0f : punch;
+        punchAt_[i] = bank_[i].punchAt();
     }
     readWindow(n_, mono_.data(), left_.data(), right_.data());
     double squares = 0.0;
@@ -226,7 +231,7 @@ void SoundEngine::step(float dtSeconds, GeodeSoundFrame& out) {
     spectrumPoints(dt, out.spectrum);
     waveform(out.waveform);
     descriptors(dt, warm, silent, out);
-    drums(dt, warm, silent, out);
+    drums(dt, silent, out);
     events(dt, warm, out);
     melody(dt, out);
     clocks(dt, out);
@@ -256,8 +261,9 @@ void SoundEngine::levels(float dt, bool warm, bool silent, GeodeSoundFrame& out)
     float* shaped[3] = {&out.low, &out.middle, &out.high};
     float* presence[3] = {&out.bassPresence, &out.midPresence, &out.treblePresence};
     float* time[3] = {&out.bassTime, &out.midTime, &out.trebleTime};
+    const float bandFloor = kBandFloorRel * s.levelPeak;
     for (int b = 0; b < 3; b++) {
-        s.slice[b].step(sliceNow_[b], dt, warm, silent, kBandFloor);
+        s.slice[b].step(sliceNow_[b], dt, warm, silent, bandFloor);
         s.shaped[b] = lag(s.shaped[b], s.slice[b].ratio(), t.attack[b], t.release[b], dt);
         const float att = s.band[b].attRatio();
         *shaped[b] = clamp01(t.reactivity * t.gain[b] * (0.5f * s.shaped[b] - t.threshold[b]) + t.offset[b]);
@@ -276,7 +282,7 @@ void SoundEngine::levels(float dt, bool warm, bool silent, GeodeSoundFrame& out)
     out.loudness = clamp01(1.0f + 20.0f * std::log10(std::max(out.rms, 1e-6f)) / 60.0f);
 
     for (int i = 0; i < GEODE_SOUND_EQ_BANDS; i++) {
-        s.eq[i].step(sum(mag_, eqBins_[i]), dt, warm, silent, kBandFloor);
+        s.eq[i].step(sum(mag_, eqBins_[i]), dt, warm, silent, bandFloor);
         out.eq[i] = s.eq[i].ratio();
     }
 }
@@ -384,20 +390,48 @@ void SoundEngine::descriptors(float dt, bool warm, bool silent, GeodeSoundFrame&
     out.densityFast = s.densityFast;
     out.densitySlow = s.densitySlow;
 
-    // Flux: how much louder each bin got since the last frame, on a log scale, as a relative level so
-    // the frame rate (smaller steps at 120 fps) and the mix's loudness both divide out.
-    float rise = 0.0f;
-    for (int k = fluxBins_.from; k < fluxBins_.to; k++) {
-        const float lm = std::log1p(1000.0f * mag_[k]);
-        rise += std::max(0.0f, lm - prevLogMag_[k]);
-        prevLogMag_[k] = lm;
+    // Flux: how much louder each bin got than in the youngest stored spectrum at least kFluxLag old (or
+    // the oldest one, above 240 fps), on a log scale, as a relative level so the mix's loudness divides
+    // out. A fixed lag rather than "the last frame" keeps onsets the same at 30 and 60 fps.
+    static constexpr float kFluxLag = 1.0f / 30.0f;
+    const size_t stride = mag_.size();
+    int ref = -1;
+    for (int i = 0; i < kFluxSlots; i++) {
+        if (fluxAge_[i] < 0.0f) continue;
+        fluxAge_[i] += dt;
+        const bool better = ref < 0 || (fluxAge_[ref] < kFluxLag ? fluxAge_[i] > fluxAge_[ref]
+                                                                 : fluxAge_[i] >= kFluxLag && fluxAge_[i] < fluxAge_[ref]);
+        if (better) ref = i;
     }
-    if (s.fluxPrimed) {
+    float* now = prevLogMag_.data() + static_cast<size_t>(fluxHead_) * stride;
+    const float* then = ref >= 0 ? prevLogMag_.data() + static_cast<size_t>(ref) * stride : nullptr;
+    // The log's knee sits at a fixed fraction of the track's own level (its 3 s peak), not at a fixed
+    // dBFS: with an absolute knee a quiet master (classical, at -30 dB) is read nearly linear and a loud
+    // one fully logarithmic, and their onsets would differ for loudness alone.
+    //
+    // The rise is averaged within each of the 64 log-spaced spectrum bands, then summed over the bands in
+    // 30 Hz–16 kHz: summed over raw bins, three quarters of the weight sat above 4 kHz and the onset
+    // detector was mostly a hi-hat detector.
+    const float knee = 300.0f / s.levelPeak;
+    for (int k = fluxBins_.from; k < fluxBins_.to; k++) now[k] = std::log1p(knee * mag_[k]);
+    float rise = 0.0f;
+    if (then) {
+        for (const BinRange& r : spectrumBins_) {
+            const int from = std::max(r.from, fluxBins_.from);
+            const int to = std::min(r.to, fluxBins_.to);
+            if (from >= to) continue;
+            float band = 0.0f;
+            for (int k = from; k < to; k++) band += std::max(0.0f, now[k] - then[k]);
+            rise += band / static_cast<float>(to - from);
+        }
+    }
+    fluxAge_[fluxHead_] = 0.0f;
+    fluxHead_ = (fluxHead_ + 1) % kFluxSlots;
+    if (then) {
         s.flux.step(rise, dt, warm, silent);
         out.flux = s.flux.ratio();
     } else {
         out.flux = 1.0f;
-        s.fluxPrimed = true;
     }
 
     const float energy = out.rms * out.rms;
@@ -429,32 +463,43 @@ void SoundEngine::descriptors(float dt, bool warm, bool silent, GeodeSoundFrame&
     out.stereoPan = std::clamp(s.pan, -1.0f, 1.0f);
 }
 
-void SoundEngine::drums(float dt, bool warm, bool silent, GeodeSoundFrame& out) {
-    static constexpr float kRefTau = 0.15f;
+void SoundEngine::drums(float dt, bool silent, GeodeSoundFrame& out) {
     static constexpr float kAttack = 0.005f;
-    static constexpr std::array<float, 3> kRefractory = {0.12f, 0.12f, 0.06f};
+    // Short enough for metal and drum & bass double kicks (~85 ms) and trap hat rolls (~40 ms); the
+    // trigger's hysteresis (re-arm below half the threshold) is what separates hits, not this.
+    static constexpr std::array<float, 3> kRefractory = {0.05f, 0.05f, 0.03f};
     State& s = state_;
-    // Punch: each drum band's slice level, relative to its own mean, over its own recent past (150 ms),
-    // so a held bass note is quiet and the front of a kick is loud. A band only counts while it carries a
-    // real share of the whole (-30 dB): measured against its own mean, a band holding nothing but a tone's
-    // leakage would punch too.
+    // Punch, measured per sample in the filter bank: each drum band's level over its own mean, over its
+    // own recent past (150 ms), so a held bass note is quiet and the front of a kick is loud. A band only
+    // counts while it holds more than another band's leakage, measured against the whole mix (which the
+    // bass dominates). The 4-pole skirts fall 24 dB an octave: kick and snare body sit an octave or two
+    // from the bass, where its leakage reaches -30 dB, while the noise and hat bands sit five or more
+    // away, where it is below -100. So -30 dB for those two and -50 for the top two, which a dark,
+    // bass-heavy master's hats still clear.
+    static constexpr std::array<float, 4> kLeakage = {0.0316f, 0.0316f, 0.00316f, 0.00316f};
     const float total = sliceNow_[kAll];
     std::array<float, 4> punch{};
     for (int i = 0; i < 4; i++) {
         const int band = kKick + i;
-        s.slice[band].step(sliceNow_[band], dt, warm, silent, kBandFloor);
-        const float ratio = s.slice[band].ratio();
-        punch[i] = sliceNow_[band] > 0.0316f * total ? ratio - s.drumRef[i] : 0.0f;
-        s.drumRef[i] = follow(s.drumRef[i], ratio, kRefTau, dt);
+        const float floor = std::max(kBandFloorRel * state_.levelPeak, kLeakage[i] * total);
+        punch[i] = sliceNow_[band] > floor ? punchNow_[band] : 0.0f;
     }
     // A snare is body and noise at once: it needs both to jump, which a kick's harmonics or a sung
-    // syllable alone do not. On a kick's frame its noise must also out-jump the kick, so a clap on the
-    // kick still counts and the kick's own click does not.
+    // syllable alone do not. A kick's own click jumps both too, so noise within 25 ms of a stronger kick
+    // punch is the kick's. Timed in samples, not frames, so it means the same at any frame rate.
     std::array<float, 3> drumPunch = {punch[0], std::min(punch[1], punch[2]), punch[3]};
+    if (punch[0] > 0.5f * tuning_.drum[0]) {
+        s.kickPeakAt = punchAt_[kKick];
+        s.kickPeakPunch = punch[0];
+    }
+    const int64_t near = static_cast<int64_t>(0.025f * static_cast<float>(sampleRateHz_));
+    if (s.kickPeakAt >= 0 && std::llabs(punchAt_[kSnareNoise] - s.kickPeakAt) < near &&
+        punch[2] <= s.kickPeakPunch) {
+        drumPunch[1] = 0.0f;
+    }
     std::array<float, 3> hit{};
     float* env[3] = {&out.kickEnv, &out.snareEnv, &out.hatEnv};
     for (int d = 0; d < 3; d++) {
-        if (d == 1 && hit[0] > 0.0f && punch[2] <= punch[0]) drumPunch[1] = 0.0f;
         hit[d] = silent ? 0.0f
                         : s.drumTrigger[d].step(drumPunch[d], std::max(0.1f, tuning_.drum[d]), kRefractory[d], dt);
         *env[d] = s.envelope[d].step(hit[d], kAttack, std::max(0.01f, tuning_.drumDecay[d]), dt);
@@ -523,27 +568,45 @@ void SoundEngine::events(float dt, bool warm, GeodeSoundFrame& out) {
     out.presence = s.presenceFade;
 }
 
-void SoundEngine::estimatePitch(float& midi, float& confidence, float& evenness) {
+namespace {
+constexpr int kHarmonics = 5;  // partials in the pitch estimator's harmonic sum
+}  // namespace
+
+void SoundEngine::estimatePitch(float held, float& midi, float& confidence, float& evenness) {
     readWindow(2 * n_, pitchMono_.data(), nullptr, nullptr);
     for (int i = 0; i < 2 * n_; i++) pitchMono_[i] *= pitchHann_[i];
     pitchFft_.magnitudes(pitchMono_.data(), pitchMag_.data());
     const float binHz = static_cast<float>(sampleRateHz_) / static_cast<float>(2 * n_);
     const int top = n_ - 1;  // last index `near` may read around
     const int kMin = std::max(2, static_cast<int>(std::ceil(80.0f / binHz)));
-    const int kMax = std::min(static_cast<int>(1500.0f / binHz), top / 3 - 1);
+    const int kMax = std::min(static_cast<int>(1500.0f / binHz), top / kHarmonics - 1);
     auto near = [&](int k) {
         if (k >= top) return 0.0f;
         return std::max({pitchMag_[k - 1], pitchMag_[k], pitchMag_[k + 1]});
     };
-    // A harmonic sum: the fundamental plus what sits at twice and three times it. It prefers the
-    // series' root over its loudest partial, which is what a listener calls the note.
+    // A harmonic sum: the fundamental plus its next four partials, each weighted 1/h. It prefers the
+    // series' root over its loudest partial, which is what a listener calls the note; with only two
+    // partials a strong second harmonic still won and the note flipped up an octave.
+    //
+    // Continuity: on a full mix the bass line, the voice and a lead all form harmonic series, and the
+    // loudest flips between them from frame to frame. While a note is held (`held`, MIDI, or < 0), a
+    // candidate further than a whole tone from it is weighed down, by a third at an octave, so the
+    // tracker stays on one line unless another clearly takes over. Confidence uses the unweighted score.
     int best = kMin;
     float bestScore = 0.0f;
+    float bestWeighted = 0.0f;
     double total = 0.0;
     for (int k = kMin; k <= kMax; k++) {
-        const float score = pitchMag_[k] + 0.5f * near(2 * k) + 0.33f * near(3 * k);
+        float score = pitchMag_[k];
+        for (int h = 2; h <= kHarmonics; h++) score += near(h * k) / static_cast<float>(h);
         total += score;
-        if (score > bestScore) {
+        float weighted = score;
+        if (held >= 0.0f) {
+            const float distance = std::fabs(69.0f + 12.0f * std::log2(static_cast<float>(k) * binHz / 440.0f) - held);
+            weighted /= 1.0f + std::max(0.0f, distance - 2.0f) / 24.0f;
+        }
+        if (weighted > bestWeighted) {
+            bestWeighted = weighted;
             bestScore = score;
             best = k;
         }
@@ -573,10 +636,9 @@ void SoundEngine::melody(float dt, GeodeSoundFrame& out) {
     State& s = state_;
     const GeodeSoundTuning& t = tuning_;
     const float silenceOn = std::pow(10.0f, t.silenceDb / 20.0f);
-    // An attack is a drum hit or a sudden jump in level; a note change without one is legato.
-    const float previousRef = s.rmsRef;
-    s.rmsRef = follow(s.rmsRef, out.rms, 0.08f, dt);
-    const bool levelJump = out.rms > 2.0f * silenceOn && out.rms > 1.25f * previousRef;
+    // An attack is a drum hit or a sudden jump in level (the whole mix's punch, measured per sample in
+    // the filter bank); a note change without one is legato.
+    const bool levelJump = out.rms > 2.0f * silenceOn && punchNow_[kAll] > 0.25f;
     s.sinceAttack += dt;
     s.sinceReattack += dt;
     if (out.kick > 0.0f || out.snare > 0.0f || levelJump) s.sinceAttack = 0.0f;
@@ -584,20 +646,31 @@ void SoundEngine::melody(float dt, GeodeSoundFrame& out) {
     float midi = 0.0f;
     float confidence = 0.0f;
     float evenness = 0.0f;
-    estimatePitch(midi, confidence, evenness);
+    estimatePitch(s.note >= 0 ? static_cast<float>(s.note) : -1.0f, midi, confidence, evenness);
     out.pitchConfidence = confidence;
     s.runRate *= std::exp(-dt / kRunTau);
     if (confidence >= t.pitchThreshold && out.rms > silenceOn) {
+        // Octave errors: a reading an octave off the held note is that note, until it has held for
+        // kOctaveHold (a real leap). Pitch trackers on a full mix slip octaves far more often than
+        // melodies leap them, and every slip would be a note change.
+        static constexpr float kOctaveHold = 0.25f;
+        const float off = s.note >= 0 ? midi - static_cast<float>(s.note) : 0.0f;
+        const float fold = std::fabs(off - 12.0f) < 0.75f ? -12.0f : std::fabs(off + 12.0f) < 0.75f ? 12.0f : 0.0f;
+        s.octaveSeconds = fold != 0.0f ? s.octaveSeconds + dt : 0.0f;
+        if (s.octaveSeconds < kOctaveHold) midi += fold;
         out.pitch = midi;
         s.pitchClass = std::fmod(std::fmod(midi, 12.0f) + 12.0f, 12.0f) / 12.0f;
         s.pitchHeight = follow(s.pitchHeight, clamp01((midi - 36.0f) / 48.0f), 0.08f, dt);
         s.evenness = follow(s.evenness, evenness, 0.1f, dt);
-        // Glide: how fast the pitch moves, ignoring jumps of more than two semitones in one frame (those
-        // are new notes, not slides).
-        const float step = s.lostSeconds == 0.0f ? std::fabs(midi - s.lastMidi) : 0.0f;
-        s.glide = follow(s.glide, step <= 2.0f ? step / dt : 0.0f, 0.1f, dt);
+        // Glide: how fast the pitch moves, as the lag of a 60 ms follower behind it (a ramp of r semitones
+        // a second trails by r·τ), which reads the same at any frame rate; a frame-to-frame difference
+        // over dt would read twice the jitter at 60 fps as at 30. A jump of more than two semitones is a
+        // new note, not a slide: the follower snaps to it.
+        static constexpr float kSlopeTau = 0.06f;
+        if (s.lostSeconds > 0.0f || std::fabs(midi - s.lastMidi) > 2.0f) s.lastMidi = midi;
+        s.lastMidi = follow(s.lastMidi, midi, kSlopeTau, dt);
+        s.glide = follow(s.glide, std::fabs(midi - s.lastMidi) / kSlopeTau, 0.1f, dt);
         s.lostSeconds = 0.0f;
-        s.lastMidi = midi;
         // Within three quarters of a semitone of the current note is still that note (vibrato, a bend in
         // progress), so rounding cannot flip it back and forth across the half-semitone line.
         const int note = s.note >= 0 && std::fabs(midi - static_cast<float>(s.note)) < 0.75f
@@ -609,7 +682,11 @@ void SoundEngine::melody(float dt, GeodeSoundFrame& out) {
         } else {
             s.candidateSeconds += dt;
         }
-        if (s.candidateSeconds >= t.noteHold && note != s.note) {
+        // A leap must hold longer than a step (3× at an octave): melodies mostly move by steps, and a
+        // brief leap is far more often the tracker catching another instrument for a moment.
+        const float leap = s.note >= 0 ? std::fabs(static_cast<float>(note - s.note)) : 0.0f;
+        const float hold = t.noteHold * (1.0f + std::max(0.0f, leap - 2.0f) / 5.0f);
+        if (s.candidateSeconds >= hold && note != s.note) {
             const bool first = s.note < 0;
             if (!first) s.interval = std::clamp(static_cast<float>(note - s.note) / 12.0f, -1.0f, 1.0f);
             s.note = note;
@@ -677,10 +754,13 @@ void SoundEngine::reset() {
     fresh_ = false;
     starvedSeconds_ = 0.0f;
     starved_ = false;
-    std::fill(prevLogMag_.begin(), prevLogMag_.end(), 0.0f);
+    fluxAge_.fill(-1.0f);
+    fluxHead_ = 0;
     std::fill(wavePrev_.begin(), wavePrev_.end(), 0.0f);
     for (auto& band : bank_) band.clear();
     sliceNow_ = {};
+    punchNow_ = {};
+    punchAt_ = {};
     state_ = State{};
 }
 

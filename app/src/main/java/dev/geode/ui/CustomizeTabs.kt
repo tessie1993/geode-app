@@ -275,6 +275,8 @@ internal fun SceneTab(
     onTransitionDuration: (Float) -> Unit,
 ) {
     Column {
+        // First on the Scene tab and found by a search for "layer": at the foot of FX it read as gone.
+        if (visible(LAYERS_ENABLED, ParamScope.UNIVERSAL)) LayersSection()
         if (transitionId != null && sectionVisible()) {
             SectionHeader("Scene transition")
             val ctx = androidx.compose.ui.platform.LocalContext.current
@@ -561,7 +563,6 @@ internal fun FxTab(
         LabeledSlider(ParamKeys.FILM_GRAIN, p.grain, 0f..1f, default = SceneParams.DEFAULT.grain) { onChange(p.copy(grain = it)) }
         LabeledSlider(ParamKeys.GLITCH, p.glitch, 0f..0.25f, default = SceneParams.DEFAULT.glitch) { onChange(p.copy(glitch = it)) }
         LabeledSlider(ParamKeys.FISHEYE, p.fisheye, -1f..1f, default = SceneParams.DEFAULT.fisheye) { onChange(p.copy(fisheye = it)) }
-        if (sectionVisible()) LayersSection()
     }
 }
 

@@ -2,6 +2,8 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <android/asset_manager.h>
+
+#include "sound/SoundFrame.h"
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -61,6 +63,17 @@ typedef struct GeodeFeatureFrame {
 } GeodeFeatureFrame;
 
 GEODE_API const char* geode_version(void);
+
+/* The sound engine (core/sound): write PCM as it arrives, step once per rendered frame. One per surface,
+ * one thread at a time. */
+typedef struct geode_sound geode_sound;
+GEODE_API geode_sound* geode_sound_create(int sample_rate);
+GEODE_API void         geode_sound_destroy(geode_sound*);
+GEODE_API void         geode_sound_write(geode_sound*, const float* interleaved, size_t frames, int channels);
+GEODE_API void         geode_sound_step(geode_sound*, float dt_seconds, GeodeSoundFrame* out);
+GEODE_API void         geode_sound_set_tuning(geode_sound*, const GeodeSoundTuning*);
+GEODE_API void         geode_sound_reset(geode_sound*);
+GEODE_API int          geode_sound_fft_size(geode_sound*);
 
 /* hop_rate_hz sets every tempo-domain filter; the hop in samples for push/pull is sample_rate / hop_rate_hz,
  * clamped to fft_size. fft_size must be a power of two >= GEODE_WAVEFORM_POINTS (so the waveform decimation
@@ -137,6 +150,8 @@ GEODE_API int         geode_style_reactions(const char* style_id, int seed, floa
 GEODE_API void        geode_viz_set_look(geode_viz*, float yaw, float pitch);
 GEODE_API void        geode_viz_set_thermal(geode_viz*, int platform_status, float headroom); /* status < 0 = unknown */
 GEODE_API void        geode_viz_set_paced_fps(geode_viz*, float fps);
+/* Settings › Performance (live surfaces): scales 0..1, post_fx / adaptive 0 or 1. Export never calls it. */
+GEODE_API void        geode_viz_set_quality(geode_viz*, float render_scale, float march_scale, int post_fx, int adaptive);
 GEODE_API void        geode_viz_set_offscreen(geode_viz*, int on);
 GEODE_API int         geode_viz_knows(geode_viz*, const char* scene_id);
 GEODE_API size_t      geode_viz_scene_ids(geode_viz*, char* out, size_t capacity);   /* newline-joined; returns the full length */

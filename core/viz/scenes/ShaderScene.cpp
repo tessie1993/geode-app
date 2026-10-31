@@ -17,6 +17,8 @@ constexpr int kMarchFloorSteps = 64;
 // The Detail range is the catalogue's: the shell's slider quotes the same numbers.
 constexpr float kMarchMinDetail = catalogue::kMarchDetail.min;
 constexpr float kMarchMaxDetail = catalogue::kMarchDetail.max;
+// The fewest steps Settings › Performance may scale a march down to; below this most SDFs miss surfaces.
+constexpr float kMarchMinScaledSteps = 24.0f;
 
 float paletteRowCoordinate(int index) {
     return (static_cast<float>(std::clamp(index, 0, kPaletteRows - 1)) + 0.5f) / static_cast<float>(kPaletteRows);
@@ -160,7 +162,8 @@ void ShaderScene::draw(float timeSeconds) {
     }
     set1f("uPalLutMix", flag(lutSelected));
     set1f("uPalLutRow", paletteRowCoordinate(std::max(p.paletteLut, 0)));
-    set1f("uSteps", marchSteps(p.marchDetail));
+    const float marchScale = host_.marchScale ? host_.marchScale() : 1.0f;
+    set1f("uSteps", std::max(std::round(marchSteps(p.marchDetail) * marchScale), kMarchMinScaledSteps));
     uploadMotion();
     uploadTouch();
     uploadCameraAndReactions();

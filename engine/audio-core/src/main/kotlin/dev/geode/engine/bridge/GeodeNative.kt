@@ -457,4 +457,53 @@ object GeodeNative {
         blend: Int,
         amount: Float,
     )
+
+    // Export resampler (core/audio/dsp/PcmResampler): interleaved 16-bit PCM to the AAC rate.
+
+    /** 0 for a bad rate or channel count. */
+    external fun resamplerCreate(
+        inRate: Int,
+        outRate: Int,
+        channels: Int,
+    ): Long
+
+    external fun resamplerDestroy(handle: Long)
+
+    /** Converts [frames] interleaved frames of [input]; returns the interleaved output (state carries over). */
+    external fun resamplerProcess(
+        handle: Long,
+        input: ShortArray,
+        frames: Int,
+        channels: Int,
+    ): ShortArray
+
+    // Export loudness meter (core/audio/dsp/Loudness): BS.1770-4 integrated loudness and true peak.
+
+    external fun loudnessSupports(channels: Int): Boolean
+
+    /** 0 for a bad rate or a channel count [loudnessSupports] refuses. */
+    external fun loudnessCreate(
+        sampleRate: Int,
+        channels: Int,
+    ): Long
+
+    external fun loudnessDestroy(handle: Long)
+
+    /** Consumes [count] interleaved samples (not frames) of [samples], each in -1..1. */
+    external fun loudnessFeed(
+        handle: Long,
+        samples: FloatArray,
+        count: Int,
+    )
+
+    external fun loudnessHasBlock(handle: Long): Boolean
+
+    /**
+     * Fills [out] (5 doubles: integrated LUFS, true peak dBTP, sample peak dBFS, measured ms, gated
+     * blocks); returns false when nothing cleared the -70 LUFS gate, in which case out[0] is meaningless.
+     */
+    external fun loudnessFinish(
+        handle: Long,
+        out: DoubleArray,
+    ): Boolean
 }

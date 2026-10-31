@@ -118,6 +118,7 @@ class AudioTranscoder(
             bestEffort(TAG, "encoderRef?.release()") { encoderRef?.release() }
             bestEffort(TAG, "outFileRef?.delete()") { outFileRef?.delete() }
             bestEffort(TAG, "aiff.close()") { aiff.close() }
+            bestEffort(TAG, "resampler.close()") { resampler.close() }
             throw t
         }
         var outBytes = 0L
@@ -242,6 +243,7 @@ class AudioTranscoder(
             bestEffort(TAG, "encoder.stop()") { encoder.stop() }
             bestEffort(TAG, "encoder.release()") { encoder.release() }
             bestEffort(TAG, "aiff.close()") { aiff.close() }
+            bestEffort(TAG, "resampler.close()") { resampler.close() }
         }
     }
 
@@ -508,6 +510,7 @@ class AudioTranscoder(
             bestEffort(TAG, "encoderRef?.stop()") { encoderRef?.stop() }
             bestEffort(TAG, "encoderRef?.release()") { encoderRef?.release() }
             bestEffort(TAG, "extractor.release()") { extractor.release() }
+            bestEffort(TAG, "resampler?.close()") { resampler?.close() }
         }
     }
 

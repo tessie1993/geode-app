@@ -13,6 +13,9 @@ add_library(geode_core STATIC
     audio/dsp/Equalizer.cpp
     audio/dsp/Crossfeed.cpp
     audio/dsp/Limiter.cpp
+    audio/dsp/PcmResampler.cpp
+    audio/dsp/Loudness.cpp
+    api/geode_export_dsp_api.cpp
     analysis/WindowTable.cpp
     analysis/Spectrum.cpp
     analysis/AdaptiveRange.cpp

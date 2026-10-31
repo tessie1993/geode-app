@@ -242,6 +242,14 @@ family|glass|glass_|lib_glass|glass_orb,glass_pool,glass_prism,glass_lens,glass_
 family|nebula|nebula_|lib_nebula|nebula_dust,nebula_spiral,nebula_ring,nebula_veil,nebula_pulsar,nebula_cluster,nebula_nova,nebula_horizon,nebula_pillars,nebula_flight,nebula_storm,nebula_web
 family|terrain|terra_|lib_terra|terra_ridge,terra_dunes,terra_canyon,terra_glacier,terra_isles,terra_mesa,terra_volcano,terra_terraces,terra_moon,terra_night,terra_topo,terra_wire
 family|truchet|truchet_|lib_truchet|truchet_arcs,truchet_hex,truchet_weave,truchet_maze,truchet_tri,truchet_quad,truchet_tubes,truchet_neon,truchet_flow,truchet_knot,truchet_tunnel,truchet_relief
+override|chladni_sand|Geometry|1
+override|bessel_drum|Geometry|0
+override|faraday|Geometry|0
+override|harmonic_shell|Geometry|0
+override|levitator|Geometry|1
+override|standing_chamber|Geometry|1
+override|rosensweig|Geometry|0
+override|kundt_tube|Geometry|1
 key|Speed|SCENE_CLOCK
 key|Audio drive|AUDIO_DRIVE
 key|Bass gain|BASS_BAND

@@ -57,6 +57,12 @@ object Catalogue {
     /** The range the control named [paramKey] offers. Throws for a key the catalogue has no range for. */
     fun range(paramKey: String): ClosedFloatingPointRange<Float> = table.ranges.getValue(paramKey)
 
+    /** The value style [sceneId] holds the control [paramKey] at, or null when the user's own value stands. */
+    fun override(
+        sceneId: String,
+        paramKey: String,
+    ): Float? = table.overrides[sceneId to paramKey]
+
     /** A named engine number (`fluidTiers`, `touchRotationPerDegree`). */
     fun value(name: String): Float = table.values.getValue(name)
 
@@ -67,6 +73,7 @@ object Catalogue {
         val keyScopes: Map<String, ParamScope>,
         val ranges: Map<String, ClosedFloatingPointRange<Float>>,
         val values: Map<String, Float>,
+        val overrides: Map<Pair<String, String>, Float>,
     ) {
         val byId: Map<String, CatalogueStyle> = styles.associateBy { it.id }
 
@@ -78,6 +85,7 @@ object Catalogue {
                 val keyScopes = mutableMapOf<String, ParamScope>()
                 val ranges = mutableMapOf<String, ClosedFloatingPointRange<Float>>()
                 val values = mutableMapOf<String, Float>()
+                val overrides = mutableMapOf<Pair<String, String>, Float>()
                 val rows = text.lines().filter { it.isNotBlank() }.map { it.split('|') }
                 check(rows.firstOrNull() == listOf("catalogue", VERSION.toString())) {
                     "native catalogue is ${rows.firstOrNull()}, this shell reads version $VERSION"
@@ -87,12 +95,13 @@ object Catalogue {
                         "kind" -> kindScopes[SceneKind.valueOf(f[1])] = scopes(f.getOrNull(2))
                         "style" -> styles += CatalogueStyle(f[1], SceneKind.valueOf(f[2]), scopes(f.getOrNull(3)))
                         "family" -> families += StyleFamily(name = f[1], prefix = f[2], library = f[3], ids = f[4].split(','))
+                        "override" -> overrides[f[1] to f[2]] = f[3].toFloat()
                         "key" -> keyScopes[f[1]] = ParamScope.valueOf(f[2])
                         "range" -> ranges[f[1]] = f[2].toFloat()..f[3].toFloat()
                         "value" -> values[f[1]] = f[2].toFloat()
                     }
                 }
-                return Table(styles, families, kindScopes, keyScopes, ranges, values)
+                return Table(styles, families, kindScopes, keyScopes, ranges, values, overrides)
             }
 
             private fun scopes(field: String?): Set<ParamScope> =

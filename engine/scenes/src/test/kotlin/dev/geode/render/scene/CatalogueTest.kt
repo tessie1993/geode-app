@@ -66,6 +66,8 @@ class CatalogueTest {
         assertEquals(0.25f..1.5f, Catalogue.range(ParamKeys.MARCH_DETAIL))
         assertEquals(40f..440f, Catalogue.range(ParamKeys.FUNDAMENTAL_HZ))
         assertEquals(1f..8f, Catalogue.range(ParamKeys.STANDING_WAVES))
+        assertEquals(1f, Catalogue.override("kundt_tube", ParamKeys.GEOMETRY))
+        assertEquals(null, Catalogue.override(SceneIds.CYMATICS, ParamKeys.GEOMETRY))
         assertEquals(FluidQuality.LABELS.size, Catalogue.value("fluidTiers").toInt())
         assertEquals(3f, TouchTransform.zoom(2f, 10f))
         assertEquals(0.3f, TouchTransform.zoom(1f, 0.01f))

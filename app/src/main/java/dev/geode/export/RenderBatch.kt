@@ -6,6 +6,12 @@ data class BatchTrack(
     val title: String,
 )
 
+/** A playlist the Render tab can batch: saved or smart, already resolved to its tracks. */
+data class RenderPlaylist(
+    val name: String,
+    val tracks: List<BatchTrack>,
+)
+
 /**
  * What Studio › Render's Render button covers. Only [CURRENT_TRACK] is a single render; every
  * other scope is a batch, rendered one track after another, and batches are Pro.

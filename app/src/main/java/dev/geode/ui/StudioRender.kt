@@ -50,6 +50,7 @@ import dev.geode.export.ExportQuality
 import dev.geode.export.ExportRange
 import dev.geode.export.ExportRatio
 import dev.geode.export.LoudnessTarget
+import dev.geode.export.RenderPlaylist
 import dev.geode.export.RenderScope
 import dev.geode.pro.ProFeature
 import dev.geode.render.VisualizerView

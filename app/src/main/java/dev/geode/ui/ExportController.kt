@@ -297,12 +297,9 @@ internal class ExportController(
             ExportRun.scope.launch(Dispatchers.Default) {
                 try {
                     val gui = host.guiPrefs
-                    while (!batch.finished) {
-                        val track = batch.current ?: break
-                        if (exportCancelled || ExportRun.cancelRequested) {
-                            batch = batch.cancelRest()
-                            break
-                        }
+                    // A Cancel between tracks ends the loop; the tracks left are then marked cancelled.
+                    var track = batch.current
+                    while (track != null && !exportCancelled && !ExportRun.cancelRequested) {
                         val publish: (Float) -> Unit = { within ->
                             val overall = batch.progress(within)
                             _exportState.update { it.copy(phase = ExportPhase.Running(overall), batch = batch) }
@@ -318,8 +315,9 @@ internal class ExportController(
                                 BatchOutcome.Failed(t.message ?: t.javaClass.simpleName)
                             }
                         batch = if (outcome == BatchOutcome.Cancelled) batch.cancelRest() else batch.record(outcome)
+                        track = batch.current
                     }
-                    _exportState.value = batch.toUiState()
+                    _exportState.value = batch.cancelRest().toUiState()
                 } catch (t: kotlinx.coroutines.CancellationException) {
                     _exportState.value = batch.cancelRest().toUiState()
                     throw t

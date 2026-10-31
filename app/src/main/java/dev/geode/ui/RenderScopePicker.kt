@@ -36,14 +36,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.geode.R
 import dev.geode.export.BatchTrack
+import dev.geode.export.RenderPlaylist
 import dev.geode.export.RenderScope
 import dev.geode.ui.pro.ProBadge
-
-/** A playlist the Render tab can batch: saved or smart, already resolved to its tracks. */
-internal data class RenderPlaylist(
-    val name: String,
-    val tracks: List<BatchTrack>,
-)
 
 @Composable
 internal fun renderScopeLabel(scope: RenderScope): String =

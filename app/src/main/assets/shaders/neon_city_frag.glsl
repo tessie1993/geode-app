@@ -15,7 +15,9 @@ out vec4 fragColor;
 
 // Neon City: a synthwave flyover. An endless grid of blocks below the eye has
 // neon-edged roofs and lit windows, the streets are glowing grid lines, and a
-// striped sun sits on a glowing horizon straight down the travel axis.
+// full moon hangs over a cold horizon straight down the travel axis. It is a
+// NIGHT city on purpose: Grid and Outrun Drive already set a striped sunset
+// on a neon horizon, and with a third one the three read as one picture.
 //
 // The camera is the shared rig (camFly). The block hash repeats every 1024
 // world units along z, which divides the rig's 8192 wrap.
@@ -26,7 +28,7 @@ out vec4 fragColor;
 // its hash, and its height follows that band, so the skyline is a spectrum
 // laid out at random. A snare (uHits.y) sends a ring of window light outward
 // from under the eye through the blocks: it is a moving band, not a flash. A
-// drop (uEvents.y) stretches every building and lifts the sun and the horizon
+// drop (uEvents.y) stretches every building and lifts the moon and the horizon
 // glow higher in the sky; they move, they do not brighten. Overall level
 // rides uSwell.
 //
@@ -114,28 +116,28 @@ vec3 normalAt(vec3 p, float eps) {
                    + k.yxy * map(p + k.yxy * eps) + k.xxx * map(p + k.xxx * eps));
 }
 
-/** Gradient sky, a glow band at glowY (in rd.y) and the striped sun sitting on it. */
+/** Night sky: a cold gradient, a thin glow band at glowY (in rd.y) and the moon above it. */
 vec3 skyColour(vec3 rd, float glowY) {
     float y = rd.y;
     // The gradient itself stays put, so a drop moves the glow without
-    // brightening the sky as a whole.
-    vec3 col = mix(pal(0.92) * 0.30, pal(0.68) * 0.035, smoothstep(-0.03, 0.57, y));
-    float by = (y - glowY) / 0.13;
-    col += pal(0.05) * 0.30 * exp(-by * by);
+    // brightening the sky as a whole. Deep blue night, the palette only tints.
+    vec3 night = mix(vec3(0.03, 0.05, 0.12), pal(0.6) * 0.08, 0.35);
+    vec3 col = mix(night * 2.2, night * 0.4, smoothstep(-0.03, 0.57, y));
+    float by = (y - glowY) / 0.07;
+    col += mix(pal(0.55), vec3(0.4, 0.6, 1.0), 0.5) * 0.18 * exp(-by * by);
 
-    vec3 sd = normalize(vec3(0.0, glowY + 0.10, 1.0));
-    float r = sqrt(max(2.0 * (1.0 - dot(rd, sd)), 0.0));
-    float below = y - sd.y;
-    // Gaps widen toward the bottom of the disc and drift slowly down.
-    float gap = clamp(-below / 0.19, 0.0, 1.0) * 0.6;
-    float stripes = below > 0.0 ? 1.0 : step(gap, fract(below * 26.0 + uTime * 0.25));
-    float disc = (1.0 - smoothstep(0.183, 0.19, r)) * stripes;
-    col += mix(pal(0.08), pal(0.95), (1.0 - smoothstep(-0.19, 0.19, below))) * disc * 0.85;
-    col += pal(0.02) * 0.10 * (1.0 - smoothstep(0.0, 0.7, r));
+    // The moon: pale, unstriped, a little above the glow, mottled with maria.
+    vec3 md = normalize(vec3(0.12, glowY + 0.26, 1.0));
+    float r = sqrt(max(2.0 * (1.0 - dot(rd, md)), 0.0));
+    float disc = 1.0 - smoothstep(0.085, 0.09, r);
+    vec2 mq = (rd.xy - md.xy) * 24.0;
+    float maria = 0.6 + 0.4 * sin(mq.x * 1.3 + 1.3) * sin(mq.y * 1.6 - 0.4);
+    col += mix(vec3(0.95, 0.96, 1.0), pal(0.6), 0.12) * disc * (0.72 + 0.22 * maria);
+    col += vec3(0.5, 0.6, 0.9) * 0.12 * (1.0 - smoothstep(0.1, 0.5, r));
 
     vec3 sp = rd * 150.0;
     float s = hashCell(ivec3(floor(sp)));
-    float star = (1.0 - smoothstep(0.0, 0.3, length(fract(sp) - 0.5))) * step(0.996, s);
+    float star = (1.0 - smoothstep(0.0, 0.3, length(fract(sp) - 0.5))) * step(0.99, s);
     col += vec3(0.7) * star * smoothstep(glowY + 0.15, glowY + 0.4, y);
     return col;
 }

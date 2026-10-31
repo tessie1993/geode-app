@@ -123,6 +123,14 @@ const SHADER_VALUES = {
   uBassSmooth: 0.5, uMidSmooth: 0.4, uTrebleSmooth: 0.3, uEnergySmooth: 0.45, uSwell: 0.5, uSpike: 0.15,
   uMoveDir: [0.8, 0.6], uSpawnSeed: 0.37, uSpawnAge: 4.0, uFormPhase: 0.62, uFlowPhase: 12.5,
   uFlowStrength: 0,
+  uEnergyRel: 0.5, uBassRel: 0.5, uMidRel: 0.5, uTrebRel: 0.5, uMotionBright: 0.5, uHarmony: 0.6,
+  uKeyHue: 0.3, uKeyStrength: 0.5, uBeatOsc: 0.4, uBarOsc: 0.6, uOrbit: [0.3, -0.2], uDrift: 0.2,
+  uBreath: 0.5, uMotion: 0.5,
+  uHits: [0.3, 0.2, 0.25, 0.3], uEvents: [0.3, 0.0, 0.0, 0.2], uBandsLo: [0.5, 0.55, 0.45, 0.4],
+  uBandsHi: [0.35, 0.3, 0.25, 0.3], uHitCount: 41, uSectionCount: 3,
+  // CameraRig at rest: eye on the path at the base height, looking down +z, base focal.
+  uCamPos: [0, 0, 37], uCamBasis: [1, 0, 0, 0, 1, 0, 0, 0, 1], uCamFocal: 1.6, uCamTravel: 37,
+  uCamDolly: 0, uCamLook: [0, 0, 0],
 };
 
 const SHADER_TEXTURES = { uAudioTex: 'audio', uPalLut: 'palette', uFlow: 'flow' };
@@ -165,13 +173,14 @@ function withKeywords(src, defines) {
 }
 
 function parseArgs(argv) {
-  const a = { size: 240, shaders: [], all: false, list: false, fluidDisplay: false, out: null, time: null };
+  const a = { size: 240, height: null, shaders: [], all: false, list: false, fluidDisplay: false, out: null, time: null };
   for (let i = 0; i < argv.length; i++) {
     const v = argv[i];
     if (v === '--list') a.list = true;
     else if (v === '--all') a.all = true;
     else if (v === '--fluid-display') a.fluidDisplay = true;
     else if (v === '--shader') a.shaders.push(argv[++i]);
+    else if (v === '--height') a.height = Number(argv[++i]);
     else if (v === '--size') a.size = Number(argv[++i]);
     else if (v === '--out') a.out = argv[++i];
     else if (v === '--time') a.time = Number(argv[++i]);
@@ -207,7 +216,7 @@ async function main() {
     const frag = resolveIncludes(fs.readFileSync(file, 'utf8'), registry);
     const values = { ...SHADER_VALUES };
     if (args.time !== null) values.uTime = args.time;
-    jobs.push({ name: id, vert: quadVert, frag, uniforms: plan(parseUniforms(frag), values, SHADER_TEXTURES, args.size, args.size) });
+    jobs.push({ name: id, vert: quadVert, frag, uniforms: plan(parseUniforms(frag), values, SHADER_TEXTURES, args.size, args.height ?? args.size) });
   }
   if (args.fluidDisplay) {
     const vert = fs.readFileSync(path.join(SHADERS, 'fluid_base_vert.glsl'), 'utf8');
@@ -237,7 +246,7 @@ async function main() {
   try {
     const page = await browser.openPage(pathToFileURL(path.join(HERE, 'page.html')).href);
     for (const job of jobs) {
-      const r = await page.call('__render', { ...job, width: args.size, height: args.size });
+      const r = await page.call('__render', { ...job, width: args.size, height: args.height ?? args.size });
       allOk = report(job.name, r) && allOk;
       if (args.out && r.png) {
         const dest = jobs.length === 1 ? args.out : path.join(args.out, `${job.name.replace(/[^\w]+/g, '_')}.png`);

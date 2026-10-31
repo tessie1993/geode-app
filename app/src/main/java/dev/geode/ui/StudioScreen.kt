@@ -844,7 +844,7 @@ private fun StudioChip(
 
 private fun clock(ms: Long): String = "%d:%02d".format(ms / 60_000, (ms / 1000) % 60)
 
-// internal (not private) so the export dialog (ExportDialog.kt, same package) can share this
+// internal (not private) so Studio › Render's result (RenderBar.kt, same package) can share this
 // one implementation instead of building its own SEND intent.
 internal fun android.content.Context.shareVideo(
     uri: Uri,
@@ -867,7 +867,8 @@ internal fun android.content.Context.shareVideo(
     runCatching { startActivity(Intent.createChooser(send, chooserTitle)) }
 }
 
-private fun android.content.Context.viewVideo(uri: Uri) {
+// internal for the same reason as shareVideo: the Render bar's Open plays the file the same way.
+internal fun android.content.Context.viewVideo(uri: Uri) {
     val view =
         Intent(Intent.ACTION_VIEW)
             .setDataAndType(uri, "video/mp4")

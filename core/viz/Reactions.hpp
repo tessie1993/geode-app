@@ -32,18 +32,31 @@ enum class ReactSource {
     // macroEnergy), smoothed over seconds: where the track is in its arc.
     // Arrival: an event when the music comes back after two quiet seconds.
     MacroEnergy, Arrival,
+    // Phrase-aware beats, so one style can answer the beat one way for a phrase
+    // and another way for the next (see ReactSignals::countBeat). A phrase is
+    // eight bars, or shorter when the analyser hears a section change.
+    // PhraseBeatA: the beat in even phrases; PhraseBeatB: in odd ones.
+    // Backbeat: the beat on counts two and four only.
+    // Phrase: an event when a new phrase starts.
+    PhraseBeatA, PhraseBeatB, Backbeat, Phrase,
 };
-constexpr int kReactSourceCount = static_cast<int>(ReactSource::Arrival) + 1;
+constexpr int kReactSourceCount = static_cast<int>(ReactSource::Phrase) + 1;
 
 // Follow: target += amount * curve(source).
 // Step: each rising edge of the source adds amount to an accumulator (a hue
 //   jump, a quarter turn, a new camera angle), glided by the route smoothing.
 // Spin: the accumulator integrates amount * source per second (keeps turning
 //   while the sound lasts).
-// Accumulators are folded through a triangle wave into -1..1, so a target
-// stepped forever stays bounded and never wraps with a pop.
-enum class ReactMode { Follow, Step, Spin };
-constexpr int kReactModeCount = static_cast<int>(ReactMode::Spin) + 1;
+// Jump: each rising edge holds a new seeded random value in -amount..amount
+//   (sample and hold), glided by the route smoothing: a new hue, angle or
+//   warp per hit instead of the same push every time.
+// Toggle: each rising edge flips the target between 0 and amount (a palette
+//   swap, a mirror on or off), glided by the route smoothing. Step cannot do
+//   this: an amount of 2 folds back to 0 on every edge.
+// Step and Spin accumulators are folded through a triangle wave into -1..1, so
+// a target stepped forever stays bounded and never wraps with a pop.
+enum class ReactMode { Follow, Step, Spin, Jump, Toggle };
+constexpr int kReactModeCount = static_cast<int>(ReactMode::Toggle) + 1;
 
 struct ReactRoute {
     bool enabled = false;
@@ -66,7 +79,15 @@ public:
     float onsetCount() const { return onsetCount_; }
     // Section boundaries seen so far, same wrap: lets a shader hold a variation per section.
     float sectionCount() const { return sectionCount_; }
+    // Phrases started so far: the parity picks PhraseBeatA or PhraseBeatB.
+    int phraseCount() const { return phraseCount_; }
     static constexpr float kOnsetCountWrap = 4096.0f;
+    // A phrase is this many bars unless a section change starts one sooner.
+    static constexpr int kPhraseBars = 8;
+    // Without a beat for this long, onsets stand in for beats (rubato, ambient).
+    static constexpr float kBeatlessSeconds = 2.0f;
+    // Without any bar for this long, a phrase still turns over on time.
+    static constexpr float kPhraseMaxSeconds = 20.0f;
 
 private:
     static constexpr float kPeakDecaySeconds = 6.0f;
@@ -77,6 +98,8 @@ private:
     float normalised(int slot, float x, float dt);
     void trigger(ReactSource s, float strength);
     void decay(ReactSource s, float dt, float seconds);
+    void countBeat(const GeodeFeatureFrame& f, bool onset, float dt);
+    void startPhrase();
 
     std::array<float, kReactSourceCount> values_{};
     std::array<float, kReactSourceCount> peaks_{};
@@ -89,6 +112,11 @@ private:
     float onsetArmed_ = 1.0f;
     float onsetCount_ = 0.0f;
     float sectionCount_ = 0.0f;
+    int phraseCount_ = 0;
+    int barsInPhrase_ = 0;
+    int beatsInBar_ = 0;
+    float sinceBeat_ = kBeatlessSeconds;
+    float sincePhrase_ = 0.0f;
 };
 
 class ReactionEngine {
@@ -117,6 +145,9 @@ private:
     std::array<float, kRoutes> acc_{};
     std::array<float, kRoutes> out_{};
     std::array<bool, kRoutes> high_{};
+    std::array<unsigned int, kRoutes> jumpSeed_{};
+
+    float nextJump(int route);
 };
 
 }  // namespace geode::viz

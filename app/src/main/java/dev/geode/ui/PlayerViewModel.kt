@@ -15,6 +15,7 @@ import dev.geode.audio.MicCapture
 import dev.geode.data.MilkPackImporter
 import dev.geode.data.Preset
 import dev.geode.di.PlayerSessionProvider
+import dev.geode.export.BatchTrack
 import dev.geode.export.ExportAspect
 import dev.geode.export.ExportCodec
 import dev.geode.export.ExportRange
@@ -287,6 +288,27 @@ class PlayerViewModel
             val limits = gate.value
             val capped = capRange(range, limits.exportCapMs)
             session.startExport(aspect, fps, sceneFactory, destination, loopSafe, capped, sceneFactoryFor, codec, limits.watermarksExports)
+        }
+
+        /**
+         * A batch render (play queue, a playlist, chosen tracks) is Pro, under the same feature as
+         * loop renders: free and trial users keep single renders of the current track.
+         */
+        fun startBatch(
+            tracks: List<BatchTrack>,
+            aspect: ExportAspect,
+            fps: Int,
+            sceneFactory: SceneFactory,
+            sceneParams: SceneParams?,
+            loopSafe: Boolean,
+            codec: ExportCodec,
+        ) {
+            if (openPaywallIfLocked(aspect, fps)) return
+            if (!gate.value.allows(ProFeature.FULL_LENGTH_EXPORT)) {
+                paywall.open(PaywallTrigger.Feature(ProFeature.FULL_LENGTH_EXPORT))
+                return
+            }
+            session.startBatch(tracks, aspect, fps, sceneFactory, sceneParams, loopSafe, codec, gate.value.watermarksExports)
         }
 
         fun startLoopRender(

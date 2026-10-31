@@ -11,6 +11,8 @@ import dev.geode.data.GuiPrefs
 import dev.geode.data.PerformanceTake
 import dev.geode.editor.AnimatableParams
 import dev.geode.editor.KeyframeSheet
+import dev.geode.export.BatchOutcome
+import dev.geode.export.BatchTrack
 import dev.geode.export.ExportAspect
 import dev.geode.export.ExportCodec
 import dev.geode.export.ExportRange
@@ -24,6 +26,7 @@ import dev.geode.export.LoudnessAdvice
 import dev.geode.export.LoudnessTarget
 import dev.geode.export.MixClip
 import dev.geode.export.ProjectComposition
+import dev.geode.export.RenderBatch
 import dev.geode.export.TimeOfDayDrift
 import dev.geode.export.VideoExporter
 import dev.geode.render.SceneFactory
@@ -53,6 +56,13 @@ data class ExportUiState(
      * the resulting gain, so this is a readout, not a correction — see [ExportController.startExport].
      */
     val loudnessAdvice: LoudnessAdvice? = null,
+    /**
+     * The finished file's name in Movies/MuzViz, so the Render bar can say what was made. Null for a
+     * folder the user picked: that name is the picker's, and the result URI is a SAF document id.
+     */
+    val fileName: String? = null,
+    /** The batch under way or just finished, or null for a single render. */
+    val batch: RenderBatch? = null,
 )
 
 /** Progress and result of a loop render + long-form extend, mirroring [ExportUiState]. */
@@ -237,6 +247,7 @@ internal class ExportController(
                             customDestination = destination != null,
                             phase = result.toPhase(),
                             loudnessAdvice = (result as? VideoExporter.Result.Saved)?.loudnessAdvice,
+                            fileName = name.takeIf { destination == null },
                         )
                 } catch (t: Throwable) {
                     // Cancellation is tested before the user's own cancel flag: when the two
@@ -256,6 +267,125 @@ internal class ExportController(
                     ExportRun.finish()
                 }
             }
+    }
+
+    /**
+     * Renders [tracks] one after another through the same exporter as [startExport], each to its
+     * own `muzviz_*.mp4` in Movies/MuzViz, under one [ExportRun] so the foreground service and its
+     * notification cover the whole batch. A track that fails is recorded and the next one starts.
+     * Cancel stops the track rendering now, the same way it stops a single render, and marks it
+     * and every track after it cancelled; files already finished stay. Every track uses
+     * [sceneParams] (the current look, or the preset the user chose), whole length, with no performance take or editor keyframes:
+     * those belong to the track playing now, not to the rest of a playlist.
+     */
+    fun startBatch(
+        tracks: List<BatchTrack>,
+        aspect: ExportAspect,
+        fps: Int,
+        sceneFactory: SceneFactory,
+        sceneParams: SceneParams?,
+        loopSafe: Boolean,
+        codec: ExportCodec,
+        watermark: Boolean,
+    ) {
+        if (tracks.isEmpty() || _exportState.value.phase.isBusy || ExportRun.running) return
+        exportCancelled = false
+        var batch = RenderBatch(tracks)
+        _exportState.value = ExportUiState(phase = ExportPhase.Running(0f), batch = batch)
+        ExportRun.begin(application.getString(dev.geode.R.string.render_batch_label, tracks.size))
+        ExportService.start(application)
+        exportJob =
+            ExportRun.scope.launch(Dispatchers.Default) {
+                try {
+                    val gui = host.guiPrefs
+                    // A Cancel between tracks ends the loop; the tracks left are then marked cancelled.
+                    var track = batch.current
+                    while (track != null && !exportCancelled && !ExportRun.cancelRequested) {
+                        val publish: (Float) -> Unit = { within ->
+                            val overall = batch.progress(within)
+                            _exportState.update { it.copy(phase = ExportPhase.Running(overall), batch = batch) }
+                            ExportRun.publish(overall)
+                        }
+                        publish(0f)
+                        val outcome =
+                            try {
+                                renderBatchTrack(track, aspect, fps, sceneFactory, sceneParams, loopSafe, codec, watermark, gui, publish)
+                            } catch (c: kotlinx.coroutines.CancellationException) {
+                                throw c
+                            } catch (t: Throwable) {
+                                BatchOutcome.Failed(t.message ?: t.javaClass.simpleName)
+                            }
+                        batch = if (outcome == BatchOutcome.Cancelled) batch.cancelRest() else batch.record(outcome)
+                        track = batch.current
+                    }
+                    _exportState.value = batch.cancelRest().toUiState()
+                } catch (t: kotlinx.coroutines.CancellationException) {
+                    _exportState.value = batch.cancelRest().toUiState()
+                    throw t
+                } finally {
+                    ExportRun.finish()
+                }
+            }
+    }
+
+    private suspend fun renderBatchTrack(
+        track: BatchTrack,
+        aspect: ExportAspect,
+        fps: Int,
+        sceneFactory: SceneFactory,
+        sceneParams: SceneParams?,
+        loopSafe: Boolean,
+        codec: ExportCodec,
+        watermark: Boolean,
+        gui: GuiPrefs,
+        publish: (Float) -> Unit,
+    ): BatchOutcome {
+        val uri = track.uri.toUri()
+        // Always by this track's own URI. The playing track's cached timeline is not used here:
+        // reading it and the playing URI are two separate reads, and a track change between them
+        // would pair this track with another song's analysis. analyze() goes through AnalysisCache.
+        val analysed = host.analyze(uri) { p -> publish(p * 0.2f) }
+        val name = "muzviz_${System.currentTimeMillis()}.mp4"
+        val result =
+            exporter.export(
+                audioUri = uri,
+                timeline = analysed.withBeatSensitivity(gui.beatSensitivity, gui.effectiveBeatMinIntervalMs),
+                sceneFactory = sceneFactory,
+                aspect = aspect,
+                fileName = name,
+                sceneParams = sceneParams ?: host.sceneParams,
+                lfoConfigs = host.lfoConfigs(),
+                adsrConfigs = host.adsrConfigs(),
+                reactions = host.reactions(),
+                reducedMotion = gui.reducedMotion,
+                requestedFps = fps,
+                loopSafe = loopSafe,
+                codec = codec,
+                loudnessTarget = defaultLoudnessTarget(),
+                background = defaultBackground(),
+                onProgress = { p -> publish(0.2f + p * 0.8f) },
+                isCancelled = { exportCancelled || ExportRun.cancelRequested },
+                watermark = watermark,
+            )
+        return when (result) {
+            is VideoExporter.Result.Saved -> BatchOutcome.Saved(result.uri.toString(), name)
+            is VideoExporter.Result.Failed -> BatchOutcome.Failed(result.message)
+            VideoExporter.Result.Cancelled -> BatchOutcome.Cancelled
+        }
+    }
+
+    private fun RenderBatch.toUiState(): ExportUiState {
+        val last = lastSaved
+        return ExportUiState(
+            phase =
+                when {
+                    last != null -> ExportPhase.Done(last.uri.toUri())
+                    failures.isNotEmpty() -> ExportPhase.Failed(failures.first().second)
+                    else -> ExportPhase.Idle
+                },
+            fileName = last?.fileName,
+            batch = this,
+        )
     }
 
     fun cancelExport() {
@@ -378,7 +508,7 @@ internal class ExportController(
     private suspend fun defaultCodec(): ExportCodec =
         withContext(Dispatchers.IO) { ExportPrefsStore(GeodePrefsFiles(application).general).load().codec }
 
-    // The main export's UI (ExportDialog) has no path to this controller's public API for
+    // The main export's UI (Studio › Render) has no path to this controller's public API for
     // per-render options that aren't already threaded through startExport's callers, so the
     // loudness target rides along as a persisted default instead, the same way defaultCodec()
     // above does for studio exports.

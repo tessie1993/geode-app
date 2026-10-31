@@ -16,13 +16,17 @@ out vec4 fragColor;
 //#include lib_dmt
 //#include lib_bulb
 
-// Bulb Prism: a kaleidoscope of small power-5 bulbs. Space is folded into one
-// forty-eighth of itself (abs on every axis, then sorting the coordinates -
-// the octahedral mirror group) before a seeded rotation and offset, and a
-// shrunken bulb is placed in that wedge, so the mirrors multiply it into a
-// cluster of up to forty-eight five-lobed seeds meeting at their creases: a
-// crystal grown out of one fractal. Every fold is a reflection and the
-// rotation is rigid, so the estimate stays exact up to the bulb's own scale.
+// Bulb Prism: six small power-5 jewels hung at the corners of an octahedron,
+// floating apart round an empty centre. Space is folded into one forty-eighth
+// of itself (abs on every axis, then sorting the coordinates - the octahedral
+// mirror group) and a shrunken bulb is placed ON the fold's x axis, so the
+// mirrors make exactly six copies, one per axis, each mirrored through its
+// own axis into a symmetric gem. The copies are far enough apart not to
+// touch: the one Bulb style that is a constellation rather than one body,
+// with the jewel sky showing between the stones. (It used to sit the seed
+// off-axis, where the 48 copies fused into one lumpy ball that read as
+// Classic in another colour.) Every fold is a reflection and the rotation is
+// rigid, so the estimate stays exact up to the bulb's own scale.
 //
 // Shaded with lib_dmt's jewel material and set against its chrysanthemum sky,
 // the one bulb that lives in the visionary-art look the rest of the app's
@@ -30,11 +34,12 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// ONSETS re-seed the crystal. Every onset bumps uHitCount, which hashes a new
-// rotation and offset for the seed bulb; the onset envelope (uHits.w, 0.22 s)
-// glides from the previous seed to the new one, so each attack makes the
-// crystal re-facet itself in a quick, smooth lurch and busy passages keep it
-// churning. The seed's own spin follows the accumulated rotation uDrift.
+// ONSETS re-cut the jewels. Every onset bumps uHitCount, which hashes a new
+// rotation for the seed bulb inside its gem; the onset envelope (uHits.w,
+// 0.22 s) glides from the previous cut to the new one, so each attack makes
+// all six stones re-facet in a quick, smooth lurch and busy passages keep
+// them churning. Bass (uBassSmooth) breathes the constellation open: the
+// gems drift out along their axes and back. The seed's own spin follows the accumulated rotation uDrift.
 // Treble sharpens the jewel's specular. Brightness follows uSwell only.
 //
 // ---- macros -----------------------------------------------------------------
@@ -46,10 +51,12 @@ out vec4 fragColor;
 // the seed. Colour is pal(); Space is the rig (camAround).
 
 #define BP_MAX_STEPS 128
-#define BP_BOUND 1.6
-#define BP_CAM_R 3.9
-/** The seed bulb is shrunk by this much, so a copy is about 0.5 across. */
-#define BP_SCALE 2.4
+#define BP_BOUND 1.75
+#define BP_CAM_R 4.1
+/** The seed bulb is shrunk by this much, so a gem is about 0.75 across. */
+#define BP_SCALE 3.0
+/** How far out along its axis a gem sits at rest; bass pushes it further. */
+#define BP_REACH 0.95
 const float BP_SPIN = 3.0 * CAM_SPIN_UNIT;
 
 mat3 gRot;
@@ -68,7 +75,7 @@ float map(vec3 p) {
     if (p.x < p.y) p.xy = p.yx;
     if (p.y < p.z) p.yz = p.zy;
     if (p.x < p.y) p.xy = p.yx;
-    vec3 q = (gRot * p - gOff) * BP_SCALE;
+    vec3 q = gRot * (p - gOff) * BP_SCALE;
     vec4 tr;
     float d = bulbDE(bulbChaos(q), 5.0, 5.0, vec2(0.0), gIters, tr) / (bulbChaosLip() * BP_SCALE);
     gTrap = tr;
@@ -91,8 +98,9 @@ void main() {
     vec3 angNew = seedAngles(uHitCount);
     vec3 ang = mix(angOld, angNew, glide) * en;
     gRot = rotX(ang.x) * rotY(ang.y + 0.3 * uDrift) * rotZ(ang.z);
-    gOff = vec3(0.58, 0.30, 0.12) + vec3(0.12, 0.10, 0.08) * mix(angOld.zxy, angNew.zxy, glide) * en;
-    gTurn = rotY(0.07 * uDrift);
+    // On the x axis, so the mirrors make six gems, not forty-eight fused ones.
+    gOff = vec3(BP_REACH + 0.22 * clamp(uBassSmooth, 0.0, 1.5) * en, 0.0, 0.0);
+    gTurn = rotY(0.07 * uDrift) * rotX(0.6);
     gIters = bulbIters(6);
 
     vec3 ro;

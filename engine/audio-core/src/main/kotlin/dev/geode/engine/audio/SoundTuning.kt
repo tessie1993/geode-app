@@ -84,6 +84,7 @@ data class SoundTuning(
         /** The inverse of [toFloats]; anything the wrong length is the defaults. */
         fun fromFloats(f: FloatArray): SoundTuning {
             if (f.size != SoundFrameLayout.TUNING_FLOATS) return SoundTuning()
+
             fun three(at: Int) = listOf(f[at], f[at + 1], f[at + 2])
             return SoundTuning(
                 gain = three(0),

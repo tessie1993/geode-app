@@ -33,6 +33,9 @@ val TutorialChapter.titleRes: Int
             TutorialChapter.VISUALS -> R.string.tutorial_chapter_visuals
             TutorialChapter.CUSTOMIZE -> R.string.tutorial_chapter_customize
             TutorialChapter.LIVE_VIEW -> R.string.tutorial_chapter_live_view
+            TutorialChapter.STUDIO -> R.string.tutorial_chapter_studio
+            TutorialChapter.ANYWHERE -> R.string.tutorial_chapter_anywhere
+            TutorialChapter.PRO -> R.string.tutorial_chapter_pro
             TutorialChapter.SETTINGS -> R.string.tutorial_chapter_settings
         }
 
@@ -150,6 +153,58 @@ val TutorialChapter.cardContent: List<TutorialCard>
                         TutorialTarget.LIVE_VIEW,
                     ),
                     TutorialCard(R.string.tutorial_live_3_title, R.string.tutorial_live_3_body, TutorialArt.PIP, TutorialTarget.LIVE_VIEW),
+                )
+            TutorialChapter.STUDIO ->
+                listOf(
+                    TutorialCard(
+                        R.string.tutorial_studio_1_title,
+                        R.string.tutorial_studio_1_body,
+                        TutorialArt.FILM,
+                        TutorialTarget.STUDIO_RENDER,
+                    ),
+                    TutorialCard(
+                        R.string.tutorial_studio_2_title,
+                        R.string.tutorial_studio_2_body,
+                        TutorialArt.LOOP,
+                        TutorialTarget.STUDIO_RENDER,
+                        pro = true,
+                    ),
+                    TutorialCard(
+                        R.string.tutorial_studio_3_title,
+                        R.string.tutorial_studio_3_body,
+                        TutorialArt.TIMELINE,
+                        TutorialTarget.STUDIO_EDIT,
+                        pro = true,
+                    ),
+                )
+            TutorialChapter.ANYWHERE ->
+                listOf(
+                    TutorialCard(
+                        R.string.tutorial_anywhere_1_title,
+                        R.string.tutorial_anywhere_1_body,
+                        TutorialArt.PHONE,
+                        TutorialTarget.SETTINGS,
+                        pro = true,
+                    ),
+                    TutorialCard(R.string.tutorial_anywhere_2_title, R.string.tutorial_anywhere_2_body, TutorialArt.DREAM, pro = true),
+                    TutorialCard(R.string.tutorial_anywhere_3_title, R.string.tutorial_anywhere_3_body, TutorialArt.WIDGET),
+                )
+            TutorialChapter.PRO ->
+                listOf(
+                    TutorialCard(
+                        R.string.tutorial_pro_1_title,
+                        R.string.tutorial_pro_1_body,
+                        TutorialArt.GEM,
+                        TutorialTarget.PAYWALL,
+                        pro = true,
+                    ),
+                    TutorialCard(
+                        R.string.tutorial_pro_2_title,
+                        R.string.tutorial_pro_2_body,
+                        TutorialArt.TRIAL,
+                        TutorialTarget.PAYWALL,
+                        pro = true,
+                    ),
                 )
             TutorialChapter.SETTINGS ->
                 listOf(

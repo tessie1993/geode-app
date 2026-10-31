@@ -17,6 +17,9 @@
     <string name="tutorial_chapter_visuals">Visuals</string>
     <string name="tutorial_chapter_customize">Customize</string>
     <string name="tutorial_chapter_live_view">Live view</string>
+    <string name="tutorial_chapter_studio">Studio</string>
+    <string name="tutorial_chapter_anywhere">Beyond the app</string>
+    <string name="tutorial_chapter_pro">Pro</string>
     <string name="tutorial_chapter_settings">Settings</string>
 
     <string name="tutorial_welcome_1_title">Hi, I\'m Wave!</string>
@@ -60,6 +63,25 @@
     <string name="tutorial_live_2_body">One finger sets a point the style builds around, two set an axis, three or more open a swirl. Pinch and twist to zoom and rotate.</string>
     <string name="tutorial_live_3_title">Take it with you</string>
     <string name="tutorial_live_3_body">Picture-in-picture keeps it playing in a small window. Plug into a TV or monitor and the visuals move to the big screen.</string>
+
+    <string name="tutorial_studio_1_title">Turn songs into videos</string>
+    <string name="tutorial_studio_1_body">Studio › Render exports the visualizer to your gallery. Free videos are up to 1080p, 30 fps and one minute, with a watermark. Pro goes to 4K and 60 fps, full length.</string>
+    <string name="tutorial_studio_2_title">Seamless loops</string>
+    <string name="tutorial_studio_2_body">Loop render makes a clip that ends exactly where it began, ready for a canvas, a story or a stream background.</string>
+    <string name="tutorial_studio_3_title">Cut it together</string>
+    <string name="tutorial_studio_3_body">Studio › Edit is a timeline: clips, keyframes, markers, and an auto-cut that drops a cut on every hit in the music.</string>
+
+    <string name="tutorial_anywhere_1_title">Live wallpaper</string>
+    <string name="tutorial_anywhere_1_body">Your last style can live on your home screen, reacting to whatever MuzViz is playing. Set it up in Settings › Behavior.</string>
+    <string name="tutorial_anywhere_2_title">Screen saver</string>
+    <string name="tutorial_anywhere_2_body">On the charger, Android\'s screen saver can show MuzViz too. Pick it in your phone\'s display settings.</string>
+    <string name="tutorial_anywhere_3_title">Now playing widget</string>
+    <string name="tutorial_anywhere_3_body">Long-press your home screen, add the MuzViz widget, and play, pause or skip without opening the app.</string>
+
+    <string name="tutorial_pro_1_title">One unlock, everything</string>
+    <string name="tutorial_pro_1_body">Pro is a one-time purchase: every style, 4K and 60 fps exports with no watermark, loop render, the Studio editor and the live wallpaper.</string>
+    <string name="tutorial_pro_2_title">Try it for an hour</string>
+    <string name="tutorial_pro_2_body">Start a free one-hour trial to play with every Pro style and tool before you decide. Anything marked Pro tells you where it is.</string>
 
     <string name="tutorial_settings_1_title">Make it yours</string>
     <string name="tutorial_settings_1_body">Look, Audio, Folders and Behavior hold the rest, including reduced motion and visual safety. Backup saves your presets and settings to a file.</string>

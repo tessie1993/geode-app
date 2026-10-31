@@ -6,6 +6,9 @@ add_library(geode_core STATIC
     api/geode_player_api.cpp
     api/geode_catalogue_api.cpp
     api/geode_params_api.cpp
+    api/geode_sound_api.cpp
+    sound/Fft.cpp
+    sound/SoundEngine.cpp
     library/Tags.cpp
     audio/player/Resampler.cpp
     audio/player/Decoder.cpp

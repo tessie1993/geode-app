@@ -266,6 +266,14 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
+      # Built BEFORE the emulator boots. Built inside the emulator script, the
+      # native core compiled for ~10 minutes beside a running 2-core emulator
+      # on a 4-vCPU runner; the starved device went offline mid-suite or the
+      # instrumentation process died, a different test each run. The script
+      # below then only installs and runs: these tasks are up to date.
+      - name: Build app and test APKs
+        run: ./gradlew :app:assembleDebug :app:assembleDebugAndroidTest --stacktrace --no-daemon
+
       - name: Run instrumented tests
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -274,6 +282,11 @@ jobs:
           api-level: 30
           target: google_apis
           arch: x86_64
+          # Nothing else runs on the runner now, so the device gets all of it:
+          # the styles render through software GL here, and the defaults (2
+          # cores, AVD default RAM) took 5-6 s per frame.
+          cores: 4
+          ram-size: 4096M
           disable-animations: true
           script: ./gradlew :app:connectedDebugAndroidTest --stacktrace --no-daemon
           working-directory: .

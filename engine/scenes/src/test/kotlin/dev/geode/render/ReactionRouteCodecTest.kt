@@ -48,7 +48,7 @@ class ReactionRouteCodecTest {
             this line is garbage
             true|SNARE|TWIST
             ||||||||
-            true|DROP|CAM_FLY|STEP|1.0|SMOOTH|0.2|2.0
+            true|HARD_CUT|CAM_FLY|STEP|1.0|SMOOTH|0.2|2.0
             """.trimIndent()
         val routes = ReactionRouteCodec.decode(text)!!
         assertEquals(listOf(LfoTarget.ZOOM, LfoTarget.CAM_FLY), routes.map { it.target })

@@ -297,6 +297,58 @@ GEODE_API size_t        geode_player_last_error(geode_player*, char* out, size_t
 /* The stereo mix as sent to the device, for analysis; one reader thread. Returns frames copied. */
 GEODE_API size_t        geode_player_read_tap(geode_player*, float* stereo, size_t frames);
 
+/* Scene and style catalogue (core/viz/Catalogue): every style id, its renderer kind, the style families,
+ * which Customize controls reach which styles, and the ranges the shell's controls quote, as one versioned
+ * '|'-separated line table (see Catalogue.hpp for the rows). Static: the pointer stays valid for the
+ * process; the shell parses it once. Display labels and the Pro rule are not in it. */
+GEODE_API const char* geode_catalogue_text(void);
+
+/* Customize randomizer, Reset tab and A/B blend (core/viz/ParamRandomizer, core/viz/Params) over SceneParams
+ * in the geode_viz_param_name wire order: geode_viz_param_count floats, ints and flags as floats. Pure: no viz
+ * handle; the same arguments always give the same result. Controls are named by their ParamKeys strings, tabs
+ * by their CustomizeTab names (a tab the engine does not know rolls and resets nothing). in and out may alias.
+ * style_id NULL or empty = any style; tab NULL = every tab; locked = newline-joined control names, NULL = none.
+ * Returns 1 when the roll changed something, 0 when out is a copy of in. */
+GEODE_API int         geode_params_randomize(const char* style_id, const char* tab, const char* locked, uint64_t seed,
+                                             const float* in, float* out);
+GEODE_API void        geode_params_reset_tab(const char* tab, const float* in, float* out);
+/* t 0..1: floats glide, choices snap at 0.5, and so do the NOT_FADED sentinels. */
+GEODE_API void        geode_params_blend(const float* a, const float* b, float t, float* out);
+/* Every rolled control as "TAB|ParamKeys string" lines, in roll order: what the panel offers to lock and what
+ * each tab's Randomize and Reset cover. Static: the pointer stays valid for the process. */
+GEODE_API const char* geode_params_roll_keys(void);
+
+/* Export resampler (audio/dsp/PcmResampler): interleaved 16-bit PCM to the AAC encoder's rate; box filter
+ * down, linear up. Streaming: state carries across calls. Any one thread at a time. There is no flush: a
+ * partial output frame at the end is dropped, as the export always did. */
+typedef struct geode_resampler geode_resampler;
+GEODE_API geode_resampler* geode_resampler_create(int in_rate, int out_rate, int channels);  /* NULL on bad args */
+GEODE_API void             geode_resampler_destroy(geode_resampler*);
+GEODE_API int              geode_resampler_channels(geode_resampler*);   /* 0 for NULL */
+GEODE_API size_t           geode_resampler_max_out_frames(geode_resampler*, size_t in_frames);
+/* Returns the frames written to out, or -1 (writing nothing) when out_capacity_frames is under
+ * geode_resampler_max_out_frames(in_frames). */
+GEODE_API int64_t          geode_resampler_process(geode_resampler*, const int16_t* in, size_t in_frames,
+                                                   int16_t* out, size_t out_capacity_frames);
+
+/* Export loudness meter (audio/dsp/Loudness): ITU-R BS.1770-4 integrated loudness and true peak of a whole
+ * programme, fed interleaved float PCM in -1..1. Mono, stereo and 5.1 only. Any one thread at a time. */
+typedef struct geode_loudness geode_loudness;
+typedef struct geode_loudness_report {
+    int     has_integrated;     /* 0 when every block sits under the -70 LUFS absolute gate */
+    double  integrated_lufs;
+    double  true_peak_dbtp;
+    double  sample_peak_dbfs;
+    int64_t measured_ms;
+    int     gated_block_count;
+} geode_loudness_report;
+GEODE_API int             geode_loudness_supports(int channels);
+GEODE_API geode_loudness* geode_loudness_create(int sample_rate, int channels);   /* NULL on bad args */
+GEODE_API void            geode_loudness_destroy(geode_loudness*);
+GEODE_API void            geode_loudness_feed(geode_loudness*, const float* interleaved, size_t samples);
+GEODE_API int             geode_loudness_has_block(geode_loudness*);   /* 1 once a 400 ms block exists */
+GEODE_API void            geode_loudness_finish(geode_loudness*, geode_loudness_report* out);   /* non-destructive */
+
 #ifdef __cplusplus
 }
 #endif

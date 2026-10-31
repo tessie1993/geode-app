@@ -2,8 +2,7 @@ package dev.geode.editor
 
 import dev.geode.R
 import dev.geode.export.ClipEdit
-import dev.geode.render.scene.CymaticsMath
-import dev.geode.render.scene.MarchBudget
+import dev.geode.render.scene.Catalogue
 import dev.geode.render.scene.ParamKeys
 import dev.geode.render.scene.SceneParams
 import kotlin.math.roundToInt
@@ -29,6 +28,11 @@ data class AnimatableParam(
 object AnimatableParams {
     private const val SCENE = "scene."
     private const val CLIP = "clip."
+
+    // The native catalogue's ranges; declared before the tables that read them.
+    private val DETAIL = Catalogue.range(ParamKeys.MARCH_DETAIL)
+    private val FUNDAMENTAL = Catalogue.range(ParamKeys.FUNDAMENTAL_HZ)
+    private val MAX_MODES = Catalogue.range(ParamKeys.STANDING_WAVES).endInclusive.toInt()
 
     val scene: List<AnimatableParam> = sceneTable()
     val clip: List<AnimatableParam> = clipTable()
@@ -164,7 +168,7 @@ object AnimatableParams {
             scalar("warp", ParamKeys.DOMAIN_WARP, 0f, 1f, { it.warp }) { p, v -> p.copy(warp = v) },
             scalar("ripple", ParamKeys.RIPPLE, 0f, 1f, { it.ripple }) { p, v -> p.copy(ripple = v) },
             scalar("morph", ParamKeys.MORPH, 0f, 1f, { it.morph }) { p, v -> p.copy(morph = v) },
-            scalar("marchDetail", ParamKeys.MARCH_DETAIL, MarchBudget.MIN_DETAIL, MarchBudget.MAX_DETAIL, {
+            scalar("marchDetail", ParamKeys.MARCH_DETAIL, DETAIL.start, DETAIL.endInclusive, {
                 it.marchDetail
             }) { p, v -> p.copy(marchDetail = v) },
             scalar("twist", ParamKeys.TWIST, -1f, 1f, { it.twist }) { p, v -> p.copy(twist = v) },
@@ -346,10 +350,10 @@ object AnimatableParams {
             choice("cymaticsGeometry", ParamKeys.GEOMETRY, SceneParams.CYMATICS_GEOMETRIES, {
                 it.cymaticsGeometry
             }) { p, v -> p.copy(cymaticsGeometry = v) },
-            scalar("cymaticsFundamental", ParamKeys.FUNDAMENTAL_HZ, CymaticsMath.MIN_FUNDAMENTAL_HZ, CymaticsMath.MAX_FUNDAMENTAL_HZ, {
+            scalar("cymaticsFundamental", ParamKeys.FUNDAMENTAL_HZ, FUNDAMENTAL.start, FUNDAMENTAL.endInclusive, {
                 it.cymaticsFundamental
             }) { p, v -> p.copy(cymaticsFundamental = v) },
-            count("cymaticsModes", ParamKeys.STANDING_WAVES, 1, CymaticsMath.MAX_RENDERED_MODES, {
+            count("cymaticsModes", ParamKeys.STANDING_WAVES, 1, MAX_MODES, {
                 it.cymaticsModes
             }) { p, v -> p.copy(cymaticsModes = v) },
             scalar("cymaticsFocus", ParamKeys.TONAL_FOCUS, 0f, 1f, { it.cymaticsFocus }) { p, v -> p.copy(cymaticsFocus = v) },

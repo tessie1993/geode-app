@@ -12,8 +12,6 @@ import android.view.Surface
 import androidx.annotation.StringRes
 import dev.geode.R
 import dev.geode.RingLog
-import dev.geode.analysis.BarTrim
-import dev.geode.analysis.FeatureTimeline
 import dev.geode.engine.audio.SoundTuning
 import dev.geode.render.AdsrConfig
 import dev.geode.render.LfoConfig
@@ -82,21 +80,13 @@ data class LoopSpec(
         const val MAX_FPS: Int = 60
         const val SEAM_PREVIEW_LEAD_MS: Long = 2_000
 
-        /**
-         * Parses loose UI numbers into a spec, clamping instead of failing.
-         *
-         * When [bpm] is known the loop is trimmed to whole bars, so a repeat lands on a
-         * downbeat and the motion stays in phase with the beat it was rendered against.
-         */
+        /** Parses loose UI numbers into a spec, clamping instead of failing. */
         fun of(
             loopMs: Long,
             crossfadeMs: Long = DEFAULT_CROSSFADE_MS,
             fps: Int = MAX_FPS,
-            bpm: Float = 0f,
         ): LoopSpec {
-            val bounded = loopMs.coerceIn(MIN_LOOP_MS, MAX_LOOP_MS)
-            val barTrimmed = BarTrim.trimToBars(bounded * 1000L, bpm) / 1000L
-            val length = if (barTrimmed >= MIN_LOOP_MS) barTrimmed else bounded
+            val length = loopMs.coerceIn(MIN_LOOP_MS, MAX_LOOP_MS)
             val fade = crossfadeMs.coerceIn(MIN_CROSSFADE_MS, minOf(MAX_CROSSFADE_MS, length / 2))
             return LoopSpec(length, fade, fps.coerceIn(MIN_FPS, MAX_FPS))
         }
@@ -252,13 +242,11 @@ class LoopRender(
     ): Result.Failed = Result.Failed(context.getString(resId, *args), resId, args.toList())
 
     suspend fun render(
-        timeline: FeatureTimeline,
         sceneFactory: SceneFactory,
         aspect: ExportAspect,
         spec: LoopSpec,
         sceneParams: SceneParams,
         drift: TimeOfDayDrift = TimeOfDayDrift.None,
-        loopStartMs: Long = 0L,
         lfoConfigs: List<LfoConfig> = emptyList(),
         adsrConfigs: List<AdsrConfig> = emptyList(),
         reactions: List<dev.geode.render.ReactionRoute>? = null,
@@ -278,10 +266,8 @@ class LoopRender(
                 negotiate(aspect, spec.fps, codec)
                     ?: return@withContext failed(R.string.export_error_loop_encoder_rejected, aspect.width, aspect.height)
             val budgeted = budgetedSpec(spec.copy(fps = choice.fps), aspect)
-            val start = clampLoopStart(loopStartMs, timeline.durationMs, budgeted.loopMs)
             renderStops(
                 RenderJob(
-                    timeline = timeline,
                     sceneFactory = sceneFactory,
                     aspect = aspect,
                     choice = choice,
@@ -289,7 +275,6 @@ class LoopRender(
                     requestedCrossfadeMs = spec.crossfadeMs,
                     sceneParams = sceneParams,
                     drift = drift,
-                    loopStartMs = start,
                     lfoConfigs = lfoConfigs,
                     adsrConfigs = adsrConfigs,
                     reactions = reactions,
@@ -306,7 +291,6 @@ class LoopRender(
 
     /** Everything one reel render needs, gathered so the stop loop stays readable. */
     private class RenderJob(
-        val timeline: FeatureTimeline,
         val sceneFactory: SceneFactory,
         val aspect: ExportAspect,
         val choice: EncoderChoice,
@@ -314,7 +298,6 @@ class LoopRender(
         val requestedCrossfadeMs: Long,
         val sceneParams: SceneParams,
         val drift: TimeOfDayDrift,
-        val loopStartMs: Long,
         val lfoConfigs: List<LfoConfig>,
         val adsrConfigs: List<AdsrConfig>,
         val reactions: List<dev.geode.render.ReactionRoute>?,
@@ -536,14 +519,13 @@ class LoopRender(
         return OffscreenSceneRenderer(
             context = context,
             sceneFactory = job.sceneFactory,
-            timeline = job.timeline,
             spec =
                 OffscreenRenderSpec(
                     width = job.aspect.width,
                     height = job.aspect.height,
                     fps = job.choice.fps,
                     totalFrames = sourceFrames,
-                    rangeStartMs = job.loopStartMs,
+                    rangeStartMs = 0L,
                     baseParams = stop.applyTo(job.sceneParams),
                     lfoConfigs = job.lfoConfigs,
                     adsrConfigs = job.adsrConfigs,
@@ -626,15 +608,6 @@ class LoopRender(
         if (spec.crossfadeFrames <= affordable) return spec
         val shortened = (affordable * 1000L / spec.fps).coerceAtLeast(1L)
         return spec.copy(crossfadeMs = shortened)
-    }
-
-    private fun clampLoopStart(
-        loopStartMs: Long,
-        trackDurationMs: Long,
-        loopMs: Long,
-    ): Long {
-        val latest = (trackDurationMs - loopMs).coerceAtLeast(0L)
-        return loopStartMs.coerceIn(0L, latest)
     }
 
     private fun videoFormat(

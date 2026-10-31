@@ -95,12 +95,14 @@ void triggersHoldAndSilenceIsQuiet() {
 }
 
 void sourcesReadTheirFieldsInRange() {
-    static_assert(kReactSourceCount == 72, "dev.geode.render.ReactSource has 72 entries");
+    static_assert(kReactSourceCount == 88, "dev.geode.render.ReactSource has 88 entries");
     ReactSignals s;
     GeodeSoundFrame f = silence();
     f.bass = 1.0f;
     f.low = 0.7f;
     f.stereoPan = -0.4f;
+    f.eq[9] = 1.0f;
+    f.eq[15] = 3.0f;
     f.bassTime = 0.0f;
     s.step(f, 0.1f);
     f.bassTime = 0.1f;  // one second of clock per second
@@ -108,6 +110,8 @@ void sourcesReadTheirFieldsInRange() {
     check(std::fabs(s.value(ReactSource::Bass) - 0.5f) < 1e-5f, "a typical relative level reads 0.5");
     check(std::fabs(s.value(ReactSource::Low) - 0.7f) < 1e-5f, "a shaped level reads as it is");
     check(std::fabs(s.value(ReactSource::StereoPan) + 0.4f) < 1e-5f, "pan keeps its sign");
+    check(std::fabs(s.value(ReactSource::Eq1k5) - 0.5f) < 1e-5f, "an EQ band reads its own band, halved");
+    check(s.value(ReactSource::Eq22k) == 1.0f && s.value(ReactSource::Eq25) == 0.0f, "the last EQ band is the 22 kHz one");
     check(std::fabs(s.value(ReactSource::BassTime) - 0.5f) < 1e-4f, "a clock reads its rate");
     f.bassTime = 0.0f;  // the clock wrapped
     s.step(f, 0.1f);
@@ -519,7 +523,7 @@ void motionFieldVariantsDiffer() {
 }
 void sourceCatalogueIsCompleteAndUnique() {
     std::set<std::string> names;
-    const std::set<std::string> groups = {"LEVELS", "DRUMS", "EVENTS", "MELODY", "CLOCKS", "TEXTURE"};
+    const std::set<std::string> groups = {"LEVELS", "DRUMS", "EVENTS", "MELODY", "CLOCKS", "TEXTURE", "EQ"};
     for (int i = 0; i < kReactSourceCount; ++i) {
         const ReactSourceInfo& s = reactSourceInfo(static_cast<ReactSource>(i));
         check(s.name != nullptr && s.label != nullptr && s.name[0] != '\0' && s.label[0] != '\0', "every source has a name and a label");

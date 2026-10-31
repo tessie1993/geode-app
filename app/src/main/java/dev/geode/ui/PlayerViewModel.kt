@@ -8,9 +8,6 @@ import androidx.lifecycle.viewModelScope
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import dagger.hilt.android.lifecycle.HiltViewModel
-import dev.geode.analysis.AudioFeatures
-import dev.geode.analysis.IntelligenceMode
-import dev.geode.analysis.LiveInputProfile
 import dev.geode.audio.MicCapture
 import dev.geode.data.MilkPackImporter
 import dev.geode.data.Preset
@@ -64,10 +61,6 @@ class PlayerViewModel
 
         val vizState: StateFlow<VizUiState> get() = visualizer.viz
 
-        val features: StateFlow<AudioFeatures> get() = visualizer.features
-
-        val waveform: StateFlow<FloatArray?> get() = visualizer.waveform
-
         val activeMilkPath: StateFlow<String?> get() = visualizer.activeMilkPath
 
         val micState: StateFlow<MicState> get() = session.micState
@@ -110,10 +103,6 @@ class PlayerViewModel
 
         fun cycleRepeatMode() = session.cycleRepeatMode()
 
-        fun applyLiveInputProfile(profile: LiveInputProfile) = session.applyLiveInputProfile(profile)
-
-        fun enrichFeatures(f: AudioFeatures): AudioFeatures = session.enrichFeatures(f)
-
         fun latestPcm(): PcmChunk? = session.latestPcm()
 
         fun milkPresetFilesAsync(onDone: (List<MilkFile>) -> Unit) = session.milkPresetFilesAsync(onDone)
@@ -139,17 +128,7 @@ class PlayerViewModel
             onDone: (MilkPackImporter.Report) -> Unit,
         ) = session.importMilkFolderAsync(treeUri, onDone)
 
-        fun applyKeyColor(key: String) = session.applyKeyColor(key)
-
-        fun setKeyColor(enabled: Boolean) = session.setKeyColor(enabled)
-
         fun applyArtworkPalette() = session.applyArtworkPalette()
-
-        fun currentTrackKey(): String? = session.currentTrackKey()
-
-        fun setIntelligenceMode(mode: IntelligenceMode) = session.setIntelligenceMode(mode)
-
-        fun analyzeCurrentTrack() = session.analyzeCurrentTrack()
 
         fun startSleepTimer(minutes: Int) = session.startSleepTimer(minutes)
 
@@ -161,15 +140,11 @@ class PlayerViewModel
 
         fun setVizPlaylistEnabled(enabled: Boolean) = session.setVizPlaylistEnabled(enabled)
 
-        fun setVizPlaylistIntelligent(enabled: Boolean) = session.setVizPlaylistIntelligent(enabled)
-
         fun setVizPlaylistInterval(seconds: Int) = session.setVizPlaylistInterval(seconds)
 
         fun setRandomEnabled(enabled: Boolean) = session.setRandomEnabled(enabled)
 
         fun setRandomInterval(seconds: Int) = session.setRandomInterval(seconds)
-
-        fun setRandomOnBeat(enabled: Boolean) = session.setRandomOnBeat(enabled)
 
         fun setRandomIncludeStyles(enabled: Boolean) = session.setRandomIncludeStyles(enabled)
 
@@ -178,8 +153,6 @@ class PlayerViewModel
         fun setRandomIncludeMilk(enabled: Boolean) = session.setRandomIncludeMilk(enabled)
 
         fun setRandomizeColors(enabled: Boolean) = session.setRandomizeColors(enabled)
-
-        fun setSectionStaging(enabled: Boolean) = session.setSectionStaging(enabled)
 
         fun randomStepNow() = session.randomStepNow()
 
@@ -279,7 +252,6 @@ class PlayerViewModel
             fps: Int,
             sceneFactory: SceneFactory,
             destination: Uri? = null,
-            loopSafe: Boolean = false,
             range: ExportRange? = null,
             sceneFactoryFor: ((String) -> SceneFactory)? = null,
             codec: ExportCodec = ExportCodec.H264,
@@ -287,7 +259,7 @@ class PlayerViewModel
             if (openPaywallIfLocked(aspect, fps)) return
             val limits = gate.value
             val capped = capRange(range, limits.exportCapMs)
-            session.startExport(aspect, fps, sceneFactory, destination, loopSafe, capped, sceneFactoryFor, codec, limits.watermarksExports)
+            session.startExport(aspect, fps, sceneFactory, destination, capped, sceneFactoryFor, codec, limits.watermarksExports)
         }
 
         /**
@@ -300,7 +272,6 @@ class PlayerViewModel
             fps: Int,
             sceneFactory: SceneFactory,
             sceneParams: SceneParams?,
-            loopSafe: Boolean,
             codec: ExportCodec,
         ) {
             if (openPaywallIfLocked(aspect, fps)) return
@@ -308,7 +279,7 @@ class PlayerViewModel
                 paywall.open(PaywallTrigger.Feature(ProFeature.FULL_LENGTH_EXPORT))
                 return
             }
-            session.startBatch(tracks, aspect, fps, sceneFactory, sceneParams, loopSafe, codec, gate.value.watermarksExports)
+            session.startBatch(tracks, aspect, fps, sceneFactory, sceneParams, codec, gate.value.watermarksExports)
         }
 
         fun startLoopRender(

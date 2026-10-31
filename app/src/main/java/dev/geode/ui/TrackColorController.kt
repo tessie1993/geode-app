@@ -6,7 +6,6 @@ import android.media.MediaMetadataRetriever
 import android.net.Uri
 import dev.geode.R
 import dev.geode.analysis.ArtPalette
-import dev.geode.analysis.KeyPalette
 import dev.geode.data.PaletteStore
 import dev.geode.render.scene.SceneParams
 import kotlinx.coroutines.CoroutineScope
@@ -24,37 +23,13 @@ internal class TrackColorController(
 ) {
     interface Host {
         val currentUri: Uri?
-        val keyColorEnabled: Boolean
         val params: SceneParams
-        val currentTrackKey: String?
 
         fun setSceneParams(params: SceneParams)
-
-        fun persistKeyColorPref(enabled: Boolean)
     }
-
-    private var hueBeforeKeyColor: Float? = null
 
     private val _artPaletteNote = MutableStateFlow<String?>(null)
     val artPaletteNote: StateFlow<String?> = _artPaletteNote
-
-    fun applyKeyColor(key: String) {
-        if (!host.keyColorEnabled) return
-        val hue = KeyPalette.hueFor(key) ?: return
-        val params = host.params
-        if (hueBeforeKeyColor == null) hueBeforeKeyColor = params.colorShift
-        if (params.colorShift != hue) host.setSceneParams(params.copy(colorShift = hue))
-    }
-
-    fun setKeyColor(enabled: Boolean) {
-        host.persistKeyColorPref(enabled)
-        if (enabled) {
-            host.currentTrackKey?.let { applyKeyColor(it) }
-        } else {
-            hueBeforeKeyColor?.let { host.setSceneParams(host.params.copy(colorShift = it)) }
-            hueBeforeKeyColor = null
-        }
-    }
 
     fun applyArtworkPalette() {
         val uri =

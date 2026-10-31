@@ -1,7 +1,6 @@
 #include <jni.h>
 #include <android/asset_manager_jni.h>
 
-#include <cstring>
 #include <string>
 #include <vector>
 
@@ -51,15 +50,6 @@ JNIEXPORT jboolean JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_vizSetParam(JNIEnv* env, jobject, jlong handle, jstring name, jfloat value) {
     Utf8Chars key(env, name);
     return geode_viz_set_param(vizOf(handle), key.get(), value) ? JNI_TRUE : JNI_FALSE;
-}
-
-JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_vizSetFeatures(JNIEnv* env, jobject, jlong handle, jfloatArray frame) {
-    FloatElements data(env, frame);
-    if (!data.get() || data.length() < GEODE_FEATURE_FRAME_FLOATS) return;
-    GeodeFeatureFrame features{};
-    std::memcpy(&features, data.get(), sizeof(features));
-    geode_viz_set_features(vizOf(handle), &features);
 }
 
 JNIEXPORT void JNICALL

@@ -592,22 +592,6 @@ private fun StylesTab(
     val gate by viewModel.gate.collectAsStateWithLifecycle()
     val locked: (String) -> Boolean = { !gate.allowsStyle(it) }
     Column(Modifier.fillMaxSize()) {
-        suggestedSceneToOffer(viz.suggestedSceneId, viz.sceneId)?.let { suggested ->
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Text(
-                    "Suggested for this track",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                CrystalButton(compact = true, filled = false, onClick = { pickScene(suggested) }) {
-                    Text(sceneDisplayLabel(suggested), style = MaterialTheme.typography.bodySmall)
-                }
-            }
-        }
         CrystalTabs(
             titles = listOf("Silk", "Life", "Mycelium", "Acid", "Shaders", "Families", "Fluid", "Cymatics", "MilkDrop"),
             selected = sub,
@@ -626,11 +610,6 @@ private fun StylesTab(
         }
     }
 }
-
-internal fun suggestedSceneToOffer(
-    suggestedSceneId: String?,
-    activeSceneId: String,
-): String? = suggestedSceneId?.takeIf { it != activeSceneId }
 
 internal fun sceneDisplayLabel(id: String): String {
     val catalogued = VisualStyleCatalog.label(id)
@@ -1124,8 +1103,6 @@ private fun CustomizeTabBody(
                 reactions = reactions,
                 onReactionsChange = visualsViewModel::setReactions,
                 onRerollReactions = visualsViewModel::rerollReactions,
-                intelligenceMode = viz.intelligenceMode,
-                onIntelligenceModeChange = viewModel::setIntelligenceMode,
             )
         }
         CustomizeTab.MOTION -> MotionTab(p, onChange)

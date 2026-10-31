@@ -81,10 +81,6 @@ int geode_viz_set_param(geode_viz* v, const char* name, float value) {
     return (v && name && v->renderer.setParam(name, value)) ? 1 : 0;
 }
 
-void geode_viz_set_features(geode_viz* v, const GeodeFeatureFrame* frame) {
-    if (v && frame) v->renderer.setFeatures(*frame);
-}
-
 void geode_viz_set_reduced_motion(geode_viz* v, int on) {
     if (v) v->renderer.setReducedMotion(on != 0);
 }

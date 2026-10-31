@@ -43,11 +43,6 @@ bool Renderer::setParam(const std::string& key, float value) {
     return requestedParams_.set(key, value);
 }
 
-void Renderer::setFeatures(const GeodeFeatureFrame& features) {
-    std::lock_guard<std::mutex> lock(stateLock_);
-    features_ = features;
-}
-
 void Renderer::setLayer(const std::string& sceneId, float mix, int blendOrdinal) {
     std::lock_guard<std::mutex> lock(stateLock_);
     layerSceneId_ = sceneId;

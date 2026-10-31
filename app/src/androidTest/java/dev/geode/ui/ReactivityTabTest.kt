@@ -18,7 +18,6 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import dev.geode.analysis.IntelligenceMode
 import dev.geode.render.EventRecipe
 import dev.geode.render.ReactMode
 import dev.geode.render.ReactionRoute
@@ -66,8 +65,6 @@ class ReactivityTabTest {
                                 reactions = null
                                 params = params.copy(reactSeed = params.reactSeed + 1)
                             },
-                            intelligenceMode = IntelligenceMode.MANUAL,
-                            onIntelligenceModeChange = {},
                         )
                     }
                 }

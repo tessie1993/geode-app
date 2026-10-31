@@ -31,7 +31,6 @@ import androidx.compose.ui.unit.dp
 import dev.geode.R
 import dev.geode.editor.AnimatableParam
 import dev.geode.editor.AnimatableParams
-import dev.geode.editor.AutoCut
 import dev.geode.editor.Clip
 import dev.geode.editor.ClipContent
 import dev.geode.editor.ClipId
@@ -91,7 +90,6 @@ fun TimelineEditor(
     var selectedMarker by remember { mutableStateOf<MarkerId?>(null) }
     var selectedKey by remember { mutableStateOf<KeyframeId?>(null) }
     var editError by remember { mutableStateOf<EditError?>(null) }
-    var autoCutOpen by remember { mutableStateOf(false) }
     var textLane by remember { mutableStateOf<LaneId?>(null) }
     var tapSession by remember { mutableStateOf<TapInSession?>(null) }
     var picking by remember { mutableStateOf<Pair<LaneId, PickKind>?>(null) }
@@ -326,7 +324,6 @@ fun TimelineEditor(
                 if (session != null && session.count > 0) actions.edit { p -> p.copy(markers = session.commitTo(p.markers)) }
             },
             onTapCancel = { tapSession = null },
-            onAutoCut = { autoCutOpen = true },
             hasLyrics = actions.lyricCues() != null,
             onLyricCaptions = { addCaptionClips(actions.lyricCues().orEmpty()) },
             onImportSrt = { srtImporter.launch(arrayOf(SRT_MIME, "text/plain", "text/*")) },
@@ -489,20 +486,6 @@ fun TimelineEditor(
             onDismiss = { chapterFormatPicker = false },
         )
     }
-    if (autoCutOpen) {
-        AutoCutSheet(
-            envelopeFor = actions::transientEnvelope,
-            onMarkers = { hits ->
-                actions.edit { p -> p.copy(markers = p.markers.addAll(AutoCut.markersFrom(hits, idFor = { actions.newMarkerId() }))) }
-                autoCutOpen = false
-            },
-            onClips = { hits, untilMs ->
-                actions.edit { p -> p.cutVisualLane(hits, untilMs, actions, laneNames[LaneKind.Visual].orEmpty()) }
-                autoCutOpen = false
-            },
-            onDismiss = { autoCutOpen = false },
-        )
-    }
 }
 
 /** Which sidecar the user wants for the marker lane, before the system's own save-as sheet opens. */
@@ -605,27 +588,6 @@ private fun EditorProject.withCaptionLane(
     val base = copy(timeline = timeline.copy(lanes = timeline.lanes + lane))
     return Subtitles
         .clipsFrom(cues) { actions.newClipId() }
-        .fold(base) { project, clip ->
-            when (val result = project.timeline.addClip(lane.id, clip, OverlapPolicy.OVERWRITE)) {
-                is EditResult.Applied -> project.apply(result)
-                is EditResult.Rejected -> project
-            }
-        }.fitted()
-}
-
-/** Auto-cut clips land on the first visual lane, overwriting what was there; a lane is made if none exists. */
-private fun EditorProject.cutVisualLane(
-    hits: List<dev.geode.editor.TransientHit>,
-    untilMs: Long,
-    actions: EditorActions,
-    laneLabel: String,
-): EditorProject {
-    val existing = timeline.lanes.firstOrNull { it.kind == LaneKind.Visual }
-    val lane = existing ?: Lane(LaneId(UUID.randomUUID().toString()), LaneKind.Visual, "$laneLabel 1")
-    val base = if (existing == null) copy(timeline = timeline.copy(lanes = timeline.lanes + lane)) else this
-    val sceneId = actions.currentSceneId()
-    val clips = AutoCut.clipsFrom(hits, untilMs, { actions.newClipId() }) { _, _, _ -> ClipContent.Scene(sceneId) }
-    return clips
         .fold(base) { project, clip ->
             when (val result = project.timeline.addClip(lane.id, clip, OverlapPolicy.OVERWRITE)) {
                 is EditResult.Applied -> project.apply(result)

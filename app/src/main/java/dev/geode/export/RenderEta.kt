@@ -9,7 +9,7 @@ import kotlin.math.roundToLong
 /**
  * Time left for the running export, from progress samples.
  *
- * The bar is not one steady job: track analysis and the AAC transcode race through their share
+ * The bar is not one steady job: the AAC transcode races through its share
  * of it, then the GPU render crawls through the rest. The old sliding-window rate carried that
  * early sprint into the render, so the estimate started near "about a minute", climbed to the
  * real figure as the window caught up, and only then counted down (QA #24). Now the caller says

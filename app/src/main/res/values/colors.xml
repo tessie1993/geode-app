@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The brand's background (docs/brand): the splash, BootIntro and the icon's edge. -->
+    <color name="brand_night">#0E0620</color>
+</resources>

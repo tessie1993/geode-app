@@ -387,7 +387,10 @@ fun AppRoot() {
                     },
                 )
             }
-            if (bootAnimEnabled == true && !appState.bootDone) {
+            // Drawn while the pref is still loading too (null): BootIntro opens on the splash's
+            // last frame, so it covers that gap instead of letting the app flash through. If the
+            // pref then lands false, it ends there, just as the splash would have.
+            if (bootAnimEnabled != false && !appState.bootDone) {
                 BootIntro(onDone = { appState.bootDone = true })
             }
             PaywallHost(reducedMotion = gui.reducedMotion)

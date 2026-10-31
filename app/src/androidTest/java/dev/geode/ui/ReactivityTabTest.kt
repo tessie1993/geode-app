@@ -9,18 +9,17 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import dev.geode.render.AdsrConfig
-import dev.geode.render.AdsrEngine
-import dev.geode.render.LfoConfig
-import dev.geode.render.LfoEngine
+import dev.geode.analysis.IntelligenceMode
+import dev.geode.render.EventRecipe
 import dev.geode.render.ReactMode
 import dev.geode.render.ReactionRoute
 import dev.geode.render.scene.BuildStyleReactionsUseCase
@@ -35,8 +34,9 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * The Reactivity tab's reaction editor, driven through its hoisted state exactly as
- * VisualsHub drives it: the tab only reports edits, and this test plays the ViewModel.
+ * The reaction editor (now on the Events tab, beside the event recipes), driven through its
+ * hoisted state exactly as VisualsHub drives it: the tab only reports edits, and this test plays
+ * the ViewModel. The class keeps its name because CI and the device checklist refer to it.
  */
 @RunWith(AndroidJUnit4::class)
 class ReactivityTabTest {
@@ -56,16 +56,9 @@ class ReactivityTabTest {
             MaterialTheme {
                 CompositionLocalProvider(LocalSceneId provides sceneId) {
                     Column(Modifier.verticalScroll(rememberScrollState())) {
-                        ReactivityTab(
+                        EventsTab(
                             p = params,
                             onChange = { params = it },
-                            attack = 0.3f,
-                            decay = 0.2f,
-                            onReactivityChange = { _, _ -> },
-                            lfos = List(LfoEngine.SLOTS) { LfoConfig() },
-                            onLfoChange = { _, _ -> },
-                            adsr = List(AdsrEngine.COUNT) { AdsrConfig() },
-                            onAdsrChange = { _, _ -> },
                             reactions = reactions,
                             onReactionsChange = { reactions = it },
                             // What ModulationController.rerollReactions does.
@@ -73,6 +66,8 @@ class ReactivityTabTest {
                                 reactions = null
                                 params = params.copy(reactSeed = params.reactSeed + 1)
                             },
+                            intelligenceMode = IntelligenceMode.MANUAL,
+                            onIntelligenceModeChange = {},
                         )
                     }
                 }
@@ -86,7 +81,13 @@ class ReactivityTabTest {
         text: String,
         substring: Boolean = false,
     ) {
-        compose.onNodeWithText(text, substring = substring).performScrollTo().performClick()
+        // The click action itself, not a touch at the node's centre: the panel above the routes
+        // (recipe chips, a slot note that comes and goes) can move a row between the scroll and
+        // the tap, and a coordinate tap then lands on whatever slid under it.
+        compose
+            .onNodeWithText(text, substring = substring)
+            .performScrollTo()
+            .performSemanticsAction(SemanticsActions.OnClick)
     }
 
     private fun openRoute(r: ReactionRoute) = clickText(summary(r), substring = true)
@@ -156,6 +157,27 @@ class ReactivityTabTest {
         restoration.emulateSavedInstanceStateRestore()
 
         compose.onNodeWithText("Remove").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
+    fun aRecipeChipAddsItsRoutesAndTakesThemBackOff() {
+        setTab()
+        val routes = dna(sceneId, 0)
+        // Whichever recipe the style's DNA leaves room for and does not already play.
+        val recipe =
+            EventRecipe.entries.first {
+                it.routesFor(sceneId).isNotEmpty() && !it.isOn(routes, sceneId) && it.fits(routes, sceneId)
+            }
+        clickText(recipe.title)
+        val on = assertNotNullAndGet()
+        assertTrue(recipe.isOn(on, sceneId))
+        recipe.routesFor(sceneId).forEach { r ->
+            assertTrue(summary(r), compose.onAllNodesWithText(summary(r), substring = true).fetchSemanticsNodes().isNotEmpty())
+        }
+
+        clickText(recipe.title)
+        assertEquals(recipe.toggle(on, sceneId), reactions)
+        assertTrue(!recipe.isOn(reactions!!, sceneId))
     }
 
     private fun assertNotNullAndGet(): List<ReactionRoute> {

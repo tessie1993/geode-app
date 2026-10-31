@@ -58,6 +58,8 @@ public:
     void writeAudio(const float* interleaved, int frames, int channels, int sampleRateHz);
     // A seek, track change or source switch: drop the engine's history.
     void resetAudio();
+    // Settings › Audio: kept across engine rebuilds (a new sample rate builds a new engine).
+    void setSoundTuning(const GeodeSoundTuning& tuning);
     // The frame beginFrame last stepped, for readers outside the renderer (Kotlin meters, tests).
     GeodeSoundFrame soundFrame() const;
     void setCustomShader(const std::string& sceneId, const std::string& fragmentSource);
@@ -159,6 +161,7 @@ private:
     // only because writeAudio and soundFrame are public; in practice one thread does everything.
     mutable std::mutex soundLock_;
     std::unique_ptr<sound::SoundEngine> sound_;
+    GeodeSoundTuning soundTuning_ = sound::SoundEngine::defaultTuning();
     GeodeSoundFrame soundFrame_{};
     std::atomic<float> lookYaw_{0.0f};
     std::atomic<float> lookPitch_{0.0f};

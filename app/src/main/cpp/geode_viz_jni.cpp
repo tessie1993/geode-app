@@ -156,6 +156,14 @@ Java_dev_geode_engine_bridge_GeodeNative_vizResetAudio(JNIEnv*, jobject, jlong h
 }
 
 JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_vizSetSoundTuning(JNIEnv* env, jobject, jlong handle, jfloatArray tuning) {
+    if (!tuning || env->GetArrayLength(tuning) < GEODE_SOUND_TUNING_FLOATS) return;
+    GeodeSoundTuning t{};
+    env->GetFloatArrayRegion(tuning, 0, GEODE_SOUND_TUNING_FLOATS, reinterpret_cast<jfloat*>(&t));
+    geode_viz_set_sound_tuning(vizOf(handle), &t);
+}
+
+JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_vizSoundFrame(JNIEnv* env, jobject, jlong handle, jfloatArray out) {
     if (!out || env->GetArrayLength(out) < GEODE_SOUND_FRAME_FLOATS) return;
     GeodeSoundFrame frame{};

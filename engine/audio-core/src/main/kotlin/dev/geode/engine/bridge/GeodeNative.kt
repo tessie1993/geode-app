@@ -328,6 +328,11 @@ object GeodeNative {
 
     external fun vizResetAudio(handle: Long)
 
+    external fun vizSetSoundTuning(
+        handle: Long,
+        tuning: FloatArray,
+    )
+
     external fun vizSoundFrame(
         handle: Long,
         out: FloatArray,

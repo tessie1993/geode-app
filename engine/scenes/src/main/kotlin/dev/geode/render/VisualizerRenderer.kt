@@ -7,6 +7,7 @@ import dev.geode.analysis.AudioFeatures
 import dev.geode.render.bridge.NativeViz
 import dev.geode.engine.audio.SoundCursor
 import dev.geode.engine.audio.SoundInput
+import dev.geode.engine.audio.SoundTuning
 import dev.geode.render.scene.PcmChunk
 import dev.geode.render.scene.SceneIds
 import dev.geode.render.scene.SceneParams
@@ -91,6 +92,12 @@ class VisualizerRenderer(
     var soundInput: () -> SoundInput? = { null }
 
     private var soundCursor: SoundCursor? = null
+
+    /** Settings › Audio. Compared by identity on the GL thread, so assign a new instance to change it. */
+    @Volatile
+    var soundTuning: SoundTuning = SoundTuning()
+
+    private var nativeSoundTuning: SoundTuning? = null
 
     // Config holders only: native ticks its own LfoEngine/AdsrEngine against the configs
     // syncNativeState forwards below (core/viz/RendererFrame.cpp).
@@ -206,6 +213,9 @@ class VisualizerRenderer(
         nativeLfo = null
         nativeAdsr = null
         nativeReactions = null
+        nativeSoundTuning = null
+        // A new native renderer starts a new engine: hand it a full window, not the tail of the last.
+        soundCursor = null
     }
 
     override fun onSurfaceChanged(
@@ -274,6 +284,11 @@ class VisualizerRenderer(
             nativeViz.setThermal(ThermalGovernor.platformStatus, ThermalGovernor.thermalHeadroom())
         }
         pcmProvider()?.let { chunk -> nativeViz.pushPcm(chunk.data, chunk.count) }
+        val tuning = soundTuning
+        if (tuning !== nativeSoundTuning) {
+            nativeViz.setSoundTuning(tuning.toFloats())
+            nativeSoundTuning = tuning
+        }
         feedSound()
     }
 

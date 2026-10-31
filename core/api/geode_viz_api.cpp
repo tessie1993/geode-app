@@ -144,6 +144,10 @@ void geode_viz_reset_audio(geode_viz* v) {
     if (v) v->renderer.resetAudio();
 }
 
+void geode_viz_set_sound_tuning(geode_viz* v, const GeodeSoundTuning* tuning) {
+    if (v && tuning) v->renderer.setSoundTuning(*tuning);
+}
+
 void geode_viz_sound_frame(geode_viz* v, GeodeSoundFrame* out) {
     if (v && out) *out = v->renderer.soundFrame();
 }

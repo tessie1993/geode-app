@@ -543,7 +543,9 @@
     <!-- Export: shared by the Export tab and the export dialog. -->
     <string name="export_title">Export</string>
     <string name="export_group_defaults">Defaults</string>
-    <string name="export_platform_preset">Platform preset</string>
+    <string name="export_fill_from_platform">Fill from platform</string>
+    <string name="export_fill_from_platform_hint">Sets quality, frame rate, aspect and looping to a platform\'s usual values. Change any of them afterwards.</string>
+    <string name="export_platform_entry">%1$s · %2$s</string>
     <string name="export_quality">Quality</string>
     <string name="export_frame_rate">Frame rate</string>
     <string name="export_codec">Video codec</string>
@@ -560,9 +562,6 @@
     <string name="settings_export_open_studio">Open Studio › Render</string>
     <string name="visuals_open_render">Export this visual in Studio › Render</string>
     <string name="export_spec">%1$s, %2$s, %3$d fps</string>
-    <string name="export_spec_loop_safe">%1$s, loop-safe</string>
-    <string name="export_named_preset">%1$s — %2$s</string>
-    <string name="export_custom_preset">Custom — %1$s</string>
     <string name="export_rendering_offline">Rendering offline…</string>
     <string name="export_leave_hint">You can leave MuzViz — the render keeps going and finishes in the background.</string>
     <string name="export_saved_folder">Saved to your chosen folder.</string>

@@ -1,12 +1,16 @@
 #include "sound/Fft.hpp"
 
+#include <bit>
 #include <cmath>
+#include <cstdlib>
 #include <numbers>
 
 namespace geode::sound {
 
 Fft::Fft(int size)
     : n_(size), bitrev_(static_cast<size_t>(size)), twiddle_(static_cast<size_t>(size / 2)), work_(static_cast<size_t>(size)) {
+    // Radix-2 only: any other size would make the bit reversal index past the end of work_.
+    if (size < 2 || !std::has_single_bit(static_cast<unsigned>(size))) std::abort();
     int bits = 0;
     while ((1 << bits) < size) bits++;
     for (int i = 0; i < size; i++) {

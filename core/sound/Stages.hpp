@@ -18,6 +18,10 @@ inline float follow(float y, float x, float tau, float dt) {
     return x + (y - x) * std::exp(-dt / tau);
 }
 
+// Relative levels pass through untouched up to 2 (a strong hit) and bend smoothly toward 4 above it, so
+// one entrance after a quiet intro reads "very loud" instead of 200. MilkDrop leaves them unbounded.
+inline float softLimit(float r) { return r <= 2.0f ? r : 2.0f + 2.0f * std::tanh(0.5f * (r - 2.0f)); }
+
 // The core of the engine: a band's energy measured against its own running mean (~4 s), so 1.0 means
 // "typical for this song right now" whatever the volume or mastering. Alongside it, a fast envelope
 // (~20 ms rise, ~50 ms fall) over the same mean.
@@ -43,8 +47,8 @@ public:
             }
         }
         if (mean_ > kFloor) {
-            ratio_ = inst / mean_;
-            attRatio_ = att_ / mean_;
+            ratio_ = softLimit(inst / mean_);
+            attRatio_ = softLimit(att_ / mean_);
         } else {
             // Nothing heard in this band yet: MilkDrop's answer, "normal", if there is anything now.
             ratio_ = inst > 0.0f ? 1.0f : 0.0f;
@@ -107,6 +111,7 @@ public:
             }
         } else {
             value_ *= std::exp(-dt / decay);
+            if (value_ < 1e-4f) value_ = 0.0f;  // no denormals
         }
         return value_;
     }
@@ -120,23 +125,25 @@ private:
 
 // MilkDrop's hard cut, kept as a trigger: fires when the mean relative level passes a threshold T, then
 // doubles T so the next one needs an even bigger moment. T relaxes back toward its resting level, the
-// excess shrinking fourfold per `halfLife` seconds (an effective half-life of halfLife / 2).
+// excess shrinking fourfold per `halfLife` seconds (an effective half-life of halfLife / 2). At most one
+// per second, so the doubling cannot be spent on one frame-long burst.
 class HardCut {
 public:
-    float step(float meanRatio, float dt) {
-        if (meanRatio > threshold_) {
+    float step(float meanRatio, float rest, float halfLife, float dt) {
+        if (threshold_ < 0.0f) threshold_ = 2.0f * rest;
+        since_ += dt;
+        if (meanRatio > threshold_ && since_ >= 1.0f) {
             threshold_ *= 2.0f;
+            since_ = 0.0f;
             return 1.0f;
         }
-        threshold_ = kRest + (threshold_ - kRest) * std::exp(-std::log(4.0f) * dt / kHalfLife);
+        threshold_ = rest + (threshold_ - rest) * std::exp(-std::log(4.0f) * dt / std::max(1.0f, halfLife));
         return 0.0f;
     }
-    void reset() { threshold_ = 2.0f * kRest; }
 
 private:
-    static constexpr float kRest = 2.5f;
-    static constexpr float kHalfLife = 60.0f;
-    float threshold_ = 2.0f * kRest;
+    float threshold_ = -1.0f;  // starts at twice the resting level on the first frame
+    float since_ = 1e9f;
 };
 
 }  // namespace geode::sound

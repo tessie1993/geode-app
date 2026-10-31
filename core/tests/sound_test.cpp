@@ -127,7 +127,8 @@ void testKicks() {
     const int rate = 48000;
     SoundEngine e(rate);
     auto bed = std::make_shared<Noise>();
-    int kicks = 0, kick4 = 0;
+    int kicks = 0, kick4 = 0, snares = 0;
+    float lastToggle = 0.0f;
     float maxEnv = 0;
     float hitTime = 0;
     run(
@@ -142,13 +143,17 @@ void testKicks() {
         [&](double, const GeodeSoundFrame& f) {
             if (f.kick > 0) kicks++;
             if (f.kick4 > 0) kick4++;
+            if (f.snare > 0) snares++;
+            lastToggle = f.kickToggle;
             maxEnv = std::max(maxEnv, f.kickEnv);
             hitTime = f.hitTime;
         });
     CHECK(kicks >= 14 && kicks <= 16, "kicks %d of 16", kicks);
     CHECK(kick4 == kicks / 4, "kick4 %d for %d kicks", kick4, kicks);
     CHECK(maxEnv > 0.3f, "kickEnv peak %f", maxEnv);
-    CHECK(std::fabs(hitTime - kicks) < 0.5f, "hitTime %f for %d kicks", hitTime, kicks);
+    CHECK(std::fabs(hitTime - (kicks + snares)) < 0.5f, "hitTime %f for %d kicks + %d snares", hitTime, kicks, snares);
+    // The toggle flips on every kick, so after an even count it rests at 0, after an odd one at 1.
+    CHECK(std::fabs(lastToggle - static_cast<float>(kicks % 2)) < 0.05f, "toggle %f after %d kicks", lastToggle, kicks);
 }
 
 // Live writes arrive in uneven chunks; export writes once per frame. Same audio, same frame boundaries:
@@ -189,7 +194,7 @@ void testMelody() {
     SoundEngine e(rate);
     double phase = 0.0;
     int changes = 0, legatos = 0;
-    float pitchHeld = 0;
+    float pitchHeld = 0, pitchClass = 0, interval = 0;
     run(
         e,
         [&](int64_t s, float& l, float& r) {
@@ -201,13 +206,41 @@ void testMelody() {
         },
         3.0, 60.0,
         [&](double t, const GeodeSoundFrame& f) {
-            if (t > 1.5 && t < 1.9) pitchHeld = f.pitch;
+            if (t > 1.5 && t < 1.9) {
+                pitchHeld = f.pitch;
+                pitchClass = f.pitchClass;
+            }
+            interval = f.interval;
             if (t > 2.0 && f.noteChange > 0) changes++;
             if (t > 2.0 && f.legato > 0) legatos++;
         });
     CHECK(std::fabs(pitchHeld - 57.0f) < 0.5f, "A3 read as %f", pitchHeld);
     CHECK(changes == 1, "note changes after the glide %d", changes);
     CHECK(legatos == 1, "legato after the glide %d", legatos);
+    CHECK(std::fabs(pitchClass - 9.0f / 12.0f) < 0.03f, "A's pitch class %f", pitchClass);
+    CHECK(std::fabs(interval - 7.0f / 12.0f) < 0.01f, "A3 to E4 interval %f", interval);
+}
+
+// The same note struck again (level drops, then jumps back, pitch unchanged) is a re-attack, not a change.
+void testReattack() {
+    const int rate = 48000;
+    SoundEngine e(rate);
+    int reattacks = 0, changes = 0;
+    run(
+        e,
+        [&](int64_t s, float& l, float& r) {
+            const double t = static_cast<double>(s) / rate;
+            const double amp = std::fmod(t, 0.4) < 0.3 ? 0.3 : 0.03;
+            const double ph = kTau * 440.0 * t;
+            l = r = static_cast<float>(amp * (std::sin(ph) + 0.5 * std::sin(2 * ph) + 0.3 * std::sin(3 * ph)));
+        },
+        2.4, 60.0,
+        [&](double, const GeodeSoundFrame& f) {
+            if (f.reattack > 0) reattacks++;
+            if (f.noteChange > 0) changes++;
+        });
+    CHECK(reattacks >= 3, "reattacks %d", reattacks);
+    CHECK(changes == 1, "note changes on one repeated note %d", changes);
 }
 
 void testSilenceAndReturn() {
@@ -272,6 +305,7 @@ int main() {
     testKicks();
     testChunkingIsBitExact();
     testMelody();
+    testReattack();
     testSilenceAndReturn();
     testWaveformHoldsStill();
     testStarvedGoesQuiet();

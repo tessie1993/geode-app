@@ -61,6 +61,6 @@ class EventRecipeTest {
     @Test
     fun aRouteReadsAsASentence() {
         val route = ReactionRoute(source = ReactSource.KICK, target = LfoTarget.CAM_PUSH)
-        assertEquals("When Kick → Camera push", EventRecipe.sentence(route))
+        assertEquals("When Kick hit → Camera push", EventRecipe.sentence(route))
     }
 }

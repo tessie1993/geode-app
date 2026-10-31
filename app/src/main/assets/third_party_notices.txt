@@ -78,8 +78,11 @@ libprojectM
 -----------
 The MilkDrop-compatible visualization engine bundled as a native library
 (libprojectM, https://github.com/projectM-visualizer/projectm) is licensed
-under the GNU Lesser General Public License v2.1 (LGPL-2.1). Geode links
-it dynamically as a separate shared object (.so) and does not modify it.
+under the GNU Lesser General Public License v2.1 (LGPL-2.1). MuzViz Studio
+Pro links it dynamically as a separate shared object (.so). This build
+modifies it with one small change, a render-to-FBO backport applied at
+configure time (tools/projectm-v4.1.7-render-fbo-backport.patch in this
+app's source), as LGPL-2.1 section 2a asks a modified copy to say.
 Per LGPL-2.1: this notice preserves attribution; the library's source is
 available at the URL above; and the dynamic-linking arrangement preserves
 the user's ability to replace the library. LGPL-2.1 section 6 requires a

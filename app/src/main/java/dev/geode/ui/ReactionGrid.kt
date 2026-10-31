@@ -57,14 +57,25 @@ import kotlin.math.abs
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun ReactionGrid(lanes: MusicLanes) {
-    val groups = remember(lanes.catalogue) { lanes.catalogue.targets.map { it.group }.filter { it != "NONE" && it != "SLOTS" }.distinct() }
+    val groups =
+        remember(lanes.catalogue) {
+            lanes.catalogue.targets
+                .map { it.group }
+                .filter { it != "NONE" && it != "SLOTS" }
+                .distinct()
+        }
     var group by rememberSaveable { mutableStateOf(groups.firstOrNull() ?: "MOTION") }
     var detail by remember { mutableStateOf<Pair<ReactSource, LfoTarget>?>(null) }
     val sceneId = LocalSceneId.current
     val columns =
         lanes.catalogue.targets
             .filter { it.group == group }
-            .mapNotNull { info -> LfoTarget.entries.getOrNull(info.id)?.takeIf { it.scope.appliesTo(sceneId) }?.let { it to info.label } }
+            .mapNotNull { info ->
+                LfoTarget.entries
+                    .getOrNull(info.id)
+                    ?.takeIf { it.scope.appliesTo(sceneId) }
+                    ?.let { it to info.label }
+            }
     Column {
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             groups.forEach { g ->
@@ -185,7 +196,12 @@ private fun stepCell(
                 amount = STEPS[0],
                 curve = ModCurve.LINEAR,
                 attackSeconds = if (source.isEvent) 0.01f else 0.08f,
-                releaseSeconds = if (mode == ReactMode.JUMP) 0.6f else if (source.isEvent) 0.3f else 0.4f,
+                releaseSeconds =
+                    when {
+                        mode == ReactMode.JUMP -> 0.6f
+                        source.isEvent -> 0.3f
+                        else -> 0.4f
+                    },
             )
     }
     val next = STEPS.indexOfFirst { abs(it - route.amount) < 0.01f }.let { if (it < 0) 0 else it + 1 }

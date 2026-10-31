@@ -36,7 +36,7 @@ out of the merged manifest by a CI check, every foreground service has a type, e
 |---|---|---|
 | N1 | Live input keeps its `AudioRecord` thread open while the app is in the background. On targetSdk 36 without a microphone FGS type the platform hands it silence, so nothing is heard, but the loop still runs. Pause on `ProcessLifecycleOwner` ON_STOP, resume on ON_START (already in POLICY_AUDIT.md). | `ui/CaptureController.kt` |
 | N2 | `NowPlayingWidgetReceiver` is exported for `APPWIDGET_UPDATE`, as Glance requires. Any app can send it an explicit update; the worst case is a redraw. Leave it. | Manifest |
-| N3 | The entitlement cache is in Auto Backup. Restored to a device on a different Google account it reads "owned" until the first foreground refresh asks Play. The refresh corrects it within seconds; excluding the file would also drop the useful case (same account, offline). Leave it unless the grace window grows. | `billing/EntitlementStore.kt`, `res/xml/*backup*` |
+| N3 | The entitlement cache is in Auto Backup. Restored to a device on a different Google account it reads "owned" until the first foreground refresh asks Play. The refresh corrects it within seconds; excluding the file would also drop the useful case (same account, offline). Since 2026-10-31 the cache has no expiry (wallpaper and screensaver buyers lost Pro after 30 days), so a restored cache on another account holds until the first successful Play query. Exclude `geode-pro` from backup if that matters more than the offline case. | `billing/EntitlementStore.kt`, `res/xml/*backup*` |
 
 ## Fixed on this branch (`claude/play-readiness-50643f`)
 

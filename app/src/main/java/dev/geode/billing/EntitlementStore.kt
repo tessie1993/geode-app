@@ -8,24 +8,24 @@ import android.content.SharedPreferences
  *
  * Play's own purchase cache answers offline most of the time, so this is a second line: it is
  * what [dev.geode.pro.BillingRepository.isProStream] starts from before Play has answered, and
- * what it keeps while Play cannot answer at all, for up to [GRACE_MS] after the last confirmation.
- * A successful query that no longer lists the purchase (a refund, a revoked order) clears it.
+ * what it keeps while Play cannot answer at all. A successful query that no longer lists the
+ * purchase (a refund, a revoked order) clears it; nothing else does.
  */
 data class CachedEntitlement(
     val owned: Boolean,
     val verifiedAtMs: Long,
 ) {
     /**
-     * Whether the cache alone still vouches for Pro at [nowMs]. A clock earlier than the last
-     * confirmation reads as "just confirmed" rather than as expired: moving the clock back must not
-     * take away something the user paid for.
+     * Whether the cache alone vouches for Pro. It has no expiry: the live wallpaper and the
+     * screensaver read only this cache and never ask Play themselves, so a time limit took Pro away
+     * from a buyer who simply hadn't opened the app for a while (and the app's first frame after
+     * that switched their locked style away before Play could answer). Revocation still works,
+     * because every foreground [dev.geode.pro.BillingRepository] refresh that no longer lists the
+     * purchase clears [owned]. [verifiedAtMs] is kept for diagnostics.
      */
-    fun vouchesForPro(nowMs: Long): Boolean = owned && nowMs - verifiedAtMs < GRACE_MS
+    fun vouchesForPro(): Boolean = owned
 
     companion object {
-        /** How long Pro outlives Play being unreachable. A month covers any trip or outage. */
-        const val GRACE_MS: Long = 30L * 24L * 60L * 60L * 1000L
-
         val NONE: CachedEntitlement = CachedEntitlement(owned = false, verifiedAtMs = 0L)
     }
 }

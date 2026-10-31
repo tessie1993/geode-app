@@ -43,8 +43,8 @@ import kotlin.coroutines.resume
  * - Purchases are verified on the device ([PurchaseVerifier]) and acknowledged from the device.
  *   An unacknowledged purchase is refunded by Play after three days, so acknowledgement is retried
  *   on every [refresh] until it sticks.
- * - The entitlement is cached ([EntitlementStore]) and outlives an unreachable Play Store for
- *   [CachedEntitlement.GRACE_MS].
+ * - The entitlement is cached ([EntitlementStore]) and outlives an unreachable Play Store until a
+ *   successful query no longer lists the purchase.
  * - `queryPurchasesAsync` on each foreground ([refresh]) is the only way to learn about purchases
  *   made elsewhere: on another device, by promo code, or a pending payment that has since cleared.
  *
@@ -71,7 +71,7 @@ class PlayBillingRepository(
             .enableAutoServiceReconnection()
             .build()
 
-    private val isPro = MutableStateFlow(store.load().vouchesForPro(clock.nowMs()))
+    private val isPro = MutableStateFlow(store.load().vouchesForPro())
     private val product = MutableStateFlow<ProductLoad>(ProductLoad.Loading)
     private val status = MutableStateFlow<PurchaseStatus>(PurchaseStatus.Idle)
     private var productDetails: ProductDetails? = null

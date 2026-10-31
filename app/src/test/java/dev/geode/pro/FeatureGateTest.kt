@@ -83,12 +83,10 @@ class FeatureGateTest {
     }
 
     @Test
-    fun `the cached entitlement vouches for a month, and never against a clock moved back`() {
-        val confirmed = CachedEntitlement(owned = true, verifiedAtMs = 10_000L)
-        assertTrue(confirmed.vouchesForPro(10_000L))
-        assertTrue(confirmed.vouchesForPro(10_000L + CachedEntitlement.GRACE_MS - 1))
-        assertFalse(confirmed.vouchesForPro(10_000L + CachedEntitlement.GRACE_MS))
-        assertTrue(confirmed.vouchesForPro(0L))
-        assertFalse(CachedEntitlement.NONE.vouchesForPro(0L))
+    fun `the cached entitlement vouches until Play revokes it, however old`() {
+        assertTrue(CachedEntitlement(owned = true, verifiedAtMs = 10_000L).vouchesForPro())
+        assertTrue(CachedEntitlement(owned = true, verifiedAtMs = 0L).vouchesForPro())
+        assertFalse(CachedEntitlement(owned = false, verifiedAtMs = 10_000L).vouchesForPro())
+        assertFalse(CachedEntitlement.NONE.vouchesForPro())
     }
 }

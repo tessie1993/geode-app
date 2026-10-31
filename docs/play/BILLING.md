@@ -39,8 +39,9 @@ Monetization setup).
   another device with the same Google account restores the same way, and is also picked
   up automatically on every foreground.
 - **Offline**: the entitlement is cached on the device. If the Play Store can't be reached,
-  Pro stays unlocked for 30 days from the last confirmation. A refund or revoked order
-  removes Pro the next time Play answers.
+  Pro stays unlocked until Play answers again. There is no time limit, because the live
+  wallpaper and the screensaver only read this cache. A refund or revoked order removes Pro
+  the next time Play answers.
 - **Trial**: one hour of every Pro style, tool and export setting, once per install, on the
   device clock. Exports stay at the free limits (1 minute, full-frame watermark), and Studio
   exports and loop renders ask to unlock. This is not a Play free trial (Play offers trials only on subscriptions),

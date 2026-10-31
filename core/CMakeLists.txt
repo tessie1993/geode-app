@@ -4,6 +4,7 @@ add_library(geode_core STATIC
     api/geode_dsp_api.cpp
     api/geode_tags_api.cpp
     api/geode_player_api.cpp
+    api/geode_catalogue_api.cpp
     api/geode_sound_api.cpp
     sound/Fft.cpp
     sound/SoundEngine.cpp
@@ -66,6 +67,7 @@ add_library(geode_core STATIC
     viz/CompositeGrade.cpp
     viz/CompositePass.cpp
     viz/TrailPass.cpp
+    viz/Catalogue.cpp
     viz/SceneRegistry.cpp
     viz/Renderer.cpp
     viz/RendererFrame.cpp

@@ -466,6 +466,13 @@ object GeodeNative {
         amount: Float,
     )
 
+    /**
+     * The scene and style catalogue (core/viz/Catalogue) as its versioned line table: style ids and
+     * kinds, the style families, which controls reach which styles, the control ranges. Static; parse
+     * once (dev.geode.render.scene.Catalogue does).
+     */
+    external fun catalogueText(): String
+
     // Export resampler (core/audio/dsp/PcmResampler): interleaved 16-bit PCM to the AAC rate.
 
     /** 0 for a bad rate or channel count. */

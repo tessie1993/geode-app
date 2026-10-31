@@ -283,6 +283,12 @@ GEODE_API size_t        geode_player_last_error(geode_player*, char* out, size_t
 /* The stereo mix as sent to the device, for analysis; one reader thread. Returns frames copied. */
 GEODE_API size_t        geode_player_read_tap(geode_player*, float* stereo, size_t frames);
 
+/* Scene and style catalogue (core/viz/Catalogue): every style id, its renderer kind, the style families,
+ * which Customize controls reach which styles, and the ranges the shell's controls quote, as one versioned
+ * '|'-separated line table (see Catalogue.hpp for the rows). Static: the pointer stays valid for the
+ * process; the shell parses it once. Display labels and the Pro rule are not in it. */
+GEODE_API const char* geode_catalogue_text(void);
+
 /* Export resampler (audio/dsp/PcmResampler): interleaved 16-bit PCM to the AAC encoder's rate; box filter
  * down, linear up. Streaming: state carries across calls. Any one thread at a time. There is no flush: a
  * partial output frame at the end is dropped, as the export always did. */

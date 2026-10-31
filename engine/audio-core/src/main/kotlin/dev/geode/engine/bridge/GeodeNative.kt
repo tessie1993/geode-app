@@ -9,7 +9,6 @@ object GeodeNative {
 
     external fun featureFrameFloats(): Int
 
-
     external fun analysisCreate(
         sampleRate: Int,
         fftSize: Int,

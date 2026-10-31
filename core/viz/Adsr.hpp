@@ -29,7 +29,7 @@ public:
 
     std::array<AdsrConfig, kCount> configs{};
 
-    const std::array<float, kCount>& tick(float dt, const GeodeFeatureFrame& features);
+    const std::array<float, kCount>& tick(float dt, const GeodeSoundFrame& sound);
     static void lfoOffsets(const std::array<AdsrConfig, kCount>& configs, const std::array<float, kCount>& envs,
                            std::array<float, LfoEngine::kSlots>& rate, std::array<float, LfoEngine::kSlots>& depth);
     static SceneParams apply(const SceneParams& p, const std::array<AdsrConfig, kCount>& configs, const std::array<float, kCount>& envs);

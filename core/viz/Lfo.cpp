@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <cmath>
 
-#include "viz/LiveSignal.hpp"
 #include "viz/VisualSafety.hpp"
 
 namespace geode::viz {
@@ -115,7 +114,7 @@ SceneParams applyLfoTarget(const SceneParams& r, LfoTarget target, float v) {
     return o;
 }
 
-const std::array<float, LfoEngine::kSlots>& LfoEngine::tick(float dt, const GeodeFeatureFrame& features, const float* extRateAdd,
+const std::array<float, LfoEngine::kSlots>& LfoEngine::tick(float dt, const GeodeSoundFrame& sound, const float* extRateAdd,
                                                              const float* extDepthAdd) {
     for (int i = 0; i < kSlots; i++) {
         out_[i] = 0.0f;
@@ -129,14 +128,16 @@ const std::array<float, LfoEngine::kSlots>& LfoEngine::tick(float dt, const Geod
         float raw = 0.0f;
         switch (c.source) {
             case ModSource::Lfo: raw = oscillator(i, c, dt); break;
-            case ModSource::Bass: raw = follow(i, features.bass, dt); break;
-            case ModSource::Mid: raw = follow(i, features.mid, dt); break;
-            case ModSource::Treble: raw = follow(i, features.treble, dt); break;
-            case ModSource::Level: raw = follow(i, live::level(features), dt); break;
-            case ModSource::Brightness: raw = follow(i, live::brightness(features), dt); break;
-            case ModSource::Transient: raw = follow(i, live::hit(features), dt); break;
-            case ModSource::StereoWidth: raw = follow(i, live::width(features), dt); break;
-            case ModSource::StereoPan: raw = followBipolar(i, live::pan(features), dt); break;
+            // The sound engine's frame: the bands' fast att envelopes halved (typical 0.5, a hit 1),
+            // the shaped level, the centroid, the note-start envelope and the stereo field.
+            case ModSource::Bass: raw = follow(i, 0.5f * sound.bassAtt, dt); break;
+            case ModSource::Mid: raw = follow(i, 0.5f * sound.midAtt, dt); break;
+            case ModSource::Treble: raw = follow(i, 0.5f * sound.trebleAtt, dt); break;
+            case ModSource::Level: raw = follow(i, sound.level, dt); break;
+            case ModSource::Brightness: raw = follow(i, sound.centroid, dt); break;
+            case ModSource::Transient: raw = follow(i, sound.onsetEnv, dt); break;
+            case ModSource::StereoWidth: raw = follow(i, sound.stereoWidth, dt); break;
+            case ModSource::StereoPan: raw = followBipolar(i, sound.stereoPan, dt); break;
         }
         const float v = shape(polarized(raw, c.polarity), c.curve) * depth;
         out_[i] = v;

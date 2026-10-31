@@ -135,6 +135,15 @@ GEODE_API void        geode_viz_set_milk_texture_dir(geode_viz*, const char* dir
 /* The preset MilkDrop last compiled successfully, once; returns the full length, 0 when none is pending. */
 GEODE_API size_t      geode_viz_take_milk_preset_loaded(geode_viz*, char* out, size_t capacity);
 GEODE_API void        geode_viz_push_pcm(geode_viz*, const float* mono, int count);
+/* The reaction source catalogue, one line per source in wire order: "NAME|Label|GROUP|event(0/1)\n".
+ * Writes at most capacity bytes (NUL-terminated when it fits) and returns the length it needs. */
+GEODE_API int         geode_react_source_catalog(char* out, int capacity);
+/* The renderer's own sound engine: interleaved PCM in play order, every sample once, written on the render
+ * thread before geode_viz_render; the next render steps it with that frame's dt. */
+GEODE_API void        geode_viz_write_audio(geode_viz*, const float* interleaved, int frames, int channels, int sample_rate);
+GEODE_API void        geode_viz_reset_audio(geode_viz*);
+GEODE_API void        geode_viz_set_sound_tuning(geode_viz*, const GeodeSoundTuning*);
+GEODE_API void        geode_viz_sound_frame(geode_viz*, GeodeSoundFrame* out);
 GEODE_API void        geode_viz_set_custom_shader(geode_viz*, const char* scene_id, const char* fragment_source);
 /* The user source the scene last compiled; returns its full length, 0 when it draws the built-in style. */
 GEODE_API size_t      geode_viz_custom_shader(geode_viz*, const char* scene_id, char* out, size_t capacity);
@@ -288,6 +297,21 @@ GEODE_API size_t        geode_player_read_tap(geode_player*, float* stereo, size
  * '|'-separated line table (see Catalogue.hpp for the rows). Static: the pointer stays valid for the
  * process; the shell parses it once. Display labels and the Pro rule are not in it. */
 GEODE_API const char* geode_catalogue_text(void);
+
+/* Customize randomizer, Reset tab and A/B blend (core/viz/ParamRandomizer, core/viz/Params) over SceneParams
+ * in the geode_viz_param_name wire order: geode_viz_param_count floats, ints and flags as floats. Pure: no viz
+ * handle; the same arguments always give the same result. Controls are named by their ParamKeys strings, tabs
+ * by their CustomizeTab names (a tab the engine does not know rolls and resets nothing). in and out may alias.
+ * style_id NULL or empty = any style; tab NULL = every tab; locked = newline-joined control names, NULL = none.
+ * Returns 1 when the roll changed something, 0 when out is a copy of in. */
+GEODE_API int         geode_params_randomize(const char* style_id, const char* tab, const char* locked, uint64_t seed,
+                                             const float* in, float* out);
+GEODE_API void        geode_params_reset_tab(const char* tab, const float* in, float* out);
+/* t 0..1: floats glide, choices snap at 0.5, and so do the NOT_FADED sentinels. */
+GEODE_API void        geode_params_blend(const float* a, const float* b, float t, float* out);
+/* Every rolled control as "TAB|ParamKeys string" lines, in roll order: what the panel offers to lock and what
+ * each tab's Randomize and Reset cover. Static: the pointer stays valid for the process. */
+GEODE_API const char* geode_params_roll_keys(void);
 
 /* Export resampler (audio/dsp/PcmResampler): interleaved 16-bit PCM to the AAC encoder's rate; box filter
  * down, linear up. Streaming: state carries across calls. Any one thread at a time. There is no flush: a

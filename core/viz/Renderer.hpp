@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "api/geode_api.h"
+#include "sound/SoundEngine.hpp"
 #include "viz/Adsr.hpp"
 #include "viz/CameraRig.hpp"
 #include "viz/CompositePass.hpp"
@@ -55,6 +56,16 @@ public:
     void beginParamMorph(float seconds);
     void submitTouchPoints(const float* xy, int n) { touchField_.submit(xy, n); }
     void pushPcm(const float* samples, int count);
+    // The sound engine's write side: interleaved PCM in play order, every sample once. A new rate builds a
+    // new engine. Call from the render thread before render(), live and in export alike, so the frame the
+    // engine is stepped into covers exactly the audio written up to that frame.
+    void writeAudio(const float* interleaved, int frames, int channels, int sampleRateHz);
+    // A seek, track change or source switch: drop the engine's history.
+    void resetAudio();
+    // Settings › Audio: kept across engine rebuilds (a new sample rate builds a new engine).
+    void setSoundTuning(const GeodeSoundTuning& tuning);
+    // The frame beginFrame last stepped, for readers outside the renderer (Kotlin meters, tests).
+    GeodeSoundFrame soundFrame() const;
     void setCustomShader(const std::string& sceneId, const std::string& fragmentSource);
     // The user source a scene last compiled successfully; "" when it draws its built-in style.
     std::string customShaderFor(const std::string& sceneId) const;
@@ -150,6 +161,12 @@ private:
     MotionField motionField_;
     ReactionEngine reactions_;
     CameraRig camera_;
+    // One engine per renderer (one per surface), so each is frame-locked to its own dt. Guarded by soundLock_
+    // only because writeAudio and soundFrame are public; in practice one thread does everything.
+    mutable std::mutex soundLock_;
+    std::unique_ptr<sound::SoundEngine> sound_;
+    GeodeSoundTuning soundTuning_ = sound::SoundEngine::defaultTuning();
+    GeodeSoundFrame soundFrame_{};
     std::atomic<float> lookYaw_{0.0f};
     std::atomic<float> lookPitch_{0.0f};
     Framebuffer fboA_{"sceneA"};

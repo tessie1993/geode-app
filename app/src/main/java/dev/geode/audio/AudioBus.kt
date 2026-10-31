@@ -5,6 +5,13 @@ import dev.geode.analysis.AudioFeatures
 object AudioBus {
     private const val STALE_MS = 1_500L
 
+    /**
+     * The live playback session's audio for the sound engine, for surfaces that don't hold the session
+     * (the wallpaper, the dream). Set and cleared by PlaybackSession.
+     */
+    @Volatile
+    var soundInput: dev.geode.engine.audio.SoundInput? = null
+
     @Volatile
     private var latest: AudioFeatures? = null
 

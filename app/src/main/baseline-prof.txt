@@ -22,9 +22,17 @@ HSPLdev/geode/ui/SettingsViewModel**;->**(**)**
 HSPLdev/geode/ui/PlayerSession**;->**(**)**
 HSPLdev/geode/ui/PlayerScreenKt**;->**(**)**
 HSPLdev/geode/ui/BootIntroKt**;->**(**)**
-HSPLdev/geode/ui/ThemeStore**;->**(**)**
+HSPLdev/geode/data/ThemeStore**;->**(**)**
 HSPLdev/geode/data/GeodePrefsFiles;->**(**)**
 HSPLdev/geode/data/PlayerPrefs**;->**(**)**
+# PlayerSession's constructor builds the data stores and the engine bridge before the first frame.
+HSPLdev/geode/data/**;->**(**)**
+HSPLdev/geode/engine/**;->**(**)**
+HSPLdev/geode/render/bridge/**;->**(**)**
+HSPLdev/geode/ui/ListeningTracker**;->**(**)**
+HSPLdev/geode/ui/VizStateStore**;->**(**)**
+HSPLdev/geode/ui/AutoVisualsPrefsStore**;->**(**)**
+HSPLdev/geode/ui/PlaybackFades**;->**(**)**
 HSPLdev/geode/playback/PlaybackEngine**;->**(**)**
 HSPLdev/geode/render/VisualizerView**;->**(**)**
 HSPLdev/geode/render/VisualizerRenderer**;->**(**)**

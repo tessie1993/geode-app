@@ -25,7 +25,7 @@ float bloomPrefilterScale(float br, float threshold, float softKnee);
 }  // namespace math
 
 // Port of FluidAudioDrive: the frame with its levels and bands scaled by the audio-drive control.
-GeodeFeatureFrame scaledFeatures(const GeodeFeatureFrame& features, float audioDrive);
+GeodeSoundFrame scaledFeatures(const GeodeSoundFrame& features, float audioDrive);
 
 // Port of WaterMath.kt.
 namespace water {

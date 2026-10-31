@@ -31,7 +31,7 @@ public:
     void init() override;
     void setParams(const SceneParams& params) override { params_ = params; }
     void resize(int width, int height) override;
-    void update(const GeodeFeatureFrame& features, float dt) override;
+    void update(const GeodeSoundFrame& features, float dt) override;
     void draw(float timeSeconds) override;
     void release() override;
 
@@ -39,7 +39,6 @@ public:
     void setPaletteLut(GLuint texture) override { paletteLutTex_ = texture; }
     void setTouchField(const TouchField* field) override { touchField_ = field; }
     void setCamera(const CameraPose* pose) override { camera_ = pose; }
-    void setSound(const GeodeSoundFrame* sound) override { sound_ = sound; }
     bool drawsCamera() const override { return drawsCamera_; }
     void setFragmentSource(const std::string& source) override;
 
@@ -50,7 +49,7 @@ private:
     // ---- wave three: the continuous motion layer ----------------------------
     //
     // motionField_ is this scene's own instance (see viz/MotionField.hpp): it
-    // is a pure function of the same GeodeFeatureFrame/dt sequence update()
+    // is a pure function of the same GeodeSoundFrame/dt sequence update()
     // already receives, so every ShaderScene settles to the same continuous
     // uniforms without needing a channel back to Renderer's own instance
     // (which shapes SceneParams instead - see Renderer::resolveParams).
@@ -94,8 +93,9 @@ private:
     GLuint paletteLutTex_ = 0;
     const TouchField* touchField_ = nullptr;
     const CameraPose* camera_ = nullptr;
-    // The renderer's sound frame (setSound); uploaded as uSound and uSoundTex in draw().
-    const GeodeSoundFrame* sound_ = nullptr;
+    // The frame update() was given (the renderer's, with this scene's band trims); uploaded as uSound
+    // and uSoundTex in draw().
+    GeodeSoundFrame sound_{};
     Texture soundTex_;
     std::array<float, kSoundVec4s * 4> soundScalars_{};
     std::array<float, kSoundTexWidth * kSoundTexRows> soundTexData_{};

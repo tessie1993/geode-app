@@ -32,9 +32,9 @@ public:
     void resize(int width, int height);
     void release();
     bool wantsFlow(const SceneParams& p, bool fluidActive) const;
-    void stepFlow(const GeodeFeatureFrame& features, float dt, const SceneParams& p);
+    void stepFlow(const GeodeSoundFrame& features, float dt, const SceneParams& p);
     bool rippleOverlayActive(const SceneParams& p, bool smearingNow, bool waterActive) const;
-    void stepRippleOverlay(const GeodeFeatureFrame& features, const SceneParams& p, float dt);
+    void stepRippleOverlay(const GeodeSoundFrame& features, const SceneParams& p, float dt);
     void drainTouchStrokes(Scene& scene);
 
 private:

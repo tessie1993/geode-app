@@ -28,7 +28,7 @@ public:
     void queueTouchStroke(float nx, float ny, float ndx, float ndy, float dt, float strength) override;
 
 protected:
-    GeodeFeatureFrame idleFeatures(float dt) override;
+    GeodeSoundFrame idleFeatures(float dt) override;
     void onApplyQualityTier(int index, bool userChanged) override;
 
 private:

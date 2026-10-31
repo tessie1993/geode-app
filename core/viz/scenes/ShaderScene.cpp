@@ -64,15 +64,16 @@ void ShaderScene::resize(int width, int height) {
     height_ = height;
 }
 
-void ShaderScene::update(const GeodeFeatureFrame& features, float dt) {
+void ShaderScene::update(const GeodeSoundFrame& sound, float dt) {
+    sound_ = sound;
     const SceneParams& p = params_;
     shaderTime_ = std::fmod(shaderTime_ + p.speed * dt, kTimeWrapSeconds);
     rotationAngle_ = std::fmod(rotationAngle_ + p.rotation * dt, kTwoPi);
     zoomPhase_ = p.endlessZoom ? std::fmod(zoomPhase_ + p.endlessZoomSpeed * dt, 1.0f) : 0.0f;
     if (p.colorCycle) cyclePhase_ = std::fmod(cyclePhase_ + p.cycleSpeed * dt, 1.0f);
     // Wave three: the continuous motion layer, never a transient/beat trigger.
-    if (sound_ != nullptr) motionField_.step(*sound_, dt);
-    if (sound_ != nullptr) reactSignals_.step(*sound_, dt);
+    motionField_.step(sound_, dt);
+    reactSignals_.step(sound_, dt);
 }
 
 void ShaderScene::draw(float timeSeconds) {
@@ -128,13 +129,12 @@ void resampleRow(const float* src, int n, float* dst, int width) {
 // unit 3. No drive, clamp or slew here; the engine's values are already dt-scaled and bounded, and
 // styles shape them themselves. Unused by a style, both cost one call the driver drops.
 void ShaderScene::uploadSound() {
-    if (sound_ == nullptr) return;
-    const float* scalars = reinterpret_cast<const float*>(sound_);
+    const float* scalars = reinterpret_cast<const float*>(&sound_);
     std::copy(scalars, scalars + GEODE_SOUND_SCALARS, soundScalars_.begin());
     glUniform4fv(uniforms_.loc("uSound"), kSoundVec4s, soundScalars_.data());
-    resampleRow(sound_->spectrum, GEODE_SOUND_SPECTRUM_POINTS, soundTexData_.data(), kSoundTexWidth);
-    resampleRow(sound_->waveform, GEODE_SOUND_WAVEFORM_POINTS, soundTexData_.data() + kSoundTexWidth, kSoundTexWidth);
-    resampleRow(sound_->eq, GEODE_SOUND_EQ_BANDS, soundTexData_.data() + 2 * kSoundTexWidth, kSoundTexWidth);
+    resampleRow(sound_.spectrum, GEODE_SOUND_SPECTRUM_POINTS, soundTexData_.data(), kSoundTexWidth);
+    resampleRow(sound_.waveform, GEODE_SOUND_WAVEFORM_POINTS, soundTexData_.data() + kSoundTexWidth, kSoundTexWidth);
+    resampleRow(sound_.eq, GEODE_SOUND_EQ_BANDS, soundTexData_.data() + 2 * kSoundTexWidth, kSoundTexWidth);
     glActiveTexture(GL_TEXTURE3);
     glBindTexture(GL_TEXTURE_2D, soundTex_.id());
     glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, kSoundTexWidth, kSoundTexRows, GL_RED, GL_FLOAT, soundTexData_.data());

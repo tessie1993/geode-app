@@ -39,7 +39,7 @@ void AcidScene::resize(int width, int height) {
     state_.reset();
 }
 
-void AcidScene::update(const GeodeFeatureFrame& features, float dt) {
+void AcidScene::update(const GeodeSoundFrame& features, float dt) {
     time_ = std::fmod(time_ + dt, kSceneTimeWrapSeconds);
     lastDt_ = dt;
     pcmStrike_ = pcmPulse_.tick(dt);
@@ -70,13 +70,13 @@ void AcidScene::draw(float timeSeconds) {
     if (!loop) return;
     const SceneParams& p = params_;
     const float dt = std::clamp(lastDt_, 0.0f, 1.0f / 15.0f);
-    const GeodeFeatureFrame f = hasPending_ ? pending_ : GeodeFeatureFrame{};
+    const GeodeSoundFrame f = hasPending_ ? pending_ : GeodeSoundFrame{};
     hasPending_ = false;
 
     const float speed = std::clamp(p.speed, 0.05f, 4.0f);
-    envBass_ = slewEnvelope(envBass_, clampedBand(f.bass), dt, kEnvRisePerSec, kEnvFallPerSec);
-    envMid_ = slewEnvelope(envMid_, clampedBand(f.mid), dt, kEnvRisePerSec, kEnvFallPerSec);
-    envTreble_ = slewEnvelope(envTreble_, clampedBand(f.treble), dt, kEnvRisePerSec, kEnvFallPerSec);
+    envBass_ = slewEnvelope(envBass_, clampedBand(live::bass(f)), dt, kEnvRisePerSec, kEnvFallPerSec);
+    envMid_ = slewEnvelope(envMid_, clampedBand(live::mid(f)), dt, kEnvRisePerSec, kEnvFallPerSec);
+    envTreble_ = slewEnvelope(envTreble_, clampedBand(live::treble(f)), dt, kEnvRisePerSec, kEnvFallPerSec);
     const float hit = live::hit(f);
     beatPulse_ = std::clamp(std::max(hit * std::clamp(p.beatResponse, 0.0f, 2.0f), beatPulse_ - dt * 3.0f), 0.0f, 1.5f);
     if (hit * p.beatResponse > kGlitchThreshold) {
@@ -84,7 +84,7 @@ void AcidScene::draw(float timeSeconds) {
         glitchEpoch_ = std::fmod(glitchEpoch_ + 1.0f, 1024.0f);
     }
     glitch_ = std::max(glitch_ - dt * kGlitchDecay, 0.0f);
-    fillSpokes(f.bands);
+    fillSpokes(f.spectrum);
 
     const float frames = dt * 60.0f;
     const float feedback = std::pow(std::min(style_.feedback, kFeedbackCap), frames);
@@ -147,8 +147,8 @@ void AcidScene::draw(float timeSeconds) {
 
 void AcidScene::fillSpokes(const float* bands) {
     for (int i = 0; i < kSpokes; ++i) {
-        const int from = i * GEODE_BAND_COUNT / kSpokes;
-        const int to = std::max(std::min((i + 1) * GEODE_BAND_COUNT / kSpokes, GEODE_BAND_COUNT), from + 1);
+        const int from = i * GEODE_SOUND_SPECTRUM_POINTS / kSpokes;
+        const int to = std::max(std::min((i + 1) * GEODE_SOUND_SPECTRUM_POINTS / kSpokes, GEODE_SOUND_SPECTRUM_POINTS), from + 1);
         float acc = 0.0f;
         for (int b = from; b < to; ++b) acc += bands[b];
         spokes_[static_cast<size_t>(i)] = std::clamp(acc / static_cast<float>(to - from), 0.0f, 1.0f);

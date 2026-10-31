@@ -9,7 +9,6 @@ out vec4 fragColor;
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_dive
@@ -21,10 +20,10 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// An onset (uHits.w) pushes a hue wave into the near girders that fades back
+// An onset (SND_ONSET_ENV) pushes a hue wave into the near girders that fades back
 // with depth and envelope - the colour moves, the brightness does not. Kick
-// (uHits.x) thickens the tubes a little. Palette switching as in lib_dive.
-// Brightness follows uSwell mildly.
+// (SND_KICK_ENV) thickens the tubes a little. Palette switching as in lib_dive.
+// Brightness follows SND_INTENSITY mildly.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -40,7 +39,7 @@ void main() {
     diveSetup(DIVE_LATTICE);
     float e = diveEnergy();
     gDiveBeam = 0.035 + 0.02 * gDiveKick;
-    float wave = clamp(uHits.w * e, 0.0, 1.0);
+    float wave = clamp(SND_ONSET_ENV * e, 0.0, 1.0);
 
     vec3 ro;
     vec3 rd;
@@ -63,6 +62,6 @@ void main() {
     }
 
     vec3 col = diveBackdrop(rd) * 0.5 + glow;
-    col *= 0.85 + 0.2 * clamp(uSwell, 0.0, 1.5);
+    col *= 0.85 + 0.2 * clamp(SND_INTENSITY, 0.0, 1.5);
     fragColor = vec4(grade(col), 1.0);
 }

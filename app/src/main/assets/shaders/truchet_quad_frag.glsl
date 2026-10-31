@@ -8,7 +8,6 @@ out vec4 fragColor;
 
 //#include lib_scene_uniforms
 //#include lib_scene_motion
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_truchet
@@ -40,7 +39,7 @@ out vec4 fragColor;
 //
 // Onsets re-roll a scattered third of the tiles, at every size, cross-fading
 // each band onto the other diagonal over the onset envelope. The bass breathes
-// the scale; the key leans the hue. Brightness follows uSwell only.
+// the scale; the key leans the hue. Brightness follows SND_ENERGY_TREND only.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -85,13 +84,13 @@ float disc(float ink, vec2 p, vec2 v, float k, float px) {
 void main() {
     vec2 uv = view();
     float t = truchetTime();
-    float swell = clamp(uSwell, 0.0, 1.5);
+    float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
     float morph = truchetMorph();
-    float hits = floor(uHitCount);
+    float hits = floor(SND_ONSET_COUNT);
     gP1 = 0.3 + 0.45 * morph;
     gP2 = 0.2 + 0.5 * morph;
 
-    float scale = 1.6 * truchetBreath(uBassSmooth);
+    float scale = 1.6 * truchetBreath(SND_BASS_PRESENCE);
     vec2 p = truchetWarp(uv * scale + vec2(t * 0.03, t * 0.02), t);
     float px = truchetPx(p);
 
@@ -100,7 +99,7 @@ void main() {
     float s = exp2(-lv);
     vec2 f = (p - leaf.xy) / s;
 
-    vec3 roll = truchetRoll(leaf.xy * 4.0 + vec2(lv * 4099.0, 0.0), hits, uHits.w, 3.0);
+    vec3 roll = truchetRoll(leaf.xy * 4.0 + vec2(lv * 4099.0, 0.0), hits, SND_ONSET_ENV, 3.0);
     float m = bandMask(f, step(0.5, roll.y), s, px);
     if (step(0.5, roll.x) != step(0.5, roll.y) && roll.z < 1.0) {
         m = mix(bandMask(f, step(0.5, roll.x), s, px), m, roll.z);

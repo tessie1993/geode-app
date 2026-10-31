@@ -8,7 +8,6 @@ out vec4 fragColor;
 
 //#include lib_scene_uniforms
 //#include lib_scene_motion
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_chrys
@@ -22,14 +21,14 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// Every onset SEEDS a new constellation: uHitCount re-hashes which florets
+// Every onset SEEDS a new constellation: SND_ONSET_COUNT re-hashes which florets
 // are "awake" (about one in nine), and those wear the contrasting hue until
-// the next onset picks another set. The onset envelope (uHits.w) swells the
+// the next onset picks another set. The onset envelope (SND_ONSET_ENV) swells the
 // awake florets' domes for its 0.22 s, so each hit reads as a scatter of
 // florets popping up across the disk. A slow hue wave runs outward along the
 // floret index on uFlowPhase (louder passages run it faster, never backwards).
-// The sub band (uBandsLo.x) loosens the spiral's spacing a few percent, and
-// uBreath sways the ray petals. Brightness follows uSwell only.
+// The sub band (sndSpectrum(0.10)) loosens the spiral's spacing a few percent, and
+// uBreath sways the ray petals. Brightness follows SND_ENERGY_TREND only.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -43,10 +42,10 @@ out vec4 fragColor;
 
 void main() {
     vec2 uv = view();
-    float swell = clamp(uSwell, 0.0, 1.5);
+    float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
     float t = uTime * uSpeed;
-    float onset = clamp(uHits.w * uIntensity, 0.0, 1.5);
-    float sub = clamp(uBandsLo.x * uIntensity, 0.0, 1.5);
+    float onset = clamp(SND_ONSET_ENV * uIntensity, 0.0, 1.5);
+    float sub = clamp(sndSpectrum(0.10) * uIntensity, 0.0, 1.5);
     float chaos = clamp(uTurbulence + uWarp, 0.0, 2.0);
     float florets = 720.0 * (1.0 + clamp(uMorph, 0.0, 1.0));
     float aa = 3.0 / uResolution.y;
@@ -80,7 +79,7 @@ void main() {
         vec4 fl = chrysFloret(uv, spacing);
         float k = fl.y;
         float age = clamp(k / florets, 0.0, 1.0);          // 0 centre .. 1 rim
-        float awake = step(0.89, chrysHash(vec2(k, floor(uHitCount) * 1.618)));
+        float awake = step(0.89, chrysHash(vec2(k, floor(SND_ONSET_COUNT) * 1.618)));
         float rad = spacing * (0.62 + 0.28 * age) * (1.0 + 0.55 * onset * awake);
         float dome = clamp(1.0 - fl.x / rad, 0.0, 1.0);
         // Lit from the upper left: a dome's highlight sits off centre.

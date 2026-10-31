@@ -9,7 +9,6 @@ out vec4 fragColor;
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_nebula
@@ -30,12 +29,12 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// Snares (uHits.y) FIRE LIGHTNING INSIDE THE CLOUD: each onset counter value
-// (uHitCount) hashes a new position and direction in the storm, and on the
+// Snares (SND_SNARE_ENV) FIRE LIGHTNING INSIDE THE CLOUD: each onset counter value
+// (floor(SND_HIT_TIME)) hashes a new position and direction in the storm, and on the
 // snare a short bolt there lights the gas around it - a glow that is strong
 // only within a few tenths of a unit of the bolt, so it is a flash in the
-// cloud, never a flash of the frame. Bass (uBassSmooth) thickens the spiral
-// bands. The key turns the cloud's hue. The cloud tops' light follows uSwell
+// cloud, never a flash of the frame. Bass (sndShaped(SND_LOW)) thickens the spiral
+// bands. The key turns the cloud's hue. The cloud tops' light follows (0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE))
 // gently. The hats twinkle the stars.
 //
 // ---- macros -----------------------------------------------------------------
@@ -94,15 +93,15 @@ void main() {
     vec2 uv = view();
     gT = nebTime();
     float e = nebEnergy();
-    float swell = clamp(uSwell, 0.0, 1.5);
-    float snare = clamp(uHits.y * e, 0.0, 1.0);
-    float hats = clamp(uHits.z, 0.0, 1.0);
-    gBand = 0.6 * clamp(uBassSmooth, 0.0, 1.3) * e;
+    float swell = clamp((0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)), 0.0, 1.5);
+    float snare = clamp(SND_SNARE_ENV * e, 0.0, 1.0);
+    float hats = clamp(SND_HAT_ENV, 0.0, 1.0);
+    gBand = 0.6 * clamp(sndShaped(SND_LOW), 0.0, 1.3) * e;
     float oct = nebVolOctaves(3.0);
     float key = nebKeyShift(0.12);
 
     // Where this onset's bolt is: a hashed point in the cloud and a direction.
-    float seed = mod(floor(uHitCount), 512.0);
+    float seed = mod(floor(SND_HIT_TIME), 512.0);
     float a = NEB_TAU * nebHash1(seed);
     float rr = 0.45 + 0.7 * nebHash1(seed + 3.1);
     vec3 centre = vec3(cos(a) * rr, 0.08 * (nebHash1(seed + 5.7) - 0.5), sin(a) * rr);

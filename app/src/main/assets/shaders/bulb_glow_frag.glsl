@@ -9,7 +9,6 @@ out vec4 fragColor;
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_sdf3
@@ -29,13 +28,13 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// SECTIONS choose the power. Each section change (uSectionCount) hashes a new
+// SECTIONS choose the power. Each section change (SND_CUT_COUNT) hashes a new
 // integer power from 3 to 12 - a fat three-lobed cloud, a spiny twelve-fold
-// star - and the section envelope (uEvents.z) carries the gas from the old
+// star - and the section envelope (SND_HELD_HARD_CUT) carries the gas from the old
 // form to the new: during the 1.5 s glide both estimates are evaluated and
 // blended, so the cloud melts from one shape into the next instead of
-// snapping. Spectral flux (uBandsHi.w) widens the hue spread of the emission.
-// Brightness follows uSwell only.
+// snapping. Spectral flux (sndLevel(SND_FLUX)) widens the hue spread of the emission.
+// Brightness follows SND_LEVEL only.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -78,11 +77,11 @@ float map(vec3 p) {
 
 void main() {
     vec2 uv = view();
-    float swell = clamp(uSwell, 0.0, 1.5);
-    float sect = clamp(uEvents.z, 0.0, 1.0);
-    float flux = clamp(uBandsHi.w, 0.0, 1.0);
-    gPowNew = powerFor(uSectionCount);
-    gPowOld = powerFor(uSectionCount - 1.0);
+    float swell = clamp(SND_LEVEL, 0.0, 1.5);
+    float sect = clamp(SND_HELD_HARD_CUT, 0.0, 1.0);
+    float flux = clamp(sndLevel(SND_FLUX), 0.0, 1.0);
+    gPowNew = powerFor(SND_CUT_COUNT);
+    gPowOld = powerFor(SND_CUT_COUNT - 1.0);
     gBlend = 1.0 - smoothstep(0.04, 0.96, sect);
     gSpin = rotY(bulbTime() * 0.05) * rotX(0.35 * sin(bulbTime() * 0.031));
     gIters = bulbIters(5);

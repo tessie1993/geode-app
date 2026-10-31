@@ -22,8 +22,8 @@ out vec4 fragColor;
 // projection, the causeway a 1/y divide, the spires a scaled repeat. No
 // raymarch, so this stays off MARCHED_SCENES.
 //
-// Audio: uSwell opens the dome and lengthens the causeway, uBassSmooth lights
-// the portal, uTrebleSmooth picks out the filigree. A spike re-seeds the
+// Audio: SND_INTENSITY opens the dome and lengthens the causeway, sndShaped(SND_LOW) lights
+// the portal, SND_TREBLE_PRESENCE picks out the filigree. A spike re-seeds the
 // skyline (uSpawnSeed), steps the dome's tessellation (uFormPhase) and leans
 // the walk (uMoveDir). The portal's flare rides uSpike, which has a rise on
 // it, so the ring swells rather than strobing.
@@ -65,9 +65,9 @@ void main() {
     vec2 uv = view();
     vec2 m = vec2(abs(uv.x), uv.y);
 
-    float bass = clamp(uBassSmooth, 0.0, 1.5);
-    float treb = clamp(uTrebleSmooth, 0.0, 1.5);
-    float swell = clamp(uSwell, 0.0, 1.5);
+    float bass = clamp(sndShaped(SND_LOW), 0.0, 1.5);
+    float treb = clamp(SND_TREBLE_PRESENCE, 0.0, 1.5);
+    float swell = clamp(SND_INTENSITY, 0.0, 1.5);
     // A spike steps the dome between three tessellation densities and holds it.
     float tess = 9.0 + 4.0 * floor(uFormPhase * 3.0);
     // The horizon. The whole scene is split on it: dome above, ground below.

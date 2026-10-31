@@ -224,7 +224,7 @@ vec3 dmtChrysanthemum(vec3 rdLocal, float hue, float energy) {
     float seg = DMT_TAU / DMT_CHRYS_SYM;
     az = abs(mod(az, seg) - seg * 0.5);
     // Breathes with the passage: the petals open on a swell.
-    vec2 q = vec2(cos(az), sin(az)) * elev * (2.2 - 0.35 * clamp(uSwell, 0.0, 1.5));
+    vec2 q = vec2(cos(az), sin(az)) * elev * (2.2 - 0.35 * clamp(SND_INTENSITY, 0.0, 1.5));
 
     float knot = 1e9;
     float thread = 1e9;

@@ -9,7 +9,6 @@ out vec4 fragColor;
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_bulb
@@ -28,10 +27,10 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// MIDS swirl the metal. The mid band (uBandsLo.w, steadied with uMidSmooth)
+// MIDS swirl the metal. The mid band (sndSpectrum(0.57), steadied with SND_MID_PRESENCE)
 // drives the polar phase, so chords and vocals melt the lobes into a swirl
 // and they set back into seven-fold order in the sparse passages. Hats
-// (uHits.z) tighten the specular strips. Brightness follows uSwell only.
+// (SND_HAT_ENV) tighten the specular strips. Brightness follows (0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)) only.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -82,9 +81,9 @@ vec3 studio(vec3 r) {
 
 void main() {
     vec2 uv = view();
-    float swell = clamp(uSwell, 0.0, 1.5);
-    float mid = clamp(0.35 * uBandsLo.w + 0.65 * uMidSmooth / 1.5, 0.0, 1.0);
-    float hat = clamp(uHits.z, 0.0, 1.0);
+    float swell = clamp((0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)), 0.0, 1.5);
+    float mid = clamp(0.35 * sndSpectrum(0.57) + 0.65 * SND_MID_PRESENCE / 1.5, 0.0, 1.0);
+    float hat = clamp(SND_HAT_ENV, 0.0, 1.0);
     float jitter = 0.15 * clamp(uTurbulence, 0.0, 1.0) * sin(bulbTime() * 1.7);
     gPhase = vec2(0.85 * mid * bulbEnergy(), jitter);
     gStudioTurn = 0.03 * bulbTime();

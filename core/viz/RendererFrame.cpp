@@ -11,13 +11,20 @@ namespace geode::viz {
 namespace {
 constexpr float kTouchMinOverlayStrength = 0.35f;
 
-// Port of applyBandGains: the per-scene band trims, clamped as the Kotlin path clamps them.
-GeodeFeatureFrame gainAdjusted(const GeodeFeatureFrame& f, const SceneParams& p) {
+// The per-scene band trims (bassGain, midGain, trebGain) on the sound frame a scene reads: each band's
+// level and att envelope, and its shaped low/middle/high.
+GeodeSoundFrame gainAdjusted(const GeodeSoundFrame& f, const SceneParams& p) {
     if (p.bassGain == 1.0f && p.midGain == 1.0f && p.trebGain == 1.0f) return f;
-    GeodeFeatureFrame out = f;
-    out.bass = std::clamp(f.bass * p.bassGain, 0.0f, 2.0f);
-    out.mid = std::clamp(f.mid * p.midGain, 0.0f, 2.0f);
-    out.treble = std::clamp(f.treble * p.trebGain, 0.0f, 2.0f);
+    GeodeSoundFrame out = f;
+    out.bass = f.bass * p.bassGain;
+    out.bassAtt = f.bassAtt * p.bassGain;
+    out.low = std::clamp(f.low * p.bassGain, 0.0f, 1.0f);
+    out.mid = f.mid * p.midGain;
+    out.midAtt = f.midAtt * p.midGain;
+    out.middle = std::clamp(f.middle * p.midGain, 0.0f, 1.0f);
+    out.treble = f.treble * p.trebGain;
+    out.trebleAtt = f.trebleAtt * p.trebGain;
+    out.high = std::clamp(f.high * p.trebGain, 0.0f, 1.0f);
     return out;
 }
 }  // namespace
@@ -174,7 +181,7 @@ float Renderer::drawSecondaryTargets(const SceneParams& p, float dt) {
         wireFlow(*layerScene_, p);
         layerScene_->setParams(p);
         deliverPcm(*layerScene_);
-        layerScene_->update(gainAdjusted(frameFeatures_, p), dt);
+        layerScene_->update(gainAdjusted(soundFrame_, p), dt);
         layerScene_->draw(timeSeconds_);
     }
     if (outgoingScene_) {
@@ -187,7 +194,7 @@ float Renderer::drawSecondaryTargets(const SceneParams& p, float dt) {
             const SceneParams& op = outgoingParams_ ? *outgoingParams_ : p;
             outgoingScene_->setParams(op);
             deliverPcm(*outgoingScene_);
-            outgoingScene_->update(gainAdjusted(frameFeatures_, op), dt);
+            outgoingScene_->update(gainAdjusted(soundFrame_, op), dt);
             outgoingScene_->draw(timeSeconds_);
         }
     }
@@ -206,7 +213,7 @@ void Renderer::drawSceneTarget(Scene& scene, const SceneParams& p, float dt) {
     wireFlow(scene, p);
     scene.setParams(p);
     deliverPcm(scene);
-    scene.update(gainAdjusted(frameFeatures_, p), dt);
+    scene.update(gainAdjusted(soundFrame_, p), dt);
     scene.draw(timeSeconds_);
 }
 
@@ -281,13 +288,13 @@ void Renderer::composite(Scene& scene, const SceneParams& p, float progress, GLu
 }
 
 void Renderer::stepOverlays(Scene& scene, const SceneParams& p, float dt) {
-    if (overlays_.wantsFlow(p, scene.isFluid())) overlays_.stepFlow(gainAdjusted(frameFeatures_, p), dt, p);
+    if (overlays_.wantsFlow(p, scene.isFluid())) overlays_.stepFlow(gainAdjusted(soundFrame_, p), dt, p);
     smearing_ = overlays_.smearing(monotonicSeconds());
     // Stepped once per frame ahead of every draw so each scene reads the same anchor.
     touchField_.step(dt);
     overlays_.drainTouchStrokes(scene);
     rippleOverlayOn_ = overlays_.rippleOverlayActive(p, smearing_, scene.isWater());
-    if (rippleOverlayOn_) overlays_.stepRippleOverlay(gainAdjusted(frameFeatures_, p), p, dt);
+    if (rippleOverlayOn_) overlays_.stepRippleOverlay(gainAdjusted(soundFrame_, p), p, dt);
 }
 
 // After stepOverlays, so the look follows this frame's touch anchor.

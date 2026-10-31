@@ -9,7 +9,6 @@ out vec4 fragColor;
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_dive
@@ -22,10 +21,10 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// A drop (uEvents.y) WIDENS THE HELIX: the corkscrew opens out on the drop
-// and tightens back over its 2.5 s envelope. Hats (uHits.z) glint a hashed
+// A drop (SND_HELD_SURGE) WIDENS THE HELIX: the corkscrew opens out on the drop
+// and tightens back over its 2.5 s envelope. Hats (SND_HAT_ENV) glint a hashed
 // third of the facets, as in Dive Jewel. Palette switching as in lib_dive.
-// Brightness follows uSwell mildly.
+// Brightness follows SND_LEVEL mildly.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -38,7 +37,7 @@ void main() {
     vec2 uv = view();
     diveSetup(DIVE_JEWEL);
     float e = diveEnergy();
-    gDiveHelixR = 0.45 + 0.35 * clamp(uEvents.y * e, 0.0, 1.0);
+    gDiveHelixR = 0.45 + 0.35 * clamp(SND_HELD_SURGE * e, 0.0, 1.0);
 
     vec3 ro;
     vec3 rd;
@@ -59,11 +58,11 @@ void main() {
         vec3 sheen = diveColor(id * 0.5 + 1.6 * ndv);
         col += sheen * (0.08 + 0.5 * pow(1.0 - ndv, 2.0)) * fog;
         vec3 refl = reflect(rd, n);
-        float pick = step(0.66, dive_hash11(id * 91.0 + fract(uHitCount * 0.618) * 37.0));
-        float glint = pick * clamp(uHits.z * e, 0.0, 1.0) * pow(max(dot(refl, -rd), 0.0), 6.0);
+        float pick = step(0.66, dive_hash11(id * 91.0 + fract(SND_ONSET_COUNT * 0.618) * 37.0));
+        float glint = pick * clamp(SND_HAT_ENV * e, 0.0, 1.0) * pow(max(dot(refl, -rd), 0.0), 6.0);
         col += vec3(glint * 0.6 * fog);
     }
 
-    col *= 0.85 + 0.2 * clamp(uSwell, 0.0, 1.5);
+    col *= 0.85 + 0.2 * clamp(SND_LEVEL, 0.0, 1.5);
     fragColor = vec4(grade(col), 1.0);
 }

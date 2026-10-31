@@ -9,7 +9,6 @@ out vec4 fragColor;
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_bulb
@@ -28,11 +27,11 @@ out vec4 fragColor;
 // ---- audio ------------------------------------------------------------------
 //
 // The BEAT PHASE moves the lines. Both families scroll by the analyser's
-// phase-locked beat phase (uBeatPhase), so the contours flow outward over the
+// beat-clock phase (sndPhase(SND_CURVED_TIME, 2.0)), so the contours flow outward over the
 // body once per beat and stay locked to the tempo, wrapping seamlessly; when
-// the tempo is lost they keep the last one. The AIR band (uBandsHi.z)
+// the tempo is lost they keep the last one. The AIR band (sndSpectrum(0.93))
 // thickens the lines and spreads their glow, so cymbals and breath fuzz the
-// drawing. Brightness follows uSwell only.
+// drawing. Brightness follows SND_LEVEL only.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -73,9 +72,9 @@ float lineOn(float f, float w) {
 
 void main() {
     vec2 uv = view();
-    float swell = clamp(uSwell, 0.0, 1.5);
-    float air = clamp(clamp(uBandsHi.z, 0.0, 1.0) * bulbEnergy(), 0.0, 1.5);
-    float phase = uBeatPhase;
+    float swell = clamp(SND_LEVEL, 0.0, 1.5);
+    float air = clamp(clamp(sndSpectrum(0.93), 0.0, 1.0) * bulbEnergy(), 0.0, 1.5);
+    float phase = sndPhase(SND_CURVED_TIME, 2.0);
     float dense = 1.0 + clamp(uMorph, 0.0, 1.0);
     gIters = bulbIters(6);
 

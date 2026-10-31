@@ -8,7 +8,6 @@ out vec4 fragColor;
 
 //#include lib_scene_uniforms
 //#include lib_scene_motion
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_touch
@@ -27,12 +26,12 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// Bass (uBassSmooth, slew-limited) is the warp STRENGTH: how hard each level
+// Bass (sndShaped(SND_LOW), slew-limited) is the warp STRENGTH: how hard each level
 // pushes the one above it. Quiet passages unknot into soft ribbons; a heavy
 // low end ties them into tight marbled knots. Strength is a smooth geometric
 // parameter, so the field kneads rather than jumps. Travel speed rides
 // uFlowPhase (loudness sets the rate, never the direction). Overall level
-// follows uSwell gently. A finger pushes the weave aside.
+// follows SND_INTENSITY gently. A finger pushes the weave aside.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -46,8 +45,8 @@ void main() {
     vec2 uv = lucidView(true);
     float t = uTime * uSpeed;
     float flow = uFlowPhase * uSpeed;
-    float bass = clamp(uBassSmooth, 0.0, 1.5) * uIntensity;
-    float swell = clamp(uSwell, 0.0, 1.5);
+    float bass = clamp(sndShaped(SND_LOW), 0.0, 1.5) * uIntensity;
+    float swell = clamp(SND_INTENSITY, 0.0, 1.5);
 
     int depth = lucidDetail(3, 2);
     int oct = lucidDetail(3, 2);

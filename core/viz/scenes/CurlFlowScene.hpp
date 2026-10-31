@@ -17,13 +17,13 @@ public:
 
     void init() override;
     void resize(int width, int height) override;
-    void update(const GeodeFeatureFrame& features, float dt) override;
+    void update(const GeodeSoundFrame& features, float dt) override;
     void draw(float timeSeconds) override;
     void release() override;
     float trailRetention(const SceneParams& params) const override;
 
 protected:
-    GeodeFeatureFrame idleFeatures(float dt) override { (void) dt; return idleAudioFeatures(0.0f, 0.0f, 0.0f, 0.0f); }
+    GeodeSoundFrame idleFeatures(float dt) override { (void) dt; return idleAudioFeatures(0.0f, 0.0f, 0.0f, 0.0f); }
     void onApplyQualityTier(int index, bool userChanged) override { (void) index; (void) userChanged; }
 
 private:

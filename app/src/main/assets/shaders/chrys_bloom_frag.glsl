@@ -8,7 +8,6 @@ out vec4 fragColor;
 
 //#include lib_scene_uniforms
 //#include lib_scene_motion
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_chrys
@@ -23,11 +22,11 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// Kick (uHits.x) OPENS the flower: every ring is pushed outward, the inner
+// Kick (SND_KICK_ENV) OPENS the flower: every ring is pushed outward, the inner
 // rings by a higher power of the envelope so they lag the outer ones and the
 // bloom ripples out from the centre instead of jumping as a block. The rings
 // counter-rotate slowly on uDrift (an integrated angle, so it never reverses
-// with a hit). uSwell sets how open the flower sits between kicks and lifts
+// with a hit). (0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)) sets how open the flower sits between kicks and lifts
 // the core a little. Hue drifts on time alone. Nothing here brightens on a
 // hit: the kick moves petals, the swell is the only light.
 //
@@ -45,8 +44,8 @@ out vec4 fragColor;
 void main() {
     vec2 uv = view();
     float t = uTime * uSpeed;
-    float swell = clamp(uSwell, 0.0, 1.5);
-    float kick = clamp(uHits.x * uIntensity, 0.0, 1.5);
+    float swell = clamp((0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)), 0.0, 1.5);
+    float kick = clamp(SND_KICK_ENV * uIntensity, 0.0, 1.5);
     float chaos = clamp(uTurbulence + uWarp, 0.0, 2.0);
     float rings = 5.0 + floor(2.0 * clamp(uMorph, 0.0, 1.0) + 0.5);
     float aa = 3.0 / uResolution.y;

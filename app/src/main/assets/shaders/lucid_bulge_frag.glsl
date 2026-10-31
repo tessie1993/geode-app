@@ -8,7 +8,6 @@ out vec4 fragColor;
 
 //#include lib_scene_uniforms
 //#include lib_scene_motion
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_lucid
@@ -29,11 +28,11 @@ out vec4 fragColor;
 // ---- audio ------------------------------------------------------------------
 //
 // PITCH walks the hue. The key detector's eased hue (uKeyHue; uKeyStrength
-// blends between the walked colour and the resting one) and each pitch change (uEvents.w, through lucidBump so the
+// blends between the walked colour and the resting one) and each pitch change (SND_HELD_NOTE_CHANGE, through lucidBump so the
 // nudge swells in rather than jumps) rotate the film's colour: the walk turns
 // the interference phase and the channel order together, both periodic in a
 // whole turn, so the eased key hue wrapping from 0.99 to 0.01 is seamless.
-// uBreath gently inflates the bubble. Brightness follows uSwell gently.
+// uBreath gently inflates the bubble. Brightness follows SND_INTENSITY gently.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -55,12 +54,12 @@ void main() {
     vec2 uv = lucidView(true);
     float t = uTime * uSpeed;
     float flow = uFlowPhase * uSpeed;
-    float swell = clamp(uSwell, 0.0, 1.5);
+    float swell = clamp(SND_INTENSITY, 0.0, 1.5);
     float chaos = lucidChaos();
 
     // The walk is never scaled (a scaled circular hue would jump where it
     // wraps); key confidence instead blends the walked film with the resting one.
-    float walk = uKeyHue + 0.2 * lucidBump(uEvents.w) * uIntensity;
+    float walk = uKeyHue + 0.2 * lucidBump(SND_HELD_NOTE_CHANGE) * uIntensity;
     float keyed = clamp(uKeyStrength, 0.0, 1.0);
     float R = 0.72 * (1.0 + (clamp(uBreath, 0.9, 1.1) - 1.0) * uIntensity);
     float r = length(uv);

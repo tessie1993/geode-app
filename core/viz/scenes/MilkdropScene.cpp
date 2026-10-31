@@ -167,7 +167,7 @@ void MilkdropScene::armLastPreset() {
     pendingPresetPath_ = lastPresetPath_;
 }
 
-void MilkdropScene::update(const GeodeFeatureFrame& features, float dt) {
+void MilkdropScene::update(const GeodeSoundFrame& features, float dt) {
     const SceneParams& p = params_;
     rotationAngle_ = std::fmod(rotationAngle_ + p.rotation * dt, kTwoPi);
     zoomPhase_ = p.endlessZoom ? std::fmod(zoomPhase_ + p.endlessZoomSpeed * dt, 1.0f) : 0.0f;
@@ -180,8 +180,8 @@ void MilkdropScene::update(const GeodeFeatureFrame& features, float dt) {
         pcmCount_ = 0;
         projectm_pcm_add_float(engine_.get(), pcm_.data(), static_cast<unsigned int>(n), PROJECTM_MONO);
     } else {
-        const int n = std::min(GEODE_WAVEFORM_POINTS, kEnginePcmSamples);
-        projectm_pcm_add_float(engine_.get(), features.waveform + (GEODE_WAVEFORM_POINTS - n), static_cast<unsigned int>(n), PROJECTM_MONO);
+        const int n = std::min(GEODE_SOUND_WAVEFORM_POINTS, kEnginePcmSamples);
+        projectm_pcm_add_float(engine_.get(), features.waveform + (GEODE_SOUND_WAVEFORM_POINTS - n), static_cast<unsigned int>(n), PROJECTM_MONO);
     }
 }
 

@@ -8,7 +8,6 @@ out vec4 fragColor;
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_sdf3
@@ -22,12 +21,12 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// Kick (uHits.x) pulses the inversion scale a little: the walls breathe. Drop
-// (uEvents.y) twists every fold, as a bump on the envelope so it glides in and
+// Kick (SND_KICK_ENV) pulses the inversion scale a little: the walls breathe. Drop
+// (SND_HELD_SURGE) twists every fold, as a bump on the envelope so it glides in and
 // out. The fold variation (inversion scale, inner fold size) follows uOrbit,
 // which the CPU re-targets on a section boundary and eases over 3 s: there is
 // no section counter to hash, so that is the held step. The section envelope
-// (uEvents.z) swells the inner folds on the same bump shape while it lands. Brightness follows uSwell only.
+// (SND_HELD_HARD_CUT) swells the inner folds on the same bump shape while it lands. Brightness follows SND_ENERGY_TREND only.
 
 #define FD_MAX_STEPS 96
 #define FD_ITERS 7
@@ -77,10 +76,10 @@ vec3 normalAt(vec3 p, float eps) {
 void main() {
     vec2 uv = view();
 
-    float swell = clamp(uSwell, 0.0, 1.5);
-    float kick = clamp(uHits.x, 0.0, 1.0);
-    float drop = clamp(uEvents.y, 0.0, 1.0);
-    float sect = clamp(uEvents.z, 0.0, 1.0);
+    float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
+    float kick = clamp(SND_KICK_ENV, 0.0, 1.0);
+    float drop = clamp(SND_HELD_SURGE, 0.0, 1.0);
+    float sect = clamp(SND_HELD_HARD_CUT, 0.0, 1.0);
     // 0 at the instant of the event and at its end, 1 in between: an envelope
     // with an instant rise, reshaped so the geometry never snaps.
     float dropBump = 4.0 * drop * (1.0 - drop);

@@ -9,7 +9,6 @@ out vec4 fragColor;
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_terra
@@ -30,12 +29,12 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// Beats (uEvents.x) THICKEN THE ISOLINES: every contour swells on the beat
+// Beats (SND_KICK_TOGGLE) THICKEN THE ISOLINES: every contour swells on the beat
 // and thins back as the envelope falls, so the whole chart pulses its ink in
-// time - line weight, not brightness. Bass (uBassSmooth) raises the land a
+// time - line weight, not brightness. Bass (SND_BASS_PRESENCE) raises the land a
 // little, so contours crowd up the slopes and the lakes shrink on low notes.
 // The key (uKeyHue, gated by uKeyStrength) drifts the tints. Brightness
-// follows uSwell only.
+// follows SND_ENERGY_TREND only.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -51,10 +50,10 @@ out vec4 fragColor;
 
 void main() {
     vec2 uv = view();
-    float swell = clamp(uSwell, 0.0, 1.5);
+    float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
     float energy = terraEnergy();
-    float beat = clamp(uEvents.x * energy, 0.0, 1.0);
-    float lift = 0.12 * clamp(uBassSmooth, 0.0, 1.2) * energy;
+    float beat = clamp(SND_KICK_TOGGLE * energy, 0.0, 1.0);
+    float lift = 0.12 * clamp(SND_BASS_PRESENCE, 0.0, 1.2) * energy;
     float oct = terraOctaves(3.0);
     float hue = 0.03 * sin(terraTime() * 0.02) + 0.1 * uKeyStrength * sin(TERRA_TAU * uKeyHue);
 

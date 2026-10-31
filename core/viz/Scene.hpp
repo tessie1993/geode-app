@@ -24,7 +24,8 @@ public:
     virtual void init() = 0;
     virtual void setParams(const SceneParams& params) = 0;
     virtual void resize(int width, int height) = 0;
-    virtual void update(const GeodeFeatureFrame& features, float dt) = 0;
+    // sound: the renderer's sound frame with this scene's band trims applied (gainAdjusted).
+    virtual void update(const GeodeSoundFrame& sound, float dt) = 0;
     virtual void draw(float timeSeconds) = 0;
     virtual void release() = 0;
 
@@ -34,9 +35,6 @@ public:
     virtual void setTouchField(const TouchField* field) { (void) field; }
     // The renderer's camera rig pose, stable for the scene's lifetime; stepped once per frame before draw.
     virtual void setCamera(const CameraPose* pose) { (void) pose; }
-    // The renderer's sound frame (core/sound), stable for the scene's lifetime; stepped once per frame in
-    // beginFrame, before any scene updates or draws.
-    virtual void setSound(const GeodeSoundFrame* sound) { (void) sound; }
     // True when the scene draws the rig's 3D pose itself, so the composite must not also apply its flat projection.
     virtual bool drawsCamera() const { return false; }
     virtual void setFragmentSource(const std::string& source) { (void) source; }

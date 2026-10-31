@@ -48,7 +48,7 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// uSwell sets the dye's density, uBassSmooth the fold depth, uTrebleSmooth the
+// (0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)) sets the dye's density, sndShaped(SND_LOW) the fold depth, SND_TREBLE_PRESENCE the
 // filament sharpness. A spike re-aims the flight (uMoveDir), re-seeds the dye
 // (uSpawnSeed) and moves the fold count to a new plateau (uFormPhase). The
 // core's flare rides uSpike, which has a rise on it, so it swells.
@@ -96,9 +96,9 @@ float density(vec3 p, float bend, float squash, float sharp, float scale, float 
 void main() {
     vec2 uv = view();
 
-    float bass = clamp(uBassSmooth, 0.0, 1.5);
-    float treb = clamp(uTrebleSmooth, 0.0, 1.5);
-    float swell = clamp(uSwell, 0.0, 1.5);
+    float bass = clamp(sndShaped(SND_LOW), 0.0, 1.5);
+    float treb = clamp(SND_TREBLE_PRESENCE, 0.0, 1.5);
+    float swell = clamp((0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)), 0.0, 1.5);
     float finger = touchFalloff(uv, 0.6);
 
     // A spike moves the fold's bend to a new plateau: the structure changes

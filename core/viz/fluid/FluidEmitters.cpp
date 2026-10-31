@@ -30,24 +30,24 @@ void Emitters::applyParams(const SceneParams& p) {
     beatResponse = p.beatResponse;
 }
 
-void Emitters::tick(const GeodeFeatureFrame& f, float dt, float aspect, float baseHue, float hueSpan, std::vector<Splat>& out) {
+void Emitters::tick(const GeodeSoundFrame& f, float dt, float aspect, float baseHue, float hueSpan, std::vector<Splat>& out) {
     out.clear();
     beatEnvRaw_ = std::max(live::hit(f), beatEnvRaw_ * std::exp(-dt / 0.3f));
     beatEnv_ = beatEnvRaw_ * std::clamp(beatResponse, 0.0f, 2.0f);
-    const float bassTarget = std::clamp(f.bass * 1.2f, 0.0f, 1.0f);
+    const float bassTarget = std::clamp(live::bass(f) * 1.2f, 0.0f, 1.0f);
     bassEnv_ += (bassTarget - bassEnv_) * std::min(bassTarget > bassEnv_ ? dt / 0.03f : dt / 0.4f, 1.0f);
-    trebleMean_ += (f.treble - trebleMean_) * std::min(dt / 0.32f, 1.0f);
+    trebleMean_ += (live::treble(f) - trebleMean_) * std::min(dt / 0.32f, 1.0f);
     palettePhase_ = std::fmod(palettePhase_ + dt * paletteCycleSpeed * 0.05f, 1.0f);
     suctionPhase_ = std::fmod(suctionPhase_ + dt, kPhaseWrapSeconds);
 
     const float radius = splatRadius * std::min(1.0f + radiusPulse * beatEnv_, kMaxRadiusSwell);
-    const float speed = kBaseSpeed * forceScale * (0.4f + 1.6f * f.bass) * (0.3f + 0.7f * beatEnv_);
+    const float speed = kBaseSpeed * forceScale * (0.4f + 1.6f * live::bass(f)) * (0.3f + 0.7f * beatEnv_);
     const bool beatEdge = hitEdge_.step(f);
 
     if (beatEdge && beatSplats > 0 && beatResponse > kBeatResponseGate) beatSplatsFor(out, f, aspect, baseHue, hueSpan, radius, speed);
     stirrerSplats(out, f, dt, aspect, baseHue, hueSpan, radius);
     suctionSplats(out, radius);
-    if (sparkle && f.treble > trebleMean_ * 1.6f && f.treble > 0.08f) sparkleSplats(out, aspect, baseHue, hueSpan, radius);
+    if (sparkle && live::treble(f) > trebleMean_ * 1.6f && live::treble(f) > 0.08f) sparkleSplats(out, aspect, baseHue, hueSpan, radius);
     if (bassPump && bassEnv_ > 0.15f) pumpSplats(out, baseHue, hueSpan, radius);
     if (out.size() > static_cast<size_t>(kMaxSplatsPerFrame)) out.resize(static_cast<size_t>(kMaxSplatsPerFrame));
 }
@@ -65,7 +65,7 @@ void Emitters::anchor(int i, float aspect) {
     anchorY_ = std::sin(ang) * 0.45f;
 }
 
-void Emitters::stirrerSplats(std::vector<Splat>& out, const GeodeFeatureFrame& f, float dt, float aspect, float baseHue, float hueSpan,
+void Emitters::stirrerSplats(std::vector<Splat>& out, const GeodeSoundFrame& f, float dt, float aspect, float baseHue, float hueSpan,
                              float radius) {
     const int n = std::clamp(stirrers, 0, 4);
     if (n != activeStirrers_) {
@@ -73,7 +73,7 @@ void Emitters::stirrerSplats(std::vector<Splat>& out, const GeodeFeatureFrame& f
         activeStirrers_ = n;
     }
     if (n == 0) return;
-    const std::array<float, 4> bands = {f.bass, f.mid, f.treble, f.rms};
+    const std::array<float, 4> bands = {live::bass(f), live::mid(f), live::treble(f), f.rms};
     for (int i = 0; i < n; ++i) {
         const size_t s = static_cast<size_t>(i);
         const float band = bands[s % bands.size()];
@@ -99,7 +99,7 @@ void Emitters::stirrerSplats(std::vector<Splat>& out, const GeodeFeatureFrame& f
     }
 }
 
-void Emitters::beatSplatsFor(std::vector<Splat>& out, const GeodeFeatureFrame& f, float aspect, float baseHue, float hueSpan, float radius,
+void Emitters::beatSplatsFor(std::vector<Splat>& out, const GeodeSoundFrame& f, float aspect, float baseHue, float hueSpan, float radius,
                              float speed) {
     const int n = std::clamp(beatSplats, 1, 8);
     const float dyeGain = 1.5f * (0.15f + 0.85f * beatEnv_);
@@ -128,11 +128,11 @@ void Emitters::beatSplatsFor(std::vector<Splat>& out, const GeodeFeatureFrame& f
                 break;
             }
             case kPatternSpectrumArc: {
-                const int bandIdx = std::clamp(static_cast<int>(frac * (GEODE_BAND_COUNT - 1)), 0, GEODE_BAND_COUNT - 1);
-                const float bandE = std::clamp(f.bands[bandIdx], 0.0f, 1.5f);
+                const int bandIdx = std::clamp(static_cast<int>(frac * (GEODE_SOUND_SPECTRUM_POINTS - 1)), 0, GEODE_SOUND_SPECTRUM_POINTS - 1);
+                const float bandE = std::clamp(f.spectrum[bandIdx], 0.0f, 1.5f);
                 const float x = (frac * 2.0f - 1.0f) * 0.7f * aspect;
                 const float y = std::clamp(ay * 0.35f - 0.6f, -0.9f, -0.35f);
-                const float v = speed * (0.4f + 1.6f * bandE) / std::max(0.4f + 1.6f * f.bass, 0.4f);
+                const float v = speed * (0.4f + 1.6f * bandE) / std::max(0.4f + 1.6f * live::bass(f), 0.4f);
                 out.push_back(capsule(x, y, x, y + 0.06f, radius, 0.0f, v, cr, cg, cb, dyeGain * (0.4f + bandE)));
                 break;
             }

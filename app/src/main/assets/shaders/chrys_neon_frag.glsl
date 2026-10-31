@@ -8,7 +8,6 @@ out vec4 fragColor;
 
 //#include lib_scene_uniforms
 //#include lib_scene_motion
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_chrys
@@ -23,14 +22,14 @@ out vec4 fragColor;
 // ---- audio ------------------------------------------------------------------
 //
 // The song's structure sets the PETAL COUNTS. Each ring's count (5 to 12)
-// comes from a hash of uSectionCount, so every section of the track has its
+// comes from a hash of SND_CUT_COUNT, so every section of the track has its
 // own figure, held until the next. When a section changes, the old figure
 // fades out while the new one fades in across the section envelope
-// (uEvents.z), the rings swirling round as they trade places (chrysBump, so
+// (SND_HELD_HARD_CUT), the rings swirling round as they trade places (chrysBump, so
 // the swirl starts from rest). The old figure is the hash of the previous
 // count, which is what the screen was already showing, so nothing pops. The
-// presence band (uBandsHi.y) stretches the chasing lights into long trails.
-// The rings counter-rotate on uDrift. Brightness follows uSwell only; the
+// presence band (sndSpectrum(0.80)) stretches the chasing lights into long trails.
+// The rings counter-rotate on uDrift. Brightness follows (0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)) only; the
 // crossfade keeps the total light constant.
 //
 // ---- macros -----------------------------------------------------------------
@@ -75,12 +74,12 @@ vec3 neonRing(vec2 p, float count, float k, float trail, float hue, float w) {
 
 void main() {
     vec2 uv = view();
-    float swell = clamp(uSwell, 0.0, 1.5);
-    float sectEnv = clamp(uEvents.z, 0.0, 1.0);
+    float swell = clamp((0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)), 0.0, 1.5);
+    float sectEnv = clamp(SND_HELD_HARD_CUT, 0.0, 1.0);
     gT = uTime * uSpeed;
     gChaos = clamp(uTurbulence + uWarp, 0.0, 2.0);
     float rings = 4.0 + floor(2.0 * clamp(uMorph, 0.0, 1.0) + 0.5);
-    float trail = 0.04 + 0.3 * clamp(uBandsHi.y * uIntensity, 0.0, 1.5);
+    float trail = 0.04 + 0.3 * clamp(sndSpectrum(0.80) * uIntensity, 0.0, 1.5);
     float r = length(uv);
     float hue = 0.55 + gT * 0.004;
 
@@ -95,8 +94,8 @@ void main() {
         if (k >= rings) break;
         float dir = mod(k, 2.0) < 0.5 ? 1.0 : -1.0;
         vec2 p = chrysTurn(dir * (uDrift * 0.12 + gT * 0.03 + swirl) + k * 0.4) * uv;
-        col += neonRing(p, neonCount(uSectionCount, k), k, trail, hue, wNew);
-        col += neonRing(p, neonCount(uSectionCount - 1.0, k), k, trail, hue, 1.0 - wNew);
+        col += neonRing(p, neonCount(SND_CUT_COUNT, k), k, trail, hue, wNew);
+        col += neonRing(p, neonCount(SND_CUT_COUNT - 1.0, k), k, trail, hue, 1.0 - wNew);
     }
     // The heart: a small warm bulb.
     col += mix(pal(hue + 0.1), vec3(1.0), 0.5) * 0.5 * chrysGlow(r, 0.012);

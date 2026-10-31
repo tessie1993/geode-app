@@ -1,7 +1,7 @@
 #version 300 es
 precision highp float;
 // GLSL ES 3.00 defaults fragment sampler2D to LOWP (range [-2,2), ~8
-// fraction bits). uAudioTex is R32F; on GPUs honoring sampler precision
+// fraction bits). uSoundTex is R32F; on GPUs honoring sampler precision
 // (Mali) every read is clamped and quantized.
 precision highp sampler2D;
 
@@ -10,12 +10,6 @@ out vec4 fragColor;
 
 uniform float uTime;
 uniform vec2 uResolution;
-uniform float uBass;
-uniform float uMid;
-uniform float uTreble;
-uniform float uEnergy;
-uniform float uBeat;
-uniform sampler2D uAudioTex;
 uniform float uSpeed;
 uniform float uZoom;
 uniform float uRotation;
@@ -27,7 +21,6 @@ uniform float uBright;
 uniform float uInvert;
 uniform float uIntensity;
 uniform float uMirrorX;
-uniform float uBeatResponse;
 uniform float uTurbulence;
 uniform float uPalBase;
 uniform float uPalRange;
@@ -47,7 +40,6 @@ uniform float uPixelate;
 uniform float uPosterize;
 uniform float uSway;
 uniform float uPulse;
-uniform float uBeatPhase;
 uniform float uDriftX;
 uniform float uDriftY;
 uniform float uShake;
@@ -57,10 +49,8 @@ uniform float uTemperature;
 uniform float uSolarize;
 uniform float uFlash;
 
-//#include lib_react
+//#include lib_sound
 
-float aband(float x) { return texture(uAudioTex, vec2(clamp(x, 0.0, 1.0), 0.25)).r; }
-float awave(float x) { return texture(uAudioTex, vec2(clamp(x, 0.0, 1.0), 0.75)).r; }
 
 vec2 view() {
     vec2 uv = vUv * 2.0 - 1.0;
@@ -103,21 +93,11 @@ vec2 view() {
     // for good and stranding the user on a black screen.
     vec2 driftPhase = fract(vec2(uDriftX, uDriftY) * uTime * 0.025 + 0.25);
     uv += 1.0 - 2.0 * abs(2.0 * driftPhase - 1.0);
-    uv += uShake * uBeat * 0.03 * vec2(sin(uTime * 91.7), cos(uTime * 77.3));
-    // Beat-locked pulse: peaks exactly on the musical beat (uBeatPhase=0), and
-    // rides the beat ENVELOPE so it is zero between hits. The phase clock in
-    // ShaderScene free-runs at the last detected tempo, so without the
-    // envelope the frame kept breathing once a beat through silence; every
-    // other family gets this slider as CompositeGrade.pulseAmount (the slider
-    // times the SQUARED envelope), and one slider has to mean one thing.
-    float beatEnv = clamp(uBeat, 0.0, 1.0);
-    float beatBump = pow(0.5 + 0.5 * cos(6.2831853 * uBeatPhase), 2.0);
-    float pulse = 1.0 + uPulse * 0.22 * beatEnv * beatEnv * beatBump;
     // Triangle-wave exponent: 1x -> 2x -> 1x smoothly, so the endless-zoom
     // phase wrap never causes a visible scale pop (2^1 snapping to 2^0). The
     // milkdrop post pass (pm_post_frag) already spells it this way; a sawtooth
     // exponent halved the magnification once per cycle on every scene shader.
-    float z = uZoom * pulse * pow(2.0, 1.0 - abs(2.0 * uZoomPhase - 1.0)) * (1.0 + uBeat * uBeatResponse * 0.15);
+    float z = uZoom * pow(2.0, 1.0 - abs(2.0 * uZoomPhase - 1.0));
     uv /= max(z, 0.05);
     uv += uTurbulence * 0.06 * vec2(sin(uv.y * 6.0 + uTime), cos(uv.x * 6.0 + uTime * 1.3));
     // Radial twist: rotate by an angle growing with radius.
@@ -139,7 +119,7 @@ vec2 view() {
     // Concentric ripple distortion driven by radius.
     if (uRipple > 0.001) {
         float r = length(uv);
-        uv *= 1.0 + uRipple * 0.15 * sin(r * 14.0 - uTime * 3.0 + uBass * 4.0);
+        uv *= 1.0 + uRipple * 0.15 * sin(r * 14.0 - uTime * 3.0 + sndShaped(SND_LOW) * 4.0);
     }
     return uv;
 }
@@ -160,19 +140,18 @@ vec3 grade(vec3 col) {
     col.r += uTemperature * 0.12;
     col.b -= uTemperature * 0.12;
     if (uSolarize > 0.5) col = abs(1.0 - 2.0 * col);
-    col += uFlash * uBeat * 0.6;
     col = col * uBright * uIntensity;
     return mix(col, max(vec3(1.0) - col, 0.0), uInvert);
 }
 
 // Kaleidoscope: angular mirror folds over a flowing audio pattern.
 //
-// What reacts to what (sound events via lib_react; camera motion is the
+// What reacts to what (sound events via lib_sound; camera motion is the
 // composite's, applied to this picture automatically):
 //   - a section change re-picks the fold count (4 to 9 wedges, hashed from
-//     uSectionCount) and crossfades the old count into the new one over the
-//     section envelope (uEvents.z), then holds it until the next section.
-//   - hats (uHits.z) sparkle: a sparse, hashed scatter of points across the
+//     SND_CUT_COUNT) and crossfades the old count into the new one over the
+//     section envelope (SND_HELD_HARD_CUT), then holds it until the next section.
+//   - hats (SND_HAT_ENV) sparkle: a sparse, hashed scatter of points across the
 //     folded plane, re-scattered on every onset, so the sparkles mirror into
 //     every wedge. Local points only, never the frame.
 //   - the pattern flows with the analyser bands and bass lifts it, as before.
@@ -199,7 +178,7 @@ float kalPattern(vec2 uv, float seg, out vec2 folded) {
     a = abs(mod(a, 6.2831853 / seg) - 3.1415927 / seg);
     folded = vec2(cos(a), sin(a)) * r;
     return sin(folded.x * 7.0 + uTime) * cos(folded.y * 7.0 - uTime * 0.8)
-        + aband(fract(r + uTime * 0.05)) * 1.2;
+        + (0.5 * sndEq(fract(r + uTime * 0.05))) * 1.2;
 }
 
 void main() {
@@ -207,17 +186,17 @@ void main() {
     float r = length(uv);
 
     // The section crossfade, without frame-to-frame state: when a section
-    // lands, uSectionCount steps and uEvents.z jumps to 1 on the same frame,
+    // lands, SND_CUT_COUNT steps and SND_HELD_HARD_CUT jumps to 1 on the same frame,
     // so the weight starts at the OLD count and eases to the new one as the
     // envelope falls. Both counts are drawn and mixed, so nothing pops.
-    float w = 1.0 - clamp(uEvents.z, 0.0, 1.0);
+    float w = 1.0 - clamp(SND_HELD_HARD_CUT, 0.0, 1.0);
     w = w * w * (3.0 - 2.0 * w);
     vec2 foldOld;
     vec2 foldNew;
-    float fOld = kalPattern(uv, kalFolds(uSectionCount - 1.0), foldOld);
-    float fNew = kalPattern(uv, kalFolds(uSectionCount), foldNew);
+    float fOld = kalPattern(uv, kalFolds(SND_CUT_COUNT - 1.0), foldOld);
+    float fNew = kalPattern(uv, kalFolds(SND_CUT_COUNT), foldNew);
     float f = mix(fOld, fNew, w);
-    vec3 col = pal(f * 0.3 + r * 0.4) * (0.3 + f * 0.5 + uBass * 0.6);
+    vec3 col = pal(f * 0.3 + r * 0.4) * (0.3 + f * 0.5 + sndShaped(SND_LOW) * 0.6);
 
     // Hat sparkles on the folded plane, so every wedge mirrors them. A cell
     // carries one when its hash, re-rolled per onset, clears the bar.
@@ -225,8 +204,8 @@ void main() {
     vec2 cell = floor(folded * KAL_SPARKLE_CELLS);
     vec2 local = fract(folded * KAL_SPARKLE_CELLS) - 0.5;
     uvec2 c = uvec2(ivec2(cell));
-    float pick = float(kalHash(c.x ^ kalHash(c.y ^ kalHash(uint(max(uHitCount, 0.0))))) & 0xffffu) * (1.0 / 65536.0);
-    float sparkle = step(0.94, pick) * (1.0 - smoothstep(0.0, 0.32, length(local))) * clamp(uHits.z, 0.0, 1.0);
+    float pick = float(kalHash(c.x ^ kalHash(c.y ^ kalHash(uint(max(SND_ONSET_COUNT, 0.0))))) & 0xffffu) * (1.0 / 65536.0);
+    float sparkle = step(0.94, pick) * (1.0 - smoothstep(0.0, 0.32, length(local))) * clamp(SND_HAT_ENV, 0.0, 1.0);
     col += pal(f * 0.3 + 0.5) * sparkle * 0.9;
 
     col *= smoothstep(1.6, 0.2, r);

@@ -7,7 +7,6 @@ out vec4 fragColor;
 
 //#include lib_scene_uniforms
 //#include lib_scene_motion
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_sdf3
@@ -25,12 +24,12 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// Bass is the WIND. uBassSmooth (slew-limited, so no single frame can jerk a
+// Bass is the WIND. SND_BASS_PRESENCE (slew-limited, so no single frame can jerk a
 // branch) sets the lean every fork adds, and because the lean compounds down
 // the levels the trunk barely moves while the crown bows and the twigs whip.
 // A slow gust oscillator rides on top so a held bass note still sways. Air
-// (uBandsHi.z) glints on the outermost twig tips on the sun side, small
-// points, never the frame. The sun's halo widens with uSwell only.
+// (sndSpectrum(0.93)) glints on the outermost twig tips on the sun side, small
+// points, never the frame. The sun's halo widens with SND_LEVEL only.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -59,9 +58,9 @@ void main() {
     float energy = uIntensity;
     float chaos = arbChaos();
 
-    float swell = clamp(uSwell, 0.0, 1.5);
-    float bass = clamp(uBassSmooth, 0.0, 1.5) * energy;
-    float air = clamp(uBandsHi.z, 0.0, 1.0) * energy;
+    float swell = clamp(SND_LEVEL, 0.0, 1.5);
+    float bass = clamp(SND_BASS_PRESENCE, 0.0, 1.5) * energy;
+    float air = clamp(sndSpectrum(0.93), 0.0, 1.0) * energy;
 
     // ---- sky: the palette's warm end at the horizon, its far end overhead ---
     vec3 horizon = mix(pal(0.02) * 1.15, vec3(1.0, 0.52, 0.24), 0.35);

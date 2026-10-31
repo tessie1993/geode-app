@@ -34,7 +34,7 @@ public:
     void setInjectionShaders(const std::string& forceSrc, const std::string& dyeSrc) override { sim_.setInjectionShaders(forceSrc, dyeSrc); }
 
 protected:
-    GeodeFeatureFrame idleFeatures(float dt) override;
+    GeodeSoundFrame idleFeatures(float dt) override;
     bool tierApplied() const override { return appliedParticleSide_ != 0; }
     void onApplyQualityTier(int index, bool userChanged) override;
 

@@ -1,7 +1,7 @@
 #version 300 es
 precision highp float;
 // GLSL ES 3.00 defaults fragment sampler2D to LOWP (range [-2,2), ~8
-// fraction bits). uAudioTex is R32F; on GPUs honoring sampler precision
+// fraction bits). uSoundTex is R32F; on GPUs honoring sampler precision
 // (Mali) every read is clamped and quantized.
 precision highp sampler2D;
 
@@ -11,7 +11,6 @@ out vec4 fragColor;
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_sdf3
@@ -23,12 +22,12 @@ out vec4 fragColor;
 // What reacts to what:
 //   - the rig's travel carries the eye through the field; nothing here has a
 //     clock of its own for that, so the speed is the Camera tab's.
-//   - each star is lit by its own analyser band (aband), as the 2D version's
+//   - each star is lit by its own analyser band (the spectrum), as the 2D version's
 //     were, and its hue is its band position on the palette.
-//   - hats (uHits.z) twinkle a hashed subset of stars, re-picked on every
-//     onset through uHitCount. Local sparkle only: a twinkle brightens one
+//   - hats (SND_HAT_ENV) twinkle a hashed subset of stars, re-picked on every
+//     onset through floor(SND_HIT_TIME). Local sparkle only: a twinkle brightens one
 //     star, never the frame.
-//   - onsets (uHits.w) stretch every star along the travel axis into a
+//   - onsets (SND_ONSET_ENV) stretch every star along the travel axis into a
 //     streak, and the stretch falls back with the envelope.
 //   - the core glow behind the field rides the slew-limited bass.
 //
@@ -90,9 +89,9 @@ void main() {
 
     // Pixel footprint as an angle: the screen is two units tall at uCamFocal.
     float pixAngle = 2.0 / (max(uResolution.y, 1.0) * uCamFocal);
-    float streak = STAR_STREAK * clamp(uHits.w, 0.0, 1.0);
-    float hat = clamp(uHits.z, 0.0, 1.0);
-    float twinkleSeed = fract(uHitCount * 0.618034);
+    float streak = STAR_STREAK * clamp(SND_ONSET_ENV, 0.0, 1.0);
+    float hat = clamp(SND_HAT_ENV, 0.0, 1.0);
+    float twinkleSeed = fract(floor(SND_HIT_TIME) * 0.618034);
     float budget = uSteps * (float(STAR_MAX_CELLS) / 128.0);
     float far = budget / STAR_CROSSINGS;
 
@@ -125,7 +124,7 @@ void main() {
         // One star in seven, so a busy hi-hat sparkles across the field
         // without lifting the field as a whole.
         float twinkle = 1.0 + 1.8 * hat * step(0.86, fract(hue * 7.31 + twinkleSeed));
-        float lit = (0.35 + aband(hue)) * twinkle;
+        float lit = (0.35 + sndSpectrum(hue)) * twinkle;
         col += pal(hue + tc * 0.01) * glow * fade * lit * step(hOcc, STAR_DENSITY);
 
         // Step into whichever neighbouring cell the ray reaches first.
@@ -137,6 +136,6 @@ void main() {
     // The core glow sits on the world's +z, the direction of travel on the
     // glide and spiral paths, so it is the vanishing point you fly toward.
     float core = rd.z > 0.0 ? exp(-8.0 * length(rd.xy) / rd.z) : 0.0;
-    col += pal(0.5) * core * (0.2 + uBassSmooth * 0.8);
+    col += pal(0.5) * core * (0.2 + sndShaped(SND_LOW) * 0.8);
     fragColor = vec4(grade(col), 1.0);
 }

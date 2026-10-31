@@ -10,10 +10,10 @@ namespace geode::viz {
 
 namespace {
 
-constexpr std::array<const char*, 22> kIncludes = {
+constexpr std::array<const char*, 21> kIncludes = {
     "lib_palette",      "lib_scene_uniforms",  "lib_scene_grade",    "lib_sdf3",
     "lib_touch",        "lib_psrdnoise2",      "lib_particle_common", "lib_particle_shade",
-    "lib_scene_motion", "lib_dmt",             "lib_camera",          "lib_react",
+    "lib_scene_motion", "lib_dmt",             "lib_camera",
     // The sound engine's frame (core/sound): uSound, uSoundTex and the SND_* names.
     "lib_sound",
     // One library per style family (StyleFamilies.kt): the twelve styles of a family share it.

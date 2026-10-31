@@ -1,7 +1,7 @@
 #version 300 es
 precision highp float;
 // GLSL ES 3.00 defaults fragment sampler2D to LOWP (range [-2,2), ~8
-// fraction bits). uAudioTex is R32F; on GPUs honoring sampler precision
+// fraction bits). uSoundTex is R32F; on GPUs honoring sampler precision
 // (Mali) every read is clamped and quantized.
 precision highp sampler2D;
 
@@ -9,7 +9,7 @@ in vec2 vUv;
 out vec4 fragColor;
 
 // The three lines every fragment style carries, in this order: the uniform
-// block/aband/awave/view() first, then the palette, then grade() - which calls
+// block/view() first, then the palette, then grade() - which calls
 // pal() and so must come after it.
 //#include lib_scene_uniforms
 //#include lib_scene_motion
@@ -143,9 +143,9 @@ const float BAND_CYCLE = 6.0;
  * the camera inward and a decay eases it back, which is what a listener reads
  * as the drop pulling them in.
  *
- * 0.20 is sized against jitter, not against taste. uBass is an envelope but
+ * 0.20 is sized against jitter, not against taste. sndLevel(SND_SUB_ATT) is an envelope but
  * not a slew-limited one (no uSlew* reaches the shared contract), and a
- * frame-to-frame wobble of 0.05 in uBass moves the stack by 0.20 * 0.75 * 0.05
+ * frame-to-frame wobble of 0.05 in sndLevel(SND_SUB_ATT) moves the stack by 0.20 * 0.75 * 0.05
  * = 0.0075 bands, against a shell wall that spans about 0.10 bands in log
  * radius. Under a tenth of the wall, so the wall does not shimmer.
  *
@@ -164,7 +164,7 @@ const float WALL = 0.045;
 
 /**
  * Size of the solid octahedron subtracted from the shell to cut its windows,
- * and how far uEnergy opens it.
+ * and how far sndLevel(SND_VOL_ATT) opens it.
  *
  * On the unit sphere |x|+|y|+|z| runs from 1 on the axes to sqrt(3) on the
  * body diagonals, so subtracting |x|+|y|+|z| < s removes six caps around the
@@ -175,7 +175,7 @@ const float WALL = 0.045;
  * with the bridges intact the shell enclosing the viewer closes the frame
  * and the regress has one level. Free caps leave four open channels through
  * every shell, which is what puts five or six of them on screen at once.
- * uEnergy shrinks them further - density spent on how much of the regress
+ * sndLevel(SND_VOL_ATT) shrinks them further - density spent on how much of the regress
  * you can see, rather than on brightness.
  *
  * A closed shell would be the obvious prototype and is the wrong one: the
@@ -352,7 +352,7 @@ const float CORE_RAMP = 1.2;
 const float CORE_ANG = 0.16;
 /**
  * Brightness of the tight lobe. Its idle floor is high (0.85 of this before
- * uEnergy adds anything) because the vanishing point has to read as a LIGHT
+ * sndLevel(SND_VOL_ATT) adds anything) because the vanishing point has to read as a LIGHT
  * in silence - it is the one thing in frame that says the regress continues
  * past where the march gave up, and a dim one just looks like the corridor
  * ends in a smudge.
@@ -362,29 +362,11 @@ const float CORE_GAIN = 0.95;
  * The wide halo around it, and it is deliberately NOT audio-driven.
  *
  * This is the one term that covers most of the frame, so it is the one that
- * would show up in the flash budget. The tight core breathes with uEnergy
+ * would show up in the flash budget. The tight core breathes with sndLevel(SND_VOL_ATT)
  * because it is a few percent of the screen; the halo is held constant so no
  * large-area luminance step can ever be scheduled by the music.
  */
 const float HALO_GAIN = 0.20;
-
-/**
- * The beat shell: born FLARE_BIRTH e-folds inside the viewer, travelling
- * FLARE_SPAN e-folds outward over one beat.
- *
- * Position rides uBeatPhase, which RESETS to 0 on a heard transient, so the
- * front restarts deep in the corridor on every hit and free-runs outward
- * between them; amplitude rides the SQUARED beat envelope, so it is silent in
- * silence rather than pulsing through it at the last known tempo.
- *
- * FLARE_TAPER is a photosensitivity term, not an aesthetic one. The front
- * covers the most screen area exactly when it reaches the shell enclosing the
- * viewer, so it is faded out from 0.8 e-folds before that: the flare peaks
- * mid-corridor, on a shell covering well under a fifth of the frame, and has
- * mostly gone by the time it is all around you. FLARE_GAIN is then set so even
- * that peak is a little over half a palette step on lit material.
- */
-const float FLARE_BIRTH = -2.6;
 
 /**
  * The bank: lib_dmt satellites orbiting the centre the corridor falls toward,
@@ -397,10 +379,6 @@ const float FLARE_BIRTH = -2.6;
 const float SAT_ORBIT = 0.42;
 const float SAT_RADIUS = 0.06;
 const float SAT_PERIOD = 12.0;
-const float FLARE_SPAN = 3.6;
-const float FLARE_WIDTH = 0.30;
-const float FLARE_GAIN = 0.55;
-const float FLARE_TAPER = 1.6;
 
 /**
  * Angular frequency of the cosmetic surface grain.
@@ -597,15 +575,15 @@ void main() {
 
     // ---- the music --------------------------------------------------------
     //
-    // uBass..uEnergy are 0..1.5 auto-gained, so 0.75 puts a loud passage near
+    // sndLevel(SND_SUB_ATT)..sndLevel(SND_VOL_ATT) are 0..1.5 auto-gained, so 0.75 puts a loud passage near
     // 1 and leaves headroom rather than clipping the middle of the range.
     // Read off the slew-limited companions in lib_scene_motion, not the raw
     // envelopes. Same range and same meaning; the difference is that no single
     // frame can move one of them far, so nothing structural below can snap.
-    float bassAmt = clamp(uBassSmooth * 0.75, 0.0, 1.0);
-    float midAmt = clamp(uMidSmooth * 0.75, 0.0, 1.0);
-    float trebAmt = clamp(uTrebleSmooth * 0.75, 0.0, 1.0);
-    float energyAmt = clamp(uEnergySmooth * 0.7, 0.0, 1.0);
+    float bassAmt = clamp(sndShaped(SND_LOW) * 0.75, 0.0, 1.0);
+    float midAmt = clamp(SND_MID_PRESENCE * 0.75, 0.0, 1.0);
+    float trebAmt = clamp(SND_TREBLE_PRESENCE * 0.75, 0.0, 1.0);
+    float energyAmt = clamp(((SND_BASS_PRESENCE + SND_MID_PRESENCE + SND_TREBLE_PRESENCE) / 3.0) * 0.7, 0.0, 1.0);
 
     // The pull is added OUTSIDE the wrap: mod()ing it would fold the dimple
     // and put a seam through the middle of it. The wrap itself is invisible
@@ -722,19 +700,6 @@ void main() {
         // relief is raised. The emboss modulates it as it modulated the
         // diffuse, so the grain and the relief still read as surface.
         col = dmtShade(n, rd, hue, fract(hitShell / BAND_CYCLE) * 2.0, emboss, hitRelief * 0.8, trebAmt);
-
-        // The beat's shell, sweeping outward through the stack. Position off
-        // uBeatPhase, amplitude off the SQUARED envelope - the house pairing,
-        // so the front is silent between hits instead of pulsing through the
-        // quiet parts at the last detected tempo. This is the only thing in
-        // the style the beat is allowed to move: the fall, the spiral, the
-        // windows and the relief are all continuous quantities and are
-        // steered by envelopes, never by an impulse.
-        float beatEnv = clamp(uBeat, 0.0, 1.0);
-        float dk = (kHit - (FLARE_BIRTH + uBeatPhase * FLARE_SPAN)) / FLARE_WIDTH;
-        float flare = beatEnv * beatEnv * exp(-dk * dk) *
-            exp(-max(0.0, kHit + 0.8) * FLARE_TAPER);
-        col += pal(hue + 0.30) * (FLARE_GAIN * flare);
 
         col *= 0.80 + 0.55 * energyAmt;
 

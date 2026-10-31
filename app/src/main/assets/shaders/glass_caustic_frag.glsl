@@ -9,7 +9,6 @@ out vec4 fragColor;
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_glass
@@ -31,11 +30,11 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// Bass (uBassSmooth, with uBandsLo.y) sharpens the net: the caustic's
+// Bass (sndShaped(SND_LOW), with sndSpectrum(0.23)) sharpens the net: the caustic's
 // contrast climbs, so the lines burn brighter and the gaps between them go
 // darker, while the floor's mean light stays where it was - the net
 // tightens, the frame does not flash. The current's pace rides uFlowPhase
-// (loudness sets the rate, never the direction). Brightness follows uSwell.
+// (loudness sets the rate, never the direction). Brightness follows (0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)).
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -53,8 +52,8 @@ out vec4 fragColor;
 void main() {
     vec2 uv = view();
     float t = glassTime();
-    float swell = clamp(uSwell, 0.0, 1.5);
-    float bass = clamp(0.65 * uBassSmooth + 0.35 * uBandsLo.y, 0.0, 1.2);
+    float swell = clamp((0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)), 0.0, 1.5);
+    float bass = clamp(0.65 * sndShaped(SND_LOW) + 0.35 * sndSpectrum(0.23), 0.0, 1.2);
     float hue = 0.04 * sin(t * 0.02) + 0.12 * uKeyStrength * sin(GLASS_TAU * uKeyHue);
     float chop = 1.0 + 0.6 * glassChaos();
     float focus = 1.0 + 0.5 * glassComplexity();

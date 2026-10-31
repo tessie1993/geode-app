@@ -9,7 +9,6 @@ out vec4 fragColor;
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_nebula
@@ -33,11 +32,11 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// Bass (uBassSmooth with the bass band region) THICKENS THE FILAMENTS: the
+// Bass (SND_BASS_PRESENCE with the bass band region) THICKENS THE FILAMENTS: the
 // web swells on the low end and thins to threads in quiet passages. Each
-// onset (uHits.w, uHitCount) re-picks the knots' hue, sliding to it as the
+// onset (SND_ONSET_ENV, SND_ONSET_COUNT) re-picks the knots' hue, sliding to it as the
 // onset envelope falls rather than stepping. The key turns the filaments'
-// hue. The hats twinkle the stars beyond. Overall level follows uSwell
+// hue. The hats twinkle the stars beyond. Overall level follows SND_ENERGY_TREND
 // gently.
 //
 // ---- macros -----------------------------------------------------------------
@@ -78,17 +77,17 @@ void main() {
     vec2 uv = view();
     gT = nebTime();
     float e = nebEnergy();
-    float swell = clamp(uSwell, 0.0, 1.5);
-    float bass = clamp(0.6 * uBassSmooth + 0.4 * uBandsLo.y, 0.0, 1.3) * e;
-    float hats = clamp(uHits.z, 0.0, 1.0);
+    float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
+    float bass = clamp(0.6 * SND_BASS_PRESENCE + 0.4 * sndLevel(SND_BASS_ATT), 0.0, 1.3) * e;
+    float hats = clamp(SND_HAT_ENV, 0.0, 1.0);
     float key = nebKeyShift(0.1);
     gOct = nebVolOctaves(1.0);
     gWidth = 0.07 * (1.0 + 0.7 * bass);
 
     // Knot hue: re-picked per onset, sliding to the new value as the envelope falls.
-    float env = clamp(uHits.w, 0.0, 1.0);
+    float env = clamp(SND_ONSET_ENV, 0.0, 1.0);
     env = env * env * (3.0 - 2.0 * env);
-    float seed = mod(floor(uHitCount), 512.0);
+    float seed = mod(floor(SND_ONSET_COUNT), 512.0);
     float knotHue = mix(nebHash1(seed), nebHash1(seed - 1.0), env);
 
     vec3 ro;

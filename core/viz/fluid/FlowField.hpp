@@ -28,7 +28,7 @@ public:
     void create();
     void resize(int w, int h) { sim_.resize(w, h); }
     void queueKick(float clipX, float clipY, float velX, float velY, float radius);
-    void step(const GeodeFeatureFrame& features, float dt, const SceneParams& p);
+    void step(const GeodeSoundFrame& features, float dt, const SceneParams& p);
     void release() { sim_.release(); }
 
 private:

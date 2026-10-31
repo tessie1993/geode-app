@@ -8,7 +8,6 @@ out vec4 fragColor;
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_sdf3
@@ -46,7 +45,7 @@ out vec4 fragColor;
 //     branch draws dmtChrysanthemum in the tube's flight frame, so the
 //     filigree sits on the axis you are flying toward and the rig's look
 //     moves it off centre as it would the real end of a tube.
-//   - ONSETS (uHits.w) give the rods, the halo and the core a brief hue step.
+//   - ONSETS (SND_ONSET_ENV) give the rods, the halo and the core a brief hue step.
 //     Hue only - nothing here brightens on a hit.
 //
 // ---- why the estimate is safe ----------------------------------------------
@@ -143,11 +142,11 @@ vec3 normalAt(vec3 p, float eps) {
 
 void main() {
     vec2 uv = view();
-    float bassA = min(uBassSmooth, 1.3);
-    float midA = min(uMidSmooth, 1.3);
-    float trebA = min(uTrebleSmooth, 1.3);
-    float enA = min(uEnergySmooth, 1.3);
-    float hit = clamp(uHits.w, 0.0, 1.0);
+    float bassA = min(sndShaped(SND_LOW), 1.3);
+    float midA = min(SND_MID_PRESENCE, 1.3);
+    float trebA = min(SND_TREBLE_PRESENCE, 1.3);
+    float enA = min(((SND_BASS_PRESENCE + SND_MID_PRESENCE + SND_TREBLE_PRESENCE) / 3.0), 1.3);
+    float hit = clamp(SND_ONSET_ENV, 0.0, 1.0);
 
     gTwist = 0.55 * midA;
     // Rod to pearls and back: a triangle of uFormPhase, so the morph is deep

@@ -499,7 +499,6 @@ std::unique_ptr<Scene> Renderer::buildScene(const std::string& id) {
     if (paletteLutTex_ != 0) scene->setPaletteLut(paletteLutTex_);
     scene->setTouchField(&touchField_);
     scene->setCamera(&camera_.pose());
-    scene->setSound(&soundFrame_);
     scene->init();
     scene->setParams(initialParams);
     scene->resize(renderWidth_, renderHeight_);

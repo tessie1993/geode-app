@@ -8,7 +8,6 @@ out vec4 fragColor;
 
 //#include lib_scene_uniforms
 //#include lib_scene_motion
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_glass
@@ -26,10 +25,10 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// Onsets swap the focus: every onset (uHitCount) picks a lens, and as the
-// onset envelope (uHits.w) falls the old lens blurs out and the new one comes
+// Onsets swap the focus: every onset (floor(SND_HIT_TIME)) picks a lens, and as the
+// onset envelope (SND_ONSET_ENV) falls the old lens blurs out and the new one comes
 // sharp - a rack focus on the beat, eased, never a cut. The key (uKeyHue,
-// uKeyStrength) drifts the ink's palette. Brightness follows uSwell.
+// uKeyStrength) drifts the ink's palette. Brightness follows (0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)).
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -60,15 +59,15 @@ void main() {
     vec2 uv = view();
     float t = glassTime();
     float energy = glassEnergy();
-    float swell = clamp(uSwell, 0.0, 1.5);
+    float swell = clamp((0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)), 0.0, 1.5);
     float hue = 0.05 * sin(t * 0.017) + 0.12 * uKeyStrength * sin(GLASS_TAU * uKeyHue);
     float chaos = glassChaos();
 
     int count = 5 + int(floor(glassComplexity() * 2.0 + 0.5));
     float fc = float(count);
-    float pickNew = floor(glassHash1(uHitCount) * fc);
-    float pickOld = floor(glassHash1(uHitCount - 1.0) * fc);
-    float e = clamp(uHits.w, 0.0, 1.0);
+    float pickNew = floor(glassHash1(floor(SND_HIT_TIME)) * fc);
+    float pickOld = floor(glassHash1(floor(SND_HIT_TIME) - 1.0) * fc);
+    float e = clamp(SND_ONSET_ENV, 0.0, 1.0);
     e = e * e * (3.0 - 2.0 * e);
 
     // Find the top lens over this pixel; gather every lens's shadow and focus spot.

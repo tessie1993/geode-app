@@ -9,7 +9,6 @@ out vec4 fragColor;
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_bulb
@@ -28,11 +27,11 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// The KICK drives the knife. Each kick (uHits.x) pushes the slice plane deeper
+// The KICK drives the knife. Each kick (SND_KICK_ENV) pushes the slice plane deeper
 // into the body and it drifts back out as the kick decays, so every beat
 // reveals a new section of the interior, and the heat map re-forms under it.
 // The plane's tilt wanders on uOrbit, re-targeted on section boundaries.
-// Brightness follows uSwell only.
+// Brightness follows (0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)) only.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -69,8 +68,8 @@ vec3 normalAt(vec3 p, float e) {
 
 void main() {
     vec2 uv = view();
-    float swell = clamp(uSwell, 0.0, 1.5);
-    float kick = clamp(uHits.x, 0.0, 1.0);
+    float swell = clamp((0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)), 0.0, 1.5);
+    float kick = clamp(SND_KICK_ENV, 0.0, 1.0);
     gIters = bulbIters(6);
 
     vec3 ro;

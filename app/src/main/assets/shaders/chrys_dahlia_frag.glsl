@@ -8,7 +8,6 @@ out vec4 fragColor;
 
 //#include lib_scene_uniforms
 //#include lib_scene_motion
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_chrys
@@ -23,13 +22,13 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// The mid band CURLS the flower: uMidSmooth (slew-limited) blended with the
+// The mid band CURLS the flower: SND_MID_PRESENCE (slew-limited) blended with the
 // low-mid/mid regions sets how far each petal sweeps around its spiral, so a
 // vocal or a lead line visibly winds the arms tighter and a sparse passage
 // lets them straighten into a starburst. Inner rings curl more than outer
 // ones, so the winding has a centre. The head turns on uDrift. Treble
-// (uTrebleSmooth) moves the specular streak along the roll (a geometry of the
-// light, not its level). Brightness follows uSwell only.
+// (SND_TREBLE_PRESENCE) moves the specular streak along the roll (a geometry of the
+// light, not its level). Brightness follows SND_INTENSITY only.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -43,9 +42,9 @@ out vec4 fragColor;
 
 void main() {
     vec2 uv = view();
-    float swell = clamp(uSwell, 0.0, 1.5);
+    float swell = clamp(SND_INTENSITY, 0.0, 1.5);
     float t = uTime * uSpeed;
-    float mid = clamp((0.6 * uMidSmooth + 0.4 * mix(uBandsLo.z, uBandsLo.w, 0.6)) * uIntensity, 0.0, 1.6);
+    float mid = clamp((0.6 * SND_MID_PRESENCE + 0.4 * mix(sndShaped(SND_LOW), sndSpectrum(0.57), 0.6)) * uIntensity, 0.0, 1.6);
     float chaos = clamp(uTurbulence + uWarp, 0.0, 2.0);
     float extra = floor(3.0 * clamp(uMorph, 0.0, 1.0) + 0.5);
     float rings = 8.0 + extra;
@@ -82,7 +81,7 @@ void main() {
         vec2 across = vec2(-sin(ang), cos(ang));
         vec3 n = normalize(vec3(across * v, sqrt(max(1.0 - v * v, 0.0)) + 0.2));
         float diff = clamp(dot(n, normalize(vec3(lightDir, 0.9))), 0.0, 1.0);
-        float streakAt = 0.35 - 0.5 * clamp(uTrebleSmooth, 0.0, 1.0);
+        float streakAt = 0.35 - 0.5 * clamp(SND_TREBLE_PRESENCE, 0.0, 1.0);
         float streak = exp(-pow((v - streakAt) * 4.0, 2.0)) * smoothstep(0.1, 0.8, pet.y);
         vec3 base = pal(hue + 0.05 * f) * 0.35;
         vec3 tipc = mix(pal(hue + 0.08 + 0.05 * f), vec3(1.0, 0.95, 0.92), 0.45);

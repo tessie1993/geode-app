@@ -11,7 +11,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import dev.geode.analysis.IntelligenceMode
 import dev.geode.render.EventRecipe
 import dev.geode.render.ReactionRoute
 import dev.geode.render.scene.BuildStyleReactionsUseCase
@@ -32,8 +31,6 @@ internal fun EventsTab(
     reactions: List<ReactionRoute>?,
     onReactionsChange: (List<ReactionRoute>?) -> Unit,
     onRerollReactions: () -> Unit,
-    intelligenceMode: IntelligenceMode,
-    onIntelligenceModeChange: (IntelligenceMode) -> Unit,
 ) {
     val sceneId = LocalSceneId.current
     val searching = LocalParamQuery.current.isNotBlank()
@@ -71,23 +68,5 @@ internal fun EventsTab(
             }
         }
         ReactionsSection(p, onChange, reactions, onReactionsChange, onRerollReactions)
-        if (!searching) {
-            Text(
-                "When the song changes section",
-                modifier = Modifier.padding(top = 14.dp),
-                style = MaterialTheme.typography.titleSmall,
-            )
-            Text(
-                "Manual keeps your style. Suggest proposes one that suits the track; Auto picks a new " +
-                    "one for each section as the song plays.",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            CrystalSegmented(
-                options = IntelligenceMode.entries.map { it.name.lowercase().replaceFirstChar(Char::uppercase) },
-                selected = IntelligenceMode.entries.indexOf(intelligenceMode),
-                onSelect = { onIntelligenceModeChange(IntelligenceMode.entries[it]) },
-            )
-        }
     }
 }

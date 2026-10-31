@@ -4,7 +4,6 @@ import android.content.SharedPreferences
 import androidx.annotation.StringRes
 import androidx.core.content.edit
 import dev.geode.R
-import dev.geode.analysis.BeatTuning
 import dev.geode.engine.audio.SoundTuning
 import dev.geode.model.TutorialProgress
 
@@ -27,8 +26,6 @@ data class GuiPrefs(
     val playerPosition: PlayerPosition = PlayerPosition.BOTTOM,
     val cornerStyle: CornerStyle = CornerStyle.ROUNDED,
     val barOpacity: Float = 0.72f,
-    val beatSensitivity: Float = BeatTuning.SENSITIVITY_DEFAULT,
-    val beatMinIntervalMs: Float = BeatTuning.INTERVAL_MS_DEFAULT,
     /** The sound engine's tuning (Settings › Audio): every surface and the export read it. */
     val soundTuning: SoundTuning = SoundTuning(),
     val presetMirrorUri: String? = null,
@@ -81,7 +78,6 @@ data class GuiPrefs(
     val micReactive: Boolean = false,
     val touchSmear: Boolean = false,
     val touchSmearStrength: Float = 1f,
-    val keyColor: Boolean = false,
     val secondScreen: Boolean = true,
     val touchTransform: Boolean = true,
     /**
@@ -96,11 +92,6 @@ data class GuiPrefs(
 ) {
     val fontColorOverride: Int?
         get() = fontColorArgb ?: FontColorChoice.WHITE_ARGB.takeIf { whiteFont }
-
-    val effectiveBeatMinIntervalMs: Float
-        get() =
-            dev.geode.render.VisualSafety
-                .beatMinIntervalMs(beatMinIntervalMs)
 
     companion object {
         const val TEXT_SCALE_MIN = 0.85f
@@ -135,14 +126,6 @@ class ThemeStore(
                 runCatching { CornerStyle.valueOf(prefs.getString(KEY_CORNER, null) ?: CornerStyle.ROUNDED.name) }
                     .getOrDefault(CornerStyle.ROUNDED),
             barOpacity = prefs.getFloat(KEY_OPACITY, 0.72f),
-            beatSensitivity =
-                prefs
-                    .getFloat("beat_sigma", BeatTuning.SENSITIVITY_DEFAULT)
-                    .coerceIn(BeatTuning.SENSITIVITY_MIN, BeatTuning.SENSITIVITY_MAX),
-            beatMinIntervalMs =
-                prefs
-                    .getFloat(KEY_BEAT_INTERVAL, BeatTuning.INTERVAL_MS_DEFAULT)
-                    .coerceIn(BeatTuning.INTERVAL_MS_MIN, BeatTuning.INTERVAL_MS_MAX),
             soundTuning = readSoundTuning(prefs),
             presetMirrorUri = prefs.getString("preset_mirror_uri", null),
             presetMorphSeconds = readPresetMorphSeconds(prefs),
@@ -171,7 +154,6 @@ class ThemeStore(
             touchSmear = prefs.getBoolean(KEY_TOUCH_SMEAR, false),
             touchSmearStrength = prefs.getFloat(KEY_TOUCH_SMEAR_STRENGTH, 1f).coerceIn(0.2f, 2f),
             touchTransform = prefs.getBoolean(KEY_TOUCH_TRANSFORM, true),
-            keyColor = prefs.getBoolean(KEY_KEY_COLOR, false),
             secondScreen = prefs.getBoolean(KEY_SECOND_SCREEN, true),
             micReactive = prefs.getBoolean(KEY_MIC_REACTIVE, false),
             autoEnterPip = prefs.getBoolean(KEY_AUTO_ENTER_PIP, false),
@@ -223,8 +205,6 @@ class ThemeStore(
             putString(KEY_POS, gui.playerPosition.name)
             putString(KEY_CORNER, gui.cornerStyle.name)
             putFloat(KEY_OPACITY, gui.barOpacity)
-            putFloat("beat_sigma", gui.beatSensitivity)
-            putFloat(KEY_BEAT_INTERVAL, gui.beatMinIntervalMs)
             putString(KEY_SOUND_TUNING, gui.soundTuning.toFloats().joinToString(","))
             putString("preset_mirror_uri", gui.presetMirrorUri)
             putFloat(KEY_PRESET_MORPH_SEC, gui.presetMorphSeconds)
@@ -250,7 +230,6 @@ class ThemeStore(
             putBoolean(KEY_TOUCH_SMEAR, gui.touchSmear)
             putFloat(KEY_TOUCH_SMEAR_STRENGTH, gui.touchSmearStrength)
             putBoolean(KEY_TOUCH_TRANSFORM, gui.touchTransform)
-            putBoolean(KEY_KEY_COLOR, gui.keyColor)
             putBoolean(KEY_SECOND_SCREEN, gui.secondScreen)
             putBoolean(KEY_MIC_REACTIVE, gui.micReactive)
             putBoolean(KEY_AUTO_ENTER_PIP, gui.autoEnterPip)
@@ -285,7 +264,6 @@ class ThemeStore(
         const val KEY_WHITE_FONT = "gui_white_font"
         const val KEY_FONT_COLOR = "gui_font_color"
         const val KEY_TEXT_SCALE = "gui_text_scale"
-        const val KEY_BEAT_INTERVAL = "beat_min_interval_ms"
         const val KEY_SOUND_TUNING = "sound_tuning"
 
         /** The saved tuning, or the engine's defaults when there is none or it does not parse. */
@@ -309,7 +287,6 @@ class ThemeStore(
         const val KEY_TOUCH_SMEAR = "gui_touch_smear"
         const val KEY_TOUCH_SMEAR_STRENGTH = "gui_touch_smear_strength"
         const val KEY_TOUCH_TRANSFORM = "gui_touch_transform"
-        const val KEY_KEY_COLOR = "gui_key_color"
         const val KEY_SECOND_SCREEN = "gui_second_screen"
         const val KEY_MIC_REACTIVE = "gui_mic_reactive"
         const val KEY_AUTO_ENTER_PIP = "gui_auto_enter_pip"

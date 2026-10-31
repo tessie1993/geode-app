@@ -38,8 +38,8 @@ object ExportRun {
     }
 
     /**
-     * [steady] is false for the quick lead-in phases (analysis, audio transcode): they move the
-     * bar but say nothing about how fast the render will go, so [RenderEta] skips them.
+     * [steady] is false for the quick lead-in phase (the audio transcode): it moves the
+     * bar but says nothing about how fast the render will go, so [RenderEta] skips it.
      */
     fun publish(
         progress: Float,

@@ -437,8 +437,6 @@ private fun TransportCard(
                 Text(
                     when (autoMode) {
                         1 -> stringResource(R.string.auto_random)
-                        2 -> stringResource(R.string.auto_smart)
-                        3 -> stringResource(R.string.auto_sections)
                         else -> stringResource(R.string.auto_off)
                     },
                     style = MaterialTheme.typography.labelMedium,

@@ -345,8 +345,6 @@ private fun VisualizerTransport(
                     stringResource(
                         when (autoMode) {
                             1 -> R.string.auto_random
-                            2 -> R.string.auto_smart
-                            3 -> R.string.auto_sections
                             else -> R.string.auto_off
                         },
                     ),

@@ -7,6 +7,7 @@ import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.lang.reflect.Modifier
+import java.lang.reflect.Modifier
 
 /**
  * The shell's reading of the native catalogue. These run on the checked-in copy of the table

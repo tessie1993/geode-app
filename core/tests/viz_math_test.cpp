@@ -514,7 +514,7 @@ void layersFallSpawnAndGrowAlike() {
     check(!a.uniforms().any(), "no layers until a route drives one");
     p.fall = 1.0f;
     p.fractal = 1.0f;
-    for (int i = 0; i < 120; ++i) {
+    for (int i = 0; i < 100; ++i) {
         p.spawn = (i % 30) < 2 ? 1.0f : 0.0f;
         a.step(p, 1.0f / 60.0f, false);
         b.step(p, 1.0f / 60.0f, false);

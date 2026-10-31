@@ -139,10 +139,16 @@ internal fun LayersTab(
         LabeledSlider(ParamKeys.FALL, p.fall, -1f..1f, target = LfoTarget.FALL, default = SceneParams.DEFAULT.fall) {
             onChange(p.copy(fall = it))
         }
-        LabeledSlider(ParamKeys.FRACTAL, p.fractal, 0f..1f, target = LfoTarget.FRACTAL, default = SceneParams.DEFAULT.fractal) {
+        LabeledSlider(
+            ParamKeys.FRACTAL_GROWTH,
+            p.fractal,
+            0f..1f,
+            target = LfoTarget.FRACTAL,
+            default = SceneParams.DEFAULT.fractal,
+        ) {
             onChange(p.copy(fractal = it))
         }
-        LabeledSlider(ParamKeys.MELT, p.melt, 0f..1f, target = LfoTarget.MELT, default = SceneParams.DEFAULT.melt) {
+        LabeledSlider(ParamKeys.MELTING, p.melt, 0f..1f, target = LfoTarget.MELT, default = SceneParams.DEFAULT.melt) {
             onChange(p.copy(melt = it))
         }
         if (lanes != null) {

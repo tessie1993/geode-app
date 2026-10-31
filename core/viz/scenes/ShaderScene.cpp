@@ -198,6 +198,11 @@ void ShaderScene::uploadSound() {
     glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, kSoundTexWidth, kSoundTexRows, GL_RED, GL_FLOAT, soundTexData_.data());
     glUniform1i(uniforms_.loc("uSoundTex"), 3);
     glActiveTexture(GL_TEXTURE0);
+    set1f("uSoundDrive", std::max(params_.audioDrive, 0.0f));
+    const ReactSignals& r = reactSignals_;
+    glUniform4f(uniforms_.loc("uSoundEvents"), r.value(ReactSource::HardCut), r.value(ReactSource::Surge), r.value(ReactSource::Returned),
+                r.value(ReactSource::NoteChange));
+    glUniform2f(uniforms_.loc("uSoundCounts"), r.onsetCount(), r.cutCount());
 }
 
 void ShaderScene::uploadParams() {

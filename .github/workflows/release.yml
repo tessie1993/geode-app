@@ -113,6 +113,21 @@ jobs:
         run: ./gradlew :app:bundleRelease --stacktrace --no-daemon
 
       # app/build.gradle.kts reads the GEODE_* names; all four are required to sign.
+      # Same version rule as the pre-releases (root build.gradle.kts): the AAB carries the
+      # number this commit shipped as (tag apk-v<base>.N), so it matches that pre-release.
+      # PRs have no number and build as <base>-dev.
+      - name: Release number
+        id: number
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          BASE=$(sed -n 's/^geode\.versionBase=//p' gradle.properties | tr -d '\r')
+          N=$(tools/release-number.sh "$BASE" "$(git rev-parse HEAD)")
+          echo "Version $BASE.$N"
+          echo "n=$N" >> "$GITHUB_OUTPUT"
+
       - name: Build release AAB
         if: github.event_name != 'pull_request'
         env:
@@ -127,7 +142,7 @@ jobs:
           for v in GEODE_KEYSTORE GEODE_KEYSTORE_PASSWORD GEODE_KEY_ALIAS GEODE_KEY_PASSWORD; do
             [ -n "${!v}" ] || unset "$v"
           done
-          ./gradlew :app:bundleRelease --stacktrace --no-daemon
+          ./gradlew :app:bundleRelease -PreleaseNumber=${{ steps.number.outputs.n }} --stacktrace --no-daemon
 
       - name: Check the bundle against Play and the app's promises
         env:

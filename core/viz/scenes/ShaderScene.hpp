@@ -8,8 +8,8 @@
 
 #include "viz/MotionField.hpp"
 #include "viz/Program.hpp"
-#include "viz/Reactions.hpp"
 #include "viz/Scene.hpp"
+#include "viz/SoundUniforms.hpp"
 #include "viz/Texture.hpp"
 
 namespace geode::viz {
@@ -17,12 +17,6 @@ namespace geode::viz {
 // Port of ShaderScene.kt: one fragment style on the fullscreen triangle, fed the shared uniform block.
 class ShaderScene : public Scene {
 public:
-    // uSoundTex: row 0 spectrum, row 1 waveform, row 2 EQ, each resampled to this width (lib_sound).
-    static constexpr int kSoundTexWidth = 128;
-    static constexpr int kSoundTexRows = 3;
-    // GEODE_SOUND_SCALARS rounded up to whole vec4s: uSound[kSoundVec4s].
-    static constexpr int kSoundVec4s = (GEODE_SOUND_SCALARS + 3) / 4;
-
     ShaderScene(std::string id, std::string vertexSrc, std::string fragmentSrc, ProgramBinaryCache* cache, SceneHost host);
     ~ShaderScene() override;
 
@@ -59,7 +53,6 @@ private:
     void uploadMotion();
     void uploadTouch();
     void uploadCamera();
-    void uploadSound();
     void set1f(const char* name, float value);
     float marchSteps(float detail);
 
@@ -93,18 +86,12 @@ private:
     GLuint paletteLutTex_ = 0;
     const TouchField* touchField_ = nullptr;
     const CameraPose* camera_ = nullptr;
-    // The frame update() was given (the renderer's, with this scene's band trims); uploaded as uSound
-    // and uSoundTex in draw().
-    GeodeSoundFrame sound_{};
-    Texture soundTex_;
-    std::array<float, kSoundVec4s * 4> soundScalars_{};
-    std::array<float, kSoundTexWidth * kSoundTexRows> soundTexData_{};
+    // The frame update() was given (the renderer's, with this scene's band trims) and this scene's own
+    // held events from it, a pure function of those frames like motionField_; uploaded in draw().
+    SoundUniforms sound_;
     // True when the compiled program reads uCamBasis (lib_camera): the style
     // marches the rig's pose itself and the composite leaves it alone.
     bool drawsCamera_ = false;
-    // This scene's own copy of the reaction sources, a pure function of the frames update() receives,
-    // like motionField_: uploadSound reads its held events (uSoundEvents) and counts (uSoundCounts).
-    ReactSignals reactSignals_;
     std::array<float, TouchField::kPointStride> touchAnchor_{};
     std::array<float, TouchField::kMaxPoints * TouchField::kPointStride> touchPoints_{};
 

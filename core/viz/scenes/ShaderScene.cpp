@@ -2,7 +2,6 @@
 
 #include <algorithm>
 #include <cmath>
-#include <cstring>
 
 namespace geode::viz {
 
@@ -55,10 +54,7 @@ void ShaderScene::init() {
         pendingFragment_ = currentFragment_;
     }
     glGenVertexArrays(1, &vao_);
-    const char* extensions = reinterpret_cast<const char*>(glGetString(GL_EXTENSIONS));
-    const bool floatLinear = extensions && std::strstr(extensions, "OES_texture_float_linear") != nullptr;
-    soundTex_.createImage(GL_R32F, GL_RED, GL_FLOAT, kSoundTexWidth, kSoundTexRows, floatLinear ? GL_LINEAR : GL_NEAREST,
-                          GL_CLAMP_TO_EDGE);
+    sound_.init();
 }
 
 void ShaderScene::resize(int width, int height) {
@@ -67,15 +63,14 @@ void ShaderScene::resize(int width, int height) {
 }
 
 void ShaderScene::update(const GeodeSoundFrame& sound, float dt) {
-    sound_ = sound;
+    sound_.step(sound, dt);
     const SceneParams& p = params_;
     shaderTime_ = std::fmod(shaderTime_ + p.speed * dt, kTimeWrapSeconds);
     rotationAngle_ = std::fmod(rotationAngle_ + p.rotation * dt, kTwoPi);
     zoomPhase_ = p.endlessZoom ? std::fmod(zoomPhase_ + p.endlessZoomSpeed * dt, 1.0f) : 0.0f;
     if (p.colorCycle) cyclePhase_ = std::fmod(cyclePhase_ + p.cycleSpeed * dt, 1.0f);
     // Wave three: the continuous motion layer, never a transient/beat trigger.
-    motionField_.step(sound_, dt);
-    reactSignals_.step(sound_, dt);
+    motionField_.step(sound, dt);
 }
 
 void ShaderScene::draw(float timeSeconds) {
@@ -108,46 +103,11 @@ void ShaderScene::draw(float timeSeconds) {
     uploadMotion();
     uploadTouch();
     uploadCamera();
-    uploadSound();
+    // The whole GeodeSoundFrame for lib_sound; its texture takes unit 3 (1 and 2 are the flow and the palette LUT).
+    sound_.upload(uniforms_, p.audioDrive);
     glBindVertexArray(vao_);
     glDrawArrays(GL_TRIANGLES, 0, 3);
     glBindVertexArray(0);
-}
-
-namespace {
-// Linear resample of `src` (n points) across `width` texels, so every row of uSoundTex reads 0..1 in x
-// whatever the engine's point count.
-void resampleRow(const float* src, int n, float* dst, int width) {
-    for (int i = 0; i < width; ++i) {
-        const float x = width > 1 ? static_cast<float>(i) * static_cast<float>(n - 1) / static_cast<float>(width - 1) : 0.0f;
-        const int a = std::min(static_cast<int>(x), n - 1);
-        const int b = std::min(a + 1, n - 1);
-        const float t = x - static_cast<float>(a);
-        dst[i] = src[a] + (src[b] - src[a]) * t;
-    }
-}
-}  // namespace
-
-// The whole GeodeSoundFrame, raw: scalars as uSound (lib_sound names them), the arrays as uSoundTex on
-// unit 3. No drive, clamp or slew here; the engine's values are already dt-scaled and bounded, and
-// styles shape them themselves. Unused by a style, both cost one call the driver drops.
-void ShaderScene::uploadSound() {
-    const float* scalars = reinterpret_cast<const float*>(&sound_);
-    std::copy(scalars, scalars + GEODE_SOUND_SCALARS, soundScalars_.begin());
-    glUniform4fv(uniforms_.loc("uSound"), kSoundVec4s, soundScalars_.data());
-    resampleRow(sound_.spectrum, GEODE_SOUND_SPECTRUM_POINTS, soundTexData_.data(), kSoundTexWidth);
-    resampleRow(sound_.waveform, GEODE_SOUND_WAVEFORM_POINTS, soundTexData_.data() + kSoundTexWidth, kSoundTexWidth);
-    resampleRow(sound_.eq, GEODE_SOUND_EQ_BANDS, soundTexData_.data() + 2 * kSoundTexWidth, kSoundTexWidth);
-    glActiveTexture(GL_TEXTURE3);
-    glBindTexture(GL_TEXTURE_2D, soundTex_.id());
-    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, kSoundTexWidth, kSoundTexRows, GL_RED, GL_FLOAT, soundTexData_.data());
-    glUniform1i(uniforms_.loc("uSoundTex"), 3);
-    glActiveTexture(GL_TEXTURE0);
-    set1f("uSoundDrive", std::max(params_.audioDrive, 0.0f));
-    const ReactSignals& r = reactSignals_;
-    glUniform4f(uniforms_.loc("uSoundEvents"), r.value(ReactSource::HardCut), r.value(ReactSource::Surge), r.value(ReactSource::Returned),
-                r.value(ReactSource::NoteChange));
-    glUniform2f(uniforms_.loc("uSoundCounts"), r.onsetCount(), r.cutCount());
 }
 
 void ShaderScene::uploadParams() {
@@ -299,7 +259,7 @@ void ShaderScene::compilePendingIfAny() {
 void ShaderScene::release() {
     if (program_ != 0) glDeleteProgram(program_);
     if (vao_ != 0) glDeleteVertexArrays(1, &vao_);
-    soundTex_.release();
+    sound_.release();
     program_ = 0;
     vao_ = 0;
     uniforms_ = UniformCache(0);

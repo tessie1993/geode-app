@@ -6,6 +6,7 @@ import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
 import dev.geode.data.GeodePrefsFiles
+import dev.geode.data.PerformanceStore
 import dev.geode.data.SharedPrefsUserDataRepository
 import dev.geode.data.UserDataRepository
 import dev.geode.util.bestEffort
@@ -23,6 +24,9 @@ class GeodeContainer(
     val prefsFiles = GeodePrefsFiles(context)
 
     val userData: UserDataRepository = SharedPrefsUserDataRepository(prefsFiles.general, appScope)
+
+    /** Settings › Performance; the wallpaper and dream read the same prefs through their own store. */
+    val performance: PerformanceStore by lazy { PerformanceStore(prefsFiles.general, context.applicationContext) }
 
     init {
         warmPlaybackPrefs()

@@ -182,10 +182,11 @@ data class SceneParams(
     val reactAmount: Float = 1f,
     /** Which variant of the style's reaction DNA ([BuildStyleReactionsUseCase]) plays. */
     val reactSeed: Int = 0,
-    // Customize › Camera and the layers (core/viz/Layers, drawn in the composite pass). Reaction routes
-    // write these; the base values stay 0 unless the user sets one. Appended to keep the wire.
-
-    /** Camera rise, -1..1: up, looking down a little. */
+    /**
+     * Camera rise, -1..1: up, looking down a little. This and the fields after it are Customize › Camera
+     * and the layers (core/viz/Layers, drawn in the composite pass): reaction routes write them, and the
+     * base values stay 0 unless the user sets one. Appended to keep the wire.
+     */
     val camCrane: Float = 0f,
     /** A rising edge past 0.5 cuts the camera to a new place on its path. */
     val camCut: Float = 0f,

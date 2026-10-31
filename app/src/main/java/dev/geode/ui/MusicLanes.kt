@@ -28,7 +28,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.render.LfoTarget
-import dev.geode.render.ModCurve
 import dev.geode.render.ParamMatrixCatalog
 import dev.geode.render.ReactMode
 import dev.geode.render.ReactSource
@@ -89,24 +88,6 @@ private val catalogueOnce: ParamMatrixCatalog? by lazy {
         ?.takeIf { it.targets.isNotEmpty() }
 }
 
-/** A fresh lane for [source] on [target]: hits rise at once and let go, levels glide. */
-internal fun newLane(
-    source: ReactSource,
-    target: LfoTarget,
-    drive: Boolean,
-    amount: Float,
-): ReactionRoute =
-    ReactionRoute(
-        enabled = true,
-        source = source,
-        target = target,
-        mode = if (drive) ReactMode.DRIVE else ReactMode.FOLLOW,
-        amount = amount.coerceIn(ReactionRoute.MIN_AMOUNT, ReactionRoute.MAX_AMOUNT),
-        curve = ModCurve.LINEAR,
-        attackSeconds = if (source.isEvent) 0.01f else 0.08f,
-        releaseSeconds = if (source.isEvent) 0.3f else 0.4f,
-    )
-
 /**
  * The row for one parameter played by the music. [value] and [onValue] are the scene parameter (the
  * resting value, or for a motion how fast it runs); the lane comes from [LocalMusicLanes].
@@ -165,7 +146,7 @@ internal fun MusicRangeRow(
                     if (abs(push - loud) > 1e-4f && source != null) {
                         val newAmount = (push - rest) / scale
                         lanes.edit {
-                            lanes.withLane(target, (lane ?: newLane(source, target, false, 0f)).copy(amount = newAmount))
+                            lanes.withLane(target, (lane ?: lanes.catalogue.cell(source, target, 0f)).copy(amount = newAmount))
                         }
                     }
                 },
@@ -203,7 +184,7 @@ internal fun MusicRangeRow(
                     when {
                         s == null -> lanes.withLane(target, null)
                         lane != null -> lanes.withLane(target, lane.copy(source = s))
-                        else -> lanes.withLane(target, newLane(s, target, drive, if (drive) 1f else 0.3f))
+                        else -> lanes.withLane(target, lanes.catalogue.cell(s, target, if (drive) 1f else 0.3f, drive))
                     }
                 }
             },
@@ -245,7 +226,7 @@ internal fun MusicTriggerRow(
                     when {
                         s == null -> lanes.withLane(target, null)
                         lane != null -> lanes.withLane(target, lane.copy(source = s))
-                        else -> lanes.withLane(target, newLane(s, target, false, 1f).copy(releaseSeconds = 0.3f))
+                        else -> lanes.withLane(target, lanes.catalogue.cell(s, target, 1f))
                     }
                 }
             },

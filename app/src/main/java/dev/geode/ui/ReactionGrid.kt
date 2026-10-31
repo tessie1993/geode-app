@@ -37,9 +37,9 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import dev.geode.render.LfoTarget
 import dev.geode.render.ModCurve
+import dev.geode.render.ParamMatrixCatalog
 import dev.geode.render.ReactMode
 import dev.geode.render.ReactSource
-import dev.geode.render.ReactSourceGroup
 import dev.geode.render.ReactionRoute
 import kotlin.math.abs
 
@@ -49,7 +49,7 @@ import kotlin.math.abs
  * its size is how hard that sound moves that parameter.
  *
  * A tap steps a cell through off, light, medium, strong and inverted, with the mode picked from the
- * sound (smartMode): a hit pulses, a level follows, a clock keeps turning, a big moment or a counted
+ * sound (native's smart route): a hit pulses, a level follows, a clock keeps turning, a big moment or a counted
  * hit jumps somewhere new. A long press opens the details. The grid edits the same routes the style
  * DNA, the Events recipes and every Customize row use, so it is saved, exported and drawn by the
  * wallpaper and the dream like the rest.
@@ -126,7 +126,7 @@ internal fun ReactionGrid(lanes: MusicLanes) {
                                     Modifier
                                         .size(CELL)
                                         .combinedClickable(
-                                            onClick = { lanes.edit { stepCell(lanes.routes, at, source, target) } },
+                                            onClick = { lanes.edit { stepCell(lanes.catalogue, lanes.routes, at, source, target) } },
                                             onLongClick = { if (lanes.canEdit) detail = source to target else lanes.onLocked() },
                                         ).semantics {
                                             contentDescription =
@@ -164,51 +164,29 @@ internal fun ReactionGrid(lanes: MusicLanes) {
 private val ROW_LABEL = 112.dp
 private val CELL = 44.dp
 
-/** The mode a tap picks for a sound (ParamMatrix's smart route, mirrored here for the grid). */
-internal fun smartMode(source: ReactSource): ReactMode =
-    when {
-        source.group == ReactSourceGroup.CLOCKS -> ReactMode.SPIN
-        source == ReactSource.HARD_CUT || source in COUNTED -> ReactMode.JUMP
-        else -> ReactMode.FOLLOW
-    }
-
-private val COUNTED = setOf(ReactSource.KICK_4, ReactSource.KICK_8, ReactSource.KICK_16, ReactSource.SNARE_4)
-
-private val STEPS = listOf(0.35f, 0.7f, 1.2f, -0.6f)
-
-/** Off → light → medium → strong → inverted → off. */
+/**
+ * Off, then each of native's cell steps (light, medium, strong, inverted), then off. The route itself is
+ * native's (`ParamMatrixCatalog.cell`, from `matrix::smart`): a hit pulses, a level follows, a clock
+ * spins, a big moment jumps. This only walks the list.
+ */
 private fun stepCell(
+    catalogue: ParamMatrixCatalog,
     routes: List<ReactionRoute>,
     at: Int,
     source: ReactSource,
     target: LfoTarget,
 ): List<ReactionRoute> {
+    val steps = catalogue.cellSteps.ifEmpty { return routes }
     val route = routes.getOrNull(at)
     if (route == null) {
         if (routes.size >= ReactionRoute.MAX_ROUTES) return routes
-        val mode = smartMode(source)
-        return routes +
-            ReactionRoute(
-                enabled = true,
-                source = source,
-                target = target,
-                mode = mode,
-                amount = STEPS[0],
-                curve = ModCurve.LINEAR,
-                attackSeconds = if (source.isEvent) 0.01f else 0.08f,
-                releaseSeconds =
-                    when {
-                        mode == ReactMode.JUMP -> 0.6f
-                        source.isEvent -> 0.3f
-                        else -> 0.4f
-                    },
-            )
+        return routes + catalogue.cell(source, target, steps[0])
     }
-    val next = STEPS.indexOfFirst { abs(it - route.amount) < 0.01f }.let { if (it < 0) 0 else it + 1 }
-    return if (next >= STEPS.size) {
+    val next = steps.indexOfFirst { abs(it - route.amount) < 0.01f }.let { if (it < 0) 0 else it + 1 }
+    return if (next >= steps.size) {
         routes.filterIndexed { j, _ -> j != at }
     } else {
-        routes.toMutableList().also { it[at] = route.copy(enabled = true, amount = STEPS[next]) }
+        routes.toMutableList().also { it[at] = route.copy(enabled = true, amount = steps[next]) }
     }
 }
 
@@ -220,7 +198,7 @@ private fun CellDetail(
     onDismiss: () -> Unit,
 ) {
     val at = lanes.routes.indexOfFirst { it.source == source && it.target == target }
-    val route = lanes.routes.getOrNull(at) ?: newLane(source, target, false, STEPS[0]).copy(mode = smartMode(source))
+    val route = lanes.routes.getOrNull(at) ?: lanes.catalogue.cell(source, target, lanes.catalogue.cellSteps.firstOrNull() ?: 0.35f)
     val update: (ReactionRoute) -> Unit = { r ->
         lanes.edit {
             if (at >= 0) {

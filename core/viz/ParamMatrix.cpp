@@ -348,6 +348,95 @@ SceneParams drive(const SceneParams& p, const ReactSignals& s, const std::array<
     return o;
 }
 
+namespace {
+
+const char* modeName(ReactMode m) {
+    switch (m) {
+        case ReactMode::Follow: return "FOLLOW";
+        case ReactMode::Step: return "STEP";
+        case ReactMode::Spin: return "SPIN";
+        case ReactMode::Jump: return "JUMP";
+        case ReactMode::Toggle: return "TOGGLE";
+        case ReactMode::Drive: return "DRIVE";
+    }
+    return "FOLLOW";
+}
+
+using RS = ReactSource;
+using LT = LfoTarget;
+
+constexpr ReactRoute lane(RS s, LT t, float amount, float attack, float release, ModCurve curve = ModCurve::Linear) {
+    return {true, s, t, ReactMode::Follow, amount, curve, attack, release};
+}
+constexpr ReactRoute spin(RS s, LT t, float amount, float attack, float release) {
+    return {true, s, t, ReactMode::Spin, amount, ModCurve::Linear, attack, release};
+}
+constexpr ReactRoute jump(RS s, LT t, float amount, float attack, float release) {
+    return {true, s, t, ReactMode::Jump, amount, ModCurve::Linear, attack, release};
+}
+constexpr ReactRoute drv(RS s, LT t) { return {true, s, t, ReactMode::Drive, 1.0f, ModCurve::Linear, 0.3f, 0.6f}; }
+constexpr ModCurve kSmooth = ModCurve::Smooth;
+
+constexpr std::array<Preset, kPresetCount> kPresets = {{
+    {"PUNCHY", "Punchy", "Kick-led: the camera pushes and shakes on the kick, the snare cracks the colour, big moments cut.",
+     {lane(RS::KickEnv, LT::CamPush, 0.55f, 0.01f, 0.25f), lane(RS::KickEnv, LT::CamShake, 0.4f, 0.01f, 0.3f),
+      lane(RS::SnareEnv, LT::ChromaAb, 0.6f, 0.01f, 0.2f), lane(RS::HatEnv, LT::Particles, 0.9f, 0.01f, 0.3f),
+      lane(RS::BassAtt, LT::Zoom, 0.1f, 0.03f, 0.3f), lane(RS::Kick, LT::Spawn, 1.0f, 0.0f, 0.2f),
+      lane(RS::Kick4, LT::CamCut, 1.0f, 0.0f, 0.3f), lane(RS::HardCut, LT::Shatter, 1.0f, 0.0f, 0.3f),
+      lane(RS::Loudness, LT::Bloom, 0.3f, 0.1f, 0.5f), lane(RS::SnareToggle, LT::CamRoll, 0.25f, 0.06f, 0.06f),
+      drv(RS::HitTime, LT::Speed)},
+     11},
+    {"FLOATY", "Floaty", "Melody-led: the camera drifts and rises with the tune, colours follow the notes, nothing cuts.",
+     {drv(RS::CurvedTime, LT::CamFly), spin(RS::MidTime, LT::CamYaw, 0.25f, 0.6f, 1.2f),
+      lane(RS::PitchHeight, LT::CamCrane, 0.6f, 1.0f, 2.0f, kSmooth), lane(RS::PitchClass, LT::ColorShift, 0.6f, 0.4f, 0.9f),
+      lane(RS::MidPresence, LT::Morph, 0.4f, 0.6f, 1.4f, kSmooth), lane(RS::Glide, LT::Melt, 0.8f, 0.2f, 1.0f, kSmooth),
+      lane(RS::Interval, LT::Fall, 1.2f, 0.2f, 0.8f, kSmooth), lane(RS::NoteChange, LT::Spawn, 1.0f, 0.0f, 0.2f),
+      lane(RS::Intensity, LT::Saturation, 0.3f, 0.8f, 1.6f, kSmooth), lane(RS::Vibrato, LT::Particles, 0.7f, 0.1f, 0.6f),
+      drv(RS::NoteTime, LT::Speed)},
+     11},
+    {"BUILDS_AND_DROPS", "Builds & drops", "Tension and release: the picture tightens and falls in through a build, then bursts at the drop.",
+     {lane(RS::EnergyTrend, LT::CamPush, 0.6f, 0.6f, 1.5f, kSmooth), lane(RS::EnergyTrend, LT::Fall, 1.0f, 0.4f, 0.8f, kSmooth),
+      lane(RS::Returned, LT::Fall, -1.2f, 0.05f, 1.5f), lane(RS::EnergyTrend, LT::Vignette, 0.4f, 0.5f, 0.5f),
+      lane(RS::Intensity, LT::Fractal, 1.0f, 0.4f, 1.5f, kSmooth), lane(RS::Surge, LT::Bloom, 0.7f, 0.02f, 1.5f),
+      lane(RS::Surge, LT::Shatter, 1.0f, 0.0f, 0.3f), lane(RS::HardCut, LT::CamCut, 1.0f, 0.0f, 0.3f),
+      lane(RS::Silence, LT::Freeze, 1.0f, 0.0f, 0.3f), lane(RS::KickEnv, LT::CamShake, 0.2f, 0.01f, 0.3f),
+      drv(RS::CurvedTime, LT::Speed)},
+     11},
+    {"MELODIC", "Melodic", "The tune paints it: hue from the note, height from the pitch, a new shape on each note change.",
+     {lane(RS::PitchClass, LT::ColorShift, 0.7f, 0.3f, 0.7f), lane(RS::PitchHeight, LT::CamCrane, 0.5f, 0.6f, 1.2f, kSmooth),
+      lane(RS::PitchConfidence, LT::Saturation, 0.35f, 0.6f, 1.2f, kSmooth), jump(RS::NoteChange, LT::Twist, 0.35f, 0.15f, 0.4f),
+      lane(RS::Evenness, LT::Temperature, 0.4f, 0.8f, 1.6f, kSmooth), lane(RS::RunDensity, LT::Particles, 0.8f, 0.1f, 0.6f),
+      lane(RS::Legato, LT::Melt, 0.8f, 0.1f, 1.0f), lane(RS::Reattack, LT::Spawn, 1.0f, 0.0f, 0.2f),
+      lane(RS::Interval, LT::Fall, 1.0f, 0.2f, 0.8f, kSmooth), drv(RS::NoteTime, LT::Speed)},
+     10},
+    {"GLITCH", "Glitch", "Broken and twitchy: hits split and shatter the picture, freezes on the count.",
+     {lane(RS::SnareEnv, LT::Glitch, 0.3f, 0.08f, 0.3f), lane(RS::HatEnv, LT::ChromaAb, 0.6f, 0.01f, 0.15f),
+      lane(RS::Flatness, LT::Pixelate, 0.35f, 0.1f, 0.4f), lane(RS::Snare4, LT::Shatter, 1.0f, 0.0f, 0.3f),
+      lane(RS::Kick8, LT::Freeze, 1.0f, 0.0f, 0.3f), lane(RS::KickEnv, LT::CamShake, 0.45f, 0.01f, 0.25f),
+      jump(RS::Kick, LT::ColorShift, 0.4f, 0.08f, 0.2f), lane(RS::Kick4, LT::CamCut, 1.0f, 0.0f, 0.3f),
+      lane(RS::Flux, LT::Turbulence, 0.5f, 0.05f, 0.4f), drv(RS::HitTime, LT::Speed)},
+     10},
+    {"FRACTAL_DIVE", "Fractal dive", "Falls through itself forever: in on the bass, back out with the melody, growing outward as it builds.",
+     {lane(RS::BassAtt, LT::Fall, 1.0f, 0.03f, 0.5f), lane(RS::PitchHeight, LT::Fall, -0.7f, 0.3f, 0.8f, kSmooth),
+      lane(RS::Intensity, LT::Fractal, 1.2f, 0.4f, 1.5f, kSmooth), lane(RS::Kick, LT::Spawn, 1.0f, 0.0f, 0.2f),
+      lane(RS::Flux, LT::Twist, 0.35f, 0.1f, 0.5f, kSmooth), spin(RS::MidTime, LT::CamYaw, 0.2f, 0.4f, 0.8f),
+      lane(RS::HardCut, LT::Shatter, 1.0f, 0.0f, 0.3f), lane(RS::Centroid, LT::ColorShift, 0.4f, 0.6f, 1.2f),
+      drv(RS::CurvedTime, LT::DiveSpeed)},
+     9},
+    {"CALM", "Calm", "Slow and soft: only the slow trends move it, so it breathes rather than jumps.",
+     {lane(RS::BassPresence, LT::Zoom, 0.08f, 1.0f, 2.0f, kSmooth), lane(RS::MidPresence, LT::Morph, 0.35f, 1.5f, 3.0f, kSmooth),
+      lane(RS::Centroid, LT::Temperature, 0.35f, 1.5f, 3.0f, kSmooth), lane(RS::PitchHeight, LT::CamCrane, 0.4f, 1.5f, 3.0f, kSmooth),
+      lane(RS::Intensity, LT::Fractal, 0.6f, 1.5f, 3.0f, kSmooth), lane(RS::Vibrato, LT::Melt, 0.5f, 0.5f, 2.0f, kSmooth),
+      drv(RS::MidTime, LT::CamFly), drv(RS::CurvedTime, LT::Speed)},
+     8},
+}};
+
+std::string num(float v) { return std::to_string(v); }
+
+}  // namespace
+
+const std::array<Preset, kPresetCount>& presets() { return kPresets; }
+
 std::string catalogueText() {
     std::string text;
     for (const SourceRow& s : kSources) {
@@ -362,6 +451,9 @@ std::string catalogueText() {
         text += ends.low;
         text += '|';
         text += ends.high;
+        // What a tap on this sound's grid cell makes (smart()), so the shell builds no route of its own.
+        const SmartRoute m = smart(s.id);
+        text += std::string("|") + modeName(m.mode) + '|' + num(m.attackSeconds) + '|' + num(m.releaseSeconds);
         text += '\n';
     }
     for (const TargetRow& t : kTargets) {
@@ -378,6 +470,18 @@ std::string catalogueText() {
         ReactSource drive{};
         text += defaultDrive(t.id, drive) ? source(drive).name : "-";
         text += '\n';
+    }
+    text += "L";
+    for (float step : kCellSteps) text += '|' + num(step);
+    text += '\n';
+    for (const Preset& p : kPresets) {
+        text += std::string("P|") + p.id + '|' + p.title + '|' + p.description + '\n';
+        for (int i = 0; i < p.count; ++i) {
+            const ReactRoute& r = p.routes[static_cast<size_t>(i)];
+            text += "R|" + std::to_string(static_cast<int>(r.source)) + '|' + std::to_string(static_cast<int>(r.target)) + '|' +
+                    std::to_string(static_cast<int>(r.mode)) + '|' + num(r.amount) + '|' + std::to_string(static_cast<int>(r.curve)) +
+                    '|' + num(r.attackSeconds) + '|' + num(r.releaseSeconds) + '\n';
+        }
     }
     return text;
 }

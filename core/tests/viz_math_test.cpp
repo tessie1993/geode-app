@@ -665,10 +665,33 @@ void smartCellsFitTheSource() {
     const ReactRoute r = matrix::cell(ReactSource::KickEnv, LfoTarget::Zoom, 5.0f);
     check(r.enabled && near(r.amount, 2.0f), "a cell clamps its depth");
     const std::string text = matrix::catalogueText();
-    check(text.rfind("S|BASS|Bass|LEVELS|0|soft|loud\n", 0) == 0, "the catalogue starts with the first source and its poles");
-    check(text.find("S|PITCH_HEIGHT|Pitch height|MELODY|0|low note|high note\n") != std::string::npos, "poles speak in the music's terms");
+    check(text.rfind("S|BASS|Bass|LEVELS|0|soft|loud|FOLLOW|", 0) == 0, "the catalogue starts with the first source, its poles and its smart route");
+    check(text.find("S|PITCH_HEIGHT|Pitch height|MELODY|0|low note|high note|FOLLOW|") != std::string::npos, "poles speak in the music's terms");
+    check(text.find("S|MID_TIME|") != std::string::npos && text.find("|SPIN|", text.find("S|MID_TIME|")) != std::string::npos,
+          "a clock's smart route spins");
     check(text.find("T|CAM_SHAKE|Camera shake|CAMERA|0|") != std::string::npos, "the catalogue lists the targets");
     check(text.find("|BASS_TIME\n") != std::string::npos, "a motion names its default sound");
+    check(text.find("\nL|0.350000|0.700000|1.200000|-0.600000\n") != std::string::npos, "the grid's cell steps are native's");
+    check(text.find("\nP|PUNCHY|Punchy|") != std::string::npos && text.find("\nP|CALM|Calm|") != std::string::npos, "the presets travel in the catalogue");
+}
+
+void presetsAreValidLayeredSets() {
+    std::set<std::string> ids;
+    for (const matrix::Preset& p : matrix::presets()) {
+        ids.insert(p.id);
+        check(p.count > 0 && p.count <= matrix::kPresetMaxRoutes, "a preset holds 1..kPresetMaxRoutes routes");
+        std::set<int> sources;
+        for (int i = 0; i < p.count; ++i) {
+            const ReactRoute& r = p.routes[static_cast<size_t>(i)];
+            check(r.enabled && r.target != LfoTarget::None, "every preset route is live and lands somewhere");
+            check(static_cast<int>(r.source) < kReactSourceCount && static_cast<int>(r.target) < matrix::kTargetCount, "preset routes use known ordinals");
+            check(r.amount >= -2.0f && r.amount <= 2.0f && r.attackSeconds >= 0.0f && r.releaseSeconds >= 0.0f, "preset routes are in range");
+            sources.insert(static_cast<int>(r.source));
+        }
+        // The point of a preset: several layers on different parts of the music, never one sound for all.
+        check(static_cast<int>(sources.size()) >= 5, "a preset layers at least five different sounds");
+    }
+    check(static_cast<int>(ids.size()) == matrix::kPresetCount, "preset ids are unique");
 }
 
 // ---- Customize › Macros (viz/Macros) ----
@@ -797,6 +820,7 @@ int main() {
     sourceCatalogueIsCompleteAndUnique();
     targetTableWritesWhatTheSwitchDid();
     smartCellsFitTheSource();
+    presetsAreValidLayeredSets();
     macrosAtRestChangeNothing();
     macrosTurnTowardTheEndsAndStayInRange();
     macrosScaleTheSoundAndTheCamera();

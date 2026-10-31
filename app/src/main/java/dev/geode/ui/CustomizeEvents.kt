@@ -18,7 +18,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import dev.geode.render.EventRecipe
-import dev.geode.render.ReactionPreset
 import dev.geode.render.ReactionRoute
 import dev.geode.render.scene.BuildStyleReactionsUseCase
 import dev.geode.render.scene.SceneParams
@@ -80,7 +79,7 @@ internal fun EventsTab(
             SectionHeader("Reaction presets")
             ControlHint("Each one layers several reactions on different parts of the music. It replaces the routes below.")
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                ReactionPreset.entries.forEach { preset ->
+                lanes.catalogue.presets.forEach { preset ->
                     FilterChip(
                         selected = false,
                         onClick = { lanes.edit { preset.routes } },

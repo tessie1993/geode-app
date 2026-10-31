@@ -26,4 +26,11 @@ class ParamMatrixCatalogDeviceTest {
         assertEquals(LfoTarget.entries.map { it.name }, native.targets.map { it.name })
         assertEquals(LfoTarget.entries.map { it.label }, native.targets.map { it.label })
     }
+
+    @Test
+    fun theNativePresetsAndCellStepsArriveWhole() {
+        assertEquals(listOf(0.35f, 0.7f, 1.2f, -0.6f), native.cellSteps)
+        assert(native.presets.size == 7) { "every native preset parses" }
+        native.presets.forEach { assert(it.routes.size >= 5) { "${it.id} keeps all its routes" } }
+    }
 }

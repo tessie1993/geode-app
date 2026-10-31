@@ -104,8 +104,31 @@ bool defaultDrive(LfoTarget t, ReactSource& out);
 // offsets are added, so a route's push lands on top of the music-driven base.
 SceneParams drive(const SceneParams& p, const ReactSignals& s, const std::array<ReactRoute, ReactionEngine::kRoutes>& routes);
 
-// "S|NAME|Label|GROUP|event\n" per source, then "T|NAME|Label|GROUP|luminance\n" per target, in wire
-// order: what Kotlin parses (ParamMatrixCatalog).
+// What successive taps on one grid cell set its depth to: light, medium, strong, inverted, then off.
+constexpr std::array<float, 4> kCellSteps = {0.35f, 0.7f, 1.2f, -0.6f};
+
+// Whole reaction sets, named by feel (docs/research/music-visual-mapping.md § 3). Each layers routes
+// over different time scales so several things move at once on different parts of the music: a hit
+// layer (kick, snare, hats), a level layer, a trend layer (build-up, intensity, melody) and a structure
+// layer (big moments, counted kicks). Picking one replaces the routes; "Back to style DNA" brings the
+// style's own back. They live here, not in the shell (ADR 0003): Kotlin reads them from the catalogue.
+constexpr int kPresetMaxRoutes = 12;
+struct Preset {
+    const char* id;
+    const char* title;
+    const char* description;
+    std::array<ReactRoute, kPresetMaxRoutes> routes;
+    int count;
+};
+constexpr int kPresetCount = 7;
+const std::array<Preset, kPresetCount>& presets();
+
+// The catalogue Kotlin parses (ParamMatrixCatalog), in wire order:
+//   S|NAME|Label|GROUP|event|low|high|MODE|attack|release   per source (MODE…: its smart route)
+//   T|NAME|Label|GROUP|lum|min|max|scale|drive              per target
+//   L|step|step|…                                           the grid's cell steps (kCellSteps)
+//   P|ID|Title|Description                                  per preset, then each of its routes as
+//   R|source|target|mode|amount|curve|attack|release        (wire ordinals)
 std::string catalogueText();
 
 }  // namespace matrix

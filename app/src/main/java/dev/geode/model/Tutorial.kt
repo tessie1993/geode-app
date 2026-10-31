@@ -17,6 +17,7 @@ enum class TutorialChapter(
     PLAYER(3),
     LIBRARY(3),
     VISUALS(3),
+    CUSTOMIZE(4),
     SETTINGS(2),
 }
 

@@ -31,6 +31,7 @@ val TutorialChapter.titleRes: Int
             TutorialChapter.PLAYER -> R.string.tutorial_chapter_player
             TutorialChapter.LIBRARY -> R.string.tutorial_chapter_library
             TutorialChapter.VISUALS -> R.string.tutorial_chapter_visuals
+            TutorialChapter.CUSTOMIZE -> R.string.tutorial_chapter_customize
             TutorialChapter.SETTINGS -> R.string.tutorial_chapter_settings
         }
 
@@ -103,6 +104,33 @@ val TutorialChapter.cardContent: List<TutorialCard>
                         R.string.tutorial_visuals_3_title,
                         R.string.tutorial_visuals_3_body,
                         TutorialArt.AUTO,
+                        TutorialTarget.VISUALS,
+                    ),
+                )
+            TutorialChapter.CUSTOMIZE ->
+                listOf(
+                    TutorialCard(
+                        R.string.tutorial_customize_1_title,
+                        R.string.tutorial_customize_1_body,
+                        TutorialArt.SLIDERS,
+                        TutorialTarget.VISUALS,
+                    ),
+                    TutorialCard(
+                        R.string.tutorial_customize_2_title,
+                        R.string.tutorial_customize_2_body,
+                        TutorialArt.BURST,
+                        TutorialTarget.VISUALS,
+                    ),
+                    TutorialCard(
+                        R.string.tutorial_customize_3_title,
+                        R.string.tutorial_customize_3_body,
+                        TutorialArt.DETAIL,
+                        TutorialTarget.VISUALS,
+                    ),
+                    TutorialCard(
+                        R.string.tutorial_customize_4_title,
+                        R.string.tutorial_customize_4_body,
+                        TutorialArt.DICE,
                         TutorialTarget.VISUALS,
                     ),
                 )

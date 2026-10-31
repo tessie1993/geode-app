@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- API 31+: the mark draws itself in (avd_splash, 800 ms; the guideline is 1000 ms or
+         less). The duration only matters on API 31 and 32; 33+ reads it from the drawable. -->
+    <style name="Theme.Geode.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/brand_night</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/avd_splash</item>
+        <item name="windowSplashScreenAnimationDuration">800</item>
+        <item name="postSplashScreenTheme">@android:style/Theme.Material.NoActionBar</item>
+    </style>
+</resources>

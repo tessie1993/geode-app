@@ -46,7 +46,7 @@ A named look within a scene family, picked from the style catalogue.
 _Avoid_: Variant, skin
 
 **Style family**:
-Twelve fragment-shader styles built on one shared GLSL library (`lib_<family>`), each with its own geometry and its own way of hearing the music. The first is the basic one and is free; the rest are Pro. The families are Arbor, Bulb, Chrysanthemum and Lucid.
+Twelve fragment-shader styles built on one shared GLSL library (`lib_<family>`), each with its own geometry and its own way of hearing the music. The first is the basic one and is free; the rest are Pro. The families are Arbor, Bulb, Chrysanthemum, Lucid and Dive.
 _Avoid_: Pack, collection, scene family (that is the renderer, such as Cymatics or Fluid)
 
 **Arbor**:
@@ -60,6 +60,9 @@ The petal style family: polar petal fields and mandalas that bloom out of a glow
 
 **Lucid**:
 The domain-warp style family: a noise field sampled through itself several levels deep, often folded into a kaleidoscope.
+
+**Dive**:
+The fly-through style family: one camera diving along a path (straight, serpent, helix, accordion, orbit) through repeating lattices, jewels, mushrooms, gyroscopes and mandalas, switching its own cosine palettes on drops.
 
 **Scene params**:
 The full set of tunable values a scene is drawn with at one moment.

@@ -21,6 +21,7 @@ enum class TutorialChapter(
     LIVE_VIEW(3),
     STUDIO(3),
     ANYWHERE(3),
+    PRO(2),
     SETTINGS(2),
 }
 

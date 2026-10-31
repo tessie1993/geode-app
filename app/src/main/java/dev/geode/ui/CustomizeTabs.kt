@@ -56,6 +56,7 @@ import dev.geode.render.ModPolarity
 import dev.geode.render.ModSource
 import dev.geode.render.ReactMode
 import dev.geode.render.ReactSource
+import dev.geode.render.ReactSourceGroup
 import dev.geode.render.ReactionRoute
 import dev.geode.render.scene.BuildStyleReactionsUseCase
 import dev.geode.render.scene.Catalogue
@@ -753,13 +754,21 @@ private fun ReactionCard(
             text = {
                 Column(modifier = Modifier.height(360.dp).verticalScroll(rememberScrollState())) {
                     if (which == ReactionPick.SOURCE) {
-                        ReactSource.entries.forEach { s ->
-                            TextButton(onClick = {
-                                onChange(route.copy(source = s))
-                                picking = null
-                            }) {
-                                val mark = if (s == route.source) "▶ " else ""
-                                Text(mark + s.label + if (s.isEvent) " (event)" else "")
+                        // The sound engine's sources, in the picker's sections (Levels, Drums, ...).
+                        ReactSourceGroup.entries.forEach { group ->
+                            Text(
+                                group.label,
+                                style = MaterialTheme.typography.labelLarge,
+                                modifier = Modifier.padding(top = 8.dp, start = 12.dp),
+                            )
+                            ReactSource.entries.filter { it.group == group }.forEach { s ->
+                                TextButton(onClick = {
+                                    onChange(route.copy(source = s))
+                                    picking = null
+                                }) {
+                                    val mark = if (s == route.source) "▶ " else ""
+                                    Text(mark + s.label + if (s.isEvent) " (event)" else "")
+                                }
                             }
                         }
                     } else {

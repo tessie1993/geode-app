@@ -405,17 +405,4 @@ Java_dev_geode_engine_bridge_GeodeNative_paramsResetTab(JNIEnv* env, jobject, js
     env->SetFloatArrayRegion(out, 0, static_cast<jsize>(output.size()), output.data());
 }
 
-JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_paramsBlend(JNIEnv* env, jobject, jfloatArray a, jfloatArray b, jfloat t, jfloatArray out) {
-    const jsize n = geode_viz_param_count();
-    if (!a || !b || !out || env->GetArrayLength(a) < n || env->GetArrayLength(b) < n || env->GetArrayLength(out) < n) return;
-    std::vector<float> from(static_cast<size_t>(n));
-    std::vector<float> to(from.size());
-    std::vector<float> mixed(from.size());
-    env->GetFloatArrayRegion(a, 0, n, from.data());
-    env->GetFloatArrayRegion(b, 0, n, to.data());
-    geode_params_blend(from.data(), to.data(), t, mixed.data());
-    env->SetFloatArrayRegion(out, 0, n, mixed.data());
-}
-
 }

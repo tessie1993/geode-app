@@ -6,6 +6,8 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.lang.reflect.Modifier
+import java.lang.reflect.Modifier
 
 /**
  * The shell's reading of the native catalogue. These run on the checked-in copy of the table
@@ -15,12 +17,12 @@ import org.junit.Test
 class CatalogueTest {
     private val sceneIds: List<String> =
         SceneIds::class.java.declaredFields
-            .filter { it.type == String::class.java && java.lang.reflect.Modifier.isStatic(it.modifiers) }
+            .filter { it.type == String::class.java && Modifier.isStatic(it.modifiers) }
             .map { it.get(null) as String }
 
     private val paramKeys: List<String> =
         ParamKeys::class.java.declaredFields
-            .filter { it.type == String::class.java && java.lang.reflect.Modifier.isStatic(it.modifiers) }
+            .filter { it.type == String::class.java && Modifier.isStatic(it.modifiers) }
             .map { it.get(null) as String }
 
     @Test

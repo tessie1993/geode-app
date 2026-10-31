@@ -168,6 +168,16 @@ Java_dev_geode_engine_bridge_GeodeNative_vizSetReactions(JNIEnv* env, jobject, j
     if (data.get()) geode_viz_set_reactions(vizOf(handle), data.get(), data.length());
 }
 
+JNIEXPORT jfloatArray JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_styleReactions(JNIEnv* env, jobject, jstring styleId, jint seed) {
+    Utf8Chars id(env, styleId);
+    float routes[GEODE_REACT_ROUTES * GEODE_REACT_ROUTE_FLOATS] = {};
+    const int n = id.get() ? geode_style_reactions(id.get(), seed, routes, GEODE_REACT_ROUTES * GEODE_REACT_ROUTE_FLOATS) : 0;
+    jfloatArray out = env->NewFloatArray(n * GEODE_REACT_ROUTE_FLOATS);
+    if (out && n > 0) env->SetFloatArrayRegion(out, 0, n * GEODE_REACT_ROUTE_FLOATS, routes);
+    return out;
+}
+
 JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_vizSetLook(JNIEnv*, jobject, jlong handle, jfloat yaw, jfloat pitch) {
     geode_viz_set_look(vizOf(handle), yaw, pitch);

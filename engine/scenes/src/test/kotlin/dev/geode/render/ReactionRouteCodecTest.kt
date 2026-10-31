@@ -1,14 +1,18 @@
 package dev.geode.render
 
-import dev.geode.render.scene.BuildStyleReactionsUseCase
-import dev.geode.render.scene.SceneIds
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ReactionRouteCodecTest {
-    private val dna = BuildStyleReactionsUseCase()(SceneIds.KIFS, 4)
+    private val dna =
+        listOf(
+            ReactionRoute(true, ReactSource.PHRASE_BEAT_A, LfoTarget.COLOR_SHIFT, ReactMode.JUMP, 0.35f, ModCurve.LINEAR, 0.08f, 0.35f),
+            ReactionRoute(true, ReactSource.PHRASE_BEAT_B, LfoTarget.WARP, ReactMode.FOLLOW, 0.6f, ModCurve.SMOOTH, 0.03f, 0.45f),
+            ReactionRoute(true, ReactSource.DROP, LfoTarget.CAM_FLY, ReactMode.FOLLOW, 1.1f, ModCurve.LINEAR, 0.25f, 2.2f),
+            ReactionRoute(false, ReactSource.BACKBEAT, LfoTarget.ROTATION, ReactMode.STEP, -0.2f, ModCurve.LINEAR, 0.12f, 0.12f),
+        )
 
     @Test
     fun roundTripsTheRoutes() {

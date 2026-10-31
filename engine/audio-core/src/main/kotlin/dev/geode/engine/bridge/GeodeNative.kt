@@ -352,6 +352,15 @@ object GeodeNative {
         routes: FloatArray,
     )
 
+    /**
+     * A style's reaction DNA (core/viz/ReactionDna), `REACT_ROUTE_FLOATS` per route, in the
+     * [vizSetReactions] layout. Needs no viz handle: the same id and seed always give the same routes.
+     */
+    external fun styleReactions(
+        styleId: String,
+        seed: Int,
+    ): FloatArray
+
     /** Gyro look, -1..1 per axis; read only while camGyro is on. */
     external fun vizSetLook(
         handle: Long,

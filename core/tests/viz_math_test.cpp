@@ -5,7 +5,10 @@
 #include <cstdio>
 #include <cstdlib>
 
+#include <set>
+
 #include "viz/CameraRig.hpp"
+#include "viz/ReactionDna.hpp"
 #include "viz/Reactions.hpp"
 
 using namespace geode::viz;
@@ -87,7 +90,7 @@ void eventsDecayAndSilenceIsQuiet() {
 }
 
 void macroEnergyIsSlowAndArrivalIsAnEvent() {
-    static_assert(kReactSourceCount == 30, "dev.geode.render.ReactSource has 30 entries");
+    static_assert(kReactSourceCount == 34, "dev.geode.render.ReactSource has 34 entries");
     ReactSignals s;
     GeodeFeatureFrame f = silence();
     f.macroEnergy = 1.0f;
@@ -234,6 +237,201 @@ void stillStylesKeepTheBankOutOfTheFlatRoll() {
     check(maxTurning > 0.01f, "a turning style still banks into the curve");
 }
 
+// One beat (and a downbeat on count one) per 0.5 s at 60 fps, for `beats` beats.
+void playBeats(ReactionEngine& e, int beats, int& count) {
+    for (int b = 0; b < beats; ++b) {
+        for (int i = 0; i < 30; ++i) {
+            GeodeFeatureFrame f = silence();
+            if (i == 0) {
+                f.beat = 1.0f;
+                f.beatStrength = 1.0f;
+                f.pulseConfidence = 1.0f;
+                if (count % 4 == 0) f.downbeat = 1.0f;
+            }
+            e.tick(f, 1.0f / 60.0f);
+        }
+        ++count;
+    }
+}
+
+void jumpHoldsANewSeededValuePerHit() {
+    static_assert(kReactModeCount == 4, "dev.geode.render.ReactMode has 4 entries");
+    ReactionEngine a;
+    ReactionEngine b;
+    a.reset();
+    b.reset();
+    a.routes[0] = b.routes[0] = {true, ReactSource::Beat, LfoTarget::Twist, ReactMode::Jump, 1.0f, ModCurve::Linear, 0.0f, 0.0f};
+    int ca = 0;
+    int cb = 0;
+    float last = 0.0f;
+    int moved = 0;
+    for (int hit = 0; hit < 12; ++hit) {
+        playBeats(a, 1, ca);
+        playBeats(b, 1, cb);
+        const float v = a.output(0);
+        check(v >= -1.0f && v <= 1.0f, "jump stays within the amount");
+        if (std::fabs(v - last) >= 0.49f) ++moved;
+        last = v;
+        check(a.output(0) == b.output(0), "jump draws the same values for the same frames");
+    }
+    check(moved == 12, "every hit lands at least half a unit from the last");
+}
+
+void phraseBeatsAlternateEveryEightBars() {
+    ReactionEngine e;
+    e.reset();
+    e.routes[0] = {true, ReactSource::PhraseBeatA, LfoTarget::Zoom, ReactMode::Step, 0.1f, ModCurve::Linear, 0.0f, 0.0f};
+    e.routes[1] = {true, ReactSource::PhraseBeatB, LfoTarget::Twist, ReactMode::Step, 0.1f, ModCurve::Linear, 0.0f, 0.0f};
+    int count = 0;
+    playBeats(e, 32, count);  // phrase 0: eight bars of four
+    check(std::fabs(e.output(0) - ReactionEngine::fold(3.2f)) < 1e-3f, "phrase A hears every beat of its phrase");
+    check(e.output(1) == 0.0f, "phrase B is silent during phrase A");
+    check(e.signals().phraseCount() == 0, "eight bars are still one phrase");
+    const float a = e.output(0);
+    playBeats(e, 32, count);
+    check(e.signals().phraseCount() == 1, "the ninth bar starts the next phrase");
+    check(e.output(0) == a, "phrase A is silent during phrase B");
+    check(e.output(1) != 0.0f, "phrase B hears its own phrase");
+}
+
+void sectionStartsAPhraseAndOnsetsStandInForBeats() {
+    ReactSignals s;
+    GeodeFeatureFrame f = silence();
+    f.beat = 1.0f;
+    f.downbeat = 1.0f;
+    s.step(f, 1.0f / 60.0f);
+    f = silence();
+    for (int i = 0; i < 30; ++i) s.step(f, 1.0f / 60.0f);
+    f.sectionBoundary = 1.0f;
+    s.step(f, 1.0f / 60.0f);
+    check(s.phraseCount() == 1, "a section change starts a phrase");
+    check(s.value(ReactSource::Phrase) > 0.99f, "the phrase event fires");
+    // Three beatless seconds, then an onset: it stands in for the beat.
+    f = silence();
+    for (int i = 0; i < 180; ++i) s.step(f, 1.0f / 60.0f);
+    f.transient = 1.0f;
+    s.step(f, 1.0f / 60.0f);
+    check(s.value(ReactSource::PhraseBeatB) > 0.5f, "an onset drives the phrase beat when no beat comes");
+    check(s.phraseCount() == 1, "a lone onset does not start a phrase");
+}
+
+void backbeatIsCountsTwoAndFour() {
+    ReactionEngine e;
+    e.reset();
+    e.routes[0] = {true, ReactSource::Backbeat, LfoTarget::Warp, ReactMode::Step, 0.1f, ModCurve::Linear, 0.0f, 0.0f};
+    int count = 0;
+    playBeats(e, 8, count);
+    check(std::fabs(e.output(0) - ReactionEngine::fold(0.4f)) < 1e-3f, "two backbeats a bar");
+}
+
+void phrasesTurnOverWithoutBars() {
+    ReactSignals s;
+    GeodeFeatureFrame f = silence();
+    for (int i = 0; i < 60 * 21; ++i) s.step(f, 1.0f / 60.0f);
+    check(s.phraseCount() == 1, "a phrase turns over on time with no bars at all");
+}
+
+// A spread of real style ids with made-up traits: every fourth one turns, two
+// in three are shader styles.
+constexpr const char* kStyleIds[] = {
+    "kaleido", "plasma", "julia", "tunnel", "aurora", "voronoi", "arbor_grove", "arbor_bolt", "bulb_julia", "bulb_ink",
+    "chrys_bloom", "chrys_fall", "lucid_mandala", "milkdrop", "fluid", "water", "silk", "bars", "spiral", "kifs",
+    "chrome_nebula", "crystal_canyon", "gyroid_cavern", "jelly_abyss", "fractal_dive", "aurora_ocean", "bead_vortex",
+    "curl_bloom", "acid_show", "blacklight_bloom",
+};
+constexpr int kStyleCount = static_cast<int>(sizeof(kStyleIds) / sizeof(kStyleIds[0]));
+
+StyleTraits traitsAt(int i) { return {i % 4 == 0 ? (i % 8 == 0 ? 1.0f : -0.7f) : 0.0f, i % 3 != 2}; }
+
+bool sameRoutes(const StyleDna& a, const StyleDna& b) {
+    if (a.count != b.count) return false;
+    for (int i = 0; i < a.count; ++i) {
+        const ReactRoute& x = a.routes[static_cast<size_t>(i)];
+        const ReactRoute& y = b.routes[static_cast<size_t>(i)];
+        if (x.source != y.source || x.target != y.target || x.mode != y.mode || x.amount != y.amount || x.curve != y.curve ||
+            x.attackSeconds != y.attackSeconds || x.releaseSeconds != y.releaseSeconds) {
+            return false;
+        }
+    }
+    return true;
+}
+
+void dnaIsDeterministicAndSeeded() {
+    for (int i = 0; i < kStyleCount; ++i) {
+        check(sameRoutes(buildStyleDna(kStyleIds[i], 3, traitsAt(i)), buildStyleDna(kStyleIds[i], 3, traitsAt(i))),
+              "the same id and seed give the same DNA (live view and export agree)");
+    }
+    check(!sameRoutes(buildStyleDna("kifs", 0, traitsAt(0)), buildStyleDna("kifs", 1, traitsAt(0))), "re-rolling the seed changes the DNA");
+}
+
+void stylesGetDifferentPersonalities() {
+    std::set<int> leads;
+    int pulses = 0;
+    int beatZooms = 0;
+    for (int i = 0; i < kStyleCount; ++i) {
+        const StyleDna dna = buildStyleDna(kStyleIds[i], 0, traitsAt(i));
+        leads.insert(static_cast<int>(dna.lead));
+        if (dna.lead == Personality::Pulse) ++pulses;
+        for (int r = 0; r < dna.count; ++r) {
+            const ReactRoute& route = dna.routes[static_cast<size_t>(r)];
+            const bool beat = route.source == ReactSource::PhraseBeatA || route.source == ReactSource::PhraseBeatB ||
+                              route.source == ReactSource::Beat || route.source == ReactSource::Kick;
+            if (beat && (route.target == LfoTarget::CamPush || route.target == LfoTarget::Zoom)) {
+                ++beatZooms;
+                break;
+            }
+        }
+    }
+    check(leads.size() >= 6, "thirty styles draw at least six different beat personalities");
+    check(pulses * 4 <= kStyleCount, "at most a quarter of styles push in on the beat");
+    check(beatZooms * 3 <= kStyleCount, "most styles do not zoom on the beat at all");
+}
+
+void phrasesAnswerTheBeatDifferently() {
+    for (int i = 0; i < kStyleCount; ++i) {
+        const StyleDna dna = buildStyleDna(kStyleIds[i], 0, traitsAt(i));
+        std::set<int> a;
+        std::set<int> b;
+        for (int r = 0; r < dna.count; ++r) {
+            const ReactRoute& route = dna.routes[static_cast<size_t>(r)];
+            if (route.source == ReactSource::PhraseBeatA) a.insert(static_cast<int>(route.target));
+            if (route.source == ReactSource::PhraseBeatB) b.insert(static_cast<int>(route.target));
+        }
+        check(!a.empty() && !b.empty(), "both phrases answer the beat");
+        check(dna.lead != dna.second && a != b, "the two phrases answer it differently");
+    }
+}
+
+void dnaRespectsStyleTraits() {
+    for (int i = 0; i < kStyleCount; ++i) {
+        for (int seed = 0; seed < 6; ++seed) {
+            const StyleTraits t = traitsAt(i);
+            const StyleDna dna = buildStyleDna(kStyleIds[i], seed, t);
+            for (int r = 0; r < dna.count; ++r) {
+                const LfoTarget target = dna.routes[static_cast<size_t>(r)].target;
+                if (t.spinRate == 0.0f) check(target != LfoTarget::Rotation && target != LfoTarget::CamRoll, "still styles never spin or roll");
+                if (!t.shaderLook) check(target != LfoTarget::Morph && target != LfoTarget::PaletteMix, "shader-only targets stay on shader styles");
+            }
+        }
+    }
+}
+
+void dnaLeavesRoomAndStaysInRange() {
+    for (int i = 0; i < kStyleCount; ++i) {
+        for (int seed = 0; seed < 6; ++seed) {
+            const StyleDna dna = buildStyleDna(kStyleIds[i], seed, traitsAt(i));
+            check(dna.count >= 5 && dna.count <= StyleDna::kMaxRoutes, "the DNA fills most slots and leaves three free");
+            for (int r = 0; r < dna.count; ++r) {
+                const ReactRoute& route = dna.routes[static_cast<size_t>(r)];
+                check(route.enabled && route.target != LfoTarget::None, "every route moves something");
+                check(route.amount >= -2.0f && route.amount <= 2.0f, "amount within what native accepts");
+                check(route.attackSeconds >= 0.0f && route.attackSeconds <= 5.0f, "attack within range");
+                check(route.releaseSeconds >= 0.0f && route.releaseSeconds <= 10.0f, "release within range");
+            }
+        }
+    }
+}
+
 }  // namespace
 
 int main() {
@@ -244,6 +442,16 @@ int main() {
     eventsDecayAndSilenceIsQuiet();
     macroEnergyIsSlowAndArrivalIsAnEvent();
     deterministicForExport();
+    jumpHoldsANewSeededValuePerHit();
+    phraseBeatsAlternateEveryEightBars();
+    sectionStartsAPhraseAndOnsetsStandInForBeats();
+    backbeatIsCountsTwoAndFour();
+    phrasesTurnOverWithoutBars();
+    dnaIsDeterministicAndSeeded();
+    stylesGetDifferentPersonalities();
+    phrasesAnswerTheBeatDifferently();
+    dnaRespectsStyleTraits();
+    dnaLeavesRoomAndStaysInRange();
     cameraTravelsAndStaysOrthonormal();
     cameraSpringsInsteadOfSnapping();
     cameraPathRepeatsAcrossTheWrap();

@@ -8,7 +8,9 @@
 #include <vector>
 
 #include "api/geode_api.h"
+#include "viz/ReactionDna.hpp"
 #include "viz/Renderer.hpp"
+#include "viz/SceneRegistry.hpp"
 
 struct geode_viz {
     geode_viz(AAssetManager* assets, std::string cacheDir) : renderer(assets, std::move(cacheDir)) {}
@@ -207,6 +209,26 @@ void geode_viz_set_reactions(geode_viz* v, const float* c, int count) {
         out.releaseSeconds = std::clamp(r[7], 0.0f, 10.0f);
     }
     v->renderer.setReactionRoutes(routes);
+}
+
+int geode_style_reactions(const char* style_id, int seed, float* out, int capacity) {
+    if (!style_id || !out || capacity < GEODE_REACT_ROUTE_FLOATS) return 0;
+    const std::string id(style_id);
+    const StyleDna dna = buildStyleDna(id, seed, {SceneRegistry::spinRate(id), SceneRegistry::isShaderStyle(id)});
+    const int n = std::min(dna.count, capacity / GEODE_REACT_ROUTE_FLOATS);
+    for (int i = 0; i < n; ++i) {
+        const ReactRoute& r = dna.routes[static_cast<size_t>(i)];
+        float* o = out + i * GEODE_REACT_ROUTE_FLOATS;
+        o[0] = r.enabled ? 1.0f : 0.0f;
+        o[1] = static_cast<float>(r.source);
+        o[2] = static_cast<float>(r.target);
+        o[3] = static_cast<float>(r.mode);
+        o[4] = r.amount;
+        o[5] = static_cast<float>(r.curve);
+        o[6] = r.attackSeconds;
+        o[7] = r.releaseSeconds;
+    }
+    return n;
 }
 
 void geode_viz_set_look(geode_viz* v, float yaw, float pitch) {

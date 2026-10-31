@@ -221,6 +221,33 @@ void testMelody() {
     CHECK(std::fabs(interval - 7.0f / 12.0f) < 0.01f, "A3 to E4 interval %f", interval);
 }
 
+// A tracker slipping an octave for a moment (here the tone itself does, every 0.1 s) is the same note:
+// one note change, not one per slip, and pitch stays in the held octave.
+void testOctaveSlip() {
+    const int rate = 48000;
+    SoundEngine e(rate);
+    int changes = 0;
+    float lo = 1000, hi = 0;
+    run(
+        e,
+        [&](int64_t s, float& l, float& r) {
+            const double t = static_cast<double>(s) / rate;
+            const double hz = std::fmod(t, 0.2) < 0.1 ? 220.0 : 440.0;
+            const double ph = kTau * hz * t;
+            l = r = static_cast<float>(0.3 * (std::sin(ph) + 0.5 * std::sin(2 * ph) + 0.3 * std::sin(3 * ph)));
+        },
+        2.0, 60.0,
+        [&](double t, const GeodeSoundFrame& f) {
+            if (f.noteChange > 0) changes++;
+            if (t > 0.5 && f.pitch > 0) {
+                lo = std::min(lo, f.pitch);
+                hi = std::max(hi, f.pitch);
+            }
+        });
+    CHECK(changes == 1, "note changes across octave slips %d", changes);
+    CHECK(hi - lo < 1.0f, "pitch wandered %f..%f", lo, hi);
+}
+
 // The same note struck again (level drops, then jumps back, pitch unchanged) is a re-attack, not a change.
 void testReattack() {
     const int rate = 48000;
@@ -306,6 +333,7 @@ int main() {
     testChunkingIsBitExact();
     testMelody();
     testReattack();
+    testOctaveSlip();
     testSilenceAndReturn();
     testWaveformHoldsStill();
     testStarvedGoesQuiet();

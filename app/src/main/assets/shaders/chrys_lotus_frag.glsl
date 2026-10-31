@@ -8,7 +8,6 @@ out vec4 fragColor;
 
 //#include lib_scene_uniforms
 //#include lib_scene_motion
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_chrys
@@ -24,12 +23,12 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// The snare (uHits.y) LIFTS the front: the petals lying on the water rise
+// The snare (SND_SNARE_ENV) LIFTS the front: the petals lying on the water rise
 // toward upright and the bud ring in the heart stands up out of the inner
 // cup, so each snare reads as the flower drawing itself up. The bass band
-// (uBandsLo.y) sets how hard the water ripples (the reflection's distortion,
+// (sndLevel(SND_BASS_ATT)) sets how hard the water ripples (the reflection's distortion,
 // a geometry). uBarOsc sways the stem a few degrees, phase-locked to the bar,
-// so the flower rocks in time. Brightness follows uSwell only.
+// so the flower rocks in time. Brightness follows SND_LEVEL only.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -101,9 +100,9 @@ vec3 lotusUpper(vec2 p, float lift, float swell) {
 
 void main() {
     vec2 uv = view();
-    float swell = clamp(uSwell, 0.0, 1.5);
-    float lift = clamp(uHits.y * uIntensity, 0.0, 1.2);
-    float bass = clamp(uBandsLo.y * uIntensity, 0.0, 1.5);
+    float swell = clamp(SND_LEVEL, 0.0, 1.5);
+    float lift = clamp(SND_SNARE_ENV * uIntensity, 0.0, 1.2);
+    float bass = clamp(sndLevel(SND_BASS_ATT) * uIntensity, 0.0, 1.5);
     float aa = 3.0 / uResolution.y;
     gT = uTime * uSpeed;
     gChaos = clamp(uTurbulence + uWarp, 0.0, 2.0);

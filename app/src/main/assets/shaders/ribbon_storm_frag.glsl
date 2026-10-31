@@ -8,7 +8,6 @@ out vec4 fragColor;
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_sdf3
@@ -38,25 +37,25 @@ out vec4 fragColor;
 //
 // Each sound moves a different thing:
 //
-// - The six band regions sub..presence (uBandsLo, uBandsHi.xy) are one per
+// - The six band regions sub..presence (vec4(sndSpectrum(0.10), sndLevel(SND_BASS_ATT), sndSpectrum(0.41), sndLevel(SND_MID_ATT)), vec2(sndSpectrum(0.70), sndShaped(SND_HIGH))) are one per
 //   ribbon, and set its width and brightness.
-// - Kick (uHits.x) whips every ribbon outward: the curve's radius grows, the
+// - Kick (SND_KICK_ENV) whips every ribbon outward: the curve's radius grows, the
 //   heads further than the tails.
-// - Snare (uHits.y) spins every ribbon a full turn about its own length as the
+// - Snare (SND_SNARE_ENV) spins every ribbon a full turn about its own length as the
 //   envelope falls (the turn starts where the last one ended, so it does not
 //   jump), winds the twist tighter, and flashes the ribbon edges white.
-// - Hats (uHits.z) light sparkles that ride along the ribbon edges.
-// - An onset (uHits.w) re-colours one ribbon, picked by uHitCount: each hit
+// - Hats (SND_HAT_ENV) light sparkles that ride along the ribbon edges.
+// - An onset (SND_ONSET_ENV) re-colours one ribbon, picked by SND_ONSET_COUNT: each hit
 //   on a ribbon turns its hue by the golden ratio, sliding there over the
 //   envelope, and the new colour holds.
-// - A drop (uEvents.y) braids all six into one tight vortex through the core
+// - A drop (SND_HELD_SURGE) braids all six into one tight vortex through the core
 //   and swaps to the complementary palette, unwinding over its 2.5 s.
-// - A pitch change (uEvents.w) rotates the hue.
-// - The section count (uSectionCount) picks the curve family: Lissajous,
-//   helix or torus knot. A section change (uEvents.z) morphs from the old
+// - A pitch change (SND_HELD_NOTE_CHANGE) rotates the hue.
+// - The section count (SND_CUT_COUNT) picks the curve family: Lissajous,
+//   helix or torus knot. A section change (SND_HELD_HARD_CUT) morphs from the old
 //   family to the new over 1.5 s.
 //
-// Overall level rides uSwell and uEnergySmooth.
+// Overall level rides SND_ENERGY_TREND and sndShaped(SND_LEVEL).
 
 #define RS_RIBBONS 6
 #define RS_SEGS 8
@@ -80,7 +79,7 @@ float gKick;
 float ribbonBand(float fi) {
     vec4 lo = vec4(equal(vec4(fi), vec4(0.0, 1.0, 2.0, 3.0)));
     vec2 hi = vec2(equal(vec2(fi), vec2(4.0, 5.0)));
-    return dot(lo, uBandsLo) + dot(hi, uBandsHi.xy);
+    return dot(lo, vec4(sndSpectrum(0.10), sndLevel(SND_BASS_ATT), sndSpectrum(0.41), sndLevel(SND_MID_ATT))) + dot(hi, vec2(sndSpectrum(0.70), sndShaped(SND_HIGH)));
 }
 
 /** A point on curve family `fam`, unit scale, for curve parameter th and ribbon phase ph. */
@@ -152,22 +151,22 @@ void main() {
     vec3 rd;
     camAround(uv, RS_EYE, 4.0 * CAM_SPIN_UNIT, ro, rd);
 
-    float swell = clamp(uSwell, 0.0, 1.5);
-    float energy = clamp(uEnergySmooth, 0.0, 1.5);
-    gKick = clamp(uHits.x, 0.0, 1.0);
-    float snare = clamp(uHits.y, 0.0, 1.0);
-    float hats = clamp(uHits.z, 0.0, 1.0);
-    float onset = clamp(uHits.w, 0.0, 1.0);
-    float drop = clamp(uEvents.y, 0.0, 1.0);
-    float pitch = clamp(uEvents.w, 0.0, 1.0);
+    float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
+    float energy = clamp(sndShaped(SND_LEVEL), 0.0, 1.5);
+    gKick = clamp(SND_KICK_ENV, 0.0, 1.0);
+    float snare = clamp(SND_SNARE_ENV, 0.0, 1.0);
+    float hats = clamp(SND_HAT_ENV, 0.0, 1.0);
+    float onset = clamp(SND_ONSET_ENV, 0.0, 1.0);
+    float drop = clamp(SND_HELD_SURGE, 0.0, 1.0);
+    float pitch = clamp(SND_HELD_NOTE_CHANGE, 0.0, 1.0);
 
     gBraid = smoothstep(0.0, 0.55, drop);
     float swap = smoothstep(0.05, 0.6, drop);
-    float sec = floor(uSectionCount + 0.5);
+    float sec = floor(SND_CUT_COUNT + 0.5);
     gFam = int(mod(sec, 3.0));
     gFamOld = int(mod(sec + 2.0, 3.0));
-    gFamMix = smoothstep(0.0, 1.0, clamp(uEvents.z, 0.0, 1.0));
-    float hits = floor(uHitCount + 0.5);
+    gFamMix = smoothstep(0.0, 1.0, clamp(SND_HELD_HARD_CUT, 0.0, 1.0));
+    float hits = floor(SND_ONSET_COUNT + 0.5);
     // The k-th onset lands on ribbon k mod 6.
     float chosen = mod(hits, 6.0);
     float hueBase = 0.2 * pitch;

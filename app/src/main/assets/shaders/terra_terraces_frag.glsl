@@ -9,7 +9,6 @@ out vec4 fragColor;
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_terra
@@ -28,11 +27,11 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// Beats (uEvents.x) RIPPLE THE PADDIES: on every beat a ring spreads across
+// Beats (SND_KICK_ENV) RIPPLE THE PADDIES: on every beat a ring spreads across
 // each paddy's water from a point inside it and settles as the envelope falls
 // - a ripple in the mirror's normal, never a flash. The mid band
-// (uMidSmooth) ripens the rice, sliding the planted paddies from young green
-// toward gold. Brightness follows uSwell only.
+// (SND_MID_PRESENCE) ripens the rice, sliding the planted paddies from young green
+// toward gold. Brightness follows SND_INTENSITY only.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -63,10 +62,10 @@ float height(vec2 xz) {
 void main() {
     vec2 uv = view();
     float t0 = terraTime();
-    float swell = clamp(uSwell, 0.0, 1.5);
+    float swell = clamp(SND_INTENSITY, 0.0, 1.5);
     float energy = terraEnergy();
-    float beat = clamp(uEvents.x * energy, 0.0, 1.0);
-    float ripe = clamp(uMidSmooth * energy, 0.0, 1.0);
+    float beat = clamp(SND_KICK_ENV * energy, 0.0, 1.0);
+    float ripe = clamp(SND_MID_PRESENCE * energy, 0.0, 1.0);
     gOct = terraOctaves(3.0);
 
     vec3 ro;

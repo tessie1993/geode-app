@@ -1,7 +1,7 @@
 #version 300 es
 precision highp float;
 // GLSL ES 3.00 defaults fragment sampler2D to LOWP (range [-2,2), ~8
-// fraction bits). uAudioTex is R32F; on GPUs honoring sampler precision
+// fraction bits). uSoundTex is R32F; on GPUs honoring sampler precision
 // (Mali) every read is clamped and quantized.
 precision highp sampler2D;
 
@@ -10,12 +10,6 @@ out vec4 fragColor;
 
 uniform float uTime;
 uniform vec2 uResolution;
-uniform float uBass;
-uniform float uMid;
-uniform float uTreble;
-uniform float uEnergy;
-uniform float uBeat;
-uniform sampler2D uAudioTex;
 uniform float uSpeed;
 uniform float uZoom;
 uniform float uRotation;
@@ -27,7 +21,6 @@ uniform float uBright;
 uniform float uInvert;
 uniform float uIntensity;
 uniform float uMirrorX;
-uniform float uBeatResponse;
 uniform float uTurbulence;
 uniform float uPalBase;
 uniform float uPalRange;
@@ -47,7 +40,6 @@ uniform float uPixelate;
 uniform float uPosterize;
 uniform float uSway;
 uniform float uPulse;
-uniform float uBeatPhase;
 uniform float uDriftX;
 uniform float uDriftY;
 uniform float uShake;
@@ -57,10 +49,8 @@ uniform float uTemperature;
 uniform float uSolarize;
 uniform float uFlash;
 
-//#include lib_react
+//#include lib_sound
 
-float aband(float x) { return texture(uAudioTex, vec2(clamp(x, 0.0, 1.0), 0.25)).r; }
-float awave(float x) { return texture(uAudioTex, vec2(clamp(x, 0.0, 1.0), 0.75)).r; }
 
 vec2 view() {
     vec2 uv = vUv * 2.0 - 1.0;
@@ -103,21 +93,11 @@ vec2 view() {
     // for good and stranding the user on a black screen.
     vec2 driftPhase = fract(vec2(uDriftX, uDriftY) * uTime * 0.025 + 0.25);
     uv += 1.0 - 2.0 * abs(2.0 * driftPhase - 1.0);
-    uv += uShake * uBeat * 0.03 * vec2(sin(uTime * 91.7), cos(uTime * 77.3));
-    // Beat-locked pulse: peaks exactly on the musical beat (uBeatPhase=0), and
-    // rides the beat ENVELOPE so it is zero between hits. The phase clock in
-    // ShaderScene free-runs at the last detected tempo, so without the
-    // envelope the frame kept breathing once a beat through silence; every
-    // other family gets this slider as CompositeGrade.pulseAmount (the slider
-    // times the SQUARED envelope), and one slider has to mean one thing.
-    float beatEnv = clamp(uBeat, 0.0, 1.0);
-    float beatBump = pow(0.5 + 0.5 * cos(6.2831853 * uBeatPhase), 2.0);
-    float pulse = 1.0 + uPulse * 0.22 * beatEnv * beatEnv * beatBump;
     // Triangle-wave exponent: 1x -> 2x -> 1x smoothly, so the endless-zoom
     // phase wrap never causes a visible scale pop (2^1 snapping to 2^0). The
     // milkdrop post pass (pm_post_frag) already spells it this way; a sawtooth
     // exponent halved the magnification once per cycle on every scene shader.
-    float z = uZoom * pulse * pow(2.0, 1.0 - abs(2.0 * uZoomPhase - 1.0)) * (1.0 + uBeat * uBeatResponse * 0.15);
+    float z = uZoom * pow(2.0, 1.0 - abs(2.0 * uZoomPhase - 1.0));
     uv /= max(z, 0.05);
     uv += uTurbulence * 0.06 * vec2(sin(uv.y * 6.0 + uTime), cos(uv.x * 6.0 + uTime * 1.3));
     // Radial twist: rotate by an angle growing with radius.
@@ -139,7 +119,7 @@ vec2 view() {
     // Concentric ripple distortion driven by radius.
     if (uRipple > 0.001) {
         float r = length(uv);
-        uv *= 1.0 + uRipple * 0.15 * sin(r * 14.0 - uTime * 3.0 + uBass * 4.0);
+        uv *= 1.0 + uRipple * 0.15 * sin(r * 14.0 - uTime * 3.0 + sndLevel(SND_BASS) * 4.0);
     }
     return uv;
 }
@@ -163,20 +143,20 @@ vec2 hashSpot(float n) {
  * The pitch-change glide, without frame-to-frame state.
  *
  * The SPOT is chosen by the onset count and eased from the previous count's
- * spot to the new one by the onset envelope: when an onset lands, uHitCount
- * steps and uHits.w jumps to at least 0.4 on the same frame (viz/Reactions
+ * spot to the new one by the onset envelope: when an onset lands, floor(SND_HIT_TIME)
+ * steps and SND_ONSET_ENV jumps to at least 0.4 on the same frame (viz/Reactions
  * triggers it at 0.4..1, not 1), so the mix, measured from 0.4, starts exactly
  * at the old spot and glides to the new one as the envelope falls - it moves
- * without ever stepping. The previous count is wrapped like uHitCount itself
+ * without ever stepping. The previous count is wrapped like floor(SND_HIT_TIME) itself
  * (4096), so the count's own wrap is not a jump either. HOW FAR the point travels toward the spot is the
  * pitch-change envelope shaped into a hump (4e(1-e)), which is 0 both before
  * the event (e = 0) and at its instant rise (e = 1), so the point eases out
  * to the spot and back over the envelope's fall rather than snapping there.
  */
 vec2 pitchGlide() {
-    float g = (1.0 - smoothstep(0.05, 0.4, clamp(uHits.w, 0.0, 1.0)));
-    vec2 spot = mix(hashSpot(mod(uHitCount - 1.0, 4096.0)), hashSpot(uHitCount), g);
-    float e = clamp(uEvents.w, 0.0, 1.0);
+    float g = (1.0 - smoothstep(0.05, 0.4, clamp(SND_ONSET_ENV, 0.0, 1.0)));
+    vec2 spot = mix(hashSpot(mod(floor(SND_HIT_TIME) - 1.0, 4096.0)), hashSpot(floor(SND_HIT_TIME)), g);
+    float e = clamp(SND_HELD_NOTE_CHANGE, 0.0, 1.0);
     return spot * (4.0 * e * (1.0 - e));
 }
 
@@ -194,25 +174,24 @@ vec3 grade(vec3 col) {
     col.r += uTemperature * 0.12;
     col.b -= uTemperature * 0.12;
     if (uSolarize > 0.5) col = abs(1.0 - 2.0 * col);
-    col += uFlash * uBeat * 0.6;
     col = col * uBright * uIntensity;
     return mix(col, max(vec3(1.0) - col, 0.0), uInvert);
 }
 
 // Audio-reactive Julia set; endless zoom dives into the fractal.
 //
-// What reacts to what (sound events via lib_react; camera motion is the
+// What reacts to what (sound events via lib_sound; camera motion is the
 // composite's, applied to this picture automatically):
-//   - a pitch change (uEvents.w) glides c out to a hashed spot and back, the
+//   - a pitch change (SND_HELD_NOTE_CHANGE) glides c out to a hashed spot and back, the
 //     spot re-picked per onset (see pitchGlide), so the set reshapes itself
 //     on every new note without ever snapping.
-//   - an onset (uHits.w) gives the palette a brief hue phase step.
-//   - the kick (uHits.x) grows the zoom slightly.
+//   - an onset (SND_ONSET_ENV) gives the palette a brief hue phase step.
+//   - the kick (SND_KICK_ENV) grows the zoom slightly.
 //   - bass and mids still swing c, treble stretches the palette, and each
 //     escape band is lit by its own analyser band.
 void main() {
     // The kick grows the set by up to 6%: scale, not brightness.
-    vec2 uv = view() * 1.4 / (1.0 + 0.06 * clamp(uHits.x, 0.0, 1.0));
+    vec2 uv = view() * 1.4 / (1.0 + 0.06 * clamp(SND_KICK_ENV, 0.0, 1.0));
     // uTime is already the speed-INTEGRATED clock (ShaderScene.shaderTime), so
     // multiplying by uSpeed again made the orbit rate go as speed^2 and, worse,
     // reintroduced exactly the teleport that integrating exists to prevent: at
@@ -221,7 +200,7 @@ void main() {
     // fractal. No built-in scene shader reads uSpeed; it stays declared for the
     // in-app GLSL editor, where a user shader may want the raw slider value.
     float t = uTime * 0.15;
-    vec2 c = vec2(-0.745 + 0.11 * cos(t) + uBass * 0.08, 0.186 + 0.11 * sin(t * 1.3) + uMid * 0.05);
+    vec2 c = vec2(-0.745 + 0.11 * cos(t) + sndLevel(SND_BASS) * 0.08, 0.186 + 0.11 * sin(t * 1.3) + sndShaped(SND_MIDDLE) * 0.05);
     // Small: c is the most sensitive parameter there is, and 0.07 already
     // turns one family of spirals into another.
     c += 0.07 * pitchGlide();
@@ -234,7 +213,7 @@ void main() {
         iter++;
     }
     float f = iter / maxIter;
-    float hueStep = 0.12 * clamp(uHits.w, 0.0, 1.0);
-    vec3 col = pal(f * (1.0 + uTreble) + hueStep) * (0.25 + f * 1.2 + aband(f) * 0.8);
+    float hueStep = 0.12 * clamp(SND_ONSET_ENV, 0.0, 1.0);
+    vec3 col = pal(f * (1.0 + sndLevel(SND_TREBLE_ATT)) + hueStep) * (0.25 + f * 1.2 + sndSpectrum(f) * 0.8);
     fragColor = vec4(grade(col), 1.0);
 }

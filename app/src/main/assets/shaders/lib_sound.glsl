@@ -1,4 +1,7 @@
-// The sound engine's frame (core/sound/SoundFrame.h), raw, for any style that includes this.
+// The sound engine's frame (core/sound/SoundFrame.h), raw: the only way sound reaches a style.
+// lib_scene_uniforms includes this, so a style that includes that file must not include this one
+// again (a second paste is a redefinition error); a style without lib_scene_uniforms includes it
+// directly. Family libraries (lib_dive, lib_glass, ...) read the names but never include it.
 //
 // uSound holds every scalar of GeodeSoundFrame in declaration order, four to a vec4; the SND_* names
 // below are generated from the header, and SoundFrameLayoutTest / ShaderSoundLibTest fail if they drift.
@@ -12,6 +15,16 @@ precision highp sampler2D;
 
 uniform vec4 uSound[19];
 uniform sampler2D uSoundTex;
+/** The style's Audio drive slider (SceneParams.audioDrive): sndLevel and the band reads scale by it. */
+uniform float uSoundDrive;
+/**
+ * The engine's one-frame triggers as held envelopes (instant rise, then a fall of a few seconds), the
+ * same ones reaction routes hear: hard cut (2.5 s), surge (2 s), sound returning (2.5 s), note change
+ * (0.5 s). A shader cannot hold a one-frame value itself, so these are stepped on the CPU.
+ */
+uniform vec4 uSoundEvents;
+/** Onsets and hard cuts seen so far, wrapping at 4096: hash them for a variation per hit or per big moment. */
+uniform vec2 uSoundCounts;
 
 #define SND_BASS               uSound[0].x
 #define SND_MID                uSound[0].y
@@ -88,6 +101,27 @@ uniform sampler2D uSoundTex;
 #define SND_EVENNESS           uSound[18].x
 #define SND_RUN_DENSITY        uSound[18].y
 
-float sndSpectrum(float x) { return texture(uSoundTex, vec2(clamp(x, 0.0, 1.0), 0.5 / 3.0)).r; }
+#define SND_HELD_HARD_CUT      uSoundEvents.x
+#define SND_HELD_SURGE         uSoundEvents.y
+#define SND_HELD_RETURNED      uSoundEvents.z
+#define SND_HELD_NOTE_CHANGE   uSoundEvents.w
+#define SND_ONSET_COUNT        uSoundCounts.x
+#define SND_CUT_COUNT          uSoundCounts.y
+
+/** The log spectrum at x (0 = 20 Hz, 1 = 20 kHz), 0..1, times the drive. */
+float sndSpectrum(float x) { return texture(uSoundTex, vec2(clamp(x, 0.0, 1.0), 0.5 / 3.0)).r * uSoundDrive; }
+/** The stabilised waveform at x, -1..1 (not driven: a line's shape, not a level). */
 float sndWave(float x) { return texture(uSoundTex, vec2(clamp(x, 0.0, 1.0), 1.5 / 3.0)).r; }
-float sndEq(float x) { return texture(uSoundTex, vec2(clamp(x, 0.0, 1.0), 2.5 / 3.0)).r; }
+/** The waveform at x as a 0..1 line height: centred on 0.5 and scaled by the drive, as the old waveform tap was. */
+float sndWave01(float x) { return clamp(sndWave(x) * uSoundDrive * 0.5 + 0.5, 0.0, 1.0); }
+/** The 16-band EQ at x (relative, ~1 typical), times the drive. */
+float sndEq(float x) { return texture(uSoundTex, vec2(clamp(x, 0.0, 1.0), 2.5 / 3.0)).r * uSoundDrive; }
+/**
+ * A relative level (SND_BASS, SND_MID_ATT, ...: ~1 typical, 2 a strong hit) as a shader level: halved,
+ * times the drive, so typical reads 0.5 and a hit 1, capped at 1.5 like the old band uniforms.
+ */
+float sndLevel(float relative) { return clamp(relative * 0.5 * uSoundDrive, 0.0, 1.5); }
+/** A shaped 0..1 value (SND_LOW, SND_LEVEL, an envelope) times the drive, capped the same way. */
+float sndShaped(float unit) { return clamp(unit * uSoundDrive, 0.0, 1.5); }
+/** A clock as a 0..1 phase that turns once per `period` units of it: fract(SND_HIT_TIME) is one per hit. */
+float sndPhase(float clock, float period) { return fract(clock / period); }

@@ -9,7 +9,6 @@ out vec4 fragColor;
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_glass
@@ -32,11 +31,11 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// Kicks (uHits.x) nod the blocks: each kick tips every block a little about
+// Kicks (SND_KICK_ENV) nod the blocks: each kick tips every block a little about
 // its own z axis, each in its own direction, and the nod rises and settles as
 // the envelope falls (glassBump), so the grid ripples on the beat instead of
-// jumping. Bass (uBassSmooth) breathes their size a few percent. Mids
-// (uMidSmooth) round their edges. Brightness follows uSwell only.
+// jumping. Bass (SND_BASS_PRESENCE) breathes their size a few percent. Mids
+// (sndShaped(SND_MIDDLE)) round their edges. Brightness follows SND_ENERGY_TREND only.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -86,10 +85,10 @@ void main() {
     vec2 uv = view();
     float t = glassTime();
     float energy = glassEnergy();
-    float swell = clamp(uSwell, 0.0, 1.5);
-    float nod = glassBump(uHits.x) * 0.45 * energy;
-    gHalf = 0.4 + 0.03 * clamp(uBassSmooth, 0.0, 1.0) * energy;
-    gRound = 0.08 + 0.06 * clamp(uMidSmooth, 0.0, 1.2);
+    float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
+    float nod = glassBump(SND_KICK_ENV) * 0.45 * energy;
+    gHalf = 0.4 + 0.03 * clamp(SND_BASS_PRESENCE, 0.0, 1.0) * energy;
+    gRound = 0.08 + 0.06 * clamp(sndShaped(SND_MIDDLE), 0.0, 1.2);
     float hue = 0.04 * sin(t * 0.021) + 0.12 * uKeyStrength * sin(GLASS_TAU * uKeyHue);
 
     for (int i = 0; i < 9; i++) {

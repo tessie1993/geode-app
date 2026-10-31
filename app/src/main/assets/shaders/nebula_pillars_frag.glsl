@@ -9,7 +9,6 @@ out vec4 fragColor;
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_nebula
@@ -32,11 +31,11 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// Bass (uBassSmooth with the bass band region) FEEDS THE IONISATION FRONT:
+// Bass (sndShaped(SND_LOW) with the bass band region) FEEDS THE IONISATION FRONT:
 // the lit skins of the pillars - their heads and light-facing edges - glow
 // hotter on the low end, so a bass line makes the tops of the columns
 // smoulder while the dark bodies hold still. The cluster's light follows
-// uSwell mildly. The key turns the emission gas behind and the front's hue.
+// SND_INTENSITY mildly. The key turns the emission gas behind and the front's hue.
 // The hats twinkle the background stars.
 //
 // ---- macros -----------------------------------------------------------------
@@ -87,9 +86,9 @@ void main() {
     vec2 uv = view();
     gT = nebTime();
     float e = nebEnergy();
-    float swell = clamp(uSwell, 0.0, 1.5);
-    float bass = clamp(0.6 * uBassSmooth + 0.4 * uBandsLo.y, 0.0, 1.3) * e;
-    float hats = clamp(uHits.z, 0.0, 1.0);
+    float swell = clamp(SND_INTENSITY, 0.0, 1.5);
+    float bass = clamp(0.6 * sndShaped(SND_LOW) + 0.4 * sndSpectrum(0.23), 0.0, 1.3) * e;
+    float hats = clamp(SND_HAT_ENV, 0.0, 1.0);
     float key = nebKeyShift(0.12);
     gOct = nebVolOctaves(3.0);
 

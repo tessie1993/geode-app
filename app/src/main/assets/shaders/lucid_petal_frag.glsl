@@ -8,7 +8,6 @@ out vec4 fragColor;
 
 //#include lib_scene_uniforms
 //#include lib_scene_motion
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_lucid
@@ -26,11 +25,11 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// SUB-BASS (uBandsLo.x, the lowest band region) swells the petals: it deepens
+// SUB-BASS (sndSpectrum(0.10), the lowest band region) swells the petals: it deepens
 // the rose curve, so on a sub drop the outline goes from a near-circle to
 // deep, separate petals and the rings flare. It moves geometry only. Busy
-// mids (uMidSmooth) brighten the opal flecks' colour, not the frame.
-// Brightness follows uSwell gently.
+// mids (sndShaped(SND_MIDDLE)) brighten the opal flecks' colour, not the frame.
+// Brightness follows SND_LEVEL gently.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -46,9 +45,9 @@ void main() {
     vec2 uv = lucidView(false);
     float t = uTime * uSpeed;
     float flow = uFlowPhase * uSpeed;
-    float sub = clamp(uBandsLo.x, 0.0, 1.0) * uIntensity;
-    float mid = clamp(uMidSmooth, 0.0, 1.5) * uIntensity;
-    float swell = clamp(uSwell, 0.0, 1.5);
+    float sub = clamp(sndSpectrum(0.10), 0.0, 1.0) * uIntensity;
+    float mid = clamp(sndShaped(SND_MIDDLE), 0.0, 1.5) * uIntensity;
+    float swell = clamp(SND_LEVEL, 0.0, 1.5);
 
     int depth = lucidDetail(3, 2);
     int oct = lucidDetail(3, 2);

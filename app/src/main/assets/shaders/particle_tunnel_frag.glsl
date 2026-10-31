@@ -8,7 +8,6 @@ out vec4 fragColor;
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_sdf3
@@ -27,11 +26,11 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// Hats (uHits.z) make about half the particles swell and twinkle; the rest
-// stay put. An onset (uHits.w) spawns a thin ring ahead that expands out to
-// the wall as its envelope falls, coloured by uHitCount so each one differs.
-// A section change (uEvents.z) steps the whole tunnel's hue by a third and
-// glides it back over the event's 1.5 s. Overall level rides uSwell.
+// Hats (SND_HAT_ENV) make about half the particles swell and twinkle; the rest
+// stay put. An onset (SND_ONSET_ENV) spawns a thin ring ahead that expands out to
+// the wall as its envelope falls, coloured by SND_ONSET_COUNT so each one differs.
+// A section change (SND_HELD_HARD_CUT) steps the whole tunnel's hue by a third and
+// glides it back over the event's 1.5 s. Overall level rides SND_LEVEL.
 
 /** Cells walked per ray: the compile-time ceiling. uSteps is the runtime budget. */
 #define PT_MAX_CELLS 96
@@ -58,10 +57,10 @@ void main() {
     // finite-difference normals quantise into speckle.
     ro.z = mod(ro.z, PT_ZWRAP);
 
-    float swell = clamp(uSwell, 0.0, 1.5);
-    float energy = clamp(uEnergySmooth, 0.0, 1.5);
-    float hats = clamp(uHits.z, 0.0, 1.0);
-    float hueStep = 0.33 * smoothstep(0.0, 0.3, clamp(uEvents.z, 0.0, 1.0));
+    float swell = clamp(SND_LEVEL, 0.0, 1.5);
+    float energy = clamp(sndShaped(SND_LEVEL), 0.0, 1.5);
+    float hats = clamp(SND_HAT_ENV, 0.0, 1.0);
+    float hueStep = 0.33 * smoothstep(0.0, 0.3, clamp(SND_HELD_HARD_CUT, 0.0, 1.0));
 
     // DDA setup. A zero direction component is nudged so its crossing is
     // effectively never reached instead of dividing by zero.
@@ -128,9 +127,9 @@ void main() {
 
     // The onset ring, in a plane ahead of the eye. It starts near the axis and
     // reaches the wall as the envelope falls.
-    float onset = clamp(uHits.w, 0.0, 1.0);
+    float onset = clamp(SND_ONSET_ENV, 0.0, 1.0);
     if (onset > 0.002 && rd.z > 0.05) {
-        float seed = fract(uHitCount * 0.618);
+        float seed = fract(SND_ONSET_COUNT * 0.618);
         float zr = ro.z + 6.0 + 8.0 * seed;
         float tr = (zr - ro.z) / rd.z;
         vec3 q = ro + rd * tr;

@@ -8,7 +8,6 @@ out vec4 fragColor;
 
 //#include lib_scene_uniforms
 //#include lib_scene_motion
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_truchet
@@ -25,9 +24,9 @@ out vec4 fragColor;
 // Onsets REWIRE the maze: each hit re-rolls a scattered third of the tiles
 // (truchetRoll), and each one turns a quarter turn to its new diagonal over
 // the onset's envelope while its two colours trade places, so paths break and
-// re-join on the beat without a single frame snapping. The bass (uBassSmooth)
+// re-join on the beat without a single frame snapping. The bass (sndShaped(SND_LOW))
 // breathes the tile scale; the key (uKeyHue, weighted by uKeyStrength) drifts
-// the palette. Brightness follows uSwell only.
+// the palette. Brightness follows (0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)) only.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -40,14 +39,14 @@ out vec4 fragColor;
 void main() {
     vec2 uv = view();
     float t = truchetTime();
-    float swell = clamp(uSwell, 0.0, 1.5);
-    float hits = floor(uHitCount);
+    float swell = clamp((0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)), 0.0, 1.5);
+    float hits = floor(SND_HIT_TIME);
 
-    float scale = (3.0 + 2.0 * truchetMorph()) * truchetBreath(uBassSmooth);
+    float scale = (3.0 + 2.0 * truchetMorph()) * truchetBreath(sndShaped(SND_LOW));
     vec2 p = truchetWarp(uv * scale + vec2(0.0, t * 0.06), t);
     float px = truchetPx(p);
 
-    TruchetArc a = truchetSquare(p, hits, uHits.w, 3.0);
+    TruchetArc a = truchetSquare(p, hits, SND_ONSET_ENV, 3.0);
     float tone = truchetTone(a, px);
 
     float hue = 0.05 * sin(t * 0.03) + 0.12 * uKeyStrength * sin(TRUCHET_TAU * uKeyHue);

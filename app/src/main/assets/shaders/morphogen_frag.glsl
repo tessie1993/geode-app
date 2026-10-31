@@ -1,7 +1,7 @@
 #version 300 es
 precision highp float;
 // GLSL ES 3.00 defaults fragment sampler2D to LOWP (range [-2,2), ~8
-// fraction bits). uAudioTex is R32F; on GPUs honoring sampler precision
+// fraction bits). uSoundTex is R32F; on GPUs honoring sampler precision
 // (Mali) every read is clamped and quantized.
 precision highp sampler2D;
 
@@ -9,7 +9,7 @@ in vec2 vUv;
 out vec4 fragColor;
 
 // The three lines every fragment style carries, in this order: the uniform
-// block/aband/awave/view() first, then the palette, then grade() - which calls
+// block/view() first, then the palette, then grade() - which calls
 // pal() and so must come after it.
 //#include lib_scene_uniforms
 //#include lib_scene_motion
@@ -719,7 +719,7 @@ float map(vec3 p) {
 
     // The beat's discrete event, as a shockwave rather than a new object: a
     // Gaussian ridge at radius gShellR, born at the transient deep inside the
-    // body and expanding out through the skin as uBeatPhase runs. Born inside
+    // body and expanding out through the skin as sndPhase(SND_BASS_TIME, 2.0) runs. Born inside
     // means it is invisible at the moment it appears, which is the difference
     // between a pulse crossing the surface and a sphere popping into frame.
     if (gShellA > 0.0) {
@@ -789,13 +789,13 @@ float occlusion(vec3 p, vec3 n, float scale) {
 // The camera here looks down +z from a fixed standoff, so the world direction
 // is already the frame the mandala wants.
 vec3 room(vec3 rd, vec2 uv, float hue) {
-    vec3 c = dmtChrysanthemum(rd, hue + 0.62, clamp(uEnergySmooth, 0.0, 1.5));
+    vec3 c = dmtChrysanthemum(rd, hue + 0.62, clamp(sndShaped(SND_LEVEL), 0.0, 1.5));
     // The wake of every finger, live and still fading, as a glow in the room
     // behind the body. Clamped because touchWake is unbounded above by design
     // - five fingers in one place sum to five - and a full-screen brightness
     // term is exactly the kind of thing VisualSafety's flash budget is about.
     c += pal(hue + 0.30) * clamp(touchWake(uv), 0.0, 3.0) * 0.045;
-    return c * (0.85 + 0.30 * clamp(uEnergy, 0.0, 1.5));
+    return c * (0.85 + 0.30 * clamp(sndShaped(SND_LEVEL), 0.0, 1.5));
 }
 
 void main() {
@@ -839,10 +839,10 @@ void main() {
     // ceiling below still stands - what VisualSafety cannot clamp is AREA - but
     // the reason it had to be that tight was that the raw envelopes are per-frame.
     // These cannot jump, so the same ceilings now hold on a much steadier signal.
-    float bass = clamp(uBassSmooth, 0.0, 1.2);
-    float mid = clamp(uMidSmooth, 0.0, 1.2);
-    float treb = clamp(uTrebleSmooth, 0.0, 1.5);
-    float energy = clamp(uEnergySmooth, 0.0, 1.5);
+    float bass = clamp(SND_BASS_PRESENCE, 0.0, 1.2);
+    float mid = clamp(sndShaped(SND_MIDDLE), 0.0, 1.2);
+    float treb = clamp(sndShaped(SND_HIGH), 0.0, 1.5);
+    float energy = clamp(sndShaped(SND_LEVEL), 0.0, 1.5);
 
     // Thicker weave under bass: the sheets swell toward each other and the
     // gyroid closes up, which is the one deformation this skeleton has.
@@ -898,11 +898,11 @@ void main() {
     gFoldIters = int(clamp(floor(uSteps * 0.046875), 3.0, float(FOLD_MAX_ITERS)));
     gRelief = RELIEF_AMP * bass;
 
-    // The shockwave rides uBeatPhase from inside the body to just past the
+    // The shockwave rides sndPhase(SND_BASS_TIME, 2.0) from inside the body to just past the
     // skin, and its amplitude rides the squared envelope so it is silent
     // between hits and absent altogether in silence.
     gShellA = SHELL_AMP * beatEnv * beatEnv;
-    gShellR = mix(0.10, 1.16, clamp(uBeatPhase, 0.0, 1.0));
+    gShellR = mix(0.10, 1.16, clamp(sndPhase(SND_BASS_TIME, 2.0), 0.0, 1.0));
 
     gSpinK = SPIN_GAIN * clamp(uTouchSpin, -8.0, 8.0);
 
@@ -1048,7 +1048,7 @@ void main() {
             // further, so the outline sings the spectrum from the bottom of
             // the body to the top.
             float fres = pow(1.0 - clamp(dot(n, -rd), 0.0, 1.0), 3.0);
-            float spectrum = aband(clamp(n.y * 0.5 + 0.5, 0.0, 1.0));
+            float spectrum = (0.5 * sndEq(clamp(n.y * 0.5 + 0.5, 0.0, 1.0)));
             col += pal(hue + 0.30) * fres * 0.30 * spectrum;
 
             // Squared, so the heat is a thin bright line on the seam rather

@@ -68,9 +68,8 @@ void main() {
     vec2 uv = fluidWarp(view(), 1.0, 0.06);
     float r = max(length(uv), 1e-4);
     float a = atan(uv.y, uv.x);
-    float energy = clamp(uEnergySmooth, 0.0, 1.5);
-    float beat = clamp(uSpike * uBeatResponse, 0.0, 1.0);
-    float beadPulse = clamp(uBassSmooth * uBeatResponse, 0.0, 1.5) + touchFalloff(uv, 0.5);
+    float energy = clamp(((SND_BASS_PRESENCE + SND_MID_PRESENCE + SND_TREBLE_PRESENCE) / 3.0), 0.0, 1.5);
+    float beadPulse = touchFalloff(uv, 0.5);
     // Was `uTime * (0.9 + 0.5 * energy)`: the whole strand length is a function of
     // travel, so a change in the rate slid every bead down the tunnel at once. The
     // integrated phase changes speed without moving anything.
@@ -106,7 +105,7 @@ void main() {
     float core = exp(-r * r * 260.0);
     float sunRings = 0.6 + 0.4 * sin(r * 110.0 - travel * 2.0);
     float halo = exp(-r * 11.0) * sunRings;
-    col += vec3(1.0, 0.96, 0.75) * core * 2.6 + vec3(1.0, 0.82, 0.4) * halo * (0.5 + 0.5 * beat);
+    col += vec3(1.0, 0.96, 0.75) * core * 2.6 + vec3(1.0, 0.82, 0.4) * halo * 0.5;
     col += vec3(1.0, 0.9, 0.7) * fluidMotes(uv * 1.1, 6.0, 0.14) * 0.25 * hazeAmt;
     fragColor = vec4(grade(col), 1.0);
 }

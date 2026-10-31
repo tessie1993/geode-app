@@ -8,7 +8,6 @@ out vec4 fragColor;
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_sdf3
@@ -27,10 +26,10 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// Bass (uBassSmooth with a little uBandsLo.y) swells the waves. Snare (uHits.y)
-// sends a bright shimmer running along the curtains. Hats (uHits.z) scatter
-// sparkles on the water. A drop (uEvents.y) leans the curtains over and lights
-// one patch of them, never the whole frame. Overall level follows uSwell.
+// Bass (sndShaped(SND_LOW) with a little sndSpectrum(0.23)) swells the waves. Snare (SND_SNARE_ENV)
+// sends a bright shimmer running along the curtains. Hats (SND_HAT_ENV) scatter
+// sparkles on the water. A drop (SND_HELD_SURGE) leans the curtains over and lights
+// one patch of them, never the whole frame. Overall level follows SND_INTENSITY.
 
 #define AO_MAX_STEPS 96
 #define AO_LAYERS 12
@@ -121,17 +120,17 @@ vec3 sky(vec3 rd, vec3 ro, float hue, float drop, float dropLean, float snare) {
 void main() {
     vec2 uv = view();
 
-    float swell = clamp(uSwell, 0.0, 1.5);
-    float bass = clamp(uBassSmooth, 0.0, 1.5);
-    float hats = clamp(uHits.z, 0.0, 1.0);
-    float snare = clamp(uHits.y, 0.0, 1.0);
-    float drop = clamp(uEvents.y, 0.0, 1.0);
+    float swell = clamp(SND_INTENSITY, 0.0, 1.5);
+    float bass = clamp(sndShaped(SND_LOW), 0.0, 1.5);
+    float hats = clamp(SND_HAT_ENV, 0.0, 1.0);
+    float snare = clamp(SND_SNARE_ENV, 0.0, 1.0);
+    float drop = clamp(SND_HELD_SURGE, 0.0, 1.0);
     // A bump on the envelope: 0 at the drop's instant and at its end, 1 in
     // between, so the lean glides in and out instead of snapping.
     float dropLean = 4.0 * drop * (1.0 - drop);
     float hue = 0.33 + 0.04 * sin(uTime * 0.02);
 
-    gAmp = 0.22 * (1.0 + 0.7 * bass + 0.25 * clamp(uBandsLo.y, 0.0, 1.0));
+    gAmp = 0.22 * (1.0 + 0.7 * bass + 0.25 * clamp(sndSpectrum(0.23), 0.0, 1.0));
     float waveTop = AO_SEA_Y + gAmp * 0.95;
 
     vec3 ro;

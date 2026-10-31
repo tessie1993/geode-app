@@ -66,17 +66,16 @@ void main() {
     vec2 uv = view();
     // The slew-limited companions, not the raw envelopes: a band that jumps 0 -> 1
     // between two frames used to take the zoom, the fringe width and the glow with it.
-    float bassA = min(uBassSmooth, 1.3);
-    float trebA = min(uTrebleSmooth, 1.3);
-    float enA = min(uEnergySmooth, 1.3);
+    float bassA = min(SND_BASS_PRESENCE, 1.3);
+    float trebA = min(sndShaped(SND_HIGH), 1.3);
+    float enA = min(sndShaped(SND_LEVEL), 1.3);
     // uSpike rather than the beat-phase bump: it rises over ~120ms, so the accent
     // swells instead of flashing on one frame.
     float hit = uSpike;
 
     float folds = foldCount();
     float split = mix(0.01, 0.04, clamp(trebA, 0.0, 1.0));
-    float zoomPulse = 1.0 + 0.12 * bassA * uBeatResponse;
-    vec2 p = uv / zoomPulse;
+    vec2 p = uv;
     float r2 = dot(p, p);
 
     vec3 col = vec3(0.0, 0.08, 0.04);

@@ -8,7 +8,6 @@ out vec4 fragColor;
 
 //#include lib_scene_uniforms
 //#include lib_scene_motion
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_truchet
@@ -37,8 +36,8 @@ out vec4 fragColor;
 //
 // Onsets re-roll a scattered third of the cells between crossing and turning,
 // cross-fading the cords, so the knot re-ties itself on the hits. The snare
-// (uHits.y) opens the gaps at the crossings for a moment. The bass breathes
-// the scale; the key leans the hue. Brightness follows uSwell only.
+// (SND_SNARE_ENV) opens the gaps at the crossings for a moment. The bass breathes
+// the scale; the key leans the hue. Brightness follows SND_ENERGY_TREND only.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -85,17 +84,17 @@ void main() {
     vec2 uv = view();
     float t = truchetTime();
     float e = truchetEnergy();
-    float swell = clamp(uSwell, 0.0, 1.5);
-    float snare = clamp(uHits.y, 0.0, 1.0) * e;
+    float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
+    float snare = clamp(SND_SNARE_ENV, 0.0, 1.0) * e;
 
-    float scale = (2.4 + 1.6 * truchetMorph()) * truchetBreath(uBassSmooth);
+    float scale = (2.4 + 1.6 * truchetMorph()) * truchetBreath(SND_BASS_PRESENCE);
     vec2 p = truchetWarp(truchetRot(0.78539816) * uv * scale, t);
     float px = truchetPx(p);
 
     vec2 id = floor(p);
     vec2 f = fract(p) - 0.5;
     float parity = mod(id.x + id.y, 2.0);
-    vec3 roll = truchetRoll(id, floor(uHitCount), uHits.w, 3.0);
+    vec3 roll = truchetRoll(id, floor(SND_ONSET_COUNT), SND_ONSET_ENV, 3.0);
 
     float hue = 0.04 * sin(t * 0.02) + 0.1 * uKeyStrength * sin(TRUCHET_TAU * uKeyHue);
     vec3 tint = pal(hue + 0.1 + 0.1 * truchetField(p, t));

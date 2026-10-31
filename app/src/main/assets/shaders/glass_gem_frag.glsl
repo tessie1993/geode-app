@@ -9,7 +9,6 @@ out vec4 fragColor;
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_glass
@@ -35,11 +34,11 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// Hats (uHits.z) make facets sparkle: each hat lights a handful of facets,
-// chosen anew for every onset (uHitCount), in spectral colours, and they fade
+// Hats (SND_HAT_ENV) make facets sparkle: each hat lights a handful of facets,
+// chosen anew for every onset (floor(SND_HIT_TIME)), in spectral colours, and they fade
 // as the hat envelope falls. Only those facets light; the frame does not.
 // The key (uKeyHue, uKeyStrength) tints the room and the stone. Brightness
-// follows uSwell only.
+// follows SND_INTENSITY only.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -106,8 +105,8 @@ vec3 normalAt(vec3 p, float e) {
 void main() {
     vec2 uv = view();
     float t = glassTime();
-    float swell = clamp(uSwell, 0.0, 1.5);
-    float hat = clamp(uHits.z, 0.0, 1.0);
+    float swell = clamp(SND_INTENSITY, 0.0, 1.5);
+    float hat = clamp(SND_HAT_ENV, 0.0, 1.0);
     float hue = 0.04 * sin(t * 0.02) + 0.12 * uKeyStrength * sin(GLASS_TAU * uKeyHue);
     float spread = 0.035 + 0.03 * glassComplexity();
     gOrient = glassEuler(vec3(0.0, t * 0.12, 0.0)) * glassEuler(vec3(0.42, 0.0, 0.0));
@@ -164,7 +163,7 @@ void main() {
         col += vec3(1.0, 0.96, 0.9) * pow(max(dot(r, normalize(vec3(-0.35, 1.0, -0.45))), 0.0), 60.0) * 0.6;
 
         // Hat sparkle: a few facets, chosen per onset, flare in spectral colour.
-        float pick = glassHash(vec2(fid * 1.37, floor(uHitCount) * 0.71 + 3.0));
+        float pick = glassHash(vec2(fid * 1.37, floor(SND_HIT_TIME) * 0.71 + 3.0));
         float lit = smoothstep(0.86 - 0.12 * (glassEnergy() - 1.0), 0.95, pick) * hat;
         col += mix(glassSpectrum(fract(pick * 9.7)), pal(hue + pick), 0.3) * lit * 0.9;
     }

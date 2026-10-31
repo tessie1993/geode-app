@@ -8,7 +8,6 @@ out vec4 fragColor;
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_sdf3
@@ -27,14 +26,14 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// Sections SHAPE the tree. uSectionCount hashes a new form for every section
+// Sections SHAPE the tree. SND_CUT_COUNT hashes a new form for every section
 // of the song: how many levels it has, how wide it forks, how hard it twists
 // and how much it weeps, eased from the last section's form to the new one
-// over the section envelope (uEvents.z) so the tree visibly re-grows into its
+// over the section envelope (SND_HELD_HARD_CUT) so the tree visibly re-grows into its
 // new habit instead of snapping. Harmony (uHarmony) wets the brush: tonal
 // music lays the foliage wash darker and softer, noisy music dry and pale.
-// Kick (uHits.x) nudges the pads up a little, a breath. Brightness follows
-// uSwell only, and gently: this is paper.
+// Kick (SND_KICK_ENV) nudges the pads up a little, a breath. Brightness follows
+// SND_ENERGY_TREND only, and gently: this is paper.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -87,12 +86,12 @@ void main() {
     float t = uTime * uSpeed;
     float energy = uIntensity;
     float chaos = arbChaos();
-    float swell = clamp(uSwell, 0.0, 1.5);
+    float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
     float harmony = clamp(uHarmony, 0.0, 1.0) * energy;
-    float kick = clamp(uHits.x * energy, 0.0, 1.0);
+    float kick = clamp(SND_KICK_ENV * energy, 0.0, 1.0);
 
-    float morphIn = smoothstep(0.0, 1.0, 1.0 - clamp(uEvents.z, 0.0, 1.0));
-    vec4 form = mix(formFor(uSectionCount - 1.0), formFor(uSectionCount), morphIn);
+    float morphIn = smoothstep(0.0, 1.0, 1.0 - clamp(SND_HELD_HARD_CUT, 0.0, 1.0));
+    vec4 form = mix(formFor(SND_CUT_COUNT - 1.0), formFor(SND_CUT_COUNT), morphIn);
     gGrow = arbLevels(form.x, 1.0);
     gF = ArborForm(2.0, form.y, form.w, form.z + 0.5 * uTwist, 0.68, 0.72, 0.17, 0.68);
     gPad = 0.15 + 0.02 * sin(t * 0.5) + 0.035 * kick;

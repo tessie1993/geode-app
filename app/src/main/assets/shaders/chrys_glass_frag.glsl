@@ -8,7 +8,6 @@ out vec4 fragColor;
 
 //#include lib_scene_uniforms
 //#include lib_scene_motion
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_chrys
@@ -31,10 +30,10 @@ out vec4 fragColor;
 // Pitch moves the colour. uKeyHue (the detected key, eased round the hue
 // circle over 3 s) WALKS every pane's hue together as the harmony moves, gated
 // by uKeyStrength so a noisy passage leaves the window alone. On top of that,
-// each pitch change (uEvents.w) sends a hue ripple out from the boss to the
+// each pitch change (SND_HELD_NOTE_CHANGE) sends a hue ripple out from the boss to the
 // border across the rings as its envelope decays, so a melody leaves a trail
-// of rings turning colour. Spectral presence (uBandsHi.y) shifts the angle of
-// the light shafts outside. Brightness follows uSwell only: hits never light
+// of rings turning colour. Spectral presence (sndSpectrum(0.80)) shifts the angle of
+// the light shafts outside. Brightness follows SND_INTENSITY only: hits never light
 // the glass.
 //
 // ---- macros -----------------------------------------------------------------
@@ -52,9 +51,9 @@ out vec4 fragColor;
 
 void main() {
     vec2 uv = view();
-    float swell = clamp(uSwell, 0.0, 1.5);
+    float swell = clamp(SND_INTENSITY, 0.0, 1.5);
     float t = uTime * uSpeed;
-    float pitchEnv = clamp(uEvents.w, 0.0, 1.0);
+    float pitchEnv = clamp(SND_HELD_NOTE_CHANGE, 0.0, 1.0);
     float chaos = clamp(uTurbulence + uWarp, 0.0, 2.0);
     float rings = 6.0 + floor(2.0 * clamp(uMorph, 0.0, 1.0) + 0.5);
     float baseCount = clamp(floor(uSymmetry + 0.5), 3.0, 12.0);
@@ -77,7 +76,7 @@ void main() {
         col = vec3(stone * 1.1, stone, stone * 0.9) * (1.0 - 0.6 * joint);
         float fall = exp(-(r - RW_WINDOW) * 2.4);
         col += pal(baseHue + 0.15) * 0.07 * fall * light;
-        float shaftAng = ang + 0.4 * clamp(uBandsHi.y, 0.0, 1.0);
+        float shaftAng = ang + 0.4 * clamp(sndSpectrum(0.80), 0.0, 1.0);
         float shafts = pow(motionNoise(vec2(shaftAng * 7.0, t * 0.05)), 3.0);
         col += pal(baseHue + 0.3) * 0.08 * shafts * fall * light;
     } else {

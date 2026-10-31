@@ -9,7 +9,6 @@ out vec4 fragColor;
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_terra
@@ -30,11 +29,11 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// Kicks (uHits.x) PULSE THE LAVA: each kick swells the veins (wider and
+// Kicks (SND_KICK_ENV) PULSE THE LAVA: each kick swells the veins (wider and
 // hotter, easing back) - light on the veins and in the crater only, never the
-// frame. Bass (uBassSmooth) keeps the crater's glow breathing between kicks.
+// frame. Bass (SND_BASS_PRESENCE) keeps the crater's glow breathing between kicks.
 // The key (uKeyHue, gated by uKeyStrength) drifts the lava's hue a little.
-// Brightness follows uSwell only.
+// Brightness follows SND_ENERGY_TREND only.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -74,10 +73,10 @@ float vein(vec2 xz, float width, float t) {
 void main() {
     vec2 uv = view();
     float t0 = terraTime();
-    float swell = clamp(uSwell, 0.0, 1.5);
+    float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
     float energy = terraEnergy();
-    float kick = clamp(uHits.x * energy, 0.0, 1.0);
-    float bass = clamp(uBassSmooth, 0.0, 1.2);
+    float kick = clamp(SND_KICK_ENV * energy, 0.0, 1.0);
+    float bass = clamp(SND_BASS_PRESENCE, 0.0, 1.2);
     gOct = terraOctaves(3.0);
     float hue = 0.02 + 0.08 * uKeyStrength * sin(TERRA_TAU * uKeyHue);
 

@@ -8,7 +8,6 @@ out vec4 fragColor;
 
 //#include lib_scene_uniforms
 //#include lib_scene_motion
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_nebula
@@ -29,11 +28,11 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// Highs (uTrebleSmooth with the presence band, uBandsHi.y) LIGHT THE
+// Highs (sndShaped(SND_HIGH) with the presence band, sndShaped(SND_HIGH)) LIGHT THE
 // FILAMENTS: they sharpen and brighten the threads only - the diffuse glow
 // and the dark between them stay where they are - so cymbals and hats make
 // the lace glitter while the bass leaves it alone. The hats also twinkle the
-// stars. The key turns both strand hues. Overall level follows uSwell gently.
+// stars. The key turns both strand hues. Overall level follows SND_ENERGY_TREND gently.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -48,9 +47,9 @@ void main() {
     float t = nebTime();
     float flow = nebFlow();
     float e = nebEnergy();
-    float hi = clamp(0.55 * uTrebleSmooth + 0.45 * uBandsHi.y, 0.0, 1.3) * e;
-    float swell = clamp(uSwell, 0.0, 1.5);
-    float hats = clamp(uHits.z, 0.0, 1.0);
+    float hi = clamp(0.55 * sndShaped(SND_HIGH) + 0.45 * sndShaped(SND_HIGH), 0.0, 1.3) * e;
+    float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
+    float hats = clamp(SND_HAT_ENV, 0.0, 1.0);
     float oct = nebOctaves(4.0);
     float key = nebKeyShift(0.1);
 

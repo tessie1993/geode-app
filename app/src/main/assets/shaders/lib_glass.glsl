@@ -129,7 +129,7 @@ float glassComplexity() {
 
 // ---- envelope shaping --------------------------------------------------------
 //
-// lib_react's envelopes rise instantly. Glass magnifies whatever is behind it,
+// lib_sound's envelopes rise instantly. Glass magnifies whatever is behind it,
 // so a value that steps on one frame steps the whole refracted image with it.
 // These turn a hit into motion that eases.
 
@@ -140,7 +140,7 @@ float glassBump(float env) {
 }
 
 /**
- * A monotonic counter (uHitCount, uSectionCount) that GLIDES to its new value
+ * A monotonic counter (SND_ONSET_COUNT, SND_CUT_COUNT) that GLIDES to its new value
  * instead of stepping. On the frame the count increments the envelope is 1, so
  * this still returns the previous count; as the envelope falls it slides the
  * last unit. Anything positioned by it moves one notch per event, smoothly.

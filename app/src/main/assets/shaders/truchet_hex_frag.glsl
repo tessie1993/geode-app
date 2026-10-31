@@ -8,7 +8,6 @@ out vec4 fragColor;
 
 //#include lib_scene_uniforms
 //#include lib_scene_motion
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_truchet
@@ -24,10 +23,10 @@ out vec4 fragColor;
 //
 // Onsets turn a scattered share of the hexes a sixth of a turn (truchetHex),
 // eased over the onset envelope, so the cords re-route on the hit. The mids
-// (uMidSmooth) thicken the ribbons; the stripes slide along the cords on
+// (sndShaped(SND_MIDDLE)) thicken the ribbons; the stripes slide along the cords on
 // uFlowPhase (loudness sets the rate, never the direction - and the flow
 // direction follows the honeycomb's vertex classes, so it is continuous from
-// hex to hex). The bass breathes the scale. Brightness follows uSwell only.
+// hex to hex). The bass breathes the scale. Brightness follows SND_ENERGY_TREND only.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -41,15 +40,15 @@ void main() {
     vec2 uv = view();
     float t = truchetTime();
     float e = truchetEnergy();
-    float swell = clamp(uSwell, 0.0, 1.5);
-    float mids = clamp(uMidSmooth, 0.0, 1.2);
+    float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
+    float mids = clamp(sndShaped(SND_MIDDLE), 0.0, 1.2);
     float morph = truchetMorph();
 
-    float scale = (2.4 + 1.4 * morph) * truchetBreath(uBassSmooth);
+    float scale = (2.4 + 1.4 * morph) * truchetBreath(SND_BASS_PRESENCE);
     vec2 p = truchetWarp(uv * scale, t);
     float px = truchetPx(p);
 
-    TruchetArc a = truchetHex(p, floor(uHitCount), uHits.w, 3.0);
+    TruchetArc a = truchetHex(p, floor(SND_ONSET_COUNT), SND_ONSET_ENV, 3.0);
 
     float hue = 0.04 * sin(t * 0.025) + 0.1 * uKeyStrength * sin(TRUCHET_TAU * uKeyHue);
     float field = truchetField(p, t);

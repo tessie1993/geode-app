@@ -8,7 +8,6 @@ out vec4 fragColor;
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_sdf3
@@ -29,11 +28,11 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// Kick (uHits.x) is the POLYPS: every tip bulb swells on the hit and shrinks
-// back as the envelope falls, the whole reef puffing in time. Drop (uEvents.y)
+// Kick (SND_KICK_ENV) is the POLYPS: every tip bulb swells on the hit and shrinks
+// back as the envelope falls, the whole reef puffing in time. Drop (SND_HELD_SURGE)
 // is a surge of current: on the envelope's bump shape the colonies' twist
 // swings and their branches lean downstream, then settle. Low-mid
-// (uBandsLo.z) sharpens the caustic net into thin bright threads. Brightness follows uSwell only (the visibility through the water).
+// (sndSpectrum(0.41)) sharpens the caustic net into thin bright threads. Brightness follows SND_ENERGY_TREND only (the visibility through the water).
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -99,11 +98,11 @@ void main() {
 
     float t = uTime * uSpeed;
     float energy = uIntensity;
-    float swell = clamp(uSwell, 0.0, 1.5);
-    float kick = clamp(uHits.x * energy, 0.0, 1.0);
-    float drop = clamp(uEvents.y, 0.0, 1.0);
+    float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
+    float kick = clamp(SND_KICK_ENV * energy, 0.0, 1.0);
+    float drop = clamp(SND_HELD_SURGE, 0.0, 1.0);
     float dropBump = 4.0 * drop * (1.0 - drop) * energy;
-    float lowmid = clamp(uBandsLo.z, 0.0, 1.0) * energy;
+    float lowmid = clamp(sndSpectrum(0.41), 0.0, 1.0) * energy;
 
     gChaos = arbChaos();
     gSurge = 0.9 * dropBump + 0.08 * sin(t * 0.3);

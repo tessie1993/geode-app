@@ -8,7 +8,6 @@ out vec4 fragColor;
 
 //#include lib_scene_uniforms
 //#include lib_scene_motion
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_truchet
@@ -25,8 +24,8 @@ out vec4 fragColor;
 // ---- audio ------------------------------------------------------------------
 //
 // Onsets swing a scattered third of the tiles a quarter turn, so the tubing
-// re-routes on the hit. The mids (uMidSmooth) widen the bloom, the bass
-// breathes the scale, the key leans both hues. Brightness follows uSwell
+// re-routes on the hit. The mids (sndShaped(SND_MIDDLE)) widen the bloom, the bass
+// breathes the scale, the key leans both hues. Brightness follows SND_LEVEL
 // only; nothing flashes on a hit.
 //
 // ---- macros -----------------------------------------------------------------
@@ -47,14 +46,14 @@ void main() {
     vec2 uv = view();
     float t = truchetTime();
     float e = truchetEnergy();
-    float swell = clamp(uSwell, 0.0, 1.5);
-    float mids = clamp(uMidSmooth, 0.0, 1.2) * e;
+    float swell = clamp(SND_LEVEL, 0.0, 1.5);
+    float mids = clamp(sndShaped(SND_MIDDLE), 0.0, 1.2) * e;
 
-    float scale = (2.2 + 1.4 * truchetMorph()) * truchetBreath(uBassSmooth);
+    float scale = (2.2 + 1.4 * truchetMorph()) * truchetBreath(SND_BASS_PRESENCE);
     vec2 p = truchetWarp(uv * scale, t);
     float px = truchetPx(p);
 
-    TruchetArc a = truchetSquare(p, floor(uHitCount), uHits.w, 3.0);
+    TruchetArc a = truchetSquare(p, floor(SND_ONSET_COUNT), SND_ONSET_ENV, 3.0);
     // Distance from the nearest corner; the lanes are rings about it.
     float l = a.d + 0.5;
     float dMid = abs(l - 0.5);

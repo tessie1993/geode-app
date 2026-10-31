@@ -16,14 +16,14 @@
 //                  switching drops (3.5). A style here is one stateless pass:
 //                  it cannot remember last frame's spectrum. The app already
 //                  runs exactly that kind of detector on the CPU, so the kick
-//                  is uHits.x (the normalised kick level), the beat envelope
-//                  uEvents.x, the drop envelope uEvents.y, and the counters
-//                  uHitCount and uSectionCount. Their thresholds are the app's
+//                  is SND_KICK_ENV (the normalised kick level), the kick toggle
+//                  SND_KICK_TOGGLE, the drop envelope SND_HELD_SURGE, and the counters
+//                  SND_ONSET_COUNT and SND_CUT_COUNT. Their thresholds are the app's
 //                  (Reactivity tab), not a number in this file.
 //   PAL_COOLDOWN,  A palette switch needs memory (when did we last switch?),
 //   PAL_MAX_HOLD   which a stateless shader has not got. The counters stand in
 //                  for it: the palette slot is a function of
-//                  uSectionCount + floor(uHitCount / DIVE_PAL_ONSETS), so it
+//                  SND_CUT_COUNT + floor(SND_ONSET_COUNT / DIVE_PAL_ONSETS), so it
 //                  changes on every section change (where drops land) and
 //                  after every DIVE_PAL_ONSETS onsets otherwise - at ordinary
 //                  tempos a few seconds, which is what cooldown plus max-hold
@@ -96,9 +96,9 @@
 // At defaults (uSpeed 1, uMorph 0, chaos 0, uIntensity 1) each is identity.
 //
 // INCLUDE ORDER: last, after lib_scene_uniforms, lib_scene_motion,
-// lib_camera, lib_react, lib_palette and lib_scene_grade. It reads uSteps,
-// uMorph, uWarp, uTurbulence, uSpeed, uIntensity, uMidSmooth, uFlowPhase,
-// the lib_react events, the rig and vUv (diveIris), and calls pal().
+// lib_camera, lib_palette and lib_scene_grade. It reads uSteps,
+// uMorph, uWarp, uTurbulence, uSpeed, uIntensity, sndShaped(SND_MIDDLE), uFlowPhase,
+// the lib_sound events, the rig and vUv (diveIris), and calls pal().
 // It includes nothing itself and defines its own small helpers (dive_*), so
 // it does not depend on lib_sdf3.
 
@@ -216,17 +216,17 @@ int dive_palSlot(float c) {
 
 /**
  * Picks the active palette and the one it is fading from. A switch caused by
- * the Nth onset fades over that onset's own envelope (uHits.w, 0.22 s); one
- * caused by a section change over the section envelope (uEvents.z, 1.5 s).
+ * the Nth onset fades over that onset's own envelope (SND_ONSET_ENV, 0.22 s); one
+ * caused by a section change over the section envelope (SND_HELD_HARD_CUT, 1.5 s).
  * The onset fade is gated to the onset that tipped the counter, or every
  * onset would flick back to the old palette for a moment.
  */
 void dive_palInit() {
-    float c = uSectionCount + floor(uHitCount / DIVE_PAL_ONSETS);
+    float c = SND_CUT_COUNT + floor(SND_ONSET_COUNT / DIVE_PAL_ONSETS);
     gDivePalNew = dive_palSlot(c);
     gDivePalOld = dive_palSlot(c - 1.0);
-    float onsetFade = mod(uHitCount, DIVE_PAL_ONSETS) < 0.5 ? clamp(uHits.w, 0.0, 1.0) : 0.0;
-    float fade = max(onsetFade, clamp(uEvents.z, 0.0, 1.0));
+    float onsetFade = mod(SND_ONSET_COUNT, DIVE_PAL_ONSETS) < 0.5 ? clamp(SND_ONSET_ENV, 0.0, 1.0) : 0.0;
+    float fade = max(onsetFade, clamp(SND_HELD_HARD_CUT, 0.0, 1.0));
     gDivePalFade = smoothstep(0.0, 1.0, fade);
 }
 
@@ -271,13 +271,13 @@ void diveSetup(int scene) {
     dive_palInit();
     gDiveScene = scene;
     gDiveBreath = 1.0;
-    gDiveKick = clamp(uHits.x * e, 0.0, 1.0);
+    gDiveKick = clamp(SND_KICK_ENV * e, 0.0, 1.0);
     gDiveBeam = 0.13 + 0.05 * gDiveKick;
     // Loudness sets the base rate (uFlowPhase only ever advances); mids push
-    // the rings ahead while they climb. uMidSmooth is slewed, so no jump.
-    gDiveSpin = diveTime() * 0.45 + uFlowPhase * 0.6 + 1.6 * clamp(uMidSmooth, 0.0, 1.5) * e;
+    // the rings ahead while they climb. sndShaped(SND_MIDDLE) has its own attack and release, so no jump.
+    gDiveSpin = diveTime() * 0.45 + uFlowPhase * 0.6 + 1.6 * clamp(sndShaped(SND_MIDDLE), 0.0, 1.5) * e;
     gDiveFolds = 6.0 + 6.0 * diveMorph();
-    gDivePetal = 1.0 + 0.3 * clamp(uEvents.x * e, 0.0, 1.0);
+    gDivePetal = 1.0 + 0.3 * clamp(SND_KICK_TOGGLE * e, 0.0, 1.0);
     gDiveChaosAmp = 0.06 * clamp(uWarp, 0.0, 2.0) + 0.04 * clamp(uTurbulence, 0.0, 2.0);
     gDiveChaosT = diveTime() * 0.5;
     gDiveSway = 1.0;

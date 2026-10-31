@@ -99,19 +99,17 @@ vec3 bokeh(vec2 uv) {
     float seed = fract(sin(dot(cell, vec2(127.1, 311.7))) * 43758.5);
     l += 0.18 * vec2(cos(seed * 40.0), sin(seed * 27.0));
     float blob = smoothstep(0.3, 0.04, length(l)) * (0.25 + 0.75 * seed);
-    return field + pal(0.62) * blob * 0.16 * (0.6 + 0.4 * uEnergySmooth);
+    return field + pal(0.62) * blob * 0.16 * (0.6 + 0.4 * ((SND_BASS_PRESENCE + SND_MID_PRESENCE + SND_TREBLE_PRESENCE) / 3.0));
 }
 
 void main() {
     vec2 uv = view();
     // Smoothed bass breathes the lattice; uSpike swells the fringes. Neither can
     // move far in one frame, which is what keeps the dots from strobing.
-    float pulse = clamp(uBassSmooth * uBeatResponse, 0.0, 1.5);
-    float beat = clamp(uSpike * uBeatResponse, 0.0, 1.0);
     float folds = foldCount();
     // Integrated, so loudness changes the spin RATE instead of jumping its angle.
     float spin = uFlowPhase * 0.55 + uTime * 0.03;
-    float split = 0.035 + 0.03 * beat;
+    float split = 0.035;
     float finger = touchFalloff(uv, 0.45);
 
     // The sphere fits the shorter axis, so a portrait phone shows the whole
@@ -120,13 +118,13 @@ void main() {
     float rr = length(p);
     vec3 col = bokeh(uv);
     // Halo the sphere sits in; wider on a hit.
-    col += pal(0.62) * 0.14 * exp(-max(rr - 1.0, 0.0) * (9.0 - 3.0 * beat));
+    col += pal(0.62) * 0.14 * exp(-max(rr - 1.0, 0.0) * 9.0);
 
     // The particle layer, outside the glass only, drifting with the field.
     col += pal(0.55) * fluidMotes(uv * 0.7, 4.5, 0.17) * 0.15 * smoothstep(0.9, 1.3, rr);
 
     if (rr < 1.0) {
-        vec3 rgb = chroma(p, folds, spin, pulse + finger, split + 0.03 * finger);
+        vec3 rgb = chroma(p, folds, spin, finger, split + 0.03 * finger);
         vec3 green = mix(pal(0.62), pal(0.55), 0.3);
         vec3 blue = pal(0.33);
         vec3 orange = pal(0.94);
@@ -146,7 +144,7 @@ void main() {
         float rim = smoothstep(0.86, 1.0, rr);
         vec3 sphere = pal(0.62) * 0.04 + dots * limb;
         sphere += vec3(0.25, 0.45, 0.35) * highlight * 0.25;
-        sphere += pal(0.55) * rim * (0.25 + 0.3 * beat);
+        sphere += pal(0.55) * rim * 0.25;
         float edge = smoothstep(1.0, 0.985, rr);
         col = mix(col, sphere, edge);
     }

@@ -23,8 +23,8 @@ out vec4 fragColor;
 // KIFS), so the pattern repeats at every scale the way the reference does,
 // without a raymarch: this stays off MARCHED_SCENES.
 //
-// Audio: uSwell breathes the fold scale, uBassSmooth the ink weight,
-// uTrebleSmooth the outline separation. A spike picks a new fold count
+// Audio: SND_ENERGY_TREND breathes the fold scale, SND_BASS_PRESENCE the ink weight,
+// sndShaped(SND_HIGH) the outline separation. A spike picks a new fold count
 // (uFormPhase), re-seeds which floaters are present (uSpawnSeed) and re-aims
 // the drift (uMoveDir). No term steps, and nothing keys brightness off a raw
 // envelope.
@@ -100,9 +100,9 @@ vec3 ink(vec2 p, float scale, float turn, float split) {
 void main() {
     vec2 uv = view();
 
-    float bass = clamp(uBassSmooth, 0.0, 1.5);
-    float treb = clamp(uTrebleSmooth, 0.0, 1.5);
-    float swell = clamp(uSwell, 0.0, 1.5);
+    float bass = clamp(SND_BASS_PRESENCE, 0.0, 1.5);
+    float treb = clamp(sndShaped(SND_HIGH), 0.0, 1.5);
+    float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
     // Kaleidoscope arms: the user's when they have set one, otherwise the
     // plateau the last spike chose. Held, not stepped per beat.
     float folds = (uKaleido > 0.5 && uSymmetry >= 2.0) ? uSymmetry : 6.0 + 2.0 * floor(uFormPhase * 3.0);

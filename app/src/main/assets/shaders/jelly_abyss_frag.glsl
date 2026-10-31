@@ -8,7 +8,6 @@ out vec4 fragColor;
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_sdf3
@@ -36,23 +35,23 @@ out vec4 fragColor;
 //
 // Each sound moves a DIFFERENT property:
 //
-//   kick (uHits.x)         the bells contract (squash and stretch) and the
+//   kick (SND_KICK_ENV)         the bells contract (squash and stretch) and the
 //                          jellies jet upward on a 0-1-0 bump as it falls
-//   snare (uHits.y)        a bioluminescent pulse runs down every tentacle
-//   hats (uHits.z)         marine-snow flakes sparkle
-//   onset (uHits.w)        jellies change colour one at a time: each onset
-//                          (uHitCount) recolours about one in JA_RECOLOUR,
+//   snare (SND_SNARE_ENV)        a bioluminescent pulse runs down every tentacle
+//   hats (SND_HAT_ENV)         marine-snow flakes sparkle
+//   onset (SND_ONSET_ENV)        jellies change colour one at a time: each onset
+//                          (floor(SND_HIT_TIME)) recolours about one in JA_RECOLOUR,
 //                          cross-fading over the envelope with a brief glow
-//   low bands (uBandsLo)   tentacle sway: the current drags them further
-//   high bands (uBandsHi)  the glow of the radial canals inside each bell
-//   drop (uEvents.y)       the whole swarm lights up, the snow turns into a
+//   low bands (vec4(sndLevel(SND_SUB_ATT), sndSpectrum(0.23), sndShaped(SND_LOW), sndSpectrum(0.57)))   tentacle sway: the current drags them further
+//   high bands (vec4(sndLevel(SND_MID_HIGH_ATT), sndSpectrum(0.80), sndLevel(SND_TREBLE_ATT), sndLevel(SND_FLUX)))  the glow of the radial canals inside each bell
+//   drop (SND_HELD_SURGE)       the whole swarm lights up, the snow turns into a
 //                          glowing swarm, and the palette swaps for its length
-//   pitch change (uEvents.w) and the key hue: a hue drift
-//   section (uSectionCount) the depth zone: sunlit, twilight, midnight,
+//   pitch change (SND_HELD_NOTE_CHANGE) and the key hue: a hue drift
+//   section (SND_CUT_COUNT) the depth zone: sunlit, twilight, midnight,
 //                          abyss; water, fog, shafts and jelly hues follow,
 //                          eased over the section envelope
 //
-// Overall level follows uSwell only.
+// Overall level follows (0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)) only.
 
 /** Compile-time ceiling. uSteps is the runtime budget. */
 #define JA_MAX_STEPS 96
@@ -164,7 +163,7 @@ vec3 normalAt(vec3 p, float eps) {
 
 /** This jelly's hue. `fresh` is 1 the instant an onset recoloured it, falling to 0. */
 float jellyHue(float seed, out float fresh) {
-    float n = floor(uHitCount) + seed * JA_RECOLOUR;
+    float n = floor(SND_HIT_TIME) + seed * JA_RECOLOUR;
     float idx = floor(n / JA_RECOLOUR);
     // The jellies whose count just wrapped are the ones the last onset took.
     float justNow = step(mod(n, JA_RECOLOUR), 1.0);
@@ -195,26 +194,26 @@ void zoneParams(float z, out vec3 water, out vec4 prm) {
 void main() {
     vec2 uv = view();
 
-    float swell = clamp(uSwell, 0.0, 1.5);
-    float kick = clamp(uHits.x, 0.0, 1.0);
-    float snare = clamp(uHits.y, 0.0, 1.0);
-    float hats = clamp(uHits.z, 0.0, 1.0);
-    float onset = clamp(uHits.w, 0.0, 1.0);
-    float drop = clamp(uEvents.y, 0.0, 1.0);
-    float pitch = clamp(uEvents.w, 0.0, 1.0);
-    float hiBand = clamp(0.6 * uBandsHi.x + 0.5 * uBandsHi.y, 0.0, 1.0);
+    float swell = clamp((0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)), 0.0, 1.5);
+    float kick = clamp(SND_KICK_ENV, 0.0, 1.0);
+    float snare = clamp(SND_SNARE_ENV, 0.0, 1.0);
+    float hats = clamp(SND_HAT_ENV, 0.0, 1.0);
+    float onset = clamp(SND_ONSET_ENV, 0.0, 1.0);
+    float drop = clamp(SND_HELD_SURGE, 0.0, 1.0);
+    float pitch = clamp(SND_HELD_NOTE_CHANGE, 0.0, 1.0);
+    float hiBand = clamp(0.6 * sndLevel(SND_MID_HIGH_ATT) + 0.5 * sndSpectrum(0.80), 0.0, 1.0);
 
     // Kick: contract at once, jet on the bump as the envelope falls (0 at the
     // hit and at rest, so the jellies glide up and settle back).
     gContract = 0.55 * kick;
     gJet = 4.0 * kick * (1.0 - kick);
-    gSway = 0.15 + 0.25 * clamp(uBassSmooth, 0.0, 1.5) / 1.5 + 0.2 * clamp(uBandsLo.x, 0.0, 1.0);
+    gSway = 0.15 + 0.25 * clamp(sndShaped(SND_LOW), 0.0, 1.5) / 1.5 + 0.2 * clamp(sndLevel(SND_SUB_ATT), 0.0, 1.0);
     // 0 on the onset's frame (it triggers to 0.4..1), 1 once it has fallen.
     gOnsetProg = (1.0 - smoothstep(0.05, 0.4, onset));
 
     // ---- depth zone, eased across a section change ---------------------------
-    float sec = floor(uSectionCount);
-    float secBlend = (1.0 - smoothstep(0.15, 0.95, clamp(uEvents.z, 0.0, 1.0)));
+    float sec = floor(SND_CUT_COUNT);
+    float secBlend = (1.0 - smoothstep(0.15, 0.95, clamp(SND_HELD_HARD_CUT, 0.0, 1.0)));
     vec3 waterP;
     vec3 waterC;
     vec4 prmP;

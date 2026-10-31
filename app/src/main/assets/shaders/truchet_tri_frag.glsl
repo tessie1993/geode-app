@@ -8,7 +8,6 @@ out vec4 fragColor;
 
 //#include lib_scene_uniforms
 //#include lib_scene_motion
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_truchet
@@ -27,10 +26,10 @@ out vec4 fragColor;
 //
 // Onsets re-roll a scattered third of the triangles, cross-fading the old lead
 // into the new over the onset envelope, so panes split and merge on the hits.
-// A section change (uEvents.z, uSectionCount) turns the whole window's
+// A section change (SND_HELD_HARD_CUT, SND_CUT_COUNT) turns the whole window's
 // colours to a new place on the palette, eased across the section envelope.
 // The key (uKeyHue, weighted by uKeyStrength) leans the hue; the bass breathes
-// the scale. The back light follows uSwell gently.
+// the scale. The back light follows (0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)) gently.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -48,16 +47,16 @@ vec3 glass(TruchetTri tri, vec2 p, float variant, float px) {
 void main() {
     vec2 uv = view();
     float t = truchetTime();
-    float swell = clamp(uSwell, 0.0, 1.5);
+    float swell = clamp((0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)), 0.0, 1.5);
     float morph = truchetMorph();
 
-    float scale = (2.2 + 1.3 * morph) * truchetBreath(uBassSmooth);
+    float scale = (2.2 + 1.3 * morph) * truchetBreath(sndShaped(SND_LOW));
     vec2 p = truchetWarp(uv * scale, t);
     float px = truchetPx(p);
 
     TruchetTri tri = truchetTriCell(p);
     vec2 rid = vec2(tri.id.x * 2.0 + tri.id.z, tri.id.y);
-    vec3 roll = truchetRoll(rid, floor(uHitCount), uHits.w, 3.0);
+    vec3 roll = truchetRoll(rid, floor(SND_HIT_TIME), SND_ONSET_ENV, 3.0);
     float vOld = truchetTriVariant(roll.x);
     float vNew = truchetTriVariant(roll.y);
     vec3 g = glass(tri, p, vNew, px);
@@ -70,9 +69,9 @@ void main() {
     float lead = g.z;
 
     // Section colour: a new place on the wheel each section, slid into.
-    float se = clamp(uEvents.z, 0.0, 1.0);
+    float se = clamp(SND_HELD_HARD_CUT, 0.0, 1.0);
     se = se * se * (3.0 - 2.0 * se);
-    float sec = mix(truchetHash(vec2(uSectionCount, 7.0)), truchetHash(vec2(uSectionCount - 1.0, 7.0)), se);
+    float sec = mix(truchetHash(vec2(SND_CUT_COUNT, 7.0)), truchetHash(vec2(SND_CUT_COUNT - 1.0, 7.0)), se);
 
     float field = truchetField(p * 1.3, t);
     float hue = 0.3 * sec + 0.12 * uKeyStrength * sin(TRUCHET_TAU * uKeyHue) + 0.03 * sin(t * 0.02);

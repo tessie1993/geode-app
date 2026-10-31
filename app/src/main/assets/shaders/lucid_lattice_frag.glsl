@@ -8,7 +8,6 @@ out vec4 fragColor;
 
 //#include lib_scene_uniforms
 //#include lib_scene_motion
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_lucid
@@ -31,8 +30,8 @@ out vec4 fragColor;
 // tonal, sustained music keeps it a smooth interference pattern; noisy,
 // percussive passages fold it into ridges (1 - |f|) - the same crystal with
 // cracked, glassy creases - and the warp follows the same morph. A tonal
-// break visibly heals the lattice. The beat envelope (uEvents.x) gently
-// tightens the crystal's scale. Brightness follows uSwell gently.
+// break visibly heals the lattice. The beat envelope (SND_KICK_ENV) gently
+// tightens the crystal's scale. Brightness follows (0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)) gently.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -67,10 +66,10 @@ void main() {
     vec2 uv = lucidView(false);
     float t = uTime * uSpeed;
     float flow = uFlowPhase * uSpeed;
-    float swell = clamp(uSwell, 0.0, 1.5);
+    float swell = clamp((0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)), 0.0, 1.5);
     // 1 = smooth crystal, 0 = fully ridged.
     float smoothness = clamp(mix(1.0, clamp(uHarmony, 0.0, 1.0), clamp(uIntensity, 0.0, 1.5)), 0.0, 1.0);
-    float beat = clamp(uEvents.x, 0.0, 1.0) * uIntensity;
+    float beat = clamp(SND_KICK_ENV, 0.0, 1.0) * uIntensity;
 
     float waves = (uKaleido > 0.5 && uSymmetry >= 2.0) ? clamp(floor(uSymmetry + 0.5), 3.0, 11.0)
                                                        : 7.0 + (uMorph >= 0.5 ? 2.0 : 0.0);

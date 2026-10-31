@@ -9,7 +9,6 @@ out vec4 fragColor;
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_sdf3
@@ -34,13 +33,13 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// ONSETS re-cut the jewels. Every onset bumps uHitCount, which hashes a new
-// rotation for the seed bulb inside its gem; the onset envelope (uHits.w,
+// ONSETS re-cut the jewels. Every onset bumps floor(SND_HIT_TIME), which hashes a new
+// rotation for the seed bulb inside its gem; the onset envelope (SND_ONSET_ENV,
 // 0.22 s) glides from the previous cut to the new one, so each attack makes
 // all six stones re-facet in a quick, smooth lurch and busy passages keep
-// them churning. Bass (uBassSmooth) breathes the constellation open: the
+// them churning. Bass (sndShaped(SND_LOW)) breathes the constellation open: the
 // gems drift out along their axes and back. The seed's own spin follows the accumulated rotation uDrift.
-// Treble sharpens the jewel's specular. Brightness follows uSwell only.
+// Treble sharpens the jewel's specular. Brightness follows SND_INTENSITY only.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -90,16 +89,16 @@ vec3 normalAt(vec3 p, float e) {
 
 void main() {
     vec2 uv = view();
-    float swell = clamp(uSwell, 0.0, 1.5);
-    float onset = clamp(uHits.w, 0.0, 1.0);
+    float swell = clamp(SND_INTENSITY, 0.0, 1.5);
+    float onset = clamp(SND_ONSET_ENV, 0.0, 1.0);
     float glide = smoothstep(0.0, 1.0, 1.0 - onset);
     float en = bulbEnergy();
-    vec3 angOld = seedAngles(uHitCount - 1.0);
-    vec3 angNew = seedAngles(uHitCount);
+    vec3 angOld = seedAngles(floor(SND_HIT_TIME) - 1.0);
+    vec3 angNew = seedAngles(floor(SND_HIT_TIME));
     vec3 ang = mix(angOld, angNew, glide) * en;
     gRot = rotX(ang.x) * rotY(ang.y + 0.3 * uDrift) * rotZ(ang.z);
     // On the x axis, so the mirrors make six gems, not forty-eight fused ones.
-    gOff = vec3(BP_REACH + 0.22 * clamp(uBassSmooth, 0.0, 1.5) * en, 0.0, 0.0);
+    gOff = vec3(BP_REACH + 0.22 * clamp(sndShaped(SND_LOW), 0.0, 1.5) * en, 0.0, 0.0);
     gTurn = rotY(0.07 * uDrift) * rotX(0.6);
     gIters = bulbIters(6);
 
@@ -132,7 +131,7 @@ void main() {
         }
     }
 
-    vec3 col = dmtChrysanthemum(rd, hue + 0.5, clamp(uEnergySmooth, 0.0, 1.5)) * 0.7;
+    vec3 col = dmtChrysanthemum(rd, hue + 0.5, clamp(((SND_BASS_PRESENCE + SND_MID_PRESENCE + SND_TREBLE_PRESENCE) / 3.0), 0.0, 1.5)) * 0.7;
     col += dmtHalo(near, hue + 0.2, 10.0, 0.18);
 
     if (hitT > 0.0) {
@@ -140,7 +139,7 @@ void main() {
         vec3 n = normalAt(p, bulbEps(hitT));
         float ao = bulbStepAO(used) * (0.5 + 0.5 * smoothstep(0.1, 0.9, trap.x));
         float band = 1.2 * sqrt(trap.x) + 0.8 * trap.y;
-        col = dmtShade(n, rd, hue, band, ao, smoothstep(0.3, 0.0, trap.z), clamp(uTrebleSmooth, 0.0, 1.5)) * 0.85;
+        col = dmtShade(n, rd, hue, band, ao, smoothstep(0.3, 0.0, trap.z), clamp(SND_TREBLE_PRESENCE, 0.0, 1.5)) * 0.85;
     }
 
     col *= 0.82 + 0.2 * swell;

@@ -9,7 +9,6 @@ out vec4 fragColor;
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_bulb
@@ -27,10 +26,10 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// The SNARE squashes and stretches the body, cartoon style: each hit (uHits.y)
+// The SNARE squashes and stretches the body, cartoon style: each hit (SND_SNARE_ENV)
 // flattens it vertically and bulges it sideways, and it springs back as the
 // hit decays. The estimate is divided by the larger stretch so the squashed
-// march stays safe. Brightness follows uSwell only.
+// march stays safe. Brightness follows SND_INTENSITY only.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -70,8 +69,8 @@ vec3 normalAt(vec3 p, float e) {
 
 void main() {
     vec2 uv = view();
-    float swell = clamp(uSwell, 0.0, 1.5);
-    float snare = clamp(uHits.y, 0.0, 1.0);
+    float swell = clamp(SND_INTENSITY, 0.0, 1.5);
+    float snare = clamp(SND_SNARE_ENV, 0.0, 1.0);
     float s = 0.22 * snare * bulbEnergy();
     gSquash = vec3(1.0 + 0.6 * s, 1.0 - s, 1.0 + 0.6 * s);
     gLip = min(gSquash.x, gSquash.y);

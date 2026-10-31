@@ -71,7 +71,6 @@ private:
         float spectrumPeak = 1e-6f;
         bool waveHasPrev = false;
         RelativeLevel flux;
-        bool fluxPrimed = false;
         float centroid = 0.0f;
         float rolloff = 0.0f;
         float flatness = 0.0f;
@@ -84,8 +83,7 @@ private:
         float peakMag = 0.0f;
         float width = 0.0f;
         float pan = 0.0f;
-        std::array<RelativeLevel, kSlices> slice;
-        std::array<float, 4> drumRef{1.0f, 1.0f, 1.0f, 1.0f};  // kick, snare body, snare noise, hat
+        std::array<RelativeLevel, 3> slice;  // low, middle, high
         std::array<Trigger, 3> drumTrigger;
         std::array<Envelope, 4> envelope;  // kick, snare, hat, onset
         uint32_t kickCount = 0;
@@ -100,7 +98,6 @@ private:
         float silentSeconds = 0.0f;
         bool surgeArmed = true;
         float quietMemory = 0.0f;
-        float rmsRef = 0.0f;
         float sinceAttack = 1e9f;
         float sinceReattack = 1e9f;
         int candidateNote = -1;
@@ -131,7 +128,7 @@ private:
     void spectrumPoints(float dt, float* out);
     void waveform(float* out);
     void descriptors(float dt, bool warm, bool silent, GeodeSoundFrame& out);
-    void drums(float dt, bool warm, bool silent, GeodeSoundFrame& out);
+    void drums(float dt, bool silent, GeodeSoundFrame& out);
     void events(float dt, bool warm, GeodeSoundFrame& out);
     void melody(float dt, GeodeSoundFrame& out);
     void clocks(float dt, GeodeSoundFrame& out);
@@ -165,7 +162,8 @@ private:
     float starvedSeconds_ = 0.0f;
     bool starved_ = false;  // nothing written for a while: the window reads as silence, not a frozen loop
     std::array<SliceBand, kSlices> bank_;
-    std::array<float, kSlices> sliceNow_{};  // this frame's slice levels
+    std::array<float, kSlices> sliceNow_{};   // this frame's slice levels
+    std::array<float, kSlices> punchNow_{};   // and the highest punch each slice held
 
     // Per-frame scratch, overwritten every step.
     std::vector<float> mono_;
@@ -174,7 +172,12 @@ private:
     std::vector<float> windowed_;
     std::vector<float> mag_;  // |X|·2/Σw: a full-scale sine reads 1
     std::vector<float> tilted_;
-    std::vector<float> prevLogMag_;
+    // The last few frames' log spectra, so flux always compares against one about kFluxLag old: against
+    // the previous frame it would measure half the change at 60 fps that it does at 30.
+    static constexpr int kFluxSlots = 9;  // enough for kFluxLag at 240 fps
+    std::vector<float> prevLogMag_;       // kFluxSlots × (n/2 + 1)
+    std::array<float, kFluxSlots> fluxAge_{};  // seconds; < 0 = empty
+    int fluxHead_ = 0;
     std::vector<float> pitchMono_;
     std::vector<float> pitchMag_;
     std::vector<float> waveRaw_;

@@ -231,8 +231,39 @@ object StyleFamilies {
                 ),
         )
 
+    /** Galaxies and gas clouds: layered dust, spiral arms, and volumes flown through. */
+    val NEBULA: StyleFamily =
+        StyleFamily(
+            name = "nebula",
+            label = "Nebula",
+            prefix = "nebula_",
+            library = "lib_nebula",
+            ids =
+                listOf(
+                    "nebula_dust",
+                    "nebula_spiral",
+                    "nebula_ring",
+                    "nebula_veil",
+                    "nebula_pulsar",
+                    "nebula_cluster",
+                    "nebula_nova",
+                    "nebula_horizon",
+                    "nebula_pillars",
+                    "nebula_flight",
+                    "nebula_storm",
+                    "nebula_web",
+                ),
+            marchedIds =
+                setOf(
+                    "nebula_pillars",
+                    "nebula_flight",
+                    "nebula_storm",
+                    "nebula_web",
+                ),
+        )
+
     /** In picker order. */
-    val all: List<StyleFamily> = listOf(ARBOR, BULB, CHRYSANTHEMUM, LUCID, DIVE, GLASS)
+    val all: List<StyleFamily> = listOf(ARBOR, BULB, CHRYSANTHEMUM, LUCID, DIVE, GLASS, NEBULA)
 
     /** Every family style id, in picker order. */
     val ids: List<String> = all.flatMap { it.ids }

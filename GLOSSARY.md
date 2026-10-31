@@ -46,7 +46,7 @@ A named look within a scene family, picked from the style catalogue.
 _Avoid_: Variant, skin
 
 **Style family**:
-Twelve fragment-shader styles built on one shared GLSL library (`lib_<family>`), each with its own geometry and its own way of hearing the music. The first is the basic one and is free; the rest are Pro. The families are Arbor, Bulb, Chrysanthemum, Lucid, Dive and Glass.
+Twelve fragment-shader styles built on one shared GLSL library (`lib_<family>`), each with its own geometry and its own way of hearing the music. The first is the basic one and is free; the rest are Pro. The families are Arbor, Bulb, Chrysanthemum, Lucid, Dive, Glass and Nebula.
 _Avoid_: Pack, collection, scene family (that is the renderer, such as Cymatics or Fluid)
 
 **Arbor**:
@@ -66,6 +66,9 @@ The fly-through style family: one camera diving along a path (straight, serpent,
 
 **Glass**:
 The refraction style family: ray-traced glass shapes, dispersion, thin-film bubbles and caustic light.
+
+**Nebula**:
+The space style family: layered dust, spiral galaxies and gas volumes flown through. Not the loose `nebula` style, which predates it.
 
 **Scene params**:
 The full set of tunable values a scene is drawn with at one moment.

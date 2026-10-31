@@ -22,6 +22,8 @@ public:
     explicit PerformanceMonitor(float targetFps = 50.0f, float sustainSeconds = 2.5f, int windowSize = 30);
     void setPacedFps(float fps) { pacedFps_.store(fps); }
     float averageFps() const;
+    // A full window at or above the effective target: the headroom an adaptive step back up waits for.
+    bool keepingUp() const;
     int onFrame(float dtSeconds);
     void reset();
 
@@ -46,6 +48,9 @@ public:
     ThermalTier tier() const { return offscreenDepth_.load() > 0 ? ThermalTier::Full : settled_.load(); }
     void setPacedFps(float fps) { pacedFps_.store(fps); }
     float pacedFps() const { return pacedFps_.load(); }
+    // Settings › Performance "Adapt to frame time": measured frame time steers the tier even when
+    // the platform reports thermals, and a sustained run of kept-up frames steps it back up.
+    void setAdaptive(bool on) { adaptive_.store(on); }
 
     // Marks the platform as answering; called once with the first real status.
     void setPlatformStatus(int status) { osStatus_.store(status); platformKnows_.store(true); }
@@ -67,6 +72,7 @@ private:
     static constexpr float kHeadroomEased = 0.75f;
     static constexpr float kHeadroomReduced = 0.85f;
     static constexpr float kHeadroomMinimal = 0.95f;
+    static constexpr float kMeasuredRelaxSeconds = 45.0f;
 
     void trackMeasuredTrend(float dtSeconds);
     ThermalTier observe() const;
@@ -80,6 +86,8 @@ private:
     std::atomic<float> headroom_{NAN};
     std::atomic<int> offscreenDepth_{0};
     std::atomic<float> pacedFps_{0.0f};
+    std::atomic<bool> adaptive_{false};
+    float keptUpSeconds_ = 0.0f;
     PerformanceMonitor monitor_;
     ThermalTier measuredFloor_ = ThermalTier::Full;
     static constexpr ThermalTier kMeasuredCeiling = ThermalTier::Reduced;

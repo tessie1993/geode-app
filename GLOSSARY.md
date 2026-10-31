@@ -180,3 +180,13 @@ _Avoid_: Screensaver (UI label only)
 
 **Widget**:
 The home-screen now-playing widget.
+
+## Code
+
+**Engine**:
+Code that turns sound into numbers or numbers into pixels: DSP, analysis, feature maths, reactions, scene parameter maths, camera, randomizers and the scene and style metadata. It lives in C++ (`core/`). See ADR 0003. Not the `:engine:*` Gradle modules, which still hold both engine and shell Kotlin.
+_Avoid_: Core logic, backend
+
+**Shell**:
+The Kotlin around the engine: JNI declarations, Android lifecycle, Media3 and MediaCodec wiring, UI, stores, permissions, file IO, product rules (Pro) and display labels.
+_Avoid_: Wrapper, glue layer

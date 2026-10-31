@@ -351,7 +351,7 @@ class VideoExporter(
         return (result as? LoudnessResult.Measured)?.let { LoudnessTargets.advise(it.report, target) }
     }
 
-    @Suppress("NestedBlockDepth")
+    @Suppress("NestedBlockDepth", "LongParameterList")
     private fun encodeInto(
         pfd: ParcelFileDescriptor,
         audioUri: Uri,

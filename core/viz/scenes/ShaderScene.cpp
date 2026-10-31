@@ -102,20 +102,18 @@ void ShaderScene::update(const GeodeFeatureFrame& features, float dt) {
     beatPhase_ = features.beatPhase;
     // Wave three: the continuous motion layer, never a transient/beat trigger.
     motionField_.step(features, dt);
-    reactSignals_.step(features, dt);
-    // Band regions feed geometry directly (heights, swells), so they get the
-    // same rise/fall slew as uBassSmooth rather than arriving hop-raw.
-    for (int i = 0; i < 8; ++i) {
-        const float raw = reactSignals_.value(static_cast<ReactSource>(static_cast<int>(ReactSource::SubBass) + i));
-        bandsSmooth_[static_cast<size_t>(i)] = slew(bandsSmooth_[static_cast<size_t>(i)], raw, dt, kBandRiseHz, kBandFallHz);
+    if (sound_ != nullptr) reactSignals_.step(*sound_, dt);
+    // lib_react's band regions, low to high, then flux, from the sound frame. They feed geometry
+    // directly (heights, swells), so they get the same rise/fall slew as uBassSmooth.
+    static constexpr std::array<ReactSource, 8> kBandSources = {ReactSource::Sub,    ReactSource::Bass,   ReactSource::Low,
+                                                                 ReactSource::Mid,    ReactSource::MidHigh, ReactSource::High,
+                                                                 ReactSource::Treble, ReactSource::Flux};
+    for (size_t i = 0; i < kBandSources.size(); ++i) {
+        bandsSmooth_[i] = slew(bandsSmooth_[i], reactSignals_.value(kBandSources[i]), dt, kBandRiseHz, kBandFallHz);
     }
-    // Drum levels arrive hop-raw; peak-hold them so a shader reads an envelope
-    // (instant rise, ~0.15 s fall) rather than a level that chatters.
-    for (int i = 0; i < 3; ++i) {
-        const float raw = reactSignals_.value(static_cast<ReactSource>(static_cast<int>(ReactSource::Kick) + i));
-        float& held = hitsSmooth_[static_cast<size_t>(i)];
-        held = std::max(raw, held * std::exp(-std::max(dt, 0.0f) * kHitFallHz));
-    }
+    // The engine's drum envelopes already rise instantly and decay; they are uHits.xyz as they are.
+    static constexpr std::array<ReactSource, 3> kHitSources = {ReactSource::KickEnv, ReactSource::SnareEnv, ReactSource::HatEnv};
+    for (size_t i = 0; i < kHitSources.size(); ++i) hitsSmooth_[i] = reactSignals_.value(kHitSources[i]);
     for (int i = 0; i < kAudioTexWidth; ++i) {
         const int band = i * GEODE_BAND_COUNT / kAudioTexWidth;
         texData_[static_cast<size_t>(i)] = std::clamp(features.bands[band] * drive, 0.0f, kAudioClamp);
@@ -327,11 +325,13 @@ void ShaderScene::uploadCameraAndReactions() {
     const ReactSignals& r = reactSignals_;
     auto v = [&](ReactSource s) { return r.value(s); };
     glUniform4f(uniforms_.loc("uHits"), hitsSmooth_[0], hitsSmooth_[1], hitsSmooth_[2], v(ReactSource::Onset));
-    glUniform4f(uniforms_.loc("uEvents"), v(ReactSource::Beat), v(ReactSource::Drop), v(ReactSource::Section), v(ReactSource::PitchChange));
+    // lib_react's events until the styles move to lib_sound: the kick for the beat, a surge for the
+    // drop, a hard cut for the section, a note change for the key.
+    glUniform4f(uniforms_.loc("uEvents"), v(ReactSource::Kick), v(ReactSource::Surge), v(ReactSource::HardCut), v(ReactSource::NoteChange));
     glUniform4fv(uniforms_.loc("uBandsLo"), 1, bandsSmooth_.data());
     glUniform4fv(uniforms_.loc("uBandsHi"), 1, bandsSmooth_.data() + 4);
     set1f("uHitCount", r.onsetCount());
-    set1f("uSectionCount", r.sectionCount());
+    set1f("uSectionCount", r.cutCount());
 }
 
 void ShaderScene::set1f(const char* name, float value) {

@@ -5,7 +5,10 @@
 #include <cstdio>
 #include <cstdlib>
 
+#include <set>
+
 #include "viz/CameraRig.hpp"
+#include "viz/ReactionDna.hpp"
 #include "viz/Reactions.hpp"
 
 using namespace geode::viz;
@@ -328,6 +331,107 @@ void phrasesTurnOverWithoutBars() {
     check(s.phraseCount() == 1, "a phrase turns over on time with no bars at all");
 }
 
+// A spread of real style ids with made-up traits: every fourth one turns, two
+// in three are shader styles.
+constexpr const char* kStyleIds[] = {
+    "kaleido", "plasma", "julia", "tunnel", "aurora", "voronoi", "arbor_grove", "arbor_bolt", "bulb_julia", "bulb_ink",
+    "chrys_bloom", "chrys_fall", "lucid_mandala", "milkdrop", "fluid", "water", "silk", "bars", "spiral", "kifs",
+    "chrome_nebula", "crystal_canyon", "gyroid_cavern", "jelly_abyss", "fractal_dive", "aurora_ocean", "bead_vortex",
+    "curl_bloom", "acid_show", "blacklight_bloom",
+};
+constexpr int kStyleCount = static_cast<int>(sizeof(kStyleIds) / sizeof(kStyleIds[0]));
+
+StyleTraits traitsAt(int i) { return {i % 4 == 0 ? (i % 8 == 0 ? 1.0f : -0.7f) : 0.0f, i % 3 != 2}; }
+
+bool sameRoutes(const StyleDna& a, const StyleDna& b) {
+    if (a.count != b.count) return false;
+    for (int i = 0; i < a.count; ++i) {
+        const ReactRoute& x = a.routes[static_cast<size_t>(i)];
+        const ReactRoute& y = b.routes[static_cast<size_t>(i)];
+        if (x.source != y.source || x.target != y.target || x.mode != y.mode || x.amount != y.amount || x.curve != y.curve ||
+            x.attackSeconds != y.attackSeconds || x.releaseSeconds != y.releaseSeconds) {
+            return false;
+        }
+    }
+    return true;
+}
+
+void dnaIsDeterministicAndSeeded() {
+    for (int i = 0; i < kStyleCount; ++i) {
+        check(sameRoutes(buildStyleDna(kStyleIds[i], 3, traitsAt(i)), buildStyleDna(kStyleIds[i], 3, traitsAt(i))),
+              "the same id and seed give the same DNA (live view and export agree)");
+    }
+    check(!sameRoutes(buildStyleDna("kifs", 0, traitsAt(0)), buildStyleDna("kifs", 1, traitsAt(0))), "re-rolling the seed changes the DNA");
+}
+
+void stylesGetDifferentPersonalities() {
+    std::set<int> leads;
+    int pulses = 0;
+    int beatZooms = 0;
+    for (int i = 0; i < kStyleCount; ++i) {
+        const StyleDna dna = buildStyleDna(kStyleIds[i], 0, traitsAt(i));
+        leads.insert(static_cast<int>(dna.lead));
+        if (dna.lead == Personality::Pulse) ++pulses;
+        for (int r = 0; r < dna.count; ++r) {
+            const ReactRoute& route = dna.routes[static_cast<size_t>(r)];
+            const bool beat = route.source == ReactSource::PhraseBeatA || route.source == ReactSource::PhraseBeatB ||
+                              route.source == ReactSource::Beat || route.source == ReactSource::Kick;
+            if (beat && (route.target == LfoTarget::CamPush || route.target == LfoTarget::Zoom)) {
+                ++beatZooms;
+                break;
+            }
+        }
+    }
+    check(leads.size() >= 6, "thirty styles draw at least six different beat personalities");
+    check(pulses * 4 <= kStyleCount, "at most a quarter of styles push in on the beat");
+    check(beatZooms * 3 <= kStyleCount, "most styles do not zoom on the beat at all");
+}
+
+void phrasesAnswerTheBeatDifferently() {
+    for (int i = 0; i < kStyleCount; ++i) {
+        const StyleDna dna = buildStyleDna(kStyleIds[i], 0, traitsAt(i));
+        std::set<int> a;
+        std::set<int> b;
+        for (int r = 0; r < dna.count; ++r) {
+            const ReactRoute& route = dna.routes[static_cast<size_t>(r)];
+            if (route.source == ReactSource::PhraseBeatA) a.insert(static_cast<int>(route.target));
+            if (route.source == ReactSource::PhraseBeatB) b.insert(static_cast<int>(route.target));
+        }
+        check(!a.empty() && !b.empty(), "both phrases answer the beat");
+        check(dna.lead != dna.second && a != b, "the two phrases answer it differently");
+    }
+}
+
+void dnaRespectsStyleTraits() {
+    for (int i = 0; i < kStyleCount; ++i) {
+        for (int seed = 0; seed < 6; ++seed) {
+            const StyleTraits t = traitsAt(i);
+            const StyleDna dna = buildStyleDna(kStyleIds[i], seed, t);
+            for (int r = 0; r < dna.count; ++r) {
+                const LfoTarget target = dna.routes[static_cast<size_t>(r)].target;
+                if (t.spinRate == 0.0f) check(target != LfoTarget::Rotation && target != LfoTarget::CamRoll, "still styles never spin or roll");
+                if (!t.shaderLook) check(target != LfoTarget::Morph && target != LfoTarget::PaletteMix, "shader-only targets stay on shader styles");
+            }
+        }
+    }
+}
+
+void dnaLeavesRoomAndStaysInRange() {
+    for (int i = 0; i < kStyleCount; ++i) {
+        for (int seed = 0; seed < 6; ++seed) {
+            const StyleDna dna = buildStyleDna(kStyleIds[i], seed, traitsAt(i));
+            check(dna.count >= 5 && dna.count <= StyleDna::kMaxRoutes, "the DNA fills most slots and leaves three free");
+            for (int r = 0; r < dna.count; ++r) {
+                const ReactRoute& route = dna.routes[static_cast<size_t>(r)];
+                check(route.enabled && route.target != LfoTarget::None, "every route moves something");
+                check(route.amount >= -2.0f && route.amount <= 2.0f, "amount within what native accepts");
+                check(route.attackSeconds >= 0.0f && route.attackSeconds <= 5.0f, "attack within range");
+                check(route.releaseSeconds >= 0.0f && route.releaseSeconds <= 10.0f, "release within range");
+            }
+        }
+    }
+}
+
 }  // namespace
 
 int main() {
@@ -343,6 +447,11 @@ int main() {
     sectionStartsAPhraseAndOnsetsStandInForBeats();
     backbeatIsCountsTwoAndFour();
     phrasesTurnOverWithoutBars();
+    dnaIsDeterministicAndSeeded();
+    stylesGetDifferentPersonalities();
+    phrasesAnswerTheBeatDifferently();
+    dnaRespectsStyleTraits();
+    dnaLeavesRoomAndStaysInRange();
     cameraTravelsAndStaysOrthonormal();
     cameraSpringsInsteadOfSnapping();
     cameraPathRepeatsAcrossTheWrap();

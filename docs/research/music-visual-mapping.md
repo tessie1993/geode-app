@@ -68,3 +68,84 @@ Gaps this work closes: the camera's sources are fixed; nothing spawns, grows out
 through itself on a sound of its own (the existing Endless zoom is a constant-speed dive with no
 sound and only inward); and the reaction editor speaks in raw engine names ("Spectral flux",
 "Follow", "Spin") rather than in music.
+
+## 2. Research, in short
+
+Full notes with sources: [`camera-layers-research.md`](camera-layers-research.md) (camera grammar,
+cross-modal correspondences, layering, spawn and zoom techniques, consumer reaction UIs) and
+[`audio-reactive-mapping.md`](audio-reactive-mapping.md) (the VJ tools).
+
+- **Cuts follow phrases, not beats.** Across 548 music videos the mean shot is 4.76 s, about two bars,
+  and a section about 20 s; pop lines cuts up with section changes most (Prétet et al. 2021). Without a
+  tempo, "every 8 kicks" and "big moment" stand in for "two bars" and "section change".
+- **Energy reads as speed, quiet as settling** (Eitan & Granot 2006). So energy drives fly and dolly
+  speed and a break lets the camera sink back, rather than energy driving height.
+- **Directions people agree on** (Spence 2011, Marks, Küssner 2014, Adeli 2014, Palmer 2013): higher
+  pitch → higher, smaller, brighter; louder → bigger, brighter; harsher timbre → sharper, coarser;
+  fast and bright music → saturated, warm. We keep those signs; inverted ones read as wrong.
+- **Layer by time scale.** Hits (tens of ms), levels (hundreds of ms), presence and trends (seconds),
+  structure (sections). Every tool that looks alive gives each layer its own band or signal and makes
+  structural changes on counted hits (every 4th/8th/16th kick), not on every hit (Synesthesia, Notch,
+  TouchDesigner Audio Analysis 2.0).
+- **Many-to-many beats one-to-one once several things change at once** (Hunt & Kirk 2000): ship coupled
+  routes as presets and keep each route editable.
+- **Shake = trauma² × smooth noise** (Eiserloh, GDC 2016); trauma piles up over hits and bleeds off.
+- **Fall-through and growth:** MilkDrop's feedback zoom, Droste and log-polar zoom, layered "infinite
+  fall" (the same image at octave scales, faded by scale), KIFS folds for outward fractal copies, and a
+  noise-threshold dissolve that sweeps with a spawn's release envelope so things die on the decay.
+- **Consumer apps hide the engine**: one Reactivity and one Speed knob, presets named by feel. Our grid
+  shows every engine value (the user asked for that), so labels, groups and smart cells carry the
+  plain language instead.
+
+## 3. The mapping we build
+
+Decisions (user, 2026-10-31): one C++ table of every sound value and every visual parameter
+(`core/viz/ParamMatrix`); a grid editor with all engine values as rows, a tap sets depth with a smart
+mode and a long press opens the details; 32 routes; the camera's feel picked per style; spawn, fractal
+growth and fall-through strong in every style; the fall direction drawn uniquely per style, varied and
+combined; editing Camera, the grid and the layers is Pro (free users see and hear each style's DNA).
+
+### Everything is a route
+
+The Camera tab, the layers and the grid are three views of the same 32 reaction routes, so all of it
+is saved, exported and drawn by the wallpaper and the dream exactly like the routes already are.
+New targets in `ParamMatrix`: **Camera rise** (crane), **Camera cut**, **Fall through** (signed: + falls
+in, − falls out), **Fractal growth** and **Spawn**. When a route drives a camera channel, the rig's
+built-in move for that channel steps aside, so the user's choice replaces the default rather than
+fighting it.
+
+### Camera channels
+
+| Channel | Target | What the music does | Default sources the DNA draws from |
+|---|---|---|---|
+| Fly | Camera speed | thrust along the path | energy trend, intensity, loudness clock |
+| Dolly | Camera push | push in / pull out | surge, kick envelope, rise |
+| Orbit | Camera turn (Spin) | keeps circling, faster when busy | mid / bass / note clock |
+| Crane | Camera rise | rise and sink | pitch height, centroid, intensity |
+| Roll | Camera roll | lean or flip | snare toggle, stereo pan, loudness clock |
+| Shake | Camera shake | handheld trauma | kick, snare, hat envelopes |
+| Lens | Camera FOV | breathe the lens | bass fast, sub fast |
+| Cut | Camera cut | jump to a new place | big moment, every 8th or 16th kick |
+
+Feels the DNA picks per style: **Music video** (cut on big moments and every 8th kick, push through
+rises, clock orbit, crane on melody, light shake), **Floaty journey** (no cuts, fly on energy, wide
+orbit, crane on melody, no shake), **Club** (dolly on every kick, strong shake, cut every 4th kick,
+roll flip on the snare). 2D styles see the same moves as pan, zoom, tilt and roll of the picture, and
+fall-through gives them depth.
+
+### Layers
+
+| Layer | Target | Reads as | What drives it |
+|---|---|---|---|
+| Fall through | Fall through (−1..1) | the picture falls into itself (+) or back out (−), endlessly, at octave scales | per style: one of energy trend, a clock, kick envelope; a second opposing source; or flip on big moments |
+| Fractal growth | Fractal growth (0..1) | mirrored copies grow outward in generations | intensity, rise, density, mid activity |
+| Spawn | Spawn | a copy of the picture is born, grows and dissolves on each edge | kick, snare, onset, note change, every 4th kick |
+
+Each style draws its layers so no two share a source, and none shares the lead personality's
+source: the kick, the melody and the structure each move something different.
+
+### Grid presets
+
+Named by feel, each a full layered set over different time scales (hit, level, trend, structure):
+Punchy, Floaty, Builds & drops, Melodic, Glitch, Fractal dive, Calm. A preset replaces the routes;
+the style's DNA comes back with "Back to style DNA".

@@ -15,6 +15,7 @@ import androidx.annotation.StringRes
 import dev.geode.R
 import dev.geode.RingLog
 import dev.geode.analysis.FeatureTimeline
+import dev.geode.engine.audio.SoundTuning
 import dev.geode.render.SceneFactory
 import dev.geode.render.offscreen.OffscreenRenderSpec
 import dev.geode.render.offscreen.OffscreenSceneRenderer
@@ -161,6 +162,8 @@ class VideoExporter(
         codec: ExportCodec = ExportCodec.H264,
         loudnessTarget: LoudnessTarget = LoudnessTarget.LeaveAsIs,
         background: BackgroundExportSpec? = null,
+        // Settings › Audio, so the export's sound engine hears the music as the screen did.
+        soundTuning: SoundTuning = SoundTuning(),
         onProgress: (Float) -> Unit,
         isCancelled: () -> Boolean,
         // The free tier's corner wordmark; see WatermarkOverlay.
@@ -189,6 +192,7 @@ class VideoExporter(
                     codec,
                     loudnessTarget,
                     underlay,
+                    soundTuning,
                     onProgress,
                     isCancelled,
                     watermark = watermark,
@@ -231,6 +235,7 @@ class VideoExporter(
                         range,
                         codec,
                         underlay,
+                        soundTuning,
                         onProgress,
                         isCancelled,
                         watermark = watermark,
@@ -273,6 +278,7 @@ class VideoExporter(
         codec: ExportCodec,
         loudnessTarget: LoudnessTarget,
         underlay: OffscreenUnderlay?,
+        soundTuning: SoundTuning,
         onProgress: (Float) -> Unit,
         isCancelled: () -> Boolean,
         watermark: Boolean,
@@ -300,6 +306,7 @@ class VideoExporter(
                     range,
                     codec,
                     underlay,
+                    soundTuning,
                     onProgress,
                     isCancelled,
                     watermark = watermark,
@@ -355,7 +362,7 @@ class VideoExporter(
         return (result as? LoudnessResult.Measured)?.let { LoudnessTargets.advise(it.report, target) }
     }
 
-    @Suppress("NestedBlockDepth")
+    @Suppress("NestedBlockDepth", "LongParameterList")
     private fun encodeInto(
         pfd: ParcelFileDescriptor,
         audioUri: Uri,
@@ -373,6 +380,7 @@ class VideoExporter(
         range: ExportRange?,
         codec: ExportCodec,
         underlay: OffscreenUnderlay?,
+        soundTuning: SoundTuning,
         onProgress: (Float) -> Unit,
         isCancelled: () -> Boolean,
         watermark: Boolean,
@@ -447,6 +455,8 @@ class VideoExporter(
                             reducedMotion = reducedMotion,
                             paramsAt = paramsAt,
                             underlay = underlay,
+                            audioUri = audioUri,
+                            soundTuning = soundTuning,
                         ),
                 ).also { rendererRef = it }
             renderer.prepare()

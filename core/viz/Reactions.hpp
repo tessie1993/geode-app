@@ -24,7 +24,7 @@ namespace geode::viz {
 // them. This is the second numbering: the old analyser's 34 sources were replaced wholesale, and saved
 // routes from before it are dropped (ReactionRouteCodec's "reactions/2"), so each style restarts on its DNA.
 // What a route reads for each source is a 0..1 (StereoPan and Interval -1..1) view of the field; see
-// kSourceTable in Reactions.cpp for how each kind is shaped.
+// matrix::sources() in ParamMatrix.cpp for how each kind is shaped.
 enum class ReactSource {
     // Levels: relative to the song (~0.5 typical, 1 a strong hit), then the shaped 0..1 layer.
     Bass, Mid, Treble, Vol, BassAtt, MidAtt, TrebleAtt, VolAtt, Sub, SubAtt, MidHigh, MidHighAtt,
@@ -47,18 +47,8 @@ enum class ReactSource {
 };
 constexpr int kReactSourceCount = static_cast<int>(ReactSource::Eq22k) + 1;
 
-// The source catalogue: what the Customize picker, the Events recipes and the saved formats call each
-// source. C++ owns it (the user's rule: the reaction feature lives in C++); Kotlin reads it over JNI
-// (geode_react_source_catalog) and does not keep its own list. `name` is the stable saved name,
-// `group` the picker section (LEVELS, DRUMS, EVENTS, MELODY, CLOCKS, TEXTURE, EQ), `event` a trigger
-// held as an envelope rather than a level.
-struct ReactSourceInfo {
-    const char* name;
-    const char* label;
-    const char* group;
-    bool event;
-};
-const ReactSourceInfo& reactSourceInfo(ReactSource s);
+// Names, labels, groups and how each source is shaped: viz/ParamMatrix (the one list of every sound
+// value and every visual parameter).
 
 // Follow: target += amount * curve(source).
 // Step: each rising edge of the source adds amount to an accumulator (a hue
@@ -110,7 +100,7 @@ private:
 
 class ReactionEngine {
 public:
-    static constexpr int kRoutes = 12;
+    static constexpr int kRoutes = 32;
     static constexpr int kConfigFloats = 8; // enabled, source, target, mode, amount, curve, attack, release
 
     std::array<ReactRoute, kRoutes> routes{};

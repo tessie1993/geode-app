@@ -47,9 +47,9 @@ struct StyleTraits {
 };
 
 struct StyleDna {
-    // The DNA leaves the last slots free, so the user and the Events tab's
+    // The DNA uses at most half the slots, so the user, the grid and the Events tab's
     // recipes can add routes without removing any.
-    static constexpr int kMaxRoutes = ReactionEngine::kRoutes - 3;
+    static constexpr int kMaxRoutes = ReactionEngine::kRoutes / 2;
 
     std::array<ReactRoute, ReactionEngine::kRoutes> routes{};
     int count = 0;

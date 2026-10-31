@@ -32,7 +32,7 @@ static_assert(ReactionEngine::kRoutes == GEODE_REACT_ROUTES);
 static_assert(ReactionEngine::kConfigFloats == GEODE_REACT_ROUTE_FLOATS);
 
 constexpr int kModSourceCount = static_cast<int>(ModSource::StereoPan) + 1;
-constexpr int kLfoTargetCount = static_cast<int>(LfoTarget::CamShake) + 1;
+constexpr int kLfoTargetCount = matrix::kTargetCount;
 constexpr int kLfoWaveCount = static_cast<int>(LfoWave::Random) + 1;
 constexpr int kModPolarityCount = static_cast<int>(ModPolarity::Negative) + 1;
 constexpr int kModCurveCount = static_cast<int>(ModCurve::Smooth) + 1;
@@ -224,17 +224,8 @@ void geode_viz_set_reactions(geode_viz* v, const float* c, int count) {
     v->renderer.setReactionRoutes(routes);
 }
 
-int geode_react_source_catalog(char* out, int capacity) {
-    std::string text;
-    for (int i = 0; i < kReactSourceCount; ++i) {
-        const ReactSourceInfo& s = reactSourceInfo(static_cast<ReactSource>(i));
-        text += s.name;
-        text += '|';
-        text += s.label;
-        text += '|';
-        text += s.group;
-        text += s.event ? "|1\n" : "|0\n";
-    }
+int geode_param_matrix_catalog(char* out, int capacity) {
+    const std::string text = matrix::catalogueText();
     const int need = static_cast<int>(text.size());
     if (out && capacity > 0) {
         const int n = std::min(need, capacity - 1);

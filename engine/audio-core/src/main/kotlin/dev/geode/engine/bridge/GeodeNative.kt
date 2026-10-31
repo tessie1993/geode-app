@@ -262,8 +262,8 @@ object GeodeNative {
         out: FloatArray,
     )
 
-    /** The reaction source catalogue (core/viz/Reactions.cpp), see `dev.geode.render.ReactSourceCatalog`. */
-    external fun reactSourceCatalog(): String
+    /** The parameter matrix's sources and targets (core/viz/ParamMatrix), see `dev.geode.render.ParamMatrixCatalog`. */
+    external fun paramMatrixCatalog(): String
 
     /** Customize › Macros (core/viz/Macros): the six knobs, -1..1, for every renderer in the process. */
     external fun macrosSet(knobs: FloatArray)

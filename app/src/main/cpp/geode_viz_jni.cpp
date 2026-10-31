@@ -163,10 +163,10 @@ Java_dev_geode_engine_bridge_GeodeNative_vizSoundFrame(JNIEnv* env, jobject, jlo
 }
 
 JNIEXPORT jstring JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_reactSourceCatalog(JNIEnv* env, jobject) {
-    const int need = geode_react_source_catalog(nullptr, 0);
+Java_dev_geode_engine_bridge_GeodeNative_paramMatrixCatalog(JNIEnv* env, jobject) {
+    const int need = geode_param_matrix_catalog(nullptr, 0);
     std::vector<char> text(static_cast<size_t>(need) + 1);
-    geode_react_source_catalog(text.data(), need + 1);
+    geode_param_matrix_catalog(text.data(), need + 1);
     return env->NewStringUTF(text.data());
 }
 

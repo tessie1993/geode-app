@@ -32,7 +32,7 @@ GEODE_API int          geode_sound_fft_size(geode_sound*);
 #define GEODE_LFO_SLOTS 3
 #define GEODE_LFO_CONFIG_FLOATS 8   /* enabled, source, target, wave, rate_seconds, depth, polarity, curve */
 #define GEODE_ADSR_SLOTS 2
-#define GEODE_REACT_ROUTES 12
+#define GEODE_REACT_ROUTES 32
 #define GEODE_REACT_ROUTE_FLOATS 8  /* enabled, source, target, mode, amount, curve, attack_seconds, release_seconds */
 #define GEODE_ADSR_CONFIG_FLOATS 10 /* enabled, attack, decay, sustain, release, amount, band, gate_threshold,
                                        sustain_track, retrigger; followed by the target ordinals */
@@ -60,9 +60,10 @@ GEODE_API void        geode_viz_set_milk_texture_dir(geode_viz*, const char* dir
  * Every call takes it, a length query (out = NULL) too: pass a buffer the first time. */
 GEODE_API size_t      geode_viz_take_milk_preset_loaded(geode_viz*, char* out, size_t capacity);
 GEODE_API void        geode_viz_push_pcm(geode_viz*, const float* mono, int count);
-/* The reaction source catalogue, one line per source in wire order: "NAME|Label|GROUP|event(0/1)\n".
+/* The parameter matrix (core/viz/ParamMatrix): every reaction source, then every target, in wire order:
+ * "S|NAME|Label|GROUP|event(0/1)\n" per source, "T|NAME|Label|GROUP|luminance(0/1)\n" per target.
  * Writes at most capacity bytes (NUL-terminated when it fits) and returns the length it needs. */
-GEODE_API int         geode_react_source_catalog(char* out, int capacity);
+GEODE_API int         geode_param_matrix_catalog(char* out, int capacity);
 /* Customize › Macros (core/viz/Macros): six knobs, -1..1, process-wide, read by every renderer each frame.
  * surprise writes `count` knobs to out; starters lists "Name|e,s,c,m,sp,ch" lines like the source catalogue. */
 GEODE_API void        geode_macros_set(const float* knobs, int count);

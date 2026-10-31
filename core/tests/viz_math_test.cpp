@@ -1,6 +1,7 @@
 // Host-side checks for the pure render-thread math: the reaction matrix and
 // the camera rig. Built and run by CI (see .github/workflows/android.yml,
 // "Native host tests") with the system compiler; no GL, no device.
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -11,6 +12,7 @@
 #include "viz/CameraRig.hpp"
 #include "viz/Macros.hpp"
 #include "viz/MotionField.hpp"
+#include "viz/ParamMatrix.hpp"
 #include "viz/ReactionDna.hpp"
 #include "viz/Reactions.hpp"
 
@@ -26,6 +28,8 @@ void check(bool ok, const char* what) {
         ++failures;
     }
 }
+
+bool near(float a, float b) { return std::fabs(a - b) < 1e-4f; }
 
 GeodeSoundFrame silence() { return GeodeSoundFrame{}; }
 
@@ -415,7 +419,7 @@ void dnaLeavesRoomAndStaysInRange() {
     for (int i = 0; i < kStyleCount; ++i) {
         for (int seed = 0; seed < 6; ++seed) {
             const StyleDna dna = buildStyleDna(kStyleIds[i], seed, traitsAt(i));
-            check(dna.count >= 5 && dna.count <= StyleDna::kMaxRoutes, "the DNA fills most slots and leaves three free");
+            check(dna.count >= 5 && dna.count <= StyleDna::kMaxRoutes, "the DNA fills several slots and leaves half free");
             for (int r = 0; r < dna.count; ++r) {
                 const ReactRoute& route = dna.routes[static_cast<size_t>(r)];
                 check(route.enabled && route.target != LfoTarget::None, "every route moves something");
@@ -524,14 +528,42 @@ void motionFieldVariantsDiffer() {
 void sourceCatalogueIsCompleteAndUnique() {
     std::set<std::string> names;
     const std::set<std::string> groups = {"LEVELS", "DRUMS", "EVENTS", "MELODY", "CLOCKS", "TEXTURE", "EQ"};
-    for (int i = 0; i < kReactSourceCount; ++i) {
-        const ReactSourceInfo& s = reactSourceInfo(static_cast<ReactSource>(i));
+    for (const matrix::SourceRow& s : matrix::sources()) {
         check(s.name != nullptr && s.label != nullptr && s.name[0] != '\0' && s.label[0] != '\0', "every source has a name and a label");
         names.insert(s.name);
         check(groups.count(s.group) == 1, "every source sits in a picker section");
     }
     check(static_cast<int>(names.size()) == kReactSourceCount, "source names are unique (they are the saved names)");
-    check(reactSourceInfo(ReactSource::Kick).event && !reactSourceInfo(ReactSource::KickEnv).event, "hits are events, envelopes are levels");
+    check(matrix::source(ReactSource::Kick).event() && !matrix::source(ReactSource::KickEnv).event(), "hits are events, envelopes are levels");
+}
+
+// ---- The parameter matrix (viz/ParamMatrix) ----
+
+void targetTableWritesWhatTheSwitchDid() {
+    SceneParams p;
+    check(near(applyLfoTarget(p, LfoTarget::Rotation, 1.0f).rotation, p.rotation + 1.5f), "rotation keeps its 1.5 scale");
+    check(near(applyLfoTarget(p, LfoTarget::Zoom, 10.0f).zoom, 3.0f), "zoom clamps at its top");
+    check(near(applyLfoTarget(p, LfoTarget::ColorShift, 4.0f).colorShift, p.colorShift + 2.0f), "hue wraps, never clamps");
+    check(near(applyLfoTarget(p, LfoTarget::FluidCurl, 0.2f).fluidCurl, std::clamp(p.fluidCurl + 5.0f, 0.0f, 50.0f)), "fluid curl scales by 25");
+    const SceneParams q = applyLfoTarget(p, LfoTarget::Lfo1Rate, 1.0f);
+    check(near(q.speed, p.speed) && near(q.zoom, p.zoom), "slot chains write no scene parameter");
+    check(isLuminanceTarget(LfoTarget::Bloom) && !isLuminanceTarget(LfoTarget::Warp), "luminance comes from the table");
+    std::set<std::string> names;
+    for (const matrix::TargetRow& t : matrix::targets()) names.insert(t.name);
+    check(static_cast<int>(names.size()) == matrix::kTargetCount, "target names are unique");
+}
+
+void smartCellsFitTheSource() {
+    check(matrix::smart(ReactSource::MidTime).mode == ReactMode::Spin, "a clock keeps turning");
+    check(matrix::smart(ReactSource::HardCut).mode == ReactMode::Jump, "a big moment jumps");
+    check(matrix::smart(ReactSource::Kick16).mode == ReactMode::Jump, "a counted hit jumps");
+    check(matrix::smart(ReactSource::Kick).mode == ReactMode::Follow, "a single hit pulses");
+    check(matrix::smart(ReactSource::Intensity).releaseSeconds >= 1.0f, "slow trends release slowly");
+    const ReactRoute r = matrix::cell(ReactSource::KickEnv, LfoTarget::Zoom, 5.0f);
+    check(r.enabled && near(r.amount, 2.0f), "a cell clamps its depth");
+    const std::string text = matrix::catalogueText();
+    check(text.rfind("S|BASS|Bass|LEVELS|0\n", 0) == 0, "the catalogue starts with the first source");
+    check(text.find("T|CAM_SHAKE|Camera shake|CAMERA|0\n") != std::string::npos, "the catalogue lists the targets");
 }
 
 // ---- Customize › Macros (viz/Macros) ----
@@ -655,6 +687,8 @@ int main() {
     traumaShakeIsBoundedAndFinite();
     motionFieldVariantsDiffer();
     sourceCatalogueIsCompleteAndUnique();
+    targetTableWritesWhatTheSwitchDid();
+    smartCellsFitTheSource();
     macrosAtRestChangeNothing();
     macrosTurnTowardTheEndsAndStayInRange();
     macrosScaleTheSoundAndTheCamera();

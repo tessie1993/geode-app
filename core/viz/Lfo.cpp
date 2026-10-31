@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 
+#include "viz/ParamMatrix.hpp"
 #include "viz/VisualSafety.hpp"
 
 namespace geode::viz {
@@ -19,16 +20,7 @@ bool chainOf(LfoTarget target, ModChain& out) {
     }
 }
 
-bool isLuminanceTarget(LfoTarget target) {
-    switch (target) {
-        case LfoTarget::Brightness: case LfoTarget::Intensity: case LfoTarget::Saturation: case LfoTarget::Bloom:
-        case LfoTarget::Glitch: case LfoTarget::Vignette: case LfoTarget::ColorShift: case LfoTarget::PaletteMix:
-        case LfoTarget::Temperature:
-            return true;
-        default:
-            return false;
-    }
-}
+bool isLuminanceTarget(LfoTarget target) { return matrix::target(target).luminance; }
 
 ModPolarity naturalPolarity(ModSource source) {
     switch (source) {
@@ -58,59 +50,13 @@ float shape(float value, ModCurve curve) {
     return value < 0.0f ? -shaped : shaped;
 }
 
+// Every target's scale and range is a row of the parameter matrix (viz/ParamMatrix).
 SceneParams applyLfoTarget(const SceneParams& r, LfoTarget target, float v) {
+    const matrix::TargetRow& row = matrix::target(target);
+    if (row.field == nullptr) return r;
     SceneParams o = r;
-    switch (target) {
-        case LfoTarget::Speed: o.speed = std::clamp(r.speed + v, 0.05f, 4.0f); break;
-        case LfoTarget::Zoom: o.zoom = std::clamp(r.zoom + v, 0.3f, 3.0f); break;
-        case LfoTarget::Rotation: o.rotation = std::clamp(r.rotation + v * 1.5f, -3.0f, 3.0f); break;
-        case LfoTarget::Sway: o.sway = std::clamp(r.sway + v, 0.0f, 1.0f); break;
-        case LfoTarget::Pulse: o.pulse = std::clamp(r.pulse + v, 0.0f, 1.0f); break;
-        case LfoTarget::DriftX: o.driftX = std::clamp(r.driftX + v, -1.0f, 1.0f); break;
-        case LfoTarget::DriftY: o.driftY = std::clamp(r.driftY + v, -1.0f, 1.0f); break;
-        case LfoTarget::Warp: o.warp = std::clamp(r.warp + v, 0.0f, 1.0f); break;
-        case LfoTarget::Ripple: o.ripple = std::clamp(r.ripple + v, 0.0f, 1.0f); break;
-        case LfoTarget::Morph: o.morph = std::clamp(r.morph + v, 0.0f, 1.0f); break;
-        case LfoTarget::Twist: o.twist = std::clamp(r.twist + v, -1.0f, 1.0f); break;
-        case LfoTarget::Tile: o.tile = std::clamp(r.tile + v * 2.0f, 1.0f, 6.0f); break;
-        case LfoTarget::Pixelate: o.pixelate = std::clamp(r.pixelate + v, 0.0f, 1.0f); break;
-        case LfoTarget::Posterize: o.posterize = std::clamp(r.posterize + v, 0.0f, 1.0f); break;
-        case LfoTarget::ColorShift: o.colorShift = r.colorShift + v * 0.5f; break;
-        case LfoTarget::PaletteMix: o.paletteMix = std::clamp(r.paletteMix + v, 0.0f, 1.0f); break;
-        case LfoTarget::Saturation: o.saturation = std::clamp(r.saturation + v, 0.0f, 1.5f); break;
-        case LfoTarget::Brightness: o.brightness = std::clamp(r.brightness + v, 0.2f, 2.0f); break;
-        case LfoTarget::Intensity: o.intensity = std::clamp(r.intensity + v, 0.2f, 2.0f); break;
-        case LfoTarget::Bloom: o.bloom = std::clamp(r.bloom + v, 0.0f, 1.0f); break;
-        case LfoTarget::Temperature: o.temperature = std::clamp(r.temperature + v, -1.0f, 1.0f); break;
-        case LfoTarget::Turbulence: o.turbulence = std::clamp(r.turbulence + v, 0.0f, 1.5f); break;
-        case LfoTarget::ChromaAb: o.chromaAb = std::clamp(r.chromaAb + v, 0.0f, 1.0f); break;
-        case LfoTarget::Vignette: o.vignette = std::clamp(r.vignette + v, 0.0f, 1.0f); break;
-        case LfoTarget::Glitch: o.glitch = std::clamp(r.glitch + v, 0.0f, 1.0f); break;
-        case LfoTarget::Fisheye: o.fisheye = std::clamp(r.fisheye + v, -1.0f, 1.0f); break;
-        case LfoTarget::ParticleSize: o.particleSize = std::clamp(r.particleSize + v, 0.3f, 2.5f); break;
-        case LfoTarget::TrailLength: o.trailLength = std::clamp(r.trailLength + v, 0.05f, 0.98f); break;
-        case LfoTarget::FluidCurl: o.fluidCurl = std::clamp(r.fluidCurl + v * 25.0f, 0.0f, 50.0f); break;
-        case LfoTarget::FluidRadius: o.fluidSplatRadius = std::clamp(r.fluidSplatRadius + v * 0.15f, 0.02f, 0.4f); break;
-        case LfoTarget::FluidForce: o.fluidSplatForce = std::clamp(r.fluidSplatForce + v * 1.5f, 0.0f, 3.0f); break;
-        case LfoTarget::FluidGlow: o.fluidBloomIntensity = std::clamp(r.fluidBloomIntensity + v, 0.1f, 2.0f); break;
-        case LfoTarget::FluidFade: o.fluidDensityDissipation = std::clamp(r.fluidDensityDissipation + v * 1.5f, 0.0f, 4.0f); break;
-        case LfoTarget::FluidCatchPull: o.fluidCatchPull = std::clamp(r.fluidCatchPull + v * 1.5f, 0.0f, 3.0f); break;
-        case LfoTarget::FluidCatchRadius: o.fluidCatchRadius = std::clamp(r.fluidCatchRadius + v * 0.12f, 0.03f, 0.3f); break;
-        case LfoTarget::FlowStrength: o.flowStrength = std::clamp(r.flowStrength + v, 0.0f, 1.0f); break;
-        case LfoTarget::WaterRipple: o.waterRippleStrength = std::clamp(r.waterRippleStrength + v, 0.0f, 2.0f); break;
-        case LfoTarget::RippleOverlay: o.rippleOverlayStrength = std::clamp(r.rippleOverlayStrength + v, 0.0f, 1.0f); break;
-        case LfoTarget::CamFly: o.camFly = std::clamp(r.camFly + v, 0.0f, 2.5f); break;
-        case LfoTarget::CamOrbit: o.camOrbit = std::clamp(r.camOrbit + v, 0.0f, 1.0f); break;
-        case LfoTarget::CamPush: o.camPush = std::clamp(r.camPush + v, -1.0f, 1.0f); break;
-        case LfoTarget::CamYaw: o.camYaw = std::clamp(r.camYaw + v, -1.0f, 1.0f); break;
-        case LfoTarget::CamPitch: o.camPitch = std::clamp(r.camPitch + v, -1.0f, 1.0f); break;
-        case LfoTarget::CamRoll: o.camRoll = std::clamp(r.camRoll + v, -1.0f, 1.0f); break;
-        case LfoTarget::CamFov: o.camFov = std::clamp(r.camFov + v, 0.5f, 2.0f); break;
-        case LfoTarget::CamShake: o.camShake = std::clamp(r.camShake + v, 0.0f, 1.0f); break;
-        case LfoTarget::None: case LfoTarget::Lfo1Rate: case LfoTarget::Lfo1Depth: case LfoTarget::Lfo2Rate:
-        case LfoTarget::Lfo2Depth: case LfoTarget::Lfo3Rate: case LfoTarget::Lfo3Depth:
-            break;
-    }
+    const float x = r.*row.field + v * row.scale;
+    o.*row.field = row.wraps ? x : std::clamp(x, row.min, row.max);
     return o;
 }
 

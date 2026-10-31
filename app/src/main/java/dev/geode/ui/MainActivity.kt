@@ -173,9 +173,11 @@ class MainActivity : ComponentActivity() {
 
     /**
      * A `geode://preset` or `geode://template` link. Anything can send one, so a readable link
-     * is parked in [SharedLinkInbox] for the user to confirm; an unreadable one goes straight
-     * to the import path, which writes nothing and says why. The intent's data is consumed only
-     * when it was one of ours, so anything else is left for the platform.
+     * is parked in [SharedLinkInbox] for the user to confirm; an unreadable one is only reported.
+     * Nothing is imported without the dialog: the import paths search the string for a link and
+     * can find one (a template behind junk preset text) that [VisualsViewModel.offerFor] could
+     * not read. The intent's data is consumed only when it was one of ours, so anything else is
+     * left for the platform.
      */
     private fun receiveSharedLink(intent: Intent?) {
         val data = intent?.data?.toString() ?: return
@@ -185,11 +187,14 @@ class MainActivity : ComponentActivity() {
             intent.data = null
             return
         }
-        if (PresetLink.isPresetLink(data) || visualsViewModel.isTemplateLink(data)) {
-            importSharedPreset(this, visualsViewModel, data)
-            importSharedTemplate(this, visualsViewModel, data)
-            intent.data = null
-        }
+        val unreadable =
+            when {
+                PresetLink.isPresetLink(data) -> R.string.preset_link_unreadable
+                visualsViewModel.isTemplateLink(data) -> R.string.template_link_unreadable
+                else -> return
+            }
+        Toast.makeText(this, getString(unreadable), Toast.LENGTH_LONG).show()
+        intent.data = null
     }
 
     /**

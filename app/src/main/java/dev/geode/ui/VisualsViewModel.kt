@@ -247,11 +247,13 @@ class VisualsViewModel
 
         /**
          * Reads a shared link without importing it, for the confirm dialog. Null when [data]
-         * is no link of ours or cannot be read; the import paths then report it as before.
+         * is no link of ours or cannot be read, and nothing is imported then. It extracts the link
+         * exactly as the import paths do ([PresetLink.findIn], [TemplateFormat.linkIn]), so the
+         * dialog names what Import will write.
          */
         fun offerFor(data: String): SharedLinkOffer? {
             if (PresetLink.isPresetLink(data)) {
-                val json = PresetLink.decode(data) ?: return null
+                val json = PresetLink.findIn(data)?.let(PresetLink::decode) ?: return null
                 val preset = runCatching { PresetStore.fromJson(json) }.getOrNull() ?: return null
                 return SharedLinkOffer.Preset(data, preset.name.trim())
             }

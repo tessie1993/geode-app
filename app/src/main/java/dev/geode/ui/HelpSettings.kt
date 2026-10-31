@@ -61,12 +61,6 @@ internal fun HelpSettingsTab(
                         ),
                     )
                 }
-                LabeledSwitch(
-                    stringResource(R.string.help_tutorial_on_first_run),
-                    checked = gui.tutorialOnFirstRun,
-                    onCheckedChange = { settingsViewModel.setGuiPrefs(gui.copy(tutorialOnFirstRun = it)) },
-                    style = MaterialTheme.typography.bodySmall,
-                )
             }
         }
         item {

@@ -60,6 +60,42 @@ jobs:
           # third_party/* are submodules; the root CMakeLists.txt builds them.
           submodules: recursive
 
+      # Every release gets its own number, 1.8.1.N. The number is reserved by
+      # pushing the tag apk-v1.8.1.N before the build: tag creation is atomic,
+      # so two runs racing for the same N cannot both win and the loser takes
+      # the next one. A re-run of a commit reuses the tag already on it.
+      # FLOOR is the release count when numbering began, so the first is .28.
+      - name: Number the release
+        id: number
+        shell: bash
+        env:
+          BASE: "1.8.1"
+          FLOOR: "27"
+        run: |
+          set -euo pipefail
+          SHA=$(git rev-parse HEAD)
+          PREFIX="refs/tags/apk-v$BASE."
+          TAGS=$(git ls-remote --tags origin "${PREFIX}*")
+          N=$(awk -v sha="$SHA" -v p="$PREFIX" '$1 == sha && index($2, p) == 1 { print substr($2, length(p) + 1) }' <<<"$TAGS" | head -n 1)
+          if [ -z "$N" ]; then
+            LAST=$({ echo "$FLOOR"; awk -v p="$PREFIX" 'index($2, p) == 1 { print substr($2, length(p) + 1) }' <<<"$TAGS" | grep -E '^[0-9]+$' || true; } | sort -n | tail -n 1)
+            N=$((LAST + 1))
+            until git push -q origin "$SHA:${PREFIX}$N"; do
+              N=$((N + 1))
+              [ "$N" -le $((LAST + 20)) ] || { echo "::error::could not reserve a release number"; exit 1; }
+            done
+          fi
+          # versionCode 33 was 1.8.1 before numbering; 1.8.1.28 is 34 and each release adds one.
+          {
+            echo "ORG_GRADLE_PROJECT_geodeVersionName=$BASE.$N"
+            echo "ORG_GRADLE_PROJECT_geodeVersionCode=$((N + 6))"
+          } >> "$GITHUB_ENV"
+          {
+            echo "version_name=$BASE.$N"
+            echo "version_code=$((N + 6))"
+            echo "tag=apk-v$BASE.$N"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Set up Java 21
         uses: actions/setup-java@v5
         with:
@@ -104,15 +140,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          VERSION_NAME=$(sed -n 's/^[[:space:]]*versionName = "\([^"]*\)".*/\1/p' \
-            "$PROJECT_DIR/app/build.gradle.kts" | head -n 1)
-          VERSION_CODE=$(sed -n 's/^[[:space:]]*versionCode = \([0-9]*\).*/\1/p' \
-            "$PROJECT_DIR/app/build.gradle.kts" | head -n 1)
+          VERSION_NAME=${{ steps.number.outputs.version_name }}
+          VERSION_CODE=${{ steps.number.outputs.version_code }}
           # The checkout may be a different ref than the one that triggered the
           # run, so tag the commit actually built.
           BUILT_SHA=$(git rev-parse HEAD)
           SHORT_SHA=${BUILT_SHA::7}
-          FILE_NAME="Geode-${VERSION_NAME:-debug}-${SHORT_SHA}-debug.apk"
+          FILE_NAME="MuzViz-${VERSION_NAME}-${SHORT_SHA}-debug.apk"
 
           mkdir -p dist
           cp "$APK_SOURCE" "dist/$FILE_NAME"
@@ -120,11 +154,11 @@ jobs:
 
           {
             echo "file_name=$FILE_NAME"
-            echo "version_name=${VERSION_NAME:-debug}"
-            echo "version_code=${VERSION_CODE:-0}"
+            echo "version_name=$VERSION_NAME"
+            echo "version_code=$VERSION_CODE"
             echo "built_sha=$BUILT_SHA"
             echo "short_sha=$SHORT_SHA"
-            echo "tag=apk-v${VERSION_NAME:-debug}-${SHORT_SHA}"
+            echo "tag=${{ steps.number.outputs.tag }}"
           } >> "$GITHUB_OUTPUT"
 
       - name: Publish GitHub Release
@@ -177,7 +211,7 @@ jobs:
             gh release create "$TAG" \
               "dist/$FILE_NAME" "dist/$FILE_NAME.sha256" \
               --target "$BUILT_SHA" \
-              --title "Geode $VERSION_NAME ($SHORT_SHA)" \
+              --title "MuzViz $VERSION_NAME ($SHORT_SHA)" \
               --notes "$NOTES" \
               "${PRERELEASE_FLAG[@]}"
           fi
@@ -194,6 +228,15 @@ jobs:
             echo "- Release: ${{ steps.release.outputs.url }}"
             echo "- Commit: \`${{ steps.package.outputs.built_sha }}\`"
           } >> "$GITHUB_STEP_SUMMARY"
+
+      # A failed build gives its number back, so N stays the release count.
+      - name: Release the number when the build fails
+        if: failure() && steps.number.outputs.tag != ''
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.number.outputs.tag }}
+        run: gh release view "$TAG" >/dev/null 2>&1 || git push -q origin ":refs/tags/$TAG"
 
       - name: Upload reports when the build fails
         if: failure()

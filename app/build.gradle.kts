@@ -44,8 +44,9 @@ android {
         applicationId = "com.muzviz.studiopro"
         minSdk = 26
         targetSdk = 36
-        versionCode = 33
-        versionName = "1.8.1"
+        // ship-apk.yml numbers every release (1.8.1.N) and passes both in; local builds keep these.
+        versionCode = (findProperty("geodeVersionCode") as String?)?.toInt() ?: 33
+        versionName = (findProperty("geodeVersionName") as String?) ?: "1.8.1"
         ndk {
             abiFilters += listOf("arm64-v8a", "x86_64")
         }

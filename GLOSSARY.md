@@ -46,7 +46,7 @@ A named look within a scene family, picked from the style catalogue.
 _Avoid_: Variant, skin
 
 **Style family**:
-Twelve fragment-shader styles built on one shared GLSL library (`lib_<family>`), each with its own geometry and its own way of hearing the music. The first is the basic one and is free; the rest are Pro. The families are Arbor, Bulb, Chrysanthemum, Lucid, Dive, Glass, Nebula, Terrain and Truchet.
+Twelve fragment-shader styles built on one shared GLSL library (`lib_<family>`), each with its own geometry and its own way of hearing the music. The first is the basic one and is free; the rest are Pro. The families are Arbor, Bulb, Chrysanthemum, Lucid, Dive, Glass, Nebula, Terrain, Truchet and Sphere Foam.
 _Avoid_: Pack, collection, scene family (that is the renderer, such as Cymatics or Fluid)
 
 **Arbor**:
@@ -75,6 +75,9 @@ The landscape style family: ray-marched heightfields (ridges, dunes, canyons, is
 
 **Truchet**:
 The tiling style family: randomly turned tiles whose arcs and lines join into continuous paths, rewired by onsets.
+
+**Sphere Foam**:
+The sphere-packing style family (`foam_*`, `lib_foam`): falls down a curving bore through, or orbits a ball of, a 3D Apollonian foam of spheres inside spheres, one material per style. Not Fractal Tunnel, the loose style ported from the same PR #7 shader, which keeps the rig's own flight.
 
 **Scene params**:
 The full set of tunable values a scene is drawn with at one moment.

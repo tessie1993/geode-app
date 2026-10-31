@@ -15,7 +15,7 @@ class StyleFamiliesTest {
     @Test
     fun everyFamilyHasTwelveStylesUnderItsOwnPrefixOpenerFirst() {
         assertEquals(
-            listOf("arbor", "bulb", "chrysanthemum", "lucid", "dive", "glass", "nebula", "terrain", "truchet"),
+            listOf("arbor", "bulb", "chrysanthemum", "lucid", "dive", "glass", "nebula", "terrain", "truchet", "foam"),
             StyleFamilies.all.map { it.name },
         )
         StyleFamilies.all.forEach { family ->

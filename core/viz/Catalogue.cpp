@@ -42,7 +42,7 @@ constexpr std::array<const char*, 21> kLooseMarched = {
     "supershape", "fractal_tunnel",
 };
 
-constexpr std::array<Family, 9> kFamilies = {{
+constexpr std::array<Family, 10> kFamilies = {{
     // Fractal trees: branching folded distance fields, flown through or orbited.
     {"arbor", "arbor_", "lib_arbor",
      {"arbor_grove", "arbor_willow", "arbor_coral", "arbor_frost", "arbor_bolt", "arbor_roots", "arbor_bonsai", "arbor_canopy",
@@ -79,10 +79,14 @@ constexpr std::array<Family, 9> kFamilies = {{
     {"truchet", "truchet_", "lib_truchet",
      {"truchet_arcs", "truchet_hex", "truchet_weave", "truchet_maze", "truchet_tri", "truchet_quad", "truchet_tubes",
       "truchet_neon", "truchet_flow", "truchet_knot", "truchet_tunnel", "truchet_relief"}},
+    // Falls and orbits through a 3D Apollonian sphere packing (after PR #7), one material each.
+    {"foam", "foam_", "lib_foam",
+     {"foam_fall", "foam_neon", "foam_soap", "foam_chrome", "foam_ember", "foam_ice", "foam_orb",
+      "foam_kaleido", "foam_ink", "foam_coral", "foam_ghost", "foam_show"}},
 }};
 
 // The family styles that march.
-constexpr std::array<const char*, 51> kFamilyMarched = {
+constexpr std::array<const char*, 63> kFamilyMarched = {
     "arbor_willow", "arbor_coral", "arbor_bonsai", "arbor_canopy", "arbor_spire", "arbor_synapse",
     "bulb_classic", "bulb_julia", "bulb_slice", "bulb_lotus", "bulb_ink", "bulb_glow", "bulb_cavern", "bulb_shell",
     "bulb_prism", "bulb_contour", "bulb_chrome", "bulb_hybrid",
@@ -94,6 +98,8 @@ constexpr std::array<const char*, 51> kFamilyMarched = {
     "terra_ridge", "terra_dunes", "terra_canyon", "terra_glacier", "terra_isles", "terra_mesa", "terra_volcano",
     "terra_terraces", "terra_moon", "terra_night", "terra_wire",
     "truchet_relief",
+    "foam_fall", "foam_neon", "foam_soap", "foam_chrome", "foam_ember", "foam_ice",
+    "foam_orb", "foam_kaleido", "foam_ink", "foam_coral", "foam_ghost", "foam_show",
 };
 
 // The styles whose look is a turning one (kaleidoscopes, mandalas, spirals, vortices, tunnels),
@@ -375,7 +381,7 @@ float spinRate(const std::string& id) {
     return 0.0f;
 }
 
-const std::array<Family, 9>& families() { return kFamilies; }
+const std::array<Family, 10>& families() { return kFamilies; }
 
 Scope scopeOf(const std::string& paramKey) {
     for (const auto& entry : kKeyScopes) {

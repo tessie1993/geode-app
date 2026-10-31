@@ -1,9 +1,11 @@
 package dev.geode
 
+import android.content.ContentResolver
 import android.content.ContentUris
 import android.content.Context
 import android.net.Uri
 import android.os.Build
+import android.os.Bundle
 import android.provider.MediaStore
 import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.PerformanceStore
@@ -131,11 +133,32 @@ class GeodeContainer(
                 "Movies/MuzViz%",
                 "Pictures/MuzViz%",
             )
-        resolver.query(collection, arrayOf(MediaStore.MediaColumns._ID), selection, args, null)?.use { cursor ->
-            val idColumn = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns._ID)
-            while (cursor.moveToNext()) {
-                val uri = ContentUris.withAppendedId(collection, cursor.getLong(idColumn))
-                bestEffort(TAG, "resolver.delete(orphaned pending row)") { resolver.delete(uri, null, null) }
+        // MediaStore leaves pending rows out of queries and deletes unless asked, the owner's too.
+        val cursor =
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                val query =
+                    Bundle().apply {
+                        putString(ContentResolver.QUERY_ARG_SQL_SELECTION, selection)
+                        putStringArray(ContentResolver.QUERY_ARG_SQL_SELECTION_ARGS, args)
+                        putInt(MediaStore.QUERY_ARG_MATCH_PENDING, MediaStore.MATCH_INCLUDE)
+                    }
+                resolver.query(collection, arrayOf(MediaStore.MediaColumns._ID), query, null)
+            } else {
+                @Suppress("DEPRECATION")
+                resolver.query(MediaStore.setIncludePending(collection), arrayOf(MediaStore.MediaColumns._ID), selection, args, null)
+            }
+        cursor?.use {
+            val idColumn = it.getColumnIndexOrThrow(MediaStore.MediaColumns._ID)
+            while (it.moveToNext()) {
+                val uri = ContentUris.withAppendedId(collection, it.getLong(idColumn))
+                bestEffort(TAG, "resolver.delete(orphaned pending row)") {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                        resolver.delete(uri, Bundle().apply { putInt(MediaStore.QUERY_ARG_MATCH_PENDING, MediaStore.MATCH_INCLUDE) })
+                    } else {
+                        @Suppress("DEPRECATION")
+                        resolver.delete(MediaStore.setIncludePending(uri), null, null)
+                    }
+                }
             }
         }
     }

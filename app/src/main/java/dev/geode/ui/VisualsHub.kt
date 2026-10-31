@@ -49,6 +49,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.Saver
@@ -80,6 +81,7 @@ import dev.geode.data.Preset
 import dev.geode.pro.PaywallTrigger
 import dev.geode.pro.ProFeature
 import dev.geode.render.VisualizerView
+import dev.geode.render.scene.BuildStyleReactionsUseCase
 import dev.geode.render.scene.CustomizeTab
 import dev.geode.render.scene.SceneCapabilities
 import dev.geode.render.scene.SceneIds
@@ -1199,6 +1201,8 @@ private fun tabAppliesTo(
         CustomizeTab.SHAPE,
         CustomizeTab.COLOR,
         CustomizeTab.MOTION,
+        CustomizeTab.CAMERA,
+        CustomizeTab.LAYERS,
         CustomizeTab.FX,
         CustomizeTab.REACTIVITY,
         CustomizeTab.SCENE,
@@ -1217,6 +1221,38 @@ private fun CustomizeTabBody(
     val viz by viewModel.vizState.collectAsStateWithLifecycle()
     val p = viz.params
     val onChange: (dev.geode.render.scene.SceneParams) -> Unit = visualsViewModel::editSceneParams
+    // Every parameter row in every tab is a lane the music plays (ui/MusicLanes): the user's routes,
+    // or the style's DNA until the first edit copies it. Editing the music side is Pro.
+    val reactions by visualsViewModel.reactions.collectAsStateWithLifecycle()
+    val lanePaywall: dev.geode.ui.pro.PaywallViewModel = geodeViewModel()
+    val laneGate by lanePaywall.gate.collectAsStateWithLifecycle()
+    val catalogue = remember { musicCatalogue() }
+    val dna = remember(viz.sceneId, p.reactSeed) { BuildStyleReactionsUseCase()(viz.sceneId, p.reactSeed) }
+    val lanes =
+        catalogue?.let {
+            MusicLanes(
+                routes = reactions ?: dna,
+                catalogue = it,
+                canEdit = laneGate.allows(ProFeature.ADVANCED_CUSTOMIZATION),
+                onRoutesChange = visualsViewModel::setReactions,
+                onLocked = { lanePaywall.open(PaywallTrigger.Feature(ProFeature.ADVANCED_CUSTOMIZATION)) },
+            )
+        }
+    CompositionLocalProvider(LocalMusicLanes provides lanes) {
+        CustomizeTabContent(viewModel, visualizerView, visualsViewModel, tab, p, onChange)
+    }
+}
+
+@Composable
+private fun CustomizeTabContent(
+    viewModel: PlayerViewModel,
+    visualizerView: VisualizerView,
+    visualsViewModel: VisualsViewModel,
+    tab: CustomizeTab?,
+    p: dev.geode.render.scene.SceneParams,
+    onChange: (dev.geode.render.scene.SceneParams) -> Unit,
+) {
+    val viz by viewModel.vizState.collectAsStateWithLifecycle()
     when (tab) {
         CustomizeTab.MACROS -> {
             val context = androidx.compose.ui.platform.LocalContext.current
@@ -1244,6 +1280,8 @@ private fun CustomizeTabBody(
             )
         }
         CustomizeTab.MOTION -> MotionTab(p, onChange)
+        CustomizeTab.CAMERA -> CameraTab(p, onChange)
+        CustomizeTab.LAYERS -> LayersTab(p, onChange)
         CustomizeTab.SHAPE -> ShapeTab(p, onChange)
         CustomizeTab.SCENE ->
             SceneTab(

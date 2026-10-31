@@ -371,7 +371,13 @@ std::string catalogueText() {
         text += t.label;
         text += '|';
         text += t.group;
-        text += t.luminance ? "|1\n" : "|0\n";
+        text += t.luminance ? "|1|" : "|0|";
+        // How the target is written (so a range slider can turn its two handles into a base value and
+        // a route amount), and which sound drives it by default if it is a motion ("-" if none).
+        text += std::to_string(t.min) + '|' + std::to_string(t.max) + '|' + std::to_string(t.scale) + '|';
+        ReactSource drive{};
+        text += defaultDrive(t.id, drive) ? source(drive).name : "-";
+        text += '\n';
     }
     return text;
 }

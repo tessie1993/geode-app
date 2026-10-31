@@ -53,6 +53,8 @@ struct StyleTraits {
     float spinRate = 0.0f;
     // A shader style reads morph and the second palette (ParamScope.SHADER_LOOK).
     bool shaderLook = false;
+    // The fluid simulation: its curl, splats, glow and fade get lanes of their own.
+    bool fluid = false;
 };
 
 struct StyleDna {

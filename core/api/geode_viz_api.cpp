@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "api/geode_api.h"
+#include "viz/Catalogue.hpp"
 #include "viz/Macros.hpp"
 #include "viz/ParamMatrix.hpp"
 #include "viz/ReactionDna.hpp"
@@ -266,7 +267,8 @@ int geode_macro_starters(char* out, int capacity) {
 int geode_style_reactions(const char* style_id, int seed, float* out, int capacity) {
     if (!style_id || !out || capacity < GEODE_REACT_ROUTE_FLOATS) return 0;
     const std::string id(style_id);
-    const StyleDna dna = buildStyleDna(id, seed, {SceneRegistry::spinRate(id), SceneRegistry::isShaderStyle(id)});
+    const StyleDna dna = buildStyleDna(id, seed, {SceneRegistry::spinRate(id), SceneRegistry::isShaderStyle(id),
+                                                  catalogue::kindOf(id) == catalogue::Kind::Fluid});
     const int n = std::min(dna.count, capacity / GEODE_REACT_ROUTE_FLOATS);
     for (int i = 0; i < n; ++i) {
         const ReactRoute& r = dna.routes[static_cast<size_t>(i)];

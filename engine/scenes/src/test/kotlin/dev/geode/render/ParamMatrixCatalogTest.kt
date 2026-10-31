@@ -9,7 +9,7 @@ class ParamMatrixCatalogTest {
         val c =
             ParamMatrixCatalog.parse(
                 "S|BASS|Bass|LEVELS|0|soft|loud\nS|KICK|Kick hit|DRUMS|1|between kicks|on the kick\n" +
-                    "T|NONE|None|NONE|0\nT|BLOOM|Bloom|FX|1\n",
+                    "T|NONE|None|NONE|0|0|0|0|-\nT|ROTATION|Rotation|MOTION|0|-3.0|3.0|1.5|BASS_TIME\n",
             )
         assertEquals(
             listOf(
@@ -19,7 +19,10 @@ class ParamMatrixCatalogTest {
             c.sources,
         )
         assertEquals(
-            listOf(ReactTargetInfo(0, "NONE", "None", "NONE", false), ReactTargetInfo(1, "BLOOM", "Bloom", "FX", true)),
+            listOf(
+                ReactTargetInfo(0, "NONE", "None", "NONE", false, 0f, 0f, 0f, null),
+                ReactTargetInfo(1, "ROTATION", "Rotation", "MOTION", false, -3f, 3f, 1.5f, "BASS_TIME"),
+            ),
             c.targets,
         )
     }
@@ -36,7 +39,7 @@ class ParamMatrixCatalogTest {
         // instrumented test compares the same rows with the real native catalogue.
         val text =
             ReactSource.entries.joinToString("\n") { "S|${it.name}|${it.label}|${it.group.name}|${if (it.isEvent) 1 else 0}|a|b" } +
-                "\n" + LfoTarget.entries.joinToString("\n") { "T|${it.name}|${it.label}|G|0" }
+                "\n" + LfoTarget.entries.joinToString("\n") { "T|${it.name}|${it.label}|G|0|0|1|1|-" }
         val parsed = ParamMatrixCatalog.parse(text)
         assertEquals(ReactSource.entries.map { it.name }, parsed.sources.map { it.name })
         assertEquals(LfoTarget.entries.map { it.name }, parsed.targets.map { it.name })

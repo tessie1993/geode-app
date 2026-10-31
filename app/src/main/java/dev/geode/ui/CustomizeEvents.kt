@@ -3,15 +3,22 @@ package dev.geode.ui
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import dev.geode.render.EventRecipe
+import dev.geode.render.ReactionPreset
 import dev.geode.render.ReactionRoute
 import dev.geode.render.scene.BuildStyleReactionsUseCase
 import dev.geode.render.scene.SceneParams
@@ -67,6 +74,42 @@ internal fun EventsTab(
                 )
             }
         }
-        ReactionsSection(p, onChange, reactions, onReactionsChange, onRerollReactions)
+        // The whole matrix: presets by feel, then every sound against every parameter (ui/ReactionGrid).
+        val lanes = LocalMusicLanes.current
+        if (lanes != null && !searching) {
+            SectionHeader("Reaction presets")
+            ControlHint("Each one layers several reactions on different parts of the music. It replaces the routes below.")
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                ReactionPreset.entries.forEach { preset ->
+                    FilterChip(
+                        selected = false,
+                        onClick = { lanes.edit { preset.routes } },
+                        label = { Text(preset.title, style = MaterialTheme.typography.labelSmall) },
+                    )
+                }
+            }
+            SectionHeader("Every sound, every parameter")
+            ControlHint(
+                "Down the side, everything the engine hears; across, one group of parameters. Tap a cell to " +
+                    "make that sound move it (tap again for stronger, then inverted, then off); hold it for details.",
+            )
+            ReactionGrid(lanes)
+        }
+        // The same routes as a list (re-roll, back to the style's DNA, and every route spelled out).
+        var asList by rememberSaveable { mutableStateOf(lanes == null) }
+        if (lanes != null) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (!asList) {
+                    CrystalButton(compact = true, filled = false, onClick = onRerollReactions) { Text("Re-roll DNA") }
+                    if (reactions != null) {
+                        CrystalButton(compact = true, filled = false, onClick = { onReactionsChange(null) }) { Text("Back to style DNA") }
+                    }
+                }
+                TextButton(onClick = { asList = !asList }) { Text(if (asList) "Hide the list" else "As a list") }
+            }
+        }
+        if (asList || searching) {
+            ReactionsSection(p, onChange, reactions, onReactionsChange, onRerollReactions)
+        }
     }
 }

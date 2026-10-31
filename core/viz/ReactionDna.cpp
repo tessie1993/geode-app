@@ -224,6 +224,15 @@ constexpr std::array<LaneSpec, 17> kLookLanes = {{
     {T::ParticleSize, {S::TrebleAtt, S::HatEnv, S::High, S::Vibrato, S::Flux}, M::Follow, 0.3f, 0.5f, 0.02f, 0.3f, ModCurve::Linear},
 }};
 
+// The fluid simulation's own parameters, only on fluid styles.
+constexpr std::array<LaneSpec, 5> kFluidLanes = {{
+    {T::FluidCurl, {S::MidAtt, S::Flux, S::MidPresence, S::DensityFast, S::Glide}, M::Follow, 0.3f, 0.6f, 0.1f, 0.6f, ModCurve::Smooth},
+    {T::FluidForce, {S::KickEnv, S::BassAtt, S::SubAtt, S::OnsetEnv, S::Kick2}, M::Follow, 0.5f, 0.9f, 0.02f, 0.4f, ModCurve::Linear},
+    {T::FluidRadius, {S::SnareEnv, S::Bass, S::PeakMag, S::Kick4, S::VolAtt}, M::Follow, 0.4f, 0.8f, 0.02f, 0.4f, ModCurve::Linear},
+    {T::FluidGlow, {S::Loudness, S::Level, S::TrebleAtt, S::Intensity, S::PeakMag}, M::Follow, 0.3f, 0.6f, 0.3f, 0.9f, ModCurve::Smooth},
+    {T::FluidFade, {S::Silence, S::Presence, S::EnergyTrend, S::Flatness, S::RunDensity}, M::Follow, -0.6f, -0.3f, 0.5f, 1.5f, ModCurve::Smooth},
+}};
+
 void addLane(Builder& b, Draw& d, const LaneSpec& l, const StyleTraits& traits) {
     if (!allowedTarget(l.target, traits) || b.uses(l.target)) return;
     b.lane(b.fresh(d, l.pool), l.target, l.mode, d.range(l.lo, l.hi), l.attack, l.release, l.curve);
@@ -435,6 +444,9 @@ StyleDna buildStyleDna(std::string_view styleId, int seed, const StyleTraits& tr
     addDrives(b, d, traits);
     addCamera(b, d, b.dna.feel, traits);
     addLayers(b, d);
+    if (traits.fluid) {
+        for (const LaneSpec& l : kFluidLanes) addLane(b, d, l, traits);
+    }
     for (const LaneSpec& l : kLookLanes) addLane(b, d, l, traits);
 
     return b.dna;

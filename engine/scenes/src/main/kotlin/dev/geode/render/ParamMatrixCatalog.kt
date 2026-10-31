@@ -25,6 +25,12 @@ data class ReactTargetInfo(
     val label: String,
     val group: String,
     val isLuminance: Boolean,
+    /** The range native clamps the parameter to, and how far a route's 1.0 moves it. */
+    val min: Float = 0f,
+    val max: Float = 1f,
+    val scale: Float = 1f,
+    /** For a motion the music drives (rotation, speed, fly ...): the sound that drives it by default. */
+    val defaultDrive: String? = null,
 )
 
 data class ParamMatrixCatalog(
@@ -33,9 +39,11 @@ data class ParamMatrixCatalog(
 ) {
     fun source(s: ReactSource): ReactSourceInfo? = sources.getOrNull(s.ordinal)
 
+    fun target(t: LfoTarget): ReactTargetInfo? = targets.getOrNull(t.ordinal)
+
     companion object {
         /**
-         * Parses "S|NAME|Label|GROUP|0/1|low|high" and "T|NAME|Label|GROUP|0/1" lines. A malformed
+         * Parses "S|NAME|Label|GROUP|0/1|low|high" and "T|NAME|Label|GROUP|0/1|min|max|scale|drive" lines. A malformed
          * line is skipped without shifting the ids of the rest, which count per kind.
          */
         fun parse(text: String): ParamMatrixCatalog {
@@ -51,7 +59,20 @@ data class ParamMatrixCatalog(
                         s++
                     }
                     "T" -> {
-                        if (f.size == TARGET_FIELDS) targets += ReactTargetInfo(t, f[1], f[2], f[3], f[4] == "1")
+                        if (f.size == TARGET_FIELDS) {
+                            targets +=
+                                ReactTargetInfo(
+                                    id = t,
+                                    name = f[1],
+                                    label = f[2],
+                                    group = f[3],
+                                    isLuminance = f[4] == "1",
+                                    min = f[5].toFloatOrNull() ?: 0f,
+                                    max = f[6].toFloatOrNull() ?: 1f,
+                                    scale = f[7].toFloatOrNull() ?: 1f,
+                                    defaultDrive = f[8].takeIf { it != "-" },
+                                )
+                        }
                         t++
                     }
                 }
@@ -60,6 +81,6 @@ data class ParamMatrixCatalog(
         }
 
         private const val SOURCE_FIELDS = 7
-        private const val TARGET_FIELDS = 5
+        private const val TARGET_FIELDS = 9
     }
 }

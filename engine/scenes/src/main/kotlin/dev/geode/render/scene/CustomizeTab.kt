@@ -11,7 +11,9 @@ package dev.geode.render.scene
  * parameter of its own; it is the easy way into the detail tabs after it.
  *
  * [SHAPE], [COLOR], [MOTION], [FX] and [REACTIVITY] are the five the spec asks for and every
- * style has them. [SCENE] holds the choices about the style itself rather than about a
+ * style has them. [CAMERA] moves the shared camera through the scene and [LAYERS] holds what happens
+ * to the picture itself (fall through, fractal growth, melt, spawn, freeze, shatter, particles); every
+ * style has those too, and in every tab each parameter is a lane the music plays (ui/MusicLanes). [SCENE] holds the choices about the style itself rather than about a
  * parameter (how it transitions in). The last three are per-family control surfaces the panel
  * only offers when that family is on screen.
  */
@@ -24,6 +26,8 @@ enum class CustomizeTab(
     SHAPE("Shape"),
     COLOR("Colour"),
     MOTION("Motion"),
+    CAMERA("Camera"),
+    LAYERS("Layers"),
     FX("FX"),
     REACTIVITY("Reactivity"),
     SCENE("Scene"),

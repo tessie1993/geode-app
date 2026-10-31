@@ -104,7 +104,7 @@ private:
 
 class ReactionEngine {
 public:
-    static constexpr int kRoutes = 64;
+    static constexpr int kRoutes = 96;
     static constexpr int kConfigFloats = 8; // enabled, source, target, mode, amount, curve, attack, release
 
     std::array<ReactRoute, kRoutes> routes{};

@@ -279,7 +279,7 @@ void textRoundTrips() {
     const auto lines = split(catalogue::text(), '\n');
     check(!lines.empty() && lines[0] == "catalogue|" + std::to_string(catalogue::kTextVersion), "versioned header");
     std::vector<std::string> styleIds;
-    int kinds = 0, families = 0, keys = 0;
+    int kinds = 0, families = 0, keys = 0, overrides = 0;
     for (const auto& line : lines) {
         const auto f = split(line, '|');
         if (f[0] == "style") {
@@ -291,6 +291,10 @@ void textRoundTrips() {
         } else if (f[0] == "family") {
             ++families;
             check(split(f[4], ',').size() == 12, "family row lists twelve ids");
+        } else if (f[0] == "override") {
+            ++overrides;
+            check(styles::cymatics(f[1]) && f[2] == "Geometry" && std::stoi(f[3]) == styles::cymatics(f[1])->geometryOverride,
+                  "geometry override of " + f[1]);
         } else if (f[0] == "key") {
             ++keys;
             check(f[2] == catalogue::name(catalogue::scopeOf(f[1])), "scope row of " + f[1]);
@@ -298,7 +302,7 @@ void textRoundTrips() {
         }
     }
     check(styleIds == catalogue::allIds(), "style rows in picker order");
-    check(kinds == catalogue::kKindCount && families == 9 && keys == 80, "row counts");
+    check(kinds == catalogue::kKindCount && families == 9 && keys == 80 && overrides == 8, "row counts");
 }
 
 std::string readFile(const char* path) {

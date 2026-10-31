@@ -100,6 +100,7 @@ const char* name(Scope scope);
 //   kind|<KIND>|<SCOPE>,<SCOPE>,...       every scope that reaches the kind (MarchDetail never: it is per style)
 //   style|<id>|<KIND>[|MARCH_DETAIL]       allIds() order; the extra field lists per-style scopes
 //   family|<name>|<prefix>|<library>|<id>,<id>,...   opener first
+//   override|<id>|<ParamKeys string>|<value>   the style holds that control at that value
 //   key|<ParamKeys string>|<SCOPE>         every non-Universal control
 //   range|<ParamKeys string>|<min>|<max>
 //   value|<name>|<number>

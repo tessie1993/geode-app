@@ -302,6 +302,11 @@ std::string build() {
         }
         out += '\n';
     }
+    // A cymatics style that draws on one plate geometry overrides the user's Geometry control.
+    for (const auto& id : styles::cymaticsIds()) {
+        const int geometry = styles::cymatics(id)->geometryOverride;
+        if (geometry >= 0) out += "override|" + id + "|Geometry|" + std::to_string(geometry) + "\n";
+    }
     for (const auto& entry : kKeyScopes) out += std::string("key|") + entry.key + "|" + name(entry.scope) + "\n";
     const auto range = [&out](const char* key, float lo, float hi) {
         out += std::string("range|") + key + "|" + number(lo) + "|" + number(hi) + "\n";

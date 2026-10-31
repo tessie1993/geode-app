@@ -4,9 +4,9 @@ import android.content.Context
 import android.opengl.GLSurfaceView
 import android.os.SystemClock
 import dev.geode.analysis.AudioFeatures
-import dev.geode.render.bridge.NativeViz
 import dev.geode.engine.audio.SoundCursor
 import dev.geode.engine.audio.SoundInput
+import dev.geode.render.bridge.NativeViz
 import dev.geode.render.scene.PcmChunk
 import dev.geode.render.scene.SceneIds
 import dev.geode.render.scene.SceneParams

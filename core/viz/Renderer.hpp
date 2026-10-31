@@ -31,6 +31,7 @@
 #include "viz/TouchField.hpp"
 #include "viz/TrailPass.hpp"
 #include "viz/VisualSafety.hpp"
+#include "viz/colour/ColourEngine.hpp"
 #include "viz/scenes/ProgramLoader.hpp"
 
 namespace geode::viz {
@@ -66,6 +67,10 @@ public:
     void setSoundTuning(const GeodeSoundTuning& tuning);
     // The frame beginFrame last stepped, for readers outside the renderer (Kotlin meters, tests).
     GeodeSoundFrame soundFrame() const;
+    // The colour engine (viz/colour, docs/COLOUR_ENGINE.md): the user's Colour controls, and the track's
+    // seed, which fixes the palette walk so a song is coloured the same way on every run and in export.
+    void setColourSettings(const colour::ColourSettings& settings);
+    void setColourSeed(uint32_t seed);
     void setCustomShader(const std::string& sceneId, const std::string& fragmentSource);
     // The user source a scene last compiled successfully; "" when it draws its built-in style.
     std::string customShaderFor(const std::string& sceneId) const;
@@ -168,6 +173,8 @@ private:
     std::unique_ptr<sound::SoundEngine> sound_;
     GeodeSoundTuning soundTuning_ = sound::SoundEngine::defaultTuning();
     GeodeSoundFrame soundFrame_{};
+    // Stepped in beginFrame right after the sound engine, under soundLock_; every scene reads its frame.
+    colour::ColourEngine colour_;
     // Customize › Macros: this frame's knobs, and the ones the sound engine's tuning was last built from.
     MacroKnobs frameKnobs_{};
     MacroKnobs tunedKnobs_{};

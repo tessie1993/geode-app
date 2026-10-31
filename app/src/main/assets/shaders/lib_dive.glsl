@@ -230,10 +230,13 @@ void dive_palInit() {
     gDivePalFade = smoothstep(0.0, 1.0, fade);
 }
 
-/** The family's colour: the active cosine palette (crossfading from the last one) half and half with pal(). */
+/**
+ * The family's colour: the active cosine palette (crossfading from the last one) half and half with pal().
+ * The cosine half goes through colourMusic, so the music moves all of a dive's colour, not only pal()'s half.
+ */
 vec3 diveColor(float x) {
     vec3 c = mix(dive_cpal(x, gDivePalNew), dive_cpal(x, gDivePalOld), gDivePalFade);
-    return mix(max(c, 0.0), pal(x), 0.5);
+    return mix(colourMusic(max(c, 0.0), x), pal(x), 0.5);
 }
 
 // ---- per-frame scene state ----------------------------------------------------

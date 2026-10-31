@@ -8,6 +8,7 @@
 
 #include "api/geode_api.h"
 #include "viz/CameraRig.hpp"
+#include "viz/colour/ColourEngine.hpp"
 #include "viz/Params.hpp"
 #include "viz/TouchField.hpp"
 
@@ -35,6 +36,9 @@ public:
     virtual void setTouchField(const TouchField* field) { (void) field; }
     // The renderer's camera rig pose, stable for the scene's lifetime; stepped once per frame before draw.
     virtual void setCamera(const CameraPose* pose) { (void) pose; }
+    // The renderer's colour engine frame (viz/colour), stable for the scene's lifetime; stepped once per
+    // frame before draw. Scenes that colour through pal() upload it with colour::upload.
+    virtual void setColour(const colour::ColourFrame* frame) { (void) frame; }
     // True when the scene draws the rig's 3D pose itself, so the composite must not also apply its flat projection.
     virtual bool drawsCamera() const { return false; }
     virtual void setFragmentSource(const std::string& source) { (void) source; }

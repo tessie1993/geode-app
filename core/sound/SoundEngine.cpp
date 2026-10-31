@@ -234,6 +234,10 @@ void SoundEngine::step(float dtSeconds, GeodeSoundFrame& out) {
     drums(dt, silent, out);
     events(dt, warm, out);
     melody(dt, out);
+    // After melody(), which has just filled pitchMag_ from the long window: the harmony stage reads the
+    // same magnitudes, so the chroma costs no FFT of its own.
+    harmony_.step(pitchMag_.data(), static_cast<int>(pitchMag_.size()), static_cast<float>(sampleRateHz_) / static_cast<float>(2 * n_),
+                  out.flatness, silent || starved_, dt);
     clocks(dt, out);
 }
 
@@ -766,6 +770,7 @@ void SoundEngine::reset() {
     punchNow_ = {};
     punchAt_ = {};
     state_ = State{};
+    harmony_.reset();
 }
 
 }  // namespace geode::sound

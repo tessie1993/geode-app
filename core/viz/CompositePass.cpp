@@ -5,6 +5,7 @@
 #include "util/Log.hpp"
 #include "viz/BlueNoise.hpp"
 #include "viz/CompositeGrade.hpp"
+#include "viz/colour/ColourUniforms.hpp"
 
 namespace geode::viz {
 
@@ -150,6 +151,7 @@ void CompositePass::draw(const Inputs& inputs) {
     glUniform4fv(program.loc("uCamFlat"), 1, inputs.camFlat.data());
     glUniform2fv(program.loc("uCamTilt"), 1, inputs.camTilt.data());
     glUniform2fv(program.loc("uCamGate"), 1, inputs.camGate.data());
+    colour::upload(program, inputs.colour);
     glBindVertexArray(inputs.quadVao);
     glDrawArrays(GL_TRIANGLES, 0, 3);
     glBindVertexArray(0);

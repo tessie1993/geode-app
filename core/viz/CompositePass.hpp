@@ -9,6 +9,7 @@
 #include "viz/Params.hpp"
 #include "viz/Texture.hpp"
 #include "viz/Transition.hpp"
+#include "viz/colour/ColourEngine.hpp"
 
 namespace geode::viz {
 
@@ -74,6 +75,9 @@ public:
         GLuint underlayTex = 0;
         int underlayBlend = 0;
         float underlayAmount = 0.0f;
+        // The colour engine's frame (viz/colour): the composite colours MilkDrop and the simulation
+        // scenes with it (lib_colour), gated to those families by gate.x. Null uploads it off.
+        const colour::ColourFrame* colour = nullptr;
     };
 
     CompositePass(const ShaderSource& assets, ProgramBinaryCache* cache) : transitions_(assets, cache), assets_(assets), cache_(cache) {}

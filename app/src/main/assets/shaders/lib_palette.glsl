@@ -39,7 +39,11 @@ vec3 palProcedural(float t) {
     return mix(a, b, uPaletteMix);
 }
 
-vec3 pal(float t) {
+// THE COLOUR ENGINE (lib_colour, core/viz/colour, docs/COLOUR_ENGINE.md) moves whatever palHome()
+// returns: pal() below is the style's own palette passed through colourMusic().
+//#include lib_colour
+
+vec3 palHome(float t) {
     vec3 procedural = palProcedural(t);
     if (uPalLutMix <= 0.001) return procedural;
     // Hue shift and the colour cycle stay meaningful on a colour map: they
@@ -59,3 +63,6 @@ vec3 pal(float t) {
     vec3 mapped = texture(uPalLut, vec2(u, uPalLutRow)).rgb;
     return mix(procedural, mapped, clamp(uPalLutMix, 0.0, 1.0));
 }
+
+/** The palette every style colours itself with: the style's own (palHome), moved by the music. */
+vec3 pal(float t) { return colourMusic(palHome(t), t); }

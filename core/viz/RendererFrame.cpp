@@ -47,6 +47,8 @@ float Renderer::beginFrame(double timeSeconds) {
             sound_->setTuning(macros::tuning(soundTuning_, tunedKnobs_));
         }
         if (sound_) sound_->step(dt, soundFrame_);
+        // The colour engine hears the same frame and its harmony, before any scene draws with it.
+        colour_.step(soundFrame_, sound_ ? sound_->harmony() : sound::GeodeHarmony{}, dt);
     }
     std::vector<std::pair<std::string, std::string>> pending;
     {
@@ -291,6 +293,7 @@ void Renderer::composite(Scene& scene, const SceneParams& p, float progress, GLu
     in.underlayTex = compositePass_.underlayTexOrZero();
     in.underlayBlend = compositePass_.underlayBlendMode();
     in.underlayAmount = compositePass_.underlayAmount();
+    in.colour = &colour_.frame();
     compositePass_.draw(in);
     // W00: overlay is its own draw call, over whatever composite() just wrote to targetFbo, so it
     // never enters postFx/transitions/Layers and comes out identical live, in the wallpaper and in

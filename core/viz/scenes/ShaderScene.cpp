@@ -4,6 +4,7 @@
 #include <cmath>
 
 #include "viz/Catalogue.hpp"
+#include "viz/colour/ColourUniforms.hpp"
 #include "viz/scenes/SceneCommon.hpp"
 
 namespace geode::viz {
@@ -107,6 +108,8 @@ void ShaderScene::draw(float timeSeconds) {
     uploadMotion();
     uploadTouch();
     uploadCamera();
+    // The music's colour for pal() and grade() (lib_palette).
+    colour::upload(uniforms_, colour_);
     // The whole GeodeSoundFrame for lib_sound; its texture takes unit 3 (1 and 2 are the flow and the palette LUT).
     sound_.upload(uniforms_, p.audioDrive);
     glBindVertexArray(vao_);

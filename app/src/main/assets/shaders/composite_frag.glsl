@@ -257,6 +257,23 @@ vec2 geo(vec2 uv, vec4 gate, float camOn) {
     return p;
 }
 
+//#include lib_colour
+
+// The colour engine for the scenes that colour themselves (MilkDrop and the simulations, which never
+// call pal()): their frame is turned with the key, leaned toward the music's palette by each pixel's
+// own lightness (keeping that lightness, so projectM's and the simulations' detail survive), then
+// finished like grade() finishes a shader style. Gated to those families (gate.x), so a shader style,
+// which already met the engine in pal() and grade(), is never coloured twice.
+vec3 colourComposite(vec3 col) {
+    if (uColourOn < 0.5) return col;
+    float l = dot(max(col, 0.0), vec3(0.299, 0.587, 0.114));
+    vec3 turned = max(uColourHue * col, 0.0);
+    vec3 ramp = colourRamp(0.5 * clamp(l, 0.0, 1.0) + uColourDrift);
+    vec3 tinted = ramp * (l / max(dot(ramp, vec3(0.299, 0.587, 0.114)), 0.03));
+    col = mix(turned, min(tinted, vec3(1.5)), 0.55 * uColourAway);
+    return colourFinish(col);
+}
+
 // Screen-space FX chain applied to the final composited frame, so it works
 // identically for shader, particle and milkdrop scenes and during
 // transitions. Order: geometry -> distortion (fisheye, glitch) -> sample
@@ -343,6 +360,7 @@ vec3 postFx(sampler2D tex, vec2 uv, vec4 gate, float camOn) {
         if (abs(uPostContrast - 1.0) > 0.0001) col = (col - 0.5) * uPostContrast + 0.5;
         if (abs(uPostGamma - 1.0) > 0.0001) col = pow(max(col, 0.0), vec3(1.0 / max(uPostGamma, 0.05)));
     }
+    if (geoOn) col = colourComposite(col);
     if (uScanline > 0.001) {
         col *= 1.0 - uScanline * 0.35 * (0.5 + 0.5 * sin(p.y * 900.0));
     }

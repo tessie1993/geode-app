@@ -9,6 +9,7 @@ add_library(geode_core STATIC
     api/geode_sound_api.cpp
     sound/Fft.cpp
     sound/SoundEngine.cpp
+    sound/Harmony.cpp
     library/Tags.cpp
     audio/player/Resampler.cpp
     audio/player/Decoder.cpp
@@ -55,6 +56,9 @@ add_library(geode_core STATIC
     viz/RendererFrame.cpp
     viz/scenes/ShaderScene.cpp
     viz/SoundUniforms.cpp
+    viz/colour/PaletteLibrary.cpp
+    viz/colour/ColourEngine.cpp
+    viz/colour/ColourUniforms.cpp
     viz/BlueNoise.cpp
     viz/Overlays.cpp
     viz/compute/SimField.cpp

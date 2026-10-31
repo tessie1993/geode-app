@@ -5,6 +5,7 @@
 
 #include "sound/FilterBank.hpp"
 #include "sound/Fft.hpp"
+#include "sound/Harmony.hpp"
 #include "sound/SoundFrame.h"
 #include "sound/Stages.hpp"
 
@@ -42,6 +43,10 @@ public:
     // Interleaved float PCM; mono feeds both channels, channels past the second are ignored.
     void write(const float* interleaved, int frames, int channels);
     void step(float dtSeconds, GeodeSoundFrame& out);
+    // The harmony stage's frame for the last step(): pitch-class profiles, the tonal centre, mode and
+    // tension (sound/Harmony). Kept beside GeodeSoundFrame rather than in it, so the frame's wire layout,
+    // lib_sound and the reaction sources stay as they are; the colour engine reads it on the GL thread.
+    const GeodeHarmony& harmony() const { return harmony_.frame(); }
     void setTuning(const GeodeSoundTuning& tuning) { tuning_ = tuning; }
     const GeodeSoundTuning& tuning() const { return tuning_; }
     void reset();
@@ -188,6 +193,7 @@ private:
     std::vector<float> wavePrev_;
 
     State state_;
+    Harmony harmony_;
 };
 
 }  // namespace geode::sound

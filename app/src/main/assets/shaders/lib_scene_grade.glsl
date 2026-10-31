@@ -1,12 +1,13 @@
 // grade() - the shared colour grade every fragment style ends on.
 //
-// Verbatim from kaleido_frag.glsl, for the same reason lib_scene_uniforms is:
+// Once copied verbatim into kaleido_frag.glsl and nineteen other loose styles (they all include
+// this file now), for the same reason lib_scene_uniforms is:
 // this block is the meaning of eleven user controls (Bloom, Posterize,
 // Duotone, Saturation, Contrast, Gamma, Temperature, Solarize, Flash,
 // Brightness/Intensity, Invert), and one slider has to mean one thing on every
 // style that offers it.
 //
-// It reads pal(), so lib_palette must be included ABOVE this file. Include
+// It reads pal() and the colour engine's uniforms, so lib_palette must be included ABOVE this file. Include
 // order for a style is: lib_scene_uniforms, lib_palette, lib_scene_grade.
 
 vec3 grade(vec3 col) {
@@ -20,6 +21,8 @@ vec3 grade(vec3 col) {
     col = mix(vec3(g), col, uSat);
     col = (col - 0.5) * uContrast + 0.5;
     col = pow(max(col, 0.0), vec3(1.0 / max(uGamma, 0.05)));
+    // The music's energy, tension and highlight (lib_colour); nothing while the colour engine is off.
+    col = colourFinish(col);
     col.r += uTemperature * 0.12;
     col.b -= uTemperature * 0.12;
     if (uSolarize > 0.5) col = abs(1.0 - 2.0 * col);

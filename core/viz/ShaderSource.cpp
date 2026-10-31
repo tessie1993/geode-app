@@ -10,10 +10,12 @@ namespace geode::viz {
 
 namespace {
 
-constexpr std::array<const char*, 22> kIncludes = {
+constexpr std::array<const char*, 23> kIncludes = {
     "lib_palette",      "lib_scene_uniforms",  "lib_scene_grade",    "lib_sdf3",
     "lib_touch",        "lib_psrdnoise2",      "lib_particle_common", "lib_particle_shade",
     "lib_scene_motion", "lib_dmt",             "lib_camera",
+    // The colour engine's frame (core/viz/colour); lib_palette includes it, the composite pass too.
+    "lib_colour",
     // The sound engine's frame (core/sound): uSound, uSoundTex and the SND_* names.
     "lib_sound",
     // The simulation scenes' shared 2.5D look (parallax relief, light, eight materials); after lib_sound.

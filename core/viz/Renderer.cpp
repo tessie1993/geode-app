@@ -95,6 +95,16 @@ void Renderer::setSoundTuning(const GeodeSoundTuning& tuning) {
     if (sound_) sound_->setTuning(macros::tuning(tuning, tunedKnobs_));
 }
 
+void Renderer::setColourSettings(const colour::ColourSettings& settings) {
+    std::lock_guard<std::mutex> lock(soundLock_);
+    colour_.setSettings(settings);
+}
+
+void Renderer::setColourSeed(uint32_t seed) {
+    std::lock_guard<std::mutex> lock(soundLock_);
+    colour_.setSeed(seed);
+}
+
 GeodeSoundFrame Renderer::soundFrame() const {
     std::lock_guard<std::mutex> lock(soundLock_);
     return soundFrame_;
@@ -495,6 +505,7 @@ std::unique_ptr<Scene> Renderer::buildScene(const std::string& id) {
     if (paletteLutTex_ != 0) scene->setPaletteLut(paletteLutTex_);
     scene->setTouchField(&touchField_);
     scene->setCamera(&camera_.pose());
+    scene->setColour(&colour_.frame());
     scene->init();
     scene->setParams(initialParams);
     scene->resize(renderWidth_, renderHeight_);

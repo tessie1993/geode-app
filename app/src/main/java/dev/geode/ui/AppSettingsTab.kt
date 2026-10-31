@@ -43,6 +43,7 @@ internal fun AppSettingsTab(
             stringResource(R.string.settings_tab_export),
             stringResource(R.string.settings_tab_folders),
             stringResource(R.string.settings_tab_behavior),
+            stringResource(R.string.settings_tab_performance),
             stringResource(R.string.settings_tab_help),
             stringResource(R.string.backup_tab),
             stringResource(R.string.settings_tab_about),
@@ -56,8 +57,9 @@ internal fun AppSettingsTab(
             2 -> ExportLinkTab(onOpenStudioRender)
             3 -> FolderSettingsTab()
             4 -> BehaviorSettingsTab(settingsViewModel)
-            5 -> HelpSettingsTab(settingsViewModel, onStartTutorial)
-            6 -> BackupSettingsTab()
+            5 -> PerformanceSettingsTab()
+            6 -> HelpSettingsTab(settingsViewModel, onStartTutorial)
+            7 -> BackupSettingsTab()
             else -> AboutSettingsTab()
         }
     }

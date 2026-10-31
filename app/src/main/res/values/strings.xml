@@ -92,6 +92,28 @@
     <string name="settings_tab_behavior">Behavior</string>
     <string name="settings_tab_help">Help</string>
     <string name="settings_tab_about">About</string>
+    <string name="settings_tab_performance">Performance</string>
+    <string name="perf_mode_title">Mode</string>
+    <string name="perf_mode_saver">Saver</string>
+    <string name="perf_mode_balanced">Balanced</string>
+    <string name="perf_mode_high">High</string>
+    <string name="perf_mode_saver_hint">Half resolution, 30 fps, lighter 3D and no extra effects. For older phones and long sessions.</string>
+    <string name="perf_mode_balanced_hint">Three-quarter resolution at 60 fps. Quality drops by itself if frames run slow.</string>
+    <string name="perf_mode_high_hint">Full resolution and full 3D detail. Only heat makes it step down.</string>
+    <string name="perf_mode_custom_hint">Custom: you changed a setting below. Pick a mode to go back to a preset.</string>
+    <string name="perf_details_title">Details</string>
+    <string name="perf_render_scale">Render resolution</string>
+    <string name="perf_fps_cap">Frame rate cap</string>
+    <string name="perf_fps_value">%1$d fps</string>
+    <string name="perf_march">3D detail (ray-march steps)</string>
+    <string name="perf_level_low">Low</string>
+    <string name="perf_level_medium">Medium</string>
+    <string name="perf_level_high">High</string>
+    <string name="perf_post_fx">Extra effects</string>
+    <string name="perf_post_fx_hint">Flow distortion, touch ripples and fluid bloom.</string>
+    <string name="perf_adaptive">Adapt to frame time</string>
+    <string name="perf_adaptive_hint">Steps quality down while frames run slow, and back up once they keep up.</string>
+    <string name="perf_export_note">Applies to the visualizer, wallpaper and screensaver. Exports always render at full quality.</string>
 
     <!-- Settings > Help -->
     <string name="help_tutorial_group">Walkthrough</string>

@@ -9,7 +9,6 @@ out vec4 fragColor;
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_terra
@@ -27,11 +26,11 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// Snare (uHits.y) CRACKS THE ICE: each snare widens the crevasses a little
+// Snare (SND_SNARE_ENV) CRACKS THE ICE: each snare widens the crevasses a little
 // (geometry, easing back with the envelope) and strikes glints of light along
 // their lips - points of light on the crack edges only, never the frame.
-// Bass (uBassSmooth) deepens the blue inside the crevasses. Brightness follows
-// uSwell only.
+// Bass (sndShaped(SND_LOW)) deepens the blue inside the crevasses. Brightness follows
+// SND_INTENSITY only.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -67,10 +66,10 @@ float height(vec2 xz) {
 void main() {
     vec2 uv = view();
     float t0 = terraTime();
-    float swell = clamp(uSwell, 0.0, 1.5);
+    float swell = clamp(SND_INTENSITY, 0.0, 1.5);
     float energy = terraEnergy();
-    float snare = clamp(uHits.y * energy, 0.0, 1.0);
-    float bass = clamp(uBassSmooth, 0.0, 1.2);
+    float snare = clamp(SND_SNARE_ENV * energy, 0.0, 1.0);
+    float bass = clamp(sndShaped(SND_LOW), 0.0, 1.2);
     gCrackW = 0.03 + 0.02 * snare;
     gOct = terraOctaves(4.0);
 

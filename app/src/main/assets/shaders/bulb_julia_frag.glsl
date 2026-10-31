@@ -9,7 +9,6 @@ out vec4 fragColor;
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_sdf3
@@ -29,9 +28,9 @@ out vec4 fragColor;
 // PITCH walks c. The detected key (uKeyHue, a pitch class eased over 3 s) is
 // an angle on a closed loop of c values, so a key change carries the body
 // round the loop to a new form and a song that sits in one key holds one
-// sculpture. Each pitch change (uEvents.w) kicks c off the loop sideways on a
+// sculpture. Each pitch change (SND_HELD_NOTE_CHANGE) kicks c off the loop sideways on a
 // bump envelope, so melody makes the surface flinch and settle. Treble
-// sharpens the material's specular (lib_dmt). Brightness follows uSwell only.
+// sharpens the material's specular (lib_dmt). Brightness follows SND_LEVEL only.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -66,8 +65,8 @@ vec3 normalAt(vec3 p, float e) {
 
 void main() {
     vec2 uv = view();
-    float swell = clamp(uSwell, 0.0, 1.5);
-    float pe = clamp(uEvents.w, 0.0, 1.0);
+    float swell = clamp(SND_LEVEL, 0.0, 1.5);
+    float pe = clamp(SND_HELD_NOTE_CHANGE, 0.0, 1.0);
     float pitchBump = 4.0 * pe * (1.0 - pe);
 
     // The loop of c: a tilted figure-of-eight in the horizontal plane, |c|
@@ -117,7 +116,7 @@ void main() {
         float ao = bulbStepAO(used) * (0.45 + 0.55 * smoothstep(0.05, 0.7, trap.x));
         float thin = smoothstep(0.25, 0.0, trap.z);
         float band = 1.4 * sqrt(trap.x) + trap.w;
-        col = dmtShade(n, rd, hue, band, ao, thin, clamp(uTrebleSmooth, 0.0, 1.5)) * 0.85;
+        col = dmtShade(n, rd, hue, band, ao, thin, clamp(sndShaped(SND_HIGH), 0.0, 1.5)) * 0.85;
     }
 
     col *= 0.8 + 0.22 * swell;

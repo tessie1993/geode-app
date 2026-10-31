@@ -9,7 +9,6 @@ out vec4 fragColor;
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_sdf3
@@ -29,11 +28,11 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// PRESENCE opens the flower. The presence band (uBandsHi.y - voice and lead
+// PRESENCE opens the flower. The presence band (sndShaped(SND_HIGH) - voice and lead
 // instruments) raises the latitude power from 2.2 toward 4.0, so the petals
 // unfold and multiply while someone sings and close back into a bud in the
-// gaps. Hats (uHits.z) shiver the azimuth phase, a tremble through the petals.
-// Brightness follows uSwell only.
+// gaps. Hats (SND_HAT_ENV) shiver the azimuth phase, a tremble through the petals.
+// Brightness follows SND_ENERGY_TREND only.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -98,9 +97,9 @@ vec3 normalAt(vec3 p, float e) {
 
 void main() {
     vec2 uv = view();
-    float swell = clamp(uSwell, 0.0, 1.5);
-    float presence = clamp(0.5 * uBandsHi.y + 0.5 * uMidSmooth / 1.5, 0.0, 1.0);
-    float hat = clamp(uHits.z, 0.0, 1.0);
+    float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
+    float presence = clamp(0.5 * sndShaped(SND_HIGH) + 0.5 * sndShaped(SND_MIDDLE) / 1.5, 0.0, 1.0);
+    float hat = clamp(SND_HAT_ENV, 0.0, 1.0);
     gLat = 2.2 + 1.8 * clamp(presence * bulbEnergy(), 0.0, 1.0);
     gTwirl = 0.05 * hat * bulbEnergy() * sin(bulbTime() * 23.0) + 0.1 * sin(bulbTime() * 0.05);
     gIters = bulbIters(6);

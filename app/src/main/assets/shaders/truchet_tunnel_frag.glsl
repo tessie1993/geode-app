@@ -8,7 +8,6 @@ out vec4 fragColor;
 
 //#include lib_scene_uniforms
 //#include lib_scene_motion
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_truchet
@@ -32,11 +31,11 @@ out vec4 fragColor;
 // ---- audio ------------------------------------------------------------------
 //
 // Flight rides uFlowPhase (loudness sets the rate, never the direction): the
-// wall streams outward past the viewer. A DROP (uEvents.y) corkscrews the
+// wall streams outward past the viewer. A DROP (SND_HELD_SURGE) corkscrews the
 // tube, winding a twist that grows with depth and easing back out over the
 // drop's envelope (a bump, so it starts and ends at rest). Onsets swing a
 // scattered third of the tiles. The bass breathes the tube's width. The
-// two tones trade along the depth of the tube; brightness follows uSwell.
+// two tones trade along the depth of the tube; brightness follows SND_INTENSITY.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -51,15 +50,15 @@ void main() {
     float pxUv = length(fwidth(uv)) * 0.7071;
     float t = truchetTime();
     float e = truchetEnergy();
-    float swell = clamp(uSwell, 0.0, 1.5);
+    float swell = clamp(SND_INTENSITY, 0.0, 1.5);
 
     float cells = truchetMorph() >= 0.5 ? 16.0 : 12.0;
     float k = cells / TRUCHET_TAU;
     float r = max(length(uv), 1e-3);
     float ang = atan(uv.y, uv.x);
-    float depth = log(r / truchetBreath(uBassSmooth));
+    float depth = log(r / truchetBreath(sndShaped(SND_LOW)));
 
-    float drop = clamp(uEvents.y, 0.0, 1.0);
+    float drop = clamp(SND_HELD_SURGE, 0.0, 1.0);
     float screw = 4.0 * drop * (1.0 - drop) * e;
     float travel = uFlowPhase * uSpeed * 0.6 + t * 0.12;
 
@@ -74,7 +73,7 @@ void main() {
 
     vec2 id = floor(q);
     id.x = mod(id.x, cells);
-    TruchetArc a = truchetSquareAt(id, fract(q) - 0.5, floor(uHitCount), uHits.w, 3.0);
+    TruchetArc a = truchetSquareAt(id, fract(q) - 0.5, floor(SND_HIT_TIME), SND_ONSET_ENV, 3.0);
 
     float hue = 0.04 * sin(t * 0.02) + 0.1 * uKeyStrength * sin(TRUCHET_TAU * uKeyHue);
     float along = 0.5 + 0.5 * sin(q.y * 0.35);

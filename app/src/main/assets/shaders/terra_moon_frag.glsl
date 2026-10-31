@@ -9,7 +9,6 @@ out vec4 fragColor;
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_terra
@@ -28,13 +27,13 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// Onsets DROP NEW CRATERS. Every onset bumps uHitCount, and a fresh set of
+// Onsets DROP NEW CRATERS. Every onset bumps SND_ONSET_COUNT, and a fresh set of
 // cells, hashed from the count, gets a crater: it sinks in over the onset's
-// envelope (uHits.w) with a glowing ring of ejecta spreading from its rim,
+// envelope (SND_ONSET_ENV) with a glowing ring of ejecta spreading from its rim,
 // while the craters from three onsets ago fill back in at the same rate.
 // Three generations are alive at once and every change eases, so the ground
 // is reshaped by the rhythm without a single crater popping. Bass
-// (uBassSmooth) turns the Earth's clouds faster. Brightness follows uSwell
+// (SND_BASS_PRESENCE) turns the Earth's clouds faster. Brightness follows SND_LEVEL
 // only.
 //
 // ---- macros -----------------------------------------------------------------
@@ -90,10 +89,10 @@ float height(vec2 xz) {
 void main() {
     vec2 uv = view();
     float t0 = terraTime();
-    float swell = clamp(uSwell, 0.0, 1.5);
+    float swell = clamp(SND_LEVEL, 0.0, 1.5);
     float energy = terraEnergy();
-    float onset = clamp(uHits.w, 0.0, 1.0);
-    float n0 = floor(uHitCount);
+    float onset = clamp(SND_ONSET_ENV, 0.0, 1.0);
+    float n0 = floor(SND_ONSET_COUNT);
     gGen = mod(vec3(n0, n0 - 1.0, n0 - 2.0), 64.0);
     // Newest sinks in as the envelope falls, the oldest fills as it does.
     gWeight = vec3(1.0 - onset, 1.0, onset);
@@ -119,7 +118,7 @@ void main() {
         float lit = smoothstep(-0.05, 0.25, dot(en, sun));
         vec2 sp = e * 2.5;
         float land = smoothstep(0.52, 0.58, terraNoise(sp + vec2(t0 * 0.01, 3.0)));
-        float cloud = smoothstep(0.5, 0.8, terraNoise(sp * 2.0 + vec2(t0 * (0.02 + 0.03 * uBassSmooth), 9.0)));
+        float cloud = smoothstep(0.5, 0.8, terraNoise(sp * 2.0 + vec2(t0 * (0.02 + 0.03 * SND_BASS_PRESENCE), 9.0)));
         vec3 surf = mix(mix(vec3(0.05, 0.18, 0.45), pal(0.6) * 0.5, 0.2), vec3(0.25, 0.38, 0.18), land);
         surf = mix(surf, vec3(0.95), cloud * 0.8);
         float limb = pow(e2, 3.0);

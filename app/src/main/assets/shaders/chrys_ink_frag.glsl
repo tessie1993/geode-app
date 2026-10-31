@@ -8,7 +8,6 @@ out vec4 fragColor;
 
 //#include lib_scene_uniforms
 //#include lib_scene_motion
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_chrys
@@ -25,11 +24,11 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// The low-mid band (uBandsLo.z) is how WET the ink is: it widens the bleed
+// The low-mid band (sndSpectrum(0.41)) is how WET the ink is: it widens the bleed
 // past every stroke's edge and the ragged, paper-fibre fringe with it, so a
 // warm, full passage soaks the flower and a thin one leaves it crisp.
-// Spectral flux (uBandsHi.w) flicks splatter drops off the brush around the
-// flower, their places re-seeded by uHitCount so every onset throws a new
+// Spectral flux (sndLevel(SND_FLUX)) flicks splatter drops off the brush around the
+// flower, their places re-seeded by SND_ONSET_COUNT so every onset throws a new
 // pattern. The flower itself turns slowly on uDrift. Brightness never
 // follows the music: this is paper, and paper is always the same white.
 //
@@ -61,8 +60,8 @@ void main() {
     vec2 uv = view();
     float t = uTime * uSpeed;
     gChaos = clamp(uTurbulence + uWarp, 0.0, 2.0);
-    float lowmid = clamp(uBandsLo.z * uIntensity, 0.0, 1.5);
-    float flux = clamp(uBandsHi.w * uIntensity, 0.0, 1.5);
+    float lowmid = clamp(sndSpectrum(0.41) * uIntensity, 0.0, 1.5);
+    float flux = clamp(sndLevel(SND_FLUX) * uIntensity, 0.0, 1.5);
     float rings = 3.0 + step(0.5, uMorph);
     gBleed = 0.003 + 0.02 * lowmid;
     float hue = 0.1 + 0.02 * sin(t * 0.02);
@@ -119,7 +118,7 @@ void main() {
     // Splatter: drops flicked off the brush, re-seeded on every onset.
     vec2 sp = (uv - INK_FLOWER) * 9.0;
     vec2 sc = floor(sp);
-    float seed = chrysHash(sc + floor(uHitCount) * vec2(0.37, 0.71));
+    float seed = chrysHash(sc + floor(SND_ONSET_COUNT) * vec2(0.37, 0.71));
     vec2 sCentre = sc + 0.5 + 0.35 * (vec2(seed, fract(seed * 13.7)) - 0.5);
     float sr = length(sc + 0.5) / 9.0;
     float dropR = 0.16 * flux * step(0.72, seed) * smoothstep(1.3, 0.5, sr) * smoothstep(0.25, 0.45, sr);

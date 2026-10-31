@@ -9,7 +9,6 @@ out vec4 fragColor;
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_nebula
@@ -32,9 +31,9 @@ out vec4 fragColor;
 // The KEY COLOURS THE CLOUD: the detected key (uKeyHue, gated by
 // uKeyStrength) slides the whole gas palette, so a change of key re-tints
 // the flight over a few seconds (the key hue is eased on the CPU). Mids
-// (uMidSmooth) widen the spread of hues between thin and dense gas, so busy
-// passages colour the cloud more variously. Bass (uBassSmooth) thickens the
-// banks. The hats twinkle the stars. Overall level follows uSwell gently.
+// (sndShaped(SND_MIDDLE)) widen the spread of hues between thin and dense gas, so busy
+// passages colour the cloud more variously. Bass (SND_BASS_PRESENCE) thickens the
+// banks. The hats twinkle the stars. Overall level follows SND_LEVEL gently.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -64,10 +63,10 @@ void main() {
     vec2 uv = view();
     gT = nebTime();
     float e = nebEnergy();
-    float swell = clamp(uSwell, 0.0, 1.5);
-    float bass = clamp(uBassSmooth, 0.0, 1.3) * e;
-    float mid = clamp(uMidSmooth, 0.0, 1.3) * e;
-    float hats = clamp(uHits.z, 0.0, 1.0);
+    float swell = clamp(SND_LEVEL, 0.0, 1.5);
+    float bass = clamp(SND_BASS_PRESENCE, 0.0, 1.3) * e;
+    float mid = clamp(sndShaped(SND_MIDDLE), 0.0, 1.3) * e;
+    float hats = clamp(SND_HAT_ENV, 0.0, 1.0);
     float oct = nebVolOctaves(3.0);
     float key = nebKeyShift(0.3 * clamp(e, 0.0, 1.5));
     gThresh = 0.47 - 0.06 * bass;

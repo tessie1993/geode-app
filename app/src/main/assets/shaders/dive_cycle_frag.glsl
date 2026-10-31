@@ -9,7 +9,6 @@ out vec4 fragColor;
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_dive
@@ -26,7 +25,7 @@ out vec4 fragColor;
 // Each scene keeps its own reaction: the kick swells the girders and pulses
 // the caps, mids turn the gyroscopes, the beat swells the mandala's petals.
 // The palette switches on section changes and every 16 onsets, crossfading
-// (lib_dive). Brightness follows uSwell mildly.
+// (lib_dive). Brightness follows SND_LEVEL mildly.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -52,6 +51,6 @@ void main() {
     }
 
     col *= diveIris();
-    col *= 0.85 + 0.2 * clamp(uSwell, 0.0, 1.5);
+    col *= 0.85 + 0.2 * clamp(SND_LEVEL, 0.0, 1.5);
     fragColor = vec4(grade(col), 1.0);
 }

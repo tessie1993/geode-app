@@ -8,7 +8,6 @@ out vec4 fragColor;
 
 //#include lib_scene_uniforms
 //#include lib_scene_motion
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_truchet
@@ -23,9 +22,9 @@ out vec4 fragColor;
 //
 // On every beat a pulse of light runs out through the maze from the centre:
 // a diamond-shaped front (the maze's own 45-degree geometry) set by the
-// analyser's phase-locked beat phase (uBeatPhase), lighting the walls it
+// analyser's beat-clock phase (sndPhase(SND_HIT_TIME, 1.0)), lighting the walls it
 // passes and fading as it travels, so it is a moving band, never a full-frame
-// flash; it fades away in silence (uEnergySmooth). Onsets swing a scattered
+// flash; it fades away in silence (sndShaped(SND_LEVEL)). Onsets swing a scattered
 // third of the walls a quarter turn onto the other diagonal, so corridors
 // open and close on the hits. The bass breathes the scale. The walls' hue
 // shifts with distance from the centre and with the key.
@@ -39,7 +38,7 @@ out vec4 fragColor;
 
 /** Distance from f (relative to the cell centre) to cell id's wall, re-rolled by onsets. */
 float wallDist(vec2 f, vec2 id, float hits) {
-    vec3 roll = truchetRoll(id, hits, uHits.w, 3.0);
+    vec3 roll = truchetRoll(id, hits, SND_ONSET_ENV, 3.0);
     float bit = step(0.5, roll.y);
     if (step(0.5, roll.x) != bit && roll.z < 1.0) {
         // Swing the old wall a quarter turn onto the new diagonal.
@@ -56,17 +55,17 @@ void main() {
     vec2 uv = view();
     float t = truchetTime();
     float e = truchetEnergy();
-    float swell = clamp(uSwell, 0.0, 1.5);
+    float swell = clamp(SND_LEVEL, 0.0, 1.5);
     float morph = truchetMorph();
 
-    float scale = (4.5 + 2.5 * morph) * truchetBreath(uBassSmooth);
+    float scale = (4.5 + 2.5 * morph) * truchetBreath(SND_BASS_PRESENCE);
     vec2 p = truchetWarp(uv * scale, t);
     float px = truchetPx(p);
 
     // The four cells around p (its own among them), so the glow measures the
     // true nearest wall: a cell's own diagonal is not always the closest
     // wall, and a halo measured from it alone would step at every border.
-    float hits = floor(uHitCount);
+    float hits = floor(SND_ONSET_COUNT);
     vec2 base = floor(p - 0.5);
     float ad = 1e3;
     for (int k = 0; k < 4; k++) {
@@ -76,9 +75,9 @@ void main() {
 
     // The beat pulse: a diamond front running outward once per beat.
     float diamond = (abs(p.x) + abs(p.y)) / scale;
-    float ph = fract(uBeatPhase);
+    float ph = sndPhase(SND_HIT_TIME, 1.0);
     float front = ph * 3.2;
-    float amp = smoothstep(0.0, 0.08, ph) * (1.0 - ph) * clamp(uEnergySmooth * 2.5, 0.0, 1.0) * e;
+    float amp = smoothstep(0.0, 0.08, ph) * (1.0 - ph) * clamp(sndShaped(SND_LEVEL) * 2.5, 0.0, 1.0) * e;
     float ring = exp(-pow((diamond - front) * 5.0, 2.0)) * amp;
 
     float hue = 0.04 * sin(t * 0.02) + 0.1 * uKeyStrength * sin(TRUCHET_TAU * uKeyHue) + 0.18 * diamond;

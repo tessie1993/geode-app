@@ -9,7 +9,6 @@ out vec4 fragColor;
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_glass
@@ -27,11 +26,11 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// Mids (uBandsLo.w, steadied with uMidSmooth) thicken the film: the base
+// Mids (sndSpectrum(0.57), steadied with SND_MID_PRESENCE) thicken the film: the base
 // thickness climbs from about 330 nm toward 630 nm, so the bands multiply and
 // their colours roll from gold and magenta through to greens and blues, while
 // the bubbles' shapes and paths stay calm. The key (uKeyHue, uKeyStrength)
-// drifts the room's palette. Brightness follows uSwell only.
+// drifts the room's palette. Brightness follows SND_INTENSITY only.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -56,8 +55,8 @@ float filmThickness(vec3 l, float base, float t, float seed) {
 void main() {
     vec2 uv = view();
     float t = glassTime();
-    float swell = clamp(uSwell, 0.0, 1.5);
-    float mids = clamp(0.5 * uBandsLo.w + 0.5 * uMidSmooth, 0.0, 1.3);
+    float swell = clamp(SND_INTENSITY, 0.0, 1.5);
+    float mids = clamp(0.5 * sndSpectrum(0.57) + 0.5 * SND_MID_PRESENCE, 0.0, 1.3);
     float base = 330.0 + 300.0 * mids * glassEnergy();
     int count = 8 + int(floor(glassComplexity() * 4.0 + 0.5));
     float hue = 0.04 * sin(t * 0.021) + 0.12 * uKeyStrength * sin(GLASS_TAU * uKeyHue);

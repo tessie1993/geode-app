@@ -8,7 +8,6 @@ out vec4 fragColor;
 
 //#include lib_scene_uniforms
 //#include lib_scene_motion
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_nebula
@@ -27,11 +26,11 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// A kick (uHits.x) sends a ring of compression out through the disk: the arms
+// A kick (SND_KICK_ENV) sends a ring of compression out through the disk: the arms
 // brighten and the knots light up where the ring passes, travelling outward
 // as the kick level falls. It brightens arm material only where the ring is,
-// never the frame. Mids (uMidSmooth) lift the star-forming knots. The key
-// turns the arm hue. The bulge follows uSwell gently.
+// never the frame. Mids (sndShaped(SND_MIDDLE)) lift the star-forming knots. The key
+// turns the arm hue. The bulge follows SND_LEVEL gently.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -45,10 +44,10 @@ void main() {
     vec2 uv = view();
     float t = nebTime();
     float e = nebEnergy();
-    float swell = clamp(uSwell, 0.0, 1.5);
-    float kick = clamp(uHits.x, 0.0, 1.0);
-    float mid = clamp(uMidSmooth, 0.0, 1.3) * e;
-    float hats = clamp(uHits.z, 0.0, 1.0);
+    float swell = clamp(SND_LEVEL, 0.0, 1.5);
+    float kick = clamp(SND_KICK_ENV, 0.0, 1.0);
+    float mid = clamp(sndShaped(SND_MIDDLE), 0.0, 1.3) * e;
+    float hats = clamp(SND_HAT_ENV, 0.0, 1.0);
     float oct = nebOctaves(4.0);
     float key = nebKeyShift(0.1);
 

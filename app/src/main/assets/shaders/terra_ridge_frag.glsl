@@ -9,7 +9,6 @@ out vec4 fragColor;
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_terra
@@ -24,12 +23,12 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// Bass (uBandsLo.y, steadied with uBassSmooth) LIFTS THE RIDGES: the lift is
+// Bass (sndLevel(SND_BASS_ATT), steadied with SND_BASS_PRESENCE) LIFTS THE RIDGES: the lift is
 // weighted by the height already there, so peaks climb and valleys stay put,
 // and the range seems to draw breath on every low note. The lift is clamped,
 // and the eye flies above the highest peak it can make. The key (uKeyHue,
 // weighted by uKeyStrength) drifts the dusk colours a little. Brightness
-// follows uSwell only.
+// follows SND_LEVEL only.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -53,8 +52,8 @@ float height(vec2 xz) {
 
 void main() {
     vec2 uv = view();
-    float swell = clamp(uSwell, 0.0, 1.5);
-    float bass = clamp(0.6 * uBandsLo.y + 0.4 * uBassSmooth, 0.0, 1.2);
+    float swell = clamp(SND_LEVEL, 0.0, 1.5);
+    float bass = clamp(0.6 * sndLevel(SND_BASS_ATT) + 0.4 * SND_BASS_PRESENCE, 0.0, 1.2);
     gLift = 0.22 * bass * terraEnergy();
     gOct = terraOctaves(4.0);
     float hMax = 1.5 * (1.0 + gLift);

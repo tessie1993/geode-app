@@ -9,7 +9,6 @@ out vec4 fragColor;
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_sdf3
@@ -29,11 +28,11 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// The BEAT nods the vessel. Each beat (uEvents.x, 0.3 s) tips it toward the
+// The BEAT nods the vessel. Each beat (SND_KICK_TOGGLE, 0.3 s) tips it toward the
 // eye and back on a bump envelope, so it bobs in time like a head keeping the
 // beat, while the accumulated rotation uDrift (eased across sections) turns
 // it on its wheel. Tonal passages (uHarmony) spread the cobalt brushwork,
-// percussive ones thin it. Brightness follows uSwell only.
+// percussive ones thin it. Brightness follows SND_ENERGY_TREND only.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -91,8 +90,8 @@ vec3 normalAt(vec3 p, float e) {
 
 void main() {
     vec2 uv = view();
-    float swell = clamp(uSwell, 0.0, 1.5);
-    float beat = clamp(uEvents.x, 0.0, 1.0);
+    float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
+    float beat = clamp(SND_KICK_TOGGLE, 0.0, 1.0);
     float nod = 4.0 * beat * (1.0 - beat);
     float harmony = clamp(uHarmony, 0.0, 1.0);
     gPose = rotX(-0.25 * nod * bulbEnergy() - 0.3) * rotY(uDrift * 0.5 + 0.06 * bulbTime());

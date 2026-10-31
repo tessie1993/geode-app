@@ -8,7 +8,6 @@ out vec4 fragColor;
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_sdf3
@@ -30,13 +29,13 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// Mid is the WEIGHT. uMidSmooth (slew-limited) adds to the limbs' gravity and
+// Mid is the WEIGHT. SND_MID_PRESENCE (slew-limited) adds to the limbs' gravity and
 // lowers the curtain's hem toward the pond together: a rich mid range drags
-// the whole tree down, a thin one lets it lift. Kick (uHits.x) sends a ripple
+// the whole tree down, a thin one lets it lift. Kick (SND_KICK_ENV) sends a ripple
 // ring out across the pond from the trunk, as a normal perturbation that only
-// bends the moon's reflection. Hat (uHits.z) startles the fireflies: their
+// bends the moon's reflection. Hat (SND_HAT_ENV) startles the fireflies: their
 // swarm radius jumps out and settles back as the envelope falls. Brightness
-// follows uSwell only.
+// follows (0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)) only.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -117,10 +116,10 @@ void main() {
     float t = uTime * uSpeed;
     float energy = uIntensity;
     float chaos = arbChaos();
-    float swell = clamp(uSwell, 0.0, 1.5);
-    float mid = clamp(uMidSmooth, 0.0, 1.5) * energy;
-    float kick = clamp(uHits.x * energy, 0.0, 1.0);
-    float hat = clamp(uHits.z * energy, 0.0, 1.0);
+    float swell = clamp((0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)), 0.0, 1.5);
+    float mid = clamp(SND_MID_PRESENCE, 0.0, 1.5) * energy;
+    float kick = clamp(SND_KICK_ENV * energy, 0.0, 1.0);
+    float hat = clamp(SND_HAT_ENV * energy, 0.0, 1.0);
 
     gTime = t;
     gGrow = arbLevels(7.0, 1.0);

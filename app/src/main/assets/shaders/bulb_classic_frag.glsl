@@ -9,7 +9,6 @@ out vec4 fragColor;
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_bulb
@@ -25,11 +24,11 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// Bass (uBandsLo.y, steadied with uBassSmooth) swells the POLAR power from 8
+// Bass (sndSpectrum(0.23), steadied with sndShaped(SND_LOW)) swells the POLAR power from 8
 // toward 9.1: the lobes bloom and the crust tightens on every low note, then
 // relax. Only the polar power moves - the azimuth power stays 8 so no seam
 // opens (see lib_bulb). The key (uKeyHue, weighted by uKeyStrength) drifts the
-// palette a little. Brightness follows uSwell only.
+// palette a little. Brightness follows SND_INTENSITY only.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -63,8 +62,8 @@ vec3 normalAt(vec3 p, float e) {
 
 void main() {
     vec2 uv = view();
-    float swell = clamp(uSwell, 0.0, 1.5);
-    float bass = clamp(0.6 * uBandsLo.y + 0.4 * uBassSmooth, 0.0, 1.2);
+    float swell = clamp(SND_INTENSITY, 0.0, 1.5);
+    float bass = clamp(0.6 * sndSpectrum(0.23) + 0.4 * sndShaped(SND_LOW), 0.0, 1.2);
     gPow = 8.0 + 0.9 * bass * bulbEnergy();
     gIters = bulbIters(6);
 

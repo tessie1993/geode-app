@@ -8,7 +8,6 @@ out vec4 fragColor;
 
 //#include lib_scene_uniforms
 //#include lib_scene_motion
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_lucid
@@ -29,11 +28,11 @@ out vec4 fragColor;
 // ---- audio ------------------------------------------------------------------
 //
 // Every ONSET turns the tube a step: the plane's rotation is
-// (uHitCount - uHits.w) * 0.37 rad, which is continuous across the hit (the
+// (SND_ONSET_COUNT - SND_ONSET_ENV) * 0.37 rad, which is continuous across the hit (the
 // count steps up exactly as the envelope jumps to 1) and then eases into the
 // new angle as the 0.22 s envelope decays - a twist of the barrel per note,
 // never a snap. The object inside lurches with lucidBump of the onset.
-// uTrebleSmooth sharpens the woven threads. Brightness follows uSwell gently.
+// sndShaped(SND_HIGH) sharpens the woven threads. Brightness follows SND_ENERGY_TREND gently.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -66,19 +65,19 @@ void main() {
     vec2 uv = lucidView(false);
     float t = uTime * uSpeed;
     float flow = uFlowPhase * uSpeed;
-    float treb = clamp(uTrebleSmooth, 0.0, 1.5);
-    float swell = clamp(uSwell, 0.0, 1.5);
+    float treb = clamp(sndShaped(SND_HIGH), 0.0, 1.5);
+    float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
 
     int depth = lucidDetail(3, 2);
     int oct = lucidDetail(3, 2);
 
-    float barrel = mod((uHitCount - clamp(uHits.w, 0.0, 1.0)) * 0.37, LUCID_TAU);
+    float barrel = mod((SND_ONSET_COUNT - clamp(SND_ONSET_ENV, 0.0, 1.0)) * 0.37, LUCID_TAU);
     vec2 p = lucidRot(barrel + t * 0.015) * uv;
     float h = 0.55 - 0.2 * clamp(uMorph, 0.0, 1.0);
     float seam;
     vec2 f = mirrorBox(p, h, seam);
 
-    float lurch = lucidBump(uHits.w) * 0.35 * uIntensity;
+    float lurch = lucidBump(SND_ONSET_ENV) * 0.35 * uIntensity;
     vec2 q = f * 2.4 + vec2(t * 0.07 + flow * 0.1, -t * 0.05) + vec2(lurch, -0.6 * lurch);
     q += lucidJitter(q, t);
     vec4 n = lucidNest(q, depth, 1.3 * lucidChaos(), t * 0.22, LUCID_VALUE, oct);

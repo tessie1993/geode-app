@@ -7,7 +7,6 @@ out vec4 fragColor;
 
 //#include lib_scene_uniforms
 //#include lib_scene_motion
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_sdf3
@@ -26,12 +25,12 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// Pitch changes WALK THE HUES. The pitch-change envelope (uEvents.w) widens the
+// Pitch changes WALK THE HUES. The pitch-change envelope (SND_HELD_NOTE_CHANGE) widens the
 // hue step between fold levels: on a melodic move the window's colours fan out
 // across the palette from trunk to twig and then gather back toward one hue as
 // the envelope falls, so a melody visibly ripples outward through the glass.
 // The key (uKeyHue, gated by uKeyStrength) sets the window's base hue. Hat
-// (uHits.z) swells the bright jewels on the twig tips. Swell (uSwell) only
+// (SND_HAT_ENV) swells the bright jewels on the twig tips. Swell (SND_LEVEL) only
 // lifts the backlight a little.
 //
 // ---- macros -----------------------------------------------------------------
@@ -61,9 +60,9 @@ void main() {
     float t = uTime * uSpeed;
     float energy = uIntensity;
     float chaos = arbChaos();
-    float swell = clamp(uSwell, 0.0, 1.5);
-    float pitch = clamp(uEvents.w * energy, 0.0, 1.0);
-    float hat = clamp(uHits.z * energy, 0.0, 1.0);
+    float swell = clamp(SND_LEVEL, 0.0, 1.5);
+    float pitch = clamp(SND_HELD_NOTE_CHANGE * energy, 0.0, 1.0);
+    float hat = clamp(SND_HAT_ENV * energy, 0.0, 1.0);
     float key = uKeyHue * clamp(uKeyStrength * energy, 0.0, 1.0);
 
     float hue = key + 0.01 * t;

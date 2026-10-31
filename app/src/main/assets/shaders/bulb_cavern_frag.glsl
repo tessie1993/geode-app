@@ -9,7 +9,6 @@ out vec4 fragColor;
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_sdf3
@@ -33,11 +32,11 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// The DROP twists the cave. On a drop (uEvents.y) the whole room wrings about
+// The DROP twists the cave. On a drop (SND_HELD_SURGE) the whole room wrings about
 // the vertical axis - the twist grows with height, so floor and ceiling turn
 // opposite ways - on a bump envelope that rises and settles over the drop's
 // 2.5 s, and the march shortens its steps by the twist's stretch while it
-// lasts. The veins breathe gently with uSwell. Nothing on a hit changes
+// lasts. The veins breathe gently with (0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)). Nothing on a hit changes
 // brightness.
 //
 // ---- macros -----------------------------------------------------------------
@@ -78,8 +77,8 @@ vec3 normalAt(vec3 p, float e) {
 
 void main() {
     vec2 uv = view();
-    float swell = clamp(uSwell, 0.0, 1.5);
-    float drop = clamp(uEvents.y, 0.0, 1.0);
+    float swell = clamp((0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)), 0.0, 1.5);
+    float drop = clamp(SND_HELD_SURGE, 0.0, 1.0);
     float dropBump = 4.0 * drop * (1.0 - drop);
     gTwist = 0.32 * dropBump * bulbEnergy();
     // Twisting by k*y stretches by at most sqrt(1 + (k*rho)^2); rho stays under ~4 in the room.

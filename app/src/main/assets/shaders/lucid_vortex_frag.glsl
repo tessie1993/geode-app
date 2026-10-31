@@ -8,7 +8,6 @@ out vec4 fragColor;
 
 //#include lib_scene_uniforms
 //#include lib_scene_motion
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_touch
@@ -35,7 +34,7 @@ out vec4 fragColor;
 // relax into broad arcs. Because it is relative, a quiet track swirls as
 // much as a loud one. The centre rides uOrbit, the slow wander point that
 // re-targets on novelty and section boundaries. A finger drags the eye of the
-// vortex. Brightness follows uSwell gently.
+// vortex. Brightness follows SND_ENERGY_TREND gently.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -55,7 +54,7 @@ vec3 blackbody(float h) {
 void main() {
     vec2 uv = lucidView(true);
     float t = uTime * uSpeed;
-    float swell = clamp(uSwell, 0.0, 1.5);
+    float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
     float rel = clamp(uEnergyRel - 0.6, 0.0, 1.4) * uIntensity;
     float chaos = lucidChaos();
 

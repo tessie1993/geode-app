@@ -9,7 +9,6 @@ out vec4 fragColor;
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_dive
@@ -22,8 +21,8 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// Hats (uHits.z) make the facets GLINT: on every hat a hashed third of the
-// facets (re-chosen per onset through uHitCount) catches a sharp highlight
+// Hats (SND_HAT_ENV) make the facets GLINT: on every hat a hashed third of the
+// facets (re-chosen per onset through floor(SND_HIT_TIME)) catches a sharp highlight
 // that falls with the hat envelope. Only small facets light, never the frame.
 // The palette switches on sections and every 16 onsets (lib_dive); the
 // facets' inner colour turns with the view, like fire in a stone.
@@ -58,11 +57,11 @@ void main() {
         vec3 fire = diveColor(id + 1.3 * dot(refl, vec3(0.3, 0.5, 0.8)));
         float fog = exp(-0.055 * hitT);
         col += fire * (0.12 + 0.4 * fres) * fog;
-        float pick = step(0.66, dive_hash11(id * 91.0 + fract(uHitCount * 0.618) * 37.0));
-        float glint = pick * clamp(uHits.z * e, 0.0, 1.0) * pow(max(dot(refl, -rd), 0.0), 6.0);
+        float pick = step(0.66, dive_hash11(id * 91.0 + fract(floor(SND_HIT_TIME) * 0.618) * 37.0));
+        float glint = pick * clamp(SND_HAT_ENV * e, 0.0, 1.0) * pow(max(dot(refl, -rd), 0.0), 6.0);
         col += mix(vec3(1.0), diveColor(id + 0.2), 0.3) * glint * 0.7 * fog;
     }
 
-    col *= 0.85 + 0.2 * clamp(uSwell, 0.0, 1.5);
+    col *= 0.85 + 0.2 * clamp(SND_INTENSITY, 0.0, 1.5);
     fragColor = vec4(grade(col), 1.0);
 }

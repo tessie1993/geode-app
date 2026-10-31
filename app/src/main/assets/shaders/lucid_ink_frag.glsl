@@ -8,7 +8,6 @@ out vec4 fragColor;
 
 //#include lib_scene_uniforms
 //#include lib_scene_motion
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_lucid
@@ -27,12 +26,12 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// Spectral FLUX (uBandsHi.w) is the GRAIN: busy, changing spectra make the
+// Spectral FLUX (sndLevel(SND_FLUX)) is the GRAIN: busy, changing spectra make the
 // pigment granulate - it settles into the paper's tooth in a fine speckle and
 // the paper's own fibre shows through. The grain pattern is fixed to the
 // paper, so flux changes how much of it shows, never where it is, and its
-// mean is zero so the average tone of the page does not move. uSwell pulls
-// the rake deeper (comb amplitude). uMidSmooth spreads the wash. Overall
+// mean is zero so the average tone of the page does not move. (0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)) pulls
+// the rake deeper (comb amplitude). SND_MID_PRESENCE spreads the wash. Overall
 // paper brightness is constant; only the ink moves.
 //
 // ---- macros -----------------------------------------------------------------
@@ -49,9 +48,9 @@ void main() {
     vec2 uv = lucidView(true);
     float t = uTime * uSpeed;
     float flow = uFlowPhase * uSpeed;
-    float flux = clamp(uBandsHi.w, 0.0, 1.0) * uIntensity;
-    float swell = clamp(uSwell, 0.0, 1.5);
-    float mid = clamp(uMidSmooth, 0.0, 1.5);
+    float flux = clamp(sndLevel(SND_FLUX), 0.0, 1.0) * uIntensity;
+    float swell = clamp((0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)), 0.0, 1.5);
+    float mid = clamp(SND_MID_PRESENCE, 0.0, 1.5);
 
     // Five levels is the family's deepest; two octaves keep it affordable.
     int depth = lucidBudget(5, 3);

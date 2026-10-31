@@ -9,7 +9,6 @@ out vec4 fragColor;
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_dive
@@ -21,10 +20,10 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// Mids (uMidSmooth) drive the rings (on a loudness-set base rate, as in Dive
-// Gyro). The passage's swell (uSwell) widens the look-around: a loud passage
+// Mids (sndShaped(SND_MIDDLE)) drive the rings (on a loudness-set base rate, as in Dive
+// Gyro). The passage's swell (SND_ENERGY_TREND) widens the look-around: a loud passage
 // turns the head further. Palette switching as in lib_dive. Brightness
-// follows uSwell mildly.
+// follows SND_ENERGY_TREND mildly.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -36,7 +35,7 @@ out vec4 fragColor;
 void main() {
     vec2 uv = view();
     diveSetup(DIVE_GYRO);
-    float swell = clamp(uSwell, 0.0, 1.5);
+    float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
     gDiveSwing = 0.5 + 0.25 * swell;
 
     vec3 ro;

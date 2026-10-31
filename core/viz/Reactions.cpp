@@ -66,6 +66,81 @@ constexpr bool tableInOrder() {
 }
 static_assert(tableInOrder(), "kSourceTable must list every ReactSource in enum order");
 
+constexpr std::array<ReactSourceInfo, kReactSourceCount> kSourceInfo = {{
+    {"BASS", "Bass", "LEVELS", false},
+    {"MID", "Mids", "LEVELS", false},
+    {"TREBLE", "Treble", "LEVELS", false},
+    {"VOL", "Volume", "LEVELS", false},
+    {"BASS_ATT", "Bass, fast", "LEVELS", false},
+    {"MID_ATT", "Mids, fast", "LEVELS", false},
+    {"TREBLE_ATT", "Treble, fast", "LEVELS", false},
+    {"VOL_ATT", "Volume, fast", "LEVELS", false},
+    {"SUB", "Sub", "LEVELS", false},
+    {"SUB_ATT", "Sub, fast", "LEVELS", false},
+    {"MID_HIGH", "Presence band", "LEVELS", false},
+    {"MID_HIGH_ATT", "Presence band, fast", "LEVELS", false},
+    {"LOW", "Low (shaped)", "LEVELS", false},
+    {"MIDDLE", "Middle (shaped)", "LEVELS", false},
+    {"HIGH", "High (shaped)", "LEVELS", false},
+    {"LEVEL", "Level", "LEVELS", false},
+    {"BASS_PRESENCE", "Bass activity", "LEVELS", false},
+    {"MID_PRESENCE", "Mid activity", "LEVELS", false},
+    {"TREBLE_PRESENCE", "Treble activity", "LEVELS", false},
+    {"INTENSITY", "Intensity", "LEVELS", false},
+    {"PRESENCE", "Music playing", "LEVELS", false},
+    {"BASS_TIME", "Bass clock", "CLOCKS", false},
+    {"MID_TIME", "Mid clock", "CLOCKS", false},
+    {"TREBLE_TIME", "Treble clock", "CLOCKS", false},
+    {"CURVED_TIME", "Loudness clock", "CLOCKS", false},
+    {"HIT_TIME", "Hit clock", "CLOCKS", false},
+    {"NOTE_TIME", "Note clock", "CLOCKS", false},
+    {"LOUDNESS", "Loudness", "TEXTURE", false},
+    {"CENTROID", "Brightness", "TEXTURE", false},
+    {"ROLLOFF", "Roll-off", "TEXTURE", false},
+    {"FLATNESS", "Noisiness", "TEXTURE", false},
+    {"DENSITY_SLOW", "Density", "TEXTURE", false},
+    {"DENSITY_FAST", "Density, fast", "TEXTURE", false},
+    {"FLUX", "Spectral flux", "TEXTURE", false},
+    {"ENERGY_TREND", "Rise", "TEXTURE", false},
+    {"PEAK_FREQ", "Peak pitch", "TEXTURE", false},
+    {"PEAK_MAG", "Peak level", "TEXTURE", false},
+    {"STEREO_WIDTH", "Stereo width", "TEXTURE", false},
+    {"STEREO_PAN", "L/R pan", "TEXTURE", false},
+    {"KICK_ENV", "Kick", "DRUMS", false},
+    {"SNARE_ENV", "Snare", "DRUMS", false},
+    {"HAT_ENV", "Hi-hat", "DRUMS", false},
+    {"ONSET_ENV", "Note start", "DRUMS", false},
+    {"KICK_TOGGLE", "Kick toggle", "DRUMS", false},
+    {"SNARE_TOGGLE", "Snare toggle", "DRUMS", false},
+    {"KICK_RANDOM", "Kick random", "DRUMS", false},
+    {"KICK", "Kick hit", "DRUMS", true},
+    {"SNARE", "Snare hit", "DRUMS", true},
+    {"HAT", "Hi-hat hit", "DRUMS", true},
+    {"KICK_2", "Every 2nd kick", "DRUMS", true},
+    {"KICK_4", "Every 4th kick", "DRUMS", true},
+    {"KICK_8", "Every 8th kick", "DRUMS", true},
+    {"KICK_16", "Every 16th kick", "DRUMS", true},
+    {"SNARE_2", "Every 2nd snare", "DRUMS", true},
+    {"SNARE_4", "Every 4th snare", "DRUMS", true},
+    {"HARD_CUT", "Big moment", "EVENTS", true},
+    {"ONSET", "Onset", "EVENTS", true},
+    {"SILENCE", "Silence", "EVENTS", true},
+    {"RETURNED", "Sound returns", "EVENTS", true},
+    {"SURGE", "Surge", "EVENTS", true},
+    {"NOTE_CHANGE", "Note change", "MELODY", true},
+    {"LEGATO", "Slide", "MELODY", true},
+    {"REATTACK", "Same note again", "MELODY", true},
+    {"NOTE_RANDOM", "Note random", "MELODY", false},
+    {"PITCH_CLASS", "Pitch class", "MELODY", false},
+    {"PITCH_HEIGHT", "Pitch height", "MELODY", false},
+    {"PITCH_CONFIDENCE", "Pitch clarity", "MELODY", false},
+    {"INTERVAL", "Interval", "MELODY", false},
+    {"GLIDE", "Glide", "MELODY", false},
+    {"VIBRATO", "Vibrato", "MELODY", false},
+    {"EVENNESS", "Evenness", "MELODY", false},
+    {"RUN_DENSITY", "Busy melody", "MELODY", false},
+}};
+
 // A fired trigger always crosses Step/Jump/Toggle's 0.5 edge, however soft the hit; its strength
 // shows in how far above 0.5 it lands.
 constexpr float kTriggerFloor = 0.5f;
@@ -83,6 +158,11 @@ float field(const GeodeSoundFrame& f, size_t offset) {
 }
 
 }  // namespace
+
+const ReactSourceInfo& reactSourceInfo(ReactSource s) {
+    const int i = std::clamp(static_cast<int>(s), 0, kReactSourceCount - 1);
+    return kSourceInfo[static_cast<size_t>(i)];
+}
 
 void ReactSignals::reset() {
     values_.fill(0.0f);

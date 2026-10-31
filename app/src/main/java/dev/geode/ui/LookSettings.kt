@@ -213,18 +213,6 @@ private fun LayoutGroup(
         checked = gui.compactPlayer,
         onCheckedChange = { viewModel.setGuiPrefs(gui.copy(compactPlayer = it)) },
     )
-    Column {
-        LabeledSwitch(
-            stringResource(R.string.look_clear_visuals_menu),
-            checked = gui.clearVisualsMenu,
-            onCheckedChange = { viewModel.setGuiPrefs(gui.copy(clearVisualsMenu = it)) },
-        )
-        Text(
-            stringResource(R.string.look_clear_visuals_hint),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
     BootAnimationRow()
 }
 

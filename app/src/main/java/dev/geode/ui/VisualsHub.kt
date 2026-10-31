@@ -1459,11 +1459,11 @@ internal fun TakesTab(viewModel: StudioViewModel) {
             Text(
                 if (takes.recording) {
                     "Recording — ${takes.recordedEvents} keyframes, ${formatTakeTime(takes.recordedMs)}. " +
-                        "Go and perform; press the stop button in the header when you are done."
+                        "Go and perform; press the stop button on the Visuals stage when you are done."
                 } else {
                     "A take stores what the visuals were doing, moment by moment — every slider, " +
                         "colour and style change, as you made them. It replays over the live canvas " +
-                        "and can be re-rendered at any quality later. Press ● in the header to start."
+                        "and can be re-rendered at any quality later. Press ● on the Visuals stage to start."
                 },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,

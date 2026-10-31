@@ -32,12 +32,13 @@ enum class GeodeDestination(
 }
 
 /**
- * The two halves of [GeodeDestination.STUDIO]. Studio owns everything that makes a video:
- * [EDIT] is the Pro clip editor, [RENDER] the visualizer export, loop render and their defaults.
+ * The sections of [GeodeDestination.STUDIO]. Studio owns everything that makes a video:
+ * [EDIT] is the Pro clip editor, [RENDER] the visualizer export, loop render and their defaults,
+ * [TAKES] the recorded performances a render can replay (recorded from the Visuals stage).
  * [RENDER] is open to free and trial users too (within `pro/FreeTier`), so it is reachable from
  * the Visuals export button and from Settings even when the Studio tab is hidden from the bar.
  */
-enum class StudioSection { EDIT, RENDER }
+enum class StudioSection { EDIT, RENDER, TAKES }
 
 @Stable
 class GeodeAppState(

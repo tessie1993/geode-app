@@ -7,7 +7,6 @@ import dev.geode.render.AdsrConfig
 import dev.geode.render.AdsrEngine
 import dev.geode.render.LfoConfig
 import dev.geode.render.LfoEngine
-import dev.geode.render.ParamBlend
 import dev.geode.render.ReactionRoute
 import dev.geode.render.scene.CustomizeTab
 import dev.geode.render.scene.ParamRandomizer
@@ -23,32 +22,10 @@ data class ParamHistoryState(
 )
 
 /**
- * One A/B snapshot: everything the Customize tabs edit, not only the params. Holding just the
- * params made Set/Recall look broken on the reaction matrix, the LFOs and envelopes and the
- * layer, which each keep their own state.
- */
-data class AbLook(
-    val params: SceneParams,
-    val reactions: List<ReactionRoute>?,
-    val lfos: List<LfoConfig>,
-    val adsrs: List<AdsrConfig>,
-    val layers: LayersUiState,
-)
-
-/** The two A/B snapshots, and where the blend between them currently sits. */
-data class AbSnapshotState(
-    val a: AbLook? = null,
-    val b: AbLook? = null,
-    val blend: Float = 0f,
-) {
-    val canBlend: Boolean get() = a != null && b != null
-}
-
-/**
  * Everything the Customize panel does to a parameter set that is not "type a new number".
  *
- * Modulation slots and envelopes, the per-parameter randomize locks, the panel's undo/redo
- * history, and the A/B snapshots. They live together because they all edit the SAME thing — the
+ * Modulation slots and envelopes, the per-parameter randomize locks and the panel's undo/redo
+ * history. They live together because they all edit the SAME thing — the
  * one live parameter set — and splitting them would mean three places that each have to remember
  * to record history.
  */
@@ -81,9 +58,6 @@ internal class ModulationController(
 
     private val _history = MutableStateFlow(ParamHistoryState())
     val history: StateFlow<ParamHistoryState> = _history
-
-    private val _ab = MutableStateFlow(AbSnapshotState())
-    val ab: StateFlow<AbSnapshotState> = _ab
 
     private val undoStack = ArrayDeque<SceneParams>()
     private val redoStack = ArrayDeque<SceneParams>()
@@ -145,6 +119,8 @@ internal class ModulationController(
      */
     fun randomizeParams(tab: CustomizeTab? = null) {
         if (tab == CustomizeTab.EVENTS) return rerollReactions()
+        // The knobs are not params: the toolbar rolls them through MacroStore.
+        if (tab == CustomizeTab.MACROS) return
         commitSceneParams(
             ParamRandomizer.randomize(
                 current = host.params,
@@ -159,66 +135,11 @@ internal class ModulationController(
     fun resetTab(tab: CustomizeTab) =
         when (tab) {
             CustomizeTab.EVENTS -> setReactions(null)
+            CustomizeTab.MACROS -> Unit
             else -> commitSceneParams(ParamRandomizer.resetTab(host.params, tab))
         }
 
     fun resetAll() = commitSceneParams(SceneParams.DEFAULT)
-
-    fun captureA() = _ab.update { it.copy(a = currentLook()) }
-
-    fun captureB() = _ab.update { it.copy(b = currentLook()) }
-
-    fun recallA() {
-        _ab.value.a?.let { applyLook(it, commit = true) }
-    }
-
-    fun recallB() {
-        _ab.value.b?.let { applyLook(it, commit = true) }
-    }
-
-    /**
-     * Slides the live look between the two snapshots. One gesture, so one undo entry. Numbers
-     * (params, layer mix) glide; lists and switches flip at the midpoint, as [ParamBlend] does
-     * for the params that are not numbers.
-     */
-    fun blendAb(t: Float) {
-        val state = _ab.value
-        val a = state.a
-        val b = state.b
-        if (a == null || b == null) return
-        val k = t.coerceIn(0f, 1f)
-        _ab.value = state.copy(blend = k)
-        val near = if (k < HALF) a else b
-        val look =
-            near.copy(
-                params = ParamBlend.mix(a.params, b.params, k),
-                layers = near.layers.copy(mix = a.layers.mix + (b.layers.mix - a.layers.mix) * k),
-            )
-        applyLook(look, commit = false)
-    }
-
-    private fun currentLook() = AbLook(host.params, _reactions.value, _lfos.value, _adsrs.value, LayersBus.state.value)
-
-    // Only what differs is written, so a blend drag does not rewrite the stores every frame.
-    // ponytail: undo covers the params only, as it always has for edits on the reaction, LFO,
-    // envelope and layer controls; Undo after a recall puts the params back and leaves the rest.
-    // Widen the history to AbLook if that bites.
-    private fun applyLook(
-        look: AbLook,
-        commit: Boolean,
-    ) {
-        if (look.reactions != _reactions.value) setReactions(look.reactions)
-        if (look.lfos != _lfos.value) {
-            _lfos.value = look.lfos
-            lfoStore.save(look.lfos)
-        }
-        if (look.adsrs != _adsrs.value) {
-            _adsrs.value = look.adsrs
-            lfoStore.saveAdsrs(look.adsrs)
-        }
-        if (look.layers != LayersBus.state.value) LayersBus.state.value = look.layers
-        if (commit) commitSceneParams(look.params) else editSceneParams(look.params)
-    }
 
     fun setAdsr(
         index: Int,
@@ -278,7 +199,5 @@ internal class ModulationController(
         const val HISTORY_DEPTH = 64
 
         const val CHECKPOINT_GAP_MS = 700L
-
-        const val HALF = 0.5f
     }
 }

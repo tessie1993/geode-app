@@ -1,7 +1,6 @@
 #include <jni.h>
 #include <android/asset_manager_jni.h>
 
-#include <cstring>
 #include <string>
 #include <vector>
 
@@ -51,15 +50,6 @@ JNIEXPORT jboolean JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_vizSetParam(JNIEnv* env, jobject, jlong handle, jstring name, jfloat value) {
     Utf8Chars key(env, name);
     return geode_viz_set_param(vizOf(handle), key.get(), value) ? JNI_TRUE : JNI_FALSE;
-}
-
-JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_vizSetFeatures(JNIEnv* env, jobject, jlong handle, jfloatArray frame) {
-    FloatElements data(env, frame);
-    if (!data.get() || data.length() < GEODE_FEATURE_FRAME_FLOATS) return;
-    GeodeFeatureFrame features{};
-    std::memcpy(&features, data.get(), sizeof(features));
-    geode_viz_set_features(vizOf(handle), &features);
 }
 
 JNIEXPORT void JNICALL
@@ -177,6 +167,35 @@ Java_dev_geode_engine_bridge_GeodeNative_reactSourceCatalog(JNIEnv* env, jobject
     const int need = geode_react_source_catalog(nullptr, 0);
     std::vector<char> text(static_cast<size_t>(need) + 1);
     geode_react_source_catalog(text.data(), need + 1);
+    return env->NewStringUTF(text.data());
+}
+
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_macrosSet(JNIEnv* env, jobject, jfloatArray knobs) {
+    if (!knobs) return;
+    const jsize n = std::min<jsize>(env->GetArrayLength(knobs), 16);
+    float k[16]{};
+    env->GetFloatArrayRegion(knobs, 0, n, k);
+    geode_macros_set(k, n);
+}
+
+JNIEXPORT jfloatArray JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_macrosSurprise(JNIEnv* env, jobject, jfloatArray knobs, jint lockMask, jlong seed) {
+    const jsize n = knobs ? std::min<jsize>(env->GetArrayLength(knobs), 16) : 0;
+    float k[16]{};
+    float out[16]{};
+    if (n > 0) env->GetFloatArrayRegion(knobs, 0, n, k);
+    geode_macros_surprise(k, n, static_cast<unsigned>(lockMask), static_cast<long long>(seed), out);
+    jfloatArray result = env->NewFloatArray(n);
+    if (result) env->SetFloatArrayRegion(result, 0, n, out);
+    return result;
+}
+
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_macroStarters(JNIEnv* env, jobject) {
+    const int need = geode_macro_starters(nullptr, 0);
+    std::vector<char> text(static_cast<size_t>(need) + 1);
+    geode_macro_starters(text.data(), need + 1);
     return env->NewStringUTF(text.data());
 }
 
@@ -385,19 +404,6 @@ Java_dev_geode_engine_bridge_GeodeNative_paramsResetTab(JNIEnv* env, jobject, js
     env->GetFloatArrayRegion(in, 0, static_cast<jsize>(input.size()), input.data());
     geode_params_reset_tab(tabName.get(), input.data(), output.data());
     env->SetFloatArrayRegion(out, 0, static_cast<jsize>(output.size()), output.data());
-}
-
-JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_paramsBlend(JNIEnv* env, jobject, jfloatArray a, jfloatArray b, jfloat t, jfloatArray out) {
-    const jsize n = geode_viz_param_count();
-    if (!a || !b || !out || env->GetArrayLength(a) < n || env->GetArrayLength(b) < n || env->GetArrayLength(out) < n) return;
-    std::vector<float> from(static_cast<size_t>(n));
-    std::vector<float> to(from.size());
-    std::vector<float> mixed(from.size());
-    env->GetFloatArrayRegion(a, 0, n, from.data());
-    env->GetFloatArrayRegion(b, 0, n, to.data());
-    geode_params_blend(from.data(), to.data(), t, mixed.data());
-    env->SetFloatArrayRegion(out, 0, n, mixed.data());
 }
 
 }

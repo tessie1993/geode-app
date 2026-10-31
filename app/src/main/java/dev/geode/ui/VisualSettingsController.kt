@@ -1,7 +1,5 @@
 package dev.geode.ui
 
-import dev.geode.analysis.AnalysisEngine
-import dev.geode.analysis.LiveInputProfile
 import dev.geode.data.GuiPrefs
 import dev.geode.data.Preset
 import dev.geode.render.TransitionCatalog
@@ -13,14 +11,11 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.update
 
 internal class VisualSettingsController(
-    private val engine: AnalysisEngine,
     private val vizStateStore: VizStateStore,
     private val host: Host,
 ) {
     interface Host {
         val guiPrefs: GuiPrefs
-
-        fun setGuiPrefs(prefs: GuiPrefs)
 
         fun milkPathFor(preset: Preset): String?
     }
@@ -46,8 +41,6 @@ internal class VisualSettingsController(
         attack: Float,
         decay: Float,
     ) {
-        engine.attack = attack
-        engine.decay = decay
         state.update { it.copy(attack = attack, decay = decay) }
         vizStateStore.persist()
     }
@@ -103,8 +96,6 @@ internal class VisualSettingsController(
     }
 
     fun applyPreset(preset: Preset) {
-        engine.attack = preset.attack
-        engine.decay = preset.decay
         state.update {
             it.copy(
                 sceneId = preset.sceneId,
@@ -121,17 +112,6 @@ internal class VisualSettingsController(
         host.milkPathFor(preset)?.let {
             _vizApply.tryEmit(VizApply(milkPath = it, sceneId = preset.sceneId))
         }
-    }
-
-    fun applyLiveInputProfile(profile: LiveInputProfile) {
-        host.setGuiPrefs(
-            host.guiPrefs.copy(
-                beatSensitivity = profile.beatSigma,
-                beatMinIntervalMs = profile.beatIntervalMs,
-            ),
-        )
-        setReactivity(profile.attack, profile.decay)
-        setSceneParams(profile.apply(state.value.params))
     }
 
     /**

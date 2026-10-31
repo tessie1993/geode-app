@@ -32,7 +32,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
-import dev.geode.analysis.BarTrim
 import dev.geode.data.EXPORT_FPS_OPTIONS
 import dev.geode.data.ExportDefaults
 import dev.geode.data.ExportPrefsStore
@@ -124,8 +123,6 @@ internal fun StudioRenderTab(
     var askWhere by rememberSaveable { mutableStateOf(false) }
     var loopOpen by rememberSaveable { mutableStateOf(false) }
     val startExport = rememberVisualizerExport(viewModel, visualizerView)
-    // A loop-safe cut needs the track's tempo; without one this render is full length.
-    val tempoKnown = BarTrim.barDurationUs(viz.bpm) != null
 
     val libraryViewModel: LibraryViewModel = geodeViewModel()
     val queue by viewModel.queue.collectAsStateWithLifecycle()
@@ -179,12 +176,9 @@ internal fun StudioRenderTab(
                 } else {
                     item {
                         RenderLengthGroup(
-                            options = options,
-                            update = update,
                             length = length,
                             onLength = { length = it },
                             trackDurationMs = player.durationMs,
-                            bpm = viz.bpm,
                             takes = takes.takes.map { it.name },
                             selectedTake = takes.exportTake,
                             onSelectTake = studioViewModel::setExportTake,
@@ -247,7 +241,6 @@ internal fun StudioRenderTab(
                         fps = options.fps,
                         sceneFactory = renderer.exportSceneFactory(sceneId),
                         sceneParams = look?.params,
-                        loopSafe = options.loopSafe,
                         codec = options.codec,
                     )
                     return@render
@@ -258,7 +251,6 @@ internal fun StudioRenderTab(
                         aspect = ExportAspect.of(options.quality, options.ratio),
                         fps = options.fps,
                         sceneId = viz.sceneId,
-                        loopSafe = options.loopSafe && tempoKnown,
                         rangeStartMs = range?.startMs ?: 0L,
                         rangeDurationMs = range?.durationMs ?: 0L,
                         codec = options.codec,
@@ -445,12 +437,9 @@ private fun RenderSoundGroup(
 
 @Composable
 private fun RenderLengthGroup(
-    options: ExportDefaults,
-    update: (ExportDefaults) -> Unit,
     length: RenderLength,
     onLength: (RenderLength) -> Unit,
     trackDurationMs: Long,
-    bpm: Float,
     takes: List<String>,
     selectedTake: String?,
     onSelectTake: (String?) -> Unit,
@@ -481,21 +470,6 @@ private fun RenderLengthGroup(
                 )
             }
         }
-        val barUs = BarTrim.barDurationUs(bpm)
-        OptionLabel(stringResource(R.string.export_looping))
-        RenderChipRow {
-            RenderChip(stringResource(R.string.export_full_length), !options.loopSafe) { update(options.copy(loopSafe = false)) }
-            RenderChip(stringResource(R.string.export_loop_safe), options.loopSafe, enabled = barUs != null) {
-                update(options.copy(loopSafe = true))
-            }
-        }
-        OptionHint(
-            if (barUs != null) {
-                stringResource(R.string.export_loop_safe_bar_hint, "%.0f".format(bpm), "%.1f".format(barUs / 1_000_000f))
-            } else {
-                stringResource(R.string.export_loop_safe_needs_tempo)
-            },
-        )
         if (takes.isNotEmpty()) {
             OptionLabel(stringResource(R.string.export_group_performance))
             RenderChipRow {

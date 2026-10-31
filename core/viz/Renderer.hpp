@@ -18,6 +18,7 @@
 #include "viz/Framebuffer.hpp"
 #include "viz/GlProfile.hpp"
 #include "viz/Lfo.hpp"
+#include "viz/Macros.hpp"
 #include "viz/MotionField.hpp"
 #include "viz/Overlays.hpp"
 #include "viz/Params.hpp"
@@ -45,7 +46,6 @@ public:
     // Any thread.
     void setParams(const SceneParams& params);
     bool setParam(const std::string& key, float value);
-    void setFeatures(const GeodeFeatureFrame& features);
     void setReducedMotion(bool on) { reducedMotion_.store(on, std::memory_order_relaxed); }
     // Settings › Performance, live surfaces only: an offscreen (export) renderer never calls this,
     // so it keeps full quality. renderScale and marchScale are 0..1 multipliers stacked under the
@@ -160,6 +160,7 @@ private:
     // family's SceneParams pass through so nothing can key off a drum hit.
     MotionField motionField_;
     ReactionEngine reactions_;
+    ReactionEngine macroReactions_;
     CameraRig camera_;
     // One engine per renderer (one per surface), so each is frame-locked to its own dt. Guarded by soundLock_
     // only because writeAudio and soundFrame are public; in practice one thread does everything.
@@ -167,6 +168,9 @@ private:
     std::unique_ptr<sound::SoundEngine> sound_;
     GeodeSoundTuning soundTuning_ = sound::SoundEngine::defaultTuning();
     GeodeSoundFrame soundFrame_{};
+    // Customize › Macros: this frame's knobs, and the ones the sound engine's tuning was last built from.
+    MacroKnobs frameKnobs_{};
+    MacroKnobs tunedKnobs_{};
     std::atomic<float> lookYaw_{0.0f};
     std::atomic<float> lookPitch_{0.0f};
     Framebuffer fboA_{"sceneA"};
@@ -176,7 +180,6 @@ private:
 
     mutable std::mutex stateLock_;
     SceneParams requestedParams_;
-    GeodeFeatureFrame features_{};
     std::string requestedSceneId_ = "silk_web";
     std::string layerSceneId_;
     float layerMix_ = 0.5f;
@@ -247,8 +250,7 @@ private:
     double lastTimeS_ = -1.0;
     double frameNowS_ = 0.0;
     float timeSeconds_ = 0.0f;
-    GeodeFeatureFrame frameFeatures_{};
-    // Latched once per frame in beginFrame alongside frameFeatures_, so the
+    // Latched once per frame in beginFrame, so the
     // rest of the frame (composite(), drawSecondaryTargets(), ...) reads a
     // stable snapshot instead of racing setLayer()/setTransition() on
     // stateLock_.

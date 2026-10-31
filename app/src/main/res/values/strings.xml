@@ -243,8 +243,6 @@
 
     <!-- Automatic visual switching. -->
     <string name="auto_random">Auto: random</string>
-    <string name="auto_smart">Auto: smart</string>
-    <string name="auto_sections">Auto: sections</string>
     <string name="auto_off">Auto: off</string>
 
     <string name="queue">Queue</string>
@@ -512,7 +510,6 @@
     <!-- Settings › Folders. -->
     <string name="folders_group_preset">Preset folder</string>
     <string name="folders_group_music">Music folders</string>
-    <string name="folders_group_cache">Analysis cache</string>
     <string name="folders_group_export">Export destination</string>
     <string name="folders_export_explainer">Exports land in your Videos library (Movies/MuzViz), or in a folder you pick at render time — there is no standing export folder to configure. Defaults for quality and size live in the Export tab.</string>
     <string name="folders_preset_chosen">Preset folder: chosen — saves are mirrored there</string>
@@ -520,14 +517,10 @@
     <string name="folders_choose_preset">Choose preset folder</string>
     <string name="folders_preset_explainer">Presets always save inside the app; a chosen folder gets a mirror copy so your own sorting is visible in any file manager.</string>
     <string name="folders_none_yet">No folders yet. Device music appears in the Library on its own; folders you add here are scanned into the import library as well.</string>
-    <string name="folders_rescan_explainer">The same list as Library › Folders. Rescanning re-walks every folder; tracks already imported keep their analysis.</string>
-    <string name="folders_cache_measuring">…</string>
-    <string name="folders_cache_summary">%1$d tracks · %2$.1f MB</string>
-    <string name="folders_cache_label">Analysis cache: %1$s</string>
-    <string name="folders_cache_explainer">Analysis results per track, so replaying never re-analyses. Clearing costs nothing but the next analysis pass.</string>
+    <string name="folders_rescan_explainer">The same list as Library › Folders. Rescanning re-walks every folder; tracks already imported stay where they are.</string>
     <string name="action_clear">Clear</string>
 
-    <!-- Settings › Audio: analysis, key colour, live input. -->
+    <!-- Settings › Audio: sound tuning, live input. -->
     <string name="audio_group_playback">Playback</string>
     <string name="audio_group_analysis">Analysis</string>
     <!-- Shown once per audio-DSP screen (playback/EQ), so nobody files "the visuals didn't
@@ -557,14 +550,10 @@
     <string name="audio_note_hold">"A new note must hold  %1$d ms"</string>
     <string name="audio_silence">"Silence below  %1$d dB"</string>
     <string name="audio_preset_morph">Preset morph: %1$.1f s (0 = snap)</string>
-    <string name="audio_key_colour">Colour from the musical key</string>
-    <string name="audio_key_colour_explainer">Sets Hue shift from the key the analyser found, around the circle of fifths — so a track keeps the same colour every time you play it, and two songs that sound related look related. It moves the ordinary Hue shift slider, so you can always disagree with it; switching this off gives your own value back.</string>
     <string name="audio_react_mic">React to the microphone</string>
     <string name="audio_react_mic_explainer">Plays nothing and drives the visuals from what the phone hears — a room, an instrument, a speaker across the street. Playback pauses while it is on, because the analyzer has one input and a track plus the room would just blur together. Audio is analysed live and never recorded, saved or sent anywhere.</string>
     <string name="audio_mic_denied">Microphone access is off for MuzViz. Turn it on in Android Settings › Apps › MuzViz › Permissions to use live input.</string>
     <string name="audio_mic_busy">The microphone could not be opened — another app may be using it.</string>
-    <string name="audio_tune_room">Tune for what the phone is hearing</string>
-    <string name="audio_profiles_explainer">Each sets the beat threshold, the reactivity envelope and the band balance together — they are one decision, and they live on three different screens. Every value stays an ordinary slider afterwards.</string>
 
     <!-- Settings › Audio › Other apps (playback capture). -->
     <string name="ext_visualize_other_apps">Visualize other apps</string>
@@ -634,7 +623,6 @@
     <string name="export_aspect_ratio">Aspect ratio</string>
     <string name="export_fps_30">30 fps</string>
     <string name="export_fps_60">60 fps</string>
-    <string name="export_loop_safe">Loop-safe</string>
     <string name="studio_render_free_limits">Free and trial renders stop at 1 minute, up to 1080p at 30 fps, with a watermark. Loop renders need Pro.</string>
     <string name="settings_export_moved">Export, loop render and the export defaults live in Studio › Render.</string>
     <string name="settings_export_open_studio">Open Studio › Render</string>
@@ -652,10 +640,6 @@
     <string name="export_segment">Segment</string>
     <string name="export_segment_hint">Drag to pick at least %1$d second of the track. Anything shorter renders the whole thing instead.</string>
     <string name="export_segment_summary">Renders %1$s–%2$s (%3$s). The clip starts at 0:00 in the file, and the visuals are the ones from that part of the track.</string>
-    <string name="export_looping">Looping</string>
-    <string name="export_full_length">Full length</string>
-    <string name="export_loop_safe_bar_hint">Loop-safe cuts on a bar boundary (%1$s BPM, %2$s s per bar) so the last beat runs into the first — what a short clip needs when a platform autoplays it on repeat. Up to one bar is trimmed from the end.</string>
-    <string name="export_loop_safe_needs_tempo">Loop-safe needs a detected tempo. Analyse the track (Now Playing › Auto) to use it.</string>
     <string name="export_group_performance">Performance</string>
     <string name="export_live_settings">Live settings</string>
     <string name="export_take_explainer">Renders the take\'s parameter automation — every slider, colour and effect moving as you performed it. A style SWITCH inside the take is not reproduced: the render draws through the style selected now, for its whole length.</string>
@@ -838,8 +822,6 @@
     <string name="autoviz_random_off_auto">Random is off — the Auto button on the Now Playing screen turns it on.</string>
     <string name="autoviz_shape_hint">The settings below shape it whether it is running or not, so a session can be set up before it starts — and they are remembered across restarts.</string>
     <string name="autoviz_switch_every">Switch every %1$d s</string>
-    <string name="autoviz_on_beat">Switch on a strong beat</string>
-    <string name="autoviz_on_beat_hint">Waits for a big moment in the music instead of switching the instant the timer is up, so a change lands with the track rather than across it. It still holds a look for at least half the interval, and forces a switch at twice it, so a quiet passage cannot stall the rotation.</string>
     <string name="autoviz_pick_from">Pick from</string>
     <string name="autoviz_pick_styles">Styles</string>
     <string name="autoviz_pick_presets">Saved presets</string>
@@ -856,8 +838,6 @@
         <item quantity="other">%1$d looks in the playlist.</item>
     </plurals>
     <string name="autoviz_playlist_add_hint">Add looks with the heart button in Visuals › Presets. The playlist needs at least two before it has anywhere to go.</string>
-    <string name="autoviz_wait_strong">Wait for a strong moment</string>
-    <string name="autoviz_wait_strong_hint">The same timing Random\'s \"strong beat\" uses, applied to the playlist order: the next look still comes next, it just waits for a moment worth arriving on.</string>
 
     <!-- Studio clip preview. -->
     <!-- Timeline editor. -->
@@ -879,7 +859,6 @@
     <string name="editor_tap_count">%1$d taps</string>
     <string name="editor_tap_undo">Undo tap</string>
     <string name="editor_tap_done">Keep taps</string>
-    <string name="editor_auto_cut">Auto-cut</string>
     <string name="editor_split">Split at playhead</string>
     <string name="editor_delete">Delete</string>
     <string name="editor_ripple_delete">Ripple delete</string>
@@ -941,28 +920,6 @@
     <string name="editor_chapter_untitled">Chapter %1$d</string>
     <string name="editor_chapters_unwritable">The chapter list could not be written.</string>
     <string name="editor_destination_unopenable">The destination could not be opened.</string>
-    <string name="autocut_title">Auto-cut</string>
-    <string name="autocut_source">Cut on</string>
-    <string name="autocut_source_transient">Transients</string>
-    <string name="autocut_source_flux">Spectral flux</string>
-    <string name="autocut_source_onset">Onsets</string>
-    <string name="autocut_source_kick">Kick</string>
-    <string name="autocut_source_snare">Snare</string>
-    <string name="autocut_source_hat">Hat</string>
-    <string name="autocut_sensitivity">"Sensitivity  %1$d%%"</string>
-    <string name="autocut_spacing">"Minimum spacing  %1$d ms"</string>
-    <string name="autocut_detect">Detect</string>
-    <string name="autocut_as_markers">Add as markers</string>
-    <string name="autocut_as_clips">Cut the visual lane</string>
-    <string name="autocut_no_analysis">Analyse the current track first — auto-cut reads the hits from its analysis.</string>
-    <string name="autocut_miss_empty">The analysis has no frames.</string>
-    <string name="autocut_miss_none">No hits stood out — sensitivity only lowers the bar, it cannot invent them.</string>
-    <string name="autocut_miss_window">The chosen window is too short.</string>
-    <string name="autocut_explainer">Cuts follow the hits the player actually played, not a tempo grid. Suggestions become ordinary markers or clips you can drag, trim and delete.</string>
-    <plurals name="autocut_found">
-        <item quantity="one">%1$d cut found</item>
-        <item quantity="other">%1$d cuts found</item>
-    </plurals>
     <string name="studio_preview_hint">Loops your cut, muted — grade, speed and reframe show as they will render. Tap to pause.</string>
     <string name="studio_preview_toggle">Play or pause the preview</string>
 

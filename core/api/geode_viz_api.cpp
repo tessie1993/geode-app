@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "api/geode_api.h"
+#include "viz/Macros.hpp"
 #include "viz/ReactionDna.hpp"
 #include "viz/Renderer.hpp"
 #include "viz/SceneRegistry.hpp"
@@ -78,10 +79,6 @@ void geode_viz_set_params(geode_viz* v, const float* values, int count) {
 
 int geode_viz_set_param(geode_viz* v, const char* name, float value) {
     return (v && name && v->renderer.setParam(name, value)) ? 1 : 0;
-}
-
-void geode_viz_set_features(geode_viz* v, const GeodeFeatureFrame* frame) {
-    if (v && frame) v->renderer.setFeatures(*frame);
 }
 
 void geode_viz_set_reduced_motion(geode_viz* v, int on) {
@@ -237,6 +234,33 @@ int geode_react_source_catalog(char* out, int capacity) {
         text += '|';
         text += s.group;
         text += s.event ? "|1\n" : "|0\n";
+    }
+    const int need = static_cast<int>(text.size());
+    if (out && capacity > 0) {
+        const int n = std::min(need, capacity - 1);
+        std::memcpy(out, text.data(), static_cast<size_t>(n));
+        out[n] = '\0';
+    }
+    return need;
+}
+
+void geode_macros_set(const float* knobs, int count) { macros::setGlobal(macros::clamped(knobs, count)); }
+
+void geode_macros_surprise(const float* knobs, int count, unsigned lock_mask, long long seed, float* out) {
+    if (!out) return;
+    const MacroKnobs k = macros::surprise(macros::clamped(knobs, count), lock_mask, static_cast<uint64_t>(seed));
+    for (int i = 0; i < count && i < kMacroCount; ++i) out[i] = k[static_cast<size_t>(i)];
+}
+
+int geode_macro_starters(char* out, int capacity) {
+    std::string text;
+    for (const macros::Starter& s : macros::starters()) {
+        text += s.name;
+        for (int i = 0; i < kMacroCount; ++i) {
+            text += i == 0 ? '|' : ',';
+            text += std::to_string(s.knobs[static_cast<size_t>(i)]);
+        }
+        text += '\n';
     }
     const int need = static_cast<int>(text.size());
     if (out && capacity > 0) {

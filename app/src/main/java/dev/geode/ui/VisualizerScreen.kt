@@ -102,7 +102,6 @@ fun VisualizerScreen(
     val position = viewModel.positionMs.collectAsStateWithLifecycle()
     val autoMode by viewModel.autoMode.collectAsStateWithLifecycle()
     val gui by settingsViewModel.guiPrefs.collectAsStateWithLifecycle()
-    val waveform by viewModel.waveform.collectAsStateWithLifecycle()
     val lyrics by viewModel.lyrics.collectAsStateWithLifecycle()
     val queue by viewModel.queue.collectAsStateWithLifecycle()
     val favourites by viewModel.favourites.collectAsStateWithLifecycle()
@@ -288,7 +287,6 @@ fun VisualizerScreen(
                     viewModel = viewModel,
                     state = state,
                     position = { position.value },
-                    waveform = waveform,
                     abLoop = abLoop,
                     autoMode = autoMode,
                     queueSize = queue.tracks.size,
@@ -312,7 +310,6 @@ private fun VisualizerTransport(
     viewModel: PlayerViewModel,
     state: PlayerUiState,
     position: () -> Long,
-    waveform: FloatArray?,
     abLoop: AbLoop?,
     autoMode: Int,
     queueSize: Int,
@@ -350,8 +347,6 @@ private fun VisualizerTransport(
                     stringResource(
                         when (autoMode) {
                             1 -> R.string.auto_random
-                            2 -> R.string.auto_smart
-                            3 -> R.string.auto_sections
                             else -> R.string.auto_off
                         },
                     ),
@@ -393,8 +388,7 @@ private fun VisualizerTransport(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             PositionClock(position, ::formatTime)
-            WaveformSeekBar(
-                waveform = waveform,
+            TrackSeekBar(
                 positionMs = position,
                 durationMs = state.durationMs,
                 loopStartMs = abLoop?.startMs,

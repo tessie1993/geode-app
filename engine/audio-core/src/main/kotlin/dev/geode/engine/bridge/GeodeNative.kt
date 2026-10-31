@@ -7,76 +7,6 @@ object GeodeNative {
 
     external fun version(): String
 
-    external fun featureFrameFloats(): Int
-
-    external fun analysisCreate(
-        sampleRate: Int,
-        fftSize: Int,
-        hopRateHz: Float,
-    ): Long
-
-    external fun analysisDestroy(handle: Long)
-
-    external fun analysisSetSampleRate(
-        handle: Long,
-        sampleRate: Int,
-    )
-
-    external fun analysisSetTuning(
-        handle: Long,
-        sensitivity: Float,
-        refractoryMs: Float,
-        attackSeconds: Float,
-        releaseSeconds: Float,
-    )
-
-    external fun analysisReset(handle: Long)
-
-    external fun analysisAnalyze(
-        handle: Long,
-        mid: FloatArray,
-        side: FloatArray?,
-        dtSeconds: Float,
-        out: FloatArray,
-    )
-
-    external fun analysisPush(
-        handle: Long,
-        interleaved: FloatArray,
-        frames: Int,
-        channels: Int,
-    )
-
-    external fun analysisPull(
-        handle: Long,
-        out: FloatArray,
-    ): Boolean
-
-    external fun analysisKey(handle: Long): String
-
-    external fun pulseReplay(
-        flux: FloatArray,
-        rms: FloatArray,
-        hopRateHz: Float,
-        sensitivity: Float,
-        refractoryMs: Float,
-        out: FloatArray,
-    )
-
-    external fun drumsCreate(
-        bandCount: Int,
-        hopRateHz: Float,
-        sampleRate: Int,
-    ): Long
-
-    external fun drumsDestroy(handle: Long)
-
-    external fun drumsStep(
-        handle: Long,
-        bands: FloatArray,
-        out: FloatArray,
-    )
-
     external fun dspCreate(
         sampleRate: Int,
         channels: Int,
@@ -253,11 +183,6 @@ object GeodeNative {
         value: Float,
     ): Boolean
 
-    external fun vizSetFeatures(
-        handle: Long,
-        frame: FloatArray,
-    )
-
     external fun vizSetReducedMotion(
         handle: Long,
         on: Boolean,
@@ -339,6 +264,19 @@ object GeodeNative {
 
     /** The reaction source catalogue (core/viz/Reactions.cpp), see `dev.geode.render.ReactSourceCatalog`. */
     external fun reactSourceCatalog(): String
+
+    /** Customize › Macros (core/viz/Macros): the six knobs, -1..1, for every renderer in the process. */
+    external fun macrosSet(knobs: FloatArray)
+
+    /** Surprise: unlocked knobs (bit i of [lockMask] locks knob i) to new spots, seeded. */
+    external fun macrosSurprise(
+        knobs: FloatArray,
+        lockMask: Int,
+        seed: Long,
+    ): FloatArray
+
+    /** The built-in macro presets, "Name|e,s,c,m,sp,ch" lines. */
+    external fun macroStarters(): String
 
     external fun vizPushPcm(
         handle: Long,
@@ -518,14 +456,6 @@ object GeodeNative {
     external fun paramsResetTab(
         tab: String,
         input: FloatArray,
-        output: FloatArray,
-    )
-
-    /** The A/B blend of two SceneParamsCodec frames: floats glide, choices snap at [t] = 0.5. */
-    external fun paramsBlend(
-        a: FloatArray,
-        b: FloatArray,
-        t: Float,
         output: FloatArray,
     )
 

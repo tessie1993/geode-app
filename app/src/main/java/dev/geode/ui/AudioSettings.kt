@@ -3,8 +3,6 @@ package dev.geode.ui
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -36,7 +34,6 @@ internal fun AudioSettingsTab(viewModel: PlayerViewModel) {
 
 @Composable
 private fun AnalysisGroup(viewModel: SettingsViewModel) {
-    val playerViewModel: PlayerViewModel = geodeViewModel()
     val gui by viewModel.guiPrefs.collectAsStateWithLifecycle()
     Column {
         SoundTuningControls(gui.soundTuning) { viewModel.setGuiPrefs(gui.copy(soundTuning = it.clamped())) }
@@ -47,18 +44,6 @@ private fun AnalysisGroup(viewModel: SettingsViewModel) {
             value = gui.presetMorphSeconds,
             onValueChange = { viewModel.setGuiPrefs(gui.copy(presetMorphSeconds = it)) },
             valueRange = 0f..ThemeStore.PRESET_MORPH_SECONDS_MAX,
-        )
-    }
-    Column {
-        LabeledSwitch(
-            stringResource(R.string.audio_key_colour),
-            checked = gui.keyColor,
-            onCheckedChange = playerViewModel::setKeyColor,
-        )
-        Text(
-            stringResource(R.string.audio_key_colour_explainer),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }
@@ -82,32 +67,6 @@ private fun LiveInputGroup(viewModel: PlayerViewModel) {
             },
         )
         MicStatusNotice(micPermission, mic.failure)
-    }
-    Column {
-        Text(stringResource(R.string.audio_tune_room), style = MaterialTheme.typography.labelMedium)
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            items(
-                dev.geode.analysis.LiveInputProfile.entries
-                    .toList(),
-            ) { profile ->
-                CrystalButton(
-                    compact = true,
-                    filled = false,
-                    onClick = { viewModel.applyLiveInputProfile(profile) },
-                ) { Text(profile.label) }
-            }
-        }
-        Text(
-            dev.geode.analysis.LiveInputProfile.entries
-                .joinToString("  ·  ") { "${it.label}: ${it.summary}" },
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Text(
-            stringResource(R.string.audio_profiles_explainer),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
     }
 }
 

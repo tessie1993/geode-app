@@ -1,0 +1,339 @@
+catalogue|1
+kind|SHADER|UNIVERSAL,SCENE_CLOCK,AUDIO_DRIVE,BASS_BAND,MID_BAND,TREBLE_BAND,BAND_GAINS,SHADER_LOOK,ENDLESS_ZOOM,TURBULENCE,FLOW_FIELD_SIM,RIPPLE_OVERLAY
+kind|SILK|UNIVERSAL,SCENE_CLOCK,AUDIO_DRIVE,BASS_BAND,MID_BAND,TREBLE_BAND,BAND_GAINS,TRAIL_TOGGLE,TRAIL_LENGTH,FLOW_FIELD_SIM,RIPPLE_OVERLAY
+kind|LIFE|UNIVERSAL,SCENE_CLOCK,AUDIO_DRIVE,TREBLE_BAND,BAND_GAINS,FLOW_FIELD_SIM,RIPPLE_OVERLAY
+kind|MYCELIUM|UNIVERSAL,SCENE_CLOCK,AUDIO_DRIVE,BASS_BAND,TREBLE_BAND,BAND_GAINS,TURBULENCE,FLOW_FIELD_SIM,RIPPLE_OVERLAY
+kind|ACID|UNIVERSAL,SCENE_CLOCK,AUDIO_DRIVE,BASS_BAND,MID_BAND,TREBLE_BAND,BAND_GAINS,TURBULENCE,FLOW_FIELD_SIM,RIPPLE_OVERLAY
+kind|MILKDROP|UNIVERSAL,ENDLESS_ZOOM,MILKDROP,FLOW_FIELD_SIM,RIPPLE_OVERLAY
+kind|FLUID|UNIVERSAL,SCENE_CLOCK,AUDIO_DRIVE,BASS_BAND,MID_BAND,TREBLE_BAND,BAND_GAINS,DYE_DENSITY,PARTICLE_SPRITE,FLUID_SIM,EMITTERS,JOURNEY,RIPPLE_OVERLAY
+kind|CURL_FLOW|UNIVERSAL,SCENE_CLOCK,AUDIO_DRIVE,MID_BAND,TREBLE_BAND,BAND_GAINS,TURBULENCE,TRAIL_TOGGLE,TRAIL_LENGTH,TRAIL_ECHO,PARTICLE_SPRITE,JOURNEY,FLOW_FIELD_SIM,RIPPLE_OVERLAY
+kind|WATER|UNIVERSAL,SCENE_CLOCK,AUDIO_DRIVE,BASS_BAND,MID_BAND,TREBLE_BAND,BAND_GAINS,EMITTERS,JOURNEY,WATER,FLOW_FIELD_SIM
+kind|CYMATICS|UNIVERSAL,SCENE_CLOCK,AUDIO_DRIVE,TREBLE_BAND,BAND_GAINS,CYMATICS,FLOW_FIELD_SIM,RIPPLE_OVERLAY
+style|silk_web|SILK
+style|silk_bloom|SILK
+style|silk_weave|SILK
+style|silk_shell|SILK
+style|silk_spiral|SILK
+style|silk_fold|SILK
+style|silk_hyper|SILK
+style|silk_resonance|SILK
+style|silk_curl|SILK
+style|silk_pendulum|SILK
+style|life_orbium|LIFE
+style|life_gyre|LIFE
+style|life_helix|LIFE
+style|life_pulsar|LIFE
+style|life_hydro|LIFE
+style|life_bug|LIFE
+style|life_mitosis|LIFE
+style|life_coral|LIFE
+style|life_labyrinth|LIFE
+style|life_worms|LIFE
+style|myco_polycephalum|MYCELIUM
+style|myco_rivals|MYCELIUM
+style|myco_symbiosis|MYCELIUM
+style|myco_predator|MYCELIUM
+style|myco_ghosts|MYCELIUM
+style|myco_circuit|MYCELIUM
+style|myco_silkroad|MYCELIUM
+style|myco_sporestorm|MYCELIUM
+style|myco_capillary|MYCELIUM
+style|myco_frostvein|MYCELIUM
+style|acid_tv|ACID
+style|acid_well|ACID
+style|acid_kaleid|ACID
+style|acid_droste|ACID
+style|acid_prism|ACID
+style|acid_mosh|ACID
+style|acid_scan|ACID
+style|acid_solar|ACID
+style|acid_mirror|ACID
+style|acid_smear|ACID
+style|julia|SHADER
+style|tunnel|SHADER
+style|mandel|SHADER
+style|kaleido|SHADER
+style|plasma|SHADER
+style|bars|SHADER
+style|ring|SHADER
+style|scope|SHADER
+style|liss|SHADER
+style|warp|SHADER
+style|grid|SHADER
+style|voronoi|SHADER
+style|metaballs|SHADER
+style|ripples|SHADER
+style|starfield|SHADER
+style|waves|SHADER
+style|hexgrid|SHADER
+style|spiral|SHADER
+style|aurora|SHADER
+style|solar|SHADER
+style|winter|SHADER
+style|lava|SHADER
+style|vanishing|SHADER|MARCH_DETAIL
+style|morphogen|SHADER|MARCH_DETAIL
+style|nebula|SHADER|MARCH_DETAIL
+style|noneuclid|SHADER|MARCH_DETAIL
+style|kifs|SHADER|MARCH_DETAIL
+style|orb_lattice|SHADER
+style|rod_tunnel|SHADER|MARCH_DETAIL
+style|neon_tiles|SHADER
+style|chroma_orb|SHADER
+style|mandala_dome|SHADER
+style|bead_vortex|SHADER
+style|merkaba_grid|SHADER
+style|spiral_eye|SHADER
+style|blacklight_bloom|SHADER
+style|fractal_temple|SHADER
+style|curl_bloom|SHADER|MARCH_DETAIL
+style|nectar_flow|SHADER|MARCH_DETAIL
+style|crystal_canyon|SHADER|MARCH_DETAIL
+style|neon_city|SHADER|MARCH_DETAIL
+style|particle_tunnel|SHADER|MARCH_DETAIL
+style|chrome_nebula|SHADER|MARCH_DETAIL
+style|fractal_dive|SHADER|MARCH_DETAIL
+style|aurora_ocean|SHADER|MARCH_DETAIL
+style|spectrum_terrain|SHADER|MARCH_DETAIL
+style|outrun_drive|SHADER
+style|menger_core|SHADER|MARCH_DETAIL
+style|gyroid_cavern|SHADER|MARCH_DETAIL
+style|ringed_planet|SHADER
+style|jelly_abyss|SHADER|MARCH_DETAIL
+style|ribbon_storm|SHADER
+style|prism_rain|SHADER|MARCH_DETAIL
+style|arbor_grove|SHADER
+style|arbor_willow|SHADER|MARCH_DETAIL
+style|arbor_coral|SHADER|MARCH_DETAIL
+style|arbor_frost|SHADER
+style|arbor_bolt|SHADER
+style|arbor_roots|SHADER
+style|arbor_bonsai|SHADER|MARCH_DETAIL
+style|arbor_canopy|SHADER|MARCH_DETAIL
+style|arbor_rosette|SHADER
+style|arbor_spire|SHADER|MARCH_DETAIL
+style|arbor_synapse|SHADER|MARCH_DETAIL
+style|arbor_sakura|SHADER
+style|bulb_classic|SHADER|MARCH_DETAIL
+style|bulb_julia|SHADER|MARCH_DETAIL
+style|bulb_slice|SHADER|MARCH_DETAIL
+style|bulb_lotus|SHADER|MARCH_DETAIL
+style|bulb_ink|SHADER|MARCH_DETAIL
+style|bulb_glow|SHADER|MARCH_DETAIL
+style|bulb_cavern|SHADER|MARCH_DETAIL
+style|bulb_shell|SHADER|MARCH_DETAIL
+style|bulb_prism|SHADER|MARCH_DETAIL
+style|bulb_contour|SHADER|MARCH_DETAIL
+style|bulb_chrome|SHADER|MARCH_DETAIL
+style|bulb_hybrid|SHADER|MARCH_DETAIL
+style|chrys_bloom|SHADER
+style|chrys_phyllo|SHADER
+style|chrys_dahlia|SHADER
+style|chrys_lotus|SHADER
+style|chrys_meadow|SHADER
+style|chrys_corolla|SHADER|MARCH_DETAIL
+style|chrys_glass|SHADER
+style|chrys_ink|SHADER
+style|chrys_neon|SHADER
+style|chrys_fall|SHADER
+style|chrys_kaleido|SHADER
+style|chrys_tunnel|SHADER
+style|lucid_weave|SHADER
+style|lucid_mandala|SHADER
+style|lucid_spiral|SHADER
+style|lucid_tunnel|SHADER
+style|lucid_disc|SHADER
+style|lucid_hive|SHADER
+style|lucid_ink|SHADER
+style|lucid_mirror|SHADER
+style|lucid_bulge|SHADER
+style|lucid_petal|SHADER
+style|lucid_lattice|SHADER
+style|lucid_vortex|SHADER
+style|dive_lattice|SHADER|MARCH_DETAIL
+style|dive_jewel|SHADER|MARCH_DETAIL
+style|dive_mushroom|SHADER|MARCH_DETAIL
+style|dive_gyro|SHADER|MARCH_DETAIL
+style|dive_mandala|SHADER|MARCH_DETAIL
+style|dive_serpent|SHADER|MARCH_DETAIL
+style|dive_helix|SHADER|MARCH_DETAIL
+style|dive_accordion|SHADER|MARCH_DETAIL
+style|dive_orbit|SHADER|MARCH_DETAIL
+style|dive_neon|SHADER|MARCH_DETAIL
+style|dive_cycle|SHADER|MARCH_DETAIL
+style|dive_show|SHADER|MARCH_DETAIL
+style|glass_orb|SHADER
+style|glass_pool|SHADER
+style|glass_prism|SHADER
+style|glass_lens|SHADER
+style|glass_drops|SHADER
+style|glass_bubbles|SHADER
+style|glass_marble|SHADER
+style|glass_caustic|SHADER
+style|glass_cubes|SHADER|MARCH_DETAIL
+style|glass_gem|SHADER|MARCH_DETAIL
+style|glass_ice|SHADER|MARCH_DETAIL
+style|glass_knot|SHADER|MARCH_DETAIL
+style|nebula_dust|SHADER
+style|nebula_spiral|SHADER
+style|nebula_ring|SHADER
+style|nebula_veil|SHADER
+style|nebula_pulsar|SHADER
+style|nebula_cluster|SHADER
+style|nebula_nova|SHADER
+style|nebula_horizon|SHADER
+style|nebula_pillars|SHADER|MARCH_DETAIL
+style|nebula_flight|SHADER|MARCH_DETAIL
+style|nebula_storm|SHADER|MARCH_DETAIL
+style|nebula_web|SHADER|MARCH_DETAIL
+style|terra_ridge|SHADER|MARCH_DETAIL
+style|terra_dunes|SHADER|MARCH_DETAIL
+style|terra_canyon|SHADER|MARCH_DETAIL
+style|terra_glacier|SHADER|MARCH_DETAIL
+style|terra_isles|SHADER|MARCH_DETAIL
+style|terra_mesa|SHADER|MARCH_DETAIL
+style|terra_volcano|SHADER|MARCH_DETAIL
+style|terra_terraces|SHADER|MARCH_DETAIL
+style|terra_moon|SHADER|MARCH_DETAIL
+style|terra_night|SHADER|MARCH_DETAIL
+style|terra_topo|SHADER
+style|terra_wire|SHADER|MARCH_DETAIL
+style|truchet_arcs|SHADER
+style|truchet_hex|SHADER
+style|truchet_weave|SHADER
+style|truchet_maze|SHADER
+style|truchet_tri|SHADER
+style|truchet_quad|SHADER
+style|truchet_tubes|SHADER
+style|truchet_neon|SHADER
+style|truchet_flow|SHADER
+style|truchet_knot|SHADER
+style|truchet_tunnel|SHADER
+style|truchet_relief|SHADER|MARCH_DETAIL
+style|milkdrop|MILKDROP
+style|fluid|FLUID
+style|fluid_ink|FLUID
+style|fluid_oilslick|FLUID
+style|fluid_neon|FLUID
+style|fluid_chrome|FLUID
+style|fluid_smoke|FLUID
+style|fluid_lava|FLUID
+style|fluid_marble|FLUID
+style|fluid_aurora|FLUID
+style|curlflow|CURL_FLOW
+style|water|WATER
+style|cymatics|CYMATICS
+style|chladni_sand|CYMATICS
+style|bessel_drum|CYMATICS
+style|harmonograph|CYMATICS
+style|faraday|CYMATICS
+style|harmonic_shell|CYMATICS
+style|caustic_sheet|CYMATICS
+style|levitator|CYMATICS
+style|standing_chamber|CYMATICS
+style|rosensweig|CYMATICS
+style|kundt_tube|CYMATICS
+family|arbor|arbor_|lib_arbor|arbor_grove,arbor_willow,arbor_coral,arbor_frost,arbor_bolt,arbor_roots,arbor_bonsai,arbor_canopy,arbor_rosette,arbor_spire,arbor_synapse,arbor_sakura
+family|bulb|bulb_|lib_bulb|bulb_classic,bulb_julia,bulb_slice,bulb_lotus,bulb_ink,bulb_glow,bulb_cavern,bulb_shell,bulb_prism,bulb_contour,bulb_chrome,bulb_hybrid
+family|chrysanthemum|chrys_|lib_chrys|chrys_bloom,chrys_phyllo,chrys_dahlia,chrys_lotus,chrys_meadow,chrys_corolla,chrys_glass,chrys_ink,chrys_neon,chrys_fall,chrys_kaleido,chrys_tunnel
+family|lucid|lucid_|lib_lucid|lucid_weave,lucid_mandala,lucid_spiral,lucid_tunnel,lucid_disc,lucid_hive,lucid_ink,lucid_mirror,lucid_bulge,lucid_petal,lucid_lattice,lucid_vortex
+family|dive|dive_|lib_dive|dive_lattice,dive_jewel,dive_mushroom,dive_gyro,dive_mandala,dive_serpent,dive_helix,dive_accordion,dive_orbit,dive_neon,dive_cycle,dive_show
+family|glass|glass_|lib_glass|glass_orb,glass_pool,glass_prism,glass_lens,glass_drops,glass_bubbles,glass_marble,glass_caustic,glass_cubes,glass_gem,glass_ice,glass_knot
+family|nebula|nebula_|lib_nebula|nebula_dust,nebula_spiral,nebula_ring,nebula_veil,nebula_pulsar,nebula_cluster,nebula_nova,nebula_horizon,nebula_pillars,nebula_flight,nebula_storm,nebula_web
+family|terrain|terra_|lib_terra|terra_ridge,terra_dunes,terra_canyon,terra_glacier,terra_isles,terra_mesa,terra_volcano,terra_terraces,terra_moon,terra_night,terra_topo,terra_wire
+family|truchet|truchet_|lib_truchet|truchet_arcs,truchet_hex,truchet_weave,truchet_maze,truchet_tri,truchet_quad,truchet_tubes,truchet_neon,truchet_flow,truchet_knot,truchet_tunnel,truchet_relief
+override|chladni_sand|Geometry|1
+override|bessel_drum|Geometry|0
+override|faraday|Geometry|0
+override|harmonic_shell|Geometry|0
+override|levitator|Geometry|1
+override|standing_chamber|Geometry|1
+override|rosensweig|Geometry|0
+override|kundt_tube|Geometry|1
+key|Speed|SCENE_CLOCK
+key|Audio drive|AUDIO_DRIVE
+key|Bass gain|BASS_BAND
+key|Mid gain|MID_BAND
+key|Treble gain|TREBLE_BAND
+key|Detail|MARCH_DETAIL
+key|Morph|SHADER_LOOK
+key|Colour map|SHADER_LOOK
+key|Palette 2|SHADER_LOOK
+key|Palette blend|SHADER_LOOK
+key|Duotone|SHADER_LOOK
+key|Endless zoom|ENDLESS_ZOOM
+key|Dive speed|ENDLESS_ZOOM
+key|Turbulence|TURBULENCE
+key|Density|DYE_DENSITY
+key|Trails|TRAIL_TOGGLE
+key|Trail length|TRAIL_LENGTH
+key|Trail zoom (echo in/out)|TRAIL_ECHO
+key|Trail warp (liquid echo)|TRAIL_ECHO
+key|Particle shape|PARTICLE_SPRITE
+key|Particle size|PARTICLE_SPRITE
+key|Particle life (s)|PARTICLE_SPRITE
+key|Particle drag|PARTICLE_SPRITE
+key|MilkDrop palette tint|MILKDROP
+key|Blend preset changes|MILKDROP
+key|Solver iterations|FLUID_SIM
+key|Pressure|FLUID_SIM
+key|Fluid curl|FLUID_SIM
+key|Motion fade|FLUID_SIM
+key|Fluid fade|FLUID_SIM
+key|Chromatic aging|FLUID_SIM
+key|Palette cycle|FLUID_SIM
+key|Particle brightness|FLUID_SIM
+key|Shading (embossed ink)|FLUID_SIM
+key|Glow (fluid)|FLUID_SIM
+key|Fluid glow|FLUID_SIM
+key|Glow threshold|FLUID_SIM
+key|Sunrays|FLUID_SIM
+key|Sunrays weight|FLUID_SIM
+key|Curl from mids|FLUID_SIM
+key|Glow from loudness|FLUID_SIM
+key|Fade when quiet|FLUID_SIM
+key|Hit pattern|EMITTERS
+key|Hit splats|EMITTERS
+key|Stirrers|EMITTERS
+key|Stirrer speed|EMITTERS
+key|Fluid splat radius|EMITTERS
+key|Fluid splat force|EMITTERS
+key|Bass pump|EMITTERS
+key|Treble sparkle|EMITTERS
+key|Radius on hit|EMITTERS
+key|Path|JOURNEY
+key|Spawn points|JOURNEY
+key|Catch points|JOURNEY
+key|Catch pull|JOURNEY
+key|Catch radius|JOURNEY
+key|Flow force|FLOW_FIELD_SIM
+key|Flow curl|FLOW_FIELD_SIM
+key|Ripple strength|WATER
+key|Depth|WATER
+key|Specular|WATER
+key|Flow drift|WATER
+key|Liquid|WATER
+key|Liquid flow|WATER
+key|Liquid fade|WATER
+key|Ripple overlay strength|RIPPLE_OVERLAY
+key|Ripple glint|RIPPLE_OVERLAY
+key|Geometry|CYMATICS
+key|Fundamental (Hz)|CYMATICS
+key|Standing waves|CYMATICS
+key|Tonal focus|CYMATICS
+key|Plate ring|CYMATICS
+key|Field scale|CYMATICS
+key|Wave flow|CYMATICS
+key|Field swirl|CYMATICS
+key|Fill|CYMATICS
+key|Nodal lines|CYMATICS
+key|Nodal glow|CYMATICS
+key|Iridescence|CYMATICS
+key|Caustic sheen|CYMATICS
+range|Detail|0.25|1.5
+range|Fundamental (Hz)|40|440
+range|Standing waves|1|8
+range|Zoom|0.3|3
+range|Rotation|-3|3
+value|fluidTiers|5
+value|touchRotationPerDegree|0.012

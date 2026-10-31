@@ -52,8 +52,8 @@ class FeatureGateTest {
     @Test
     fun `each style family gives away its first style and keeps the rest for Pro`() {
         StyleFamilies.all.forEach { family ->
-            assertTrue(family.freeId, free.allowsStyle(family.freeId))
-            family.proIds.forEach { id ->
+            assertTrue(family.opener, free.allowsStyle(family.opener))
+            (family.ids - family.opener).forEach { id ->
                 assertFalse(id, free.allowsStyle(id))
                 assertTrue(id, trial.allowsStyle(id))
                 assertTrue(id, pro.allowsStyle(id))

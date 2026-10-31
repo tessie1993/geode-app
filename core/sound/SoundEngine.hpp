@@ -104,6 +104,7 @@ private:
         float candidateSeconds = 0.0f;
         int note = -1;
         float lostSeconds = 0.0f;
+        float octaveSeconds = 0.0f;
         float lastMidi = 0.0f;
         float meanMidi = 0.0f;
         float pitchClass = 0.0f;

@@ -535,6 +535,10 @@ void SoundEngine::events(float dt, bool warm, GeodeSoundFrame& out) {
     out.presence = s.presenceFade;
 }
 
+namespace {
+constexpr int kHarmonics = 5;  // partials in the pitch estimator's harmonic sum
+}  // namespace
+
 void SoundEngine::estimatePitch(float& midi, float& confidence, float& evenness) {
     readWindow(2 * n_, pitchMono_.data(), nullptr, nullptr);
     for (int i = 0; i < 2 * n_; i++) pitchMono_[i] *= pitchHann_[i];
@@ -542,18 +546,20 @@ void SoundEngine::estimatePitch(float& midi, float& confidence, float& evenness)
     const float binHz = static_cast<float>(sampleRateHz_) / static_cast<float>(2 * n_);
     const int top = n_ - 1;  // last index `near` may read around
     const int kMin = std::max(2, static_cast<int>(std::ceil(80.0f / binHz)));
-    const int kMax = std::min(static_cast<int>(1500.0f / binHz), top / 3 - 1);
+    const int kMax = std::min(static_cast<int>(1500.0f / binHz), top / kHarmonics - 1);
     auto near = [&](int k) {
         if (k >= top) return 0.0f;
         return std::max({pitchMag_[k - 1], pitchMag_[k], pitchMag_[k + 1]});
     };
-    // A harmonic sum: the fundamental plus what sits at twice and three times it. It prefers the
-    // series' root over its loudest partial, which is what a listener calls the note.
+    // A harmonic sum: the fundamental plus its next four partials, each weighted 1/h. It prefers the
+    // series' root over its loudest partial, which is what a listener calls the note; with only two
+    // partials a strong second harmonic still won and the note flipped up an octave.
     int best = kMin;
     float bestScore = 0.0f;
     double total = 0.0;
     for (int k = kMin; k <= kMax; k++) {
-        const float score = pitchMag_[k] + 0.5f * near(2 * k) + 0.33f * near(3 * k);
+        float score = pitchMag_[k];
+        for (int h = 2; h <= kHarmonics; h++) score += near(h * k) / static_cast<float>(h);
         total += score;
         if (score > bestScore) {
             bestScore = score;
@@ -599,6 +605,14 @@ void SoundEngine::melody(float dt, GeodeSoundFrame& out) {
     out.pitchConfidence = confidence;
     s.runRate *= std::exp(-dt / kRunTau);
     if (confidence >= t.pitchThreshold && out.rms > silenceOn) {
+        // Octave errors: a reading an octave off the held note is that note, until it has held for
+        // kOctaveHold (a real leap). Pitch trackers on a full mix slip octaves far more often than
+        // melodies leap them, and every slip would be a note change.
+        static constexpr float kOctaveHold = 0.25f;
+        const float off = s.note >= 0 ? midi - static_cast<float>(s.note) : 0.0f;
+        const float fold = std::fabs(off - 12.0f) < 0.75f ? -12.0f : std::fabs(off + 12.0f) < 0.75f ? 12.0f : 0.0f;
+        s.octaveSeconds = fold != 0.0f ? s.octaveSeconds + dt : 0.0f;
+        if (s.octaveSeconds < kOctaveHold) midi += fold;
         out.pitch = midi;
         s.pitchClass = std::fmod(std::fmod(midi, 12.0f) + 12.0f, 12.0f) / 12.0f;
         s.pitchHeight = follow(s.pitchHeight, clamp01((midi - 36.0f) / 48.0f), 0.08f, dt);

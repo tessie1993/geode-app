@@ -5,7 +5,6 @@ import android.net.Uri
 import androidx.annotation.OptIn
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.geode.audio.MicCapture
@@ -28,6 +27,7 @@ import dev.geode.render.scene.SceneParams
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import javax.inject.Inject
 
@@ -47,8 +47,6 @@ class PlayerViewModel
         private val playback: PlaybackRepository = session.playbackRepository
         private val visualizer: VisualizerRepository = session.visualizerRepository
 
-        val player: Player get() = session.player
-
         val uiState: StateFlow<PlayerUiState> get() = playback.state
 
         val positionMs: StateFlow<Long> get() = playback.positionMs
@@ -60,6 +58,14 @@ class PlayerViewModel
         val playbackNotice: StateFlow<String?> get() = playback.notice
 
         val vizState: StateFlow<VizUiState> get() = visualizer.viz
+
+        /**
+         * The style id alone, for screens that only name it. [vizState] changes on every pinch,
+         * twist and slider tick, and the shell stays composed under the fullscreen view, so a
+         * screen collecting all of it recomposes at pointer rate.
+         */
+        val sceneId: StateFlow<String> =
+            visualizer.viz.map { it.sceneId }.stateIn(viewModelScope, SharingStarted.Eagerly, visualizer.viz.value.sceneId)
 
         val activeMilkPath: StateFlow<String?> get() = visualizer.activeMilkPath
 

@@ -64,7 +64,7 @@ fun PlayerScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     // Not delegated: only the seek bar and the clock read .value, so a tick recomposes just those.
     val position = viewModel.positionMs.collectAsStateWithLifecycle()
-    val viz by viewModel.vizState.collectAsStateWithLifecycle()
+    val sceneId by viewModel.sceneId.collectAsStateWithLifecycle()
     val mic by viewModel.micState.collectAsStateWithLifecycle()
     val external by viewModel.externalAudio.collectAsStateWithLifecycle()
     val abLoop by viewModel.abLoop.collectAsStateWithLifecycle()
@@ -93,7 +93,7 @@ fun PlayerScreen(
         PlayerHero(
             viewModel = viewModel,
             state = state,
-            styleLabel = sceneDisplayLabel(viz.sceneId),
+            styleLabel = sceneDisplayLabel(sceneId),
             micActive = mic.active,
             external = external,
             favourites = favourites,

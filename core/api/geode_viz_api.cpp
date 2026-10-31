@@ -9,6 +9,7 @@
 
 #include "api/geode_api.h"
 #include "viz/Macros.hpp"
+#include "viz/ParamMatrix.hpp"
 #include "viz/ReactionDna.hpp"
 #include "viz/Renderer.hpp"
 #include "viz/SceneRegistry.hpp"

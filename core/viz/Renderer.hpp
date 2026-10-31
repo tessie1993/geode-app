@@ -47,6 +47,10 @@ public:
     bool setParam(const std::string& key, float value);
     void setFeatures(const GeodeFeatureFrame& features);
     void setReducedMotion(bool on) { reducedMotion_.store(on, std::memory_order_relaxed); }
+    // Settings › Performance, live surfaces only: an offscreen (export) renderer never calls this,
+    // so it keeps full quality. renderScale and marchScale are 0..1 multipliers stacked under the
+    // thermal tier; postFx = false drops the same optional passes a hot tier does, plus fluid bloom.
+    void setUserQuality(float renderScale, float marchScale, bool postFx, bool adaptive);
     void setLayer(const std::string& sceneId, float mix, int blendOrdinal);
     void setTransition(const std::string& id, int64_t durationMs);
     void beginParamMorph(float seconds);
@@ -177,6 +181,10 @@ private:
     std::string transitionId_ = "fade";
     int64_t transitionDurationMs_ = 1200;
     std::atomic<bool> reducedMotion_{false};
+    std::atomic<float> userScale_{1.0f};
+    std::atomic<float> marchScale_{1.0f};
+    std::atomic<bool> userPostFx_{true};
+    float appliedUserScale_ = 1.0f;
     // SceneRegistry::spinRate of the requested scene, set by setScene so the
     // frame never compares ids.
     std::atomic<float> sceneSpin_{0.0f};

@@ -394,6 +394,14 @@ object GeodeNative {
         fps: Float,
     )
 
+    external fun vizSetQuality(
+        handle: Long,
+        renderScale: Float,
+        marchScale: Float,
+        postFx: Boolean,
+        adaptive: Boolean,
+    )
+
     external fun vizSetOffscreen(
         handle: Long,
         on: Boolean,

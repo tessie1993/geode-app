@@ -352,4 +352,51 @@ Java_dev_geode_engine_bridge_GeodeNative_catalogueText(JNIEnv* env, jobject) {
     return env->NewStringUTF(geode_catalogue_text());
 }
 
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_paramsRollKeys(JNIEnv* env, jobject) {
+    return env->NewStringUTF(geode_params_roll_keys());
+}
+
+JNIEXPORT jboolean JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_paramsRandomize(JNIEnv* env, jobject, jstring styleId, jstring tab, jstring locked,
+                                                         jlong seed, jfloatArray in, jfloatArray out) {
+    if (!in || !out || env->GetArrayLength(in) < geode_viz_param_count() || env->GetArrayLength(out) < geode_viz_param_count()) {
+        return JNI_FALSE;
+    }
+    Utf8Chars style(env, styleId);
+    Utf8Chars tabName(env, tab);
+    Utf8Chars lockedKeys(env, locked);
+    std::vector<float> input(static_cast<size_t>(geode_viz_param_count()));
+    std::vector<float> output(input.size());
+    env->GetFloatArrayRegion(in, 0, static_cast<jsize>(input.size()), input.data());
+    const int changed = geode_params_randomize(style.get(), tabName.get(), lockedKeys.get(), static_cast<uint64_t>(seed),
+                                               input.data(), output.data());
+    env->SetFloatArrayRegion(out, 0, static_cast<jsize>(output.size()), output.data());
+    return changed ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_paramsResetTab(JNIEnv* env, jobject, jstring tab, jfloatArray in, jfloatArray out) {
+    if (!in || !out || env->GetArrayLength(in) < geode_viz_param_count() || env->GetArrayLength(out) < geode_viz_param_count()) return;
+    Utf8Chars tabName(env, tab);
+    std::vector<float> input(static_cast<size_t>(geode_viz_param_count()));
+    std::vector<float> output(input.size());
+    env->GetFloatArrayRegion(in, 0, static_cast<jsize>(input.size()), input.data());
+    geode_params_reset_tab(tabName.get(), input.data(), output.data());
+    env->SetFloatArrayRegion(out, 0, static_cast<jsize>(output.size()), output.data());
+}
+
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_paramsBlend(JNIEnv* env, jobject, jfloatArray a, jfloatArray b, jfloat t, jfloatArray out) {
+    const jsize n = geode_viz_param_count();
+    if (!a || !b || !out || env->GetArrayLength(a) < n || env->GetArrayLength(b) < n || env->GetArrayLength(out) < n) return;
+    std::vector<float> from(static_cast<size_t>(n));
+    std::vector<float> to(from.size());
+    std::vector<float> mixed(from.size());
+    env->GetFloatArrayRegion(a, 0, n, from.data());
+    env->GetFloatArrayRegion(b, 0, n, to.data());
+    geode_params_blend(from.data(), to.data(), t, mixed.data());
+    env->SetFloatArrayRegion(out, 0, n, mixed.data());
+}
+
 }

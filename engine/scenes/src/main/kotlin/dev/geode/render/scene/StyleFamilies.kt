@@ -200,6 +200,37 @@ object StyleFamilies {
                 ),
         )
 
+    /** Ray-traced glass: refraction, dispersion, thin films and caustic light. */
+    val GLASS: StyleFamily =
+        StyleFamily(
+            name = "glass",
+            label = "Glass",
+            prefix = "glass_",
+            library = "lib_glass",
+            ids =
+                listOf(
+                    "glass_orb",
+                    "glass_pool",
+                    "glass_prism",
+                    "glass_lens",
+                    "glass_drops",
+                    "glass_bubbles",
+                    "glass_marble",
+                    "glass_caustic",
+                    "glass_cubes",
+                    "glass_gem",
+                    "glass_ice",
+                    "glass_knot",
+                ),
+            marchedIds =
+                setOf(
+                    "glass_cubes",
+                    "glass_gem",
+                    "glass_ice",
+                    "glass_knot",
+                ),
+        )
+
     /** Galaxies and gas clouds: layered dust, spiral arms, and volumes flown through. */
     val NEBULA: StyleFamily =
         StyleFamily(
@@ -232,7 +263,7 @@ object StyleFamilies {
         )
 
     /** In picker order. */
-    val all: List<StyleFamily> = listOf(ARBOR, BULB, CHRYSANTHEMUM, LUCID, DIVE, NEBULA)
+    val all: List<StyleFamily> = listOf(ARBOR, BULB, CHRYSANTHEMUM, LUCID, DIVE, GLASS, NEBULA)
 
     /** Every family style id, in picker order. */
     val ids: List<String> = all.flatMap { it.ids }

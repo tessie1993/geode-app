@@ -69,6 +69,8 @@ import dev.geode.data.BootAnimationStore
 import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.GuiPrefs
 import dev.geode.data.PlayerPosition
+import dev.geode.model.TutorialChapter
+import dev.geode.model.TutorialProgress
 import dev.geode.pro.PaywallTrigger
 import dev.geode.render.VisualizerView
 import dev.geode.ui.pro.PaywallHost
@@ -183,17 +185,7 @@ fun AppRoot() {
         // Someone who came here to listen does not get a render queue in their navigation bar.
         // First run no longer asks, so everyone starts with everything and narrows it in Settings.
         val showsStudio = gui.intent.showsStudio
-        // Set by Settings > Help to replay the tour after it has already been seen; the automatic
-        // first-run showing is a function of the stored prefs instead, so this stays false there.
-        var tutorialRunning by rememberSaveable { mutableStateOf(false) }
-        // Offered once, to someone who has finished setup and has not turned the offer off.
-        val offerTutorial = gui.setupDone && !gui.tutorialSeen && gui.tutorialOnFirstRun
-        // Latched the moment the tour is offered, so that from then on its visibility depends on
-        // `tutorialRunning` alone. Without this, ticking "don't show this next time" DURING the
-        // tour clears `tutorialOnFirstRun`, which clears `offerTutorial`, which closes the tour
-        // out from under the person who was reading it — the checkbox is about the NEXT install,
-        // not this minute.
-        LaunchedEffect(offerTutorial) { if (offerTutorial) tutorialRunning = true }
+        val tutorial = rememberTutorialState()
         val navEntries =
             GeodeDestination.entries
                 .filter { it != GeodeDestination.STUDIO || showsStudio }
@@ -253,7 +245,11 @@ fun AppRoot() {
                         SettingsScreen(
                             viewModel,
                             onOpenStudioRender = appState::openStudioRender,
-                            onStartTutorial = { tutorialRunning = true },
+                            onPlayTutorial = { tutorial.start(it) },
+                            onResetTutorials = {
+                                tutorial.autoOfferUsed = true
+                                settingsViewModel.setGuiPrefs(gui.copy(tutorialSeen = false, tutorialProgress = TutorialProgress()))
+                            },
                         )
                 }
             }
@@ -271,11 +267,10 @@ fun AppRoot() {
             // and scroll positions survive) but is not placed, so nothing under the GL surface is
             // laid out or drawn on every frame.
             val shellHidden = appState.expanded && !onSecondScreen
-            // Onboarding, the safety notice and the tour draw in this window, over the shell.
-            // Hiding the shell from accessibility keeps TalkBack from swiping into the app beneath.
-            val overlayUp =
-                tutorialRunning ||
-                    ((bootAnimEnabled == false || appState.bootDone) && (!gui.safetyAcknowledged || !gui.setupDone))
+            // Onboarding and the safety notice draw in this window, over the shell. Hiding the shell
+            // from accessibility keeps TalkBack from swiping into the app beneath. (The tour is a
+            // Dialog, a window of its own, so it needs no such help.)
+            val overlayUp = (bootAnimEnabled == false || appState.bootDone) && (!gui.safetyAcknowledged || !gui.setupDone)
             Box(
                 Modifier
                     .fillMaxSize()
@@ -373,20 +368,17 @@ fun AppRoot() {
                         paywallViewModel.open(PaywallTrigger.Onboarding)
                     },
                 )
-            } else if (tutorialRunning) {
-                // Offered once setup is out of the way, so the tour walks a real app with a real
-                // library rather than a set of empty tabs.
-                TutorialOverlay(
-                    steps = TutorialStep.forNav(showsStudio),
-                    dontShowAgain = !gui.tutorialOnFirstRun,
-                    onDontShowAgainChange = { settingsViewModel.setGuiPrefs(gui.copy(tutorialOnFirstRun = !it)) },
-                    onNavigate = appState::navigateTo,
-                    onDismiss = {
-                        tutorialRunning = false
-                        settingsViewModel.setGuiPrefs(gui.copy(tutorialSeen = true))
-                    },
-                )
             }
+            // Offered once setup is out of the way, so the tour talks about a real app with a real
+            // library, and held back while the boot intro, the notice, setup or the paywall is up.
+            val paywall by paywallViewModel.uiState.collectAsStateWithLifecycle()
+            TutorialHost(
+                state = tutorial,
+                gui = gui,
+                blocked = (bootAnimEnabled != false && !appState.bootDone) || !gui.safetyAcknowledged || !gui.setupDone || paywall.visible,
+                onGuiChange = settingsViewModel::setGuiPrefs,
+                onShowMe = { target -> showTutorialTarget(target, appState) { paywallViewModel.open(PaywallTrigger.Settings) } },
+            )
             // Drawn while the pref is still loading too (null): BootIntro opens on the splash's
             // last frame, so it covers that gap instead of letting the app flash through. If the
             // pref then lands false, it ends there, just as the splash would have.
@@ -565,7 +557,8 @@ private fun MiniPlayer(
 fun SettingsScreen(
     viewModel: PlayerViewModel,
     onOpenStudioRender: () -> Unit,
-    onStartTutorial: () -> Unit,
+    onPlayTutorial: (List<TutorialChapter>) -> Unit,
+    onResetTutorials: () -> Unit,
 ) {
     Column(Modifier.fillMaxSize()) {
         Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp)) {
@@ -575,8 +568,31 @@ fun SettingsScreen(
         AppSettingsTab(
             viewModel,
             onOpenStudioRender = onOpenStudioRender,
-            onStartTutorial = onStartTutorial,
+            onPlayTutorial = onPlayTutorial,
+            onResetTutorials = onResetTutorials,
         )
+    }
+}
+
+/** Show me: the real screen behind a tour card. The tour waits behind its Resume pill meanwhile. */
+private fun showTutorialTarget(
+    target: TutorialTarget,
+    appState: GeodeAppState,
+    openPaywall: () -> Unit,
+) {
+    if (target != TutorialTarget.LIVE_VIEW) appState.collapse()
+    when (target) {
+        TutorialTarget.PLAYER -> appState.navigateTo(GeodeDestination.PLAYER)
+        TutorialTarget.LIBRARY -> appState.navigateTo(GeodeDestination.LIBRARY)
+        TutorialTarget.VISUALS -> appState.navigateTo(GeodeDestination.VISUALS)
+        TutorialTarget.LIVE_VIEW -> appState.expand()
+        TutorialTarget.STUDIO_RENDER -> appState.openStudioRender()
+        TutorialTarget.STUDIO_EDIT -> {
+            appState.studioSection = StudioSection.EDIT
+            appState.navigateTo(GeodeDestination.STUDIO)
+        }
+        TutorialTarget.SETTINGS -> appState.navigateTo(GeodeDestination.SETTINGS)
+        TutorialTarget.PAYWALL -> openPaywall()
     }
 }
 

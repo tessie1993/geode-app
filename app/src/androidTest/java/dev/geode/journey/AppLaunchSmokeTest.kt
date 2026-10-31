@@ -40,9 +40,10 @@ class AppLaunchSmokeTest {
         compose.tap("Close")
         compose.awaitNoNode(hasText("Make your music come to life"))
 
-        // The first-run tutorial follows; skipping it is the shortest way to the shell.
-        compose.waitForIdle()
-        if (compose.onAllNodes(hasText("Skip")).fetchSemanticsNodes().isNotEmpty()) compose.tap("Skip")
+        // The first-run tour always follows on a fresh install; Skip all is the shortest way to the shell.
+        compose.awaitNode(hasText("Skip all"))
+        compose.tap("Skip all")
+        compose.awaitNoNode(hasText("Skip all"))
 
         compose.awaitEmptyPlayer()
     }

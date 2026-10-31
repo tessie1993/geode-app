@@ -124,6 +124,8 @@ jobs:
         run: |
           g++ -std=c++20 -O1 -Wall -Wextra -Icore -Icore/tests/stub             core/tests/viz_math_test.cpp core/viz/Reactions.cpp core/viz/ReactionDna.cpp core/viz/CameraRig.cpp core/viz/Lfo.cpp             core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/VisualSafety.cpp -o viz_math_test
           ./viz_math_test
+          g++ -std=c++20 -O1 -Wall -Wextra -Icore core/tests/sound_test.cpp core/sound/Fft.cpp core/sound/SoundEngine.cpp -o sound_test
+          ./sound_test
 
       - name: Shader compile check
         working-directory: ${{ env.PROJECT_DIR }}

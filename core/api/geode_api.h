@@ -2,6 +2,8 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <android/asset_manager.h>
+
+#include "sound/SoundFrame.h"
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -61,6 +63,17 @@ typedef struct GeodeFeatureFrame {
 } GeodeFeatureFrame;
 
 GEODE_API const char* geode_version(void);
+
+/* The sound engine (core/sound): write PCM as it arrives, step once per rendered frame. One per surface,
+ * one thread at a time. */
+typedef struct geode_sound geode_sound;
+GEODE_API geode_sound* geode_sound_create(int sample_rate);
+GEODE_API void         geode_sound_destroy(geode_sound*);
+GEODE_API void         geode_sound_write(geode_sound*, const float* interleaved, size_t frames, int channels);
+GEODE_API void         geode_sound_step(geode_sound*, float dt_seconds, GeodeSoundFrame* out);
+GEODE_API void         geode_sound_set_tuning(geode_sound*, const GeodeSoundTuning*);
+GEODE_API void         geode_sound_reset(geode_sound*);
+GEODE_API int          geode_sound_fft_size(geode_sound*);
 
 /* hop_rate_hz sets every tempo-domain filter; the hop in samples for push/pull is sample_rate / hop_rate_hz,
  * clamped to fft_size. fft_size must be a power of two >= GEODE_WAVEFORM_POINTS (so the waveform decimation

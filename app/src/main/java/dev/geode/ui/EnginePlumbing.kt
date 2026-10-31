@@ -12,10 +12,12 @@ import dev.geode.render.BlendMode
 import dev.geode.render.TransitionCatalog
 import dev.geode.render.VisualSafety
 import dev.geode.render.VisualizerView
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 data class LayersUiState(
     val enabled: Boolean = false,
@@ -64,10 +66,15 @@ fun VisualizerEngineBindings(
         // Only while the Activity is visible (STARTED still covers picture-in-picture): the session
         // stays an AudioBus consumer for its whole life, so without this the 60 Hz hand-off kept
         // running on Main behind a stopped Activity, feeding a GL surface nobody could see.
+        // Pinned to Main: enrichFeatures reads the ExoPlayer, which throws off its application
+        // thread. Under the Compose test clock the effect's own dispatcher could resume this
+        // collector on a Default worker (the emitting thread), which failed the journey tests.
         lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-            viewModel.features.collect {
-                val enriched = viewModel.enrichFeatures(it)
-                visualizerView.visualizerRenderer.features = enriched
+            withContext(Dispatchers.Main.immediate) {
+                viewModel.features.collect {
+                    val enriched = viewModel.enrichFeatures(it)
+                    visualizerView.visualizerRenderer.features = enriched
+                }
             }
         }
     }

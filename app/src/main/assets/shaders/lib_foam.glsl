@@ -44,6 +44,11 @@
 //   bright one packs it dense and fine. The bass clock breathes it.
 // - Flux: the writhe. SND_FLUX turns the packing inside itself between the
 //   inversions, so a changing spectrum squirms and a held chord hangs still.
+//   The turn stays under about 0.3 rad: a turned cell no longer tiles, and
+//   past that the packing tears at the cell borders.
+// - Drum hits: light pulses run outward through each cell's nested levels
+//   (SND_HIT_TIME), and the circles where the cut meets a shell glow, brighter
+//   on the level's own spectrum band.
 // - Tension: SND_ENERGY_TREND above its steady 0.5 (a build) closes the bore
 //   in; SND_HELD_SURGE (the drop) bursts it open on its envelope's bump.
 // - Kick: SND_KICK_ENV swells the shells into beads.
@@ -144,6 +149,8 @@ float gFoamHue;
 vec3 gFoamAccent;
 /** Where the ring train sits: rings at gFoamRingPhase + k * FOAM_RING_GAP past the eye (or the centre). */
 float gFoamRingPhase;
+/** The light pulses' phase through the nesting levels, 0..1, on the drum-hit clock. */
+float gFoamPulsePhase;
 
 // The camera, for the shading and the backdrop.
 vec3 gFoamEye;
@@ -229,7 +236,9 @@ void foamSetup() {
     // Tonal and dark opens the packing (larger s), noisy and bright packs it.
     gFoamInvS = 1.06 + 0.16 * harmony + 0.14 * (1.0 - smoothstep(0.2, 0.75, bright))
               + 0.06 * sin(SND_BASS_TIME * FOAM_RATE(37.0));
-    gFoamFold = rot2(0.28 * sin(uTime * FOAM_SCENE_RATE(57.0)) + 0.25 * morph + 0.45 * flux);
+    // Kept small: a turned cell no longer tiles, so a large turn shreds the
+    // packing at every cell border into torn shards instead of round shells.
+    gFoamFold = rot2(0.06 * sin(uTime * FOAM_SCENE_RATE(57.0)) + 0.08 * morph + 0.14 * flux);
     float slide = 0.4 * (1.0 + 0.5 * chaos);
     gFoamShift = vec3(seat + slide * vec2(sin(SND_MID_TIME * FOAM_RATE(61.0)), sin(uTime * FOAM_SCENE_RATE(42.0) + 2.0)), 0.0);
     gFoamSpin = SND_MID_TIME * FOAM_RATE(240.0);
@@ -237,13 +246,14 @@ void foamSetup() {
     float detail = foamSat((uSteps - 64.0) / 64.0);
     // Detail only: it is a quality setting, not a live control. Complexity moving a whole
     // level would pop the packing as it crossed a threshold, so Complexity leans the fold instead.
-    gFoamIters = 6.0 + floor(detail * 2.0 + 0.5);
+    gFoamIters = 6.0 + floor(detail * 3.0 + 0.5);
 
     // Colour: the key slides the palette, each section turns it a little.
     gFoamHue = 0.5 * uKeyHue * foamSat(uKeyStrength) + 0.13 * mix(sec, sec - 1.0, hold);
     float conf = foamSat(SND_PITCH_CONFIDENCE);
     gFoamAccent = mix(mix(pal(gFoamHue + 0.5), pal(SND_PITCH_CLASS), conf), vec3(1.0), 0.3);
     gFoamRingPhase = FOAM_RING_GAP * fract(SND_HIT_TIME);
+    gFoamPulsePhase = fract(SND_HIT_TIME * 0.35);
 }
 
 // ---- the foam ---------------------------------------------------------------
@@ -436,9 +446,22 @@ vec3 foamColor(float x) {
 
 /** The light at the end of the bore (or behind the ball), and the dim wash round it. */
 vec3 foamBackdrop(vec3 rd) {
-    float core = pow(foamSat(dot(rd, gFoamFwd)), 40.0);
+    float c = foamSat(dot(rd, gFoamFwd));
+    float core = pow(c, 40.0);
     vec3 endLight = foamColor(0.62);
-    return endLight * (0.06 + 0.5 * core) + vec3(core * core) * 0.4;
+    // Rays fanning out of the light, turning slowly on the mid clock; they
+    // swell with the drop. Off the axis only: atan has no angle on it.
+    vec3 side = rd - gFoamFwd * c;
+    vec3 ax = normalize(cross(gFoamFwd, abs(gFoamFwd.y) < 0.9 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0)));
+    vec3 ay = cross(gFoamFwd, ax);
+    float rays = 0.0;
+    if (dot(side, side) > 1.0e-8) {
+        float a = atan(dot(side, ay), dot(side, ax));
+        float spin = SND_MID_TIME * FOAM_RATE(120.0);
+        rays = pow(0.5 + 0.5 * cos(a * 9.0 + spin), 6.0) * 0.6 + pow(0.5 + 0.5 * cos(a * 23.0 - 1.7 * spin), 10.0) * 0.4;
+    }
+    float halo = pow(c, 8.0);
+    return endLight * (0.06 + 0.5 * core + halo * rays * (0.35 + 0.5 * gFoamSurgeBump)) + vec3(core * core) * 0.4;
 }
 
 struct FoamSurf {
@@ -480,9 +503,25 @@ FoamSurf foamSurface(vec3 ro, vec3 rd, FoamHit h) {
     return s;
 }
 
-/** The ring train on the surface itself, and the hats' sparkles: shared by most looks. */
+/** A light pulse running outward through a cell's nested levels; only some cells carry one. */
+float foamPulse(float trapR, float cellH) {
+    float carries = step(0.4, fract(cellH * 13.7));
+    float w = fract(trapR * 2.2 - gFoamPulsePhase + cellH * 3.1);
+    return carries * smoothstep(0.0, 0.05, w) * (1.0 - smoothstep(0.05, 0.24, w));
+}
+
+/**
+ * The flair every look shares: the ring train on the surface, light pulses
+ * through the nesting levels, a glowing line where the cut meets each shell
+ * (the circles that make the bore wall read as spheres), and the hats'
+ * sparkles. sparkleCol tints the sparkles and the cut lines.
+ */
 vec3 foamAccents(FoamSurf s, vec3 sparkleCol, float sparkleGain) {
     vec3 col = gFoamAccent * foamRingAt(s.p) * (0.15 + 0.85 * gFoamOnset);
+    col += gFoamAccent * foamPulse(s.trapR, s.cell) * (0.35 + 0.5 * gFoamKick) * (1.0 - smoothstep(4.0, 7.0, s.scaleLog));
+    float w = 2.0 * s.px;
+    float cutLine = (1.0 - smoothstep(0.0, w, abs(s.cut))) + 0.35 * exp(-abs(s.cut) / (6.0 * w));
+    col += mix(foamColor(0.3 + 0.5 * s.trapR), sparkleCol, 0.4) * cutLine * (0.25 + 0.45 * s.lit) * sparkleGain;
     vec3 gp = s.p * 14.0;
     vec3 gc = floor(gp);
     // z keyed mod one period (64 * 14 cells), so the rebase of the eye's z never re-rolls them.
@@ -500,7 +539,9 @@ vec3 foamPearl(FoamSurf s) {
     vec3 sheen = foamColor(0.55 + 0.5 * s.head + 0.3 * s.trapR);
     vec3 r = reflect(s.rd, s.n);
     float spec = pow(foamSat(dot(r, gFoamFwd)), 16.0 + 70.0 * gFoamTreble);
-    vec3 col = nacre * (0.10 + 0.5 * s.head + 0.3 * back) * (0.55 + 0.6 * s.lit) * s.ao;
+    // Lace: the orbit traps banded, so the nested levels show as fine rings on the nacre.
+    float lace = 0.75 + 0.25 * smoothstep(0.3, 0.7, abs(fract(s.trapR * 6.0 + s.trapX * 2.0) - 0.5) * 2.0);
+    vec3 col = nacre * lace * (0.10 + 0.5 * s.head + 0.3 * back) * (0.55 + 0.6 * s.lit) * s.ao;
     col += sheen * s.fres * 0.6 * s.ao;
     float chrome = 1.0 - smoothstep(2.0, 5.0, s.scaleLog);
     col = mix(col, foamBackdrop(r) * 1.8 + sheen * s.fres * 0.4, 0.55 * chrome);

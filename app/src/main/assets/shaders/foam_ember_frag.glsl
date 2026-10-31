@@ -41,12 +41,13 @@ void main() {
     vec3 col = h.tEnd > FOAM_FAR ? emberColor(0.05) * 0.3 * pow(foamSat(dot(rd, gFoamFwd)), 12.0) : vec3(0.02, 0.005, 0.0);
     if (h.t > 0.0) {
         FoamSurf s = foamSurface(ro, rd, h);
-        float molten = smoothstep(3.0, 6.5, s.scaleLog);
-        float heat = molten * (0.35 + 1.1 * gFoamBass + 0.5 * s.lit);
+        // Molten in the deep beads, and in veins along each level's band of the trap.
+        float molten = max(smoothstep(3.0, 6.5, s.scaleLog), 0.6 * smoothstep(0.75, 0.95, 1.0 - abs(fract(s.trapR * 4.0) - 0.5) * 2.0));
+        float heat = molten * (0.45 + 1.2 * gFoamBass + 0.6 * s.lit);
         vec3 crust = vec3(0.035, 0.025, 0.02) * (0.3 + 0.7 * s.head) + emberColor(0.0) * s.fres * 0.35;
         col = crust * s.ao + emberColor(0.02 + 0.1 * s.trapR) * heat;
         col += foamAccents(s, vec3(1.0, 0.6, 0.2), 1.6);
     }
-    col = foamAtmosphere(col, h, 0.22, 0.8);
+    col = foamAtmosphere(col, h, 0.22, 0.35);
     fragColor = foamFinish(col);
 }

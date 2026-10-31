@@ -7,12 +7,14 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
@@ -45,10 +47,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
@@ -58,7 +62,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.window.core.layout.WindowWidthSizeClass
+import androidx.window.core.layout.WindowSizeClass
 import dev.geode.R
 import dev.geode.analysis.SearchMatcher
 import dev.geode.data.BootAnimationStore
@@ -125,6 +129,8 @@ fun AppRoot() {
         value = withContext(Dispatchers.IO) { BootAnimationStore(GeodePrefsFiles(context).general).load() }
     }
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    // Not delegated: only the mini player's progress bar reads .value, in its own draw lambda.
+    val position = viewModel.positionMs.collectAsStateWithLifecycle()
     val onSecondScreen = gui.secondScreen && externalDisplay != null
     if (onSecondScreen) {
         SecondScreenCanvas(externalDisplay, visualizerView)
@@ -163,12 +169,9 @@ fun AppRoot() {
                     ).joinToString(" \u2014 ").ifBlank { null },
                 isPlaying = state.isPlaying,
                 hasMedia = state.hasMedia,
-                progress =
-                    if (state.durationMs > 0) {
-                        state.positionMs / state.durationMs.toFloat()
-                    } else {
-                        0f
-                    },
+                progress = {
+                    if (state.durationMs > 0) position.value / state.durationMs.toFloat() else 0f
+                },
                 compact = gui.compactPlayer,
                 barOpacity = gui.barOpacity,
                 onExpand = appState::expand,
@@ -257,27 +260,53 @@ fun AppRoot() {
         }
         Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
             CrystalBackground(Modifier.fillMaxSize(), reducedMotion = gui.reducedMotion)
-            val widthClass = currentWindowAdaptiveInfo().windowSizeClass.windowWidthSizeClass
-            if (widthClass == WindowWidthSizeClass.COMPACT) {
-                AppShellCompact(
-                    navEntries = navEntries,
-                    appState = appState,
-                    gui = gui,
-                    hasMedia = state.hasMedia,
-                    miniPlayer = miniPlayer,
-                    content = { destinationContent(false) },
-                )
-            } else {
-                AppShellExpanded(
-                    navEntries = navEntries,
-                    appState = appState,
-                    hasMedia = state.hasMedia,
-                    miniPlayer = miniPlayer,
-                    content = { destinationContent(true) },
-                )
-            }
-            if (appState.searching) {
-                SearchScreen(viewModel, onClose = appState::closeSearch)
+            val sizeClass = currentWindowAdaptiveInfo().windowSizeClass
+            // Two panes only where both get a usable width and the Player pane can show more than
+            // its artwork: from 840dp, and not on a short landscape phone. A foldable or a phone on
+            // its side (600-839dp) gets the rail with one pane.
+            val twoPane =
+                sizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND) &&
+                    sizeClass.isHeightAtLeastBreakpoint(WindowSizeClass.HEIGHT_DP_MEDIUM_LOWER_BOUND)
+            // While the fullscreen visualizer covers the shell, the shell stays composed (its tabs
+            // and scroll positions survive) but is not placed, so nothing under the GL surface is
+            // laid out or drawn on every frame.
+            val shellHidden = appState.expanded && !onSecondScreen
+            // Onboarding, the safety notice and the tour draw in this window, over the shell.
+            // Hiding the shell from accessibility keeps TalkBack from swiping into the app beneath.
+            val overlayUp =
+                tutorialRunning ||
+                    ((bootAnimEnabled == false || appState.bootDone) && (!gui.safetyAcknowledged || !gui.setupDone))
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .then(if (shellHidden) Modifier.notPlaced() else Modifier)
+                    .then(if (overlayUp) Modifier.clearAndSetSemantics { } else Modifier),
+            ) {
+                if (!sizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND)) {
+                    AppShellCompact(
+                        navEntries = navEntries,
+                        appState = appState,
+                        gui = gui,
+                        hasMedia = state.hasMedia,
+                        miniPlayer = miniPlayer,
+                        content = { destinationContent(false) },
+                    )
+                } else {
+                    // The Player pane beside Library already has the transport.
+                    val playerPaneShown = twoPane && appState.dest == GeodeDestination.LIBRARY
+                    AppShellExpanded(
+                        navEntries = navEntries,
+                        appState = appState,
+                        gui = gui,
+                        showMiniPlayer = state.hasMedia && !appState.onPlayer && !playerPaneShown,
+                        centerRail = sizeClass.isHeightAtLeastBreakpoint(WindowSizeClass.HEIGHT_DP_MEDIUM_LOWER_BOUND),
+                        miniPlayer = miniPlayer,
+                        content = { destinationContent(twoPane) },
+                    )
+                }
+                if (appState.searching) {
+                    SearchScreen(viewModel, onClose = appState::closeSearch)
+                }
             }
             val clipLabel = stringResource(R.string.crash_clip_label)
             crashText?.let { text ->
@@ -358,7 +387,10 @@ fun AppRoot() {
                     },
                 )
             }
-            if (bootAnimEnabled == true && !appState.bootDone) {
+            // Drawn while the pref is still loading too (null): BootIntro opens on the splash's
+            // last frame, so it covers that gap instead of letting the app flash through. If the
+            // pref then lands false, it ends there, just as the splash would have.
+            if (bootAnimEnabled != false && !appState.bootDone) {
                 BootIntro(onDone = { appState.bootDone = true })
             }
             PaywallHost(reducedMotion = gui.reducedMotion)
@@ -403,7 +435,15 @@ private fun AppShellCompact(
             }
         },
     ) { pad ->
-        Box(Modifier.padding(pad)) { content() }
+        // consumeWindowInsets so a screen that pads for the status bar itself doesn't pad twice,
+        // and imePadding so a focused field low on screen rises above the keyboard: the bar's share
+        // of the bottom inset is already consumed, so only the keyboard's extra height is added.
+        Box(
+            Modifier
+                .padding(pad)
+                .consumeWindowInsets(pad)
+                .imePadding(),
+        ) { content() }
     }
 }
 
@@ -411,20 +451,28 @@ private fun AppShellCompact(
 private fun AppShellExpanded(
     navEntries: List<NavEntry>,
     appState: GeodeAppState,
-    hasMedia: Boolean,
+    gui: GuiPrefs,
+    showMiniPlayer: Boolean,
+    centerRail: Boolean,
     miniPlayer: @Composable () -> Unit,
     content: @Composable () -> Unit,
 ) {
-    Row(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
-        NavigationRail(containerColor = Color.Transparent) {
+    // safeDrawing rather than the status and navigation bars alone: in landscape the display
+    // cutout sits on a side edge, where it would cover the rail or the content's far edge. It
+    // includes the keyboard too, so a focused field stays above it.
+    Row(Modifier.fillMaxSize().safeDrawingPadding()) {
+        NavigationRail(containerColor = Color.Black.copy(alpha = gui.barOpacity * RAIL_GLASS_ALPHA)) {
+            if (centerRail) Spacer(Modifier.weight(1f))
             navEntries.forEach { (destination, item) ->
                 NavigationRailItem(
                     selected = appState.dest == destination,
                     onClick = { appState.navigateTo(destination) },
-                    icon = { StoneIconArt(item.icon, item.label) },
+                    // The label below names the item; a description on the icon reads it twice.
+                    icon = { StoneIconArt(item.icon, null) },
                     label = { Text(item.label, style = MaterialTheme.typography.labelSmall) },
                 )
             }
+            if (centerRail) Spacer(Modifier.weight(1f))
         }
         Box(
             Modifier
@@ -433,18 +481,30 @@ private fun AppShellExpanded(
                 .luminousHairline(MaterialTheme.colorScheme.primary),
         )
         Column(Modifier.weight(1f)) {
-            if (hasMedia && !appState.onPlayer) miniPlayer()
+            val top = gui.playerPosition == PlayerPosition.TOP
+            if (showMiniPlayer && top) miniPlayer()
             Box(Modifier.weight(1f)) { content() }
+            if (showMiniPlayer && !top) miniPlayer()
         }
     }
 }
+
+/** How dark the rail's glass gets at full bar opacity; the bottom bar reads the same setting. */
+private const val RAIL_GLASS_ALPHA = 0.5f
+
+/** Measured, so its state and size are kept, but never placed: nothing in it is drawn. */
+private fun Modifier.notPlaced(): Modifier =
+    layout { measurable, constraints ->
+        val placeable = measurable.measure(constraints)
+        layout(placeable.width, placeable.height) {}
+    }
 
 @Composable
 private fun MiniPlayer(
     title: String?,
     isPlaying: Boolean,
     hasMedia: Boolean,
-    progress: Float,
+    progress: () -> Float,
     barOpacity: Float,
     compact: Boolean,
     onExpand: () -> Unit,
@@ -487,13 +547,13 @@ private fun MiniPlayer(
             IconButton(onClick = onPlayPause) {
                 StoneIconArt(
                     if (isPlaying) StoneIcon.PAUSE else StoneIcon.PLAY,
-                    stringResource(R.string.action_play_pause),
+                    stringResource(if (isPlaying) R.string.action_pause else R.string.action_play),
                 )
             }
             IconButton(onClick = onNext) { StoneIconArt(StoneIcon.NEXT, stringResource(R.string.action_next)) }
         }
         LinearProgressIndicator(
-            progress = { progress.coerceIn(0f, 1f) },
+            progress = { progress().coerceIn(0f, 1f) },
             modifier = Modifier.fillMaxWidth().height(2.dp),
             color = MaterialTheme.colorScheme.primary,
             trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
@@ -592,8 +652,8 @@ fun SearchScreen(
         Column(
             Modifier
                 .fillMaxSize()
-                .statusBarsPadding()
-                .navigationBarsPadding()
+                // The results list runs to the bottom, under the keyboard that typing opens.
+                .safeDrawingPadding()
                 .padding(16.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {

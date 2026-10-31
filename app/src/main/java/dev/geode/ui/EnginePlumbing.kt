@@ -4,13 +4,20 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import dev.geode.render.BlendMode
 import dev.geode.render.TransitionCatalog
 import dev.geode.render.VisualSafety
 import dev.geode.render.VisualizerView
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 data class LayersUiState(
     val enabled: Boolean = false,
@@ -43,6 +50,7 @@ fun VisualizerEngineBindings(
     val layers by LayersBus.state.collectAsStateWithLifecycle()
     val background by visualsViewModel.backgroundPush.collectAsStateWithLifecycle()
     val mainScope = rememberCoroutineScope()
+    val lifecycleOwner = LocalLifecycleOwner.current
 
     LaunchedEffect(Unit) {
         visualizerView.visualizerRenderer.onShaderError = viewModel::reportShaderError
@@ -55,9 +63,27 @@ fun VisualizerEngineBindings(
             mainScope.launch { visualsViewModel.setBackgroundRenderSize(w, h) }
         }
         LayersBus.availableScenes.value = visualizerView.visualizerRenderer.availableSceneIds()
-        viewModel.features.collect {
-            val enriched = viewModel.enrichFeatures(it)
-            visualizerView.visualizerRenderer.features = enriched
+        // Only while the Activity is visible (STARTED still covers picture-in-picture): the session
+        // stays an AudioBus consumer for its whole life, so without this the 60 Hz hand-off kept
+        // running on Main behind a stopped Activity, feeding a GL surface nobody could see.
+        // Pinned to Main: enrichFeatures reads ExoPlayer, which throws off its application thread,
+        // and the effect's own dispatcher is not Main under the Compose test runner.
+        lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            withContext(Dispatchers.Main.immediate) {
+                viewModel.features.collect {
+                    val enriched = viewModel.enrichFeatures(it)
+                    visualizerView.visualizerRenderer.features = enriched
+                }
+            }
+        }
+    }
+    // One collector rather than LaunchedEffect(viz.params): a slider drag or a pinch edits params at
+    // pointer rate, and keying an effect on them cancelled and relaunched a coroutine per edit, each
+    // landing a frame late. distinctUntilChanged keeps unrelated vizState changes from re-pushing.
+    LaunchedEffect(Unit) {
+        viewModel.vizState.map { it.params }.distinctUntilChanged().collect { params ->
+            visualizerView.visualizerRenderer.sceneParams = params
+            visualizerView.gyroWanted = params.camGyro
         }
     }
     LaunchedEffect(background) {
@@ -82,18 +108,12 @@ fun VisualizerEngineBindings(
         renderer.layerMix = layers.mix
         renderer.layerBlend = layers.blend
     }
-    LaunchedEffect(viz.params) {
-        visualizerView.visualizerRenderer.sceneParams = viz.params
-    }
     LaunchedEffect(playerPrefs.keepScreenOn) {
         visualizerView.keepScreenOn = playerPrefs.keepScreenOn
     }
     LaunchedEffect(lfos, adsrs) {
         visualizerView.visualizerRenderer.lfoEngine.configs = lfos
         visualizerView.visualizerRenderer.adsrEngine.configs = adsrs
-    }
-    LaunchedEffect(viz.params.camGyro) {
-        visualizerView.gyroWanted = viz.params.camGyro
     }
     LaunchedEffect(reactions) {
         visualizerView.visualizerRenderer.reactions = reactions

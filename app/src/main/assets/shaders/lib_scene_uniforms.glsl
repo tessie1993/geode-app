@@ -133,19 +133,6 @@ vec2 view() {
         ang = abs(mod(ang, seg) - seg * 0.5);
         uv = vec2(cos(ang), sin(ang)) * rad;
     }
-    // Drift ping-pongs rather than running away. The composite pass wraps its
-    // own drift with fract() because it samples a BOUNDED image ("Wrap so the
-    // image scrolls instead of smearing at the clamped edge"), but uv here
-    // indexes an unbounded procedural domain, where a hard wrap would teleport
-    // the whole field by a screen width once per cycle. A triangle wave is the
-    // bounded form that stays continuous: its slope is exactly the old one for
-    // the first cycle, so nothing pops on the styles that read as scrolling
-    // (plasma, aurora, voronoi, grid, waves), while a centred subject - the
-    // sun, the ring, the spiral - always comes back instead of leaving frame
-    // for good and stranding the user on a black screen.
-    vec2 driftPhase = fract(vec2(uDriftX, uDriftY) * uTime * 0.025 + 0.25);
-    uv += 1.0 - 2.0 * abs(2.0 * driftPhase - 1.0);
-    uv += uShake * uBeat * 0.03 * vec2(sin(uTime * 91.7), cos(uTime * 77.3));
     // VIEW_OWNS_SHAPE: a style that spends uMorph, uTurbulence and uWarp on
     // its own geometry (the style families: Complexity and Chaos macros move
     // these) defines it before including this file, so the generic screen
@@ -166,6 +153,22 @@ vec2 view() {
 #endif
     float a = uRotation + uSway * 0.35 * sin(uTime * 0.7);
     uv = mat2(cos(a), -sin(a), sin(a), cos(a)) * uv;
+    // Drift and shake move the picture after the spin and the morph. Added
+    // before them, the rotation pivoted on -drift and the morph's pinch rode
+    // the drift, so the whole frame spun around a wandering off-centre point.
+    // Drift ping-pongs rather than running away. The composite pass wraps its
+    // own drift with fract() because it samples a BOUNDED image ("Wrap so the
+    // image scrolls instead of smearing at the clamped edge"), but uv here
+    // indexes an unbounded procedural domain, where a hard wrap would teleport
+    // the whole field by a screen width once per cycle. A triangle wave is the
+    // bounded form that stays continuous: its slope is exactly the old one for
+    // the first cycle, so nothing pops on the styles that read as scrolling
+    // (plasma, aurora, voronoi, grid, waves), while a centred subject - the
+    // sun, the ring, the spiral - always comes back instead of leaving frame
+    // for good and stranding the user on a black screen.
+    vec2 driftPhase = fract(vec2(uDriftX, uDriftY) * uTime * 0.025 + 0.25);
+    uv += 1.0 - 2.0 * abs(2.0 * driftPhase - 1.0);
+    uv += uShake * uBeat * 0.03 * vec2(sin(uTime * 91.7), cos(uTime * 77.3));
     // Beat-locked pulse: peaks exactly on the musical beat (uBeatPhase=0), and
     // rides the beat ENVELOPE so it is zero between hits. The phase clock in
     // ShaderScene free-runs at the last detected tempo, so without the

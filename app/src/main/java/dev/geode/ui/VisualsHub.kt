@@ -4,9 +4,13 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
@@ -20,6 +24,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Casino
@@ -41,6 +46,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -50,7 +56,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -84,6 +95,9 @@ fun VisualsHub(
     val tabs = listOf("Presets", "Styles", "Customize", "Textures", "Takes")
     val gui by settingsViewModel.guiPrefs.collectAsStateWithLifecycle()
     val takes by studioViewModel.takeState.collectAsStateWithLifecycle()
+    // Out here rather than in the Customize tab, so a size the user dragged to survives a trip to
+    // another tab and back.
+    var previewHeightDp by rememberSaveable { mutableFloatStateOf(PREVIEW_DEFAULT_DP) }
     Box(Modifier.fillMaxSize()) {
         if (liveBackdrop) {
             VisualizerCanvasHost(visualizerView, Modifier.fillMaxSize())
@@ -122,12 +136,14 @@ fun VisualsHub(
                             when {
                                 takes.recording -> "● Recording  ${formatTakeTime(takes.recordedMs)}"
                                 takes.replaying != null -> "▶ ${takes.replaying}"
-                                liveBackdrop -> "Live overlay"
-                                else -> "MuzViz"
+                                liveBackdrop -> stringResource(R.string.visuals_live_overlay)
+                                else -> stringResource(R.string.app_name)
                             },
                             color = if (takes.recording) MaterialTheme.colorScheme.error else accentTextColor(),
                         )
-                        GlowTitle("Visuals")
+                        // Customize needs every row it can get for the preview and its sliders; the
+                        // tab strip already says where the user is.
+                        if (tab != CUSTOMIZE_TAB) GlowTitle(stringResource(R.string.nav_visuals))
                     }
                     IconButton(onClick = {
                         if (takes.recording) studioViewModel.stopRecording() else studioViewModel.startRecording()
@@ -163,7 +179,16 @@ fun VisualsHub(
                 when (tab) {
                     0 -> PresetsTreeTab(viewModel, visualizerView)
                     1 -> StylesTab(viewModel, visualizerView, onOpenTextures = { tab = 3 })
-                    2 -> CustomizePanel(viewModel, visualizerView, preview = canvasFree && !liveBackdrop)
+                    CUSTOMIZE_TAB ->
+                        CustomizePanel(
+                            viewModel,
+                            visualizerView,
+                            preview = canvasFree && !liveBackdrop,
+                            previewHeightDp = previewHeightDp,
+                            onResizePreview = { delta, max ->
+                                previewHeightDp = (previewHeightDp + delta).coerceIn(0f, max)
+                            },
+                        )
                     3 -> TexturesHubTab(viewModel, visualizerView)
                     4 -> TakesTab(studioViewModel)
                 }
@@ -924,6 +949,8 @@ internal fun CustomizePanel(
     viewModel: PlayerViewModel,
     visualizerView: VisualizerView,
     preview: Boolean = false,
+    previewHeightDp: Float = PREVIEW_DEFAULT_DP,
+    onResizePreview: (deltaDp: Float, maxDp: Float) -> Unit = { _, _ -> },
 ) {
     val visualsViewModel: VisualsViewModel = geodeViewModel()
     val viz by viewModel.vizState.collectAsStateWithLifecycle()
@@ -940,32 +967,43 @@ internal fun CustomizePanel(
             shownTitle = titles[sub]
         }
     }
-    Column(Modifier.fillMaxSize()) {
-        // A live strip above the controls, so a slider's effect shows as it moves instead of
-        // after a trip to "View live" and back. It sits outside the scrolling column: the
-        // canvas is a SurfaceView, which does not scroll or clip like a Compose layer.
-        if (preview) VisualizerCanvasHost(visualizerView, Modifier.fillMaxWidth().height(150.dp))
-        CrystalTabs(
-            titles = titles,
-            selected = sub,
-            onSelect = {
-                sub = it
-                shownTitle = titles[it]
-            },
-        )
-        CustomizeToolbar(viewModel, visualizerView, viz.params, tabs.getOrNull(sub), query) { query = it }
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
-            val locked by visualsViewModel.lockedParams.collectAsStateWithLifecycle()
-            androidx.compose.runtime.CompositionLocalProvider(
-                LocalParamLocks provides (locked to visualsViewModel::toggleParamLock),
-            ) {
-                ParamSurface(sceneId = viz.sceneId, query = query) {
-                    if (query.isBlank()) {
-                        CustomizeTabBody(viewModel, visualizerView, tabs.getOrNull(sub))
-                    } else {
-                        // Search reaches EVERY tab, not just the one on screen: "where did the
-                        // vignette slider go" is exactly the question search exists to answer.
-                        tabs.filterNotNull().forEach { tab -> CustomizeTabBody(viewModel, visualizerView, tab) }
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        // The preview may take most of the panel, but never so much that the tabs and a row of
+        // controls are pushed off screen.
+        val maxPreviewDp = (maxHeight * PREVIEW_MAX_FRACTION).value
+        Column(Modifier.fillMaxSize()) {
+            // A live strip above the controls, so a slider's effect shows as it moves instead of
+            // after a trip to "View live" and back. It sits outside the scrolling column: the
+            // canvas is a SurfaceView, which does not scroll or clip like a Compose layer. The handle
+            // under it trades preview for controls: drag down for a bigger picture, up (to nothing)
+            // to see more sliders at once.
+            if (preview) {
+                val shownDp = previewHeightDp.coerceIn(0f, maxPreviewDp)
+                VisualizerCanvasHost(visualizerView, Modifier.fillMaxWidth().height(shownDp.dp))
+                PreviewResizeHandle(onResize = { onResizePreview(it, maxPreviewDp) })
+            }
+            CrystalTabs(
+                titles = titles,
+                selected = sub,
+                onSelect = {
+                    sub = it
+                    shownTitle = titles[it]
+                },
+            )
+            CustomizeToolbar(viewModel, visualizerView, viz.params, tabs.getOrNull(sub), query) { query = it }
+            Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
+                val locked by visualsViewModel.lockedParams.collectAsStateWithLifecycle()
+                androidx.compose.runtime.CompositionLocalProvider(
+                    LocalParamLocks provides (locked to visualsViewModel::toggleParamLock),
+                ) {
+                    ParamSurface(sceneId = viz.sceneId, query = query) {
+                        if (query.isBlank()) {
+                            CustomizeTabBody(viewModel, visualizerView, tabs.getOrNull(sub))
+                        } else {
+                            // Search reaches EVERY tab, not just the one on screen: "where did the
+                            // vignette slider go" is exactly the question search exists to answer.
+                            tabs.filterNotNull().forEach { tab -> CustomizeTabBody(viewModel, visualizerView, tab) }
+                        }
                     }
                 }
             }
@@ -974,10 +1012,63 @@ internal fun CustomizePanel(
 }
 
 /**
+ * The grip under the Customize preview. Drags report deltas rather than a new height, so the
+ * owner adds them to its own state: several drag events can land before a recomposition, and a
+ * height read from the last composition would drop all but one of them. TalkBack gets the same
+ * control as two actions, since a drag is out of its reach.
+ */
+@Composable
+private fun PreviewResizeHandle(onResize: (deltaDp: Float) -> Unit) {
+    val density = LocalDensity.current
+    val label = stringResource(R.string.a11y_preview_resize)
+    val larger = stringResource(R.string.a11y_preview_larger)
+    val smaller = stringResource(R.string.a11y_preview_smaller)
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .height(PREVIEW_HANDLE_HEIGHT)
+            .draggable(
+                rememberDraggableState { delta -> onResize(with(density) { delta.toDp() }.value) },
+                Orientation.Vertical,
+            ).semantics {
+                contentDescription = label
+                customActions =
+                    listOf(
+                        CustomAccessibilityAction(larger) {
+                            onResize(PREVIEW_STEP_DP)
+                            true
+                        },
+                        CustomAccessibilityAction(smaller) {
+                            onResize(-PREVIEW_STEP_DP)
+                            true
+                        },
+                    )
+            },
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(
+            Modifier
+                .size(width = 40.dp, height = 4.dp)
+                .background(MaterialTheme.colorScheme.onSurfaceVariant, RoundedCornerShape(2.dp)),
+        )
+    }
+}
+
+private const val CUSTOMIZE_TAB = 2
+
+private const val PREVIEW_DEFAULT_DP = 150f
+
+private const val PREVIEW_STEP_DP = 80f
+
+private const val PREVIEW_MAX_FRACTION = 0.7f
+
+private val PREVIEW_HANDLE_HEIGHT = 28.dp
+
+/**
  * Whether a tab has anything to show for the style on screen.
  *
- * The five spec tabs plus Scene are always there; the per-family ones appear only with their
- * family. Fluid stays because it also holds the two "all styles" sections (FlowField and the
+ * Events, the five spec tabs and Scene are always there (a recipe with nothing to move on this
+ * style hides itself, not the tab); the per-family ones appear only with their family. Fluid stays because it also holds the two "all styles" sections (FlowField and the
  * shared water-ripple overlay), which every style can use.
  */
 private fun tabAppliesTo(
@@ -985,6 +1076,7 @@ private fun tabAppliesTo(
     sceneId: String,
 ): Boolean =
     when (tab) {
+        CustomizeTab.EVENTS,
         CustomizeTab.SHAPE,
         CustomizeTab.COLOR,
         CustomizeTab.MOTION,
@@ -1007,14 +1099,24 @@ private fun CustomizeTabBody(
     val p = viz.params
     val onChange: (dev.geode.render.scene.SceneParams) -> Unit = visualsViewModel::editSceneParams
     when (tab) {
+        CustomizeTab.EVENTS -> {
+            val reactions by visualsViewModel.reactions.collectAsStateWithLifecycle()
+            EventsTab(
+                p,
+                onChange,
+                reactions = reactions,
+                onReactionsChange = visualsViewModel::setReactions,
+                onRerollReactions = visualsViewModel::rerollReactions,
+                intelligenceMode = viz.intelligenceMode,
+                onIntelligenceModeChange = viewModel::setIntelligenceMode,
+            )
+        }
         CustomizeTab.MOTION -> MotionTab(p, onChange)
         CustomizeTab.SHAPE -> ShapeTab(p, onChange)
         CustomizeTab.SCENE ->
             SceneTab(
                 p,
                 onChange,
-                intelligenceMode = viz.intelligenceMode,
-                onIntelligenceModeChange = viewModel::setIntelligenceMode,
                 transitionId = viz.transitionId,
                 transitionDurationSec = viz.transitionDurationSec,
                 onTransitionId = viewModel::setTransitionId,
@@ -1023,7 +1125,6 @@ private fun CustomizeTabBody(
         CustomizeTab.REACTIVITY -> {
             val lfos by visualsViewModel.lfos.collectAsStateWithLifecycle()
             val adsrs by visualsViewModel.adsrs.collectAsStateWithLifecycle()
-            val reactions by visualsViewModel.reactions.collectAsStateWithLifecycle()
             ReactivityTab(
                 p,
                 onChange,
@@ -1034,9 +1135,6 @@ private fun CustomizeTabBody(
                 onLfoChange = visualsViewModel::setLfo,
                 adsr = adsrs,
                 onAdsrChange = visualsViewModel::setAdsr,
-                reactions = reactions,
-                onReactionsChange = visualsViewModel::setReactions,
-                onRerollReactions = visualsViewModel::rerollReactions,
             )
         }
         CustomizeTab.COLOR -> {

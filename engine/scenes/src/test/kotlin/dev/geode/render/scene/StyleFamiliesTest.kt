@@ -54,6 +54,15 @@ class StyleFamiliesTest {
     }
 
     @Test
+    fun theNativeRegistryAgreesOnWhichStylesTurn() {
+        val native = File(root, "core/viz/SceneRegistry.cpp").readText()
+        val block = native.substringAfter("kSpinningIds").substringBefore("};")
+        val listed = Regex("\"(\\w+)\"").findAll(block).map { it.groupValues[1] }.toSet()
+        assertEquals(SceneCapabilities.SPINNING_SCENES, listed)
+        assertTrue(SceneCapabilities.SHADER_SCENES.keys.containsAll(SceneCapabilities.SPINNING_SCENES))
+    }
+
+    @Test
     fun everyFamilyLibraryIsOnTheNativeIncludeAllowList() {
         val allowList = File(root, "core/viz/ShaderSource.cpp").readText()
         StyleFamilies.all.forEach { family ->

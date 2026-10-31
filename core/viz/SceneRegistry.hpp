@@ -18,6 +18,10 @@ public:
         : loader_{assets, cache}, profile_(profile), host_(std::move(host)) {}
 
     bool knows(const std::string& id) const;
+    // How the style turns by default (SceneCapabilities.SPINNING_SCENES): a
+    // signed multiplier on the motion field's drift spin, 0 for a style that
+    // holds still (no drift spin, no sway, no bank of the flat picture).
+    static float spinRate(const std::string& id);
     // Every id in the order the Kotlin registry listed them.
     std::vector<std::string> availableIds() const;
     // Builds an uninitialised scene; nullptr for an id native code cannot draw.

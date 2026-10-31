@@ -6,13 +6,10 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -94,14 +91,11 @@ private fun AnalysisGroup(viewModel: SettingsViewModel) {
         )
     }
     Column {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                stringResource(R.string.audio_key_colour),
-                Modifier.weight(1f),
-                style = MaterialTheme.typography.bodyMedium,
-            )
-            Switch(checked = gui.keyColor, onCheckedChange = playerViewModel::setKeyColor)
-        }
+        LabeledSwitch(
+            stringResource(R.string.audio_key_colour),
+            checked = gui.keyColor,
+            onCheckedChange = playerViewModel::setKeyColor,
+        )
         Text(
             stringResource(R.string.audio_key_colour_explainer),
             style = MaterialTheme.typography.bodySmall,
@@ -163,14 +157,11 @@ private fun MicToggleRow(
     active: Boolean,
     onToggle: (Boolean) -> Unit,
 ) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(
-            stringResource(R.string.audio_react_mic),
-            Modifier.weight(1f),
-            style = MaterialTheme.typography.bodyMedium,
-        )
-        Switch(checked = active, onCheckedChange = onToggle)
-    }
+    LabeledSwitch(
+        stringResource(R.string.audio_react_mic),
+        checked = active,
+        onCheckedChange = onToggle,
+    )
     Text(
         stringResource(R.string.audio_react_mic_explainer),
         style = MaterialTheme.typography.bodySmall,

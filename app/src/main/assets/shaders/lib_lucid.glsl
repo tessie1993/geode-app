@@ -268,10 +268,11 @@ vec2 lucidView(bool fold) {
         ang = abs(mod(ang, seg) - seg * 0.5);
         uv = vec2(cos(ang), sin(ang)) * rad;
     }
-    vec2 driftPhase = fract(vec2(uDriftX, uDriftY) * uTime * 0.025 + 0.25);
-    uv += 1.0 - 2.0 * abs(2.0 * driftPhase - 1.0);
     float a = uRotation + uSway * 0.35 * sin(uTime * 0.7);
     uv = mat2(cos(a), -sin(a), sin(a), cos(a)) * uv;
+    // Drift after the spin, so the rotation pivots on the screen centre.
+    vec2 driftPhase = fract(vec2(uDriftX, uDriftY) * uTime * 0.025 + 0.25);
+    uv += 1.0 - 2.0 * abs(2.0 * driftPhase - 1.0);
     float z = uZoom * pow(2.0, 1.0 - abs(2.0 * uZoomPhase - 1.0));
     uv /= max(z, 0.05);
     if (abs(uTwist) > 0.001) {
@@ -279,7 +280,7 @@ vec2 lucidView(bool fold) {
         uv = mat2(cos(tr), -sin(tr), sin(tr), cos(tr)) * uv;
     }
     if (uTile > 1.01) {
-        uv = mod(uv * uTile * 0.5 + 1.0, 2.0) - 1.0;
+        uv = 1.0 - abs(mod(uv * uTile * 0.5 + 1.0, 4.0) - 2.0);  // mirrored: a hard wrap cracks
     }
     if (uRipple > 0.001) {
         float r = length(uv);

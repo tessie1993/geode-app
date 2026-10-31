@@ -4,7 +4,6 @@ import android.os.Build
 import android.view.accessibility.AccessibilityManager
 import androidx.annotation.StringRes
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.calculateCentroid
@@ -13,10 +12,13 @@ import androidx.compose.foundation.gestures.calculatePan
 import androidx.compose.foundation.gestures.calculateRotation
 import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
@@ -25,7 +27,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.PictureInPictureAlt
@@ -35,6 +41,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -58,6 +65,9 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
@@ -66,6 +76,7 @@ import androidx.compose.ui.util.fastForEach
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.window.core.layout.WindowSizeClass
 import dev.geode.R
 import dev.geode.render.TouchField
 import dev.geode.render.VisualizerRenderer
@@ -87,6 +98,8 @@ fun VisualizerScreen(
 ) {
     val settingsViewModel: SettingsViewModel = geodeViewModel()
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    // Not delegated: only the seek bar, the clock and the lyrics read .value.
+    val position = viewModel.positionMs.collectAsStateWithLifecycle()
     val autoMode by viewModel.autoMode.collectAsStateWithLifecycle()
     val gui by settingsViewModel.guiPrefs.collectAsStateWithLifecycle()
     val waveform by viewModel.waveform.collectAsStateWithLifecycle()
@@ -98,8 +111,16 @@ fun VisualizerScreen(
     val currentUri = remember(state.title, state.artist) { viewModel.currentTrackUri() }
     val isFavourite = currentUri != null && currentUri in favourites
     var panel by remember { mutableStateOf(PlayerPanel.TRANSPORT) }
-    val chromeAlpha = maxOf(gui.barOpacity, 0.25f)
+    // The chrome sits on live visuals that can go white, so its glass never drops below the point
+    // where its text still reads (about 7:1 over a white frame at this floor; 1.4:1 at 0.25). It
+    // hides itself after a few seconds, so a denser panel costs little of the view.
+    val chromeAlpha = maxOf(gui.barOpacity, CHROME_MIN_ALPHA)
+    // A phone on its side: the transport folds into two rows so it doesn't cover half the visuals.
+    val shortWindow =
+        !currentWindowAdaptiveInfo().windowSizeClass.isHeightAtLeastBreakpoint(WindowSizeClass.HEIGHT_DP_MEDIUM_LOWER_BOUND)
     var controlsVisible by remember { mutableStateOf(true) }
+    val toggleControlsLabel =
+        stringResource(if (controlsVisible) R.string.a11y_hide_controls else R.string.a11y_show_controls)
     val context = LocalContext.current
     // Picture-in-picture shrinks this screen to a window with no room for chrome, and no way for
     // the person to tap a button in it anyway — every control, not just the transport bar, is
@@ -138,6 +159,13 @@ fun VisualizerScreen(
                 }
             }.pointerInput(Unit) {
                 detectTapGestures(onTap = { controlsVisible = !controlsVisible })
+            }.semantics {
+                // The tap above is invisible to TalkBack; with the chrome hidden, this action is
+                // the only way a screen reader user can bring the controls back.
+                onClick(label = toggleControlsLabel) {
+                    controlsVisible = !controlsVisible
+                    true
+                }
             }.visualizerTouch(
                 renderer = visualizerView.visualizerRenderer,
                 smear = gui.touchSmear,
@@ -210,7 +238,7 @@ fun VisualizerScreen(
                         PlayerPanel.LYRICS ->
                             LyricsPanel(
                                 lyrics = lyrics,
-                                positionMs = state.positionMs,
+                                positionMs = { position.value },
                                 onSeek = { viewModel.seekToMs(it) },
                                 modifier = Modifier.fillMaxSize(),
                             )
@@ -239,11 +267,13 @@ fun VisualizerScreen(
                 modifier =
                     Modifier
                         .align(Alignment.BottomCenter)
+                        // A tablet's full width spreads five buttons a hand-span apart.
+                        .widthIn(max = TRANSPORT_MAX_WIDTH)
                         .fillMaxWidth()
                         .windowInsetsPadding(
                             WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal),
                         ).padding(horizontal = 12.dp)
-                        .padding(bottom = 16.dp)
+                        .padding(bottom = if (shortWindow) 8.dp else 16.dp)
                         .crystalPanel(
                             chromeAlpha,
                             MaterialTheme.colorScheme.surface,
@@ -252,112 +282,157 @@ fun VisualizerScreen(
                             glowStrength = 0.8f,
                         ),
             ) {
-                Column(Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
-                    Row(
-                        Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        Text(formatTime(state.positionMs), style = MaterialTheme.typography.labelSmall)
-                        WaveformSeekBar(
-                            waveform = waveform,
-                            positionMs = state.positionMs,
-                            durationMs = state.durationMs,
-                            loopStartMs = abLoop?.startMs,
-                            loopEndMs = abLoop?.endMs,
-                            onSeek = viewModel::seekTo,
-                            modifier = Modifier.weight(1f).height(40.dp),
-                        )
-                        Text(formatTime(state.durationMs), style = MaterialTheme.typography.labelSmall)
-                    }
-                    Row(
-                        Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceEvenly,
-                    ) {
-                        IconButton(onClick = viewModel::toggleShuffle) {
-                            StoneIconArt(
-                                StoneIcon.SHUFFLE,
-                                stringResource(R.string.action_shuffle),
-                                tint =
-                                    if (state.shuffle) {
-                                        MaterialTheme.colorScheme.primary
-                                    } else {
-                                        MaterialTheme.colorScheme.onSurfaceVariant
-                                    },
-                            )
-                        }
-                        IconButton(onClick = viewModel::previous, enabled = state.hasMedia) {
-                            StoneIconArt(StoneIcon.PREVIOUS, stringResource(R.string.action_previous))
-                        }
-                        CrystalPlayButton(
-                            icon = if (state.isPlaying) StoneIcon.PAUSE else StoneIcon.PLAY,
-                            contentDescription =
-                                stringResource(if (state.isPlaying) R.string.action_pause else R.string.action_play),
-                            onClick = viewModel::togglePlayPause,
-                            enabled = state.hasMedia,
-                        )
-                        IconButton(onClick = viewModel::next, enabled = state.hasMedia) {
-                            StoneIconArt(StoneIcon.NEXT, stringResource(R.string.action_next))
-                        }
-                        RepeatButton(state.repeatMode, viewModel::cycleRepeatMode)
-                    }
-                    Row(
-                        Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                    ) {
-                        TextButton(onClick = onOpenVisuals) {
-                            StoneIconArt(StoneIcon.SETTINGS, null)
-                            Text("  " + stringResource(R.string.nav_visuals))
-                        }
-                        TextButton(onClick = viewModel::cycleAutoMode) {
-                            StoneIconArt(StoneIcon.QUEUE, null)
-                            Text(
-                                "  " +
-                                    stringResource(
-                                        when (autoMode) {
-                                            1 -> R.string.auto_random
-                                            2 -> R.string.auto_smart
-                                            3 -> R.string.auto_sections
-                                            else -> R.string.auto_off
-                                        },
-                                    ),
-                            )
-                        }
-                    }
-                    Row(
-                        Modifier.fillMaxWidth().padding(top = 2.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    ) {
-                        PlayerPanel.entries.forEach { p ->
-                            PanelChip(
-                                label = stringResource(p.label),
-                                selected = panel == p,
-                                badge = if (p == PlayerPanel.QUEUE && queue.tracks.size > 1) queue.tracks.size else 0,
-                                onClick = { panel = if (panel == p) PlayerPanel.TRANSPORT else p },
-                            )
-                        }
-                        Box(Modifier.weight(1f))
-                        TextButton(onClick = viewModel::cycleAbLoop, enabled = state.hasMedia) {
-                            Text(
-                                when {
-                                    abLoop == null -> stringResource(R.string.ab_loop_idle)
-                                    abLoop?.endMs == null -> stringResource(R.string.ab_loop_set_b)
-                                    else -> stringResource(R.string.ab_loop_looping)
-                                },
-                                style = MaterialTheme.typography.labelMedium,
-                                color =
-                                    if (abLoop != null) {
-                                        MaterialTheme.colorScheme.primary
-                                    } else {
-                                        MaterialTheme.colorScheme.onSurfaceVariant
-                                    },
-                            )
-                        }
-                    }
-                }
+                VisualizerTransport(
+                    viewModel = viewModel,
+                    state = state,
+                    position = { position.value },
+                    waveform = waveform,
+                    abLoop = abLoop,
+                    autoMode = autoMode,
+                    queueSize = queue.tracks.size,
+                    panel = panel,
+                    onPanel = { panel = it },
+                    onOpenVisuals = onOpenVisuals,
+                    shortWindow = shortWindow,
+                )
+            }
+        }
+    }
+}
+
+/**
+ * The live view's transport: seek, playback buttons, the Visuals and auto-visuals shortcuts, and
+ * the panel chips. On a short window (a phone on its side) the buttons, shortcuts and chips share
+ * one row, so the panel covers a strip of the visuals instead of more than half of them.
+ */
+@Composable
+private fun VisualizerTransport(
+    viewModel: PlayerViewModel,
+    state: PlayerUiState,
+    position: () -> Long,
+    waveform: FloatArray?,
+    abLoop: AbLoop?,
+    autoMode: Int,
+    queueSize: Int,
+    panel: PlayerPanel,
+    onPanel: (PlayerPanel) -> Unit,
+    onOpenVisuals: () -> Unit,
+    shortWindow: Boolean,
+) {
+    val buttons: @Composable RowScope.() -> Unit = {
+        ShuffleButton(state.shuffle, viewModel::toggleShuffle)
+        IconButton(onClick = viewModel::previous, enabled = state.hasMedia) {
+            StoneIconArt(StoneIcon.PREVIOUS, stringResource(R.string.action_previous))
+        }
+        CrystalPlayButton(
+            icon = if (state.isPlaying) StoneIcon.PAUSE else StoneIcon.PLAY,
+            contentDescription =
+                stringResource(if (state.isPlaying) R.string.action_pause else R.string.action_play),
+            onClick = viewModel::togglePlayPause,
+            enabled = state.hasMedia,
+        )
+        IconButton(onClick = viewModel::next, enabled = state.hasMedia) {
+            StoneIconArt(StoneIcon.NEXT, stringResource(R.string.action_next))
+        }
+        RepeatButton(state.repeatMode, viewModel::cycleRepeatMode)
+    }
+    val extras: @Composable RowScope.() -> Unit = {
+        TextButton(onClick = onOpenVisuals) {
+            StoneIconArt(StoneIcon.SETTINGS, null)
+            Text("  " + stringResource(R.string.nav_visuals))
+        }
+        TextButton(onClick = viewModel::cycleAutoMode) {
+            StoneIconArt(StoneIcon.QUEUE, null)
+            Text(
+                "  " +
+                    stringResource(
+                        when (autoMode) {
+                            1 -> R.string.auto_random
+                            2 -> R.string.auto_smart
+                            3 -> R.string.auto_sections
+                            else -> R.string.auto_off
+                        },
+                    ),
+            )
+        }
+    }
+    val chips: @Composable RowScope.() -> Unit = {
+        PlayerPanel.entries.forEach { p ->
+            PanelChip(
+                label = stringResource(p.label),
+                selected = panel == p,
+                badge = if (p == PlayerPanel.QUEUE && queueSize > 1) queueSize else 0,
+                onClick = { onPanel(if (panel == p) PlayerPanel.TRANSPORT else p) },
+            )
+        }
+    }
+    val abLoopButton: @Composable () -> Unit = {
+        TextButton(onClick = viewModel::cycleAbLoop, enabled = state.hasMedia) {
+            Text(
+                when {
+                    abLoop == null -> stringResource(R.string.ab_loop_idle)
+                    abLoop?.endMs == null -> stringResource(R.string.ab_loop_set_b)
+                    else -> stringResource(R.string.ab_loop_looping)
+                },
+                style = MaterialTheme.typography.labelMedium,
+                color =
+                    if (abLoop != null) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+            )
+        }
+    }
+    Column(Modifier.padding(horizontal = 14.dp, vertical = if (shortWindow) 4.dp else 10.dp)) {
+        Row(
+            Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            PositionClock(position, ::formatTime)
+            WaveformSeekBar(
+                waveform = waveform,
+                positionMs = position,
+                durationMs = state.durationMs,
+                loopStartMs = abLoop?.startMs,
+                loopEndMs = abLoop?.endMs,
+                onSeek = viewModel::seekTo,
+                modifier = Modifier.weight(1f).height(40.dp),
+            )
+            Text(formatTime(state.durationMs), style = MaterialTheme.typography.labelSmall)
+        }
+        if (shortWindow) {
+            Row(
+                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                buttons()
+                Spacer(Modifier.width(12.dp))
+                extras()
+                chips()
+                abLoopButton()
+            }
+        } else {
+            Row(
+                Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceEvenly,
+            ) { buttons() }
+            Row(
+                Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) { extras() }
+            Row(
+                Modifier.fillMaxWidth().padding(top = 2.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                chips()
+                Box(Modifier.weight(1f))
+                abLoopButton()
             }
         }
     }
@@ -419,6 +494,10 @@ private fun AutoHideChrome(
 }
 
 private const val CHROME_TIMEOUT_MS = 4_000
+
+private const val CHROME_MIN_ALPHA = 0.75f
+
+private val TRANSPORT_MAX_WIDTH = 720.dp
 
 /**
  * The top chrome row: collapse, PiP entry, now-playing title/subtitle, and favourite toggle.
@@ -544,7 +623,7 @@ private fun PanelChip(
                 corner = 14.dp,
                 glowStrength = if (selected) 1f else 0.35f,
                 prismatic = selected,
-            ).clickable(onClick = onClick)
+            ).selectable(selected = selected, role = Role.Tab, onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 6.dp),
     ) {
         Text(

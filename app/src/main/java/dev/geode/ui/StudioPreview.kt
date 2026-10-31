@@ -23,6 +23,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.zIndex
@@ -89,7 +93,11 @@ internal fun ClipPreview(
         } else {
             16f / 9f
         }
-    val pauseHint = stringResource(R.string.studio_preview_toggle)
+    // The whole preview is the play/pause button, so it carries the label and the state; the
+    // PlayArrow icon below only shows while paused and cannot be the label.
+    val previewLabel = stringResource(R.string.studio_preview_toggle)
+    val clickLabel = stringResource(if (playing) R.string.action_pause else R.string.action_play)
+    val playState = stringResource(if (playing) R.string.studio_a11y_playing else R.string.state_paused)
     Box(
         modifier
             .fillMaxWidth()
@@ -98,7 +106,11 @@ internal fun ClipPreview(
                 androidx.compose.foundation.shape
                     .RoundedCornerShape(8.dp),
             ).background(Color.Black)
-            .clickable { playing = !playing },
+            .clickable(role = Role.Button, onClickLabel = clickLabel) { playing = !playing }
+            .semantics {
+                contentDescription = previewLabel
+                stateDescription = playState
+            },
         contentAlignment = Alignment.Center,
     ) {
         AndroidView(
@@ -110,7 +122,7 @@ internal fun ClipPreview(
         if (!playing) {
             Icon(
                 Icons.Filled.PlayArrow,
-                contentDescription = pauseHint,
+                contentDescription = null,
                 tint = Color.White.copy(alpha = 0.85f),
                 modifier = Modifier.zIndex(1f).size(44.dp),
             )

@@ -51,7 +51,10 @@ public:
     // Reshapes p with the state step() just computed; never touches
     // brightness/intensity/contrast/flash/strobe/pulse/shake. Reduced motion
     // scales the geometric terms the same way safety::apply scales rates.
-    SceneParams apply(const SceneParams& p, bool reducedMotion) const;
+    // spin is the style's SceneRegistry::spinRate: it scales and signs the drift
+    // spin, and 0 (a style that does not turn) adds no drift spin or sway, so
+    // rotation and sway stay what the user and the routes set.
+    SceneParams apply(const SceneParams& p, bool reducedMotion, float spin = 1.0f) const;
 
     const State& state() const { return state_; }
 

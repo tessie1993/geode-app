@@ -29,6 +29,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -45,6 +46,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.progressBarRangeInfo
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.setProgress
 import androidx.compose.ui.text.font.FontWeight
@@ -58,10 +60,19 @@ import dev.geode.ui.theme.StoneIconArt
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 
+/** A clock that reads the position itself, so a tick recomposes this Text and nothing around it. */
+@Composable
+fun PositionClock(
+    positionMs: () -> Long,
+    format: (Long) -> String = ::formatClock,
+) {
+    Text(format(positionMs()), style = MaterialTheme.typography.labelSmall)
+}
+
 @Composable
 fun WaveformSeekBar(
     waveform: FloatArray?,
-    positionMs: Long,
+    positionMs: () -> Long,
     durationMs: Long,
     loopStartMs: Long?,
     loopEndMs: Long?,
@@ -73,7 +84,7 @@ fun WaveformSeekBar(
         if (dragFraction >= 0f) {
             dragFraction
         } else if (durationMs > 0) {
-            (positionMs / durationMs.toFloat()).coerceIn(0f, 1f)
+            (positionMs() / durationMs.toFloat()).coerceIn(0f, 1f)
         } else {
             0f
         }
@@ -81,7 +92,7 @@ fun WaveformSeekBar(
     val idle = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f)
     val loopTint = MaterialTheme.colorScheme.secondary.copy(alpha = 0.28f)
     val playhead = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f)
-    val positionLabel = formatClock(if (dragFraction >= 0f) (dragFraction * durationMs).toLong() else positionMs)
+    val positionLabel = formatClock(if (dragFraction >= 0f) (dragFraction * durationMs).toLong() else positionMs())
     val durationLabel = formatClock(durationMs)
     val seekDescription = stringResource(R.string.seek_description, positionLabel, durationLabel)
     Canvas(
@@ -152,7 +163,7 @@ fun WaveformSeekBar(
 @Composable
 fun LyricsPanel(
     lyrics: Lyrics?,
-    positionMs: Long,
+    positionMs: () -> Long,
     onSeek: (Long) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -170,7 +181,8 @@ fun LyricsPanel(
         }
         return
     }
-    val current = lyrics.indexAt(positionMs)
+    // Recomposes when the sung line changes, not on every position tick.
+    val current by remember(lyrics) { derivedStateOf { lyrics.indexAt(positionMs()) } }
     val listState = rememberLazyListState()
     val follows = rememberFollowsPlayback(listState)
     LaunchedEffect(current, follows.value) {
@@ -212,7 +224,9 @@ fun LyricsPanel(
                     when {
                         active -> accentTextColor()
                         !lyrics.synced -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f)
-                        index < current -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
+                        // 0.55, not lower: sung lines are still text someone may want to read back,
+                        // and 0.35 measured 2.6:1 on black.
+                        index < current -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
                         else -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f)
                     },
             )
@@ -306,6 +320,7 @@ fun QueuePanel(
                 Row(
                     Modifier
                         .fillMaxWidth()
+                        .semantics { selected = playing }
                         .clickable {
                             follows.value = true
                             onPlayIndex(index)
@@ -321,12 +336,19 @@ fun QueuePanel(
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
-                        Text(
+                        val favourite = track.uri in favourites
+                        val artist = track.artist.takeIf { it.isNotBlank() }
+                        // The star is drawn, but read as a word: TalkBack says "black star" otherwise.
+                        val spoken =
                             listOfNotNull(
-                                track.artist.takeIf { it.isNotBlank() },
-                                "★".takeIf { track.uri in favourites },
-                            ).joinToString("  ")
+                                artist ?: stringResource(R.string.subtitle_unknown_artist),
+                                stringResource(R.string.a11y_favourite).takeIf { favourite },
+                            ).joinToString(", ")
+                        Text(
+                            listOfNotNull(artist, "★".takeIf { favourite })
+                                .joinToString("  ")
                                 .ifBlank { stringResource(R.string.subtitle_unknown_artist) },
+                            modifier = Modifier.semantics { contentDescription = spoken },
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1,

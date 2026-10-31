@@ -4,6 +4,7 @@ import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.TextUnit
@@ -58,11 +59,29 @@ fun geodeColorScheme(
     return base.copy(
         onBackground = font,
         onSurface = font,
-        onSurfaceVariant = font.copy(alpha = 0.78f),
+        onSurfaceVariant = secondaryTextFor(font),
         onPrimaryContainer = font,
         onSecondaryContainer = font,
     )
 }
+
+/**
+ * Secondary text dims the user's font colour, but a font colour that only just passes on its own
+ * would fail once dimmed (a 4.7:1 grey at 78% is 3.2:1), so the dimming backs off until the blended
+ * colour still meets the body-text minimum, down to no dimming at all.
+ */
+internal fun secondaryTextFor(font: Color): Color {
+    var alpha = SECONDARY_TEXT_ALPHA
+    while (alpha < 1f) {
+        val dimmed = font.copy(alpha = alpha)
+        val blended = dimmed.compositeOver(GeodeColors.Canvas)
+        if (contrastRatio(blended, GeodeColors.Canvas) >= GeodeContrast.BODY_MIN) return dimmed
+        alpha += 0.04f
+    }
+    return font
+}
+
+private const val SECONDARY_TEXT_ALPHA = 0.78f
 
 /** Whether [color] meets the body-text contrast minimum against the black canvas. */
 fun isReadableOnCanvas(color: Color): Boolean = contrastRatio(color, GeodeColors.Canvas) >= GeodeContrast.BODY_MIN

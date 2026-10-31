@@ -133,6 +133,41 @@ object SceneCapabilities {
         ) + StyleFamilies.marchedIds
 
     /**
+     * Styles whose look is a turning one - kaleidoscopes, mandalas, spirals, vortices, tunnels -
+     * and so spin by default. Every other style holds still unless the user asks: bars, scopes,
+     * grids, fields, landscapes and trees read as broken when they slowly roll, so for them the
+     * style DNA draws no spin or roll route, the motion field adds no drift spin or sway, and the
+     * rig does not bank the flat picture. The Rotation and Sway sliders, the camera roll and the
+     * user's own reaction routes still turn any style.
+     *
+     * core/viz/SceneRegistry.cpp keeps its own copy (kSpinningIds) for the native half, with
+     * each style's own spin rate and direction so no two of them turn alike.
+     */
+    val SPINNING_SCENES: Set<String> =
+        setOf(
+            SceneIds.KALEIDO,
+            SceneIds.MANDALA_DOME,
+            SceneIds.ORB_LATTICE,
+            SceneIds.CHROMA_ORB,
+            SceneIds.KIFS,
+            SceneIds.SPIRAL,
+            SceneIds.SPIRAL_EYE,
+            SceneIds.BEAD_VORTEX,
+            SceneIds.MERKABA_GRID,
+            SceneIds.TUNNEL,
+            SceneIds.ROD_TUNNEL,
+            SceneIds.PARTICLE_TUNNEL,
+            "lucid_mandala",
+            "lucid_mirror",
+            "lucid_spiral",
+            "lucid_vortex",
+            "lucid_tunnel",
+            "lucid_disc",
+            "chrys_kaleido",
+            "chrys_tunnel",
+        )
+
+    /**
      * The renderer [sceneId] builds.
      *
      * Unknown ids resolve to [SceneKind.SILK] because [SceneIds.DEFAULT] is a Silk style and

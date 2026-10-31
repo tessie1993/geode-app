@@ -347,4 +347,9 @@ Java_dev_geode_engine_bridge_GeodeNative_vizSetUnderlay(JNIEnv* env, jobject, jl
     env->ReleaseIntArrayElements(pixels, data, JNI_ABORT);
 }
 
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_catalogueText(JNIEnv* env, jobject) {
+    return env->NewStringUTF(geode_catalogue_text());
+}
+
 }

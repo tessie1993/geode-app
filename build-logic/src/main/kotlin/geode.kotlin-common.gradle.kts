@@ -54,3 +54,9 @@ tasks.withType<io.gitlab.arturbosch.detekt.Detekt>().configureEach {
 tasks.withType<io.gitlab.arturbosch.detekt.DetektCreateBaselineTask>().configureEach {
     jvmTarget = "17"
 }
+
+// JVM unit tests cannot load libgeode, so dev.geode.render.scene.Catalogue reads the checked-in copy of
+// the native catalogue table instead. core/tests/catalogue_test proves that copy equal to what C++ emits.
+tasks.withType<Test>().configureEach {
+    systemProperty("geode.catalogue", rootProject.file("core/tests/catalogue.txt").absolutePath)
+}

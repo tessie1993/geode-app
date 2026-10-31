@@ -29,6 +29,9 @@ constexpr float kChangeAt = 0.25f;   // cosine distance between the sound now an
 constexpr float kChangeGap = 0.25f;
 constexpr float kMotionTau = 8.0f;
 
+// Asymmetric one-pole: `rise` seconds going up, `fall` going down (as in SoundEngine).
+float lag(float y, float x, float rise, float fall, float dt) { return follow(y, x, x > y ? rise : fall, dt); }
+
 // Position of pitch class pc on the circle of fifths, in twelfths: C 0, G 1, D 2 … F 11.
 int fifthsOf(int pc) { return (pc * 7) % 12; }
 

@@ -99,9 +99,7 @@ class VisualizerDreamService : DreamService() {
                 engine.sceneParams = preset.params
             }
         }
-        prefs.getString("milk_path", null)?.let { path ->
-            if (java.io.File(path).isFile) engine.loadMilkPreset(path)
-        }
+        // The MilkDrop preset needs nothing here: the renderer restores the app's (MilkPresetMemory).
         engine.reducedMotion = ThemeStore(prefsFiles.general).loadGui().reducedMotion
         // The user's modulation too: without it the wallpaper and the dream drew the look
         // with every LFO, envelope and custom reaction switched off.

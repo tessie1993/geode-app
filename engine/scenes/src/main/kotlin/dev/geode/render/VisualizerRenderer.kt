@@ -107,9 +107,10 @@ class VisualizerRenderer(
 
     private val appContext = context.applicationContext
 
-    // Outlives nativeViz's handle, which VisualizerView destroys on every detach; each new handle
-    // starts on the preset this remembers rather than on projectM's idle preset.
-    private val milkPreset = MilkPresetMemory()
+    // Outlives nativeViz's handle, which VisualizerView destroys on every detach, and this renderer
+    // too (shared by the process, saved across restarts); each new handle starts on the preset it
+    // remembers rather than on projectM's idle preset.
+    private val milkPreset = MilkPresetMemory.shared(context)
     private val nativeViz =
         NativeViz(context).also { viz ->
             viz.onCreated = { milkPreset.restorePath?.let(viz::loadMilkPreset) }

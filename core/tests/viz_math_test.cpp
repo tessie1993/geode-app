@@ -87,7 +87,7 @@ void eventsDecayAndSilenceIsQuiet() {
 }
 
 void macroEnergyIsSlowAndArrivalIsAnEvent() {
-    static_assert(kReactSourceCount == 30, "dev.geode.render.ReactSource has 30 entries");
+    static_assert(kReactSourceCount == 34, "dev.geode.render.ReactSource has 34 entries");
     ReactSignals s;
     GeodeFeatureFrame f = silence();
     f.macroEnergy = 1.0f;
@@ -234,6 +234,100 @@ void stillStylesKeepTheBankOutOfTheFlatRoll() {
     check(maxTurning > 0.01f, "a turning style still banks into the curve");
 }
 
+// One beat (and a downbeat on count one) per 0.5 s at 60 fps, for `beats` beats.
+void playBeats(ReactionEngine& e, int beats, int& count) {
+    for (int b = 0; b < beats; ++b) {
+        for (int i = 0; i < 30; ++i) {
+            GeodeFeatureFrame f = silence();
+            if (i == 0) {
+                f.beat = 1.0f;
+                f.beatStrength = 1.0f;
+                f.pulseConfidence = 1.0f;
+                if (count % 4 == 0) f.downbeat = 1.0f;
+            }
+            e.tick(f, 1.0f / 60.0f);
+        }
+        ++count;
+    }
+}
+
+void jumpHoldsANewSeededValuePerHit() {
+    static_assert(kReactModeCount == 4, "dev.geode.render.ReactMode has 4 entries");
+    ReactionEngine a;
+    ReactionEngine b;
+    a.reset();
+    b.reset();
+    a.routes[0] = b.routes[0] = {true, ReactSource::Beat, LfoTarget::Twist, ReactMode::Jump, 1.0f, ModCurve::Linear, 0.0f, 0.0f};
+    int ca = 0;
+    int cb = 0;
+    float last = 0.0f;
+    int moved = 0;
+    for (int hit = 0; hit < 12; ++hit) {
+        playBeats(a, 1, ca);
+        playBeats(b, 1, cb);
+        const float v = a.output(0);
+        check(v >= -1.0f && v <= 1.0f, "jump stays within the amount");
+        if (std::fabs(v - last) >= 0.49f) ++moved;
+        last = v;
+        check(a.output(0) == b.output(0), "jump draws the same values for the same frames");
+    }
+    check(moved == 12, "every hit lands at least half a unit from the last");
+}
+
+void phraseBeatsAlternateEveryEightBars() {
+    ReactionEngine e;
+    e.reset();
+    e.routes[0] = {true, ReactSource::PhraseBeatA, LfoTarget::Zoom, ReactMode::Step, 0.1f, ModCurve::Linear, 0.0f, 0.0f};
+    e.routes[1] = {true, ReactSource::PhraseBeatB, LfoTarget::Twist, ReactMode::Step, 0.1f, ModCurve::Linear, 0.0f, 0.0f};
+    int count = 0;
+    playBeats(e, 32, count);  // phrase 0: eight bars of four
+    check(std::fabs(e.output(0) - ReactionEngine::fold(3.2f)) < 1e-3f, "phrase A hears every beat of its phrase");
+    check(e.output(1) == 0.0f, "phrase B is silent during phrase A");
+    check(e.signals().phraseCount() == 0, "eight bars are still one phrase");
+    const float a = e.output(0);
+    playBeats(e, 32, count);
+    check(e.signals().phraseCount() == 1, "the ninth bar starts the next phrase");
+    check(e.output(0) == a, "phrase A is silent during phrase B");
+    check(e.output(1) != 0.0f, "phrase B hears its own phrase");
+}
+
+void sectionStartsAPhraseAndOnsetsStandInForBeats() {
+    ReactSignals s;
+    GeodeFeatureFrame f = silence();
+    f.beat = 1.0f;
+    f.downbeat = 1.0f;
+    s.step(f, 1.0f / 60.0f);
+    f = silence();
+    for (int i = 0; i < 30; ++i) s.step(f, 1.0f / 60.0f);
+    f.sectionBoundary = 1.0f;
+    s.step(f, 1.0f / 60.0f);
+    check(s.phraseCount() == 1, "a section change starts a phrase");
+    check(s.value(ReactSource::Phrase) > 0.99f, "the phrase event fires");
+    // Three beatless seconds, then an onset: it stands in for the beat.
+    f = silence();
+    for (int i = 0; i < 180; ++i) s.step(f, 1.0f / 60.0f);
+    f.transient = 1.0f;
+    s.step(f, 1.0f / 60.0f);
+    check(s.value(ReactSource::PhraseBeatB) > 0.5f, "an onset drives the phrase beat when no beat comes");
+    check(s.phraseCount() == 1, "a lone onset does not start a phrase");
+}
+
+void backbeatIsCountsTwoAndFour() {
+    ReactionEngine e;
+    e.reset();
+    e.routes[0] = {true, ReactSource::Backbeat, LfoTarget::Warp, ReactMode::Step, 0.1f, ModCurve::Linear, 0.0f, 0.0f};
+    int count = 0;
+    playBeats(e, 8, count);
+    check(std::fabs(e.output(0) - ReactionEngine::fold(0.4f)) < 1e-3f, "two backbeats a bar");
+}
+
+void phrasesTurnOverWithoutBars() {
+    ReactSignals s;
+    GeodeFeatureFrame f = silence();
+    for (int i = 0; i < 60 * 21; ++i) s.step(f, 1.0f / 60.0f);
+    check(s.phraseCount() == 1, "a phrase turns over on time with no bars at all");
+}
+
 }  // namespace
 
 int main() {
@@ -244,6 +338,11 @@ int main() {
     eventsDecayAndSilenceIsQuiet();
     macroEnergyIsSlowAndArrivalIsAnEvent();
     deterministicForExport();
+    jumpHoldsANewSeededValuePerHit();
+    phraseBeatsAlternateEveryEightBars();
+    sectionStartsAPhraseAndOnsetsStandInForBeats();
+    backbeatIsCountsTwoAndFour();
+    phrasesTurnOverWithoutBars();
     cameraTravelsAndStaysOrthonormal();
     cameraSpringsInsteadOfSnapping();
     cameraPathRepeatsAcrossTheWrap();

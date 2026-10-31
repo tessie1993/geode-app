@@ -100,7 +100,9 @@ internal fun SharedLinkConfirm() {
     AlertDialog(
         onDismissRequest = dismiss,
         title = { Text(stringResource(title)) },
-        text = { Text(body) },
+        text = { Text(if (offer.carriesCode) body + "
+
+" + stringResource(R.string.link_offer_carries_code) else body) },
         confirmButton = {
             TextButton(onClick = {
                 dismiss()

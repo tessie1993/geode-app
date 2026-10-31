@@ -54,21 +54,26 @@ sealed interface TemplateLinkImport {
  * A shared link that reached the app and is waiting for the user's yes. The links are
  * BROWSABLE, so any web page or app can fire one; nothing is written until the user
  * confirms. [name] is blank when the link names nothing; [replaces] is the name of the
- * user's template a template link would overwrite (templates match on id).
+ * user's template a template link would overwrite (templates match on id). [carriesCode] is true
+ * when the look brings its own GLSL or MilkDrop code: the flash limit clamps parameters, not
+ * what that code draws, so the dialog says so before a stranger's code runs.
  */
 sealed interface SharedLinkOffer {
     val link: String
     val name: String
+    val carriesCode: Boolean
 
     data class Preset(
         override val link: String,
         override val name: String,
+        override val carriesCode: Boolean,
     ) : SharedLinkOffer
 
     data class Template(
         override val link: String,
         override val name: String,
         val replaces: String?,
+        override val carriesCode: Boolean,
     ) : SharedLinkOffer
 }
 
@@ -255,7 +260,7 @@ class VisualsViewModel
             if (PresetLink.isPresetLink(data)) {
                 val json = PresetLink.findIn(data)?.let(PresetLink::decode) ?: return null
                 val preset = runCatching { PresetStore.fromJson(json) }.getOrNull() ?: return null
-                return SharedLinkOffer.Preset(data, preset.name.trim())
+                return SharedLinkOffer.Preset(data, preset.name.trim(), preset.customShader != null || preset.milkPreset != null)
             }
             val link = TemplateFormat.linkIn(data) ?: return null
             val template = (TemplateFormat.decode(link) as? TemplateParse.Parsed)?.template ?: return null
@@ -263,7 +268,12 @@ class VisualsViewModel
                 session.templates.value
                     .firstOrNull { it.id == template.id }
                     ?.name
-            return SharedLinkOffer.Template(data, template.name.trim(), replaces)
+            return SharedLinkOffer.Template(
+                data,
+                template.name.trim(),
+                replaces,
+                template.look.customShader != null || template.look.milkPreset != null,
+            )
         }
 
         /** Whether [data] carries a template link at all, before the async import runs. */

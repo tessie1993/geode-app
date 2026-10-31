@@ -955,6 +955,7 @@
     <string name="link_offer_template_body">A link opened MuzViz with the video template \"%1$s\". Importing adds it to your templates.</string>
     <string name="link_offer_replace_title">Replace template?</string>
     <string name="link_offer_replace_body">A link opened MuzViz with another version of your template \"%1$s\". Importing replaces yours.</string>
+    <string name="link_offer_carries_code">It also brings its own shader code. The flash limit can't check what that code draws, so import it only from someone you trust.</string>
     <string name="link_offer_untitled_template">Shared template</string>
     <string name="link_offer_import">Import</string>
     <string name="link_offer_replace">Replace</string>

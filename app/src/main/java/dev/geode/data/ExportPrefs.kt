@@ -2,6 +2,7 @@ package dev.geode.data
 
 import android.content.SharedPreferences
 import dev.geode.export.ExportCodec
+import dev.geode.export.ExportPreset
 import dev.geode.export.ExportQuality
 import dev.geode.export.ExportRatio
 import dev.geode.export.LoudnessTarget
@@ -14,6 +15,14 @@ data class ExportDefaults(
     val codec: ExportCodec = ExportCodec.H264,
     val loudnessTargetId: String = LoudnessTarget.LeaveAsIs.id,
 )
+
+/**
+ * [preset]'s quality, frame rate, aspect and looping written over these options, once. A platform
+ * is a shortcut to a combination, not a mode: nothing remembers which one was used, so the next
+ * change the user makes is simply the new value, and codec and loudness are never touched.
+ */
+fun ExportDefaults.filledFrom(preset: ExportPreset): ExportDefaults =
+    copy(quality = preset.quality, ratio = preset.ratio, fps = preset.fps, loopSafe = preset.loopSafe)
 
 // Kept in sync with VideoExporter's `requestedFps.coerceIn(24, 60)`: these are the frame rates
 // offered anywhere in the UI, so nothing outside this set is ever persisted or requested.

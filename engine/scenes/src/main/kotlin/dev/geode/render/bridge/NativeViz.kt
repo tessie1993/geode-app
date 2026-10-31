@@ -40,12 +40,22 @@ class NativeViz(
 
     val isCreated: Boolean get() = handle != 0L
 
+    /**
+     * Runs once per new handle, inside [create], on whichever thread created it. A handle is
+     * created again after every [destroy], and that new renderer knows none of the state the old
+     * one was given; this is where an owner re-applies what must survive (the MilkDrop preset).
+     */
+    var onCreated: () -> Unit = {}
+
     @Synchronized
     fun create(): Boolean {
         if (handle == 0L) {
             verifyLayouts()
             handle = GeodeNative.vizCreate(assets, cacheDir)
-            if (handle != 0L) GeodeNative.vizSetMilkTextureDir(handle, milkTextureDir)
+            if (handle != 0L) {
+                GeodeNative.vizSetMilkTextureDir(handle, milkTextureDir)
+                onCreated()
+            }
         }
         return handle != 0L
     }

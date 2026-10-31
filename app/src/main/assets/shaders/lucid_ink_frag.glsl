@@ -66,7 +66,13 @@ void main() {
     p += vec2(0.0, flow * 0.08);
     p += lucidJitter(p, t);
 
-    vec4 n = lucidNest(p, depth, 1.05 * lucidChaos(), t * 0.12, LUCID_RIDGED, oct);
+    // The nest WARPS with smooth simplex and only the final read is ridged.
+    // Ridged noise fed back through five levels is chaotic: its creases have
+    // an unbounded slope, each level multiplies it, and the bath dissolved
+    // into per-pixel static. Smooth folds carrying sharp rings is suminagashi.
+    float strength = 0.85 * lucidChaos();
+    vec4 n = lucidNest(p, depth, strength, t * 0.12, LUCID_SIMPLEX, oct);
+    n.z = lucidFbm(p * 1.6 + strength * n.xy, LUCID_RIDGED, oct);
 
     float ridge = 0.5 + 0.5 * n.z;
     float lines = smoothstep(0.72, 0.95, ridge);

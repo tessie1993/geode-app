@@ -897,8 +897,8 @@ object BuiltInPresets {
             ),
         )
 
-    // Not the style families: each of their 48 styles is already its own tuned look, and
-    // thirteen generic looks apiece would add 624 rows that bury the presets people made.
+    // Not the style families: each of their styles is already its own tuned look, and
+    // thirteen generic looks apiece would add hundreds of rows that bury the presets people made.
     val ALL: List<Preset> =
         SceneCapabilities.SHADER_SCENES.keys.filterNot { it in StyleFamilies.ids }.flatMap { id ->
             LOOKS.map { look ->

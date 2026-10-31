@@ -69,6 +69,16 @@ class VisualizerView(
         holder.addCallback(frameRateCallback)
     }
 
+    /**
+     * Settings › Performance for this surface: quality to the renderer, the fps cap to the pacer.
+     * Main thread, like every other pacer call; the new cap reaches the display at once.
+     */
+    fun applyPerformance(settings: PerformanceSettings) {
+        visualizerRenderer.performance = settings
+        framePacer.policy = FrameRatePolicy.Capped(settings.fpsCap.toFloat())
+        holder.surface?.takeIf { it.isValid }?.let(framePacer::applyTo)
+    }
+
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
         syncPacer()

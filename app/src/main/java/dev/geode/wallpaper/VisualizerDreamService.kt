@@ -5,6 +5,7 @@ import android.view.ViewGroup
 import dev.geode.audio.AudioBus
 import dev.geode.billing.ProSnapshot
 import dev.geode.data.GeodePrefsFiles
+import dev.geode.data.PerformanceStore
 import dev.geode.data.PlayerPrefsStore
 import dev.geode.data.PresetStore
 import dev.geode.data.ThemeStore
@@ -60,6 +61,7 @@ class VisualizerDreamService : DreamService() {
         val view = VisualizerView(this)
         visualizerView = view
         restoreLiveState(view.visualizerRenderer, prefsFiles)
+        view.applyPerformance(PerformanceStore(prefsFiles.general, this).settings.value)
         view.visualizerRenderer.pcmProvider = { null }
         view.visualizerRenderer.soundInput = { AudioBus.soundInput }
         setContentView(view)

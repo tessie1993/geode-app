@@ -65,6 +65,8 @@ struct SceneHost {
     // The rate the display is being asked for (0 = free-running), for the fluid quality ladder.
     std::function<float()> pacedFps;
     std::function<void(const std::string& path)> onMilkPresetLoaded;
+    // Settings › Performance's march-step multiplier (0..1); unset means full budget.
+    std::function<float()> marchScale;
 };
 
 }  // namespace geode::viz

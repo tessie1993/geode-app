@@ -8,8 +8,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.geodeContainer
 import dev.geode.render.BlendMode
-import dev.geode.render.TransitionCatalog
-import dev.geode.render.VisualSafety
 import dev.geode.render.VisualizerView
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -105,10 +103,10 @@ fun VisualizerEngineBindings(
         visualizerView.visualizerRenderer.reactions = reactions
     }
     LaunchedEffect(viz.transitionId, viz.transitionDurationSec) {
-        val id = VisualSafety.transitionId(viz.transitionId)
+        // A requested cut becomes a fade natively (core/viz/VisualSafety, applied by Renderer::setTransition).
+        val id = viz.transitionId
         val renderer = visualizerView.visualizerRenderer
         renderer.transitionId = id
-        TransitionCatalog.builtIn(id)?.let { renderer.transitionStyle = it }
         renderer.transitionDurationMs = (viz.transitionDurationSec * 1000).toLong()
         visualizerView.queueEvent { renderer.warmTransition(id) }
     }

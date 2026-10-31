@@ -14,16 +14,22 @@ import dev.geode.render.scene.StyleFamilies
  */
 object FreeTier {
     /**
+     * Every style-family style but its opener. The native catalogue says which style opens a family
+     * (core/viz/Catalogue); this file is what makes the opener the free one.
+     */
+    val familyProIds: Set<String> = StyleFamilies.all.flatMapTo(mutableSetOf()) { it.ids - it.opener }
+
+    /**
      * Styles a free user can select and keep: the fragment-shader styles (julia, tunnel, bars,
      * ring, scope, plasma, nebula and the rest of [SceneCapabilities.SHADER_SCENES]), so a loose
-     * shader style added later is free too, minus [StyleFamilies.proIds]. A style family gives away
-     * its first, most basic style and keeps the other eleven for Pro: a free user can try every
+     * shader style added later is free too, minus [familyProIds]. A style family gives away its
+     * opener (the first, most basic style) and keeps the other eleven for Pro: a free user can try every
      * family, and buying Pro is what opens the range. Everything else (silk, fluid, water, MilkDrop,
      * cymatics and the other dedicated renderers) is Pro, shows a Pro badge and opens the paywall
      * when picked. A renamed or removed id simply stops matching, which makes that style Pro rather
      * than crashing.
      */
-    val freeStyleIds: Set<String> = SceneCapabilities.SHADER_SCENES.keys - StyleFamilies.proIds
+    val freeStyleIds: Set<String> = SceneCapabilities.SHADER_SCENES.keys - familyProIds
 
     /**
      * Where a free user lands when the style on screen is no longer theirs (a new install, whose

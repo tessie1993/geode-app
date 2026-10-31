@@ -124,7 +124,6 @@ fun VisualizerEngineBindings(
     }
     LaunchedEffect(Unit) {
         visualizerView.visualizerRenderer.onMilkPresetLoaded = { visualsViewModel.noteMilkPreset(it) }
-        viewModel.activeMilkPath.value?.let { visualizerView.visualizerRenderer.loadMilkPreset(it) }
         viewModel.vizApply.collect { apply ->
             apply.milkPath?.let {
                 visualizerView.visualizerRenderer.loadMilkPreset(it)

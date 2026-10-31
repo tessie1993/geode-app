@@ -47,15 +47,20 @@ public:
             }
         }
         if (mean_ > kFloor) {
-            ratio_ = softLimit(inst / mean_);
+            rawRatio_ = inst / mean_;
+            ratio_ = softLimit(rawRatio_);
             attRatio_ = softLimit(att_ / mean_);
         } else {
             // Nothing heard in this band yet: MilkDrop's answer, "normal", if there is anything now.
             ratio_ = inst > 0.0f ? 1.0f : 0.0f;
+            rawRatio_ = ratio_;
             attRatio_ = ratio_;
         }
     }
     float ratio() const { return ratio_; }
+    // The ratio before softLimit, unbounded as in MilkDrop: what the hard cut compares, since a threshold
+    // that doubles past 4 could never be reached by the limited one.
+    float rawRatio() const { return rawRatio_; }
     float attRatio() const { return attRatio_; }
     void reset() { *this = RelativeLevel(); }
 
@@ -69,6 +74,7 @@ private:
     float mean_ = 0.0f;
     bool primed_ = false;
     float ratio_ = 1.0f;
+    float rawRatio_ = 1.0f;
     float attRatio_ = 1.0f;
 };
 

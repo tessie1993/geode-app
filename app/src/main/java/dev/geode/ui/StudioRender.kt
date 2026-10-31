@@ -77,13 +77,19 @@ fun StudioHub(
             GlowTitle(stringResource(R.string.nav_studio))
         }
         CrystalTabs(
-            titles = listOf(stringResource(R.string.studio_edit), stringResource(R.string.studio_render)),
+            titles =
+                listOf(
+                    stringResource(R.string.studio_edit),
+                    stringResource(R.string.studio_render),
+                    stringResource(R.string.studio_takes),
+                ),
             selected = section.ordinal,
             onSelect = { onSection(StudioSection.entries[it]) },
         )
         when (section) {
             StudioSection.EDIT -> ProGate(ProFeature.STUDIO) { StudioRoute() }
             StudioSection.RENDER -> StudioRenderTab(viewModel, visualizerView)
+            StudioSection.TAKES -> TakesTab(geodeViewModel())
         }
     }
 }

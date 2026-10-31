@@ -1003,3 +1003,12 @@ Shadertoy code is used. Credited as the best-known demonstration of it:
 
   "Star Nest" by Kali                  https://www.shadertoy.com/view/XlfGRj
     (volumetric fly-through star field and gas)
+
+
+The Terrain style family (app/src/main/assets/shaders/lib_terra.glsl and its
+terra_* styles) is original code written from the published technique; no
+Shadertoy code is used. Credited as the best-known demonstration of it:
+
+  "Elevated" by iq (RGBA, Breakpoint 2009)
+                                       https://www.shadertoy.com/view/MdX3Rr
+    (ray-marched fbm heightfield terrain with fog and sky)

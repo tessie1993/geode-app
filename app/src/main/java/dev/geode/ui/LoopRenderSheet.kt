@@ -107,7 +107,7 @@ fun LoopRenderSheet(
                             stringResource(R.string.export_failed, phase.message),
                             color = MaterialTheme.colorScheme.error,
                         )
-                    ExportPhase.Idle, ExportPhase.Loading ->
+                    ExportPhase.Idle ->
                         LoopRenderControls(
                             loopSeconds = loopSeconds,
                             onLoopSecondsChange = { loopSeconds = it },

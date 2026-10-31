@@ -59,7 +59,7 @@ internal fun RenderBar(
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         when (val phase = export.phase) {
-            is ExportPhase.Running, ExportPhase.Loading -> RenderProgress(export, onCancel)
+            is ExportPhase.Running -> RenderProgress(export, onCancel)
             is ExportPhase.Done -> RenderResult(export, phase, onClearResult)
             is ExportPhase.Failed ->
                 Row(verticalAlignment = Alignment.CenterVertically) {

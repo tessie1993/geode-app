@@ -7,8 +7,6 @@ import dev.geode.export.VideoExporter
 sealed interface ExportPhase {
     data object Idle : ExportPhase
 
-    data object Loading : ExportPhase
-
     data class Running(
         val progress: Float,
     ) : ExportPhase
@@ -25,7 +23,7 @@ sealed interface ExportPhase {
 val ExportPhase.isBusy: Boolean
     get() =
         when (this) {
-            ExportPhase.Loading, is ExportPhase.Running -> true
+            is ExportPhase.Running -> true
             ExportPhase.Idle, is ExportPhase.Done, is ExportPhase.Failed -> false
         }
 
@@ -33,7 +31,7 @@ val ExportPhase.isRunning: Boolean
     get() =
         when (this) {
             is ExportPhase.Running -> true
-            ExportPhase.Idle, ExportPhase.Loading, is ExportPhase.Done, is ExportPhase.Failed -> false
+            ExportPhase.Idle, is ExportPhase.Done, is ExportPhase.Failed -> false
         }
 
 val ExportPhase.progress: Float
@@ -41,21 +39,21 @@ val ExportPhase.progress: Float
         when (this) {
             is ExportPhase.Running -> progress
             is ExportPhase.Done -> 1f
-            ExportPhase.Idle, ExportPhase.Loading, is ExportPhase.Failed -> 0f
+            ExportPhase.Idle, is ExportPhase.Failed -> 0f
         }
 
 val ExportPhase.resultUriOrNull: Uri?
     get() =
         when (this) {
             is ExportPhase.Done -> resultUri
-            ExportPhase.Idle, ExportPhase.Loading, is ExportPhase.Running, is ExportPhase.Failed -> null
+            ExportPhase.Idle, is ExportPhase.Running, is ExportPhase.Failed -> null
         }
 
 val ExportPhase.errorOrNull: String?
     get() =
         when (this) {
             is ExportPhase.Failed -> message
-            ExportPhase.Idle, ExportPhase.Loading, is ExportPhase.Running, is ExportPhase.Done -> null
+            ExportPhase.Idle, is ExportPhase.Running, is ExportPhase.Done -> null
         }
 
 fun ExportPhase.withProgress(next: Float): ExportPhase = ExportPhase.Running(next.coerceIn(0f, 1f))

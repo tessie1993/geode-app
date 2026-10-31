@@ -43,6 +43,8 @@ import kotlinx.coroutines.withContext
 
 data class StudioUiState(
     val clips: List<dev.geode.export.StudioClip> = emptyList(),
+    /** False until the first clip list arrives, so the empty state doesn't flash first. Kept apart from [phase], which holds the last export's result. */
+    val clipsLoaded: Boolean = false,
     val phase: ExportPhase = ExportPhase.Idle,
 )
 
@@ -115,9 +117,6 @@ internal class ExportController(
 
     val studio: StateFlow<StudioUiState> = _studio
 
-    @Volatile
-    private var exportCancelled = false
-
     private var exportJob: Job? = null
 
     init {
@@ -147,7 +146,6 @@ internal class ExportController(
     ) {
         val uri = host.exportUri ?: return
         if (_exportState.value.phase.isBusy || ExportRun.running) return
-        exportCancelled = false
         _exportState.value =
             ExportUiState(customDestination = destination != null, phase = ExportPhase.Running(0f))
         // Basename only: a SAF document id is "primary:Music/Artist/Song.mp3", and this
@@ -211,7 +209,7 @@ internal class ExportController(
                                 _exportState.update { it.copy(phase = ExportPhase.Running(p)) }
                                 ExportRun.publish(p, steady = p >= VideoExporter.AUDIO_PROGRESS_SPAN)
                             },
-                            isCancelled = { exportCancelled || ExportRun.cancelRequested },
+                            isCancelled = { ExportRun.cancelRequested },
                             watermark = watermark,
                         )
                     _exportState.value =
@@ -228,7 +226,7 @@ internal class ExportController(
                     if (t is kotlinx.coroutines.CancellationException) {
                         _exportState.value = ExportUiState()
                         throw t
-                    } else if (exportCancelled) {
+                    } else if (ExportRun.cancelRequested) {
                         _exportState.value = ExportUiState()
                     } else {
                         val reason = t.message ?: application.getString(dev.geode.R.string.export_error_no_message)
@@ -260,7 +258,6 @@ internal class ExportController(
         watermark: Boolean,
     ) {
         if (tracks.isEmpty() || _exportState.value.phase.isBusy || ExportRun.running) return
-        exportCancelled = false
         var batch = RenderBatch(tracks)
         _exportState.value = ExportUiState(phase = ExportPhase.Running(0f), batch = batch)
         ExportRun.begin(application.getString(dev.geode.R.string.render_batch_label, tracks.size))
@@ -271,7 +268,7 @@ internal class ExportController(
                     val gui = host.guiPrefs
                     // A Cancel between tracks ends the loop; the tracks left are then marked cancelled.
                     var track = batch.current
-                    while (track != null && !exportCancelled && !ExportRun.cancelRequested) {
+                    while (track != null && !ExportRun.cancelRequested) {
                         val publish: (Float) -> Unit = { within ->
                             val overall = batch.progress(within)
                             _exportState.update { it.copy(phase = ExportPhase.Running(overall), batch = batch) }
@@ -329,7 +326,7 @@ internal class ExportController(
                 loudnessTarget = defaultLoudnessTarget(),
                 background = defaultBackground(),
                 onProgress = publish,
-                isCancelled = { exportCancelled || ExportRun.cancelRequested },
+                isCancelled = { ExportRun.cancelRequested },
                 watermark = watermark,
             )
         return when (result) {
@@ -353,9 +350,9 @@ internal class ExportController(
         )
     }
 
-    fun cancelExport() {
-        exportCancelled = true
-    }
+    // The job runs in the process-wide ExportRun.scope and can outlive this controller (Back mid-render,
+    // then back in from the notification builds a new session), so the cancel flag lives there too.
+    fun cancelExport() = ExportRun.requestCancel()
 
     fun resetExportState() {
         if (!_exportState.value.phase.isBusy) _exportState.value = ExportUiState()
@@ -363,13 +360,13 @@ internal class ExportController(
 
     fun refreshStudioClips() {
         scope.launch {
-            _studio.update { it.copy(phase = ExportPhase.Loading) }
             val clips =
                 withContext(Dispatchers.IO) {
                     dev.geode.export.StudioClips
                         .list(application)
                 }
-            _studio.update { it.copy(clips = clips, phase = ExportPhase.Idle) }
+            // Clips only: this runs straight after an export, and the phase holds its result.
+            _studio.update { it.copy(clips = clips, clipsLoaded = true) }
         }
     }
 
@@ -507,9 +504,6 @@ internal class ExportController(
     private val _loopState = MutableStateFlow(LoopUiState())
     val loopState: StateFlow<LoopUiState> = _loopState
 
-    @Volatile
-    private var loopCancelled = false
-
     private var loopJob: Job? = null
 
     /**
@@ -534,7 +528,6 @@ internal class ExportController(
     ) {
         val uri = host.exportUri ?: return
         if (_loopState.value.phase.isBusy || ExportRun.running) return
-        loopCancelled = false
         _loopState.value = LoopUiState(phase = ExportPhase.Running(0f))
         ExportRun.begin(uri.lastPathSegment.orEmpty().substringAfterLast('/'))
         ExportService.start(application)
@@ -558,7 +551,7 @@ internal class ExportController(
                             audioUri = uri,
                             soundTuning = gui.soundTuning,
                             onProgress = { p -> publishLoopProgress(p * RENDER_SPAN) },
-                            isCancelled = { loopCancelled || ExportRun.cancelRequested },
+                            isCancelled = { ExportRun.cancelRequested },
                             watermark = watermark,
                         )
                     _loopState.value = LoopUiState(phase = finishLoopRender(renderResult, uri, audioClips, destination))
@@ -566,7 +559,7 @@ internal class ExportController(
                     if (t is kotlinx.coroutines.CancellationException) {
                         _loopState.value = LoopUiState()
                         throw t
-                    } else if (loopCancelled) {
+                    } else if (ExportRun.cancelRequested) {
                         _loopState.value = LoopUiState()
                     } else {
                         val reason = t.message ?: application.getString(dev.geode.R.string.export_error_no_message)
@@ -610,7 +603,7 @@ internal class ExportController(
                             fileName = name,
                             destination = destination,
                             onProgress = { p -> publishLoopProgress(RENDER_SPAN + p * EXTEND_SPAN) },
-                            isCancelled = { loopCancelled || ExportRun.cancelRequested },
+                            isCancelled = { ExportRun.cancelRequested },
                         )
                     when (extended) {
                         is LoopExtend.Result.Saved -> ExportPhase.Done(extended.uri)
@@ -629,9 +622,7 @@ internal class ExportController(
         ExportRun.publish(clamped)
     }
 
-    fun cancelLoopRender() {
-        loopCancelled = true
-    }
+    fun cancelLoopRender() = ExportRun.requestCancel()
 
     fun clearLoopResult() {
         if (!_loopState.value.phase.isBusy) _loopState.value = LoopUiState()

@@ -533,7 +533,6 @@ private fun ExportStatusRow(
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                 TextButton(onClick = onExportToDestination) { Text(stringResource(R.string.export_render_to_folder)) }
             }
-        ExportPhase.Loading -> Unit
     }
 }
 

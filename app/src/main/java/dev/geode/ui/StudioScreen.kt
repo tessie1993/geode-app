@@ -217,7 +217,7 @@ private fun ClipList(
                 CrystalButton(onClick = onPick) { Text(stringResource(R.string.studio_open_video)) }
             }
         }
-        if (studio.clips.isEmpty() && studio.phase != ExportPhase.Loading) {
+        if (studio.clips.isEmpty() && studio.clipsLoaded) {
             item { ClipLibraryEmpty() }
         }
         items(studio.clips.size) { index ->
@@ -685,7 +685,7 @@ private fun ClipRenderSection(
         when (phase) {
             is ExportPhase.Running -> ClipEditorRunning(phase.progress, onCancelExport)
             is ExportPhase.Done -> ClipEditorDone(phase.resultUri, onClearResult)
-            ExportPhase.Idle, ExportPhase.Loading, is ExportPhase.Failed ->
+            ExportPhase.Idle, is ExportPhase.Failed ->
                 ClipEditorIdle(
                     message = phase.errorOrNull,
                     canExport = canExport,

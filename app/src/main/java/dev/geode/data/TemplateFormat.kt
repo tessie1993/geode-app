@@ -175,7 +175,10 @@ object TemplateFormat {
         if (!root.optString(KEY_FORMAT).equals(FORMAT, ignoreCase = true)) {
             return TemplateParse.NotATemplate("no '$KEY_FORMAT': '$FORMAT' marker")
         }
-        return TemplateParse.Parsed(readTemplate(root))
+        // Reading rebuilds JSON (looks, params), and org.json throws on a value it can't write
+        // back; a crafted link must read as malformed, not crash the activity that received it.
+        val template = runCatching { readTemplate(root) }.getOrNull() ?: return TemplateParse.Malformed("the template could not be read")
+        return TemplateParse.Parsed(template)
     }
 
     fun isTemplateText(text: String): Boolean = decode(text) is TemplateParse.Parsed
@@ -504,7 +507,7 @@ object TemplateFormat {
         source: JSONObject?,
         key: String,
         fallback: Float,
-    ): Float = source?.optDouble(key, fallback.toDouble())?.toFloat() ?: fallback
+    ): Float = source?.optDouble(key, fallback.toDouble())?.toFloat()?.takeIf { it.isFinite() } ?: fallback
 
     private fun optStringOrNull(
         source: JSONObject?,

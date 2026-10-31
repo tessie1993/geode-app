@@ -50,7 +50,8 @@ internal fun DuplicatesTab(
             item { Text(stringResource(R.string.duplicates_none), Modifier.padding(16.dp)) }
         }
         groups.forEach { group ->
-            item(key = "${group.title}|${group.artist}") {
+            // Two groups can share title and artist (different lengths), so key by a member.
+            item(key = "g:${group.tracks.first().uri}") {
                 Text(
                     stringResource(R.string.duplicates_group, group.title, group.artist, group.tracks.size),
                     style = MaterialTheme.typography.labelMedium,

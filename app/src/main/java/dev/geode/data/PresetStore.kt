@@ -342,7 +342,7 @@ class PresetStore(
         }
 
         internal fun fromJson(json: String): Preset {
-            val o = JSONObject(json)
+            val o = FiniteJson(json)
             return Preset(
                 name = o.getString("name"),
                 sceneId = o.getString("sceneId"),
@@ -521,4 +521,22 @@ class PresetStore(
             )
         }
     }
+}
+
+/**
+ * Reads numbers as [PresetStore] stores them: as floats. A shared link can carry `1e39` or
+ * `"NaN"`, which `toFloat()` turns into a non-finite value that [JSONObject.put] later refuses
+ * with a [org.json.JSONException], crashing the save or the apply that follows the import.
+ * Such a value reads as the key's fallback (or, for a required key, as a malformed preset).
+ */
+private class FiniteJson(
+    json: String,
+) : JSONObject(json) {
+    override fun optDouble(
+        name: String,
+        fallback: Double,
+    ): Double = super.optDouble(name, fallback).takeIf { it.toFloat().isFinite() } ?: fallback
+
+    override fun getDouble(name: String): Double =
+        super.getDouble(name).takeIf { it.toFloat().isFinite() } ?: throw org.json.JSONException("non-finite '$name'")
 }

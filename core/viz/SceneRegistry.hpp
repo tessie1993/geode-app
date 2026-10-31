@@ -22,6 +22,8 @@ public:
     // signed multiplier on the motion field's drift spin, 0 for a style that
     // holds still (no drift spin, no sway, no bank of the flat picture).
     static float spinRate(const std::string& id);
+    // A fragment style (ShaderScene): it reads morph and the second palette.
+    static bool isShaderStyle(const std::string& id);
     // Every id in the order the Kotlin registry listed them.
     std::vector<std::string> availableIds() const;
     // Builds an uninitialised scene; nullptr for an id native code cannot draw.

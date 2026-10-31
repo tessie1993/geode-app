@@ -192,7 +192,7 @@ class PlayerSession internal constructor(
                 override fun applyLook(
                     look: TemplateLook,
                     name: String,
-                ) = visual.applyPreset(look.toPreset(name))
+                ) = this@PlayerSession.applyPreset(look.toPreset(name)) // gated: templates may carry Pro styles
             },
         )
 

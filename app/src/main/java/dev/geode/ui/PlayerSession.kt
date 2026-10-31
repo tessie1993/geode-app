@@ -1392,7 +1392,7 @@ class PlayerSession internal constructor(
         playerListener = listener
         player.addListener(listener)
         sleepTimer.onFadeVolume = fades.sleepFadeHook
-        playback.exoPlayer?.let { audioFxController.attach(it.audioSessionId) }
+        audioFxController.attach(playback.exoPlayer.audioSessionId)
         settings.refreshAudioFx()
         if (alreadyLoaded) onTrackChanged()
     }

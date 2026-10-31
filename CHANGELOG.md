@@ -11,6 +11,16 @@ a partial reconstruction, rebuilt from the references in these entries, is at
 
 ## Unreleased
 
+- **Native playback engine removed.** Playback is ExoPlayer only. The opt-in native player
+  (AMediaCodec decode, mixer, Oboe output), its crossfade and gapless settings, its JNI and the
+  Oboe submodule are gone; the DSP chain, ReplayGain and the visualizer tap are unchanged. The
+  bit-perfect USB toggle (Android 14+) now applies to ExoPlayer and shows on its own.
+- **Bug hunt fixes (docs/BUG_HUNT_2026-10.md).** The shown MilkDrop preset now survives reattach,
+  relaunch, the wallpaper and export; crafted preset and template links no longer crash; Pro no
+  longer expires for wallpaper and screensaver buyers; 5.1 files play; headset and Android Auto
+  sessions honour pause-on-unplug and ReplayGain; long exports stay under 4 GB; Studio exports run
+  in the foreground; and smaller fixes.
+
 - **Form drive: the superformula as the one driver every visual is fed
   through.** `core/viz/FormDrive` sits in `Renderer::resolveParams`, after
   the LFO and ADSR slots and before the safety clamp, so every family's

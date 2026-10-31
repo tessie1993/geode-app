@@ -12,7 +12,7 @@
 #
 # What it does not prove: anything about the Android toolchain (clang, the
 # NDK's libc++, 16 KB page alignment, LTO), the audio/analysis/library trees
-# (they need kissfft, oboe, taglib and mediandk), or that anything runs.
+# (they need kissfft and taglib), or that anything runs.
 #
 # Stubs, all named: android/asset_manager.h and android/log.h are replaced by
 # C-linkage declarations, projectM's two CMake-generated headers

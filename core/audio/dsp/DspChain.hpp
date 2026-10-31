@@ -23,8 +23,8 @@ public:
     Crossfeed& crossfeed() { return crossfeed_; }
     Limiter& limiter() { return limiter_; }
 
-    // Not RT-safe: the limiter reallocates its lookahead buffers. Call this only on a chain that has not
-    // been installed via geode_player_set_dsp yet; a live chain is swapped out for a freshly built one at
+    // Not RT-safe: the limiter reallocates its lookahead buffers. Call this only on a chain no audio
+    // thread is running yet; a live chain is swapped out for a freshly built one at
     // the new rate instead (see geode_dsp_set_sample_rate / geode_dsp_sample_rate).
     void setSampleRate(int sampleRate) {
         if (sampleRate <= 0 || sampleRate == sampleRate_) return;

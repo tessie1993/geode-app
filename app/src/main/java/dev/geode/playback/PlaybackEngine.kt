@@ -8,7 +8,6 @@ import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
-import dev.geode.BuildConfig
 import dev.geode.analysis.PlaybackMath
 import dev.geode.audio.AudioFxController
 import dev.geode.audio.AudioFxPresets
@@ -72,43 +71,32 @@ class PlaybackSession internal constructor(
 
     private val prefsFiles = GeodePrefsFiles(context)
 
-    /**
-     * Read once here: the engine choice is fixed for the life of the session. Release builds always
-     * use ExoPlayer: the native engine still lacks audio focus and becoming-noisy handling, and its
-     * index-keyed pre-roll plays the wrong track after a queue edit (docs/BUG_HUNT_2026-10.md).
-     */
-    val nativeEngine: Boolean = BuildConfig.DEBUG && PlayerPrefsStore(prefsFiles.player).load().nativeEngine
-
     // WAKE_MODE_LOCAL takes a partial wake lock while playback is active, so the CPU
     // cannot doze mid-track with the screen off. Not the WIFI variant: nothing streams.
-    val exoPlayer: ExoPlayer? =
-        if (nativeEngine) {
-            null
-        } else {
-            ExoPlayer
-                .Builder(context, TapRenderersFactory(context, tap, clockDriver, dsp = listOf(dsp)))
-                .setMediaSourceFactory(
-                    androidx.media3.exoplayer.source.DefaultMediaSourceFactory(
-                        context,
-                        androidx.media3.extractor.ExtractorsFactory {
-                            androidx.media3.extractor
-                                .DefaultExtractorsFactory()
-                                .createExtractors() +
-                                dev.geode.audio.AiffExtractor()
-                        },
-                    ),
-                ).setAudioAttributes(
-                    AudioAttributes
-                        .Builder()
-                        .setUsage(C.USAGE_MEDIA)
-                        .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
-                        .build(),
-                    true,
-                ).setWakeMode(C.WAKE_MODE_LOCAL)
-                .build()
-        }
+    val exoPlayer: ExoPlayer =
+        ExoPlayer
+            .Builder(context, TapRenderersFactory(context, tap, clockDriver, dsp = listOf(dsp)))
+            .setMediaSourceFactory(
+                androidx.media3.exoplayer.source.DefaultMediaSourceFactory(
+                    context,
+                    androidx.media3.extractor.ExtractorsFactory {
+                        androidx.media3.extractor
+                            .DefaultExtractorsFactory()
+                            .createExtractors() +
+                            dev.geode.audio.AiffExtractor()
+                    },
+                ),
+            ).setAudioAttributes(
+                AudioAttributes
+                    .Builder()
+                    .setUsage(C.USAGE_MEDIA)
+                    .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
+                    .build(),
+                true,
+            ).setWakeMode(C.WAKE_MODE_LOCAL)
+            .build()
 
-    val player: Player = exoPlayer ?: NativePlayer(context, NativeTapPump(tap, clockDriver), NativePlayerDsp(dsp))
+    val player: Player = exoPlayer
 
     val audioFx = AudioFxController(prefsFiles.audioFx, AudioFxPresets.all(context), dsp)
 
@@ -225,7 +213,7 @@ object PlaybackEngine {
 
 /**
  * The prefs that live on the player itself rather than in the UI: speed and pitch, becoming-noisy,
- * skip-silence, crossfade and gapless, ReplayGain. One function so the session's own start-up and
+ * skip-silence, ReplayGain. One function so the session's own start-up and
  * Settings apply exactly the same set.
  */
 @OptIn(UnstableApi::class)
@@ -239,6 +227,5 @@ fun applyPlayerPrefs(
         it.skipSilenceEnabled = p.skipSilence
         it.setHandleAudioBecomingNoisy(p.pauseOnNoisy)
     }
-    (player as? NativePlayer)?.applyPrefs(p.crossfadeMs, p.crossfadeCurve, p.gapless)
     replayGain.configure(p.replayGainMode, p.replayGainPreampDb, p.replayGainClipGuard)
 }

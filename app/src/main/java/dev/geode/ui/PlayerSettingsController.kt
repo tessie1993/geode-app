@@ -10,7 +10,6 @@ import dev.geode.data.GuiPrefs
 import dev.geode.data.PlayerPrefs
 import dev.geode.data.PlayerPrefsRepository
 import dev.geode.data.UserDataRepository
-import dev.geode.playback.NativePlayer
 import dev.geode.playback.ReplayGain
 import dev.geode.playback.applyPlayerPrefs
 import kotlinx.coroutines.CoroutineScope
@@ -70,9 +69,15 @@ internal class PlayerSettingsController(
         applyPlaybackPrefs(p)
     }
 
+    private var appliedBitPerfect: Boolean? = null
+
     fun applyPlaybackPrefs(p: PlayerPrefs) {
         applyPlayerPrefs(player, replayGain, p)
-        if (player is NativePlayer) host.applyBitPerfect(p.bitPerfect)
+        // Only on a change: these prefs are applied on every slider frame, and this is binder work.
+        if (appliedBitPerfect != p.bitPerfect) {
+            appliedBitPerfect = p.bitPerfect
+            host.applyBitPerfect(p.bitPerfect)
+        }
     }
 
     private fun persistPlayerOptions() {

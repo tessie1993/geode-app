@@ -104,7 +104,9 @@ private class PrefsStore(
     override fun usable(path: String): Boolean = File(path).isFile
 
     // The starter pack is copied once per install (it keeps a marker), so this is a file check
-    // after the first launch; it only runs while nothing has ever been shown.
+    // after the first launch; it only runs while nothing has ever been shown. Synchronized: the app's,
+    // the wallpaper's and the dream's GL threads can all ask at once, and must not copy the same file.
+    @Synchronized
     override fun firstRun(): String? {
         MilkStarterPack.install(context)
         return File(File(context.filesDir, "milk"), MilkPresetMemory.FIRST_RUN_PRESET)

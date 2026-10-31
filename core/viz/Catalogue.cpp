@@ -12,7 +12,7 @@ namespace {
 
 // The loose fragment styles (ShaderScene compiles shaders/<id>_frag.glsl), in picker order. The
 // families' styles follow them.
-constexpr std::array<const char*, 53> kLooseShaders = {
+constexpr std::array<const char*, 55> kLooseShaders = {
     "julia", "tunnel", "mandel", "kaleido", "plasma", "bars", "ring", "scope", "liss", "warp", "grid", "voronoi",
     "metaballs", "ripples", "starfield", "waves", "hexgrid", "spiral", "aurora", "solar", "winter", "lava",
     // Built on the shared GLSL libraries (lib_scene_uniforms, lib_scene_grade, lib_sdf3, lib_touch).
@@ -28,15 +28,18 @@ constexpr std::array<const char*, 53> kLooseShaders = {
     // The second rig set: kick, snare, hats, onsets, drops and pitch each move a different property.
     "spectrum_terrain", "outrun_drive", "menger_core", "gyroid_cavern", "ringed_planet", "jelly_abyss", "ribbon_storm",
     "prism_rain",
+    // Two looks restored from branches that never merged (#14, #7), rewritten on the sound engine.
+    "supershape", "fractal_tunnel",
 };
 
 // The loose styles that raymarch, and so spend the Detail budget. Per STYLE rather than per kind:
 // Plasma and Vanishing are both shader styles and only one has a march to spend steps on.
-constexpr std::array<const char*, 19> kLooseMarched = {
+constexpr std::array<const char*, 21> kLooseMarched = {
     "vanishing", "morphogen", "nebula", "noneuclid", "kifs", "rod_tunnel",
     // Curl Bloom marches a distance field, Nectar Flow a volume; Detail is the budget for both.
     "curl_bloom", "nectar_flow", "crystal_canyon", "neon_city", "particle_tunnel", "chrome_nebula", "fractal_dive",
     "aurora_ocean", "spectrum_terrain", "menger_core", "gyroid_cavern", "jelly_abyss", "prism_rain",
+    "supershape", "fractal_tunnel",
 };
 
 constexpr std::array<Family, 9> kFamilies = {{

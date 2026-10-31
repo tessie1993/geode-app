@@ -206,8 +206,17 @@ void MilkdropScene::loadPendingPreset(double now) {
         std::lock_guard<std::mutex> lock(errorLock_);
         lastError_.clear();
     }
-    projectm_load_preset_file(engine_.get(), path.c_str(), engineHasPreset_ && params_.milkdropBlendPresets);
-    projectm_set_preset_locked(engine_.get(), true);
+    // projectM 4.1.7 takes any "scheme://" it does not know as a silent no-op (Factory.cpp returns
+    // nullptr, StartPresetTransition returns, no failed event), which would count as a load here and
+    // put the idle preset on screen. Our presets are plain files, so such a path is a failed load.
+    const bool schemed = path.find("://") != std::string::npos;
+    if (schemed) {
+        std::lock_guard<std::mutex> lock(errorLock_);
+        lastError_ = "MilkDrop preset is not a file: " + path;
+    } else {
+        projectm_load_preset_file(engine_.get(), path.c_str(), engineHasPreset_ && params_.milkdropBlendPresets);
+        projectm_set_preset_locked(engine_.get(), true);
+    }
     const auto error = takeError();
     host_.onShaderError(error.value_or(""));
     if (error && !engineHasPreset_) {

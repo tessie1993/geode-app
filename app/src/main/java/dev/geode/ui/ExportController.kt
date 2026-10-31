@@ -596,6 +596,8 @@ internal class ExportController(
                             reactions = host.reactions(),
                             reducedMotion = gui.reducedMotion,
                             codec = codec,
+                            audioUri = uri,
+                            soundTuning = gui.soundTuning,
                             onProgress = { p -> publishLoopProgress(ANALYSIS_SPAN + p * RENDER_SPAN) },
                             isCancelled = { loopCancelled || ExportRun.cancelRequested },
                             watermark = watermark,

@@ -5,6 +5,7 @@ import android.media.MediaCodec
 import android.media.MediaCodecInfo
 import android.media.MediaFormat
 import android.media.MediaMuxer
+import android.net.Uri
 import android.opengl.GLES30
 import android.util.Log
 import android.view.Surface
@@ -13,6 +14,7 @@ import dev.geode.R
 import dev.geode.RingLog
 import dev.geode.analysis.BarTrim
 import dev.geode.analysis.FeatureTimeline
+import dev.geode.engine.audio.SoundTuning
 import dev.geode.render.AdsrConfig
 import dev.geode.render.LfoConfig
 import dev.geode.render.SceneFactory
@@ -267,6 +269,9 @@ class LoopRender(
         isCancelled: () -> Boolean,
         // The free tier's corner wordmark; see WatermarkOverlay.
         watermark: Boolean = false,
+        // The track the loop is cut from, and Settings › Audio: the export's sound engine hears it.
+        audioUri: Uri? = null,
+        soundTuning: SoundTuning = SoundTuning(),
     ): Result =
         withContext(Dispatchers.Default) {
             val choice =
@@ -291,6 +296,8 @@ class LoopRender(
                     reducedMotion = reducedMotion,
                     paramsAt = paramsAt,
                     watermarkText = if (watermark) context.getString(R.string.pro_watermark_text) else null,
+                    audioUri = audioUri,
+                    soundTuning = soundTuning,
                 ),
                 onProgress,
                 isCancelled,
@@ -314,6 +321,8 @@ class LoopRender(
         val reducedMotion: Boolean,
         val paramsAt: ((Long) -> SceneParams)?,
         val watermarkText: String?,
+        val audioUri: Uri?,
+        val soundTuning: SoundTuning,
     )
 
     private data class EncoderChoice(
@@ -541,6 +550,8 @@ class LoopRender(
                     reactions = job.reactions,
                     reducedMotion = job.reducedMotion,
                     paramsAt = driftedParamsAt,
+                    audioUri = job.audioUri,
+                    soundTuning = job.soundTuning,
                 ),
         )
     }

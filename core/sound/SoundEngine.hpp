@@ -85,6 +85,8 @@ private:
         float pan = 0.0f;
         std::array<RelativeLevel, 3> slice;  // low, middle, high
         std::array<Trigger, 3> drumTrigger;
+        int64_t kickPeakAt = -1;  // the last strong kick-band punch, in samples, and how strong
+        float kickPeakPunch = 0.0f;
         std::array<Envelope, 4> envelope;  // kick, snare, hat, onset
         uint32_t kickCount = 0;
         uint32_t snareCount = 0;
@@ -133,7 +135,7 @@ private:
     void events(float dt, bool warm, GeodeSoundFrame& out);
     void melody(float dt, GeodeSoundFrame& out);
     void clocks(float dt, GeodeSoundFrame& out);
-    void estimatePitch(float& midi, float& confidence, float& evenness);
+    void estimatePitch(float held, float& midi, float& confidence, float& evenness);
 
     // Configuration, fixed after construction.
     int sampleRateHz_;
@@ -165,6 +167,7 @@ private:
     std::array<SliceBand, kSlices> bank_;
     std::array<float, kSlices> sliceNow_{};   // this frame's slice levels
     std::array<float, kSlices> punchNow_{};   // and the highest punch each slice held
+    std::array<int64_t, kSlices> punchAt_{};  // and when, in samples
 
     // Per-frame scratch, overwritten every step.
     std::vector<float> mono_;

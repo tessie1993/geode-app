@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstdint>
 #include <numbers>
 
 // The TouchDesigner half of the engine. TouchDesigner analyses audio time-sliced: each band is a filter
@@ -65,10 +66,12 @@ public:
         meanSteady_ = 1.0f - std::exp(-1.0f / (4.15f * fs));
         refFollow_ = 1.0f - std::exp(-1.0f / (0.15f * fs));
         warmSamples_ = static_cast<int>(50.0f / 30.0f * fs);
+        settleSamples_ = static_cast<int>(0.15f * fs);
     }
     void process(float x) {
         if (hasLow_) x = hp_[1].process(hp_[0].process(x));
         if (hasHigh_) x = lp_[1].process(lp_[0].process(x));
+        samples_++;
         power_ += follow_ * (x * x - power_);
         if (power_ < 1e-20f) power_ = 0.0f;
         peak_ = std::max(peak_, power_);
@@ -79,7 +82,12 @@ public:
         mean_ += (heard_ < warmSamples_ ? meanWarm_ : meanSteady_) * (level - mean_);
         if (heard_ < warmSamples_) heard_++;
         const float ratio = std::min(level / mean_, 4.0f);
-        punch_ = std::max(punch_, ratio - ref_);
+        // Until the reference has had one time constant to settle, every band "jumps" from nothing at
+        // once, and the stream's first frame would fire every drum.
+        if (heard_ >= settleSamples_ && ratio - ref_ > punch_) {
+            punch_ = ratio - ref_;
+            punchAt_ = samples_;
+        }
         ref_ += refFollow_ * (ratio - ref_);
     }
     // The slice's level (RMS-like, linear), then starts the next slice from where the envelope is now.
@@ -88,6 +96,8 @@ public:
         peak_ = power_;
         return level;
     }
+    // When (in samples since clear) the slice's highest punch was; every band counts the same samples.
+    int64_t punchAt() const { return punchAt_; }
     // The slice's highest punch (0 when it held none), then starts the next slice.
     float takePunch() {
         const float p = punch_;
@@ -101,7 +111,7 @@ private:
     SliceBand(const SliceBand& design, int)
         : hasLow_(design.hasLow_), hasHigh_(design.hasHigh_), follow_(design.follow_),
           meanWarm_(design.meanWarm_), meanSteady_(design.meanSteady_), refFollow_(design.refFollow_),
-          warmSamples_(design.warmSamples_) {
+          warmSamples_(design.warmSamples_), settleSamples_(design.settleSamples_) {
         hp_ = design.hp_;
         lp_ = design.lp_;
         for (auto& f : hp_) f.clear();
@@ -117,12 +127,15 @@ private:
     float meanSteady_ = 0.0f;
     float refFollow_ = 0.0f;
     int warmSamples_ = 0;
+    int settleSamples_ = 0;
     float power_ = 0.0f;
     float peak_ = 0.0f;
     float mean_ = 0.0f;
     float ref_ = 1.0f;
     float punch_ = 0.0f;
     int heard_ = 0;
+    int64_t samples_ = 0;
+    int64_t punchAt_ = 0;
 };
 
 }  // namespace geode::sound

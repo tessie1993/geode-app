@@ -121,6 +121,9 @@ void ShaderScene::uploadParams() {
     set1f("uSpeed", p.speed);
     set1f("uZoom", p.zoom);
     set1f("uRotation", rotationAngle_);
+    // The bare phase, for the loose styles that still spell their own view() (being moved onto
+    // lib_scene_uniforms); drop it once none of them names uZoomPhase.
+    set1f("uZoomPhase", zoomPhase_);
     // Endless zoom's two octave layers (lib_zoom). A style that reads the camera rig dives by
     // travel instead (CameraRig), so it stays one layer at 1x and never marches twice.
     const endless::Layers zoom = uniforms_.loc("uCamPos") >= 0 ? endless::Layers{} : endless::layers(zoomPhase_);

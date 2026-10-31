@@ -14,7 +14,7 @@ uniform vec2 uResolution;
 uniform float uSpeed;
 uniform float uZoom;
 uniform float uRotation;
-//#include lib_zoom
+uniform float uZoomPhase;
 uniform float uColorShift;
 uniform float uHueRange;
 uniform float uSat;
@@ -95,9 +95,11 @@ vec2 view() {
     // for good and stranding the user on a black screen.
     vec2 driftPhase = fract(vec2(uDriftX, uDriftY) * uTime * 0.025 + 0.25);
     uv += 1.0 - 2.0 * abs(2.0 * driftPhase - 1.0);
-    // Endless zoom: this layer's magnification (lib_zoom draws two, an octave apart).
-    gZoomRead = true;
-    float z = uZoom * gZoomMag;
+    // Triangle-wave exponent: 1x -> 2x -> 1x smoothly, so the endless-zoom
+    // phase wrap never causes a visible scale pop (2^1 snapping to 2^0). The
+    // milkdrop post pass (pm_post_frag) already spells it this way; a sawtooth
+    // exponent halved the magnification once per cycle on every scene shader.
+    float z = uZoom * pow(2.0, 1.0 - abs(2.0 * uZoomPhase - 1.0));
     uv /= max(z, 0.05);
     uv += uTurbulence * 0.06 * vec2(sin(uv.y * 6.0 + uTime), cos(uv.x * 6.0 + uTime * 1.3));
     // Radial twist: rotate by an angle growing with radius.
@@ -155,9 +157,12 @@ vec3 grade(vec3 col) {
 //
 //  - It carried its own byte-copy of `pal()`; the shared library is included
 //    instead, which is also what gives the style the cyclic colour maps.
-//  - Its `view()` predated the shared zoom and spelled its own
-//    magnification. It reads lib_zoom's layer now, like every other style,
-//    so Endless zoom looks the same here as everywhere else.
+//  - Its `view()` predated the endless-zoom rewrite and still spelled the
+//    magnification as `pow(2.0, 1.0 - abs(2.0 * uZoomPhase - 1.0))`, a
+//    triangle that zoomed in and then back OUT. Every current style uses the
+//    canonical prelude's `pow(2.0, uZoomPhase)`, which is the continuous
+//    octave ramp `ShaderScene` wraps at 1 - so Endless zoom now looks the
+//    same here as everywhere else.
 //  - Treble drove nothing at all. It steers the surface wobble now, which is
 //    the fastest-moving thing on a blob and the only part of the look that
 //    could carry a high band without turning into flicker.

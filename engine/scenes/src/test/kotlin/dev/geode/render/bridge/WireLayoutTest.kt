@@ -28,11 +28,11 @@ class WireLayoutTest {
     @Test
     fun reactionsPackEverySlotAndDisableTheRest() {
         val route =
-            ReactionRoute(true, ReactSource.DROP, LfoTarget.CAM_FLY, ReactMode.STEP, 0.8f, attackSeconds = 0.2f, releaseSeconds = 2f)
+            ReactionRoute(true, ReactSource.HARD_CUT, LfoTarget.CAM_FLY, ReactMode.STEP, 0.8f, attackSeconds = 0.2f, releaseSeconds = 2f)
         val out = ModConfigCodec.packReactions(listOf(route))
         assertEquals(ReactionRoute.MAX_ROUTES * ModConfigCodec.REACT_ROUTE_FLOATS, out.size)
         assertEquals(1f, out[0])
-        assertEquals(ReactSource.DROP.ordinal.toFloat(), out[1])
+        assertEquals(ReactSource.HARD_CUT.ordinal.toFloat(), out[1])
         assertEquals(LfoTarget.CAM_FLY.ordinal.toFloat(), out[2])
         assertEquals(ReactMode.STEP.ordinal.toFloat(), out[3])
         assertEquals(0.8f, out[4])
@@ -45,8 +45,8 @@ class WireLayoutTest {
     fun styleDnaUnpacksWhatPackWrote() {
         val routes =
             listOf(
-                ReactionRoute(true, ReactSource.PHRASE_BEAT_A, LfoTarget.COLOR_SHIFT, ReactMode.JUMP, 0.4f, attackSeconds = 0.08f),
-                ReactionRoute(true, ReactSource.DROP, LfoTarget.CAM_FLY, ReactMode.FOLLOW, 1.2f, releaseSeconds = 2.2f),
+                ReactionRoute(true, ReactSource.KICK, LfoTarget.COLOR_SHIFT, ReactMode.JUMP, 0.4f, attackSeconds = 0.08f),
+                ReactionRoute(true, ReactSource.HARD_CUT, LfoTarget.CAM_FLY, ReactMode.FOLLOW, 1.2f, releaseSeconds = 2.2f),
             )
         val packed = ModConfigCodec.packReactions(routes).copyOf(routes.size * ModConfigCodec.REACT_ROUTE_FLOATS)
         assertEquals(routes, ModConfigCodec.unpackReactions(packed))
@@ -61,10 +61,10 @@ class WireLayoutTest {
 
     @Test
     fun enumOrdinalsMatchTheNativeEnums() {
-        // core/viz/Reactions.hpp: Phrase is last, Toggle is last; core/viz/Lfo.hpp: CamShake is last.
-        assertEquals(34, ReactSource.entries.size)
-        assertEquals(28, ReactSource.MACRO_ENERGY.ordinal)
-        assertEquals(30, ReactSource.PHRASE_BEAT_A.ordinal)
+        // core/viz/Reactions.hpp: RunDensity is last, Toggle is last; core/viz/Lfo.hpp: CamShake is last.
+        assertEquals(72, ReactSource.entries.size)
+        assertEquals(46, ReactSource.KICK.ordinal)
+        assertEquals(55, ReactSource.HARD_CUT.ordinal)
         assertEquals(5, ReactMode.entries.size)
         assertEquals(3, ReactMode.JUMP.ordinal)
         assertEquals(4, ReactMode.TOGGLE.ordinal)

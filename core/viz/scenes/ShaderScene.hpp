@@ -153,11 +153,10 @@ private:
     // This scene's own copy of the reaction sources (lib_react's uniforms),
     // a pure function of the frames update() receives, like motionField_.
     ReactSignals reactSignals_;
-    // SubBass..Air then Flux, slewed: uBandsLo, uBandsHi.
+    // Sub, bass, low, mid, midHigh, high, treble, flux, slewed: uBandsLo, uBandsHi.
     std::array<float, 8> bandsSmooth_{};
-    // Kick, snare, hat, peak-held: uHits.xyz.
+    // The kick, snare and hat envelopes: uHits.xyz.
     std::array<float, 3> hitsSmooth_{};
-    static constexpr float kHitFallHz = 6.5f;
     std::array<float, TouchField::kPointStride> touchAnchor_{};
     std::array<float, TouchField::kMaxPoints * TouchField::kPointStride> touchPoints_{};
 

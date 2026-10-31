@@ -9,16 +9,14 @@ namespace geode::viz {
 // Style DNA: the reaction routes a style plays until the user edits them,
 // built from the style id and a seed.
 //
-// Before this, every style got the same KINDS of route (kick -> camera push,
-// a band -> zoom, a hit -> twist or morph), so every style zoomed in on the
-// kick and twisted, with only the amounts differing. Now each style draws a
-// personality: what its picture does on the beat. A Chroma style changes hue
-// on every beat, a Flash style blooms, a Swing style looks somewhere new, a
-// Warp style bends. It also draws a second personality for alternate phrases
-// (PhraseBeatA / PhraseBeatB), so the answer to the beat changes every eight
-// bars or at a section change, plus layers for the backbeat, the sustained
-// bands, the top end, colour over time, build-ups and drops, each drawn so it
-// does not repeat what the beat already does.
+// Each style draws a personality: what its picture does on the pulse. A Chroma
+// style changes hue, a Flash style blooms, a Swing style looks somewhere new, a
+// Warp style bends. It draws a second one from another group for the snare
+// side of the groove, then layers for the big moments, the sustained levels,
+// the top end, colour over the song, rises and the melody. No layer has a
+// fixed source: each draws its own from a pool of GeodeSoundFrame sources
+// (which kick, which level, what drives hue), so styles that share a
+// personality still listen to different parts of the music.
 //
 // Pure and deterministic: the same id, seed and traits always give the same
 // routes, on every platform, so the live view, the wallpaper, the dream and an
@@ -55,8 +53,8 @@ struct StyleDna {
 
     std::array<ReactRoute, ReactionEngine::kRoutes> routes{};
     int count = 0;
-    Personality lead = Personality::Pulse;    // the beat in phrase A
-    Personality second = Personality::Chroma; // the beat in phrase B
+    Personality lead = Personality::Pulse;    // on the kick side
+    Personality second = Personality::Chroma; // on the snare side
 };
 
 StyleDna buildStyleDna(std::string_view styleId, int seed, const StyleTraits& traits);

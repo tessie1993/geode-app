@@ -95,9 +95,9 @@ SceneParams Renderer::resolveParams(float dt) {
     const auto& lfoValues = lfo_.tick(dt, frameFeatures_, envRate_.data(), envDepth_.data());
     SceneParams p = lfo_.apply(displayedParams_, lfoValues);
     p = AdsrEngine::apply(p, adsr_.configs, envValues);
-    // The reaction matrix: per-style routes from many features to many
+    // The reaction matrix: per-style routes from the sound frame to many
     // targets. Ahead of the motion field and the safety clamp, like the LFOs.
-    reactions_.tick(frameFeatures_, dt);
+    reactions_.tick(soundFrame_, dt);
     p = reactions_.apply(p);
     // The continuous motion system: the one stage every family's parameters
     // pass through, fed only the feature frame (never a one-hop PCM/drum

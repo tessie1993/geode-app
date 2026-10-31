@@ -16,7 +16,7 @@ package dev.geode.engine.audio
  * [SampleRing.writtenFrames] once and copies up to that.
  */
 class SoundCursor(
-    private val ring: SampleRing,
+    val ring: SampleRing,
     /** The most frames one [take] hands out, so a long stall costs one bounded catch-up, not seconds of DSP. */
     private val maxFrames: Int = ring.maxWriteFrames,
 ) {

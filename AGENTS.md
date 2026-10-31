@@ -6,7 +6,7 @@ applicationId `com.muzviz.studiopro`. Kotlin packages stay `dev.geode.*`. minSdk
 Read before you change structure:
 - [`docs/ANDROID_ARCHITECTURE_GUIDE.md`](docs/ANDROID_ARCHITECTURE_GUIDE.md): the target rules. Where the code disagrees, the code is the debt.
 - [`docs/ANDROID_ARCHITECTURE_REFERENCE.md`](docs/ANDROID_ARCHITECTURE_REFERENCE.md): the reasons and code shapes behind those rules (layers, modularization, Navigation 3).
-- [`docs/adr/`](docs/adr/): decisions. [`0001`](docs/adr/0001-target-module-split.md) is the target module split and the Nav3 plan; [`0002`](docs/adr/0002-release-before-restructure.md) puts the Play release before steps 2–6. [`docs/ARCHITECTURE_FINISH_PLAN.md`](docs/ARCHITECTURE_FINISH_PLAN.md) is the prioritized plan.
+- [`docs/adr/`](docs/adr/): decisions. [`0001`](docs/adr/0001-target-module-split.md) is the target module split and the Nav3 plan; [`0002`](docs/adr/0002-release-before-restructure.md) puts the Play release before steps 2–6. [`0003`](docs/adr/0003-engine-internals-in-cpp.md) puts every engine internal in C++, Kotlin only as the shell, with the port order. [`docs/ARCHITECTURE_FINISH_PLAN.md`](docs/ARCHITECTURE_FINISH_PLAN.md) is the prioritized plan.
 - [`GLOSSARY.md`](GLOSSARY.md): domain words. Name things with them.
 - [`docs/AUDIO_CHAIN.md`](docs/AUDIO_CHAIN.md): read it before touching the playback audio path.
 

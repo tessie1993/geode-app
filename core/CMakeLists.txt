@@ -54,6 +54,7 @@ add_library(geode_core STATIC
     viz/Renderer.cpp
     viz/RendererFrame.cpp
     viz/scenes/ShaderScene.cpp
+    viz/SoundUniforms.cpp
     viz/BlueNoise.cpp
     viz/Overlays.cpp
     viz/compute/SimField.cpp

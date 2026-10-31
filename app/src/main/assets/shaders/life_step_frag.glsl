@@ -23,11 +23,18 @@ precision highp float;
 //            9-point laplacian (0.2 orthogonal / 0.05 diagonal), the curated
 //            (f, k) pair is the organism: mitosis, coral, labyrinth, worms.
 //
-// State: r = A or u, g = v, b = slow age trace for the render pass, a = 1.
+// State: r = A or u, g = v, b = slow age trace for the render pass, a = the
+// melody ink new matter was born with (0..1, the present pass makes it hue).
+// Ink travels with growth: Lenia averages it over the kernel weighted by
+// living matter, Gray-Scott over the four neighbours weighted by v.
 //
-// Audio enters as MATTER, never as solver constants: the kick drops reagent
-// at the injection orbit, treble sprinkles seeds, silence lets the organism
-// live. dt is fixed - raw amplitude cannot advance simulation time.
+// Audio enters as MATTER and as a breathing RULE (LifeScene steers both from
+// the sound frame): the kick envelope drops reagent at the birth orbit, the
+// melody buds where its pitch points, hats sprinkle spores; the snare and a
+// surge widen the growth window, and the rule morphs between the style's
+// presets on kick16 and hard cuts. uDt carries the activity rate (quiet
+// music freezes the colonies), uShift a whole-texel drift on the sound clock
+// (exact, so it never smears; the state texture wraps as a torus).
 
 in vec2 vUv;
 out vec4 fragColor;
@@ -49,9 +56,16 @@ uniform vec2 uDiff;        // GS diffusion (Du, Dv)
 uniform float uAniso;      // 0 isotropic; >0 favours x growth (frost)
 uniform float uSeed;       // 1 on reset, decays; scatters a starting culture
 uniform float uSeedJitter; // seed lattice scale
-uniform float uKick;       // beat blob strength this frame
-uniform vec2 uKickPos;     // beat blob position, uv
-uniform float uSprinkle;   // treble speckle strength
+uniform float uSeedSalt;   // moves the seed lattice so every re-seed scatters a new culture
+uniform float uKick;       // kick lump this frame (one per kick, sized by its envelope peak)
+uniform vec2 uKickPos;     // kick blob position, uv
+uniform float uKickSize;   // kick blob radius scale (kick random)
+uniform float uBud;        // melody bud strength this frame (note strike, glide trail)
+uniform vec2 uBudPos;      // where the melody points, uv
+uniform float uInk;        // melody ink stamped into new matter, 0..1
+uniform float uSprinkle;   // hat spore strength
+uniform vec2 uShift;       // whole-texel drift this pass, texels
+uniform float uAgeRate;    // the activity rate: age slows with the solver
 uniform float uTime;
 
 // ---- the finger as a seed --------------------------------------------------
@@ -99,11 +113,14 @@ float growthMap(float u) {
 
 void main() {
     vec2 texel = 1.0 / uRes;
-    vec2 uv = vUv;
+    // Read upstream of the drift; the shift is whole texels, so every tap
+    // still lands on a texel centre.
+    vec2 uv = vUv - uShift * texel;
     vec4 c = clamp(texture(uPrev, uv), vec4(0.0), vec4(1.0));
 
     float newA;
     float newV = c.g;
+    float ink = c.a;
 
     if (uRule == 0) {
         // Disc sampling: 6 radii x 12 angles, kernel weight from the ring
@@ -112,6 +129,8 @@ void main() {
         // 3-ring species; linear filtering widens each tap to a 2x2 mean.
         float sum = 0.0;
         float norm = 0.0;
+        float inkSum = 0.0;
+        float inkW = 0.0;
         float rings = float(uRings);
         for (int ri = 0; ri < 6; ri++) {
             float rf = (float(ri) + 0.5) / 6.0;
@@ -122,49 +141,63 @@ void main() {
             float rad = rf * uRadius;
             for (int ai = 0; ai < 12; ai++) {
                 float a = TAU * (float(ai) + 0.41 * float(ri)) / 12.0;
-                sum += w * texture(uPrev, uv + rad * vec2(cos(a), sin(a)) * texel).r;
+                vec4 s = texture(uPrev, uv + rad * vec2(cos(a), sin(a)) * texel);
+                sum += w * s.r;
                 norm += w;
+                inkSum += w * s.r * s.a;
+                inkW += w * s.r;
             }
         }
         float u = sum / max(norm, 1e-5);
         newA = clamp(c.r + uDt * growthMap(u), 0.0, 1.0);
+        if (inkW > 1e-4) ink = mix(ink, inkSum / inkW, 0.1);
     } else {
         float wx = 0.2 * (1.0 + uAniso);
         float wy = 0.2 * (1.0 - 0.7 * uAniso);
-        vec2 lap =
-            wx * texture(uPrev, uv - vec2(texel.x, 0.0)).rg +
-                wx * texture(uPrev, uv + vec2(texel.x, 0.0)).rg +
-                wy * texture(uPrev, uv - vec2(0.0, texel.y)).rg +
-                wy * texture(uPrev, uv + vec2(0.0, texel.y)).rg +
-                0.05 * texture(uPrev, uv - texel).rg +
-                0.05 * texture(uPrev, uv + texel).rg +
-                0.05 * texture(uPrev, uv + vec2(texel.x, -texel.y)).rg +
-                0.05 * texture(uPrev, uv + vec2(-texel.x, texel.y)).rg -
-                (2.0 * wx + 2.0 * wy + 0.2) * c.rg;
+        vec4 sl = texture(uPrev, uv - vec2(texel.x, 0.0));
+        vec4 sr = texture(uPrev, uv + vec2(texel.x, 0.0));
+        vec4 sd = texture(uPrev, uv - vec2(0.0, texel.y));
+        vec4 su = texture(uPrev, uv + vec2(0.0, texel.y));
+        vec4 s1 = texture(uPrev, uv - texel);
+        vec4 s2 = texture(uPrev, uv + texel);
+        vec4 s3 = texture(uPrev, uv + vec2(texel.x, -texel.y));
+        vec4 s4 = texture(uPrev, uv + vec2(-texel.x, texel.y));
+        vec2 lap = wx * (sl.rg + sr.rg) + wy * (sd.rg + su.rg) + 0.05 * (s1.rg + s2.rg + s3.rg + s4.rg) -
+            (2.0 * wx + 2.0 * wy + 0.2) * c.rg;
+        float inkW = sl.g + sr.g + sd.g + su.g;
+        if (inkW > 1e-3) ink = mix(ink, (sl.g * sl.a + sr.g * sr.a + sd.g * sd.a + su.g * su.a) / inkW, 0.08 * uDt);
         float uvv = c.r * c.g * c.g;
         newA = clamp(c.r + uDt * (uDiff.x * lap.x - uvv + uF * (1.0 - c.r)), 0.0, 1.0);
         newV = clamp(c.g + uDt * (uDiff.y * lap.y + uvv - (uF + uK) * c.g), 0.0, 1.0);
     }
 
     // -- seeding and audio matter ---------------------------------------
+    // Positions below are in the destination frame (vUv): matter lands where
+    // the beat or the note puts it on screen, after the drift. `fresh` is how
+    // much new matter this texel got; it takes the melody's ink.
+    float aspect = uRes.x / uRes.y;
+    float fresh = 0.0;
+    float seedInk = uInk;
     if (uSeed > 0.0) {
-        vec2 cell = floor(uv * uSeedJitter);
+        vec2 cell = floor(vUv * uSeedJitter) + uSeedSalt;
         vec2 h = hash2(cell);
+        seedInk = clamp(uInk + 0.5 * (h.y - 0.5), 0.0, 1.0);
         float inCell = smoothstep(0.7, 0.95, h.x) * uSeed;
         if (uRule == 0) {
             // Smooth blobs, not full cells: hard squares of A never evolve
             // into organisms, gaussian lumps do.
-            vec2 centre = (cell + 0.2 + 0.6 * hash2(cell + 7.7)) / uSeedJitter;
-            float aspect = uRes.x / uRes.y;
-            vec2 dpos = (uv - centre) * vec2(aspect, 1.0) * uSeedJitter;
-            newA = max(newA, inCell * h.y * exp(-dot(dpos, dpos) * 2.2));
+            vec2 centre = (cell - uSeedSalt + 0.2 + 0.6 * hash2(cell + 7.7)) / uSeedJitter;
+            vec2 dpos = (vUv - centre) * vec2(aspect, 1.0) * uSeedJitter;
+            float lump = inCell * h.y * exp(-dot(dpos, dpos) * 2.2);
+            newA = max(newA, lump);
+            fresh = max(fresh, lump);
         } else if (inCell > 0.0) {
             newV = max(newV, inCell * 0.9);
+            fresh = max(fresh, inCell);
         }
     }
     if (uKick > 0.0) {
-        float aspect = uRes.x / uRes.y;
-        vec2 dpos = (uv - uKickPos) * vec2(aspect, 1.0);
+        vec2 dpos = (vUv - uKickPos) * vec2(aspect, 1.0) / max(uKickSize, 0.2);
         float blob = exp(-dot(dpos, dpos) * 900.0) * uKick;
         if (uRule == 0) {
             // Half strength: a saturated disc every beat floods a Lenia world
@@ -173,6 +206,19 @@ void main() {
         } else {
             newV = clamp(newV + blob, 0.0, 1.0);
         }
+        fresh = max(fresh, blob);
+    }
+    if (uBud > 0.0) {
+        // The melody's bud: smaller and tighter than the kick's, so a run of
+        // notes reads as a strand of spores following the line.
+        vec2 dpos = (vUv - uBudPos) * vec2(aspect, 1.0);
+        float bud = exp(-dot(dpos, dpos) * 1800.0) * uBud;
+        if (uRule == 0) {
+            newA = clamp(newA + bud * 0.45, 0.0, 1.0);
+        } else {
+            newV = clamp(newV + bud * 0.8, 0.0, 1.0);
+        }
+        fresh = max(fresh, bud);
     }
     if (uTouchCount > 0) {
         // MAX over the fingers, not a sum: the injected amount per texel is then
@@ -181,13 +227,12 @@ void main() {
         // Both rules are conditionally stable only for bounded state - Lenia's A
         // and Gray-Scott's v both live in [0,1] - and an out-of-range seed does
         // not make a bigger organism, it makes a dead saturated disc.
-        float aspect = uRes.x / uRes.y;
         float seedTouch = 0.0;
         for (int i = 0; i < TOUCH_MAX_POINTS; i++) {
             if (i >= uTouchCount) break;
             vec4 t = uTouchPoints[i];
             if (t.z <= 0.0) continue;
-            vec2 dpos = (uv - (t.xy * 0.5 + 0.5)) * vec2(aspect, 1.0);
+            vec2 dpos = (vUv - (t.xy * 0.5 + 0.5)) * vec2(aspect, 1.0);
             seedTouch = max(seedTouch, t.z * exp(-dot(dpos, dpos) * 280.0));
         }
         if (uRule == 0) {
@@ -197,24 +242,30 @@ void main() {
         } else {
             newV = clamp(newV + seedTouch * 0.85, 0.0, 1.0);
         }
+        fresh = max(fresh, seedTouch);
     }
     if (uSprinkle > 0.0) {
-        vec2 h = hash2(floor(uv * uRes * 0.5) + fract(uTime) * 61.7);
+        vec2 h = hash2(floor(vUv * uRes * 0.5) + fract(uTime) * 61.7);
         if (uRule == 0) {
             // Lenia metabolizes seeds slowly, so sprinkle sparsely and softly
-            // or the treble reads as static instead of as new spores.
+            // or the hats read as static instead of as new spores.
             float sp = step(1.0 - uSprinkle * 0.0012, h.x);
             newA = max(newA, sp * 0.5);
+            fresh = max(fresh, sp * 0.5);
         } else {
             float sp = step(1.0 - uSprinkle * 0.004, h.x);
             newV = max(newV, sp * 0.7);
+            fresh = max(fresh, sp * 0.7);
         }
     }
 
     // Age trace: rises where matter lives, bleeds slowly; the render pass
     // shades history without a second history texture.
     float live = uRule == 0 ? newA : newV;
-    float age = clamp(c.b + (live > 0.12 ? 0.02 : -0.006), 0.0, 1.0);
+    float age = clamp(c.b + (live > 0.12 ? 0.02 : -0.006) * uAgeRate, 0.0, 1.0);
+    // Freshly injected matter is born young and takes the melody's ink.
+    age *= 1.0 - clamp(fresh * 1.5, 0.0, 1.0);
+    ink = mix(ink, seedInk, clamp(fresh * 2.0, 0.0, 1.0));
 
-    fragColor = vec4(newA, newV, age, 1.0);
+    fragColor = vec4(newA, newV, age, ink);
 }

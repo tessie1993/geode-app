@@ -42,9 +42,9 @@ internal class CaptureController(
     interface Host {
         fun pausePlayback()
 
-        fun resetAnalysis()
+        fun resetSound()
 
-        fun setAnalysisRate(rateHz: Int)
+        fun setSoundRate(rateHz: Int)
 
         fun setMicReactivePref(on: Boolean)
 
@@ -102,7 +102,7 @@ internal class CaptureController(
     val audioFormatHook: (sampleRateHz: Int, channelCount: Int, encoding: Int) -> Unit =
         { rate, _, _ ->
             tapSampleRateHz = rate
-            if (!externalAudioOwnsAnalyzer()) host.setAnalysisRate(rate)
+            if (!externalAudioOwnsRing()) host.setSoundRate(rate)
         }
 
     /**
@@ -133,8 +133,8 @@ internal class CaptureController(
                         startPlaybackCapture(projection)
                     } else if (_externalAudio.value.active) {
                         playbackCapture.stop()
-                        host.resetAnalysis()
-                        host.setAnalysisRate(playbackRateFallback())
+                        host.resetSound()
+                        host.setSoundRate(playbackRateFallback())
                         _externalAudio.update { it.copy(active = false, refusedByApp = false) }
                     }
                 }
@@ -152,14 +152,14 @@ internal class CaptureController(
 
     private fun playbackRateFallback(): Int = tapSampleRateHz.takeIf { it > 0 } ?: 44100
 
-    private fun externalAudioOwnsAnalyzer(): Boolean = micCapture.active || playbackCapture.active
+    private fun externalAudioOwnsRing(): Boolean = micCapture.active || playbackCapture.active
 
     fun setMicEnabled(enabled: Boolean): MicCapture.Failure? {
         if (!enabled) {
             micPausedInBackground = false
             micCapture.stop()
-            host.resetAnalysis()
-            host.setAnalysisRate(playbackRateFallback())
+            host.resetSound()
+            host.setSoundRate(playbackRateFallback())
             _micState.value = MicState(active = false)
             host.setMicReactivePref(false)
             return null
@@ -167,12 +167,12 @@ internal class CaptureController(
         if (micCapture.active) return null
         if (playbackCapture.active || _externalAudio.value.active) stopExternalAudio()
         host.pausePlayback()
-        val failure = micCapture.start { rate -> host.setAnalysisRate(rate) }
+        val failure = micCapture.start { rate -> host.setSoundRate(rate) }
         if (failure != null) {
             _micState.value = MicState(active = false, failure = failure)
             return failure
         }
-        host.resetAnalysis()
+        host.resetSound()
         _micState.value = MicState(active = true)
         host.setMicReactivePref(true)
         return null
@@ -205,10 +205,10 @@ internal class CaptureController(
         }
         host.pausePlayback()
         if (micCapture.active) setMicEnabled(false)
-        val failure = playbackCapture.start(projection) { rate -> host.setAnalysisRate(rate) }
-        host.resetAnalysis()
+        val failure = playbackCapture.start(projection) { rate -> host.setSoundRate(rate) }
+        host.resetSound()
         if (failure != null) {
-            host.setAnalysisRate(playbackRateFallback())
+            host.setSoundRate(playbackRateFallback())
             PlaybackCaptureService.stop(application)
         }
         _externalAudio.update {
@@ -223,8 +223,8 @@ internal class CaptureController(
 
     fun stopExternalAudio() {
         playbackCapture.stop()
-        host.resetAnalysis()
-        host.setAnalysisRate(playbackRateFallback())
+        host.resetSound()
+        host.setSoundRate(playbackRateFallback())
         PlaybackCaptureService.stop(application)
         _externalAudio.update {
             it.copy(active = false, awaitingConsent = false, refusedByApp = false)
@@ -272,8 +272,8 @@ internal class CaptureController(
 
     fun refreshMicState() {
         if (!_micState.value.active || micCapture.active) return
-        host.resetAnalysis()
-        host.setAnalysisRate(playbackRateFallback())
+        host.resetSound()
+        host.setSoundRate(playbackRateFallback())
         _micState.value = MicState(active = false, failure = MicCapture.Failure.UNAVAILABLE)
         host.setMicReactivePref(false)
     }

@@ -40,13 +40,18 @@ float Renderer::beginFrame(double timeSeconds) {
     {
         // Before anything reads it this frame. No engine yet (nothing written) leaves the frame silent.
         std::lock_guard<std::mutex> lock(soundLock_);
+        // Customize › Macros, latched once per frame; Energy and Speed reach the engine as tuning.
+        frameKnobs_ = macros::global();
+        if (sound_ && frameKnobs_ != tunedKnobs_) {
+            tunedKnobs_ = frameKnobs_;
+            sound_->setTuning(macros::tuning(soundTuning_, tunedKnobs_));
+        }
         if (sound_) sound_->step(dt, soundFrame_);
     }
     std::vector<std::pair<std::string, std::string>> pending;
     {
         std::lock_guard<std::mutex> lock(stateLock_);
         pending.swap(pendingShaders_);
-        frameFeatures_ = features_;
         frameLayerMix_ = layerMix_;
         frameLayerBlend_ = layerBlend_;
         frameTransitionId_ = transitionId_;
@@ -101,12 +106,18 @@ SceneParams Renderer::resolveParams(float dt) {
     const auto& envValues = adsr_.tick(dt, soundFrame_);
     AdsrEngine::lfoOffsets(adsr_.configs, envValues, envRate_, envDepth_);
     const auto& lfoValues = lfo_.tick(dt, soundFrame_, envRate_.data(), envDepth_.data());
-    SceneParams p = lfo_.apply(displayedParams_, lfoValues);
+    // The macros lay over the user's params first, so every stage after them (and the safety clamp)
+    // sees the knobbed look.
+    SceneParams p = lfo_.apply(macros::apply(displayedParams_, frameKnobs_), lfoValues);
     p = AdsrEngine::apply(p, adsr_.configs, envValues);
     // The reaction matrix: per-style routes from the sound frame to many
     // targets. Ahead of the motion field and the safety clamp, like the LFOs.
     reactions_.tick(soundFrame_, dt);
     p = reactions_.apply(p);
+    // The macros' own routes, in an engine of their own so they never take a user slot.
+    macroReactions_.routes = macros::routes(frameKnobs_);
+    macroReactions_.tick(soundFrame_, dt);
+    p = macroReactions_.apply(p);
     // The continuous motion system: the one stage every family's parameters
     // pass through, fed the sound frame (never a single drum hit or PCM
     // impulse), ahead of the safety clamp so nothing it adds can exceed the
@@ -311,6 +322,7 @@ void Renderer::stepCamera(const SceneParams& p, float dt) {
     }
     look.yaw = std::clamp(look.yaw, -1.0f, 1.0f);
     look.pitch = std::clamp(look.pitch, -1.0f, 1.0f);
+    camera_.setMoves(macros::camera(frameKnobs_));
     camera_.step(p, look, dt, reducedMotion_.load(std::memory_order_relaxed), sceneSpin_.load(std::memory_order_relaxed) != 0.0f,
                  &soundFrame_);
 }

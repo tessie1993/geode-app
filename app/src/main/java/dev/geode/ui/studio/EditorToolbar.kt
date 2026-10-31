@@ -58,7 +58,7 @@ fun EditorHeader(
     }
 }
 
-/** Lane creation, markers and auto-cut. */
+/** Lane creation, markers and captions. */
 @Composable
 fun EditorToolbar(
     tapSession: TapInSession?,
@@ -69,7 +69,6 @@ fun EditorToolbar(
     onTapUndo: () -> Unit,
     onTapDone: () -> Unit,
     onTapCancel: () -> Unit,
-    onAutoCut: () -> Unit,
     hasLyrics: Boolean,
     onLyricCaptions: () -> Unit,
     onImportSrt: () -> Unit,
@@ -85,7 +84,6 @@ fun EditorToolbar(
             }
             CrystalButton(compact = true, filled = false, onClick = onAddMarker) { Text(stringResource(R.string.editor_add_marker)) }
             CrystalButton(compact = true, filled = false, onClick = onTapStart) { Text(stringResource(R.string.editor_tap_in)) }
-            CrystalButton(compact = true, filled = false, onClick = onAutoCut) { Text(stringResource(R.string.editor_auto_cut)) }
             if (hasLyrics) {
                 CrystalButton(compact = true, filled = false, onClick = onLyricCaptions) {
                     Text(stringResource(R.string.editor_lyric_captions))

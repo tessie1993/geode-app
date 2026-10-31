@@ -274,15 +274,3 @@ data class SceneParams(
             )
         }
 }
-
-fun applyBandGains(
-    f: dev.geode.analysis.AudioFeatures,
-    p: SceneParams,
-): dev.geode.analysis.AudioFeatures {
-    if (p.bassGain == 1f && p.midGain == 1f && p.trebGain == 1f) return f
-    return f.copy(
-        bass = (f.bass * p.bassGain).coerceIn(0f, 2f),
-        mid = (f.mid * p.midGain).coerceIn(0f, 2f),
-        treble = (f.treble * p.trebGain).coerceIn(0f, 2f),
-    )
-}

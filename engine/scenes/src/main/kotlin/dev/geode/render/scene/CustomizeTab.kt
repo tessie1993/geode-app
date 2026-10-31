@@ -3,7 +3,10 @@ package dev.geode.render.scene
 /**
  * The Customize panel's tabs, in the order the panel shows them.
  *
- * [EVENTS] comes first: "when this happens in the music, do that" ([dev.geode.render.EventRecipe]),
+ * [MACROS] comes first: six knobs laid over every style (core/viz/Macros), kept outside the params and
+ * presets, so it owns no parameter either.
+ *
+ * [EVENTS] comes next: "when this happens in the music, do that" ([dev.geode.render.EventRecipe]),
  * plus whether the engine may pick a new style when the song changes section. It owns no
  * parameter of its own; it is the easy way into the detail tabs after it.
  *
@@ -15,6 +18,7 @@ package dev.geode.render.scene
 enum class CustomizeTab(
     val title: String,
 ) {
+    MACROS("Macros"),
     EVENTS("Events"),
 
     SHAPE("Shape"),

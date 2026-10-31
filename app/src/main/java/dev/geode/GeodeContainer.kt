@@ -32,6 +32,18 @@ class GeodeContainer(
         warmPlaybackPrefs()
         sweepStaleRenderScratch(context.applicationContext.cacheDir)
         sweepOrphanedPendingExports(context.applicationContext)
+        sweepRetiredAnalysisCache(context.applicationContext.filesDir)
+    }
+
+    /**
+     * Deletes the per-track analysis cache (`filesDir/analysis`) older builds wrote. The offline
+     * analyser that read it is gone (the sound engine hears the track itself, live and in export),
+     * and its Settings row with it, so nothing else would ever reclaim the space.
+     */
+    private fun sweepRetiredAnalysisCache(filesDir: File) {
+        appScope.launch(Dispatchers.IO) {
+            bestEffort(TAG, "sweep retired analysis cache") { File(filesDir, "analysis").deleteRecursively() }
+        }
     }
 
     /**

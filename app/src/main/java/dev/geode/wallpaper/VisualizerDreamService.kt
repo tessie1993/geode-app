@@ -12,7 +12,6 @@ import dev.geode.data.ThemeStore
 import dev.geode.pro.ProFeature
 import dev.geode.render.VisualizerRenderer
 import dev.geode.render.VisualizerView
-import dev.geode.util.bestEffort
 
 /**
  * The visualizer as a screensaver (Daydream): the same renderer [VisualizerWallpaperService]
@@ -22,27 +21,11 @@ import dev.geode.util.bestEffort
  * wallpaper has to — is what a Dream's window buys over a wallpaper's: it is a real window with a
  * real view hierarchy, so [VisualizerView]'s own attach/detach and window-visibility pacing, and
  * its own scene teardown on `onDetachedFromWindow`, all apply completely unmodified — nothing
- * here re-implements them. Only the audio feed — [AudioBus.features] when something is playing,
- * an idle drift otherwise — has to be supplied, for the same reason [VisualizerWallpaperService]
- * supplies it too: a Dream, like a wallpaper, has no `PlayerViewModel` of its own to read it from.
+ * here re-implements them. Its sound engine hears the playback session's ring through
+ * [AudioBus.soundInput], as the wallpaper's does: a Dream has no `PlayerViewModel` to read it from.
  */
 class VisualizerDreamService : DreamService() {
     private var visualizerView: VisualizerView? = null
-    private val idle = IdleFeatures()
-    private var lastFrameMs = 0L
-    private var feeder: Thread? = null
-
-    @Volatile
-    private var running = false
-
-    /**
-     * See [VisualizerWallpaperService]'s own `feedGeneration` for why this exists: a bounded
-     * `join` on teardown can time out, and without this the old thread would have no way to learn
-     * that a newer run — or none at all — has taken over, and would keep feeding a renderer that
-     * is either someone else's or already gone.
-     */
-    @Volatile
-    private var feedGeneration = 0
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
@@ -67,22 +50,8 @@ class VisualizerDreamService : DreamService() {
         setContentView(view)
     }
 
-    override fun onDreamingStarted() {
-        super.onDreamingStarted()
-        visualizerView?.visualizerRenderer?.let(::startFeeding)
-    }
-
-    override fun onDreamingStopped() {
-        stopFeeding()
-        super.onDreamingStopped()
-    }
-
     override fun onDetachedFromWindow() {
-        // Belt and braces: onDreamingStopped is documented to run first, but a feeder thread left
-        // running past window teardown would keep this service's process alive to feed a renderer
-        // no scene will ever read from again. Scene teardown itself is not repeated here — that is
-        // VisualizerView's own onDetachedFromWindow, called by super below.
-        stopFeeding()
+        // Scene teardown is VisualizerView's own onDetachedFromWindow, called by super below.
         (visualizerView?.parent as? ViewGroup)?.removeView(visualizerView)
         visualizerView = null
         super.onDetachedFromWindow()
@@ -110,42 +79,5 @@ class VisualizerDreamService : DreamService() {
         engine.lfoEngine.configs = modulation.load()
         engine.adsrEngine.configs = modulation.loadAdsrs()
         engine.reactions = modulation.loadReactions()
-    }
-
-    private fun startFeeding(engine: VisualizerRenderer) {
-        if (feeder != null) return
-        AudioBus.addConsumer()
-        val generation = ++feedGeneration
-        running = true
-        lastFrameMs = android.os.SystemClock.elapsedRealtime()
-        feeder =
-            Thread {
-                while (running && feedGeneration == generation) {
-                    val now = android.os.SystemClock.elapsedRealtime()
-                    val dt = ((now - lastFrameMs).coerceIn(1, 100)) / 1000f
-                    lastFrameMs = now
-                    engine.features = AudioBus.features() ?: idle.tick(dt)
-                    Thread.sleep(FEED_INTERVAL_MS)
-                }
-            }.apply {
-                isDaemon = true
-                name = "geode-dream-audio"
-                start()
-            }
-    }
-
-    private fun stopFeeding() {
-        val thread = feeder ?: return
-        running = false
-        feedGeneration++
-        AudioBus.removeConsumer()
-        bestEffort(TAG, "await feeder") { thread.join(FEEDER_JOIN_MS) }
-        feeder = null
-    }
-
-    private companion object {
-        const val TAG = "VisualizerDream"
-        const val FEED_INTERVAL_MS = 16L
-        const val FEEDER_JOIN_MS = 200L
     }
 }

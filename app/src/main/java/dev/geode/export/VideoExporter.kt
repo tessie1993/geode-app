@@ -14,7 +14,6 @@ import android.provider.MediaStore
 import androidx.annotation.StringRes
 import dev.geode.R
 import dev.geode.RingLog
-import dev.geode.analysis.FeatureTimeline
 import dev.geode.engine.audio.SoundTuning
 import dev.geode.render.SceneFactory
 import dev.geode.render.offscreen.OffscreenRenderSpec
@@ -165,7 +164,6 @@ class VideoExporter(
 
     suspend fun export(
         audioUri: Uri,
-        timeline: FeatureTimeline,
         sceneFactory: SceneFactory,
         aspect: ExportAspect,
         fileName: String,
@@ -177,7 +175,6 @@ class VideoExporter(
         requestedFps: Int = FPS,
         range: ExportRange? = null,
         paramsAt: ((Long) -> SceneParams)? = null,
-        loopSafe: Boolean = false,
         destination: Uri? = null,
         codec: ExportCodec = ExportCodec.H264,
         loudnessTarget: LoudnessTarget = LoudnessTarget.LeaveAsIs,
@@ -197,7 +194,6 @@ class VideoExporter(
                 return@withContext exportToDestination(
                     destination,
                     audioUri,
-                    timeline,
                     sceneFactory,
                     aspect,
                     sceneParams,
@@ -207,7 +203,6 @@ class VideoExporter(
                     reducedMotion,
                     requestedFps,
                     paramsAt,
-                    loopSafe,
                     range,
                     codec,
                     loudnessTarget,
@@ -241,7 +236,6 @@ class VideoExporter(
                     encodeInto(
                         it,
                         audioUri,
-                        timeline,
                         sceneFactory,
                         aspect,
                         sceneParams,
@@ -251,7 +245,6 @@ class VideoExporter(
                         reducedMotion,
                         requestedFps,
                         paramsAt,
-                        loopSafe,
                         range,
                         codec,
                         underlay,
@@ -283,7 +276,6 @@ class VideoExporter(
     private suspend fun exportToDestination(
         destination: Uri,
         audioUri: Uri,
-        timeline: FeatureTimeline,
         sceneFactory: SceneFactory,
         aspect: ExportAspect,
         sceneParams: SceneParams,
@@ -293,7 +285,6 @@ class VideoExporter(
         reducedMotion: Boolean,
         requestedFps: Int,
         paramsAt: ((Long) -> SceneParams)?,
-        loopSafe: Boolean,
         range: ExportRange?,
         codec: ExportCodec,
         loudnessTarget: LoudnessTarget,
@@ -312,7 +303,6 @@ class VideoExporter(
                 encodeInto(
                     it,
                     audioUri,
-                    timeline,
                     sceneFactory,
                     aspect,
                     sceneParams,
@@ -322,7 +312,6 @@ class VideoExporter(
                     reducedMotion,
                     requestedFps,
                     paramsAt,
-                    loopSafe,
                     range,
                     codec,
                     underlay,
@@ -386,7 +375,6 @@ class VideoExporter(
     private fun encodeInto(
         pfd: ParcelFileDescriptor,
         audioUri: Uri,
-        timeline: FeatureTimeline,
         sceneFactory: SceneFactory,
         aspect: ExportAspect,
         sceneParams: SceneParams,
@@ -396,7 +384,6 @@ class VideoExporter(
         reducedMotion: Boolean,
         requestedFps: Int,
         paramsAt: ((Long) -> SceneParams)?,
-        loopSafe: Boolean,
         range: ExportRange?,
         codec: ExportCodec,
         underlay: OffscreenUnderlay?,
@@ -446,14 +433,7 @@ class VideoExporter(
             val egl = EncoderSurface(inputSurface).also { eglRef = it }
             egl.makeCurrent()
 
-            val sourceDurationUs = if (aac.durationUs > 0) aac.durationUs else timeline.durationMs * 1000
-            val exportDurationUs =
-                if (loopSafe) {
-                    dev.geode.analysis.BarTrim
-                        .trimToBars(sourceDurationUs, timeline.bpm)
-                } else {
-                    sourceDurationUs
-                }
+            val exportDurationUs = aac.durationUs
             val totalFrames = (exportDurationUs * fps / 1_000_000L).toInt().coerceAtLeast(1)
             val frameDurationNs = 1_000_000_000L / fps
 
@@ -461,7 +441,6 @@ class VideoExporter(
                 OffscreenSceneRenderer(
                     context = context,
                     sceneFactory = sceneFactory,
-                    timeline = timeline,
                     spec =
                         OffscreenRenderSpec(
                             width = aspect.width,

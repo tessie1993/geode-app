@@ -70,8 +70,7 @@ fun PositionClock(
 }
 
 @Composable
-fun WaveformSeekBar(
-    waveform: FloatArray?,
+fun TrackSeekBar(
     positionMs: () -> Long,
     durationMs: Long,
     loopStartMs: Long?,
@@ -129,27 +128,10 @@ fun WaveformSeekBar(
             val to = ((loopEndMs ?: durationMs) / durationMs.toFloat()).coerceIn(0f, 1f) * size.width
             drawRect(loopTint, topLeft = Offset(from, 0f), size = Size((to - from).coerceAtLeast(2f), size.height))
         }
-        if (waveform == null || waveform.isEmpty()) {
-            val h = 3.dp.toPx()
-            val y = size.height / 2f - h / 2f
-            drawRoundRect(idle, Offset(0f, y), Size(size.width, h), CornerRadius(h / 2f))
-            drawRoundRect(primary, Offset(0f, y), Size(size.width * played, h), CornerRadius(h / 2f))
-        } else {
-            val n = waveform.size
-            val slot = size.width / n
-            val barWidth = (slot * 0.62f).coerceAtLeast(1f)
-            val playedX = size.width * played
-            for (i in 0 until n) {
-                val h = (size.height * (0.08f + 0.92f * waveform[i])).coerceAtLeast(2f)
-                val x = i * slot + (slot - barWidth) / 2f
-                drawRoundRect(
-                    color = if (x + barWidth / 2f <= playedX) primary else idle,
-                    topLeft = Offset(x, (size.height - h) / 2f),
-                    size = Size(barWidth, h),
-                    cornerRadius = CornerRadius(barWidth / 2f),
-                )
-            }
-        }
+        val h = 3.dp.toPx()
+        val y = size.height / 2f - h / 2f
+        drawRoundRect(idle, Offset(0f, y), Size(size.width, h), CornerRadius(h / 2f))
+        drawRoundRect(primary, Offset(0f, y), Size(size.width * played, h), CornerRadius(h / 2f))
         val x = (size.width * played).coerceIn(1f, maxOf(1f, size.width - 1f))
         drawRoundRect(
             playhead,

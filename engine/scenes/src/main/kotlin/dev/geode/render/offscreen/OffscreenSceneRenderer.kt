@@ -3,7 +3,6 @@ package dev.geode.render.offscreen
 import android.content.Context
 import android.net.Uri
 import android.util.Log
-import dev.geode.analysis.FeatureTimeline
 import dev.geode.engine.audio.SoundTuning
 import dev.geode.render.AdsrConfig
 import dev.geode.render.LfoConfig
@@ -62,7 +61,7 @@ class OffscreenUnderlay(
 )
 
 /**
- * Draws an analysed track to a GL target, one frame at a time, through its own native renderer.
+ * Draws a track to a GL target, one frame at a time, through its own native renderer.
  *
  * Callers own the EGL context, the surface and whatever they do with the rendered frames; the
  * scene, its simulations and the modulation engines live inside `libgeode.so`. Not thread-safe,
@@ -71,7 +70,6 @@ class OffscreenUnderlay(
 class OffscreenSceneRenderer(
     private val context: Context,
     private val sceneFactory: SceneFactory,
-    private val timeline: FeatureTimeline,
     private val spec: OffscreenRenderSpec,
 ) {
     private var native: NativeViz? = null
@@ -120,7 +118,6 @@ class OffscreenSceneRenderer(
         val fps = spec.fps
         val timeMs = frame * 1000L / fps
         val nextTimeMs = (frame + 1) * 1000L / fps
-        val features = timeline.featuresAt(spec.rangeStartMs + timeMs, nextTimeMs - timeMs)
         // Quality never adapts downward in an export; the thermal half is the offscreen pin above.
         val p = (spec.paramsAt?.invoke(timeMs) ?: spec.baseParams).copy(fluidAutoQuality = false)
         viz.setParams(p)
@@ -130,7 +127,6 @@ class OffscreenSceneRenderer(
             viz.setReactions(routes)
             nativeReactions = routes
         }
-        viz.setFeatures(features)
         // Exactly the audio up to the end of this frame, then a render steps the engine by 1/fps.
         audio?.deliverUntilMs(nextTimeMs) { pcm, frames, channels, rate -> viz.writeAudio(pcm, frames, channels, rate) }
         viz.render(timeMs / 1000.0, targetFbo)

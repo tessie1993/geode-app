@@ -52,16 +52,6 @@ internal fun AutoVisualsGroup(viewModel: PlayerViewModel) {
             onValueChange = { viewModel.setRandomInterval(it.roundToInt()) },
             valueRange = INTERVAL_RANGE,
         )
-        LabeledSwitch(
-            stringResource(R.string.autoviz_on_beat),
-            checked = viz.randomOnBeat,
-            onCheckedChange = viewModel::setRandomOnBeat,
-        )
-        Text(
-            stringResource(R.string.autoviz_on_beat_hint),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
     }
     Column {
         Text(stringResource(R.string.autoviz_pick_from), style = MaterialTheme.typography.labelMedium)
@@ -135,16 +125,6 @@ internal fun AutoVisualsGroup(viewModel: PlayerViewModel) {
             value = viz.vizPlaylistIntervalSec.toFloat(),
             onValueChange = { viewModel.setVizPlaylistInterval(it.roundToInt()) },
             valueRange = INTERVAL_RANGE,
-        )
-        LabeledSwitch(
-            stringResource(R.string.autoviz_wait_strong),
-            checked = viz.vizPlaylistIntelligent,
-            onCheckedChange = viewModel::setVizPlaylistIntelligent,
-        )
-        Text(
-            stringResource(R.string.autoviz_wait_strong_hint),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }

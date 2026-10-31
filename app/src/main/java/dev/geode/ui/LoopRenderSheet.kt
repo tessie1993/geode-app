@@ -42,8 +42,8 @@ import kotlin.math.roundToInt
  * Picks the loop's length, seam and palette drift, then starts [ExportController.startLoopRender]
  * through the same destination flow (Videos library or a chosen folder) the other exports use.
  *
- * The visual source is always the currently loaded track's analysis — there is nothing else in
- * this build to loop. The soundtrack defaults to that same track; the clip picker lets it be
+ * The visual source is always the currently loaded track — there is nothing else in this build
+ * to loop. The soundtrack defaults to that same track; the clip picker lets it be
  * replaced with a longer mix so the finished file can run past the track's own length.
  */
 @Composable

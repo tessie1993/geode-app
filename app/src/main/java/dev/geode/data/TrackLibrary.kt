@@ -15,26 +15,6 @@ class TrackLibrary(
 
     fun addAll(tracks: List<LibraryTrack>): List<LibraryTrack>? = mutate { current -> mergeAdds(current, tracks) }
 
-    fun updateAnalysis(
-        uri: String,
-        title: String,
-        durationMs: Long,
-        bpm: Float,
-        key: String = "",
-    ): List<LibraryTrack>? =
-        mutate { current ->
-            val map = current.associateBy { it.uri }.toMutableMap()
-            val base = map[uri] ?: LibraryTrack(uri = uri, title = title)
-            map[uri] =
-                base.copy(
-                    durationMs = if (durationMs > 0) durationMs else base.durationMs,
-                    bpm = bpm,
-                    key = key.ifBlank { base.key },
-                    analyzed = true,
-                )
-            map.values.sortedBy { it.title.lowercase() }
-        }
-
     fun updateMetadata(
         uri: String,
         title: String,
@@ -104,8 +84,7 @@ class TrackLibrary(
 
             fun keep(t: LibraryTrack) {
                 val key = identityKey(t)
-                val held = merged[key]
-                merged[key] = if (held == null) t else richer(held, t)
+                if (key !in merged) merged[key] = t
             }
             for (t in existing) {
                 val id = if (t.fileName.isBlank()) identityByUri[t.uri] else null
@@ -114,11 +93,6 @@ class TrackLibrary(
             for (t in incoming) keep(t)
             return merged.values.sortedBy { it.title.lowercase() }
         }
-
-        private fun richer(
-            kept: LibraryTrack,
-            other: LibraryTrack,
-        ): LibraryTrack = if (!kept.analyzed && other.analyzed) other else kept
 
         internal fun upsertInfo(
             tracks: List<LibraryTrack>,
@@ -167,9 +141,6 @@ class TrackLibrary(
                 .put("title", t.title)
                 .put("artist", t.artist)
                 .put("durationMs", t.durationMs)
-                .put("bpm", t.bpm.toDouble())
-                .put("key", t.key)
-                .put("analyzed", t.analyzed)
                 .put("album", t.album)
                 .put("genre", t.genre)
                 .put("year", t.year)
@@ -184,9 +155,6 @@ class TrackLibrary(
                 title = o.optString("title", "Track"),
                 artist = o.optString("artist", ""),
                 durationMs = o.optLong("durationMs", 0L),
-                bpm = o.optDouble("bpm", 0.0).toFloat(),
-                key = o.optString("key", ""),
-                analyzed = o.optBoolean("analyzed", false),
                 album = o.optString("album", ""),
                 genre = o.optString("genre", ""),
                 year = o.optInt("year", 0),

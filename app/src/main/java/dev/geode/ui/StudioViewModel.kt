@@ -12,8 +12,6 @@ import dev.geode.editor.KeyframeId
 import dev.geode.editor.MarkerId
 import dev.geode.editor.SubtitleCue
 import dev.geode.editor.Subtitles
-import dev.geode.editor.TransientEnvelope
-import dev.geode.editor.TransientSource
 import dev.geode.export.ClipEdit
 import dev.geode.export.StudioClip
 import dev.geode.pro.FeatureGate
@@ -70,9 +68,6 @@ class StudioViewModel
         override fun newMarkerId(): MarkerId = session.editor.newMarkerId()
 
         override fun newKeyframeId(): KeyframeId = session.editor.newKeyframeId()
-
-        override fun transientEnvelope(source: TransientSource): TransientEnvelope? =
-            session.analysisTimeline()?.let { TransientEnvelope.from(it, source) }
 
         override fun currentSceneId(): String = session.currentSceneId()
 

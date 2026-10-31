@@ -12,7 +12,6 @@ internal data class PendingExport(
     val aspect: ExportAspect,
     val fps: Int,
     val sceneId: String,
-    val loopSafe: Boolean,
     val rangeStartMs: Long,
     val rangeDurationMs: Long,
     val codec: ExportCodec,

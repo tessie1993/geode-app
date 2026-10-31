@@ -3,7 +3,6 @@ package dev.geode.ui
 import android.app.Application
 import android.net.Uri
 import androidx.core.net.toUri
-import dev.geode.analysis.FeatureTimeline
 import dev.geode.data.BackgroundPrefsStore
 import dev.geode.data.ExportPrefsStore
 import dev.geode.data.GeodePrefsFiles
@@ -89,13 +88,6 @@ internal class ExportController(
     interface Host {
         val exportUri: Uri?
 
-        var cachedTimeline: FeatureTimeline?
-
-        suspend fun analyze(
-            uri: Uri,
-            onProgress: (Float) -> Unit,
-        ): FeatureTimeline
-
         val guiPrefs: GuiPrefs
 
         val sceneId: String
@@ -111,11 +103,6 @@ internal class ExportController(
         fun keyframes(): KeyframeSheet
 
         suspend fun loadExportTake(): PerformanceTake.Timeline?
-
-        fun publishSections(
-            uri: Uri,
-            timeline: FeatureTimeline,
-        )
     }
 
     private val exporter = VideoExporter(application)
@@ -153,7 +140,6 @@ internal class ExportController(
         fps: Int,
         sceneFactory: SceneFactory,
         destination: Uri? = null,
-        loopSafe: Boolean = false,
         range: ExportRange? = null,
         sceneFactoryFor: ((String) -> SceneFactory)? = null,
         codec: ExportCodec = ExportCodec.H264,
@@ -172,19 +158,7 @@ internal class ExportController(
         exportJob =
             ExportRun.scope.launch(Dispatchers.Default) {
                 try {
-                    val analysed =
-                        host.cachedTimeline ?: host
-                            .analyze(uri) { p ->
-                                _exportState.update { it.copy(phase = ExportPhase.Running(p * 0.2f)) }
-                                ExportRun.publish(p * 0.2f, steady = false)
-                            }.also { if (host.exportUri == uri) host.cachedTimeline = it }
                     val gui = host.guiPrefs
-                    val t =
-                        analysed.withBeatSensitivity(
-                            gui.beatSensitivity,
-                            gui.effectiveBeatMinIntervalMs,
-                        )
-                    host.publishSections(uri, t)
                     val name = "muzviz_${System.currentTimeMillis()}.mp4"
                     val exportTake = host.loadExportTake()
                     val sheet = host.keyframes()
@@ -217,7 +191,6 @@ internal class ExportController(
                     val result =
                         exporter.export(
                             audioUri = uri,
-                            timeline = t,
                             sceneFactory = factory,
                             aspect = aspect,
                             fileName = name,
@@ -229,16 +202,14 @@ internal class ExportController(
                             requestedFps = fps,
                             soundTuning = gui.soundTuning,
                             paramsAt = paramsAt,
-                            loopSafe = loopSafe,
                             range = range,
                             destination = destination,
                             codec = codec,
                             loudnessTarget = defaultLoudnessTarget(),
                             background = defaultBackground(),
                             onProgress = { p ->
-                                val overall = 0.2f + p * 0.8f
-                                _exportState.update { it.copy(phase = ExportPhase.Running(overall)) }
-                                ExportRun.publish(overall, steady = p >= VideoExporter.AUDIO_PROGRESS_SPAN)
+                                _exportState.update { it.copy(phase = ExportPhase.Running(p)) }
+                                ExportRun.publish(p, steady = p >= VideoExporter.AUDIO_PROGRESS_SPAN)
                             },
                             isCancelled = { exportCancelled || ExportRun.cancelRequested },
                             watermark = watermark,
@@ -285,7 +256,6 @@ internal class ExportController(
         fps: Int,
         sceneFactory: SceneFactory,
         sceneParams: SceneParams?,
-        loopSafe: Boolean,
         codec: ExportCodec,
         watermark: Boolean,
     ) {
@@ -310,7 +280,7 @@ internal class ExportController(
                         publish(0f)
                         val outcome =
                             try {
-                                renderBatchTrack(track, aspect, fps, sceneFactory, sceneParams, loopSafe, codec, watermark, gui, publish)
+                                renderBatchTrack(track, aspect, fps, sceneFactory, sceneParams, codec, watermark, gui, publish)
                             } catch (c: kotlinx.coroutines.CancellationException) {
                                 throw c
                             } catch (t: Throwable) {
@@ -335,22 +305,16 @@ internal class ExportController(
         fps: Int,
         sceneFactory: SceneFactory,
         sceneParams: SceneParams?,
-        loopSafe: Boolean,
         codec: ExportCodec,
         watermark: Boolean,
         gui: GuiPrefs,
         publish: (Float) -> Unit,
     ): BatchOutcome {
         val uri = track.uri.toUri()
-        // Always by this track's own URI. The playing track's cached timeline is not used here:
-        // reading it and the playing URI are two separate reads, and a track change between them
-        // would pair this track with another song's analysis. analyze() goes through AnalysisCache.
-        val analysed = host.analyze(uri) { p -> publish(p * 0.2f) }
         val name = "muzviz_${System.currentTimeMillis()}.mp4"
         val result =
             exporter.export(
                 audioUri = uri,
-                timeline = analysed.withBeatSensitivity(gui.beatSensitivity, gui.effectiveBeatMinIntervalMs),
                 sceneFactory = sceneFactory,
                 aspect = aspect,
                 fileName = name,
@@ -361,11 +325,10 @@ internal class ExportController(
                 reducedMotion = gui.reducedMotion,
                 requestedFps = fps,
                 soundTuning = gui.soundTuning,
-                loopSafe = loopSafe,
                 codec = codec,
                 loudnessTarget = defaultLoudnessTarget(),
                 background = defaultBackground(),
-                onProgress = { p -> publish(0.2f + p * 0.8f) },
+                onProgress = publish,
                 isCancelled = { exportCancelled || ExportRun.cancelRequested },
                 watermark = watermark,
             )
@@ -550,7 +513,7 @@ internal class ExportController(
     private var loopJob: Job? = null
 
     /**
-     * Renders a seamless loop from the current track's analysis, then repeats it into a
+     * Renders a seamless loop of the current track's visuals, then repeats it into a
      * long-form video with [audioClips] (or, if empty, the current track) as its soundtrack.
      *
      * Runs on [ExportRun.scope] and shares [ExportRun]'s single-render guard and foreground
@@ -578,16 +541,10 @@ internal class ExportController(
         loopJob =
             ExportRun.scope.launch(Dispatchers.Default) {
                 try {
-                    val analysed =
-                        host.cachedTimeline ?: host
-                            .analyze(uri) { p ->
-                                publishLoopProgress(p * ANALYSIS_SPAN, steady = false)
-                            }.also { if (host.exportUri == uri) host.cachedTimeline = it }
                     val gui = host.guiPrefs
-                    val spec = LoopSpec.of(loopMs, crossfadeMs, fps = fps, bpm = analysed.bpm)
+                    val spec = LoopSpec.of(loopMs, crossfadeMs, fps = fps)
                     val renderResult =
                         loopRenderer.render(
-                            timeline = analysed,
                             sceneFactory = sceneFactory,
                             aspect = aspect,
                             spec = spec,
@@ -600,7 +557,7 @@ internal class ExportController(
                             codec = codec,
                             audioUri = uri,
                             soundTuning = gui.soundTuning,
-                            onProgress = { p -> publishLoopProgress(ANALYSIS_SPAN + p * RENDER_SPAN) },
+                            onProgress = { p -> publishLoopProgress(p * RENDER_SPAN) },
                             isCancelled = { loopCancelled || ExportRun.cancelRequested },
                             watermark = watermark,
                         )
@@ -652,7 +609,7 @@ internal class ExportController(
                             audio = audio,
                             fileName = name,
                             destination = destination,
-                            onProgress = { p -> publishLoopProgress(ANALYSIS_SPAN + RENDER_SPAN + p * EXTEND_SPAN) },
+                            onProgress = { p -> publishLoopProgress(RENDER_SPAN + p * EXTEND_SPAN) },
                             isCancelled = { loopCancelled || ExportRun.cancelRequested },
                         )
                     when (extended) {
@@ -666,13 +623,10 @@ internal class ExportController(
             }
         }
 
-    private fun publishLoopProgress(
-        overall: Float,
-        steady: Boolean = true,
-    ) {
+    private fun publishLoopProgress(overall: Float) {
         val clamped = overall.coerceIn(0f, 1f)
         _loopState.update { it.copy(phase = ExportPhase.Running(clamped)) }
-        ExportRun.publish(clamped, steady)
+        ExportRun.publish(clamped)
     }
 
     fun cancelLoopRender() {
@@ -684,10 +638,9 @@ internal class ExportController(
     }
 
     private companion object {
-        // Analysing the track is quick against the render itself; extending mostly copies
-        // already-encoded samples, so it gets less of the bar than the GPU render does.
-        const val ANALYSIS_SPAN = 0.1f
-        const val RENDER_SPAN = 0.6f
-        const val EXTEND_SPAN = 1f - ANALYSIS_SPAN - RENDER_SPAN
+        // Extending mostly copies already-encoded samples, so it gets less of the bar than the
+        // GPU render does.
+        const val RENDER_SPAN = 0.7f
+        const val EXTEND_SPAN = 1f - RENDER_SPAN
     }
 }

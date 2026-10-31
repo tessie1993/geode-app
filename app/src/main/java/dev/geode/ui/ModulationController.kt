@@ -145,6 +145,8 @@ internal class ModulationController(
      */
     fun randomizeParams(tab: CustomizeTab? = null) {
         if (tab == CustomizeTab.EVENTS) return rerollReactions()
+        // The knobs are not params: the toolbar rolls them through MacroStore.
+        if (tab == CustomizeTab.MACROS) return
         commitSceneParams(
             ParamRandomizer.randomize(
                 current = host.params,
@@ -159,6 +161,7 @@ internal class ModulationController(
     fun resetTab(tab: CustomizeTab) =
         when (tab) {
             CustomizeTab.EVENTS -> setReactions(null)
+            CustomizeTab.MACROS -> Unit
             else -> commitSceneParams(ParamRandomizer.resetTab(host.params, tab))
         }
 

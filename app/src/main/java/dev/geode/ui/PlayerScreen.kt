@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -33,16 +32,12 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawWithCache
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -53,15 +48,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.repeatOnLifecycle
 import androidx.media3.common.Player
 import dev.geode.R
 import dev.geode.ui.theme.StoneIcon
 import dev.geode.ui.theme.StoneIconArt
-import kotlinx.coroutines.delay
 
 @Composable
 fun PlayerScreen(
@@ -76,7 +67,6 @@ fun PlayerScreen(
     val viz by viewModel.vizState.collectAsStateWithLifecycle()
     val mic by viewModel.micState.collectAsStateWithLifecycle()
     val external by viewModel.externalAudio.collectAsStateWithLifecycle()
-    val waveform by viewModel.waveform.collectAsStateWithLifecycle()
     val abLoop by viewModel.abLoop.collectAsStateWithLifecycle()
     val autoMode by viewModel.autoMode.collectAsStateWithLifecycle()
     val queue by viewModel.queue.collectAsStateWithLifecycle()
@@ -121,21 +111,12 @@ fun PlayerScreen(
                 viewModel = viewModel,
                 state = state,
                 position = { position.value },
-                waveform = waveform,
                 abLoop = abLoop,
                 autoMode = autoMode,
                 queueSize = queue.tracks.size,
                 queueOpen = showQueue,
                 onToggleQueue = { showQueue = !showQueue },
                 modifier = Modifier.padding(horizontal = 16.dp),
-            )
-        }
-
-        item {
-            LiveSpectrum(
-                viewModel,
-                live = state.isPlaying || mic.active || external.active,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).height(44.dp),
             )
         }
 
@@ -377,7 +358,6 @@ private fun TransportCard(
     viewModel: PlayerViewModel,
     state: PlayerUiState,
     position: () -> Long,
-    waveform: FloatArray?,
     abLoop: AbLoop?,
     autoMode: Int,
     queueSize: Int,
@@ -402,8 +382,7 @@ private fun TransportCard(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             PositionClock(position)
-            WaveformSeekBar(
-                waveform = waveform,
+            TrackSeekBar(
                 positionMs = position,
                 durationMs = state.durationMs,
                 loopStartMs = abLoop?.startMs,
@@ -458,8 +437,6 @@ private fun TransportCard(
                 Text(
                     when (autoMode) {
                         1 -> stringResource(R.string.auto_random)
-                        2 -> stringResource(R.string.auto_smart)
-                        3 -> stringResource(R.string.auto_sections)
                         else -> stringResource(R.string.auto_off)
                     },
                     style = MaterialTheme.typography.labelMedium,
@@ -520,95 +497,6 @@ private fun QueuePreview(
                 Text(stringResource(R.string.action_open_queue), style = MaterialTheme.typography.labelMedium, color = accentTextColor())
             }
         }
-    }
-}
-
-@Composable
-private fun LiveSpectrum(
-    viewModel: PlayerViewModel,
-    live: Boolean,
-    modifier: Modifier = Modifier,
-) {
-    // Kept as State and read only in the draw block: the 20 Hz bars redraw the Canvas without
-    // recomposing anything, and the loop stops while the Activity is in the background.
-    val lifecycle = LocalLifecycleOwner.current.lifecycle
-    val bars =
-        produceState(initialValue = FloatArray(BARS), live, lifecycle) {
-            lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                driveSpectrum(live, { viewModel.features.value.bands }) { value = it }
-            }
-        }
-    val primary = MaterialTheme.colorScheme.primary
-    val secondary = MaterialTheme.colorScheme.secondary
-    Spacer(
-        modifier.drawWithCache {
-            val gap = size.width / (BARS * 6f)
-            val barWidth = (size.width - gap * (BARS - 1)) / BARS
-            val brush =
-                Brush.verticalGradient(
-                    listOf(secondary.copy(alpha = 0.95f), primary.copy(alpha = 0.75f)),
-                )
-            onDrawBehind { drawBars(bars.value, gap, barWidth, brush) }
-        },
-    )
-}
-
-private fun DrawScope.drawBars(
-    bars: FloatArray,
-    gap: Float,
-    barWidth: Float,
-    brush: Brush,
-) {
-    for (i in 0 until BARS) {
-        val v = bars.getOrElse(i) { 0f }.coerceIn(0f, 1f)
-        val h = (size.height * (0.06f + 0.94f * v)).coerceAtLeast(2f)
-        drawRoundRect(
-            brush = brush,
-            topLeft =
-                androidx.compose.ui.geometry
-                    .Offset(i * (barWidth + gap), size.height - h),
-            size =
-                androidx.compose.ui.geometry
-                    .Size(barWidth, h),
-            cornerRadius =
-                androidx.compose.ui.geometry
-                    .CornerRadius(barWidth / 2f),
-        )
-    }
-}
-
-internal const val BARS = 24
-
-internal const val SPECTRUM_TICK_MS = 50L
-
-internal suspend fun driveSpectrum(
-    live: Boolean,
-    bands: () -> FloatArray,
-    emit: (FloatArray) -> Unit,
-) {
-    if (!live) {
-        emit(FloatArray(BARS))
-        return
-    }
-    val smoothed = FloatArray(BARS)
-    while (true) {
-        val current = bands()
-        for (i in 0 until BARS) {
-            val target =
-                if (current.isEmpty()) {
-                    0f
-                } else {
-                    val from = i * current.size / BARS
-                    val to = ((i + 1) * current.size / BARS).coerceAtLeast(from + 1)
-                    var acc = 0f
-                    for (b in from until minOf(to, current.size)) acc += current[b]
-                    acc / (minOf(to, current.size) - from)
-                }
-            smoothed[i] =
-                if (target > smoothed[i]) target else smoothed[i] + (target - smoothed[i]) * 0.35f
-        }
-        emit(smoothed.copyOf())
-        delay(SPECTRUM_TICK_MS)
     }
 }
 

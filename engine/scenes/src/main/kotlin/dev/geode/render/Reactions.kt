@@ -90,6 +90,22 @@ enum class ReactSource(
     VIBRATO("Vibrato", ReactSourceGroup.MELODY),
     EVENNESS("Evenness", ReactSourceGroup.MELODY),
     RUN_DENSITY("Busy melody", ReactSourceGroup.MELODY),
+    EQ_25("25 Hz", ReactSourceGroup.EQ),
+    EQ_40("40 Hz", ReactSourceGroup.EQ),
+    EQ_60("60 Hz", ReactSourceGroup.EQ),
+    EQ_90("90 Hz", ReactSourceGroup.EQ),
+    EQ_150("150 Hz", ReactSourceGroup.EQ),
+    EQ_240("240 Hz", ReactSourceGroup.EQ),
+    EQ_370("370 Hz", ReactSourceGroup.EQ),
+    EQ_590("590 Hz", ReactSourceGroup.EQ),
+    EQ_930("930 Hz", ReactSourceGroup.EQ),
+    EQ_1K5("1.5 kHz", ReactSourceGroup.EQ),
+    EQ_2K3("2.3 kHz", ReactSourceGroup.EQ),
+    EQ_3K6("3.6 kHz", ReactSourceGroup.EQ),
+    EQ_5K6("5.6 kHz", ReactSourceGroup.EQ),
+    EQ_8K9("8.9 kHz", ReactSourceGroup.EQ),
+    EQ_14K("14 kHz", ReactSourceGroup.EQ),
+    EQ_22K("22 kHz", ReactSourceGroup.EQ),
 }
 
 /** The Customize picker's sections, in the order it shows them. */
@@ -102,6 +118,7 @@ enum class ReactSourceGroup(
     MELODY("Melody"),
     CLOCKS("Clocks"),
     TEXTURE("Texture"),
+    EQ("EQ bands"),
 }
 
 /**

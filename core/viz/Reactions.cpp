@@ -25,6 +25,7 @@ struct SourceSpec {
 };
 
 #define GEODE_SRC(src, field, kind, scale) SourceSpec{ReactSource::src, offsetof(GeodeSoundFrame, field), Kind::kind, scale}
+#define GEODE_EQ(src, band) SourceSpec{ReactSource::src, offsetof(GeodeSoundFrame, eq) + (band) * sizeof(float), Kind::Relative, 0}
 
 // Clock scales: bandTime runs at its band's att (~1/s typical), curvedTime at vol_att^2.5, hitTime at
 // hits per second, noteTime at notes per second; each scaled so a busy passage reads near 1.
@@ -54,9 +55,13 @@ constexpr std::array<SourceSpec, kReactSourceCount> kSourceTable = {{
     GEODE_SRC(NoteRandom, noteRandom, Unit, 0), GEODE_SRC(PitchClass, pitchClass, Unit, 0), GEODE_SRC(PitchHeight, pitchHeight, Unit, 0),
     GEODE_SRC(PitchConfidence, pitchConfidence, Unit, 0), GEODE_SRC(Interval, interval, Signed, 0), GEODE_SRC(Glide, glide, Unit, 0),
     GEODE_SRC(Vibrato, vibrato, Unit, 0), GEODE_SRC(Evenness, evenness, Unit, 0), GEODE_SRC(RunDensity, runDensity, Unit, 0),
+    GEODE_EQ(Eq25, 0), GEODE_EQ(Eq40, 1), GEODE_EQ(Eq60, 2), GEODE_EQ(Eq90, 3), GEODE_EQ(Eq150, 4), GEODE_EQ(Eq240, 5),
+    GEODE_EQ(Eq370, 6), GEODE_EQ(Eq590, 7), GEODE_EQ(Eq930, 8), GEODE_EQ(Eq1k5, 9), GEODE_EQ(Eq2k3, 10), GEODE_EQ(Eq3k6, 11),
+    GEODE_EQ(Eq5k6, 12), GEODE_EQ(Eq8k9, 13), GEODE_EQ(Eq14k, 14), GEODE_EQ(Eq22k, 15),
 }};
 
 #undef GEODE_SRC
+#undef GEODE_EQ
 
 constexpr bool tableInOrder() {
     for (size_t i = 0; i < kSourceTable.size(); ++i) {
@@ -139,6 +144,22 @@ constexpr std::array<ReactSourceInfo, kReactSourceCount> kSourceInfo = {{
     {"VIBRATO", "Vibrato", "MELODY", false},
     {"EVENNESS", "Evenness", "MELODY", false},
     {"RUN_DENSITY", "Busy melody", "MELODY", false},
+    {"EQ_25", "25 Hz", "EQ", false},
+    {"EQ_40", "40 Hz", "EQ", false},
+    {"EQ_60", "60 Hz", "EQ", false},
+    {"EQ_90", "90 Hz", "EQ", false},
+    {"EQ_150", "150 Hz", "EQ", false},
+    {"EQ_240", "240 Hz", "EQ", false},
+    {"EQ_370", "370 Hz", "EQ", false},
+    {"EQ_590", "590 Hz", "EQ", false},
+    {"EQ_930", "930 Hz", "EQ", false},
+    {"EQ_1K5", "1.5 kHz", "EQ", false},
+    {"EQ_2K3", "2.3 kHz", "EQ", false},
+    {"EQ_3K6", "3.6 kHz", "EQ", false},
+    {"EQ_5K6", "5.6 kHz", "EQ", false},
+    {"EQ_8K9", "8.9 kHz", "EQ", false},
+    {"EQ_14K", "14 kHz", "EQ", false},
+    {"EQ_22K", "22 kHz", "EQ", false},
 }};
 
 // A fired trigger always crosses Step/Jump/Toggle's 0.5 edge, however soft the hit; its strength

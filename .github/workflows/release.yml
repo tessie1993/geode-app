@@ -90,10 +90,6 @@ jobs:
           IS_TAG: ${{ startsWith(github.ref, 'refs/tags/') }}
         run: |
           set -euo pipefail
-          if [ "$IS_TAG" = "true" ] && [ -z "${LICENSE_KEY:-}" ]; then
-            echo "::error::PLAY_LICENSE_KEY (repository variable) is not set; a store release must verify purchase signatures."
-            exit 1
-          fi
           if [ -z "${KEYSTORE_BASE64:-}" ] || [ -z "${STORE_PASSWORD:-}" ] || [ -z "${KEY_ALIAS:-}" ] || [ -z "${KEY_PASSWORD:-}" ]; then
             if [ "$IS_TAG" = "true" ]; then
               echo "::error::The four MUZVIZ_UPLOAD_* secrets are not all set; a tagged release must be signed."
@@ -102,6 +98,12 @@ jobs:
             echo "::warning::Upload key secrets incomplete: building an UNSIGNED bundle. See docs/play/CONSOLE_CHECKLIST.md."
             echo "signed=false" >> "$GITHUB_OUTPUT"
             exit 0
+          fi
+          # Any signed bundle can be uploaded to Play, so every signed run (manual ones too) needs a
+          # licence key that parses: PurchaseVerifier skips the signature check without one.
+          if [ -z "${LICENSE_KEY:-}" ] || ! printf '%s' "$LICENSE_KEY" | base64 -d 2>/dev/null | openssl pkey -pubin -inform DER -noout 2>/dev/null; then
+            echo "::error::PLAY_LICENSE_KEY is missing or is not the Base64 public key from Play Console > Monetization setup > Licensing (no PEM header, no quotes)."
+            exit 1
           fi
           echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/upload.jks"
           echo "signed=true" >> "$GITHUB_OUTPUT"

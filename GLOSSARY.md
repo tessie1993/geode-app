@@ -46,7 +46,7 @@ A named look within a scene family, picked from the style catalogue.
 _Avoid_: Variant, skin
 
 **Style family**:
-Twelve fragment-shader styles built on one shared GLSL library (`lib_<family>`), each with its own geometry and its own way of hearing the music. The first is the basic one and is free; the rest are Pro. The families are Arbor, Bulb, Chrysanthemum, Lucid, Dive, Glass and Nebula.
+Twelve fragment-shader styles built on one shared GLSL library (`lib_<family>`), each with its own geometry and its own way of hearing the music. The first is the basic one and is free; the rest are Pro. The families are Arbor, Bulb, Chrysanthemum, Lucid, Dive, Glass, Nebula, Terrain and Truchet.
 _Avoid_: Pack, collection, scene family (that is the renderer, such as Cymatics or Fluid)
 
 **Arbor**:
@@ -70,6 +70,12 @@ The refraction style family: ray-traced glass shapes, dispersion, thin-film bubb
 **Nebula**:
 The space style family: layered dust, spiral galaxies and gas volumes flown through. Not the loose `nebula` style, which predates it.
 
+**Terrain**:
+The landscape style family: ray-marched heightfields (ridges, dunes, canyons, islands, moonscapes) flown over or framed.
+
+**Truchet**:
+The tiling style family: randomly turned tiles whose arcs and lines join into continuous paths, rewired by onsets.
+
 **Scene params**:
 The full set of tunable values a scene is drawn with at one moment.
 _Avoid_: Settings, knobs
@@ -83,6 +89,9 @@ _Avoid_: Binding, mapping
 
 **Jump**:
 A route mode: each hit holds a new random value for its target (sample and hold), seeded so an export draws the same ones.
+
+**Toggle**:
+A route mode: each hit flips its target between rest and the full amount, such as a palette swap per phrase.
 
 **Phrase**:
 Eight bars of music, or fewer when the analyser hears a section change. Phrase beat A fires on the beat in even phrases and phrase beat B in odd ones, so a style can answer the beat one way, then another.

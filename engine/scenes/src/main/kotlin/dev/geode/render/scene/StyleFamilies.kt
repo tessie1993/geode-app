@@ -262,8 +262,74 @@ object StyleFamilies {
                 ),
         )
 
+    /** Ray-marched heightfield landscapes: ridges, dunes, canyons and islands, flown over. */
+    val TERRAIN: StyleFamily =
+        StyleFamily(
+            name = "terrain",
+            label = "Terrain",
+            prefix = "terra_",
+            library = "lib_terra",
+            ids =
+                listOf(
+                    "terra_ridge",
+                    "terra_dunes",
+                    "terra_canyon",
+                    "terra_glacier",
+                    "terra_isles",
+                    "terra_mesa",
+                    "terra_volcano",
+                    "terra_terraces",
+                    "terra_moon",
+                    "terra_night",
+                    "terra_topo",
+                    "terra_wire",
+                ),
+            marchedIds =
+                setOf(
+                    "terra_ridge",
+                    "terra_dunes",
+                    "terra_canyon",
+                    "terra_glacier",
+                    "terra_isles",
+                    "terra_mesa",
+                    "terra_volcano",
+                    "terra_terraces",
+                    "terra_moon",
+                    "terra_night",
+                    "terra_wire",
+                ),
+        )
+
+    /** Truchet tilings: randomly turned tiles whose arcs join into paths that rewire on the beat. */
+    val TRUCHET: StyleFamily =
+        StyleFamily(
+            name = "truchet",
+            label = "Truchet",
+            prefix = "truchet_",
+            library = "lib_truchet",
+            ids =
+                listOf(
+                    "truchet_arcs",
+                    "truchet_hex",
+                    "truchet_weave",
+                    "truchet_maze",
+                    "truchet_tri",
+                    "truchet_quad",
+                    "truchet_tubes",
+                    "truchet_neon",
+                    "truchet_flow",
+                    "truchet_knot",
+                    "truchet_tunnel",
+                    "truchet_relief",
+                ),
+            marchedIds =
+                setOf(
+                    "truchet_relief",
+                ),
+        )
+
     /** In picker order. */
-    val all: List<StyleFamily> = listOf(ARBOR, BULB, CHRYSANTHEMUM, LUCID, DIVE, GLASS, NEBULA)
+    val all: List<StyleFamily> = listOf(ARBOR, BULB, CHRYSANTHEMUM, LUCID, DIVE, GLASS, NEBULA, TERRAIN, TRUCHET)
 
     /** Every family style id, in picker order. */
     val ids: List<String> = all.flatMap { it.ids }

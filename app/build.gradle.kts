@@ -44,8 +44,9 @@ android {
         applicationId = "com.muzviz.studiopro"
         minSdk = 26
         targetSdk = 36
-        versionCode = 33
-        versionName = "1.8.1"
+        // Set once in gradle.properties and the root build.gradle.kts (release versioning).
+        versionCode = rootProject.extra["geodeVersionCode"] as Int
+        versionName = rootProject.extra["geodeVersionName"] as String
         ndk {
             abiFilters += listOf("arm64-v8a", "x86_64")
         }
@@ -117,7 +118,8 @@ android {
             // based rather than id based, so both builds register it and Android shows
             // a chooser when both are installed - the cost of having both at once.
             applicationIdSuffix = ".debug"
-            versionNameSuffix = "-debug"
+            // A numbered pre-release keeps its release name (1.8.1.N) exactly.
+            versionNameSuffix = if (rootProject.extra["geodeReleaseNumber"] == null) "-debug" else null
             isDebuggable = true
             // Play does not know the .debug application id, so debug builds bill against
             // FakeBillingRepository unless -Pmuzviz.fakeBilling=false asks for the real client.

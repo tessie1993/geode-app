@@ -5,6 +5,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
 
+/** The families as the shell reads them from the catalogue, held against the files they name. */
 class StyleFamiliesTest {
     /** The repo root: Gradle runs a module's tests from the module directory. */
     private val root =
@@ -12,54 +13,27 @@ class StyleFamiliesTest {
             .first { File(it, "settings.gradle.kts").exists() }
 
     @Test
-    fun everyFamilyHasTwelveStylesUnderItsOwnPrefix() {
+    fun everyFamilyHasTwelveStylesUnderItsOwnPrefixOpenerFirst() {
+        assertEquals(
+            listOf("arbor", "bulb", "chrysanthemum", "lucid", "dive", "glass", "nebula", "terrain", "truchet"),
+            StyleFamilies.all.map { it.name },
+        )
         StyleFamilies.all.forEach { family ->
-            assertEquals(family.name, 12, family.ids.size)
             assertEquals(family.name, 12, family.ids.toSet().size)
+            assertEquals(family.ids.first(), family.opener)
             family.ids.forEach { assertTrue(it, it.startsWith(family.prefix)) }
         }
-        assertEquals(StyleFamilies.ids.size, StyleFamilies.ids.toSet().size)
+        assertEquals("arbor_grove", StyleFamilies.all.first().opener)
     }
 
     @Test
-    fun theFirstStyleIsTheFreeOneAndTheRestArePro() {
-        StyleFamilies.all.forEach { family ->
-            assertEquals(family.ids.first(), family.freeId)
-            assertEquals(family.ids.drop(1), family.proIds)
-            assertTrue(family.freeId !in StyleFamilies.proIds)
-        }
-        assertEquals(StyleFamilies.all.size * 11, StyleFamilies.proIds.size)
-    }
-
-    @Test
-    fun everyStyleIsAShaderSceneWithAnAssetAndAMarchedSubset() {
+    fun everyStyleIsAShaderSceneWithAnAsset() {
         StyleFamilies.ids.forEach { id ->
             val asset = SceneCapabilities.SHADER_SCENES[id]
             assertEquals(id, "shaders/${id}_frag.glsl", asset)
             assertTrue("$id has no shader file", File(root, "app/src/main/assets/$asset").isFile)
             assertEquals(id, SceneKind.SHADER, SceneCapabilities.kindOf(id))
         }
-        assertTrue(StyleFamilies.ids.containsAll(StyleFamilies.marchedIds))
-        assertTrue(SceneCapabilities.MARCHED_SCENES.containsAll(StyleFamilies.marchedIds))
-    }
-
-    @Test
-    fun theNativeRegistryKnowsEveryShaderScene() {
-        // core/viz/SceneRegistry.cpp keeps its own copy of the id list; a style missing there
-        // would be offered in the picker and then fall back to the default on screen.
-        val native = File(root, "core/viz/SceneRegistry.cpp").readText()
-        val block = native.substringAfter("kShaderIds").substringBefore("};")
-        val listed = Regex("\"(\\w+)\"").findAll(block).map { it.groupValues[1] }.toList()
-        assertEquals(SceneCapabilities.SHADER_SCENES.keys.toList(), listed)
-    }
-
-    @Test
-    fun theNativeRegistryAgreesOnWhichStylesTurn() {
-        val native = File(root, "core/viz/SceneRegistry.cpp").readText()
-        val block = native.substringAfter("kSpinningIds").substringBefore("};")
-        val listed = Regex("\"(\\w+)\"").findAll(block).map { it.groupValues[1] }.toSet()
-        assertEquals(SceneCapabilities.SPINNING_SCENES, listed)
-        assertTrue(SceneCapabilities.SHADER_SCENES.keys.containsAll(SceneCapabilities.SPINNING_SCENES))
     }
 
     @Test

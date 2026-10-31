@@ -1,6 +1,6 @@
 package dev.geode.render.scene
 
-/** Which scene class a style id builds. One entry per renderer, not per style. */
+/** Which scene class a style id builds. One entry per renderer, not per style. Names match core/viz/Catalogue's. */
 enum class SceneKind {
     SHADER,
 
@@ -23,184 +23,19 @@ enum class SceneKind {
     CYMATICS,
 }
 
+/** What a style can do, asked of the native [Catalogue]. */
 object SceneCapabilities {
-    /** Fragment style id -> the APK asset the native ShaderScene compiles. */
+    /** Fragment style id -> the APK asset the native ShaderScene compiles, loose styles first, then the families. */
     val SHADER_SCENES: Map<String, String> =
-        linkedMapOf(
-            SceneIds.JULIA to "shaders/julia_frag.glsl",
-            SceneIds.TUNNEL to "shaders/tunnel_frag.glsl",
-            SceneIds.MANDEL to "shaders/mandel_frag.glsl",
-            SceneIds.KALEIDO to "shaders/kaleido_frag.glsl",
-            SceneIds.PLASMA to "shaders/plasma_frag.glsl",
-            SceneIds.BARS to "shaders/bars_frag.glsl",
-            SceneIds.RING to "shaders/ring_frag.glsl",
-            SceneIds.SCOPE to "shaders/scope_frag.glsl",
-            SceneIds.LISS to "shaders/liss_frag.glsl",
-            SceneIds.WARP to "shaders/warp_frag.glsl",
-            SceneIds.GRID to "shaders/grid_frag.glsl",
-            SceneIds.VORONOI to "shaders/voronoi_frag.glsl",
-            SceneIds.METABALLS to "shaders/metaballs_frag.glsl",
-            SceneIds.RIPPLES to "shaders/ripples_frag.glsl",
-            SceneIds.STARFIELD to "shaders/starfield_frag.glsl",
-            SceneIds.WAVES to "shaders/waves_frag.glsl",
-            SceneIds.HEXGRID to "shaders/hexgrid_frag.glsl",
-            SceneIds.SPIRAL to "shaders/spiral_frag.glsl",
-            SceneIds.AURORA to "shaders/aurora_frag.glsl",
-            SceneIds.SOLAR to "shaders/solar_frag.glsl",
-            SceneIds.WINTER to "shaders/winter_frag.glsl",
-            SceneIds.LAVA to "shaders/lava_frag.glsl",
-            // The five styles built on the shared GLSL libraries (lib_scene_uniforms,
-            // lib_scene_grade, lib_sdf3, lib_touch) rather than on their own copy of
-            // the boilerplate. Same ShaderScene, same uniform contract.
-            SceneIds.VANISHING to "shaders/vanishing_frag.glsl",
-            SceneIds.MORPHOGEN to "shaders/morphogen_frag.glsl",
-            SceneIds.NEBULA to "shaders/nebula_frag.glsl",
-            SceneIds.NONEUCLID to "shaders/noneuclid_frag.glsl",
-            SceneIds.KIFS to "shaders/kifs_frag.glsl",
-            SceneIds.ORB_LATTICE to "shaders/orb_lattice_frag.glsl",
-            SceneIds.ROD_TUNNEL to "shaders/rod_tunnel_frag.glsl",
-            SceneIds.NEON_TILES to "shaders/neon_tiles_frag.glsl",
-            // The three reference looks (see CHANGELOG): 2D tunnel and sphere
-            // mappings, no raymarch, so none of them joins MARCHED_SCENES.
-            SceneIds.CHROMA_ORB to "shaders/chroma_orb_frag.glsl",
-            SceneIds.MANDALA_DOME to "shaders/mandala_dome_frag.glsl",
-            SceneIds.BEAD_VORTEX to "shaders/bead_vortex_frag.glsl",
-            // The four looks taken from the reference clips. Each pairs its own
-            // structure with the curl-advected dye and mote layer in
-            // lib_scene_motion, so the fluid is in the style rather than bolted
-            // on by the composite. All four are 2D perspective constructions, so
-            // none of them joins MARCHED_SCENES either.
-            SceneIds.MERKABA_GRID to "shaders/merkaba_grid_frag.glsl",
-            SceneIds.SPIRAL_EYE to "shaders/spiral_eye_frag.glsl",
-            SceneIds.BLACKLIGHT_BLOOM to "shaders/blacklight_bloom_frag.glsl",
-            SceneIds.FRACTAL_TEMPLE to "shaders/fractal_temple_frag.glsl",
-            // The two that put the fluid into 3D: both march, so unlike the four
-            // above they DO spend the Detail budget and both join MARCHED_SCENES.
-            SceneIds.CURL_BLOOM to "shaders/curl_bloom_frag.glsl",
-            SceneIds.NECTAR_FLOW to "shaders/nectar_flow_frag.glsl",
-            // The fly-throughs built on the shared camera rig (lib_camera); all march.
-            SceneIds.CRYSTAL_CANYON to "shaders/crystal_canyon_frag.glsl",
-            SceneIds.NEON_CITY to "shaders/neon_city_frag.glsl",
-            SceneIds.PARTICLE_TUNNEL to "shaders/particle_tunnel_frag.glsl",
-            SceneIds.CHROME_NEBULA to "shaders/chrome_nebula_frag.glsl",
-            SceneIds.FRACTAL_DIVE to "shaders/fractal_dive_frag.glsl",
-            SceneIds.AURORA_OCEAN to "shaders/aurora_ocean_frag.glsl",
-            // The second set of rig styles: each maps kick, snare, hats, onsets, drops and
-            // pitch changes to different properties rather than one shared pulse.
-            SceneIds.SPECTRUM_TERRAIN to "shaders/spectrum_terrain_frag.glsl",
-            SceneIds.OUTRUN_DRIVE to "shaders/outrun_drive_frag.glsl",
-            SceneIds.MENGER_CORE to "shaders/menger_core_frag.glsl",
-            SceneIds.GYROID_CAVERN to "shaders/gyroid_cavern_frag.glsl",
-            SceneIds.RINGED_PLANET to "shaders/ringed_planet_frag.glsl",
-            SceneIds.JELLY_ABYSS to "shaders/jelly_abyss_frag.glsl",
-            SceneIds.RIBBON_STORM to "shaders/ribbon_storm_frag.glsl",
-            SceneIds.PRISM_RAIN to "shaders/prism_rain_frag.glsl",
-        ).apply {
-            // The style families, twelve styles each, after the loose styles and in family order.
-            StyleFamilies.ids.forEach { id -> put(id, "shaders/${id}_frag.glsl") }
-        }
+        Catalogue.styles
+            .filter { it.kind == SceneKind.SHADER }
+            .associateTo(linkedMapOf()) { it.id to "shaders/${it.id}_frag.glsl" }
 
-    /**
-     * The fragment styles that raymarch, and so spend the [MarchBudget] the Detail control sets.
-     *
-     * A per-STYLE set rather than a [SceneKind], because only some of the shader styles march;
-     * scoping Detail to `SceneKind.SHADER` would put a dead slider in front of anyone looking at
-     * Plasma, which is exactly what [ParamScope]'s no-dead-controls rule exists to prevent.
-     */
-    val MARCHED_SCENES: Set<String> =
-        setOf(
-            SceneIds.VANISHING,
-            SceneIds.MORPHOGEN,
-            SceneIds.NEBULA,
-            SceneIds.NONEUCLID,
-            SceneIds.KIFS,
-            SceneIds.ROD_TUNNEL,
-            // Curl Bloom marches a distance field; Nectar Flow marches a volume.
-            // Different loops, but Detail is the budget for both.
-            SceneIds.CURL_BLOOM,
-            SceneIds.NECTAR_FLOW,
-            SceneIds.CRYSTAL_CANYON,
-            SceneIds.NEON_CITY,
-            SceneIds.PARTICLE_TUNNEL,
-            SceneIds.CHROME_NEBULA,
-            SceneIds.FRACTAL_DIVE,
-            SceneIds.AURORA_OCEAN,
-            SceneIds.SPECTRUM_TERRAIN,
-            SceneIds.MENGER_CORE,
-            SceneIds.GYROID_CAVERN,
-            SceneIds.JELLY_ABYSS,
-            SceneIds.PRISM_RAIN,
-        ) + StyleFamilies.marchedIds
+    fun kindOf(sceneId: String): SceneKind = Catalogue.kindOf(sceneId)
 
-    /**
-     * Styles whose look is a turning one - kaleidoscopes, mandalas, spirals, vortices, tunnels -
-     * and so spin by default. Every other style holds still unless the user asks: bars, scopes,
-     * grids, fields, landscapes and trees read as broken when they slowly roll, so for them the
-     * style DNA draws no spin or roll route, the motion field adds no drift spin or sway, and the
-     * rig does not bank the flat picture. The Rotation and Sway sliders, the camera roll and the
-     * user's own reaction routes still turn any style.
-     *
-     * core/viz/SceneRegistry.cpp keeps its own copy (kSpinningIds) for the native half, with
-     * each style's own spin rate and direction so no two of them turn alike.
-     */
-    val SPINNING_SCENES: Set<String> =
-        setOf(
-            SceneIds.KALEIDO,
-            SceneIds.MANDALA_DOME,
-            SceneIds.ORB_LATTICE,
-            SceneIds.CHROMA_ORB,
-            SceneIds.KIFS,
-            SceneIds.SPIRAL,
-            SceneIds.SPIRAL_EYE,
-            SceneIds.BEAD_VORTEX,
-            SceneIds.MERKABA_GRID,
-            SceneIds.TUNNEL,
-            SceneIds.ROD_TUNNEL,
-            SceneIds.PARTICLE_TUNNEL,
-            "lucid_mandala",
-            "lucid_mirror",
-            "lucid_spiral",
-            "lucid_vortex",
-            "lucid_tunnel",
-            "lucid_disc",
-            "chrys_kaleido",
-            "chrys_tunnel",
-        )
+    fun isFluid(sceneId: String): Boolean = kindOf(sceneId) == SceneKind.FLUID
 
-    /**
-     * The renderer [sceneId] builds.
-     *
-     * Unknown ids resolve to [SceneKind.SILK] because [SceneIds.DEFAULT] is a Silk style and
-     * `SceneRegistry` falls back to it, so the Customize panel describes what will actually be
-     * on screen rather than an id nothing can render.
-     */
-    fun kindOf(sceneId: String): SceneKind =
-        when {
-            sceneId in SHADER_SCENES -> SceneKind.SHADER
-            sceneId == SceneIds.MILKDROP -> SceneKind.MILKDROP
-            VisualStyleCatalog.isFluid(sceneId) -> SceneKind.FLUID
-            sceneId == SceneIds.CURLFLOW -> SceneKind.CURL_FLOW
-            sceneId == SceneIds.WATER -> SceneKind.WATER
-            VisualStyleCatalog.isCymatics(sceneId) -> SceneKind.CYMATICS
-            VisualStyleCatalog.life(sceneId) != null -> SceneKind.LIFE
-            VisualStyleCatalog.myco(sceneId) != null -> SceneKind.MYCELIUM
-            VisualStyleCatalog.acid(sceneId) != null -> SceneKind.ACID
-            else -> SceneKind.SILK
-        }
-
-    fun isFluid(sceneId: String): Boolean = VisualStyleCatalog.isFluid(sceneId)
-
-    fun isWater(sceneId: String): Boolean = sceneId == SceneIds.WATER
-
-    fun isCymatics(sceneId: String): Boolean = VisualStyleCatalog.isCymatics(sceneId)
-
-    fun hasJourney(sceneId: String): Boolean = isFluid(sceneId) || sceneId == SceneIds.CURLFLOW || sceneId == SceneIds.WATER
-
-    fun hasEmitters(sceneId: String): Boolean = isFluid(sceneId) || sceneId == SceneIds.WATER
-
-    fun hasParticleLayer(sceneId: String): Boolean = isFluid(sceneId) || sceneId == SceneIds.CURLFLOW
-
-    fun usesPointSprites(sceneId: String): Boolean = hasParticleLayer(sceneId)
+    fun isCymatics(sceneId: String): Boolean = kindOf(sceneId) == SceneKind.CYMATICS
 
     fun hasShaderLook(sceneId: String): Boolean = sceneId in SHADER_SCENES
 }

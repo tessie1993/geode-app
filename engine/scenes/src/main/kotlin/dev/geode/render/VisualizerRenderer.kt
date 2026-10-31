@@ -64,10 +64,6 @@ class VisualizerRenderer(
     @Volatile
     var layerBlend: BlendMode = BlendMode.SCREEN
 
-    /** The built-in style behind [transitionId], kept for the settings model; the renderer reads the id. */
-    @Volatile
-    var transitionStyle: TransitionStyle = TransitionStyle.FADE
-
     @Volatile
     var transitionDurationMs: Long = 1200
 

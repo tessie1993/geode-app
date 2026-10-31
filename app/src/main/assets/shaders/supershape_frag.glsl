@@ -282,7 +282,7 @@ vec3 membrane(vec3 n, vec3 rd, vec3 L, vec2 ang, float hue, float trebC, float h
     float h = hashCell(ivec3(int(mod(c.x, NT)), int(c.y), int(seed)));
     vec2 f = fract(g) - 0.5 - (vec2(fract(h * 17.3), fract(h * 29.1)) - 0.5) * 0.45;
     float sz = 0.10 + 0.20 * fract(h * 7.7);
-    float mote = step(0.30, h) * smoothstep(sz, sz * 0.25, length(f));
+    float mote = step(0.30, h) * (1.0 - smoothstep(sz * 0.25, sz, length(f)));
     float tw = 0.55 + 0.45 * sin(trebC * (2.0 + 4.0 * fract(h * 3.3)) + h * 50.0);
     float flare = step(0.62, fract(h * 11.1)) * hat;
     col += mix(pal(hue + 0.5 + 0.2 * h), vec3(1.0), 0.25 + 0.6 * flare) * mote * (0.30 * tw + 1.6 * flare);
@@ -340,7 +340,7 @@ vec3 moteShells(vec3 ro, vec3 rd, float hue, float trebC) {
         float h = hashCell(ivec3(int(mod(cell.x, N)), int(cell.y), s + 7));
         vec2 f = fract(g) - 0.5 - (vec2(fract(h * 13.7), fract(h * 23.9)) - 0.5) * 0.6;
         float sz = 0.05 + 0.12 * fract(h * 31.3);
-        float m = step(0.80, h) * smoothstep(sz, sz * 0.2, length(f));
+        float m = step(0.80, h) * (1.0 - smoothstep(sz * 0.2, sz, length(f)));
         float tw = 0.6 + 0.4 * sin(trebC * (1.0 + 3.0 * fract(h * 7.7)) + h * 40.0);
         acc += pal(hue + 0.5 + 0.35 * fract(h * 5.1)) * m * tw * (0.45 / (1.0 + 0.8 * fs));
     }
@@ -541,6 +541,6 @@ void main() {
     col += glow * (0.8 + 1.5 * surgeBump);
 
     col *= 0.82 + 0.28 * trend;
-    col *= 0.72 + 0.28 * smoothstep(2.2, 0.4, length(uv));
+    col *= 0.72 + 0.28 * (1.0 - smoothstep(0.4, 2.2, length(uv)));
     fragColor = vec4(grade(col), 1.0);
 }

@@ -204,7 +204,7 @@ vec3 foamNormal(vec3 p, float e, vec3 fallback) {
 float pulse(float trapR, float cellH, float phase) {
     float carries = step(0.45, fract(cellH * 13.7));
     float w = fract(trapR * 2.2 - phase + cellH * 3.1);
-    return carries * smoothstep(0.0, 0.05, w) * smoothstep(0.24, 0.05, w);
+    return carries * smoothstep(0.0, 0.05, w) * (1.0 - smoothstep(0.05, 0.24, w));
 }
 
 /** The foam's seed for hard-cut section `sec`: where the packing sits and how its folds lean. */
@@ -234,7 +234,7 @@ void main() {
     float wedge = FT_TAU / max(gWedges, 1.0);
     gCorridor = FT_CORRIDOR * (1.0 + 0.45 * surgeBump);
     // Centroid packs the foam, the bass clock breathes it, the seed offsets it.
-    gInvS = 1.08 + 0.26 * smoothstep(0.75, 0.2, bright) + 0.07 * sin(SND_BASS_TIME * 0.21) + 0.06 * (seed.z - 0.5);
+    gInvS = 1.08 + 0.26 * (1.0 - smoothstep(0.2, 0.75, bright)) + 0.07 * sin(SND_BASS_TIME * 0.21) + 0.06 * (seed.z - 0.5);
     // Untwisted at rest except for the seed's lean and a slow drift on the
     // loudness clock; flux adds the writhe on top.
     float lean = 0.18 * (seed.w - 0.5) + 0.10 * sin(SND_CURVED_TIME * 0.17);

@@ -140,8 +140,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          VERSION_NAME=$(sed -n 's/^[[:space:]]*versionName = "\([^"]*\)".*/\1/p' \
-            "$PROJECT_DIR/app/build.gradle.kts" | head -n 1)
+          # The name the APK carries: <base>-dev-debug (only ship-apk.yml numbers builds).
+          VERSION_NAME=$("${ANDROID_HOME:-$ANDROID_SDK_ROOT}/build-tools/36.0.0/aapt2" dump badging "$APK_SOURCE" \
+            | sed -n "s/.*versionName='\([^']*\)'.*/\1/p" | head -n 1)
+          echo "versionName=$VERSION_NAME"
           SHORT_SHA="${GITHUB_SHA::7}"
           FILE_NAME="MuzViz-${VERSION_NAME:-debug}-${SHORT_SHA}-debug.apk"
 

@@ -134,6 +134,14 @@ jobs:
         run: |
           g++ -std=c++20 -O1 -Wall -Wextra -Icore core/tests/catalogue_test.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp -o catalogue_test
           ./catalogue_test core/tests/catalogue.txt
+      # The export DSP (resampler, BS.1770 loudness meter), ported from Kotlin (ADR 0003).
+      - name: Native export DSP tests
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/resampler_test.cpp core/audio/dsp/PcmResampler.cpp core/audio/dsp/Loudness.cpp core/api/geode_export_dsp_api.cpp -o resampler_test
+          ./resampler_test
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/loudness_test.cpp core/audio/dsp/PcmResampler.cpp core/audio/dsp/Loudness.cpp core/api/geode_export_dsp_api.cpp -o loudness_test
+          ./loudness_test
 
       - name: Shader compile check
         working-directory: ${{ env.PROJECT_DIR }}

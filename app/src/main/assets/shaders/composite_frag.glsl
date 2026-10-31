@@ -258,8 +258,31 @@ vec2 layerMelt(vec2 p) {
     return p;
 }
 
+// Freeze: noise patches hold the frame the freeze captured and thaw from their edges inward.
+vec3 layerFreeze(vec2 p, vec3 col) {
+    float n = layerNoise(p * 5.0 + uLayerFreeze.y * 53.0);
+    float held = smoothstep(1.0 - uLayerFreeze.x - 0.05, 1.0 - uLayerFreeze.x + 0.05, n);
+    vec3 ice = texture(uFrozen, clamp(p, 0.0, 1.0)).rgb;
+    float rim = (1.0 - smoothstep(0.0, 0.05, abs(n - (1.0 - uLayerFreeze.x)))) * uLayerFreeze.x;
+    return mix(col, ice, held) + rim * vec3(0.35, 0.5, 0.6);
+}
+
+// Every layer but shatter, at p. Shatter breaks THIS picture apart, so a shard shows the fall, the
+// fractal copies, the spawns and the frozen patches it was cut from, not the bare scene under them.
+vec3 layerStack(sampler2D tex, vec2 p) {
+    if (uLayerOn > 0.5 && uLayerMelt.x > 0.001) p = layerMelt(p);
+    vec3 col = texture(tex, clamp(p, 0.0, 1.0)).rgb;
+    if (uLayerOn < 0.5) return col;
+    if (uLayerFall.y > 0.001) col = layerFall(tex, p, col);
+    if (uLayerFractal.x > 0.001) col = layerFractal(tex, p, col);
+    col = layerSpawns(tex, p, col);
+    if (uLayerFreeze.x > 0.001) col = layerFreeze(p, col);
+    return col;
+}
+
 // Shatter: a grid of shards; each flies out from the centre, turning, and fades, leaving the live
-// picture dimmed in the holes. Sampled from the shard this pixel lands in.
+// picture dimmed in the holes. A shard is the layered picture at the spot it was cut from, so a
+// shatter costs a second pass of the stack while it lasts (about a second), and nothing otherwise.
 vec3 layerShatter(sampler2D tex, vec2 p, vec3 col) {
     float t = uLayerShatter.x;
     vec2 a = vec2(max(uRatio, 0.1), 1.0);
@@ -274,31 +297,16 @@ vec3 layerShatter(sampler2D tex, vec2 p, vec3 col) {
     float ang = (h - 0.5) * 4.0 * t;
     vec2 loc = mat2(cos(ang), -sin(ang), sin(ang), cos(ang)) * ((src - centre) * a) / a + centre;
     bool inShard = floor(loc * grid) == cell;
-    vec3 shard = texture(tex, clamp(loc, 0.0, 1.0)).rgb;
     float fade = 1.0 - smoothstep(0.55, 1.0, t);
     vec3 hole = col * mix(0.35, 1.0, smoothstep(0.6, 1.0, t));
-    return inShard ? mix(hole, shard * 1.1, fade) : hole;
-}
-
-// Freeze: noise patches hold the frame the freeze captured and thaw from their edges inward.
-vec3 layerFreeze(vec2 p, vec3 col) {
-    float n = layerNoise(p * 5.0 + uLayerFreeze.y * 53.0);
-    float held = smoothstep(1.0 - uLayerFreeze.x - 0.05, 1.0 - uLayerFreeze.x + 0.05, n);
-    vec3 ice = texture(uFrozen, clamp(p, 0.0, 1.0)).rgb;
-    float rim = (1.0 - smoothstep(0.0, 0.05, abs(n - (1.0 - uLayerFreeze.x)))) * uLayerFreeze.x;
-    return mix(col, ice, held) + rim * vec3(0.35, 0.5, 0.6);
+    if (!inShard) return hole;
+    return mix(hole, layerStack(tex, clamp(loc, 0.0, 1.0)) * 1.1, fade);
 }
 
 // The scene colour at p with every live layer laid over it.
 vec3 layered(sampler2D tex, vec2 p) {
-    if (uLayerOn > 0.5 && uLayerMelt.x > 0.001) p = layerMelt(p);
-    vec3 col = texture(tex, clamp(p, 0.0, 1.0)).rgb;
-    if (uLayerOn < 0.5) return col;
-    if (uLayerFall.y > 0.001) col = layerFall(tex, p, col);
-    if (uLayerFractal.x > 0.001) col = layerFractal(tex, p, col);
-    col = layerSpawns(tex, p, col);
-    if (uLayerFreeze.x > 0.001) col = layerFreeze(p, col);
-    if (uLayerShatter.x < 1.0) col = layerShatter(tex, p, col);
+    vec3 col = layerStack(tex, p);
+    if (uLayerOn > 0.5 && uLayerShatter.x < 1.0) col = layerShatter(tex, p, col);
     return col;
 }
 
@@ -449,14 +457,17 @@ vec3 postFx(sampler2D tex, vec2 uv, vec4 gate, float camOn) {
             p.x += (compHash12(vec2(band, uTime)) - 0.5) * uGlitch * 0.3;
         }
     }
-    vec3 col;
+    // The layer stack runs once. Chromatic aberration then shifts red and blue by how far the scene
+    // itself moves across the offset (three plain taps), instead of running the stack three times:
+    // exact with no layers on, and with layers on the fringe follows the scene's edges, which is where
+    // the eye looks for it.
+    vec3 col = layered(tex, p);
     if (uChroma > 0.001) {
         vec2 dir = (p - 0.5) * uChroma * 0.03;
-        col.r = layered(tex, p + dir).r;
-        col.g = layered(tex, p).g;
-        col.b = layered(tex, p - dir).b;
-    } else {
-        col = layered(tex, p);
+        vec3 here = texture(tex, clamp(p, 0.0, 1.0)).rgb;
+        col.r += texture(tex, clamp(p + dir, 0.0, 1.0)).r - here.r;
+        col.b += texture(tex, clamp(p - dir, 0.0, 1.0)).b - here.b;
+        col = max(col, 0.0);
     }
     // Ripple overlay glint: Blinn specular from the wave normal (same light
     // rig as water_display_frag) plus a small gradient-magnitude shimmer so

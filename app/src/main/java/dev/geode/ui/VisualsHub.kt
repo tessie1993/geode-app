@@ -1243,6 +1243,7 @@ private fun CustomizeTabBody(
     }
 }
 
+/** One tab's body: a plain dispatch; each tab that needs app state collects it in its own host below. */
 @Composable
 private fun CustomizeTabContent(
     viewModel: PlayerViewModel,
@@ -1252,83 +1253,127 @@ private fun CustomizeTabContent(
     p: dev.geode.render.scene.SceneParams,
     onChange: (dev.geode.render.scene.SceneParams) -> Unit,
 ) {
-    val viz by viewModel.vizState.collectAsStateWithLifecycle()
     when (tab) {
-        CustomizeTab.MACROS -> {
-            val context = androidx.compose.ui.platform.LocalContext.current
-            val store = remember { MacroStore.get(context) }
-            val macros by store.state.collectAsStateWithLifecycle()
-            val paywall: dev.geode.ui.pro.PaywallViewModel = geodeViewModel()
-            val gate by paywall.gate.collectAsStateWithLifecycle()
-            MacrosTab(
-                macros,
-                store,
-                canSavePresets = gate.allows(ProFeature.ADVANCED_CUSTOMIZATION),
-                onLockedSave = {
-                    paywall.open(PaywallTrigger.Feature(ProFeature.ADVANCED_CUSTOMIZATION))
-                },
-            )
-        }
-        CustomizeTab.EVENTS -> {
-            val reactions by visualsViewModel.reactions.collectAsStateWithLifecycle()
-            EventsTab(
-                p,
-                onChange,
-                reactions = reactions,
-                onReactionsChange = visualsViewModel::setReactions,
-                onRerollReactions = visualsViewModel::rerollReactions,
-            )
-        }
+        CustomizeTab.MACROS -> MacrosTabHost()
+        CustomizeTab.EVENTS -> EventsTabHost(visualsViewModel, p, onChange)
         CustomizeTab.MOTION -> MotionTab(p, onChange)
         CustomizeTab.CAMERA -> CameraTab(p, onChange)
         CustomizeTab.LAYERS -> LayersTab(p, onChange)
         CustomizeTab.SHAPE -> ShapeTab(p, onChange)
-        CustomizeTab.SCENE ->
-            SceneTab(
-                p,
-                onChange,
-                transitionId = viz.transitionId,
-                transitionDurationSec = viz.transitionDurationSec,
-                onTransitionId = viewModel::setTransitionId,
-                onTransitionDuration = viewModel::setTransitionDuration,
-            )
-        CustomizeTab.REACTIVITY -> {
-            val lfos by visualsViewModel.lfos.collectAsStateWithLifecycle()
-            val adsrs by visualsViewModel.adsrs.collectAsStateWithLifecycle()
-            ReactivityTab(
-                p,
-                onChange,
-                attack = viz.attack,
-                decay = viz.decay,
-                onReactivityChange = viewModel::setReactivity,
-                lfos = lfos,
-                onLfoChange = visualsViewModel::setLfo,
-                adsr = adsrs,
-                onAdsrChange = visualsViewModel::setAdsr,
-            )
-        }
-        CustomizeTab.COLOR -> {
-            val artNote by viewModel.artPaletteNote.collectAsStateWithLifecycle()
-            ColorTab(
-                p,
-                onChange,
-                onTakeArtworkPalette = viewModel::applyArtworkPalette,
-                artworkNote = artNote,
-            )
-        }
+        CustomizeTab.SCENE -> SceneTabHost(viewModel, p, onChange)
+        CustomizeTab.REACTIVITY -> ReactivityTabHost(viewModel, visualsViewModel, p, onChange)
+        CustomizeTab.COLOR -> ColorTabHost(viewModel, p, onChange)
         CustomizeTab.FX -> FxTab(p, onChange)
-        CustomizeTab.FLUID ->
-            FluidTab(
-                p,
-                onChange,
-                injectionError = if (SceneCapabilities.isFluid(viz.sceneId)) viz.shaderError else null,
-                onApplyInjectionShaders = { force, dye ->
-                    visualizerView.visualizerRenderer.submitFluidInjectionShaders(force, dye)
-                },
-            )
+        CustomizeTab.FLUID -> FluidTabHost(viewModel, visualizerView, p, onChange)
         CustomizeTab.CYMATICS -> CymaticsTab(p, onChange)
         null -> GlslHubTab(viewModel, visualizerView)
     }
+}
+
+@Composable
+private fun MacrosTabHost() {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val store = remember { MacroStore.get(context) }
+    val macros by store.state.collectAsStateWithLifecycle()
+    val paywall: dev.geode.ui.pro.PaywallViewModel = geodeViewModel()
+    val gate by paywall.gate.collectAsStateWithLifecycle()
+    MacrosTab(
+        macros,
+        store,
+        canSavePresets = gate.allows(ProFeature.ADVANCED_CUSTOMIZATION),
+        onLockedSave = {
+            paywall.open(PaywallTrigger.Feature(ProFeature.ADVANCED_CUSTOMIZATION))
+        },
+    )
+}
+
+@Composable
+private fun EventsTabHost(
+    visualsViewModel: VisualsViewModel,
+    p: dev.geode.render.scene.SceneParams,
+    onChange: (dev.geode.render.scene.SceneParams) -> Unit,
+) {
+    val reactions by visualsViewModel.reactions.collectAsStateWithLifecycle()
+    EventsTab(
+        p,
+        onChange,
+        reactions = reactions,
+        onReactionsChange = visualsViewModel::setReactions,
+        onRerollReactions = visualsViewModel::rerollReactions,
+    )
+}
+
+@Composable
+private fun SceneTabHost(
+    viewModel: PlayerViewModel,
+    p: dev.geode.render.scene.SceneParams,
+    onChange: (dev.geode.render.scene.SceneParams) -> Unit,
+) {
+    val viz by viewModel.vizState.collectAsStateWithLifecycle()
+    SceneTab(
+        p,
+        onChange,
+        transitionId = viz.transitionId,
+        transitionDurationSec = viz.transitionDurationSec,
+        onTransitionId = viewModel::setTransitionId,
+        onTransitionDuration = viewModel::setTransitionDuration,
+    )
+}
+
+@Composable
+private fun ReactivityTabHost(
+    viewModel: PlayerViewModel,
+    visualsViewModel: VisualsViewModel,
+    p: dev.geode.render.scene.SceneParams,
+    onChange: (dev.geode.render.scene.SceneParams) -> Unit,
+) {
+    val viz by viewModel.vizState.collectAsStateWithLifecycle()
+    val lfos by visualsViewModel.lfos.collectAsStateWithLifecycle()
+    val adsrs by visualsViewModel.adsrs.collectAsStateWithLifecycle()
+    ReactivityTab(
+        p,
+        onChange,
+        attack = viz.attack,
+        decay = viz.decay,
+        onReactivityChange = viewModel::setReactivity,
+        lfos = lfos,
+        onLfoChange = visualsViewModel::setLfo,
+        adsr = adsrs,
+        onAdsrChange = visualsViewModel::setAdsr,
+    )
+}
+
+@Composable
+private fun ColorTabHost(
+    viewModel: PlayerViewModel,
+    p: dev.geode.render.scene.SceneParams,
+    onChange: (dev.geode.render.scene.SceneParams) -> Unit,
+) {
+    val artNote by viewModel.artPaletteNote.collectAsStateWithLifecycle()
+    ColorTab(
+        p,
+        onChange,
+        onTakeArtworkPalette = viewModel::applyArtworkPalette,
+        artworkNote = artNote,
+    )
+}
+
+@Composable
+private fun FluidTabHost(
+    viewModel: PlayerViewModel,
+    visualizerView: VisualizerView,
+    p: dev.geode.render.scene.SceneParams,
+    onChange: (dev.geode.render.scene.SceneParams) -> Unit,
+) {
+    val viz by viewModel.vizState.collectAsStateWithLifecycle()
+    FluidTab(
+        p,
+        onChange,
+        injectionError = if (SceneCapabilities.isFluid(viz.sceneId)) viz.shaderError else null,
+        onApplyInjectionShaders = { force, dye ->
+            visualizerView.visualizerRenderer.submitFluidInjectionShaders(force, dye)
+        },
+    )
 }
 
 @Composable

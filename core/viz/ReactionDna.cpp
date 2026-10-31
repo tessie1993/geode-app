@@ -318,21 +318,8 @@ void addDrives(Builder& b, Draw& d, const StyleTraits& traits) {
     b.lane(b.fresh(d, std::array{S::NoteTime, S::TrebleTime, S::CurvedTime}), T::CycleSpeed, M::Drive, d.range(0.8f, 1.2f), 0.5f, 1.0f);
 }
 
-}  // namespace
-
-const char* cameraFeelName(CameraFeel f) {
-    switch (f) {
-        case CameraFeel::MusicVideo: return "Music video";
-        case CameraFeel::Floaty: return "Floaty journey";
-        case CameraFeel::Club: return "Club";
-    }
-    return "Music video";
-}
-
-StyleDna buildStyleDna(std::string_view styleId, int seed, const StyleTraits& traits) {
-    Draw d(mix(fnv1a(styleId) ^ (static_cast<std::uint32_t>(seed) * 0x9E3779B9u)));
-    Builder b;
-
+// The groove: the two halves of the beat, the big moment and, for styles that turn, the spin.
+void addGroove(Builder& b, Draw& d, const StyleTraits& traits) {
     // The pulse: one personality on the kick side, one from another group on the snare side, so
     // the two halves of a groove look different. Which kick and which snare is the style's own:
     // every hit, every other one, or the note starts.
@@ -353,14 +340,20 @@ StyleDna buildStyleDna(std::string_view styleId, int seed, const StyleTraits& tr
         case LfoTarget::ColorShift: b.add(big, LfoTarget::ColorShift, ReactMode::Step, d.range(0.4f, 0.6f), 0.3f, 0.3f); break;
         default: break;
     }
+}
 
+// The body: a sustained level moves something continuous.
+void addBody(Builder& b, Draw& d, const StyleTraits& traits) {
     // Styles that turn keep turning at a speed the music sets: a clock's rate, spun.
     if (traits.spinRate != 0.0f) {
         const ReactSource clock = pick(d, std::array{ReactSource::MidTime, ReactSource::BassTime, ReactSource::CurvedTime,
                                                      ReactSource::TrebleTime, ReactSource::HitTime});
         b.add(clock, LfoTarget::Rotation, ReactMode::Spin, (traits.spinRate < 0.0f ? -1.0f : 1.0f) * d.range(0.15f, 0.35f), 0.1f, 0.6f);
     }
+}
 
+// Colour over the song, and texture from the top end.
+void addColour(Builder& b, Draw& d, const StyleTraits& traits) {
     // The body: a sustained level moves something continuous, not another hit thing.
     {
         const ReactSource body = pick(d, std::array{ReactSource::BassAtt, ReactSource::Low, ReactSource::SubAtt, ReactSource::VolAtt,
@@ -377,7 +370,10 @@ StyleDna buildStyleDna(std::string_view styleId, int seed, const StyleTraits& tr
             default: break;
         }
     }
+}
 
+// The extras some styles get: a counted-hit accent, a rise that tightens, a cruise, a lean, a rise with the melody.
+void addAccents(Builder& b, Draw& d, const StyleTraits& traits) {
     // Colour over the song, with no fixed driver: the melody's pitch class, a note change, every
     // sixteenth kick, a hard cut, a per-hit random or the timbre. When the pulse already moves
     // colour, the palette swaps or the temperature lands somewhere new every sixteen kicks instead.
@@ -403,39 +399,27 @@ StyleDna buildStyleDna(std::string_view styleId, int seed, const StyleTraits& tr
             d, std::array{LfoTarget::ChromaAb, LfoTarget::Saturation, LfoTarget::Temperature, LfoTarget::PaletteMix, LfoTarget::Vignette}, traits);
         if (target != LfoTarget::None) b.add(top, target, ReactMode::Follow, d.range(0.15f, 0.4f), 0.05f, 0.3f);
     }
+}
 
-    // Some styles accent a counted hit with something of their own.
-    if (d.coin()) {
-        const ReactSource accent = pick(d, std::array{ReactSource::Snare2, ReactSource::Kick4, ReactSource::Snare4, ReactSource::Reattack});
-        const std::array accents = {LfoTarget::Ripple, LfoTarget::ColorShift, LfoTarget::Twist, LfoTarget::CamRoll, LfoTarget::Warp};
-        switch (b.freeTarget(d, accents, traits)) {
-            case LfoTarget::Ripple: b.add(accent, LfoTarget::Ripple, ReactMode::Follow, d.range(0.3f, 0.5f), 0.02f, 0.3f); break;
-            case LfoTarget::ColorShift: b.add(accent, LfoTarget::ColorShift, ReactMode::Step, d.range(0.08f, 0.15f), 0.2f, 0.2f); break;
-            case LfoTarget::Twist: b.add(accent, LfoTarget::Twist, ReactMode::Jump, d.range(0.15f, 0.3f), 0.03f, 0.3f); break;
-            case LfoTarget::CamRoll: b.add(accent, LfoTarget::CamRoll, ReactMode::Step, d.sign() * d.range(0.1f, 0.2f), 0.3f, 0.3f); break;
-            case LfoTarget::Warp: b.add(accent, LfoTarget::Warp, ReactMode::Follow, d.range(0.25f, 0.4f), 0.03f, 0.3f, ModCurve::Smooth); break;
-            default: break;
-        }
-    }
+}  // namespace
 
-    // A rise (the level climbing over its 8 s average) tightens something until a big moment releases it.
-    if (d.coin()) {
-        switch (b.freeTarget(d, std::array{LfoTarget::CamFov, LfoTarget::ChromaAb, LfoTarget::Vignette}, traits)) {
-            case LfoTarget::CamFov: b.add(ReactSource::EnergyTrend, LfoTarget::CamFov, ReactMode::Follow, -d.range(0.15f, 0.3f), 0.5f, 0.5f); break;
-            case LfoTarget::ChromaAb: b.add(ReactSource::EnergyTrend, LfoTarget::ChromaAb, ReactMode::Follow, d.range(0.3f, 0.5f), 0.5f, 0.5f); break;
-            case LfoTarget::Vignette: b.add(ReactSource::EnergyTrend, LfoTarget::Vignette, ReactMode::Follow, d.range(0.3f, 0.5f), 0.5f, 0.5f); break;
-            default: break;
-        }
+const char* cameraFeelName(CameraFeel f) {
+    switch (f) {
+        case CameraFeel::MusicVideo: return "Music video";
+        case CameraFeel::Floaty: return "Floaty journey";
+        case CameraFeel::Club: return "Club";
     }
+    return "Music video";
+}
 
-    // Some cruise faster the longer the song stays loud, lean with the stereo field, or rise with the melody.
-    if (d.coin()) b.add(ReactSource::Intensity, LfoTarget::CamFly, ReactMode::Follow, d.range(0.3f, 0.6f), 1.5f, 3.0f, ModCurve::Smooth);
-    if (d.coin() && !b.uses(LfoTarget::CamYaw)) {
-        b.add(ReactSource::StereoPan, LfoTarget::CamYaw, ReactMode::Follow, d.range(0.2f, 0.45f), 0.3f, 0.6f);
-    }
-    if (d.coin() && !b.uses(LfoTarget::CamPitch)) {
-        b.add(ReactSource::PitchHeight, LfoTarget::CamPitch, ReactMode::Follow, d.range(0.1f, 0.25f), 0.6f, 1.2f, ModCurve::Smooth);
-    }
+StyleDna buildStyleDna(std::string_view styleId, int seed, const StyleTraits& traits) {
+    Draw d(mix(fnv1a(styleId) ^ (static_cast<std::uint32_t>(seed) * 0x9E3779B9u)));
+    Builder b;
+    // Same draws in the same order as ever, so a style keeps its DNA.
+    addGroove(b, d, traits);
+    addBody(b, d, traits);
+    addColour(b, d, traits);
+    addAccents(b, d, traits);
 
     // Everything else listens too (the user: "every parameter"): the motions on their own clocks,
     // the camera in the style's feel, the layers, then a lane for every look parameter still free.

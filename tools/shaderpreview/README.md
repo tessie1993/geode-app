@@ -63,8 +63,10 @@ node preview.mjs --scene silk --out out/silk
 # five hours of wallpaper uptime, after a 10 s warm-up
 node preview.mjs --scene shader --shader plasma --warmup 600 --frames 6 --clock-jump 3600
 
-# the Layers blend algebra: with both layers identical, DIFFERENCE must go
-# to exactly 0, MULTIPLY must darken and SCREEN must brighten
+# the two-scene Layers blend (uStyle 6) algebra: with both layers identical,
+# DIFFERENCE must go to exactly 0, MULTIPLY must darken and SCREEN must brighten.
+# Not the composite-pass layers of core/viz/Layers (fall through, fractal growth,
+# spawn, melt, freeze, shatter): the harness never sets uLayerOn, so those stay off
 node preview.mjs --scene shader --shader plasma --composite --layer 1,4 --frames 1
 
 # through the composite pass, which is where Zoom and Rotation live on a
@@ -90,7 +92,7 @@ node preview.mjs --scene silk --composite --param zoom=3 --frames 1
 | `--no-melt` | force `uHasMelt = 0` (the no-float-buffer fallback) |
 | `--no-float-sim` | field-sim families only: pretend no float format is renderable, so every target falls to RGBA8 — the app's `FluidBuffers` byte-fallback path, which SwiftShader's always-present `EXT_color_buffer_float` otherwise hides |
 | `--composite` | run the scene through `composite_frag` afterwards, as the app does |
-| `--layer mix,mode` | force the Layers branch (`uStyle` 6) at that mix and `BlendMode` ordinal. Both layers are the SAME texture, so this checks the blend algebra, not a real two-scene composite |
+| `--layer mix,mode` | force the two-scene Layers blend (`uStyle` 6) at that mix and `BlendMode` ordinal. Both layers are the SAME texture, so this checks the blend algebra, not a real two-scene composite. The composite-pass layers (`core/viz/Layers`: fall, fractal, spawns, melt, freeze, shatter) are not driven; `uLayerOn` stays 0 |
 | `--field-stats` | read back the fluid dye/velocity grids and report their statistics |
 | `--clock-jump S` | advance the free-running clocks by S seconds per captured frame |
 | `--seed N` | seed for the body RNG |

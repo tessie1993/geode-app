@@ -147,6 +147,12 @@ class VisualizerRenderer(
         nativeViz.setFluidInjectionShaders(force, dye)
     }
 
+    /**
+     * When no handle exists yet, [NativeViz.create] first queues [MilkPresetMemory.restorePath]
+     * through `onCreated`, and the load below then queues [path]. Native keeps one pending request
+     * (`Renderer::loadMilkPreset`) and only the GL frame consumes it, so the second replaces the
+     * first: the scene never loads the older preset, nor this one twice.
+     */
     fun loadMilkPreset(path: String) {
         milkPreset.request(path)
         nativeViz.create()

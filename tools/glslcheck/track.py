@@ -154,7 +154,7 @@ def main():
         # Big moments: the short loudness jumping well over the long one, at most every 15 s.
         s["sinceCut"] += dt
         hardCut = 0.0
-        if trend > 0.75 and s["sinceCut"] > 15.0 and i > fps * 2:
+        if trend > 0.6 and s["sinceCut"] > 15.0 and i > fps * 2:
             hardCut, s["sinceCut"] = 1.0, 0.0
             s["cuts"] += 1
         surge = 1.0 if hardCut and s["loudLong"] < 0.6 else 0.0

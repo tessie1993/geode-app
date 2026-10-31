@@ -13,7 +13,6 @@ using geode::jni::FloatElements;
 geode_analysis* analysisOf(jlong handle) { return reinterpret_cast<geode_analysis*>(handle); }
 geode_drums* drumsOf(jlong handle) { return reinterpret_cast<geode_drums*>(handle); }
 geode_dsp* dspOf(jlong handle) { return reinterpret_cast<geode_dsp*>(handle); }
-geode_sound* soundOf(jlong handle) { return reinterpret_cast<geode_sound*>(handle); }
 
 void writeFrame(JNIEnv* env, const GeodeFeatureFrame& frame, jfloatArray out) {
     if (!out || env->GetArrayLength(out) < GEODE_FEATURE_FRAME_FLOATS) return;
@@ -216,55 +215,6 @@ Java_dev_geode_engine_bridge_GeodeNative_drumsStep(JNIEnv* env, jobject, jlong h
     std::array<float, 3> impulses{};
     geode_drums_step(drums, data.get(), impulses.data());
     env->SetFloatArrayRegion(out, 0, 3, impulses.data());
-}
-
-JNIEXPORT jint JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_soundFrameFloats(JNIEnv*, jobject) {
-    return GEODE_SOUND_FRAME_FLOATS;
-}
-
-JNIEXPORT jlong JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_soundCreate(JNIEnv*, jobject, jint sampleRate) {
-    return reinterpret_cast<jlong>(geode_sound_create(sampleRate));
-}
-
-JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_soundDestroy(JNIEnv*, jobject, jlong handle) {
-    geode_sound_destroy(soundOf(handle));
-}
-
-// Region copy rather than FloatElements: called every rendered frame with a few hundred frames, and the
-// region form never pins or copies the whole scratch array.
-JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_soundWrite(JNIEnv* env, jobject, jlong handle, jfloatArray interleaved,
-                                                    jint frames, jint channels) {
-    if (!interleaved || frames <= 0 || channels <= 0) return;
-    const jint available = env->GetArrayLength(interleaved) / channels;
-    const jint count = frames < available ? frames : available;
-    std::vector<float> data(static_cast<size_t>(count) * static_cast<size_t>(channels));
-    env->GetFloatArrayRegion(interleaved, 0, static_cast<jsize>(data.size()), data.data());
-    geode_sound_write(soundOf(handle), data.data(), static_cast<size_t>(count), channels);
-}
-
-JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_soundStep(JNIEnv* env, jobject, jlong handle, jfloat dtSeconds, jfloatArray out) {
-    if (!out || env->GetArrayLength(out) < GEODE_SOUND_FRAME_FLOATS) return;
-    GeodeSoundFrame frame{};
-    geode_sound_step(soundOf(handle), dtSeconds, &frame);
-    env->SetFloatArrayRegion(out, 0, GEODE_SOUND_FRAME_FLOATS, reinterpret_cast<const jfloat*>(&frame));
-}
-
-JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_soundSetTuning(JNIEnv* env, jobject, jlong handle, jfloatArray tuning) {
-    if (!tuning || env->GetArrayLength(tuning) < GEODE_SOUND_TUNING_FLOATS) return;
-    GeodeSoundTuning t{};
-    env->GetFloatArrayRegion(tuning, 0, GEODE_SOUND_TUNING_FLOATS, reinterpret_cast<jfloat*>(&t));
-    geode_sound_set_tuning(soundOf(handle), &t);
-}
-
-JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_soundReset(JNIEnv*, jobject, jlong handle) {
-    geode_sound_reset(soundOf(handle));
 }
 
 }

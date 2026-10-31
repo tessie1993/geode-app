@@ -85,6 +85,7 @@ class VisualizerWallpaperService : WallpaperService() {
             renderer = engine
             restoreLiveState(engine)
             engine.pcmProvider = { null }
+            engine.soundInput = { AudioBus.soundInput }
             glView =
                 WallpaperGlSurfaceView(this@VisualizerWallpaperService).apply {
                     setEGLContextClientVersion(3)

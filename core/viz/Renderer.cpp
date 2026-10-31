@@ -78,6 +78,27 @@ void Renderer::pushPcm(const float* samples, int count) {
     pcmCount_ = n;
 }
 
+void Renderer::writeAudio(const float* interleaved, int frames, int channels, int sampleRateHz) {
+    if (!interleaved || frames <= 0 || channels <= 0 || sampleRateHz <= 0) return;
+    std::lock_guard<std::mutex> lock(soundLock_);
+    if (!sound_ || sound_->sampleRateHz() != sampleRateHz) {
+        const GeodeSoundTuning tuning = sound_ ? sound_->tuning() : sound::SoundEngine::defaultTuning();
+        sound_ = std::make_unique<sound::SoundEngine>(sampleRateHz);
+        sound_->setTuning(tuning);
+    }
+    sound_->write(interleaved, frames, channels);
+}
+
+void Renderer::resetAudio() {
+    std::lock_guard<std::mutex> lock(soundLock_);
+    if (sound_) sound_->reset();
+}
+
+GeodeSoundFrame Renderer::soundFrame() const {
+    std::lock_guard<std::mutex> lock(soundLock_);
+    return soundFrame_;
+}
+
 void Renderer::setCustomShader(const std::string& sceneId, const std::string& fragmentSource) {
     std::lock_guard<std::mutex> lock(stateLock_);
     pendingShaders_.emplace_back(sceneId, fragmentSource);
@@ -458,6 +479,7 @@ std::unique_ptr<Scene> Renderer::buildScene(const std::string& id) {
     if (paletteLutTex_ != 0) scene->setPaletteLut(paletteLutTex_);
     scene->setTouchField(&touchField_);
     scene->setCamera(&camera_.pose());
+    scene->setSound(&soundFrame_);
     scene->init();
     scene->setParams(initialParams);
     scene->resize(renderWidth_, renderHeight_);

@@ -136,6 +136,18 @@ size_t geode_viz_take_milk_preset_loaded(geode_viz* v, char* out, size_t capacit
     return path.size();
 }
 
+void geode_viz_write_audio(geode_viz* v, const float* interleaved, int frames, int channels, int sample_rate) {
+    if (v) v->renderer.writeAudio(interleaved, frames, channels, sample_rate);
+}
+
+void geode_viz_reset_audio(geode_viz* v) {
+    if (v) v->renderer.resetAudio();
+}
+
+void geode_viz_sound_frame(geode_viz* v, GeodeSoundFrame* out) {
+    if (v && out) *out = v->renderer.soundFrame();
+}
+
 void geode_viz_push_pcm(geode_viz* v, const float* mono, int count) {
     if (v && mono && count > 0) v->renderer.pushPcm(mono, count);
 }

@@ -9,32 +9,6 @@ object GeodeNative {
 
     external fun featureFrameFloats(): Int
 
-    /** The sound engine (`core/sound`), one handle per surface; see [dev.geode.engine.audio.SoundSource]. */
-    external fun soundFrameFloats(): Int
-
-    external fun soundCreate(sampleRate: Int): Long
-
-    external fun soundDestroy(handle: Long)
-
-    external fun soundWrite(
-        handle: Long,
-        interleaved: FloatArray,
-        frames: Int,
-        channels: Int,
-    )
-
-    external fun soundStep(
-        handle: Long,
-        dtSeconds: Float,
-        out: FloatArray,
-    )
-
-    external fun soundSetTuning(
-        handle: Long,
-        tuning: FloatArray,
-    )
-
-    external fun soundReset(handle: Long)
 
     external fun analysisCreate(
         sampleRate: Int,
@@ -343,6 +317,21 @@ object GeodeNative {
     )
 
     external fun vizTakeMilkPresetLoaded(handle: Long): String?
+
+    external fun vizWriteAudio(
+        handle: Long,
+        interleaved: FloatArray,
+        frames: Int,
+        channels: Int,
+        sampleRate: Int,
+    )
+
+    external fun vizResetAudio(handle: Long)
+
+    external fun vizSoundFrame(
+        handle: Long,
+        out: FloatArray,
+    )
 
     external fun vizPushPcm(
         handle: Long,

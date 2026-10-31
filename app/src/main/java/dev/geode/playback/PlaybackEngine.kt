@@ -111,11 +111,15 @@ class PlaybackSession internal constructor(
 
     val analysis = dev.geode.analysis.AnalysisEngine(sampleRing)
 
+    /** What every surface's sound engine reads; the rate follows whichever source owns the ring. */
+    val soundInput = dev.geode.engine.audio.SoundInput(sampleRing) { analysis.sampleRateHz }
+
     private val interestHook: () -> Unit = { syncAnalysis() }
 
     init {
         player.addListener(replayGain)
         dev.geode.audio.AudioBus.onInterestChanged = interestHook
+        dev.geode.audio.AudioBus.soundInput = soundInput
         syncAnalysis()
         scope.launch {
             analysis.features.collect {
@@ -140,6 +144,7 @@ class PlaybackSession internal constructor(
         if (dev.geode.audio.AudioBus.onInterestChanged === interestHook) {
             dev.geode.audio.AudioBus.onInterestChanged = null
         }
+        if (dev.geode.audio.AudioBus.soundInput === soundInput) dev.geode.audio.AudioBus.soundInput = null
         scope.cancel()
         onAudioFormat = null
         audioFx.release()

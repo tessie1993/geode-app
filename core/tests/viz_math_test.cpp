@@ -6,6 +6,7 @@
 #include <cstdlib>
 
 #include <set>
+#include <string>
 
 #include "viz/CameraRig.hpp"
 #include "viz/ReactionDna.hpp"
@@ -420,6 +421,19 @@ void dnaLeavesRoomAndStaysInRange() {
     }
 }
 
+void sourceCatalogueIsCompleteAndUnique() {
+    std::set<std::string> names;
+    const std::set<std::string> groups = {"LEVELS", "DRUMS", "EVENTS", "MELODY", "CLOCKS", "TEXTURE"};
+    for (int i = 0; i < kReactSourceCount; ++i) {
+        const ReactSourceInfo& s = reactSourceInfo(static_cast<ReactSource>(i));
+        check(s.name != nullptr && s.label != nullptr && s.name[0] != '\0' && s.label[0] != '\0', "every source has a name and a label");
+        names.insert(s.name);
+        check(groups.count(s.group) == 1, "every source sits in a picker section");
+    }
+    check(static_cast<int>(names.size()) == kReactSourceCount, "source names are unique (they are the saved names)");
+    check(reactSourceInfo(ReactSource::Kick).event && !reactSourceInfo(ReactSource::KickEnv).event, "hits are events, envelopes are levels");
+}
+
 }  // namespace
 
 int main() {
@@ -445,6 +459,7 @@ int main() {
     oddFrameTimesStayFiniteAndBounded();
     zeroDtFreezesTheCameraAndHugeDtIsOneClampedStep();
     stillStylesKeepTheBankOutOfTheFlatRoll();
+    sourceCatalogueIsCompleteAndUnique();
     if (failures == 0) std::printf("viz_math_test: all passed\n");
     return failures == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
 }

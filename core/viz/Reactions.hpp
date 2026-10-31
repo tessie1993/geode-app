@@ -45,6 +45,19 @@ enum class ReactSource {
 };
 constexpr int kReactSourceCount = static_cast<int>(ReactSource::RunDensity) + 1;
 
+// The source catalogue: what the Customize picker, the Events recipes and the saved formats call each
+// source. C++ owns it (the user's rule: the reaction feature lives in C++); Kotlin reads it over JNI
+// (geode_react_source_catalog) and does not keep its own list. `name` is the stable saved name,
+// `group` the picker section (LEVELS, DRUMS, EVENTS, MELODY, CLOCKS, TEXTURE), `event` a trigger
+// held as an envelope rather than a level.
+struct ReactSourceInfo {
+    const char* name;
+    const char* label;
+    const char* group;
+    bool event;
+};
+const ReactSourceInfo& reactSourceInfo(ReactSource s);
+
 // Follow: target += amount * curve(source).
 // Step: each rising edge of the source adds amount to an accumulator (a hue
 //   jump, a quarter turn, a new camera angle), glided by the route smoothing.

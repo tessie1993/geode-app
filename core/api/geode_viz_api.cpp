@@ -223,6 +223,26 @@ void geode_viz_set_reactions(geode_viz* v, const float* c, int count) {
     v->renderer.setReactionRoutes(routes);
 }
 
+int geode_react_source_catalog(char* out, int capacity) {
+    std::string text;
+    for (int i = 0; i < kReactSourceCount; ++i) {
+        const ReactSourceInfo& s = reactSourceInfo(static_cast<ReactSource>(i));
+        text += s.name;
+        text += '|';
+        text += s.label;
+        text += '|';
+        text += s.group;
+        text += s.event ? "|1\n" : "|0\n";
+    }
+    const int need = static_cast<int>(text.size());
+    if (out && capacity > 0) {
+        const int n = std::min(need, capacity - 1);
+        std::memcpy(out, text.data(), static_cast<size_t>(n));
+        out[n] = '\0';
+    }
+    return need;
+}
+
 int geode_style_reactions(const char* style_id, int seed, float* out, int capacity) {
     if (!style_id || !out || capacity < GEODE_REACT_ROUTE_FLOATS) return 0;
     const std::string id(style_id);

@@ -95,8 +95,7 @@ class AudioTranscoder(
         // Two rates from here on: the AIFF's own (source frames: the start skip) and the
         // encoder's (resampled bytes: every presentation timestamp handed to the encoder).
         val sourceRateHz = aiff.sampleRate
-        val resampler = PcmResampler(sourceRateHz, outputRateHz ?: PcmResampler.aacRateFor(sourceRateHz), channels)
-        val encoderRateHz = resampler.outRateHz
+        val encoderRateHz = outputRateHz ?: PcmResampler.aacRateFor(sourceRateHz)
         val encFormat =
             MediaFormat.createAudioFormat(MediaFormat.MIMETYPE_AUDIO_AAC, encoderRateHz, channels).apply {
                 setInteger(MediaFormat.KEY_AAC_PROFILE, MediaCodecInfo.CodecProfileLevel.AACObjectLC)
@@ -118,7 +117,6 @@ class AudioTranscoder(
             bestEffort(TAG, "encoderRef?.release()") { encoderRef?.release() }
             bestEffort(TAG, "outFileRef?.delete()") { outFileRef?.delete() }
             bestEffort(TAG, "aiff.close()") { aiff.close() }
-            bestEffort(TAG, "resampler.close()") { resampler.close() }
             throw t
         }
         var outBytes = 0L
@@ -144,7 +142,10 @@ class AudioTranscoder(
                 toSkip -= n
             }
         }
+        // Owns a native handle: created inside the try so every exit, cancellation included, closes it.
+        var resamplerRef: PcmResampler? = null
         try {
+            val resampler = PcmResampler(sourceRateHz, encoderRateHz, channels).also { resamplerRef = it }
             while (!encoderDone) {
                 if (isCancelled()) throw kotlinx.coroutines.CancellationException("Export cancelled")
                 progressed = false
@@ -243,7 +244,7 @@ class AudioTranscoder(
             bestEffort(TAG, "encoder.stop()") { encoder.stop() }
             bestEffort(TAG, "encoder.release()") { encoder.release() }
             bestEffort(TAG, "aiff.close()") { aiff.close() }
-            bestEffort(TAG, "resampler.close()") { resampler.close() }
+            bestEffort(TAG, "resamplerRef?.close()") { resamplerRef?.close() }
         }
     }
 

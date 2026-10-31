@@ -333,7 +333,10 @@ class LoudnessAnalyser(
         require(supports(channelCount)) { "no BS.1770 channel weights for $channelCount channels" }
     }
 
-    private var handle: Long = GeodeNative.loudnessCreate(sampleRate, channelCount)
+    private var handle: Long =
+        GeodeNative.loudnessCreate(sampleRate, channelCount).also {
+            check(it != 0L) { "native loudness meter refused $sampleRate Hz, $channelCount channels" }
+        }
 
     /** True once at least one full 400 ms block exists, i.e. once there is anything to gate. */
     val hasCompleteBlock: Boolean
@@ -362,9 +365,11 @@ class LoudnessAnalyser(
         )
     }
 
+    /** Idempotent. */
     override fun close() {
-        if (handle != 0L) GeodeNative.loudnessDestroy(handle)
+        val owned = handle
         handle = 0L
+        if (owned != 0L) GeodeNative.loudnessDestroy(owned)
     }
 
     private fun live(): Long = handle.also { check(it != 0L) { "LoudnessAnalyser used after close()" } }

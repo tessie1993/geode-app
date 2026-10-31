@@ -7,6 +7,7 @@
 #include <cstdlib>
 #include <vector>
 
+#include "api/geode_api.h"
 #include "audio/dsp/Loudness.hpp"
 
 using geode::audio::LoudnessAnalyser;
@@ -126,6 +127,24 @@ void surroundSkipsTheLfe() {
           "channel layouts: mono, stereo, 5.1");
 }
 
+void cAbiGuards() {
+    check(geode_loudness_create(48000, 4) == nullptr, "abi: quad refused");
+    check(geode_loudness_create(0, 2) == nullptr, "abi: zero rate refused");
+    geode_loudness_report report;
+    report.has_integrated = 7;
+    report.integrated_lufs = 99.0;
+    geode_loudness_finish(nullptr, &report);
+    check(report.has_integrated == 0 && report.integrated_lufs == 0.0 && report.gated_block_count == 0,
+          "abi: finish on null zeroes the report");
+    geode_loudness* l = geode_loudness_create(48000, 2);
+    const auto pcm = sine(48000, 2, 997.0, -23.0, 1.0);
+    geode_loudness_feed(l, pcm.data(), pcm.size());
+    geode_loudness_finish(l, &report);
+    check(geode_loudness_has_block(l) == 1 && report.has_integrated == 1 && report.measured_ms == 1000, "abi: feed and finish");
+    geode_loudness_destroy(l);
+    geode_loudness_destroy(nullptr);
+}
+
 }  // namespace
 
 int main() {
@@ -136,6 +155,7 @@ int main() {
     relativeGateDropsTheQuietTail();
     oddChunksMatchOneChunk();
     surroundSkipsTheLfe();
+    cAbiGuards();
     if (failures == 0) std::printf("loudness_test: all passed\n");
     return failures == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
 }

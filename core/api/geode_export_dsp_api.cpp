@@ -23,6 +23,10 @@ void geode_resampler_destroy(geode_resampler* r) {
     std::unique_ptr<geode_resampler> owned(r);
 }
 
+int geode_resampler_channels(geode_resampler* r) {
+    return r ? r->r.channels() : 0;
+}
+
 size_t geode_resampler_max_out_frames(geode_resampler* r, size_t in_frames) {
     return r ? r->r.maxOutFrames(in_frames) : 0;
 }

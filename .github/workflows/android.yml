@@ -129,9 +129,9 @@ jobs:
       - name: Native export DSP tests
         working-directory: ${{ env.PROJECT_DIR }}
         run: |
-          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/resampler_test.cpp core/audio/dsp/PcmResampler.cpp -o resampler_test
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/resampler_test.cpp core/audio/dsp/PcmResampler.cpp core/audio/dsp/Loudness.cpp core/api/geode_export_dsp_api.cpp -o resampler_test
           ./resampler_test
-          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/loudness_test.cpp core/audio/dsp/Loudness.cpp -o loudness_test
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/loudness_test.cpp core/audio/dsp/PcmResampler.cpp core/audio/dsp/Loudness.cpp core/api/geode_export_dsp_api.cpp -o loudness_test
           ./loudness_test
 
       - name: Shader compile check

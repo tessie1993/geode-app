@@ -29,15 +29,18 @@ Java_dev_geode_engine_bridge_GeodeNative_resamplerDestroy(JNIEnv*, jobject, jlon
 
 JNIEXPORT jshortArray JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_resamplerProcess(JNIEnv* env, jobject, jlong handle, jshortArray input,
-                                                         jint frames, jint channels) {
+                                                         jint frames) {
     auto* r = resamplerOf(handle);
-    if (!r || !input || frames <= 0 || channels <= 0 || env->GetArrayLength(input) < frames * channels) {
+    // The resampler's own channel count sizes everything; 64-bit maths so frames * channels cannot wrap.
+    const int64_t channels = geode_resampler_channels(r);
+    if (channels <= 0 || !input || frames <= 0 ||
+        static_cast<int64_t>(env->GetArrayLength(input)) < static_cast<int64_t>(frames) * channels) {
         return env->NewShortArray(0);
     }
-    std::vector<int16_t> in(static_cast<size_t>(frames) * channels);
+    std::vector<int16_t> in(static_cast<size_t>(frames) * static_cast<size_t>(channels));
     env->GetShortArrayRegion(input, 0, static_cast<jsize>(in.size()), reinterpret_cast<jshort*>(in.data()));
     const size_t capacity = geode_resampler_max_out_frames(r, static_cast<size_t>(frames));
-    std::vector<int16_t> out(capacity * channels);
+    std::vector<int16_t> out(capacity * static_cast<size_t>(channels));
     const int64_t written = geode_resampler_process(r, in.data(), static_cast<size_t>(frames), out.data(), capacity);
     const auto samples = static_cast<jsize>(written > 0 ? written * channels : 0);
     jshortArray result = env->NewShortArray(samples);
@@ -75,7 +78,7 @@ Java_dev_geode_engine_bridge_GeodeNative_loudnessHasBlock(JNIEnv*, jobject, jlon
 
 JNIEXPORT jboolean JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_loudnessFinish(JNIEnv* env, jobject, jlong handle, jdoubleArray out) {
-    geode_loudness_report report;
+    geode_loudness_report report{};
     geode_loudness_finish(loudnessOf(handle), &report);
     if (out && env->GetArrayLength(out) >= kReportDoubles) {
         const jdouble values[kReportDoubles] = {report.integrated_lufs, report.true_peak_dbtp, report.sample_peak_dbfs,

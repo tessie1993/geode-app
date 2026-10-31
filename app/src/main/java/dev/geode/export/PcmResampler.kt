@@ -24,7 +24,14 @@ internal class PcmResampler(
 
     val isPassthrough: Boolean = inRateHz == outRateHz
 
-    private var handle: Long = if (isPassthrough) 0L else GeodeNative.resamplerCreate(inRateHz, outRateHz, channels)
+    private var handle: Long =
+        if (isPassthrough) {
+            0L
+        } else {
+            GeodeNative.resamplerCreate(inRateHz, outRateHz, channels).also {
+                check(it != 0L) { "native resampler refused $inRateHz -> $outRateHz Hz, $channels channels" }
+            }
+        }
 
     /** Converts [frames] interleaved frames of [input]; returns the interleaved output. */
     fun process(
@@ -33,12 +40,14 @@ internal class PcmResampler(
     ): ShortArray {
         if (isPassthrough) return input.copyOf(frames * channels)
         check(handle != 0L) { "PcmResampler used after close()" }
-        return GeodeNative.resamplerProcess(handle, input, frames, channels)
+        return GeodeNative.resamplerProcess(handle, input, frames)
     }
 
+    /** Idempotent. */
     override fun close() {
-        if (handle != 0L) GeodeNative.resamplerDestroy(handle)
+        val owned = handle
         handle = 0L
+        if (owned != 0L) GeodeNative.resamplerDestroy(owned)
     }
 
     companion object {

@@ -469,12 +469,14 @@ object GeodeNative {
 
     external fun resamplerDestroy(handle: Long)
 
-    /** Converts [frames] interleaved frames of [input]; returns the interleaved output (state carries over). */
+    /**
+     * Converts [frames] interleaved frames of [input] (at the handle's channel count); returns the
+     * interleaved output, state carrying over. Empty when [input] holds fewer than [frames] frames.
+     */
     external fun resamplerProcess(
         handle: Long,
         input: ShortArray,
         frames: Int,
-        channels: Int,
     ): ShortArray
 
     // Export loudness meter (core/audio/dsp/Loudness): BS.1770-4 integrated loudness and true peak.

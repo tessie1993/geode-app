@@ -274,6 +274,7 @@ GEODE_API size_t        geode_player_read_tap(geode_player*, float* stereo, size
 typedef struct geode_resampler geode_resampler;
 GEODE_API geode_resampler* geode_resampler_create(int in_rate, int out_rate, int channels);  /* NULL on bad args */
 GEODE_API void             geode_resampler_destroy(geode_resampler*);
+GEODE_API int              geode_resampler_channels(geode_resampler*);   /* 0 for NULL */
 GEODE_API size_t           geode_resampler_max_out_frames(geode_resampler*, size_t in_frames);
 /* Returns the frames written to out, or -1 (writing nothing) when out_capacity_frames is under
  * geode_resampler_max_out_frames(in_frames). */

@@ -6,6 +6,7 @@
 #include <cstdlib>
 #include <vector>
 
+#include "api/geode_api.h"
 #include "audio/dsp/PcmResampler.hpp"
 
 using geode::audio::PcmResampler;
@@ -93,6 +94,26 @@ void chunkedInputMatchesOneBuffer() {
     }
 }
 
+// The C ABI the JNI layer goes through refuses what would overrun a buffer instead of writing it.
+void cAbiGuards() {
+    check(geode_resampler_create(0, 48000, 2) == nullptr, "abi: zero rate refused");
+    check(geode_resampler_create(96000, 48000, 0) == nullptr, "abi: zero channels refused");
+    check(geode_resampler_channels(nullptr) == 0, "abi: null has no channels");
+    geode_resampler* r = geode_resampler_create(96000, 48000, 2);
+    check(r != nullptr && geode_resampler_channels(r) == 2, "abi: channels as configured");
+    const int16_t in[8] = {0, 100, 10, 200, 20, 300, 30, 400};
+    int16_t out[8] = {};
+    const size_t need = geode_resampler_max_out_frames(r, 4);
+    check(need == 4, "abi: 4 frames at 2:1 may give up to 4 out");
+    check(geode_resampler_process(r, in, 4, out, need - 1) == -1, "abi: short output buffer refused");
+    check(out[0] == 0 && out[7] == 0, "abi: refused call wrote nothing");
+    // The refused call consumed nothing, so the stream is still where it was.
+    check(geode_resampler_process(r, in, 4, out, need) == 2 && out[0] == 5 && out[3] == 350, "abi: state untouched by refusal");
+    check(geode_resampler_process(nullptr, in, 4, out, need) == 0, "abi: null handle writes nothing");
+    geode_resampler_destroy(r);
+    geode_resampler_destroy(nullptr);
+}
+
 }  // namespace
 
 int main() {
@@ -102,6 +123,7 @@ int main() {
     oneSecondStaysOneSecondAtEveryRate();
     wholeStepsDownAreExact();
     chunkedInputMatchesOneBuffer();
+    cAbiGuards();
     if (failures == 0) std::printf("resampler_test: all passed\n");
     return failures == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
 }

@@ -174,8 +174,8 @@ void everyOldStyleKeepsItsNumbersAndKind() {
 
 void familiesHaveTwelveStylesAndAnOpener() {
     const char* const openers[] = {"arbor_grove", "bulb_classic", "chrys_bloom",  "lucid_weave", "dive_lattice",
-                                   "glass_orb",   "nebula_dust",  "terra_ridge", "truchet_arcs"};
-    const char* const names[] = {"arbor", "bulb", "chrysanthemum", "lucid", "dive", "glass", "nebula", "terrain", "truchet"};
+                                   "glass_orb",   "nebula_dust",  "terra_ridge", "truchet_arcs", "foam_fall"};
+    const char* const names[] = {"arbor", "bulb", "chrysanthemum", "lucid", "dive", "glass", "nebula", "terrain", "truchet", "foam"};
     std::set<std::string> seen;
     int i = 0;
     for (const auto& family : catalogue::families()) {
@@ -190,8 +190,8 @@ void familiesHaveTwelveStylesAndAnOpener() {
         }
         ++i;
     }
-    check(i == 9, "nine families");
-    check(seen.size() == 9 * 12, "108 distinct family styles");
+    check(i == 10, "ten families");
+    check(seen.size() == 10 * 12, "120 distinct family styles");
 }
 
 void spinRateAndShaderStyleAgree() {
@@ -207,12 +207,12 @@ void spinRateAndShaderStyleAgree() {
     }
     check(spinning == oldSpinning, "the spinning styles are the old SPINNING_SCENES");
     for (const auto& id : spinning) check(catalogue::isShaderStyle(id), id + " spins and is a shader style");
-    check(shaders == 163, "163 shader styles (55 loose + 108 family), got " + std::to_string(shaders));
+    check(shaders == 175, "175 shader styles (55 loose + 120 family), got " + std::to_string(shaders));
     check(catalogue::spinRate("bead_vortex") == 1.4f && catalogue::spinRate("tunnel") == -0.5f, "spin rates kept");
     for (const char* id : {"silk_web", "milkdrop", "fluid", "water", "curlflow", "cymatics", "no_such_style"}) {
         check(!catalogue::isShaderStyle(id), std::string(id) + " is not a shader style");
     }
-    check(catalogue::allIds().size() == 226, "226 ids");
+    check(catalogue::allIds().size() == 238, "238 ids");
     check(catalogue::allIds().front() == "silk_web", "the default comes first");
 }
 
@@ -227,7 +227,9 @@ void marchedStylesMatchTheOldSet() {
         "morphogen", "nebula", "nebula_flight", "nebula_pillars", "nebula_storm", "nebula_web", "nectar_flow", "neon_city",
         "noneuclid", "particle_tunnel", "prism_rain", "rod_tunnel", "spectrum_terrain", "supershape", "terra_canyon", "terra_dunes",
         "terra_glacier", "terra_isles", "terra_mesa", "terra_moon", "terra_night", "terra_ridge", "terra_terraces",
-        "terra_volcano", "terra_wire", "truchet_relief", "vanishing"};
+        "terra_volcano", "terra_wire", "truchet_relief", "vanishing",
+        "foam_fall", "foam_neon", "foam_soap", "foam_chrome", "foam_ember", "foam_ice",
+        "foam_orb", "foam_kaleido", "foam_ink", "foam_coral", "foam_ghost", "foam_show"};
     std::set<std::string> marched;
     for (const auto& id : catalogue::allIds()) {
         if (catalogue::isMarched(id)) marched.insert(id);
@@ -302,7 +304,7 @@ void textRoundTrips() {
         }
     }
     check(styleIds == catalogue::allIds(), "style rows in picker order");
-    check(kinds == catalogue::kKindCount && families == 9 && keys == 80 && overrides == 8, "row counts");
+    check(kinds == catalogue::kKindCount && families == 10 && keys == 80 && overrides == 8, "row counts");
 }
 
 std::string readFile(const char* path) {

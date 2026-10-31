@@ -157,7 +157,7 @@ data class ReactionRoute(
 ) {
     companion object {
         /** Mirrors `ReactionEngine::kRoutes`. */
-        const val MAX_ROUTES: Int = 32
+        const val MAX_ROUTES: Int = 64
 
         const val MIN_AMOUNT: Float = -2f
         const val MAX_AMOUNT: Float = 2f

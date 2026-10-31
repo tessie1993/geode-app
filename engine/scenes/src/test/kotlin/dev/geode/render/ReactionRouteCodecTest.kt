@@ -93,9 +93,9 @@ class ReactionRouteCodecTest {
 
     @Test
     fun neverReturnsMoreRoutesThanNativeHasSlots() {
-        val many = List(48) { ReactionRoute(source = ReactSource.KICK, target = LfoTarget.ZOOM) }
+        val many = List(80) { ReactionRoute(source = ReactSource.KICK, target = LfoTarget.ZOOM) }
         val line = "true|KICK|ZOOM|FOLLOW|0.3|LINEAR|0.05|0.3"
         assertTrue(ReactionRouteCodec.encode(many).lines().size <= ReactionRoute.MAX_ROUTES + 1)
-        assertEquals(ReactionRoute.MAX_ROUTES, ReactionRouteCodec.decode("reactions/2\n" + List(48) { line }.joinToString("\n"))!!.size)
+        assertEquals(ReactionRoute.MAX_ROUTES, ReactionRouteCodec.decode("reactions/2\n" + List(80) { line }.joinToString("\n"))!!.size)
     }
 }

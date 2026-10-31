@@ -362,7 +362,7 @@ void stylesGetDifferentPersonalities() {
     }
     check(leads.size() >= 6, "thirty styles draw at least six different pulse personalities");
     check(pulses * 4 <= kStyleCount, "at most a quarter of styles push in on the kick");
-    check(beatZooms * 3 <= kStyleCount, "most styles do not zoom on the kick at all");
+    check(beatZooms * 5 <= kStyleCount * 2, "most styles do not zoom on the kick at all (Club styles push on it)");
 }
 
 bool kickSide(ReactSource s) { return s == ReactSource::Kick || s == ReactSource::Kick2 || s == ReactSource::Onset; }

@@ -37,6 +37,15 @@ enum class Personality {
 };
 constexpr int kPersonalityCount = static_cast<int>(Personality::Morph) + 1;
 
+// How the camera moves, drawn per style (docs/research/music-visual-mapping.md § 3).
+enum class CameraFeel {
+    MusicVideo,  // cuts on big moments and every 8th kick, pushes through rises, orbits on a clock, rises with the melody
+    Floaty,      // no cuts: flies with the music, wide orbit, rises and sinks with the melody
+    Club,        // pushes on every kick, strong shake, cuts every 4th kick, rolls on the snare
+};
+constexpr int kCameraFeelCount = static_cast<int>(CameraFeel::Club) + 1;
+const char* cameraFeelName(CameraFeel f);
+
 // What the DNA needs to know about a style, from SceneRegistry.
 struct StyleTraits {
     // SceneRegistry::spinRate: 0 for a style that holds still. Rotation and
@@ -47,14 +56,15 @@ struct StyleTraits {
 };
 
 struct StyleDna {
-    // The DNA uses at most half the slots, so the user, the grid and the Events tab's
-    // recipes can add routes without removing any.
-    static constexpr int kMaxRoutes = ReactionEngine::kRoutes / 2;
+    // The DNA wires every parameter (the user: "every parameter listens to the music") and still
+    // leaves a quarter of the slots for the user, the grid and the Events tab's recipes.
+    static constexpr int kMaxRoutes = ReactionEngine::kRoutes * 3 / 4;
 
     std::array<ReactRoute, ReactionEngine::kRoutes> routes{};
     int count = 0;
     Personality lead = Personality::Pulse;    // on the kick side
     Personality second = Personality::Chroma; // on the snare side
+    CameraFeel feel = CameraFeel::MusicVideo;
 };
 
 StyleDna buildStyleDna(std::string_view styleId, int seed, const StyleTraits& traits);

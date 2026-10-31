@@ -32,7 +32,7 @@ GEODE_API int          geode_sound_fft_size(geode_sound*);
 #define GEODE_LFO_SLOTS 3
 #define GEODE_LFO_CONFIG_FLOATS 8   /* enabled, source, target, wave, rate_seconds, depth, polarity, curve */
 #define GEODE_ADSR_SLOTS 2
-#define GEODE_REACT_ROUTES 32
+#define GEODE_REACT_ROUTES 64
 #define GEODE_REACT_ROUTE_FLOATS 8  /* enabled, source, target, mode, amount, curve, attack_seconds, release_seconds */
 #define GEODE_ADSR_CONFIG_FLOATS 10 /* enabled, attack, decay, sustain, release, amount, band, gate_threshold,
                                        sustain_track, retrigger; followed by the target ordinals */

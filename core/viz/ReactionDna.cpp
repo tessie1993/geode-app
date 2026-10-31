@@ -80,6 +80,29 @@ public:
         dna.routes[static_cast<size_t>(dna.count++)] = {true, source, target, mode, amount, curve, attack, release};
     }
 
+    // How often each source already drives something: the lanes prefer sources nobody uses yet, so
+    // the kick, the melody, the build-up and the big moments each move different things.
+    std::array<int, kReactSourceCount> load{};
+
+    void lane(ReactSource source, LfoTarget target, ReactMode mode, float amount, float attack, float release,
+              ModCurve curve = ModCurve::Linear) {
+        const int before = dna.count;
+        add(source, target, mode, amount, attack, release, curve);
+        if (dna.count > before) ++load[static_cast<size_t>(source)];
+    }
+
+    // The least-used source of `pool`, ties broken by the draw.
+    template <size_t N>
+    ReactSource fresh(Draw& d, const std::array<ReactSource, N>& pool) const {
+        const int start = d.below(static_cast<int>(N));
+        ReactSource best = pool[static_cast<size_t>(start)];
+        for (size_t k = 0; k < N; ++k) {
+            const ReactSource s = pool[(static_cast<size_t>(start) + k) % N];
+            if (load[static_cast<size_t>(s)] < load[static_cast<size_t>(best)]) best = s;
+        }
+        return best;
+    }
+
     bool uses(LfoTarget target) const {
         for (int i = 0; i < dna.count; ++i) {
             if (dna.routes[static_cast<size_t>(i)].target == target) return true;
@@ -159,7 +182,143 @@ ReactSource pick(Draw& d, const std::array<ReactSource, N>& pool) {
     return pool[static_cast<size_t>(d.below(static_cast<int>(N)))];
 }
 
+bool allowedTarget(LfoTarget t, const StyleTraits& traits) {
+    if ((t == LfoTarget::Morph || t == LfoTarget::PaletteMix) && !traits.shaderLook) return false;
+    if ((t == LfoTarget::Rotation || t == LfoTarget::CamRoll) && traits.spinRate == 0.0f) return false;
+    return true;
+}
+
+using S = ReactSource;
+using T = LfoTarget;
+using M = ReactMode;
+
+// A lane: one parameter, the sources that suit it, how it moves and how far.
+struct LaneSpec {
+    T target;
+    std::array<S, 5> pool;
+    M mode;
+    float lo, hi;  // amount range
+    float attack, release;
+    ModCurve curve;
+};
+
+// Every continuous look parameter gets a lane. Luminance ones (saturation, brightness, temperature,
+// vignette) draw only from slow sources, so the picture breathes rather than flickers.
+constexpr std::array<LaneSpec, 17> kLookLanes = {{
+    {T::Zoom, {S::BassAtt, S::SubAtt, S::Low, S::VolAtt, S::BassPresence}, M::Follow, 0.06f, 0.14f, 0.06f, 0.4f, ModCurve::Smooth},
+    {T::Warp, {S::SubAtt, S::Bass, S::MidAtt, S::Flux, S::DensityFast}, M::Follow, 0.25f, 0.5f, 0.05f, 0.45f, ModCurve::Smooth},
+    {T::Ripple, {S::KickEnv, S::SnareEnv, S::OnsetEnv, S::BassAtt, S::Kick2}, M::Follow, 0.25f, 0.5f, 0.02f, 0.4f, ModCurve::Linear},
+    {T::Morph, {S::MidPresence, S::PitchHeight, S::Intensity, S::DensitySlow, S::Centroid}, M::Follow, 0.3f, 0.5f, 0.5f, 1.2f, ModCurve::Smooth},
+    {T::Twist, {S::Flux, S::Interval, S::StereoPan, S::Glide, S::KickRandom}, M::Follow, 0.2f, 0.4f, 0.1f, 0.5f, ModCurve::Smooth},
+    {T::ColorShift, {S::PitchClass, S::NoteRandom, S::Centroid, S::PitchHeight, S::Evenness}, M::Follow, 0.3f, 0.6f, 0.4f, 0.9f, ModCurve::Linear},
+    {T::PaletteMix, {S::Intensity, S::TreblePresence, S::MidPresence, S::EnergyTrend, S::Rolloff}, M::Follow, 0.4f, 0.8f, 0.8f, 1.6f, ModCurve::Smooth},
+    {T::Saturation, {S::Intensity, S::PitchConfidence, S::Loudness, S::MidPresence, S::Evenness}, M::Follow, 0.2f, 0.4f, 0.6f, 1.5f, ModCurve::Smooth},
+    {T::Brightness, {S::Level, S::Loudness, S::Presence, S::BassPresence, S::Intensity}, M::Follow, 0.1f, 0.2f, 0.6f, 1.5f, ModCurve::Smooth},
+    {T::Bloom, {S::VolAtt, S::PeakMag, S::KickEnv, S::TrebleAtt, S::Level}, M::Follow, 0.2f, 0.45f, 0.08f, 0.5f, ModCurve::Linear},
+    {T::Temperature, {S::Centroid, S::PitchHeight, S::EnergyTrend, S::Evenness, S::Rolloff}, M::Follow, 0.3f, 0.5f, 0.8f, 1.8f, ModCurve::Smooth},
+    {T::Turbulence, {S::Flux, S::Flatness, S::DensityFast, S::TrebleAtt, S::RunDensity}, M::Follow, 0.3f, 0.6f, 0.1f, 0.6f, ModCurve::Smooth},
+    {T::ChromaAb, {S::SnareEnv, S::HatEnv, S::Flatness, S::OnsetEnv, S::High}, M::Follow, 0.3f, 0.6f, 0.01f, 0.25f, ModCurve::Linear},
+    {T::Vignette, {S::EnergyTrend, S::Intensity, S::BassPresence, S::Presence, S::DensitySlow}, M::Follow, 0.2f, 0.4f, 0.8f, 1.6f, ModCurve::Smooth},
+    {T::Glitch, {S::Snare4, S::Reattack, S::Snare2, S::HardCut, S::Kick8}, M::Follow, 0.15f, 0.3f, 0.08f, 0.35f, ModCurve::Linear},
+    {T::Fisheye, {S::SubAtt, S::Kick2, S::KickEnv, S::BassAtt, S::Surge}, M::Follow, 0.2f, 0.4f, 0.03f, 0.4f, ModCurve::Smooth},
+    {T::ParticleSize, {S::TrebleAtt, S::HatEnv, S::High, S::Vibrato, S::Flux}, M::Follow, 0.3f, 0.5f, 0.02f, 0.3f, ModCurve::Linear},
+}};
+
+void addLane(Builder& b, Draw& d, const LaneSpec& l, const StyleTraits& traits) {
+    if (!allowedTarget(l.target, traits) || b.uses(l.target)) return;
+    b.lane(b.fresh(d, l.pool), l.target, l.mode, d.range(l.lo, l.hi), l.attack, l.release, l.curve);
+}
+
+// The camera, per feel. Each move has its own sound; a route on a channel replaces the rig's own
+// move for that channel (CameraRig::stepAside), so this is the camera's whole personality.
+void addCamera(Builder& b, Draw& d, CameraFeel feel, const StyleTraits& traits) {
+    const auto lane = [&](T t, S s, M m, float amount, float attack, float release, ModCurve c = ModCurve::Linear) {
+        if (allowedTarget(t, traits) && !b.uses(t)) b.lane(s, t, m, amount, attack, release, c);
+    };
+    switch (feel) {
+        case CameraFeel::MusicVideo:
+            lane(T::CamCut, b.fresh(d, std::array{S::HardCut, S::Kick8, S::Kick8}), M::Follow, 1.0f, 0.0f, 0.3f);
+            lane(T::CamPush, b.fresh(d, std::array{S::EnergyTrend, S::Surge, S::Intensity}), M::Follow, d.range(0.4f, 0.6f), 0.6f, 1.5f,
+                 ModCurve::Smooth);
+            lane(T::CamYaw, b.fresh(d, std::array{S::MidTime, S::NoteTime, S::BassTime}), M::Spin, d.sign() * d.range(0.12f, 0.2f), 0.3f, 0.6f);
+            lane(T::CamCrane, b.fresh(d, std::array{S::PitchHeight, S::Centroid}), M::Follow, d.range(0.4f, 0.6f), 0.8f, 1.6f, ModCurve::Smooth);
+            lane(T::CamShake, b.fresh(d, std::array{S::KickEnv, S::SnareEnv}), M::Follow, d.range(0.1f, 0.2f), 0.01f, 0.3f);
+            lane(T::CamFov, b.fresh(d, std::array{S::BassAtt, S::SubAtt}), M::Follow, -d.range(0.1f, 0.18f), 0.05f, 0.4f);
+            break;
+        case CameraFeel::Floaty:
+            lane(T::CamFly, b.fresh(d, std::array{S::CurvedTime, S::MidTime, S::BassTime}), M::Drive, d.range(0.9f, 1.2f), 0.5f, 1.0f);
+            lane(T::CamYaw, b.fresh(d, std::array{S::MidTime, S::BassTime, S::NoteTime}), M::Spin, d.sign() * d.range(0.2f, 0.3f), 0.6f, 1.2f);
+            lane(T::CamOrbit, b.fresh(d, std::array{S::MidPresence, S::Intensity, S::BassPresence}), M::Follow, d.range(0.3f, 0.5f), 1.0f, 2.0f,
+                 ModCurve::Smooth);
+            lane(T::CamCrane, b.fresh(d, std::array{S::PitchHeight, S::Intensity}), M::Follow, d.range(0.5f, 0.7f), 1.0f, 2.0f, ModCurve::Smooth);
+            lane(T::CamPitch, b.fresh(d, std::array{S::Centroid, S::Interval}), M::Follow, d.range(0.15f, 0.25f), 0.8f, 1.5f, ModCurve::Smooth);
+            lane(T::CamFov, b.fresh(d, std::array{S::Intensity, S::EnergyTrend}), M::Follow, d.range(0.15f, 0.25f), 1.0f, 2.0f, ModCurve::Smooth);
+            break;
+        case CameraFeel::Club:
+            lane(T::CamPush, b.fresh(d, std::array{S::KickEnv, S::Kick}), M::Follow, d.range(0.4f, 0.6f), 0.01f, 0.25f);
+            lane(T::CamShake, b.fresh(d, std::array{S::SnareEnv, S::KickEnv}), M::Follow, d.range(0.35f, 0.5f), 0.01f, 0.3f);
+            lane(T::CamCut, S::Kick4, M::Follow, 1.0f, 0.0f, 0.3f);
+            lane(T::CamRoll, S::SnareToggle, M::Follow, d.sign() * d.range(0.15f, 0.3f), 0.06f, 0.06f);
+            lane(T::CamFov, b.fresh(d, std::array{S::BassAtt, S::SubAtt}), M::Follow, -d.range(0.2f, 0.3f), 0.02f, 0.3f);
+            lane(T::CamYaw, b.fresh(d, std::array{S::HitTime, S::BassTime}), M::Spin, d.sign() * d.range(0.25f, 0.35f), 0.2f, 0.4f);
+            break;
+    }
+}
+
+// The layers, strong on every style (the user's choice), each on a sound no other layer uses.
+void addLayers(Builder& b, Draw& d) {
+    // Falling through: a mix drawn per style, so the direction is the style's own.
+    switch (d.below(4)) {
+        case 0:  // energy falls in, the sound coming back pulls it out
+            b.lane(S::EnergyTrend, T::Fall, M::Follow, d.range(0.8f, 1.1f), 0.4f, 0.8f, ModCurve::Smooth);
+            b.lane(S::Returned, T::Fall, M::Follow, -d.range(1.0f, 1.4f), 0.05f, 1.5f);
+            break;
+        case 1:  // two sounds at once: one pushes in, the other pulls back out
+            b.lane(b.fresh(d, std::array{S::KickEnv, S::BassAtt, S::SubAtt}), T::Fall, M::Follow, d.range(0.8f, 1.1f), 0.02f, 0.5f);
+            b.lane(b.fresh(d, std::array{S::PitchHeight, S::MidPresence, S::Centroid}), T::Fall, M::Follow, -d.range(0.6f, 0.9f), 0.3f, 0.8f,
+                   ModCurve::Smooth);
+            break;
+        case 2:  // a new direction, held, at every big moment
+            b.lane(b.fresh(d, std::array{S::HardCut, S::Kick16}), T::Fall, M::Jump, d.range(0.7f, 1.0f), 0.6f, 0.6f);
+            break;
+        default:  // the melody: a rising line falls in, a falling one climbs back out
+            b.lane(S::Interval, T::Fall, M::Follow, d.range(1.0f, 1.4f), 0.2f, 0.8f, ModCurve::Smooth);
+            b.lane(b.fresh(d, std::array{S::SubAtt, S::Intensity}), T::Fall, M::Follow, d.range(0.3f, 0.5f), 0.3f, 0.8f);
+            break;
+    }
+    b.lane(b.fresh(d, std::array{S::Intensity, S::EnergyTrend, S::DensitySlow, S::MidPresence, S::BassPresence}), T::Fractal, M::Follow,
+           d.range(0.8f, 1.2f), 0.4f, 1.5f, ModCurve::Smooth);
+    b.lane(b.fresh(d, std::array{S::Kick, S::Snare, S::Onset, S::NoteChange, S::Kick2}), T::Spawn, M::Follow, 1.0f, 0.0f, 0.2f);
+    b.lane(b.fresh(d, std::array{S::SubAtt, S::Glide, S::Legato, S::Vibrato, S::BassPresence}), T::Melt, M::Follow, d.range(0.5f, 0.9f), 0.2f,
+           0.9f, ModCurve::Smooth);
+    b.lane(b.fresh(d, std::array{S::Silence, S::Kick16, S::Reattack, S::Snare4}), T::Freeze, M::Follow, 1.0f, 0.0f, 0.3f);
+    b.lane(b.fresh(d, std::array{S::HardCut, S::Surge, S::Kick16, S::Snare4}), T::Shatter, M::Follow, 1.0f, 0.0f, 0.3f);
+    b.lane(b.fresh(d, std::array{S::HatEnv, S::TrebleAtt, S::OnsetEnv, S::Flux, S::High}), T::Particles, M::Follow, d.range(0.7f, 1.0f), 0.02f,
+           0.4f);
+    // The particles fall or fly up, the way changing at big moments or every sixteen kicks.
+    b.lane(b.fresh(d, std::array{S::HardCut, S::Kick16}), T::ParticleFall, M::Jump, d.range(0.6f, 0.9f), 0.8f, 0.8f, ModCurve::Smooth);
+}
+
+// The motions the music drives (matrix::drive): which clock sets the pace is the style's own.
+void addDrives(Builder& b, Draw& d, const StyleTraits& traits) {
+    b.lane(b.fresh(d, std::array{S::MidTime, S::CurvedTime, S::NoteTime, S::BassTime}), T::Speed, M::Drive, d.range(0.9f, 1.2f), 0.3f, 0.6f);
+    if (traits.spinRate != 0.0f) {
+        b.lane(b.fresh(d, std::array{S::BassTime, S::MidTime, S::HitTime, S::TrebleTime}), T::Rotation, M::Drive, d.range(0.9f, 1.2f), 0.3f,
+               0.6f);
+    }
+    b.lane(b.fresh(d, std::array{S::NoteTime, S::TrebleTime, S::CurvedTime}), T::CycleSpeed, M::Drive, d.range(0.8f, 1.2f), 0.5f, 1.0f);
+}
+
 }  // namespace
+
+const char* cameraFeelName(CameraFeel f) {
+    switch (f) {
+        case CameraFeel::MusicVideo: return "Music video";
+        case CameraFeel::Floaty: return "Floaty journey";
+        case CameraFeel::Club: return "Club";
+    }
+    return "Music video";
+}
 
 StyleDna buildStyleDna(std::string_view styleId, int seed, const StyleTraits& traits) {
     Draw d(mix(fnv1a(styleId) ^ (static_cast<std::uint32_t>(seed) * 0x9E3779B9u)));
@@ -268,6 +427,15 @@ StyleDna buildStyleDna(std::string_view styleId, int seed, const StyleTraits& tr
     if (d.coin() && !b.uses(LfoTarget::CamPitch)) {
         b.add(ReactSource::PitchHeight, LfoTarget::CamPitch, ReactMode::Follow, d.range(0.1f, 0.25f), 0.6f, 1.2f, ModCurve::Smooth);
     }
+
+    // Everything else listens too (the user: "every parameter"): the motions on their own clocks,
+    // the camera in the style's feel, the layers, then a lane for every look parameter still free.
+    for (int i = 0; i < b.dna.count; ++i) ++b.load[static_cast<size_t>(b.dna.routes[static_cast<size_t>(i)].source)];
+    b.dna.feel = static_cast<CameraFeel>(d.below(kCameraFeelCount));
+    addDrives(b, d, traits);
+    addCamera(b, d, b.dna.feel, traits);
+    addLayers(b, d);
+    for (const LaneSpec& l : kLookLanes) addLane(b, d, l, traits);
 
     return b.dna;
 }

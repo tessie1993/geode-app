@@ -457,4 +457,11 @@ object GeodeNative {
         blend: Int,
         amount: Float,
     )
+
+    /**
+     * The scene and style catalogue (core/viz/Catalogue) as its versioned line table: style ids and
+     * kinds, the style families, which controls reach which styles, the control ranges. Static; parse
+     * once (dev.geode.render.scene.Catalogue does).
+     */
+    external fun catalogueText(): String
 }

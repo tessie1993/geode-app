@@ -4,6 +4,7 @@
 #include <cmath>
 #include <cstring>
 
+#include "viz/Catalogue.hpp"
 #include "viz/scenes/SceneCommon.hpp"
 
 namespace geode::viz {
@@ -13,8 +14,9 @@ namespace {
 constexpr int kPaletteRows = 5;
 constexpr int kMarchMaxSteps = 128;
 constexpr int kMarchFloorSteps = 64;
-constexpr float kMarchMinDetail = 0.25f;
-constexpr float kMarchMaxDetail = 1.5f;
+// The Detail range is the catalogue's: the shell's slider quotes the same numbers.
+constexpr float kMarchMinDetail = catalogue::kMarchDetail.min;
+constexpr float kMarchMaxDetail = catalogue::kMarchDetail.max;
 
 float paletteRowCoordinate(int index) {
     return (static_cast<float>(std::clamp(index, 0, kPaletteRows - 1)) + 0.5f) / static_cast<float>(kPaletteRows);

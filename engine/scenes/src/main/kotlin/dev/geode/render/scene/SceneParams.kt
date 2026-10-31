@@ -25,7 +25,7 @@ data class SceneParams(
      * control outlived it because VANISHING, MORPHOGEN, NEBULA, NONEUCLID and KIFS are all
      * distance-marched and all need somewhere to spend or save steps; naming it after the
      * technique rather than a style means the next marched style inherits it for free.
-     * [MarchBudget.forDetail] turns it into the `uSteps` uniform every one of them breaks on.
+     * Native ShaderScene turns it into the `uSteps` uniform every one of them breaks on.
      */
     val marchDetail: Float = 1f,
     val trails: Boolean = false,

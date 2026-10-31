@@ -91,13 +91,6 @@ object VisualSafety {
     fun transitionStyle(requested: TransitionStyle): TransitionStyle =
         if (requested == TransitionStyle.CUT) TransitionStyle.FADE else requested
 
-    fun transitionId(requested: String): String =
-        if (requested == TransitionStyle.CUT.name.lowercase()) {
-            TransitionStyle.FADE.name.lowercase()
-        } else {
-            requested
-        }
-
     /**
      * Caps how hard a second layer may be blended in.
      *

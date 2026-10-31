@@ -13,6 +13,7 @@ import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.CacheBitmapLoader
+import androidx.media3.session.DefaultMediaNotificationProvider
 import androidx.media3.session.LibraryResult
 import androidx.media3.session.MediaLibraryService
 import androidx.media3.session.MediaSession
@@ -36,6 +37,12 @@ class PlaybackService : MediaLibraryService() {
         val loader = SessionBitmapLoader(this)
         artworkLoader = loader
         val player = PlaybackEngine.acquireForService(this).player
+        // Media3's default status-bar icon is a generic note; ours is the mark's silhouette.
+        setMediaNotificationProvider(
+            DefaultMediaNotificationProvider.Builder(this).build().apply {
+                setSmallIcon(dev.geode.R.drawable.ic_stat_muzviz)
+            },
+        )
         session =
             MediaLibrarySession
                 .Builder(this, player, LibraryCallback(this, LibraryTree(this)))

@@ -1,34 +1,41 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Geode</string>
-    <string name="wallpaper_label">Geode</string>
-    <string name="wallpaper_description">Your last Geode style, reacting to whatever the app is playing and drifting gently when it is not.</string>
-    <string name="dream_label">Geode</string>
-    <string name="notification_listener_label">Geode — now playing in other apps</string>
+    <string name="app_name">MuzViz Studio Pro</string>
+    <string name="wallpaper_label">MuzViz Studio Pro</string>
+    <string name="wallpaper_description">Your last MuzViz style, reacting to whatever the app is playing and drifting gently when it is not.</string>
+    <string name="dream_label">MuzViz Studio Pro</string>
+    <string name="notification_listener_label">MuzViz — now playing in other apps</string>
     <string name="capture_channel_name">Visualizing other apps</string>
-    <string name="capture_channel_description">Shown while Geode is reading the audio another app is playing.</string>
+    <string name="capture_channel_description">Shown while MuzViz is reading the audio another app is playing.</string>
     <string name="capture_notification_title">Visualizing other apps</string>
-    <string name="capture_notification_text">Geode is reading the audio playing on this device.</string>
+    <string name="capture_notification_text">MuzViz is reading the audio playing on this device.</string>
     <string name="capture_notification_stop">Stop</string>
     <string name="export_channel_name">Rendering video</string>
-    <string name="export_channel_description">Shown while Geode is rendering a video, so the render is not interrupted.</string>
+    <string name="export_channel_description">Shown while MuzViz is rendering a video, so the render is not interrupted.</string>
     <string name="export_notification_title">Rendering video</string>
-    <string name="export_notification_text">Geode is rendering your visuals.</string>
+    <string name="export_notification_text">MuzViz is rendering your visuals.</string>
 
     <!-- First-run photosensitivity notice. Safety copy: translate carefully,
          the flash rate is factual and must survive translation. This is an
          acknowledgement, not a choice — there is no setting behind it. -->
+    <string name="boot_wordmark" translatable="false">MuzViz</string>
+    <string name="boot_tagline">Visualize the invisible</string>
     <string name="safety_title">Before the visuals start</string>
-    <string name="safety_warning">Geode reacts to music with light, and the visuals are intense — bright, fast and full-screen.</string>
+    <string name="safety_warning">MuzViz reacts to music with light, and the visuals are intense — bright, fast and full-screen.</string>
     <string name="safety_prompt">The flash rate is limited in the engine, by design. Nothing on screen can flash more than three times a second, no preset or imported file can raise that, and the video you export is held to the same limit as the screen you saw. There is no setting for this and nothing to switch off.</string>
     <string name="safety_acknowledge">I understand</string>
 
     <!-- First run, after the notice: where the music is, and what you came here to do. -->
     <!-- First run: permission, then an optional folder. Nothing else is asked. -->
     <string name="first_run_access_title">Let\'s find your music</string>
-    <string name="first_run_access_body">Geode needs access to the audio on this device. Nothing leaves your phone — there is no account and no sign-in.</string>
+    <string name="first_run_access_body">MuzViz needs access to the audio on this device. Nothing leaves your phone — there is no account and no sign-in.</string>
     <string name="first_run_access_allow">Allow music access</string>
     <string name="first_run_access_skip">Not now</string>
+    <string name="first_run_access_rationale">Without it, MuzViz can still visualise live sound and play folders you pick by hand. With it, your whole library is here from the start.</string>
+    <string name="first_run_access_skipped">Music access is off for now. A folder you pick here still plays, and Library can ask again whenever you like.</string>
+    <string name="first_run_access_retry">Try again</string>
+    <string name="permission_open_settings">Open settings</string>
+    <string name="onboarding_step">Step %1$d of %2$d</string>
     <string name="first_run_access_denied">Music access is off, and Android will not ask again from here. You can turn it on in app settings whenever you like.</string>
     <string name="first_run_access_granted">Music access granted</string>
     <plurals name="first_run_scanning">
@@ -47,7 +54,7 @@
     <string name="first_run_done">Start listening</string>
 
     <!-- The intent setting. No longer asked at first run; it lives in Settings > Behaviour. -->
-    <string name="settings_intent_title">What do you use Geode for?</string>
+    <string name="settings_intent_title">What do you use MuzViz for?</string>
     <string name="settings_intent_body">Sets where the app opens and whether Studio appears in the navigation bar.</string>
     <string name="settings_intent_listening">Listening</string>
     <string name="settings_intent_listening_detail">Opens on the player. Studio stays out of the way.</string>
@@ -55,27 +62,6 @@
     <string name="settings_intent_videos_detail">Opens in Studio, with your projects and render queue to hand.</string>
     <string name="settings_intent_both">Both</string>
     <string name="settings_intent_both_detail">Opens on the player, with Studio one tap away.</string>
-
-    <!-- Walkthrough. Each step navigates to the tab it describes, so the app underneath
-         is the thing being pointed at rather than a picture of it. -->
-    <string name="tutorial_skip">Skip</string>
-    <string name="tutorial_back">Back</string>
-    <string name="tutorial_next">Next</string>
-    <string name="tutorial_finish">Got it</string>
-    <string name="tutorial_progress">%1$d of %2$d</string>
-    <string name="tutorial_dont_show">Don\'t show this next time</string>
-    <string name="tutorial_player_title">This is the Player</string>
-    <string name="tutorial_player_body">Your track, the transport, and a live spectrum. Tap the artwork to go full screen — that is where the visuals live.</string>
-    <string name="tutorial_library_title">Your music lives here</string>
-    <string name="tutorial_library_body">Tracks, albums, artists, folders and playlists. Tapping any track queues everything you are looking at, so Next and Previous behave the way you expect.</string>
-    <string name="tutorial_visuals_title">Sixty-odd visual styles</string>
-    <string name="tutorial_visuals_body">Pick a style, then open Customize to change how it moves. Presets save a whole look; Randomize on any tab is the fastest way to find one you like.</string>
-    <string name="tutorial_touch_title">Touch the visuals</string>
-    <string name="tutorial_touch_body">On the full-screen visualizer, your finger is part of the picture: one finger sets a point the style builds itself around, two set an axis, three or more open a swirl. Pinch and twist zoom and rotate.</string>
-    <string name="tutorial_studio_title">Studio makes videos</string>
-    <string name="tutorial_studio_body">Record a performance as you play with the controls, then render it out at any quality. Hide this tab in Settings if you only came to listen.</string>
-    <string name="tutorial_settings_title">Everything else is in Settings</string>
-    <string name="tutorial_settings_body">Themes, audio, playback, folders and safety. Help lives here too — you can replay this walkthrough any time.</string>
 
     <!-- Settings tab bar. In the same order the tabs are shown. -->
     <string name="settings_tab_look">Look</string>
@@ -85,16 +71,33 @@
     <string name="settings_tab_behavior">Behavior</string>
     <string name="settings_tab_help">Help</string>
     <string name="settings_tab_about">About</string>
+    <string name="settings_tab_performance">Performance</string>
+    <string name="perf_mode_title">Mode</string>
+    <string name="perf_mode_saver">Saver</string>
+    <string name="perf_mode_balanced">Balanced</string>
+    <string name="perf_mode_high">High</string>
+    <string name="perf_mode_saver_hint">Half resolution, 30 fps, lighter 3D and no extra effects. For older phones and long sessions.</string>
+    <string name="perf_mode_balanced_hint">Three-quarter resolution at 60 fps. Quality drops by itself if frames run slow.</string>
+    <string name="perf_mode_high_hint">Full resolution and full 3D detail. Only heat makes it step down.</string>
+    <string name="perf_mode_custom_hint">Custom: you changed a setting below. Pick a mode to go back to a preset.</string>
+    <string name="perf_details_title">Details</string>
+    <string name="perf_render_scale">Render resolution</string>
+    <string name="perf_fps_cap">Frame rate cap</string>
+    <string name="perf_fps_value">%1$d fps</string>
+    <string name="perf_march">3D detail (ray-march steps)</string>
+    <string name="perf_level_low">Low</string>
+    <string name="perf_level_medium">Medium</string>
+    <string name="perf_level_high">High</string>
+    <string name="perf_post_fx">Extra effects</string>
+    <string name="perf_post_fx_hint">Flow distortion, touch ripples and fluid bloom.</string>
+    <string name="perf_adaptive">Adapt to frame time</string>
+    <string name="perf_adaptive_hint">Steps quality down while frames run slow, and back up once they keep up.</string>
+    <string name="perf_export_note">Applies to the visualizer, wallpaper and screensaver. Exports always render at full quality.</string>
 
     <!-- Settings > Help -->
-    <string name="help_tutorial_group">Walkthrough</string>
-    <string name="help_tutorial_body">A short tour of the Player, Library, Visuals and Studio. It navigates the app as it goes, so you see the real thing.</string>
-    <string name="help_tutorial_start">Start the walkthrough</string>
-    <string name="help_tutorial_replay">Replay the walkthrough</string>
-    <string name="help_tutorial_on_first_run">Offer it on a fresh install</string>
     <string name="help_topics_group">How things work</string>
     <string name="help_topic_library">Library and folders</string>
-    <string name="help_topic_library_body">Geode reads the audio Android already indexes. If you keep music somewhere it does not look — an SD card, or Downloads — add that folder in Settings › Folders.</string>
+    <string name="help_topic_library_body">MuzViz reads the audio Android already indexes. If you keep music somewhere it does not look — an SD card, or Downloads — add that folder in Settings › Folders.</string>
     <string name="help_topic_visuals">Styles, presets and Customize</string>
     <string name="help_topic_visuals_body">A style is the renderer; a preset is a style plus every control around it. Customize hides controls a style cannot use, so an empty section means that style ignores it rather than that something is broken.</string>
     <string name="help_topic_touch">Touch on the visualizer</string>
@@ -125,6 +128,32 @@
     <string name="about_privacy_policy">Privacy policy</string>
     <string name="about_licenses_unavailable">Third-party notices could not be loaded.</string>
     <string name="about_licenses_loading">Loading…</string>
+    <string name="about_privacy_unavailable">The privacy policy could not be loaded.</string>
+
+    <!-- Settings › Backup. One zip, saved and opened through the system file picker. -->
+    <string name="backup_tab">Backup</string>
+    <string name="backup_group">Backup</string>
+    <string name="backup_body">Save your settings, presets, playlists and imported Milk presets to one file, then restore them on this phone or a new one. Your music files are not included.</string>
+    <string name="backup_export">Export backup…</string>
+    <string name="backup_import">Import backup…</string>
+    <string name="backup_working">Working…</string>
+    <string name="backup_exported">Backup saved.</string>
+    <string name="backup_restore_title">Restore backup</string>
+    <string name="backup_restore_body">Made on %1$s. What you pick replaces what is on this phone now.</string>
+    <string name="backup_restore_confirm">Restore</string>
+    <string name="backup_section_settings">Settings</string>
+    <string name="backup_section_creative">Presets, palettes, modulation, templates and projects</string>
+    <string name="backup_section_music">Playlists, favourites, history and track edits</string>
+    <string name="backup_section_milk">Imported Milk presets and textures</string>
+    <string name="backup_restored_title">Backup restored</string>
+    <string name="backup_restored_body">Restart MuzViz to load it.</string>
+    <string name="backup_restart">Restart now</string>
+    <string name="backup_error_not_a_backup">This file isn\'t a MuzViz backup.</string>
+    <string name="backup_error_newer_version">This backup was made by a newer version of MuzViz. Update the app, then try again.</string>
+    <string name="backup_error_unsafe_path">This backup has files in places it shouldn\'t, so it was not opened.</string>
+    <string name="backup_error_damaged">This backup is damaged. Nothing was changed.</string>
+    <string name="backup_error_too_large">This backup is over the 512 MB limit.</string>
+    <string name="backup_error_io">The file could not be read or written.</string>
 
     <!-- Bottom navigation. Short: these sit under an icon in a five-item bar. -->
     <string name="nav_player">Player</string>
@@ -139,7 +168,7 @@
     <!-- Offered once, after a run that crashed. -->
     <string name="crash_dialog_title">Previous crash captured</string>
     <string name="crash_dialog_body">The last run crashed. Copy the report to share it, then dismiss.\n\n%1$s</string>
-    <string name="crash_clip_label">Geode crash</string>
+    <string name="crash_clip_label">MuzViz crash</string>
 
     <!-- Search across tracks, playlists and presets. -->
     <string name="search_placeholder">Search tracks, playlists &amp; presets</string>
@@ -161,7 +190,6 @@
 
     <!-- Transport controls. Spoken by screen readers, so they name the action. -->
     <string name="action_previous">Previous</string>
-    <string name="action_play_pause">Play/Pause</string>
     <string name="action_next">Next</string>
     <string name="action_add_to_queue">Add to queue</string>
 
@@ -186,9 +214,23 @@
     <string name="action_shuffle">Shuffle</string>
     <string name="action_play">Play</string>
     <string name="action_pause">Pause</string>
-    <string name="action_repeat">Repeat</string>
+    <string name="action_repeat_off">Repeat: off</string>
+    <string name="action_repeat_all">Repeat: all</string>
+    <string name="action_repeat_one">Repeat: one track</string>
     <string name="action_favourite_add">Add to favourites</string>
     <string name="action_favourite_remove">Remove from favourites</string>
+    <string name="a11y_favourite">Favourite</string>
+    <string name="a11y_show_controls">Show controls</string>
+    <string name="a11y_hide_controls">Hide controls</string>
+    <string name="a11y_preview_resize">Preview size. Drag down to enlarge, up to shrink</string>
+    <string name="a11y_preview_larger">Larger preview</string>
+    <string name="a11y_preview_smaller">Smaller preview</string>
+    <string name="a11y_state_on">On</string>
+    <string name="visuals_stage_hint">Swipe for the next style · hold to hide the panel</string>
+    <string name="visuals_stage_hint_hidden">Hold to bring the panel back</string>
+    <string name="a11y_next_style">Next style</string>
+    <string name="a11y_previous_style">Previous style</string>
+    <string name="a11y_toggle_visuals_panel">Show or hide the Visuals panel</string>
     <string name="action_stop_capture">Stop capture</string>
     <string name="action_resume_last_played">Resume last played</string>
     <string name="action_open_library">Open library</string>
@@ -201,8 +243,6 @@
 
     <!-- Automatic visual switching. -->
     <string name="auto_random">Auto: random</string>
-    <string name="auto_smart">Auto: smart</string>
-    <string name="auto_sections">Auto: sections</string>
     <string name="auto_off">Auto: off</string>
 
     <string name="queue">Queue</string>
@@ -234,6 +274,9 @@
     <string name="lyrics_none_explainer">Drop an .lrc file next to the track — same name, .lrc extension — and it shows up here, timed and following the music. Words written into the file\'s own tags are read too. Nothing is fetched: the app has no network access.</string>
     <string name="lyrics_source_timed">Timed lyrics from %1$s. Tap a line to jump there.</string>
     <string name="lyrics_source_untimed">Untimed lyrics from %1$s.</string>
+    <!-- Where the lyrics came from; fills the %1$s of lyrics_source_timed / _untimed. -->
+    <string name="lyrics_source_sidecar">an .lrc file next to the track</string>
+    <string name="lyrics_source_tags">the track\'s own tags</string>
 
     <!-- Queue panel. -->
     <string name="queue_empty_explainer">Nothing queued. Playing anything from a list — the library, a shelf on Home, a search result — queues that whole list.</string>
@@ -270,22 +313,23 @@
     <string name="smart_op_is_not">is not</string>
     <string name="smart_op_at_least">at least</string>
     <string name="smart_op_at_most">at most</string>
-    <string name="widget_label">Geode now playing</string>
-    <string name="widget_description">Artwork, title and transport for what Geode is playing.</string>
+    <string name="widget_label">MuzViz now playing</string>
+    <string name="widget_description">Artwork, title and transport for what MuzViz is playing.</string>
     <string name="widget_nothing_playing">Nothing playing</string>
     <string name="widget_play">Play</string>
     <string name="widget_pause">Pause</string>
     <string name="widget_next">Next track</string>
     <string name="widget_previous">Previous track</string>
+    <string name="widget_preview_title">Night Drive</string>
+    <string name="widget_preview_artist">MuzViz</string>
     <string name="auto_favourites">Favourites</string>
     <string name="auto_recently_played">Recently played</string>
     <string name="library_permission_rationale">Grant music access to browse everything on this device.</string>
-    <string name="library_permission_denied_forever">Music access is turned off for Geode, and Android will not ask again from here. Open app settings to turn on Music and audio.</string>
+    <string name="library_permission_denied_forever">Music access is turned off for MuzViz, and Android will not ask again from here. Open app settings to turn on Music and audio.</string>
     <string name="library_permission_allow">Allow music access</string>
     <string name="library_permission_open_settings">Open app settings</string>
     <string name="library_no_music">No music found on device.</string>
     <string name="library_group_unnamed">(no name)</string>
-    <string name="library_back">‹ Back</string>
     <string name="library_play_all">Play all</string>
     <string name="library_search_hint">Search titles, artists, albums</string>
     <string name="library_no_results">Nothing matches that.</string>
@@ -295,6 +339,12 @@
     <string name="library_sort_duration">Length</string>
     <string name="library_sort_added">Added</string>
 
+    <!-- Library: names given to a track or playlist that arrives without one. -->
+    <string name="library_unknown_title">Unknown</string>
+    <string name="library_unknown_album">Unknown album</string>
+    <string name="library_untitled_track">Track</string>
+    <string name="playlist_untitled">Playlist</string>
+
     <string name="action_more">More</string>
     <string name="action_play_next">Play next</string>
     <string name="action_add_to_playlist">Add to playlist</string>
@@ -303,8 +353,6 @@
     <string name="action_rename">Rename</string>
     <string name="action_delete">Delete</string>
     <string name="action_create">Create</string>
-    <string name="action_up">Up</string>
-    <string name="action_down">Down</string>
     <string name="action_ok">OK</string>
 
     <!-- The analysed badge announces itself as one phrase; the gem is decoration. -->
@@ -322,7 +370,7 @@
     <string name="playlist_import_done_title">Playlist imported</string>
     <string name="playlist_import_summary">\"%1$s\" — %2$d track(s) added, %3$d not found, %4$d matched more than one file (first used).</string>
     <string name="playlist_import_failed_title">Couldn\'t import playlist</string>
-    <string name="playlist_import_failed_body">That file isn\'t a playlist Geode can read (M3U, PLS or XSPF).</string>
+    <string name="playlist_import_failed_body">That file isn\'t a playlist MuzViz can read (M3U, PLS or XSPF).</string>
     <string name="action_remove_from_playlist">Remove from playlist</string>
 
     <string name="folders_library">Library folders</string>
@@ -336,17 +384,17 @@
     <string name="studio_edit">Edit</string>
     <string name="studio_open_video">Open a video…</string>
     <string name="studio_empty_title">Nothing rendered yet</string>
-    <string name="studio_empty_body">Render a visual from Settings › Export video and it lands here, ready to be cut, graded and sent somewhere. Any other video on the phone can be opened with the button above.</string>
+    <string name="studio_empty_body">Render a visual from Studio › Render and it lands here, ready to be cut, graded and sent somewhere. Any other video on the phone can be opened with the button above.</string>
     <string name="studio_send">Send</string>
     <string name="studio_send_ellipsis">Send…</string>
     <string name="studio_share_chooser">Send video</string>
-    <string name="studio_storage_used">%1$s in Movies/Geode</string>
+    <string name="studio_storage_used">%1$s in Movies/MuzViz</string>
     <string name="studio_rename_title">Rename clip</string>
     <string name="studio_rename_field">Name</string>
     <string name="studio_rename_failed">Could not rename that clip.</string>
     <string name="studio_delete_title">Delete clip?</string>
     <string name="studio_delete_body">\"%1$s\" will be deleted from this device. This cannot be undone.</string>
-    <string name="studio_delete_failed">Android would not let Geode delete that file.</string>
+    <string name="studio_delete_failed">Android would not let MuzViz delete that file.</string>
     <string name="studio_notice_title">Didn\'t work</string>
     <string name="action_back">Back</string>
 
@@ -385,15 +433,25 @@
     <string name="studio_caption">Burnt-in caption</string>
     <string name="studio_caption_explainer">Drawn into the frame after everything else, so it is not graded or cropped with the picture. Leave it empty for none.</string>
     <string name="studio_rendering">Rendering… %1$d%%</string>
-    <string name="studio_saved">Saved to Movies/Geode.</string>
+    <string name="studio_saved">Saved to Movies/MuzViz.</string>
     <string name="studio_play">Play</string>
     <string name="studio_edit_again">Edit again</string>
-    <string name="studio_send_explainer">Send opens the phone\'s own share sheet — YouTube, Instagram, TikTok, Drive, a message, whatever is installed and signed in. Geode has no network access of its own and never uploads anything itself.</string>
+    <string name="studio_send_explainer">Send opens the phone\'s own share sheet — YouTube, Instagram, TikTok, Drive, a message, whatever is installed and signed in. MuzViz has no network access of its own and never uploads anything itself.</string>
     <string name="studio_render">Render</string>
+    <string name="studio_takes">Takes</string>
     <string name="studio_reset">Reset</string>
     <string name="studio_nothing_changed">Nothing is changed yet — rendering now would just copy the clip.</string>
     <string name="studio_renders_new_file">Renders a NEW file. The original is never overwritten.</string>
     <string name="studio_slider_value">"%1$s  %2$s%3$s"</string>
+
+    <!-- Studio: the Look section's preset chips ("As shot" is studio_as_shot), and the name of a clip that has none. -->
+    <string name="studio_look_punch">Punch</string>
+    <string name="studio_look_bleach">Bleach</string>
+    <string name="studio_look_neon">Neon</string>
+    <string name="studio_look_night">Night</string>
+    <string name="studio_look_mono">Mono</string>
+    <string name="studio_look_invert">Invert</string>
+    <string name="studio_clip_untitled">Clip</string>
 
     <!-- Settings › Audio › Playback. -->
     <string name="playback_speed">"Speed  %1$sx"</string>
@@ -452,40 +510,50 @@
     <!-- Settings › Folders. -->
     <string name="folders_group_preset">Preset folder</string>
     <string name="folders_group_music">Music folders</string>
-    <string name="folders_group_cache">Analysis cache</string>
     <string name="folders_group_export">Export destination</string>
-    <string name="folders_export_explainer">Exports land in your Videos library (Movies/Geode), or in a folder you pick at render time — there is no standing export folder to configure. Defaults for quality and size live in the Export tab.</string>
+    <string name="folders_export_explainer">Exports land in your Videos library (Movies/MuzViz), or in a folder you pick at render time — there is no standing export folder to configure. Defaults for quality and size live in the Export tab.</string>
     <string name="folders_preset_chosen">Preset folder: chosen — saves are mirrored there</string>
     <string name="folders_preset_internal">Preset folder: internal only</string>
     <string name="folders_choose_preset">Choose preset folder</string>
     <string name="folders_preset_explainer">Presets always save inside the app; a chosen folder gets a mirror copy so your own sorting is visible in any file manager.</string>
     <string name="folders_none_yet">No folders yet. Device music appears in the Library on its own; folders you add here are scanned into the import library as well.</string>
-    <string name="folders_rescan_explainer">The same list as Library › Folders. Rescanning re-walks every folder; tracks already imported keep their analysis.</string>
-    <string name="folders_cache_measuring">…</string>
-    <string name="folders_cache_summary">%1$d tracks · %2$.1f MB</string>
-    <string name="folders_cache_label">Analysis cache: %1$s</string>
-    <string name="folders_cache_explainer">Analysis results per track, so replaying never re-analyses. Clearing costs nothing but the next analysis pass.</string>
+    <string name="folders_rescan_explainer">The same list as Library › Folders. Rescanning re-walks every folder; tracks already imported stay where they are.</string>
     <string name="action_clear">Clear</string>
 
-    <!-- Settings › Audio: analysis, key colour, live input. -->
+    <!-- Settings › Audio: sound tuning, live input. -->
     <string name="audio_group_playback">Playback</string>
     <string name="audio_group_analysis">Analysis</string>
     <!-- Shown once per audio-DSP screen (playback/EQ), so nobody files "the visuals didn't
          change" as a bug per feature. See docs/AUDIO_CHAIN.md, "DSP does not move the visuals". -->
     <string name="audio_dsp_visuals_notice">Nothing on this screen touches the visuals. The picture is drawn from the raw audio before the equalizer, ReplayGain or any other effect here runs, so turning a knob changes what you hear and never what you see.</string>
-    <string name="audio_beat_sensitivity">"Beat sensitivity  %1$sσ — drag right for LESS sensitive (fewer beat flashes)"</string>
-    <string name="audio_beat_min_gap">"Minimum gap between beats  %1$d ms — never flash faster than %2$d BPM"</string>
-    <string name="audio_slow_track">Slow track</string>
     <string name="audio_default">Default</string>
+    <!-- The sound engine's tuning (core/sound GeodeSoundTuning). -->
+    <string name="audio_reactivity">"Reactivity  %1$s× — how strongly the visuals answer the music"</string>
+    <string name="audio_speed">"Clock speed  %1$s× — how fast the music-driven motion runs"</string>
+    <string name="audio_advanced">Advanced</string>
+    <string name="audio_band_low">Low</string>
+    <string name="audio_band_middle">Middle</string>
+    <string name="audio_band_high">High</string>
+    <string name="audio_band_gain">"Gain  %1$s×"</string>
+    <string name="audio_band_threshold">"Threshold  %1$s"</string>
+    <string name="audio_band_attack">"Attack  %1$d ms"</string>
+    <string name="audio_band_release">"Release  %1$d ms"</string>
+    <string name="audio_drums">Drums</string>
+    <string name="audio_drum_kick">"Kick: needs a hit of %1$s, fades in %2$d ms"</string>
+    <string name="audio_drum_snare">"Snare: needs a hit of %1$s, fades in %2$d ms"</string>
+    <string name="audio_drum_hat">"Hi-hat: needs a hit of %1$s, fades in %2$d ms"</string>
+    <string name="audio_events">Events</string>
+    <string name="audio_onset_threshold">"Note start needs  %1$s× the usual change"</string>
+    <string name="audio_hard_cut_level">"Big moment needs  %1$s× the usual level"</string>
+    <string name="audio_hard_cut_half_life">"Big moments settle over  %1$d s"</string>
+    <string name="audio_pitch_threshold">"Pitch counts when  %1$s sure"</string>
+    <string name="audio_note_hold">"A new note must hold  %1$d ms"</string>
+    <string name="audio_silence">"Silence below  %1$d dB"</string>
     <string name="audio_preset_morph">Preset morph: %1$.1f s (0 = snap)</string>
-    <string name="audio_key_colour">Colour from the musical key</string>
-    <string name="audio_key_colour_explainer">Sets Hue shift from the key the analyser found, around the circle of fifths — so a track keeps the same colour every time you play it, and two songs that sound related look related. It moves the ordinary Hue shift slider, so you can always disagree with it; switching this off gives your own value back.</string>
     <string name="audio_react_mic">React to the microphone</string>
     <string name="audio_react_mic_explainer">Plays nothing and drives the visuals from what the phone hears — a room, an instrument, a speaker across the street. Playback pauses while it is on, because the analyzer has one input and a track plus the room would just blur together. Audio is analysed live and never recorded, saved or sent anywhere.</string>
-    <string name="audio_mic_denied">Microphone access is off for Geode. Turn it on in Android Settings › Apps › Geode › Permissions to use live input.</string>
+    <string name="audio_mic_denied">Microphone access is off for MuzViz. Turn it on in Android Settings › Apps › MuzViz › Permissions to use live input.</string>
     <string name="audio_mic_busy">The microphone could not be opened — another app may be using it.</string>
-    <string name="audio_tune_room">Tune for what the phone is hearing</string>
-    <string name="audio_profiles_explainer">Each sets the beat threshold, the reactivity envelope and the band balance together — they are one decision, and they live on three different screens. Every value stays an ordinary slider afterwards.</string>
 
     <!-- Settings › Audio › Other apps (playback capture). -->
     <string name="ext_visualize_other_apps">Visualize other apps</string>
@@ -496,21 +564,57 @@
     <string name="ext_listening_idle">Listening. Start something playing in any app.</string>
     <string name="ext_now_playing_line">%1$s: %2$s</string>
     <string name="ext_now_playing_line_with_artist">%1$s: %2$s — %3$s</string>
-    <string name="ext_read_now_playing_explainer">Geode can also show WHAT the other app is playing — the track and artist, on the visualizer. That reads the media session, which Android gates behind notification access. Optional: the visuals work on the sound alone.</string>
+    <string name="ext_read_now_playing_explainer">MuzViz can also show WHAT the other app is playing — the track and artist, on the visualizer. That reads the media session, which Android gates behind notification access. Optional: the visuals work on the sound alone.</string>
     <string name="ext_allow_reading">Allow reading now playing</string>
     <string name="ext_silence_title">Silence, on purpose</string>
     <string name="ext_refused_body">%1$s does not allow other apps to capture its audio. Android honours that, and there is no setting on either side that changes it — the capture is running and being handed digital silence. Most other apps (YouTube, podcast players, games) do allow it and work here.</string>
     <string name="ext_mic_alternative">The microphone still hears your speaker. It picks up the room with it, so it is a rougher signal — but it reacts to %1$s.</string>
     <string name="ext_use_mic_instead">Use the microphone instead</string>
     <string name="ext_fail_unsupported">This device is older than Android 10, which introduced audio capture between apps.</string>
-    <string name="ext_fail_permission">Microphone access is off for Geode. Android requires it for audio capture of any kind — turn it on in Android Settings › Apps › Geode › Permissions.</string>
+    <string name="ext_fail_permission">Microphone access is off for MuzViz. Android requires it for audio capture of any kind — turn it on in Android Settings › Apps › MuzViz › Permissions.</string>
     <string name="ext_fail_consent">Capture permission was not given. Nothing is being read.</string>
     <string name="ext_fail_unavailable">The device would not open an audio capture at any format — another app may be holding it.</string>
 
     <!-- Export: shared by the Export tab and the export dialog. -->
-    <string name="export_title">Export</string>
-    <string name="export_group_defaults">Defaults</string>
-    <string name="export_platform_preset">Platform preset</string>
+    <string name="render_group_video">Video</string>
+    <string name="render_group_sound">Sound</string>
+    <string name="render_group_save">Save to</string>
+    <string name="render_save_library">Videos library (Movies/MuzViz)</string>
+    <string name="render_save_ask">Ask where each time</string>
+    <string name="render_scope_current">Current track</string>
+    <string name="render_nothing_playing">Nothing is playing. Play a track to render it.</string>
+    <string name="render_button">Render</string>
+    <string name="render_saved_named">Saved %1$s to Movies/MuzViz.</string>
+    <string name="render_scope_queue">Play queue</string>
+    <string name="render_scope_playlist">Playlist</string>
+    <string name="render_scope_chosen">Chosen tracks</string>
+    <string name="render_scope_pick_playlist">Choose a playlist…</string>
+    <string name="render_scope_pick_tracks">Choose tracks…</string>
+    <string name="render_no_playlists">No playlists yet. Make one in Library.</string>
+    <string name="render_tracks_search">Search tracks</string>
+    <string name="render_cancel">Cancel</string>
+    <string name="render_group_look">Look</string>
+    <string name="render_look_current">Current look</string>
+    <string name="render_look_hint">Every track in the batch renders with this look.</string>
+    <string name="render_batch_hint">A batch renders each track whole, one after another, into Movies/MuzViz. A track that cannot be rendered is skipped.</string>
+    <string name="render_batch_label">Rendering %1$d tracks</string>
+    <string name="render_batch_progress">Track %1$d of %2$d · %3$s</string>
+    <string name="render_batch_summary">%1$d of %2$d rendered to Movies/MuzViz.</string>
+    <string name="render_batch_failed_track">%1$s: %2$s</string>
+    <plurals name="render_tracks_count">
+        <item quantity="one">%d track</item>
+        <item quantity="other">%d tracks</item>
+    </plurals>
+    <plurals name="render_use_tracks">
+        <item quantity="one">Use %d track</item>
+        <item quantity="other">Use %d tracks</item>
+    </plurals>
+    <string name="render_open">Open</string>
+    <string name="render_share">Share</string>
+    <string name="render_show_in_folder">Show in folder</string>
+    <string name="export_fill_from_platform">Fill from platform</string>
+    <string name="export_fill_from_platform_hint">Sets quality, frame rate, aspect and looping to a platform\'s usual values. Change any of them afterwards.</string>
+    <string name="export_platform_entry">%1$s · %2$s</string>
     <string name="export_quality">Quality</string>
     <string name="export_frame_rate">Frame rate</string>
     <string name="export_codec">Video codec</string>
@@ -519,19 +623,15 @@
     <string name="export_aspect_ratio">Aspect ratio</string>
     <string name="export_fps_30">30 fps</string>
     <string name="export_fps_60">60 fps</string>
-    <string name="export_loop_safe">Loop-safe</string>
-    <string name="export_loop_safe_default">Loop-safe by default</string>
-    <string name="export_loop_safe_explainer">Loop-safe trims the end of the render to a bar boundary so the clip repeats cleanly when a platform autoplays it. It needs a detected tempo, so a track that has not been analysed falls back to full length for that render.</string>
-    <string name="export_video_button">Export video…</string>
-    <string name="export_defaults_explainer">Starts from the defaults above; each render can change them for one video. The destination — your Videos library or a folder you pick — is chosen at render time, per export.</string>
+    <string name="studio_render_free_limits">Free and trial renders stop at 1 minute, up to 1080p at 30 fps, with a watermark. Loop renders need Pro.</string>
+    <string name="settings_export_moved">Export, loop render and the export defaults live in Studio › Render.</string>
+    <string name="settings_export_open_studio">Open Studio › Render</string>
+    <string name="visuals_open_render">Export this visual in Studio › Render</string>
     <string name="export_spec">%1$s, %2$s, %3$d fps</string>
-    <string name="export_spec_loop_safe">%1$s, loop-safe</string>
-    <string name="export_named_preset">%1$s — %2$s</string>
-    <string name="export_custom_preset">Custom — %1$s</string>
     <string name="export_rendering_offline">Rendering offline…</string>
-    <string name="export_leave_hint">You can leave Geode — the render keeps going and finishes in the background.</string>
+    <string name="export_leave_hint">You can leave MuzViz — the render keeps going and finishes in the background.</string>
     <string name="export_saved_folder">Saved to your chosen folder.</string>
-    <string name="export_saved_library">Saved to your Videos library (Movies/Geode).</string>
+    <string name="export_saved_library">Saved to your Videos library (Movies/MuzViz).</string>
     <string name="export_failed">Failed: %1$s</string>
     <string name="export_upload_share_to">Upload / share to</string>
     <string name="export_upload_drive">Upload to Drive / Share</string>
@@ -540,20 +640,14 @@
     <string name="export_segment">Segment</string>
     <string name="export_segment_hint">Drag to pick at least %1$d second of the track. Anything shorter renders the whole thing instead.</string>
     <string name="export_segment_summary">Renders %1$s–%2$s (%3$s). The clip starts at 0:00 in the file, and the visuals are the ones from that part of the track.</string>
-    <string name="export_looping">Looping</string>
-    <string name="export_full_length">Full length</string>
-    <string name="export_loop_safe_bar_hint">Loop-safe cuts on a bar boundary (%1$s BPM, %2$s s per bar) so the last beat runs into the first — what a short clip needs when a platform autoplays it on repeat. Up to one bar is trimmed from the end.</string>
-    <string name="export_loop_safe_needs_tempo">Loop-safe needs a detected tempo. Analyse the track (Now Playing › Auto) and reopen this dialog.</string>
     <string name="export_group_performance">Performance</string>
     <string name="export_live_settings">Live settings</string>
     <string name="export_take_explainer">Renders the take\'s parameter automation — every slider, colour and effect moving as you performed it. A style SWITCH inside the take is not reproduced: the render draws through the style selected now, for its whole length.</string>
+    <!-- The name a recorded performance take gets when none is typed. -->
+    <string name="take_default_name">Take %1$d</string>
     <string name="export_4k_fallback">4K depends on your device\'s encoder; it falls back automatically if unsupported.</string>
-    <string name="export_render_button">Render %1$dp %2$s %3$dfps</string>
     <string name="export_render_to_folder">Render to chosen folder…</string>
     <string name="export_cancel">Cancel export</string>
-    <string name="export_loop_menu_title">Export</string>
-    <string name="export_loop_menu_subtitle">A regular video export, or a seamless loop repeated into a long-form video?</string>
-    <string name="export_loop_menu_standard">Video export…</string>
     <string name="export_loop_menu_loop">Loop / long-form…</string>
     <string name="export_loop_title">Loop / long-form export</string>
     <string name="export_loop_source_hint">Loops the current track\'s visuals and repeats them into one long file. The soundtrack is the current track unless you add clips below.</string>
@@ -569,21 +663,62 @@
     <string name="export_loop_start">Render loop</string>
     <string name="export_loop_rendering">Rendering… %1$d%%</string>
     <string name="export_loudness_target">Loudness target</string>
-    <string name="export_loudness_hint">Geode matches the level to this target while exporting, then measures the finished file to confirm it landed there — pick the platform you\'re shipping to, or Leave as-is to ship the level you mixed.</string>
-    <string name="export_still_button">Save frame</string>
-    <string name="export_still_saving">Saving frame…</string>
-    <string name="export_still_saved">Frame saved.</string>
-    <string name="export_error_codec">This device\'s video encoder could not keep up with that render — try a lower quality, a smaller size, or a different codec in the Export tab.</string>
-    <string name="export_error_io">The export could not read or write a file it needed. Check that the source clip is still there and that storage is not full.</string>
-    <string name="export_error_invalid_project">That could not be turned into a video — check that its clips still point at files Geode can read.</string>
-    <string name="export_error_out_of_memory">The device ran out of memory during the render. Try a shorter clip, a lower quality, or freeing up memory first.</string>
-    <string name="export_error_generic_detail">The export failed (%1$s).</string>
+    <string name="export_loudness_hint">MuzViz measures the finished file against this target once export completes. It does not yet change the level to match — pick the platform you\'re shipping to, or Leave as-is to ship the level you mixed.</string>
     <string name="export_fps_24">24 fps</string>
     <string name="export_fps_25">25 fps</string>
     <string name="export_fps_50">50 fps</string>
     <string name="export_notification_permission_title">Show render progress?</string>
-    <string name="export_notification_permission_body">Geode can show a notification with the render\'s progress and time remaining, so you can check on it without reopening this dialog. Without it, the render still finishes — you just won\'t see progress outside the app.</string>
+    <string name="export_notification_permission_body">MuzViz can show a notification with the render\'s progress and time remaining, so you can check on it without reopening this dialog. Without it, the render still finishes — you just won\'t see progress outside the app.</string>
     <string name="export_notification_permission_skip">Not now</string>
+
+    <!-- Export: platform presets. Brand names stay as the platforms spell them. -->
+    <string name="export_preset_tiktok">TikTok</string>
+    <string name="export_preset_shorts">Shorts</string>
+    <string name="export_preset_feed">Feed</string>
+    <string name="export_preset_square">Square</string>
+    <string name="export_preset_youtube">YouTube</string>
+    <string name="export_preset_master">Master</string>
+
+    <!-- Export: time left on a render, in the export dialog and the progress notification. -->
+    <string name="export_eta_almost_done">almost done</string>
+    <string name="export_eta_one_minute">about a minute left</string>
+    <plurals name="export_eta_minutes">
+        <item quantity="one">about %1$d min left</item>
+        <item quantity="other">about %1$d min left</item>
+    </plurals>
+    <plurals name="export_eta_hours">
+        <item quantity="one">about %1$d h left</item>
+        <item quantity="other">about %1$d h left</item>
+    </plurals>
+
+    <!-- Export: loudness targets, and the advice shown once a render is measured. Readouts such as
+         "-14.0 LUFS", "0.8 dBTP" or "3.2 dB" arrive already formatted. The _level, _quiet and _loud
+         phrases are dropped into the sentences below, so they start lower-case and have no full stop. -->
+    <string name="export_loudness_shorts">Shorts &amp; TikTok</string>
+    <string name="export_loudness_as_is">Leave as-is</string>
+    <string name="export_loudness_youtube_level">about -14 LUFS</string>
+    <string name="export_loudness_youtube_quiet">YouTube only ever turns audio down, never up, so a quiet upload simply plays quiet next to everything else</string>
+    <string name="export_loudness_youtube_loud">YouTube will pull it back to about -14 LUFS on playback whatever you do, so nothing here is broken</string>
+    <string name="export_loudness_shorts_level">-10 to -12 LUFS</string>
+    <string name="export_loudness_shorts_quiet">short-form feeds normalise loosely and phone speakers are heard in noisy rooms, so a quiet upload gets lost</string>
+    <string name="export_loudness_shorts_loud">pushed much past this the feeds pull it back anyway, and over-loud short-form audio is what sounds crushed</string>
+    <string name="export_loudness_none_headline">No audio to measure</string>
+    <string name="export_loudness_none_detail">Nothing in this file rises above the -70 LUFS gate, so there is no loudness to report. If the export was meant to have sound, it did not capture any.</string>
+    <string name="export_loudness_as_mixed_headline">Leaving the level alone</string>
+    <string name="export_loudness_as_mixed_detail">Measured %1$s, true peak %2$s. MuzViz applies no gain, so the file goes out exactly as mixed.</string>
+    <string name="export_loudness_as_mixed_quiet">For reference: %1$s, and this sits %2$s under it.</string>
+    <string name="export_loudness_peak_warning">The true peak is above -1 dBTP, which is where lossy encoders start to distort.</string>
+    <string name="export_loudness_on_target_headline">Already at the %1$s level</string>
+    <string name="export_loudness_on_target_detail">Measured %1$s, inside the %2$s %3$s plays at, and the true peak of %4$s clears the %5$s ceiling. Nothing to apply.</string>
+    <string name="export_loudness_up_headline">Turn it up %1$s for %2$s</string>
+    <string name="export_loudness_down_headline">Turn it down %1$s for %2$s</string>
+    <string name="export_loudness_unchanged_detail">Measured %1$s. Close enough to leave alone.</string>
+    <string name="export_loudness_raise_detail">Measured %1$s, %2$s under the %3$s %4$s plays at. %5$s. MuzViz will add %6$s on export, landing at %7$s with a true peak of %8$s.</string>
+    <string name="export_loudness_raise_limited_detail">Measured %1$s, %2$s under the %3$s %4$s plays at. %5$s. Going the whole way would push the true peak past the %6$s ceiling, so Geode will add only %7$s, landing at %8$s. Closing the rest of the gap needs a limiter on the mix, not more gain.</string>
+    <string name="export_loudness_lower_clipping_detail">Measured %1$s, true peak %2$s. That is under the %3$s %4$s plays at, but the peak is already over the %5$s ceiling, and gain alone can only make that worse. Geode will take off %6$s to get the peak legal; getting louder as well needs a limiter on the mix.</string>
+    <string name="export_loudness_lower_loud_detail">Measured %1$s, true peak %2$s. That is %3$s over the %4$s %5$s plays at — %6$s. Geode will take off %7$s, landing at %8$s with a true peak of %9$s.</string>
+    <string name="export_loudness_lower_loud_limited_detail">Measured %1$s, true peak %2$s. That is %3$s over the %4$s %5$s plays at — %6$s. Geode will take off %7$s — a shade more than the level alone needs, so the true peak clears the %8$s ceiling too, landing at %9$s with a true peak of %10$s.</string>
+    <string name="export_loudness_lower_peak_detail">Measured %1$s, true peak %2$s. The level is where %3$s wants it, but the peak is over the %4$s ceiling, where lossy encoders start to distort. Geode will take off %5$s, landing at %6$s.</string>
 
     <!-- Export: failure messages. Shared by VideoExporter, StudioExporter and LoopRender. -->
     <string name="export_error_library_insert">Your Videos library would not accept a new file. Check that storage is not full, or render to a folder you choose instead.</string>
@@ -592,14 +727,12 @@
     <string name="export_error_encoder_buffer_null">The video encoder returned an empty buffer (codec error state).</string>
     <string name="export_error_encoder_no_output">The video encoder produced no output — this device\'s encoder or the chosen format may not be supported.</string>
     <string name="export_error_encoder_stalled">The video encoder stalled while flushing — the export is incomplete.</string>
-    <string name="export_error_audio_transcode_stalled">The audio encoder stalled while processing the soundtrack.</string>
-    <string name="export_error_foreground_denied">Android would not let the export keep running in the background, so it was stopped. Try again with Geode open on screen.</string>
-    <string name="export_error_studio_save">The finished file could not be saved to Movies/Geode.</string>
+    <string name="export_error_studio_save">The finished file could not be saved to Movies/MuzViz.</string>
     <string name="export_error_studio_start">The export could not be started.</string>
     <string name="export_error_destination_save">The export could not be saved to that folder.</string>
     <string name="export_error_encoder_unsupported">This device\'s video encoder would not accept that output — try a smaller size or a different aspect ratio.</string>
     <string name="export_error_decode_unsupported">That clip could not be read — the file may have moved, or be in a format this device cannot decode.</string>
-    <string name="export_error_no_permission">Geode does not have permission to read that file.</string>
+    <string name="export_error_no_permission">MuzViz does not have permission to read that file.</string>
     <string name="export_error_generic">The export failed.</string>
     <string name="export_error_loop_encoder_rejected">This device\'s video encoder would not accept %1$d×%2$d. Try a smaller size or a different aspect ratio.</string>
     <string name="export_error_loop_low_gpu_memory">There is not enough graphics memory to hold even one crossfade frame at %1$d×%2$d — render the loop at a smaller size.</string>
@@ -610,74 +743,41 @@
     <string name="export_error_loop_encoder_failed">This device\'s video encoder failed while rendering the loop: %1$s</string>
     <string name="export_error_loop_no_output">The video encoder produced no output for this loop.</string>
     <string name="export_error_loop_stalled">The video encoder stalled while finishing the loop.</string>
+    <string name="export_error_no_message">no message</string>
 
-    <!-- Settings: Look tab. The glass theme is the only theme now: no pack picker, corner style
-         or font colour, just the tokens the liquid-glass system reads (ui/glass/GlassTheme.kt). -->
+    <!-- Export: loop / long-form failures (LoopExtend). Destination errors reuse the export_error_* above. -->
+    <string name="export_error_extend_no_loop">There is no rendered loop to extend.</string>
+    <string name="export_error_extend_empty_soundtrack">That soundtrack decoded to nothing — the file may be empty or corrupt.</string>
+    <string name="export_error_extend_assemble">The long-form file could not be assembled.</string>
+    <string name="export_error_extend_copy">The rendered loop could not be copied into the long file: %1$s</string>
+    <string name="export_error_extend_write">Writing the long-form file failed — check there is room on the device. (%1$s)</string>
+    <string name="export_error_extend_track_no_audio">One of the tracks in this mix has no audio Geode can read: %1$s</string>
+    <string name="export_error_extend_track_unreadable">One of the tracks in this mix could not be read — it may have moved or been deleted.</string>
+    <string name="export_error_extend_soundtrack">The soundtrack could not be prepared.</string>
+    <string name="export_error_extend_too_big">%1$.1f h at this quality would come to about %2$.1f GB, past the %3$.0f GB an MP4 written on Android can address. Render the loop at about %4$.1f Mbps (a smaller size or lower quality) or make the video shorter.</string>
+    <string name="export_error_extend_library_pre_q">On this version of Android, Geode cannot add to your Videos library directly. Render to a folder you choose instead.</string>
+
+    <!-- Settings: Look tab. -->
     <string name="look_group_theme">Theme</string>
-    <string name="look_glass_tint">"Glass tint  %1$d%%"</string>
-    <string name="look_glass_tint_hint">Shifts the pastel wash mixed into every glass surface.</string>
-    <string name="look_glass_opacity">"Glass opacity  %1$d%%"</string>
     <string name="look_accent_intensity">"Accent intensity  %1$d%%"</string>
-    <string name="look_background_dim">"Background dim  %1$d%%"</string>
-    <string name="look_follow_system">Follow system light/dark</string>
+    <string name="look_ui_sounds">Interface sounds</string>
+    <string name="look_ui_sounds_hint">Soft taps on buttons and tabs. Follows the system touch-sounds setting.</string>
     <string name="look_group_text">Text</string>
     <string name="look_text_size">"Text size  %1$d%%"</string>
     <string name="look_text_size_hint">Scales every font in the app, live - including this one.</string>
-    <string name="look_group_motion">Motion</string>
-    <string name="look_bubble_density">"Bubble density  %1$d%%"</string>
-    <string name="look_bubble_density_hint">How many bubbles and droplets drift across the water background.</string>
-    <string name="look_liquid_motion">"Liquid motion  %1$d%%"</string>
-    <string name="look_liquid_motion_hint">How much the water surface drifts, ripples and reacts to touch.</string>
-    <string name="look_reduced_motion">Reduce motion</string>
-    <string name="look_reduced_motion_hint">Same switch as Behavior › Visual safety: stops drift, ink swirls and floating everywhere, not just here.</string>
+    <string name="look_font_color">Font color</string>
+    <string name="look_font_color_hint">Recolors the writing everywhere; Auto returns to the theme\'s own text colors.</string>
     <string name="look_group_layout">Layout</string>
     <string name="look_bar_opacity">"Bar opacity  %1$d%%"</string>
     <string name="look_player_position">Player position</string>
     <string name="look_position_top">Top</string>
     <string name="look_position_bottom">Bottom</string>
-    <!-- Unused by this tab now (the glass theme has one corner style everywhere); kept because
-         CornerStyle.labelRes (ui/AppTheme.kt) still points at them until G07 removes the enum. -->
+    <string name="look_corner_style">Corner style</string>
     <string name="look_corner_sharp">Sharp</string>
     <string name="look_corner_rounded">Rounded</string>
     <string name="look_corner_pill">Pill</string>
     <string name="look_compact_player">Compact mini-player</string>
-    <string name="look_clear_visuals_menu">Clear-overlay Visuals menu</string>
-    <string name="look_clear_visuals_hint">Text-only Visuals menu over the live visuals, so adjustments are visible as you make them.</string>
     <string name="look_boot_animation">Boot animation</string>
-
-    <!-- Liquid-glass design system (ui/glass/). Only strings the gallery/preview itself renders;
-         screen units add their own copy as they rewrite onto these primitives. -->
-    <string name="glass_profile">Profile</string>
-    <string name="glass_gallery_title">Liquid glass gallery</string>
-    <string name="glass_gallery_section_buttons">Buttons</string>
-    <string name="glass_gallery_section_slider">Slider</string>
-    <string name="glass_gallery_section_toggle">Toggle</string>
-    <string name="state_on">On</string>
-    <string name="state_off">Off</string>
-    <string name="glass_gallery_section_knob">Knob</string>
-    <string name="glass_gallery_section_progress">Progress</string>
-    <string name="glass_gallery_section_list_row">List row</string>
-    <string name="glass_gallery_section_top_bar">Top bar</string>
-    <string name="glass_gallery_section_transport_bar">Transport bar</string>
-    <string name="glass_gallery_section_tabs">Tabs</string>
-    <string name="glass_gallery_section_segmented">Segmented</string>
-    <string name="glass_gallery_section_nav_bar">Nav bar</string>
-    <string name="glass_gallery_section_text_field">Text field</string>
-    <string name="glass_gallery_section_dialog">Dialog</string>
-    <string name="glass_gallery_button_label">Glass button</string>
-    <string name="glass_gallery_list_row_title">Track title</string>
-    <string name="glass_gallery_list_row_subtitle">Artist name</string>
-    <string name="glass_gallery_text_field_placeholder">Search</string>
-    <string name="glass_gallery_dialog_open">Open dialog</string>
-    <string name="glass_gallery_dialog_title">Glass dialog</string>
-    <string name="glass_gallery_dialog_message">This is a glass dialog card, drawn over `Dialog` with the same frosted surface as every other primitive.</string>
-    <string name="glass_gallery_segment_one">One</string>
-    <string name="glass_gallery_segment_two">Two</string>
-    <string name="glass_gallery_segment_three">Three</string>
-
-    <!-- Boot intro wordmark, shown as the glass drop lands (ui/BootIntro.kt). -->
-    <string name="boot_wordmark">Geode</string>
-    <string name="boot_tagline">VISUALIZE THE INVISIBLE</string>
 
     <!-- Font colour swatches. Mineral names; the argb value is what persists. -->
     <string name="font_color_auto">Auto</string>
@@ -706,10 +806,10 @@
     <string name="behavior_display_none">Nothing connected. Plug in HDMI or start casting, and the visuals move to that screen while the phone keeps the controls.</string>
     <string name="behavior_group_intent">What you\'re here for</string>
     <string name="behavior_safety_title">Flashing and motion</string>
-    <string name="behavior_flash_guidance">Nothing in Geode can flash more than three times a second. Published guidance (WCAG 2.3.1) puts the general limit there, and the clamp sits in the render path itself — it applies to every scene, every preset and every imported file, on screen and in exported video alike. It is not a setting, so there is nothing here to adjust.</string>
+    <string name="behavior_flash_guidance">Nothing in MuzViz can flash more than three times a second. Published guidance (WCAG 2.3.1) puts the general limit there, and the clamp sits in the render path itself — it applies to every scene, every preset and every imported file, on screen and in exported video alike. It is not a setting, so there is nothing here to adjust.</string>
     <string name="behavior_slow_motion">Slow the motion down</string>
     <string name="behavior_slow_motion_hint">Slows movement, shake, drift and rotation. This one is about motion comfort rather than seizures, which is why it is a choice: the flash limit above is not. Applies to exported video as well as the screen.</string>
-    <string name="behavior_wallpaper_hint">Set the visualizer as your wallpaper. It uses the style and settings the app was last showing, reacts to whatever Geode is playing, and drifts gently on its own the rest of the time. It draws nothing while another app is in front, so it is not a background battery drain.</string>
+    <string name="behavior_wallpaper_hint">Set the visualizer as your wallpaper. It uses the style and settings the app was last showing, reacts to whatever MuzViz is playing, and drifts gently on its own the rest of the time. It draws nothing while another app is in front, so it is not a background battery drain.</string>
     <string name="behavior_wallpaper_button">Set as live wallpaper</string>
     <string name="behavior_pip_auto_enter">Enter automatically</string>
     <string name="behavior_pip_auto_enter_hint">Leaving the fullscreen visualizer while something is playing shrinks it into a picture-in-picture window instead of just backgrounding the app. Off, the PiP button on the visualizer and the platform\'s own swipe-home gesture are still there — this only changes what leaving does by default.</string>
@@ -722,8 +822,6 @@
     <string name="autoviz_random_off_auto">Random is off — the Auto button on the Now Playing screen turns it on.</string>
     <string name="autoviz_shape_hint">The settings below shape it whether it is running or not, so a session can be set up before it starts — and they are remembered across restarts.</string>
     <string name="autoviz_switch_every">Switch every %1$d s</string>
-    <string name="autoviz_on_beat">Switch on section change</string>
-    <string name="autoviz_on_beat_hint">Waits for a section change or a burst of novelty in the music instead of switching the instant the timer is up, so a change lands with the track rather than across it. It still holds a look for at least six seconds and at least half the interval, and forces a switch at twice it, so a quiet passage cannot stall the rotation.</string>
     <string name="autoviz_pick_from">Pick from</string>
     <string name="autoviz_pick_styles">Styles</string>
     <string name="autoviz_pick_presets">Saved presets</string>
@@ -740,8 +838,6 @@
         <item quantity="other">%1$d looks in the playlist.</item>
     </plurals>
     <string name="autoviz_playlist_add_hint">Add looks with the heart button in Visuals › Presets. The playlist needs at least two before it has anywhere to go.</string>
-    <string name="autoviz_wait_strong">Wait for a strong moment</string>
-    <string name="autoviz_wait_strong_hint">The same timing Random\'s \"strong beat\" uses, applied to the playlist order: the next look still comes next, it just waits for a moment worth arriving on.</string>
 
     <!-- Studio clip preview. -->
     <!-- Timeline editor. -->
@@ -763,7 +859,6 @@
     <string name="editor_tap_count">%1$d taps</string>
     <string name="editor_tap_undo">Undo tap</string>
     <string name="editor_tap_done">Keep taps</string>
-    <string name="editor_auto_cut">Auto-cut</string>
     <string name="editor_split">Split at playhead</string>
     <string name="editor_delete">Delete</string>
     <string name="editor_ripple_delete">Ripple delete</string>
@@ -822,28 +917,9 @@
     <string name="editor_chapters_failed">"Chapters could not be saved: %1$s"</string>
     <string name="editor_srt_saved">Captions saved.</string>
     <string name="editor_srt_failed">"Captions could not be saved: %1$s"</string>
-    <string name="autocut_title">Auto-cut</string>
-    <string name="autocut_source">Cut on</string>
-    <string name="autocut_source_transient">Transients</string>
-    <string name="autocut_source_flux">Spectral flux</string>
-    <string name="autocut_source_onset">Onsets</string>
-    <string name="autocut_source_kick">Kick</string>
-    <string name="autocut_source_snare">Snare</string>
-    <string name="autocut_source_hat">Hat</string>
-    <string name="autocut_sensitivity">"Sensitivity  %1$d%%"</string>
-    <string name="autocut_spacing">"Minimum spacing  %1$d ms"</string>
-    <string name="autocut_detect">Detect</string>
-    <string name="autocut_as_markers">Add as markers</string>
-    <string name="autocut_as_clips">Cut the visual lane</string>
-    <string name="autocut_no_analysis">Analyse the current track first — auto-cut reads the hits from its analysis.</string>
-    <string name="autocut_miss_empty">The analysis has no frames.</string>
-    <string name="autocut_miss_none">No hits stood out — sensitivity only lowers the bar, it cannot invent them.</string>
-    <string name="autocut_miss_window">The chosen window is too short.</string>
-    <string name="autocut_explainer">Cuts follow the hits the player actually played, not a tempo grid. Suggestions become ordinary markers or clips you can drag, trim and delete.</string>
-    <plurals name="autocut_found">
-        <item quantity="one">%1$d cut found</item>
-        <item quantity="other">%1$d cuts found</item>
-    </plurals>
+    <string name="editor_chapter_untitled">Chapter %1$d</string>
+    <string name="editor_chapters_unwritable">The chapter list could not be written.</string>
+    <string name="editor_destination_unopenable">The destination could not be opened.</string>
     <string name="studio_preview_hint">Loops your cut, muted — grade, speed and reframe show as they will render. Tap to pause.</string>
     <string name="studio_preview_toggle">Play or pause the preview</string>
 
@@ -855,37 +931,9 @@
     <string name="action_dismiss">Dismiss</string>
     <string name="preset_link_imported">Preset \"%1$s\" imported — it is in Visuals › Presets.</string>
     <string name="preset_link_unreadable">That preset link could not be read. It may have been cut short in transit.</string>
-    <string name="overlay_layers_entry">Layers</string>
-    <string name="overlay_sheet_title">Cover art and title</string>
-    <string name="overlay_enable">Show over the visualizer</string>
-    <string name="overlay_show_artwork">Show cover art</string>
-    <string name="overlay_show_text">Show title and artist</string>
-    <string name="overlay_position_label">Position</string>
-    <string name="overlay_position_bottom_left">Bottom left</string>
-    <string name="overlay_position_bottom_center">Bottom centre</string>
-    <string name="overlay_position_top_left">Top left</string>
-    <string name="overlay_position_top_right">Top right</string>
-    <string name="overlay_size_label">Size</string>
-    <string name="overlay_size_small">Small</string>
-    <string name="overlay_size_medium">Medium</string>
-    <string name="overlay_size_large">Large</string>
-    <string name="overlay_lyric_sheet_title">Synced lyrics</string>
-    <string name="overlay_lyric_enable">Show current line over the visualizer</string>
-    <string name="overlay_lyric_position_top">Top</string>
-    <string name="overlay_lyric_position_center">Centre</string>
-    <string name="overlay_lyric_position_bottom">Bottom</string>
-    <string name="overlay_watermark_section">Logo / watermark</string>
-    <string name="overlay_watermark_enable">Show over the visualizer</string>
-    <string name="overlay_watermark_pick">Choose image…</string>
-    <string name="overlay_watermark_clear">Remove image</string>
-    <string name="overlay_watermark_none">No image chosen</string>
-    <string name="overlay_watermark_corner_label">Corner</string>
-    <string name="overlay_watermark_corner_top_left">Top left</string>
-    <string name="overlay_watermark_corner_top_right">Top right</string>
-    <string name="overlay_watermark_corner_bottom_left">Bottom left</string>
-    <string name="overlay_watermark_corner_bottom_right">Bottom right</string>
-    <string name="overlay_watermark_size_label">"Watermark size  %1$d%%"</string>
-    <string name="overlay_watermark_opacity_label">"Watermark opacity  %1$d%%"</string>
+    <!-- Presets: the name a preset gets when it arrives without one. -->
+    <string name="preset_untitled">Preset</string>
+    <string name="preset_shared_untitled">Shared preset</string>
     <string name="background_entry_point">Background</string>
     <string name="background_sheet_title">Background image</string>
     <string name="background_pick">Choose an image</string>
@@ -901,6 +949,15 @@
     <string name="background_unreadable_cleared">The saved background image could no longer be read and was removed.</string>
     <string name="template_link_imported">Template \"%1$s\" imported — open Video templates to use it.</string>
     <string name="template_link_unreadable">That template link could not be read. It may have been cut short in transit.</string>
+    <string name="link_offer_preset_title">Import shared preset?</string>
+    <string name="link_offer_preset_body">A link opened MuzViz with the preset \"%1$s\". Importing adds it to Visuals › Presets.</string>
+    <string name="link_offer_template_title">Import shared template?</string>
+    <string name="link_offer_template_body">A link opened MuzViz with the video template \"%1$s\". Importing adds it to your templates.</string>
+    <string name="link_offer_replace_title">Replace template?</string>
+    <string name="link_offer_replace_body">A link opened MuzViz with another version of your template \"%1$s\". Importing replaces yours.</string>
+    <string name="link_offer_untitled_template">Shared template</string>
+    <string name="link_offer_import">Import</string>
+    <string name="link_offer_replace">Replace</string>
     <string name="template_entry_point">Video templates</string>
     <string name="template_sheet_title">Video templates</string>
     <string name="template_paste_link">Paste a shared template</string>
@@ -915,6 +972,12 @@
     <string name="template_delete_title">Delete \"%1$s\"?</string>
     <string name="template_delete_body">Removes this template and its file for good — there is no undo. Share it first if you might want it back.</string>
     <string name="template_adopt">Use</string>
+    <!-- Video templates: what a save, import or share says. -->
+    <string name="template_saved">Saved \"%1$s\".</string>
+    <string name="template_imported">Imported \"%1$s\".</string>
+    <string name="template_updated">Updated \"%1$s\".</string>
+    <string name="template_share_subject">MuzViz template: %1$s</string>
+    <string name="template_untitled">Template</string>
     <string name="palette_base_hue">Base hue %1$s</string>
     <string name="palette_hue_span">Hue span %1$s</string>
     <string name="palette_apply_gradient">Apply gradient</string>
@@ -925,4 +988,48 @@
     <string name="palette_none_yet">None yet — build a gradient above and save it.</string>
     <string name="palette_edit">Edit</string>
     <string name="palette_delete">Delete</string>
+    <!-- Palette maker and the palette taken from a track's artwork. -->
+    <string name="palette_explainer">Build a gradient: the base hue is where it starts, the span is how far around the colour wheel it sweeps (0 = one flat colour). Apply auditions it on the scene; Save adds it to the palette row above and to every preset you save afterwards.</string>
+    <string name="palette_art_nothing_playing">Nothing is playing.</string>
+    <string name="palette_art_no_artwork">This track has no embedded artwork.</string>
+    <string name="palette_art_greyscale">The artwork has no colour to take — it is greyscale or nearly black.</string>
+    <string name="palette_art_taken">Palette taken from the artwork (%1$d%% of it had colour).</string>
+    <!-- Library a11y -->
+    <string name="library_move_track_up">Move %1$s up</string>
+    <string name="library_move_track_down">Move %1$s down</string>
+    <!-- Studio a11y -->
+    <string name="studio_a11y_playing">Playing</string>
+    <string name="studio_a11y_playhead">Playhead</string>
+    <plurals name="studio_a11y_clip_lane">
+        <item quantity="one">%1$s, %2$d clip</item>
+        <item quantity="other">%1$s, %2$d clips</item>
+    </plurals>
+    <plurals name="studio_a11y_marker_lane">
+        <item quantity="one">Markers, %1$d marker</item>
+        <item quantity="other">Markers, %1$d markers</item>
+    </plurals>
+    <plurals name="studio_a11y_key_lane">
+        <item quantity="one">%1$s keyframes, %2$d key</item>
+        <item quantity="other">%1$s keyframes, %2$d keys</item>
+    </plurals>
+    <string name="studio_a11y_selected_at">%1$s selected, at %2$s</string>
+    <string name="studio_a11y_marker">Marker</string>
+    <string name="studio_a11y_key">Key</string>
+    <string name="studio_a11y_select_next">Select next</string>
+    <string name="studio_a11y_select_previous">Select previous</string>
+    <string name="studio_a11y_nudge_earlier">Nudge earlier</string>
+    <string name="studio_a11y_nudge_later">Nudge later</string>
+    <string name="studio_a11y_split_at_playhead">Split clip at playhead</string>
+    <string name="studio_a11y_add_marker_at_playhead">Add marker at playhead</string>
+    <string name="studio_a11y_add_key_at_playhead">Add keyframe at playhead</string>
+    <string name="studio_a11y_curve">Curve handles</string>
+    <string name="studio_a11y_curve_state">First handle %1$.2f, %2$.2f. Second handle %3$.2f, %4$.2f</string>
+    <string name="studio_a11y_curve_first_left">Move first handle left</string>
+    <string name="studio_a11y_curve_first_right">Move first handle right</string>
+    <string name="studio_a11y_curve_first_up">Move first handle up</string>
+    <string name="studio_a11y_curve_first_down">Move first handle down</string>
+    <string name="studio_a11y_curve_second_left">Move second handle left</string>
+    <string name="studio_a11y_curve_second_right">Move second handle right</string>
+    <string name="studio_a11y_curve_second_up">Move second handle up</string>
+    <string name="studio_a11y_curve_second_down">Move second handle down</string>
 </resources>

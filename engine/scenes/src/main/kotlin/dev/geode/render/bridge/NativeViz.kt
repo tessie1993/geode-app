@@ -2,22 +2,21 @@ package dev.geode.render.bridge
 
 import android.content.Context
 import android.content.res.AssetManager
-import dev.geode.analysis.AudioFeatures
-import dev.geode.engine.bridge.FeatureFrameLayout
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.render.AdsrConfig
 import dev.geode.render.AdsrEngine
 import dev.geode.render.BlendMode
 import dev.geode.render.LfoConfig
 import dev.geode.render.LfoEngine
+import dev.geode.render.ReactionRoute
 import dev.geode.render.scene.SceneParams
 import java.io.File
 
 /**
  * Owns one `geode_viz` handle: the native renderer behind a GL surface or an offscreen target.
  *
- * Durable shader, preset and image configuration is retained across [destroy]/[create]. Other
- * calls are no-ops until [create] (or [surfaceCreated]); the C API's GL-thread rules still apply.
+ * Every call is a no-op until [create] (or [surfaceCreated]) has run; the GL-thread rules of the
+ * C API apply unchanged.
  */
 class NativeViz(
     context: Context,
@@ -27,23 +26,23 @@ class NativeViz(
     private val cacheDir: String = context.cacheDir.absolutePath
     private val milkTextureDir: String = File(context.filesDir, "milk/textures").absolutePath
 
-    // Every JNI access shares this object's monitor with destroy(). Volatile alone cannot keep
-    // a native pointer alive between testing it and entering JNI. GL calls still require GL ownership.
+    // Written on the GL thread (surfaceCreated) and read/written from composition-time call
+    // sites on the main thread (e.g. milkdropAvailable, loadMilkPreset); @Volatile keeps every
+    // thread's read of a just-published handle current, and create()/destroy() are synchronised
+    // so two threads racing on a 0L handle cannot both create (and leak) a renderer.
     @Volatile
     private var handle = 0L
     private val paramFrame = FloatArray(SceneParamsCodec.FIELDS)
-    private val featureFrame = FloatArray(FeatureFrameLayout.FLOATS)
     private var reportedError = ""
-    private val shaders = linkedMapOf<String, String>()
-    private var milkPreset: String? = null
-    private var injection: Pair<String?, String?>? = null
-    private data class Image(val pixels: IntArray?, val width: Int, val height: Int)
-    private var overlay: Image? = null
-    private var underlay: Image? = null
-    private var underlayBlend = 0
-    private var underlayAmount = 0f
 
     val isCreated: Boolean get() = handle != 0L
+
+    /**
+     * Runs once per new handle, inside [create], on whichever thread created it. A handle is
+     * created again after every [destroy], and that new renderer knows none of the state the old
+     * one was given; this is where an owner re-applies what must survive (the MilkDrop preset).
+     */
+    var onCreated: () -> Unit = {}
 
     @Synchronized
     fun create(): Boolean {
@@ -52,12 +51,7 @@ class NativeViz(
             handle = GeodeNative.vizCreate(assets, cacheDir)
             if (handle != 0L) {
                 GeodeNative.vizSetMilkTextureDir(handle, milkTextureDir)
-                shaders.forEach { (id, source) -> GeodeNative.vizSetCustomShader(handle, id, source) }
-                milkPreset?.let { GeodeNative.vizLoadMilkPreset(handle, it) }
-                injection?.let { GeodeNative.vizSetFluidInjection(handle, it.first, it.second) }
-                overlay?.let { GeodeNative.vizSetOverlay(handle, it.pixels, it.width, it.height) }
-                underlay?.let { GeodeNative.vizSetUnderlay(handle, it.pixels, it.width, it.height, underlayBlend, underlayAmount) }
-                reportedError = ""
+                onCreated()
             }
         }
         return handle != 0L
@@ -66,41 +60,24 @@ class NativeViz(
     @Synchronized
     fun destroy() {
         if (handle == 0L) return
-        // Prefer the last working source over a rejected edit. If a scene has never compiled
-        // its queued source (inactive scenes compile lazily), retain that request for replay.
-        shaders.keys.toList().forEach { id ->
-            GeodeNative.vizCustomShader(handle, id)?.takeIf { it.isNotEmpty() }?.let { shaders[id] = it }
-        }
         GeodeNative.vizDestroy(handle)
         handle = 0L
     }
 
-    @Synchronized
     fun knows(sceneId: String): Boolean = handle != 0L && GeodeNative.vizKnows(handle, sceneId)
 
-    @Synchronized
     fun sceneIds(): List<String> = if (handle == 0L) emptyList() else GeodeNative.vizSceneIds(handle).split('\n').filter { it.isNotEmpty() }
 
-    @Synchronized
     fun setParams(p: SceneParams) {
         if (handle == 0L) return
         SceneParamsCodec.pack(p, paramFrame)
         GeodeNative.vizSetParams(handle, paramFrame)
     }
 
-    @Synchronized
-    fun setFeatures(f: AudioFeatures) {
-        if (handle == 0L) return
-        FeatureFrameCodec.pack(f, featureFrame)
-        GeodeNative.vizSetFeatures(handle, featureFrame)
-    }
-
-    @Synchronized
     fun setReducedMotion(on: Boolean) {
         if (handle != 0L) GeodeNative.vizSetReducedMotion(handle, on)
     }
 
-    @Synchronized
     fun setLayer(
         sceneId: String?,
         mix: Float,
@@ -109,7 +86,6 @@ class NativeViz(
         if (handle != 0L) GeodeNative.vizSetLayer(handle, sceneId ?: "", mix, blend.ordinal)
     }
 
-    @Synchronized
     fun setTransition(
         id: String,
         durationMs: Long,
@@ -117,12 +93,10 @@ class NativeViz(
         if (handle != 0L) GeodeNative.vizSetTransition(handle, id, durationMs)
     }
 
-    @Synchronized
     fun beginParamMorph(seconds: Float) {
         if (handle != 0L) GeodeNative.vizBeginParamMorph(handle, seconds)
     }
 
-    @Synchronized
     fun submitTouchPoints(
         xy: FloatArray,
         n: Int,
@@ -130,7 +104,6 @@ class NativeViz(
         if (handle != 0L) GeodeNative.vizSetTouch(handle, xy, n)
     }
 
-    @Synchronized
     fun queueTouchStroke(
         nx: Float,
         ny: Float,
@@ -142,32 +115,48 @@ class NativeViz(
         if (handle != 0L) GeodeNative.vizQueueTouchStroke(handle, nx, ny, ndx, ndy, dt, strength)
     }
 
-    @Synchronized
     fun setFluidInjectionShaders(
         force: String?,
         dye: String?,
     ) {
-        injection = force to dye
         if (handle != 0L) GeodeNative.vizSetFluidInjection(handle, force, dye)
     }
 
-    @Synchronized
     fun loadMilkPreset(path: String) {
-        milkPreset = path
         if (handle != 0L) GeodeNative.vizLoadMilkPreset(handle, path)
     }
 
-    @Synchronized
     fun reloadMilkPreset() {
         if (handle != 0L) GeodeNative.vizReloadMilkPreset(handle)
     }
 
     /** The preset MilkDrop last compiled, handed out once; null until the next one. */
-    @Synchronized
-    fun takeMilkPresetLoaded(): String? =
-        if (handle == 0L) null else GeodeNative.vizTakeMilkPresetLoaded(handle)?.also { milkPreset = it }
+    fun takeMilkPresetLoaded(): String? = if (handle == 0L) null else GeodeNative.vizTakeMilkPresetLoaded(handle)
 
-    @Synchronized
+    /** The renderer's sound engine: interleaved PCM in play order, each sample once, before [render]. */
+    fun writeAudio(
+        interleaved: FloatArray,
+        frames: Int,
+        channels: Int,
+        sampleRateHz: Int,
+    ) {
+        if (handle != 0L && frames > 0) GeodeNative.vizWriteAudio(handle, interleaved, frames, channels, sampleRateHz)
+    }
+
+    fun resetAudio() {
+        if (handle != 0L) GeodeNative.vizResetAudio(handle)
+    }
+
+    /** Settings › Audio, as [dev.geode.engine.audio.SoundTuning.toFloats]. */
+    fun setSoundTuning(floats: FloatArray) {
+        if (handle != 0L) GeodeNative.vizSetSoundTuning(handle, floats)
+    }
+
+    /** The frame the last [render] stepped, as [dev.geode.engine.audio.SoundFrameLayout] floats. */
+    fun soundFrame(out: FloatArray) {
+        if (handle != 0L) GeodeNative.vizSoundFrame(handle, out)
+    }
+
     fun pushPcm(
         mono: FloatArray,
         count: Int,
@@ -175,32 +164,36 @@ class NativeViz(
         if (handle != 0L && count > 0) GeodeNative.vizPushPcm(handle, mono, count)
     }
 
-    @Synchronized
     fun setCustomShader(
         sceneId: String,
         fragmentSource: String,
     ) {
-        shaders[sceneId] = fragmentSource
         if (handle != 0L) GeodeNative.vizSetCustomShader(handle, sceneId, fragmentSource)
     }
 
-    @Synchronized
-    fun customShaderFor(sceneId: String): String? =
-        if (handle != 0L) GeodeNative.vizCustomShader(handle, sceneId) else shaders[sceneId]?.takeIf { it.isNotEmpty() }
+    fun customShaderFor(sceneId: String): String? = if (handle == 0L) null else GeodeNative.vizCustomShader(handle, sceneId)
 
-    @Synchronized
     fun setLfoConfigs(configs: List<LfoConfig>) {
         if (handle == 0L) return
         configs.take(LfoEngine.SLOTS).forEachIndexed { slot, c -> GeodeNative.vizSetLfo(handle, slot, ModConfigCodec.packLfo(c)) }
     }
 
-    @Synchronized
     fun setAdsrConfigs(configs: List<AdsrConfig>) {
         if (handle == 0L) return
         configs.take(AdsrEngine.COUNT).forEachIndexed { slot, c -> GeodeNative.vizSetAdsr(handle, slot, ModConfigCodec.packAdsr(c)) }
     }
 
-    @Synchronized
+    fun setReactions(routes: List<ReactionRoute>) {
+        if (handle != 0L) GeodeNative.vizSetReactions(handle, ModConfigCodec.packReactions(routes))
+    }
+
+    fun setLook(
+        yaw: Float,
+        pitch: Float,
+    ) {
+        if (handle != 0L) GeodeNative.vizSetLook(handle, yaw, pitch)
+    }
+
     fun setThermal(
         platformStatus: Int,
         headroom: Float,
@@ -208,22 +201,27 @@ class NativeViz(
         if (handle != 0L) GeodeNative.vizSetThermal(handle, platformStatus, headroom)
     }
 
-    @Synchronized
     fun setPacedFps(fps: Float) {
         if (handle != 0L) GeodeNative.vizSetPacedFps(handle, fps)
     }
 
-    @Synchronized
+    fun setQuality(
+        renderScale: Float,
+        marchScale: Float,
+        postFx: Boolean,
+        adaptive: Boolean,
+    ) {
+        if (handle != 0L) GeodeNative.vizSetQuality(handle, renderScale, marchScale, postFx, adaptive)
+    }
+
     fun setOffscreen(on: Boolean) {
         if (handle != 0L) GeodeNative.vizSetOffscreen(handle, on)
     }
 
-    @Synchronized
     fun surfaceCreated() {
         if (create()) GeodeNative.vizSurfaceCreated(handle)
     }
 
-    @Synchronized
     fun surfaceChanged(
         width: Int,
         height: Int,
@@ -231,20 +229,16 @@ class NativeViz(
         if (handle != 0L) GeodeNative.vizSurfaceChanged(handle, width, height)
     }
 
-    @Synchronized
     fun setScene(sceneId: String): Boolean = handle != 0L && GeodeNative.vizSetScene(handle, sceneId)
 
-    @Synchronized
     fun warmTransition(id: String) {
         if (handle != 0L) GeodeNative.vizWarmTransition(handle, id)
     }
 
-    @Synchronized
     fun cut() {
         if (handle != 0L) GeodeNative.vizCut(handle)
     }
 
-    @Synchronized
     fun render(
         timeSeconds: Double,
         targetFbo: Int,
@@ -252,19 +246,16 @@ class NativeViz(
         if (handle != 0L) GeodeNative.vizRender(handle, timeSeconds, targetFbo)
     }
 
-    @Synchronized
     fun releaseScenes() {
         if (handle != 0L) GeodeNative.vizReleaseScenes(handle)
     }
 
     /** Full-frame RGBA8 overlay drawn last, premultiplied alpha; null clears. Any thread; latched for the next frame. */
-    @Synchronized
     fun setOverlay(
         pixels: IntArray?,
         width: Int,
         height: Int,
     ) {
-        overlay = Image(pixels?.copyOf(), width, height)
         if (handle != 0L) GeodeNative.vizSetOverlay(handle, pixels, width, height)
     }
 
@@ -272,7 +263,6 @@ class NativeViz(
      * Full-frame RGBA8 underlay blended UNDER/INTO the scene: blend 0 = replace scene where scene is
      * black (screen), 1 = multiply, 2 = add; amount 0..1. null clears. Any thread; latched.
      */
-    @Synchronized
     fun setUnderlay(
         pixels: IntArray?,
         width: Int,
@@ -280,14 +270,10 @@ class NativeViz(
         blend: Int,
         amount: Float,
     ) {
-        underlay = Image(pixels?.copyOf(), width, height)
-        underlayBlend = blend
-        underlayAmount = amount
         if (handle != 0L) GeodeNative.vizSetUnderlay(handle, pixels, width, height, blend, amount)
     }
 
     /** Reports the native error state once per change: a message, or null when it clears. */
-    @Synchronized
     fun pollError(onChange: (String?) -> Unit) {
         if (handle == 0L) return
         val error = GeodeNative.vizLastError(handle)
@@ -303,9 +289,6 @@ class NativeViz(
         fun verifyLayouts() {
             if (verified) return
             SceneParamsCodec.verify(GeodeNative.vizParamNames())
-            check(GeodeNative.featureFrameFloats() == FeatureFrameLayout.FLOATS) {
-                "GeodeFeatureFrame has ${GeodeNative.featureFrameFloats()} floats, FeatureFrameLayout expects ${FeatureFrameLayout.FLOATS}"
-            }
             verified = true
         }
     }

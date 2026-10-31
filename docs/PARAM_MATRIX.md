@@ -39,18 +39,13 @@ reach every style through the composite pass, which is its own column.
 | `endlessZoom` | Motion | `Endless zoom` | `endlessZoom` | · |   |   |   |   | · |   |   |   |   |   |   |
 | `endlessZoomSpeed` | Motion | `Dive speed` | `endlessZoomSpeed` | · |   |   |   |   | · |   |   |   |   |   |   |
 | `sway` | Motion | `Sway` | `sway` | · |   |   |   |   |   |   |   |   |   | · | · |
+| `pulse` | Motion | `Beat pulse` | `pulse` | · |   |   |   |   |   |   | · |   |   | · | · |
 | `driftX` | Motion | `Drift X` | `driftX` | · |   |   |   |   |   |   |   |   |   | · | · |
 | `driftY` | Motion | `Drift Y` | `driftY` | · |   |   |   |   |   |   |   |   |   | · | · |
-| `motionAmount` | Motion | `Motion amount` | `motionAmount` | · | · |   | · | · |   | · | · | · | · | · | · |
-| `motionBreath` | Motion | `Breath` | `motionBreath` | · |   |   |   | · | · |   |   |   |   | · | · |
-| `motionOrbit` | Motion | `Orbit` | `motionOrbit` | · |   |   |   |   |   |   |   |   |   |   |   |
-| `motionDrift` | Motion | `Drift` | `motionDrift` | · |   |   |   |   | · |   |   |   |   | · | · |
-| `motionHue` | Motion | `Hue drift` | `motionHue` | · |   |   |   |   | · |   |   |   |   | · | · |
+| `shake` | Motion | `Beat shake` | `shake` | · |   |   |   |   |   |   |   |   |   | · | · |
 | `audioDrive` | Behavior | `Audio drive` | `audioDrive` | · | · | · | · | · |   | · | · | · | · |   |   |
-| `pulse` | — (inert, no tab) | — (inert since wave three) | `pulse` | · |   |   |   |   |   |   | · |   |   | · | · |
-| `shake` | — (inert, no tab) | — (inert since wave three) | `shake` | · |   |   |   |   |   |   |   |   |   | · | · |
-| `formDrive` | — (inert, no tab) | — (inert since wave three) | `formDrive` | · | · | · | · | · | · | · | · | · | · | · | · |
-| `beatResponse` | — (inert, no tab) | — (inert since wave three) | `beatResponse` | · | · | · | · | · | · | · | · | · | · |   |   |
+| `formDrive` | Behavior | `Form drive` | `formDrive` | · | · | · | · | · | · | · | · | · | · | · | · |
+| `beatResponse` | Behavior | `Beat response` | `beatResponse` | · | · | · | · | · | · | · | · | · | · |   |   |
 | `turbulence` | Behavior | `Turbulence` | `turbulence` | · |   |   | · | · |   |   | · |   |   |   |   |
 | `density` | Behavior | `Density` | `density` |   |   |   |   |   |   | · |   |   |   |   |   |
 | `marchDetail` | Shape | `Detail` | `marchDetail` | · |   |   |   |   |   |   |   |   |   |   |   |
@@ -99,14 +94,14 @@ reach every style through the composite pass, which is its own column.
 | `bassGain` | Behavior | `Bass gain` | `bassGain` |   |   |   |   |   |   |   |   |   |   | · | · |
 | `midGain` | Behavior | `Mid gain` | `midGain` |   |   |   |   |   |   |   |   |   |   | · | · |
 | `trebGain` | Behavior | `Treble gain` | `trebGain` |   |   |   |   |   |   |   |   |   |   | · | · |
-| `flash` | — (inert, no tab) | — (inert since wave three) | `flash` | · |   |   |   |   |   |   |   |   |   | · | · |
+| `flash` | Behavior | `Beat flash` | `flash` | · |   |   |   |   |   |   |   |   |   | · | · |
 | `chromaAb` | FX | `Chromatic aberration` | `chromaAb` |   |   |   |   |   |   |   |   |   |   | · | · |
 | `vignette` | FX | `Vignette` | `vignette` |   |   |   |   |   |   |   |   |   |   | · | · |
 | `scanlines` | FX | `Scanlines` | `scanlines` |   |   |   |   |   |   |   |   |   |   | · | · |
 | `grain` | FX | `Film grain` | `grain` |   |   |   |   |   |   |   |   |   |   | · | · |
 | `glitch` | FX | `Glitch` | `glitch` |   |   |   |   | · |   |   |   |   |   | · | · |
 | `fisheye` | FX | `Fisheye` | `fisheye` |   |   |   |   |   |   |   |   |   |   | · | · |
-| `strobe` | — (inert, no tab) | — (inert since wave three) | `strobe` |   |   |   |   |   |   |   |   |   |   | · | · |
+| `strobe` | FX | `Strobe` | `strobe` |   |   |   |   |   |   |   |   |   |   | · | · |
 | `paramFadeSec` | FX | — | `paramFadeSec` |   |   |   |   |   |   |   |   |   |   | · |   |
 | `fluidQuality` | Fluid | — | `fluidQuality` |   |   |   |   |   |   | · |   | · |   |   |   |
 | `fluidAutoQuality` | Fluid | — | `fluidAutoQuality` |   |   |   |   |   |   | · |   | · |   |   | · |
@@ -118,8 +113,8 @@ reach every style through the composite pass, which is its own column.
 | `fluidChromaticAging` | Fluid | `Chromatic aging` | `fluidChromaticAging` |   |   |   |   |   |   | · |   |   |   |   |   |
 | `fluidSplatRadius` | Fluid | `Fluid splat radius` | `fluidSplatRadius` |   |   |   |   |   |   | · |   | · |   |   |   |
 | `fluidSplatForce` | Fluid | `Fluid splat force` | `fluidSplatForce` |   |   |   |   |   |   | · |   | · |   |   |   |
-| `fluidBeatPattern` | Fluid | `Emitter pattern` | `fluidBeatPattern` |   |   |   |   |   |   | · |   | · |   |   |   |
-| `fluidBeatSplats` | Fluid | `Emitters` | `fluidBeatSplats` |   |   |   |   |   |   | · |   | · |   |   |   |
+| `fluidBeatPattern` | Fluid | `Beat pattern` | `fluidBeatPattern` |   |   |   |   |   |   | · |   | · |   |   |   |
+| `fluidBeatSplats` | Fluid | `Beat splats` | `fluidBeatSplats` |   |   |   |   |   |   | · |   | · |   |   |   |
 | `fluidStirrers` | Fluid | `Stirrers` | `fluidStirrers` |   |   |   |   |   |   | · |   | · |   |   |   |
 | `fluidStirrerSpeed` | Fluid | `Stirrer speed` | `fluidStirrerSpeed` |   |   |   |   |   |   | · |   | · |   |   |   |
 | `fluidBassPump` | Fluid | `Bass pump` | `fluidBassPump` |   |   |   |   |   |   | · |   | · |   |   |   |
@@ -145,7 +140,7 @@ reach every style through the composite pass, which is its own column.
 | `fluidCurlAudio` | Fluid | `Curl from mids` | `fluidCurlAudio` |   |   |   |   |   |   | · |   |   |   |   |   |
 | `fluidBloomAudio` | Fluid | `Glow from loudness` | `fluidBloomAudio` |   |   |   |   |   |   | · |   |   |   |   |   |
 | `fluidFadeAudio` | Fluid | `Fade when quiet` | `fluidFadeAudio` |   |   |   |   |   |   | · |   |   |   |   |   |
-| `fluidRadiusPulse` | — (inert, no tab) | — (inert since wave three) | `fluidRadiusPulse` |   |   |   |   |   |   | · |   | · |   |   |   |
+| `fluidRadiusPulse` | Fluid | `Radius on beat` | `fluidRadiusPulse` |   |   |   |   |   |   | · |   | · |   |   |   |
 | `flowEnabled` | Fluid | — | `flowEnabled` |   |   |   |   |   |   |   |   |   |   | · | · |
 | `flowStrength` | Fluid | `Flow strength` | `flowStrength` |   |   |   |   |   |   |   |   |   |   | · | · |
 | `flowForce` | Fluid | `Flow force` | `flowForce` |   |   |   |   |   |   |   |   |   |   | · |   |
@@ -175,11 +170,35 @@ reach every style through the composite pass, which is its own column.
 | `rippleOverlayEnabled` | Fluid | — | `rippleOverlayEnabled` |   |   |   |   |   |   |   |   |   |   | · | · |
 | `rippleOverlayStrength` | Fluid | `Ripple overlay strength` | `rippleOverlayStrength` |   |   |   |   |   |   |   |   |   |   | · | · |
 | `rippleOverlaySpecular` | Fluid | `Ripple glint` | `rippleOverlaySpecular` |   |   |   |   |   |   |   |   |   |   | · | · |
+| `motionAmount` | Reactivity | `Motion amount` | `motionAmount` | · |   |   |   |   |   |   |   |   |   | · | · |
+| `motionBreath` | Reactivity | `Breath` | `motionBreath` | · |   |   |   |   |   |   |   |   |   | · | · |
+| `motionDrift` | Reactivity | `Spin drift` | `motionDrift` | · |   |   |   |   |   |   |   |   |   | · | · |
+| `motionHue` | Reactivity | `Key colour` | `motionHue` | · |   |   |   |   |   |   |   |   |   | · | · |
+| `camFly` | Motion | `Fly speed` | `camFly` | · |   |   |   |   |   |   |   |   |   | · | · |
+| `camPath` | Motion | `Camera path` | `camPath` | · |   |   |   |   |   |   |   |   |   | · | · |
+| `camOrbit` | Motion | `Swing` | `camOrbit` | · |   |   |   |   |   |   |   |   |   | · | · |
+| `camFov` | Motion | `Field of view` | `camFov` | · |   |   |   |   |   |   |   |   |   | · | · |
+| `camShake` | Motion | `Handheld shake` | `camShake` | · |   |   |   |   |   |   |   |   |   | · | · |
+| `camPush` | Motion | — | `camPush` | · |   |   |   |   |   |   |   |   |   | · | · |
+| `camYaw` | Motion | — | `camYaw` | · |   |   |   |   |   |   |   |   |   | · | · |
+| `camPitch` | Motion | — | `camPitch` | · |   |   |   |   |   |   |   |   |   | · | · |
+| `camRoll` | Motion | — | `camRoll` | · |   |   |   |   |   |   |   |   |   | · | · |
+| `camSmooth` | Motion | — | `camSmooth` | · |   |   |   |   |   |   |   |   |   | · | · |
+| `camTouch` | Motion | — | `camTouch` | · |   |   |   |   |   |   |   |   |   | · | · |
+| `camGyro` | Motion | — | `camGyro` | · |   |   |   |   |   |   |   |   |   | · | · |
+| `reactAmount` | Reactivity | — | `reactAmount` | · |   |   |   |   |   |   |   |   |   | · | · |
+| `reactSeed` | Reactivity | `Reaction DNA` | `reactSeed` | · |   |   |   |   |   |   |   |   |   | · | · |
 
 ## Never randomized
 
-Declared in `ParamRandomizer.NEVER_ROLLED`; the test checks the list against
-the parameters no roll actually writes, in both directions.
+Declared in `ParamRandomizer.NEVER_ROLLED`. `ParamRandomizerTest` checks one
+direction: every field no tab resets is on this list (or `NOT_RENDERED`).
+
+The camera and motion rows above are read by `core/viz/CameraRig.cpp` and
+`core/viz/MotionField.cpp` for every family: 3D styles read the rig through
+`lib_camera`, every other scene is moved by the composite's flat projection.
+`pulse`, `shake`, `beatResponse`, `flash`, `strobe`, `formDrive` and
+`motionOrbit` have no reader and no control any more; their rows are history.
 
 | Parameter | Why |
 |---|---|
@@ -215,16 +234,10 @@ and "⚄ Randomize <tab>" rolls exactly the keys below it.
 
 | Tab | Controls | Rolled keys |
 |---|---|---|
-| Motion | 13 | 13 |
+| Motion | 10 | 10 |
 | Shape | 15 | 14 |
-| Behavior | 12 | 12 |
+| Behavior | 14 | 14 |
 | Color | 25 | 19 |
-| FX | 7 | 6 |
-| Fluid | 53 | 46 |
+| FX | 8 | 7 |
+| Fluid | 54 | 47 |
 | Cymatics | 13 | 13 |
-
-Seven parameters (`pulse`, `shake`, `formDrive`, `beatResponse`, `flash`, `strobe`,
-`fluidRadiusPulse`) are wire-only since wave three: `core/viz/MotionField` replaced what they
-drove, no Customize slider reads or writes them any more, and they are excluded from every tab
-above. They stay in `SceneParams` (and the preset/wire format) unchanged so a preset saved before
-wave three still decodes.

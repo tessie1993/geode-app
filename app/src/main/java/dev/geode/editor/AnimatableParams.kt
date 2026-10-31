@@ -2,8 +2,7 @@ package dev.geode.editor
 
 import dev.geode.R
 import dev.geode.export.ClipEdit
-import dev.geode.render.scene.CymaticsMath
-import dev.geode.render.scene.MarchBudget
+import dev.geode.render.scene.Catalogue
 import dev.geode.render.scene.ParamKeys
 import dev.geode.render.scene.SceneParams
 import kotlin.math.roundToInt
@@ -30,16 +29,10 @@ object AnimatableParams {
     private const val SCENE = "scene."
     private const val CLIP = "clip."
 
-    // Wave three retired the Customize sliders for these fields (ParamKeys no longer names
-    // them - see CustomizeTabs.kt), but the fields themselves are still wired and still
-    // animatable from the Studio keyframe editor, so they keep their own labels here.
-    private const val LABEL_TRANSIENT_PULSE = "Transient pulse"
-    private const val LABEL_TRANSIENT_SHAKE = "Transient shake"
-    private const val LABEL_FORM_DRIVE = "Form drive"
-    private const val LABEL_TRANSIENT_RESPONSE = "Transient response"
-    private const val LABEL_TRANSIENT_FLASH = "Transient flash"
-    private const val LABEL_STROBE = "Strobe"
-    private const val LABEL_RADIUS_ON_HIT = "Radius on hit"
+    // The native catalogue's ranges; declared before the tables that read them.
+    private val DETAIL = Catalogue.range(ParamKeys.MARCH_DETAIL)
+    private val FUNDAMENTAL = Catalogue.range(ParamKeys.FUNDAMENTAL_HZ)
+    private val MAX_MODES = Catalogue.range(ParamKeys.STANDING_WAVES).endInclusive.toInt()
 
     val scene: List<AnimatableParam> = sceneTable()
     val clip: List<AnimatableParam> = clipTable()
@@ -162,14 +155,20 @@ object AnimatableParams {
             scalar("turbulence", ParamKeys.TURBULENCE, 0f, 1.5f, { it.turbulence }) { p, v -> p.copy(turbulence = v) },
             scalar("driftX", ParamKeys.DRIFT_X, -1f, 1f, { it.driftX }) { p, v -> p.copy(driftX = v) },
             scalar("driftY", ParamKeys.DRIFT_Y, -1f, 1f, { it.driftY }) { p, v -> p.copy(driftY = v) },
-            scalar("pulse", LABEL_TRANSIENT_PULSE, 0f, 1f, { it.pulse }) { p, v -> p.copy(pulse = v) },
-            scalar("shake", LABEL_TRANSIENT_SHAKE, 0f, 1f, { it.shake }) { p, v -> p.copy(shake = v) },
+            scalar("camFly", ParamKeys.CAM_FLY, 0f, 2f, { it.camFly }) { p, v -> p.copy(camFly = v) },
+            scalar("camOrbit", ParamKeys.CAM_ORBIT, 0f, 1f, { it.camOrbit }) { p, v -> p.copy(camOrbit = v) },
+            scalar("camPush", ParamKeys.CAM_PUSH, -1f, 1f, { it.camPush }) { p, v -> p.copy(camPush = v) },
+            scalar("camYaw", ParamKeys.CAM_YAW, -1f, 1f, { it.camYaw }) { p, v -> p.copy(camYaw = v) },
+            scalar("camPitch", ParamKeys.CAM_PITCH, -1f, 1f, { it.camPitch }) { p, v -> p.copy(camPitch = v) },
+            scalar("camRoll", ParamKeys.CAM_ROLL, -1f, 1f, { it.camRoll }) { p, v -> p.copy(camRoll = v) },
+            scalar("camFov", ParamKeys.CAM_FOV, 0.5f, 2f, { it.camFov }) { p, v -> p.copy(camFov = v) },
+            scalar("camShake", ParamKeys.CAM_SHAKE, 0f, 1f, { it.camShake }) { p, v -> p.copy(camShake = v) },
             toggle("endlessZoom", ParamKeys.ENDLESS_ZOOM, { it.endlessZoom }) { p, v -> p.copy(endlessZoom = v) },
             scalar("endlessZoomSpeed", ParamKeys.DIVE_SPEED, 0.05f, 1.2f, { it.endlessZoomSpeed }) { p, v -> p.copy(endlessZoomSpeed = v) },
             scalar("warp", ParamKeys.DOMAIN_WARP, 0f, 1f, { it.warp }) { p, v -> p.copy(warp = v) },
             scalar("ripple", ParamKeys.RIPPLE, 0f, 1f, { it.ripple }) { p, v -> p.copy(ripple = v) },
             scalar("morph", ParamKeys.MORPH, 0f, 1f, { it.morph }) { p, v -> p.copy(morph = v) },
-            scalar("marchDetail", ParamKeys.MARCH_DETAIL, MarchBudget.MIN_DETAIL, MarchBudget.MAX_DETAIL, {
+            scalar("marchDetail", ParamKeys.MARCH_DETAIL, DETAIL.start, DETAIL.endInclusive, {
                 it.marchDetail
             }) { p, v -> p.copy(marchDetail = v) },
             scalar("twist", ParamKeys.TWIST, -1f, 1f, { it.twist }) { p, v -> p.copy(twist = v) },
@@ -191,14 +190,6 @@ object AnimatableParams {
                 { it.milkdropBlendPresets },
             ) { p, v -> p.copy(milkdropBlendPresets = v) },
             scalar("audioDrive", ParamKeys.AUDIO_DRIVE, 0.2f, 2.5f, { it.audioDrive }) { p, v -> p.copy(audioDrive = v) },
-            scalar("motionAmount", ParamKeys.MOTION_AMOUNT, 0f, 1f, { it.motionAmount }) { p, v -> p.copy(motionAmount = v) },
-            scalar("motionBreath", ParamKeys.MOTION_BREATH, 0f, 1f, { it.motionBreath }) { p, v -> p.copy(motionBreath = v) },
-            scalar("motionOrbit", ParamKeys.MOTION_ORBIT, 0f, 1f, { it.motionOrbit }) { p, v -> p.copy(motionOrbit = v) },
-            scalar("motionDrift", ParamKeys.MOTION_DRIFT, 0f, 1f, { it.motionDrift }) { p, v -> p.copy(motionDrift = v) },
-            scalar("motionHue", ParamKeys.MOTION_HUE, 0f, 1f, { it.motionHue }) { p, v -> p.copy(motionHue = v) },
-            scalar("formDrive", LABEL_FORM_DRIVE, 0f, 1f, { it.formDrive }) { p, v -> p.copy(formDrive = v) },
-            scalar("beatResponse", LABEL_TRANSIENT_RESPONSE, 0f, 2f, { it.beatResponse }) { p, v -> p.copy(beatResponse = v) },
-            scalar("flash", LABEL_TRANSIENT_FLASH, 0f, 1f, { it.flash }) { p, v -> p.copy(flash = v) },
             scalar("bassGain", ParamKeys.BASS_GAIN, 0f, 2f, { it.bassGain }) { p, v -> p.copy(bassGain = v) },
             scalar("midGain", ParamKeys.MID_GAIN, 0f, 2f, { it.midGain }) { p, v -> p.copy(midGain = v) },
             scalar("trebGain", ParamKeys.TREBLE_GAIN, 0f, 2f, { it.trebGain }) { p, v -> p.copy(trebGain = v) },
@@ -211,12 +202,12 @@ object AnimatableParams {
             toggle("colorCycle", ParamKeys.COLOR_CYCLE, { it.colorCycle }) { p, v -> p.copy(colorCycle = v) },
             scalar("cycleSpeed", ParamKeys.CYCLE_SPEED, 0.02f, 0.6f, { it.cycleSpeed }) { p, v -> p.copy(cycleSpeed = v) },
             scalar("saturation", ParamKeys.SATURATION, 0f, 1.5f, { it.saturation }) { p, v -> p.copy(saturation = v) },
-            scalar("brightness", ParamKeys.BRIGHTNESS, 0.2f, 2f, { it.brightness }) { p, v -> p.copy(brightness = v) },
-            scalar("contrast", ParamKeys.CONTRAST, 0.3f, 2.5f, { it.contrast }) { p, v -> p.copy(contrast = v) },
+            scalar("brightness", ParamKeys.BRIGHTNESS, 0.2f, 1.25f, { it.brightness }) { p, v -> p.copy(brightness = v) },
+            scalar("contrast", ParamKeys.CONTRAST, 0.3f, 1.25f, { it.contrast }) { p, v -> p.copy(contrast = v) },
             scalar("gamma", ParamKeys.GAMMA, 0.3f, 2.5f, { it.gamma }) { p, v -> p.copy(gamma = v) },
-            scalar("intensity", ParamKeys.INTENSITY, 0.2f, 2f, { it.intensity }) { p, v -> p.copy(intensity = v) },
+            scalar("intensity", ParamKeys.INTENSITY, 0.2f, 1.25f, { it.intensity }) { p, v -> p.copy(intensity = v) },
             scalar("temperature", ParamKeys.TEMPERATURE, -1f, 1f, { it.temperature }) { p, v -> p.copy(temperature = v) },
-            scalar("bloom", ParamKeys.BLOOM, 0f, 1f, { it.bloom }) { p, v -> p.copy(bloom = v) },
+            scalar("bloom", ParamKeys.BLOOM, 0f, 0.25f, { it.bloom }) { p, v -> p.copy(bloom = v) },
             scalar("posterize", ParamKeys.POSTERIZE, 0f, 1f, { it.posterize }) { p, v -> p.copy(posterize = v) },
             toggle("duotone", ParamKeys.DUOTONE, { it.duotone }) { p, v -> p.copy(duotone = v) },
             toggle("solarize", ParamKeys.SOLARIZE, { it.solarize }) { p, v -> p.copy(solarize = v) },
@@ -229,9 +220,8 @@ object AnimatableParams {
             scalar("vignette", ParamKeys.VIGNETTE, 0f, 1f, { it.vignette }) { p, v -> p.copy(vignette = v) },
             scalar("scanlines", ParamKeys.SCANLINES, 0f, 1f, { it.scanlines }) { p, v -> p.copy(scanlines = v) },
             scalar("grain", ParamKeys.FILM_GRAIN, 0f, 1f, { it.grain }) { p, v -> p.copy(grain = v) },
-            scalar("glitch", ParamKeys.GLITCH, 0f, 1f, { it.glitch }) { p, v -> p.copy(glitch = v) },
+            scalar("glitch", ParamKeys.GLITCH, 0f, 0.25f, { it.glitch }) { p, v -> p.copy(glitch = v) },
             scalar("fisheye", ParamKeys.FISHEYE, -1f, 1f, { it.fisheye }) { p, v -> p.copy(fisheye = v) },
-            scalar("strobe", LABEL_STROBE, 0f, 1f, { it.strobe }) { p, v -> p.copy(strobe = v) },
             scalar(
                 "waterRippleStrength",
                 ParamKeys.RIPPLE_STRENGTH,
@@ -293,7 +283,7 @@ object AnimatableParams {
                 0.4f,
                 { it.fluidSplatRadius },
             ) { p, v -> p.copy(fluidSplatRadius = v) },
-            scalar("fluidRadiusPulse", LABEL_RADIUS_ON_HIT, 0f, 1f, { it.fluidRadiusPulse }) { p, v -> p.copy(fluidRadiusPulse = v) },
+            scalar("fluidRadiusPulse", ParamKeys.RADIUS_ON_BEAT, 0f, 1f, { it.fluidRadiusPulse }) { p, v -> p.copy(fluidRadiusPulse = v) },
             scalar("fluidSplatForce", ParamKeys.FLUID_SPLAT_FORCE, 0f, 3f, { it.fluidSplatForce }) { p, v -> p.copy(fluidSplatForce = v) },
             toggle("fluidBassPump", ParamKeys.BASS_PUMP, { it.fluidBassPump }) { p, v -> p.copy(fluidBassPump = v) },
             toggle("fluidSparkle", ParamKeys.TREBLE_SPARKLE, { it.fluidSparkle }) { p, v -> p.copy(fluidSparkle = v) },
@@ -360,10 +350,10 @@ object AnimatableParams {
             choice("cymaticsGeometry", ParamKeys.GEOMETRY, SceneParams.CYMATICS_GEOMETRIES, {
                 it.cymaticsGeometry
             }) { p, v -> p.copy(cymaticsGeometry = v) },
-            scalar("cymaticsFundamental", ParamKeys.FUNDAMENTAL_HZ, CymaticsMath.MIN_FUNDAMENTAL_HZ, CymaticsMath.MAX_FUNDAMENTAL_HZ, {
+            scalar("cymaticsFundamental", ParamKeys.FUNDAMENTAL_HZ, FUNDAMENTAL.start, FUNDAMENTAL.endInclusive, {
                 it.cymaticsFundamental
             }) { p, v -> p.copy(cymaticsFundamental = v) },
-            count("cymaticsModes", ParamKeys.STANDING_WAVES, 1, CymaticsMath.MAX_RENDERED_MODES, {
+            count("cymaticsModes", ParamKeys.STANDING_WAVES, 1, MAX_MODES, {
                 it.cymaticsModes
             }) { p, v -> p.copy(cymaticsModes = v) },
             scalar("cymaticsFocus", ParamKeys.TONAL_FOCUS, 0f, 1f, { it.cymaticsFocus }) { p, v -> p.copy(cymaticsFocus = v) },

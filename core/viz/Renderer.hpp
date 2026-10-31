@@ -11,15 +11,19 @@
 #include <vector>
 
 #include "api/geode_api.h"
+#include "sound/SoundEngine.hpp"
 #include "viz/Adsr.hpp"
+#include "viz/CameraRig.hpp"
 #include "viz/CompositePass.hpp"
 #include "viz/Framebuffer.hpp"
 #include "viz/GlProfile.hpp"
 #include "viz/Lfo.hpp"
+#include "viz/Macros.hpp"
 #include "viz/MotionField.hpp"
 #include "viz/Overlays.hpp"
 #include "viz/Params.hpp"
 #include "viz/ProgramBinaryCache.hpp"
+#include "viz/Reactions.hpp"
 #include "viz/Scene.hpp"
 #include "viz/SceneRegistry.hpp"
 #include "viz/ShaderSource.hpp"
@@ -42,13 +46,26 @@ public:
     // Any thread.
     void setParams(const SceneParams& params);
     bool setParam(const std::string& key, float value);
-    void setFeatures(const GeodeFeatureFrame& features);
     void setReducedMotion(bool on) { reducedMotion_.store(on, std::memory_order_relaxed); }
+    // Settings › Performance, live surfaces only: an offscreen (export) renderer never calls this,
+    // so it keeps full quality. renderScale and marchScale are 0..1 multipliers stacked under the
+    // thermal tier; postFx = false drops the same optional passes a hot tier does, plus fluid bloom.
+    void setUserQuality(float renderScale, float marchScale, bool postFx, bool adaptive);
     void setLayer(const std::string& sceneId, float mix, int blendOrdinal);
     void setTransition(const std::string& id, int64_t durationMs);
     void beginParamMorph(float seconds);
     void submitTouchPoints(const float* xy, int n) { touchField_.submit(xy, n); }
     void pushPcm(const float* samples, int count);
+    // The sound engine's write side: interleaved PCM in play order, every sample once. A new rate builds a
+    // new engine. Call from the render thread before render(), live and in export alike, so the frame the
+    // engine is stepped into covers exactly the audio written up to that frame.
+    void writeAudio(const float* interleaved, int frames, int channels, int sampleRateHz);
+    // A seek, track change or source switch: drop the engine's history.
+    void resetAudio();
+    // Settings › Audio: kept across engine rebuilds (a new sample rate builds a new engine).
+    void setSoundTuning(const GeodeSoundTuning& tuning);
+    // The frame beginFrame last stepped, for readers outside the renderer (Kotlin meters, tests).
+    GeodeSoundFrame soundFrame() const;
     void setCustomShader(const std::string& sceneId, const std::string& fragmentSource);
     // The user source a scene last compiled successfully; "" when it draws its built-in style.
     std::string customShaderFor(const std::string& sceneId) const;
@@ -61,6 +78,12 @@ public:
     std::string takeMilkPresetLoaded();
     void setLfoConfigs(const std::array<LfoConfig, LfoEngine::kSlots>& configs);
     void setAdsrConfigs(const std::array<AdsrConfig, AdsrEngine::kCount>& configs);
+    void setReactionRoutes(const std::array<ReactRoute, ReactionEngine::kRoutes>& routes);
+    // Gyro look, -1..1 per axis; read by the camera only while camGyro is on.
+    void setLook(float yaw, float pitch) {
+        lookYaw_.store(yaw, std::memory_order_relaxed);
+        lookPitch_.store(pitch, std::memory_order_relaxed);
+    }
     // W00: full-frame overlay/underlay layers, latched here and uploaded to GL textures at the
     // start of the next frame; see CompositePass.hpp for the pass itself. `pixels` is Android's
     // Bitmap.getPixels ARGB layout; null (or a non-positive size) clears the layer.
@@ -104,6 +127,7 @@ private:
     void composite(Scene& scene, const SceneParams& p, float progress, GLuint targetFbo);
     void deliverPcm(Scene& scene);
     void stepOverlays(Scene& scene, const SceneParams& p, float dt);
+    void stepCamera(const SceneParams& p, float dt);
     void wireFlow(Scene& target, const SceneParams& p);
     void applyPendingFluidInjection();
     void applyMilkRequests();
@@ -128,12 +152,27 @@ private:
     TrailPass trailPass_;
     CompositePass compositePass_;
     CompositePass::Inputs compositeInputs_;
+    FlashBudget flashBudget_;
     ThermalGovernor thermal_;
     LfoEngine lfo_;
     AdsrEngine adsr_;
     // Wave three's continuous replacement for FormDrive: the one stage every
     // family's SceneParams pass through so nothing can key off a drum hit.
     MotionField motionField_;
+    ReactionEngine reactions_;
+    ReactionEngine macroReactions_;
+    CameraRig camera_;
+    // One engine per renderer (one per surface), so each is frame-locked to its own dt. Guarded by soundLock_
+    // only because writeAudio and soundFrame are public; in practice one thread does everything.
+    mutable std::mutex soundLock_;
+    std::unique_ptr<sound::SoundEngine> sound_;
+    GeodeSoundTuning soundTuning_ = sound::SoundEngine::defaultTuning();
+    GeodeSoundFrame soundFrame_{};
+    // Customize › Macros: this frame's knobs, and the ones the sound engine's tuning was last built from.
+    MacroKnobs frameKnobs_{};
+    MacroKnobs tunedKnobs_{};
+    std::atomic<float> lookYaw_{0.0f};
+    std::atomic<float> lookPitch_{0.0f};
     Framebuffer fboA_{"sceneA"};
     Framebuffer fboB_{"sceneB"};
     GLuint quadVao_ = 0;
@@ -141,7 +180,6 @@ private:
 
     mutable std::mutex stateLock_;
     SceneParams requestedParams_;
-    GeodeFeatureFrame features_{};
     std::string requestedSceneId_ = "silk_web";
     std::string layerSceneId_;
     float layerMix_ = 0.5f;
@@ -149,6 +187,13 @@ private:
     std::string transitionId_ = "fade";
     int64_t transitionDurationMs_ = 1200;
     std::atomic<bool> reducedMotion_{false};
+    std::atomic<float> userScale_{1.0f};
+    std::atomic<float> marchScale_{1.0f};
+    std::atomic<bool> userPostFx_{true};
+    float appliedUserScale_ = 1.0f;
+    // SceneRegistry::spinRate of the requested scene, set by setScene so the
+    // frame never compares ids.
+    std::atomic<float> sceneSpin_{0.0f};
     float morphFadeSec_ = 0.0f;
     float morphRemainSec_ = 0.0f;
     std::vector<float> pcm_;
@@ -173,6 +218,9 @@ private:
     float underlayAmount_ = 0.0f;
     bool underlayDirty_ = false;
     std::string lastMilkPreset_;
+    // lastMilkPreset_ is the latest request, which may have failed; this is the latest preset that
+    // compiled. A rebuilt scene is seeded with both (buildScene).
+    std::string lastGoodMilkPreset_;
     std::string milkPresetRequest_;
     bool milkReloadRequested_ = false;
     std::string milkTextureDir_;
@@ -187,6 +235,7 @@ private:
     std::array<float, LfoEngine::kSlots> envDepth_{};
     float postRotationAngle_ = 0.0f;
     float postCyclePhase_ = 0.0f;
+    float postBeatPulse_ = 0.0f;
     Scene* activeScene_ = nullptr;
     Scene* outgoingScene_ = nullptr;
     Scene* layerScene_ = nullptr;
@@ -201,8 +250,7 @@ private:
     double lastTimeS_ = -1.0;
     double frameNowS_ = 0.0;
     float timeSeconds_ = 0.0f;
-    GeodeFeatureFrame frameFeatures_{};
-    // Latched once per frame in beginFrame alongside frameFeatures_, so the
+    // Latched once per frame in beginFrame, so the
     // rest of the frame (composite(), drawSecondaryTargets(), ...) reads a
     // stable snapshot instead of racing setLayer()/setTransition() on
     // stateLock_.

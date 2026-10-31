@@ -14,11 +14,6 @@ out vec4 fragColor;
 // Orb Lattice: a spherical kaleidoscope of neon dot lattices with RGB fringes
 // over a dark green field. uv -> sphere map -> kaleidoscope fold -> three dot
 // lattices -> RGB split -> palette.
-//
-// motion: uKeyHue/uKeyStrength -> the palette anchor (drifts toward the
-// track's own key), uBassRel -> arm count and the breathing zoom (via
-// uBreath). uOrbit wanders the sphere's fold offset; uEnergyRel brightens
-// the orb.
 
 #define ORB_TAU 6.2831853
 
@@ -48,22 +43,20 @@ vec3 rgbSplit(vec2 p, float k) {
 }
 
 // The user's fold count when the kaleidoscope is on; otherwise the arm count
-// bass's relative level chooses.
+// the last spike chose.
 //
 // This used to step 8 -> 6 -> 4 as the beat envelope decayed, which meant the
 // whole kaleidoscope re-folded twice on the way down from every hit - three
-// different pictures per beat, none of them held. uBassRel is a continuous,
-// slew-limited level: the arm count follows it and holds while it holds.
+// different pictures per beat, none of them held. uFormPhase is a plateau: a
+// spike picks the next arm count and it stays there until the next one.
 float foldCount() {
     if (uKaleido > 0.5 && uSymmetry >= 2.0) return uSymmetry;
-    return 4.0 + 2.0 * floor(clamp(uBassRel * 0.5, 0.0, 0.999) * 3.0);
+    return 4.0 + 2.0 * floor(uFormPhase * 3.0);
 }
 
 vec3 latticeColour(vec2 q, float split, float glow) {
     vec3 rgb = rgbSplit(q, split);
-    // The palette anchor drifts toward the track's own key, gated by how
-    // confident the key detector is right now.
-    vec3 col = rgb.g * pal(0.55 + 0.08 * sin(q.x * 0.7 + uTime * 0.2) + 0.10 * uKeyHue * uKeyStrength);
+    vec3 col = rgb.g * pal(0.55 + 0.08 * sin(q.x * 0.7 + uTime * 0.2));
     col += rgb.b * pal(0.68) * 0.7;
     col += rgb.r * (1.0 - rgb.g) * pal(0.02) * 0.8;
     return col * glow;
@@ -73,18 +66,16 @@ void main() {
     vec2 uv = view();
     // The slew-limited companions, not the raw envelopes: a band that jumps 0 -> 1
     // between two frames used to take the zoom, the fringe width and the glow with it.
-    float bassA = min(uBassSmooth, 1.3);
-    float trebA = min(uTrebleSmooth, 1.3);
-    float enA = min(uEnergySmooth, 1.3);
-    float bassRel = clamp(uBassRel, 0.0, 2.0);
-    float energyRel = clamp(uEnergyRel, 0.0, 2.0);
+    float bassA = min(SND_BASS_PRESENCE, 1.3);
+    float trebA = min(sndShaped(SND_HIGH), 1.3);
+    float enA = min(sndShaped(SND_LEVEL), 1.3);
+    // uSpike rather than the beat-phase bump: it rises over ~120ms, so the accent
+    // swells instead of flashing on one frame.
+    float hit = uSpike;
 
     float folds = foldCount();
     float split = mix(0.01, 0.04, clamp(trebA, 0.0, 1.0));
-    // The breathing shell (uBreath) sets the base zoom; bass's relative
-    // level adds up to another 5%, both already slew-limited.
-    float zoomPulse = uBreath * (1.0 + 0.05 * clamp(bassRel - 1.0, 0.0, 1.0));
-    vec2 p = uv / zoomPulse;
+    vec2 p = uv;
     float r2 = dot(p, p);
 
     vec3 col = vec3(0.0, 0.08, 0.04);
@@ -96,15 +87,13 @@ void main() {
     if (r2 < 1.0) {
         vec2 s = sphereUv(p) + flowOffset(0.9) + vec2(0.0, 0.02 * sin(uTime * 0.17));
         vec2 q = kaleido(s * 1.25, folds);
+        // The new spawn grows its offset in over a second rather than cutting to it.
         q += 0.12 * vec2(sin(uTime * 0.19), cos(uTime * 0.23));
-        // Wanders with uOrbit rather than re-rolling on a hit: it holds while
-        // the wander target holds and eases whenever novelty or a section
-        // boundary re-targets it.
-        q += 0.18 * uOrbit;
+        q += 0.18 * (uSpawnSeed - 0.5) * spawnGrow(1.1) * uMoveDir;
         float rim = sqrt(1.0 - r2);
         vec3 orb = latticeColour(q, split, 0.35 + 0.65 * rim);
         orb += pal(0.5) * pow(rim, 6.0) * 0.08;
-        orb *= 1.0 + 0.20 * clamp(energyRel - 1.0, 0.0, 1.0);
+        orb *= 1.0 + 0.25 * hit;
         col = mix(col, orb, smoothstep(1.0, 0.97, r2));
     }
 

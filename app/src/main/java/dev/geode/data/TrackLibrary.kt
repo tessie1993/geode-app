@@ -1,27 +1,10 @@
 package dev.geode.data
 
 import android.content.Context
+import dev.geode.model.LibraryTrack
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
-
-data class LibraryTrack(
-    val uri: String,
-    val title: String,
-    val artist: String = "",
-    val durationMs: Long = 0L,
-    val bpm: Float = 0f,
-    val key: String = "",
-    val analyzed: Boolean = false,
-    val album: String = "",
-    val genre: String = "",
-    val year: Int = 0,
-    val trackNo: Int = 0,
-    val comment: String = "",
-    val fileName: String = "",
-    val sizeBytes: Long = 0L,
-    val folder: String = "",
-)
 
 class TrackLibrary(
     context: Context,
@@ -31,26 +14,6 @@ class TrackLibrary(
     fun list(): List<LibraryTrack> = synchronized(lock) { readLocked() ?: emptyList() }
 
     fun addAll(tracks: List<LibraryTrack>): List<LibraryTrack>? = mutate { current -> mergeAdds(current, tracks) }
-
-    fun updateAnalysis(
-        uri: String,
-        title: String,
-        durationMs: Long,
-        bpm: Float,
-        key: String = "",
-    ): List<LibraryTrack>? =
-        mutate { current ->
-            val map = current.associateBy { it.uri }.toMutableMap()
-            val base = map[uri] ?: LibraryTrack(uri = uri, title = title)
-            map[uri] =
-                base.copy(
-                    durationMs = if (durationMs > 0) durationMs else base.durationMs,
-                    bpm = bpm,
-                    key = key.ifBlank { base.key },
-                    analyzed = true,
-                )
-            map.values.sortedBy { it.title.lowercase() }
-        }
 
     fun updateMetadata(
         uri: String,
@@ -104,7 +67,7 @@ class TrackLibrary(
 
         internal fun identityKey(t: LibraryTrack): String =
             if (t.fileName.isNotBlank() && t.sizeBytes > 0L) {
-                "file:${t.fileName.lowercase()}:${t.sizeBytes}:${t.folder}"
+                "file:${t.fileName.lowercase()}:${t.sizeBytes}"
             } else {
                 "uri:${t.uri}"
             }
@@ -121,33 +84,14 @@ class TrackLibrary(
 
             fun keep(t: LibraryTrack) {
                 val key = identityKey(t)
-                val held = merged[key]
-                merged[key] = if (held == null) t else richer(held, t)
+                if (key !in merged) merged[key] = t
             }
             for (t in existing) {
-                val id = identityByUri[t.uri]
-                keep(
-                    if (id == null) {
-                        t
-                    } else {
-                        t.copy(
-                            fileName = t.fileName.ifBlank { id.fileName },
-                            sizeBytes = t.sizeBytes.takeIf { it > 0L } ?: id.sizeBytes,
-                            folder = t.folder.ifBlank { id.folder },
-                        )
-                    },
-                )
+                val id = if (t.fileName.isBlank()) identityByUri[t.uri] else null
+                keep(if (id == null) t else t.copy(fileName = id.fileName, sizeBytes = id.sizeBytes))
             }
             for (t in incoming) keep(t)
             return merged.values.sortedBy { it.title.lowercase() }
-        }
-
-        private fun richer(
-            kept: LibraryTrack,
-            other: LibraryTrack,
-        ): LibraryTrack {
-            val preferred = if (!kept.analyzed && other.analyzed) other else kept
-            return preferred.copy(folder = preferred.folder.ifBlank { kept.folder.ifBlank { other.folder } })
         }
 
         internal fun upsertInfo(
@@ -197,9 +141,6 @@ class TrackLibrary(
                 .put("title", t.title)
                 .put("artist", t.artist)
                 .put("durationMs", t.durationMs)
-                .put("bpm", t.bpm.toDouble())
-                .put("key", t.key)
-                .put("analyzed", t.analyzed)
                 .put("album", t.album)
                 .put("genre", t.genre)
                 .put("year", t.year)
@@ -207,7 +148,6 @@ class TrackLibrary(
                 .put("comment", t.comment)
                 .put("fileName", t.fileName)
                 .put("sizeBytes", t.sizeBytes)
-                .put("folder", t.folder)
 
         private fun fromJson(o: JSONObject): LibraryTrack =
             LibraryTrack(
@@ -215,9 +155,6 @@ class TrackLibrary(
                 title = o.optString("title", "Track"),
                 artist = o.optString("artist", ""),
                 durationMs = o.optLong("durationMs", 0L),
-                bpm = o.finiteDouble("bpm", 0.0).toFloat(),
-                key = o.optString("key", ""),
-                analyzed = o.optBoolean("analyzed", false),
                 album = o.optString("album", ""),
                 genre = o.optString("genre", ""),
                 year = o.optInt("year", 0),
@@ -225,7 +162,6 @@ class TrackLibrary(
                 comment = o.optString("comment", ""),
                 fileName = o.optString("fileName", ""),
                 sizeBytes = o.optLong("sizeBytes", 0L),
-                folder = o.optString("folder", ""),
             )
     }
 }

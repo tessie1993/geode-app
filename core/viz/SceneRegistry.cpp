@@ -1,7 +1,6 @@
 #include "viz/SceneRegistry.hpp"
 
-#include <array>
-
+#include "viz/Catalogue.hpp"
 #include "viz/scenes/AcidScene.hpp"
 #include "viz/scenes/CurlFlowScene.hpp"
 #include "viz/scenes/CymaticsScene.hpp"
@@ -16,58 +15,19 @@
 
 namespace geode::viz {
 
-namespace {
+// Which ids exist, which are fragment styles and how they turn is the catalogue's (viz/Catalogue);
+// the registry only builds the scene an id names.
 
-// Port of SceneCapabilities.SHADER_SCENES: id -> shaders/<id>_frag.glsl, in the catalog's order.
-constexpr std::array<const char*, 39> kShaderIds = {
-    "julia",     "tunnel",  "mandel",    "kaleido",   "plasma",    "bars",       "ring",      "scope",
-    "liss",      "warp",    "grid",      "voronoi",   "metaballs", "ripples",    "starfield", "waves",
-    "hexgrid",   "spiral",  "aurora",    "solar",     "winter",    "lava",       "vanishing", "morphogen",
-    "nebula",    "noneuclid", "kifs",    "orb_lattice", "rod_tunnel", "neon_tiles",
-    "chroma_orb", "mandala_dome", "bead_vortex",
-    "merkaba_grid", "spiral_eye", "blacklight_bloom", "fractal_temple",
-    "curl_bloom", "nectar_flow",
-};
+bool SceneRegistry::isShaderStyle(const std::string& id) { return catalogue::isShaderStyle(id); }
 
-constexpr const char* kMilkdrop = "milkdrop";
-constexpr const char* kCurlFlow = "curlflow";
-constexpr const char* kWater = "water";
+float SceneRegistry::spinRate(const std::string& id) { return catalogue::spinRate(id); }
 
-bool isShaderId(const std::string& id) {
-    for (const char* known : kShaderIds) {
-        if (id == known) return true;
-    }
-    return false;
-}
+bool SceneRegistry::knows(const std::string& id) const { return catalogue::knows(id); }
 
-void append(std::vector<std::string>& out, std::vector<std::string> ids) {
-    out.insert(out.end(), ids.begin(), ids.end());
-}
-
-}  // namespace
-
-bool SceneRegistry::knows(const std::string& id) const {
-    return isShaderId(id) || styles::cymatics(id) || styles::silk(id) || styles::life(id) || styles::acid(id) || styles::myco(id) ||
-           styles::fluid(id) || id == kMilkdrop || id == kCurlFlow || id == kWater;
-}
-
-std::vector<std::string> SceneRegistry::availableIds() const {
-    std::vector<std::string> out;
-    append(out, styles::silkIds());
-    append(out, styles::lifeIds());
-    append(out, styles::mycoIds());
-    append(out, styles::acidIds());
-    out.insert(out.end(), kShaderIds.begin(), kShaderIds.end());
-    out.emplace_back(kMilkdrop);
-    append(out, styles::fluidIds());
-    out.emplace_back(kCurlFlow);
-    out.emplace_back(kWater);
-    append(out, styles::cymaticsIds());
-    return out;
-}
+std::vector<std::string> SceneRegistry::availableIds() const { return catalogue::allIds(); }
 
 std::unique_ptr<Scene> SceneRegistry::create(const std::string& id, const std::string& quadVert) const {
-    if (isShaderId(id)) {
+    if (catalogue::isShaderStyle(id)) {
         std::string error;
         const auto fragment = loader_.assets.load(id + "_frag.glsl", &error);
         if (!fragment) {
@@ -81,11 +41,13 @@ std::unique_ptr<Scene> SceneRegistry::create(const std::string& id, const std::s
     if (const auto* style = styles::life(id)) return std::make_unique<LifeScene>(*style, loader_, host_);
     if (const auto* style = styles::acid(id)) return std::make_unique<AcidScene>(*style, loader_, host_);
     if (const auto* style = styles::myco(id)) return std::make_unique<MycoScene>(*style, loader_, host_);
-    if (id == kMilkdrop) return std::make_unique<MilkdropScene>(loader_, host_);
     if (const auto* style = styles::fluid(id)) return std::make_unique<FluidScene>(*style, loader_, host_);
-    if (id == kCurlFlow) return std::make_unique<CurlFlowScene>(loader_, host_);
-    if (id == kWater) return std::make_unique<WaterScene>(loader_, host_);
-    return nullptr;
+    switch (catalogue::kindOf(id)) {
+        case catalogue::Kind::Milkdrop: return std::make_unique<MilkdropScene>(loader_, host_);
+        case catalogue::Kind::CurlFlow: return std::make_unique<CurlFlowScene>(loader_, host_);
+        case catalogue::Kind::Water: return std::make_unique<WaterScene>(loader_, host_);
+        default: return nullptr;
+    }
 }
 
 }  // namespace geode::viz

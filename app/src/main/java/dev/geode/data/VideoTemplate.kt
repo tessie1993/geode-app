@@ -531,8 +531,9 @@ private fun clampWindow(
 /**
  * Everything about producing the file, apart from framing (see [TemplateLayout]).
  *
- * [fps] is stored as written; only 30 and 60 are encodable, so [resolvedFps] snaps to
- * the nearer of the two while the authored value round-trips untouched.
+ * [fps] is stored as written; [resolvedFps] snaps it to the nearest rate the exporter offers
+ * ([EXPORT_FPS_OPTIONS]: 24, 25, 30, 50, 60) while the authored value round-trips untouched.
+ * It used to snap to 30 or 60 only, so a 24 or 25 fps template rendered at 30.
  */
 data class TemplateExport(
     val quality: Tolerant<ExportQuality> = Tolerant.Known(DEFAULT_QUALITY),
@@ -547,7 +548,8 @@ data class TemplateExport(
 
     fun resolvedAudio(): AudioHandling = audio.orElse(DEFAULT_AUDIO)
 
-    fun resolvedFps(): Int = if (fps <= FPS_MIDPOINT) 30 else 60
+    // Nearest offered rate; on a tie the lower one, which is the cheaper render.
+    fun resolvedFps(): Int = EXPORT_FPS_OPTIONS.minBy { kotlin.math.abs(it - fps) }
 
     companion object {
         val DEFAULT_QUALITY: ExportQuality = ExportQuality.FHD1080
@@ -555,8 +557,6 @@ data class TemplateExport(
 
         const val DEFAULT_FPS: Int = 30
         const val DEFAULT_FILE_NAME_PATTERN: String = "{artist} - {title}"
-
-        private const val FPS_MIDPOINT: Int = 45
     }
 }
 
@@ -646,7 +646,7 @@ private fun sanitizeFileStem(raw: String): String =
         .trim()
         .take(MAX_FILE_STEM)
         .trim()
-        .ifBlank { "Geode video" }
+        .ifBlank { "MuzViz video" }
 
 private val UNSAFE_FILE_CHARS = Regex("""[\\/:*?"<>|]""")
 

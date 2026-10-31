@@ -1,18 +1,9 @@
 package dev.geode.playback
 
 import androidx.media3.common.C
-import dev.geode.RingLog
 import dev.geode.engine.audioandroid.PcmTap
 import dev.geode.engine.audioandroid.SinkClockDriver
 import dev.geode.engine.bridge.GeodeNative
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withTimeoutOrNull
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
@@ -26,40 +17,25 @@ class NativeTapPump(
 ) {
     @Volatile
     private var running = false
-    private var job: Job? = null
-    private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+    private var thread: Thread? = null
 
     fun start(handle: Long) {
         running = true
-        job = scope.launch { loop(handle) }
+        thread =
+            Thread({ loop(handle) }, "geode-native-tap").apply {
+                isDaemon = true
+                start()
+            }
     }
 
-    /**
-     * Returns once the thread has let go of the handle, or once the wait runs out; call before the
-     * player is destroyed.
-     *
-     * The wait is bounded because this runs on the application looper — `NativePlayer.handleRelease`
-     * is called there — and the worker can be inside a blocking `playerReadTap`. An unbounded join
-     * turns a stalled Oboe stream into an ANR at teardown. Every other join in this codebase is
-     * bounded the same way (`AudioCapturePump`, `NativePlayer`, `VisualizerView`); a timeout is
-     * logged rather than swallowed so a wedged tap thread is diagnosable.
-     */
+    /** Returns once the thread has let go of the handle; call before the player is destroyed. */
     fun stop() {
         running = false
-        runBlocking {
-            val done =
-                withTimeoutOrNull(JOIN_TIMEOUT_MS) {
-                    job?.join()
-                    true
-                }
-            if (done == null) {
-                RingLog.note(TAG, "tap pump did not stop within ${JOIN_TIMEOUT_MS}ms")
-            }
-        }
-        job = null
+        thread?.join()
+        thread = null
     }
 
-    private suspend fun loop(handle: Long) {
+    private fun loop(handle: Long) {
         val buffer = ByteBuffer.allocateDirect(FRAMES * CHANNELS * Float.SIZE_BYTES).order(ByteOrder.nativeOrder())
         var rate = 0
         clock.attachSkippedFrames { 0L }
@@ -78,14 +54,12 @@ class NativeTapPump(
                 buffer.position(0)
                 tap.handleBuffer(buffer)
             } else {
-                delay(IDLE_SLEEP_MS)
+                Thread.sleep(IDLE_SLEEP_MS)
             }
         }
     }
 
     private companion object {
-        const val TAG = "NativeTapPump"
-        const val JOIN_TIMEOUT_MS = 500L
         const val FRAMES = 2048
         const val CHANNELS = 2
         const val IDLE_SLEEP_MS = 10L

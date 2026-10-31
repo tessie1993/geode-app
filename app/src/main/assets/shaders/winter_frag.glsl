@@ -1,22 +1,16 @@
 #version 300 es
 precision highp float;
 // GLSL ES 3.00 defaults fragment sampler2D to LOWP (range [-2,2), ~8
-// fraction bits). uAudioTex is R32F; on GPUs honoring sampler precision
+// fraction bits). uSoundTex is R32F; on GPUs honoring sampler precision
 // (Mali) every read is clamped and quantized.
 precision highp sampler2D;
 
 in vec2 vUv;
 out vec4 fragColor;
 
-// motion: uBassRel -> ice-ring size/inflation and snow-flake size, uTrebRel ->
-// frost-crystal glint and flake twinkle (continuous, never a beat hit)
 uniform float uTime;
 uniform vec2 uResolution;
-uniform float uBass;
-uniform float uMid;
-uniform float uTreble;
-uniform float uEnergy;
-uniform sampler2D uAudioTex;
+//#include lib_sound
 uniform float uSpeed;
 uniform float uZoom;
 uniform float uRotation;
@@ -46,18 +40,16 @@ uniform float uMorph;
 uniform float uPixelate;
 uniform float uPosterize;
 uniform float uSway;
-uniform float uBeatPhase;
+uniform float uPulse;
 uniform float uDriftX;
 uniform float uDriftY;
+uniform float uShake;
 uniform float uTile;
 uniform float uTwist;
 uniform float uTemperature;
 uniform float uSolarize;
+uniform float uFlash;
 
-//#include lib_scene_motion
-
-float aband(float x) { return texture(uAudioTex, vec2(clamp(x, 0.0, 1.0), 0.25)).r; }
-float awave(float x) { return texture(uAudioTex, vec2(clamp(x, 0.0, 1.0), 0.75)).r; }
 
 vec2 view() {
     vec2 uv = vUv * 2.0 - 1.0;
@@ -75,6 +67,22 @@ vec2 view() {
         ang = abs(mod(ang, seg) - seg * 0.5);
         uv = vec2(cos(ang), sin(ang)) * rad;
     }
+    // Morph: blend the plane toward a polar remap (angle,radius swap), a
+    // smooth geometric metamorphosis that works on any scene.
+    if (uMorph > 0.001) {
+        float mr = length(uv);
+        float ma = mr > 1e-5 ? atan(uv.y, uv.x) : 0.0; // atan(0, 0) is undefined in GLSL ES
+        vec2 polar = vec2(abs(ma) / 1.5707963 - 1.0, (mr - 0.7) * 1.6);
+        // Faded to nothing at the centre: atan has no angle at r = 0, so every
+        // angle met at one point and the centre of the frame drew as a pinched
+        // vortex whenever morph was up (MotionField holds it near 0.7).
+        uv = mix(uv, polar, uMorph * (0.6 + 0.15 * sin(uTime * 0.31)) * smoothstep(0.0, 0.6, mr));
+    }
+    float a = uRotation + uSway * 0.35 * sin(uTime * 0.7);
+    uv = mat2(cos(a), -sin(a), sin(a), cos(a)) * uv;
+    // Drift and shake move the picture after the spin and the morph. Added
+    // before them, the rotation pivoted on -drift and the morph's pinch rode
+    // the drift, so the whole frame spun around a wandering off-centre point.
     // Drift ping-pongs rather than running away. The composite pass wraps its
     // own drift with fract() because it samples a BOUNDED image ("Wrap so the
     // image scrolls instead of smearing at the clamped edge"), but uv here
@@ -87,21 +95,10 @@ vec2 view() {
     // for good and stranding the user on a black screen.
     vec2 driftPhase = fract(vec2(uDriftX, uDriftY) * uTime * 0.025 + 0.25);
     uv += 1.0 - 2.0 * abs(2.0 * driftPhase - 1.0);
-    // Morph: blend the plane toward a polar remap (angle,radius swap), a
-    // smooth geometric metamorphosis that works on any scene.
-    if (uMorph > 0.001) {
-        float mr = length(uv);
-        float ma = atan(uv.y, uv.x);
-        vec2 polar = vec2(ma / 3.14159, (mr - 0.7) * 1.6);
-        uv = mix(uv, polar, uMorph * (0.6 + 0.15 * sin(uTime * 0.31)));
-    }
-    float a = uRotation + uSway * 0.35 * sin(uTime * 0.7);
-    uv = mat2(cos(a), -sin(a), sin(a), cos(a)) * uv;
     // Triangle-wave exponent: 1x -> 2x -> 1x smoothly, so the endless-zoom
     // phase wrap never causes a visible scale pop (2^1 snapping to 2^0). The
     // milkdrop post pass (pm_post_frag) already spells it this way; a sawtooth
     // exponent halved the magnification once per cycle on every scene shader.
-    // Wave three: no beat-locked pulse or beat-response widening.
     float z = uZoom * pow(2.0, 1.0 - abs(2.0 * uZoomPhase - 1.0));
     uv /= max(z, 0.05);
     uv += uTurbulence * 0.06 * vec2(sin(uv.y * 6.0 + uTime), cos(uv.x * 6.0 + uTime * 1.3));
@@ -110,9 +107,11 @@ vec2 view() {
         float tr = length(uv) * uTwist * 2.0;
         uv = mat2(cos(tr), -sin(tr), sin(tr), cos(tr)) * uv;
     }
-    // Tiling: repeat the plane into a uTile x uTile grid.
+    // Tiling: repeat the plane into a uTile x uTile grid, every other tile
+    // mirrored so neighbours meet edge to edge. A hard mod() wrap cracked the
+    // picture along every tile boundary, and the macros drive uTile live.
     if (uTile > 1.01) {
-        uv = mod(uv * uTile * 0.5 + 1.0, 2.0) - 1.0;
+        uv = 1.0 - abs(mod(uv * uTile * 0.5 + 1.0, 4.0) - 2.0);
     }
     // Domain warp: swirl coordinates by a sin/cos field.
     if (uWarp > 0.001) {
@@ -122,7 +121,7 @@ vec2 view() {
     // Concentric ripple distortion driven by radius.
     if (uRipple > 0.001) {
         float r = length(uv);
-        uv *= 1.0 + uRipple * 0.15 * sin(r * 14.0 - uTime * 3.0 + uBass * 4.0);
+        uv *= 1.0 + uRipple * 0.15 * sin(r * 14.0 - uTime * 3.0 + sndLevel(SND_BASS) * 4.0);
     }
     return uv;
 }
@@ -185,7 +184,7 @@ void main() {
     // different share of it - which is what makes the snow read as depth.
     vec2 wind = vec2(
         sin(t * 0.23) * (0.35 + uSway) + uTurbulence * 0.5 * sin(t * 0.61),
-        cos(t * 0.17) * 0.18 * (0.3 + uMid)
+        cos(t * 0.17) * 0.18 * (0.3 + sndShaped(SND_MIDDLE))
     );
 
     // ---- icy water: interference ripples from three drifting sources ----
@@ -194,19 +193,12 @@ void main() {
     float r0 = length(p);
     float r1 = length(p - c1);
     float r2 = length(p - c2);
-    float wave = sin(r0 * (18.0 + uBass * 10.0) - t * 3.2) * exp(-r0 * 1.2);
-    wave += sin(r1 * 24.0 - t * 4.1) * exp(-r1 * 1.8) * (0.5 + uMid * 1.6);
-    wave += sin(r2 * 30.0 - t * 5.0) * exp(-r2 * 2.2) * (0.3 + uTreble * 1.4);
-    // Rings skate outward across the ice on a wrapped fraction of the
-    // monotonic travel clock, so they sweep continuously rather than
-    // resetting on a hit.
-    float ringPhase = fract(uFlowPhase * 0.09);
-    float ring =
-        exp(-abs(r0 - ringPhase * 1.7) * 12.0) * (1.0 - ringPhase) * (0.15 + 0.5 * clamp(uBassRel - 0.7, 0.0, 1.0));
+    float wave = sin(r0 * (18.0 + sndLevel(SND_BASS) * 10.0) - t * 3.2) * exp(-r0 * 1.2);
+    wave += sin(r1 * 24.0 - t * 4.1) * exp(-r1 * 1.8) * (0.5 + sndShaped(SND_MIDDLE) * 1.6);
+    wave += sin(r2 * 30.0 - t * 5.0) * exp(-r2 * 2.2) * (0.3 + sndLevel(SND_TREBLE) * 1.4);
     // Cool water body, brightened along wave crests (specular shimmer).
     float crest = pow(clamp(wave * 0.5 + 0.5, 0.0, 1.0), 3.0);
-    vec3 col = pal(0.15 + wave * 0.25) * (0.16 + 0.30 * crest + uEnergy * 0.35);
-    col += pal(0.85) * ring * 1.2;
+    vec3 col = pal(0.15 + wave * 0.25) * (0.16 + 0.30 * crest + sndShaped(SND_LEVEL) * 0.35);
 
     // ---- frost crystals: voronoi cracks glinting with treble ----
     vec2 fq = p * 5.0 - wind * 0.35;
@@ -222,7 +214,7 @@ void main() {
         }
     }
     float crack = pow(1.0 - clamp(f1, 0.0, 1.0), 6.0);
-    col += pal(0.55) * crack * (0.12 + uTreble * 0.9 + uTrebRel * 0.15);
+    col += pal(0.55) * crack * (0.12 + sndLevel(SND_TREBLE) * 0.9);
 
     // ---- snowfall: three parallax particle layers riding the wind ----
     float snow = 0.0;
@@ -240,21 +232,21 @@ void main() {
         vec2 jitter = wHash22(cell);
         vec2 fpos = fract(q) - (0.25 + 0.5 * jitter);
         float seed = wHash12(cell * 1.63 + fi * 9.7);
-        float size = (0.045 + 0.06 * seed) * uBreath;
+        float size = (0.045 + 0.06 * seed) * 1.0;
         float flake = smoothstep(size, size * 0.25, length(fpos));
         // Treble makes flakes twinkle; each flake blinks on its own phase, so
         // the twinkle is per-flake texture and never a full-frame flicker.
-        float twinkle = 0.65 + 0.35 * sin(t * (2.0 + seed * 5.0) + seed * 40.0 + uTreble * 6.0);
+        float twinkle = 0.65 + 0.35 * sin(t * (2.0 + seed * 5.0) + seed * 40.0 + sndLevel(SND_TREBLE) * 6.0);
         snow += flake * twinkle * depth * (0.55 + 0.45 * step(0.25, seed));
     }
     // Snow stays near-white with a hint of the palette so it reads as snow
     // on any colour scheme.
-    col += snow * mix(vec3(0.95), pal(0.6), 0.25) * (0.8 + uEnergy * 0.5);
+    col += snow * mix(vec3(0.95), pal(0.6), 0.25) * (0.8 + sndShaped(SND_LEVEL) * 0.5);
 
     // Spectrum shimmer along the bottom "shoreline" - a quiet nod to the
     // audio without a literal bar display.
     float shore = smoothstep(0.15, -0.6, p.y);
-    col += pal(0.35) * shore * aband(vUv.x) * 0.35;
+    col += pal(0.35) * shore * sndSpectrum(vUv.x) * 0.35;
 
     fragColor = vec4(grade(col), 1.0);
 }

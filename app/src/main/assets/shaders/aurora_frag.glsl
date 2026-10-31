@@ -1,23 +1,16 @@
 #version 300 es
 precision highp float;
 // GLSL ES 3.00 defaults fragment sampler2D to LOWP (range [-2,2), ~8
-// fraction bits). uAudioTex is R32F; on GPUs honoring sampler precision
+// fraction bits). uSoundTex is R32F; on GPUs honoring sampler precision
 // (Mali) every read is clamped and quantized.
 precision highp sampler2D;
-
-// motion: uTrebRel -> shimmer amount, uEnergyRel -> curtain glow gain
-// (uBreath/uOrbit/uDrift drive the shared view() sway/lean; no beat or spike reads remain)
 
 in vec2 vUv;
 out vec4 fragColor;
 
 uniform float uTime;
 uniform vec2 uResolution;
-uniform float uBass;
-uniform float uMid;
-uniform float uTreble;
-uniform float uEnergy;
-uniform sampler2D uAudioTex;
+//#include lib_sound
 uniform float uSpeed;
 uniform float uZoom;
 uniform float uRotation;
@@ -47,26 +40,16 @@ uniform float uMorph;
 uniform float uPixelate;
 uniform float uPosterize;
 uniform float uSway;
+uniform float uPulse;
 uniform float uDriftX;
 uniform float uDriftY;
+uniform float uShake;
 uniform float uTile;
 uniform float uTwist;
 uniform float uTemperature;
 uniform float uSolarize;
-// Wave three: the continuous motion contract. This style predates the
-// #include lib_scene_motion convention (it still pastes its own uniform
-// block, see lib_scene_uniforms.glsl's header note), so the signals it
-// needs are declared directly; ShaderScene.cpp uploads them to every
-// linked program by name regardless of how the shader sources them.
-uniform float uEnergyRel;
-uniform float uTrebRel;
-uniform vec2 uOrbit;
-uniform float uDrift;
-uniform float uBreath;
-uniform float uMotion;
+uniform float uFlash;
 
-float aband(float x) { return texture(uAudioTex, vec2(clamp(x, 0.0, 1.0), 0.25)).r; }
-float awave(float x) { return texture(uAudioTex, vec2(clamp(x, 0.0, 1.0), 0.75)).r; }
 
 vec2 view() {
     vec2 uv = vUv * 2.0 - 1.0;
@@ -84,6 +67,22 @@ vec2 view() {
         ang = abs(mod(ang, seg) - seg * 0.5);
         uv = vec2(cos(ang), sin(ang)) * rad;
     }
+    // Morph: blend the plane toward a polar remap (angle,radius swap), a
+    // smooth geometric metamorphosis that works on any scene.
+    if (uMorph > 0.001) {
+        float mr = length(uv);
+        float ma = mr > 1e-5 ? atan(uv.y, uv.x) : 0.0; // atan(0, 0) is undefined in GLSL ES
+        vec2 polar = vec2(abs(ma) / 1.5707963 - 1.0, (mr - 0.7) * 1.6);
+        // Faded to nothing at the centre: atan has no angle at r = 0, so every
+        // angle met at one point and the centre of the frame drew as a pinched
+        // vortex whenever morph was up (MotionField holds it near 0.7).
+        uv = mix(uv, polar, uMorph * (0.6 + 0.15 * sin(uTime * 0.31)) * smoothstep(0.0, 0.6, mr));
+    }
+    float a = uRotation + uSway * 0.35 * sin(uTime * 0.7);
+    uv = mat2(cos(a), -sin(a), sin(a), cos(a)) * uv;
+    // Drift and shake move the picture after the spin and the morph. Added
+    // before them, the rotation pivoted on -drift and the morph's pinch rode
+    // the drift, so the whole frame spun around a wandering off-centre point.
     // Drift ping-pongs rather than running away. The composite pass wraps its
     // own drift with fract() because it samples a BOUNDED image ("Wrap so the
     // image scrolls instead of smearing at the clamped edge"), but uv here
@@ -96,25 +95,6 @@ vec2 view() {
     // for good and stranding the user on a black screen.
     vec2 driftPhase = fract(vec2(uDriftX, uDriftY) * uTime * 0.025 + 0.25);
     uv += 1.0 - 2.0 * abs(2.0 * driftPhase - 1.0);
-    // Wave three: the beat-triggered shake is gone. uBreath is a slow scale
-    // wobble and uOrbit a slow wander point that only re-targets on a
-    // structural change (novelty/section) and eases over seconds, so the
-    // frame keeps drifting continuously instead of snapping on a hit.
-    uv *= uBreath;
-    uv += uOrbit * 0.12 * uMotion;
-    // Morph: blend the plane toward a polar remap (angle,radius swap), a
-    // smooth geometric metamorphosis that works on any scene.
-    if (uMorph > 0.001) {
-        float mr = length(uv);
-        float ma = atan(uv.y, uv.x);
-        vec2 polar = vec2(ma / 3.14159, (mr - 0.7) * 1.6);
-        uv = mix(uv, polar, uMorph * (0.6 + 0.15 * sin(uTime * 0.31)));
-    }
-    // uDrift is an accumulated rotation whose sign eases rather than flips
-    // across a section, so the frame keeps turning without ever reversing on
-    // a hit.
-    float a = uRotation + uSway * 0.35 * sin(uTime * 0.7) + uDrift;
-    uv = mat2(cos(a), -sin(a), sin(a), cos(a)) * uv;
     // Triangle-wave exponent: 1x -> 2x -> 1x smoothly, so the endless-zoom
     // phase wrap never causes a visible scale pop (2^1 snapping to 2^0). The
     // milkdrop post pass (pm_post_frag) already spells it this way; a sawtooth
@@ -127,9 +107,11 @@ vec2 view() {
         float tr = length(uv) * uTwist * 2.0;
         uv = mat2(cos(tr), -sin(tr), sin(tr), cos(tr)) * uv;
     }
-    // Tiling: repeat the plane into a uTile x uTile grid.
+    // Tiling: repeat the plane into a uTile x uTile grid, every other tile
+    // mirrored so neighbours meet edge to edge. A hard mod() wrap cracked the
+    // picture along every tile boundary, and the macros drive uTile live.
     if (uTile > 1.01) {
-        uv = mod(uv * uTile * 0.5 + 1.0, 2.0) - 1.0;
+        uv = 1.0 - abs(mod(uv * uTile * 0.5 + 1.0, 4.0) - 2.0);
     }
     // Domain warp: swirl coordinates by a sin/cos field.
     if (uWarp > 0.001) {
@@ -139,7 +121,7 @@ vec2 view() {
     // Concentric ripple distortion driven by radius.
     if (uRipple > 0.001) {
         float r = length(uv);
-        uv *= 1.0 + uRipple * 0.15 * sin(r * 14.0 - uTime * 3.0 + uBass * 4.0);
+        uv *= 1.0 + uRipple * 0.15 * sin(r * 14.0 - uTime * 3.0 + sndLevel(SND_SUB_ATT) * 4.0);
     }
     return uv;
 }
@@ -182,11 +164,8 @@ void main() {
     vec2 uv = view();
     float t = uTime * 0.35;
     float sheet = fbm(vec2(uv.x * 1.5 + t, t * 0.6));
-    float curtain = exp(-abs(uv.y + (sheet - 0.5) * 1.7) * (2.4 - uMid * 1.3));
-    // uTrebRel (band / running average, already attack/release smoothed)
-    // steps the shimmer up on a bright passage rather than on a raw treble
-    // envelope, which is what keeps it from flickering with every high hat.
-    float shimmer = fbm(uv * 3.0 + vec2(0.0, -t * 2.0)) * (0.5 + clamp(uTrebRel, 0.0, 2.0) * 0.6);
-    vec3 col = pal(sheet + uv.y * 0.15) * curtain * (0.35 + uEnergy * 1.1 + shimmer * 0.6 + clamp(uEnergyRel - 1.0, 0.0, 1.0) * 0.3);
+    float curtain = exp(-abs(uv.y + (sheet - 0.5) * 1.7) * (2.4 - sndLevel(SND_MID_ATT) * 1.3));
+    float shimmer = fbm(uv * 3.0 + vec2(0.0, -t * 2.0)) * (0.5 + sndLevel(SND_TREBLE_ATT));
+    vec3 col = pal(sheet + uv.y * 0.15) * curtain * (0.35 + sndLevel(SND_VOL) * 1.1 + shimmer * 0.6);
     fragColor = vec4(grade(col), 1.0);
 }

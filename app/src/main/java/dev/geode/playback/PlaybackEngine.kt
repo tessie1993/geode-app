@@ -1,6 +1,5 @@
 package dev.geode.playback
 
-import android.annotation.SuppressLint
 import android.content.Context
 import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes
@@ -18,6 +17,7 @@ import dev.geode.data.PlayerPrefsStore
 import dev.geode.engine.audio.AudioPresentationClock
 import dev.geode.engine.audio.PcmSink
 import dev.geode.engine.audio.SampleRing
+import dev.geode.engine.audio.SoundInput
 import dev.geode.engine.audioandroid.PcmTap
 import dev.geode.engine.audioandroid.SinkClockDriver
 import dev.geode.engine.audioandroid.TapBoundaryListener
@@ -25,9 +25,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withTimeoutOrNull
 
 @OptIn(UnstableApi::class)
 class PlaybackSession internal constructor(
@@ -56,7 +53,7 @@ class PlaybackSession internal constructor(
             if (hook != null) {
                 hook(format.sampleRateHz, format.channelCount, format.encoding)
             } else {
-                analysis.sampleRateHz = format.sampleRateHz
+                sampleRateHz = format.sampleRateHz
             }
         }.apply {
             boundaryListener =
@@ -112,24 +109,20 @@ class PlaybackSession internal constructor(
 
     val sleepTimer = SleepTimer(player, scope)
 
-    val analysis = dev.geode.analysis.AnalysisEngine(sampleRing)
+    /**
+     * The rate of whichever source writes [sampleRing] right now: the tap's format when nothing else
+     * claims it, otherwise what the UI session's capture controller sets (mic, other apps' audio, or
+     * back to the player). Written from the playback and capture threads, read on every GL thread.
+     */
+    @Volatile
+    var sampleRateHz: Int = DEFAULT_SAMPLE_RATE_HZ
 
-    private val interestHook: () -> Unit = { syncAnalysis() }
+    /** What every surface's sound engine reads; the rate follows whichever source owns the ring. */
+    val soundInput = SoundInput(sampleRing) { sampleRateHz }
 
     init {
         player.addListener(replayGain)
-        dev.geode.audio.AudioBus.onInterestChanged = interestHook
-        syncAnalysis()
-        scope.launch {
-            analysis.features.collect {
-                dev.geode.audio.AudioBus
-                    .publish(it)
-            }
-        }
-    }
-
-    private fun syncAnalysis() {
-        if (dev.geode.audio.AudioBus.hasConsumers) analysis.start(scope) else analysis.stop()
+        dev.geode.audio.AudioBus.soundInput = soundInput
     }
 
     val playbackWanted: Boolean
@@ -139,14 +132,7 @@ class PlaybackSession internal constructor(
                 player.playbackState != Player.STATE_ENDED
 
     internal fun release() {
-        runBlocking {
-            withTimeoutOrNull(500L) {
-                analysis.closeAndJoin()
-            } ?: analysis.close()
-        }
-        if (dev.geode.audio.AudioBus.onInterestChanged === interestHook) {
-            dev.geode.audio.AudioBus.onInterestChanged = null
-        }
+        if (dev.geode.audio.AudioBus.soundInput === soundInput) dev.geode.audio.AudioBus.soundInput = null
         scope.cancel()
         onAudioFormat = null
         audioFx.release()
@@ -154,9 +140,12 @@ class PlaybackSession internal constructor(
         player.release()
         dsp.release()
     }
+
+    private companion object {
+        const val DEFAULT_SAMPLE_RATE_HZ = 48_000
+    }
 }
 
-@SuppressLint("StaticFieldLeak")
 object PlaybackEngine {
     private var app: Context? = null
     private var session: PlaybackSession? = null

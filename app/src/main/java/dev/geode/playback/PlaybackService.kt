@@ -3,12 +3,17 @@ package dev.geode.playback
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ApplicationInfo
+import android.content.pm.PackageManager
+import android.os.Build
 import androidx.annotation.OptIn
 import androidx.core.content.ContextCompat
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
+import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.CacheBitmapLoader
+import androidx.media3.session.DefaultMediaNotificationProvider
 import androidx.media3.session.LibraryResult
 import androidx.media3.session.MediaLibraryService
 import androidx.media3.session.MediaSession
@@ -32,12 +37,24 @@ class PlaybackService : MediaLibraryService() {
         val loader = SessionBitmapLoader(this)
         artworkLoader = loader
         val player = PlaybackEngine.acquireForService(this).player
+        // Media3's default status-bar icon is a generic note; ours is the mark's silhouette.
+        setMediaNotificationProvider(
+            DefaultMediaNotificationProvider.Builder(this).build().apply {
+                setSmallIcon(dev.geode.R.drawable.ic_stat_muzviz)
+            },
+        )
         session =
             MediaLibrarySession
                 .Builder(this, player, LibraryCallback(this, LibraryTree(this)))
                 .setSessionActivity(openAppIntent())
                 .setBitmapLoader(CacheBitmapLoader(loader))
                 .build()
+                // The app plays through PlaybackEngine directly, so no MediaController ever
+                // connects to fetch the session through onGetSession. Until a session is added,
+                // MediaSessionService neither posts the playback notification nor calls
+                // startForeground, and the startForegroundService() from ensureRunning() ends in
+                // ForegroundServiceDidNotStartInTimeException a few seconds into every track.
+                .also { addSession(it) }
         widget =
             WidgetPublisher(this, player).also {
                 player.addListener(it)
@@ -50,6 +67,71 @@ class PlaybackService : MediaLibraryService() {
         private val context: Context,
         private val tree: LibraryTree,
     ) : MediaLibrarySession.Callback {
+        /**
+         * Who may browse the library, and who may only press play.
+         *
+         * The service is exported because System UI, Bluetooth, watches and Android Auto all
+         * reach it from other processes, and nothing in the manifest can tell them apart from
+         * any other installed app. Left to itself, Media3 1.11 gives an untrusted caller the
+         * read-only library commands: any app, with no READ_MEDIA_AUDIO grant of its own,
+         * could list every title, artist and folder on the device through us. That is the
+         * wrong way round for a music library. Here an untrusted caller gets the transport
+         * (play, pause, skip, seek) and what is playing now, and browsing goes only to:
+         * - [MediaSession.ControllerInfo.isTrusted]: this app, the system uid, holders of
+         *   MEDIA_CONTENT_CONTROL (System UI, Bluetooth) and enabled notification listeners;
+         * - apps preinstalled on the system image (Android Auto on Android 10+, an Automotive
+         *   head unit's media centre, the OEM's own launcher);
+         * - Android Auto, Wear OS and the Google app installed from the store, recognised by
+         *   name *and* by Google Play being the installer. Play never lets anyone else publish
+         *   under those package names, so an app that borrows one gets nothing unless it was
+         *   sideloaded and also lies about its installer, which takes adb. A signature check
+         *   would be stricter in theory, but it needs those apps' certificates pinned here, and
+         *   a pin that is wrong or rotated silently cuts Android Auto off.
+         */
+        override fun onConnect(
+            session: MediaSession,
+            controller: MediaSession.ControllerInfo,
+        ): MediaSession.ConnectionResult =
+            if (mayBrowse(controller)) {
+                MediaSession.ConnectionResult
+                    .AcceptedResultBuilder()
+                    .setAvailableSessionCommands(MediaSession.ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS)
+                    .setAvailablePlayerCommands(MediaSession.ConnectionResult.DEFAULT_PLAYER_COMMANDS)
+                    .build()
+            } else {
+                MediaSession.ConnectionResult
+                    .AcceptedResultBuilder()
+                    .setAvailableSessionCommands(MediaSession.ConnectionResult.DEFAULT_UNTRUSTED_SESSION_COMMANDS)
+                    .setAvailablePlayerCommands(TRANSPORT_ONLY)
+                    .build()
+            }
+
+        private fun mayBrowse(controller: MediaSession.ControllerInfo): Boolean {
+            if (controller.isTrusted) return true
+            val pm = context.packageManager
+            val pkg = controller.packageName
+            val systemApp =
+                runCatching {
+                    pm.getApplicationInfo(pkg, 0).flags and
+                        (ApplicationInfo.FLAG_SYSTEM or ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0
+                }.getOrDefault(false)
+            if (systemApp && controller.isPackageNameVerified) return true
+            return pkg in GOOGLE_BROWSERS &&
+                controller.isPackageNameVerified &&
+                runCatching { installerOf(pm, pkg) == PLAY_STORE }.getOrDefault(false)
+        }
+
+        @Suppress("DEPRECATION")
+        private fun installerOf(
+            pm: PackageManager,
+            pkg: String,
+        ): String? =
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                pm.getInstallSourceInfo(pkg).installingPackageName
+            } else {
+                pm.getInstallerPackageName(pkg)
+            }
+
         @OptIn(UnstableApi::class)
         override fun onPlaybackResumption(
             mediaSession: MediaSession,
@@ -174,6 +256,39 @@ class PlaybackService : MediaLibraryService() {
     }
 
     companion object {
+        /** Store-installed media surfaces that browse: Android Auto, Wear OS, the Google app (Assistant). */
+        private val GOOGLE_BROWSERS =
+            setOf(
+                "com.google.android.projection.gearhead",
+                "com.google.android.wearable.app",
+                "com.google.android.googlequicksearchbox",
+            )
+
+        private const val PLAY_STORE = "com.android.vending"
+
+        /**
+         * An untrusted controller's player commands: Media3's read-only set (state, position,
+         * the current item and its metadata) minus the timeline, which is the whole queue,
+         * plus the transport a headset or a third-party remote needs.
+         */
+        private val TRANSPORT_ONLY: Player.Commands =
+            MediaSession.ConnectionResult.DEFAULT_UNTRUSTED_PLAYER_COMMANDS
+                .buildUpon()
+                .remove(Player.COMMAND_GET_TIMELINE)
+                .addAll(
+                    Player.COMMAND_PLAY_PAUSE,
+                    Player.COMMAND_PREPARE,
+                    Player.COMMAND_STOP,
+                    Player.COMMAND_SEEK_TO_DEFAULT_POSITION,
+                    Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM,
+                    Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM,
+                    Player.COMMAND_SEEK_TO_PREVIOUS,
+                    Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM,
+                    Player.COMMAND_SEEK_TO_NEXT,
+                    Player.COMMAND_SEEK_BACK,
+                    Player.COMMAND_SEEK_FORWARD,
+                ).build()
+
         private val resumptionExecutor =
             java.util.concurrent.Executors.newSingleThreadExecutor { r ->
                 Thread(r, "geode-resumption").apply { isDaemon = true }

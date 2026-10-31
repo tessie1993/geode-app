@@ -1,7 +1,7 @@
 #version 300 es
 precision highp float;
 // GLSL ES 3.00 defaults fragment sampler2D to LOWP (range [-2,2), ~8
-// fraction bits). uAudioTex is R32F; on GPUs honoring sampler precision
+// fraction bits). uSoundTex is R32F; on GPUs honoring sampler precision
 // (Mali) every read is clamped and quantized.
 precision highp sampler2D;
 
@@ -9,10 +9,11 @@ in vec2 vUv;
 out vec4 fragColor;
 
 // The three lines every fragment style carries, in this order: the uniform
-// block/aband/awave/view() first, then the palette, then grade() - which calls
+// block/view() first, then the palette, then grade() - which calls
 // pal() and so must come after it.
 //#include lib_scene_uniforms
 //#include lib_scene_motion
+//#include lib_camera
 //#include lib_palette
 //#include lib_scene_grade
 // The 3D toolkit and the touch helpers, already wired so a style author never
@@ -79,6 +80,18 @@ out vec4 fragColor;
 //  cheap. The bank's hit simply caps the cathedral's march, and whichever is
 //  nearer is what the pixel shows.
 //
+//  THE CAMERA is the shared rig's object-centred one (lib_camera's
+//  camAround) at this style's own framing radius: the rig's travel walks the
+//  eye around the cathedral, and its look, banking, dolly and FOV all come
+//  through, so the composite leaves this picture alone. What is left of the
+//  style's own camera is framing: the long lens (as a ratio to the rig's base
+//  focal), the slow pitch wander, and bass pushing the eye in.
+//
+//  WHAT REACTS TO WHAT: bass breathes the magnification and pushes the eye
+//  in, mids turn the folds, treble sharpens the material, energy lifts the
+//  sky (all slew-limited); the beat (SND_KICK_ENV) lurches the fold angle and
+//  settles. Nothing on a hit changes brightness.
+//
 //  DELIBERATELY NOT HERE: a normal-direction ambient-occlusion pass. The
 //  occlusion is read off the march step count instead - a ray that needed most
 //  of its budget was crawling down a fold, which is exactly where the creases
@@ -131,7 +144,7 @@ const float KIFS_SCALE_BASE = 2.86;
  * gSeedB), so moving this subdivides the interior more or less finely while
  * the silhouette holds still - the cathedral breathes without changing size,
  * which is what stops the breath from reading as a zoom. Small on purpose:
- * uBass is a per-frame band envelope and the magnification is compounded seven
+ * sndLevel(SND_SUB_ATT) is a per-frame band envelope and the magnification is compounded seven
  * times, so 0.30 here is already a factor of two in the depth of the
  * structure. Any more and a jumpy envelope reads as flicker rather than
  * breathing, which is the one thing the audio rules forbid.
@@ -212,7 +225,7 @@ const float KIFS_FOLD_RATE = 0.061;
 /** Mids steer the fold planes. Small for the same reason KIFS_SCALE_BASS is. */
 const float KIFS_FOLD_MID = 0.05;
 
-/** Wave three: the fold angle's treble-relative-loudness accent (see `hit` in main()), continuous rather than beat-locked. */
+/** The beat-locked lurch of the fold angle: the cathedral flinches on the hit and settles. */
 const float KIFS_FOLD_BEAT = 0.045;
 
 /**
@@ -283,6 +296,12 @@ const float KIFS_SEED_MIX_MAX = 0.5;
 
 /** Far enough out that the camera stays outside the escape ball at every centre this style can reach. */
 const float KIFS_CAM_R = 4.15;
+
+/** One turn about the cathedral per 1024 / 6 world units of rig travel: about three minutes at the default fly speed. */
+const float KIFS_CAM_SPIN = 6.0 * CAM_SPIN_UNIT;
+
+/** CameraRig::kBaseFocal - uCamFocal at the default FOV. KIFS_FOCAL is kept as a lens ratio to it. */
+const float KIFS_RIG_FOCAL = 1.6;
 
 /** Bass pushes the camera in as well as subdividing the structure - the two together read as one breath. */
 const float KIFS_CAM_PUSH = 0.20;
@@ -497,12 +516,11 @@ vec3 kifsSky(vec3 rdLocal, float energy) {
     return dmtChrysanthemum(rdLocal, 0.55 + 0.09 * sin(uTime * 0.019), energy);
 }
 
-// motion: uHarmony -> extra fold/iteration depth (was a beat-triggered iteration snap), uTrebRel -> fold-angle sparkle (was the transient spike)
 void main() {
     // view() first: zoom, rotation, drift, kaleidoscope, tiling, pixelate,
-    // twist, warp, ripple and the continuous breathe/orbit/drift terms all
-    // live in there, and a style that builds its own screen coordinates
-    // silently drops fifteen of the user's controls.
+    // shake, twist, warp, ripple and the beat pulse all live in there, and a
+    // style that builds its own screen coordinates silently drops fifteen of
+    // the user's controls.
     vec2 uv = view();
 
     // Clamped once. The audio uniforms are 0..1.5 and auto-gained; the ceiling
@@ -511,30 +529,40 @@ void main() {
     // Read off the slew-limited companions in lib_scene_motion, not the raw
     // envelopes. Same range and same meaning; the difference is that no single
     // frame can move one of them far, so nothing structural below can snap.
-    float bassA = min(uBassSmooth, 1.3);
-    float midA = min(uMidSmooth, 1.3);
-    float trebA = min(uTrebleSmooth, 1.3);
-    float enA = min(uEnergySmooth, 1.3);
+    float bassA = min(sndShaped(SND_LOW), 1.3);
+    float midA = min(SND_MID_PRESENCE, 1.3);
+    float trebA = min(SND_TREBLE_PRESENCE, 1.3);
+    float enA = min(((SND_BASS_PRESENCE + SND_MID_PRESENCE + SND_TREBLE_PRESENCE) / 3.0), 1.3);
 
-    // Wave three: the fold angle's transient accent is now a continuous
-    // treble-relative sparkle (see the family recipe below), never a spike.
-    float hit = clamp(uTrebRel - 1.0, 0.0, 1.0);
+    // The beat event: an accent with an instant rise and a 0.3 s fall, so
+    // the lurch below flinches and settles rather than jittering with a
+    // drum level.
+    float hit = clamp(SND_KICK_ENV, 0.0, 1.0);
 
     // ---- camera -----------------------------------------------------------
     //
-    // It orbits forever on two unrelated slow rates, so the cathedral is seen
-    // from a new angle every second even in silence, and the yaw never repeats
-    // against the pitch inside a listening session. The pitch stays under 0.35
-    // rad, which is also what keeps the world up vector well away from the
-    // view direction so the basis below can never degenerate.
-    float yaw = uTime * 0.037;
-    float pitch = 0.34 * sin(uTime * 0.0231);
+    // The rig's object-centred camera at this style's radius, with bass
+    // pushing in. uv is scaled so the rig's default focal lands on
+    // KIFS_FOCAL and the FOV dial still widens or narrows it.
     float camR = KIFS_CAM_R - KIFS_CAM_PUSH * bassA;
-    vec3 ro = vec3(cos(pitch) * sin(yaw), sin(pitch), cos(pitch) * cos(yaw)) * camR;
-    vec3 fwd = normalize(-ro);
-    vec3 right = normalize(cross(vec3(0.0, 1.0, 0.0), fwd));
+    vec3 ro;
+    vec3 rd;
+    camAround(uv * (KIFS_RIG_FOCAL / KIFS_FOCAL), camR, KIFS_CAM_SPIN, ro, rd);
+    // camAround does not hand back its basis, and touch and the sky need it.
+    // The eye sits on -forward, and one more ray at uv (1, 0) gives right.
+    vec3 roX;
+    vec3 rdX;
+    camAround(vec2(1.0, 0.0), camR, KIFS_CAM_SPIN, roX, rdX);
+    vec3 fwd = -normalize(ro);
+    vec3 right = normalize(rdX - dot(rdX, fwd) * fwd);
     vec3 up = cross(fwd, right);
-    vec3 rd = normalize(right * uv.x + up * uv.y + fwd * KIFS_FOCAL);
+    // The old slow pitch wander, kept as framing: the eye rises and falls
+    // about the view's own right axis, still looking at the cathedral.
+    mat3 framing = rotAxis(right, 0.34 * sin(uTime * 0.0231));
+    ro = framing * ro;
+    rd = framing * rd;
+    fwd = framing * fwd;
+    up = framing * up;
 
     // ---- the fold set, built once per fragment ----------------------------
 
@@ -615,14 +643,11 @@ void main() {
     gSym = (uKaleido > 0.5 && uSymmetry >= 2.0) ? uSymmetry : 0.0;
 
     // Detail buys fold depth as well as march steps: uSteps runs 64..128, and
-    // the extra rounds are what the extra steps are for. Harmony now steps it
-    // continuously instead of the old beat-triggered snap: a tonal passage
-    // (harmony near 1) gains a level of structure finer than everything
-    // already on screen, so the silhouette does not move and the surfaces
-    // gain texture instead, easing in and out with the passage rather than
-    // crystallizing on a hit.
-    float foldDepth = clamp(uHarmony, 0.0, 1.0);
-    gIters = mix(5.0, 7.0, clamp((uSteps - 64.0) / 64.0, 0.0, 1.0)) + foldDepth;
+    // the extra rounds are what the extra steps are for. (The beat used to
+    // step one more round in; that rode the beat response, held at zero since
+    // wave three, and is gone. The beat's lurch in foldAngle above is the
+    // continuous form of the same gesture.)
+    gIters = mix(5.0, 7.0, clamp((uSteps - 64.0) / 64.0, 0.0, 1.0));
 
     // ---- march ------------------------------------------------------------
     //
@@ -729,7 +754,7 @@ void main() {
         // indexes the analyser - so a bassline lights the deep shells and a
         // hi-hat the near ones, instead of everything brightening at once.
         // 0.55 is the floor, so with silence the rim is still there.
-        float lit = aband(clamp(trapZ * 2.2, 0.0, 1.0));
+        float lit = sndSpectrum(clamp(trapZ * 2.2, 0.0, 1.0));
 
         // The thin parts are the ones the edge trap found: a small trapZ
         // means the point hugged a fold plane, which is the filigree.
@@ -762,7 +787,7 @@ void main() {
         // flat fog. Squared so only the rays that really crawled contribute.
         float threaded = used / budget;
         float glowHue = log(max(glowTrap, 1e-6)) * 0.16 + 0.46;
-        col += pal(glowHue) * threaded * threaded * (0.55 + 0.9 * enA) * (1.0 + 0.25 * hit);
+        col += pal(glowHue) * threaded * threaded * (0.55 + 0.9 * enA);
     }
 
     // TOUCH, everywhere: the wake. Immediate feedback under the finger, before

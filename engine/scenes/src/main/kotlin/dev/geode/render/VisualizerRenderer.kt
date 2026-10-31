@@ -3,7 +3,9 @@ package dev.geode.render
 import android.content.Context
 import android.opengl.GLSurfaceView
 import android.os.SystemClock
-import dev.geode.analysis.AudioFeatures
+import dev.geode.engine.audio.SoundCursor
+import dev.geode.engine.audio.SoundInput
+import dev.geode.engine.audio.SoundTuning
 import dev.geode.render.bridge.NativeViz
 import dev.geode.render.scene.PcmChunk
 import dev.geode.render.scene.SceneIds
@@ -33,9 +35,6 @@ class VisualizerRenderer(
     }
 
     @Volatile
-    var features: AudioFeatures = AudioFeatures.empty()
-
-    @Volatile
     var requestedSceneId: String = SceneIds.DEFAULT
 
     @Volatile
@@ -45,6 +44,14 @@ class VisualizerRenderer(
     @Volatile
     var reducedMotion: Boolean = false
 
+    /**
+     * Settings › Performance. Live surfaces only: the offscreen export renderer never reads it,
+     * because an export is not real time and can afford full quality. The fps cap is not here;
+     * it belongs to the view's [FramePacer] (see [VisualizerView.applyPerformance]).
+     */
+    @Volatile
+    var performance: PerformanceSettings = PerformanceSettings.HIGH
+
     @Volatile
     var layerSceneId: String? = null
 
@@ -53,10 +60,6 @@ class VisualizerRenderer(
 
     @Volatile
     var layerBlend: BlendMode = BlendMode.SCREEN
-
-    /** The built-in style behind [transitionId], kept for the settings model; the renderer reads the id. */
-    @Volatile
-    var transitionStyle: TransitionStyle = TransitionStyle.FADE
 
     @Volatile
     var transitionDurationMs: Long = 1200
@@ -71,14 +74,30 @@ class VisualizerRenderer(
     @Volatile
     var onMilkPresetLoaded: (String) -> Unit = {}
 
-    // Fired on the GL thread from onSurfaceChanged so the UI layer can size the overlay composer
-    // and re-decode the background image to the surface's new pixel size. Assigned once from Main
-    // (EnginePlumbing.kt), which fans it out to both consumers.
+    // W02: lets the UI re-decode/re-crop the background image to the surface's new pixel size.
+    // Assigned from Main (EnginePlumbing.kt), invoked on the GL thread from onSurfaceChanged.
     @Volatile
     var onSurfaceSizeChanged: (width: Int, height: Int) -> Unit = { _, _ -> }
 
     @Volatile
     var pcmProvider: () -> PcmChunk? = { null }
+
+    /**
+     * The audio this surface's sound engine hears (core/sound, owned by the native renderer). Read on the
+     * GL thread each frame through [soundCursor], so the engine gets every sample once, in order, and is
+     * stepped with this surface's own frame time. Asked every frame, so a playback session that comes and
+     * goes under a running wallpaper is picked up. Null: the engine hears nothing and its frame stays silent.
+     */
+    @Volatile
+    var soundInput: () -> SoundInput? = { null }
+
+    private var soundCursor: SoundCursor? = null
+
+    /** Settings › Audio. Compared by identity on the GL thread, so assign a new instance to change it. */
+    @Volatile
+    var soundTuning: SoundTuning = SoundTuning()
+
+    private var nativeSoundTuning: SoundTuning? = null
 
     // Config holders only: native ticks its own LfoEngine/AdsrEngine against the configs
     // syncNativeState forwards below (core/viz/RendererFrame.cpp).
@@ -86,15 +105,38 @@ class VisualizerRenderer(
 
     val adsrEngine = AdsrEngine()
 
+    /**
+     * The user's own reaction routes, or null to play the style's DNA
+     * ([BuildStyleReactionsUseCase] for the current scene and `reactSeed`).
+     */
+    @Volatile
+    var reactions: List<ReactionRoute>? = null
+
+    /** Gyro look, -1..1 per axis, written by the sensor listener; native reads it only while camGyro is on. */
+    @Volatile
+    var lookYaw: Float = 0f
+
+    @Volatile
+    var lookPitch: Float = 0f
+
+    private val styleReactions = StyleReactionsCache()
+
     private val appContext = context.applicationContext
-    private val nativeViz = NativeViz(context)
+
+    // Outlives nativeViz's handle, which VisualizerView destroys on every detach, and this renderer
+    // too (shared by the process, saved across restarts); each new handle starts on the preset it
+    // remembers rather than on projectM's idle preset.
+    private val milkPreset = MilkPresetMemory.shared(context)
+    private val nativeViz =
+        NativeViz(context).also { viz ->
+            viz.onCreated = { milkPreset.restorePath?.let(viz::loadMilkPreset) }
+        }
     private var nativeParams: SceneParams? = null
     private var nativeLfo: List<LfoConfig>? = null
     private var nativeAdsr: List<AdsrConfig>? = null
+    private var nativeReactions: List<ReactionRoute>? = null
+    private var nativePerformance: PerformanceSettings? = null
     private var nativeThermalSampleMs = 0L
-
-    @Volatile
-    private var lastMilkPreset: String? = null
 
     val milkdropAvailable: Boolean
         get() {
@@ -107,7 +149,7 @@ class VisualizerRenderer(
         return nativeViz.sceneIds()
     }
 
-    /** Frees the native instance on the GL thread; durable configuration survives reattachment. */
+    /** Frees the native renderer; only when this renderer is being discarded, on the GL thread. */
     fun releaseScenes() = nativeViz.destroy()
 
     fun submitShader(
@@ -128,8 +170,14 @@ class VisualizerRenderer(
         nativeViz.setFluidInjectionShaders(force, dye)
     }
 
+    /**
+     * When no handle exists yet, [NativeViz.create] first queues [MilkPresetMemory.restorePath]
+     * through `onCreated`, and the load below then queues [path]. Native keeps one pending request
+     * (`Renderer::loadMilkPreset`) and only the GL frame consumes it, so the second replaces the
+     * first: the scene never loads the older preset, nor this one twice.
+     */
     fun loadMilkPreset(path: String) {
-        lastMilkPreset = path
+        milkPreset.request(path)
         nativeViz.create()
         nativeViz.loadMilkPreset(path)
     }
@@ -158,13 +206,6 @@ class VisualizerRenderer(
         nativeViz.beginParamMorph(seconds)
     }
 
-    /** Full-frame ARGB overlay (title/artwork and whatever else layers over the composite). */
-    fun setOverlay(
-        pixels: IntArray?,
-        width: Int,
-        height: Int,
-    ) = nativeViz.setOverlay(pixels, width, height)
-
     override fun onSurfaceCreated(
         gl: GL10?,
         config: EGLConfig?,
@@ -174,6 +215,11 @@ class VisualizerRenderer(
         nativeParams = null
         nativeLfo = null
         nativeAdsr = null
+        nativeReactions = null
+        nativePerformance = null
+        nativeSoundTuning = null
+        // A new native renderer starts a new engine: hand it a full window, not the tail of the last.
+        soundCursor = null
     }
 
     override fun onSurfaceChanged(
@@ -204,7 +250,7 @@ class VisualizerRenderer(
         nativeViz.render(SystemClock.elapsedRealtimeNanos() / NANOS_PER_SECOND, targetFbo = 0)
         nativeViz.pollError(onShaderError)
         nativeViz.takeMilkPresetLoaded()?.let { path ->
-            lastMilkPreset = path
+            milkPreset.loaded(path)
             onMilkPresetLoaded(path)
         }
     }
@@ -225,7 +271,17 @@ class VisualizerRenderer(
             nativeViz.setAdsrConfigs(adsr)
             nativeAdsr = adsr
         }
-        nativeViz.setFeatures(features)
+        val routes = reactions ?: styleReactions.routesFor(requestedSceneId, p.reactSeed)
+        if (routes !== nativeReactions) {
+            nativeViz.setReactions(routes)
+            nativeReactions = routes
+        }
+        val perf = performance
+        if (perf != nativePerformance) {
+            nativeViz.setQuality(perf.renderScale, perf.marchScale, perf.postFx, perf.adaptive)
+            nativePerformance = perf
+        }
+        nativeViz.setLook(lookYaw, lookPitch)
         nativeViz.setReducedMotion(reducedMotion)
         nativeViz.setLayer(layerSceneId, layerMix, layerBlend)
         nativeViz.setTransition(transitionId, transitionDurationMs)
@@ -236,11 +292,25 @@ class VisualizerRenderer(
             nativeViz.setThermal(ThermalGovernor.platformStatus, ThermalGovernor.thermalHeadroom())
         }
         pcmProvider()?.let { chunk -> nativeViz.pushPcm(chunk.data, chunk.count) }
+        val tuning = soundTuning
+        if (tuning !== nativeSoundTuning) {
+            nativeViz.setSoundTuning(tuning.toFloats())
+            nativeSoundTuning = tuning
+        }
+        feedSound()
+    }
+
+    private fun feedSound() {
+        val input = soundInput() ?: return
+        val cursor = soundCursor?.takeIf { it.ring === input.ring } ?: SoundCursor(input.ring).also { soundCursor = it }
+        val take = cursor.take()
+        if (take.restarted) nativeViz.resetAudio()
+        nativeViz.writeAudio(cursor.interleaved, take.frames, cursor.channels, input.sampleRateHz)
     }
 
     fun exportSceneFactory(sceneId: String): SceneFactory {
         val id = sceneId
-        val preset = lastMilkPreset
+        val preset = milkPreset.restorePath
         return object : SceneFactory {
             override val sceneId: String = id
 

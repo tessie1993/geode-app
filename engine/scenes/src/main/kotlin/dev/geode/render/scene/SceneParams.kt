@@ -25,7 +25,7 @@ data class SceneParams(
      * control outlived it because VANISHING, MORPHOGEN, NEBULA, NONEUCLID and KIFS are all
      * distance-marched and all need somewhere to spend or save steps; naming it after the
      * technique rather than a style means the next marched style inherits it for free.
-     * [MarchBudget.forDetail] turns it into the `uSteps` uniform every one of them breaks on.
+     * Native ShaderScene turns it into the `uSteps` uniform every one of them breaks on.
      */
     val marchDetail: Float = 1f,
     val trails: Boolean = false,
@@ -163,6 +163,25 @@ data class SceneParams(
     val motionOrbit: Float = 0.5f,
     val motionDrift: Float = 0.5f,
     val motionHue: Float = 0.4f,
+    // The shared camera rig (core/viz/CameraRig) and the reaction matrix (core/viz/Reactions).
+    // The push/yaw/pitch/roll offsets are what reaction routes and LFOs write; the rig springs
+    // toward them. Appended so every existing wire index survives.
+    val camFly: Float = 0.5f,
+    val camPath: Int = 0,
+    val camOrbit: Float = 0.35f,
+    val camPush: Float = 0f,
+    val camYaw: Float = 0f,
+    val camPitch: Float = 0f,
+    val camRoll: Float = 0f,
+    val camFov: Float = 1f,
+    val camShake: Float = 0f,
+    val camSmooth: Float = 0.5f,
+    val camTouch: Boolean = false,
+    val camGyro: Boolean = false,
+    /** Global scale of every reaction route, 0..2; 0 leaves only the continuous motion system. */
+    val reactAmount: Float = 1f,
+    /** Which variant of the style's reaction DNA ([BuildStyleReactionsUseCase]) plays. */
+    val reactSeed: Int = 0,
 ) {
     companion object {
         const val UNSET_OVERRIDE: Float = -1f
@@ -217,6 +236,9 @@ data class SceneParams(
         val FLUID_PATHS: List<String> = listOf("Orbit", "Lissajous", "Rose", "Bloom", "Drift")
 
         val CYMATICS_GEOMETRIES: List<String> = listOf("Water dish", "Chladni plate")
+
+        /** camPath values, in order; mirrors CameraRig::pathPoint. */
+        val CAMERA_PATHS: List<String> = listOf("Glide", "Spiral", "Orbit", "Hover")
     }
 
     val usesCustomPalette: Boolean
@@ -251,16 +273,4 @@ data class SceneParams(
                 customPaletteId = NO_CUSTOM_PALETTE,
             )
         }
-}
-
-fun applyBandGains(
-    f: dev.geode.analysis.AudioFeatures,
-    p: SceneParams,
-): dev.geode.analysis.AudioFeatures {
-    if (p.bassGain == 1f && p.midGain == 1f && p.trebGain == 1f) return f
-    return f.copy(
-        bass = (f.bass * p.bassGain).coerceIn(0f, 2f),
-        mid = (f.mid * p.midGain).coerceIn(0f, 2f),
-        treble = (f.treble * p.trebGain).coerceIn(0f, 2f),
-    )
 }

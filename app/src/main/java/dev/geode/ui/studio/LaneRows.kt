@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -24,8 +25,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.geode.R
@@ -40,14 +41,18 @@ import dev.geode.editor.Lane
 import dev.geode.editor.LaneKind
 import dev.geode.editor.Marker
 import dev.geode.editor.MarkerId
-import dev.geode.ui.opaline.creative.CreativeColors
 
-/** Header column beside the scrolling content column; every row height is fixed so the two stay aligned. */
+/**
+ * Header column beside the scrolling content column; every row height is fixed so the two stay aligned.
+ *
+ * [playheadMs] is a provider: only the ruler and the playhead line read it while it moves, and the
+ * lanes build their snap context from it when a gesture ends, so a scrub does not recompose them.
+ */
 @Composable
 internal fun Lanes(
     project: EditorProject,
     scale: TimelineScale,
-    playheadMs: Long,
+    playheadMs: () -> Long,
     keyTracks: List<KeyframeTrack>,
     selectedClip: ClipId?,
     selectedMarker: MarkerId?,
@@ -66,36 +71,26 @@ internal fun Lanes(
         Column(Modifier.width(LANE_HEADER_WIDTH)) {
             Spacer(Modifier.height(RULER_HEIGHT))
             Box(Modifier.height(MARKER_LANE_HEIGHT), contentAlignment = Alignment.CenterStart) {
-                Text(
-                    stringResource(R.string.editor_markers),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = CreativeColors.textSecondary,
-                )
+                Text(stringResource(R.string.editor_markers), style = MaterialTheme.typography.labelSmall)
             }
             project.timeline.lanes.forEach { lane ->
                 LaneHeader(lane, actions, onAddClip = { onAddClip(lane) }, onAddStill = { onAddStill(lane) })
             }
             keyTracks.forEach { track ->
                 Box(Modifier.height(KEYFRAME_LANE_HEIGHT), contentAlignment = Alignment.CenterStart) {
-                    Text(
-                        track.paramId.value,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = CreativeColors.textSecondary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
+                    Text(track.paramId.value, style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
         }
         Box(Modifier.weight(1f).horizontalScroll(horizontal)) {
             Column {
-                TimeRuler(scale, onScrub = actions::setPlayhead)
+                TimeRuler(scale, playheadMs, onScrub = actions::setPlayhead)
                 LaneContentBox(scale, MARKER_LANE_HEIGHT) {
                     MarkerLane(
                         markers = project.markers,
                         scale = scale,
                         selected = selectedMarker,
-                        snapContext = project.snapContext(playheadMs),
+                        snapContext = { project.snapContext(playheadMs()) },
                         onSelect = onSelectMarker,
                         onAdd = { ms -> actions.edit { p -> p.copy(markers = p.markers.add(Marker(actions.newMarkerId(), ms))) } },
                         onMove = {
@@ -110,13 +105,13 @@ internal fun Lanes(
                     )
                 }
                 project.timeline.lanes.forEach { lane ->
-                    LaneContentBox(scale, LANE_HEIGHT, tint = laneTintFor(lane.kind)) {
+                    LaneContentBox(scale, LANE_HEIGHT) {
                         ClipStrip(
                             timeline = project.timeline,
                             lane = lane,
                             scale = scale,
                             selected = selectedClip,
-                            snapContext = { project.snapContext(playheadMs, excludeClip = it) },
+                            snapContext = { project.snapContext(playheadMs(), excludeClip = it) },
                             onSelect = onSelectClip,
                             onSplit = { id, ms -> onResult(project.timeline.splitClip(id, ms, actions.newClipId())) },
                             onResult = onResult,
@@ -130,7 +125,7 @@ internal fun Lanes(
                             track = track,
                             scale = scale,
                             selected = selectedKey,
-                            snapContext = project.snapContext(playheadMs),
+                            snapContext = { project.snapContext(playheadMs()) },
                             onSelect = onSelectKey,
                             onAdd = { ms ->
                                 actions.edit { p ->
@@ -171,13 +166,7 @@ private fun LaneHeader(
 ) {
     var menu by remember { mutableStateOf(false) }
     Column(Modifier.height(LANE_HEIGHT), verticalArrangement = Arrangement.Center) {
-        Text(
-            lane.name,
-            style = MaterialTheme.typography.labelSmall,
-            color = CreativeColors.textPrimary,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
+        Text(lane.name, style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             HeaderToggle(stringResource(R.string.editor_mute_short), lane.muted) {
                 actions.edit { p -> p.copy(timeline = p.timeline.withLane(lane.copy(muted = !lane.muted))) }
@@ -186,7 +175,7 @@ private fun LaneHeader(
                 actions.edit { p -> p.copy(timeline = p.timeline.withLane(lane.copy(locked = !lane.locked))) }
             }
             Box {
-                HeaderToggle(stringResource(R.string.editor_add_short), false) {
+                HeaderToggle(stringResource(R.string.editor_add_short), on = null) {
                     if (lane.kind == LaneKind.Media) menu = true else onAddClip()
                 }
                 DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
@@ -210,26 +199,25 @@ private fun LaneHeader(
     }
 }
 
+/**
+ * A lane header word. Mute and lock show their state only by colour, so they say it to TalkBack
+ * as switches; [on] is null for a plain button (Add).
+ */
 @Composable
 private fun HeaderToggle(
     label: String,
-    on: Boolean,
+    on: Boolean?,
     onClick: () -> Unit,
 ) {
     Text(
         label,
         style = MaterialTheme.typography.labelSmall,
-        color = if (on) CreativeColors.mint else CreativeColors.textSecondary,
-        modifier = Modifier.clickable(onClick = onClick),
+        color = if (on == true) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier =
+            if (on == null) {
+                Modifier.clickable(role = Role.Button, onClick = onClick)
+            } else {
+                Modifier.toggleable(value = on, role = Role.Switch, onValueChange = { onClick() })
+            },
     )
 }
-
-/** One pastel per lane kind, so the glass strips (and their clips) read distinctly at a glance. */
-private fun laneTintFor(kind: LaneKind): Color =
-    when (kind) {
-        LaneKind.Visual -> CreativeColors.mint
-        LaneKind.Media -> CreativeColors.sky
-        LaneKind.Text -> CreativeColors.lavender
-        LaneKind.Overlay -> CreativeColors.peach
-        LaneKind.Audio -> CreativeColors.pink
-    }

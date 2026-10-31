@@ -4,7 +4,6 @@
 #include <vector>
 
 #include "api/geode_api.h"
-#include "viz/MotionField.hpp"
 #include "viz/Params.hpp"
 #include "viz/fluid/FluidEmitters.hpp"
 #include "viz/fluid/FluidSim.hpp"
@@ -29,7 +28,7 @@ public:
     void create();
     void resize(int w, int h) { sim_.resize(w, h); }
     void queueKick(float clipX, float clipY, float velX, float velY, float radius);
-    void step(const GeodeFeatureFrame& features, float dt, const SceneParams& p, const MotionField::State& motion);
+    void step(const GeodeSoundFrame& features, float dt, const SceneParams& p);
     void release() { sim_.release(); }
 
 private:

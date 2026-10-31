@@ -4,6 +4,11 @@ add_library(geode_core STATIC
     api/geode_dsp_api.cpp
     api/geode_tags_api.cpp
     api/geode_player_api.cpp
+    api/geode_catalogue_api.cpp
+    api/geode_params_api.cpp
+    api/geode_sound_api.cpp
+    sound/Fft.cpp
+    sound/SoundEngine.cpp
     library/Tags.cpp
     audio/player/Resampler.cpp
     audio/player/Decoder.cpp
@@ -13,27 +18,9 @@ add_library(geode_core STATIC
     audio/dsp/Equalizer.cpp
     audio/dsp/Crossfeed.cpp
     audio/dsp/Limiter.cpp
-    analysis/WindowTable.cpp
-    analysis/Spectrum.cpp
-    analysis/AdaptiveRange.cpp
-    analysis/LogBands.cpp
-    analysis/Chromagram.cpp
-    analysis/SuperFlux.cpp
-    analysis/HarmonicBalance.cpp
-    analysis/OnsetPeakPicker.cpp
-    analysis/AdaptiveWhitening.cpp
-    analysis/TempoTracker.cpp
-    analysis/TempoStability.cpp
-    analysis/BeatGrid.cpp
-    analysis/BarTracker.cpp
-    analysis/DrumChannels.cpp
-    analysis/KeyDetector.cpp
-    analysis/StructureTracker.cpp
-    analysis/StereoField.cpp
-    analysis/FrameLevels.cpp
-    analysis/PulseReplay.cpp
-    analysis/ReactiveAnalyzer.cpp
-    analysis/AnalysisSession.cpp
+    audio/dsp/PcmResampler.cpp
+    audio/dsp/Loudness.cpp
+    api/geode_export_dsp_api.cpp
     viz/ShaderSource.cpp
     viz/GlCaps.cpp
     viz/GlProber.cpp
@@ -48,8 +35,12 @@ add_library(geode_core STATIC
     viz/Params.cpp
     viz/ParamsFields.cpp
     viz/Lfo.cpp
+    viz/Macros.cpp
     viz/Adsr.cpp
     viz/MotionField.cpp
+    viz/ReactionDna.cpp
+    viz/Reactions.cpp
+    viz/CameraRig.cpp
     viz/VisualSafety.cpp
     viz/ThermalGovernor.cpp
     viz/TouchField.cpp
@@ -57,10 +48,13 @@ add_library(geode_core STATIC
     viz/CompositeGrade.cpp
     viz/CompositePass.cpp
     viz/TrailPass.cpp
+    viz/Catalogue.cpp
+    viz/ParamRandomizer.cpp
     viz/SceneRegistry.cpp
     viz/Renderer.cpp
     viz/RendererFrame.cpp
     viz/scenes/ShaderScene.cpp
+    viz/SoundUniforms.cpp
     viz/BlueNoise.cpp
     viz/Overlays.cpp
     viz/compute/SimField.cpp

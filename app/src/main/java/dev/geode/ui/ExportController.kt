@@ -3,16 +3,17 @@ package dev.geode.ui
 import android.app.Application
 import android.net.Uri
 import androidx.core.net.toUri
-import dev.geode.analysis.FeatureTimeline
 import dev.geode.data.BackgroundPrefsStore
 import dev.geode.data.ExportPrefsStore
 import dev.geode.data.GeodePrefsFiles
+import dev.geode.data.GuiPrefs
 import dev.geode.data.PerformanceTake
 import dev.geode.editor.AnimatableParams
 import dev.geode.editor.KeyframeSheet
+import dev.geode.export.BatchOutcome
+import dev.geode.export.BatchTrack
 import dev.geode.export.ExportAspect
 import dev.geode.export.ExportCodec
-import dev.geode.export.ExportFailure
 import dev.geode.export.ExportRange
 import dev.geode.export.ExportRun
 import dev.geode.export.ExportService
@@ -24,7 +25,7 @@ import dev.geode.export.LoudnessAdvice
 import dev.geode.export.LoudnessTarget
 import dev.geode.export.MixClip
 import dev.geode.export.ProjectComposition
-import dev.geode.export.StillExporter
+import dev.geode.export.RenderBatch
 import dev.geode.export.TimeOfDayDrift
 import dev.geode.export.VideoExporter
 import dev.geode.render.SceneFactory
@@ -54,29 +55,19 @@ data class ExportUiState(
      * the resulting gain, so this is a readout, not a correction — see [ExportController.startExport].
      */
     val loudnessAdvice: LoudnessAdvice? = null,
+    /**
+     * The finished file's name in Movies/MuzViz, so the Render bar can say what was made. Null for a
+     * folder the user picked: that name is the picker's, and the result URI is a SAF document id.
+     */
+    val fileName: String? = null,
+    /** The batch under way or just finished, or null for a single render. */
+    val batch: RenderBatch? = null,
 )
 
 /** Progress and result of a loop render + long-form extend, mirroring [ExportUiState]. */
 data class LoopUiState(
     val phase: ExportPhase = ExportPhase.Idle,
 )
-
-/** The state of [ExportController.saveStillFrame] — the still export's own, smaller phase. */
-sealed interface StillPhase {
-    data object Idle : StillPhase
-
-    data object Running : StillPhase
-
-    data class Done(
-        val uri: Uri,
-    ) : StillPhase
-
-    data class Failed(
-        val message: String,
-    ) : StillPhase
-}
-
-internal val StillPhase.isBusy: Boolean get() = this is StillPhase.Running
 
 internal fun exportSceneIdFor(
     take: PerformanceTake.Timeline?,
@@ -97,126 +88,51 @@ internal class ExportController(
     interface Host {
         val exportUri: Uri?
 
-        var cachedTimeline: FeatureTimeline?
-
-        suspend fun analyze(
-            uri: Uri,
-            onProgress: (Float) -> Unit,
-        ): FeatureTimeline
-
         val guiPrefs: GuiPrefs
 
         val sceneId: String
         val sceneParams: SceneParams
 
-        /** The playhead a still export renders at — the same position the transport shows. */
-        val positionMs: Long
-
         fun lfoConfigs(): List<dev.geode.render.LfoConfig>
 
         fun adsrConfigs(): List<dev.geode.render.AdsrConfig>
+
+        fun reactions(): List<dev.geode.render.ReactionRoute>?
 
         /** The open editor project's tracks; programme-level scene tracks animate the export. */
         fun keyframes(): KeyframeSheet
 
         suspend fun loadExportTake(): PerformanceTake.Timeline?
-
-        fun publishSections(
-            uri: Uri,
-            timeline: FeatureTimeline,
-        )
-
-        /**
-         * The cover-art/title/lyric/watermark overlay for an export at its own frame size: a
-         * function from a track position (ms) to that frame's ARGB pixels, or null when nothing is
-         * enabled. Callers may call it once for a fixed overlay or once per rendered frame for a
-         * position-driven one (lyrics) - see [dev.geode.render.offscreen.OffscreenRenderSpec.overlay].
-         */
-        fun overlayPixelsFor(
-            width: Int,
-            height: Int,
-        ): (Long) -> IntArray?
     }
 
     private val exporter = VideoExporter(application)
     private val studioExporter = dev.geode.export.StudioExporter(application)
-    private val stillExporter = StillExporter(application)
 
     private val _exportState = MutableStateFlow(ExportUiState())
     val exportState: StateFlow<ExportUiState> = _exportState
-
-    private val _stillState = MutableStateFlow<StillPhase>(StillPhase.Idle)
-    val stillState: StateFlow<StillPhase> = _stillState
-
-    private var stillJob: Job? = null
 
     private val _studio = MutableStateFlow(StudioUiState())
 
     val studio: StateFlow<StudioUiState> = _studio
 
+    @Volatile
+    private var exportCancelled = false
+
     private var exportJob: Job? = null
 
-    private val loopRenderer = LoopRender(application)
-    private val loopExtender = LoopExtend(application)
-
-    private val _loopState = MutableStateFlow(LoopUiState())
-    val loopState: StateFlow<LoopUiState> = _loopState
-
-    private var loopJob: Job? = null
-
-    // Declared above this init block, on purpose: it reads _exportState/_studio/_loopState
-    // synchronously (Dispatchers.Main.immediate resumes without a dispatch when already on the
-    // main thread, which is where this controller is constructed), so all three must already be
-    // initialized by the time it runs — a property declared after init would still be null here.
     init {
-        // A controller recreated (or freshly constructed after process death) while a render is
-        // still going, or one whose render outlived it, resumes here: it reads the single shared
-        // [ExportRun] rather than a local job, since only ExportRun survived the recreation. The
-        // resubscription routes progress — and, importantly, the terminal result — to whichever
-        // of [_exportState]/[_studio]/[_loopState] owns that run's [ExportRun.Kind], so a render
-        // that finishes after its dialog closed still shows Done/Failed when the dialog reopens.
-        val initialKind = ExportRun.state.value.kind
-        if (ExportRun.running || (ExportRun.state.value.result != null && initialKind != null)) {
+        if (ExportRun.running) {
             scope.launch {
                 ExportRun.state
                     .takeWhile { it.running }
-                    .collect { run -> applyRunningPhase(run) }
-                applyResultPhase(initialKind, ExportRun.state.value.result)
+                    .collect { run ->
+                        _exportState.update { it.copy(phase = ExportPhase.Running(run.progress ?: 0f)) }
+                    }
+                if (!ExportRun.running) _exportState.value = ExportUiState()
             }
         }
     }
 
-    private fun applyRunningPhase(run: ExportRun.State) {
-        val phase = ExportPhase.Running(run.progress ?: 0f)
-        when (run.kind) {
-            ExportRun.Kind.Visualizer -> _exportState.update { it.copy(phase = phase) }
-            ExportRun.Kind.Studio, ExportRun.Kind.Project -> _studio.update { it.copy(phase = phase) }
-            ExportRun.Kind.Loop -> _loopState.update { it.copy(phase = phase) }
-            null -> Unit
-        }
-    }
-
-    private fun applyResultPhase(
-        kind: ExportRun.Kind?,
-        result: ExportRun.Result?,
-    ) {
-        val phase = result.toExportPhase()
-        when (kind) {
-            ExportRun.Kind.Visualizer -> _exportState.update { it.copy(phase = phase) }
-            ExportRun.Kind.Studio, ExportRun.Kind.Project -> {
-                _studio.update { it.copy(phase = phase) }
-                refreshStudioClips(showLoading = false)
-            }
-            ExportRun.Kind.Loop -> _loopState.update { it.copy(phase = phase) }
-            null -> Unit
-        }
-    }
-
-    // Written from ExportRun.scope (Dispatchers.Default) and read from Main by
-    // publishStudioProgress, which is what performs the cooperative cancel. A stale read
-    // there silently skips that cancel. StudioExporter and NativeDspProcessor mark their
-    // cross-thread fields the same way.
-    @Volatile
     private var studioJob: Job? = null
 
     fun startExport(
@@ -224,38 +140,26 @@ internal class ExportController(
         fps: Int,
         sceneFactory: SceneFactory,
         destination: Uri? = null,
-        loopSafe: Boolean = false,
         range: ExportRange? = null,
         sceneFactoryFor: ((String) -> SceneFactory)? = null,
         codec: ExportCodec = ExportCodec.H264,
+        watermark: Boolean = false,
     ) {
         val uri = host.exportUri ?: return
         if (_exportState.value.phase.isBusy || ExportRun.running) return
+        exportCancelled = false
         _exportState.value =
             ExportUiState(customDestination = destination != null, phase = ExportPhase.Running(0f))
         // Basename only: a SAF document id is "primary:Music/Artist/Song.mp3", and this
         // label goes straight into the foreground-service notification, where the lock
         // screen and every enabled notification listener can read it.
-        ExportRun.begin(ExportRun.Kind.Visualizer, uri.lastPathSegment.orEmpty().substringAfterLast('/'))
+        ExportRun.begin(uri.lastPathSegment.orEmpty().substringAfterLast('/'))
         ExportService.start(application)
         exportJob =
             ExportRun.scope.launch(Dispatchers.Default) {
-                var runResult: ExportRun.Result = ExportRun.Result.Cancelled
                 try {
-                    val analysed =
-                        host.cachedTimeline ?: host
-                            .analyze(uri) { p ->
-                                _exportState.update { it.copy(phase = ExportPhase.Running(p * 0.2f)) }
-                                ExportRun.publish(p * 0.2f)
-                            }.also { if (host.exportUri == uri) host.cachedTimeline = it }
                     val gui = host.guiPrefs
-                    val t =
-                        analysed.withBeatSensitivity(
-                            gui.beatSensitivity,
-                            gui.effectiveBeatMinIntervalMs,
-                        )
-                    host.publishSections(uri, t)
-                    val name = "geode_${System.currentTimeMillis()}.mp4"
+                    val name = "muzviz_${System.currentTimeMillis()}.mp4"
                     val exportTake = host.loadExportTake()
                     val sheet = host.keyframes()
                     val animated =
@@ -287,139 +191,185 @@ internal class ExportController(
                     val result =
                         exporter.export(
                             audioUri = uri,
-                            timeline = t,
                             sceneFactory = factory,
                             aspect = aspect,
                             fileName = name,
                             sceneParams = host.sceneParams,
                             lfoConfigs = host.lfoConfigs(),
                             adsrConfigs = host.adsrConfigs(),
+                            reactions = host.reactions(),
                             reducedMotion = gui.reducedMotion,
                             requestedFps = fps,
+                            soundTuning = gui.soundTuning,
                             paramsAt = paramsAt,
-                            loopSafe = loopSafe,
                             range = range,
                             destination = destination,
                             codec = codec,
                             loudnessTarget = defaultLoudnessTarget(),
-                            overlay = host.overlayPixelsFor(aspect.width, aspect.height),
                             background = defaultBackground(),
                             onProgress = { p ->
-                                val overall = 0.2f + p * 0.8f
-                                _exportState.update { it.copy(phase = ExportPhase.Running(overall)) }
-                                ExportRun.publish(overall)
+                                _exportState.update { it.copy(phase = ExportPhase.Running(p)) }
+                                ExportRun.publish(p, steady = p >= VideoExporter.AUDIO_PROGRESS_SPAN)
                             },
-                            isCancelled = { ExportRun.cancelRequested },
+                            isCancelled = { exportCancelled || ExportRun.cancelRequested },
+                            watermark = watermark,
                         )
-                    val phase = result.toPhase()
                     _exportState.value =
                         ExportUiState(
                             customDestination = destination != null,
-                            phase = phase,
+                            phase = result.toPhase(),
                             loudnessAdvice = (result as? VideoExporter.Result.Saved)?.loudnessAdvice,
+                            fileName = name.takeIf { destination == null },
                         )
-                    runResult = phase.toRunResult()
                 } catch (t: Throwable) {
-                    // Cancellation is tested before ExportRun.cancelRequested: this coroutine is
-                    // never itself cancelled by a Job.cancel() today, but a CancellationException
-                    // that did arrive must not be swallowed by the cancel-requested branch and
-                    // reported as if the export had succeeded.
+                    // Cancellation is tested before the user's own cancel flag: when the two
+                    // coincide the flag branch used to win and swallow the CancellationException,
+                    // leaving a cancelled coroutine to finish as if it had succeeded.
                     if (t is kotlinx.coroutines.CancellationException) {
                         _exportState.value = ExportUiState()
                         throw t
-                    } else if (ExportRun.cancelRequested) {
-                        _exportState.value = ExportUiState(phase = cancelledPhase())
+                    } else if (exportCancelled) {
+                        _exportState.value = ExportUiState()
                     } else {
-                        val message = describeExportFailure(t, ExportRun.Kind.Visualizer)
-                        _exportState.value = ExportUiState(phase = ExportPhase.Failed(message))
-                        runResult = ExportRun.Result.Failed(message)
+                        val reason = t.message ?: application.getString(dev.geode.R.string.export_error_no_message)
+                        val detail = "${t.javaClass.simpleName}: $reason"
+                        _exportState.value = ExportUiState(phase = ExportPhase.Failed(detail))
                     }
                 } finally {
-                    ExportRun.finish(runResult)
+                    ExportRun.finish()
                 }
             }
     }
 
-    fun cancelExport() {
-        ExportRun.requestCancel()
+    /**
+     * Renders [tracks] one after another through the same exporter as [startExport], each to its
+     * own `muzviz_*.mp4` in Movies/MuzViz, under one [ExportRun] so the foreground service and its
+     * notification cover the whole batch. A track that fails is recorded and the next one starts.
+     * Cancel stops the track rendering now, the same way it stops a single render, and marks it
+     * and every track after it cancelled; files already finished stay. Every track uses
+     * [sceneParams] (the current look, or the preset the user chose), whole length, with no performance take or editor keyframes:
+     * those belong to the track playing now, not to the rest of a playlist.
+     */
+    fun startBatch(
+        tracks: List<BatchTrack>,
+        aspect: ExportAspect,
+        fps: Int,
+        sceneFactory: SceneFactory,
+        sceneParams: SceneParams?,
+        codec: ExportCodec,
+        watermark: Boolean,
+    ) {
+        if (tracks.isEmpty() || _exportState.value.phase.isBusy || ExportRun.running) return
+        exportCancelled = false
+        var batch = RenderBatch(tracks)
+        _exportState.value = ExportUiState(phase = ExportPhase.Running(0f), batch = batch)
+        ExportRun.begin(application.getString(dev.geode.R.string.render_batch_label, tracks.size))
+        ExportService.start(application)
+        exportJob =
+            ExportRun.scope.launch(Dispatchers.Default) {
+                try {
+                    val gui = host.guiPrefs
+                    // A Cancel between tracks ends the loop; the tracks left are then marked cancelled.
+                    var track = batch.current
+                    while (track != null && !exportCancelled && !ExportRun.cancelRequested) {
+                        val publish: (Float) -> Unit = { within ->
+                            val overall = batch.progress(within)
+                            _exportState.update { it.copy(phase = ExportPhase.Running(overall), batch = batch) }
+                            ExportRun.publish(overall)
+                        }
+                        publish(0f)
+                        val outcome =
+                            try {
+                                renderBatchTrack(track, aspect, fps, sceneFactory, sceneParams, codec, watermark, gui, publish)
+                            } catch (c: kotlinx.coroutines.CancellationException) {
+                                throw c
+                            } catch (t: Throwable) {
+                                BatchOutcome.Failed(t.message ?: t.javaClass.simpleName)
+                            }
+                        batch = if (outcome == BatchOutcome.Cancelled) batch.cancelRest() else batch.record(outcome)
+                        track = batch.current
+                    }
+                    _exportState.value = batch.cancelRest().toUiState()
+                } catch (t: kotlinx.coroutines.CancellationException) {
+                    _exportState.value = batch.cancelRest().toUiState()
+                    throw t
+                } finally {
+                    ExportRun.finish()
+                }
+            }
     }
 
-    fun resetExportState() {
-        if (!_exportState.value.phase.isBusy) {
-            _exportState.value = ExportUiState()
-            ExportRun.clear(ExportRun.Kind.Visualizer)
+    private suspend fun renderBatchTrack(
+        track: BatchTrack,
+        aspect: ExportAspect,
+        fps: Int,
+        sceneFactory: SceneFactory,
+        sceneParams: SceneParams?,
+        codec: ExportCodec,
+        watermark: Boolean,
+        gui: GuiPrefs,
+        publish: (Float) -> Unit,
+    ): BatchOutcome {
+        val uri = track.uri.toUri()
+        val name = "muzviz_${System.currentTimeMillis()}.mp4"
+        val result =
+            exporter.export(
+                audioUri = uri,
+                sceneFactory = sceneFactory,
+                aspect = aspect,
+                fileName = name,
+                sceneParams = sceneParams ?: host.sceneParams,
+                lfoConfigs = host.lfoConfigs(),
+                adsrConfigs = host.adsrConfigs(),
+                reactions = host.reactions(),
+                reducedMotion = gui.reducedMotion,
+                requestedFps = fps,
+                soundTuning = gui.soundTuning,
+                codec = codec,
+                loudnessTarget = defaultLoudnessTarget(),
+                background = defaultBackground(),
+                onProgress = publish,
+                isCancelled = { exportCancelled || ExportRun.cancelRequested },
+                watermark = watermark,
+            )
+        return when (result) {
+            is VideoExporter.Result.Saved -> BatchOutcome.Saved(result.uri.toString(), name)
+            is VideoExporter.Result.Failed -> BatchOutcome.Failed(result.message)
+            VideoExporter.Result.Cancelled -> BatchOutcome.Cancelled
         }
     }
 
-    /**
-     * Renders one frame of the current scene at [host]'s current playback position and saves it
-     * as a PNG — the "save this frame" counterpart to [startExport]. Cheap enough, and rare
-     * enough, that it does not share [ExportRun]'s single-render guard or foreground notification
-     * with a video/loop export; it can run alongside one.
-     */
-    fun saveStillFrame(
-        aspect: ExportAspect,
-        sceneFactory: SceneFactory,
-        destination: Uri? = null,
-    ) {
-        val uri = host.exportUri ?: return
-        if (_stillState.value.isBusy) return
-        _stillState.value = StillPhase.Running
-        stillJob =
-            scope.launch(Dispatchers.Default) {
-                try {
-                    val timeline =
-                        host.cachedTimeline ?: host
-                            .analyze(uri) { }
-                            .also { if (host.exportUri == uri) host.cachedTimeline = it }
-                    val gui = host.guiPrefs
-                    val name = "geode_still_${System.currentTimeMillis()}.png"
-                    val result =
-                        stillExporter.export(
-                            timeline = timeline,
-                            sceneFactory = sceneFactory,
-                            aspect = aspect,
-                            sceneParams = host.sceneParams,
-                            positionMs = host.positionMs,
-                            fileName = name,
-                            lfoConfigs = host.lfoConfigs(),
-                            adsrConfigs = host.adsrConfigs(),
-                            reducedMotion = gui.reducedMotion,
-                            destination = destination,
-                        )
-                    _stillState.value =
-                        when (result) {
-                            is StillExporter.Result.Saved -> StillPhase.Done(result.uri)
-                            is StillExporter.Result.Failed -> StillPhase.Failed(result.message)
-                        }
-                } catch (t: kotlinx.coroutines.CancellationException) {
-                    _stillState.value = StillPhase.Idle
-                    throw t
-                } catch (t: Throwable) {
-                    _stillState.value = StillPhase.Failed("${t.javaClass.simpleName}: ${t.message ?: "no message"}")
-                }
-            }
+    private fun RenderBatch.toUiState(): ExportUiState {
+        val last = lastSaved
+        return ExportUiState(
+            phase =
+                when {
+                    last != null -> ExportPhase.Done(last.uri.toUri())
+                    failures.isNotEmpty() -> ExportPhase.Failed(failures.first().second)
+                    else -> ExportPhase.Idle
+                },
+            fileName = last?.fileName,
+            batch = this,
+        )
     }
 
-    fun resetStillState() {
-        if (!_stillState.value.isBusy) _stillState.value = StillPhase.Idle
+    fun cancelExport() {
+        exportCancelled = true
     }
 
-    /**
-     * @param showLoading Whether to bounce [_studio]'s phase through Loading/Idle while the list
-     * reloads. Callers refreshing the list right after an export must pass `false` — the phase at
-     * that point is the just-finished Done/Failed the user is meant to see, and this call must not
-     * clobber it back to Idle before it is ever shown.
-     */
-    fun refreshStudioClips(showLoading: Boolean = true) {
+    fun resetExportState() {
+        if (!_exportState.value.phase.isBusy) _exportState.value = ExportUiState()
+    }
+
+    fun refreshStudioClips() {
         scope.launch {
-            if (showLoading) _studio.update { it.copy(phase = ExportPhase.Loading) }
+            _studio.update { it.copy(phase = ExportPhase.Loading) }
             val clips =
                 withContext(Dispatchers.IO) {
                     dev.geode.export.StudioClips
                         .list(application)
                 }
-            _studio.update { it.copy(clips = clips, phase = if (showLoading) ExportPhase.Idle else it.phase) }
+            _studio.update { it.copy(clips = clips, phase = ExportPhase.Idle) }
         }
     }
 
@@ -468,144 +418,62 @@ internal class ExportController(
         }
     }
 
-    /**
-     * Runs on [ExportRun.scope] like [startExport] and [startLoopRender]: a studio clip export is
-     * heavy enough, and slow enough, that it must survive the Activity going away, and it shares
-     * [ExportRun]'s single-render guard and foreground notification with every other render path.
-     */
     fun startStudioExport(
         clip: dev.geode.export.StudioClip,
         edit: dev.geode.export.ClipEdit,
         destination: Uri? = null,
     ) {
-        if (_studio.value.phase.isBusy || ExportRun.running) return
+        if (_studio.value.phase.isBusy) return
         _studio.update { it.copy(phase = ExportPhase.Running(0f)) }
-        val name = "geode_studio_${System.currentTimeMillis()}.mp4"
-        ExportRun.begin(ExportRun.Kind.Studio, name)
-        ExportService.start(application)
         studioJob =
-            ExportRun.scope.launch(Dispatchers.Default) {
-                var runResult: ExportRun.Result = ExportRun.Result.Cancelled
-                try {
-                    val result =
-                        studioExporter.export(
-                            source = Uri.parse(clip.uri),
-                            sourceDurationMs = clip.durationMs,
-                            edit = edit,
-                            displayName = name,
-                            codec = defaultCodec(),
-                            destination = destination,
-                        ) { p -> publishStudioProgress(p) }
-                    val phase = result.toPhase()
-                    _studio.update { it.copy(phase = phase) }
-                    runResult = phase.toRunResult()
-                } catch (t: Throwable) {
-                    // Studio exports have no isCancelled poll of their own (Media3's Transformer
-                    // is stopped by cancelling this job, not by checking a flag) so cancellation
-                    // always arrives here as a CancellationException, not as a Cancelled result.
-                    if (t is kotlinx.coroutines.CancellationException) {
-                        _studio.update { it.copy(phase = cancelledPhase()) }
-                        throw t
-                    } else {
-                        val message = describeExportFailure(t, ExportRun.Kind.Studio)
-                        _studio.update { it.copy(phase = ExportPhase.Failed(message)) }
-                        runResult = ExportRun.Result.Failed(message)
-                    }
-                } finally {
-                    refreshStudioClips(showLoading = false)
-                    studioJob = null
-                    ExportRun.finish(runResult)
-                }
+            scope.launch {
+                val name = "muzviz_studio_${System.currentTimeMillis()}.mp4"
+                val result =
+                    studioExporter.export(
+                        source = Uri.parse(clip.uri),
+                        sourceDurationMs = clip.durationMs,
+                        edit = edit,
+                        displayName = name,
+                        codec = defaultCodec(),
+                        destination = destination,
+                    ) { p -> _studio.update { it.copy(phase = ExportPhase.Running(p.coerceIn(0f, 1f))) } }
+                _studio.update { it.copy(phase = result.toPhase()) }
+                refreshStudioClips()
+                studioJob = null
             }
-    }
-
-    /** Shared by [startStudioExport] and [startProjectExport]'s progress callbacks. */
-    private fun publishStudioProgress(progress: Float) {
-        // StudioExporter has no isCancelled poll to hand a cancel request to; this callback is
-        // the only place its Media3 pipeline reports back, so it doubles as the cooperative check
-        // that lets a service-timeout cancel (ExportRun.cancelRequested with no job reference)
-        // actually stop the render, the same way isCancelled does for the other export paths.
-        if (ExportRun.cancelRequested) {
-            studioJob?.cancel()
-            return
-        }
-        val clamped = progress.coerceIn(0f, 1f)
-        _studio.update { it.copy(phase = ExportPhase.Running(clamped)) }
-        ExportRun.publish(clamped)
     }
 
     fun startProjectExport(
         project: dev.geode.editor.EditorProject,
         destination: Uri? = null,
     ) {
-        if (_studio.value.phase.isBusy || ExportRun.running) return
+        if (_studio.value.phase.isBusy) return
         _studio.update { it.copy(phase = ExportPhase.Running(0f)) }
-        val name = "geode_cut_${System.currentTimeMillis()}.mp4"
-        ExportRun.begin(ExportRun.Kind.Project, name)
-        ExportService.start(application)
         studioJob =
-            ExportRun.scope.launch(Dispatchers.Default) {
-                var runResult: ExportRun.Result = ExportRun.Result.Cancelled
-                try {
-                    // ProjectComposition.build can throw (e.g. IllegalArgumentException on a clip
-                    // that isn't media-lane content) and does file IO for LUTs, so it moves off
-                    // the caller's thread and its failure becomes a Failed phase instead of an
-                    // uncaught crash.
-                    val built =
-                        withContext(Dispatchers.IO) {
-                            runCatching { ProjectComposition.build(application, project) }
-                        }
-                    val outcome = built.getOrNull()
-                    when {
-                        outcome == null -> {
-                            val message =
-                                describeExportFailure(
-                                    built.exceptionOrNull()
-                                        ?: IllegalStateException("ProjectComposition.build returned no outcome and no exception"),
-                                    ExportRun.Kind.Project,
-                                )
-                            _studio.update { it.copy(phase = ExportPhase.Failed(message)) }
-                            runResult = ExportRun.Result.Failed(message)
-                        }
-                        outcome !is ProjectComposition.Outcome.Ready -> {
-                            val message = application.getString(dev.geode.R.string.editor_export_no_video)
-                            _studio.update { it.copy(phase = ExportPhase.Failed(message)) }
-                            runResult = ExportRun.Result.Failed(message)
-                        }
-                        else -> {
-                            val result =
-                                studioExporter.exportComposition(
-                                    outcome.composition,
-                                    outcome.durationMs,
-                                    name,
-                                    defaultCodec(),
-                                    destination,
-                                ) { p -> publishStudioProgress(p) }
-                            val phase = result.toPhase()
-                            _studio.update { it.copy(phase = phase) }
-                            runResult = phase.toRunResult()
-                        }
-                    }
-                } catch (t: Throwable) {
-                    if (t is kotlinx.coroutines.CancellationException) {
-                        _studio.update { it.copy(phase = cancelledPhase()) }
-                        throw t
-                    } else {
-                        val message = describeExportFailure(t, ExportRun.Kind.Project)
-                        _studio.update { it.copy(phase = ExportPhase.Failed(message)) }
-                        runResult = ExportRun.Result.Failed(message)
-                    }
-                } finally {
-                    refreshStudioClips(showLoading = false)
+            scope.launch {
+                // build() reads the export defaults from prefs, so it runs on IO with them.
+                val built = withContext(Dispatchers.IO) { ProjectComposition.build(application, project) }
+                if (built !is ProjectComposition.Outcome.Ready) {
+                    _studio.update { it.copy(phase = ExportPhase.Failed(application.getString(dev.geode.R.string.editor_export_no_video))) }
                     studioJob = null
-                    ExportRun.finish(runResult)
+                    return@launch
                 }
+                val name = "muzviz_cut_${System.currentTimeMillis()}.mp4"
+                val result =
+                    studioExporter.exportComposition(built.composition, built.durationMs, name, defaultCodec(), destination) { p ->
+                        _studio.update { it.copy(phase = ExportPhase.Running(p.coerceIn(0f, 1f))) }
+                    }
+                _studio.update { it.copy(phase = result.toPhase()) }
+                refreshStudioClips()
+                studioJob = null
             }
     }
 
-    private fun defaultCodec(): ExportCodec = ExportPrefsStore(GeodePrefsFiles(application).general).load().codec
+    // Called from [scope], which is Main: the prefs read itself goes to IO.
+    private suspend fun defaultCodec(): ExportCodec =
+        withContext(Dispatchers.IO) { ExportPrefsStore(GeodePrefsFiles(application).general).load().codec }
 
-    // The main export's UI (SettingsDialog) has no path to this controller's public API for
+    // The main export's UI (Studio › Render) has no path to this controller's public API for
     // per-render options that aren't already threaded through startExport's callers, so the
     // loudness target rides along as a persisted default instead, the same way defaultCodec()
     // above does for studio exports.
@@ -623,29 +491,29 @@ internal class ExportController(
     }
 
     fun cancelStudioExport() {
-        ExportRun.requestCancel()
-        // studioExporter.cancel() suspends until the Transformer has actually stopped and the
-        // scratch file is gone (its own finally completes that), so the UI only drops back to
-        // Idle — and the single @Volatile transformer field is only safe to reuse — once the
-        // previous export has fully wound down, not the instant Cancel is tapped. This runs on
-        // ExportRun.scope, not the controller's own scope, so it finishes even if this controller
-        // (and its scope) is torn down right after Cancel is tapped.
-        val job = studioJob
-        ExportRun.scope.launch {
-            job?.cancel()
-            studioExporter.cancel()
-            _studio.update { it.copy(phase = ExportPhase.Idle) }
-        }
+        studioExporter.cancel()
+        studioJob?.cancel()
+        studioJob = null
+        _studio.update { it.copy(phase = ExportPhase.Idle) }
     }
 
     fun clearStudioResult() {
         _studio.update { it.copy(phase = ExportPhase.Idle) }
-        ExportRun.clear(ExportRun.Kind.Studio)
-        ExportRun.clear(ExportRun.Kind.Project)
     }
 
+    private val loopRenderer = LoopRender(application)
+    private val loopExtender = LoopExtend(application)
+
+    private val _loopState = MutableStateFlow(LoopUiState())
+    val loopState: StateFlow<LoopUiState> = _loopState
+
+    @Volatile
+    private var loopCancelled = false
+
+    private var loopJob: Job? = null
+
     /**
-     * Renders a seamless loop from the current track's analysis, then repeats it into a
+     * Renders a seamless loop of the current track's visuals, then repeats it into a
      * long-form video with [audioClips] (or, if empty, the current track) as its soundtrack.
      *
      * Runs on [ExportRun.scope] and shares [ExportRun]'s single-render guard and foreground
@@ -662,26 +530,21 @@ internal class ExportController(
         drift: TimeOfDayDrift,
         audioClips: List<Uri>,
         destination: Uri? = null,
+        watermark: Boolean = false,
     ) {
         val uri = host.exportUri ?: return
         if (_loopState.value.phase.isBusy || ExportRun.running) return
+        loopCancelled = false
         _loopState.value = LoopUiState(phase = ExportPhase.Running(0f))
-        ExportRun.begin(ExportRun.Kind.Loop, uri.lastPathSegment.orEmpty().substringAfterLast('/'))
+        ExportRun.begin(uri.lastPathSegment.orEmpty().substringAfterLast('/'))
         ExportService.start(application)
         loopJob =
             ExportRun.scope.launch(Dispatchers.Default) {
-                var runResult: ExportRun.Result = ExportRun.Result.Cancelled
                 try {
-                    val analysed =
-                        host.cachedTimeline ?: host
-                            .analyze(uri) { p ->
-                                publishLoopProgress(p * ANALYSIS_SPAN)
-                            }.also { if (host.exportUri == uri) host.cachedTimeline = it }
                     val gui = host.guiPrefs
-                    val spec = LoopSpec.of(loopMs, crossfadeMs, fps = fps, bpm = analysed.bpm)
+                    val spec = LoopSpec.of(loopMs, crossfadeMs, fps = fps)
                     val renderResult =
                         loopRenderer.render(
-                            timeline = analysed,
                             sceneFactory = sceneFactory,
                             aspect = aspect,
                             spec = spec,
@@ -689,27 +552,29 @@ internal class ExportController(
                             drift = drift,
                             lfoConfigs = host.lfoConfigs(),
                             adsrConfigs = host.adsrConfigs(),
+                            reactions = host.reactions(),
                             reducedMotion = gui.reducedMotion,
                             codec = codec,
-                            onProgress = { p -> publishLoopProgress(ANALYSIS_SPAN + p * RENDER_SPAN) },
-                            isCancelled = { ExportRun.cancelRequested },
+                            audioUri = uri,
+                            soundTuning = gui.soundTuning,
+                            onProgress = { p -> publishLoopProgress(p * RENDER_SPAN) },
+                            isCancelled = { loopCancelled || ExportRun.cancelRequested },
+                            watermark = watermark,
                         )
-                    val phase = finishLoopRender(renderResult, uri, audioClips, destination)
-                    _loopState.value = LoopUiState(phase = phase)
-                    runResult = phase.toRunResult()
+                    _loopState.value = LoopUiState(phase = finishLoopRender(renderResult, uri, audioClips, destination))
                 } catch (t: Throwable) {
                     if (t is kotlinx.coroutines.CancellationException) {
                         _loopState.value = LoopUiState()
                         throw t
-                    } else if (ExportRun.cancelRequested) {
-                        _loopState.value = LoopUiState(phase = cancelledPhase())
+                    } else if (loopCancelled) {
+                        _loopState.value = LoopUiState()
                     } else {
-                        val message = describeExportFailure(t, ExportRun.Kind.Loop)
-                        _loopState.value = LoopUiState(phase = ExportPhase.Failed(message))
-                        runResult = ExportRun.Result.Failed(message)
+                        val reason = t.message ?: application.getString(dev.geode.R.string.export_error_no_message)
+                        val detail = "${t.javaClass.simpleName}: $reason"
+                        _loopState.value = LoopUiState(phase = ExportPhase.Failed(detail))
                     }
                 } finally {
-                    ExportRun.finish(runResult)
+                    ExportRun.finish()
                 }
             }
     }
@@ -737,15 +602,15 @@ internal class ExportController(
                                 },
                             )
                         }
-                    val name = "geode_loop_${System.currentTimeMillis()}.mp4"
+                    val name = "muzviz_loop_${System.currentTimeMillis()}.mp4"
                     val extended =
                         loopExtender.extend(
                             reel = reel,
                             audio = audio,
                             fileName = name,
                             destination = destination,
-                            onProgress = { p -> publishLoopProgress(ANALYSIS_SPAN + RENDER_SPAN + p * EXTEND_SPAN) },
-                            isCancelled = { ExportRun.cancelRequested },
+                            onProgress = { p -> publishLoopProgress(RENDER_SPAN + p * EXTEND_SPAN) },
+                            isCancelled = { loopCancelled || ExportRun.cancelRequested },
                         )
                     when (extended) {
                         is LoopExtend.Result.Saved -> ExportPhase.Done(extended.uri)
@@ -765,89 +630,17 @@ internal class ExportController(
     }
 
     fun cancelLoopRender() {
-        ExportRun.requestCancel()
+        loopCancelled = true
     }
 
     fun clearLoopResult() {
-        if (!_loopState.value.phase.isBusy) {
-            _loopState.value = LoopUiState()
-            ExportRun.clear(ExportRun.Kind.Loop)
-        }
-    }
-
-    /**
-     * The phase a cancelled run should leave on screen. A cancel the user asked for just clears the
-     * dialog, which is why these branches blank the state. An *abort* — [ExportRun.abort], i.e.
-     * something outside the render made it impossible to continue, such as the foreground service
-     * being refused — is not something they asked for, so its reason stays up instead of the dialog
-     * closing on its own and leaving no trace of a half-finished export.
-     *
-     * The studio paths reach this through their `CancellationException` branch rather than a
-     * `cancelRequested` one: [publishStudioProgress] is what notices the cancel, and it acts on it
-     * by cancelling the job.
-     */
-    private fun cancelledPhase(): ExportPhase = ExportRun.abortReason?.let { ExportPhase.Failed(it) } ?: ExportPhase.Idle
-
-    /**
-     * Whether [t]'s own message is fit to put in front of someone.
-     *
-     * The exporters raise plenty of `IllegalState`/`IllegalArgument` failures whose message is a
-     * precise, readable sentence, and those beat any generic string this class could substitute.
-     * The guards reject the ones that are not: a blank message, one that reads like a `toString()`
-     * or a stack frame rather than prose - which is where "Exception" and "@" turn up - and
-     * anything too long to take in from a dialog.
-     */
-    private fun hasPresentableMessage(t: Throwable): Boolean {
-        if (t !is IllegalStateException && t !is IllegalArgumentException) return false
-        val msg = t.message.orEmpty()
-        val readsLikeATrace = msg.contains("Exception") || msg.contains("@")
-        return msg.isNotBlank() && !readsLikeATrace && msg.length < MAX_PRESENTABLE_MESSAGE_CHARS
-    }
-
-    /**
-     * Turns an unexpected export failure into a sentence a user can act on, logging the raw
-     * exception (class, message, stack) to [dev.geode.RingLog] for support/debugging — that raw
-     * text used to go straight into the UI as `"${simpleName}: ${message}"`, which is not
-     * something most people can do anything with.
-     */
-    private fun describeExportFailure(
-        t: Throwable,
-        kind: ExportRun.Kind? = null,
-    ): String {
-        dev.geode.RingLog.note(TAG, "export failed", t)
-        if (hasPresentableMessage(t)) return t.message.orEmpty()
-        return when (t) {
-            is ExportFailure ->
-                application.getString(t.stringResId)
-            is android.media.MediaCodec.CodecException ->
-                application.getString(dev.geode.R.string.export_error_codec)
-            is java.io.IOException ->
-                application.getString(dev.geode.R.string.export_error_io)
-            is IllegalArgumentException ->
-                if (kind == ExportRun.Kind.Project || kind == ExportRun.Kind.Studio) {
-                    application.getString(dev.geode.R.string.export_error_invalid_project)
-                } else {
-                    application.getString(dev.geode.R.string.export_error_generic)
-                }
-            is IllegalStateException ->
-                application.getString(dev.geode.R.string.export_error_generic)
-            is OutOfMemoryError ->
-                application.getString(dev.geode.R.string.export_error_out_of_memory)
-            else ->
-                application.getString(dev.geode.R.string.export_error_generic_detail, t.javaClass.simpleName)
-        }
+        if (!_loopState.value.phase.isBusy) _loopState.value = LoopUiState()
     }
 
     private companion object {
-        private const val TAG = "ExportController"
-
-        /** Longer than this and a failure message is a dump, not a sentence someone can read. */
-        private const val MAX_PRESENTABLE_MESSAGE_CHARS = 200
-
-        // Analysing the track is quick against the render itself; extending mostly copies
-        // already-encoded samples, so it gets less of the bar than the GPU render does.
-        const val ANALYSIS_SPAN = 0.1f
-        const val RENDER_SPAN = 0.6f
-        const val EXTEND_SPAN = 1f - ANALYSIS_SPAN - RENDER_SPAN
+        // Extending mostly copies already-encoded samples, so it gets less of the bar than the
+        // GPU render does.
+        const val RENDER_SPAN = 0.7f
+        const val EXTEND_SPAN = 1f - RENDER_SPAN
     }
 }

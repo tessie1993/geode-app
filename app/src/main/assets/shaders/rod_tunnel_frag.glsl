@@ -7,6 +7,7 @@ out vec4 fragColor;
 
 //#include lib_scene_uniforms
 //#include lib_scene_motion
+//#include lib_camera
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_sdf3
@@ -20,22 +21,32 @@ out vec4 fragColor;
 // twists with depth, and holds one rod per cell. What this version adds, in
 // the order the eye meets it:
 //
+//   - THE CAMERA IS THE RIG'S. The eye flies the shared camera rig (camFly):
+//     its depth down the tube is the rig's, so the Camera tab sets the speed,
+//     and the rig's look, banking, shake, dolly and FOV all come through - the
+//     composite leaves this picture alone. The rig's sideways wander is the
+//     one thing absorbed: the eye is put back on the tube's centreline at its
+//     own depth, since a tube this narrow would otherwise be left through the
+//     wall. The style's old camera survives as framing: the view is turned
+//     onto the bend's tangent with the slow roll, and sits a little off axis.
 //   - THE TUNNEL BENDS. It is warped onto lib_dmt's flight path, so it curves
-//     up, down, left and right ahead of the camera, which rides the same path
-//     looking along it.
+//     up, down, left and right ahead of the camera, and the framing above
+//     keeps the view along it.
 //   - THE RODS ARE ALIVE. Each cell has its own life: rods bud out of the
 //     wall, hold, and dissolve, on a clock offset by the cell's hash, so at
 //     any moment some strands are thick, some are budding and some have
 //     gaps. Nothing appears in one frame - dmtLife eases both ends.
 //   - THE RODS MORPH. The bead chain is a capsule whose radius is modulated
-//     by a sine; the phase-locked bar oscillator walks that from a smooth
-//     rod through tight beads to a string of near-separate pearls and back,
-//     gliding with the rhythm rather than stepping on a hit.
+//     by a sine; uFormPhase walks that from a smooth rod through tight beads
+//     to a string of near-separate pearls and back, gliding, never stepping.
 //   - THE MATERIAL is lib_dmt's: banded by the cell, dispersed rim, thin-film
 //     sheen, a reflected softbox. The old two-light diffuse block is gone.
 //   - THE END of the tunnel is the mandala rather than a spot: the miss
-//     branch draws dmtChrysanthemum on the camera-relative direction, so the
-//     filigree sits on the axis you are flying toward and turns as you bank.
+//     branch draws dmtChrysanthemum in the tube's flight frame, so the
+//     filigree sits on the axis you are flying toward and the rig's look
+//     moves it off centre as it would the real end of a tube.
+//   - ONSETS (SND_ONSET_ENV) give the rods, the halo and the core a brief hue step.
+//     Hue only - nothing here brightens on a hit.
 //
 // ---- why the estimate is safe ----------------------------------------------
 //
@@ -52,6 +63,8 @@ out vec4 fragColor;
 #define ROD_CELL 1.0
 #define ROD_RADIUS 1.6
 #define ROD_FOCAL 1.3
+/** CameraRig::kBaseFocal - uCamFocal at the default FOV. ROD_FOCAL is kept as a lens ratio to it. */
+#define ROD_RIG_FOCAL 1.6
 #define ROD_FAR 26.0
 #define ROD_STRANDS 14.0
 #define ROD_FOG 0.09
@@ -71,7 +84,17 @@ const float ROD_LIFE_PERIOD = 11.0;
 /** The step fraction the angular repeat and twist already needed; now also carries the two bounds above. */
 const float ROD_STEP = 0.6 / (DMT_TUNNEL_LIP * ROD_BEAD_LIP);
 
+/**
+ * The standing twist, radians per unit depth: 0.25 rounded so that one 8192
+ * travel wrap turns it by a whole number (4563) of strand sectors, and the
+ * rods land on themselves across the wrap.
+ */
+#define ROD_TWIST_BASE (4563.0 * ROD_TAU / (ROD_STRANDS * 8192.0))
+
+/** The mids' extra twist, radians per unit depth, measured from the eye (gFly). */
 float gTwist;
+/** The eye's depth down the tube. */
+float gFly;
 float gCellA;
 float gCellZ;
 float gBeadDepth;
@@ -89,11 +112,16 @@ float map(vec3 p) {
     // the tunnel is a cylinder down +z.
     p = dmtTunnelWarp(p);
     float rad = length(p.xy);
-    float ang = atan(p.y, p.x) + p.z * gTwist;
+    // The mids' twist is anchored at the eye. Anchored at depth 0 as it was,
+    // a slewed mid level times a depth of thousands turned the tube by whole
+    // sectors per frame, so the rods spun on every change in the mids.
+    float ang = atan(p.y, p.x) + p.z * ROD_TWIST_BASE + (p.z - gFly) * gTwist;
     float sector = ROD_TAU / ROD_STRANDS;
-    gCellA = floor(ang / sector);
+    // Strand and ring ids wrapped (14 strands, 1024 rings) so the hashes and
+    // hues repeat over the 8192 travel wrap.
+    gCellA = mod(floor(ang / sector), ROD_STRANDS);
     ang = mod(ang, sector) - 0.5 * sector;
-    gCellZ = floor(p.z / ROD_CELL);
+    gCellZ = mod(floor(p.z / ROD_CELL), 1024.0);
     float z = mod(p.z, ROD_CELL) - 0.5 * ROD_CELL;
     vec3 q = vec3(ROD_RADIUS - rad, ang * ROD_RADIUS, z);
     // The cell's own life. The seed is the cell's hash, so each rod's clock
@@ -112,32 +140,36 @@ vec3 normalAt(vec3 p, float eps) {
                    + k.yxy * map(p + k.yxy * eps) + k.xxx * map(p + k.xxx * eps));
 }
 
-// motion: uBarOsc -> bead/pearl morph phase, uKeyHue -> rod/core hue drift
 void main() {
     vec2 uv = view();
-    float bassA = min(uBassSmooth, 1.3);
-    float midA = min(uMidSmooth, 1.3);
-    float trebA = min(uTrebleSmooth, 1.3);
-    float enA = min(uEnergySmooth, 1.3);
+    float bassA = min(sndShaped(SND_LOW), 1.3);
+    float midA = min(SND_MID_PRESENCE, 1.3);
+    float trebA = min(SND_TREBLE_PRESENCE, 1.3);
+    float enA = min(((SND_BASS_PRESENCE + SND_MID_PRESENCE + SND_TREBLE_PRESENCE) / 3.0), 1.3);
+    float hit = clamp(SND_ONSET_ENV, 0.0, 1.0);
 
-    gTwist = 0.25 + 0.55 * midA;
-    // Rod to pearls and back: the phase-locked bar oscillator, already
-    // gated by rhythm confidence and eased, drives the morph continuously.
-    gBeadDepth = uBarOsc;
+    gTwist = 0.55 * midA;
+    // Rod to pearls and back: a triangle of uFormPhase, so the morph is deep
+    // in the middle of the ring and smooth at both ends, and glides because
+    // uFormPhase does.
+    gBeadDepth = 1.0 - abs(2.0 * fract(uFormPhase) - 1.0);
 
-    // The camera's distance down the tunnel, INTEGRATED rather than `uTime * rate`.
-    // Multiplying a running clock by a loudness-dependent rate does not speed the
-    // camera up, it teleports it: at t=60s a rate moving 1.4 -> 3.6 jumps the
-    // viewpoint 132 units down the tube in one frame. uFlowPhase only ever advances.
-    float fly = uFlowPhase * 9.0 + uTime * 1.4;
-    // A slow roll, so the horizon of the tube turns as it banks.
-    float roll = uTime * 0.08 + 0.25 * sin(uTime * 0.031);
+    // The rig's eye and ray. uv is scaled so the rig's default focal lands
+    // on ROD_FOCAL and the FOV dial still widens or narrows it.
     vec3 ro;
     vec3 rd;
-    dmtFlightRay(uv, ROD_FOCAL, fly, roll, ro, rd);
-    // Sit a little off the axis, in the tube's own frame, so the wall is not
-    // seen dead centre.
-    ro.xy += vec2(0.25 * sin(uTime * 0.31), 0.25 * cos(uTime * 0.23));
+    camFly(uv * (ROD_RIG_FOCAL / ROD_FOCAL), ro, rd);
+    // The depth down the tube is the rig's (it is integrated on the CPU, so it
+    // never teleports); the eye goes back onto the tube's centreline at that
+    // depth, a little off the axis so the wall is not seen dead centre.
+    float fly = ro.z;
+    gFly = fly;
+    ro.xy = dmtTunnelPath(fly) + vec2(0.25 * sin(uTime * 0.31), 0.25 * cos(uTime * 0.23));
+    // Framing: the bend's tangent and the old slow roll, so the horizon of the
+    // tube turns as it banks. The rig's own look is applied inside it.
+    float roll = uTime * 0.08 + 0.25 * sin(uTime * 0.031);
+    mat3 flight = dmtFlightBasis(fly, roll);
+    rd = flight * rd;
 
     float t = 0.02;
     float hitT = -1.0;
@@ -156,14 +188,13 @@ void main() {
         t += max(d * ROD_STEP, eps);
     }
 
-    // sin(2*pi*uKeyHue), not a raw (uKeyHue - 0.5): uKeyHue wraps 1->0, and a
-    // linear shift of it would pop at that wrap; the sine stays continuous.
-    float hueShift = 0.075 * uKeyStrength * sin(6.2831853 * uKeyHue);
+    float hueShift = 0.12 * hit;
     vec3 coreCol = pal(0.08 + hueShift);
-    // The sky: the mandala on the flight direction. The camera basis from
-    // dmtFlightRay has +z along the path, so the direction is taken relative
-    // to that frame rather than to the world's: the mandala is always ahead.
-    vec3 rdLocal = transpose(dmtFlightBasis(fly, roll)) * rd;
+    // The sky: the mandala on the flight direction. The flight frame has +z
+    // along the path, so the direction is taken relative to it rather than to
+    // the world's: the mandala is at the end of the tube, and the rig's look
+    // (uCamBasis, inside the framing) turns the view away from it and back.
+    vec3 rdLocal = rd * flight;
     vec3 sky = dmtChrysanthemum(rdLocal, 0.62 + hueShift, enA);
     float onAxis = pow(max(rdLocal.z, 0.0), 28.0);
     float tGlow = hitT > 0.0 ? hitT : ROD_FAR;
@@ -199,6 +230,6 @@ void main() {
     if (!touchIdle()) {
         col += pal(0.5 + 0.15 * sin(uTime * 0.05)) * min(touchWake(uv), 3.0) * 0.05;
     }
-    col *= 0.7 + 0.3 * smoothstep(2.2, 0.5, length(uv));
+    col *= 0.7 + 0.3 * (1.0 - smoothstep(0.5, 2.2, length(uv)));
     fragColor = vec4(grade(col), 1.0);
 }

@@ -4,12 +4,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import dev.geode.geodeContainer
 import dev.geode.render.BlendMode
-import dev.geode.render.TransitionCatalog
-import dev.geode.render.VisualSafety
 import dev.geode.render.VisualizerView
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
 data class LayersUiState(
@@ -37,29 +39,35 @@ fun VisualizerEngineBindings(
     val viz by viewModel.vizState.collectAsStateWithLifecycle()
     val lfos by visualsViewModel.lfos.collectAsStateWithLifecycle()
     val adsrs by visualsViewModel.adsrs.collectAsStateWithLifecycle()
+    val reactions by visualsViewModel.reactions.collectAsStateWithLifecycle()
     val playerPrefs by settingsViewModel.playerPrefs.collectAsStateWithLifecycle()
     val gui by settingsViewModel.guiPrefs.collectAsStateWithLifecycle()
     val layers by LayersBus.state.collectAsStateWithLifecycle()
-    val overlay by viewModel.overlayPixels.collectAsStateWithLifecycle()
+    val performanceStore = LocalContext.current.geodeContainer.performance
+    val performance by performanceStore.settings.collectAsStateWithLifecycle()
     val background by visualsViewModel.backgroundPush.collectAsStateWithLifecycle()
     val mainScope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) {
         visualizerView.visualizerRenderer.onShaderError = viewModel::reportShaderError
         visualizerView.visualizerRenderer.pcmProvider = { viewModel.latestPcm() }
-        // One surface-size callback feeds both consumers: the overlay composer takes the size
-        // directly, and the background image is re-decoded to the surface's current pixel size
-        // (a rotation or a fold needs that just as much as a fresh pick does). The callback fires
-        // on the GL thread; BackgroundController's state is only ever touched from Main, so that
-        // half hops back rather than calling straight through.
+        visualizerView.visualizerRenderer.soundInput = { dev.geode.audio.AudioBus.soundInput }
+        // W02: the background image is decoded to the surface's current pixel size, so a rotation
+        // or a fold needs a re-decode just as much as a fresh pick does. onSurfaceSizeChanged fires
+        // on the GL thread; BackgroundController's state is only ever touched from Main, so this
+        // hops back rather than calling straight through.
         visualizerView.visualizerRenderer.onSurfaceSizeChanged = { w, h ->
-            viewModel.setOverlaySurfaceSize(w, h)
             mainScope.launch { visualsViewModel.setBackgroundRenderSize(w, h) }
         }
         LayersBus.availableScenes.value = visualizerView.visualizerRenderer.availableSceneIds()
-        viewModel.features.collect {
-            val enriched = viewModel.enrichFeatures(it)
-            visualizerView.visualizerRenderer.features = enriched
+    }
+    // One collector rather than LaunchedEffect(viz.params): a slider drag or a pinch edits params at
+    // pointer rate, and keying an effect on them cancelled and relaunched a coroutine per edit, each
+    // landing a frame late. distinctUntilChanged keeps unrelated vizState changes from re-pushing.
+    LaunchedEffect(Unit) {
+        viewModel.vizState.map { it.params }.distinctUntilChanged().collect { params ->
+            visualizerView.visualizerRenderer.sceneParams = params
+            visualizerView.gyroWanted = params.camGyro
         }
     }
     LaunchedEffect(background) {
@@ -84,15 +92,6 @@ fun VisualizerEngineBindings(
         renderer.layerMix = layers.mix
         renderer.layerBlend = layers.blend
     }
-    LaunchedEffect(viz.params) {
-        visualizerView.visualizerRenderer.sceneParams = viz.params
-    }
-    LaunchedEffect(overlay) {
-        val pixels = overlay
-        visualizerView.queueEvent {
-            visualizerView.visualizerRenderer.setOverlay(pixels.pixels, pixels.width, pixels.height)
-        }
-    }
     LaunchedEffect(playerPrefs.keepScreenOn) {
         visualizerView.keepScreenOn = playerPrefs.keepScreenOn
     }
@@ -100,13 +99,22 @@ fun VisualizerEngineBindings(
         visualizerView.visualizerRenderer.lfoEngine.configs = lfos
         visualizerView.visualizerRenderer.adsrEngine.configs = adsrs
     }
+    LaunchedEffect(reactions) {
+        visualizerView.visualizerRenderer.reactions = reactions
+    }
     LaunchedEffect(viz.transitionId, viz.transitionDurationSec) {
-        val id = VisualSafety.transitionId(viz.transitionId)
+        // A requested cut becomes a fade natively (core/viz/VisualSafety, applied by Renderer::setTransition).
+        val id = viz.transitionId
         val renderer = visualizerView.visualizerRenderer
         renderer.transitionId = id
-        TransitionCatalog.builtIn(id)?.let { renderer.transitionStyle = it }
         renderer.transitionDurationMs = (viz.transitionDurationSec * 1000).toLong()
         visualizerView.queueEvent { renderer.warmTransition(id) }
+    }
+    LaunchedEffect(gui.soundTuning) {
+        visualizerView.visualizerRenderer.soundTuning = gui.soundTuning
+    }
+    LaunchedEffect(performance) {
+        visualizerView.applyPerformance(performance)
     }
     LaunchedEffect(gui.reducedMotion) {
         visualizerView.visualizerRenderer.reducedMotion = gui.reducedMotion
@@ -116,7 +124,6 @@ fun VisualizerEngineBindings(
     }
     LaunchedEffect(Unit) {
         visualizerView.visualizerRenderer.onMilkPresetLoaded = { visualsViewModel.noteMilkPreset(it) }
-        viewModel.activeMilkPath.value?.let { visualizerView.visualizerRenderer.loadMilkPreset(it) }
         viewModel.vizApply.collect { apply ->
             apply.milkPath?.let {
                 visualizerView.visualizerRenderer.loadMilkPreset(it)

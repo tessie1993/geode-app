@@ -13,7 +13,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
-import dev.geode.RingLog
+import dev.geode.appLaunchIntent
 import dev.geode.util.bestEffort
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -43,15 +43,7 @@ class PlaybackCaptureService : Service() {
             stopSelf()
             return START_NOT_STICKY
         }
-        try {
-            startForegroundNotification()
-        } catch (e: IllegalStateException) {
-            abandonCapture(e)
-            return START_NOT_STICKY
-        } catch (e: SecurityException) {
-            abandonCapture(e)
-            return START_NOT_STICKY
-        }
+        bestEffort(TAG, "startForegroundNotification()") { startForegroundNotification() }
         val resultCode = intent?.getIntExtra(EXTRA_RESULT_CODE, 0) ?: 0
         val data = intent?.let { IntentCompat.projectionData(it) }
         if (resultCode == 0 || data == null) {
@@ -75,24 +67,6 @@ class PlaybackCaptureService : Service() {
         projection = mp
         MediaProjectionHolder.publish(mp)
         return START_NOT_STICKY
-    }
-
-    /**
-     * Refuses to start the capture, through the same path the rest of [onStartCommand] uses.
-     *
-     * Carrying on regardless would mean acquiring a [MediaProjection] - the most privileged thing
-     * this app does - on a service the platform is about to take down for missing the five-second
-     * `startForeground` contract, and with no visible notification telling the user their audio is
-     * being captured.
-     *
-     * Every documented refusal is an [IllegalStateException] (`ServiceStartNotAllowedException`,
-     * and on API 34+ the missing/invalid foreground-service-type pair, all extend it) or a
-     * [SecurityException] when a permission the requested type needs is not held.
-     */
-    private fun abandonCapture(cause: Exception) {
-        RingLog.note(TAG, "startForeground failed; aborting capture", cause)
-        MediaProjectionHolder.noteStartFailure()
-        stopSelf()
     }
 
     override fun onDestroy() {
@@ -123,7 +97,7 @@ class PlaybackCaptureService : Service() {
             android.app.PendingIntent.getActivity(
                 this,
                 0,
-                Intent(this, dev.geode.MainActivity::class.java),
+                appLaunchIntent(),
                 android.app.PendingIntent.FLAG_IMMUTABLE,
             )
         val stop =
@@ -180,11 +154,7 @@ class PlaybackCaptureService : Service() {
                 Intent(context, PlaybackCaptureService::class.java)
                     .putExtra(EXTRA_RESULT_CODE, resultCode)
                     .putExtra(EXTRA_RESULT_DATA, data)
-            runCatching {
-                context.startForegroundService(intent)
-            }.onFailure {
-                RingLog.note("PlaybackCaptureService", "startForegroundService failed", it)
-            }
+            context.startForegroundService(intent)
         }
 
         fun stop(context: Context) {

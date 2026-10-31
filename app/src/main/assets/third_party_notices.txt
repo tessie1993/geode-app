@@ -966,3 +966,58 @@ INCLUDING ANY GENERAL, SPECIAL, INDIRECT, INCIDENTAL, OR CONSEQUENTIAL
 DAMAGES, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 FROM, OUT OF THE USE OR INABILITY TO USE THE FONT SOFTWARE OR FROM
 OTHER DEALINGS IN THE FONT SOFTWARE.
+
+
+Style families: techniques studied (no code used)
+--------------------------------------------------
+The Arbor, Bulb, Chrysanthemum and Lucid style families
+(app/src/main/assets/shaders/lib_arbor.glsl, lib_bulb.glsl, lib_chrys.glsl,
+lib_lucid.glsl and their arbor_*, bulb_*, chrys_*, lucid_* styles) are original
+code. The following Shadertoy works are licensed for non-commercial use only
+(CC BY-NC-SA 3.0, stated or the Shadertoy default), so none of their code is
+used; they are credited here as the pieces whose techniques were studied:
+
+  "fractal trees gif" by macbooktall   https://www.shadertoy.com/view/llXfRr
+    (folded IFS branching distance field)
+  "mandelbulb_" by EvilRyu             https://www.shadertoy.com/view/MdXSWn
+    (power-8 Mandelbulb distance estimate, after White and Nylander, 2009)
+  "Breakthrough Chrysanthemum" by OneHung
+                                       https://www.shadertoy.com/view/s3ySzz
+    (polar petal fields, blooms that hide a scene change)
+  "dmt, no! not the drug" by Arrangemonk
+                                       https://www.shadertoy.com/view/sdyXWW
+    (recursive domain warping, after Inigo Quilez's articles on the technique)
+
+
+The Glass style family (app/src/main/assets/shaders/lib_glass.glsl and its
+glass_* styles) is original code written from the published technique:
+
+  Christophe Schlick, "An Inexpensive BRDF Model for Physically-based
+  Rendering", Computer Graphics Forum 13(3), 1994
+    (the Fresnel approximation behind the family's reflections)
+
+
+The Nebula style family (app/src/main/assets/shaders/lib_nebula.glsl and its
+nebula_* styles) is original code written from the published technique; no
+Shadertoy code is used. Credited as the best-known demonstration of it:
+
+  "Star Nest" by Kali                  https://www.shadertoy.com/view/XlfGRj
+    (volumetric fly-through star field and gas)
+
+
+The Terrain style family (app/src/main/assets/shaders/lib_terra.glsl and its
+terra_* styles) is original code written from the published technique; no
+Shadertoy code is used. Credited as the best-known demonstration of it:
+
+  "Elevated" by iq (RGBA, Breakpoint 2009)
+                                       https://www.shadertoy.com/view/MdX3Rr
+    (ray-marched fbm heightfield terrain with fog and sky)
+
+
+The Truchet style family (app/src/main/assets/shaders/lib_truchet.glsl and its
+truchet_* styles) is original code written from the published technique:
+
+  Sebastien Truchet, "Memoire sur les combinaisons" (1704), and Cyril Stanley
+  Smith, "The Tiling Patterns of Sebastien Truchet and the Topology of
+  Structural Hierarchy", Leonardo 20(4), 1987
+    (randomly oriented tiles whose arcs join into continuous paths)

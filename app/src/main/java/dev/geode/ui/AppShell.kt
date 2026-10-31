@@ -1,0 +1,840 @@
+package dev.geode.ui
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationRail
+import androidx.compose.material3.NavigationRailItem
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.window.core.layout.WindowSizeClass
+import dev.geode.R
+import dev.geode.analysis.SearchMatcher
+import dev.geode.data.BootAnimationStore
+import dev.geode.data.GeodePrefsFiles
+import dev.geode.data.GuiPrefs
+import dev.geode.data.PlayerPosition
+import dev.geode.model.TutorialChapter
+import dev.geode.model.TutorialProgress
+import dev.geode.pro.PaywallTrigger
+import dev.geode.render.VisualizerView
+import dev.geode.ui.pro.PaywallHost
+import dev.geode.ui.pro.PaywallViewModel
+import dev.geode.ui.theme.StoneIcon
+import dev.geode.ui.theme.StoneIconArt
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
+
+private const val CRASH_REPORT_MAX_BYTES = 64 * 1024
+
+/**
+ * A destination paired with the resolved label and icon the navigation surfaces draw for it.
+ *
+ * Built from [GeodeDestination.entries], so the bar and the rail cannot drift out of step with
+ * the screens they switch between, and selection compares destinations rather than positions.
+ */
+private data class NavEntry(
+    val destination: GeodeDestination,
+    val item: CrystalNavItem,
+)
+
+@Composable
+fun AppRoot() {
+    val viewModel: PlayerViewModel = geodeViewModel()
+    val settingsViewModel: SettingsViewModel = geodeViewModel()
+    val paywallViewModel: PaywallViewModel = geodeViewModel()
+    val context = LocalContext.current
+    val visualizerView = remember { VisualizerView(context) }
+    // GLSurfaceView renders continuously and only ever stops when its host says so. Without this
+    // the render thread keeps drawing whenever the app is visible but not resumed — behind a
+    // permission dialog, in split-screen, partially obscured — burning battery on frames nobody
+    // sees. GLSurfaceView's contract is that the owner forwards these two.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner, visualizerView) {
+        val observer =
+            LifecycleEventObserver { _, event ->
+                when (event) {
+                    Lifecycle.Event.ON_RESUME -> visualizerView.onResume()
+                    Lifecycle.Event.ON_PAUSE -> visualizerView.onPause()
+                    else -> Unit
+                }
+            }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            visualizerView.onPause()
+        }
+    }
+    val gui by settingsViewModel.guiPrefs.collectAsStateWithLifecycle()
+    val externalDisplay = rememberExternalDisplay()
+    val appState = rememberGeodeAppState(externalDisplay)
+    // Read on IO: at cold start this is the first touch of the general prefs file, and a
+    // SharedPreferences read blocks until the whole file has been parsed. Null until it lands,
+    // and nothing below that depends on it (the notice, setup, the intro) draws until then.
+    val bootAnimEnabled by produceState<Boolean?>(null) {
+        value = withContext(Dispatchers.IO) { BootAnimationStore(GeodePrefsFiles(context).general).load() }
+    }
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
+    // Not delegated: only the mini player's progress bar reads .value, in its own draw lambda.
+    val position = viewModel.positionMs.collectAsStateWithLifecycle()
+    val onSecondScreen = gui.secondScreen && externalDisplay != null
+    if (onSecondScreen) {
+        SecondScreenCanvas(externalDisplay, visualizerView)
+    }
+
+    var crashText by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(Unit) {
+        crashText =
+            withContext(Dispatchers.IO) {
+                val file = java.io.File(context.filesDir, "crash-latest.txt")
+                if (file.exists()) {
+                    file.inputStream().use { stream ->
+                        val buf = ByteArray(CRASH_REPORT_MAX_BYTES)
+                        var read = 0
+                        while (read < buf.size) {
+                            val n = stream.read(buf, read, buf.size - read)
+                            if (n < 0) break
+                            read += n
+                        }
+                        String(buf, 0, read, Charsets.UTF_8)
+                    }
+                } else {
+                    null
+                }
+            }
+    }
+    VisualizerEngineBindings(viewModel, visualizerView)
+    androidx.activity.compose.BackHandler(enabled = !appState.onPlayer) { appState.resetToPlayer() }
+    CrystalMaterialTheme(gui = gui) {
+        val miniPlayer: @Composable () -> Unit = {
+            MiniPlayer(
+                title =
+                    listOfNotNull(
+                        state.title,
+                        state.artist?.takeIf { it.isNotBlank() },
+                    ).joinToString(" \u2014 ").ifBlank { null },
+                isPlaying = state.isPlaying,
+                hasMedia = state.hasMedia,
+                progress = {
+                    if (state.durationMs > 0) position.value / state.durationMs.toFloat() else 0f
+                },
+                compact = gui.compactPlayer,
+                barOpacity = gui.barOpacity,
+                onExpand = appState::expand,
+                onPlayPause = viewModel::togglePlayPause,
+                onPrevious = viewModel::previous,
+                onNext = viewModel::next,
+            )
+        }
+        // Someone who came here to listen does not get a render queue in their navigation bar.
+        // First run no longer asks, so everyone starts with everything and narrows it in Settings.
+        val showsStudio = gui.intent.showsStudio
+        val tutorial = rememberTutorialState()
+        val navEntries =
+            GeodeDestination.entries
+                .filter { it != GeodeDestination.STUDIO || showsStudio }
+                .map { NavEntry(it, CrystalNavItem(stringResource(it.labelRes), it.icon)) }
+        // Keyed by destination, not by position: rotating swaps the bar layout for the rail
+        // layout, which would otherwise drop every screen's saved tab and scroll state.
+        val destinationState = rememberSaveableStateHolder()
+        val destinationContent: @Composable (twoPane: Boolean) -> Unit = { twoPane ->
+            PlaybackNoticeBanner(viewModel)
+            destinationState.SaveableStateProvider(appState.dest.name) {
+                when (appState.dest) {
+                    GeodeDestination.PLAYER ->
+                        PlayerScreen(
+                            viewModel,
+                            onOpenSearch = appState::openSearch,
+                            onExpand = appState::expand,
+                            onOpenLibrary = { appState.navigateTo(GeodeDestination.LIBRARY) },
+                        )
+                    GeodeDestination.LIBRARY ->
+                        if (twoPane) {
+                            Row(Modifier.fillMaxSize()) {
+                                Box(Modifier.weight(1f)) {
+                                    LibraryScreen(onOpenSearch = appState::openSearch)
+                                }
+                                Box(
+                                    Modifier
+                                        .width(1.dp)
+                                        .fillMaxHeight()
+                                        .luminousHairline(MaterialTheme.colorScheme.primary),
+                                )
+                                Box(Modifier.weight(1f)) {
+                                    PlayerScreen(
+                                        viewModel,
+                                        onOpenSearch = appState::openSearch,
+                                        onExpand = appState::expand,
+                                        onOpenLibrary = {},
+                                    )
+                                }
+                            }
+                        } else {
+                            LibraryScreen(onOpenSearch = appState::openSearch)
+                        }
+                    GeodeDestination.VISUALS ->
+                        VisualsHub(
+                            viewModel,
+                            visualizerView,
+                            onOpenNowPlaying = appState::expand,
+                            onOpenStudioRender = appState::openStudioRender,
+                            // The one VisualizerView has one parent: the Visuals stage may take it
+                            // only while the fullscreen view and the second screen don't hold it.
+                            canvasFree = !appState.expanded && !onSecondScreen,
+                        )
+                    GeodeDestination.STUDIO ->
+                        StudioHub(viewModel, visualizerView, appState.studioSection, onSection = { appState.studioSection = it })
+                    GeodeDestination.SETTINGS ->
+                        SettingsScreen(
+                            viewModel,
+                            onOpenStudioRender = appState::openStudioRender,
+                            onPlayTutorial = { tutorial.start(it) },
+                            onResetTutorials = {
+                                tutorial.autoOfferUsed = true
+                                settingsViewModel.setGuiPrefs(gui.copy(tutorialSeen = false, tutorialProgress = TutorialProgress()))
+                            },
+                        )
+                }
+            }
+        }
+        Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+            CrystalBackground(Modifier.fillMaxSize(), reducedMotion = gui.reducedMotion)
+            val sizeClass = currentWindowAdaptiveInfo().windowSizeClass
+            // Two panes only where both get a usable width and the Player pane can show more than
+            // its artwork: from 840dp, and not on a short landscape phone. A foldable or a phone on
+            // its side (600-839dp) gets the rail with one pane.
+            val twoPane =
+                sizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND) &&
+                    sizeClass.isHeightAtLeastBreakpoint(WindowSizeClass.HEIGHT_DP_MEDIUM_LOWER_BOUND)
+            // While the fullscreen visualizer covers the shell, the shell stays composed (its tabs
+            // and scroll positions survive) but is not placed, so nothing under the GL surface is
+            // laid out or drawn on every frame.
+            val shellHidden = appState.expanded && !onSecondScreen
+            // Onboarding and the safety notice draw in this window, over the shell. Hiding the shell
+            // from accessibility keeps TalkBack from swiping into the app beneath. (The tour is a
+            // Dialog, a window of its own, so it needs no such help.)
+            val overlayUp = (bootAnimEnabled == false || appState.bootDone) && (!gui.safetyAcknowledged || !gui.setupDone)
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .then(if (shellHidden) Modifier.notPlaced() else Modifier)
+                    .then(if (overlayUp) Modifier.clearAndSetSemantics { } else Modifier),
+            ) {
+                if (!sizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND)) {
+                    AppShellCompact(
+                        navEntries = navEntries,
+                        appState = appState,
+                        gui = gui,
+                        hasMedia = state.hasMedia,
+                        miniPlayer = miniPlayer,
+                        content = { destinationContent(false) },
+                    )
+                } else {
+                    // The Player pane beside Library already has the transport.
+                    val playerPaneShown = twoPane && appState.dest == GeodeDestination.LIBRARY
+                    AppShellExpanded(
+                        navEntries = navEntries,
+                        appState = appState,
+                        gui = gui,
+                        showMiniPlayer = state.hasMedia && !appState.onPlayer && !playerPaneShown,
+                        centerRail = sizeClass.isHeightAtLeastBreakpoint(WindowSizeClass.HEIGHT_DP_MEDIUM_LOWER_BOUND),
+                        miniPlayer = miniPlayer,
+                        content = { destinationContent(twoPane) },
+                    )
+                }
+                if (appState.searching) {
+                    SearchScreen(viewModel, onClose = appState::closeSearch)
+                }
+            }
+            val clipLabel = stringResource(R.string.crash_clip_label)
+            crashText?.let { text ->
+                androidx.compose.material3.AlertDialog(
+                    onDismissRequest = {},
+                    title = { Text(stringResource(R.string.crash_dialog_title)) },
+                    text = {
+                        Text(
+                            stringResource(R.string.crash_dialog_body, text.take(600)),
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    },
+                    confirmButton = {
+                        CrystalButton(onClick = {
+                            val cm = context.getSystemService(android.content.ClipboardManager::class.java)
+                            cm.setPrimaryClip(android.content.ClipData.newPlainText(clipLabel, text))
+                        }) { Text(stringResource(R.string.action_copy)) }
+                    },
+                    dismissButton = {
+                        CrystalButton(filled = false, onClick = {
+                            java.io.File(context.filesDir, "crash-latest.txt").delete()
+                            crashText = null
+                        }) { Text(stringResource(R.string.action_dismiss)) }
+                    },
+                )
+            }
+            // Read by MainActivity to decide whether leaving the app should be treated as "enter
+            // PiP" at all — a screen other than the fullscreen visualizer has nothing worth
+            // shrinking into a window. Excludes the second-screen placeholder card too: when the
+            // visuals are mirrored to a connected display, this phone shows only a "Showing on
+            // <display>" notice, and shrinking that into a PiP window would carry nothing useful.
+            LaunchedEffect(appState.expanded, onSecondScreen) {
+                VisualizerPipCoordinator.visualizerShowing = appState.expanded && !onSecondScreen
+            }
+            // Keeps the platform's own auto-enter flag (API 31+) and the PiP window's play/pause
+            // remote action in step with what is actually true, rather than only at the moment
+            // someone taps the PiP button.
+            LaunchedEffect(gui.autoEnterPip, state.isPlaying, appState.expanded) {
+                context.findMainActivity()?.refreshPipParams()
+            }
+            if (appState.expanded) {
+                VisualizerScreen(
+                    viewModel = viewModel,
+                    visualizerView = visualizerView,
+                    externalDisplayName = if (onSecondScreen) externalDisplay?.name else null,
+                    onCollapse = appState::collapse,
+                    onOpenVisuals = {
+                        appState.collapse()
+                        appState.navigateTo(GeodeDestination.VISUALS)
+                    },
+                )
+            }
+            if ((bootAnimEnabled == false || appState.bootDone) && !gui.safetyAcknowledged) {
+                SafetyConsent(
+                    onAcknowledge = { settingsViewModel.setGuiPrefs(gui.copy(safetyAcknowledged = true)) },
+                )
+            } else if ((bootAnimEnabled == false || appState.bootDone) && !gui.setupDone) {
+                // Setup runs only after the notice is acknowledged, and only until it is done.
+                FirstRunGate(
+                    onDone = {
+                        settingsViewModel.setGuiPrefs(gui.copy(setupDone = true))
+                        appState.navigateTo(gui.intent.landingDestination)
+                        // The end-of-onboarding paywall: once, skippable, after setup is saved.
+                        paywallViewModel.open(PaywallTrigger.Onboarding)
+                    },
+                )
+            }
+            // Offered once setup is out of the way, so the tour talks about a real app with a real
+            // library, and held back while the boot intro, the notice, setup or the paywall is up.
+            val paywall by paywallViewModel.uiState.collectAsStateWithLifecycle()
+            TutorialHost(
+                state = tutorial,
+                gui = gui,
+                blocked = (bootAnimEnabled != false && !appState.bootDone) || !gui.safetyAcknowledged || !gui.setupDone || paywall.visible,
+                onGuiChange = settingsViewModel::setGuiPrefs,
+                onShowMe = { target -> showTutorialTarget(target, appState) { paywallViewModel.open(PaywallTrigger.Settings) } },
+            )
+            // Drawn while the pref is still loading too (null): BootIntro opens on the splash's
+            // last frame, so it covers that gap instead of letting the app flash through. If the
+            // pref then lands false, it ends there, just as the splash would have.
+            if (bootAnimEnabled != false && !appState.bootDone) {
+                BootIntro(onDone = { appState.bootDone = true })
+            }
+            PaywallHost(reducedMotion = gui.reducedMotion)
+            SharedLinkConfirm()
+        }
+    }
+}
+
+@Composable
+private fun AppShellCompact(
+    navEntries: List<NavEntry>,
+    appState: GeodeAppState,
+    gui: GuiPrefs,
+    hasMedia: Boolean,
+    miniPlayer: @Composable () -> Unit,
+    content: @Composable () -> Unit,
+) {
+    Scaffold(
+        containerColor = Color.Transparent,
+        topBar = {
+            if (gui.playerPosition == PlayerPosition.TOP && hasMedia && !appState.onPlayer) {
+                Box(Modifier.statusBarsPadding()) { miniPlayer() }
+            }
+        },
+        bottomBar = {
+            Column {
+                if (gui.playerPosition == PlayerPosition.BOTTOM && !appState.onPlayer) miniPlayer()
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .height(1.dp)
+                        .luminousHairline(MaterialTheme.colorScheme.primary),
+                )
+                CrystalNavBar(
+                    items = navEntries.map { it.item },
+                    // A destination can be hidden while still being the current one — reaching
+                    // Studio from a track menu, say. Fall back to the first tab rather than -1.
+                    selected = navEntries.indexOfFirst { it.destination == appState.dest }.coerceAtLeast(0),
+                    onSelect = { appState.navigateTo(navEntries[it].destination) },
+                    opacity = gui.barOpacity,
+                )
+            }
+        },
+    ) { pad ->
+        // consumeWindowInsets so a screen that pads for the status bar itself doesn't pad twice,
+        // and imePadding so a focused field low on screen rises above the keyboard: the bar's share
+        // of the bottom inset is already consumed, so only the keyboard's extra height is added.
+        Box(
+            Modifier
+                .padding(pad)
+                .consumeWindowInsets(pad)
+                .imePadding(),
+        ) { content() }
+    }
+}
+
+@Composable
+private fun AppShellExpanded(
+    navEntries: List<NavEntry>,
+    appState: GeodeAppState,
+    gui: GuiPrefs,
+    showMiniPlayer: Boolean,
+    centerRail: Boolean,
+    miniPlayer: @Composable () -> Unit,
+    content: @Composable () -> Unit,
+) {
+    // safeDrawing rather than the status and navigation bars alone: in landscape the display
+    // cutout sits on a side edge, where it would cover the rail or the content's far edge. It
+    // includes the keyboard too, so a focused field stays above it.
+    Row(Modifier.fillMaxSize().safeDrawingPadding()) {
+        NavigationRail(containerColor = Color.Black.copy(alpha = gui.barOpacity * RAIL_GLASS_ALPHA)) {
+            if (centerRail) Spacer(Modifier.weight(1f))
+            navEntries.forEach { (destination, item) ->
+                NavigationRailItem(
+                    selected = appState.dest == destination,
+                    onClick = { appState.navigateTo(destination) },
+                    // The label below names the item; a description on the icon reads it twice.
+                    icon = { StoneIconArt(item.icon, null) },
+                    label = { Text(item.label, style = MaterialTheme.typography.labelSmall) },
+                )
+            }
+            if (centerRail) Spacer(Modifier.weight(1f))
+        }
+        Box(
+            Modifier
+                .width(1.dp)
+                .fillMaxHeight()
+                .luminousHairline(MaterialTheme.colorScheme.primary),
+        )
+        Column(Modifier.weight(1f)) {
+            val top = gui.playerPosition == PlayerPosition.TOP
+            if (showMiniPlayer && top) miniPlayer()
+            Box(Modifier.weight(1f)) { content() }
+            if (showMiniPlayer && !top) miniPlayer()
+        }
+    }
+}
+
+/** How dark the rail's glass gets at full bar opacity; the bottom bar reads the same setting. */
+private const val RAIL_GLASS_ALPHA = 0.5f
+
+/** Measured, so its state and size are kept, but never placed: nothing in it is drawn. */
+private fun Modifier.notPlaced(): Modifier =
+    layout { measurable, constraints ->
+        val placeable = measurable.measure(constraints)
+        layout(placeable.width, placeable.height) {}
+    }
+
+@Composable
+private fun MiniPlayer(
+    title: String?,
+    isPlaying: Boolean,
+    hasMedia: Boolean,
+    progress: () -> Float,
+    barOpacity: Float,
+    compact: Boolean,
+    onExpand: () -> Unit,
+    onPlayPause: () -> Unit,
+    onPrevious: () -> Unit,
+    onNext: () -> Unit,
+) {
+    if (!hasMedia) return
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .crystalPanel(
+                barOpacity,
+                MaterialTheme.colorScheme.surfaceVariant,
+                MaterialTheme.colorScheme.primary,
+                corner = 0.dp,
+                glowStrength = 0.6f,
+            ).clickable(onClick = onExpand),
+    ) {
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = if (compact) 0.dp else 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                Icons.Filled.MusicNote,
+                null,
+                Modifier
+                    .size(if (compact) 20.dp else 28.dp)
+                    .softGlow(MaterialTheme.colorScheme.primary, 8.dp, if (isPlaying) 1f else 0.35f),
+                tint = MaterialTheme.colorScheme.primary,
+            )
+            Text(
+                title ?: stringResource(R.string.mini_player_idle),
+                modifier = Modifier.weight(1f).padding(horizontal = 10.dp),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            IconButton(onClick = onPrevious) { StoneIconArt(StoneIcon.PREVIOUS, stringResource(R.string.action_previous)) }
+            IconButton(onClick = onPlayPause) {
+                StoneIconArt(
+                    if (isPlaying) StoneIcon.PAUSE else StoneIcon.PLAY,
+                    stringResource(if (isPlaying) R.string.action_pause else R.string.action_play),
+                )
+            }
+            IconButton(onClick = onNext) { StoneIconArt(StoneIcon.NEXT, stringResource(R.string.action_next)) }
+        }
+        LinearProgressIndicator(
+            progress = { progress().coerceIn(0f, 1f) },
+            modifier = Modifier.fillMaxWidth().height(2.dp),
+            color = MaterialTheme.colorScheme.primary,
+            trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+        )
+    }
+}
+
+@Composable
+fun SettingsScreen(
+    viewModel: PlayerViewModel,
+    onOpenStudioRender: () -> Unit,
+    onPlayTutorial: (List<TutorialChapter>) -> Unit,
+    onResetTutorials: () -> Unit,
+) {
+    Column(Modifier.fillMaxSize()) {
+        Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp)) {
+            CrystalOverline(stringResource(R.string.app_name))
+            GlowTitle(stringResource(R.string.nav_settings))
+        }
+        AppSettingsTab(
+            viewModel,
+            onOpenStudioRender = onOpenStudioRender,
+            onPlayTutorial = onPlayTutorial,
+            onResetTutorials = onResetTutorials,
+        )
+    }
+}
+
+/** Show me: the real screen behind a tour card. The tour waits behind its Resume pill meanwhile. */
+private fun showTutorialTarget(
+    target: TutorialTarget,
+    appState: GeodeAppState,
+    openPaywall: () -> Unit,
+) {
+    if (target != TutorialTarget.LIVE_VIEW) appState.collapse()
+    when (target) {
+        TutorialTarget.PLAYER -> appState.navigateTo(GeodeDestination.PLAYER)
+        TutorialTarget.LIBRARY -> appState.navigateTo(GeodeDestination.LIBRARY)
+        TutorialTarget.VISUALS -> appState.navigateTo(GeodeDestination.VISUALS)
+        TutorialTarget.LIVE_VIEW -> appState.expand()
+        TutorialTarget.STUDIO_RENDER -> appState.openStudioRender()
+        TutorialTarget.STUDIO_EDIT -> {
+            appState.studioSection = StudioSection.EDIT
+            appState.navigateTo(GeodeDestination.STUDIO)
+        }
+        TutorialTarget.SETTINGS -> appState.navigateTo(GeodeDestination.SETTINGS)
+        TutorialTarget.PAYWALL -> openPaywall()
+    }
+}
+
+private data class SearchTrackRow(
+    val uri: String,
+    val title: String,
+    val subtitle: String,
+    val fields: List<String>,
+    val fromDevice: Boolean,
+)
+
+@Composable
+fun SearchScreen(
+    viewModel: PlayerViewModel,
+    onClose: () -> Unit,
+) {
+    val settingsViewModel: SettingsViewModel = geodeViewModel()
+    val libraryViewModel: LibraryViewModel = geodeViewModel()
+    var query by rememberSaveable { mutableStateOf("") }
+    var debounced by rememberSaveable { mutableStateOf("") }
+    val gui by settingsViewModel.guiPrefs.collectAsStateWithLifecycle()
+    val library by libraryViewModel.library.collectAsStateWithLifecycle()
+    val viz by viewModel.vizState.collectAsStateWithLifecycle()
+    val deviceTracks by libraryViewModel.deviceTracks.collectAsStateWithLifecycle()
+    LaunchedEffect(Unit) { libraryViewModel.refreshDeviceTracks() }
+    LaunchedEffect(query) {
+        if (query.isNotBlank()) delay(250)
+        debounced = query
+    }
+    val dismiss = rememberPredictiveDismiss(onDismiss = onClose)
+
+    val terms = remember(debounced) { SearchMatcher.terms(debounced) }
+    val trackResults =
+        remember(terms, deviceTracks, library.tracks) {
+            val candidates =
+                deviceTracks.map { t ->
+                    SearchTrackRow(
+                        uri = t.uri,
+                        title = t.title,
+                        subtitle = listOf(t.artist, t.album).filter { it.isNotBlank() }.joinToString(" · "),
+                        fields = listOf(t.title, t.artist, t.album, t.folder),
+                        fromDevice = true,
+                    )
+                } +
+                    library.tracks.map { t ->
+                        SearchTrackRow(
+                            uri = t.uri,
+                            title = t.title,
+                            subtitle = listOf(t.artist, t.album).filter { it.isNotBlank() }.joinToString(" · "),
+                            fields = listOf(t.title, t.artist, t.album, t.genre),
+                            fromDevice = false,
+                        )
+                    }
+            SearchMatcher.filterTracks(
+                terms = terms,
+                items = candidates,
+                uriOf = { it.uri },
+                fieldsOf = { it.fields },
+                preferred = { it.fromDevice },
+            )
+        }
+    val playlistResults =
+        remember(terms, library.playlists) {
+            library.playlists.filter { SearchMatcher.matches(terms, listOf(it.name)) }
+        }
+    val presetResults =
+        remember(terms, viz.presets) {
+            viz.presets.filter { SearchMatcher.matches(terms, listOf(it.name)) }
+        }
+
+    Box(Modifier.fillMaxSize().dismissTransform(dismiss)) {
+        CrystalBackground(Modifier.fillMaxSize(), reducedMotion = gui.reducedMotion)
+        Column(
+            Modifier
+                .fillMaxSize()
+                // The results list runs to the bottom, under the keyboard that typing opens.
+                .safeDrawingPadding()
+                .padding(16.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                OutlinedTextField(
+                    value = query,
+                    onValueChange = { query = it },
+                    modifier = Modifier.weight(1f),
+                    placeholder = { Text(stringResource(R.string.search_placeholder)) },
+                    singleLine = true,
+                    shape = crystalShardShape(14.dp, 5.dp),
+                )
+                IconButton(onClick = onClose) { StoneIconArt(StoneIcon.CLOSE, stringResource(R.string.search_close)) }
+            }
+            LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                if (terms.isEmpty()) {
+                    item {
+                        Text(
+                            stringResource(R.string.search_hint),
+                            Modifier.padding(vertical = 16.dp),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                } else {
+                    if (trackResults.isNotEmpty()) {
+                        item {
+                            CrystalOverline(
+                                stringResource(R.string.search_heading_tracks, trackResults.size),
+                                Modifier.padding(top = 8.dp),
+                            )
+                        }
+                        items(trackResults, key = { "t:${it.uri}" }) { t ->
+                            Row(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        viewModel.playFrom(
+                                            trackResults.map { r -> QueueTrack(r.uri, r.title, r.subtitle) },
+                                            t.uri,
+                                        )
+                                        onClose()
+                                    },
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Column(Modifier.weight(1f).padding(vertical = 8.dp)) {
+                                    Text(t.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    if (t.subtitle.isNotBlank()) {
+                                        Text(
+                                            t.subtitle,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                        )
+                                    }
+                                }
+                                IconButton(onClick = { viewModel.enqueue(t.uri) }) {
+                                    StoneIconArt(StoneIcon.QUEUE, stringResource(R.string.action_add_to_queue))
+                                }
+                            }
+                        }
+                    }
+                    if (playlistResults.isNotEmpty()) {
+                        item {
+                            CrystalOverline(
+                                stringResource(R.string.search_heading_playlists, playlistResults.size),
+                                Modifier.padding(top = 8.dp),
+                            )
+                        }
+                        items(playlistResults) { pl ->
+                            Column(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        libraryViewModel.playPlaylist(pl.name)
+                                        onClose()
+                                    }.padding(vertical = 8.dp),
+                            ) {
+                                Text(pl.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(
+                                    pluralStringResource(
+                                        R.plurals.track_count,
+                                        pl.trackUris.size,
+                                        pl.trackUris.size,
+                                    ),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                    }
+                    if (presetResults.isNotEmpty()) {
+                        item {
+                            CrystalOverline(
+                                stringResource(R.string.search_heading_presets, presetResults.size),
+                                Modifier.padding(top = 8.dp),
+                            )
+                        }
+                        items(presetResults) { p ->
+                            Text(
+                                p.name,
+                                Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        viewModel.applyPreset(p)
+                                        onClose()
+                                    }.padding(vertical = 8.dp),
+                            )
+                        }
+                    }
+                    if (trackResults.isEmpty() && playlistResults.isEmpty() && presetResults.isEmpty()) {
+                        item {
+                            Text(
+                                stringResource(R.string.search_no_results, debounced),
+                                Modifier.padding(vertical = 16.dp),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PlaybackNoticeBanner(viewModel: PlayerViewModel) {
+    val notice by viewModel.playbackNotice.collectAsStateWithLifecycle()
+    val message = notice ?: return
+    val dismissDescription = stringResource(R.string.notice_dismiss_description)
+
+    LaunchedEffect(message) {
+        kotlinx.coroutines.delay(NOTICE_VISIBLE_MS)
+        viewModel.clearPlaybackNotice()
+    }
+
+    Box(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp)) {
+        Row(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(MaterialTheme.colorScheme.errorContainer)
+                    .clickable { viewModel.clearPlaybackNotice() }
+                    .semantics { liveRegion = LiveRegionMode.Polite }
+                    .padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onErrorContainer,
+                modifier = Modifier.weight(1f),
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(
+                text = stringResource(R.string.notice_dismiss),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onErrorContainer,
+                modifier =
+                    Modifier
+                        .clickable { viewModel.clearPlaybackNotice() }
+                        .semantics { contentDescription = dismissDescription }
+                        .padding(8.dp),
+            )
+        }
+    }
+}
+
+private const val NOTICE_VISIBLE_MS = 8_000L

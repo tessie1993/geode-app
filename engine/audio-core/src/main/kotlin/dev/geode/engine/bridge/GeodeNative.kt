@@ -7,76 +7,6 @@ object GeodeNative {
 
     external fun version(): String
 
-    external fun featureFrameFloats(): Int
-
-    external fun analysisCreate(
-        sampleRate: Int,
-        fftSize: Int,
-        hopRateHz: Float,
-    ): Long
-
-    external fun analysisDestroy(handle: Long)
-
-    external fun analysisSetSampleRate(
-        handle: Long,
-        sampleRate: Int,
-    )
-
-    external fun analysisSetTuning(
-        handle: Long,
-        sensitivity: Float,
-        refractoryMs: Float,
-        attackSeconds: Float,
-        releaseSeconds: Float,
-    )
-
-    external fun analysisReset(handle: Long)
-
-    external fun analysisAnalyze(
-        handle: Long,
-        mid: FloatArray,
-        side: FloatArray?,
-        dtSeconds: Float,
-        out: FloatArray,
-    )
-
-    external fun analysisPush(
-        handle: Long,
-        interleaved: FloatArray,
-        frames: Int,
-        channels: Int,
-    )
-
-    external fun analysisPull(
-        handle: Long,
-        out: FloatArray,
-    ): Boolean
-
-    external fun analysisKey(handle: Long): String
-
-    external fun pulseReplay(
-        flux: FloatArray,
-        rms: FloatArray,
-        hopRateHz: Float,
-        sensitivity: Float,
-        refractoryMs: Float,
-        out: FloatArray,
-    )
-
-    external fun drumsCreate(
-        bandCount: Int,
-        hopRateHz: Float,
-        sampleRate: Int,
-    ): Long
-
-    external fun drumsDestroy(handle: Long)
-
-    external fun drumsStep(
-        handle: Long,
-        bands: FloatArray,
-        out: FloatArray,
-    )
-
     external fun dspCreate(
         sampleRate: Int,
         channels: Int,
@@ -253,11 +183,6 @@ object GeodeNative {
         value: Float,
     ): Boolean
 
-    external fun vizSetFeatures(
-        handle: Long,
-        frame: FloatArray,
-    )
-
     external fun vizSetReducedMotion(
         handle: Long,
         on: Boolean,
@@ -317,6 +242,42 @@ object GeodeNative {
 
     external fun vizTakeMilkPresetLoaded(handle: Long): String?
 
+    external fun vizWriteAudio(
+        handle: Long,
+        interleaved: FloatArray,
+        frames: Int,
+        channels: Int,
+        sampleRate: Int,
+    )
+
+    external fun vizResetAudio(handle: Long)
+
+    external fun vizSetSoundTuning(
+        handle: Long,
+        tuning: FloatArray,
+    )
+
+    external fun vizSoundFrame(
+        handle: Long,
+        out: FloatArray,
+    )
+
+    /** The reaction source catalogue (core/viz/Reactions.cpp), see `dev.geode.render.ReactSourceCatalog`. */
+    external fun reactSourceCatalog(): String
+
+    /** Customize › Macros (core/viz/Macros): the six knobs, -1..1, for every renderer in the process. */
+    external fun macrosSet(knobs: FloatArray)
+
+    /** Surprise: unlocked knobs (bit i of [lockMask] locks knob i) to new spots, seeded. */
+    external fun macrosSurprise(
+        knobs: FloatArray,
+        lockMask: Int,
+        seed: Long,
+    ): FloatArray
+
+    /** The built-in macro presets, "Name|e,s,c,m,sp,ch" lines. */
+    external fun macroStarters(): String
+
     external fun vizPushPcm(
         handle: Long,
         mono: FloatArray,
@@ -346,6 +307,28 @@ object GeodeNative {
         config: FloatArray,
     )
 
+    /** Every reaction route, `REACT_ROUTE_FLOATS` per route (geode_viz_set_reactions). */
+    external fun vizSetReactions(
+        handle: Long,
+        routes: FloatArray,
+    )
+
+    /**
+     * A style's reaction DNA (core/viz/ReactionDna), `REACT_ROUTE_FLOATS` per route, in the
+     * [vizSetReactions] layout. Needs no viz handle: the same id and seed always give the same routes.
+     */
+    external fun styleReactions(
+        styleId: String,
+        seed: Int,
+    ): FloatArray
+
+    /** Gyro look, -1..1 per axis; read only while camGyro is on. */
+    external fun vizSetLook(
+        handle: Long,
+        yaw: Float,
+        pitch: Float,
+    )
+
     external fun vizSetThermal(
         handle: Long,
         platformStatus: Int,
@@ -355,6 +338,14 @@ object GeodeNative {
     external fun vizSetPacedFps(
         handle: Long,
         fps: Float,
+    )
+
+    external fun vizSetQuality(
+        handle: Long,
+        renderScale: Float,
+        marchScale: Float,
+        postFx: Boolean,
+        adaptive: Boolean,
     )
 
     external fun vizSetOffscreen(
@@ -435,4 +426,87 @@ object GeodeNative {
         blend: Int,
         amount: Float,
     )
+
+    /**
+     * The scene and style catalogue (core/viz/Catalogue) as its versioned line table: style ids and
+     * kinds, the style families, which controls reach which styles, the control ranges. Static; parse
+     * once (dev.geode.render.scene.Catalogue does).
+     */
+    external fun catalogueText(): String
+
+    /** Every rolled control as `TAB|ParamKeys string` lines, in roll order (core/viz/ParamRandomizer). Static. */
+    external fun paramsRollKeys(): String
+
+    /**
+     * Rolls a new look (core/viz/ParamRandomizer) from [input], a SceneParamsCodec frame, into [output]:
+     * the controls of [tab] (a CustomizeTab name; null = every tab) that reach [styleId] (null = any),
+     * except the newline-joined ParamKeys in [locked]. Same arguments, same look. True when it changed
+     * something.
+     */
+    external fun paramsRandomize(
+        styleId: String?,
+        tab: String?,
+        locked: String?,
+        seed: Long,
+        input: FloatArray,
+        output: FloatArray,
+    ): Boolean
+
+    /** [input] with exactly the fields [tab] (a CustomizeTab name) rolls put back to their defaults, into [output]. */
+    external fun paramsResetTab(
+        tab: String,
+        input: FloatArray,
+        output: FloatArray,
+    )
+
+    // Export resampler (core/audio/dsp/PcmResampler): interleaved 16-bit PCM to the AAC rate.
+
+    /** 0 for a bad rate or channel count. */
+    external fun resamplerCreate(
+        inRate: Int,
+        outRate: Int,
+        channels: Int,
+    ): Long
+
+    external fun resamplerDestroy(handle: Long)
+
+    /**
+     * Converts [frames] interleaved frames of [input] (at the handle's channel count); returns the
+     * interleaved output, state carrying over. Empty when [input] holds fewer than [frames] frames.
+     */
+    external fun resamplerProcess(
+        handle: Long,
+        input: ShortArray,
+        frames: Int,
+    ): ShortArray
+
+    // Export loudness meter (core/audio/dsp/Loudness): BS.1770-4 integrated loudness and true peak.
+
+    external fun loudnessSupports(channels: Int): Boolean
+
+    /** 0 for a bad rate or a channel count [loudnessSupports] refuses. */
+    external fun loudnessCreate(
+        sampleRate: Int,
+        channels: Int,
+    ): Long
+
+    external fun loudnessDestroy(handle: Long)
+
+    /** Consumes [count] interleaved samples (not frames) of [samples], each in -1..1. */
+    external fun loudnessFeed(
+        handle: Long,
+        samples: FloatArray,
+        count: Int,
+    )
+
+    external fun loudnessHasBlock(handle: Long): Boolean
+
+    /**
+     * Fills [out] (5 doubles: integrated LUFS, true peak dBTP, sample peak dBFS, measured ms, gated
+     * blocks); returns false when nothing cleared the -70 LUFS gate, in which case out[0] is meaningless.
+     */
+    external fun loudnessFinish(
+        handle: Long,
+        out: DoubleArray,
+    ): Boolean
 }

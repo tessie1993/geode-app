@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <cmath>
 
-#include "viz/LiveSignal.hpp"
 #include "viz/VisualSafety.hpp"
 
 namespace geode::viz {
@@ -100,6 +99,14 @@ SceneParams applyLfoTarget(const SceneParams& r, LfoTarget target, float v) {
         case LfoTarget::FlowStrength: o.flowStrength = std::clamp(r.flowStrength + v, 0.0f, 1.0f); break;
         case LfoTarget::WaterRipple: o.waterRippleStrength = std::clamp(r.waterRippleStrength + v, 0.0f, 2.0f); break;
         case LfoTarget::RippleOverlay: o.rippleOverlayStrength = std::clamp(r.rippleOverlayStrength + v, 0.0f, 1.0f); break;
+        case LfoTarget::CamFly: o.camFly = std::clamp(r.camFly + v, 0.0f, 2.5f); break;
+        case LfoTarget::CamOrbit: o.camOrbit = std::clamp(r.camOrbit + v, 0.0f, 1.0f); break;
+        case LfoTarget::CamPush: o.camPush = std::clamp(r.camPush + v, -1.0f, 1.0f); break;
+        case LfoTarget::CamYaw: o.camYaw = std::clamp(r.camYaw + v, -1.0f, 1.0f); break;
+        case LfoTarget::CamPitch: o.camPitch = std::clamp(r.camPitch + v, -1.0f, 1.0f); break;
+        case LfoTarget::CamRoll: o.camRoll = std::clamp(r.camRoll + v, -1.0f, 1.0f); break;
+        case LfoTarget::CamFov: o.camFov = std::clamp(r.camFov + v, 0.5f, 2.0f); break;
+        case LfoTarget::CamShake: o.camShake = std::clamp(r.camShake + v, 0.0f, 1.0f); break;
         case LfoTarget::None: case LfoTarget::Lfo1Rate: case LfoTarget::Lfo1Depth: case LfoTarget::Lfo2Rate:
         case LfoTarget::Lfo2Depth: case LfoTarget::Lfo3Rate: case LfoTarget::Lfo3Depth:
             break;
@@ -107,7 +114,7 @@ SceneParams applyLfoTarget(const SceneParams& r, LfoTarget target, float v) {
     return o;
 }
 
-const std::array<float, LfoEngine::kSlots>& LfoEngine::tick(float dt, const GeodeFeatureFrame& features, const float* extRateAdd,
+const std::array<float, LfoEngine::kSlots>& LfoEngine::tick(float dt, const GeodeSoundFrame& sound, const float* extRateAdd,
                                                              const float* extDepthAdd) {
     for (int i = 0; i < kSlots; i++) {
         out_[i] = 0.0f;
@@ -121,15 +128,16 @@ const std::array<float, LfoEngine::kSlots>& LfoEngine::tick(float dt, const Geod
         float raw = 0.0f;
         switch (c.source) {
             case ModSource::Lfo: raw = oscillator(i, c, dt); break;
-            case ModSource::Bass: raw = follow(i, features.bass, dt); break;
-            case ModSource::Mid: raw = follow(i, features.mid, dt); break;
-            case ModSource::Treble: raw = follow(i, features.treble, dt); break;
-            case ModSource::Level: raw = follow(i, live::level(features), dt); break;
-            case ModSource::Brightness: raw = follow(i, live::brightness(features), dt); break;
-            // Wave three: Transient behaves as Level now (nothing keys off a hit); kept for wire order.
-            case ModSource::Transient: raw = follow(i, live::level(features), dt); break;
-            case ModSource::StereoWidth: raw = follow(i, live::width(features), dt); break;
-            case ModSource::StereoPan: raw = followBipolar(i, live::pan(features), dt); break;
+            // The sound engine's frame: the bands' fast att envelopes halved (typical 0.5, a hit 1),
+            // the shaped level, the centroid, the note-start envelope and the stereo field.
+            case ModSource::Bass: raw = follow(i, 0.5f * sound.bassAtt, dt); break;
+            case ModSource::Mid: raw = follow(i, 0.5f * sound.midAtt, dt); break;
+            case ModSource::Treble: raw = follow(i, 0.5f * sound.trebleAtt, dt); break;
+            case ModSource::Level: raw = follow(i, sound.level, dt); break;
+            case ModSource::Brightness: raw = follow(i, sound.centroid, dt); break;
+            case ModSource::Transient: raw = follow(i, sound.onsetEnv, dt); break;
+            case ModSource::StereoWidth: raw = follow(i, sound.stereoWidth, dt); break;
+            case ModSource::StereoPan: raw = followBipolar(i, sound.stereoPan, dt); break;
         }
         const float v = shape(polarized(raw, c.polarity), c.curve) * depth;
         out_[i] = v;

@@ -1,7 +1,7 @@
 #version 300 es
 precision highp float;
 // GLSL ES 3.00 defaults fragment sampler2D to LOWP (range [-2,2), ~8
-// fraction bits). uAudioTex is R32F; on GPUs honoring sampler precision
+// fraction bits). uSoundTex is R32F; on GPUs honoring sampler precision
 // (Mali) every read is clamped and quantized.
 precision highp sampler2D;
 
@@ -9,7 +9,7 @@ in vec2 vUv;
 out vec4 fragColor;
 
 // The three lines every fragment style carries, in this order: the uniform
-// block/aband/awave/view() first, then the palette, then grade() - which calls
+// block/view() first, then the palette, then grade() - which calls
 // pal() and so must come after it.
 //#include lib_scene_uniforms
 //#include lib_scene_motion
@@ -81,10 +81,6 @@ out vec4 fragColor;
 // fold basis. Every one of those terms is exactly zero when nothing is being
 // touched, so an untouched frame is bit-identical to one from a build without
 // the touch uniforms.
-//
-// motion: uBassRel -> the ball's standoff (via uBreath) and the pole/fold
-// radii, uMidRel -> the world's roll (via uDrift) and the fold count's
-// continuous extra level. Nothing here is re-rolled or stepped on a hit.
 
 // ---- caps ------------------------------------------------------------------
 //
@@ -474,7 +470,7 @@ float occlusion(vec3 p, vec3 n, float h) {
  */
 vec3 sky(vec3 rd, vec2 poleScreen) {
     vec2 sp = rd.xy / max(rd.z, 0.2) - poleScreen;
-    return dmtChrysanthemum(vec3(sp, 1.0), 0.62, clamp(uEnergySmooth, 0.0, 1.5));
+    return dmtChrysanthemum(vec3(sp, 1.0), 0.62, clamp(sndShaped(SND_LEVEL), 0.0, 1.5));
 }
 
 void main() {
@@ -491,14 +487,15 @@ void main() {
     // Read off the slew-limited companions in lib_scene_motion, not the raw
     // envelopes. Same range and same meaning; the difference is that no single
     // frame can move one of them far, so nothing structural below can snap.
-    float bassN = clamp(uBassSmooth, 0.0, 1.5) / 1.5;
-    float midN = clamp(uMidSmooth, 0.0, 1.5) / 1.5;
-    float trebN = clamp(uTrebleSmooth, 0.0, 1.5) / 1.5;
-    float energyN = clamp(uEnergySmooth, 0.0, 1.5) / 1.5;
+    float bassN = clamp(SND_BASS_PRESENCE, 0.0, 1.5) / 1.5;
+    float midN = clamp(sndShaped(SND_MIDDLE), 0.0, 1.5) / 1.5;
+    float trebN = clamp(sndShaped(SND_HIGH), 0.0, 1.5) / 1.5;
+    float energyN = clamp(sndShaped(SND_LEVEL), 0.0, 1.5) / 1.5;
 
-    // Wave three: fold count now tracks mid's relative level continuously
-    // rather than stepping on a beat hit - see gIters below.
-    float midRel = clamp(uMidRel, 0.0, 2.0);
+    // Was the beat-phase bump, which reaches its peak inside one frame. uSpike is
+    // the same accent with a rise on it, so it swells rather than flashing, and it
+    // is already silent between hits without needing the phase clock.
+    float beatHit = uSpike;
 
     // ---- touch -----------------------------------------------------------
     //
@@ -526,11 +523,10 @@ void main() {
 
     // ---- the frame's geometry --------------------------------------------
     //
-    // motion: bass pushes the eye in and, via uBreath, breathes the whole
-    // ball's standoff; both are continuous quantities, so the gain is small -
-    // 7% of the standoff at a full-scale low end plus uBreath's own +-10% -
-    // which reads as the structure leaning toward you and cannot read as a cut.
-    float camZ = (CAM_DIST - 0.30 * bassN) * uBreath;
+    // Bass pushes the eye in. A camera push is a continuous quantity, so the
+    // gain is small: 7% of the standoff at a full-scale low end, which reads
+    // as the structure leaning toward you and cannot read as a cut.
+    float camZ = CAM_DIST - 0.30 * bassN;
     // A slow lateral wander so the structure is never quite centred. Rates are
     // chosen mutually irrational-ish (0.061 / 0.043) so the two axes do not
     // relock into a straight line every few seconds.
@@ -583,9 +579,7 @@ void main() {
     // and the structure keeps reorganising with the audio at zero.
     gFoldOff = vec3(0.62, -0.24, 0.41) * (1.0 + 0.06 * sin(uTime * 0.029));
     gInvR2 = INV_R2 * (1.0 + 0.10 * bassN);
-    // Mid's relative level rolls the world through uDrift, in addition to
-    // its own ambient turn - the "roll" half of the family recipe.
-    gWorldRot = rotY(uTime * 0.083 + uDrift * 0.20) * rotX(0.26 * sin(uTime * 0.037));
+    gWorldRot = rotY(uTime * 0.083) * rotX(0.26 * sin(uTime * 0.037));
     gBead = CELL_BEAD + 0.030 * bassN;
 
     // Fold count - the one discrete quantity in the style.
@@ -598,16 +592,9 @@ void main() {
     // whole body once more; at six the body was a granular mass with no
     // readable form left, and at one it is already unmistakably curved. This
     // construction says what it has to say in very few iterations.
-    //
-    // Wave three: mid's relative level adds at most ONE more fold, holding
-    // for as long as the mid band stays above its own running average rather
-    // than firing once on a hit. Two was tried and is too much: it takes the
-    // body from three folds to five in a frame, which reorganises the whole
-    // silhouette rather than adding a level inside it - a change of AREA, and
-    // area is the quantity the photosensitivity budget is about.
     float detail = clamp((uSteps - 64.0) / 64.0, 0.0, 1.0);
     gIters = clamp(
-        1.0 + floor(detail * 2.0 + 0.5) + floor(clamp(midRel - 1.0, 0.0, 1.0) * 1.99),
+        1.0 + floor(detail * 2.0 + 0.5),
         1.0,
         float(MAX_FOLDS)
     );
@@ -768,7 +755,7 @@ void main() {
         col = background;
     }
 
-    // The glow, coloured once. uEnergy is the density control by convention;
+    // The glow, coloured once. sndLevel(SND_VOL_ATT) is the density control by convention;
     // the floor keeps it present in silence, where it is the only thing giving
     // the gaps between the struts any depth.
     //

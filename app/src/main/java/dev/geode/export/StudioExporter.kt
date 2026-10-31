@@ -4,6 +4,7 @@ import android.content.ContentValues
 import android.content.Context
 import android.net.Uri
 import android.os.Build
+import android.provider.DocumentsContract
 import android.provider.MediaStore
 import androidx.annotation.StringRes
 import androidx.media3.common.MediaItem
@@ -20,7 +21,6 @@ import dev.geode.R
 import dev.geode.RingLog
 import dev.geode.util.bestEffort
 import kotlinx.coroutines.CancellableContinuation
-import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -64,13 +64,6 @@ class StudioExporter(
     @Volatile
     private var cancelled = false
 
-    // Completed in exportComposition's finally, once the scratch file is cleaned up and the
-    // transformer field is cleared — so a caller that awaits cancel() knows it is safe to start
-    // a new export on this instance's single @Volatile transformer field. Pre-completed so that
-    // cancel() called with no export in flight returns immediately instead of hanging.
-    @Volatile
-    private var completion: CompletableDeferred<Unit> = CompletableDeferred(Unit)
-
     suspend fun export(
         source: Uri,
         sourceDurationMs: Long,
@@ -99,7 +92,7 @@ class StudioExporter(
     }
 
     /**
-     * Renders [composition] and saves it either to Movies/Geode (when [destination] is null) or
+     * Renders [composition] and saves it either to Movies/MuzViz (when [destination] is null) or
      * straight into the SAF document [destination] the caller already opened — the same choice
      * [VideoExporter.exportToDestination] offers the visualizer export path. Below API 29
      * [publish] cannot insert into MediaStore at all, so callers on those versions must always
@@ -114,7 +107,6 @@ class StudioExporter(
         onProgress: (Float) -> Unit,
     ): Result {
         cancelled = false
-        completion = CompletableDeferred()
         val scratch = File(context.cacheDir, "studio-${System.currentTimeMillis()}.mp4")
         try {
             val outcome =
@@ -133,7 +125,6 @@ class StudioExporter(
             }
         } finally {
             scratch.delete()
-            completion.complete(Unit)
         }
     }
 
@@ -202,25 +193,9 @@ class StudioExporter(
             if (outputDurationMs <= 0L) onProgress(0f)
         }
 
-    /**
-     * Requests cancellation and suspends until the in-flight export (if any) has actually wound
-     * down — the Transformer stopped, the scratch file removed and [transformer] cleared — so a
-     * caller only returns to an idle UI, or starts a new export, once this instance is safe to
-     * reuse. Returns immediately when nothing is exporting.
-     */
-    suspend fun cancel() {
+    fun cancel() {
         cancelled = true
-        // Transformer verifies it is called on the thread it was built on, and it is built inside
-        // withContext(Dispatchers.Main) below — while this is called from ExportRun.scope, which is
-        // Dispatchers.Default. Cancelling from there threw, the throw was swallowed, and the codec
-        // kept encoding into a scratch file the caller had already deleted. Hop to Main, and log a
-        // failure rather than hiding it: an API-contract violation is exactly what bestEffort was
-        // concealing here.
-        withContext(Dispatchers.Main) {
-            runCatching { transformer?.cancel() }
-                .onFailure { RingLog.note(TAG, "transformer cancel failed: ${it.message}") }
-        }
-        completion.await()
+        bestEffort(TAG, "transformer?.cancel()") { transformer?.cancel() }
     }
 
     private fun publish(
@@ -237,7 +212,7 @@ class StudioExporter(
                     put(MediaStore.Video.Media.DISPLAY_NAME, displayName)
                     put(MediaStore.Video.Media.MIME_TYPE, "video/mp4")
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                        put(MediaStore.Video.Media.RELATIVE_PATH, "Movies/Geode")
+                        put(MediaStore.Video.Media.RELATIVE_PATH, "Movies/MuzViz")
                         put(MediaStore.Video.Media.IS_PENDING, 1)
                     }
                 }
@@ -275,10 +250,16 @@ class StudioExporter(
             val wrote =
                 resolver.openOutputStream(destination)?.use { out -> file.inputStream().use { it.copyTo(out) } } != null
             if (!wrote) {
+                bestEffort(TAG, "DocumentsContract.deleteDocument(resolver, de...") {
+                    DocumentsContract.deleteDocument(resolver, destination)
+                }
                 return failed(R.string.export_error_destination_write)
             }
             Result.Saved(destination, outputDurationMs)
         }.getOrElse { e ->
+            bestEffort(TAG, "DocumentsContract.deleteDocument(resolver, de...") {
+                DocumentsContract.deleteDocument(context.contentResolver, destination)
+            }
             RingLog.note(TAG, "destination write failed", e)
             failed(R.string.export_error_destination_save)
         }

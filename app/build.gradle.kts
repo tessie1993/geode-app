@@ -41,11 +41,12 @@ android {
     ndkVersion = "28.0.13004108"
 
     defaultConfig {
-        applicationId = "dev.geode"
+        applicationId = "com.muzviz.studiopro"
         minSdk = 26
         targetSdk = 36
-        versionCode = 32
-        versionName = "1.8.0"
+        // Set once in gradle.properties and the root build.gradle.kts (release versioning).
+        versionCode = rootProject.extra["geodeVersionCode"] as Int
+        versionName = rootProject.extra["geodeVersionName"] as String
         ndk {
             abiFilters += listOf("arm64-v8a", "x86_64")
         }
@@ -56,9 +57,30 @@ android {
         }
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        // Orchestrator runs every test in its own instrumentation and wipes the app's data
+        // between them, so a journey that writes prefs or the PlayerSession singleton can't
+        // leak state into the next one. Tests that need a past first run seed it themselves.
+        testInstrumentationRunnerArguments["clearPackageData"] = "true"
+
+        // The public half of the Play licence key (Play Console > Monetization setup > Licensing),
+        // used to check purchase signatures on the device. Public, not a secret; empty skips the
+        // check. Supplied as the muzviz.playLicenseKey property or PLAY_LICENSE_KEY env variable.
+        val playLicenseKey =
+            (findProperty("muzviz.playLicenseKey") as String?)
+                ?: System.getenv("PLAY_LICENSE_KEY").orEmpty()
+        buildConfigField("String", "PLAY_LICENSE_KEY", "\"${playLicenseKey.trim()}\"")
     }
 
     signingConfigs {
+        // One committed debug key, so every CI debug APK installs over the previous one
+        // (a fresh runner would otherwise mint its own key and the update would fail with
+        // INSTALL_FAILED_UPDATE_INCOMPATIBLE). Debug only and not secret; release never uses it.
+        getByName("debug") {
+            storeFile = file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
         if (hasReleaseSigning) {
             create("release") {
                 storeFile = file(releaseStorePath!!)
@@ -82,6 +104,10 @@ android {
                 "proguard-rules.pro",
             )
             if (hasReleaseSigning) signingConfig = signingConfigs.getByName("release")
+            buildConfigField("boolean", "USE_FAKE_BILLING", "false")
+            // Symbol tables for libgeode.so and libprojectM-4.so go into the bundle, so Play
+            // Console symbolicates native crashes and ANRs instead of warning that it cannot.
+            ndk { debugSymbolLevel = "SYMBOL_TABLE" }
         }
         debug {
             isMinifyEnabled = false
@@ -92,8 +118,13 @@ android {
             // based rather than id based, so both builds register it and Android shows
             // a chooser when both are installed - the cost of having both at once.
             applicationIdSuffix = ".debug"
-            versionNameSuffix = "-debug"
+            // A numbered pre-release keeps its release name (1.8.1.N) exactly.
+            versionNameSuffix = if (rootProject.extra["geodeReleaseNumber"] == null) "-debug" else null
             isDebuggable = true
+            // Play does not know the .debug application id, so debug builds bill against
+            // FakeBillingRepository unless -Pmuzviz.fakeBilling=false asks for the real client.
+            val fakeBilling = (findProperty("muzviz.fakeBilling") as String?)?.toBoolean() ?: true
+            buildConfigField("boolean", "USE_FAKE_BILLING", fakeBilling.toString())
         }
     }
 
@@ -128,6 +159,7 @@ android {
     }
 
     testOptions {
+        execution = "ANDROIDX_TEST_ORCHESTRATOR"
         unitTests {
             // Give unit tests the real resource table rather than a stub, so a test
             // may read a string or an xml the code under test reaches for.
@@ -216,9 +248,13 @@ dependencies {
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.ui)
     implementation(libs.compose.material3)
+    implementation(libs.compose.ui.tooling.preview)
+    debugImplementation(libs.compose.ui.tooling)
     implementation(libs.compose.material3.adaptive)
     implementation(libs.hilt.android)
     implementation(libs.hilt.navigation.compose)
+    implementation(libs.navigation3.runtime)
+    implementation(libs.navigation3.ui)
     ksp(libs.hilt.compiler)
     implementation(libs.compose.material.icons.extended)
     implementation(libs.activity.compose)
@@ -226,21 +262,23 @@ dependencies {
     implementation(libs.lifecycle.viewmodel.compose)
     implementation(libs.lifecycle.runtime.compose)
     implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.billing)
+    implementation(libs.profileinstaller)
 
     testImplementation(libs.junit)
-    // Shadows android.jar's org.json stub so JSON parsing is real under unit tests.
-    testImplementation(libs.json)
     testImplementation(libs.kotlinx.coroutines.test)
-    testImplementation("org.json:json:20240303")
-    // Renders Compose on the JVM (native graphics) for the Opaline kit's render and semantics tests.
-    testImplementation(libs.robolectric)
-    testImplementation(platform(libs.compose.bom))
-    testImplementation(libs.compose.ui.test.junit4)
+    testImplementation(libs.org.json)
 
     androidTestImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.androidx.test.core)
+    androidTestImplementation(libs.androidx.test.rules)
+    androidTestImplementation(libs.androidx.test.ext.truth)
+    androidTestImplementation(libs.androidx.test.espresso.core)
+    androidTestUtil(libs.androidx.test.orchestrator)
+    androidTestUtil(libs.androidx.test.services)
     androidTestImplementation(platform(libs.compose.bom))
     androidTestImplementation(libs.compose.ui.test.junit4)
-    // Supplies the empty activity createComposeRule() launches into.
+    // The empty ComponentActivity createComposeRule() launches; debug only, never shipped.
     debugImplementation(libs.compose.ui.test.manifest)
 }

@@ -1,31 +1,54 @@
-name: Play Store release
+name: Play release bundle
 
-# Builds the signed Android App Bundle to upload to Play Console.
+# Builds the Android App Bundle (.aab) that goes to Play Console, and checks the
+# things Play and the app's own promises depend on before anyone uploads it.
 #
-# Required repository secrets:
-#   MUSICVIZ_KEYSTORE_BASE64   base64 of the upload keystore (.jks)
-#   MUSICVIZ_KEYSTORE_PASSWORD
-#   MUSICVIZ_KEY_ALIAS
-#   MUSICVIZ_KEY_PASSWORD
+# Pull requests always build UNSIGNED (the upload key never reaches PR code), so the
+# build itself is verified on every PR. Tags (v*) and manual runs sign with the
+# upload key; on a tag, a missing key or licence key is an error, not a warning.
 #
-# Produce the first value with:  base64 -w0 geode-upload.jks
+# Repository secrets (Settings > Secrets and variables > Actions > Secrets):
+#   MUZVIZ_UPLOAD_KEYSTORE_BASE64   base64 of the upload keystore (.jks):
+#                                   base64 -w0 muzviz-upload.jks
+#   MUZVIZ_UPLOAD_STORE_PASSWORD    the keystore password
+#   MUZVIZ_UPLOAD_KEY_ALIAS         the key alias inside it
+#   MUZVIZ_UPLOAD_KEY_PASSWORD      the key password
+#
+# Repository variable (Settings > Secrets and variables > Actions > Variables):
+#   PLAY_LICENSE_KEY   Play Console > Monetize with Play > Monetization setup >
+#                      Licensing: the Base64 RSA public key. Public, not a secret;
+#                      the app checks purchase signatures with it.
+#
+# docs/play/CONSOLE_CHECKLIST.md walks through creating all of these.
 
 on:
   push:
     tags: ["v*"]
+  pull_request:
+    paths:
+      - "app/**"
+      - "engine/**"
+      - "core/**"
+      - "CMakeLists.txt"
+      - "build-logic/**"
+      - "gradle/**"
+      - "*.gradle.kts"
+      - "gradle.properties"
+      - ".github/workflows/release.yml"
   workflow_dispatch:
 
 permissions:
   contents: read
 
-defaults:
-  run:
-    working-directory: .
+concurrency:
+  group: geode-release-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   bundle:
+    name: Build release AAB
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v7
         with:
@@ -40,63 +63,155 @@ jobs:
 
       - name: Set up Gradle (with caching)
         uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-read-only: ${{ github.event_name == 'pull_request' }}
 
-      # The platform is one major version behind compileSdk (37) - see the
-      # README maintainer note for why that gap is left as is. NDK and CMake
-      # match ndkVersion and externalNativeBuild.cmake.version in
-      # app/build.gradle.kts, and bundleRelease compiles the MilkDrop JNI
-      # bridge from app/src/main/cpp with them.
+      # NDK and CMake match ndkVersion and externalNativeBuild.cmake.version in
+      # app/build.gradle.kts; bundleRelease compiles the native core with them.
       - name: Install Android SDK 36, NDK and CMake
         run: |
           SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:?Android SDK location not set on runner}}"
           SDKMANAGER="$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
           yes | "$SDKMANAGER" --licenses >/dev/null || true
-          "$SDKMANAGER" "platforms;android-36" "ndk;28.0.13004108" "cmake;3.22.1"
+          "$SDKMANAGER" "platforms;android-36" "build-tools;36.0.0" "ndk;28.0.13004108" "cmake;3.22.1"
 
+      # Signing secrets never reach pull_request runs: a PR builds arbitrary branch code with
+      # Gradle, and the upload key must not be readable by it. PRs always build unsigned; tags
+      # and manual runs sign, and a tag without the full secret set fails.
       - name: Decode upload keystore
+        id: keystore
+        if: github.event_name != 'pull_request'
         env:
-          KEYSTORE_BASE64: ${{ secrets.MUSICVIZ_KEYSTORE_BASE64 }}
+          KEYSTORE_BASE64: ${{ secrets.MUZVIZ_UPLOAD_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.MUZVIZ_UPLOAD_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.MUZVIZ_UPLOAD_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.MUZVIZ_UPLOAD_KEY_PASSWORD }}
+          LICENSE_KEY: ${{ vars.PLAY_LICENSE_KEY }}
+          IS_TAG: ${{ startsWith(github.ref, 'refs/tags/') }}
         run: |
           set -euo pipefail
-          if [ -z "${KEYSTORE_BASE64:-}" ]; then
-            echo "::error::MUSICVIZ_KEYSTORE_BASE64 secret is not set; cannot produce a signed bundle."
+          if [ "$IS_TAG" = "true" ] && [ -z "${LICENSE_KEY:-}" ]; then
+            echo "::error::PLAY_LICENSE_KEY (repository variable) is not set; a store release must verify purchase signatures."
             exit 1
           fi
+          if [ -z "${KEYSTORE_BASE64:-}" ] || [ -z "${STORE_PASSWORD:-}" ] || [ -z "${KEY_ALIAS:-}" ] || [ -z "${KEY_PASSWORD:-}" ]; then
+            if [ "$IS_TAG" = "true" ]; then
+              echo "::error::The four MUZVIZ_UPLOAD_* secrets are not all set; a tagged release must be signed."
+              exit 1
+            fi
+            echo "::warning::Upload key secrets incomplete: building an UNSIGNED bundle. See docs/play/CONSOLE_CHECKLIST.md."
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/upload.jks"
+          echo "signed=true" >> "$GITHUB_OUTPUT"
 
-      - name: Verify (ktlint, tests, lint)
-        run: ./gradlew ktlintCheck testDebugUnitTest lint --stacktrace
-
-      # The secrets keep their MUSICVIZ_ names, but app/build.gradle.kts reads
-      # GEODE_ — so they are exported under the names the build looks for.
-      # Mismatched, signingConfigs stays empty, bundleRelease silently produces
-      # an unsigned bundle and the next step is the first thing to notice.
-      - name: Build signed AAB
+      - name: Build unsigned release AAB (pull request)
+        if: github.event_name == 'pull_request'
         env:
-          GEODE_KEYSTORE: ${{ runner.temp }}/upload.jks
-          GEODE_KEYSTORE_PASSWORD: ${{ secrets.MUSICVIZ_KEYSTORE_PASSWORD }}
-          GEODE_KEY_ALIAS: ${{ secrets.MUSICVIZ_KEY_ALIAS }}
-          GEODE_KEY_PASSWORD: ${{ secrets.MUSICVIZ_KEY_PASSWORD }}
-        run: ./gradlew bundleRelease --stacktrace
+          PLAY_LICENSE_KEY: ${{ vars.PLAY_LICENSE_KEY }}
+        run: ./gradlew :app:bundleRelease --stacktrace --no-daemon
 
-      - name: Confirm the bundle is signed
+      # app/build.gradle.kts reads the GEODE_* names; all four are required to sign.
+      # Same version rule as the pre-releases (root build.gradle.kts): the AAB carries the
+      # number this commit shipped as (tag apk-v<base>.N), so it matches that pre-release.
+      # PRs have no number and build as <base>-dev.
+      - name: Release number
+        id: number
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          BASE=$(sed -n 's/^geode\.versionBase=//p' gradle.properties | tr -d '\r')
+          N=$(tools/release-number.sh "$BASE" "$(git rev-parse HEAD)")
+          echo "Version $BASE.$N"
+          echo "n=$N" >> "$GITHUB_OUTPUT"
+
+      - name: Build release AAB
+        if: github.event_name != 'pull_request'
+        env:
+          GEODE_KEYSTORE: ${{ steps.keystore.outputs.signed == 'true' && format('{0}/upload.jks', runner.temp) || '' }}
+          GEODE_KEYSTORE_PASSWORD: ${{ steps.keystore.outputs.signed == 'true' && secrets.MUZVIZ_UPLOAD_STORE_PASSWORD || '' }}
+          GEODE_KEY_ALIAS: ${{ steps.keystore.outputs.signed == 'true' && secrets.MUZVIZ_UPLOAD_KEY_ALIAS || '' }}
+          GEODE_KEY_PASSWORD: ${{ steps.keystore.outputs.signed == 'true' && secrets.MUZVIZ_UPLOAD_KEY_PASSWORD || '' }}
+          PLAY_LICENSE_KEY: ${{ vars.PLAY_LICENSE_KEY }}
+        run: |
+          set -euo pipefail
+          # Empty values must read as unset, or the build tries to sign with "".
+          for v in GEODE_KEYSTORE GEODE_KEYSTORE_PASSWORD GEODE_KEY_ALIAS GEODE_KEY_PASSWORD; do
+            [ -n "${!v}" ] || unset "$v"
+          done
+          ./gradlew :app:bundleRelease -PreleaseNumber=${{ steps.number.outputs.n }} --stacktrace --no-daemon
+
+      - name: Check the bundle against Play and the app's promises
+        env:
+          SIGNED: ${{ steps.keystore.outputs.signed }}
         run: |
           set -euo pipefail
           aab=app/build/outputs/bundle/release/app-release.aab
-          unzip -l "$aab" | grep -q 'META-INF/.*\.RSA\|META-INF/.*\.EC' \
-            || { echo "::error::$aab is not signed"; exit 1; }
+          test -f "$aab" || { echo "::error::$aab was not produced"; exit 1; }
           ls -l "$aab"
 
-      - name: Upload AAB and R8 mapping
+          manifest=$(find app/build/intermediates -path '*release*' -name AndroidManifest.xml \
+            -path '*merged_manifest*' | head -n 1)
+          test -n "$manifest" || { echo "::error::merged release manifest not found"; exit 1; }
+          echo "Merged manifest: $manifest"
+
+          # The privacy policy and Data safety answers say the app has no network access.
+          if grep -q 'android.permission.INTERNET"' "$manifest"; then
+            echo "::error::The merged release manifest requests INTERNET; the app promises not to."
+            exit 1
+          fi
+          # The console's Advertising ID declaration says "not used".
+          if grep -q 'com.google.android.gms.permission.AD_ID' "$manifest"; then
+            echo "::error::The merged release manifest carries AD_ID; the Advertising ID declaration says it is unused."
+            exit 1
+          fi
+          grep -q 'com.android.vending.BILLING' "$manifest" \
+            || { echo "::error::Play Billing's BILLING permission is missing from the merged manifest"; exit 1; }
+
+          # Play's target API requirement (API 36 for new apps and updates since 31 Aug 2026).
+          target=$(sed -n 's/.*android:targetSdkVersion="\([0-9]*\)".*/\1/p' "$manifest" | head -n 1)
+          echo "targetSdkVersion=$target"
+          [ "${target:-0}" -ge 36 ] || { echo "::error::targetSdkVersion $target is below Play's requirement (36)"; exit 1; }
+
+          # R8 full mode is AGP's default; it is only off if gradle.properties turns it off.
+          if grep -Eq '^\s*android\.enableR8\.fullMode\s*=\s*false' gradle.properties; then
+            echo "::error::R8 full mode is disabled in gradle.properties"; exit 1
+          fi
+          test -s app/build/outputs/mapping/release/mapping.txt \
+            || { echo "::error::No R8 mapping: the release build was not minified"; exit 1; }
+          grep -Eq 'isShrinkResources\s*=\s*true' app/build.gradle.kts \
+            || { echo "::error::Resource shrinking is off for release"; exit 1; }
+
+          # The baseline profile ships inside the bundle.
+          unzip -l "$aab" | grep -q 'BUNDLE-METADATA/com.android.tools.build.profiles/baseline.prof' \
+            && echo "Baseline profile: present" \
+            || echo "::warning::No baseline profile in the bundle"
+
+          if [ "$SIGNED" = "true" ]; then
+            # jarsigner exits 0 on an UNSIGNED jar ("jar is unsigned"), so the verdict is read
+            # from its output, not its exit code.
+            verdict=$(jarsigner -verify "$aab" 2>&1 || true)
+            echo "$verdict" | tail -n 3
+            echo "$verdict" | grep -q '^jar verified'               || { echo "::error::$aab is not signed with the upload key"; exit 1; }
+            echo "Signed with the upload key."
+          else
+            echo "::notice::Unsigned bundle (no upload key secrets). Fine for CI; Play needs it signed."
+          fi
+
+      - name: Upload AAB, R8 mapping and native symbols
         uses: actions/upload-artifact@v7
         with:
-          name: geode-release-bundle
-          # The mapping file must be uploaded to Play Console alongside the
-          # bundle, otherwise crash traces stay obfuscated.
+          name: muzviz-release-${{ github.run_number }}
+          # Upload mapping.txt to Play Console with the bundle, or crash traces
+          # stay obfuscated. Native debug symbols are embedded in the AAB.
           path: |
             app/build/outputs/bundle/release/app-release.aab
             app/build/outputs/mapping/release/mapping.txt
-          retention-days: 90
+          if-no-files-found: error
+          retention-days: 30
 
       - name: Clean up keystore
         if: always()

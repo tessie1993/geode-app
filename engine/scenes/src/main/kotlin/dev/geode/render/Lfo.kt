@@ -15,11 +15,10 @@ enum class LfoWave(
 /**
  * What a modulation slot listens to.
  *
- * [LFO] is the free-running oscillator; everything else is a follower on the LIVE signal, which
- * is what makes "this parameter listens to the treble band" a thing you can set rather than
- * something baked into a scene. [BRIGHTNESS], [STEREO_WIDTH] and [STEREO_PAN] exist because the
- * spec asks the visuals to react to spectral brightness and to left/right movement, and nothing
- * else in the engine reads those.
+ * [LFO] is the free-running oscillator; everything else is a follower on the sound engine's frame
+ * (`core/sound`): the bands' fast envelopes, the shaped level, the centroid, the note-start envelope
+ * ([TRANSIENT]) and the stereo field. That is what makes "this parameter listens to the treble
+ * band" a thing you can set rather than something baked into a scene.
  */
 enum class ModSource(
     val label: String,
@@ -30,12 +29,7 @@ enum class ModSource(
     TREBLE("Treble band"),
     LEVEL("Level"),
     BRIGHTNESS("Brightness"),
-
-    // Wave three: the native side (Lfo.cpp) now follows live::level() for this
-    // source too (nothing keys off a transient) - relabelled, ordinal kept for
-    // wire order. CustomizeTabs.kt (outside this unit) is the only picker that
-    // lists ModSource.entries, and still offers it under this label.
-    TRANSIENT("Level (legacy)"),
+    TRANSIENT("Transient"),
     STEREO_WIDTH("Stereo width"),
     STEREO_PAN("L/R movement"),
 }
@@ -119,6 +113,17 @@ enum class LfoTarget(
     LFO2_DEPTH("Slot 2 depth", ParamScope.UNIVERSAL, ModChain(1, ModChainField.DEPTH)),
     LFO3_RATE("Slot 3 rate", ParamScope.UNIVERSAL, ModChain(2, ModChainField.RATE)),
     LFO3_DEPTH("Slot 3 depth", ParamScope.UNIVERSAL, ModChain(2, ModChainField.DEPTH)),
+
+    // The camera rig's offsets (core/viz/CameraRig). Every family is viewed through the rig,
+    // directly or through the composite's flat projection, so all of these are universal.
+    CAM_FLY("Camera speed", ParamScope.UNIVERSAL),
+    CAM_ORBIT("Camera swing", ParamScope.UNIVERSAL),
+    CAM_PUSH("Camera push", ParamScope.UNIVERSAL),
+    CAM_YAW("Camera turn", ParamScope.UNIVERSAL),
+    CAM_PITCH("Camera tilt", ParamScope.UNIVERSAL),
+    CAM_ROLL("Camera roll", ParamScope.UNIVERSAL),
+    CAM_FOV("Camera FOV", ParamScope.UNIVERSAL),
+    CAM_SHAKE("Camera shake", ParamScope.UNIVERSAL),
 }
 
 /**

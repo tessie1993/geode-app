@@ -1,11 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- System splash shown while the process cold-starts. Background is the liquid-glass base
-         colour (GlassPalette.base, docs/design/liquid-glass/README.md) so the handoff to the
-         Compose BootIntro overlay — the glass drop falling onto the same water surface — is
-         seamless. -->
+    <!-- System splash shown while the process cold-starts: the mark on brand night. BootIntro
+         opens on the same mark, same size, same place, same colour, so the two read as one
+         intro. Below API 31 the icon is static; values-v31 animates it. -->
     <style name="Theme.Geode.Splash" parent="Theme.SplashScreen">
-        <item name="windowSplashScreenBackground">#8C95BB</item>
+        <item name="windowSplashScreenBackground">@color/brand_night</item>
         <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
         <item name="postSplashScreenTheme">@android:style/Theme.Material.NoActionBar</item>
     </style>

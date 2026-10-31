@@ -4,28 +4,31 @@ import android.content.Intent
 import android.net.Uri
 import androidx.annotation.OptIn
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import dagger.hilt.android.lifecycle.HiltViewModel
-import dev.geode.analysis.AudioFeatures
-import dev.geode.analysis.IntelligenceMode
-import dev.geode.analysis.LiveInputProfile
 import dev.geode.audio.MicCapture
 import dev.geode.data.MilkPackImporter
 import dev.geode.data.Preset
 import dev.geode.di.PlayerSessionProvider
+import dev.geode.export.BatchTrack
 import dev.geode.export.ExportAspect
 import dev.geode.export.ExportCodec
 import dev.geode.export.ExportRange
+import dev.geode.pro.FeatureGate
+import dev.geode.pro.GetFeatureGateUseCase
+import dev.geode.pro.PaywallNavigator
+import dev.geode.pro.PaywallTrigger
+import dev.geode.pro.ProFeature
 import dev.geode.render.SceneFactory
 import dev.geode.render.TransitionStyle
 import dev.geode.render.scene.PcmChunk
 import dev.geode.render.scene.SceneParams
-import dev.geode.viz.ArtTitleOptions
-import dev.geode.viz.LyricOptions
-import dev.geode.viz.WatermarkOptions
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.stateIn
 import javax.inject.Inject
 
 @OptIn(UnstableApi::class)
@@ -34,14 +37,21 @@ class PlayerViewModel
     @Inject
     constructor(
         private val sessions: PlayerSessionProvider,
+        getFeatureGate: GetFeatureGateUseCase,
+        private val paywall: PaywallNavigator,
     ) : ViewModel() {
         private val session: PlayerSession = sessions.get()
+
+        /** What exports may do (resolution, frame rate, wordmark), and which styles are locked. */
+        val gate: StateFlow<FeatureGate> = getFeatureGate().stateIn(viewModelScope, SharingStarted.Eagerly, FeatureGate.FREE)
         private val playback: PlaybackRepository = session.playbackRepository
         private val visualizer: VisualizerRepository = session.visualizerRepository
 
         val player: Player get() = session.player
 
         val uiState: StateFlow<PlayerUiState> get() = playback.state
+
+        val positionMs: StateFlow<Long> get() = playback.positionMs
 
         val queue: StateFlow<QueueUiState> get() = playback.queue
 
@@ -50,10 +60,6 @@ class PlayerViewModel
         val playbackNotice: StateFlow<String?> get() = playback.notice
 
         val vizState: StateFlow<VizUiState> get() = visualizer.viz
-
-        val features: StateFlow<AudioFeatures> get() = visualizer.features
-
-        val waveform: StateFlow<FloatArray?> get() = visualizer.waveform
 
         val activeMilkPath: StateFlow<String?> get() = visualizer.activeMilkPath
 
@@ -77,30 +83,11 @@ class PlayerViewModel
 
         val morphFade: SharedFlow<Float> get() = session.morphFade
 
-        internal val overlayPixels: StateFlow<OverlayPixels> get() = session.overlayPixels
-
-        internal val overlayOptions: StateFlow<ArtTitleOptions> get() = session.overlayOptions
-
-        internal fun setOverlayOptions(transform: (ArtTitleOptions) -> ArtTitleOptions) = session.setOverlayOptions(transform)
-
-        internal val overlayLyricOptions: StateFlow<LyricOptions> get() = session.overlayLyricOptions
-
-        internal fun setOverlayLyricOptions(transform: (LyricOptions) -> LyricOptions) = session.setOverlayLyricOptions(transform)
-
-        internal fun setOverlaySurfaceSize(
-            width: Int,
-            height: Int,
-        ) = session.setOverlaySurfaceSize(width, height)
-
-        internal val watermarkOptions: StateFlow<WatermarkOptions> get() = session.watermarkOptions
-
-        internal fun setWatermarkOptions(transform: (WatermarkOptions) -> WatermarkOptions) = session.setWatermarkOptions(transform)
-
-        internal fun pickWatermarkImage(uri: Uri) = session.pickWatermarkImage(uri)
-
-        internal fun clearWatermarkImage() = session.clearWatermarkImage()
-
         fun setMicEnabled(enabled: Boolean): MicCapture.Failure? = session.setMicEnabled(enabled)
+
+        fun onAppBackground() = session.onAppBackground()
+
+        fun onAppForeground() = session.onAppForeground()
 
         fun hasMicPermission(): Boolean = session.hasMicPermission()
 
@@ -115,10 +102,6 @@ class PlayerViewModel
         fun toggleShuffle() = session.toggleShuffle()
 
         fun cycleRepeatMode() = session.cycleRepeatMode()
-
-        fun applyLiveInputProfile(profile: LiveInputProfile) = session.applyLiveInputProfile(profile)
-
-        fun enrichFeatures(f: AudioFeatures): AudioFeatures = session.enrichFeatures(f)
 
         fun latestPcm(): PcmChunk? = session.latestPcm()
 
@@ -145,17 +128,7 @@ class PlayerViewModel
             onDone: (MilkPackImporter.Report) -> Unit,
         ) = session.importMilkFolderAsync(treeUri, onDone)
 
-        fun applyKeyColor(key: String) = session.applyKeyColor(key)
-
-        fun setKeyColor(enabled: Boolean) = session.setKeyColor(enabled)
-
         fun applyArtworkPalette() = session.applyArtworkPalette()
-
-        fun currentTrackKey(): String? = session.currentTrackKey()
-
-        fun setIntelligenceMode(mode: IntelligenceMode) = session.setIntelligenceMode(mode)
-
-        fun analyzeCurrentTrack() = session.analyzeCurrentTrack()
 
         fun startSleepTimer(minutes: Int) = session.startSleepTimer(minutes)
 
@@ -167,15 +140,11 @@ class PlayerViewModel
 
         fun setVizPlaylistEnabled(enabled: Boolean) = session.setVizPlaylistEnabled(enabled)
 
-        fun setVizPlaylistIntelligent(enabled: Boolean) = session.setVizPlaylistIntelligent(enabled)
-
         fun setVizPlaylistInterval(seconds: Int) = session.setVizPlaylistInterval(seconds)
 
         fun setRandomEnabled(enabled: Boolean) = session.setRandomEnabled(enabled)
 
         fun setRandomInterval(seconds: Int) = session.setRandomInterval(seconds)
-
-        fun setRandomOnSection(enabled: Boolean) = session.setRandomOnSection(enabled)
 
         fun setRandomIncludeStyles(enabled: Boolean) = session.setRandomIncludeStyles(enabled)
 
@@ -184,8 +153,6 @@ class PlayerViewModel
         fun setRandomIncludeMilk(enabled: Boolean) = session.setRandomIncludeMilk(enabled)
 
         fun setRandomizeColors(enabled: Boolean) = session.setRandomizeColors(enabled)
-
-        fun setSectionStaging(enabled: Boolean) = session.setSectionStaging(enabled)
 
         fun randomStepNow() = session.randomStepNow()
 
@@ -285,11 +252,35 @@ class PlayerViewModel
             fps: Int,
             sceneFactory: SceneFactory,
             destination: Uri? = null,
-            loopSafe: Boolean = false,
             range: ExportRange? = null,
             sceneFactoryFor: ((String) -> SceneFactory)? = null,
             codec: ExportCodec = ExportCodec.H264,
-        ) = session.startExport(aspect, fps, sceneFactory, destination, loopSafe, range, sceneFactoryFor, codec)
+        ) {
+            if (openPaywallIfLocked(aspect, fps)) return
+            val limits = gate.value
+            val capped = capRange(range, limits.exportCapMs)
+            session.startExport(aspect, fps, sceneFactory, destination, capped, sceneFactoryFor, codec, limits.watermarksExports)
+        }
+
+        /**
+         * A batch render (play queue, a playlist, chosen tracks) is Pro, under the same feature as
+         * loop renders: free and trial users keep single renders of the current track.
+         */
+        fun startBatch(
+            tracks: List<BatchTrack>,
+            aspect: ExportAspect,
+            fps: Int,
+            sceneFactory: SceneFactory,
+            sceneParams: SceneParams?,
+            codec: ExportCodec,
+        ) {
+            if (openPaywallIfLocked(aspect, fps)) return
+            if (!gate.value.allows(ProFeature.FULL_LENGTH_EXPORT)) {
+                paywall.open(PaywallTrigger.Feature(ProFeature.FULL_LENGTH_EXPORT))
+                return
+            }
+            session.startBatch(tracks, aspect, fps, sceneFactory, sceneParams, codec, gate.value.watermarksExports)
+        }
 
         fun startLoopRender(
             aspect: ExportAspect,
@@ -301,7 +292,51 @@ class PlayerViewModel
             drift: dev.geode.export.TimeOfDayDrift,
             audioClips: List<Uri>,
             destination: Uri? = null,
-        ) = session.startLoopRender(aspect, codec, fps, sceneFactory, loopMs, crossfadeMs, drift, audioClips, destination)
+        ) {
+            if (openPaywallIfLocked(aspect, fps)) return
+            // A loop render is a long-form video by construction, so it is the full-length tier.
+            if (!gate.value.allows(ProFeature.FULL_LENGTH_EXPORT)) {
+                paywall.open(PaywallTrigger.Feature(ProFeature.FULL_LENGTH_EXPORT))
+                return
+            }
+            session.startLoopRender(
+                aspect,
+                codec,
+                fps,
+                sceneFactory,
+                loopMs,
+                crossfadeMs,
+                drift,
+                audioClips,
+                destination,
+                gate.value.watermarksExports,
+            )
+        }
+
+        /**
+         * Without Pro an export stops at [capMs]: the requested range, shortened, or the track's first
+         * minute. The audio transcode stops at the range's end, so a shorter track is unaffected.
+         */
+        private fun capRange(
+            range: ExportRange?,
+            capMs: Long?,
+        ): ExportRange? =
+            when {
+                capMs == null -> range
+                range == null -> ExportRange(0L, capMs)
+                range.durationMs > capMs -> ExportRange(range.startMs, capMs)
+                else -> range
+            }
+
+        /** 4K and 60 fps are Pro: a locked size or rate opens the paywall instead of rendering. */
+        private fun openPaywallIfLocked(
+            aspect: ExportAspect,
+            fps: Int,
+        ): Boolean {
+            val blocking = gate.value.blockingExportFeature(minOf(aspect.width, aspect.height), fps) ?: return false
+            paywall.open(PaywallTrigger.Feature(blocking))
+            return true
+        }
 
         /**
          * This ViewModel owns the session's teardown. `AppRoot` creates it unconditionally and

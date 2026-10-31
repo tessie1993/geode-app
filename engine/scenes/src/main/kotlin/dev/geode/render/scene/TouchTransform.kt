@@ -1,20 +1,13 @@
 package dev.geode.render.scene
 
+/** A pinch scales Zoom and a twist turns Rotation, within the native catalogue's ranges. */
 object TouchTransform {
-    const val ZOOM_MIN = 0.3f
-    const val ZOOM_MAX = 3f
-
-    const val ROTATION_MIN = -3f
-    const val ROTATION_MAX = 3f
-
-    const val ROTATION_PER_DEGREE = 0.012f
-
     fun zoom(
         current: Float,
         zoomFactor: Float,
     ): Float {
         if (!zoomFactor.isFinite() || zoomFactor <= 0f) return current
-        return (current * zoomFactor).coerceIn(ZOOM_MIN, ZOOM_MAX)
+        return (current * zoomFactor).coerceIn(Catalogue.range(ParamKeys.ZOOM))
     }
 
     fun rotation(
@@ -22,7 +15,7 @@ object TouchTransform {
         degrees: Float,
     ): Float {
         if (!degrees.isFinite()) return current
-        return (current + degrees * ROTATION_PER_DEGREE).coerceIn(ROTATION_MIN, ROTATION_MAX)
+        return (current + degrees * Catalogue.value("touchRotationPerDegree")).coerceIn(Catalogue.range(ParamKeys.ROTATION))
     }
 
     fun isTransform(

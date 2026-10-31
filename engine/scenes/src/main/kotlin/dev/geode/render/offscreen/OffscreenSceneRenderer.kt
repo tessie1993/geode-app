@@ -1,10 +1,14 @@
 package dev.geode.render.offscreen
 
 import android.content.Context
-import dev.geode.analysis.FeatureTimeline
+import android.net.Uri
+import android.util.Log
+import dev.geode.engine.audio.SoundTuning
 import dev.geode.render.AdsrConfig
 import dev.geode.render.LfoConfig
+import dev.geode.render.ReactionRoute
 import dev.geode.render.SceneFactory
+import dev.geode.render.StyleReactionsCache
 import dev.geode.render.TransitionStyle
 import dev.geode.render.bridge.NativeViz
 import dev.geode.render.scene.SceneParams
@@ -26,20 +30,18 @@ data class OffscreenRenderSpec(
     val baseParams: SceneParams,
     val lfoConfigs: List<LfoConfig> = emptyList(),
     val adsrConfigs: List<AdsrConfig> = emptyList(),
+    // The user's reaction routes; null plays the style's DNA, exactly as the live renderer does.
+    val reactions: List<ReactionRoute>? = null,
     val reducedMotion: Boolean = false,
     val paramsAt: ((Long) -> SceneParams)? = null,
-    /**
-     * Full-frame ARGB overlay pixels (from `Bitmap.getPixels`, sized [width]x[height]) for the
-     * frame at a track position (ms, measured the same way [FeatureTimeline.featuresAt] is:
-     * [rangeStartMs] plus the frame's offset into the export); null for a position draws none for
-     * that frame. Consulted once per frame in [OffscreenSceneRenderer.renderFrame]; returning the
-     * same array instance across calls (a fixed overlay, or an unchanged lyric line) skips the
-     * native re-upload.
-     */
-    val overlay: ((positionMs: Long) -> IntArray?)? = null,
     // W02: the background image behind the scene, decoded by the caller at [width]x[height] and
     // latched once in [OffscreenSceneRenderer.prepare] - see NativeViz.setUnderlay.
     val underlay: OffscreenUnderlay? = null,
+    // The track the range is cut from: the export's own sound engine hears it frame by frame
+    // (TrackAudio), the same way the screen's engine hears the ring. Null renders without sound.
+    val audioUri: Uri? = null,
+    // Settings › Audio, the same tuning the screen used.
+    val soundTuning: SoundTuning = SoundTuning(),
 )
 
 /**
@@ -59,7 +61,7 @@ class OffscreenUnderlay(
 )
 
 /**
- * Draws an analysed track to a GL target, one frame at a time, through its own native renderer.
+ * Draws a track to a GL target, one frame at a time, through its own native renderer.
  *
  * Callers own the EGL context, the surface and whatever they do with the rendered frames; the
  * scene, its simulations and the modulation engines live inside `libgeode.so`. Not thread-safe,
@@ -68,17 +70,12 @@ class OffscreenUnderlay(
 class OffscreenSceneRenderer(
     private val context: Context,
     private val sceneFactory: SceneFactory,
-    private val timeline: FeatureTimeline,
     private val spec: OffscreenRenderSpec,
 ) {
     private var native: NativeViz? = null
-
-    // Tracks the last overlay array uploaded to the native renderer, by reference rather than
-    // content, so renderFrame() only calls setOverlay() when spec.overlay actually returns a new
-    // instance - see spec.overlay's doc. Starting at null means a spec with no overlay (or one
-    // whose first frame has nothing to draw) never calls setOverlay() at all, matching the old
-    // latch-once behaviour for the art/title-only case.
-    private var lastOverlayPixels: IntArray? = null
+    private val styleReactions = StyleReactionsCache()
+    private var nativeReactions: List<ReactionRoute>? = null
+    private var audio: TrackAudio? = null
 
     /** Builds the native renderer and its scene; must run with the target GL context current. */
     fun prepare() {
@@ -95,10 +92,16 @@ class OffscreenSceneRenderer(
         viz.setReducedMotion(spec.reducedMotion)
         if (spec.lfoConfigs.isNotEmpty()) viz.setLfoConfigs(spec.lfoConfigs)
         if (spec.adsrConfigs.isNotEmpty()) viz.setAdsrConfigs(spec.adsrConfigs)
-        // The overlay itself is latched per-frame in renderFrame(), since spec.overlay may vary
-        // with position (a lyric line, or a watermark once enabled); this only builds the renderer.
         spec.underlay?.let { viz.setUnderlay(it.pixels, it.width, it.height, it.blend, it.amount) }
+        viz.setSoundTuning(spec.soundTuning.toFloats())
         native = viz
+        // A track that will not decode still exports, silent to the engine, rather than failing the render.
+        audio =
+            spec.audioUri?.let { uri ->
+                runCatching { TrackAudio(context, uri, spec.rangeStartMs) }
+                    .onFailure { Log.w(TAG, "track audio unavailable; the sound engine stays silent", it) }
+                    .getOrNull()
+            }
     }
 
     /**
@@ -115,17 +118,17 @@ class OffscreenSceneRenderer(
         val fps = spec.fps
         val timeMs = frame * 1000L / fps
         val nextTimeMs = (frame + 1) * 1000L / fps
-        val absoluteMs = spec.rangeStartMs + timeMs
-        val features = timeline.featuresAt(absoluteMs, nextTimeMs - timeMs)
         // Quality never adapts downward in an export; the thermal half is the offscreen pin above.
         val p = (spec.paramsAt?.invoke(timeMs) ?: spec.baseParams).copy(fluidAutoQuality = false)
         viz.setParams(p)
-        viz.setFeatures(features)
-        val overlayPixels = spec.overlay?.invoke(absoluteMs)
-        if (overlayPixels !== lastOverlayPixels) {
-            viz.setOverlay(overlayPixels, spec.width, spec.height)
-            lastOverlayPixels = overlayPixels
+        // Keyframes can change reactSeed mid-export, so this resolves per frame like live does.
+        val routes = spec.reactions ?: styleReactions.routesFor(sceneFactory.sceneId, p.reactSeed)
+        if (routes !== nativeReactions) {
+            viz.setReactions(routes)
+            nativeReactions = routes
         }
+        // Exactly the audio up to the end of this frame, then a render steps the engine by 1/fps.
+        audio?.deliverUntilMs(nextTimeMs) { pcm, frames, channels, rate -> viz.writeAudio(pcm, frames, channels, rate) }
         viz.render(timeMs / 1000.0, targetFbo)
     }
 
@@ -133,6 +136,8 @@ class OffscreenSceneRenderer(
     fun release() {
         bestEffort(TAG, "native.destroy()") { native?.destroy() }
         native = null
+        bestEffort(TAG, "audio.close()") { audio?.close() }
+        audio = null
     }
 
     private companion object {

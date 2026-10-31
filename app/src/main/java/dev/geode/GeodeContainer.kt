@@ -6,6 +6,9 @@ import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
 import dev.geode.data.GeodePrefsFiles
+import dev.geode.data.PerformanceStore
+import dev.geode.data.SharedPrefsUserDataRepository
+import dev.geode.data.UserDataRepository
 import dev.geode.util.bestEffort
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -20,12 +23,45 @@ class GeodeContainer(
 
     val prefsFiles = GeodePrefsFiles(context)
 
-    val userData: dev.geode.ui.UserDataRepository =
-        dev.geode.ui.SharedPrefsUserDataRepository(prefsFiles.general, appScope)
+    val userData: UserDataRepository = SharedPrefsUserDataRepository(prefsFiles.general, appScope)
+
+    /** Settings › Performance; the wallpaper and dream read the same prefs through their own store. */
+    val performance: PerformanceStore by lazy { PerformanceStore(prefsFiles.general, context.applicationContext) }
 
     init {
+        warmPlaybackPrefs()
         sweepStaleRenderScratch(context.applicationContext.cacheDir)
         sweepOrphanedPendingExports(context.applicationContext)
+        sweepRetiredAnalysisCache(context.applicationContext.filesDir)
+    }
+
+    /**
+     * Deletes the per-track analysis cache (`filesDir/analysis`) older builds wrote. The offline
+     * analyser that read it is gone (the sound engine hears the track itself, live and in export),
+     * and its Settings row with it, so nothing else would ever reclaim the space.
+     */
+    private fun sweepRetiredAnalysisCache(filesDir: File) {
+        appScope.launch(Dispatchers.IO) {
+            bestEffort(TAG, "sweep retired analysis cache") { File(filesDir, "analysis").deleteRecursively() }
+        }
+    }
+
+    /**
+     * Starts the disk load of the prefs files [dev.geode.playback.PlaybackSession] reads in its
+     * constructor (the engine choice, the audio FX state).
+     *
+     * That constructor runs on Main the first time the UI or the playback service acquires the
+     * session, and it has to stay synchronous: the engine choice decides which `Player` is built,
+     * and callers get the player back from `acquireForUi`/`acquireForService` directly. What made
+     * the read a stall was the parse, since a SharedPreferences getter blocks until its file is
+     * loaded. Opening the files here, at process start and on IO, means the parse has normally
+     * finished long before the session asks, so its read is a map lookup.
+     */
+    private fun warmPlaybackPrefs() {
+        appScope.launch(Dispatchers.IO) {
+            prefsFiles.player
+            prefsFiles.audioFx
+        }
     }
 
     /**
@@ -59,7 +95,7 @@ class GeodeContainer(
      * [dev.geode.export.LoopExtend] all insert with `IS_PENDING` set and clear it on success or
      * delete the row on a clean failure; nothing runs `START_STICKY` or persists the run for a
      * retry, so a row that is still pending once the app restarts belongs to nobody and never
-     * finishes on its own. It would otherwise sit in Movies/Geode or Pictures/Geode forever, a
+     * finishes on its own. It would otherwise sit in Movies/MuzViz or Pictures/MuzViz forever, a
      * broken, unplayable, ever-growing invisible file.
      *
      * `IS_PENDING` only exists from API 29 (scoped storage), so there is nothing to sweep below
@@ -92,8 +128,8 @@ class GeodeContainer(
             arrayOf(
                 context.packageName,
                 cutoffSeconds.toString(),
-                "Movies/Geode%",
-                "Pictures/Geode%",
+                "Movies/MuzViz%",
+                "Pictures/MuzViz%",
             )
         resolver.query(collection, arrayOf(MediaStore.MediaColumns._ID), selection, args, null)?.use { cursor ->
             val idColumn = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns._ID)
@@ -111,7 +147,7 @@ class GeodeContainer(
         const val PENDING_EXPORT_GRACE_MS = 5 * 60 * 1000L
 
         /** Kept in step with AudioTranscoder, LoopRender and StudioExporter. */
-        val RENDER_SCRATCH_PREFIXES = listOf("geode_aac_", "geode_loop_", "geode_video_", "studio-")
+        val RENDER_SCRATCH_PREFIXES = listOf("geode_aac_", "geode_loop_", "studio-")
 
         fun isRenderScratch(name: String): Boolean = RENDER_SCRATCH_PREFIXES.any { name.startsWith(it) }
     }

@@ -9,11 +9,12 @@ import android.media.MediaFormat
 import android.media.MediaMuxer
 import android.net.Uri
 import android.os.ParcelFileDescriptor
+import android.provider.DocumentsContract
 import android.provider.MediaStore
 import androidx.annotation.StringRes
 import dev.geode.R
 import dev.geode.RingLog
-import dev.geode.analysis.FeatureTimeline
+import dev.geode.engine.audio.SoundTuning
 import dev.geode.render.SceneFactory
 import dev.geode.render.offscreen.OffscreenRenderSpec
 import dev.geode.render.offscreen.OffscreenSceneRenderer
@@ -24,8 +25,6 @@ import dev.geode.viz.BackgroundExportSpec
 import dev.geode.viz.BackgroundImage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import java.io.File
-import java.io.FileOutputStream
 import java.nio.ByteBuffer
 
 enum class ExportCodec(
@@ -105,16 +104,21 @@ class VideoExporter(
         private const val TIMEOUT_US: Long = 10_000
 
         private const val FLUSH_ATTEMPT_LIMIT = 1_000
+
+        /**
+         * Share of [export]'s progress spent transcoding the audio before the first frame. Public
+         * so the caller can tell that quick lead-in from the frame loop when it estimates time left.
+         */
+        const val AUDIO_PROGRESS_SPAN = 0.1f
     }
 
     sealed interface Result {
         data class Saved(
             val uri: Uri,
             /**
-             * How the finished file's loudness compares to [loudnessTarget] *after* export — the
-             * gain toward that target was already applied while transcoding (see
-             * [AudioTranscoder.sourceGain]), so for a [LoudnessTarget.Normalising] target this is
-             * confirmation the file landed where it should, not a pending correction.
+             * How the finished file's loudness compares to [loudnessTarget], or null when it could
+             * not be measured (e.g. no audio track). Geode cannot yet apply the resulting gain — see
+             * [measureLoudness] — so this is read-only telemetry for now, not an applied correction.
              */
             val loudnessAdvice: LoudnessAdvice? = null,
         ) : Result
@@ -140,30 +144,27 @@ class VideoExporter(
 
     suspend fun export(
         audioUri: Uri,
-        timeline: FeatureTimeline,
         sceneFactory: SceneFactory,
         aspect: ExportAspect,
         fileName: String,
         sceneParams: SceneParams,
         lfoConfigs: List<dev.geode.render.LfoConfig> = emptyList(),
         adsrConfigs: List<dev.geode.render.AdsrConfig> = emptyList(),
+        reactions: List<dev.geode.render.ReactionRoute>? = null,
         reducedMotion: Boolean = false,
         requestedFps: Int = FPS,
         range: ExportRange? = null,
         paramsAt: ((Long) -> SceneParams)? = null,
-        loopSafe: Boolean = false,
         destination: Uri? = null,
         codec: ExportCodec = ExportCodec.H264,
         loudnessTarget: LoudnessTarget = LoudnessTarget.LeaveAsIs,
-        /**
-         * Full-frame ARGB overlay (cover art/title/lyrics/watermark) sized to [aspect], as a
-         * function from a track position (ms) to that frame's pixels (`Bitmap.getPixels` shape);
-         * null draws none for that frame. Null overlay draws nothing for the whole export.
-         */
-        overlay: ((positionMs: Long) -> IntArray?)? = null,
         background: BackgroundExportSpec? = null,
+        // Settings › Audio, so the export's sound engine hears the music as the screen did.
+        soundTuning: SoundTuning = SoundTuning(),
         onProgress: (Float) -> Unit,
         isCancelled: () -> Boolean,
+        // The free tier's corner wordmark; see WatermarkOverlay.
+        watermark: Boolean = false,
     ): Result =
         withContext(Dispatchers.Default) {
             // Decoded once, at the export's own pixel size, and reused for whichever destination
@@ -173,23 +174,23 @@ class VideoExporter(
                 return@withContext exportToDestination(
                     destination,
                     audioUri,
-                    timeline,
                     sceneFactory,
                     aspect,
                     sceneParams,
                     lfoConfigs,
                     adsrConfigs,
+                    reactions,
                     reducedMotion,
                     requestedFps,
                     paramsAt,
-                    loopSafe,
                     range,
                     codec,
                     loudnessTarget,
-                    overlay,
                     underlay,
+                    soundTuning,
                     onProgress,
                     isCancelled,
+                    watermark = watermark,
                 )
             }
             val resolver = context.contentResolver
@@ -198,7 +199,7 @@ class VideoExporter(
                     put(MediaStore.Video.Media.DISPLAY_NAME, fileName)
                     put(MediaStore.Video.Media.MIME_TYPE, "video/mp4")
                     if (android.os.Build.VERSION.SDK_INT >= 29) {
-                        put(MediaStore.Video.Media.RELATIVE_PATH, "Movies/Geode")
+                        put(MediaStore.Video.Media.RELATIVE_PATH, "Movies/MuzViz")
                         put(MediaStore.Video.Media.IS_PENDING, 1)
                     }
                 }
@@ -215,23 +216,22 @@ class VideoExporter(
                     encodeInto(
                         it,
                         audioUri,
-                        timeline,
                         sceneFactory,
                         aspect,
                         sceneParams,
                         lfoConfigs,
                         adsrConfigs,
+                        reactions,
                         reducedMotion,
                         requestedFps,
                         paramsAt,
-                        loopSafe,
                         range,
                         codec,
-                        loudnessTarget,
-                        overlay,
                         underlay,
+                        soundTuning,
                         onProgress,
                         isCancelled,
+                        watermark = watermark,
                     )
                 }
                 if (isCancelled()) {
@@ -250,94 +250,71 @@ class VideoExporter(
             }
         }
 
+    // ponytail: 21 params since reactions (#94) and watermark (#91) both landed; fold them into
+    // an export-request object when this signature next grows.
+    @Suppress("LongParameterList")
     private suspend fun exportToDestination(
         destination: Uri,
         audioUri: Uri,
-        timeline: FeatureTimeline,
         sceneFactory: SceneFactory,
         aspect: ExportAspect,
         sceneParams: SceneParams,
         lfoConfigs: List<dev.geode.render.LfoConfig>,
         adsrConfigs: List<dev.geode.render.AdsrConfig>,
+        reactions: List<dev.geode.render.ReactionRoute>?,
         reducedMotion: Boolean,
         requestedFps: Int,
         paramsAt: ((Long) -> SceneParams)?,
-        loopSafe: Boolean,
         range: ExportRange?,
         codec: ExportCodec,
         loudnessTarget: LoudnessTarget,
-        overlay: ((positionMs: Long) -> IntArray?)?,
         underlay: OffscreenUnderlay?,
+        soundTuning: SoundTuning,
         onProgress: (Float) -> Unit,
         isCancelled: () -> Boolean,
+        watermark: Boolean,
     ): Result {
-        val scratchFile = File.createTempFile("geode_export_", ".mp4", context.cacheDir)
+        val resolver = context.contentResolver
         val pfd =
-            ParcelFileDescriptor.open(
-                scratchFile,
-                ParcelFileDescriptor.MODE_READ_WRITE,
-            ) ?: return failed(R.string.export_error_destination_write)
+            resolver.openFileDescriptor(destination, "w")
+                ?: return failed(R.string.export_error_destination_write)
         return try {
             pfd.use {
                 encodeInto(
                     it,
                     audioUri,
-                    timeline,
                     sceneFactory,
                     aspect,
                     sceneParams,
                     lfoConfigs,
                     adsrConfigs,
+                    reactions,
                     reducedMotion,
                     requestedFps,
                     paramsAt,
-                    loopSafe,
                     range,
                     codec,
-                    loudnessTarget,
-                    overlay,
                     underlay,
+                    soundTuning,
                     onProgress,
                     isCancelled,
+                    watermark = watermark,
                 )
             }
             if (isCancelled()) {
+                bestEffort(
+                    TAG,
+                    "DocumentsContract.deleteDocument(resolver, de...",
+                ) { DocumentsContract.deleteDocument(resolver, destination) }
                 Result.Cancelled
             } else {
-                val wrote = runCatching { publishScratch(scratchFile, destination) }.getOrDefault(false)
-                if (!wrote) {
-                    failed(R.string.export_error_destination_write)
-                } else {
-                    Result.Saved(destination, measureLoudness(destination, loudnessTarget))
-                }
+                Result.Saved(destination, measureLoudness(destination, loudnessTarget))
             }
-        } finally {
-            bestEffort(TAG, "scratchFile.delete()") { scratchFile.delete() }
+        } catch (e: Exception) {
+            bestEffort(TAG, "DocumentsContract.deleteDocument(resolver, de...") { DocumentsContract.deleteDocument(resolver, destination) }
+            throw e
         }
     }
-
-    /**
-     * Copies the finished render onto the user's chosen document, returning false if the resolver
-     * would not open it. `"wt"` truncates: a shorter render must not leave the tail of whatever the
-     * file held before showing through.
-     */
-    private fun publishScratch(
-        scratch: File,
-        destination: Uri,
-    ): Boolean =
-        context.contentResolver.openFileDescriptor(destination, "wt")?.use { out ->
-            FileOutputStream(out.fileDescriptor).use { sink ->
-                scratch.inputStream().use { source -> source.copyTo(sink) }
-            }
-            true
-        } ?: false
-
-    /**
-     * The encoder's output buffer for [index]. [MediaCodec.getOutputBuffer] returns null once the
-     * codec has entered an error state, which is a failed export, not an empty frame to skip.
-     */
-    private fun MediaCodec.requireOutputBuffer(index: Int): ByteBuffer =
-        getOutputBuffer(index) ?: throw ExportFailure(R.string.export_error_encoder_buffer_null)
 
     /**
      * Measures the audio Geode just muxed into [uri] and, if it decoded, turns that measurement
@@ -347,10 +324,11 @@ class VideoExporter(
      * built to measure "the thing that will actually be uploaded", and by the time [encodeInto]
      * has run, the AAC track already lives inside a container [LoudnessMeter] can open directly —
      * unlike [AudioTranscoder]'s intermediate `.bin`, which is a raw elementary stream with no
-     * container framing for [android.media.MediaExtractor] to parse. [encodeInto] already applied
-     * a normalising gain via [AudioTranscoder.sourceGain] before this runs, so for a
-     * [LoudnessTarget.Normalising] target this is confirmation of where the file landed, not the
-     * only place a gain gets computed.
+     * container framing for [android.media.MediaExtractor] to parse. Geode does not yet have
+     * anywhere upstream to apply the resulting gain: [AudioTranscoder] owns the only PCM Geode
+     * ever holds for this file, and turning [LoudnessAdvice.gainDb] into an actual correction
+     * means scaling samples inside its decode loop, which this unit does not touch. So today this
+     * only reports what a platform would do to the file as exported.
      *
      * A file the encoder just finished writing successfully is not allowed to be reported as a
      * failed export over a problem in this purely-informational re-read, so any exception here is
@@ -373,29 +351,29 @@ class VideoExporter(
         return (result as? LoudnessResult.Measured)?.let { LoudnessTargets.advise(it.report, target) }
     }
 
-    @Suppress("NestedBlockDepth")
+    @Suppress("NestedBlockDepth", "LongParameterList")
     private fun encodeInto(
         pfd: ParcelFileDescriptor,
         audioUri: Uri,
-        timeline: FeatureTimeline,
         sceneFactory: SceneFactory,
         aspect: ExportAspect,
         sceneParams: SceneParams,
         lfoConfigs: List<dev.geode.render.LfoConfig>,
         adsrConfigs: List<dev.geode.render.AdsrConfig>,
+        reactions: List<dev.geode.render.ReactionRoute>?,
         reducedMotion: Boolean,
         requestedFps: Int,
         paramsAt: ((Long) -> SceneParams)?,
-        loopSafe: Boolean,
         range: ExportRange?,
         codec: ExportCodec,
-        loudnessTarget: LoudnessTarget,
-        overlay: ((positionMs: Long) -> IntArray?)?,
         underlay: OffscreenUnderlay?,
+        soundTuning: SoundTuning,
         onProgress: (Float) -> Unit,
         isCancelled: () -> Boolean,
+        watermark: Boolean,
     ) {
         var encoderRef: MediaCodec? = null
+        var watermarkRef: WatermarkOverlay? = null
         var inputSurfaceRef: android.view.Surface? = null
         var muxerRef: MediaMuxer? = null
         var aacRef: AudioTranscoder.Result? = null
@@ -410,7 +388,10 @@ class VideoExporter(
             // The requested codec at the requested rate first, then its reduced form, then the same pair on H.264.
             val attempts =
                 listOf(codec.available(), ExportCodec.H264).distinct().flatMap { c ->
-                    listOf(EncoderAttempt(c, requestedFpsBounded, aspect.bitRate), EncoderAttempt(c, 30, aspect.bitRate * 2 / 3))
+                    listOf(
+                        EncoderAttempt(c, requestedFpsBounded, aspect.bitRate),
+                        EncoderAttempt(c, dev.geode.data.fallbackExportFps(requestedFpsBounded), aspect.bitRate * 2 / 3),
+                    )
                 }
             val (encoder, fps) = openEncoder(aspect, attempts)
             encoderRef = encoder
@@ -419,42 +400,19 @@ class VideoExporter(
 
             val muxer = MediaMuxer(pfd.fileDescriptor, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4).also { muxerRef = it }
             val rangeStartMs = range?.startMs ?: 0L
-            val audioTranscoder = AudioTranscoder(context)
-            // A second, dedicated decode of the source to read its level before any gain is baked
-            // into the AAC track — the cost of actually applying [loudnessTarget] instead of only
-            // measuring the result afterward. Bounded to the same range that gets exported, so the
-            // gain is computed against the clip that ships rather than the whole source file it may
-            // be trimmed from. See AudioTranscoder.sourceGain for why this can't be folded into the
-            // transcode pass below.
-            val gain =
-                audioTranscoder.sourceGain(
-                    uri = audioUri,
-                    target = loudnessTarget,
-                    startMs = rangeStartMs,
-                    maxDurationMs = range?.durationMs ?: 0L,
-                    isCancelled = isCancelled,
-                )
             val aac =
-                audioTranscoder
+                AudioTranscoder(context)
                     .transcode(
                         uri = audioUri,
                         maxDurationMs = range?.durationMs ?: 0L,
                         startMs = rangeStartMs,
-                        gain = gain,
                         isCancelled = isCancelled,
-                    ) { onProgress(it * 0.1f) }
+                    ) { onProgress(it * AUDIO_PROGRESS_SPAN) }
                     .also { aacRef = it }
             val egl = EncoderSurface(inputSurface).also { eglRef = it }
             egl.makeCurrent()
 
-            val sourceDurationUs = if (aac.durationUs > 0) aac.durationUs else timeline.durationMs * 1000
-            val exportDurationUs =
-                if (loopSafe) {
-                    dev.geode.analysis.BarTrim
-                        .trimToBars(sourceDurationUs, timeline.bpm)
-                } else {
-                    sourceDurationUs
-                }
+            val exportDurationUs = aac.durationUs
             val totalFrames = (exportDurationUs * fps / 1_000_000L).toInt().coerceAtLeast(1)
             val frameDurationNs = 1_000_000_000L / fps
 
@@ -462,7 +420,6 @@ class VideoExporter(
                 OffscreenSceneRenderer(
                     context = context,
                     sceneFactory = sceneFactory,
-                    timeline = timeline,
                     spec =
                         OffscreenRenderSpec(
                             width = aspect.width,
@@ -473,13 +430,23 @@ class VideoExporter(
                             baseParams = sceneParams,
                             lfoConfigs = lfoConfigs,
                             adsrConfigs = adsrConfigs,
+                            reactions = reactions,
                             reducedMotion = reducedMotion,
                             paramsAt = paramsAt,
-                            overlay = overlay,
                             underlay = underlay,
+                            audioUri = audioUri,
+                            soundTuning = soundTuning,
                         ),
                 ).also { rendererRef = it }
             renderer.prepare()
+            val mark =
+                if (watermark) {
+                    WatermarkOverlay(context.getString(R.string.pro_watermark_text))
+                        .also { watermarkRef = it }
+                        .apply { prepare(aspect.width, aspect.height) }
+                } else {
+                    null
+                }
 
             var videoTrack = -1
             var audioTrack = -1
@@ -488,6 +455,7 @@ class VideoExporter(
             for (frame in 0 until totalFrames) {
                 if (isCancelled()) break
                 renderer.renderFrame(frame)
+                mark?.draw()
                 val timeMs = frame * 1000L / fps
                 egl.setPresentationTimeNs(frame * frameDurationNs)
                 egl.swapBuffers()
@@ -506,7 +474,8 @@ class VideoExporter(
                             muxerStarted = true
                         }
                     } else if (outIndex >= 0) {
-                        val buf = encoder.requireOutputBuffer(outIndex)
+                        val buf =
+                            checkNotNull(encoder.getOutputBuffer(outIndex)) { context.getString(R.string.export_error_encoder_buffer_null) }
                         if (writeSample(muxer, videoTrack, buf, info, muxerStarted)) sampleWritten = true
                         encoder.releaseOutputBuffer(outIndex, false)
                     } else {
@@ -518,7 +487,7 @@ class VideoExporter(
                         audioFeedRef ?: AudioFeed(muxer, audioTrack, aac, exportDurationUs).also { audioFeedRef = it }
                     feed.writeUpTo(timeMs * 1000L)
                 }
-                onProgress(0.1f + frame / totalFrames.toFloat() * 0.85f)
+                onProgress(AUDIO_PROGRESS_SPAN + frame / totalFrames.toFloat() * 0.85f)
             }
             encoder.signalEndOfInputStream()
             var flushAttempts = 0
@@ -537,7 +506,8 @@ class VideoExporter(
                         }
                     }
                     outIndex >= 0 -> {
-                        val buf = encoder.requireOutputBuffer(outIndex)
+                        val buf =
+                            checkNotNull(encoder.getOutputBuffer(outIndex)) { context.getString(R.string.export_error_encoder_buffer_null) }
                         if (writeSample(muxer, videoTrack, buf, info, muxerStarted)) sampleWritten = true
                         val eos = info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0
                         encoder.releaseOutputBuffer(outIndex, false)
@@ -549,12 +519,8 @@ class VideoExporter(
                     else -> flushAttempts++
                 }
             }
-            if (!muxerStarted && !isCancelled()) {
-                throw ExportFailure(R.string.export_error_encoder_no_output)
-            }
-            if (!sawEos && !isCancelled()) {
-                throw ExportFailure(R.string.export_error_encoder_stalled)
-            }
+            check(muxerStarted || isCancelled()) { context.getString(R.string.export_error_encoder_no_output) }
+            check(sawEos || isCancelled()) { context.getString(R.string.export_error_encoder_stalled) }
             if (muxerStarted && !isCancelled() && audioTrack >= 0) {
                 val feed =
                     audioFeedRef ?: AudioFeed(muxer, audioTrack, aac, exportDurationUs).also { audioFeedRef = it }
@@ -566,6 +532,7 @@ class VideoExporter(
                 muxerStopped = true
             }
         } finally {
+            bestEffort(TAG, "watermarkRef?.release()") { watermarkRef?.release() }
             bestEffort(TAG, "rendererRef?.release()") { rendererRef?.release() }
             bestEffort(TAG, "audioFeedRef?.close()") { audioFeedRef?.close() }
             if (muxerStarted && !muxerStopped) {

@@ -1,7 +1,7 @@
 #version 300 es
 precision highp float;
 // GLSL ES 3.00 defaults fragment sampler2D to LOWP (range [-2,2), ~8
-// fraction bits). uAudioTex is R32F; on GPUs honoring sampler precision
+// fraction bits). uSoundTex is R32F; on GPUs honoring sampler precision
 // (Mali) every read is clamped and quantized.
 precision highp sampler2D;
 
@@ -9,7 +9,7 @@ in vec2 vUv;
 out vec4 fragColor;
 
 // The three lines every fragment style carries, in this order: the uniform
-// block/aband/awave/view() first, then the palette, then grade() - which calls
+// block/view() first, then the palette, then grade() - which calls
 // pal() and so must come after it.
 //#include lib_scene_uniforms
 //#include lib_scene_motion
@@ -54,10 +54,6 @@ out vec4 fragColor;
 // of the transformation - and that is the part of the body that glows. When
 // the morph settles onto a single skeleton the glow goes out, so the frame
 // tells you at a glance whether the organism is resting or changing.
-//
-// motion: uBassSmooth -> body/blob inflation and relief depth (size), uMidSmooth ->
-// the box-fold's scale (steer/curl); uBarOsc drives the morph's bar-locked
-// surge and, with uBassRel, the shell's slow breathing (never a launched front).
 
 // ---- framing --------------------------------------------------------------
 
@@ -200,15 +196,17 @@ out vec4 fragColor;
 #define MORPH_HOLD 0.44
 
 /**
- * How far the bar-phase oscillator lunges the body toward its next skeleton.
+ * How far a beat lunges the body toward its next skeleton.
  *
- * Wave three: this used to be a discrete beat-triggered kick. uBarOsc is a
- * continuous, phase-locked oscillator instead - it rises and falls smoothly
- * once per bar (0.5 when the tempo is not locked), so the clock owns the
- * CADENCE and the bar oscillator owns the MOTION: the organism surges toward
- * what it is becoming and relaxes back once a bar, the surges grow as the
- * segment runs out because they are scaled by (1 - t), and nothing here
- * jumps inside a single frame.
+ * This is the discrete beat event, and it is deliberately the ONLY thing the
+ * beat moves in the geometry. The segment index cannot be beat-derived - a
+ * fragment shader has no memory and cannot count beats, only read the phase of
+ * the current one - so the clock owns the CADENCE and the beat owns the
+ * MOTION: on every hit the organism surges toward what it is becoming and
+ * relaxes back, the surges grow as the segment runs out because they are
+ * scaled by (1 - t), and the last one before the ease saturates is what
+ * completes the change. So the arrival is always on a beat even though the
+ * schedule is not.
  */
 #define MORPH_KICK 0.42
 
@@ -719,9 +717,11 @@ float map(vec3 p) {
             * sin(q.z * RELIEF_FREQ + 3.1);
     }
 
-    // A slow breathing shell rather than a launched shockwave: a Gaussian
-    // ridge whose radius rides uBarOsc, so it swells and settles once a bar
-    // instead of firing outward from a hit and never repeats a pop.
+    // The beat's discrete event, as a shockwave rather than a new object: a
+    // Gaussian ridge at radius gShellR, born at the transient deep inside the
+    // body and expanding out through the skin as sndPhase(SND_BASS_TIME, 2.0) runs. Born inside
+    // means it is invisible at the moment it appears, which is the difference
+    // between a pulse crossing the surface and a sphere popping into frame.
     if (gShellA > 0.0) {
         float u = (r - gShellR) / SHELL_W;
         d -= gShellA * exp(-u * u);
@@ -789,13 +789,13 @@ float occlusion(vec3 p, vec3 n, float scale) {
 // The camera here looks down +z from a fixed standoff, so the world direction
 // is already the frame the mandala wants.
 vec3 room(vec3 rd, vec2 uv, float hue) {
-    vec3 c = dmtChrysanthemum(rd, hue + 0.62, clamp(uEnergySmooth, 0.0, 1.5));
+    vec3 c = dmtChrysanthemum(rd, hue + 0.62, clamp(sndShaped(SND_LEVEL), 0.0, 1.5));
     // The wake of every finger, live and still fading, as a glow in the room
     // behind the body. Clamped because touchWake is unbounded above by design
     // - five fingers in one place sum to five - and a full-screen brightness
     // term is exactly the kind of thing VisualSafety's flash budget is about.
     c += pal(hue + 0.30) * clamp(touchWake(uv), 0.0, 3.0) * 0.045;
-    return c * (0.85 + 0.30 * clamp(uEnergy, 0.0, 1.5));
+    return c * (0.85 + 0.30 * clamp(sndShaped(SND_LEVEL), 0.0, 1.5));
 }
 
 void main() {
@@ -815,11 +815,11 @@ void main() {
     gIa = mod(segf, 4.0);
     gIb = mod(segf + 1.0, 4.0);
 
-    // uBarOsc rather than a beat hit: a continuous, phase-locked oscillator
-    // that rises and falls once per bar (0.5 when the tempo is not locked),
-    // so the shockwave below - which squares it - breathes with the bar
-    // instead of firing on a transient.
-    float beatEnv = clamp(uBarOsc, 0.0, 1.0);
+    // uSpike rather than the beat-phase bump: it takes ~120ms to arrive, so the
+    // morph is nudged along rather than jolted on a single frame. beatEnv keeps
+    // its name because the shockwave below squares it - the gate is unchanged,
+    // only the signal under it is now slew-limited.
+    float beatEnv = clamp(uSpike, 0.0, 1.0);
     float kick = beatEnv;
 
     float hold = MORPH_HOLD * (1.0 - clamp(uMorph, 0.0, 1.0));
@@ -839,10 +839,10 @@ void main() {
     // ceiling below still stands - what VisualSafety cannot clamp is AREA - but
     // the reason it had to be that tight was that the raw envelopes are per-frame.
     // These cannot jump, so the same ceilings now hold on a much steadier signal.
-    float bass = clamp(uBassSmooth, 0.0, 1.2);
-    float mid = clamp(uMidSmooth, 0.0, 1.2);
-    float treb = clamp(uTrebleSmooth, 0.0, 1.5);
-    float energy = clamp(uEnergySmooth, 0.0, 1.5);
+    float bass = clamp(SND_BASS_PRESENCE, 0.0, 1.2);
+    float mid = clamp(sndShaped(SND_MIDDLE), 0.0, 1.2);
+    float treb = clamp(sndShaped(SND_HIGH), 0.0, 1.5);
+    float energy = clamp(sndShaped(SND_LEVEL), 0.0, 1.5);
 
     // Thicker weave under bass: the sheets swell toward each other and the
     // gyroid closes up, which is the one deformation this skeleton has.
@@ -898,12 +898,11 @@ void main() {
     gFoldIters = int(clamp(floor(uSteps * 0.046875), 3.0, float(FOLD_MAX_ITERS)));
     gRelief = RELIEF_AMP * bass;
 
-    // A slow breathing shell, never a launched front: its radius rides
-    // uBarOsc (so it swells out and eases back once a bar) and its
-    // amplitude rides uBassRel (so it is only visible when the low end is
-    // above its running average), both already slew-limited.
-    gShellA = SHELL_AMP * 0.6 * clamp(uBassRel - 1.0, 0.0, 1.0);
-    gShellR = mix(0.30, 0.95, beatEnv);
+    // The shockwave rides sndPhase(SND_BASS_TIME, 2.0) from inside the body to just past the
+    // skin, and its amplitude rides the squared envelope so it is silent
+    // between hits and absent altogether in silence.
+    gShellA = SHELL_AMP * beatEnv * beatEnv;
+    gShellR = mix(0.10, 1.16, clamp(sndPhase(SND_BASS_TIME, 2.0), 0.0, 1.0));
 
     gSpinK = SPIN_GAIN * clamp(uTouchSpin, -8.0, 8.0);
 
@@ -1049,7 +1048,7 @@ void main() {
             // further, so the outline sings the spectrum from the bottom of
             // the body to the top.
             float fres = pow(1.0 - clamp(dot(n, -rd), 0.0, 1.0), 3.0);
-            float spectrum = aband(clamp(n.y * 0.5 + 0.5, 0.0, 1.0));
+            float spectrum = (0.5 * sndEq(clamp(n.y * 0.5 + 0.5, 0.0, 1.0)));
             col += pal(hue + 0.30) * fres * 0.30 * spectrum;
 
             // Squared, so the heat is a thin bright line on the seam rather
@@ -1064,11 +1063,10 @@ void main() {
             // colour rather than spreading out to the same width as it.
             col += vec3(1.0) * pow(clamp(heat, 0.0, 1.0), 5.0) * 0.38;
 
-            // The breathing shell, as light. The 0.03-unit geometric ridge
-            // above is most of a pixel at the silhouette and nothing at all
-            // face-on; the same profile added to the heat is what makes the
-            // bar-locked breath visible as a ring crossing the skin, and it
-            // costs one exp.
+            // The shockwave, as light. The 0.03-unit geometric ridge above is
+            // most of a pixel at the silhouette and nothing at all face-on;
+            // the same profile added to the heat is what actually makes a beat
+            // visible as a ring crossing the skin, and it costs one exp.
             if (gShellA > 0.0) {
                 float u = (length(p) - gShellR) / SHELL_W;
                 col += hot * exp(-u * u) * beatEnv * beatEnv * 0.35;

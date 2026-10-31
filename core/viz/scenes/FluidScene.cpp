@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 
+#include "viz/LiveSignal.hpp"
 #include "viz/Quad.hpp"
 #include "viz/fluid/FluidQuality.hpp"
 
@@ -17,7 +18,10 @@ void FluidScene::init() {
         appliedTier_ = -1;
         appliedParticleSide_ = 0;
         applyQualityTier();
-    } else {
+    } else if (!sim_.texFormats().ok) {
+        // Only the format probe failing means half floats. A shader the driver
+        // rejected also leaves the sim unavailable, but create() has already
+        // reported that error, and this message would overwrite it.
         host_.onShaderError("Fluid style unavailable: this GPU can't render half-float buffers");
     }
 }
@@ -37,7 +41,7 @@ void FluidScene::onApplyQualityTier(int index, bool userChanged) {
     }
 }
 
-GeodeFeatureFrame FluidScene::idleFeatures(float dt) {
+GeodeSoundFrame FluidScene::idleFeatures(float dt) {
     idlePhase_ = std::fmod(idlePhase_ + dt, kIdleWrapSeconds);
     const float t = idlePhase_;
     const float bass = 0.18f + 0.12f * std::sin(t * 0.7f);
@@ -51,52 +55,47 @@ void FluidScene::draw(float timeSeconds) {
     if (!sim_.available()) return;
     resetFrameState();
     const SceneParams& p = params_;
-    const GeodeFeatureFrame f = scaledFeatures();
-    const MotionField::State& m = motionField_.state();
+    const GeodeSoundFrame f = scaledFeatures();
 
     saveGlState();
     autoQualityTick();
 
     const float energy = std::clamp(f.rms, 0.0f, 1.0f);
-    const float midRel = std::clamp(m.midRel, 0.0f, 2.0f);
-    const float energyRel = std::clamp(m.energyRel, 0.0f, 2.0f);
+    const float pcmKick = std::clamp(pcmStrike_, 0.0f, 1.0f);
     sim_.pressureIterations = std::clamp(p.fluidIterations, 8, 40);
     sim_.pressureDamp = std::clamp(p.fluidPressure, 0.0f, 1.0f);
     // The style's multipliers sit on the user's values, inside the same clamps.
     sim_.velocityDissipation = std::clamp(p.fluidVelocityDissipation * style_.velocityDissipation, 0.0f, 4.0f);
-    // motion: uMidRel -> curl strength (continuous; no more PCM-kick term).
-    sim_.curlStrength = std::clamp(p.fluidCurl * style_.curl, 0.0f, 50.0f) * (1.0f + p.fluidCurlAudio * midRel * 0.5f);
-    // motion: uEnergyRel -> fade (quiet passages persist longer, loud ones clear faster).
-    sim_.densityDissipation = std::clamp(p.fluidDensityDissipation * style_.densityDissipation, 0.0f, 4.0f) *
-                              (1.0f + p.fluidFadeAudio * std::clamp(1.0f - energyRel * 0.5f, 0.0f, 1.0f));
+    sim_.curlStrength = std::clamp(p.fluidCurl * style_.curl, 0.0f, 50.0f) * (1.0f + p.fluidCurlAudio * live::mid(f) + pcmKick * 0.5f);
+    sim_.densityDissipation =
+        std::clamp(p.fluidDensityDissipation * style_.densityDissipation, 0.0f, 4.0f) * (1.0f + p.fluidFadeAudio * (1.0f - energy));
     sim_.chromaticAging = std::clamp(p.fluidChromaticAging, 0.0f, 1.0f);
-    sim_.audioBass = f.bass;
-    sim_.audioMid = f.mid;
-    sim_.audioTreble = f.treble;
+    sim_.audioBass = live::bass(f);
+    sim_.audioMid = live::mid(f);
+    sim_.audioTreble = live::treble(f);
     sim_.audioEnergy = energy;
+    sim_.audioBeat = live::hit(f);
     sim_.timeSeconds = time_;
 
     configureChoreography();
     emitters_.applyParams(p);
     emitters_.splatRadius = std::clamp(emitters_.splatRadius * style_.splatRadius, 0.02f, 0.4f);
     emitters_.paletteCycleSpeed = hue::paletteCycleSpeed(p.fluidPaletteCycleSpeed);
-    // motion: uEnergyRel -> splat force, applied inside Emitters::tick (no more PCM-kick term here).
-    emitters_.forceScale = std::clamp(p.fluidSplatForce * style_.splatForce, 0.0f, 3.0f);
+    emitters_.forceScale = std::clamp(p.fluidSplatForce * style_.splatForce, 0.0f, 3.0f) * (1.0f + pcmKick * 0.5f);
     const float simDt = std::clamp(lastDt_, 0.0f, 1.0f / 30.0f);
     const float hueBase = hue::base(p.paletteBase()) + style_.hueOffset;
     const float hueSpan = hue::span(p.hueRange, p.paletteRange());
-    choreography_.tick(f, simDt, sim_.aspect(), m);
-    emitters_.tick(f, simDt, sim_.aspect(), hueBase, hueSpan, splats_, m);
+    choreography_.tick(f, simDt, sim_.aspect());
+    emitters_.tick(f, simDt, sim_.aspect(), hueBase, hueSpan, splats_);
     for (const auto& s : splats_) sim_.queueSplat(s);
     sim_.step(simDt);
     if (particles_.available() && p.fluidParticlesEnabled) {
         applyChoreographyTo(particles_);
         particles_.step(simDt, sim_.velocityTex(), sim_.aspect(), sim_.flowScale(), time_);
     }
-    // motion: uEnergyRel -> bloom gain.
-    look_.bloomIntensity = std::clamp(p.fluidBloomIntensity * style_.bloom, 0.1f, 2.0f) * (0.6f + p.fluidBloomAudio * energyRel * 0.5f);
+    look_.bloomIntensity = std::clamp(p.fluidBloomIntensity * style_.bloom, 0.1f, 2.0f) * (0.6f + p.fluidBloomAudio * energy);
     look_.timeSeconds = time_;
-    look_.audio = {f.bass, f.mid, f.treble, energy};
+    look_.audio = {live::bass(f), live::mid(f), live::treble(f), energy};
     look_.lookHue = hueBase;
     look_.bloomThreshold = std::clamp(p.fluidBloomThreshold, 0.0f, 1.0f);
     look_.sunraysWeight = std::clamp(p.fluidSunraysWeight, 0.3f, 1.0f);

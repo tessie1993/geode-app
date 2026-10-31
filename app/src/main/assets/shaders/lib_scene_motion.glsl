@@ -2,9 +2,11 @@
 //
 // WHY THIS EXISTS
 //
-// lib_scene_uniforms hands a style the RAW band envelopes: uBass, uMid,
-// uTreble, uEnergy, uBeat. They are honest, and they are the wrong thing to
-// drive a picture with directly. A band envelope can move 0 -> 1 between two
+// lib_sound (through lib_scene_uniforms) hands a style the sound engine's
+// frame: relative band levels (SND_BASS, SND_MID_ATT, ...), shaped 0..1 bands
+// (SND_LOW, SND_MIDDLE, SND_HIGH, SND_LEVEL), drum envelopes and clocks. The
+// fast ones are honest, and they are the wrong thing to drive a picture with
+// directly. A band envelope can move 0 -> 1 between two
 // frames, so anything multiplied by one moves the same way: that is the
 // flashing and the snapping. A fragment shader cannot fix it, because a
 // fragment shader has no frame-to-frame state and so cannot smooth anything.
@@ -30,22 +32,10 @@
 // and section boundaries that eases over seconds (uOrbit/uDrift/uBreath). See
 // core/viz/MotionField.hpp for the derivation of every uniform below.
 
-// ---- slew-limited band envelopes -------------------------------------------
-//
-// Same range and meaning as uBass/uMid/uTreble/uEnergy (0..1.5, auto-gained),
-// but no single frame can move one of them far. Substituting uBassSmooth for
-// uBass is the one-line way to take the flash out of an existing style.
-uniform float uBassSmooth;
-uniform float uMidSmooth;
-uniform float uTrebleSmooth;
-uniform float uEnergySmooth;
-
-/**
- * The slowest signal available: how loud this PASSAGE is, not what just
- * happened in it. Takes about a second to arrive and longer to leave, so it is
- * what to breathe a scale, a density or a fog depth with.
- */
-uniform float uSwell;
+// The slow sound signals come from lib_sound too: sndShaped(SND_LOW) and its
+// siblings for a band that cannot jump far in one frame, the SND_*_PRESENCE
+// trends for a band over seconds, and SND_INTENSITY, SND_LEVEL or
+// SND_ENERGY_TREND for how loud this PASSAGE is.
 
 // ---- wave three: relative levels, timbre and key --------------------------
 
@@ -89,28 +79,40 @@ uniform float uMotion;
  */
 uniform float uFlowPhase;
 
-// ---- helpers ---------------------------------------------------------------
+// ---- legacy: constant since wave three; removed in R08 --------------------
 //
-// R08 removed the spike-triggered uniform group this section used to read
-// (uSpike, uMoveDir, uSpawnSeed, uSpawnAge, uFormPhase - ShaderScene held
-// them at a neutral constant since wave three, so this is a behaviour-
-// preserving rewrite, not a new recipe). Every helper below keeps its old
-// signature so R02-R07's callers keep compiling; each now derives its
-// answer from a continuous uniform instead.
-
-/** Wave three: the current direction of travel, from the CPU's slow accumulated rotation (uDrift) instead of a spike-set heading. Always unit length. */
-vec2 moveDir() {
-    return vec2(cos(uDrift), sin(uDrift));
-}
+// The spike-triggered reaction this uniform group used to carry. Nothing
+// writes these any more; ShaderScene uploads the neutral constant every
+// frame so a style that has not yet been migrated (R02-R07) still compiles
+// and draws exactly the picture it did with a silent, un-spiking input.
 
 /**
- * 0 at the instant of a spawn, 1 once it has grown in over `seconds`. Wave
- * three: nothing re-spawns any more (the CPU held the old uSpawnAge at 1000,
- * far past every caller's horizon), so this already always read as fully
- * grown in - the constant below is that same steady state, not a new one.
+ * The transient envelope. Held at 0: nothing rises on a hit any more, so
+ * anything still reading it (fluidWarp's eddy widening below) sees a track
+ * that is always exactly as loud as SND_INTENSITY says, never momentarily louder.
  */
+uniform float uSpike;
+
+/**
+ * Unit vector, the current direction of travel. Held at (1, 0): nothing turns
+ * it any more.
+ */
+uniform vec2 uMoveDir;
+
+/** 0..1, held at 0: nothing re-rolls the spawn identity any more. */
+uniform float uSpawnSeed;
+
+/** Seconds since uSpawnSeed was last rolled. Held at 1000, well past spawnGrow()'s horizon, so a spawn always reads as fully grown in. */
+uniform float uSpawnAge;
+
+/** 0..1, the "which fractal" dial. Held at 0: nothing sends it to a new plateau any more. */
+uniform float uFormPhase;
+
+// ---- helpers ---------------------------------------------------------------
+
+/** 0 at the instant of a spawn, 1 once it has grown in over `seconds`. */
 float spawnGrow(float seconds) {
-    return 1.0;
+    return smoothstep(0.0, max(seconds, 1e-3), uSpawnAge);
 }
 
 /** 1 at the instant of a spawn, decaying to 0: the complement of spawnGrow. */
@@ -120,7 +122,7 @@ float spawnFresh(float seconds) {
 
 /** The travel offset a field should be advected by, in style units. */
 vec2 flowOffset(float rate) {
-    return moveDir() * (uFlowPhase * rate);
+    return uMoveDir * (uFlowPhase * rate);
 }
 
 /**
@@ -128,8 +130,7 @@ vec2 flowOffset(float rate) {
  * that turn a whole structure rather than sliding it.
  */
 mat2 flowBasis() {
-    vec2 d = moveDir();
-    return mat2(d.x, -d.y, d.y, d.x);
+    return mat2(uMoveDir.x, -uMoveDir.y, uMoveDir.y, uMoveDir.x);
 }
 
 /**
@@ -165,7 +166,7 @@ float motionFbm(vec2 p) {
 /**
  * Divergence-free velocity at `p`. `scale` is the eddy size in style units;
  * larger is coarser. Already advected along the current travel direction, so
- * the whole field drifts the way uDrift is currently pointed.
+ * the whole field drifts the way a spike last pointed it.
  */
 vec2 curlVelocity(vec2 p, float scale) {
     vec2 q = p * scale + flowOffset(0.35);
@@ -176,12 +177,11 @@ vec2 curlVelocity(vec2 p, float scale) {
 }
 
 /**
- * Advects `p` through the curl field. `amount` in style units; a louder-
- * than-average passage widens the eddies through uEnergyRel, continuously,
- * rather than a hit displacing anything instantly.
+ * Advects `p` through the curl field. `amount` in style units; a hit widens
+ * the eddies through uSpike rather than displacing anything instantly.
  */
 vec2 fluidWarp(vec2 p, float scale, float amount) {
-    return p + curlVelocity(p, scale) * amount * (0.7 + 0.5 * uSwell + 0.3 * clamp(uEnergyRel - 1.0, 0.0, 1.0));
+    return p + curlVelocity(p, scale) * amount * (0.7 + 0.5 * SND_INTENSITY + 0.3 * uSpike);
 }
 
 /**
@@ -195,8 +195,7 @@ float fluidMotes(vec2 p, float density, float size) {
     vec2 q = fluidWarp(p, 1.4, 0.22) * density + flowOffset(0.9) * density * 0.15;
     vec2 cell = floor(q);
     vec2 local = fract(q) - 0.5;
-    // Wave three: identity drifts slowly with travel time instead of re-rolling on a hit.
-    float seed = motionHash(cell + floor(uFlowPhase * 0.08));
+    float seed = motionHash(cell + floor(uSpawnSeed * 64.0));
     // Scatter each mote inside its cell and let it orbit slowly, so the layer
     // reads as drifting particles rather than as a lit grid.
     float phase = uFlowPhase * (0.4 + seed) + seed * 6.2831853;
@@ -204,7 +203,7 @@ float fluidMotes(vec2 p, float density, float size) {
     float mote = smoothstep(size, size * 0.15, length(local));
     // Only some cells carry one, and the brightest ride the treble.
     float alive = step(0.62, seed);
-    return mote * alive * (0.35 + 0.65 * seed) * (0.5 + 0.9 * uTrebleSmooth) * spawnGrow(0.9);
+    return mote * alive * (0.35 + 0.65 * seed) * (0.5 + 0.9 * SND_TREBLE_PRESENCE) * spawnGrow(0.9);
 }
 
 // ---- the 3D half: a divergence-free flow a raymarch can afford --------------
@@ -237,11 +236,11 @@ vec3 abcFlow(vec3 p) {
  * space, while feeding the result back in folds it, which is what turns a
  * smooth swirl into something that reads as stirred.
  *
- * The whole field drifts along the current travel direction, so uDrift
- * re-aims the flow continuously rather than a spike restarting it.
+ * The whole field drifts along the current travel direction, so a spike
+ * re-aims the flow rather than restarting it.
  */
 vec3 fluidWarp3(vec3 p, float scale, float amount) {
-    vec3 drift = vec3(moveDir() * (uFlowPhase * 0.30), uFlowPhase * 0.18);
+    vec3 drift = vec3(uMoveDir * (uFlowPhase * 0.30), uFlowPhase * 0.18);
     vec3 q = p + amount * abcFlow(p * scale + drift);
     return q + amount * 0.55 * abcFlow(q * scale * 2.07 + drift * 1.4 + 3.1);
 }

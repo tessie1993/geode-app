@@ -28,12 +28,20 @@ uniform float uLayerMix;
 /** Layers: which blend function, matching BlendMode's ordinals. */
 uniform int uBlendMode;
 uniform float uTime;
+uniform float uBeat;
 uniform float uChroma;
 uniform float uVignette;
 uniform float uScanline;
 uniform float uGrain;
 uniform float uGlitch;
 uniform float uFisheye;
+uniform float uStrobe;
+// Strobe rate in flashes/second. Was the literal 9.0 below, which no user
+// control could reach - so "less strobe" only ever meant a DIMMER 9 Hz
+// flicker, never a slower one, and 9 Hz sits inside the band that provokes
+// photosensitive seizures. VisualSafety.strobeHz owns this value: it stays
+// 9.0 unless Safe visuals is on, so nothing changes by default.
+uniform float uStrobeHz;
 // PER-TEXTURE GATES. Which of the uPost* groups below the composite must
 // apply is a property of the SCENE, not of the frame: shader scenes already
 // warp/grade in view()/grade(), particle scenes in particle_vert/frag,
@@ -47,16 +55,24 @@ uniform float uFisheye;
 // grade entirely.
 //   x = geometry/stylize group   (warp, ripple, kaleido, pixelate, tile,
 //                                 twist, bloom, posterize, drift, sway,
-//                                 temp, solarize)
+//                                 shake, flash, temp, solarize)
 //   y = mirror + invert
 //   z = colour grade + zoom/rotation  (the uPostZoom..uPostHue block below)
-//   w = unused since wave three (was the beat pulse gate)
+//   w = beat pulse
 // A component is 1.0 when the COMPOSITE owns that group for that texture and
 // 0.0 when the scene already applied it. Uploaded by VisualizerRenderer and
 // FxCompositor from CompositeGrade.gateFor(); the export path uploads the
 // same value in both slots (it never transitions).
 uniform vec4 uGateA;
 uniform vec4 uGateB;
+// The shared camera rig (core/viz/CameraRig.cpp) seen through a flat image:
+// every scene that does not march the rig's 3D pose itself is viewed as a
+// picture on a plane the camera pans, tilts, rolls and dollies toward.
+// uCamGate is per texture (x = uTexA, y = uTexB), like the gates above:
+// 0 for a scene that already drew the camera.
+uniform vec4 uCamFlat;  // panX, panY, zoom, roll
+uniform vec2 uCamTilt;  // yaw, pitch of the image plane, radians
+uniform vec2 uCamGate;
 // Universal geometric + color post effects, applied here so they work on
 // EVERY scene type - including particle scenes, whose vertex pipeline can't
 // honor screen-space shape params on its own.
@@ -77,6 +93,8 @@ uniform float uPostInvert;
 uniform float uPostDriftX;
 uniform float uPostDriftY;
 uniform float uPostSway;
+uniform float uPostShake;
+uniform float uPostFlash;
 uniform float uPostTemp;
 uniform float uPostSolarize;
 // Universal grading + zoom/rotation for scenes that grade NOTHING themselves
@@ -94,6 +112,15 @@ uniform float uPostBright;   // brightness * intensity, as everywhere else
 uniform float uPostContrast;
 uniform float uPostGamma;
 uniform float uPostHue;
+// Beat pulse for scenes that don't swell on the beat themselves (the fluid
+// family AND milkdrop - a DIFFERENT set from the grading block above, which
+// milkdrop is excluded from because pm_post_frag grades but never pulses).
+// This is the pulse AMOUNT with the beat envelope already folded in on the
+// CPU (CompositeGrade.pulseAmount), because the composite pass has no BPM
+// phase clock of its own. Its gate component (w) is separate from the grade's
+// (z) for that reason; the VALUE is still neutral at 0.0, which is also GL's
+// default, so a program that never uploads it renders identically.
+uniform float uPostPulse;
 // FlowField fluidWarp: the shared fluid velocity field bends the sampling
 // coordinate of ANY scene's output (particles, shaders, milkdrop) before the
 // scene-texture fetch. A 1x1 zero texture is bound when disabled so the
@@ -140,11 +167,29 @@ vec3 hueRotate(vec3 c, float a) {
 
 // Applies geometric transforms to a [0,1] uv, operating in centered space.
 // [gate] is this texture's uGateA/uGateB (see their declaration).
-vec2 geo(vec2 uv, vec4 gate) {
+// Intersects the view ray through centred point c with the tilted image
+// plane, then rolls, zooms and pans it.
+vec2 camFlat(vec2 c) {
+    vec3 d = vec3(c, 1.0);
+    float cy = cos(uCamTilt.x);
+    float sy = sin(uCamTilt.x);
+    float cp = cos(uCamTilt.y);
+    float sp = sin(uCamTilt.y);
+    d = vec3(cy * d.x + sy * d.z, d.y, -sy * d.x + cy * d.z);
+    d = vec3(d.x, cp * d.y - sp * d.z, sp * d.y + cp * d.z);
+    c = d.xy / max(d.z, 0.2);
+    float r = uCamFlat.w;
+    c = mat2(cos(r), -sin(r), sin(r), cos(r)) * c;
+    return c / max(uCamFlat.z, 0.05) + uCamFlat.xy;
+}
+
+vec2 geo(vec2 uv, vec4 gate, float camOn) {
     bool geoOn = gate.x > 0.5;
     bool mirrorOn = gate.y > 0.5;
     bool gradeOn = gate.z > 0.5;
+    bool pulseOn = gate.w > 0.5;
     vec2 c = uv - 0.5;
+    if (camOn > 0.5) c = camFlat(c);
     // Rotation and sway share one angle, exactly like plasma_frag's view()
     // (a = uRotation + uSway * 0.35 * sin(uTime * 0.7)). uPostRotation is an
     // angle, not a rate: the renderer integrates rotation * dt so the slider
@@ -154,11 +199,23 @@ vec2 geo(vec2 uv, vec4 gate) {
     if (abs(sa) > 0.0001) {
         c = mat2(cos(sa), -sin(sa), sin(sa), cos(sa)) * c;
     }
+    if (geoOn && uPostShake > 0.001) {
+        c += uPostShake * uBeat * 0.03 * vec2(sin(uTime * 91.7), cos(uTime * 77.3));
+    }
     // Zoom about the centre, same form as the shader scenes and the milkdrop
     // post pass (uv /= max(z, 0.05)), so a given slider value magnifies by the
     // same amount on a fluid style as on julia/mandel.
     if (gradeOn && abs(uPostZoom - 1.0) > 0.0001) {
         c /= max(uPostZoom, 0.05);
+    }
+    // Beat pulse: a swell about the centre, the same geometric form and 0.22
+    // magnitude the shader scenes give it (plasma_frag: pulse = 1.0 + uPulse *
+    // 0.22 * bump; z = uZoom * pulse; uv /= z), so one slider value swells the
+    // image by the same amount on a fluid or milkdrop style as on julia. Kept
+    // on its OWN gate component on purpose: milkdrop grades itself but does
+    // not pulse, so it is graded elsewhere yet pulsed here.
+    if (pulseOn && uPostPulse > 0.0001) {
+        c /= 1.0 + uPostPulse * 0.22;
     }
     if (mirrorOn && uPostMirror > 0.5) c.x = abs(c.x);
     if (geoOn && uPostKaleido > 0.5 && uPostSymmetry >= 2.0) {
@@ -185,12 +242,18 @@ vec2 geo(vec2 uv, vec4 gate) {
         p = fract(p + vec2(uPostDriftX, uPostDriftY) * uTime * 0.1);
     }
     if (geoOn && uPostTile > 1.01) {
-        p = fract(p * uPostTile);
+        // Mirrored repeats about the centre: fract() cracked the frame along every
+        // tile boundary (one sat exactly on the centre line at Tile 2), and the
+        // Clean macro moves uPostTile live.
+        p = 1.0 - abs(1.0 - mod((p - 0.5) * uPostTile + 0.5, 2.0));
     }
     if (geoOn && uPostPixelate > 0.001) {
         float px = mix(512.0, 40.0, uPostPixelate);
         p = (floor(p * px) + 0.5) / px;
     }
+    // Mirror-wrap so a camera that zooms out or tilts past the edge sees the
+    // picture reflected, never the clamped edge smeared across the frame.
+    if (camOn > 0.5) p = 1.0 - abs(1.0 - mod(p, 2.0));
     return p;
 }
 
@@ -198,12 +261,12 @@ vec2 geo(vec2 uv, vec4 gate) {
 // identically for shader, particle and milkdrop scenes and during
 // transitions. Order: geometry -> distortion (fisheye, glitch) -> sample
 // (chromatic aberration) -> shading (posterize, scanlines, grain, vignette,
-// bloom, invert).
-vec3 postFx(sampler2D tex, vec2 uv, vec4 gate) {
+// bloom, strobe, invert).
+vec3 postFx(sampler2D tex, vec2 uv, vec4 gate, float camOn) {
     bool geoOn = gate.x > 0.5;
     bool invertOn = gate.y > 0.5;
     bool gradeOn = gate.z > 0.5;
-    vec2 p = geo(uv, gate);
+    vec2 p = geo(uv, gate, camOn);
     if (uFlowStrength > 0.001) {
         // Soft-limit the field to the +-6 range the 0.015 scale was tuned
         // for: emitter velocities reach ~36 (splat force x audio), and an
@@ -235,10 +298,7 @@ vec3 postFx(sampler2D tex, vec2 uv, vec4 gate) {
     if (uGlitch > 0.001) {
         float band = floor(p.y * 24.0);
         float jump = compHash12(vec2(band, floor(uTime * 12.0)));
-        // Wave three: this used to widen with the beat envelope (0.4 + uBeat);
-        // uBeat is gone, so the band jump rate is just the constant it used to
-        // swell from.
-        if (jump > 1.0 - uGlitch * 0.35 * 0.4) {
+        if (jump > 1.0 - uGlitch * 0.35 * (0.4 + uBeat)) {
             p.x += (compHash12(vec2(band, uTime)) - 0.5) * uGlitch * 0.3;
         }
     }
@@ -293,10 +353,16 @@ vec3 postFx(sampler2D tex, vec2 uv, vec4 gate) {
         float d = length(uv - 0.5) * 1.4142;
         col *= 1.0 - uVignette * smoothstep(0.5, 1.05, d);
     }
+    if (uStrobe > 0.001) {
+        // max() so an unset uniform (0.0) cannot freeze the strobe on a
+        // permanently-dark half-cycle; the default upload is 9.0.
+        col *= 1.0 - uStrobe * 0.85 * step(0.5, fract(uTime * max(uStrobeHz, 0.1))) * (1.0 - uBeat * 0.5);
+    }
     if (geoOn) {
         col.r += uPostTemp * 0.12;
         col.b -= uPostTemp * 0.12;
         if (uPostSolarize > 0.5) col = abs(1.0 - 2.0 * col);
+        col += uPostFlash * uBeat * 0.6;
     }
     if (gradeOn) col *= uPostBright;
     if (invertOn && uPostInvert > 0.5) col = max(vec3(1.0) - col, 0.0);
@@ -333,8 +399,8 @@ vec3 postFx(sampler2D tex, vec2 uv, vec4 gate) {
 #ifdef MV_TRANSITION
 #define progress uProgress
 #define ratio uRatio
-vec4 getFromColor(vec2 uv) { return vec4(postFx(uTexB, clamp(uv, 0.0, 1.0), uGateB), 1.0); }
-vec4 getToColor(vec2 uv) { return vec4(postFx(uTexA, clamp(uv, 0.0, 1.0), uGateA), 1.0); }
+vec4 getFromColor(vec2 uv) { return vec4(postFx(uTexB, clamp(uv, 0.0, 1.0), uGateB, uCamGate.y), 1.0); }
+vec4 getToColor(vec2 uv) { return vec4(postFx(uTexA, clamp(uv, 0.0, 1.0), uGateA, uCamGate.x), 1.0); }
 // __GL_TRANSITION_SOURCE__
 #endif
 
@@ -347,8 +413,8 @@ vec4 getToColor(vec2 uv) { return vec4(postFx(uTexA, clamp(uv, 0.0, 1.0), uGateA
  *
  * Every one of them clamps. The scenes upstream are emissive and routinely
  * exceed 1 before the composite grades them down, so ADD in particular would
- * otherwise hand values well over 1 to the dither below, where they stop
- * behaving like colours. The switch order is BlendMode's ordinals.
+ * otherwise hand values well over 1 to the dither and the strobe below, where
+ * they stop behaving like colours. The switch order is BlendMode's ordinals.
  */
 vec3 layerBlend(vec3 base, vec3 top, int mode) {
     vec3 b = max(base, vec3(0.0));
@@ -393,38 +459,38 @@ vec3 blended() {
         return transition(vUv).rgb;
     }
 #endif
-    vec3 a = postFx(uTexA, vUv, uGateA);
+    vec3 a = postFx(uTexA, vUv, uGateA, uCamGate.x);
     // uStyle 6 is Layers, and it is checked BEFORE the uProgress short-circuit
     // below: uProgress is a transition's clock and sits at 1.0 whenever no
     // transition is running, which is precisely when a layer IS running.
     // Reusing uProgress as the mix would have made the two mutually exclusive
     // for no reason and coupled a persistent setting to a timer.
     if (uStyle == 6) {
-        vec3 b = postFx(uTexB, vUv, uGateB);
+        vec3 b = postFx(uTexB, vUv, uGateB, uCamGate.y);
         return mix(b, layerBlend(b, a, uBlendMode), clamp(uLayerMix, 0.0, 1.0));
     }
     if (uStyle == 0 || uProgress >= 1.0) {
         return a;
     }
     if (uStyle == 1) {
-        vec3 b = postFx(uTexB, vUv, uGateB);
+        vec3 b = postFx(uTexB, vUv, uGateB, uCamGate.y);
         return mix(b, a, uProgress);
     } else if (uStyle == 3) {
         float sh = smoothstep(0.0, 1.0, uProgress);
-        vec3 aSlide = postFx(uTexA, clamp(vUv + vec2(1.0 - sh, 0.0), 0.0, 1.0), uGateA);
-        vec3 bSlide = postFx(uTexB, clamp(vUv - vec2(sh, 0.0), 0.0, 1.0), uGateB);
+        vec3 aSlide = postFx(uTexA, clamp(vUv + vec2(1.0 - sh, 0.0), 0.0, 1.0), uGateA, uCamGate.x);
+        vec3 bSlide = postFx(uTexB, clamp(vUv - vec2(sh, 0.0), 0.0, 1.0), uGateB, uCamGate.y);
         return vUv.x < sh ? aSlide : bSlide;
     } else if (uStyle == 4) {
         float sh = smoothstep(0.0, 1.0, uProgress);
         vec2 zUv = (vUv - 0.5) / (1.0 + sh * 2.5) + 0.5;
-        vec3 bZoom = postFx(uTexB, clamp(zUv, 0.0, 1.0), uGateB);
+        vec3 bZoom = postFx(uTexB, clamp(zUv, 0.0, 1.0), uGateB, uCamGate.y);
         vec2 aUv = (vUv - 0.5) * (1.0 + (1.0 - sh) * 0.35) + 0.5;
-        vec3 aZoom = postFx(uTexA, clamp(aUv, 0.0, 1.0), uGateA);
+        vec3 aZoom = postFx(uTexA, clamp(aUv, 0.0, 1.0), uGateA, uCamGate.x);
         return mix(bZoom, aZoom, sh);
     } else {
         float lumB = dot(texture(uTexB, vUv).rgb, vec3(0.299, 0.587, 0.114));
         vec2 melted = vUv + vec2(0.0, uProgress * (0.25 + lumB * 0.6));
-        vec3 bMelt = postFx(uTexB, clamp(melted, 0.0, 1.0), uGateB);
+        vec3 bMelt = postFx(uTexB, clamp(melted, 0.0, 1.0), uGateB, uCamGate.y);
         float reveal = smoothstep(0.0, 1.0, uProgress * 1.4 - lumB * 0.4);
         return mix(bMelt, a, clamp(reveal, 0.0, 1.0));
     }

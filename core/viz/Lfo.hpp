@@ -20,6 +20,8 @@ enum class LfoTarget {
     Glitch, Fisheye, ParticleSize, TrailLength, FluidCurl, FluidRadius, FluidForce, FluidGlow, FluidFade,
     FluidCatchPull, FluidCatchRadius, FlowStrength, WaterRipple, RippleOverlay,
     Lfo1Rate, Lfo1Depth, Lfo2Rate, Lfo2Depth, Lfo3Rate, Lfo3Depth,
+    // Appended: the camera rig's offsets (viz/CameraRig). Ordinals above are wire values.
+    CamFly, CamOrbit, CamPush, CamYaw, CamPitch, CamRoll, CamFov, CamShake,
 };
 
 struct ModChain {
@@ -58,7 +60,7 @@ public:
 
     std::array<LfoConfig, kSlots> configs{};
 
-    const std::array<float, kSlots>& tick(float dt, const GeodeFeatureFrame& features, const float* extRateAdd = nullptr,
+    const std::array<float, kSlots>& tick(float dt, const GeodeSoundFrame& sound, const float* extRateAdd = nullptr,
                                           const float* extDepthAdd = nullptr);
     SceneParams apply(const SceneParams& p, const std::array<float, kSlots>& values) const;
 

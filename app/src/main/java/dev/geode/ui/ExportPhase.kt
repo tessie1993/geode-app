@@ -1,7 +1,6 @@
 package dev.geode.ui
 
 import android.net.Uri
-import dev.geode.export.ExportRun
 import dev.geode.export.StudioExporter
 import dev.geode.export.VideoExporter
 
@@ -75,20 +74,4 @@ fun StudioExporter.Result.toPhase(): ExportPhase =
         is StudioExporter.Result.Saved -> ExportPhase.Done(uri)
         is StudioExporter.Result.Failed -> ExportPhase.Failed(message)
         StudioExporter.Result.Cancelled -> ExportPhase.Idle
-    }
-
-/** Reconstitutes an [ExportRun]'s published result as a phase, e.g. on resume after recreation. */
-fun ExportRun.Result?.toExportPhase(): ExportPhase =
-    when (this) {
-        is ExportRun.Result.Saved -> ExportPhase.Done(uri)
-        is ExportRun.Result.Failed -> ExportPhase.Failed(message)
-        ExportRun.Result.Cancelled, null -> ExportPhase.Idle
-    }
-
-/** The other direction: what every render path publishes to [ExportRun.finish] once it settles. */
-fun ExportPhase.toRunResult(): ExportRun.Result =
-    when (this) {
-        is ExportPhase.Done -> ExportRun.Result.Saved(resultUri)
-        is ExportPhase.Failed -> ExportRun.Result.Failed(message)
-        ExportPhase.Idle, ExportPhase.Loading, is ExportPhase.Running -> ExportRun.Result.Cancelled
     }

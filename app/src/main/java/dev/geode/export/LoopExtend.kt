@@ -11,6 +11,7 @@ import android.os.Build
 import android.os.ParcelFileDescriptor
 import android.provider.DocumentsContract
 import android.provider.MediaStore
+import dev.geode.R
 import dev.geode.util.bestEffort
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -20,7 +21,6 @@ import java.io.File
 import java.io.IOException
 import java.io.RandomAccessFile
 import java.nio.ByteBuffer
-import java.util.Locale
 
 /** The soundtrack a long-form video is built around. Its length is the video's length. */
 sealed interface LongFormAudio {
@@ -186,7 +186,7 @@ class LoopExtend(
         isCancelled: () -> Boolean,
     ): Result =
         withContext(Dispatchers.Default) {
-            if (reel.loops.isEmpty()) return@withContext Result.Failed("There is no rendered loop to extend.")
+            if (reel.loops.isEmpty()) return@withContext Result.Failed(context.getString(R.string.export_error_extend_no_loop))
             val soundtrack =
                 when (val built = transcode(audio, onProgress, isCancelled)) {
                     is AudioBuild.Ready -> built.soundtrack
@@ -231,7 +231,7 @@ class LoopExtend(
         onProgress: (Float) -> Unit,
         isCancelled: () -> Boolean,
     ): Result {
-        if (soundtrack.totalUs <= 0L) return Result.Failed("That soundtrack decoded to nothing — the file may be empty or corrupt.")
+        if (soundtrack.totalUs <= 0L) return Result.Failed(context.getString(R.string.export_error_extend_empty_soundtrack))
         val plan = LoopExtendPlan.of(reel.loopDurationUs, soundtrack.totalUs, reel.loops.size)
         val estimate = plan.estimatedBytes(reel.bytes / reel.loops.size, soundtrack.bytes)
         if (estimate > sizeLimitBytes) return Result.Failed(oversizeMessage(plan, estimate, sizeLimitBytes, soundtrack.bytes))
@@ -245,13 +245,13 @@ class LoopExtend(
             finish(target, completed, plan, soundtrack)
         } catch (e: IllegalStateException) {
             discard(target)
-            Result.Failed(e.message ?: "The long-form file could not be assembled.")
+            Result.Failed(e.message ?: context.getString(R.string.export_error_extend_assemble))
         } catch (e: IllegalArgumentException) {
             discard(target)
-            Result.Failed("The rendered loop could not be copied into the long file: ${e.message}")
+            Result.Failed(context.getString(R.string.export_error_extend_copy, e.message))
         } catch (e: IOException) {
             discard(target)
-            Result.Failed("Writing the long-form file failed — check there is room on the device. (${e.message})")
+            Result.Failed(context.getString(R.string.export_error_extend_write, e.message))
         }
     }
 
@@ -349,7 +349,14 @@ class LoopExtend(
             runCatching {
                 clips.forEachIndexed { index, clip ->
                     val result =
-                        transcoder.transcode(uri = clip.uri, maxDurationMs = 0L, startMs = 0L, isCancelled = isCancelled) { progress ->
+                        transcoder.transcode(
+                            uri = clip.uri,
+                            maxDurationMs = 0L,
+                            startMs = 0L,
+                            // One AAC track carries one rate, so every clip is brought to the same one.
+                            outputRateHz = PcmResampler.MIX_RATE_HZ,
+                            isCancelled = isCancelled,
+                        ) { progress ->
                             onProgress(AUDIO_PROGRESS_SPAN * (index + progress) / clips.size)
                         }
                     done += TranscodedClip(clip, result, startUs)
@@ -365,9 +372,10 @@ class LoopExtend(
     }
 
     /**
-     * The clips become one AAC track, so they must already agree on sample rate and channel
-     * count — a track carries one codec configuration and nothing here resamples. Rejecting the
-     * mix up front beats writing an hour of audio that plays at the wrong speed.
+     * The clips become one AAC track, so they must agree on sample rate and channel count — a
+     * track carries one codec configuration. [transcode] brings every clip to
+     * [PcmResampler.MIX_RATE_HZ], so in practice this now catches a mono clip among stereo ones.
+     * Rejecting the mix up front beats writing an hour of audio that plays at the wrong speed.
      */
     private fun joinable(clips: List<TranscodedClip>): AudioBuild {
         val first = clips.first().audio.format
@@ -396,9 +404,9 @@ class LoopExtend(
 
     private fun audioMessage(failure: Throwable): String =
         when (failure) {
-            is IllegalArgumentException -> "One of the tracks in this mix has no audio Geode can read: ${failure.message}"
-            is IOException -> "One of the tracks in this mix could not be read — it may have moved or been deleted."
-            else -> failure.message ?: "The soundtrack could not be prepared."
+            is IllegalArgumentException -> context.getString(R.string.export_error_extend_track_no_audio, failure.message)
+            is IOException -> context.getString(R.string.export_error_extend_track_unreadable)
+            else -> failure.message ?: context.getString(R.string.export_error_extend_soundtrack)
         }
 
     private fun oversizeMessage(
@@ -409,10 +417,8 @@ class LoopExtend(
     ): String {
         val hours = plan.totalDurationUs / 3_600_000_000.0
         val fitting = plan.fittingBitRate(limit, soundtrackBytes) / 1_000_000.0
-        return String.format(
-            Locale.ROOT,
-            "%.1f h at this quality would come to about %.1f GB, past the %.0f GB an MP4 written on Android can " +
-                "address. Render the loop at about %.1f Mbps (a smaller size or lower quality) or make the video shorter.",
+        return context.getString(
+            R.string.export_error_extend_too_big,
             hours,
             estimate / 1_000_000_000.0,
             limit / 1_000_000_000.0,
@@ -430,8 +436,7 @@ class LoopExtend(
             val descriptor =
                 resolver.openFileDescriptor(destination, "w")
                     ?: return Target.Failed(
-                        "The folder you chose would not let the file be written. Some cloud providers refuse " +
-                            "this; try your Videos library or a folder on the device.",
+                        context.getString(R.string.export_error_destination_write),
                     )
             return Target.Opened(destination, descriptor, viaMediaStore = false)
         }
@@ -439,8 +444,7 @@ class LoopExtend(
             // Pre-scoped-storage, writing into the Videos library needs
             // WRITE_EXTERNAL_STORAGE. Saying so beats letting the insert throw.
             return Target.Failed(
-                "On this version of Android, Geode cannot add to your Videos library directly. " +
-                    "Render to a folder you choose instead.",
+                context.getString(R.string.export_error_extend_library_pre_q),
             )
         }
         val values =
@@ -448,20 +452,19 @@ class LoopExtend(
                 put(MediaStore.Video.Media.DISPLAY_NAME, fileName)
                 put(MediaStore.Video.Media.MIME_TYPE, "video/mp4")
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    put(MediaStore.Video.Media.RELATIVE_PATH, "Movies/Geode")
+                    put(MediaStore.Video.Media.RELATIVE_PATH, "Movies/MuzViz")
                     put(MediaStore.Video.Media.IS_PENDING, 1)
                 }
             }
         val uri =
             resolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values)
                 ?: return Target.Failed(
-                    "Your Videos library would not accept a new file. Check that storage is not full, " +
-                        "or render to a folder you choose instead.",
+                    context.getString(R.string.export_error_library_insert),
                 )
         val descriptor = resolver.openFileDescriptor(uri, "w")
         if (descriptor == null) {
             bestEffort(TAG, "resolver.delete(uri, null, null)") { resolver.delete(uri, null, null) }
-            return Target.Failed("The new file in your Videos library could not be opened for writing.")
+            return Target.Failed(context.getString(R.string.export_error_library_open))
         }
         return Target.Opened(uri, descriptor, viaMediaStore = true)
     }

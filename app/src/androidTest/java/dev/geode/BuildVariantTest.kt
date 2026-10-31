@@ -17,7 +17,7 @@ class BuildVariantTest {
     @Test
     fun debugBuildInstallsUnderItsOwnApplicationId() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
-        assertEquals("dev.geode.debug", context.packageName)
+        assertEquals("com.muzviz.studiopro.debug", context.packageName)
     }
 
     @Test

@@ -101,6 +101,7 @@ function upload(program, u) {
     case 'int': gl.uniform1iv(loc, u.count > 1 ? new Int32Array(u.count).fill(v[0]) : v); break;
     case 'vec2': gl.uniform2fv(loc, v); break;
     case 'vec3': gl.uniform3fv(loc, v); break;
+    case 'mat3': gl.uniformMatrix3fv(loc, false, v); break;
     case 'vec4': {
       const arr = new Float32Array(u.count * 4);
       for (let i = 0; i < u.count; i++) arr.set(v, i * 4);

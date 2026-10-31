@@ -6,20 +6,17 @@ import android.service.wallpaper.WallpaperService
 import android.view.MotionEvent
 import android.view.SurfaceHolder
 import dev.geode.audio.AudioBus
+import dev.geode.billing.ProSnapshot
 import dev.geode.data.GeodePrefsFiles
-import dev.geode.data.MotionPrefs
+import dev.geode.data.PerformanceStore
 import dev.geode.data.PresetStore
+import dev.geode.data.ThemeStore
+import dev.geode.pro.ProFeature
 import dev.geode.render.FramePacer
 import dev.geode.render.FrameRatePolicy
 import dev.geode.render.TouchField
 import dev.geode.render.VisualizerRenderer
 import dev.geode.util.bestEffort
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 
 class VisualizerWallpaperService : WallpaperService() {
     override fun onCreateEngine(): Engine = VisualizerEngine()
@@ -27,10 +24,6 @@ class VisualizerWallpaperService : WallpaperService() {
     private inner class VisualizerEngine : Engine() {
         private var glView: WallpaperGlSurfaceView? = null
         private var renderer: VisualizerRenderer? = null
-        private val idle = IdleFeatures()
-        private var lastFrameMs = 0L
-        private var feeder: Job? = null
-        private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
 
         /**
          * Each engine instance — preview and home screen can both be live at once — owns its
@@ -38,20 +31,6 @@ class VisualizerWallpaperService : WallpaperService() {
          */
         private val pacer =
             FramePacer(FrameRatePolicy.Capped(WALLPAPER_FPS)) { glView?.requestRender() }
-
-        @Volatile
-        private var running = false
-
-        /**
-         * Distinguishes one feeder run from the next.
-         *
-         * A wallpaper toggles visibility every time the screen sleeps or the user switches app, so
-         * over a day this runs hundreds of times. If a join ever times out, the old thread must be
-         * able to tell that a newer run has taken over and exit — otherwise it keeps ticking, and
-         * keeps the renderer and the service context alive, for the rest of the process.
-         */
-        @Volatile
-        private var feedGeneration = 0
 
         private var surfaceAvailable = false
         private var visible = false
@@ -90,6 +69,7 @@ class VisualizerWallpaperService : WallpaperService() {
             renderer = engine
             restoreLiveState(engine)
             engine.pcmProvider = { null }
+            engine.soundInput = { AudioBus.soundInput }
             glView =
                 WallpaperGlSurfaceView(this@VisualizerWallpaperService).apply {
                     setEGLContextClientVersion(3)
@@ -109,52 +89,42 @@ class VisualizerWallpaperService : WallpaperService() {
                     engine.sceneParams = preset.params
                 }
             }
-            prefs.getString("milk_path", null)?.let { path ->
-                if (java.io.File(path).isFile) engine.loadMilkPreset(path)
-            }
-            engine.reducedMotion = MotionPrefs.reducedMotion(prefsFiles.general)
-        }
-
-        private fun startFeeding(engine: VisualizerRenderer) {
-            if (feeder != null) return
-            AudioBus.addConsumer()
-            val generation = ++feedGeneration
-            running = true
-            lastFrameMs = android.os.SystemClock.elapsedRealtime()
-            feeder =
-                scope.launch {
-                    while (running && feedGeneration == generation) {
-                        val now = android.os.SystemClock.elapsedRealtime()
-                        val dt = ((now - lastFrameMs).coerceIn(1, 100)) / 1000f
-                        lastFrameMs = now
-                        engine.features = AudioBus.features() ?: idle.tick(dt)
-                        delay(FEED_INTERVAL_MS)
-                    }
-                }
-        }
-
-        private fun stopFeeding() {
-            val job = feeder ?: return
-            running = false
-            feedGeneration++
-            AudioBus.removeConsumer()
-            job.cancel()
-            feeder = null
+            // The MilkDrop preset needs nothing here: the renderer restores the app's (MilkPresetMemory).
+            val gui = ThemeStore(prefsFiles.general).loadGui()
+            engine.reducedMotion = gui.reducedMotion
+            engine.soundTuning = gui.soundTuning
+            // Settings › Performance; the wallpaper keeps its own pacer, so the cap goes there.
+            val performance = PerformanceStore(prefsFiles.general, this@VisualizerWallpaperService).settings.value
+            engine.performance = performance
+            pacer.policy = FrameRatePolicy.Capped(minOf(WALLPAPER_FPS, performance.fpsCap.toFloat()))
+            // The user's modulation too: without it the wallpaper and the dream drew the look
+            // with every LFO, envelope and custom reaction switched off.
+            val modulation = dev.geode.data.LfoStore(prefsFiles.general)
+            engine.lfoEngine.configs = modulation.load()
+            engine.adsrEngine.configs = modulation.loadAdsrs()
+            engine.reactions = modulation.loadReactions()
         }
 
         private fun syncRunState() {
-            val engine = renderer ?: return
-            if (surfaceAvailable && visible) {
+            if (renderer == null) return
+            // Pro feature. Re-read on every visibility change, so a purchase or a trial made in
+            // the app animates the wallpaper the next time the home screen shows.
+            val animated = ProSnapshot.gate(this@VisualizerWallpaperService).allows(ProFeature.LIVE_WALLPAPER)
+            if (surfaceAvailable && visible && animated) {
                 glView?.onResume()
                 pacer.start()
-                startFeeding(engine)
+            } else if (surfaceAvailable && visible) {
+                // Without Pro: one still frame of the style and no pacing, so it costs nothing
+                // while it sits on the home screen.
+                pacer.stop()
+                glView?.onResume()
+                glView?.requestRender()
             } else {
                 // Stopped first, and on this same main-thread callback: the vsync callback is gone
                 // before onPause is even asked for, so no frame can be requested after the
                 // wallpaper stops being visible.
                 pacer.stop()
                 glView?.onPause()
-                stopFeeding()
             }
         }
 
@@ -228,7 +198,6 @@ class VisualizerWallpaperService : WallpaperService() {
 
         override fun onDestroy() {
             pacer.stop()
-            stopFeeding()
             releaseScenesOnGlThread()
             glView?.destroy()
             glView = null
@@ -264,10 +233,6 @@ class VisualizerWallpaperService : WallpaperService() {
 
         /** Bounded on purpose: a wedged GL thread must not turn teardown into an ANR. */
         const val GL_RELEASE_WAIT_MS = 200L
-
-        const val FEED_INTERVAL_MS = 16L
-
-        const val FEEDER_JOIN_MS = 200L
 
         /**
          * The same target the app renders at, deliberately — not the 24–30 fps §4.4 of the

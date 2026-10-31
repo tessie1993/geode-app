@@ -9,6 +9,8 @@ import dev.geode.data.MusicPlaylist
 import dev.geode.data.SmartPlaylist
 import dev.geode.data.TagWriteOutcome
 import dev.geode.di.PlayerSessionProvider
+import dev.geode.model.DeviceTrack
+import dev.geode.model.LibraryTrack
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -145,17 +147,14 @@ class LibraryViewModel
             comment: String,
         ): TagWriteOutcome = session.writeTrackInfo(uri, title, artist, album, genre, year, trackNo, comment)
 
-        fun createMusicPlaylist(
-            name: String,
-            uris: List<String> = emptyList(),
-        ) = session.createMusicPlaylist(name, uris)
+        fun createMusicPlaylist(name: String) = session.createMusicPlaylist(name)
 
         suspend fun importPlaylistFile(uri: Uri): PlaylistImportResult = session.importPlaylistFile(uri)
 
         fun renameMusicPlaylist(
             oldName: String,
             newName: String,
-        ) = session.renameMusicPlaylist(oldName, newName)
+        ): Boolean = session.renameMusicPlaylist(oldName, newName)
 
         fun moveMusicPlaylistTrack(
             name: String,

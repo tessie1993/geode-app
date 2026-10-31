@@ -23,15 +23,10 @@ out vec4 fragColor;
 // off MARCHED_SCENES and never spends the Detail budget.
 //
 // The audio contract is the one in lib_scene_motion. Bass breathes the web
-// spacing through uBassSmooth, treble picks out the glints, and the harmony
-// and bar-phase oscillators steer the lattice density and the constellation
-// of lit nodes/hanging merkabas continuously - nothing here is re-rolled on
-// a hit any more.
+// spacing through SND_BASS_PRESENCE, treble picks out the glints, and a transient
+// re-aims the drift (uMoveDir), re-seeds which lattice nodes are lit
+// (uSpawnSeed) and steps the web's fold count to a new plateau (uFormPhase).
 // No term in this file can reach its peak inside one frame.
-//
-// motion: uHarmony -> lattice density plateau and how fully the hanging
-// merkabas resolve (tonal passages hold a settled lattice); uTrebRel -> node
-// glints, tetrahedra points and the burst's spoke brightness.
 
 #define MG_TAU 6.2831853
 #define MG_ROWS 7.0
@@ -65,7 +60,9 @@ float geodesic(vec2 p, float radius, float density, float width) {
     // z of the unit hemisphere, which is what compresses the wires at the edge.
     float z = sqrt(max(0.0, 1.0 - rr * rr));
     vec2 s = vec2(atan(p.y, p.x) / MG_TAU, z);
-    float lines = web(s * density, width * 1.6);
+    // Longitude lines go once round, so their count must be whole or the web
+    // tears along atan's branch cut; density * 2.2 at the call site is not.
+    float lines = web(vec2(s.x * floor(density + 0.5), s.y * density), width * 1.6);
     // Latitude rings, denser near the limb.
     lines = max(lines, wire(fract(z * density * 0.55) - 0.5, width * 1.4));
     // A soft skin under the wires so the sphere reads as a solid volume.
@@ -99,13 +96,11 @@ void main() {
     // Mirrored left to right: the reference is a symmetric hall.
     vec2 m = vec2(abs(uv.x), uv.y);
 
-    float bass = clamp(uBassSmooth, 0.0, 1.5);
-    float treb = clamp(uTrebleSmooth, 0.0, 1.5);
-    float swell = clamp(uSwell, 0.0, 1.5);
-    float trebRel = clamp(uTrebRel, 0.0, 2.0);
-    // Harmony (smoothed over 1.0s) steps the web between 5, 6 and 7
-    // subdivisions and holds it there while the passage stays tonal.
-    float density = 5.0 + floor(clamp(uHarmony, 0.0, 1.0) * 2.999);
+    float bass = clamp(SND_BASS_PRESENCE, 0.0, 1.5);
+    float treb = clamp(sndShaped(SND_HIGH), 0.0, 1.5);
+    float swell = clamp(SND_LEVEL, 0.0, 1.5);
+    // A spike steps the web between 5, 6 and 7 subdivisions and holds it there.
+    float density = 5.0 + floor(uFormPhase * 3.0);
 
     // ---- the field ---------------------------------------------------------
     //
@@ -123,11 +118,8 @@ void main() {
     // Lit nodes: a sparse subset of the lattice cells, re-chosen on every spawn
     // and grown in over a second so a new constellation never appears at once.
     vec2 node = floor(field * density * 0.5);
-    // The constellation drifts with uOrbit rather than being re-rolled on a
-    // hit: it holds while the wander target holds and eases to a new set
-    // whenever novelty or a section boundary re-targets uOrbit.
-    float lit = step(0.80, hash21(node + floor(uOrbit * 97.0)));
-    float nodeGlow = lattice * lit * (0.4 + 0.8 * treb) * (0.85 + 0.15 * uBarOsc);
+    float lit = step(0.80, hash21(node + floor(uSpawnSeed * 97.0)));
+    float nodeGlow = lattice * lit * (0.4 + 0.8 * treb) * spawnGrow(1.2);
     col += mix(pal(0.44), pal(0.86), hash21(node)) * nodeGlow * 0.55;
 
     // ---- geodesic spheres along the floor ----------------------------------
@@ -151,7 +143,7 @@ void main() {
     // ---- hanging star tetrahedra -------------------------------------------
     for (int i = 0; i < 5; i++) {
         float fi = float(i);
-        float seed = hash11(fi * 7.31 + floor((uOrbit.x + uOrbit.y) * 31.0));
+        float seed = hash11(fi * 7.31 + floor(uSpawnSeed * 31.0));
         float depth = 0.5 + seed * 0.7;
         // Each drifts on its own slow orbit, plus the shared travel offset.
         vec2 c = m - vec2(0.15 + seed * 1.25, 0.15 + fract(seed * 3.7) * 0.9);
@@ -161,13 +153,11 @@ void main() {
         float glint;
         float edge = merkaba(c, 0.30, 0.026, glint);
         vec3 tint = mix(pal(0.30), pal(0.90), seed);
-        // Harmony resolves the merkabas: a tonal passage holds them fully
-        // formed, a noisy one lets them fade toward half strength.
-        float show = mix(0.55, 1.0, clamp(uHarmony, 0.0, 1.0));
+        float show = spawnGrow(0.8 + seed);
         col += tint * edge * 0.55 * show;
-        // The glint rides treble's relative level, so it sparkles with the
-        // high end rather than swelling on a hit.
-        col += mix(vec3(1.0), tint, 0.35) * glint * (0.25 + 0.8 * treb + 0.5 * clamp(trebRel - 1.0, 0.0, 1.0)) * show;
+        // The glint is keyed off uSpike, so a hit swells the points over
+        // ~120ms rather than lighting them on a single frame.
+        col += mix(vec3(1.0), tint, 0.35) * glint * (0.25 + 0.8 * treb + 0.6 * uSpike) * show;
     }
 
     // ---- the column of light -----------------------------------------------
@@ -181,7 +171,7 @@ void main() {
     vec2 burst = m - vec2(0.0, 0.86);
     float br = length(burst);
     float spokes = 0.55 + 0.45 * cos(atan(burst.y, burst.x) * 12.0 + uFlowPhase * 2.0);
-    col += mix(vec3(1.0), pal(0.50), 0.4) * exp(-br * 7.0) * spokes * (0.5 + 0.4 * uBarOsc);
+    col += mix(vec3(1.0), pal(0.50), 0.4) * exp(-br * 7.0) * spokes * (0.5 + 0.55 * uSpike);
     col += vec3(1.0) * exp(-br * br * 220.0) * 1.6;
 
     // ---- the particle layer -------------------------------------------------

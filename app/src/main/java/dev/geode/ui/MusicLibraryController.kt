@@ -3,6 +3,7 @@ package dev.geode.ui
 import android.app.Application
 import android.content.SharedPreferences
 import android.net.Uri
+import dev.geode.data.DeviceTrackQuery
 import dev.geode.data.MusicPlaylist
 import dev.geode.data.MusicPlaylistStore
 import dev.geode.data.NativeTags
@@ -11,7 +12,10 @@ import dev.geode.data.PlaylistParse
 import dev.geode.data.SmartPlaylist
 import dev.geode.data.SmartPlaylistStore
 import dev.geode.data.TagWriteOutcome
+import dev.geode.data.TrackLibrary
 import dev.geode.data.TrackTagEdit
+import dev.geode.model.DeviceTrack
+import dev.geode.model.LibraryTrack
 import dev.geode.util.bestEffort
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -144,7 +148,9 @@ internal class MusicLibraryController(
         val openable = openableInfoFor(uri)
         if (title == null) title = openable.first.ifBlank { null }?.substringBeforeLast('.')
         return FileMeta(
-            title = title ?: uri.lastPathSegment?.substringAfterLast('/')?.substringBeforeLast('.') ?: "Track",
+            title =
+                title ?: uri.lastPathSegment?.substringAfterLast('/')?.substringBeforeLast('.')
+                    ?: application.getString(dev.geode.R.string.library_untitled_track),
             artist = artist ?: "",
             album = album,
             genre = genre,
@@ -174,7 +180,6 @@ internal class MusicLibraryController(
     private fun libraryTrackFor(
         uriStr: String,
         m: FileMeta,
-        folder: String = "",
     ): LibraryTrack =
         LibraryTrack(
             uri = uriStr,
@@ -186,7 +191,6 @@ internal class MusicLibraryController(
             trackNo = m.trackNo,
             fileName = m.fileName,
             sizeBytes = m.sizeBytes,
-            folder = folder,
         )
 
     fun importTracks(uris: List<Uri>) {
@@ -264,15 +268,6 @@ internal class MusicLibraryController(
                 )
             NativeTags.write(resolver, target, edit)
         }
-
-    fun noteAnalysis(
-        uri: Uri,
-        timeline: dev.geode.analysis.FeatureTimeline,
-    ) {
-        trackLibrary
-            .updateAnalysis(uri.toString(), metadataFor(uri).title, timeline.durationMs, timeline.bpm, timeline.key)
-            ?.let { merged -> _library.update { it.copy(tracks = merged) } }
-    }
 
     fun refreshNumericTitles() {
         scope.launch(Dispatchers.IO) {
@@ -361,7 +356,7 @@ internal class MusicLibraryController(
                             f.type?.startsWith("audio/") == true ||
                                 name.substringAfterLast('.', "").lowercase() in AUDIO_EXTS
                         if (isAudio) {
-                            found += libraryTrackFor(f.uri.toString(), metadataFor(f.uri), dir.uri.toString())
+                            found += libraryTrackFor(f.uri.toString(), metadataFor(f.uri))
                         }
                     }
                 }
@@ -374,45 +369,21 @@ internal class MusicLibraryController(
         }
     }
 
-    fun createMusicPlaylist(
-        name: String,
-        uris: List<String> = emptyList(),
-    ) {
+    fun createMusicPlaylist(name: String) {
         if (name.isBlank()) return
-        scope.launch {
-            val fresh =
-                withContext(Dispatchers.IO) {
-                    musicPlaylists.save(MusicPlaylist(name.trim()))
-                    if (uris.isNotEmpty()) {
-                        musicPlaylists.addTracks(name.trim(), uris)
-                    }
-                    musicPlaylists.list()
-                }
-            _library.update { it.copy(playlists = fresh) }
-        }
+        musicPlaylists.save(MusicPlaylist(name.trim()))
+        _library.update { it.copy(playlists = musicPlaylists.list()) }
     }
 
-    /**
-     * Renames, asynchronously.
-     *
-     * The returned flag reports only that the rename was *scheduled*: the store call happens on
-     * [Dispatchers.IO] after this has returned, so it cannot say whether the rename succeeded.
-     */
     fun renameMusicPlaylist(
         oldName: String,
         newName: String,
     ): Boolean {
-        scope.launch {
-            val fresh =
-                withContext(Dispatchers.IO) {
-                    val renamed = musicPlaylists.rename(oldName, newName.trim())
-                    if (renamed) musicPlaylists.list() else null
-                }
-            if (fresh != null) {
-                _library.update { it.copy(playlists = fresh) }
-            }
+        val renamed = musicPlaylists.rename(oldName, newName.trim())
+        if (renamed) {
+            _library.update { it.copy(playlists = musicPlaylists.list()) }
         }
-        return true
+        return renamed
     }
 
     fun moveMusicPlaylistTrack(
@@ -420,75 +391,39 @@ internal class MusicLibraryController(
         from: Int,
         to: Int,
     ) {
-        scope.launch {
-            val fresh =
-                withContext(Dispatchers.IO) {
-                    musicPlaylists.move(name, from, to)
-                    musicPlaylists.list()
-                }
-            _library.update { it.copy(playlists = fresh) }
-        }
+        musicPlaylists.move(name, from, to)
+        _library.update { it.copy(playlists = musicPlaylists.list()) }
     }
 
     fun deleteMusicPlaylist(name: String) {
-        scope.launch {
-            val fresh =
-                withContext(Dispatchers.IO) {
-                    musicPlaylists.delete(name)
-                    musicPlaylists.list()
-                }
-            _library.update { it.copy(playlists = fresh) }
-        }
+        musicPlaylists.delete(name)
+        _library.update { it.copy(playlists = musicPlaylists.list()) }
     }
 
     fun addTrackToPlaylist(
         playlist: String,
         uri: String,
     ) {
-        scope.launch {
-            val fresh =
-                withContext(Dispatchers.IO) {
-                    musicPlaylists.addTrack(playlist, uri)
-                    musicPlaylists.list()
-                }
-            _library.update { it.copy(playlists = fresh) }
-        }
+        musicPlaylists.addTrack(playlist, uri)
+        _library.update { it.copy(playlists = musicPlaylists.list()) }
     }
 
     fun removeTrackFromPlaylist(
         playlist: String,
         uri: String,
     ) {
-        scope.launch {
-            val fresh =
-                withContext(Dispatchers.IO) {
-                    musicPlaylists.removeTrack(playlist, uri)
-                    musicPlaylists.list()
-                }
-            _library.update { it.copy(playlists = fresh) }
-        }
+        musicPlaylists.removeTrack(playlist, uri)
+        _library.update { it.copy(playlists = musicPlaylists.list()) }
     }
 
     fun saveSmartPlaylist(playlist: SmartPlaylist) {
-        scope.launch {
-            val fresh =
-                withContext(Dispatchers.IO) {
-                    smartPlaylists.save(playlist)
-                    smartPlaylists.list()
-                }
-            _library.update { it.copy(smartPlaylists = fresh) }
-        }
+        smartPlaylists.save(playlist)
+        _library.update { it.copy(smartPlaylists = smartPlaylists.list()) }
     }
 
     fun deleteSmartPlaylist(name: String) {
-        scope.launch {
-            val fresh =
-                withContext(Dispatchers.IO) {
-                    smartPlaylists.delete(name)
-                    smartPlaylists.list()
-                }
-            _library.update { it.copy(smartPlaylists = fresh) }
-        }
+        smartPlaylists.delete(name)
+        _library.update { it.copy(smartPlaylists = smartPlaylists.list()) }
     }
 
     /**
@@ -516,7 +451,8 @@ internal class MusicLibraryController(
                             .filter { it.fileName.isNotBlank() }
                             .groupBy({ it.fileName.lowercase() }, { it.uri })
                     val resolution = PlaylistFormats.resolve(parsed.entries, urisByFileName)
-                    val name = uniquePlaylistName(parsed.name.ifBlank { fileName.ifBlank { "Playlist" } })
+                    val untitled = application.getString(dev.geode.R.string.playlist_untitled)
+                    val name = uniquePlaylistName(parsed.name.ifBlank { fileName.ifBlank { untitled } })
                     musicPlaylists.save(MusicPlaylist(name, resolution.uris))
                     withContext(Dispatchers.Main) { _library.update { it.copy(playlists = musicPlaylists.list()) } }
                     PlaylistImportResult.Imported(

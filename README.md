@@ -10,12 +10,6 @@ Currently v1.8.0 (versionCode 32); minSdk 26, targetSdk 36, compileSdk 37,
 ABIs arm64-v8a and x86_64. The full version history is in
 [CHANGELOG.md](CHANGELOG.md).
 
-**Status:** the presentation layer is being rebuilt. The previous Compose screens, their view
-models and the liquid-glass components were removed, and a new navigation layer
-(`dev.geode.nav`, see [docs/NAVIGATION.md](docs/NAVIGATION.md)) now defines the flow the new
-design system will draw. Until those screens land, the app has no UI; the engine, playback
-service, library stores, exporters, wallpaper and widget are unchanged.
-
 ## Features
 
 - **Player** — MediaStore library plus SAF folder roots and imports, editable
@@ -73,7 +67,7 @@ Gradle modules, package `dev.geode`:
 | `:engine:audio-core` | `GeodeNative`, the JNI binding to `libgeode.so`, and the Kotlin wrappers over the native analyzers |
 | `:engine:audio-android` | The PCM tap, presentation clock driver and other Android-side audio plumbing |
 | `:engine:scenes` | Scene ids and parameters, the GL-thread adapter over the native renderer, offscreen rendering for export, the analysis engine and its cache |
-| `:app` | The navigation layer (`nav/`) and the host activity, playback service and media session, library and playlist stores, the editor model, the export pipelines, the wallpaper and the widget |
+| `:app` | Compose UI, playback service and media session, library and playlist stores, the editor model, the export pipelines, the wallpaper and the widget |
 
 The native core lives outside the modules and is built by the root
 `CMakeLists.txt` into one `libgeode.so` (plus `libprojectM-4.so`, LGPL,
@@ -91,15 +85,13 @@ dynamically linked):
 | `third_party/` | Git submodules: projectm, kissfft, oboe, taglib |
 
 Shaders ship as assets under `app/src/main/assets/shaders/` and are loaded by
-the native core. Inside `:app`, dependency flow is one-way: `nav` depends on nothing else in the
-app, and the screens that will sit on it depend on `playback`, `export`, `editor`
-and `data`, never the reverse.
+the native core. Inside `:app`, dependency flow is one-way: `ui` depends on
+`playback`, `export`, `editor` and `data`, never the reverse.
 
 ## Tests
 
-Three test files exist: `app/src/test/.../PresetLinkTest.kt`,
-`app/src/androidTest/.../BuildVariantTest.kt` and
-`engine/audio-core/src/test/.../FeatureRingTest.kt`. Checks that cannot run
+JVM unit tests live in `app/src/test` and `engine/*/src/test`, and CI runs
+every module's; instrumented tests live in `app/src/androidTest`. Checks that cannot run
 headless (GL behaviour, capture, wallpaper) are listed in
 [docs/DEVICE_CHECKS.md](docs/DEVICE_CHECKS.md), a partial reconstruction.
 `tools/glslcheck` compiles and renders every fragment style and every fluid
@@ -127,8 +119,6 @@ portability, not device checks.
 ## Documentation
 
 - [CHANGELOG.md](CHANGELOG.md) — version history, newest first.
-- [docs/NAVIGATION.md](docs/NAVIGATION.md) — the navigation flow and the
-  connectors the design system plugs into.
 - [docs/AUDIO_CHAIN.md](docs/AUDIO_CHAIN.md) — where playback audio goes and
   which stages the visuals see.
 - [docs/PARAM_MATRIX.md](docs/PARAM_MATRIX.md) — param × scene-family matrix.

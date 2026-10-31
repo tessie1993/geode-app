@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 
+#include "viz/LiveSignal.hpp"
 #include "viz/fluid/FluidMath.hpp"
 
 namespace geode::viz {
@@ -47,15 +48,11 @@ void CurlFlowScene::resize(int width, int height) {
     particles_.invalidateSeed();
 }
 
-void CurlFlowScene::update(const GeodeFeatureFrame& features, float dt) {
+void CurlFlowScene::update(const GeodeSoundFrame& features, float dt) {
     pending_ = features;
     hasPending_ = true;
     lastDt_ = std::clamp(dt, 0.0f, 1.0f / 30.0f);
     pcmKick_ = std::clamp(tickPcm(dt), 0.0f, 1.0f);
-    // Wave three: this scene overrides update() rather than calling
-    // FluidSceneBase::update(), so it steps its own inherited motionField_
-    // here (see viz/MotionField.hpp).
-    motionField_.step(features, dt);
 }
 
 void CurlFlowScene::draw(float timeSeconds) {
@@ -65,17 +62,14 @@ void CurlFlowScene::draw(float timeSeconds) {
     saveFramebufferAndViewport();
 
     if (hasPending_) {
-        const GeodeFeatureFrame& f = pending_;
-        const MotionField::State& m = motionField_.state();
+        const GeodeSoundFrame& f = pending_;
         wallTime_ = std::fmod(wallTime_ + lastDt_, kWallWrapSeconds);
-        // motion: uEnergyRel/uBarOsc -> the field's drive envelope, smoothed
-        // continuous instead of a transient-triggered decay.
-        beatEnv_ = std::clamp(0.5f * (m.energyRel - 1.0f) + 0.5f * (m.barOsc - 0.5f), 0.0f, 1.0f);
+        beatEnv_ = std::max(live::hit(f), beatEnv_ * std::exp(-lastDt_ / 0.35f));
         beatDrive_ = fluid::curl::beatDrive(beatEnv_, params_.beatResponse);
-        noiseTime_ = std::fmod(noiseTime_ + lastDt_ * (0.15f + f.mid * 1.4f) * fluid::Choreography::sceneSpeed(params_.speed), kNoiseWrapSeconds);
+        noiseTime_ = std::fmod(noiseTime_ + lastDt_ * (0.15f + live::mid(f) * 1.4f) * fluid::Choreography::sceneSpeed(params_.speed), kNoiseWrapSeconds);
 
         configureChoreography();
-        choreography_.tick(f, lastDt_, aspect_, m);
+        choreography_.tick(f, lastDt_, aspect_);
 
         glDisable(GL_BLEND);
         quad_.bind();
@@ -84,7 +78,7 @@ void CurlFlowScene::draw(float timeSeconds) {
         glUniform1f(fieldUniforms_.loc("uAspect"), aspect_);
         glUniform1f(fieldUniforms_.loc("uTime"), noiseTime_);
         glUniform1f(fieldUniforms_.loc("uFreq"), 1.2f * (0.5f + std::clamp(params_.turbulence, 0.1f, 2.0f)));
-        glUniform1f(fieldUniforms_.loc("uDetail"), std::clamp(f.treble * 3.0f + pcmKick_ * 0.8f, 0.0f, 1.5f));
+        glUniform1f(fieldUniforms_.loc("uDetail"), std::clamp(live::treble(f) * 3.0f + pcmKick_ * 0.8f, 0.0f, 1.5f));
         glUniform1f(fieldUniforms_.loc("uAmp"), fluid::curl::fieldAmp(params_.audioDrive, beatDrive_) * (1.0f + pcmKick_ * 0.35f));
         glUniform2f(fieldUniforms_.loc("uPeriod"), 0.0f, 0.0f);
         glBindFramebuffer(GL_FRAMEBUFFER, fld.fbo());

@@ -1,8 +1,7 @@
 #include "viz/Adsr.hpp"
 
 #include <algorithm>
-
-#include "viz/LiveSignal.hpp"
+#include <cmath>
 
 namespace geode::viz {
 
@@ -15,7 +14,7 @@ bool hasLiveTarget(const AdsrConfig& c) {
 }
 }  // namespace
 
-const std::array<float, AdsrEngine::kCount>& AdsrEngine::tick(float dt, const GeodeFeatureFrame& features) {
+const std::array<float, AdsrEngine::kCount>& AdsrEngine::tick(float dt, const GeodeSoundFrame& sound) {
     for (int i = 0; i < kCount; i++) {
         const AdsrConfig& c = configs[i];
         if (!c.enabled || !hasLiveTarget(c)) {
@@ -27,26 +26,20 @@ const std::array<float, AdsrEngine::kCount>& AdsrEngine::tick(float dt, const Ge
         }
         float energy = 0.0f;
         switch (c.band) {
-            case EnvBand::Bass: energy = features.bass; break;
-            case EnvBand::Mid: energy = features.mid; break;
-            case EnvBand::Treble: energy = features.treble; break;
-            case EnvBand::Rms: energy = features.rms; break;
-            case EnvBand::Brightness: energy = live::brightness(features); break;
-            case EnvBand::Width: energy = live::width(features); break;
+            // The sound engine's levels on the old 0..1.5 scale the gate threshold is set in:
+            // the bands' att envelopes halved, the shaped level, the centroid and the width.
+            case EnvBand::Bass: energy = 0.5f * sound.bassAtt; break;
+            case EnvBand::Mid: energy = 0.5f * sound.midAtt; break;
+            case EnvBand::Treble: energy = 0.5f * sound.trebleAtt; break;
+            case EnvBand::Rms: energy = sound.level; break;
+            case EnvBand::Brightness: energy = sound.centroid; break;
+            case EnvBand::Width: energy = sound.stereoWidth; break;
         }
-        energy = std::clamp(energy, 0.0f, 1.5f);
+        energy = std::isfinite(energy) ? std::clamp(energy, 0.0f, 1.5f) : 0.0f;
         const bool gateOpen = energy >= c.gateThreshold;
         const bool gateHolds = energy >= c.gateThreshold * 0.85f;
-        // Wave three: no transient trigger. A slow (4s one-pole) running
-        // average of this same energy replaces it with a level crossing -
-        // hysteresis (open above 1.25x, close below 1.0x) so it re-fires on
-        // a rise above the recent passage rather than on a hit, and does not
-        // chatter right at the threshold.
-        energyAvg_[i] += (energy - energyAvg_[i]) * std::min(dt / kEnergyAvgTauSeconds, 1.0f);
-        const bool aboveNow = aboveAvg_[i] ? energy >= energyAvg_[i] * kGateCloseRatio : energy > energyAvg_[i] * kGateOpenRatio;
-        const bool crossedUp = aboveNow && !aboveAvg_[i];
-        aboveAvg_[i] = aboveNow;
-        const float hit = crossedUp ? std::clamp(energy, 0.0f, 1.0f) : 0.0f;
+        // A note start (the engine's flux-peak onset, one frame) triggers the envelope.
+        const float hit = std::isfinite(sound.onset) ? std::clamp(sound.onset, 0.0f, 1.0f) : 0.0f;
         if (hit > 0.0f && (c.retrigger || stage_[i] == 0 || stage_[i] == 4)) {
             const bool wasAttacking = stage_[i] == 1;
             stage_[i] = 1;

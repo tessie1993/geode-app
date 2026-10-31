@@ -1,165 +1,141 @@
 #version 300 es
 precision highp float;
 // GLSL ES 3.00 defaults fragment sampler2D to LOWP (range [-2,2), ~8
-// fraction bits). uAudioTex is R32F; on GPUs honoring sampler precision
+// fraction bits). uSoundTex is R32F; on GPUs honoring sampler precision
 // (Mali) every read is clamped and quantized.
 precision highp sampler2D;
 
 in vec2 vUv;
 out vec4 fragColor;
 
-uniform float uTime;
-uniform vec2 uResolution;
-uniform float uBass;
-uniform float uMid;
-uniform float uTreble;
-uniform float uEnergy;
-uniform sampler2D uAudioTex;
-uniform float uSpeed;
-uniform float uZoom;
-uniform float uRotation;
-uniform float uZoomPhase;
-uniform float uColorShift;
-uniform float uHueRange;
-uniform float uSat;
-uniform float uBright;
-uniform float uInvert;
-uniform float uIntensity;
-uniform float uMirrorX;
-uniform float uTurbulence;
-uniform float uPalBase;
-uniform float uPalRange;
-uniform float uContrast;
-uniform float uGamma;
-uniform float uPal2Base;
-uniform float uPal2Range;
-uniform float uPaletteMix;
-uniform float uDuotone;
-uniform float uBloom;
-uniform float uWarp;
-uniform float uRipple;
-uniform float uSymmetry;
-uniform float uKaleido;
-uniform float uMorph;
-uniform float uPixelate;
-uniform float uPosterize;
-uniform float uSway;
-uniform float uBeatPhase;
-uniform float uDriftX;
-uniform float uDriftY;
-uniform float uTile;
-uniform float uTwist;
-uniform float uTemperature;
-uniform float uSolarize;
-
-float aband(float x) { return texture(uAudioTex, vec2(clamp(x, 0.0, 1.0), 0.25)).r; }
-float awave(float x) { return texture(uAudioTex, vec2(clamp(x, 0.0, 1.0), 0.75)).r; }
-
-vec2 view() {
-    vec2 uv = vUv * 2.0 - 1.0;
-    uv.x *= uResolution.x / uResolution.y;
-    if (uPixelate > 0.001) {
-        float px = mix(1.0, 12.0, uPixelate) * 24.0;
-        uv = floor(uv * px) / px;
-    }
-    if (uMirrorX > 0.5) uv.x = abs(uv.x);
-    // Kaleidoscope: fold the plane into uSymmetry angular wedges.
-    if (uKaleido > 0.5 && uSymmetry >= 2.0) {
-        float ang = atan(uv.y, uv.x);
-        float rad = length(uv);
-        float seg = 6.2831853 / uSymmetry;
-        ang = abs(mod(ang, seg) - seg * 0.5);
-        uv = vec2(cos(ang), sin(ang)) * rad;
-    }
-    // Drift ping-pongs rather than running away. The composite pass wraps its
-    // own drift with fract() because it samples a BOUNDED image ("Wrap so the
-    // image scrolls instead of smearing at the clamped edge"), but uv here
-    // indexes an unbounded procedural domain, where a hard wrap would teleport
-    // the whole field by a screen width once per cycle. A triangle wave is the
-    // bounded form that stays continuous: its slope is exactly the old one for
-    // the first cycle, so nothing pops on the styles that read as scrolling
-    // (plasma, aurora, voronoi, grid, waves), while a centred subject - the
-    // sun, the ring, the spiral - always comes back instead of leaving frame
-    // for good and stranding the user on a black screen.
-    vec2 driftPhase = fract(vec2(uDriftX, uDriftY) * uTime * 0.025 + 0.25);
-    uv += 1.0 - 2.0 * abs(2.0 * driftPhase - 1.0);
-    // Morph: blend the plane toward a polar remap (angle,radius swap), a
-    // smooth geometric metamorphosis that works on any scene.
-    if (uMorph > 0.001) {
-        float mr = length(uv);
-        float ma = atan(uv.y, uv.x);
-        vec2 polar = vec2(ma / 3.14159, (mr - 0.7) * 1.6);
-        uv = mix(uv, polar, uMorph * (0.6 + 0.15 * sin(uTime * 0.31)));
-    }
-    float a = uRotation + uSway * 0.35 * sin(uTime * 0.7);
-    uv = mat2(cos(a), -sin(a), sin(a), cos(a)) * uv;
-    // Wave three: the beat-locked pulse and beat-response zoom widen are
-    // gone (they were flash/spike behaviour). Endless-zoom keeps its
-    // triangle-wave exponent (1x -> 2x -> 1x) so the phase wrap never pops.
-    float z = uZoom * pow(2.0, 1.0 - abs(2.0 * uZoomPhase - 1.0));
-    uv /= max(z, 0.05);
-    uv += uTurbulence * 0.06 * vec2(sin(uv.y * 6.0 + uTime), cos(uv.x * 6.0 + uTime * 1.3));
-    // Radial twist: rotate by an angle growing with radius.
-    if (abs(uTwist) > 0.001) {
-        float tr = length(uv) * uTwist * 2.0;
-        uv = mat2(cos(tr), -sin(tr), sin(tr), cos(tr)) * uv;
-    }
-    // Tiling: repeat the plane into a uTile x uTile grid.
-    if (uTile > 1.01) {
-        uv = mod(uv * uTile * 0.5 + 1.0, 2.0) - 1.0;
-    }
-    // Domain warp: swirl coordinates by a sin/cos field.
-    if (uWarp > 0.001) {
-        float w = uWarp * 0.5;
-        uv += w * vec2(sin(uv.y * 3.0 + uTime * 1.1), cos(uv.x * 3.0 + uTime * 0.9));
-    }
-    // Concentric ripple distortion driven by radius.
-    if (uRipple > 0.001) {
-        float r = length(uv);
-        uv *= 1.0 + uRipple * 0.15 * sin(r * 14.0 - uTime * 3.0 + uBass * 4.0);
-    }
-    return uv;
-}
-
+//#include lib_scene_uniforms
 //#include lib_scene_motion
+//#include lib_camera
 //#include lib_palette
+//#include lib_scene_grade
+//#include lib_sdf3
 
-vec3 grade(vec3 col) {
-    if (uBloom > 0.001) col += uBloom * col * col;
-    if (uPosterize > 0.001) {
-        float levels = mix(24.0, 3.0, uPosterize);
-        col = floor(col * levels + 0.5) / levels;
-    }
-    float g = dot(col, vec3(0.299, 0.587, 0.114));
-    if (uDuotone > 0.5) col = pal(g);
-    col = mix(vec3(g), col, uSat);
-    col = (col - 0.5) * uContrast + 0.5;
-    col = pow(max(col, 0.0), vec3(1.0 / max(uGamma, 0.05)));
-    col.r += uTemperature * 0.12;
-    col.b -= uTemperature * 0.12;
-    if (uSolarize > 0.5) col = abs(1.0 - 2.0 * col);
-    col = col * uBright * uIntensity;
-    return mix(col, max(vec3(1.0) - col, 0.0), uInvert);
-}
+// Starfield: a true 3D field of band-lit stars, flown through on the shared
+// camera rig (camFly), so travel, look, banking, FOV and dolly all come from
+// the rig and the composite leaves the picture alone.
+//
+// What reacts to what:
+//   - the rig's travel carries the eye through the field; nothing here has a
+//     clock of its own for that, so the speed is the Camera tab's.
+//   - each star is lit by its own analyser band (the spectrum), as the 2D version's
+//     were, and its hue is its band position on the palette.
+//   - hats (SND_HAT_ENV) twinkle a hashed subset of stars, re-picked on every
+//     onset through floor(SND_HIT_TIME). Local sparkle only: a twinkle brightens one
+//     star, never the frame.
+//   - onsets (SND_ONSET_ENV) stretch every star along the travel axis into a
+//     streak, and the stretch falls back with the envelope.
+//   - the core glow behind the field rides the slew-limited bass.
+//
+// The field is cell-hashed: space is cut into cubes of 1/STAR_SCALE world
+// units and each cube holds at most one star. A ray walks the cubes it
+// crosses (Amanatides-Woo), so a star is a fixed point in the world and the
+// view can turn any way the rig points it.
 
-// motion: uTrebRel -> star twinkle gain, uMidRel -> lane sway
-// Starfield: band-lit streaks racing outward with the energy.
+/** Star cells per world unit. A power of two, so the z tiling below stays a power of two too. */
+#define STAR_SCALE 4.0
+/**
+ * The field repeats along z every this many cells: 8192 world units (the rig's
+ * uCamPos.z wrap) times STAR_SCALE, minus one, as an AND mask. Tiling with the
+ * rig's own wrap period is what makes that wrap land on the same stars.
+ */
+#define STAR_Z_MASK 32767
+/** Compile-time ceiling on the cell walk (the old loop's 48). uSteps scales the runtime budget. */
+#define STAR_MAX_CELLS 48
+/** Fraction of cells that hold a star. */
+#define STAR_DENSITY 0.2
+/**
+ * Most cell crossings a unit of ray length can cost: |x|+|y|+|z| of a unit
+ * vector, at most sqrt(3). The walk ends on a STEP count, so a ray along an
+ * axis would see three times deeper than a diagonal one and the field would
+ * show a bright cross; fading at budget / this makes every direction see the
+ * same depth.
+ */
+#define STAR_CROSSINGS 1.75
+/** A star's physical radius in cells, before the pixel floor below. */
+#define STAR_SIZE 0.012
+/**
+ * Streak half-length in cells at full onset. The z jitter (0.45..0.55) leaves
+ * room for it inside the cell; a longer streak would be cut at the cell wall,
+ * which is why only near stars smear visibly (as real motion blur does).
+ */
+#define STAR_STREAK 0.4
+
 void main() {
+    // view() first, so zoom, rotation, kaleidoscope and the rest still steer
+    // the ray, then the rig turns that screen point into a world ray.
     vec2 uv = view();
+    vec3 ro;
+    vec3 rd;
+    camFly(uv, ro, rd);
+
+    // Work relative to the eye's own cell: the cell ids are exact integers in
+    // float, and every distance below is measured in [0, 1)-sized offsets
+    // rather than at a world z of thousands, where float has no fraction left.
+    vec3 sp = ro * STAR_SCALE;
+    vec3 base = floor(sp);
+    vec3 o = sp - base;
+    ivec3 baseId = ivec3(base);
+
+    vec3 stepDir = vec3(rd.x >= 0.0 ? 1.0 : -1.0, rd.y >= 0.0 ? 1.0 : -1.0, rd.z >= 0.0 ? 1.0 : -1.0);
+    ivec3 stepId = ivec3(stepDir);
+    vec3 tDelta = 1.0 / max(abs(rd), vec3(1e-5));
+    vec3 side = (stepDir * (0.5 - o) + 0.5) * tDelta;
+    ivec3 cell = ivec3(0);
+
+    // Pixel footprint as an angle: the screen is two units tall at uCamFocal.
+    float pixAngle = 2.0 / (max(uResolution.y, 1.0) * uCamFocal);
+    float streak = STAR_STREAK * clamp(SND_ONSET_ENV, 0.0, 1.0);
+    float hat = clamp(SND_HAT_ENV, 0.0, 1.0);
+    float twinkleSeed = fract(floor(SND_HIT_TIME) * 0.618034);
+    float budget = uSteps * (float(STAR_MAX_CELLS) / 128.0);
+    float far = budget / STAR_CROSSINGS;
+
     vec3 col = vec3(0.0);
-    float t = uTime * (0.4 + uEnergy * 1.6);
-    float trebGain = 0.4 * clamp(uTrebRel, 0.0, 2.0);
-    float sway = 0.2 * clamp(uMidRel - 1.0, -1.0, 1.0);
-    for (int i = 0; i < 48; i++) {
-        float fi = float(i) / 48.0;
-        float ang = fi * 6.2831853 * 7.0 + t * 0.05 + sway;
-        float rad = fract(fi * 3.7 + t * (0.15 + fi * 0.45));
-        vec2 p = vec2(cos(ang), sin(ang)) * rad * 1.7;
-        float d = length(uv - p);
-        float b = aband(fi);
-        float star = exp(-d * (70.0 - rad * 45.0)) * rad * (0.35 + b + trebGain);
-        col += pal(fi + rad * 0.3) * star;
+    for (int i = 0; i < STAR_MAX_CELLS; i++) {
+        if (float(i) >= budget) break;
+        ivec3 id = baseId + cell;
+        id.z = id.z & STAR_Z_MASK;
+        uint h = uhash3(uvec3(id));
+        float hOcc = uhashUnit(h);
+        uint h2 = uhash(h);
+        uint h3 = uhash(h2);
+        uint h4 = uhash(h3);
+        uint h5 = uhash(h4);
+        // Jittered inside the cell with a margin, so a star's glow is never
+        // cut by the cell wall the ray did not cross.
+        vec3 star = vec3(cell) + vec3(0.25 + 0.5 * uhashUnit(h2), 0.25 + 0.5 * uhashUnit(h3), 0.45 + 0.1 * uhashUnit(h4));
+        float hue = uhashUnit(h5);
+
+        vec3 rel = star - o;
+        float tc = max(dot(rel, rd), 0.0);
+        vec3 dv = rd * tc - rel;
+        float size = STAR_SIZE + tc * pixAngle * 1.4;
+        // The onset streak: the star becomes an ellipsoid along z, the travel
+        // axis, which on screen is a radial smear from the vanishing point.
+        dv.z *= size / (size + streak);
+        float glow = exp(-dot(dv, dv) / (size * size));
+
+        float fade = (1.0 - smoothstep(far * 0.35, far, tc)) * smoothstep(0.05, 0.7, tc);
+        // One star in seven, so a busy hi-hat sparkles across the field
+        // without lifting the field as a whole.
+        float twinkle = 1.0 + 1.8 * hat * step(0.86, fract(hue * 7.31 + twinkleSeed));
+        float lit = (0.35 + sndSpectrum(hue)) * twinkle;
+        col += pal(hue + tc * 0.01) * glow * fade * lit * step(hOcc, STAR_DENSITY);
+
+        // Step into whichever neighbouring cell the ray reaches first.
+        vec3 m = step(side, side.yzx) * step(side, side.zxy);
+        side += m * tDelta;
+        cell += ivec3(m) * stepId;
     }
-    col += pal(0.5) * exp(-length(uv) * 5.0) * (0.2 + uBass * 0.8);
+
+    // The core glow sits on the world's +z, the direction of travel on the
+    // glide and spiral paths, so it is the vanishing point you fly toward.
+    float core = rd.z > 0.0 ? exp(-8.0 * length(rd.xy) / rd.z) : 0.0;
+    col += pal(0.5) * core * (0.2 + sndShaped(SND_LOW) * 0.8);
     fragColor = vec4(grade(col), 1.0);
 }

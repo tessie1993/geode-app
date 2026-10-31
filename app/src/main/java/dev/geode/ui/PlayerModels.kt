@@ -1,15 +1,19 @@
 package dev.geode.ui
 
 import androidx.media3.common.Player
-import dev.geode.analysis.IntelligenceMode
 import dev.geode.data.Preset
 import dev.geode.render.TransitionStyle
 import dev.geode.render.scene.SceneIds
 import dev.geode.render.scene.SceneParams
 
+/**
+ * What playback looks like, apart from the position. The position moves every poll tick, and as a
+ * field here it made every collector of this state (the shell, the Player, the live view)
+ * recompose twice a second for as long as music played; it lives in its own flow instead
+ * ([PlaybackRepository.positionMs]), read only by the seek bars and clocks that draw it.
+ */
 data class PlayerUiState(
     val isPlaying: Boolean = false,
-    val positionMs: Long = 0,
     val durationMs: Long = 0,
     val title: String? = null,
     val artist: String? = null,
@@ -22,31 +26,23 @@ data class PlayerUiState(
 
 data class VizUiState(
     val sceneId: String = SceneIds.DEFAULT,
-    val intelligenceMode: IntelligenceMode = IntelligenceMode.MANUAL,
-    val suggestedSceneId: String? = null,
     val attack: Float = 0.6f,
     val decay: Float = 0.12f,
-    val analysis: AnalysisState = AnalysisState.Idle,
-    val bpm: Float = 0f,
-    val sections: List<Long> = emptyList(),
     val shaderError: String? = null,
     val presets: List<Preset> = emptyList(),
     val params: SceneParams = SceneParams.DEFAULT,
     val vizPlaylist: List<VizPlaylistEntry> = emptyList(),
     val vizPlaylistEnabled: Boolean = false,
     val vizPlaylistIntervalSec: Int = 30,
-    val vizPlaylistIntelligent: Boolean = false,
     val transitionStyle: TransitionStyle = TransitionStyle.FADE,
     val transitionId: String = TransitionStyle.FADE.name.lowercase(),
     val transitionDurationSec: Float = 1.2f,
     val randomEnabled: Boolean = false,
     val randomIntervalSec: Int = 20,
-    val randomOnSection: Boolean = true,
     val randomIncludeStyles: Boolean = true,
     val randomIncludePresets: Boolean = true,
     val randomIncludeMilk: Boolean = false,
     val randomizeColors: Boolean = false,
-    val sectionStaging: Boolean = false,
 )
 
 data class VizPlaylistEntry(

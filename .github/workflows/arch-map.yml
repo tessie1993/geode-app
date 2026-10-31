@@ -1,0 +1,76 @@
+name: Architecture map gate
+
+# AGENTS.md maps modules, packages and entry points for every agent session.
+# A PR that changes that structure must update the map in the same PR; the
+# rules live in tools/arch-map-gate.sh. No path filter: a required check has
+# to report on every PR, or GitHub waits for it forever.
+
+on:
+  pull_request:
+    branches: ["main", "claude/geode-finish"]
+    types: [opened, synchronize, reopened, edited]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: arch-map-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  arch-map:
+    name: AGENTS.md is current
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      # Pins the gate's own rules, so a broken pattern cannot silently pass every PR.
+      - name: Self-test the gate
+        shell: bash
+        run: |
+          set -u
+          expect() { # expect <pass|fail> <name-status lines...>
+            want=$1; shift
+            if printf '%s\n' "$@" | bash tools/arch-map-gate.sh >/dev/null; then got=pass; else got=fail; fi
+            [ "$got" = "$want" ] || { echo "::error::gate self-test: expected $want for: $*"; exit 1; }
+          }
+          T=$'\t'
+          expect pass "M${T}app/src/main/java/dev/geode/ui/AppShell.kt"
+          expect fail "A${T}app/src/main/java/dev/geode/ui/NewScreen.kt"
+          expect fail "D${T}engine/scenes/src/main/kotlin/dev/geode/render/Lfo.kt"
+          expect fail "R100${T}app/src/main/java/dev/geode/ui/A.kt${T}app/src/main/java/dev/geode/ui/B.kt"
+          expect fail "M${T}settings.gradle.kts"
+          expect fail "M${T}engine/scenes/build.gradle.kts"
+          expect fail "M${T}core/CMakeLists.txt"
+          expect pass "A${T}app/src/main/java/dev/geode/ui/NewScreen.kt" "M${T}AGENTS.md"
+          expect pass "A${T}docs/notes.md"
+          echo "gate self-test passed"
+
+      - name: Check the PR's diff
+        shell: bash
+        run: |
+          git diff --name-status -M \
+            "${{ github.event.pull_request.base.sha }}...${{ github.event.pull_request.head.sha }}" \
+            | bash tools/arch-map-gate.sh
+
+      # Pins the layer gate the same way: a planted reverse dependency must fail it.
+      - name: Self-test the layer gate
+        shell: bash
+        run: |
+          set -u
+          t=$(mktemp -d)
+          mkdir -p "$t/app/src/main/java/dev/geode/ui" "$t/app/src/main/java/dev/geode/data" "$t/engine"
+          echo 'import dev.geode.data.Store' > "$t/app/src/main/java/dev/geode/ui/Screen.kt"
+          echo 'import dev.geode.ui.Screen' > "$t/app/src/main/java/dev/geode/ui/Other.kt"
+          bash tools/layer-gate.sh "$t" >/dev/null || { echo "::error::layer gate self-test: clean tree failed"; exit 1; }
+          echo 'val x = dev.geode.ui.Screen::class' > "$t/app/src/main/java/dev/geode/data/Store.kt"
+          if bash tools/layer-gate.sh "$t" >/dev/null; then echo "::error::layer gate self-test: reverse dependency passed"; exit 1; fi
+          echo "layer gate self-test passed"
+
+      - name: Nothing below ui names ui
+        shell: bash
+        run: bash tools/layer-gate.sh

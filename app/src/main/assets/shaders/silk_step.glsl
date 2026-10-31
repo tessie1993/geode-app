@@ -24,8 +24,10 @@
 // The field library is a cyclic-sine family around the published Thomas
 // attractor form sin(p.yzx) - b*p, plus two intrinsically 2D fields (a curl
 // of simplex noise, and a magnetic-pendulum pole field). uField selects one;
-// styles never blend fields mid-frame - identity comes from the field, and
-// the damping parameter b breathes slowly on the scene clock instead.
+// styles never blend fields mid-frame - identity comes from the field (a
+// hard cut swaps a style to its alternate one, flushing the old dye), and
+// the damping parameter b breathes on the curved sound clock and jumps on
+// every 8th kick instead.
 //
 // SAFETY / STABILITY: velocities are clamped, the feedback survives only
 // through uDecay < 1, and every sample is sanitized - a NaN entering the
@@ -39,17 +41,30 @@ uniform float uFieldScale; // field domain zoom
 uniform float uSwirl;      // how much field z feeds screen rotation
 uniform float uSlabX;      // cos/sin pair of the slab orbit phase
 uniform float uSlabY;
-uniform float uSeedEpoch;  // integer epoch; the stroke lattice re-seats when it steps
-uniform float uDrift;      // continuous slow time for the curl field's evolution
-uniform float uStrokes;    // injection density multiplier
+uniform float uSeedEpoch;  // integer epoch; steps on every 4th kick and jumps on a hard cut
+uniform float uDrift;      // the curved sound clock, for the curl field's evolution and the writhe
+uniform float uStrokes;    // injection density multiplier (a held surge thickens it)
 uniform float uElong;      // filament elongation along the flow
 uniform float uDrive;      // audio drive onto injection brightness
 uniform float uBass;       // slewed band envelopes, 0..~1.2
 uniform float uMid;
 uniform float uTreble;
-uniform float uBeat;       // continuous energy/bar-phase drive, 0..1 (never a transient)
-uniform float uStrike;     // same continuous drive as uBeat, 0..1
-uniform float uBeatRing;   // ring radius, cycling 0..~kRingMax once per bar (always >= 0)
+uniform float uStrike;     // raw-PCM transient, 0..1.5
+
+// The sound engine's drums, melody and stereo, integrated on the CPU (SilkScene::stepSound), so this
+// body reads plain numbers on both the fragment and the compute path.
+uniform float uKick;       // kick envelope 0..1.5: a radial push out of the ring centre, fattens bass strokes
+uniform float uSnare;      // snare envelope: a vortex shear around the ring centre, fattens mid strokes
+uniform float uSnareSign;  // +-1, flips with each snare: the shear turns the other way
+uniform float uHat;        // hat envelope: fine shimmer in the flow, brightens treble strokes
+uniform float uBeatRing;   // expanding ring radius since the last kick or hard cut, <0 = none
+uniform vec2 uRingCenter;  // the ring's centre, uv (the kick picks it: toggled side, random offset)
+uniform vec3 uRingTint;    // the ring's dye per lane, fading as it grows (bass on a kick, white on a cut)
+uniform vec2 uEmitter;     // the melody emitter, uv: y follows pitch height, x wanders on the note clock
+uniform float uEmit;       // its dye, brightest just after a note change, 0 without a pitch
+uniform float uEmitSwirl;  // signed vortex around it: glide and vibrato, turned by the interval's sign
+uniform vec2 uWind;        // stereo pan drift, field units
+uniform float uWrithe;     // spectral flux: the flow twists, radians
 
 // There is no uRes and no uStateScale here any more. The grid size arrives as
 // simStep's `size` argument, and the dye's range is the layer's business: it
@@ -157,11 +172,11 @@ vec3 strokes(vec2 q, vec2 dir) {
             float g = exp(-(along * along) / (0.004 * elong) - (across * across) / 0.00025);
             float w = smoothstep(0.15, 0.9, h.y);
             if (lanePick < 0.34) {
-                acc.r += g * w * uBass;
+                acc.r += g * w * uBass * (1.0 + 1.2 * uKick);
             } else if (lanePick < 0.67) {
-                acc.g += g * w * uMid;
+                acc.g += g * w * uMid * (1.0 + 1.5 * uSnare);
             } else {
-                acc.b += g * w * (uTreble + 0.5 * uStrike);
+                acc.b += g * w * (uTreble + 0.5 * uStrike) * (1.0 + 2.0 * uHat);
             }
         }
     }
@@ -231,9 +246,30 @@ vec4 simStep(ivec2 texel, ivec2 size, vec4 prev) {
     }
     v = clamp(v, vec2(-4.0), vec2(4.0));
 
-    // Continuous radial push away from centre, riding uBeat rather than
-    // decaying after a hit.
-    v += normalize(q + vec2(1e-4)) * uBeat * 0.35;
+    // Flux writhes the flow: a rotation that varies across the field and drifts on the curved
+    // clock, so busy passages make the strands squirm and quiet ones leave them lying still.
+    if (uWrithe > 0.001) {
+        float tw = uWrithe * sin(dot(q, vec2(1.7, -1.3)) * 1.6 + uDrift * 5.0);
+        float c = cos(tw);
+        float s = sin(tw);
+        v = vec2(c * v.x - s * v.y, s * v.x + c * v.y);
+    }
+
+    // The drums, as three forces from the ring centre the last kick picked.
+    float fieldUnits = 3.2 * uFieldScale;
+    vec2 dr = q - (uRingCenter - 0.5) * vec2(aspect, 1.0) * fieldUnits;
+    float rl = length(dr) + 1e-3;
+    v += dr / rl * uKick * 0.45 * exp(-rl * 0.35);                       // kick: a push outward
+    v += vec2(-dr.y, dr.x) / (rl + 0.35) * uSnare * uSnareSign * 0.9;     // snare: a shear vortex
+    v += uHat * 0.35 * vec2(sin(q.y * 23.0 + uDrift * 40.0), cos(q.x * 19.0 - uDrift * 37.0)); // hat: shimmer
+
+    // The melody stirs the silk around its emitter, the turn set by the last interval's sign.
+    vec2 de = q - (uEmitter - 0.5) * vec2(aspect, 1.0) * fieldUnits;
+    float el2 = dot(de, de);
+    v += vec2(-de.y, de.x) * uEmitSwirl * 1.4 / (el2 + 0.12) * exp(-el2 * 0.8);
+
+    // Stereo pan: the whole field drifts toward the side the sound is on.
+    v = clamp(v + uWind, vec2(-6.0), vec2(6.0));
 
     vec2 back = uv - v * uAdvect / vec2(aspect, 1.0);
     // The one fetch in this family that lands between texels, on essentially
@@ -251,10 +287,16 @@ vec4 simStep(ivec2 texel, ivec2 size, vec4 prev) {
     vec2 dir = normalize(v + vec2(1e-4));
     vec3 add = strokes(q, dir) * (0.55 * uDrive);
 
-    // The ring, cycling once per bar, deposits into the bass lane.
+    // The expanding ring deposits its tint: bass on a kick, every lane on a hard cut or a return.
     if (uBeatRing >= 0.0) {
-        float ring = exp(-pow((length(q) - uBeatRing) * 9.0, 2.0));
-        add.r += ring * uBeat * 0.8;
+        float ring = exp(-pow((rl - uBeatRing) * 9.0, 2.0));
+        add += uRingTint * (ring * 0.8);
+    }
+
+    // The melody emitter lays a ribbon of mid dye (with a treble edge on hats) that the flow and
+    // its own vortex then stretch into a trail of the tune.
+    if (uEmit > 0.001) {
+        add += vec3(0.12, 1.0, 0.3 + 0.7 * uHat) * (exp(-el2 / 0.012) * uEmit);
     }
 
     // Deliberately NOT scaled by uDrive: a finger is not audio, and a user who

@@ -1,22 +1,16 @@
 #version 300 es
 precision highp float;
 // GLSL ES 3.00 defaults fragment sampler2D to LOWP (range [-2,2), ~8
-// fraction bits). uAudioTex is R32F; on GPUs honoring sampler precision
+// fraction bits). uSoundTex is R32F; on GPUs honoring sampler precision
 // (Mali) every read is clamped and quantized.
 precision highp sampler2D;
 
 in vec2 vUv;
 out vec4 fragColor;
 
-// motion: uEnergyRel -> streak travel speed, uMidRel -> star-field roll via
-// uDrift (continuous, never a beat kick)
 uniform float uTime;
 uniform vec2 uResolution;
-uniform float uBass;
-uniform float uMid;
-uniform float uTreble;
-uniform float uEnergy;
-uniform sampler2D uAudioTex;
+//#include lib_sound
 uniform float uSpeed;
 uniform float uZoom;
 uniform float uRotation;
@@ -46,18 +40,16 @@ uniform float uMorph;
 uniform float uPixelate;
 uniform float uPosterize;
 uniform float uSway;
-uniform float uBeatPhase;
+uniform float uPulse;
 uniform float uDriftX;
 uniform float uDriftY;
+uniform float uShake;
 uniform float uTile;
 uniform float uTwist;
 uniform float uTemperature;
 uniform float uSolarize;
+uniform float uFlash;
 
-//#include lib_scene_motion
-
-float aband(float x) { return texture(uAudioTex, vec2(clamp(x, 0.0, 1.0), 0.25)).r; }
-float awave(float x) { return texture(uAudioTex, vec2(clamp(x, 0.0, 1.0), 0.75)).r; }
 
 vec2 view() {
     vec2 uv = vUv * 2.0 - 1.0;
@@ -75,6 +67,22 @@ vec2 view() {
         ang = abs(mod(ang, seg) - seg * 0.5);
         uv = vec2(cos(ang), sin(ang)) * rad;
     }
+    // Morph: blend the plane toward a polar remap (angle,radius swap), a
+    // smooth geometric metamorphosis that works on any scene.
+    if (uMorph > 0.001) {
+        float mr = length(uv);
+        float ma = mr > 1e-5 ? atan(uv.y, uv.x) : 0.0; // atan(0, 0) is undefined in GLSL ES
+        vec2 polar = vec2(abs(ma) / 1.5707963 - 1.0, (mr - 0.7) * 1.6);
+        // Faded to nothing at the centre: atan has no angle at r = 0, so every
+        // angle met at one point and the centre of the frame drew as a pinched
+        // vortex whenever morph was up (MotionField holds it near 0.7).
+        uv = mix(uv, polar, uMorph * (0.6 + 0.15 * sin(uTime * 0.31)) * smoothstep(0.0, 0.6, mr));
+    }
+    float a = uRotation + uSway * 0.35 * sin(uTime * 0.7);
+    uv = mat2(cos(a), -sin(a), sin(a), cos(a)) * uv;
+    // Drift and shake move the picture after the spin and the morph. Added
+    // before them, the rotation pivoted on -drift and the morph's pinch rode
+    // the drift, so the whole frame spun around a wandering off-centre point.
     // Drift ping-pongs rather than running away. The composite pass wraps its
     // own drift with fract() because it samples a BOUNDED image ("Wrap so the
     // image scrolls instead of smearing at the clamped edge"), but uv here
@@ -87,21 +95,10 @@ vec2 view() {
     // for good and stranding the user on a black screen.
     vec2 driftPhase = fract(vec2(uDriftX, uDriftY) * uTime * 0.025 + 0.25);
     uv += 1.0 - 2.0 * abs(2.0 * driftPhase - 1.0);
-    // Morph: blend the plane toward a polar remap (angle,radius swap), a
-    // smooth geometric metamorphosis that works on any scene.
-    if (uMorph > 0.001) {
-        float mr = length(uv);
-        float ma = atan(uv.y, uv.x);
-        vec2 polar = vec2(ma / 3.14159, (mr - 0.7) * 1.6);
-        uv = mix(uv, polar, uMorph * (0.6 + 0.15 * sin(uTime * 0.31)));
-    }
-    float a = uRotation + uSway * 0.35 * sin(uTime * 0.7);
-    uv = mat2(cos(a), -sin(a), sin(a), cos(a)) * uv;
     // Triangle-wave exponent: 1x -> 2x -> 1x smoothly, so the endless-zoom
     // phase wrap never causes a visible scale pop (2^1 snapping to 2^0). The
     // milkdrop post pass (pm_post_frag) already spells it this way; a sawtooth
     // exponent halved the magnification once per cycle on every scene shader.
-    // Wave three: no beat-locked pulse or beat-response widening.
     float z = uZoom * pow(2.0, 1.0 - abs(2.0 * uZoomPhase - 1.0));
     uv /= max(z, 0.05);
     uv += uTurbulence * 0.06 * vec2(sin(uv.y * 6.0 + uTime), cos(uv.x * 6.0 + uTime * 1.3));
@@ -110,9 +107,11 @@ vec2 view() {
         float tr = length(uv) * uTwist * 2.0;
         uv = mat2(cos(tr), -sin(tr), sin(tr), cos(tr)) * uv;
     }
-    // Tiling: repeat the plane into a uTile x uTile grid.
+    // Tiling: repeat the plane into a uTile x uTile grid, every other tile
+    // mirrored so neighbours meet edge to edge. A hard mod() wrap cracked the
+    // picture along every tile boundary, and the macros drive uTile live.
     if (uTile > 1.01) {
-        uv = mod(uv * uTile * 0.5 + 1.0, 2.0) - 1.0;
+        uv = 1.0 - abs(mod(uv * uTile * 0.5 + 1.0, 4.0) - 2.0);
     }
     // Domain warp: swirl coordinates by a sin/cos field.
     if (uWarp > 0.001) {
@@ -122,7 +121,7 @@ vec2 view() {
     // Concentric ripple distortion driven by radius.
     if (uRipple > 0.001) {
         float r = length(uv);
-        uv *= 1.0 + uRipple * 0.15 * sin(r * 14.0 - uTime * 3.0 + uBass * 4.0);
+        uv *= 1.0 + uRipple * 0.15 * sin(r * 14.0 - uTime * 3.0 + sndLevel(SND_BASS_ATT) * 4.0);
     }
     return uv;
 }
@@ -147,21 +146,19 @@ vec3 grade(vec3 col) {
     return mix(col, max(vec3(1.0) - col, 0.0), uInvert);
 }
 
-// Starfield warp: streaks race past, throttle tied to relative energy.
+// Starfield warp: streaks race past, throttle tied to energy.
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 void main() {
     vec2 uv = view();
-    // uDrift is an accumulated rotation whose sign eases rather than flips, so
-    // the roll steered by mid-band level never snaps direction.
-    float a = atan(uv.y, uv.x) + uDrift * 0.4;
+    float a = atan(uv.y, uv.x);
     float r = length(uv) + 0.001;
     vec3 col = vec3(0.0);
-    float t = uTime * (0.5 + uEnergyRel * 1.4);
+    float t = uTime * (0.5 + sndLevel(SND_VOL) * 2.5);
     for (float layer = 0.0; layer < 3.0; layer++) {
-        float cell = floor(a * (40.0 + layer * 20.0) / 6.2831);
+        float cell = floor(a * (40.0 + layer * 20.0) / 6.2831853);
         float h = hash(vec2(cell, layer));
         float d = fract(h * 7.0 + t * (0.3 + h * 0.7) - r);
-        float star = exp(-d * 24.0) * exp(-r * 1.2) * (0.4 + aband(h) * 1.4);
+        float star = exp(-d * 24.0) * exp(-r * 1.2) * (0.4 + (0.5 * sndEq(h)) * 1.4);
         col += pal(h) * star;
     }
     fragColor = vec4(grade(col), 1.0);

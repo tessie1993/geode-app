@@ -7,12 +7,15 @@ import dev.geode.data.BackgroundPrefs
 import dev.geode.data.MilkTexture
 import dev.geode.data.Preset
 import dev.geode.data.PresetFolders
+import dev.geode.data.PresetStore
 import dev.geode.data.TemplateFormat
 import dev.geode.data.TemplateId
 import dev.geode.data.TemplateImport
+import dev.geode.data.TemplateParse
 import dev.geode.data.TemplateWrite
 import dev.geode.data.VideoTemplate
 import dev.geode.di.PlayerSessionProvider
+import dev.geode.model.PresetLink
 import dev.geode.render.AdsrConfig
 import dev.geode.render.LfoConfig
 import dev.geode.render.UnderlayBlend
@@ -47,6 +50,28 @@ sealed interface TemplateLinkImport {
     ) : TemplateLinkImport
 }
 
+/**
+ * A shared link that reached the app and is waiting for the user's yes. The links are
+ * BROWSABLE, so any web page or app can fire one; nothing is written until the user
+ * confirms. [name] is blank when the link names nothing; [replaces] is the name of the
+ * user's template a template link would overwrite (templates match on id).
+ */
+sealed interface SharedLinkOffer {
+    val link: String
+    val name: String
+
+    data class Preset(
+        override val link: String,
+        override val name: String,
+    ) : SharedLinkOffer
+
+    data class Template(
+        override val link: String,
+        override val name: String,
+        val replaces: String?,
+    ) : SharedLinkOffer
+}
+
 @HiltViewModel
 class VisualsViewModel
     @Inject
@@ -65,6 +90,8 @@ class VisualsViewModel
         val lfos: StateFlow<List<LfoConfig>> get() = session.lfos
 
         val adsrs: StateFlow<List<AdsrConfig>> get() = session.adsrs
+
+        val reactions: StateFlow<List<dev.geode.render.ReactionRoute>?> get() = session.reactions
 
         val lockedParams: StateFlow<Set<String>> get() = session.lockedParams
 
@@ -99,8 +126,6 @@ class VisualsViewModel
 
         val paramHistory: StateFlow<ParamHistoryState> get() = session.paramHistory
 
-        val abSnapshots: StateFlow<AbSnapshotState> get() = session.abSnapshots
-
         /** The one write path for a Customize edit, so the panel's undo covers every control. */
         fun editSceneParams(params: SceneParams) = session.editSceneParams(params)
 
@@ -112,16 +137,6 @@ class VisualsViewModel
 
         fun resetAllCustomize() = session.resetAllCustomize()
 
-        fun captureSnapshotA() = session.captureSnapshotA()
-
-        fun captureSnapshotB() = session.captureSnapshotB()
-
-        fun recallSnapshotA() = session.recallSnapshotA()
-
-        fun recallSnapshotB() = session.recallSnapshotB()
-
-        fun blendSnapshots(t: Float) = session.blendSnapshots(t)
-
         fun setAdsr(
             index: Int,
             config: AdsrConfig,
@@ -131,6 +146,10 @@ class VisualsViewModel
             index: Int,
             config: LfoConfig,
         ) = session.setLfo(index, config)
+
+        fun setReactions(routes: List<dev.geode.render.ReactionRoute>?) = session.setReactions(routes)
+
+        fun rerollReactions() = session.rerollReactions()
 
         fun importTextures(
             uris: List<Uri>,
@@ -225,6 +244,25 @@ class VisualsViewModel
         ) = session.importTemplateFile(uri, onResult)
 
         fun templateShareLink(template: VideoTemplate): String? = session.templateShareLink(template)
+
+        /**
+         * Reads a shared link without importing it, for the confirm dialog. Null when [data]
+         * is no link of ours or cannot be read; the import paths then report it as before.
+         */
+        fun offerFor(data: String): SharedLinkOffer? {
+            if (PresetLink.isPresetLink(data)) {
+                val json = PresetLink.decode(data) ?: return null
+                val preset = runCatching { PresetStore.fromJson(json) }.getOrNull() ?: return null
+                return SharedLinkOffer.Preset(data, preset.name.trim())
+            }
+            val link = TemplateFormat.linkIn(data) ?: return null
+            val template = (TemplateFormat.decode(link) as? TemplateParse.Parsed)?.template ?: return null
+            val replaces =
+                session.templates.value
+                    .firstOrNull { it.id == template.id }
+                    ?.name
+            return SharedLinkOffer.Template(data, template.name.trim(), replaces)
+        }
 
         /** Whether [data] carries a template link at all, before the async import runs. */
         fun isTemplateLink(data: String): Boolean = TemplateFormat.linkIn(data) != null

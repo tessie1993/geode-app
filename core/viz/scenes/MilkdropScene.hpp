@@ -29,11 +29,12 @@ public:
     void init() override;
     void setParams(const SceneParams& params) override { params_ = params; }
     void resize(int width, int height) override;
-    void update(const GeodeFeatureFrame& features, float dt) override;
+    void update(const GeodeSoundFrame& features, float dt) override;
     void draw(float timeSeconds) override;
     void release() override;
     void acceptPcm(const float* samples, int count) override;
     void queueMilkPreset(const std::string& path) override;
+    void setMilkFallbackPreset(const std::string& path) override;
     void reloadMilkPreset() override;
     void setMilkTextureDir(const std::string& dir) override;
 
@@ -59,6 +60,7 @@ private:
     void ensureEngine(double now);
     // Re-queues the preset the scene last had on screen and clears the load debounce, so a
     // freshly created engine loads it on the very next frame instead of waiting one window out.
+    // A request still waiting is newer than that preset and is left to win.
     void armLastPreset();
     void loadPendingPreset(double now);
     std::optional<std::string> takeError();
@@ -72,6 +74,10 @@ private:
     std::vector<float> pcm_;
     int pcmCount_ = 0;
     Engine engine_;
+    // Whether engine_ holds a preset of ours. A new engine starts on projectM's idle preset, which
+    // the app never shows: until this is set the scene draws black, and the first load is a hard
+    // cut, because a soft cut would fade in from that idle preset.
+    bool engineHasPreset_ = false;
     int width_ = 0;
     int height_ = 0;
     bool reportedCreateFailure_ = false;
@@ -86,6 +92,7 @@ private:
     float rotationAngle_ = 0.0f;
     float zoomPhase_ = 0.0f;
     float cyclePhase_ = 0.0f;
+    float beatPulse_ = 0.0f;
     double lastLoadSeconds_ = 0.0;
     SceneParams params_;
     int diagFrames_ = 0;

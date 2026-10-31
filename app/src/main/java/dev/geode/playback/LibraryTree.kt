@@ -4,14 +4,13 @@ import android.content.Context
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import dev.geode.R
-import dev.geode.data.DeviceTrack
 import dev.geode.data.DeviceTrackQuery
 import dev.geode.data.FavouritesStore
 import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.HistoryStore
-import dev.geode.data.LibraryTrack
 import dev.geode.data.MusicPlaylistStore
 import dev.geode.data.TrackLibrary
+import dev.geode.model.DeviceTrack
 
 /**
  * The browse tree Android Auto and other browsers walk. Folder ids are fixed words or `<kind>/<name>`;
@@ -135,7 +134,7 @@ class LibraryTree(
         return uris.mapNotNull { uri -> byUri[uri] }
     }
 
-    private fun DeviceTrack.row(overrides: Map<String, LibraryTrack>): Row {
+    private fun DeviceTrack.row(overrides: Map<String, dev.geode.model.LibraryTrack>): Row {
         val stored = overrides[uri]
         return Row(
             uri,

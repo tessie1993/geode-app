@@ -7,6 +7,7 @@
 
 #include "util/Log.hpp"
 #include "viz/CompositeGrade.hpp"
+#include "viz/LiveSignal.hpp"
 #include "viz/Quad.hpp"
 
 namespace geode::viz {
@@ -68,6 +69,11 @@ void MilkdropScene::acceptPcm(const float* samples, int count) {
 void MilkdropScene::queueMilkPreset(const std::string& path) {
     std::lock_guard<std::mutex> lock(presetLock_);
     pendingPresetPath_ = path;
+}
+
+void MilkdropScene::setMilkFallbackPreset(const std::string& path) {
+    std::lock_guard<std::mutex> lock(presetLock_);
+    lastPresetPath_ = path;
 }
 
 void MilkdropScene::reloadMilkPreset() {
@@ -133,6 +139,7 @@ void MilkdropScene::ensureEngine(double now) {
             return;
         }
         reportedCreateFailure_ = false;
+        engineHasPreset_ = false;
         projectm_set_fps(engine_.get(), 60);
         projectm_set_mesh_size(engine_.get(), 48, 32);
         projectm_set_soft_cut_duration(engine_.get(), 3.0);
@@ -155,16 +162,17 @@ void MilkdropScene::ensureEngine(double now) {
 // so the scene comes back on the preset it went away on.
 void MilkdropScene::armLastPreset() {
     std::lock_guard<std::mutex> lock(presetLock_);
-    if (lastPresetPath_.empty()) return;
-    pendingPresetPath_ = lastPresetPath_;
     lastLoadSeconds_ = 0.0;
+    if (lastPresetPath_.empty() || !pendingPresetPath_.empty()) return;
+    pendingPresetPath_ = lastPresetPath_;
 }
 
-void MilkdropScene::update(const GeodeFeatureFrame& features, float dt) {
+void MilkdropScene::update(const GeodeSoundFrame& features, float dt) {
     const SceneParams& p = params_;
     rotationAngle_ = std::fmod(rotationAngle_ + p.rotation * dt, kTwoPi);
     zoomPhase_ = p.endlessZoom ? std::fmod(zoomPhase_ + p.endlessZoomSpeed * dt, 1.0f) : 0.0f;
     if (p.colorCycle) cyclePhase_ = std::fmod(cyclePhase_ + p.cycleSpeed * dt, 1.0f);
+    beatPulse_ = std::max(std::max(live::hit(features), beatPulse_ - dt * 3.0f), 0.0f);
     if (!engine_) return;
     if (pcmCount_ > 0) {
         const int n = std::min(pcmCount_, kEnginePcmSamples);
@@ -172,8 +180,8 @@ void MilkdropScene::update(const GeodeFeatureFrame& features, float dt) {
         pcmCount_ = 0;
         projectm_pcm_add_float(engine_.get(), pcm_.data(), static_cast<unsigned int>(n), PROJECTM_MONO);
     } else {
-        const int n = std::min(GEODE_WAVEFORM_POINTS, kEnginePcmSamples);
-        projectm_pcm_add_float(engine_.get(), features.waveform + (GEODE_WAVEFORM_POINTS - n), static_cast<unsigned int>(n), PROJECTM_MONO);
+        const int n = std::min(GEODE_SOUND_WAVEFORM_POINTS, kEnginePcmSamples);
+        projectm_pcm_add_float(engine_.get(), features.waveform + (GEODE_SOUND_WAVEFORM_POINTS - n), static_cast<unsigned int>(n), PROJECTM_MONO);
     }
 }
 
@@ -198,11 +206,30 @@ void MilkdropScene::loadPendingPreset(double now) {
         std::lock_guard<std::mutex> lock(errorLock_);
         lastError_.clear();
     }
-    projectm_load_preset_file(engine_.get(), path.c_str(), params_.milkdropBlendPresets);
-    projectm_set_preset_locked(engine_.get(), true);
+    // projectM 4.1.7 takes any "scheme://" it does not know as a silent no-op (Factory.cpp returns
+    // nullptr, StartPresetTransition returns, no failed event), which would count as a load here and
+    // put the idle preset on screen. Our presets are plain files, so such a path is a failed load.
+    const bool schemed = path.find("://") != std::string::npos;
+    if (schemed) {
+        std::lock_guard<std::mutex> lock(errorLock_);
+        lastError_ = "MilkDrop preset is not a file: " + path;
+    } else {
+        projectm_load_preset_file(engine_.get(), path.c_str(), engineHasPreset_ && params_.milkdropBlendPresets);
+        projectm_set_preset_locked(engine_.get(), true);
+    }
     const auto error = takeError();
     host_.onShaderError(error.value_or(""));
+    if (error && !engineHasPreset_) {
+        // projectM keeps the preset it had when a load fails, and a new engine's is the idle one.
+        // The last preset that did load goes back on instead, on the next frame.
+        std::lock_guard<std::mutex> lock(presetLock_);
+        if (pendingPresetPath_.empty() && !lastPresetPath_.empty() && lastPresetPath_ != path) {
+            pendingPresetPath_ = lastPresetPath_;
+            lastLoadSeconds_ = 0.0;
+        }
+    }
     if (!error) {
+        engineHasPreset_ = true;
         {
             std::lock_guard<std::mutex> lock(presetLock_);
             lastPresetPath_ = path;
@@ -228,6 +255,14 @@ void MilkdropScene::draw(float timeSeconds) {
     ensureEngine(now);
     if (!engine_ || !frame_.ensure(engineWidth_, engineHeight_)) return;
     loadPendingPreset(now);
+    if (!engineHasPreset_) {
+        // Nothing of ours to show yet: black, never projectM's idle preset.
+        glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(prevFbo));
+        glViewport(0, 0, width_, height_);
+        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
+        return;
+    }
     const SceneParams& p = params_;
     projectm_set_beat_sensitivity(engine_.get(), std::clamp(0.2f + p.beatResponse, 0.2f, 3.0f));
 
@@ -248,8 +283,7 @@ void MilkdropScene::draw(float timeSeconds) {
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, frame_.tex());
     glUniform1i(postLocs_.loc("uTex"), 0);
-    // Wave three: no more beat-triggered zoom bump - projectM's own preset motion carries this.
-    set1f("uZoom", p.zoom);
+    set1f("uZoom", p.zoom * (1.0f + beatPulse_ * p.beatResponse * 0.08f));
     set1f("uRotation", rotationAngle_);
     set1f("uZoomPhase", zoomPhase_);
     set1f("uMirrorX", p.mirror ? 1.0f : 0.0f);

@@ -3,6 +3,7 @@ package dev.geode.ui
 import android.content.SharedPreferences
 import dev.geode.data.Preset
 import dev.geode.data.PresetStore
+import dev.geode.render.MilkPresetMemory
 import dev.geode.render.TransitionCatalog
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -10,18 +11,19 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
-import java.io.File
 import java.util.concurrent.atomic.AtomicBoolean
 
 internal class VizStateStore(
     private val prefs: SharedPreferences,
     private val scope: CoroutineScope,
     autoVisualsPrefsStore: AutoVisualsPrefsStore,
+    private val milkPresets: MilkPresetMemory,
 ) {
     val state = MutableStateFlow(restore(autoVisualsPrefsStore))
 
-    private val _activeMilkPath =
-        MutableStateFlow(prefs.getString(KEY_MILK_PATH, null)?.takeIf { File(it).isFile })
+    // Starts on the preset the last run showed: the renderer restores that one itself (from the
+    // same MilkPresetMemory), and the Styles list, templates and takes must agree with the screen.
+    private val _activeMilkPath = MutableStateFlow(milkPresets.lastShown)
     val activeMilkPath: StateFlow<String?> = _activeMilkPath
 
     @Volatile
@@ -77,21 +79,18 @@ internal class VizStateStore(
             .commit()
     }
 
+    /** The renderer reported [path]; it has already saved it in [MilkPresetMemory]. */
     fun noteMilkPreset(path: String) {
         _activeMilkPath.value = path
-        prefs.edit().putString(KEY_MILK_PATH, path).apply()
     }
 
     fun dropRemovedMilkPaths(paths: List<String>) {
         if (_activeMilkPath.value in paths) _activeMilkPath.value = null
-        if (prefs.getString(KEY_MILK_PATH, null) in paths) {
-            prefs.edit().remove(KEY_MILK_PATH).apply()
-        }
+        milkPresets.forget(paths)
     }
 
     private companion object {
         const val KEY_LIVE_STATE = "live_state"
-        const val KEY_MILK_PATH = "milk_path"
         const val KEY_TRANSITION_ID = "transition_id"
         const val KEY_TRANSITION_DURATION_SEC = "transition_duration_sec"
         const val PERSIST_WINDOW_MS = 400L

@@ -7,16 +7,11 @@ import dev.geode.editor.EditorProject
 import dev.geode.editor.KeyframeId
 import dev.geode.editor.MarkerId
 import dev.geode.editor.SubtitleCue
-import dev.geode.editor.TransientEnvelope
-import dev.geode.editor.TransientSource
 import dev.geode.export.StudioClip
 import dev.geode.render.scene.SceneParams
 
 /** Everything the timeline UI needs from the session, so the composables stay free of the view model. */
 interface EditorActions {
-    /** The loaded project currently owned by the editor, including after this UI leaves composition. */
-    fun currentProjectIdentity(): Pair<String, EditorProject>? = null
-
     fun edit(transform: (EditorProject) -> EditorProject)
 
     fun apply(result: EditResult)
@@ -33,9 +28,6 @@ interface EditorActions {
 
     fun newKeyframeId(): KeyframeId
 
-    /** The analysed track's envelope, or null until the current track has been analysed. */
-    fun transientEnvelope(source: TransientSource): TransientEnvelope?
-
     fun currentSceneId(): String
 
     fun currentSceneParams(): SceneParams
@@ -49,7 +41,7 @@ interface EditorActions {
     )
 
     /**
-     * Renders the project's media lane to Movies/Geode, or to [destination] when the caller
+     * Renders the project's media lane to Movies/MuzViz, or to [destination] when the caller
      * already opened a folder document for it; progress arrives on the Studio state.
      */
     fun exportProject(destination: Uri? = null)

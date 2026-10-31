@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "api/geode_api.h"
+#include "viz/CameraRig.hpp"
 #include "viz/Params.hpp"
 #include "viz/TouchField.hpp"
 
@@ -23,7 +24,8 @@ public:
     virtual void init() = 0;
     virtual void setParams(const SceneParams& params) = 0;
     virtual void resize(int width, int height) = 0;
-    virtual void update(const GeodeFeatureFrame& features, float dt) = 0;
+    // sound: the renderer's sound frame with this scene's band trims applied (gainAdjusted).
+    virtual void update(const GeodeSoundFrame& sound, float dt) = 0;
     virtual void draw(float timeSeconds) = 0;
     virtual void release() = 0;
 
@@ -31,6 +33,10 @@ public:
     virtual void setFlow(GLuint texture, float strength) { (void) texture; (void) strength; }
     virtual void setPaletteLut(GLuint texture) { (void) texture; }
     virtual void setTouchField(const TouchField* field) { (void) field; }
+    // The renderer's camera rig pose, stable for the scene's lifetime; stepped once per frame before draw.
+    virtual void setCamera(const CameraPose* pose) { (void) pose; }
+    // True when the scene draws the rig's 3D pose itself, so the composite must not also apply its flat projection.
+    virtual bool drawsCamera() const { return false; }
     virtual void setFragmentSource(const std::string& source) { (void) source; }
     // > 0 keeps the previous frame in the scene target (Curl Flow); 0 clears it.
     virtual float trailRetention(const SceneParams& params) const { (void) params; return 0.0f; }
@@ -45,6 +51,9 @@ public:
     // The surface size in pixels, which MilkDrop renders at rather than the supersampled target.
     virtual void setWindowSize(int width, int height) { (void) width; (void) height; }
     virtual void queueMilkPreset(const std::string& path) { (void) path; }
+    // The last preset that compiled anywhere in this renderer: what a rebuilt MilkDrop scene falls
+    // back to when the preset it was asked for fails, rather than projectM's idle preset.
+    virtual void setMilkFallbackPreset(const std::string& path) { (void) path; }
     virtual void reloadMilkPreset() {}
     virtual void setMilkTextureDir(const std::string& dir) { (void) dir; }
 };
@@ -56,6 +65,8 @@ struct SceneHost {
     // The rate the display is being asked for (0 = free-running), for the fluid quality ladder.
     std::function<float()> pacedFps;
     std::function<void(const std::string& path)> onMilkPresetLoaded;
+    // Settings › Performance's march-step multiplier (0..1); unset means full budget.
+    std::function<float()> marchScale;
 };
 
 }  // namespace geode::viz

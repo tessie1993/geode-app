@@ -1,0 +1,54 @@
+# Baseline profile for the app's own code (AGP compiles this into the bundle as
+# baseline.prof; R8 rewrites it to the obfuscated names). The AndroidX and Compose
+# libraries ship their own profiles, which are merged in automatically.
+#
+# Hand-written for now: the cold-start path from Application.onCreate to the first
+# usable player frame, plus the paywall, which first-run users see right after
+# onboarding. A Macrobenchmark-generated profile replaces this when the module split
+# (ADR 0001) adds a :baselineprofile module; until then these rules keep the startup
+# path out of the interpreter on a fresh install.
+#
+# H = hot, S = run at startup, P = run after startup; ** matches any members.
+
+HSPLdev/geode/GeodeApp;->**(**)**
+HSPLdev/geode/GeodeContainer;->**(**)**
+HSPLdev/geode/RingLog;->**(**)**
+HSPLdev/geode/di/**;->**(**)**
+HSPLdev/geode/ui/MainActivity;->**(**)**
+HSPLdev/geode/ui/AppShellKt**;->**(**)**
+HSPLdev/geode/ui/GeodeAppState**;->**(**)**
+HSPLdev/geode/ui/PlayerViewModel**;->**(**)**
+HSPLdev/geode/ui/SettingsViewModel**;->**(**)**
+HSPLdev/geode/ui/PlayerSession**;->**(**)**
+HSPLdev/geode/ui/PlayerScreenKt**;->**(**)**
+HSPLdev/geode/ui/BootIntroKt**;->**(**)**
+HSPLdev/geode/ui/ThemeStore**;->**(**)**
+HSPLdev/geode/data/GeodePrefsFiles;->**(**)**
+HSPLdev/geode/data/PlayerPrefs**;->**(**)**
+HSPLdev/geode/playback/PlaybackEngine**;->**(**)**
+HSPLdev/geode/render/VisualizerView**;->**(**)**
+HSPLdev/geode/render/VisualizerRenderer**;->**(**)**
+HSPLdev/geode/pro/**;->**(**)**
+HSPLdev/geode/billing/**;->**(**)**
+HPLdev/geode/ui/pro/**;->**(**)**
+# The first frame draws through the theme and the shared Crystal/Glass components, and
+# PlayerSession builds every ui/*Controller at startup (PlayerSession** above only matches
+# the PlayerSession* classes themselves).
+HSPLdev/geode/ui/theme/**;->**(**)**
+HSPLdev/geode/ui/CrystalKt**;->**(**)**
+HSPLdev/geode/ui/CrystalControlsKt**;->**(**)**
+HSPLdev/geode/ui/GlassKt**;->**(**)**
+HSPLdev/geode/ui/ArtworkKt**;->**(**)**
+HSPLdev/geode/ui/PlayerPanelsKt**;->**(**)**
+HSPLdev/geode/ui/EnginePlumbingKt**;->**(**)**
+HSPLdev/geode/ui/*Controller**;->**(**)**
+# The first tap on the artwork opens the live view, and the other tabs are one tap away.
+HPLdev/geode/ui/VisualizerScreenKt**;->**(**)**
+HPLdev/geode/ui/PredictiveDismissKt**;->**(**)**
+HPLdev/geode/ui/LibraryScreenKt**;->**(**)**
+HPLdev/geode/ui/VisualsHubKt**;->**(**)**
+
+Ldev/geode/GeodeApp;
+Ldev/geode/ui/MainActivity;
+Ldev/geode/ui/PlayerViewModel;
+Ldev/geode/render/VisualizerView;

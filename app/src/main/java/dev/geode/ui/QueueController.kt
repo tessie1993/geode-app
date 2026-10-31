@@ -7,6 +7,8 @@ import androidx.core.net.toUri
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
+import dev.geode.model.DeviceTrack
+import dev.geode.model.LibraryTrack
 import dev.geode.playback.MediaArtwork
 import dev.geode.playback.QueueOps
 import kotlinx.coroutines.CoroutineScope
@@ -59,6 +61,40 @@ internal class QueueController(
     // Bumped by every open()/playFrom() so a title resolution batch from a superseded call can
     // detect it is stale and skip applying its results.
     private var openGeneration = 0
+
+    // Starts true so the first poll publishes whatever the process-wide player already holds.
+    private var queueStale = true
+
+    /**
+     * Marks the queue stale only when the player says its contents, order or position changed.
+     * It only sets a flag: a title resolution batch replaces items one by one, and rebuilding the
+     * whole queue for each of those events would cost more than the poll this replaced.
+     * Repeat mode is left out because [playOrder] ignores it.
+     */
+    private val queueListener =
+        object : Player.Listener {
+            override fun onEvents(
+                player: Player,
+                events: Player.Events,
+            ) {
+                val changed =
+                    events.containsAny(
+                        Player.EVENT_TIMELINE_CHANGED,
+                        Player.EVENT_MEDIA_ITEM_TRANSITION,
+                        Player.EVENT_SHUFFLE_MODE_ENABLED_CHANGED,
+                    )
+                if (changed) queueStale = true
+            }
+        }
+
+    init {
+        player.addListener(queueListener)
+    }
+
+    /** Detaches from the player, which outlives this controller's session. */
+    fun release() {
+        player.removeListener(queueListener)
+    }
 
     fun playTrack(uri: String) = playFrom(PlaybackQueue.contextFor(uri, lastBrowseContext, host.deviceTracks, host.libraryTracks), uri)
 
@@ -229,7 +265,7 @@ internal class QueueController(
                     .query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
                     ?.use { c -> if (c.moveToFirst()) c.getString(0) else null }
             }.getOrNull()?.substringBeforeLast('.')
-        return (name ?: "Track") to ""
+        return (name ?: application.getString(dev.geode.R.string.library_untitled_track)) to ""
     }
 
     private fun playOrder(): List<Int> {
@@ -242,7 +278,16 @@ internal class QueueController(
         )
     }
 
+    /**
+     * Called by the session's 500 ms poll. It used to rebuild every [QueueTrack] on Main each tick;
+     * now it rebuilds only after [queueListener] saw a change, so an idle queue costs one flag check.
+     */
     fun refreshQueue() {
+        if (queueStale) rebuildQueue()
+    }
+
+    private fun rebuildQueue() {
+        queueStale = false
         val order = playOrder()
         val tracks =
             order.mapIndexed { position, i ->
@@ -260,7 +305,7 @@ internal class QueueController(
                                 ?.lastPathSegment
                                 ?.substringAfterLast('/')
                                 ?.substringBeforeLast('.')
-                            ?: "Track ${position + 1}",
+                            ?: application.getString(dev.geode.R.string.playlist_untitled_track, position + 1),
                     artist =
                         item.mediaMetadata.artist
                             ?.toString()
@@ -275,7 +320,7 @@ internal class QueueController(
         val timelineIndex = QueueOps.timelineIndexOf(playOrder(), index)
         if (timelineIndex < 0) return
         player.removeMediaItem(timelineIndex)
-        refreshQueue()
+        rebuildQueue()
     }
 
     fun moveQueueItem(
@@ -287,7 +332,7 @@ internal class QueueController(
         val timelineTo = QueueOps.timelineIndexOf(order, to)
         if (timelineFrom < 0 || timelineTo < 0 || timelineFrom == timelineTo) return
         player.moveMediaItem(timelineFrom, timelineTo)
-        refreshQueue()
+        rebuildQueue()
     }
 
     fun queueTitles(): List<String> =
@@ -299,7 +344,7 @@ internal class QueueController(
                     ?.lastPathSegment
                     ?.substringAfterLast('/')
                     ?.substringBeforeLast('.')
-                ?: "Track ${position + 1}"
+                ?: application.getString(dev.geode.R.string.playlist_untitled_track, position + 1)
         }
 
     fun playQueueIndex(index: Int) {

@@ -29,26 +29,18 @@ public:
 
     std::array<AdsrConfig, kCount> configs{};
 
-    const std::array<float, kCount>& tick(float dt, const GeodeFeatureFrame& features);
+    const std::array<float, kCount>& tick(float dt, const GeodeSoundFrame& sound);
     static void lfoOffsets(const std::array<AdsrConfig, kCount>& configs, const std::array<float, kCount>& envs,
                            std::array<float, LfoEngine::kSlots>& rate, std::array<float, LfoEngine::kSlots>& depth);
     static SceneParams apply(const SceneParams& p, const std::array<AdsrConfig, kCount>& configs, const std::array<float, kCount>& envs);
 
 private:
     static constexpr float kChainRateHz = 4.0f;
-    // Wave three: the gate that used to fire on live::hit() is a continuous
-    // level crossing against a slow average of the envelope's own band
-    // energy instead - see tick().
-    static constexpr float kEnergyAvgTauSeconds = 4.0f;
-    static constexpr float kGateOpenRatio = 1.25f;
-    static constexpr float kGateCloseRatio = 1.0f;
 
     std::array<float, kCount> level_{};
     std::array<int, kCount> stage_{};
     std::array<float, kCount> out_{};
     std::array<float, kCount> peak_{1.0f, 1.0f};
-    std::array<float, kCount> energyAvg_{};
-    std::array<bool, kCount> aboveAvg_{};
 };
 
 }  // namespace geode::viz

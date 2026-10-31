@@ -2,8 +2,8 @@
 
 #include <algorithm>
 #include <cmath>
-#include <cstring>
 
+#include "viz/Catalogue.hpp"
 #include "viz/scenes/SceneCommon.hpp"
 
 namespace geode::viz {
@@ -13,8 +13,11 @@ namespace {
 constexpr int kPaletteRows = 5;
 constexpr int kMarchMaxSteps = 128;
 constexpr int kMarchFloorSteps = 64;
-constexpr float kMarchMinDetail = 0.25f;
-constexpr float kMarchMaxDetail = 1.5f;
+// The Detail range is the catalogue's: the shell's slider quotes the same numbers.
+constexpr float kMarchMinDetail = catalogue::kMarchDetail.min;
+constexpr float kMarchMaxDetail = catalogue::kMarchDetail.max;
+// The fewest steps Settings › Performance may scale a march down to; below this most SDFs miss surfaces.
+constexpr float kMarchMinScaledSteps = 24.0f;
 
 float paletteRowCoordinate(int index) {
     return (static_cast<float>(std::clamp(index, 0, kPaletteRows - 1)) + 0.5f) / static_cast<float>(kPaletteRows);
@@ -29,19 +32,11 @@ ShaderScene::ShaderScene(std::string id, std::string vertexSrc, std::string frag
       vertexSrc_(std::move(vertexSrc)),
       currentFragment_(std::move(fragmentSrc)),
       cache_(cache),
-      host_(std::move(host)),
-      pcm_(static_cast<size_t>(kAudioTexWidth) * 8, 0.0f) {
+      host_(std::move(host)) {
     pendingFragment_ = currentFragment_;
 }
 
 ShaderScene::~ShaderScene() { release(); }
-
-void ShaderScene::acceptPcm(const float* samples, int count) {
-    const int n = std::min(count, static_cast<int>(pcm_.size()));
-    if (n <= 0) return;
-    std::copy(samples + (count - n), samples + count, pcm_.begin());
-    pcmCount_ = n;
-}
 
 void ShaderScene::setFlow(GLuint texture, float strength) {
     flowTex_ = texture;
@@ -55,6 +50,7 @@ void ShaderScene::setFragmentSource(const std::string& source) {
 }
 
 void ShaderScene::init() {
+    motionField_.setVariant(styleVariantSeed(id_));
     program_ = 0;
     uniforms_ = UniformCache(0);
     {
@@ -62,9 +58,7 @@ void ShaderScene::init() {
         pendingFragment_ = currentFragment_;
     }
     glGenVertexArrays(1, &vao_);
-    const char* extensions = reinterpret_cast<const char*>(glGetString(GL_EXTENSIONS));
-    const bool floatLinear = extensions && std::strstr(extensions, "OES_texture_float_linear") != nullptr;
-    audioTex_.createImage(GL_R32F, GL_RED, GL_FLOAT, kAudioTexWidth, 2, floatLinear ? GL_LINEAR : GL_NEAREST, GL_CLAMP_TO_EDGE);
+    sound_.init();
 }
 
 void ShaderScene::resize(int width, int height) {
@@ -72,47 +66,15 @@ void ShaderScene::resize(int width, int height) {
     height_ = height;
 }
 
-// exp(-dt*hz) rather than a fixed per-frame fraction: the same wall-clock rise
-// on a 30fps device and a 120fps one, so the look does not change with the
-// frame rate the thermal governor happens to be pacing at.
-float ShaderScene::slew(float current, float target, float dt, float riseHz, float fallHz) {
-    const float hz = target > current ? riseHz : fallHz;
-    const float k = 1.0f - std::exp(-std::max(dt, 0.0f) * hz);
-    return current + (target - current) * k;
-}
-
-void ShaderScene::update(const GeodeFeatureFrame& features, float dt) {
+void ShaderScene::update(const GeodeSoundFrame& sound, float dt) {
+    sound_.step(sound, dt);
     const SceneParams& p = params_;
     shaderTime_ = std::fmod(shaderTime_ + p.speed * dt, kTimeWrapSeconds);
     rotationAngle_ = std::fmod(rotationAngle_ + p.rotation * dt, kTwoPi);
     zoomPhase_ = p.endlessZoom ? std::fmod(zoomPhase_ + p.endlessZoomSpeed * dt, 1.0f) : 0.0f;
     if (p.colorCycle) cyclePhase_ = std::fmod(cyclePhase_ + p.cycleSpeed * dt, 1.0f);
-    const float drive = safeAudioDrive(p.audioDrive);
-    bass_ = std::clamp(features.bass * drive, 0.0f, kAudioClamp);
-    mid_ = std::clamp(features.mid * drive, 0.0f, kAudioClamp);
-    treble_ = std::clamp(features.treble * drive, 0.0f, kAudioClamp);
-    energy_ = std::clamp(features.rms * drive, 0.0f, kAudioClamp);
-    smoothBass_ = slew(smoothBass_, bass_, dt, kBandRiseHz, kBandFallHz);
-    smoothMid_ = slew(smoothMid_, mid_, dt, kBandRiseHz, kBandFallHz);
-    smoothTreble_ = slew(smoothTreble_, treble_, dt, kBandRiseHz, kBandFallHz);
-    smoothEnergy_ = slew(smoothEnergy_, energy_, dt, kBandRiseHz, kBandFallHz);
-    swell_ = slew(swell_, energy_, dt, kSwellRiseHz, kSwellFallHz);
-    beatPhase_ = features.beatPhase;
     // Wave three: the continuous motion layer, never a transient/beat trigger.
-    motionField_.step(features, dt);
-    for (int i = 0; i < kAudioTexWidth; ++i) {
-        const int band = i * GEODE_BAND_COUNT / kAudioTexWidth;
-        texData_[static_cast<size_t>(i)] = std::clamp(features.bands[band] * drive, 0.0f, kAudioClamp);
-    }
-    if (pcmCount_ > 0) {
-        fillPcmRow(waveRow_.data(), kAudioTexWidth, pcm_.data(), pcmCount_);
-        pcmCount_ = 0;
-    } else {
-        fillPcmRow(waveRow_.data(), kAudioTexWidth, features.waveform, GEODE_WAVEFORM_POINTS);
-    }
-    for (int i = 0; i < kAudioTexWidth; ++i) {
-        texData_[static_cast<size_t>(kAudioTexWidth + i)] = std::clamp(waveRow_[static_cast<size_t>(i)] * drive * 0.5f + 0.5f, 0.0f, 1.0f);
-    }
+    motionField_.step(sound, dt);
 }
 
 void ShaderScene::draw(float timeSeconds) {
@@ -121,12 +83,8 @@ void ShaderScene::draw(float timeSeconds) {
     if (program_ == 0) return;
     glDisable(GL_BLEND);
     glUseProgram(program_);
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, audioTex_.id());
-    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, kAudioTexWidth, 2, GL_RED, GL_FLOAT, texData_.data());
     uploadParams();
     glUniform2f(uniforms_.loc("uResolution"), static_cast<float>(width_), static_cast<float>(height_));
-    glUniform1i(uniforms_.loc("uAudioTex"), 0);
     if (flowTex_ != 0) {
         glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_2D, flowTex_);
@@ -144,9 +102,13 @@ void ShaderScene::draw(float timeSeconds) {
     }
     set1f("uPalLutMix", flag(lutSelected));
     set1f("uPalLutRow", paletteRowCoordinate(std::max(p.paletteLut, 0)));
-    set1f("uSteps", marchSteps(p.marchDetail));
+    const float marchScale = host_.marchScale ? host_.marchScale() : 1.0f;
+    set1f("uSteps", std::max(std::round(marchSteps(p.marchDetail) * marchScale), kMarchMinScaledSteps));
     uploadMotion();
     uploadTouch();
+    uploadCamera();
+    // The whole GeodeSoundFrame for lib_sound; its texture takes unit 3 (1 and 2 are the flow and the palette LUT).
+    sound_.upload(uniforms_, p.audioDrive);
     glBindVertexArray(vao_);
     glDrawArrays(GL_TRIANGLES, 0, 3);
     glBindVertexArray(0);
@@ -155,10 +117,6 @@ void ShaderScene::draw(float timeSeconds) {
 void ShaderScene::uploadParams() {
     const SceneParams& p = params_;
     set1f("uTime", shaderTime_);
-    set1f("uBass", bass_);
-    set1f("uMid", mid_);
-    set1f("uTreble", treble_);
-    set1f("uEnergy", energy_);
     set1f("uSpeed", p.speed);
     set1f("uZoom", p.zoom);
     set1f("uRotation", rotationAngle_);
@@ -187,8 +145,6 @@ void ShaderScene::uploadParams() {
     set1f("uPosterize", p.posterize);
     set1f("uSway", p.sway);
     set1f("uPulse", p.pulse);
-    // The analyser's own phase-locked beat phase, not a transient-reset clock.
-    set1f("uBeatPhase", beatPhase_);
     set1f("uDriftX", p.driftX);
     set1f("uDriftY", p.driftY);
     set1f("uShake", p.shake);
@@ -205,12 +161,6 @@ void ShaderScene::uploadParams() {
 // and glUniform on a -1 location is a no-op, so this costs nothing on a style
 // that has not been converted.
 void ShaderScene::uploadMotion() {
-    set1f("uBassSmooth", smoothBass_);
-    set1f("uMidSmooth", smoothMid_);
-    set1f("uTrebleSmooth", smoothTreble_);
-    set1f("uEnergySmooth", smoothEnergy_);
-    set1f("uSwell", swell_);
-
     // Wave three: the continuous replacement for the spike-latched state.
     // Nothing here is a trigger; every value is a running average, a
     // phase-locked oscillator gated by confidence, or a slow re-target that
@@ -231,6 +181,15 @@ void ShaderScene::uploadMotion() {
     set1f("uBreath", m.breath);
     set1f("uFlowPhase", m.flowPhase);
     set1f("uMotion", std::clamp(params_.motionAmount, 0.0f, 1.0f));
+
+    // Legacy since wave three, held at their neutral constant until R08
+    // deletes the readers: a spike that never fires, a spawn born once and
+    // never re-rolled, a direction that never turns.
+    set1f("uSpike", 0.0f);
+    set1f("uSpawnSeed", 0.0f);
+    set1f("uSpawnAge", 1000.0f);
+    set1f("uFormPhase", 0.0f);
+    glUniform2f(uniforms_.loc("uMoveDir"), 1.0f, 0.0f);
 }
 
 void ShaderScene::uploadTouch() {
@@ -248,6 +207,19 @@ void ShaderScene::uploadTouch() {
     glUniform1i(uniforms_.loc("uTouchGesture"), touchField_ ? touchField_->gesture() : TouchField::kGestureNone);
     glUniform2f(uniforms_.loc("uTouchAxis"), touchField_ ? touchField_->axisX() : 0.0f, touchField_ ? touchField_->axisY() : 0.0f);
     set1f("uTouchSpin", touchField_ ? touchField_->spin() : 0.0f);
+}
+
+void ShaderScene::uploadCamera() {
+    if (camera_) {
+        const CameraPose& c = *camera_;
+        const float basis[9] = {c.right[0], c.right[1], c.right[2], c.up[0], c.up[1], c.up[2], c.fwd[0], c.fwd[1], c.fwd[2]};
+        glUniform3fv(uniforms_.loc("uCamPos"), 1, c.pos.data());
+        glUniformMatrix3fv(uniforms_.loc("uCamBasis"), 1, GL_FALSE, basis);
+        set1f("uCamFocal", c.focal);
+        set1f("uCamTravel", c.travel);
+        set1f("uCamDolly", c.dolly);
+        glUniform3f(uniforms_.loc("uCamLook"), c.yaw, c.pitch, c.roll);
+    }
 }
 
 void ShaderScene::set1f(const char* name, float value) {
@@ -282,6 +254,7 @@ void ShaderScene::compilePendingIfAny() {
     if (program_ != 0) glDeleteProgram(program_);
     program_ = built;
     uniforms_ = UniformCache(built);
+    drawsCamera_ = uniforms_.loc("uCamBasis") >= 0;
     currentFragment_ = *pending;
     host_.onShaderError("");
     if (fromUser) host_.onUserSourceCompiled(id_, currentFragment_);
@@ -290,7 +263,7 @@ void ShaderScene::compilePendingIfAny() {
 void ShaderScene::release() {
     if (program_ != 0) glDeleteProgram(program_);
     if (vao_ != 0) glDeleteVertexArrays(1, &vao_);
-    audioTex_.release();
+    sound_.release();
     program_ = 0;
     vao_ = 0;
     uniforms_ = UniformCache(0);

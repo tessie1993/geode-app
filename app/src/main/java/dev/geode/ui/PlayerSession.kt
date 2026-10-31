@@ -7,25 +7,22 @@ import androidx.annotation.OptIn
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
-import dev.geode.analysis.AudioFeatures
-import dev.geode.analysis.FeatureTimeline
-import dev.geode.analysis.IntelligenceMode
-import dev.geode.analysis.LiveInputProfile
-import dev.geode.audio.AudioBus
+import androidx.media3.common.util.Util
 import dev.geode.audio.AudioFxState
 import dev.geode.audio.MicCapture
 import dev.geode.data.BackgroundPrefs
 import dev.geode.data.BackgroundPrefsStore
+import dev.geode.data.DeviceTrackQuery
 import dev.geode.data.EditorProjectStore
 import dev.geode.data.FavouritesRepository
 import dev.geode.data.FilePresetRepository
 import dev.geode.data.FileSessionRepository
 import dev.geode.data.FileTakeRepository
 import dev.geode.data.FileTemplateRepository
+import dev.geode.data.GuiPrefs
 import dev.geode.data.LfoStore
 import dev.geode.data.MilkPackImporter
 import dev.geode.data.MilkTexture
-import dev.geode.data.OverlayPrefsStore
 import dev.geode.data.PlayerPrefs
 import dev.geode.data.PlayerPrefsRepository
 import dev.geode.data.PlayerPrefsStore
@@ -46,27 +43,29 @@ import dev.geode.data.TemplateImport
 import dev.geode.data.TemplateLook
 import dev.geode.data.TemplateRepository
 import dev.geode.data.TemplateWrite
+import dev.geode.data.UserDataRepository
 import dev.geode.data.VideoTemplate
+import dev.geode.export.BatchTrack
 import dev.geode.export.ExportAspect
 import dev.geode.export.ExportCodec
 import dev.geode.export.ExportRange
 import dev.geode.export.StudioClip
 import dev.geode.geodeContainer
+import dev.geode.model.DeviceTrack
+import dev.geode.model.LibraryTrack
 import dev.geode.playback.BitPerfectOutput
 import dev.geode.playback.PlaybackEngine
 import dev.geode.playback.PlaybackErrors
 import dev.geode.playback.PlaybackService
 import dev.geode.render.AdsrConfig
 import dev.geode.render.LfoConfig
+import dev.geode.render.MilkPresetMemory
 import dev.geode.render.SceneFactory
 import dev.geode.render.TransitionStyle
 import dev.geode.render.UnderlayBlend
 import dev.geode.render.scene.CustomizeTab
 import dev.geode.render.scene.PcmChunk
 import dev.geode.render.scene.SceneParams
-import dev.geode.viz.ArtTitleOptions
-import dev.geode.viz.LyricOptions
-import dev.geode.viz.WatermarkOptions
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -95,8 +94,6 @@ class PlayerSession internal constructor(
 
     private val ring = playback.ring
 
-    private val engine = playback.analysis
-
     @OptIn(ExperimentalCoroutinesApi::class)
     private val storeScope = CoroutineScope(SupervisorJob() + Dispatchers.IO.limitedParallelism(1))
 
@@ -122,13 +119,12 @@ class PlayerSession internal constructor(
             object : CaptureController.Host {
                 override fun pausePlayback() = player.pause()
 
-                override fun resetAnalysis() {
+                override fun resetSound() {
                     playback.sampleRing.beginEpoch()
-                    engine.reset()
                 }
 
-                override fun setAnalysisRate(rateHz: Int) {
-                    engine.sampleRateHz = rateHz
+                override fun setSoundRate(rateHz: Int) {
+                    playback.sampleRateHz = rateHz
                 }
 
                 override fun setMicReactivePref(on: Boolean) {
@@ -144,6 +140,10 @@ class PlayerSession internal constructor(
     val externalAudio: StateFlow<ExternalAudioState> get() = captureController.externalAudio
 
     fun setMicEnabled(enabled: Boolean): MicCapture.Failure? = captureController.setMicEnabled(enabled)
+
+    fun onAppBackground() = captureController.onBackground()
+
+    fun onAppForeground() = captureController.onForeground()
 
     fun hasMicPermission(): Boolean = captureController.hasMicPermission()
 
@@ -197,7 +197,7 @@ class PlayerSession internal constructor(
         )
 
     private val autoVisualsPrefsStore = AutoVisualsPrefsStore(prefsFiles.viz)
-    private val vizStateStore = VizStateStore(prefsFiles.viz, scope, autoVisualsPrefsStore)
+    private val vizStateStore = VizStateStore(prefsFiles.viz, scope, autoVisualsPrefsStore, MilkPresetMemory.shared(application))
     private val audioFxController = playback.audioFx
 
     private val settings: PlayerSettingsController =
@@ -206,12 +206,9 @@ class PlayerSession internal constructor(
             playerPrefsRepository,
             container.appScope,
             playback.player,
-            engine,
             playback.audioFx,
             playback.replayGain,
             object : PlayerSettingsController.Host {
-                override fun redecideCachedBeats(prefs: GuiPrefs) = analysis.redecideCachedBeats(prefs)
-
                 override fun refreshUi() = refresh()
 
                 override fun applyBitPerfect(enabled: Boolean) {
@@ -222,12 +219,9 @@ class PlayerSession internal constructor(
 
     private val visual: VisualSettingsController =
         VisualSettingsController(
-            engine,
             vizStateStore,
             object : VisualSettingsController.Host {
                 override val guiPrefs: GuiPrefs get() = settings.guiPrefs.value
-
-                override fun setGuiPrefs(prefs: GuiPrefs) = settings.setGuiPrefs(prefs)
 
                 override fun milkPathFor(preset: Preset): String? = presetLibrary.milkPresetPathFor(preset)
             },
@@ -238,15 +232,11 @@ class PlayerSession internal constructor(
     private val _uiState = MutableStateFlow(PlayerUiState())
     val uiState: StateFlow<PlayerUiState> = _uiState
 
+    private val _positionMs = MutableStateFlow(0L)
+    val positionMs: StateFlow<Long> = _positionMs
+
     private val _vizState get() = vizStateStore.state
     val vizState: StateFlow<VizUiState> get() = vizStateStore.state
-
-    init {
-        engine.beatSensitivity = settings.guiPrefs.value.beatSensitivity
-        engine.beatMinIntervalMs = settings.guiPrefs.value.effectiveBeatMinIntervalMs
-        engine.attack = _vizState.value.attack
-        engine.decay = _vizState.value.decay
-    }
 
     val exportState: StateFlow<ExportUiState> get() = exportController.exportState
 
@@ -285,8 +275,6 @@ class PlayerSession internal constructor(
 
     fun cycleRepeatMode() = settings.cycleRepeatMode()
 
-    fun applyLiveInputProfile(profile: LiveInputProfile) = visual.applyLiveInputProfile(profile)
-
     private val textureController: TextureController =
         TextureController(
             application,
@@ -315,9 +303,9 @@ class PlayerSession internal constructor(
 
     val lfos: StateFlow<List<LfoConfig>> get() = modulation.lfos
     val adsrs: StateFlow<List<AdsrConfig>> get() = modulation.adsrs
+    val reactions: StateFlow<List<dev.geode.render.ReactionRoute>?> get() = modulation.reactions
     val lockedParams: StateFlow<Set<String>> get() = modulation.lockedParams
     val paramHistory: StateFlow<ParamHistoryState> get() = modulation.history
-    val abSnapshots: StateFlow<AbSnapshotState> get() = modulation.ab
 
     fun toggleParamLock(label: String) = modulation.toggleParamLock(label)
 
@@ -333,16 +321,6 @@ class PlayerSession internal constructor(
 
     fun resetAllCustomize() = modulation.resetAll()
 
-    fun captureSnapshotA() = modulation.captureA()
-
-    fun captureSnapshotB() = modulation.captureB()
-
-    fun recallSnapshotA() = modulation.recallA()
-
-    fun recallSnapshotB() = modulation.recallB()
-
-    fun blendSnapshots(t: Float) = modulation.blendAb(t)
-
     fun setAdsr(
         index: Int,
         config: AdsrConfig,
@@ -352,6 +330,10 @@ class PlayerSession internal constructor(
         index: Int,
         config: LfoConfig,
     ) = modulation.setLfo(index, config)
+
+    fun setReactions(routes: List<dev.geode.render.ReactionRoute>?) = modulation.setReactions(routes)
+
+    fun rerollReactions() = modulation.rerollReactions()
 
     fun importTextures(
         uris: List<Uri>,
@@ -364,24 +346,6 @@ class PlayerSession internal constructor(
         name: String,
         onReady: (String) -> Unit,
     ) = textureController.useTexture(name, onReady)
-
-    val features: StateFlow<AudioFeatures> = engine.features
-
-    fun enrichFeatures(f: AudioFeatures): AudioFeatures {
-        val ui = _uiState.value
-        if (ui.durationMs <= 0L) return f
-        val pos = ui.positionMs.coerceIn(0L, ui.durationMs)
-        val sections = _vizState.value.sections
-        var idx = 0
-        for (s in sections) {
-            if (s <= pos) idx++ else break
-        }
-        return f.copy(
-            progress = pos.toFloat() / ui.durationMs,
-            sectionIndex = idx,
-            sectionCount = sections.size + 1,
-        )
-    }
 
     private val pcmScratch = FloatArray(4096)
     private var pcmCursor = 0L
@@ -466,6 +430,7 @@ class PlayerSession internal constructor(
                     sceneId: String,
                 ) = visual.emitApply(VizApply(milkPath = path, sceneId = sceneId))
             },
+            takeName = { application.getString(dev.geode.R.string.take_default_name, it) },
         )
 
     val takeState: StateFlow<TakeUiState> get() = takeController.state
@@ -479,59 +444,15 @@ class PlayerSession internal constructor(
             scope,
             object : TrackColorController.Host {
                 override val currentUri: Uri? get() = this@PlayerSession.currentUri
-                override val keyColorEnabled: Boolean get() = guiPrefs.value.keyColor
                 override val params: SceneParams get() = _vizState.value.params
-                override val currentTrackKey: String? get() = currentTrackKey()
 
                 override fun setSceneParams(params: SceneParams) = visual.setSceneParams(params)
-
-                override fun persistKeyColorPref(enabled: Boolean) {
-                    setGuiPrefs(guiPrefs.value.copy(keyColor = enabled))
-                }
             },
         )
 
     val artPaletteNote: StateFlow<String?> get() = trackColor.artPaletteNote
 
-    fun applyKeyColor(key: String) = trackColor.applyKeyColor(key)
-
-    fun setKeyColor(enabled: Boolean) = trackColor.setKeyColor(enabled)
-
     fun applyArtworkPalette() = trackColor.applyArtworkPalette()
-
-    fun currentTrackKey(): String? {
-        val uri = currentUri?.toString() ?: return null
-        return library.value.tracks
-            .firstOrNull { it.uri == uri }
-            ?.key
-            ?.takeIf { it.isNotBlank() }
-    }
-
-    private val analysis: TrackAnalysisController =
-        TrackAnalysisController(
-            application,
-            scope,
-            object : TrackAnalysisController.Host {
-                override val currentUri: Uri? get() = this@PlayerSession.currentUri
-                override val guiPrefs: GuiPrefs get() = settings.guiPrefs.value
-                override val vizState: MutableStateFlow<VizUiState> get() = _vizState
-                override val playerPositionMs: Long get() = player.currentPosition
-                override val presetLocked: Boolean get() = _presetLocked.value
-
-                override fun applyKeyColor(key: String) = trackColor.applyKeyColor(key)
-
-                override fun noteAnalysis(
-                    uri: Uri,
-                    timeline: FeatureTimeline,
-                ) = musicLibrary.noteAnalysis(uri, timeline)
-            },
-        )
-
-    val waveform: StateFlow<FloatArray?> get() = analysis.waveform
-
-    fun setIntelligenceMode(mode: IntelligenceMode) = analysis.setIntelligenceMode(mode)
-
-    fun analyzeCurrentTrack() = analysis.analyzeCurrentTrack()
 
     private val _lyrics = MutableStateFlow<Lyrics?>(null)
 
@@ -539,16 +460,10 @@ class PlayerSession internal constructor(
 
     private fun loadLyricsFor(uri: Uri?) {
         _lyrics.value = null
-        overlay.setLyrics(null)
         if (uri == null) return
         scope.launch(Dispatchers.IO) {
             val found = LyricsLoader.load(application, uri)
-            withContext(Dispatchers.Main) {
-                if (currentUri == uri) {
-                    _lyrics.value = found
-                    overlay.setLyrics(found)
-                }
-            }
+            withContext(Dispatchers.Main) { if (currentUri == uri) _lyrics.value = found }
         }
     }
 
@@ -558,10 +473,10 @@ class PlayerSession internal constructor(
     private var playerListener: Player.Listener? = null
 
     private fun refresh() {
-        val next =
+        _positionMs.value = player.currentPosition.coerceAtLeast(0)
+        _uiState.value =
             PlayerUiState(
                 isPlaying = player.isPlaying,
-                positionMs = player.currentPosition.coerceAtLeast(0),
                 durationMs = player.duration.coerceAtLeast(0),
                 artist = player.mediaMetadata.artist?.toString(),
                 title =
@@ -578,8 +493,6 @@ class PlayerSession internal constructor(
                 shuffle = player.shuffleModeEnabled,
                 repeatMode = player.repeatMode,
             )
-        _uiState.value = next
-        overlay.onTick(next.title, next.artist, next.positionMs, currentUri?.toString())
     }
 
     private val sleepTimer = playback.sleepTimer
@@ -625,22 +538,23 @@ class PlayerSession internal constructor(
                 override fun updateViz(transform: (VizUiState) -> VizUiState) = _vizState.update(transform)
 
                 override val isPlaying: Boolean get() = _uiState.value.isPlaying
-                override val positionMs: Long get() = _uiState.value.positionMs
-
-                override fun features() = engine.features.value
 
                 override val presetLocked: Boolean get() = _presetLocked.value
 
-                override fun selectScene(sceneId: String) = visual.selectScene(sceneId)
+                // Auto-visuals only cycles through styles the user may keep; it never opens the
+                // paywall on its own.
+                override fun selectScene(sceneId: String) {
+                    if (allowsStyle(sceneId)) visual.selectScene(sceneId)
+                }
 
-                override fun applyPreset(preset: Preset) = visual.applyPreset(preset)
+                override fun applyPreset(preset: Preset) {
+                    if (allowsStyle(preset.sceneId)) visual.applyPreset(preset)
+                }
 
                 override fun applyMilk(
                     path: String,
                     sceneId: String,
                 ) = visual.emitApply(VizApply(milkPath = path, sceneId = sceneId))
-
-                override fun analyzeCurrentTrack() = analysis.analyzeCurrentTrack()
 
                 override fun milkFilesAsync(onDone: (List<MilkFile>) -> Unit) = milkPresetFilesAsync(onDone)
             },
@@ -652,15 +566,11 @@ class PlayerSession internal constructor(
 
     fun setVizPlaylistEnabled(enabled: Boolean) = autoVisuals.setVizPlaylistEnabled(enabled)
 
-    fun setVizPlaylistIntelligent(enabled: Boolean) = autoVisuals.setVizPlaylistIntelligent(enabled)
-
     fun setVizPlaylistInterval(seconds: Int) = autoVisuals.setVizPlaylistInterval(seconds)
 
     fun setRandomEnabled(enabled: Boolean) = autoVisuals.setRandomEnabled(enabled)
 
     fun setRandomInterval(seconds: Int) = autoVisuals.setRandomInterval(seconds)
-
-    fun setRandomOnSection(enabled: Boolean) = autoVisuals.setRandomOnSection(enabled)
 
     fun setRandomIncludeStyles(enabled: Boolean) = autoVisuals.setRandomIncludeStyles(enabled)
 
@@ -670,54 +580,9 @@ class PlayerSession internal constructor(
 
     fun setRandomizeColors(enabled: Boolean) = autoVisuals.setRandomizeColors(enabled)
 
-    fun setSectionStaging(enabled: Boolean) = autoVisuals.setSectionStaging(enabled)
-
     fun randomStepNow() = autoVisuals.randomStepNow()
 
     fun applyVizEntry(entry: VizPlaylistEntry) = autoVisuals.applyVizEntry(entry)
-
-    private val overlayPixelsFlow = MutableStateFlow(OverlayPixels(null, 0, 0))
-    internal val overlayPixels: StateFlow<OverlayPixels> = overlayPixelsFlow
-
-    private val overlay: OverlayController =
-        OverlayController(
-            application,
-            OverlayPrefsStore(prefsFiles.viz),
-            storeScope,
-            object : OverlayController.Host {
-                override fun publishOverlay(pixels: OverlayPixels) {
-                    overlayPixelsFlow.value = pixels
-                }
-            },
-        )
-
-    internal val overlayOptions: StateFlow<ArtTitleOptions> get() = overlay.options
-
-    internal fun setOverlayOptions(transform: (ArtTitleOptions) -> ArtTitleOptions) = overlay.setOptions(transform)
-
-    internal val overlayLyricOptions: StateFlow<LyricOptions> get() = overlay.lyricOptions
-
-    internal fun setOverlayLyricOptions(transform: (LyricOptions) -> LyricOptions) = overlay.setLyricOptions(transform)
-
-    internal fun setOverlaySurfaceSize(
-        width: Int,
-        height: Int,
-    ) = overlay.onSurfaceSizeChanged(width, height)
-
-    internal val watermarkOptions: StateFlow<WatermarkOptions> get() = overlay.watermarkOptions
-
-    internal fun setWatermarkOptions(transform: (WatermarkOptions) -> WatermarkOptions) = overlay.setWatermarkOptions(transform)
-
-    internal fun pickWatermarkImage(uri: Uri) = overlay.pickWatermarkImage(uri)
-
-    internal fun clearWatermarkImage() = overlay.clearWatermarkImage()
-
-    /** For [ExportController]: a per-position overlay provider at the export's own frame size. */
-    internal fun overlayProviderForExport(
-        width: Int,
-        height: Int,
-    ): (Long) -> IntArray? =
-        overlay.overlayProviderForExport(width, height, _uiState.value.title, _uiState.value.artist, currentUri?.toString())
 
     val deviceTracks: StateFlow<List<DeviceTrack>> get() = musicLibrary.deviceTracks
 
@@ -761,17 +626,14 @@ class PlayerSession internal constructor(
 
     fun rescanMediaRoots() = musicLibrary.rescanMediaRoots()
 
-    fun createMusicPlaylist(
-        name: String,
-        uris: List<String> = emptyList(),
-    ) = musicLibrary.createMusicPlaylist(name, uris)
+    fun createMusicPlaylist(name: String) = musicLibrary.createMusicPlaylist(name)
 
     suspend fun importPlaylistFile(uri: Uri): PlaylistImportResult = musicLibrary.importPlaylistFile(uri)
 
     fun renameMusicPlaylist(
         oldName: String,
         newName: String,
-    ) = musicLibrary.renameMusicPlaylist(oldName, newName)
+    ): Boolean = musicLibrary.renameMusicPlaylist(oldName, newName)
 
     fun moveMusicPlaylistTrack(
         name: String,
@@ -857,11 +719,9 @@ class PlayerSession internal constructor(
     }
 
     fun cycleAutoMode() {
-        val next = (_autoMode.value + 1) % 4
+        val next = (_autoMode.value + 1) % 2
         _autoMode.value = next
         setRandomEnabled(next == 1)
-        setIntelligenceMode(if (next == 2) IntelligenceMode.AUTO else IntelligenceMode.MANUAL)
-        setSectionStaging(next == 3)
     }
 
     fun playNext(uri: String) = queueController.playNext(uri)
@@ -950,7 +810,8 @@ class PlayerSession internal constructor(
         } else if (player.isPlaying) {
             player.pause()
         } else {
-            player.play()
+            // play() alone is a no-op once the track has ENDED (repeat off); this rewinds first.
+            Util.handlePlayButtonAction(player)
         }
     }
 
@@ -959,17 +820,8 @@ class PlayerSession internal constructor(
     fun seekTo(fraction: Float) = queueController.seekTo(fraction)
 
     private fun onTrackChanged() {
-        engine.reset()
-        autoVisuals.onTrackChanged()
-        analysis.timeline = null
         clearAbLoop()
         loadLyricsFor(currentUri)
-        _vizState.update { it.copy(suggestedSceneId = null, bpm = 0f, sections = emptyList()) }
-        if (_vizState.value.intelligenceMode != IntelligenceMode.MANUAL) {
-            analyzeCurrentTrack()
-        } else {
-            analysis.loadCachedForManualMode()
-        }
     }
 
     private val _playbackNotice = MutableStateFlow<String?>(null)
@@ -999,7 +851,16 @@ class PlayerSession internal constructor(
 
     fun setExportTake(name: String?) = takeController.setExportTake(name)
 
-    fun selectScene(sceneId: String) = visual.selectScene(sceneId)
+    /**
+     * The Pro style gate, set by [dev.geode.di.PlayerSessionProvider] from the entitlement use
+     * case. Open until set, so a session built outside the provider (a test) behaves as before.
+     */
+    internal var allowsStyle: (String) -> Boolean = { true }
+
+    /** What a refused style does: the provider opens the paywall. */
+    internal var onStyleLocked: () -> Unit = {}
+
+    fun selectScene(sceneId: String) = if (allowsStyle(sceneId)) visual.selectScene(sceneId) else onStyleLocked()
 
     fun setReactivity(
         attack: Float,
@@ -1025,7 +886,7 @@ class PlayerSession internal constructor(
 
     fun setTransitionDuration(seconds: Float) = visual.setTransitionDuration(seconds)
 
-    fun applyPreset(preset: Preset) = visual.applyPreset(preset)
+    fun applyPreset(preset: Preset) = if (allowsStyle(preset.sceneId)) visual.applyPreset(preset) else onStyleLocked()
 
     fun savePreset(
         name: String,
@@ -1089,43 +950,19 @@ class PlayerSession internal constructor(
             scope,
             object : ExportController.Host {
                 override val exportUri: Uri? get() = currentUri
-                override var cachedTimeline: FeatureTimeline?
-                    get() = analysis.timeline
-                    set(value) {
-                        analysis.timeline = value
-                    }
-
-                override suspend fun analyze(
-                    uri: Uri,
-                    onProgress: (Float) -> Unit,
-                ): FeatureTimeline = analysis.analyzeCached(uri, onProgress)
-
                 override val guiPrefs: GuiPrefs get() = settings.guiPrefs.value
                 override val sceneId: String get() = _vizState.value.sceneId
                 override val sceneParams get() = _vizState.value.params
-                override val positionMs: Long get() = player.currentPosition.coerceAtLeast(0)
 
                 override fun lfoConfigs() = modulation.lfos.value
 
                 override fun adsrConfigs() = modulation.adsrs.value
 
+                override fun reactions() = modulation.reactions.value
+
                 override fun keyframes() = editor.state.value.project.keyframes
 
                 override suspend fun loadExportTake() = takeController.loadExportTake()
-
-                override fun publishSections(
-                    uri: Uri,
-                    timeline: FeatureTimeline,
-                ) {
-                    if (currentUri == uri && _vizState.value.sections.isEmpty()) {
-                        _vizState.update { it.copy(bpm = timeline.bpm, sections = timeline.detectSections()) }
-                    }
-                }
-
-                override fun overlayPixelsFor(
-                    width: Int,
-                    height: Int,
-                ): (Long) -> IntArray? = overlayProviderForExport(width, height)
             },
         )
 
@@ -1157,8 +994,6 @@ class PlayerSession internal constructor(
         height: Int,
     ) = backgroundController.setRenderSize(width, height)
 
-    fun analysisTimeline(): FeatureTimeline? = analysis.timeline
-
     fun currentSceneId(): String = _vizState.value.sceneId
 
     fun currentSceneParams(): SceneParams = _vizState.value.params
@@ -1178,25 +1013,25 @@ class PlayerSession internal constructor(
         fps: Int,
         sceneFactory: SceneFactory,
         destination: Uri? = null,
-        loopSafe: Boolean = false,
         range: ExportRange? = null,
         sceneFactoryFor: ((String) -> SceneFactory)? = null,
         codec: ExportCodec = ExportCodec.H264,
-    ) = exportController.startExport(aspect, fps, sceneFactory, destination, loopSafe, range, sceneFactoryFor, codec)
+        watermark: Boolean = false,
+    ) = exportController.startExport(aspect, fps, sceneFactory, destination, range, sceneFactoryFor, codec, watermark)
+
+    fun startBatch(
+        tracks: List<BatchTrack>,
+        aspect: ExportAspect,
+        fps: Int,
+        sceneFactory: SceneFactory,
+        sceneParams: SceneParams?,
+        codec: ExportCodec,
+        watermark: Boolean,
+    ) = exportController.startBatch(tracks, aspect, fps, sceneFactory, sceneParams, codec, watermark)
 
     fun cancelExport() = exportController.cancelExport()
 
     fun resetExportState() = exportController.resetExportState()
-
-    val stillState: StateFlow<StillPhase> get() = exportController.stillState
-
-    fun saveStillFrame(
-        aspect: ExportAspect,
-        sceneFactory: SceneFactory,
-        destination: Uri? = null,
-    ) = exportController.saveStillFrame(aspect, sceneFactory, destination)
-
-    fun resetStillState() = exportController.resetStillState()
 
     fun refreshStudioClips() = exportController.refreshStudioClips()
 
@@ -1240,7 +1075,8 @@ class PlayerSession internal constructor(
         drift: dev.geode.export.TimeOfDayDrift,
         audioClips: List<Uri>,
         destination: Uri? = null,
-    ) = exportController.startLoopRender(aspect, codec, fps, sceneFactory, loopMs, crossfadeMs, drift, audioClips, destination)
+        watermark: Boolean = false,
+    ) = exportController.startLoopRender(aspect, codec, fps, sceneFactory, loopMs, crossfadeMs, drift, audioClips, destination, watermark)
 
     fun cancelLoopRender() = exportController.cancelLoopRender()
 
@@ -1260,8 +1096,8 @@ class PlayerSession internal constructor(
                 .toList()
 
         captureController.shutdown()
-        AudioBus.removeConsumer()
         playerListener?.let { player.removeListener(it) }
+        queueController.release()
         playerListener = null
         if (playback.onAudioFormat === captureController.audioFormatHook) playback.onAudioFormat = null
         if (sleepTimer.onFadeVolume === fades.sleepFadeHook) sleepTimer.onFadeVolume = null
@@ -1296,7 +1132,6 @@ class PlayerSession internal constructor(
     }
 
     init {
-        AudioBus.addConsumer()
         // Last init block in the class, so every field above is assigned by now — which is what
         // the capture controller needs before it may call back into this session.
         captureController.start()
@@ -1350,18 +1185,6 @@ class PlayerSession internal constructor(
                         }
                         onTrackChanged()
                         bookmarks.onTrackStarted(player)
-                    }
-                }
-
-                override fun onPositionDiscontinuity(
-                    oldPosition: Player.PositionInfo,
-                    newPosition: Player.PositionInfo,
-                    reason: Int,
-                ) {
-                    if (reason == Player.DISCONTINUITY_REASON_SEEK ||
-                        reason == Player.DISCONTINUITY_REASON_SEEK_ADJUSTMENT
-                    ) {
-                        engine.reset()
                     }
                 }
 
@@ -1420,10 +1243,8 @@ class PlayerSession internal constructor(
             queueController.refreshQueue()
             captureController.refreshExternalAudio()
             captureController.refreshMicState()
-            analysis.applyIntelligence()
             autoVisuals.advanceVizPlaylist()
             autoVisuals.advanceRandomMode()
-            autoVisuals.advanceSectionStaging()
             listening.persistSession()
             bookmarks.onPoll(player)
             delay(POLL_INTERVAL_MS)

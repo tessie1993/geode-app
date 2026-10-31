@@ -23,7 +23,8 @@ Renderer::Renderer(AAssetManager* assets, std::string cacheDir)
                 SceneHost{[this](const std::string& m) { fail(m); },
                           [this](const std::string& id, const std::string& src) { rememberCustomShader(id, src); },
                           [this] { return thermal_.pacedFps(); },
-                          [this](const std::string& path) { notePresetLoaded(path); }}),
+                          [this](const std::string& path) { notePresetLoaded(path); },
+                          [this] { return marchScale_.load(std::memory_order_relaxed); }}),
       compositePass_(assets_, &programCache_),
       pcm_(kPcmCapacity, 0.0f),
       pcmDeliverScratch_(kPcmCapacity, 0.0f) {
@@ -40,22 +41,6 @@ void Renderer::setParams(const SceneParams& params) {
 bool Renderer::setParam(const std::string& key, float value) {
     std::lock_guard<std::mutex> lock(stateLock_);
     return requestedParams_.set(key, value);
-}
-
-void Renderer::setFeatures(const GeodeFeatureFrame& features) {
-    // The feature frame is another trust boundary: geode_viz_set_features memcpy's the caller's
-    // floats verbatim, and a NaN band reaching a scene is sticky - the slew() smoothers in the
-    // scene families never recover from one. GeodeFeatureFrame is all-float by construction
-    // (GEODE_FEATURE_FRAME_FLOATS asserts the count), so scrub it as a flat array on the way in.
-    static_assert(sizeof(GeodeFeatureFrame) == GEODE_FEATURE_FRAME_FLOATS * sizeof(float),
-                  "GeodeFeatureFrame must stay a flat float struct for the finiteness scrub below");
-    GeodeFeatureFrame clean = features;
-    float* values = reinterpret_cast<float*>(&clean);
-    for (size_t i = 0; i < GEODE_FEATURE_FRAME_FLOATS; ++i) {
-        if (!std::isfinite(values[i])) values[i] = 0.0f;
-    }
-    std::lock_guard<std::mutex> lock(stateLock_);
-    features_ = clean;
 }
 
 void Renderer::setLayer(const std::string& sceneId, float mix, int blendOrdinal) {
@@ -87,6 +72,32 @@ void Renderer::pushPcm(const float* samples, int count) {
     if (n <= 0) return;
     std::copy(samples + (count - n), samples + count, pcm_.begin());
     pcmCount_ = n;
+}
+
+void Renderer::writeAudio(const float* interleaved, int frames, int channels, int sampleRateHz) {
+    if (!interleaved || frames <= 0 || channels <= 0 || sampleRateHz <= 0) return;
+    std::lock_guard<std::mutex> lock(soundLock_);
+    if (!sound_ || sound_->sampleRateHz() != sampleRateHz) {
+        sound_ = std::make_unique<sound::SoundEngine>(sampleRateHz);
+        sound_->setTuning(macros::tuning(soundTuning_, tunedKnobs_));
+    }
+    sound_->write(interleaved, frames, channels);
+}
+
+void Renderer::resetAudio() {
+    std::lock_guard<std::mutex> lock(soundLock_);
+    if (sound_) sound_->reset();
+}
+
+void Renderer::setSoundTuning(const GeodeSoundTuning& tuning) {
+    std::lock_guard<std::mutex> lock(soundLock_);
+    soundTuning_ = tuning;
+    if (sound_) sound_->setTuning(macros::tuning(tuning, tunedKnobs_));
+}
+
+GeodeSoundFrame Renderer::soundFrame() const {
+    std::lock_guard<std::mutex> lock(soundLock_);
+    return soundFrame_;
 }
 
 void Renderer::setCustomShader(const std::string& sceneId, const std::string& fragmentSource) {
@@ -129,6 +140,7 @@ void Renderer::setMilkTextureDir(const std::string& dir) {
 void Renderer::notePresetLoaded(const std::string& path) {
     std::lock_guard<std::mutex> lock(stateLock_);
     lastMilkPreset_ = path;
+    lastGoodMilkPreset_ = path;
     milkPresetLoaded_ = path;
 }
 
@@ -279,6 +291,11 @@ void Renderer::setAdsrConfigs(const std::array<AdsrConfig, AdsrEngine::kCount>& 
     adsr_.configs = configs;
 }
 
+void Renderer::setReactionRoutes(const std::array<ReactRoute, ReactionEngine::kRoutes>& routes) {
+    std::lock_guard<std::mutex> lock(stateLock_);
+    reactions_.routes = routes;
+}
+
 void Renderer::fail(const std::string& message) {
     {
         std::lock_guard<std::mutex> lock(stateLock_);
@@ -374,6 +391,9 @@ void Renderer::onSurfaceCreated() {
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     lastTimeS_ = -1.0;
     motionField_.reset();
+    reactions_.reset();
+    macroReactions_.reset();
+    camera_.reset();
 }
 
 void Renderer::surfaceChanged(int width, int height) {
@@ -383,9 +403,23 @@ void Renderer::surfaceChanged(int width, int height) {
     applyRenderScale();
 }
 
+void Renderer::setUserQuality(float renderScale, float marchScale, bool postFx, bool adaptive) {
+    // std::clamp passes NaN through, and a NaN scale would never equal appliedUserScale_ again,
+    // resizing every frame; a corrupt pref means full quality instead.
+    const auto unit = [](float v) { return std::isfinite(v) ? std::clamp(v, 0.25f, 1.0f) : 1.0f; };
+    userScale_.store(unit(renderScale), std::memory_order_relaxed);
+    marchScale_.store(unit(marchScale), std::memory_order_relaxed);
+    userPostFx_.store(postFx, std::memory_order_relaxed);
+    thermal_.setAdaptive(adaptive);
+}
+
 void Renderer::applyRenderScale() {
     appliedTier_ = thermal_.tier();
-    const float scale = supersampleFactor(width_, height_) * thermalTierInfo(appliedTier_).renderScale;
+    appliedUserScale_ = userScale_.load(std::memory_order_relaxed);
+    // A user scale below 1 also drops the small-screen supersample: someone who asked for fewer
+    // pixels did not mean 1.4x of fewer pixels.
+    const float supersample = appliedUserScale_ < 1.0f ? 1.0f : supersampleFactor(width_, height_);
+    const float scale = supersample * appliedUserScale_ * thermalTierInfo(appliedTier_).renderScale;
     renderWidth_ = std::max(static_cast<int>(width_ * scale), 1);
     renderHeight_ = std::max(static_cast<int>(height_ * scale), 1);
     for (auto& entry : scenes_) {
@@ -408,6 +442,7 @@ bool Renderer::setScene(const std::string& sceneId) {
     if (!registry_.knows(sceneId)) return false;
     std::lock_guard<std::mutex> lock(stateLock_);
     requestedSceneId_ = sceneId;
+    sceneSpin_.store(SceneRegistry::spinRate(sceneId), std::memory_order_relaxed);
     return true;
 }
 
@@ -446,6 +481,7 @@ std::unique_ptr<Scene> Renderer::buildScene(const std::string& id) {
     std::string force;
     std::string dye;
     std::string preset;
+    std::string goodPreset;
     std::string textureDir;
     {
         std::lock_guard<std::mutex> lock(stateLock_);
@@ -453,10 +489,12 @@ std::unique_ptr<Scene> Renderer::buildScene(const std::string& id) {
         force = fluidForceSrc_;
         dye = fluidDyeSrc_;
         preset = lastMilkPreset_;
+        goodPreset = lastGoodMilkPreset_;
         textureDir = milkTextureDir_;
     }
     if (paletteLutTex_ != 0) scene->setPaletteLut(paletteLutTex_);
     scene->setTouchField(&touchField_);
+    scene->setCamera(&camera_.pose());
     scene->init();
     scene->setParams(initialParams);
     scene->resize(renderWidth_, renderHeight_);
@@ -465,6 +503,7 @@ std::unique_ptr<Scene> Renderer::buildScene(const std::string& id) {
     if (!force.empty() || !dye.empty()) scene->setInjectionShaders(force, dye);
     scene->setWindowSize(width_, height_);
     if (!textureDir.empty()) scene->setMilkTextureDir(textureDir);
+    if (!goodPreset.empty()) scene->setMilkFallbackPreset(goodPreset);
     if (!preset.empty()) scene->queueMilkPreset(preset);
     return scene;
 }

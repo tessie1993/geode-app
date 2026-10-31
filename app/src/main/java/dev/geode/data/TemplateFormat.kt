@@ -74,6 +74,7 @@
 
 package dev.geode.data
 
+import dev.geode.model.PresetLink
 import dev.geode.render.scene.SceneIds
 import dev.geode.render.scene.SceneParams
 import org.json.JSONArray
@@ -503,7 +504,7 @@ object TemplateFormat {
         source: JSONObject?,
         key: String,
         fallback: Float,
-    ): Float = source?.finiteDouble(key, fallback.toDouble())?.toFloat() ?: fallback
+    ): Float = source?.optDouble(key, fallback.toDouble())?.toFloat() ?: fallback
 
     private fun optStringOrNull(
         source: JSONObject?,

@@ -1,6 +1,5 @@
 package dev.geode.ui.studio
 
-import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -11,14 +10,17 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -29,7 +31,6 @@ import androidx.compose.ui.unit.dp
 import dev.geode.R
 import dev.geode.editor.AnimatableParam
 import dev.geode.editor.AnimatableParams
-import dev.geode.editor.AutoCut
 import dev.geode.editor.Clip
 import dev.geode.editor.ClipContent
 import dev.geode.editor.ClipId
@@ -59,10 +60,6 @@ import dev.geode.export.ChapterWriteResult
 import dev.geode.ui.EditorUiState
 import dev.geode.ui.ExportPhase
 import dev.geode.ui.isBusy
-import dev.geode.ui.opaline.creative.CreativeButton
-import dev.geode.ui.opaline.creative.CreativeColors
-import dev.geode.ui.opaline.creative.CreativeProgress
-import dev.geode.ui.opaline.creative.CreativeSheet
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -75,57 +72,6 @@ private enum class PickKind {
     STILL,
     OVERLAY,
     AUDIO,
-}
-
-private class PendingProject(
-    val name: String,
-    val project: EditorProject,
-) {
-    fun matches(actions: EditorActions): Boolean =
-        actions.currentProjectIdentity()?.let { (currentName, currentProject) ->
-            currentName == name && currentProject === project
-        } == true
-}
-
-private class PendingPick(
-    val laneId: LaneId,
-    val kind: PickKind,
-    val project: PendingProject,
-)
-
-private fun handlePickedMedia(
-    context: Context,
-    uri: Uri?,
-    target: PendingPick?,
-    actions: EditorActions,
-    addClip: (LaneId, ClipContent, Long, Long) -> Unit,
-) {
-    if (uri == null || target == null || !target.project.matches(actions)) return
-    runCatching { context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
-    val text = uri.toString()
-    when (target.kind) {
-        PickKind.VIDEO, PickKind.AUDIO -> actions.describeMedia(uri) { media ->
-            if (target.project.matches(actions)) {
-                val content = if (target.kind == PickKind.VIDEO) ClipContent.Video(text) else ClipContent.Audio(text)
-                addClip(target.laneId, content, media.durationMs, media.durationMs)
-            }
-        }
-        PickKind.STILL -> addClip(target.laneId, ClipContent.Still(text), STILL_MS, 0L)
-        PickKind.OVERLAY -> addClip(target.laneId, ClipContent.Overlay(text), OVERLAY_MS, 0L)
-    }
-}
-
-private fun importSrt(
-    context: Context,
-    uri: Uri?,
-    target: PendingProject?,
-    actions: EditorActions,
-    addCaptionClips: (List<SubtitleCue>) -> Unit,
-) {
-    if (uri == null || target == null || !target.matches(actions)) return
-    val text = runCatching { context.contentResolver.openInputStream(uri)?.use { it.readBytes().toString(Charsets.UTF_8) } }.getOrNull()
-        ?: return
-    if (target.matches(actions)) addCaptionClips(Subtitles.parseSrt(text))
 }
 
 /** The timeline: ruler, marker lane, one row per lane, keyframe rows for the selection, and the playhead. */
@@ -144,18 +90,18 @@ fun TimelineEditor(
     var selectedMarker by remember { mutableStateOf<MarkerId?>(null) }
     var selectedKey by remember { mutableStateOf<KeyframeId?>(null) }
     var editError by remember { mutableStateOf<EditError?>(null) }
-    var autoCutOpen by remember { mutableStateOf(false) }
     var textLane by remember { mutableStateOf<LaneId?>(null) }
     var tapSession by remember { mutableStateOf<TapInSession?>(null) }
-    var picking by remember { mutableStateOf<PendingPick?>(null) }
-    var importingSrt by remember { mutableStateOf<PendingProject?>(null) }
-    var exportingProject by remember { mutableStateOf<PendingProject?>(null) }
+    var picking by remember { mutableStateOf<Pair<LaneId, PickKind>?>(null) }
     var trackSheet by remember { mutableStateOf<ClipId?>(null) }
     var trackSheetOpen by remember { mutableStateOf(false) }
     var transitionSheet by remember { mutableStateOf<ClipId?>(null) }
     var chapterFormatPicker by remember { mutableStateOf(false) }
     var sidecarMessage by remember { mutableStateOf<String?>(null) }
     val scale = TimelineScale(pxPerMs, maxOf(project.timeline.durationMs, MIN_CONTENT_MS) + CONTENT_MARGIN_MS)
+    // One State the lanes read through a provider: the lambda stays the same instance while the
+    // playhead moves, so a scrub redraws the ruler and playhead line without recomposing the lanes.
+    val playhead = rememberUpdatedState(state.playheadMs)
     val laneNames = LANE_NAME_LABELS.associate { (kind, label) -> kind to stringResource(label) }
     // Resolved here, not inside the export coroutines below: composition is the config-aware
     // place to read a resource, and LocalContext.current is not.
@@ -164,6 +110,9 @@ fun TimelineEditor(
     val chaptersSavedMessage = stringResource(R.string.editor_chapters_saved)
     val chaptersNoneMessage = stringResource(R.string.editor_chapters_none)
     val chaptersFailedTemplate = stringResource(R.string.editor_chapters_failed)
+    val chaptersUnwritableMessage = stringResource(R.string.editor_chapters_unwritable)
+    val chapterTitleTemplate = stringResource(R.string.editor_chapter_untitled)
+    val destinationUnopenableMessage = stringResource(R.string.editor_destination_unopenable)
 
     fun applyResult(result: EditResult) {
         when (result) {
@@ -190,16 +139,30 @@ fun TimelineEditor(
 
     val picker =
         rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-            val target = picking
+            val target = picking ?: return@rememberLauncherForActivityResult
             picking = null
-            handlePickedMedia(context, uri, target, actions, ::addClip)
+            if (uri == null) return@rememberLauncherForActivityResult
+            runCatching { context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+            val text = uri.toString()
+            when (target.second) {
+                PickKind.VIDEO ->
+                    actions.describeMedia(
+                        uri,
+                    ) { media -> addClip(target.first, ClipContent.Video(text), media.durationMs, media.durationMs) }
+                PickKind.AUDIO ->
+                    actions.describeMedia(
+                        uri,
+                    ) { media -> addClip(target.first, ClipContent.Audio(text), media.durationMs, media.durationMs) }
+                PickKind.STILL -> addClip(target.first, ClipContent.Still(text), STILL_MS)
+                PickKind.OVERLAY -> addClip(target.first, ClipContent.Overlay(text), OVERLAY_MS)
+            }
         }
 
     fun pick(
         laneId: LaneId,
         kind: PickKind,
     ) {
-        picking = PendingPick(laneId, kind, PendingProject(state.name, state.project))
+        picking = laneId to kind
         picker.launch(
             when (kind) {
                 PickKind.VIDEO -> arrayOf("video/*")
@@ -216,9 +179,11 @@ fun TimelineEditor(
 
     val srtImporter =
         rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-            val target = importingSrt
-            importingSrt = null
-            importSrt(context, uri, target, actions, ::addCaptionClips)
+            if (uri == null) return@rememberLauncherForActivityResult
+            val text =
+                runCatching { context.contentResolver.openInputStream(uri)?.use { it.readBytes().toString(Charsets.UTF_8) } }.getOrNull()
+                    ?: return@rememberLauncherForActivityResult
+            addCaptionClips(Subtitles.parseSrt(text))
         }
     val srtExporter =
         rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument(SRT_MIME)) { uri ->
@@ -241,22 +206,15 @@ fun TimelineEditor(
         }
     // Mirrors ExportHost's destination picker for the visualizer export: below API 29
     // StudioExporter.publish cannot insert into MediaStore at all, so the project export button
-    // forces this picker there instead of trying (and failing) to save into Movies/Geode.
+    // forces this picker there instead of trying (and failing) to save into Movies/MuzViz.
     val projectDestinationPicker =
         rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("video/mp4")) { uri ->
-            val target = exportingProject
-            exportingProject = null
-            if (uri != null && target?.matches(actions) == true) actions.exportProject(uri)
+            if (uri != null) actions.exportProject(uri)
         }
-
-    fun launchProjectDestinationPicker() {
-        exportingProject = PendingProject(state.name, state.project)
-        projectDestinationPicker.launch("geode_cut_${System.currentTimeMillis()}.mp4")
-    }
 
     fun exportProject() {
         if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.Q) {
-            launchProjectDestinationPicker()
+            projectDestinationPicker.launch("muzviz_cut_${System.currentTimeMillis()}.mp4")
         } else {
             actions.exportProject()
         }
@@ -267,20 +225,24 @@ fun TimelineEditor(
         uri: Uri?,
     ) {
         if (uri == null) return
-        val chapters = ChapterMarkers.of(project.markers, project.timeline.durationMs)
+        val chapters =
+            ChapterMarkers.of(project.markers, project.timeline.durationMs) {
+                String.format(Locale.getDefault(), chapterTitleTemplate, it)
+            }
         scope.launch {
             val result =
                 withContext(Dispatchers.IO) {
                     runCatching {
                         val stream = context.contentResolver.openOutputStream(uri)
-                        stream?.use { out -> chapters.writeTo(out, format) } ?: ChapterWriteResult.Failed(NO_OUTPUT_STREAM)
+                        stream?.use { out -> chapters.writeTo(out, format) } ?: ChapterWriteResult.Failed(destinationUnopenableMessage)
                     }.getOrElse { e -> ChapterWriteResult.Failed(e.message ?: e.toString()) }
                 }
             sidecarMessage =
                 when (result) {
                     ChapterWriteResult.Written -> chaptersSavedMessage
                     ChapterWriteResult.Skipped -> chaptersNoneMessage
-                    is ChapterWriteResult.Failed -> String.format(Locale.getDefault(), chaptersFailedTemplate, result.message)
+                    is ChapterWriteResult.Failed ->
+                        String.format(Locale.getDefault(), chaptersFailedTemplate, result.reason(chaptersUnwritableMessage))
                 }
         }
     }
@@ -299,7 +261,7 @@ fun TimelineEditor(
         ) { uri -> exportChapters(ChapterFormat.FFMETADATA, uri) }
 
     fun launchChapterExport(format: ChapterFormat) {
-        val name = "geode_chapters_${System.currentTimeMillis()}.${format.extension}"
+        val name = "muzviz_chapters_${System.currentTimeMillis()}.${format.extension}"
         when (format) {
             ChapterFormat.DESCRIPTION -> chapterDescriptionExporter.launch(name)
             ChapterFormat.WEB_VTT -> chapterVttExporter.launch(name)
@@ -346,7 +308,7 @@ fun TimelineEditor(
             phase = exportPhase,
             onCancel = actions::cancelProjectExport,
             onExportToDestination = {
-                launchProjectDestinationPicker()
+                projectDestinationPicker.launch("muzviz_cut_${System.currentTimeMillis()}.mp4")
             },
         )
         EditorToolbar(
@@ -362,14 +324,10 @@ fun TimelineEditor(
                 if (session != null && session.count > 0) actions.edit { p -> p.copy(markers = session.commitTo(p.markers)) }
             },
             onTapCancel = { tapSession = null },
-            onAutoCut = { autoCutOpen = true },
             hasLyrics = actions.lyricCues() != null,
             onLyricCaptions = { addCaptionClips(actions.lyricCues().orEmpty()) },
-            onImportSrt = {
-                importingSrt = PendingProject(state.name, state.project)
-                srtImporter.launch(arrayOf(SRT_MIME, "text/plain", "text/*"))
-            },
-            onExportSrt = { srtExporter.launch("geode_captions_${System.currentTimeMillis()}.srt") },
+            onImportSrt = { srtImporter.launch(arrayOf(SRT_MIME, "text/plain", "text/*")) },
+            onExportSrt = { srtExporter.launch("muzviz_captions_${System.currentTimeMillis()}.srt") },
             onExportChapters = { chapterFormatPicker = true },
         )
         val clip = selectedClip?.let(project.timeline::clip)
@@ -442,14 +400,14 @@ fun TimelineEditor(
             Text(
                 stringResource(R.string.editor_empty),
                 style = MaterialTheme.typography.bodySmall,
-                color = CreativeColors.textSecondary,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
         val keyTracks = project.keyframes.tracksFor(null) + (selectedClip?.let(project.keyframes::tracksFor) ?: emptyList())
         Lanes(
             project = project,
             scale = scale,
-            playheadMs = state.playheadMs,
+            playheadMs = { playhead.value },
             keyTracks = keyTracks,
             selectedClip = selectedClip,
             selectedMarker = selectedMarker,
@@ -528,42 +486,27 @@ fun TimelineEditor(
             onDismiss = { chapterFormatPicker = false },
         )
     }
-    if (autoCutOpen) {
-        AutoCutSheet(
-            envelopeFor = actions::transientEnvelope,
-            onMarkers = { hits ->
-                actions.edit { p -> p.copy(markers = p.markers.addAll(AutoCut.markersFrom(hits, idFor = { actions.newMarkerId() }))) }
-                autoCutOpen = false
-            },
-            onClips = { hits, untilMs ->
-                actions.edit { p -> p.cutVisualLane(hits, untilMs, actions, laneNames[LaneKind.Visual].orEmpty()) }
-                autoCutOpen = false
-            },
-            onDismiss = { autoCutOpen = false },
-        )
-    }
 }
 
 /** Which sidecar the user wants for the marker lane, before the system's own save-as sheet opens. */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ChapterFormatDialog(
     onPick: (ChapterFormat) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    CreativeSheet(onDismissRequest = onDismiss) {
-        Column(Modifier.padding(horizontal = 20.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(
-                stringResource(R.string.editor_chapters_title),
-                style = MaterialTheme.typography.titleMedium,
-                color = CreativeColors.textPrimary,
-            )
-            CHAPTER_FORMAT_LABELS.forEach { (format, label) ->
-                CreativeButton(text = stringResource(label), modifier = Modifier.fillMaxWidth(), onClick = { onPick(format) })
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.editor_chapters_title)) },
+        text = {
+            Column {
+                CHAPTER_FORMAT_LABELS.forEach { (format, label) ->
+                    TextButton(onClick = { onPick(format) }) { Text(stringResource(label)) }
+                }
             }
-            CreativeButton(text = stringResource(R.string.action_cancel), modifier = Modifier.fillMaxWidth(), onClick = onDismiss)
-        }
-    }
+        },
+        confirmButton = {},
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+    )
 }
 
 @Composable
@@ -578,26 +521,17 @@ private fun ExportStatusRow(
                 Text(
                     stringResource(R.string.studio_rendering, (phase.progress * 100).roundToInt()),
                     style = MaterialTheme.typography.labelMedium,
-                    color = CreativeColors.textSecondary,
                     modifier = Modifier.weight(1f),
                 )
-                CreativeButton(text = stringResource(R.string.action_cancel), onClick = onCancel)
+                TextButton(onClick = onCancel) { Text(stringResource(R.string.action_cancel)) }
             }
-            CreativeProgress(progress = phase.progress, modifier = Modifier.fillMaxWidth())
+            LinearProgressIndicator(progress = { phase.progress }, modifier = Modifier.fillMaxWidth())
         }
-        is ExportPhase.Done ->
-            Text(
-                stringResource(R.string.studio_saved),
-                style = MaterialTheme.typography.labelMedium,
-                color = CreativeColors.textPrimary,
-            )
+        is ExportPhase.Done -> Text(stringResource(R.string.studio_saved), style = MaterialTheme.typography.labelMedium)
         is ExportPhase.Failed -> Text(phase.message, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
         ExportPhase.Idle ->
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                CreativeButton(
-                    text = stringResource(R.string.export_render_to_folder),
-                    onClick = onExportToDestination,
-                )
+                TextButton(onClick = onExportToDestination) { Text(stringResource(R.string.export_render_to_folder)) }
             }
         ExportPhase.Loading -> Unit
     }
@@ -662,27 +596,6 @@ private fun EditorProject.withCaptionLane(
         }.fitted()
 }
 
-/** Auto-cut clips land on the first visual lane, overwriting what was there; a lane is made if none exists. */
-private fun EditorProject.cutVisualLane(
-    hits: List<dev.geode.editor.TransientHit>,
-    untilMs: Long,
-    actions: EditorActions,
-    laneLabel: String,
-): EditorProject {
-    val existing = timeline.lanes.firstOrNull { it.kind == LaneKind.Visual }
-    val lane = existing ?: Lane(LaneId(UUID.randomUUID().toString()), LaneKind.Visual, "$laneLabel 1")
-    val base = if (existing == null) copy(timeline = timeline.copy(lanes = timeline.lanes + lane)) else this
-    val sceneId = actions.currentSceneId()
-    val clips = AutoCut.clipsFrom(hits, untilMs, { actions.newClipId() }) { _, _, _ -> ClipContent.Scene(sceneId) }
-    return clips
-        .fold(base) { project, clip ->
-            when (val result = project.timeline.addClip(lane.id, clip, OverlapPolicy.OVERWRITE)) {
-                is EditResult.Applied -> project.apply(result)
-                is EditResult.Rejected -> project
-            }
-        }.fitted()
-}
-
 private val LANE_NAME_LABELS: List<Pair<LaneKind, Int>> =
     listOf(LaneKind.Visual, LaneKind.Media, LaneKind.Text, LaneKind.Overlay, LaneKind.Audio).map { it to laneKindLabel(it) }
 
@@ -694,7 +607,6 @@ private val CHAPTER_FORMAT_LABELS: List<Pair<ChapterFormat, Int>> =
     )
 
 private const val SRT_MIME = "application/x-subrip"
-private const val NO_OUTPUT_STREAM = "The destination could not be opened."
 private const val MIN_CONTENT_MS = 60_000L
 private const val CONTENT_MARGIN_MS = 15_000L
 private const val SCENE_MS = 4_000L

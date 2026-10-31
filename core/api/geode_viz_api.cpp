@@ -8,7 +8,10 @@
 #include <vector>
 
 #include "api/geode_api.h"
+#include "viz/Macros.hpp"
+#include "viz/ReactionDna.hpp"
 #include "viz/Renderer.hpp"
+#include "viz/SceneRegistry.hpp"
 
 struct geode_viz {
     geode_viz(AAssetManager* assets, std::string cacheDir) : renderer(assets, std::move(cacheDir)) {}
@@ -25,9 +28,11 @@ using namespace geode::viz;
 
 static_assert(LfoEngine::kSlots == GEODE_LFO_SLOTS);
 static_assert(AdsrEngine::kCount == GEODE_ADSR_SLOTS);
+static_assert(ReactionEngine::kRoutes == GEODE_REACT_ROUTES);
+static_assert(ReactionEngine::kConfigFloats == GEODE_REACT_ROUTE_FLOATS);
 
 constexpr int kModSourceCount = static_cast<int>(ModSource::StereoPan) + 1;
-constexpr int kLfoTargetCount = static_cast<int>(LfoTarget::Lfo3Depth) + 1;
+constexpr int kLfoTargetCount = static_cast<int>(LfoTarget::CamShake) + 1;
 constexpr int kLfoWaveCount = static_cast<int>(LfoWave::Random) + 1;
 constexpr int kModPolarityCount = static_cast<int>(ModPolarity::Negative) + 1;
 constexpr int kModCurveCount = static_cast<int>(ModCurve::Smooth) + 1;
@@ -74,17 +79,6 @@ void geode_viz_set_params(geode_viz* v, const float* values, int count) {
 
 int geode_viz_set_param(geode_viz* v, const char* name, float value) {
     return (v && name && v->renderer.setParam(name, value)) ? 1 : 0;
-}
-
-void geode_viz_set_features(geode_viz* v, const GeodeFeatureFrame* frame) {
-    if (v && frame) {
-        GeodeFeatureFrame clean = *frame;
-        auto* floats = reinterpret_cast<float*>(&clean);
-        for (size_t i = 0; i < sizeof(GeodeFeatureFrame) / sizeof(float); ++i) {
-            if (!std::isfinite(floats[i])) floats[i] = 0.0f;
-        }
-        v->renderer.setFeatures(clean);
-    }
 }
 
 void geode_viz_set_reduced_motion(geode_viz* v, int on) {
@@ -137,6 +131,22 @@ size_t geode_viz_take_milk_preset_loaded(geode_viz* v, char* out, size_t capacit
         out[n] = '\0';
     }
     return path.size();
+}
+
+void geode_viz_write_audio(geode_viz* v, const float* interleaved, int frames, int channels, int sample_rate) {
+    if (v) v->renderer.writeAudio(interleaved, frames, channels, sample_rate);
+}
+
+void geode_viz_reset_audio(geode_viz* v) {
+    if (v) v->renderer.resetAudio();
+}
+
+void geode_viz_set_sound_tuning(geode_viz* v, const GeodeSoundTuning* tuning) {
+    if (v && tuning) v->renderer.setSoundTuning(*tuning);
+}
+
+void geode_viz_sound_frame(geode_viz* v, GeodeSoundFrame* out) {
+    if (v && out) *out = v->renderer.soundFrame();
 }
 
 void geode_viz_push_pcm(geode_viz* v, const float* mono, int count) {
@@ -195,6 +205,96 @@ void geode_viz_set_adsr(geode_viz* v, int slot, const float* c, int count) {
     v->renderer.setAdsrConfigs(v->adsr);
 }
 
+void geode_viz_set_reactions(geode_viz* v, const float* c, int count) {
+    if (!v || !c || count < 0) return;
+    std::array<ReactRoute, ReactionEngine::kRoutes> routes{};
+    const int n = std::min(count / GEODE_REACT_ROUTE_FLOATS, ReactionEngine::kRoutes);
+    for (int i = 0; i < n; ++i) {
+        const float* r = c + i * GEODE_REACT_ROUTE_FLOATS;
+        ReactRoute& out = routes[static_cast<size_t>(i)];
+        out.enabled = flag(r[0]);
+        out.source = enumAt<ReactSource>(r[1], kReactSourceCount);
+        out.target = enumAt<LfoTarget>(r[2], kLfoTargetCount);
+        out.mode = enumAt<ReactMode>(r[3], kReactModeCount);
+        out.amount = std::clamp(r[4], -2.0f, 2.0f);
+        out.curve = enumAt<ModCurve>(r[5], kModCurveCount);
+        out.attackSeconds = std::clamp(r[6], 0.0f, 5.0f);
+        out.releaseSeconds = std::clamp(r[7], 0.0f, 10.0f);
+    }
+    v->renderer.setReactionRoutes(routes);
+}
+
+int geode_react_source_catalog(char* out, int capacity) {
+    std::string text;
+    for (int i = 0; i < kReactSourceCount; ++i) {
+        const ReactSourceInfo& s = reactSourceInfo(static_cast<ReactSource>(i));
+        text += s.name;
+        text += '|';
+        text += s.label;
+        text += '|';
+        text += s.group;
+        text += s.event ? "|1\n" : "|0\n";
+    }
+    const int need = static_cast<int>(text.size());
+    if (out && capacity > 0) {
+        const int n = std::min(need, capacity - 1);
+        std::memcpy(out, text.data(), static_cast<size_t>(n));
+        out[n] = '\0';
+    }
+    return need;
+}
+
+void geode_macros_set(const float* knobs, int count) { macros::setGlobal(macros::clamped(knobs, count)); }
+
+void geode_macros_surprise(const float* knobs, int count, unsigned lock_mask, long long seed, float* out) {
+    if (!out) return;
+    const MacroKnobs k = macros::surprise(macros::clamped(knobs, count), lock_mask, static_cast<uint64_t>(seed));
+    for (int i = 0; i < count && i < kMacroCount; ++i) out[i] = k[static_cast<size_t>(i)];
+}
+
+int geode_macro_starters(char* out, int capacity) {
+    std::string text;
+    for (const macros::Starter& s : macros::starters()) {
+        text += s.name;
+        for (int i = 0; i < kMacroCount; ++i) {
+            text += i == 0 ? '|' : ',';
+            text += std::to_string(s.knobs[static_cast<size_t>(i)]);
+        }
+        text += '\n';
+    }
+    const int need = static_cast<int>(text.size());
+    if (out && capacity > 0) {
+        const int n = std::min(need, capacity - 1);
+        std::memcpy(out, text.data(), static_cast<size_t>(n));
+        out[n] = '\0';
+    }
+    return need;
+}
+
+int geode_style_reactions(const char* style_id, int seed, float* out, int capacity) {
+    if (!style_id || !out || capacity < GEODE_REACT_ROUTE_FLOATS) return 0;
+    const std::string id(style_id);
+    const StyleDna dna = buildStyleDna(id, seed, {SceneRegistry::spinRate(id), SceneRegistry::isShaderStyle(id)});
+    const int n = std::min(dna.count, capacity / GEODE_REACT_ROUTE_FLOATS);
+    for (int i = 0; i < n; ++i) {
+        const ReactRoute& r = dna.routes[static_cast<size_t>(i)];
+        float* o = out + i * GEODE_REACT_ROUTE_FLOATS;
+        o[0] = r.enabled ? 1.0f : 0.0f;
+        o[1] = static_cast<float>(r.source);
+        o[2] = static_cast<float>(r.target);
+        o[3] = static_cast<float>(r.mode);
+        o[4] = r.amount;
+        o[5] = static_cast<float>(r.curve);
+        o[6] = r.attackSeconds;
+        o[7] = r.releaseSeconds;
+    }
+    return n;
+}
+
+void geode_viz_set_look(geode_viz* v, float yaw, float pitch) {
+    if (v) v->renderer.setLook(std::clamp(yaw, -1.0f, 1.0f), std::clamp(pitch, -1.0f, 1.0f));
+}
+
 void geode_viz_set_thermal(geode_viz* v, int platform_status, float headroom) {
     if (!v) return;
     if (platform_status >= 0) v->renderer.thermal().setPlatformStatus(platform_status);
@@ -203,6 +303,10 @@ void geode_viz_set_thermal(geode_viz* v, int platform_status, float headroom) {
 
 void geode_viz_set_paced_fps(geode_viz* v, float fps) {
     if (v) v->renderer.thermal().setPacedFps(fps);
+}
+
+void geode_viz_set_quality(geode_viz* v, float render_scale, float march_scale, int post_fx, int adaptive) {
+    if (v) v->renderer.setUserQuality(render_scale, march_scale, post_fx != 0, adaptive != 0);
 }
 
 void geode_viz_set_offscreen(geode_viz* v, int on) {

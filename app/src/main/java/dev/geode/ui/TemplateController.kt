@@ -62,7 +62,7 @@ internal class TemplateController(
         customShader: String?,
         onResult: (TemplateWrite) -> Unit,
     ) {
-        val cleaned = name.replace(" · ", " - ").trim().ifEmpty { "Template" }
+        val cleaned = name.replace(" · ", " - ").trim().ifEmpty { application.getString(dev.geode.R.string.template_untitled) }
         val s = host.vizState.value
         val milkPath = host.activeMilkPath
         storeScope.launch {

@@ -1,28 +1,26 @@
-name: Build Geode Debug APK
+name: Build MuzViz Debug APK
 
 # Pull-request CI, plus a manual build when an APK is wanted from a branch.
 # Pushes to main are handled by ship-apk.yml, which runs the same build and
 # checks and then publishes the APK as a GitHub Release — running both on main
 # would build the app twice per push for the same result.
+# Pushes to claude/** work branches run it too, so agent sessions offload
+# build, lint and tests here instead of building locally.
 
 on:
   workflow_dispatch:
   push:
-    branches:
-      - main
+    branches: ["claude/**"]
   pull_request:
     paths:
       - "app/**"
       - "engine/**"
       - "core/**"
       - "CMakeLists.txt"
-      - "third_party/**"
-      - "config/**"
       - "build-logic/**"
       - "gradle/**"
       - "*.gradle.kts"
       - "gradle.properties"
-      - "tools/opaline/**"
       - ".github/workflows/android.yml"
 
 permissions:
@@ -46,8 +44,6 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v7
         with:
-          # Validate the PR's actual worktree snapshot, without combining it with main.
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           # third_party/* are submodules; the root CMakeLists.txt builds them.
           submodules: recursive
 
@@ -62,7 +58,7 @@ jobs:
         with:
           cache-read-only: ${{ github.event_name == 'pull_request' }}
 
-      - name: Install Android SDK 37, NDK and CMake
+      - name: Install Android SDK 36, NDK and CMake
         shell: bash
         # sdkmanager is not on PATH on the ubuntu-24.04 runner image; resolve
         # it from the preinstalled SDK location instead. The NDK and CMake
@@ -75,27 +71,23 @@ jobs:
           yes | "$SDKMANAGER" --licenses >/dev/null || true
           "$SDKMANAGER" \
             "platform-tools" \
-            "platforms;android-37.0" \
+            "platforms;android-36" \
             "build-tools;36.0.0" \
             "ndk;28.0.13004108" \
             "cmake;3.22.1"
 
       - name: Make Gradle wrapper executable
-        if: ${{ !cancelled() }}
         working-directory: ${{ env.PROJECT_DIR }}
         run: chmod +x gradlew
-
-      - name: Test Opaline scene and motion contracts
-        if: ${{ !cancelled() }}
-        working-directory: ${{ env.PROJECT_DIR }}
-        run: node --test tools/opaline/*.test.mjs
 
       # Baselined static analysis: the SwallowedException/UnusedParameter
       # class of bug is caught at PR time instead of the next audit.
       - name: detekt
-        if: ${{ !cancelled() }}
         working-directory: ${{ env.PROJECT_DIR }}
-        run: ./gradlew detekt --stacktrace --no-daemon
+        # Every module, not just :app: build-logic applies detekt (and a per-module
+        # baseline) to all four, but a gate CI never runs is not a gate. --continue
+        # so one module's failure still produces the other modules' reports.
+        run: ./gradlew :app:detekt :engine:audio-core:detekt :engine:scenes:detekt :engine:audio-android:detekt --continue --stacktrace --no-daemon
 
       # detekt prints only "Analysis failed with N weighted issues" and a stack
       # trace; the findings themselves go to a report file. Without this, reading
@@ -105,38 +97,78 @@ jobs:
         if: failure()
         working-directory: ${{ env.PROJECT_DIR }}
         run: |
-          dir=app/build/reports/detekt
-          if [ -f "$dir/detekt.txt" ]; then
-            echo "::group::detekt findings"
-            cat "$dir/detekt.txt"
-            echo "::endgroup::"
-          elif [ -f "$dir/detekt.xml" ]; then
-            # The XML carries the same findings one <error> element per issue;
-            # enough to name the rule, file and line without the artifact.
-            echo "::group::detekt findings (xml)"
-            grep -oE '<file name="[^"]*"|<error line="[0-9]+" column="[0-9]+" severity="[^"]*" message="[^"]*" source="[^"]*"' "$dir/detekt.xml" || cat "$dir/detekt.xml"
-            echo "::endgroup::"
-          else
-            echo "No detekt report found under $dir. Present:"
-            ls -la "$dir" 2>/dev/null || echo "  (directory absent)"
-          fi
+          for module in app engine/audio-core engine/scenes engine/audio-android; do
+            dir=$module/build/reports/detekt
+            if [ -f "$dir/detekt.txt" ]; then
+              echo "::group::detekt findings ($module)"
+              cat "$dir/detekt.txt"
+              echo "::endgroup::"
+            elif [ -f "$dir/detekt.xml" ]; then
+              # The XML carries the same findings one <error> element per issue;
+              # enough to name the rule, file and line without the artifact.
+              echo "::group::detekt findings ($module, xml)"
+              grep -oE '<file name="[^"]*"|<error line="[0-9]+" column="[0-9]+" severity="[^"]*" message="[^"]*" source="[^"]*"' "$dir/detekt.xml" || cat "$dir/detekt.xml"
+              echo "::endgroup::"
+            else
+              echo "No detekt report found under $dir. Present:"
+              ls -la "$dir" 2>/dev/null || echo "  (directory absent)"
+            fi
+          done
+
+      # Seconds, not minutes: the pure render-thread math (reaction matrix,
+      # camera rig) built with the runner's own compiler, and every fragment
+      # style compiled by the NDK's glslc with its //#include lines resolved.
+      # Both fail fast, before the 20-minute native build.
+      - name: Native host tests
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          g++ -std=c++20 -O1 -Wall -Wextra -Icore -Icore/tests/stub             core/tests/viz_math_test.cpp core/viz/Reactions.cpp core/viz/ReactionDna.cpp core/viz/CameraRig.cpp core/viz/MotionField.cpp core/viz/Lfo.cpp core/viz/Macros.cpp             core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/VisualSafety.cpp -o viz_math_test
+          ./viz_math_test
+          g++ -std=c++20 -O1 -Wall -Wextra -Icore core/tests/sound_test.cpp core/sound/Fft.cpp core/sound/SoundEngine.cpp -o sound_test
+          ./sound_test
+
+      # The scene and style catalogue (core/viz/Catalogue): ids, families, param scopes, ranges, and
+      # its text table byte-equal to core/tests/catalogue.txt, the copy the JVM tests read.
+      - name: Catalogue host tests
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          g++ -std=c++20 -O1 -Wall -Wextra -Icore core/tests/catalogue_test.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp -o catalogue_test
+          ./catalogue_test core/tests/catalogue.txt
+      # The export DSP (resampler, BS.1770 loudness meter), ported from Kotlin (ADR 0003).
+      - name: Native export DSP tests
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/resampler_test.cpp core/audio/dsp/PcmResampler.cpp core/audio/dsp/Loudness.cpp core/api/geode_export_dsp_api.cpp -o resampler_test
+          ./resampler_test
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/loudness_test.cpp core/audio/dsp/PcmResampler.cpp core/audio/dsp/Loudness.cpp core/api/geode_export_dsp_api.cpp -o loudness_test
+          ./loudness_test
+
+      # The Customize randomizer, Reset tab and A/B blend (core/viz/ParamRandomizer, core/viz/Params).
+      - name: Params host tests
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          g++ -std=c++20 -O1 -Wall -Wextra -Icore core/tests/params_test.cpp core/viz/ParamRandomizer.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp -o params_test
+          ./params_test
+
+      - name: Shader compile check
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: python3 tools/check_shaders.py "${ANDROID_HOME:-$ANDROID_SDK_ROOT}/ndk/28.0.13004108/shader-tools/linux-x86_64/glslc"
 
       - name: Assemble debug APK
-        id: assemble
-        if: ${{ !cancelled() }}
         working-directory: ${{ env.PROJECT_DIR }}
         run: ./gradlew :app:assembleDebug --stacktrace --no-daemon
 
       - name: Package APK and checksum
         id: package
-        if: ${{ !cancelled() && steps.assemble.outcome == 'success' }}
         shell: bash
         run: |
           set -euo pipefail
-          VERSION_NAME=$(sed -n 's/^[[:space:]]*versionName = "\([^"]*\)".*/\1/p' \
-            "$PROJECT_DIR/app/build.gradle.kts" | head -n 1)
+          # The name the APK carries: <base>-dev-debug (only ship-apk.yml numbers builds).
+          VERSION_NAME=$("${ANDROID_HOME:-$ANDROID_SDK_ROOT}/build-tools/36.0.0/aapt2" dump badging "$APK_SOURCE" \
+            | sed -n "s/.*versionName='\([^']*\)'.*/\1/p" | head -n 1)
+          echo "versionName=$VERSION_NAME"
           SHORT_SHA="${GITHUB_SHA::7}"
-          FILE_NAME="Geode-${VERSION_NAME:-debug}-${SHORT_SHA}-debug.apk"
+          FILE_NAME="MuzViz-${VERSION_NAME:-debug}-${SHORT_SHA}-debug.apk"
 
           mkdir -p dist
           cp "$APK_SOURCE" "dist/$FILE_NAME"
@@ -154,7 +186,6 @@ jobs:
       # nothing had been verified at all. continue-on-error keeps a full
       # artifact store (or a flaky upload) from speaking for the code.
       - name: Upload debug APK
-        if: ${{ !cancelled() && steps.package.outcome == 'success' }}
         continue-on-error: true
         uses: actions/upload-artifact@v7
         with:
@@ -172,24 +203,16 @@ jobs:
       # Verification runs after the APK upload. If a check fails, the APK is
       # still available from the workflow run for device testing.
       - name: Run unit tests
-        if: ${{ !cancelled() }}
         working-directory: ${{ env.PROJECT_DIR }}
-        run: ./gradlew testDebugUnitTest --stacktrace --no-daemon
+        run: ./gradlew :app:testDebugUnitTest :engine:audio-core:test :engine:scenes:testDebugUnitTest :engine:audio-android:testDebugUnitTest --stacktrace --no-daemon
 
       - name: Run Android lint
-        if: ${{ !cancelled() }}
         working-directory: ${{ env.PROJECT_DIR }}
         run: ./gradlew :app:lintDebug --stacktrace --no-daemon
 
       - name: Run Kotlin formatting checks
-        if: ${{ !cancelled() }}
         working-directory: ${{ env.PROJECT_DIR }}
         run: ./gradlew ktlintCheck --stacktrace --no-daemon
-
-      - name: Compile Android navigation smoke tests
-        if: ${{ !cancelled() }}
-        working-directory: ${{ env.PROJECT_DIR }}
-        run: ./gradlew :app:compileDebugAndroidTestKotlin --stacktrace --no-daemon
 
       - name: Upload reports when verification fails
         if: failure()
@@ -199,5 +222,70 @@ jobs:
           path: |
             app/build/reports/
             app/build/test-results/
+            engine/*/build/reports/
+            engine/*/build/test-results/
+          if-no-files-found: ignore
+          retention-days: 14
+
+  # Instrumented tests need a real Android runtime: MediaStore, a live
+  # MediaSession and the permission model do not exist off a device, and
+  # Robolectric's shadows actively misreport some of them (its ContentResolver
+  # returns success for any uri, so a delete of a missing file "succeeds").
+  # This job is the only place those paths are genuinely exercised.
+  #
+  # Its own job rather than a step in the build: the emulator takes minutes to
+  # boot, and a slow device suite must not delay the APK the build job
+  # publishes for manual testing.
+  instrumented-tests:
+    name: Instrumented tests (emulator)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          # third_party/* are submodules; the root CMakeLists.txt builds them.
+          submodules: recursive
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      # The emulator needs hardware acceleration to be usable; ubuntu runners
+      # expose KVM but not to unprivileged processes by default.
+      - name: Enable KVM for the emulator
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Run instrumented tests
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          # 29 is the floor for the scoped-storage paths these tests cover;
+          # anything below skips them via assumeTrue rather than failing.
+          api-level: 30
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          script: ./gradlew :app:connectedDebugAndroidTest --stacktrace --no-daemon
+          working-directory: .
+
+      - name: Upload instrumented reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: geode-instrumented-reports-${{ github.run_number }}
+          path: |
+            app/build/reports/androidTests/
+            app/build/outputs/androidTest-results/
+            app/build/outputs/connected_android_test_additional_output/
           if-no-files-found: ignore
           retention-days: 14

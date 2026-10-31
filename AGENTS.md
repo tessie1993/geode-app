@@ -6,7 +6,7 @@ applicationId `com.muzviz.studiopro`. Kotlin packages stay `dev.geode.*`. minSdk
 Read before you change structure:
 - [`docs/ANDROID_ARCHITECTURE_GUIDE.md`](docs/ANDROID_ARCHITECTURE_GUIDE.md): the target rules. Where the code disagrees, the code is the debt.
 - [`docs/ANDROID_ARCHITECTURE_REFERENCE.md`](docs/ANDROID_ARCHITECTURE_REFERENCE.md): the reasons and code shapes behind those rules (layers, modularization, Navigation 3).
-- [`docs/adr/`](docs/adr/): decisions. [`0001`](docs/adr/0001-target-module-split.md) is the target module split and the Nav3 plan; [`0002`](docs/adr/0002-release-before-restructure.md) puts the Play release before steps 2–6. [`docs/ARCHITECTURE_FINISH_PLAN.md`](docs/ARCHITECTURE_FINISH_PLAN.md) is the prioritized plan.
+- [`docs/adr/`](docs/adr/): decisions. [`0001`](docs/adr/0001-target-module-split.md) is the target module split and the Nav3 plan; [`0002`](docs/adr/0002-release-before-restructure.md) puts the Play release before steps 2–6. [`0003`](docs/adr/0003-engine-internals-in-cpp.md) puts every engine internal in C++, Kotlin only as the shell, with the port order. [`docs/ARCHITECTURE_FINISH_PLAN.md`](docs/ARCHITECTURE_FINISH_PLAN.md) is the prioritized plan.
 - [`GLOSSARY.md`](GLOSSARY.md): domain words. Name things with them.
 - [`docs/AUDIO_CHAIN.md`](docs/AUDIO_CHAIN.md): read it before touching the playback audio path.
 
@@ -125,6 +125,7 @@ The native core is built by the root `CMakeLists.txt`, plus `core/CMakeLists.txt
 - **Layer rule (enforced).** Nothing outside `ui/` and `di/` may name `dev.geode.ui`; `tools/layer-gate.sh` fails the PR otherwise. Move a type down instead: `model` if it is pure, `data` if it touches storage.
 - **Data layer lives in `ui`.** Stores and MediaStore access (`*Controller`, `VizStateStore`, `AutoVisualsPrefsStore`) sit there, and some composables call `contentResolver` themselves (`StudioScreen`, `ui/studio/TimelineLanes`, `TrackInfoEditor`, `DuplicatesTab`, `FolderSettings`, `LoopRenderSheet`).
 - **One-shot events.** `PlayerViewModel` exposes `vizApply` and `morphFade` as `SharedFlow`.
+- **Engine logic in Kotlin (ADR 0003).** Engine internals belong in `core/`; GLOSSARY › Code has the words. Native already runs the touch field, the flash clamp and the cymatics plate (their Kotlin copies are gone). Still Kotlin: the scene and style catalogue, `ParamRandomizer`, `ParamBlend`, export loudness and resampling, the PCM ring and presentation clock; the ADR's table gives each one's target and blocker.
 - **Mixed module.** `:engine:scenes` is an Android library, but most of its files are pure Kotlin. `editor/*` and much of `data/*` are pure too, except for `org.json` (`TemplateFormat`, `EditorProjectJson`, `PerformanceTake`). There is no `kotlinx.serialization` yet.
 - **Navigation.** Enum and `when`, not Nav3.
 - **Quality items not set up:** two use cases so far (`pro/GetFeatureGateUseCase`, `render/scene/BuildStyleReactionsUseCase`), almost no ViewModel or repository tests, a hand-written (not generated) baseline profile (`app/src/main/baseline-prof.txt`), no `reportFullyDrawn`, JankStats, Macrobenchmark or GWP-ASan.

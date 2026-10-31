@@ -102,6 +102,8 @@ style|ringed_planet|SHADER
 style|jelly_abyss|SHADER|MARCH_DETAIL
 style|ribbon_storm|SHADER
 style|prism_rain|SHADER|MARCH_DETAIL
+style|supershape|SHADER|MARCH_DETAIL
+style|fractal_tunnel|SHADER|MARCH_DETAIL
 style|arbor_grove|SHADER
 style|arbor_willow|SHADER|MARCH_DETAIL
 style|arbor_coral|SHADER|MARCH_DETAIL

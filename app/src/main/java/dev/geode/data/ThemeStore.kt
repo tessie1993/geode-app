@@ -298,6 +298,7 @@ class ThemeStore(
                     ?.toFloatArray() ?: return SoundTuning()
             return SoundTuning.fromFloats(floats)
         }
+
         const val KEY_PRESET_MORPH_SEC = "gui_preset_morph_seconds"
         const val LEGACY_KEY_MORPH_BEATS = "morph_beats"
 

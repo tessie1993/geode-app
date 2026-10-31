@@ -17,6 +17,7 @@ import dev.geode.data.PlayerPrefsStore
 import dev.geode.engine.audio.AudioPresentationClock
 import dev.geode.engine.audio.PcmSink
 import dev.geode.engine.audio.SampleRing
+import dev.geode.engine.audio.SoundInput
 import dev.geode.engine.audioandroid.PcmTap
 import dev.geode.engine.audioandroid.SinkClockDriver
 import dev.geode.engine.audioandroid.TapBoundaryListener
@@ -112,7 +113,7 @@ class PlaybackSession internal constructor(
     val analysis = dev.geode.analysis.AnalysisEngine(sampleRing)
 
     /** What every surface's sound engine reads; the rate follows whichever source owns the ring. */
-    val soundInput = dev.geode.engine.audio.SoundInput(sampleRing) { analysis.sampleRateHz }
+    val soundInput = SoundInput(sampleRing) { analysis.sampleRateHz }
 
     private val interestHook: () -> Unit = { syncAnalysis() }
 

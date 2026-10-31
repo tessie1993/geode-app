@@ -161,6 +161,45 @@ object StyleFamilies {
             marchedIds = emptySet(),
         )
 
+    /** Fly-through dives along five camera paths through lattices, jewels, mushrooms, gyroscopes and mandalas. */
+    val DIVE: StyleFamily =
+        StyleFamily(
+            name = "dive",
+            label = "Dive",
+            prefix = "dive_",
+            library = "lib_dive",
+            ids =
+                listOf(
+                    "dive_lattice",
+                    "dive_jewel",
+                    "dive_mushroom",
+                    "dive_gyro",
+                    "dive_mandala",
+                    "dive_serpent",
+                    "dive_helix",
+                    "dive_accordion",
+                    "dive_orbit",
+                    "dive_neon",
+                    "dive_cycle",
+                    "dive_show",
+                ),
+            marchedIds =
+                setOf(
+                    "dive_lattice",
+                    "dive_jewel",
+                    "dive_mushroom",
+                    "dive_gyro",
+                    "dive_mandala",
+                    "dive_serpent",
+                    "dive_helix",
+                    "dive_accordion",
+                    "dive_orbit",
+                    "dive_neon",
+                    "dive_cycle",
+                    "dive_show",
+                ),
+        )
+
     /** Ray-marched heightfield landscapes: ridges, dunes, canyons and islands, flown over. */
     val TERRAIN: StyleFamily =
         StyleFamily(
@@ -200,7 +239,7 @@ object StyleFamilies {
         )
 
     /** In picker order. */
-    val all: List<StyleFamily> = listOf(ARBOR, BULB, CHRYSANTHEMUM, LUCID, TERRAIN)
+    val all: List<StyleFamily> = listOf(ARBOR, BULB, CHRYSANTHEMUM, LUCID, DIVE, TERRAIN)
 
     /** Every family style id, in picker order. */
     val ids: List<String> = all.flatMap { it.ids }

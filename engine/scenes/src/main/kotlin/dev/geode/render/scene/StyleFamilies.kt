@@ -161,6 +161,45 @@ object StyleFamilies {
             marchedIds = emptySet(),
         )
 
+    /** Fly-through dives along five camera paths through lattices, jewels, mushrooms, gyroscopes and mandalas. */
+    val DIVE: StyleFamily =
+        StyleFamily(
+            name = "dive",
+            label = "Dive",
+            prefix = "dive_",
+            library = "lib_dive",
+            ids =
+                listOf(
+                    "dive_lattice",
+                    "dive_jewel",
+                    "dive_mushroom",
+                    "dive_gyro",
+                    "dive_mandala",
+                    "dive_serpent",
+                    "dive_helix",
+                    "dive_accordion",
+                    "dive_orbit",
+                    "dive_neon",
+                    "dive_cycle",
+                    "dive_show",
+                ),
+            marchedIds =
+                setOf(
+                    "dive_lattice",
+                    "dive_jewel",
+                    "dive_mushroom",
+                    "dive_gyro",
+                    "dive_mandala",
+                    "dive_serpent",
+                    "dive_helix",
+                    "dive_accordion",
+                    "dive_orbit",
+                    "dive_neon",
+                    "dive_cycle",
+                    "dive_show",
+                ),
+        )
+
     /** Truchet tilings: randomly turned tiles whose arcs join into paths that rewire on the beat. */
     val TRUCHET: StyleFamily =
         StyleFamily(
@@ -190,7 +229,7 @@ object StyleFamilies {
         )
 
     /** In picker order. */
-    val all: List<StyleFamily> = listOf(ARBOR, BULB, CHRYSANTHEMUM, LUCID, TRUCHET)
+    val all: List<StyleFamily> = listOf(ARBOR, BULB, CHRYSANTHEMUM, LUCID, DIVE, TRUCHET)
 
     /** Every family style id, in picker order. */
     val ids: List<String> = all.flatMap { it.ids }

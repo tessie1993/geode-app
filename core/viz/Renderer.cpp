@@ -23,7 +23,8 @@ Renderer::Renderer(AAssetManager* assets, std::string cacheDir)
                 SceneHost{[this](const std::string& m) { fail(m); },
                           [this](const std::string& id, const std::string& src) { rememberCustomShader(id, src); },
                           [this] { return thermal_.pacedFps(); },
-                          [this](const std::string& path) { notePresetLoaded(path); }}),
+                          [this](const std::string& path) { notePresetLoaded(path); },
+                          [this] { return marchScale_.load(std::memory_order_relaxed); }}),
       compositePass_(assets_, &programCache_),
       pcm_(kPcmCapacity, 0.0f),
       pcmDeliverScratch_(kPcmCapacity, 0.0f) {
@@ -401,9 +402,23 @@ void Renderer::surfaceChanged(int width, int height) {
     applyRenderScale();
 }
 
+void Renderer::setUserQuality(float renderScale, float marchScale, bool postFx, bool adaptive) {
+    // std::clamp passes NaN through, and a NaN scale would never equal appliedUserScale_ again,
+    // resizing every frame; a corrupt pref means full quality instead.
+    const auto unit = [](float v) { return std::isfinite(v) ? std::clamp(v, 0.25f, 1.0f) : 1.0f; };
+    userScale_.store(unit(renderScale), std::memory_order_relaxed);
+    marchScale_.store(unit(marchScale), std::memory_order_relaxed);
+    userPostFx_.store(postFx, std::memory_order_relaxed);
+    thermal_.setAdaptive(adaptive);
+}
+
 void Renderer::applyRenderScale() {
     appliedTier_ = thermal_.tier();
-    const float scale = supersampleFactor(width_, height_) * thermalTierInfo(appliedTier_).renderScale;
+    appliedUserScale_ = userScale_.load(std::memory_order_relaxed);
+    // A user scale below 1 also drops the small-screen supersample: someone who asked for fewer
+    // pixels did not mean 1.4x of fewer pixels.
+    const float supersample = appliedUserScale_ < 1.0f ? 1.0f : supersampleFactor(width_, height_);
+    const float scale = supersample * appliedUserScale_ * thermalTierInfo(appliedTier_).renderScale;
     renderWidth_ = std::max(static_cast<int>(width_ * scale), 1);
     renderHeight_ = std::max(static_cast<int>(height_ * scale), 1);
     for (auto& entry : scenes_) {

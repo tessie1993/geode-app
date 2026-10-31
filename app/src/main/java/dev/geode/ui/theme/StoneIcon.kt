@@ -5,7 +5,6 @@ import androidx.compose.material.icons.automirrored.rounded.InsertDriveFile
 import androidx.compose.material.icons.automirrored.rounded.Notes
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Delete
@@ -26,6 +25,7 @@ import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SkipPrevious
+import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.runtime.Composable
@@ -61,7 +61,7 @@ enum class StoneIcon(
     SHARE(Icons.Rounded.Share),
     SHUFFLE(Icons.Rounded.Shuffle),
     STUDIO(Icons.Rounded.Movie),
-    VISUALIZER(Icons.Rounded.AutoAwesome),
+    VISUALIZER(Icons.Rounded.Visibility),
 }
 
 @Composable

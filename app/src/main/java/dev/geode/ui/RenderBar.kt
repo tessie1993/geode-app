@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 import dev.geode.export.ExportRun
+import dev.geode.export.RenderBatch
 import dev.geode.export.RenderEta
 
 /**
@@ -41,8 +42,7 @@ import dev.geode.export.RenderEta
 @Composable
 internal fun RenderBar(
     export: ExportUiState,
-    scopeLabel: String,
-    subject: String?,
+    scope: @Composable (Modifier) -> Unit,
     renderLabel: String,
     canRender: Boolean,
     onRender: () -> Unit,
@@ -59,7 +59,7 @@ internal fun RenderBar(
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         when (val phase = export.phase) {
-            is ExportPhase.Running, ExportPhase.Loading -> RenderProgress(phase, onCancel)
+            is ExportPhase.Running, ExportPhase.Loading -> RenderProgress(export, onCancel)
             is ExportPhase.Done -> RenderResult(export, phase, onClearResult)
             is ExportPhase.Failed ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -71,20 +71,12 @@ internal fun RenderBar(
                     )
                     TextButton(onClick = onClearResult) { Text(stringResource(R.string.action_close)) }
                 }
-            ExportPhase.Idle -> Unit
+            // A cancelled batch with nothing saved ends Idle but still owes the user its summary.
+            ExportPhase.Idle -> export.batch?.let { BatchSummary(it, onClearResult) }
         }
         if (!export.phase.isBusy) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Column(Modifier.weight(1f)) {
-                    Text(scopeLabel, style = MaterialTheme.typography.labelMedium)
-                    Text(
-                        subject ?: stringResource(R.string.render_nothing_playing),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
+                scope(Modifier.weight(1f))
                 CrystalButton(onClick = onRender, enabled = canRender) {
                     Text(renderLabel)
                 }
@@ -95,11 +87,22 @@ internal fun RenderBar(
 
 @Composable
 private fun RenderProgress(
-    phase: ExportPhase,
+    export: ExportUiState,
     onCancel: () -> Unit,
 ) {
+    val phase = export.phase
     // Progress lands per frame; reading it only here keeps the options above from recomposing with it.
     val run by ExportRun.state.collectAsStateWithLifecycle()
+    val batch = export.batch
+    val current = batch?.current
+    if (batch != null && current != null) {
+        Text(
+            stringResource(R.string.render_batch_progress, batch.outcomes.size + 1, batch.tracks.size, current.title),
+            style = MaterialTheme.typography.labelMedium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
     Text(
         listOfNotNull(
             stringResource(R.string.export_rendering_offline),
@@ -128,12 +131,17 @@ private fun RenderResult(
     val context = LocalContext.current
     val resources = LocalResources.current
     val chooserTitle = stringResource(R.string.export_upload_share_to)
-    Text(
-        export.fileName?.let { stringResource(R.string.render_saved_named, it) }
-            ?: stringResource(R.string.export_saved_folder),
-        Modifier.semantics { liveRegion = LiveRegionMode.Polite },
-        style = MaterialTheme.typography.bodyMedium,
-    )
+    val batch = export.batch
+    if (batch != null) {
+        BatchSummary(batch, onClose = null)
+    } else {
+        Text(
+            export.fileName?.let { stringResource(R.string.render_saved_named, it) }
+                ?: stringResource(R.string.export_saved_folder),
+            Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+            style = MaterialTheme.typography.bodyMedium,
+        )
+    }
     export.loudnessAdvice?.let { advice ->
         Text(
             advice.headline(resources) + " " + advice.detail(resources),
@@ -157,6 +165,35 @@ private fun RenderResult(
             }
         }
         TextButton(onClick = onClearResult) { Text(stringResource(R.string.action_close)) }
+    }
+}
+
+/**
+ * "7 of 8 rendered" and, under it, each failed track with its reason. With [onClose] (a batch
+ * that saved nothing) it also carries its own Close; otherwise the result's buttons follow it.
+ */
+@Composable
+private fun BatchSummary(
+    batch: RenderBatch,
+    onClose: (() -> Unit)?,
+) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f).semantics { liveRegion = LiveRegionMode.Polite }) {
+            Text(
+                stringResource(R.string.render_batch_summary, batch.savedCount, batch.tracks.size),
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            batch.failures.forEach { (track, reason) ->
+                Text(
+                    stringResource(R.string.render_batch_failed_track, track.title, reason),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+        if (onClose != null) TextButton(onClick = onClose) { Text(stringResource(R.string.action_close)) }
     }
 }
 

@@ -27,6 +27,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -36,9 +37,11 @@ import dev.geode.data.EXPORT_FPS_OPTIONS
 import dev.geode.data.ExportDefaults
 import dev.geode.data.ExportPrefsStore
 import dev.geode.data.GeodePrefsFiles
+import dev.geode.data.Preset
 import dev.geode.data.exportCodecLabel
 import dev.geode.data.exportQualityLabel
 import dev.geode.data.filledFrom
+import dev.geode.export.BatchTrack
 import dev.geode.export.ExportAspect
 import dev.geode.export.ExportCodec
 import dev.geode.export.ExportPreset
@@ -47,6 +50,8 @@ import dev.geode.export.ExportQuality
 import dev.geode.export.ExportRange
 import dev.geode.export.ExportRatio
 import dev.geode.export.LoudnessTarget
+import dev.geode.export.RenderPlaylist
+import dev.geode.export.RenderScope
 import dev.geode.pro.ProFeature
 import dev.geode.render.VisualizerView
 import dev.geode.ui.pro.PaywallViewModel
@@ -115,6 +120,43 @@ internal fun StudioRenderTab(
     val startExport = rememberVisualizerExport(viewModel, visualizerView)
     // A loop-safe cut needs the track's tempo; without one this render is full length.
     val tempoKnown = BarTrim.barDurationUs(viz.bpm) != null
+
+    val libraryViewModel: LibraryViewModel = geodeViewModel()
+    val queue by viewModel.queue.collectAsStateWithLifecycle()
+    val deviceTracks by libraryViewModel.deviceTracks.collectAsStateWithLifecycle()
+    val library by libraryViewModel.library.collectAsStateWithLifecycle()
+    var selection by rememberSaveable(stateSaver = RenderSelectionSaver) { mutableStateOf(RenderSelection()) }
+    var picking by rememberSaveable { mutableStateOf<RenderPick?>(null) }
+    val libraryTracks = remember(deviceTracks) { deviceTracks.map { BatchTrack(it.uri, it.title) } }
+    val titles = remember(libraryTracks) { libraryTracks.associate { it.uri to it.title } }
+    // Smart playlists are resolved only while their list can be seen or one of them is chosen.
+    val playlists =
+        remember(library, deviceTracks, picking, selection.scope) {
+            if (picking != RenderPick.PLAYLIST && selection.scope != RenderScope.PLAYLIST) {
+                emptyList()
+            } else {
+                library.playlists.map { p ->
+                    RenderPlaylist(p.name, p.trackUris.map { BatchTrack(it, titles[it] ?: it.substringAfterLast('/')) })
+                } +
+                    library.smartPlaylists.map { p ->
+                        RenderPlaylist(p.name, libraryViewModel.resolveSmartPlaylist(p).map { BatchTrack(it.uri, it.title) })
+                    }
+            }
+        }
+    val batchTracks =
+        RenderScope.tracksFor(
+            selection.scope,
+            current = null,
+            queue = queue.tracks.map { BatchTrack(it.uri, it.title.ifBlank { it.uri.substringAfterLast('/') }) },
+            playlist = playlists.firstOrNull { it.name == selection.playlistName }?.tracks.orEmpty(),
+            chosen = selection.chosenUris.map { BatchTrack(it, titles[it] ?: it.substringAfterLast('/')) },
+        )
+    val lookPresets =
+        remember(viz.presets) {
+            (viz.presets + BuiltInPresets.ALL)
+                .filter { it.customShader == null && it.milkPreset == null }
+                .distinctBy { it.name }
+        }
     Column(Modifier.fillMaxSize()) {
         Box(Modifier.weight(1f)) {
             SettingsTabColumn {
@@ -123,24 +165,31 @@ internal fun StudioRenderTab(
                 }
                 item { RenderVideoGroup(options, update) }
                 item { RenderSoundGroup(options, update) }
-                item {
-                    RenderLengthGroup(
-                        options = options,
-                        update = update,
-                        length = length,
-                        onLength = { length = it },
-                        trackDurationMs = player.durationMs,
-                        bpm = viz.bpm,
-                        takes = takes.takes.map { it.name },
-                        selectedTake = takes.exportTake,
-                        onSelectTake = studioViewModel::setExportTake,
-                    )
-                }
-                item {
-                    SettingsGroup(stringResource(R.string.render_group_save)) {
-                        RenderChipRow {
-                            RenderChip(stringResource(R.string.render_save_library), !askWhere) { askWhere = false }
-                            RenderChip(stringResource(R.string.render_save_ask), askWhere) { askWhere = true }
+                if (selection.scope.isBatch) {
+                    item {
+                        RenderLookGroup(lookPresets, selection.lookName) { selection = selection.copy(lookName = it) }
+                    }
+                    item { OptionHint(stringResource(R.string.render_batch_hint)) }
+                } else {
+                    item {
+                        RenderLengthGroup(
+                            options = options,
+                            update = update,
+                            length = length,
+                            onLength = { length = it },
+                            trackDurationMs = player.durationMs,
+                            bpm = viz.bpm,
+                            takes = takes.takes.map { it.name },
+                            selectedTake = takes.exportTake,
+                            onSelectTake = studioViewModel::setExportTake,
+                        )
+                    }
+                    item {
+                        SettingsGroup(stringResource(R.string.render_group_save)) {
+                            RenderChipRow {
+                                RenderChip(stringResource(R.string.render_save_library), !askWhere) { askWhere = false }
+                                RenderChip(stringResource(R.string.render_save_ask), askWhere) { askWhere = true }
+                            }
                         }
                     }
                 }
@@ -159,11 +208,44 @@ internal fun StudioRenderTab(
         }
         RenderBar(
             export = export,
-            scopeLabel = stringResource(R.string.render_scope_current),
-            subject = player.title?.let { title -> listOfNotNull(title, player.artist).joinToString(" · ") },
+            scope = { modifier ->
+                RenderScopeChooser(
+                    scope = selection.scope,
+                    summary =
+                        if (selection.scope.isBatch) {
+                            listOfNotNull(
+                                selection.playlistName.takeIf { selection.scope == RenderScope.PLAYLIST },
+                                pluralStringResource(R.plurals.render_tracks_count, batchTracks.size, batchTracks.size),
+                            ).joinToString(" · ")
+                        } else {
+                            player.title?.let { title -> listOfNotNull(title, player.artist).joinToString(" · ") }
+                                ?: stringResource(R.string.render_nothing_playing)
+                        },
+                    batchLocked = !gate.allows(ProFeature.FULL_LENGTH_EXPORT),
+                    onScope = { selection = selection.copy(scope = it) },
+                    onPickPlaylist = { picking = RenderPick.PLAYLIST },
+                    onPickTracks = { picking = RenderPick.TRACKS },
+                    modifier = modifier,
+                )
+            },
             renderLabel = stringResource(R.string.render_button),
-            canRender = player.hasMedia,
-            onRender = {
+            canRender = if (selection.scope.isBatch) batchTracks.isNotEmpty() else player.hasMedia,
+            onRender = render@{
+                if (selection.scope.isBatch) {
+                    val look = lookPresets.firstOrNull { it.name == selection.lookName }
+                    val renderer = visualizerView.visualizerRenderer
+                    val sceneId = look?.sceneId?.takeIf { it in renderer.availableSceneIds() } ?: viz.sceneId
+                    viewModel.startBatch(
+                        tracks = batchTracks,
+                        aspect = ExportAspect.of(options.quality, options.ratio),
+                        fps = options.fps,
+                        sceneFactory = renderer.exportSceneFactory(sceneId),
+                        sceneParams = look?.params,
+                        loopSafe = options.loopSafe,
+                        codec = options.codec,
+                    )
+                    return@render
+                }
                 val range = length.rangeFor(player.durationMs)
                 startExport(
                     PendingExport(
@@ -183,6 +265,97 @@ internal fun StudioRenderTab(
         )
     }
     if (loopOpen) ExportHost(viewModel, visualizerView) { loopOpen = false }
+    when (picking) {
+        RenderPick.PLAYLIST ->
+            PlaylistPickerDialog(
+                playlists = playlists,
+                onPick = { name ->
+                    selection = selection.copy(scope = RenderScope.PLAYLIST, playlistName = name)
+                    picking = null
+                },
+                onDismiss = { picking = null },
+            )
+        RenderPick.TRACKS ->
+            TrackChecklistDialog(
+                tracks = libraryTracks,
+                chosen = selection.chosenUris,
+                onDone = { uris ->
+                    selection = selection.copy(scope = RenderScope.CHOSEN_TRACKS, chosenUris = uris)
+                    picking = null
+                },
+                onDismiss = { picking = null },
+            )
+        null -> Unit
+    }
+}
+
+/** Which picker the Render bar's scope menu has open. */
+private enum class RenderPick { PLAYLIST, TRACKS }
+
+/**
+ * What the Render button covers and with which look, kept for the life of the screen so a later
+ * render reuses the same chosen tracks or playlist ("the choice is kept").
+ */
+private data class RenderSelection(
+    val scope: RenderScope = RenderScope.CURRENT_TRACK,
+    val playlistName: String? = null,
+    val chosenUris: List<String> = emptyList(),
+    /** A preset's name, or null for the current look. */
+    val lookName: String? = null,
+)
+
+private val RenderSelectionSaver =
+    listSaver<RenderSelection, Any>(
+        save = { listOf(it.scope.name, it.playlistName.orEmpty(), it.lookName.orEmpty(), ArrayList(it.chosenUris)) },
+        restore = { saved ->
+            RenderSelection(
+                scope = RenderScope.entries.firstOrNull { it.name == saved[0] } ?: RenderScope.CURRENT_TRACK,
+                playlistName = (saved[1] as String).ifEmpty { null },
+                lookName = (saved[2] as String).ifEmpty { null },
+                chosenUris = (saved[3] as List<*>).filterIsInstance<String>(),
+            )
+        },
+    )
+
+/**
+ * The look a batch renders with: the current one (null) or one preset for every track. Presets
+ * that draw through a custom shader or a Milkdrop file are left out: the offscreen export renders
+ * a scene id and its parameters, and those two need the live view's own shader state.
+ */
+@Composable
+private fun RenderLookGroup(
+    presets: List<Preset>,
+    lookName: String?,
+    onLook: (String?) -> Unit,
+) {
+    var open by remember { mutableStateOf(false) }
+    SettingsGroup(stringResource(R.string.render_group_look)) {
+        Box {
+            CrystalButton(filled = false, compact = true, onClick = { open = true }) {
+                Text(lookName ?: stringResource(R.string.render_look_current))
+                Icon(Icons.Filled.ArrowDropDown, contentDescription = null)
+            }
+            DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.render_look_current)) },
+                    onClick = {
+                        open = false
+                        onLook(null)
+                    },
+                )
+                presets.forEach { preset ->
+                    DropdownMenuItem(
+                        text = { Text(preset.name) },
+                        onClick = {
+                            open = false
+                            onLook(preset.name)
+                        },
+                    )
+                }
+            }
+        }
+        OptionHint(stringResource(R.string.render_look_hint))
+    }
 }
 
 /** Whole track, or a segment picked as fractions of the track (so it survives a track change). */

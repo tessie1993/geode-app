@@ -45,6 +45,14 @@ class VisualizerRenderer(
     @Volatile
     var reducedMotion: Boolean = false
 
+    /**
+     * Settings › Performance. Live surfaces only: the offscreen export renderer never reads it,
+     * because an export is not real time and can afford full quality. The fps cap is not here;
+     * it belongs to the view's [FramePacer] (see [VisualizerView.applyPerformance]).
+     */
+    @Volatile
+    var performance: PerformanceSettings = PerformanceSettings.HIGH
+
     @Volatile
     var layerSceneId: String? = null
 
@@ -102,6 +110,7 @@ class VisualizerRenderer(
     private val styleReactions = StyleReactionsCache()
 
     private val appContext = context.applicationContext
+
     // Outlives nativeViz's handle, which VisualizerView destroys on every detach; each new handle
     // starts on the preset this remembers rather than on projectM's idle preset.
     private val milkPreset = MilkPresetMemory()
@@ -113,6 +122,7 @@ class VisualizerRenderer(
     private var nativeLfo: List<LfoConfig>? = null
     private var nativeAdsr: List<AdsrConfig>? = null
     private var nativeReactions: List<ReactionRoute>? = null
+    private var nativePerformance: PerformanceSettings? = null
     private var nativeThermalSampleMs = 0L
 
     val milkdropAvailable: Boolean
@@ -193,6 +203,7 @@ class VisualizerRenderer(
         nativeLfo = null
         nativeAdsr = null
         nativeReactions = null
+        nativePerformance = null
     }
 
     override fun onSurfaceChanged(
@@ -248,6 +259,11 @@ class VisualizerRenderer(
         if (routes !== nativeReactions) {
             nativeViz.setReactions(routes)
             nativeReactions = routes
+        }
+        val perf = performance
+        if (perf != nativePerformance) {
+            nativeViz.setQuality(perf.renderScale, perf.marchScale, perf.postFx, perf.adaptive)
+            nativePerformance = perf
         }
         nativeViz.setLook(lookYaw, lookPitch)
         nativeViz.setFeatures(features)

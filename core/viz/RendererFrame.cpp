@@ -102,10 +102,12 @@ SceneParams Renderer::resolveParams(float dt) {
     const bool reducedMotion = reducedMotion_.load(std::memory_order_relaxed);
     p = motionField_.apply(p, reducedMotion, sceneSpin_.load(std::memory_order_relaxed));
     p = safety::apply(p, reducedMotion);
-    if (!thermalTierInfo(thermal_.tier()).optionalPasses) {
+    const bool userPostFx = userPostFx_.load(std::memory_order_relaxed);
+    if (!thermalTierInfo(thermal_.tier()).optionalPasses || !userPostFx) {
         p.flowEnabled = false;
         p.rippleOverlayEnabled = false;
     }
+    if (!userPostFx) p.fluidBloom = false;
     lastFinalParams_ = p;
     postRotationAngle_ = grade::integrateRotation(postRotationAngle_, p.rotation, dt);
     postCyclePhase_ = grade::integrateCyclePhase(postCyclePhase_, p.cycleSpeed, dt, p.colorCycle);
@@ -310,7 +312,9 @@ void Renderer::wireFlow(Scene& target, const SceneParams& p) {
 
 void Renderer::render(double timeSeconds, GLuint targetFbo) {
     const float dt = beginFrame(timeSeconds);
-    if (thermal_.tier() != appliedTier_) applyRenderScale();
+    if (thermal_.tier() != appliedTier_ || userScale_.load(std::memory_order_relaxed) != appliedUserScale_) {
+        applyRenderScale();
+    }
     Scene* scene = resolveActiveScene();
     if (!scene || !ensureTargets()) {
         glBindFramebuffer(GL_FRAMEBUFFER, targetFbo);

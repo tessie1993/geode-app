@@ -8,6 +8,7 @@ import android.view.SurfaceHolder
 import dev.geode.audio.AudioBus
 import dev.geode.billing.ProSnapshot
 import dev.geode.data.GeodePrefsFiles
+import dev.geode.data.PerformanceStore
 import dev.geode.data.PresetStore
 import dev.geode.data.ThemeStore
 import dev.geode.pro.ProFeature
@@ -108,6 +109,10 @@ class VisualizerWallpaperService : WallpaperService() {
                 if (java.io.File(path).isFile) engine.loadMilkPreset(path)
             }
             engine.reducedMotion = ThemeStore(prefsFiles.general).loadGui().reducedMotion
+            // Settings › Performance; the wallpaper keeps its own pacer, so the cap goes there.
+            val performance = PerformanceStore(prefsFiles.general, this@VisualizerWallpaperService).settings.value
+            engine.performance = performance
+            pacer.policy = FrameRatePolicy.Capped(minOf(WALLPAPER_FPS, performance.fpsCap.toFloat()))
             // The user's modulation too: without it the wallpaper and the dream drew the look
             // with every LFO, envelope and custom reaction switched off.
             val modulation = dev.geode.data.LfoStore(prefsFiles.general)

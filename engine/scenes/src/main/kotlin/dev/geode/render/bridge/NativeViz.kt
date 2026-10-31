@@ -190,6 +190,15 @@ class NativeViz(
         if (handle != 0L) GeodeNative.vizSetPacedFps(handle, fps)
     }
 
+    fun setQuality(
+        renderScale: Float,
+        marchScale: Float,
+        postFx: Boolean,
+        adaptive: Boolean,
+    ) {
+        if (handle != 0L) GeodeNative.vizSetQuality(handle, renderScale, marchScale, postFx, adaptive)
+    }
+
     fun setOffscreen(on: Boolean) {
         if (handle != 0L) GeodeNative.vizSetOffscreen(handle, on)
     }

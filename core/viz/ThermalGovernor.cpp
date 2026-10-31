@@ -52,6 +52,11 @@ void PerformanceMonitor::reset() {
     deficitSeconds_ = 0.0f;
 }
 
+bool PerformanceMonitor::keepingUp() const {
+    if (count_ < windowSize_) return false;
+    return averageFps() >= effectiveTargetFps();
+}
+
 float PerformanceMonitor::effectiveTargetFps() const {
     const float paced = pacedFps_.load();
     if (paced <= 0.0f) return targetFps_;
@@ -60,7 +65,7 @@ float PerformanceMonitor::effectiveTargetFps() const {
 
 void ThermalGovernor::onFrame(float dtSeconds) {
     if (offscreenDepth_.load() > 0) return;
-    if (!platformKnows_.load()) trackMeasuredTrend(dtSeconds);
+    if (!platformKnows_.load() || adaptive_.load()) trackMeasuredTrend(dtSeconds);
     sampleClock_ += dtSeconds;
     if (sampleClock_ < kSamplePeriodSeconds) return;
     sampleClock_ = 0.0f;
@@ -72,6 +77,7 @@ void ThermalGovernor::onSurfaceRecreated() {
     sampleClock_ = 0.0f;
     hotDwellSeconds_ = 0.0f;
     coolDwellSeconds_ = 0.0f;
+    keptUpSeconds_ = 0.0f;
 }
 
 void ThermalGovernor::endOffscreenRender() {
@@ -82,7 +88,21 @@ void ThermalGovernor::endOffscreenRender() {
 void ThermalGovernor::trackMeasuredTrend(float dtSeconds) {
     monitor_.setPacedFps(pacedFps_.load());
     const int relief = monitor_.onFrame(dtSeconds);
-    if (relief <= 0) return;
+    if (relief <= 0) {
+        // Only the adaptive mode ever steps back up; without it the measured floor keeps its
+        // old promise of never upgrading.
+        if (!adaptive_.load() || measuredFloor_ == ThermalTier::Full || !monitor_.keepingUp()) {
+            keptUpSeconds_ = 0.0f;
+            return;
+        }
+        keptUpSeconds_ += dtSeconds;
+        if (keptUpSeconds_ < kMeasuredRelaxSeconds) return;
+        keptUpSeconds_ = 0.0f;
+        measuredFloor_ = static_cast<ThermalTier>(static_cast<int>(measuredFloor_) - 1);
+        monitor_.reset();
+        return;
+    }
+    keptUpSeconds_ = 0.0f;
     const int ceiling = static_cast<int>(kMeasuredCeiling);
     measuredFloor_ = static_cast<ThermalTier>(std::min(static_cast<int>(measuredFloor_) + relief, ceiling));
     monitor_.reset();
@@ -90,7 +110,8 @@ void ThermalGovernor::trackMeasuredTrend(float dtSeconds) {
 
 ThermalTier ThermalGovernor::observe() const {
     const ThermalTier platform = std::max(statusTier(osStatus_.load()), headroomTier());
-    return platformKnows_.load() ? platform : std::max(platform, measuredFloor_);
+    const bool measured = !platformKnows_.load() || adaptive_.load();
+    return measured ? std::max(platform, measuredFloor_) : platform;
 }
 
 void ThermalGovernor::settle(ThermalTier observed) {

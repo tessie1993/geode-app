@@ -50,7 +50,8 @@ fun VisualizerEngineBindings(
     val playerPrefs by settingsViewModel.playerPrefs.collectAsStateWithLifecycle()
     val gui by settingsViewModel.guiPrefs.collectAsStateWithLifecycle()
     val layers by LayersBus.state.collectAsStateWithLifecycle()
-    val performance by LocalContext.current.geodeContainer.performance.settings.collectAsStateWithLifecycle()
+    val performanceStore = LocalContext.current.geodeContainer.performance
+    val performance by performanceStore.settings.collectAsStateWithLifecycle()
     val background by visualsViewModel.backgroundPush.collectAsStateWithLifecycle()
     val mainScope = rememberCoroutineScope()
     val lifecycleOwner = LocalLifecycleOwner.current

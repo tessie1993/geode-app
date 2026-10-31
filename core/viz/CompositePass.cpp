@@ -155,6 +155,9 @@ void CompositePass::draw(const Inputs& inputs) {
     glUniform2f(program.loc("uLayerFall"), lay.fallPhase, lay.fallMix);
     glUniform2f(program.loc("uLayerFractal"), lay.fractal, lay.fractalTurn);
     glUniform4fv(program.loc("uSpawn"), Layers::kSpawns, lay.spawn[0].data());
+    glUniform2f(program.loc("uLayerMelt"), lay.melt, lay.meltClock);
+    glUniform2f(program.loc("uLayerFreeze"), lay.freeze, lay.freezeSeed);
+    glUniform2f(program.loc("uLayerShatter"), lay.shatter, lay.shatterSeed);
     glBindVertexArray(inputs.quadVao);
     glDrawArrays(GL_TRIANGLES, 0, 3);
     glBindVertexArray(0);
@@ -188,6 +191,9 @@ void CompositePass::bindTextures(UniformCache& p, const Inputs& inputs) {
     glUniform1i(p.loc("uUnderlay"), 5);
     glUniform1i(p.loc("uUnderlayBlend"), inputs.underlayBlend);
     glUniform1f(p.loc("uUnderlayAmount"), inputs.underlayAmount);
+    glActiveTexture(GL_TEXTURE6);
+    glBindTexture(GL_TEXTURE_2D, inputs.frozenTex);
+    glUniform1i(p.loc("uFrozen"), 6);
 }
 
 void CompositePass::uploadFrameUniforms(UniformCache& p, const Inputs& inputs, const TransitionCatalog::Def* definition) {

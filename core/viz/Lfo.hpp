@@ -26,6 +26,8 @@ enum class LfoTarget {
     CamCrane, CamCut, Fall, Fractal, Spawn,
     // Appended: the last two motions that ran on a slider alone, so the music can drive them too.
     CycleSpeed, DiveSpeed,
+    // Appended: melt, freeze and shatter (viz/Layers) and the particle layer (viz/ParticleLayer).
+    Melt, Freeze, Shatter, Particles, ParticleFall,
 };
 
 struct ModChain {

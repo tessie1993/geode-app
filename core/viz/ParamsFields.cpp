@@ -29,6 +29,7 @@ const std::array<const char*, SceneParams::kFieldCount>& SceneParams::fieldNames
         "camFly", "camPath", "camOrbit", "camPush", "camYaw", "camPitch", "camRoll", "camFov", "camShake",
         "camSmooth", "camTouch", "camGyro", "reactAmount", "reactSeed",
         "camCrane", "camCut", "fall", "fractal", "spawn",
+        "melt", "freeze", "shatter", "particles", "particleFall",
     }};
     return kNames;
 }

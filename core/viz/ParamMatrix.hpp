@@ -58,7 +58,7 @@ struct TargetRow {
     bool wraps;
 };
 
-constexpr int kTargetCount = static_cast<int>(LfoTarget::DiveSpeed) + 1;
+constexpr int kTargetCount = static_cast<int>(LfoTarget::ParticleFall) + 1;
 
 const SourceRow& source(ReactSource s);
 const TargetRow& target(LfoTarget t);

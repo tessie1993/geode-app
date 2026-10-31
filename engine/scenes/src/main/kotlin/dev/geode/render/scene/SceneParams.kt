@@ -194,6 +194,16 @@ data class SceneParams(
     val fractal: Float = 0f,
     /** A rising edge past 0.5 spawns a copy of the picture that grows and dissolves. */
     val spawn: Float = 0f,
+    /** The picture drips and runs down, 0..1. */
+    val melt: Float = 0f,
+    /** A rising edge freezes patches of the picture; they thaw over seconds. */
+    val freeze: Float = 0f,
+    /** A rising edge breaks the picture into shards that fly apart. */
+    val shatter: Float = 0f,
+    /** Pieces of the picture thrown off as particles, 0..1 (how many, how fast). */
+    val particles: Float = 0f,
+    /** -1 particles fly up .. 1 they fall. */
+    val particleFall: Float = 0.3f,
 ) {
     companion object {
         const val UNSET_OVERRIDE: Float = -1f

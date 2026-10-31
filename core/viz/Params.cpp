@@ -147,11 +147,11 @@ const std::array<SceneParams::FloatField, SceneParams::kLerpedFloatCount>& Scene
         {"fall", &SceneParams::fall},
         {"fractal", &SceneParams::fractal},
         {"spawn", &SceneParams::spawn},
-        {"camCrane", &SceneParams::camCrane},
-        {"camCut", &SceneParams::camCut},
-        {"fall", &SceneParams::fall},
-        {"fractal", &SceneParams::fractal},
-        {"spawn", &SceneParams::spawn},
+        {"melt", &SceneParams::melt},
+        {"freeze", &SceneParams::freeze},
+        {"shatter", &SceneParams::shatter},
+        {"particles", &SceneParams::particles},
+        {"particleFall", &SceneParams::particleFall},
     }};
     return kFields;
 }
@@ -324,11 +324,11 @@ const SceneParams::FloatField kAllFloats[] = {
         {"fall", &SceneParams::fall},
         {"fractal", &SceneParams::fractal},
         {"spawn", &SceneParams::spawn},
-        {"camCrane", &SceneParams::camCrane},
-        {"camCut", &SceneParams::camCut},
-        {"fall", &SceneParams::fall},
-        {"fractal", &SceneParams::fractal},
-        {"spawn", &SceneParams::spawn},
+        {"melt", &SceneParams::melt},
+        {"freeze", &SceneParams::freeze},
+        {"shatter", &SceneParams::shatter},
+        {"particles", &SceneParams::particles},
+        {"particleFall", &SceneParams::particleFall},
 };
 }  // namespace
 

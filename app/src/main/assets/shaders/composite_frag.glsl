@@ -162,6 +162,10 @@ uniform float uLayerOn;
 uniform vec2 uLayerFall;     // x: octave phase 0..1, y: mix 0..1
 uniform vec2 uLayerFractal;  // x: generations grown 0..4, y: turn per generation (radians)
 uniform vec4 uSpawn[6];      // x, y (0..1), age 0..1 (1 = gone), seed 0..1
+uniform vec2 uLayerMelt;     // x: how far it has run 0..1, y: the drips' clock
+uniform vec2 uLayerFreeze;   // x: how much is still frozen 0..1, y: which patches
+uniform vec2 uLayerShatter;  // x: shard flight 0..1 (1 = whole), y: seed
+uniform sampler2D uFrozen;   // the frame the last freeze held
 
 // Mirror-wraps uv so a zoomed-out copy tiles without seams.
 vec2 layerWrap(vec2 p) { return 1.0 - abs(1.0 - mod(p, 2.0)); }
@@ -242,13 +246,60 @@ vec3 layerSpawns(sampler2D tex, vec2 p, vec3 col) {
     return col;
 }
 
+// Melt: columns of the picture run down by different amounts (sampling from above them), with a slow
+// wobble on the drips' own clock; the bottom edge pools rather than tearing.
+vec2 layerMelt(vec2 p) {
+    float m = uLayerMelt.x;
+    float drip = layerNoise(vec2(p.x * 14.0, uLayerMelt.y * 0.6));
+    drip = drip * drip * (0.6 + 0.4 * layerNoise(vec2(p.x * 41.0, 3.0)));
+    float run = m * 0.35 * drip * smoothstep(0.0, 0.25, p.y);
+    p.y += run;
+    p.x += m * 0.01 * sin(p.y * 30.0 + uLayerMelt.y * 2.0);
+    return p;
+}
+
+// Shatter: a grid of shards; each flies out from the centre, turning, and fades, leaving the live
+// picture dimmed in the holes. Sampled from the shard this pixel lands in.
+vec3 layerShatter(sampler2D tex, vec2 p, vec3 col) {
+    float t = uLayerShatter.x;
+    vec2 a = vec2(max(uRatio, 0.1), 1.0);
+    vec2 grid = vec2(7.0 * a.x, 7.0);
+    vec2 cell = floor(p * grid);
+    vec2 centre = (cell + 0.5) / grid;
+    float h = compHash12(cell + uLayerShatter.y * 91.0);
+    vec2 dir = normalize((centre - 0.5) * a + (vec2(h, fract(h * 7.3)) - 0.5) * 0.4 + 1e-4);
+    float fly = t * t * (0.6 + 0.8 * h);
+    vec2 off = dir * fly / a;
+    vec2 src = p - off;
+    float ang = (h - 0.5) * 4.0 * t;
+    vec2 loc = mat2(cos(ang), -sin(ang), sin(ang), cos(ang)) * ((src - centre) * a) / a + centre;
+    bool inShard = floor(loc * grid) == cell;
+    vec3 shard = texture(tex, clamp(loc, 0.0, 1.0)).rgb;
+    float fade = 1.0 - smoothstep(0.55, 1.0, t);
+    vec3 hole = col * mix(0.35, 1.0, smoothstep(0.6, 1.0, t));
+    return inShard ? mix(hole, shard * 1.1, fade) : hole;
+}
+
+// Freeze: noise patches hold the frame the freeze captured and thaw from their edges inward.
+vec3 layerFreeze(vec2 p, vec3 col) {
+    float n = layerNoise(p * 5.0 + uLayerFreeze.y * 53.0);
+    float held = smoothstep(1.0 - uLayerFreeze.x - 0.05, 1.0 - uLayerFreeze.x + 0.05, n);
+    vec3 ice = texture(uFrozen, clamp(p, 0.0, 1.0)).rgb;
+    float rim = (1.0 - smoothstep(0.0, 0.05, abs(n - (1.0 - uLayerFreeze.x)))) * uLayerFreeze.x;
+    return mix(col, ice, held) + rim * vec3(0.35, 0.5, 0.6);
+}
+
 // The scene colour at p with every live layer laid over it.
 vec3 layered(sampler2D tex, vec2 p) {
+    if (uLayerOn > 0.5 && uLayerMelt.x > 0.001) p = layerMelt(p);
     vec3 col = texture(tex, clamp(p, 0.0, 1.0)).rgb;
     if (uLayerOn < 0.5) return col;
     if (uLayerFall.y > 0.001) col = layerFall(tex, p, col);
     if (uLayerFractal.x > 0.001) col = layerFractal(tex, p, col);
-    return layerSpawns(tex, p, col);
+    col = layerSpawns(tex, p, col);
+    if (uLayerFreeze.x > 0.001) col = layerFreeze(p, col);
+    if (uLayerShatter.x < 1.0) col = layerShatter(tex, p, col);
+    return col;
 }
 
 // Hue rotation about the grey axis, byte-for-byte the same formula as

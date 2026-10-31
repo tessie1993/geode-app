@@ -173,6 +173,11 @@ constexpr std::array<TargetRow, kTargetCount> kTargets = {{
     GEODE_TGT(Spawn, "SPAWN", "Spawn", "LAYERS", spawn, 1.0f, 0.0f, 1.0f, false),
     GEODE_TGT(CycleSpeed, "CYCLE_SPEED", "Colour cycle speed", "COLOUR", cycleSpeed, 0.3f, 0.0f, 0.6f, false),
     GEODE_TGT(DiveSpeed, "DIVE_SPEED", "Dive speed", "MOTION", endlessZoomSpeed, 0.6f, 0.0f, 1.2f, false),
+    GEODE_TGT(Melt, "MELT", "Melt", "LAYERS", melt, 1.0f, 0.0f, 1.0f, false),
+    GEODE_TGT(Freeze, "FREEZE", "Freeze", "LAYERS", freeze, 1.0f, 0.0f, 1.0f, false),
+    GEODE_TGT(Shatter, "SHATTER", "Shatter", "LAYERS", shatter, 1.0f, 0.0f, 1.0f, false),
+    GEODE_TGT(Particles, "PARTICLES", "Particles", "PARTICLES", particles, 1.0f, 0.0f, 1.0f, false),
+    GEODE_TGT(ParticleFall, "PARTICLE_FALL", "Particle fall", "PARTICLES", particleFall, 1.0f, -1.0f, 1.0f, false),
 }};
 
 #undef GEODE_TGT

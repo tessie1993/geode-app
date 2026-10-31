@@ -72,6 +72,7 @@ public:
         std::array<float, 2> camGate{};
         // Fall through, fractal growth and spawns (viz/Layers), drawn over every style.
         Layers::Uniforms layers;
+        GLuint frozenTex = 0;
         // W00: underlay, read each frame from CompositePass's own latched texture (see the class
         // comment above) via underlayTexOrZero()/underlayBlendMode()/underlayAmount().
         GLuint underlayTex = 0;

@@ -232,6 +232,11 @@ void Renderer::drawSceneTarget(Scene& scene, const SceneParams& p, float dt) {
 }
 
 void Renderer::composite(Scene& scene, const SceneParams& p, float progress, GLuint targetFbo) {
+    if (layers_.captureFrozen() && frozen_.ensure(renderWidth_, renderHeight_)) {
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, fboA_.fbo());
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, frozen_.fbo());
+        glBlitFramebuffer(0, 0, renderWidth_, renderHeight_, 0, 0, renderWidth_, renderHeight_, GL_COLOR_BUFFER_BIT, GL_LINEAR);
+    }
     glBindFramebuffer(GL_FRAMEBUFFER, targetFbo);
     glViewport(0, 0, width_, height_);
     glDisable(GL_BLEND);
@@ -290,12 +295,15 @@ void Renderer::composite(Scene& scene, const SceneParams& p, float progress, GLu
     in.camTilt = cam.tilt;
     in.camGate = {activeScene_->drawsCamera() ? 0.0f : 1.0f, other->drawsCamera() ? 0.0f : 1.0f};
     in.layers = layers_.uniforms();
+    in.frozenTex = frozen_.tex() != 0 ? frozen_.tex() : compositePass_.zeroTex();
     // W00: read this frame's latched underlay straight from CompositePass (it owns the texture -
     // see CompositePass.hpp), the same way uFlow/uRipple above are read from Overlays.
     in.underlayTex = compositePass_.underlayTexOrZero();
     in.underlayBlend = compositePass_.underlayBlendMode();
     in.underlayAmount = compositePass_.underlayAmount();
     compositePass_.draw(in);
+    // The particles fly over the graded picture, coloured by the style's own frame.
+    particles_.draw(in.texA, width_, height_, in.ratio);
     // W00: overlay is its own draw call, over whatever composite() just wrote to targetFbo, so it
     // never enters postFx/transitions/Layers and comes out identical live, in the wallpaper and in
     // the offscreen export.
@@ -331,6 +339,7 @@ void Renderer::stepCamera(const SceneParams& p, float dt) {
                  &soundFrame_);
     // The layers read the same final params, so they step beside the camera.
     layers_.step(p, dt, reducedMotion_.load(std::memory_order_relaxed));
+    particles_.step(p, dt);
 }
 
 void Renderer::wireFlow(Scene& target, const SceneParams& p) {

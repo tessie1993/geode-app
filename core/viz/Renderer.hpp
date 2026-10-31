@@ -15,6 +15,7 @@
 #include "viz/Adsr.hpp"
 #include "viz/CameraRig.hpp"
 #include "viz/Layers.hpp"
+#include "viz/ParticleLayer.hpp"
 #include "viz/CompositePass.hpp"
 #include "viz/Framebuffer.hpp"
 #include "viz/GlProfile.hpp"
@@ -164,6 +165,7 @@ private:
     ReactionEngine macroReactions_;
     CameraRig camera_;
     Layers layers_;
+    ParticleLayer particles_;
     // One engine per renderer (one per surface), so each is frame-locked to its own dt. Guarded by soundLock_
     // only because writeAudio and soundFrame are public; in practice one thread does everything.
     mutable std::mutex soundLock_;
@@ -176,6 +178,8 @@ private:
     std::atomic<float> lookYaw_{0.0f};
     std::atomic<float> lookPitch_{0.0f};
     Framebuffer fboA_{"sceneA"};
+    // The frame a freeze edge held (viz/Layers), shown in patches until they thaw.
+    Framebuffer frozen_{"frozen"};
     Framebuffer fboB_{"sceneB"};
     GLuint quadVao_ = 0;
     GLuint paletteLutTex_ = 0;

@@ -11,10 +11,17 @@ float onePole(float x, float target, float dt, float seconds) {
     return x + (target - x) * (1.0f - std::exp(-dt / std::max(seconds, 1e-3f)));
 }
 
+// A rising edge past 0.5, re-armed below 0.3, like a Step route.
+bool edgeOf(float v, bool& high) {
+    const bool edge = v >= 0.5f && !high;
+    high = v >= 0.3f && (v >= 0.5f || high);
+    return edge;
+}
+
 }  // namespace
 
 bool Layers::Uniforms::any() const {
-    if (fallMix > 0.001f || fractal > 0.001f) return true;
+    if (fallMix > 0.001f || fractal > 0.001f || melt > 0.001f || freeze > 0.001f || shatter < 1.0f) return true;
     for (const auto& s : spawn) {
         if (s[2] < 1.0f) return true;
     }
@@ -28,6 +35,12 @@ void Layers::reset() {
     growth_ = 0.0f;
     turnPhase_ = 0.0f;
     spawnHigh_ = false;
+    freezeHigh_ = false;
+    shatterHigh_ = false;
+    capture_ = false;
+    sinceFreeze_ = kTriggerGapSeconds;
+    sinceShatter_ = kTriggerGapSeconds;
+    meltLevel_ = 0.0f;
     sinceSpawn_ = kSpawnGapSeconds;
     nextSlot_ = 0;
     seed_ = 0x6C8E9CF5u;
@@ -61,6 +74,37 @@ void Layers::step(const SceneParams& p, float dt, bool reducedMotion) {
     turnPhase_ = std::fmod(turnPhase_ + dt * 0.15f * growth_, 6.2831853f);
     u_.fractal = growth_;
     u_.fractalTurn = 0.35f + 0.25f * std::sin(turnPhase_);
+
+    // Melt: the picture runs down while its sound lasts and sets again after; the drips move on their
+    // own clock, which stands still when nothing melts.
+    const float melt = std::clamp(finite(p.melt), 0.0f, 1.0f);
+    meltLevel_ = onePole(meltLevel_, melt, dt, melt > meltLevel_ ? 0.25f : 0.9f);
+    u_.melt = meltLevel_;
+    u_.meltClock = std::fmod(u_.meltClock + dt * meltLevel_, 64.0f);
+
+    // Freeze: an edge holds this frame in patches (the renderer copies it), which thaw over seconds;
+    // while the source stays high nothing thaws.
+    capture_ = false;
+    sinceFreeze_ += dt;
+    const float fr = finite(p.freeze);
+    if (edgeOf(fr, freezeHigh_) && sinceFreeze_ >= kTriggerGapSeconds) {
+        sinceFreeze_ = 0.0f;
+        capture_ = true;
+        u_.freeze = 1.0f;
+        u_.freezeSeed = nextRandom();
+    } else if (fr < 0.5f) {
+        u_.freeze = std::max(0.0f, u_.freeze - dt / kThawSeconds);
+    }
+
+    // Shatter: an edge breaks the picture into shards that fly out and fade, then it is whole again.
+    sinceShatter_ += dt;
+    if (edgeOf(finite(p.shatter), shatterHigh_) && sinceShatter_ >= kTriggerGapSeconds) {
+        sinceShatter_ = 0.0f;
+        u_.shatter = 0.0f;
+        u_.shatterSeed = nextRandom();
+    } else {
+        u_.shatter = std::min(1.0f, u_.shatter + dt / kShatterSeconds);
+    }
 
     // Spawn: each rising edge past 0.5 (re-armed below 0.3) starts the oldest slot over at a new place.
     for (auto& s : u_.spawn) s[2] = std::min(s[2] + dt / kSpawnLifeSeconds, 1.0f);

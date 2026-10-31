@@ -136,6 +136,13 @@ enum class LfoTarget(
     // The last two motions that ran on a slider alone, so the music can drive them too.
     CYCLE_SPEED("Colour cycle speed", ParamScope.UNIVERSAL),
     DIVE_SPEED("Dive speed", ParamScope.ENDLESS_ZOOM),
+
+    // Melt, freeze and shatter (core/viz/Layers) and the particle layer (core/viz/ParticleLayer), over every style.
+    MELT("Melt", ParamScope.UNIVERSAL),
+    FREEZE("Freeze", ParamScope.UNIVERSAL),
+    SHATTER("Shatter", ParamScope.UNIVERSAL),
+    PARTICLES("Particles", ParamScope.UNIVERSAL),
+    PARTICLE_FALL("Particle fall", ParamScope.UNIVERSAL),
 }
 
 /**

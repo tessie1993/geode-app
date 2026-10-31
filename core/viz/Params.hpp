@@ -192,6 +192,11 @@ struct SceneParams {
     float fall = 0.0f;        // fall through itself, -1..1: + falls in, - falls back out
     float fractal = 0.0f;     // fractal growth, 0..1: mirrored copies grow outward
     float spawn = 0.0f;       // a rising edge past 0.5 spawns a copy that grows and dissolves
+    float melt = 0.0f;        // the picture drips and runs down, 0..1
+    float freeze = 0.0f;      // a rising edge freezes patches of the picture; they thaw over seconds
+    float shatter = 0.0f;     // a rising edge breaks the picture into shards that fly apart
+    float particles = 0.0f;   // pieces of the picture thrown off as particles, 0..1 (how many, how fast)
+    float particleFall = 0.3f; // -1 particles fly up .. 1 they fall
 
     struct Palette {
         const char* name;
@@ -217,11 +222,11 @@ struct SceneParams {
     // pointer-to-member is not a compile error. It was declared as 98 over 95
     // entries, and lerpParams/blendParams wrote through the three null members
     // on every fade. Count again whenever a lerped float is added.
-    static constexpr int kLerpedFloatCount = 116;
+    static constexpr int kLerpedFloatCount = 121;
     static const std::array<FloatField, kLerpedFloatCount>& lerpedFloats();
 
     // Every field in declaration order; the wire order of geode_viz_set_params.
-    static constexpr int kFieldCount = 159;
+    static constexpr int kFieldCount = 164;
     static const std::array<const char*, kFieldCount>& fieldNames();
 
     // Sets a field by its Kotlin property name; ints and bools are taken from the float's value.

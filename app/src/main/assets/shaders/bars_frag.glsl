@@ -13,7 +13,7 @@ uniform vec2 uResolution;
 uniform float uSpeed;
 uniform float uZoom;
 uniform float uRotation;
-uniform float uZoomPhase;
+//#include lib_zoom
 uniform float uColorShift;
 uniform float uHueRange;
 uniform float uSat;
@@ -96,11 +96,9 @@ vec2 view() {
     // for good and stranding the user on a black screen.
     vec2 driftPhase = fract(vec2(uDriftX, uDriftY) * uTime * 0.025 + 0.25);
     uv += 1.0 - 2.0 * abs(2.0 * driftPhase - 1.0);
-    // Triangle-wave exponent: 1x -> 2x -> 1x smoothly, so the endless-zoom
-    // phase wrap never causes a visible scale pop (2^1 snapping to 2^0). The
-    // milkdrop post pass (pm_post_frag) already spells it this way; a sawtooth
-    // exponent halved the magnification once per cycle on every scene shader.
-    float z = uZoom * pow(2.0, 1.0 - abs(2.0 * uZoomPhase - 1.0));
+    // Endless zoom: this layer's magnification (lib_zoom draws two, an octave apart).
+    gZoomRead = true;
+    float z = uZoom * gZoomMag;
     uv /= max(z, 0.05);
     uv += uTurbulence * 0.06 * vec2(sin(uv.y * 6.0 + uTime), cos(uv.x * 6.0 + uTime * 1.3));
     // Radial twist: rotate by an angle growing with radius.

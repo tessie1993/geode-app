@@ -103,7 +103,11 @@ void CameraRig::step(const SceneParams& p, const LookInput& look, float dt, bool
     const float lookYaw = p.camYaw * kMaxYaw + (p.camTouch || p.camGyro ? look.yaw * kTouchLook : 0.0f);
     const float lookPitch = p.camPitch * kMaxPitch + (p.camTouch || p.camGyro ? look.pitch * kTouchLook : 0.0f);
     float fovTarget = std::clamp(p.camFov, 0.5f, 2.0f);
-    const float speedTarget = std::clamp(p.camFly, 0.0f, 2.5f) * kBaseSpeed * g;
+    // Endless zoom is a dive. The 2D styles draw it as an octave crossfade (EndlessZoom.hpp);
+    // a 3D style would have to march every ray twice for that, so it dives the way a camera
+    // does instead, by flying further in. ShaderScene keeps those styles at one layer, 1x.
+    const float diveSpeed = p.endlessZoom ? std::clamp(p.endlessZoomSpeed, 0.0f, 1.2f) * kDivePerOctave : 0.0f;
+    const float speedTarget = (std::clamp(p.camFly, 0.0f, 2.5f) * kBaseSpeed + diveSpeed) * g;
 
     // ---- SoundMoves: what the music does to the camera by itself ----------------------------
     // Sources: MilkDrop's zoom on bass_att and its slow rot on time; TouchDesigner's lag-shaped

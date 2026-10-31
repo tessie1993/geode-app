@@ -9,6 +9,7 @@
 #include <string>
 
 #include "viz/CameraRig.hpp"
+#include "viz/EndlessZoom.hpp"
 #include "viz/Macros.hpp"
 #include "viz/MotionField.hpp"
 #include "viz/ReactionDna.hpp"
@@ -625,6 +626,79 @@ void startersAreNamedAndInRange() {
     check(macros::starters()[0].knobs == MacroKnobs{}, "the first starter is As styled");
 }
 
+// Endless zoom used to spell its magnification as a triangle, 1x -> 2x -> 1x, so the
+// dive backed out every other half-octave. Each layer must only ever grow, the pair
+// must be the same picture either side of the phase wrap, and phase 0 is plain 1x.
+float layerWeight(const endless::Layers& l, float mag) {
+    float w = 0.0f;
+    if (std::fabs(l.mag0 - mag) < 1e-4f) w += 1.0f - l.weight1;
+    if (std::fabs(l.mag1 - mag) < 1e-4f) w += l.weight1;
+    return w;
+}
+
+void endlessZoomOnlyDivesIn() {
+    // Follow the two layers through one octave by identity (outgoing starts at 1x).
+    float prevOut = 0.0f;
+    float prevIn = 0.0f;
+    for (int i = 0; i <= 1000; ++i) {
+        const float ph = static_cast<float>(i) / 1000.0f;
+        const endless::Layers l = endless::layers(ph);
+        const float out = std::exp2(ph);
+        const float in = std::exp2(ph - 1.0f);
+        check(layerWeight(l, out) + layerWeight(l, in) > 0.999f, "the two layers are the octave pair");
+        check(l.weight1 >= 0.0f && l.weight1 <= 0.5f, "the second layer never dominates");
+        check(l.mag0 >= 0.5f && l.mag0 <= 2.0f && l.mag1 >= 0.5f && l.mag1 <= 2.0f, "scale stays within an octave of 1x");
+        if (i > 0) {
+            check(out > prevOut && in > prevIn, "both layers only ever zoom in");
+        }
+        prevOut = out;
+        prevIn = in;
+    }
+    const endless::Layers start = endless::layers(0.0f);
+    check(start.mag0 == 1.0f && start.weight1 == 0.0f, "phase 0 (and off) is one layer at exactly 1x");
+    // Seam: what is on screen just before the wrap is what is on screen just after it.
+    const endless::Layers before = endless::layers(0.99999f);
+    const endless::Layers after = endless::layers(0.0f);
+    check(std::fabs(before.mag0 - after.mag0) < 1e-3f && before.weight1 == 0.0f, "no pop at the phase wrap");
+    // The visible mix moves smoothly: no frame changes either layer's weight by much.
+    float prevW = 0.0f;
+    for (int i = 1; i <= 1000; ++i) {
+        const float ph = static_cast<float>(i) / 1000.0f;
+        const float w = layerWeight(endless::layers(ph), std::exp2(ph - 1.0f));
+        check(std::fabs(w - prevW) < 0.01f, "the crossfade has no jumps");
+        prevW = w;
+    }
+}
+
+void endlessZoomPhaseWrapsForEverInBothDirections() {
+    float ph = 0.0f;
+    for (int i = 0; i < 60 * 60 * 60; ++i) ph = endless::advance(ph, 1.2f, 1.0f / 60.0f);  // an hour at full speed
+    check(ph >= 0.0f && ph < 1.0f, "phase stays in [0, 1) after an hour");
+    float back = 0.3f;
+    for (int i = 0; i < 600; ++i) back = endless::advance(back, -0.7f, 1.0f / 60.0f);
+    check(back >= 0.0f && back < 1.0f, "a negative speed wraps back into [0, 1)");
+    check(endless::advance(0.4f, 0.0f, 1.0f / 60.0f) == 0.4f, "zero speed holds the phase");
+    check(endless::advance(0.4f, NAN, 1.0f / 60.0f) == 0.4f, "NaN speed holds the phase");
+    check(endless::advance(0.4f, INFINITY, 1.0f / 60.0f) == 0.4f, "infinite speed holds the phase");
+    check(endless::advance(NAN, 0.3f, 1.0f / 60.0f) == 0.0f, "a NaN phase recovers to 0");
+    check(endless::advance(0.0f, -1e-9f, 1.0f) < 1.0f, "a tiny negative step never lands on 1.0");
+}
+
+void endlessZoomDrivesTheRigForward() {
+    CameraRig still;
+    CameraRig diving;
+    SceneParams p;
+    p.camFly = 0.0f;
+    SceneParams q = p;
+    q.endlessZoom = true;
+    q.endlessZoomSpeed = 0.5f;
+    for (int i = 0; i < 600; ++i) {
+        still.step(p, {}, 1.0f / 60.0f, false, false, nullptr);
+        diving.step(q, {}, 1.0f / 60.0f, false, false, nullptr);
+    }
+    check(diving.pose().travel > still.pose().travel + 1.0f, "Endless zoom flies the 3D styles forward");
+}
+
 }  // namespace
 
 int main() {
@@ -661,6 +735,9 @@ int main() {
     chaosDownStopsCameraCuts();
     surpriseIsSeededAndKeepsLocks();
     startersAreNamedAndInRange();
+    endlessZoomOnlyDivesIn();
+    endlessZoomPhaseWrapsForEverInBothDirections();
+    endlessZoomDrivesTheRigForward();
     if (failures == 0) std::printf("viz_math_test: all passed\n");
     return failures == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
 }

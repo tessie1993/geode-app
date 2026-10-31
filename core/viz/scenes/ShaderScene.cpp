@@ -4,6 +4,7 @@
 #include <cmath>
 
 #include "viz/Catalogue.hpp"
+#include "viz/EndlessZoom.hpp"
 #include "viz/scenes/SceneCommon.hpp"
 
 namespace geode::viz {
@@ -71,7 +72,7 @@ void ShaderScene::update(const GeodeSoundFrame& sound, float dt) {
     const SceneParams& p = params_;
     shaderTime_ = std::fmod(shaderTime_ + p.speed * dt, kTimeWrapSeconds);
     rotationAngle_ = std::fmod(rotationAngle_ + p.rotation * dt, kTwoPi);
-    zoomPhase_ = p.endlessZoom ? std::fmod(zoomPhase_ + p.endlessZoomSpeed * dt, 1.0f) : 0.0f;
+    zoomPhase_ = p.endlessZoom ? endless::advance(zoomPhase_, p.endlessZoomSpeed, dt) : 0.0f;
     if (p.colorCycle) cyclePhase_ = std::fmod(cyclePhase_ + p.cycleSpeed * dt, 1.0f);
     // Wave three: the continuous motion layer, never a transient/beat trigger.
     motionField_.step(sound, dt);
@@ -120,7 +121,10 @@ void ShaderScene::uploadParams() {
     set1f("uSpeed", p.speed);
     set1f("uZoom", p.zoom);
     set1f("uRotation", rotationAngle_);
-    set1f("uZoomPhase", zoomPhase_);
+    // Endless zoom's two octave layers (lib_zoom). A style that reads the camera rig dives by
+    // travel instead (CameraRig), so it stays one layer at 1x and never marches twice.
+    const endless::Layers zoom = uniforms_.loc("uCamPos") >= 0 ? endless::Layers{} : endless::layers(zoomPhase_);
+    glUniform3f(uniforms_.loc("uZoomLayers"), zoom.mag0, zoom.mag1, zoom.weight1);
     set1f("uColorShift", p.colorShift + cyclePhase_);
     set1f("uHueRange", p.hueRange);
     set1f("uSat", p.saturation);

@@ -459,14 +459,6 @@ object GeodeNative {
         output: FloatArray,
     )
 
-    /** The A/B blend of two SceneParamsCodec frames: floats glide, choices snap at [t] = 0.5. */
-    external fun paramsBlend(
-        a: FloatArray,
-        b: FloatArray,
-        t: Float,
-        output: FloatArray,
-    )
-
     // Export resampler (core/audio/dsp/PcmResampler): interleaved 16-bit PCM to the AAC rate.
 
     /** 0 for a bad rate or channel count. */

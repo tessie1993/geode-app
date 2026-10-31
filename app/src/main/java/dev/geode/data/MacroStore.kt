@@ -28,7 +28,7 @@ data class MacroState(
  * Customize › Macros' storage, process-wide.
  *
  * The knobs are a layer over every style (core/viz/Macros does all the work), so they live outside
- * presets and A/B: they survive a style change, and the screen, exports, the wallpaper and the dream all
+ * look presets: they survive a style change, and the screen, exports, the wallpaper and the dream all
  * read the one copy the engine holds. Every change is handed to native at once; [GeodeApp] pushes the
  * saved knobs at start, so a wallpaper that starts before the app does still sees them.
  */

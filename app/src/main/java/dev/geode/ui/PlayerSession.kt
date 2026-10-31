@@ -305,8 +305,6 @@ class PlayerSession internal constructor(
     val reactions: StateFlow<List<dev.geode.render.ReactionRoute>?> get() = modulation.reactions
     val lockedParams: StateFlow<Set<String>> get() = modulation.lockedParams
     val paramHistory: StateFlow<ParamHistoryState> get() = modulation.history
-    val abSnapshots: StateFlow<AbSnapshotState> get() = modulation.ab
-
     fun toggleParamLock(label: String) = modulation.toggleParamLock(label)
 
     fun randomizeParams(tab: CustomizeTab? = null) = modulation.randomizeParams(tab)
@@ -320,16 +318,6 @@ class PlayerSession internal constructor(
     fun resetCustomizeTab(tab: CustomizeTab) = modulation.resetTab(tab)
 
     fun resetAllCustomize() = modulation.resetAll()
-
-    fun captureSnapshotA() = modulation.captureA()
-
-    fun captureSnapshotB() = modulation.captureB()
-
-    fun recallSnapshotA() = modulation.recallA()
-
-    fun recallSnapshotB() = modulation.recallB()
-
-    fun blendSnapshots(t: Float) = modulation.blendAb(t)
 
     fun setAdsr(
         index: Int,

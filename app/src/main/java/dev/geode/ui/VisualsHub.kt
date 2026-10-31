@@ -1166,7 +1166,6 @@ private fun CustomizeToolbar(
 ) {
     val visualsViewModel: VisualsViewModel = geodeViewModel()
     val history by visualsViewModel.paramHistory.collectAsStateWithLifecycle()
-    val ab by visualsViewModel.abSnapshots.collectAsStateWithLifecycle()
     var confirmReset by remember { mutableStateOf(false) }
     var savingPreset by remember { mutableStateOf(false) }
     var presetName by remember { mutableStateOf("") }
@@ -1224,36 +1223,6 @@ private fun CustomizeToolbar(
                 if (changed == 0) "defaults" else "$changed changed",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        Row(
-            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(top = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Text("A/B", style = MaterialTheme.typography.labelSmall, color = accentTextColor())
-            CrystalButton(compact = true, filled = false, onClick = visualsViewModel::captureSnapshotA) { Text("Set A") }
-            CrystalButton(
-                compact = true,
-                filled = false,
-                enabled = ab.a != null,
-                onClick = visualsViewModel::recallSnapshotA,
-            ) { Text("Recall A") }
-            CrystalButton(compact = true, filled = false, onClick = visualsViewModel::captureSnapshotB) { Text("Set B") }
-            CrystalButton(
-                compact = true,
-                filled = false,
-                enabled = ab.b != null,
-                onClick = visualsViewModel::recallSnapshotB,
-            ) { Text("Recall B") }
-        }
-        if (ab.canBlend) {
-            Text("Blend A → B ${"%.2f".format(ab.blend)}", style = MaterialTheme.typography.labelSmall)
-            CrystalSlider(
-                value = ab.blend,
-                onValueChange = visualsViewModel::blendSnapshots,
-                valueRange = 0f..1f,
-                modifier = Modifier.fillMaxWidth(),
             )
         }
     }

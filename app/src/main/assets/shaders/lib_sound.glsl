@@ -1,4 +1,7 @@
-// The sound engine's frame (core/sound/SoundFrame.h), raw, for any style that includes this.
+// The sound engine's frame (core/sound/SoundFrame.h), raw: the only way sound reaches a style.
+// lib_scene_uniforms includes this, so a style that includes that file must not include this one
+// again (a second paste is a redefinition error); a style without lib_scene_uniforms includes it
+// directly. Family libraries (lib_dive, lib_glass, ...) read the names but never include it.
 //
 // uSound holds every scalar of GeodeSoundFrame in declaration order, four to a vec4; the SND_* names
 // below are generated from the header, and SoundFrameLayoutTest / ShaderSoundLibTest fail if they drift.
@@ -109,6 +112,8 @@ uniform vec2 uSoundCounts;
 float sndSpectrum(float x) { return texture(uSoundTex, vec2(clamp(x, 0.0, 1.0), 0.5 / 3.0)).r * uSoundDrive; }
 /** The stabilised waveform at x, -1..1 (not driven: a line's shape, not a level). */
 float sndWave(float x) { return texture(uSoundTex, vec2(clamp(x, 0.0, 1.0), 1.5 / 3.0)).r; }
+/** The waveform at x as a 0..1 line height: centred on 0.5 and scaled by the drive, as the old waveform tap was. */
+float sndWave01(float x) { return clamp(sndWave(x) * uSoundDrive * 0.5 + 0.5, 0.0, 1.0); }
 /** The 16-band EQ at x (relative, ~1 typical), times the drive. */
 float sndEq(float x) { return texture(uSoundTex, vec2(clamp(x, 0.0, 1.0), 2.5 / 3.0)).r * uSoundDrive; }
 /**

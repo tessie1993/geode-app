@@ -44,11 +44,11 @@
 //
 // REWIRING ON ONSETS
 //
-// truchetRoll() decides, per cell, whether the newest onset (floor(uHitCount))
+// truchetRoll() decides, per cell, whether the newest onset (floor(SND_HIT_TIME))
 // re-rolled it. Each cell re-rolls on every k-th onset, k and its offset hashed
 // from the cell, so a hit rewires a scattered subset of the maze rather than
 // all of it or a visible band of it. A re-rolled cell eases from its old tile
-// to its new one over the onset envelope (uHits.w, 0.22 s): squares and hexes
+// to its new one over the onset envelope (SND_ONSET_ENV, 0.22 s): squares and hexes
 // turn by a quarter / sixth turn, which is the rotation that maps one tile onto
 // the other, and the region colour cross-fades as they turn. The envelope is 1
 // on the frame the count steps, so the first frame of a roll is still the old
@@ -78,7 +78,7 @@
 //
 // After lib_scene_uniforms (reads uTime, uSpeed, uIntensity, uMorph, uWarp,
 // uTurbulence). It reads no audio uniform itself - styles hand in floor(
-// uHitCount), uHits.w and their own band levels - and it includes nothing,
+// floor(SND_HIT_TIME)), SND_ONSET_ENV and their own band levels - and it includes nothing,
 // because the include resolver does not de-duplicate.
 
 #define TRUCHET_PI 3.14159265
@@ -168,7 +168,7 @@ float truchetChaos() {
 /**
  * Bass breathing: the multiplier on the cell scale. Slightly above 1 on a low
  * end, so the tiles grow toward the viewer - zooming in on the bass. Feed it a
- * slew-limited level (uBassSmooth), never a hit, so it breathes and never jumps.
+ * slew-limited level (sndShaped(SND_LOW)), never a hit, so it breathes and never jumps.
  */
 float truchetBreath(float bass) {
     return 1.0 / (1.0 + 0.14 * clamp(bass, 0.0, 1.5) * truchetEnergy());
@@ -204,7 +204,7 @@ float truchetLine(float d, float hw, float px) {
  * x = the old tile's hash, y = the new tile's hash, z = eased progress 0..1:
  * mix old to new by z. z reaches 1 as the onset envelope falls, so z == 1
  * with x != y is the new tile in full; x == y only once no re-roll is due.
- * `hits` = floor(uHitCount), `env` = uHits.w,
+ * `hits` = floor(SND_HIT_TIME), `env` = SND_ONSET_ENV,
  * `period` = on average a cell re-rolls on one onset in `period`.
  */
 vec3 truchetRoll(vec2 id, float hits, float env, float period) {

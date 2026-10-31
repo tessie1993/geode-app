@@ -491,6 +491,39 @@ object GeodeNative {
      */
     external fun catalogueText(): String
 
+    /** Every rolled control as `TAB|ParamKeys string` lines, in roll order (core/viz/ParamRandomizer). Static. */
+    external fun paramsRollKeys(): String
+
+    /**
+     * Rolls a new look (core/viz/ParamRandomizer) from [input], a SceneParamsCodec frame, into [output]:
+     * the controls of [tab] (a CustomizeTab name; null = every tab) that reach [styleId] (null = any),
+     * except the newline-joined ParamKeys in [locked]. Same arguments, same look. True when it changed
+     * something.
+     */
+    external fun paramsRandomize(
+        styleId: String?,
+        tab: String?,
+        locked: String?,
+        seed: Long,
+        input: FloatArray,
+        output: FloatArray,
+    ): Boolean
+
+    /** [input] with exactly the fields [tab] (a CustomizeTab name) rolls put back to their defaults, into [output]. */
+    external fun paramsResetTab(
+        tab: String,
+        input: FloatArray,
+        output: FloatArray,
+    )
+
+    /** The A/B blend of two SceneParamsCodec frames: floats glide, choices snap at [t] = 0.5. */
+    external fun paramsBlend(
+        a: FloatArray,
+        b: FloatArray,
+        t: Float,
+        output: FloatArray,
+    )
+
     // Export resampler (core/audio/dsp/PcmResampler): interleaved 16-bit PCM to the AAC rate.
 
     /** 0 for a bad rate or channel count. */

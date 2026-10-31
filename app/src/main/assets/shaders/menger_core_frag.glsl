@@ -8,7 +8,6 @@ out vec4 fragColor;
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_sdf3
@@ -28,26 +27,26 @@ out vec4 fragColor;
 //
 // ---- audio: one sound, one property -----------------------------------------
 //
-// Kick (uHits.x)       the holes grow: every level's hole ratio swells, so the
+// Kick (SND_KICK_ENV)       the holes grow: every level's hole ratio swells, so the
 //                      sponge breathes open and the walls thin.
-// Snare (uHits.y)      the seams flash to a contrasting hue, and the inner
+// Snare (SND_SNARE_ENV)      the seams flash to a contrasting hue, and the inner
 //                      levels twist (each bar's cross-section turns, odd and
 //                      even levels in opposite directions).
-// Hat (uHits.z)        fine glints sparkle along the edges, hashed points
+// Hat (SND_HAT_ENV)        fine glints sparkle along the edges, hashed points
 //                      that twinkle only where a seam is.
-// Onset (uHits.w)      the inner levels slide inside their cells to a new
+// Onset (SND_ONSET_ENV)      the inner levels slide inside their cells to a new
 //                      hashed offset, gliding from the old one over the onset
 //                      envelope: the sponge re-folds a little on every hit.
-// Drop (uEvents.y)     a plunge one level deeper: the world magnifies about
+// Drop (SND_HELD_SURGE)     a plunge one level deeper: the world magnifies about
 //                      the eye (the sponge is self-similar by 3), a fifth level
 //                      of holes grows in, and the palette swings round.
-// Pitch (uEvents.w)    rotates the stone's hue, as a hump so it eases out and
+// Pitch (SND_HELD_NOTE_CHANGE)    rotates the stone's hue, as a hump so it eases out and
 //                      back rather than snapping.
-// Sub/bass (uBandsLo)  fog density: low end closes the far corridor in.
+// Sub/bass (vec4(sndSpectrum(0.10), sndLevel(SND_BASS_ATT), sndSpectrum(0.41), sndLevel(SND_MID_ATT)))  fog density: low end closes the far corridor in.
 // Section count        picks the fold variant (square, diamond, bored-round
 //                      or skewed holes, hole ratio, a held offset and hue),
 //                      crossfaded from the old section over its envelope.
-// uSwell               overall level, as everywhere.
+// SND_ENERGY_TREND               overall level, as everywhere.
 
 #define MC_MAX_STEPS 112
 /** World to fractal space. Level 0 has period 2 in fractal space, so 16 in the world. */
@@ -158,29 +157,29 @@ vec3 mcOnsetOffset(float n) {
 void main() {
     vec2 uv = view();
 
-    float swell = clamp(uSwell, 0.0, 1.5);
-    float kick = clamp(uHits.x, 0.0, 1.0);
-    float snare = clamp(uHits.y, 0.0, 1.0);
-    float hat = clamp(uHits.z, 0.0, 1.0);
-    float drop = clamp(uEvents.y, 0.0, 1.0);
-    float pitch = clamp(uEvents.w, 0.0, 1.0);
-    float low = clamp(0.6 * uBandsLo.x + 0.4 * uBandsLo.y, 0.0, 1.0);
+    float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
+    float kick = clamp(SND_KICK_ENV, 0.0, 1.0);
+    float snare = clamp(SND_SNARE_ENV, 0.0, 1.0);
+    float hat = clamp(SND_HAT_ENV, 0.0, 1.0);
+    float drop = clamp(SND_HELD_SURGE, 0.0, 1.0);
+    float pitch = clamp(SND_HELD_NOTE_CHANGE, 0.0, 1.0);
+    float low = clamp(0.6 * sndSpectrum(0.10) + 0.4 * sndLevel(SND_BASS_ATT), 0.0, 1.0);
     // 0 at the instant of the event and at its end: the rise never snaps.
     float dropBump = 4.0 * drop * (1.0 - drop);
     float pitchBump = 4.0 * pitch * (1.0 - pitch);
 
-    // Section crossfade without frame state: uSectionCount steps and
-    // uEvents.z jumps to 1 on the same frame, so w starts at the OLD variant.
-    float sw = 1.0 - clamp(uEvents.z, 0.0, 1.0);
+    // Section crossfade without frame state: SND_CUT_COUNT steps and
+    // SND_HELD_HARD_CUT jumps to 1 on the same frame, so w starts at the OLD variant.
+    float sw = 1.0 - clamp(SND_HELD_HARD_CUT, 0.0, 1.0);
     sw = sw * sw * (3.0 - 2.0 * sw);
-    float prevSect = mod(uSectionCount - 1.0, 4096.0);
-    vec4 vr = mix(mcVariant(prevSect), mcVariant(uSectionCount), sw);
-    vec3 secOff = mix(mcSectionOffset(prevSect), mcSectionOffset(uSectionCount), sw);
+    float prevSect = mod(SND_CUT_COUNT - 1.0, 4096.0);
+    vec4 vr = mix(mcVariant(prevSect), mcVariant(SND_CUT_COUNT), sw);
+    vec3 secOff = mix(mcSectionOffset(prevSect), mcSectionOffset(SND_CUT_COUNT), sw);
 
     // Onset glide: the count steps as the envelope jumps to >= 0.4, so the
     // mix starts exactly at the previous offset and eases to the new one.
-    float og = (1.0 - smoothstep(0.05, 0.4, clamp(uHits.w, 0.0, 1.0)));
-    vec3 onOff = mix(mcOnsetOffset(mod(uHitCount - 1.0, 4096.0)), mcOnsetOffset(uHitCount), og);
+    float og = (1.0 - smoothstep(0.05, 0.4, clamp(SND_ONSET_ENV, 0.0, 1.0)));
+    vec3 onOff = mix(mcOnsetOffset(mod(SND_ONSET_COUNT - 1.0, 4096.0)), mcOnsetOffset(SND_ONSET_COUNT), og);
 
     gHole0 = 0.333 + 0.05 * kick;
     gHoleIn = vr.x * (1.0 + 0.24 * kick);

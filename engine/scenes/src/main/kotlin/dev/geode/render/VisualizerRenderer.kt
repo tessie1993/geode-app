@@ -4,6 +4,9 @@ import android.content.Context
 import android.opengl.GLSurfaceView
 import android.os.SystemClock
 import dev.geode.analysis.AudioFeatures
+import dev.geode.engine.audio.SoundCursor
+import dev.geode.engine.audio.SoundInput
+import dev.geode.engine.audio.SoundTuning
 import dev.geode.render.bridge.NativeViz
 import dev.geode.render.scene.PcmChunk
 import dev.geode.render.scene.SceneIds
@@ -82,6 +85,23 @@ class VisualizerRenderer(
 
     @Volatile
     var pcmProvider: () -> PcmChunk? = { null }
+
+    /**
+     * The audio this surface's sound engine hears (core/sound, owned by the native renderer). Read on the
+     * GL thread each frame through [soundCursor], so the engine gets every sample once, in order, and is
+     * stepped with this surface's own frame time. Asked every frame, so a playback session that comes and
+     * goes under a running wallpaper is picked up. Null: the engine hears nothing and its frame stays silent.
+     */
+    @Volatile
+    var soundInput: () -> SoundInput? = { null }
+
+    private var soundCursor: SoundCursor? = null
+
+    /** Settings › Audio. Compared by identity on the GL thread, so assign a new instance to change it. */
+    @Volatile
+    var soundTuning: SoundTuning = SoundTuning()
+
+    private var nativeSoundTuning: SoundTuning? = null
 
     // Config holders only: native ticks its own LfoEngine/AdsrEngine against the configs
     // syncNativeState forwards below (core/viz/RendererFrame.cpp).
@@ -200,6 +220,9 @@ class VisualizerRenderer(
         nativeAdsr = null
         nativeReactions = null
         nativePerformance = null
+        nativeSoundTuning = null
+        // A new native renderer starts a new engine: hand it a full window, not the tail of the last.
+        soundCursor = null
     }
 
     override fun onSurfaceChanged(
@@ -273,6 +296,20 @@ class VisualizerRenderer(
             nativeViz.setThermal(ThermalGovernor.platformStatus, ThermalGovernor.thermalHeadroom())
         }
         pcmProvider()?.let { chunk -> nativeViz.pushPcm(chunk.data, chunk.count) }
+        val tuning = soundTuning
+        if (tuning !== nativeSoundTuning) {
+            nativeViz.setSoundTuning(tuning.toFloats())
+            nativeSoundTuning = tuning
+        }
+        feedSound()
+    }
+
+    private fun feedSound() {
+        val input = soundInput() ?: return
+        val cursor = soundCursor?.takeIf { it.ring === input.ring } ?: SoundCursor(input.ring).also { soundCursor = it }
+        val take = cursor.take()
+        if (take.restarted) nativeViz.resetAudio()
+        nativeViz.writeAudio(cursor.interleaved, take.frames, cursor.channels, input.sampleRateHz)
     }
 
     fun exportSceneFactory(sceneId: String): SceneFactory {

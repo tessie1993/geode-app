@@ -9,7 +9,6 @@ out vec4 fragColor;
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_terra
@@ -30,11 +29,11 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// Bass (uBandsLo.y with uBassSmooth) DRAWS THE WALLS IN: the channel narrows
+// Bass (sndLevel(SND_BASS_ATT) with SND_BASS_PRESENCE) DRAWS THE WALLS IN: the channel narrows
 // on low notes and opens as they pass, so the canyon squeezes the flight in
-// time with the bass. Each kick (uHits.x) sends a shimmer racing away down
+// time with the bass. Each kick (SND_KICK_ENV) sends a shimmer racing away down
 // the river ahead - a band of light on the water only, never on the frame.
-// Brightness follows uSwell only.
+// Brightness follows SND_ENERGY_TREND only.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -73,10 +72,10 @@ float height(vec2 xz) {
 void main() {
     vec2 uv = view();
     float t0 = terraTime();
-    float swell = clamp(uSwell, 0.0, 1.5);
+    float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
     float energy = terraEnergy();
-    float bass = clamp(0.6 * uBandsLo.y + 0.4 * uBassSmooth, 0.0, 1.2);
-    float kick = clamp(uHits.x * energy, 0.0, 1.0);
+    float bass = clamp(0.6 * sndLevel(SND_BASS_ATT) + 0.4 * SND_BASS_PRESENCE, 0.0, 1.2);
+    float kick = clamp(SND_KICK_ENV * energy, 0.0, 1.0);
     gHalf = 1.7 - 0.3 * bass * min(energy, 1.5);
     gOct = terraOctaves(3.0);
     float hMax = CY_TOP + 0.65;

@@ -9,7 +9,6 @@ out vec4 fragColor;
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_dive
@@ -22,10 +21,10 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// Bass (uBassSmooth) works the bellows: loud low end stretches the tunnel
-// out, a quiet passage squeezes the rings together. Kick (uHits.x) pulses the
+// Bass (sndShaped(SND_LOW)) works the bellows: loud low end stretches the tunnel
+// out, a quiet passage squeezes the rings together. Kick (SND_KICK_ENV) pulses the
 // caps. The cap glow is constant; only the geometry moves on a hit. Palette
-// switching as in lib_dive. Brightness follows uSwell mildly.
+// switching as in lib_dive. Brightness follows (0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)) mildly.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -38,7 +37,7 @@ void main() {
     vec2 uv = view();
     diveSetup(DIVE_MUSHROOM);
     float e = diveEnergy();
-    gDiveBreath = clamp(0.78 + 0.5 * uBassSmooth * e, 0.75, 1.4);
+    gDiveBreath = clamp(0.78 + 0.5 * sndShaped(SND_LOW) * e, 0.75, 1.4);
 
     vec3 ro;
     vec3 rd;
@@ -64,6 +63,6 @@ void main() {
         }
     }
 
-    col *= 0.85 + 0.2 * clamp(uSwell, 0.0, 1.5);
+    col *= 0.85 + 0.2 * clamp((0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)), 0.0, 1.5);
     fragColor = vec4(grade(col), 1.0);
 }

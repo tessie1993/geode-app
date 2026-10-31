@@ -9,7 +9,6 @@ out vec4 fragColor;
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_terra
@@ -26,11 +25,11 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// Bass (uBandsLo.x and y, steadied with uBassSmooth) is the TIDE: the sea
+// Bass (sndSpectrum(0.10) and y, steadied with SND_BASS_PRESENCE) is the TIDE: the sea
 // level rises over the beaches on low notes and draws back as they fade, so
 // shallows flood and the islands shrink and grow with the music. The rise is
-// clamped below the eye. Highs (uBandsHi.y) roughen the swell. Brightness
-// follows uSwell only.
+// clamped below the eye. Highs (sndShaped(SND_HIGH)) roughen the swell. Brightness
+// follows SND_LEVEL only.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -58,10 +57,10 @@ float height(vec2 xz) {
 void main() {
     vec2 uv = view();
     float t0 = terraTime();
-    float swell = clamp(uSwell, 0.0, 1.5);
+    float swell = clamp(SND_LEVEL, 0.0, 1.5);
     float energy = terraEnergy();
-    float bass = clamp(0.3 * (uBandsLo.x + uBandsLo.y) + 0.4 * uBassSmooth, 0.0, 1.2);
-    float chop = clamp(uBandsHi.y * energy, 0.0, 1.0);
+    float bass = clamp(0.3 * (sndSpectrum(0.10) + sndLevel(SND_BASS_ATT)) + 0.4 * SND_BASS_PRESENCE, 0.0, 1.2);
+    float chop = clamp(sndShaped(SND_HIGH) * energy, 0.0, 1.0);
     float sea = 0.02 + 0.07 * bass * min(energy, 1.5);
     gOct = terraOctaves(4.0);
     float hMax = IS_AMP * (1.0 - IS_SINK);

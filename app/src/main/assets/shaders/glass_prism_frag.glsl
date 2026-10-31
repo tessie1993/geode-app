@@ -8,7 +8,6 @@ out vec4 fragColor;
 
 //#include lib_scene_uniforms
 //#include lib_scene_motion
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_glass
@@ -28,12 +27,12 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// Highs (uTrebleSmooth, steadied with the presence band uBandsHi.y) widen the
+// Highs (sndShaped(SND_HIGH), steadied with the presence band sndShaped(SND_HIGH)) widen the
 // fan: they raise the IOR spread, so a bright cymbal-heavy passage throws a
 // broad rainbow and a dull one a narrow ribbon. The beam's angle of incidence
 // wanders slowly with uOrbit (re-targeted on novelty and section boundaries),
 // so the whole fan swings over seconds. The key tints the dark stage and
-// leans the rainbow toward the palette. Brightness follows uSwell only.
+// leans the rainbow toward the palette. Brightness follows SND_LEVEL only.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -107,8 +106,8 @@ float segDist(vec2 p, vec2 a, vec2 b) {
 void main() {
     vec2 uv = view();
     float t = glassTime();
-    float swell = clamp(uSwell, 0.0, 1.5);
-    float highs = clamp(0.5 * uTrebleSmooth + 0.5 * uBandsHi.y, 0.0, 1.5);
+    float swell = clamp(SND_LEVEL, 0.0, 1.5);
+    float highs = clamp(0.5 * sndShaped(SND_HIGH) + 0.5 * sndShaped(SND_HIGH), 0.0, 1.5);
     float spread = 0.028 + 0.07 * highs * glassEnergy();
     float ior = PR_IOR + 0.12 * glassComplexity();
     float hue = 0.05 * sin(t * 0.02) + 0.12 * uKeyStrength * sin(GLASS_TAU * uKeyHue);

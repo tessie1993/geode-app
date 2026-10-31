@@ -1,7 +1,7 @@
 #version 300 es
 precision highp float;
 // GLSL ES 3.00 defaults fragment sampler2D to LOWP (range [-2,2), ~8
-// fraction bits). uAudioTex is R32F; on GPUs honoring sampler precision
+// fraction bits). uSoundTex is R32F; on GPUs honoring sampler precision
 // (Mali) every read is clamped and quantized.
 precision highp sampler2D;
 
@@ -10,12 +10,6 @@ out vec4 fragColor;
 
 uniform float uTime;
 uniform vec2 uResolution;
-uniform float uBass;
-uniform float uMid;
-uniform float uTreble;
-uniform float uEnergy;
-uniform float uBeat;
-uniform sampler2D uAudioTex;
 uniform float uSpeed;
 uniform float uZoom;
 uniform float uRotation;
@@ -27,7 +21,6 @@ uniform float uBright;
 uniform float uInvert;
 uniform float uIntensity;
 uniform float uMirrorX;
-uniform float uBeatResponse;
 uniform float uTurbulence;
 uniform float uPalBase;
 uniform float uPalRange;
@@ -47,7 +40,6 @@ uniform float uPixelate;
 uniform float uPosterize;
 uniform float uSway;
 uniform float uPulse;
-uniform float uBeatPhase;
 uniform float uDriftX;
 uniform float uDriftY;
 uniform float uShake;
@@ -57,10 +49,8 @@ uniform float uTemperature;
 uniform float uSolarize;
 uniform float uFlash;
 
-//#include lib_react
+//#include lib_sound
 
-float aband(float x) { return texture(uAudioTex, vec2(clamp(x, 0.0, 1.0), 0.25)).r; }
-float awave(float x) { return texture(uAudioTex, vec2(clamp(x, 0.0, 1.0), 0.75)).r; }
 
 vec2 view() {
     vec2 uv = vUv * 2.0 - 1.0;
@@ -103,21 +93,11 @@ vec2 view() {
     // for good and stranding the user on a black screen.
     vec2 driftPhase = fract(vec2(uDriftX, uDriftY) * uTime * 0.025 + 0.25);
     uv += 1.0 - 2.0 * abs(2.0 * driftPhase - 1.0);
-    uv += uShake * uBeat * 0.03 * vec2(sin(uTime * 91.7), cos(uTime * 77.3));
-    // Beat-locked pulse: peaks exactly on the musical beat (uBeatPhase=0), and
-    // rides the beat ENVELOPE so it is zero between hits. The phase clock in
-    // ShaderScene free-runs at the last detected tempo, so without the
-    // envelope the frame kept breathing once a beat through silence; every
-    // other family gets this slider as CompositeGrade.pulseAmount (the slider
-    // times the SQUARED envelope), and one slider has to mean one thing.
-    float beatEnv = clamp(uBeat, 0.0, 1.0);
-    float beatBump = pow(0.5 + 0.5 * cos(6.2831853 * uBeatPhase), 2.0);
-    float pulse = 1.0 + uPulse * 0.22 * beatEnv * beatEnv * beatBump;
     // Triangle-wave exponent: 1x -> 2x -> 1x smoothly, so the endless-zoom
     // phase wrap never causes a visible scale pop (2^1 snapping to 2^0). The
     // milkdrop post pass (pm_post_frag) already spells it this way; a sawtooth
     // exponent halved the magnification once per cycle on every scene shader.
-    float z = uZoom * pulse * pow(2.0, 1.0 - abs(2.0 * uZoomPhase - 1.0)) * (1.0 + uBeat * uBeatResponse * 0.15);
+    float z = uZoom * pow(2.0, 1.0 - abs(2.0 * uZoomPhase - 1.0));
     uv /= max(z, 0.05);
     uv += uTurbulence * 0.06 * vec2(sin(uv.y * 6.0 + uTime), cos(uv.x * 6.0 + uTime * 1.3));
     // Radial twist: rotate by an angle growing with radius.
@@ -139,7 +119,7 @@ vec2 view() {
     // Concentric ripple distortion driven by radius.
     if (uRipple > 0.001) {
         float r = length(uv);
-        uv *= 1.0 + uRipple * 0.15 * sin(r * 14.0 - uTime * 3.0 + uBass * 4.0);
+        uv *= 1.0 + uRipple * 0.15 * sin(r * 14.0 - uTime * 3.0 + sndLevel(SND_BASS_ATT) * 4.0);
     }
     return uv;
 }
@@ -160,21 +140,20 @@ vec3 grade(vec3 col) {
     col.r += uTemperature * 0.12;
     col.b -= uTemperature * 0.12;
     if (uSolarize > 0.5) col = abs(1.0 - 2.0 * col);
-    col += uFlash * uBeat * 0.6;
     col = col * uBright * uIntensity;
     return mix(col, max(vec3(1.0) - col, 0.0), uInvert);
 }
 
 // Spectrum analyzer bars with glow, standing on a reflecting floor.
 //
-// What reacts to what (sound events via lib_react; camera motion is the
+// What reacts to what (sound events via lib_sound; camera motion is the
 // composite's, applied to this picture automatically):
 //   - each bar's height is its analyser band, as before.
-//   - every bar wears a peak cap. On each beat (uEvents.x) the caps are
+//   - every bar wears a peak cap. On each beat (SND_KICK_TOGGLE) the caps are
 //     thrown up above their bars, by as much as their band region
-//     (uBandsLo/uBandsHi) is loud, and fall back onto them as the beat
+//     (vec4(sndSpectrum(0.10), sndLevel(SND_BASS_ATT), sndSpectrum(0.41), sndLevel(SND_MID_ATT))/vec4(sndSpectrum(0.70), sndShaped(SND_HIGH), sndSpectrum(0.93), sndLevel(SND_FLUX))) is loud, and fall back onto them as the beat
 //     envelope decays - accelerating, like something dropped.
-//   - the snare (uHits.y) tilts the row into a travelling wave: bars, caps
+//   - the snare (SND_SNARE_ENV) tilts the row into a travelling wave: bars, caps
 //     and their reflections ride up and down it. Position only.
 //   - the floor reflects the whole row, dimmed and fading with depth - a
 //     fixed fraction of the bars above it, never driven by a hit.
@@ -194,18 +173,18 @@ vec3 grade(vec3 col) {
 #define BARS_REFLECT_FADE 3.5
 
 /**
- * The band region a bar position 0..1 falls in, as lib_react carries it:
+ * The band region a bar position 0..1 falls in, read from the sound frame:
  * viz/Reactions' seven regions over the analyser's 64 bands (boundaries at
  * bands 8, 16, 26, 36, 46 and 55).
  */
 float barsRegion(float x) {
-    if (x < 0.125) return uBandsLo.x;
-    if (x < 0.25) return uBandsLo.y;
-    if (x < 0.40625) return uBandsLo.z;
-    if (x < 0.5625) return uBandsLo.w;
-    if (x < 0.71875) return uBandsHi.x;
-    if (x < 0.859375) return uBandsHi.y;
-    return uBandsHi.z;
+    if (x < 0.125) return sndSpectrum(0.10);
+    if (x < 0.25) return sndLevel(SND_BASS_ATT);
+    if (x < 0.40625) return sndSpectrum(0.41);
+    if (x < 0.5625) return sndLevel(SND_MID_ATT);
+    if (x < 0.71875) return sndSpectrum(0.70);
+    if (x < 0.859375) return sndShaped(SND_HIGH);
+    return sndSpectrum(0.93);
 }
 
 /** One bar column at height y above its floor: body, glow and cap. */
@@ -222,16 +201,16 @@ void main() {
     float x = clamp(uv.x * 0.5 + 0.5, 0.0, 1.0);
     float seg = floor(x * BARS_N) / BARS_N;
     float xf = fract(x * BARS_N);
-    float h = aband(seg) * 0.6 * BARS_GAIN;
+    float h = (0.5 * sndEq(seg)) * 0.6 * BARS_GAIN;
 
     // The cap: thrown up on the beat and falling back with gravity's shape -
     // 1 - (1 - e)^2 holds near the top and then drops faster and faster.
-    float beat = clamp(uEvents.x, 0.0, 1.0);
+    float beat = clamp(SND_KICK_TOGGLE, 0.0, 1.0);
     float fall = 1.0 - (1.0 - beat) * (1.0 - beat);
     float cap = h + 0.012 + BARS_CAP_THROW * fall * barsRegion(seg);
 
     // The snare's wave: a vertical offset per bar, travelling along the row.
-    float tilt = 0.18 * clamp(uHits.y, 0.0, 1.0) * sin(seg * 9.0 - uTime * 3.0);
+    float tilt = 0.18 * clamp(SND_SNARE_ENV, 0.0, 1.0) * sin(seg * 9.0 - uTime * 3.0);
     float floorY = BARS_FLOOR + tilt;
 
     vec3 col;

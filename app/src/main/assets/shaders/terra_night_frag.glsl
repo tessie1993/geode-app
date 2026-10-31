@@ -9,7 +9,6 @@ out vec4 fragColor;
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_terra
@@ -27,11 +26,11 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// Highs (uBandsHi.x and y, with uTrebleSmooth) LIGHT THE AURORA: its glow
+// Highs (sndLevel(SND_MID_HIGH_ATT) and y, with SND_TREBLE_PRESENCE) LIGHT THE AURORA: its glow
 // follows the upper bands, so bright treble passages set the curtain blazing
 // and a quiet one leaves a faint ghost. That is a band level, continuous, not
-// a hit, and it lights the sky band only. Mids (uMidSmooth) ripple the
-// curtain's folds faster. Brightness otherwise follows uSwell only.
+// a hit, and it lights the sky band only. Mids (SND_MID_PRESENCE) ripple the
+// curtain's folds faster. Brightness otherwise follows (0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)) only.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -84,11 +83,11 @@ vec3 aurora(vec3 rd, float t, float glow, float fold) {
 void main() {
     vec2 uv = view();
     float t0 = terraTime();
-    float swell = clamp(uSwell, 0.0, 1.5);
+    float swell = clamp((0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)), 0.0, 1.5);
     float energy = terraEnergy();
-    float highs = clamp(0.35 * (uBandsHi.x + uBandsHi.y) + 0.3 * uTrebleSmooth, 0.0, 1.2);
+    float highs = clamp(0.35 * (sndLevel(SND_MID_HIGH_ATT) + sndSpectrum(0.80)) + 0.3 * SND_TREBLE_PRESENCE, 0.0, 1.2);
     float glow = (0.25 + 1.6 * highs * energy) * 1.4;
-    float fold = 0.08 + 0.12 * clamp(uMidSmooth, 0.0, 1.0);
+    float fold = 0.08 + 0.12 * clamp(SND_MID_PRESENCE, 0.0, 1.0);
     gOct = terraOctaves(3.0);
 
     vec3 ro;

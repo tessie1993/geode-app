@@ -32,7 +32,7 @@ void CymaticsScene::resize(int width, int height) {
     height_ = std::max(height, 1);
 }
 
-void CymaticsScene::update(const GeodeFeatureFrame& features, float dt) {
+void CymaticsScene::update(const GeodeSoundFrame& features, float dt) {
     time_ = std::fmod(time_ + dt, kSceneTimeWrapSeconds);
     lastDt_ = dt;
     pcmStrike_ = pcmPulse_.tick(dt);
@@ -46,10 +46,10 @@ void CymaticsScene::draw(float timeSeconds) {
     resetFrameState();
     const SceneParams& p = params_;
     const float dt = std::clamp(lastDt_, 0.0f, 1.0f / 15.0f);
-    const GeodeFeatureFrame f = hasPending_ ? pending_ : GeodeFeatureFrame{};
+    const GeodeSoundFrame f = hasPending_ ? pending_ : GeodeSoundFrame{};
     hasPending_ = false;
 
-    plate_.excite(driveSpectrum(f, dt), GEODE_BAND_COUNT, dt, p.cymaticsFundamental,
+    plate_.excite(driveSpectrum(f, dt), GEODE_SOUND_SPECTRUM_POINTS, dt, p.cymaticsFundamental,
                   kDriveGain * cymatics::safeDrive(p.audioDrive) * (1.0f + kPcmStrikeGain * pcmStrike_), cymatics::ringSeconds(p.cymaticsRing),
                   p.cymaticsFocus);
     plate_.advancePhases(dt, p.speed);
@@ -102,7 +102,7 @@ void CymaticsScene::draw(float timeSeconds) {
     glUniform1f(loc("uBaseHue"), hue::base(p.paletteBase()) + style_.hueOffset + toneNudge);
     glUniform1f(loc("uHueSpan"), hue::span(p.hueRange, p.paletteRange()) * style_.hueSpan);
     glUniform1f(loc("uEnergy"), clampedBand(f.rms));
-    glUniform1f(loc("uTreble"), clampedBand(f.treble));
+    glUniform1f(loc("uTreble"), clampedBand(live::treble(f)));
     glUniform1f(loc("uBeat"), beatPulse_);
     glUniform1f(loc("uExposure"), kExposure);
     glUniform1f(loc("uTouchK"), touchK);
@@ -113,12 +113,12 @@ void CymaticsScene::draw(float timeSeconds) {
     glBindVertexArray(0);
 }
 
-const float* CymaticsScene::driveSpectrum(const GeodeFeatureFrame& f, float dt) {
+const float* CymaticsScene::driveSpectrum(const GeodeSoundFrame& f, float dt) {
     const bool silent = f.rms < kIdleRms;
     const float step = dt / kIdleFadeSeconds;
     idleBlend_ = std::clamp(idleBlend_ + (silent ? step : -step * 3.0f), 0.0f, 1.0f);
-    if (idleBlend_ <= 0.0f) return f.bands;
-    const int count = GEODE_BAND_COUNT;
+    if (idleBlend_ <= 0.0f) return f.spectrum;
+    const int count = GEODE_SOUND_SPECTRUM_POINTS;
     idlePhase_ = std::fmod(idlePhase_ + dt * kIdleSweepHz, 1.0f);
     const float center = (0.5f - 0.42f * std::cos(idlePhase_ * kTwoPi)) * static_cast<float>(count);
     for (int i = 0; i < count; ++i) {
@@ -127,7 +127,7 @@ const float* CymaticsScene::driveSpectrum(const GeodeFeatureFrame& f, float dt) 
     }
     if (idleBlend_ >= 1.0f) return idleBands_.data();
     for (int i = 0; i < count; ++i) {
-        driveBands_[static_cast<size_t>(i)] = f.bands[i] * (1.0f - idleBlend_) + idleBands_[static_cast<size_t>(i)] * idleBlend_;
+        driveBands_[static_cast<size_t>(i)] = f.spectrum[i] * (1.0f - idleBlend_) + idleBands_[static_cast<size_t>(i)] * idleBlend_;
     }
     return driveBands_.data();
 }

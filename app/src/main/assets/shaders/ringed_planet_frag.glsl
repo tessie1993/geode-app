@@ -8,7 +8,6 @@ out vec4 fragColor;
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_sdf3
@@ -32,21 +31,21 @@ out vec4 fragColor;
 //
 // Each sound moves a DIFFERENT property, so no two events read alike:
 //
-//   kick (uHits.x)         a bright wave runs outward through the rings
-//   snare (uHits.y)        lightning flickers at storm sites in the clouds
-//   hats (uHits.z)         ring particles glint and half the stars twinkle
-//   onset (uHits.w)        the storm vortex spins up a step (continuous, via
-//                          uHitCount, so it winds on rather than jumping);
+//   kick (SND_KICK_ENV)         a bright wave runs outward through the rings
+//   snare (SND_SNARE_ENV)        lightning flickers at storm sites in the clouds
+//   hats (SND_HAT_ENV)         ring particles glint and half the stars twinkle
+//   onset (SND_ONSET_ENV)        the storm vortex spins up a step (continuous, via
+//                          SND_ONSET_COUNT, so it winds on rather than jumping);
 //                          the onset count also moves the lightning sites
-//   low bands (uBandsLo)   band turbulence: the cloud belts shear and wobble
-//   high bands (uBandsHi)  polar aurora ovals and a halo over the poles
-//   drop (uEvents.y)       the rings tip over and back, the sun swings round
+//   low bands (vec4(sndSpectrum(0.10), sndLevel(SND_BASS_ATT), sndSpectrum(0.41), sndLevel(SND_MID_ATT)))   band turbulence: the cloud belts shear and wobble
+//   high bands (vec4(sndSpectrum(0.70), sndShaped(SND_HIGH), sndSpectrum(0.93), sndLevel(SND_FLUX)))  polar aurora ovals and a halo over the poles
+//   drop (SND_HELD_SURGE)       the rings tip over and back, the sun swings round
 //                          and the palette turns, all on a 0-1-0 bump
-//   pitch change (uEvents.w) and the key hue: the atmosphere's hue
-//   section (uSectionCount) which planet palette, ring gaps and moons; the
+//   pitch change (SND_HELD_NOTE_CHANGE) and the key hue: the atmosphere's hue
+//   section (SND_CUT_COUNT) which planet palette, ring gaps and moons; the
 //                          change eases over the section envelope
 //
-// Overall level follows uSwell only.
+// Overall level follows SND_LEVEL only.
 
 #define RP_CAM_R 7.5
 #define RP_R 1.5
@@ -110,7 +109,7 @@ vec3 shadePlanet(vec3 P, vec3 rd, float snare, float onset) {
     vec2 cs = rot2(rotA) * lp.xz;
     vec3 q = vec3(cs.x, lat, cs.y);
 
-    // The storm rides with its belt. Its swirl angle winds on by uHitCount, so
+    // The storm rides with its belt. Its swirl angle winds on by SND_ONSET_COUNT, so
     // each onset spins it up a step and it holds there.
     vec3 sC = normalize(vec3(0.78, -0.38, 0.5));
     float sr = length(q - sC);
@@ -147,7 +146,7 @@ vec3 shadePlanet(vec3 P, vec3 rd, float snare, float onset) {
 
     // Snare: lightning at three storm sites, which the onset count re-seeds.
     float bolt = 0.0;
-    float hc = floor(uHitCount);
+    float hc = floor(SND_ONSET_COUNT);
     for (int i = 0; i < 3; i++) {
         float fi = float(i);
         float hs = hash11(fi * 7.31 + hc * 1.73 + 0.11);
@@ -197,12 +196,12 @@ vec3 sky(vec3 rd, float hats) {
 void main() {
     vec2 uv = view();
 
-    float swell = clamp(uSwell, 0.0, 1.5);
-    float kick = clamp(uHits.x, 0.0, 1.0);
-    float snare = clamp(uHits.y, 0.0, 1.0);
-    float hats = clamp(uHits.z, 0.0, 1.0);
-    float onset = clamp(uHits.w, 0.0, 1.0);
-    float drop = clamp(uEvents.y, 0.0, 1.0);
+    float swell = clamp(SND_LEVEL, 0.0, 1.5);
+    float kick = clamp(SND_KICK_ENV, 0.0, 1.0);
+    float snare = clamp(SND_SNARE_ENV, 0.0, 1.0);
+    float hats = clamp(SND_HAT_ENV, 0.0, 1.0);
+    float onset = clamp(SND_ONSET_ENV, 0.0, 1.0);
+    float drop = clamp(SND_HELD_SURGE, 0.0, 1.0);
     // 0 at the drop's instant and at its end, 1 in between: the tilt and the
     // sun glide over and back instead of snapping.
     float dropBump = 4.0 * drop * (1.0 - drop);
@@ -210,11 +209,11 @@ void main() {
     // 0 on the hit frame (an onset triggers to 0.4..1), 1 once it has fallen:
     // the storm's wind-up is continuous across the hit.
     float prog = (1.0 - smoothstep(0.05, 0.4, onset));
-    gMorph = uHitCount - 1.0 + prog;
+    gMorph = SND_ONSET_COUNT - 1.0 + prog;
 
     // ---- section: palette, ring gaps and moons ------------------------------
-    float sec = floor(uSectionCount);
-    float secBlend = (1.0 - smoothstep(0.15, 0.95, clamp(uEvents.z, 0.0, 1.0)));
+    float sec = floor(SND_CUT_COUNT);
+    float secBlend = (1.0 - smoothstep(0.15, 0.95, clamp(SND_HELD_HARD_CUT, 0.0, 1.0)));
     float hPrev = hash11(sec - 1.0 + 0.37);
     float hCur = hash11(sec + 0.37);
     float secHue = mix(0.25 * floor(hPrev * 4.0), 0.25 * floor(hCur * 4.0), secBlend);
@@ -223,14 +222,14 @@ void main() {
     gGaps = mix(vec2(0.5 + 0.12 * hPrev, 0.78 + 0.1 * fract(hPrev * 7.0)),
                 vec2(0.5 + 0.12 * hCur, 0.78 + 0.1 * fract(hCur * 7.0)), secBlend);
 
-    float pitch = clamp(uEvents.w, 0.0, 1.0);
+    float pitch = clamp(SND_HELD_NOTE_CHANGE, 0.0, 1.0);
     float keyHue = 0.08 * sin(RP_TAU * uKeyHue) * clamp(uKeyStrength, 0.0, 1.0);
     gAtmHue = 0.06 + secHue + 0.14 * pitch + keyHue + 0.3 * dropBump + 0.02 * sin(uTime * 0.03);
     gRingHue = 0.1 + secHue + 0.3 * dropBump;
 
-    gTurb = 0.18 + 0.22 * clamp(uBassSmooth, 0.0, 1.5) / 1.5 + 0.25 * clamp(uBandsLo.x, 0.0, 1.0)
-          + 0.15 * clamp(uBandsLo.z, 0.0, 1.0);
-    gHi = clamp(0.6 * uBandsHi.y + 0.6 * uBandsHi.z, 0.0, 1.2);
+    gTurb = 0.18 + 0.22 * clamp(SND_BASS_PRESENCE, 0.0, 1.5) / 1.5 + 0.25 * clamp(sndSpectrum(0.10), 0.0, 1.0)
+          + 0.15 * clamp(sndSpectrum(0.41), 0.0, 1.0);
+    gHi = clamp(0.6 * sndShaped(SND_HIGH) + 0.6 * sndSpectrum(0.93), 0.0, 1.2);
 
     // ---- frame: ring normal (= spin axis) and the sun -----------------------
     float tilt = tiltBase * (1.0 - 2.0 * dropBump);

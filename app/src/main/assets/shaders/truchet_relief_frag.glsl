@@ -9,7 +9,6 @@ out vec4 fragColor;
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_truchet
@@ -38,9 +37,9 @@ out vec4 fragColor;
 // ---- audio ------------------------------------------------------------------
 //
 // Onsets turn a scattered third of the tiles a quarter turn, so the channels
-// re-route under the viewer on the hits. The bass (uBassSmooth) deepens the
+// re-route under the viewer on the hits. The bass (SND_BASS_PRESENCE) deepens the
 // grooves (the march's step bound follows the depth). The key leans the stone's
-// hue. Brightness follows uSwell only; the light moves on its own clock.
+// hue. Brightness follows SND_LEVEL only; the light moves on its own clock.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -67,7 +66,7 @@ float floorHeight(vec2 xz) {
     vec2 p = truchetWarp(xz * gScale, gT);
     vec2 id = floor(p);
     id.y = mod(id.y, 64.0);
-    TruchetArc a = truchetSquareAt(id, fract(p) - 0.5, gHits, uHits.w, 3.0);
+    TruchetArc a = truchetSquareAt(id, fract(p) - 0.5, gHits, SND_ONSET_ENV, 3.0);
     float g = clamp(abs(a.d) / TR_W, 0.0, 1.0);
     float groove = 0.5 + 0.5 * cos(TRUCHET_PI * g);
     gTone = mix(1.0 - a.cap, a.cap, 1.0 - smoothstep(-TR_W * 0.8, TR_W * 0.8, a.d));
@@ -88,13 +87,13 @@ void main() {
     vec2 uv = view();
     float t = truchetTime();
     float e = truchetEnergy();
-    float swell = clamp(uSwell, 0.0, 1.5);
+    float swell = clamp(SND_LEVEL, 0.0, 1.5);
     gT = t;
-    gHits = floor(uHitCount);
+    gHits = floor(SND_ONSET_COUNT);
     // 1 or 1.5 cells per world unit: either way 8192 * scale is a multiple
     // of the 64-cell id wrap, so the rig's travel wrap stays invisible.
     gScale = truchetMorph() >= 0.5 ? 1.5 : 1.0;
-    gDepth = (0.14 + 0.07 * clamp(uBassSmooth, 0.0, 1.5) * e) / gScale;
+    gDepth = (0.14 + 0.07 * clamp(SND_BASS_PRESENCE, 0.0, 1.5) * e) / gScale;
     // Slope bound in world units: the groove is TR_W / gScale wide.
     float slope = gDepth * TRUCHET_PI * gScale / (2.0 * TR_W) + TR_TOP * gScale / (1.6 * TR_W);
     // Chaos bends the plan first; its stretch multiplies the slope.

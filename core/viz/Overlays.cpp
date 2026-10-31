@@ -43,7 +43,7 @@ bool Overlays::wantsFlow(const SceneParams& p, bool fluidActive) const {
     return p.flowEnabled && !fluidActive && flow_ && flow_->available();
 }
 
-void Overlays::stepFlow(const GeodeFeatureFrame& features, float dt, const SceneParams& p) {
+void Overlays::stepFlow(const GeodeSoundFrame& features, float dt, const SceneParams& p) {
     if (flow_) flow_->step(features, dt, p);
 }
 
@@ -51,7 +51,7 @@ bool Overlays::rippleOverlayActive(const SceneParams& p, bool smearingNow, bool 
     return (p.rippleOverlayEnabled || smearingNow) && ripple_ && ripple_->available() && !waterActive;
 }
 
-void Overlays::stepRippleOverlay(const GeodeFeatureFrame& features, const SceneParams& p, float dt) {
+void Overlays::stepRippleOverlay(const GeodeSoundFrame& features, const SceneParams& p, float dt) {
     if (!ripple_) return;
     fluid::RippleSim& r = *ripple_;
     r.waveSpeed = 1.2f * std::clamp(p.waterWaveSpeed, 0.2f, 2.0f);

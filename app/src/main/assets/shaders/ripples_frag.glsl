@@ -1,7 +1,7 @@
 #version 300 es
 precision highp float;
 // GLSL ES 3.00 defaults fragment sampler2D to LOWP (range [-2,2), ~8
-// fraction bits). uAudioTex is R32F; on GPUs honoring sampler precision
+// fraction bits). uSoundTex is R32F; on GPUs honoring sampler precision
 // (Mali) every read is clamped and quantized.
 precision highp sampler2D;
 
@@ -10,12 +10,7 @@ out vec4 fragColor;
 
 uniform float uTime;
 uniform vec2 uResolution;
-uniform float uBass;
-uniform float uMid;
-uniform float uTreble;
-uniform float uEnergy;
-uniform float uBeat;
-uniform sampler2D uAudioTex;
+//#include lib_sound
 uniform float uSpeed;
 uniform float uZoom;
 uniform float uRotation;
@@ -27,7 +22,6 @@ uniform float uBright;
 uniform float uInvert;
 uniform float uIntensity;
 uniform float uMirrorX;
-uniform float uBeatResponse;
 uniform float uTurbulence;
 uniform float uPalBase;
 uniform float uPalRange;
@@ -47,7 +41,6 @@ uniform float uPixelate;
 uniform float uPosterize;
 uniform float uSway;
 uniform float uPulse;
-uniform float uBeatPhase;
 uniform float uDriftX;
 uniform float uDriftY;
 uniform float uShake;
@@ -57,8 +50,6 @@ uniform float uTemperature;
 uniform float uSolarize;
 uniform float uFlash;
 
-float aband(float x) { return texture(uAudioTex, vec2(clamp(x, 0.0, 1.0), 0.25)).r; }
-float awave(float x) { return texture(uAudioTex, vec2(clamp(x, 0.0, 1.0), 0.75)).r; }
 
 vec2 view() {
     vec2 uv = vUv * 2.0 - 1.0;
@@ -101,21 +92,11 @@ vec2 view() {
     // for good and stranding the user on a black screen.
     vec2 driftPhase = fract(vec2(uDriftX, uDriftY) * uTime * 0.025 + 0.25);
     uv += 1.0 - 2.0 * abs(2.0 * driftPhase - 1.0);
-    uv += uShake * uBeat * 0.03 * vec2(sin(uTime * 91.7), cos(uTime * 77.3));
-    // Beat-locked pulse: peaks exactly on the musical beat (uBeatPhase=0), and
-    // rides the beat ENVELOPE so it is zero between hits. The phase clock in
-    // ShaderScene free-runs at the last detected tempo, so without the
-    // envelope the frame kept breathing once a beat through silence; every
-    // other family gets this slider as CompositeGrade.pulseAmount (the slider
-    // times the SQUARED envelope), and one slider has to mean one thing.
-    float beatEnv = clamp(uBeat, 0.0, 1.0);
-    float beatBump = pow(0.5 + 0.5 * cos(6.2831853 * uBeatPhase), 2.0);
-    float pulse = 1.0 + uPulse * 0.22 * beatEnv * beatEnv * beatBump;
     // Triangle-wave exponent: 1x -> 2x -> 1x smoothly, so the endless-zoom
     // phase wrap never causes a visible scale pop (2^1 snapping to 2^0). The
     // milkdrop post pass (pm_post_frag) already spells it this way; a sawtooth
     // exponent halved the magnification once per cycle on every scene shader.
-    float z = uZoom * pulse * pow(2.0, 1.0 - abs(2.0 * uZoomPhase - 1.0)) * (1.0 + uBeat * uBeatResponse * 0.15);
+    float z = uZoom * pow(2.0, 1.0 - abs(2.0 * uZoomPhase - 1.0));
     uv /= max(z, 0.05);
     uv += uTurbulence * 0.06 * vec2(sin(uv.y * 6.0 + uTime), cos(uv.x * 6.0 + uTime * 1.3));
     // Radial twist: rotate by an angle growing with radius.
@@ -137,7 +118,7 @@ vec2 view() {
     // Concentric ripple distortion driven by radius.
     if (uRipple > 0.001) {
         float r = length(uv);
-        uv *= 1.0 + uRipple * 0.15 * sin(r * 14.0 - uTime * 3.0 + uBass * 4.0);
+        uv *= 1.0 + uRipple * 0.15 * sin(r * 14.0 - uTime * 3.0 + sndLevel(SND_BASS_ATT) * 4.0);
     }
     return uv;
 }
@@ -158,7 +139,6 @@ vec3 grade(vec3 col) {
     col.r += uTemperature * 0.12;
     col.b -= uTemperature * 0.12;
     if (uSolarize > 0.5) col = abs(1.0 - 2.0 * col);
-    col += uFlash * uBeat * 0.6;
     col = col * uBright * uIntensity;
     return mix(col, max(vec3(1.0) - col, 0.0), uInvert);
 }
@@ -167,12 +147,11 @@ void main() {
     vec2 p = view();
     float r = length(p);
     float t = uTime;
-    float wave = sin(r * (24.0 + uBass * 14.0) - t * 5.0) * exp(-r * 1.6);
+    float wave = sin(r * (24.0 + sndLevel(SND_BASS_ATT) * 14.0) - t * 5.0) * exp(-r * 1.6);
     vec2 c2 = vec2(sin(t * 0.4), cos(t * 0.3)) * 0.5;
     float r2 = length(p - c2);
-    wave += sin(r2 * 30.0 - t * 6.0) * exp(-r2 * 2.2) * uMid * 2.0;
-    float ring = exp(-abs(r - fract(t * 0.7) * 1.6) * 14.0) * uBeat * uBeatResponse * 1.5;
-    float v = wave * (0.4 + uEnergy * 1.2) + ring;
-    vec3 col = pal(0.5 + v * 0.4) * (abs(v) * 1.3 + ring);
+    wave += sin(r2 * 30.0 - t * 6.0) * exp(-r2 * 2.2) * sndLevel(SND_MID) * 2.0;
+    float v = wave * (0.4 + sndLevel(SND_VOL_ATT) * 1.2);
+    vec3 col = pal(0.5 + v * 0.4) * abs(v) * 1.3;
     fragColor = vec4(grade(col), 1.0);
 }

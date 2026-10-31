@@ -41,7 +41,7 @@ void FluidScene::onApplyQualityTier(int index, bool userChanged) {
     }
 }
 
-GeodeFeatureFrame FluidScene::idleFeatures(float dt) {
+GeodeSoundFrame FluidScene::idleFeatures(float dt) {
     idlePhase_ = std::fmod(idlePhase_ + dt, kIdleWrapSeconds);
     const float t = idlePhase_;
     const float bass = 0.18f + 0.12f * std::sin(t * 0.7f);
@@ -55,7 +55,7 @@ void FluidScene::draw(float timeSeconds) {
     if (!sim_.available()) return;
     resetFrameState();
     const SceneParams& p = params_;
-    const GeodeFeatureFrame f = scaledFeatures();
+    const GeodeSoundFrame f = scaledFeatures();
 
     saveGlState();
     autoQualityTick();
@@ -66,13 +66,13 @@ void FluidScene::draw(float timeSeconds) {
     sim_.pressureDamp = std::clamp(p.fluidPressure, 0.0f, 1.0f);
     // The style's multipliers sit on the user's values, inside the same clamps.
     sim_.velocityDissipation = std::clamp(p.fluidVelocityDissipation * style_.velocityDissipation, 0.0f, 4.0f);
-    sim_.curlStrength = std::clamp(p.fluidCurl * style_.curl, 0.0f, 50.0f) * (1.0f + p.fluidCurlAudio * f.mid + pcmKick * 0.5f);
+    sim_.curlStrength = std::clamp(p.fluidCurl * style_.curl, 0.0f, 50.0f) * (1.0f + p.fluidCurlAudio * live::mid(f) + pcmKick * 0.5f);
     sim_.densityDissipation =
         std::clamp(p.fluidDensityDissipation * style_.densityDissipation, 0.0f, 4.0f) * (1.0f + p.fluidFadeAudio * (1.0f - energy));
     sim_.chromaticAging = std::clamp(p.fluidChromaticAging, 0.0f, 1.0f);
-    sim_.audioBass = f.bass;
-    sim_.audioMid = f.mid;
-    sim_.audioTreble = f.treble;
+    sim_.audioBass = live::bass(f);
+    sim_.audioMid = live::mid(f);
+    sim_.audioTreble = live::treble(f);
     sim_.audioEnergy = energy;
     sim_.audioBeat = live::hit(f);
     sim_.timeSeconds = time_;
@@ -95,7 +95,7 @@ void FluidScene::draw(float timeSeconds) {
     }
     look_.bloomIntensity = std::clamp(p.fluidBloomIntensity * style_.bloom, 0.1f, 2.0f) * (0.6f + p.fluidBloomAudio * energy);
     look_.timeSeconds = time_;
-    look_.audio = {f.bass, f.mid, f.treble, energy};
+    look_.audio = {live::bass(f), live::mid(f), live::treble(f), energy};
     look_.lookHue = hueBase;
     look_.bloomThreshold = std::clamp(p.fluidBloomThreshold, 0.0f, 1.0f);
     look_.sunraysWeight = std::clamp(p.fluidSunraysWeight, 0.3f, 1.0f);

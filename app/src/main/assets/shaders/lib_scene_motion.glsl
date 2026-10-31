@@ -2,9 +2,11 @@
 //
 // WHY THIS EXISTS
 //
-// lib_scene_uniforms hands a style the RAW band envelopes: uBass, uMid,
-// uTreble, uEnergy, uBeat. They are honest, and they are the wrong thing to
-// drive a picture with directly. A band envelope can move 0 -> 1 between two
+// lib_sound (through lib_scene_uniforms) hands a style the sound engine's
+// frame: relative band levels (SND_BASS, SND_MID_ATT, ...), shaped 0..1 bands
+// (SND_LOW, SND_MIDDLE, SND_HIGH, SND_LEVEL), drum envelopes and clocks. The
+// fast ones are honest, and they are the wrong thing to drive a picture with
+// directly. A band envelope can move 0 -> 1 between two
 // frames, so anything multiplied by one moves the same way: that is the
 // flashing and the snapping. A fragment shader cannot fix it, because a
 // fragment shader has no frame-to-frame state and so cannot smooth anything.
@@ -30,22 +32,10 @@
 // and section boundaries that eases over seconds (uOrbit/uDrift/uBreath). See
 // core/viz/MotionField.hpp for the derivation of every uniform below.
 
-// ---- slew-limited band envelopes -------------------------------------------
-//
-// Same range and meaning as uBass/uMid/uTreble/uEnergy (0..1.5, auto-gained),
-// but no single frame can move one of them far. Substituting uBassSmooth for
-// uBass is the one-line way to take the flash out of an existing style.
-uniform float uBassSmooth;
-uniform float uMidSmooth;
-uniform float uTrebleSmooth;
-uniform float uEnergySmooth;
-
-/**
- * The slowest signal available: how loud this PASSAGE is, not what just
- * happened in it. Takes about a second to arrive and longer to leave, so it is
- * what to breathe a scale, a density or a fog depth with.
- */
-uniform float uSwell;
+// The slow sound signals come from lib_sound too: sndShaped(SND_LOW) and its
+// siblings for a band that cannot jump far in one frame, the SND_*_PRESENCE
+// trends for a band over seconds, and SND_INTENSITY, SND_LEVEL or
+// SND_ENERGY_TREND for how loud this PASSAGE is.
 
 // ---- wave three: relative levels, timbre and key --------------------------
 
@@ -99,7 +89,7 @@ uniform float uFlowPhase;
 /**
  * The transient envelope. Held at 0: nothing rises on a hit any more, so
  * anything still reading it (fluidWarp's eddy widening below) sees a track
- * that is always exactly as loud as uSwell says, never momentarily louder.
+ * that is always exactly as loud as SND_INTENSITY says, never momentarily louder.
  */
 uniform float uSpike;
 
@@ -191,7 +181,7 @@ vec2 curlVelocity(vec2 p, float scale) {
  * the eddies through uSpike rather than displacing anything instantly.
  */
 vec2 fluidWarp(vec2 p, float scale, float amount) {
-    return p + curlVelocity(p, scale) * amount * (0.7 + 0.5 * uSwell + 0.3 * uSpike);
+    return p + curlVelocity(p, scale) * amount * (0.7 + 0.5 * SND_INTENSITY + 0.3 * uSpike);
 }
 
 /**
@@ -213,7 +203,7 @@ float fluidMotes(vec2 p, float density, float size) {
     float mote = smoothstep(size, size * 0.15, length(local));
     // Only some cells carry one, and the brightest ride the treble.
     float alive = step(0.62, seed);
-    return mote * alive * (0.35 + 0.65 * seed) * (0.5 + 0.9 * uTrebleSmooth) * spawnGrow(0.9);
+    return mote * alive * (0.35 + 0.65 * seed) * (0.5 + 0.9 * SND_TREBLE_PRESENCE) * spawnGrow(0.9);
 }
 
 // ---- the 3D half: a divergence-free flow a raymarch can afford --------------

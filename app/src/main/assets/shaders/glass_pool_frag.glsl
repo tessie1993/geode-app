@@ -8,7 +8,6 @@ out vec4 fragColor;
 
 //#include lib_scene_uniforms
 //#include lib_scene_motion
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_glass
@@ -24,12 +23,12 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// Kicks (uHits.x) drop a stone: a ring of ripples launches from a point and
+// Kicks (SND_KICK_ENV) drop a stone: a ring of ripples launches from a point and
 // spreads across the pool as the kick envelope falls, bending the tiles and
 // raking a line of glints across the surface as it goes - the ripple is a
 // slope added to the surface, so it moves the picture without lighting it. Each
-// onset (uHitCount, uHits.w) slides the drop point to a new spot. The key
-// (uKeyHue, uKeyStrength) tints the water a little. Brightness follows uSwell.
+// onset (floor(SND_HIT_TIME), SND_ONSET_ENV) slides the drop point to a new spot. The key
+// (uKeyHue, uKeyStrength) tints the water a little. Brightness follows SND_INTENSITY.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -46,7 +45,7 @@ void main() {
     vec2 uv = view();
     float t = glassTime();
     float energy = glassEnergy();
-    float swell = clamp(uSwell, 0.0, 1.5);
+    float swell = clamp(SND_INTENSITY, 0.0, 1.5);
     float hue = 0.5 + 0.08 * uKeyStrength * sin(GLASS_TAU * uKeyHue);
 
     vec2 p = uv * 1.6;
@@ -55,8 +54,8 @@ void main() {
 
     // The stone: a damped ring wave launched at the kick, travelling out as
     // the envelope falls. Its slope is added to the surface's.
-    float kick = clamp(uHits.x, 0.0, 1.0);
-    vec2 rc = (vec2(glassSeed(uHitCount, uHits.w), glassSeed(uHitCount + 37.0, uHits.w)) - 0.5) * vec2(2.4, 1.4);
+    float kick = clamp(SND_KICK_ENV, 0.0, 1.0);
+    vec2 rc = (vec2(glassSeed(floor(SND_HIT_TIME), SND_ONSET_ENV), glassSeed(floor(SND_HIT_TIME) + 37.0, SND_ONSET_ENV)) - 0.5) * vec2(2.4, 1.4);
     vec2 rel = p - rc;
     float dist = length(rel);
     float x = dist - (0.06 + 1.9 * (1.0 - kick));

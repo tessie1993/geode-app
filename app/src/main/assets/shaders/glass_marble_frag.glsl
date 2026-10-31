@@ -9,7 +9,6 @@ out vec4 fragColor;
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_glass
@@ -27,11 +26,11 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// Bass (uBassSmooth, with uBandsLo.y) winds the ribbon tighter: the twist rate
+// Bass (SND_BASS_PRESENCE, with sndLevel(SND_BASS_ATT)) winds the ribbon tighter: the twist rate
 // climbs from about two radians per unit of height toward three and a half, so
 // the blades corkscrew on the low end and unwind in the quiet. A section change
-// (uSectionCount, eased over the section envelope uEvents.z) re-picks the two
-// blade colours, sliding them round the palette. Brightness follows uSwell.
+// (SND_CUT_COUNT, eased over the section envelope SND_HELD_HARD_CUT) re-picks the two
+// blade colours, sliding them round the palette. Brightness follows SND_LEVEL.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -65,11 +64,11 @@ vec4 vanes(vec3 q, vec3 light) {
 void main() {
     vec2 uv = view();
     float t = glassTime();
-    float swell = clamp(uSwell, 0.0, 1.5);
-    float bass = clamp(0.6 * uBassSmooth + 0.4 * uBandsLo.y, 0.0, 1.2);
+    float swell = clamp(SND_LEVEL, 0.0, 1.5);
+    float bass = clamp(0.6 * SND_BASS_PRESENCE + 0.4 * sndLevel(SND_BASS_ATT), 0.0, 1.2);
     gTwist = 2.1 + 1.3 * bass * glassEnergy();
     gWidth = 0.46 + 0.14 * glassComplexity();
-    float seed = glassSeed(uSectionCount, uEvents.z);
+    float seed = glassSeed(SND_CUT_COUNT, SND_HELD_HARD_CUT);
     float hue = 0.12 * uKeyStrength * sin(GLASS_TAU * uKeyHue);
     float bladeHue = hue + 0.6 * seed;
 

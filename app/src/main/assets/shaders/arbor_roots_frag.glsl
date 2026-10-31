@@ -7,7 +7,6 @@ out vec4 fragColor;
 
 //#include lib_scene_uniforms
 //#include lib_scene_motion
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_sdf3
@@ -26,12 +25,12 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// Sub (uBandsLo.x) SPLAYS the roots: it widens every fork angle, so a deep
+// Sub (sndLevel(SND_SUB_ATT)) SPLAYS the roots: it widens every fork angle, so a deep
 // sub-bass passage fans the whole system out sideways through the soil and a
-// quiet one draws it back into a narrow tap. The beat (uEvents.x) sends a sap
+// quiet one draws it back into a narrow tap. The beat (SND_KICK_ENV) sends a sap
 // front down the roots, trunk to tips, as a change of HUE along the root (amber
 // to the palette's cool end) at near-constant lightness, not a flash. Swell
-// (uSwell) gently brightens the mycelium threads.
+// ((0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE))) gently brightens the mycelium threads.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -51,9 +50,9 @@ void main() {
     float t = uTime * uSpeed;
     float energy = uIntensity;
     float chaos = arbChaos();
-    float swell = clamp(uSwell, 0.0, 1.5);
-    float sub = clamp(uBandsLo.x, 0.0, 1.0) * energy;
-    float beat = clamp(uEvents.x * energy, 0.0, 1.0);
+    float swell = clamp((0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)), 0.0, 1.5);
+    float sub = clamp(sndLevel(SND_SUB_ATT), 0.0, 1.0) * energy;
+    float beat = clamp(SND_KICK_ENV * energy, 0.0, 1.0);
 
     float hue = 0.07 + 0.02 * sin(t * 0.03);
 

@@ -1,7 +1,7 @@
 #version 300 es
 precision highp float;
 // GLSL ES 3.00 defaults fragment sampler2D to LOWP (range [-2,2), ~8
-// fraction bits). uAudioTex is R32F; on GPUs honoring sampler precision
+// fraction bits). uSoundTex is R32F; on GPUs honoring sampler precision
 // (Mali) every read is clamped and quantized.
 precision highp sampler2D;
 
@@ -9,12 +9,11 @@ in vec2 vUv;
 out vec4 fragColor;
 
 // The three lines every fragment style carries, in this order: the uniform
-// block/aband/awave/view() first, then the palette, then grade() - which calls
+// block/view() first, then the palette, then grade() - which calls
 // pal() and so must come after it.
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 // The 3D toolkit and the touch helpers, already wired so a style author never
@@ -90,7 +89,7 @@ out vec4 fragColor;
 //
 //  WHAT REACTS TO WHAT: bass breathes the magnification and pushes the eye
 //  in, mids turn the folds, treble sharpens the material, energy lifts the
-//  sky (all slew-limited); the beat (uEvents.x) lurches the fold angle and
+//  sky (all slew-limited); the beat (SND_KICK_ENV) lurches the fold angle and
 //  settles. Nothing on a hit changes brightness.
 //
 //  DELIBERATELY NOT HERE: a normal-direction ambient-occlusion pass. The
@@ -145,7 +144,7 @@ const float KIFS_SCALE_BASE = 2.86;
  * gSeedB), so moving this subdivides the interior more or less finely while
  * the silhouette holds still - the cathedral breathes without changing size,
  * which is what stops the breath from reading as a zoom. Small on purpose:
- * uBass is a per-frame band envelope and the magnification is compounded seven
+ * sndLevel(SND_SUB_ATT) is a per-frame band envelope and the magnification is compounded seven
  * times, so 0.30 here is already a factor of two in the depth of the
  * structure. Any more and a jumpy envelope reads as flicker rather than
  * breathing, which is the one thing the audio rules forbid.
@@ -530,15 +529,15 @@ void main() {
     // Read off the slew-limited companions in lib_scene_motion, not the raw
     // envelopes. Same range and same meaning; the difference is that no single
     // frame can move one of them far, so nothing structural below can snap.
-    float bassA = min(uBassSmooth, 1.3);
-    float midA = min(uMidSmooth, 1.3);
-    float trebA = min(uTrebleSmooth, 1.3);
-    float enA = min(uEnergySmooth, 1.3);
+    float bassA = min(sndShaped(SND_LOW), 1.3);
+    float midA = min(SND_MID_PRESENCE, 1.3);
+    float trebA = min(SND_TREBLE_PRESENCE, 1.3);
+    float enA = min(((SND_BASS_PRESENCE + SND_MID_PRESENCE + SND_TREBLE_PRESENCE) / 3.0), 1.3);
 
     // The beat event: an accent with an instant rise and a 0.3 s fall, so
     // the lurch below flinches and settles rather than jittering with a
     // drum level.
-    float hit = clamp(uEvents.x, 0.0, 1.0);
+    float hit = clamp(SND_KICK_ENV, 0.0, 1.0);
 
     // ---- camera -----------------------------------------------------------
     //
@@ -645,7 +644,7 @@ void main() {
 
     // Detail buys fold depth as well as march steps: uSteps runs 64..128, and
     // the extra rounds are what the extra steps are for. (The beat used to
-    // step one more round in; that rode uBeatResponse, held at zero since
+    // step one more round in; that rode the beat response, held at zero since
     // wave three, and is gone. The beat's lurch in foldAngle above is the
     // continuous form of the same gesture.)
     gIters = mix(5.0, 7.0, clamp((uSteps - 64.0) / 64.0, 0.0, 1.0));
@@ -755,7 +754,7 @@ void main() {
         // indexes the analyser - so a bassline lights the deep shells and a
         // hi-hat the near ones, instead of everything brightening at once.
         // 0.55 is the floor, so with silence the rim is still there.
-        float lit = aband(clamp(trapZ * 2.2, 0.0, 1.0));
+        float lit = sndSpectrum(clamp(trapZ * 2.2, 0.0, 1.0));
 
         // The thin parts are the ones the edge trap found: a small trapZ
         // means the point hugged a fold plane, which is the filigree.

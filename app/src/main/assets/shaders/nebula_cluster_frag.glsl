@@ -8,7 +8,6 @@ out vec4 fragColor;
 
 //#include lib_scene_uniforms
 //#include lib_scene_motion
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_nebula
@@ -27,12 +26,12 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// Every onset IGNITES A HANDFUL OF STARS: the onset counter (uHitCount)
+// Every onset IGNITES A HANDFUL OF STARS: the onset counter (SND_ONSET_COUNT)
 // re-hashes which cells flare, so each hit picks a new random dozen; those
-// discs swell and take a palette hue as the onset envelope (uHits.w) rises,
+// discs swell and take a palette hue as the onset envelope (SND_ONSET_ENV) rises,
 // then settle back. Only those discs change - the field around them holds
 // still. The hats twinkle the point stars. The key turns the glow's hue. The
-// core glow follows uSwell gently.
+// core glow follows SND_LEVEL gently.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -48,10 +47,10 @@ void main() {
     vec2 uv = view();
     float t = nebTime();
     float e = nebEnergy();
-    float swell = clamp(uSwell, 0.0, 1.5);
-    float hats = clamp(uHits.z, 0.0, 1.0);
+    float swell = clamp(SND_LEVEL, 0.0, 1.5);
+    float hats = clamp(SND_HAT_ENV, 0.0, 1.0);
     // Clamped: an ignited disc may not outgrow its cell, whatever the Energy.
-    float onset = clamp(uHits.w * e, 0.0, 1.0);
+    float onset = clamp(SND_ONSET_ENV * e, 0.0, 1.0);
     float oct = nebOctaves(2.0);
     float key = nebKeyShift(0.1);
 
@@ -67,7 +66,7 @@ void main() {
     col += nebStars(p, 11.0, 3, vec2(0.0), 0.8, 0.08 + 0.7 * profile, hats, t);
 
     // Bokeh discs for the brightest; onsets ignite a fresh random few.
-    float seed = mod(floor(uHitCount), 512.0);
+    float seed = mod(floor(SND_ONSET_COUNT), 512.0);
     for (int i = 0; i < CL_BOKEH_LAYERS; i++) {
         float fi = float(i);
         float scale = 3.2 + 2.1 * fi;

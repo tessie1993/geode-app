@@ -1,7 +1,7 @@
 #version 300 es
 precision highp float;
 // GLSL ES 3.00 defaults fragment sampler2D to LOWP (range [-2,2), ~8
-// fraction bits). uAudioTex is R32F; on GPUs honoring sampler precision
+// fraction bits). uSoundTex is R32F; on GPUs honoring sampler precision
 // (Mali) every read is clamped and quantized.
 precision highp sampler2D;
 
@@ -10,12 +10,7 @@ out vec4 fragColor;
 
 uniform float uTime;
 uniform vec2 uResolution;
-uniform float uBass;
-uniform float uMid;
-uniform float uTreble;
-uniform float uEnergy;
-uniform float uBeat;
-uniform sampler2D uAudioTex;
+//#include lib_sound
 uniform float uSpeed;
 uniform float uZoom;
 uniform float uRotation;
@@ -27,7 +22,6 @@ uniform float uBright;
 uniform float uInvert;
 uniform float uIntensity;
 uniform float uMirrorX;
-uniform float uBeatResponse;
 uniform float uTurbulence;
 uniform float uPalBase;
 uniform float uPalRange;
@@ -47,7 +41,6 @@ uniform float uPixelate;
 uniform float uPosterize;
 uniform float uSway;
 uniform float uPulse;
-uniform float uBeatPhase;
 uniform float uDriftX;
 uniform float uDriftY;
 uniform float uShake;
@@ -57,8 +50,6 @@ uniform float uTemperature;
 uniform float uSolarize;
 uniform float uFlash;
 
-float aband(float x) { return texture(uAudioTex, vec2(clamp(x, 0.0, 1.0), 0.25)).r; }
-float awave(float x) { return texture(uAudioTex, vec2(clamp(x, 0.0, 1.0), 0.75)).r; }
 
 vec2 view() {
     vec2 uv = vUv * 2.0 - 1.0;
@@ -101,21 +92,11 @@ vec2 view() {
     // for good and stranding the user on a black screen.
     vec2 driftPhase = fract(vec2(uDriftX, uDriftY) * uTime * 0.025 + 0.25);
     uv += 1.0 - 2.0 * abs(2.0 * driftPhase - 1.0);
-    uv += uShake * uBeat * 0.03 * vec2(sin(uTime * 91.7), cos(uTime * 77.3));
-    // Beat-locked pulse: peaks exactly on the musical beat (uBeatPhase=0), and
-    // rides the beat ENVELOPE so it is zero between hits. The phase clock in
-    // ShaderScene free-runs at the last detected tempo, so without the
-    // envelope the frame kept breathing once a beat through silence; every
-    // other family gets this slider as CompositeGrade.pulseAmount (the slider
-    // times the SQUARED envelope), and one slider has to mean one thing.
-    float beatEnv = clamp(uBeat, 0.0, 1.0);
-    float beatBump = pow(0.5 + 0.5 * cos(6.2831853 * uBeatPhase), 2.0);
-    float pulse = 1.0 + uPulse * 0.22 * beatEnv * beatEnv * beatBump;
     // Triangle-wave exponent: 1x -> 2x -> 1x smoothly, so the endless-zoom
     // phase wrap never causes a visible scale pop (2^1 snapping to 2^0). The
     // milkdrop post pass (pm_post_frag) already spells it this way; a sawtooth
     // exponent halved the magnification once per cycle on every scene shader.
-    float z = uZoom * pulse * pow(2.0, 1.0 - abs(2.0 * uZoomPhase - 1.0)) * (1.0 + uBeat * uBeatResponse * 0.15);
+    float z = uZoom * pow(2.0, 1.0 - abs(2.0 * uZoomPhase - 1.0));
     uv /= max(z, 0.05);
     uv += uTurbulence * 0.06 * vec2(sin(uv.y * 6.0 + uTime), cos(uv.x * 6.0 + uTime * 1.3));
     // Radial twist: rotate by an angle growing with radius.
@@ -137,7 +118,7 @@ vec2 view() {
     // Concentric ripple distortion driven by radius.
     if (uRipple > 0.001) {
         float r = length(uv);
-        uv *= 1.0 + uRipple * 0.15 * sin(r * 14.0 - uTime * 3.0 + uBass * 4.0);
+        uv *= 1.0 + uRipple * 0.15 * sin(r * 14.0 - uTime * 3.0 + sndLevel(SND_BASS) * 4.0);
     }
     return uv;
 }
@@ -158,7 +139,6 @@ vec3 grade(vec3 col) {
     col.r += uTemperature * 0.12;
     col.b -= uTemperature * 0.12;
     if (uSolarize > 0.5) col = abs(1.0 - 2.0 * col);
-    col += uFlash * uBeat * 0.6;
     col = col * uBright * uIntensity;
     return mix(col, max(vec3(1.0) - col, 0.0), uInvert);
 }
@@ -201,7 +181,7 @@ void main() {
     // different share of it - which is what makes the snow read as depth.
     vec2 wind = vec2(
         sin(t * 0.23) * (0.35 + uSway) + uTurbulence * 0.5 * sin(t * 0.61),
-        cos(t * 0.17) * 0.18 * (0.3 + uMid)
+        cos(t * 0.17) * 0.18 * (0.3 + sndShaped(SND_MIDDLE))
     );
 
     // ---- icy water: interference ripples from three drifting sources ----
@@ -210,22 +190,12 @@ void main() {
     float r0 = length(p);
     float r1 = length(p - c1);
     float r2 = length(p - c2);
-    float wave = sin(r0 * (18.0 + uBass * 10.0) - t * 3.2) * exp(-r0 * 1.2);
-    wave += sin(r1 * 24.0 - t * 4.1) * exp(-r1 * 1.8) * (0.5 + uMid * 1.6);
-    wave += sin(r2 * 30.0 - t * 5.0) * exp(-r2 * 2.2) * (0.3 + uTreble * 1.4);
-    // Beat rings skate outward across the ice, on the BPM-locked phase clock
-    // so they land with the music rather than free-running. The ring fades as
-    // it expands: without that, the phase wrapping 1 -> 0 teleports a lit
-    // annulus from the corners back to the centre once per beat, which at a
-    // fast tempo is a large-area luminance step - the thing VisualSafety's
-    // budget exists to bound, arriving from a path the budget cannot see.
-    float ringPhase = fract(uBeatPhase);
-    float ring =
-        exp(-abs(r0 - ringPhase * 1.7) * 12.0) * (1.0 - ringPhase) * uBeat * uBeatResponse;
+    float wave = sin(r0 * (18.0 + sndLevel(SND_BASS) * 10.0) - t * 3.2) * exp(-r0 * 1.2);
+    wave += sin(r1 * 24.0 - t * 4.1) * exp(-r1 * 1.8) * (0.5 + sndShaped(SND_MIDDLE) * 1.6);
+    wave += sin(r2 * 30.0 - t * 5.0) * exp(-r2 * 2.2) * (0.3 + sndLevel(SND_TREBLE) * 1.4);
     // Cool water body, brightened along wave crests (specular shimmer).
     float crest = pow(clamp(wave * 0.5 + 0.5, 0.0, 1.0), 3.0);
-    vec3 col = pal(0.15 + wave * 0.25) * (0.16 + 0.30 * crest + uEnergy * 0.35);
-    col += pal(0.85) * ring * 1.2;
+    vec3 col = pal(0.15 + wave * 0.25) * (0.16 + 0.30 * crest + sndShaped(SND_LEVEL) * 0.35);
 
     // ---- frost crystals: voronoi cracks glinting with treble ----
     vec2 fq = p * 5.0 - wind * 0.35;
@@ -241,7 +211,7 @@ void main() {
         }
     }
     float crack = pow(1.0 - clamp(f1, 0.0, 1.0), 6.0);
-    col += pal(0.55) * crack * (0.12 + uTreble * 0.9 + uBeat * uBeatResponse * 0.25);
+    col += pal(0.55) * crack * (0.12 + sndLevel(SND_TREBLE) * 0.9);
 
     // ---- snowfall: three parallax particle layers riding the wind ----
     float snow = 0.0;
@@ -259,21 +229,21 @@ void main() {
         vec2 jitter = wHash22(cell);
         vec2 fpos = fract(q) - (0.25 + 0.5 * jitter);
         float seed = wHash12(cell * 1.63 + fi * 9.7);
-        float size = (0.045 + 0.06 * seed) * (1.0 + uBass * uBeatResponse * 0.4);
+        float size = (0.045 + 0.06 * seed) * 1.0;
         float flake = smoothstep(size, size * 0.25, length(fpos));
         // Treble makes flakes twinkle; each flake blinks on its own phase, so
         // the twinkle is per-flake texture and never a full-frame flicker.
-        float twinkle = 0.65 + 0.35 * sin(t * (2.0 + seed * 5.0) + seed * 40.0 + uTreble * 6.0);
+        float twinkle = 0.65 + 0.35 * sin(t * (2.0 + seed * 5.0) + seed * 40.0 + sndLevel(SND_TREBLE) * 6.0);
         snow += flake * twinkle * depth * (0.55 + 0.45 * step(0.25, seed));
     }
     // Snow stays near-white with a hint of the palette so it reads as snow
     // on any colour scheme.
-    col += snow * mix(vec3(0.95), pal(0.6), 0.25) * (0.8 + uEnergy * 0.5);
+    col += snow * mix(vec3(0.95), pal(0.6), 0.25) * (0.8 + sndShaped(SND_LEVEL) * 0.5);
 
     // Spectrum shimmer along the bottom "shoreline" - a quiet nod to the
     // audio without a literal bar display.
     float shore = smoothstep(0.15, -0.6, p.y);
-    col += pal(0.35) * shore * aband(vUv.x) * 0.35;
+    col += pal(0.35) * shore * sndSpectrum(vUv.x) * 0.35;
 
     fragColor = vec4(grade(col), 1.0);
 }

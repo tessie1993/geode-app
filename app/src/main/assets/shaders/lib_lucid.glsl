@@ -81,7 +81,7 @@ vec2 lucidHash2(vec2 p) {
     return fract((q.xx + q.yz) * q.zy);
 }
 
-/** A hash of a counter (uSectionCount, uHitCount), 0..1. */
+/** A hash of a counter (SND_CUT_COUNT, floor(SND_HIT_TIME)), 0..1. */
 float lucidHash1(float n) {
     return lucidHash(vec2(n * 1.618, n * 0.371 + 5.13));
 }
@@ -96,7 +96,7 @@ mat2 lucidRot(float a) {
 
 /**
  * A bump that RISES as an event envelope falls: 0 at the instant of the hit
- * (envelope 1), peak at envelope 0.5, back to 0 as it dies. lib_react's
+ * (envelope 1), peak at envelope 0.5, back to 0 as it dies. lib_sound's
  * envelopes rise instantly; feeding one straight into a warp makes the whole
  * field jump on one frame. This one is continuous across the hit.
  */
@@ -109,7 +109,7 @@ float lucidBump(float env) {
  * A per-section (or per-hit) random value that slides to its new value instead
  * of stepping. At the frame the count increments the envelope is 1, so the mix
  * still returns the PREVIOUS seed; as the envelope falls it slides to the new
- * one. Feed it uSectionCount and uEvents.z, or uHitCount and uHits.w.
+ * one. Feed it SND_CUT_COUNT and SND_HELD_HARD_CUT, or floor(SND_HIT_TIME) and SND_ONSET_ENV.
  */
 float lucidSeed(float count, float env) {
     float e = clamp(env, 0.0, 1.0);
@@ -242,7 +242,7 @@ float lucidFbm(vec2 p, int kind, int octaves) {
 // view() is NOT used by this family. It spends uMorph on a polar remap and
 // uTurbulence/uWarp on a sin wobble of the domain - which, upstream of a
 // recursive warp, is a second, cruder warp fighting the real one. lucidView()
-// is view() minus those three (and minus the retired uBeat terms), so here
+// is view() minus those three (and minus the retired beat terms), so here
 // uMorph can mean "more detail" and uTurbulence/uWarp can mean "a wilder
 // nest" without the domain being bent twice. Everything else - pixelate,
 // mirror, the drift ping-pong, rotation, sway, zoom with its phase, twist,
@@ -284,7 +284,7 @@ vec2 lucidView(bool fold) {
     }
     if (uRipple > 0.001) {
         float r = length(uv);
-        uv *= 1.0 + uRipple * 0.15 * sin(r * 14.0 - uTime * 3.0 + uBass * 4.0);
+        uv *= 1.0 + uRipple * 0.15 * sin(r * 14.0 - uTime * 3.0 + sndLevel(SND_BASS) * 4.0);
     }
     return uv;
 }

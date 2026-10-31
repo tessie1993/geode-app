@@ -138,6 +138,47 @@ Java_dev_geode_engine_bridge_GeodeNative_vizPushPcm(JNIEnv* env, jobject, jlong 
     geode_viz_push_pcm(vizOf(handle), data.get(), count < data.length() ? count : data.length());
 }
 
+// Region copy: every rendered frame, a few hundred frames of audio; never pins the whole scratch array.
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_vizWriteAudio(JNIEnv* env, jobject, jlong handle, jfloatArray interleaved,
+                                                       jint frames, jint channels, jint sampleRate) {
+    if (!interleaved || frames <= 0 || channels <= 0) return;
+    const jint available = env->GetArrayLength(interleaved) / channels;
+    const jint count = frames < available ? frames : available;
+    std::vector<float> data(static_cast<size_t>(count) * static_cast<size_t>(channels));
+    env->GetFloatArrayRegion(interleaved, 0, static_cast<jsize>(data.size()), data.data());
+    geode_viz_write_audio(vizOf(handle), data.data(), count, channels, sampleRate);
+}
+
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_vizResetAudio(JNIEnv*, jobject, jlong handle) {
+    geode_viz_reset_audio(vizOf(handle));
+}
+
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_vizSetSoundTuning(JNIEnv* env, jobject, jlong handle, jfloatArray tuning) {
+    if (!tuning || env->GetArrayLength(tuning) < GEODE_SOUND_TUNING_FLOATS) return;
+    GeodeSoundTuning t{};
+    env->GetFloatArrayRegion(tuning, 0, GEODE_SOUND_TUNING_FLOATS, reinterpret_cast<jfloat*>(&t));
+    geode_viz_set_sound_tuning(vizOf(handle), &t);
+}
+
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_vizSoundFrame(JNIEnv* env, jobject, jlong handle, jfloatArray out) {
+    if (!out || env->GetArrayLength(out) < GEODE_SOUND_FRAME_FLOATS) return;
+    GeodeSoundFrame frame{};
+    geode_viz_sound_frame(vizOf(handle), &frame);
+    env->SetFloatArrayRegion(out, 0, GEODE_SOUND_FRAME_FLOATS, reinterpret_cast<const jfloat*>(&frame));
+}
+
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_reactSourceCatalog(JNIEnv* env, jobject) {
+    const int need = geode_react_source_catalog(nullptr, 0);
+    std::vector<char> text(static_cast<size_t>(need) + 1);
+    geode_react_source_catalog(text.data(), need + 1);
+    return env->NewStringUTF(text.data());
+}
+
 JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_vizSetCustomShader(JNIEnv* env, jobject, jlong handle, jstring sceneId,
                                                             jstring fragmentSource) {

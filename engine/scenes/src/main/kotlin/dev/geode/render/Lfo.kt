@@ -15,11 +15,10 @@ enum class LfoWave(
 /**
  * What a modulation slot listens to.
  *
- * [LFO] is the free-running oscillator; everything else is a follower on the LIVE signal, which
- * is what makes "this parameter listens to the treble band" a thing you can set rather than
- * something baked into a scene. [BRIGHTNESS], [STEREO_WIDTH] and [STEREO_PAN] exist because the
- * spec asks the visuals to react to spectral brightness and to left/right movement, and nothing
- * else in the engine reads those.
+ * [LFO] is the free-running oscillator; everything else is a follower on the sound engine's frame
+ * (`core/sound`): the bands' fast envelopes, the shaped level, the centroid, the note-start envelope
+ * ([TRANSIENT]) and the stereo field. That is what makes "this parameter listens to the treble
+ * band" a thing you can set rather than something baked into a scene.
  */
 enum class ModSource(
     val label: String,

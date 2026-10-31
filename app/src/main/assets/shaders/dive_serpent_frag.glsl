@@ -9,7 +9,6 @@ out vec4 fragColor;
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_dive
@@ -21,10 +20,10 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// Bass (uBassSmooth, slewed) WIDENS THE SWING: a heavy passage throws the
-// serpent wide across the channel, a quiet one straightens it. Kick (uHits.x)
+// Bass (sndShaped(SND_LOW), slewed) WIDENS THE SWING: a heavy passage throws the
+// serpent wide across the channel, a quiet one straightens it. Kick (SND_KICK_ENV)
 // thickens the girders and pushes the knuckles' hue round the wheel. Palette
-// switching as in lib_dive. Brightness follows uSwell mildly.
+// switching as in lib_dive. Brightness follows SND_INTENSITY mildly.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -38,7 +37,7 @@ void main() {
     diveSetup(DIVE_LATTICE);
     float e = diveEnergy();
     gDiveBeam = 0.09 + 0.05 * gDiveKick;
-    gDiveSway = 0.7 + 0.5 * clamp(uBassSmooth * e, 0.0, 1.2);
+    gDiveSway = 0.7 + 0.5 * clamp(sndShaped(SND_LOW) * e, 0.0, 1.2);
 
     vec3 ro;
     vec3 rd;
@@ -55,6 +54,6 @@ void main() {
         col = diveShade(n, rd, hitT, used, diveColor(hue), 32.0);
     }
 
-    col *= 0.85 + 0.2 * clamp(uSwell, 0.0, 1.5);
+    col *= 0.85 + 0.2 * clamp(SND_INTENSITY, 0.0, 1.5);
     fragColor = vec4(grade(col), 1.0);
 }

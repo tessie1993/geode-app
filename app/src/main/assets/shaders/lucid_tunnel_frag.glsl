@@ -8,7 +8,6 @@ out vec4 fragColor;
 
 //#include lib_scene_uniforms
 //#include lib_scene_motion
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_lucid
@@ -27,11 +26,11 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// A DROP (uEvents.y) corkscrews the tunnel: it winds a twist into the wall
+// A DROP (SND_HELD_SURGE) corkscrews the tunnel: it winds a twist into the wall
 // that grows with depth and spins the far end round, easing in as the drop's
 // 2.5 s envelope falls and unwinding after it (lucidBump: continuous across
-// the hit, no snap). Flight speed rides uFlowPhase. uEnergySmooth widens the
-// glowing lines a little. Brightness follows uSwell gently.
+// the hit, no snap). Flight speed rides uFlowPhase. sndShaped(SND_LEVEL) widens the
+// glowing lines a little. Brightness follows SND_ENERGY_TREND gently.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -63,9 +62,9 @@ void main() {
     vec2 uv = lucidView(true);
     float t = uTime * uSpeed;
     float flow = uFlowPhase * uSpeed;
-    float drop = clamp(uEvents.y, 0.0, 1.0);
-    float energy = clamp(uEnergySmooth, 0.0, 1.5) * uIntensity;
-    float swell = clamp(uSwell, 0.0, 1.5);
+    float drop = clamp(SND_HELD_SURGE, 0.0, 1.0);
+    float energy = clamp(sndShaped(SND_LEVEL), 0.0, 1.5) * uIntensity;
+    float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
 
     int depthLevels = lucidDetail(4, 3);
     float chaos = lucidChaos();

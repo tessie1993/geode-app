@@ -8,7 +8,6 @@ out vec4 fragColor;
 
 //#include lib_scene_uniforms
 //#include lib_scene_motion
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_chrys
@@ -23,14 +22,14 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// The beat (uEvents.x) SWINGS THE MIRRORS: the fold seam twists away and back
+// The beat (SND_KICK_ENV) SWINGS THE MIRRORS: the fold seam twists away and back
 // across each beat's 0.3 s envelope (chrysBump, from rest), so on a steady
 // groove the rosette rocks in time while the flowers keep streaming. The bar
 // oscillator (uBarOsc, phase-locked and confidence-gated) breathes the
 // kaleidoscope's magnification over each bar. The high-mid band
-// (uBandsHi.x) slides the seams' glint along the mirrors. The stream itself
+// (sndLevel(SND_MID_HIGH_ATT)) slides the seams' glint along the mirrors. The stream itself
 // rides uFlowPhase (loudness sets its speed, never its direction).
-// Brightness follows uSwell only.
+// Brightness follows SND_INTENSITY only.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -47,8 +46,8 @@ out vec4 fragColor;
 void main() {
     vec2 uv = view();
     float t = uTime * uSpeed;
-    float swell = clamp(uSwell, 0.0, 1.5);
-    float beat = clamp(uEvents.x, 0.0, 1.0);
+    float swell = clamp(SND_INTENSITY, 0.0, 1.5);
+    float beat = clamp(SND_KICK_ENV, 0.0, 1.0);
     float chaos = clamp(uTurbulence + uWarp, 0.0, 2.0);
     float flowers = 5.0 + floor(4.0 * clamp(uMorph, 0.0, 1.0) + 0.5);
     float mirrors = clamp(floor(uSymmetry + 0.5), 3.0, 16.0);
@@ -101,7 +100,7 @@ void main() {
 
     // Mirror seams: a thin line along each fold, its glint sliding outward.
     float seamD = min(fa, 0.5 * seg - fa) * rr;
-    float glintAt = fract(t * 0.07 + 0.8 * clamp(uBandsHi.x, 0.0, 1.0));
+    float glintAt = fract(t * 0.07 + 0.8 * clamp(sndLevel(SND_MID_HIGH_ATT), 0.0, 1.0));
     float glint = exp(-pow((rr - glintAt * 1.4) * 5.0, 2.0));
     col += pal(hue + 0.15) * smoothstep(0.004, 0.0, seamD) * (0.05 + 0.18 * glint);
 

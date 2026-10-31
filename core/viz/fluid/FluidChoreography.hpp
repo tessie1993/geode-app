@@ -42,7 +42,7 @@ public:
     const std::array<Anchor, kMaxCatch>& catches() const { return catches_; }
     int hitCount() const { return hitCount_; }
 
-    void tick(const GeodeFeatureFrame& f, float dt, float aspect);
+    void tick(const GeodeSoundFrame& f, float dt, float aspect);
     void reset();
     void packSpawns(float* out) const;
     void packCatches(float* out, float pull, float captureRadius) const;

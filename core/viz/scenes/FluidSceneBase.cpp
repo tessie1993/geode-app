@@ -5,10 +5,11 @@
 
 #include "viz/fluid/FluidMath.hpp"
 #include "viz/fluid/FluidQuality.hpp"
+#include "viz/LiveSignal.hpp"
 
 namespace geode::viz {
 
-void FluidSceneBase::update(const GeodeFeatureFrame& features, float dt) {
+void FluidSceneBase::update(const GeodeSoundFrame& features, float dt) {
     time_ = std::fmod(time_ + dt, timeWrapSeconds_);
     lastDt_ = dt;
     pcmStrike_ = pcmPulse_.tick(dt);
@@ -19,7 +20,7 @@ void FluidSceneBase::update(const GeodeFeatureFrame& features, float dt) {
     featuresAgeSec_ = 0.0f;
 }
 
-GeodeFeatureFrame FluidSceneBase::scaledFeatures() {
+GeodeSoundFrame FluidSceneBase::scaledFeatures() {
     featuresAgeSec_ = std::min(featuresAgeSec_ + lastDt_, 1.0f);
     if (hasPending_) return fluid::scaledFeatures(pending_, params_.audioDrive);
     if (hasLast_ && featuresAgeSec_ < 0.25f) return fluid::scaledFeatures(last_, params_.audioDrive);
@@ -28,20 +29,17 @@ GeodeFeatureFrame FluidSceneBase::scaledFeatures() {
 
 // The Kotlin idle frame had 16 bands; the same values land at the same fractional positions of the 64.
 void FluidSceneBase::fillIdleBands(float t, float amp) {
-    for (int i = 0; i < GEODE_BAND_COUNT; ++i) {
-        const float j = static_cast<float>(i * 16 / GEODE_BAND_COUNT);
+    for (int i = 0; i < GEODE_SOUND_SPECTRUM_POINTS; ++i) {
+        const float j = static_cast<float>(i * 16 / GEODE_SOUND_SPECTRUM_POINTS);
         idleBands_[static_cast<size_t>(i)] = 0.1f + amp * std::sin(t * (0.5f + j * 0.13f));
     }
 }
 
-GeodeFeatureFrame FluidSceneBase::idleAudioFeatures(float bass, float mid, float treble, float rms) const {
-    GeodeFeatureFrame f{};
-    std::copy(idleBands_.begin(), idleBands_.end(), f.bands);
+GeodeSoundFrame FluidSceneBase::idleAudioFeatures(float bass, float mid, float treble, float rms) const {
+    GeodeSoundFrame f{};
+    std::copy(idleBands_.begin(), idleBands_.end(), f.spectrum);
     f.rms = rms;
-    f.bass = std::max(bass, 0.0f);
-    f.mid = std::max(mid, 0.0f);
-    f.treble = std::max(treble, 0.0f);
-    f.stereoCorrelation = 1.0f;
+    live::setBands(f, bass, mid, treble);
     return f;
 }
 

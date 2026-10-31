@@ -8,7 +8,6 @@ out vec4 fragColor;
 
 //#include lib_scene_uniforms
 //#include lib_scene_motion
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_nebula
@@ -28,15 +27,15 @@ out vec4 fragColor;
 //
 // The fingers are noise read on the circle of DIRECTIONS, not on an angle -
 // no atan, no seam - and their pattern is re-rolled per section
-// (uSectionCount), so each section's blast has its own shape.
+// (SND_CUT_COUNT), so each section's blast has its own shape.
 //
 // ---- audio ------------------------------------------------------------------
 //
-// A drop (uEvents.y) or a section change (uEvents.z) RESTARTS THE SHELL from
+// A drop (SND_HELD_SURGE) or a section change (SND_HELD_HARD_CUT) RESTARTS THE SHELL from
 // the star. Its colour is its age: hot at the blast, cooling as it expands.
 // The new shell is small when it is hottest, so the blast is a point of light,
 // not a full-frame flash. The hats twinkle the stars. The key turns the cooled
-// remnant's hue. Overall level follows uSwell gently.
+// remnant's hue. Overall level follows (0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)) gently.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -56,19 +55,19 @@ void main() {
     vec2 uv = view();
     float t = nebTime();
     float e = nebEnergy();
-    float swell = clamp(uSwell, 0.0, 1.5);
-    float hats = clamp(uHits.z, 0.0, 1.0);
+    float swell = clamp((0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)), 0.0, 1.5);
+    float hats = clamp(SND_HAT_ENV, 0.0, 1.0);
     float oct = nebOctaves(3.0);
     float key = nebKeyShift(0.1);
 
-    float ev = max(clamp(uEvents.y, 0.0, 1.0), clamp(uEvents.z, 0.0, 1.0));
+    float ev = max(clamp(SND_HELD_SURGE, 0.0, 1.0), clamp(SND_HELD_HARD_CUT, 0.0, 1.0));
     float age = 1.0 - ev;
     float heat = pow(ev, 1.5);
 
     vec2 p = nebWarp2(uv, t);
     float r = length(p);
     vec2 dir = p / max(r, 1e-4);
-    float sect = mod(uSectionCount, 64.0) * 1.37;
+    float sect = mod(SND_CUT_COUNT, 64.0) * 1.37;
 
     float fingers = nebFbm2(dir * 3.0 + vec2(sect, t * 0.015), 3.0) - 0.5;
     float tex = nebFbm2(p * 7.0 + vec2(sect, -t * 0.03), oct);

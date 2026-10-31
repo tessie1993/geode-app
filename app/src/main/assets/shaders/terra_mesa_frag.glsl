@@ -9,7 +9,6 @@ out vec4 fragColor;
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_terra
@@ -28,11 +27,11 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// Bass (uBassSmooth with uBandsLo.y) RAISES THE TABLES: each tier stands
+// Bass (sndShaped(SND_LOW) with sndSpectrum(0.23)) RAISES THE TABLES: each tier stands
 // taller on low notes, the upper ones most, so the skyline lifts and settles
 // with the bass. The rise is clamped below the eye. The mid band
-// (uMidSmooth) slides the strata's colours through the palette. Brightness
-// follows uSwell only.
+// (SND_MID_PRESENCE) slides the strata's colours through the palette. Brightness
+// follows (0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)) only.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -60,13 +59,13 @@ float height(vec2 xz) {
 
 void main() {
     vec2 uv = view();
-    float swell = clamp(uSwell, 0.0, 1.5);
+    float swell = clamp((0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)), 0.0, 1.5);
     float energy = terraEnergy();
-    float bass = clamp(0.5 * uBassSmooth + 0.5 * uBandsLo.y, 0.0, 1.2);
+    float bass = clamp(0.5 * sndShaped(SND_LOW) + 0.5 * sndSpectrum(0.23), 0.0, 1.2);
     gRise = 0.16 * bass * energy;
     gOct = terraOctaves(4.0);
     float hMax = MS_AMP * (1.0 + gRise) + 0.15;
-    float hue = 0.25 * clamp(uMidSmooth, 0.0, 1.0) * min(energy, 1.5);
+    float hue = 0.25 * clamp(SND_MID_PRESENCE, 0.0, 1.0) * min(energy, 1.5);
 
     vec3 ro;
     vec3 rd;

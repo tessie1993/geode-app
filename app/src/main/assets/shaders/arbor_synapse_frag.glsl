@@ -8,7 +8,6 @@ out vec4 fragColor;
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_sdf3
@@ -30,12 +29,12 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// Spectral flux (uBandsHi.w) makes the dendrites WRITHE: it adds to the twist
+// Spectral flux (sndLevel(SND_FLUX)) makes the dendrites WRITHE: it adds to the twist
 // of every fork, and the twist compounds down the levels, so a busy, changing
 // spectrum sets the whole lattice squirming while a held chord lets it hang
 // still. The sparks travel on uFlowPhase, the CPU's loudness-rated travel
-// clock, so louder passages fire faster but never backwards. Drop (uEvents.y)
-// swells every soma on its envelope's bump. Brightness follows uSwell only.
+// clock, so louder passages fire faster but never backwards. Drop (SND_HELD_SURGE)
+// swells every soma on its envelope's bump. Brightness follows SND_ENERGY_TREND only.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -102,9 +101,9 @@ void main() {
     vec2 uv = arbView();
     float t = uTime * uSpeed;
     float energy = uIntensity;
-    float swell = clamp(uSwell, 0.0, 1.5);
-    float flux = clamp(uBandsHi.w, 0.0, 1.0) * energy;
-    float drop = clamp(uEvents.y, 0.0, 1.0);
+    float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
+    float flux = clamp(sndLevel(SND_FLUX), 0.0, 1.0) * energy;
+    float drop = clamp(SND_HELD_SURGE, 0.0, 1.0);
     float dropBump = 4.0 * drop * (1.0 - drop) * energy;
     float phase = uFlowPhase * 0.6 * uSpeed;
 

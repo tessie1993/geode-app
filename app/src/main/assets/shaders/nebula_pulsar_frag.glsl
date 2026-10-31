@@ -8,7 +8,6 @@ out vec4 fragColor;
 
 //#include lib_scene_uniforms
 //#include lib_scene_motion
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_nebula
@@ -26,12 +25,12 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// Each beat (uEvents.x) FIRES A PULSE UP BOTH JETS: a bright knot leaves the
+// Each beat (SND_KICK_ENV) FIRES A PULSE UP BOTH JETS: a bright knot leaves the
 // star at the beat and races outward along the jets as the beat's envelope
 // falls, fading as it goes. It brightens only the jet where it is. Knots in
 // the jets stream outward on uFlowPhase, so loud passages run them faster.
-// Bass (uBassSmooth) thickens the torus. The hats twinkle the field stars.
-// The key turns the jets' hue. Overall level follows uSwell gently.
+// Bass (sndShaped(SND_LOW)) thickens the torus. The hats twinkle the field stars.
+// The key turns the jets' hue. Overall level follows SND_INTENSITY gently.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -46,10 +45,10 @@ void main() {
     float t = nebTime();
     float flow = nebFlow();
     float e = nebEnergy();
-    float beat = clamp(uEvents.x, 0.0, 1.0);
-    float bass = clamp(uBassSmooth, 0.0, 1.3) * e;
-    float swell = clamp(uSwell, 0.0, 1.5);
-    float hats = clamp(uHits.z, 0.0, 1.0);
+    float beat = clamp(SND_KICK_ENV, 0.0, 1.0);
+    float bass = clamp(sndShaped(SND_LOW), 0.0, 1.3) * e;
+    float swell = clamp(SND_INTENSITY, 0.0, 1.5);
+    float hats = clamp(SND_HAT_ENV, 0.0, 1.0);
     float oct = nebOctaves(3.0);
     float key = nebKeyShift(0.1);
 

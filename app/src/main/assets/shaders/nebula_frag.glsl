@@ -1,7 +1,7 @@
 #version 300 es
 precision highp float;
 // GLSL ES 3.00 defaults fragment sampler2D to LOWP (range [-2,2), ~8
-// fraction bits). uAudioTex is R32F; on GPUs honoring sampler precision
+// fraction bits). uSoundTex is R32F; on GPUs honoring sampler precision
 // (Mali) every read is clamped and quantized.
 precision highp sampler2D;
 
@@ -9,12 +9,11 @@ in vec2 vUv;
 out vec4 fragColor;
 
 // The three lines every fragment style carries, in this order: the uniform
-// block/aband/awave/view() first, then the palette, then grade() - which calls
+// block/view() first, then the palette, then grade() - which calls
 // pal() and so must come after it.
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 // The 3D toolkit and the touch helpers, already wired so a style author never
@@ -59,7 +58,7 @@ out vec4 fragColor;
 // shader brighter than NEB_EMIT_CEILING, whatever the music or the fingers do.
 // Louder music cannot brighten the frame past it - it can only reach it sooner.
 //
-// The one term with real transient energy, the beat shock (uEvents.x), is a
+// The one term with real transient energy, the beat shock (SND_KICK_ENV), is a
 // THIN expanding shell that only compresses the medium and turns its hue as it
 // passes: it moves structure and colour, never emission, and it fades as it
 // travels. Nothing here changes large-area luminance in one frame.
@@ -376,9 +375,9 @@ out vec4 fragColor;
 #define NEB_SHOCK_THICKEN 0.10
 
 /**
- * Global glow floor and gain on uEnergy. The floor is 1.0, not something less,
+ * Global glow floor and gain on sndLevel(SND_VOL). The floor is 1.0, not something less,
  * because energy has to be able to add without silence having to look dim -
- * a wallpaper spends most of its life at uEnergy 0.
+ * a wallpaper spends most of its life at sndLevel(SND_VOL) 0.
  */
 #define NEB_ENERGY_BASE 1.0
 #define NEB_ENERGY_GAIN 0.35
@@ -389,7 +388,7 @@ out vec4 fragColor;
  * Bass inflates the cloud and deepens it.
  *
  * Both gains are small, and that is deliberate rather than timid: this shader
- * has no frame-to-frame state, so it cannot smooth anything itself. uBass is
+ * has no frame-to-frame state, so it cannot smooth anything itself. sndLevel(SND_BASS) is
  * already an auto-gained envelope, but any jitter left in it lands straight
  * on the geometry, and a cloud whose RADIUS flickers is far more obvious than
  * one whose brightness does. Big audio gestures belong on the emission terms,
@@ -548,11 +547,11 @@ void main() {
     // Read off the slew-limited companions in lib_scene_motion, not the raw
     // envelopes. Same range and same meaning; the difference is that no single
     // frame can move one of them far, so nothing structural below can snap.
-    float bass = clamp(uBassSmooth, 0.0, 1.5);
-    float mid = clamp(uMidSmooth, 0.0, 1.5);
-    float treble = clamp(uTrebleSmooth, 0.0, 1.5);
-    float energy = clamp(uEnergySmooth, 0.0, 1.5);
-    float beatEnv = clamp(uEvents.x, 0.0, 1.0);
+    float bass = clamp(sndShaped(SND_LOW), 0.0, 1.5);
+    float mid = clamp(SND_MID_PRESENCE, 0.0, 1.5);
+    float treble = clamp(SND_TREBLE_PRESENCE, 0.0, 1.5);
+    float energy = clamp(((SND_BASS_PRESENCE + SND_MID_PRESENCE + SND_TREBLE_PRESENCE) / 3.0), 0.0, 1.5);
+    float beatEnv = clamp(SND_KICK_ENV, 0.0, 1.0);
 
     float radius = NEB_RADIUS * (1.0 + NEB_BASS_INFLATE * bass);
     float extinction = NEB_EXTINCTION * (1.0 + NEB_BASS_EXTINCT * bass);

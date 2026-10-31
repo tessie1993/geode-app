@@ -8,7 +8,6 @@ out vec4 fragColor;
 
 //#include lib_scene_uniforms
 //#include lib_scene_motion
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_nebula
@@ -32,10 +31,10 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// The disk's brightness FOLLOWS THE SWELL (uSwell): loud passages feed the
+// The disk's brightness FOLLOWS THE SWELL (SND_ENERGY_TREND): loud passages feed the
 // hole and the disk and arch blaze, quiet ones let them dim to embers. The
 // swell is the slowest signal there is, so this breathes over seconds and
-// never flashes. Bass (uBassSmooth) tightens the photon ring's glow. The
+// never flashes. Bass (SND_BASS_PRESENCE) tightens the photon ring's glow. The
 // hats twinkle the stars. The key turns the outer disk's colour.
 //
 // ---- macros -----------------------------------------------------------------
@@ -80,9 +79,9 @@ void main() {
     vec2 uv = view();
     float t = nebTime();
     float e = nebEnergy();
-    float swell = clamp(uSwell, 0.0, 1.5);
-    float bass = clamp(uBassSmooth, 0.0, 1.3) * e;
-    float hats = clamp(uHits.z, 0.0, 1.0);
+    float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
+    float bass = clamp(SND_BASS_PRESENCE, 0.0, 1.3) * e;
+    float hats = clamp(SND_HAT_ENV, 0.0, 1.0);
     float oct = nebOctaves(3.0);
     float key = nebKeyShift(0.12);
     float feed = 0.45 + 0.6 * clamp(swell * e, 0.0, 1.6);

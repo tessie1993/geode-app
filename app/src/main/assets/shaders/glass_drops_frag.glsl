@@ -8,7 +8,6 @@ out vec4 fragColor;
 
 //#include lib_scene_uniforms
 //#include lib_scene_motion
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_glass
@@ -29,11 +28,11 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// Beats slide the drops: every onset (uHitCount) moves each column of drops a
-// notch down the glass, and the move eases in as the onset envelope (uHits.w)
+// Beats slide the drops: every onset (SND_ONSET_COUNT) moves each column of drops a
+// notch down the glass, and the move eases in as the onset envelope (SND_ONSET_ENV)
 // falls (glassGlide), so the drops run in little jerks with the rhythm, each
 // column at its own pace, and creep slowly between beats. The key (uKeyHue,
-// uKeyStrength) tints the city. Brightness follows uSwell.
+// uKeyStrength) tints the city. Brightness follows SND_ENERGY_TREND.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -107,12 +106,12 @@ vec3 dropShade(vec2 x, vec2 l, float rad, float hue, float t, float chaos) {
 void main() {
     vec2 uv = view();
     float t = glassTime();
-    float swell = clamp(uSwell, 0.0, 1.5);
+    float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
     float hue = 0.04 * sin(t * 0.019) + 0.12 * uKeyStrength * sin(GLASS_TAU * uKeyHue);
     float chaos = glassChaos();
     float density = 0.55 + 0.25 * glassComplexity();
 
-    float slide = glassGlide(uHitCount, uHits.w) * 0.45 * glassEnergy() + t * 0.025;
+    float slide = glassGlide(SND_ONSET_COUNT, SND_ONSET_ENV) * 0.45 * glassEnergy() + t * 0.025;
     vec2 l1;
     vec2 l2;
     vec3 big = drops(uv, 0.34, slide, 1.0, density, l1);

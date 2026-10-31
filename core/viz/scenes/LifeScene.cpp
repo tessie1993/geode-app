@@ -47,7 +47,7 @@ void LifeScene::resize(int width, int height) {
     seedRemain_ = kSeedSeconds;
 }
 
-void LifeScene::update(const GeodeFeatureFrame& features, float dt) {
+void LifeScene::update(const GeodeSoundFrame& features, float dt) {
     time_ = std::fmod(time_ + dt, kSceneTimeWrapSeconds);
     lastDt_ = dt;
     pcmStrike_ = pcmPulse_.tick(dt);
@@ -115,12 +115,12 @@ void LifeScene::draw(float timeSeconds) {
     if (!field) return;
     const SceneParams& p = params_;
     const float dt = std::clamp(lastDt_, 0.0f, 1.0f / 15.0f);
-    const GeodeFeatureFrame f = hasPending_ ? pending_ : GeodeFeatureFrame{};
+    const GeodeSoundFrame f = hasPending_ ? pending_ : GeodeSoundFrame{};
     hasPending_ = false;
 
     const float speed = std::clamp(p.speed, 0.05f, 4.0f);
     const float drive = safeAudioDrive(p.audioDrive);
-    envTreble_ = slewEnvelope(envTreble_, clampedBand(f.treble), dt, kEnvRisePerSec, kEnvFallPerSec);
+    envTreble_ = slewEnvelope(envTreble_, clampedBand(live::treble(f)), dt, kEnvRisePerSec, kEnvFallPerSec);
     const float hit = live::hit(f);
     beatPulse_ = std::clamp(std::max(hit * std::clamp(p.beatResponse, 0.0f, 2.0f), beatPulse_ - dt * 3.0f), 0.0f, 1.5f);
     kick_ = std::max(kick_ - dt * 5.0f, 0.0f);

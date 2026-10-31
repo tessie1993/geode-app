@@ -8,7 +8,6 @@ out vec4 fragColor;
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_sdf3
@@ -28,11 +27,11 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// Snare (uHits.y) RE-ANGLES THE FORKS: on every snare the fork angle of every
+// Snare (SND_SNARE_ENV) RE-ANGLES THE FORKS: on every snare the fork angle of every
 // level opens out at once and springs back as the envelope falls, so the
 // whole tunnel flexes wider in time with the backbeat, the crowns parting and
 // closing over the path. The key (uKeyHue, gated by uKeyStrength) turns the
-// leaves' season along the palette. Swell (uSwell) gently deepens the sun
+// leaves' season along the palette. Swell (SND_INTENSITY) gently deepens the sun
 // shafts, nothing on a hit.
 //
 // ---- macros -----------------------------------------------------------------
@@ -92,8 +91,8 @@ void main() {
     vec2 uv = arbView();
     float t = uTime * uSpeed;
     float energy = uIntensity;
-    float swell = clamp(uSwell, 0.0, 1.5);
-    float snare = clamp(uHits.y * energy, 0.0, 1.0);
+    float swell = clamp(SND_INTENSITY, 0.0, 1.5);
+    float snare = clamp(SND_SNARE_ENV * energy, 0.0, 1.0);
     float key = uKeyHue * clamp(uKeyStrength * energy, 0.0, 1.0);
 
     gChaos = arbChaos();

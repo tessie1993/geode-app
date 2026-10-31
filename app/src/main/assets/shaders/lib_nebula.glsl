@@ -78,7 +78,7 @@
 // PHOTOSENSITIVITY: no helper here reads a hit or event uniform. Twinkle is
 // an argument, and it dims stars around their level rather than lifting the
 // frame. What moves on a hit is each style's business, and the rule there is:
-// move geometry and hue, keep full-frame brightness on uSwell.
+// move geometry and hue, keep full-frame brightness on SND_INTENSITY.
 
 #define NEB_TAU 6.2831853
 #define NEB_PI 3.14159265
@@ -120,7 +120,7 @@ float nebHash3(vec3 p) {
     return fract((p.x + p.y) * p.z);
 }
 
-/** A hash of a counter (uHitCount, uSectionCount), 0..1. */
+/** A hash of a counter (floor(SND_HIT_TIME), SND_CUT_COUNT), 0..1. */
 float nebHash1(float n) {
     return nebHash(vec2(n * 1.618, n * 0.413 + 3.7));
 }

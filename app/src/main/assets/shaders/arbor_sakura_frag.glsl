@@ -7,7 +7,6 @@ out vec4 fragColor;
 
 //#include lib_scene_uniforms
 //#include lib_scene_motion
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_sdf3
@@ -27,12 +26,12 @@ out vec4 fragColor;
 // ---- audio ------------------------------------------------------------------
 //
 // Onsets OPEN BLOSSOMS. Each twig tip has a hashed place on a cycle and the
-// onset count (uHitCount) slides a "flowering" window along it, so every
+// onset count (floor(SND_HIT_TIME)) slides a "flowering" window along it, so every
 // onset opens a few new flowers and lets a few of the oldest fall: the tree
 // is always about half in bloom, but WHERE it blooms keeps moving with the
-// rhythm. The onset envelope (uHits.w) is the opening, new flowers growing
+// rhythm. The onset envelope (SND_ONSET_ENV) is the opening, new flowers growing
 // from nothing while the departing ones shrink away, so nothing pops. Air
-// (uBandsHi.z) thickens the drift of falling petals. Swell (uSwell) only
+// (sndLevel(SND_TREBLE_ATT)) thickens the drift of falling petals. Swell (SND_INTENSITY) only
 // warms the sky a little.
 //
 // ---- macros -----------------------------------------------------------------
@@ -53,10 +52,10 @@ void main() {
     float t = uTime * uSpeed;
     float energy = uIntensity;
     float chaos = arbChaos();
-    float swell = clamp(uSwell, 0.0, 1.5);
-    float air = clamp(uBandsHi.z, 0.0, 1.0) * energy;
-    float onset = clamp(uHits.w, 0.0, 1.0);
-    float n = floor(uHitCount);
+    float swell = clamp(SND_INTENSITY, 0.0, 1.5);
+    float air = clamp(sndLevel(SND_TREBLE_ATT), 0.0, 1.0) * energy;
+    float onset = clamp(SND_ONSET_ENV, 0.0, 1.0);
+    float n = floor(SND_HIT_TIME);
 
     float hue = 0.95 + 0.02 * sin(t * 0.03);
     float grain = vnoise3(vec3(uv * 60.0, 1.0)) * 0.5 + vnoise3(vec3(uv * 9.0, 2.0)) * 0.5;

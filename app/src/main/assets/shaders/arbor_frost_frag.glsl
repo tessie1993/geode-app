@@ -7,7 +7,6 @@ out vec4 fragColor;
 
 //#include lib_scene_uniforms
 //#include lib_scene_motion
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_sdf3
@@ -25,14 +24,14 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// Treble is GROWTH. uTrebleSmooth (slew-limited: the air end of the spectrum,
+// Treble is GROWTH. SND_TREBLE_PRESENCE (slew-limited: the air end of the spectrum,
 // without a frame of jitter) sets how many levels of the dendrite exist,
 // fractionally, so a bright passage grows the crystal out to its fine
 // feathered tips and a dull one melts it back to a plate with stubs. Each
-// section (uSectionCount) picks a new crystal HABIT, side-arm angle and the
+// section (SND_CUT_COUNT) picks a new crystal HABIT, side-arm angle and the
 // two length ratios, hashed from the count and morphed in over the section
-// envelope so it never snaps. Kick (uHits.x) pulses the central plate's size.
-// Brightness follows uSwell only.
+// envelope so it never snaps. Kick (SND_KICK_ENV) pulses the central plate's size.
+// Brightness follows SND_INTENSITY only.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -66,12 +65,12 @@ void main() {
     float t = uTime * uSpeed;
     float energy = uIntensity;
     float chaos = arbChaos();
-    float swell = clamp(uSwell, 0.0, 1.5);
-    float treb = clamp(uTrebleSmooth, 0.0, 1.5) * energy;
-    float kick = clamp(uHits.x * energy, 0.0, 1.0);
+    float swell = clamp(SND_INTENSITY, 0.0, 1.5);
+    float treb = clamp(SND_TREBLE_PRESENCE, 0.0, 1.5) * energy;
+    float kick = clamp(SND_KICK_ENV * energy, 0.0, 1.0);
 
-    float morphIn = smoothstep(0.0, 1.0, 1.0 - clamp(uEvents.z, 0.0, 1.0));
-    vec3 hab = mix(habit(uSectionCount - 1.0), habit(uSectionCount), morphIn);
+    float morphIn = smoothstep(0.0, 1.0, 1.0 - clamp(SND_HELD_HARD_CUT, 0.0, 1.0));
+    vec3 hab = mix(habit(SND_CUT_COUNT - 1.0), habit(SND_CUT_COUNT), morphIn);
 
     float hue = 0.58 + 0.04 * sin(t * 0.03);
 

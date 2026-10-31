@@ -31,11 +31,11 @@ void Choreography::Anchor::snap() {
     y = targetY;
 }
 
-void Choreography::tick(const GeodeFeatureFrame& f, float dt, float aspect) {
+void Choreography::tick(const GeodeSoundFrame& f, float dt, float aspect) {
     time_ = std::fmod(time_ + dt * (0.4f + 0.6f * speed), kTimeWrapSeconds);
     if (hitEdge_.step(f)) hitCount_++;
     beatEnv_ = std::max(live::hit(f), beatEnv_ * std::exp(-dt / 0.35f));
-    const float bassTarget = std::clamp(f.bass * 1.2f, 0.0f, 1.0f);
+    const float bassTarget = std::clamp(live::bass(f) * 1.2f, 0.0f, 1.0f);
     bassEnv_ += (bassTarget - bassEnv_) * std::min(bassTarget > bassEnv_ ? dt / 0.03f : dt / 0.45f, 1.0f);
 
     traverse_.step(f, dt);
@@ -53,7 +53,7 @@ void Choreography::tick(const GeodeFeatureFrame& f, float dt, float aspect) {
         auto& s = spawns_[static_cast<size_t>(i)];
         s.targetX = std::clamp(tx, -ax, ax);
         s.targetY = std::clamp(ty, -kDomainMargin, kDomainMargin);
-        const float bandE = std::clamp(f.bands[std::clamp(i * GEODE_BAND_COUNT / nS, 0, GEODE_BAND_COUNT - 1)], 0.0f, 1.0f);
+        const float bandE = std::clamp(f.spectrum[std::clamp(i * GEODE_SOUND_SPECTRUM_POINTS / nS, 0, GEODE_SOUND_SPECTRUM_POINTS - 1)], 0.0f, 1.0f);
         s.energy = std::clamp(0.5f * beatEnv_ + 0.5f * bandE, 0.0f, 1.0f);
     }
     const int nC = std::clamp(catchCount, 0, kMaxCatch);

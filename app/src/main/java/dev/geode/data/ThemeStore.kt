@@ -5,6 +5,7 @@ import androidx.annotation.StringRes
 import androidx.core.content.edit
 import dev.geode.R
 import dev.geode.analysis.BeatTuning
+import dev.geode.engine.audio.SoundTuning
 import dev.geode.model.TutorialProgress
 
 enum class PlayerPosition(
@@ -28,6 +29,8 @@ data class GuiPrefs(
     val barOpacity: Float = 0.72f,
     val beatSensitivity: Float = BeatTuning.SENSITIVITY_DEFAULT,
     val beatMinIntervalMs: Float = BeatTuning.INTERVAL_MS_DEFAULT,
+    /** The sound engine's tuning (Settings › Audio): every surface and the export read it. */
+    val soundTuning: SoundTuning = SoundTuning(),
     val presetMirrorUri: String? = null,
     /**
      * How long a preset load takes to glide in, in SECONDS.
@@ -140,6 +143,7 @@ class ThemeStore(
                 prefs
                     .getFloat(KEY_BEAT_INTERVAL, BeatTuning.INTERVAL_MS_DEFAULT)
                     .coerceIn(BeatTuning.INTERVAL_MS_MIN, BeatTuning.INTERVAL_MS_MAX),
+            soundTuning = readSoundTuning(prefs),
             presetMirrorUri = prefs.getString("preset_mirror_uri", null),
             presetMorphSeconds = readPresetMorphSeconds(prefs),
             accentIntensity = prefs.getFloat(KEY_ACCENT, 1f),
@@ -221,6 +225,7 @@ class ThemeStore(
             putFloat(KEY_OPACITY, gui.barOpacity)
             putFloat("beat_sigma", gui.beatSensitivity)
             putFloat(KEY_BEAT_INTERVAL, gui.beatMinIntervalMs)
+            putString(KEY_SOUND_TUNING, gui.soundTuning.toFloats().joinToString(","))
             putString("preset_mirror_uri", gui.presetMirrorUri)
             putFloat(KEY_PRESET_MORPH_SEC, gui.presetMorphSeconds)
             putFloat(KEY_ACCENT, gui.accentIntensity)
@@ -281,6 +286,19 @@ class ThemeStore(
         const val KEY_FONT_COLOR = "gui_font_color"
         const val KEY_TEXT_SCALE = "gui_text_scale"
         const val KEY_BEAT_INTERVAL = "beat_min_interval_ms"
+        const val KEY_SOUND_TUNING = "sound_tuning"
+
+        /** The saved tuning, or the engine's defaults when there is none or it does not parse. */
+        fun readSoundTuning(prefs: SharedPreferences): SoundTuning {
+            val floats =
+                prefs
+                    .getString(KEY_SOUND_TUNING, null)
+                    ?.split(',')
+                    ?.map { it.toFloatOrNull() ?: return SoundTuning() }
+                    ?.toFloatArray() ?: return SoundTuning()
+            return SoundTuning.fromFloats(floats)
+        }
+
         const val KEY_PRESET_MORPH_SEC = "gui_preset_morph_seconds"
         const val LEGACY_KEY_MORPH_BEATS = "morph_beats"
 

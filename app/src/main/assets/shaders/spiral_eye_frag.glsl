@@ -23,8 +23,8 @@ out vec4 fragColor;
 //
 // uv -> log-polar -> curl-advected dye, sampled along the streak -> core.
 //
-// Audio: the spiral's pitch and the cloud's density breathe on uBassSmooth and
-// uSwell; treble lights the filaments. A spike does not brighten anything -
+// Audio: the spiral's pitch and the cloud's density breathe on sndShaped(SND_LOW) and
+// (0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)); treble lights the filaments. A spike does not brighten anything -
 // it re-aims the streak (uMoveDir), re-seeds the cloud (uSpawnSeed) and moves
 // the arm count to a new plateau (uFormPhase). Nothing steps in one frame.
 
@@ -47,9 +47,9 @@ void main() {
     float r = max(length(uv), 1e-4);
     float a = atan(uv.y, uv.x);
 
-    float bass = clamp(uBassSmooth, 0.0, 1.5);
-    float treb = clamp(uTrebleSmooth, 0.0, 1.5);
-    float swell = clamp(uSwell, 0.0, 1.5);
+    float bass = clamp(sndShaped(SND_LOW), 0.0, 1.5);
+    float treb = clamp(SND_TREBLE_PRESENCE, 0.0, 1.5);
+    float swell = clamp((0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)), 0.0, 1.5);
     // A spike steps the spiral between 2, 3 and 4 arms and holds it.
     float arms = 2.0 + floor(uFormPhase * 3.0);
 

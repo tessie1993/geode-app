@@ -9,7 +9,6 @@ out vec4 fragColor;
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_terra
@@ -29,10 +28,10 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// Hats (uHits.z) SHIMMER THE RIPPLES: each hat deepens the ripple relief and
+// Hats (SND_HAT_ENV) SHIMMER THE RIPPLES: each hat deepens the ripple relief and
 // scatters glints of mica across the sunlit sand, both fading with the hat's
-// envelope - local glitter, never a frame flash. Bass (uBassSmooth) swells
-// the dunes a little, slowly. Brightness follows uSwell only.
+// envelope - local glitter, never a frame flash. Bass (sndShaped(SND_LOW)) swells
+// the dunes a little, slowly. Brightness follows (0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)) only.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -65,10 +64,10 @@ float height(vec2 xz) {
 void main() {
     vec2 uv = view();
     float t0 = terraTime();
-    float swell = clamp(uSwell, 0.0, 1.5);
+    float swell = clamp((0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)), 0.0, 1.5);
     float energy = terraEnergy();
-    float hat = clamp(uHits.z * energy, 0.0, 1.0);
-    gSwellAmp = 1.0 + 0.15 * clamp(uBassSmooth, 0.0, 1.2) * energy;
+    float hat = clamp(SND_HAT_ENV * energy, 0.0, 1.0);
+    gSwellAmp = 1.0 + 0.15 * clamp(sndShaped(SND_LOW), 0.0, 1.2) * energy;
     gOct = terraOctaves(2.0);
     float hMax = 1.05 * gSwellAmp;
 

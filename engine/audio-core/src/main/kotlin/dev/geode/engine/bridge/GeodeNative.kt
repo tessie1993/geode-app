@@ -317,6 +317,29 @@ object GeodeNative {
 
     external fun vizTakeMilkPresetLoaded(handle: Long): String?
 
+    external fun vizWriteAudio(
+        handle: Long,
+        interleaved: FloatArray,
+        frames: Int,
+        channels: Int,
+        sampleRate: Int,
+    )
+
+    external fun vizResetAudio(handle: Long)
+
+    external fun vizSetSoundTuning(
+        handle: Long,
+        tuning: FloatArray,
+    )
+
+    external fun vizSoundFrame(
+        handle: Long,
+        out: FloatArray,
+    )
+
+    /** The reaction source catalogue (core/viz/Reactions.cpp), see `dev.geode.render.ReactSourceCatalog`. */
+    external fun reactSourceCatalog(): String
+
     external fun vizPushPcm(
         handle: Long,
         mono: FloatArray,

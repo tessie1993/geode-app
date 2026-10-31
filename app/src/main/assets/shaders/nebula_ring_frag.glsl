@@ -8,7 +8,6 @@ out vec4 fragColor;
 
 //#include lib_scene_uniforms
 //#include lib_scene_motion
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_nebula
@@ -28,10 +27,10 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// Bass (uBassSmooth with the bass band region) BREATHES THE RING: its width
+// Bass (sndShaped(SND_LOW) with the bass band region) BREATHES THE RING: its width
 // swells on the low end and slims in quiet passages, the coloured layers
 // stretching with it. The hats twinkle the field stars. The key turns both
-// ring hues. Overall level follows uSwell gently.
+// ring hues. Overall level follows (0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)) gently.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -45,9 +44,9 @@ void main() {
     vec2 uv = view();
     float t = nebTime();
     float e = nebEnergy();
-    float bass = clamp(0.6 * uBassSmooth + 0.4 * uBandsLo.y, 0.0, 1.3) * e;
-    float swell = clamp(uSwell, 0.0, 1.5);
-    float hats = clamp(uHits.z, 0.0, 1.0);
+    float bass = clamp(0.6 * sndShaped(SND_LOW) + 0.4 * sndSpectrum(0.23), 0.0, 1.3) * e;
+    float swell = clamp((0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)), 0.0, 1.5);
+    float hats = clamp(SND_HAT_ENV, 0.0, 1.0);
     float oct = nebOctaves(4.0);
     float key = nebKeyShift(0.1);
 

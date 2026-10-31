@@ -9,7 +9,6 @@ out vec4 fragColor;
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_glass
@@ -31,11 +30,11 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// Highs (uTrebleSmooth, with the air band uBandsHi.z) grow the frost: the
+// Highs (sndShaped(SND_HIGH), with the air band sndSpectrum(0.93)) grow the frost: the
 // normal roughening deepens and the glitter thickens on bright passages, and
-// clears to glassy ice in the quiet. Bass (uBassSmooth) grows the crystals a
+// clears to glassy ice in the quiet. Bass (SND_BASS_PRESENCE) grows the crystals a
 // little longer, eased. The key (uKeyHue, uKeyStrength) drifts the cold
-// palette, but only slightly - ice stays cold. Brightness follows uSwell only.
+// palette, but only slightly - ice stays cold. Brightness follows SND_LEVEL only.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -89,10 +88,10 @@ void main() {
     vec2 uv = view();
     float t = glassTime();
     float energy = glassEnergy();
-    float swell = clamp(uSwell, 0.0, 1.5);
-    float highs = clamp(0.6 * uTrebleSmooth + 0.4 * uBandsHi.z, 0.0, 1.3);
+    float swell = clamp(SND_LEVEL, 0.0, 1.5);
+    float highs = clamp(0.6 * sndShaped(SND_HIGH) + 0.4 * sndSpectrum(0.93), 0.0, 1.3);
     float frostAmt = 0.12 + 0.38 * highs * energy;
-    float grow = 1.0 + 0.16 * clamp(uBassSmooth, 0.0, 1.2) * energy;
+    float grow = 1.0 + 0.16 * clamp(SND_BASS_PRESENCE, 0.0, 1.2) * energy;
     float hue = 0.55 + 0.05 * uKeyStrength * sin(GLASS_TAU * uKeyHue);
     vec3 cold = vec3(0.72, 0.9, 1.12);
 

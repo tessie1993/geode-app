@@ -8,7 +8,6 @@ out vec4 fragColor;
 
 //#include lib_scene_uniforms
 //#include lib_scene_motion
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_lucid
@@ -29,12 +28,12 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// A SECTION change (uSectionCount, eased by uEvents.z) re-seeds the piece:
+// A SECTION change (SND_CUT_COUNT, eased by SND_HELD_HARD_CUT) re-seeds the piece:
 // the hash of the section count picks the Mobius glide's heading, the
 // lacquer's pair of hues and where in the cell field the tiles sample. The
 // new seed is reached by sliding (lucidSeed), never cut to, so a section
 // boundary reads as the tiling sailing off somewhere new over about a
-// second. uTrebleSmooth sharpens the gold sheen. Brightness follows uSwell
+// second. SND_TREBLE_PRESENCE sharpens the gold sheen. Brightness follows SND_INTENSITY
 // gently.
 //
 // ---- macros -----------------------------------------------------------------
@@ -58,9 +57,9 @@ void main() {
     vec2 uv = lucidView(false);
     float t = uTime * uSpeed;
     float flow = uFlowPhase * uSpeed;
-    float swell = clamp(uSwell, 0.0, 1.5);
-    float treb = clamp(uTrebleSmooth, 0.0, 1.5) * uIntensity;
-    float seed = lucidSeed(uSectionCount, uEvents.z);
+    float swell = clamp(SND_INTENSITY, 0.0, 1.5);
+    float treb = clamp(SND_TREBLE_PRESENCE, 0.0, 1.5) * uIntensity;
+    float seed = lucidSeed(SND_CUT_COUNT, SND_HELD_HARD_CUT);
 
     float aspect = uResolution.x / max(uResolution.y, 1.0);
     vec2 z = uv / min(aspect, 1.0) * 1.02;

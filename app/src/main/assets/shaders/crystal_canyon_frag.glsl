@@ -8,7 +8,6 @@ out vec4 fragColor;
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_sdf3
@@ -22,10 +21,10 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// Kick (uHits.x) grows the crystals just ahead of the eye. That is geometry:
+// Kick (SND_KICK_ENV) grows the crystals just ahead of the eye. That is geometry:
 // their tips shoot up and they thicken a little, and nothing gets brighter.
-// A pitch change (uEvents.w) slides the crystal hue. Air (uBandsHi.z) thickens
-// and brightens the sparkle glints on the facets. Overall level rides uSwell.
+// A pitch change (SND_HELD_NOTE_CHANGE) slides the crystal hue. Air (sndSpectrum(0.93)) thickens
+// and brightens the sparkle glints on the facets. Overall level rides SND_ENERGY_TREND.
 //
 // ---- why the estimate is safe ----------------------------------------------
 //
@@ -77,7 +76,7 @@ float map(vec3 p) {
 
     float ax = abs(cc.x);
     float wall = wallAt(ax, cc.y);
-    float kickAll = clamp(uHits.x, 0.0, 1.0);
+    float kickAll = clamp(SND_KICK_ENV, 0.0, 1.0);
     // Only the crystals just ahead of the eye answer the kick.
     float kick = kickAll * exp(-abs(cc.y - gEye.z - 4.0) * 0.14);
     float top = CC_FLOOR + 0.25 + 0.7 * h + CC_RISE * wall * (0.62 + 0.38 * h2)
@@ -144,10 +143,10 @@ void main() {
     ro.z = mod(ro.z, CC_ZWRAP);
     gEye = ro;
 
-    float swell = clamp(uSwell, 0.0, 1.5);
-    float energy = clamp(uEnergySmooth, 0.0, 1.5);
-    float air = clamp(uBandsHi.z, 0.0, 1.0);
-    float hueBase = 0.22 * clamp(uEvents.w, 0.0, 1.0);
+    float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
+    float energy = clamp(sndShaped(SND_LEVEL), 0.0, 1.5);
+    float air = clamp(sndSpectrum(0.93), 0.0, 1.0);
+    float hueBase = 0.22 * clamp(SND_HELD_NOTE_CHANGE, 0.0, 1.0);
 
     float t = 0.05;
     float hitT = -1.0;

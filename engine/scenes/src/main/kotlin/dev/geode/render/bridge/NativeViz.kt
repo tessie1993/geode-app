@@ -142,6 +142,30 @@ class NativeViz(
     /** The preset MilkDrop last compiled, handed out once; null until the next one. */
     fun takeMilkPresetLoaded(): String? = if (handle == 0L) null else GeodeNative.vizTakeMilkPresetLoaded(handle)
 
+    /** The renderer's sound engine: interleaved PCM in play order, each sample once, before [render]. */
+    fun writeAudio(
+        interleaved: FloatArray,
+        frames: Int,
+        channels: Int,
+        sampleRateHz: Int,
+    ) {
+        if (handle != 0L && frames > 0) GeodeNative.vizWriteAudio(handle, interleaved, frames, channels, sampleRateHz)
+    }
+
+    fun resetAudio() {
+        if (handle != 0L) GeodeNative.vizResetAudio(handle)
+    }
+
+    /** Settings › Audio, as [dev.geode.engine.audio.SoundTuning.toFloats]. */
+    fun setSoundTuning(floats: FloatArray) {
+        if (handle != 0L) GeodeNative.vizSetSoundTuning(handle, floats)
+    }
+
+    /** The frame the last [render] stepped, as [dev.geode.engine.audio.SoundFrameLayout] floats. */
+    fun soundFrame(out: FloatArray) {
+        if (handle != 0L) GeodeNative.vizSoundFrame(handle, out)
+    }
+
     fun pushPcm(
         mono: FloatArray,
         count: Int,

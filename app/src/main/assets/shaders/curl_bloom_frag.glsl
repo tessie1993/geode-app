@@ -50,7 +50,7 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// uSwell inflates the body, uBassSmooth deepens the stir, uTrebleSmooth
+// SND_LEVEL inflates the body, SND_BASS_PRESENCE deepens the stir, sndShaped(SND_HIGH)
 // sharpens the rim light. A spike picks the next primitive (uFormPhase), re-aims
 // the flow (uMoveDir) and re-seeds the surface veining (uSpawnSeed). Nothing
 // keys brightness off a raw envelope, so nothing here can flash.
@@ -124,9 +124,9 @@ float occlusion(vec3 p, vec3 n) {
 void main() {
     vec2 uv = view();
 
-    float bass = clamp(uBassSmooth, 0.0, 1.5);
-    float treb = clamp(uTrebleSmooth, 0.0, 1.5);
-    float swell = clamp(uSwell, 0.0, 1.5);
+    float bass = clamp(SND_BASS_PRESENCE, 0.0, 1.5);
+    float treb = clamp(sndShaped(SND_HIGH), 0.0, 1.5);
+    float swell = clamp(SND_LEVEL, 0.0, 1.5);
     float finger = touchFalloff(uv, 0.6);
 
     // The stir. Amount is kept modest deliberately: the Lipschitz bound below

@@ -1,7 +1,10 @@
 package dev.geode.render.offscreen
 
 import android.content.Context
+import android.net.Uri
+import android.util.Log
 import dev.geode.analysis.FeatureTimeline
+import dev.geode.engine.audio.SoundTuning
 import dev.geode.render.AdsrConfig
 import dev.geode.render.LfoConfig
 import dev.geode.render.ReactionRoute
@@ -35,6 +38,11 @@ data class OffscreenRenderSpec(
     // W02: the background image behind the scene, decoded by the caller at [width]x[height] and
     // latched once in [OffscreenSceneRenderer.prepare] - see NativeViz.setUnderlay.
     val underlay: OffscreenUnderlay? = null,
+    // The track the range is cut from: the export's own sound engine hears it frame by frame
+    // (TrackAudio), the same way the screen's engine hears the ring. Null renders without sound.
+    val audioUri: Uri? = null,
+    // Settings › Audio, the same tuning the screen used.
+    val soundTuning: SoundTuning = SoundTuning(),
 )
 
 /**
@@ -69,6 +77,7 @@ class OffscreenSceneRenderer(
     private var native: NativeViz? = null
     private val styleReactions = StyleReactionsCache()
     private var nativeReactions: List<ReactionRoute>? = null
+    private var audio: TrackAudio? = null
 
     /** Builds the native renderer and its scene; must run with the target GL context current. */
     fun prepare() {
@@ -86,7 +95,15 @@ class OffscreenSceneRenderer(
         if (spec.lfoConfigs.isNotEmpty()) viz.setLfoConfigs(spec.lfoConfigs)
         if (spec.adsrConfigs.isNotEmpty()) viz.setAdsrConfigs(spec.adsrConfigs)
         spec.underlay?.let { viz.setUnderlay(it.pixels, it.width, it.height, it.blend, it.amount) }
+        viz.setSoundTuning(spec.soundTuning.toFloats())
         native = viz
+        // A track that will not decode still exports, silent to the engine, rather than failing the render.
+        audio =
+            spec.audioUri?.let { uri ->
+                runCatching { TrackAudio(context, uri, spec.rangeStartMs) }
+                    .onFailure { Log.w(TAG, "track audio unavailable; the sound engine stays silent", it) }
+                    .getOrNull()
+            }
     }
 
     /**
@@ -114,6 +131,8 @@ class OffscreenSceneRenderer(
             nativeReactions = routes
         }
         viz.setFeatures(features)
+        // Exactly the audio up to the end of this frame, then a render steps the engine by 1/fps.
+        audio?.deliverUntilMs(nextTimeMs) { pcm, frames, channels, rate -> viz.writeAudio(pcm, frames, channels, rate) }
         viz.render(timeMs / 1000.0, targetFbo)
     }
 
@@ -121,6 +140,8 @@ class OffscreenSceneRenderer(
     fun release() {
         bestEffort(TAG, "native.destroy()") { native?.destroy() }
         native = null
+        bestEffort(TAG, "audio.close()") { audio?.close() }
+        audio = null
     }
 
     private companion object {

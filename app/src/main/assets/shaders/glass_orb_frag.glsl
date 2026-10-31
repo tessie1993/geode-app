@@ -9,7 +9,6 @@ out vec4 fragColor;
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_glass
@@ -27,11 +26,11 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// Bass (uBandsLo.y, steadied with uBassSmooth) swells the orb's IOR from 1.38
+// Bass (sndLevel(SND_BASS_ATT), steadied with SND_BASS_PRESENCE) swells the orb's IOR from 1.38
 // toward 1.58: the world inside it bulges, the inverted image shrinks and
 // sharpens, and the caustic spot under it tightens, on every low note, then
 // relaxes. The key (uKeyHue, weighted by uKeyStrength) drifts the palette.
-// Brightness follows uSwell only.
+// Brightness follows SND_ENERGY_TREND only.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -48,8 +47,8 @@ out vec4 fragColor;
 void main() {
     vec2 uv = view();
     float t = glassTime();
-    float swell = clamp(uSwell, 0.0, 1.5);
-    float bass = clamp(0.6 * uBandsLo.y + 0.4 * uBassSmooth, 0.0, 1.2);
+    float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
+    float bass = clamp(0.6 * sndLevel(SND_BASS_ATT) + 0.4 * SND_BASS_PRESENCE, 0.0, 1.2);
     float ior = 1.38 + 0.17 * bass * glassEnergy();
     float hue = 0.04 * sin(t * 0.023) + 0.12 * uKeyStrength * sin(GLASS_TAU * uKeyHue);
 

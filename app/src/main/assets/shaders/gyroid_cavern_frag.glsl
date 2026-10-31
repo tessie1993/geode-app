@@ -8,7 +8,6 @@ out vec4 fragColor;
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_sdf3
@@ -28,20 +27,20 @@ out vec4 fragColor;
 //
 // ---- audio: one sound, one property -----------------------------------------
 //
-// Kick (uHits.x)       the walls swell thicker, narrowing the channels.
-// Snare (uHits.y)      the veins flare wider and brighter in a contrasting hue.
-// Hat (uHits.z)        the motes sparkle: they twinkle up from a dim drift.
-// Onset (uHits.w)      the surface's frequency morphs: a new hashed stretch per
+// Kick (SND_KICK_ENV)       the walls swell thicker, narrowing the channels.
+// Snare (SND_SNARE_ENV)      the veins flare wider and brighter in a contrasting hue.
+// Hat (SND_HAT_ENV)        the motes sparkle: they twinkle up from a dim drift.
+// Onset (SND_ONSET_ENV)      the surface's frequency morphs: a new hashed stretch per
 //                      axis, gliding from the old one over the onset envelope.
-// Drop (uEvents.y)     the cavern opens: the frequency falls (wider tunnels),
+// Drop (SND_HELD_SURGE)     the cavern opens: the frequency falls (wider tunnels),
 //                      the walls thin, the flight tube widens, and the palette
 //                      swaps to its far side; all on a hump, so it glides.
-// Pitch (uEvents.w)    shifts the iridescence hue, as a hump.
-// High bands (uBandsHi) vein speed: a slow and a fast vein flow crossfade, so
+// Pitch (SND_HELD_NOTE_CHANGE)    shifts the iridescence hue, as a hump.
+// High bands (vec4(sndLevel(SND_MID_HIGH_ATT), sndSpectrum(0.80), sndLevel(SND_TREBLE_ATT), sndLevel(SND_FLUX))) vein speed: a slow and a fast vein flow crossfade, so
 //                      the veins race on bright passages and creep otherwise.
 // Section count        the surface itself: gyroid, Schwarz-P, diamond or a
 //                      gyroid-diamond blend, crossfaded over the section envelope.
-// uSwell               overall level, as everywhere.
+// SND_INTENSITY               overall level, as everywhere.
 //
 // ---- why the morphs are wrap-safe ------------------------------------------
 //
@@ -123,24 +122,24 @@ float vein(vec3 q, vec3 flow) {
 void main() {
     vec2 uv = view();
 
-    float swell = clamp(uSwell, 0.0, 1.5);
-    float kick = clamp(uHits.x, 0.0, 1.0);
-    float snare = clamp(uHits.y, 0.0, 1.0);
-    float hat = clamp(uHits.z, 0.0, 1.0);
-    float drop = clamp(uEvents.y, 0.0, 1.0);
-    float pitch = clamp(uEvents.w, 0.0, 1.0);
-    float high = clamp(0.5 * uBandsHi.x + 0.3 * uBandsHi.y + 0.2 * uBandsHi.z, 0.0, 1.0);
+    float swell = clamp(SND_INTENSITY, 0.0, 1.5);
+    float kick = clamp(SND_KICK_ENV, 0.0, 1.0);
+    float snare = clamp(SND_SNARE_ENV, 0.0, 1.0);
+    float hat = clamp(SND_HAT_ENV, 0.0, 1.0);
+    float drop = clamp(SND_HELD_SURGE, 0.0, 1.0);
+    float pitch = clamp(SND_HELD_NOTE_CHANGE, 0.0, 1.0);
+    float high = clamp(0.5 * sndLevel(SND_MID_HIGH_ATT) + 0.3 * sndSpectrum(0.80) + 0.2 * sndLevel(SND_TREBLE_ATT), 0.0, 1.0);
     float dropBump = 4.0 * drop * (1.0 - drop);
     float pitchBump = 4.0 * pitch * (1.0 - pitch);
 
     // Section crossfade: starts at the old surface the frame the count steps.
-    float sw = 1.0 - clamp(uEvents.z, 0.0, 1.0);
+    float sw = 1.0 - clamp(SND_HELD_HARD_CUT, 0.0, 1.0);
     sw = sw * sw * (3.0 - 2.0 * sw);
-    gW = mix(gcVariant(mod(uSectionCount - 1.0, 4096.0)), gcVariant(uSectionCount), sw);
+    gW = mix(gcVariant(mod(SND_CUT_COUNT - 1.0, 4096.0)), gcVariant(SND_CUT_COUNT), sw);
 
     // Onset glide from the previous count's stretch to the new one.
-    float og = (1.0 - smoothstep(0.05, 0.4, clamp(uHits.w, 0.0, 1.0)));
-    vec3 stretch = mix(gcOnsetStretch(mod(uHitCount - 1.0, 4096.0)), gcOnsetStretch(uHitCount), og);
+    float og = (1.0 - smoothstep(0.05, 0.4, clamp(SND_ONSET_ENV, 0.0, 1.0)));
+    vec3 stretch = mix(gcOnsetStretch(mod(floor(SND_HIT_TIME) - 1.0, 4096.0)), gcOnsetStretch(floor(SND_HIT_TIME)), og);
     // A slow idle breath so silence still moves; the drop opens everything.
     vec3 idle = 1.0 + 0.04 * vec3(sin(uTime * 0.07), sin(uTime * 0.05 + 2.0), sin(uTime * 0.06 + 4.0));
     gK = stretch * idle * mix(1.0, 0.62, dropBump);

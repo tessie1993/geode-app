@@ -8,7 +8,6 @@ out vec4 fragColor;
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_sdf3
@@ -31,25 +30,25 @@ out vec4 fragColor;
 //
 // Each sound moves a different thing:
 //
-// - Kick (uHits.x) grows every prism and throws the rain one extra cell down
+// - Kick (SND_KICK_ENV) grows every prism and throws the rain one extra cell down
 //   over the envelope, fast then easing, so the fall surges on each kick.
-// - Snare (uHits.y) steps every prism a third of a turn about its long axis,
+// - Snare (SND_SNARE_ENV) steps every prism a third of a turn about its long axis,
 //   snapping and settling. A third is the triangle's own symmetry (and the
 //   hexagon's), so the step starts from a pose identical to the last.
-// - Hats (uHits.z) light dispersion sparkles that ride on the facets.
-// - An onset (uHits.w) morphs every prism between a triangular and a
-//   hexagonal section; the parity of uHitCount picks which, so the shape
+// - Hats (SND_HAT_ENV) light dispersion sparkles that ride on the facets.
+// - An onset (SND_ONSET_ENV) morphs every prism between a triangular and a
+//   hexagonal section; the parity of floor(SND_HIT_TIME) picks which, so the shape
 //   holds until the next onset.
 // - The low bands (sub, bass) set how dense the rain is: prisms grow in and
 //   shrink out, they do not pop.
 // - The high bands (high-mid, presence, air) set how far the light disperses.
-// - A drop (uEvents.y) changes the light's colour to its complement and sends
+// - A drop (SND_HELD_SURGE) changes the light's colour to its complement and sends
 //   a shockwave out from the eye that shoves the prisms aside as it passes.
-// - A pitch change (uEvents.w) slides the hue of the sky and the glass.
-// - The section count (uSectionCount) moves the light: a hashed direction per
+// - A pitch change (SND_HELD_NOTE_CHANGE) slides the hue of the sky and the glass.
+// - The section count (SND_CUT_COUNT) moves the light: a hashed direction per
 //   section, eased across the 1.5 s of a section change.
 //
-// Overall level rides uSwell and uEnergySmooth.
+// Overall level rides SND_INTENSITY and ((SND_BASS_PRESENCE + SND_MID_PRESENCE + SND_TREBLE_PRESENCE) / 3.0).
 //
 // ---- why the estimate is safe ----------------------------------------------
 //
@@ -192,16 +191,16 @@ void main() {
     ro.z = mod(ro.z, PR_ZWRAP * PR_CELL);
     gEye = ro;
 
-    float swell = clamp(uSwell, 0.0, 1.5);
-    float energy = clamp(uEnergySmooth, 0.0, 1.5);
-    float kick = clamp(uHits.x, 0.0, 1.0);
-    float snare = clamp(uHits.y, 0.0, 1.0);
-    float hats = clamp(uHits.z, 0.0, 1.0);
-    float onset = clamp(uHits.w, 0.0, 1.0);
-    float drop = clamp(uEvents.y, 0.0, 1.0);
-    float pitch = clamp(uEvents.w, 0.0, 1.0);
-    float lowB = clamp(0.5 * (uBandsLo.x + uBandsLo.y), 0.0, 1.0);
-    float highB = clamp((uBandsHi.x + uBandsHi.y + uBandsHi.z) / 3.0, 0.0, 1.0);
+    float swell = clamp(SND_INTENSITY, 0.0, 1.5);
+    float energy = clamp(((SND_BASS_PRESENCE + SND_MID_PRESENCE + SND_TREBLE_PRESENCE) / 3.0), 0.0, 1.5);
+    float kick = clamp(SND_KICK_ENV, 0.0, 1.0);
+    float snare = clamp(SND_SNARE_ENV, 0.0, 1.0);
+    float hats = clamp(SND_HAT_ENV, 0.0, 1.0);
+    float onset = clamp(SND_ONSET_ENV, 0.0, 1.0);
+    float drop = clamp(SND_HELD_SURGE, 0.0, 1.0);
+    float pitch = clamp(SND_HELD_NOTE_CHANGE, 0.0, 1.0);
+    float lowB = clamp(0.5 * (sndLevel(SND_SUB_ATT) + sndSpectrum(0.23)), 0.0, 1.0);
+    float highB = clamp((sndLevel(SND_MID_HIGH_ATT) + sndSpectrum(0.80) + sndLevel(SND_TREBLE_ATT)) / 3.0, 0.0, 1.0);
 
     gKick = kick;
     // The fall is a scroll with period PR_CELL. At rest the kick term is one
@@ -213,14 +212,14 @@ void main() {
     gSpin = (PR_TAU / 3.0) * (1.0 - snare * snare);
     // Odd onset counts are hexagons, even ones triangles; the onset envelope
     // carries the morph from the last shape to this one.
-    float odd = mod(floor(uHitCount + 0.5), 2.0);
+    float odd = mod(floor(floor(SND_HIT_TIME) + 0.5), 2.0);
     gMorph = smoothstep(0.0, 1.0, odd > 0.5 ? 1.0 - onset : onset);
     gDensity = 0.32 + 0.55 * lowB + 0.10 * swell;
     gDrop = drop;
     gFront = 1.5 + 30.0 * (1.0 - drop);
 
-    float sec = floor(uSectionCount + 0.5);
-    vec3 L = normalize(mix(lightDir(sec), lightDir(sec - 1.0), smoothstep(0.0, 1.0, clamp(uEvents.z, 0.0, 1.0))));
+    float sec = floor(SND_CUT_COUNT + 0.5);
+    vec3 L = normalize(mix(lightDir(sec), lightDir(sec - 1.0), smoothstep(0.0, 1.0, clamp(SND_HELD_HARD_CUT, 0.0, 1.0))));
     float hueBase = 0.2 * pitch;
     float lightHue = hash11(sec * 0.77 + 3.0);
     vec3 lightCol = mix(vec3(1.0, 0.88, 0.70), pal(lightHue), 0.35);

@@ -8,7 +8,6 @@ out vec4 fragColor;
 
 //#include lib_scene_uniforms
 //#include lib_scene_motion
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_truchet
@@ -26,10 +25,10 @@ out vec4 fragColor;
 // ---- audio ------------------------------------------------------------------
 //
 // Onsets swing a scattered third of the tiles a quarter turn, so pipes
-// unplug and re-plug into new circuits on the hits. The bass (uBassSmooth)
+// unplug and re-plug into new circuits on the hits. The bass (sndShaped(SND_LOW))
 // swells the pipes' radius and breathes the scale. The light circles slowly
-// overhead on its own; the treble (uTrebleSmooth) tightens the highlight.
-// Brightness follows uSwell only.
+// overhead on its own; the treble (SND_TREBLE_PRESENCE) tightens the highlight.
+// Brightness follows SND_INTENSITY only.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -42,20 +41,20 @@ void main() {
     vec2 uv = view();
     float t = truchetTime();
     float e = truchetEnergy();
-    float swell = clamp(uSwell, 0.0, 1.5);
-    float bass = clamp(uBassSmooth, 0.0, 1.5);
-    float treble = clamp(uTrebleSmooth, 0.0, 1.2);
-    float hits = floor(uHitCount);
+    float swell = clamp(SND_INTENSITY, 0.0, 1.5);
+    float bass = clamp(sndShaped(SND_LOW), 0.0, 1.5);
+    float treble = clamp(SND_TREBLE_PRESENCE, 0.0, 1.2);
+    float hits = floor(SND_HIT_TIME);
 
     float scale = (2.8 + 1.8 * truchetMorph()) * truchetBreath(bass);
     vec2 p = truchetWarp(uv * scale, t);
     float px = truchetPx(p);
 
     vec3 light = normalize(vec3(0.55 * cos(t * 0.17), 0.55 * sin(t * 0.17), 0.85));
-    TruchetArc a = truchetSquare(p, hits, uHits.w, 3.0);
+    TruchetArc a = truchetSquare(p, hits, SND_ONSET_ENV, 3.0);
     // The shadow: where the floor point under the pixel, seen from the light,
     // falls behind a pipe.
-    TruchetArc sh = truchetSquare(p - light.xy * 0.16, hits, uHits.w, 3.0);
+    TruchetArc sh = truchetSquare(p - light.xy * 0.16, hits, SND_ONSET_ENV, 3.0);
 
     float rad = 0.15 + 0.035 * bass * e;
     float hue = 0.04 * sin(t * 0.02) + 0.1 * uKeyStrength * sin(TRUCHET_TAU * uKeyHue);

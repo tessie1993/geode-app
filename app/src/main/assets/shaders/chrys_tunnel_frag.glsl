@@ -9,7 +9,6 @@ out vec4 fragColor;
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
-//#include lib_react
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_chrys
@@ -29,15 +28,15 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// A section change is hidden inside a BLOOM. On uEvents.z the flower at the
+// A section change is hidden inside a BLOOM. On SND_HELD_HARD_CUT the flower at the
 // vanishing point opens out until its petals fill the whole view, then
 // closes again (chrysBump over the 1.5 s envelope, so it starts from rest).
-// The tunnel's palette steps to a new hash of uSectionCount exactly when the
+// The tunnel's palette steps to a new hash of SND_CUT_COUNT exactly when the
 // envelope crosses its midpoint - the moment the bloom covers the screen - so
 // the old tunnel goes in behind the petals and a new one comes out. The bloom
 // is drawn at the scene's own light level; it is a change of shape and hue,
-// not a flash. The sub band (uBandsLo.x) lifts the scale tips off the wall,
-// deepening the shadow each casts on the row below. Brightness follows uSwell
+// not a flash. The sub band (sndSpectrum(0.10)) lifts the scale tips off the wall,
+// deepening the shadow each casts on the row below. Brightness follows SND_LEVEL
 // only.
 //
 // ---- macros -----------------------------------------------------------------
@@ -88,15 +87,15 @@ void main() {
     vec2 uv = view();
     gT = uTime * uSpeed;
     gChaos = clamp(uTurbulence + uWarp, 0.0, 2.0);
-    float swell = clamp(uSwell, 0.0, 1.5);
-    float sect = clamp(uEvents.z, 0.0, 1.0);
-    float lift = clamp(uBandsLo.x * uIntensity, 0.0, 1.5);
+    float swell = clamp(SND_LEVEL, 0.0, 1.5);
+    float sect = clamp(SND_HELD_HARD_CUT, 0.0, 1.0);
+    float lift = clamp(sndSpectrum(0.10) * uIntensity, 0.0, 1.5);
     float cols = 14.0 + 2.0 * floor(4.0 * clamp(uMorph, 0.0, 1.0) + 0.5);
 
     // The palette steps at the bloom's peak, hidden behind its petals.
-    float sectionIdx = uSectionCount - (sect > 0.5 ? 1.0 : 0.0);
+    float sectionIdx = SND_CUT_COUNT - (sect > 0.5 ? 1.0 : 0.0);
     float hue = chrysHash(vec2(sectionIdx * 0.73, 4.0)) + gT * 0.002;
-    float nextHue = chrysHash(vec2(uSectionCount * 0.73, 4.0)) + gT * 0.002;
+    float nextHue = chrysHash(vec2(SND_CUT_COUNT * 0.73, 4.0)) + gT * 0.002;
 
     vec3 ro;
     vec3 rd;

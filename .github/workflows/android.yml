@@ -9,11 +9,6 @@ name: Build MuzViz Debug APK
 
 on:
   workflow_dispatch:
-    inputs:
-      release_number:
-        description: Optional release number N, to preview a numbered build (versionName <base>.N); nothing is published
-        type: number
-        required: false
   push:
     branches: ["claude/**"]
   pull_request:
@@ -136,14 +131,14 @@ jobs:
 
       - name: Assemble debug APK
         working-directory: ${{ env.PROJECT_DIR }}
-        run: ./gradlew :app:assembleDebug ${{ inputs.release_number && format('-PreleaseNumber={0}', inputs.release_number) || '' }} --stacktrace --no-daemon
+        run: ./gradlew :app:assembleDebug --stacktrace --no-daemon
 
       - name: Package APK and checksum
         id: package
         shell: bash
         run: |
           set -euo pipefail
-          # The name the APK carries: <base>-dev-debug, or <base>.N for a numbered preview.
+          # The name the APK carries: <base>-dev-debug (only ship-apk.yml numbers builds).
           VERSION_NAME=$("${ANDROID_HOME:-$ANDROID_SDK_ROOT}/build-tools/36.0.0/aapt2" dump badging "$APK_SOURCE" \
             | sed -n "s/.*versionName='\([^']*\)'.*/\1/p" | head -n 1)
           echo "versionName=$VERSION_NAME"

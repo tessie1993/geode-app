@@ -21,6 +21,8 @@
 #include "viz/Lfo.hpp"
 #include "viz/Macros.hpp"
 #include "viz/MotionField.hpp"
+#include "viz/NoteBloomPass.hpp"
+#include "viz/NoteResponse.hpp"
 #include "viz/Overlays.hpp"
 #include "viz/Params.hpp"
 #include "viz/ProgramBinaryCache.hpp"
@@ -192,6 +194,9 @@ private:
     ReactionEngine macroReactions_;
     // The auto-director (viz/Director): the music's feeling deciding palette, behaviour and routing.
     Director director_;
+    // Note & key reactions (viz/NoteResponse), after the director's look: knobs, note colours, blooms.
+    NoteResponse notes_;
+    NoteBloomPass bloomPass_;
     CameraRig camera_;
     // One engine per renderer (one per surface), so each is frame-locked to its own dt. Guarded by soundLock_
     // only because writeAudio and soundFrame are public; in practice one thread does everything.

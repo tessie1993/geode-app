@@ -112,13 +112,19 @@ SceneParams Renderer::resolveParams(float dt) {
     director_.configure(director::global());
     director_.step(soundFrame_, dt);
     directedKnobs_ = director_.knobs(frameKnobs_);
+    // Note & key reactions hear the frame next, inside the director's look: its hue anchors the notes'
+    // colours, and its feeling (the director's emotion, stepped whether or not it drives) is the mood. The
+    // play's seed is the director's, so an export of the same play draws the same blooms.
+    notes_.configure({note_response::globalEnabled(), director::global().seed});
+    notes_.step(soundFrame_, director_.emotion(), {director_.look().hue, director_.weight()}, dt);
     const auto& envValues = adsr_.tick(dt, soundFrame_);
     AdsrEngine::lfoOffsets(adsr_.configs, envValues, envRate_, envDepth_);
     const auto& lfoValues = lfo_.tick(dt, soundFrame_, envRate_.data(), envDepth_.data());
     // The macros lay over the user's params first, so every stage after them (and the safety clamp)
     // sees the knobbed look.
     const bool palWheel = !activeScene_ || activeScene_->family() == SceneFamily::Shader;
-    SceneParams p = lfo_.apply(macros::apply(director_.apply(displayedParams_, palWheel), directedKnobs_), lfoValues);
+    // Order: the director's look, the note layer inside it, then the user's macros and LFOs over both.
+    SceneParams p = lfo_.apply(macros::apply(notes_.apply(director_.apply(displayedParams_, palWheel)), directedKnobs_), lfoValues);
     p = AdsrEngine::apply(p, adsr_.configs, envValues);
     // The reaction matrix: per-style routes from the sound frame to many
     // targets. Ahead of the motion field and the safety clamp, like the LFOs.
@@ -305,6 +311,8 @@ void Renderer::composite(Scene& scene, const SceneParams& p, float progress, GLu
     in.underlayBlend = compositePass_.underlayBlendMode();
     in.underlayAmount = compositePass_.underlayAmount();
     compositePass_.draw(in);
+    // The note blooms over every family; nothing while there are none.
+    bloomPass_.draw(notes_.uniforms(), width_, height_, quadVao_);
 }
 
 void Renderer::stepOverlays(Scene& scene, const SceneParams& p, float dt) {

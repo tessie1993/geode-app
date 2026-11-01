@@ -2,4 +2,7 @@
 <resources>
     <!-- The brand's background (docs/brand): the splash, BootIntro and the icon's edge. -->
     <color name="brand_night">#0E0620</color>
+    <!-- The neon render's own background (docs/brand/flow/icon-neon.jpg, sampled at its edges):
+         the system splash and BootIntro sit on it, so the splash art and video have no visible edge. -->
+    <color name="brand_void">#06050B</color>
 </resources>

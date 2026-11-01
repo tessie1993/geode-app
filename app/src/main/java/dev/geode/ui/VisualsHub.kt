@@ -60,7 +60,7 @@ import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
@@ -85,7 +85,6 @@ import dev.geode.render.scene.SceneCapabilities
 import dev.geode.render.scene.SceneIds
 import dev.geode.render.scene.StyleFamilies
 import dev.geode.render.scene.VisualStyleCatalog
-import dev.geode.ui.pro.ProBadge
 import dev.geode.ui.theme.StoneIcon
 import dev.geode.ui.theme.StoneIconArt
 import kotlinx.coroutines.Dispatchers
@@ -189,14 +188,16 @@ fun VisualsHub(
                     onOpenStudioRender = onOpenStudioRender,
                     onOpenNowPlaying = onOpenNowPlaying,
                 )
+                // On a scrim pill: the stage behind it can be any colour, white included.
                 Text(
                     stringResource(if (panelShown) R.string.visuals_stage_hint else R.string.visuals_stage_hint_hidden),
-                    Modifier.align(Alignment.BottomCenter).padding(bottom = 6.dp),
-                    style =
-                        MaterialTheme.typography.labelSmall.copy(
-                            shadow = Shadow(color = MaterialTheme.colorScheme.scrim, blurRadius = 8f),
-                        ),
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
+                    Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 8.dp)
+                        .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.6f), RoundedCornerShape(50))
+                        .padding(horizontal = 12.dp, vertical = 4.dp),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = Color.White,
                 )
             }
             if (panelShown) {
@@ -735,115 +736,7 @@ private fun applyPresetLive(
 }
 
 @Composable
-private fun StylesTab(
-    viewModel: PlayerViewModel,
-    visualizerView: VisualizerView,
-    onOpenTextures: () -> Unit,
-) {
-    var sub by rememberSaveable { mutableStateOf(0) }
-    val viz by viewModel.vizState.collectAsStateWithLifecycle()
-    val pickScene: (String) -> Unit = { viewModel.selectScene(it) }
-    val gate by viewModel.gate.collectAsStateWithLifecycle()
-    val locked: (String) -> Boolean = { !gate.allowsStyle(it) }
-    Column(Modifier.fillMaxSize()) {
-        CrystalTabs(
-            titles = listOf("Families", "Silk", "Life", "Mycelium", "Acid", "Shaders", "Fluid", "Cymatics", "MilkDrop"),
-            selected = sub,
-            onSelect = { sub = it },
-        )
-        when (sub) {
-            0 -> FamilyList(viz.sceneId, locked, pickScene)
-            1 -> SceneList(VisualStyleCatalog.silkIds, viz.sceneId, locked, pickScene)
-            2 -> SceneList(VisualStyleCatalog.lifeIds, viz.sceneId, locked, pickScene)
-            3 -> SceneList(VisualStyleCatalog.mycoIds, viz.sceneId, locked, pickScene)
-            4 -> SceneList(VisualStyleCatalog.acidIds, viz.sceneId, locked, pickScene)
-            5 -> SceneList(SceneCapabilities.SHADER_SCENES.keys.filterNot { it in StyleFamilies.ids }, viz.sceneId, locked, pickScene)
-            6 -> SceneList(VisualStyleCatalog.fluidIds + listOf(SceneIds.CURLFLOW, SceneIds.WATER), viz.sceneId, locked, pickScene)
-            7 -> SceneList(VisualStyleCatalog.cymaticsIds, viz.sceneId, locked, pickScene)
-            8 -> MilkDropTab(viewModel, visualizerView, onOpenTextures)
-        }
-    }
-}
-
-internal fun sceneDisplayLabel(id: String): String {
-    val catalogued = VisualStyleCatalog.label(id)
-    if (catalogued != id) return catalogued
-    return id.split('_').joinToString(" ") { word -> word.replaceFirstChar { it.uppercase() } }
-}
-
-@Composable
-private fun SceneList(
-    ids: List<String>,
-    current: String,
-    locked: (String) -> Boolean,
-    onPick: (String) -> Unit,
-) {
-    LazyColumn(Modifier.fillMaxSize()) {
-        items(ids) { id ->
-            val sel = id == current
-            Row(
-                Modifier.fillMaxWidth().clickable { onPick(id) }.padding(horizontal = 16.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Box(Modifier.size(6.dp), contentAlignment = Alignment.Center) {
-                    if (sel) CrystalGem(MaterialTheme.colorScheme.primary, size = 6.dp)
-                }
-                Text(
-                    sceneDisplayLabel(id),
-                    Modifier.padding(start = 10.dp).weight(1f),
-                    color = if (sel) accentTextColor() else LocalContentColor.current,
-                )
-                // Says up front what a tap would otherwise discover through the paywall.
-                if (locked(id)) ProBadge()
-            }
-        }
-    }
-}
-
-/**
- * The style families, each under its own heading, in family order. Every family's styles in one flat
- * list would bury the family a style belongs to, and the family is what tells a free user why one
- * style in twelve is theirs and the other eleven carry a Pro badge.
- */
-@Composable
-private fun FamilyList(
-    current: String,
-    locked: (String) -> Boolean,
-    onPick: (String) -> Unit,
-) {
-    LazyColumn(Modifier.fillMaxSize()) {
-        StyleFamilies.all.forEach { family ->
-            item(key = "family_${family.name}") {
-                Text(
-                    family.label,
-                    Modifier.padding(start = 16.dp, top = 14.dp, bottom = 2.dp),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            items(family.ids, key = { it }) { id ->
-                val sel = id == current
-                Row(
-                    Modifier.fillMaxWidth().clickable { onPick(id) }.padding(horizontal = 16.dp, vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Box(Modifier.size(6.dp), contentAlignment = Alignment.Center) {
-                        if (sel) CrystalGem(MaterialTheme.colorScheme.primary, size = 6.dp)
-                    }
-                    Text(
-                        sceneDisplayLabel(id),
-                        Modifier.padding(start = 10.dp).weight(1f),
-                        color = if (sel) accentTextColor() else LocalContentColor.current,
-                    )
-                    if (locked(id)) ProBadge()
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun MilkDropTab(
+internal fun MilkDropTab(
     viewModel: PlayerViewModel,
     visualizerView: VisualizerView,
     onOpenTextures: () -> Unit,
@@ -1180,7 +1073,8 @@ private const val STAGE_SWIPE_DP = 72f
 
 private const val PREVIEW_STEP_DP = 80f
 
-private val PREVIEW_HANDLE_HEIGHT = 28.dp
+// The full touch target: the grip drawn inside it is only 4dp tall.
+private val PREVIEW_HANDLE_HEIGHT = 48.dp
 
 /**
  * Whether a tab has anything to show for the style on screen.

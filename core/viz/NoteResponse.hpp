@@ -27,10 +27,9 @@ namespace geode::viz {
 //   drums ─► weighted by how percussive the track is, measured continuously (hit and onset rate,
 //            spectral flatness, high-frequency content against pitch confidence, key clarity, scale fit)
 //
-// It also reads six knobs by meaning (k0 PULSE … k5 SPACE), each from several fields of the frame and
-// smoothed at a musical rate. No shader reads them any more (the neon set moved to the shared params,
-// lib_neon), so they are the layer's own readings: TONE shapes morph, and the others stay in
-// uniforms().knobs for the tests and for a style or the mod matrix that wants them later.
+// It also drives the six style knobs (lib_scene_uniforms' uKnob, k0 PULSE … k5 SPACE) by meaning, each
+// from several fields of the frame, smoothed at a musical rate; a style reads them as its own offsets
+// (the neon set through lib_neon's neonKnob), and off they are exactly 0.5.
 //
 // Order in the frame (RendererFrame.cpp): the director's look, then this layer, then the macros, LFOs,
 // envelopes, reactions, motion field and the safety clamp. So the user's own settings and the flash and

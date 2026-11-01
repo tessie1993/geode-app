@@ -25,7 +25,8 @@ out vec4 fragColor;
 //
 // - core flare: SND_KICK_ENV flashes the eyes and the line cores white-hot;
 //   SND_SNARE_ENV lights the third line family.
-// - filigree (Morph, neonForm): more arms per spiral.
+// - filigree (Morph, neonForm): the third line family and the glass
+//   ribbons fill in. A hard cut (SND_CUT_COUNT) changes the arm count.
 // - swirl (Warp, neonFlow): tighter winding. The web drifts inward on
 //   SND_BASS_TIME as well as its own clock, so it pours into the eye faster
 //   in a heavy passage and never runs backwards.
@@ -116,6 +117,13 @@ void main() {
     float kTone = 0.5 + neonKeyTurn() / 0.6;
     float kBuild = clamp(0.4 + 0.5 * neonBuild() + 0.6 * surge, 0.0, 1.0);
     float kSpace = clamp(0.5 + 0.4 * quiet - 0.2 * surge, 0.0, 1.0);
+    // Note & key reactions' style knobs ride on top (lib_neon).
+    kPulse = clamp(kPulse + neonKnob(0), 0.0, 1.0);
+    kTex = clamp(kTex + neonKnob(1), 0.0, 1.0);
+    kFlow = clamp(kFlow + neonKnob(2), 0.0, 1.0);
+    kBuild = clamp(kBuild + neonKnob(4), 0.0, 1.5);
+    kSpace = clamp(kSpace + neonKnob(5), 0.0, 1.0);
+    kTone += neonKnob(3);
     float chaos = neonChaos();
     float snare = sndShaped(clamp(SND_SNARE_ENV, 0.0, 1.0)) * (1.0 - quiet);
     float deal = floor(SND_CUT_COUNT + 0.5) * 1.7;
@@ -145,7 +153,8 @@ void main() {
         // |dw/dz| in uv units (times the zoom).
         float grad = length(a - b) / max(length(za) * length(zb), 1e-6) * zScale;
 
-        float arms = floor(mix(9.0, 20.0, kTex)) + fi * 3.0;
+        // A count, so it changes only on a hard cut (lib_neon: never a count on Morph).
+        float arms = 12.0 + 3.0 * mod(floor(SND_CUT_COUNT + 0.5), 3.0) + fi * 3.0;
         float twist = mix(0.55, 1.6, kFlow) * (i == 0 ? 1.0 : 0.7);
         float flow = (uTime * 0.12 + SND_BASS_TIME * 0.3) * (1.0 + 0.24 * fi) + kFlow * 1.2;
         // Two crossing loxodrome families; whole arms per turn keep both

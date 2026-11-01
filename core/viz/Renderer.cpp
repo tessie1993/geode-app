@@ -25,7 +25,8 @@ Renderer::Renderer(AAssetManager* assets, std::string cacheDir)
                           [this](const std::string& id, const std::string& src) { rememberCustomShader(id, src); },
                           [this] { return thermal_.pacedFps(); },
                           [this](const std::string& path) { notePresetLoaded(path); },
-                          [this] { return marchScale_.load(std::memory_order_relaxed); }}),
+                          [this] { return marchScale_.load(std::memory_order_relaxed); },
+                          [this] { return &notes_.uniforms(); }}),
       compositePass_(assets_, &programCache_),
       pcm_(kPcmCapacity, 0.0f),
       pcmDeliverScratch_(kPcmCapacity, 0.0f) {

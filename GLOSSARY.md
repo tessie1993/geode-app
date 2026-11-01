@@ -246,7 +246,7 @@ How much of the track is drums, measured as it plays (hit and onset rate, noise,
 _Avoid_: Drum mode, genre
 
 **Style knobs**:
-Note & key reactions' six readings of the music by meaning: PULSE, TEXTURE, FLOW, TONE, BUILD, SPACE (`NoteUniforms::knobs`, 0.5 while off). No shader reads them since the neon set moved to the shared params; TONE shapes morph. Not Customize › Macros.
+The six per-style controls every style may read (`uKnob`): PULSE, TEXTURE, FLOW, TONE, BUILD, SPACE. Driven by Note & key reactions, else 0.5. Not Customize › Macros.
 _Avoid_: Macros (those are the user's six)
 
 **Scale mood**:

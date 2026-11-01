@@ -189,9 +189,15 @@ void main() {
     float kFlow = clamp(0.5 + 0.5 * neonFlow() + 0.35 * surge, 0.0, 1.0);
     float kBuild = clamp(0.4 + 0.6 * neonBuild() + 0.6 * surge, 0.0, 1.0);
     float kSpace = clamp(0.5 + 0.4 * quiet - 0.3 * surge, 0.0, 1.0);
+    // Note & key reactions' style knobs ride on top (lib_neon).
+    kPulse = clamp(kPulse + neonKnob(0), 0.0, 1.0);
+    kTex = clamp(kTex + neonKnob(1), 0.0, 1.0);
+    kFlow = clamp(kFlow + neonKnob(2), 0.0, 1.0);
+    kBuild = clamp(kBuild + neonKnob(4), 0.0, 1.5);
+    kSpace = clamp(kSpace + neonKnob(5), 0.0, 1.0);
     gR = mix(3.3, 4.6, kSpace);
     gRise = mix(0.45, 1.25, kFlow);
-    gTone = 0.3 + neonKeyTurn();
+    gTone = 0.3 + neonKeyTurn() + 0.6 * neonKnob(3);
     gPulse = kPulse;
     gTex = kTex;
     gChaos = neonChaos();

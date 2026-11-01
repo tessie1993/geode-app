@@ -127,10 +127,10 @@ percussiveness → clamp(0.5 + 0.9·(drums − tones), 0.05, 0.95), eased over 3
 It weighs `k0 PULSE` (the drum envelopes times percussiveness) and a small drum zoom pump (+3.5 %).
 A drum-led track reads 0.94 in the test, a tonal one 0.06; silence settles at 0.5.
 
-## The style knobs
+## The style knobs (`uKnob`)
 
-No shader reads `uKnob` any more: the neon set (#209) moved to the shared params through `lib_neon`, and
-the uniform is gone. The knobs stay as the layer's readings (TONE shapes `morph`) and in `NoteUniforms`.
+`ShaderScene::uploadParams` uploads them from `NoteResponse` (0.5 while off); the neon set reads each as an
+offset from 0.5 through `lib_neon`'s `neonKnob`, on top of the shared params and sound.
 
 Each from several fields, smoothed at a musical rate (attack / release):
 

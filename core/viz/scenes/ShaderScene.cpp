@@ -1,6 +1,7 @@
 #include "viz/scenes/ShaderScene.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 
 #include "viz/Catalogue.hpp"
@@ -19,6 +20,8 @@ constexpr float kMarchMinDetail = catalogue::kMarchDetail.min;
 constexpr float kMarchMaxDetail = catalogue::kMarchDetail.max;
 // The fewest steps Settings › Performance may scale a march down to; below this most SDFs miss surfaces.
 constexpr float kMarchMinScaledSteps = 24.0f;
+// The length of lib_scene_uniforms' uKnob array: six knobs, k0 PULSE to k5 SPACE.
+constexpr int kKnobCount = 6;
 
 float paletteRowCoordinate(int index) {
     return (static_cast<float>(std::clamp(index, 0, kPaletteRows - 1)) + 0.5f) / static_cast<float>(kPaletteRows);
@@ -164,6 +167,17 @@ void ShaderScene::uploadParams() {
     set1f("uFlash", p.flash);
     set1f("uContrast", p.contrast);
     set1f("uGamma", p.gamma);
+    // The style knobs (lib_scene_uniforms' uKnob): driven by meaning from the
+    // music by Note & key reactions (viz/NoteResponse) when that is on, else
+    // held at the midpoint each style was tuned around (NoteUniforms' default),
+    // so with the switch off every style draws exactly as it did. Only as many
+    // elements as survived linking are written (uploading past the live length
+    // is an INVALID_OPERATION), and a style that reads none gets -1 and a no-op.
+    static const NoteUniforms kResting{};
+    const NoteUniforms* notes = host_.notes ? host_.notes() : nullptr;
+    if (!notes) notes = &kResting;
+    static_assert(NoteUniforms::kKnobs == kKnobCount, "uKnob is six knobs");
+    glUniform1fv(uniforms_.loc("uKnob"), uniforms_.arrayCount("uKnob", kKnobCount), notes->knobs.data());
 }
 
 // Every style is handed these; the ones that read none of them link them away

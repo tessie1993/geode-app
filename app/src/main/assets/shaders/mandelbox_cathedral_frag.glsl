@@ -50,10 +50,11 @@ out vec4 fragColor;
 //
 // ---- the shared controls (lib_neon) ------------------------------------------
 //
-// - Morph (neonForm) raises the arches from a broad gothic to a steep lancet,
-//   and turns the Mandelbox's fold scale (-1.55 to -2.05) so the aisles
-//   change pattern: a different church.
-// - Warp (neonFlow) bends the nave into a slow S and leans the aisles' fractal.
+// - Morph (neonForm) breathes the church: the arches gain a little point and
+//   the aisles' fold scale moves in a narrow band (-1.55 to -1.7). Morph
+//   drifts all the time and pulses on beats, so a wider range would
+//   re-pattern the aisles at the tempo; a hard cut re-seeds them instead.
+// - Warp (neonFlow) bends the nave into a gentle S and leans the aisles.
 // - Turbulence (neonChaos) turns a small rotation into every fold, varying in
 //   time, and sets the rib wires flickering.
 // - Intensity (neonGlow) is the emission of the ribs, the glass and the air.
@@ -437,20 +438,26 @@ void main() {
     camFly(uv, ro, rd);
     ro.z = mod(ro.z, MC_TILE);
 
-    float form = neonForm();
+    // Note & key reactions' style knobs ride on top (lib_neon): PULSE the
+    // ribs, TEXTURE the form, FLOW the sway, TONE the ramp, BUILD the light.
+    float form = clamp(neonForm() + neonKnob(1), 0.0, 1.0);
     float weight = neonWeight();
     float surge = neonSurge();
-    float build = neonBuild();
+    float build = clamp(neonBuild() + neonKnob(4), 0.0, 1.0);
     float quiet = neonQuiet();
     float glowGain = neonGlow();
     float awake = 1.0 - 0.75 * quiet;
 
-    gScale = mix(-1.55, -2.05, form) - 0.08 * weight + 0.02 * sin(uTime * 0.13);
-    gArchC = mix(0.55, 1.1, form);
-    gArcadeC = mix(0.25, 0.55, form);
-    gSway = 0.55 * neonFlow();
+    // Morph and Warp move all the time and pulse on beats (lib_neon), so they
+    // only breathe the church: a narrow band of fold scale, a little more
+    // point to the arches, a gentle sway. The aisles change pattern on a hard
+    // cut instead (gOffset, below).
+    gScale = mix(-1.55, -1.7, form) - 0.05 * weight + 0.02 * sin(uTime * 0.13);
+    gArchC = mix(0.55, 0.8, form);
+    gArcadeC = mix(0.25, 0.4, form);
+    gSway = 0.25 * clamp(neonFlow() + neonKnob(2), 0.0, 1.0);
     gTurn = 0.35 * neonChaos();
-    gTone = neonKeyTurn() - 0.08;
+    gTone = neonKeyTurn() - 0.08 + 0.25 * neonKnob(3);
     // A hard cut re-seeds the offset; the held envelope eases the old seed
     // into the new one, so the aisles re-grow instead of jumping.
     float seed = floor(SND_CUT_COUNT + 0.5);
@@ -469,7 +476,7 @@ void main() {
     float snare = 1.6 * sndShaped(clamp(SND_SNARE_ENV, 0.0, 1.0)) * awake;
     float hot = 0.2 * clamp(SND_TENSION, 0.0, 1.0);
     float flicker = 1.0 - neonChaos() * 0.5 * step(0.5, hash2(vec2(floor(uTime * 14.0), 3.0)));
-    float ribBase = (0.55 + 1.6 * surge) * glowGain * awake * flicker;
+    float ribBase = (0.55 + 1.6 * surge + 0.8 * neonKnob(0)) * glowGain * awake * flicker;
     float glassGain = (0.6 + 0.8 * build + 1.2 * surge) * glowGain * (1.0 - 0.6 * quiet);
     float shaftGain = (0.45 + 0.8 * build + 0.6 * surge) * awake;
     float filGain = (0.5 + 1.2 * surge) * glowGain * awake;

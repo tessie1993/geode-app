@@ -78,7 +78,7 @@ dynamically linked):
 |---|---|
 | `core/api` | `geode_api.h`, the `extern "C"` ABI — the only thing JNI calls |
 | `core/sound` | The sound engine: FFT bands (its own radix-2 `Fft`) and a per-sample filter bank, drums, onsets, melody, stereo field, stepped once per rendered frame into a `GeodeSoundFrame` |
-| `core/viz` | GL capability probing, program cache, the frame graph (scene → trails → composite), the style catalogue (`Catalogue`), the reaction matrix (`Reactions`), the camera (`CameraRig`), transitions, safety clamps, every scene family |
+| `core/viz` | GL capability probing, program cache, the frame graph (scene → trails → composite), the style catalogue (`Catalogue`), the auto-director (`Director`), the reaction matrix (`Reactions`), the per-frame motion (`MotionField`), the camera (`CameraRig`), transitions, safety clamps, every scene family |
 | `core/audio/dsp` | Biquad equalizer, gain, crossfeed, lookahead limiter; the export resampler (`PcmResampler`) and the BS.1770 meter (`Loudness`) |
 | `core/library` | TagLib tag reading and writing over a file descriptor |
 | `app/src/main/cpp` | The JNI files: no logic, only marshalling into `core/api` |
@@ -122,8 +122,6 @@ portability, not device checks.
 - [docs/AUDIO_CHAIN.md](docs/AUDIO_CHAIN.md) — where playback audio goes and
   which stages the visuals see.
 - [docs/PARAM_MATRIX.md](docs/PARAM_MATRIX.md) — param × scene-family matrix.
-- [docs/VISUAL_STYLE_RESEARCH.md](docs/VISUAL_STYLE_RESEARCH.md) — design
-  rationale and the style catalogue.
 - [docs/DEVICE_CHECKS.md](docs/DEVICE_CHECKS.md) — on-device checklist.
 - `tools/build-projectm.md` — how projectM is built from the submodule.
 - `THIRD_PARTY_NOTICES` — licences and attributions; the in-app notices asset

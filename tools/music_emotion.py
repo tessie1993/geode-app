@@ -6,7 +6,7 @@ Writes, from the SCALES table in musical_intelligence.py and the KEYS table belo
   docs/musical-intelligence/emotions.csv every key x scale fingerprint (12 x 46 = 552 rows), for reading
   docs/musical-intelligence/key-characters.csv  the historical key characters and their codes
 
-Two kinds of evidence, kept apart on purpose (docs/research/auto-director.md has the sources):
+Two kinds of evidence, kept apart on purpose:
   * a scale's emotion is measured: the third decides most of happy/sad (Eerola, Friberg & Bresin 2013;
     Temperley & Tan 2013), each lowered degree darkens it (Parncutt 2014), semitones, tritones, augmented
     seconds and symmetric scales add tension (Poudrier et al. 2024). The structural formulas below cover

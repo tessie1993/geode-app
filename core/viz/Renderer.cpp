@@ -408,6 +408,12 @@ void Renderer::onSurfaceCreated() {
     camera_.reset();
 }
 
+void Renderer::pinDirector(float amount, uint64_t seed) {
+    pinnedDirectorAmount_.store(std::isfinite(amount) ? std::clamp(amount, 0.0f, 1.0f) : 0.0f, std::memory_order_relaxed);
+    pinnedDirectorSeed_.store(seed, std::memory_order_relaxed);
+    directorPinned_.store(true, std::memory_order_release);
+}
+
 void Renderer::surfaceChanged(int width, int height) {
     width_ = std::max(width, 1);
     height_ = std::max(height, 1);

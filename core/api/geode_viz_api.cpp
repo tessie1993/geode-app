@@ -315,6 +315,10 @@ void geode_viz_set_quality(geode_viz* v, float render_scale, float march_scale, 
     if (v) v->renderer.setUserQuality(render_scale, march_scale, post_fx != 0, adaptive != 0);
 }
 
+void geode_viz_set_director(geode_viz* v, float amount, long long seed) {
+    if (v) v->renderer.pinDirector(amount, static_cast<uint64_t>(seed));
+}
+
 void geode_viz_set_offscreen(geode_viz* v, int on) {
     if (!v) return;
     // An export never shows a half-built scene: each one is built whole on the frame that asks for it.

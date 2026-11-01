@@ -121,13 +121,17 @@ SceneParams Renderer::resolveParams(float dt) {
     displayedParams_ = fade <= 0.01f ? requested : lerpParams(displayedParams_, requested, std::clamp(dt / fade, 0.0f, 1.0f));
     // The auto-director hears the frame first: its look lies under the macros, so the user's own knobs,
     // the LFOs, the reactions, the motion field and the safety clamp all still act on top of it.
-    director_.configure(director::global());
+    const DirectorConfig directorConfig = directorPinned_.load(std::memory_order_acquire)
+                                              ? DirectorConfig{pinnedDirectorAmount_.load(std::memory_order_relaxed),
+                                                               pinnedDirectorSeed_.load(std::memory_order_relaxed)}
+                                              : director::global();
+    director_.configure(directorConfig);
     director_.step(soundFrame_, dt);
     directedKnobs_ = director_.knobs(frameKnobs_);
     // Note & key reactions hear the frame next, inside the director's look: its hue anchors the notes'
     // colours, and its feeling (the director's emotion, stepped whether or not it drives) is the mood. Its
     // tuning and bloom look are the style's own (Customize), read before the director and macros touch them.
-    notes_.configure({note_response::globalEnabled(), noteSeed(director::global().seed)});
+    notes_.configure({note_response::globalEnabled(), noteSeed(directorConfig.seed)});
     {
         const SceneParams& own = displayedParams_;
         NoteResponse::Inputs in;

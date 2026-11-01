@@ -698,6 +698,7 @@ private fun FoldersTab(
     val libraryViewModel: LibraryViewModel = geodeViewModel()
     val roots by libraryViewModel.mediaRoots.collectAsStateWithLifecycle()
     val scanning by libraryViewModel.libraryScanning.collectAsStateWithLifecycle()
+    val context = androidx.compose.ui.platform.LocalContext.current
     val folderPicker =
         rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
             if (uri != null) libraryViewModel.importFolder(uri)
@@ -734,7 +735,7 @@ private fun FoldersTab(
             CrystalButton(
                 compact = true,
                 filled = false,
-                onClick = { folderPicker.launch(null) },
+                onClick = { folderPicker.launchPicker(context, null) },
             ) { Text(stringResource(R.string.folders_add)) }
             CrystalButton(
                 compact = true,

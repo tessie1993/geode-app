@@ -32,6 +32,12 @@
 //   node check.mjs --shader kifs --out out/kifs.png
 //   node check.mjs --all --size 200
 //   node check.mjs --fluid-display               # every SHADING/BLOOM/SUNRAYS x LOOK variant
+//   node check.mjs --shader black_hole --sound SND_KICK_ENV=1,SND_DROP=1 --set uMorph=0.8
+//
+// --sound sets single slots of the sound frame by their lib_sound name (the
+// rest keep the table's mid-loudness groove below), so a
+// style can be looked at on a kick, in a drop or in silence. --set overrides
+// any other uniform by name (a comma list for a vector).
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -165,6 +171,8 @@ const SHADER_VALUES = {
   uFlash: 0,
   uTouchAnchor: [0, 0, 0, 0], uTouchPoints: [0, 0, 0, 0], uTouchCount: 0, uTouchGesture: 0, uTouchAxis: [0, 0],
   uTouchSpin: 0,
+  // The style knobs (lib_scene_uniforms): every knob at the 0.5 ShaderScene holds them at (array fill).
+  uKnob: [0.5],
   uSteps: 96,
   uPalLutMix: 0, uPalLutRow: 0.5,
   uSpike: 0.15,
@@ -221,8 +229,39 @@ function withKeywords(src, defines) {
   return `${src.slice(0, nl + 1)}${defines.map((d) => `#define ${d}\n`).join('')}${src.slice(nl + 1)}`;
 }
 
+// The lib_sound names, parsed out of the library: SND_X -> (uniform, flat slot).
+function soundSlots() {
+  const src = fs.readFileSync(path.join(SHADERS, 'lib_sound.glsl'), 'utf8');
+  const lanes = { x: 0, y: 1, z: 2, w: 3 };
+  const out = {};
+  for (const m of src.matchAll(/^#define\s+(SND_\w+)\s+(uSound\w*)(?:\[(\d+)\])?\.([xyzw])\s*$/gm)) {
+    out[m[1]] = { uniform: m[2], slot: (m[3] ? Number(m[3]) * 4 : 0) + lanes[m[4]] };
+  }
+  return out;
+}
+
+function applyOverrides(values, args) {
+  if (args.sound.length) {
+    const slots = soundSlots();
+    const arrays = { uSound: [...values.uSound], uSoundEvents: [...values.uSoundEvents], uSoundCounts: [...values.uSoundCounts] };
+    for (const kv of args.sound) {
+      const [name, val] = kv.split('=');
+      const s = slots[name];
+      if (!s) throw new Error(`no such sound slot: ${name}`);
+      arrays[s.uniform][s.slot] = Number(val);
+    }
+    Object.assign(values, arrays);
+  }
+  for (const kv of args.set) {
+    const [name, val] = kv.split('=');
+    if (!(name in values)) throw new Error(`no such uniform: ${name}`);
+    const nums = val.split(',').map(Number);
+    values[name] = nums.length === 1 ? nums[0] : nums;
+  }
+}
+
 function parseArgs(argv) {
-  const a = { size: 240, height: null, shaders: [], all: false, list: false, fluidDisplay: false, out: null, time: null };
+  const a = { size: 240, height: null, shaders: [], all: false, list: false, fluidDisplay: false, out: null, time: null, sound: [], set: [] };
   for (let i = 0; i < argv.length; i++) {
     const v = argv[i];
     if (v === '--list') a.list = true;
@@ -233,6 +272,8 @@ function parseArgs(argv) {
     else if (v === '--size') a.size = Number(argv[++i]);
     else if (v === '--out') a.out = argv[++i];
     else if (v === '--time') a.time = Number(argv[++i]);
+    else if (v === '--sound') a.sound.push(...argv[++i].split(','));
+    else if (v === '--set') a.set.push(argv[++i]);
     else throw new Error(`unknown flag ${v}`);
   }
   return a;
@@ -265,6 +306,7 @@ async function main() {
     const frag = resolveIncludes(fs.readFileSync(file, 'utf8'), registry);
     const values = { ...SHADER_VALUES };
     if (args.time !== null) values.uTime = args.time;
+    applyOverrides(values, args);
     jobs.push({ name: id, vert: quadVert, frag, uniforms: plan(parseUniforms(frag), values, SHADER_TEXTURES, args.size, args.height ?? args.size) });
   }
   if (args.fluidDisplay) {

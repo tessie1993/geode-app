@@ -198,7 +198,9 @@ void spinRateAndShaderStyleAgree() {
     const std::set<std::string> oldSpinning = {
         "kaleido", "mandala_dome", "orb_lattice", "chroma_orb", "kifs", "spiral", "spiral_eye",
         "bead_vortex", "merkaba_grid", "tunnel", "rod_tunnel", "particle_tunnel", "lucid_mandala", "lucid_mirror",
-        "lucid_spiral", "lucid_vortex", "lucid_tunnel", "lucid_disc", "chrys_kaleido", "chrys_tunnel"};
+        "lucid_spiral", "lucid_vortex", "lucid_tunnel", "lucid_disc", "chrys_kaleido", "chrys_tunnel",
+        // The neon set's two turning looks, added after the port.
+        "glow_vortex", "hex_hive"};
     std::set<std::string> spinning;
     int shaders = 0;
     for (const auto& id : catalogue::allIds()) {
@@ -207,12 +209,12 @@ void spinRateAndShaderStyleAgree() {
     }
     check(spinning == oldSpinning, "the spinning styles are the old SPINNING_SCENES");
     for (const auto& id : spinning) check(catalogue::isShaderStyle(id), id + " spins and is a shader style");
-    check(shaders == 175, "175 shader styles (55 loose + 120 family), got " + std::to_string(shaders));
+    check(shaders == 180, "180 shader styles (60 loose + 120 family), got " + std::to_string(shaders));
     check(catalogue::spinRate("bead_vortex") == 1.4f && catalogue::spinRate("tunnel") == -0.5f, "spin rates kept");
     for (const char* id : {"silk_web", "milkdrop", "fluid", "water", "curlflow", "cymatics", "no_such_style"}) {
         check(!catalogue::isShaderStyle(id), std::string(id) + " is not a shader style");
     }
-    check(catalogue::allIds().size() == 238, "238 ids");
+    check(catalogue::allIds().size() == 243, "243 ids");
     check(catalogue::allIds().front() == "silk_web", "the default comes first");
 }
 
@@ -229,7 +231,8 @@ void marchedStylesMatchTheOldSet() {
         "terra_glacier", "terra_isles", "terra_mesa", "terra_moon", "terra_night", "terra_ridge", "terra_terraces",
         "terra_volcano", "terra_wire", "truchet_relief", "vanishing",
         "foam_fall", "foam_neon", "foam_soap", "foam_chrome", "foam_ember", "foam_ice",
-        "foam_orb", "foam_kaleido", "foam_ink", "foam_coral", "foam_ghost", "foam_show"};
+        "foam_orb", "foam_kaleido", "foam_ink", "foam_coral", "foam_ghost", "foam_show",
+        "neon_chrome_sea", "black_hole", "hex_hive", "mandelbox_cathedral"};
     std::set<std::string> marched;
     for (const auto& id : catalogue::allIds()) {
         if (catalogue::isMarched(id)) marched.insert(id);

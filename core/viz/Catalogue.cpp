@@ -12,7 +12,7 @@ namespace {
 
 // The loose fragment styles (ShaderScene compiles shaders/<id>_frag.glsl), in picker order. The
 // families' styles follow them.
-constexpr std::array<const char*, 55> kLooseShaders = {
+constexpr std::array<const char*, 60> kLooseShaders = {
     "julia", "tunnel", "mandel", "kaleido", "plasma", "bars", "ring", "scope", "liss", "warp", "grid", "voronoi",
     "metaballs", "ripples", "starfield", "waves", "hexgrid", "spiral", "aurora", "solar", "winter", "lava",
     // Built on the shared GLSL libraries (lib_scene_uniforms, lib_scene_grade, lib_sdf3, lib_touch).
@@ -30,16 +30,21 @@ constexpr std::array<const char*, 55> kLooseShaders = {
     "prism_rain",
     // Two looks restored from branches that never merged (#14, #7), rewritten on the sound engine.
     "supershape", "fractal_tunnel",
+    // The neon set, written from scratch on lib_neon: a 2D spiral web,
+    // then four marches (a chrome sea, a lensed singularity, a hex-pillar tunnel, a Mandelbox nave).
+    "glow_vortex", "neon_chrome_sea", "black_hole", "hex_hive", "mandelbox_cathedral",
 };
 
 // The loose styles that raymarch, and so spend the Detail budget. Per STYLE rather than per kind:
 // Plasma and Vanishing are both shader styles and only one has a march to spend steps on.
-constexpr std::array<const char*, 21> kLooseMarched = {
+constexpr std::array<const char*, 25> kLooseMarched = {
     "vanishing", "morphogen", "nebula", "noneuclid", "kifs", "rod_tunnel",
     // Curl Bloom marches a distance field, Nectar Flow a volume; Detail is the budget for both.
     "curl_bloom", "nectar_flow", "crystal_canyon", "neon_city", "particle_tunnel", "chrome_nebula", "fractal_dive",
     "aurora_ocean", "spectrum_terrain", "menger_core", "gyroid_cavern", "jelly_abyss", "prism_rain",
     "supershape", "fractal_tunnel",
+    // The neon set's marches; Glow Vortex is its one style without a march.
+    "neon_chrome_sea", "black_hole", "hex_hive", "mandelbox_cathedral",
 };
 
 constexpr std::array<Family, 10> kFamilies = {{
@@ -109,12 +114,15 @@ struct Spin {
     const char* id;
     float rate;
 };
-constexpr std::array<Spin, 20> kSpinning = {{
+constexpr std::array<Spin, 22> kSpinning = {{
     {"kaleido", 1.0f},        {"mandala_dome", 0.45f},  {"orb_lattice", 0.7f},   {"chroma_orb", -0.6f},
     {"kifs", 0.8f},           {"spiral", 1.2f},         {"spiral_eye", -0.9f},   {"bead_vortex", 1.4f},
     {"merkaba_grid", 0.4f},   {"tunnel", -0.5f},        {"rod_tunnel", 0.6f},    {"particle_tunnel", -0.8f},
     {"lucid_mandala", 0.6f},  {"lucid_mirror", -0.7f},  {"lucid_spiral", 1.1f},  {"lucid_vortex", -1.3f},
     {"lucid_tunnel", 0.5f},   {"lucid_disc", 0.35f},    {"chrys_kaleido", -0.8f}, {"chrys_tunnel", 0.6f},
+    // The neon set's two turning looks: the vortex winds against its own arms, the hive's bore rolls slowly.
+    // The sea, the hole and the nave keep still: a horizon, a disc plane or a nave axis only tips over in a roll.
+    {"glow_vortex", -1.1f},   {"hex_hive", 0.3f},
 }};
 
 constexpr const char* kMilkdrop = "milkdrop";

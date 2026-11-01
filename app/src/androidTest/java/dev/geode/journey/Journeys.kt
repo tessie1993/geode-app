@@ -46,6 +46,26 @@ class Onboarded(
     private val skipOnboarding: Boolean = true,
 ) : ExternalResource() {
     override fun before() {
+        // DIAG: dump main and GL thread stacks if a test is still running after 3 minutes.
+        Thread {
+            var round = 0
+            while (round < 6) {
+                try {
+                    Thread.sleep(if (round == 0) 180_000L else 60_000L)
+                } catch (_: InterruptedException) {
+                    return@Thread
+                }
+                round++
+                Thread.getAllStackTraces().forEach { (t, st) ->
+                    if (t.name == "main" || t.name.startsWith("GLThread") || t.name.contains("Instr")) {
+                        android.util.Log.e("GEODE_DIAG", "thread ${t.name} state=${t.state}\n" + st.joinToString("\n") { "    at $it" })
+                    }
+                }
+            }
+        }.apply {
+            isDaemon = true
+            name = "geode-diag-watchdog"
+        }.start()
         val context = ApplicationProvider.getApplicationContext<Context>()
         context.getSharedPreferences(GeodePrefsFiles.GENERAL, Context.MODE_PRIVATE).edit(commit = true) {
             // BootAnimationStore's key, private there. The intro only delays the test.

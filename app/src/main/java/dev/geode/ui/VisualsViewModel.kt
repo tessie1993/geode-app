@@ -175,6 +175,13 @@ class VisualsViewModel
 
         fun deletePreset(name: String) = session.deletePreset(name)
 
+        fun renamePreset(
+            from: String,
+            to: String,
+        ): String? = session.renamePreset(from, to)
+
+        fun duplicatePreset(name: String): String? = session.duplicatePreset(name)
+
         fun presetFile(name: String): File? = session.presetFile(name)
 
         fun presetShareLink(name: String): String? = session.presetShareLink(name)

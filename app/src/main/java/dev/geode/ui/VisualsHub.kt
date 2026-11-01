@@ -489,7 +489,7 @@ private fun PresetsTreeTab(
             items(inFolder, key = { "p_${it.name}" }) { p ->
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Text(p.name, Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    IconButton(onClick = { applyPresetLive(viewModel, visualizerView, p) }) {
+                    IconButton(onClick = { applyPresetLive(viewModel, p) }) {
                         StoneIconArt(StoneIcon.PLAY, "Apply", tint = MaterialTheme.colorScheme.primary)
                     }
                     IconButton(onClick = { sharePreset(context, visualsViewModel, p.name) }) {
@@ -537,7 +537,7 @@ private fun PresetsTreeTab(
         ) { p ->
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text(p.name, Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                IconButton(onClick = { applyPresetLive(viewModel, visualizerView, p) }) {
+                IconButton(onClick = { applyPresetLive(viewModel, p) }) {
                     StoneIconArt(StoneIcon.PLAY, "Apply", tint = MaterialTheme.colorScheme.primary)
                 }
             }
@@ -728,7 +728,6 @@ private fun sharePreset(
 
 private fun applyPresetLive(
     viewModel: PlayerViewModel,
-    @Suppress("UNUSED_PARAMETER") visualizerView: VisualizerView,
     p: Preset,
 ) {
     viewModel.applyPreset(p)

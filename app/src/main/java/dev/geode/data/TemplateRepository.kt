@@ -56,7 +56,6 @@ sealed interface TemplateImport {
     /** Same id as one already in the library: the newer copy wins. */
     data class Replaced(
         val template: VideoTemplate,
-        val previousName: String,
     ) : TemplateImport
 
     data class Unreadable(
@@ -658,7 +657,7 @@ class FileTemplateRepository(
                         if (previous == null) {
                             TemplateImport.Added(stored)
                         } else {
-                            TemplateImport.Replaced(stored, previous.name)
+                            TemplateImport.Replaced(stored)
                         }
                     is TemplateWrite.Failed -> TemplateImport.WriteFailed(write.why)
                 }

@@ -232,10 +232,6 @@ data class TemplateLayout(
 ) {
     fun resolvedRatio(): ExportRatio = ratio.orElse(DEFAULT_RATIO)
 
-    fun resolvedArtwork(): ArtworkStyle = artwork.orElse(DEFAULT_ARTWORK)
-
-    fun resolvedProgress(): ProgressStyle = progress.orElse(DEFAULT_PROGRESS)
-
     companion object {
         val DEFAULT_RATIO: ExportRatio = ExportRatio.R9_16
         val DEFAULT_ARTWORK: ArtworkStyle = ArtworkStyle.BEHIND_BLURRED
@@ -603,40 +599,9 @@ fun VideoTemplate.jobFor(
     )
 }
 
-/**
- * Plans a batch: one job per track, in order.
- *
- * `{index}`/`{total}` are filled from the batch position, and output names are made
- * unique so two tracks sharing a title cannot silently overwrite one another.
- */
-fun VideoTemplate.jobsFor(
-    tracks: List<TrackFacts>,
-    hookStartMs: (TrackFacts) -> Long = { 0L },
-): List<TemplateJob> {
-    val taken = mutableSetOf<String>()
-    return tracks.mapIndexed { position, track ->
-        val facts = track.copy(index = position + 1, total = tracks.size)
-        val job = jobFor(facts, hookStartMs(facts))
-        job.copy(outputName = uniqueName(job.outputName, taken))
-    }
-}
-
 private fun VideoTemplate.outputNameFor(track: TrackFacts): String {
     val filled = track.fill(export.fileNamePattern)
     return sanitizeFileStem(filled.ifBlank { track.title }.ifBlank { name })
-}
-
-private fun uniqueName(
-    base: String,
-    taken: MutableSet<String>,
-): String {
-    var candidate = base
-    var attempt = 2
-    while (!taken.add(candidate)) {
-        candidate = "$base ($attempt)"
-        attempt++
-    }
-    return candidate
 }
 
 /** Keeps spaces (they read fine everywhere) but drops anything a file name cannot hold. */

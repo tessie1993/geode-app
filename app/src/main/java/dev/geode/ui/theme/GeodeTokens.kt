@@ -6,10 +6,10 @@ import androidx.compose.ui.unit.dp
 /**
  * The design tokens of the single "black glass" theme.
  *
- * Every colour, spacing step, radius and duration the UI draws with comes from here, so the
- * look can be changed in one place and this file (with [GeodeTheme]) can move into a
- * `:core:designsystem` module without dragging screens along. Nothing in here touches
- * `android.*`.
+ * Every colour, spacing step and duration the UI draws with comes from here, so the look can
+ * be changed in one place and this file (with [GeodeTheme]) can move into a `:core:designsystem`
+ * module without dragging screens along. Corner radii are not tokens: they come from the M3
+ * shapes the Look setting's corner style picks. Nothing in here touches `android.*`.
  *
  * Black glass: a true-black canvas (the visualizer is the colour), panels of white at low alpha
  * with a hairline edge, one cool accent. Dark only, by decision: no light variant and no
@@ -58,10 +58,7 @@ object GeodeColors {
 
 /** Alphas of white that make up the glass layers when they are drawn over live visuals. */
 object GeodeGlass {
-    const val FILL_REST = 0.06f
     const val FILL_RAISED = 0.10f
-    const val FILL_SELECTED = 0.16f
-    const val FILL_PRESSED = 0.20f
     const val EDGE = 0.12f
     const val EDGE_SELECTED = 0.42f
 
@@ -83,20 +80,9 @@ object GeodeSpacing {
     val TouchTarget = 48.dp
 }
 
-object GeodeRadius {
-    val Small = 8.dp
-    val Medium = 12.dp
-    val Large = 16.dp
-    val ExtraLarge = 28.dp
-}
-
 /** Durations in milliseconds; [GeodeMotion.REDUCED] replaces all of them under reduced motion. */
 object GeodeMotion {
     const val PRESS = 90
-    const val RELEASE = 200
-    const val STATE = 150
-    const val ENTER = 250
-    const val EXIT = 200
     const val REDUCED = 0
     const val PRESS_SCALE = 0.97f
 }
@@ -104,5 +90,4 @@ object GeodeMotion {
 /** Minimum contrast ratios, from WCAG 2.1 AA. */
 object GeodeContrast {
     const val BODY_MIN = 4.5f
-    const val HINT_MIN = 3.0f
 }

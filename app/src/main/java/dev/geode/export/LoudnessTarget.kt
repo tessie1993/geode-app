@@ -354,9 +354,6 @@ object LoudnessTargets {
 
     fun dbtpText(value: Double): String = String.format(Locale.US, "%.1f dBTP", value)
 
-    /** Signed, for a readout where the direction of the gain is the point. */
-    fun gainText(db: Double): String = String.format(Locale.US, "%+.1f dB", db)
-
     /** Unsigned, for prose that already says "add" or "take off". */
     fun dbText(db: Double): String = String.format(Locale.US, "%.1f dB", abs(db))
 

@@ -190,14 +190,10 @@ class RenderedLoop(
 class LoopReel(
     val loops: List<RenderedLoop>,
     val spec: LoopSpec,
-    val requestedCrossfadeMs: Long,
     val width: Int,
     val height: Int,
 ) {
     val loopDurationUs: Long get() = spec.loopDurationUs
-
-    /** True when the seam had to be shortened to fit the frames the GPU would hold. */
-    val crossfadeShortened: Boolean get() = spec.crossfadeMs < requestedCrossfadeMs
 
     val bytes: Long get() = loops.sumOf { it.file.length() }
 
@@ -272,7 +268,6 @@ class LoopRender(
                     aspect = aspect,
                     choice = choice,
                     spec = budgeted,
-                    requestedCrossfadeMs = spec.crossfadeMs,
                     sceneParams = sceneParams,
                     drift = drift,
                     lfoConfigs = lfoConfigs,
@@ -295,7 +290,6 @@ class LoopRender(
         val aspect: ExportAspect,
         val choice: EncoderChoice,
         val spec: LoopSpec,
-        val requestedCrossfadeMs: Long,
         val sceneParams: SceneParams,
         val drift: TimeOfDayDrift,
         val lfoConfigs: List<LfoConfig>,
@@ -380,7 +374,6 @@ class LoopRender(
             LoopReel(
                 loops = rendered.toList(),
                 spec = effective,
-                requestedCrossfadeMs = job.requestedCrossfadeMs,
                 width = job.aspect.width,
                 height = job.aspect.height,
             ),

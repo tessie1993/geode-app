@@ -47,8 +47,6 @@ data class LibraryState(
     val tracks: List<LibraryTrack> = emptyList(),
     val playlists: List<MusicPlaylist> = emptyList(),
     val smartPlaylists: List<SmartPlaylist> = emptyList(),
-    val analyzing: Boolean = false,
-    val analyzeProgress: Float = 0f,
 )
 
 private val AUDIO_EXTS = setOf("mp3", "wav", "flac", "ogg", "m4a", "aac", "opus", "wma", "aiff")

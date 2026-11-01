@@ -1,5 +1,7 @@
 package dev.geode.journey
 
+import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.hasStateDescription
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -74,9 +76,8 @@ class PaywallJourneyTest {
         compose.tap("Start creating")
         compose.awaitNoNode(stylesTitle)
 
-        // Still previewed behind the paywall; now the check keeps it.
-        compose.tap("Use style")
-        compose.waitForIdle()
+        // Buying from the preview's check chooses that style: no second trip to the grid.
+        compose.awaitNode(hasContentDescription("Halvorsen Web", substring = true) and hasStateDescription("In use"))
         assertThat(compose.onAllNodes(stylesTitle).fetchSemanticsNodes()).isEmpty()
     }
 }

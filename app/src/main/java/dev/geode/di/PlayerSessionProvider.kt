@@ -58,6 +58,7 @@ class PlayerSessionProvider
                     gate = it
                     gateKnown = true
                     instance?.let(::leaveLockedStyle)
+                    instance?.let(::chooseUnlockedStyle)
                 }
             }
         }
@@ -73,6 +74,16 @@ class PlayerSessionProvider
             // otherwise throw the preview away mid-look. A chosen style that is locked still goes,
             // and choosing the fallback ends any preview with it.
             if (!gate.allowsStyle(session.chosenSceneId)) session.selectScene(FreeTier.FALLBACK_STYLE_ID)
+        }
+
+        /**
+         * The style whose choice opened the paywall, chosen as soon as the purchase (or the trial)
+         * lets it through. The paywall closes on a purchase and the Styles page may have reverted
+         * its preview meanwhile; the user paid for that style, so it should be on screen after.
+         */
+        private fun chooseUnlockedStyle(session: PlayerSession) {
+            val pending = session.pendingUnlockSceneId ?: return
+            if (gate.allowsStyle(pending)) session.selectScene(pending)
         }
 
         /** The shared session, built on first use. Safe for any ViewModel to call. */

@@ -859,13 +859,33 @@ class PlayerSession internal constructor(
     /** What a refused style does: the provider opens the paywall. */
     internal var onStyleLocked: () -> Unit = {}
 
-    fun selectScene(sceneId: String) = if (allowsStyle(sceneId)) visual.selectScene(sceneId) else onStyleLocked()
+    fun selectScene(sceneId: String) {
+        pendingUnlockSceneId = null
+        if (allowsStyle(sceneId)) {
+            visual.selectScene(sceneId)
+        } else {
+            // Kept so that buying Pro from this paywall ends on the style that asked for it.
+            pendingUnlockSceneId = sceneId
+            onStyleLocked()
+        }
+    }
+
+    /**
+     * The locked style whose choice opened the paywall, if any. The provider chooses it once the
+     * entitlement lets it through: someone who pressed "Unlock with Pro" on a previewed style and
+     * paid wants that style, not a second trip to the grid. Any other choice clears it.
+     */
+    @Volatile
+    internal var pendingUnlockSceneId: String? = null
 
     /**
      * Previews are not gated: seeing a Pro style move to your own music is the best case for it.
      * Choosing one is, through [selectScene]; the preview stays up behind the paywall.
      */
-    fun previewScene(sceneId: String) = visual.previewScene(sceneId)
+    fun previewScene(sceneId: String) {
+        pendingUnlockSceneId = null
+        visual.previewScene(sceneId)
+    }
 
     fun cancelScenePreview() = visual.cancelPreview()
 
@@ -896,7 +916,10 @@ class PlayerSession internal constructor(
 
     fun setTransitionDuration(seconds: Float) = visual.setTransitionDuration(seconds)
 
-    fun applyPreset(preset: Preset) = if (allowsStyle(preset.sceneId)) visual.applyPreset(preset) else onStyleLocked()
+    fun applyPreset(preset: Preset) {
+        pendingUnlockSceneId = null
+        if (allowsStyle(preset.sceneId)) visual.applyPreset(preset) else onStyleLocked()
+    }
 
     fun savePreset(
         name: String,

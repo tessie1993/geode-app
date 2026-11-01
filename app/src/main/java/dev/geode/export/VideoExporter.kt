@@ -384,20 +384,6 @@ class VideoExporter(
         var muxerStopped = false
         var sampleWritten = false
         try {
-            val requestedFpsBounded = requestedFps.coerceIn(24, 60)
-            // The requested codec at the requested rate first, then its reduced form, then the same pair on H.264.
-            val attempts =
-                listOf(codec.available(), ExportCodec.H264).distinct().flatMap { c ->
-                    listOf(
-                        EncoderAttempt(c, requestedFpsBounded, aspect.bitRate),
-                        EncoderAttempt(c, dev.geode.data.fallbackExportFps(requestedFpsBounded), aspect.bitRate * 2 / 3),
-                    )
-                }
-            val (encoder, fps) = openEncoder(aspect, attempts)
-            encoderRef = encoder
-            val inputSurface = encoder.createInputSurface().also { inputSurfaceRef = it }
-            encoder.start()
-
             val muxer = MediaMuxer(pfd.fileDescriptor, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4).also { muxerRef = it }
             val rangeStartMs = range?.startMs ?: 0L
             val aac =
@@ -409,6 +395,25 @@ class VideoExporter(
                         isCancelled = isCancelled,
                     ) { onProgress(it * AUDIO_PROGRESS_SPAN) }
                     .also { aacRef = it }
+            // The encoder opens after the audio, which is what tells it how long the file will be:
+            // a long 4K or 1080p track at the preset's rate would pass MediaMuxer's 4 GB ceiling.
+            val bitRate = MuxerBudget.cappedVideoBps(aspect.bitRate, aac.durationUs, aac.file.length())
+            if (bitRate < aspect.bitRate) {
+                RingLog.note(TAG, "video bit rate capped to $bitRate for a ${aac.durationUs / 1000} ms render")
+            }
+            val requestedFpsBounded = requestedFps.coerceIn(24, 60)
+            // The requested codec at the requested rate first, then its reduced form, then the same pair on H.264.
+            val attempts =
+                listOf(codec.available(), ExportCodec.H264).distinct().flatMap { c ->
+                    listOf(
+                        EncoderAttempt(c, requestedFpsBounded, bitRate),
+                        EncoderAttempt(c, dev.geode.data.fallbackExportFps(requestedFpsBounded), bitRate * 2 / 3),
+                    )
+                }
+            val (encoder, fps) = openEncoder(aspect, attempts)
+            encoderRef = encoder
+            val inputSurface = encoder.createInputSurface().also { inputSurfaceRef = it }
+            encoder.start()
             val egl = EncoderSurface(inputSurface).also { eglRef = it }
             egl.makeCurrent()
 

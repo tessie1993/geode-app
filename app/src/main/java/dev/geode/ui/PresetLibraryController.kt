@@ -6,6 +6,7 @@ import dev.geode.data.Preset
 import dev.geode.data.PresetFolders
 import dev.geode.data.PresetRepository
 import dev.geode.data.PresetStore
+import dev.geode.model.PresetFiltering
 import dev.geode.model.PresetLink
 import dev.geode.render.scene.SceneIds
 import kotlinx.coroutines.CoroutineScope
@@ -199,6 +200,70 @@ internal class PresetLibraryController(
     }
 
     fun presetFile(name: String): java.io.File? = presets.fileOf(name)
+
+    /**
+     * Gives a user preset a new name, in the folder it was in. The store keys a preset's file
+     * (and its MilkDrop file) by name, so a rename is a save under the new name and then a delete
+     * of the old one, mirror copies included; the list changes at once so the grid does not show
+     * the old name while the files move. Returns the name it was saved under, or null when there
+     * was nothing to rename (a built-in, a name already gone).
+     */
+    fun renamePreset(
+        from: String,
+        to: String,
+    ): String? {
+        if (BuiltInPresets.isBuiltIn(from)) return null
+        val name = PresetFiltering.cleanName(to)
+        val preset =
+            host.vizState.value.presets
+                .firstOrNull { it.name == from && !BuiltInPresets.isBuiltIn(it.name) } ?: return null
+        if (name.isEmpty() || name == from) return null
+        val renamed = preset.copy(name = name)
+        val folder = presets.folders.value.folderOf(from)
+        host.updatePresets { list -> list.map { if (it.name == from) renamed else it } }
+        storeScope.launch {
+            val oldJson = presets.fileOf(from)?.name
+            milkSourceOf(renamed, from)?.let { presets.materializeMilk(name, it) }
+            presets.save(renamed, folder)
+            removeMirroredPreset(oldJson, milkFileFor(from).name)
+            presets.delete(from)
+            mirrorPresetToChosenFolder(name)
+            relistPresets()
+        }
+        return name
+    }
+
+    /**
+     * A copy of [name] under the first free "<name> copy" name, in the same folder. A built-in's
+     * copy becomes the user's own, which is how one gets renamed, moved or replaced at all.
+     */
+    fun duplicatePreset(name: String): String? {
+        val all = host.vizState.value.presets
+        val source = all.firstOrNull { it.name == name } ?: return null
+        val copyName = PresetFiltering.uniqueName("$name copy", all.map { it.name })
+        val copy = source.copy(name = copyName)
+        val folder = if (BuiltInPresets.isBuiltIn(name)) "" else presets.folders.value.folderOf(name)
+        host.updatePresets { it + copy }
+        storeScope.launch {
+            milkSourceOf(copy, name)?.let { presets.materializeMilk(copyName, it) }
+            presets.save(copy, folder)
+            mirrorPresetToChosenFolder(copyName)
+            relistPresets()
+        }
+        return copyName
+    }
+
+    /**
+     * The MilkDrop text a renamed or copied preset carries over. Older presets hold no text of
+     * their own, only the file saved beside them under their old name, so that file is read.
+     */
+    private fun milkSourceOf(
+        preset: Preset,
+        oldName: String,
+    ): String? {
+        if (preset.sceneId != SceneIds.MILKDROP) return null
+        return preset.milkPreset ?: runCatching { milkFileFor(oldName).takeIf { it.isFile }?.readText() }.getOrNull()
+    }
 
     fun deletePreset(name: String) {
         if (BuiltInPresets.isBuiltIn(name)) return

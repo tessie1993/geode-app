@@ -43,17 +43,17 @@ reach every style through the composite pass, which is its own column.
 | `driftX` | Motion | `Drift X` | `driftX` | · |   |   |   |   |   |   |   |   |   | · | · |
 | `driftY` | Motion | `Drift Y` | `driftY` | · |   |   |   |   |   |   |   |   |   | · | · |
 | `shake` | Motion | `Beat shake` | `shake` | · |   |   |   |   |   |   |   |   |   | · | · |
-| `audioDrive` | Behavior | `Audio drive` | `audioDrive` | · | · | · | · | · |   | · | · | · | · |   |   |
-| `formDrive` | Behavior | `Form drive` | `formDrive` | · | · | · | · | · | · | · | · | · | · | · | · |
-| `beatResponse` | Behavior | `Beat response` | `beatResponse` | · | · | · | · | · | · | · | · | · | · |   |   |
-| `turbulence` | Behavior | `Turbulence` | `turbulence` | · |   |   | · | · |   |   | · |   |   |   |   |
-| `density` | Behavior | `Density` | `density` |   |   |   |   |   |   | · |   |   |   |   |   |
+| `audioDrive` | Reactivity | `Audio drive` | `audioDrive` | · | · | · | · | · |   | · | · | · | · |   |   |
+| `formDrive` | — | — | `formDrive` | · | · | · | · | · | · | · | · | · | · | · | · |
+| `beatResponse` | — | — | `beatResponse` | · | · | · | · | · | · | · | · | · | · |   |   |
+| `turbulence` | Motion | `Turbulence` | `turbulence` | · |   |   | · | · |   |   | · |   |   |   |   |
+| `density` | Shape | `Density` | `density` |   |   |   |   |   |   | · |   |   |   |   |   |
 | `marchDetail` | Shape | `Detail` | `marchDetail` | · |   |   |   |   |   |   |   |   |   |   |   |
-| `trails` | Behavior | `Trails (particle scenes)` | `trails` |   | · |   |   |   |   |   |   |   |   | · | · |
-| `trailLength` | Behavior | `Trail length` | `trailLength` |   | · |   |   |   |   |   |   |   |   | · | · |
-| `trailZoom` | Behavior | `Trail zoom (echo in/out)` | `trailZoom` |   |   |   |   |   |   |   |   |   |   | · | · |
-| `trailWarp` | Behavior | `Trail warp (liquid echo)` | `trailWarp` |   |   |   |   |   |   |   |   |   |   | · | · |
-| `mirror` | Behavior | `Mirror` | `mirror` | · |   |   |   |   | · |   |   |   |   | · | · |
+| `trails` | FX | `Trails` | `trails` |   | · |   |   |   |   |   |   |   |   | · | · |
+| `trailLength` | FX | `Trail length` | `trailLength` |   | · |   |   |   |   |   |   |   |   | · | · |
+| `trailZoom` | FX | `Trail zoom (echo in/out)` | `trailZoom` |   |   |   |   |   |   |   |   |   |   | · | · |
+| `trailWarp` | FX | `Trail warp (liquid echo)` | `trailWarp` |   |   |   |   |   |   |   |   |   |   | · | · |
+| `mirror` | Shape | `Mirror` | `mirror` | · |   |   |   |   | · |   |   |   |   | · | · |
 | `warp` | Shape | `Domain warp` | `warp` | · |   |   |   |   |   |   |   |   |   | · | · |
 | `ripple` | Shape | `Ripple` | `ripple` | · |   |   |   |   |   |   |   |   |   | · | · |
 | `symmetry` | Shape | `Kaleidoscope` | `symmetry` | · |   |   |   |   |   |   |   |   |   | · | · |
@@ -76,7 +76,7 @@ reach every style through the composite pass, which is its own column.
 | `paletteLut` | Color | `Colour map` | `paletteLut` | · |   |   |   |   |   |   |   |   |   |   |   |
 | `customPalette2Id` | Color | — | `customPalette2Id` |   |   |   |   |   |   |   |   |   |   |   |   |
 | `milkdropPaletteTint` | Color | `MilkDrop palette tint` | `milkdropPaletteTint` |   |   |   |   |   | · |   |   |   |   | · |   |
-| `milkdropBlendPresets` | Behavior | `Blend preset changes` | `milkdropBlendPresets` |   |   |   |   |   | · |   |   |   |   |   |   |
+| `milkdropBlendPresets` | Scene | `Blend preset changes` | `milkdropBlendPresets` |   |   |   |   |   | · |   |   |   |   |   |   |
 | `colorShift` | Color | `Hue shift` | `colorShift` | · |   |   |   |   | · |   |   |   |   | · | · |
 | `hueRange` | Color | `Hue range` | `hueRange` | · | · | · | · | · | · | · | · | · | · | · |   |
 | `saturation` | Color | `Saturation` | `saturation` | · |   |   |   | · | · |   |   |   |   | · | · |
@@ -91,10 +91,10 @@ reach every style through the composite pass, which is its own column.
 | `bloom` | Color | `Bloom` | `bloom` | · |   |   |   |   |   | · | · |   |   | · | · |
 | `temperature` | Color | `Temperature` | `temperature` | · |   |   |   |   |   |   |   |   |   | · | · |
 | `solarize` | Color | `Solarize` | `solarize` | · |   |   |   |   |   |   |   |   |   | · | · |
-| `bassGain` | Behavior | `Bass gain` | `bassGain` |   |   |   |   |   |   |   |   |   |   | · | · |
-| `midGain` | Behavior | `Mid gain` | `midGain` |   |   |   |   |   |   |   |   |   |   | · | · |
-| `trebGain` | Behavior | `Treble gain` | `trebGain` |   |   |   |   |   |   |   |   |   |   | · | · |
-| `flash` | Behavior | `Beat flash` | `flash` | · |   |   |   |   |   |   |   |   |   | · | · |
+| `bassGain` | Reactivity | `Bass gain` | `bassGain` |   |   |   |   |   |   |   |   |   |   | · | · |
+| `midGain` | Reactivity | `Mid gain` | `midGain` |   |   |   |   |   |   |   |   |   |   | · | · |
+| `trebGain` | Reactivity | `Treble gain` | `trebGain` |   |   |   |   |   |   |   |   |   |   | · | · |
+| `flash` | — | — | `flash` | · |   |   |   |   |   |   |   |   |   | · | · |
 | `chromaAb` | FX | `Chromatic aberration` | `chromaAb` |   |   |   |   |   |   |   |   |   |   | · | · |
 | `vignette` | FX | `Vignette` | `vignette` |   |   |   |   |   |   |   |   |   |   | · | · |
 | `scanlines` | FX | `Scanlines` | `scanlines` |   |   |   |   |   |   |   |   |   |   | · | · |
@@ -190,8 +190,9 @@ reach every style through the composite pass, which is its own column.
 
 ## Never randomized
 
-Declared in `ParamRandomizer.NEVER_ROLLED`. `ParamRandomizerTest` checks one
-direction: every field no tab resets is on this list (or `NOT_RENDERED`).
+Declared in `randomizer::neverRolled()` (`core/viz/ParamRandomizer.cpp`). `core/tests/params_test.cpp`
+checks that every field is rolled by exactly one control or is on this list, and that
+these fields never change on a roll.
 
 The camera and motion rows above are read by `core/viz/CameraRig.cpp` and
 `core/viz/MotionField.cpp` for every family: 3D styles read the rig through
@@ -201,12 +202,6 @@ The camera and motion rows above are read by `core/viz/CameraRig.cpp` and
 
 | Parameter | Why |
 |---|---|
-| `paletteBaseOverride` | a user-made palette's own hue |
-| `paletteRangeOverride` | a user-made palette's own hue span |
-| `palette2BaseOverride` | a user-made palette's own hue (slot 2) |
-| `palette2RangeOverride` | a user-made palette's own hue span (slot 2) |
-| `customPaletteId` | which saved palette slot 1 uses |
-| `customPalette2Id` | which saved palette slot 2 uses |
 | `paramFadeSec` | an automation preference, not a look |
 | `fluidQuality` | a performance setting, not a look |
 | `fluidAutoQuality` | a performance setting, not a look |
@@ -215,6 +210,22 @@ The camera and motion rows above are read by `core/viz/CameraRig.cpp` and
 | `fluidDyeEnabled` | the fluid ink layer's master switch |
 | `flowEnabled` | the FlowField's master switch |
 | `rippleOverlayEnabled` | the water-ripple overlay's master switch |
+| `marchDetail` | a performance budget, not a look |
+| `camPush` | a modulation offset the reaction routes drive |
+| `camYaw` | a modulation offset the reaction routes drive |
+| `camPitch` | a modulation offset the reaction routes drive |
+| `camRoll` | a modulation offset the reaction routes drive |
+| `camSmooth` | a comfort preference, not a look |
+| `camTouch` | an input preference, not a look |
+| `camGyro` | an input preference, not a look |
+| `reactAmount` | how much the user wants the music to move things |
+| `pulse` | inert since wave three |
+| `shake` | inert since wave three |
+| `beatResponse` | inert since wave three |
+| `flash` | inert since wave three |
+| `strobe` | inert since wave three |
+| `formDrive` | inert since wave three |
+| `motionOrbit` | no native reader |
 
 ## Rendered by nothing
 
@@ -228,15 +239,21 @@ by a scene, the composite pass or the export compositor.
 
 ## Tabs
 
-Tabs are `render.scene.CustomizeTab`: the panel builds its row from that enum
-and "⚄ Randomize <tab>" rolls exactly the keys below it.
+Tabs are `render.scene.CustomizeTab`, in the order the panel shows them. "Randomize <tab>"
+rolls exactly the fields of that tab's roll keys (`randomizer::rolledKeys()` in
+`core/viz/ParamRandomizer.cpp`, which is also where the counts below come from).
 
-| Tab | Controls | Rolled keys |
+| Tab | Roll keys | Fields rolled |
 |---|---|---|
-| Motion | 10 | 10 |
-| Shape | 15 | 14 |
-| Behavior | 14 | 14 |
-| Color | 25 | 19 |
-| FX | 8 | 7 |
-| Fluid | 54 | 47 |
+| Macros | 0 | 0 (six knobs outside the params) |
+| Events | 0 | 0 (event recipes, no params of its own) |
+| Shape | 11 | 12 |
+| Colour | 20 | 24 |
+| Motion | 14 | 14 |
+| FX | 10 | 10 |
+| Reactivity | 9 | 9 |
+| Scene | 1 | 1 |
+| Fluid | 47 | 47 |
 | Cymatics | 13 | 13 |
+
+The other 24 fields are never rolled (above).

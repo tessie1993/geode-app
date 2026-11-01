@@ -112,14 +112,6 @@ class HistoryStore(
     fun recentlyPlayed(limit: Int = 20): List<Entry> =
         synchronized(lock) { entries.values.sortedByDescending { it.lastPlayedMs }.take(limit) }
 
-    fun mostPlayed(limit: Int = 20): List<Entry> =
-        synchronized(lock) {
-            entries.values
-                .filter { it.playCount > 0 }
-                .sortedWith(compareByDescending<Entry> { it.playCount }.thenByDescending { it.listenedMs })
-                .take(limit)
-        }
-
     fun entryFor(uri: String): Entry? = synchronized(lock) { entries[uri] }
 
     private fun persist() {
@@ -140,7 +132,7 @@ class HistoryStore(
                     val arr = JSONArray()
                     // Persist the union of the 200 most recent and the 200 most-played entries
                     // (deduped by uri) so a heavily played old track isn't dropped from disk even
-                    // though mostPlayed() ranks by playCount/listenedMs rather than recency.
+                    // though the recency cut alone would.
                     val toPersist = LinkedHashMap<String, Entry>()
                     entries.values
                         .sortedByDescending { it.lastPlayedMs }

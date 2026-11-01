@@ -35,12 +35,11 @@ class FakeBillingRepository(
     private val clock: WallClock = WallClock.SYSTEM,
     /** Simulated Play latency. 0 in tests (virtual time makes any value instant anyway). */
     private val latencyMs: Long = 0L,
-    product: ProductLoad = ProductLoad.Ready(SAMPLE_PRODUCT),
+    private val product: ProductLoad = ProductLoad.Ready(SAMPLE_PRODUCT),
 ) : BillingRepository {
     private val isPro = MutableStateFlow(store.load().owned)
     private val productState = MutableStateFlow<ProductLoad>(ProductLoad.Loading)
     private val status = MutableStateFlow<PurchaseStatus>(PurchaseStatus.Idle)
-    private val configuredProduct = MutableStateFlow(product)
 
     /** What the next [launchPurchase] does. */
     val nextOutcome = MutableStateFlow(FakePurchaseOutcome.SUCCEED)
@@ -57,7 +56,7 @@ class FakeBillingRepository(
 
     override suspend fun refresh() {
         delay(latencyMs)
-        productState.value = configuredProduct.value
+        productState.value = product
     }
 
     override suspend fun restorePurchases(): RestoreResult {
@@ -106,12 +105,6 @@ class FakeBillingRepository(
         pending.value = false
         setOwned(true)
         status.value = PurchaseStatus.Purchased
-    }
-
-    /** Simulates the product failing to load, e.g. not yet created in Play Console. */
-    fun setProduct(load: ProductLoad) {
-        configuredProduct.value = load
-        productState.value = load
     }
 
     /** Grants or revokes Pro outright: the debug toggle, and a refund in tests. */

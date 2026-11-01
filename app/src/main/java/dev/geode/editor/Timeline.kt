@@ -140,9 +140,6 @@ data class Clip(
 
     fun shiftedBy(deltaMs: Long): Clip = copy(startMs = (startMs + deltaMs).coerceAtLeast(0L))
 
-    /** Where in the source the playhead is sitting, for scrubbing a trimmed media clip. */
-    fun sourceAt(timelineMs: Long): Long = sourceInMs + (timelineMs - startMs).coerceIn(0L, durationMs)
-
     /**
      * Move the head to [newStartMs], carrying the source in-point with it so the picture does not
      * slip. Null when the remainder would be too short to keep.
@@ -298,7 +295,6 @@ sealed interface EditError {
     data class WrongLaneKind(
         val laneId: LaneId,
         val laneKind: LaneKind,
-        val contentKind: LaneKind,
     ) : EditError
 
     data class Overlaps(
@@ -346,7 +342,7 @@ data class Timeline(
             lane == null -> EditResult.Rejected(EditError.LaneNotFound(laneId))
             lane.locked -> EditResult.Rejected(EditError.LaneLocked(laneId))
             lane.kind != clip.content.laneKind ->
-                EditResult.Rejected(EditError.WrongLaneKind(laneId, lane.kind, clip.content.laneKind))
+                EditResult.Rejected(EditError.WrongLaneKind(laneId, lane.kind))
             clip.durationMs < MIN_CLIP_DURATION_MS -> EditResult.Rejected(EditError.TooShort)
             else -> lane.place(clip, policy).asEditResult(listOf(clip.id))
         }
@@ -370,7 +366,7 @@ data class Timeline(
             from.locked -> EditResult.Rejected(EditError.LaneLocked(from.id))
             target.locked -> EditResult.Rejected(EditError.LaneLocked(target.id))
             target.kind != clip.content.laneKind ->
-                EditResult.Rejected(EditError.WrongLaneKind(target.id, target.kind, clip.content.laneKind))
+                EditResult.Rejected(EditError.WrongLaneKind(target.id, target.kind))
             target.id == from.id -> target.place(moved, policy).asEditResult(listOf(clipId))
             else -> moveAcross(from, target, moved, policy)
         }

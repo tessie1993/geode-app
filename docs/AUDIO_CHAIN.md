@@ -11,7 +11,7 @@ Sources of truth, if this doc and the code ever disagree — the code wins:
 |---|---|
 | The chain, and why the order is this order | `audio/dsp/MvzAudioProcessorChain.kt` |
 | Where it is installed | `audio/TapRenderersFactory.kt` |
-| The two rules | this document; the `AudioChainContractTest` that pinned them is not in the tree (see the README's Tests section) |
+| The two rules | this document; the `AudioChainContractTest` that pinned them is not in the tree |
 | Platform effects (a different mechanism) | `audio/AudioFxController.kt`, `ui/EqualizerSettings.kt` |
 
 ## The order
@@ -22,7 +22,7 @@ ExoPlayer
    ▼
 DefaultAudioSink  ── MvzAudioProcessorChain ──────────────────────────┐
    │                                                                  │
-   │   1. TeeAudioProcessor(PcmTap)       ← the analysis tap          │
+   │   1. TeeAudioProcessor(PcmTap)       ← the PCM tap               │
    │   2. SilenceSkippingAudioProcessor   ← media3's own              │
    │   3. SonicAudioProcessor             ← media3's own (speed/pitch)│
    │   4. NativeDspProcessor              ← EQ, crossfeed, ReplayGain │
@@ -34,8 +34,10 @@ AudioTrack ──▶ platform audiofx (Equalizer / BassBoost / Loudness) ──�
                         outside the chain entirely
 ```
 
-The tap (`engine/audio-android/.../PcmTap.kt`) writes into the PCM ring that
-`AudioBus` hands to the analysis engine and every scene. Stages 2–4 are downstream of it.
+The tap (`engine/audio-android/.../PcmTap.kt`) writes into the PCM rings
+(`PlaybackSession.captureSink`). `SampleRing`, published as `AudioBus.soundInput`,
+feeds each renderer's own `core/sound` engine on its GL thread. Stages 2–4 are
+downstream of it.
 
 ## Why the chain is owned rather than configured
 
@@ -59,7 +61,7 @@ by which `PlaybackParameters` and the skip-silence toggle reach the two stages
 that implement them. A chain that omits them breaks speed, pitch and
 skip-silence with no error.
 
-## Two rules that fail the build
+## Two rules this chain keeps
 
 Both were pinned by `AudioChainContractTest` when it existed; the test is not
 in the tree, so today they are conventions that this document keeps.
@@ -93,20 +95,17 @@ else (5.1, 7.1) its `onConfigure` returns `AudioFormat.NOT_SET`, which makes it
 inactive for that track, rather than throwing: a throw in `configure` fails the
 sink and ExoPlayer reports the file as unplayable.
 
-**2. The analysis tap stays first.** `ReactiveAnalyzer.reset` and
-`AnalysisEngine.reset` both hold live features to matching the cached and
-exported features for the same file — the live and offline paths run the same
-`ReactiveAnalyzer`, so they can only agree if they are also fed the same audio — and the offline path decodes the file with
-no user EQ in it. Put user-tunable DSP upstream of the tap and live visuals
-diverge from every exported video, differently for every user and every preset,
-with no test able to pin it. The loudness seek bar, drawn from the offline RMS
-curve, would disagree too.
+**2. The tap stays first.** Live and export run the same `core/sound` code, so
+they can only agree if they hear the same audio. Live, the tap writes the ring
+that each renderer's sound engine reads. Export, `render/offscreen/TrackAudio`
+decodes the file itself (MediaExtractor and MediaCodec) and feeds the export
+renderer's own engine at 1/fps; that decode has no user DSP in it. Put
+user-tunable DSP upstream of the tap and live visuals diverge from every
+exported video, differently for every user and every preset.
 
-The test carries a list of stage names the chain is expected to grow
-(`GainProcessor`, `EqProcessor`, `ConvolutionProcessor`, `CrossfeedProcessor`,
-`StereoMatrixProcessor`, `DynamicsProcessor`, `DitherProcessor`). Wiring any of
-them ahead of the tap fails the build. Add new stage names to that list when you
-add the stage.
+Stages in the chain after the tap today: `SilenceSkippingAudioProcessor`,
+`SonicAudioProcessor`, `NativeDspProcessor`. A new stage goes after them, never
+ahead of the tap; add its name to this list when you add it.
 
 ## The consequence nobody expects: DSP does not move the visuals
 
@@ -124,7 +123,7 @@ audio category is a dozen features, and each one will look broken to someone who
 turns a knob while watching the visualizer.
 
 If output metering is ever wanted, it gets a **second** tap, downstream, feeding
-meters only — never `AudioFeatures`.
+meters only — never the sound engine.
 
 ## Platform effects are a separate mechanism
 

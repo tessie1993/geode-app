@@ -5,13 +5,15 @@ precision highp sampler2D;
 in vec2 vUv;
 out vec4 fragColor;
 
+// The shape controls are spent on the disc and the sky (lib_neon), not on the rays.
+#define VIEW_OWNS_SHAPE
 //#include lib_scene_uniforms
+//#include lib_scene_motion
 //#include lib_camera
 //#include lib_palette
 //#include lib_scene_grade
+//#include lib_neon
 //#include lib_sdf3
-
-// uKnob[6], the six style knobs read below, is declared in lib_scene_uniforms.
 
 // Black Hole: a lensed neon singularity. A Schwarzschild hole wears an
 // accretion disc woven from glowing filaments and log-spiral arms, wrapped by
@@ -19,14 +21,26 @@ out vec4 fragColor;
 // rings and arcs around itself. Inside the shadow, a dim mandala lattice of
 // the light still circling the hole keeps the centre from going flat black.
 //
-// ---- knobs ------------------------------------------------------------------
+// ---- what moves it -----------------------------------------------------------
 //
-//   k0  flare      PULSE    the inner disc and the photon ring flash white-hot
-//   k1  filaments  TEXTURE  more threads and spiral arms in the disc and sky
-//   k2  swirl      FLOW     the disc winds on, and the haze above it thickens
-//   k3  hue        TONE     turns the neon ramp of disc and sky
-//   k4  charge     BUILD    the whole disc brightens and the sky swirl wakes
-//   k5  reach      SPACE    the eye pulls back from the hole, wider and calmer
+// The style was drawn around six looks (flare, filaments, swirl, hue,
+// charge, reach); each is now driven by the shared controls (lib_neon) or the
+// sound, so Customize, the macros, the director and the DNA all reach it:
+//
+// - flare: SND_KICK_ENV, and SND_SNARE_ENV a little less, flash the inner
+//   disc and the photon ring white-hot, and each kick sends a shockwave
+//   ring out from the photon sphere, lensed like everything else.
+// - filaments (Morph, neonForm): the disc's threads sharpen and brighten.
+//   A hard cut (SND_CUT_COUNT) changes how many spiral arms there are.
+// - swirl (Warp, neonFlow, plus the bass weight): the disc winds on and the
+//   haze above it thickens. The disc turns on SND_BASS_TIME, so it races in
+//   a heavy passage and drifts in a thin one, never backwards.
+// - Turbulence (neonChaos) sets the disc precessing: its tilt wobbles.
+// - hue: the key (neonKeyTurn) turns the ramp; SND_CHORD_HUE tints the disc.
+// - charge: SND_BUILD_UP brightens the disc and wakes the sky swirl; the
+//   drop (SND_HELD_SURGE) blazes it and pulls the eye in toward the hole.
+// - reach: in silence (neonQuiet) the eye drifts back, wider and calmer.
+// - SND_HAT_ENV twinkles the stars. Intensity (neonGlow) is the emission.
 //
 // Provenance: written from scratch for MuzViz from textbook techniques - the
 // photon geodesic in Cartesian form (a = -3/2 h^2 x / r^5, units where the
@@ -96,7 +110,7 @@ vec3 neon(float t) {
     float f = smoothstep(0.0, 1.0, fract(x));
     vec3 a = x < 1.0 ? s0 : x < 2.0 ? s1 : x < 3.0 ? s2 : x < 4.0 ? s3 : s4;
     vec3 b = x < 1.0 ? s1 : x < 2.0 ? s2 : x < 3.0 ? s3 : x < 4.0 ? s4 : s0;
-    return mix(mix(a, b, f), pal(t + gTone), 0.2);
+    return neonPal(mix(a, b, f), t + gTone);
 }
 
 /**
@@ -159,34 +173,44 @@ vec3 bhStars(vec3 d, float twinkle) {
     return col;
 }
 
-vec3 aces(vec3 x) {
-    return clamp((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14), 0.0, 1.0);
-}
-
 void main() {
     vec2 uv = view();
     vec3 ro;
     vec3 rd;
-    float kPulse = clamp(uKnob[0], 0.0, 1.0);
-    float kTex = clamp(uKnob[1], 0.0, 1.0);
-    float kFlow = clamp(uKnob[2], 0.0, 1.0);
-    float kTone = clamp(uKnob[3], 0.0, 1.0);
-    float kBuild = clamp(uKnob[4], 0.0, 1.0);
-    float kSpace = clamp(uKnob[5], 0.0, 1.0);
-    gTone = kTone * 0.6;
+    // The six looks the disc was drawn around, each 0..1 with 0.5 as tuned,
+    // now driven: see "what moves it" above.
+    float surge = neonSurge();
+    float quiet = neonQuiet();
+    float kPulse = clamp(0.15 + 0.85 * max(neonKick(), 0.7 * sndShaped(clamp(SND_SNARE_ENV, 0.0, 1.0))) + 0.5 * surge, 0.0, 1.0) * (1.0 - 0.7 * quiet);
+    float kTex = mix(0.5, 1.0, neonForm());
+    float kFlow = clamp(0.5 + 0.5 * neonFlow() + 0.25 * (neonWeight() - 0.5), 0.0, 1.0);
+    float kBuild = clamp(0.5 + 0.5 * neonBuild() + 0.8 * surge - 0.3 * quiet, 0.0, 1.5);
+    float kSpace = clamp(0.5 + 0.45 * quiet - 0.35 * surge, 0.0, 1.0);
+    float glow = neonGlow();
+    // Note & key reactions' style knobs ride on top (lib_neon).
+    kPulse = clamp(kPulse + neonKnob(0), 0.0, 1.0);
+    kTex = clamp(kTex + neonKnob(1), 0.0, 1.0);
+    kFlow = clamp(kFlow + neonKnob(2), 0.0, 1.0);
+    kBuild = clamp(kBuild + neonKnob(4), 0.0, 1.5);
+    kSpace = clamp(kSpace + neonKnob(5), 0.0, 1.0);
+    gTone = 0.12 + neonKeyTurn() + 0.6 * neonKnob(3);
     gWake = 0.75 + 0.4 * kBuild;
-    gArms = floor(mix(5.0, 10.0, kTex));
+    // A count, so it changes only on a hard cut (lib_neon: never a count on Morph).
+    gArms = 6.0 + 2.0 * mod(floor(SND_CUT_COUNT + 0.5), 3.0);
 
     camAround(uv, mix(16.0, 23.0, kSpace), CAM_SPIN_UNIT * 3.0, ro, rd);
     // Look down on the disc a little: tilt the world about the eye's own
     // horizontal axis, so the slant is the same from every orbit angle.
-    mat3 tilt = rotAxis(cross(ro, vec3(0.0, 1.0, 0.0)), 0.10);
+    // Turbulence sets it precessing.
+    float wobble = 0.14 * neonChaos() * sin(uTime * 0.6);
+    mat3 tilt = rotAxis(cross(ro, vec3(0.0, 1.0, 0.0)), 0.10 + wobble);
     ro = tilt * ro;
     rd = tilt * rd;
     gAxis = normalize(-ro);
 
-    // The disc clock: always turning; FLOW winds it on a little further.
-    float spin = uTime * 0.35 + kFlow * 3.0;
+    // The disc clock: a slow drift of its own plus the bass clock, so it
+    // races in a heavy passage and never runs backwards; Warp winds it on.
+    float spin = uTime * 0.12 + SND_BASS_TIME * 0.45 + kFlow * 3.0;
     float stepScale = clamp(96.0 / max(uSteps, 24.0), 0.75, 2.5);
 
     vec3 p = ro;
@@ -235,7 +259,9 @@ void main() {
                 float dens = 0.0;
                 float fil = 0.0;
                 float hueN = 0.0;
-                float lineCount = mix(5.0, 12.0, kTex);
+                // Fixed: a line family's frequency on Morph would re-pattern the
+                // disc on every beat. Morph sharpens the threads instead.
+                float lineCount = 8.5;
                 for (int k = 0; k < 2; k++) {
                     float ph = fract(spin * 0.12 + 0.5 * float(k));
                     float w = 1.0 - abs(2.0 * ph - 1.0);
@@ -273,9 +299,9 @@ void main() {
 
                 // Neon emission: the hue follows radius and turbulence and
                 // slides toward blue on the approaching side.
-                float hue = 0.1 + 1.2 * x + 0.7 * hueN + 0.15 * log(hr) - 0.3 * (shift - 1.0);
+                float hue = 0.1 + 1.2 * x + 0.7 * hueN + 0.15 * log(hr) - 0.3 * (shift - 1.0) + 0.2 * SND_CHORD_HUE;
                 vec3 em = neon(hue) * (0.10 + 0.9 * dens + 1.6 * fil * (0.3 + 0.7 * dens));
-                em *= temp * bright * 3.0 * (0.75 + 0.35 * kBuild);
+                em *= temp * bright * 3.0 * (0.75 + 0.35 * kBuild) * glow * (1.0 - 0.5 * quiet);
                 // The pulse flares the inner disc toward white.
                 em += vec3(1.0, 0.92, 1.0) * kPulse * x * x * x * bright * (0.5 + fil) * 1.5;
                 float alpha = clamp((0.25 + 0.6 * dens) * edge, 0.0, 0.9);
@@ -309,11 +335,16 @@ void main() {
         col += trans * inner * (0.5 + 0.5 * kBuild) * smoothstep(0.0, 0.4, b) * (0.7 + 0.6 * kPulse);
     }
     if (!captured) {
-        col += trans * mix(neon(0.5), vec3(1.0), 0.5) * ring * (0.6 + 1.2 * kPulse);
-        col += trans * bhStars(normalize(v), 0.3);
+        col += trans * mix(neon(0.5), vec3(1.0), 0.5) * ring * (0.6 + 1.2 * kPulse) * glow;
+        col += trans * bhStars(normalize(v), 0.3 + 1.5 * neonSparkle());
+        // The kick's shockwave: a ring of light at an impact parameter that
+        // runs outward from the photon ring as the envelope falls. Measured
+        // in impact parameter, not on screen, so the hole lenses it too.
+        float kick = neonKick() * (1.0 - quiet);
+        float wave = 2.7 + (1.0 - kick) * 9.0;
+        float bImpact = sqrt(h2);
+        col += trans * neon(0.35 + 0.05 * wave) * exp(-abs(bImpact - wave) * 2.5) * kick * 0.9 * glow;
     }
 
-    col = max(mix(vec3(dot(col, vec3(0.299, 0.587, 0.114))), col, 1.15), 0.0);
-    col = aces(col * 0.95);
-    fragColor = vec4(grade(col), 1.0);
+    fragColor = vec4(neonFinish(col, 0.95), 1.0);
 }

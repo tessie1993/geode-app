@@ -26,6 +26,20 @@ class WireLayoutTest {
     }
 
     @Test
+    fun noteAndKeyFieldsAreAppendedAfterReactSeed() {
+        // core/viz/ParamsFields.cpp: kFieldCount 162, the Note & key fields last, in this order.
+        assertEquals(162, SceneParamsCodec.FIELDS)
+        val tail = listOf("bloomLook", "noteColor", "notePitch", "noteIntervals", "noteTension", "noteChords", "noteDrums", "noteBloom")
+        assertEquals(listOf("reactSeed") + tail, SceneParamsCodec.NAMES.takeLast(tail.size + 1))
+        val p = SceneParams(bloomLook = 3, noteColor = 0.25f, noteBloom = 1.75f)
+        val out = SceneParamsCodec.pack(p)
+        assertEquals(3f, out[SceneParamsCodec.NAMES.indexOf("bloomLook")])
+        assertEquals(0.25f, out[SceneParamsCodec.NAMES.indexOf("noteColor")])
+        assertEquals(1.75f, out[SceneParamsCodec.NAMES.indexOf("noteBloom")])
+        assertEquals(p, SceneParamsCodec.unpack(out, SceneParams.DEFAULT))
+    }
+
+    @Test
     fun reactionsPackEverySlotAndDisableTheRest() {
         val route =
             ReactionRoute(true, ReactSource.HARD_CUT, LfoTarget.CAM_FLY, ReactMode.STEP, 0.8f, attackSeconds = 0.2f, releaseSeconds = 2f)

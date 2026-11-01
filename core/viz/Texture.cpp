@@ -14,11 +14,6 @@ void Texture::allocate(int width, int height, GLint filter, GLint wrap) {
     height_ = height;
 }
 
-void Texture::createStorage(GLenum internalFormat, int width, int height, GLint filter) {
-    allocate(width, height, filter, GL_CLAMP_TO_EDGE);
-    glTexStorage2D(GL_TEXTURE_2D, 1, internalFormat, width, height);
-}
-
 void Texture::createImage(GLenum internalFormat, GLenum format, GLenum type, int width, int height, GLint filter, GLint wrap) {
     allocate(width, height, filter, wrap);
     glTexImage2D(GL_TEXTURE_2D, 0, static_cast<GLint>(internalFormat), width, height, 0, format, type, nullptr);

@@ -1,7 +1,8 @@
 // Host test of the note & key reactions (viz/NoteResponse): that the six style knobs each answer to at
 // least two fields of the sound frame, that a percussive track raises the drum weight and a tonal one
 // lowers it, that blooms spawn on note onsets only, stay bounded and are deterministic, that a melody
-// paints more than one hue, that off is exactly today's picture, and that silence is stable.
+// paints more than one hue, that off is exactly today's picture, that silence is stable, and that each
+// play varies, the user's amounts scale each source, the camera hears leaps and builds and blooms travel.
 // Built by CI (.github/workflows/android.yml, "Note response test") with core/viz/NoteResponse.cpp alone:
 // the emotion state is an input, so the test sets it directly.
 #include <cmath>
@@ -9,6 +10,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <functional>
+#include <initializer_list>
 #include <set>
 #include <string>
 
@@ -487,6 +489,89 @@ GeodeSoundFrame fastRun(float t) {
     return f;
 }
 
+// Each play has its own character and every section rolls it again; the user's Note & key amounts scale
+// each source; the camera hears leaps and builds; the blooms travel; the look sets their size.
+void variationTuningAndMotion() {
+    // Two plays differ; a section change rolls a new character.
+    NoteResponse a = on(1);
+    NoteResponse b = on(2);
+    run(a, 0.5f, [](float) { return base(); });
+    run(b, 0.5f, [](float) { return base(); });
+    const auto& pa = a.personality();
+    const auto& pb = b.personality();
+    check(pa.maxAlive != pb.maxAlive || pa.size != pb.size || pa.tint != pb.tint || pa.travel != pb.travel,
+          "two plays have different characters");
+    for (const auto* m : {&pa, &pb}) {
+        check(m->maxAlive >= 3.0f && m->maxAlive <= 8.99f && m->budget >= 1.5f && m->budget <= 3.0f, "bloom count and budget in range");
+        check(m->tint >= 0.04f && m->tint <= 0.3f && m->size >= 0.75f && m->size <= 1.35f, "tint and size in range");
+    }
+    const int before = a.rolls();
+    GeodeSoundFrame section = base();
+    section.sectionChange = 1.0f;
+    a.step(section, calm(), {}, kDt);
+    check(a.rolls() == before + 1, "a new section rolls a new character");
+
+    // The tint: a melody leans the picture toward its colour, inside the cap; Note colours 0 removes it.
+    NoteResponse melodic = on();
+    run(melodic, 4.0f, melody);
+    const float tint = melodic.uniforms().tint[3];
+    check(tint > 0.0f && tint <= 0.45f, "a melody tints the picture, within the cap");
+    NoteResponse::Inputs grey;
+    grey.color = 0.0f;
+    NoteResponse plain = on();
+    run(plain, 4.0f, melody, calm(), grey);
+    check(plain.uniforms().tint[3] == 0.0f, "Note colours at 0: no tint");
+
+    // Bloom brightness 0 draws nothing; Chord changes 0 never shifts; Leaps and steps 0 never swings.
+    NoteResponse::Inputs quiet;
+    quiet.bloom = 0.0f;
+    quiet.chords = 0.0f;
+    quiet.intervals = 0.0f;
+    NoteResponse muted = on();
+    run(muted, 6.0f, minorLeaps, calm(), quiet);
+    bool dark = true;
+    for (int k = 0; k < NoteUniforms::kBlooms; ++k) dark = dark && muted.uniforms().bloomB[k][1] == 0.0f;
+    check(dark, "Bloom brightness 0 draws no bloom");
+    check(muted.sceneShifts() == 0, "Chord changes 0 never shifts the scene");
+    check(std::fabs(muted.swing()) < 1e-3f, "Leaps and steps 0 never swings");
+
+    // The camera: a leap rolls it, a build pushes it in.
+    NoteResponse leap = on();
+    GeodeSoundFrame f = base();
+    f.noteChange = 0.8f;
+    f.interval = 0.75f;
+    leap.step(f, calm(), {}, kDt);
+    run(leap, 0.3f, [](float) { return base(); });
+    const SceneParams p;
+    check(std::fabs(leap.apply(p).camRoll - p.camRoll) > 0.03f, "a leap rolls the camera");
+    NoteResponse build = on();
+    run(build, 4.0f, [](float) {
+        GeodeSoundFrame g = base();
+        g.buildUp = 1.0f;
+        return g;
+    });
+    check(build.apply(p).camPush > p.camPush + 0.15f, "a build pushes the camera in");
+
+    // Travel: a held note's bloom grows as the viewer moves through it.
+    NoteResponse travel = on();
+    run(travel, 0.5f, held);
+    const float early = travel.uniforms().bloomA[0][2];
+    run(travel, 1.5f, [](float t) { return held(t + 1.0f); });
+    check(travel.uniforms().bloomCount == 1 && travel.uniforms().bloomA[0][2] > early, "a bloom grows as it travels");
+
+    // The look: a ripple spreads wider than a glow, and the pass is told which to draw.
+    NoteResponse::Inputs ripple;
+    ripple.look = 3;
+    NoteResponse::Inputs glow;
+    glow.look = 2;
+    NoteResponse r = on();
+    NoteResponse g = on();
+    run(r, 0.3f, held, calm(), ripple);
+    run(g, 0.3f, held, calm(), glow);
+    check(r.uniforms().look == 3 && g.uniforms().look == 2, "the pass draws the resolved look");
+    check(r.uniforms().bloomA[0][2] > g.uniforms().bloomA[0][2] * 1.5f, "a ripple spreads wider than a glow");
+}
+
 std::string jsonList(const float* v, int n) {
     std::string s = "[";
     for (int i = 0; i < n; ++i) s += (i ? ", " : "") + std::to_string(v[i]);
@@ -519,6 +604,7 @@ int dump(const std::string& scenario, float seconds) {
     std::printf(" \"uBloomA\": %s,\n", jsonList(u.bloomA[0].data(), kRows).c_str());
     std::printf(" \"uBloomB\": %s,\n", jsonList(u.bloomB[0].data(), kRows).c_str());
     std::printf(" \"uBloomC\": %s,\n", jsonList(u.bloomC[0].data(), kRows).c_str());
+    std::printf(" \"uBloomD\": %s, \"uBloomLook\": %d,\n", jsonList(u.bloomD[0].data(), kRows).c_str(), u.look);
     std::printf(" \"uNoteHues\": %s}\n", jsonList(u.hues.data(), NoteUniforms::kHues).c_str());
     return 0;
 }
@@ -537,6 +623,7 @@ int main(int argc, char** argv) {
     offIsToday();
     silenceIsStable();
     newPlayForgets();
+    variationTuningAndMotion();
     if (failures) {
         std::printf("%d failure(s)\n", failures);
         return 1;

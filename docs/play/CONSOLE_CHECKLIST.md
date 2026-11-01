@@ -86,7 +86,8 @@ sign uploads with an **upload key** you create and keep.
       App bundle explorer > Downloads > ReTrace mapping file.
 - [ ] Add yourself as an internal tester, install from the opt-in link, and run the
       billing checks in [BILLING.md § Testing](BILLING.md#testing-before-release).
-- [ ] Every later upload needs a higher `versionCode` (`app/build.gradle.kts`).
+- [ ] Every later upload needs a higher `versionCode`. It is `geode.versionCodeBase` in
+      `gradle.properties` plus the release number (`-PreleaseNumber=N`).
 
 ## 7. App content (Policy > App content)
 

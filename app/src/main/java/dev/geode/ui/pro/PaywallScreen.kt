@@ -456,7 +456,6 @@ private fun titleFor(trigger: PaywallTrigger?): Int =
                 ProFeature.PREMIUM_STYLES -> R.string.pro_title_styles
                 ProFeature.ADVANCED_CUSTOMIZATION -> R.string.pro_title_customization
                 ProFeature.AUTO_DIRECTOR -> R.string.pro_title_auto_director
-                ProFeature.NOTE_RESPONSE -> R.string.pro_title_note_response
             }
         PaywallTrigger.Settings, null -> R.string.pro_title_default
     }
@@ -500,7 +499,6 @@ private val COMPARE_ROWS =
             R.string.pro_row_auto_director_pro,
             setOf(ProFeature.AUTO_DIRECTOR),
         ),
-        CompareRow(R.string.pro_row_note_response, null, null, setOf(ProFeature.NOTE_RESPONSE)),
     )
 
 @Composable

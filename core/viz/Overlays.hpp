@@ -15,7 +15,7 @@
 
 namespace geode::viz {
 
-// Port of OverlayEffects.kt: the flow field and ripple overlay shared by every scene, plus the touch smears.
+// The flow field and ripple overlay shared by every scene, plus the touch smears.
 class Overlays {
 public:
     explicit Overlays(const ProgramLoader& loader) : loader_(loader) {}

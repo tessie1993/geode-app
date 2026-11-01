@@ -2,6 +2,7 @@ package dev.geode.ui
 
 import android.app.Application
 import android.net.Uri
+import android.os.Build
 import androidx.core.net.toUri
 import dev.geode.data.BackgroundPrefsStore
 import dev.geode.data.ExportPrefsStore
@@ -26,6 +27,7 @@ import dev.geode.export.LoudnessTarget
 import dev.geode.export.MixClip
 import dev.geode.export.ProjectComposition
 import dev.geode.export.RenderBatch
+import dev.geode.export.RenderScope
 import dev.geode.export.TimeOfDayDrift
 import dev.geode.export.VideoExporter
 import dev.geode.render.SceneFactory
@@ -156,7 +158,7 @@ internal class ExportController(
         ExportRun.begin(uri.lastPathSegment.orEmpty().substringAfterLast('/'))
         ExportService.start(application)
         exportJob =
-            ExportRun.scope.launch(Dispatchers.Default) {
+            ExportRun.launch {
                 try {
                     val gui = host.guiPrefs
                     val name = "muzviz_${System.currentTimeMillis()}.mp4"
@@ -260,13 +262,20 @@ internal class ExportController(
         watermark: Boolean,
     ) {
         if (tracks.isEmpty() || _exportState.value.phase.isBusy || ExportRun.running) return
+        // The scope picker hides batches below Android 10; this catches any other way in, since
+        // there every track would fail at the MediaStore insert (RenderScope.BATCH_MIN_SDK).
+        if (!RenderScope.batchSupported(Build.VERSION.SDK_INT)) {
+            _exportState.value =
+                ExportUiState(phase = ExportPhase.Failed(application.getString(dev.geode.R.string.render_batch_needs_q)))
+            return
+        }
         exportCancelled = false
         var batch = RenderBatch(tracks)
         _exportState.value = ExportUiState(phase = ExportPhase.Running(0f), batch = batch)
         ExportRun.begin(application.getString(dev.geode.R.string.render_batch_label, tracks.size))
         ExportService.start(application)
         exportJob =
-            ExportRun.scope.launch(Dispatchers.Default) {
+            ExportRun.launch {
                 try {
                     val gui = host.guiPrefs
                     // A Cancel between tracks ends the loop; the tracks left are then marked cancelled.
@@ -353,8 +362,15 @@ internal class ExportController(
         )
     }
 
+    /**
+     * Stops the render through [ExportRun], not only through this controller's flag: after the
+     * Activity is recreated this controller is a new one that re-attached to a render an older one
+     * started, whose `isCancelled` never reads [exportCancelled]. [ExportRun.requestCancel] reaches
+     * that render whichever controller asks.
+     */
     fun cancelExport() {
         exportCancelled = true
+        if (ExportRun.running) ExportRun.requestCancel()
     }
 
     fun resetExportState() {
@@ -539,10 +555,12 @@ internal class ExportController(
         ExportRun.begin(uri.lastPathSegment.orEmpty().substringAfterLast('/'))
         ExportService.start(application)
         loopJob =
-            ExportRun.scope.launch(Dispatchers.Default) {
+            ExportRun.launch {
                 try {
                     val gui = host.guiPrefs
                     val spec = LoopSpec.of(loopMs, crossfadeMs, fps = fps)
+                    // Plus one loop: the extend rounds the repeats up to a whole loop.
+                    val longFormMs = loopRenderer.soundtrackMs(audioClips.ifEmpty { listOf(uri) }) + loopMs
                     val renderResult =
                         loopRenderer.render(
                             sceneFactory = sceneFactory,
@@ -557,6 +575,7 @@ internal class ExportController(
                             codec = codec,
                             audioUri = uri,
                             soundTuning = gui.soundTuning,
+                            longFormMs = longFormMs,
                             onProgress = { p -> publishLoopProgress(p * RENDER_SPAN) },
                             isCancelled = { loopCancelled || ExportRun.cancelRequested },
                             watermark = watermark,
@@ -629,8 +648,10 @@ internal class ExportController(
         ExportRun.publish(clamped)
     }
 
+    /** Same reasoning as [cancelExport]: the loop render may belong to an earlier controller. */
     fun cancelLoopRender() {
         loopCancelled = true
+        if (ExportRun.running) ExportRun.requestCancel()
     }
 
     fun clearLoopResult() {

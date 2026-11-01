@@ -91,77 +91,6 @@ object GeodeNative {
         track: Int,
     ): Boolean
 
-    external fun playerCreate(): Long
-
-    external fun playerDestroy(handle: Long)
-
-    /** [fd] belongs to native from here on; [length] <= 0 reads to the end. */
-    external fun playerOpen(
-        handle: Long,
-        fd: Int,
-        offset: Long,
-        length: Long,
-        token: Long,
-    )
-
-    /** Pre-rolls the track that follows for a gapless join; [fd] < 0 clears it. */
-    external fun playerSetNext(
-        handle: Long,
-        fd: Int,
-        offset: Long,
-        length: Long,
-        token: Long,
-    )
-
-    external fun playerPlay(handle: Long)
-
-    external fun playerPause(handle: Long)
-
-    external fun playerStop(handle: Long)
-
-    external fun playerSeek(
-        handle: Long,
-        positionUs: Long,
-    )
-
-    external fun playerSetCrossfade(
-        handle: Long,
-        durationMs: Int,
-        curve: Int,
-    )
-
-    /** [dsp] is a dspCreate handle at the player's output rate with 2 channels, or 0 to bypass. */
-    external fun playerSetDsp(
-        handle: Long,
-        dsp: Long,
-    )
-
-    external fun playerSetVolume(
-        handle: Long,
-        volume: Float,
-    )
-
-    external fun playerState(handle: Long): Int
-
-    external fun playerPlayWhenReady(handle: Long): Boolean
-
-    external fun playerPositionUs(handle: Long): Long
-
-    external fun playerDurationUs(handle: Long): Long
-
-    external fun playerCurrentToken(handle: Long): Long
-
-    external fun playerOutputSampleRate(handle: Long): Int
-
-    external fun playerLastError(handle: Long): String
-
-    /** Copies up to [frames] stereo float frames of the mix into the direct [buffer]; returns the frames copied. */
-    external fun playerReadTap(
-        handle: Long,
-        buffer: java.nio.ByteBuffer,
-        frames: Int,
-    ): Int
-
     /** [assets] is the app's `android.content.res.AssetManager`; typed as Any because this module has no Android SDK. */
     external fun vizCreate(
         assets: Any,
@@ -267,6 +196,16 @@ object GeodeNative {
 
     /** Customize › Macros (core/viz/Macros): the six knobs, -1..1, for every renderer in the process. */
     external fun macrosSet(knobs: FloatArray)
+
+    /**
+     * The auto-director (core/viz/Director): the music's feeling decides palette, behaviour and routing over
+     * every style. [amount] 0 off .. 1 full; [seed] is the play's, so a new seed starts the song afresh and an
+     * export given the play's seed makes the same film.
+     */
+    external fun directorSet(
+        amount: Float,
+        seed: Long,
+    )
 
     /** Surprise: unlocked knobs (bit i of [lockMask] locks knob i) to new spots, seeded. */
     external fun macrosSurprise(
@@ -390,7 +329,7 @@ object GeodeNative {
 
     external fun vizReleaseScenes(handle: Long)
 
-    /** Not RT-safe on the native side: only call this on a dsp handle not yet passed to [playerSetDsp]. */
+    /** Not RT-safe on the native side: only call this on a dsp handle no audio thread is processing yet. */
     external fun dspSetSampleRate(
         handle: Long,
         sampleRate: Int,

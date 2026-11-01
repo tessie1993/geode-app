@@ -53,7 +53,6 @@ import dev.geode.export.StudioClip
 import dev.geode.geodeContainer
 import dev.geode.model.DeviceTrack
 import dev.geode.model.LibraryTrack
-import dev.geode.playback.BitPerfectOutput
 import dev.geode.playback.PlaybackEngine
 import dev.geode.playback.PlaybackErrors
 import dev.geode.playback.PlaybackService
@@ -189,10 +188,13 @@ class PlayerSession internal constructor(
                 override val vizState: StateFlow<VizUiState> get() = _vizState
                 override val activeMilkPath: String? get() = vizStateStore.activeMilkPath.value
 
+                // Through the session's own applyPreset, not straight to the visual controller: that
+                // is where the Pro style gate sits, so a template on a locked style is refused and
+                // opens the paywall exactly as the same look saved as a preset would (PRO-1).
                 override fun applyLook(
                     look: TemplateLook,
                     name: String,
-                ) = visual.applyPreset(look.toPreset(name))
+                ) = applyPreset(look.toPreset(name))
             },
         )
 
@@ -207,13 +209,10 @@ class PlayerSession internal constructor(
             container.appScope,
             playback.player,
             playback.audioFx,
-            playback.replayGain,
             object : PlayerSettingsController.Host {
                 override fun refreshUi() = refresh()
 
-                override fun applyBitPerfect(enabled: Boolean) {
-                    BitPerfectOutput.apply(application, enabled)
-                }
+                override fun applyPlaybackPrefs(prefs: PlayerPrefs) = playback.applyPrefs(prefs)
             },
         )
 
@@ -860,7 +859,38 @@ class PlayerSession internal constructor(
     /** What a refused style does: the provider opens the paywall. */
     internal var onStyleLocked: () -> Unit = {}
 
-    fun selectScene(sceneId: String) = if (allowsStyle(sceneId)) visual.selectScene(sceneId) else onStyleLocked()
+    fun selectScene(sceneId: String) {
+        pendingUnlockSceneId = null
+        if (allowsStyle(sceneId)) {
+            visual.selectScene(sceneId)
+        } else {
+            // Kept so that buying Pro from this paywall ends on the style that asked for it.
+            pendingUnlockSceneId = sceneId
+            onStyleLocked()
+        }
+    }
+
+    /**
+     * The locked style whose choice opened the paywall, if any. The provider chooses it once the
+     * entitlement lets it through: someone who pressed "Unlock with Pro" on a previewed style and
+     * paid wants that style, not a second trip to the grid. Any other choice clears it.
+     */
+    @Volatile
+    internal var pendingUnlockSceneId: String? = null
+
+    /**
+     * Previews are not gated: seeing a Pro style move to your own music is the best case for it.
+     * Choosing one is, through [selectScene]; the preview stays up behind the paywall.
+     */
+    fun previewScene(sceneId: String) {
+        pendingUnlockSceneId = null
+        visual.previewScene(sceneId)
+    }
+
+    fun cancelScenePreview() = visual.cancelPreview()
+
+    /** The chosen style, which a preview on the stage does not change (see [previewScene]). */
+    val chosenSceneId: String get() = visual.chosenSceneId
 
     fun setReactivity(
         attack: Float,
@@ -886,7 +916,10 @@ class PlayerSession internal constructor(
 
     fun setTransitionDuration(seconds: Float) = visual.setTransitionDuration(seconds)
 
-    fun applyPreset(preset: Preset) = if (allowsStyle(preset.sceneId)) visual.applyPreset(preset) else onStyleLocked()
+    fun applyPreset(preset: Preset) {
+        pendingUnlockSceneId = null
+        if (allowsStyle(preset.sceneId)) visual.applyPreset(preset) else onStyleLocked()
+    }
 
     fun savePreset(
         name: String,
@@ -1230,7 +1263,7 @@ class PlayerSession internal constructor(
         playerListener = listener
         player.addListener(listener)
         sleepTimer.onFadeVolume = fades.sleepFadeHook
-        playback.exoPlayer?.let { audioFxController.attach(it.audioSessionId) }
+        audioFxController.attach(playback.player.audioSessionId)
         settings.refreshAudioFx()
         if (alreadyLoaded) onTrackChanged()
     }

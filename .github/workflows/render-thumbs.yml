@@ -1,0 +1,171 @@
+name: Render style thumbnails
+
+# Renders the pre-baked style thumbnails (app/src/main/assets/thumbs/<styleId>.webp) on the
+# emulator and opens a bot PR with them. Manual only: thumbnails change when a style's look
+# changes, which is a judgement call, not something every push should redo.
+#
+# The renderer is the instrumented test dev.geode.thumbs.StyleThumbnailRenderTest, which is
+# skipped unless the instrumentation argument thumbs=1 is set (so the normal emulator job in
+# android.yml never runs it). It writes through TestStorage; AGP pulls that into
+# connected_android_test_additional_output/, and the script below also pulls the device folder
+# directly in case it does not.
+
+on:
+  workflow_dispatch:
+    inputs:
+      base:
+        description: "Branch to render from and open the PR into"
+        default: claude/geode-finish
+        required: true
+      ids:
+        description: "Optional comma-separated style ids to render (empty = every style)"
+        default: ""
+        required: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: render-thumbs-${{ inputs.base }}
+  cancel-in-progress: false
+
+jobs:
+  render:
+    name: Render thumbnails (emulator)
+    runs-on: ubuntu-latest
+    # ~237 styles x ~60 software-rendered frames each; the emulator has no GPU.
+    timeout-minutes: 300
+
+    steps:
+      - name: Check out base branch
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.base }}
+          # third_party/* are submodules; the root CMakeLists.txt builds them.
+          submodules: recursive
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+
+      - name: Install Android SDK 36, NDK and CMake
+        shell: bash
+        # Same packages as android.yml's build job: libgeode.so is compiled from source.
+        run: |
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:?Android SDK location not set on runner}}"
+          SDKMANAGER="$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" \
+            "platform-tools" \
+            "platforms;android-36" \
+            "build-tools;36.0.0" \
+            "ndk;28.0.13004108" \
+            "cmake;3.22.1"
+
+      - name: Enable KVM for the emulator
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Render on the emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        env:
+          THUMBS_ONLY: ${{ inputs.ids }}
+        with:
+          api-level: 30
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          working-directory: .
+          # Each line runs on its own and a failing line ends the script, so the Gradle exit
+          # status is recorded instead and checked after the device folder has been pulled.
+          script: |
+            chmod +x gradlew
+            ./gradlew :app:connectedDebugAndroidTest --stacktrace --no-daemon -Pandroid.testInstrumentationRunnerArguments.class=dev.geode.thumbs.StyleThumbnailRenderTest -Pandroid.testInstrumentationRunnerArguments.thumbs=1 -Pandroid.testInstrumentationRunnerArguments.useTestStorageService=true ${THUMBS_ONLY:+-Pandroid.testInstrumentationRunnerArguments.thumbsOnly=$THUMBS_ONLY} || echo failed > thumbs-test-status
+            mkdir -p device-output && adb pull /sdcard/googletest/test_outputfiles device-output/ || true
+
+      - name: Collect thumbnails
+        id: collect
+        shell: bash
+        run: |
+          mkdir -p app/src/main/assets/thumbs thumbs-out
+          # Whichever route delivered them; the newest copy of a name wins.
+          find app/build/outputs/connected_android_test_additional_output device-output \
+            \( -name '*.webp' -o -name 'failures.txt' \) -type f 2>/dev/null \
+            | while read -r f; do cp "$f" thumbs-out/; done
+          count=$(find thumbs-out -name '*.webp' | wc -l)
+          echo "count=$count" >> "$GITHUB_OUTPUT"
+          echo "Collected $count thumbnails"
+          if [ -f thumbs-out/failures.txt ]; then cat thumbs-out/failures.txt; fi
+          cp thumbs-out/*.webp app/src/main/assets/thumbs/ 2>/dev/null || true
+          du -sh app/src/main/assets/thumbs
+
+      - name: Upload thumbnails and reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: geode-style-thumbs-${{ github.run_id }}
+          path: |
+            thumbs-out/
+            app/build/reports/androidTests/
+            app/build/outputs/androidTest-results/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Fail if the render failed
+        run: |
+          if [ -f thumbs-test-status ]; then
+            echo "::error::StyleThumbnailRenderTest failed (too many styles, or the run crashed); no PR opened."
+            exit 1
+          fi
+          if [ "${{ steps.collect.outputs.count }}" = "0" ]; then
+            echo "::error::No thumbnails were collected; no PR opened."
+            exit 1
+          fi
+
+      - name: Commit to a bot branch and open a PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE: ${{ inputs.base }}
+          COUNT: ${{ steps.collect.outputs.count }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          branch="bot/style-thumbs-${{ github.run_id }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          git add app/src/main/assets/thumbs/*.webp
+          if git diff --cached --quiet; then
+            echo "Thumbnails are unchanged; nothing to open."
+            exit 0
+          fi
+          git commit -m "Style thumbnails: render $COUNT on the emulator" -m "Rendered by $RUN_URL"
+          git push -u origin "$branch"
+          {
+            echo "Style thumbnails rendered on the CI emulator by [render-thumbs]($RUN_URL) from \`$BASE\`."
+            echo
+            echo "- $COUNT WebP files in \`app/src/main/assets/thumbs/\` (256x256, lossy q75)."
+            echo "- APK size: $(du -sh app/src/main/assets/thumbs | cut -f1) of assets."
+            echo
+            echo "Render report:"
+            echo
+            echo '```'
+            cat thumbs-out/failures.txt 2>/dev/null || echo "(no report)"
+            echo '```'
+            echo
+            echo "Note: this PR was opened with GITHUB_TOKEN, so it does not trigger CI on its own."
+            echo "Close and reopen it, or push an empty commit, to run android.yml before merging."
+          } > pr-body.md
+          gh pr create --base "$BASE" --head "$branch" \
+            --title "Style thumbnails (render ${{ github.run_id }})" \
+            --body-file pr-body.md

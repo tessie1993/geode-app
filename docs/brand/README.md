@@ -4,23 +4,29 @@ The mark is an eye made of sound: spectrum bars (waveform) inside a rippling osc
 around a twisted-hexagon vortex iris (fractal). The palette is the old neon purple, on brand night
 `#0E0620`. Chosen on 2026-10-30 from three directions and four hybrids ("H4, all three").
 
-Two sources, each used where it is strongest:
+Since 2026-11-01 the neon render (`flow/icon-neon.jpg`, the owner's art) is the face of the app.
+The vector stays wherever a single flat colour is needed:
 
 | Where | Source | File |
 |---|---|---|
-| Launcher icon, themed icon, status-bar icon, splash animation | Vector, `tools/brand_assets.py` | `app/src/main/res/drawable/ic_launcher_*`, `ic_stat_muzviz`, `avd_splash` |
-| Vector masters | Vector, `tools/brand_assets.py` | `muzviz-icon.svg` (with background), `muzviz-mark.svg` (transparent), `muzviz-monochrome.svg`, `muzviz-lockup.svg` |
-| Play Store icon, 512×512 32-bit PNG | Google Flow render | `muzviz-icon-512.png`, from `flow/icon-art.jpg` |
+| Launcher icon foreground (all densities), system splash, BootIntro's first frame | Neon render, `tools/brand_raster.sh` | `res/drawable-*dpi/ic_launcher_foreground.webp`, `res/drawable-nodpi/splash_mark.webp` |
+| Splash video (silent, 4.5 s cut of the owner's 10 s clip) | `tools/brand_raster.sh <source.mp4>` | `res/raw/splash_intro.mp4` |
+| Play Store icon, 512×512 32-bit PNG | Neon render | `muzviz-icon-512.png` |
+| Launcher background layer (hidden under the opaque foreground), themed icon, status-bar icon | Vector, `tools/brand_assets.py` | `res/drawable/ic_launcher_background.xml`, `ic_launcher_monochrome.xml`, `ic_stat_muzviz.xml` |
+| Vector masters | Vector, `tools/brand_assets.py` | `muzviz-icon.svg`, `muzviz-mark.svg`, `muzviz-monochrome.svg`, `muzviz-lockup.svg` |
 | Play feature graphic, 1024×500 | Google Flow banner + our outlined wordmark | `muzviz-feature-graphic.svg` → `muzviz-feature-graphic-1024x500.png` |
 
-The app keeps the vector: it stays crisp at 40 px, has a one-colour themed form, and the splash
-can animate its parts. The store gets the neon render, which shows off the glow at 512 px.
+The raster icon puts the render at 75% of the canvas on brand void (`#06050B`, the render's own
+background), with a wide feather. The eye then fits the adaptive icon's 72dp visible area and the
+splash's 192dp circle, and no edge shows on either. The themed icon (Android 13+) keeps the
+vector silhouette: the system tints it one colour, which a photo-like render can't survive.
 
 ## Palette
 
 | Name | Hex | Use |
 |---|---|---|
-| Night | `#0E0620` | Icon background edge, splash background (`@color/brand_night`) |
+| Night | `#0E0620` | App backgrounds (`@color/brand_night`) |
+| Void | `#06050B` | Splash, BootIntro and the raster icon's edge (`@color/brand_void`) |
 | Night lift | `#1F1145` | Icon background centre |
 | Violet | `#7C4DFF` | Bar ends |
 | Violet light | `#9C6BFF` | Iris rim |
@@ -35,7 +41,8 @@ emboldened with a matching stroke, so no font ships and none needs to be install
 ## Regenerating
 
 ```bash
-python tools/brand_assets.py
+python tools/brand_assets.py      # vectors
+tools/brand_raster.sh [clip.mp4]   # icon, splash art, Play icon; with a clip, the splash video
 ```
 
 Then the PNG exports, with headless Chrome (run from `docs/brand/`):
@@ -44,7 +51,7 @@ Then the PNG exports, with headless Chrome (run from `docs/brand/`):
 chrome --headless=new --hide-scrollbars --allow-file-access-from-files --window-size=1024,500 --screenshot=muzviz-feature-graphic-1024x500.png muzviz-feature-graphic.svg
 ```
 
-`muzviz-icon-512.png` is `flow/icon-art.jpg` resized to 512 with Lanczos and saved as RGBA.
+`muzviz-icon-512.png` is `flow/icon-neon.jpg` resized to 512 and saved as RGBA by `tools/brand_raster.sh`. `flow/icon-art.jpg` is the earlier Flow render, kept for the record.
 
 ## Flow prompts
 

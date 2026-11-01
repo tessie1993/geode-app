@@ -5,11 +5,11 @@ import dev.geode.render.scene.ParamScope
 enum class LfoWave(
     val label: String,
 ) {
-    SINE("Sin"),
-    TRIANGLE("Tri"),
+    SINE("Sine"),
+    TRIANGLE("Triangle"),
     SAW("Saw"),
-    SQUARE("Sqr"),
-    RANDOM("S&H"),
+    SQUARE("Square"),
+    RANDOM("Random steps"),
 }
 
 /**
@@ -23,13 +23,13 @@ enum class LfoWave(
 enum class ModSource(
     val label: String,
 ) {
-    LFO("LFO"),
+    LFO("Steady wave"),
     BASS("Bass band"),
     MID("Mid band"),
     TREBLE("Treble band"),
     LEVEL("Level"),
     BRIGHTNESS("Brightness"),
-    TRANSIENT("Transient"),
+    TRANSIENT("Note starts"),
     STEREO_WIDTH("Stereo width"),
     STEREO_PAN("L/R movement"),
 }
@@ -37,9 +37,9 @@ enum class ModSource(
 enum class ModPolarity(
     val label: String,
 ) {
-    BIPOLAR("Bipolar"),
-    POSITIVE("Positive"),
-    NEGATIVE("Negative"),
+    BIPOLAR("Both ways"),
+    POSITIVE("Up only"),
+    NEGATIVE("Down only"),
 }
 
 enum class ModCurve(
@@ -107,12 +107,12 @@ enum class LfoTarget(
     FLOW_STRENGTH("Flow strength", ParamScope.UNIVERSAL),
     WATER_RIPPLE("Ripple amp", ParamScope.WATER),
     RIPPLE_OVERLAY("Ripple ovl", ParamScope.RIPPLE_OVERLAY),
-    LFO1_RATE("Slot 1 rate", ParamScope.UNIVERSAL, ModChain(0, ModChainField.RATE)),
-    LFO1_DEPTH("Slot 1 depth", ParamScope.UNIVERSAL, ModChain(0, ModChainField.DEPTH)),
-    LFO2_RATE("Slot 2 rate", ParamScope.UNIVERSAL, ModChain(1, ModChainField.RATE)),
-    LFO2_DEPTH("Slot 2 depth", ParamScope.UNIVERSAL, ModChain(1, ModChainField.DEPTH)),
-    LFO3_RATE("Slot 3 rate", ParamScope.UNIVERSAL, ModChain(2, ModChainField.RATE)),
-    LFO3_DEPTH("Slot 3 depth", ParamScope.UNIVERSAL, ModChain(2, ModChainField.DEPTH)),
+    LFO1_RATE("Wave 1 speed", ParamScope.UNIVERSAL, ModChain(0, ModChainField.RATE)),
+    LFO1_DEPTH("Wave 1 depth", ParamScope.UNIVERSAL, ModChain(0, ModChainField.DEPTH)),
+    LFO2_RATE("Wave 2 speed", ParamScope.UNIVERSAL, ModChain(1, ModChainField.RATE)),
+    LFO2_DEPTH("Wave 2 depth", ParamScope.UNIVERSAL, ModChain(1, ModChainField.DEPTH)),
+    LFO3_RATE("Wave 3 speed", ParamScope.UNIVERSAL, ModChain(2, ModChainField.RATE)),
+    LFO3_DEPTH("Wave 3 depth", ParamScope.UNIVERSAL, ModChain(2, ModChainField.DEPTH)),
 
     // The camera rig's offsets (core/viz/CameraRig). Every family is viewed through the rig,
     // directly or through the composite's flat projection, so all of these are universal.

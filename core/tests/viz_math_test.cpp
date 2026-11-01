@@ -13,6 +13,7 @@
 #include "viz/MotionField.hpp"
 #include "viz/ReactionDna.hpp"
 #include "viz/Reactions.hpp"
+#include "viz/ScenePrep.hpp"
 
 using namespace geode::viz;
 
@@ -95,7 +96,7 @@ void triggersHoldAndSilenceIsQuiet() {
 }
 
 void sourcesReadTheirFieldsInRange() {
-    static_assert(kReactSourceCount == 88, "dev.geode.render.ReactSource has 88 entries");
+    static_assert(kReactSourceCount == 117, "dev.geode.render.ReactSource has 117 entries");
     ReactSignals s;
     GeodeSoundFrame f = silence();
     f.bass = 1.0f;
@@ -523,7 +524,7 @@ void motionFieldVariantsDiffer() {
 }
 void sourceCatalogueIsCompleteAndUnique() {
     std::set<std::string> names;
-    const std::set<std::string> groups = {"LEVELS", "DRUMS", "EVENTS", "MELODY", "CLOCKS", "TEXTURE", "EQ"};
+    const std::set<std::string> groups = {"LEVELS", "DRUMS", "EVENTS", "MELODY", "CLOCKS", "TEXTURE", "EQ", "RHYTHM", "HARMONY", "FORM"};
     for (int i = 0; i < kReactSourceCount; ++i) {
         const ReactSourceInfo& s = reactSourceInfo(static_cast<ReactSource>(i));
         check(s.name != nullptr && s.label != nullptr && s.name[0] != '\0' && s.label[0] != '\0', "every source has a name and a label");
@@ -625,6 +626,87 @@ void startersAreNamedAndInRange() {
     check(macros::starters()[0].knobs == MacroKnobs{}, "the first starter is As styled");
 }
 
+void buildBudgetBoundsAFrame() {
+    BuildBudget b;
+    b.begin(10.0);
+    check(b.allows(10.5, true), "the first piece goes even when the frame is already late");
+    b.spend(true);
+    check(!b.allows(10.0, true), "a second blocking compile waits for the next frame");
+    check(!b.allows(10.5, false), "nothing more goes once the frame's slice is spent");
+    b.begin(20.0);
+    b.spend(false);
+    check(b.allows(20.0 + BuildBudget::kFrameSeconds * 0.5, false), "cheap work goes on inside the slice");
+    check(b.allows(20.0 + BuildBudget::kFrameSeconds * 0.5, true), "one blocking compile may follow cheap work in the slice");
+    check(!b.allows(20.0 + BuildBudget::kFrameSeconds * 1.5, false), "nothing goes past the slice");
+    b.begin(30.0);
+    check(b.pieces() == 0 && b.allows(30.0, true), "a new frame starts a new budget");
+}
+
+void scenePrepRetargetsAndCaps() {
+    ScenePrep prep;
+    check(!prep.active(), "nothing is prepared at first");
+    check(prep.retarget("silk_web"), "a new scene is a new target");
+    check(!prep.retarget("silk_web"), "asking again for the same scene keeps its progress");
+    check(prep.next(false) == ScenePrep::Step::Wait, "a busy stager makes the frame wait");
+    check(prep.attempts() == 0, "waiting is not an attempt");
+    check(prep.next(true) == ScenePrep::Step::Attempt, "an idle stager makes the frame attempt the build");
+    check(prep.attempts() == 1, "the attempt is counted");
+    check(prep.retarget("fluid"), "another scene restarts preparation");
+    check(prep.attempts() == 0 && prep.target() == "fluid", "the new target starts with no attempts");
+    for (int i = 0; i < ScenePrep::kMaxAttempts; ++i) check(prep.next(true) == ScenePrep::Step::Attempt, "attempts up to the cap");
+    check(prep.next(true) == ScenePrep::Step::Block, "a scene that keeps deferring is built inline");
+    check(prep.next(false) == ScenePrep::Step::Block, "blocking wins over waiting once capped");
+    prep.done();
+    check(!prep.active() && prep.retarget("fluid"), "a finished target is forgotten");
+}
+
+// The renderer's staged protocol against a stand-in stager: the first attempt discovers the scene's
+// programs, waits compile one per frame, and the attempt after the stager goes idle succeeds.
+void stagedBuildFinishesInBoundedFrames() {
+    constexpr int kPrograms = 5;
+    ScenePrep prep;
+    int queued = 0;
+    int compiled = 0;
+    bool discovered = false;
+    bool built = false;
+    int frames = 0;
+    int mostCompilesInAFrame = 0;
+    while (!built && frames < 100) {
+        ++frames;
+        int compilesThisFrame = 0;
+        prep.retarget("silk_web");
+        switch (prep.next(queued == 0)) {
+            case ScenePrep::Step::Wait: {
+                BuildBudget budget;
+                budget.begin(0.0);
+                while (queued > 0 && budget.allows(0.0, true)) {
+                    budget.spend(true);
+                    --queued;
+                    ++compiled;
+                    ++compilesThisFrame;
+                }
+                break;
+            }
+            case ScenePrep::Step::Attempt:
+                if (!discovered) {
+                    discovered = true;
+                    queued = kPrograms;
+                } else {
+                    built = compiled == kPrograms;
+                }
+                break;
+            case ScenePrep::Step::Block:
+                built = true;
+                break;
+        }
+        if (compilesThisFrame > mostCompilesInAFrame) mostCompilesInAFrame = compilesThisFrame;
+    }
+    check(built, "the staged scene gets built");
+    check(frames == kPrograms + 2, "one discovery frame, one frame per program, one frame to assemble");
+    check(prep.attempts() == 2, "two attempts: discover, then assemble");
+    check(mostCompilesInAFrame == 1, "no frame compiles more than one program without the parallel extension");
+}
+
 }  // namespace
 
 int main() {
@@ -661,6 +743,9 @@ int main() {
     chaosDownStopsCameraCuts();
     surpriseIsSeededAndKeepsLocks();
     startersAreNamedAndInRange();
+    buildBudgetBoundsAFrame();
+    scenePrepRetargetsAndCaps();
+    stagedBuildFinishesInBoundedFrames();
     if (failures == 0) std::printf("viz_math_test: all passed\n");
     return failures == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
 }

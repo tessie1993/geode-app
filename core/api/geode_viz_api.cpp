@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "api/geode_api.h"
+#include "viz/Director.hpp"
 #include "viz/Macros.hpp"
 #include "viz/ReactionDna.hpp"
 #include "viz/Renderer.hpp"
@@ -246,6 +247,8 @@ int geode_react_source_catalog(char* out, int capacity) {
 
 void geode_macros_set(const float* knobs, int count) { macros::setGlobal(macros::clamped(knobs, count)); }
 
+void geode_director_set(float amount, long long seed) { director::setGlobal(amount, static_cast<uint64_t>(seed)); }
+
 void geode_macros_surprise(const float* knobs, int count, unsigned lock_mask, long long seed, float* out) {
     if (!out) return;
     const MacroKnobs k = macros::surprise(macros::clamped(knobs, count), lock_mask, static_cast<uint64_t>(seed));
@@ -311,6 +314,8 @@ void geode_viz_set_quality(geode_viz* v, float render_scale, float march_scale, 
 
 void geode_viz_set_offscreen(geode_viz* v, int on) {
     if (!v) return;
+    // An export never shows a half-built scene: each one is built whole on the frame that asks for it.
+    v->renderer.setBlockingBuilds(on != 0);
     if (on) {
         v->renderer.thermal().beginOffscreenRender();
     } else {

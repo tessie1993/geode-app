@@ -112,7 +112,7 @@ internal fun MacrosTab(
                 InputChip(
                     selected = sameKnobs(p.knobs, state.knobs),
                     onClick = { store.setKnobs(p.knobs) },
-                    label = { Text(p.name, style = MaterialTheme.typography.labelSmall) },
+                    label = { Text(p.name, style = MaterialTheme.typography.labelLarge) },
                     trailingIcon = {
                         Text(
                             "×",
@@ -155,7 +155,7 @@ private fun PresetChip(
     FilterChip(
         selected = sameKnobs(preset.knobs, state.knobs),
         onClick = { store.setKnobs(preset.knobs) },
-        label = { Text(preset.name, style = MaterialTheme.typography.labelSmall) },
+        label = { Text(preset.name, style = MaterialTheme.typography.labelLarge) },
     )
 }
 
@@ -224,17 +224,17 @@ private fun MacroKnob(
             if (locked) Icon(Icons.Filled.Lock, contentDescription = null, modifier = Modifier.size(16.dp))
         }
         Text(title, style = MaterialTheme.typography.labelLarge)
-        Text(text, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(
             hint,
-            style = MaterialTheme.typography.labelSmall,
+            style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
-            modifier = Modifier.height(32.dp),
+            modifier = Modifier.height(36.dp),
         )
         if (abs(value) >= KNOB_EPSILON) {
             TextButton(onClick = { onSet(0f) }, modifier = Modifier.semantics { contentDescription = "Reset $title" }) {
-                Text("Reset", style = MaterialTheme.typography.labelSmall)
+                Text("Reset", style = MaterialTheme.typography.labelLarge)
             }
         }
     }

@@ -1,0 +1,83 @@
+package dev.geode.data
+
+import android.content.Context
+import android.content.SharedPreferences
+import dev.geode.engine.bridge.GeodeNative
+import dev.geode.pro.AutoDirectorPolicy
+import dev.geode.pro.FeatureGate
+import dev.geode.util.bestEffort
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlin.random.Random
+
+/**
+ * The auto-director's switch (Settings › Behaviour) and the play it is directing.
+ *
+ * The work is native (core/viz/Director): the music's feeling decides palette, behaviour and routing over
+ * every style. This store only tells the engine how much to drive (the switch, cut to the free taste by
+ * [AutoDirectorPolicy]) and which play it is: each new track gets a new seed, so a replay is a new film
+ * of the same feeling, and an export started now reads the same seed. Like the macros the configuration
+ * is process-wide, so the screen, exports, the wallpaper and the dream all follow it; [GeodeApp] creates
+ * the store at start, so a wallpaper that starts before the app does still sees the switch.
+ *
+ * Called on the main thread (the settings screen and [dev.geode.playback.AutoDirectorFeed]).
+ */
+class AutoDirectorStore private constructor(
+    private val prefs: SharedPreferences,
+) {
+    private val _enabled = MutableStateFlow(prefs.getBoolean(KEY_ENABLED, false))
+    val enabled: StateFlow<Boolean> = _enabled
+
+    private var seed = Random.nextLong()
+    private var gate = FeatureGate.FREE
+    private var positionMs = 0L
+    private var pushed: Pair<Float, Long>? = null
+
+    init {
+        push()
+    }
+
+    fun setEnabled(on: Boolean) {
+        _enabled.value = on
+        prefs.edit().putBoolean(KEY_ENABLED, on).apply()
+        push()
+    }
+
+    /** A new track (or the same one again): a new seed, so the director starts the song afresh. */
+    fun newPlay(gate: FeatureGate) {
+        seed = Random.nextLong()
+        this.gate = gate
+        positionMs = 0L
+        push()
+    }
+
+    /** Where playback is, for the free taste; pushes only when the amount changes. */
+    fun onPosition(
+        positionMs: Long,
+        gate: FeatureGate,
+    ) {
+        this.positionMs = positionMs
+        this.gate = gate
+        push()
+    }
+
+    private fun push() {
+        val amount = AutoDirectorPolicy.amount(_enabled.value, gate, positionMs)
+        val next = amount to seed
+        if (next == pushed) return
+        pushed = next
+        bestEffort(TAG, "push director") { GeodeNative.directorSet(amount, seed) }
+    }
+
+    companion object {
+        private const val TAG = "AutoDirectorStore"
+        private const val KEY_ENABLED = "auto_director_enabled"
+
+        @Volatile private var instance: AutoDirectorStore? = null
+
+        fun get(context: Context): AutoDirectorStore =
+            instance ?: synchronized(this) {
+                instance ?: AutoDirectorStore(GeodePrefsFiles(context.applicationContext).general).also { instance = it }
+            }
+    }
+}

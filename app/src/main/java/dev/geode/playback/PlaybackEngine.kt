@@ -110,6 +110,8 @@ class PlaybackSession internal constructor(
 
     val sleepTimer = SleepTimer(player, scope)
 
+    private val autoDirector = AutoDirectorFeed(context.applicationContext, player, scope)
+
     /**
      * The rate of whichever source writes [sampleRing] right now: the tap's format when nothing else
      * claims it, otherwise what the UI session's capture controller sets (mic, other apps' audio, or
@@ -123,6 +125,7 @@ class PlaybackSession internal constructor(
 
     init {
         player.addListener(replayGain)
+        player.addListener(autoDirector)
         dev.geode.audio.AudioBus.soundInput = soundInput
         // The saved options go on here, not only when the UI attaches: a session the service starts
         // alone (a headset button, Android Auto or System UI resuming playback) has no PlayerSession,
@@ -155,6 +158,8 @@ class PlaybackSession internal constructor(
         onAudioFormat = null
         audioFx.release()
         player.removeListener(replayGain)
+        player.removeListener(autoDirector)
+        autoDirector.release()
         bitPerfect.setEnabled(false, player)
         player.release()
         dsp.release()

@@ -221,6 +221,10 @@ class PlayerViewModel
 
         fun selectScene(sceneId: String) = session.selectScene(sceneId)
 
+        fun previewScene(sceneId: String) = session.previewScene(sceneId)
+
+        fun cancelScenePreview() = session.cancelScenePreview()
+
         fun setReactivity(
             attack: Float,
             decay: Float,

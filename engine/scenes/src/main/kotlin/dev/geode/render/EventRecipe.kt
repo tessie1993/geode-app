@@ -218,6 +218,29 @@ enum class EventRecipe(
             spin(ReactSource.MID_TIME, LfoTarget.ROTATION, 0.1f),
         ),
     ),
+    BAR_TURN(
+        "Turn on the bar",
+        "On the first beat of every bar, turn the view",
+        listOf(step(ReactSource.DOWNBEAT, LfoTarget.CAM_YAW, 0.25f, 0.6f)),
+    ),
+    SCALE_MOOD(
+        "Scale mood",
+        "Bright scales lift the light, tense scales stir the picture",
+        listOf(
+            follow(ReactSource.SCALE_BRIGHTNESS, LfoTarget.BRIGHTNESS, 0.15f, 1f, 1f),
+            follow(ReactSource.SCALE_TENSION, LfoTarget.TURBULENCE, 0.3f, 1f, 1f),
+            follow(ReactSource.KEY_HUE, LfoTarget.COLOR_SHIFT, 0.5f, 1.5f, 1.5f),
+        ),
+    ),
+    BUILD_AND_DROP(
+        "Build and drop",
+        "Speed up through the build, burst on the drop",
+        listOf(
+            follow(ReactSource.BUILD_UP, LfoTarget.SPEED, 0.5f, 0.5f, 0.5f),
+            follow(ReactSource.DROP, LfoTarget.BLOOM, 0.7f, 0.02f, 2f),
+            follow(ReactSource.DROP, LfoTarget.CAM_PUSH, 0.6f, 0.02f, 1.5f),
+        ),
+    ),
     ;
 
     /** This recipe's routes that the style [sceneId] can actually show. */

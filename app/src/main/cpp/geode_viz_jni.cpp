@@ -179,6 +179,11 @@ Java_dev_geode_engine_bridge_GeodeNative_macrosSet(JNIEnv* env, jobject, jfloatA
     geode_macros_set(k, n);
 }
 
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_directorSet(JNIEnv*, jobject, jfloat amount, jlong seed) {
+    geode_director_set(amount, static_cast<long long>(seed));
+}
+
 JNIEXPORT jfloatArray JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_macrosSurprise(JNIEnv* env, jobject, jfloatArray knobs, jint lockMask, jlong seed) {
     const jsize n = knobs ? std::min<jsize>(env->GetArrayLength(knobs), 16) : 0;

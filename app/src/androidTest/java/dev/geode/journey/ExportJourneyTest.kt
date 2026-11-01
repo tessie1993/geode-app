@@ -16,7 +16,7 @@ import org.junit.rules.RuleChain
 import org.junit.runner.RunWith
 
 /**
- * QA #18 (docs/qa/emulator-pass-2026-10-30.md): on a phone the old Export dialog's options pushed
+ * QA #18: on a phone the old Export dialog's options pushed
  * its Start button below the dialog's edge, so a render could not be started. Studio › Render is
  * now one page whose options scroll above a pinned RenderBar; this checks the bar's Render button
  * is on screen. It does not start a render: with nothing playing the button is disabled, and a

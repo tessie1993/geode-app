@@ -41,8 +41,8 @@ class PaywallJourneyTest {
      */
     private fun tapLockedStyle() {
         compose.tap("Styles")
-        compose.tap("Silk")
-        compose.tap("Halvorsen Web")
+        compose.tap("Arbor")
+        compose.tap("Arbor Willow")
         compose.tap("Unlock with Pro")
     }
 

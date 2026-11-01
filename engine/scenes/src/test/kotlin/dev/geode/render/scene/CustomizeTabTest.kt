@@ -1,0 +1,63 @@
+package dev.geode.render.scene
+
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+/** Which page rolls and resets which control, held against a slice of the engine's roll table. */
+class CustomizeTabTest {
+    private val rollKeys =
+        listOf(
+            "MOTION" to ParamKeys.SPEED,
+            "MOTION" to ParamKeys.CAM_FLY,
+            "MOTION" to ParamKeys.ENDLESS_ZOOM,
+            "MOTION" to ParamKeys.TURBULENCE,
+            "COLOR" to ParamKeys.PALETTE,
+            "FX" to ParamKeys.VIGNETTE,
+            "SHAPE" to ParamKeys.KALEIDOSCOPE,
+            "FLUID" to ParamKeys.FLUID_CURL,
+            "FLUID" to ParamKeys.FLOW_STRENGTH,
+            "CYMATICS" to ParamKeys.GEOMETRY,
+            "REACTIVITY" to ParamKeys.AUDIO_DRIVE,
+        )
+
+    @Test
+    fun thePanelShowsFivePagesSimpleFirstAdvancedLast() {
+        assertEquals(
+            listOf(CustomizeTab.MACROS, CustomizeTab.LOOK, CustomizeTab.STYLE, CustomizeTab.EVENTS, CustomizeTab.ADVANCED),
+            CustomizeTab.PANEL,
+        )
+    }
+
+    @Test
+    fun everyRolledControlBelongsToExactlyOnePage() {
+        val owners = CustomizeTab.PANEL.associateWith { it.ownedKeys(rollKeys) }
+        rollKeys.forEach { (_, key) ->
+            assertEquals(key, 1, owners.values.count { key in it })
+        }
+    }
+
+    @Test
+    fun pagesHandOffTheControlsTheyDoNotShow() {
+        assertEquals(setOf(ParamKeys.SPEED, ParamKeys.PALETTE, ParamKeys.VIGNETTE), CustomizeTab.LOOK.ownedKeys(rollKeys))
+        assertEquals(
+            setOf(ParamKeys.ENDLESS_ZOOM, ParamKeys.TURBULENCE, ParamKeys.KALEIDOSCOPE, ParamKeys.FLUID_CURL, ParamKeys.GEOMETRY),
+            CustomizeTab.STYLE.ownedKeys(rollKeys),
+        )
+        assertEquals(
+            setOf(ParamKeys.CAM_FLY, ParamKeys.FLOW_STRENGTH, ParamKeys.AUDIO_DRIVE),
+            CustomizeTab.ADVANCED.ownedKeys(rollKeys),
+        )
+        assertTrue(CustomizeTab.MACROS.ownedKeys(rollKeys).isEmpty())
+        assertTrue(CustomizeTab.EVENTS.ownedKeys(rollKeys).isEmpty())
+    }
+
+    @Test
+    fun engineGroupsKeepTheirNames() {
+        // core/viz/ParamRandomizer and saved locks name these.
+        listOf("SHAPE", "COLOR", "MOTION", "FX", "REACTIVITY", "SCENE", "FLUID", "CYMATICS").forEach { name ->
+            val group = CustomizeTab.valueOf(name)
+            assertEquals(listOf(group), group.groups)
+        }
+    }
+}

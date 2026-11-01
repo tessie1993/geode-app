@@ -84,7 +84,18 @@ The full set of tunable values a scene is drawn with at one moment.
 _Avoid_: Settings, knobs
 
 **Customize tabs**:
-The groups the scene params are edited in: Events first, then the detail tabs (Shape, Colour, Motion, FX, Reactivity, Scene) and the per-family tabs.
+The pages the scene params are edited in, simple first: Macros, Look (what every style shares), the style's own page (titled with its name), Events, then Advanced. The engine still rolls and resets by its own groups (Shape, Colour, Motion, Effects, Sound response, Scene, Fluid, Cymatics).
+
+**Advanced section**:
+One card in Customize › Advanced (Sound response, Reactions, Layers, Camera, Transitions, Gradient maker, Flow field & water ripples, Shader code), opening its own page. All Pro.
+
+**Wave**:
+One of the three modulation slots: an LFO that runs steadily or follows a sound, moving one control.
+_Avoid_: Slot, LFO (in the UI)
+
+**Keep when shuffling**:
+The per-control lock that holds a control still when Randomize rolls its page.
+_Avoid_: Lock (that word belongs to Pro)
 
 **Reaction route**:
 One line of the reaction matrix: a sound (band, level or event) moves one scene param, by following, stepping, spinning or jumping.

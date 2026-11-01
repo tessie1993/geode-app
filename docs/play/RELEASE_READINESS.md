@@ -1,7 +1,7 @@
 # Play release readiness (2026-10-30)
 
 A pass over what stands between `claude/geode-finish` and a production release. It
-builds on [POLICY_AUDIT.md](POLICY_AUDIT.md) (play-policy-insights, compliant) and adds
+builds on a play-policy-insights audit (compliant) and adds
 the `android-permissions-security` and `android-intent-security` checks on the manifest.
 R8 keep rules are covered by a separate analysis and are not repeated here.
 
@@ -38,7 +38,7 @@ out of the merged manifest by a CI check, every foreground service has a type, e
 
 | # | Finding | Where |
 |---|---|---|
-| N1 | Live input keeps its `AudioRecord` thread open while the app is in the background. On targetSdk 36 without a microphone FGS type the platform hands it silence, so nothing is heard, but the loop still runs. Pause on `ProcessLifecycleOwner` ON_STOP, resume on ON_START (already in POLICY_AUDIT.md). | `ui/CaptureController.kt` |
+| N1 | Live input keeps its `AudioRecord` thread open while the app is in the background. On targetSdk 36 without a microphone FGS type the platform hands it silence, so nothing is heard, but the loop still runs. Pause on `ProcessLifecycleOwner` ON_STOP, resume on ON_START. | `ui/CaptureController.kt` |
 | N2 | `NowPlayingWidgetReceiver` is exported for `APPWIDGET_UPDATE`, as Glance requires. Any app can send it an explicit update; the worst case is a redraw. Leave it. | Manifest |
 | N3 | The entitlement cache is in Auto Backup. Since 2026-11-01 a verified purchase stays owned offline with no expiry (Pro is removed only when Play answers "not owned"), and the signature is re-checked on every read, so a forged cache fails. A genuine cache restored to a device on a different Google account still reads "owned" until Play first answers; the foreground refresh corrects that within seconds when online, but a device kept offline stays Pro. Excluding the file would also drop the useful case (same account, offline). Accepted for now. | `billing/EntitlementStore.kt`, `res/xml/*backup*` |
 

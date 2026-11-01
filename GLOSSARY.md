@@ -203,7 +203,7 @@ _Avoid_: Screensaver (UI label only)
 The home-screen now-playing widget.
 
 **Musical layer**:
-The part of the sound engine that hears music rather than sound: tempo and beat (Rhythm), key, chords and scale (Harmony), and sections, build-ups and drops (Form). See `docs/research/musical-layer.md`.
+The part of the sound engine that hears music rather than sound: tempo and beat (Rhythm), key, chords and scale (Harmony), and sections, build-ups and drops (Form).
 
 **Beat phase / bar phase / phrase**:
 Where the music is within its beat, its 4-beat bar and its 8-bar phrase, 0 at the start, 1 at the end. A downbeat is the first beat of a bar.
@@ -220,7 +220,7 @@ The song part a section is read as: intro, verse, build, drop, breakdown or outr
 A build-up is a passage getting louder, brighter and busier with the bass pulled out; the drop is the bass coming back after it.
 
 **Feeling**:
-What the music feels like now: valence (sad … happy), energy and tension, and which of the nine GEMS feelings (wonder, transcendence, tenderness, nostalgia, peace, power, joy, tension, sadness) leads. Three quarters from the scale (measured), a quarter from the key (Schubart's tradition). Never shown as a word. See `docs/research/auto-director.md`.
+What the music feels like now: valence (sad … happy), energy and tension, and which of the nine GEMS feelings (wonder, transcendence, tenderness, nostalgia, peace, power, joy, tension, sadness) leads. Three quarters from the scale (measured), a quarter from the key (Schubart's tradition). Never shown as a word.
 _Avoid_: Mood label, emotion name
 
 **Auto-director**:

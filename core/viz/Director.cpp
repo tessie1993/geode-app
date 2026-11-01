@@ -30,7 +30,7 @@ constexpr std::array<float, Emotion::kGems> kAnchor = {
     0.63f,  // sadness: blue
 };
 
-// What reacts to what, per feeling: the archetypes of docs/research/auto-director.md, "Behaviour".
+// What reacts to what, per feeling archetype.
 struct Pick {
     ReactSource source;
     LfoTarget target;

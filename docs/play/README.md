@@ -11,7 +11,6 @@ answers it points to.
 | [STORE_LISTING.md](STORE_LISTING.md) | Title (≤30), short (≤80) and full description, category, tags |
 | [GRAPHICS.md](GRAPHICS.md) | Icon, feature graphic spec, the screenshot list |
 | [DATA_SAFETY.md](DATA_SAFETY.md) | Data safety form answers, derived from the merged manifest and the code |
-| [POLICY_AUDIT.md](POLICY_AUDIT.md) | Automated Play policy audit of the code (play-policy-insights, 2026-10-30): compliant, two suggestions |
 | [RELEASE_READINESS.md](RELEASE_READINESS.md) | What still blocks a production release, ranked, plus the manifest and intent security pass |
 | [R8_KEEP_RULES.md](R8_KEEP_RULES.md) | R8 keep-rule audit of the release build (r8-analyzer, 2026-10-30): four rules to drop or narrow, two duplicates |
 | [CONTENT_RATING.md](CONTENT_RATING.md) | IARC questionnaire answers, target audience, photosensitivity warning |

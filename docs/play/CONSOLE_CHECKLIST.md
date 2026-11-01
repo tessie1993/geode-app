@@ -13,6 +13,21 @@ App: **MuzViz Studio Pro**, package **`com.muzviz.studiopro`**, versionCode 33 /
       access (step 9). Start recruiting testers now. Organisation accounts are exempt.
 - [ ] Set up a **payments profile** (Monetize with Play > Monetization setup / Payments
       profile). You need it before you can create the paid product in step 5.
+- [ ] **Android developer verification** (Play Console > Android developer verification):
+      confirm the account's identity shows as verified and register the package
+      `com.muzviz.studiopro` with its upload-key and app-signing certificates. From 2026,
+      certified devices in Brazil, Indonesia, Singapore and Thailand (more countries
+      through 2027) refuse apps from unregistered developers. The Play build is covered by
+      this; the debug APKs on GitHub releases are sideloaded, so register their package
+      and the committed `app/debug.keystore` certificate too, or stop sharing them there.
+- [ ] **Trader status** (Settings > Developer account > Account details): declare that
+      you are a **trader** under the EU Digital Services Act (you sell `muzviz_pro`) and
+      verify the address, phone and email Play will show on the listing. From November
+      2026 apps without a declaration are removed from EU store listings.
+- [ ] **Japan** (only if Japan is in the countries list in step 9): accept the updated
+      Japan terms and authorise Google as seller of record for Japan by **2026-12-01**
+      (Mobile Software Competition Act). If you skip it, remove Japan from the countries
+      or Play removes it for you.
 
 ## 2. Create the app
 
@@ -75,15 +90,12 @@ sign uploads with an **upload key** you create and keep.
 
 ## 7. App content (Policy > App content)
 
-- [ ] **Privacy policy**: host `docs/privacy-policy.html` (or `.md`) at a public URL and
-      paste it. Options, all free:
-      - **GitHub Pages from this repo** (it's public): Settings > Pages > Deploy from
-        branch `main`, folder `/docs`. URL:
-        `https://tessie1993.github.io/geode-app/privacy-policy.html`.
-      - **Google Sites**: paste the text of `docs/privacy-policy.md` into a new site and
-        publish it.
-      - **A public GitHub Gist** of `docs/privacy-policy.md`.
-      - Your own domain.
+- [ ] **Privacy policy**: paste
+      `https://tessie1993.github.io/geode-app/privacy-policy.html`. It is published by
+      `.github/workflows/pages.yml` from `docs/privacy-policy.html` on every push to
+      `claude/geode-finish` or `main`. One-time setup: GitHub > Settings > Pages >
+      Source = **GitHub Actions** (and, to deploy from `main`, add it under Settings >
+      Environments > github-pages > Deployment branches). Open the URL before pasting it.
       It must be a live HTML page (not a PDF, not editable by others) and name the app.
       The app also shows the same text offline (Settings > About > Privacy policy) and the
       store description points there, but Play still requires this URL: the in-app copy
@@ -108,6 +120,10 @@ sign uploads with an **upload key** you create and keep.
       | `mediaProjection` | Visualize other apps | Captures audio another app is playing (with the system consent dialog) to animate the visuals; nothing is recorded or stored |
       | `mediaProcessing` | Video export (Android 15+) | Renders a music video (can take tens of minutes at 4K) while the user leaves the app |
       | `dataSync` | Video export (Android 14 and below) | The same render on versions without `mediaProcessing` |
+      `dataSync` stays declared (decided 2026-11-01): Android 14 requires a type for every
+      foreground service and `mediaProcessing` only exists from Android 15, so dropping it
+      would let Android 14 kill a background render. The service picks `mediaProcessing`
+      on 15+.
 - [ ] **Photosensitivity**: no console form, but keep the warning text from
       [CONTENT_RATING.md](CONTENT_RATING.md) in the listing.
 
@@ -133,6 +149,9 @@ sign uploads with an **upload key** you create and keep.
 - [ ] Dashboard > **Apply for production access** and answer the questions about the test.
 - [ ] Production > Create release > the AAB > **staged rollout** (start at 20%), and
       watch Android vitals (crash and ANR rate) before going to 100%.
+- [ ] **Memory** (from the closed test on): watch Android vitals for low-memory kills and
+      out-of-memory crashes. Play's technical-quality bar adds an excessive-memory
+      threshold in **February 2027**; apps above it get a listing warning.
 
 ## Release-day checks
 

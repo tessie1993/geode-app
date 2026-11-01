@@ -1,38 +1,30 @@
 package dev.geode.ui
 
-import androidx.annotation.OptIn
-import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
-import androidx.media3.common.util.UnstableApi
-import androidx.media3.exoplayer.ExoPlayer
-import dev.geode.analysis.PlaybackMath
 import dev.geode.audio.AudioFxController
 import dev.geode.audio.AudioFxState
 import dev.geode.data.GuiPrefs
 import dev.geode.data.PlayerPrefs
 import dev.geode.data.PlayerPrefsRepository
 import dev.geode.data.UserDataRepository
-import dev.geode.playback.NativePlayer
-import dev.geode.playback.ReplayGain
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
-@OptIn(UnstableApi::class)
 internal class PlayerSettingsController(
     private val userData: UserDataRepository,
     private val playerPrefsRepository: PlayerPrefsRepository,
     private val scope: CoroutineScope,
     private val player: Player,
     private val audioFx: AudioFxController,
-    private val replayGain: ReplayGain,
     private val host: Host,
 ) {
     interface Host {
         fun refreshUi()
 
-        fun applyBitPerfect(enabled: Boolean)
+        /** Hands the prefs to the playback session, which owns the player, ReplayGain and the USB route. */
+        fun applyPlaybackPrefs(prefs: PlayerPrefs)
     }
 
     val guiPrefs: StateFlow<GuiPrefs> = userData.guiPrefs
@@ -54,18 +46,7 @@ internal class PlayerSettingsController(
         applyPlaybackPrefs(p)
     }
 
-    fun applyPlaybackPrefs(p: PlayerPrefs) {
-        player.playbackParameters = PlaybackParameters(p.speed, PlaybackMath.semitonesToRatio(p.pitchSemitones))
-        (player as? ExoPlayer)?.let {
-            it.skipSilenceEnabled = p.skipSilence
-            it.setHandleAudioBecomingNoisy(p.pauseOnNoisy)
-        }
-        (player as? NativePlayer)?.let {
-            it.applyPrefs(p.crossfadeMs, p.crossfadeCurve, p.gapless)
-            host.applyBitPerfect(p.bitPerfect)
-        }
-        replayGain.configure(p.replayGainMode, p.replayGainPreampDb, p.replayGainClipGuard)
-    }
+    fun applyPlaybackPrefs(p: PlayerPrefs) = host.applyPlaybackPrefs(p)
 
     private fun persistPlayerOptions() {
         val shuffle = player.shuffleModeEnabled

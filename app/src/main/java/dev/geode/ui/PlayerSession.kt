@@ -53,7 +53,6 @@ import dev.geode.export.StudioClip
 import dev.geode.geodeContainer
 import dev.geode.model.DeviceTrack
 import dev.geode.model.LibraryTrack
-import dev.geode.playback.BitPerfectOutput
 import dev.geode.playback.PlaybackEngine
 import dev.geode.playback.PlaybackErrors
 import dev.geode.playback.PlaybackService
@@ -210,13 +209,10 @@ class PlayerSession internal constructor(
             container.appScope,
             playback.player,
             playback.audioFx,
-            playback.replayGain,
             object : PlayerSettingsController.Host {
                 override fun refreshUi() = refresh()
 
-                override fun applyBitPerfect(enabled: Boolean) {
-                    BitPerfectOutput.apply(application, enabled)
-                }
+                override fun applyPlaybackPrefs(prefs: PlayerPrefs) = playback.applyPrefs(prefs)
             },
         )
 
@@ -1233,7 +1229,7 @@ class PlayerSession internal constructor(
         playerListener = listener
         player.addListener(listener)
         sleepTimer.onFadeVolume = fades.sleepFadeHook
-        playback.exoPlayer?.let { audioFxController.attach(it.audioSessionId) }
+        audioFxController.attach(playback.player.audioSessionId)
         settings.refreshAudioFx()
         if (alreadyLoaded) onTrackChanged()
     }

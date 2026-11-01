@@ -37,14 +37,18 @@ phone patching), if it was finished before the handoff. `REACTIVE_VISUALS.md` ho
   - `geode_tempo_midi_song_position(int sixteenths)`
   - `geode_tempo_clock(GeodeTempoClock*)`
 - **What `GeodeTempoClock` holds:** bpm, source, locked, and the presentation nanos of the next beat and
-  the next downbeat. Requested from A3: barPhase, beatsPerBar, beatConf, and an epoch that increments on a
-  source change, a Start or a Song Position jump.
+  the next downbeat, plus barPhase, beatsPerBar (4 for now), beatConf, and an epoch that increments on a
+  source change, a MIDI Start or a Song Position jump (all in #213 §8b, commit 0685031). `beatCount` and
+  `barCount` stay continuous across source changes; only a Song Position jump moves them, and the epoch
+  says when.
+- **BPM tag:** A3 adds it to stage 0 in `core/library` (TagLib TBPM for ID3, `BPM` for Vorbis/FLAC, `tmpo`
+  for MP4) through the existing tag read. We only call it.
 - **Taps and MIDI** arrive in system time. Native maps them to sample time through the output latency.
 - **Rhythm always runs.** With MANUAL or MIDI, only the tempo estimate (the autocorrelation) is skipped.
   This replaces the owner's "only run when an LFO uses it". Explain it to the owner, because reactions, Form
   and the director always use the beat.
 - **What is ours:**
-  - the source picker, the tap button, the typed BPM box, and reading the BPM tag
+  - the source picker, the tap button, the typed BPM box, and calling the BPM tag read
   - MIDI in and out (`android.media.midi`). MIDI out sends 24 pulses per beat, about one beat ahead, through
     `MidiInputPort.send(bytes, 0, n, timestamp)` from the next-beat times. It is never sent from the frame
     callback.

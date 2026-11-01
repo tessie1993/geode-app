@@ -228,7 +228,8 @@ jobs:
 
       - name: Run Kotlin formatting checks
         working-directory: ${{ env.PROJECT_DIR }}
-        run: ./gradlew ktlintCheck --stacktrace --no-daemon
+        # --continue so one module's failure still prints every other module's findings in the log.
+        run: ./gradlew ktlintCheck --continue --stacktrace --no-daemon
 
       - name: Upload reports when verification fails
         if: failure()

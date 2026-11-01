@@ -3,7 +3,6 @@ package dev.geode.audio.dsp
 import androidx.annotation.OptIn
 import androidx.media3.common.C
 import androidx.media3.common.audio.AudioProcessor
-import androidx.media3.common.audio.AudioProcessor.UnhandledAudioFormatException
 import androidx.media3.common.audio.BaseAudioProcessor
 import androidx.media3.common.util.UnstableApi
 import dev.geode.engine.bridge.GeodeNative
@@ -28,6 +27,13 @@ data class DspSettings(
  * output keeps the input encoding. The chain itself is created on the playback thread in
  * [onConfigure] and retired chains are only freed in [release], after the player is gone, so a
  * setter racing a format change can never reach a destroyed chain.
+ *
+ * A format the chain cannot run (more than two channels, a 5.1 or 7.1 file; an encoding other than
+ * 16-bit or float) is not an error: [onConfigure] answers [AudioProcessor.AudioFormat.NOT_SET], which
+ * makes the processor inactive, and Media3 passes that track's PCM straight through it. Throwing
+ * instead, as this used to, fails the sink's configure, and ExoPlayer reports the whole file as
+ * unplayable. The equalizer, crossfeed and ReplayGain gain do not apply to such a track; the tap
+ * before this processor still hears it, so the visuals do.
  */
 @OptIn(UnstableApi::class)
 class NativeDspProcessor : BaseAudioProcessor() {
@@ -41,24 +47,16 @@ class NativeDspProcessor : BaseAudioProcessor() {
     var settings: DspSettings = DspSettings()
         private set
 
-    /** Told about every [update], for a chain that lives outside the Media3 pipeline. */
-    @Volatile
-    var onSettings: ((DspSettings) -> Unit)? = null
-
     private var scratch: ByteBuffer = ByteBuffer.allocateDirect(0).order(ByteOrder.nativeOrder())
 
     fun update(next: DspSettings) {
         settings = next
         val h = handle
         if (h != 0L) apply(h, next)
-        onSettings?.invoke(next)
     }
 
     override fun onConfigure(inputAudioFormat: AudioProcessor.AudioFormat): AudioProcessor.AudioFormat {
-        if (inputAudioFormat.encoding != C.ENCODING_PCM_16BIT && inputAudioFormat.encoding != C.ENCODING_PCM_FLOAT) {
-            throw UnhandledAudioFormatException(inputAudioFormat)
-        }
-        if (inputAudioFormat.channelCount !in 1..2) throw UnhandledAudioFormatException(inputAudioFormat)
+        if (!runs(inputAudioFormat.encoding, inputAudioFormat.channelCount)) return AudioProcessor.AudioFormat.NOT_SET
         ensureChain(inputAudioFormat.sampleRate, inputAudioFormat.channelCount)
         return inputAudioFormat
     }
@@ -153,6 +151,15 @@ class NativeDspProcessor : BaseAudioProcessor() {
         const val MAX_MB = 1500
 
         private const val SHORT_FULL_SCALE = 32768f
+
+        /** The native chain is built for mono or stereo; anything else steps aside (see the class KDoc). */
+        const val MAX_CHANNELS = 2
+
+        /** Whether the chain runs on this format; when false the processor stays inactive for the track. */
+        fun runs(
+            encoding: Int,
+            channelCount: Int,
+        ): Boolean = (encoding == C.ENCODING_PCM_16BIT || encoding == C.ENCODING_PCM_FLOAT) && channelCount in 1..MAX_CHANNELS
 
         /** Band centres in millihertz, as the platform equalizer reported them, from the native chain. */
         fun bandCenterMilliHz(band: Int): Int = (GeodeNative.dspBandCenterHz(band) * 1000f).toInt()

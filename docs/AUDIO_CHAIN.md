@@ -25,7 +25,7 @@ DefaultAudioSink  ── MvzAudioProcessorChain ──────────�
    │   1. TeeAudioProcessor(PcmTap)       ← the analysis tap          │
    │   2. SilenceSkippingAudioProcessor   ← media3's own              │
    │   3. SonicAudioProcessor             ← media3's own (speed/pitch)│
-   │   4. …our DSP stages…                ← empty today              │
+   │   4. NativeDspProcessor              ← EQ, crossfeed, ReplayGain │
    │                                                                  │
    ▼                                                                  │
 AudioTrack ──▶ platform audiofx (Equalizer / BassBoost / Loudness) ──▶ speaker
@@ -74,9 +74,24 @@ visualizer that never moves and an equalizer that does nothing. **A float chain
 is built by having the stages work in float internally**, not by asking the
 sink for float output.
 
-This is also why #21 bit-perfect and #23 hi-res are a product question rather
-than an engineering task: float output is the only escape from media3's int16
-conversion, and taking it deletes the visualizer.
+This is also why #23 hi-res is a product question rather than an engineering
+task: float output is the only escape from media3's int16 conversion, and taking
+it deletes the visualizer.
+
+**Bit-perfect USB (API 34+).** ExoPlayer is the only player (the native
+AMediaCodec/Oboe player is gone), so bit-perfect is done around its sink, not
+inside it: `playback/BitPerfectOutput` hears each stream's format from the
+tap's format callback, which Media3 runs before it creates the AudioTrack, and
+asks `AudioManager.setPreferredMixerAttributes` for the DAC's
+`MIXER_BEHAVIOR_BIT_PERFECT` entry at that rate, 16-bit, same channel mask;
+`ExoPlayer.setPreferredAudioDevice` routes the track there. The platform only
+treats a track as bit-perfect when its format equals the mixer's exactly, which
+is one more reason the chain must stay 16-bit and must not resample.
+
+**Channel counts.** `NativeDspProcessor` runs mono and stereo. For anything
+else (5.1, 7.1) its `onConfigure` returns `AudioFormat.NOT_SET`, which makes it
+inactive for that track, rather than throwing: a throw in `configure` fails the
+sink and ExoPlayer reports the file as unplayable.
 
 **2. The analysis tap stays first.** `ReactiveAnalyzer.reset` and
 `AnalysisEngine.reset` both hold live features to matching the cached and

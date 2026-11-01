@@ -597,6 +597,7 @@
     <string name="render_look_current">Current look</string>
     <string name="render_look_hint">Every track in the batch renders with this look.</string>
     <string name="render_batch_hint">A batch renders each track whole, one after another, into Movies/MuzViz. A track that cannot be rendered is skipped.</string>
+    <string name="render_batch_needs_q">Rendering a queue, a playlist or chosen tracks needs Android 10 or later.</string>
     <string name="render_batch_label">Rendering %1$d tracks</string>
     <string name="render_batch_progress">Track %1$d of %2$d · %3$s</string>
     <string name="render_batch_summary">%1$d of %2$d rendered to Movies/MuzViz.</string>

@@ -33,8 +33,25 @@ internal class VisualSettingsController(
     }
 
     fun selectScene(sceneId: String) {
+        vizStateStore.committedSceneId = null
         state.update { it.copy(sceneId = sceneId) }
         vizStateStore.persist()
+    }
+
+    /**
+     * Shows [sceneId] on the stage without choosing it (the Styles grid's tap). The first preview
+     * remembers the chosen style; later ones just swap what is shown.
+     */
+    fun previewScene(sceneId: String) {
+        if (vizStateStore.committedSceneId == null) vizStateStore.committedSceneId = state.value.sceneId
+        state.update { it.copy(sceneId = sceneId) }
+    }
+
+    /** Back to the chosen style: the grid was left without the check. */
+    fun cancelPreview() {
+        val chosen = vizStateStore.committedSceneId ?: return
+        vizStateStore.committedSceneId = null
+        state.update { it.copy(sceneId = chosen) }
     }
 
     fun setReactivity(
@@ -96,6 +113,8 @@ internal class VisualSettingsController(
     }
 
     fun applyPreset(preset: Preset) {
+        // A preset is a choice: it ends any style preview rather than being saved under it.
+        vizStateStore.committedSceneId = null
         state.update {
             it.copy(
                 sceneId = preset.sceneId,

@@ -35,11 +35,15 @@ class PaywallJourneyTest {
         assumeTrue(BuildConfig.USE_FAKE_BILLING)
     }
 
-    /** Silk styles are Pro: only the shader styles are in FreeTier. */
+    /**
+     * Silk styles are Pro: only the shader styles are in FreeTier. A tap only previews (Pro styles
+     * preview for everyone); the preview bar's check is where the paywall stands.
+     */
     private fun tapLockedStyle() {
         compose.tap("Styles")
         compose.tap("Silk")
         compose.tap("Halvorsen Web")
+        compose.tap("Unlock with Pro")
     }
 
     private fun openVisualsStyles() {
@@ -70,7 +74,8 @@ class PaywallJourneyTest {
         compose.tap("Start creating")
         compose.awaitNoNode(stylesTitle)
 
-        compose.tap("Halvorsen Web")
+        // Still previewed behind the paywall; now the check keeps it.
+        compose.tap("Use style")
         compose.waitForIdle()
         assertThat(compose.onAllNodes(stylesTitle).fetchSemanticsNodes()).isEmpty()
     }

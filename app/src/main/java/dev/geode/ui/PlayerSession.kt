@@ -862,6 +862,14 @@ class PlayerSession internal constructor(
 
     fun selectScene(sceneId: String) = if (allowsStyle(sceneId)) visual.selectScene(sceneId) else onStyleLocked()
 
+    /**
+     * Previews are not gated: seeing a Pro style move to your own music is the best case for it.
+     * Choosing one is, through [selectScene]; the preview stays up behind the paywall.
+     */
+    fun previewScene(sceneId: String) = visual.previewScene(sceneId)
+
+    fun cancelScenePreview() = visual.cancelPreview()
+
     fun setReactivity(
         attack: Float,
         decay: Float,

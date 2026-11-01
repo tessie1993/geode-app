@@ -99,7 +99,6 @@ reach every style through the composite pass, which is its own column.
 | `vignette` | FX | `Vignette` | `vignette` |   |   |   |   |   |   |   |   |   |   | · | · |
 | `scanlines` | FX | `Scanlines` | `scanlines` |   |   |   |   |   |   |   |   |   |   | · | · |
 | `grain` | FX | `Film grain` | `grain` |   |   |   |   |   |   |   |   |   |   | · | · |
-| `glitch` | FX | `Glitch` | `glitch` |   |   |   |   | · |   |   |   |   |   | · | · |
 | `fisheye` | FX | `Fisheye` | `fisheye` |   |   |   |   |   |   |   |   |   |   | · | · |
 | `strobe` | FX | `Strobe` | `strobe` |   |   |   |   |   |   |   |   |   |   | · | · |
 | `paramFadeSec` | FX | — | `paramFadeSec` |   |   |   |   |   |   |   |   |   |   | · |   |

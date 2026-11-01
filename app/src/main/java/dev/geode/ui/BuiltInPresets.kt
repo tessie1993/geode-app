@@ -107,7 +107,6 @@ object BuiltInPresets {
                     speed = 1.2f,
                     audioDrive = 1.4f,
                     beatResponse = 1.6f,
-                    glitch = 0.5f,
                     chromaAb = 0.5f,
                     shake = 0.4f,
                     palette = 8,

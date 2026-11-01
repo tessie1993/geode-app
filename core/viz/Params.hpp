@@ -78,6 +78,7 @@ struct SceneParams {
     float vignette = 0.0f;
     float scanlines = 0.0f;
     float grain = 0.0f;
+    // Retired: the composite Glitch effect is gone. No reader; removed with the next format bump.
     float glitch = 0.0f;
     float fisheye = 0.0f;
     // Inert since wave three; removed with the next format bump.

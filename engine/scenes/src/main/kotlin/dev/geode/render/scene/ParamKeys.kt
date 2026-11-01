@@ -84,7 +84,6 @@ object ParamKeys {
     const val VIGNETTE = "Vignette"
     const val SCANLINES = "Scanlines"
     const val FILM_GRAIN = "Film grain"
-    const val GLITCH = "Glitch"
     const val FISHEYE = "Fisheye"
     const val STROBE = "Strobe"
     const val SOLVER_ITERATIONS = "Solver iterations"

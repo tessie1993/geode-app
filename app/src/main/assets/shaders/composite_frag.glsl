@@ -33,7 +33,6 @@ uniform float uChroma;
 uniform float uVignette;
 uniform float uScanline;
 uniform float uGrain;
-uniform float uGlitch;
 uniform float uFisheye;
 uniform float uStrobe;
 // Strobe rate in flashes/second. Was the literal 9.0 below, which no user
@@ -259,7 +258,7 @@ vec2 geo(vec2 uv, vec4 gate, float camOn) {
 
 // Screen-space FX chain applied to the final composited frame, so it works
 // identically for shader, particle and milkdrop scenes and during
-// transitions. Order: geometry -> distortion (fisheye, glitch) -> sample
+// transitions. Order: geometry -> distortion (fisheye) -> sample
 // (chromatic aberration) -> shading (posterize, scanlines, grain, vignette,
 // bloom, strobe, invert).
 vec3 postFx(sampler2D tex, vec2 uv, vec4 gate, float camOn) {
@@ -294,13 +293,6 @@ vec3 postFx(sampler2D tex, vec2 uv, vec4 gate, float camOn) {
         vec2 c = p - 0.5;
         float r = length(c) * 2.0;
         p = 0.5 + c * (1.0 + uFisheye * 0.6 * (r * r - 0.5));
-    }
-    if (uGlitch > 0.001) {
-        float band = floor(p.y * 24.0);
-        float jump = compHash12(vec2(band, floor(uTime * 12.0)));
-        if (jump > 1.0 - uGlitch * 0.35 * (0.4 + uBeat)) {
-            p.x += (compHash12(vec2(band, uTime)) - 0.5) * uGlitch * 0.3;
-        }
     }
     vec3 col;
     if (uChroma > 0.001) {

@@ -899,6 +899,9 @@ class PlayerSession internal constructor(
 
     fun cancelScenePreview() = visual.cancelPreview()
 
+    /** The Styles grid closed over a preview: keep it if the gate allows, else back to the chosen style. */
+    fun leaveScenePreview() = visual.leavePreview(allowsStyle)
+
     /** The chosen style, which a preview on the stage does not change (see [previewScene]). */
     val chosenSceneId: String get() = visual.chosenSceneId
 

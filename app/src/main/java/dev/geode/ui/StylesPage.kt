@@ -96,9 +96,10 @@ import kotlin.math.abs
  *
  * A tap previews: the stage shows the style at once, nothing is chosen yet, and a bar offers
  * the check that keeps it (CapCut's preview-then-commit). Leaving the page without the check
- * puts the chosen style back. Pro styles preview for everyone; the check is where the paywall
- * stands, since seeing a style move to your own music is the best case for it. A second tap
- * on the previewed card is the check too. A long press stars a style; TalkBack gets the same as a
+ * keeps the previewed style when the user may use it (a tap is what people mean as their pick);
+ * only a locked Pro preview, or the bar's cancel, puts the chosen style back. Pro styles preview
+ * for everyone; the check is where the paywall stands, since seeing a style move to your own
+ * music is the best case for it. A second tap on the previewed card is the check too. A long press stars a style; TalkBack gets the same as a
  * custom action. The stage's swipe still steps through styles and chooses at once.
  */
 @Composable
@@ -123,8 +124,8 @@ internal fun StylesTab(viewModel: PlayerViewModel) {
             chosenId = viz.sceneId
         }
     }
-    // Leaving the page without the check is a "no": the chosen style comes back.
-    DisposableEffect(Unit) { onDispose { viewModel.cancelScenePreview() } }
+    // Leaving the page keeps a previewed style the user may keep; only a locked one gives way.
+    DisposableEffect(Unit) { onDispose { viewModel.leaveScenePreview() } }
     val cancel: () -> Unit = {
         previewId = null
         viewModel.cancelScenePreview()

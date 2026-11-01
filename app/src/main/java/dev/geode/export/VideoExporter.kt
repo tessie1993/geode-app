@@ -423,6 +423,9 @@ class VideoExporter(
             val totalFrames = (exportDurationUs * fps / 1_000_000L).toInt().coerceAtLeast(1)
             val frameDurationNs = 1_000_000_000L / fps
 
+            // Pinned now: the live player moving on must not change this render's director.
+            val directorStore = AutoDirectorStore.get(context)
+            val director = directorStore.exportPin(ProSnapshot.gate(context), exportDurationUs / 1000L)
             val renderer =
                 OffscreenSceneRenderer(
                     context = context,
@@ -443,10 +446,7 @@ class VideoExporter(
                             underlay = underlay,
                             audioUri = audioUri,
                             soundTuning = soundTuning,
-                            // Pinned now: the live player moving on must not change this render's director.
-                            director =
-                                AutoDirectorStore.get(context)
-                                    .exportPin(ProSnapshot.gate(context), exportDurationUs / 1000L),
+                            director = director,
                         ),
                 ).also { rendererRef = it }
             renderer.prepare()

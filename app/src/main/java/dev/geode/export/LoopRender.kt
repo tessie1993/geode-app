@@ -543,6 +543,9 @@ class LoopRender(
         // still lands on top of this stop's palette rather than resetting it every repeat.
         val driftedParamsAt: ((Long) -> SceneParams)? =
             job.paramsAt?.let { source -> { timeMs: Long -> stop.applyTo(source(timeMs)) } }
+        // Pinned now: the live player moving on must not change this render's director.
+        val directorStore = AutoDirectorStore.get(context)
+        val director = directorStore.exportPin(ProSnapshot.gate(context), sourceFrames * 1000L / job.choice.fps)
         return OffscreenSceneRenderer(
             context = context,
             sceneFactory = job.sceneFactory,
@@ -561,10 +564,7 @@ class LoopRender(
                     paramsAt = driftedParamsAt,
                     audioUri = job.audioUri,
                     soundTuning = job.soundTuning,
-                    // Pinned now: the live player moving on must not change this render's director.
-                    director =
-                        AutoDirectorStore.get(context)
-                            .exportPin(ProSnapshot.gate(context), sourceFrames * 1000L / job.choice.fps),
+                    director = director,
                 ),
         )
     }

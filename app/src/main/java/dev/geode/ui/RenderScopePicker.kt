@@ -56,12 +56,15 @@ internal fun renderScopeLabel(scope: RenderScope): String =
  * (the playing track, "12 tracks", the playlist's name). Tapping it lists the four scopes; the two
  * that need a choice open their picker as they are picked. Batches show the PRO badge for users
  * without it; picking one is allowed, and Render then opens the paywall (PlayerViewModel.startBatch).
+ * Below Android 10 batches cannot save at all ([RenderScope.BATCH_MIN_SDK]), so the menu lists only
+ * the current track and says why, rather than offering a choice that fails on every track.
  */
 @Composable
 internal fun RenderScopeChooser(
     scope: RenderScope,
     summary: String,
     batchLocked: Boolean,
+    batchSupported: Boolean,
     onScope: (RenderScope) -> Unit,
     onPickPlaylist: () -> Unit,
     onPickTracks: () -> Unit,
@@ -83,7 +86,8 @@ internal fun RenderScopeChooser(
             )
         }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-            RenderScope.entries.forEach { option ->
+            val offered = if (batchSupported) RenderScope.entries else RenderScope.entries.filterNot { it.isBatch }
+            offered.forEach { option ->
                 DropdownMenuItem(
                     text = {
                         Text(
@@ -104,6 +108,19 @@ internal fun RenderScopeChooser(
                             RenderScope.CURRENT_TRACK, RenderScope.PLAY_QUEUE -> Unit
                         }
                     },
+                )
+            }
+            if (!batchSupported) {
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            stringResource(R.string.render_batch_needs_q),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    },
+                    onClick = {},
+                    enabled = false,
                 )
             }
         }

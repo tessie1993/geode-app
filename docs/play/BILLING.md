@@ -38,9 +38,15 @@ Monetization setup).
 - **Restore**: the paywall's "Restore purchase" re-reads purchases from Play. A purchase on
   another device with the same Google account restores the same way, and is also picked
   up automatically on every foreground.
-- **Offline**: the entitlement is cached on the device. If the Play Store can't be reached,
-  Pro stays unlocked for 30 days from the last confirmation. A refund or revoked order
-  removes Pro the next time Play answers.
+- **Offline**: the entitlement is cached on the device together with the purchase as Play
+  signed it (its JSON and signature). A purchase whose signature verified stays owned offline
+  indefinitely: every read of the cache (the app, the live wallpaper, the screensaver)
+  re-verifies that signature against the licence key, by the same rule as the live check, so
+  an edited cache unlocks nothing when the key is configured. Pro is removed only when Play
+  explicitly answers: a successful purchase query that no longer lists `muzviz_pro` as
+  PURCHASED (a refund or revoked order). An error, a timeout or an unreachable Play Store
+  never revokes. A cache written before this change (no stored purchase) keeps the old 30 days
+  from its last confirmation until Play next answers and the purchase is stored.
 - **Trial**: one hour of every Pro style, tool and export setting, once per install, on the
   device clock. Exports stay at the free limits (1 minute, full-frame watermark), and Studio
   exports and loop renders ask to unlock. This is not a Play free trial (Play offers trials only on subscriptions),

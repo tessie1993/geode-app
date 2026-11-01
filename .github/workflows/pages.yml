@@ -1,0 +1,102 @@
+name: Publish docs site (GitHub Pages)
+
+# Play's App content form needs the privacy policy at a public URL
+# (RELEASE_READINESS.md B1). This publishes it, and later the in-app help, to
+#   https://tessie1993.github.io/geode-app/privacy-policy.html
+#   https://tessie1993.github.io/geode-app/help/...
+#
+# The site is assembled from an allowlist, never the whole docs/ folder: docs/ also
+# holds research notes, QA logs and console checklists that are not meant as
+# public pages. Layout of the published site:
+#   /                     docs/site/  (index, and any other site-only files)
+#   /privacy-policy.html  docs/privacy-policy.html
+#   /help/                docs/help/  (when it exists)
+#
+# One-time setup by the repo owner: Settings > Pages > Build and deployment >
+# Source = "GitHub Actions". The github-pages environment only lets the default
+# branch (claude/geode-finish) deploy until main is added under Settings >
+# Environments > github-pages > Deployment branches.
+
+on:
+  push:
+    branches: ["main", "claude/geode-finish"]
+    paths:
+      - "docs/privacy-policy.html"
+      - "docs/site/**"
+      - "docs/help/**"
+      - ".github/workflows/pages.yml"
+  pull_request:
+    paths:
+      - "docs/privacy-policy.html"
+      - "docs/site/**"
+      - "docs/help/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One deployment at a time, and never cancel one half-way: a cancelled deploy can
+# leave Pages serving nothing.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Assemble site
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Assemble _site
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf _site
+          mkdir -p _site
+          cp -R docs/site/. _site/
+          cp docs/privacy-policy.html _site/privacy-policy.html
+          if [ -d docs/help ]; then
+            mkdir -p _site/help
+            cp -R docs/help/. _site/help/
+          fi
+          # Serve files as they are; no Jekyll pass over the HTML.
+          touch _site/.nojekyll
+          find _site -type f | sort
+
+      # The URL in Play Console must keep resolving: fail here rather than publish
+      # a site without the policy, or a policy that lost the app's name.
+      - name: Check the site
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s _site/index.html
+          test -s _site/privacy-policy.html
+          grep -q "MuzViz Studio Pro" _site/privacy-policy.html
+          grep -q 'href="privacy-policy.html"' _site/index.html
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: _site
+
+  deploy:
+    name: Deploy to GitHub Pages
+    # PRs only build and check; pushes to the two release branches deploy.
+    if: github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4

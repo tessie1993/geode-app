@@ -6,6 +6,7 @@
 
 #include "util/Log.hpp"
 #include "viz/GlProber.hpp"
+#include "viz/ProgramStager.hpp"
 
 namespace geode::viz {
 
@@ -153,6 +154,28 @@ std::optional<ComputeProgram> ComputeProgram::build(const std::string& label, co
         if (error) *error = message;
         return std::nullopt;
     };
+    // The local size the driver actually linked must be the one the source was written for.
+    auto checked = [&](GLuint program) -> std::optional<ComputeProgram> {
+        GLint linked[3] = {0, 0, 0};
+        glGetProgramiv(program, GL_COMPUTE_WORK_GROUP_SIZE, linked);
+        const WorkGroupSize linkedSize{linked[0], linked[1], linked[2]};
+        if (linkedSize != expected) {
+            glDeleteProgram(program);
+            return fail(label + ": linked local size is " + linkedSize.toString() + " but the source was built for " + expected.toString() +
+                        "; the layout qualifier substitution did not take");
+        }
+        return ComputeProgram(program, linkedSize);
+    };
+    // A live renderer building a scene across frames (ProgramStager): a placeholder stands in until
+    // the stager has the real program, and is never checked, since the attempt it is in is dropped.
+    if (ProgramStager* stager = ProgramStager::current()) {
+        std::string why;
+        bool placeholder = false;
+        const GLuint program = stager->obtain({{GL_COMPUTE_SHADER, source}}, &why, &placeholder);
+        if (program == 0) return fail(label + ": " + why);
+        if (placeholder) return ComputeProgram(program, expected);
+        return checked(program);
+    }
     const GLuint shader = glCreateShader(GL_COMPUTE_SHADER);
     if (shader == 0) return fail(label + ": glCreateShader(GL_COMPUTE_SHADER) returned 0; this context does not have compute");
     const char* text = source.c_str();
@@ -182,15 +205,7 @@ std::optional<ComputeProgram> ComputeProgram::build(const std::string& label, co
         glDeleteProgram(program);
         return fail(label + ": compute link failed: " + (log[0] ? log.data() : "(the driver returned no message)"));
     }
-    GLint linked[3] = {0, 0, 0};
-    glGetProgramiv(program, GL_COMPUTE_WORK_GROUP_SIZE, linked);
-    const WorkGroupSize linkedSize{linked[0], linked[1], linked[2]};
-    if (linkedSize != expected) {
-        glDeleteProgram(program);
-        return fail(label + ": linked local size is " + linkedSize.toString() + " but the source was built for " + expected.toString() +
-                    "; the layout qualifier substitution did not take");
-    }
-    return ComputeProgram(program, linkedSize);
+    return checked(program);
 }
 
 void ComputeProgram::release() {

@@ -239,7 +239,7 @@ jobs:
   instrumented-tests:
     name: Instrumented tests (emulator)
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 75
 
     steps:
       - name: Check out repository
@@ -266,6 +266,18 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
+      # Both APKs before the emulator exists. Built inside the emulator step, the
+      # ten-minute native build ran on the same four vCPUs as the booted emulator,
+      # and the emulator only had to survive that to reach the first test.
+      - name: Build app and test APKs
+        run: ./gradlew :app:assembleDebug :app:assembleDebugAndroidTest --stacktrace --no-daemon
+
+      # tools/connected-tests.sh runs the suite, keeps the device's full logcat
+      # (events buffer included: am_anr, am_kill), ANR traces and tombstones, and
+      # retries once only for an emulator failure (adb lost the device) or for
+      # tests whose instrumentation process was killed; an assertion failure is
+      # never retried. Runs 41178519245, 41181213744 and 41190866232 failed on
+      # exactly those two signatures.
       - name: Run instrumented tests
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -274,18 +286,42 @@ jobs:
           api-level: 30
           target: google_apis
           arch: x86_64
+          # The default 2 GB left the guest at ~75 MB free mid-suite. The journeys
+          # pin Settings > Performance themselves (journey/Journeys.kt, Onboarded),
+          # so the extra RAM does not change what the app renders.
+          ram-size: 4096M
+          heap-size: 576M
+          # Three guest vCPUs: the fourth is left for the host side of
+          # swiftshader, which renders every GL frame the app draws.
+          cores: 3
+          disk-size: 6000M
+          force-avd-creation: true
+          emulator-boot-timeout: 900
+          # swangle_indirect (ANGLE on SwiftShader Vulkan), not swiftshader_indirect: under the
+          # visualizer journeys the legacy translator died host-side with "DisplaySurfaceGlContextHelper
+          # context was preempted by others ... Failed to restore previous context: 12297" and the
+          # emulator dropped off adb after 27/33 tests (runs 41282308944, 41282326381, 41288443184).
+          emulator-options: -no-snapshot -no-window -gpu swangle_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
           disable-animations: true
-          script: ./gradlew :app:connectedDebugAndroidTest --stacktrace --no-daemon
+          script: |
+            adb shell settings put global window_animation_scale 0
+            adb shell settings put global transition_animation_scale 0
+            adb shell settings put global animator_duration_scale 0
+            adb shell settings put secure long_press_timeout 1500
+            adb shell settings put secure show_ime_with_hard_keyboard 0
+            adb shell input keyevent 82
+            bash tools/connected-tests.sh
           working-directory: .
 
       - name: Upload instrumented reports
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: geode-instrumented-reports-${{ github.run_number }}
+          name: geode-instrumented-reports-${{ github.run_number }}-${{ github.run_attempt }}
           path: |
             app/build/reports/androidTests/
             app/build/outputs/androidTest-results/
             app/build/outputs/connected_android_test_additional_output/
+            ci-artifacts/
           if-no-files-found: ignore
           retention-days: 14

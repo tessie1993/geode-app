@@ -89,4 +89,11 @@ class RenderBatchTest {
         assertEquals(done, done.record(BatchOutcome.Saved("content://late", null)))
         assertEquals(1f, done.progress(0.7f), 1e-6f)
     }
+
+    @Test
+    fun batchesNeedAndroid10BecauseTheyCanOnlySaveThroughMediaStore() {
+        // Android 8.0 to 9 (minSdk 26..28): the Movies/MuzViz insert needs a permission Geode does not hold.
+        for (sdk in 26..28) assertFalse("API $sdk", RenderScope.batchSupported(sdk))
+        for (sdk in listOf(29, 30, 34, 36)) assertTrue("API $sdk", RenderScope.batchSupported(sdk))
+    }
 }

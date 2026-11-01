@@ -58,7 +58,12 @@ class SharedLinkNumbersTest {
         assertEquals(SceneParams.DEFAULT.bloom, template.look.params.bloom)
         assertEquals(TemplateLook.DEFAULT_ATTACK, template.look.attack)
         assertEquals(TemplateLayout.DEFAULT_ARTWORK_SCALE, template.layout.artworkScale)
-        assertEquals(TextSlot.DEFAULT_SIZE_SP, template.text.slots.single().sizeSp)
+        assertEquals(
+            TextSlot.DEFAULT_SIZE_SP,
+            template.text.slots
+                .single()
+                .sizeSp,
+        )
         // And it encodes again, which is where `put` threw.
         assertTrue(TemplateFormat.decode(TemplateFormat.encode(template)) is TemplateParse.Parsed)
     }

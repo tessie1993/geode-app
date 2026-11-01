@@ -354,6 +354,7 @@ void Renderer::onSurfaceCreated() {
     touchField_.reset();
     fboA_.release();
     fboB_.release();
+    flashLimit_.release();
     compositePass_.releaseStaleTextures();
     activeScene_ = nullptr;
     outgoingScene_ = nullptr;
@@ -379,6 +380,7 @@ void Renderer::onSurfaceCreated() {
     quadVert_ = *quadVert;
     if (!trailPass_.create(assets_, &programCache_, *fadeVert, &error)) fail(error);
     if (!compositePass_.create(*fadeVert, &error)) fail(error);
+    if (!flashLimit_.create(assets_, &programCache_, *fadeVert, &error)) fail("flash limiter: " + error);
 
     // Port of CyclicPalettes.createTexture: five 256-entry RGB rows.
     const auto palette = assets_.readAsset("shaders/cyclic_palettes.bin");
@@ -402,6 +404,7 @@ void Renderer::onSurfaceCreated() {
     macroReactions_.reset();
     director_.reset();
     camera_.reset();
+    flashBudget_.reset();
 }
 
 void Renderer::surfaceChanged(int width, int height) {

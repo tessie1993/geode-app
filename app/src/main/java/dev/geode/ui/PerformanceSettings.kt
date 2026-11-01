@@ -1,5 +1,6 @@
 package dev.geode.ui
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
@@ -16,6 +17,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 import dev.geode.data.GuiPrefs
 import dev.geode.geodeContainer
+import dev.geode.render.AmbientFrameRate
 import dev.geode.render.PerformanceMode
 import dev.geode.render.PerformanceSettings
 
@@ -24,12 +26,15 @@ import dev.geode.render.PerformanceSettings
 internal fun PerformanceSettingsTab() {
     val store = LocalContext.current.geodeContainer.performance
     val settings by store.settings.collectAsStateWithLifecycle()
-    PerformanceSettingsContent(settings, store::set)
+    val ambient by store.ambientFrameRate.collectAsStateWithLifecycle()
+    PerformanceSettingsContent(settings, ambient, store::setAmbientFrameRate, store::set)
 }
 
 @Composable
 internal fun PerformanceSettingsContent(
     settings: PerformanceSettings,
+    ambient: AmbientFrameRate,
+    onAmbientChange: (AmbientFrameRate) -> Unit,
     onChange: (PerformanceSettings) -> Unit,
 ) {
     val mode = settings.mode
@@ -98,8 +103,35 @@ internal fun PerformanceSettingsContent(
                 Hint(stringResource(R.string.perf_export_note))
             }
         }
+        item {
+            // Its own group, not a Details row: a mode never changes it, and only the wallpaper
+            // and the screensaver read it (the frame rate cap above stays their ceiling).
+            SettingsGroup(stringResource(R.string.perf_ambient_title)) {
+                Choice(
+                    stringResource(R.string.perf_ambient_fps),
+                    AmbientFrameRate.entries.map { stringResource(ambientLabel(it)) },
+                    ambient.ordinal,
+                ) { onAmbientChange(AmbientFrameRate.entries[it]) }
+                Hint(
+                    stringResource(
+                        when (ambient) {
+                            AmbientFrameRate.BATTERY_SAVER -> R.string.perf_ambient_saver_hint
+                            AmbientFrameRate.SMOOTH -> R.string.perf_ambient_smooth_hint
+                        },
+                    ),
+                )
+                Hint(stringResource(R.string.perf_ambient_note))
+            }
+        }
     }
 }
+
+@StringRes
+private fun ambientLabel(rate: AmbientFrameRate): Int =
+    when (rate) {
+        AmbientFrameRate.BATTERY_SAVER -> R.string.perf_ambient_saver
+        AmbientFrameRate.SMOOTH -> R.string.perf_ambient_smooth
+    }
 
 @Composable
 private fun Choice(
@@ -124,7 +156,7 @@ private fun Hint(text: String) {
 @Composable
 internal fun PerformanceSettingsPreview() {
     CrystalMaterialTheme(GuiPrefs()) {
-        PerformanceSettingsContent(PerformanceSettings.BALANCED) {}
+        PerformanceSettingsContent(PerformanceSettings.BALANCED, AmbientFrameRate.DEFAULT, {}) {}
     }
 }
 
@@ -132,6 +164,6 @@ internal fun PerformanceSettingsPreview() {
 @Composable
 internal fun PerformanceSettingsCustomPreview() {
     CrystalMaterialTheme(GuiPrefs()) {
-        PerformanceSettingsContent(PerformanceSettings.SAVER.copy(fpsCap = 60)) {}
+        PerformanceSettingsContent(PerformanceSettings.SAVER.copy(fpsCap = 60), AmbientFrameRate.SMOOTH, {}) {}
     }
 }

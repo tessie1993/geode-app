@@ -48,7 +48,7 @@
     <string name="pro_row_watermark_pro">None</string>
     <string name="pro_row_studio">Studio editor</string>
     <string name="pro_row_wallpaper">Live wallpaper and screensaver</string>
-    <string name="pro_row_customization">Advanced look controls</string>
+    <string name="pro_row_customization">Customize › Advanced</string>
     <string name="pro_row_auto_director">Auto-director</string>
     <string name="pro_row_auto_director_free">First minute</string>
     <string name="pro_row_auto_director_pro">Whole song</string>
@@ -89,7 +89,7 @@
 
     <!-- Locked panels and the Settings row. -->
     <string name="pro_locked_studio_title">The Studio editor is part of Pro</string>
-    <string name="pro_locked_studio_body">Cut multi-clip music videos with keyframes, transitions, auto-cut, captions and chapters. Rendering the visualizer stays free under Render.</string>
+    <string name="pro_locked_studio_body">Cut multi-clip music videos with keyframes, transitions, markers, captions and chapters. Rendering the visualizer stays free under Render.</string>
     <string name="pro_locked_cta">See what Pro unlocks</string>
     <string name="pro_settings_title">MuzViz Pro</string>
     <string name="pro_settings_free">Unlock every style, full-length 4K 60 fps exports, the Studio and the live wallpaper. One payment.</string>

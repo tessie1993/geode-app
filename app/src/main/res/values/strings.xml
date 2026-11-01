@@ -130,6 +130,8 @@
     <string name="about_licenses_loading">Loading…</string>
     <string name="about_privacy_unavailable">The privacy policy could not be loaded.</string>
 
+    <!-- A device with the system file picker disabled (some TVs, managed phones). -->
+    <string name="picker_unavailable">This device has no file picker, so a folder can\'t be chosen here.</string>
     <!-- Settings › Backup. One zip, saved and opened through the system file picker. -->
     <string name="backup_tab">Backup</string>
     <string name="backup_group">Backup</string>

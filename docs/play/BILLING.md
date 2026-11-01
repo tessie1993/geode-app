@@ -26,13 +26,16 @@ Monetization setup).
 - **Verification.** The app has no backend and no network permission, so it verifies the
   purchase signature on the device against the app's licence public key, then
   **acknowledges** the purchase (an unacknowledged purchase is refunded automatically
-  after 3 days; acknowledgement retries on every app foreground).
+  after 3 days; acknowledgement retries on every app foreground). With no backend there is
+  no server-side acknowledgement: a pending purchase (cash, some carriers) that clears while
+  the app stays closed for 3 days is refunded by Play. Opening MuzViz in that window
+  acknowledges it.
   - Key: Play Console > Monetize with Play > **Monetization setup > Licensing**, the
     "Base64-encoded RSA public key". It is public, not a secret. Put it in a GitHub
     **repository variable** named `PLAY_LICENSE_KEY` (or the Gradle property
     `muzviz.playLicenseKey` for local release builds). Without it, signatures are not
-    checked (the app logs this) and purchases still work, but a tagged release (`v*`)
-    refuses to build without it.
+    checked (the app logs this) and purchases still work, but every signed release build
+    (a `v*` tag or a manual run of `release.yml`) refuses to build without it.
 - **Pending purchases** (cash, bank transfer): the paywall says so; Pro unlocks when Play
   reports the payment complete, even across app restarts.
 - **Restore**: the paywall's "Restore purchase" re-reads purchases from Play. A purchase on

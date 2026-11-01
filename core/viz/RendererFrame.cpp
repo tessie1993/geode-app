@@ -108,7 +108,10 @@ SceneParams Renderer::resolveParams(float dt) {
     displayedParams_ = fade <= 0.01f ? requested : lerpParams(displayedParams_, requested, std::clamp(dt / fade, 0.0f, 1.0f));
     // The auto-director hears the frame first: its look lies under the macros, so the user's own knobs,
     // the LFOs, the reactions, the motion field and the safety clamp all still act on top of it.
-    director_.configure(director::global());
+    director_.configure(directorPinned_.load(std::memory_order_acquire)
+                            ? DirectorConfig{pinnedDirectorAmount_.load(std::memory_order_relaxed),
+                                             pinnedDirectorSeed_.load(std::memory_order_relaxed)}
+                            : director::global());
     director_.step(soundFrame_, dt);
     directedKnobs_ = director_.knobs(frameKnobs_);
     const auto& envValues = adsr_.tick(dt, soundFrame_);

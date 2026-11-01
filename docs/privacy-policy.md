@@ -98,6 +98,11 @@ If Android backup is on, your MuzViz settings, presets and playlists may be incl
 your Google account backup, handled by Google. The analysis cache and crash file are
 excluded. You can turn backup off in your device settings.
 
+Settings › Backup can also save one zip file, only when you ask it to, to a place you
+choose with the system file picker. It holds your settings, presets, palettes, templates,
+editor projects, playlists, library list and listening history, and your MilkDrop
+presets. MuzViz never sends it anywhere; restoring reads it back from where you saved it.
+
 ## Children
 
 MuzViz is not directed at children under 13. It contains no ads, no chat and no content

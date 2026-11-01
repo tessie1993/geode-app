@@ -12,6 +12,8 @@ import android.view.Surface
 import androidx.annotation.StringRes
 import dev.geode.R
 import dev.geode.RingLog
+import dev.geode.billing.ProSnapshot
+import dev.geode.data.AutoDirectorStore
 import dev.geode.engine.audio.SoundTuning
 import dev.geode.render.AdsrConfig
 import dev.geode.render.LfoConfig
@@ -559,6 +561,10 @@ class LoopRender(
                     paramsAt = driftedParamsAt,
                     audioUri = job.audioUri,
                     soundTuning = job.soundTuning,
+                    // Pinned now: the live player moving on must not change this render's director.
+                    director =
+                        AutoDirectorStore.get(context)
+                            .exportPin(ProSnapshot.gate(context), sourceFrames * 1000L / job.choice.fps),
                 ),
         )
     }

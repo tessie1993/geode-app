@@ -14,6 +14,8 @@ import android.provider.MediaStore
 import androidx.annotation.StringRes
 import dev.geode.R
 import dev.geode.RingLog
+import dev.geode.billing.ProSnapshot
+import dev.geode.data.AutoDirectorStore
 import dev.geode.engine.audio.SoundTuning
 import dev.geode.render.SceneFactory
 import dev.geode.render.offscreen.OffscreenRenderSpec
@@ -441,6 +443,10 @@ class VideoExporter(
                             underlay = underlay,
                             audioUri = audioUri,
                             soundTuning = soundTuning,
+                            // Pinned now: the live player moving on must not change this render's director.
+                            director =
+                                AutoDirectorStore.get(context)
+                                    .exportPin(ProSnapshot.gate(context), exportDurationUs / 1000L),
                         ),
                 ).also { rendererRef = it }
             renderer.prepare()

@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.os.Build
 import androidx.core.content.edit
+import dev.geode.render.AmbientFrameRate
 import dev.geode.render.PerformanceMode
 import dev.geode.render.PerformanceSettings
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -31,6 +32,20 @@ class PerformanceStore(
     fun set(settings: PerformanceSettings) {
         state.value = settings
         save(settings)
+    }
+
+    private val ambientState by lazy { MutableStateFlow(AmbientFrameRate.fromKey(prefs.getString(KEY_AMBIENT_FPS, null))) }
+
+    /**
+     * The wallpaper's and the dream's frame rate, apart from [settings] on purpose: it is not part
+     * of a mode, so picking Saver or High never changes it, and the app's own live view never
+     * reads it. Nothing stored means [AmbientFrameRate.DEFAULT], the battery saver.
+     */
+    val ambientFrameRate: StateFlow<AmbientFrameRate> get() = ambientState.asStateFlow()
+
+    fun setAmbientFrameRate(rate: AmbientFrameRate) {
+        ambientState.value = rate
+        prefs.edit { putString(KEY_AMBIENT_FPS, rate.key) }
     }
 
     private fun load(): PerformanceSettings {
@@ -60,6 +75,7 @@ class PerformanceStore(
         const val KEY_MARCH = "perf_march_scale"
         const val KEY_POST_FX = "perf_post_fx"
         const val KEY_ADAPTIVE = "perf_adaptive"
+        const val KEY_AMBIENT_FPS = "perf_ambient_fps"
     }
 }
 

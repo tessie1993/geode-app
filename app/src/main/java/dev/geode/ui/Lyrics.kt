@@ -45,7 +45,10 @@ object LyricsLoader {
         context: Context,
         trackUri: Uri,
     ): java.io.File {
-        val digest = java.security.MessageDigest.getInstance("SHA-1").digest(trackUri.toString().toByteArray())
+        val digest =
+            java.security.MessageDigest
+                .getInstance("SHA-1")
+                .digest(trackUri.toString().toByteArray())
         val name = digest.joinToString("") { "%02x".format(it) }
         return java.io.File(java.io.File(context.filesDir, ATTACHED_DIR), "$name.lrc")
     }

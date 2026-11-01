@@ -12,7 +12,9 @@
 
 namespace geode::viz::fluid {
 
-// A square state texture of particles advected by a velocity field.
+// A square state texture of particles advected by a velocity field
+// (midpoint rule, plus a curl-noise stir where the field is calm), drawn as point sprites or, when
+// a tier can afford the fill, as instanced motion-blurred streaks.
 class Particles {
 public:
     explicit Particles(const ProgramLoader& loader) : loader_(loader) {
@@ -25,6 +27,14 @@ public:
 
     float drag = 0.5f;
     float life = 6.0f;
+    // Streak ceiling (length / width); 0 draws GL_POINTS. Set from the quality tier.
+    float maxStretch = 0.0f;
+    // Seconds of travel folded into a streak: one frame at 60 Hz reads as a shutter left open.
+    float stretchSeconds = 1.0f / 60.0f;
+    // The calm-water stir (sim units / s), its frequency and phase; 0 strength is off.
+    float stir = 0.0f;
+    float stirFreq = 1.6f;
+    float stirTime = 0.0f;
 
     bool available() const { return available_; }
 
@@ -46,9 +56,12 @@ private:
     UniformCache update_{0};
     UniformCache seed_{0};
     UniformCache render_{0};
+    UniformCache streak_{0};
     FullscreenTriangle quad_;
     GLuint pointsVao_ = 0;
     GLuint pointsVbo_ = 0;
+    GLuint streakVao_ = 0;
+    GLuint cornerVbo_ = 0;
     bool seeded_ = false;
     std::array<float, Choreography::kMaxSpawn * 4> spawnData_{};
     std::array<float, Choreography::kMaxCatch * 4> catchData_{};

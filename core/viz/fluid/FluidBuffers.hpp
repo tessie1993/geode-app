@@ -74,6 +74,12 @@ public:
         write_.create();
     }
     void swap() { flipped_ = !flipped_; }
+    /**
+     * Makes `other` the read side and hands the old read side back in `other`. MacCormack needs a
+     * third buffer: its corrector reads the field AND the predictor (which sits in write), so it
+     * cannot land in either; it lands in a scratch target, which this then rotates in.
+     */
+    void adoptRead(Fbo& other) { std::swap(*readPtr(), other); }
     void release() {
         read_.release();
         write_.release();

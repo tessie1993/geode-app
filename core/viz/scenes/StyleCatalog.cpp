@@ -128,13 +128,13 @@ constexpr std::array<FluidStyle, 9> kFluid = {{
     {.id = "fluid_chrome", .look = 4, .curl = 0.8f, .velocityDissipation = 1.2f, .densityDissipation = 0.45f, .splatRadius = 1.4f,
      .splatForce = 0.8f, .bloom = 0.6f, .hueOffset = 0.5f},
     {.id = "fluid_smoke", .look = 5, .curl = 1.5f, .velocityDissipation = 0.5f, .densityDissipation = 1.4f, .splatRadius = 1.6f,
-     .splatForce = 0.6f, .bloom = 0.3f, .hueOffset = 0.62f},
+     .splatForce = 0.6f, .bloom = 0.3f, .hueOffset = 0.62f, .buoyancy = 2.6f, .heat = 1.0f, .cooling = 0.55f},
     {.id = "fluid_lava", .look = 6, .curl = 0.5f, .velocityDissipation = 2.0f, .densityDissipation = 0.35f, .splatRadius = 1.5f,
-     .splatForce = 0.5f, .bloom = 1.5f, .hueOffset = 0.02f},
+     .splatForce = 0.5f, .bloom = 1.5f, .hueOffset = 0.02f, .buoyancy = 1.0f, .heat = 1.2f, .cooling = 0.2f},
     {.id = "fluid_marble", .look = 7, .curl = 0.9f, .velocityDissipation = 1.4f, .densityDissipation = 0.3f, .splatRadius = 1.1f,
      .splatForce = 0.75f, .bloom = 0.5f, .hueOffset = 0.33f},
     {.id = "fluid_aurora", .look = 8, .curl = 1.4f, .velocityDissipation = 0.6f, .densityDissipation = 0.9f, .splatRadius = 1.3f,
-     .splatForce = 0.9f, .bloom = 1.2f, .hueOffset = 0.40f},
+     .splatForce = 0.9f, .bloom = 1.2f, .hueOffset = 0.40f, .buoyancy = 1.8f, .heat = 0.8f, .cooling = 0.7f},
 }};
 
 template <typename Table>

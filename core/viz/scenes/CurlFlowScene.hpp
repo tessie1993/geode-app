@@ -24,7 +24,9 @@ public:
 
 protected:
     GeodeSoundFrame idleFeatures(float dt) override { (void) dt; return idleAudioFeatures(0.0f, 0.0f, 0.0f, 0.0f); }
-    void onApplyQualityTier(int index, bool userChanged) override { (void) index; (void) userChanged; }
+    // The population follows the fluid quality tiers (Tier::curlParticleSide): the tracers are all
+    // this style draws, so they are where a fast GPU's budget goes.
+    void onApplyQualityTier(int index, bool userChanged) override;
 
 private:
     static constexpr float kNoiseWrapSeconds = 628.31853f;
@@ -41,6 +43,7 @@ private:
     float beatDrive_ = 0.0f;
     float pcmKick_ = 0.0f;
     float aspect_ = 1.0f;
+    int particleCount_ = 0;
     bool available_ = false;
 };
 

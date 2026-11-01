@@ -50,6 +50,7 @@ private:
     std::vector<fluid::Splat> splats_;
     int appliedParticleSide_ = 0;
     float idlePhase_ = 0.0f;
+    float stirPhase_ = 0.0f;
 };
 
 }  // namespace geode::viz

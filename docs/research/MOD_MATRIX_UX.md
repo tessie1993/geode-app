@@ -1,6 +1,7 @@
 # Modulation matrix: a patch bay that fits a phone
 
-Research note, 2026-11-01. It follows [`REACTIVE_VISUALS.md`](REACTIVE_VISUALS.md), which already proposes one native
+Research note and UX spec, 2026-11-01. The owner's decisions are in [`MOD_MATRIX_PLAN.md`](MOD_MATRIX_PLAN.md) §1;
+where this note's research (§1–§5) recommends otherwise, the plan wins. §6 is the agreed UX. It follows [`REACTIVE_VISUALS.md`](REACTIVE_VISUALS.md), which already proposes one native
 `ModMatrix`, tempo-synced LFOs and a built-in tempo tracker (its §5, §5.1, §5.2). This note does not repeat that work. It
 covers what the owner asked for next: a Pro **patch bay** under Customize › Advanced, with cables, more modulators (6 LFOs,
 4 ADSHR envelopes, 2 step sequencers), modulators that modulate modulators, several tempo sources, and MIDI. All of it has
@@ -14,15 +15,15 @@ on them.
 
 | Piece | File | Today | Gap for the matrix |
 |---|---|---|---|
-| Reaction routes | `core/viz/Reactions.hpp` | 12 routes, 72 `ReactSource`s, 5 modes (Follow, Step, Spin, Jump, Toggle), amount −2..2, curve, attack/release. The style DNA fills up to 9 of them. | Destinations are `LfoTarget` only. Sources are sound only. |
+| Reaction routes | `core/viz/Reactions.hpp` | 12 routes, 117 `ReactSource`s (#211 adds more), 5 modes (Follow, Step, Spin, Jump, Toggle), amount −2..2, curve, attack/release. The style DNA fills up to 9 of them. | Destinations are `LfoTarget` only. Sources are sound only. |
 | LFOs | `core/viz/Lfo.hpp` | 3 slots, wave (sine, triangle, saw, square, random), `rateSeconds` 0.05–60 s, depth, polarity, curve, one target each. The chain targets are `Lfo1Rate…Lfo3Depth`. | The owner wants 6. There is no tempo sync, phase or retrigger. Each slot owns its target, so it is not a source. |
 | Envelopes | `core/viz/Adsr.hpp` | 2 ADSRs gated by a band over a threshold, several targets each, able to offset the LFOs' rate and depth. | The owner wants 4, with Hold (ADSHR). The gate is a fixed band, not any signal. |
 | Macros | `core/viz/Macros.hpp` | 6 knobs from −1 to 1 with their own 7-route engine. | They are not offered as sources yet. |
-| Destinations | `LfoTarget` (≈ 54 entries) vs `SceneParams::fieldNames()` (`core/viz/ParamsFields.cpp`, ≈ 150 fields) | Only about a third of the parameters can be modulated. | "Every visual parameter" needs a destination table generated from the field list and the catalogue's ranges and `ParamScope`. |
+| Destinations | `LfoTarget` (≈ 54 entries, `Glitch` going in #216) vs `SceneParams::fieldNames()` (`core/viz/ParamsFields.cpp`, 154 fields) | Only about a third of the parameters can be modulated. | "Every visual parameter" needs a destination table generated from the field list and the catalogue's ranges and `ParamScope`. |
 | Frame order | `core/viz/RendererFrame.cpp` | ADSR → LFO (rate and depth from the envelopes) → macros → LFO apply → ADSR apply → reactions → macro reactions → … → `safety::apply`. | The order is fixed. A modulator cannot hear a later one. |
 | Saved form | `engine/scenes/.../render/ReactionRouteCodec.kt` | Plain text `reactions/2`, pure Kotlin, forgiving decode. | Copy this style for a `modmatrix/1` file. |
 | UI slot | `ui/CustomizeAdvanced.kt` | `AdvancedSection.MODULATION_MATRIX` is reserved (`available = false`). Advanced is already Pro-gated. | The page itself. |
-| Tempo | none | `Lfo.kt` KDoc says there is no tempo sync on purpose, because "a wrong estimate drags the whole look". | Keep that worry as a rule: tempo is opt-in, and a synced LFO must never jump (REACTIVE_VISUALS §5.1). |
+| Tempo | `core/sound/Rhythm`: a phase-locked beat clock in every frame (`bpm`, `beatPhase`, `barPhase`, `phrasePhase`, `beatConf`); `MotionField` and the director already move on it. | The `Lfo.kt` KDoc ("no tempo sync on purpose") predates it and is stale. Keep its worry as a rule: a synced LFO never jumps (plan §3). |
 | BPM tags | `core/library/Tags.hpp` (TagLib) | Reads title, artist and other tags. BPM is not read. | TagLib's property map has a unified `BPM` key (ID3 `TBPM`, MP4 `tmpo`, Vorbis `BPM`) **(from memory)**. |
 | Network | `AndroidManifest.xml` | INTERNET is removed explicitly. | MIDI needs no network. BLE MIDI does need Bluetooth permissions (§5.3). |
 
@@ -207,7 +208,7 @@ REACTIVE_VISUALS §5.2 already designs the built-in tracker. In summary:
 - Autocorrelation through a comb filter bank with a log-Gaussian prior (Davies & Plumbley, Ellis).
 - A causal beat score with a PLL.
 - Hysteresis and a confidence value.
-- It runs **only while `needsTempo()`** is true.
+- ~~It runs only while `needsTempo()` is true.~~ Superseded: `Rhythm` always runs (plan §4).
 
 BTrack's header confirms the same pipeline: a balanced autocorrelation of the smoothed onset function, a comb filter bank,
 and a log-Gaussian transition weighting
@@ -222,7 +223,7 @@ running, else a typed or tapped tempo if one is locked, else the track tag, else
 
 | Source | How | Live / export |
 |---|---|---|
-| **Detect** | `core/sound` tracker, on only when needed. | Export runs the same tracker from the track's first sample. |
+| **Detect** | `core/sound/Rhythm`, always on. | Export runs the same tracker from the track's first sample. |
 | **Tap** | At least 3 taps on the chip. Average the intervals, drop outliers, and set the downbeat on the last tap. | Live only; save the tapped BPM into the patch so an export uses it. |
 | **Typed BPM** | Tap the number on the chip and type 40–240 BPM, then pick ×2 or ÷2. | Same in both. |
 | **Track tag** | TagLib reads the `BPM` property (§1) into the track row. Use it as a strong prior for the detector (its phase still comes from detection), or as a fixed tempo. | Same in both. |
@@ -272,133 +273,202 @@ hysteresis in §5.2).
   goes here. Rate-limit CC out to changes of at least 1 step and at most 100 Hz per CC.
 - MIDI is live input. Exports cannot hear it unless a Take records it. Say so in the UI.
 
-## 6. Recommendation for MuzViz (phone portrait)
+## 6. Agreed UX (phone portrait first)
 
 ### 6.1 Principles
 
-1. **Start from the thing you want to move.** The main entry is a long press on any Customize slider, then "Modulate…"
-   (REACTIVE_VISUALS §2.4). It drops a cable and the slider shows a ring arc of its modulation range, as Vital and Bitwig do.
-   The patch bay is where cables are reviewed and where clusters are built. Most users never need to open it.
-2. **Every gesture has a tap-only route** (WCAG 2.5.7): tap a jack, then tap a jack, the Model 15 double-tap pattern. Drag
-   is a shortcut, not the only way.
-3. **Modulators exist only when used.** The bay starts empty, with "+ Add" tiles. Six LFOs is a ceiling, not six cards on
-   screen.
-4. **Plain words and units.** Write "Wave 1 · 1 bar", not "LFO1 rate 0.5". Use the unit table in REACTIVE_VISUALS §6.
-5. **Tempo is off until something asks for it.** No tempo chip, no tracker CPU, no confusion.
+1. **One new place.** Everything lives in Customize › Advanced › **Modulation**. No other page changes: no "Modulate…"
+   long-press on sliders, no new Tempo card. Sound response and Reactions keep their pages.
+2. **Every gesture has a tap-only route** (WCAG 2.2 SC 2.5.7): tap a jack, then tap a jack. Dragging is a shortcut.
+3. **Modulators exist only when used.** A new patch has no modules; "+ Add" creates one. Six LFOs is a ceiling.
+4. **Plain words and units.** "Wave 1 · 1 bar", not "LFO1 rate 0.5". Units come from `render/scene/ParamFormat`.
+5. **The knob keeps its value** (plan D3). Modulation is drawn around it, never written into it.
+6. **Watch it move.** Every source has a live meter; every modulated jack shows its range and the moving value.
 
-### 6.2 Screens
+### 6.2 Entry and the locked state
 
-**A. Cables (the default page of the matrix).** This is a list, and it is also the TalkBack path.
-- Each row reads `[source chip] ── amount bar ──▶ [destination chip]`, with a live meter on the source and the cable's
-  colour as a stripe.
-- Tap a row to expand curve, mode, smoothing and "scaled by". Swipe or use the menu to mute or delete.
-- Sections group the rows: "Your cables", "Style cables" (DNA, greyed, with "Reset to style"), and "Macro cables" (read
-  only).
-- "+ Cable" opens a two-step picker: *What should move?* then *By what?*, with search and the recommended source first.
+- The Advanced list gains a **Modulation** card (`AdvancedSection.MODULATION_MATRIX`, `available = true`), last in the
+  list, with its own icon (`Icons.Filled.Cable`, falling back to `AccountTree`; not Reactions' `Bolt`). Summary: "Patch
+  any sound, wave or control into any other." When the active patch has user cables, the summary becomes "5 cables ·
+  Breathe" (count and patch name) and the bypass state shows as "Off" if bypassed.
+- **Free user:** the card shows the lock like every Advanced card (`ProGated`); a tap opens the paywall
+  (`PaywallNavigator.request`), never the page. TalkBack reads "Modulation, Pro, locked. Double-tap to see Pro."
+- **Trial:** full access. When the trial ends while the page is open, the page closes back to Advanced and the active patch
+  is bypassed (saved, not deleted), so buying Pro brings it back exactly.
+- Back from the page returns to the Advanced list (the existing "back closes the Advanced card first" rule).
 
-**B. Bay (the patch view, toggled from the toolbar).** This is a two-column patch bay rather than a free 2D canvas, because
-a phone has no room for module panels.
-- **Left column, outputs.** Grouped and collapsible: Sound (72, in the picker's groups, collapsed to the most useful ~12
-  with "Show all"), Tempo, Macros, Modulators (each one's outputs), MIDI, Visual params.
-- **Right column, inputs.** Visual params by tab (Motion, Shape, Colour, FX, Camera, style-specific by `ParamScope`), then
-  modulator inputs (Rate, Depth, Phase, Reset, Gate, Clock …).
-- **Cables are drawn between the columns** as curves with slight sag. When a jack's partner is scrolled off screen, the cable
-  ends in an edge stub with a count badge ("3 ↓"), and tapping the stub scrolls there.
-- **Tap-tap patching.** Tap an output: it lights, valid inputs glow, and the other columns dim. Then tap an input. Dragging
-  from a jack does the same. While dragging, holding near the edge auto-scrolls the other column (Audulus/Model 15 lesson).
-- **Tap a jack with cables** to cycle through them (miRack), and edit the highlighted cable's amount in a bottom sheet.
-- **Cable visibility:** All / Selected jack only / None. The default switches to "Selected" above 8 cables.
-- **Colour by source family:** Sound warm (orange/red), Drums/events pink, LFO blue, Envelope green, Sequencer purple,
-  Macro yellow, MIDI cyan, Visual param grey. Negative amounts are dashed, so colour is never the only cue.
+### 6.3 Page anatomy
 
-**C. Modulators (a horizontal pager of small modules).**
-- Each card is one module: title ("Wave 2"), a live mini-scope, its main settings, and its jacks (output dots at the
-  bottom, input dots on the left) that connect exactly as in the Bay.
-- The LFO card has the wave picker, Free/Synced, rate as Hz or division with the resolved time, phase and Restart.
-- The ADSHR card draws the shape so you can drag its corners, with numeric fields as the tap alternative, and a Gate input.
-- The Sequencer card has 8 steps visible (paged to 16). Tap a step for value, probability and glide. There are Length and
-  Clock controls.
-- "+ Add module" lists LFO (6), Envelope (4), Sequencer (2) and the utilities, and shows how many slots are free.
+```
+┌──────────────────────────────────────┐
+│ ← Modulation        [Bypass ●] [⋯]   │  pinned toolbar (as in Customize)
+│ ♩ 124 BPM · Auto ●   [Tap]  [÷2][×2] │  tempo bar (§6.6)
+│ Patch: Breathe ▾          5/32 cables │  patch row: opens the library (§6.7)
+├──────────────────────────────────────┤
+│  Patch  │  Routes  │  Modules         │  tabs (PrimaryTabRow)
+├──────────────────────────────────────┤
+│                                      │
+│           tab content                │
+│                                      │
+└──────────────────────────────────────┘
+```
 
-**Toolbar (pinned, as in Customize):** Cables | Bay | Modulators, the tempo chip (only when needed: `124 BPM ● Detect`), a
-**Bypass all** switch (an A/B check), Undo, and Patches (save, load, the starter patches).
+- **Toolbar:** back, title, **Bypass** switch (on = the matrix runs; off dims every cable and meter and shows
+  "Bypassed" on the patch row), overflow `⋯`: Undo, Redo, Clear patch (confirm), Help.
+- **Undo/Redo:** every patch edit (connect, disconnect, amount, module setting, add or remove module) is one step;
+  50 steps; lost when the page closes. A snackbar after a delete offers "Undo".
+- **Cable counter** "5/32": turns amber at 28, and at 32 the connect actions disable with "32 cables is the limit.
+  Remove one to add another."
+- The selected tab is saved by name across rotation and process death (`rememberSaveable`), Patch on the first visit,
+  then whichever was last used.
 
-### 6.3 TalkBack
+### 6.4 Patch tab (the bay)
 
-- Each jack is a node, for example "Kick output, 2 cables". Its custom actions are "Connect to…", which opens the picker
-  list, "Show cables" and "Disconnect all".
-- Each cable row is a node with its state ("Kick to Zoom, plus 35 percent"), adjustable as a slider with custom actions
-  "Mute" and "Delete".
-- The Bay canvas itself is hidden from TalkBack (`invisibleToUser`), because the list carries the same content.
-- Add a `ReactivityTabTest`-style Compose UI test that builds a cable only through semantics actions.
+A two-column bay, not a free canvas (UX research §6.2B).
 
-### 6.4 Default patch and starters
+- **Left column, outputs**, collapsible groups in this order: Modulators (each module's outputs), Macros, Sound (the
+  `ReactSource` groups: Levels, Drums, Events, Melody, Rhythm, Harmony, Form, Texture, EQ), Tempo, MIDI (only with a
+  device), Visual params (previous frame's value).
+- **Right column, inputs**, collapsible: Visual params by Customize page (Motion, Shape, Colour, FX, Camera, then this
+  style's own by `ParamScope`), Macros, then each module's inputs (Rate, Depth, Phase, Pulse width, Reset, Gate, Clock …).
+- **Groups:** Sound starts collapsed to its 12 most used sources with "Show all 117"; other groups start expanded if
+  they hold a patched jack, collapsed otherwise. Jacks the current style does not read are hidden; a "Show hidden (9)"
+  row at the end of the group reveals them dimmed, and a cable to one is drawn dotted with "Not used by this style".
+- **Jack row** (56 dp tall, the jack itself a 24 dp circle in a 48 dp touch target): label, live meter bar under it
+  (outputs) or the modulated-range bar (inputs: base marker, shaded range, moving dot), and a badge with the cable count.
+- **Cables** are drawn on a `Canvas` between the columns as cubic curves with a slight sag, 3 dp, coloured by **source
+  family**: Sound warm orange, Drums/events pink, LFO blue, Envelope green, Sequencer purple, Utility teal, Macro
+  yellow, MIDI cyan, Visual param grey. **Negative amounts are dashed**, so colour is never the only cue. Thickness
+  follows |amount| (2–5 dp). When a cable's other end is scrolled off, it ends in an edge stub with a count ("3 ↓");
+  tapping the stub scrolls the other column to it.
+- **Cable visibility** (overflow, saved): All, Selected jack only, None. It switches itself to "Selected" above 8 cables
+  and says so once in a snackbar.
 
-- **Default:** no user cables, no modulators, and tempo off. The style's DNA cables are listed as "Style cables", so the
-  first visit is not blank and shows what already reacts.
-- **Starter patches**, in the same pattern as `macros::starters()`. Each is a single tap and shows what it added:
-  1. *Breathe*: Wave 1, sine, free 0.1 Hz → Zoom +10 %.
-  2. *Kick punch*: Kick → Envelope 1 gate; Envelope 1 (A 5 ms, H 40 ms, R 300 ms) → Zoom +25 % and Bloom +15 %.
-  3. *Bar sweep*: Wave 1, synced 4 bars → Hue +50 %. This turns tempo on, and the chip appears.
-  4. *Groove steps*: Sequencer 1, 8 steps, clocked by 1/8 → Camera turn, in Jump mode.
-  5. *Chain*: Wave 2 (8 bars) → Wave 1 Depth; Wave 1 → Warp, as a first taste of modulating a modulator.
+**Gestures**
 
-### 6.5 Keeping it un-overwhelming
+| Gesture | Result |
+|---|---|
+| Tap an output | Arms it: it lights in its family colour, every input glows (self-loops are allowed, plan D4) and the outputs dim. A hint bar reads "Now tap where it goes". Tap it again or tap empty space to cancel. |
+| Tap an input while armed | Connects at **+25 %**, haptic `CONFIRM`, the new cable animates in (200 ms, none with reduced motion) and the amount sheet opens. |
+| Tap an input (not armed) | Arms it the other way round: valid outputs glow. Then tap an output. |
+| Drag from a jack | Same as arming; a cable follows the finger; releasing over a valid jack connects; holding within 48 dp of a column's top or bottom edge auto-scrolls that column. Release elsewhere cancels. |
+| Tap a jack that has cables (not armed) | Selects its first cable (highlighted, others fade to 30 %); each further tap cycles to the next cable, then back to none (miRack). |
+| Tap a selected cable's jack again, or a cable on the canvas | Opens the **amount sheet** for that cable. |
+| Long-press a jack | Menu: Connect to… (opens the picker list, the tap-only route for long distances), Show cables, Disconnect all. |
+| Pinch | Text and row height scale 85–130 % (saved). No free pan: the columns scroll vertically. |
 
-- Three layers. **Long-press "Modulate…"** on a slider, then **Cables list**, then **Bay and Modulators**. Each layer is
-  reachable from the previous one with one descriptive button.
-- Collapse the source list to about 12 "most used" sources by default (from REACTIVE_VISUALS §3); "Show all 72" is one tap.
-- Show a live meter beside every source and a ring on every modulated slider. People learn by watching it move.
-- Validate as you patch. Inputs that would do nothing for this style are hidden, not just greyed. The amount defaults to a
-  gentle 25 %.
-- A free user sees the Advanced card with a lock, as today. The long-press "Modulate…" can offer one free cable per style
-  as a taster, if `FreeTier` wants it. That is the owner's call.
+**Amount sheet** (modal bottom sheet, 50 % height): "Kick → Zoom", a large bipolar slider −100…+100 % with a centre
+detent and haptic tick at 0, typed value on tap of the number, Curve (Linear, Exponential, Log, Smooth), Smoothing
+(0–2 s), Mode (Follow, Step, Spin, Jump, Toggle; shown only when the destination is a visual param), a live preview of
+the destination's range bar, and Mute / Delete. Changes apply live; the sheet has no OK.
 
-## 7. Engine shape (C++ first)
+### 6.5 Routes tab (the list, also the TalkBack path)
 
-- `core/viz/mod/`:
-  - `Modulators.{hpp,cpp}`: `LfoBank` (6), `EnvelopeBank` (4, ADSHR), `StepSeq` (2), `Utilities`.
-  - `ModMatrix.{hpp,cpp}`: the cables, the previous-frame output table, `tick(frame, dt, tempo)`, `apply(SceneParams)`,
-    `needsTempo()`.
-  - Today's `LfoEngine` and `AdsrEngine` become thin wrappers, or are migrated.
-- **Destination table.** Generate it from `SceneParams::fieldNames()` plus the catalogue's ranges and `ParamScope`, so
-  "every visual parameter" stays true as fields are added. Keep the `LfoTarget` ordinals as aliases for old saves.
-- **Order per frame:**
-  1. Read the sound frame, tempo and MIDI.
-  2. Tick modulators (inputs from the previous frame's outputs, or the current frame's sound).
-  3. Sum cables into parameter offsets.
-  4. Apply macros, then DNA routes (unchanged, or as "style cables").
-  5. `MotionField`, then `safety::apply`, then `CameraRig`.
-- `core/sound/Tempo.{hpp,cpp}`: the tracker (REACTIVE_VISUALS §5.2), plus `TempoSource` arbitration (detect, tap, typed,
-  tag, MIDI) and a MIDI clock PLL.
-- `core/midi/` (new): byte parsing, clock, CC learn tables. JNI only passes bytes and timestamps.
-- **Kotlin:** a `ModPatchCodec` (plain text `modmatrix/1`, written in the same style as `ReactionRouteCodec`), the UI, the
-  device picker and permissions.
-- **Live UI meters:** read one snapshot array of modulator and source values per frame through JNI, at most 30 Hz.
-- **Tests:**
-  - `core/tests/modmatrix_test.cpp`: cycle determinism, live vs 1/fps equality, clamp and safety still last, seeded
-    sequencer probability replay.
-  - A JVM test of the codec.
-  - A click-track tempo test (REACTIVE_VISUALS §8).
+- One row per cable: `[source chip + meter] ──amount bar──▶ [destination chip + range]`, a family-colour stripe, and a
+  muted or "not used by this style" tag when relevant. Rows are grouped by destination's Customize page.
+- Tap a row: it expands in place to the amount sheet's controls (same component). Swipe left: Delete (with Undo);
+  swipe right: Mute. Both are also in the row's menu and its TalkBack actions.
+- **"+ Cable"** (extended FAB): a two-step full-height picker. Step 1 *What should move?* (inputs, searchable, grouped
+  as in the bay). Step 2 *By what?* (outputs, searchable, with each source's live meter, "Recently used" first).
+  Connects at +25 % and scrolls to the new row, expanded.
+- Read-only sections at the end, collapsed: "From Reactions" (the 12 routes, with "Edit in Reactions") and "From Sound
+  response" (its LFO and envelope targets), so the whole picture of what moves is in one list.
+
+### 6.6 Tempo bar
+
+- Reads `♩ 124 BPM · Auto ●`. The dot is green when `locked`, grey and the number dimmed while not; `beatConf` below
+  0.3 shows "listening…" in place of the number. The ♩ pulses on each beat (off with reduced motion).
+- Tap the chip: a menu of sources: **Auto** (detect), **Typed** (opens a number field, 40–240), **Track tag** (shown only
+  when the playing track has one: "Track tag · 128"), **Tap**, **MIDI** (only with a MIDI device, E4).
+- **Tap** button: 56 dp; each tap haptic `CLOCK_TICK`; after 3 taps the BPM appears; the source switches to Tap.
+  "Tap 2 more" helper under it after the first tap. A pause over 2 s starts a new count.
+- **÷2 / ×2** fold the current tempo; disabled on Auto while unlocked.
+- Before E3 merges, the bar shows the detected tempo only (Auto), with no menu, tap or fold.
+
+### 6.7 Patches library
+
+Opened from the patch row. A full-screen page in the panel's back stack.
+
+- Chips: All, Mine, Starters, each folder. A list of cards: name, cable count, module icons, modified date; the active
+  one ticked.
+- Tap a patch: load it as the active patch. If the active patch has unsaved edits, a dialog: "Save changes to Breathe?"
+  Save / Discard / Cancel.
+- Card menu (also long-press and TalkBack actions): Rename, Duplicate, Move to folder, Share (FileProvider, as presets),
+  Delete (confirm; starters cannot be deleted).
+- Bottom bar: "Save" (overwrites the active one, disabled for starters), "Save as…" (name + folder), "New empty".
+- The active patch's name gets "•" when it has unsaved edits. Edits always run live; saving is only about the library.
+- Opening a shared `.mvzpatch` file imports it into "Imported" and asks before making it active.
+- **Starters** (built in, read-only, duplicable): *Breathe* (Wave 1 sine 0.1 Hz → Zoom +10 %), *Kick punch* (Kick →
+  Envelope 1 gate; Envelope 1 A 5 ms H 40 ms R 300 ms → Zoom +25 %, Bloom +15 %), *Bar sweep* (Wave 1 synced 4 bars →
+  Hue +50 %), *Groove steps* (Sequencer 1, 8 steps, clock 1/8 → Camera yaw, Jump mode), *Chain* (Wave 2 8 bars →
+  Wave 1 depth; Wave 1 → Warp).
+
+### 6.8 Modules tab
+
+- A vertical list of module cards (not a pager: easier to scan and to reach with TalkBack), then "+ Add module" with
+  counts: "LFO 2/6 · Envelope 1/4 · Sequencer 0/2 · Utility 3/8". A full type is disabled with "All 6 in use".
+- **Card header:** name ("Wave 2", renamable), a live mini-scope (40 dp, last 2 s of output; static with reduced motion),
+  its output jacks and input jacks as chips with cable counts (tap = arm, as in the bay), and a menu: Rename, Duplicate,
+  Reset, Remove (confirm when it has cables: "Remove Wave 2 and its 3 cables?").
+- **LFO:** wave picker (icons with labels), Free/Synced segmented button, rate as Hz slider or division chips (1/32 … 8
+  bars, plus · dotted and T triplet toggles) with the resolved time ("= 1.94 s at 124 BPM"), phase, polarity, restart,
+  pulse width (square only), fade-in.
+- **ADSHR:** the shape drawn as an editable graph (drag each corner; the tap route is the five numeric fields under it),
+  curve per segment, retrigger mode, gate source chip and threshold slider with the gate's live meter.
+- **Sequencer:** 8 steps visible, a second page for 9–16; tap a step for a sheet with value, gate, probability, condition
+  and glide; drag vertically across steps to draw values; length, direction, swing, clock (division or Clock input).
+  The playing step is outlined.
+- **Utilities:** compact cards with their two or three settings.
+- **Empty state:** "No modules yet. Add an LFO, envelope or sequencer, or load a starter." with "+ Add module" and
+  "Browse starters" buttons.
+
+### 6.9 Other states
+
+| State | What the user sees |
+|---|---|
+| New patch, nothing patched | Patch tab: both columns with collapsed groups and a centred hint "Tap a source on the left, then a control on the right." Routes tab: "No cables yet" with "+ Cable" and "Browse starters". |
+| Bypass off | Cables at 30 % and grey, meters still move, a "Bypassed" chip on the patch row and the Advanced card. |
+| Cable into a hidden jack (style does not use it) | Dotted cable, row tag "Not used by this style". It is kept and works again on a style that reads it. |
+| Loop (a modulator feeding itself through others) | Allowed (plan D4). The cable closing the loop shows a small ↻ badge; the sheet explains "Reads last frame's value". |
+| Cable cap reached | Counter red, connect actions disabled with the message in §6.3. |
+| Source not live (MIDI device unplugged) | The MIDI group shows "No device", its cables dashed grey with "Waiting for MIDI". |
+| Tempo unlocked | Synced modules keep their last tempo; the tempo bar shows "listening…". |
+| Export | Exports use the active patch (bypass respected). MIDI and Tap sources are only heard through a take; the Render page notes "Live MIDI is not in exports" when a MIDI cable exists. |
+| Corrupt or newer patch file | Library card "Can't open (made by a newer version)"; the forgiving codec loads what it can and lists what it dropped. |
+
+### 6.10 Accessibility
+
+- **TalkBack.** The bay canvas is hidden (`invisibleToUser`); each jack row is a node: "Kick, output, 2 cables" with
+  custom actions "Connect to…" (opens the picker), "Show cables", "Disconnect all". The Routes list is the full path:
+  each row reads "Kick to Zoom, plus 25 percent, follow" and is an adjustable node (swipe up or down = ±5 %), with
+  actions "Mute", "Delete", "Edit". Module controls are standard sliders and buttons with units in their state
+  descriptions ("Rate, 1 bar, 1.94 seconds").
+- **Dragging is never required** (2.5.7): tap-tap, the picker and numeric fields cover every drag (cables, ADSHR
+  corners, sequencer drawing).
+- **Targets** at least 48 × 48 dp; jacks keep 8 dp between touch areas.
+- **Colour is never the only cue:** dashed = negative, dotted = unused by style, labels on every chip; the palette
+  passes 3:1 against the black-glass surface for non-text and 4.5:1 for text (`GeodeTokens`).
+- **Font scale up to 200 %:** jack rows grow, columns stay two; at 175 % and above the bay shows a banner "Routes is
+  easier at this text size" with a button to switch.
+- **Reduced motion** (system animator scale 0 or the app's reduced-motion setting): no cable animations, no beat pulse,
+  static scopes and meters updated at 4 Hz.
+- **Haptics** via `ui/theme` haptics only, and off when the system turns them off.
+- Tested by a Compose UI test that builds, edits and deletes a cable through semantics actions only (as
+  `ReactivityTabTest`), plus a journey that opens the page, loads a starter and checks the counter.
+
+### 6.11 Performance
+
+- Meters and scopes read one JNI float snapshot per frame, polled at most 30 Hz from a single `produceState`, and only
+  while the page is visible; the bay redraws cables in one `Canvas` from that snapshot, so jack rows do not recompose
+  per frame.
+
+## 7. Engine shape
+
+Superseded by the plan: the registry is plan §2, modulators and routes §3, tempo §4, MIDI §5.
 
 ## 8. Staged PR plan
 
-Each PR is shippable on its own and touches `AGENTS.md` when structure changes (the arch-map gate).
-
-1. **Destination table.** Destinations generated from `fieldNames()` and the catalogue; `LfoTarget` kept as aliases; a test
-   that every field with a range is a destination. No UI.
-2. **`ModMatrix` core.** Cables, previous-frame rule, summing and clamps. Today's 3 LFOs, 2 ADSRs and 12 routes are
-   expressed as cables underneath, with a saved-format migration. The look must not change; add a golden-frame test.
-3. **New modulators.** 6 LFOs (shapes, phase, restart modes, Free only), 4 ADSHR with a Gate input, 2 step sequencers
-   clocked by triggers, and the utilities. C++ tests.
-4. **Cables page and long-press "Modulate…".** Pro gate, slider rings, starter patches 1, 2, 4 and 5, and TalkBack actions
-   with a Compose test.
-5. **Bay and Modulators pages.** Tap-tap and drag, cable colours and visibility, edge stubs, mini-scopes.
-6. **Tempo.** The tracker in `core/sound` (gated by `needsTempo`), tap, typed, BPM tag via TagLib, the tempo chip, Synced
-   LFO and sequencer rates, and starter 3. Export uses detect, typed or tag.
-7. **MIDI in.** `MidiManager` device list (USB and virtual first), AMidi polling, clock in, CC and note sources with learn.
-8. **MIDI out and BLE.** Clock out and CC out. Then BLE devices with in-context Bluetooth permission (CDM if it proves
-   viable), and optionally a `MidiDeviceService`.
+Superseded by plan §6 (E0 registry, E1 modulators, E2 UI, E3 tempo, E4 MIDI, E5 Bluetooth MIDI).
 
 ## 9. Not yet researched
 

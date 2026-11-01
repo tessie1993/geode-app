@@ -3,7 +3,7 @@ package dev.geode.render.scene
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
-/** The unit beside each Customize value (docs/research/REACTIVE_VISUALS.md §6). */
+/** The unit beside each Customize value. */
 class ParamFormatTest {
     @Test
     fun amountsArePercentAndSignedWhenBipolar() {

@@ -357,6 +357,9 @@ internal fun PresetsTab(
     }
 }
 
+/** What the preset sheet offers; [PresetsTab] decides what each one does. */
+internal enum class PresetAction { PLAYLIST, SHARE, DUPLICATE, RENAME, MOVE, REPLACE, DELETE }
+
 /** What the page asks the user about, one at a time. */
 private sealed interface PresetDialog {
     data class Save(

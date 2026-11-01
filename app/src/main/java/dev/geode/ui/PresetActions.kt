@@ -13,11 +13,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.DriveFileMove
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.CreateNewFolder
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.DriveFileMove
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.PlaylistRemove
 import androidx.compose.material.icons.filled.Refresh
@@ -51,11 +51,9 @@ import dev.geode.render.scene.VisualStyleCatalog
 import dev.geode.ui.theme.GeodeSpacing
 
 /**
- * What the preset sheet offers. The sheet and the dialogs below hold no state beyond what is
+ * The long-press sheet of a preset card. It and the dialogs below hold no state beyond what is
  * typed, so `PresetsTab` stays the one place that decides what an action does.
  */
-internal enum class PresetAction { PLAYLIST, SHARE, DUPLICATE, RENAME, MOVE, REPLACE, DELETE }
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun PresetActionsSheet(
@@ -95,7 +93,7 @@ internal fun PresetActionsSheet(
                 )
             } else {
                 SheetAction(Icons.Filled.Edit, "Rename") { onAction(PresetAction.RENAME) }
-                SheetAction(Icons.Filled.DriveFileMove, "Move to folder") { onAction(PresetAction.MOVE) }
+                SheetAction(Icons.AutoMirrored.Filled.DriveFileMove, "Move to folder") { onAction(PresetAction.MOVE) }
                 SheetAction(Icons.Filled.Refresh, "Replace with current look") { onAction(PresetAction.REPLACE) }
                 SheetAction(Icons.Filled.Delete, "Delete", MaterialTheme.colorScheme.error) { onAction(PresetAction.DELETE) }
             }

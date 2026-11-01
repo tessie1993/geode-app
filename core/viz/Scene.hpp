@@ -15,7 +15,7 @@ namespace geode::viz {
 
 enum class SceneFamily { Shader, Milkdrop, Fluid };
 
-// Port of Scene.kt plus the optional hooks the renderer wires by capability rather than by class.
+// A scene, plus the optional hooks the renderer wires by capability rather than by class.
 class Scene {
 public:
     virtual ~Scene() = default;

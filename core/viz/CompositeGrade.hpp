@@ -17,7 +17,6 @@ struct Gate {
 constexpr float kMinZoom = 0.05f;
 constexpr float kMinGamma = 0.05f;
 constexpr float kBeatDecay = 3.0f;
-constexpr float kPulseGain = 0.22f;
 constexpr float kTau = 6.2831855f;
 
 inline Gate gateFor(SceneFamily family) {
@@ -29,7 +28,6 @@ float integrateRotation(float angle, float rotation, float dt);
 float integrateCyclePhase(float phase, float cycleSpeed, float dt, bool enabled);
 float integrateBeatPulse(float envelope, float impulse, float dt);
 float pulseAmount(float pulse, float envelope);
-inline float pulseScale(float amount) { return 1.0f + (amount > 0.0f ? amount : 0.0f) * kPulseGain; }
 inline float brightness(float brightness, float intensity) { return brightness * intensity; }
 inline float paletteSpan(float hueRange, float paletteRange) { return std::max(hueRange, 0.0f) * std::clamp(paletteRange, 0.0f, 1.0f); }
 inline float paletteTintAmount(float tint) { return std::clamp(tint, 0.0f, 1.0f); }

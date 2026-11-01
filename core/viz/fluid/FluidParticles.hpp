@@ -12,7 +12,7 @@
 
 namespace geode::viz::fluid {
 
-// Port of FluidParticles.kt: a square state texture of particles advected by a velocity field
+// A square state texture of particles advected by a velocity field
 // (midpoint rule, plus a curl-noise stir where the field is calm), drawn as point sprites or, when
 // a tier can afford the fill, as instanced motion-blurred streaks.
 class Particles {

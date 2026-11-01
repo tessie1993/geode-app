@@ -4,9 +4,9 @@
 
 namespace geode::viz::fluid::quality {
 
-// Port of FluidQuality.kt, since grown into the engine's whole cost ladder: a tier says how big the
-// grids are and which of the expensive refinements it can afford, so a low-end phone gets the same
-// solver with the refinements off rather than a different one.
+// The fluid engine's whole cost ladder: a tier says how big the grids are and which of the
+// expensive refinements it can afford, so a low-end phone gets the same solver with the
+// refinements off rather than a different one.
 //
 // Ultra and High were raised when the splats went into one batched pass: up to sixteen splats used
 // to be sixteen full-grid passes on the dye AND on the velocity, and that budget now pays for finer

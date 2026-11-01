@@ -13,7 +13,7 @@
 
 namespace geode::viz {
 
-// Port of FluidSceneBase.kt: the shared clock, idle synthesis, quality ladder and GL state guard.
+// The shared clock, idle synthesis, quality ladder and GL state guard.
 class FluidSceneBase : public Scene {
 public:
     FluidSceneBase(std::string id, float timeWrapSeconds, ProgramLoader loader, SceneHost host)

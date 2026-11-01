@@ -15,7 +15,7 @@
 
 namespace geode::viz::fluid {
 
-// Port of RippleSim.kt: a height-field wave grid with an optional advected ink layer.
+// A height-field wave grid with an optional advected ink layer.
 class RippleSim {
 public:
     explicit RippleSim(const ProgramLoader& loader) : loader_(loader) {}

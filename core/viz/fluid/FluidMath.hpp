@@ -19,7 +19,9 @@ constexpr float kDriveCeiling = 1.5f;
 
 float driven(float value, float audioDrive);
 int stateSide(int count);
+// Distance from (px, py) to the segment a-b, and how far along it (0..1) the nearest point lies.
 std::pair<float, float> segDist(float ax, float ay, float bx, float by, float px, float py);
+// One step of v easing toward the flow at a per-60-fps-frame drag, so the pull is frame-rate independent.
 float dragStep(float v, float flow, float drag, float dt = 1.0f / 60.0f);
 
 // ---- Splats --------------------------------------------------------------------------------------
@@ -156,10 +158,10 @@ void tracerStepRk2(float& px, float& py, float& vx, float& vy, float drag, float
 
 }  // namespace math
 
-// Port of FluidAudioDrive: the frame with its levels and bands scaled by the audio-drive control.
+// The frame with its levels and bands scaled by the audio-drive control.
 GeodeSoundFrame scaledFeatures(const GeodeSoundFrame& features, float audioDrive);
 
-// Port of WaterMath.kt.
+// Water: which dye texels are a catch well, and the well's radius and depth.
 namespace water {
 constexpr float kMinCatchRadius = 0.03f;
 constexpr float kMaxCatchRadius = 0.3f;
@@ -171,7 +173,7 @@ float catchWellRadius(float catchRadius);
 float catchWellAmplitude(float speed, float catchRadius, float rippleStrength);
 }  // namespace water
 
-// Port of CurlFlowMath.kt.
+// Curl flow: beat drive, field amplitude, trail retention and particle brightness.
 namespace curl {
 constexpr float kMinRetention = 0.6f;
 constexpr float kOffRetention = 0.45f;

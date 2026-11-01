@@ -11,7 +11,7 @@
 
 namespace geode::viz {
 
-// Port of SceneRegistry.createScene: an id is known when a native scene class can build it.
+// An id is known when a native scene class can build it.
 class SceneRegistry {
 public:
     SceneRegistry(const ShaderSource& assets, ProgramBinaryCache* cache, const GlProfile* profile, SceneHost host)

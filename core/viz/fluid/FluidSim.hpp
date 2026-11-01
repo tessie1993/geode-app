@@ -17,8 +17,8 @@
 
 namespace geode::viz::fluid {
 
-// The stable-fluids solver on half-float grids (first a port of FluidSim.kt, after Dobryakov's
-// WebGL fluid), velocity-only for the flow field. Per step:
+// The stable-fluids solver on half-float grids (after Dobryakov's WebGL fluid),
+// velocity-only for the flow field. Per step:
 //
 //   advect velocity (MacCormack when `macCormack`, else semi-Lagrangian) and temperature
 //   -> every splat of the frame in one batched pass per field

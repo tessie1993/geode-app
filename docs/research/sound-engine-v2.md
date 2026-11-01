@@ -242,7 +242,7 @@ LiteRT docs (developers.google.com/edge/litert).
 
 | # | PR | Done when |
 |---|---|---|
-| 0 | Tempo sources (§8b): AUTO, MANUAL, TAP, MIDI into the one `Rhythm` clock; `geode_tempo_*` | musical test: each source locks the grid; TAP and MIDI phase within 10 ms; export pins its source |
+| 0 | Tempo sources (§8b): AUTO, MANUAL, TAP, MIDI into the one `Rhythm` clock; `geode_tempo_*`; the BPM tag (ID3 TBPM, Vorbis/FLAC `BPM`, MP4 `tmpo`) through `core/library` | musical test: each source locks the grid; TAP and MIDI phase within 10 ms; export pins its source |
 | 1 | `RealFft` + tables + vendored KISS FFT oracle + benchmark; engine switched over | oracle error < 1e-5 at every size; golden bits; ≥ 4× faster than today on host; sound and musical tests unchanged |
 | 2 | Onsets (max filter, complex-domain, peak picking, hard/soft), IF pitch, multi-window | Unholy piano cover and a drum track: soft hits found, no vibrato hits; frame cost ≤ today's |
 | 3 | Decimated long window, CQ bass/treble chroma, tuning, HPCP weighting, NNLS, key profiles, chord HMM | GiantSteps key and a chord set scored in scratch (scores committed, not audio); better than today |

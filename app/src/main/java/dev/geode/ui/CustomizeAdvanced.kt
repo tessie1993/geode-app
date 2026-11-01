@@ -475,7 +475,8 @@ private fun ReactionCard(
                         }
                     } else {
                         LfoTarget.entries
-                            .filter { it != LfoTarget.NONE && it != LfoTarget.RETIRED_25 && it.chain == null && it.scope.appliesTo(sceneId) }
+                            .filter { it != LfoTarget.RETIRED_25 }
+                            .filter { it != LfoTarget.NONE && it.chain == null && it.scope.appliesTo(sceneId) }
                             .forEach { t ->
                                 TextButton(onClick = {
                                     onChange(route.copy(target = t))
@@ -613,7 +614,8 @@ private fun AdsrCard(
                 )
                 DropdownMenu(expanded = showAdd, onDismissRequest = { showAdd = false }) {
                     LfoTarget.entries
-                        .filter { it != LfoTarget.NONE && it != LfoTarget.RETIRED_25 && it !in config.targets && (it.chain != null || it.scope.appliesTo(sceneId)) }
+                        .filter { it != LfoTarget.RETIRED_25 }
+                        .filter { it != LfoTarget.NONE && it !in config.targets && (it.chain != null || it.scope.appliesTo(sceneId)) }
                         .forEach { t ->
                             DropdownMenuItem(
                                 text = { Text(t.label) },

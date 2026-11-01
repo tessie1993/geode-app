@@ -3,12 +3,14 @@ package dev.geode.journey
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isToggleable
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTextInput
 import androidx.test.espresso.Espresso
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.LargeTest
@@ -91,5 +93,22 @@ class VisualsJourneyTest {
         compose.awaitNode(hasText("Kaleidoscope"))
         compose.tap("Kaleidoscope")
         compose.awaitNode(hasText("Folds"))
+    }
+
+    /**
+     * Presets has one save path: "Save current look" opens a dialog, and the saved look shows as
+     * a card, under Mine too.
+     */
+    @Test
+    fun savingTheCurrentLookAddsAPresetCard() {
+        openVisuals()
+        compose.tap("Presets")
+        compose.tap("Save current look")
+        compose.awaitNode(hasSetTextAction())
+        compose.onNode(hasSetTextAction()).performTextInput("Journey look")
+        compose.tap("Save")
+        compose.awaitNode(hasText("Journey look"))
+        compose.tap("Mine")
+        compose.awaitNode(hasText("Journey look"))
     }
 }

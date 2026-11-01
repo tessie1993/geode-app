@@ -921,6 +921,14 @@ class PlayerSession internal constructor(
 
     fun deletePreset(name: String) = presetLibrary.deletePreset(name)
 
+    /** Renames a user preset and keeps its place in the visual playlist. */
+    fun renamePreset(
+        from: String,
+        to: String,
+    ): String? = presetLibrary.renamePreset(from, to)?.also { autoVisuals.renamePresetInPlaylist(from, it) }
+
+    fun duplicatePreset(name: String): String? = presetLibrary.duplicatePreset(name)
+
     val templates: StateFlow<List<VideoTemplate>> get() = templateLibrary.library
 
     val templateStarters: List<VideoTemplate> get() = templateLibrary.starters

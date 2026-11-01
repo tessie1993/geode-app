@@ -1,5 +1,6 @@
 package dev.geode.ui
 
+import android.os.Build
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -222,6 +223,7 @@ internal fun StudioRenderTab(
                                 ?: stringResource(R.string.render_nothing_playing)
                         },
                     batchLocked = !gate.allows(ProFeature.FULL_LENGTH_EXPORT),
+                    batchSupported = RenderScope.batchSupported(Build.VERSION.SDK_INT),
                     onScope = { selection = selection.copy(scope = it) },
                     onPickPlaylist = { picking = RenderPick.PLAYLIST },
                     onPickTracks = { picking = RenderPick.TRACKS },

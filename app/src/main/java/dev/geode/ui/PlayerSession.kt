@@ -869,6 +869,9 @@ class PlayerSession internal constructor(
 
     fun cancelScenePreview() = visual.cancelPreview()
 
+    /** The chosen style, which a preview on the stage does not change (see [previewScene]). */
+    val chosenSceneId: String get() = visual.chosenSceneId
+
     fun setReactivity(
         attack: Float,
         decay: Float,

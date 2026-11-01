@@ -68,8 +68,11 @@ class PlayerSessionProvider
          */
         private fun leaveLockedStyle(session: PlayerSession) {
             if (!gateKnown) return
-            val current = session.visualizerRepository.viz.value.sceneId
-            if (!gate.allowsStyle(current)) session.selectScene(FreeTier.FALLBACK_STYLE_ID)
+            // The chosen style, not the stage's: a free user previewing a Pro style is allowed to,
+            // and every gate emission (a price arriving, the billing client connecting) would
+            // otherwise throw the preview away mid-look. A chosen style that is locked still goes,
+            // and choosing the fallback ends any preview with it.
+            if (!gate.allowsStyle(session.chosenSceneId)) session.selectScene(FreeTier.FALLBACK_STYLE_ID)
         }
 
         /** The shared session, built on first use. Safe for any ViewModel to call. */

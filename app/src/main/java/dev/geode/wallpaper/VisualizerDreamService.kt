@@ -81,7 +81,9 @@ class VisualizerDreamService : DreamService() {
                 if (fps != pacedFps) {
                     pacedFps = fps
                     view.framePacer.policy = FrameRatePolicy.Capped(fps.toFloat())
-                    view.holder.surface?.takeIf { it.isValid }?.let(view.framePacer::applyTo)
+                    view.holder.surface
+                        ?.takeIf { it.isValid }
+                        ?.let(view.framePacer::applyTo)
                 }
             }
     }

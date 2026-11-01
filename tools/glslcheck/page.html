@@ -96,13 +96,19 @@ function upload(program, u) {
     return true;
   }
   const v = Array.isArray(u.value) ? u.value : [u.value];
+  // An array uniform takes a full list when given one (the bloom pass's per-bloom values), else one
+  // value repeated.
   switch (u.type) {
-    case 'float': gl.uniform1fv(loc, u.count > 1 ? new Float32Array(u.count).fill(v[0]) : v); break;
-    case 'int': gl.uniform1iv(loc, u.count > 1 ? new Int32Array(u.count).fill(v[0]) : v); break;
+    case 'float': gl.uniform1fv(loc, u.count > 1 && v.length !== u.count ? new Float32Array(u.count).fill(v[0]) : v); break;
+    case 'int': gl.uniform1iv(loc, u.count > 1 && v.length !== u.count ? new Int32Array(u.count).fill(v[0]) : v); break;
     case 'vec2': gl.uniform2fv(loc, v); break;
     case 'vec3': gl.uniform3fv(loc, v); break;
     case 'mat3': gl.uniformMatrix3fv(loc, false, v); break;
     case 'vec4': {
+      if (v.length === u.count * 4) {
+        gl.uniform4fv(loc, new Float32Array(v));
+        break;
+      }
       const arr = new Float32Array(u.count * 4);
       for (let i = 0; i < u.count; i++) arr.set(v, i * 4);
       gl.uniform4fv(loc, arr);
@@ -138,6 +144,20 @@ window.__render = async function (job) {
     gl.clearColor(0, 0, 0, 1);
     gl.clear(gl.COLOR_BUFFER_BIT);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
+    if (job.overlay) {
+      // A second pass over the first, blended the way the app blends it (the note blooms: screen,
+      // ONE / ONE_MINUS_SRC_COLOR, as NoteBloomPass does).
+      gl.deleteProgram(program);
+      program = link(job.overlay.vert, job.overlay.frag);
+      gl.useProgram(program);
+      for (const u of job.overlay.uniforms) {
+        if (!upload(program, u)) out.dropped.push(u.name);
+      }
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_COLOR);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+      gl.disable(gl.BLEND);
+    }
     gl.finish();
     const err = gl.getError();
     out.glError = err === gl.NO_ERROR ? 0 : err;

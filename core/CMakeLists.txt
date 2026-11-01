@@ -36,14 +36,14 @@ add_library(geode_core STATIC
     viz/Lfo.cpp
     viz/Macros.cpp
     viz/Director.cpp
+    viz/NoteResponse.cpp
+    viz/NoteBloomPass.cpp
     viz/Adsr.cpp
     viz/MotionField.cpp
     viz/ReactionDna.cpp
     viz/Reactions.cpp
     viz/CameraRig.cpp
     viz/VisualSafety.cpp
-    viz/FlashLimiter.cpp
-    viz/FlashLimitPass.cpp
     viz/ThermalGovernor.cpp
     viz/TouchField.cpp
     viz/Transition.cpp

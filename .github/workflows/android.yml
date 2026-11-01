@@ -124,10 +124,6 @@ jobs:
         run: |
           g++ -std=c++20 -O1 -Wall -Wextra -Icore -Icore/tests/stub             core/tests/viz_math_test.cpp core/viz/Reactions.cpp core/viz/ReactionDna.cpp core/viz/CameraRig.cpp core/viz/MotionField.cpp core/viz/Lfo.cpp core/viz/Macros.cpp             core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/VisualSafety.cpp -o viz_math_test
           ./viz_math_test
-          # The output flash limiter's per-tile maths (core/viz/FlashLimiter): no more than three flashes
-          # in any second, whatever the input; slow fades and a single beat flash untouched.
-          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/flash_limit_test.cpp core/viz/FlashLimiter.cpp -o flash_limit_test
-          ./flash_limit_test
           g++ -std=c++20 -O1 -Wall -Wextra -Icore core/tests/sound_test.cpp core/sound/*.cpp -o sound_test
           ./sound_test
           g++ -std=c++20 -O1 -Wall -Wextra -Icore core/tests/musical_test.cpp core/sound/*.cpp -o musical_test
@@ -137,6 +133,9 @@ jobs:
             core/viz/Director.cpp core/viz/Reactions.cpp core/viz/Lfo.cpp core/viz/Macros.cpp core/viz/CameraRig.cpp \
             core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/VisualSafety.cpp -o director_test
           ./director_test
+          # Note & key reactions: knobs by meaning, the drum weight, blooms per note, hues, off = today.
+          g++ -std=c++20 -O1 -Wall -Wextra -Icore core/tests/note_response_test.cpp core/viz/NoteResponse.cpp -o note_response_test
+          ./note_response_test
 
       # The scene and style catalogue (core/viz/Catalogue): ids, families, param scopes, ranges, and
       # its text table byte-equal to core/tests/catalogue.txt, the copy the JVM tests read.
@@ -235,5 +234,104 @@ jobs:
             app/build/test-results/
             engine/*/build/reports/
             engine/*/build/test-results/
+          if-no-files-found: ignore
+          retention-days: 14
+
+  # Instrumented tests need a real Android runtime: MediaStore, a live
+  # MediaSession and the permission model do not exist off a device, and
+  # Robolectric's shadows actively misreport some of them (its ContentResolver
+  # returns success for any uri, so a delete of a missing file "succeeds").
+  # This job is the only place those paths are genuinely exercised.
+  #
+  # Its own job rather than a step in the build: the emulator takes minutes to
+  # boot, and a slow device suite must not delay the APK the build job
+  # publishes for manual testing.
+  instrumented-tests:
+    name: Instrumented tests (emulator)
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          # third_party/* are submodules; the root CMakeLists.txt builds them.
+          submodules: recursive
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      # The emulator needs hardware acceleration to be usable; ubuntu runners
+      # expose KVM but not to unprivileged processes by default.
+      - name: Enable KVM for the emulator
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      # Both APKs before the emulator exists. Built inside the emulator step, the
+      # ten-minute native build ran on the same four vCPUs as the booted emulator,
+      # and the emulator only had to survive that to reach the first test.
+      - name: Build app and test APKs
+        run: ./gradlew :app:assembleDebug :app:assembleDebugAndroidTest --stacktrace --no-daemon
+
+      # tools/connected-tests.sh runs the suite, keeps the device's full logcat
+      # (events buffer included: am_anr, am_kill), ANR traces and tombstones, and
+      # retries once only for an emulator failure (adb lost the device) or for
+      # tests whose instrumentation process was killed; an assertion failure is
+      # never retried. Runs 41178519245, 41181213744 and 41190866232 failed on
+      # exactly those two signatures.
+      - name: Run instrumented tests
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          # 29 is the floor for the scoped-storage paths these tests cover;
+          # anything below skips them via assumeTrue rather than failing.
+          api-level: 30
+          target: google_apis
+          arch: x86_64
+          # The default 2 GB left the guest at ~75 MB free mid-suite. The journeys
+          # pin Settings > Performance themselves (journey/Journeys.kt, Onboarded),
+          # so the extra RAM does not change what the app renders.
+          ram-size: 4096M
+          heap-size: 576M
+          # Three guest vCPUs: the fourth is left for the host side of
+          # swiftshader, which renders every GL frame the app draws.
+          cores: 3
+          disk-size: 6000M
+          force-avd-creation: true
+          emulator-boot-timeout: 900
+          # swangle_indirect (ANGLE on SwiftShader Vulkan), not swiftshader_indirect: under the
+          # visualizer journeys the legacy translator died host-side with "DisplaySurfaceGlContextHelper
+          # context was preempted by others ... Failed to restore previous context: 12297" and the
+          # emulator dropped off adb after 27/33 tests (runs 41282308944, 41282326381, 41288443184).
+          emulator-options: -no-snapshot -no-window -gpu swangle_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
+          disable-animations: true
+          script: |
+            adb shell settings put global window_animation_scale 0
+            adb shell settings put global transition_animation_scale 0
+            adb shell settings put global animator_duration_scale 0
+            adb shell settings put secure long_press_timeout 1500
+            adb shell settings put secure show_ime_with_hard_keyboard 0
+            adb shell input keyevent 82
+            bash tools/connected-tests.sh
+          working-directory: .
+
+      - name: Upload instrumented reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: geode-instrumented-reports-${{ github.run_number }}-${{ github.run_attempt }}
+          path: |
+            app/build/reports/androidTests/
+            app/build/outputs/androidTest-results/
+            app/build/outputs/connected_android_test_additional_output/
+            ci-artifacts/
           if-no-files-found: ignore
           retention-days: 14

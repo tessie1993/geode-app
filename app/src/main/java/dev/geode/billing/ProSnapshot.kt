@@ -15,10 +15,15 @@ import dev.geode.pro.TrialState
  * toggle reaches these surfaces too.
  */
 object ProSnapshot {
+    // The cached purchase is re-verified on every read, by the same rule as PlayBillingRepository,
+    // because this is the reader that matters offline: the wallpaper and dream of a buyer away
+    // from Play keep running on the signed purchase alone.
+    private val verifier by lazy { PurchaseVerifier.forThisBuild() }
+
     fun gate(context: Context): FeatureGate {
         val prefs = PrefsEntitlementStore.open(context)
         val now = WallClock.SYSTEM.nowMs()
-        if (PrefsEntitlementStore(prefs).load().vouchesForPro(now)) return FeatureGate(Entitlement.Pro)
+        if (PrefsEntitlementStore(prefs).load().vouchesForPro(now, verifier::isGenuine)) return FeatureGate(Entitlement.Pro)
         val trialStore = PrefsTrialStore(prefs)
         val trial = TrialState.at(trialStore.startedAtMs(), trialStore.endNoticeShown(), now)
         return if (trial is TrialState.Active) FeatureGate(Entitlement.Trial(trial.endsAtMs)) else FeatureGate.FREE

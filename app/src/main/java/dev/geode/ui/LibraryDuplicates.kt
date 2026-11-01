@@ -7,7 +7,15 @@ data class DuplicateGroup(
     val title: String,
     val artist: String,
     val tracks: List<DeviceTrack>,
-)
+) {
+    /**
+     * The group's LazyColumn key. Title and artist alone are not unique: one song can split into two groups
+     * when its copies differ in length by more than the slack (an album cut and a radio edit, each duplicated),
+     * and two keys alike crash the list. A track sits in exactly one group, so its first track's uri is unique
+     * and stays put while the list recomposes; the prefix keeps it apart from the track rows, keyed by bare uri.
+     */
+    val key: String get() = "group:" + tracks.first().uri
+}
 
 /** Tracks that look like the same recording: same title and artist once normalised, and lengths within two seconds. */
 object LibraryDuplicates {

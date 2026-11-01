@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -180,6 +181,14 @@ fun AppRoot() {
                 onPlayPause = viewModel::togglePlayPause,
                 onPrevious = viewModel::previous,
                 onNext = viewModel::next,
+                minimal = appState.visualsChrome == VisualsChrome.MINIMAL,
+                subtitle = if (appState.visualsChrome == VisualsChrome.FULL) ({ VisualsMiniSubtitle(viewModel) }) else null,
+                actions =
+                    if (appState.visualsChrome == VisualsChrome.FULL) {
+                        { VisualsMiniActions(onOpenStudioRender = appState::openStudioRender, onOpenLive = appState::expand) }
+                    } else {
+                        null
+                    },
             )
         }
         // Someone who came here to listen does not get a render queue in their navigation bar.
@@ -232,8 +241,7 @@ fun AppRoot() {
                         VisualsHub(
                             viewModel,
                             visualizerView,
-                            onOpenNowPlaying = appState::expand,
-                            onOpenStudioRender = appState::openStudioRender,
+                            onChrome = { appState.visualsChrome = it },
                             // The one VisualizerView has one parent: the Visuals stage may take it
                             // only while the fullscreen view and the second screen don't hold it.
                             canvasFree = !appState.expanded && !onSecondScreen,
@@ -292,7 +300,7 @@ fun AppRoot() {
                         navEntries = navEntries,
                         appState = appState,
                         gui = gui,
-                        showMiniPlayer = state.hasMedia && !appState.onPlayer && !playerPaneShown,
+                        showMiniPlayer = appState.miniPlayerShown(state.hasMedia) && !playerPaneShown,
                         centerRail = sizeClass.isHeightAtLeastBreakpoint(WindowSizeClass.HEIGHT_DP_MEDIUM_LOWER_BOUND),
                         miniPlayer = miniPlayer,
                         content = { destinationContent(twoPane) },
@@ -347,9 +355,10 @@ fun AppRoot() {
                     visualizerView = visualizerView,
                     externalDisplayName = if (onSecondScreen) externalDisplay?.name else null,
                     onCollapse = appState::collapse,
-                    onOpenVisuals = {
+                    destinations = navEntries.map { it.destination },
+                    onNavigate = { destination ->
                         appState.collapse()
-                        appState.navigateTo(GeodeDestination.VISUALS)
+                        appState.navigateTo(destination)
                     },
                 )
             }
@@ -402,27 +411,30 @@ private fun AppShellCompact(
     Scaffold(
         containerColor = Color.Transparent,
         topBar = {
-            if (gui.playerPosition == PlayerPosition.TOP && hasMedia && !appState.onPlayer) {
+            if (gui.playerPosition == PlayerPosition.TOP && appState.miniPlayerShown(hasMedia)) {
                 Box(Modifier.statusBarsPadding()) { miniPlayer() }
             }
         },
         bottomBar = {
             Column {
-                if (gui.playerPosition == PlayerPosition.BOTTOM && !appState.onPlayer) miniPlayer()
-                Box(
-                    Modifier
-                        .fillMaxWidth()
-                        .height(1.dp)
-                        .luminousHairline(MaterialTheme.colorScheme.primary),
-                )
-                CrystalNavBar(
-                    items = navEntries.map { it.item },
-                    // A destination can be hidden while still being the current one — reaching
-                    // Studio from a track menu, say. Fall back to the first tab rather than -1.
-                    selected = navEntries.indexOfFirst { it.destination == appState.dest }.coerceAtLeast(0),
-                    onSelect = { appState.navigateTo(navEntries[it].destination) },
-                    opacity = gui.barOpacity,
-                )
+                if (gui.playerPosition == PlayerPosition.BOTTOM && appState.miniPlayerShown(hasMedia)) miniPlayer()
+                // The Visuals stage's swipe down takes the bar too; Scaffold then pads for the system bar alone.
+                if (appState.visualsChrome != VisualsChrome.HIDDEN) {
+                    Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .height(1.dp)
+                            .luminousHairline(MaterialTheme.colorScheme.primary),
+                    )
+                    CrystalNavBar(
+                        items = navEntries.map { it.item },
+                        // A destination can be hidden while still being the current one — reaching
+                        // Studio from a track menu, say. Fall back to the first tab rather than -1.
+                        selected = navEntries.indexOfFirst { it.destination == appState.dest }.coerceAtLeast(0),
+                        onSelect = { appState.navigateTo(navEntries[it].destination) },
+                        opacity = gui.barOpacity,
+                    )
+                }
             }
         },
     ) { pad ->
@@ -452,6 +464,24 @@ private fun AppShellExpanded(
     // cutout sits on a side edge, where it would cover the rail or the content's far edge. It
     // includes the keyboard too, so a focused field stays above it.
     Row(Modifier.fillMaxSize().safeDrawingPadding()) {
+        if (appState.visualsChrome != VisualsChrome.HIDDEN) RailWithHairline(navEntries, appState, gui, centerRail)
+        Column(Modifier.weight(1f)) {
+            val top = gui.playerPosition == PlayerPosition.TOP
+            if (showMiniPlayer && top) miniPlayer()
+            Box(Modifier.weight(1f)) { content() }
+            if (showMiniPlayer && !top) miniPlayer()
+        }
+    }
+}
+
+@Composable
+private fun RailWithHairline(
+    navEntries: List<NavEntry>,
+    appState: GeodeAppState,
+    gui: GuiPrefs,
+    centerRail: Boolean,
+) {
+    Row {
         NavigationRail(containerColor = Color.Black.copy(alpha = gui.barOpacity * RAIL_GLASS_ALPHA)) {
             if (centerRail) Spacer(Modifier.weight(1f))
             navEntries.forEach { (destination, item) ->
@@ -471,14 +501,21 @@ private fun AppShellExpanded(
                 .fillMaxHeight()
                 .luminousHairline(MaterialTheme.colorScheme.primary),
         )
-        Column(Modifier.weight(1f)) {
-            val top = gui.playerPosition == PlayerPosition.TOP
-            if (showMiniPlayer && top) miniPlayer()
-            Box(Modifier.weight(1f)) { content() }
-            if (showMiniPlayer && !top) miniPlayer()
-        }
     }
 }
+
+/**
+ * Whether the shell draws the mini player: never on Player (it has the full transport), never
+ * while the Visuals stage has hidden it, always on the Visuals stage otherwise (Record, Studio and
+ * the live view live in it there, playing or not), and elsewhere only when something is loaded.
+ */
+private fun GeodeAppState.miniPlayerShown(hasMedia: Boolean): Boolean =
+    !onPlayer &&
+        when (visualsChrome) {
+            VisualsChrome.HIDDEN -> false
+            VisualsChrome.FULL -> true
+            VisualsChrome.MINIMAL, null -> hasMedia
+        }
 
 /** How dark the rail's glass gets at full bar opacity; the bottom bar reads the same setting. */
 private const val RAIL_GLASS_ALPHA = 0.5f
@@ -502,8 +539,12 @@ private fun MiniPlayer(
     onPlayPause: () -> Unit,
     onPrevious: () -> Unit,
     onNext: () -> Unit,
+    minimal: Boolean = false,
+    subtitle: (@Composable () -> Unit)? = null,
+    actions: (@Composable RowScope.() -> Unit)? = null,
 ) {
-    if (!hasMedia) return
+    // The Visuals mini player draws with nothing loaded too: its Record and Studio still work.
+    if (!hasMedia && actions == null) return
     Column(
         Modifier
             .fillMaxWidth()
@@ -518,23 +559,35 @@ private fun MiniPlayer(
         Row(
             Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = if (compact) 0.dp else 6.dp),
             verticalAlignment = Alignment.CenterVertically,
+            // Minimal (Customize) is the transport alone, centred: no title, nothing to read.
+            horizontalArrangement = if (minimal) Arrangement.Center else Arrangement.Start,
         ) {
-            Icon(
-                Icons.Filled.MusicNote,
-                null,
-                Modifier
-                    .size(if (compact) 20.dp else 28.dp)
-                    .softGlow(MaterialTheme.colorScheme.primary, 8.dp, if (isPlaying) 1f else 0.35f),
-                tint = MaterialTheme.colorScheme.primary,
-            )
-            Text(
-                title ?: stringResource(R.string.mini_player_idle),
-                modifier = Modifier.weight(1f).padding(horizontal = 10.dp),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                style = MaterialTheme.typography.bodyMedium,
-            )
-            IconButton(onClick = onPrevious) { StoneIconArt(StoneIcon.PREVIOUS, stringResource(R.string.action_previous)) }
+            if (!minimal) {
+                // The Visuals actions need the width the note icon takes.
+                if (actions == null) {
+                    Icon(
+                        Icons.Filled.MusicNote,
+                        null,
+                        Modifier
+                            .size(if (compact) 20.dp else 28.dp)
+                            .softGlow(MaterialTheme.colorScheme.primary, 8.dp, if (isPlaying) 1f else 0.35f),
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                }
+                Column(Modifier.weight(1f).padding(horizontal = 10.dp)) {
+                    Text(
+                        title ?: stringResource(R.string.mini_player_idle),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    subtitle?.invoke()
+                }
+            }
+            // In Visuals the previous button gives its place to Record, Studio and the live view.
+            if (actions == null) {
+                IconButton(onClick = onPrevious) { StoneIconArt(StoneIcon.PREVIOUS, stringResource(R.string.action_previous)) }
+            }
             IconButton(onClick = onPlayPause) {
                 StoneIconArt(
                     if (isPlaying) StoneIcon.PAUSE else StoneIcon.PLAY,
@@ -542,6 +595,7 @@ private fun MiniPlayer(
                 )
             }
             IconButton(onClick = onNext) { StoneIconArt(StoneIcon.NEXT, stringResource(R.string.action_next)) }
+            actions?.invoke(this)
         }
         LinearProgressIndicator(
             progress = { progress().coerceIn(0f, 1f) },

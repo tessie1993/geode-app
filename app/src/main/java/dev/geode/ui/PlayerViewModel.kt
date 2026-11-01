@@ -75,6 +75,8 @@ class PlayerViewModel
 
         val lyrics: StateFlow<Lyrics?> get() = session.lyrics
 
+        fun attachLyrics(source: android.net.Uri) = session.attachLyrics(source)
+
         val autoMode: StateFlow<Int> get() = session.autoMode
 
         val sleepTimerRemainingMs: StateFlow<Long?> get() = session.sleepTimerRemainingMs
@@ -157,6 +159,8 @@ class PlayerViewModel
         fun randomStepNow() = session.randomStepNow()
 
         fun applyVizEntry(entry: VizPlaylistEntry) = session.applyVizEntry(entry)
+
+        fun stepVizPlaylist(): Boolean = session.stepVizPlaylist()
 
         fun recentlyPlayed() = session.recentlyPlayed()
 

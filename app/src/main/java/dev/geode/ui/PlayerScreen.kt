@@ -23,10 +23,12 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.Cast
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -75,6 +77,8 @@ fun PlayerScreen(
     val sleepRemainingMs by viewModel.sleepTimerRemainingMs.collectAsStateWithLifecycle()
     val canShuffle = remember(tick) { viewModel.recentlyPlayed().isNotEmpty() }
     var showQueue by rememberSaveable { mutableStateOf(true) }
+    // The whole queue (reorder, remove, save as a playlist), which used to be a panel of the live view.
+    var queueSheet by rememberSaveable { mutableStateOf(false) }
     val upNext = remember(queue) { queue.tracks.drop(queue.index + 1).take(3) }
 
     val header: @Composable () -> Unit = {
@@ -124,7 +128,7 @@ fun PlayerScreen(
             item {
                 QueuePreview(
                     upNext = upNext,
-                    onExpand = onExpand,
+                    onOpenQueue = { queueSheet = true },
                     modifier = Modifier.padding(horizontal = 16.dp),
                 )
             }
@@ -183,7 +187,32 @@ fun PlayerScreen(
             }
         }
     }
+    if (queueSheet) {
+        QueueSheet(viewModel, queue, favourites, onDismiss = { queueSheet = false })
+    }
 }
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun QueueSheet(
+    viewModel: PlayerViewModel,
+    queue: QueueUiState,
+    favourites: Set<String>,
+    onDismiss: () -> Unit,
+) {
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        QueuePanel(
+            queue = queue,
+            favourites = favourites,
+            onPlayIndex = viewModel::playQueueIndex,
+            onMoveUp = { viewModel.moveQueueItem(it, it - 1) },
+            onRemove = viewModel::removeQueueItem,
+            modifier = Modifier.fillMaxWidth().fillMaxHeight(QUEUE_SHEET_HEIGHT),
+        )
+    }
+}
+
+private const val QUEUE_SHEET_HEIGHT = 0.85f
 
 /** Below this the pane gets one column; at and above it, art and controls sit side by side. */
 private val SIDE_BY_SIDE_MIN_WIDTH = 720.dp
@@ -466,7 +495,7 @@ private fun TransportCard(
 @Composable
 private fun QueuePreview(
     upNext: List<QueueTrack>,
-    onExpand: () -> Unit,
+    onOpenQueue: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -486,14 +515,14 @@ private fun QueuePreview(
         upNext.forEach { t ->
             Text(
                 t.title.ifBlank { untitled },
-                Modifier.fillMaxWidth().clickable(onClick = onExpand),
+                Modifier.fillMaxWidth().clickable(onClick = onOpenQueue),
                 style = MaterialTheme.typography.bodyMedium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-            TextButton(onClick = onExpand) {
+            TextButton(onClick = onOpenQueue) {
                 Text(stringResource(R.string.action_open_queue), style = MaterialTheme.typography.labelMedium, color = accentTextColor())
             }
         }

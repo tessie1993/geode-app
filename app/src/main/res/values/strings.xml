@@ -66,6 +66,7 @@
     <!-- Settings tab bar. In the same order the tabs are shown. -->
     <string name="settings_tab_look">Look</string>
     <string name="settings_tab_audio">Audio</string>
+    <string name="settings_tab_lyrics">Lyrics</string>
     <string name="settings_tab_export">Export</string>
     <string name="settings_tab_folders">Folders</string>
     <string name="settings_tab_behavior">Behavior</string>
@@ -226,8 +227,13 @@
     <string name="a11y_preview_larger">Larger preview</string>
     <string name="a11y_preview_smaller">Smaller preview</string>
     <string name="a11y_state_on">On</string>
-    <string name="visuals_stage_hint">Swipe for the next style · hold to hide the panel</string>
+    <string name="visuals_stage_hint">Double tap for the next look · swipe down to hide the bars</string>
     <string name="visuals_stage_hint_hidden">Hold to bring the panel back</string>
+    <string name="visuals_stage_hint_bars">Swipe up for the player and tabs</string>
+    <string name="visuals_view_live">View live</string>
+    <string name="a11y_next_look">Next look</string>
+    <string name="a11y_hide_bars">Hide the player and tabs</string>
+    <string name="a11y_show_bars">Show the player and tabs</string>
     <string name="a11y_next_style">Next style</string>
     <string name="a11y_previous_style">Previous style</string>
     <string name="a11y_toggle_visuals_panel">Show or hide the Visuals panel</string>
@@ -263,8 +269,6 @@
     <string name="action_pip">Picture-in-picture</string>
 
     <!-- Panel chips under the transport. -->
-    <string name="panel_now">Now</string>
-    <string name="panel_lyrics">Lyrics</string>
 
     <!-- Seek bar. Spoken, not drawn: the bar itself is a bare canvas. -->
     <string name="seek_description">Seek. %1$s of %2$s</string>
@@ -277,6 +281,14 @@
     <!-- Where the lyrics came from; fills the %1$s of lyrics_source_timed / _untimed. -->
     <string name="lyrics_source_sidecar">an .lrc file next to the track</string>
     <string name="lyrics_source_tags">the track\'s own tags</string>
+    <string name="lyrics_source_attached">an .lrc file you loaded</string>
+    <string name="lyrics_search_web">Search the web</string>
+    <string name="lyrics_load_lrc">Load .lrc</string>
+    <string name="lyrics_nothing_playing">Play a song to see its lyrics here.</string>
+    <string name="lyrics_search_hint">The search opens in your browser; this app stays offline. Save the lyrics as an .lrc file, then load it here and it sticks to this song.</string>
+    <string name="lyrics_no_browser">No browser to search with.</string>
+    <!-- The web search for the playing song: %1$s is "title artist". -->
+    <string name="lyrics_search_query">%1$s lyrics</string>
 
     <!-- Queue panel. -->
     <string name="queue_empty_explainer">Nothing queued. Playing anything from a list — the library, a shelf on Home, a search result — queues that whole list.</string>
@@ -364,7 +376,7 @@
     <string name="playlist_rename_title">Rename playlist</string>
     <string name="playlist_name_required">A playlist needs a name.</string>
     <string name="playlist_name_taken">There is already a playlist called \"%1$s\".</string>
-    <string name="playlist_none_yet">No playlists yet. Start one with \"New playlist\" above, save the current queue from the queue panel in Now Playing, or use \"Add to playlist\" in any track\'s ⋮ menu.</string>
+    <string name="playlist_none_yet">No playlists yet. Start one with \"New playlist\" above, save the current queue from Open queue on the Player, or use \"Add to playlist\" in any track\'s ⋮ menu.</string>
     <string name="playlist_untitled_track">Track %1$d</string>
     <string name="playlist_import_action">Import playlist…</string>
     <string name="playlist_import_done_title">Playlist imported</string>

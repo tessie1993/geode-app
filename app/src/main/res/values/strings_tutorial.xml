@@ -30,7 +30,7 @@
     <string name="tutorial_player_1_title">Press play</string>
     <string name="tutorial_player_1_body">The Player has your track, the transport and a live spectrum. Tap the artwork to go full screen, which is where the visuals live.</string>
     <string name="tutorial_player_2_title">Queue and lyrics</string>
-    <string name="tutorial_player_2_body">Open the queue to reorder what\'s next or save it as a playlist. Drop an .lrc file beside a track and its lyrics follow along, line by line.</string>
+    <string name="tutorial_player_2_body">Open the queue to reorder what\'s next or save it as a playlist. Drop an .lrc file beside a track, or load one in Settings › Lyrics, and its lyrics follow along, line by line.</string>
     <string name="tutorial_player_3_title">Little helpers</string>
     <string name="tutorial_player_3_body">The quick row holds a sleep timer, shuffle all and an A–B loop. Switch the source to the mic or to another app\'s audio and the visuals react to that instead.</string>
 
@@ -58,7 +58,7 @@
     <string name="tutorial_customize_4_body">Randomize, or Surprise on Macros, rolls a new look. Undo and Redo sit beside it, and further down A/B lets you keep two versions and blend between them.</string>
 
     <string name="tutorial_live_1_title">Go full screen</string>
-    <string name="tutorial_live_1_body">The live view is the visualizer with nothing in the way. The controls fade after a few seconds; tap to bring them back.</string>
+    <string name="tutorial_live_1_body">The live view is the visualizer with nothing in the way. The controls fade after a few seconds; flick up to bring them back, flick down to clear them. Double tap for the next look.</string>
     <string name="tutorial_live_2_title">Your finger is part of it</string>
     <string name="tutorial_live_2_body">One finger sets a point the style builds around, two set an axis, three or more open a swirl. Pinch and twist to zoom and rotate.</string>
     <string name="tutorial_live_3_title">Take it with you</string>

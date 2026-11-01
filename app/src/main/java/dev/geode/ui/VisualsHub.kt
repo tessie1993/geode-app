@@ -6,7 +6,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.Orientation
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -29,6 +30,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.FiberManualRecord
+import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.StopCircle
 import androidx.compose.material3.Icon
@@ -40,21 +42,18 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshots.SnapshotStateList
-import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
@@ -69,6 +68,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.ui.NavDisplay
 import dev.geode.R
+import dev.geode.pro.FeatureGate
 import dev.geode.render.VisualizerView
 import dev.geode.render.scene.SceneCapabilities
 import dev.geode.render.scene.SceneIds
@@ -81,76 +81,56 @@ import kotlinx.coroutines.withContext
 import kotlin.math.abs
 
 /**
- * The pages of the Visuals panel, in tab order. [STYLES] is always the root of the back stack and
- * every other page sits on it, so system back steps toward the styles before it leaves Visuals.
- * [TEXTURES] has no tab: MilkDrop opens it, since textures only matter to MilkDrop presets.
- */
-private enum class VisualsPage(
-    val title: String,
-) {
-    STYLES("Styles"),
-    CUSTOMIZE("Customize"),
-    PRESETS("Presets"),
-    TEXTURES("Textures"),
-}
-
-private val VisualsTabs = listOf(VisualsPage.STYLES, VisualsPage.CUSTOMIZE, VisualsPage.PRESETS)
-
-/** Saved by name, like the shell's destination, so reordering the pages cannot restore the wrong one. */
-private val VisualsBackStackSaver =
-    listSaver<SnapshotStateList<VisualsPage>, String>(
-        save = { stack -> stack.map { it.name } },
-        restore = { names ->
-            val pages = names.mapNotNull { n -> VisualsPage.entries.firstOrNull { it.name == n } }
-            // Styles is always the root; a stack saved by an older build without it starts over there.
-            (if (pages.firstOrNull() == VisualsPage.STYLES) pages else listOf(VisualsPage.STYLES)).toMutableStateList()
-        },
-    )
-
-/**
  * Visuals is a stage: the live canvas on top, where every pick and slider shows as it happens,
- * and a panel under it whose pages (Styles first, then Customize and Presets) are a Navigation 3
- * back stack. It used to open on a form of preset text fields with no visuals on screen at all;
- * the art was one "View live" away and Customize had its own black preview strip.
+ * and a panel under it whose pages (Styles first, then Customize, Presets and MilkDrop) are a
+ * Navigation 3 back stack. Nothing is drawn over the stage but a hint: the style's name, Record,
+ * Studio and the live view sit in the shell's mini player ([VisualsChrome.FULL]), which the stage
+ * asks for through [onChrome] while it is composed.
  *
  * The stage takes gestures: a horizontal swipe steps to the next or previous style the user may
- * use, and a hold hides the panel so the stage fills the screen (another hold brings it back).
- * TalkBack gets both as custom actions. The handle between stage and panel trades one for the
- * other. No per-entry ViewModel decorator: every ViewModel here stays in the Activity's store,
- * which `PlayerSessionProvider` depends on (ADR 0001 § Consequences).
+ * use, a double tap to the next look ([nextLook]: the visuals playlist, else the next style), a
+ * swipe down hides the mini player and the navigation bar (a swipe up brings them back), and a
+ * hold hides the panel so the stage fills the screen (another hold brings it back). Customize
+ * opens with the bars hidden, since its sliders want the room, and a swipe up there brings a
+ * transport-only player ([VisualsChrome.MINIMAL]). TalkBack gets every gesture as a custom action.
+ * The handle between stage and panel trades one for the other.
+ *
+ * Back undoes the most recent of these first: hidden bars, then a hidden panel, then whatever the
+ * page has open (an Advanced card, a Customize page), then the page itself, back to Styles. No
+ * per-entry ViewModel decorator: every ViewModel here stays in the Activity's store, which
+ * `PlayerSessionProvider` depends on (ADR 0001 § Consequences).
  */
 @Composable
 fun VisualsHub(
     viewModel: PlayerViewModel,
     visualizerView: VisualizerView,
-    onOpenNowPlaying: () -> Unit,
-    onOpenStudioRender: () -> Unit,
+    onChrome: (VisualsChrome?) -> Unit,
     canvasFree: Boolean = false,
 ) {
-    val studioViewModel: StudioViewModel = geodeViewModel()
-    val takes by studioViewModel.takeState.collectAsStateWithLifecycle()
     val viz by viewModel.vizState.collectAsStateWithLifecycle()
     val gate by viewModel.gate.collectAsStateWithLifecycle()
-    val backStack = rememberSaveable(saver = VisualsBackStackSaver) { mutableStateListOf(VisualsPage.STYLES) }
-    val openTab: (VisualsPage) -> Unit = { page ->
-        while (backStack.size > 1) backStack.removeAt(backStack.lastIndex)
-        if (page != VisualsPage.STYLES) backStack.add(page)
+    // Every navigation decision lives in VisualsNavState (VisualsNavigation.kt); this only draws.
+    val nav = rememberVisualsNavState()
+    val chrome = nav.chrome
+    val onChromeNow by rememberUpdatedState(onChrome)
+    DisposableEffect(chrome) {
+        onChromeNow(chrome)
+        onDispose { onChromeNow(null) }
     }
-    var panelShown by rememberSaveable { mutableStateOf(true) }
     // Out here, not per page, so the size the user dragged to holds across every page.
     var stageHeightDp by rememberSaveable { mutableFloatStateOf(STAGE_DEFAULT_DP) }
     val stepStyle: (Int) -> Unit = { step ->
         nextStageStyle(stageStyleOrder(), viz.sceneId, step) { !gate.allowsStyle(it) }?.let(viewModel::selectScene)
     }
-    // Hiding the panel is a view state, not a page: back brings the panel back before anything else.
-    BackHandler(enabled = !panelShown) { panelShown = true }
+    // Hiding the panel is a view state, not a page: back brings the panel back before any page.
+    BackHandler(enabled = nav.panelBackEnabled, onBack = nav::backFromPanel)
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val maxStageDp = (maxHeight * STAGE_MAX_FRACTION).value
         // A short window (split screen, a phone on its side) can have less room than the floor.
         val minStageDp = minOf(STAGE_MIN_DP, maxStageDp)
         Column(Modifier.fillMaxSize()) {
             val stageSize =
-                if (panelShown) {
+                if (nav.panelShown) {
                     Modifier.fillMaxWidth().height(stageHeightDp.coerceIn(minStageDp, maxStageDp).dp)
                 } else {
                     Modifier.fillMaxWidth().weight(1f)
@@ -162,24 +142,23 @@ fun VisualsHub(
                 Box(
                     Modifier
                         .fillMaxSize()
-                        .stageGestures(onHold = { panelShown = !panelShown }, onSwipe = stepStyle),
-                )
-                StageHeader(
-                    styleName = sceneDisplayLabel(viz.sceneId),
-                    recordingLabel =
-                        when {
-                            takes.recording -> "● Recording  ${formatTakeTime(takes.recordedMs)}"
-                            takes.replaying != null -> "▶ ${takes.replaying}"
-                            else -> null
-                        },
-                    recording = takes.recording,
-                    onRecord = { if (takes.recording) studioViewModel.stopRecording() else studioViewModel.startRecording() },
-                    onOpenStudioRender = onOpenStudioRender,
-                    onOpenNowPlaying = onOpenNowPlaying,
+                        .stageGestures(
+                            onHold = nav::togglePanel,
+                            onSwipe = stepStyle,
+                            onDoubleTap = { nextLook(viewModel, viz.sceneId, gate) },
+                            onBars = nav::showBars,
+                            barsShown = chrome != VisualsChrome.HIDDEN,
+                        ),
                 )
                 // On a scrim pill: the stage behind it can be any colour, white included.
                 Text(
-                    stringResource(if (panelShown) R.string.visuals_stage_hint else R.string.visuals_stage_hint_hidden),
+                    stringResource(
+                        when {
+                            !nav.panelShown -> R.string.visuals_stage_hint_hidden
+                            chrome == VisualsChrome.HIDDEN -> R.string.visuals_stage_hint_bars
+                            else -> R.string.visuals_stage_hint
+                        },
+                    ),
                     Modifier
                         .align(Alignment.BottomCenter)
                         .padding(bottom = 8.dp)
@@ -189,26 +168,25 @@ fun VisualsHub(
                     color = Color.White,
                 )
             }
-            if (panelShown) {
+            if (nav.panelShown) {
                 PreviewResizeHandle(onResize = { stageHeightDp = (stageHeightDp + it).coerceIn(minStageDp, maxStageDp) })
-                val top = backStack.last()
                 CrystalTabs(
                     titles = VisualsTabs.map { it.title },
-                    // Textures belongs to Styles (MilkDrop opens it), so Styles stays lit there.
-                    selected = VisualsTabs.indexOf(top).takeIf { it >= 0 } ?: 0,
-                    onSelect = { openTab(VisualsTabs[it]) },
+                    selected = nav.selectedTab,
+                    onSelect = { nav.openTab(VisualsTabs[it]) },
                 )
                 NavDisplay(
-                    backStack = backStack,
-                    onBack = { backStack.removeLastOrNull() },
+                    backStack = nav.backStack,
+                    onBack = { nav.pop() },
                     modifier = Modifier.weight(1f),
                     entryProvider = { page ->
                         NavEntry(page) {
                             when (page) {
-                                VisualsPage.STYLES ->
-                                    StylesTab(viewModel, visualizerView, onOpenTextures = { backStack.add(VisualsPage.TEXTURES) })
+                                VisualsPage.STYLES -> StylesTab(viewModel)
                                 VisualsPage.CUSTOMIZE -> CustomizePanel(viewModel, visualizerView)
                                 VisualsPage.PRESETS -> PresetsTab(viewModel, visualizerView)
+                                VisualsPage.MILKDROP ->
+                                    MilkDropTab(viewModel, visualizerView, onOpenTextures = { nav.push(VisualsPage.TEXTURES) })
                                 VisualsPage.TEXTURES -> TexturesHubTab(viewModel, visualizerView)
                             }
                         }
@@ -217,82 +195,125 @@ fun VisualsHub(
             }
         }
     }
+    // Composed after NavDisplay so it wins over the pages' own back: hidden bars come back first.
+    BackHandler(enabled = nav.barsBackEnabled, onBack = nav::backFromBars)
 }
 
-/** The stage's top row: what is on screen, and the record, render and fullscreen actions. */
-@Composable
-private fun StageHeader(
-    styleName: String,
-    recordingLabel: String?,
-    recording: Boolean,
-    onRecord: () -> Unit,
-    onOpenStudioRender: () -> Unit,
-    onOpenNowPlaying: () -> Unit,
+/**
+ * The double tap's "next": the user's visuals playlist when it holds two or more looks (the
+ * playlist they built is the order they asked for), else the next style the stage swipe would
+ * reach. The fullscreen live view uses the same rule.
+ */
+internal fun nextLook(
+    viewModel: PlayerViewModel,
+    sceneId: String,
+    gate: FeatureGate,
 ) {
-    val scrim = MaterialTheme.colorScheme.scrim
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .background(Brush.verticalGradient(listOf(scrim.copy(alpha = 0.7f), scrim.copy(alpha = 0f))))
-            .padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 16.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        Column(Modifier.weight(1f)) {
-            CrystalOverline(
-                recordingLabel ?: stringResource(R.string.nav_visuals),
-                color = if (recording) MaterialTheme.colorScheme.error else accentTextColor(),
-            )
-            Text(styleName, style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        }
-        IconButton(onClick = onRecord) {
-            Icon(
-                if (recording) Icons.Filled.StopCircle else Icons.Filled.FiberManualRecord,
-                if (recording) "Stop recording this take" else "Record a take",
-                tint = if (recording) MaterialTheme.colorScheme.error else LocalContentColor.current,
-            )
-        }
-        // Export, loop render and the takes list live in Studio; this only takes you there, even
-        // when the Studio tab is hidden from the bar for someone who came to listen.
-        IconButton(onClick = onOpenStudioRender) {
-            StoneIconArt(StoneIcon.STUDIO, stringResource(R.string.visuals_open_render))
-        }
-        CrystalButton(compact = true, filled = false, onClick = onOpenNowPlaying) { Text("View live") }
+    if (viewModel.stepVizPlaylist()) return
+    nextStageStyle(stageStyleOrder(), sceneId, 1) { !gate.allowsStyle(it) }?.let(viewModel::selectScene)
+}
+
+/**
+ * The mini player's second line on the Visuals stage: the style on screen, or the take being
+ * recorded or replayed, which used to sit over the stage itself.
+ */
+@Composable
+internal fun VisualsMiniSubtitle(viewModel: PlayerViewModel) {
+    val studioViewModel: StudioViewModel = geodeViewModel()
+    val takes by studioViewModel.takeState.collectAsStateWithLifecycle()
+    val viz by viewModel.vizState.collectAsStateWithLifecycle()
+    Text(
+        when {
+            takes.recording -> "● Recording  ${formatTakeTime(takes.recordedMs)}"
+            takes.replaying != null -> "▶ ${takes.replaying}"
+            else -> sceneDisplayLabel(viz.sceneId)
+        },
+        style = MaterialTheme.typography.labelMedium,
+        color = if (takes.recording) MaterialTheme.colorScheme.error else accentTextColor(),
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+    )
+}
+
+/** The Visuals mini player's own actions: record a take, Studio › Render, and the live view. */
+@Composable
+internal fun RowScope.VisualsMiniActions(
+    onOpenStudioRender: () -> Unit,
+    onOpenLive: () -> Unit,
+) {
+    val studioViewModel: StudioViewModel = geodeViewModel()
+    val takes by studioViewModel.takeState.collectAsStateWithLifecycle()
+    IconButton(onClick = { if (takes.recording) studioViewModel.stopRecording() else studioViewModel.startRecording() }) {
+        Icon(
+            if (takes.recording) Icons.Filled.StopCircle else Icons.Filled.FiberManualRecord,
+            if (takes.recording) "Stop recording this take" else "Record a take",
+            tint = if (takes.recording) MaterialTheme.colorScheme.error else LocalContentColor.current,
+        )
+    }
+    // Export, loop render and the takes list live in Studio; this only takes you there, even
+    // when the Studio tab is hidden from the bar for someone who came to listen.
+    IconButton(onClick = onOpenStudioRender) {
+        StoneIconArt(StoneIcon.STUDIO, stringResource(R.string.visuals_open_render))
+    }
+    IconButton(onClick = onOpenLive) {
+        Icon(Icons.Filled.Fullscreen, stringResource(R.string.visuals_view_live))
     }
 }
 
 /**
- * A hold toggles the panel; a horizontal swipe past [STAGE_SWIPE_DP] steps the style (left is
- * next, like turning a page). The callbacks go through [rememberUpdatedState] because
+ * A hold toggles the panel; a double tap is the next look; a swipe past [STAGE_SWIPE_DP] steps
+ * the style when it is mostly sideways (left is next, like turning a page) and hides or shows the
+ * bars when it is mostly up or down. The callbacks go through [rememberUpdatedState] because
  * `pointerInput(Unit)` keeps its first lambda for as long as the stage is on screen.
  */
 @Composable
 private fun Modifier.stageGestures(
     onHold: () -> Unit,
     onSwipe: (Int) -> Unit,
+    onDoubleTap: () -> Unit,
+    onBars: (show: Boolean) -> Unit,
+    barsShown: Boolean,
 ): Modifier {
     val hold by rememberUpdatedState(onHold)
     val swipe by rememberUpdatedState(onSwipe)
+    val doubleTap by rememberUpdatedState(onDoubleTap)
+    val bars by rememberUpdatedState(onBars)
     val next = stringResource(R.string.a11y_next_style)
     val previous = stringResource(R.string.a11y_previous_style)
+    val nextLookLabel = stringResource(R.string.a11y_next_look)
     val toggle = stringResource(R.string.a11y_toggle_visuals_panel)
+    val barsLabel = stringResource(if (barsShown) R.string.a11y_hide_bars else R.string.a11y_show_bars)
     return this
-        .pointerInput(Unit) { detectTapGestures(onLongPress = { hold() }) }
+        .pointerInput(Unit) { detectTapGestures(onLongPress = { hold() }, onDoubleTap = { doubleTap() }) }
         .pointerInput(Unit) {
-            var dx = 0f
-            detectHorizontalDragGestures(
-                onDragStart = { dx = 0f },
-                onDragEnd = { if (abs(dx) > STAGE_SWIPE_DP.dp.toPx()) swipe(if (dx < 0) 1 else -1) },
-            ) { _, delta -> dx += delta }
+            var drag = Offset.Zero
+            detectDragGestures(
+                onDragStart = { drag = Offset.Zero },
+                onDragEnd = {
+                    val far = STAGE_SWIPE_DP.dp.toPx()
+                    when {
+                        abs(drag.x) >= abs(drag.y) -> if (abs(drag.x) > far) swipe(if (drag.x < 0) 1 else -1)
+                        abs(drag.y) > far -> bars(drag.y < 0)
+                    }
+                },
+            ) { _, delta -> drag += delta }
         }.semantics {
             customActions =
                 listOf(
+                    CustomAccessibilityAction(nextLookLabel) {
+                        doubleTap()
+                        true
+                    },
                     CustomAccessibilityAction(next) {
                         swipe(1)
                         true
                     },
                     CustomAccessibilityAction(previous) {
                         swipe(-1)
+                        true
+                    },
+                    CustomAccessibilityAction(barsLabel) {
+                        bars(!barsShown)
                         true
                     },
                     CustomAccessibilityAction(toggle) {

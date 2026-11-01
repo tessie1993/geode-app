@@ -71,7 +71,6 @@ import dev.geode.data.StyleShelfStore
 import dev.geode.model.StyleEntry
 import dev.geode.model.StyleFilter
 import dev.geode.model.StyleFiltering
-import dev.geode.render.VisualizerView
 import dev.geode.render.scene.Catalogue
 import dev.geode.render.scene.SceneKind
 import dev.geode.render.scene.StyleFamilies
@@ -103,11 +102,7 @@ import kotlin.math.abs
  * custom action. The stage's swipe still steps through styles and chooses at once.
  */
 @Composable
-internal fun StylesTab(
-    viewModel: PlayerViewModel,
-    visualizerView: VisualizerView,
-    onOpenTextures: () -> Unit,
-) {
+internal fun StylesTab(viewModel: PlayerViewModel) {
     val context = LocalContext.current
     val shelfStore = remember { StyleShelfStore.get(context) }
     val shelf by shelfStore.shelf.collectAsStateWithLifecycle()
@@ -172,40 +167,36 @@ internal fun StylesTab(
             }
         }
         Box(Modifier.weight(1f)) {
-            if (filter == StyleFilter.Kind(KIND_MILKDROP) && query.isBlank()) {
-                MilkDropTab(viewModel, visualizerView, onOpenTextures)
+            val shown = remember(entries, filter, shelf, query) { StyleFiltering.apply(entries, filter, shelf, query) }
+            if (shown.isEmpty()) {
+                EmptyStyles(filter, query)
             } else {
-                val shown = remember(entries, filter, shelf, query) { StyleFiltering.apply(entries, filter, shelf, query) }
-                if (shown.isEmpty()) {
-                    EmptyStyles(filter, query)
-                } else {
-                    LazyVerticalGrid(
-                        columns = GridCells.Adaptive(CARD_MIN_WIDTH),
-                        contentPadding = PaddingValues(GeodeSpacing.M),
-                        horizontalArrangement = Arrangement.spacedBy(GeodeSpacing.S),
-                        verticalArrangement = Arrangement.spacedBy(GeodeSpacing.M),
-                        modifier = Modifier.fillMaxSize(),
-                    ) {
-                        items(shown, key = { it.id }) { entry ->
-                            StyleCard(
-                                entry = entry,
-                                chosen = entry.id == chosenId,
-                                previewing = entry.id == previewId,
-                                locked = !gate.allowsStyle(entry.id),
-                                favourite = shelf.isFavourite(entry.id),
-                                onTap = {
-                                    when (entry.id) {
-                                        previewId -> commit(entry.id)
-                                        chosenId -> if (previewId != null) cancel()
-                                        else -> {
-                                            previewId = entry.id
-                                            viewModel.previewScene(entry.id)
-                                        }
+                LazyVerticalGrid(
+                    columns = GridCells.Adaptive(CARD_MIN_WIDTH),
+                    contentPadding = PaddingValues(GeodeSpacing.M),
+                    horizontalArrangement = Arrangement.spacedBy(GeodeSpacing.S),
+                    verticalArrangement = Arrangement.spacedBy(GeodeSpacing.M),
+                    modifier = Modifier.fillMaxSize(),
+                ) {
+                    items(shown, key = { it.id }) { entry ->
+                        StyleCard(
+                            entry = entry,
+                            chosen = entry.id == chosenId,
+                            previewing = entry.id == previewId,
+                            locked = !gate.allowsStyle(entry.id),
+                            favourite = shelf.isFavourite(entry.id),
+                            onTap = {
+                                when (entry.id) {
+                                    previewId -> commit(entry.id)
+                                    chosenId -> if (previewId != null) cancel()
+                                    else -> {
+                                        previewId = entry.id
+                                        viewModel.previewScene(entry.id)
                                     }
-                                },
-                                onToggleFavourite = { shelfStore.toggleFavourite(entry.id) },
-                            )
-                        }
+                                }
+                            },
+                            onToggleFavourite = { shelfStore.toggleFavourite(entry.id) },
+                        )
                     }
                 }
             }
@@ -491,7 +482,8 @@ private fun styleFilters(entries: List<StyleEntry>): List<StyleFilter> =
         entries
             .map { it.kindLabel }
             .distinct()
-            .filterNot { it == KIND_FAMILY }
+            // MilkDrop has a tab of its own (its .milk library is not a grid of styles).
+            .filterNot { it == KIND_FAMILY || it == KIND_MILKDROP }
             .map { StyleFilter.Kind(it) } +
         StyleFamilies.all.map { StyleFilter.Family(it.label) }
 

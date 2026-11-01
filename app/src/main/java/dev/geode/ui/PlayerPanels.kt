@@ -6,10 +6,8 @@ import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.DragInteraction
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -401,23 +399,4 @@ internal fun PlaylistNameDialog(
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )
-}
-
-@Composable
-fun PlayerPanelSurface(
-    modifier: Modifier = Modifier,
-    content: @Composable () -> Unit,
-) {
-    Box(
-        modifier
-            .crystalPanel(
-                0.55f,
-                MaterialTheme.colorScheme.surface,
-                MaterialTheme.colorScheme.primary,
-                corner = 20.dp,
-                glowStrength = 0.8f,
-            ),
-    ) {
-        Box(Modifier.fillMaxSize()) { content() }
-    }
 }

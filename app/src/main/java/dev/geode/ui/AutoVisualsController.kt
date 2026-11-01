@@ -106,6 +106,20 @@ internal class AutoVisualsController(
         applyVizEntry(s.vizPlaylist[vizPlaylistIndex])
     }
 
+    /**
+     * A step by hand (the stage's double tap): the next entry now, whether or not the playlist is
+     * cycling, and its clock restarts so the timer does not jump again a moment later. False when
+     * the playlist has fewer than two looks, so the caller steps the styles instead.
+     */
+    fun stepVizPlaylist(): Boolean {
+        val s = host.vizState.value
+        if (s.vizPlaylist.size < 2) return false
+        lastVizSwitchMs = android.os.SystemClock.elapsedRealtime()
+        vizPlaylistIndex = (vizPlaylistIndex + 1) % s.vizPlaylist.size
+        applyVizEntry(s.vizPlaylist[vizPlaylistIndex])
+        return true
+    }
+
     fun setRandomEnabled(enabled: Boolean) {
         host.updateViz {
             it.copy(

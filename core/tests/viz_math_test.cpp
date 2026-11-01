@@ -9,6 +9,7 @@
 #include <string>
 
 #include "viz/CameraRig.hpp"
+#include "viz/VisualSafety.hpp"
 #include "viz/EndlessZoom.hpp"
 #include "viz/Macros.hpp"
 #include "viz/MotionField.hpp"
@@ -740,6 +741,25 @@ void endlessZoomDrivesTheRigForward() {
     check(diving.pose().travel > still.pose().travel + 1.0f, "Endless zoom flies the 3D styles forward");
 }
 
+// Reduced motion slows the dive once (safety::apply scales endlessZoomSpeed), not twice:
+// the rig must not multiply the already-scaled speed by the reduced-motion factor again.
+void endlessZoomReducedMotionScalesTheDiveOnce() {
+    SceneParams p;
+    p.camFly = 0.0f;
+    p.endlessZoom = true;
+    p.endlessZoomSpeed = 1.0f;
+    SceneParams reduced = p;
+    reduced.endlessZoomSpeed = p.endlessZoomSpeed * safety::kReducedMotionScale;  // what safety::apply hands the rig
+    CameraRig full;
+    CameraRig slow;
+    for (int i = 0; i < 600; ++i) {
+        full.step(p, {}, 1.0f / 60.0f, false, false, nullptr);
+        slow.step(reduced, {}, 1.0f / 60.0f, true, false, nullptr);
+    }
+    const float ratio = slow.pose().travel / full.pose().travel;
+    check(std::fabs(ratio - safety::kReducedMotionScale) < 0.05f, "reduced motion scales the 3D dive exactly once");
+}
+
 void endlessZoomLeavesGlassAndTruchetOnTheOldLaw() {
     check(endless::keepsTriangle("glass_orb") && endless::keepsTriangle("truchet_arcs"), "Glass and Truchet keep their law");
     check(!endless::keepsTriangle("plasma") && !endless::keepsTriangle("arbor_bolt"), "every other style dives");
@@ -869,6 +889,7 @@ int main() {
     endlessZoomFollowsTheBassNotTheLoudness();
     endlessZoomDrivesTheRigForward();
     endlessZoomLeavesGlassAndTruchetOnTheOldLaw();
+    endlessZoomReducedMotionScalesTheDiveOnce();
     buildBudgetBoundsAFrame();
     scenePrepRetargetsAndCaps();
     stagedBuildFinishesInBoundedFrames();

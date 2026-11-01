@@ -111,7 +111,9 @@ void CameraRig::step(const SceneParams& p, const LookInput& look, float dt, bool
     // endlessZoom for scenes that do not march the rig, so a 2D style's flat pan never speeds up.
     if (p.endlessZoom) {
         const float music = sound != nullptr ? endless::musicRate(*sound, p.audioDrive) : 1.0f;
-        speedTarget += std::clamp(p.endlessZoomSpeed, 0.0f, 1.2f) * music * kDivePerOctave * g;
+        // No `g` here: safety::apply already scaled endlessZoomSpeed for reduced motion, and a
+        // second scale left the 3D dive at 0.16x instead of the 0.4x every other motion gets.
+        speedTarget += std::clamp(p.endlessZoomSpeed, 0.0f, 1.2f) * music * kDivePerOctave;
     }
 
     // ---- SoundMoves: what the music does to the camera by itself ----------------------------

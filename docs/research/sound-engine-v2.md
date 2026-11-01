@@ -169,6 +169,42 @@ A process-wide `complexity` (0 Simple .. 1 Rich, default 0.5 = today), next to t
 Visual detail (geometry, particles, iterations) stays a separate control through `PerformanceSettings` and
 the style params.
 
+## 8b. Tempo sources: one beat clock for everything
+
+The Pro modulation matrix (LFOs, envelopes, step sequencers, MIDI; Visuals UI session) needs tempo from
+five places. There stays **one** beat clock, `Rhythm`'s phase-locked oscillator, and the director,
+reactions, `Form` and every modulator read the same grid. The other places are *sources* that steer it.
+
+| Source | Gives | Phase | Export |
+|---|---|---|---|
+| `Auto` (default) | detected period | detected (PLP) | same as live |
+| `Typed` | a BPM | locked to detected onsets | same as live |
+| `Tag` | the track's BPM tag (or its map's tempo, §6) | locked to detected onsets, or the map's beat grid | same as live |
+| `Tap` | period from the last taps (median of 2–8 intervals) | the taps set the phase, then onsets refine it | recorded into the take; otherwise falls back to `Tag`/`Auto` |
+| `MidiIn` | 24 ppqn clock, Start/Stop/Continue, Song Position | the clock owns phase, no onset correction | recorded into the take; otherwise falls back |
+
+**Native API** (`core/api/geode_api.h`, process-wide like the macros):
+```
+geode_tempo_source_set(int source, float bpm)      // Auto, Typed, Tag, Tap, MidiIn; bpm for Typed/Tag
+geode_tempo_tap(int64_t presentationNanos)         // one tap, on the presentation clock
+geode_tempo_midi(int kind, int64_t nanos, int pos) // clock pulse, start, stop, continue, song position
+geode_tempo_clock(GeodeTempoClock* out)            // bpm, beat phase, beat index, bar, source, locked,
+                                                   //   and the presentation time they hold for
+```
+- **Phase-locked override.** An outside period replaces the autocorrelation estimate; the oscillator keeps
+  its PLL, so the phase still comes from the music unless the source owns phase (Tap at first, MidiIn always).
+  Half and double tempo are folded to the nearest octave of the source.
+- **Clock domain.** Taps and MIDI arrive in system time; they are mapped to sample time through the same
+  presentation-latency estimate as §7, so a tap on the audible beat lands on that beat.
+- **MIDI clock out** is Kotlin (`android.media.midi`), fed by `geode_tempo_clock`, which gives the next
+  beat's presentation time so the sender schedules 24 ppqn pulses ahead, not from the frame callback.
+- **Detection when not needed.** With `Typed`, `Tag`, or `MidiIn`, the tempo estimate (the autocorrelation
+  every 0.25 s) is skipped; the onset envelope keeps running, because hits, `Form` and phase need it. Auto
+  detection is not gated on "something consumes tempo": `Form` and the director always do, and the estimate
+  is a small share of the frame.
+- **Stage.** Lands with stage 2 (it touches `Rhythm` alongside the onset work); the Kotlin side (tap UI, MIDI
+  in/out, BPM tags) is the modulation matrix's.
+
 ## 9. Licence ledger
 
 | Project | Licence | Use |
@@ -197,7 +233,7 @@ LiteRT docs (developers.google.com/edge/litert).
 | # | PR | Done when |
 |---|---|---|
 | 1 | `RealFft` + tables + vendored KISS FFT oracle + benchmark; engine switched over | oracle error < 1e-5 at every size; golden bits; ≥ 4× faster than today on host; sound and musical tests unchanged |
-| 2 | Onsets (max filter, complex-domain, peak picking, hard/soft), IF pitch, multi-window | Unholy piano cover and a drum track: soft hits found, no vibrato hits; frame cost ≤ today's |
+| 2 | Onsets (max filter, complex-domain, peak picking, hard/soft), IF pitch, multi-window, tempo sources (§8b) | Unholy piano cover and a drum track: soft hits found, no vibrato hits; frame cost ≤ today's |
 | 3 | Decimated long window, CQ bass/treble chroma, tuning, HPCP weighting, NNLS, key profiles, chord HMM | GiantSteps key and a chord set scored in scratch (scores committed, not audio); better than today |
 | 4 | Look-ahead alignment and latency measurement | Visual beat matches the audible beat on device (`DEVICE_CHECKS.md`) |
 | 5 | TrackMap format, pre-scan worker, storage, Settings, backup, privacy policy | Map written for a played track; scans pause and resume; backup allowlist and policy tests pass |

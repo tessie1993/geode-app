@@ -1,6 +1,6 @@
 # Sound engine v2: design for review
 
-Status: **proposal, for the owner's review before any code**. Builds on `core/sound` as it is on
+Status: **agreed design (2026-11-01); implementation follows stage by stage (§10)**. Builds on `core/sound` as it is on
 `claude/geode-finish` (FFT, `Rhythm`, `Harmony`, `Form`, `Emotion`) and on the auto-director
 (`auto-director.md`). Everything here is engine logic, so it is C++ in `core/` (ADR 0003); Kotlin only
 schedules scans and stores files.
@@ -18,16 +18,24 @@ schedules scans and stores files.
 | Libraries | Study everything; ship only permissive code (BSD, MIT, Apache, ISC). GPL, AGPL and non-commercial work is read as papers and READMEs, never copied or paraphrased |
 | AI | Maths live, small models in the pre-scan. Runtime: Google AI Edge (LiteRT) where a model needs it, plain C++ where it is tiny (§6) |
 | Defaults the owner left open (recommended options taken) | Played tracks are mapped automatically, other scans are buttons that run while charging; maps live in private app storage keyed by an audio fingerprint, in Settings › Backup, not in Android cloud backup; "Simple ↔ Rich" goes from one clear reaction layer to every layer |
+| Models (second round, 2026-11-01) | In the APK, capped at 12 MB; an install-time asset pack only if the AAB size check complains |
+| Chords | Maths first (NNLS + HMM, stage 3); BTC (MIT) joins in stage 6 only if it measurably beats them and its training data checks out |
+| Scans | Settings only, never offered at first run; played tracks are mapped automatically |
+| Map key | Our own PCM fingerprint (§6), not file identity; "Clear track maps" sits in Settings › Backup |
+| Played tracks | A separate low-priority decode at file speed when a track starts, so the map usually helps the same play |
+| Analyser upgrades | Old maps stay in use and are rewritten lazily, on the next play or scan |
 
 ## 2. What the research found (short)
 
 Sources, licences and numbers are in §9. The points that shape the design:
 
-1. **Today's FFT is slow for a hidden reason.** Without fast-math, clang turns every `std::complex`
-   multiply into a NaN check with a `__mulsc3` fallback, which stops vectorisation. Real-input packing (2×),
+1. **Today's FFT is slow for a hidden reason.** `core/sound/Fft` is an iterative radix-2 transform over
+   `std::complex<float>`. Without fast-math, every `std::complex` multiply carries an Annex G NaN check
+   (libc++'s inline recovery, or clang's `__mulsc3` call), which stops vectorisation. Real-input packing (2×),
    radix-4 (~1.3×) and a split re/im layout that auto-vectorises (2–3×) should give **6–10×** (estimate, to be
    measured). The engine also runs a 2N pitch FFT every frame, which is the single largest cost.
-2. **Harmony's error is its input, not its maths.** A 2048-point FFT has 21.5 Hz bins; semitones are narrower
+2. **Harmony's error is its input, not its maths.** The engine's window is ~40 ms at any rate (2048 at
+   44.1/48 kHz, 4096 at 88.2/96, 8192 at 176.4/192), so bins are ~21–24 Hz; semitones are narrower
    than a bin below ~360 Hz, so the bass octave of the chroma is smeared and chord roots are guesses. A long,
    decimated window fixes that.
 3. **Soft music is under-heard** because onsets are flux only. Complex-domain (Bello 2004, rectified per
@@ -79,8 +87,9 @@ pre-scan (WorkManager, IO) ──► same C++ analysers over the whole file
 - **Flags:** `-ffp-contract=off` on `geode_core` (FMA only where written with `std::fma`), never fast-math.
 - **Contract kept:** `magnitudes(real, out)` keeps its signature, and gains `spectrum(real, re, im)` for
   phase. No allocation per call.
-- **Tests.** KISS FFT (BSD-3), vendored under `core/tests/third_party/kissfft/` (the submodule is gone,
-  #207), is the oracle: max relative error < 1e-5 over 256..8192, random and sine inputs, plus a double DFT
+- **Tests.** KISS FFT (BSD-3) is the oracle. Today it is the `third_party/kissfft` submodule linked into
+  `geode_core`; #207 (which lands first) removes it, after which a copy lives under
+  `core/tests/third_party/kissfft/` for the tests only: max relative error < 1e-5 over 256..8192, random and sine inputs, plus a double DFT
   check, a golden-bits test, and a speed benchmark printed in CI.
 
 ## 5. Stage 2: the detectors
@@ -105,7 +114,8 @@ accuracy for `peakFreq` and the melody note, at no extra FFT. Parabolic interpol
   Brown–Puckette constant-Q kernel at 36 bins per octave, which also measures tuning (circular mean of
   peak deviations, smoothed over seconds).
 - Harmonic weighting of peaks (HPCP *idea*: cos² weight across ±⅔ semitone, sub-harmonic summation),
-  replacing today's octave and 3rd-harmonic rules.
+  replacing today's overtone discount (a peak with a strong partner at a 3rd, 5th, 6th or 7th of its
+  frequency is treated as that note's harmonic, unless it is also the octave of a sounding note).
 - NNLS note estimation (Mauch & Dixon 2010, from the paper) every ~100 ms: the largest gain for chords.
 - Key: Temperley and EDM profiles (Faraldo 2016, published numbers) beside Krumhansl–Kessler, scored on a
   CENS-style long chroma; chords: templates plus an online HMM with a ~0.5 s fixed lag.
@@ -122,13 +132,14 @@ so a look can land on it.
 | Job | Model | Licence | Runs on | Size (int8) |
 |---|---|---|---|---|
 | Beats, downbeats | Beat This! (small) | MIT, code and weights | LiteRT, CPU | ~3–5 MB |
-| Chords | BTC (or crema) | MIT (BSD-2) | LiteRT, CPU | ~2–4 MB |
+| Chords (stage 6, only if it beats NNLS + HMM) | BTC (or crema) | MIT (BSD-2) | LiteRT, CPU | ~2–4 MB |
 | Key | Own CNN, Korzeniowski-style, trained by us | ours | plain C++ (`KeyCnnWeights.inc`) | < 50 KB |
 | Melody pitch (optional, also live) | SwiftF0 | MIT | plain C++ or LiteRT | ~135 KB |
 | Sections | No model: SSM novelty (Foote) + clustering (MSAF ideas) | ours | C++ | 0 |
 
-**Size budget: 12 MB of APK in total** (LiteRT CPU runtime for arm64 plus the models). If that is too much,
-move the models into a Play Asset Delivery install-time pack. The NPU path (Play AI packs) is not used,
+**Size budget: 12 MB of APK in total** (LiteRT CPU runtime for arm64 plus the models), shipped in the APK so
+sideloaded and CI builds have them. Only if `release.yml`'s AAB check complains do the models move into a
+Play Asset Delivery install-time pack. The NPU path (Play AI packs) is not used,
 since it fails on sideloaded installs. GPU acceleration is optional and never needed for correctness.
 
 **Datasets for our own models** (licences checked before any training run): Lakh MIDI and Slakh2100
@@ -136,14 +147,24 @@ since it fails on sideloaded installs. GPU acceleration is optional and never ne
 GiantSteps key (annotations only; the audio is third-party). All-In-One (MIT) may be used *offline on a
 desktop* as a teacher to label data, never shipped.
 
-**When scans run.** Each track played is mapped in the background while it plays (the decode already
-happens). "Scan this playlist / folder / library" buttons queue a WorkManager job: charging only by default,
-pausable, with progress, low priority. About 1–3 s of CPU per track (estimate).
+**Fingerprint.** Our own, in C++: a hash of a coarse, quantised spectrum of the first ~30 s of decoded
+audio, plus the duration. It survives retagging, moving and renaming; Chromaprint is LGPL and not used.
+To keep lookup free, an index maps file identity (MediaStore id, size, modified time) to the fingerprint;
+only a miss decodes the 30 s.
+
+**Versions.** A map records its analyser version. An older map stays in use and is rewritten lazily, on the
+track's next play or the next scan that reaches it.
+
+**When scans run.** When a track starts and has no current map, a low-priority worker decodes the file
+separately at file speed (the tap hears only real time, so it cannot map a track ahead) and writes the map,
+usually within seconds, so it helps the same play. "Scan this playlist / folder / library" buttons in
+Settings queue a WorkManager job: charging only by default, pausable, with progress, low priority. First
+run never offers a scan. About 1–3 s of CPU per track (estimate).
 
 **Where maps live.** `filesDir/trackmaps/` (not `analysis/`, which `GeodeContainer` sweeps as a retired
 cache). Excluded from Android cloud backup in `backup_rules.xml` and `data_extraction_rules.xml`, carried on
-device transfer, offered in Settings › Backup (`BackupFormat` allowlist, as an option), clearable in
-Settings › Storage. The privacy policy (`docs/privacy-policy.md` and its copies, `PrivacyPolicyTest`) gains a
+device transfer, offered in Settings › Backup (`BackupFormat` allowlist, as an option), and cleared with
+"Clear track maps" in Settings › Backup. The privacy policy (`docs/privacy-policy.md` and its copies, `PrivacyPolicyTest`) gains a
 line: analysis maps of your tracks are kept in the app's private storage and never leave the device except in
 a backup you make.
 
@@ -248,7 +269,7 @@ LiteRT docs (developers.google.com/edge/litert).
 | 3 | Decimated long window, CQ bass/treble chroma, tuning, HPCP weighting, NNLS, key profiles, chord HMM | GiantSteps key and a chord set scored in scratch (scores committed, not audio); better than today |
 | 4 | Look-ahead alignment and latency measurement | Visual beat matches the audible beat on device (`DEVICE_CHECKS.md`) |
 | 5 | TrackMap format, pre-scan worker, storage, Settings, backup, privacy policy | Map written for a played track; scans pause and resume; backup allowlist and policy tests pass |
-| 6 | Models: key CNN in C++, Beat This! and chords through LiteRT | Within the 12 MB budget; maps measurably better than the maths alone |
+| 6 | Models: key CNN in C++, Beat This! through LiteRT; BTC chords only if they beat stage 3's NNLS + HMM | Within the 12 MB budget; maps measurably better than the maths alone |
 | 7 | Reaction complexity (native) | Simple = one layer, Rich = all, fades never cut; director test covers it |
 
 Budget throughout: the live engine stays under **0.3 ms per frame** on a mid-range phone, including the
@@ -256,6 +277,5 @@ director.
 
 ## 11. Open questions for the owner
 
-1. Is a 12 MB APK budget for models acceptable, or should they go into an asset pack?
-2. Should scanning the whole library also be offered at first run, or only from Settings?
-3. Train our own key and chord models (cleaner licensing, weeks of work), or ship BTC (MIT) for chords now?
+None. The three from the first draft (model budget, first-run scan, chord models) were settled on
+2026-11-01; see §1.

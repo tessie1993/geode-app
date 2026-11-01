@@ -26,6 +26,16 @@ internal class VizStateStore(
     private val _activeMilkPath = MutableStateFlow(milkPresets.lastShown)
     val activeMilkPath: StateFlow<String?> = _activeMilkPath
 
+    /**
+     * The style the user last chose, held while the Styles grid previews another one.
+     *
+     * A preview puts its style in [state] so the stage shows it, but it is not a choice yet: a
+     * slider moved meanwhile still persists, and must not save the previewed style with it (a
+     * locked Pro style would then come back after a restart, only to be swapped out again).
+     */
+    @Volatile
+    var committedSceneId: String? = null
+
     @Volatile
     private var dirty = false
 
@@ -70,7 +80,8 @@ internal class VizStateStore(
     private fun write() {
         dirty = false
         val s = state.value
-        val json = PresetStore.toJson(Preset("__live__", s.sceneId, s.attack, s.decay, null, s.params))
+        val sceneId = committedSceneId ?: s.sceneId
+        val json = PresetStore.toJson(Preset("__live__", sceneId, s.attack, s.decay, null, s.params))
         prefs
             .edit()
             .putString(KEY_LIVE_STATE, json)

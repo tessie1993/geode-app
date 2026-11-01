@@ -197,6 +197,16 @@ object GeodeNative {
     /** Customize › Macros (core/viz/Macros): the six knobs, -1..1, for every renderer in the process. */
     external fun macrosSet(knobs: FloatArray)
 
+    /**
+     * The auto-director (core/viz/Director): the music's feeling decides palette, behaviour and routing over
+     * every style. [amount] 0 off .. 1 full; [seed] is the play's, so a new seed starts the song afresh and an
+     * export given the play's seed makes the same film.
+     */
+    external fun directorSet(
+        amount: Float,
+        seed: Long,
+    )
+
     /** Surprise: unlocked knobs (bit i of [lockMask] locks knob i) to new spots, seeded. */
     external fun macrosSurprise(
         knobs: FloatArray,

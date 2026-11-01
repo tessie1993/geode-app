@@ -1,5 +1,6 @@
 package dev.geode.pro
 
+import dev.geode.render.scene.ParamKeys
 import dev.geode.render.scene.SceneCapabilities
 import dev.geode.render.scene.SceneIds
 import dev.geode.render.scene.StyleFamilies
@@ -37,6 +38,42 @@ object FreeTier {
      */
     const val FALLBACK_STYLE_ID: String = SceneIds.BARS
 
+    /**
+     * Customize › Look's one free control: the palette. Colour is the first thing a listener
+     * reaches for and the change they see at once, so it is the taste of Look that sells the rest.
+     * Customize › Macros is free in full and needs no entry; Advanced has no free control at all.
+     */
+    const val FREE_LOOK_CONTROL: String = ParamKeys.PALETTE
+
+    /**
+     * Customize › Events' one free control: the one-tap reaction recipes ("Kick punch"). They are
+     * the simple way into reactions; the strength slider and the route editor behind them are Pro.
+     */
+    const val FREE_EVENTS_CONTROL: String = "Event recipes"
+
+    /**
+     * Customize › (style name)'s one free control: the first of these the style on screen shows.
+     * A style's page holds different controls per style, so a single key could leave a cymatics
+     * plate or a fluid with nothing free; the list runs from the most style-specific to
+     * Kaleidoscope, which every style has, so exactly one control is always free.
+     */
+    val FREE_STYLE_CONTROL_ORDER: List<String> =
+        listOf(
+            ParamKeys.GEOMETRY,
+            ParamKeys.FLUID_CURL,
+            ParamKeys.RIPPLE_STRENGTH,
+            ParamKeys.PARTICLE_SHAPE,
+            ParamKeys.BLEND_PRESET_CHANGES,
+            ParamKeys.KALEIDOSCOPE,
+        )
+
+    /** The style page's free control, given which controls are live on the style ([isShown]). */
+    fun freeStyleControl(isShown: (String) -> Boolean): String? = FREE_STYLE_CONTROL_ORDER.firstOrNull(isShown)
+
+    /** Every Customize control a free user may change on this style, Macros aside. */
+    fun freeCustomizeControls(isShown: (String) -> Boolean): Set<String> =
+        setOfNotNull(FREE_LOOK_CONTROL, FREE_EVENTS_CONTROL, freeStyleControl(isShown))
+
     /** Pro features given away in full. Empty: the free tier is the styles above plus basics. */
     val freeFeatures: Set<ProFeature> = emptySet()
 
@@ -48,6 +85,12 @@ object FreeTier {
 
     /** The longest a non-Pro export may be: one minute, the rest of the track is cut. */
     const val FREE_MAX_EXPORT_MS: Long = 60_000L
+
+    /**
+     * How much of each song the auto-director directs for free: the taste. It matches the free export cap,
+     * so a free export (at most this long) is directed throughout.
+     */
+    const val FREE_AUTO_DIRECTOR_TASTE_MS: Long = 60_000L
 
     /** One hour, once per install, measured on the wall clock from the moment it is started. */
     const val TRIAL_DURATION_MS: Long = 60L * 60L * 1000L

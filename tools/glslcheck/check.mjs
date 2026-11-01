@@ -64,15 +64,15 @@ function resolveIncludes(source, registry) {
     if (!registry.includes(m[1])) throw new Error(`unknown shader include '${m[1]}'`);
     const file = path.join(SHADERS, `${m[1]}.glsl`);
     if (!fs.existsSync(file)) throw new Error(`missing shader include '${m[1]}'`);
-    out.push(fs.readFileSync(file, 'utf8'));
+    out.push(resolveIncludes(fs.readFileSync(file, 'utf8'), registry));
   }
   return out.join('\n');
 }
 
 function shaderIds() {
-  const src = fs.readFileSync(SCENE_REGISTRY_CPP, 'utf8');
-  const m = src.match(/kShaderIds\s*=\s*\{([\s\S]*?)\};/);
-  if (!m) throw new Error(`could not find kShaderIds in ${SCENE_REGISTRY_CPP}`);
+  const src = fs.readFileSync(path.join(ROOT, 'core', 'viz', 'Catalogue.cpp'), 'utf8');
+  const m = src.match(/kLooseShaders\s*=\s*\{([\s\S]*?)\};/);
+  if (!m) throw new Error('could not find kLooseShaders in core/viz/Catalogue.cpp');
   return [...m[1].matchAll(/"([A-Za-z0-9_]+)"/g)].map((x) => x[1]);
 }
 
@@ -118,6 +118,8 @@ const SHADER_VALUES = {
   uFlash: 0,
   uTouchAnchor: [0, 0, 0, 0], uTouchPoints: [0, 0, 0, 0], uTouchCount: 0, uTouchGesture: 0, uTouchAxis: [0, 0],
   uTouchSpin: 0,
+  // The sound engine's frame (lib_sound): every slot at a mid-loudness 0.5, no events.
+  uSound: [0.5, 0.5, 0.5, 0.5], uSoundDrive: 1, uSoundEvents: [0, 0, 0, 0], uSoundCounts: [0, 0],
   uSteps: 96,
   uPalLutMix: 0, uPalLutRow: 0.5,
   uBassSmooth: 0.5, uMidSmooth: 0.4, uTrebleSmooth: 0.3, uEnergySmooth: 0.45, uSwell: 0.5, uSpike: 0.15,
@@ -133,7 +135,7 @@ const SHADER_VALUES = {
   uCamDolly: 0, uCamLook: [0, 0, 0],
 };
 
-const SHADER_TEXTURES = { uAudioTex: 'audio', uPalLut: 'palette', uFlow: 'flow' };
+const SHADER_TEXTURES = { uAudioTex: 'audio', uSoundTex: 'audio', uPalLut: 'palette', uFlow: 'flow' };
 
 // FluidLook::drawDisplay with mid-loudness audio.
 const FLUID_VALUES = {

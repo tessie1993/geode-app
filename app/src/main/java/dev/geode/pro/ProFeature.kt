@@ -40,4 +40,10 @@ enum class ProFeature {
      * tuned around (see [FreeTier]); nothing is lost by gating a control behind it later.
      */
     ADVANCED_CUSTOMIZATION,
+
+    /**
+     * The auto-director (core/viz/Director) for the whole song. Free users get the first
+     * [FreeTier.FREE_AUTO_DIRECTOR_TASTE_MS] of each song (see [AutoDirectorPolicy]).
+     */
+    AUTO_DIRECTOR,
 }

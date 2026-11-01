@@ -97,7 +97,7 @@ void triggersHoldAndSilenceIsQuiet() {
 }
 
 void sourcesReadTheirFieldsInRange() {
-    static_assert(kReactSourceCount == 88, "dev.geode.render.ReactSource has 88 entries");
+    static_assert(kReactSourceCount == 117, "dev.geode.render.ReactSource has 117 entries");
     ReactSignals s;
     GeodeSoundFrame f = silence();
     f.bass = 1.0f;
@@ -525,7 +525,7 @@ void motionFieldVariantsDiffer() {
 }
 void sourceCatalogueIsCompleteAndUnique() {
     std::set<std::string> names;
-    const std::set<std::string> groups = {"LEVELS", "DRUMS", "EVENTS", "MELODY", "CLOCKS", "TEXTURE", "EQ"};
+    const std::set<std::string> groups = {"LEVELS", "DRUMS", "EVENTS", "MELODY", "CLOCKS", "TEXTURE", "EQ", "RHYTHM", "HARMONY", "FORM"};
     for (int i = 0; i < kReactSourceCount; ++i) {
         const ReactSourceInfo& s = reactSourceInfo(static_cast<ReactSource>(i));
         check(s.name != nullptr && s.label != nullptr && s.name[0] != '\0' && s.label[0] != '\0', "every source has a name and a label");

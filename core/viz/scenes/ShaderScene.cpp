@@ -158,13 +158,21 @@ void ShaderScene::uploadParams() {
     set1f("uFlash", p.flash);
     set1f("uContrast", p.contrast);
     set1f("uGamma", p.gamma);
-    // The style knobs (lib_scene_uniforms' uKnob): held at the midpoint each
-    // style was tuned around until the music-response engine drives them. Only
-    // as many elements as survived linking are written (uploading past the live
-    // length is an INVALID_OPERATION), and a style that reads none gets -1 and a
-    // no-op.
-    static constexpr std::array<float, kKnobCount> kRestingKnobs = {0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f};
-    glUniform1fv(uniforms_.loc("uKnob"), uniforms_.arrayCount("uKnob", kKnobCount), kRestingKnobs.data());
+    // The style knobs (lib_scene_uniforms' uKnob): driven by meaning from the
+    // music by Note & key reactions (viz/NoteResponse) when that is on, else
+    // held at the midpoint each style was tuned around (NoteUniforms' default),
+    // so with the switch off every style draws exactly as it did. Only as many
+    // elements as survived linking are written (uploading past the live length
+    // is an INVALID_OPERATION), and a style that reads none gets -1 and a no-op.
+    static const NoteUniforms kResting{};
+    const NoteUniforms* notes = host_.notes ? host_.notes() : nullptr;
+    if (!notes) notes = &kResting;
+    static_assert(NoteUniforms::kKnobs == kKnobCount, "uKnob is six knobs");
+    glUniform1fv(uniforms_.loc("uKnob"), uniforms_.arrayCount("uKnob", kKnobCount), notes->knobs.data());
+    // The last notes' colours and how much the layer drives, for a style that
+    // wants to paint with the melody (lib_scene_uniforms' uNoteHues).
+    glUniform1fv(uniforms_.loc("uNoteHues"), uniforms_.arrayCount("uNoteHues", NoteUniforms::kHues), notes->hues.data());
+    set1f("uNoteAmount", notes->amount);
 }
 
 // Every style is handed these; the ones that read none of them link them away

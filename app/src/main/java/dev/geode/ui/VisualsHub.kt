@@ -125,9 +125,14 @@ fun VisualsHub(
     // Hiding the panel is a view state, not a page: back brings the panel back before any page.
     BackHandler(enabled = nav.panelBackEnabled, onBack = nav::backFromPanel)
     BoxWithConstraints(Modifier.fillMaxSize()) {
-        val maxStageDp = (maxHeight * STAGE_MAX_FRACTION).value
-        // A short window (split screen, a phone on its side) can have less room than the floor.
-        val minStageDp = minOf(STAGE_MIN_DP, maxStageDp)
+        val fractionDp = (maxHeight * STAGE_MAX_FRACTION).value
+        // A short window (split screen, a phone on its side) can have less room than the floor;
+        // there the stage keeps what it can and the panel gives way.
+        val minStageDp = minOf(STAGE_MIN_DP, fractionDp)
+        // The panel keeps PANEL_MIN_DP before the stage grows: on a short phone the stage would
+        // otherwise take all the room under it once the mini player sits there too, and the style
+        // grid and its preview bar (the only way to choose a style) would get none.
+        val maxStageDp = minOf(fractionDp, maxHeight.value - PANEL_MIN_DP).coerceAtLeast(minStageDp)
         Column(Modifier.fillMaxSize()) {
             val stageSize =
                 if (nav.panelShown) {
@@ -646,6 +651,10 @@ private const val STAGE_DEFAULT_DP = 300f
 private const val STAGE_MIN_DP = 120f
 
 private const val STAGE_MAX_FRACTION = 0.75f
+
+// What the panel under the stage keeps before the stage grows: the resize handle and tabs,
+// a page's search and filter rows, and room for a row of cards with the preview bar.
+private const val PANEL_MIN_DP = 300f
 
 private const val STAGE_SWIPE_DP = 72f
 

@@ -13,105 +13,124 @@ out vec4 fragColor;
 //#include lib_scene_grade
 //#include lib_glass
 
-// Glass Marble: a big cat's-eye marble filling the frame, clear glass with a
-// twisted four-bladed ribbon of colour sealed inside, the whole marble turning
-// slowly on a tilted axis. The ray refracts into the sphere once and crosses
-// it along the straight interior chord; sixteen samples along that chord read
-// the ribbon - two crossing helicoid vanes, each a plane through the marble's
-// axis turned in proportion to height, so the blades spiral from pole to pole -
-// and composite it front to back. Each blade is shaded by how squarely it faces
-// the key light, so the twist reads as a solid ribbon rather than a smear.
-// Whatever the ribbon lets through leaves by the far wall's refraction into the
-// backdrop. Outside, Fresnel lays the studio's reflection over the rim.
+// Glass Marble: a big cat's-eye marble hanging against a sunset sea, close
+// enough to fill most of the frame. Clear glass round three twisted coloured
+// vanes that meet at its axis. The glass is the family's two-bounce sphere
+// (glassSphereTrace): the sunset shows through upside down with dispersed
+// edges and a second, fainter image from the far wall's reflection. The vanes
+// are a true volume: the refracted ray is sampled along its chord, each sample
+// testing three planes that twist round the axis, and composited front to back
+// with a lit, translucent colour, so the vanes overlap, glow where the sun is
+// behind them and show through each other. A drift of tiny air bubbles trapped
+// in the glass catches the light.
 //
 // ---- audio ------------------------------------------------------------------
 //
-// Bass (SND_BASS_PRESENCE, with sndLevel(SND_BASS_ATT)) winds the ribbon tighter: the twist rate
-// climbs from about two radians per unit of height toward three and a half, so
-// the blades corkscrew on the low end and unwind in the quiet. A section change
-// (SND_CUT_COUNT, eased over the section envelope SND_HELD_HARD_CUT) re-picks the two
-// blade colours, sliding them round the palette. Brightness follows SND_LEVEL.
+//   snare        twists the vanes: each hit winds them a little further, and
+//                they ease back;
+//   bass         swells the vanes (wider, more colour in the glass);
+//   onsets       roll the marble one notch each (glassGlide);
+//   flatness     fills the glass with seed bubbles (frost): noise clouds it;
+//   centroid     the dispersion at the rim;
+//   pitch, pan   the sun's height and bearing (glassLook), so the marble's
+//                highlight and the vanes' backlight follow the melody;
+//   hat          glints on the surface.
 //
 // ---- macros -----------------------------------------------------------------
 //
-// Speed (uSpeed) scales the marble's turn. Complexity (uMorph) widens the
-// blades. Chaos (uWarp, uTurbulence) wobbles the outer surface (glassWobble),
-// so the ribbon swims behind a molten skin. Energy (uIntensity) scales the
-// bass winding. Colour: the blades and the room from pal(). Space is the rig
-// (camAround, no spin).
+// Speed scales the turn. Complexity adds vanes (three to five). Chaos wobbles
+// the surface. Energy scales every reaction.
+//
+// ---- cost -------------------------------------------------------------------
+//
+// 5 / 8 / 12 volume samples (Saver / Balanced / High), each three plane
+// distances; 6 world lookups on the marble's pixels. Analytic, no march.
 
-#define MB_CAM_R 3.0
-#define MB_STEPS 16
-#define MB_IOR 1.5
-
-float gTwist;
-float gWidth;
-
-/** The two vanes at q (marble frame): density of each, and each blade's facing of `light`. */
-vec4 vanes(vec3 q, vec3 light) {
-    float a = gTwist * q.y;
-    vec2 d = vec2(cos(a), sin(a));
-    float inside = (1.0 - smoothstep(0.66, 0.8, length(q)));
-    float across = dot(q.xz, d);
-    float off = dot(q.xz, vec2(-d.y, d.x));
-    float v1 = (1.0 - smoothstep(0.025, 0.1, abs(off))) * (1.0 - smoothstep(gWidth - 0.12, gWidth, abs(across)));
-    float v2 = (1.0 - smoothstep(0.025, 0.1, abs(across))) * (1.0 - smoothstep(gWidth - 0.12, gWidth, abs(off)));
-    float f1 = abs(dot(vec3(-d.y, 0.0, d.x), light));
-    float f2 = abs(dot(vec3(d.x, 0.0, d.y), light));
-    return vec4(v1 * inside, v2 * inside, f1, f2);
-}
+#define MB_CAM_R 3.6
+#define MB_R 1.45
 
 void main() {
     vec2 uv = view();
     float t = glassTime();
-    float swell = clamp(SND_LEVEL, 0.0, 1.5);
-    float bass = clamp(0.6 * SND_BASS_PRESENCE + 0.4 * sndLevel(SND_BASS_ATT), 0.0, 1.2);
-    gTwist = 2.1 + 1.3 * bass * glassEnergy();
-    gWidth = 0.46 + 0.14 * glassComplexity();
-    float seed = glassSeed(SND_CUT_COUNT, SND_HELD_HARD_CUT);
-    float hue = 0.12 * uKeyStrength * sin(GLASS_TAU * uKeyHue);
-    float bladeHue = hue + 0.6 * seed;
+    GlassEar ear = glassListen();
+    float hue = 0.04 * sin(t * 0.019) + 0.12 * uKeyStrength * sin(GLASS_TAU * uKeyHue);
+    GlassLook lk = glassLook(GLASS_ENV_DUSK, hue, ear);
+    float ior = 1.5;
+    float spread = 0.015 + 0.035 * ear.sharp;
+    int bounces = glassBounces();
+    float vanes = 3.0 + floor(glassComplexity() * 2.0 + 0.5);
+    float twist = 1.4 + 1.6 * ear.snare + 0.3 * sin(t * 0.2);
+    float roll = t * 0.15 + 0.35 * glassGlide(SND_ONSET_COUNT, SND_ONSET_ENV) * min(glassEnergy(), 1.5);
+    mat3 rot = glassEuler(vec3(0.35 * sin(t * 0.11), roll, 0.5 + 0.2 * sin(t * 0.07)));
+    mat3 inv = transpose(rot);
 
     vec3 ro;
     vec3 rd;
     camAround(uv, MB_CAM_R, 0.0, ro, rd);
-    vec3 col = glassBackdrop(rd, hue);
+    vec3 c = vec3(0.0, 0.05 * sin(t * 0.3), 0.0);
+    vec3 col = glassEnv(rd, lk);
 
-    vec2 hs = glassSphere(ro, rd, vec3(0.0), 1.0);
+    vec2 hs = glassSphere(ro, rd, c, MB_R);
     if (hs.x > 0.0) {
-        mat3 spin = glassEuler(vec3(0.35, t * 0.11, 0.18));
-        vec3 light = spin * normalize(vec3(-0.3, 0.8, -0.5));
         vec3 p = ro + rd * hs.x;
-        vec3 n = glassWobble(p, p, glassChaos());
+        vec3 n = glassWobble(normalize(p - c), p, glassChaos());
         float cosI = max(dot(n, -rd), 0.0);
-        float fr = glassFresnel(cosI, MB_IOR);
-        vec3 d1 = glassRefract(rd, n, 1.0 / MB_IOR);
-        float chord = max(-2.0 * dot(p, d1), 0.0);
-        float stepLen = chord / float(MB_STEPS);
+        float fr = glassFresnel(cosI, ior);
+        vec3 key = glassKeyDir(lk);
 
+        // The volume: march the refracted chord through the vanes.
+        vec3 d1 = glassRefract(rd, n, 1.0 / ior);
+        vec3 oc = p - c;
+        float b = dot(oc, d1);
+        float chord = max(-b + sqrt(max(b * b - (dot(oc, oc) - MB_R * MB_R), 0.0)), 0.0);
+        float q = glassQuality();
+        int samples = q < 0.3 ? 6 : (q < 0.6 ? 9 : 14);
+        float dt = chord / float(samples);
         vec3 acc = vec3(0.0);
         float trans = 1.0;
-        for (int i = 0; i < MB_STEPS; i++) {
-            vec3 q = spin * (p + d1 * (float(i) + 0.5) * stepLen);
-            vec4 v = vanes(q, light);
-            float dens = (v.x + v.y) * stepLen * 9.0;
-            if (dens > 1e-3) {
-                vec3 c1 = pal(bladeHue + 0.12 * q.y) * (0.35 + 0.65 * v.z);
-                vec3 c2 = pal(bladeHue + 0.5 + 0.12 * q.y) * (0.35 + 0.65 * v.w);
-                vec3 c = (c1 * v.x + c2 * v.y) / max(v.x + v.y, 1e-3);
-                float a = 1.0 - exp(-dens);
-                acc += trans * a * c;
-                trans *= 1.0 - a;
+        float prev = 0.0;
+        vec3 prevS = vec3(0.0);
+        for (int i = 0; i <= 14; i++) {
+            if (i > samples) break;
+            vec3 s = inv * (oc + d1 * (dt * float(i))) / MB_R;
+            float th = atan(s.z, s.x) + s.y * twist;
+            float g = sin(vanes * th) * length(s.xz);
+            if (i > 0 && g * prev < 0.0) {
+                // A vane crossed between the two samples: interpolate to it and shade it as a sheet.
+                vec3 x = mix(prevS, s, prev / (prev - g));
+                float rr = length(x.xz);
+                float r3 = length(x);
+                float edge = 1.0 - smoothstep(0.5, 0.62 + 0.08 * clamp(ear.bass, 0.0, 1.2), r3);
+                if (edge > 0.0) {
+                    float tx = atan(x.z, x.x) + x.y * twist;
+                    float id = floor(mod(tx * vanes / GLASS_PI + 0.5, 2.0 * vanes));
+                    vec3 sn = rot * vec3(-sin(tx), 0.0, cos(tx));
+                    float cs = abs(dot(sn, d1));
+                    vec3 vc = pal(hue + 0.18 + 0.11 * mod(id, vanes));
+                    float back = 0.3 + 0.9 * pow(max(dot(d1, key), 0.0), 2.0);
+                    float lit = 0.35 + 0.65 * abs(dot(sn, key));
+                    float a = edge * (1.0 - exp(-0.35 / max(cs, 0.05))) * smoothstep(0.0, 0.05, rr);
+                    acc += trans * a * vc * (lit + back) * 0.9;
+                    trans *= 1.0 - a;
+                }
             }
+            prev = g;
+            prevS = s;
         }
+        // Seed bubbles: tiny bright specks in the glass, more in noisy music.
+        vec3 sp = inv * (oc + d1 * chord * 0.35) / MB_R * 9.0;
+        float bub = glassHash3(floor(sp));
+        float speck = step(0.975 - 0.06 * ear.frost, bub) * exp(-dot(fract(sp) - 0.5, fract(sp) - 0.5) * 40.0);
+        acc += trans * vec3(1.0, 0.95, 0.9) * speck * 0.8;
 
-        vec3 pe = p + d1 * chord;
-        vec3 ex = glassRefract(d1, -pe, MB_IOR);
-        vec3 inner = acc + trans * glassBackdrop(ex, hue) * 0.9;
-        col = mix(inner, glassBackdrop(reflect(rd, n), hue), fr);
+        vec3 tint = mix(vec3(1.0), pal(hue + 0.55), 0.15);
+        vec3 through = glassSphereTrace(p, n, rd, c, MB_R, ior, spread, tint, 0.25, bounces, lk);
+        vec3 inside = through * trans + acc;
+        vec3 refl = glassEnv(reflect(rd, n), lk);
+        col = inside * (1.0 - fr) + refl * fr;
+        col += vec3(1.0) * glassGlint(inv * (p - c), 6.0, ear.hat) * (0.4 + fr);
     }
 
-    col *= 0.85 + 0.18 * swell;
-    col *= 0.78 + 0.22 * (1.0 - smoothstep(0.3, 2.2, length(uv)));
-    fragColor = vec4(grade(col), 1.0);
+    col *= 0.85 + 0.15 * (1.0 - smoothstep(0.4, 2.2, length(uv)));
+    fragColor = vec4(grade(glassTone(col)), 1.0);
 }

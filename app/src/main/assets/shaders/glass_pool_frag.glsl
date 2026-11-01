@@ -8,90 +8,124 @@ out vec4 fragColor;
 
 //#include lib_scene_uniforms
 //#include lib_scene_motion
+//#include lib_camera
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_glass
 
-// Glass Pool: looking straight down into a swimming pool on a sunny day. Pale
-// tiles with grey grout and a dark lane stripe lie under a sheet of rippling
-// water; the ripples bend the tile lines (the floor is read at the point the
-// refracted ray lands, offset by the surface slope), and the light that got
-// through them lies across the floor as a moving net of thin bright caustic
-// lines. Glints of sun sparkle on the crests. Flat, analytic, one pass: the
-// five-wave surface of glassWaves gives height, slope and the caustic in one
-// call, and the deep end of the pool, at the top of the frame, is darker.
+// Glass Pool: looking straight down into a swimming pool in low sun. The floor
+// is a mosaic of small palette tiles with grout lines and a dark lane stripe,
+// seen through a moving surface that bends it (the refraction offset is the
+// surface slope times the depth, read once per wavelength, so tile edges
+// fringe where the water is steep). Across the floor runs the caustic net in
+// three wavelengths (glassCausticRGB): one wave sum, three determinants, so
+// its lines split into thin rainbows where they fold. On top, the surface
+// reflects the dusk sky - faint face-on, as water does - and the sun glitters
+// on the wave crests.
 //
 // ---- audio ------------------------------------------------------------------
 //
-// Kicks (SND_KICK_ENV) drop a stone: a ring of ripples launches from a point and
-// spreads across the pool as the kick envelope falls, bending the tiles and
-// raking a line of glints across the surface as it goes - the ripple is a
-// slope added to the surface, so it moves the picture without lighting it. Each
-// onset (floor(SND_HIT_TIME), SND_ONSET_ENV) slides the drop point to a new spot. The key
-// (uKeyHue, uKeyStrength) tints the water a little. Brightness follows SND_INTENSITY.
+//   kick         drops a ring ripple at a spot that hops per onset; it spreads and
+//                fades, bending the tiles and pulling the caustics into a ring;
+//   snare        a gust: the chop rises and the net tightens;
+//   bass         the swell's height;
+//   centroid     caustic sharpness: bright mixes cut thin, bright lines;
+//   flatness     turbidity: noise clouds the water, softening the net;
+//   pan          the sun's bearing: the net leans and the glitter walks;
+//   hat          the glitter sparkles.
 //
 // ---- macros -----------------------------------------------------------------
 //
-// Speed (uSpeed) scales the waves. Complexity (uMorph) adds lane stripes.
-// Chaos (uWarp, uTurbulence) makes the water choppier, so the caustic net
-// tightens and the tiles swim. Energy (uIntensity) scales the kick ripples.
-// Colour: the water, the tiles' tint and the lane from pal(). Space is the
-// rig's flat projection.
+// Speed scales the waves. Complexity makes the tiles smaller. Chaos stirs a
+// cross-current into the surface. Energy scales every reaction. The rig's look
+// tilts the view a little (parallax between surface and floor).
+//
+// ---- cost -------------------------------------------------------------------
+//
+// Five-wave sum twice (surface, floor), three tile reads, one sky lookup. No
+// loop over objects; cheap enough for Saver.
 
-#define PL_TILE 0.42
-#define PL_DEPTH 0.30
+#define PL_DEPTH 0.55
+
+/** The pool floor at `f`: mosaic tiles, grout, a lane stripe. */
+vec3 tiles(vec2 f, float hue, float size) {
+    vec2 g = f / size;
+    vec2 id = floor(g);
+    vec2 e = abs(fract(g) - 0.5);
+    float grout = smoothstep(0.455, 0.48, max(e.x, e.y));
+    float h = glassHash(id);
+    vec3 c = mix(pal(hue + 0.5), mix(pal(hue + 0.55), vec3(0.85, 0.95, 1.0), 0.5), 0.3 + 0.5 * h);
+    float lane = 1.0 - smoothstep(0.1, 0.12, abs(f.x - 1.4));
+    c = mix(c, pal(hue + 0.9) * 0.2, lane);
+    return mix(c * 0.6, c * 0.3 + 0.05, grout);
+}
+
+/** The ring ripple dropped by the last kick: height in .x, slope in .yz; its Hessian added to `hess`. */
+vec3 ripple(vec2 p, vec2 at, float age, float amp, inout vec3 hess) {
+    vec2 d = p - at;
+    float r = length(d) + 1e-4;
+    float front = age * 2.2;
+    float env = exp(-(r - front) * (r - front) * 6.0) * exp(-age * 1.4) * amp;
+    float k = 9.0;
+    float ph = k * (r - front);
+    float h = env * sin(ph) * 0.05;
+    vec2 n = d / r;
+    vec2 g = n * env * cos(ph) * 0.05 * k;
+    float h2 = -env * sin(ph) * 0.05 * k * k;
+    hess += h2 * vec3(n.x * n.x, n.y * n.y, n.x * n.y);
+    return vec3(h, g);
+}
 
 void main() {
     vec2 uv = view();
-    float t = glassTime();
-    float energy = glassEnergy();
-    float swell = clamp(SND_INTENSITY, 0.0, 1.5);
-    float hue = 0.5 + 0.08 * uKeyStrength * sin(GLASS_TAU * uKeyHue);
+    float t = glassTime() * 0.8;
+    GlassEar ear = glassListen();
+    float hue = 0.05 * sin(t * 0.02) + 0.12 * uKeyStrength * sin(GLASS_TAU * uKeyHue);
+    GlassLook lk = glassLook(GLASS_ENV_DUSK, hue, ear);
+    vec2 p = uv * 2.2 + uCamLook.xy * 0.3;
+    float chop = 0.55 + 0.35 * clamp(ear.bass, 0.0, 1.2) + 0.5 * ear.snare;
+    float sharp = mix(0.05, 0.012, ear.sharp) * (1.0 + 2.0 * ear.frost);
+    vec2 sunLean = vec2(0.25 * ear.pan, 0.1);
+    vec2 cross = glassChaos() * 0.4 * vec2(sin(p.y * 1.3 + t), cos(p.x * 1.1 - t));
 
-    vec2 p = uv * 1.6;
-    vec4 w = glassWaves(p * 1.7, t * 0.8, 1.0 + 0.8 * glassChaos(), 0.85);
+    vec3 hess;
+    vec3 w = glassWaves(p + cross, t, chop, hess);
+    // The kick's ring: dropped at a spot that hops with each onset, ageing as the kick envelope falls.
+    vec2 at = (vec2(glassHash1(floor(SND_ONSET_COUNT)), glassHash1(floor(SND_ONSET_COUNT) + 9.0)) - 0.5) * vec2(3.0, 1.8);
+    float age = (1.0 - clamp(SND_KICK_ENV, 0.0, 1.0)) * 1.6;
+    w += ripple(p, at, age, clamp(glassEnergy(), 0.0, 1.5), hess);
     vec2 slope = w.yz;
 
-    // The stone: a damped ring wave launched at the kick, travelling out as
-    // the envelope falls. Its slope is added to the surface's.
-    float kick = clamp(SND_KICK_ENV, 0.0, 1.0);
-    vec2 rc = (vec2(glassSeed(floor(SND_HIT_TIME), SND_ONSET_ENV), glassSeed(floor(SND_HIT_TIME) + 37.0, SND_ONSET_ENV)) - 0.5) * vec2(2.4, 1.4);
-    vec2 rel = p - rc;
-    float dist = length(rel);
-    float x = dist - (0.06 + 1.9 * (1.0 - kick));
-    float ringEnv = exp(-x * x * 22.0);
-    float amp = 0.09 * kick * energy;
-    float dh = amp * ringEnv * (13.0 * cos(x * 13.0) - 44.0 * x * sin(x * 13.0));
-    slope += dh * rel / max(dist, 1e-3);
+    // The floor, refracted: the offset grows with depth and slope, per wavelength.
+    float size = mix(0.22, 0.12, glassComplexity());
+    vec2 off = slope * PL_DEPTH * 0.75;
+    vec2 fp = p + off;
+    vec3 floorCol = vec3(
+        tiles(fp + off * 0.06, hue, size).r,
+        tiles(fp, hue, size).g,
+        tiles(fp - off * 0.06, hue, size).b);
+    // The caustic net on the floor, from the waves above the floor point.
+    vec3 fh;
+    glassWaves(fp + sunLean + cross, t, chop, fh);
+    ripple(fp + sunLean, at, age, clamp(glassEnergy(), 0.0, 1.5), fh);
+    vec3 caus = glassCausticRGB(fh, 2.6, 0.06 + 0.06 * ear.sharp, sharp);
+    vec3 sun = mix(vec3(1.0, 0.92, 0.75), pal(hue + 0.1), 0.2);
+    floorCol *= 0.6 + 2.2 * caus * sun;
+    // Water: absorption toward the palette's deep colour, clouded by noise.
+    vec3 water = mix(vec3(0.05, 0.35, 0.45), pal(hue + 0.5), 0.35);
+    floorCol = mix(floorCol, water * 0.4, 0.18 + 0.3 * ear.frost);
 
-    // The floor, read where the refracted ray lands.
-    vec2 fp = p + slope * PL_DEPTH;
-    vec2 q = fp / PL_TILE;
-    vec2 cell = floor(q);
-    vec2 f = fract(q);
-    float edge = min(min(f.x, 1.0 - f.x), min(f.y, 1.0 - f.y));
-    float grout = 1.0 - smoothstep(0.03, 0.065, edge);
-    float th = glassHash(cell + 11.0);
-    vec3 tile = mix(vec3(0.84, 0.93, 0.96), pal(hue + 0.08 * th), 0.22) * (0.93 + 0.07 * th);
-    vec3 floorCol = mix(tile, vec3(0.52, 0.6, 0.64), grout);
-    float laneW = PL_TILE * mix(7.0, 4.0, step(0.5, glassComplexity()));
-    float laneDist = abs(fract(fp.x / laneW + 0.5) - 0.5) * laneW;
-    float lane = 1.0 - smoothstep(0.085, 0.11, laneDist);
-    floorCol = mix(floorCol, pal(hue + 0.62) * 0.3 + vec3(0.02, 0.05, 0.12), lane);
+    // The surface: dusk sky reflected (a few percent face on), sun glitter on the crests.
+    vec3 n = normalize(vec3(-slope.x, 1.0, -slope.y));
+    vec3 rd = normalize(vec3(uv.x * 0.15, -1.0, uv.y * 0.15));
+    float fr = glassFresnel(max(dot(n, -rd), 0.0), 1.33);
+    vec3 r = reflect(rd, n);
+    vec3 sky = glassEnv(r, lk);
+    vec3 key = glassKeyDir(lk);
+    float glit = pow(max(dot(r, normalize(key + vec3(0.0, 2.5, 0.0))), 0.0), 900.0);
+    glit *= (0.3 + 2.5 * ear.hat) * step(0.8, glassHash(floor(p * 60.0) + floor(t * 8.0)));
+    vec3 col = floorCol * (1.0 - fr) + sky * fr * 2.0 + sun * glit * 3.0;
 
-    // The caustic net, and the water's colour above it.
-    float caustic = glassCaustic(w.w, 0.12);
-    vec3 water = mix(vec3(0.18, 0.6, 0.78), pal(hue), 0.3);
-    float deep = smoothstep(-1.3, 1.3, uv.y);
-    vec3 col = floorCol * water * (0.5 + 1.3 * caustic * vec3(1.0, 0.98, 0.9)) * mix(1.05, 0.55, deep);
-
-    // The surface: sun glints on the crests and a faint sheen on the slopes.
-    vec3 n = normalize(vec3(-slope * 1.2, 1.0));
-    vec3 sun = normalize(vec3(-0.4, 0.5, 0.75));
-    float spec = pow(max(dot(reflect(vec3(0.0, 0.0, -1.0), n), sun), 0.0), 90.0);
-    col += vec3(1.0, 0.97, 0.9) * spec * 0.6 + water * pow(1.0 - n.z, 1.5) * 0.35;
-
-    col *= 0.85 + 0.15 * swell;
-    col *= 0.8 + 0.2 * (1.0 - smoothstep(0.4, 2.2, length(uv)));
-    fragColor = vec4(grade(col), 1.0);
+    col *= 0.85 + 0.15 * (1.0 - smoothstep(0.4, 2.2, length(uv)));
+    fragColor = vec4(grade(glassTone(col)), 1.0);
 }

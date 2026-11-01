@@ -13,38 +13,39 @@ out vec4 fragColor;
 //#include lib_scene_grade
 //#include lib_glass
 
-// Glass Knot: a trefoil knot of clear glass tube hanging in the studio and
-// turning slowly, its every edge broken into rainbow. The knot is the (2, 3)
-// torus knot: a curve that winds twice round the axis of a torus while it
-// winds three times round the tube. In the meridian half-plane at azimuth phi
-// the curve passes through exactly two points, at curve parameters
-// (phi + 2 pi k) / 2 for k = 0, 1, and the distance to the knot's tube is
-// taken to the nearer of them. atan's jump at -pi only swaps which k is which,
-// so the minimum over both is seamless. Measuring in the meridian plane ignores
-// how the strand leans across it, which makes the estimate too long by up to
-// the lean; it is divided by that bound (gLip) before stepping.
-//
-// The ray marches to the tube, refracts in, crosses it once and leaves through
-// the far wall three times at three IORs (glassExitDispersed). A tube is the
-// shape that shows dispersion best: its silhouette is all grazing incidence,
-// where the three channels part furthest, so the knot is drawn in clear glass
-// with spectral fringes along every edge and a bright Fresnel rim.
+// Glass Knot: a trefoil (a cinquefoil at high Complexity) of thick clear glass
+// tube hanging in the backlit studio, its surface coated with a thin
+// interference film like a lens coating or an oil sheen, so its reflections
+// run in bands of colour while what shows through stays clear. The tube is a
+// marched torus-knot field (the distance to the nearest of the knot's strands
+// in the torus's meridian plane). Light goes in, crosses the tube (interior
+// march), and leaves dispersed per wavelength; on High the far wall's
+// reflected share crosses again (glassMarchBounces). Where the tube crosses
+// itself the strands magnify each other.
 //
 // ---- audio ------------------------------------------------------------------
 //
-// Snares (SND_SNARE_ENV) breathe the windings: each snare pushes the strands out
-// from the torus's core circle and lets them settle back as the envelope falls
-// (glassBump), so the knot loosens and re-tightens on the backbeat. Bass
-// (sndShaped(SND_LOW), with sndSpectrum(0.23)) thickens the tube. The key (uKeyHue,
-// uKeyStrength) drifts the room's palette. Brightness follows (0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)) only.
+//   snare        a bulge runs round the knot: each hit sends a swelling along
+//                the tube that the glass magnifies as it passes;
+//   pitch height the coating's thickness, 200 -> 650 nm: the sheen's colours
+//                roll as the melody climbs;
+//   bass         thickens the tube;
+//   centroid     dispersion through the tube;
+//   flatness     frost on the coating;
+//   pan, pitch   the key light's bearing and height (glassLook);
+//   hat          glints on the coating.
 //
 // ---- macros -----------------------------------------------------------------
 //
-// Speed (uSpeed) scales the knot's turn. Complexity (uMorph) at 0.5 and above
-// ties a (2, 5) cinquefoil instead of the trefoil. Chaos (uWarp, uTurbulence)
-// ripples the tube (glassSurfaceWarp). Energy (uIntensity) scales the snare
-// breath and the bass. Colour: the room and the glass's faint tint from pal().
-// Space is the rig (camAround, no spin).
+// Speed scales the turn. Complexity switches trefoil to cinquefoil. Chaos
+// ripples the glass. Energy scales every reaction.
+//
+// ---- cost -------------------------------------------------------------------
+//
+// Outer march up to uSteps (two strand distances per step), one interior
+// march, normals at two points, 5 studio lookups; on High a second interior
+// march. The heaviest Glass style; estimated 5-7 ms at 810p on an Adreno
+// 618-class GPU on Balanced. See the PR.
 
 #define KN_CAM_R 4.4
 #define KN_R 1.0
@@ -55,6 +56,8 @@ float gQ;
 float gWind;
 float gTube;
 float gLip;
+float gPulse;
+float gBulge;
 
 float map(vec3 p) {
     vec3 q = gOrient * p;
@@ -62,11 +65,15 @@ float map(vec3 p) {
     float phi = atan(q.z, q.x);
     float best = 1e3;
     for (int k = 0; k < 2; k++) {
-        float a = gQ * (phi + GLASS_TAU * float(k)) * 0.5;
+        float s = phi + GLASS_TAU * float(k);
+        float a = gQ * s * 0.5;
         vec2 c = vec2(KN_R + gWind * cos(a), gWind * sin(a));
-        best = min(best, length(vec2(rho, q.y) - c));
+        // The snare's bulge: a swelling centred at gPulse along the knot's 4*pi parameter.
+        float ds = mod(s - gPulse + GLASS_TAU, 2.0 * GLASS_TAU) - GLASS_TAU;
+        float tube = gTube + gBulge * exp(-ds * ds * 3.0);
+        best = min(best, length(vec2(rho, q.y) - c) - tube);
     }
-    return (best - gTube + glassSurfaceWarp(q)) / (gLip * glassSurfaceLip());
+    return (best + glassSurfaceWarp(q)) / (gLip * glassSurfaceLip());
 }
 
 vec3 normalAt(vec3 p, float e) {
@@ -75,29 +82,45 @@ vec3 normalAt(vec3 p, float e) {
                    + k.yxy * map(p + k.yxy * e) + k.xxx * map(p + k.xxx * e));
 }
 
+float crossTube(vec3 q, vec3 dir, float eps) {
+    // Start a little past the wall: just inside, the (Lipschitz-scaled) field is already under eps.
+    float ti = 0.03;
+    for (int i = 0; i < GLASS_MAX_INNER; i++) {
+        if (float(i) >= glassInnerSteps()) break;
+        float d = -map(q + dir * ti);
+        if (d < eps) break;
+        ti += max(d, eps);
+    }
+    return ti;
+}
+
 void main() {
     vec2 uv = view();
     float t = glassTime();
-    float energy = glassEnergy();
-    float swell = clamp((0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)), 0.0, 1.5);
-    float bass = clamp(0.6 * sndShaped(SND_LOW) + 0.4 * sndSpectrum(0.23), 0.0, 1.2);
+    GlassEar ear = glassListen();
     float hue = 0.04 * sin(t * 0.02) + 0.12 * uKeyStrength * sin(GLASS_TAU * uKeyHue);
+    GlassLook lk = glassLook(GLASS_ENV_STUDIO, hue, ear);
+    float spread = 0.015 + 0.04 * ear.sharp;
+    float frost = ear.frost * 0.5;
+    float coat = 200.0 + 450.0 * ear.height;
 
     gQ = glassComplexity() >= 0.5 ? 5.0 : 3.0;
-    gWind = 0.42 + 0.09 * glassBump(SND_SNARE_ENV) * energy;
-    gTube = 0.15 + 0.05 * bass * energy;
+    gWind = 0.42;
+    gTube = 0.17 + 0.05 * clamp(ear.bass, 0.0, 1.2);
+    gPulse = (1.0 - clamp(SND_SNARE_ENV, 0.0, 1.0)) * 2.0 * GLASS_TAU + glassHash1(floor(SND_ONSET_COUNT)) * 2.0 * GLASS_TAU;
+    gBulge = 0.09 * ear.snare;
     float strand = gWind * gQ / (2.0 * max(KN_R - gWind - gTube, 0.2));
-    gLip = sqrt(1.0 + strand * strand);
+    gLip = sqrt(1.0 + strand * strand) * (1.0 + gBulge * 2.0);
     gOrient = glassEuler(vec3(0.0, t * 0.08, 0.0)) * glassEuler(vec3(1.05 + 0.08 * sin(t * 0.07), 0.0, 0.25));
 
     vec3 ro;
     vec3 rd;
     camAround(uv, KN_CAM_R, 0.0, ro, rd);
-    vec3 col = glassBackdrop(rd, hue);
+    vec3 col = glassEnv(rd, lk);
 
     float hitT = -1.0;
     float used = 0.0;
-    vec2 tb = glassSphere(ro, rd, vec3(0.0), KN_R + gWind + gTube + 0.15);
+    vec2 tb = glassSphere(ro, rd, vec3(0.0), KN_R + gWind + gTube + 0.25);
     if (tb.y > 0.0) {
         float tm = max(tb.x, 0.0);
         for (int i = 0; i < GLASS_MAX_STEPS; i++) {
@@ -118,29 +141,38 @@ void main() {
         float eps = glassEps(hitT);
         vec3 p = ro + rd * hitT;
         vec3 n = normalAt(p, eps);
+        n = glassGrain(n, p, frost);
         float cosI = max(dot(n, -rd), 0.0);
         float fr = glassFresnel(cosI, KN_IOR);
-        vec3 refl = glassBackdrop(reflect(rd, n), hue);
+        // The coating: interference colours on the reflection, strongest face on where plain glass reflects least.
+        vec3 film = glassFilm(coat, cosI, 1.38);
+        vec3 refl = glassEnvRough(reflect(rd, n), lk, frost * 0.1) * mix(vec3(1.0), film * 2.0, 0.7);
+        float frC = fr + 0.12 * (1.0 - fr);
+        vec3 tint = mix(vec3(1.0), pal(hue + 0.5), 0.15);
 
         vec3 d1 = glassRefract(rd, n, 1.0 / KN_IOR);
         vec3 q = p - n * eps * 3.0;
-        float ti = 0.0;
-        for (int i = 0; i < GLASS_MAX_INNER; i++) {
-            if (float(i) >= glassInnerSteps()) break;
-            float d = -map(q + d1 * ti);
-            if (d < eps) break;
-            ti += max(d, eps);
-        }
+        float ti = crossTube(q, d1, eps);
         vec3 pe = q + d1 * ti;
         vec3 n2 = normalAt(pe, eps);
-        float spread = 0.03 + 0.05 * (1.0 - cosI);
-        vec3 tint = mix(vec3(1.0), pal(hue + 0.5), 0.2);
-        vec3 refr = glassExitDispersed(d1, n2, KN_IOR, spread, hue) * glassBeer(tint, ti, 1.0);
-        col = mix(refr, refl, fr) * glassStepAO(used * 0.5);
-        col += pal(hue + 0.15) * pow(1.0 - cosI, 5.0) * 0.12;
+        vec3 absorb = glassBeer(tint, ti, 0.8);
+        vec3 iors = glassIors(KN_IOR, spread);
+        float fx = glassFresnel(max(dot(d1, n2), 0.0), KN_IOR);
+        vec3 refr = glassEnv3(glassRefract(d1, -n2, iors.x), glassRefract(d1, -n2, iors.y), glassRefract(d1, -n2, iors.z), lk) * absorb * (1.0 - fx);
+        vec3 d2 = reflect(d1, n2);
+        if (glassMarchBounces()) {
+            vec3 q2 = pe - n2 * eps * 3.0;
+            float t2 = crossTube(q2, d2, eps);
+            vec3 pe2 = q2 + d2 * t2;
+            vec3 n3 = normalAt(pe2, eps);
+            refr += glassEnv(glassRefract(d2, -n3, KN_IOR), lk) * absorb * glassBeer(tint, t2, 0.8) * fx * 1.5;
+        } else {
+            refr += glassEnv(d2, lk) * absorb * absorb * fx * 0.8;
+        }
+        col = (refr * (1.0 - frC) + refl * frC) * glassStepAO(used * 0.5);
+        col += vec3(1.0) * glassGlint(gOrient * p, 9.0, ear.hat) * (0.3 + fr);
     }
 
-    col *= 0.85 + 0.18 * swell;
-    col *= 0.78 + 0.22 * (1.0 - smoothstep(0.3, 2.2, length(uv)));
-    fragColor = vec4(grade(col), 1.0);
+    col *= 0.85 + 0.15 * (1.0 - smoothstep(0.4, 2.2, length(uv)));
+    fragColor = vec4(grade(glassTone(col)), 1.0);
 }

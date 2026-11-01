@@ -142,13 +142,33 @@ fun ComposeTestRule.tap(what: SemanticsMatcher) {
  * A LazyColumn composes only the rows on screen, so a button further down (a Settings tab's
  * lower rows) has no node until something scrolls to it. Asks every lazy list on screen to
  * scroll to [matcher]; the ones that don't hold it fail, and that failure is ignored.
+ *
+ * It first gives the node a moment to appear on its own: right after a tap that changes page,
+ * the old page's lists are still on screen and the wanted node is not yet composed, and
+ * scrolling the wrong list there is wasted at best. Grids are skipped (a lazy grid reports
+ * neither its rows nor its columns, -1 and -1, where a lazy list knows one of the two):
+ * performScrollToNode on the Styles grid never returned, which hung the journeys for the
+ * whole job. A journey that needs a card in the grid filters or searches to it instead.
  */
 fun ComposeTestRule.scrollLazyListsTo(matcher: SemanticsMatcher) {
     waitForIdle()
-    if (onAllNodes(matcher).fetchSemanticsNodes().isNotEmpty()) return
+    val appeared =
+        runCatching {
+            waitUntil(SETTLE_TIMEOUT_MS) { onAllNodes(matcher).fetchSemanticsNodes().isNotEmpty() }
+        }.isSuccess
+    if (appeared) return
     val lists = onAllNodes(hasScrollToNodeAction())
-    lists.fetchSemanticsNodes().indices.forEach { i -> runCatching { lists[i].performScrollToNode(matcher) } }
+    lists.fetchSemanticsNodes().forEachIndexed { i, node ->
+        val info = node.config.getOrNull(SemanticsProperties.CollectionInfo)
+        val isGrid = info != null && info.rowCount < 0 && info.columnCount < 0
+        if (!isGrid) {
+            runCatching { lists[i].performScrollToNode(matcher) }
+        }
+    }
 }
+
+/** How long [scrollLazyListsTo] lets a node appear by itself before it scrolls for it. */
+private const val SETTLE_TIMEOUT_MS = 3_000L
 
 /** Matches a node whose text matches [regex] in full. */
 fun hasTextMatching(regex: Regex): SemanticsMatcher =

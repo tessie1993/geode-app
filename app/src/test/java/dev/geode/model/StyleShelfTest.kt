@@ -16,7 +16,11 @@ class StyleShelfTest {
 
     @Test
     fun recentsAreNewestFirstWithoutRepeats() {
-        val shelf = StyleShelf().pushRecent("a").pushRecent("b").pushRecent("a")
+        val shelf =
+            StyleShelf()
+                .pushRecent("a")
+                .pushRecent("b")
+                .pushRecent("a")
         assertEquals(listOf("a", "b"), shelf.recents)
     }
 

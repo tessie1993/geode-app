@@ -74,7 +74,11 @@ object StyleFiltering {
                 is StyleFilter.Kind -> entries.filter { it.kindLabel == filter.label }
                 is StyleFilter.Family -> entries.filter { it.familyLabel == filter.label }
             }
-        val terms = query.trim().split(Regex("\\s+")).filter { it.isNotBlank() }
+        val terms =
+            query
+                .trim()
+                .split(Regex("\\s+"))
+                .filter { it.isNotBlank() }
         if (terms.isEmpty()) return byFilter
         return byFilter.filter { e ->
             val fields = listOfNotNull(e.label, e.kindLabel, e.familyLabel)

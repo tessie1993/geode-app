@@ -311,6 +311,8 @@ void geode_viz_set_quality(geode_viz* v, float render_scale, float march_scale, 
 
 void geode_viz_set_offscreen(geode_viz* v, int on) {
     if (!v) return;
+    // An export never shows a half-built scene: each one is built whole on the frame that asks for it.
+    v->renderer.setBlockingBuilds(on != 0);
     if (on) {
         v->renderer.thermal().beginOffscreenRender();
     } else {

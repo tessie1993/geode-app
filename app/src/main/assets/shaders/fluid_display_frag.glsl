@@ -20,7 +20,19 @@
 //   8 aurora            the dye's hue turning with time and height, curtained
 //
 // The looks read uTime, uAudio and uLookHue; LOOK 0 does not, and the linker
-// drops them from it.
+// drops them from it. Smoke, lava and aurora also read uTemperature, the
+// solver's heat field (zero for a style without one): smoke glows at its hot
+// root, lava's ramp is the real temperature plus the dye, aurora's curtains
+// brighten and turn where the plume is still rising.
+//
+// Every look ends in the same two steps, for the banding a half-float field
+// shown on an 8-bit target puts across wide soft gradients:
+//   * a filmic shoulder on the final colour (bloom included), hue-preserving,
+//     so a dense pool rolls off toward a pale core instead of clipping each
+//     channel flat at a different place - the hue steps that clipping made
+//     were the most visible bands;
+//   * a blue-noise dither of one 8-bit step on the FINAL colour. It used to
+//     dither the bloom alone, which left the dye's own gradients to band.
 precision highp float;
 // GLSL ES 3.00 defaults fragment sampler2D to LOWP (range [-2,2), ~8
 // fraction bits). Half-float velocity/dye/pressure values far exceed
@@ -41,6 +53,7 @@ uniform vec2 uTexelSize;     // display target texel size (shading normal z)
 uniform float uTime;         // scene clock, seconds
 uniform vec4 uAudio;         // bass, mid, treble, energy (0..1 after audio drive)
 uniform float uLookHue;      // the emitters' base hue, 0..1
+uniform sampler2D uTemperature;  // the solver's heat, 0..FluidMath kMaxTemperature
 out vec4 fragColor;
 
 float luma(vec3 c) { return dot(c, vec3(0.2126, 0.7152, 0.0722)); }
@@ -75,6 +88,23 @@ vec3 shoulder(vec3 c) {
     const float room = 0.22;
     vec3 over = max(c - knee, vec3(0.0));
     return min(c, vec3(knee)) + room * (1.0 - exp(-over / room));
+}
+
+/**
+ * Filmic highlight compression, hue-preserving. The brightest channel is
+ * mapped (identity to the knee, then a rational shoulder with slope 1 there
+ * that approaches 1) and the colour scaled with it, so a hue never shifts as
+ * it brightens; past 1 it whitens a little, the way film burns out, so the
+ * hottest cores still read as hottest.
+ */
+vec3 filmic(vec3 c) {
+    const float knee = 0.8;
+    float m = max(c.r, max(c.g, c.b));
+    if (m <= knee) return c;
+    float over = m - knee;
+    float mapped = knee + over / (1.0 + over / (1.0 - knee));
+    vec3 scaled = c * (mapped / m);
+    return mix(scaled, vec3(mapped), 0.35 * smoothstep(1.0, 4.0, m));
 }
 
 vec3 linearToGamma(vec3 c) {
@@ -164,6 +194,10 @@ void main() {
     float lum = luma(c);
     c = mix(vec3(lum), c, 0.18) * vec3(0.82, 0.88, 1.0);
     c = pow(max(c, vec3(0.0)), vec3(0.8));
+    // The hot root of a plume glows ember through the smoke; it fades as the
+    // plume rises and cools, which is what makes the smoke read as rising.
+    float heat = texture(uTemperature, vUv).x;
+    c += vec3(1.0, 0.42, 0.12) * smoothstep(0.35, 1.6, heat) * (0.25 + 0.75 * min(lum * 3.0, 1.0)) * 0.55;
 #elif LOOK == 6
     // Lava. Density as temperature on a blackbody-shaped ramp: black through
     // red and orange to near white, so the hot core of every splat is pale and
@@ -174,7 +208,7 @@ void main() {
     // the ramp: one flat white blob. Reinhard keeps the thin skirts where they
     // were (luma 0.2 is still ~0.25 heat) but needs ~10x the density to reach
     // white, so a dense pool keeps its orange-to-yellow structure.
-    float heatIn = luma(c) * (1.5 + 0.6 * uAudio.w);
+    float heatIn = luma(c) * (1.5 + 0.6 * uAudio.w) + 1.2 * texture(uTemperature, vUv).x;
     float heat = heatIn / (1.0 + heatIn);
     c = vec3(smoothstep(0.0, 0.42, heat),
              smoothstep(0.28, 0.80, heat) * 0.85,
@@ -197,8 +231,10 @@ void main() {
     // different colour at its top than at its root, and vertical curtains of
     // brightness shimmer across it on the treble.
     float lum = luma(c);
-    c = hueTurn(c, uTime * 0.03 + vUv.y * 0.45);
+    float heat = texture(uTemperature, vUv).x;
+    c = hueTurn(c, uTime * 0.03 + vUv.y * 0.45 + heat * 0.12);
     c *= 1.0 + 0.30 * sin(vUv.x * 36.0 + uTime * 1.7) * lum * (0.5 + uAudio.z);
+    c *= 1.0 + 0.35 * min(heat, 2.0);
     c = max(c, vec3(0.0));
 #endif
 
@@ -207,11 +243,13 @@ void main() {
 #ifdef SUNRAYS
     bloom *= sunrays;
 #endif
-    float noise = texture(uDither, vUv * uDitherScale).r;
-    noise = noise * 2.0 - 1.0;
-    bloom += noise / 255.0;
     bloom = linearToGamma(bloom);
     c += bloom;
+#endif
+
+#if LOOK != 1
+    // Ink is drawn inside its paper and never over-bright; everything else can be.
+    c = filmic(c);
 #endif
 
 #if LOOK == 6 || LOOK == 7
@@ -220,5 +258,9 @@ void main() {
     c = shoulder(c);
 #endif
 
-    fragColor = vec4(c, a);
+    // One 8-bit step of blue noise, faded out over black so the empty ground
+    // stays exactly black instead of grain.
+    float noise = texture(uDither, vUv * uDitherScale).r * 2.0 - 1.0;
+    c += noise / 255.0 * smoothstep(0.0, 3.0 / 255.0, max(c.r, max(c.g, c.b)));
+    fragColor = vec4(max(c, vec3(0.0)), a);
 }

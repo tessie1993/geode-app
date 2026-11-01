@@ -79,6 +79,8 @@ data class SceneParams(
     val vignette: Float = 0f,
     val scanlines: Float = 0f,
     val grain: Float = 0f,
+    // Retired: the composite Glitch effect is gone. No reader; removed with the next format bump.
+    val glitch: Float = 0f,
     val fisheye: Float = 0f,
     // Inert since wave three; removed with the next format bump.
     val strobe: Float = 0f,

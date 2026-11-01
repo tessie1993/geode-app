@@ -475,7 +475,7 @@ private fun ReactionCard(
                         }
                     } else {
                         LfoTarget.entries
-                            .filter { it != LfoTarget.NONE && it.chain == null && it.scope.appliesTo(sceneId) }
+                            .filter { it != LfoTarget.NONE && it != LfoTarget.RETIRED_25 && it.chain == null && it.scope.appliesTo(sceneId) }
                             .forEach { t ->
                                 TextButton(onClick = {
                                     onChange(route.copy(target = t))
@@ -540,7 +540,7 @@ private fun ModulatorCard(
                         // A chain target may only point at a LATER wave, and a scene-parameter
                         // target is only offered where it can actually move the picture.
                         val chain = t.chain
-                        val offered = if (chain != null) index < chain.slot else t.scope.appliesTo(sceneId)
+                        val offered = t != LfoTarget.RETIRED_25 && if (chain != null) index < chain.slot else t.scope.appliesTo(sceneId)
                         if (offered) {
                             TextButton(onClick = {
                                 onChange(config.copy(target = t))
@@ -613,7 +613,7 @@ private fun AdsrCard(
                 )
                 DropdownMenu(expanded = showAdd, onDismissRequest = { showAdd = false }) {
                     LfoTarget.entries
-                        .filter { it != LfoTarget.NONE && it !in config.targets && (it.chain != null || it.scope.appliesTo(sceneId)) }
+                        .filter { it != LfoTarget.NONE && it != LfoTarget.RETIRED_25 && it !in config.targets && (it.chain != null || it.scope.appliesTo(sceneId)) }
                         .forEach { t ->
                             DropdownMenuItem(
                                 text = { Text(t.label) },

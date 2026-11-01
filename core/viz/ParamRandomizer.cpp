@@ -261,6 +261,7 @@ const std::vector<std::pair<const char*, const char*>>& neverRolled() {
         {"beatResponse", "inert since wave three"},
         {"flash", "inert since wave three"},
         {"strobe", "inert since wave three"},
+        {"glitch", "retired: the composite Glitch effect is gone"},
         {"formDrive", "inert since wave three"},
         {"motionOrbit", "no native reader"},
     };

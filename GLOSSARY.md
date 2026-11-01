@@ -203,7 +203,7 @@ _Avoid_: Screensaver (UI label only)
 The home-screen now-playing widget.
 
 **Musical layer**:
-The part of the sound engine that hears music rather than sound: tempo and beat (Rhythm), key, chords and scale (Harmony), and sections, build-ups and drops (Form). See `docs/research/musical-layer.md`.
+The part of the sound engine that hears music rather than sound: tempo and beat (Rhythm), key, chords and scale (Harmony), and sections, build-ups and drops (Form).
 
 **Beat phase / bar phase / phrase**:
 Where the music is within its beat, its 4-beat bar and its 8-bar phrase, 0 at the start, 1 at the end. A downbeat is the first beat of a bar.
@@ -220,7 +220,7 @@ The song part a section is read as: intro, verse, build, drop, breakdown or outr
 A build-up is a passage getting louder, brighter and busier with the bass pulled out; the drop is the bass coming back after it.
 
 **Feeling**:
-What the music feels like now: valence (sad … happy), energy and tension, and which of the nine GEMS feelings (wonder, transcendence, tenderness, nostalgia, peace, power, joy, tension, sadness) leads. Three quarters from the scale (measured), a quarter from the key (Schubart's tradition). Never shown as a word. See `docs/research/auto-director.md`.
+What the music feels like now: valence (sad … happy), energy and tension, and which of the nine GEMS feelings (wonder, transcendence, tenderness, nostalgia, peace, power, joy, tension, sadness) leads. Three quarters from the scale (measured), a quarter from the key (Schubart's tradition). Never shown as a word.
 _Avoid_: Mood label, emotion name
 
 **Auto-director**:
@@ -229,6 +229,25 @@ _Avoid_: Auto visuals (that switches styles on a timer)
 
 **Look**:
 One auto-director decision: a palette, a behaviour and a set of routes, glided in over a bar. Never the same look twice in a row of six.
+
+**Note & key reactions**:
+Settings › Behaviour's switch that lets notes, chords, key and mood move every style inside the auto-director's look: a colour per note, a bloom per note onset, leaps swing and steps glide, tension bends and resolution smooths, a chord change shifts the fold count, drums weighted by how percussive the track is. Free and on by default; Customize › Advanced › Note & key (Pro) tunes it per style. See `docs/research/note-key-response.md`.
+_Avoid_: Note mode, melody mode
+
+**Bloom (note bloom)**:
+The paradoxical fractal flower one note grows over the picture (petals that hold the flower again), fading as the note ends. Four looks (flower, glow, ripple, burst), the style's own unless Customize › Look › Note blooms picks one. Not the `bloom` glow parameter.
+
+**Personality (note layer)**:
+Note & key reactions' character for a play: how many blooms at once, how fast, how big, how strongly the notes tint the picture, how fast the blooms travel, how far they tilt. Rolled at random per play and again at every section and drop.
+_Avoid_: Flower effect, note flash
+
+**Percussiveness**:
+How much of the track is drums, measured as it plays (hit and onset rate, noise, against pitch confidence and key clarity), 0 tonal … 1 percussive. It scales how much the drums move the picture.
+_Avoid_: Drum mode, genre
+
+**Style knobs**:
+The six per-style controls every style may read (`uKnob`): PULSE, TEXTURE, FLOW, TONE, BUILD, SPACE. Driven by Note & key reactions, else 0.5. Not Customize › Macros.
+_Avoid_: Macros (those are the user's six)
 
 **Scale mood**:
 The brightness (dark Locrian … bright Lydian) and tension of the scale the music is in, from the musical intelligence database (`docs/musical-intelligence`).

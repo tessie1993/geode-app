@@ -20,7 +20,7 @@ private:
     GLuint vbo_ = 0;
 };
 
-// Port of GlUtil.resetFrameState: the fixed-function state every frame starts from.
+// The fixed-function state every frame starts from.
 void resetFrameState();
 
 }  // namespace geode::viz

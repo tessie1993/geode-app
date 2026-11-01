@@ -3,9 +3,10 @@ name: Play release bundle
 # Builds the Android App Bundle (.aab) that goes to Play Console, and checks the
 # things Play and the app's own promises depend on before anyone uploads it.
 #
-# Pull requests always build UNSIGNED (the upload key never reaches PR code), so the
-# build itself is verified on every PR. Tags (v*) and manual runs sign with the
-# upload key; on a tag, a missing key or licence key is an error, not a warning.
+# Runs only on request (Actions > Play release bundle > Run workflow): pull requests and
+# tags don't build it. It signs with the upload key; without the key it builds UNSIGNED
+# with a warning. The manifest promise checks (no INTERNET, no AD_ID, targetSdk) also run
+# on every PR in android.yml, against the debug build.
 #
 # Repository secrets (Settings > Secrets and variables > Actions > Secrets):
 #   MUZVIZ_UPLOAD_KEYSTORE_BASE64   base64 of the upload keystore (.jks):
@@ -22,19 +23,6 @@ name: Play release bundle
 # docs/play/CONSOLE_CHECKLIST.md walks through creating all of these.
 
 on:
-  push:
-    tags: ["v*"]
-  pull_request:
-    paths:
-      - "app/**"
-      - "engine/**"
-      - "core/**"
-      - "CMakeLists.txt"
-      - "build-logic/**"
-      - "gradle/**"
-      - "*.gradle.kts"
-      - "gradle.properties"
-      - ".github/workflows/release.yml"
   workflow_dispatch:
 
 permissions:
@@ -42,7 +30,7 @@ permissions:
 
 concurrency:
   group: geode-release-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  cancel-in-progress: false
 
 jobs:
   bundle:
@@ -63,8 +51,6 @@ jobs:
 
       - name: Set up Gradle (with caching)
         uses: gradle/actions/setup-gradle@v6
-        with:
-          cache-read-only: ${{ github.event_name == 'pull_request' }}
 
       # NDK and CMake match ndkVersion and externalNativeBuild.cmake.version in
       # app/build.gradle.kts; bundleRelease compiles the native core with them.
@@ -75,50 +61,38 @@ jobs:
           yes | "$SDKMANAGER" --licenses >/dev/null || true
           "$SDKMANAGER" "platforms;android-36" "build-tools;36.0.0" "ndk;28.0.13004108" "cmake;3.22.1"
 
-      # Signing secrets never reach pull_request runs: a PR builds arbitrary branch code with
-      # Gradle, and the upload key must not be readable by it. PRs always build unsigned; tags
-      # and manual runs sign, and a tag without the full secret set fails.
+      # Only a manual run on the repository's own branches reaches this, so the upload key is
+      # never readable by pull request code. A missing key builds unsigned with a warning.
       - name: Decode upload keystore
         id: keystore
-        if: github.event_name != 'pull_request'
         env:
           KEYSTORE_BASE64: ${{ secrets.MUZVIZ_UPLOAD_KEYSTORE_BASE64 }}
           STORE_PASSWORD: ${{ secrets.MUZVIZ_UPLOAD_STORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.MUZVIZ_UPLOAD_KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.MUZVIZ_UPLOAD_KEY_PASSWORD }}
           LICENSE_KEY: ${{ vars.PLAY_LICENSE_KEY }}
-          IS_TAG: ${{ startsWith(github.ref, 'refs/tags/') }}
         run: |
           set -euo pipefail
-          if [ "$IS_TAG" = "true" ] && [ -z "${LICENSE_KEY:-}" ]; then
-            echo "::error::PLAY_LICENSE_KEY (repository variable) is not set; a store release must verify purchase signatures."
-            exit 1
-          fi
           if [ -z "${KEYSTORE_BASE64:-}" ] || [ -z "${STORE_PASSWORD:-}" ] || [ -z "${KEY_ALIAS:-}" ] || [ -z "${KEY_PASSWORD:-}" ]; then
-            if [ "$IS_TAG" = "true" ]; then
-              echo "::error::The four MUZVIZ_UPLOAD_* secrets are not all set; a tagged release must be signed."
-              exit 1
-            fi
+            [ -n "${LICENSE_KEY:-}" ] || echo "::warning::PLAY_LICENSE_KEY (repository variable) is not set either."
             echo "::warning::Upload key secrets incomplete: building an UNSIGNED bundle. See docs/play/CONSOLE_CHECKLIST.md."
             echo "signed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
+          # A signed bundle can go to Play, and without the licence key it would skip purchase
+          # signature checks (billing/PurchaseVerifier.kt), so signing requires it.
+          if [ -z "${LICENSE_KEY:-}" ]; then
+            echo "::error::PLAY_LICENSE_KEY (repository variable) is not set; a signed store build must verify purchase signatures."
+            exit 1
+          fi
           echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/upload.jks"
           echo "signed=true" >> "$GITHUB_OUTPUT"
-
-      - name: Build unsigned release AAB (pull request)
-        if: github.event_name == 'pull_request'
-        env:
-          PLAY_LICENSE_KEY: ${{ vars.PLAY_LICENSE_KEY }}
-        run: ./gradlew :app:bundleRelease --stacktrace --no-daemon
 
       # app/build.gradle.kts reads the GEODE_* names; all four are required to sign.
       # Same version rule as the pre-releases (root build.gradle.kts): the AAB carries the
       # number this commit shipped as (tag apk-v<base>.N), so it matches that pre-release.
-      # PRs have no number and build as <base>-dev.
       - name: Release number
         id: number
-        if: github.event_name != 'pull_request'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -129,7 +103,6 @@ jobs:
           echo "n=$N" >> "$GITHUB_OUTPUT"
 
       - name: Build release AAB
-        if: github.event_name != 'pull_request'
         env:
           GEODE_KEYSTORE: ${{ steps.keystore.outputs.signed == 'true' && format('{0}/upload.jks', runner.temp) || '' }}
           GEODE_KEYSTORE_PASSWORD: ${{ steps.keystore.outputs.signed == 'true' && secrets.MUZVIZ_UPLOAD_STORE_PASSWORD || '' }}

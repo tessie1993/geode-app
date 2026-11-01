@@ -81,11 +81,6 @@ data class LoopExtendPlan(
     /** Every point where the loop wraps — what a seam preview scrubs to. */
     val seamsMs: List<Long> get() = writes.drop(1).map { it.offsetUs / 1000 }
 
-    /** Every point where the palette steps to its next drift stop. */
-    val driftStepsMs: List<Long> get() = segments.drop(1).map { it.startUs / 1000 }
-
-    fun nearestSeamMs(positionMs: Long): Long? = seamsMs.minByOrNull { kotlin.math.abs(it - positionMs) }
-
     fun seamPreviewStartMs(
         seamMs: Long,
         leadMs: Long = LoopSpec.SEAM_PREVIEW_LEAD_MS,

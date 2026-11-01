@@ -1,9 +1,6 @@
 [submodule "third_party/projectm"]
 	path = third_party/projectm
 	url = https://github.com/projectM-visualizer/projectm
-[submodule "third_party/kissfft"]
-	path = third_party/kissfft
-	url = https://github.com/mborgerding/kissfft
 [submodule "third_party/taglib"]
 	path = third_party/taglib
 	url = https://github.com/taglib/taglib.git

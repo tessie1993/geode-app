@@ -126,7 +126,7 @@ typedef struct GeodeSoundFrame {
     float vibrato;      /* wobble around the held note, 0 … 1 at half a semitone */
     float evenness;     /* share of even harmonics: hollow, square-ish tones read low */
     float runDensity;   /* note changes per second over 12: busy runs vs held notes */
-    /* The musical layer (docs/research/musical-layer.md). Rhythm, from core/sound/Rhythm: an onset envelope
+    /* The musical layer. Rhythm, from core/sound/Rhythm: an onset envelope
      * at a fixed 100 Hz hop, its autocorrelation over 6 s for the tempo, and a phase-locked beat oscillator.
      * While beatConf is low the phases fall back to the hit clock (beat = one hit, bar = four) and the
      * beat, downbeat and phrase triggers stay silent. */

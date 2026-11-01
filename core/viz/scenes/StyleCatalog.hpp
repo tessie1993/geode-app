@@ -122,6 +122,12 @@ struct FluidStyle {
     float splatForce = 1.0f;
     float bloom = 1.0f;
     float hueOffset = 0.0f;
+    // A temperature field, for the looks that read it (smoke, lava, aurora): lift per unit of heat
+    // in sim units / s^2, the heat gain on FluidMath heatInjection, and cooling per second. Zero
+    // buoyancy means no field at all, and none of its passes or memory.
+    float buoyancy = 0.0f;
+    float heat = 0.0f;
+    float cooling = 0.5f;
 };
 
 const CymaticsStyle* cymatics(const std::string& id);

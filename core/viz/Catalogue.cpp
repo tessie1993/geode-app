@@ -12,7 +12,7 @@ namespace {
 
 // The loose fragment styles (ShaderScene compiles shaders/<id>_frag.glsl), in picker order. The
 // families' styles follow them.
-constexpr std::array<const char*, 55> kLooseShaders = {
+constexpr std::array<const char*, 60> kLooseShaders = {
     "julia", "tunnel", "mandel", "kaleido", "plasma", "bars", "ring", "scope", "liss", "warp", "grid", "voronoi",
     "metaballs", "ripples", "starfield", "waves", "hexgrid", "spiral", "aurora", "solar", "winter", "lava",
     // Built on the shared GLSL libraries (lib_scene_uniforms, lib_scene_grade, lib_sdf3, lib_touch).
@@ -30,16 +30,21 @@ constexpr std::array<const char*, 55> kLooseShaders = {
     "prism_rain",
     // Two looks restored from branches that never merged (#14, #7), rewritten on the sound engine.
     "supershape", "fractal_tunnel",
+    // The neon set, written from scratch on lib_neon: a 2D spiral web,
+    // then four marches (a chrome sea, a lensed singularity, a hex-pillar tunnel, a Mandelbox nave).
+    "glow_vortex", "neon_chrome_sea", "black_hole", "hex_hive", "mandelbox_cathedral",
 };
 
 // The loose styles that raymarch, and so spend the Detail budget. Per STYLE rather than per kind:
 // Plasma and Vanishing are both shader styles and only one has a march to spend steps on.
-constexpr std::array<const char*, 21> kLooseMarched = {
+constexpr std::array<const char*, 25> kLooseMarched = {
     "vanishing", "morphogen", "nebula", "noneuclid", "kifs", "rod_tunnel",
     // Curl Bloom marches a distance field, Nectar Flow a volume; Detail is the budget for both.
     "curl_bloom", "nectar_flow", "crystal_canyon", "neon_city", "particle_tunnel", "chrome_nebula", "fractal_dive",
     "aurora_ocean", "spectrum_terrain", "menger_core", "gyroid_cavern", "jelly_abyss", "prism_rain",
     "supershape", "fractal_tunnel",
+    // The neon set's marches; Glow Vortex is its one style without a march.
+    "neon_chrome_sea", "black_hole", "hex_hive", "mandelbox_cathedral",
 };
 
 constexpr std::array<Family, 10> kFamilies = {{
@@ -109,13 +114,56 @@ struct Spin {
     const char* id;
     float rate;
 };
-constexpr std::array<Spin, 20> kSpinning = {{
+constexpr std::array<Spin, 22> kSpinning = {{
     {"kaleido", 1.0f},        {"mandala_dome", 0.45f},  {"orb_lattice", 0.7f},   {"chroma_orb", -0.6f},
     {"kifs", 0.8f},           {"spiral", 1.2f},         {"spiral_eye", -0.9f},   {"bead_vortex", 1.4f},
     {"merkaba_grid", 0.4f},   {"tunnel", -0.5f},        {"rod_tunnel", 0.6f},    {"particle_tunnel", -0.8f},
     {"lucid_mandala", 0.6f},  {"lucid_mirror", -0.7f},  {"lucid_spiral", 1.1f},  {"lucid_vortex", -1.3f},
     {"lucid_tunnel", 0.5f},   {"lucid_disc", 0.35f},    {"chrys_kaleido", -0.8f}, {"chrys_tunnel", 0.6f},
+    // The neon set's two turning looks: the vortex winds against its own arms, the hive's bore rolls slowly.
+    // The sea, the hole and the nave keep still: a horizon, a disc plane or a nave axis only tips over in a roll.
+    {"glow_vortex", -1.1f},   {"hex_hive", 0.3f},
 }};
+
+// Each style's own note bloom (bloomLook). Per kind first, then per family, then the loose styles one by
+// one; a family's "neon" member always takes the flower, the look the neon set was built for.
+struct LookOf {
+    const char* id;
+    BloomLook look;
+};
+// The loose shader styles that are not a soft glow (the default for a loose style: gas, light, glass).
+constexpr LookOf kLooseLooks[] = {
+    // Psychedelic, kaleidoscopic, fractal and petal looks, and the neon set: the paradoxical flower.
+    {"julia", BloomLook::Flower}, {"mandel", BloomLook::Flower}, {"kaleido", BloomLook::Flower},
+    {"spiral", BloomLook::Flower}, {"hexgrid", BloomLook::Flower}, {"morphogen", BloomLook::Flower},
+    {"noneuclid", BloomLook::Flower}, {"kifs", BloomLook::Flower}, {"orb_lattice", BloomLook::Flower},
+    {"neon_tiles", BloomLook::Flower}, {"mandala_dome", BloomLook::Flower}, {"bead_vortex", BloomLook::Flower},
+    {"merkaba_grid", BloomLook::Flower}, {"spiral_eye", BloomLook::Flower}, {"blacklight_bloom", BloomLook::Flower},
+    {"fractal_temple", BloomLook::Flower}, {"curl_bloom", BloomLook::Flower}, {"menger_core", BloomLook::Flower},
+    {"supershape", BloomLook::Flower}, {"fractal_tunnel", BloomLook::Flower}, {"fractal_dive", BloomLook::Flower},
+    {"glow_vortex", BloomLook::Flower}, {"neon_chrome_sea", BloomLook::Flower}, {"black_hole", BloomLook::Flower},
+    {"hex_hive", BloomLook::Flower}, {"mandelbox_cathedral", BloomLook::Flower},
+    // Water, waves, scopes, bars and landscapes: a ring spreading from the note, like a drop on a surface.
+    {"ripples", BloomLook::Ripple}, {"waves", BloomLook::Ripple}, {"ring", BloomLook::Ripple},
+    {"scope", BloomLook::Ripple}, {"liss", BloomLook::Ripple}, {"bars", BloomLook::Ripple},
+    {"grid", BloomLook::Ripple}, {"plasma", BloomLook::Ripple}, {"metaballs", BloomLook::Ripple},
+    {"voronoi", BloomLook::Ripple}, {"lava", BloomLook::Ripple}, {"warp", BloomLook::Ripple},
+    {"spectrum_terrain", BloomLook::Ripple}, {"aurora_ocean", BloomLook::Ripple}, {"outrun_drive", BloomLook::Ripple},
+    // Fly-throughs, star fields, rain and particle tunnels: a burst of sparks thrown out from the note.
+    {"starfield", BloomLook::Burst}, {"tunnel", BloomLook::Burst}, {"particle_tunnel", BloomLook::Burst},
+    {"prism_rain", BloomLook::Burst}, {"ribbon_storm", BloomLook::Burst}, {"rod_tunnel", BloomLook::Burst},
+    {"neon_city", BloomLook::Burst}, {"crystal_canyon", BloomLook::Burst}, {"solar", BloomLook::Burst},
+    {"vanishing", BloomLook::Burst}, {"gyroid_cavern", BloomLook::Burst},
+};
+// Per family, by its name: petals and folds flower, gas, glass and branches glow, landscapes and tilings
+// ripple, dives burst.
+constexpr LookOf kFamilyLooks[] = {
+    {"arbor", BloomLook::Glow},    {"bulb", BloomLook::Flower},    {"chrysanthemum", BloomLook::Flower},
+    {"lucid", BloomLook::Flower},  {"dive", BloomLook::Burst},     {"glass", BloomLook::Glow},
+    {"nebula", BloomLook::Glow},   {"terrain", BloomLook::Ripple}, {"truchet", BloomLook::Ripple},
+    {"foam", BloomLook::Glow},
+};
+constexpr const char* kBloomLookNames[kBloomLookCount] = {"FLOWER", "GLOW", "RIPPLE", "BURST"};
 
 constexpr const char* kMilkdrop = "milkdrop";
 constexpr const char* kCurlFlow = "curlflow";
@@ -328,6 +376,19 @@ std::string build() {
     // The Fluid tab's quality chips are labelled in Kotlin; this says how many tiers they index.
     out += "value|fluidTiers|" + std::to_string(fluid::quality::kTierCount) + "\n";
     out += "value|touchRotationPerDegree|" + number(kTouchRotationPerDegree) + "\n";
+    // Each style's own note bloom, one row per look so the table stays short.
+    for (int l = 1; l <= kBloomLookCount; ++l) {
+        const auto look = static_cast<BloomLook>(l);
+        out += std::string("bloom|") + name(look) + "|";
+        bool first = true;
+        for (const auto& id : allIds()) {
+            if (bloomLook(id) != look) continue;
+            if (!first) out += ',';
+            out += id;
+            first = false;
+        }
+        out += '\n';
+    }
     return out;
 }
 
@@ -394,6 +455,43 @@ bool reaches(Scope scope, const std::string& styleId) {
     if (scope == Scope::MarchDetail) return isMarched(styleId);
     return reachesKind(scope, kindOf(styleId));
 }
+
+BloomLook bloomLook(const std::string& id) {
+    switch (kindOf(id)) {
+        // The simulations: a glow on the silk and the cells, sparks in the mycelium's and the curl flow's
+        // particles and in MilkDrop's presets (they already flower on their own), the flower in Acid's
+        // psychedelia, a ring on every liquid surface.
+        case Kind::Silk: return BloomLook::Glow;
+        case Kind::Life: return BloomLook::Glow;
+        case Kind::Mycelium: return BloomLook::Burst;
+        case Kind::Acid: return BloomLook::Flower;
+        case Kind::Milkdrop: return BloomLook::Burst;
+        case Kind::Fluid: return BloomLook::Ripple;
+        case Kind::CurlFlow: return BloomLook::Burst;
+        case Kind::Water: return BloomLook::Ripple;
+        case Kind::Cymatics: return BloomLook::Ripple;
+        case Kind::Shader: break;
+    }
+    for (const auto& family : kFamilies) {
+        if (!listed(family.ids, id)) continue;
+        // Each family's neon member keeps the neon set's flower.
+        if (id.size() > 5 && id.compare(id.size() - 5, 5, "_neon") == 0) return BloomLook::Flower;
+        for (const LookOf& entry : kFamilyLooks) {
+            if (std::string(entry.id) == family.name) return entry.look;
+        }
+    }
+    for (const LookOf& entry : kLooseLooks) {
+        if (id == entry.id) return entry.look;
+    }
+    return BloomLook::Glow;
+}
+
+BloomLook resolveBloomLook(int userPick, const std::string& id) {
+    if (userPick >= 1 && userPick <= kBloomLookCount) return static_cast<BloomLook>(userPick);
+    return bloomLook(id);
+}
+
+const char* name(BloomLook look) { return kBloomLookNames[static_cast<int>(look) - 1]; }
 
 const char* name(Kind kind) { return kKindNames[static_cast<int>(kind)]; }
 const char* name(Scope scope) { return kScopeNames[static_cast<int>(scope)]; }

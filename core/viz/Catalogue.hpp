@@ -50,6 +50,11 @@ enum class Scope {
 };
 constexpr int kScopeCount = 24;
 
+// Note & key reactions' four bloom looks (viz/NoteResponse, lib_bloom), in SceneParams::bloomLook's
+// numbering (0 there means "the style's own", this table's pick). Names match Kotlin's BloomLook.
+enum class BloomLook { Flower = 1, Glow = 2, Ripple = 3, Burst = 4 };
+constexpr int kBloomLookCount = 4;
+
 struct Range {
     float min;
     float max;
@@ -86,6 +91,12 @@ bool isMarched(const std::string& id);
 // style that holds still (bars, grids, landscapes and trees read as broken when they roll).
 float spinRate(const std::string& id);
 const std::array<Family, 10>& families();
+// The note bloom a style draws when the user leaves Customize's bloom look on Auto: the fractal flower
+// for the neon, psychedelic and petal styles, a soft glow for the gas, glass and light ones, a ripple
+// ring for water, waves and landscapes, a particle burst for fly-throughs, rain and particle fields.
+BloomLook bloomLook(const std::string& id);
+// SceneParams::bloomLook resolved for a style: the user's pick, or the style's own on Auto (0).
+BloomLook resolveBloomLook(int userPick, const std::string& id);
 
 // The scope of a Customize control, named by its ParamKeys string. Anything unlisted is Universal.
 Scope scopeOf(const std::string& paramKey);
@@ -93,6 +104,7 @@ bool reaches(Scope scope, const std::string& styleId);
 
 const char* name(Kind kind);
 const char* name(Scope scope);
+const char* name(BloomLook look);
 
 // The whole catalogue as the shell reads it. Built once; the reference lives for the process.
 // Rows, '|'-separated, one per line, in this order:
@@ -104,6 +116,7 @@ const char* name(Scope scope);
 //   key|<ParamKeys string>|<SCOPE>         every non-Universal control
 //   range|<ParamKeys string>|<min>|<max>
 //   value|<name>|<number>
+//   bloom|<LOOK>|<id>,<id>,...             each style's own note bloom; every style in exactly one row
 const std::string& text();
 
 }  // namespace geode::viz::catalogue

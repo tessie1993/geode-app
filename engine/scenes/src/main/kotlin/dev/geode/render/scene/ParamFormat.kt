@@ -9,7 +9,7 @@ import kotlin.math.roundToInt
  *
  * WHY: the panel used to print every value as a bare `"%.2f"`, so "0.35" meant a 35 % mix on one
  * row, a 0.35 s fall on the next and a third of a turn of hue on a third. A listener cannot read
- * that; a unit makes each number mean something (docs/research/REACTIVE_VISUALS.md §6).
+ * that; a unit makes each number mean something.
  */
 enum class ParamUnit {
     /** An amount, depth or mix: 0..1 shown as 0–100 %, signed when the range is bipolar. */

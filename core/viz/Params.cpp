@@ -142,6 +142,13 @@ const std::array<SceneParams::FloatField, SceneParams::kLerpedFloatCount>& Scene
         {"camShake", &SceneParams::camShake},
         {"camSmooth", &SceneParams::camSmooth},
         {"reactAmount", &SceneParams::reactAmount},
+        {"noteColor", &SceneParams::noteColor},
+        {"notePitch", &SceneParams::notePitch},
+        {"noteIntervals", &SceneParams::noteIntervals},
+        {"noteTension", &SceneParams::noteTension},
+        {"noteChords", &SceneParams::noteChords},
+        {"noteDrums", &SceneParams::noteDrums},
+        {"noteBloom", &SceneParams::noteBloom},
     }};
     return kFields;
 }
@@ -168,6 +175,7 @@ const IntField kInts[] = {
         {"cymaticsModes", &SceneParams::cymaticsModes},
         {"camPath", &SceneParams::camPath},
         {"reactSeed", &SceneParams::reactSeed},
+        {"bloomLook", &SceneParams::bloomLook},
     };
 const BoolField kBools[] = {
         {"endlessZoom", &SceneParams::endlessZoom},
@@ -309,6 +317,13 @@ const SceneParams::FloatField kAllFloats[] = {
         {"camShake", &SceneParams::camShake},
         {"camSmooth", &SceneParams::camSmooth},
         {"reactAmount", &SceneParams::reactAmount},
+        {"noteColor", &SceneParams::noteColor},
+        {"notePitch", &SceneParams::notePitch},
+        {"noteIntervals", &SceneParams::noteIntervals},
+        {"noteTension", &SceneParams::noteTension},
+        {"noteChords", &SceneParams::noteChords},
+        {"noteDrums", &SceneParams::noteDrums},
+        {"noteBloom", &SceneParams::noteBloom},
 };
 }  // namespace
 
@@ -355,16 +370,6 @@ SceneParams lerpParams(const SceneParams& from, const SceneParams& to, float k) 
     for (const auto& f : SceneParams::lerpedFloats()) {
         const float a = from.*f.member;
         out.*f.member = a + (to.*f.member - a) * k;
-    }
-    return out;
-}
-
-SceneParams blendParams(const SceneParams& a, const SceneParams& b, float t) {
-    const float k = std::clamp(t, 0.0f, 1.0f);
-    SceneParams out = k < 0.5f ? a : b;
-    for (const auto& f : SceneParams::lerpedFloats()) {
-        const float from = a.*f.member;
-        out.*f.member = from + (b.*f.member - from) * k;
     }
     return out;
 }

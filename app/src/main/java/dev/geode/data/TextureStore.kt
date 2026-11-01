@@ -14,7 +14,6 @@ data class MilkTexture(
 data class TextureImportResult(
     val name: String,
     val storedName: String?,
-    val skipReason: String?,
 ) {
     val imported: Boolean get() = storedName != null
 }
@@ -49,42 +48,35 @@ class TextureStore(
 
     private fun importOne(uri: Uri): TextureImportResult {
         val name = displayName(uri) ?: "texture_${System.currentTimeMillis()}.png"
-        val skipped = { reason: String -> TextureImportResult(name, null, reason) }
+        val skipped = TextureImportResult(name, null)
         val ext = name.substringAfterLast('.', "").lowercase()
-        if (ext !in IMAGE_EXTS) {
-            return skipped("not a supported image type (" + IMAGE_EXTS.sorted().joinToString(", ") + ")")
-        }
-        val tooLarge = "larger than ${MAX_TEXTURE_BYTES / (1024 * 1024)} MB"
-        if ((declaredSize(uri) ?: 0L) > MAX_TEXTURE_BYTES) return skipped(tooLarge)
-        val bytes = readBounded(uri) ?: return skipped("could not be read, or is $tooLarge")
-        if (bytes.isEmpty()) return skipped("file is empty")
-        validateImage(bytes, ext)?.let { return skipped(it) }
+        if (ext !in IMAGE_EXTS) return skipped
+        if ((declaredSize(uri) ?: 0L) > MAX_TEXTURE_BYTES) return skipped
+        // Null when it could not be read, or ran past MAX_TEXTURE_BYTES while reading.
+        val bytes = readBounded(uri) ?: return skipped
+        if (bytes.isEmpty() || !isValidImage(bytes, ext)) return skipped
         val storedName = safeTextureFileName(name)
         val ok = runCatching { AtomicWrite.stream(File(dir, storedName)) { out -> out.write(bytes) } }.getOrDefault(false)
-        return if (ok) TextureImportResult(name, storedName, null) else skipped("could not be written")
+        return if (ok) TextureImportResult(name, storedName) else skipped
     }
 
-    private fun validateImage(
+    /** Checks the bytes are the image the extension claims: a DDS or TGA header, or a decodable bitmap. */
+    private fun isValidImage(
         bytes: ByteArray,
         ext: String,
-    ): String? =
+    ): Boolean =
         when (ext) {
             "dds" ->
-                if (bytes.size >= 4 &&
+                bytes.size >= 4 &&
                     bytes[0] == 'D'.code.toByte() &&
                     bytes[1] == 'D'.code.toByte() &&
                     bytes[2] == 'S'.code.toByte() &&
                     bytes[3] == ' '.code.toByte()
-                ) {
-                    null
-                } else {
-                    "not a DDS texture (missing DDS header)"
-                }
-            "tga" -> if (isTgaHeader(bytes)) null else "not a TGA image (unrecognized header)"
+            "tga" -> isTgaHeader(bytes)
             else -> {
                 val opts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
                 runCatching { BitmapFactory.decodeByteArray(bytes, 0, bytes.size, opts) }
-                if (opts.outWidth > 0 && opts.outHeight > 0) null else "not a decodable image"
+                opts.outWidth > 0 && opts.outHeight > 0
             }
         }
 

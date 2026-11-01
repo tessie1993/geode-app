@@ -50,7 +50,6 @@
         <item quantity="one">%1$d folder added</item>
         <item quantity="other">%1$d folders added</item>
     </plurals>
-    <string name="first_run_optional">Optional</string>
     <string name="first_run_done">Start listening</string>
 
     <!-- The intent setting. No longer asked at first run; it lives in Settings > Behaviour. -->
@@ -130,6 +129,8 @@
     <string name="about_licenses_loading">Loading…</string>
     <string name="about_privacy_unavailable">The privacy policy could not be loaded.</string>
 
+    <!-- A device with the system file picker disabled (some TVs, managed phones). -->
+    <string name="picker_unavailable">This device has no file picker, so a folder can\'t be chosen here.</string>
     <!-- Settings › Backup. One zip, saved and opened through the system file picker. -->
     <string name="backup_tab">Backup</string>
     <string name="backup_group">Backup</string>
@@ -790,6 +791,34 @@
     <string name="director_switch">Let the music direct the visuals</string>
     <string name="director_body">The key, the scale and the song\'s sections decide the colours, the motion, the camera and what reacts to what, on every style. Each play looks different; the feeling stays.</string>
     <string name="director_taste">Free: the first minute of each song. Pro: the whole song.</string>
+    <string name="behavior_group_notes">Note &amp; key reactions</string>
+    <string name="notes_switch">Note &amp; key reactions</string>
+    <string name="notes_body">Every style answers the melody, the chords, the key and the mood, not just the drums: each note blooms its own flower in its own colour, leaps swing the picture, tension bends it and resolution smooths it back. Drums count for as much as the track is made of them.</string>
+    <!-- Customize › Look: the note bloom's look (free). -->
+    <string name="note_blooms_title">Note blooms</string>
+    <string name="note_blooms_hint">The shape each note grows when Note &amp; key reactions are on.</string>
+    <string name="note_bloom_look_style">Style\'s own</string>
+    <string name="note_bloom_look_flower">Flower</string>
+    <string name="note_bloom_look_glow">Glow</string>
+    <string name="note_bloom_look_ripple">Ripple</string>
+    <string name="note_bloom_look_burst">Burst</string>
+    <!-- Customize › Advanced › Note & key (Pro): seven per-style strengths, 1 = as designed. -->
+    <string name="note_key_intro">How strongly each part of the music answers on this style. 1× is as designed, 0 turns that part off.</string>
+    <string name="note_key_off">Note &amp; key reactions are off. Turn them on in Settings › Behaviour to hear these.</string>
+    <string name="note_key_color">Note colours</string>
+    <string name="note_key_color_hint">How much the key and each note tint the palette.</string>
+    <string name="note_key_pitch">Pitch height</string>
+    <string name="note_key_pitch_hint">High notes lift the picture, low notes ground it.</string>
+    <string name="note_key_intervals">Leaps and steps</string>
+    <string name="note_key_intervals_hint">Big melodic leaps swing the picture; small steps nudge it.</string>
+    <string name="note_key_tension">Tension</string>
+    <string name="note_key_tension_hint">Clashing harmony bends the picture; resolution smooths it back.</string>
+    <string name="note_key_chords">Chord changes</string>
+    <string name="note_key_chords_hint">How hard a new chord turns the scene.</string>
+    <string name="note_key_drums">Drums</string>
+    <string name="note_key_drums_hint">How much the kick, snare and hats push on top of the notes.</string>
+    <string name="note_key_bloom">Bloom brightness</string>
+    <string name="note_key_bloom_hint">How bright and big each note\'s bloom grows.</string>
     <string name="behavior_group_wallpaper">Live wallpaper</string>
     <string name="behavior_group_pip">Picture-in-picture</string>
     <string name="behavior_touch_smear">Smear the visuals with a finger</string>
@@ -942,7 +971,6 @@
     <string name="background_amount">Amount: %1$d%%</string>
     <string name="background_blur">Blur: %1$d</string>
     <string name="background_dim">Dim: %1$d%%</string>
-    <string name="background_unreadable_cleared">The saved background image could no longer be read and was removed.</string>
     <string name="template_link_imported">Template \"%1$s\" imported — open Video templates to use it.</string>
     <string name="template_link_unreadable">That template link could not be read. It may have been cut short in transit.</string>
     <string name="link_offer_preset_title">Import shared preset?</string>

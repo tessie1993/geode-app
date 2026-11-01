@@ -79,17 +79,6 @@ data class ChapterMarkers(
 
     val durationMs: Long get() = chapters.lastOrNull()?.endMs ?: 0L
 
-    /**
-     * True when the marker list satisfies the rules video platforms impose before they will show
-     * chapters at all: a first chapter at zero, at least three of them, none shorter than ten
-     * seconds. The UI can warn instead of the user finding out after the upload.
-     */
-    val platformReady: Boolean
-        get() =
-            chapters.size >= MIN_PLATFORM_CHAPTERS &&
-                chapters.first().startMs == 0L &&
-                chapters.all { it.durationMs >= MIN_PLATFORM_CHAPTER_MS }
-
     fun at(positionMs: Long): Chapter? = chapters.lastOrNull { it.startMs <= positionMs }
 
     fun text(format: ChapterFormat): String =
@@ -139,9 +128,6 @@ data class ChapterMarkers(
 
     companion object {
         val None: ChapterMarkers = ChapterMarkers(emptyList())
-
-        const val MIN_PLATFORM_CHAPTERS: Int = 3
-        const val MIN_PLATFORM_CHAPTER_MS: Long = 10_000
 
         /**
          * Turns the clips of a finished soundtrack into markers.
@@ -193,11 +179,6 @@ data class ChapterMarkers(
                 }
             return ChapterMarkers(chapters)
         }
-
-        fun sidecarName(
-            videoFileName: String,
-            format: ChapterFormat,
-        ): String = "${videoFileName.substringBeforeLast('.', videoFileName)}.${format.extension}"
 
         /** `m:ss` under an hour, `h:mm:ss` over — the form description fields parse. */
         fun timestamp(ms: Long): String {

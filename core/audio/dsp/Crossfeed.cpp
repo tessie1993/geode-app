@@ -13,11 +13,6 @@ Crossfeed::Crossfeed(float sampleRate) {
     feed_ *= direct_;
 }
 
-void Crossfeed::setSampleRate(float sampleRate) {
-    const auto c = Biquad::lowPass(sampleRate, kCutoffHz, 0.7071f);
-    for (auto& f : lowPass_) f.set(c);
-}
-
 void Crossfeed::reset() {
     for (auto& f : lowPass_) f.reset();
 }

@@ -27,17 +27,3 @@ fun interface TapBoundaryListener {
         begun: PcmTapFormat,
     )
 }
-
-data class SinkClockDiagnostics(
-    val boundaries: Long = 0,
-    val segmentsAppended: Long = 0,
-    val hookedBoundaries: Long = 0,
-    val refusedSpeedNotAuthoritative: Long = 0,
-    val refusedUnreadableFormat: Long = 0,
-    val refusedUntrustedAnchor: Long = 0,
-    val discardedSkipExceedingFrames: Long = 0,
-    val refusedByClockInvariant: Long = 0,
-    val unmeasuredBoundaries: Long = 0,
-    val skippedFramesAttached: Boolean = false,
-    val anchorTrusted: Boolean = true,
-)

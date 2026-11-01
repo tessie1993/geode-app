@@ -13,7 +13,7 @@ struct TexFormat {
 
 constexpr TexFormat kRgba8{GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE};
 
-// Port of FluidBuffers.Formats: the half-float roles this GPU proved renderable, with fallbacks.
+// The half-float roles this GPU proved renderable, with fallbacks.
 struct Formats {
     TexFormat r;
     TexFormat rg;
@@ -26,7 +26,7 @@ struct Formats {
 Formats probeFormats();
 std::pair<int, int> resolution(int res, int width, int height);
 
-// Port of FluidBuffers.Fbo: one texture behind one framebuffer, cleared to opaque black on creation.
+// One texture behind one framebuffer, cleared to opaque black on creation.
 class Fbo {
 public:
     Fbo() = default;
@@ -56,7 +56,7 @@ private:
     GLuint tex_ = 0;
 };
 
-// Port of FluidBuffers.DoubleFbo: a read/write pair swapped after every step.
+// A read/write pair swapped after every step.
 class DoubleFbo {
 public:
     DoubleFbo() = default;
@@ -89,7 +89,7 @@ private:
     bool flipped_ = false;
 };
 
-// Port of FluidBuffers.DoubleMrt: two colour attachments per side, for particle position + metadata.
+// Two colour attachments per side, for particle position + metadata.
 class DoubleMrt {
 public:
     class Side {

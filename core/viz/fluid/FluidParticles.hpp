@@ -12,7 +12,7 @@
 
 namespace geode::viz::fluid {
 
-// Port of FluidParticles.kt: a square state texture of particles advected by a velocity field.
+// A square state texture of particles advected by a velocity field.
 class Particles {
 public:
     explicit Particles(const ProgramLoader& loader) : loader_(loader) {

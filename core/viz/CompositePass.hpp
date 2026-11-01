@@ -12,7 +12,7 @@
 
 namespace geode::viz {
 
-// Port of CompositePass.kt: the frame's one opaque fullscreen pass over composite_frag.glsl.
+// The frame's one opaque fullscreen pass over composite_frag.glsl.
 //
 // W00: overlay/underlay texture pass. Full-frame RGBA8 layers latched from any thread (Renderer::
 // setOverlayRgba/setUnderlayRgba) and uploaded here on the GL thread at the start of the next

@@ -38,11 +38,6 @@ void Renderer::setParams(const SceneParams& params) {
     requestedParams_ = params;
 }
 
-bool Renderer::setParam(const std::string& key, float value) {
-    std::lock_guard<std::mutex> lock(stateLock_);
-    return requestedParams_.set(key, value);
-}
-
 void Renderer::setLayer(const std::string& sceneId, float mix, int blendOrdinal) {
     std::lock_guard<std::mutex> lock(stateLock_);
     layerSceneId_ = sceneId;
@@ -93,11 +88,6 @@ void Renderer::setSoundTuning(const GeodeSoundTuning& tuning) {
     std::lock_guard<std::mutex> lock(soundLock_);
     soundTuning_ = tuning;
     if (sound_) sound_->setTuning(macros::tuning(tuning, tunedKnobs_));
-}
-
-GeodeSoundFrame Renderer::soundFrame() const {
-    std::lock_guard<std::mutex> lock(soundLock_);
-    return soundFrame_;
 }
 
 void Renderer::setCustomShader(const std::string& sceneId, const std::string& fragmentSource) {
@@ -373,7 +363,7 @@ void Renderer::onSurfaceCreated() {
     if (!trailPass_.create(assets_, &programCache_, *fadeVert, &error)) fail(error);
     if (!compositePass_.create(*fadeVert, &error)) fail(error);
 
-    // Port of CyclicPalettes.createTexture: five 256-entry RGB rows.
+    // The cyclic palette LUT: five 256-entry RGB rows.
     const auto palette = assets_.readAsset("shaders/cyclic_palettes.bin");
     if (palette && palette->size() >= static_cast<size_t>(kPaletteSize * kPaletteRows * 3)) {
         glGenTextures(1, &paletteLutTex_);

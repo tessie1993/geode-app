@@ -16,7 +16,7 @@
 
 namespace geode::viz::sim {
 
-// Port of SimUniforms: the step's uniform setters, with sampler units handed out from unit 1.
+// The step's uniform setters, with sampler units handed out from unit 1.
 class SimUniforms {
 public:
     using BindTexture = std::function<void(int unit, GLuint texture)>;
@@ -53,7 +53,7 @@ struct SimSpec {
 
 using SimUniformBinder = std::function<void(SimUniforms&)>;
 
-// Port of SimPass: one simulation step per frame, on compute where proven and fragment ping-pong otherwise.
+// One simulation step per frame, on compute where proven and fragment ping-pong otherwise.
 class SimPass {
 public:
     virtual ~SimPass() = default;

@@ -25,14 +25,13 @@ SceneParams apply(const SceneParams& p, bool reducedMotion = false);
 inline float flashImpulse(float flash, float beatImpulse) { return flash * beatImpulse * kFlashShaderDepth; }
 inline float strobeHz() { return kWcagFlashesPerSecond; }
 float limitLfoRate(float rateHz, LfoTarget target);
-float beatMinIntervalMs(float requestedMs);
 TransitionStyle transitionStyle(TransitionStyle requested);
 std::string transitionId(const std::string& requested);
 float layerMix(float requested, BlendMode mode);
 
 }  // namespace safety
 
-// Port of FlashBudget.kt: three rising edges per rolling second.
+// The flash budget: three rising edges per rolling second.
 class FlashBudget {
 public:
     static constexpr float kRiskThreshold = 0.08f;

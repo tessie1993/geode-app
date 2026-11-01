@@ -12,7 +12,7 @@
 
 namespace geode::viz::fluid {
 
-// Port of FluidLook.kt: bloom, sunrays and the dithered display pass over the dye.
+// Bloom, sunrays and the dithered display pass over the dye.
 class Look {
 public:
     explicit Look(const ProgramLoader& loader) : loader_(loader) {}

@@ -45,7 +45,6 @@ public:
 
     // Any thread.
     void setParams(const SceneParams& params);
-    bool setParam(const std::string& key, float value);
     void setReducedMotion(bool on) { reducedMotion_.store(on, std::memory_order_relaxed); }
     // Settings › Performance, live surfaces only: an offscreen (export) renderer never calls this,
     // so it keeps full quality. renderScale and marchScale are 0..1 multipliers stacked under the
@@ -64,8 +63,6 @@ public:
     void resetAudio();
     // Settings › Audio: kept across engine rebuilds (a new sample rate builds a new engine).
     void setSoundTuning(const GeodeSoundTuning& tuning);
-    // The frame beginFrame last stepped, for readers outside the renderer (Kotlin meters, tests).
-    GeodeSoundFrame soundFrame() const;
     void setCustomShader(const std::string& sceneId, const std::string& fragmentSource);
     // The user source a scene last compiled successfully; "" when it draws its built-in style.
     std::string customShaderFor(const std::string& sceneId) const;

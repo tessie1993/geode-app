@@ -8,7 +8,7 @@
 
 namespace geode::viz {
 
-// Port of CurlFlowScene.kt: particles carried by a curl-noise field re-evaluated every audio frame.
+// Particles carried by a curl-noise field re-evaluated every audio frame.
 class CurlFlowScene : public FluidSceneBase {
 public:
     CurlFlowScene(ProgramLoader loader, SceneHost host)

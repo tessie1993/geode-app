@@ -192,8 +192,6 @@ struct SceneParams {
     };
     static const std::array<Palette, 21>& palettes();
 
-    bool usesCustomPalette() const { return paletteBaseOverride >= 0.0f || paletteRangeOverride >= 0.0f; }
-    bool usesCustomPalette2() const { return palette2BaseOverride >= 0.0f || palette2RangeOverride >= 0.0f; }
     float paletteBase() const;
     float paletteRange() const;
     float palette2Base() const;

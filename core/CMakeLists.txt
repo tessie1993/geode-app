@@ -1,11 +1,9 @@
 add_library(geode_core STATIC
-    api/geode_api.cpp
     api/geode_viz_api.cpp
     api/geode_dsp_api.cpp
     api/geode_tags_api.cpp
     api/geode_catalogue_api.cpp
     api/geode_params_api.cpp
-    api/geode_sound_api.cpp
     sound/Fft.cpp
     sound/SoundEngine.cpp
     library/Tags.cpp

@@ -1,33 +1,22 @@
 #pragma once
-#include <utility>
-
 #include "api/geode_api.h"
 
 namespace geode::viz::fluid {
 
-// Port of FluidMath.kt.
+// The audio-drive scaling and particle state-texture size shared by the fluid scenes.
 namespace math {
 constexpr float kMinAudioDrive = 0.2f;
 constexpr float kMaxAudioDrive = 2.5f;
 constexpr float kDriveCeiling = 1.5f;
 
 float driven(float value, float audioDrive);
-std::pair<float, float> curlVelocity(float x, float y, float time, float freq, float detail);
-float confinementDeltaV(float curlStrength, float dx, float velDiff, float dt);
-std::pair<float, float> softLimitFlow(float x, float y);
-std::pair<float, float> terminalSpeedCap(float x, float y);
 int stateSide(int count);
-float attractorForce(float pull, float dist2);
-bool isCaptured(float px, float py, float cx, float cy, float captureRadius);
-std::pair<float, float> segDist(float ax, float ay, float bx, float by, float px, float py);
-float dragStep(float v, float flow, float drag, float dt = 1.0f / 60.0f);
-float bloomPrefilterScale(float br, float threshold, float softKnee);
 }  // namespace math
 
-// Port of FluidAudioDrive: the frame with its levels and bands scaled by the audio-drive control.
+// The frame with its levels and bands scaled by the audio-drive control.
 GeodeSoundFrame scaledFeatures(const GeodeSoundFrame& features, float audioDrive);
 
-// Port of WaterMath.kt.
+// Water: which dye texels are a catch well, and the well's radius and depth.
 namespace water {
 constexpr float kMinCatchRadius = 0.03f;
 constexpr float kMaxCatchRadius = 0.3f;
@@ -39,7 +28,7 @@ float catchWellRadius(float catchRadius);
 float catchWellAmplitude(float speed, float catchRadius, float rippleStrength);
 }  // namespace water
 
-// Port of CurlFlowMath.kt.
+// Curl flow: beat drive, field amplitude, trail retention and particle brightness.
 namespace curl {
 constexpr float kMinRetention = 0.6f;
 constexpr float kOffRetention = 0.45f;

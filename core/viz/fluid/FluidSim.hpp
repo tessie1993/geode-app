@@ -16,7 +16,7 @@
 
 namespace geode::viz::fluid {
 
-// Port of FluidSim.kt: the stable-fluids solver on half-float grids, velocity-only for the flow field.
+// The stable-fluids solver on half-float grids, velocity-only for the flow field.
 class FluidSim {
 public:
     FluidSim(const ProgramLoader& loader, bool velocityOnly = false) : loader_(loader), velocityOnly_(velocityOnly) {}
@@ -47,7 +47,6 @@ public:
     float flowScale() const { return 2.0f * rdx_ / static_cast<float>(velocity_ ? velocity_->height() : 128); }
     GLuint dyeTex() const { return dye_ ? dye_->read().tex() : 0; }
     GLuint velocityTex() const { return velocity_ ? velocity_->read().tex() : 0; }
-    int velocityGridHeight() const { return velocity_ ? velocity_->height() : 128; }
 
     void create();
     bool resize(int w, int h);

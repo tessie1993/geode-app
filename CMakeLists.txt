@@ -56,7 +56,7 @@ if(NOT geode_projectm_patched EQUAL 0)
     endif()
 endif()
 
-# Same values .github/workflows/native-libs.yml passed when the engine was a prebuilt blob.
+# projectM as libgeode needs it: a Release shared library without the playlist library.
 set(CMAKE_BUILD_TYPE Release CACHE STRING "" FORCE)
 set(BUILD_SHARED_LIBS ON CACHE BOOL "" FORCE)
 set(ENABLE_PLAYLIST OFF CACHE BOOL "" FORCE)

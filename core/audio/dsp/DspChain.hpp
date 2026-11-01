@@ -23,20 +23,6 @@ public:
     Crossfeed& crossfeed() { return crossfeed_; }
     Limiter& limiter() { return limiter_; }
 
-    // Not RT-safe: the limiter reallocates its lookahead buffers. Call this only on a chain no audio thread
-    // is processing yet; a live chain is swapped out for a freshly built one at the new rate instead (see
-    // geode_dsp_set_sample_rate / geode_dsp_sample_rate).
-    void setSampleRate(int sampleRate) {
-        if (sampleRate <= 0 || sampleRate == sampleRate_) return;
-        sampleRate_ = sampleRate;
-        const auto rate = static_cast<float>(sampleRate);
-        equalizer_.setSampleRate(rate);
-        gain_.setSampleRate(rate);
-        loudness_.setSampleRate(rate);
-        crossfeed_.setSampleRate(rate);
-        limiter_.setSampleRate(rate);
-    }
-
     void reset() {
         equalizer_.reset();
         gain_.reset();

@@ -5,7 +5,7 @@
 
 namespace geode::viz::sim {
 
-// Port of SimStateEncoding: how the state texels are stored and read back.
+// How the state texels are stored and read back.
 struct StateEncoding {
     GlImageFormat format = GlImageFormat::RGBA16F;
     bool packed = false;
@@ -13,7 +13,7 @@ struct StateEncoding {
     float stateScale = 1.0f;
 };
 
-// Port of SimGlsl.kt: the shared preamble and the three program shapes built around a step body.
+// The shared preamble and the three program shapes built around a step body.
 namespace glsl {
 constexpr int kStateTextureUnit = 0;
 constexpr int kStateImageUnit = 0;

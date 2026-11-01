@@ -60,7 +60,7 @@ private val MACRO_HINTS =
         "More pattern and detail",
         "Warmer, richer colour",
         "Wider view, bigger moves",
-        "Shake, glitch and cuts",
+        "Shake, grain and colour split",
     )
 
 /**

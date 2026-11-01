@@ -211,7 +211,6 @@ class PresetStore(
                 .put("vignette", p.params.vignette.toDouble())
                 .put("scanlines", p.params.scanlines.toDouble())
                 .put("grain", p.params.grain.toDouble())
-                .put("glitch", p.params.glitch.toDouble())
                 .put("fisheye", p.params.fisheye.toDouble())
                 .put("strobe", p.params.strobe.toDouble())
                 .put("paramFadeSec", p.params.paramFadeSec.toDouble())
@@ -459,7 +458,6 @@ class PresetStore(
                         vignette = o.optFinite("vignette", 0.0),
                         scanlines = o.optFinite("scanlines", 0.0),
                         grain = o.optFinite("grain", 0.0),
-                        glitch = o.optFinite("glitch", 0.0),
                         fisheye = o.optFinite("fisheye", 0.0),
                         strobe = o.optFinite("strobe", 0.0),
                         paramFadeSec = o.optFinite("paramFadeSec", 0.0),

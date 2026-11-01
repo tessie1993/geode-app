@@ -78,7 +78,6 @@ struct SceneParams {
     float vignette = 0.0f;
     float scanlines = 0.0f;
     float grain = 0.0f;
-    float glitch = 0.0f;
     float fisheye = 0.0f;
     // Inert since wave three; removed with the next format bump.
     float strobe = 0.0f;
@@ -213,7 +212,7 @@ struct SceneParams {
     static const std::array<FloatField, kLerpedFloatCount>& lerpedFloats();
 
     // Every field in declaration order; the wire order of geode_viz_set_params.
-    static constexpr int kFieldCount = 154;
+    static constexpr int kFieldCount = 153;
     static const std::array<const char*, kFieldCount>& fieldNames();
 
     // Sets a field by its Kotlin property name; ints and bools are taken from the float's value.

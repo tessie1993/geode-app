@@ -93,7 +93,6 @@ enum class LfoTarget(
     TURBULENCE("Turbulence", ParamScope.TURBULENCE),
     CHROMA_AB("Chroma AB", ParamScope.UNIVERSAL),
     VIGNETTE("Vignette", ParamScope.UNIVERSAL),
-    GLITCH("Glitch", ParamScope.UNIVERSAL),
     FISHEYE("Fisheye", ParamScope.UNIVERSAL),
     PARTICLE_SIZE("Particle size", ParamScope.PARTICLE_SPRITE),
     TRAIL_LENGTH("Trail length", ParamScope.TRAIL_LENGTH),

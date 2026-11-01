@@ -397,7 +397,6 @@ private fun LookMotionSections(
         onChange(p.copy(scanlines = it))
     }
     LabeledSlider(ParamKeys.FILM_GRAIN, p.grain, 0f..1f, default = SceneParams.DEFAULT.grain) { onChange(p.copy(grain = it)) }
-    LabeledSlider(ParamKeys.GLITCH, p.glitch, 0f..0.25f, default = SceneParams.DEFAULT.glitch) { onChange(p.copy(glitch = it)) }
     LabeledSlider(ParamKeys.FISHEYE, p.fisheye, -1f..1f, display = "Bulge", default = SceneParams.DEFAULT.fisheye) {
         onChange(p.copy(fisheye = it))
     }

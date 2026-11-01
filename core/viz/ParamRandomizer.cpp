@@ -52,7 +52,7 @@ constexpr int kMaxReactSeed = (1 << 24) - 1;
 
 const std::vector<Roll>& rolls() {
     using T = Tab;
-    // Upper bounds of brightness, contrast, intensity, bloom and glitch are the flash clamp's
+    // Upper bounds of brightness, contrast, intensity and bloom are the flash clamp's
     // (1 + kMaxFlashDepth, kMaxFlashDepth): above them a roll is invisible.
     static const std::vector<Roll> kRolls = {
         {{T::Motion, "Speed", {"speed"}}, [](SceneParams& p, Rng& r) { p.speed = r.f(0.2f, 2.5f); }},
@@ -142,7 +142,6 @@ const std::vector<Roll>& rolls() {
         {{T::Fx, "Vignette", {"vignette"}}, [](SceneParams& p, Rng& r) { p.vignette = r.sometimes(0.5f, 0.1f, 0.6f); }},
         {{T::Fx, "Scanlines", {"scanlines"}}, [](SceneParams& p, Rng& r) { p.scanlines = r.sometimes(0.25f, 0.15f, 0.5f); }},
         {{T::Fx, "Film grain", {"grain"}}, [](SceneParams& p, Rng& r) { p.grain = r.sometimes(0.3f, 0.1f, 0.4f); }},
-        {{T::Fx, "Glitch", {"glitch"}}, [](SceneParams& p, Rng& r) { p.glitch = r.sometimes(0.2f, 0.1f, 0.25f); }},
         {{T::Fx, "Fisheye", {"fisheye"}}, [](SceneParams& p, Rng& r) { p.fisheye = r.sometimes(0.25f, -0.5f, 0.5f); }},
 
         {{T::Fluid, "Solver iterations", {"fluidIterations"}}, [](SceneParams& p, Rng& r) { p.fluidIterations = r.n(12, 28); }},

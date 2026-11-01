@@ -26,7 +26,6 @@ SceneParams apply(const SceneParams& p, bool reducedMotion) {
     SceneParams out = p;
     out.strobe = std::clamp(p.strobe, 0.0f, kMaxFlashDepth / kStrobeShaderDepth);
     out.flash = std::clamp(p.flash, 0.0f, kMaxFlashDepth / kFlashShaderDepth);
-    out.glitch = std::min(p.glitch, kMaxFlashDepth);
     out.bloom = std::min(p.bloom, kMaxFlashDepth);
     out.brightness = std::clamp(p.brightness, 0.0f, 1.0f + kMaxFlashDepth);
     out.intensity = std::clamp(p.intensity, 0.0f, 1.0f + kMaxFlashDepth);

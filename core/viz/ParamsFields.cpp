@@ -11,7 +11,7 @@ const std::array<const char*, SceneParams::kFieldCount>& SceneParams::fieldNames
         "paletteRangeOverride", "palette2BaseOverride", "palette2RangeOverride", "paletteLut", "milkdropPaletteTint",
         "milkdropBlendPresets", "colorShift", "hueRange", "saturation", "brightness", "contrast", "gamma",
         "colorCycle", "cycleSpeed", "invert", "intensity", "duotone", "bloom", "temperature", "solarize", "bassGain",
-        "midGain", "trebGain", "flash", "chromaAb", "vignette", "scanlines", "grain", "glitch", "fisheye", "strobe",
+        "midGain", "trebGain", "flash", "chromaAb", "vignette", "scanlines", "grain", "fisheye", "strobe",
         "paramFadeSec", "fluidQuality", "fluidAutoQuality", "fluidIterations", "fluidPressure", "fluidCurl",
         "fluidVelocityDissipation", "fluidDensityDissipation", "fluidChromaticAging", "fluidSplatRadius",
         "fluidSplatForce", "fluidBeatPattern", "fluidBeatSplats", "fluidStirrers", "fluidStirrerSpeed",

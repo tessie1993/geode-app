@@ -17,7 +17,7 @@ struct Drive {
     bool inverted;
 };
 
-constexpr std::array<Drive, 30> kDrives = {{
+constexpr std::array<Drive, 29> kDrives = {{
     {Macro::Energy, &SceneParams::reactAmount, 0.0f, 2.0f, false},
     {Macro::Energy, &SceneParams::audioDrive, 0.2f, 2.5f, false},
     {Macro::Energy, &SceneParams::motionAmount, 0.0f, 1.0f, false},
@@ -43,7 +43,6 @@ constexpr std::array<Drive, 30> kDrives = {{
     {Macro::Space, &SceneParams::vignette, 0.0f, 1.0f, true},
     {Macro::Space, &SceneParams::fisheye, -1.0f, 1.0f, false},
     {Macro::Chaos, &SceneParams::turbulence, 0.0f, 1.5f, false},
-    {Macro::Chaos, &SceneParams::glitch, 0.0f, 0.25f, false},
     {Macro::Chaos, &SceneParams::chromaAb, 0.0f, 1.0f, false},
     {Macro::Chaos, &SceneParams::ripple, 0.0f, 1.0f, false},
     {Macro::Chaos, &SceneParams::camShake, 0.0f, 1.0f, false},

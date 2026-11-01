@@ -25,7 +25,8 @@ Renderer::Renderer(AAssetManager* assets, std::string cacheDir)
                           [this](const std::string& id, const std::string& src) { rememberCustomShader(id, src); },
                           [this] { return thermal_.pacedFps(); },
                           [this](const std::string& path) { notePresetLoaded(path); },
-                          [this] { return marchScale_.load(std::memory_order_relaxed); }}),
+                          [this] { return marchScale_.load(std::memory_order_relaxed); },
+                          [this] { return &notes_.uniforms(); }}),
       compositePass_(assets_, &programCache_),
       pcm_(kPcmCapacity, 0.0f),
       pcmDeliverScratch_(kPcmCapacity, 0.0f) {
@@ -354,7 +355,6 @@ void Renderer::onSurfaceCreated() {
     touchField_.reset();
     fboA_.release();
     fboB_.release();
-    flashLimit_.release();
     compositePass_.releaseStaleTextures();
     activeScene_ = nullptr;
     outgoingScene_ = nullptr;
@@ -380,7 +380,8 @@ void Renderer::onSurfaceCreated() {
     quadVert_ = *quadVert;
     if (!trailPass_.create(assets_, &programCache_, *fadeVert, &error)) fail(error);
     if (!compositePass_.create(*fadeVert, &error)) fail(error);
-    if (!flashLimit_.create(assets_, &programCache_, *fadeVert, &error)) fail("flash limiter: " + error);
+    // The note blooms are an extra: a driver that will not build them loses the flowers, not the frame.
+    if (!bloomPass_.create(assets_, &programCache_, *fadeVert, &error)) GEODE_LOGW(kTag, "note blooms off: %s", error.c_str());
 
     // Port of CyclicPalettes.createTexture: five 256-entry RGB rows.
     const auto palette = assets_.readAsset("shaders/cyclic_palettes.bin");
@@ -403,8 +404,8 @@ void Renderer::onSurfaceCreated() {
     reactions_.reset();
     macroReactions_.reset();
     director_.reset();
+    notes_.reset();
     camera_.reset();
-    flashBudget_.reset();
 }
 
 void Renderer::surfaceChanged(int width, int height) {

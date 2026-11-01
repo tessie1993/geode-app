@@ -80,4 +80,12 @@ class FeatureGateTest {
         assertEquals(TrialState.Ended(false), TrialState.at(1_000L, false, 1_000L + hour))
         assertEquals(TrialState.Ended(true), TrialState.at(1_000L, true, 999L))
     }
+
+    @Test
+    fun `the neon set gives away one opener and keeps four for Pro`() {
+        assertTrue(FreeTier.neonOpener in FreeTier.freeStyleIds)
+        assertEquals(4, FreeTier.neonProIds.size)
+        FreeTier.neonProIds.forEach { assertFalse(it, it in FreeTier.freeStyleIds) }
+        assertFalse(FreeTier.neonOpener in FreeTier.neonProIds)
+    }
 }

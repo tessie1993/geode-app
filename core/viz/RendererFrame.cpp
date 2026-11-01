@@ -112,13 +112,19 @@ SceneParams Renderer::resolveParams(float dt) {
     director_.configure(director::global());
     director_.step(soundFrame_, dt);
     directedKnobs_ = director_.knobs(frameKnobs_);
+    // Note & key reactions hear the frame next, inside the director's look: its hue anchors the notes'
+    // colours, and its feeling (the director's emotion, stepped whether or not it drives) is the mood. The
+    // play's seed is the director's, so an export of the same play draws the same blooms.
+    notes_.configure({note_response::globalEnabled(), director::global().seed});
+    notes_.step(soundFrame_, director_.emotion(), {director_.look().hue, director_.weight()}, dt);
     const auto& envValues = adsr_.tick(dt, soundFrame_);
     AdsrEngine::lfoOffsets(adsr_.configs, envValues, envRate_, envDepth_);
     const auto& lfoValues = lfo_.tick(dt, soundFrame_, envRate_.data(), envDepth_.data());
     // The macros lay over the user's params first, so every stage after them (and the safety clamp)
     // sees the knobbed look.
     const bool palWheel = !activeScene_ || activeScene_->family() == SceneFamily::Shader;
-    SceneParams p = lfo_.apply(macros::apply(director_.apply(displayedParams_, palWheel), directedKnobs_), lfoValues);
+    // Order: the director's look, the note layer inside it, then the user's macros and LFOs over both.
+    SceneParams p = lfo_.apply(macros::apply(notes_.apply(director_.apply(displayedParams_, palWheel)), directedKnobs_), lfoValues);
     p = AdsrEngine::apply(p, adsr_.configs, envValues);
     // The reaction matrix: per-style routes from the sound frame to many
     // targets. Ahead of the motion field and the safety clamp, like the LFOs.
@@ -241,17 +247,9 @@ void Renderer::drawSceneTarget(Scene& scene, const SceneParams& p, float dt) {
     scene.draw(timeSeconds_);
 }
 
-void Renderer::composite(Scene& scene, const SceneParams& p, float progress, float dt, GLuint targetFbo) {
-    // The frame goes through the output flash limiter (FlashLimitPass.hpp) when it can run; if its
-    // programs or targets failed it draws straight to the target, as before, and the failure is
-    // in lastError.
-    const bool limited = flashLimit_.ensure(width_, height_);
-    if (limited) {
-        flashLimit_.bindFrame();
-    } else {
-        glBindFramebuffer(GL_FRAMEBUFFER, targetFbo);
-        glViewport(0, 0, width_, height_);
-    }
+void Renderer::composite(Scene& scene, const SceneParams& p, float progress, GLuint targetFbo) {
+    glBindFramebuffer(GL_FRAMEBUFFER, targetFbo);
+    glViewport(0, 0, width_, height_);
     glDisable(GL_BLEND);
     CompositePass::Inputs& in = compositeInputs_;
     in.texA = fboA_.tex();
@@ -292,10 +290,7 @@ void Renderer::composite(Scene& scene, const SceneParams& p, float progress, flo
     // shake themselves are already inert (see Params.hpp).
     in.hitImpulse = 0.0f;
     const SceneParams& fx = lastFinalParams_;
-    // The budget hears exactly the term the post pass adds (uPostFlash * uBeat * kFlashShaderDepth),
-    // so if the transient reaction is ever fed again its flashes are counted where they are made. The
-    // output limiter after the composite is what guarantees the count for everything else.
-    in.flash = fx.flash * flashBudget_.gainFor(timeSeconds_, safety::flashImpulse(fx.flash, in.hitImpulse));
+    in.flash = fx.flash * flashBudget_.gainFor(timeSeconds_, safety::flashImpulse(fx.flash, 0.0f));
     in.strobeHz = safety::strobeHz();
     in.postRotationAngle = postRotationAngle_;
     in.postCyclePhase = postCyclePhase_;
@@ -316,11 +311,11 @@ void Renderer::composite(Scene& scene, const SceneParams& p, float progress, flo
     in.underlayBlend = compositePass_.underlayBlendMode();
     in.underlayAmount = compositePass_.underlayAmount();
     compositePass_.draw(in);
-    // Measures the finished frame and draws it on to targetFbo, limited; leaves targetFbo bound.
-    if (limited) flashLimit_.apply(targetFbo, dt, quadVao_);
+    // The note blooms over every family, under the user's overlay; nothing while there are none.
+    bloomPass_.draw(notes_.uniforms(), width_, height_, quadVao_);
     // W00: overlay is its own draw call, over whatever composite() just wrote to targetFbo, so it
-    // never enters postFx/transitions/Layers (nor the flash limiter: it is the user's own still
-    // art and text) and comes out identical live, in the wallpaper and in the offscreen export.
+    // never enters postFx/transitions/Layers and comes out identical live, in the wallpaper and in
+    // the offscreen export.
     compositePass_.drawOverlay(quadVao_);
 }
 
@@ -374,20 +369,10 @@ void Renderer::render(double timeSeconds, GLuint targetFbo) {
     }
     Scene* scene = resolveActiveScene();
     if (!scene || !ensureTargets()) {
-        // No scene yet (or after cut()): black. Once the limiter has shown a frame, the black goes
-        // through it too, so a bright scene dropping to black and back is limited like any other
-        // change; before that (a live surface's first scene is staged over a few frames) it does not,
-        // or the limiter would prime on the black and fade the first scene in from it.
-        const bool limited = flashLimit_.ensure(width_, height_) && flashLimit_.hasHistory();
-        if (limited) {
-            flashLimit_.bindFrame();
-        } else {
-            glBindFramebuffer(GL_FRAMEBUFFER, targetFbo);
-            glViewport(0, 0, width_, height_);
-        }
+        glBindFramebuffer(GL_FRAMEBUFFER, targetFbo);
+        glViewport(0, 0, width_, height_);
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
-        if (limited) flashLimit_.apply(targetFbo, dt, quadVao_);
         return;
     }
     const SceneParams p = resolveParams(dt);
@@ -397,7 +382,7 @@ void Renderer::render(double timeSeconds, GLuint targetFbo) {
     stepCamera(p, dt);
     const float progress = drawSecondaryTargets(p, dt);
     drawSceneTarget(*scene, p, dt);
-    composite(*scene, p, progress, dt, targetFbo);
+    composite(*scene, p, progress, targetFbo);
 }
 
 }  // namespace geode::viz

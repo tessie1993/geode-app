@@ -30,7 +30,7 @@ class CatalogueTest {
         assertEquals("silk_web", Catalogue.styles.first().id)
         assertEquals(SceneKind.SILK, Catalogue.kindOf(SceneIds.DEFAULT))
         assertEquals(SceneKind.SILK, Catalogue.kindOf("no_such_style"))
-        assertEquals(238, Catalogue.styles.size)
+        assertEquals(243, Catalogue.styles.size)
     }
 
     @Test

@@ -267,6 +267,16 @@ object GeodeNative {
         adaptive: Boolean,
     )
 
+    /**
+     * Pins this renderer's auto-director (an export's): from then on it ignores [directorSet], so the live
+     * player moving to another track or past the free taste never reaches a render in progress.
+     */
+    external fun vizSetDirector(
+        handle: Long,
+        amount: Float,
+        seed: Long,
+    )
+
     external fun vizSetOffscreen(
         handle: Long,
         on: Boolean,

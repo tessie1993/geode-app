@@ -258,6 +258,11 @@ Java_dev_geode_engine_bridge_GeodeNative_vizSetQuality(JNIEnv*, jobject, jlong h
 }
 
 JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_vizSetDirector(JNIEnv*, jobject, jlong handle, jfloat amount, jlong seed) {
+    geode_viz_set_director(vizOf(handle), amount, static_cast<long long>(seed));
+}
+
+JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_vizSetOffscreen(JNIEnv*, jobject, jlong handle, jboolean on) {
     geode_viz_set_offscreen(vizOf(handle), on == JNI_TRUE);
 }

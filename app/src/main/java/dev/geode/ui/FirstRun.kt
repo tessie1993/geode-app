@@ -47,6 +47,7 @@ internal fun FirstRunGate(onDone: () -> Unit) {
     val scanning by libraryViewModel.libraryScanning.collectAsStateWithLifecycle()
 
     val access = rememberPermissionRequest(audioPermission)
+    val context = androidx.compose.ui.platform.LocalContext.current
     val folderPicker =
         rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
             if (uri != null) libraryViewModel.importFolder(uri)
@@ -60,7 +61,7 @@ internal fun FirstRunGate(onDone: () -> Unit) {
     FirstRunSetup(
         access = access.status,
         onRequestAccess = access::request,
-        onPickFolder = { folderPicker.launch(null) },
+        onPickFolder = { folderPicker.launchPicker(context, null) },
         folderCount = roots.size,
         trackCount = tracks.size,
         scanning = scanning,

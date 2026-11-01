@@ -57,6 +57,10 @@ public:
     // it, so no exported frame ever shows the previous scene or a clear in its place. A live renderer
     // (the default) builds a new scene across frames instead; see ScenePrep.hpp.
     void setBlockingBuilds(bool on) { blockingBuilds_.store(on, std::memory_order_relaxed); }
+    // An export's own auto-director: once pinned, this renderer stops reading the process-wide switch
+    // (director::global), so the live player moving on to another track, or past the free taste, never
+    // reaches a render in progress. The export hands over the play's seed, so it makes the same film.
+    void pinDirector(float amount, uint64_t seed);
     void setLayer(const std::string& sceneId, float mix, int blendOrdinal);
     void setTransition(const std::string& id, int64_t durationMs);
     void beginParamMorph(float seconds);
@@ -178,6 +182,10 @@ private:
     ReactionEngine macroReactions_;
     // The auto-director (viz/Director): the music's feeling deciding palette, behaviour and routing.
     Director director_;
+    // Set by pinDirector; read once a frame on the GL thread.
+    std::atomic<bool> directorPinned_{false};
+    std::atomic<float> pinnedDirectorAmount_{0.0f};
+    std::atomic<uint64_t> pinnedDirectorSeed_{0};
     CameraRig camera_;
     // One engine per renderer (one per surface), so each is frame-locked to its own dt. Guarded by soundLock_
     // only because writeAudio and soundFrame are public; in practice one thread does everything.

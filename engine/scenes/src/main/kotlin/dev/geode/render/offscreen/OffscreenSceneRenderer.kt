@@ -42,6 +42,15 @@ data class OffscreenRenderSpec(
     val audioUri: Uri? = null,
     // Settings › Audio, the same tuning the screen used.
     val soundTuning: SoundTuning = SoundTuning(),
+    // The export's own auto-director, pinned at prepare so the live player's switch, track and free
+    // taste never reach the render. Null follows the process-wide switch (previews, thumbnails).
+    val director: DirectorPin? = null,
+)
+
+/** An export's auto-director: how much it drives (0..1) and the play's seed, so it makes the same film. */
+data class DirectorPin(
+    val amount: Float,
+    val seed: Long,
 )
 
 /**
@@ -94,6 +103,7 @@ class OffscreenSceneRenderer(
         if (spec.adsrConfigs.isNotEmpty()) viz.setAdsrConfigs(spec.adsrConfigs)
         spec.underlay?.let { viz.setUnderlay(it.pixels, it.width, it.height, it.blend, it.amount) }
         viz.setSoundTuning(spec.soundTuning.toFloats())
+        spec.director?.let { viz.setDirector(it.amount, it.seed) }
         native = viz
         // A track that will not decode still exports, silent to the engine, rather than failing the render.
         audio =

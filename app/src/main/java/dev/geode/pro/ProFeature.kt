@@ -46,11 +46,4 @@ enum class ProFeature {
      * [FreeTier.FREE_AUTO_DIRECTOR_TASTE_MS] of each song (see [AutoDirectorPolicy]).
      */
     AUTO_DIRECTOR,
-
-    /**
-     * Note & key reactions (core/viz/NoteResponse): notes, chords, key and mood drive every style, with a
-     * bloom per note. Pro and the trial; free does not get a taste, since a minute of blooms would be a
-     * demo of the paywall rather than of the feature (see [NoteResponsePolicy]).
-     */
-    NOTE_RESPONSE,
 }

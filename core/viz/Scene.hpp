@@ -71,8 +71,8 @@ struct SceneHost {
     std::function<void(const std::string& path)> onMilkPresetLoaded;
     // Settings › Performance's march-step multiplier (0..1); unset means full budget.
     std::function<float()> marchScale;
-    // Note & key reactions (viz/NoteResponse): this frame's style knobs (uKnob) and note colours. Unset
-    // (or the layer off) leaves every knob at 0.5, the midpoint each style was tuned around.
+    // Note & key reactions (viz/NoteResponse): this frame's style knobs (uKnob). Unset (or the layer off)
+    // leaves every knob at 0.5, the midpoint each style was tuned around.
     std::function<const NoteUniforms*()> notes;
 };
 

@@ -1017,6 +1017,10 @@ class PlayerSession internal constructor(
                 override fun keyframes() = editor.state.value.project.keyframes
 
                 override suspend fun loadExportTake() = takeController.loadExportTake()
+
+                override fun allowsStyle(sceneId: String) = this@PlayerSession.allowsStyle(sceneId)
+
+                override fun onStyleLocked() = this@PlayerSession.onStyleLocked()
             },
         )
 

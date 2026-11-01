@@ -196,7 +196,7 @@ struct SceneParams {
     float noteColor = 1.0f;      // the notes' colours: the blooms' spread and the whole-picture tint
     float notePitch = 1.0f;      // pitch height: morph and the blooms' stretch and height
     float noteIntervals = 1.0f;  // leaps swing and twist, steps glide
-    float noteTension = 1.0f;    // harmonic tension bends (warp, chromatic split, glitch)
+    float noteTension = 1.0f;    // harmonic tension bends (warp, chromatic split, frayed bloom edges)
     float noteChords = 1.0f;     // a chord change shifts the scene (fold count, layout, a turn)
     float noteDrums = 1.0f;      // the drums' push, on top of how percussive the track is
     float noteBloom = 1.0f;      // the blooms' brightness

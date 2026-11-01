@@ -178,10 +178,6 @@ void ShaderScene::uploadParams() {
     if (!notes) notes = &kResting;
     static_assert(NoteUniforms::kKnobs == kKnobCount, "uKnob is six knobs");
     glUniform1fv(uniforms_.loc("uKnob"), uniforms_.arrayCount("uKnob", kKnobCount), notes->knobs.data());
-    // The last notes' colours and how much the layer drives, for a style that
-    // wants to paint with the melody (lib_scene_uniforms' uNoteHues).
-    glUniform1fv(uniforms_.loc("uNoteHues"), uniforms_.arrayCount("uNoteHues", NoteUniforms::kHues), notes->hues.data());
-    set1f("uNoteAmount", notes->amount);
 }
 
 // Every style is handed these; the ones that read none of them link them away

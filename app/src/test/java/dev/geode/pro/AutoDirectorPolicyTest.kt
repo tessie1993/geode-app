@@ -12,27 +12,53 @@ class AutoDirectorPolicyTest {
 
     @Test
     fun `off is off for everyone`() {
-        listOf(free, trial, pro).forEach { assertEquals(0f, AutoDirectorPolicy.amount(false, it, 0L), 0f) }
+        listOf(free, trial, pro).forEach {
+            assertEquals(0f, AutoDirectorPolicy.amount(false, it, 0L, playerPlaying = true), 0f)
+            assertEquals(0f, AutoDirectorPolicy.exportAmount(false, it, 0L), 0f)
+        }
     }
 
     @Test
     fun `pro and the trial direct the whole song`() {
         listOf(trial, pro).forEach { gate ->
-            assertEquals(1f, AutoDirectorPolicy.amount(true, gate, 10L * 60_000L), 0f)
+            assertEquals(1f, AutoDirectorPolicy.amount(true, gate, 10L * 60_000L, playerPlaying = true), 0f)
             assertFalse(AutoDirectorPolicy.isTaste(gate))
+        }
+    }
+
+    @Test
+    fun `pro keeps directing the mic and other apps' audio`() {
+        listOf(trial, pro).forEach { gate ->
+            assertEquals(1f, AutoDirectorPolicy.amount(true, gate, 0L, playerPlaying = false), 0f)
         }
     }
 
     @Test
     fun `free gets the first minute of each song`() {
         assertTrue(AutoDirectorPolicy.isTaste(free))
-        assertEquals(1f, AutoDirectorPolicy.amount(true, free, 0L), 0f)
-        assertEquals(1f, AutoDirectorPolicy.amount(true, free, FreeTier.FREE_AUTO_DIRECTOR_TASTE_MS - 1), 0f)
-        assertEquals(0f, AutoDirectorPolicy.amount(true, free, FreeTier.FREE_AUTO_DIRECTOR_TASTE_MS), 0f)
+        assertEquals(1f, AutoDirectorPolicy.amount(true, free, 0L, playerPlaying = true), 0f)
+        val lastMs = FreeTier.FREE_AUTO_DIRECTOR_TASTE_MS - 1
+        assertEquals(1f, AutoDirectorPolicy.amount(true, free, lastMs, playerPlaying = true), 0f)
+        val endMs = FreeTier.FREE_AUTO_DIRECTOR_TASTE_MS
+        assertEquals(0f, AutoDirectorPolicy.amount(true, free, endMs, playerPlaying = true), 0f)
+    }
+
+    @Test
+    fun `free gets no taste when the player is not the source`() {
+        // Capture pauses the player, so the position stops at 0 and would otherwise never leave the taste.
+        assertEquals(0f, AutoDirectorPolicy.amount(true, free, 0L, playerPlaying = false), 0f)
     }
 
     @Test
     fun `the taste covers a whole free export`() {
         assertTrue(FreeTier.FREE_AUTO_DIRECTOR_TASTE_MS >= FreeTier.FREE_MAX_EXPORT_MS)
+        assertEquals(1f, AutoDirectorPolicy.exportAmount(true, free, FreeTier.FREE_MAX_EXPORT_MS), 0f)
+    }
+
+    @Test
+    fun `an export longer than the taste is directed only for pro`() {
+        val longMs = 5L * 60_000L
+        assertEquals(0f, AutoDirectorPolicy.exportAmount(true, free, longMs), 0f)
+        assertEquals(1f, AutoDirectorPolicy.exportAmount(true, pro, longMs), 0f)
     }
 }

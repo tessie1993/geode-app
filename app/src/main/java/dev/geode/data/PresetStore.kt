@@ -294,6 +294,14 @@ class PresetStore(
                 .put("reactSeed", p.params.reactSeed)
                 .put("camTouch", p.params.camTouch)
                 .put("camGyro", p.params.camGyro)
+                .put("bloomLook", p.params.bloomLook)
+                .put("noteColor", p.params.noteColor.toDouble())
+                .put("notePitch", p.params.notePitch.toDouble())
+                .put("noteIntervals", p.params.noteIntervals.toDouble())
+                .put("noteTension", p.params.noteTension.toDouble())
+                .put("noteChords", p.params.noteChords.toDouble())
+                .put("noteDrums", p.params.noteDrums.toDouble())
+                .put("noteBloom", p.params.noteBloom.toDouble())
                 .apply { if (p.customShader != null) put("customShader", p.customShader) }
                 .apply { if (p.milkPreset != null) put("milkPreset", p.milkPreset) }
                 .toString(2)
@@ -543,6 +551,14 @@ class PresetStore(
                         reactSeed = o.optInt("reactSeed", SceneParams.DEFAULT.reactSeed),
                         camTouch = o.optBoolean("camTouch", SceneParams.DEFAULT.camTouch),
                         camGyro = o.optBoolean("camGyro", SceneParams.DEFAULT.camGyro),
+                        bloomLook = o.optInt("bloomLook", SceneParams.DEFAULT.bloomLook),
+                        noteColor = o.optFinite("noteColor", SceneParams.DEFAULT.noteColor.toDouble()),
+                        notePitch = o.optFinite("notePitch", SceneParams.DEFAULT.notePitch.toDouble()),
+                        noteIntervals = o.optFinite("noteIntervals", SceneParams.DEFAULT.noteIntervals.toDouble()),
+                        noteTension = o.optFinite("noteTension", SceneParams.DEFAULT.noteTension.toDouble()),
+                        noteChords = o.optFinite("noteChords", SceneParams.DEFAULT.noteChords.toDouble()),
+                        noteDrums = o.optFinite("noteDrums", SceneParams.DEFAULT.noteDrums.toDouble()),
+                        noteBloom = o.optFinite("noteBloom", SceneParams.DEFAULT.noteBloom.toDouble()),
                     ),
             )
         }

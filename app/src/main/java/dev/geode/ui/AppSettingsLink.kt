@@ -5,6 +5,9 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
+import android.widget.Toast
+import androidx.activity.result.ActivityResultLauncher
+import dev.geode.R
 
 fun Context.openAppSettings() {
     val appPage =
@@ -24,3 +27,18 @@ private fun Context.start(intent: Intent): Boolean =
     } catch (_: SecurityException) {
         false
     }
+
+/**
+ * Opens a system document picker. A device without one (DocumentsUI disabled by the owner or an MDM,
+ * some TVs and car units) throws ActivityNotFoundException from launch(); that gets a toast, not a crash.
+ */
+fun <I> ActivityResultLauncher<I>.launchPicker(
+    context: Context,
+    input: I,
+) {
+    try {
+        launch(input)
+    } catch (_: ActivityNotFoundException) {
+        Toast.makeText(context, R.string.picker_unavailable, Toast.LENGTH_SHORT).show()
+    }
+}

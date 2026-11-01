@@ -613,18 +613,13 @@ fun SettingsScreen(
     onPlayTutorial: (List<TutorialChapter>) -> Unit,
     onResetTutorials: () -> Unit,
 ) {
-    Column(Modifier.fillMaxSize()) {
-        Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp)) {
-            CrystalOverline(stringResource(R.string.app_name))
-            GlowTitle(stringResource(R.string.nav_settings))
-        }
-        AppSettingsTab(
-            viewModel,
-            onOpenStudioRender = onOpenStudioRender,
-            onPlayTutorial = onPlayTutorial,
-            onResetTutorials = onResetTutorials,
-        )
-    }
+    // AppSettingsTab draws the title itself: inside a section it becomes the section's name and back arrow.
+    AppSettingsTab(
+        viewModel,
+        onOpenStudioRender = onOpenStudioRender,
+        onPlayTutorial = onPlayTutorial,
+        onResetTutorials = onResetTutorials,
+    )
 }
 
 /** Show me: the real screen behind a tour card. The tour waits behind its Resume pill meanwhile. */

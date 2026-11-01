@@ -53,7 +53,10 @@ import dev.geode.ui.studio.TimelineEditor
 import kotlin.math.roundToInt
 
 @Composable
-fun StudioRoute(viewModel: StudioViewModel = geodeViewModel()) {
+fun StudioRoute(
+    onOpenRender: () -> Unit,
+    viewModel: StudioViewModel = geodeViewModel(),
+) {
     val studio by viewModel.studio.collectAsStateWithLifecycle()
     val editor by viewModel.editor.collectAsStateWithLifecycle()
     LaunchedEffect(Unit) { viewModel.refreshStudioClips() }
@@ -68,6 +71,7 @@ fun StudioRoute(viewModel: StudioViewModel = geodeViewModel()) {
         onExportToDestination = { clip, edit, destination -> viewModel.startStudioExport(clip, edit, destination) },
         onCancelExport = viewModel::cancelStudioExport,
         onClearResult = viewModel::clearStudioResult,
+        onOpenRender = onOpenRender,
     )
 }
 
@@ -83,6 +87,7 @@ internal fun StudioScreen(
     onExportToDestination: (StudioClip, ClipEdit, Uri) -> Unit,
     onCancelExport: () -> Unit,
     onClearResult: () -> Unit,
+    onOpenRender: () -> Unit = {},
 ) {
     val context = LocalContext.current
     var editingUri by rememberSaveable { mutableStateOf<String?>(null) }
@@ -115,9 +120,6 @@ internal fun StudioScreen(
     Column(Modifier.fillMaxSize()) {
         val clip = editing
         if (clip == null) {
-            Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                CrystalButton(filled = false, onClick = { timelineOpen = true }) { Text(stringResource(R.string.editor_open)) }
-            }
             ClipLibrary(
                 studio = state,
                 onOpen = {
@@ -125,6 +127,8 @@ internal fun StudioScreen(
                     editingUri = it.uri
                 },
                 onPick = { picker.launch(arrayOf("video/*")) },
+                onOpenTimeline = { timelineOpen = true },
+                onOpenRender = onOpenRender,
                 onShare = { context.shareVideo(it, chooserTitle) },
                 onRename = { target, name, done -> onRename(target.uri, name, done) },
                 onDelete = { target, done -> onDelete(target.uri, done) },
@@ -153,6 +157,8 @@ private fun ClipLibrary(
     studio: StudioUiState,
     onOpen: (StudioClip) -> Unit,
     onPick: () -> Unit,
+    onOpenTimeline: () -> Unit,
+    onOpenRender: () -> Unit,
     onShare: (Uri) -> Unit,
     onRename: (StudioClip, String, (Boolean) -> Unit) -> Unit,
     onDelete: (StudioClip, (Boolean) -> Unit) -> Unit,
@@ -166,6 +172,8 @@ private fun ClipLibrary(
         studio = studio,
         onOpen = onOpen,
         onPick = onPick,
+        onOpenTimeline = onOpenTimeline,
+        onOpenRender = onOpenRender,
         onShare = onShare,
         onRenameRequest = { renaming = it },
         onDeleteRequest = { deleting = it },
@@ -203,6 +211,8 @@ private fun ClipList(
     studio: StudioUiState,
     onOpen: (StudioClip) -> Unit,
     onPick: () -> Unit,
+    onOpenTimeline: () -> Unit,
+    onOpenRender: () -> Unit,
     onShare: (Uri) -> Unit,
     onRenameRequest: (StudioClip) -> Unit,
     onDeleteRequest: (StudioClip) -> Unit,
@@ -212,13 +222,16 @@ private fun ClipList(
         verticalArrangement = Arrangement.spacedBy(10.dp),
         contentPadding = PaddingValues(vertical = 12.dp),
     ) {
+        // Both ways into the editor sit on one row: they used to be two stacked pills, one of them
+        // a bare "Timeline" that read like a label rather than a button.
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 CrystalButton(onClick = onPick) { Text(stringResource(R.string.studio_open_video)) }
+                CrystalButton(filled = false, onClick = onOpenTimeline) { Text(stringResource(R.string.editor_open)) }
             }
         }
         if (studio.clips.isEmpty() && studio.phase != ExportPhase.Loading) {
-            item { ClipLibraryEmpty() }
+            item { ClipLibraryEmpty(onOpenRender) }
         }
         items(studio.clips.size) { index ->
             val clip = studio.clips[index]
@@ -237,7 +250,7 @@ private fun ClipList(
 }
 
 @Composable
-private fun ClipLibraryEmpty() {
+private fun ClipLibraryEmpty(onOpenRender: () -> Unit) {
     Column(
         Modifier
             .fillMaxWidth()
@@ -254,6 +267,8 @@ private fun ClipLibraryEmpty() {
             stringResource(R.string.studio_empty_body),
             style = MaterialTheme.typography.bodyMedium,
         )
+        // The empty state names Render, so it also takes you there instead of leaving the tab hunt to you.
+        CrystalButton(onClick = onOpenRender, compact = true) { Text(stringResource(R.string.studio_go_render)) }
     }
 }
 

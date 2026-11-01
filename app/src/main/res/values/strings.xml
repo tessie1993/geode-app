@@ -72,6 +72,22 @@
     <string name="settings_tab_help">Help</string>
     <string name="settings_tab_about">About</string>
     <string name="settings_tab_performance">Performance</string>
+    <!-- Settings index: the groups and one line under each section. -->
+    <string name="settings_group_app">App</string>
+    <string name="settings_group_music">Music</string>
+    <string name="settings_group_video">Video</string>
+    <string name="settings_group_help">Help and data</string>
+    <string name="settings_look_summary">Accent, text colour and size, layout</string>
+    <string name="settings_behavior_summary">Touch, safety, auto visuals, wallpaper, picture-in-picture</string>
+    <string name="settings_performance_summary">Visual quality, frame rate, battery</string>
+    <string name="settings_audio_summary">Playback, analysis, live input, other apps</string>
+    <string name="settings_lyrics_summary">Find or load lyrics for a track</string>
+    <string name="settings_folders_summary">Music, preset and export folders</string>
+    <string name="settings_export_summary">Opens Studio › Render</string>
+    <string name="settings_help_summary">How things work</string>
+    <string name="settings_tutorials_summary">Replay the tour, chapter by chapter</string>
+    <string name="settings_backup_summary">Save or restore your settings</string>
+    <string name="settings_about_summary">Version and app info</string>
     <string name="perf_mode_title">Mode</string>
     <string name="perf_mode_saver">Saver</string>
     <string name="perf_mode_balanced">Balanced</string>
@@ -396,8 +412,9 @@
     <!-- Studio: the clip shelf and the editor. -->
     <string name="studio_edit">Edit</string>
     <string name="studio_open_video">Open a video…</string>
+    <string name="studio_go_render">Go to Render</string>
     <string name="studio_empty_title">Nothing rendered yet</string>
-    <string name="studio_empty_body">Render a visual from Studio › Render and it lands here, ready to be cut, graded and sent somewhere. Any other video on the phone can be opened with the button above.</string>
+    <string name="studio_empty_body">Render a visual from Studio › Render and it lands here, ready to be cut, graded and sent somewhere. Any other video on the phone opens with Open a video.</string>
     <string name="studio_send">Send</string>
     <string name="studio_send_ellipsis">Send…</string>
     <string name="studio_share_chooser">Send video</string>
@@ -629,8 +646,6 @@
     <string name="export_fps_30">30 fps</string>
     <string name="export_fps_60">60 fps</string>
     <string name="studio_render_free_limits">Free and trial renders stop at 1 minute, up to 1080p at 30 fps, with a watermark. Loop renders need Pro.</string>
-    <string name="settings_export_moved">Export, loop render and the export defaults live in Studio › Render.</string>
-    <string name="settings_export_open_studio">Open Studio › Render</string>
     <string name="visuals_open_render">Export this visual in Studio › Render</string>
     <string name="export_spec">%1$s, %2$s, %3$d fps</string>
     <string name="export_rendering_offline">Rendering offline…</string>
@@ -878,7 +893,7 @@
 
     <!-- Studio clip preview. -->
     <!-- Timeline editor. -->
-    <string name="editor_open">Timeline</string>
+    <string name="editor_open">Timeline editor</string>
     <string name="editor_playhead">"Playhead  %1$s"</string>
     <string name="editor_undo">Undo</string>
     <string name="editor_redo">Redo</string>

@@ -88,7 +88,8 @@ fun StudioHub(
             onSelect = { onSection(StudioSection.entries[it]) },
         )
         when (section) {
-            StudioSection.EDIT -> ProGate(ProFeature.STUDIO) { StudioRoute() }
+            StudioSection.EDIT ->
+                ProGate(ProFeature.STUDIO) { StudioRoute(onOpenRender = { onSection(StudioSection.RENDER) }) }
             StudioSection.RENDER -> StudioRenderTab(viewModel, visualizerView)
             StudioSection.TAKES -> TakesTab(geodeViewModel())
         }

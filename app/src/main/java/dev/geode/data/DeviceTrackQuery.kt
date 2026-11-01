@@ -52,9 +52,9 @@ object DeviceTrackQuery {
                         out +=
                             DeviceTrack(
                                 uri = uri.toString(),
-                                title = c.getString(ti) ?: context.getString(dev.geode.R.string.library_unknown_title),
-                                artist = c.getString(ar) ?: context.getString(dev.geode.R.string.subtitle_unknown_artist),
-                                album = c.getString(al) ?: context.getString(dev.geode.R.string.library_unknown_album),
+                                title = c.tag(ti) ?: context.getString(dev.geode.R.string.library_unknown_title),
+                                artist = c.tag(ar) ?: context.getString(dev.geode.R.string.subtitle_unknown_artist),
+                                album = c.tag(al) ?: context.getString(dev.geode.R.string.library_unknown_album),
                                 folder = path.substringBeforeLast('/', ""),
                                 durationMs = c.getLong(du),
                                 addedSec = c.getLong(ad),
@@ -64,4 +64,12 @@ object DeviceTrackQuery {
         }
         return out
     }
+
+    /**
+     * A tag column, or null when MediaStore has none. Untagged files come back as the literal
+     * `<unknown>` ([MediaStore.UNKNOWN_STRING]) rather than null, and that token used to reach the
+     * library rows, the mini player and the render bar as is.
+     */
+    private fun android.database.Cursor.tag(index: Int): String? =
+        getString(index)?.takeUnless { it.isBlank() || it == MediaStore.UNKNOWN_STRING }
 }

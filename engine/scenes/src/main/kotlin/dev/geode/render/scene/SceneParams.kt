@@ -183,11 +183,11 @@ data class SceneParams(
     val reactAmount: Float = 1f,
     /** Which variant of the style's reaction DNA ([BuildStyleReactionsUseCase]) plays. */
     val reactSeed: Int = 0,
-    // Note & key reactions (core/viz Params.hpp, appended after reactSeed so every older wire index
-    // survives). Each is a per-style Customize control, and all of them are inert while
-    // Settings › Behaviour › Note & key reactions is off: the engine reads them only when the musical
-    // layer's note and key responses are switched on. The ParamRandomizer never rolls them.
     /**
+     * The first of Note & key reactions' fields (core/viz Params.hpp, appended after [reactSeed] so every
+     * older wire index survives). Each is a per-style Customize control, inert while Settings › Behaviour ›
+     * Note & key reactions is off, and the ParamRandomizer never rolls them.
+     *
      * How a note bloom looks on this style: 0 = the style's own look (the catalogue's `bloom` row,
      * [Catalogue.bloomLook]), else a [BloomLook] wire value (1 flower, 2 glow, 3 ripple, 4 burst).
      * Not lerped: a look switches, it does not blend.

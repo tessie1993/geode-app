@@ -97,8 +97,7 @@ import kotlin.math.pow
  * Customize › Advanced: one card per deep editor, each opening its own page inside the panel.
  *
  * WHY a data-driven list: the next wave of the reactive work (Camera moves, a reaction grid,
- * Moods, Phone motion, Colour follow and the modulation matrix, docs/research/REACTIVE_VISUALS.md
- * §5 and §7) each arrives as a new card. Adding one is one entry here plus one branch in
+ * Moods, Phone motion, Colour follow and the modulation matrix) each arrives as a new card. Adding one is one entry here plus one branch in
  * [AdvancedSectionBody]; the list, the paywall lock, back, search and the sticky toolbar need no
  * change. [MODULATION_MATRIX] is that slot, reserved and not offered yet.
  *

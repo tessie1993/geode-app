@@ -5,7 +5,7 @@ package dev.geode.render.scene
  *
  * Two kinds of entry share this enum on purpose. The first five are what the panel shows, in
  * order ([PANEL]): simple first, Advanced at the back, so a listener who only wants "make it
- * warmer" never meets an envelope editor (docs/research/REACTIVE_VISUALS.md §7).
+ * warmer" never meets an envelope editor.
  *
  * - [MACROS]: six knobs laid over every style (core/viz/Macros), kept outside the params and
  *   presets, so it owns no parameter.

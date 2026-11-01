@@ -110,7 +110,8 @@ object Catalogue {
                         "value" -> values[f[1]] = f[2].toFloat()
                         "bloom" -> {
                             val look = BloomLook.valueOf(f[1])
-                            f.getOrNull(2)?.split(',')?.filter { it.isNotEmpty() }?.forEach { blooms[it] = look }
+                            val ids = f.getOrNull(2).orEmpty().split(',')
+                            for (id in ids) if (id.isNotEmpty()) blooms[id] = look
                         }
                     }
                 }

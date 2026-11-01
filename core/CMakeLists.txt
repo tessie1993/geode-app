@@ -5,6 +5,10 @@ add_library(geode_core STATIC
     api/geode_catalogue_api.cpp
     api/geode_params_api.cpp
     sound/Fft.cpp
+    sound/Emotion.cpp
+    sound/Form.cpp
+    sound/Harmony.cpp
+    sound/Rhythm.cpp
     sound/SoundEngine.cpp
     library/Tags.cpp
     audio/dsp/Equalizer.cpp
@@ -29,6 +33,7 @@ add_library(geode_core STATIC
     viz/ParamsFields.cpp
     viz/Lfo.cpp
     viz/Macros.cpp
+    viz/Director.cpp
     viz/Adsr.cpp
     viz/MotionField.cpp
     viz/ReactionDna.cpp

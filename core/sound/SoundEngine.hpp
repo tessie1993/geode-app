@@ -5,6 +5,9 @@
 
 #include "sound/FilterBank.hpp"
 #include "sound/Fft.hpp"
+#include "sound/Form.hpp"
+#include "sound/Harmony.hpp"
+#include "sound/Rhythm.hpp"
 #include "sound/SoundFrame.h"
 #include "sound/Stages.hpp"
 
@@ -25,7 +28,15 @@ namespace geode::sound {
 //            └► filter bank (per sample) ─► step(dt): slice levels ─► lag, threshold, gain ─► low/middle/high
 //                                                                  └► punch ─► triggers ─► envelopes
 //
-// No clock of its own and no hop: the frame is the unit, and each stage scales its smoothing by dt.
+// No clock of its own: the frame is the unit, and each stage scales its smoothing by dt. The one
+// exception is the musical layer's rhythm (Rhythm), which needs an evenly sampled onset envelope and so
+// runs on a fixed 10 ms hop of the samples write() receives; harmony and form (Harmony, Form) step with
+// the frame like everything else:
+//
+//   write() ─► filter bank ─► every 10 ms of audio: band powers ─► Rhythm (tempo, beat, bar, phrase)
+//   step(dt) ─► long spectrum ─► Harmony (chroma, key, tension) ─┐
+//            ─► EQ, timbre, loudness, bass share, hits ───────────┴► Form (novelty, sections, build, drop)
+//
 // The export path writes exactly the audio up to each video frame and steps with dt = 1/fps, through
 // this same code; one engine per surface (screen, wallpaper, export), never shared between threads.
 class SoundEngine {
@@ -120,6 +131,8 @@ private:
         float noteCount = 0.0f;
         float noteTime = 0.0f;
         float presenceFade = 0.0f;
+        std::array<RelativeLevel, 3> bandFlux;  // low, mid, high
+        RelativeLevel hfc;
     };
 
     BinRange bins(float loHz, float hiHz) const;
@@ -134,6 +147,7 @@ private:
     void events(float dt, bool warm, GeodeSoundFrame& out);
     void melody(float dt, GeodeSoundFrame& out);
     void clocks(float dt, GeodeSoundFrame& out);
+    void musical(float dt, bool warm, bool silent, GeodeSoundFrame& out);
     void estimatePitch(float held, float& midi, float& confidence, float& evenness);
 
     // Configuration, fixed after construction.
@@ -185,6 +199,12 @@ private:
     std::vector<float> pitchMag_;
     std::vector<float> waveRaw_;
     std::vector<float> wavePrev_;
+
+    // The musical layer.
+    Rhythm rhythm_;
+    Harmony harmony_;
+    Form form_;
+    int hopFill_ = 0;  // samples written since the rhythm's last hop
 
     State state_;
 };

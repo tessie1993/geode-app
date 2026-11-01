@@ -44,13 +44,20 @@ enum class ReactSource {
     Glide, Vibrato, Evenness, RunDensity,
     // EQ: the 16 Band EQ centres (25 Hz … 22 kHz), each relative like the levels.
     Eq25, Eq40, Eq60, Eq90, Eq150, Eq240, Eq370, Eq590, Eq930, Eq1k5, Eq2k3, Eq3k6, Eq5k6, Eq8k9, Eq14k, Eq22k,
+    // The musical layer (core/sound: Rhythm, Harmony, Form). Rhythm: phases ramp 0..1 per beat, bar and
+    // 8-bar phrase; tempo reads bpm / 200; the onset kinds are relative.
+    BeatPhase, BarPhase, PhrasePhase, BeatConf, Bpm, Beat, Downbeat, Phrase, FluxLow, FluxMid, FluxHigh, Hfc,
+    // Harmony: key, chord, tension, and the scale's mood from the musical intelligence database.
+    KeyHue, KeyRoot, KeyMajor, KeyClarity, ChordHue, Tension, HarmonicChange, ScaleRoot, ScaleBrightness, ScaleTension, ScaleFit,
+    // Form: the song part reads state / 5 (GEODE_SECTION_*), the section number id / 7.
+    Novelty, SectionChange, SectionState, SectionId, BuildUp, Drop,
 };
-constexpr int kReactSourceCount = static_cast<int>(ReactSource::Eq22k) + 1;
+constexpr int kReactSourceCount = static_cast<int>(ReactSource::Drop) + 1;
 
 // The source catalogue: what the Customize picker, the Events recipes and the saved formats call each
 // source. C++ owns it (the user's rule: the reaction feature lives in C++); Kotlin reads it over JNI
 // (geode_react_source_catalog) and does not keep its own list. `name` is the stable saved name,
-// `group` the picker section (LEVELS, DRUMS, EVENTS, MELODY, CLOCKS, TEXTURE, EQ), `event` a trigger
+// `group` the picker section (LEVELS, DRUMS, EVENTS, MELODY, CLOCKS, TEXTURE, EQ, RHYTHM, HARMONY, FORM), `event` a trigger
 // held as an envelope rather than a level.
 struct ReactSourceInfo {
     const char* name;

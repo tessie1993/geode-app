@@ -17,7 +17,6 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import dev.geode.render.scene.SceneIds
-import dev.geode.render.scene.SceneParams
 import org.junit.After
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -25,7 +24,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** The layer lives on the Scene tab, and a search for it finds it there. */
+/** The layer lives in Customize › Advanced › Layers, and a search for it finds it there. */
 @RunWith(AndroidJUnit4::class)
 class SceneTabLayersTest {
     @get:Rule
@@ -42,13 +41,13 @@ class SceneTabLayersTest {
     }
 
     @Test
-    fun layeringSitsOnTheSceneTabAndASearchFindsIt() {
+    fun layeringSitsOnTheLayersPageAndASearchFindsIt() {
         var query by mutableStateOf("")
         compose.setContent {
             MaterialTheme {
                 CompositionLocalProvider(LocalSceneId provides SceneIds.KIFS, LocalParamQuery provides query) {
                     Column(Modifier.verticalScroll(rememberScrollState())) {
-                        SceneTab(SceneParams.DEFAULT, {}, null, 1f, {}, {})
+                        LayersPage()
                     }
                 }
             }

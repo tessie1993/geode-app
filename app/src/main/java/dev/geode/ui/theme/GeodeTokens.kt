@@ -80,6 +80,12 @@ object GeodeSpacing {
     val TouchTarget = 48.dp
 }
 
+/** Corner radii: Medium for cards and chips, ExtraLarge for sheets and large surfaces. */
+object GeodeRadius {
+    val Medium = 12.dp
+    val ExtraLarge = 28.dp
+}
+
 /** Durations in milliseconds; [GeodeMotion.REDUCED] replaces all of them under reduced motion. */
 object GeodeMotion {
     const val PRESS = 90

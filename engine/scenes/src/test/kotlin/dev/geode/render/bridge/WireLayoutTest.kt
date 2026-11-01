@@ -62,7 +62,7 @@ class WireLayoutTest {
     @Test
     fun enumOrdinalsMatchTheNativeEnums() {
         // core/viz/Reactions.hpp: Eq22k is last, Toggle is last; core/viz/Lfo.hpp: CamShake is last.
-        assertEquals(88, ReactSource.entries.size)
+        assertEquals(117, ReactSource.entries.size)
         assertEquals(72, ReactSource.EQ_25.ordinal)
         assertEquals(46, ReactSource.KICK.ordinal)
         assertEquals(55, ReactSource.HARD_CUT.ordinal)

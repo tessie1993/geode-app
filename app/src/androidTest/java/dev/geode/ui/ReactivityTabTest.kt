@@ -33,9 +33,9 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * The reaction editor (now on the Events tab, beside the event recipes), driven through its
- * hoisted state exactly as VisualsHub drives it: the tab only reports edits, and this test plays
- * the ViewModel. The class keeps its name because CI and the device checklist refer to it.
+ * The reaction editor (Advanced › Reactions) under the Events page's recipes, driven through
+ * their hoisted state exactly as CustomizePanel drives them: the pages only report edits, and
+ * this test plays the ViewModel. The class keeps its name because CI and the device checklist refer to it.
  */
 @RunWith(AndroidJUnit4::class)
 class ReactivityTabTest {
@@ -60,8 +60,14 @@ class ReactivityTabTest {
                             onChange = { params = it },
                             reactions = reactions,
                             onReactionsChange = { reactions = it },
+                        )
+                        // Advanced › Reactions, the route list the recipes write into.
+                        ReactionsSection(
+                            p = params,
+                            reactions = reactions,
+                            onReactionsChange = { reactions = it },
                             // What ModulationController.rerollReactions does.
-                            onRerollReactions = {
+                            onReroll = {
                                 reactions = null
                                 params = params.copy(reactSeed = params.reactSeed + 1)
                             },
@@ -95,13 +101,13 @@ class ReactivityTabTest {
         dna(sceneId, 0).forEach { r ->
             assertTrue(summary(r), compose.onAllNodesWithText(summary(r), substring = true).fetchSemanticsNodes().isNotEmpty())
         }
-        compose.onNodeWithText("Back to style DNA").assertDoesNotExist()
+        compose.onNodeWithText("Use the style's own reactions").assertDoesNotExist()
     }
 
     @Test
     fun rerollShowsTheNextDna() {
         setTab()
-        clickText("Re-roll DNA")
+        clickText("Shuffle reactions")
         assertEquals(1, params.reactSeed)
         assertNull(reactions)
         dna(sceneId, 1).forEach { r ->
@@ -116,11 +122,11 @@ class ReactivityTabTest {
         clickText("Add")
         assertEquals(routes.size + 1, reactions!!.size)
         assertEquals(routes, reactions!!.dropLast(1))
-        compose.onNodeWithText("Back to style DNA").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Use the style's own reactions").performScrollTo().assertIsDisplayed()
 
-        clickText("Back to style DNA")
+        clickText("Use the style's own reactions")
         assertNull(reactions)
-        compose.onNodeWithText("Back to style DNA").assertDoesNotExist()
+        compose.onNodeWithText("Use the style's own reactions").assertDoesNotExist()
     }
 
     @Test

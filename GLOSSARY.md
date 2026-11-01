@@ -29,13 +29,13 @@ _Avoid_: External audio, visualize other apps (UI label only)
 
 ## Watching
 
-**Sound engine**:
-The native code (`core/sound`) that hears the audio, stepped once per rendered frame. Each surface (screen, wallpaper, dream, export) runs its own.
-_Avoid_: Analyser, analysis
+**Audio features**:
+What the analysis hears in one moment of audio: levels, bands, onsets, beat, bar, key, section.
+_Avoid_: FFT data, spectrum (the spectrum is one feature)
 
-**Sound frame**:
-What the sound engine hears in one rendered frame (`GeodeSoundFrame`): relative levels, shaped bands, clocks, drum and event triggers, melody, stereo, the EQ bands, a spectrum and a waveform.
-_Avoid_: Audio features, FFT data, spectrum (the spectrum is one part of it)
+**Feature timeline**:
+The audio features of a whole track, computed ahead of time, so an export is frame-exact.
+_Avoid_: Analysis cache (that is where it is stored)
 
 **Scene**:
 One kind of visual the engine can draw (a fluid, cymatics, MilkDrop…), named by a scene id.
@@ -84,7 +84,18 @@ The full set of tunable values a scene is drawn with at one moment.
 _Avoid_: Settings, knobs
 
 **Customize tabs**:
-The groups the scene params are edited in: Macros first, then Events, then the detail tabs (Shape, Colour, Motion, FX, Reactivity, Scene) and the per-family tabs.
+The pages the scene params are edited in, simple first: Macros, Look (what every style shares), the style's own page (titled with its name), Events, then Advanced. The engine still rolls and resets by its own groups (Shape, Colour, Motion, Effects, Sound response, Scene, Fluid, Cymatics).
+
+**Advanced section**:
+One card in Customize › Advanced (Sound response, Reactions, Layers, Camera, Transitions, Gradient maker, Flow field & water ripples, Shader code), opening its own page. All Pro.
+
+**Wave**:
+One of the three modulation slots: an LFO that runs steadily or follows a sound, moving one control.
+_Avoid_: Slot, LFO (in the UI)
+
+**Keep when shuffling**:
+The per-control lock that holds a control still when Randomize rolls its page.
+_Avoid_: Lock (that word belongs to Pro)
 
 **Reaction route**:
 One line of the reaction matrix: a sound (band, level or event) moves one scene param, by following, stepping, spinning or jumping.
@@ -94,10 +105,11 @@ _Avoid_: Binding, mapping
 A route mode: each hit holds a new random value for its target (sample and hold), seeded so an export draws the same ones.
 
 **Toggle**:
-A route mode: each hit flips its target between rest and the full amount, such as a palette swap on every sixteenth kick.
+A route mode: each hit flips its target between rest and the full amount, such as a palette swap per phrase.
 
-**Groove sides**:
-The kick side and the snare side of the beat. Style DNA gives each side its own personality, from different groups, so the two halves of a groove look different.
+**Phrase**:
+Eight bars of music, or fewer when the analyser hears a section change. Phrase beat A fires on the beat in even phrases and phrase beat B in odd ones, so a style can answer the beat one way, then another.
+_Avoid_: Section (that is the analyser's structure boundary)
 
 **Style DNA**:
 The reaction routes a style plays until the user edits them, generated from the style id and a seed.
@@ -133,6 +145,10 @@ _Avoid_: Profile, config
 
 **Milk preset**:
 A MilkDrop `.milk` file, drawn by the MilkDrop scene; a milk pack is a zip of them.
+
+**Theme pack**:
+The app's own look: palette, motion, material, sounds and per-component surface art, named after a stone.
+_Avoid_: Theme (alone), skin
 
 ## Making
 
@@ -172,7 +188,7 @@ _Avoid_: Render (the GPU part of an export), save
 An export that draws one short seamless loop and repeats it to fill a long track.
 
 **Chapter markers**:
-The start of each audio clip the user put in a long-form mix, written beside an export so players can jump between them. Never detected from the audio.
+Section boundaries written into an export so players can jump between them.
 
 ## Surfaces
 
@@ -186,10 +202,42 @@ _Avoid_: Screensaver (UI label only)
 **Widget**:
 The home-screen now-playing widget.
 
+**Musical layer**:
+The part of the sound engine that hears music rather than sound: tempo and beat (Rhythm), key, chords and scale (Harmony), and sections, build-ups and drops (Form). See `docs/research/musical-layer.md`.
+
+**Beat phase / bar phase / phrase**:
+Where the music is within its beat, its 4-beat bar and its 8-bar phrase, 0 at the start, 1 at the end. A downbeat is the first beat of a bar.
+_Avoid_: Beat clock (the hit clock is a different thing)
+
+**Section**:
+A stretch of the song that sounds of a piece (verse, chorus, breakdown). A section change fires on a downbeat, one bar after the boundary; a returning section keeps its number.
+_Avoid_: Scene (a scene is a visual), part
+
+**Section state**:
+The song part a section is read as: intro, verse, build, drop, breakdown or outro.
+
+**Build-up / drop**:
+A build-up is a passage getting louder, brighter and busier with the bass pulled out; the drop is the bass coming back after it.
+
+**Feeling**:
+What the music feels like now: valence (sad … happy), energy and tension, and which of the nine GEMS feelings (wonder, transcendence, tenderness, nostalgia, peace, power, joy, tension, sadness) leads. Three quarters from the scale (measured), a quarter from the key (Schubart's tradition). Never shown as a word. See `docs/research/auto-director.md`.
+_Avoid_: Mood label, emotion name
+
+**Auto-director**:
+Settings › Behaviour's switch that lets the feeling choose a look at each section, drop or key change: palette, macro knobs, camera moves and what reacts to what, on every style. Pro; free gets the first minute of each song.
+_Avoid_: Auto visuals (that switches styles on a timer)
+
+**Look**:
+One auto-director decision: a palette, a behaviour and a set of routes, glided in over a bar. Never the same look twice in a row of six.
+
+**Scale mood**:
+The brightness (dark Locrian … bright Lydian) and tension of the scale the music is in, from the musical intelligence database (`docs/musical-intelligence`).
+_Avoid_: Emotion (it is a design reading, not a measurement)
+
 ## Code
 
 **Engine**:
-Code that turns sound into numbers or numbers into pixels: DSP, the sound engine, reactions, scene parameter maths, camera, randomizers and the scene and style metadata. It lives in C++ (`core/`). See ADR 0003. Not the `:engine:*` Gradle modules, which still hold both engine and shell Kotlin.
+Code that turns sound into numbers or numbers into pixels: DSP, analysis, feature maths, reactions, scene parameter maths, camera, randomizers and the scene and style metadata. It lives in C++ (`core/`). See ADR 0003. Not the `:engine:*` Gradle modules, which still hold both engine and shell Kotlin.
 _Avoid_: Core logic, backend
 
 **Shell**:

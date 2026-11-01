@@ -38,6 +38,7 @@ class SoundFrameLayoutTest {
         assertEquals(define(text, "GEODE_SOUND_EQ_BANDS"), SoundFrameLayout.EQ_BANDS)
         assertEquals(define(text, "GEODE_SOUND_SPECTRUM_POINTS"), SoundFrameLayout.SPECTRUM_POINTS)
         assertEquals(define(text, "GEODE_SOUND_WAVEFORM_POINTS"), SoundFrameLayout.WAVEFORM_POINTS)
+        assertEquals(define(text, "GEODE_SOUND_CHROMA"), SoundFrameLayout.CHROMA_POINTS)
         assertEquals(define(text, "GEODE_SOUND_TUNING_FLOATS"), SoundFrameLayout.TUNING_FLOATS)
     }
 

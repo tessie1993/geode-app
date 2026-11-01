@@ -23,6 +23,7 @@
     <string name="pro_title_screensaver">Your visuals, as a screensaver</string>
     <string name="pro_title_styles">Every visual style, unlocked</string>
     <string name="pro_title_customization">Shape every detail</string>
+    <string name="pro_title_auto_director">Let the music direct the whole song</string>
     <string name="pro_subtitle">One payment. Every style, every tool, yours to keep. No subscription.</string>
     <string name="pro_subtitle_trial_ended">Liked what you saw? Keep it all with a single payment. No subscription.</string>
 
@@ -48,6 +49,9 @@
     <string name="pro_row_studio">Studio editor</string>
     <string name="pro_row_wallpaper">Live wallpaper and screensaver</string>
     <string name="pro_row_customization">Advanced look controls</string>
+    <string name="pro_row_auto_director">Auto-director</string>
+    <string name="pro_row_auto_director_free">First minute</string>
+    <string name="pro_row_auto_director_pro">Whole song</string>
     <string name="pro_included">Included</string>
     <string name="pro_not_included">Not included</string>
     <!-- Spoken for each comparison row: "Export resolution. Free: Up to 1080p. Pro: Up to 4K." -->

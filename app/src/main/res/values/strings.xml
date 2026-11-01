@@ -785,6 +785,10 @@
     <string name="behavior_group_display">Connected display</string>
     <string name="behavior_group_safety">Visual safety</string>
     <string name="behavior_group_auto">Auto visuals</string>
+    <string name="behavior_group_director">Auto-director</string>
+    <string name="director_switch">Let the music direct the visuals</string>
+    <string name="director_body">The key, the scale and the song\'s sections decide the colours, the motion, the camera and what reacts to what, on every style. Each play looks different; the feeling stays.</string>
+    <string name="director_taste">Free: the first minute of each song. Pro: the whole song.</string>
     <string name="behavior_group_wallpaper">Live wallpaper</string>
     <string name="behavior_group_pip">Picture-in-picture</string>
     <string name="behavior_touch_smear">Smear the visuals with a finger</string>

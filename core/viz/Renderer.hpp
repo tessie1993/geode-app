@@ -15,6 +15,7 @@
 #include "viz/Adsr.hpp"
 #include "viz/CameraRig.hpp"
 #include "viz/CompositePass.hpp"
+#include "viz/Director.hpp"
 #include "viz/Framebuffer.hpp"
 #include "viz/GlProfile.hpp"
 #include "viz/Lfo.hpp"
@@ -175,6 +176,8 @@ private:
     MotionField motionField_;
     ReactionEngine reactions_;
     ReactionEngine macroReactions_;
+    // The auto-director (viz/Director): the music's feeling deciding palette, behaviour and routing.
+    Director director_;
     CameraRig camera_;
     // One engine per renderer (one per surface), so each is frame-locked to its own dt. Guarded by soundLock_
     // only because writeAudio and soundFrame are public; in practice one thread does everything.
@@ -184,6 +187,8 @@ private:
     GeodeSoundFrame soundFrame_{};
     // Customize › Macros: this frame's knobs, and the ones the sound engine's tuning was last built from.
     MacroKnobs frameKnobs_{};
+    // The user's knobs with the director's laid over them, this frame; what the params and the camera read.
+    MacroKnobs directedKnobs_{};
     MacroKnobs tunedKnobs_{};
     std::atomic<float> lookYaw_{0.0f};
     std::atomic<float> lookPitch_{0.0f};

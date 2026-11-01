@@ -23,7 +23,7 @@ enum class ProFeature {
     /** Exports longer than [FreeTier.FREE_MAX_EXPORT_MS], loop renders, and Studio exports. */
     FULL_LENGTH_EXPORT,
 
-    /** The multi-clip Studio editor: timeline, keyframes, transitions, markers, captions. */
+    /** The multi-clip Studio editor: timeline, keyframes, transitions, auto-cut, captions. */
     STUDIO,
 
     /** The visualizer as a live wallpaper. */

@@ -16,7 +16,6 @@
 #include "viz/CameraRig.hpp"
 #include "viz/CompositePass.hpp"
 #include "viz/Director.hpp"
-#include "viz/FlashLimitPass.hpp"
 #include "viz/Framebuffer.hpp"
 #include "viz/GlProfile.hpp"
 #include "viz/Lfo.hpp"
@@ -134,7 +133,7 @@ private:
     float drawSecondaryTargets(const SceneParams& p, float dt);
     void bindSecondaryTarget();
     void drawSceneTarget(Scene& scene, const SceneParams& p, float dt);
-    void composite(Scene& scene, const SceneParams& p, float progress, float dt, GLuint targetFbo);
+    void composite(Scene& scene, const SceneParams& p, float progress, GLuint targetFbo);
     void deliverPcm(Scene& scene);
     void stepOverlays(Scene& scene, const SceneParams& p, float dt);
     void stepCamera(const SceneParams& p, float dt);
@@ -172,11 +171,6 @@ private:
     TrailPass trailPass_;
     CompositePass compositePass_;
     CompositePass::Inputs compositeInputs_;
-    // The output flash limiter: composite() draws into it and it draws on to the real target, so
-    // everything shown (live, wallpaper, dream, export) holds to three flashes a second.
-    FlashLimitPass flashLimit_;
-    // Counts the post pass's own flash term (uPostFlash * uBeat) at its source, before the output
-    // limiter, so a strobing post flash is trimmed where it is made rather than by dimming tiles.
     FlashBudget flashBudget_;
     ThermalGovernor thermal_;
     LfoEngine lfo_;

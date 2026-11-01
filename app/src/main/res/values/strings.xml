@@ -93,13 +93,6 @@
     <string name="perf_adaptive">Adapt to frame time</string>
     <string name="perf_adaptive_hint">Steps quality down while frames run slow, and back up once they keep up.</string>
     <string name="perf_export_note">Applies to the visualizer, wallpaper and screensaver. Exports always render at full quality.</string>
-    <string name="perf_ambient_title">Wallpaper and screensaver</string>
-    <string name="perf_ambient_fps">Frame rate</string>
-    <string name="perf_ambient_saver">Battery saver</string>
-    <string name="perf_ambient_smooth">Smooth</string>
-    <string name="perf_ambient_saver_hint">30 fps while music plays, 15 fps when no music is playing. Easiest on the battery.</string>
-    <string name="perf_ambient_smooth_hint">60 fps while music plays, 15 fps when no music is playing. Uses more battery.</string>
-    <string name="perf_ambient_note">Never above the frame rate cap. The visualizer inside MuzViz and exports are not affected.</string>
 
     <!-- Settings > Help -->
     <string name="help_topics_group">How things work</string>

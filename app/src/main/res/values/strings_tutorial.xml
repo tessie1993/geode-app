@@ -69,7 +69,7 @@
     <string name="tutorial_studio_2_title">Seamless loops</string>
     <string name="tutorial_studio_2_body">Loop render makes a clip that ends exactly where it began, ready for a canvas, a story or a stream background.</string>
     <string name="tutorial_studio_3_title">Cut it together</string>
-    <string name="tutorial_studio_3_body">Studio › Edit is a timeline: clips, keyframes and markers. Tap along with the music to drop a marker on every hit.</string>
+    <string name="tutorial_studio_3_body">Studio › Edit is a timeline: clips, keyframes, markers, and an auto-cut that drops a cut on every hit in the music.</string>
 
     <string name="tutorial_anywhere_1_title">Live wallpaper</string>
     <string name="tutorial_anywhere_1_body">Your last style can live on your home screen, reacting to whatever MuzViz is playing. Set it up in Settings › Behavior.</string>

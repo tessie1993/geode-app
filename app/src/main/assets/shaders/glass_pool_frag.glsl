@@ -47,16 +47,16 @@ out vec4 fragColor;
 
 #define PL_DEPTH 0.55
 
-/** The pool floor at `f`: mosaic tiles, grout, a lane stripe. */
+GlassLook gLk;
+
+/** The pool floor at `f`: mosaic tiles carrying the FRACTAL world as their glaze, with grout. */
 vec3 tiles(vec2 f, float hue, float size) {
     vec2 g = f / size;
     vec2 id = floor(g);
     vec2 e = abs(fract(g) - 0.5);
     float grout = smoothstep(0.455, 0.48, max(e.x, e.y));
     float h = glassHash(id);
-    vec3 c = mix(pal(hue + 0.5), mix(pal(hue + 0.55), vec3(0.85, 0.95, 1.0), 0.5), 0.3 + 0.5 * h);
-    float lane = 1.0 - smoothstep(0.1, 0.12, abs(f.x - 1.4));
-    c = mix(c, pal(hue + 0.9) * 0.2, lane);
+    vec3 c = glassFractal2(f * 0.35, gLk, 0.0) * 2.0 + pal(hue + 0.5) * 0.05 * (0.5 + h);
     return mix(c * 0.6, c * 0.3 + 0.05, grout);
 }
 
@@ -82,6 +82,7 @@ void main() {
     GlassEar ear = glassListen();
     float hue = 0.05 * sin(t * 0.02) + 0.12 * uKeyStrength * sin(GLASS_TAU * uKeyHue);
     GlassLook lk = glassLook(GLASS_ENV_DUSK, hue, ear);
+    gLk = glassLook(GLASS_ENV_FRACTAL, hue, ear);
     vec2 p = uv * 2.2 + uCamLook.xy * 0.3;
     float chop = 0.55 + 0.35 * clamp(ear.bass, 0.0, 1.2) + 0.5 * ear.snare;
     float sharp = mix(0.05, 0.012, ear.sharp) * (1.0 + 2.0 * ear.frost);

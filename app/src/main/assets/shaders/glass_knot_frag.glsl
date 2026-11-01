@@ -103,7 +103,7 @@ void main() {
     float t = glassTime();
     GlassEar ear = glassListen();
     float hue = 0.04 * sin(t * 0.02) + 0.12 * uKeyStrength * sin(GLASS_TAU * uKeyHue);
-    GlassLook lk = glassLook(GLASS_ENV_AURORA, hue, ear);
+    GlassLook lk = glassLook(GLASS_ENV_FRACTAL, hue, ear);
     float spread = 0.015 + 0.04 * ear.sharp;
     float frost = ear.frost * 0.5;
     float coat = 200.0 + 450.0 * ear.height;
@@ -184,6 +184,7 @@ void main() {
             refr += glassEnv(d2, lk) * absorb * absorb * fx * 0.8;
         }
         col = (refr * (1.0 - frC) + refl * frC) * glassStepAO(used * 0.5);
+        col += glassRim(cosI, hue + 0.1, 1.0);
         col += vec3(1.0) * glassGlint(gOrient * p, 9.0, ear.hat) * (0.3 + fr);
     }
 

@@ -55,7 +55,7 @@ void main() {
     float t = glassTime();
     GlassEar ear = glassListen();
     float hue = 0.05 * sin(t * 0.02) + 0.12 * uKeyStrength * sin(GLASS_TAU * uKeyHue);
-    GlassLook lk = glassLook(GLASS_ENV_DEEP, hue, ear);
+    GlassLook lk = glassLook(GLASS_ENV_FRACTAL, hue, ear);
     vec3 key = glassKeyDir(lk);
     vec3 sunDir = normalize(vec3(key.x, max(key.y, 0.4), key.z));
 
@@ -89,6 +89,8 @@ void main() {
         float stone = smoothstep(0.86, 0.9, glassHash(floor(sp * 1.4)) * (1.0 - length(fract(sp * 1.4) - 0.5)));
         vec3 sand = mix(vec3(0.75, 0.68, 0.52), pal(hue + 0.15), 0.2) * (0.55 + 0.25 * rip);
         sand = mix(sand, vec3(0.08, 0.07, 0.07), stone * 0.8);
+        // The sea floor is alive: the FRACTAL world glows through the sand like bioluminescence.
+        sand = sand * 0.35 + glassFractal2(sp * 0.3, lk, 0.0) * 1.6;
         // The net: waves at the point above, shifted toward the sun so it leans with the light.
         vec3 hess;
         vec2 cross = glassChaos() * 0.3 * vec2(sin(sp.y + t), cos(sp.x - t));
@@ -116,6 +118,7 @@ void main() {
         vec3 rr = reflect(rd, n);
         col = through * (1.0 - fr) * 1.3 + glassEnv(rr, lk) * fr;
         col += vec3(1.0, 0.97, 0.9) * 3.0 * pow(max(dot(rr, sunDir), 0.0), 180.0);
+        col += glassRim(cosI, hue, 1.0);
         col += mix(water, vec3(1.0), 0.5) * pow(1.0 - cosI, 3.0) * 0.4;
     }
     // The water between: absorption, then the shafts.

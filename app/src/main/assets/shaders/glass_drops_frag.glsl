@@ -77,12 +77,13 @@ vec3 bokeh(vec2 x, float cell, float blur, float fringe, float hue, float seed, 
     return col * flick;
 }
 
-/** The city behind the pane, at defocus `blur` 0 (sharp) .. 1. */
+GlassLook gLk;
+
+/** The world behind the pane (the FRACTAL world, with bokeh lights over it), at defocus `blur` 0 (sharp) .. 1. */
 vec3 city(vec2 p, float blur, float fringe, float hue, float twinkle) {
-    vec3 sky = mix(pal(hue + 0.6) * 0.08, vec3(0.01, 0.01, 0.025), smoothstep(-0.6, 1.0, p.y));
-    sky += vec3(0.8, 0.45, 0.2) * 0.06 * (1.0 - smoothstep(-1.2, 0.2, p.y));
-    vec3 col = sky + bokeh(p, 0.32, blur, fringe, hue, 1.0, twinkle);
-    col += 0.7 * bokeh(p + vec2(0.13, 0.07), 0.19, blur, fringe, hue + 0.3, 5.0, twinkle);
+    vec3 sky = glassFractal2(p * 0.8, gLk, blur * 0.18) * (1.0 - 0.45 * blur);
+    vec3 col = sky + 0.5 * bokeh(p, 0.32, blur, fringe, hue, 1.0, twinkle);
+    col += 0.35 * bokeh(p + vec2(0.13, 0.07), 0.19, blur, fringe, hue + 0.3, 5.0, twinkle);
     return col;
 }
 
@@ -114,6 +115,7 @@ void main() {
     float t = glassTime();
     GlassEar ear = glassListen();
     float hue = 0.05 * sin(t * 0.02) + 0.12 * uKeyStrength * sin(GLASS_TAU * uKeyHue);
+    gLk = glassLook(GLASS_ENV_FRACTAL, hue, ear);
     vec2 cp = uv + uCamLook.xy * 0.2 + vec2(0.2 * ear.pan, 0.0);
     float slide = glassGlide(SND_ONSET_COUNT, SND_ONSET_ENV) * 0.35 * min(glassEnergy(), 1.5);
     float mist = 0.55 + 0.45 * ear.frost;

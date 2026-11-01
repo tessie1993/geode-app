@@ -115,7 +115,7 @@ void main() {
     gT = t;
     GlassEar ear = glassListen();
     float hue = 0.04 * sin(t * 0.021) + 0.12 * uKeyStrength * sin(GLASS_TAU * uKeyHue);
-    GlassLook lk = glassLook(GLASS_ENV_AURORA, hue, ear);
+    GlassLook lk = glassLook(GLASS_ENV_FRACTAL, hue, ear);
     gNod = ear.kick * 0.6;
     gHalf = 0.38 + 0.05 * clamp(ear.bass, 0.0, 1.2);
     gFlip = clamp(SND_SNARE_TOGGLE, 0.0, 1.0) * min(glassEnergy(), 1.0);
@@ -179,6 +179,7 @@ void main() {
             refr += glassEnv(d2, inner) * absorb * absorb * fx * 0.8;
         }
         vec3 block = (refr * (1.0 - fr) + refl * fr) * glassStepAO(used * 0.4);
+        block += glassRim(cosI, hue + glassHash3(c) * 0.6, 1.0);
         block += vec3(1.0) * glassGlint(cellRot(c) * lq, 8.0, ear.hat) * (0.3 + fr);
         col = mix(block, col, smoothstep(CB_FAR * 0.45, CB_FAR, hitT));
     }

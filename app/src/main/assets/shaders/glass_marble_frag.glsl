@@ -47,7 +47,7 @@ out vec4 fragColor;
 // 5 / 8 / 12 volume samples (Saver / Balanced / High), each three plane
 // distances; 6 world lookups on the marble's pixels. Analytic, no march.
 
-#define MB_CAM_R 3.6
+#define MB_CAM_R 4.3
 #define MB_R 1.45
 
 void main() {
@@ -55,7 +55,7 @@ void main() {
     float t = glassTime();
     GlassEar ear = glassListen();
     float hue = 0.04 * sin(t * 0.019) + 0.12 * uKeyStrength * sin(GLASS_TAU * uKeyHue);
-    GlassLook lk = glassLook(GLASS_ENV_DUSK, hue, ear);
+    GlassLook lk = glassLook(GLASS_ENV_FRACTAL, hue, ear);
     float ior = 1.5;
     float spread = 0.015 + 0.035 * ear.sharp;
     int bounces = glassBounces();
@@ -139,6 +139,7 @@ void main() {
         vec3 inside = through * trans + acc;
         vec3 refl = glassEnv(reflect(rd, n), lk);
         col = inside * (1.0 - fr) + refl * fr;
+        col += glassRim(cosI, hue + 0.2, 0.5);
         col += vec3(1.0) * glassGlint(inv * (p - c), 6.0, ear.hat) * (0.4 + fr);
     }
 

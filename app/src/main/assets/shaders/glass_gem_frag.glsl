@@ -54,7 +54,7 @@ out vec4 fragColor;
 // covers a fifth of the frame). No march: the Detail control sets bounces.
 
 #define GM_N 33
-#define GM_CAM_R 2.9
+#define GM_CAM_R 3.5
 #define GM_SCALE 1.15
 
 vec4 gP[GM_N];
@@ -131,7 +131,7 @@ void main() {
     float t = glassTime();
     GlassEar ear = glassListen();
     float hue = 0.05 * sin(t * 0.02) + 0.12 * uKeyStrength * sin(GLASS_TAU * uKeyHue);
-    GlassLook lk = glassLook(GLASS_ENV_VOID, hue, ear);
+    GlassLook lk = glassLook(GLASS_ENV_FRACTAL, hue, ear);
     lk.rough *= 0.5;
     float ior = 1.95 + 0.3 * clamp(ear.bass, 0.0, 1.0);
     float spread = 0.02 + 0.05 * ear.sharp;

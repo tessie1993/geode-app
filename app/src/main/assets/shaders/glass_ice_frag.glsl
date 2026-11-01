@@ -121,7 +121,7 @@ void main() {
     float t = glassTime();
     GlassEar ear = glassListen();
     float hue = 0.55 + 0.08 * uKeyStrength * sin(GLASS_TAU * uKeyHue) + 0.03 * sin(t * 0.02);
-    GlassLook lk = glassLook(GLASS_ENV_AURORA, hue, ear);
+    GlassLook lk = glassLook(GLASS_ENV_FRACTAL, hue, ear);
     gGrow = 1.0 + 0.35 * clamp(ear.bass, 0.0, 1.2);
     gLon = glassComplexity() >= 0.5 ? 22.0 : 16.0;
     gLat = glassComplexity() >= 0.5 ? 11.0 : 8.0;
@@ -196,6 +196,7 @@ void main() {
         float crack = exp(-abs(dot(p - normalize(p) * (IC_R - 0.6), normalize(vec3(glassHash2(cid.xy) - 0.5, 0.3)))) * 30.0);
         refr += cold * crack * crackOn * ear.snare * 1.6;
         col = (refr * (1.0 - fr) + refl * fr) * glassStepAO(used * 0.4);
+        col += glassRim(cosI, hue, 0.35);
         col += vec3(1.0) * glassGlint(p, 14.0, ear.hat) * (0.2 + rough);
     }
 

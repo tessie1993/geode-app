@@ -28,7 +28,7 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-//   spectrum       the wall itself;
+//   spectrum       lifts the wall's glow in bands, low notes at the left;
 //   bass           the magnification, 1.6 -> 2.6: the lenses lean in on low notes;
 //   centroid       chromatic aberration at the rims;
 //   snare          flips one lens on its axis (SND_SNARE_TOGGLE eases 0 <-> 1 per
@@ -51,28 +51,18 @@ out vec4 fragColor;
 #define LN_MAX 5
 #define LN_COLS 48.0
 
-/** The LED wall at point `p` (wall units, about -2..2 tall). `frost` blurs it toward each LED's average. */
+GlassLook gLk;
+
+/**
+ * The wall under the lenses: the FRACTAL world laid flat, its glow lifted in
+ * vertical bands by the live spectrum (low notes at the left), so the music
+ * still paints across it. `frost` blurs it; a lens reads it sharp, the rest of
+ * the frame sees it a little soft, so the lenses are where the detail lives.
+ */
 vec3 wall(vec2 p, float hue, float frost) {
-    vec2 g = p * (LN_COLS / 4.0);
-    vec2 cell = floor(g);
-    vec2 f = fract(g) - 0.5;
-    float x = clamp((cell.x + LN_COLS * 0.5) / LN_COLS, 0.0, 1.0);
-    float level = clamp(sndSpectrum(x * 0.92 + 0.02) * 1.15, 0.0, 1.0);
-    float rows = LN_COLS * 0.5;
-    float row = (cell.y + rows * 0.5) / rows;
-    float lit = step(row, level);
-    float peak = (1.0 - smoothstep(0.0, 1.5 / rows, abs(row - level - 0.6 / rows))) * 0.9;
-    vec3 c = pal(hue + x * 0.7 + row * 0.15);
-    float on = max(lit, peak) * (0.25 + 0.75 * step(row, 1.0)) * step(0.0, row);
-    // The three emitters of one LED, side by side, and the dark mask between them.
-    float sub = f.x * 3.0 + 1.5;
-    vec3 tri = vec3(1.0 - smoothstep(0.25, 0.42, abs(sub - 0.5)), 1.0 - smoothstep(0.25, 0.42, abs(sub - 1.5)), 1.0 - smoothstep(0.25, 0.42, abs(sub - 2.5)));
-    tri *= 1.0 - smoothstep(0.32, 0.45, abs(f.y));
-    vec3 sharp = c * tri * 3.0;
-    vec3 soft = c * 1.3 * exp(-dot(f, f) * 9.0);
-    vec3 led = mix(sharp, soft, clamp(frost, 0.0, 1.0));
-    vec3 offc = vec3(0.012, 0.012, 0.016) * (1.0 - smoothstep(0.3, 0.48, max(abs(f.x), abs(f.y))));
-    return led * (0.05 + 0.95 * on) + offc;
+    float x = clamp(p.x * 0.28 + 0.5, 0.0, 1.0);
+    float band = clamp(sndSpectrum(x * 0.92 + 0.02) * 1.3, 0.0, 1.2);
+    return glassFractal2(p, gLk, frost * 0.12) * (0.55 + 0.9 * band);
 }
 
 void main() {
@@ -80,7 +70,8 @@ void main() {
     float t = glassTime();
     GlassEar ear = glassListen();
     float hue = 0.05 * sin(t * 0.02) + 0.12 * uKeyStrength * sin(GLASS_TAU * uKeyHue);
-    GlassLook lk = glassLook(GLASS_ENV_STUDIO, hue, ear);
+    GlassLook lk = glassLook(GLASS_ENV_FRACTAL, hue, ear);
+    gLk = lk;
     vec2 par = uCamLook.xy * 0.25;
     float mag = 1.6 + 1.0 * clamp(ear.bass, 0.0, 1.0);
     float ab = 0.02 + 0.06 * ear.sharp;
@@ -88,7 +79,7 @@ void main() {
     int count = 3 + int(floor(glassComplexity() * 2.0 + 0.5));
 
     // The wall far away is a little defocused: the eye sits on the lenses.
-    vec3 col = wall(uv + par, hue, 0.9);
+    vec3 col = wall(uv + par, hue, 0.6);
     vec2 shadowOff = vec2(0.07, -0.09);
 
     for (int i = 0; i < LN_MAX; i++) {

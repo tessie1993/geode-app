@@ -55,7 +55,7 @@ void main() {
     float t = glassTime();
     GlassEar ear = glassListen();
     float hue = 0.05 * sin(t * 0.017) + 0.12 * uKeyStrength * sin(GLASS_TAU * uKeyHue);
-    GlassLook lk = glassLook(GLASS_ENV_NEON, hue, ear);
+    GlassLook lk = glassLook(GLASS_ENV_FRACTAL, hue, ear);
     float baseNm = 280.0 + 440.0 * ear.height;
     int count = 6 + int(floor(glassComplexity() * 5.0 + 0.5));
 
@@ -104,6 +104,7 @@ void main() {
             float k = w == 0 ? 1.0 : 0.6;
             col = col * (1.0 - fr * 0.3 * k) + refl * film * fr * 2.6 * k;
             if (w == 0) col += vec3(1.0) * glassGlint(local * 1.4 + fi, 4.0, ear.hat) * 0.6;
+            if (w == 0) col += glassRim(cosI, hue + h1, 0.7) * film * 1.5;
         }
     }
 

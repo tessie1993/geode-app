@@ -171,7 +171,8 @@ void main() {
     vec2 sw = vec2(glassNoise(uv * 2.0 + vec2(t * 0.07, 0.0)), glassNoise(uv * 2.3 + vec2(0.0, -t * 0.09) + 5.0));
     float smoke = 0.5 + 0.5 * glassNoise(uv * 3.5 + 1.6 * sw + vec2(-t * 0.12, t * 0.05));
     float dust = 0.25 + 1.5 * smoke * smoke;
-    vec3 stage = mix(pal(hue + 0.6) * 0.05, pal(hue + 0.3) * 0.16, smoothstep(-1.2, 1.0, uv.y + 0.3 * uv.x));
+    GlassLook lk = glassLook(GLASS_ENV_FRACTAL, hue, ear);
+    vec3 stage = glassFractal2(uv, lk, 0.03) * 0.45;
     stage += pal(hue + 0.1) * 0.08 * exp(-dot(uv - vec2(-0.4, -0.1), uv - vec2(-0.4, -0.1)) * 1.5);
     stage *= 1.0 - 0.5 * (1.0 - smoothstep(-0.62, -0.55, uv.y));
 
@@ -229,7 +230,7 @@ void main() {
 
     // The prism: the stage behind it shifted by refraction, the beam's path glowing inside, bevelled edges.
     vec2 shift = -gN[0] * 0.12;
-    vec3 behind = mix(pal(hue + 0.6) * 0.05, pal(hue + 0.3) * 0.16, smoothstep(-1.2, 1.0, uv.y + shift.y + 0.3 * (uv.x + shift.x)));
+    vec3 behind = glassFractal2(uv + shift, lk, 0.08) * 0.6;
     vec3 glass = behind * 1.3 + pal(hue + 0.55) * 0.03;
     float inner = segDist(uv, pin, peG);
     glass += mix(vec3(1.0), glassSpectrum(0.5), 0.3) * (exp(-inner * inner * 3000.0) * 0.8 + exp(-inner * 18.0) * 0.12);

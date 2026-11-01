@@ -114,6 +114,7 @@
 #define GLASS_ENV_DEEP 3
 #define GLASS_ENV_VOID 4
 #define GLASS_ENV_AURORA 5
+#define GLASS_ENV_FRACTAL 6
 
 // ---- the Customize macros ---------------------------------------------------
 //
@@ -423,6 +424,7 @@ struct GlassLook {
     float glow;
     float flow;
     float warp;
+    float detail;
 };
 
 GlassLook glassLook(int env, float hue, GlassEar e) {
@@ -438,6 +440,8 @@ GlassLook glassLook(int env, float hue, GlassEar e) {
     // plus a slow floor, and fold harder on the snare.
     l.flow = 0.08 * SND_CURVED_TIME + 0.04 * glassTime();
     l.warp = 0.75 + 0.5 * e.snare + 0.25 * glassChaos();
+    // Fractal iterations follow the quality tier: about 8 on Balanced, 11 on High, 6 on Saver.
+    l.detail = 0.25 + 0.75 * glassQuality();
     return l;
 }
 
@@ -659,6 +663,78 @@ vec3 glassVoid(vec3 d, GlassLook l) {
 }
 
 /**
+ * The neon push: the references this family is drawn toward are blacklight art,
+ * saturated colour on near black. This lifts a palette colour's saturation
+ * (pushing it away from its own grey) without changing its hue, so any palette
+ * the user picks still reads, just louder.
+ */
+vec3 glassVivid(vec3 c, float amount) {
+    float g = dot(c, vec3(0.299, 0.587, 0.114));
+    return max(mix(vec3(g), c, 1.0 + amount), 0.0);
+}
+
+/**
+ * FRACTAL: the dense world. A folding fractal of the kind found by iterating
+ * p -> |p| / dot(p, p) - c (each step folds space into the positive octant and
+ * inverts it through the unit sphere, so structure repeats at every scale),
+ * walked along the view direction a few depths at a time. Each iteration
+ * leaves a trace where the orbit's radius changes sharply, and those traces
+ * stack into glowing filaments, cells and spirals that fill the whole sphere
+ * of view. Colour runs along the palette with the iteration count, pushed to
+ * neon. c drifts on the music's clock and the snare kicks it, so the whole
+ * structure breathes and reshapes; `detail` (1 for a direct view, lower for
+ * lookups through glass) sets how many iterations are spent.
+ */
+vec3 glassFractal(vec3 d, GlassLook l) {
+    int iters = int(5.0 + 6.0 * clamp(l.detail, 0.0, 1.0));
+    vec3 c = vec3(0.52, 0.42, 0.61) + 0.07 * vec3(sin(l.flow * 0.9), cos(l.flow * 0.7), sin(l.flow * 1.1 + 1.0)) + 0.05 * (l.warp - 0.75);
+    vec3 col = vec3(0.0);
+    float rough = clamp(l.rough * 6.0, 0.0, 1.0);
+    for (int layer = 0; layer < 2; layer++) {
+        float depth = 0.55 + 0.45 * float(layer);
+        vec3 p = d * (0.95 + 0.75 * depth) + vec3(0.13, 0.31, 0.2) * float(layer) + vec3(0.0, 0.0, l.flow * 0.05);
+        // Bend space first so the folds come out as curves, not polygons.
+        p += 0.22 * l.warp * sin(p.yzx * 3.1 + l.flow * vec3(1.0, 0.7, 1.3));
+        float prev = 0.0;
+        float acc = 0.0;
+        vec3 tint = vec3(0.0);
+        for (int i = 0; i < 11; i++) {
+            if (i >= iters) break;
+            p = abs(p) / dot(p, p) - c;
+            float r = dot(p, p);
+            float dr = abs(r - prev);
+            // A glowing tube: a hot core and a wide halo round each trace.
+            float edge = exp(-dr * mix(22.0, 6.0, rough)) + 0.25 * exp(-dr * mix(5.0, 2.0, rough));
+            prev = r;
+            acc += edge;
+            tint += edge * pal(l.hue + float(i) * 0.15 + 0.33 * float(layer) + 0.1 * r);
+        }
+        col += glassVivid(tint, 0.9) * (layer == 0 ? 0.3 : 0.16);
+        // The membrane: a soft coloured haze where the orbit lingered, filling the gaps.
+        col += glassVivid(tint, 0.5) * 0.02 * acc;
+    }
+    // Spirals: a log-spiral lattice round the key's direction, the eye of the vortex.
+    vec3 key = glassKeyDir(l);
+    vec3 ax = normalize(cross(key, vec3(0.0, 1.0, 0.001)));
+    vec3 ay = cross(key, ax);
+    vec2 sp = vec2(dot(d, ax), dot(d, ay));
+    float sr = length(sp) + 1e-3;
+    float sa = atan(sp.y, sp.x);
+    float spiral = pow(0.5 + 0.5 * cos(sa * 3.0 + log(sr) * 9.0 - l.flow * 2.0), 8.0);
+    col += glassVivid(pal(l.hue + 0.6 + log(sr) * 0.3), 0.6) * spiral * 1.2 * exp(-sr * 1.2) * (1.0 - rough);
+    // Contrast: dark gaps, bright filaments, as blacklight art reads.
+    col = col * col * 1.6 + col * 0.15;
+    return col * l.glow;
+}
+
+/** The FRACTAL world as a flat picture: point `p` on a plane one unit in front of the eye. `rough` blurs it. */
+vec3 glassFractal2(vec2 p, GlassLook l, float rough) {
+    GlassLook r = l;
+    r.rough = l.rough + rough;
+    return glassFractal(normalize(vec3(p * 0.55, 1.0)), r);
+}
+
+/**
  * AURORA: a world made only of moving light. The view direction is bent by
  * four rounds of sine displacement, each feeding the last (the classic
  * iterated domain warp, here in closed form with no noise lookups so a glass
@@ -702,10 +778,20 @@ vec3 glassEnv(vec3 d, GlassLook l) {
     if (l.env == GLASS_ENV_DEEP) return glassDeep(d, l);
     if (l.env == GLASS_ENV_VOID) return glassVoid(d, l);
     if (l.env == GLASS_ENV_AURORA) return glassAurora(d, l);
+    if (l.env == GLASS_ENV_FRACTAL) return glassFractal(d, l);
     return glassStudio(d, l);
 }
 
 /** The same world, frosted by `extra` more roughness (a frosted face of an otherwise clear body). */
+/**
+ * The neon rim every translucent body wears, like the edge-lit shells of
+ * blacklight art: a palette glow rising toward grazing incidence. Additive.
+ */
+vec3 glassRim(float cosI, float hue, float strength) {
+    float r = 1.0 - clamp(cosI, 0.0, 1.0);
+    return glassVivid(pal(hue + 0.3 * r), 0.8) * (r * r * 1.2 + pow(r, 8.0) * 2.0) * strength;
+}
+
 vec3 glassEnvRough(vec3 d, GlassLook l, float extra) {
     GlassLook r = l;
     r.rough = l.rough + extra;

@@ -42,10 +42,11 @@ What the app already does:
 - **Hard flash limit in the engine**: nothing on screen flashes more than **three times
   per second**. That is the WCAG 2.3.1 "three flashes" threshold. It also applies to
   every exported video, can't be switched off, and no preset or imported MilkDrop file can
-  exceed it. It is enforced on the finished picture, not on settings: the renderer measures the
-  luminance of every frame on a grid of tiles and limits how fast each may change
-  (`core/viz/FlashLimitPass`, details in `docs/visualizer-v2/SAFETY_MODEL.md` §4), so it holds for
-  built-in styles, MilkDrop presets and custom shaders alike.
+  exceed it. It is enforced on the finished picture, not on settings: the renderer counts WCAG
+  2.3.1 flashes (luminance and saturated red) in every region of every frame, and holds a region
+  only when a fourth flash in a second would show (`core/viz/FlashLimitPass`, details in
+  `docs/visualizer-v2/SAFETY_MODEL.md` §4). It holds for built-in styles, MilkDrop presets and
+  custom shaders alike, and leaves beat-synced kicks up to 2 Hz untouched.
 - **"Slow the motion down"** (Settings > Behavior > Visual safety) for motion comfort,
   applied to exports too.
 - **Help topic** (`help_topic_safety_body`) restating the above.

@@ -5,8 +5,9 @@ Required by the V2 master plan (not in this tree) §2.2; the policy is §11.
 
 **Status:** the parameter-level clamp is production, tested, and **unconditional** — there is no
 setting, no off switch and no tier. Behind it, the *measured* output limiter (§11.2's temporal
-luminance half) now runs on every frame the renderer shows or exports, so MilkDrop presets, user
-GLSL and a scene's own brightness swings are held to three flashes a second too. See §4.
+luminance and saturated-red flash counts) now runs on every frame the renderer shows or exports, so
+MilkDrop presets, user GLSL and a scene's own brightness swings are held to three flashes a second
+too. See §4.
 
 ---
 
@@ -64,29 +65,47 @@ off would only produce a dead control.
 
 Every limit in §3 is computed from parameters. Three paths reach the screen without passing through
 them: **projectM** (MilkDrop presets render and can strobe internally), **Shader Studio** (user
-GLSL) and a scene's **own internal brightness**. The output limiter closes all three by measuring
-the finished frame instead.
+GLSL) and a scene's **own internal brightness**. The output limiter closes all three by counting
+flashes on the finished frame instead.
 
-`Renderer::composite` draws the frame into `FlashLimitPass`'s own target; the pass measures the
-mean relative luminance (sRGB-decoded, Rec.709 weights) of a 16 x 9 grid of tiles, steps a small
-per-tile state, and draws the frame on to the real target with each tile's luminance limited. It
-runs on the GPU with no readback, and since the live view, the wallpaper, the dream and the export
-all share `Renderer::composite`, they are limited alike. Only the W00 overlay (the user's own cover
-art and text) is drawn after it.
+`Renderer::composite` draws the frame into `FlashLimitPass`'s own target; the pass measures it on a
+16 x 9 tile grid, decides, and draws it on to the real target. It runs on the GPU with no readback,
+and since the live view, the wallpaper, the dream and the export all share `Renderer::composite`,
+they are limited alike. Only the W00 overlay (the user's own cover art and text) is drawn after it.
 
-The per-tile rule (`core/viz/FlashLimiter`, mirrored in `shaders/lib_flash_limit.glsl`): the shown
-luminance drags an anchor inside a band of ±0.01, and only the anchor's travel is paid for, out of a
-token bucket (0.36, refilled at 0.13/s, plus 0.06/s free). A WCAG transition (an opposing swing of
-≥ 0.1) costs the anchor ≥ 0.08, so seven in one second would need 0.56 while the bucket allows 0.55:
-at most six transitions, three flashes, in any second. `core/tests/flash_limit_test.cpp` checks it
-exhaustively against square waves, sines and noise at 24–120 fps; slow fades, a single beat flash
-and sub-band jitter pass unchanged. The arithmetic is in `VisualSafety.hpp` beside the constants.
-What a strobe becomes: a 10 Hz black/white strobe is held near a steady gray; a hard cut from black
-to white shows its first 0.37 at once and reaches white over about three seconds.
+What is counted (WCAG 2.3.1, ITU-R BT.1702), per region, on what is **shown**:
+- **Luminance:** a transition is a swing of relative luminance (sRGB-decoded, Rec.709) of at least
+  0.1 between a maximum and a minimum whose darker side is below 0.8. A flash is an opposing pair.
+- **Saturated red:** a pixel with R / (R + G + B) ≥ 0.8 (linear channels) has red value R − G − B,
+  others 0; area-averaged, a change of more than 20 on WCAG's 0..320 scale (0.0625 here) is a
+  transition. Counted separately from luminance.
+- **Regions:** a 3 x 3 grid of overlapping windows, each half the frame wide and half high (8 x 5
+  tiles, 28% of the frame), sliding by half. Overlap means any patch up to a quarter of the screen
+  lies wholly in one window; averaging means a full-contrast change over about 3% of the screen
+  already moves a region by 0.1, which is the order of WCAG's area threshold on a phone, while
+  sparkles and moving shapes average out.
 
-What it does not cover: a flicker confined well inside one tile (a WCAG general flash must cover a
-quarter of a 10° field, several tiles on a phone), a pattern that inverts while its tile's mean stays
-the same (a checkerboard swapping).
+What it does: nothing, until a region would show a sixth transition (a fourth flash would begin)
+within one second. Then that region is **held** at the luminance it showed last frame (zero change)
+and, if it is red that is about to rise, its saturated red is guarded away (pixels pulled toward the
+grey of their own luminance, so the guard never makes a luminance flash). When the oldest event
+leaves the window, the held tiles ease back to the picture in a quarter of a second. Occasional
+kicks, kicks up to 2 Hz (120 bpm), a single hard cut, fades and jitter are passed **bit for bit**;
+from 2.5 Hz up, and every strobe, is capped at three flashes a second. A red rise is let through
+only when there is also room for the fall that must follow it, since the limiter can remove red but
+cannot add it back.
 
-Also absent: the saturated-red analysis, the alternating-stripe and red-transition vectors (both
-need frame content), safety telemetry in debug builds, and the thermal half of §11.4.
+Why five detector events, not six: any run of k alternating transitions inside a window forces at
+least k − 1 events inside it (the induction is in `core/viz/FlashLimiter.cpp`), so five events cap
+the window at six transitions. `core/tests/flash_limit_test.cpp` checks the shown output with an
+exhaustive transition count (the definition, not a detector) for 3–25 Hz strobes, red/grey flashes,
+random tiled strobes and noise, portrait and landscape, at 24–120 fps.
+
+What it does not cover: a flicker much smaller than a region (by design: it is below the area that
+makes a flash), a pattern that inverts while its region's mean stays the same (a checkerboard
+swapping), and the newer CIE-chromaticity form of the red-flash definition. While a region is held,
+its tiles carry one transform each, so the hold can show as 16 x 9 blocks; this happens only while
+the drawn picture is strobing.
+
+Also absent: the alternating-stripe vector, safety telemetry in debug builds, and the thermal half
+of §11.4.

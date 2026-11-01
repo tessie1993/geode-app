@@ -17,39 +17,43 @@ namespace geode::viz {
 // Renderer::composite), so live, wallpaper, dream and export are limited alike. The W00 overlay
 // (cover art, text) is drawn after, outside the limiter.
 //
+// The rule (VisualSafety.hpp, FlashLimiter.hpp): WCAG 2.3.1 transitions of luminance and of
+// saturated red are counted per region (3 x 3 overlapping quarter-screen windows) on what is shown;
+// frames pass untouched until a sixth transition in a second would show, and only then is the
+// region held at last frame's luminance (and its red guarded away) until the window allows again.
+//
 // Per frame, all on the GPU (no readback, no stall):
-//   1. frame -> cells: (16 x 8) x (9 x 8) cells (portrait 9 x 16 tiles), each the exact mean
-//      relative luminance of its pixels (every pixel texelFetched and sRGB-decoded once).
-//   2. cells -> tiles: 16 x 9 tiles, 64 cells each.
-//   3. tiles + last state -> this state (ping-pong): flash_limit::step per tile (shaders/
-//      lib_flash_limit.glsl mirrors core/viz/FlashLimiter.cpp, which core/tests/flash_limit_test.cpp
-//      proves against the WCAG count), plus the gain each tile needs.
-//   4. frame -> target: each pixel times its bilinearly blended tile gain (a copy where no nearby
-//      tile is limited).
-// Cost: passes 2 and 3 are a few hundred fragments, nothing. Pass 1 reads the frame once (one
-// texelFetch and an sRGB decode per pixel, over 128 x 72 fragments); pass 4 is one full-screen copy.
-// Against drawing straight to the target that is one extra full-frame write and two extra reads,
-// about what one simple post effect costs; at 1080 x 2400 on a mid-range GPU, well under a
-// millisecond. A thermal tier does not drop it: it is a safety pass, not an effect.
+//   1. frame -> cells: (16 x 8) x (9 x 8) cells, each the exact mean over its pixels of luminance,
+//      saturated-red value and guarded luminance (every pixel texelFetched and sRGB-decoded once).
+//   2. cells -> tiles: 16 x 9 tiles, pixel-weighted.
+//   3. control: flash_limit::step (shaders/flash_control_frag.glsl mirrors core/viz/FlashLimiter.cpp)
+//      on a 16 x 16 ping-pong state: tile transforms plus each region's two detectors.
+//   4. frame -> target: each pixel through its tile's transform; a plain copy where it is identity.
 //
-// The tile grid is 16 x 9 of the frame. A WCAG "general flash" has to cover a quarter of a 10-degree
-// field of view, several tiles on a phone at reading distance, so a tile-sized flash or larger is
-// caught; a flicker confined well inside one tile, or a pattern that inverts while its tile's mean
-// stays put (a checkerboard swapping black and white), is not measured as a flash.
+// Why a frame target, and not the composite pass applying last frame's gains itself: a transition
+// is only known once the frame that makes it has been measured. Gains computed from the previous
+// frame would let exactly the forbidden transition (the sixth, the one that completes a fourth
+// flash) reach the screen for a frame before the hold, and one frame is enough to be a transition.
+// Nor can the composite predict it: what decides is the mean of the pixels it is about to write,
+// which no single fragment knows. So the frame is drawn off screen, measured, and then shown.
+// The cost of that, at 1440 x 3200 (RGBA8): an 18.4 MB frame target (the cells, tiles and state are
+// under 100 KB together), and per frame one extra full-frame write (the composite into the target)
+// and two full-frame reads (pass 1 and pass 4), on top of the target write the renderer already
+// did; 55 MB a frame of extra traffic, about 3.3 GB/s at 60 fps, roughly what one simple full-screen
+// post effect costs. Passes 2 and 3 are a few hundred fragments. A thermal tier does not drop the
+// pass: it is a safety pass, not an effect.
 //
-// State is RGBA8 everywhere, 16-bit fixed point in two channels per value (three MRT attachments per
-// state set, ES 3.0 guarantees four). Half-float targets would need EXT_color_buffer_half_float, and
-// a half's 11-bit mantissa cannot hold the per-frame refill (0.13 / 60 = 0.002 on top of ~0.36)
-// without drift; 16-bit fixed point is exact, the same on every GPU, and the host test runs on the
-// very same quantised values. Nothing here depends on an extension.
+// State is RGBA8 everywhere, 16-bit fixed point in two channels per value (four MRT attachments for
+// the control state, two for cells and tiles; ES 3.0 guarantees four). Nothing here depends on an
+// extension, and the device holds bit for bit what the host test runs on.
 //
 // The state is created cleared ("not primed"), so the first frame after create, a surface change or
-// a turn between portrait and landscape is measured and shown as it is (no fade-in from black). A
-// resize that keeps the orientation keeps the state. Scene cuts keep it too: a cut is exactly what
-// has to be limited.
+// a turn between portrait and landscape is measured and shown as it is. A resize that keeps the
+// orientation keeps the state. Scene cuts keep it too: a cut is exactly what has to be counted.
 class FlashLimitPass {
 public:
     static constexpr int kCellsPerTile = 8;
+    static constexpr int kControlSize = 16;  // 16 x 16 texels: 144 tiles, 18 detectors
 
     FlashLimitPass() = default;
     ~FlashLimitPass() { release(); }
@@ -66,37 +70,42 @@ public:
     void bindFrame();
     // Passes 1-4. Leaves `targetFbo` bound with a width x height viewport, blending off.
     void apply(GLuint targetFbo, float dt, GLuint quadVao);
-
     // Whether apply() has run since the state was (re)created. Until it has, the next frame applied
     // primes the state, so callers drawing a placeholder (the black of a scene still being staged)
     // draw it straight to their target instead, and the first real frame is shown as it is.
     bool hasHistory() const { return stepped_; }
-    int tileColumns() const { return cols_; }
-    int tileRows() const { return rows_; }
 
 private:
-    struct StateSet {
+    // An FBO with `count` RGBA8 attachments, all cleared to zero.
+    struct Target {
         GLuint fbo = 0;
-        GLuint tex[3] = {0, 0, 0};
+        GLuint tex[4] = {0, 0, 0, 0};
+        int count = 0;
+        int width = 0;
+        int height = 0;
+        bool create(int w, int h, int attachments);
+        void release();
+        void discard() const;
     };
 
-    bool createStates();
-    void releaseStates();
+    bool createGrid(int cols, int rows);
+    void releaseGrid();
+    void uploadConstants(UniformCache& u);
     static void draw(GLuint quadVao);
 
-    GLuint lumProgram_ = 0;
-    GLuint tileProgram_ = 0;
-    GLuint stateProgram_ = 0;
+    GLuint cellsProgram_ = 0;
+    GLuint tilesProgram_ = 0;
+    GLuint controlProgram_ = 0;
     GLuint applyProgram_ = 0;
-    UniformCache lumUniforms_;
-    UniformCache tileUniforms_;
-    UniformCache stateUniforms_;
+    UniformCache cellsUniforms_;
+    UniformCache tilesUniforms_;
+    UniformCache controlUniforms_;
     UniformCache applyUniforms_;
     Framebuffer frame_{"flashFrame"};
-    Framebuffer cells_{"flashCells"};
-    Framebuffer tiles_{"flashTiles"};
-    StateSet states_[2];
-    // The set holding the latest state; apply() steps it into the other one.
+    Target cells_;
+    Target tiles_;
+    Target control_[2];
+    // The control set holding the latest state; apply() steps it into the other one.
     int current_ = 0;
     bool stepped_ = false;
     int cols_ = 0;

@@ -2,7 +2,9 @@
 
 #include <algorithm>
 #include <cmath>
+#include <random>
 
+#include "viz/Catalogue.hpp"
 #include "viz/CompositeGrade.hpp"
 #include "viz/EndlessZoom.hpp"
 #include "viz/Quad.hpp"
@@ -92,6 +94,16 @@ Scene* Renderer::resolveActiveScene() {
     return activeScene_;
 }
 
+uint64_t Renderer::noteSeed(uint64_t playSeed) {
+    if (!noteSeeded_ || playSeed != notePlaySeed_) {
+        std::random_device device;
+        noteEntropy_ = (static_cast<uint64_t>(device()) << 32) ^ device();
+        notePlaySeed_ = playSeed;
+        noteSeeded_ = true;
+    }
+    return playSeed ^ noteEntropy_;
+}
+
 SceneParams Renderer::resolveParams(float dt) {
     SceneParams requested;
     float morph;
@@ -109,19 +121,41 @@ SceneParams Renderer::resolveParams(float dt) {
     displayedParams_ = fade <= 0.01f ? requested : lerpParams(displayedParams_, requested, std::clamp(dt / fade, 0.0f, 1.0f));
     // The auto-director hears the frame first: its look lies under the macros, so the user's own knobs,
     // the LFOs, the reactions, the motion field and the safety clamp all still act on top of it.
-    director_.configure(directorPinned_.load(std::memory_order_acquire)
-                            ? DirectorConfig{pinnedDirectorAmount_.load(std::memory_order_relaxed),
-                                             pinnedDirectorSeed_.load(std::memory_order_relaxed)}
-                            : director::global());
+    const DirectorConfig directorConfig = directorPinned_.load(std::memory_order_acquire)
+                                              ? DirectorConfig{pinnedDirectorAmount_.load(std::memory_order_relaxed),
+                                                               pinnedDirectorSeed_.load(std::memory_order_relaxed)}
+                                              : director::global();
+    director_.configure(directorConfig);
     director_.step(soundFrame_, dt);
     directedKnobs_ = director_.knobs(frameKnobs_);
+    // Note & key reactions hear the frame next, inside the director's look: its hue anchors the notes'
+    // colours, and its feeling (the director's emotion, stepped whether or not it drives) is the mood. Its
+    // tuning and bloom look are the style's own (Customize), read before the director and macros touch them.
+    notes_.configure({note_response::globalEnabled(), noteSeed(directorConfig.seed)});
+    {
+        const SceneParams& own = displayedParams_;
+        NoteResponse::Inputs in;
+        in.anchorHue = director_.look().hue;
+        in.anchorWeight = director_.weight();
+        in.color = own.noteColor;
+        in.pitch = own.notePitch;
+        in.intervals = own.noteIntervals;
+        in.tension = own.noteTension;
+        in.chords = own.noteChords;
+        in.drums = own.noteDrums;
+        in.bloom = own.noteBloom;
+        in.look = static_cast<int>(catalogue::resolveBloomLook(own.bloomLook, activeScene_ ? activeScene_->id() : std::string()));
+        in.camFlat = camera_.pose().flat;
+        notes_.step(soundFrame_, director_.emotion(), in, dt);
+    }
     const auto& envValues = adsr_.tick(dt, soundFrame_);
     AdsrEngine::lfoOffsets(adsr_.configs, envValues, envRate_, envDepth_);
     const auto& lfoValues = lfo_.tick(dt, soundFrame_, envRate_.data(), envDepth_.data());
     // The macros lay over the user's params first, so every stage after them (and the safety clamp)
     // sees the knobbed look.
     const bool palWheel = !activeScene_ || activeScene_->family() == SceneFamily::Shader;
-    SceneParams p = lfo_.apply(macros::apply(director_.apply(displayedParams_, palWheel), directedKnobs_), lfoValues);
+    // Order: the director's look, the note layer inside it, then the user's macros and LFOs over both.
+    SceneParams p = lfo_.apply(macros::apply(notes_.apply(director_.apply(displayedParams_, palWheel)), directedKnobs_), lfoValues);
     p = AdsrEngine::apply(p, adsr_.configs, envValues);
     // The reaction matrix: per-style routes from the sound frame to many
     // targets. Ahead of the motion field and the safety clamp, like the LFOs.
@@ -307,7 +341,10 @@ void Renderer::composite(Scene& scene, const SceneParams& p, float progress, GLu
     in.underlayTex = compositePass_.underlayTexOrZero();
     in.underlayBlend = compositePass_.underlayBlendMode();
     in.underlayAmount = compositePass_.underlayAmount();
+    in.noteTint = notes_.uniforms().tint;
     compositePass_.draw(in);
+    // The note blooms over every family, last; nothing while there are none.
+    bloomPass_.draw(notes_.uniforms(), width_, height_, quadVao_);
 }
 
 void Renderer::stepOverlays(Scene& scene, const SceneParams& p, float dt) {

@@ -33,7 +33,6 @@ uniform float uChroma;
 uniform float uVignette;
 uniform float uScanline;
 uniform float uGrain;
-uniform float uGlitch;
 uniform float uFisheye;
 uniform float uStrobe;
 // Strobe rate in flashes/second. Was the literal 9.0 below, which no user
@@ -145,6 +144,9 @@ uniform float uRippleSpecular;
 // uUnderlayAmount is 0 by default (GL's uniform default for a value never uploaded), so a program
 // that never sets it renders identically to one with no underlay pass at all. See
 // CompositePass.hpp for the full pass description.
+// Note & key reactions' tint (core/viz/NoteResponse): rgb the notes' colour, a how far every family's
+// finished frame leans toward it, keeping each pixel's brightness. 0 (unset, or the layer off) is a no-op.
+uniform vec4 uNoteTint;
 uniform sampler2D uUnderlay;
 uniform int uUnderlayBlend;
 uniform float uUnderlayAmount;
@@ -259,7 +261,7 @@ vec2 geo(vec2 uv, vec4 gate, float camOn) {
 
 // Screen-space FX chain applied to the final composited frame, so it works
 // identically for shader, particle and milkdrop scenes and during
-// transitions. Order: geometry -> distortion (fisheye, glitch) -> sample
+// transitions. Order: geometry -> distortion (fisheye) -> sample
 // (chromatic aberration) -> shading (posterize, scanlines, grain, vignette,
 // bloom, strobe, invert).
 vec3 postFx(sampler2D tex, vec2 uv, vec4 gate, float camOn) {
@@ -294,13 +296,6 @@ vec3 postFx(sampler2D tex, vec2 uv, vec4 gate, float camOn) {
         vec2 c = p - 0.5;
         float r = length(c) * 2.0;
         p = 0.5 + c * (1.0 + uFisheye * 0.6 * (r * r - 0.5));
-    }
-    if (uGlitch > 0.001) {
-        float band = floor(p.y * 24.0);
-        float jump = compHash12(vec2(band, floor(uTime * 12.0)));
-        if (jump > 1.0 - uGlitch * 0.35 * (0.4 + uBeat)) {
-            p.x += (compHash12(vec2(band, uTime)) - 0.5) * uGlitch * 0.3;
-        }
     }
     vec3 col;
     if (uChroma > 0.001) {
@@ -512,6 +507,13 @@ void main() {
             underlayBlended = vec3(1.0) - (vec3(1.0) - col) * (vec3(1.0) - u);
         }
         col = mix(col, clamp(underlayBlended, 0.0, 1.0), clamp(uUnderlayAmount, 0.0, 1.0));
+    }
+    if (uNoteTint.a > 0.0001) {
+        const vec3 kLuma = vec3(0.299, 0.587, 0.114);
+        float l = dot(col, kLuma);
+        vec3 tinted = min(uNoteTint.rgb * (l / max(dot(uNoteTint.rgb, kLuma), 0.25)), vec3(1.0));
+        // Blacks stay black and the brightest whites stay white, so the tint colours the mid-tones.
+        col = mix(col, tinted, clamp(uNoteTint.a, 0.0, 0.5) * smoothstep(0.02, 0.2, l) * (1.0 - smoothstep(0.85, 1.0, l)));
     }
     // Dither LAST, after every grade and effect, sampled one texel per output
     // pixel: this is fighting the 8-bit quantization of the surface being

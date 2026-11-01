@@ -79,6 +79,7 @@ data class SceneParams(
     val vignette: Float = 0f,
     val scanlines: Float = 0f,
     val grain: Float = 0f,
+    // Retired: the composite Glitch effect is gone. No reader; removed with the next format bump.
     val glitch: Float = 0f,
     val fisheye: Float = 0f,
     // Inert since wave three; removed with the next format bump.
@@ -182,6 +183,30 @@ data class SceneParams(
     val reactAmount: Float = 1f,
     /** Which variant of the style's reaction DNA ([BuildStyleReactionsUseCase]) plays. */
     val reactSeed: Int = 0,
+    /**
+     * The first of Note & key reactions' fields (core/viz Params.hpp, appended after [reactSeed] so every
+     * older wire index survives). Each is a per-style Customize control, inert while Settings › Behaviour ›
+     * Note & key reactions is off, and the ParamRandomizer never rolls them.
+     *
+     * How a note bloom looks on this style: 0 = the style's own look (the catalogue's `bloom` row,
+     * [Catalogue.bloomLook]), else a [BloomLook] wire value (1 flower, 2 glow, 3 ripple, 4 burst).
+     * Not lerped: a look switches, it does not blend.
+     */
+    val bloomLook: Int = 0,
+    /** Note & key reactions: how strongly the key and notes tint the palette, 0..2 (1 = as designed). */
+    val noteColor: Float = 1f,
+    /** Note & key reactions: how strongly pitch height moves the picture, 0..2. */
+    val notePitch: Float = 1f,
+    /** Note & key reactions: how strongly melodic intervals (steps against leaps) answer, 0..2. */
+    val noteIntervals: Float = 1f,
+    /** Note & key reactions: how strongly harmonic tension drives the picture, 0..2. */
+    val noteTension: Float = 1f,
+    /** Note & key reactions: how strongly chord changes answer, 0..2. */
+    val noteChords: Float = 1f,
+    /** Note & key reactions: how strongly the drum hits answer, 0..2. */
+    val noteDrums: Float = 1f,
+    /** Note & key reactions: how big each note bloom grows, 0..2. */
+    val noteBloom: Float = 1f,
 ) {
     companion object {
         const val UNSET_OVERRIDE: Float = -1f

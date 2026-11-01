@@ -5,6 +5,7 @@ import dagger.hilt.android.HiltAndroidApp
 import dev.geode.billing.ForegroundActivityTracker
 import dev.geode.data.AutoDirectorStore
 import dev.geode.data.MacroStore
+import dev.geode.data.NoteResponseStore
 import java.io.File
 import javax.inject.Inject
 
@@ -41,7 +42,8 @@ class GeodeApp : Application() {
         // Customize › Macros are process-wide in the engine: hand the saved knobs over before any
         // surface (the app, the wallpaper, the dream, an export) builds a renderer.
         MacroStore.get(this)
-        // The auto-director's switch is process-wide too.
+        // The auto-director's switch is process-wide too, and so is Note & key reactions'.
         AutoDirectorStore.get(this)
+        NoteResponseStore.get(this)
     }
 }

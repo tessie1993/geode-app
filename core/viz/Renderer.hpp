@@ -21,6 +21,8 @@
 #include "viz/Lfo.hpp"
 #include "viz/Macros.hpp"
 #include "viz/MotionField.hpp"
+#include "viz/NoteBloomPass.hpp"
+#include "viz/NoteResponse.hpp"
 #include "viz/Overlays.hpp"
 #include "viz/Params.hpp"
 #include "viz/ProgramBinaryCache.hpp"
@@ -186,6 +188,15 @@ private:
     std::atomic<bool> directorPinned_{false};
     std::atomic<float> pinnedDirectorAmount_{0.0f};
     std::atomic<uint64_t> pinnedDirectorSeed_{0};
+    // Note & key reactions (viz/NoteResponse), after the director's look: knobs, note colours, blooms.
+    NoteResponse notes_;
+    NoteBloomPass bloomPass_;
+    // The note layer's seed: the director's play seed mixed with fresh entropy whenever that seed changes,
+    // so every play (and every export) varies on its own, as the user chose (NoteResponse's class comment).
+    uint64_t noteSeed(uint64_t playSeed);
+    uint64_t notePlaySeed_ = 0;
+    uint64_t noteEntropy_ = 0;
+    bool noteSeeded_ = false;
     CameraRig camera_;
     // One engine per renderer (one per surface), so each is frame-locked to its own dt. Guarded by soundLock_
     // only because writeAudio and soundFrame are public; in practice one thread does everything.

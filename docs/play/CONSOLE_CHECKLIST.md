@@ -74,12 +74,12 @@ sign uploads with an **upload key** you create and keep.
 
 ## 6. Build and upload
 
-- [ ] Push a tag: `git tag v1.8.1 && git push origin v1.8.1`. The **Play release bundle**
-      workflow (`.github/workflows/release.yml`) builds the signed AAB, checks it (no
-      INTERNET permission, targetSdk ≥ 36, R8 mapping, baseline profile, signature) and
-      uploads it as the `muzviz-release-<n>` artifact. You can also run it by hand from the
-      Actions tab (workflow_dispatch). Pull-request builds of the same workflow are always
-      unsigned: the upload key is only handed to tag and manual runs.
+- [ ] Actions tab > **Play release bundle** > Run workflow, on the commit you're releasing.
+      It runs only on request (not on pull requests or tags). The workflow
+      (`.github/workflows/release.yml`) builds the signed AAB, checks it (no INTERNET
+      permission, targetSdk ≥ 36, R8 mapping, baseline profile, signature) and uploads it as
+      the `muzviz-release-<n>` artifact. Without the upload key it builds unsigned with a
+      warning; with the key but no `PLAY_LICENSE_KEY` it fails.
 - [ ] Download `app-release.aab` (and `mapping.txt`) from the run.
 - [ ] Testing > **Internal testing** > Create release > upload the AAB. The R8 mapping is
       embedded in the bundle by AGP; if Play still asks, upload `mapping.txt` under

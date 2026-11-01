@@ -93,7 +93,11 @@ enum class LfoTarget(
     TURBULENCE("Turbulence", ParamScope.TURBULENCE),
     CHROMA_AB("Chroma AB", ParamScope.UNIVERSAL),
     VIGNETTE("Vignette", ParamScope.UNIVERSAL),
-    GLITCH("Glitch", ParamScope.UNIVERSAL),
+
+    // Was GLITCH. Holds the slot so later ordinals match native; never offered, and a saved
+    // "GLITCH" no longer resolves, so it loads as dropped.
+    RETIRED_25("", ParamScope.UNIVERSAL),
+
     FISHEYE("Fisheye", ParamScope.UNIVERSAL),
     PARTICLE_SIZE("Particle size", ParamScope.PARTICLE_SPRITE),
     TRAIL_LENGTH("Trail length", ParamScope.TRAIL_LENGTH),

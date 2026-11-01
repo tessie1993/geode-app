@@ -202,7 +202,6 @@ class PresetStore(
                 .put("vignette", p.params.vignette.toDouble())
                 .put("scanlines", p.params.scanlines.toDouble())
                 .put("grain", p.params.grain.toDouble())
-                .put("glitch", p.params.glitch.toDouble())
                 .put("fisheye", p.params.fisheye.toDouble())
                 .put("strobe", p.params.strobe.toDouble())
                 .put("paramFadeSec", p.params.paramFadeSec.toDouble())
@@ -295,6 +294,14 @@ class PresetStore(
                 .put("reactSeed", p.params.reactSeed)
                 .put("camTouch", p.params.camTouch)
                 .put("camGyro", p.params.camGyro)
+                .put("bloomLook", p.params.bloomLook)
+                .put("noteColor", p.params.noteColor.toDouble())
+                .put("notePitch", p.params.notePitch.toDouble())
+                .put("noteIntervals", p.params.noteIntervals.toDouble())
+                .put("noteTension", p.params.noteTension.toDouble())
+                .put("noteChords", p.params.noteChords.toDouble())
+                .put("noteDrums", p.params.noteDrums.toDouble())
+                .put("noteBloom", p.params.noteBloom.toDouble())
                 .apply { if (p.customShader != null) put("customShader", p.customShader) }
                 .apply { if (p.milkPreset != null) put("milkPreset", p.milkPreset) }
                 .toString(2)
@@ -450,7 +457,6 @@ class PresetStore(
                         vignette = o.optFinite("vignette", 0.0),
                         scanlines = o.optFinite("scanlines", 0.0),
                         grain = o.optFinite("grain", 0.0),
-                        glitch = o.optFinite("glitch", 0.0),
                         fisheye = o.optFinite("fisheye", 0.0),
                         strobe = o.optFinite("strobe", 0.0),
                         paramFadeSec = o.optFinite("paramFadeSec", 0.0),
@@ -545,6 +551,14 @@ class PresetStore(
                         reactSeed = o.optInt("reactSeed", SceneParams.DEFAULT.reactSeed),
                         camTouch = o.optBoolean("camTouch", SceneParams.DEFAULT.camTouch),
                         camGyro = o.optBoolean("camGyro", SceneParams.DEFAULT.camGyro),
+                        bloomLook = o.optInt("bloomLook", SceneParams.DEFAULT.bloomLook),
+                        noteColor = o.optFinite("noteColor", SceneParams.DEFAULT.noteColor.toDouble()),
+                        notePitch = o.optFinite("notePitch", SceneParams.DEFAULT.notePitch.toDouble()),
+                        noteIntervals = o.optFinite("noteIntervals", SceneParams.DEFAULT.noteIntervals.toDouble()),
+                        noteTension = o.optFinite("noteTension", SceneParams.DEFAULT.noteTension.toDouble()),
+                        noteChords = o.optFinite("noteChords", SceneParams.DEFAULT.noteChords.toDouble()),
+                        noteDrums = o.optFinite("noteDrums", SceneParams.DEFAULT.noteDrums.toDouble()),
+                        noteBloom = o.optFinite("noteBloom", SceneParams.DEFAULT.noteBloom.toDouble()),
                     ),
             )
         }

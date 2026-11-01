@@ -108,6 +108,7 @@ void CompositePass::draw(const Inputs& inputs) {
     glUniform4fv(program.loc("uCamFlat"), 1, inputs.camFlat.data());
     glUniform2fv(program.loc("uCamTilt"), 1, inputs.camTilt.data());
     glUniform2fv(program.loc("uCamGate"), 1, inputs.camGate.data());
+    glUniform4fv(program.loc("uNoteTint"), 1, inputs.noteTint.data());
     glBindVertexArray(inputs.quadVao);
     glDrawArrays(GL_TRIANGLES, 0, 3);
     glBindVertexArray(0);
@@ -163,7 +164,6 @@ void CompositePass::uploadGradeUniforms(UniformCache& p, const Inputs& inputs) {
     glUniform1f(p.loc("uVignette"), fx.vignette);
     glUniform1f(p.loc("uScanline"), fx.scanlines);
     glUniform1f(p.loc("uGrain"), fx.grain);
-    glUniform1f(p.loc("uGlitch"), fx.glitch);
     glUniform1f(p.loc("uFisheye"), fx.fisheye);
     glUniform1f(p.loc("uStrobe"), fx.strobe);
     glUniform1f(p.loc("uStrobeHz"), inputs.strobeHz);

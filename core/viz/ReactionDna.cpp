@@ -55,7 +55,7 @@ int groupOf(Personality p) {
         case Personality::Chroma: case Personality::Flash: return 1;
         case Personality::Twist: case Personality::Warp: case Personality::Ripple: case Personality::Morph: return 2;
         case Personality::Swing: case Personality::Spin: return 3;
-        case Personality::Glitch: return 4;
+        case Personality::Split: return 4;
     }
     return 4;
 }
@@ -123,9 +123,8 @@ void addBeat(Builder& b, Draw& d, Personality p, ReactSource s, const StyleTrait
         case Personality::Ripple:
             b.add(s, LfoTarget::Ripple, ReactMode::Follow, d.range(0.6f, 1.0f), 0.03f, 0.5f);
             break;
-        case Personality::Glitch:
+        case Personality::Split:
             b.add(s, LfoTarget::ChromaAb, ReactMode::Follow, d.range(0.5f, 0.9f), 0.01f, 0.2f);
-            b.add(s, LfoTarget::Glitch, ReactMode::Follow, d.range(0.15f, 0.3f), 0.08f, 0.35f);
             break;
         case Personality::Swing:
             b.add(s, LfoTarget::CamYaw, ReactMode::Jump, d.range(0.3f, 0.6f), 0.15f, 0.5f);

@@ -220,7 +220,6 @@ object AnimatableParams {
             scalar("vignette", ParamKeys.VIGNETTE, 0f, 1f, { it.vignette }) { p, v -> p.copy(vignette = v) },
             scalar("scanlines", ParamKeys.SCANLINES, 0f, 1f, { it.scanlines }) { p, v -> p.copy(scanlines = v) },
             scalar("grain", ParamKeys.FILM_GRAIN, 0f, 1f, { it.grain }) { p, v -> p.copy(grain = v) },
-            scalar("glitch", ParamKeys.GLITCH, 0f, 0.25f, { it.glitch }) { p, v -> p.copy(glitch = v) },
             scalar("fisheye", ParamKeys.FISHEYE, -1f, 1f, { it.fisheye }) { p, v -> p.copy(fisheye = v) },
             scalar(
                 "waterRippleStrength",

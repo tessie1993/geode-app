@@ -22,7 +22,7 @@ bool chainOf(LfoTarget target, ModChain& out) {
 bool isLuminanceTarget(LfoTarget target) {
     switch (target) {
         case LfoTarget::Brightness: case LfoTarget::Intensity: case LfoTarget::Saturation: case LfoTarget::Bloom:
-        case LfoTarget::Glitch: case LfoTarget::Vignette: case LfoTarget::ColorShift: case LfoTarget::PaletteMix:
+        case LfoTarget::Vignette: case LfoTarget::ColorShift: case LfoTarget::PaletteMix:
         case LfoTarget::Temperature:
             return true;
         default:
@@ -78,7 +78,6 @@ SceneParams applyLfoTarget(const SceneParams& r, LfoTarget target, float v) {
         case LfoTarget::Turbulence: o.turbulence = std::clamp(r.turbulence + v, 0.0f, 1.5f); break;
         case LfoTarget::ChromaAb: o.chromaAb = std::clamp(r.chromaAb + v, 0.0f, 1.0f); break;
         case LfoTarget::Vignette: o.vignette = std::clamp(r.vignette + v, 0.0f, 1.0f); break;
-        case LfoTarget::Glitch: o.glitch = std::clamp(r.glitch + v, 0.0f, 1.0f); break;
         case LfoTarget::Fisheye: o.fisheye = std::clamp(r.fisheye + v, -1.0f, 1.0f); break;
         case LfoTarget::ParticleSize: o.particleSize = std::clamp(r.particleSize + v, 0.3f, 2.5f); break;
         case LfoTarget::TrailLength: o.trailLength = std::clamp(r.trailLength + v, 0.05f, 0.98f); break;

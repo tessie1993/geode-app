@@ -4,15 +4,18 @@ import android.content.Context
 import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
+import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
+import dev.geode.analysis.PlaybackMath
 import dev.geode.audio.AudioFxController
 import dev.geode.audio.AudioFxPresets
 import dev.geode.audio.PcmRingBuffer
 import dev.geode.audio.TapRenderersFactory
 import dev.geode.audio.dsp.NativeDspProcessor
 import dev.geode.data.GeodePrefsFiles
+import dev.geode.data.PlayerPrefs
 import dev.geode.data.PlayerPrefsStore
 import dev.geode.engine.audio.AudioPresentationClock
 import dev.geode.engine.audio.PcmSink
@@ -47,8 +50,14 @@ class PlaybackSession internal constructor(
             sampleRing.write(samples, frames, channels)
         }
 
+    private val prefsFiles = GeodePrefsFiles(context)
+
+    /** Settings › Playback › Bit-perfect USB output; told every stream format before its AudioTrack opens. */
+    private val bitPerfect = BitPerfectOutput(context)
+
     internal val tap =
         PcmTap(captureSink) { format ->
+            bitPerfect.onFormat(format.sampleRateHz, format.channelCount)
             val hook = onAudioFormat
             if (hook != null) {
                 hook(format.sampleRateHz, format.channelCount, format.encoding)
@@ -65,41 +74,33 @@ class PlaybackSession internal constructor(
 
     internal val dsp = NativeDspProcessor()
 
-    private val prefsFiles = GeodePrefsFiles(context)
-
-    /** Read once here: the engine choice is fixed for the life of the session. */
-    val nativeEngine: Boolean = PlayerPrefsStore(prefsFiles.player).load().nativeEngine
-
-    // WAKE_MODE_LOCAL takes a partial wake lock while playback is active, so the CPU
-    // cannot doze mid-track with the screen off. Not the WIFI variant: nothing streams.
-    val exoPlayer: ExoPlayer? =
-        if (nativeEngine) {
-            null
-        } else {
-            ExoPlayer
-                .Builder(context, TapRenderersFactory(context, tap, clockDriver, dsp = listOf(dsp)))
-                .setMediaSourceFactory(
-                    androidx.media3.exoplayer.source.DefaultMediaSourceFactory(
-                        context,
-                        androidx.media3.extractor.ExtractorsFactory {
-                            androidx.media3.extractor
-                                .DefaultExtractorsFactory()
-                                .createExtractors() +
-                                dev.geode.audio.AiffExtractor()
-                        },
-                    ),
-                ).setAudioAttributes(
-                    AudioAttributes
-                        .Builder()
-                        .setUsage(C.USAGE_MEDIA)
-                        .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
-                        .build(),
-                    true,
-                ).setWakeMode(C.WAKE_MODE_LOCAL)
-                .build()
-        }
-
-    val player: Player = exoPlayer ?: NativePlayer(context, NativeTapPump(tap, clockDriver), NativePlayerDsp(dsp))
+    /**
+     * The one player: ExoPlayer, with the tap first in its processor chain ([TapRenderersFactory]).
+     * WAKE_MODE_LOCAL takes a partial wake lock while playback is active, so the CPU cannot doze
+     * mid-track with the screen off. Not the WIFI variant: nothing streams.
+     */
+    val player: ExoPlayer =
+        ExoPlayer
+            .Builder(context, TapRenderersFactory(context, tap, clockDriver, dsp = listOf(dsp)))
+            .setMediaSourceFactory(
+                androidx.media3.exoplayer.source.DefaultMediaSourceFactory(
+                    context,
+                    androidx.media3.extractor.ExtractorsFactory {
+                        androidx.media3.extractor
+                            .DefaultExtractorsFactory()
+                            .createExtractors() +
+                            dev.geode.audio.AiffExtractor()
+                    },
+                ),
+            ).setAudioAttributes(
+                AudioAttributes
+                    .Builder()
+                    .setUsage(C.USAGE_MEDIA)
+                    .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
+                    .build(),
+                true,
+            ).setWakeMode(C.WAKE_MODE_LOCAL)
+            .build()
 
     val audioFx = AudioFxController(prefsFiles.audioFx, AudioFxPresets.all(context), dsp)
 
@@ -109,7 +110,7 @@ class PlaybackSession internal constructor(
 
     val sleepTimer = SleepTimer(player, scope)
 
-    private val autoDirector = AutoDirectorFeed(context, player, scope)
+    private val autoDirector = AutoDirectorFeed(context.applicationContext, player, scope)
 
     /**
      * The rate of whichever source writes [sampleRing] right now: the tap's format when nothing else
@@ -126,6 +127,23 @@ class PlaybackSession internal constructor(
         player.addListener(replayGain)
         player.addListener(autoDirector)
         dev.geode.audio.AudioBus.soundInput = soundInput
+        // The saved options go on here, not only when the UI attaches: a session the service starts
+        // alone (a headset button, Android Auto or System UI resuming playback) has no PlayerSession,
+        // and without this it would ignore pause-on-unplug, ReplayGain, shuffle and repeat until the
+        // app was opened. The UI applies the same prefs again when it attaches, which is harmless.
+        val saved = PlayerPrefsStore(prefsFiles.player).load()
+        player.shuffleModeEnabled = saved.shuffle
+        player.repeatMode = saved.repeatMode
+        applyPrefs(saved)
+    }
+
+    /** Everything in [PlayerPrefs] that the player, ReplayGain or the USB route carry out. */
+    fun applyPrefs(p: PlayerPrefs) {
+        player.playbackParameters = PlaybackParameters(p.speed, PlaybackMath.semitonesToRatio(p.pitchSemitones))
+        player.skipSilenceEnabled = p.skipSilence
+        player.setHandleAudioBecomingNoisy(p.pauseOnNoisy)
+        replayGain.configure(p.replayGainMode, p.replayGainPreampDb, p.replayGainClipGuard)
+        bitPerfect.setEnabled(p.bitPerfect, player)
     }
 
     val playbackWanted: Boolean
@@ -142,6 +160,7 @@ class PlaybackSession internal constructor(
         player.removeListener(replayGain)
         player.removeListener(autoDirector)
         autoDirector.release()
+        bitPerfect.setEnabled(false, player)
         player.release()
         dsp.release()
     }

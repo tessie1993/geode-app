@@ -177,33 +177,39 @@ reactions, `Form` and every modulator read the same grid. The other places are *
 
 | Source | Gives | Phase | Export |
 |---|---|---|---|
-| `Auto` (default) | detected period | detected (PLP) | same as live |
-| `Typed` | a BPM | locked to detected onsets | same as live |
-| `Tag` | the track's BPM tag (or its map's tempo, §6) | locked to detected onsets, or the map's beat grid | same as live |
-| `Tap` | period from the last taps (median of 2–8 intervals) | the taps set the phase, then onsets refine it | recorded into the take; otherwise falls back to `Tag`/`Auto` |
-| `MidiIn` | 24 ppqn clock, Start/Stop/Continue, Song Position | the clock owns phase, no onset correction | recorded into the take; otherwise falls back |
+| `AUTO` (default) | detected period | detected (PLP) | same as live |
+| `MANUAL` | a typed BPM or the track's BPM tag (or its map's tempo, §6) | locked to detected onsets, or the map's beat grid | same as live |
+| `TAP` | period from the last taps (median of 2–8 intervals) | the taps set the phase, then onsets refine it | recorded into the take; otherwise falls back to the tag, then `AUTO` |
+| `MIDI` | 24 ppqn clock, Start/Stop/Continue, Song Position | the clock owns phase, no onset correction | recorded into the take; otherwise falls back |
 
-**Native API** (`core/api/geode_api.h`, process-wide like the macros):
+**Native API** (`core/api/geode_api.h`; agreed with the Visuals UI session). Process-wide like the macros,
+so a tap or MIDI clock reaches every live engine (screen, wallpaper, dream); an export pins its own source
+(from the take, else the tag, else Auto), the way `Renderer::pinDirector` pins the director:
 ```
-geode_tempo_source_set(int source, float bpm)      // Auto, Typed, Tag, Tap, MidiIn; bpm for Typed/Tag
-geode_tempo_tap(int64_t presentationNanos)         // one tap, on the presentation clock
-geode_tempo_midi(int kind, int64_t nanos, int pos) // clock pulse, start, stop, continue, song position
-geode_tempo_clock(GeodeTempoClock* out)            // bpm, beat phase, beat index, bar, source, locked,
-                                                   //   and the presentation time they hold for
+geode_tempo_set_source(int source, float bpm)   // 0 AUTO, 1 MANUAL (typed or tag BPM), 2 TAP, 3 MIDI
+geode_tempo_tap(int64_t nanos)                  // median of the last 4..8 taps; a tap snaps the phase
+geode_tempo_midi_clock(int64_t nanos)           // each 24 ppqn tick
+geode_tempo_midi_start(int64_t nanos), _stop(int64_t nanos), _song_position(int sixteenths)
+geode_tempo_clock(GeodeTempoClock* out)         // bpm, source, locked, and the next beat's and next
+                                                //   downbeat's presentation time in nanos
 ```
+Modulators keep reading `bpm`, `beatPhase`, `barPhase`, `phrasePhase`, `beatCount` and `barCount` from the
+frame; `geode_tempo_clock` exists for MIDI clock out, which needs times ahead of the frame.
 - **Phase-locked override.** An outside period replaces the autocorrelation estimate; the oscillator keeps
-  its PLL, so the phase still comes from the music unless the source owns phase (Tap at first, MidiIn always).
+  its PLL, so the phase still comes from the music unless the source owns phase (TAP at first, MIDI always).
   Half and double tempo are folded to the nearest octave of the source.
 - **Clock domain.** Taps and MIDI arrive in system time; they are mapped to sample time through the same
   presentation-latency estimate as §7, so a tap on the audible beat lands on that beat.
-- **MIDI clock out** is Kotlin (`android.media.midi`), fed by `geode_tempo_clock`, which gives the next
-  beat's presentation time so the sender schedules 24 ppqn pulses ahead, not from the frame callback.
-- **Detection when not needed.** With `Typed`, `Tag`, or `MidiIn`, the tempo estimate (the autocorrelation
+- **MIDI clock out** is Kotlin (`android.media.midi`): it reads `geode_tempo_clock` and sends the next
+  beat's 24 pulses with `MidiInputPort.send(…, timestamp)` about a beat ahead, so the timing comes from the
+  clock, not from frame callbacks (no native callback or queue needed).
+- **Detection when not needed.** With `MANUAL` or `MIDI`, the tempo estimate (the autocorrelation
   every 0.25 s) is skipped; the onset envelope keeps running, because hits, `Form` and phase need it. Auto
   detection is not gated on "something consumes tempo": `Form` and the director always do, and the estimate
   is a small share of the frame.
-- **Stage.** Lands with stage 2 (it touches `Rhythm` alongside the onset work); the Kotlin side (tap UI, MIDI
-  in/out, BPM tags) is the modulation matrix's.
+- **Stage.** Its own small PR first (stage 0), ahead of the FFT, because the modulation matrix is being built
+  now and needs the API; it touches only `Rhythm` and the API. The Kotlin side (tap UI, MIDI in and out, BPM
+  tags) is the modulation matrix's.
 
 ## 9. Licence ledger
 
@@ -232,8 +238,9 @@ LiteRT docs (developers.google.com/edge/litert).
 
 | # | PR | Done when |
 |---|---|---|
+| 0 | Tempo sources (§8b): AUTO, MANUAL, TAP, MIDI into the one `Rhythm` clock; `geode_tempo_*` | musical test: each source locks the grid; TAP and MIDI phase within 10 ms; export pins its source |
 | 1 | `RealFft` + tables + vendored KISS FFT oracle + benchmark; engine switched over | oracle error < 1e-5 at every size; golden bits; ≥ 4× faster than today on host; sound and musical tests unchanged |
-| 2 | Onsets (max filter, complex-domain, peak picking, hard/soft), IF pitch, multi-window, tempo sources (§8b) | Unholy piano cover and a drum track: soft hits found, no vibrato hits; frame cost ≤ today's |
+| 2 | Onsets (max filter, complex-domain, peak picking, hard/soft), IF pitch, multi-window | Unholy piano cover and a drum track: soft hits found, no vibrato hits; frame cost ≤ today's |
 | 3 | Decimated long window, CQ bass/treble chroma, tuning, HPCP weighting, NNLS, key profiles, chord HMM | GiantSteps key and a chord set scored in scratch (scores committed, not audio); better than today |
 | 4 | Look-ahead alignment and latency measurement | Visual beat matches the audible beat on device (`DEVICE_CHECKS.md`) |
 | 5 | TrackMap format, pre-scan worker, storage, Settings, backup, privacy policy | Map written for a played track; scans pause and resume; backup allowlist and policy tests pass |

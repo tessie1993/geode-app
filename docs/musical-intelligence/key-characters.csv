@@ -1,0 +1,25 @@
+key,signature,schubart,mattheson_charpentier,agreement,wonder,transcendence,tenderness,nostalgia,peace,power,joy,tension,sadness
+C major,0,"innocence, simplicity, naivety","Mattheson: rude, bold; Charpentier: gay, warlike",0.6,0.044,0.044,0.194,0.044,0.294,0.044,0.244,0.044,0.044
+C# major,-5,a leer degenerating into grief and rapture; it can smile but not laugh,,0.8,0.168,0.022,0.022,0.313,0.022,0.022,0.022,0.240,0.168
+D major,2,"triumph, hallelujahs, war cries, victory rejoicing","all three: joyful, martial",1.0,0.000,0.000,0.000,0.000,0.000,0.545,0.455,0.000,0.000
+D# major,-3,"love, devotion, intimate conversation with God","Charpentier: cruel, hard",0.5,0.056,0.306,0.306,0.056,0.056,0.056,0.056,0.056,0.056
+E major,4,"noisy shouts of joy, laughing pleasure, not yet full delight",Mattheson: fatal sadness; Charpentier: quarrelsome,0.4,0.067,0.067,0.067,0.067,0.067,0.187,0.347,0.067,0.067
+F major,-1,complaisance and calm,Mattheson: generous love; Charpentier: furious,0.5,0.056,0.056,0.222,0.056,0.389,0.056,0.056,0.056,0.056
+F# major,6,"triumph over difficulty, the relieved sigh after the struggle",,0.8,0.022,0.262,0.022,0.022,0.022,0.342,0.262,0.022,0.022
+G major,1,"rustic, idyllic, lyrical; calm and satisfied passion, gratitude","all three: gentle, quietly joyful",1.0,0.000,0.000,0.333,0.000,0.417,0.000,0.250,0.000,0.000
+G# major,-4,"death, the grave, putrefaction, judgement, eternity",,0.8,0.022,0.386,0.022,0.022,0.022,0.022,0.022,0.168,0.313
+A major,3,"innocent love, contentment, youthful cheer, trust in God","Charpentier: joyful, pastoral",0.9,0.011,0.011,0.411,0.011,0.011,0.011,0.511,0.011,0.011
+A# major,-2,"cheerful love, clear conscience, hope, aspiration",Mattheson and Charpentier: magnificent,0.8,0.262,0.022,0.262,0.022,0.022,0.022,0.342,0.022,0.022
+B major,5,"glaring colours, wild passions: anger, rage, jealousy, despair","Charpentier: harsh, plaintive",0.8,0.022,0.022,0.022,0.022,0.022,0.422,0.022,0.422,0.022
+C minor,-3,"declaration of love and lament of unhappy love; languishing, longing","Charpentier: obscure, sad",0.8,0.022,0.022,0.222,0.356,0.022,0.022,0.022,0.022,0.289
+C# minor,4,"penitence, intimate conversation with God, sighs of disappointed love",,0.8,0.022,0.422,0.022,0.022,0.022,0.022,0.022,0.022,0.422
+D minor,-1,"melancholy womanliness, brooding spleen","Mattheson: devout, calm, grand; Charpentier: grave, devout",0.5,0.056,0.056,0.056,0.256,0.056,0.056,0.056,0.156,0.256
+D# minor,6,"deepest anxiety, brooding despair, the darkest key","Charpentier (E-flat minor): horrible, frightful",1.0,0.000,0.000,0.000,0.000,0.000,0.000,0.000,0.545,0.455
+E minor,1,"naive, womanly, innocent declaration of love; lament without grumbling","Charpentier: amorous, plaintive",0.9,0.011,0.011,0.420,0.338,0.011,0.011,0.011,0.011,0.175
+F minor,-4,"deep depression, funeral lament, longing for the grave","Charpentier: obscure, plaintive",1.0,0.000,0.000,0.000,0.200,0.000,0.000,0.000,0.000,0.800
+F# minor,3,a gloomy key; resentment and discontent,,0.8,0.022,0.022,0.022,0.022,0.022,0.022,0.022,0.467,0.378
+G minor,-2,"discontent, uneasiness, resentful gnawing","Mattheson: graceful; Charpentier: serious, magnificent",0.4,0.067,0.067,0.067,0.067,0.067,0.156,0.067,0.244,0.200
+G# minor,5,"a grumbler, the suffocated heart, wailing struggle",,0.8,0.022,0.022,0.022,0.022,0.022,0.022,0.022,0.422,0.422
+A minor,0,pious womanliness and tenderness of character,"Mattheson: plaintive, dignified; Charpentier: tender, plaintive",1.0,0.000,0.000,0.500,0.300,0.000,0.000,0.000,0.000,0.200
+A# minor,-5,"a surly creature, mocking God and the world; the garment of night","Charpentier: obscure, terrible",0.9,0.011,0.011,0.011,0.011,0.011,0.281,0.011,0.371,0.281
+B minor,2,"patience, calm awaiting of fate, submission","Mattheson: bizarre, melancholy; Charpentier: solitary, melancholy",0.6,0.044,0.044,0.044,0.263,0.263,0.044,0.044,0.044,0.208

@@ -15,6 +15,7 @@ enum class Kind {
     Signed,    // already -1..1
     Clock,     // a clock that only moves forward: its rate per second, times `scale`
     Trigger,   // > 0 on the one frame it fires: a held envelope (instant rise, `scale` seconds fall)
+    Scaled,    // a plain number (bpm, an index): times `scale`, clamped to 0..1
 };
 
 struct SourceSpec {
@@ -58,6 +59,35 @@ constexpr std::array<SourceSpec, kReactSourceCount> kSourceTable = {{
     GEODE_EQ(Eq25, 0), GEODE_EQ(Eq40, 1), GEODE_EQ(Eq60, 2), GEODE_EQ(Eq90, 3), GEODE_EQ(Eq150, 4), GEODE_EQ(Eq240, 5),
     GEODE_EQ(Eq370, 6), GEODE_EQ(Eq590, 7), GEODE_EQ(Eq930, 8), GEODE_EQ(Eq1k5, 9), GEODE_EQ(Eq2k3, 10), GEODE_EQ(Eq3k6, 11),
     GEODE_EQ(Eq5k6, 12), GEODE_EQ(Eq8k9, 13), GEODE_EQ(Eq14k, 14), GEODE_EQ(Eq22k, 15),
+    GEODE_SRC(BeatPhase, beatPhase, Unit, 0),
+    GEODE_SRC(BarPhase, barPhase, Unit, 0),
+    GEODE_SRC(PhrasePhase, phrasePhase, Unit, 0),
+    GEODE_SRC(BeatConf, beatConf, Unit, 0),
+    GEODE_SRC(Bpm, bpm, Scaled, 1.0f / 200.0f),
+    GEODE_SRC(Beat, beat, Trigger, 0.25f),
+    GEODE_SRC(Downbeat, downbeat, Trigger, 0.5f),
+    GEODE_SRC(Phrase, phrase, Trigger, 1.5f),
+    GEODE_SRC(FluxLow, fluxLow, Relative, 0),
+    GEODE_SRC(FluxMid, fluxMid, Relative, 0),
+    GEODE_SRC(FluxHigh, fluxHigh, Relative, 0),
+    GEODE_SRC(Hfc, hfc, Relative, 0),
+    GEODE_SRC(KeyHue, keyHue, Unit, 0),
+    GEODE_SRC(KeyRoot, keyRoot, Unit, 0),
+    GEODE_SRC(KeyMajor, keyMajor, Unit, 0),
+    GEODE_SRC(KeyClarity, keyClarity, Unit, 0),
+    GEODE_SRC(ChordHue, chordHue, Unit, 0),
+    GEODE_SRC(Tension, tension, Unit, 0),
+    GEODE_SRC(HarmonicChange, harmonicChange, Trigger, 1.0f),
+    GEODE_SRC(ScaleRoot, scaleRoot, Unit, 0),
+    GEODE_SRC(ScaleBrightness, scaleBrightness, Unit, 0),
+    GEODE_SRC(ScaleTension, scaleTension, Unit, 0),
+    GEODE_SRC(ScaleFit, scaleFit, Unit, 0),
+    GEODE_SRC(Novelty, novelty, Unit, 0),
+    GEODE_SRC(SectionChange, sectionChange, Trigger, 2.5f),
+    GEODE_SRC(SectionState, sectionState, Scaled, 1.0f / 5.0f),
+    GEODE_SRC(SectionId, sectionId, Scaled, 1.0f / 7.0f),
+    GEODE_SRC(BuildUp, buildUp, Unit, 0),
+    GEODE_SRC(Drop, drop, Trigger, 2.5f),
 }};
 
 #undef GEODE_SRC
@@ -160,6 +190,35 @@ constexpr std::array<ReactSourceInfo, kReactSourceCount> kSourceInfo = {{
     {"EQ_8K9", "8.9 kHz", "EQ", false},
     {"EQ_14K", "14 kHz", "EQ", false},
     {"EQ_22K", "22 kHz", "EQ", false},
+    {"BEAT_PHASE", "Beat phase", "RHYTHM", false},
+    {"BAR_PHASE", "Bar phase", "RHYTHM", false},
+    {"PHRASE_PHASE", "Phrase phase", "RHYTHM", false},
+    {"BEAT_CONF", "Beat certainty", "RHYTHM", false},
+    {"BPM", "Tempo", "RHYTHM", false},
+    {"BEAT", "Beat", "RHYTHM", true},
+    {"DOWNBEAT", "Downbeat (bar start)", "RHYTHM", true},
+    {"PHRASE", "Phrase start", "RHYTHM", true},
+    {"FLUX_LOW", "Low onsets", "RHYTHM", false},
+    {"FLUX_MID", "Mid onsets", "RHYTHM", false},
+    {"FLUX_HIGH", "High onsets", "RHYTHM", false},
+    {"HFC", "Percussive attack", "RHYTHM", false},
+    {"KEY_HUE", "Key colour", "HARMONY", false},
+    {"KEY_ROOT", "Key note", "HARMONY", false},
+    {"KEY_MAJOR", "Major vs minor", "HARMONY", false},
+    {"KEY_CLARITY", "Key clarity", "HARMONY", false},
+    {"CHORD_HUE", "Chord colour", "HARMONY", false},
+    {"TENSION", "Chord tension", "HARMONY", false},
+    {"HARMONIC_CHANGE", "Chord change", "HARMONY", true},
+    {"SCALE_ROOT", "Scale note", "HARMONY", false},
+    {"SCALE_BRIGHTNESS", "Scale mood (dark to bright)", "HARMONY", false},
+    {"SCALE_TENSION", "Scale tension", "HARMONY", false},
+    {"SCALE_FIT", "In a scale", "HARMONY", false},
+    {"NOVELTY", "Something new", "FORM", false},
+    {"SECTION_CHANGE", "New section", "FORM", true},
+    {"SECTION_STATE", "Song part", "FORM", false},
+    {"SECTION_ID", "Which section", "FORM", false},
+    {"BUILD_UP", "Build-up", "FORM", false},
+    {"DROP", "Drop", "FORM", true},
 }};
 
 // A fired trigger always crosses Step/Jump/Toggle's 0.5 edge, however soft the hit; its strength
@@ -203,6 +262,7 @@ void ReactSignals::step(const GeodeSoundFrame& f, float dt) {
             case Kind::Relative: v = std::clamp(0.5f * x, 0.0f, 1.0f); break;
             case Kind::Unit: v = std::clamp(x, 0.0f, 1.0f); break;
             case Kind::Signed: v = std::clamp(x, -1.0f, 1.0f); break;
+            case Kind::Scaled: v = std::clamp(x * spec.scale, 0.0f, 1.0f); break;
             case Kind::Clock: {
                 // A wrap (an hour, or 4096 counts) reads as one still frame, not a backwards leap.
                 const float delta = clocksPrimed_ ? x - lastClock_[k] : 0.0f;

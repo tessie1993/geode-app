@@ -1,0 +1,553 @@
+id,root,notes_sharp,notes_flat
+ionian,C,C D E F G A B,C D E F G A B
+ionian,C#,C# D# F F# G# A# C,Db Eb F Gb Ab Bb C
+ionian,D,D E F# G A B C#,D E Gb G A B Db
+ionian,D#,D# F G G# A# C D,Eb F G Ab Bb C D
+ionian,E,E F# G# A B C# D#,E Gb Ab A B Db Eb
+ionian,F,F G A A# C D E,F G A Bb C D E
+ionian,F#,F# G# A# B C# D# F,Gb Ab Bb B Db Eb F
+ionian,G,G A B C D E F#,G A B C D E Gb
+ionian,G#,G# A# C C# D# F G,Ab Bb C Db Eb F G
+ionian,A,A B C# D E F# G#,A B Db D E Gb Ab
+ionian,A#,A# C D D# F G A,Bb C D Eb F G A
+ionian,B,B C# D# E F# G# A#,B Db Eb E Gb Ab Bb
+dorian,C,C D D# F G A A#,C D Eb F G A Bb
+dorian,C#,C# D# E F# G# A# B,Db Eb E Gb Ab Bb B
+dorian,D,D E F G A B C,D E F G A B C
+dorian,D#,D# F F# G# A# C C#,Eb F Gb Ab Bb C Db
+dorian,E,E F# G A B C# D,E Gb G A B Db D
+dorian,F,F G G# A# C D D#,F G Ab Bb C D Eb
+dorian,F#,F# G# A B C# D# E,Gb Ab A B Db Eb E
+dorian,G,G A A# C D E F,G A Bb C D E F
+dorian,G#,G# A# B C# D# F F#,Ab Bb B Db Eb F Gb
+dorian,A,A B C D E F# G,A B C D E Gb G
+dorian,A#,A# C C# D# F G G#,Bb C Db Eb F G Ab
+dorian,B,B C# D E F# G# A,B Db D E Gb Ab A
+phrygian,C,C C# D# F G G# A#,C Db Eb F G Ab Bb
+phrygian,C#,C# D E F# G# A B,Db D E Gb Ab A B
+phrygian,D,D D# F G A A# C,D Eb F G A Bb C
+phrygian,D#,D# E F# G# A# B C#,Eb E Gb Ab Bb B Db
+phrygian,E,E F G A B C D,E F G A B C D
+phrygian,F,F F# G# A# C C# D#,F Gb Ab Bb C Db Eb
+phrygian,F#,F# G A B C# D E,Gb G A B Db D E
+phrygian,G,G G# A# C D D# F,G Ab Bb C D Eb F
+phrygian,G#,G# A B C# D# E F#,Ab A B Db Eb E Gb
+phrygian,A,A A# C D E F G,A Bb C D E F G
+phrygian,A#,A# B C# D# F F# G#,Bb B Db Eb F Gb Ab
+phrygian,B,B C D E F# G A,B C D E Gb G A
+lydian,C,C D E F# G A B,C D E Gb G A B
+lydian,C#,C# D# F G G# A# C,Db Eb F G Ab Bb C
+lydian,D,D E F# G# A B C#,D E Gb Ab A B Db
+lydian,D#,D# F G A A# C D,Eb F G A Bb C D
+lydian,E,E F# G# A# B C# D#,E Gb Ab Bb B Db Eb
+lydian,F,F G A B C D E,F G A B C D E
+lydian,F#,F# G# A# C C# D# F,Gb Ab Bb C Db Eb F
+lydian,G,G A B C# D E F#,G A B Db D E Gb
+lydian,G#,G# A# C D D# F G,Ab Bb C D Eb F G
+lydian,A,A B C# D# E F# G#,A B Db Eb E Gb Ab
+lydian,A#,A# C D E F G A,Bb C D E F G A
+lydian,B,B C# D# F F# G# A#,B Db Eb F Gb Ab Bb
+mixolydian,C,C D E F G A A#,C D E F G A Bb
+mixolydian,C#,C# D# F F# G# A# B,Db Eb F Gb Ab Bb B
+mixolydian,D,D E F# G A B C,D E Gb G A B C
+mixolydian,D#,D# F G G# A# C C#,Eb F G Ab Bb C Db
+mixolydian,E,E F# G# A B C# D,E Gb Ab A B Db D
+mixolydian,F,F G A A# C D D#,F G A Bb C D Eb
+mixolydian,F#,F# G# A# B C# D# E,Gb Ab Bb B Db Eb E
+mixolydian,G,G A B C D E F,G A B C D E F
+mixolydian,G#,G# A# C C# D# F F#,Ab Bb C Db Eb F Gb
+mixolydian,A,A B C# D E F# G,A B Db D E Gb G
+mixolydian,A#,A# C D D# F G G#,Bb C D Eb F G Ab
+mixolydian,B,B C# D# E F# G# A,B Db Eb E Gb Ab A
+aeolian,C,C D D# F G G# A#,C D Eb F G Ab Bb
+aeolian,C#,C# D# E F# G# A B,Db Eb E Gb Ab A B
+aeolian,D,D E F G A A# C,D E F G A Bb C
+aeolian,D#,D# F F# G# A# B C#,Eb F Gb Ab Bb B Db
+aeolian,E,E F# G A B C D,E Gb G A B C D
+aeolian,F,F G G# A# C C# D#,F G Ab Bb C Db Eb
+aeolian,F#,F# G# A B C# D E,Gb Ab A B Db D E
+aeolian,G,G A A# C D D# F,G A Bb C D Eb F
+aeolian,G#,G# A# B C# D# E F#,Ab Bb B Db Eb E Gb
+aeolian,A,A B C D E F G,A B C D E F G
+aeolian,A#,A# C C# D# F F# G#,Bb C Db Eb F Gb Ab
+aeolian,B,B C# D E F# G A,B Db D E Gb G A
+locrian,C,C C# D# F F# G# A#,C Db Eb F Gb Ab Bb
+locrian,C#,C# D E F# G A B,Db D E Gb G A B
+locrian,D,D D# F G G# A# C,D Eb F G Ab Bb C
+locrian,D#,D# E F# G# A B C#,Eb E Gb Ab A B Db
+locrian,E,E F G A A# C D,E F G A Bb C D
+locrian,F,F F# G# A# B C# D#,F Gb Ab Bb B Db Eb
+locrian,F#,F# G A B C D E,Gb G A B C D E
+locrian,G,G G# A# C C# D# F,G Ab Bb C Db Eb F
+locrian,G#,G# A B C# D E F#,Ab A B Db D E Gb
+locrian,A,A A# C D D# F G,A Bb C D Eb F G
+locrian,A#,A# B C# D# E F# G#,Bb B Db Eb E Gb Ab
+locrian,B,B C D E F G A,B C D E F G A
+harmonic_minor,C,C D D# F G G# B,C D Eb F G Ab B
+harmonic_minor,C#,C# D# E F# G# A C,Db Eb E Gb Ab A C
+harmonic_minor,D,D E F G A A# C#,D E F G A Bb Db
+harmonic_minor,D#,D# F F# G# A# B D,Eb F Gb Ab Bb B D
+harmonic_minor,E,E F# G A B C D#,E Gb G A B C Eb
+harmonic_minor,F,F G G# A# C C# E,F G Ab Bb C Db E
+harmonic_minor,F#,F# G# A B C# D F,Gb Ab A B Db D F
+harmonic_minor,G,G A A# C D D# F#,G A Bb C D Eb Gb
+harmonic_minor,G#,G# A# B C# D# E G,Ab Bb B Db Eb E G
+harmonic_minor,A,A B C D E F G#,A B C D E F Ab
+harmonic_minor,A#,A# C C# D# F F# A,Bb C Db Eb F Gb A
+harmonic_minor,B,B C# D E F# G A#,B Db D E Gb G Bb
+locrian_n6,C,C C# D# F F# A A#,C Db Eb F Gb A Bb
+locrian_n6,C#,C# D E F# G A# B,Db D E Gb G Bb B
+locrian_n6,D,D D# F G G# B C,D Eb F G Ab B C
+locrian_n6,D#,D# E F# G# A C C#,Eb E Gb Ab A C Db
+locrian_n6,E,E F G A A# C# D,E F G A Bb Db D
+locrian_n6,F,F F# G# A# B D D#,F Gb Ab Bb B D Eb
+locrian_n6,F#,F# G A B C D# E,Gb G A B C Eb E
+locrian_n6,G,G G# A# C C# E F,G Ab Bb C Db E F
+locrian_n6,G#,G# A B C# D F F#,Ab A B Db D F Gb
+locrian_n6,A,A A# C D D# F# G,A Bb C D Eb Gb G
+locrian_n6,A#,A# B C# D# E G G#,Bb B Db Eb E G Ab
+locrian_n6,B,B C D E F G# A,B C D E F Ab A
+ionian_s5,C,C D E F G# A B,C D E F Ab A B
+ionian_s5,C#,C# D# F F# A A# C,Db Eb F Gb A Bb C
+ionian_s5,D,D E F# G A# B C#,D E Gb G Bb B Db
+ionian_s5,D#,D# F G G# B C D,Eb F G Ab B C D
+ionian_s5,E,E F# G# A C C# D#,E Gb Ab A C Db Eb
+ionian_s5,F,F G A A# C# D E,F G A Bb Db D E
+ionian_s5,F#,F# G# A# B D D# F,Gb Ab Bb B D Eb F
+ionian_s5,G,G A B C D# E F#,G A B C Eb E Gb
+ionian_s5,G#,G# A# C C# E F G,Ab Bb C Db E F G
+ionian_s5,A,A B C# D F F# G#,A B Db D F Gb Ab
+ionian_s5,A#,A# C D D# F# G A,Bb C D Eb Gb G A
+ionian_s5,B,B C# D# E G G# A#,B Db Eb E G Ab Bb
+dorian_s4,C,C D D# F# G A A#,C D Eb Gb G A Bb
+dorian_s4,C#,C# D# E G G# A# B,Db Eb E G Ab Bb B
+dorian_s4,D,D E F G# A B C,D E F Ab A B C
+dorian_s4,D#,D# F F# A A# C C#,Eb F Gb A Bb C Db
+dorian_s4,E,E F# G A# B C# D,E Gb G Bb B Db D
+dorian_s4,F,F G G# B C D D#,F G Ab B C D Eb
+dorian_s4,F#,F# G# A C C# D# E,Gb Ab A C Db Eb E
+dorian_s4,G,G A A# C# D E F,G A Bb Db D E F
+dorian_s4,G#,G# A# B D D# F F#,Ab Bb B D Eb F Gb
+dorian_s4,A,A B C D# E F# G,A B C Eb E Gb G
+dorian_s4,A#,A# C C# E F G G#,Bb C Db E F G Ab
+dorian_s4,B,B C# D F F# G# A,B Db D F Gb Ab A
+phrygian_dominant,C,C C# E F G G# A#,C Db E F G Ab Bb
+phrygian_dominant,C#,C# D F F# G# A B,Db D F Gb Ab A B
+phrygian_dominant,D,D D# F# G A A# C,D Eb Gb G A Bb C
+phrygian_dominant,D#,D# E G G# A# B C#,Eb E G Ab Bb B Db
+phrygian_dominant,E,E F G# A B C D,E F Ab A B C D
+phrygian_dominant,F,F F# A A# C C# D#,F Gb A Bb C Db Eb
+phrygian_dominant,F#,F# G A# B C# D E,Gb G Bb B Db D E
+phrygian_dominant,G,G G# B C D D# F,G Ab B C D Eb F
+phrygian_dominant,G#,G# A C C# D# E F#,Ab A C Db Eb E Gb
+phrygian_dominant,A,A A# C# D E F G,A Bb Db D E F G
+phrygian_dominant,A#,A# B D D# F F# G#,Bb B D Eb F Gb Ab
+phrygian_dominant,B,B C D# E F# G A,B C Eb E Gb G A
+lydian_s2,C,C D# E F# G A B,C Eb E Gb G A B
+lydian_s2,C#,C# E F G G# A# C,Db E F G Ab Bb C
+lydian_s2,D,D F F# G# A B C#,D F Gb Ab A B Db
+lydian_s2,D#,D# F# G A A# C D,Eb Gb G A Bb C D
+lydian_s2,E,E G G# A# B C# D#,E G Ab Bb B Db Eb
+lydian_s2,F,F G# A B C D E,F Ab A B C D E
+lydian_s2,F#,F# A A# C C# D# F,Gb A Bb C Db Eb F
+lydian_s2,G,G A# B C# D E F#,G Bb B Db D E Gb
+lydian_s2,G#,G# B C D D# F G,Ab B C D Eb F G
+lydian_s2,A,A C C# D# E F# G#,A C Db Eb E Gb Ab
+lydian_s2,A#,A# C# D E F G A,Bb Db D E F G A
+lydian_s2,B,B D D# F F# G# A#,B D Eb F Gb Ab Bb
+ultralocrian,C,C C# D# E F# G# A,C Db Eb E Gb Ab A
+ultralocrian,C#,C# D E F G A A#,Db D E F G A Bb
+ultralocrian,D,D D# F F# G# A# B,D Eb F Gb Ab Bb B
+ultralocrian,D#,D# E F# G A B C,Eb E Gb G A B C
+ultralocrian,E,E F G G# A# C C#,E F G Ab Bb C Db
+ultralocrian,F,F F# G# A B C# D,F Gb Ab A B Db D
+ultralocrian,F#,F# G A A# C D D#,Gb G A Bb C D Eb
+ultralocrian,G,G G# A# B C# D# E,G Ab Bb B Db Eb E
+ultralocrian,G#,G# A B C D E F,Ab A B C D E F
+ultralocrian,A,A A# C C# D# F F#,A Bb C Db Eb F Gb
+ultralocrian,A#,A# B C# D E F# G,Bb B Db D E Gb G
+ultralocrian,B,B C D D# F G G#,B C D Eb F G Ab
+melodic_minor,C,C D D# F G A B,C D Eb F G A B
+melodic_minor,C#,C# D# E F# G# A# C,Db Eb E Gb Ab Bb C
+melodic_minor,D,D E F G A B C#,D E F G A B Db
+melodic_minor,D#,D# F F# G# A# C D,Eb F Gb Ab Bb C D
+melodic_minor,E,E F# G A B C# D#,E Gb G A B Db Eb
+melodic_minor,F,F G G# A# C D E,F G Ab Bb C D E
+melodic_minor,F#,F# G# A B C# D# F,Gb Ab A B Db Eb F
+melodic_minor,G,G A A# C D E F#,G A Bb C D E Gb
+melodic_minor,G#,G# A# B C# D# F G,Ab Bb B Db Eb F G
+melodic_minor,A,A B C D E F# G#,A B C D E Gb Ab
+melodic_minor,A#,A# C C# D# F G A,Bb C Db Eb F G A
+melodic_minor,B,B C# D E F# G# A#,B Db D E Gb Ab Bb
+dorian_b2,C,C C# D# F G A A#,C Db Eb F G A Bb
+dorian_b2,C#,C# D E F# G# A# B,Db D E Gb Ab Bb B
+dorian_b2,D,D D# F G A B C,D Eb F G A B C
+dorian_b2,D#,D# E F# G# A# C C#,Eb E Gb Ab Bb C Db
+dorian_b2,E,E F G A B C# D,E F G A B Db D
+dorian_b2,F,F F# G# A# C D D#,F Gb Ab Bb C D Eb
+dorian_b2,F#,F# G A B C# D# E,Gb G A B Db Eb E
+dorian_b2,G,G G# A# C D E F,G Ab Bb C D E F
+dorian_b2,G#,G# A B C# D# F F#,Ab A B Db Eb F Gb
+dorian_b2,A,A A# C D E F# G,A Bb C D E Gb G
+dorian_b2,A#,A# B C# D# F G G#,Bb B Db Eb F G Ab
+dorian_b2,B,B C D E F# G# A,B C D E Gb Ab A
+lydian_augmented,C,C D E F# G# A B,C D E Gb Ab A B
+lydian_augmented,C#,C# D# F G A A# C,Db Eb F G A Bb C
+lydian_augmented,D,D E F# G# A# B C#,D E Gb Ab Bb B Db
+lydian_augmented,D#,D# F G A B C D,Eb F G A B C D
+lydian_augmented,E,E F# G# A# C C# D#,E Gb Ab Bb C Db Eb
+lydian_augmented,F,F G A B C# D E,F G A B Db D E
+lydian_augmented,F#,F# G# A# C D D# F,Gb Ab Bb C D Eb F
+lydian_augmented,G,G A B C# D# E F#,G A B Db Eb E Gb
+lydian_augmented,G#,G# A# C D E F G,Ab Bb C D E F G
+lydian_augmented,A,A B C# D# F F# G#,A B Db Eb F Gb Ab
+lydian_augmented,A#,A# C D E F# G A,Bb C D E Gb G A
+lydian_augmented,B,B C# D# F G G# A#,B Db Eb F G Ab Bb
+lydian_dominant,C,C D E F# G A A#,C D E Gb G A Bb
+lydian_dominant,C#,C# D# F G G# A# B,Db Eb F G Ab Bb B
+lydian_dominant,D,D E F# G# A B C,D E Gb Ab A B C
+lydian_dominant,D#,D# F G A A# C C#,Eb F G A Bb C Db
+lydian_dominant,E,E F# G# A# B C# D,E Gb Ab Bb B Db D
+lydian_dominant,F,F G A B C D D#,F G A B C D Eb
+lydian_dominant,F#,F# G# A# C C# D# E,Gb Ab Bb C Db Eb E
+lydian_dominant,G,G A B C# D E F,G A B Db D E F
+lydian_dominant,G#,G# A# C D D# F F#,Ab Bb C D Eb F Gb
+lydian_dominant,A,A B C# D# E F# G,A B Db Eb E Gb G
+lydian_dominant,A#,A# C D E F G G#,Bb C D E F G Ab
+lydian_dominant,B,B C# D# F F# G# A,B Db Eb F Gb Ab A
+mixolydian_b6,C,C D E F G G# A#,C D E F G Ab Bb
+mixolydian_b6,C#,C# D# F F# G# A B,Db Eb F Gb Ab A B
+mixolydian_b6,D,D E F# G A A# C,D E Gb G A Bb C
+mixolydian_b6,D#,D# F G G# A# B C#,Eb F G Ab Bb B Db
+mixolydian_b6,E,E F# G# A B C D,E Gb Ab A B C D
+mixolydian_b6,F,F G A A# C C# D#,F G A Bb C Db Eb
+mixolydian_b6,F#,F# G# A# B C# D E,Gb Ab Bb B Db D E
+mixolydian_b6,G,G A B C D D# F,G A B C D Eb F
+mixolydian_b6,G#,G# A# C C# D# E F#,Ab Bb C Db Eb E Gb
+mixolydian_b6,A,A B C# D E F G,A B Db D E F G
+mixolydian_b6,A#,A# C D D# F F# G#,Bb C D Eb F Gb Ab
+mixolydian_b6,B,B C# D# E F# G A,B Db Eb E Gb G A
+locrian_s2,C,C D D# F F# G# A#,C D Eb F Gb Ab Bb
+locrian_s2,C#,C# D# E F# G A B,Db Eb E Gb G A B
+locrian_s2,D,D E F G G# A# C,D E F G Ab Bb C
+locrian_s2,D#,D# F F# G# A B C#,Eb F Gb Ab A B Db
+locrian_s2,E,E F# G A A# C D,E Gb G A Bb C D
+locrian_s2,F,F G G# A# B C# D#,F G Ab Bb B Db Eb
+locrian_s2,F#,F# G# A B C D E,Gb Ab A B C D E
+locrian_s2,G,G A A# C C# D# F,G A Bb C Db Eb F
+locrian_s2,G#,G# A# B C# D E F#,Ab Bb B Db D E Gb
+locrian_s2,A,A B C D D# F G,A B C D Eb F G
+locrian_s2,A#,A# C C# D# E F# G#,Bb C Db Eb E Gb Ab
+locrian_s2,B,B C# D E F G A,B Db D E F G A
+altered,C,C C# D# E F# G# A#,C Db Eb E Gb Ab Bb
+altered,C#,C# D E F G A B,Db D E F G A B
+altered,D,D D# F F# G# A# C,D Eb F Gb Ab Bb C
+altered,D#,D# E F# G A B C#,Eb E Gb G A B Db
+altered,E,E F G G# A# C D,E F G Ab Bb C D
+altered,F,F F# G# A B C# D#,F Gb Ab A B Db Eb
+altered,F#,F# G A A# C D E,Gb G A Bb C D E
+altered,G,G G# A# B C# D# F,G Ab Bb B Db Eb F
+altered,G#,G# A B C D E F#,Ab A B C D E Gb
+altered,A,A A# C C# D# F G,A Bb C Db Eb F G
+altered,A#,A# B C# D E F# G#,Bb B Db D E Gb Ab
+altered,B,B C D D# F G A,B C D Eb F G A
+harmonic_major,C,C D E F G G# B,C D E F G Ab B
+harmonic_major,C#,C# D# F F# G# A C,Db Eb F Gb Ab A C
+harmonic_major,D,D E F# G A A# C#,D E Gb G A Bb Db
+harmonic_major,D#,D# F G G# A# B D,Eb F G Ab Bb B D
+harmonic_major,E,E F# G# A B C D#,E Gb Ab A B C Eb
+harmonic_major,F,F G A A# C C# E,F G A Bb C Db E
+harmonic_major,F#,F# G# A# B C# D F,Gb Ab Bb B Db D F
+harmonic_major,G,G A B C D D# F#,G A B C D Eb Gb
+harmonic_major,G#,G# A# C C# D# E G,Ab Bb C Db Eb E G
+harmonic_major,A,A B C# D E F G#,A B Db D E F Ab
+harmonic_major,A#,A# C D D# F F# A,Bb C D Eb F Gb A
+harmonic_major,B,B C# D# E F# G A#,B Db Eb E Gb G Bb
+major_pentatonic,C,C D E G A,C D E G A
+major_pentatonic,C#,C# D# F G# A#,Db Eb F Ab Bb
+major_pentatonic,D,D E F# A B,D E Gb A B
+major_pentatonic,D#,D# F G A# C,Eb F G Bb C
+major_pentatonic,E,E F# G# B C#,E Gb Ab B Db
+major_pentatonic,F,F G A C D,F G A C D
+major_pentatonic,F#,F# G# A# C# D#,Gb Ab Bb Db Eb
+major_pentatonic,G,G A B D E,G A B D E
+major_pentatonic,G#,G# A# C D# F,Ab Bb C Eb F
+major_pentatonic,A,A B C# E F#,A B Db E Gb
+major_pentatonic,A#,A# C D F G,Bb C D F G
+major_pentatonic,B,B C# D# F# G#,B Db Eb Gb Ab
+suspended_pentatonic,C,C D F G A#,C D F G Bb
+suspended_pentatonic,C#,C# D# F# G# B,Db Eb Gb Ab B
+suspended_pentatonic,D,D E G A C,D E G A C
+suspended_pentatonic,D#,D# F G# A# C#,Eb F Ab Bb Db
+suspended_pentatonic,E,E F# A B D,E Gb A B D
+suspended_pentatonic,F,F G A# C D#,F G Bb C Eb
+suspended_pentatonic,F#,F# G# B C# E,Gb Ab B Db E
+suspended_pentatonic,G,G A C D F,G A C D F
+suspended_pentatonic,G#,G# A# C# D# F#,Ab Bb Db Eb Gb
+suspended_pentatonic,A,A B D E G,A B D E G
+suspended_pentatonic,A#,A# C D# F G#,Bb C Eb F Ab
+suspended_pentatonic,B,B C# E F# A,B Db E Gb A
+blues_minor_pentatonic,C,C D# F G# A#,C Eb F Ab Bb
+blues_minor_pentatonic,C#,C# E F# A B,Db E Gb A B
+blues_minor_pentatonic,D,D F G A# C,D F G Bb C
+blues_minor_pentatonic,D#,D# F# G# B C#,Eb Gb Ab B Db
+blues_minor_pentatonic,E,E G A C D,E G A C D
+blues_minor_pentatonic,F,F G# A# C# D#,F Ab Bb Db Eb
+blues_minor_pentatonic,F#,F# A B D E,Gb A B D E
+blues_minor_pentatonic,G,G A# C D# F,G Bb C Eb F
+blues_minor_pentatonic,G#,G# B C# E F#,Ab B Db E Gb
+blues_minor_pentatonic,A,A C D F G,A C D F G
+blues_minor_pentatonic,A#,A# C# D# F# G#,Bb Db Eb Gb Ab
+blues_minor_pentatonic,B,B D E G A,B D E G A
+blues_major_pentatonic,C,C D F G A,C D F G A
+blues_major_pentatonic,C#,C# D# F# G# A#,Db Eb Gb Ab Bb
+blues_major_pentatonic,D,D E G A B,D E G A B
+blues_major_pentatonic,D#,D# F G# A# C,Eb F Ab Bb C
+blues_major_pentatonic,E,E F# A B C#,E Gb A B Db
+blues_major_pentatonic,F,F G A# C D,F G Bb C D
+blues_major_pentatonic,F#,F# G# B C# D#,Gb Ab B Db Eb
+blues_major_pentatonic,G,G A C D E,G A C D E
+blues_major_pentatonic,G#,G# A# C# D# F,Ab Bb Db Eb F
+blues_major_pentatonic,A,A B D E F#,A B D E Gb
+blues_major_pentatonic,A#,A# C D# F G,Bb C Eb F G
+blues_major_pentatonic,B,B C# E F# G#,B Db E Gb Ab
+minor_pentatonic,C,C D# F G A#,C Eb F G Bb
+minor_pentatonic,C#,C# E F# G# B,Db E Gb Ab B
+minor_pentatonic,D,D F G A C,D F G A C
+minor_pentatonic,D#,D# F# G# A# C#,Eb Gb Ab Bb Db
+minor_pentatonic,E,E G A B D,E G A B D
+minor_pentatonic,F,F G# A# C D#,F Ab Bb C Eb
+minor_pentatonic,F#,F# A B C# E,Gb A B Db E
+minor_pentatonic,G,G A# C D F,G Bb C D F
+minor_pentatonic,G#,G# B C# D# F#,Ab B Db Eb Gb
+minor_pentatonic,A,A C D E G,A C D E G
+minor_pentatonic,A#,A# C# D# F G#,Bb Db Eb F Ab
+minor_pentatonic,B,B D E F# A,B D E Gb A
+hirajoshi,C,C D D# G G#,C D Eb G Ab
+hirajoshi,C#,C# D# E G# A,Db Eb E Ab A
+hirajoshi,D,D E F A A#,D E F A Bb
+hirajoshi,D#,D# F F# A# B,Eb F Gb Bb B
+hirajoshi,E,E F# G B C,E Gb G B C
+hirajoshi,F,F G G# C C#,F G Ab C Db
+hirajoshi,F#,F# G# A C# D,Gb Ab A Db D
+hirajoshi,G,G A A# D D#,G A Bb D Eb
+hirajoshi,G#,G# A# B D# E,Ab Bb B Eb E
+hirajoshi,A,A B C E F,A B C E F
+hirajoshi,A#,A# C C# F F#,Bb C Db F Gb
+hirajoshi,B,B C# D F# G,B Db D Gb G
+in_sen,C,C C# F G G#,C Db F G Ab
+in_sen,C#,C# D F# G# A,Db D Gb Ab A
+in_sen,D,D D# G A A#,D Eb G A Bb
+in_sen,D#,D# E G# A# B,Eb E Ab Bb B
+in_sen,E,E F A B C,E F A B C
+in_sen,F,F F# A# C C#,F Gb Bb C Db
+in_sen,F#,F# G B C# D,Gb G B Db D
+in_sen,G,G G# C D D#,G Ab C D Eb
+in_sen,G#,G# A C# D# E,Ab A Db Eb E
+in_sen,A,A A# D E F,A Bb D E F
+in_sen,A#,A# B D# F F#,Bb B Eb F Gb
+in_sen,B,B C E F# G,B C E Gb G
+iwato,C,C C# F F# A#,C Db F Gb Bb
+iwato,C#,C# D F# G B,Db D Gb G B
+iwato,D,D D# G G# C,D Eb G Ab C
+iwato,D#,D# E G# A C#,Eb E Ab A Db
+iwato,E,E F A A# D,E F A Bb D
+iwato,F,F F# A# B D#,F Gb Bb B Eb
+iwato,F#,F# G B C E,Gb G B C E
+iwato,G,G G# C C# F,G Ab C Db F
+iwato,G#,G# A C# D F#,Ab A Db D Gb
+iwato,A,A A# D D# G,A Bb D Eb G
+iwato,A#,A# B D# E G#,Bb B Eb E Ab
+iwato,B,B C E F A,B C E F A
+blues,C,C D# F F# G A#,C Eb F Gb G Bb
+blues,C#,C# E F# G G# B,Db E Gb G Ab B
+blues,D,D F G G# A C,D F G Ab A C
+blues,D#,D# F# G# A A# C#,Eb Gb Ab A Bb Db
+blues,E,E G A A# B D,E G A Bb B D
+blues,F,F G# A# B C D#,F Ab Bb B C Eb
+blues,F#,F# A B C C# E,Gb A B C Db E
+blues,G,G A# C C# D F,G Bb C Db D F
+blues,G#,G# B C# D D# F#,Ab B Db D Eb Gb
+blues,A,A C D D# E G,A C D Eb E G
+blues,A#,A# C# D# E F G#,Bb Db Eb E F Ab
+blues,B,B D E F F# A,B D E F Gb A
+major_blues,C,C D D# E G A,C D Eb E G A
+major_blues,C#,C# D# E F G# A#,Db Eb E F Ab Bb
+major_blues,D,D E F F# A B,D E F Gb A B
+major_blues,D#,D# F F# G A# C,Eb F Gb G Bb C
+major_blues,E,E F# G G# B C#,E Gb G Ab B Db
+major_blues,F,F G G# A C D,F G Ab A C D
+major_blues,F#,F# G# A A# C# D#,Gb Ab A Bb Db Eb
+major_blues,G,G A A# B D E,G A Bb B D E
+major_blues,G#,G# A# B C D# F,Ab Bb B C Eb F
+major_blues,A,A B C C# E F#,A B C Db E Gb
+major_blues,A#,A# C C# D F G,Bb C Db D F G
+major_blues,B,B C# D D# F# G#,B Db D Eb Gb Ab
+whole_tone,C,C D E F# G# A#,C D E Gb Ab Bb
+whole_tone,C#,C# D# F G A B,Db Eb F G A B
+whole_tone,D,D E F# G# A# C,D E Gb Ab Bb C
+whole_tone,D#,D# F G A B C#,Eb F G A B Db
+whole_tone,E,E F# G# A# C D,E Gb Ab Bb C D
+whole_tone,F,F G A B C# D#,F G A B Db Eb
+whole_tone,F#,F# G# A# C D E,Gb Ab Bb C D E
+whole_tone,G,G A B C# D# F,G A B Db Eb F
+whole_tone,G#,G# A# C D E F#,Ab Bb C D E Gb
+whole_tone,A,A B C# D# F G,A B Db Eb F G
+whole_tone,A#,A# C D E F# G#,Bb C D E Gb Ab
+whole_tone,B,B C# D# F G A,B Db Eb F G A
+augmented,C,C D# E G G# B,C Eb E G Ab B
+augmented,C#,C# E F G# A C,Db E F Ab A C
+augmented,D,D F F# A A# C#,D F Gb A Bb Db
+augmented,D#,D# F# G A# B D,Eb Gb G Bb B D
+augmented,E,E G G# B C D#,E G Ab B C Eb
+augmented,F,F G# A C C# E,F Ab A C Db E
+augmented,F#,F# A A# C# D F,Gb A Bb Db D F
+augmented,G,G A# B D D# F#,G Bb B D Eb Gb
+augmented,G#,G# B C D# E G,Ab B C Eb E G
+augmented,A,A C C# E F G#,A C Db E F Ab
+augmented,A#,A# C# D F F# A,Bb Db D F Gb A
+augmented,B,B D D# F# G A#,B D Eb Gb G Bb
+diminished_hw,C,C C# D# E F# G A A#,C Db Eb E Gb G A Bb
+diminished_hw,C#,C# D E F G G# A# B,Db D E F G Ab Bb B
+diminished_hw,D,D D# F F# G# A B C,D Eb F Gb Ab A B C
+diminished_hw,D#,D# E F# G A A# C C#,Eb E Gb G A Bb C Db
+diminished_hw,E,E F G G# A# B C# D,E F G Ab Bb B Db D
+diminished_hw,F,F F# G# A B C D D#,F Gb Ab A B C D Eb
+diminished_hw,F#,F# G A A# C C# D# E,Gb G A Bb C Db Eb E
+diminished_hw,G,G G# A# B C# D E F,G Ab Bb B Db D E F
+diminished_hw,G#,G# A B C D D# F F#,Ab A B C D Eb F Gb
+diminished_hw,A,A A# C C# D# E F# G,A Bb C Db Eb E Gb G
+diminished_hw,A#,A# B C# D E F G G#,Bb B Db D E F G Ab
+diminished_hw,B,B C D D# F F# G# A,B C D Eb F Gb Ab A
+diminished_wh,C,C D D# F F# G# A B,C D Eb F Gb Ab A B
+diminished_wh,C#,C# D# E F# G A A# C,Db Eb E Gb G A Bb C
+diminished_wh,D,D E F G G# A# B C#,D E F G Ab Bb B Db
+diminished_wh,D#,D# F F# G# A B C D,Eb F Gb Ab A B C D
+diminished_wh,E,E F# G A A# C C# D#,E Gb G A Bb C Db Eb
+diminished_wh,F,F G G# A# B C# D E,F G Ab Bb B Db D E
+diminished_wh,F#,F# G# A B C D D# F,Gb Ab A B C D Eb F
+diminished_wh,G,G A A# C C# D# E F#,G A Bb C Db Eb E Gb
+diminished_wh,G#,G# A# B C# D E F G,Ab Bb B Db D E F G
+diminished_wh,A,A B C D D# F F# G#,A B C D Eb F Gb Ab
+diminished_wh,A#,A# C C# D# E F# G A,Bb C Db Eb E Gb G A
+diminished_wh,B,B C# D E F G G# A#,B Db D E F G Ab Bb
+chromatic,C,C C# D D# E F F# G G# A A# B,C Db D Eb E F Gb G Ab A Bb B
+chromatic,C#,C# D D# E F F# G G# A A# B C,Db D Eb E F Gb G Ab A Bb B C
+chromatic,D,D D# E F F# G G# A A# B C C#,D Eb E F Gb G Ab A Bb B C Db
+chromatic,D#,D# E F F# G G# A A# B C C# D,Eb E F Gb G Ab A Bb B C Db D
+chromatic,E,E F F# G G# A A# B C C# D D#,E F Gb G Ab A Bb B C Db D Eb
+chromatic,F,F F# G G# A A# B C C# D D# E,F Gb G Ab A Bb B C Db D Eb E
+chromatic,F#,F# G G# A A# B C C# D D# E F,Gb G Ab A Bb B C Db D Eb E F
+chromatic,G,G G# A A# B C C# D D# E F F#,G Ab A Bb B C Db D Eb E F Gb
+chromatic,G#,G# A A# B C C# D D# E F F# G,Ab A Bb B C Db D Eb E F Gb G
+chromatic,A,A A# B C C# D D# E F F# G G#,A Bb B C Db D Eb E F Gb G Ab
+chromatic,A#,A# B C C# D D# E F F# G G# A,Bb B C Db D Eb E F Gb G Ab A
+chromatic,B,B C C# D D# E F F# G G# A A#,B C Db D Eb E F Gb G Ab A Bb
+bebop_dominant,C,C D E F G A A# B,C D E F G A Bb B
+bebop_dominant,C#,C# D# F F# G# A# B C,Db Eb F Gb Ab Bb B C
+bebop_dominant,D,D E F# G A B C C#,D E Gb G A B C Db
+bebop_dominant,D#,D# F G G# A# C C# D,Eb F G Ab Bb C Db D
+bebop_dominant,E,E F# G# A B C# D D#,E Gb Ab A B Db D Eb
+bebop_dominant,F,F G A A# C D D# E,F G A Bb C D Eb E
+bebop_dominant,F#,F# G# A# B C# D# E F,Gb Ab Bb B Db Eb E F
+bebop_dominant,G,G A B C D E F F#,G A B C D E F Gb
+bebop_dominant,G#,G# A# C C# D# F F# G,Ab Bb C Db Eb F Gb G
+bebop_dominant,A,A B C# D E F# G G#,A B Db D E Gb G Ab
+bebop_dominant,A#,A# C D D# F G G# A,Bb C D Eb F G Ab A
+bebop_dominant,B,B C# D# E F# G# A A#,B Db Eb E Gb Ab A Bb
+bebop_major,C,C D E F G G# A B,C D E F G Ab A B
+bebop_major,C#,C# D# F F# G# A A# C,Db Eb F Gb Ab A Bb C
+bebop_major,D,D E F# G A A# B C#,D E Gb G A Bb B Db
+bebop_major,D#,D# F G G# A# B C D,Eb F G Ab Bb B C D
+bebop_major,E,E F# G# A B C C# D#,E Gb Ab A B C Db Eb
+bebop_major,F,F G A A# C C# D E,F G A Bb C Db D E
+bebop_major,F#,F# G# A# B C# D D# F,Gb Ab Bb B Db D Eb F
+bebop_major,G,G A B C D D# E F#,G A B C D Eb E Gb
+bebop_major,G#,G# A# C C# D# E F G,Ab Bb C Db Eb E F G
+bebop_major,A,A B C# D E F F# G#,A B Db D E F Gb Ab
+bebop_major,A#,A# C D D# F F# G A,Bb C D Eb F Gb G A
+bebop_major,B,B C# D# E F# G G# A#,B Db Eb E Gb G Ab Bb
+double_harmonic,C,C C# E F G G# B,C Db E F G Ab B
+double_harmonic,C#,C# D F F# G# A C,Db D F Gb Ab A C
+double_harmonic,D,D D# F# G A A# C#,D Eb Gb G A Bb Db
+double_harmonic,D#,D# E G G# A# B D,Eb E G Ab Bb B D
+double_harmonic,E,E F G# A B C D#,E F Ab A B C Eb
+double_harmonic,F,F F# A A# C C# E,F Gb A Bb C Db E
+double_harmonic,F#,F# G A# B C# D F,Gb G Bb B Db D F
+double_harmonic,G,G G# B C D D# F#,G Ab B C D Eb Gb
+double_harmonic,G#,G# A C C# D# E G,Ab A C Db Eb E G
+double_harmonic,A,A A# C# D E F G#,A Bb Db D E F Ab
+double_harmonic,A#,A# B D D# F F# A,Bb B D Eb F Gb A
+double_harmonic,B,B C D# E F# G A#,B C Eb E Gb G Bb
+hungarian_minor,C,C D D# F# G G# B,C D Eb Gb G Ab B
+hungarian_minor,C#,C# D# E G G# A C,Db Eb E G Ab A C
+hungarian_minor,D,D E F G# A A# C#,D E F Ab A Bb Db
+hungarian_minor,D#,D# F F# A A# B D,Eb F Gb A Bb B D
+hungarian_minor,E,E F# G A# B C D#,E Gb G Bb B C Eb
+hungarian_minor,F,F G G# B C C# E,F G Ab B C Db E
+hungarian_minor,F#,F# G# A C C# D F,Gb Ab A C Db D F
+hungarian_minor,G,G A A# C# D D# F#,G A Bb Db D Eb Gb
+hungarian_minor,G#,G# A# B D D# E G,Ab Bb B D Eb E G
+hungarian_minor,A,A B C D# E F G#,A B C Eb E F Ab
+hungarian_minor,A#,A# C C# E F F# A,Bb C Db E F Gb A
+hungarian_minor,B,B C# D F F# G A#,B Db D F Gb G Bb
+neapolitan_minor,C,C C# D# F G G# B,C Db Eb F G Ab B
+neapolitan_minor,C#,C# D E F# G# A C,Db D E Gb Ab A C
+neapolitan_minor,D,D D# F G A A# C#,D Eb F G A Bb Db
+neapolitan_minor,D#,D# E F# G# A# B D,Eb E Gb Ab Bb B D
+neapolitan_minor,E,E F G A B C D#,E F G A B C Eb
+neapolitan_minor,F,F F# G# A# C C# E,F Gb Ab Bb C Db E
+neapolitan_minor,F#,F# G A B C# D F,Gb G A B Db D F
+neapolitan_minor,G,G G# A# C D D# F#,G Ab Bb C D Eb Gb
+neapolitan_minor,G#,G# A B C# D# E G,Ab A B Db Eb E G
+neapolitan_minor,A,A A# C D E F G#,A Bb C D E F Ab
+neapolitan_minor,A#,A# B C# D# F F# A,Bb B Db Eb F Gb A
+neapolitan_minor,B,B C D E F# G A#,B C D E Gb G Bb
+neapolitan_major,C,C C# D# F G A B,C Db Eb F G A B
+neapolitan_major,C#,C# D E F# G# A# C,Db D E Gb Ab Bb C
+neapolitan_major,D,D D# F G A B C#,D Eb F G A B Db
+neapolitan_major,D#,D# E F# G# A# C D,Eb E Gb Ab Bb C D
+neapolitan_major,E,E F G A B C# D#,E F G A B Db Eb
+neapolitan_major,F,F F# G# A# C D E,F Gb Ab Bb C D E
+neapolitan_major,F#,F# G A B C# D# F,Gb G A B Db Eb F
+neapolitan_major,G,G G# A# C D E F#,G Ab Bb C D E Gb
+neapolitan_major,G#,G# A B C# D# F G,Ab A B Db Eb F G
+neapolitan_major,A,A A# C D E F# G#,A Bb C D E Gb Ab
+neapolitan_major,A#,A# B C# D# F G A,Bb B Db Eb F G A
+neapolitan_major,B,B C D E F# G# A#,B C D E Gb Ab Bb
+enigmatic,C,C C# E F# G# A# B,C Db E Gb Ab Bb B
+enigmatic,C#,C# D F G A B C,Db D F G A B C
+enigmatic,D,D D# F# G# A# C C#,D Eb Gb Ab Bb C Db
+enigmatic,D#,D# E G A B C# D,Eb E G A B Db D
+enigmatic,E,E F G# A# C D D#,E F Ab Bb C D Eb
+enigmatic,F,F F# A B C# D# E,F Gb A B Db Eb E
+enigmatic,F#,F# G A# C D E F,Gb G Bb C D E F
+enigmatic,G,G G# B C# D# F F#,G Ab B Db Eb F Gb
+enigmatic,G#,G# A C D E F# G,Ab A C D E Gb G
+enigmatic,A,A A# C# D# F G G#,A Bb Db Eb F G Ab
+enigmatic,A#,A# B D E F# G# A,Bb B D E Gb Ab A
+enigmatic,B,B C D# F G A A#,B C Eb F G A Bb
+persian,C,C C# E F F# G# B,C Db E F Gb Ab B
+persian,C#,C# D F F# G A C,Db D F Gb G A C
+persian,D,D D# F# G G# A# C#,D Eb Gb G Ab Bb Db
+persian,D#,D# E G G# A B D,Eb E G Ab A B D
+persian,E,E F G# A A# C D#,E F Ab A Bb C Eb
+persian,F,F F# A A# B C# E,F Gb A Bb B Db E
+persian,F#,F# G A# B C D F,Gb G Bb B C D F
+persian,G,G G# B C C# D# F#,G Ab B C Db Eb Gb
+persian,G#,G# A C C# D E G,Ab A C Db D E G
+persian,A,A A# C# D D# F G#,A Bb Db D Eb F Ab
+persian,A#,A# B D D# E F# A,Bb B D Eb E Gb A
+persian,B,B C D# E F G A#,B C Eb E F G Bb
+prometheus,C,C D E F# A A#,C D E Gb A Bb
+prometheus,C#,C# D# F G A# B,Db Eb F G Bb B
+prometheus,D,D E F# G# B C,D E Gb Ab B C
+prometheus,D#,D# F G A C C#,Eb F G A C Db
+prometheus,E,E F# G# A# C# D,E Gb Ab Bb Db D
+prometheus,F,F G A B D D#,F G A B D Eb
+prometheus,F#,F# G# A# C D# E,Gb Ab Bb C Eb E
+prometheus,G,G A B C# E F,G A B Db E F
+prometheus,G#,G# A# C D F F#,Ab Bb C D F Gb
+prometheus,A,A B C# D# F# G,A B Db Eb Gb G
+prometheus,A#,A# C D E G G#,Bb C D E G Ab
+prometheus,B,B C# D# F G# A,B Db Eb F Ab A

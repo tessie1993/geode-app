@@ -44,6 +44,7 @@ void SoundUniforms::upload(UniformCache& locs, float drive, int unit) {
     resampleRow(frame_.spectrum, GEODE_SOUND_SPECTRUM_POINTS, texData_.data(), kTexWidth);
     resampleRow(frame_.waveform, GEODE_SOUND_WAVEFORM_POINTS, texData_.data() + kTexWidth, kTexWidth);
     resampleRow(frame_.eq, GEODE_SOUND_EQ_BANDS, texData_.data() + 2 * kTexWidth, kTexWidth);
+    for (int i = 0; i < kTexWidth; ++i) texData_[3 * kTexWidth + i] = frame_.chroma[i * GEODE_SOUND_CHROMA / kTexWidth];
     glActiveTexture(GL_TEXTURE0 + unit);
     glBindTexture(GL_TEXTURE_2D, tex_.id());
     glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, kTexWidth, kTexRows, GL_RED, GL_FLOAT, texData_.data());

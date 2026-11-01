@@ -134,11 +134,26 @@ internal fun StylesTab(
         previewId = null
         viewModel.cancelScenePreview()
     }
+    // The style whose check opened the paywall. The session chooses it once a purchase lets it
+    // through (PlayerSessionProvider); here it only closes the preview bar and files it in Recent.
+    var unlocking by remember { mutableStateOf<String?>(null) }
     val commit: (String) -> Unit = { id ->
         viewModel.selectScene(id)
         if (gate.allowsStyle(id)) {
             shelfStore.pushRecent(id)
             previewId = null
+            unlocking = null
+        } else {
+            unlocking = id
+        }
+    }
+    LaunchedEffect(gate) {
+        val id = unlocking ?: return@LaunchedEffect
+        if (gate.allowsStyle(id)) {
+            unlocking = null
+            shelfStore.pushRecent(id)
+            if (previewId == id) previewId = null
+            chosenId = id
         }
     }
     Column(Modifier.fillMaxSize()) {

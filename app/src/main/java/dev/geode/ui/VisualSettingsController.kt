@@ -47,6 +47,13 @@ internal class VisualSettingsController(
         state.update { it.copy(sceneId = sceneId) }
     }
 
+    /**
+     * The style the user has chosen: the one on screen, or, while another is previewed, the one
+     * the preview will fall back to. Entitlement checks read this, not the stage: a Pro style is
+     * allowed on the stage as a preview, and must not be mistaken for a choice the user may not keep.
+     */
+    val chosenSceneId: String get() = vizStateStore.committedSceneId ?: state.value.sceneId
+
     /** Back to the chosen style: the grid was left without the check. */
     fun cancelPreview() {
         val chosen = vizStateStore.committedSceneId ?: return

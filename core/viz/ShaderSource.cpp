@@ -28,6 +28,8 @@ constexpr std::array<const char*, 24> kIncludes = {
     "lib_terra",
     "lib_truchet",
     "lib_foam",
+    // The output flash limiter's packing, luminance and per-tile step (core/viz/FlashLimitPass).
+    "lib_flash_limit",
 };
 
 struct AssetClose {

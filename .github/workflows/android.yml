@@ -304,7 +304,11 @@ jobs:
           disk-size: 6000M
           force-avd-creation: true
           emulator-boot-timeout: 900
-          emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
+          # swangle_indirect (ANGLE on SwiftShader Vulkan), not swiftshader_indirect: under the
+          # visualizer journeys the legacy translator died host-side with "DisplaySurfaceGlContextHelper
+          # context was preempted by others ... Failed to restore previous context: 12297" and the
+          # emulator dropped off adb after 27/33 tests (runs 41282308944, 41282326381, 41288443184).
+          emulator-options: -no-snapshot -no-window -gpu swangle_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
           disable-animations: true
           script: |
             adb shell settings put global window_animation_scale 0

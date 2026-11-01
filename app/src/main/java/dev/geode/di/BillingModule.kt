@@ -53,7 +53,7 @@ object BillingModule {
         if (BuildConfig.USE_FAKE_BILLING) {
             fake.get()
         } else {
-            PlayBillingRepository(context, activities, store, PurchaseVerifier(BuildConfig.PLAY_LICENSE_KEY), WallClock.SYSTEM)
+            PlayBillingRepository(context, activities, store, PurchaseVerifier.forThisBuild(), WallClock.SYSTEM)
         }
 
     @Provides

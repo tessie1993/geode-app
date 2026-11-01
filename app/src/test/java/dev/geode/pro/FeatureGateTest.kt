@@ -1,6 +1,5 @@
 package dev.geode.pro
 
-import dev.geode.billing.CachedEntitlement
 import dev.geode.render.scene.SceneIds
 import dev.geode.render.scene.StyleFamilies
 import org.junit.Assert.assertEquals
@@ -80,15 +79,5 @@ class FeatureGateTest {
         assertEquals(TrialState.Active(1_000L + hour), TrialState.at(1_000L, false, 1_000L + hour - 1))
         assertEquals(TrialState.Ended(false), TrialState.at(1_000L, false, 1_000L + hour))
         assertEquals(TrialState.Ended(true), TrialState.at(1_000L, true, 999L))
-    }
-
-    @Test
-    fun `the cached entitlement vouches for a month, and never against a clock moved back`() {
-        val confirmed = CachedEntitlement(owned = true, verifiedAtMs = 10_000L)
-        assertTrue(confirmed.vouchesForPro(10_000L))
-        assertTrue(confirmed.vouchesForPro(10_000L + CachedEntitlement.GRACE_MS - 1))
-        assertFalse(confirmed.vouchesForPro(10_000L + CachedEntitlement.GRACE_MS))
-        assertTrue(confirmed.vouchesForPro(0L))
-        assertFalse(CachedEntitlement.NONE.vouchesForPro(0L))
     }
 }

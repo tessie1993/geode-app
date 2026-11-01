@@ -5,6 +5,7 @@
 #include <cmath>
 
 #include "util/Log.hpp"
+#include "viz/GlProber.hpp"
 
 namespace geode::viz {
 
@@ -297,6 +298,10 @@ void Renderer::setReactionRoutes(const std::array<ReactRoute, ReactionEngine::kR
 }
 
 void Renderer::fail(const std::string& message) {
+    if (holdingErrors_) {
+        heldErrors_.push_back(message);
+        return;
+    }
     {
         std::lock_guard<std::mutex> lock(stateLock_);
         lastError_ = message;
@@ -335,6 +340,8 @@ void Renderer::onSurfaceCreated() {
     GEODE_LOGI(kTag, "surface created: %s", profile_.summary().c_str());
     thermal_.onSurfaceRecreated();
     programCache_.prime();
+    // The old context's staged programs died with it: drop their ids before releaseScenes clears.
+    stager_.onContext(profile_.report.extensions.count("GL_KHR_parallel_shader_compile") > 0);
     releaseScenes();
     if (paletteLutTex_ != 0) {
         glDeleteTextures(1, &paletteLutTex_);
@@ -463,6 +470,67 @@ Scene* Renderer::builtScene(const std::string& id) {
     return nullptr;
 }
 
+// A live frame's way to the scene it wants: the built scene, or null while it is still being
+// staged (the caller keeps drawing what it drew). Each call does a bounded slice of work: one
+// attempt (setup plus the programs already compiled) or one budgeted ProgramStager step. Exports
+// (blockingBuilds_) and scenes that keep deferring (ScenePrep::kMaxAttempts) build inline.
+Scene* Renderer::readyScene(const std::string& id) {
+    if (Scene* scene = builtScene(id)) return scene;
+    Scene* scene = nullptr;
+    if (blockingBuilds_.load(std::memory_order_relaxed)) {
+        scene = sceneFor(id);
+    } else {
+        if (prep_.retarget(id)) stager_.clear();
+        switch (prep_.next(stager_.idle())) {
+            case ScenePrep::Step::Wait:
+                stager_.step(monotonicSeconds());
+                return nullptr;
+            case ScenePrep::Step::Attempt:
+                scene = attemptScene(id);
+                if (!scene) return nullptr;
+                break;
+            case ScenePrep::Step::Block:
+                GEODE_LOGW(kTag, "%s kept deferring its programs; building it inline", id.c_str());
+                scene = sceneFor(id);
+                break;
+        }
+    }
+    if (scene) {
+        prep_.done();
+        stager_.clear();
+    }
+    return scene;
+}
+
+// One staged build of `id`: the whole setup buildScene does, with every program build answered
+// by the stager. Deferred (a program still compiling) drops the scene and its placeholders.
+Scene* Renderer::attemptScene(const std::string& id) {
+    std::unique_ptr<Scene> scene;
+    bool deferred = false;
+    holdingErrors_ = true;
+    heldErrors_.clear();
+    {
+        ProgramStager::Attempt attempt(stager_);
+        scene = buildScene(id);
+        if (scene) scene->prepare();
+        deferred = attempt.deferred();
+    }
+    holdingErrors_ = false;
+    std::vector<std::string> errors;
+    errors.swap(heldErrors_);
+    if (deferred) {
+        if (scene) scene->release();
+        // Placeholders are unlinked programs; whatever the setup asked of them raised GL errors.
+        prober::drainErrors();
+        return nullptr;
+    }
+    for (const auto& message : errors) fail(message);
+    if (!scene) return nullptr;
+    Scene* raw = scene.get();
+    scenes_.emplace_back(id, std::move(scene));
+    return raw;
+}
+
 Scene* Renderer::sceneFor(const std::string& id) {
     if (Scene* scene = builtScene(id)) return scene;
     auto built = buildScene(id);
@@ -510,6 +578,8 @@ std::unique_ptr<Scene> Renderer::buildScene(const std::string& id) {
 }
 
 void Renderer::releaseScenes() {
+    stager_.clear();
+    prep_.done();
     for (auto& entry : scenes_) entry.second->release();
     scenes_.clear();
     activeScene_ = nullptr;

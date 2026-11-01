@@ -10,11 +10,7 @@ class Gain {
 public:
     explicit Gain(float sampleRate) : coefficient_(1.0f - std::exp(-1.0f / (kRampSeconds * sampleRate))) {}
 
-    // Not RT-safe: rebuild the ramp coefficient for a new rate. Only call this on a chain not yet installed.
-    void setSampleRate(float sampleRate) { coefficient_ = 1.0f - std::exp(-1.0f / (kRampSeconds * sampleRate)); }
-
     void setTargetDb(float db) { targetDb_.store(db, std::memory_order_relaxed); }
-    float targetDb() const { return targetDb_.load(std::memory_order_relaxed); }
     void reset() { current_ = std::pow(10.0f, targetDb_.load(std::memory_order_relaxed) / 20.0f); }
 
     void process(float* interleaved, size_t frames, int channels) {

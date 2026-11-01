@@ -9,13 +9,13 @@
 
 namespace geode::viz {
 
-// The note blooms (NoteResponse's flowers, note_bloom_frag + lib_bloom) over the finished frame.
+// The note blooms (NoteResponse's four looks, note_bloom_frag + lib_bloom) over the finished frame.
 //
-// Drawn by Renderer::composite after the composite pass and before the user's overlay, straight into the
+// Drawn by Renderer::composite after the composite pass, last, straight into the
 // target framebuffer: so it lays over every family (shader styles, MilkDrop, the fluid and simulation
 // scenes, layers and transitions) the same way, and the offscreen export, which runs the same render(),
 // draws the same flowers. It never enters the post chain: a style's grade or a transition does not bend
-// it, and the user's overlay (lyrics, logo) stays readable on top.
+// it.
 //
 // Cost: nothing at all while there is no live bloom (the layer off, silence, drums with no melody). With
 // blooms it is one fullscreen-triangle draw scissored to the blooms' bounding box, in which each pixel

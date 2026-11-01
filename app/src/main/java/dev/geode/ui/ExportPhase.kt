@@ -44,21 +44,12 @@ val ExportPhase.progress: Float
             ExportPhase.Idle, ExportPhase.Loading, is ExportPhase.Failed -> 0f
         }
 
-val ExportPhase.resultUriOrNull: Uri?
-    get() =
-        when (this) {
-            is ExportPhase.Done -> resultUri
-            ExportPhase.Idle, ExportPhase.Loading, is ExportPhase.Running, is ExportPhase.Failed -> null
-        }
-
 val ExportPhase.errorOrNull: String?
     get() =
         when (this) {
             is ExportPhase.Failed -> message
             ExportPhase.Idle, ExportPhase.Loading, is ExportPhase.Running, is ExportPhase.Done -> null
         }
-
-fun ExportPhase.withProgress(next: Float): ExportPhase = ExportPhase.Running(next.coerceIn(0f, 1f))
 
 fun VideoExporter.Result.toPhase(): ExportPhase =
     when (this) {

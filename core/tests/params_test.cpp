@@ -1,4 +1,4 @@
-// Host-side checks for the Customize randomizer, Reset tab and the A/B blend
+// Host-side checks for the Customize randomizer, Reset tab and the params wire
 // (core/viz/ParamRandomizer, core/viz/Params). Built and run by CI
 // (.github/workflows/android.yml, "Params host tests") with the system compiler; no GL.
 #include <cmath>
@@ -31,14 +31,6 @@ std::vector<float> wire(const SceneParams& p) {
     std::vector<float> out(SceneParams::kFieldCount);
     p.toWire(out.data());
     return out;
-}
-
-// Equal up to the rounding of a + (b - a) * k.
-bool near(const std::vector<float>& x, const std::vector<float>& y) {
-    for (size_t i = 0; i < x.size(); ++i) {
-        if (std::fabs(x[i] - y[i]) > 1e-5f * std::fmax(1.0f, std::fabs(y[i]))) return false;
-    }
-    return x.size() == y.size();
 }
 
 // Every field moved off its default.
@@ -180,17 +172,6 @@ void aPaletteRollDropsACustomPalette() {
           "a rolled palette replaces the custom one");
 }
 
-void blendEndpointsAreTheSnapshots() {
-    const SceneParams a = kDefaults;
-    const SceneParams b = everythingChanged();
-    check(near(wire(blendParams(a, b, 0.0f)), wire(a)), "blend at 0 is A");
-    check(near(wire(blendParams(a, b, 1.0f)), wire(b)), "blend at 1 is B");
-    const SceneParams mid = blendParams(a, b, 0.5f);
-    check(std::fabs(mid.speed - (a.speed + b.speed) * 0.5f) < 1e-5f, "floats glide");
-    check(mid.palette == b.palette && blendParams(a, b, 0.49f).palette == a.palette, "choices snap at the halfway point");
-    check(mid.paramFadeSec == b.paramFadeSec, "the fade's own time constant snaps");
-}
-
 void theWireRoundTrips() {
     const SceneParams p = everythingChanged();
     const auto w = wire(p);
@@ -209,7 +190,6 @@ int main() {
     resetTabRestoresExactlyItsFields();
     rollsStayUnderTheFlashClamp();
     aPaletteRollDropsACustomPalette();
-    blendEndpointsAreTheSnapshots();
     theWireRoundTrips();
     if (failures == 0) std::printf("params_test: all checks passed\n");
     return failures;

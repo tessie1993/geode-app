@@ -15,8 +15,6 @@ public:
     int height() const { return height_; }
     bool ok() const { return id_ != 0; }
 
-    // Immutable storage via glTexStorage2D with the given filter and clamp-to-edge wrap.
-    void createStorage(GLenum internalFormat, int width, int height, GLint filter);
     // Mutable storage via glTexImage2D, for the RGBA8/R32F uploads the Kotlin scenes make.
     void createImage(GLenum internalFormat, GLenum format, GLenum type, int width, int height, GLint filter, GLint wrap);
     void bind(int unit) const;

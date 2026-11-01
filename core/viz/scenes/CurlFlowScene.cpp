@@ -5,6 +5,7 @@
 
 #include "viz/LiveSignal.hpp"
 #include "viz/fluid/FluidMath.hpp"
+#include "viz/fluid/FluidQuality.hpp"
 
 namespace geode::viz {
 
@@ -26,10 +27,26 @@ void CurlFlowScene::init() {
         return;
     }
     fieldUniforms_ = UniformCache(program);
-    particles_.create(49152, formats_);
+    appliedTier_ = -1;
+    applyQualityTier();
     if (!particles_.available()) {
         host_.onShaderError("Curl Flow unavailable: this GPU refused the particle state buffers");
         release();
+    }
+}
+
+void CurlFlowScene::onApplyQualityTier(int index, bool userChanged) {
+    (void) userChanged;
+    const auto& tier = fluid::quality::tier(index);
+    const int count = tier.curlParticleSide * tier.curlParticleSide;
+    particles_.maxStretch = tier.maxStretch;
+    if (count == particleCount_ && particles_.available()) return;
+    particles_.create(count, formats_);
+    particleCount_ = count;
+    if (!particles_.available() && count > fluid::curl::kRefParticles) {
+        // A big state texture refused: fall back to the population this style shipped with.
+        particles_.create(fluid::curl::kRefParticles, formats_);
+        particleCount_ = fluid::curl::kRefParticles;
     }
 }
 
@@ -60,6 +77,12 @@ void CurlFlowScene::draw(float timeSeconds) {
     if (!available_ || !field_) return;
     const fluid::Fbo& fld = *field_;
     saveFramebufferAndViewport();
+    autoQualityTick();
+    if (!particles_.available()) {
+        // The tier's population and the shipped fallback were both refused: draw nothing, cleanly.
+        restoreFramebufferAndViewport();
+        return;
+    }
 
     if (hasPending_) {
         const GeodeSoundFrame& f = pending_;
@@ -95,7 +118,8 @@ void CurlFlowScene::draw(float timeSeconds) {
 
     restoreFramebufferAndViewport();
     particles_.draw(aspect_, std::clamp(params_.particleSize, 0.4f, 4.0f) * viewportDpiScale(), params_.paletteBase(),
-                    hue::span(params_.hueRange, params_.paletteRange()), fluid::curl::particleBrightness(beatDrive_),
+                    hue::span(params_.hueRange, params_.paletteRange()),
+                    fluid::curl::particleBrightness(beatDrive_) * fluid::math::particleExposure(particleCount_, fluid::curl::kRefParticles),
                     static_cast<float>(params_.particleShape), particle_look::glow(params_.bloom), wallTime_);
 }
 
@@ -103,6 +127,7 @@ float CurlFlowScene::trailRetention(const SceneParams& params) const { return fl
 
 void CurlFlowScene::release() {
     particles_.release();
+    particleCount_ = 0;
     if (field_) field_->release();
     field_.reset();
     if (fieldUniforms_.program() != 0) glDeleteProgram(fieldUniforms_.program());

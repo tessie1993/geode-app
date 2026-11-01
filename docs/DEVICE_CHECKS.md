@@ -27,11 +27,14 @@ the original numbering as cited by the changelog.
   Flow trails, export grading, beat sensitivity, randomize locks — i.e.
   item 21 = fluid colour … item 27 = randomize locks, assuming the
   parenthetical lists them in numbered order. Detailed steps are lost.
+  Item 26 (beat sensitivity) is **retired**: that setting no longer exists
+  (the sound engine's tuning is Settings › Audio).
 - **28–36** — *unknown.* Never described in the surviving references.
 - **37–39** — added for v1.2.0 (Visual safety / photosensitivity round).
-  Items 37–38: content unknown beyond covering that round. Item 39: the
-  "Safe visuals off" comparisons — **warning:** the changelog notes these
-  deliberately produce fast full-screen flashing.
+  Items 37–38: content unknown beyond covering that round. Item 39 (the
+  "Safe visuals off" comparisons) is **retired**: the flash clamp has no off
+  switch any more, so there is nothing to compare. The number is kept so
+  older references still line up.
 - **40** — Fluid styles (Styles > Fluid). Scrub all nine looks on one Adreno
   and one Mali device while audio plays and while silent; every
   `fluid_display_frag` variant compiles under SwiftShader, which says nothing

@@ -66,6 +66,13 @@ object Catalogue {
     /** A named engine number (`fluidTiers`, `touchRotationPerDegree`). */
     fun value(name: String): Float = table.values.getValue(name)
 
+    /**
+     * The look a note bloom takes on style [styleId] when its `bloomLook` param is 0 (the style's
+     * own look), from the catalogue's `bloom|<LOOK>|<ids>` rows. Unknown or unlisted ids get
+     * [BloomLook.GLOW], the look every style can wear.
+     */
+    fun bloomLook(styleId: String): BloomLook = table.blooms[styleId] ?: BloomLook.GLOW
+
     private class Table(
         val styles: List<CatalogueStyle>,
         val families: List<StyleFamily>,
@@ -74,6 +81,7 @@ object Catalogue {
         val ranges: Map<String, ClosedFloatingPointRange<Float>>,
         val values: Map<String, Float>,
         val overrides: Map<Pair<String, String>, Float>,
+        val blooms: Map<String, BloomLook>,
     ) {
         val byId: Map<String, CatalogueStyle> = styles.associateBy { it.id }
 
@@ -86,6 +94,7 @@ object Catalogue {
                 val ranges = mutableMapOf<String, ClosedFloatingPointRange<Float>>()
                 val values = mutableMapOf<String, Float>()
                 val overrides = mutableMapOf<Pair<String, String>, Float>()
+                val blooms = mutableMapOf<String, BloomLook>()
                 val rows = text.lines().filter { it.isNotBlank() }.map { it.split('|') }
                 check(rows.firstOrNull() == listOf("catalogue", VERSION.toString())) {
                     "native catalogue is ${rows.firstOrNull()}, this shell reads version $VERSION"
@@ -99,9 +108,13 @@ object Catalogue {
                         "key" -> keyScopes[f[1]] = ParamScope.valueOf(f[2])
                         "range" -> ranges[f[1]] = f[2].toFloat()..f[3].toFloat()
                         "value" -> values[f[1]] = f[2].toFloat()
+                        "bloom" -> {
+                            val look = BloomLook.valueOf(f[1])
+                            f.getOrNull(2)?.split(',')?.filter { it.isNotEmpty() }?.forEach { blooms[it] = look }
+                        }
                     }
                 }
-                return Table(styles, families, kindScopes, keyScopes, ranges, values, overrides)
+                return Table(styles, families, kindScopes, keyScopes, ranges, values, overrides, blooms)
             }
 
             private fun scopes(field: String?): Set<ParamScope> =
@@ -120,3 +133,24 @@ data class CatalogueStyle(
     val kind: SceneKind,
     val scopes: Set<ParamScope>,
 )
+
+/**
+ * How a note bloom (Note & key reactions) looks on a style. The catalogue names one per style
+ * ([Catalogue.bloomLook]); the `bloomLook` scene param overrides it with [wire], and 0 on the wire
+ * means "the style's own look".
+ */
+enum class BloomLook {
+    FLOWER,
+    GLOW,
+    RIPPLE,
+    BURST,
+    ;
+
+    /** The `bloomLook` scene param value that picks this look: ordinal + 1, since 0 is the style's own. */
+    val wire: Int get() = ordinal + 1
+
+    companion object {
+        /** The look a nonzero `bloomLook` wire value picks; null for 0 (the style's own) or out of range. */
+        fun fromWire(value: Int): BloomLook? = entries.getOrNull(value - 1)
+    }
+}

@@ -102,16 +102,6 @@ data class MarkerSet(
         name: String,
     ): MarkerSet = update(id) { it.copy(name = name) }
 
-    fun recolour(
-        id: MarkerId,
-        colour: MarkerColour,
-    ): MarkerSet = update(id) { it.copy(colour = colour) }
-
-    fun annotate(
-        id: MarkerId,
-        note: String,
-    ): MarkerSet = update(id) { it.copy(note = note) }
-
     /**
      * Drag a marker. Markers snap like anything else, but a tapped-in marker that is moved by hand
      * stops being a tap: its position is now the user's decision, not the latency setting's.
@@ -134,11 +124,6 @@ data class MarkerSet(
         withinMs: Long = Long.MAX_VALUE,
     ): Marker? = markers.minByOrNull { abs(it.atMs - atMs) }?.takeIf { abs(it.atMs - atMs) <= withinMs }
 
-    fun inRange(
-        fromMs: Long,
-        untilMs: Long,
-    ): List<Marker> = markers.filter { it.atMs >= fromMs && it.atMs < untilMs }
-
     /** Follow a ripple edit so the marks stay on the music they were put against. */
     fun rippled(shift: RippleShift): MarkerSet =
         ordered(
@@ -146,9 +131,6 @@ data class MarkerSet(
                 if (it.atMs >= shift.fromMs) it.copy(atMs = (it.atMs + shift.deltaMs).coerceAtLeast(0L)) else it
             },
         )
-
-    /** Re-place every tapped-in marker with a new latency figure, using the raw taps kept on them. */
-    fun recalibrateTaps(latencyCompensationMs: Long): MarkerSet = ordered(markers.map { it.withLatency(latencyCompensationMs) })
 
     private fun ordered(next: List<Marker>): MarkerSet = copy(markers = next.sortedBy { it.atMs })
 }
@@ -180,7 +162,7 @@ data class TapInSession(
         // judged by how close in the music the two hits are, not by which way the transport moved.
         val sinceLast = taps.lastOrNull()?.let { last -> abs(playheadMs - rawOf(last)) } ?: Long.MAX_VALUE
         return if (sinceLast < settings.debounceMs) {
-            TapResult.Debounced(this, sinceLast)
+            TapResult.Debounced(this)
         } else {
             val marker =
                 Marker(
@@ -234,7 +216,6 @@ sealed interface TapResult {
     /** The tap fell inside the debounce window: one physical hit, one marker. */
     data class Debounced(
         val session: TapInSession,
-        val sinceLastMs: Long,
     ) : TapResult
 }
 

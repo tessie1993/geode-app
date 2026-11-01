@@ -5,10 +5,11 @@ recorded here with its repository URL, pinned commit, licence, role, the files i
 from it, the modifications made, and its attribution requirements.
 
 [`provenance.json`](provenance.json) is the machine-readable form of the same data and is
-now the one that gates the build, in two halves. `EngineProvenanceRegistryTest` asks whether
-the registry itself is sound — schema, licence hashes, and coverage against
-the V2 master plan (not in this tree) §3.1 in both directions. `checkEngineProvenance`, a Gradle
-task on `check` in every module, asks whether the source tree obeys it: an adapted file
+now the one that gates the build. (An `EngineProvenanceRegistryTest` that checked the registry
+itself — schema, licence hashes, coverage against the V2 master plan §3.1 — is not in the tree.)
+`checkEngineProvenance` (`build-logic/src/main/kotlin/geode.provenance.gradle.kts`, rules in
+`ProvenanceRules.kt`), a Gradle task on `check` in every module, asks whether the source tree
+obeys it: an adapted file
 carries an SPDX line and an `Origin:` marker, that origin is a registered source at its
 pinned commit under an adoptable tier, and no STUDY or EXCLUDE repository is named as an
 origin anywhere in shipped source. **Where this prose and the registry disagree, the registry
@@ -99,9 +100,9 @@ words.
 
 | Source | Licence | Role |
 |---|---|---|
-| [michaelkrzyzaniak/Beat-and-Tempo-Tracking](https://github.com/michaelkrzyzaniak/Beat-and-Tempo-Tracking) | MIT — pinned `c039090` (2023-12-17) | **ORACLE + REIMPLEMENT.** Benchmark its causal onset, tempo and predicted-beat behaviour against the Kotlin tracker. Port methods only after corpus evaluation. |
+| [michaelkrzyzaniak/Beat-and-Tempo-Tracking](https://github.com/michaelkrzyzaniak/Beat-and-Tempo-Tracking) | MIT — pinned `c039090` (2023-12-17) | **ORACLE + REIMPLEMENT.** Benchmark its causal onset, tempo and predicted-beat behaviour against the Kotlin tracker. Port methods only after corpus evaluation. (The Kotlin tracker and the oracle corpus tool are gone; `core/sound` has no tempo tracker.) |
 | [librosa/librosa](https://github.com/librosa/librosa) | ISC — pinned `e40ded3` | **ORACLE.** Formula reference and fixture generator for RMS, descriptors, onset strength, HPSS, chroma, YIN, tempo. **Never embedded in the app** — used via Python at fixture-generation time. |
-| [jiixyj/libebur128](https://github.com/jiixyj/libebur128) | MIT — pinned `67b33ab` (`COPYING`) | **ORACLE.** BS.1770 / EBU R128 reference values. Runtime meter implemented allocation-free in Kotlin; vendor the C only if benchmarks justify it. |
+| [jiixyj/libebur128](https://github.com/jiixyj/libebur128) | MIT — pinned `67b33ab` (`COPYING`) | **ORACLE.** BS.1770 / EBU R128 reference values. The runtime meter is native (`core/audio/dsp/Loudness`, tested by `core/tests/loudness_test.cpp`); vendor the C only if benchmarks justify it. |
 | [marton78/pffft](https://github.com/marton78/pffft) | BSD-like — pinned `a4b0359` | **BENCHMARK.** Compared against JTransforms on arm64. Adopt only for a material latency or battery win, target ≥2× FFT speedup, and only through an ADR. |
 
 ## 5. Study only — nothing derived enters the tree

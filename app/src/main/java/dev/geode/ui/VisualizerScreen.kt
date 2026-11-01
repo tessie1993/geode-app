@@ -194,7 +194,7 @@ fun VisualizerScreen(
                     },
             )
         } else {
-            CrystalBackground(Modifier.fillMaxSize(), reducedMotion = gui.reducedMotion)
+            CrystalBackground(Modifier.fillMaxSize())
             Column(
                 Modifier.align(Alignment.Center).padding(32.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,

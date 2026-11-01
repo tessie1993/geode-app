@@ -195,7 +195,7 @@ struct SceneParams {
     float noteColor = 1.0f;      // the notes' colours: the blooms' spread and the whole-picture tint
     float notePitch = 1.0f;      // pitch height: morph and the blooms' stretch and height
     float noteIntervals = 1.0f;  // leaps swing and twist, steps glide
-    float noteTension = 1.0f;    // harmonic tension bends (warp, chromatic split, glitch)
+    float noteTension = 1.0f;    // harmonic tension bends (warp, chromatic split, frayed bloom edges)
     float noteChords = 1.0f;     // a chord change shifts the scene (fold count, layout, a turn)
     float noteDrums = 1.0f;      // the drums' push, on top of how percussive the track is
     float noteBloom = 1.0f;      // the blooms' brightness
@@ -207,14 +207,12 @@ struct SceneParams {
     };
     static const std::array<Palette, 21>& palettes();
 
-    bool usesCustomPalette() const { return paletteBaseOverride >= 0.0f || paletteRangeOverride >= 0.0f; }
-    bool usesCustomPalette2() const { return palette2BaseOverride >= 0.0f || palette2RangeOverride >= 0.0f; }
     float paletteBase() const;
     float paletteRange() const;
     float palette2Base() const;
     float palette2Range() const;
 
-    // Every float field except the NOT_FADED sentinels, in declaration order; what lerp and blend glide.
+    // Every float field except the NOT_FADED sentinels, in declaration order; what lerpParams glides.
     struct FloatField {
         const char* name;
         float SceneParams::*member;
@@ -222,7 +220,7 @@ struct SceneParams {
     // MUST equal the number of initialisers in Params.cpp: a std::array with
     // fewer initialisers than its size value-initialises the rest, and a null
     // pointer-to-member is not a compile error. It was declared as 98 over 95
-    // entries, and lerpParams/blendParams wrote through the three null members
+    // entries, and lerpParams (and the blend since removed) wrote through the three null members
     // on every fade. Count again whenever a lerped float is added.
     static constexpr int kLerpedFloatCount = 118;
     static const std::array<FloatField, kLerpedFloatCount>& lerpedFloats();
@@ -242,6 +240,5 @@ struct SceneParams {
 };
 
 SceneParams lerpParams(const SceneParams& from, const SceneParams& to, float k);
-SceneParams blendParams(const SceneParams& a, const SceneParams& b, float t);
 
 }  // namespace geode::viz

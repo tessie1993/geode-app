@@ -30,6 +30,7 @@ import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -37,6 +38,8 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
+import dev.geode.R
+import dev.geode.pro.FreeTier
 import dev.geode.render.fluid.FluidQuality
 import dev.geode.render.scene.Catalogue
 import dev.geode.render.scene.ParamFormat
@@ -314,7 +317,7 @@ internal fun LookTab(
         LabeledSlider(ParamKeys.SATURATION, p.saturation, 0f..1.5f, default = SceneParams.DEFAULT.saturation) {
             onChange(p.copy(saturation = it))
         }
-        // Upper ends are the engine's flash clamp (1 + VisualSafety.MAX_FLASH_DEPTH); past it a slider did nothing.
+        // Upper ends are the engine's flash clamp (1 + `kMaxFlashDepth` in core/viz/VisualSafety.hpp); past it a slider did nothing.
         LabeledSlider(ParamKeys.BRIGHTNESS, p.brightness, 0.2f..1.25f, default = SceneParams.DEFAULT.brightness) {
             onChange(p.copy(brightness = it))
         }
@@ -334,6 +337,7 @@ internal fun LookTab(
         LabeledSlider(ParamKeys.BLOOM, p.bloom, 0f..0.25f, display = "Glow", default = SceneParams.DEFAULT.bloom) {
             onChange(p.copy(bloom = it))
         }
+        NoteBloomChips(p, onChange)
         LabeledSlider(ParamKeys.POSTERIZE, p.posterize, 0f..1f, display = "Fewer colours", default = SceneParams.DEFAULT.posterize) {
             onChange(p.copy(posterize = it))
         }
@@ -341,6 +345,38 @@ internal fun LookTab(
         CheckRow(ParamKeys.SOLARIZE, p.solarize) { onChange(p.copy(solarize = it)) }
         CheckRow(ParamKeys.INVERT, p.invert, display = "Invert colours") { onChange(p.copy(invert = it)) }
         LookMotionSections(p, onChange)
+    }
+}
+
+/**
+ * Look › Note blooms: which bloom a note grows on this style, free like the switch that runs them
+ * ([FreeTier.NOTE_BLOOMS_CONTROL]). Index 0 is the style's own look from the catalogue, so a new style
+ * blooms as designed until the user picks; the rest are the engine's looks by wire value. It sits under
+ * Glow because a bloom is light added over the picture, and how bright it grows is Advanced › Note & key.
+ */
+@Composable
+private fun NoteBloomChips(
+    p: SceneParams,
+    onChange: (SceneParams) -> Unit,
+) {
+    val key = FreeTier.NOTE_BLOOMS_CONTROL
+    val title = stringResource(R.string.note_blooms_title)
+    if (!visible(key, ParamScope.UNIVERSAL, title)) return
+    val looks =
+        listOf(
+            stringResource(R.string.note_bloom_look_style),
+            stringResource(R.string.note_bloom_look_flower),
+            stringResource(R.string.note_bloom_look_glow),
+            stringResource(R.string.note_bloom_look_ripple),
+            stringResource(R.string.note_bloom_look_burst),
+        )
+    val selected = p.bloomLook.coerceIn(0, looks.lastIndex)
+    ProGated(key, title, looks[selected]) {
+        Column {
+            LockableChipLabel(key, title)
+            ControlHint(stringResource(R.string.note_blooms_hint))
+            ChipRow(looks, selectedIndex = selected) { onChange(p.copy(bloomLook = it)) }
+        }
     }
 }
 

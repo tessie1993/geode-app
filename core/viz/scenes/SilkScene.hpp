@@ -15,7 +15,7 @@
 
 namespace geode::viz {
 
-// Port of SilkScene.kt: an advected strand field stepped by the compute layer and shown by silk_show.
+// An advected strand field stepped by the compute layer and shown by silk_show.
 //
 // The sound engine plays it like an instrument. update() integrates the rich frame into a handful of
 // forces and phases on the CPU (dt-scaled, clamped, clocks only ever forward), and the step reads those

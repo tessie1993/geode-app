@@ -48,13 +48,11 @@
 -renamesourcefileattribute SourceFile
 
 # ---------------------------------------------------------------------------
-# SceneParams reflection (the param fade)
+# SceneParams reflection (the native wire codec)
 # ---------------------------------------------------------------------------
-# VisualizerRenderer.LERPED_FLOATS walks SceneParams' declared Float fields
-# reflectively and excludes the NOT_FADED entries BY NAME (the UNSET_OVERRIDE
-# sentinels and paramFadeSec). With the fields renamed, that exclusion matches
-# nothing and the sentinels are lerped through zero - every palette-override
-# fade flickers between set and unset, in release builds only, invisible to
-# the JVM test suite. Keeping the NAMES (not the members wholesale) costs no
-# shrinking: the fields are all live anyway.
+# SceneParamsCodec finds SceneParams' fields BY NAME (declaredFields filtered
+# against the native layout's names) to pack and unpack the wire buffer. With
+# the fields renamed by R8, no name matches and every param reads its default,
+# in release builds only, invisible to the JVM test suite. Keeping the NAMES
+# (not the members wholesale) costs no shrinking: the fields are all live.
 -keepclassmembernames class dev.geode.render.scene.SceneParams { <fields>; }

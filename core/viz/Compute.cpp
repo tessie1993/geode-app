@@ -230,11 +230,6 @@ void ComputePass::texture(int unit, GLuint texture) {
     textureUnits_ |= bit(unit);
 }
 
-void ComputePass::storageBuffer(int index, GLuint buffer) {
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, static_cast<GLuint>(index), buffer);
-    storageBindings_ |= bit(index);
-}
-
 void ComputePass::dispatch(WorkGroupCount groups) {
     if (groups.x <= 0 || groups.y <= 0 || groups.z <= 0) {
         GEODE_LOGW(kPassTag, "%s: refusing a dispatch of %dx%dx%d work groups", label_.c_str(), groups.x, groups.y, groups.z);
@@ -251,13 +246,11 @@ void ComputePass::end() {
             glActiveTexture(GL_TEXTURE0 + static_cast<GLenum>(unit));
             glBindTexture(GL_TEXTURE_2D, 0);
         }
-        if (storageBindings_ & (1u << unit)) glBindBufferBase(GL_SHADER_STORAGE_BUFFER, static_cast<GLuint>(unit), 0);
     }
     glActiveTexture(GL_TEXTURE0);
     glUseProgram(0);
     imageUnits_ = 0;
     textureUnits_ = 0;
-    storageBindings_ = 0;
 }
 
 }  // namespace geode::viz

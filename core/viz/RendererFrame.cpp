@@ -71,7 +71,10 @@ Scene* Renderer::resolveActiveScene() {
         std::lock_guard<std::mutex> lock(stateLock_);
         requestedId = requestedSceneId_;
     }
-    Scene* requested = sceneFor(requestedId);
+    // Live, a scene not built yet comes back null for a few frames while it is staged; the frame
+    // keeps drawing activeScene_ (or a clear when there is none) until it is whole.
+    Scene* requested = readyScene(requestedId);
+    requestedPending_ = requested == nullptr;
     sceneJustSwitched_ = false;
     if (requested && requested != activeScene_) {
         lastTimeS_ = frameNowS_;
@@ -150,8 +153,9 @@ void Renderer::resolveLayerScene() {
         requestedId = requestedSceneId_;
     }
     layerScene_ = nullptr;
-    if (outgoingScene_ || layerId.empty() || layerId == requestedId) return;
-    Scene* layer = sceneFor(layerId);
+    // The layer is staged too, but only once the requested scene is built: one target at a time.
+    if (outgoingScene_ || layerId.empty() || layerId == requestedId || requestedPending_) return;
+    Scene* layer = readyScene(layerId);
     if (layer && layer != activeScene_) layerScene_ = layer;
 }
 

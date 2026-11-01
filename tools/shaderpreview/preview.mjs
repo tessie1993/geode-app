@@ -338,7 +338,7 @@ async function main() {
         curl: loadShader(RAWS, 'fluid_curl_frag', registry),
         vorticity: loadShader(RAWS, 'fluid_vorticity_frag', registry),
         divergence: loadShader(RAWS, 'fluid_divergence_frag', registry),
-        pressure: loadShader(RAWS, 'fluid_pressure_frag', registry),
+        pressure: loadShader(RAWS, 'fluid_mg_smooth_frag', registry),
         gradient: loadShader(RAWS, 'fluid_gradient_frag', registry),
         clear: loadShader(RAWS, 'fluid_clear_frag', registry),
       },

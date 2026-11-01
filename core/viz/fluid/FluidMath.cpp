@@ -15,6 +15,26 @@ float driven(float value, float audioDrive) {
 
 int stateSide(int count) { return std::max(static_cast<int>(std::ceil(std::sqrt(static_cast<double>(count)))), 2); }
 
+std::pair<float, float> segDist(float ax, float ay, float bx, float by, float px, float py) {
+    const float abx = bx - ax;
+    const float aby = by - ay;
+    const float len2 = abx * abx + aby * aby;
+    if (len2 < 1e-8f) {
+        const float dx = px - ax;
+        const float dy = py - ay;
+        return {std::sqrt(dx * dx + dy * dy), 0.0f};
+    }
+    const float fp = std::clamp(((px - ax) * abx + (py - ay) * aby) / len2, 0.0f, 1.0f);
+    const float dx = px - (ax + abx * fp);
+    const float dy = py - (ay + aby * fp);
+    return {std::sqrt(dx * dx + dy * dy), fp};
+}
+
+float dragStep(float v, float flow, float drag, float dt) {
+    const float k = 1.0f - std::pow(1.0f - drag, dt * 60.0f);
+    return v + (flow - v) * k;
+}
+
 }  // namespace math
 
 GeodeSoundFrame scaledFeatures(const GeodeSoundFrame& features, float audioDrive) {

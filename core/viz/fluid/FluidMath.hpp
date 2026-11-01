@@ -1,4 +1,6 @@
 #pragma once
+#include <utility>
+
 #include "api/geode_api.h"
 
 namespace geode::viz::fluid {
@@ -11,6 +13,10 @@ constexpr float kDriveCeiling = 1.5f;
 
 float driven(float value, float audioDrive);
 int stateSide(int count);
+// Distance from (px, py) to the segment a-b, and how far along it (0..1) the nearest point lies.
+std::pair<float, float> segDist(float ax, float ay, float bx, float by, float px, float py);
+// One step of v easing toward the flow at a per-60-fps-frame drag, so the pull is frame-rate independent.
+float dragStep(float v, float flow, float drag, float dt = 1.0f / 60.0f);
 }  // namespace math
 
 // The frame with its levels and bands scaled by the audio-drive control.

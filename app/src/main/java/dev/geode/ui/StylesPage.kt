@@ -84,6 +84,7 @@ import dev.geode.ui.theme.performStoneHaptic
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.IOException
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.abs
 
 /**
@@ -418,7 +419,7 @@ private object StyleThumbs {
                 value: ImageBitmap,
             ): Int = value.width * value.height * BYTES_PER_PIXEL
         }
-    private val missing = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+    private val missing: MutableSet<String> = ConcurrentHashMap.newKeySet()
 
     fun cached(id: String): ImageBitmap? = cache.get(id)
 
@@ -471,7 +472,11 @@ private fun kindLabel(kind: SceneKind): String =
 
 private fun styleFilters(entries: List<StyleEntry>): List<StyleFilter> =
     listOf(StyleFilter.All, StyleFilter.Favourites, StyleFilter.Recent) +
-        entries.map { it.kindLabel }.distinct().filterNot { it == KIND_FAMILY }.map { StyleFilter.Kind(it) } +
+        entries
+            .map { it.kindLabel }
+            .distinct()
+            .filterNot { it == KIND_FAMILY }
+            .map { StyleFilter.Kind(it) } +
         StyleFamilies.all.map { StyleFilter.Family(it.label) }
 
 private fun filterKeyOf(filter: StyleFilter): String =

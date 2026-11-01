@@ -28,6 +28,10 @@
 //   node check.mjs --shader kifs --out out/kifs.png
 //   node check.mjs --all --size 200
 //   node check.mjs --fluid-display               # every SHADING/BLOOM/SUNRAYS x LOOK variant
+//   node check.mjs --bloom frame.json [--over kifs] --out out/bloom.png
+//                                                 # the note blooms (note_bloom_frag) screened over
+//                                                 # black or a style, uniforms from a NoteResponse frame
+//                                                 # (core/tests/note_response_test --dump <scenario> <s>)
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -120,6 +124,10 @@ const SHADER_VALUES = {
   uTouchSpin: 0,
   // The sound engine's frame (lib_sound): every slot at a mid-loudness 0.5, no events.
   uSound: [0.5, 0.5, 0.5, 0.5], uSoundDrive: 1, uSoundEvents: [0, 0, 0, 0], uSoundCounts: [0, 0],
+  // The style knobs (lib_scene_uniforms): every knob at the 0.5 ShaderScene holds them at (array fill).
+  uKnob: [0.5],
+  // Note & key reactions off: the hue ring's resting spread does not matter at amount 0.
+  uNoteHues: [0.0, 0.14, 0.28, 0.42, 0.56, 0.7], uNoteAmount: 0,
   uSteps: 96,
   uPalLutMix: 0, uPalLutRow: 0.5,
   uBassSmooth: 0.5, uMidSmooth: 0.4, uTrebleSmooth: 0.3, uEnergySmooth: 0.45, uSwell: 0.5, uSpike: 0.15,
@@ -175,7 +183,7 @@ function withKeywords(src, defines) {
 }
 
 function parseArgs(argv) {
-  const a = { size: 240, height: null, shaders: [], all: false, list: false, fluidDisplay: false, out: null, time: null };
+  const a = { size: 240, height: null, shaders: [], all: false, list: false, fluidDisplay: false, out: null, time: null, bloom: null, over: null };
   for (let i = 0; i < argv.length; i++) {
     const v = argv[i];
     if (v === '--list') a.list = true;
@@ -186,6 +194,8 @@ function parseArgs(argv) {
     else if (v === '--size') a.size = Number(argv[++i]);
     else if (v === '--out') a.out = argv[++i];
     else if (v === '--time') a.time = Number(argv[++i]);
+    else if (v === '--bloom') a.bloom = argv[++i];
+    else if (v === '--over') a.over = argv[++i];
     else throw new Error(`unknown flag ${v}`);
   }
   return a;
@@ -241,7 +251,32 @@ async function main() {
       }
     }
   }
-  if (!jobs.length) throw new Error('nothing to do: --shader <id>, --all or --fluid-display');
+  if (args.bloom) {
+    // The note blooms as NoteBloomPass draws them: fade_vert + note_bloom_frag, screened over the frame.
+    // The bloom values come from the engine itself (a JSON dump of NoteUniforms), so the still is what
+    // the C++ decided, not a hand-made stand-in.
+    const width = args.size;
+    const height = args.height ?? args.size;
+    const frame = JSON.parse(fs.readFileSync(args.bloom, 'utf8'));
+    const fadeVert = fs.readFileSync(path.join(SHADERS, 'fade_vert.glsl'), 'utf8');
+    const bloomFrag = resolveIncludes(fs.readFileSync(path.join(SHADERS, 'note_bloom_frag.glsl'), 'utf8'), registry);
+    const bloomValues = { ...frame, uResolution: [width, height] };
+    const overlay = { vert: fadeVert, frag: bloomFrag, uniforms: plan(parseUniforms(bloomFrag), bloomValues, {}, width, height) };
+    let base;
+    if (args.over) {
+      const file = path.join(SHADERS, `${args.over}_frag.glsl`);
+      if (!fs.existsSync(file)) throw new Error(`no such fragment style: ${args.over}`);
+      const frag = resolveIncludes(fs.readFileSync(file, 'utf8'), registry);
+      const values = { ...SHADER_VALUES };
+      if (args.time !== null) values.uTime = args.time;
+      base = { vert: quadVert, frag, uniforms: plan(parseUniforms(frag), values, SHADER_TEXTURES, width, height) };
+    } else {
+      const frag = '#version 300 es\nprecision highp float;\nout vec4 fragColor;\nvoid main() { fragColor = vec4(0.0, 0.0, 0.0, 1.0); }\n';
+      base = { vert: quadVert, frag, uniforms: [] };
+    }
+    jobs.push({ name: `note_bloom${args.over ? ` over ${args.over}` : ''}`, ...base, overlay });
+  }
+  if (!jobs.length) throw new Error('nothing to do: --shader <id>, --all, --fluid-display or --bloom <json>');
 
   const browser = await launch();
   let allOk = true;

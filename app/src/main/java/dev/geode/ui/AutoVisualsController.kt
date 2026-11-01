@@ -58,6 +58,28 @@ internal class AutoVisualsController(
         }
     }
 
+    /**
+     * Points the playlist's entries for [from] at [to] after a preset rename. Entries find their
+     * preset by name when they come up, so without this a renamed preset would drop out of the
+     * playlist silently; its place in the order is kept.
+     */
+    fun renamePresetInPlaylist(
+        from: String,
+        to: String,
+    ) {
+        val playlist = host.vizState.value.vizPlaylist
+        if (playlist.none { it.presetName == from }) return
+        host.updateViz { s ->
+            s.copy(
+                vizPlaylist =
+                    s.vizPlaylist.map { e ->
+                        if (e.presetName != from) e else e.copy(presetName = to, label = if (e.label == from) to else e.label)
+                    },
+            )
+        }
+        persistAutoVisuals()
+    }
+
     fun setVizPlaylistEnabled(enabled: Boolean) {
         host.updateViz {
             it.copy(

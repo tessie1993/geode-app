@@ -36,6 +36,8 @@ add_library(geode_core STATIC
     viz/Lfo.cpp
     viz/Macros.cpp
     viz/Director.cpp
+    viz/NoteResponse.cpp
+    viz/NoteBloomPass.cpp
     viz/Adsr.cpp
     viz/MotionField.cpp
     viz/ReactionDna.cpp

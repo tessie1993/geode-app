@@ -62,4 +62,9 @@ object SceneIds {
     const val PRISM_RAIN: String = "prism_rain"
     const val SUPERSHAPE: String = "supershape"
     const val FRACTAL_TUNNEL: String = "fractal_tunnel"
+    const val GLOW_VORTEX: String = "glow_vortex"
+    const val NEON_CHROME_SEA: String = "neon_chrome_sea"
+    const val BLACK_HOLE: String = "black_hole"
+    const val HEX_HIVE: String = "hex_hive"
+    const val MANDELBOX_CATHEDRAL: String = "mandelbox_cathedral"
 }

@@ -21,16 +21,29 @@ object FreeTier {
     val familyProIds: Set<String> = StyleFamilies.all.flatMapTo(mutableSetOf()) { it.ids - it.opener }
 
     /**
+     * The neon showcase styles (Glow Vortex, Neon Chrome Sea, Black Hole, Hex Hive, Mandelbox
+     * Cathedral) follow the families' rule even though they are loose styles: one opener is free,
+     * the other four are Pro. The owner picked that split; Hex Hive opens because it shows the most
+     * of the set at once (a 3D flight, the iridescent finish and the spectrum built into its walls)
+     * and is mid-cost, so a free user's first taste runs well on most phones.
+     */
+    val neonOpener: String = SceneIds.HEX_HIVE
+
+    /** The four neon showcase styles behind Pro: every one but [neonOpener]. */
+    val neonProIds: Set<String> =
+        setOf(SceneIds.GLOW_VORTEX, SceneIds.NEON_CHROME_SEA, SceneIds.BLACK_HOLE, SceneIds.MANDELBOX_CATHEDRAL)
+
+    /**
      * Styles a free user can select and keep: the fragment-shader styles (julia, tunnel, bars,
      * ring, scope, plasma, nebula and the rest of [SceneCapabilities.SHADER_SCENES]), so a loose
      * shader style added later is free too, minus [familyProIds]. A style family gives away its
      * opener (the first, most basic style) and keeps the other eleven for Pro: a free user can try every
      * family, and buying Pro is what opens the range. Everything else (silk, fluid, water, MilkDrop,
-     * cymatics and the other dedicated renderers) is Pro, shows a Pro badge and opens the paywall
+     * cymatics and the other dedicated renderers) is Pro, as are [neonProIds], shows a Pro badge and opens the paywall
      * when picked. A renamed or removed id simply stops matching, which makes that style Pro rather
      * than crashing.
      */
-    val freeStyleIds: Set<String> = SceneCapabilities.SHADER_SCENES.keys - familyProIds
+    val freeStyleIds: Set<String> = SceneCapabilities.SHADER_SCENES.keys - familyProIds - neonProIds
 
     /**
      * Where a free user lands when the style on screen is no longer theirs (a new install, whose

@@ -550,6 +550,8 @@ internal class ExportController(
                 try {
                     val gui = host.guiPrefs
                     val spec = LoopSpec.of(loopMs, crossfadeMs, fps = fps)
+                    // Plus one loop: the extend rounds the repeats up to a whole loop.
+                    val longFormMs = loopRenderer.soundtrackMs(audioClips.ifEmpty { listOf(uri) }) + loopMs
                     val renderResult =
                         loopRenderer.render(
                             sceneFactory = sceneFactory,
@@ -564,6 +566,7 @@ internal class ExportController(
                             codec = codec,
                             audioUri = uri,
                             soundTuning = gui.soundTuning,
+                            longFormMs = longFormMs,
                             onProgress = { p -> publishLoopProgress(p * RENDER_SPAN) },
                             isCancelled = { loopCancelled || ExportRun.cancelRequested },
                             watermark = watermark,

@@ -85,13 +85,17 @@ int scaleCount() { return kScaleCount; }
 const ScaleInfo& scaleInfo(int index) { return kScales[std::clamp(index, 0, kScaleCount - 1)]; }
 
 void Harmony::detectScale() {
-    // Every scale on every root against the slow chroma: the mean of the classes inside it minus the mean
-    // of those outside (doubled), plus a pull toward a strong root and fifth, which is what tells the seven modes of
+    // Every scale on every root against the slow chroma: how well it correlates with the scale, plus a pull toward a strong root and fifth, which is what tells the seven modes of
     // one note set apart (C Ionian and A Aeolian share every note; the music's home note does not).
     // Chromatic has no outside: its in-out term is zero, so it wins only when no scale fits at all.
+    // Capped at twice the mean first, so a held drone or one loud bass note cannot decide the scale on its
+    // own: what matters is which classes sound at all, not how loud the loudest is.
     std::array<float, 12> c{};
     normalise(slow_, c.data());
     float mean = 0.0f;
+    for (float v : c) mean += v / 12.0f;
+    for (float& v : c) v = std::min(1.0f, v / std::max(2.0f * mean, 1e-6f));
+    mean = 0.0f;
     for (float v : c) mean += v / 12.0f;
     int best = -1;
     float bestScore = -1e9f;
@@ -100,22 +104,25 @@ void Harmony::detectScale() {
     for (int s = 0; s < kScaleCount; s++) {
         const unsigned mask = kScales[s].mask;
         for (int root = 0; root < 12; root++) {
-            float in = 0.0f;
-            float out = 0.0f;
+            // Pearson correlation of the chroma with the scale's mask: notes inside high and notes outside
+            // low, whatever the overall spread. A difference of means needed the outside doubled to stop
+            // pentatonics swallowing modes, and then a real piano's sustain and spill sank every scale
+            // below chromatic. Correlation is size-fair and tolerates spill. Chromatic has no variance:
+            // it scores 0, so it wins only when every scale fits worse than chance.
             int n = 0;
-            for (int k = 0; k < 12; k++) {
-                const float v = c[(root + k) % 12];
-                if (mask & (1u << k)) {
-                    in += v;
-                    n++;
-                } else {
-                    out += v;
+            for (int k = 0; k < 12; k++) n += (mask >> k) & 1u;
+            float fit = 0.0f;
+            if (n < 12) {
+                const float mm = static_cast<float>(n) / 12.0f;
+                float num = 0.0f;
+                float dc = 0.0f;
+                for (int k = 0; k < 12; k++) {
+                    const float v = c[(root + k) % 12] - mean;
+                    num += v * ((((mask >> k) & 1u) ? 1.0f : 0.0f) - mm);
+                    dc += v * v;
                 }
+                fit = dc > 1e-9f ? num / std::sqrt(dc * mm * (1.0f - mm) * 12.0f) : 0.0f;
             }
-            // Outside notes count double: a sounding note the scale leaves out is stronger evidence against
-            // it than a scale note left unplayed, which is what stops a pentatonic (fewer, louder notes)
-            // swallowing a seven-note mode whose extra degrees are quieter.
-            const float fit = n < 12 ? in / static_cast<float>(n) - 2.0f * out / static_cast<float>(12 - n) : 0.0f;
             const float home = 0.5f * (c[root] - mean) + ((mask & (1u << 7)) ? 0.25f * (c[(root + 7) % 12] - mean) : 0.0f);
             const float score = fit + home;
             if (score > bestScore) {
@@ -143,7 +150,7 @@ void Harmony::detectScale() {
         scaleHold_ = 0.0f;
         scaleRival_ = -1;
     }
-    scaleFit_ = follow(scaleFit_, std::clamp(bestFit / 0.5f, 0.0f, 1.0f), 1.0f, dt);
+    scaleFit_ = follow(scaleFit_, std::clamp((bestFit - 0.3f) / 0.5f, 0.0f, 1.0f), 1.0f, dt);
 }
 
 void Harmony::configure(float binHz, int bins) {
@@ -182,7 +189,26 @@ void Harmony::step(const float* mag, float dt, bool silent, GeodeSoundFrame& out
                 const float delta = curve < 0.0f ? std::clamp(0.5f * (a - c) / curve, -0.5f, 0.5f) : 0.0f;
                 const float midi = 69.0f + 12.0f * std::log2((static_cast<float>(k) + delta) * binHz_ / 440.0f);
                 const int pc = (static_cast<int>(std::lround(midi)) % 12 + 12) % 12;
-                raw[pc] += std::log1p(20.0f * m / top);
+                // An overtone is not a note. A peak with a strong partner at a third, fifth, sixth or
+                // seventh of its frequency is most likely that note's 3rd, 5th, 6th or 7th harmonic, and
+                // would add a fifth, a major third or a minor seventh nobody played (a piano's D lights up
+                // F# and A). Octave harmonics (2nd, 4th) land on the same class and need no discount.
+                // A peak that is also the octave of a sounding note in its own class stays a note: in a
+                // chord, one note's octave often sits exactly on another note's 3rd harmonic.
+                float weight = 1.0f;
+                const int octave = static_cast<int>(std::lround((static_cast<float>(k) + delta) * 0.5f));
+                const bool ownOctave = octave >= 2 && std::max({mag[octave - 1], mag[octave], mag[octave + 1]}) >= 0.5f * m;
+                for (int h : {3, 5, 6, 7}) {
+                    if (ownOctave) break;
+                    const int base = static_cast<int>(std::lround((static_cast<float>(k) + delta) / static_cast<float>(h)));
+                    if (base < 2) continue;
+                    const float below = std::max({mag[base - 1], mag[base], mag[base + 1]});
+                    if (below >= 0.5f * m) {
+                        weight = 0.25f;
+                        break;
+                    }
+                }
+                raw[pc] += weight * std::log1p(20.0f * m / top);
             }
             float rawTop = 0.0f;
             for (float v : raw) rawTop = std::max(rawTop, v);

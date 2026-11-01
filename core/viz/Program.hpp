@@ -23,6 +23,9 @@ private:
 
 namespace program {
 
+// A shader's (isProgram = false) or program's info log.
+std::string infoLog(GLuint object, bool isProgram);
+
 // Compiles one stage; 0 on failure with the driver log in `error`.
 GLuint compile(GLenum type, const std::string& source, std::string* error);
 

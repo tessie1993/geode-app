@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <vector>
 
+#include "viz/ProgramStager.hpp"
+
 namespace geode::viz {
 
 GLint UniformCache::loc(const std::string& name) {
@@ -36,8 +38,6 @@ GLsizei UniformCache::arrayCount(const std::string& name, GLsizei declared) {
 
 namespace program {
 
-namespace {
-
 std::string infoLog(GLuint object, bool isProgram) {
     GLint length = 0;
     if (isProgram) glGetProgramiv(object, GL_INFO_LOG_LENGTH, &length); else glGetShaderiv(object, GL_INFO_LOG_LENGTH, &length);
@@ -47,8 +47,6 @@ std::string infoLog(GLuint object, bool isProgram) {
     log.resize(static_cast<size_t>(std::max(written, 0)));
     return log;
 }
-
-}  // namespace
 
 GLuint compile(GLenum type, const std::string& source, std::string* error) {
     const GLuint shader = glCreateShader(type);
@@ -66,6 +64,11 @@ GLuint compile(GLenum type, const std::string& source, std::string* error) {
 }
 
 GLuint build(const std::string& vertexSrc, const std::string& fragmentSrc, ProgramBinaryCache* cache, std::string* error) {
+    // A live renderer building a scene across frames (ProgramStager, ScenePrep): the stager compiles
+    // it in budgeted steps and hands out a placeholder until it is linked.
+    if (ProgramStager* stager = ProgramStager::current()) {
+        return stager->obtain({{GL_VERTEX_SHADER, vertexSrc}, {GL_FRAGMENT_SHADER, fragmentSrc}}, error);
+    }
     const auto key = cache ? cache->keyFor(vertexSrc, fragmentSrc) : std::nullopt;
     if (key) {
         const GLuint cached = cache->load(*key);

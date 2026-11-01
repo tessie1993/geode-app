@@ -131,6 +131,8 @@ private:
     Scene* readyScene(const std::string& id);
     Scene* attemptScene(const std::string& id);
     Scene* builtScene(const std::string& id);
+    // Releases a built scene nothing is drawing (Liquid mode's last born style); a no-op otherwise.
+    void dropScene(const std::string& id);
     std::unique_ptr<Scene> buildScene(const std::string& id);
     float beginFrame(double timeSeconds);
     void applyRenderScale();
@@ -142,7 +144,7 @@ private:
     float drawSecondaryTargets(const SceneParams& p, float dt);
     void bindSecondaryTarget();
     void drawSceneTarget(Scene& scene, const SceneParams& p, float dt);
-    void composite(Scene& scene, const SceneParams& p, float progress, GLuint targetFbo, GLuint liquidTex);
+    void composite(const SceneParams& p, float progress, GLuint targetFbo, GLuint liquidTex);
     void deliverPcm(Scene& scene);
     void stepOverlays(Scene& scene, const SceneParams& p, float dt);
     void stepCamera(const SceneParams& p, float dt);
@@ -286,6 +288,8 @@ private:
     SceneParams bornParams_;
     bool bornRolled_ = false;
     std::string bornSceneId_;
+    std::string lastBornSceneId_;
+    bool liquidWasOn_ = false;
     float liquidFlare_ = 0.0f;
     std::atomic<int> liquidHotPolicy_{0};
     std::atomic<int> liquidMode_{0};

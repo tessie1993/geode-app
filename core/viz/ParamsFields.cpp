@@ -29,6 +29,7 @@ const std::array<const char*, SceneParams::kFieldCount>& SceneParams::fieldNames
         "camFly", "camPath", "camOrbit", "camPush", "camYaw", "camPitch", "camRoll", "camFov", "camShake",
         "camSmooth", "camTouch", "camGyro", "reactAmount", "reactSeed",
         "bloomLook", "noteColor", "notePitch", "noteIntervals", "noteTension", "noteChords", "noteDrums", "noteBloom",
+        "liquidBorn", "liquidAge", "liquidSurface",
     }};
     return kNames;
 }

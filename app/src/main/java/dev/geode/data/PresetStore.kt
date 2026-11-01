@@ -302,6 +302,9 @@ class PresetStore(
                 .put("noteChords", p.params.noteChords.toDouble())
                 .put("noteDrums", p.params.noteDrums.toDouble())
                 .put("noteBloom", p.params.noteBloom.toDouble())
+                .put("liquidBorn", p.params.liquidBorn)
+                .put("liquidAge", p.params.liquidAge)
+                .put("liquidSurface", p.params.liquidSurface)
                 .apply { if (p.customShader != null) put("customShader", p.customShader) }
                 .apply { if (p.milkPreset != null) put("milkPreset", p.milkPreset) }
                 .toString(2)
@@ -559,6 +562,9 @@ class PresetStore(
                         noteChords = o.optFinite("noteChords", SceneParams.DEFAULT.noteChords.toDouble()),
                         noteDrums = o.optFinite("noteDrums", SceneParams.DEFAULT.noteDrums.toDouble()),
                         noteBloom = o.optFinite("noteBloom", SceneParams.DEFAULT.noteBloom.toDouble()),
+                        liquidBorn = o.optInt("liquidBorn", SceneParams.DEFAULT.liquidBorn),
+                        liquidAge = o.optInt("liquidAge", SceneParams.DEFAULT.liquidAge),
+                        liquidSurface = o.optInt("liquidSurface", SceneParams.DEFAULT.liquidSurface),
                     ),
             )
         }

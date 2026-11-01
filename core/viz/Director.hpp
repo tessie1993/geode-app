@@ -21,7 +21,7 @@ namespace geode::viz {
 //              softness, the motion field's breath, orbit and drift
 //   what reacts to what ─► a reaction engine of its own, re-dealt from the feeling's archetypes
 //
-// It decides at musical moments only (docs/research/auto-director.md, "Pace"): the first confident key,
+// It decides at musical moments only: the first confident key,
 // a new section, a drop, a modulation that holds, and after 32 bars without one. Each decision is a
 // "look", glided in over a bar (a drop cuts in a quarter second). Between decisions the look breathes with
 // the live energy and tension, a build contracts it, and the melody's scale degree adds short accents.

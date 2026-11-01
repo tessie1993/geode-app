@@ -24,7 +24,7 @@ import org.junit.runner.RunWith
 
 /**
  * The Visuals tab: the live view opens from it and gives the user back to it, and the
- * Customize tab's switches work. QA numbers refer to docs/qa/emulator-pass-2026-10-30.md.
+ * Customize tab's switches work.
  */
 @LargeTest
 @RunWith(AndroidJUnit4::class)

@@ -30,8 +30,8 @@ out vec4 fragColor;
 // - flare: SND_KICK_ENV, and SND_SNARE_ENV a little less, flash the inner
 //   disc and the photon ring white-hot, and each kick sends a shockwave
 //   ring out from the photon sphere, lensed like everything else.
-// - filaments (Morph, neonForm): more threads and spiral arms in the disc
-//   and the sky. A hard cut (SND_CUT_COUNT) changes how many arms there are.
+// - filaments (Morph, neonForm): the disc's threads sharpen and brighten.
+//   A hard cut (SND_CUT_COUNT) changes how many spiral arms there are.
 // - swirl (Warp, neonFlow, plus the bass weight): the disc winds on and the
 //   haze above it thickens. The disc turns on SND_BASS_TIME, so it races in
 //   a heavy passage and drifts in a thin one, never backwards.
@@ -187,9 +187,16 @@ void main() {
     float kBuild = clamp(0.5 + 0.5 * neonBuild() + 0.8 * surge - 0.3 * quiet, 0.0, 1.5);
     float kSpace = clamp(0.5 + 0.45 * quiet - 0.35 * surge, 0.0, 1.0);
     float glow = neonGlow();
-    gTone = 0.12 + neonKeyTurn();
+    // Note & key reactions' style knobs ride on top (lib_neon).
+    kPulse = clamp(kPulse + neonKnob(0), 0.0, 1.0);
+    kTex = clamp(kTex + neonKnob(1), 0.0, 1.0);
+    kFlow = clamp(kFlow + neonKnob(2), 0.0, 1.0);
+    kBuild = clamp(kBuild + neonKnob(4), 0.0, 1.5);
+    kSpace = clamp(kSpace + neonKnob(5), 0.0, 1.0);
+    gTone = 0.12 + neonKeyTurn() + 0.6 * neonKnob(3);
     gWake = 0.75 + 0.4 * kBuild;
-    gArms = floor(mix(5.0, 10.0, kTex)) + mod(floor(SND_CUT_COUNT + 0.5), 3.0);
+    // A count, so it changes only on a hard cut (lib_neon: never a count on Morph).
+    gArms = 6.0 + 2.0 * mod(floor(SND_CUT_COUNT + 0.5), 3.0);
 
     camAround(uv, mix(16.0, 23.0, kSpace), CAM_SPIN_UNIT * 3.0, ro, rd);
     // Look down on the disc a little: tilt the world about the eye's own
@@ -252,7 +259,9 @@ void main() {
                 float dens = 0.0;
                 float fil = 0.0;
                 float hueN = 0.0;
-                float lineCount = mix(5.0, 12.0, kTex);
+                // Fixed: a line family's frequency on Morph would re-pattern the
+                // disc on every beat. Morph sharpens the threads instead.
+                float lineCount = 8.5;
                 for (int k = 0; k < 2; k++) {
                     float ph = fract(spin * 0.12 + 0.5 * float(k));
                     float w = 1.0 - abs(2.0 * ph - 1.0);

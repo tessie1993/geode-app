@@ -22,8 +22,25 @@
 //   neonChaos()  Turbulence  a restless, noisy force inside the scene
 //   neonGlow()   Intensity   the neon emission's extra gain (Energy macro)
 //
+// THESE CONTROLS NEVER SIT STILL. MotionField adds about 0.7 x (1 - harmony)
+// to Morph and a third of that to Warp every frame, so Morph lives around
+// 0.2..0.7 in most music; the reaction DNA's Warp and Morph personalities add
+// 0.3..0.8 on every beat; the Complexity macro moves both bases. So a style
+// spends them only on what can change smoothly and in place: a glow, a line's
+// sharpness, a displacement's size, a gentle breath of the shape. Never on a
+// count (arms, lines, coils as an integer: it pops on every beat), and never
+// on anything that re-patterns the whole frame for a small change (a fractal's
+// fold scale over a wide range, a line family's frequency): that shimmers at
+// the tempo. A hard cut (SND_CUT_COUNT) is the place for a jump.
+//
 // Twist, tile, ripple, kaleidoscope, mirror, pixelate and zoom stay with
 // view(): they are views of the picture, and apply to these styles as to any.
+// The six style knobs (lib_scene_uniforms' uKnob: PULSE, TEXTURE, FLOW, TONE,
+// BUILD, SPACE) are a third way in: Note & key reactions drive them from the
+// notes and chords, and they rest at exactly 0.5 when it is off. Each style
+// adds neonKnob(i), the knob's offset from rest, to the look it names, on top
+// of the shared controls and its own sound reads, so at rest it changes nothing.
+//
 // Colour goes through neonPal(): each style keeps its own neon ramp as its
 // identity, the user's palette (and a colour map, harder) pulls it, Hue shift
 // turns it, and the key of the music slides it.
@@ -41,6 +58,9 @@ float neonChaos() { return clamp(uTurbulence / 1.5, 0.0, 1.0); }
  * stone, at its top (1.25) it outshines it, and at the default it is 1.
  */
 float neonGlow() { return 0.5 + 0.5 * clamp(uIntensity, 0.0, 2.0); }
+
+/** Style knob i's offset from its rest (0.5): -0.5..0.5, and 0 while nothing drives the knobs. */
+float neonKnob(int i) { return clamp(uKnob[i], 0.0, 1.0) - 0.5; }
 
 /**
  * How far the music's key turns the set's ramps: the eased key hue, gated by

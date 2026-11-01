@@ -220,10 +220,17 @@ void main() {
     float kBuild = clamp(0.4 + 0.6 * neonBuild() + 0.6 * surge, 0.0, 1.0);
     float kSpace = clamp(0.5 + 0.45 * quiet - 0.4 * surge, 0.0, 1.0);
 
+    // Note & key reactions' style knobs ride on top (lib_neon).
+    kPulse = clamp(kPulse + neonKnob(0), 0.0, 1.0);
+    kTex = clamp(kTex + neonKnob(1), 0.0, 1.0);
+    kFlow = clamp(kFlow + neonKnob(2), 0.0, 1.0);
+    kBuild = clamp(kBuild + neonKnob(4), 0.0, 1.5);
+    kSpace = clamp(kSpace + neonKnob(5), 0.0, 1.0);
+
     gTime = uTime * 0.45 + SND_BASS_TIME * 0.6;
     gAmp = 0.45 * (0.7 + 1.1 * kFlow);
     gFalloff = mix(0.66, 0.78, kTex);
-    gTone = 0.3 + neonKeyTurn();
+    gTone = 0.3 + neonKeyTurn() + 0.6 * neonKnob(3);
     gPortal = mix(0.55, 1.15, kBuild);
     gMoonDir = normalize(vec3(0.0, 0.16, 1.0));
 

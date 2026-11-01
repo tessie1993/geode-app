@@ -10,7 +10,7 @@
 
 namespace geode::viz {
 
-// Port of TrailPass.kt: the fade quad, or the trail-warp resample when zoom/warp echo is on.
+// The fade quad, or the trail-warp resample when zoom/warp echo is on.
 class TrailPass {
 public:
     ~TrailPass() { release(); }

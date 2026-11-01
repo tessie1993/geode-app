@@ -5,7 +5,7 @@
 
 namespace geode::viz {
 
-// Port of RenderTarget.kt: one RGBA8 colour texture behind one FBO, cleared to opaque black on creation.
+// One RGBA8 colour texture behind one FBO, cleared to opaque black on creation.
 class Framebuffer {
 public:
     explicit Framebuffer(std::string label) : label_(std::move(label)) {}

@@ -12,7 +12,7 @@
 
 namespace geode::viz::fluid {
 
-// Port of FluidLook.kt: bloom, sunrays and the dithered display pass over the dye.
+// Bloom, sunrays and the dithered display pass over the dye.
 class Look {
 public:
     explicit Look(const ProgramLoader& loader) : loader_(loader) {}
@@ -38,7 +38,8 @@ public:
     void create(const Formats& formats, int look);
     void resize(int w, int h);
     void process(GLuint dyeTex, bool bloomOn, bool sunraysOn);
-    void drawDisplay(GLuint dyeTex, bool shadingOn, bool bloomOn, bool sunraysOn, int viewportW, int viewportH);
+    /** `temperatureTex` is the sim's heat field, read by the smoke, lava and aurora looks; 0 reads as cold. */
+    void drawDisplay(GLuint dyeTex, bool shadingOn, bool bloomOn, bool sunraysOn, int viewportW, int viewportH, GLuint temperatureTex = 0);
     void release();
 
 private:

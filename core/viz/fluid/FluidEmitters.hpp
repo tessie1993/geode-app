@@ -23,7 +23,7 @@ struct Splat {
     float b;
 };
 
-// Port of FluidEmitters.kt: the beat, stirrer, suction, sparkle and pump splats for one frame.
+// The beat, stirrer, suction, sparkle and pump splats for one frame.
 class Emitters {
 public:
     static constexpr int kPatternCenter = 0;
@@ -46,9 +46,6 @@ public:
     float forceScale = 1.0f;
     float catchSuction = 1.0f;
     float beatResponse = 1.0f;
-
-    float beatEnv() const { return beatEnv_; }
-    float bassEnv() const { return bassEnv_; }
 
     void applyParams(const SceneParams& p);
     void tick(const GeodeSoundFrame& f, float dt, float aspect, float baseHue, float hueSpan, std::vector<Splat>& out);

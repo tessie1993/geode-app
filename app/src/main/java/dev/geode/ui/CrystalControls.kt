@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.systemGestureExclusion
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
@@ -205,27 +204,6 @@ fun LabeledSwitch(
     ) {
         Text(label, Modifier.weight(1f), style = style)
         Switch(checked = checked, onCheckedChange = null, enabled = enabled)
-    }
-}
-
-/** [LabeledSwitch]'s checkbox twin: the row toggles and carries the label. */
-@Composable
-fun LabeledCheckbox(
-    label: String,
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
-    modifier: Modifier = Modifier,
-    enabled: Boolean = true,
-    style: TextStyle = MaterialTheme.typography.bodyMedium,
-) {
-    Row(
-        modifier
-            .toggleable(value = checked, enabled = enabled, role = Role.Checkbox, onValueChange = onCheckedChange)
-            .minimumInteractiveComponentSize(),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Checkbox(checked = checked, onCheckedChange = null, enabled = enabled)
-        Text(label, style = style)
     }
 }
 

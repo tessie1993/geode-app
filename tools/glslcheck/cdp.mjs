@@ -117,7 +117,7 @@ export async function launch({ chromium = DEFAULT_CHROMIUM, timeoutMs = 30000 } 
       `chromium not found at ${chromium}. Set MUSICVIZ_CHROMIUM to a Chrome/Chromium binary.`,
     );
   }
-  const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'shaderpreview-'));
+  const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'glslcheck-'));
   const proc = spawn(
     chromium,
     [

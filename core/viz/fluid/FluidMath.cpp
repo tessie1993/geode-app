@@ -8,84 +8,12 @@ namespace geode::viz::fluid {
 
 namespace math {
 
-namespace {
-
-float fract(float x) { return x - std::floor(x); }
-
-float hash3(float x0, float y0, float z0) {
-    const float x = fract(x0 * 0.3183099f + 0.1f) * 17.0f;
-    const float y = fract(y0 * 0.3183099f + 0.2f) * 17.0f;
-    const float z = fract(z0 * 0.3183099f + 0.3f) * 17.0f;
-    return fract(x * y * z * (x + y + z));
-}
-
-float mix(float a, float b, float t) { return a + (b - a) * t; }
-
-float vnoise3(float px, float py, float pz) {
-    const float ix = std::floor(px);
-    const float iy = std::floor(py);
-    const float iz = std::floor(pz);
-    float fx = px - ix;
-    float fy = py - iy;
-    float fz = pz - iz;
-    fx = fx * fx * (3.0f - 2.0f * fx);
-    fy = fy * fy * (3.0f - 2.0f * fy);
-    fz = fz * fz * (3.0f - 2.0f * fz);
-    const auto n = [&](float dx, float dy, float dz) { return hash3(ix + dx, iy + dy, iz + dz); };
-    return mix(mix(mix(n(0, 0, 0), n(1, 0, 0), fx), mix(n(0, 1, 0), n(1, 1, 0), fx), fy),
-               mix(mix(n(0, 0, 1), n(1, 0, 1), fx), mix(n(0, 1, 1), n(1, 1, 1), fx), fy), fz);
-}
-
-float psi(float x, float y, float time, float freq, float detail) {
-    float v = vnoise3(x * freq, y * freq, time) * 0.625f;
-    v += vnoise3(x * freq * 2.02f + 11.3f, y * freq * 2.02f + 11.3f, time * 2.02f + 11.3f) * 0.25f;
-    v += vnoise3(x * freq * 4.05f + 29.7f, y * freq * 4.05f + 29.7f, time * 4.05f + 29.7f) * 0.125f * detail;
-    return v;
-}
-
-}  // namespace
-
 float driven(float value, float audioDrive) {
     const float d = std::clamp(audioDrive, kMinAudioDrive, kMaxAudioDrive);
     return std::clamp(value * d, 0.0f, std::max(value, kDriveCeiling));
 }
 
-std::pair<float, float> curlVelocity(float x, float y, float time, float freq, float detail) {
-    const float e = 0.02f;
-    const float dpdx = psi(x + e, y, time, freq, detail) - psi(x - e, y, time, freq, detail);
-    const float dpdy = psi(x, y + e, time, freq, detail) - psi(x, y - e, time, freq, detail);
-    return {dpdy / (2.0f * e), -dpdx / (2.0f * e)};
-}
-
-float confinementDeltaV(float curlStrength, float dx, float velDiff, float dt) {
-    const float omega = (0.5f / dx) * velDiff;
-    return curlStrength * dx * omega * dt;
-}
-
-std::pair<float, float> softLimitFlow(float x, float y) {
-    const float len = std::sqrt(x * x + y * y);
-    const float k = 6.0f / (6.0f + len);
-    return {x * k, y * k};
-}
-
-std::pair<float, float> terminalSpeedCap(float x, float y) {
-    const float sp = std::sqrt(x * x + y * y);
-    const float k = 12.0f / std::max(12.0f, sp);
-    return {x * k, y * k};
-}
-
 int stateSide(int count) { return std::max(static_cast<int>(std::ceil(std::sqrt(static_cast<double>(count)))), 2); }
-
-float attractorForce(float pull, float dist2) {
-    const float f = pull / (dist2 + 0.05f);
-    return f * 6.0f / (6.0f + f);
-}
-
-bool isCaptured(float px, float py, float cx, float cy, float captureRadius) {
-    const float dx = cx - px;
-    const float dy = cy - py;
-    return dx * dx + dy * dy < captureRadius * captureRadius;
-}
 
 std::pair<float, float> segDist(float ax, float ay, float bx, float by, float px, float py) {
     const float abx = bx - ax;
@@ -107,14 +35,93 @@ float dragStep(float v, float flow, float drag, float dt) {
     return v + (flow - v) * k;
 }
 
-float bloomPrefilterScale(float br, float threshold, float softKnee) {
-    const float knee = threshold * softKnee + 1e-4f;
-    const float cx = threshold - knee;
-    const float cy = knee * 2.0f;
-    const float cz = 0.25f / knee;
-    float rq = std::clamp(br - cx, 0.0f, cy);
-    rq = cz * rq * rq;
-    return std::max(rq, br - threshold) / std::max(br, 1e-4f);
+float splatFalloff(float dist, float radius, float along) {
+    const float r = std::max(radius, 1e-4f);
+    if (dist > r * kSplatCutoffRadii) return 0.0f;
+    return std::exp(-dist / r) * (1.0f - along * 0.6f);
+}
+
+float macCormack(float forward, float source, float backward, float lo, float hi) {
+    return std::clamp(forward + 0.5f * (source - backward), lo, hi);
+}
+
+std::vector<std::pair<int, int>> multigridLevels(int w, int h) {
+    std::vector<std::pair<int, int>> out{{std::max(w, 1), std::max(h, 1)}};
+    while (static_cast<int>(out.size()) < kMaxLevels) {
+        const auto [cw, ch] = out.back();
+        const int nw = (cw + 1) / 2;
+        const int nh = (ch + 1) / 2;
+        if (std::min(nw, nh) < kMinCoarseSide) break;
+        out.emplace_back(nw, nh);
+    }
+    return out;
+}
+
+SolvePlan planPressureSolve(int budget, int w, int h) {
+    budget = std::max(budget, 1);
+    const auto levels = multigridLevels(w, h);
+    SolvePlan plan;
+    plan.levels = static_cast<int>(levels.size());
+    if (plan.levels < 2) {
+        // A grid too small to coarsen: the budget is all fine passes.
+        plan.extraPasses = budget;
+        plan.cost = static_cast<float>(budget);
+        plan.draws = budget;
+        return plan;
+    }
+    const float fine = static_cast<float>(levels[0].first) * static_cast<float>(levels[0].second);
+    const auto area = [&](int l) {
+        return static_cast<float>(levels[static_cast<size_t>(l)].first) * static_cast<float>(levels[static_cast<size_t>(l)].second) / fine;
+    };
+    // Larger budgets smooth harder before they add cycles: a pass on a big grid is worth more than
+    // a render-target switch, a cycle is ~6 switches per level.
+    plan.smooth = budget >= 32 ? 3 : (budget >= 20 ? 2 : 1);
+    plan.coarseIterations = 6;
+    float cycleCost = 0.0f;
+    int cycleDraws = 0;
+    for (int l = 0; l + 1 < plan.levels; ++l) {
+        cycleCost += area(l) * static_cast<float>(2 * plan.smooth + 1) + area(l + 1);  // smooth, prolong; restrict at l+1
+        cycleDraws += 2 * plan.smooth + 2;
+    }
+    cycleCost += area(plan.levels - 1) * static_cast<float>(plan.coarseIterations);
+    cycleDraws += plan.coarseIterations + 1;  // + the clear of the coarsest correction
+    plan.cycles = std::clamp(static_cast<int>(std::floor(static_cast<float>(budget) / cycleCost)), 1, kMaxCycles);
+    const float left = static_cast<float>(budget) - static_cast<float>(plan.cycles) * cycleCost;
+    plan.extraPasses = std::max(static_cast<int>(std::floor(left)), 0);
+    plan.cost = static_cast<float>(plan.cycles) * cycleCost + static_cast<float>(plan.extraPasses);
+    // Coarse corrections other than the coarsest are cleared too: one clear per coarse level.
+    plan.draws = plan.cycles * (cycleDraws + plan.levels - 2) + plan.extraPasses;
+    return plan;
+}
+
+namespace {
+float unit(float v) { return std::isfinite(v) ? std::clamp(v, 0.0f, 1.0f) : 0.0f; }
+}  // namespace
+
+Drives drives(const GeodeSoundFrame& f) {
+    Drives d;
+    const float trend = unit(2.0f * f.energyTrend - 1.0f);  // 0 steady or falling, 1 at twice as loud
+    d.heat = 0.15f + 0.50f * live::bass(f) + 0.20f * live::band(f.subAtt) + 0.25f * unit(f.kickEnv) + 0.10f * trend;
+    d.buoyancy = 0.75f + 0.30f * trend + 0.20f * unit(f.densitySlow);
+    d.particleStir = 0.25f + 0.35f * live::treble(f) + 0.25f * unit(f.hatEnv) + 0.20f * unit(f.flatness);
+    d.stirRate = 0.20f + 0.45f * live::mid(f) + 0.20f * unit(0.5f * f.flux) + 0.15f * unit(f.runDensity);
+    d.streak = 0.70f + 0.30f * unit(f.onsetEnv) + 0.20f * unit(f.snareEnv) + 0.30f * live::level(f);
+    return d;
+}
+
+float heatInjection(float heatDrive, float heatGain, float dt) {
+    return std::max(heatGain, 0.0f) * std::clamp(heatDrive, 0.0f, 2.0f) * 6.0f * std::clamp(dt, 0.0f, 1.0f / 15.0f);
+}
+
+float heatHeadroom(float temperature) { return std::clamp(1.0f - temperature / kMaxTemperature, 0.0f, 1.0f); }
+
+float coolingDivisor(float cooling, float dt) { return 1.0f + std::max(cooling, 0.0f) * std::max(dt, 0.0f); }
+
+float buoyancyAccel(float buoyancy, float temperature) { return buoyancy * std::clamp(temperature, 0.0f, kMaxTemperature); }
+
+float particleExposure(int count, int refCount) {
+    if (count <= 0 || refCount <= 0) return 1.0f;
+    return std::pow(static_cast<float>(refCount) / static_cast<float>(count), 0.75f);
 }
 
 }  // namespace math

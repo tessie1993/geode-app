@@ -10,7 +10,7 @@
 
 namespace geode::viz {
 
-// Port of FluidScene.kt: dye, particles and the look pass over one FluidSim.
+// Dye, particles and the look pass over one FluidSim.
 // One instance per fluid STYLE: the style picks the display look and biases
 // the solver and emitter values the user's params arrive with.
 class FluidScene : public FluidSceneBase {
@@ -50,6 +50,7 @@ private:
     std::vector<fluid::Splat> splats_;
     int appliedParticleSide_ = 0;
     float idlePhase_ = 0.0f;
+    float stirPhase_ = 0.0f;
 };
 
 }  // namespace geode::viz

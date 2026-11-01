@@ -12,9 +12,6 @@ class Crossfeed {
 public:
     explicit Crossfeed(float sampleRate);
 
-    // Not RT-safe: rebuilds the low-pass coefficients for a new rate. Only call this on a chain not yet installed.
-    void setSampleRate(float sampleRate);
-
     void setEnabled(bool enabled) { enabled_.store(enabled, std::memory_order_relaxed); }
     bool enabled() const { return enabled_.load(std::memory_order_relaxed); }
     void reset();

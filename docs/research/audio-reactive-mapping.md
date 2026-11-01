@@ -1,5 +1,10 @@
 # Audio-reactive mapping: how visualizers and VJ tools stay alive
 
+> **Read this as research, not as a map of the code.** It predates the sound engine (`core/sound`). Names it uses for
+> Geode's own signals (beats, bars, `Section`, `sectionCount`, `lib_react.glsl`) are from the analysis layer that engine
+> replaced. The current source list is `ReactSource` in `core/viz/Reactions.hpp`; shaders hear sound through
+> `lib_sound.glsl`.
+
 Research note, 2026-10-31. Primary sources only: tool manuals and source code. Tags such as [G1] refer to the
 Sources list at the end. Quotes are kept to a few words. Where a page could not be reached, this says so.
 
@@ -269,7 +274,7 @@ The meta controls include a global **Reactivity** (overall sensitivity) and **Au
     state is < 0.80, over an area larger than about 25% of a 10° field (341×256 px at 1024×768). Saturated-red flashes count separately [W1].
   - The ITU-R BT.1702 broadcast definition is a 20 cd/m² change [W1]. The Harding FPA test that broadcasters used is cited on the WCAG page, but its own
     documentation was not reached.
-  - Invert, solarize and full-frame brightness or strobe are the risky targets. Geometry and hue are the safe ones (Geode's `lib_react.glsl` header already says so).
+  - Invert, solarize and full-frame brightness or strobe are the risky targets. Geometry and hue are the safe ones (the header of Geode's `lib_react.glsl`, now gone, said so).
 
 ---
 
@@ -329,7 +334,7 @@ What is missing, ordered by how much variety each would add for the cost:
    ones snap or dip through zero at the midpoint (the MilkDrop snap point). This is the "change what reacts every phrase" pattern. `sectionCount` already
    exists, but routes cannot read it. Cheaper first step: let Section or Downbeat re-roll *which target* a route drives from a short, style-approved list.
 5. **Unfolded clocks for shaders.** Spin folds into a −1..1 triangle, which suits bounded parameters but cannot give an ever-advancing phase. Publish
-   per-band `syn_*Time`-style clocks (bass, mid, high and whole-spectrum time, and beat time) in `lib_react.glsl`. Shaders could then drive travel and texture
+   per-band `syn_*Time`-style clocks (bass, mid, high and whole-spectrum time, and beat time) in `lib_react.glsl` (since done: `lib_sound.glsl` has `SND_BASS_TIME` and the other sound-engine clocks). Shaders could then drive travel and texture
    phase the way Synesthesia scenes do. Keep them fmod-wrapped with a large period.
 6. **Sequencer source.** A per-style 8- or 16-step pattern indexed by beat within the bar or phrase (VDMX Step Sequencer, Beat CHOP count) with a
    glide parameter. It gives designed, groove-locked variation that the analyser cannot invent.
@@ -387,4 +392,4 @@ Brightness, Intensity or Bloom must go through the same floors, because a toggle
 - [W1] W3C, Understanding SC 2.3.1: https://www.w3.org/WAI/WCAG22/Understanding/three-flashes-or-below-threshold.html
 - [H1] Hunt & Wanderley 2002, Organised Sound 7(2) 97-108, doi:10.1017/S1355771802002030: https://idmil.org/?p=2858 (abstract only)
 - [GR1] Graf, Opara, Barthet, "An Audio-Driven System For Real-Time Music Visualisation", AES 150 (2021): https://arxiv.org/abs/2106.10134
-- Geode code read: `core/viz/Reactions.hpp`, `Reactions.cpp`, `Lfo.hpp`, `Lfo.cpp:165-182`, `Adsr.hpp`, `VisualSafety.hpp`, `app/src/main/assets/shaders/lib_react.glsl`, `app/src/main/java/dev/geode/ui/AutoVisualsController.kt`.
+- Geode code read: `core/viz/Reactions.hpp`, `Reactions.cpp`, `Lfo.hpp`, `Lfo.cpp:165-182`, `Adsr.hpp`, `VisualSafety.hpp`, `app/src/main/assets/shaders/lib_react.glsl` (gone; its successor is `lib_sound.glsl`), `app/src/main/java/dev/geode/ui/AutoVisualsController.kt`. `FrameAudioData.hpp` in [P1] is projectM's own file, not Geode's.

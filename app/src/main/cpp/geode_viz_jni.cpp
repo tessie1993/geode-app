@@ -46,12 +46,6 @@ Java_dev_geode_engine_bridge_GeodeNative_vizSetParams(JNIEnv* env, jobject, jlon
     if (data.get()) geode_viz_set_params(vizOf(handle), data.get(), data.length());
 }
 
-JNIEXPORT jboolean JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_vizSetParam(JNIEnv* env, jobject, jlong handle, jstring name, jfloat value) {
-    Utf8Chars key(env, name);
-    return geode_viz_set_param(vizOf(handle), key.get(), value) ? JNI_TRUE : JNI_FALSE;
-}
-
 JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_vizSetReducedMotion(JNIEnv*, jobject, jlong handle, jboolean on) {
     geode_viz_set_reduced_motion(vizOf(handle), on == JNI_TRUE);
@@ -152,14 +146,6 @@ Java_dev_geode_engine_bridge_GeodeNative_vizSetSoundTuning(JNIEnv* env, jobject,
     GeodeSoundTuning t{};
     env->GetFloatArrayRegion(tuning, 0, GEODE_SOUND_TUNING_FLOATS, reinterpret_cast<jfloat*>(&t));
     geode_viz_set_sound_tuning(vizOf(handle), &t);
-}
-
-JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_vizSoundFrame(JNIEnv* env, jobject, jlong handle, jfloatArray out) {
-    if (!out || env->GetArrayLength(out) < GEODE_SOUND_FRAME_FLOATS) return;
-    GeodeSoundFrame frame{};
-    geode_viz_sound_frame(vizOf(handle), &frame);
-    env->SetFloatArrayRegion(out, 0, GEODE_SOUND_FRAME_FLOATS, reinterpret_cast<const jfloat*>(&frame));
 }
 
 JNIEXPORT jstring JNICALL
@@ -332,28 +318,11 @@ Java_dev_geode_engine_bridge_GeodeNative_vizReleaseScenes(JNIEnv*, jobject, jlon
     geode_viz_release_scenes(vizOf(handle));
 }
 
-// W00: pixels is a Java IntArray? (ARGB per Android's Bitmap.getPixels), so a null array is a
-// valid "clear" call rather than a JNI error - handled before touching the (possibly null) array.
-// width*height is checked against the array's actual length (mirroring vizPushPcm's count clamp
-// above) and treated as a clear when it doesn't fit, so a stale/mismatched width or height can
-// never make geode_viz_set_overlay_rgba read past the JVM-owned buffer.
-JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_vizSetOverlay(JNIEnv* env, jobject, jlong handle, jintArray pixels, jint width, jint height) {
-    if (!pixels) {
-        geode_viz_set_overlay_rgba(vizOf(handle), nullptr, 0, 0);
-        return;
-    }
-    jint* data = env->GetIntArrayElements(pixels, nullptr);
-    if (!data) return;
-    const jlong needed = static_cast<jlong>(width) * static_cast<jlong>(height);
-    if (width > 0 && height > 0 && needed <= env->GetArrayLength(pixels)) {
-        geode_viz_set_overlay_rgba(vizOf(handle), reinterpret_cast<const uint32_t*>(data), width, height);
-    } else {
-        geode_viz_set_overlay_rgba(vizOf(handle), nullptr, 0, 0);
-    }
-    env->ReleaseIntArrayElements(pixels, data, JNI_ABORT);
-}
-
+// pixels is a Java IntArray? (ARGB per Android's Bitmap.getPixels), so a null array is a valid "clear"
+// call rather than a JNI error - handled before touching the (possibly null) array. width*height is
+// checked against the array's actual length (mirroring vizPushPcm's count clamp above) and treated as a
+// clear when it doesn't fit, so a stale/mismatched width or height can never make
+// geode_viz_set_underlay_rgba read past the JVM-owned buffer.
 JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_vizSetUnderlay(JNIEnv* env, jobject, jlong handle, jintArray pixels, jint width, jint height,
                                                         jint blend, jfloat amount) {

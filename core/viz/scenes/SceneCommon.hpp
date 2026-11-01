@@ -19,7 +19,7 @@ namespace geode::viz {
 // CymaticsScene.cpp, MilkdropScene.cpp, ...) can hold their own instance too
 // once they are converted off their beat-splat/ripple-drop state.
 
-// Port of FluidHue.kt.
+// Hue range and palette-cycle limits shared by the fluid scenes.
 namespace hue {
 constexpr float kMinHueRange = 0.1f;
 constexpr float kMaxHueRange = 1.5f;
@@ -54,7 +54,7 @@ inline void hsv(float h, float s, float v, float* out) {
 inline void rgb(float h, float saturation, float* out) { hsv(h, std::clamp(saturation, 0.0f, 1.0f), 1.0f, out); }
 }  // namespace hue
 
-// Port of PcmPulse.kt: the peak of the newest PCM block, decaying per second.
+// The peak of the newest PCM block, decaying per second.
 class PcmPulse {
 public:
     explicit PcmPulse(float decayPerSecond = 4.0f, float ceiling = 1.5f) : decay_(decayPerSecond), ceiling_(ceiling) {}
@@ -80,14 +80,14 @@ private:
     float level_ = 0.0f;
 };
 
-// Port of ParticleLook.kt.
+// How particles look: glow from bloom, size from the viewport height.
 namespace particle_look {
 constexpr float kStretchSeconds = 0.0025f;
 inline float glow(float bloom) { return 0.85f + std::clamp(bloom, 0.0f, 1.0f) * 1.2f; }
 inline float dpiScale(int viewportHeightPx) { return std::clamp(static_cast<float>(std::max(viewportHeightPx, 1)) / 1080.0f, 0.75f, 2.5f); }
 }  // namespace particle_look
 
-// Port of SceneTouch.upload for a linked program: the count, and the points only when fingers are down.
+// Touch upload for a linked program: the count, and the points only when fingers are down.
 inline void uploadSceneTouch(UniformCache& locs, const TouchField* field, bool enabled = true) {
     const int count = (enabled && field) ? field->count() : 0;
     glUniform1i(locs.loc("uTouchCount"), count);
@@ -99,24 +99,6 @@ inline void uploadSceneTouch(UniformCache& locs, const TouchField* field, bool e
 inline float slewEnvelope(float current, float target, float dt, float risePerSec, float fallPerSec) {
     const float limit = target > current ? risePerSec : fallPerSec;
     return current + std::clamp(target - current, -limit * dt, limit * dt);
-}
-
-// Port of PcmRow.fill: each destination cell keeps the largest-magnitude sample of its span.
-inline void fillPcmRow(float* dst, int dstSize, const float* source, int count) {
-    if (count <= 0) {
-        std::fill(dst, dst + dstSize, 0.0f);
-        return;
-    }
-    for (int i = 0; i < dstSize; ++i) {
-        const int from = i * count / dstSize;
-        const int to = std::min(std::max((i + 1) * count / dstSize, from + 1), count);
-        float extreme = 0.0f;
-        for (int j = from; j < to; ++j) {
-            const float v = std::isfinite(source[j]) ? source[j] : 0.0f;
-            if (std::fabs(v) > std::fabs(extreme)) extreme = v;
-        }
-        dst[i] = extreme;
-    }
 }
 
 constexpr float kSceneTimeWrapSeconds = 628.31853f;

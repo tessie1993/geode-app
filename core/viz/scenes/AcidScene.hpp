@@ -16,7 +16,7 @@
 
 namespace geode::viz {
 
-// Port of AcidScene.kt: a video-feedback loop on an RGBA8 ping-pong.
+// A video-feedback loop on an RGBA8 ping-pong.
 //
 // The scene is a conductor: update() reads the sound engine's whole frame (drums, sections, melody,
 // energy, stereo, clocks) and turns it into per-frame moves of the loop (zoom punch, spin, vortex,

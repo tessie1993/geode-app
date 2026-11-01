@@ -15,7 +15,7 @@
 
 namespace geode::viz {
 
-// Port of LifeScene.kt: Lenia and Gray-Scott cellular fields, reseeded when a census finds them dead.
+// Lenia and Gray-Scott cellular fields, reseeded when a census finds them dead.
 //
 // The sound engine plays the organism, it does not flash it. Every reading is folded in update() (so a
 // one-frame trigger is never lost between draws) into a few quantities the solver understands: matter

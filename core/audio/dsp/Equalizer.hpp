@@ -21,11 +21,7 @@ public:
 
     explicit Equalizer(float sampleRate) : sampleRate_(sampleRate) { recompute(); }
 
-    // Not RT-safe: rebuilds every band's coefficients for a new rate. Only call this on a chain not yet installed.
-    void setSampleRate(float sampleRate);
-
     void setBand(int band, int millibels);
-    int band(int band) const;
     void setBassBoost(int permille);
     void setEnabled(bool enabled) { enabled_.store(enabled, std::memory_order_relaxed); }
     bool enabled() const { return enabled_.load(std::memory_order_relaxed); }

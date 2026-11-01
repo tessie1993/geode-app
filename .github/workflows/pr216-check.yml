@@ -129,11 +129,29 @@ jobs:
       # The scene and style catalogue (core/viz/Catalogue): ids, families, param scopes, ranges, and
       # its text table byte-equal to core/tests/catalogue.txt, the copy the JVM tests read.
       - name: Catalogue host tests
+        id: catalogue
         if: ${{ !cancelled() }}
         working-directory: ${{ env.PROJECT_DIR }}
         run: |
           g++ -std=c++20 -O1 -Wall -Wextra -Icore core/tests/catalogue_test.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp -o catalogue_test
           ./catalogue_test core/tests/catalogue.txt
+      # A red catalogue check after a deliberate catalogue change means the fixture is stale: hand back
+      # the regenerated one (catalogue_test --write) so it can be committed without a local compiler.
+      - name: Regenerate catalogue fixture
+        if: ${{ !cancelled() && steps.catalogue.outcome == 'failure' }}
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          ./catalogue_test --write catalogue.regenerated.txt
+          diff core/tests/catalogue.txt catalogue.regenerated.txt || true
+
+      - name: Upload regenerated catalogue fixture
+        if: ${{ !cancelled() && steps.catalogue.outcome == 'failure' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: catalogue-fixture-${{ github.run_number }}
+          path: catalogue.regenerated.txt
+          retention-days: 3
+
       # The export DSP (resampler, BS.1770 loudness meter), ported from Kotlin (ADR 0003).
       - name: Native export DSP tests
         if: ${{ !cancelled() }}

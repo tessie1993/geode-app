@@ -63,6 +63,9 @@ androidx-test-rules = { module = "androidx.test:rules", version.ref = "androidxT
 androidx-test-ext-truth = { module = "androidx.test.ext:truth", version.ref = "androidxTestTruth" }
 androidx-test-orchestrator = { module = "androidx.test:orchestrator", version.ref = "androidxTestOrchestrator" }
 androidx-test-services = { module = "androidx.test.services:test-services", version.ref = "androidxTestServices" }
+# TestStorage, the client half of test services: files written there survive Orchestrator's
+# clearPackageData and land in connected_android_test_additional_output (the thumbs render).
+androidx-test-services-storage = { module = "androidx.test.services:storage", version.ref = "androidxTestServices" }
 androidx-test-espresso-core = { module = "androidx.test.espresso:espresso-core", version.ref = "espresso" }
 
 ktlint-gradle = { module = "org.jlleitschuh.gradle.ktlint:org.jlleitschuh.gradle.ktlint.gradle.plugin", version.ref = "ktlint" }

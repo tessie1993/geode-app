@@ -141,7 +141,10 @@ void bornSwapsInsideItsDip() {
     check(swaps == 0, "with the beat locked only the music swaps it");
     for (int i = 0; i < 60 * 40; i++) swaps += clock.step(1.0f / 60.0f, false, false) ? 1 : 0;
     check(swaps >= 2 && swaps <= 5, "unsure of the beat it swaps every 8-16 s");
-    check(dropFlare(0.0f, true, 0.016f) == 1.0f && dropFlare(1.0f, false, 1.0f) < 0.1f, "a drop flares and fades");
+    float flare = dropFlare(0.0f, true, 0.016f);
+    const bool flared = flare == 1.0f;
+    for (int i = 0; i < 60; i++) flare = dropFlare(flare, false, 1.0f / 60.0f);
+    check(flared && flare < 0.1f, "a drop flares and fades within a second");
 }
 
 }  // namespace

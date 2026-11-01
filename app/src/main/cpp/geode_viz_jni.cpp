@@ -170,6 +170,11 @@ Java_dev_geode_engine_bridge_GeodeNative_directorSet(JNIEnv*, jobject, jfloat am
     geode_director_set(amount, static_cast<long long>(seed));
 }
 
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_noteResponseSet(JNIEnv*, jobject, jboolean enabled) {
+    geode_note_response_set(enabled ? 1 : 0);
+}
+
 JNIEXPORT jfloatArray JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_macrosSurprise(JNIEnv* env, jobject, jfloatArray knobs, jint lockMask, jlong seed) {
     const jsize n = knobs ? std::min<jsize>(env->GetArrayLength(knobs), 16) : 0;
@@ -255,6 +260,11 @@ JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_vizSetQuality(JNIEnv*, jobject, jlong handle, jfloat renderScale,
                                                        jfloat marchScale, jboolean postFx, jboolean adaptive) {
     geode_viz_set_quality(vizOf(handle), renderScale, marchScale, postFx == JNI_TRUE, adaptive == JNI_TRUE);
+}
+
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_vizSetDirector(JNIEnv*, jobject, jlong handle, jfloat amount, jlong seed) {
+    geode_viz_set_director(vizOf(handle), amount, static_cast<long long>(seed));
 }
 
 JNIEXPORT void JNICALL

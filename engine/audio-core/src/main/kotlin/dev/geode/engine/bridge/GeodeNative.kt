@@ -187,6 +187,14 @@ object GeodeNative {
         seed: Long,
     )
 
+    /**
+     * Note & key reactions (core/viz/NoteResponse): the notes, chords, key and mood drive the style knobs,
+     * the note colours, the blooms over every style and a gentle shape and distortion. Process-wide like
+     * the director, so the screen, an export, the wallpaper and the dream agree; off is exactly the picture
+     * without it. The play's seed is the director's ([directorSet]), so an export draws the same blooms.
+     */
+    external fun noteResponseSet(enabled: Boolean)
+
     /** Surprise: unlocked knobs (bit i of [lockMask] locks knob i) to new spots, seeded. */
     external fun macrosSurprise(
         knobs: FloatArray,
@@ -265,6 +273,16 @@ object GeodeNative {
         marchScale: Float,
         postFx: Boolean,
         adaptive: Boolean,
+    )
+
+    /**
+     * Pins this renderer's auto-director (an export's): from then on it ignores [directorSet], so the live
+     * player moving to another track or past the free taste never reaches a render in progress.
+     */
+    external fun vizSetDirector(
+        handle: Long,
+        amount: Float,
+        seed: Long,
     )
 
     external fun vizSetOffscreen(

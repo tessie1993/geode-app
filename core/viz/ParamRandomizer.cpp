@@ -52,7 +52,7 @@ constexpr int kMaxReactSeed = (1 << 24) - 1;
 
 const std::vector<Roll>& rolls() {
     using T = Tab;
-    // Upper bounds of brightness, contrast, intensity, bloom and glitch are the flash clamp's
+    // Upper bounds of brightness, contrast, intensity and bloom are the flash clamp's
     // (1 + kMaxFlashDepth, kMaxFlashDepth): above them a roll is invisible.
     static const std::vector<Roll> kRolls = {
         {{T::Motion, "Speed", {"speed"}}, [](SceneParams& p, Rng& r) { p.speed = r.f(0.2f, 2.5f); }},
@@ -142,7 +142,6 @@ const std::vector<Roll>& rolls() {
         {{T::Fx, "Vignette", {"vignette"}}, [](SceneParams& p, Rng& r) { p.vignette = r.sometimes(0.5f, 0.1f, 0.6f); }},
         {{T::Fx, "Scanlines", {"scanlines"}}, [](SceneParams& p, Rng& r) { p.scanlines = r.sometimes(0.25f, 0.15f, 0.5f); }},
         {{T::Fx, "Film grain", {"grain"}}, [](SceneParams& p, Rng& r) { p.grain = r.sometimes(0.3f, 0.1f, 0.4f); }},
-        {{T::Fx, "Glitch", {"glitch"}}, [](SceneParams& p, Rng& r) { p.glitch = r.sometimes(0.2f, 0.1f, 0.25f); }},
         {{T::Fx, "Fisheye", {"fisheye"}}, [](SceneParams& p, Rng& r) { p.fisheye = r.sometimes(0.25f, -0.5f, 0.5f); }},
 
         {{T::Fluid, "Solver iterations", {"fluidIterations"}}, [](SceneParams& p, Rng& r) { p.fluidIterations = r.n(12, 28); }},
@@ -256,12 +255,22 @@ const std::vector<std::pair<const char*, const char*>>& neverRolled() {
         {"camTouch", "an input preference, not a look"},
         {"camGyro", "an input preference, not a look"},
         {"reactAmount", "how much the user wants the music to move things"},
+        // Note & key reactions: the user's pick and how much each source drives, never a roll's.
+        {"bloomLook", "the user's pick of note bloom, Auto by default"},
+        {"noteColor", "a Note & key amount: how much the user wants the notes to move things"},
+        {"notePitch", "a Note & key amount: how much the user wants the notes to move things"},
+        {"noteIntervals", "a Note & key amount: how much the user wants the notes to move things"},
+        {"noteTension", "a Note & key amount: how much the user wants the notes to move things"},
+        {"noteChords", "a Note & key amount: how much the user wants the notes to move things"},
+        {"noteDrums", "a Note & key amount: how much the user wants the notes to move things"},
+        {"noteBloom", "a Note & key amount: how much the user wants the notes to move things"},
         // Inert since wave three (see SceneParams): no reader, so no control and no roll.
         {"pulse", "inert since wave three"},
         {"shake", "inert since wave three"},
         {"beatResponse", "inert since wave three"},
         {"flash", "inert since wave three"},
         {"strobe", "inert since wave three"},
+        {"glitch", "retired: the composite Glitch effect is gone"},
         {"formDrive", "inert since wave three"},
         {"motionOrbit", "no native reader"},
     };

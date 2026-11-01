@@ -207,6 +207,14 @@ class NativeViz(
         if (handle != 0L) GeodeNative.vizSetQuality(handle, renderScale, marchScale, postFx, adaptive)
     }
 
+    /** Pins this renderer's auto-director; see [GeodeNative.vizSetDirector]. */
+    fun setDirector(
+        amount: Float,
+        seed: Long,
+    ) {
+        if (handle != 0L) GeodeNative.vizSetDirector(handle, amount, seed)
+    }
+
     fun setOffscreen(on: Boolean) {
         if (handle != 0L) GeodeNative.vizSetOffscreen(handle, on)
     }

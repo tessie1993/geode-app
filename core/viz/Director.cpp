@@ -72,7 +72,7 @@ const std::array<Pool, Emotion::kGems> kPools = {{
     // Tension: angular, shaking.
     {{{ReactSource::Tension, LfoTarget::ChromaAb, 0.5f, 0.3f, 0.6f},
       {ReactSource::HatEnv, LfoTarget::CamShake, 0.3f, 0.01f, 0.2f},
-      {ReactSource::Hfc, LfoTarget::Glitch, 0.15f, 0.02f, 0.2f}}},
+      {ReactSource::Hfc, LfoTarget::Twist, 0.15f, 0.02f, 0.2f}}},
     // Sadness: sinking, dark, sparse.
     {{{ReactSource::Loudness, LfoTarget::Brightness, 0.2f, 0.8f, 2.0f},
       {ReactSource::PitchHeight, LfoTarget::CamPitch, -0.2f, 0.5f, 1.5f},

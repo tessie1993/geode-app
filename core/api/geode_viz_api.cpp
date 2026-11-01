@@ -9,6 +9,7 @@
 
 #include "api/geode_api.h"
 #include "viz/Director.hpp"
+#include "viz/NoteResponse.hpp"
 #include "viz/Macros.hpp"
 #include "viz/ReactionDna.hpp"
 #include "viz/Renderer.hpp"
@@ -241,6 +242,8 @@ void geode_macros_set(const float* knobs, int count) { macros::setGlobal(macros:
 
 void geode_director_set(float amount, long long seed) { director::setGlobal(amount, static_cast<uint64_t>(seed)); }
 
+void geode_note_response_set(int enabled) { note_response::setGlobal(enabled != 0); }
+
 void geode_macros_surprise(const float* knobs, int count, unsigned lock_mask, long long seed, float* out) {
     if (!out) return;
     const MacroKnobs k = macros::surprise(macros::clamped(knobs, count), lock_mask, static_cast<uint64_t>(seed));
@@ -302,6 +305,10 @@ void geode_viz_set_paced_fps(geode_viz* v, float fps) {
 
 void geode_viz_set_quality(geode_viz* v, float render_scale, float march_scale, int post_fx, int adaptive) {
     if (v) v->renderer.setUserQuality(render_scale, march_scale, post_fx != 0, adaptive != 0);
+}
+
+void geode_viz_set_director(geode_viz* v, float amount, long long seed) {
+    if (v) v->renderer.pinDirector(amount, static_cast<uint64_t>(seed));
 }
 
 void geode_viz_set_offscreen(geode_viz* v, int on) {

@@ -348,6 +348,7 @@ internal fun MilkDropTab(
     onOpenTextures: () -> Unit,
 ) {
     val visualsViewModel: VisualsViewModel = geodeViewModel()
+    val pickerContext = androidx.compose.ui.platform.LocalContext.current
     var refresh by remember { mutableStateOf(0) }
     val viz by viewModel.vizState.collectAsStateWithLifecycle()
     // Off the main thread: userMilkPresets() runs MilkStarterPack.install() - a marker read, an
@@ -406,7 +407,7 @@ internal fun MilkDropTab(
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             CrystalButton(onClick = { milkPicker.launch(arrayOf("*/*")) }) { Text("Load .milk file") }
-            CrystalButton(filled = false, onClick = { milkFolderPicker.launch(null) }) { Text("Import folder…") }
+            CrystalButton(filled = false, onClick = { milkFolderPicker.launchPicker(pickerContext, null) }) { Text("Import folder…") }
             CrystalButton(filled = false, onClick = onOpenTextures) { Text("Textures…") }
         }
         packReport?.let { r ->

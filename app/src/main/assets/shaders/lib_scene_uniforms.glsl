@@ -80,10 +80,14 @@ uniform float uFlash;
 // beside this one. A style that never reads them links the array away, so it
 // costs the others nothing.
 //
-// ShaderScene::uploadParams holds every knob at 0.5 (the midpoint each style
-// was tuned around) for now; a later PR drives them from the music, already
-// smoothed and shaped by the engine's reaction matrix, so a style must read a
-// knob as a continuous value and never as a trigger.
+// With Settings › Behaviour › Note & key reactions on, core/viz/NoteResponse
+// drives them by meaning, each from several fields of the sound frame and
+// smoothed at a musical rate: k0 PULSE the drums, weighted by how percussive
+// the track is; k1 TEXTURE timbre (brightness, density, noise); k2 FLOW
+// sustained energy; k3 TONE the melody's height; k4 BUILD tension and the
+// feeling's energy; k5 SPACE interval motion and stereo width. Off, every knob
+// is exactly 0.5 (the midpoint each style was tuned around). Either way a
+// style must read a knob as a continuous value and never as a trigger.
 uniform float uKnob[6];
 
 // ---- where the fingers are ------------------------------------------------

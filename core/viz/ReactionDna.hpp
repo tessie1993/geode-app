@@ -29,7 +29,7 @@ enum class Personality {
     Twist,   // a radial twist, a new direction per beat
     Warp,    // the domain bends on the beat
     Ripple,  // rings run out on the beat
-    Glitch,  // chromatic split and glitch on the beat
+    Split,   // the colour channels split apart on the beat
     Swing,   // the camera looks somewhere new per beat
     Lens,    // a fisheye bulge on the beat
     Spin,    // turns a notch per beat (only styles that turn)

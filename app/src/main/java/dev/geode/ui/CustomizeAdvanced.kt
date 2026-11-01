@@ -1,6 +1,7 @@
 package dev.geode.ui
 
 import androidx.activity.compose.BackHandler
+import androidx.annotation.StringRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -25,6 +26,7 @@ import androidx.compose.material.icons.filled.Gradient
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material.icons.filled.Waves
 import androidx.compose.material3.AlertDialog
@@ -50,6 +52,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
@@ -58,6 +61,8 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import dev.geode.R
+import dev.geode.data.NoteResponseStore
 import dev.geode.render.AdsrConfig
 import dev.geode.render.AdsrEngine
 import dev.geode.render.BlendMode
@@ -111,6 +116,7 @@ internal enum class AdvancedSection(
         Icons.Filled.GraphicEq,
     ),
     REACTIONS("Reactions", "Every sound-to-movement link, one at a time.", Icons.Filled.Bolt),
+    NOTE_KEY("Note & key", "How strongly the notes, chords, key and drums move this style.", Icons.Filled.MusicNote),
     LAYERS("Layers", "Blend a second style under this one.", Icons.Filled.Layers),
     CAMERA("Camera", "The flight path, field of view, shake and touch or tilt to look.", Icons.Filled.Videocam),
     TRANSITIONS("Transitions", "How styles hand over, and how changes glide in.", Icons.Filled.Animation),
@@ -251,6 +257,7 @@ private fun AdvancedSectionBody(
             val reactions by host.visualsViewModel.reactions.collectAsStateWithLifecycle()
             ReactionsSection(p, reactions, host.visualsViewModel::setReactions, host.visualsViewModel::rerollReactions)
         }
+        AdvancedSection.NOTE_KEY -> NoteKeyPage(p, onChange)
         AdvancedSection.LAYERS -> LayersPage()
         AdvancedSection.CAMERA -> CameraPage(p, onChange)
         AdvancedSection.TRANSITIONS ->
@@ -474,6 +481,7 @@ private fun ReactionCard(
                         }
                     } else {
                         LfoTarget.entries
+                            .filter { it != LfoTarget.RETIRED_25 }
                             .filter { it != LfoTarget.NONE && it.chain == null && it.scope.appliesTo(sceneId) }
                             .forEach { t ->
                                 TextButton(onClick = {
@@ -539,7 +547,7 @@ private fun ModulatorCard(
                         // A chain target may only point at a LATER wave, and a scene-parameter
                         // target is only offered where it can actually move the picture.
                         val chain = t.chain
-                        val offered = if (chain != null) index < chain.slot else t.scope.appliesTo(sceneId)
+                        val offered = t != LfoTarget.RETIRED_25 && if (chain != null) index < chain.slot else t.scope.appliesTo(sceneId)
                         if (offered) {
                             TextButton(onClick = {
                                 onChange(config.copy(target = t))
@@ -612,6 +620,7 @@ private fun AdsrCard(
                 )
                 DropdownMenu(expanded = showAdd, onDismissRequest = { showAdd = false }) {
                     LfoTarget.entries
+                        .filter { it != LfoTarget.RETIRED_25 }
                         .filter { it != LfoTarget.NONE && it !in config.targets && (it.chain != null || it.scope.appliesTo(sceneId)) }
                         .forEach { t ->
                             DropdownMenuItem(
@@ -687,6 +696,63 @@ internal fun LayersPage() {
         LayersBus.state.value = layers.copy(blend = BlendMode.entries[it])
     }
     LabeledSlider(LAYER_MIX, layers.mix, 0f..1f, scope = ParamScope.UNIVERSAL) { LayersBus.state.value = layers.copy(mix = it) }
+}
+
+/**
+ * One Note & key strength: a 0..2 slider (1 = as designed) with its one-line hint under it. The key is
+ * the shown name, since these are not catalogue parameters: they have no style scope (every style hears
+ * notes) and the randomizer never rolls them, so the scope and unit are given rather than looked up.
+ */
+@Composable
+private fun NoteKeySlider(
+    @StringRes name: Int,
+    @StringRes hint: Int,
+    value: Float,
+    default: Float,
+    onChange: (Float) -> Unit,
+) {
+    val label = stringResource(name)
+    LabeledSlider(label, value, 0f..2f, scope = ParamScope.UNIVERSAL, default = default, unit = ParamUnit.TIMES, onChange = onChange)
+    if (visible(label, ParamScope.UNIVERSAL)) ControlHint(stringResource(hint))
+}
+
+/**
+ * Advanced › Note & key: how strongly each part of the musical layer (core/viz/NoteResponse) moves this
+ * style, saved with the style like every Customize value. The switch that runs the layer at all is
+ * Settings › Behaviour (free, on by default); with it off these sliders do nothing, so the page says so
+ * rather than letting a user drag a dead control. The bloom's look is on Look, free.
+ */
+@Composable
+private fun NoteKeyPage(
+    p: SceneParams,
+    onChange: (SceneParams) -> Unit,
+) {
+    val context = LocalContext.current
+    val running by remember { NoteResponseStore.get(context) }.enabled.collectAsStateWithLifecycle()
+    if (!running && sectionVisible()) ControlHint(stringResource(R.string.note_key_off))
+    ControlHint(stringResource(R.string.note_key_intro))
+    val d = SceneParams.DEFAULT
+    NoteKeySlider(R.string.note_key_color, R.string.note_key_color_hint, p.noteColor, d.noteColor) {
+        onChange(p.copy(noteColor = it))
+    }
+    NoteKeySlider(R.string.note_key_pitch, R.string.note_key_pitch_hint, p.notePitch, d.notePitch) {
+        onChange(p.copy(notePitch = it))
+    }
+    NoteKeySlider(R.string.note_key_intervals, R.string.note_key_intervals_hint, p.noteIntervals, d.noteIntervals) {
+        onChange(p.copy(noteIntervals = it))
+    }
+    NoteKeySlider(R.string.note_key_tension, R.string.note_key_tension_hint, p.noteTension, d.noteTension) {
+        onChange(p.copy(noteTension = it))
+    }
+    NoteKeySlider(R.string.note_key_chords, R.string.note_key_chords_hint, p.noteChords, d.noteChords) {
+        onChange(p.copy(noteChords = it))
+    }
+    NoteKeySlider(R.string.note_key_drums, R.string.note_key_drums_hint, p.noteDrums, d.noteDrums) {
+        onChange(p.copy(noteDrums = it))
+    }
+    NoteKeySlider(R.string.note_key_bloom, R.string.note_key_bloom_hint, p.noteBloom, d.noteBloom) {
+        onChange(p.copy(noteBloom = it))
+    }
 }
 
 /** Advanced › Camera: the one rig every style, the wallpaper and exports share. */

@@ -28,7 +28,6 @@ enum class EventRecipe(
         "When the snare hits, split the colours",
         listOf(
             follow(ReactSource.SNARE_ENV, LfoTarget.CHROMA_AB, 0.5f, 0.01f, 0.18f),
-            follow(ReactSource.SNARE_ENV, LfoTarget.GLITCH, 0.25f, 0.01f, 0.12f),
         ),
     ),
     HAT_SHIMMER(
@@ -131,7 +130,7 @@ enum class EventRecipe(
         "Every hit roughs the picture up",
         listOf(
             follow(ReactSource.ONSET, LfoTarget.TURBULENCE, 0.3f, 0.01f, 0.3f),
-            follow(ReactSource.ONSET, LfoTarget.GLITCH, 0.15f, 0.01f, 0.3f),
+            follow(ReactSource.ONSET, LfoTarget.CAM_SHAKE, 0.15f, 0.01f, 0.3f),
         ),
     ),
 

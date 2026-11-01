@@ -189,10 +189,13 @@ class PlayerSession internal constructor(
                 override val vizState: StateFlow<VizUiState> get() = _vizState
                 override val activeMilkPath: String? get() = vizStateStore.activeMilkPath.value
 
+                // Through the session's own applyPreset, not straight to the visual controller: that
+                // is where the Pro style gate sits, so a template on a locked style is refused and
+                // opens the paywall exactly as the same look saved as a preset would (PRO-1).
                 override fun applyLook(
                     look: TemplateLook,
                     name: String,
-                ) = visual.applyPreset(look.toPreset(name))
+                ) = applyPreset(look.toPreset(name))
             },
         )
 

@@ -145,6 +145,17 @@ void Rhythm::estimateTempo() {
         acConf_ = 0.0f;
         return;
     }
+    // The faster metrical level wins when the envelope is nearly as periodic at half the lag: a click on
+    // every beat at 174 BPM fits 87 as well (every other click), and the prior cannot tell them apart.
+    const int half = static_cast<int>(std::lround(0.5f * static_cast<float>(best)));
+    if (half >= lagMin_ && ac_[half] >= 0.6f * ac_[best]) {
+        int peak = half;
+        for (int lag = std::max(lagMin_, half - 1); lag <= half + 1; lag++) {
+            if (score(lag) > score(peak)) peak = lag;
+        }
+        best = peak;
+        bestScore = score(best);
+    }
     acConf_ = std::clamp(ac_[best], 0.0f, 1.0f);
     const float a = score(best - 1);
     const float b = bestScore;
@@ -216,6 +227,13 @@ void Rhythm::measurePhase() {
             everLocked_ = true;
             lockSeconds_ = 0.0f;
             snapPhase();
+            // Accents gathered on the free-running grid before the lock fell on arbitrary beats: start the
+            // downbeat search over on the beats the music has.
+            slotScore_ = {};
+            kickMean_ = 0.0f;
+            snareMean_ = 0.0f;
+            pendingVotes_ = 0;
+            pendingDownSlot_ = -1;
             return;
         }
     } else {
@@ -291,9 +309,15 @@ void Rhythm::advance() {
 }
 
 void Rhythm::finishBeatAccent(int64_t beat) {
-    // Kicks favour the downbeat, snares the backbeat; leaky over ~6 bars (0.85 per bar).
+    // Kicks favour the downbeat, snares the backbeat; leaky over ~6 bars (0.85 per bar). Each beat counts
+    // against the typical beat (its running mean over ~8 beats): on a log scale a kick on every beat
+    // differs by little in absolute terms, and only what sets one beat apart says where the bar starts.
     const int slot = slotOf(beat);
-    slotScore_[slot] = 0.85f * slotScore_[slot] + kickAccent_ - 0.5f * snareAccent_;
+    const float kick = kickAccent_ - kickMean_;
+    const float snare = snareAccent_ - snareMean_;
+    kickMean_ += 0.125f * (kickAccent_ - kickMean_);
+    snareMean_ += 0.125f * (snareAccent_ - snareMean_);
+    slotScore_[slot] = 0.85f * slotScore_[slot] + kick - 0.5f * snare;
     int best = 0;
     float scale = 1e-6f;
     for (int i = 0; i < 4; i++) {

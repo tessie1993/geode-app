@@ -71,6 +71,7 @@ private:
     int sectionId_ = 0;
     int barsSinceChange_ = 0;
     bool identifyPending_ = false;
+    int beatsSinceChange_ = 0;  // a new section is named once a whole bar of it has played
     int64_t bars_ = 0;
     bool started_ = false;  // the first section's first bar has been stored
 
@@ -103,6 +104,7 @@ private:
     float buildUp_ = 0.0f;
     float loudSlope8s_ = 0.0f;  // dB over the arc's 8 s
     float sinceDrop_ = 1e9f;
+    float heardSeconds_ = 0.0f;  // sound so far; the arc skips the first seconds, when everything "rises" from nothing
 
     int state_ = GEODE_SECTION_INTRO;
     int stateBars_ = 0;

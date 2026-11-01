@@ -119,7 +119,8 @@ private:
     int64_t accentBeat_ = 0;  // the beat the accumulators below are collecting for
     float kickAccent_ = 0.0f;
     float snareAccent_ = 0.0f;
-    float harmonyAccent_ = 0.0f;
+    float kickMean_ = 0.0f;   // the typical beat's accents, so a slot scores what sets it apart
+    float snareMean_ = 0.0f;
     std::array<float, 4> slotScore_{};
     int downSlot_ = 0;
     int pendingDownSlot_ = -1;

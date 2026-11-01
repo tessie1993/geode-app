@@ -10,11 +10,14 @@ namespace geode::sound {
 namespace {
 
 constexpr float kArcEvery = 0.25f;
+// The arc starts after this much sound: the engine's means, the onset rate and the level peak all climb
+// from nothing at first, which reads exactly like a build.
+constexpr float kArcWarm = 4.0f;
 constexpr float kNoveltyOn = 0.4f;      // novelty a section change must reach ...
 constexpr float kNoveltyOverMean = 1.6f; // ... and this many times its own running mean
 constexpr int kMinSectionBars = 8;
 constexpr int kMinDropBars = 4;         // a drop may cut a section shorter: builds run 4–8 bars
-constexpr float kSameSection = 0.5f;    // similarity at which a new section is an old one returning
+constexpr float kSameSection = 0.3f;    // a returning section sits this close, against how far apart sections are
 constexpr float kBuildOn = 0.55f;
 constexpr float kBuildOff = 0.25f;
 constexpr float kDropAfterBuild = 0.4f;  // the build's peak, in the last 4 s, that arms a drop
@@ -55,6 +58,7 @@ float Form::distance2(const Vec& a, const Vec& b) const {
 
 void Form::step(const Input& in, const Rhythm::Tick* ticks, int tickCount, float dt, Rhythm& rhythm, GeodeSoundFrame& out) {
     if (!in.silent) {
+        heardSeconds_ += dt;
         for (int i = 0; i < GEODE_SOUND_EQ_BANDS; i++) acc_[i] += dt * in.eq[i];
         acc_[GEODE_SOUND_EQ_BANDS] += dt * in.centroid;
         acc_[GEODE_SOUND_EQ_BANDS + 1] += dt * in.flatness;
@@ -76,7 +80,12 @@ void Form::step(const Input& in, const Rhythm::Tick* ticks, int tickCount, float
     sinceArc_ += dt;
     if (sinceArc_ >= kArcEvery) {
         sinceArc_ -= kArcEvery * std::floor(sinceArc_ / kArcEvery);
-        arcSample(dt);
+        if (heardSeconds_ >= kArcWarm) {
+            arcSample(dt);
+        } else {
+            arcAcc_ = {};
+            arcWeight_ = 0.0f;
+        }
     }
     if (in.silent) buildTarget_ = 0.0f;
     buildUp_ = follow(buildUp_, buildTarget_, 1.0f, dt);
@@ -102,6 +111,7 @@ void Form::step(const Input& in, const Rhythm::Tick* ticks, int tickCount, float
             out.sectionChange = out.drop;
             barsSinceChange_ = 0;
             identifyPending_ = true;
+            beatsSinceChange_ = 0;
         }
         changeState(GEODE_SECTION_DROP);
     }
@@ -200,17 +210,23 @@ float Form::novelty() const {
 
 int Form::identify(const Vec& bar) {
     // The nearest stored section, if it is near enough; else a new one (the least recently heard is
-    // forgotten once eight are stored).
+    // forgotten once eight are stored). "Near" is relative to how far apart sections are: the distance
+    // from this bar to the section it just left (novelty says they differ) and between the stored
+    // sections. Beat-to-beat spread inside one section is far smaller and would make every return "new".
     int best = -1;
-    float bestSim = 0.0f;
+    float bestD2 = 1e30f;
     for (int i = 0; i < sections_; i++) {
-        const float s = std::exp(-distance2(bar, centroid_[i]) / std::max(scale_, 1e-4f));
-        if (s > bestSim) {
-            bestSim = s;
+        const float d2 = distance2(bar, centroid_[i]);
+        if (d2 < bestD2) {
+            bestD2 = d2;
             best = i;
         }
     }
-    if (best >= 0 && bestSim >= kSameSection) return best;
+    float apart = started_ && sections_ > 0 ? distance2(bar, centroid_[sectionId_]) : 0.0f;
+    for (int i = 0; i < sections_; i++) {
+        for (int j = i + 1; j < sections_; j++) apart = std::max(apart, distance2(centroid_[i], centroid_[j]));
+    }
+    if (best >= 0 && best != sectionId_ && bestD2 < kSameSection * apart) return best;
     int slot = sections_;
     if (sections_ < kSections) {
         sections_++;
@@ -277,6 +293,7 @@ void Form::beat(const Rhythm::Tick& tick, Rhythm& rhythm, GeodeSoundFrame& out) 
     }
     acc_ = {};
     accWeight_ = 0.0f;
+    beatsSinceChange_++;
     if (!tick.downbeat) return;
 
     bars_++;
@@ -294,22 +311,29 @@ void Form::beat(const Rhythm::Tick& tick, Rhythm& rhythm, GeodeSoundFrame& out) 
     if (!started_) {
         started_ = true;
         sectionId_ = identify(bar);
-    } else if (identifyPending_) {
+    } else if (identifyPending_ && beatsSinceChange_ >= kAfter) {
         identifyPending_ = false;
         sectionId_ = identify(bar);
-    } else if (barsSinceChange_ > kMinSectionBars && novelty_ / 0.5f > kNoveltyOn && novelty_ > kNoveltyOverMean * noveltyMean_) {
-        // The boundary was the last downbeat: the bar just played is the new section's first.
+    } else if (ringCount_ == kRing && barsSinceChange_ > kMinSectionBars && novelty_ / 0.5f > kNoveltyOn && novelty_ > kNoveltyOverMean * noveltyMean_) {
+        // The boundary was the last downbeat: the bar just played is the new section's first. Not before
+        // the ring holds 32 beats: while the engine's levels settle, the first bars all look new.
         out.sectionChange = std::max(out.sectionChange, std::clamp(novelty_ / 0.5f, 0.05f, 1.0f));
         barsSinceChange_ = 1;
-        sectionId_ = identify(bar);
+        // Named on the next downbeat, from a bar wholly inside it: this bar may straddle the boundary when
+        // the downbeat sits off the true bar start, and would then look like the section just left.
+        identifyPending_ = true;
+        beatsSinceChange_ = 0;
         rhythm.sectionStarted(1);
         classifyAtSectionStart();
     }
-    // The current section learns each bar it plays, slowly, so a returning chorus still matches.
-    Vec& c = centroid_[sectionId_];
-    const int n = std::min(++centroidCount_[sectionId_], 16);
-    for (int d = 0; d < kDims; d++) c[d] += (bar[d] - c[d]) / static_cast<float>(n);
-    lastUsed_[sectionId_] = bars_;
+    // The current section learns each bar it plays, slowly, so a returning chorus still matches; not while
+    // a new section waits for its name, whose bars are not the old one's.
+    if (!identifyPending_) {
+        Vec& c = centroid_[sectionId_];
+        const int n = std::min(++centroidCount_[sectionId_], 16);
+        for (int d = 0; d < kDims; d++) c[d] += (bar[d] - c[d]) / static_cast<float>(n);
+        lastUsed_[sectionId_] = bars_;
+    }
 
     // The state between section starts.
     const float rel = lastBarLoud_ - loudRef_;

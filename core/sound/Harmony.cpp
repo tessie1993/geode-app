@@ -293,7 +293,7 @@ void Harmony::step(const float* mag, float dt, bool silent, GeodeSoundFrame& out
                 change_ = distance(recent, before);
             }
         }
-        out.harmonicChange = trigger_.step(change_, 0.25f, 0.5f, dt);
+        out.harmonicChange = trigger_.step(change_, 0.15f, 0.5f, dt);
 
         sinceScale_ += dt;
         if (sinceScale_ >= 0.25f) {

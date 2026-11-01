@@ -25,8 +25,8 @@ structural movement keep reacting; what is bounded is the impulsive full-frame e
 
 The flash clamp is not configurable. The numbers are native constants in `core/viz/VisualSafety.hpp`
 (`safety::kWcagFlashesPerSecond = 3`, `kMaxFlashDepth = 0.25`), and every render path applies them
-the same way. Kotlin keeps one mirror, `render/VisualSafety.MAX_FLASH_DEPTH`, for the UI's slider
-ranges. There is no `SafetyConfig`, no `enabled` flag and no way to construct an unclamped
+the same way. The UI's brightness and contrast sliders stop at `1 + kMaxFlashDepth`, written as
+literals in `CustomizeTabs`. There is no `SafetyConfig`, no `enabled` flag and no way to construct an unclamped
 render. A preview that is safe therefore cannot produce an unsafe file: same clamp, same code,
 same numbers, on screen and in export alike.
 

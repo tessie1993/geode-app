@@ -86,10 +86,9 @@ object GeodeRadius {
     val ExtraLarge = 28.dp
 }
 
-/** Durations in milliseconds; [GeodeMotion.REDUCED] replaces all of them under reduced motion. */
+/** Press feedback: its duration in milliseconds and how far a pressed control shrinks. */
 object GeodeMotion {
     const val PRESS = 90
-    const val REDUCED = 0
     const val PRESS_SCALE = 0.97f
 }
 

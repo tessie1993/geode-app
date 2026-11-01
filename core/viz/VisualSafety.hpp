@@ -12,7 +12,7 @@ enum class BlendMode { Normal, Screen, Add, Multiply, Difference, Overlay, Light
 const char* transitionStyleId(TransitionStyle style);
 BlendMode blendModeFromOrdinal(int i);
 
-// Port of VisualSafety.kt: the unconditional flash and luminance clamp.
+// The unconditional flash and luminance clamp.
 namespace safety {
 
 constexpr float kWcagFlashesPerSecond = 3.0f;

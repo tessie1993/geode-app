@@ -18,10 +18,14 @@ a partial reconstruction, rebuilt from the references in these entries, is at
     `dspBandCount`, `dspBand`, `dspSetSampleRate`, `dspSampleRate`,
     `vizSetParam`, `version`, `tagsLastError`, `vizSoundFrame` and
     `vizSetOverlay`), as are unused Kotlin helpers, the duplicate `PcmSink`
-    and the library's leftover "analyzing" state. Broken tools are deleted
-    (`tools/import-theme-pack.sh`, `check_style_collection.py`, `oracle/`,
-    `shaderpreview/`, `smoke.c`); `tools/glslcheck` reads the catalogue again.
-    `THIRD_PARTY_NOTICES` gains kissfft and TagLib and loses woscope. The
+    and the library's leftover "analyzing" state, the unused overlay pipeline,
+    the video template job planner (templates apply their look only), the sink
+    clock's diagnostics, the Kotlin `VisualSafety` mirror and unused compute
+    helpers. Broken tools are deleted (`tools/import-theme-pack.sh`,
+    `check_style_collection.py`, `oracle/`, `shaderpreview/`, `smoke.c`);
+    `tools/glslcheck` reads the catalogue again. The unused kissfft submodule
+    is removed. `THIRD_PARTY_NOTICES` gains TagLib and loses woscope and
+    kissfft. The
     privacy policy, store listing, AGENTS.md, README and docs now describe the
     sound engine instead of the old analysis layer.
   - **Playback is ExoPlayer only (#193).** The native player (AMediaCodec and

@@ -17,7 +17,6 @@ struct StateEncoding {
 namespace glsl {
 constexpr int kStateTextureUnit = 0;
 constexpr int kStateImageUnit = 0;
-constexpr int kFirstSceneTextureUnit = 1;
 constexpr const char* kUniformState = "uSimState";
 constexpr const char* kUniformSize = "uSimSize";
 

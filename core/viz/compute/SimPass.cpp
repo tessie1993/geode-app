@@ -53,7 +53,7 @@ public:
         : BaseSimPass(std::move(label), encoding, std::move(state)),
           pass_(std::move(pass)),
           maxGroups_(maxGroups),
-          uniforms_(pass_.programName(), [this](int unit, GLuint texture) { pass_.texture(unit, texture); }) {}
+          uniforms_(pass_.programName()) {}
 
     const char* pathLabel() const override { return "compute"; }
 
@@ -109,11 +109,7 @@ public:
     FragmentSimPass(std::string label, StateEncoding encoding, std::unique_ptr<SimField> state, GLuint program)
         : BaseSimPass(std::move(label), encoding, std::move(state)),
           program_(program),
-          uniforms_(program, [this](int unit, GLuint texture) {
-              glActiveTexture(GL_TEXTURE0 + static_cast<GLenum>(unit));
-              glBindTexture(GL_TEXTURE_2D, texture);
-              if (unit < kTrackedUnits) sceneTextureUnits_ |= (1u << unit);
-          }) {}
+          uniforms_(program) {}
 
     const char* pathLabel() const override { return "fragment"; }
 
@@ -162,23 +158,14 @@ public:
     }
 
 private:
-    static constexpr int kTrackedUnits = 32;
-
     void unbindTextures() {
         glActiveTexture(GL_TEXTURE0 + glsl::kStateTextureUnit);
         glBindTexture(GL_TEXTURE_2D, 0);
-        for (int unit = 0; unit < kTrackedUnits; ++unit) {
-            if ((sceneTextureUnits_ & (1u << unit)) == 0) continue;
-            glActiveTexture(GL_TEXTURE0 + static_cast<GLenum>(unit));
-            glBindTexture(GL_TEXTURE_2D, 0);
-        }
-        sceneTextureUnits_ = 0;
         glActiveTexture(GL_TEXTURE0);
     }
 
     GLuint program_;
     SimUniforms uniforms_;
-    uint32_t sceneTextureUnits_ = 0;
     GLuint vao_ = 0;
 };
 
@@ -198,13 +185,6 @@ std::optional<ComputePass> computePass(const SimSpec& spec, const StateEncoding&
 }
 
 }  // namespace
-
-void SimUniforms::sampler(const char* name, GLuint texture) {
-    auto it = units_.find(name);
-    if (it == units_.end()) it = units_.emplace(name, glsl::kFirstSceneTextureUnit + static_cast<int>(units_.size())).first;
-    bindTexture_(it->second, texture);
-    glUniform1i(cache_.loc(name), it->second);
-}
 
 void SimUniforms::f4Array(const char* name, const float* values, int count, int declared) {
     glUniform4fv(cache_.loc(name), std::min(count, cache_.arrayCount(name, declared)), values);

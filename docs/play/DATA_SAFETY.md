@@ -4,8 +4,8 @@ Derived from the code and the **merged release manifest**, not from intent. The 
 that drive every answer:
 
 - The merged manifest has **no `INTERNET`** and no `ACCESS_NETWORK_STATE` (both are
-  removed with `tools:node="remove"`, and `release.yml` fails the build if either INTERNET
-  or AD_ID appears). The app can't transmit anything itself.
+  removed with `tools:node="remove"`, and `android.yml` on every PR and `release.yml` fail the
+  build if either INTERNET or AD_ID appears). The app can't transmit anything itself.
 - The only third-party SDK that talks to anything off the device is the **Google Play
   Billing Library**, and it talks to the Play Store app over IPC.
 - No analytics, crash reporting, ads or account SDKs (checked in `app/build.gradle.kts`

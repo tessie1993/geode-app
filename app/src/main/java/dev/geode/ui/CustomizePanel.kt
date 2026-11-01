@@ -55,7 +55,7 @@ import dev.geode.ui.pro.PaywallViewModel
 /**
  * Visuals › Customize: Macros, Look, the style's own page, Events, then Advanced.
  *
- * WHY this order (docs/research/REACTIVE_VISUALS.md §7): the people this is for love music and
+ * WHY this order: the people this is for love music and
  * pictures, not parameter lists. The simple pages come first and hold a handful of plain controls
  * each; everything that needs the words "envelope" or "shader" sits behind Advanced's cards.
  *

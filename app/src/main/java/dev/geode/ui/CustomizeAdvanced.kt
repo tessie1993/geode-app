@@ -884,7 +884,14 @@ internal fun LiquidPage(
     }
     if (p.flowEnabled) {
         val d = SceneParams.DEFAULT
-        LabeledSlider(ParamKeys.FLOW_STRENGTH, p.flowStrength, 0f..1f, display = "Liquidity", scope = ParamScope.UNIVERSAL, default = d.flowStrength) {
+        LabeledSlider(
+            ParamKeys.FLOW_STRENGTH,
+            p.flowStrength,
+            0f..1f,
+            display = "Liquidity",
+            scope = ParamScope.UNIVERSAL,
+            default = d.flowStrength,
+        ) {
             onChange(p.copy(flowStrength = it))
         }
         LabeledSlider(ParamKeys.FLOW_FORCE, p.flowForce, 0f..3f, display = "Push", scope = ParamScope.UNIVERSAL, default = d.flowForce) {

@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "api/geode_api.h"
+#include "viz/Director.hpp"
 #include "viz/Macros.hpp"
 #include "viz/ReactionDna.hpp"
 #include "viz/Renderer.hpp"
@@ -245,6 +246,8 @@ int geode_react_source_catalog(char* out, int capacity) {
 }
 
 void geode_macros_set(const float* knobs, int count) { macros::setGlobal(macros::clamped(knobs, count)); }
+
+void geode_director_set(float amount, long long seed) { director::setGlobal(amount, static_cast<uint64_t>(seed)); }
 
 void geode_macros_surprise(const float* knobs, int count, unsigned lock_mask, long long seed, float* out) {
     if (!out) return;

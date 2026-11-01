@@ -104,6 +104,9 @@ def main():
         for sid, _name, _family, st, bright, tension, *_ in SCALES:
             mask = sum(1 << s for s in st)
             f.write(f'{{"{sid}", 0x{mask:03x}, {bright:.2f}f, {tension:.2f}f}},\n')
+    # The emotion half (core/sound/EmotionTable.inc, emotions.csv, key-characters.csv) reads SCALES too.
+    import music_emotion
+    music_emotion.main()
 
 
 if __name__ == "__main__":

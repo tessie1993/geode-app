@@ -21,6 +21,9 @@ constexpr float kSameSection = 0.3f;    // a returning section sits this close, 
 constexpr float kBuildOn = 0.55f;
 constexpr float kBuildOff = 0.25f;
 constexpr float kDropAfterBuild = 0.4f;  // the build's peak, in the last 4 s, that arms a drop
+// ... and it must have been a build, not a swell: at least 2 s of the last 4 at kBuildOn. A piano cover's
+// louder phrase peaks the build reading for a moment and its left hand returns; that is not a drop.
+constexpr int kHeldBuildSamples = 8;
 constexpr float kDropRefractory = 8.0f;
 constexpr float kCountWrap = 4096.0f;
 
@@ -94,12 +97,15 @@ void Form::step(const Input& in, const Rhythm::Tick* ticks, int tickCount, float
     // share, while a build peaked in the last four (Yadati et al., ISMIR 2014: the bass return is the cue).
     float buildPeak = buildUp_;
     float bassMin = bassShort_;
+    int heldBuild = 0;
     for (int i = 0; i < std::min(arcCount_, 16); i++) {
         const ArcSample& a = arc_[(arcHead_ - 1 - i + kArc) % kArc];
         buildPeak = std::max(buildPeak, a.build);
+        if (a.build >= kBuildOn) heldBuild++;
         if (i < 8) bassMin = std::min(bassMin, a.bass);
     }
-    if (!in.silent && sinceDrop_ >= kDropRefractory && buildPeak >= kDropAfterBuild && arcCount_ >= 8 &&
+    if (!in.silent && sinceDrop_ >= kDropRefractory && buildPeak >= kDropAfterBuild && heldBuild >= kHeldBuildSamples &&
+        arcCount_ >= 8 &&
         bassShort_ > std::max(2.0f * bassMin, 0.6f * bassLong_) && bassShort_ > 0.05f) {
         out.drop = std::clamp(buildPeak, 0.05f, 1.0f);
         sinceDrop_ = 0.0f;

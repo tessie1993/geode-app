@@ -109,6 +109,8 @@ class PlaybackSession internal constructor(
 
     val sleepTimer = SleepTimer(player, scope)
 
+    private val autoDirector = AutoDirectorFeed(context, player, scope)
+
     /**
      * The rate of whichever source writes [sampleRing] right now: the tap's format when nothing else
      * claims it, otherwise what the UI session's capture controller sets (mic, other apps' audio, or
@@ -122,6 +124,7 @@ class PlaybackSession internal constructor(
 
     init {
         player.addListener(replayGain)
+        player.addListener(autoDirector)
         dev.geode.audio.AudioBus.soundInput = soundInput
     }
 
@@ -137,6 +140,8 @@ class PlaybackSession internal constructor(
         onAudioFormat = null
         audioFx.release()
         player.removeListener(replayGain)
+        player.removeListener(autoDirector)
+        autoDirector.release()
         player.release()
         dsp.release()
     }

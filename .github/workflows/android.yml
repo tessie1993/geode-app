@@ -128,6 +128,11 @@ jobs:
           ./sound_test
           g++ -std=c++20 -O1 -Wall -Wextra -Icore core/tests/musical_test.cpp core/sound/*.cpp -o musical_test
           ./musical_test
+          # The auto-director: the emotion table, the live feeling and the director's decisions.
+          g++ -std=c++20 -O1 -Wall -Wextra -Icore -Icore/tests/stub core/tests/director_test.cpp core/sound/*.cpp \
+            core/viz/Director.cpp core/viz/Reactions.cpp core/viz/Lfo.cpp core/viz/Macros.cpp core/viz/CameraRig.cpp \
+            core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/VisualSafety.cpp -o director_test
+          ./director_test
 
       # The scene and style catalogue (core/viz/Catalogue): ids, families, param scopes, ranges, and
       # its text table byte-equal to core/tests/catalogue.txt, the copy the JVM tests read.

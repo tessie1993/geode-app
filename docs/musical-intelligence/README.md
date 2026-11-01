@@ -131,9 +131,11 @@ tonality", *Psychology of Music*, 2014), so treat the feelings as a common readi
 ## How the app uses it
 
 The sound engine (`core/sound/Harmony`) checks every scale on all 12 roots (552 candidates) against
-the slow (~4 s) chroma, four times a second. It scores each one as the mean of the notes inside the scale,
-minus twice the mean of the notes outside, plus a pull toward a strong root and fifth. That pull is what
-tells apart modes that share one set of notes (C Ionian and A Aeolian). A better fit has to hold for 2 s
+the slow (~4 s) chroma, four times a second. The chroma is first capped at twice its mean, so one loud
+note cannot outvote the others, and spectral peaks that are overtones of a stronger note are discounted.
+Each candidate is scored by the Pearson correlation of the chroma with the scale's notes, plus a pull
+toward a strong root and fifth. That pull is what tells apart modes that share one set of notes (C Ionian
+and A Aeolian). A better fit has to hold for 2 s
 before the reading changes, so one borrowed chord does not flip the mood. The sound frame then carries:
 
 | Field | Meaning | What it can drive |
@@ -148,3 +150,22 @@ These sit beside the key (`keyHue`, `keyMajor`), the chord colour (`chordHue`), 
 chord dissonance (`tension`) and the rhythm and form fields. All of them are described in
 `docs/research/musical-layer.md`. `core/tests/musical_test.cpp` plays eight scales as synthetic melodies
 over a drone and checks that each is named on the right root.
+
+## The emotion of each key and scale
+
+`tools/music_emotion.py` (run by `musical_intelligence.py`) adds the feeling of each entry:
+
+- `emotions.csv`: all 552 key + scale combinations. Each has a valence, energy and tension, the key's
+  sharpness, and the nine GEMS feelings (wonder, transcendence, tenderness, nostalgia, peace, power, joy,
+  tension, sadness), with the two strongest named.
+- `key-characters.csv`: the 24 keys as Schubart described them in 1806 (Steblin's translation, condensed),
+  where Mattheson and Charpentier disagree, how far the three agree, and the GEMS code each became.
+
+The **scale** gives three quarters of each fingerprint. It comes from measured findings: the third, each
+lowered degree, semitones, tritones, augmented steps and symmetry. The **key** gives a quarter. Its
+character is tradition that listeners cannot hear in equal temperament, so it changes the kind of
+feeling and the warmth, never happy against sad.
+
+The app never shows these words. The auto-director (`core/viz/Director`) uses them to choose palette,
+motion, camera and what reacts to what, at each section and drop. `docs/research/auto-director.md` has
+the sources, the weights and their evidence.

@@ -49,6 +49,12 @@ object FreeTier {
     /** The longest a non-Pro export may be: one minute, the rest of the track is cut. */
     const val FREE_MAX_EXPORT_MS: Long = 60_000L
 
+    /**
+     * How much of each song the auto-director directs for free: the taste. It matches the free export cap,
+     * so a free export (at most this long) is directed throughout.
+     */
+    const val FREE_AUTO_DIRECTOR_TASTE_MS: Long = 60_000L
+
     /** One hour, once per install, measured on the wall clock from the moment it is started. */
     const val TRIAL_DURATION_MS: Long = 60L * 60L * 1000L
 

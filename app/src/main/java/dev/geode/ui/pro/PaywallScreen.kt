@@ -455,6 +455,7 @@ private fun titleFor(trigger: PaywallTrigger?): Int =
                 ProFeature.SCREENSAVER -> R.string.pro_title_screensaver
                 ProFeature.PREMIUM_STYLES -> R.string.pro_title_styles
                 ProFeature.ADVANCED_CUSTOMIZATION -> R.string.pro_title_customization
+                ProFeature.AUTO_DIRECTOR -> R.string.pro_title_auto_director
             }
         PaywallTrigger.Settings, null -> R.string.pro_title_default
     }
@@ -492,6 +493,12 @@ private val COMPARE_ROWS =
         CompareRow(R.string.pro_row_studio, null, null, setOf(ProFeature.STUDIO)),
         CompareRow(R.string.pro_row_wallpaper, null, null, setOf(ProFeature.LIVE_WALLPAPER, ProFeature.SCREENSAVER)),
         CompareRow(R.string.pro_row_customization, null, null, setOf(ProFeature.ADVANCED_CUSTOMIZATION)),
+        CompareRow(
+            R.string.pro_row_auto_director,
+            R.string.pro_row_auto_director_free,
+            R.string.pro_row_auto_director_pro,
+            setOf(ProFeature.AUTO_DIRECTOR),
+        ),
     )
 
 @Composable

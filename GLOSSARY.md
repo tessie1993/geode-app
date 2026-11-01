@@ -208,6 +208,17 @@ The song part a section is read as: intro, verse, build, drop, breakdown or outr
 **Build-up / drop**:
 A build-up is a passage getting louder, brighter and busier with the bass pulled out; the drop is the bass coming back after it.
 
+**Feeling**:
+What the music feels like now: valence (sad … happy), energy and tension, and which of the nine GEMS feelings (wonder, transcendence, tenderness, nostalgia, peace, power, joy, tension, sadness) leads. Three quarters from the scale (measured), a quarter from the key (Schubart's tradition). Never shown as a word. See `docs/research/auto-director.md`.
+_Avoid_: Mood label, emotion name
+
+**Auto-director**:
+Settings › Behaviour's switch that lets the feeling choose a look at each section, drop or key change: palette, macro knobs, camera moves and what reacts to what, on every style. Pro; free gets the first minute of each song.
+_Avoid_: Auto visuals (that switches styles on a timer)
+
+**Look**:
+One auto-director decision: a palette, a behaviour and a set of routes, glided in over a bar. Never the same look twice in a row of six.
+
 **Scale mood**:
 The brightness (dark Locrian … bright Lydian) and tension of the scale the music is in, from the musical intelligence database (`docs/musical-intelligence`).
 _Avoid_: Emotion (it is a design reading, not a measurement)

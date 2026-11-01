@@ -34,6 +34,8 @@
 #include "viz/TouchField.hpp"
 #include "viz/TrailPass.hpp"
 #include "viz/VisualSafety.hpp"
+#include "viz/liquid/LiquidMath.hpp"
+#include "viz/liquid/LiquidPass.hpp"
 #include "viz/scenes/ProgramLoader.hpp"
 
 namespace geode::viz {
@@ -57,6 +59,11 @@ public:
     // it, so no exported frame ever shows the previous scene or a clear in its place. A live renderer
     // (the default) builds a new scene across frames instead; see ScenePrep.hpp.
     void setBlockingBuilds(bool on) { blockingBuilds_.store(on, std::memory_order_relaxed); }
+    // Settings › Performance › Liquid on a hot phone (liquid::HotPolicy). Any thread.
+    void setLiquidHotPolicy(int policy) { liquidHotPolicy_.store(policy, std::memory_order_relaxed); }
+    // What Liquid mode ran last frame (liquid::Mode), so Customize can say when a hot phone simplified
+    // or paused it. Any thread.
+    int liquidMode() const { return liquidMode_.load(std::memory_order_relaxed); }
     void setLayer(const std::string& sceneId, float mix, int blendOrdinal);
     void setTransition(const std::string& id, int64_t durationMs);
     void beginParamMorph(float seconds);
@@ -129,11 +136,18 @@ private:
     float drawSecondaryTargets(const SceneParams& p, float dt);
     void bindSecondaryTarget();
     void drawSceneTarget(Scene& scene, const SceneParams& p, float dt);
-    void composite(Scene& scene, const SceneParams& p, float progress, GLuint targetFbo);
+    void composite(Scene& scene, const SceneParams& p, float progress, GLuint targetFbo, GLuint liquidTex);
     void deliverPcm(Scene& scene);
     void stepOverlays(Scene& scene, const SceneParams& p, float dt);
     void stepCamera(const SceneParams& p, float dt);
     void wireFlow(Scene& target, const SceneParams& p);
+    // Liquid mode (viz/liquid): the gestures, the flow field and the dive, after the touch field steps.
+    void stepLiquid(Scene& scene, const SceneParams& p, float dt);
+    // What forms at the vanishing point this frame; the scene target itself for Born = Live.
+    GLuint drawBorn(Scene& scene, const SceneParams& p, float dt);
+    // Runs the liquid over the scene target; 0 when Liquid is off (the composite then reads the target).
+    GLuint drawLiquid(Scene& scene, const SceneParams& p, float dt);
+    bool liquidOn() const { return liveLiquid_ != liquid::Mode::Off && liveLiquid_ != liquid::Mode::Paused; }
     void applyPendingFluidInjection();
     void applyMilkRequests();
     void applyUnderlayUpload();
@@ -241,6 +255,21 @@ private:
     std::string milkTextureDir_;
     bool milkTextureDirDirty_ = false;
     std::string milkPresetLoaded_;
+    // Liquid mode. The dive and the born clock are reseeded from the device's entropy each time Liquid
+    // is switched on: truly random each play, the user's call, so an export does not replay the screen.
+    liquid::LiquidPass liquidPass_;
+    liquid::Dive liquidDive_;
+    liquid::DiveFrame liquidFrame_;
+    liquid::Gestures liquidGestures_;
+    liquid::BornClock bornClock_;
+    liquid::Mode liveLiquid_ = liquid::Mode::Off;
+    Framebuffer bornFbo_{"born"};
+    SceneParams bornParams_;
+    bool bornRolled_ = false;
+    std::string bornSceneId_;
+    float liquidFlare_ = 0.0f;
+    std::atomic<int> liquidHotPolicy_{0};
+    std::atomic<int> liquidMode_{0};
     bool rippleOverlayOn_ = false;
     bool smearing_ = false;
 

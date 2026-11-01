@@ -10,7 +10,7 @@
 
 namespace geode::viz::fluid {
 
-// Port of FlowField.kt: a velocity-only fluid whose field warps the fragment styles and the composite.
+// A velocity-only fluid whose field warps the fragment styles and the composite.
 class FlowField {
 public:
     explicit FlowField(const ProgramLoader& loader) : sim_(loader, true) {
@@ -27,13 +27,11 @@ public:
 
     void create();
     void resize(int w, int h) { sim_.resize(w, h); }
-    void queueKick(float clipX, float clipY, float velX, float velY, float radius);
     void step(const GeodeSoundFrame& features, float dt, const SceneParams& p);
     void release() { sim_.release(); }
 
 private:
     static constexpr int kGridRes = 64;
-    static constexpr float kKickForce = 0.22f;
 
     FluidSim sim_;
     Emitters emitters_;

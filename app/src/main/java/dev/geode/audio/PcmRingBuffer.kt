@@ -11,7 +11,6 @@ class PcmRingBuffer(
 
     private val data: FloatArray = FloatArray(capacity)
 
-    private val sideData: FloatArray = FloatArray(capacity)
     private val mask: Long = (capacity - 1).toLong()
 
     @Volatile
@@ -32,23 +31,18 @@ class PcmRingBuffer(
         }
         var w = writeIndex
         var s = 0
-        val stereo = channelCount >= 2
         repeat(frameCount) {
             var acc = 0f
-            val base = s
             repeat(channelCount) {
                 acc += samples[s]
                 s++
             }
             val slot = (w and mask).toInt()
             data[slot] = acc / channelCount
-            sideData[slot] = if (stereo) (samples[base] - samples[base + 1]) * 0.5f else 0f
             w++
         }
         writeIndex = w
     }
-
-    fun currentWriteIndex(): Long = writeIndex
 
     var lastCopyEndIndex: Long = 0L
         private set
@@ -72,8 +66,6 @@ class PcmRingBuffer(
     }
 
     fun snapshotLatest(out: FloatArray): Boolean = snapshotFrom(data, out)
-
-    fun snapshotLatestSide(out: FloatArray): Boolean = snapshotFrom(sideData, out)
 
     private fun snapshotFrom(
         src: FloatArray,

@@ -32,7 +32,6 @@ struct ModChain {
 // The chained targets steer another slot; everything else writes a scene parameter.
 bool chainOf(LfoTarget target, ModChain& out);
 bool isLuminanceTarget(LfoTarget target);
-ModPolarity naturalPolarity(ModSource source);
 
 struct LfoConfig {
     static constexpr float kDefaultRateSeconds = 2.0f;

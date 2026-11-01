@@ -64,7 +64,7 @@ float Renderer::beginFrame(double timeSeconds) {
         if (Scene* scene = builtScene(id)) scene->setFragmentSource(src);
     }
     applyMilkRequests();
-    applyOverlayUploads();
+    applyUnderlayUpload();
     return dt;
 }
 
@@ -217,8 +217,8 @@ bool Renderer::ensureTargets() {
 
 void Renderer::deliverPcm(Scene& scene) {
     // Copy out under the lock, then hand the scene its own scratch buffer
-    // once unlocked: acceptPcm() (a copy of up to 4096 samples plus
-    // fillPcmRow) must never run while stateLock_ is held, or pushPcm() on
+    // once unlocked: acceptPcm() (a copy of up to 4096 samples and its
+    // upload) must never run while stateLock_ is held, or pushPcm() on
     // the PCM producer thread blocks behind a scene upload.
     int count = 0;
     {
@@ -343,12 +343,8 @@ void Renderer::composite(Scene& scene, const SceneParams& p, float progress, GLu
     in.underlayAmount = compositePass_.underlayAmount();
     in.noteTint = notes_.uniforms().tint;
     compositePass_.draw(in);
-    // The note blooms over every family, under the user's overlay; nothing while there are none.
+    // The note blooms over every family, last; nothing while there are none.
     bloomPass_.draw(notes_.uniforms(), width_, height_, quadVao_);
-    // W00: overlay is its own draw call, over whatever composite() just wrote to targetFbo, so it
-    // never enters postFx/transitions/Layers and comes out identical live, in the wallpaper and in
-    // the offscreen export.
-    compositePass_.drawOverlay(quadVao_);
 }
 
 void Renderer::stepOverlays(Scene& scene, const SceneParams& p, float dt) {

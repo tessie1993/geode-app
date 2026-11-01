@@ -14,7 +14,7 @@
 
 namespace geode::viz {
 
-// Port of ShaderScene.kt: one fragment style on the fullscreen triangle, fed the shared uniform block.
+// One fragment style on the fullscreen triangle, fed the shared uniform block.
 class ShaderScene : public Scene {
 public:
     ShaderScene(std::string id, std::string vertexSrc, std::string fragmentSrc, ProgramBinaryCache* cache, SceneHost host);

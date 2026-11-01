@@ -8,7 +8,6 @@
 
 #include "api/geode_api.h"
 #include "viz/CameraRig.hpp"
-#include "viz/NoteResponse.hpp"
 #include "viz/Params.hpp"
 #include "viz/TouchField.hpp"
 
@@ -16,7 +15,7 @@ namespace geode::viz {
 
 enum class SceneFamily { Shader, Milkdrop, Fluid };
 
-// Port of Scene.kt plus the optional hooks the renderer wires by capability rather than by class.
+// A scene, plus the optional hooks the renderer wires by capability rather than by class.
 class Scene {
 public:
     virtual ~Scene() = default;
@@ -71,9 +70,6 @@ struct SceneHost {
     std::function<void(const std::string& path)> onMilkPresetLoaded;
     // Settings › Performance's march-step multiplier (0..1); unset means full budget.
     std::function<float()> marchScale;
-    // Note & key reactions (viz/NoteResponse): this frame's style knobs (uKnob) and note colours. Unset
-    // (or the layer off) leaves every knob at 0.5, the midpoint each style was tuned around.
-    std::function<const NoteUniforms*()> notes;
 };
 
 }  // namespace geode::viz

@@ -5,16 +5,12 @@ object GeodeNative {
         System.loadLibrary("geode")
     }
 
-    external fun version(): String
-
     external fun dspCreate(
         sampleRate: Int,
         channels: Int,
     ): Long
 
     external fun dspDestroy(handle: Long)
-
-    external fun dspBandCount(): Int
 
     external fun dspBandCenterHz(band: Int): Float
 
@@ -28,11 +24,6 @@ object GeodeNative {
         band: Int,
         millibels: Int,
     )
-
-    external fun dspBand(
-        handle: Long,
-        band: Int,
-    ): Int
 
     external fun dspSetBassBoost(
         handle: Long,
@@ -82,7 +73,7 @@ object GeodeNative {
 
     /**
      * Writes the six UTF-8 [texts] plus [year] and [track] to [fd], which native closes. A missing array
-     * slot leaves that field unchanged. On a false return, see [tagsLastError] for why.
+     * slot leaves that field unchanged.
      */
     external fun tagsWrite(
         fd: Int,
@@ -105,12 +96,6 @@ object GeodeNative {
         handle: Long,
         values: FloatArray,
     )
-
-    external fun vizSetParam(
-        handle: Long,
-        name: String,
-        value: Float,
-    ): Boolean
 
     external fun vizSetReducedMotion(
         handle: Long,
@@ -184,11 +169,6 @@ object GeodeNative {
     external fun vizSetSoundTuning(
         handle: Long,
         tuning: FloatArray,
-    )
-
-    external fun vizSoundFrame(
-        handle: Long,
-        out: FloatArray,
     )
 
     /** The reaction source catalogue (core/viz/Reactions.cpp), see `dev.geode.render.ReactSourceCatalog`. */
@@ -347,33 +327,11 @@ object GeodeNative {
 
     external fun vizReleaseScenes(handle: Long)
 
-    /** Not RT-safe on the native side: only call this on a dsp handle no audio thread is processing yet. */
-    external fun dspSetSampleRate(
-        handle: Long,
-        sampleRate: Int,
-    )
-
-    external fun dspSampleRate(handle: Long): Int
-
-    /** The reason the most recent [tagsWrite] on this thread returned false; GEODE_TAGS_OK (0) otherwise. */
-    external fun tagsLastError(): Int
-
-    /**
-     * Full-frame RGBA8 overlay drawn last, premultiplied alpha, over the finished composite. `pixels`
-     * is Android's `Bitmap.getPixels` ARGB layout, width*height entries; null (or a non-positive
-     * size) clears it. Any thread; latched for the next frame.
-     */
-    external fun vizSetOverlay(
-        handle: Long,
-        pixels: IntArray?,
-        width: Int,
-        height: Int,
-    )
-
     /**
      * Full-frame RGBA8 underlay blended UNDER/INTO the scene: [blend] 0 = screen (replaces the scene
-     * where it is black), 1 = multiply, 2 = add; [amount] 0..1. Same pixel layout as [vizSetOverlay];
-     * null (or a non-positive size) clears it. Any thread; latched for the next frame.
+     * where it is black), 1 = multiply, 2 = add; [amount] 0..1. `pixels` is Android's `Bitmap.getPixels`
+     * ARGB layout, width*height entries; null (or a non-positive size) clears it. Any thread; latched
+     * for the next frame.
      */
     external fun vizSetUnderlay(
         handle: Long,

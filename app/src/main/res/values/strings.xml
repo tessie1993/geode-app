@@ -50,7 +50,6 @@
         <item quantity="one">%1$d folder added</item>
         <item quantity="other">%1$d folders added</item>
     </plurals>
-    <string name="first_run_optional">Optional</string>
     <string name="first_run_done">Start listening</string>
 
     <!-- The intent setting. No longer asked at first run; it lives in Settings > Behaviour. -->
@@ -972,7 +971,6 @@
     <string name="background_amount">Amount: %1$d%%</string>
     <string name="background_blur">Blur: %1$d</string>
     <string name="background_dim">Dim: %1$d%%</string>
-    <string name="background_unreadable_cleared">The saved background image could no longer be read and was removed.</string>
     <string name="template_link_imported">Template \"%1$s\" imported — open Video templates to use it.</string>
     <string name="template_link_unreadable">That template link could not be read. It may have been cut short in transit.</string>
     <string name="link_offer_preset_title">Import shared preset?</string>

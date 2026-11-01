@@ -15,7 +15,6 @@ namespace geode::audio {
 // State carries across process() calls, so a decoder's buffers can be fed as they arrive. Ported
 // bit-for-bit from the Kotlin PcmResampler: export audio did not change with the port, which is why the
 // upsampler keeps its float maths and the file turns FP contraction off (an FMA rounds differently).
-// The playback Resampler (player/, Hermite on float) is a different filter and must not replace it.
 class PcmResampler {
 public:
     PcmResampler(int inRateHz, int outRateHz, int channels);

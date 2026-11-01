@@ -6,7 +6,7 @@ answer more than the beat: the notes, the chords, the key, the mood, how the mus
 hard. Everything is real time: it reads the sound frame just heard and never anticipates.
 
 Code: `core/viz/NoteResponse` (the decisions, pure C++), `core/viz/NoteBloomPass` with
-`note_bloom_frag.glsl` and `lib_bloom.glsl` (the flowers), `ShaderScene::uploadParams` (the style knobs),
+`note_bloom_frag.glsl` and `lib_bloom.glsl` (the flowers), 
 `data/NoteResponseStore` (free, on by default), `ui/NoteResponseSettings`, Customize › Advanced › Note & key and Look's note blooms. Tests:
 `core/tests/note_response_test.cpp` (CI, "Native host tests"),
 `NoteResponseStoreTest`.
@@ -127,7 +127,10 @@ percussiveness → clamp(0.5 + 0.9·(drums − tones), 0.05, 0.95), eased over 3
 It weighs `k0 PULSE` (the drum envelopes times percussiveness) and a small drum zoom pump (+3.5 %).
 A drum-led track reads 0.94 in the test, a tonal one 0.06; silence settles at 0.5.
 
-## The style knobs (`uKnob`)
+## The style knobs
+
+No shader reads `uKnob` any more: the neon set (#209) moved to the shared params through `lib_neon`, and
+the uniform is gone. The knobs stay as the layer's readings (TONE shapes `morph`) and in `NoteUniforms`.
 
 Each from several fields, smoothed at a musical rate (attack / release):
 

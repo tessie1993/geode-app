@@ -317,7 +317,7 @@ internal fun LookTab(
         LabeledSlider(ParamKeys.SATURATION, p.saturation, 0f..1.5f, default = SceneParams.DEFAULT.saturation) {
             onChange(p.copy(saturation = it))
         }
-        // Upper ends are the engine's flash clamp (1 + VisualSafety.MAX_FLASH_DEPTH); past it a slider did nothing.
+        // Upper ends are the engine's flash clamp (1 + `kMaxFlashDepth` in core/viz/VisualSafety.hpp); past it a slider did nothing.
         LabeledSlider(ParamKeys.BRIGHTNESS, p.brightness, 0.2f..1.25f, default = SceneParams.DEFAULT.brightness) {
             onChange(p.copy(brightness = it))
         }

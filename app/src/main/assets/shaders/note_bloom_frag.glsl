@@ -2,7 +2,7 @@
 precision highp float;
 
 // The note blooms (core/viz/NoteBloomPass): one bloom per sounding note in the style's look (lib_bloom),
-// screened over the finished frame of every style, after the composite and before the user's overlay.
+// screened over the finished frame of every style, after the composite, the last draw of the frame.
 //
 // NoteResponse decides everything per bloom on the CPU: where it is (with its travel and parallax), how
 // big, its hue, how open, how bright, its petals and depth, its turn and its tilt in 3D. This pass only

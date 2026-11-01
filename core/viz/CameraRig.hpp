@@ -72,8 +72,10 @@ public:
     void setMoves(const Moves& m) { moves_ = m; }
 
     void reset();
-    // reducedMotion scales travel, orbit, roll and shake, the vestibular
-    // terms; the look still follows a finger.
+    // reducedMotion scales orbit, roll, bank, shake and the sound moves, the
+    // vestibular terms the rig makes itself; the look still follows a finger.
+    // Forward travel (camFly, endlessZoomSpeed) comes in already scaled by
+    // safety::apply, which owns that scale for every render path.
     // bankFlat false keeps the path's banking out of the flat picture's roll
     // (a style that does not turn); the 3D basis still banks.
     // sound: this frame's GeodeSoundFrame, or null for no music moves (tests, a renderer with no audio).

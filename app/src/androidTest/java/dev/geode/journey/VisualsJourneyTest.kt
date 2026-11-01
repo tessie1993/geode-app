@@ -3,18 +3,18 @@ package dev.geode.journey
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.hasContentDescription
-import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isToggleable
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
-import androidx.compose.ui.test.performTextInput
 import androidx.test.espresso.Espresso
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.LargeTest
+import dev.geode.pro.FreeTier
 import dev.geode.ui.MainActivity
+import dev.geode.ui.sceneDisplayLabel
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.RuleChain
@@ -63,20 +63,15 @@ class VisualsJourneyTest {
     }
 
     /**
-     * Kaleidoscope sits on the style's own page, whose tab is titled with the style's name, so the
-     * journey reaches it the way a user who does not know that would: Customize's search, which
-     * looks through every page. On a fresh (free) install it is the style page's one free control.
+     * Kaleidoscope sits on the style's own page, whose tab is titled with the style's name. A
+     * fresh free install lands on the fallback style (the default is Pro), so that is the tab.
+     * Not through Customize's search: with a query, the results page never let Compose go idle
+     * on the CI emulator, and every later step waited for it until the job timed out.
      */
     private fun openCustomizeShape() {
         openVisuals()
         compose.tap("Customize")
-        compose.tap("Search every control")
-        compose.awaitNode(hasSetTextAction())
-        compose.onAllNodes(hasSetTextAction()).onFirst().performTextInput("Kaleido")
-        // The soft keyboard's inset animation never settles on the CI emulator, and Compose's
-        // waitForIdle then waited for it for the rest of the job. A user closes it to look at
-        // the results too.
-        Espresso.closeSoftKeyboard()
+        compose.tap(sceneDisplayLabel(FreeTier.FALLBACK_STYLE_ID))
     }
 
     /** The whole CheckRow is the toggleable node (role Checkbox), its label merged into it. */

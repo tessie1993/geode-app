@@ -56,6 +56,7 @@ class Onboarded(
                     return@Thread
                 }
                 round++
+                if (round > 2) android.os.Process.killProcess(android.os.Process.myPid())
                 Thread.getAllStackTraces().forEach { (t, st) ->
                     if (t.name == "main" || t.name.startsWith("GLThread") || t.name.contains("Instr")) {
                         android.util.Log.e("GEODE_DIAG", "thread ${t.name} state=${t.state}\n" + st.joinToString("\n") { "    at $it" })

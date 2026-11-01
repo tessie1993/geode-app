@@ -56,6 +56,21 @@ the original numbering as cited by the changelog.
   white at grazing angles. Frame time on `morphogen` and `curl_bloom` at
   Detail maximum is the thing most likely to have moved: the bank costs up
   to six containment tests per march step.
+- **42** — The Glass family (`glass_*` on `lib_glass`, rebuilt before
+  release). On one Adreno 6xx and one Mali-G57-class device, at Performance
+  Balanced, 1080p, default Detail: every style holds 60 fps with music
+  playing (Settings › Performance's adaptive step-down must not kick in for
+  long). The heaviest are `glass_cubes`, `glass_ice` (marched; on High their
+  second interior march switches on at `uSteps` 96) and `glass_gem` (up to
+  four exact internal bounces); `glass_lens` reads its LED wall three times
+  per lens pixel. Look for: no black or NaN pixels at a body's grazing rim
+  (total internal reflection takes the mirror direction), the gem's
+  rainbow fire widening on bright mixes, highlights rolling off rather than
+  clipping to flat white (`glassTone`), and frost (flatness) blurring the
+  reflected lights rather than adding noise. With a beat-heavy track: the
+  cubes' snare flip wave, the knot's snare bulge, the lens's snare flip, the
+  pool's kick ripple and the drops sliding on onsets, none of them stepping
+  the whole frame's brightness.
 
 ## See also
 

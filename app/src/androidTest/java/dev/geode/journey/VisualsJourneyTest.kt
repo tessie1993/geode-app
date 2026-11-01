@@ -73,6 +73,10 @@ class VisualsJourneyTest {
         compose.tap("Search every control")
         compose.awaitNode(hasSetTextAction())
         compose.onAllNodes(hasSetTextAction()).onFirst().performTextInput("Kaleido")
+        // The soft keyboard's inset animation never settles on the CI emulator, and Compose's
+        // waitForIdle then waited for it for the rest of the job. A user closes it to look at
+        // the results too.
+        Espresso.closeSoftKeyboard()
     }
 
     /** The whole CheckRow is the toggleable node (role Checkbox), its label merged into it. */

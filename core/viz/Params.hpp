@@ -197,7 +197,7 @@ struct SceneParams {
     float palette2Base() const;
     float palette2Range() const;
 
-    // Every float field except the NOT_FADED sentinels, in declaration order; what lerp and blend glide.
+    // Every float field except the NOT_FADED sentinels, in declaration order; what lerpParams glides.
     struct FloatField {
         const char* name;
         float SceneParams::*member;
@@ -205,7 +205,7 @@ struct SceneParams {
     // MUST equal the number of initialisers in Params.cpp: a std::array with
     // fewer initialisers than its size value-initialises the rest, and a null
     // pointer-to-member is not a compile error. It was declared as 98 over 95
-    // entries, and lerpParams/blendParams wrote through the three null members
+    // entries, and lerpParams (and the blend since removed) wrote through the three null members
     // on every fade. Count again whenever a lerped float is added.
     static constexpr int kLerpedFloatCount = 111;
     static const std::array<FloatField, kLerpedFloatCount>& lerpedFloats();
@@ -225,6 +225,5 @@ struct SceneParams {
 };
 
 SceneParams lerpParams(const SceneParams& from, const SceneParams& to, float k);
-SceneParams blendParams(const SceneParams& a, const SceneParams& b, float t);
 
 }  // namespace geode::viz

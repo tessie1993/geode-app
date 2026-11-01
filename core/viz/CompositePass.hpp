@@ -14,23 +14,18 @@ namespace geode::viz {
 
 // The frame's one opaque fullscreen pass over composite_frag.glsl.
 //
-// W00: overlay/underlay texture pass. Full-frame RGBA8 layers latched from any thread (Renderer::
-// setOverlayRgba/setUnderlayRgba) and uploaded here on the GL thread at the start of the next
-// frame (Renderer::applyOverlayUploads), converting from Android's ARGB int layout to GL's RGBA8
-// byte layout exactly once, on upload.
-//   - Underlay sits UNDER/INTO the scene: draw() blends it into the finished composite colour
-//     (screen/multiply/add, by uUnderlayAmount) inside composite_frag.glsl, right before the
-//     dither - so it reads identically on the live view, the wallpaper and the frame-exact
-//     offscreen export, all of which share this same pass. Read every frame via
-//     underlayTexOrZero()/underlayBlendMode()/underlayAmount() into CompositePass::Inputs,
-//     mirroring how Renderer::composite() already wires uFlow/uRipple.
-//   - Overlay is drawn LAST, as its own textured-quad draw call (drawOverlay()) straight over the
-//     finished output, premultiplied-alpha blended (GL_ONE, GL_ONE_MINUS_SRC_ALPHA) so cover art,
-//     text, lyrics and logo layers can sit above every post-FX and transition without being
-//     graded by them.
-// Both are zero-cost no-ops (no extra draw call, no texture bound beyond the always-valid
-// zeroTex_) until something is actually uploaded; nothing clears itself on its own after that -
-// null clears it explicitly, matching every other Renderer setter.
+// W00: underlay texture pass. A full-frame RGBA8 layer latched from any thread (Renderer::
+// setUnderlayRgba) and uploaded here on the GL thread at the start of the next frame
+// (Renderer::applyUnderlayUpload), converting from Android's ARGB int layout to GL's RGBA8 byte
+// layout exactly once, on upload. The underlay sits UNDER/INTO the scene: draw() blends it into
+// the finished composite colour (screen/multiply/add, by uUnderlayAmount) inside
+// composite_frag.glsl, right before the dither - so it reads identically on the live view, the
+// wallpaper and the frame-exact offscreen export, all of which share this same pass. It is read
+// every frame via underlayTexOrZero()/underlayBlendMode()/underlayAmount() into
+// CompositePass::Inputs, mirroring how Renderer::composite() already wires uFlow/uRipple.
+// It costs nothing beyond the always-valid zeroTex_ until something is actually uploaded; nothing
+// clears itself on its own after that - null clears it explicitly, matching every other Renderer
+// setter.
 class CompositePass {
 public:
     static constexpr int kStyleLayer = 6;
@@ -76,7 +71,7 @@ public:
         float underlayAmount = 0.0f;
     };
 
-    CompositePass(const ShaderSource& assets, ProgramBinaryCache* cache) : transitions_(assets, cache), assets_(assets), cache_(cache) {}
+    CompositePass(const ShaderSource& assets, ProgramBinaryCache* cache) : transitions_(assets, cache), assets_(assets) {}
     ~CompositePass() { release(); }
 
     bool create(const std::string& fadeVert, std::string* error);
@@ -87,16 +82,11 @@ public:
     TransitionCatalog& catalog() { return transitions_.catalog(); }
     void draw(const Inputs& inputs);
 
-    // W00: overlay/underlay uploads, called on the GL thread only (Renderer::applyOverlayUploads).
+    // W00: underlay upload, called on the GL thread only (Renderer::applyUnderlayUpload).
     // `argbPixels` is Android's Bitmap.getPixels layout (0xAARRGGBB per int); converted to GL's
     // RGBA8 byte order once here. width/height <= 0 or a short buffer is treated as a clear.
-    void uploadOverlay(const std::vector<uint32_t>& argbPixels, int width, int height);
-    void clearOverlay();
     void uploadUnderlay(const std::vector<uint32_t>& argbPixels, int width, int height, int blend, float amount);
     void clearUnderlay();
-    // Draws the latched overlay, premultiplied-alpha blended, over whatever is already bound as
-    // the draw framebuffer; a no-op when no overlay is set. Call AFTER draw() in the same frame.
-    void drawOverlay(GLuint quadVao);
     GLuint underlayTexOrZero() const { return underlayTex_.ok() ? underlayTex_.id() : zeroTex_; }
     int underlayBlendMode() const { return underlayBlendMode_; }
     float underlayAmount() const { return underlayAmount_; }
@@ -110,13 +100,9 @@ private:
 
     TransitionPrograms transitions_;
     const ShaderSource& assets_;
-    ProgramBinaryCache* cache_;
     GLuint noiseTex_ = 0;
     GLuint zeroTex_ = 0;
     // W00 state, see the class comment above.
-    GLuint overlayProgram_ = 0;
-    UniformCache overlayUniforms_;
-    Texture overlayTex_;
     Texture underlayTex_;
     int underlayBlendMode_ = 0;
     float underlayAmount_ = 0.0f;

@@ -69,7 +69,7 @@ dt = 1/fps. Same code, same audio (the tap is ahead of any user DSP), so export 
 - `write()` puts samples in the engine's own ring and runs each one through a filter bank
   (4-pole bands with a power envelope).
 - `step(dt)` takes the newest window (about 40 ms: an FFT of 2048 at 44.1/48 kHz, 4096 at
-  88.2/96, 8192 at 176.4/192), applies Hann, FFT (kissfft) and a tilt, and sums the bands
+  88.2/96, 8192 at 176.4/192), applies Hann, FFT (`core/sound/Fft`, its own radix-2) and a tilt, and sums the bands
   against their own running means. It also reduces the filter bank's slice since the last frame
   to one level per band, through lag, threshold and gain, and into the drum triggers.
 

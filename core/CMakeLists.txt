@@ -83,4 +83,4 @@ target_include_directories(geode_core PRIVATE
     ${CMAKE_SOURCE_DIR}/third_party/taglib/taglib/toolkit
     ${CMAKE_BINARY_DIR}/third_party/taglib)
 target_compile_options(geode_core PRIVATE ${GEODE_COMPILE_OPTIONS})
-target_link_libraries(geode_core PUBLIC kissfft::kissfft projectM tag GLESv3 EGL log android)
+target_link_libraries(geode_core PUBLIC projectM tag GLESv3 EGL log android)

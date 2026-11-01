@@ -12,10 +12,9 @@ namespace geode::audio {
 class DspChain {
 public:
     DspChain(int sampleRate, int channels)
-        : sampleRate_(sampleRate), channels_(channels), equalizer_(static_cast<float>(sampleRate)), gain_(static_cast<float>(sampleRate)),
+        : channels_(channels), equalizer_(static_cast<float>(sampleRate)), gain_(static_cast<float>(sampleRate)),
           loudness_(static_cast<float>(sampleRate)), crossfeed_(static_cast<float>(sampleRate)), limiter_(static_cast<float>(sampleRate), channels) {}
 
-    int sampleRate() const { return sampleRate_; }
     int channels() const { return channels_; }
     Equalizer& equalizer() { return equalizer_; }
     Gain& gain() { return gain_; }
@@ -42,7 +41,6 @@ public:
     }
 
 private:
-    int sampleRate_;
     int channels_;
     Equalizer equalizer_;
     Gain gain_;

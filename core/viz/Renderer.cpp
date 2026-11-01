@@ -186,25 +186,10 @@ void Renderer::applyPendingFluidInjection() {
     }
 }
 
-// Any thread. Copies the pixel buffer under stateLock_ into the retained overlay buffer; the
+// Any thread. Copies the pixel buffer under stateLock_ into the retained underlay buffer; the
 // actual GL upload (and the ARGB->RGBA conversion) happens on the GL thread in
-// applyOverlayUploads(), matching pushPcm()'s copy-now/convert-later split.
-void Renderer::setOverlayRgba(const uint32_t* pixels, int width, int height) {
-    std::lock_guard<std::mutex> lock(stateLock_);
-    if (pixels == nullptr || width <= 0 || height <= 0) {
-        overlayPixels_.clear();
-        overlayWidth_ = 0;
-        overlayHeight_ = 0;
-    } else {
-        overlayPixels_.assign(pixels, pixels + static_cast<size_t>(width) * static_cast<size_t>(height));
-        overlayWidth_ = width;
-        overlayHeight_ = height;
-    }
-    overlayDirty_ = true;
-}
-
-// Any thread. See setOverlayRgba(); blend/amount are only meaningful (and only stored) alongside
-// a non-empty pixel buffer, matching how a null/zero-size underlay clears unconditionally.
+// applyUnderlayUpload(), matching pushPcm()'s copy-now/convert-later split. blend/amount are only
+// meaningful (and only stored) alongside a non-empty pixel buffer; a null/zero-size buffer clears.
 void Renderer::setUnderlayRgba(const uint32_t* pixels, int width, int height, int blend, float amount) {
     std::lock_guard<std::mutex> lock(stateLock_);
     if (pixels == nullptr || width <= 0 || height <= 0) {
@@ -225,11 +210,7 @@ void Renderer::setUnderlayRgba(const uint32_t* pixels, int width, int height, in
 // applyPendingFluidInjection: the source buffers are retained state that must survive a surface
 // recreation, not a one-shot request) the latched pixels out from under stateLock_, then does the
 // actual conversion and glTexImage2D/glTexSubImage2D upload unlocked.
-void Renderer::applyOverlayUploads() {
-    bool overlayDirty = false;
-    std::vector<uint32_t> overlayPixels;
-    int overlayWidth = 0;
-    int overlayHeight = 0;
+void Renderer::applyUnderlayUpload() {
     bool underlayDirty = false;
     std::vector<uint32_t> underlayPixels;
     int underlayWidth = 0;
@@ -238,13 +219,6 @@ void Renderer::applyOverlayUploads() {
     float underlayAmount = 0.0f;
     {
         std::lock_guard<std::mutex> lock(stateLock_);
-        overlayDirty = overlayDirty_;
-        overlayDirty_ = false;
-        if (overlayDirty) {
-            overlayPixels = overlayPixels_;
-            overlayWidth = overlayWidth_;
-            overlayHeight = overlayHeight_;
-        }
         underlayDirty = underlayDirty_;
         underlayDirty_ = false;
         if (underlayDirty) {
@@ -253,13 +227,6 @@ void Renderer::applyOverlayUploads() {
             underlayHeight = underlayHeight_;
             underlayBlend = underlayBlend_;
             underlayAmount = underlayAmount_;
-        }
-    }
-    if (overlayDirty) {
-        if (overlayWidth > 0 && overlayHeight > 0) {
-            compositePass_.uploadOverlay(overlayPixels, overlayWidth, overlayHeight);
-        } else {
-            compositePass_.clearOverlay();
         }
     }
     if (underlayDirty) {
@@ -345,10 +312,9 @@ void Renderer::onSurfaceCreated() {
     {
         std::lock_guard<std::mutex> lock(stateLock_);
         if (!fluidForceSrc_.empty() || !fluidDyeSrc_.empty()) fluidInjectionDirty_ = true;
-        // W00: the compositePass_.releaseStaleTextures() call above already dropped the overlay/
-        // underlay GL textures, so re-arm from the retained pixel buffers to reupload them once
-        // compositePass_.create() (below) has rebuilt the overlay program.
-        if (!overlayPixels_.empty()) overlayDirty_ = true;
+        // W00: the compositePass_.releaseStaleTextures() call above already dropped the underlay
+        // GL texture, so re-arm from the retained pixel buffer to reupload it once
+        // compositePass_.create() (below) has run on the new context.
         if (!underlayPixels_.empty()) underlayDirty_ = true;
     }
 

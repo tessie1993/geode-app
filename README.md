@@ -47,7 +47,7 @@ ABIs arm64-v8a and x86_64. The full version history is in
 ## Build
 
 ```bash
-git submodule update --init --recursive   # projectM, kissfft, taglib
+git submodule update --init --recursive   # projectM, taglib
 ./gradlew assembleDebug                   # debug APK, native core included
 ./gradlew installDebug                    # install on a connected device
 ./gradlew ktlintCheck detekt              # style and static analysis
@@ -77,12 +77,12 @@ dynamically linked):
 | Directory | What it holds |
 |---|---|
 | `core/api` | `geode_api.h`, the `extern "C"` ABI — the only thing JNI calls |
-| `core/sound` | The sound engine: FFT (kissfft) bands and a per-sample filter bank, drums, onsets, melody, stereo field, stepped once per rendered frame into a `GeodeSoundFrame` |
+| `core/sound` | The sound engine: FFT bands (its own radix-2 `Fft`) and a per-sample filter bank, drums, onsets, melody, stereo field, stepped once per rendered frame into a `GeodeSoundFrame` |
 | `core/viz` | GL capability probing, program cache, the frame graph (scene → trails → composite), the style catalogue (`Catalogue`), the reaction matrix (`Reactions`), the camera (`CameraRig`), transitions, safety clamps, every scene family |
 | `core/audio/dsp` | Biquad equalizer, gain, crossfeed, lookahead limiter; the export resampler (`PcmResampler`) and the BS.1770 meter (`Loudness`) |
 | `core/library` | TagLib tag reading and writing over a file descriptor |
 | `app/src/main/cpp` | The JNI files: no logic, only marshalling into `core/api` |
-| `third_party/` | Git submodules: projectm, kissfft, taglib |
+| `third_party/` | Git submodules: projectm, taglib |
 
 Shaders ship as assets under `app/src/main/assets/shaders/` and are loaded by
 the native core. Inside `:app`, dependency flow is one-way: `ui` depends on

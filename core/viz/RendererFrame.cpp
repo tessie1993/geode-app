@@ -61,7 +61,7 @@ float Renderer::beginFrame(double timeSeconds) {
         if (Scene* scene = builtScene(id)) scene->setFragmentSource(src);
     }
     applyMilkRequests();
-    applyOverlayUploads();
+    applyUnderlayUpload();
     return dt;
 }
 
@@ -292,10 +292,6 @@ void Renderer::composite(Scene& scene, const SceneParams& p, float progress, GLu
     in.underlayBlend = compositePass_.underlayBlendMode();
     in.underlayAmount = compositePass_.underlayAmount();
     compositePass_.draw(in);
-    // W00: overlay is its own draw call, over whatever composite() just wrote to targetFbo, so it
-    // never enters postFx/transitions/Layers and comes out identical live, in the wallpaper and in
-    // the offscreen export.
-    compositePass_.drawOverlay(quadVao_);
 }
 
 void Renderer::stepOverlays(Scene& scene, const SceneParams& p, float dt) {

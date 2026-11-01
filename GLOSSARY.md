@@ -191,6 +191,27 @@ _Avoid_: Screensaver (UI label only)
 **Widget**:
 The home-screen now-playing widget.
 
+**Musical layer**:
+The part of the sound engine that hears music rather than sound: tempo and beat (Rhythm), key, chords and scale (Harmony), and sections, build-ups and drops (Form). See `docs/research/musical-layer.md`.
+
+**Beat phase / bar phase / phrase**:
+Where the music is within its beat, its 4-beat bar and its 8-bar phrase, 0 at the start, 1 at the end. A downbeat is the first beat of a bar.
+_Avoid_: Beat clock (the hit clock is a different thing)
+
+**Section**:
+A stretch of the song that sounds of a piece (verse, chorus, breakdown). A section change fires on a downbeat, one bar after the boundary; a returning section keeps its number.
+_Avoid_: Scene (a scene is a visual), part
+
+**Section state**:
+The song part a section is read as: intro, verse, build, drop, breakdown or outro.
+
+**Build-up / drop**:
+A build-up is a passage getting louder, brighter and busier with the bass pulled out; the drop is the bass coming back after it.
+
+**Scale mood**:
+The brightness (dark Locrian … bright Lydian) and tension of the scale the music is in, from the musical intelligence database (`docs/musical-intelligence`).
+_Avoid_: Emotion (it is a design reading, not a measurement)
+
 ## Code
 
 **Engine**:

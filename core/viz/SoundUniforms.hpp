@@ -24,9 +24,10 @@ namespace geode::viz {
 // offscreen) hold the same events without a channel back to the renderer's own copy.
 class SoundUniforms {
 public:
-    // uSoundTex: row 0 spectrum, row 1 waveform, row 2 EQ, each resampled to this width (lib_sound).
+    // uSoundTex: row 0 spectrum, row 1 waveform, row 2 EQ, each resampled to this width (lib_sound), and
+    // row 3 the medium chroma, held flat across each pitch class's twelfth so sndChroma reads it exactly.
     static constexpr int kTexWidth = 128;
-    static constexpr int kTexRows = 3;
+    static constexpr int kTexRows = 4;
     // GEODE_SOUND_SCALARS rounded up to whole vec4s: uSound[kVec4s].
     static constexpr int kVec4s = (GEODE_SOUND_SCALARS + 3) / 4;
 

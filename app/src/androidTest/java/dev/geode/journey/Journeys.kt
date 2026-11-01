@@ -19,7 +19,9 @@ import androidx.compose.ui.test.printToLog
 import androidx.core.content.edit
 import androidx.test.core.app.ApplicationProvider
 import dev.geode.data.GeodePrefsFiles
+import dev.geode.data.PerformanceStore
 import dev.geode.data.ThemeStore
+import dev.geode.render.PerformanceSettings
 import org.junit.rules.ExternalResource
 
 /**
@@ -31,6 +33,14 @@ import org.junit.rules.ExternalResource
  * when the user gets past them, before the activity is launched, so the shell comes up on the
  * Player tab. The keys are ThemeStore's own constants, so a rename breaks the build here rather
  * than silently putting every journey back behind onboarding.
+ *
+ * It also pins Settings › Performance to [PerformanceSettings.SAVER]. Left unset, the app picks
+ * a mode from the device's RAM on first run, so the same journey rendered at half scale on the
+ * 2 GB CI emulator and would render at 0.75 on a 4 GB one. On swiftshader every GL frame is drawn
+ * on the CPU, and GLSurfaceView holds the main thread until the first frame of each new surface
+ * is drawn: the heavier that frame, the longer the stall, and stalls of ~4.5 s per live-view
+ * transition are what got the instrumented process killed in CI (see tools/connected-tests.sh).
+ * Pinning keeps that cost fixed whatever AVD the workflow boots.
  */
 class Onboarded(
     private val skipOnboarding: Boolean = true,
@@ -46,11 +56,18 @@ class Onboarded(
                 putBoolean(ThemeStore.KEY_TUTORIAL_SEEN, true)
             }
         }
+        val general = context.getSharedPreferences(GeodePrefsFiles.GENERAL, Context.MODE_PRIVATE)
+        PerformanceStore(general, context).set(PerformanceSettings.SAVER)
     }
 }
 
-/** Generous: the first frame waits on the native core loading and the GL surface. */
-const val JOURNEY_TIMEOUT_MS = 10_000L
+/**
+ * Generous: the first frame waits on the native core loading and the GL surface, and on the
+ * swiftshader emulator each new GL surface stalls the main thread for ~4.5 s (logcat: "Skipped
+ * 276 frames"). Two such stalls back to back left a 10 s wait with nothing in hand. A wait that
+ * succeeds returns as soon as its node appears, so the ceiling costs nothing on a pass.
+ */
+const val JOURNEY_TIMEOUT_MS = 20_000L
 
 /** Waits until some node matches, merged tree, any window (dialogs included). */
 fun ComposeTestRule.awaitNode(

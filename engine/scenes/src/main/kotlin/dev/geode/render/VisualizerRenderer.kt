@@ -1,6 +1,7 @@
 package dev.geode.render
 
 import android.content.Context
+import android.opengl.GLES30
 import android.opengl.GLSurfaceView
 import android.os.SystemClock
 import dev.geode.engine.audio.SoundCursor
@@ -138,6 +139,20 @@ class VisualizerRenderer(
     private var nativePerformance: PerformanceSettings? = null
     private var nativeThermalSampleMs = 0L
 
+    /**
+     * True from [onSurfaceCreated] until the first frame on that surface has been presented.
+     *
+     * `GLSurfaceView.surfaceChanged` runs on the main thread and parks it in
+     * `GLThread.onWindowResize` until the GL thread has finished the next frame. A new surface's
+     * first real frame is the expensive one: it builds the scene and compiles every shader it
+     * needs, which on a software GPU (the CI emulator's swiftshader) takes ~5 s. That held the
+     * main thread long enough for input dispatch to time out, an ANR that kills the process.
+     * So the first frame is only a clear: the main thread is released at once, and the build runs
+     * on the next frame the pacer asks for, where nobody waits on it. The screen is black for that
+     * one frame, as a new surface already is.
+     */
+    private var firstFrameOnSurface = false
+
     val milkdropAvailable: Boolean
         get() {
             nativeViz.create()
@@ -220,6 +235,7 @@ class VisualizerRenderer(
         nativeSoundTuning = null
         // A new native renderer starts a new engine: hand it a full window, not the tail of the last.
         soundCursor = null
+        firstFrameOnSurface = true
     }
 
     override fun onSurfaceChanged(
@@ -245,6 +261,12 @@ class VisualizerRenderer(
     ) = nativeViz.setUnderlay(pixels, width, height, blend.ordinal, amount)
 
     override fun onDrawFrame(gl: GL10?) {
+        if (firstFrameOnSurface) {
+            firstFrameOnSurface = false
+            GLES30.glClearColor(0f, 0f, 0f, 1f)
+            GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT)
+            return
+        }
         nativeViz.setScene(requestedSceneId)
         syncNativeState()
         nativeViz.render(SystemClock.elapsedRealtimeNanos() / NANOS_PER_SECOND, targetFbo = 0)

@@ -21,8 +21,7 @@ import org.junit.runner.RunWith
 /**
  * The Player tab's transport. A track is queued through PlaybackService rather than the
  * library, which keeps storage permission and MediaStore contents out of the test; the screen
- * drives the same process-wide player either way. QA numbers refer to
- * docs/qa/emulator-pass-2026-10-30.md.
+ * drives the same process-wide player either way.
  */
 @LargeTest
 @RunWith(AndroidJUnit4::class)

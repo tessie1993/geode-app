@@ -4,7 +4,7 @@ status: accepted
 
 # Ship to Play before the module split; only the layer fix goes first
 
-[ADR 0001](0001-target-module-split.md) lists six restructuring steps but no relation to the Play release. Decided with the user on 2026-10-30, after the gap analysis in [`ARCHITECTURE_FINISH_PLAN.md`](../ARCHITECTURE_FINISH_PLAN.md): **only step 1 (fix the reverse dependencies) lands before the release.** Steps 2–6, Navigation 3 included, come after it, in ADR 0001's order. Nothing in them changes what a Play user sees, while each one moves files that the release work (QA fixes, restyle, paywall) is editing at the same time. Pre-release architecture work is limited to what lowers crash or ANR risk: main-thread `contentResolver` calls out of composables, golden-file tests for the preset and template formats, and the startup and stability items in the plan.
+[ADR 0001](0001-target-module-split.md) lists six restructuring steps but no relation to the Play release. Decided with the user on 2026-10-30, after a gap analysis: **only step 1 (fix the reverse dependencies) lands before the release.** Steps 2–6, Navigation 3 included, come after it, in ADR 0001's order. Nothing in them changes what a Play user sees, while each one moves files that the release work (QA fixes, restyle, paywall) is editing at the same time. Pre-release architecture work is limited to what lowers crash or ANR risk: main-thread `contentResolver` calls out of composables, golden-file tests for the preset and template formats, and startup and stability work.
 
 Three smaller decisions came with it:
 

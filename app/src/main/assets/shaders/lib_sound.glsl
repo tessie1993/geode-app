@@ -8,12 +8,13 @@
 // What each kind of value means (relative ~1.0, shaped 0..1, clocks, one-frame triggers) is documented
 // on the struct. Nothing here is driven, clamped or slewed: shape it in the style.
 //
-// uSoundTex (R32F, 128 x 3): row 0 the 64-point log spectrum 0..1, row 1 the stabilised waveform -1..1,
-// row 2 the 16 EQ bands (relative). sndSpectrum / sndWave / sndEq read them with x in 0..1.
+// uSoundTex (R32F, 128 x 4): row 0 the 64-point log spectrum 0..1, row 1 the stabilised waveform -1..1,
+// row 2 the 16 EQ bands (relative), row 3 the medium chroma (12 pitch classes, loudest 1). sndSpectrum /
+// sndWave / sndEq read them with x in 0..1, sndChroma with a pitch class 0..11.
 
 precision highp sampler2D;
 
-uniform vec4 uSound[19];
+uniform vec4 uSound[27];
 uniform sampler2D uSoundTex;
 /** The style's Audio drive slider (SceneParams.audioDrive): sndLevel and the band reads scale by it. */
 uniform float uSoundDrive;
@@ -100,6 +101,40 @@ uniform vec2 uSoundCounts;
 #define SND_VIBRATO            uSound[17].w
 #define SND_EVENNESS           uSound[18].x
 #define SND_RUN_DENSITY        uSound[18].y
+#define SND_BPM                    uSound[18].z
+#define SND_BEAT_PHASE             uSound[18].w
+#define SND_BEAT_CONF              uSound[19].x
+#define SND_BEAT                   uSound[19].y
+#define SND_BEAT_COUNT             uSound[19].z
+#define SND_DOWNBEAT               uSound[19].w
+#define SND_BAR_PHASE              uSound[20].x
+#define SND_BAR_COUNT              uSound[20].y
+#define SND_PHRASE                 uSound[20].z
+#define SND_PHRASE_INDEX           uSound[20].w
+#define SND_PHRASE_PHASE           uSound[21].x
+#define SND_FLUX_LOW               uSound[21].y
+#define SND_FLUX_MID               uSound[21].z
+#define SND_FLUX_HIGH              uSound[21].w
+#define SND_HFC                    uSound[22].x
+#define SND_KEY_HUE                uSound[22].y
+#define SND_KEY_ROOT               uSound[22].z
+#define SND_KEY_MAJOR              uSound[22].w
+#define SND_KEY_CLARITY            uSound[23].x
+#define SND_CHORD_HUE              uSound[23].y
+#define SND_TENSION                uSound[23].z
+#define SND_HARMONIC_CHANGE        uSound[23].w
+#define SND_SCALE                  uSound[24].x
+#define SND_SCALE_ROOT             uSound[24].y
+#define SND_SCALE_BRIGHTNESS       uSound[24].z
+#define SND_SCALE_TENSION          uSound[24].w
+#define SND_SCALE_FIT              uSound[25].x
+#define SND_NOVELTY                uSound[25].y
+#define SND_SECTION_CHANGE         uSound[25].z
+#define SND_SECTION_ID             uSound[25].w
+#define SND_SECTION_STATE          uSound[26].x
+#define SND_SECTION_BARS           uSound[26].y
+#define SND_BUILD_UP               uSound[26].z
+#define SND_DROP                   uSound[26].w
 
 #define SND_HELD_HARD_CUT      uSoundEvents.x
 #define SND_HELD_SURGE         uSoundEvents.y
@@ -109,13 +144,15 @@ uniform vec2 uSoundCounts;
 #define SND_CUT_COUNT          uSoundCounts.y
 
 /** The log spectrum at x (0 = 20 Hz, 1 = 20 kHz), 0..1, times the drive. */
-float sndSpectrum(float x) { return texture(uSoundTex, vec2(clamp(x, 0.0, 1.0), 0.5 / 3.0)).r * uSoundDrive; }
+float sndSpectrum(float x) { return texture(uSoundTex, vec2(clamp(x, 0.0, 1.0), 0.5 / 4.0)).r * uSoundDrive; }
 /** The stabilised waveform at x, -1..1 (not driven: a line's shape, not a level). */
-float sndWave(float x) { return texture(uSoundTex, vec2(clamp(x, 0.0, 1.0), 1.5 / 3.0)).r; }
+float sndWave(float x) { return texture(uSoundTex, vec2(clamp(x, 0.0, 1.0), 1.5 / 4.0)).r; }
 /** The waveform at x as a 0..1 line height: centred on 0.5 and scaled by the drive, as the old waveform tap was. */
 float sndWave01(float x) { return clamp(sndWave(x) * uSoundDrive * 0.5 + 0.5, 0.0, 1.0); }
 /** The 16-band EQ at x (relative, ~1 typical), times the drive. */
-float sndEq(float x) { return texture(uSoundTex, vec2(clamp(x, 0.0, 1.0), 2.5 / 3.0)).r * uSoundDrive; }
+float sndEq(float x) { return texture(uSoundTex, vec2(clamp(x, 0.0, 1.0), 2.5 / 4.0)).r * uSoundDrive; }
+/** The medium chroma for pitch class pc (C = 0 … B = 11), 0..1: how much of that note sounds now. */
+float sndChroma(float pc) { return texture(uSoundTex, vec2((mod(floor(pc + 0.5), 12.0) + 0.5) / 12.0, 3.5 / 4.0)).r; }
 /**
  * A relative level (SND_BASS, SND_MID_ATT, ...: ~1 typical, 2 a strong hit) as a shader level: halved,
  * times the drive, so typical reads 0.5 and a hit 1, capped at 1.5 like the old band uniforms.

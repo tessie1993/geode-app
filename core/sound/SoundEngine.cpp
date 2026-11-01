@@ -128,6 +128,8 @@ SoundEngine::SoundEngine(int sampleRateHz)
     fluxBins_ = bins(30, 16000);
     waveBlock_ = std::max(1, n_ / 512);  // 160 × block always fits the window: ~13 ms at every rate
     // Only the middle of the drawn wave counts when aligning, so the centre is what holds still.
+    rhythm_.configure(sampleRateHz_);
+    harmony_.configure(static_cast<float>(sampleRateHz_) / static_cast<float>(2 * n_), n_ + 1);
     waveWeight_.resize(GEODE_SOUND_WAVEFORM_POINTS);
     const float c = GEODE_SOUND_WAVEFORM_POINTS;
     for (int i = 0; i < GEODE_SOUND_WAVEFORM_POINTS; i++) {
@@ -167,6 +169,12 @@ void SoundEngine::write(const float* interleaved, int frames, int channels) {
         writePos_ = (writePos_ + 1) % cap;
         const float m = 0.5f * (l + r);
         for (auto& band : bank_) band.process(m);
+        if (++hopFill_ >= rhythm_.hopSamples()) {
+            hopFill_ = 0;
+            std::array<float, Rhythm::kBands> power{};
+            for (int b = 0; b < Rhythm::kBands; b++) power[b] = bank_[b].power();
+            rhythm_.hop(power);
+        }
     }
     written_ += frames;
     fresh_ = true;
@@ -212,7 +220,14 @@ void SoundEngine::step(float dtSeconds, GeodeSoundFrame& out) {
     if (silent) {
         s.quietSeconds += dt;
     } else {
-        if (s.quietSeconds >= kRewarmAfter) s.warmSeconds = kWarmSeconds;
+        if (s.quietSeconds >= kRewarmAfter) {
+            // Sound after two seconds of silence is most likely a new track: its tempo, key and
+            // sections are its own.
+            s.warmSeconds = kWarmSeconds;
+            rhythm_.reset();
+            harmony_.reset();
+            form_.reset();
+        }
         s.quietSeconds = 0.0f;
     }
     const bool warm = s.warmSeconds > 0.0f;
@@ -235,6 +250,7 @@ void SoundEngine::step(float dtSeconds, GeodeSoundFrame& out) {
     events(dt, warm, out);
     melody(dt, out);
     clocks(dt, out);
+    musical(dt, warm, silent, out);
 }
 
 void SoundEngine::levels(float dt, bool warm, bool silent, GeodeSoundFrame& out) {
@@ -750,7 +766,51 @@ void SoundEngine::clocks(float dt, GeodeSoundFrame& out) {
     out.noteRandom = s.eased[3];
 }
 
+void SoundEngine::musical(float dt, bool warm, bool silent, GeodeSoundFrame& out) {
+    State& s = state_;
+    // Onset kinds: the rhythm's per-band change, as relative levels like flux.
+    const std::array<float, 3> bandFlux = rhythm_.takeBandFlux();
+    float* fluxOut[3] = {&out.fluxLow, &out.fluxMid, &out.fluxHigh};
+    for (int b = 0; b < 3; b++) {
+        s.bandFlux[b].step(bandFlux[b], dt, warm, silent);
+        *fluxOut[b] = s.bandFlux[b].ratio();
+    }
+    // High-frequency content (Masri): energy weighted by bin, so a cymbal or a click outweighs a held
+    // chord of the same loudness.
+    double hfc = 0.0;
+    for (int k = fluxBins_.from; k < fluxBins_.to; k++) hfc += static_cast<double>(k) * mag_[k] * mag_[k];
+    s.hfc.step(static_cast<float>(hfc), dt, warm, silent);
+    out.hfc = s.hfc.ratio();
+
+    harmony_.step(pitchMag_.data(), dt, silent, out);
+    if (out.harmonicChange > 0.0f) rhythm_.harmonyAccent(out.harmonicChange);
+
+    Form::Input in{};
+    const float peak = std::max(s.levelPeak, 1e-6f);
+    for (int i = 0; i < GEODE_SOUND_EQ_BANDS; i++) {
+        const float db = 20.0f * std::log10(std::max(sum(mag_, eqBins_[i]), 1e-9f) / peak);
+        in.eq[i] = clamp01((db + 60.0f) / 60.0f);
+    }
+    in.centroid = out.centroid;
+    in.flatness = out.flatness;
+    in.chroma = out.chroma;
+    in.loudnessDb = 20.0f * std::log10(std::max(out.rms, 1e-6f));
+    const float all = sliceNow_[kAll];
+    in.bassShare = all > 1e-9f ? clamp01(sliceNow_[kLow] * sliceNow_[kLow] / (all * all)) : 0.0f;
+    in.events = (out.onset > 0.0f ? 1.0f : 0.0f) + (out.snare > 0.0f ? 1.0f : 0.0f) + (out.hat > 0.0f ? 1.0f : 0.0f);
+    in.silent = silent;
+    const Rhythm::Tick* ticks = nullptr;
+    const int count = rhythm_.ticks(ticks);
+    form_.step(in, ticks, count, dt, rhythm_, out);
+    rhythm_.read(hopFill_, out.hitTime, out);
+    rhythm_.clearFrame();
+}
+
 void SoundEngine::reset() {
+    rhythm_.reset();
+    harmony_.reset();
+    form_.reset();
+    hopFill_ = 0;
     std::fill(ringL_.begin(), ringL_.end(), 0.0f);
     std::fill(ringR_.begin(), ringR_.end(), 0.0f);
     writePos_ = 0;

@@ -2,7 +2,7 @@ package dev.geode.engine.audio
 
 /**
  * Float offsets into a `GeodeSoundFrame` (`core/sound/SoundFrame.h`) as it crosses JNI: every field in
- * declaration order, then the EQ, spectrum and waveform arrays. `SoundFrameLayoutTest` parses the header,
+ * declaration order, then the EQ, spectrum, waveform and three chroma arrays. `SoundFrameLayoutTest` parses the header,
  * so a field the engine adds, drops or moves fails CI here instead of shifting every reader by one.
  *
  * What each value means (relative, shaped, clock, trigger) is documented on the struct, not repeated here.
@@ -83,15 +83,53 @@ object SoundFrameLayout {
     const val VIBRATO = 71
     const val EVENNESS = 72
     const val RUN_DENSITY = 73
+    const val BPM = 74
+    const val BEAT_PHASE = 75
+    const val BEAT_CONF = 76
+    const val BEAT = 77
+    const val BEAT_COUNT = 78
+    const val DOWNBEAT = 79
+    const val BAR_PHASE = 80
+    const val BAR_COUNT = 81
+    const val PHRASE = 82
+    const val PHRASE_INDEX = 83
+    const val PHRASE_PHASE = 84
+    const val FLUX_LOW = 85
+    const val FLUX_MID = 86
+    const val FLUX_HIGH = 87
+    const val HFC = 88
+    const val KEY_HUE = 89
+    const val KEY_ROOT = 90
+    const val KEY_MAJOR = 91
+    const val KEY_CLARITY = 92
+    const val CHORD_HUE = 93
+    const val TENSION = 94
+    const val HARMONIC_CHANGE = 95
+    const val SCALE = 96
+    const val SCALE_ROOT = 97
+    const val SCALE_BRIGHTNESS = 98
+    const val SCALE_TENSION = 99
+    const val SCALE_FIT = 100
+    const val NOVELTY = 101
+    const val SECTION_CHANGE = 102
+    const val SECTION_ID = 103
+    const val SECTION_STATE = 104
+    const val SECTION_BARS = 105
+    const val BUILD_UP = 106
+    const val DROP = 107
 
-    const val SCALARS = 74
+    const val SCALARS = 108
     const val EQ_BANDS = 16
     const val SPECTRUM_POINTS = 64
     const val WAVEFORM_POINTS = 128
     const val EQ = SCALARS
     const val SPECTRUM = EQ + EQ_BANDS
     const val WAVEFORM = SPECTRUM + SPECTRUM_POINTS
-    const val FLOATS = WAVEFORM + WAVEFORM_POINTS
+    const val CHROMA_POINTS = 12
+    const val CHROMA = WAVEFORM + WAVEFORM_POINTS
+    const val CHROMA_FAST = CHROMA + CHROMA_POINTS
+    const val CHROMA_SLOW = CHROMA_FAST + CHROMA_POINTS
+    const val FLOATS = CHROMA_SLOW + CHROMA_POINTS
 
     /** `GeodeSoundTuning` as floats: gain, threshold, offset, attack, release, drum, drumDecay (3 each), then 8 scalars. */
     const val TUNING_FLOATS = 29
@@ -173,5 +211,39 @@ object SoundFrameLayout {
             "vibrato",
             "evenness",
             "runDensity",
+            "bpm",
+            "beatPhase",
+            "beatConf",
+            "beat",
+            "beatCount",
+            "downbeat",
+            "barPhase",
+            "barCount",
+            "phrase",
+            "phraseIndex",
+            "phrasePhase",
+            "fluxLow",
+            "fluxMid",
+            "fluxHigh",
+            "hfc",
+            "keyHue",
+            "keyRoot",
+            "keyMajor",
+            "keyClarity",
+            "chordHue",
+            "tension",
+            "harmonicChange",
+            "scale",
+            "scaleRoot",
+            "scaleBrightness",
+            "scaleTension",
+            "scaleFit",
+            "novelty",
+            "sectionChange",
+            "sectionId",
+            "sectionState",
+            "sectionBars",
+            "buildUp",
+            "drop",
         )
 }

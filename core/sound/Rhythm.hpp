@@ -22,7 +22,7 @@ namespace geode::sound {
 // The tempogram is Grosche & Müller's autocorrelation tempogram restricted to its best lag, and the
 // phase is their predominant local pulse (PLP) read only at the newest instant, so it predicts rather than
 // describes; the oscillator is the small PLL every real-time tracker puts on top (Meier, Chiu & Müller,
-// TISMIR 2024; aubio's beattracking). docs/research/musical-layer.md has the sources and the trade-offs.
+// TISMIR 2024; aubio's beattracking).
 class Rhythm {
 public:
     // The filter bank bands it listens to, in SoundEngine::Slice order up to kHat.

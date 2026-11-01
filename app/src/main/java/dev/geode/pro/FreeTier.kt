@@ -21,16 +21,29 @@ object FreeTier {
     val familyProIds: Set<String> = StyleFamilies.all.flatMapTo(mutableSetOf()) { it.ids - it.opener }
 
     /**
+     * The neon showcase styles (Glow Vortex, Neon Chrome Sea, Black Hole, Hex Hive, Mandelbox
+     * Cathedral) follow the families' rule even though they are loose styles: one opener is free,
+     * the other four are Pro. The owner picked that split; Hex Hive opens because it shows the most
+     * of the set at once (a 3D flight, the iridescent finish and the spectrum built into its walls)
+     * and is mid-cost, so a free user's first taste runs well on most phones.
+     */
+    val neonOpener: String = SceneIds.HEX_HIVE
+
+    /** The four neon showcase styles behind Pro: every one but [neonOpener]. */
+    val neonProIds: Set<String> =
+        setOf(SceneIds.GLOW_VORTEX, SceneIds.NEON_CHROME_SEA, SceneIds.BLACK_HOLE, SceneIds.MANDELBOX_CATHEDRAL)
+
+    /**
      * Styles a free user can select and keep: the fragment-shader styles (julia, tunnel, bars,
      * ring, scope, plasma, nebula and the rest of [SceneCapabilities.SHADER_SCENES]), so a loose
      * shader style added later is free too, minus [familyProIds]. A style family gives away its
      * opener (the first, most basic style) and keeps the other eleven for Pro: a free user can try every
      * family, and buying Pro is what opens the range. Everything else (silk, fluid, water, MilkDrop,
-     * cymatics and the other dedicated renderers) is Pro, shows a Pro badge and opens the paywall
+     * cymatics and the other dedicated renderers) is Pro, as are [neonProIds], shows a Pro badge and opens the paywall
      * when picked. A renamed or removed id simply stops matching, which makes that style Pro rather
      * than crashing.
      */
-    val freeStyleIds: Set<String> = SceneCapabilities.SHADER_SCENES.keys - familyProIds
+    val freeStyleIds: Set<String> = SceneCapabilities.SHADER_SCENES.keys - familyProIds - neonProIds
 
     /**
      * Where a free user lands when the style on screen is no longer theirs (a new install, whose
@@ -44,6 +57,14 @@ object FreeTier {
      * Customize › Macros is free in full and needs no entry; Advanced has no free control at all.
      */
     const val FREE_LOOK_CONTROL: String = ParamKeys.PALETTE
+
+    /**
+     * Customize › Look's second free control: which bloom a note grows (the style's own, flower, glow,
+     * ripple, burst). Note & key reactions are free, and the bloom is the part a listener sees first, so
+     * choosing its look belongs with them; how strongly each part answers stays in Advanced (Pro). Its
+     * own key, not a [ParamKeys] name: the control is a chip row of Look's, not a style parameter.
+     */
+    const val NOTE_BLOOMS_CONTROL: String = "Note blooms"
 
     /**
      * Customize › Events' one free control: the one-tap reaction recipes ("Kick punch"). They are
@@ -72,7 +93,7 @@ object FreeTier {
 
     /** Every Customize control a free user may change on this style, Macros aside. */
     fun freeCustomizeControls(isShown: (String) -> Boolean): Set<String> =
-        setOfNotNull(FREE_LOOK_CONTROL, FREE_EVENTS_CONTROL, freeStyleControl(isShown))
+        setOfNotNull(FREE_LOOK_CONTROL, NOTE_BLOOMS_CONTROL, FREE_EVENTS_CONTROL, freeStyleControl(isShown))
 
     /** Pro features given away in full. Empty: the free tier is the styles above plus basics. */
     val freeFeatures: Set<ProFeature> = emptySet()

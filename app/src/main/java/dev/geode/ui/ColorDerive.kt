@@ -3,21 +3,6 @@ package dev.geode.ui
 import kotlin.math.roundToInt
 
 object ColorDerive {
-    fun lerpArgb(
-        from: Int,
-        to: Int,
-        t: Float,
-    ): Int {
-        val f = t.coerceIn(0f, 1f)
-
-        fun ch(shift: Int): Int {
-            val a = (from ushr shift) and 0xFF
-            val b = (to ushr shift) and 0xFF
-            return (a + (b - a) * f).roundToInt().coerceIn(0, 255)
-        }
-        return (ch(24) shl 24) or (ch(16) shl 16) or (ch(8) shl 8) or ch(0)
-    }
-
     fun scaleSaturation(
         argb: Int,
         factor: Float,

@@ -10,15 +10,37 @@ package dev.geode.pro
  * (core/viz/Director), so the end of the taste is a fade, not a cut.
  */
 object AutoDirectorPolicy {
+    /**
+     * Live: [playerPlaying] says the app's own player is the source and playing. The taste is timed by
+     * the song's position, so it only runs while the player plays: the mic and other apps' audio (which
+     * pause the player) have no position to time a taste with, and get none.
+     */
     fun amount(
         enabled: Boolean,
         gate: FeatureGate,
         positionMs: Long,
+        playerPlaying: Boolean,
     ): Float =
         when {
             !enabled -> 0f
             gate.allows(ProFeature.AUTO_DIRECTOR) -> 1f
-            positionMs in 0 until FreeTier.FREE_AUTO_DIRECTOR_TASTE_MS -> 1f
+            playerPlaying && positionMs in 0 until FreeTier.FREE_AUTO_DIRECTOR_TASTE_MS -> 1f
+            else -> 0f
+        }
+
+    /**
+     * An export of [durationMs]: directed throughout, or not at all. A free export is at most
+     * [FreeTier.FREE_MAX_EXPORT_MS], which the taste covers; anything longer needs Pro.
+     */
+    fun exportAmount(
+        enabled: Boolean,
+        gate: FeatureGate,
+        durationMs: Long,
+    ): Float =
+        when {
+            !enabled -> 0f
+            gate.allows(ProFeature.AUTO_DIRECTOR) -> 1f
+            durationMs <= FreeTier.FREE_AUTO_DIRECTOR_TASTE_MS -> 1f
             else -> 0f
         }
 

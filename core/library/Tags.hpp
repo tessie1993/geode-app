@@ -39,11 +39,8 @@ struct TrackTagEdit {
     int track = 0;
 };
 
-// Why writeTags returned false; kNone otherwise (and whenever it returned true).
-enum class TagsWriteError { kNone, kOpenFailed, kReadOnly, kUnsupported, kSaveFailed };
-
 // Both take a file descriptor they own; it is closed before they return.
 bool readTags(int fd, TrackTags& out);
-bool writeTags(int fd, const TrackTagEdit& edit, TagsWriteError* error = nullptr);
+bool writeTags(int fd, const TrackTagEdit& edit);
 
 }  // namespace geode::library

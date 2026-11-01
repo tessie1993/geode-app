@@ -1,7 +1,6 @@
 #include "viz/ShaderSource.hpp"
 
 #include <algorithm>
-#include <array>
 #include <cctype>
 #include <cstring>
 #include <memory>
@@ -10,7 +9,9 @@ namespace geode::viz {
 
 namespace {
 
-constexpr std::array<const char*, 24> kIncludes = {
+// Sized by the compiler: branches that each add a library would otherwise each bump a
+// hand-kept count, and merging two of them overflows it (excess elements in struct initializer).
+constexpr const char* kIncludes[] = {
     "lib_palette",      "lib_scene_uniforms",  "lib_scene_grade",    "lib_sdf3",
     "lib_touch",        "lib_psrdnoise2",      "lib_particle_common", "lib_particle_shade",
     "lib_scene_motion", "lib_dmt",             "lib_camera",
@@ -28,6 +29,10 @@ constexpr std::array<const char*, 24> kIncludes = {
     "lib_terra",
     "lib_truchet",
     "lib_foam",
+    // The neon set (five loose styles): normalized shape controls, the palette pull, shared sound drives.
+    "lib_neon",
+    // The note blooms' four looks (note_bloom_frag, NoteBloomPass).
+    "lib_bloom",
 };
 
 struct AssetClose {

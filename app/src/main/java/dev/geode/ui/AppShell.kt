@@ -262,7 +262,7 @@ fun AppRoot() {
             }
         }
         Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-            CrystalBackground(Modifier.fillMaxSize(), reducedMotion = gui.reducedMotion)
+            CrystalBackground(Modifier.fillMaxSize())
             val sizeClass = currentWindowAdaptiveInfo().windowSizeClass
             // Two panes only where both get a usable width and the Player pane can show more than
             // its artwork: from 840dp, and not on a short landscape phone. A foldable or a phone on
@@ -662,11 +662,9 @@ fun SearchScreen(
     viewModel: PlayerViewModel,
     onClose: () -> Unit,
 ) {
-    val settingsViewModel: SettingsViewModel = geodeViewModel()
     val libraryViewModel: LibraryViewModel = geodeViewModel()
     var query by rememberSaveable { mutableStateOf("") }
     var debounced by rememberSaveable { mutableStateOf("") }
-    val gui by settingsViewModel.guiPrefs.collectAsStateWithLifecycle()
     val library by libraryViewModel.library.collectAsStateWithLifecycle()
     val viz by viewModel.vizState.collectAsStateWithLifecycle()
     val deviceTracks by libraryViewModel.deviceTracks.collectAsStateWithLifecycle()
@@ -717,7 +715,7 @@ fun SearchScreen(
         }
 
     Box(Modifier.fillMaxSize().dismissTransform(dismiss)) {
-        CrystalBackground(Modifier.fillMaxSize(), reducedMotion = gui.reducedMotion)
+        CrystalBackground(Modifier.fillMaxSize())
         Column(
             Modifier
                 .fillMaxSize()

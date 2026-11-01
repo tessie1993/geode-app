@@ -76,7 +76,9 @@ private fun PresetFolderGroup(
             style = MaterialTheme.typography.labelMedium,
         )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            CrystalButton(filled = false, onClick = { folderPicker.launch(null) }) { Text(stringResource(R.string.folders_choose_preset)) }
+            CrystalButton(filled = false, onClick = { folderPicker.launchPicker(ctx, null) }) {
+                Text(stringResource(R.string.folders_choose_preset))
+            }
             if (gui.presetMirrorUri != null) {
                 TextButton(
                     onClick = { viewModel.setGuiPrefs(gui.copy(presetMirrorUri = null)) },
@@ -95,6 +97,7 @@ private fun PresetFolderGroup(
 internal fun MusicFoldersEditor(viewModel: LibraryViewModel) {
     val roots by viewModel.mediaRoots.collectAsStateWithLifecycle()
     val scanning by viewModel.libraryScanning.collectAsStateWithLifecycle()
+    val ctx = LocalContext.current
     val folderPicker =
         rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
             if (uri != null) viewModel.importFolder(uri)
@@ -130,7 +133,7 @@ internal fun MusicFoldersEditor(viewModel: LibraryViewModel) {
             CrystalButton(
                 compact = true,
                 filled = false,
-                onClick = { folderPicker.launch(null) },
+                onClick = { folderPicker.launchPicker(ctx, null) },
             ) { Text(stringResource(R.string.folders_add)) }
             CrystalButton(
                 compact = true,

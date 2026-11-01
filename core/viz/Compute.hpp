@@ -123,7 +123,6 @@ public:
     GLint uniformLocation(const char* name) const { return program_.uniformLocation(name); }
     void image(int unit, GLuint texture, GlImageFormat format, ImageAccess access);
     void texture(int unit, GLuint texture);
-    void storageBuffer(int index, GLuint buffer);
     void dispatch(WorkGroupCount groups);
     void end();
     void release() { program_.release(); }
@@ -138,7 +137,6 @@ private:
     GLbitfield barrierMask_;
     uint32_t imageUnits_ = 0;
     uint32_t textureUnits_ = 0;
-    uint32_t storageBindings_ = 0;
 };
 
 }  // namespace geode::viz

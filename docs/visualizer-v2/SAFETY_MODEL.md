@@ -23,9 +23,10 @@ structural movement keep reacting; what is bounded is the impulsive full-frame e
 
 ## 2. There is no user choice
 
-The flash clamp is not configurable. `VisualSafety` holds the numbers as constants —
-`WCAG_FLASHES_PER_SECOND = 3`, `MAX_FLASH_DEPTH = 0.25` — and every render path applies them the
-same way. There is no `SafetyConfig`, no `enabled` flag and no way to construct an unclamped
+The flash clamp is not configurable. The numbers are native constants in `core/viz/VisualSafety.hpp`
+(`safety::kWcagFlashesPerSecond = 3`, `kMaxFlashDepth = 0.25`), and every render path applies them
+the same way. The UI's brightness and contrast sliders stop at `1 + kMaxFlashDepth`, written as
+literals in `CustomizeTabs`. There is no `SafetyConfig`, no `enabled` flag and no way to construct an unclamped
 render. A preview that is safe therefore cannot produce an unsafe file: same clamp, same code,
 same numbers, on screen and in export alike.
 
@@ -40,16 +41,17 @@ asked again, and a stored `REDUCED_MOTION` answer carries over to the reduced-mo
 
 ## 3. Where the limits are applied
 
-`VisualSafety.apply` runs **last**, after `LfoEngine.apply` and `AdsrEngine.apply`, on the params
-a scene is about to receive. Order is the whole design: a safe stored value is worth nothing if a
+`safety::apply` runs **last** in `Renderer::resolveParams` (`core/viz/RendererFrame.cpp`), on the
+params a scene is about to receive. The order is the macros, the LFOs (`Lfo`), the envelopes
+(`Adsr`), the reaction matrix (`Reactions`, then the macros' own routes), `MotionField`, then
+`safety::apply`. Order is the whole design: a safe stored value is worth nothing if a
 modulator can push it back into the hazardous range.
 
 | Lever | What it bounds |
 |---|---|
-| `apply` | strobe, flash, glitch, bloom, brightness, intensity, contrast |
+| `apply` | strobe, flash, bloom, brightness, intensity, contrast |
 | `strobeHz` | the strobe's oscillator rate — dimming a 9 Hz flicker leaves a 9 Hz flicker |
 | `limitLfoRate` | an LFO aimed at a luminance target; the rate is the hazard, not the amplitude |
-| `beatMinIntervalMs` | the floor between beat-driven hits |
 | `layerMix` | ADD and DIFFERENCE blends, which reach the screen after `apply` |
 | `transitionStyle` / `transitionId` | a hard cut becomes a crossfade |
 | `FlashBudget` | how *often* the flash may fire — three rising edges per rolling second |

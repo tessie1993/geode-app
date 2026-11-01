@@ -21,6 +21,8 @@
 #include "viz/Lfo.hpp"
 #include "viz/Macros.hpp"
 #include "viz/MotionField.hpp"
+#include "viz/NoteBloomPass.hpp"
+#include "viz/NoteResponse.hpp"
 #include "viz/Overlays.hpp"
 #include "viz/Params.hpp"
 #include "viz/ProgramBinaryCache.hpp"
@@ -48,7 +50,6 @@ public:
 
     // Any thread.
     void setParams(const SceneParams& params);
-    bool setParam(const std::string& key, float value);
     void setReducedMotion(bool on) { reducedMotion_.store(on, std::memory_order_relaxed); }
     // Settings › Performance, live surfaces only: an offscreen (export) renderer never calls this,
     // so it keeps full quality. renderScale and marchScale are 0..1 multipliers stacked under the
@@ -58,6 +59,10 @@ public:
     // it, so no exported frame ever shows the previous scene or a clear in its place. A live renderer
     // (the default) builds a new scene across frames instead; see ScenePrep.hpp.
     void setBlockingBuilds(bool on) { blockingBuilds_.store(on, std::memory_order_relaxed); }
+    // An export's own auto-director: once pinned, this renderer stops reading the process-wide switch
+    // (director::global), so the live player moving on to another track, or past the free taste, never
+    // reaches a render in progress. The export hands over the play's seed, so it makes the same film.
+    void pinDirector(float amount, uint64_t seed);
     void setLayer(const std::string& sceneId, float mix, int blendOrdinal);
     void setTransition(const std::string& id, int64_t durationMs);
     void beginParamMorph(float seconds);
@@ -71,8 +76,6 @@ public:
     void resetAudio();
     // Settings › Audio: kept across engine rebuilds (a new sample rate builds a new engine).
     void setSoundTuning(const GeodeSoundTuning& tuning);
-    // The frame beginFrame last stepped, for readers outside the renderer (Kotlin meters, tests).
-    GeodeSoundFrame soundFrame() const;
     void setCustomShader(const std::string& sceneId, const std::string& fragmentSource);
     // The user source a scene last compiled successfully; "" when it draws its built-in style.
     std::string customShaderFor(const std::string& sceneId) const;
@@ -91,10 +94,9 @@ public:
         lookYaw_.store(yaw, std::memory_order_relaxed);
         lookPitch_.store(pitch, std::memory_order_relaxed);
     }
-    // W00: full-frame overlay/underlay layers, latched here and uploaded to GL textures at the
+    // W00: the full-frame underlay layer, latched here and uploaded to a GL texture at the
     // start of the next frame; see CompositePass.hpp for the pass itself. `pixels` is Android's
     // Bitmap.getPixels ARGB layout; null (or a non-positive size) clears the layer.
-    void setOverlayRgba(const uint32_t* pixels, int width, int height);
     void setUnderlayRgba(const uint32_t* pixels, int width, int height, int blend, float amount);
     ThermalGovernor& thermal() { return thermal_; }
     // Any thread: returns a copy (see Renderer.cpp) since fail() mutates lastError_ concurrently.
@@ -140,7 +142,7 @@ private:
     void wireFlow(Scene& target, const SceneParams& p);
     void applyPendingFluidInjection();
     void applyMilkRequests();
-    void applyOverlayUploads();
+    void applyUnderlayUpload();
     void notePresetLoaded(const std::string& path);
     static double monotonicSeconds();
     void fail(const std::string& message);
@@ -182,6 +184,19 @@ private:
     ReactionEngine macroReactions_;
     // The auto-director (viz/Director): the music's feeling deciding palette, behaviour and routing.
     Director director_;
+    // Set by pinDirector; read once a frame on the GL thread.
+    std::atomic<bool> directorPinned_{false};
+    std::atomic<float> pinnedDirectorAmount_{0.0f};
+    std::atomic<uint64_t> pinnedDirectorSeed_{0};
+    // Note & key reactions (viz/NoteResponse), after the director's look: knobs, note colours, blooms.
+    NoteResponse notes_;
+    NoteBloomPass bloomPass_;
+    // The note layer's seed: the director's play seed mixed with fresh entropy whenever that seed changes,
+    // so every play (and every export) varies on its own, as the user chose (NoteResponse's class comment).
+    uint64_t noteSeed(uint64_t playSeed);
+    uint64_t notePlaySeed_ = 0;
+    uint64_t noteEntropy_ = 0;
+    bool noteSeeded_ = false;
     CameraRig camera_;
     // One engine per renderer (one per surface), so each is frame-locked to its own dt. Guarded by soundLock_
     // only because writeAudio and soundFrame are public; in practice one thread does everything.
@@ -227,13 +242,9 @@ private:
     std::string fluidForceSrc_;
     std::string fluidDyeSrc_;
     bool fluidInjectionDirty_ = false;
-    // W00: overlay/underlay layers. Retained (not just "pending") so a surface recreation can
+    // W00: the underlay layer. Retained (not just "pending") so a surface recreation can
     // re-arm the dirty flag and re-upload, the same way fluidForceSrc_/fluidDyeSrc_ do above;
-    // see onSurfaceCreated() and applyOverlayUploads(). Empty = cleared.
-    std::vector<uint32_t> overlayPixels_;
-    int overlayWidth_ = 0;
-    int overlayHeight_ = 0;
-    bool overlayDirty_ = false;
+    // see onSurfaceCreated() and applyUnderlayUpload(). Empty = cleared.
     std::vector<uint32_t> underlayPixels_;
     int underlayWidth_ = 0;
     int underlayHeight_ = 0;

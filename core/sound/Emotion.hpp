@@ -17,7 +17,6 @@ namespace geode::sound {
 // The cues add (Eerola, Friberg & Bresin 2013: no interaction among six cues, linear models R² .77-.89),
 // so each axis is a weighted sum. The feeling has two layers: three axes (valence, energy, tension) say
 // how much, and GEMS-9 (Zentner et al. 2008), the music-specific emotion scale, says what kind.
-// docs/research/auto-director.md has the sources and the evidence strength of each weight.
 class Emotion {
 public:
     enum Gems { kWonder, kTranscendence, kTenderness, kNostalgia, kPeace, kPower, kJoy, kTension, kSadness };

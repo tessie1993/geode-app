@@ -153,7 +153,7 @@ void Look::applySunrays(GLuint dyeTex) {
     blitDiscarding(rays);
 }
 
-void Look::drawDisplay(GLuint dyeTex, bool shadingOn, bool bloomOn, bool sunraysOn, int viewportW, int viewportH) {
+void Look::drawDisplay(GLuint dyeTex, bool shadingOn, bool bloomOn, bool sunraysOn, int viewportW, int viewportH, GLuint temperatureTex) {
     if (!available_) return;
     const bool bloomReady = bloomOn && bloomMips_.size() >= 2 && bloomResult_.has_value();
     const bool raysReady = sunraysOn && sunraysTarget_.has_value();
@@ -168,6 +168,7 @@ void Look::drawDisplay(GLuint dyeTex, bool shadingOn, bool bloomOn, bool sunrays
     if (bloomReady) bindTex(program, "uBloom", bloomResult_->tex(), 1);
     if (raysReady) bindTex(program, "uSunrays", sunraysTarget_->tex(), 2);
     bindTex(program, "uDither", ditherTex_, 3);
+    bindTex(program, "uTemperature", temperatureTex, 4);
     glUniform2f(program.loc("uDitherScale"), static_cast<float>(viewportW) / blue_noise::kSize, static_cast<float>(viewportH) / blue_noise::kSize);
     glUniform2f(program.loc("uTexelSize"), invW, invH);
     // Read only by the styled looks; the linker drops them from LOOK 0 and a -1 location is a no-op.

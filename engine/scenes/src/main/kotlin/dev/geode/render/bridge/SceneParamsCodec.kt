@@ -4,7 +4,7 @@ import dev.geode.render.scene.SceneParams
 
 /** Packs [SceneParams] in `geode_viz_param_name` order; [verify] proves that order against the library once. */
 object SceneParamsCodec {
-    const val FIELDS = 154
+    const val FIELDS = 162
 
     val NAMES: List<String> =
         listOf(
@@ -162,6 +162,14 @@ object SceneParamsCodec {
             "camGyro",
             "reactAmount",
             "reactSeed",
+            "bloomLook",
+            "noteColor",
+            "notePitch",
+            "noteIntervals",
+            "noteTension",
+            "noteChords",
+            "noteDrums",
+            "noteBloom",
         )
 
     fun verify(nativeNames: String) {
@@ -328,6 +336,14 @@ object SceneParamsCodec {
         out[151] = flag(p.camGyro)
         out[152] = p.reactAmount
         out[153] = p.reactSeed.toFloat()
+        out[154] = p.bloomLook.toFloat()
+        out[155] = p.noteColor
+        out[156] = p.notePitch
+        out[157] = p.noteIntervals
+        out[158] = p.noteTension
+        out[159] = p.noteChords
+        out[160] = p.noteDrums
+        out[161] = p.noteBloom
     }
 
     private fun flag(on: Boolean): Float = if (on) 1f else 0f

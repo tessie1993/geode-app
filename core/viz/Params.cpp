@@ -374,14 +374,4 @@ SceneParams lerpParams(const SceneParams& from, const SceneParams& to, float k) 
     return out;
 }
 
-SceneParams blendParams(const SceneParams& a, const SceneParams& b, float t) {
-    const float k = std::clamp(t, 0.0f, 1.0f);
-    SceneParams out = k < 0.5f ? a : b;
-    for (const auto& f : SceneParams::lerpedFloats()) {
-        const float from = a.*f.member;
-        out.*f.member = from + (b.*f.member - from) * k;
-    }
-    return out;
-}
-
 }  // namespace geode::viz

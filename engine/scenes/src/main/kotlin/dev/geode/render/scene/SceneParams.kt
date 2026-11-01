@@ -182,6 +182,30 @@ data class SceneParams(
     val reactAmount: Float = 1f,
     /** Which variant of the style's reaction DNA ([BuildStyleReactionsUseCase]) plays. */
     val reactSeed: Int = 0,
+    // Note & key reactions (core/viz Params.hpp, appended after reactSeed so every older wire index
+    // survives). Each is a per-style Customize control, and all of them are inert while
+    // Settings › Behaviour › Note & key reactions is off: the engine reads them only when the musical
+    // layer's note and key responses are switched on. The ParamRandomizer never rolls them.
+    /**
+     * How a note bloom looks on this style: 0 = the style's own look (the catalogue's `bloom` row,
+     * [Catalogue.bloomLook]), else a [BloomLook] wire value (1 flower, 2 glow, 3 ripple, 4 burst).
+     * Not lerped: a look switches, it does not blend.
+     */
+    val bloomLook: Int = 0,
+    /** Note & key reactions: how strongly the key and notes tint the palette, 0..2 (1 = as designed). */
+    val noteColor: Float = 1f,
+    /** Note & key reactions: how strongly pitch height moves the picture, 0..2. */
+    val notePitch: Float = 1f,
+    /** Note & key reactions: how strongly melodic intervals (steps against leaps) answer, 0..2. */
+    val noteIntervals: Float = 1f,
+    /** Note & key reactions: how strongly harmonic tension drives the picture, 0..2. */
+    val noteTension: Float = 1f,
+    /** Note & key reactions: how strongly chord changes answer, 0..2. */
+    val noteChords: Float = 1f,
+    /** Note & key reactions: how strongly the drum hits answer, 0..2. */
+    val noteDrums: Float = 1f,
+    /** Note & key reactions: how big each note bloom grows, 0..2. */
+    val noteBloom: Float = 1f,
 ) {
     companion object {
         const val UNSET_OVERRIDE: Float = -1f

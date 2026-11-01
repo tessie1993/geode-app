@@ -30,7 +30,7 @@ constexpr std::array<const char*, 60> kLooseShaders = {
     "prism_rain",
     // Two looks restored from branches that never merged (#14, #7), rewritten on the sound engine.
     "supershape", "fractal_tunnel",
-    // The neon set, written from scratch on the style knobs (lib_scene_uniforms' uKnob): a 2D spiral web,
+    // The neon set, written from scratch on lib_neon: a 2D spiral web,
     // then four marches (a chrome sea, a lensed singularity, a hex-pillar tunnel, a Mandelbox nave).
     "glow_vortex", "neon_chrome_sea", "black_hole", "hex_hive", "mandelbox_cathedral",
 };
@@ -459,12 +459,13 @@ bool reaches(Scope scope, const std::string& styleId) {
 BloomLook bloomLook(const std::string& id) {
     switch (kindOf(id)) {
         // The simulations: a glow on the silk and the cells, sparks in the mycelium's and the curl flow's
-        // particles, the flower in MilkDrop's and Acid's psychedelia, a ring on every liquid surface.
+        // particles and in MilkDrop's presets (they already flower on their own), the flower in Acid's
+        // psychedelia, a ring on every liquid surface.
         case Kind::Silk: return BloomLook::Glow;
         case Kind::Life: return BloomLook::Glow;
         case Kind::Mycelium: return BloomLook::Burst;
         case Kind::Acid: return BloomLook::Flower;
-        case Kind::Milkdrop: return BloomLook::Flower;
+        case Kind::Milkdrop: return BloomLook::Burst;
         case Kind::Fluid: return BloomLook::Ripple;
         case Kind::CurlFlow: return BloomLook::Burst;
         case Kind::Water: return BloomLook::Ripple;

@@ -34,7 +34,7 @@ uniform vec2 uResolution;
 uniform float uSpeed;
 uniform float uZoom;
 uniform float uRotation;
-uniform float uZoomPhase;
+//#include lib_zoom
 uniform float uColorShift;
 uniform float uHueRange;
 uniform float uSat;
@@ -80,22 +80,15 @@ uniform float uFlash;
 // beside this one. A style that never reads them links the array away, so it
 // costs the others nothing.
 //
-// With Settings › Behaviour › Note & key reactions on (Pro), core/viz/
-// NoteResponse drives them by meaning, each from several fields of the sound
-// frame and smoothed at a musical rate: k0 PULSE the drums, weighted by how
-// percussive the track is; k1 TEXTURE timbre (brightness, density, noise); k2
-// FLOW sustained energy; k3 TONE the melody's height; k4 BUILD tension and the
+// With Settings › Behaviour › Note & key reactions on, core/viz/NoteResponse
+// drives them by meaning, each from several fields of the sound frame and
+// smoothed at a musical rate: k0 PULSE the drums, weighted by how percussive
+// the track is; k1 TEXTURE timbre (brightness, density, noise); k2 FLOW
+// sustained energy; k3 TONE the melody's height; k4 BUILD tension and the
 // feeling's energy; k5 SPACE interval motion and stereo width. Off, every knob
 // is exactly 0.5 (the midpoint each style was tuned around). Either way a
 // style must read a knob as a continuous value and never as a trigger.
 uniform float uKnob[6];
-// The last six notes' colours, newest first, as hues on the colour wheel (red
-// 0, yellow 1/6, green 1/3, blue 2/3), spread around the key's (or the auto-
-// director's) colour by the circle of fifths; and how much the note layer
-// drives, 0 off .. 1. A style that paints with the melody mixes them in by
-// uNoteAmount, so it looks as it always did with the layer off.
-uniform float uNoteHues[6];
-uniform float uNoteAmount;
 
 // ---- where the fingers are ------------------------------------------------
 //
@@ -189,11 +182,9 @@ vec2 view() {
     // for good and stranding the user on a black screen.
     vec2 driftPhase = fract(vec2(uDriftX, uDriftY) * uTime * 0.025 + 0.25);
     uv += 1.0 - 2.0 * abs(2.0 * driftPhase - 1.0);
-    // Triangle-wave exponent: 1x -> 2x -> 1x smoothly, so the endless-zoom
-    // phase wrap never causes a visible scale pop (2^1 snapping to 2^0). The
-    // milkdrop post pass (pm_post_frag) already spells it this way; a sawtooth
-    // exponent halved the magnification once per cycle on every scene shader.
-    float z = uZoom * pow(2.0, 1.0 - abs(2.0 * uZoomPhase - 1.0));
+    // Endless zoom: this layer\'s magnification (lib_zoom draws two, an octave apart).
+    gZoomRead = true;
+    float z = uZoom * gZoomMag;
     uv /= max(z, 0.05);
 #ifndef VIEW_OWNS_SHAPE
     uv += uTurbulence * 0.06 * vec2(sin(uv.y * 6.0 + uTime), cos(uv.x * 6.0 + uTime * 1.3));

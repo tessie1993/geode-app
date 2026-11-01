@@ -19,18 +19,8 @@ class GeodeApp : Application() {
         super.onCreate()
         // A weak reference to the resumed activity, for Play's purchase sheet; costs nothing.
         registerActivityLifecycleCallbacks(activityTracker)
-        // Customize › Macros are process-wide in the engine: hand the saved knobs over before any
-        // surface (the app, the wallpaper, the dream, an export) builds a renderer.
-        MacroStore.get(this)
-        // The auto-director's switch is process-wide too, and so is Note & key reactions' (off until an
-        // entitlement arrives with the first play or the settings screen).
-        AutoDirectorStore.get(this)
-        NoteResponseStore.get(this)
-        if (BuildConfig.DEBUG) {
-            // Logcat echo is a debug convenience; release keeps failures in the
-            // ring buffer alone, where the crash report already includes them.
-            RingLog.echo = { tag, line -> android.util.Log.w(tag, line) }
-        }
+        // The crash file first: everything after this (the stores below load libgeode and call into it)
+        // is then caught by it.
         val previous = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
             runCatching {
@@ -44,5 +34,16 @@ class GeodeApp : Application() {
             }
             previous?.uncaughtException(thread, throwable)
         }
+        if (BuildConfig.DEBUG) {
+            // Logcat echo is a debug convenience; release keeps failures in the
+            // ring buffer alone, where the crash report already includes them.
+            RingLog.echo = { tag, line -> android.util.Log.w(tag, line) }
+        }
+        // Customize › Macros are process-wide in the engine: hand the saved knobs over before any
+        // surface (the app, the wallpaper, the dream, an export) builds a renderer.
+        MacroStore.get(this)
+        // The auto-director's switch is process-wide too, and so is Note & key reactions'.
+        AutoDirectorStore.get(this)
+        NoteResponseStore.get(this)
     }
 }

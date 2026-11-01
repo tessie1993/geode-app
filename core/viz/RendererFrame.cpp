@@ -2,8 +2,11 @@
 
 #include <algorithm>
 #include <cmath>
+#include <random>
 
+#include "viz/Catalogue.hpp"
 #include "viz/CompositeGrade.hpp"
+#include "viz/EndlessZoom.hpp"
 #include "viz/Quad.hpp"
 
 namespace geode::viz {
@@ -61,7 +64,7 @@ float Renderer::beginFrame(double timeSeconds) {
         if (Scene* scene = builtScene(id)) scene->setFragmentSource(src);
     }
     applyMilkRequests();
-    applyOverlayUploads();
+    applyUnderlayUpload();
     return dt;
 }
 
@@ -91,6 +94,16 @@ Scene* Renderer::resolveActiveScene() {
     return activeScene_;
 }
 
+uint64_t Renderer::noteSeed(uint64_t playSeed) {
+    if (!noteSeeded_ || playSeed != notePlaySeed_) {
+        std::random_device device;
+        noteEntropy_ = (static_cast<uint64_t>(device()) << 32) ^ device();
+        notePlaySeed_ = playSeed;
+        noteSeeded_ = true;
+    }
+    return playSeed ^ noteEntropy_;
+}
+
 SceneParams Renderer::resolveParams(float dt) {
     SceneParams requested;
     float morph;
@@ -108,14 +121,33 @@ SceneParams Renderer::resolveParams(float dt) {
     displayedParams_ = fade <= 0.01f ? requested : lerpParams(displayedParams_, requested, std::clamp(dt / fade, 0.0f, 1.0f));
     // The auto-director hears the frame first: its look lies under the macros, so the user's own knobs,
     // the LFOs, the reactions, the motion field and the safety clamp all still act on top of it.
-    director_.configure(director::global());
+    const DirectorConfig directorConfig = directorPinned_.load(std::memory_order_acquire)
+                                              ? DirectorConfig{pinnedDirectorAmount_.load(std::memory_order_relaxed),
+                                                               pinnedDirectorSeed_.load(std::memory_order_relaxed)}
+                                              : director::global();
+    director_.configure(directorConfig);
     director_.step(soundFrame_, dt);
     directedKnobs_ = director_.knobs(frameKnobs_);
     // Note & key reactions hear the frame next, inside the director's look: its hue anchors the notes'
-    // colours, and its feeling (the director's emotion, stepped whether or not it drives) is the mood. The
-    // play's seed is the director's, so an export of the same play draws the same blooms.
-    notes_.configure({note_response::globalEnabled(), director::global().seed});
-    notes_.step(soundFrame_, director_.emotion(), {director_.look().hue, director_.weight()}, dt);
+    // colours, and its feeling (the director's emotion, stepped whether or not it drives) is the mood. Its
+    // tuning and bloom look are the style's own (Customize), read before the director and macros touch them.
+    notes_.configure({note_response::globalEnabled(), noteSeed(directorConfig.seed)});
+    {
+        const SceneParams& own = displayedParams_;
+        NoteResponse::Inputs in;
+        in.anchorHue = director_.look().hue;
+        in.anchorWeight = director_.weight();
+        in.color = own.noteColor;
+        in.pitch = own.notePitch;
+        in.intervals = own.noteIntervals;
+        in.tension = own.noteTension;
+        in.chords = own.noteChords;
+        in.drums = own.noteDrums;
+        in.bloom = own.noteBloom;
+        in.look = static_cast<int>(catalogue::resolveBloomLook(own.bloomLook, activeScene_ ? activeScene_->id() : std::string()));
+        in.camFlat = camera_.pose().flat;
+        notes_.step(soundFrame_, director_.emotion(), in, dt);
+    }
     const auto& envValues = adsr_.tick(dt, soundFrame_);
     AdsrEngine::lfoOffsets(adsr_.configs, envValues, envRate_, envDepth_);
     const auto& lfoValues = lfo_.tick(dt, soundFrame_, envRate_.data(), envDepth_.data());
@@ -185,8 +217,8 @@ bool Renderer::ensureTargets() {
 
 void Renderer::deliverPcm(Scene& scene) {
     // Copy out under the lock, then hand the scene its own scratch buffer
-    // once unlocked: acceptPcm() (a copy of up to 4096 samples plus
-    // fillPcmRow) must never run while stateLock_ is held, or pushPcm() on
+    // once unlocked: acceptPcm() (a copy of up to 4096 samples and its
+    // upload) must never run while stateLock_ is held, or pushPcm() on
     // the PCM producer thread blocks behind a scene upload.
     int count = 0;
     {
@@ -309,13 +341,10 @@ void Renderer::composite(Scene& scene, const SceneParams& p, float progress, GLu
     in.underlayTex = compositePass_.underlayTexOrZero();
     in.underlayBlend = compositePass_.underlayBlendMode();
     in.underlayAmount = compositePass_.underlayAmount();
+    in.noteTint = notes_.uniforms().tint;
     compositePass_.draw(in);
-    // The note blooms over every family, under the user's overlay; nothing while there are none.
+    // The note blooms over every family, last; nothing while there are none.
     bloomPass_.draw(notes_.uniforms(), width_, height_, quadVao_);
-    // W00: overlay is its own draw call, over whatever composite() just wrote to targetFbo, so it
-    // never enters postFx/transitions/Layers and comes out identical live, in the wallpaper and in
-    // the offscreen export.
-    compositePass_.drawOverlay(quadVao_);
 }
 
 void Renderer::stepOverlays(Scene& scene, const SceneParams& p, float dt) {
@@ -343,8 +372,13 @@ void Renderer::stepCamera(const SceneParams& p, float dt) {
     look.yaw = std::clamp(look.yaw, -1.0f, 1.0f);
     look.pitch = std::clamp(look.pitch, -1.0f, 1.0f);
     camera_.setMoves(director_.moves(macros::camera(directedKnobs_)));
-    camera_.step(p, look, dt, reducedMotion_.load(std::memory_order_relaxed), sceneSpin_.load(std::memory_order_relaxed) != 0.0f,
-                 &soundFrame_);
+    // Endless zoom flies the rig only for a style that marches it (EndlessZoom.hpp); the
+    // families still on the old law keep their old camera too.
+    SceneParams rigParams = p;
+    rigParams.endlessZoom = p.endlessZoom && activeScene_ != nullptr && activeScene_->drawsCamera() &&
+                            !endless::keepsTriangle(activeScene_->id());
+    camera_.step(rigParams, look, dt, reducedMotion_.load(std::memory_order_relaxed),
+                 sceneSpin_.load(std::memory_order_relaxed) != 0.0f, &soundFrame_);
 }
 
 void Renderer::wireFlow(Scene& target, const SceneParams& p) {

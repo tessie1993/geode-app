@@ -28,10 +28,6 @@ void geode_dsp_destroy(geode_dsp* d) {
     std::unique_ptr<geode_dsp> owned(d);
 }
 
-int geode_dsp_band_count(void) {
-    return Equalizer::kBands;
-}
-
 float geode_dsp_band_center_hz(int band) {
     if (band < 0 || band >= Equalizer::kBands) return 0.0f;
     return Equalizer::centersHz()[static_cast<size_t>(band)];
@@ -43,10 +39,6 @@ void geode_dsp_set_enabled(geode_dsp* d, int enabled) {
 
 void geode_dsp_set_band(geode_dsp* d, int band, int millibels) {
     if (d) d->chain.equalizer().setBand(band, millibels);
-}
-
-int geode_dsp_band(geode_dsp* d, int band) {
-    return d ? d->chain.equalizer().band(band) : 0;
 }
 
 void geode_dsp_set_bass_boost(geode_dsp* d, int permille) {
@@ -75,14 +67,6 @@ void geode_dsp_reset(geode_dsp* d) {
 
 void geode_dsp_process(geode_dsp* d, float* interleaved, size_t frames) {
     if (d && interleaved && frames > 0) d->chain.process(interleaved, frames);
-}
-
-void geode_dsp_set_sample_rate(geode_dsp* d, int sample_rate) {
-    if (d) d->chain.setSampleRate(sample_rate);
-}
-
-int geode_dsp_sample_rate(geode_dsp* d) {
-    return d ? d->chain.sampleRate() : 0;
 }
 
 }

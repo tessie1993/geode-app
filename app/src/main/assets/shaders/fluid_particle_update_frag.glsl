@@ -10,6 +10,18 @@
 //      physically migrates with it,
 //   4. lifetime: age past ttl also recycles (staggered ttls, no waves).
 // MRT: state A = (pos.xy, vel.xy), state B = (age, ttl, emitterIndex, seed).
+//
+// The flow step is the midpoint (RK2) rule, FluidMath tracerStepRk2: the field
+// is sampled where the particle starts AND half a step on. Euler sampled only
+// the start, so in every vortex each step left a tracer on a slightly wider
+// circle; the population spiralled out of the swirls it was meant to draw and
+// piled up against the walls.
+//
+// A curl-noise stir (Bridson 2007; the analytic-gradient psrdnoise the Curl
+// Flow field uses) is added to the flow where the fluid is CALM, faded out as
+// the flow picks up. Without it a still passage froze the tracers in place;
+// the noise is divergence-free, so it keeps them drifting without clumping
+// them, and it gives way wherever the fluid has something to say.
 precision highp float;
 // GLSL ES 3.00 defaults fragment sampler2D to LOWP (range [-2,2), ~8
 // fraction bits). Half-float velocity values far exceed that; on GPUs
@@ -29,8 +41,26 @@ uniform vec4 uSpawns[8];       // (x, y, weight, jitterRadius)
 uniform int uSpawnCount;
 uniform vec4 uCatches[4];      // (x, y, pull, captureRadius)
 uniform int uCatchCount;
+uniform float uStir;           // curl-noise speed in calm fluid, sim units/s; 0 = off
+uniform float uStirFreq;       // its spatial frequency
+uniform float uStirTime;       // its rotation phase (FluidMath Drives::stirRate drives the rate)
 layout(location = 0) out vec4 outPosVel;
 layout(location = 1) out vec4 outMeta;
+//#include lib_psrdnoise2
+
+/** The fluid's velocity at a sim-space point, plus the calm-water stir. */
+vec2 flowAt(vec2 p) {
+    vec2 uv = vec2(p.x / uAspect, p.y) * 0.5 + 0.5;
+    vec2 flow = texture(uVelocityField, clamp(uv, 0.0, 1.0)).xy * uFlowScale;
+    if (uStir > 0.0) {
+        vec2 g;
+        psrdnoise(p * uStirFreq, vec2(0.0), uStirTime, g);
+        float calm = 1.0 - smoothstep(0.05, 0.6, length(flow));
+        flow += vec2(g.y, -g.x) * (uStir * calm);
+    }
+    return flow;
+}
+
 float hash(vec2 p) {
     p = fract(p * vec2(443.897, 441.423));
     p += dot(p, p.yx + 19.19);
@@ -94,11 +124,11 @@ void main() {
         v += d * inversesqrt(max(dist2, 1e-6)) * f * uDt;
     }
 
-    // sim -> texel space for the field fetch.
-    vec2 uv = vec2(p.x / uAspect, p.y) * 0.5 + 0.5;
-    vec2 flow = texture(uVelocityField, clamp(uv, 0.0, 1.0)).xy * uFlowScale;
     // Frame-rate-independent inertia: uDrag is the per-1/60s blend factor.
     float k = 1.0 - pow(1.0 - uDrag, uDt * 60.0);
+    // Midpoint: a trial velocity from the start, the field read half a step on.
+    vec2 trial = v + (flowAt(p) - v) * k;
+    vec2 flow = flowAt(p + 0.5 * uDt * trial);
     v += (flow - v) * k;
     p += v * uDt;
     // Wrap at the domain edges so the field never empties.

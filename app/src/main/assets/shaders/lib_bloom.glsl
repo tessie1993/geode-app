@@ -1,4 +1,6 @@
-// lib_bloom: the note bloom, a paradoxical fractal flower (core/viz/NoteResponse, drawn by NoteBloomPass).
+// lib_bloom: the note blooms (core/viz/NoteResponse, drawn by NoteBloomPass). Four looks, picked per style
+// (viz/Catalogue BloomLook, SceneParams::bloomLook): the paradoxical fractal flower below, then a soft
+// glow, a ripple ring and a burst of sparks at the end of the file.
 //
 // One flower per sounding note, drawn in its own unit disc (radius 1 = the bloom's radius). What makes it
 // paradoxical, and what each piece costs per pixel inside the disc:
@@ -146,4 +148,128 @@ vec4 bloomFlower(vec2 p, vec4 shape, vec4 look, float hues[6]) {
     // Keep the flower inside its disc.
     float edge = smoothstep(1.0, 0.86, r0);
     return vec4(col * edge, clamp(cover * edge, 0.0, 1.0));
+}
+
+// ---- The other three looks (SceneParams::bloomLook, viz/Catalogue BloomLook) ---------------------------
+// Same arguments and result as bloomFlower, so the pass picks one per frame (uBloomLook) and nothing else
+// changes. Each keeps the flower's language: the note's hue swept toward the last notes' colours, a hot
+// neon rim, tension fraying the edges, the petal count as the look's own symmetry. All cheaper than the
+// flower: roughly 60 (glow), 90 (ripple) and 70 (burst) ALU a pixel inside the disc.
+
+float bloomHash(float x) { return fract(sin(x * 91.3458 + 17.17) * 43758.5453); }
+
+// A soft glow: an orb of light with a halo ring and faint star rays, one per petal, that turn slowly.
+// For gas, glass, branches and soft styles, where a hard flower would cut the picture.
+vec4 bloomGlow(vec2 p, vec4 shape, vec4 look, float hues[6]) {
+    float petals = shape.x;
+    float open = shape.z;
+    float angle = shape.w;
+    float hue0 = look.x;
+    float tension = look.z;
+    int ring = int(look.w);
+    float r = length(p);
+    float a = atan(p.y, p.x);
+    float core = exp(-r * r * mix(30.0, 9.0, open));
+    float haloR = mix(0.2, 0.62, open) + tension * 0.02 * sin(a * 17.0 + look.y * 40.0);
+    float halo = exp(-pow((r - haloR) * 16.0, 2.0)) * open;
+    float rays = pow(abs(cos(0.5 * petals * a + angle)), 24.0) * exp(-r * 3.2) * open;
+    float h = mix(hue0, hues[ring], smoothstep(0.0, 0.7, r)) + 0.08 * cos(BLOOM_TAU * (r * 1.5 + look.y));
+    vec3 col = bloomNeon(h, core) * core * 0.9 + bloomNeon(h + 0.06, halo) * halo * 0.6 + bloomNeon(hue0, rays) * rays * 0.45;
+    float edge = smoothstep(1.0, 0.8, r);
+    return vec4(col * edge, clamp((core + halo * 0.5 + rays * 0.3) * edge, 0.0, 1.0));
+}
+
+// A ripple: rings spreading from the note like a drop on still water, three of them a step apart, each in
+// an earlier note's colour, their brightness rippled by the petal count so they interfere like waves.
+vec4 bloomRipple(vec2 p, vec4 shape, vec4 look, float hues[6]) {
+    float petals = shape.x;
+    float open = shape.z;
+    float angle = shape.w;
+    float hue0 = look.x;
+    float seed = look.y;
+    float tension = look.z;
+    int ring = int(look.w);
+    float r = length(p);
+    float a = atan(p.y, p.x);
+    vec3 col = vec3(0.0);
+    float cover = 0.0;
+    for (int i = 0; i < 3; i++) {
+        float fi = float(i);
+        float ri = open * 0.95 - fi * 0.2;
+        if (ri <= 0.02) break;
+        ri += tension * 0.025 * sin(a * 23.0 + fi * 2.0 + seed * 30.0);
+        float width = mix(26.0, 60.0, fi / 2.0);
+        float band = exp(-pow((r - ri) * width, 2.0));
+        // Interference: the ring brightens where the note's symmetry crosses it.
+        band *= 0.7 + 0.3 * cos(petals * a + angle * (fi + 1.0) + seed * 6.0);
+        // Each ring fades as it spreads, as a wave on water loses height.
+        band *= (1.0 - ri) * (1.0 - 0.25 * fi);
+        int hi = ring + i;
+        hi = hi - 6 * (hi / 6);
+        float h = mix(hue0, hues[hi], 0.5 * fi) + 0.06 * cos(BLOOM_TAU * (r * 3.0 + seed));
+        col += bloomNeon(h, band) * band;
+        cover += band * (1.0 - cover);
+    }
+    // A faint caustic sheen inside the front ring.
+    float inner = smoothstep(open * 0.95, open * 0.6, r) * open * (1.0 - open);
+    float caustic = pow(abs(cos(r * 18.0 - angle * 3.0) * cos(a * petals * 0.5 + r * 6.0)), 6.0) * inner;
+    col += bloomNeon(hue0 + 0.1, caustic) * caustic * 0.35;
+    float edge = smoothstep(1.0, 0.9, r);
+    return vec4(col * edge, clamp((cover + caustic * 0.2) * edge, 0.0, 1.0));
+}
+
+// A burst: sparks thrown out from the note, three per petal, each a short streak with a hot head and a
+// cooling tail, at its own angle and speed; a bright heart flashes at the start and gives way to them.
+vec4 bloomBurst(vec2 p, vec4 shape, vec4 look, float hues[6]) {
+    float petals = shape.x;
+    float open = shape.z;
+    float angle = shape.w;
+    float hue0 = look.x;
+    float seed = look.y;
+    float tension = look.z;
+    int ring = int(look.w);
+    float r = length(p);
+    float a = atan(p.y, p.x) + 0.3 * angle;
+    float sparks = petals * 3.0;
+    float sector = BLOOM_TAU / sparks;
+    float idx = floor(a / sector);
+    float jitter = bloomHash(idx + seed * 13.0);
+    float speed = 0.55 + 0.45 * bloomHash(idx * 1.7 + seed * 7.0);
+    float sa = (idx + 0.5 + 0.6 * (jitter - 0.5)) * sector;
+    // Distance across the spark's ray, and along it from the head back to the tail.
+    vec2 q = r * vec2(cos(a - sa), sin(a - sa));
+    float head = open * speed * 0.95;
+    float len = 0.12 + 0.25 * open + tension * 0.1;
+    float along = (head - q.x) / max(len, 1e-3);
+    float across = abs(q.y) + tension * 0.004 * sin(q.x * 90.0 + seed * 20.0);
+    float streak = smoothstep(1.0, 0.0, along) * step(0.0, along) * exp(-across * mix(160.0, 90.0, open));
+    streak *= 1.0 - 0.6 * open;
+    float tail = clamp(along, 0.0, 1.0);
+    int hi = ring + int(mod(idx, 6.0));
+    hi = hi - 6 * (hi / 6);
+    float h = mix(hue0, hues[hi], 0.4 * tail + 0.3 * jitter);
+    vec3 col = bloomNeon(h, (1.0 - tail) * streak) * streak;
+    // The heart: bright at the strike, gone as the sparks fly.
+    float heart = exp(-r * r * 60.0) * (1.0 - open);
+    col += bloomNeon(hue0, heart) * heart;
+    float edge = smoothstep(1.0, 0.88, r);
+    return vec4(col * edge, clamp((streak + heart) * edge, 0.0, 1.0));
+}
+
+// One bloom in the frame's look: 1 flower (and anything unset), 2 glow, 3 ripple, 4 burst.
+vec4 bloomDraw(int lookId, vec2 p, vec4 shape, vec4 look, float hues[6]) {
+    if (lookId == 2) return bloomGlow(p, shape, look, hues);
+    if (lookId == 3) return bloomRipple(p, shape, look, hues);
+    if (lookId == 4) return bloomBurst(p, shape, look, hues);
+    return bloomFlower(p, shape, look, hues);
+}
+
+// The disc turned in 3D: a screen point mapped back onto the flower's tilted plane (radians about the
+// screen's x and y axes), with a touch of perspective so the near edge reads larger than the far one.
+vec2 bloomUntilt(vec2 p, vec2 tilt) {
+    vec2 c = max(cos(tilt), vec2(0.35));
+    vec2 q = vec2(p.x / c.y, p.y / c.x);
+    float w = 1.0 + 0.3 * (q.x * sin(tilt.y) + q.y * sin(tilt.x));
+    // Never below 0.8, so the tilted disc never reaches past 1.25 radii on screen (the pass's reach).
+    return q * clamp(w, 0.8, 1.4);
 }

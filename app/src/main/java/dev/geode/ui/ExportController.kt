@@ -105,6 +105,12 @@ internal class ExportController(
         fun keyframes(): KeyframeSheet
 
         suspend fun loadExportTake(): PerformanceTake.Timeline?
+
+        /** Whether the entitlement allows rendering [sceneId] (FeatureGate.allowsStyle). */
+        fun allowsStyle(sceneId: String): Boolean
+
+        /** Offers Pro for a locked style; safe from any thread (the paywall request is a StateFlow). */
+        fun onStyleLocked()
     }
 
     private val exporter = VideoExporter(application)
@@ -190,6 +196,14 @@ internal class ExportController(
                         } else {
                             sceneFactory
                         }
+                    // The style that renders is checked here, not only the one on stage when Render was
+                    // pressed: a take records whatever was on stage, a previewed Pro style or one used
+                    // during the trial included, and exporting it must not hand that style out for free.
+                    if (!host.allowsStyle(factory.sceneId)) {
+                        _exportState.value = ExportUiState()
+                        host.onStyleLocked()
+                        return@launch
+                    }
                     val result =
                         exporter.export(
                             audioUri = uri,

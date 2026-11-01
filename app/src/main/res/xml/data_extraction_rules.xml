@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Android 12+. <cloud-backup> is the same shape as backup_rules.xml: keep
-     user-authored data, drop the rebuildable cache and the crash file.
+     user-authored data, drop the crash file and the old "analysis" folder (no
+     longer written; the exclude stays for old installs that may still hold one).
      <device-transfer> is deliberately NOT - see its own comment below.
      BackupRulesCoverageTest pins both, and the difference between them. -->
 <data-extraction-rules>
@@ -27,11 +28,9 @@
             path="takes" />
     </cloud-backup>
     <!-- A direct phone-to-phone copy has no cloud quota, so the excludes above
-         are not repeated here: carrying the analysis cache and the imported
-         textures across is the difference between a library that is already
-         analysed on the new phone and one that re-derives every BPM. Only the
-         crash file is dropped, because it describes hardware the user just
-         stopped using. -->
+         are not repeated here: the imported textures and takes come across
+         whole. Only the crash file is dropped, because it describes hardware
+         the user just stopped using. -->
     <device-transfer>
         <exclude
             domain="file"

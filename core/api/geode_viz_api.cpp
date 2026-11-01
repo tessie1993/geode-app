@@ -79,10 +79,6 @@ void geode_viz_set_params(geode_viz* v, const float* values, int count) {
     v->renderer.setParams(p);
 }
 
-int geode_viz_set_param(geode_viz* v, const char* name, float value) {
-    return (v && name && v->renderer.setParam(name, value)) ? 1 : 0;
-}
-
 void geode_viz_set_reduced_motion(geode_viz* v, int on) {
     if (v) v->renderer.setReducedMotion(on != 0);
 }
@@ -145,10 +141,6 @@ void geode_viz_reset_audio(geode_viz* v) {
 
 void geode_viz_set_sound_tuning(geode_viz* v, const GeodeSoundTuning* tuning) {
     if (v && tuning) v->renderer.setSoundTuning(*tuning);
-}
-
-void geode_viz_sound_frame(geode_viz* v, GeodeSoundFrame* out) {
-    if (v && out) *out = v->renderer.soundFrame();
 }
 
 void geode_viz_push_pcm(geode_viz* v, const float* mono, int count) {
@@ -315,6 +307,10 @@ void geode_viz_set_quality(geode_viz* v, float render_scale, float march_scale, 
     if (v) v->renderer.setUserQuality(render_scale, march_scale, post_fx != 0, adaptive != 0);
 }
 
+void geode_viz_set_director(geode_viz* v, float amount, long long seed) {
+    if (v) v->renderer.pinDirector(amount, static_cast<uint64_t>(seed));
+}
+
 void geode_viz_set_offscreen(geode_viz* v, int on) {
     if (!v) return;
     // An export never shows a half-built scene: each one is built whole on the frame that asks for it.
@@ -343,10 +339,6 @@ size_t geode_viz_scene_ids(geode_viz* v, char* out, size_t capacity) {
         out[n] = '\0';
     }
     return joined.size();
-}
-
-void geode_viz_set_overlay_rgba(geode_viz* v, const uint32_t* pixels, int width, int height) {
-    if (v) v->renderer.setOverlayRgba(pixels, width, height);
 }
 
 void geode_viz_set_underlay_rgba(geode_viz* v, const uint32_t* pixels, int width, int height, int blend, float amount) {

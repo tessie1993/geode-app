@@ -16,22 +16,9 @@ float heightDecayPerSubstep(float damping, float subDt) {
     return std::pow(per60, subDt * 60.0f);
 }
 
-float dropProfile(float dist, float radius, float amp) {
-    const float r = std::max(radius, 1e-4f);
-    return amp * std::exp(-(dist * dist) / (r * r));
-}
-
 float cflClampedDt(float c, float dt, float dx) {
     if (c <= 1e-6f) return dt;
     return std::min(dt, 0.7f * dx / c);
-}
-
-std::pair<float, float> refractionOffset(float hL, float hR, float hT, float hB, float strength) {
-    float ox = (hR - hL) * strength;
-    float oy = (hT - hB) * strength;
-    const float len = std::sqrt(ox * ox + oy * oy);
-    const float k = kRefractionCap / (kRefractionCap + len);
-    return {ox * k, oy * k};
 }
 
 float inkDissipation(float dissipation, float dt) { return std::clamp(1.0f - std::clamp(dissipation, 0.0f, 8.0f) * dt, 0.0f, 1.0f); }

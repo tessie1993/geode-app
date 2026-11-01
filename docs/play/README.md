@@ -18,4 +18,4 @@ answers it points to.
 | [../privacy-policy.md](../privacy-policy.md) / [../privacy-policy.html](../privacy-policy.html) | The privacy policy; `.github/workflows/pages.yml` publishes the HTML to GitHub Pages |
 
 Build: `.github/workflows/release.yml` produces the AAB (signed when the upload-key
-secrets exist) on every pull request and on `v*` tags.
+secrets exist) only when run by hand from the Actions tab.

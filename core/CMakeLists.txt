@@ -8,6 +8,9 @@ add_library(geode_core STATIC
     api/geode_params_api.cpp
     api/geode_sound_api.cpp
     sound/Fft.cpp
+    sound/Form.cpp
+    sound/Harmony.cpp
+    sound/Rhythm.cpp
     sound/SoundEngine.cpp
     library/Tags.cpp
     audio/player/Resampler.cpp

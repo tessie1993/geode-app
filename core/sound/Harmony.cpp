@@ -74,42 +74,119 @@ float distance(const std::array<float, 12>& a, const std::array<float, 12>& b) {
 
 float hueOf(int pitchClass) { return static_cast<float>((pitchClass * 7) % 12) / 12.0f; }
 
+constexpr ScaleInfo kScales[] = {
+#include "sound/ScaleTable.inc"
+};
+constexpr int kScaleCount = static_cast<int>(sizeof(kScales) / sizeof(kScales[0]));
+
 }  // namespace
 
-void Harmony::configure(float binHz, int bins) {
-    map_.clear();
-    for (int k = 1; k < bins; k++) {
-        const float hz = static_cast<float>(k) * binHz;
-        if (hz < kLowHz || hz > kHighHz) continue;
-        const float midi = 69.0f + 12.0f * std::log2(hz / 440.0f);
-        const float lo = std::floor(midi);
-        const int pc = (static_cast<int>(lo) % 12 + 12) % 12;
-        map_.push_back(BinClass{k, pc, 1.0f - (midi - lo)});
+int scaleCount() { return kScaleCount; }
+const ScaleInfo& scaleInfo(int index) { return kScales[std::clamp(index, 0, kScaleCount - 1)]; }
+
+void Harmony::detectScale() {
+    // Every scale on every root against the slow chroma: the mean of the classes inside it minus the mean
+    // of those outside (doubled), plus a pull toward a strong root and fifth, which is what tells the seven modes of
+    // one note set apart (C Ionian and A Aeolian share every note; the music's home note does not).
+    // Chromatic has no outside: its in-out term is zero, so it wins only when no scale fits at all.
+    std::array<float, 12> c{};
+    normalise(slow_, c.data());
+    float mean = 0.0f;
+    for (float v : c) mean += v / 12.0f;
+    int best = -1;
+    float bestScore = -1e9f;
+    float bestFit = 0.0f;
+    float current = -1e9f;
+    for (int s = 0; s < kScaleCount; s++) {
+        const unsigned mask = kScales[s].mask;
+        for (int root = 0; root < 12; root++) {
+            float in = 0.0f;
+            float out = 0.0f;
+            int n = 0;
+            for (int k = 0; k < 12; k++) {
+                const float v = c[(root + k) % 12];
+                if (mask & (1u << k)) {
+                    in += v;
+                    n++;
+                } else {
+                    out += v;
+                }
+            }
+            // Outside notes count double: a sounding note the scale leaves out is stronger evidence against
+            // it than a scale note left unplayed, which is what stops a pentatonic (fewer, louder notes)
+            // swallowing a seven-note mode whose extra degrees are quieter.
+            const float fit = n < 12 ? in / static_cast<float>(n) - 2.0f * out / static_cast<float>(12 - n) : 0.0f;
+            const float home = 0.5f * (c[root] - mean) + ((mask & (1u << 7)) ? 0.25f * (c[(root + 7) % 12] - mean) : 0.0f);
+            const float score = fit + home;
+            if (score > bestScore) {
+                bestScore = score;
+                best = s * 12 + root;
+                bestFit = fit;
+            }
+            if (s == scale_ && root == scaleRoot_) current = score;
+        }
     }
+    const float dt = 0.25f;
+    if (scale_ < 0) {
+        scale_ = best / 12;
+        scaleRoot_ = best % 12;
+    } else if (best != scale_ * 12 + scaleRoot_ && bestScore - current > 0.03f) {
+        scaleHold_ = best == scaleRival_ ? scaleHold_ + dt : dt;
+        scaleRival_ = best;
+        if (scaleHold_ >= 2.0f) {  // two seconds of a better fit before the mood changes
+            scale_ = best / 12;
+            scaleRoot_ = best % 12;
+            scaleHold_ = 0.0f;
+            scaleRival_ = -1;
+        }
+    } else {
+        scaleHold_ = 0.0f;
+        scaleRival_ = -1;
+    }
+    scaleFit_ = follow(scaleFit_, std::clamp(bestFit / 0.5f, 0.0f, 1.0f), 1.0f, dt);
+}
+
+void Harmony::configure(float binHz, int bins) {
+    binHz_ = binHz;
+    from_ = std::max(2, static_cast<int>(std::ceil(kLowHz / binHz)));
+    to_ = std::min(bins - 2, static_cast<int>(kHighHz / binHz) + 1);
     reset();
 }
 
 void Harmony::reset() {
-    std::vector<BinClass> map = std::move(map_);
+    const float binHz = binHz_;
+    const int from = from_;
+    const int to = to_;
     *this = Harmony();
-    map_ = std::move(map);
+    binHz_ = binHz;
+    from_ = from;
+    to_ = to;
 }
 
 void Harmony::step(const float* mag, float dt, bool silent, GeodeSoundFrame& out) {
-    if (!silent && !map_.empty()) {
+    if (!silent && to_ > from_) {
         float top = 0.0f;
-        for (const BinClass& b : map_) top = std::max(top, mag[b.bin]);
+        for (int k = from_; k < to_; k++) top = std::max(top, mag[k]);
         if (top > 1e-9f) {
-            // Log-compressed over the frame's own peak (Müller's CLP chroma): loudness divides out and a
-            // quiet third still counts beside a loud root.
+            // Only spectral peaks count, each on its nearest pitch class (the peak's position refined
+            // between bins): summing every bin, a window's leakage and the noise floor lifted all twelve
+            // classes together and no scale stood out. Log-compressed over the frame's own peak (Müller's
+            // CLP chroma), so loudness divides out and a quiet third still counts beside a loud root.
             std::array<float, 12> raw{};
-            for (const BinClass& b : map_) {
-                const float v = std::log1p(100.0f * mag[b.bin] / top);
-                raw[b.pc] += b.weight * v;
-                raw[(b.pc + 1) % 12] += (1.0f - b.weight) * v;
+            for (int k = from_; k < to_; k++) {
+                const float m = mag[k];
+                if (m < 0.03f * top || m <= mag[k - 1] || m < mag[k + 1]) continue;
+                const float a = mag[k - 1];
+                const float c = mag[k + 1];
+                const float curve = a - 2.0f * m + c;
+                const float delta = curve < 0.0f ? std::clamp(0.5f * (a - c) / curve, -0.5f, 0.5f) : 0.0f;
+                const float midi = 69.0f + 12.0f * std::log2((static_cast<float>(k) + delta) * binHz_ / 440.0f);
+                const int pc = (static_cast<int>(std::lround(midi)) % 12 + 12) % 12;
+                raw[pc] += std::log1p(20.0f * m / top);
             }
             float rawTop = 0.0f;
             for (float v : raw) rawTop = std::max(rawTop, v);
+            if (rawTop <= 0.0f) rawTop = 1.0f;
             for (float& v : raw) v /= rawTop;
             if (!heard_) {
                 fast_ = medium_ = slow_ = raw;
@@ -127,6 +204,8 @@ void Harmony::step(const float* mag, float dt, bool silent, GeodeSoundFrame& out
     normalise(slow_, out.chromaSlow);
     if (!heard_) {
         out.keyMajor = 0.5f;
+        out.scale = -1.0f;
+        out.scaleBrightness = 0.5f;
         return;
     }
 
@@ -215,6 +294,17 @@ void Harmony::step(const float* mag, float dt, bool silent, GeodeSoundFrame& out
             }
         }
         out.harmonicChange = trigger_.step(change_, 0.25f, 0.5f, dt);
+
+        sinceScale_ += dt;
+        if (sinceScale_ >= 0.25f) {
+            sinceScale_ -= 0.25f * std::floor(sinceScale_ / 0.25f);
+            detectScale();
+        }
+        if (scale_ >= 0) {
+            // The mood glides (about a second), so a change of mode is a turn of the light, not a cut.
+            scaleBright_ = follow(scaleBright_, 0.5f + 0.5f * kScales[scale_].brightness, 1.0f, dt);
+            scaleTension_ = follow(scaleTension_, kScales[scale_].tension, 1.0f, dt);
+        }
     }
 
     const bool minor = key_ >= 12;
@@ -225,6 +315,11 @@ void Harmony::step(const float* mag, float dt, bool silent, GeodeSoundFrame& out
     out.keyClarity = clarity_;
     out.chordHue = chordHue_;
     out.tension = tension_;
+    out.scale = static_cast<float>(scale_);
+    out.scaleRoot = static_cast<float>(scaleRoot_) / 12.0f;
+    out.scaleBrightness = scaleBright_;
+    out.scaleTension = scaleTension_;
+    out.scaleFit = scaleFit_;
 }
 
 }  // namespace geode::sound

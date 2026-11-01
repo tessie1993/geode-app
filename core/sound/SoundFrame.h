@@ -22,7 +22,7 @@
 #define GEODE_SOUND_SPECTRUM_POINTS 64
 #define GEODE_SOUND_WAVEFORM_POINTS 128
 #define GEODE_SOUND_CHROMA 12
-#define GEODE_SOUND_SCALARS 103
+#define GEODE_SOUND_SCALARS 108
 #define GEODE_SOUND_FRAME_FLOATS                                                                       \
     (GEODE_SOUND_SCALARS + GEODE_SOUND_EQ_BANDS + GEODE_SOUND_SPECTRUM_POINTS + GEODE_SOUND_WAVEFORM_POINTS + \
      3 * GEODE_SOUND_CHROMA)
@@ -155,6 +155,14 @@ typedef struct GeodeSoundFrame {
     float chordHue;     /* the medium chroma's centre on the circle of fifths, 0..1: moves with each chord */
     float tension;      /* dissonance of the medium chroma (seconds, tritones, sevenths sounding together), 0..1 */
     float harmonicChange; /* trigger: the last half second's chroma moved away from the two seconds before */
+    /* Scale and mode, from the musical intelligence database (docs/musical-intelligence, core/sound/ScaleTable.inc):
+     * the catalogue entry (46 scales and modes: the church modes, harmonic and melodic minor and their
+     * modes, pentatonics, blues, symmetric and exotic scales) that best fits the slow chroma on its root. */
+    float scale;        /* the catalogue index, in scales.csv order; -1 before any music */
+    float scaleRoot;    /* the scale's root pitch class, C = 0 … B = 11/12 */
+    float scaleBrightness; /* the scale's mood: 0 darkest (Locrian, super Locrian) … 1 brightest (Lydian), 0.5 neutral */
+    float scaleTension; /* how unstable the scale sounds (tritones, minor seconds, augmented steps), 0..1 */
+    float scaleFit;     /* how clearly the music sits in that scale, 0 (atonal, noise) … 1 */
     /* Form, from core/sound/Form: per-beat features in a 32-beat ring, Foote's checkerboard novelty, and
      * the energy arc. */
     float novelty;      /* how unlike the bar just played is to the 16 beats before it, 0..1 */

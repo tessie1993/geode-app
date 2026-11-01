@@ -1,16 +1,25 @@
 #pragma once
 #include <array>
-#include <vector>
 
 #include "sound/SoundFrame.h"
 #include "sound/Stages.hpp"
 
 namespace geode::sound {
 
+// One entry of the musical intelligence database's scale catalogue (tools/musical_intelligence.py).
+struct ScaleInfo {
+    const char* id;
+    unsigned mask;     // pitch classes above the root, bit 0 = the root
+    float brightness;  // -1 dark … 1 bright
+    float tension;     // 0 calm … 1 tense
+};
+int scaleCount();
+const ScaleInfo& scaleInfo(int index);
+
 // The harmony half of the musical layer: chroma, key, the chord's colour, tension and harmonic change,
 // read once per frame from the sound engine's long (pitch) spectrum.
 //
-//   |X| 250 Hz–2 kHz ─► log over the frame's peak ─► pitch classes ─┬► fast (0.1 s), medium (0.5 s), slow (4 s)
+//   |X| 250 Hz–2 kHz ─► spectral peaks ─► log over the frame's peak ─► nearest pitch class ─┬► fast (0.1 s), medium (0.5 s), slow (4 s)
 //     slow ─► Krumhansl–Kessler key profiles (24 keys, Pearson) ─► key, major/minor, clarity
 //     medium ─► circle-of-fifths centre (chordHue), interval-class dissonance (tension)
 //     fast, every 0.1 s ─► last 0.5 s against the 2 s before ─► harmonic change
@@ -26,16 +35,14 @@ public:
     void reset();
 
 private:
+    void detectScale();
+
     static constexpr int kSnapshots = 25;  // 2.5 s at 10 a second
     static constexpr float kSnapshotEvery = 0.1f;
 
-    // Each bin's share of its two nearest pitch classes.
-    struct BinClass {
-        int bin;
-        int pc;
-        float weight;  // to pc; 1 - weight to pc + 1
-    };
-    std::vector<BinClass> map_;
+    float binHz_ = 10.0f;
+    int from_ = 1;  // the bins searched for peaks, 250 Hz–2 kHz
+    int to_ = 1;
 
     std::array<float, 12> fast_{};
     std::array<float, 12> medium_{};
@@ -54,6 +61,15 @@ private:
     float sinceSnapshot_ = 0.0f;
     float change_ = 0.0f;
     Trigger trigger_;
+    // Scale detection, four times a second on the slow chroma.
+    float sinceScale_ = 0.0f;
+    int scale_ = -1;
+    int scaleRoot_ = 0;
+    int scaleRival_ = -1;   // scale × 12 + root of a better fit, and how long it has held
+    float scaleHold_ = 0.0f;
+    float scaleFit_ = 0.0f;
+    float scaleBright_ = 0.5f;
+    float scaleTension_ = 0.0f;
 };
 
 }  // namespace geode::sound

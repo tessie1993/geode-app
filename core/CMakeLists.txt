@@ -21,6 +21,7 @@ add_library(geode_core STATIC
     viz/Sha256.cpp
     viz/ProgramBinaryCache.cpp
     viz/Program.cpp
+    viz/ProgramStager.cpp
     viz/Texture.cpp
     viz/Framebuffer.cpp
     viz/Quad.cpp

@@ -68,6 +68,11 @@ pre-scan (WorkManager, IO) ──► same C++ analysers over the whole file
                                + models (beats, chords, key) ──► TrackMap file
 ```
 
+- **Consumers keep their fields.** `core/viz/NoteResponse` (Note & key reactions, #211,
+  `note-key-response.md`) reads the frame's onsets, hits, flatness, hfc, pitch confidence, key clarity,
+  scale fit, chords and dissonance. v2 makes those values better, never renamed or rescaled: same
+  ranges, same meaning, so #211's percussiveness and tension maths need no retuning. Its drums-vs-tones
+  split can later read `onsetHard` and `onsetSoft` (§5) directly.
 - **One code path.** The pre-scan runs the same C++ analysers as live, plus the models, at file speed. A
   map is an *addition*: without one, live analysis is complete on its own (mic, capture, an unscanned track).
 - **Determinism domain.** arm64 builds, same binary: bit-identical between live and export. armv7 and the

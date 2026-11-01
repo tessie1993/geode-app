@@ -1,6 +1,5 @@
 package dev.geode.wallpaper
 
-import android.os.SystemClock
 import android.service.dreams.DreamService
 import android.view.ViewGroup
 import dev.geode.audio.AudioBus
@@ -11,9 +10,6 @@ import dev.geode.data.PlayerPrefsStore
 import dev.geode.data.PresetStore
 import dev.geode.data.ThemeStore
 import dev.geode.pro.ProFeature
-import dev.geode.render.AmbientPacing
-import dev.geode.render.FrameRatePolicy
-import dev.geode.render.FrameSink
 import dev.geode.render.VisualizerRenderer
 import dev.geode.render.VisualizerView
 
@@ -48,10 +44,7 @@ class VisualizerDreamService : DreamService() {
         val view = VisualizerView(this)
         visualizerView = view
         restoreLiveState(view.visualizerRenderer, prefsFiles)
-        val store = PerformanceStore(prefsFiles.general, this)
-        val performance = store.settings.value
-        view.applyPerformance(performance)
-        followTheMusic(view, AmbientPacing(store.ambientFrameRate.value, performance.fpsCap) { AudioBus.soundInput })
+        view.applyPerformance(PerformanceStore(prefsFiles.general, this).settings.value)
         view.visualizerRenderer.pcmProvider = { null }
         view.visualizerRenderer.soundInput = { AudioBus.soundInput }
         setContentView(view)
@@ -62,30 +55,6 @@ class VisualizerDreamService : DreamService() {
         (visualizerView?.parent as? ViewGroup)?.removeView(visualizerView)
         visualizerView = null
         super.onDetachedFromWindow()
-    }
-
-    /**
-     * Settings › Performance › Wallpaper and screensaver, as the wallpaper does it: the pacing
-     * settles the rate on every paced frame, and a change goes to the view's pacer and surface.
-     * Replaces the cap [VisualizerView.applyPerformance] just set; [AmbientPacing] keeps to it.
-     */
-    private fun followTheMusic(
-        view: VisualizerView,
-        pacing: AmbientPacing,
-    ) {
-        var pacedFps = pacing.targetFps
-        view.framePacer.policy = FrameRatePolicy.Capped(pacedFps.toFloat())
-        view.frameListener =
-            FrameSink {
-                val fps = pacing.onFrame(SystemClock.uptimeMillis())
-                if (fps != pacedFps) {
-                    pacedFps = fps
-                    view.framePacer.policy = FrameRatePolicy.Capped(fps.toFloat())
-                    view.holder.surface
-                        ?.takeIf { it.isValid }
-                        ?.let(view.framePacer::applyTo)
-                }
-            }
     }
 
     /** Mirrors [VisualizerWallpaperService]'s own `restoreLiveState`: the same prefs, the same keys. */

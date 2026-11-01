@@ -30,9 +30,9 @@ ABIs arm64-v8a and x86_64. The full version history is in
   parameter with per-param locks, a randomizer, LFO and ADSR modulation, a
   palette maker, presets (JSON + `.milk`) and photosensitivity clamps.
 - **Studio** — a multi-lane timeline (visual, media, text, overlay, audio
-  lanes) with trim, split, ripple, snapping, markers, tap-in, keyframe
-  curves for scene and clip parameters, GL Transitions between clips, speed
-  ramps, `.cube` LUTs and per-channel gamma,
+  lanes) with trim, split, ripple, snapping, markers, tap-in, auto-cut from the
+  analysed track, keyframe curves for scene and clip parameters, GL
+  Transitions between clips, speed ramps, `.cube` LUTs and per-channel gamma,
   captions from lyrics or SRT (import and export). The visualizer export is
   frame-exact from the analysis timeline; the cut export runs on Media3
   Transformer. Both encode H.264 or HEVC, with H.264 as the fallback when a

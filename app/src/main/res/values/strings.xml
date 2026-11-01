@@ -93,13 +93,6 @@
     <string name="perf_adaptive">Adapt to frame time</string>
     <string name="perf_adaptive_hint">Steps quality down while frames run slow, and back up once they keep up.</string>
     <string name="perf_export_note">Applies to the visualizer, wallpaper and screensaver. Exports always render at full quality.</string>
-    <string name="perf_ambient_title">Wallpaper and screensaver</string>
-    <string name="perf_ambient_fps">Frame rate</string>
-    <string name="perf_ambient_saver">Battery saver</string>
-    <string name="perf_ambient_smooth">Smooth</string>
-    <string name="perf_ambient_saver_hint">30 fps while music plays, 15 fps when no music is playing. Easiest on the battery.</string>
-    <string name="perf_ambient_smooth_hint">60 fps while music plays, 15 fps when no music is playing. Uses more battery.</string>
-    <string name="perf_ambient_note">Never above the frame rate cap. The visualizer inside MuzViz and exports are not affected.</string>
 
     <!-- Settings > Help -->
     <string name="help_topics_group">How things work</string>
@@ -797,6 +790,10 @@
     <string name="director_switch">Let the music direct the visuals</string>
     <string name="director_body">The key, the scale and the song\'s sections decide the colours, the motion, the camera and what reacts to what, on every style. Each play looks different; the feeling stays.</string>
     <string name="director_taste">Free: the first minute of each song. Pro: the whole song.</string>
+    <string name="behavior_group_notes">Note &amp; key reactions</string>
+    <string name="notes_switch">Note &amp; key reactions</string>
+    <string name="notes_body">Every style answers the melody, the chords, the key and the mood, not just the drums: each note blooms its own flower in its own colour, leaps swing the picture, tension bends it and resolution smooths it back. Drums count for as much as the track is made of them.</string>
+    <string name="notes_locked">Pro, and during the trial.</string>
     <string name="behavior_group_wallpaper">Live wallpaper</string>
     <string name="behavior_group_pip">Picture-in-picture</string>
     <string name="behavior_touch_smear">Smear the visuals with a finger</string>

@@ -71,6 +71,10 @@ GEODE_API int         geode_macro_starters(char* out, int capacity);
  * every style. amount 0 off .. 1 full, eased in and out by each renderer; seed is the play's, so a new seed
  * is a new play (the renderer forgets the song so far) and an export given the same seed makes the same film. */
 GEODE_API void        geode_director_set(float amount, long long seed);
+/* Note & key reactions (core/viz/NoteResponse): notes, chords, key and mood driving the style knobs, note
+ * colours, blooms and a gentle shape and distortion on every style. Process-wide like the director; each
+ * renderer eases it in and out, and off (0) is exactly the picture without it. The seed is the director's. */
+GEODE_API void        geode_note_response_set(int enabled);
 /* The renderer's own sound engine: interleaved PCM in play order, every sample once, written on the render
  * thread before geode_viz_render; the next render steps it with that frame's dt. */
 GEODE_API void        geode_viz_write_audio(geode_viz*, const float* interleaved, int frames, int channels, int sample_rate);

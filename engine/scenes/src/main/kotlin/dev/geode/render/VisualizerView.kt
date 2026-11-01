@@ -13,12 +13,6 @@ class VisualizerView(
     val visualizerRenderer: VisualizerRenderer = VisualizerRenderer(context)
 
     /**
-     * Told of every paced frame before it is requested, on the main thread. The dream uses it to
-     * follow the music with its frame rate ([AmbientPacing]); the app's live view sets nothing.
-     */
-    var frameListener: FrameSink? = null
-
-    /**
      * Vsync, not `eglSwapBuffers` back-pressure, is what asks for a frame here. `requestRender`
      * coalesces, so if the GPU falls behind the tick the requests collapse into one instead of
      * queueing a backlog the scene would later have to catch up on.
@@ -27,11 +21,7 @@ class VisualizerView(
      * frame-rate cap is set: a quality scaler reading `stats()` and writing `policy` needs no
      * other handle into the render loop.
      */
-    val framePacer: FramePacer =
-        FramePacer { dt ->
-            frameListener?.onFrame(dt)
-            requestRender()
-        }
+    val framePacer: FramePacer = FramePacer { requestRender() }
 
     private val gyroLook =
         GyroLook(context) { yaw, pitch ->

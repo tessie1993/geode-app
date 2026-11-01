@@ -2,7 +2,6 @@ package dev.geode.wallpaper
 
 import android.content.Context
 import android.opengl.GLSurfaceView
-import android.os.SystemClock
 import android.service.wallpaper.WallpaperService
 import android.view.MotionEvent
 import android.view.SurfaceHolder
@@ -13,8 +12,6 @@ import dev.geode.data.PerformanceStore
 import dev.geode.data.PresetStore
 import dev.geode.data.ThemeStore
 import dev.geode.pro.ProFeature
-import dev.geode.render.AmbientFrameRate
-import dev.geode.render.AmbientPacing
 import dev.geode.render.FramePacer
 import dev.geode.render.FrameRatePolicy
 import dev.geode.render.TouchField
@@ -33,14 +30,7 @@ class VisualizerWallpaperService : WallpaperService() {
          * own pacer, so the two never share a cadence or a frame-time window.
          */
         private val pacer =
-            FramePacer(FrameRatePolicy.Capped(AmbientFrameRate.DEFAULT.idleFps.toFloat())) { onPacedFrame() }
-
-        /**
-         * Settings › Performance › Wallpaper and screensaver, following the music: built from the
-         * saved choice in [restoreLiveState], asked once per paced frame in [onPacedFrame].
-         */
-        private var ambient: AmbientPacing? = null
-        private var pacedFps = 0
+            FramePacer(FrameRatePolicy.Capped(WALLPAPER_FPS)) { glView?.requestRender() }
 
         private var surfaceAvailable = false
         private var visible = false
@@ -110,36 +100,16 @@ class VisualizerWallpaperService : WallpaperService() {
             val gui = ThemeStore(prefsFiles.general).loadGui()
             engine.reducedMotion = gui.reducedMotion
             engine.soundTuning = gui.soundTuning
-            // Settings › Performance; the wallpaper keeps its own pacer, so the rate goes there.
-            val store = PerformanceStore(prefsFiles.general, this@VisualizerWallpaperService)
-            val performance = store.settings.value
+            // Settings › Performance; the wallpaper keeps its own pacer, so the cap goes there.
+            val performance = PerformanceStore(prefsFiles.general, this@VisualizerWallpaperService).settings.value
             engine.performance = performance
-            val pacing = AmbientPacing(store.ambientFrameRate.value, performance.fpsCap) { AudioBus.soundInput }
-            ambient = pacing
-            pacedFps = pacing.targetFps
-            pacer.policy = FrameRatePolicy.Capped(pacedFps.toFloat())
+            pacer.policy = FrameRatePolicy.Capped(minOf(WALLPAPER_FPS, performance.fpsCap.toFloat()))
             // The user's modulation too: without it the wallpaper and the dream drew the look
             // with every LFO, envelope and custom reaction switched off.
             val modulation = dev.geode.data.LfoStore(prefsFiles.general)
             engine.lfoEngine.configs = modulation.load()
             engine.adsrEngine.configs = modulation.loadAdsrs()
             engine.reactions = modulation.loadReactions()
-        }
-
-        /**
-         * The pacer's sink, on the main thread: settle the rate, then ask for the frame. A change
-         * goes to the pacer (which re-publishes it to the native quality governor, so a 15 fps
-         * idle is never read as a phone that cannot keep up) and to the surface, so the panel
-         * can drop its own refresh rate too. Changes are rare: on a music start or stop.
-         */
-        private fun onPacedFrame() {
-            val fps = ambient?.onFrame(SystemClock.uptimeMillis())
-            if (fps != null && fps != pacedFps) {
-                pacedFps = fps
-                pacer.policy = FrameRatePolicy.Capped(fps.toFloat())
-                pacer.applyTo(surfaceHolder.surface)
-            }
-            glView?.requestRender()
         }
 
         private fun syncRunState() {
@@ -270,5 +240,20 @@ class VisualizerWallpaperService : WallpaperService() {
 
         /** Bounded on purpose: a wedged GL thread must not turn teardown into an ANR. */
         const val GL_RELEASE_WAIT_MS = 200L
+
+        /**
+         * The same target the app renders at, deliberately — not the 24–30 fps §4.4 of the
+         * quality bar wants from a wallpaper.
+         *
+         * The reduced rate is the right end state, but it cannot be switched on from here alone:
+         * the native fluid quality ladder (`FluidSceneBase::autoQualityTick` in `core/viz/scenes`)
+         * reads GPU pressure off the achieved frame rate through its `PerformanceMonitor`
+         * (target 50 fps), an inference that only holds while the renderer
+         * free-runs. Ask for 30 and every fluid scene on the wallpaper reads its own cap as a
+         * device that cannot keep up and downgrades itself two quality tiers within three
+         * seconds. Teaching that monitor the difference between "capped" and "struggling" comes
+         * first; then this becomes a one-line change.
+         */
+        const val WALLPAPER_FPS = FramePacer.DEFAULT_TARGET_FPS
     }
 }

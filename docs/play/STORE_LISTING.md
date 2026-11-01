@@ -33,7 +33,7 @@ Then turn it into a music video you can post anywhere.
 REACTIVE VISUALS
 • Dozens of hand-tuned styles: silk, fluid, water, cymatics, fractals, spectrum rings,
   nebulas and more, plus classic MilkDrop presets
-• Live beat, tempo, key and song-section detection, so drops hit when the music drops
+• Real beat, tempo, key and structure analysis, so drops hit when the music drops
 • Touch the visuals to play with them; pinch, smear and swirl
 • Palettes, modulation and presets you can save and share as a link
 
@@ -41,7 +41,7 @@ MUSIC VIDEO STUDIO
 • Export visualizer videos up to 4K at 60 fps, in 16:9, 9:16, 1:1, 4:5 and 21:9
 • Presets for Shorts, Reels and YouTube
 • Seamless loop renders for long-form ambient videos
-• Multi-clip Studio editor with keyframes, transitions, markers, captions and chapters
+• Multi-clip Studio editor with keyframes, transitions, auto-cut, captions and chapters
 
 EVERYWHERE YOU ARE
 • Live wallpaper and screensaver that move with your music
@@ -69,7 +69,7 @@ one-time purchase — no subscription:
 • Full-length 4K and 60 fps exports without the watermark
 • The Studio editor
 • Live wallpaper and screensaver
-• Customize › Advanced: sound response, reactions, layers, camera and shader code
+• Advanced look controls
 ```
 
 Measured length: check with `python -c "print(len(open('x').read()))"` after any edit;

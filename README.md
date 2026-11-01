@@ -2,11 +2,12 @@
 
 Native Android music player, real-time GPU music visualizer and a small video
 suite. Kotlin and Jetpack Compose on top; a C++20 engine built by CMake and
-the NDK underneath (audio analysis, the GLES 3.x renderer, the DSP chain and
-tag access). Everything runs on-device: the app holds no
+the NDK underneath (the sound engine, the GLES 3.x renderer, the DSP chain
+and tag access). Everything runs on-device: the app holds no
 network permission, and nothing it hears or renders leaves the phone.
 
-Currently v1.8.0 (versionCode 32); minSdk 26, targetSdk 36, compileSdk 37,
+The version is set in `gradle.properties` (`geode.versionBase`,
+`geode.versionCodeBase`); minSdk 26, targetSdk 36, compileSdk 37,
 ABIs arm64-v8a and x86_64. The full version history is in
 [CHANGELOG.md](CHANGELOG.md).
 
@@ -30,18 +31,18 @@ ABIs arm64-v8a and x86_64. The full version history is in
   parameter with per-param locks, a randomizer, LFO and ADSR modulation, a
   palette maker, presets (JSON + `.milk`) and photosensitivity clamps.
 - **Studio** — a multi-lane timeline (visual, media, text, overlay, audio
-  lanes) with trim, split, ripple, snapping, markers, tap-in, auto-cut from the
-  analysed track, keyframe curves for scene and clip parameters, GL
+  lanes) with trim, split, ripple, snapping, markers, tap-in, keyframe curves for scene and clip parameters, GL
   Transitions between clips, speed ramps, `.cube` LUTs and per-channel gamma,
-  captions from lyrics or SRT (import and export). The visualizer export is
-  frame-exact from the analysis timeline; the cut export runs on Media3
+  captions from lyrics or SRT (import and export). The visualizer export
+  steps its own sound engine through the track at 1/fps
+  (`render/offscreen/TrackAudio`), so it reacts exactly like the screen; the cut export runs on Media3
   Transformer. Both encode H.264 or HEVC, with H.264 as the fallback when a
   device has no HEVC encoder.
-- **Live wallpaper** — the visualizer as a home-screen wallpaper, with an idle
-  drive so it keeps moving without audio.
+- **Live wallpaper** — the visualizer as a home-screen wallpaper, hearing the
+  same audio as the app.
 - **Other apps' audio** — Android 10+ playback capture feeds the same PCM ring
-  buffer the player's tap and the microphone share, so every scene, the
-  exporter and the wallpaper work unchanged on foreign audio.
+  buffer the player's tap and the microphone share, so every scene and the
+  wallpaper work unchanged on foreign audio.
 
 ## Build
 
@@ -64,9 +65,9 @@ Gradle modules, package `dev.geode`:
 
 | Module | What it holds |
 |---|---|
-| `:engine:audio-core` | `GeodeNative`, the JNI binding to `libgeode.so`, and the Kotlin wrappers over the native analyzers |
+| `:engine:audio-core` | `GeodeNative`, the JNI binding to `libgeode.so`; the PCM ring (`SampleRing`), the sound engine's feed (`SoundInput`, `SoundCursor`), the sound frame layout and the presentation clock |
 | `:engine:audio-android` | The PCM tap, presentation clock driver and other Android-side audio plumbing |
-| `:engine:scenes` | Scene ids and parameters, the GL-thread adapter over the native renderer, offscreen rendering for export, the analysis engine and its cache |
+| `:engine:scenes` | Scene ids and parameters, the GL-thread adapter over the native renderer, offscreen rendering for export (`TrackAudio` feeds it the track), the style catalogue as Kotlin reads it |
 | `:app` | Compose UI, playback service and media session, library and playlist stores, the editor model, the export pipelines, the wallpaper and the widget |
 
 The native core lives outside the modules and is built by the root
@@ -76,9 +77,9 @@ dynamically linked):
 | Directory | What it holds |
 |---|---|
 | `core/api` | `geode_api.h`, the `extern "C"` ABI — the only thing JNI calls |
-| `core/analysis` | FFT (kissfft), bands, onsets, tempo, beats, bars, key, structure, stereo field; the feature frame |
-| `core/viz` | GL capability probing, program cache, the frame graph (scene → trails → composite), the superformula driver (`FormDrive`) that modulates every family's parameters with the music, transitions, safety clamps, every scene family |
-| `core/audio/dsp` | Biquad equalizer, gain, crossfeed, lookahead limiter |
+| `core/sound` | The sound engine: FFT (kissfft) bands and a per-sample filter bank, drums, onsets, melody, stereo field, stepped once per rendered frame into a `GeodeSoundFrame` |
+| `core/viz` | GL capability probing, program cache, the frame graph (scene → trails → composite), the style catalogue (`Catalogue`), the reaction matrix (`Reactions`), the camera (`CameraRig`), transitions, safety clamps, every scene family |
+| `core/audio/dsp` | Biquad equalizer, gain, crossfeed, lookahead limiter; the export resampler (`PcmResampler`) and the BS.1770 meter (`Loudness`) |
 | `core/library` | TagLib tag reading and writing over a file descriptor |
 | `app/src/main/cpp` | The JNI files: no logic, only marshalling into `core/api` |
 | `third_party/` | Git submodules: projectm, kissfft, taglib |

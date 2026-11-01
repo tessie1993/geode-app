@@ -29,13 +29,13 @@ _Avoid_: External audio, visualize other apps (UI label only)
 
 ## Watching
 
-**Audio features**:
-What the analysis hears in one moment of audio: levels, bands, onsets, beat, bar, key, section.
-_Avoid_: FFT data, spectrum (the spectrum is one feature)
+**Sound engine**:
+The native code (`core/sound`) that hears the audio, stepped once per rendered frame. Each surface (screen, wallpaper, dream, export) runs its own.
+_Avoid_: Analyser, analysis
 
-**Feature timeline**:
-The audio features of a whole track, computed ahead of time, so an export is frame-exact.
-_Avoid_: Analysis cache (that is where it is stored)
+**Sound frame**:
+What the sound engine hears in one rendered frame (`GeodeSoundFrame`): relative levels, shaped bands, clocks, drum and event triggers, melody, stereo, the EQ bands, a spectrum and a waveform.
+_Avoid_: Audio features, FFT data, spectrum (the spectrum is one part of it)
 
 **Scene**:
 One kind of visual the engine can draw (a fluid, cymatics, MilkDrop…), named by a scene id.
@@ -84,7 +84,7 @@ The full set of tunable values a scene is drawn with at one moment.
 _Avoid_: Settings, knobs
 
 **Customize tabs**:
-The groups the scene params are edited in: Events first, then the detail tabs (Shape, Colour, Motion, FX, Reactivity, Scene) and the per-family tabs.
+The groups the scene params are edited in: Macros first, then Events, then the detail tabs (Shape, Colour, Motion, FX, Reactivity, Scene) and the per-family tabs.
 
 **Reaction route**:
 One line of the reaction matrix: a sound (band, level or event) moves one scene param, by following, stepping, spinning or jumping.
@@ -94,11 +94,10 @@ _Avoid_: Binding, mapping
 A route mode: each hit holds a new random value for its target (sample and hold), seeded so an export draws the same ones.
 
 **Toggle**:
-A route mode: each hit flips its target between rest and the full amount, such as a palette swap per phrase.
+A route mode: each hit flips its target between rest and the full amount, such as a palette swap on every sixteenth kick.
 
-**Phrase**:
-Eight bars of music, or fewer when the analyser hears a section change. Phrase beat A fires on the beat in even phrases and phrase beat B in odd ones, so a style can answer the beat one way, then another.
-_Avoid_: Section (that is the analyser's structure boundary)
+**Groove sides**:
+The kick side and the snare side of the beat. Style DNA gives each side its own personality, from different groups, so the two halves of a groove look different.
 
 **Style DNA**:
 The reaction routes a style plays until the user edits them, generated from the style id and a seed.
@@ -134,10 +133,6 @@ _Avoid_: Profile, config
 
 **Milk preset**:
 A MilkDrop `.milk` file, drawn by the MilkDrop scene; a milk pack is a zip of them.
-
-**Theme pack**:
-The app's own look: palette, motion, material, sounds and per-component surface art, named after a stone.
-_Avoid_: Theme (alone), skin
 
 ## Making
 
@@ -177,7 +172,7 @@ _Avoid_: Render (the GPU part of an export), save
 An export that draws one short seamless loop and repeats it to fill a long track.
 
 **Chapter markers**:
-Section boundaries written into an export so players can jump between them.
+The start of each audio clip the user put in a long-form mix, written beside an export so players can jump between them. Never detected from the audio.
 
 ## Surfaces
 
@@ -194,7 +189,7 @@ The home-screen now-playing widget.
 ## Code
 
 **Engine**:
-Code that turns sound into numbers or numbers into pixels: DSP, analysis, feature maths, reactions, scene parameter maths, camera, randomizers and the scene and style metadata. It lives in C++ (`core/`). See ADR 0003. Not the `:engine:*` Gradle modules, which still hold both engine and shell Kotlin.
+Code that turns sound into numbers or numbers into pixels: DSP, the sound engine, reactions, scene parameter maths, camera, randomizers and the scene and style metadata. It lives in C++ (`core/`). See ADR 0003. Not the `:engine:*` Gradle modules, which still hold both engine and shell Kotlin.
 _Avoid_: Core logic, backend
 
 **Shell**:

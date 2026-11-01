@@ -208,7 +208,7 @@ struct SceneParams {
     // pointer-to-member is not a compile error. It was declared as 98 over 95
     // entries, and lerpParams/blendParams wrote through the three null members
     // on every fade. Count again whenever a lerped float is added.
-    static constexpr int kLerpedFloatCount = 111;
+    static constexpr int kLerpedFloatCount = 110;
     static const std::array<FloatField, kLerpedFloatCount>& lerpedFloats();
 
     // Every field in declaration order; the wire order of geode_viz_set_params.

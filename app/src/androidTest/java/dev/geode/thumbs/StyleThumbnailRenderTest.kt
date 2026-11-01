@@ -119,8 +119,19 @@ class StyleThumbnailRenderTest {
 
     @Test
     fun renderEveryStyle() {
-        val only = args.getString("thumbsOnly")?.split(',')?.map { it.trim() }?.filter { it.isNotEmpty() }?.toSet()
-        val fps = args.getString("thumbsFps")?.toIntOrNull()?.coerceIn(MIN_WARMUP_FPS, MAX_WARMUP_FPS) ?: DEFAULT_WARMUP_FPS
+        val only =
+            args
+                .getString("thumbsOnly")
+                ?.split(',')
+                ?.map { it.trim() }
+                ?.filter { it.isNotEmpty() }
+                ?.toSet()
+        val fps =
+            args
+                .getString("thumbsFps")
+                ?.toIntOrNull()
+                ?.coerceIn(MIN_WARMUP_FPS, MAX_WARMUP_FPS)
+                ?: DEFAULT_WARMUP_FPS
         val ids =
             Catalogue.styles
                 .filter { it.kind != SceneKind.MILKDROP }

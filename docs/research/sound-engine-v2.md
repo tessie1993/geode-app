@@ -58,7 +58,8 @@ ring PCM ──► SoundEngine.write ──► Rhythm (10 ms hop, causal)       
                      │
                      ├──► RealFft 512   (hits: flux + complex-domain, per frame)
                      ├──► RealFft 2048  (spectrum, bands, flatness, IF pitch)
-                     └──► decimate ÷4 ──► RealFft 4096 @ ~12 kHz every ~50–100 ms
+                     └──► decimate to ~12 kHz ──► RealFft 4096 every ~50–100 ms
+                                           (÷4 at 44.1/48 kHz, ÷8 at 88.2/96, ÷16 at 176.4/192)
                                            (bass + treble chroma, CQ kernel, tuning, NNLS)
                                                      │
                      TrackMap (if this track has one) ┴──► Rhythm locks to the beat grid,
@@ -188,7 +189,7 @@ a backup you make.
 
 A process-wide `complexity` (0 Simple .. 1 Rich, default 0.5 = today), next to the macros:
 - `ReactionDna` builds every layer as now, each with a rank (its personality's core layer first).
-- At render, routes above `ceil(complexity × count)` fade out over half a second, never cut. Simple keeps one
+- At render, routes above `max(1, ceil(complexity × count))` fade out over half a second, never cut. Simple keeps one
   clear layer (for example kick → zoom); Rich runs every DNA layer and the director's five routes.
 - The director's own route count follows the same value (1 at Simple, 5 at Rich).
 - API `geode_reaction_complexity_set(float)`; the Customize control comes later (Wave B UI).
@@ -213,7 +214,7 @@ so a tap or MIDI clock reaches every live engine (screen, wallpaper, dream); an 
 (from the take, else the tag, else Auto), the way `Renderer::pinDirector` pins the director:
 ```
 geode_tempo_set_source(int source, float bpm)   // 0 AUTO, 1 MANUAL (typed or tag BPM), 2 TAP, 3 MIDI
-geode_tempo_tap(int64_t nanos)                  // median of the last 4..8 taps; a tap snaps the phase
+geode_tempo_tap(int64_t nanos)                  // median of the last 2..8 intervals; a tap snaps the phase
 geode_tempo_midi_clock(int64_t nanos)           // each 24 ppqn tick
 geode_tempo_midi_start(int64_t nanos), _stop(int64_t nanos), _song_position(int sixteenths)
 geode_tempo_clock(GeodeTempoClock* out)         // bpm, beatConf, barPhase, beatsPerBar (4 for now),

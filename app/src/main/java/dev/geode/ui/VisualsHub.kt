@@ -10,7 +10,6 @@ import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -30,7 +29,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Casino
 import androidx.compose.material.icons.filled.FiberManualRecord
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.StopCircle
@@ -43,7 +41,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateListOf
@@ -51,7 +48,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -68,19 +64,14 @@ import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.ui.NavDisplay
 import dev.geode.R
-import dev.geode.data.MacroStore
 import dev.geode.data.Preset
-import dev.geode.pro.PaywallTrigger
-import dev.geode.pro.ProFeature
 import dev.geode.render.VisualizerView
-import dev.geode.render.scene.CustomizeTab
 import dev.geode.render.scene.SceneCapabilities
 import dev.geode.render.scene.SceneIds
 import dev.geode.render.scene.StyleFamilies
@@ -970,56 +961,6 @@ private fun selectMilk(
     visualizerView.visualizerRenderer.loadMilkPreset(path)
 }
 
-@Composable
-internal fun CustomizePanel(
-    viewModel: PlayerViewModel,
-    visualizerView: VisualizerView,
-) {
-    val visualsViewModel: VisualsViewModel = geodeViewModel()
-    val viz by viewModel.vizState.collectAsStateWithLifecycle()
-    var sub by rememberSaveable { mutableStateOf(0) }
-    var query by rememberSaveable { mutableStateOf("") }
-    val isShader = SceneCapabilities.hasShaderLook(viz.sceneId)
-    val tabs: List<CustomizeTab?> =
-        CustomizeTab.entries.filter { tabAppliesTo(it, viz.sceneId) } + if (isShader) listOf(null) else emptyList()
-    val titles = tabs.map { it?.title ?: "GLSL" }
-    var shownTitle by rememberSaveable { mutableStateOf(titles.getOrNull(sub)) }
-    LaunchedEffect(titles) {
-        if (titles.getOrNull(sub) != shownTitle) {
-            sub = titles.indexOf(shownTitle).coerceAtLeast(0)
-            shownTitle = titles[sub]
-        }
-    }
-    Column(Modifier.fillMaxSize()) {
-        CrystalTabs(
-            titles = titles,
-            selected = sub,
-            onSelect = {
-                sub = it
-                shownTitle = titles[it]
-            },
-        )
-        // The toolbar scrolls with the controls: pinned above them it left a phone one row of sliders.
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
-            CustomizeToolbar(viewModel, visualizerView, viz.params, tabs.getOrNull(sub), query) { query = it }
-            val locked by visualsViewModel.lockedParams.collectAsStateWithLifecycle()
-            androidx.compose.runtime.CompositionLocalProvider(
-                LocalParamLocks provides (locked to visualsViewModel::toggleParamLock),
-            ) {
-                ParamSurface(sceneId = viz.sceneId, query = query) {
-                    if (query.isBlank()) {
-                        CustomizeTabBody(viewModel, visualizerView, tabs.getOrNull(sub))
-                    } else {
-                        // Search reaches EVERY tab, not just the one on screen: "where did the
-                        // vignette slider go" is exactly the question search exists to answer.
-                        tabs.filterNotNull().forEach { tab -> CustomizeTabBody(viewModel, visualizerView, tab) }
-                    }
-                }
-            }
-        }
-    }
-}
-
 /**
  * The grip under the Visuals stage. Drags report deltas rather than a new height, so the
  * owner adds them to its own state: several drag events can land before a recomposition, and a
@@ -1075,236 +1016,6 @@ private const val PREVIEW_STEP_DP = 80f
 
 // The full touch target: the grip drawn inside it is only 4dp tall.
 private val PREVIEW_HANDLE_HEIGHT = 48.dp
-
-/**
- * Whether a tab has anything to show for the style on screen.
- *
- * Events, the five spec tabs and Scene are always there (a recipe with nothing to move on this
- * style hides itself, not the tab); the per-family ones appear only with their family. Fluid stays because it also holds the two "all styles" sections (FlowField and the
- * shared water-ripple overlay), which every style can use.
- */
-private fun tabAppliesTo(
-    tab: CustomizeTab,
-    sceneId: String,
-): Boolean =
-    when (tab) {
-        CustomizeTab.MACROS,
-        CustomizeTab.EVENTS,
-        CustomizeTab.SHAPE,
-        CustomizeTab.COLOR,
-        CustomizeTab.MOTION,
-        CustomizeTab.FX,
-        CustomizeTab.REACTIVITY,
-        CustomizeTab.SCENE,
-        CustomizeTab.FLUID,
-        -> true
-        CustomizeTab.CYMATICS -> SceneCapabilities.isCymatics(sceneId)
-    }
-
-@Composable
-private fun CustomizeTabBody(
-    viewModel: PlayerViewModel,
-    visualizerView: VisualizerView,
-    tab: CustomizeTab?,
-) {
-    val visualsViewModel: VisualsViewModel = geodeViewModel()
-    val viz by viewModel.vizState.collectAsStateWithLifecycle()
-    val p = viz.params
-    val onChange: (dev.geode.render.scene.SceneParams) -> Unit = visualsViewModel::editSceneParams
-    when (tab) {
-        CustomizeTab.MACROS -> {
-            val context = androidx.compose.ui.platform.LocalContext.current
-            val store = remember { MacroStore.get(context) }
-            val macros by store.state.collectAsStateWithLifecycle()
-            val paywall: dev.geode.ui.pro.PaywallViewModel = geodeViewModel()
-            val gate by paywall.gate.collectAsStateWithLifecycle()
-            MacrosTab(
-                macros,
-                store,
-                canSavePresets = gate.allows(ProFeature.ADVANCED_CUSTOMIZATION),
-                onLockedSave = {
-                    paywall.open(PaywallTrigger.Feature(ProFeature.ADVANCED_CUSTOMIZATION))
-                },
-            )
-        }
-        CustomizeTab.EVENTS -> {
-            val reactions by visualsViewModel.reactions.collectAsStateWithLifecycle()
-            EventsTab(
-                p,
-                onChange,
-                reactions = reactions,
-                onReactionsChange = visualsViewModel::setReactions,
-                onRerollReactions = visualsViewModel::rerollReactions,
-            )
-        }
-        CustomizeTab.MOTION -> MotionTab(p, onChange)
-        CustomizeTab.SHAPE -> ShapeTab(p, onChange)
-        CustomizeTab.SCENE ->
-            SceneTab(
-                p,
-                onChange,
-                transitionId = viz.transitionId,
-                transitionDurationSec = viz.transitionDurationSec,
-                onTransitionId = viewModel::setTransitionId,
-                onTransitionDuration = viewModel::setTransitionDuration,
-            )
-        CustomizeTab.REACTIVITY -> {
-            val lfos by visualsViewModel.lfos.collectAsStateWithLifecycle()
-            val adsrs by visualsViewModel.adsrs.collectAsStateWithLifecycle()
-            ReactivityTab(
-                p,
-                onChange,
-                attack = viz.attack,
-                decay = viz.decay,
-                onReactivityChange = viewModel::setReactivity,
-                lfos = lfos,
-                onLfoChange = visualsViewModel::setLfo,
-                adsr = adsrs,
-                onAdsrChange = visualsViewModel::setAdsr,
-            )
-        }
-        CustomizeTab.COLOR -> {
-            val artNote by viewModel.artPaletteNote.collectAsStateWithLifecycle()
-            ColorTab(
-                p,
-                onChange,
-                onTakeArtworkPalette = viewModel::applyArtworkPalette,
-                artworkNote = artNote,
-            )
-        }
-        CustomizeTab.FX -> FxTab(p, onChange)
-        CustomizeTab.FLUID ->
-            FluidTab(
-                p,
-                onChange,
-                injectionError = if (SceneCapabilities.isFluid(viz.sceneId)) viz.shaderError else null,
-                onApplyInjectionShaders = { force, dye ->
-                    visualizerView.visualizerRenderer.submitFluidInjectionShaders(force, dye)
-                },
-            )
-        CustomizeTab.CYMATICS -> CymaticsTab(p, onChange)
-        null -> GlslHubTab(viewModel, visualizerView)
-    }
-}
-
-@Composable
-private fun CustomizeToolbar(
-    viewModel: PlayerViewModel,
-    visualizerView: VisualizerView,
-    params: dev.geode.render.scene.SceneParams,
-    tab: CustomizeTab?,
-    query: String,
-    onQuery: (String) -> Unit,
-) {
-    val visualsViewModel: VisualsViewModel = geodeViewModel()
-    val history by visualsViewModel.paramHistory.collectAsStateWithLifecycle()
-    var confirmReset by remember { mutableStateOf(false) }
-    var savingPreset by remember { mutableStateOf(false) }
-    var presetName by remember { mutableStateOf("") }
-    val changed = remember(params) { CustomizeSummary.changedCount(params) }
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val macroStore = remember { MacroStore.get(context) }
-    val onMacros = tab == CustomizeTab.MACROS
-    Column(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-        OutlinedTextField(
-            value = query,
-            onValueChange = onQuery,
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            label = { Text("Search every parameter", style = MaterialTheme.typography.labelSmall) },
-        )
-        Row(
-            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(top = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            CrystalButton(
-                compact = true,
-                enabled = tab != null,
-                onClick = { if (onMacros) macroStore.surprise() else tab?.let(visualsViewModel::randomizeParams) },
-            ) {
-                Icon(Icons.Filled.Casino, contentDescription = null, modifier = Modifier.size(16.dp))
-                Spacer(Modifier.width(6.dp))
-                Text(
-                    when {
-                        onMacros -> "Surprise"
-                        tab == null -> "Randomize"
-                        else -> "Randomize ${tab.title}"
-                    },
-                )
-            }
-            CrystalButton(compact = true, filled = false, enabled = history.canUndo, onClick = visualsViewModel::undoParams) {
-                Text("Undo")
-            }
-            CrystalButton(compact = true, filled = false, enabled = history.canRedo, onClick = visualsViewModel::redoParams) {
-                Text("Redo")
-            }
-            CrystalButton(
-                compact = true,
-                filled = false,
-                enabled = tab != null,
-                onClick = { if (onMacros) macroStore.resetKnobs() else tab?.let(visualsViewModel::resetCustomizeTab) },
-            ) {
-                Text(if (tab == null) "Reset tab" else "Reset ${tab.title}")
-            }
-            CrystalButton(compact = true, filled = false, enabled = changed > 0, onClick = { confirmReset = true }) {
-                Text("Reset all")
-            }
-            CrystalButton(compact = true, filled = false, onClick = { savingPreset = true }) { Text("Save as preset") }
-            Text(
-                if (changed == 0) "defaults" else "$changed changed",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
-    if (savingPreset) {
-        androidx.compose.material3.AlertDialog(
-            onDismissRequest = { savingPreset = false },
-            title = { Text("Save as preset") },
-            text = {
-                OutlinedTextField(
-                    value = presetName,
-                    onValueChange = { presetName = it },
-                    singleLine = true,
-                    placeholder = { Text("Preset name") },
-                )
-            },
-            confirmButton = {
-                CrystalButton(enabled = presetName.isNotBlank(), onClick = {
-                    visualsViewModel.savePreset(
-                        presetName.trim(),
-                        visualizerView.visualizerRenderer.customShaderFor(viewModel.vizState.value.sceneId),
-                    )
-                    presetName = ""
-                    savingPreset = false
-                }) { Text("Save") }
-            },
-            dismissButton = { TextButton(onClick = { savingPreset = false }) { Text("Cancel") } },
-        )
-    }
-    if (confirmReset) {
-        androidx.compose.material3.AlertDialog(
-            onDismissRequest = { confirmReset = false },
-            title = { Text("Reset customizations?") },
-            text = {
-                Text(
-                    "Puts all $changed changed controls back to their defaults, across every tab. " +
-                        "Undo brings them back, and saved presets are not touched.",
-                )
-            },
-            confirmButton = {
-                CrystalButton(onClick = {
-                    visualsViewModel.resetAllCustomize()
-                    confirmReset = false
-                }) { Text("Reset") }
-            },
-            dismissButton = {
-                TextButton(onClick = { confirmReset = false }) { Text("Cancel") }
-            },
-        )
-    }
-}
 
 internal fun takeRenameError(
     from: String,
@@ -1522,49 +1233,5 @@ private fun TexturesHubTab(
                 TextButton(onClick = { deletingTexture = null }) { Text("Cancel") }
             },
         )
-    }
-}
-
-private const val MAX_SAVED_SHADER_DRAFT_CHARS = 8 * 1024
-
-private val ShaderDraftSaver =
-    Saver<String, String>(
-        save = { draft -> draft.takeIf { it.length <= MAX_SAVED_SHADER_DRAFT_CHARS } },
-        restore = { it },
-    )
-
-@Composable
-private fun GlslHubTab(
-    viewModel: PlayerViewModel,
-    visualizerView: VisualizerView,
-) {
-    val viz by viewModel.vizState.collectAsStateWithLifecycle()
-    var source by rememberSaveable(viz.sceneId, stateSaver = ShaderDraftSaver) {
-        mutableStateOf(visualizerView.visualizerRenderer.customShaderFor(viz.sceneId) ?: "")
-    }
-    Column {
-        Text(
-            "Fragment source for this shader scene (view(), pal(), grade() and " +
-                "the audio uniforms are available). When FlowField is enabled " +
-                "the fluid velocity field is bound as `uniform sampler2D uFlow` " +
-                "with `uniform float uFlowStrength` - declare and sample it for " +
-                "fluid-driven distortion.",
-            style = MaterialTheme.typography.labelSmall,
-        )
-        OutlinedTextField(
-            value = source,
-            onValueChange = { source = it },
-            modifier = Modifier.fillMaxWidth().height(360.dp),
-            textStyle = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
-        )
-        viz.shaderError?.let {
-            Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelSmall)
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            CrystalButton(onClick = { viewModel.applyCustomShader(source) }) { Text("Apply shader") }
-            TextButton(onClick = {
-                source = visualizerView.visualizerRenderer.customShaderFor(viz.sceneId) ?: ""
-            }) { Text("Revert") }
-        }
     }
 }

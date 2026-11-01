@@ -11,18 +11,20 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import dev.geode.pro.FreeTier
 import dev.geode.render.EventRecipe
 import dev.geode.render.ReactionRoute
 import dev.geode.render.scene.BuildStyleReactionsUseCase
+import dev.geode.render.scene.ParamKeys
 import dev.geode.render.scene.SceneParams
 
 /**
- * The second page of Customize: what happens when something happens in the music.
+ * Customize › Events: what happens when something happens in the music.
  *
- * Ready-made [EventRecipe]s come first, as one-tap chips; the routes they add show up in the
- * list under them, where each one can be switched off, tuned or removed, and "Add" builds one
- * from scratch. Everything here is the reaction matrix the style DNA already plays, so turning a
- * recipe on is the same edit as adding its routes by hand and is saved the same way.
+ * The simple layer of the reaction matrix: ready-made [EventRecipe]s as one-tap chips (the page's
+ * free control), and how strongly the music moves things overall. Each recipe is the same edit as
+ * adding its routes by hand and is saved the same way; the routes themselves, one by one, are in
+ * Advanced › Reactions, so a listener who only wants "kick punch" never meets attack and release.
  */
 @Composable
 internal fun EventsTab(
@@ -30,43 +32,46 @@ internal fun EventsTab(
     onChange: (SceneParams) -> Unit,
     reactions: List<ReactionRoute>?,
     onReactionsChange: (List<ReactionRoute>?) -> Unit,
-    onRerollReactions: () -> Unit,
 ) {
     val sceneId = LocalSceneId.current
     val searching = LocalParamQuery.current.isNotBlank()
     Column {
         if (!searching) {
             Text(
-                "When something happens in the music, something moves. Tap a reaction to add it; " +
-                    "tap it again to take it off.",
+                "When something happens in the music, something moves. Tap a reaction to add it; tap it again to take it off.",
                 modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
-                style = MaterialTheme.typography.bodySmall,
+                style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             val dna = remember(sceneId, p.reactSeed) { BuildStyleReactionsUseCase()(sceneId, p.reactSeed) }
             val routes = reactions ?: dna
-            // One list for the chips and the slot note, so the note only ever speaks of chips on screen.
+            // One list for the chips and the room note, so the note only ever speaks of chips on screen.
             val shown = remember(sceneId) { EventRecipe.entries.filter { it.routesFor(sceneId).isNotEmpty() } }
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                shown.forEach { recipe ->
-                    val on = recipe.isOn(routes, sceneId)
-                    FilterChip(
-                        selected = on,
-                        enabled = on || recipe.fits(routes, sceneId),
-                        onClick = { onReactionsChange(recipe.toggle(routes, sceneId)) },
-                        label = { Text(recipe.title, style = MaterialTheme.typography.labelSmall) },
-                    )
+            val onCount = shown.count { it.isOn(routes, sceneId) }
+            ProGated(FreeTier.FREE_EVENTS_CONTROL, "Reactions", "$onCount on") {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    shown.forEach { recipe ->
+                        val on = recipe.isOn(routes, sceneId)
+                        FilterChip(
+                            selected = on,
+                            enabled = on || recipe.fits(routes, sceneId),
+                            onClick = { onReactionsChange(recipe.toggle(routes, sceneId)) },
+                            label = { Text(recipe.title, style = MaterialTheme.typography.labelLarge) },
+                        )
+                    }
                 }
             }
             if (shown.any { !it.isOn(routes, sceneId) && !it.fits(routes, sceneId) }) {
-                Text(
-                    "${routes.size} of ${ReactionRoute.MAX_ROUTES} reaction slots used, so the greyed-out " +
-                        "reactions don't fit. Remove a route below to make room.",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                ControlHint(
+                    "${routes.size} of ${ReactionRoute.MAX_ROUTES} reactions in use, so the greyed-out ones don't fit. " +
+                        "Remove one in Advanced › Reactions to make room.",
                 )
             }
         }
-        ReactionsSection(p, onChange, reactions, onReactionsChange, onRerollReactions)
+        SectionHeader("Strength")
+        LabeledSlider(ParamKeys.REACT_AMOUNT, p.reactAmount, 0f..2f, default = SceneParams.DEFAULT.reactAmount) {
+            onChange(p.copy(reactAmount = it))
+        }
+        ControlHint("Each reaction, one by one, is in Advanced › Reactions.")
     }
 }

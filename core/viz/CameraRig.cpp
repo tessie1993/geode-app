@@ -104,15 +104,15 @@ void CameraRig::step(const SceneParams& p, const LookInput& look, float dt, bool
     const float lookYaw = p.camYaw * kMaxYaw + (p.camTouch || p.camGyro ? look.yaw * kTouchLook : 0.0f);
     const float lookPitch = p.camPitch * kMaxPitch + (p.camTouch || p.camGyro ? look.pitch * kTouchLook : 0.0f);
     float fovTarget = std::clamp(p.camFov, 0.5f, 2.0f);
-    float speedTarget = std::clamp(p.camFly, 0.0f, 2.5f) * kBaseSpeed * g;
+    // camFly and endlessZoomSpeed arrive already scaled for reduced motion by safety::apply, their
+    // one owner, so forward travel takes them as they are; g is for the rig's own moves below.
+    float speedTarget = std::clamp(p.camFly, 0.0f, 2.5f) * kBaseSpeed;
     // Endless zoom is a dive. The 2D styles draw it as an octave crossfade (EndlessZoom.hpp);
     // a 3D style would have to march every ray twice for that, so it dives the way a camera
     // does instead, by flying further in, pushed by the same bass law. The renderer clears
     // endlessZoom for scenes that do not march the rig, so a 2D style's flat pan never speeds up.
     if (p.endlessZoom) {
         const float music = sound != nullptr ? endless::musicRate(*sound, p.audioDrive) : 1.0f;
-        // No `g` here: safety::apply already scaled endlessZoomSpeed for reduced motion, and a
-        // second scale left the 3D dive at 0.16x instead of the 0.4x every other motion gets.
         speedTarget += std::clamp(p.endlessZoomSpeed, 0.0f, 1.2f) * music * kDivePerOctave;
     }
 

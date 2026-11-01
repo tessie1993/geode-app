@@ -114,3 +114,19 @@ phone patching), if it was finished before the handoff. `REACTIVE_VISUALS.md` ho
 6. **Last, the in-app help pages** (owner: build when everything else is done). Markdown in
    `assets/help/`, rendered like the privacy policy, and mirrored to Pages `/help/` (`pages.yml` already
    publishes `docs/help/`).
+
+## Open decisions for the owner
+
+- **Tempo sync goes back on a past choice.** `engine/scenes/.../render/Lfo.kt` says tempo sync was left out on
+  purpose, because a wrong tempo estimate drags the whole look off the music. PR E adds it back. The
+  safeguards: synced LFOs are opt-in and never jump phase, and the epoch tells them when a resync is real.
+  The owner should confirm.
+- **Detecting tempo only while it is used** (in `MOD_MATRIX_UX.md`) is replaced by A3's decision that
+  Rhythm always runs.
+- **Bluetooth MIDI may also need BLUETOOTH_SCAN** (with `neverForLocation`) to find devices. Check this
+  before E3, and if so add it to the privacy policy.
+- **Layout and PR count.** The UX research recommends three pages: Cables (a list, also the TalkBack
+  route), Bay (two columns with cables) and Modulators. It adds a long press on any slider → "Modulate…",
+  five starter patches, and an 8-PR split. A destination table comes first (today only about 54 of about
+  150 params can be modulated), then the matrix core with the current waves, envelopes and routes moved
+  in. The owner chooses between this and the three-stage outline above, with sketches.

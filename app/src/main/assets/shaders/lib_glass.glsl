@@ -113,6 +113,7 @@
 #define GLASS_ENV_DUSK 2
 #define GLASS_ENV_DEEP 3
 #define GLASS_ENV_VOID 4
+#define GLASS_ENV_AURORA 5
 
 // ---- the Customize macros ---------------------------------------------------
 //
@@ -420,6 +421,8 @@ struct GlassLook {
     float rough;
     float spread;
     float glow;
+    float flow;
+    float warp;
 };
 
 GlassLook glassLook(int env, float hue, GlassEar e) {
@@ -431,6 +434,10 @@ GlassLook glassLook(int env, float hue, GlassEar e) {
     l.rough = 0.1 * e.frost * (1.0 - 0.6 * e.sharp);
     l.spread = e.width;
     l.glow = 0.9 + 0.1 * e.trend;
+    // The living worlds move on the sound engine's curved clock (it runs faster in loud passages)
+    // plus a slow floor, and fold harder on the snare.
+    l.flow = 0.08 * SND_CURVED_TIME + 0.04 * glassTime();
+    l.warp = 0.75 + 0.5 * e.snare + 0.25 * glassChaos();
     return l;
 }
 
@@ -508,7 +515,7 @@ vec3 glassStudio(vec3 d, GlassLook l) {
     float ba = max(1.0 - dot(dd, bc), 0.0);
     float back = exp(-ba * (9.0 - 5.0 * s));
     vec3 light = mix(pal(l.hue + 0.05), pal(l.hue + 0.45), side) * (0.55 + 0.4 * smoothstep(0.0, 0.4, dd.y)) * back;
-    float sx = 0.3 + 0.2 * l.spread;
+    float sx = 0.3 + 0.2 * l.spread + 0.06 * sin(l.flow * 3.0);
     light += mix(vec3(1.0), pal(l.hue + 0.6), 0.25) * 4.0 * glassPanel(dd, normalize(vec3(-sx, 0.1, 1.0)), vec2(0.035, 0.75), 0.012 + s) * glassKeep(0.012, s);
     light += mix(vec3(1.0), pal(l.hue + 0.2), 0.25) * 3.6 * glassPanel(dd, normalize(vec3(sx, 0.14, 1.0)), vec2(0.03, 0.7), 0.012 + s) * glassKeep(0.012, s);
     light += vec3(1.0, 0.95, 0.88) * 9.0 * glassPanel(dd, glassKeyDir(l), vec2(0.45, 0.22), 0.03 + s) * glassKeep(0.03, s);
@@ -547,7 +554,9 @@ vec3 glassNeon(vec3 d, GlassLook l) {
     float off = (a - id * cell) * sqrt(max(1.0 - dd.y * dd.y, 0.0));
     float tw = 0.018 + s * 0.6;
     float tube = exp(-off * off / (tw * tw)) * 0.018 / tw * smoothstep(-0.05, 0.1, dd.y) * (1.0 - smoothstep(0.55, 0.75, dd.y));
-    light += mix(pal(l.hue + id * 0.17), vec3(1.0), 0.25) * 2.6 * tube;
+    // The tubes chase round the room, one step per onset (eased), so the room dances.
+    float chase = fract((id - glassGlide(SND_ONSET_COUNT, SND_ONSET_ENV)) / 6.0);
+    light += mix(pal(l.hue + id * 0.17), vec3(1.0), 0.25) * (0.8 + 3.2 * smoothstep(0.6, 1.0, chase)) * tube;
     // The dashed eye-level strip.
     float dash = smoothstep(0.2, 0.3, abs(fract(az * 3.0) - 0.5));
     light += pal(l.hue + 0.5) * 1.1 * glassTube(dd, vec3(0.0, 1.0, 0.0), 0.01, s) * dash;
@@ -563,11 +572,17 @@ vec3 glassDusk(vec3 d, GlassLook l) {
     float s = l.rough;
     vec3 key = glassKeyDir(l);
     key = normalize(vec3(key.x, mix(0.04, 0.5, l.height), key.z));
-    vec3 low = mix(pal(l.hue + 0.05), vec3(1.0, 0.6, 0.35), 0.4) * 0.65;
+    vec3 low = mix(pal(l.hue + 0.05), vec3(1.0, 0.6, 0.35), 0.4) * 0.5;
     vec3 high = pal(l.hue + 0.6) * 0.08 + vec3(0.01, 0.015, 0.04);
-    vec3 col = mix(low, high, smoothstep(0.0, 0.55, d.y));
+    vec3 col = mix(low, high, smoothstep(0.0, 0.3, d.y));
     float hill = 0.035 + 0.025 * glassNoise(vec2(atan(d.x, d.z) * 3.0, 0.0)) + 0.012 * glassNoise(vec2(atan(d.x, d.z) * 11.0, 2.0));
     col = mix(col, pal(l.hue + 0.75) * 0.05, smoothstep(hill - 0.004 - s * 0.1, hill + 0.004 + s * 0.1, -d.y + 2.0 * hill) * step(0.0, d.y));
+    // An aurora curtain hanging over the far hills: folded ribbons that drift on the music's clock.
+    float az = atan(d.x, d.z);
+    float fold = az * 4.0 + 1.4 * sin(az * 2.3 + l.flow * 1.3) + 0.6 * sin(az * 7.0 - l.flow * 2.1) * l.warp;
+    float curtain = pow(1.0 - abs(sin(fold)), 5.0) * smoothstep(0.05, 0.25, d.y) * (1.0 - smoothstep(0.55, 0.9, d.y));
+    curtain *= 0.6 + 0.4 * sin(d.y * 30.0 + az * 3.0 + l.flow * 4.0);
+    col += mix(pal(l.hue + 0.35), pal(l.hue + 0.6), smoothstep(0.2, 0.7, d.y)) * curtain * 1.4 * glassKeep(0.05, s);
     float sun = glassDisc(d, key, 0.04, s);
     col += vec3(1.0, 0.82, 0.6) * 4.0 * sun * l.glow;
     col += low * 0.6 * exp(-max(1.0 - dot(d, key), 0.0) * 5.0);
@@ -643,12 +658,50 @@ vec3 glassVoid(vec3 d, GlassLook l) {
     return col;
 }
 
+/**
+ * AURORA: a world made only of moving light. The view direction is bent by
+ * four rounds of sine displacement, each feeding the last (the classic
+ * iterated domain warp, here in closed form with no noise lookups so a glass
+ * body can afford it five to fifteen times a pixel), and the warped point's
+ * phase is drawn as filaments: thin bright ribbons of palette light folding
+ * through a dim glow, with white-hot cores where they bunch. It flows on
+ * GlassLook.flow and folds harder with GlassLook.warp; nothing in it is
+ * static, so everything seen through glass in it is alive.
+ */
+vec3 glassAurora(vec3 d, GlassLook l) {
+    vec3 q = d * 2.3;
+    float w = l.warp;
+    float f = l.flow;
+    q += w * 0.55 * sin(q.zxy * 1.7 + f * vec3(1.0, 1.3, 0.7));
+    q += w * 0.45 * sin(q.yzx * 2.3 - f * vec3(0.8, 0.6, 1.1) + 1.7);
+    q += w * 0.35 * sin(q.zxy * 3.1 + f * vec3(0.5, 1.4, 0.9) + 3.1);
+    q += w * 0.25 * sin(q.yzx * 4.3 - f * vec3(1.2, 0.4, 0.7) + 0.6);
+    float ph = q.x + 1.3 * q.y + 0.7 * q.z;
+    float ribbon = 1.0 - abs(sin(ph * 1.6));
+    float rough = l.rough * 6.0;
+    float fil = pow(ribbon, mix(9.0, 3.0, clamp(rough, 0.0, 1.0)));
+    float core = pow(ribbon, 40.0) * (1.0 - clamp(rough, 0.0, 1.0));
+    // A second, finer set of ribbons crossing the first, in the palette's other half.
+    float ph2 = q.z - 0.8 * q.x + 0.5 * q.y;
+    float ribbon2 = 1.0 - abs(sin(ph2 * 2.6 + f));
+    float fil2 = pow(ribbon2, mix(14.0, 4.0, clamp(rough, 0.0, 1.0)));
+    vec3 c = pal(l.hue + 0.12 * q.x + 0.09 * q.z + 0.05 * ph);
+    vec3 c2 = pal(l.hue + 0.45 + 0.1 * q.y - 0.05 * ph2);
+    float wash = 0.5 + 0.5 * sin(q.y * 1.3 + q.x * 0.7 + f);
+    vec3 glow = mix(pal(l.hue + 0.5 + 0.1 * q.y), pal(l.hue + 0.2 + 0.1 * q.x), wash) * (0.04 + 0.1 * wash * wash);
+    vec3 col = glow + c * fil * 1.4 + c2 * fil2 * 0.9 + mix(c, vec3(1.0), 0.6) * core * 2.5;
+    // A brighter band where the key light sits, so the pan and pitch still steer it.
+    col *= 0.6 + 0.8 * pow(max(dot(d, glassKeyDir(l)), 0.0), 2.0);
+    return col * l.glow;
+}
+
 /** The world in direction `d`, as the look picks it. */
 vec3 glassEnv(vec3 d, GlassLook l) {
     if (l.env == GLASS_ENV_NEON) return glassNeon(d, l);
     if (l.env == GLASS_ENV_DUSK) return glassDusk(d, l);
     if (l.env == GLASS_ENV_DEEP) return glassDeep(d, l);
     if (l.env == GLASS_ENV_VOID) return glassVoid(d, l);
+    if (l.env == GLASS_ENV_AURORA) return glassAurora(d, l);
     return glassStudio(d, l);
 }
 

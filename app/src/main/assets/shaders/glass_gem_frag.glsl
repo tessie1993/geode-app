@@ -39,7 +39,8 @@ out vec4 fragColor;
 //   onsets                each onset turns the stone one notch (glassGlide), on
 //                         top of its slow spin, so the flashes follow the beat;
 //   bass                  the IOR 1.95 -> 2.25: deeper stones sparkle harder;
-//   hat                   glints on the facets.
+//   hat                   glints on the facets, and flickers the starburst of
+//                         spectral rays the stone throws into the dark round it.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -149,6 +150,14 @@ void main() {
     vec3 d = inv * rd;
 
     vec3 col = glassEnv(rd, lk) * 0.7;
+    // The stone's fire thrown into the dark: spectral rays from its centre, turning with it,
+    // longer on bright mixes, flickering on the hat.
+    float ra = atan(uv.y, uv.x);
+    float rl = length(uv);
+    float rays = pow(abs(sin(ra * 7.0 + turn * 2.0)), 30.0) + 0.6 * pow(abs(sin(ra * 11.0 - turn * 3.0 + 1.0)), 40.0);
+    float reach = 0.6 + 0.9 * ear.sharp;
+    vec3 fireCol = glassSpectrum(fract(ra * 1.1 + turn * 0.5 + rl * 0.8));
+    col += fireCol * rays * exp(-rl / reach) * smoothstep(0.25, 0.45, rl) * (0.35 + 0.8 * ear.hat) * 1.2;
     vec3 n;
     vec2 hit = enterCut(o, d, n);
     if (hit.x < hit.y && hit.y > 0.0 && hit.x > 0.0) {

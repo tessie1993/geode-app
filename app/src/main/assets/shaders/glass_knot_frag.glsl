@@ -14,7 +14,10 @@ out vec4 fragColor;
 //#include lib_glass
 
 // Glass Knot: a trefoil (a cinquefoil at high Complexity) of thick clear glass
-// tube hanging in the backlit studio, its surface coated with a thin
+// tube hanging in the flowing AURORA light, seen through a turning
+// kaleidoscope: the view folds into six (eight) mirrored wedges, each
+// holding the knot, so the knot and the light behind it multiply into a slowly
+// rotating mandala. Its surface is coated with a thin
 // interference film like a lens coating or an oil sheen, so its reflections
 // run in bands of colour while what shows through stays clear. The tube is a
 // marched torus-knot field (the distance to the nearest of the knot's strands
@@ -33,7 +36,8 @@ out vec4 fragColor;
 //   centroid     dispersion through the tube;
 //   flatness     frost on the coating;
 //   pan, pitch   the key light's bearing and height (glassLook);
-//   hat          glints on the coating.
+//   hat          glints on the coating;
+//   pan          turns the kaleidoscope; the music's clock turns it continually.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -99,13 +103,13 @@ void main() {
     float t = glassTime();
     GlassEar ear = glassListen();
     float hue = 0.04 * sin(t * 0.02) + 0.12 * uKeyStrength * sin(GLASS_TAU * uKeyHue);
-    GlassLook lk = glassLook(GLASS_ENV_STUDIO, hue, ear);
+    GlassLook lk = glassLook(GLASS_ENV_AURORA, hue, ear);
     float spread = 0.015 + 0.04 * ear.sharp;
     float frost = ear.frost * 0.5;
     float coat = 200.0 + 450.0 * ear.height;
 
     gQ = glassComplexity() >= 0.5 ? 5.0 : 3.0;
-    gWind = 0.42;
+    gWind = 0.38 + 0.08 * (0.5 + 0.5 * sin(t * 0.21));
     gTube = 0.17 + 0.05 * clamp(ear.bass, 0.0, 1.2);
     gPulse = (1.0 - clamp(SND_SNARE_ENV, 0.0, 1.0)) * 2.0 * GLASS_TAU + glassHash1(floor(SND_ONSET_COUNT)) * 2.0 * GLASS_TAU;
     gBulge = 0.09 * ear.snare;
@@ -115,7 +119,17 @@ void main() {
 
     vec3 ro;
     vec3 rd;
-    camAround(uv, KN_CAM_R, 0.0, ro, rd);
+    // The kaleidoscope: fold the view into mirrored wedges that turn on the music's clock.
+    // Six wedges, eight with Complexity; each wedge looks at the knot from its centre, so
+    // the knot repeats round the frame as a ring of glass.
+    float wedges = glassComplexity() >= 0.5 ? 8.0 : 6.0;
+    vec2 kv = uv * glassRot(0.05 * SND_CURVED_TIME + 0.3 * ear.pan);
+    float ka = atan(kv.y, kv.x);
+    float seg = GLASS_TAU / wedges;
+    ka = abs(mod(ka, seg) - seg * 0.5);
+    vec2 folded = vec2(cos(ka), sin(ka)) * length(kv);
+    vec2 kuv = (folded - vec2(0.62, 0.0)) * 1.25;
+    camAround(kuv, KN_CAM_R, 0.0, ro, rd);
     vec3 col = glassEnv(rd, lk);
 
     float hitT = -1.0;

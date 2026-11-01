@@ -22,7 +22,8 @@ out vec4 fragColor;
 // testing three planes that twist round the axis, and composited front to back
 // with a lit, translucent colour, so the vanes overlap, glow where the sun is
 // behind them and show through each other. A drift of tiny air bubbles trapped
-// in the glass catches the light.
+// in the glass catches the light. At the heart, between the vanes, a small
+// nebula swirls: a warped glow that breathes with the bass.
 //
 // ---- audio ------------------------------------------------------------------
 //
@@ -113,6 +114,16 @@ void main() {
                     acc += trans * a * vc * (lit + back) * 0.9;
                     trans *= 1.0 - a;
                 }
+            }
+            // The nebula core: a slow, warped glow at the marble's heart, between the vanes.
+            float r3c = length(s);
+            if (r3c < 0.5) {
+                vec3 w = s * 4.0;
+                w += 0.6 * sin(w.zxy * 1.9 + lk.flow * 2.0);
+                w += 0.4 * sin(w.yzx * 3.1 - lk.flow * 1.6);
+                float neb = pow(0.5 + 0.5 * sin(w.x + w.y + w.z), 3.0) * (1.0 - smoothstep(0.1, 0.5, r3c));
+                vec3 nc = pal(hue + 0.6 + 0.2 * w.y);
+                acc += trans * nc * neb * dt / MB_R * 2.2 * (0.6 + 0.8 * clamp(ear.bass, 0.0, 1.2));
             }
             prev = g;
             prevS = s;

@@ -22,7 +22,8 @@ out vec4 fragColor;
 // The film is not uniform: water drains down, so it is thick and banded at the
 // foot, thins toward the crown and goes black (the patch just before a bubble
 // pops) at the very top; and it swirls, slow marbled currents carried round the
-// surface. Bubbles composite as transmission and added reflection, which is
+// surface. They rise in a slow vortex round the room's axis, the inner ones
+// circling faster. Bubbles composite as transmission and added reflection, which is
 // order free, so no sort.
 //
 // ---- audio ------------------------------------------------------------------
@@ -72,7 +73,10 @@ void main() {
         // Rise on a 9-unit loop, swaying; size grows a little as it rises and fades at both ends.
         float life = fract(t * (0.035 + 0.025 * h2) + h1);
         float y = -3.2 + 6.4 * life;
-        vec3 c = vec3((h1 - 0.5) * 4.6 + 0.35 * sin(t * 0.5 + fi * 1.7), y, (h3 - 0.5) * 2.4 + 0.3 * cos(t * 0.4 + fi));
+        // A slow vortex: each bubble circles the axis as it rises, faster near the middle.
+        float orbitR = 0.8 + 2.0 * h1;
+        float ang = h2 * GLASS_TAU + t * 0.35 / orbitR + 0.1 * SND_CURVED_TIME;
+        vec3 c = vec3(cos(ang) * orbitR * 1.3, y, sin(ang) * orbitR * 0.8);
         float r = (0.42 + 0.38 * h3) * (0.9 + 0.1 * clamp(ear.bass, 0.0, 1.2)) * smoothstep(0.0, 0.08, life) * (1.0 - smoothstep(0.9, 1.0, life));
         if (r < 0.02) continue;
         vec2 hs = glassSphere(ro, rd, c, r);

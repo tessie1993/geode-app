@@ -13,8 +13,9 @@ out vec4 fragColor;
 //#include lib_scene_grade
 //#include lib_glass
 
-// Glass Orb: one large solid glass sphere hovering over a glossy studio floor,
-// the family's free style. Everything is analytic: one ray-sphere quadratic,
+// Glass Orb: one large solid glass sphere hovering over a glossy floor,
+// the family's free style. It floats in the flowing AURORA light, so what
+// shows through it never stops moving. Everything is analytic: one ray-sphere quadratic,
 // one ray-plane, the two-bounce path through the ball (glassSphereTrace) with
 // three-wavelength dispersion on the way out, so the studio's strip lights
 // show through it upside down with rainbow edges, and the share the far wall
@@ -33,7 +34,8 @@ out vec4 fragColor;
 //   flatness (frost)         frosts the ball: the lookup roughens and grain appears;
 //   pan and pitch height     walk the key softbox round and up, so the crown
 //                            highlight and the floor spot follow the mix;
-//   hat                      throws glints across the surface.
+//   hat                      throws glints across the surface;
+//   kick                     rings the ball: standing ripples run over its skin.
 // The key (uKeyHue, uKeyStrength) drifts the palette.
 //
 // ---- macros -----------------------------------------------------------------
@@ -55,7 +57,7 @@ void main() {
     float t = glassTime();
     GlassEar ear = glassListen();
     float hue = 0.04 * sin(t * 0.023) + 0.12 * uKeyStrength * sin(GLASS_TAU * uKeyHue);
-    GlassLook lk = glassLook(GLASS_ENV_STUDIO, hue, ear);
+    GlassLook lk = glassLook(GLASS_ENV_AURORA, hue, ear);
     float ior = 1.36 + 0.2 * clamp(ear.bass, 0.0, 1.2);
     float spread = 0.012 + 0.04 * ear.sharp;
     float frost = ear.frost * 0.6;
@@ -97,6 +99,9 @@ void main() {
     if (hs.x > 0.0) {
         vec3 p = ro + rd * hs.x;
         vec3 n = glassWobble(normalize(p - c), p, glassChaos());
+        // The kick rings the ball like struck jelly: a few standing waves on its surface, eased.
+        vec3 lc = (p - c) / OR_RADIUS;
+        n = normalize(n + ear.kick * 0.14 * sin(lc * vec3(7.0, 9.0, 8.0) + t * vec3(5.0, 4.0, 6.0)));
         n = glassGrain(n, p, frost);
         float cosI = max(dot(n, -rd), 0.0);
         float fr = glassFresnel(cosI, ior);

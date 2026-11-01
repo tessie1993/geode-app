@@ -28,7 +28,8 @@ out vec4 fragColor;
 // every real prism throws. The glass body has bevelled edges that catch the
 // light, shows the stage behind it displaced by refraction, and glows faintly
 // where the beam crosses it. Haze in the air lights up along every ray, with
-// a slow drift of dust.
+// curling smoke (noise warped by noise) that the rays carve into bright
+// ribbons.
 //
 // ---- audio ------------------------------------------------------------------
 //
@@ -166,7 +167,10 @@ void main() {
     float ghostK = glassFresnel(abs(dot(d1, gN[fo0])), ior) * 4.0;
 
     // The stage: a back wall and floor in the palette's deep colour, with a screen at the right.
-    float dust = 0.6 + 0.4 * glassNoise(uv * 6.0 + vec2(-t * 0.12, t * 0.05));
+    // Curling smoke for the light to catch: value noise read through a domain warp of itself.
+    vec2 sw = vec2(glassNoise(uv * 2.0 + vec2(t * 0.07, 0.0)), glassNoise(uv * 2.3 + vec2(0.0, -t * 0.09) + 5.0));
+    float smoke = 0.5 + 0.5 * glassNoise(uv * 3.5 + 1.6 * sw + vec2(-t * 0.12, t * 0.05));
+    float dust = 0.25 + 1.5 * smoke * smoke;
     vec3 stage = mix(pal(hue + 0.6) * 0.05, pal(hue + 0.3) * 0.16, smoothstep(-1.2, 1.0, uv.y + 0.3 * uv.x));
     stage += pal(hue + 0.1) * 0.08 * exp(-dot(uv - vec2(-0.4, -0.1), uv - vec2(-0.4, -0.1)) * 1.5);
     stage *= 1.0 - 0.5 * (1.0 - smoothstep(-0.62, -0.55, uv.y));

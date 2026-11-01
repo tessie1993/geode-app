@@ -23,7 +23,8 @@ out vec4 fragColor;
 // centre to a barrel at the rim, read once per channel at a slightly
 // different power (dispersion, three reads of the wall), a polished bevel that
 // mirrors the studio, a Fresnel rim, and the soft shadow and focused hot spot
-// a lens throws on the wall below.
+// a lens throws on the wall below. The second lens is a kaleidoscope: it folds
+// the wall it magnifies into a turning six-fold mandala.
 //
 // ---- audio ------------------------------------------------------------------
 //
@@ -118,6 +119,15 @@ void main() {
         float m = mag * (1.0 - 0.32 * rl * rl);
         vec2 base = c + par;
         vec2 dir = (uv - c);
+        // The second lens is a kaleidoscope: its view folds into six mirrored wedges that turn
+        // with the music's clock.
+        if (i == 1) {
+            vec2 kd = dir * glassRot(0.1 * SND_CURVED_TIME);
+            float ka = atan(kd.y, kd.x);
+            float seg = GLASS_TAU / 6.0;
+            ka = abs(mod(ka, seg) - seg * 0.5);
+            dir = vec2(cos(ka), sin(ka)) * length(kd) + vec2(0.05 * sin(t * 0.3), 0.0);
+        }
         vec3 seen = vec3(
             wall(base + dir / (m * (1.0 + ab * rl)), hue, frost).r,
             wall(base + dir / m, hue, frost).g,

@@ -134,5 +134,5 @@ Each is shippable alone and updates `AGENTS.md` when structure changes (the arch
 
 - **#213 (sound engine v2)** owns the tempo API and the BPM tag read; E3 waits for its stage 0.
 - **#211 (note and key reactions)** adds sources; they become jacks through the `ReactSource` table.
-- **#216** deletes the `glitch` param and `LfoTarget.Glitch`; the jack table is generated, so nothing to remove here.
+- **#216** retires the `glitch` param and `LfoTarget.Glitch` (slots kept, unread, never offered); the jack table is generated, so it must skip them.
 - **macro-reset** edits the macros; the matrix only reads and writes the 6 knobs as jacks.

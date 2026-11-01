@@ -46,7 +46,7 @@ modulator can push it back into the hazardous range.
 
 | Lever | What it bounds |
 |---|---|
-| `apply` | strobe, flash, glitch, bloom, brightness, intensity, contrast |
+| `apply` | strobe, flash, bloom, brightness, intensity, contrast |
 | `strobeHz` | the strobe's oscillator rate — dimming a 9 Hz flicker leaves a 9 Hz flicker |
 | `limitLfoRate` | an LFO aimed at a luminance target; the rate is the hazard, not the amplitude |
 | `beatMinIntervalMs` | the floor between beat-driven hits |

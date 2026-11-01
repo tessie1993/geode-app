@@ -58,7 +58,7 @@ Mapping (layer × timescale → visual):
 |---|---|---|---|---|---|
 | Rhythm | hat → sparkle | kick → local displacement; snare → lateral or rotation; anticipate with beatPhase | downbeat → camera angle or palette step | swap route bank | cut + camera mode |
 | Energy | | | intensity → speed | buildUp → tension | drop → release |
-| Timbre | centroid → sharpness; flatness → grain | fluxHigh → glitch | | | sectionId → material |
+| Timbre | centroid → sharpness; flatness → grain | fluxHigh → chromaAb (glitch retired, #216) | | | sectionId → material |
 | Harmony | pitchHeight → height | noteChange → hue step | harmonicChange → palette rotate | keyHue → base hue | |
 | Space | pan → yaw; width → spread | | | | |
 

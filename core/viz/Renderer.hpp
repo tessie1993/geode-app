@@ -23,8 +23,10 @@
 #include "viz/Overlays.hpp"
 #include "viz/Params.hpp"
 #include "viz/ProgramBinaryCache.hpp"
+#include "viz/ProgramStager.hpp"
 #include "viz/Reactions.hpp"
 #include "viz/Scene.hpp"
+#include "viz/ScenePrep.hpp"
 #include "viz/SceneRegistry.hpp"
 #include "viz/ShaderSource.hpp"
 #include "viz/ThermalGovernor.hpp"
@@ -51,6 +53,10 @@ public:
     // so it keeps full quality. renderScale and marchScale are 0..1 multipliers stacked under the
     // thermal tier; postFx = false drops the same optional passes a hot tier does, plus fluid bloom.
     void setUserQuality(float renderScale, float marchScale, bool postFx, bool adaptive);
+    // Export (geode_viz_set_offscreen): every scene is built whole on the frame that first asks for
+    // it, so no exported frame ever shows the previous scene or a clear in its place. A live renderer
+    // (the default) builds a new scene across frames instead; see ScenePrep.hpp.
+    void setBlockingBuilds(bool on) { blockingBuilds_.store(on, std::memory_order_relaxed); }
     void setLayer(const std::string& sceneId, float mix, int blendOrdinal);
     void setTransition(const std::string& id, int64_t durationMs);
     void beginParamMorph(float seconds);
@@ -112,6 +118,8 @@ private:
     };
 
     Scene* sceneFor(const std::string& id);
+    Scene* readyScene(const std::string& id);
+    Scene* attemptScene(const std::string& id);
     Scene* builtScene(const std::string& id);
     std::unique_ptr<Scene> buildScene(const std::string& id);
     float beginFrame(double timeSeconds);
@@ -143,6 +151,16 @@ private:
     DeviceGl deviceGl_;
     GlProfile profile_ = GlProfile::unprobed();
     ProgramLoader loader_{assets_, &programCache_};
+    // Staged scene builds (live renderers only): the programs being compiled for prep_'s target.
+    ProgramStager stager_{&programCache_};
+    ScenePrep prep_;
+    std::atomic<bool> blockingBuilds_{false};
+    // While a staged attempt runs, scene errors wait here: a deferred attempt's errors are about
+    // placeholders and are dropped; a whole one's are reported as an inline build would have.
+    bool holdingErrors_ = false;
+    std::vector<std::string> heldErrors_;
+    // The requested scene is still being staged this frame, so the layer scene waits its turn.
+    bool requestedPending_ = false;
     SceneRegistry registry_;
     Overlays overlays_{loader_};
     std::vector<std::pair<std::string, std::unique_ptr<Scene>>> scenes_;

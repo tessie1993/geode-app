@@ -53,7 +53,6 @@ import dev.geode.export.StudioClip
 import dev.geode.geodeContainer
 import dev.geode.model.DeviceTrack
 import dev.geode.model.LibraryTrack
-import dev.geode.playback.BitPerfectOutput
 import dev.geode.playback.PlaybackEngine
 import dev.geode.playback.PlaybackErrors
 import dev.geode.playback.PlaybackService
@@ -189,10 +188,13 @@ class PlayerSession internal constructor(
                 override val vizState: StateFlow<VizUiState> get() = _vizState
                 override val activeMilkPath: String? get() = vizStateStore.activeMilkPath.value
 
+                // Through the session's own applyPreset, not straight to the visual controller: that
+                // is where the Pro style gate sits, so a template on a locked style is refused and
+                // opens the paywall exactly as the same look saved as a preset would (PRO-1).
                 override fun applyLook(
                     look: TemplateLook,
                     name: String,
-                ) = visual.applyPreset(look.toPreset(name))
+                ) = applyPreset(look.toPreset(name))
             },
         )
 
@@ -207,13 +209,10 @@ class PlayerSession internal constructor(
             container.appScope,
             playback.player,
             playback.audioFx,
-            playback.replayGain,
             object : PlayerSettingsController.Host {
                 override fun refreshUi() = refresh()
 
-                override fun applyBitPerfect(enabled: Boolean) {
-                    BitPerfectOutput.apply(application, enabled)
-                }
+                override fun applyPlaybackPrefs(prefs: PlayerPrefs) = playback.applyPrefs(prefs)
             },
         )
 
@@ -1238,7 +1237,7 @@ class PlayerSession internal constructor(
         playerListener = listener
         player.addListener(listener)
         sleepTimer.onFadeVolume = fades.sleepFadeHook
-        playback.exoPlayer?.let { audioFxController.attach(it.audioSessionId) }
+        audioFxController.attach(playback.player.audioSessionId)
         settings.refreshAudioFx()
         if (alreadyLoaded) onTrackChanged()
     }

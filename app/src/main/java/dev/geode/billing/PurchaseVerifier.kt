@@ -1,6 +1,7 @@
 package dev.geode.billing
 
 import android.util.Base64
+import dev.geode.BuildConfig
 import dev.geode.RingLog
 import java.security.KeyFactory
 import java.security.PublicKey
@@ -53,11 +54,18 @@ class PurchaseVerifier(
         }.getOrDefault(false)
     }
 
-    private companion object {
-        const val TAG = "PurchaseVerifier"
-        const val KEY_ALGORITHM = "RSA"
+    companion object {
+        /**
+         * The verifier this build's real billing uses: the configured key, or none when the build
+         * bills against [FakeBillingRepository], whose cache holds no signed purchase to check.
+         * [ProSnapshot] needs the same rule as [PlayBillingRepository] without the injection graph.
+         */
+        fun forThisBuild(): PurchaseVerifier = PurchaseVerifier(if (BuildConfig.USE_FAKE_BILLING) "" else BuildConfig.PLAY_LICENSE_KEY)
+
+        private const val TAG = "PurchaseVerifier"
+        private const val KEY_ALGORITHM = "RSA"
 
         // What Play signs purchase data with.
-        const val SIGNATURE_ALGORITHM = "SHA1withRSA"
+        private const val SIGNATURE_ALGORITHM = "SHA1withRSA"
     }
 }

@@ -328,23 +328,23 @@ private fun Modifier.chromeFling(onFling: (down: Boolean) -> Unit): Modifier =
             tracker.addPosition(first.uptimeMillis, first.position)
             var last = first.position
             var fingers = 1
-            while (true) {
+            var held = true
+            while (held) {
                 val event = awaitPointerEvent()
                 fingers = maxOf(fingers, event.changes.count { it.pressed })
-                val change = event.changes.firstOrNull { it.id == first.id } ?: break
-                tracker.addPosition(change.uptimeMillis, change.position)
-                last = change.position
-                if (!change.pressed) break
+                // A first finger that went missing (cancelled) ends the gesture where it was.
+                val change = event.changes.firstOrNull { it.id == first.id }
+                change?.let {
+                    tracker.addPosition(it.uptimeMillis, it.position)
+                    last = it.position
+                }
+                held = change?.pressed == true
             }
             val travel = last - first.position
             val vy = tracker.calculateVelocity().y
-            if (fingers == 1 &&
-                abs(vy) > FLING_DP_PER_S.dp.toPx() &&
-                abs(travel.y) > FLING_MIN_DP.dp.toPx() &&
-                abs(travel.y) > abs(travel.x) * 2
-            ) {
-                onFling(vy > 0)
-            }
+            val quick = abs(vy) > FLING_DP_PER_S.dp.toPx()
+            val vertical = abs(travel.y) > FLING_MIN_DP.dp.toPx() && abs(travel.y) > abs(travel.x) * 2
+            if (fingers == 1 && quick && vertical) onFling(vy > 0)
         }
     }
 

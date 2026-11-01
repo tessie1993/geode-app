@@ -54,8 +54,6 @@ object ProjectComposition {
     data class Report(
         val skippedClipKinds: Set<String> = emptySet(),
     ) {
-        val hasSkips: Boolean get() = skippedClipKinds.isNotEmpty()
-
         /** A user-facing summary of [skippedClipKinds], or null when nothing was skipped. */
         fun message(context: Context): String? =
             if (skippedClipKinds.isEmpty()) {

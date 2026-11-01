@@ -6,6 +6,11 @@ the build. Its findings are four rules that keep more than they need to and two 
 the AGP defaults. Nothing has been changed yet: each **Action** below is a proposal for a
 follow-up PR, which has to be checked on a release build on a device (`docs/DEVICE_CHECKS.md`).
 
+**Dated snapshot.** This is the audit as it ran at `8588501`. Names it cites have changed since:
+`ParamBlend` is gone, the randomizer is native (`core/viz/ParamRandomizer`), and `GeodeNative`'s
+`analysis*` functions went with the old analysis engine. The entries below are corrected where a
+name is plainly gone; the counts are left as measured. Re-run the task before acting on it.
+
 **Source.** `./gradlew :app:analyzeReleaseR8Config` (AGP 9.3.1), run locally at `8588501`.
 The task writes `app/build/reports/r8/r8-config-analyzer-release.{pb,html}`. The scores
 divide kept items by live items: 18,286 classes, 43,375 fields and 97,835 methods (159,496).
@@ -30,12 +35,12 @@ No `-dontoptimize`, `-dontobfuscate` or `-dontshrink` is in effect. Full mode is
 
 - **Keeps**: 167 fields (0.10%), names only.
 - **Kept items**: `paletteBaseOverride`, `paramFadeSec`, and 10 static fields (`CAMERA_PATHS`, `PALETTES`, `DEFAULT`, ...)
-- **Action**: **Refine** to `{ !static <fields>; }`. `ParamBlend` and `ParamRandomizer` read only non-static `declaredFields` by name. The rule itself is needed (see its comment).
+- **Action**: **Refine** to `{ !static <fields>; }`. `SceneParamsCodec` (which the Kotlin `ParamRandomizer` handle packs through) reads only non-static `declaredFields` by name. The rule itself is needed (see its comment).
 
 ### `-keep class dev.geode.engine.bridge.GeodeNative { *; }` (`:17`)
 
 - **Keeps**: 95 items (0.06%). Classes: 1, Fields: 1 (`INSTANCE`), Methods: 93 (92 native, plus `<init>`).
-- **Kept items**: `GeodeNative.analysisAnalyze`, `GeodeNative.analysisCreate`, `GeodeNative.INSTANCE`
+- **Kept items**: `GeodeNative.INSTANCE` and the native methods (the audit listed `analysisAnalyze` and `analysisCreate`, both gone since)
 - **Action**: **Remove**. Native code never calls back into Java (`core/` and `app/src/main/cpp` have no `FindClass`, `GetMethodID`, `GetFieldID` or `RegisterNatives`). Only the class name and the native method names have to survive. The AGP default `-keepclasseswithmembernames,includedescriptorclasses class * { native <methods>; }` already keeps those names, and it also lets R8 drop native methods nothing calls.
 
 ### `-keepclassmembers class kotlinx.coroutines.** { volatile <fields>; }` (`:37`)

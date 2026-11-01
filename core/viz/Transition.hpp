@@ -49,7 +49,7 @@ private:
     std::map<std::string, size_t> byName_;
 };
 
-// Port of TransitionPrograms.kt: the base composite program plus an LRU of four spliced variants.
+// The base composite program plus an LRU of four spliced variants.
 class TransitionPrograms {
 public:
     TransitionPrograms(const ShaderSource& assets, ProgramBinaryCache* cache) : catalog_(assets), assets_(assets), cache_(cache) {}

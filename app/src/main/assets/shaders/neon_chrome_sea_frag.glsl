@@ -5,27 +5,40 @@ precision highp sampler2D;
 in vec2 vUv;
 out vec4 fragColor;
 
+// The shape controls are spent on the sea itself (lib_neon), not on the rays.
+#define VIEW_OWNS_SHAPE
 //#include lib_scene_uniforms
+//#include lib_scene_motion
 //#include lib_camera
 //#include lib_palette
 //#include lib_scene_grade
+//#include lib_neon
 //#include lib_sdf3
-
-// uKnob[6], the six style knobs read below, is declared in lib_scene_uniforms.
 
 // Neon Chrome Sea: low flight over a sea of liquid chrome under a violet sky.
 // A kaleidoscopic neon mandala hangs over the horizon like a portal, neon
 // ribbons hang in the sky, and the swell mirrors all of it with a thin-film
 // oil-slick sheen (orange-green-purple) on every slope.
 //
-// ---- knobs ------------------------------------------------------------------
+// ---- what moves it -----------------------------------------------------------
 //
-//   k0  crest glow    PULSE    neon contour lines light up across the swell
-//   k1  ripple        TEXTURE  more and sharper small waves riding the swell
-//   k2  swell         FLOW     the height of the big waves
-//   k3  hue           TONE     turns the neon ramp of sky, portal and film
-//   k4  portal        BUILD    the mandala grows, opens and brightens
-//   k5  altitude      SPACE    the eye rises above the sea for a wider view
+// The style was drawn around six looks (crest glow, ripple, swell, hue,
+// portal, altitude); each is now driven by the shared controls (lib_neon) or
+// the sound, so Customize, the macros, the director and the DNA all reach it:
+//
+// - crest glow: SND_KICK_ENV lights the neon contour lines across the swell
+//   and the crests from within; SND_HAT_ENV glints on the crests.
+// - ripple (Morph, neonForm): more and sharper small waves on the swell.
+// - swell (Warp, neonFlow, plus the bass weight): the height of the big
+//   waves. The waves travel on SND_BASS_TIME as well as their own drift, so
+//   a heavy passage rolls the sea faster, never backwards.
+// - Turbulence (neonChaos) chops the sea: the small waves climb.
+// - hue: the key (neonKeyTurn) turns the ramp; SND_CHORD_HUE turns the film.
+// - portal: SND_BUILD_UP grows and opens the mandala; the drop
+//   (SND_HELD_SURGE) throws it wide.
+// - altitude: in silence (neonQuiet) the eye rises for a calm, wide view;
+//   the drop brings it down to skim the water.
+// - Intensity (neonGlow) is the neon's emission.
 //
 // Provenance: written from scratch for MuzViz from general techniques - a sum
 // of exp(sin) waves (sharp crests, broad troughs) where each wave's slope drags
@@ -125,7 +138,7 @@ vec3 gMoonDir;
 vec3 neon(float t) {
     vec3 c = 0.5 + 0.5 * cos(6.2831853 * (t + gTone + vec3(0.60, 0.78, 0.98)));
     c = c * c * c * vec3(1.1, 1.0, 1.35) + vec3(0.02, 0.0, 0.06);
-    return mix(c, pal(t + gTone), 0.3);
+    return neonPal(c, t + gTone);
 }
 
 /** The neon mandala: rings, petals and spokes folded into 12 mirrored wedges. */
@@ -189,10 +202,6 @@ vec3 ocSky(vec3 d) {
     return col;
 }
 
-vec3 aces(vec3 x) {
-    return clamp((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14), 0.0, 1.0);
-}
-
 void main() {
     vec2 uv = view();
     vec3 ro;
@@ -200,17 +209,21 @@ void main() {
     camFly(uv, ro, rd);
     ro.z = mod(ro.z, 64.0);
 
-    float kPulse = clamp(uKnob[0], 0.0, 1.0);
-    float kTex = clamp(uKnob[1], 0.0, 1.0);
-    float kFlow = clamp(uKnob[2], 0.0, 1.0);
-    float kTone = clamp(uKnob[3], 0.0, 1.0);
-    float kBuild = clamp(uKnob[4], 0.0, 1.0);
-    float kSpace = clamp(uKnob[5], 0.0, 1.0);
+    // The six looks the sea was drawn around, each 0..1 with 0.5 as tuned,
+    // now driven: see "what moves it" above.
+    float surge = neonSurge();
+    float quiet = neonQuiet();
+    float glow = neonGlow();
+    float kPulse = clamp(0.1 + 0.9 * neonKick() + 0.4 * surge, 0.0, 1.0) * (1.0 - 0.7 * quiet);
+    float kTex = clamp(mix(0.5, 1.0, neonForm()) + 0.35 * neonChaos(), 0.0, 1.0);
+    float kFlow = clamp(0.5 + 0.5 * neonFlow() + 0.4 * (neonWeight() - 0.5), 0.0, 1.0);
+    float kBuild = clamp(0.4 + 0.6 * neonBuild() + 0.6 * surge, 0.0, 1.0);
+    float kSpace = clamp(0.5 + 0.45 * quiet - 0.4 * surge, 0.0, 1.0);
 
-    gTime = uTime * 0.8;
+    gTime = uTime * 0.45 + SND_BASS_TIME * 0.6;
     gAmp = 0.45 * (0.7 + 1.1 * kFlow);
     gFalloff = mix(0.66, 0.78, kTex);
-    gTone = kTone * 0.6;
+    gTone = 0.3 + neonKeyTurn();
     gPortal = mix(0.55, 1.15, kBuild);
     gMoonDir = normalize(vec3(0.0, 0.16, 1.0));
 
@@ -259,7 +272,7 @@ void main() {
         // thickness that varies with the swell, so slopes band into
         // orange-green-purple like oil on chrome.
         float film = 1.2 + 1.6 * hRel + 0.6 * sin(p.x * 0.7 + p.z * 0.4);
-        vec3 irid = 0.5 + 0.5 * cos(6.2831853 * (film * (0.4 + cosV) + gTone + vec3(0.0, 0.33, 0.67)));
+        vec3 irid = 0.5 + 0.5 * cos(6.2831853 * (film * (0.4 + cosV) + gTone + 0.3 * SND_CHORD_HUE + vec3(0.0, 0.33, 0.67)));
         vec3 chrome = env * fres * mix(vec3(1.0), irid * 1.4, 0.55);
         chrome += irid * vec3(0.05, 0.02, 0.09) * (0.5 + hRel);
 
@@ -268,9 +281,11 @@ void main() {
         float isoW = fwidth(iso);
         float isoLine = 1.0 - smoothstep(0.0, max(isoW * 1.5, 0.02), abs(fract(iso) - 0.5) * 2.0 - 0.0) ;
         isoLine *= (1.0 - smoothstep(10.0, 40.0, t)) * (1.0 - smoothstep(0.1, 0.35, isoW));
-        chrome += neon(0.3 + hRel * 0.4) * isoLine * (0.08 + 0.9 * kPulse) * 0.6;
-        // Crests glow from within.
-        chrome += neon(0.5) * smoothstep(0.75, 1.0, hRel) * (0.05 + 0.25 * kPulse);
+        chrome += neon(0.3 + hRel * 0.4) * isoLine * (0.08 + 0.9 * kPulse) * 0.6 * glow;
+        // Crests glow from within, and glint on the hats.
+        chrome += neon(0.5) * smoothstep(0.75, 1.0, hRel) * (0.05 + 0.25 * kPulse) * glow;
+        float glint = pow(max(dot(refl, normalize(vec3(0.2, 0.3, 1.0))), 0.0), 60.0) * step(0.85, hRel);
+        chrome += vec3(1.0, 0.95, 1.0) * glint * neonSparkle() * 2.0;
         col = chrome;
 
         // Violet haze toward the horizon.
@@ -278,7 +293,5 @@ void main() {
         col = mix(col, ocSky(normalize(vec3(rd.x, 0.015, rd.z))) * 0.8 + vec3(0.04, 0.0, 0.08), fog * 0.8);
     }
 
-    col = max(mix(vec3(dot(col, vec3(0.299, 0.587, 0.114))), col, 1.2), 0.0);
-    col = aces(col * 1.5);
-    fragColor = vec4(grade(col), 1.0);
+    fragColor = vec4(neonFinish(col, 1.5), 1.0);
 }

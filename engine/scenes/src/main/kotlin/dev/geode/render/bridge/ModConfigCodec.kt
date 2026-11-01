@@ -10,7 +10,6 @@ import dev.geode.render.ReactionRoute
 
 /** The float layouts `geode_viz_set_lfo`, `_adsr` and `_reactions` read; enums travel as ordinals. */
 object ModConfigCodec {
-    const val LFO_FLOATS = 8
     const val ADSR_HEAD_FLOATS = 10
 
     /** Mirrors GEODE_REACT_ROUTE_FLOATS. */

@@ -30,13 +30,6 @@ bool isLuminanceTarget(LfoTarget target) {
     }
 }
 
-ModPolarity naturalPolarity(ModSource source) {
-    switch (source) {
-        case ModSource::Lfo: case ModSource::StereoPan: return ModPolarity::Bipolar;
-        default: return ModPolarity::Positive;
-    }
-}
-
 float polarized(float raw, ModPolarity polarity) {
     switch (polarity) {
         case ModPolarity::Bipolar: return raw;

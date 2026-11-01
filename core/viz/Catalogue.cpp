@@ -30,7 +30,7 @@ constexpr std::array<const char*, 60> kLooseShaders = {
     "prism_rain",
     // Two looks restored from branches that never merged (#14, #7), rewritten on the sound engine.
     "supershape", "fractal_tunnel",
-    // The neon set, written from scratch on the style knobs (lib_scene_uniforms' uKnob): a 2D spiral web,
+    // The neon set, written from scratch on lib_neon: a 2D spiral web,
     // then four marches (a chrome sea, a lensed singularity, a hex-pillar tunnel, a Mandelbox nave).
     "glow_vortex", "neon_chrome_sea", "black_hole", "hex_hive", "mandelbox_cathedral",
 };

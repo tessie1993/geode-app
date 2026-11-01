@@ -21,10 +21,6 @@ void Limiter::configure(float sampleRate) {
     releaseCoefficient_ = 1.0f - std::exp(-1.0f / (kReleaseSeconds * sampleRate));
 }
 
-void Limiter::setSampleRate(float sampleRate) {
-    configure(sampleRate);
-}
-
 void Limiter::reset() {
     std::fill(delay_.begin(), delay_.end(), 0.0f);
     std::fill(dequeValue_.begin(), dequeValue_.end(), 0.0f);

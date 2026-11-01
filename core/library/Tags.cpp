@@ -79,18 +79,14 @@ bool readTags(int fd, TrackTags& out) {
     return true;
 }
 
-bool writeTags(int fd, const TrackTagEdit& edit, TagsWriteError* error) {
-    auto fail = [&](TagsWriteError e) {
-        if (error) *error = e;
-        return false;
-    };
+bool writeTags(int fd, const TrackTagEdit& edit) {
     TagLib::FileStream stream(fd, false);
-    if (!opened(stream, fd)) return fail(TagsWriteError::kOpenFailed);
-    if (stream.readOnly()) return fail(TagsWriteError::kReadOnly);
+    if (!opened(stream, fd)) return false;
+    if (stream.readOnly()) return false;
     TagLib::FileRef ref(&stream, false, TagLib::AudioProperties::Fast);
-    if (ref.isNull()) return fail(TagsWriteError::kUnsupported);
+    if (ref.isNull()) return false;
     TagLib::Tag* tag = ref.tag();
-    if (!tag) return fail(TagsWriteError::kUnsupported);
+    if (!tag) return false;
     if (edit.title) tag->setTitle(fromUtf8(*edit.title));
     if (edit.artist) tag->setArtist(fromUtf8(*edit.artist));
     if (edit.album) tag->setAlbum(fromUtf8(*edit.album));
@@ -107,8 +103,7 @@ bool writeTags(int fd, const TrackTagEdit& edit, TagsWriteError* error) {
         }
         ref.setProperties(map);
     }
-    if (!ref.save()) return fail(TagsWriteError::kSaveFailed);
-    if (error) *error = TagsWriteError::kNone;
+    if (!ref.save()) return false;
     return true;
 }
 

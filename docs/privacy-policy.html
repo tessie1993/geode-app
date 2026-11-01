@@ -42,7 +42,7 @@
   <thead><tr><th>What</th><th>Why</th><th>Where it goes</th></tr></thead>
   <tbody>
     <tr><td>Audio files and their tags (title, artist, album, genre, year, duration, artwork)</td><td>To list, play and analyse your music</td><td>Read from device storage; stays on the device</td></tr>
-    <tr><td>Audio waveform data</td><td>Beat, tempo, key and spectrum analysis that drives the visuals</td><td>Processed in memory; a compact analysis cache is kept in the app's private storage</td></tr>
+    <tr><td>Audio waveform data</td><td>Levels, spectrum, drum hits, note onsets and melody that drive the visuals</td><td>Analysed in memory, frame by frame, while it plays; nothing is stored</td></tr>
     <tr><td>Microphone audio — only while the optional <em>Live input</em> feature is on</td><td>So the visuals can react to the room</td><td>Analysed in memory only; never recorded, stored or transmitted</td></tr>
     <tr><td>Audio other apps are playing — only while the optional <em>Visualize other apps</em> feature is on</td><td>So the visuals can react to music from another app</td><td>Analysed in memory only; never recorded, stored or transmitted</td></tr>
     <tr><td>The name of the app and track playing elsewhere — only with the optional notification access</td><td>To label what the visuals are reacting to</td><td>Shown on screen; not stored or transmitted</td></tr>
@@ -80,7 +80,7 @@
 <p>Exported videos are MP4 files saved where you choose. They stay on your device unless <em>you</em> share them; the app you share to handles them under its own policy. Exports made without Pro are limited to one minute and carry a "MuzViz Studio Pro" watermark.</p>
 
 <h2>Backups</h2>
-<p>If Android backup is on, your MuzViz settings, presets and playlists may be included in your Google account backup, handled by Google. The analysis cache and crash file are excluded. You can turn backup off in your device settings.</p>
+<p>If Android backup is on, your MuzViz settings, presets and playlists may be included in your Google account backup, handled by Google. The crash file, imported textures and recorded takes are excluded. You can turn backup off in your device settings.</p>
 <p>Settings › Backup can also save one zip file, only when you ask it to, to a place you choose with the system file picker. It holds your settings, presets, palettes, templates, editor projects, playlists, library list and listening history, and your MilkDrop presets. MuzViz never sends it anywhere; restoring reads it back from where you saved it.</p>
 
 <h2>Children</h2>

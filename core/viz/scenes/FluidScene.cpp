@@ -5,12 +5,14 @@
 
 #include "viz/LiveSignal.hpp"
 #include "viz/Quad.hpp"
+#include "viz/fluid/FluidMath.hpp"
 #include "viz/fluid/FluidQuality.hpp"
 
 namespace geode::viz {
 
 void FluidScene::init() {
     sim_.onShaderError = [this](const std::string& m) { host_.onShaderError(m); };
+    sim_.setTemperature(style_.buoyancy > 0.0f);
     sim_.create();
     choreography_.reset();
     if (sim_.available()) {
@@ -34,6 +36,8 @@ void FluidScene::resize(int width, int height) {
 void FluidScene::onApplyQualityTier(int index, bool userChanged) {
     const auto& tier = fluid::quality::tier(index);
     sim_.applyResolution(tier.simRes, tier.dyeRes);
+    sim_.macCormack = tier.macCormack;
+    particles_.maxStretch = tier.maxStretch;
     const bool recreateParticles = appliedParticleSide_ == 0 || (userChanged && appliedParticleSide_ != tier.particleSide);
     if (recreateParticles) {
         appliedParticleSide_ = tier.particleSide;
@@ -76,6 +80,16 @@ void FluidScene::draw(float timeSeconds) {
     sim_.audioEnergy = energy;
     sim_.audioBeat = live::hit(f);
     sim_.timeSeconds = time_;
+    // The couplings this engine added, each a blend of the sound frame (FluidMath Drives).
+    const fluid::math::Drives drive = fluid::math::drives(f);
+    const float dtDrive = std::clamp(lastDt_, 0.0f, 1.0f / 30.0f);
+    sim_.heat = fluid::math::heatInjection(drive.heat, style_.heat, dtDrive);
+    sim_.buoyancy = style_.buoyancy * drive.buoyancy;
+    sim_.cooling = style_.cooling;
+    particles_.stir = 0.2f * drive.particleStir;
+    stirPhase_ = std::fmod(stirPhase_ + dtDrive * (0.4f + 1.6f * drive.stirRate), kIdleWrapSeconds);
+    particles_.stirTime = stirPhase_;
+    particles_.stretchSeconds = drive.streak / 60.0f;
 
     configureChoreography();
     emitters_.applyParams(p);
@@ -106,7 +120,7 @@ void FluidScene::draw(float timeSeconds) {
     if (p.fluidDyeEnabled) {
         if (look_.available()) {
             look_.drawDisplay(sim_.dyeTex(), p.fluidShading, p.fluidBloom, p.fluidSunrays, std::max(savedViewportWidth(), 1),
-                              std::max(savedViewportHeight(), 1));
+                              std::max(savedViewportHeight(), 1), sim_.temperatureTex());
         } else {
             sim_.drawDisplay();
         }

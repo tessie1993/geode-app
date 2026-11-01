@@ -35,8 +35,6 @@ class NativeViz(
     private val paramFrame = FloatArray(SceneParamsCodec.FIELDS)
     private var reportedError = ""
 
-    val isCreated: Boolean get() = handle != 0L
-
     /**
      * Runs once per new handle, inside [create], on whichever thread created it. A handle is
      * created again after every [destroy], and that new renderer knows none of the state the old
@@ -152,11 +150,6 @@ class NativeViz(
         if (handle != 0L) GeodeNative.vizSetSoundTuning(handle, floats)
     }
 
-    /** The frame the last [render] stepped, as [dev.geode.engine.audio.SoundFrameLayout] floats. */
-    fun soundFrame(out: FloatArray) {
-        if (handle != 0L) GeodeNative.vizSoundFrame(handle, out)
-    }
-
     fun pushPcm(
         mono: FloatArray,
         count: Int,
@@ -256,15 +249,6 @@ class NativeViz(
 
     fun releaseScenes() {
         if (handle != 0L) GeodeNative.vizReleaseScenes(handle)
-    }
-
-    /** Full-frame RGBA8 overlay drawn last, premultiplied alpha; null clears. Any thread; latched for the next frame. */
-    fun setOverlay(
-        pixels: IntArray?,
-        width: Int,
-        height: Int,
-    ) {
-        if (handle != 0L) GeodeNative.vizSetOverlay(handle, pixels, width, height)
     }
 
     /**

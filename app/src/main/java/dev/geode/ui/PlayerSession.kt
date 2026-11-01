@@ -921,6 +921,16 @@ class PlayerSession internal constructor(
 
     fun reportShaderError(error: String?) = visual.reportShaderError(error)
 
+    private val liquidModeState = MutableStateFlow(0)
+
+    /** What Liquid mode ran last frame in the in-app renderer (`liquid::Mode` as an int); see [reportLiquidMode]. */
+    val liquidMode: StateFlow<Int> get() = liquidModeState
+
+    /** The live view's renderer copies its native liquid mode here (`AppRoot` binds it), so Compose can read a GL-thread fact. */
+    fun reportLiquidMode(mode: Int) {
+        liquidModeState.value = mode
+    }
+
     fun applyCustomShader(source: String) = visual.applyCustomShader(source)
 
     fun setTransitionStyle(style: TransitionStyle) = visual.setTransitionStyle(style)

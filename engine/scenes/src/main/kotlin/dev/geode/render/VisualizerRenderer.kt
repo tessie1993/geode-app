@@ -11,6 +11,9 @@ import dev.geode.render.bridge.NativeViz
 import dev.geode.render.scene.PcmChunk
 import dev.geode.render.scene.SceneIds
 import dev.geode.render.scene.SceneParams
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import javax.microedition.khronos.egl.EGLConfig
 import javax.microedition.khronos.opengles.GL10
 
@@ -138,6 +141,16 @@ class VisualizerRenderer(
     private var nativeReactions: List<ReactionRoute>? = null
     private var nativePerformance: PerformanceSettings? = null
     private var nativeThermalSampleMs = 0L
+    private var liquidModeSampleMs = 0L
+    private val liquidModeState = MutableStateFlow(0)
+
+    /**
+     * What Liquid mode ran last frame (`liquid::Mode`: 0 off, 1 full, 2 lite, 3 warp, 4 paused), so
+     * Customize can say when a hot phone simplified or paused it. The native renderer owns the
+     * answer on the GL thread; it is copied here at most twice a second, because the UI only needs
+     * the label to settle and a collector woken every frame would cost more than the answer is worth.
+     */
+    val liquidMode: StateFlow<Int> = liquidModeState.asStateFlow()
 
     /**
      * True from [onSurfaceCreated] until the first frame on that surface has been presented.
@@ -232,6 +245,7 @@ class VisualizerRenderer(
         nativeAdsr = null
         nativeReactions = null
         nativePerformance = null
+        liquidModeSampleMs = 0L
         nativeSoundTuning = null
         // A new native renderer starts a new engine: hand it a full window, not the tail of the last.
         soundCursor = null
@@ -301,6 +315,7 @@ class VisualizerRenderer(
         val perf = performance
         if (perf != nativePerformance) {
             nativeViz.setQuality(perf.renderScale, perf.marchScale, perf.postFx, perf.adaptive)
+            nativeViz.setLiquidHotPolicy(perf.liquidHot.native)
             nativePerformance = perf
         }
         nativeViz.setLook(lookYaw, lookPitch)
@@ -312,6 +327,10 @@ class VisualizerRenderer(
         if (now - nativeThermalSampleMs >= THERMAL_SAMPLE_MS) {
             nativeThermalSampleMs = now
             nativeViz.setThermal(ThermalGovernor.platformStatus, ThermalGovernor.thermalHeadroom())
+        }
+        if (now - liquidModeSampleMs >= LIQUID_MODE_SAMPLE_MS) {
+            liquidModeSampleMs = now
+            liquidModeState.value = nativeViz.liquidMode()
         }
         pcmProvider()?.let { chunk -> nativeViz.pushPcm(chunk.data, chunk.count) }
         val tuning = soundTuning
@@ -342,4 +361,5 @@ class VisualizerRenderer(
 }
 
 private const val THERMAL_SAMPLE_MS = 1000L
+private const val LIQUID_MODE_SAMPLE_MS = 500L
 private const val NANOS_PER_SECOND = 1_000_000_000.0

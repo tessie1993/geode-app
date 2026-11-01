@@ -53,6 +53,19 @@ class CustomizeTabTest {
     }
 
     @Test
+    fun liquidPickersAreNeverRolledButStayWithTheFlowControls() {
+        val pickers = listOf(ParamKeys.LIQUID_BORN, ParamKeys.LIQUID_AGE, ParamKeys.LIQUID_SURFACE)
+        // Not in the roll table, so no page owns them for a roll.
+        pickers.forEach { key ->
+            assertTrue(key, CustomizeTab.PANEL.none { key in it.ownedKeys(rollKeys) })
+        }
+        // They travel with the other all-styles flow controls when a page is reset.
+        assertTrue(CustomizeTab.ALL_STYLES_FLOW_KEYS.containsAll(pickers))
+        assertTrue(CustomizeTab.ADVANCED.takes.containsAll(pickers))
+        assertTrue(CustomizeTab.STYLE.gives.containsAll(pickers))
+    }
+
+    @Test
     fun engineGroupsKeepTheirNames() {
         // core/viz/ParamRandomizer and saved locks name these.
         listOf("SHAPE", "COLOR", "MOTION", "FX", "REACTIVITY", "SCENE", "FLUID", "CYMATICS").forEach { name ->

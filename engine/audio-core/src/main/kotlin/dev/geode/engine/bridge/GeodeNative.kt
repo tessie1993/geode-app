@@ -275,6 +275,15 @@ object GeodeNative {
         adaptive: Boolean,
     )
 
+    /** Settings › Performance › Liquid on a hot phone: 0 simplify, 1 full, 2 pause (`liquid::HotPolicy`). */
+    external fun vizSetLiquidHotPolicy(
+        handle: Long,
+        policy: Int,
+    )
+
+    /** What Liquid mode ran last frame: 0 off, 1 full, 2 lite, 3 warp, 4 paused (`liquid::Mode`). */
+    external fun vizLiquidMode(handle: Long): Int
+
     /**
      * Pins this renderer's auto-director (an export's): from then on it ignores [directorSet], so the live
      * player moving to another track or past the free taste never reaches a render in progress.

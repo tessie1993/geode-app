@@ -17,6 +17,19 @@ class PerformanceSettingsTest {
     }
 
     @Test
+    fun liquidPolicyDoesNotMakeAPresetCustom() {
+        assertEquals(PerformanceMode.HIGH, PerformanceSettings.HIGH.copy(liquidHot = LiquidHotPolicy.PAUSE).mode)
+    }
+
+    @Test
+    fun liquidPolicyDefaultsToSimplifyAndKeepsItsWireValues() {
+        assertEquals(LiquidHotPolicy.SIMPLIFY, PerformanceSettings.BALANCED.liquidHot)
+        assertEquals(listOf(0, 1, 2), LiquidHotPolicy.entries.map { it.native })
+        assertEquals(LiquidHotPolicy.FULL, LiquidHotPolicy.fromNative(1))
+        assertEquals(LiquidHotPolicy.SIMPLIFY, LiquidHotPolicy.fromNative(99))
+    }
+
+    @Test
     fun presetsOnlyUseValuesTheTabOffers() {
         PerformanceMode.entries.map { it.settings }.forEach { s ->
             assertTrue(s.renderScale in PerformanceSettings.RENDER_SCALES)

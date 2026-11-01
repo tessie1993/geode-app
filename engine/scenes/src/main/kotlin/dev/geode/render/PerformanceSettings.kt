@@ -21,10 +21,16 @@ data class PerformanceSettings(
     val postFx: Boolean,
     /** Measured frame time steps quality down when frames run slow, and back up when they keep up. */
     val adaptive: Boolean,
+    /**
+     * What Liquid mode does once the phone runs hot. Not part of any preset: it is a taste (keep the
+     * look flowing, or protect the battery), not a cost level, so picking Saver or High leaves it
+     * alone and it never makes the tab read "Custom".
+     */
+    val liquidHot: LiquidHotPolicy = LiquidHotPolicy.SIMPLIFY,
 ) {
     /** The preset these values match, or null when the user has customised them. */
     val mode: PerformanceMode?
-        get() = PerformanceMode.entries.firstOrNull { it.settings == this }
+        get() = PerformanceMode.entries.firstOrNull { it.settings == copy(liquidHot = it.settings.liquidHot) }
 
     companion object {
         val SAVER = PerformanceSettings(renderScale = 0.5f, fpsCap = 30, marchScale = 0.5f, postFx = false, adaptive = true)
@@ -57,6 +63,26 @@ data class PerformanceSettings(
                 mediaPerformanceClass >= HIGH_PERFORMANCE_CLASS || totalRamBytes >= HIGH_FROM_RAM -> PerformanceMode.HIGH
                 else -> PerformanceMode.BALANCED
             }
+    }
+}
+
+/**
+ * Settings > Performance > Liquid on a hot phone. [native] is the wire value of `liquid::HotPolicy`
+ * (core/viz/liquid/LiquidMath.hpp): the thermal tier decides when the phone is hot, this decides
+ * what Liquid does about it. Simplify is the default because the flowing look is the point of the
+ * mode; Full is for people who would rather throttle than lose it; Pause is the battery-first choice.
+ */
+enum class LiquidHotPolicy(
+    val native: Int,
+) {
+    SIMPLIFY(0),
+    FULL(1),
+    PAUSE(2),
+    ;
+
+    companion object {
+        /** The policy for a stored int; anything unknown (a value from a newer build) falls back to the default. */
+        fun fromNative(value: Int): LiquidHotPolicy = entries.firstOrNull { it.native == value } ?: SIMPLIFY
     }
 }
 

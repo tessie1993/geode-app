@@ -142,7 +142,7 @@ const FLUID_VALUES = {
   uInvRes: [0, 0], uAspect: 1, uDitherScale: [1, 1], uTexelSize: [0, 0],
   uTime: 37.0, uAudio: [0.55, 0.45, 0.35, 0.5], uLookHue: 0.2,
 };
-const FLUID_TEXTURES = { uDye: 'dye', uBloom: 'dye', uSunrays: 'white', uDither: 'noise' };
+const FLUID_TEXTURES = { uDye: 'dye', uBloom: 'dye', uSunrays: 'white', uDither: 'noise', uTemperature: 'dye' };
 
 function plan(uniforms, values, textures, width, height) {
   const missing = [];

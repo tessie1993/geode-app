@@ -30,8 +30,11 @@ GRADLE=(./gradlew --stacktrace --no-daemon)
 RESULTS=app/build/outputs/androidTest-results/connected
 INFRA='device .* not found|device offline|AdbCommandRejectedException|ShellCommandUnresponsiveException|Test run failed to complete|DeviceException|no devices/emulators found'
 
+# Every adb call that needs a device carries a timeout: with no device attached, `adb logcat`
+# prints "waiting for device" and never returns. Runs 41282308944 and 41282326381 lost the
+# emulator, and the retry's `adb logcat -G` then sat silent until the job's 75-minute limit.
 start_logcat() {
-    adb logcat -G 16M >/dev/null 2>&1 || true
+    timeout 30 adb logcat -G 16M >/dev/null 2>&1 || true
     adb logcat -b main,system,crash,events -v threadtime >"$ART/logcat-attempt$1.txt" 2>&1 &
     LOGCAT_PID=$!
 }
@@ -95,12 +98,19 @@ run_attempt() {
     return "$status"
 }
 
+# Fails (non-zero) unless the device is back and booted, so the caller stops with an error
+# instead of starting a second attempt against no device.
 recover_adb() {
     echo "Reconnecting adb before the retry"
-    adb reconnect offline >/dev/null 2>&1 || true
-    timeout 120 adb wait-for-device || { adb kill-server; adb start-server; timeout 180 adb wait-for-device; }
-    timeout 300 bash -c 'until [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d "\r")" = 1 ]; do sleep 2; done'
-    adb shell input keyevent 82 >/dev/null 2>&1 || true
+    timeout 30 adb reconnect offline >/dev/null 2>&1 || true
+    if ! timeout 120 adb wait-for-device; then
+        timeout 30 adb kill-server || true
+        timeout 30 adb start-server || true
+        timeout 180 adb wait-for-device || return 1
+    fi
+    timeout 300 bash -c 'until [ "$(timeout 10 adb shell getprop sys.boot_completed 2>/dev/null | tr -d "\r")" = 1 ]; do sleep 2; done' ||
+        return 1
+    timeout 30 adb shell input keyevent 82 >/dev/null 2>&1 || true
 }
 
 run_attempt 1 && exit 0

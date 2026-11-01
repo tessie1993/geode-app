@@ -400,6 +400,7 @@ void Renderer::onSurfaceCreated() {
     motionField_.reset();
     reactions_.reset();
     macroReactions_.reset();
+    director_.reset();
     camera_.reset();
 }
 

@@ -84,7 +84,18 @@ The full set of tunable values a scene is drawn with at one moment.
 _Avoid_: Settings, knobs
 
 **Customize tabs**:
-The groups the scene params are edited in: Events first, then the detail tabs (Shape, Colour, Motion, FX, Reactivity, Scene) and the per-family tabs.
+The pages the scene params are edited in, simple first: Macros, Look (what every style shares), the style's own page (titled with its name), Events, then Advanced. The engine still rolls and resets by its own groups (Shape, Colour, Motion, Effects, Sound response, Scene, Fluid, Cymatics).
+
+**Advanced section**:
+One card in Customize › Advanced (Sound response, Reactions, Layers, Camera, Transitions, Gradient maker, Flow field & water ripples, Shader code), opening its own page. All Pro.
+
+**Wave**:
+One of the three modulation slots: an LFO that runs steadily or follows a sound, moving one control.
+_Avoid_: Slot, LFO (in the UI)
+
+**Keep when shuffling**:
+The per-control lock that holds a control still when Randomize rolls its page.
+_Avoid_: Lock (that word belongs to Pro)
 
 **Reaction route**:
 One line of the reaction matrix: a sound (band, level or event) moves one scene param, by following, stepping, spinning or jumping.
@@ -190,6 +201,38 @@ _Avoid_: Screensaver (UI label only)
 
 **Widget**:
 The home-screen now-playing widget.
+
+**Musical layer**:
+The part of the sound engine that hears music rather than sound: tempo and beat (Rhythm), key, chords and scale (Harmony), and sections, build-ups and drops (Form). See `docs/research/musical-layer.md`.
+
+**Beat phase / bar phase / phrase**:
+Where the music is within its beat, its 4-beat bar and its 8-bar phrase, 0 at the start, 1 at the end. A downbeat is the first beat of a bar.
+_Avoid_: Beat clock (the hit clock is a different thing)
+
+**Section**:
+A stretch of the song that sounds of a piece (verse, chorus, breakdown). A section change fires on a downbeat, one bar after the boundary; a returning section keeps its number.
+_Avoid_: Scene (a scene is a visual), part
+
+**Section state**:
+The song part a section is read as: intro, verse, build, drop, breakdown or outro.
+
+**Build-up / drop**:
+A build-up is a passage getting louder, brighter and busier with the bass pulled out; the drop is the bass coming back after it.
+
+**Feeling**:
+What the music feels like now: valence (sad … happy), energy and tension, and which of the nine GEMS feelings (wonder, transcendence, tenderness, nostalgia, peace, power, joy, tension, sadness) leads. Three quarters from the scale (measured), a quarter from the key (Schubart's tradition). Never shown as a word. See `docs/research/auto-director.md`.
+_Avoid_: Mood label, emotion name
+
+**Auto-director**:
+Settings › Behaviour's switch that lets the feeling choose a look at each section, drop or key change: palette, macro knobs, camera moves and what reacts to what, on every style. Pro; free gets the first minute of each song.
+_Avoid_: Auto visuals (that switches styles on a timer)
+
+**Look**:
+One auto-director decision: a palette, a behaviour and a set of routes, glided in over a bar. Never the same look twice in a row of six.
+
+**Scale mood**:
+The brightness (dark Locrian … bright Lydian) and tension of the scale the music is in, from the musical intelligence database (`docs/musical-intelligence`).
+_Avoid_: Emotion (it is a design reading, not a measurement)
 
 ## Code
 

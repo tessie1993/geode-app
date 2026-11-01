@@ -67,6 +67,10 @@ GEODE_API int         geode_react_source_catalog(char* out, int capacity);
 GEODE_API void        geode_macros_set(const float* knobs, int count);
 GEODE_API void        geode_macros_surprise(const float* knobs, int count, unsigned lock_mask, long long seed, float* out);
 GEODE_API int         geode_macro_starters(char* out, int capacity);
+/* The auto-director (core/viz/Director): the music's feeling deciding palette, behaviour and routing over
+ * every style. amount 0 off .. 1 full, eased in and out by each renderer; seed is the play's, so a new seed
+ * is a new play (the renderer forgets the song so far) and an export given the same seed makes the same film. */
+GEODE_API void        geode_director_set(float amount, long long seed);
 /* The renderer's own sound engine: interleaved PCM in play order, every sample once, written on the render
  * thread before geode_viz_render; the next render steps it with that frame's dt. */
 GEODE_API void        geode_viz_write_audio(geode_viz*, const float* interleaved, int frames, int channels, int sample_rate);

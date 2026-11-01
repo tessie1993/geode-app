@@ -106,21 +106,29 @@ SceneParams Renderer::resolveParams(float dt) {
     }
     const float fade = std::max(requested.paramFadeSec, morph);
     displayedParams_ = fade <= 0.01f ? requested : lerpParams(displayedParams_, requested, std::clamp(dt / fade, 0.0f, 1.0f));
+    // The auto-director hears the frame first: its look lies under the macros, so the user's own knobs,
+    // the LFOs, the reactions, the motion field and the safety clamp all still act on top of it.
+    director_.configure(director::global());
+    director_.step(soundFrame_, dt);
+    directedKnobs_ = director_.knobs(frameKnobs_);
     const auto& envValues = adsr_.tick(dt, soundFrame_);
     AdsrEngine::lfoOffsets(adsr_.configs, envValues, envRate_, envDepth_);
     const auto& lfoValues = lfo_.tick(dt, soundFrame_, envRate_.data(), envDepth_.data());
     // The macros lay over the user's params first, so every stage after them (and the safety clamp)
     // sees the knobbed look.
-    SceneParams p = lfo_.apply(macros::apply(displayedParams_, frameKnobs_), lfoValues);
+    const bool palWheel = !activeScene_ || activeScene_->family() == SceneFamily::Shader;
+    SceneParams p = lfo_.apply(macros::apply(director_.apply(displayedParams_, palWheel), directedKnobs_), lfoValues);
     p = AdsrEngine::apply(p, adsr_.configs, envValues);
     // The reaction matrix: per-style routes from the sound frame to many
     // targets. Ahead of the motion field and the safety clamp, like the LFOs.
     reactions_.tick(soundFrame_, dt);
     p = reactions_.apply(p);
     // The macros' own routes, in an engine of their own so they never take a user slot.
-    macroReactions_.routes = macros::routes(frameKnobs_);
+    macroReactions_.routes = macros::routes(directedKnobs_);
     macroReactions_.tick(soundFrame_, dt);
     p = macroReactions_.apply(p);
+    // The director's routes, crossfading at each decision, in engines of their own.
+    p = director_.applyRoutes(p);
     // The continuous motion system: the one stage every family's parameters
     // pass through, fed the sound frame (never a single drum hit or PCM
     // impulse), ahead of the safety clamp so nothing it adds can exceed the
@@ -326,7 +334,7 @@ void Renderer::stepCamera(const SceneParams& p, float dt) {
     }
     look.yaw = std::clamp(look.yaw, -1.0f, 1.0f);
     look.pitch = std::clamp(look.pitch, -1.0f, 1.0f);
-    camera_.setMoves(macros::camera(frameKnobs_));
+    camera_.setMoves(director_.moves(macros::camera(directedKnobs_)));
     camera_.step(p, look, dt, reducedMotion_.load(std::memory_order_relaxed), sceneSpin_.load(std::memory_order_relaxed) != 0.0f,
                  &soundFrame_);
 }

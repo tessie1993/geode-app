@@ -156,7 +156,7 @@ internal class ExportController(
         ExportRun.begin(uri.lastPathSegment.orEmpty().substringAfterLast('/'))
         ExportService.start(application)
         exportJob =
-            ExportRun.scope.launch(Dispatchers.Default) {
+            ExportRun.launch {
                 try {
                     val gui = host.guiPrefs
                     val name = "muzviz_${System.currentTimeMillis()}.mp4"
@@ -266,7 +266,7 @@ internal class ExportController(
         ExportRun.begin(application.getString(dev.geode.R.string.render_batch_label, tracks.size))
         ExportService.start(application)
         exportJob =
-            ExportRun.scope.launch(Dispatchers.Default) {
+            ExportRun.launch {
                 try {
                     val gui = host.guiPrefs
                     // A Cancel between tracks ends the loop; the tracks left are then marked cancelled.
@@ -353,8 +353,15 @@ internal class ExportController(
         )
     }
 
+    /**
+     * Stops the render through [ExportRun], not only through this controller's flag: after the
+     * Activity is recreated this controller is a new one that re-attached to a render an older one
+     * started, whose `isCancelled` never reads [exportCancelled]. [ExportRun.requestCancel] reaches
+     * that render whichever controller asks.
+     */
     fun cancelExport() {
         exportCancelled = true
+        if (ExportRun.running) ExportRun.requestCancel()
     }
 
     fun resetExportState() {
@@ -539,7 +546,7 @@ internal class ExportController(
         ExportRun.begin(uri.lastPathSegment.orEmpty().substringAfterLast('/'))
         ExportService.start(application)
         loopJob =
-            ExportRun.scope.launch(Dispatchers.Default) {
+            ExportRun.launch {
                 try {
                     val gui = host.guiPrefs
                     val spec = LoopSpec.of(loopMs, crossfadeMs, fps = fps)
@@ -629,8 +636,10 @@ internal class ExportController(
         ExportRun.publish(clamped)
     }
 
+    /** Same reasoning as [cancelExport]: the loop render may belong to an earlier controller. */
     fun cancelLoopRender() {
         loopCancelled = true
+        if (ExportRun.running) ExportRun.requestCancel()
     }
 
     fun clearLoopResult() {

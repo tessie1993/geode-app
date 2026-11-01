@@ -67,7 +67,8 @@ internal class AutoVisualsController(
         from: String,
         to: String,
     ) {
-        if (host.vizState.value.vizPlaylist.none { it.presetName == from }) return
+        val playlist = host.vizState.value.vizPlaylist
+        if (playlist.none { it.presetName == from }) return
         host.updateViz { s ->
             s.copy(
                 vizPlaylist =

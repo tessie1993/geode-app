@@ -225,6 +225,8 @@ class PlayerViewModel
 
         fun cancelScenePreview() = session.cancelScenePreview()
 
+        fun leaveScenePreview() = session.leaveScenePreview()
+
         fun setReactivity(
             attack: Float,
             decay: Float,

@@ -10,6 +10,13 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.update
 
+/** The style left on screen when the Styles grid closes over a preview of [shown]. */
+internal fun sceneAfterPreview(
+    shown: String,
+    chosen: String,
+    mayKeep: (String) -> Boolean,
+): String = if (mayKeep(shown)) shown else chosen
+
 internal class VisualSettingsController(
     private val vizStateStore: VizStateStore,
     private val host: Host,
@@ -59,6 +66,21 @@ internal class VisualSettingsController(
         val chosen = vizStateStore.committedSceneId ?: return
         vizStateStore.committedSceneId = null
         state.update { it.copy(sceneId = chosen) }
+    }
+
+    /**
+     * The grid was left (Customize, Presets, another tab) with a preview up. A tapped card is what
+     * people mean as their pick, so the shown style becomes the chosen one if [mayKeep] allows it;
+     * only a locked Pro preview falls back. Reverting here used to throw the pick away the moment
+     * Customize opened, and the scene rebuild landed under the first macro turn, back on the old
+     * (on a fresh install, the default) style.
+     */
+    fun leavePreview(mayKeep: (String) -> Boolean) {
+        val chosen = vizStateStore.committedSceneId ?: return
+        vizStateStore.committedSceneId = null
+        val next = sceneAfterPreview(state.value.sceneId, chosen, mayKeep)
+        state.update { it.copy(sceneId = next) }
+        vizStateStore.persist()
     }
 
     fun setReactivity(

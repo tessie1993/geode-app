@@ -395,9 +395,10 @@ private fun EmptyStyles(
  * The still of a style: `assets/thumbs/<id>.webp`, rendered on CI by
  * `StyleThumbnailRenderTest`. Until a style has one (a new style, or MilkDrop, whose look is
  * the preset's) it gets a gradient keyed to its family or kind, so the grid never shows a hole.
+ * Internal because the Presets cards show their style's still too.
  */
 @Composable
-private fun StyleThumbnail(
+internal fun StyleThumbnail(
     entry: StyleEntry,
     modifier: Modifier = Modifier,
 ) {

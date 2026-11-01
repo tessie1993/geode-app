@@ -8,119 +8,136 @@ out vec4 fragColor;
 
 //#include lib_scene_uniforms
 //#include lib_scene_motion
+//#include lib_camera
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_glass
 
-// Glass Lens: a handful of round magnifying lenses drifting slowly over a
-// printed sheet - a halftone field of dots whose sizes swell in a slow wave,
-// over fine diagonal hatching. The sheet itself is out of focus, and so are
-// most of the lenses; one lens at a time is pin-sharp, magnifying the dots
-// beneath it to crisp discs. Each lens is a thick convex profile: the centre
-// magnifies about two and a half times and the rim pulls the image round in a
-// barrel; at the rim the three channels are read at slightly different
-// magnifications, so its edge is fringed with colour (the family's one
-// allowed multi-tap, three reads of the sheet). Each lens throws a soft
-// shadow down-right with a bright point of focused light at its heart.
+// Glass Lens: magnifying lenses drifting over an LED wall that is playing the
+// music. The wall is a grid of LEDs, each made of three narrow red, green and
+// blue emitters; columns light to the height of the live spectrum (lib_sound's
+// 64-point log spectrum), coloured along the palette, with a peak-hold dot on
+// top. From a distance it is a glowing bar graph; under a lens the magnified
+// LEDs resolve into their RGB triads, the moment a viewer recognises "glass".
+// Each lens is a thick convex profile: a magnification that rises from the
+// centre to a barrel at the rim, read once per channel at a slightly
+// different power (dispersion, three reads of the wall), a polished bevel that
+// mirrors the studio, a Fresnel rim, and the soft shadow and focused hot spot
+// a lens throws on the wall below. The second lens is a kaleidoscope: it folds
+// the wall it magnifies into a turning six-fold mandala.
 //
 // ---- audio ------------------------------------------------------------------
 //
-// Onsets swap the focus: every onset (floor(SND_HIT_TIME)) picks a lens, and as the
-// onset envelope (SND_ONSET_ENV) falls the old lens blurs out and the new one comes
-// sharp - a rack focus on the beat, eased, never a cut. The key (uKeyHue,
-// uKeyStrength) drifts the ink's palette. Brightness follows (0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)).
+//   spectrum       lifts the wall's glow in bands, low notes at the left;
+//   bass           the magnification, 1.6 -> 2.6: the lenses lean in on low notes;
+//   centroid       chromatic aberration at the rims;
+//   snare          flips one lens on its axis (SND_SNARE_TOGGLE eases 0 <-> 1 per
+//                  hit), squashing it edge-on and back;
+//   kick           jostles the lenses (an eased bump, never a jump);
+//   pan            the drift leans toward the louder side;
+//   flatness       frosts the glass: the magnified image goes milky and soft.
 //
 // ---- macros -----------------------------------------------------------------
 //
-// Speed (uSpeed) scales the lenses' drift and the halftone wave. Complexity
-// (uMorph) adds up to two more lenses. Chaos (uWarp, uTurbulence) wobbles each
-// lens's profile so the magnified image swims. Energy (uIntensity) deepens the
-// magnification. Colour: ink and paper from pal(). Space is the rig's flat
-// projection.
+// Speed scales the drift. Complexity adds up to two more lenses. Chaos wobbles
+// each lens's profile so the magnified image swims. Energy scales every
+// reaction. The rig's look nudges the lenses (parallax over the wall).
+//
+// ---- cost -------------------------------------------------------------------
+//
+// One wall read off the lenses; three on a lens, plus one studio lookup for the
+// bevel. Up to five lenses, analytic.
 
-#define LN_MAX 7
+#define LN_MAX 5
+#define LN_COLS 48.0
 
-/** The printed sheet, softened by `blur` (in dot-cell units). */
-vec3 sheet(vec2 x, float blur, float hue, float t) {
-    vec2 g = x * 5.0;
-    vec2 cell = floor(g);
-    vec2 f = fract(g) - 0.5;
-    float wave = 0.5 + 0.5 * sin(dot(cell, vec2(0.41, 0.27)) + t * 0.5);
-    float soft = 0.015 + blur;
-    float dotMask = 1.0 - smoothstep(-soft, soft, length(f) - (0.1 + 0.28 * wave));
-    float hatch = 0.5 + 0.5 * cos((x.x - x.y) * 22.0);
-    hatch = mix(hatch, 0.5, clamp(blur * 5.0, 0.0, 1.0));
-    vec3 paper = (mix(vec3(0.9, 0.88, 0.82), pal(hue + 0.5) * 0.5 + 0.4, 0.25)) * (0.16 + 0.05 * hatch);
-    vec3 ink = pal(hue + 0.03 * (cell.x + cell.y) + 0.2 * wave);
-    return mix(paper, ink * 0.85, dotMask);
+GlassLook gLk;
+
+/**
+ * The wall under the lenses: the FRACTAL world laid flat, its glow lifted in
+ * vertical bands by the live spectrum (low notes at the left), so the music
+ * still paints across it. `frost` blurs it; a lens reads it sharp, the rest of
+ * the frame sees it a little soft, so the lenses are where the detail lives.
+ */
+vec3 wall(vec2 p, float hue, float frost) {
+    float x = clamp(p.x * 0.28 + 0.5, 0.0, 1.0);
+    float band = clamp(sndSpectrum(x * 0.92 + 0.02) * 1.3, 0.0, 1.2);
+    return glassFractal2(p, gLk, frost * 0.12) * (0.55 + 0.9 * band);
 }
 
 void main() {
     vec2 uv = view();
     float t = glassTime();
-    float energy = glassEnergy();
-    float swell = clamp((0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)), 0.0, 1.5);
-    float hue = 0.05 * sin(t * 0.017) + 0.12 * uKeyStrength * sin(GLASS_TAU * uKeyHue);
-    float chaos = glassChaos();
+    GlassEar ear = glassListen();
+    float hue = 0.05 * sin(t * 0.02) + 0.12 * uKeyStrength * sin(GLASS_TAU * uKeyHue);
+    GlassLook lk = glassLook(GLASS_ENV_FRACTAL, hue, ear);
+    gLk = lk;
+    vec2 par = uCamLook.xy * 0.25;
+    float mag = 1.6 + 1.0 * clamp(ear.bass, 0.0, 1.0);
+    float ab = 0.02 + 0.06 * ear.sharp;
+    float frost = ear.frost * 0.7;
+    int count = 3 + int(floor(glassComplexity() * 2.0 + 0.5));
 
-    int count = 5 + int(floor(glassComplexity() * 2.0 + 0.5));
-    float fc = float(count);
-    float pickNew = floor(glassHash1(floor(SND_HIT_TIME)) * fc);
-    float pickOld = floor(glassHash1(floor(SND_HIT_TIME) - 1.0) * fc);
-    float e = clamp(SND_ONSET_ENV, 0.0, 1.0);
-    e = e * e * (3.0 - 2.0 * e);
+    // The wall far away is a little defocused: the eye sits on the lenses.
+    vec3 col = wall(uv + par, hue, 0.6);
+    vec2 shadowOff = vec2(0.07, -0.09);
 
-    // Find the top lens over this pixel; gather every lens's shadow and focus spot.
-    float shade = 1.0;
-    float spot = 0.0;
-    float hitR = 2.0;
-    vec2 hitQ = vec2(0.0);
-    vec2 hitC = vec2(0.0);
-    float hitFocus = 0.0;
-    float hitSeed = 0.0;
     for (int i = 0; i < LN_MAX; i++) {
         if (i >= count) break;
         float fi = float(i);
-        float h = glassHash1(fi * 3.7 + 1.3);
-        vec2 c = vec2(1.25 * sin(t * (0.045 + 0.02 * h) + fi * 2.13),
-                      0.62 * sin(t * (0.037 + 0.015 * h) + fi * 1.37 + 0.6));
-        float rad = 0.25 + 0.14 * glassHash1(fi * 5.1 + 2.2);
-        vec2 sq = (uv - c - vec2(0.07, -0.09)) / rad;
-        float sr2 = dot(sq, sq);
-        shade *= 1.0 - 0.38 * (1.0 - smoothstep(0.75, 1.3, sr2));
-        spot += exp(-sr2 * 28.0) * 0.5;
-        vec2 q = (uv - c) / rad;
-        float r = length(q);
-        if (r < 1.0) {
-            hitR = r;
-            hitQ = q;
-            hitC = c;
-            hitSeed = fi;
-            hitFocus = mix(fi == pickNew ? 1.0 : 0.0, fi == pickOld ? 1.0 : 0.0, e);
+        float h1 = glassHash1(fi + 1.3);
+        float h2 = glassHash1(fi + 4.7);
+        float r = 0.42 + 0.22 * h2;
+        float lane = fi - 0.5 * float(count - 1);
+        vec2 c = vec2(lane * 1.15 + sin(t * (0.07 + 0.04 * h1) + h1 * 9.0) * 0.35 + 0.25 * ear.pan, -0.3 + sin(t * (0.05 + 0.03 * h2) + h2 * 7.0) * 0.5);
+        c += (glassHash2(vec2(fi, 3.0)) - 0.5) * 0.1 * ear.kick;
+        float flip = (i == 0 ? clamp(SND_SNARE_TOGGLE, 0.0, 1.0) : 0.0) * GLASS_PI * min(glassEnergy(), 1.0);
+        float sq = max(abs(cos(flip)), 0.12);
+
+        // Shadow and focus on the wall below.
+        vec2 ds = (uv - c - shadowOff) / r;
+        float dsl = length(vec2(ds.x / sq, ds.y));
+        col *= 1.0 - 0.45 * (1.0 - smoothstep(0.7, 1.15, dsl));
+        col += pal(hue + 0.1) * 0.5 * exp(-dsl * dsl * 30.0) * sq;
+
+        vec2 q = (uv - c) / r;
+        q.x /= sq;
+        float rl = length(q);
+        if (rl >= 1.0) continue;
+        float rim = smoothstep(0.86, 1.0, rl);
+        q += 0.04 * glassChaos() * vec2(sin(q.y * 6.0 + t), cos(q.x * 5.0 - t));
+        // Magnification: strongest at the centre, rolling into a barrel at the rim.
+        float m = mag * (1.0 - 0.32 * rl * rl);
+        vec2 base = c + par;
+        vec2 dir = (uv - c);
+        // The second lens is a kaleidoscope: its view folds into six mirrored wedges that turn
+        // with the music's clock.
+        if (i == 1) {
+            vec2 kd = dir * glassRot(0.1 * SND_CURVED_TIME);
+            float ka = atan(kd.y, kd.x);
+            float seg = GLASS_TAU / 6.0;
+            ka = abs(mod(ka, seg) - seg * 0.5);
+            dir = vec2(cos(ka), sin(ka)) * length(kd) + vec2(0.05 * sin(t * 0.3), 0.0);
         }
+        vec3 seen = vec3(
+            wall(base + dir / (m * (1.0 + ab * rl)), hue, frost).r,
+            wall(base + dir / m, hue, frost).g,
+            wall(base + dir / (m * (1.0 - ab * rl)), hue, frost).b);
+        // The lens surface: a cap whose normal tilts toward the rim.
+        vec3 n = normalize(vec3(q * 0.85, sqrt(max(1.0 - rl * rl * 0.72, 0.0))));
+        n = vec3(n.x * sq, n.y, n.z);
+        vec3 rd = vec3(0.0, 0.0, -1.0);
+        float cosI = max(n.z, 0.0);
+        float fr = glassFresnel(cosI, 1.5);
+        vec3 refl = glassEnv(reflect(rd, n).xzy * vec3(1.0, 1.0, -1.0), lk);
+        vec3 lensCol = seen * (1.0 - fr) * (0.92 - 0.25 * rim) + refl * (fr + 0.5 * rim);
+        // The polished bevel and a thin bright edge line.
+        float edge = smoothstep(0.93, 0.975, rl) * (1.0 - smoothstep(0.985, 1.0, rl));
+        lensCol += mix(vec3(1.0), pal(hue + 0.6), 0.3) * edge * 0.6;
+        lensCol += vec3(1.0) * glassGlint(vec3(q * 3.0, fi), 3.0, ear.hat) * 0.5;
+        col = mix(col, lensCol, 1.0 - smoothstep(0.985, 1.0, rl));
     }
 
-    vec3 col = sheet(uv, 0.2, hue, t) * shade + pal(hue + 0.1) * spot * 0.25;
-
-    if (hitR < 1.0) {
-        float r2 = hitR * hitR;
-        float wob = chaos * 0.06 * sin(hitQ.x * 5.0 + t * 0.8 + hitSeed) * sin(hitQ.y * 4.0 - t * 0.6);
-        float mag = (0.42 - 0.08 * (energy - 1.0)) + 0.32 * r2 + wob;
-        float blur = mix(0.22, 0.008, hitFocus);
-        vec3 sc = mag + vec3(-1.0, 0.0, 1.0) * 0.035 * r2;
-        vec3 lc = vec3(sheet(hitC + (uv - hitC) * sc.r, blur, hue, t).r,
-                       sheet(hitC + (uv - hitC) * sc.g, blur, hue, t).g,
-                       sheet(hitC + (uv - hitC) * sc.b, blur, hue, t).b);
-        lc *= 1.1 + 0.1 * hitFocus;
-        float rim = smoothstep(0.8, 1.0, hitR);
-        lc = mix(lc, lc * 0.45 + pal(hue + 0.55) * 0.06, rim * 0.6);
-        lc += vec3(1.0, 0.97, 0.92) * smoothstep(0.92, 0.975, hitR) * (1.0 - smoothstep(0.975, 1.0, hitR)) * (0.35 + 0.2 * hitFocus);
-        float hl = smoothstep(0.45, 0.9, dot(hitQ, vec2(-0.6, 0.8))) * (1.0 - smoothstep(0.86, 1.0, hitR));
-        lc += vec3(0.95, 0.97, 1.0) * hl * 0.2;
-        col = mix(col, lc, (1.0 - smoothstep(0.985, 1.0, hitR)));
-    }
-
-    col *= 0.85 + 0.15 * swell;
-    col *= 0.8 + 0.2 * (1.0 - smoothstep(0.4, 2.2, length(uv)));
-    fragColor = vec4(grade(col), 1.0);
+    col *= 0.85 + 0.15 * (1.0 - smoothstep(0.4, 2.2, length(uv)));
+    fragColor = vec4(grade(glassTone(col)), 1.0);
 }

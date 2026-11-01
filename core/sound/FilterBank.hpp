@@ -96,6 +96,8 @@ public:
         peak_ = power_;
         return level;
     }
+    // The power envelope right now (15 ms), for the rhythm tracker's fixed-hop onset envelope.
+    float power() const { return power_; }
     // When (in samples since clear) the slice's highest punch was; every band counts the same samples.
     int64_t punchAt() const { return punchAt_; }
     // The slice's highest punch (0 when it held none), then starts the next slice.

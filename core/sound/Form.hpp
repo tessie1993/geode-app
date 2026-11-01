@@ -1,0 +1,112 @@
+#pragma once
+#include <array>
+
+#include "sound/Rhythm.hpp"
+#include "sound/SoundFrame.h"
+
+namespace geode::sound {
+
+// The form half of the musical layer: where in the song we are. Sections, their return, the build and
+// the drop, and a coarse section state (intro, verse, build, drop, breakdown, outro).
+//
+//   frame features ─► mean per beat (the rhythm's ticks) ─► 32-beat ring ─► pairwise distances
+//      ─► Foote's checkerboard at the last downbeat but one (16 beats before, 4 after) ─► novelty
+//      ─► on a downbeat, 8+ bars after the last: sectionChange ─► nearest stored section ─► sectionId
+//   frame features ─► 4 a second, 8 s ring ─► slopes of loudness, brightness, onset rate, bass share
+//      ─► buildUp ─► bass back after a build ─► drop
+//
+// Live means no future: the checkerboard's "after" half is the bar just played, so a section change fires
+// one bar after the boundary (on the next downbeat), and the phrase count is told it began a bar ago. A
+// drop needs no wait: it fires the moment the bass returns and moves the downbeat there.
+class Form {
+public:
+    struct Input {
+        std::array<float, GEODE_SOUND_EQ_BANDS> eq;  // each band in dB over the track's peak, 0 (-60 dB) .. 1
+        float centroid;
+        float flatness;
+        const float* chroma;  // the medium chroma, 12, loudest = 1
+        float loudnessDb;     // the window's RMS, dBFS
+        float bassShare;      // the low band's share of the mix's energy, 0..1
+        float events;         // onsets, snares and hats this frame, for the onset rate
+        bool silent;
+    };
+
+    void step(const Input& in, const Rhythm::Tick* ticks, int tickCount, float dt, Rhythm& rhythm, GeodeSoundFrame& out);
+    void reset() { *this = Form(); }
+
+private:
+    static constexpr int kDims = GEODE_SOUND_EQ_BANDS + 2 + 12;
+    static constexpr int kRing = 32;
+    static constexpr int kAfter = 4;    // the checkerboard's newer half: one bar
+    static constexpr int kBefore = 16;  // its older half: four bars
+    static constexpr int kSections = 8;
+    static constexpr int kArc = 32;     // the energy arc's ring, 8 s at 4 a second
+    using Vec = std::array<float, kDims>;
+
+    void beat(const Rhythm::Tick& tick, Rhythm& rhythm, GeodeSoundFrame& out);
+    float distance2(const Vec& a, const Vec& b) const;
+    float novelty() const;
+    Vec recentBar() const;
+    int identify(const Vec& bar);
+    void arcSample(float dt);
+    void changeState(int state);
+    void classifyAtSectionStart();
+
+    // Per beat.
+    Vec acc_{};
+    float accWeight_ = 0.0f;
+    std::array<Vec, kRing> ring_{};
+    std::array<std::array<float, kRing>, kRing> d2_{};  // squared distances between ring slots
+    int ringHead_ = 0;  // the next slot to write
+    int ringCount_ = 0;
+    float scale_ = 0.0f;  // the typical squared distance, so similarity reads the same for any music
+    float novelty_ = 0.0f;
+    float noveltyMean_ = 0.0f;
+
+    // Sections.
+    std::array<Vec, kSections> centroid_{};
+    std::array<int, kSections> centroidCount_{};
+    std::array<int64_t, kSections> lastUsed_{};
+    int sections_ = 0;  // stored so far
+    int sectionId_ = 0;
+    int barsSinceChange_ = 0;
+    bool identifyPending_ = false;
+    int64_t bars_ = 0;
+    bool started_ = false;  // the first section's first bar has been stored
+
+    // Per bar, for the state.
+    float barLoud_ = 0.0f;
+    float barBass_ = 0.0f;
+    float barWeight_ = 0.0f;
+    float lastBarLoud_ = -60.0f;
+    float lastBarBass_ = 0.0f;
+    float loudRef_ = -120.0f;
+
+    // The energy arc.
+    struct ArcSample {
+        float loud;
+        float centroid;
+        float rate;
+        float bass;
+        float build;
+    };
+    std::array<ArcSample, kArc> arc_{};
+    int arcHead_ = 0;
+    int arcCount_ = 0;
+    ArcSample arcAcc_{};
+    float arcWeight_ = 0.0f;
+    float sinceArc_ = 0.0f;
+    float onsetRate_ = 0.0f;
+    float bassShort_ = 0.0f;
+    float bassLong_ = 0.0f;
+    float buildTarget_ = 0.0f;
+    float buildUp_ = 0.0f;
+    float loudSlope8s_ = 0.0f;  // dB over the arc's 8 s
+    float sinceDrop_ = 1e9f;
+
+    int state_ = GEODE_SECTION_INTRO;
+    int stateBars_ = 0;
+    int quietBars_ = 0;
+};
+
+}  // namespace geode::sound

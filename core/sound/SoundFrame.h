@@ -21,9 +21,19 @@
 #define GEODE_SOUND_EQ_BANDS 16
 #define GEODE_SOUND_SPECTRUM_POINTS 64
 #define GEODE_SOUND_WAVEFORM_POINTS 128
-#define GEODE_SOUND_SCALARS 74
-#define GEODE_SOUND_FRAME_FLOATS \
-    (GEODE_SOUND_SCALARS + GEODE_SOUND_EQ_BANDS + GEODE_SOUND_SPECTRUM_POINTS + GEODE_SOUND_WAVEFORM_POINTS)
+#define GEODE_SOUND_CHROMA 12
+#define GEODE_SOUND_SCALARS 103
+#define GEODE_SOUND_FRAME_FLOATS                                                                       \
+    (GEODE_SOUND_SCALARS + GEODE_SOUND_EQ_BANDS + GEODE_SOUND_SPECTRUM_POINTS + GEODE_SOUND_WAVEFORM_POINTS + \
+     3 * GEODE_SOUND_CHROMA)
+
+/* sectionState: what part of the song this is, inferred live (core/sound/Form). */
+#define GEODE_SECTION_INTRO 0
+#define GEODE_SECTION_VERSE 1
+#define GEODE_SECTION_BUILD 2
+#define GEODE_SECTION_DROP 3
+#define GEODE_SECTION_BREAKDOWN 4
+#define GEODE_SECTION_OUTRO 5
 
 typedef struct GeodeSoundFrame {
     /* Relative levels, the MilkDrop core, over a +6 dB/octave tilted spectrum. bass 20–250 Hz, mid 250 Hz–
@@ -116,12 +126,55 @@ typedef struct GeodeSoundFrame {
     float vibrato;      /* wobble around the held note, 0 … 1 at half a semitone */
     float evenness;     /* share of even harmonics: hollow, square-ish tones read low */
     float runDensity;   /* note changes per second over 12: busy runs vs held notes */
+    /* The musical layer (docs/research/musical-layer.md). Rhythm, from core/sound/Rhythm: an onset envelope
+     * at a fixed 100 Hz hop, its autocorrelation over 6 s for the tempo, and a phase-locked beat oscillator.
+     * While beatConf is low the phases fall back to the hit clock (beat = one hit, bar = four) and the
+     * beat, downbeat and phrase triggers stay silent. */
+    float bpm;          /* tempo, beats per minute (60..200); the last good value while unlocked, 0 before any */
+    float beatPhase;    /* 0 on the beat … 1 just before the next: 1 - beatPhase is how soon it lands */
+    float beatConf;     /* how sure the tracker is of the beat, 0..1 (locked above ~0.35) */
+    float beat;         /* trigger on each beat the oscillator predicts */
+    float beatCount;    /* beats so far, a count wrapping at 4096 */
+    float downbeat;     /* trigger on the first beat of each bar (the beat slot the kicks favour, 4/4) */
+    float barPhase;     /* 0 on the downbeat … 1 at the end of the bar */
+    float barCount;     /* bars so far, wrapping at 4096 */
+    float phrase;       /* trigger on the first downbeat of each 8-bar phrase */
+    float phraseIndex;  /* phrases so far, wrapping at 4096; a section change starts a new one */
+    float phrasePhase;  /* 0 at the phrase's first downbeat … 1 at the end of its eighth bar */
+    /* Onset kinds: positive change in the low (< 250 Hz), mid and high filter-bank bands, relative like
+     * flux; hfc is high-frequency content (Masri), relative: percussive onsets spike it, tonal ones barely. */
+    float fluxLow;
+    float fluxMid;
+    float fluxHigh;
+    float hfc;
+    /* Harmony, from core/sound/Harmony: the chroma (below) against the Krumhansl–Kessler key profiles. */
+    float keyHue;       /* the key on the circle of fifths, 0..1 (C = 0, G = 1/12 …; a minor key sits on its relative major) */
+    float keyRoot;      /* the key's tonic pitch class, C = 0 … B = 11/12 */
+    float keyMajor;     /* 1 major … 0 minor, 0.5 undecided */
+    float keyClarity;   /* how well the best key fits, 0..1 */
+    float chordHue;     /* the medium chroma's centre on the circle of fifths, 0..1: moves with each chord */
+    float tension;      /* dissonance of the medium chroma (seconds, tritones, sevenths sounding together), 0..1 */
+    float harmonicChange; /* trigger: the last half second's chroma moved away from the two seconds before */
+    /* Form, from core/sound/Form: per-beat features in a 32-beat ring, Foote's checkerboard novelty, and
+     * the energy arc. */
+    float novelty;      /* how unlike the bar just played is to the 16 beats before it, 0..1 */
+    float sectionChange; /* trigger on a downbeat, at least 8 bars after the last: a new section began a bar ago */
+    float sectionId;    /* which section this is, 0..7; a returning chorus gets its old number back */
+    float sectionState; /* GEODE_SECTION_*: intro, verse, build, drop, breakdown, outro */
+    float sectionBars;  /* bars since the section (state) began, wrapping at 4096 */
+    float buildUp;      /* 0..1: a build is under way (louder, brighter, busier, bass pulled out) */
+    float drop;         /* trigger: the bass came back after a build */
     /* TouchDesigner Band EQ centres (25 Hz … 22 kHz), each relative. */
     float eq[GEODE_SOUND_EQ_BANDS];
     /* Log-spaced spectrum 20 Hz–20 kHz, tilted like the bands, over a slow peak: 0..1 for textures. */
     float spectrum[GEODE_SOUND_SPECTRUM_POINTS];
     /* The newest ~13 ms of the mono mix, aligned to the previous frame so a steady tone stands still. */
     float waveform[GEODE_SOUND_WAVEFORM_POINTS];
+    /* Chroma: energy per pitch class (C = 0 … B = 11), 250 Hz–2 kHz, over its own maximum (the loudest
+     * class reads 1). Medium (~0.5 s), fast (~0.1 s) and slow (~4 s, what the key reads) smoothing. */
+    float chroma[GEODE_SOUND_CHROMA];
+    float chromaFast[GEODE_SOUND_CHROMA];
+    float chromaSlow[GEODE_SOUND_CHROMA];
 } GeodeSoundFrame;
 
 /* User tuning, global (Settings › Audio). [3] arrays are low, middle, high, or kick, snare, hat. */

@@ -15,7 +15,7 @@ answers it points to.
 | [RELEASE_READINESS.md](RELEASE_READINESS.md) | What still blocks a production release, ranked, plus the manifest and intent security pass |
 | [R8_KEEP_RULES.md](R8_KEEP_RULES.md) | R8 keep-rule audit of the release build (r8-analyzer, 2026-10-30): four rules to drop or narrow, two duplicates |
 | [CONTENT_RATING.md](CONTENT_RATING.md) | IARC questionnaire answers, target audience, photosensitivity warning |
-| [../privacy-policy.md](../privacy-policy.md) / [../privacy-policy.html](../privacy-policy.html) | The privacy policy to host at a public URL |
+| [../privacy-policy.md](../privacy-policy.md) / [../privacy-policy.html](../privacy-policy.html) | The privacy policy; `.github/workflows/pages.yml` publishes the HTML to GitHub Pages |
 
 Build: `.github/workflows/release.yml` produces the AAB (signed when the upload-key
 secrets exist) on every pull request and on `v*` tags.

@@ -73,6 +73,13 @@ class VisualizerWallpaperService : WallpaperService() {
             glView =
                 WallpaperGlSurfaceView(this@VisualizerWallpaperService).apply {
                     setEGLContextClientVersion(3)
+                    // Before setRenderer, like VisualizerView: syncRunState pauses this view on every
+                    // trip off the home screen (an app opening, the screen locking), and without it
+                    // each return rebuilt the EGL context and with it every scene, shader and FBO,
+                    // a black flash and a stall on exactly the transition people watch. The driver
+                    // may still refuse to keep it; VisualizerRenderer.onSurfaceCreated is safe to run
+                    // again on a kept native renderer, so the lost-context path stays correct.
+                    preserveEGLContextOnPause = true
                     setRenderer(engine)
                     // The pacer asks for each frame; without a request the GL thread parks, which
                     // is how "invisible costs nothing" is enforced rather than merely intended.

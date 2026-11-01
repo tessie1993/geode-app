@@ -4,6 +4,7 @@
 #include <cmath>
 
 #include "viz/CompositeGrade.hpp"
+#include "viz/EndlessZoom.hpp"
 #include "viz/Quad.hpp"
 
 namespace geode::viz {
@@ -323,8 +324,13 @@ void Renderer::stepCamera(const SceneParams& p, float dt) {
     look.yaw = std::clamp(look.yaw, -1.0f, 1.0f);
     look.pitch = std::clamp(look.pitch, -1.0f, 1.0f);
     camera_.setMoves(macros::camera(frameKnobs_));
-    camera_.step(p, look, dt, reducedMotion_.load(std::memory_order_relaxed), sceneSpin_.load(std::memory_order_relaxed) != 0.0f,
-                 &soundFrame_);
+    // Endless zoom flies the rig only for a style that marches it (EndlessZoom.hpp); the
+    // families still on the old law keep their old camera too.
+    SceneParams rigParams = p;
+    rigParams.endlessZoom = p.endlessZoom && activeScene_ != nullptr && activeScene_->drawsCamera() &&
+                            !endless::keepsTriangle(activeScene_->id());
+    camera_.step(rigParams, look, dt, reducedMotion_.load(std::memory_order_relaxed),
+                 sceneSpin_.load(std::memory_order_relaxed) != 0.0f, &soundFrame_);
 }
 
 void Renderer::wireFlow(Scene& target, const SceneParams& p) {

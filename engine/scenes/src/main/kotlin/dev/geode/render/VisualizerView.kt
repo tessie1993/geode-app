@@ -37,6 +37,12 @@ class VisualizerView(
         }
 
     /**
+     * Between the host's [onResume] and [onPause]. A new GLSurfaceView runs until it is first
+     * paused, so this starts true; it gates only the sensor, the pacer keeps its own rules.
+     */
+    private var resumed = true
+
+    /**
      * GLSurfaceView installs its own holder callback; a second one is additive. The surface is
      * the only place the frame-rate preference can be stated, and it has to be restated on every
      * `surfaceChanged` because a rotation or a fold hands us a new one.
@@ -84,9 +90,30 @@ class VisualizerView(
         syncPacer()
     }
 
+    /**
+     * The activity forwards its pause here (AppShell). The sensor stops with it: a rotation-vector
+     * listener left registered behind a paused activity keeps the sensor hub awake for nothing.
+     */
+    override fun onPause() {
+        resumed = false
+        gyroLook.setActive(false)
+        super.onPause()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        resumed = true
+        syncPacer()
+    }
+
     override fun onDetachedFromWindow() {
         // Before super, which tears down the GL thread: no point asking it for one more frame.
         framePacer.stop()
+        // Leaving Visuals takes this view out of the hierarchy rather than hiding its window, so
+        // window visibility never changes and syncPacer never ran: the gyro kept listening (and
+        // kept the sensor awake) on every other screen. isAttachedToWindow is still true until
+        // super returns, so the sensor is stopped outright; re-attaching runs syncPacer again.
+        gyroLook.setActive(false)
         releaseScenesOnGlThread()
         super.onDetachedFromWindow()
     }
@@ -130,7 +157,7 @@ class VisualizerView(
     private fun syncPacer() {
         val watched = isAttachedToWindow && windowVisibility == VISIBLE
         if (watched) framePacer.start() else framePacer.stop()
-        gyroLook.setActive(watched && gyroWanted)
+        gyroLook.setActive(gyroListens(watched, resumed, gyroWanted))
     }
 
     private companion object {
@@ -140,3 +167,13 @@ class VisualizerView(
         const val RELEASE_WAIT_MS = 200L
     }
 }
+
+/**
+ * The gyro runs only for a view someone can see, in a resumed host, with the setting on. Top level
+ * rather than in [VisualizerView]'s companion so a JVM test can call it without loading GLSurfaceView.
+ */
+internal fun gyroListens(
+    watched: Boolean,
+    resumed: Boolean,
+    wanted: Boolean,
+): Boolean = watched && resumed && wanted

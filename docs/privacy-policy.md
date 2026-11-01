@@ -44,9 +44,11 @@ your payment details.
 To unlock Pro, the app asks the Google Play Store app on your device which purchases
 your Google account owns. Play returns a purchase record (product, purchase time, order
 ID and a purchase token). The app checks its signature on the device and confirms
-("acknowledges") the purchase back to Google Play, as Google Play requires. It keeps only
-a yes/no "Pro owned" flag and the time it last checked. The purchase record isn't stored or
-sent anywhere else. This exchange goes between MuzViz and the Play Store app on your
+("acknowledges") the purchase back to Google Play, as Google Play requires. It keeps that
+signed purchase record on the device, with the time it last checked, so Pro keeps working
+when the Play Store can't be reached; it is removed when Play reports the purchase is no
+longer owned. Like the rest of the app's settings it is included in Android's own device
+backup. The purchase record isn't sent anywhere else. This exchange goes between MuzViz and the Play Store app on your
 device; MuzViz itself still makes no internet connection.
 
 The free one-hour trial of Pro runs entirely on your device: the app stores when it

@@ -3,7 +3,6 @@ package dev.geode.ui
 import android.Manifest
 import android.net.Uri
 import android.os.Build
-import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.animateFloatAsState
@@ -58,14 +57,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
-import androidx.core.app.ActivityCompat
-import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 import dev.geode.data.MusicPlaylist
@@ -84,16 +80,14 @@ private const val DUPLICATES_TAB = 5
 fun LibraryScreen(onOpenSearch: () -> Unit) {
     val libraryViewModel: LibraryViewModel = geodeViewModel()
     val playerViewModel: PlayerViewModel = geodeViewModel()
-    val context = LocalContext.current
     val permission =
         if (Build.VERSION.SDK_INT >= 33) Manifest.permission.READ_MEDIA_AUDIO else Manifest.permission.READ_EXTERNAL_STORAGE
-    var granted by remember {
-        mutableStateOf(
-            ContextCompat.checkSelfPermission(context, permission) == android.content.pm.PackageManager.PERMISSION_GRANTED,
-        )
-    }
-    val permLauncher =
-        rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted = it }
+    // Through rememberPermissionRequest, not a one-off check: it re-reads the grant on every
+    // resume. The old check ran once per composition, so music access turned on in system
+    // Settings (the only way back after "don't ask again") left the library empty until the app
+    // restarted. The grant flips `granted`, and the effect below then re-queries the library.
+    val access = rememberPermissionRequest(permission)
+    val granted = access.granted
     var reloadKey by remember { mutableStateOf(0) }
     val state by libraryViewModel.uiState.collectAsStateWithLifecycle()
     LaunchedEffect(granted, reloadKey) { if (granted) libraryViewModel.refreshDeviceTracks() }
@@ -119,12 +113,7 @@ fun LibraryScreen(onOpenSearch: () -> Unit) {
             IconButton(onClick = onOpenSearch) { StoneIconArt(StoneIcon.SEARCH, stringResource(R.string.action_search)) }
         }
         if (!granted) {
-            val activity = LocalActivity.current
-            var asked by rememberSaveable { mutableStateOf(false) }
-            val canAskAgain =
-                activity == null ||
-                    !asked ||
-                    ActivityCompat.shouldShowRequestPermissionRationale(activity, permission)
+            val canAskAgain = access.status != PermissionStatus.PERMANENTLY_DENIED
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(
                     stringResource(
@@ -135,16 +124,13 @@ fun LibraryScreen(onOpenSearch: () -> Unit) {
                         },
                     ),
                 )
-                if (canAskAgain) {
-                    CrystalButton(onClick = {
-                        asked = true
-                        permLauncher.launch(permission)
-                    }) { Text(stringResource(R.string.library_permission_allow)) }
-                } else {
-                    val context = LocalContext.current
-                    CrystalButton(
-                        onClick = { context.openAppSettings() },
-                    ) { Text(stringResource(R.string.library_permission_open_settings)) }
+                // request() opens the system dialog, or app Settings once Android stops asking.
+                CrystalButton(onClick = access::request) {
+                    Text(
+                        stringResource(
+                            if (canAskAgain) R.string.library_permission_allow else R.string.library_permission_open_settings,
+                        ),
+                    )
                 }
             }
             return

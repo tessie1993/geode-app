@@ -231,6 +231,29 @@ class LoopRender(
         data object Cancelled : Result
     }
 
+    /**
+     * The summed length of [uris] as their containers report it, for [render]'s `longFormMs`. A
+     * clip that cannot be read counts as zero: the cap is then looser, never wrong in the other
+     * direction, and LoopExtend still refuses a file that would not fit. Blocking; call off Main.
+     */
+    fun soundtrackMs(uris: List<Uri>): Long =
+        uris.sumOf { uri ->
+            var ms = 0L
+            bestEffort(TAG, "read the duration of a soundtrack clip") {
+                val retriever = android.media.MediaMetadataRetriever()
+                try {
+                    retriever.setDataSource(context, uri)
+                    ms =
+                        retriever
+                            .extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION)
+                            ?.toLongOrNull() ?: 0L
+                } finally {
+                    retriever.release()
+                }
+            }
+            ms
+        }
+
     /** Builds a [Result.Failed] whose [Result.Failed.message] is already resolved from [resId]. */
     private fun failed(
         @StringRes resId: Int,
@@ -256,10 +279,12 @@ class LoopRender(
         // The track the loop is cut from, and Settings › Audio: the export's sound engine hears it.
         audioUri: Uri? = null,
         soundTuning: SoundTuning = SoundTuning(),
+        // How long the long-form file LoopExtend will repeat this reel into, or 0 when unknown.
+        longFormMs: Long = 0L,
     ): Result =
         withContext(Dispatchers.Default) {
             val choice =
-                negotiate(aspect, spec.fps, codec)
+                negotiate(aspect, spec.fps, codec, longFormMs)
                     ?: return@withContext failed(R.string.export_error_loop_encoder_rejected, aspect.width, aspect.height)
             val budgeted = budgetedSpec(spec.copy(fps = choice.fps), aspect)
             renderStops(
@@ -552,13 +577,21 @@ class LoopRender(
         aspect: ExportAspect,
         fps: Int,
         codec: ExportCodec,
+        longFormMs: Long,
     ): EncoderChoice? {
+        // The reel is short, but LoopExtend copies its samples into the long-form file once per
+        // repeat, so that file's size is this rate times the long form's length. Choosing the rate
+        // here is the only point it can still change: past MediaMuxer's 4 GB the extend would fail
+        // after the whole reel had rendered.
+        val longFormUs = longFormMs * 1000L
+        val bitRate = MuxerBudget.cappedVideoBps(aspect.bitRate, longFormUs, MuxerBudget.audioBytes(longFormUs))
+        if (bitRate < aspect.bitRate) RingLog.note(TAG, "loop bit rate capped to $bitRate for a $longFormMs ms long form")
         val candidates =
             listOf(codec.available(), ExportCodec.H264).distinct().flatMap { c ->
                 val requested = fps.coerceIn(LoopSpec.MIN_FPS, LoopSpec.MAX_FPS)
                 listOf(
-                    EncoderChoice(requested, aspect.bitRate, c),
-                    EncoderChoice(dev.geode.data.fallbackExportFps(requested), aspect.bitRate * 2 / 3, c),
+                    EncoderChoice(requested, bitRate, c),
+                    EncoderChoice(dev.geode.data.fallbackExportFps(requested), bitRate * 2 / 3, c),
                 )
             }
         return candidates.firstOrNull { accepts(aspect, it) }

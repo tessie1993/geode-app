@@ -1,9 +1,12 @@
 package dev.geode
 
+import android.content.ContentResolver
 import android.content.ContentUris
 import android.content.Context
+import android.database.Cursor
 import android.net.Uri
 import android.os.Build
+import android.os.Bundle
 import android.provider.MediaStore
 import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.PerformanceStore
@@ -135,14 +138,54 @@ class GeodeContainer(
                 "Movies/MuzViz%",
                 "Pictures/MuzViz%",
             )
-        resolver.query(collection, arrayOf(MediaStore.MediaColumns._ID), selection, args, null)?.use { cursor ->
+        queryIncludingPending(context, collection, arrayOf(MediaStore.MediaColumns._ID), selection, args)?.use { cursor ->
             val idColumn = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns._ID)
             while (cursor.moveToNext()) {
                 val uri = ContentUris.withAppendedId(collection, cursor.getLong(idColumn))
-                bestEffort(TAG, "resolver.delete(orphaned pending row)") { resolver.delete(uri, null, null) }
+                bestEffort(TAG, "resolver.delete(orphaned pending row)") { resolver.delete(includingPending(uri), null, null) }
             }
         }
     }
+
+    /**
+     * A MediaStore query that can see pending rows. By default MediaProvider hides every
+     * `IS_PENDING` row from a query, its owner's included, so the sweep's `IS_PENDING = 1` filter
+     * matched nothing and orphans were never found. API 30 takes the opt-in as a query argument
+     * (`QUERY_ARG_MATCH_PENDING = MATCH_INCLUDE`), which only the Bundle form of
+     * `ContentResolver.query` carries, so the selection travels in the same Bundle; API 29 has no
+     * such argument and reads the opt-in off the uri instead ([includingPending]).
+     */
+    private fun queryIncludingPending(
+        context: Context,
+        collection: Uri,
+        projection: Array<String>,
+        selection: String,
+        args: Array<String>,
+    ): Cursor? =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            val queryArgs =
+                Bundle().apply {
+                    putString(ContentResolver.QUERY_ARG_SQL_SELECTION, selection)
+                    putStringArray(ContentResolver.QUERY_ARG_SQL_SELECTION_ARGS, args)
+                    putInt(MediaStore.QUERY_ARG_MATCH_PENDING, MediaStore.MATCH_INCLUDE)
+                }
+            context.contentResolver.query(collection, projection, queryArgs, null)
+        } else {
+            context.contentResolver.query(includingPending(collection), projection, selection, args, null)
+        }
+
+    /**
+     * The API 29 spelling of "pending rows too": `MediaStore.setIncludePending` marks the uri.
+     * Deprecated from API 30, where the query argument above replaces it and a delete by id
+     * already reaches its own pending row, so the uri is returned unchanged there.
+     */
+    private fun includingPending(uri: Uri): Uri =
+        if (Build.VERSION.SDK_INT == Build.VERSION_CODES.Q) {
+            @Suppress("DEPRECATION")
+            MediaStore.setIncludePending(uri)
+        } else {
+            uri
+        }
 
     private companion object {
         const val TAG = "GeodeContainer"

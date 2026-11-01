@@ -175,7 +175,11 @@ object TemplateFormat {
         if (!root.optString(KEY_FORMAT).equals(FORMAT, ignoreCase = true)) {
             return TemplateParse.NotATemplate("no '$KEY_FORMAT': '$FORMAT' marker")
         }
-        return TemplateParse.Parsed(readTemplate(root))
+        // A template link is anything anyone sends, so nothing in reading it may throw past
+        // here: the confirm dialog decodes on the main thread. The readers already fall back
+        // field by field; this catches whatever a future field forgets to.
+        return runCatching { TemplateParse.Parsed(readTemplate(root)) }
+            .getOrElse { TemplateParse.Malformed("the template could not be read") }
     }
 
     /**
@@ -321,8 +325,8 @@ object TemplateFormat {
         val bare =
             TemplateLook(
                 sceneId = source?.optString(KEY_SCENE_ID).orEmpty().ifBlank { SceneIds.DEFAULT },
-                attack = optFloat(source, KEY_ATTACK, TemplateLook.DEFAULT_ATTACK),
-                decay = optFloat(source, KEY_DECAY, TemplateLook.DEFAULT_DECAY),
+                attack = optFloat(source, KEY_ATTACK, TemplateLook.DEFAULT_ATTACK).coerceIn(PresetStore.ATTACK_RANGE),
+                decay = optFloat(source, KEY_DECAY, TemplateLook.DEFAULT_DECAY).coerceIn(PresetStore.DECAY_RANGE),
                 params = params,
                 customShader = optStringOrNull(source, KEY_CUSTOM_SHADER),
                 milkPreset = optStringOrNull(source, KEY_MILK_PRESET),
@@ -498,11 +502,12 @@ object TemplateFormat {
 
     private fun decodeLink(link: String): String? = PresetLink.decode(link.replaceFirst(LINK_PREFIX, PRESET_PREFIX, ignoreCase = true))
 
+    /** A finite Float or [fallback]: NaN, infinities and overflowing values would make `put` throw ([PresetStore.finiteOr]). */
     private fun optFloat(
         source: JSONObject?,
         key: String,
         fallback: Float,
-    ): Float = source?.optDouble(key, fallback.toDouble())?.toFloat() ?: fallback
+    ): Float = source?.let { PresetStore.finiteOr(it.optDouble(key, fallback.toDouble()), fallback) } ?: fallback
 
     private fun optStringOrNull(
         source: JSONObject?,

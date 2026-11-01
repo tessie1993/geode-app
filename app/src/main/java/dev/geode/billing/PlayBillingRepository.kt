@@ -43,8 +43,9 @@ import kotlin.coroutines.resume
  * - Purchases are verified on the device ([PurchaseVerifier]) and acknowledged from the device.
  *   An unacknowledged purchase is refunded by Play after three days, so acknowledgement is retried
  *   on every [refresh] until it sticks.
- * - The entitlement is cached ([EntitlementStore]) and outlives an unreachable Play Store for
- *   [CachedEntitlement.GRACE_MS].
+ * - The entitlement is cached ([EntitlementStore]) with the signed purchase, and outlives an
+ *   unreachable Play Store indefinitely: only a successful purchase query that no longer lists
+ *   Pro as purchased takes it away ([CachedEntitlement.after]).
  * - `queryPurchasesAsync` on each foreground ([refresh]) is the only way to learn about purchases
  *   made elsewhere: on another device, by promo code, or a pending payment that has since cleared.
  *
@@ -71,7 +72,7 @@ class PlayBillingRepository(
             .enableAutoServiceReconnection()
             .build()
 
-    private val isPro = MutableStateFlow(store.load().vouchesForPro(clock.nowMs()))
+    private val isPro = MutableStateFlow(store.load().vouchesForPro(clock.nowMs(), verifier::isGenuine))
     private val product = MutableStateFlow<ProductLoad>(ProductLoad.Loading)
     private val status = MutableStateFlow<PurchaseStatus>(PurchaseStatus.Idle)
     private var productDetails: ProductDetails? = null
@@ -179,6 +180,7 @@ class PlayBillingRepository(
                 client.queryPurchasesAsync(params) { r, list -> if (cont.isActive) cont.resume(r to list) }
             }
         if (result.responseCode != BillingResponseCode.OK) {
+            // PlayAnswer.NoAnswer: an error says nothing about ownership, so the cache stands.
             RingLog.note(TAG, "queryPurchases: ${result.responseCode} ${result.debugMessage}")
             return null
         }
@@ -201,29 +203,27 @@ class PlayBillingRepository(
             pro.filter {
                 it.purchaseState == Purchase.PurchaseState.PURCHASED && verifier.isGenuine(it.originalJson, it.signature)
             }
+        val genuine = completed.firstOrNull()?.let { SignedPurchase(it.originalJson, it.signature) }
+        settle(if (fullList) PlayAnswer.FullList(genuine) else PlayAnswer.Update(genuine))
         when {
             completed.isNotEmpty() -> {
-                grant(owned = true)
                 completed.filterNot { it.isAcknowledged }.forEach { acknowledge(it) }
                 if (status.value == PurchaseStatus.InProgress || status.value == PurchaseStatus.Pending) {
                     status.value = PurchaseStatus.Purchased
                 }
             }
-            pro.any { it.purchaseState == Purchase.PurchaseState.PENDING } -> {
-                if (fullList) grant(owned = false)
-                status.value = PurchaseStatus.Pending
-            }
-            fullList -> {
-                grant(owned = false)
-                if (status.value == PurchaseStatus.Pending) status.value = PurchaseStatus.Idle
-            }
+            pro.any { it.purchaseState == Purchase.PurchaseState.PENDING } -> status.value = PurchaseStatus.Pending
+            fullList -> if (status.value == PurchaseStatus.Pending) status.value = PurchaseStatus.Idle
             pro.isNotEmpty() -> status.value = PurchaseStatus.Failed(BillingError.UNKNOWN)
         }
     }
 
-    private fun grant(owned: Boolean) {
-        store.save(CachedEntitlement(owned = owned, verifiedAtMs = clock.nowMs()))
-        isPro.value = owned
+    /** Folds [answer] into the cache and the live flag; [CachedEntitlement.after] decides what may revoke. */
+    private fun settle(answer: PlayAnswer) {
+        val previous = store.load()
+        val next = previous.after(answer, clock.nowMs())
+        if (next != previous) store.save(next)
+        isPro.value = next.vouchesForPro(clock.nowMs(), verifier::isGenuine)
     }
 
     private suspend fun acknowledge(purchase: Purchase) {

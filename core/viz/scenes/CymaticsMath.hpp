@@ -4,7 +4,7 @@
 
 namespace geode::viz::cymatics {
 
-// Port of CymaticsMath.kt, CymaticsPlate.kt and CymaticsDrops.kt.
+// Cymatics: the plate modes and how bands map onto them, the resonant Plate, and the Drops.
 constexpr float kMinBandHz = 30.0f;
 constexpr float kMaxBandHz = 16000.0f;
 constexpr int kMaxOrder = 14;

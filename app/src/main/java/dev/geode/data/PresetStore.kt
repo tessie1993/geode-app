@@ -74,15 +74,6 @@ class PresetStore(
         if (src.isDirectory) src.renameTo(File(dir, sanitize(to)))
     }
 
-    fun removeFolder(name: String): Boolean {
-        if (name.isBlank()) return false
-        val f = File(dir, sanitize(name))
-        val isRoot = runCatching { f.canonicalPath == dir.canonicalPath }.getOrDefault(true)
-        if (isRoot || !f.isDirectory) return false
-        if (f.walkTopDown().any { it.isFile }) return false
-        return f.deleteRecursively()
-    }
-
     @WorkerThread
     fun moveToFolder(
         name: String,

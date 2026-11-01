@@ -15,19 +15,9 @@ void Equalizer::setBand(int band, int millibels) {
     dirty_.store(true, std::memory_order_release);
 }
 
-int Equalizer::band(int band) const {
-    if (band < 0 || band >= kBands) return 0;
-    return levels_[static_cast<size_t>(band)].load(std::memory_order_relaxed);
-}
-
 void Equalizer::setBassBoost(int permille) {
     bassBoost_.store(std::clamp(permille, 0, kMaxBassBoost), std::memory_order_relaxed);
     dirty_.store(true, std::memory_order_release);
-}
-
-void Equalizer::setSampleRate(float sampleRate) {
-    sampleRate_ = sampleRate;
-    recompute();
 }
 
 void Equalizer::reset() {

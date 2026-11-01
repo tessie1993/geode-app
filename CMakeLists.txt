@@ -56,20 +56,15 @@ if(NOT geode_projectm_patched EQUAL 0)
     endif()
 endif()
 
-# Same values .github/workflows/native-libs.yml passed when the engine was a prebuilt blob.
+# projectM as libgeode needs it: a Release shared library without the playlist library.
 set(CMAKE_BUILD_TYPE Release CACHE STRING "" FORCE)
 set(BUILD_SHARED_LIBS ON CACHE BOOL "" FORCE)
 set(ENABLE_PLAYLIST OFF CACHE BOOL "" FORCE)
 add_subdirectory(third_party/projectm)
 
-# kissfft refuses BUILD_SHARED_LIBS together with KISSFFT_STATIC; the normal variable shadows the forced cache entry projectM needed.
+# TagLib must build static, linked into libgeode, but projectM above forced BUILD_SHARED_LIBS ON in
+# the cache; this normal variable shadows that cache entry for everything added below.
 set(BUILD_SHARED_LIBS OFF)
-set(KISSFFT_DATATYPE "float" CACHE STRING "" FORCE)
-set(KISSFFT_STATIC ON CACHE BOOL "" FORCE)
-set(KISSFFT_TEST OFF CACHE BOOL "" FORCE)
-set(KISSFFT_TOOLS OFF CACHE BOOL "" FORCE)
-set(KISSFFT_PKGCONFIG OFF CACHE BOOL "" FORCE)
-add_subdirectory(third_party/kissfft)
 
 set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
 set(BUILD_BINDINGS OFF CACHE BOOL "" FORCE)

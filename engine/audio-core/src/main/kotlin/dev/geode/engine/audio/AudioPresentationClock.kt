@@ -1,7 +1,5 @@
 package dev.geode.engine.audio
 
-import kotlin.math.roundToLong
-
 class AudioPresentationClock(
     private val maxSegments: Int = DEFAULT_MAX_SEGMENTS,
 ) {
@@ -45,38 +43,4 @@ class PresentationSnapshot(
     val segments: List<ClockSegment>,
 ) {
     val epoch: Int? get() = segments.lastOrNull()?.epoch
-
-    fun presentationTimeOf(
-        inputSample: Long,
-        epoch: Int,
-    ): PresentationTime {
-        val currentEpoch = this.epoch ?: return PresentationTime.Unknown
-        if (epoch != currentEpoch) return PresentationTime.StaleEpoch(epoch, currentEpoch)
-
-        val segment = segmentCovering(inputSample, epoch) ?: return PresentationTime.Unknown
-        val offset = inputSample - segment.inputSampleStart
-        if (offset < segment.skippedInputSamples) {
-            return PresentationTime.Skipped(segment.inputSampleStart, segment.firstPresentedSample)
-        }
-        val heardOffset = offset - segment.skippedInputSamples
-        return PresentationTime.At(
-            segment.presentationUsStart + (heardOffset / segment.inputSamplesPerPresentationUs).roundToLong(),
-        )
-    }
-
-    fun inputPositionAt(presentationUs: Long): InputPosition {
-        val segment =
-            segments.lastOrNull { it.presentationUsStart <= presentationUs }
-                ?: return InputPosition.Unknown
-        val elapsedUs = presentationUs - segment.presentationUsStart
-        return InputPosition.At(
-            inputSample = segment.firstPresentedSample + (elapsedUs * segment.inputSamplesPerPresentationUs).roundToLong(),
-            epoch = segment.epoch,
-        )
-    }
-
-    private fun segmentCovering(
-        inputSample: Long,
-        epoch: Int,
-    ): ClockSegment? = segments.lastOrNull { it.epoch == epoch && it.inputSampleStart <= inputSample }
 }

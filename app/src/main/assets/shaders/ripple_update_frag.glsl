@@ -2,8 +2,8 @@
 // Velocity-form heightfield wave update with damping, per RippleMath's
 // headless-gate-verified CPU mirror (lockstep - change both together):
 //   v += c^2*dt*laplacian(h)/dx^2;  v *= damping;  h = (h + v*dt) * heightDecay
-// uK packs c^2*dt/dx^2. Clamped-edge boundary via the same half-texel
-// clamp idiom as fluid_pressure_frag (Neumann: edge reflects, no wrap).
+// uK packs c^2*dt/dx^2. Clamped-edge boundary via a half-texel clamp: the
+// Neumann edge the fluid pressure solve also uses (edge reflects, no wrap).
 //
 // uHeightDecay is not cosmetic. WITHOUT it the surface only ever GAINS: the
 // Laplacian sums to zero over a Neumann grid, so the wave step conserves the

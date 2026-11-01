@@ -60,8 +60,6 @@ object TransitionCatalog {
         return parsed
     }
 
-    fun allIds(context: Context): List<String> = BUILT_IN_IDS + library(context).map { it.name }
-
     fun definition(
         context: Context,
         id: String,

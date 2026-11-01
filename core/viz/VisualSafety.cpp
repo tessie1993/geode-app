@@ -50,8 +50,6 @@ float limitLfoRate(float rateHz, LfoTarget target) {
     return isLuminanceTarget(target) ? std::min(rateHz, kWcagFlashesPerSecond) : rateHz;
 }
 
-float beatMinIntervalMs(float requestedMs) { return std::max(requestedMs, 1000.0f / kWcagFlashesPerSecond); }
-
 TransitionStyle transitionStyle(TransitionStyle requested) {
     return requested == TransitionStyle::Cut ? TransitionStyle::Fade : requested;
 }

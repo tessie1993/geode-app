@@ -17,6 +17,9 @@ on:
       - "engine/**"
       - "core/**"
       - "CMakeLists.txt"
+      - "tools/**"
+      - "third_party/**"
+      - ".gitmodules"
       - "build-logic/**"
       - "gradle/**"
       - "*.gradle.kts"
@@ -124,6 +127,9 @@ jobs:
         run: |
           g++ -std=c++20 -O1 -Wall -Wextra -Icore -Icore/tests/stub             core/tests/viz_math_test.cpp core/viz/Reactions.cpp core/viz/ReactionDna.cpp core/viz/CameraRig.cpp core/viz/MotionField.cpp core/viz/Lfo.cpp core/viz/Macros.cpp             core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/VisualSafety.cpp -o viz_math_test
           ./viz_math_test
+          # The fluid engine: multigrid pressure plan, MacCormack, splat batching, heat, tracers, tiers.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/fluid_math_test.cpp core/viz/fluid/FluidMath.cpp -o fluid_math_test
+          ./fluid_math_test
           g++ -std=c++20 -O1 -Wall -Wextra -Icore core/tests/sound_test.cpp core/sound/*.cpp -o sound_test
           ./sound_test
           g++ -std=c++20 -O1 -Wall -Wextra -Icore core/tests/musical_test.cpp core/sound/*.cpp -o musical_test
@@ -150,7 +156,7 @@ jobs:
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/loudness_test.cpp core/audio/dsp/PcmResampler.cpp core/audio/dsp/Loudness.cpp core/api/geode_export_dsp_api.cpp -o loudness_test
           ./loudness_test
 
-      # The Customize randomizer, Reset tab and A/B blend (core/viz/ParamRandomizer, core/viz/Params).
+      # The Customize randomizer, Reset tab and params wire (core/viz/ParamRandomizer, core/viz/Params).
       - name: Params host tests
         working-directory: ${{ env.PROJECT_DIR }}
         run: |

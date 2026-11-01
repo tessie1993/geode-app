@@ -14,7 +14,7 @@
 
 namespace geode::viz {
 
-// Port of CymaticsScene.kt: a resonant plate driven by the spectrum, drawn by cymatics_field_frag.
+// A resonant plate driven by the spectrum, drawn by cymatics_field_frag.
 class CymaticsScene : public Scene {
 public:
     CymaticsScene(const styles::CymaticsStyle& style, ProgramLoader loader, SceneHost host)

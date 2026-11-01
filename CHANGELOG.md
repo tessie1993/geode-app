@@ -11,8 +11,46 @@ a partial reconstruction, rebuilt from the references in these entries, is at
 
 ## Unreleased
 
+- **Summary of the work since v1.8.0, newest first.** The entries below this
+  one are kept as written; several describe code that has since been replaced.
+  - **Dead code and doc cleanup.** Unused native and JNI entry points are
+    gone (the `geode_sound_*` C API, `geode_params_blend`, and the JNI
+    `dspBandCount`, `dspBand`, `dspSetSampleRate`, `dspSampleRate`,
+    `vizSetParam`, `version`, `tagsLastError`, `vizSoundFrame` and
+    `vizSetOverlay`), as are unused Kotlin helpers, the duplicate `PcmSink`
+    and the library's leftover "analyzing" state, the unused overlay pipeline,
+    the video template job planner (templates apply their look only), the sink
+    clock's diagnostics, the Kotlin `VisualSafety` mirror and unused compute
+    helpers. Broken tools are deleted (`tools/import-theme-pack.sh`,
+    `check_style_collection.py`, `oracle/`, `shaderpreview/`, `smoke.c`);
+    `tools/glslcheck` reads the catalogue again. The unused kissfft submodule
+    is removed. `THIRD_PARTY_NOTICES` gains TagLib and loses woscope and
+    kissfft. The
+    privacy policy, store listing, AGENTS.md, README and docs now describe the
+    sound engine instead of the old analysis layer.
+  - **Playback is ExoPlayer only (#193).** The native player (AMediaCodec and
+    Oboe), crossfade and the gapless toggle are gone; ExoPlayer joins tracks
+    gaplessly by itself. Files with more than two channels (5.1) play: the
+    native DSP steps aside for them. Bit-perfect USB output is done around
+    ExoPlayer's sink with `setPreferredMixerAttributes` (API 34+).
+  - **Style families.** Ten families of twelve styles on a shared
+    `lib_<family>`: Arbor, Bulb, Chrysanthemum, Lucid, Dive, Glass, Nebula,
+    Terrain, Truchet and Sphere Foam (#184). The first of each is free.
+  - **The sound engine (`core/sound`).** Every renderer (screen, wallpaper,
+    dream, export) runs its own engine, stepped once per frame, in place of
+    the old live and offline analysers and their cache. Reactions, style DNA,
+    the camera and the scenes read it; export decodes the track and steps its
+    engine at 1/fps, so it reacts like the screen.
+  - **The catalogue and the randomizer are native** (`core/viz/Catalogue`,
+    `core/viz/ParamRandomizer`); Kotlin reads the catalogue once as text.
+  - **Customize** opens on Macros (six global knobs, with macro presets) and
+    Events (more recipes); the A/B compare is removed (#173, #176, #170).
+  - **Visuals is a stage** (#171): the live canvas over a panel that runs the
+    app's first Navigation 3 back stack.
+  - **MilkDrop keeps the shown preset** across renderers and restarts (#178).
 - **Form drive: the superformula as the one driver every visual is fed
-  through.** `core/viz/FormDrive` sits in `Renderer::resolveParams`, after
+  through.** *Superseded: `FormDrive` was removed later; `core/viz/MotionField`
+  replaced it, and `formDrive` is an inert parameter.* `core/viz/FormDrive` sits in `Renderer::resolveParams`, after
   the LFO and ADSR slots and before the safety clamp, so every family's
   `SceneParams` pass through it: the fragment styles read the result through
   the shared `view()` uniforms, the particle and simulation families through

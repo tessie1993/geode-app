@@ -7,7 +7,7 @@
 
 namespace geode::viz::sim {
 
-// Port of SimField.kt: the ping-pong state pair, allocated on demand and never mipmapped.
+// The ping-pong state pair, allocated on demand and never mipmapped.
 class SimField {
 public:
     SimField(std::string label, GlImageFormat format, bool filterable) : label_(std::move(label)), format_(format), filterable_(filterable) {}

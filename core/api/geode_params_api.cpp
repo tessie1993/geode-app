@@ -52,8 +52,4 @@ const char* geode_params_roll_keys(void) {
     return kText.c_str();
 }
 
-void geode_params_blend(const float* a, const float* b, float t, float* out) {
-    geode::viz::blendParams(SceneParams::fromWire(a), SceneParams::fromWire(b), t).toWire(out);
-}
-
 }

@@ -19,15 +19,13 @@ struct GlProfile {
     static GlProfile unprobed(const std::string& detail = "not probed yet");
 };
 
-// Port of DeviceGl: cache the facts in <cacheDir>/gl-probe-facts.txt, derive the judgments fresh.
+// Caches the facts in <cacheDir>/gl-probe-facts.txt, derive the judgments fresh.
 class DeviceGl {
 public:
     explicit DeviceGl(std::string cacheDir) : cacheDir_(std::move(cacheDir)) {}
 
     // Requires a current context on the calling thread.
     GlProfile profileWithCurrentContext();
-    // Requires NO current context: makes a 1x1 pbuffer context and releases it.
-    GlProfile profileInOwnContext();
     void forget();
 
 private:

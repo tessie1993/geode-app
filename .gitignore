@@ -30,3 +30,18 @@ __pycache__/
 
 # Local audit scratch (play-policy-insights skill).
 .scratch/
+
+# Android Studio: per-user and per-machine state. The shared project settings in .idea/
+# (.name, vcs.xml, compiler.xml, gradle.xml, kotlinc.xml, AndroidProjectSystem.xml,
+# runConfigurations.xml, codeStyles/) stay tracked.
+.idea/workspace.xml
+.idea/modules/
+.idea/caches/
+.idea/deviceStreaming.xml
+.idea/deviceManager.xml
+.idea/deploymentTargetSelector.xml
+.idea/appInsightsSettings.xml
+.idea/migrations.xml
+.idea/misc.xml
+.idea/shelf/
+*.iml

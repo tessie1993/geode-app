@@ -22,38 +22,10 @@ class SinkClockDriver(
 
     private var anchorTrusted = true
 
-    private var boundaries = 0L
     private var segmentsAppended = 0L
-    private var hookedBoundaries = 0L
-    private var refusedSpeedNotAuthoritative = 0L
-    private var refusedUnreadableFormat = 0L
-    private var refusedUntrustedAnchor = 0L
-    private var discardedSkipExceedingFrames = 0L
-    private var refusedByClockInvariant = 0L
-    private var unmeasuredBoundaries = 0L
-
-    val diagnostics: SinkClockDiagnostics
-        get() =
-            SinkClockDiagnostics(
-                boundaries = boundaries,
-                segmentsAppended = segmentsAppended,
-                hookedBoundaries = hookedBoundaries,
-                refusedSpeedNotAuthoritative = refusedSpeedNotAuthoritative,
-                refusedUnreadableFormat = refusedUnreadableFormat,
-                refusedUntrustedAnchor = refusedUntrustedAnchor,
-                discardedSkipExceedingFrames = discardedSkipExceedingFrames,
-                refusedByClockInvariant = refusedByClockInvariant,
-                unmeasuredBoundaries = unmeasuredBoundaries,
-                skippedFramesAttached = skippedFramesAttached,
-                anchorTrusted = anchorTrusted,
-            )
-
-    @Volatile
-    private var skippedFramesAttached = false
 
     override fun attachSkippedFrames(source: SkippedFrameSource) {
         skipped = source
-        skippedFramesAttached = true
     }
 
     override fun onSpeedApplied(speed: Float) {
@@ -70,18 +42,13 @@ class SinkClockDriver(
         endedFrames: Long,
         begun: PcmTapFormat,
     ) {
-        boundaries++
-        if (sawSkipHook) hookedBoundaries++
-
         val rawSkip = if (ended != null && endedFrames > 0L) skipped.skippedInputFramesSinceFlush() else 0L
         val trustworthy = rawSkip in 0L..endedFrames
-        if (!trustworthy) discardedSkipExceedingFrames++
         val skip = if (trustworthy) rawSkip else 0L
 
         if (openSlope > 0.0) {
             anchorUs += ((endedFrames - skip) / openSlope).roundToLong()
         } else if (ended != null && endedFrames > 0L) {
-            unmeasuredBoundaries++
             distrustAnchor()
         }
 
@@ -91,19 +58,14 @@ class SinkClockDriver(
 
         openSlope = 0.0
         if (!speedAuthoritative) {
-            refusedSpeedNotAuthoritative++
             distrustAnchor()
             return
         }
         if (begun.sampleRateHz <= 0 || begun.channelCount <= 0 || begun.sampleWidth == null || !(speed > 0f)) {
-            refusedUnreadableFormat++
             distrustAnchor()
             return
         }
-        if (!anchorTrusted) {
-            refusedUntrustedAnchor++
-            return
-        }
+        if (!anchorTrusted) return
 
         try {
             val segment =
@@ -119,8 +81,8 @@ class SinkClockDriver(
             clock.append(segment)
             openSlope = segment.inputSamplesPerPresentationUs
             segmentsAppended++
-        } catch (unexpected: IllegalArgumentException) {
-            refusedByClockInvariant++
+        } catch (ignored: IllegalArgumentException) {
+            // A segment the clock's invariants refuse is dropped; the clock keeps its last good segment.
         }
     }
 

@@ -23,7 +23,7 @@ To do its job MuzViz reads data that never leaves your device:
 | What | Why | Where it goes |
 |---|---|---|
 | Audio files and their tags (title, artist, album, genre, year, duration, artwork) | To list, play and analyse your music | Read from device storage; stays on the device |
-| Audio waveform data | Beat, tempo, key and spectrum analysis that drives the visuals | Processed in memory; a compact analysis cache is kept in the app's private storage |
+| Audio waveform data | Levels, spectrum, drum hits, note onsets and melody that drive the visuals | Analysed in memory, frame by frame, while it plays; nothing is stored |
 | Microphone audio — only while the optional *Live input* feature is on | So the visuals can react to the room | Analysed in memory only; never recorded, stored or transmitted |
 | Audio other apps are playing — only while the optional *Visualize other apps* feature is on | So the visuals can react to music from another app | Analysed in memory only; never recorded, stored or transmitted |
 | The name of the app and track playing elsewhere — only with the optional notification access | To label what the visuals are reacting to | Shown on screen; not stored or transmitted |
@@ -95,8 +95,8 @@ without Pro are limited to one minute and carry a "MuzViz Studio Pro" watermark.
 ## Backups
 
 If Android backup is on, your MuzViz settings, presets and playlists may be included in
-your Google account backup, handled by Google. The analysis cache and crash file are
-excluded. You can turn backup off in your device settings.
+your Google account backup, handled by Google. The crash file, imported textures and
+recorded takes are excluded. You can turn backup off in your device settings.
 
 ## Children
 

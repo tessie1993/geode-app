@@ -6,9 +6,8 @@
 //   text    — placeholder patterns ("{artist} — {title}") anchored on the frame
 //   export  — quality, frame rate, audio handling, which slice of the track
 //
-// Applying it to one track yields a TemplateJob; applying it to a list yields one
-// job per track. A TemplateJob is complete: an exporter can run it without asking
-// the user anything.
+// Applying a template today applies its look (TemplateController.applyTemplate);
+// the layout, text and export sections are stored and round-tripped, not rendered.
 //
 // Two conventions here exist purely so a template saved today still loads
 // completely in any future build. TemplateFormat.kt documents the whole scheme;
@@ -30,7 +29,6 @@
 
 package dev.geode.data
 
-import dev.geode.export.ExportAspect
 import dev.geode.export.ExportQuality
 import dev.geode.export.ExportRatio
 import dev.geode.render.scene.SceneIds
@@ -232,10 +230,6 @@ data class TemplateLayout(
 ) {
     fun resolvedRatio(): ExportRatio = ratio.orElse(DEFAULT_RATIO)
 
-    fun resolvedArtwork(): ArtworkStyle = artwork.orElse(DEFAULT_ARTWORK)
-
-    fun resolvedProgress(): ProgressStyle = progress.orElse(DEFAULT_PROGRESS)
-
     companion object {
         val DEFAULT_RATIO: ExportRatio = ExportRatio.R9_16
         val DEFAULT_ARTWORK: ArtworkStyle = ArtworkStyle.BEHIND_BLURRED
@@ -302,9 +296,6 @@ data class TextSlot(
     val shadow: Boolean = true,
     val foreign: ForeignFields = ForeignFields.NONE,
 ) {
-    /** The pattern to actually render: a blank pattern falls back to the role's own. */
-    fun effectivePattern(): String = pattern.ifBlank { defaultPatternFor(role.orElse(DEFAULT_ROLE)) }
-
     companion object {
         val DEFAULT_ROLE: TextRole = TextRole.CAPTION
         val DEFAULT_ANCHOR: TextAnchor = TextAnchor.BOTTOM_CENTER
@@ -370,96 +361,7 @@ enum class TemplatePlaceholder(
     ;
 
     val token: String get() = "{$key}"
-
-    companion object {
-        val PATTERN: Regex = Regex("\\{([A-Za-z0-9_]+)}")
-
-        fun forKey(key: String): TemplatePlaceholder? = TemplatePlaceholder.entries.firstOrNull { it.key.equals(key, ignoreCase = true) }
-    }
 }
-
-/** Everything a template needs to know about one track to fill its placeholders. */
-data class TrackFacts(
-    val uri: String,
-    val title: String,
-    val artist: String = "",
-    val album: String = "",
-    val durationMs: Long = 0L,
-    val index: Int = 1,
-    val total: Int = 1,
-    val dateLabel: String = "",
-)
-
-/** A slot with its placeholders already substituted for one track. */
-data class ResolvedText(
-    val slot: TextSlot,
-    val text: String,
-)
-
-/**
- * Substitutes placeholders for this track.
- *
- * A token this build does not know renders as nothing rather than as a literal
- * "{bpm}" on screen, and the surrounding separators are tidied so the result never
- * looks half-drawn. The pattern itself is untouched — only the rendering is lossy,
- * so a newer build fills it in properly.
- */
-fun TrackFacts.fill(pattern: String): String {
-    val substituted =
-        TemplatePlaceholder.PATTERN.replace(pattern) { match ->
-            val placeholder = TemplatePlaceholder.forKey(match.groupValues[1])
-            if (placeholder == null) "" else textFor(placeholder)
-        }
-    return tidy(substituted)
-}
-
-/**
- * Resolves every slot for one track, dropping the ones with nothing to show.
- *
- * Slots whose role is [Tolerant.Foreign] are skipped: this build has no idea how a
- * future role is meant to look and will not invent a rendering for it. They stay in
- * the template and are written back untouched.
- */
-fun TemplateText.resolve(facts: TrackFacts): List<ResolvedText> =
-    slots.mapNotNull { slot ->
-        when (slot.role) {
-            is Tolerant.Foreign -> null
-            is Tolerant.Known ->
-                facts
-                    .fill(slot.effectivePattern())
-                    .takeIf { it.isNotEmpty() }
-                    ?.let { filled -> ResolvedText(slot, filled) }
-        }
-    }
-
-private fun TrackFacts.textFor(placeholder: TemplatePlaceholder): String =
-    when (placeholder) {
-        TemplatePlaceholder.TITLE -> title
-        TemplatePlaceholder.ARTIST -> artist
-        TemplatePlaceholder.ALBUM -> album
-        TemplatePlaceholder.DURATION -> clockLabel(durationMs)
-        TemplatePlaceholder.INDEX -> index.toString()
-        TemplatePlaceholder.TOTAL -> total.toString()
-        TemplatePlaceholder.DATE -> dateLabel
-    }
-
-private fun clockLabel(ms: Long): String {
-    if (ms <= 0L) return ""
-    val seconds = ms / 1000L
-    return "%d:%02d".format(seconds / 60L, seconds % 60L)
-}
-
-/** Collapses the gaps a dropped placeholder leaves behind, including dangling separators. */
-private fun tidy(text: String): String =
-    text
-        .replace(REPEATED_SPACE, " ")
-        .trim()
-        .trim { it in EDGE_PUNCTUATION }
-        .trim()
-
-private val REPEATED_SPACE = Regex("\\s{2,}")
-
-private const val EDGE_PUNCTUATION = " -–—·|,;:"
 
 // ---------------------------------------------------------------------------
 // Export
@@ -494,40 +396,6 @@ sealed interface TemplateSegment {
     ) : TemplateSegment
 }
 
-/** The concrete slice a [TemplateSegment] resolves to for one track. */
-data class TemplateWindow(
-    val startMs: Long,
-    val durationMs: Long,
-)
-
-/**
- * Resolves the segment against a real track.
- *
- * [hookStartMs] is where the caller's analysis found the loudest moment; it is ignored
- * unless the segment asks for it, so callers that have no analysis can pass 0.
- */
-fun TemplateSegment.windowFor(
-    trackDurationMs: Long,
-    hookStartMs: Long,
-): TemplateWindow =
-    when (this) {
-        TemplateSegment.WholeTrack -> TemplateWindow(0L, trackDurationMs.coerceAtLeast(0L))
-        is TemplateSegment.Fixed -> clampWindow(startMs, durationMs, trackDurationMs)
-        is TemplateSegment.LoudestWindow -> clampWindow(hookStartMs, durationMs, trackDurationMs)
-        is TemplateSegment.Unknown -> TemplateWindow(0L, trackDurationMs.coerceAtLeast(0L))
-    }
-
-private fun clampWindow(
-    startMs: Long,
-    durationMs: Long,
-    trackDurationMs: Long,
-): TemplateWindow {
-    val track = trackDurationMs.coerceAtLeast(0L)
-    val start = startMs.coerceIn(0L, track)
-    val requested = if (durationMs <= 0L) track - start else durationMs
-    return TemplateWindow(start, requested.coerceIn(0L, track - start))
-}
-
 /**
  * Everything about producing the file, apart from framing (see [TemplateLayout]).
  *
@@ -559,95 +427,3 @@ data class TemplateExport(
         const val DEFAULT_FILE_NAME_PATTERN: String = "{artist} - {title}"
     }
 }
-
-// ---------------------------------------------------------------------------
-// Applying a template
-// ---------------------------------------------------------------------------
-
-/**
- * One track, one template, every decision already made.
- *
- * The whole [template] rides along rather than a copy of a few fields, so the exporter
- * never has to reach back for something the plan forgot.
- */
-data class TemplateJob(
-    val template: VideoTemplate,
-    val track: TrackFacts,
-    val outputName: String,
-    val texts: List<ResolvedText>,
-    val window: TemplateWindow,
-    val width: Int,
-    val height: Int,
-    val bitRate: Int,
-    val fps: Int,
-    val muteAudio: Boolean,
-)
-
-/** Plans a single render. */
-fun VideoTemplate.jobFor(
-    track: TrackFacts,
-    hookStartMs: Long = 0L,
-): TemplateJob {
-    val aspect = ExportAspect.of(export.resolvedQuality(), layout.resolvedRatio())
-    return TemplateJob(
-        template = this,
-        track = track,
-        outputName = outputNameFor(track),
-        texts = text.resolve(track),
-        window = export.segment.windowFor(track.durationMs, hookStartMs),
-        width = aspect.width,
-        height = aspect.height,
-        bitRate = aspect.bitRate,
-        fps = export.resolvedFps(),
-        muteAudio = export.resolvedAudio() == AudioHandling.MUTED,
-    )
-}
-
-/**
- * Plans a batch: one job per track, in order.
- *
- * `{index}`/`{total}` are filled from the batch position, and output names are made
- * unique so two tracks sharing a title cannot silently overwrite one another.
- */
-fun VideoTemplate.jobsFor(
-    tracks: List<TrackFacts>,
-    hookStartMs: (TrackFacts) -> Long = { 0L },
-): List<TemplateJob> {
-    val taken = mutableSetOf<String>()
-    return tracks.mapIndexed { position, track ->
-        val facts = track.copy(index = position + 1, total = tracks.size)
-        val job = jobFor(facts, hookStartMs(facts))
-        job.copy(outputName = uniqueName(job.outputName, taken))
-    }
-}
-
-private fun VideoTemplate.outputNameFor(track: TrackFacts): String {
-    val filled = track.fill(export.fileNamePattern)
-    return sanitizeFileStem(filled.ifBlank { track.title }.ifBlank { name })
-}
-
-private fun uniqueName(
-    base: String,
-    taken: MutableSet<String>,
-): String {
-    var candidate = base
-    var attempt = 2
-    while (!taken.add(candidate)) {
-        candidate = "$base ($attempt)"
-        attempt++
-    }
-    return candidate
-}
-
-/** Keeps spaces (they read fine everywhere) but drops anything a file name cannot hold. */
-private fun sanitizeFileStem(raw: String): String =
-    raw
-        .replace(UNSAFE_FILE_CHARS, "_")
-        .trim()
-        .take(MAX_FILE_STEM)
-        .trim()
-        .ifBlank { "MuzViz video" }
-
-private val UNSAFE_FILE_CHARS = Regex("""[\\/:*?"<>|]""")
-
-private const val MAX_FILE_STEM = 80

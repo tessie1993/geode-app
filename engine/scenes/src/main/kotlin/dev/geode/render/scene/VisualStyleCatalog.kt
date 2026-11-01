@@ -94,9 +94,6 @@ object VisualStyleCatalog {
     val acidIds: List<String> = idsOf(SceneKind.ACID)
     val mycoIds: List<String> = idsOf(SceneKind.MYCELIUM)
 
-    /** The mycelium style [id], or null when it is not one. */
-    fun myco(id: String): CatalogueStyle? = Catalogue.style(id)?.takeIf { it.kind == SceneKind.MYCELIUM }
-
     fun isCymatics(id: String): Boolean = SceneCapabilities.isCymatics(id)
 
     /** True for every style that runs the Fluid solver, `fluid` itself included. */

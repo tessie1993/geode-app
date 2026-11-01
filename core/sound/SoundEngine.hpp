@@ -48,7 +48,6 @@ public:
     static GeodeSoundTuning defaultTuning();
 
     int sampleRateHz() const { return sampleRateHz_; }
-    int fftSize() const { return n_; }
 
     // Interleaved float PCM; mono feeds both channels, channels past the second are ignored.
     void write(const float* interleaved, int frames, int channels);

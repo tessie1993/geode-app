@@ -79,9 +79,4 @@ Java_dev_geode_engine_bridge_GeodeNative_tagsWrite(JNIEnv* env, jobject, jint fd
     return geode_tags_write(fd, pointers.data(), year, track) ? JNI_TRUE : JNI_FALSE;
 }
 
-JNIEXPORT jint JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_tagsLastError(JNIEnv*, jobject) {
-    return geode_tags_last_error();
-}
-
 }  // extern "C"

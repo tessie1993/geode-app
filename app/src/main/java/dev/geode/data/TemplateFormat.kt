@@ -182,8 +182,6 @@ object TemplateFormat {
             .getOrElse { TemplateParse.Malformed("the template could not be read") }
     }
 
-    fun isTemplateText(text: String): Boolean = decode(text) is TemplateParse.Parsed
-
     /**
      * A whole template as one pasteable link, or null when it is too long to survive
      * a chat client's line handling. The file is always the reliable path; the link

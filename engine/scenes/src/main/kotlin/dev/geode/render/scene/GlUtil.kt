@@ -37,14 +37,6 @@ object GlUtil {
             GLES30.glBindVertexArray(0)
         }
 
-        fun bind() {
-            GLES30.glBindVertexArray(vao)
-        }
-
-        fun unbind() {
-            GLES30.glBindVertexArray(0)
-        }
-
         fun draw() {
             if (vao == 0) create()
             GLES30.glBindVertexArray(vao)

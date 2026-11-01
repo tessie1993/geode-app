@@ -13,6 +13,14 @@ uniform sampler2D uCurl;
 uniform float uCurlStrength;
 uniform float uDx;   // grid cell size: force = eps * h * (N x omega), GPU Gems ch.38
 uniform float uDt;
+// Buoyancy rides in this pass rather than a pass of its own: it is one more
+// force on the same texel the confinement already reads and writes. The
+// temperature grid is the velocity grid's size (FluidSim), so vUv addresses
+// both. uBuoyancy 0 (every style without a temperature field) adds nothing,
+// and the sampler is then bound to a zero texture.
+uniform sampler2D uTemperature;
+uniform float uBuoyancy;   // sim units / s^2 per unit of heat (FluidMath buoyancyAccel)
+uniform float uMaxHeat;
 out vec4 fragColor;
 void main() {
     float L = texture(uCurl, vL).x;
@@ -30,5 +38,7 @@ void main() {
     // 0..50 curl range exactly.
     vec2 force = uCurlStrength * uDx * C * vec2(n.x, -n.y);
     vec2 v = texture(uVelocity, vUv).xy + force * uDt;
+    float heat = clamp(texture(uTemperature, vUv).x, 0.0, uMaxHeat);
+    v.y += uBuoyancy * heat * uDt;
     fragColor = vec4(clamp(v, vec2(-1000.0), vec2(1000.0)), 0.0, 1.0);
 }

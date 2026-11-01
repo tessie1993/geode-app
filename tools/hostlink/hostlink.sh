@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# hostlink - compiles core/viz and core/util on the HOST and links them into
+# hostlink - compiles core/viz, core/sound and core/util on the HOST and links them into
 # one shared object with --no-undefined, against Mesa's real libGLESv2/libEGL.
 #
 # What this proves: every translation unit the core's CMake lists under
-# viz/ and util/ compiles under the project's own flags (-std=c++20
+# viz/, sound/ and util/ compiles under the project's own flags (-std=c++20
 # -fvisibility=hidden -Wall -Wextra) and every symbol they reference is
 # defined - by another of them, by GL, by libc, or by one of the named stubs
 # below. A changed constructor, a renamed method or a declaration with no
@@ -11,8 +11,8 @@
 # NDK or a device.
 #
 # What it does not prove: anything about the Android toolchain (clang, the
-# NDK's libc++, 16 KB page alignment, LTO), the audio/sound/library trees
-# (they need kissfft and taglib), or that anything runs.
+# NDK's libc++, 16 KB page alignment, LTO), the api/, audio/ and library/
+# trees (library/ needs taglib), or that anything runs.
 #
 # Stubs, all named: android/asset_manager.h and android/log.h are replaced by
 # C-linkage declarations, projectM's two CMake-generated headers
@@ -87,7 +87,7 @@ int __android_log_print(int, const char*, const char*, ...);
 HDR
 
 # ---- compile, with the project's flags ----------------------------------------
-mapfile -t SRCS < <(sed -n '/add_library(geode_core STATIC/,/^)/p' "$ROOT/core/CMakeLists.txt" | grep -E '^\s+(viz|util)/' | tr -d ' ')
+mapfile -t SRCS < <(sed -n '/add_library(geode_core STATIC/,/^)/p' "$ROOT/core/CMakeLists.txt" | grep -E '^\s+(viz|sound|util)/' | tr -d ' ')
 echo "hostlink: compiling ${#SRCS[@]} translation units"
 fail=0
 for f in "${SRCS[@]}"; do

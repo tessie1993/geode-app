@@ -9,6 +9,7 @@
 #include <string>
 
 #include "viz/CameraRig.hpp"
+#include "viz/VisualSafety.hpp"
 #include "viz/EndlessZoom.hpp"
 #include "viz/Macros.hpp"
 #include "viz/MotionField.hpp"
@@ -172,16 +173,21 @@ void cameraPathRepeatsAcrossTheWrap() {
     }
 }
 
+// The rig is fed what the frame feeds it: params after safety::apply, which owns the
+// reduced-motion scale of forward travel. The fly-through must come out slowed exactly once.
 void reducedMotionSlowsTravel() {
     CameraRig fast;
     CameraRig slow;
     SceneParams p;
     p.camFly = 1.0f;
+    const SceneParams full = safety::apply(p, false);
+    const SceneParams reduced = safety::apply(p, true);
     for (int i = 0; i < 300; ++i) {
-        fast.step(p, {}, 1.0f / 60.0f, false);
-        slow.step(p, {}, 1.0f / 60.0f, true);
+        fast.step(full, {}, 1.0f / 60.0f, false);
+        slow.step(reduced, {}, 1.0f / 60.0f, true);
     }
-    check(slow.pose().travel < fast.pose().travel * 0.6f, "reduced motion slows the fly-through");
+    const float ratio = slow.pose().travel / fast.pose().travel;
+    check(std::fabs(ratio - safety::kReducedMotionScale) < 0.05f, "reduced motion scales the fly-through exactly once");
 }
 
 bool finite3(const std::array<float, 3>& v) { return std::isfinite(v[0]) && std::isfinite(v[1]) && std::isfinite(v[2]); }
@@ -740,6 +746,24 @@ void endlessZoomDrivesTheRigForward() {
     check(diving.pose().travel > still.pose().travel + 1.0f, "Endless zoom flies the 3D styles forward");
 }
 
+// The 3D dive, like the 2D one, is slowed once by safety::apply and never again by the rig.
+void endlessZoomReducedMotionScalesTheDiveOnce() {
+    SceneParams p;
+    p.camFly = 0.0f;
+    p.endlessZoom = true;
+    p.endlessZoomSpeed = 1.0f;
+    const SceneParams normal = safety::apply(p, false);
+    const SceneParams reduced = safety::apply(p, true);
+    CameraRig full;
+    CameraRig slow;
+    for (int i = 0; i < 600; ++i) {
+        full.step(normal, {}, 1.0f / 60.0f, false, false, nullptr);
+        slow.step(reduced, {}, 1.0f / 60.0f, true, false, nullptr);
+    }
+    const float ratio = slow.pose().travel / full.pose().travel;
+    check(std::fabs(ratio - safety::kReducedMotionScale) < 0.05f, "reduced motion scales the 3D dive exactly once");
+}
+
 void endlessZoomLeavesGlassAndTruchetOnTheOldLaw() {
     check(endless::keepsTriangle("glass_orb") && endless::keepsTriangle("truchet_arcs"), "Glass and Truchet keep their law");
     check(!endless::keepsTriangle("plasma") && !endless::keepsTriangle("arbor_bolt"), "every other style dives");
@@ -869,6 +893,7 @@ int main() {
     endlessZoomFollowsTheBassNotTheLoudness();
     endlessZoomDrivesTheRigForward();
     endlessZoomLeavesGlassAndTruchetOnTheOldLaw();
+    endlessZoomReducedMotionScalesTheDiveOnce();
     buildBudgetBoundsAFrame();
     scenePrepRetargetsAndCaps();
     stagedBuildFinishesInBoundedFrames();

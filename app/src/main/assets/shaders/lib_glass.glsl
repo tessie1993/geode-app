@@ -682,15 +682,20 @@ vec3 glassVivid(vec3 c, float amount) {
  * stack into glowing filaments, cells and spirals that fill the whole sphere
  * of view. Colour runs along the palette with the iteration count, pushed to
  * neon. c drifts on the music's clock and the snare kicks it, so the whole
- * structure breathes and reshapes; `detail` (1 for a direct view, lower for
- * lookups through glass) sets how many iterations are spent.
+ * structure breathes and reshapes; `detail` (from the quality tier) sets how
+ * many iterations are spent. On High only (glassMarchBounces) it adds a third
+ * fractal depth, spirals tiled inside the vortex, and a two-level cell web:
+ * detail at every scale, at a cost Balanced phones are spared.
  */
 vec3 glassFractal(vec3 d, GlassLook l) {
     int iters = int(5.0 + 6.0 * clamp(l.detail, 0.0, 1.0));
     vec3 c = vec3(0.52, 0.42, 0.61) + 0.07 * vec3(sin(l.flow * 0.9), cos(l.flow * 0.7), sin(l.flow * 1.1 + 1.0)) + 0.05 * (l.warp - 0.75);
     vec3 col = vec3(0.0);
     float rough = clamp(l.rough * 6.0, 0.0, 1.0);
-    for (int layer = 0; layer < 2; layer++) {
+    // High adds a third, finer depth (glassMarchBounces: the same budget gate as the second interior march).
+    int layers = glassMarchBounces() ? 3 : 2;
+    for (int layer = 0; layer < 3; layer++) {
+        if (layer >= layers) break;
         float depth = 0.55 + 0.45 * float(layer);
         vec3 p = d * (0.95 + 0.75 * depth) + vec3(0.13, 0.31, 0.2) * float(layer) + vec3(0.0, 0.0, l.flow * 0.05);
         // Bend space first so the folds come out as curves, not polygons.
@@ -709,7 +714,7 @@ vec3 glassFractal(vec3 d, GlassLook l) {
             acc += edge;
             tint += edge * pal(l.hue + float(i) * 0.15 + 0.33 * float(layer) + 0.1 * r);
         }
-        col += glassVivid(tint, 0.9) * (layer == 0 ? 0.3 : 0.16);
+        col += glassVivid(tint, 0.9) * (layer == 0 ? 0.3 : (layer == 1 ? 0.16 : 0.1));
         // The membrane: a soft coloured haze where the orbit lingered, filling the gaps.
         col += glassVivid(tint, 0.5) * 0.02 * acc;
     }
@@ -722,6 +727,45 @@ vec3 glassFractal(vec3 d, GlassLook l) {
     float sa = atan(sp.y, sp.x);
     float spiral = pow(0.5 + 0.5 * cos(sa * 3.0 + log(sr) * 9.0 - l.flow * 2.0), 8.0);
     col += glassVivid(pal(l.hue + 0.6 + log(sr) * 0.3), 0.6) * spiral * 1.2 * exp(-sr * 1.2) * (1.0 - rough);
+    if (glassMarchBounces()) {
+        // HIGH ONLY. Spirals inside spirals: the vortex's log-polar plane tiled into cells, a small
+        // spiral turning in each, so the big spiral is made of little ones.
+        vec2 lp = vec2(log(sr) * 2.2 - l.flow * 0.6, sa * 6.0 / GLASS_TAU);
+        vec2 lc = floor(lp);
+        vec2 lf = fract(lp) - 0.5;
+        float lr = length(lf) + 1e-3;
+        float la = atan(lf.y, lf.x);
+        float small = pow(0.5 + 0.5 * cos(la * 2.0 + log(lr) * 7.0 + l.flow * 3.0 + glassHash(lc) * 6.0), 10.0);
+        small *= 1.0 - smoothstep(0.25, 0.5, lr);
+        col += glassVivid(pal(l.hue + glassHash(lc) * 0.8), 0.8) * small * 0.5 * exp(-sr * 0.8) * (1.0 - rough);
+        // Cells inside cells: a two-level cell web on the view plane, its walls glowing, the inner
+        // level finer and fainter, so every cell of the web holds its own smaller web.
+        vec2 cp = vec2(atan(d.x, d.z) * 1.6, d.y * 3.0) + 0.1 * l.flow;
+        for (int lev = 0; lev < 2; lev++) {
+            float sc = lev == 0 ? 3.0 : 9.0;
+            vec2 g = cp * sc;
+            vec2 gi = floor(g);
+            vec2 gf = fract(g);
+            float d1 = 8.0;
+            float d2 = 8.0;
+            for (int y = -1; y <= 1; y++) {
+                for (int x = -1; x <= 1; x++) {
+                    vec2 o = vec2(float(x), float(y));
+                    vec2 h = glassHash2(gi + o + float(lev) * 17.0);
+                    vec2 pt = o + 0.5 + 0.4 * sin(l.flow * 0.7 + h * 6.2831);
+                    float dd = length(pt - gf);
+                    if (dd < d1) {
+                        d2 = d1;
+                        d1 = dd;
+                    } else if (dd < d2) {
+                        d2 = dd;
+                    }
+                }
+            }
+            float wall = exp(-(d2 - d1) * (lev == 0 ? 18.0 : 30.0));
+            col += glassVivid(pal(l.hue + 0.2 + 0.3 * float(lev) + d1), 0.8) * wall * (lev == 0 ? 0.22 : 0.1) * (1.0 - rough);
+        }
+    }
     // Contrast: dark gaps, bright filaments, as blacklight art reads.
     col = col * col * 1.6 + col * 0.15;
     return col * l.glow;

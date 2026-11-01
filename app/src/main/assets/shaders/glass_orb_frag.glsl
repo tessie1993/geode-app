@@ -87,7 +87,7 @@ void main() {
         vec3 refl = glassEnvRough(reflect(rd, n), lk, frost * 0.15);
         col = refr * (1.0 - fr) + refl * fr;
         col += pal(hue + 0.15) * pow(1.0 - cosI, 3.0) * 0.08;
-        col += glassRim(cosI, hue, 0.6);
+        col += glassRim(cosI, hue, 0.35);
         col += vec3(1.0) * glassGlint(p - c, 9.0, ear.hat) * (0.3 + 0.7 * fr + 0.3 * cosI);
     }
 

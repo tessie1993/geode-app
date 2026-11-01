@@ -190,9 +190,13 @@ geode_tempo_set_source(int source, float bpm)   // 0 AUTO, 1 MANUAL (typed or ta
 geode_tempo_tap(int64_t nanos)                  // median of the last 4..8 taps; a tap snaps the phase
 geode_tempo_midi_clock(int64_t nanos)           // each 24 ppqn tick
 geode_tempo_midi_start(int64_t nanos), _stop(int64_t nanos), _song_position(int sixteenths)
-geode_tempo_clock(GeodeTempoClock* out)         // bpm, source, locked, and the next beat's and next
+geode_tempo_clock(GeodeTempoClock* out)         // bpm, beatConf, barPhase, beatsPerBar (4 for now),
+                                                //   source, locked, epoch, and the next beat's and next
                                                 //   downbeat's presentation time in nanos
 ```
+`epoch` goes up on a source change, a MIDI Start or a Song Position jump, so retriggering modulators reset.
+`beatCount` and `barCount` stay continuous across a source change (never back to 0); a jump the music
+forces (Song Position) is announced by `epoch`.
 Modulators keep reading `bpm`, `beatPhase`, `barPhase`, `phrasePhase`, `beatCount` and `barCount` from the
 frame; `geode_tempo_clock` exists for MIDI clock out, which needs times ahead of the frame.
 - **Phase-locked override.** An outside period replaces the autocorrelation estimate; the oscillator keeps

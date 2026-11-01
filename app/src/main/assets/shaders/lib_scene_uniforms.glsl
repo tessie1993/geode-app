@@ -70,22 +70,6 @@ uniform float uTemperature;
 uniform float uSolarize;
 uniform float uFlash;
 
-// ---- the style knobs --------------------------------------------------------
-//
-// Six per-style controls, each 0..1, whose meaning each style names in its own
-// header in the same order: k0 PULSE, k1 TEXTURE, k2 FLOW, k3 TONE, k4 BUILD,
-// k5 SPACE. They live here rather than in the style files because they are one
-// contract for every style that reads them: the engine fills one array, and a
-// second declaration in a style would be a redefinition error once pasted
-// beside this one. A style that never reads them links the array away, so it
-// costs the others nothing.
-//
-// ShaderScene::uploadParams holds every knob at 0.5 (the midpoint each style
-// was tuned around) for now; a later PR drives them from the music, already
-// smoothed and shaped by the engine's reaction matrix, so a style must read a
-// knob as a continuous value and never as a trigger.
-uniform float uKnob[6];
-
 // ---- where the fingers are ------------------------------------------------
 //
 // dev.geode.render.TouchField is the model; ShaderScene.uploadTouch() is the

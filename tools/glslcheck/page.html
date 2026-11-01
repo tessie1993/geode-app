@@ -103,8 +103,10 @@ function upload(program, u) {
     case 'vec3': gl.uniform3fv(loc, v); break;
     case 'mat3': gl.uniformMatrix3fv(loc, false, v); break;
     case 'vec4': {
+      // A value as long as the whole array is the array; a shorter one is one element, repeated.
       const arr = new Float32Array(u.count * 4);
-      for (let i = 0; i < u.count; i++) arr.set(v, i * 4);
+      if (v.length === u.count * 4) arr.set(v);
+      else for (let i = 0; i < u.count; i++) arr.set(v, i * 4);
       gl.uniform4fv(loc, arr);
       break;
     }

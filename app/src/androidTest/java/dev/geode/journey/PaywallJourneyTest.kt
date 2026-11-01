@@ -1,7 +1,5 @@
 package dev.geode.journey
 
-import androidx.compose.ui.test.hasContentDescription
-import androidx.compose.ui.test.hasStateDescription
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -77,7 +75,10 @@ class PaywallJourneyTest {
         compose.awaitNoNode(stylesTitle)
 
         // Buying from the preview's check chooses that style: no second trip to the grid.
-        compose.awaitNode(hasContentDescription("Halvorsen Web", substring = true) and hasStateDescription("In use"))
+        // The grid may have scrolled while the taps above searched it, so read the stage header
+        // (which names the style on screen) and check the preview bar has gone.
+        compose.awaitNoNode(hasText("Previewing"))
+        compose.awaitNode(hasText("Halvorsen Web"))
         assertThat(compose.onAllNodes(stylesTitle).fetchSemanticsNodes()).isEmpty()
     }
 }

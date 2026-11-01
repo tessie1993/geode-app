@@ -37,7 +37,7 @@ class VisualsJourneyTest {
     private fun openVisuals() {
         compose.awaitEmptyPlayer()
         compose.tap("Visuals")
-        compose.awaitNode(hasText("View live"))
+        compose.awaitNode(hasContentDescription("View live"))
     }
 
     private fun openLiveView() {
@@ -52,7 +52,7 @@ class VisualsJourneyTest {
         openLiveView()
         compose.tap("Collapse")
         compose.awaitNoNode(hasContentDescription("Collapse"))
-        compose.awaitNode(hasText("View live"))
+        compose.awaitNode(hasContentDescription("View live"))
     }
 
     /** QA #11, the system back route: the live view's dismiss must win over the shell's reset to Player. */
@@ -61,7 +61,7 @@ class VisualsJourneyTest {
         openLiveView()
         Espresso.pressBack()
         compose.awaitNoNode(hasContentDescription("Collapse"))
-        compose.awaitNode(hasText("View live"))
+        compose.awaitNode(hasContentDescription("View live"))
     }
 
     /**

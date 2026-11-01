@@ -71,7 +71,6 @@ import dev.geode.data.StyleShelfStore
 import dev.geode.model.StyleEntry
 import dev.geode.model.StyleFilter
 import dev.geode.model.StyleFiltering
-import dev.geode.render.VisualizerView
 import dev.geode.render.scene.Catalogue
 import dev.geode.render.scene.SceneKind
 import dev.geode.render.scene.StyleFamilies
@@ -97,17 +96,14 @@ import kotlin.math.abs
  *
  * A tap previews: the stage shows the style at once, nothing is chosen yet, and a bar offers
  * the check that keeps it (CapCut's preview-then-commit). Leaving the page without the check
- * puts the chosen style back. Pro styles preview for everyone; the check is where the paywall
- * stands, since seeing a style move to your own music is the best case for it. A second tap
- * on the previewed card is the check too. A long press stars a style; TalkBack gets the same as a
+ * keeps the previewed style when the user may use it (a tap is what people mean as their pick);
+ * only a locked Pro preview, or the bar's cancel, puts the chosen style back. Pro styles preview
+ * for everyone; the check is where the paywall stands, since seeing a style move to your own
+ * music is the best case for it. A second tap on the previewed card is the check too. A long press stars a style; TalkBack gets the same as a
  * custom action. The stage's swipe still steps through styles and chooses at once.
  */
 @Composable
-internal fun StylesTab(
-    viewModel: PlayerViewModel,
-    visualizerView: VisualizerView,
-    onOpenTextures: () -> Unit,
-) {
+internal fun StylesTab(viewModel: PlayerViewModel) {
     val context = LocalContext.current
     val shelfStore = remember { StyleShelfStore.get(context) }
     val shelf by shelfStore.shelf.collectAsStateWithLifecycle()
@@ -128,8 +124,8 @@ internal fun StylesTab(
             chosenId = viz.sceneId
         }
     }
-    // Leaving the page without the check is a "no": the chosen style comes back.
-    DisposableEffect(Unit) { onDispose { viewModel.cancelScenePreview() } }
+    // Leaving the page keeps a previewed style the user may keep; only a locked one gives way.
+    DisposableEffect(Unit) { onDispose { viewModel.leaveScenePreview() } }
     val cancel: () -> Unit = {
         previewId = null
         viewModel.cancelScenePreview()
@@ -172,40 +168,36 @@ internal fun StylesTab(
             }
         }
         Box(Modifier.weight(1f)) {
-            if (filter == StyleFilter.Kind(KIND_MILKDROP) && query.isBlank()) {
-                MilkDropTab(viewModel, visualizerView, onOpenTextures)
+            val shown = remember(entries, filter, shelf, query) { StyleFiltering.apply(entries, filter, shelf, query) }
+            if (shown.isEmpty()) {
+                EmptyStyles(filter, query)
             } else {
-                val shown = remember(entries, filter, shelf, query) { StyleFiltering.apply(entries, filter, shelf, query) }
-                if (shown.isEmpty()) {
-                    EmptyStyles(filter, query)
-                } else {
-                    LazyVerticalGrid(
-                        columns = GridCells.Adaptive(CARD_MIN_WIDTH),
-                        contentPadding = PaddingValues(GeodeSpacing.M),
-                        horizontalArrangement = Arrangement.spacedBy(GeodeSpacing.S),
-                        verticalArrangement = Arrangement.spacedBy(GeodeSpacing.M),
-                        modifier = Modifier.fillMaxSize(),
-                    ) {
-                        items(shown, key = { it.id }) { entry ->
-                            StyleCard(
-                                entry = entry,
-                                chosen = entry.id == chosenId,
-                                previewing = entry.id == previewId,
-                                locked = !gate.allowsStyle(entry.id),
-                                favourite = shelf.isFavourite(entry.id),
-                                onTap = {
-                                    when (entry.id) {
-                                        previewId -> commit(entry.id)
-                                        chosenId -> if (previewId != null) cancel()
-                                        else -> {
-                                            previewId = entry.id
-                                            viewModel.previewScene(entry.id)
-                                        }
+                LazyVerticalGrid(
+                    columns = GridCells.Adaptive(CARD_MIN_WIDTH),
+                    contentPadding = PaddingValues(GeodeSpacing.M),
+                    horizontalArrangement = Arrangement.spacedBy(GeodeSpacing.S),
+                    verticalArrangement = Arrangement.spacedBy(GeodeSpacing.M),
+                    modifier = Modifier.fillMaxSize(),
+                ) {
+                    items(shown, key = { it.id }) { entry ->
+                        StyleCard(
+                            entry = entry,
+                            chosen = entry.id == chosenId,
+                            previewing = entry.id == previewId,
+                            locked = !gate.allowsStyle(entry.id),
+                            favourite = shelf.isFavourite(entry.id),
+                            onTap = {
+                                when (entry.id) {
+                                    previewId -> commit(entry.id)
+                                    chosenId -> if (previewId != null) cancel()
+                                    else -> {
+                                        previewId = entry.id
+                                        viewModel.previewScene(entry.id)
                                     }
-                                },
-                                onToggleFavourite = { shelfStore.toggleFavourite(entry.id) },
-                            )
-                        }
+                                }
+                            },
+                            onToggleFavourite = { shelfStore.toggleFavourite(entry.id) },
+                        )
                     }
                 }
             }
@@ -491,7 +483,8 @@ private fun styleFilters(entries: List<StyleEntry>): List<StyleFilter> =
         entries
             .map { it.kindLabel }
             .distinct()
-            .filterNot { it == KIND_FAMILY }
+            // MilkDrop has a tab of its own (its .milk library is not a grid of styles).
+            .filterNot { it == KIND_FAMILY || it == KIND_MILKDROP }
             .map { StyleFilter.Kind(it) } +
         StyleFamilies.all.map { StyleFilter.Family(it.label) }
 

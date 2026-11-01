@@ -2,7 +2,9 @@ package dev.geode.ui
 
 import android.os.Build
 import android.view.accessibility.AccessibilityManager
-import androidx.annotation.StringRes
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -15,6 +17,7 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
@@ -31,8 +34,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.selection.selectable
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.PictureInPictureAlt
 import androidx.compose.material3.FilledTonalIconButton
@@ -60,12 +63,14 @@ import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChanged
+import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
@@ -94,22 +99,20 @@ fun VisualizerScreen(
     visualizerView: VisualizerView,
     externalDisplayName: String? = null,
     onCollapse: () -> Unit,
-    onOpenVisuals: () -> Unit,
+    destinations: List<GeodeDestination>,
+    onNavigate: (GeodeDestination) -> Unit,
 ) {
     val settingsViewModel: SettingsViewModel = geodeViewModel()
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    // Not delegated: only the seek bar, the clock and the lyrics read .value.
+    // Not delegated: only the seek bar and the clock read .value.
     val position = viewModel.positionMs.collectAsStateWithLifecycle()
     val autoMode by viewModel.autoMode.collectAsStateWithLifecycle()
     val gui by settingsViewModel.guiPrefs.collectAsStateWithLifecycle()
-    val lyrics by viewModel.lyrics.collectAsStateWithLifecycle()
-    val queue by viewModel.queue.collectAsStateWithLifecycle()
     val favourites by viewModel.favourites.collectAsStateWithLifecycle()
     val abLoop by viewModel.abLoop.collectAsStateWithLifecycle()
     val external by viewModel.externalAudio.collectAsStateWithLifecycle()
     val currentUri = remember(state.title, state.artist) { viewModel.currentTrackUri() }
     val isFavourite = currentUri != null && currentUri in favourites
-    var panel by remember { mutableStateOf(PlayerPanel.TRANSPORT) }
     // The chrome sits on live visuals that can go white, so its glass never drops below the point
     // where its text still reads (about 7:1 over a white frame at this floor; 1.4:1 at 0.25). It
     // hides itself after a few seconds, so a denser panel costs little of the view.
@@ -120,6 +123,7 @@ fun VisualizerScreen(
     var controlsVisible by remember { mutableStateOf(true) }
     val toggleControlsLabel =
         stringResource(if (controlsVisible) R.string.a11y_hide_controls else R.string.a11y_show_controls)
+    val nextLookLabel = stringResource(R.string.a11y_next_look)
     val context = LocalContext.current
     // Picture-in-picture shrinks this screen to a window with no room for chrome, and no way for
     // the person to tap a button in it anyway — every control, not just the transport bar, is
@@ -133,9 +137,8 @@ fun VisualizerScreen(
 
     ImmersiveSystemBars()
     AutoHideChrome(
-        // Not while paused (the chrome is how playback resumes), and not while the lyrics or
-        // queue panel is open, which someone is reading rather than watching past.
-        armed = controlsVisible && state.isPlaying && panel == PlayerPanel.TRANSPORT,
+        // Not while paused: the chrome is how playback resumes.
+        armed = controlsVisible && state.isPlaying,
         touches = touches,
         onHide = { controlsVisible = false },
     )
@@ -157,16 +160,25 @@ fun VisualizerScreen(
                     }
                 }
             }.pointerInput(Unit) {
-                // A hold, not a tap: a tap on the canvas is a touch on the art (smear, steer), and
-                // hiding the player under every such touch made playing with the visuals fight it.
-                detectTapGestures(onLongPress = { controlsVisible = !controlsVisible })
+                // A double tap, not a tap: a tap on the canvas is a touch on the art (smear, steer).
+                // Read at the tap, not collected: the live view need not recompose for every look.
+                detectTapGestures(onDoubleTap = { nextLook(viewModel, viewModel.vizState.value.sceneId, viewModel.gate.value) })
+            }.chromeFling { down ->
+                controlsVisible = !down
             }.semantics {
-                // The hold above is invisible to TalkBack; with the chrome hidden, this action is
+                // The flick above is invisible to TalkBack; with the chrome hidden, this action is
                 // the only way a screen reader user can bring the controls back.
                 onClick(label = toggleControlsLabel) {
                     controlsVisible = !controlsVisible
                     true
                 }
+                customActions =
+                    listOf(
+                        CustomAccessibilityAction(nextLookLabel) {
+                            nextLook(viewModel, viewModel.vizState.value.sceneId, viewModel.gate.value)
+                            true
+                        },
+                    )
             }.visualizerTouch(
                 renderer = visualizerView.visualizerRenderer,
                 smear = gui.touchSmear,
@@ -226,36 +238,6 @@ fun VisualizerScreen(
                 onToggleFavourite = { viewModel.toggleFavourite() },
             )
 
-            if (panel != PlayerPanel.TRANSPORT) {
-                PlayerPanelSurface(
-                    Modifier
-                        .align(Alignment.Center)
-                        .fillMaxWidth()
-                        .padding(horizontal = 12.dp)
-                        .padding(top = 88.dp, bottom = 210.dp)
-                        .fillMaxSize(),
-                ) {
-                    when (panel) {
-                        PlayerPanel.LYRICS ->
-                            LyricsPanel(
-                                lyrics = lyrics,
-                                positionMs = { position.value },
-                                onSeek = { viewModel.seekToMs(it) },
-                                modifier = Modifier.fillMaxSize(),
-                            )
-                        else ->
-                            QueuePanel(
-                                queue = queue,
-                                favourites = favourites,
-                                onPlayIndex = viewModel::playQueueIndex,
-                                onMoveUp = { viewModel.moveQueueItem(it, it - 1) },
-                                onRemove = viewModel::removeQueueItem,
-                                modifier = Modifier.fillMaxSize(),
-                            )
-                    }
-                }
-            }
-
             Box(
                 Modifier
                     .align(Alignment.BottomCenter)
@@ -289,16 +271,88 @@ fun VisualizerScreen(
                     position = { position.value },
                     abLoop = abLoop,
                     autoMode = autoMode,
-                    queueSize = queue.tracks.size,
-                    panel = panel,
-                    onPanel = { panel = it },
-                    onOpenVisuals = onOpenVisuals,
+                    destinations = destinations,
+                    onNavigate = onNavigate,
                     shortWindow = shortWindow,
                 )
             }
         }
+        BackArrow(visible = !showChrome && !inPip, touches = touches, onCollapse = onCollapse)
     }
 }
+
+/**
+ * With the chrome away there is still a way out: a small back arrow in the corner for a few
+ * seconds after the chrome goes and after every touch, fading so it does not sit on the art.
+ */
+@Composable
+private fun BoxScope.BackArrow(
+    visible: Boolean,
+    touches: Int,
+    onCollapse: () -> Unit,
+) {
+    var shown by remember { mutableStateOf(false) }
+    LaunchedEffect(visible, touches) {
+        shown = visible
+        if (visible) {
+            delay(BACK_ARROW_MS)
+            shown = false
+        }
+    }
+    AnimatedVisibility(
+        visible = shown,
+        enter = fadeIn(),
+        exit = fadeOut(),
+        modifier =
+            Modifier
+                .align(Alignment.TopStart)
+                .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
+                .padding(12.dp),
+    ) {
+        FilledTonalIconButton(onClick = onCollapse) {
+            Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.action_collapse))
+        }
+    }
+}
+
+/**
+ * A quick vertical flick: down hides the chrome, up brings it back. It only watches (nothing is
+ * consumed), so the same finger still steers the art in [visualizerTouch]; a slow steer never
+ * reaches [FLING_DP_PER_S], and two fingers (twist, zoom) never count.
+ */
+private fun Modifier.chromeFling(onFling: (down: Boolean) -> Unit): Modifier =
+    pointerInput(Unit) {
+        awaitEachGesture {
+            val first = awaitFirstDown(requireUnconsumed = false)
+            val tracker = VelocityTracker()
+            tracker.addPosition(first.uptimeMillis, first.position)
+            var last = first.position
+            var fingers = 1
+            var held = true
+            while (held) {
+                val event = awaitPointerEvent()
+                fingers = maxOf(fingers, event.changes.count { it.pressed })
+                // A first finger that went missing (cancelled) ends the gesture where it was.
+                val change = event.changes.firstOrNull { it.id == first.id }
+                change?.let {
+                    tracker.addPosition(it.uptimeMillis, it.position)
+                    last = it.position
+                }
+                held = change?.pressed == true
+            }
+            val travel = last - first.position
+            val vy = tracker.calculateVelocity().y
+            val quick = abs(vy) > FLING_DP_PER_S.dp.toPx()
+            val vertical = abs(travel.y) > FLING_MIN_DP.dp.toPx() && abs(travel.y) > abs(travel.x) * 2
+            if (fingers == 1 && quick && vertical) onFling(vy > 0)
+        }
+    }
+
+private const val BACK_ARROW_MS = 3_000L
+
+private const val FLING_DP_PER_S = 1_200
+
+private const val FLING_MIN_DP = 48
 
 /**
  * The live view's transport: seek, playback buttons, the Visuals and auto-visuals shortcuts, and
@@ -312,10 +366,8 @@ private fun VisualizerTransport(
     position: () -> Long,
     abLoop: AbLoop?,
     autoMode: Int,
-    queueSize: Int,
-    panel: PlayerPanel,
-    onPanel: (PlayerPanel) -> Unit,
-    onOpenVisuals: () -> Unit,
+    destinations: List<GeodeDestination>,
+    onNavigate: (GeodeDestination) -> Unit,
     shortWindow: Boolean,
 ) {
     val buttons: @Composable RowScope.() -> Unit = {
@@ -336,10 +388,6 @@ private fun VisualizerTransport(
         RepeatButton(state.repeatMode, viewModel::cycleRepeatMode)
     }
     val extras: @Composable RowScope.() -> Unit = {
-        TextButton(onClick = onOpenVisuals) {
-            StoneIconArt(StoneIcon.VISUALIZER, null)
-            Text("  " + stringResource(R.string.nav_visuals))
-        }
         TextButton(onClick = viewModel::cycleAutoMode) {
             StoneIconArt(StoneIcon.QUEUE, null)
             Text(
@@ -353,14 +401,12 @@ private fun VisualizerTransport(
             )
         }
     }
-    val chips: @Composable RowScope.() -> Unit = {
-        PlayerPanel.entries.forEach { p ->
-            PanelChip(
-                label = stringResource(p.label),
-                selected = panel == p,
-                badge = if (p == PlayerPanel.QUEUE && queueSize > 1) queueSize else 0,
-                onClick = { onPanel(if (panel == p) PlayerPanel.TRANSPORT else p) },
-            )
+    // The app's own tabs: the live view is a way into the whole app, not a dead end.
+    val navRow: @Composable RowScope.() -> Unit = {
+        destinations.forEach { destination ->
+            IconButton(onClick = { onNavigate(destination) }) {
+                StoneIconArt(destination.icon, stringResource(destination.labelRes))
+            }
         }
     }
     val abLoopButton: @Composable () -> Unit = {
@@ -407,8 +453,9 @@ private fun VisualizerTransport(
                 buttons()
                 Spacer(Modifier.width(12.dp))
                 extras()
-                chips()
                 abLoopButton()
+                Spacer(Modifier.width(12.dp))
+                navRow()
             }
         } else {
             Row(
@@ -420,16 +467,15 @@ private fun VisualizerTransport(
                 Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween,
-            ) { extras() }
+            ) {
+                extras()
+                abLoopButton()
+            }
             Row(
                 Modifier.fillMaxWidth().padding(top = 2.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                chips()
-                Box(Modifier.weight(1f))
-                abLoopButton()
-            }
+                horizontalArrangement = Arrangement.SpaceEvenly,
+            ) { navRow() }
         }
     }
 }
@@ -592,41 +638,6 @@ private fun VisualizerTopBar(
                 )
             }
         }
-    }
-}
-
-enum class PlayerPanel(
-    @param:StringRes val label: Int,
-) {
-    TRANSPORT(R.string.panel_now),
-    LYRICS(R.string.panel_lyrics),
-    QUEUE(R.string.queue),
-}
-
-@Composable
-private fun PanelChip(
-    label: String,
-    selected: Boolean,
-    badge: Int,
-    onClick: () -> Unit,
-) {
-    Box(
-        Modifier
-            .crystalPanel(
-                if (selected) 0.5f else 0.2f,
-                MaterialTheme.colorScheme.surfaceVariant,
-                MaterialTheme.colorScheme.primary,
-                corner = 14.dp,
-                glowStrength = if (selected) 1f else 0.35f,
-                prismatic = selected,
-            ).selectable(selected = selected, role = Role.Tab, onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 6.dp),
-    ) {
-        Text(
-            if (badge > 0) "$label · $badge" else label,
-            style = MaterialTheme.typography.labelMedium,
-            color = if (selected) accentTextColor() else MaterialTheme.colorScheme.onSurfaceVariant,
-        )
     }
 }
 

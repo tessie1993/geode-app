@@ -1,5 +1,6 @@
 package dev.geode.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -91,6 +92,9 @@ internal fun CustomizePanel(
                 onLocked = { paywall.open(PaywallTrigger.Feature(ProFeature.ADVANCED_CUSTOMIZATION)) },
             )
         }
+    // Back steps to the first page before it leaves Customize; an open Advanced card, composed
+    // later, closes before this (VisualsNavState has the whole order).
+    BackHandler(enabled = selected != tabs.first()) { selectedName = tabs.first().name }
     Column(Modifier.fillMaxSize()) {
         CrystalTabs(
             titles = titles,

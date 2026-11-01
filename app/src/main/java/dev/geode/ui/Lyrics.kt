@@ -33,7 +33,50 @@ object LyricsLoader {
     fun load(
         context: Context,
         trackUri: Uri,
-    ): Lyrics? = sidecar(context, trackUri) ?: embedded(context, trackUri)
+    ): Lyrics? = attached(context, trackUri) ?: sidecar(context, trackUri) ?: embedded(context, trackUri)
+
+    /**
+     * Where an .lrc the user loaded by hand (Settings › Lyrics) is kept for [trackUri]: in the
+     * app's own files, keyed by a hash of the URI, because a track behind a content URI has no
+     * folder the app may write a sidecar into. It wins over the sidecar and the tags, since the
+     * user chose it for this song.
+     */
+    fun attachedFile(
+        context: Context,
+        trackUri: Uri,
+    ): java.io.File {
+        val digest =
+            java.security.MessageDigest
+                .getInstance("SHA-1")
+                .digest(trackUri.toString().toByteArray())
+        val name = digest.joinToString("") { "%02x".format(it) }
+        return java.io.File(java.io.File(context.filesDir, ATTACHED_DIR), "$name.lrc")
+    }
+
+    /** Copies the .lrc at [source] into [attachedFile] for [trackUri]; false when it cannot be read. */
+    fun attach(
+        context: Context,
+        trackUri: Uri,
+        source: Uri,
+    ): Boolean =
+        runCatching {
+            val text = context.contentResolver.openInputStream(source)?.use { it.readBytes().toString(Charsets.UTF_8) } ?: return false
+            val file = attachedFile(context, trackUri)
+            file.parentFile?.mkdirs()
+            file.writeText(text)
+            true
+        }.getOrDefault(false)
+
+    private fun attached(
+        context: Context,
+        trackUri: Uri,
+    ): Lyrics? =
+        runCatching {
+            val file = attachedFile(context, trackUri)
+            if (file.isFile) parse(file.readText(), context.getString(R.string.lyrics_source_attached)) else null
+        }.getOrNull()
+
+    private const val ATTACHED_DIR = "lyrics"
 
     private fun sidecar(
         context: Context,

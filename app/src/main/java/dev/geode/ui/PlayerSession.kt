@@ -466,6 +466,14 @@ class PlayerSession internal constructor(
         }
     }
 
+    /** Keeps the .lrc at [source] as the playing track's lyrics (Settings › Lyrics) and shows it. */
+    fun attachLyrics(source: Uri) {
+        val uri = currentUri ?: return
+        scope.launch(Dispatchers.IO) {
+            if (LyricsLoader.attach(application, uri, source)) withContext(Dispatchers.Main) { loadLyricsFor(uri) }
+        }
+    }
+
     private val _autoMode = MutableStateFlow(0)
     val autoMode: StateFlow<Int> = _autoMode
 
@@ -582,6 +590,8 @@ class PlayerSession internal constructor(
     fun randomStepNow() = autoVisuals.randomStepNow()
 
     fun applyVizEntry(entry: VizPlaylistEntry) = autoVisuals.applyVizEntry(entry)
+
+    fun stepVizPlaylist(): Boolean = autoVisuals.stepVizPlaylist()
 
     val deviceTracks: StateFlow<List<DeviceTrack>> get() = musicLibrary.deviceTracks
 
@@ -888,6 +898,9 @@ class PlayerSession internal constructor(
     }
 
     fun cancelScenePreview() = visual.cancelPreview()
+
+    /** The Styles grid closed over a preview: keep it if the gate allows, else back to the chosen style. */
+    fun leaveScenePreview() = visual.leavePreview(allowsStyle)
 
     /** The chosen style, which a preview on the stage does not change (see [previewScene]). */
     val chosenSceneId: String get() = visual.chosenSceneId

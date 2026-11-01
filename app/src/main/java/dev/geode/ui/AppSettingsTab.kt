@@ -42,6 +42,7 @@ internal fun AppSettingsTab(
         listOf(
             stringResource(R.string.settings_tab_look),
             stringResource(R.string.settings_tab_audio),
+            stringResource(R.string.settings_tab_lyrics),
             stringResource(R.string.settings_tab_export),
             stringResource(R.string.settings_tab_folders),
             stringResource(R.string.settings_tab_behavior),
@@ -57,13 +58,14 @@ internal fun AppSettingsTab(
         when (tab) {
             0 -> LookSettingsTab(settingsViewModel)
             1 -> AudioSettingsTab(viewModel)
-            2 -> ExportLinkTab(onOpenStudioRender)
-            3 -> FolderSettingsTab()
-            4 -> BehaviorSettingsTab(settingsViewModel)
-            5 -> PerformanceSettingsTab()
-            6 -> HelpSettingsTab()
-            7 -> TutorialSettingsTab(settingsViewModel, onPlay = onPlayTutorial, onReset = onResetTutorials)
-            8 -> BackupSettingsTab()
+            2 -> LyricsSettingsTab(viewModel)
+            3 -> ExportLinkTab(onOpenStudioRender)
+            4 -> FolderSettingsTab()
+            5 -> BehaviorSettingsTab(settingsViewModel)
+            6 -> PerformanceSettingsTab()
+            7 -> HelpSettingsTab()
+            8 -> TutorialSettingsTab(settingsViewModel, onPlay = onPlayTutorial, onReset = onResetTutorials)
+            9 -> BackupSettingsTab()
             else -> AboutSettingsTab()
         }
     }

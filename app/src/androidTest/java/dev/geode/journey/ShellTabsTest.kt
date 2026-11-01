@@ -2,6 +2,7 @@ package dev.geode.journey
 
 import android.Manifest
 import android.os.Build
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -45,7 +46,7 @@ class ShellTabsTest {
         compose.awaitNoNode(hasText("Pick something to play"))
 
         compose.tap("Visuals")
-        compose.awaitNode(hasText("View live"))
+        compose.awaitNode(hasContentDescription("View live"))
 
         // Default intent is BOTH, which shows Studio (behind its Pro gate for a free user).
         compose.tap("Studio")

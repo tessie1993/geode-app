@@ -40,6 +40,14 @@ enum class GeodeDestination(
  */
 enum class StudioSection { EDIT, RENDER, TAKES }
 
+/**
+ * What the Visuals stage asks of the shell's mini player and navigation bar. [FULL] is the
+ * Visuals mini player (track, the style under it, Record, Studio and the live view); [MINIMAL]
+ * is transport only, for Customize, where the sliders want the room; [HIDDEN] takes both the
+ * mini player and the bar away (a swipe down on the stage; Customize starts that way).
+ */
+enum class VisualsChrome { FULL, MINIMAL, HIDDEN }
+
 @Stable
 class GeodeAppState(
     dest: GeodeDestination = GeodeDestination.PLAYER,
@@ -57,6 +65,9 @@ class GeodeAppState(
     var bootDone by mutableStateOf(bootDone)
 
     var studioSection by mutableStateOf(studioSection)
+
+    /** Set by the Visuals stage while it is composed, null everywhere else. Not saved: the stage sets it again. */
+    var visualsChrome by mutableStateOf<VisualsChrome?>(null)
 
     var externalDisplay: Display? = null
         internal set

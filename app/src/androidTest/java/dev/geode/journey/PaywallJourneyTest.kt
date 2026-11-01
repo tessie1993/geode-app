@@ -1,5 +1,6 @@
 package dev.geode.journey
 
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -49,7 +50,7 @@ class PaywallJourneyTest {
     private fun openVisualsStyles() {
         compose.awaitEmptyPlayer()
         compose.tap("Visuals")
-        compose.awaitNode(hasText("View live"))
+        compose.awaitNode(hasContentDescription("View live"))
     }
 
     @Test

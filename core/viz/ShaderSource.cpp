@@ -16,6 +16,8 @@ constexpr std::array<const char*, 24> kIncludes = {
     "lib_scene_motion", "lib_dmt",             "lib_camera",
     // The sound engine's frame (core/sound): uSound, uSoundTex and the SND_* names.
     "lib_sound",
+    // Endless zoom's two octave layers (core/viz/EndlessZoom.hpp); pasted by lib_scene_uniforms.
+    "lib_zoom",
     // The simulation scenes' shared 2.5D look (parallax relief, light, eight materials); after lib_sound.
     "lib_relief",
     // One library per style family (StyleFamilies.kt): the twelve styles of a family share it.

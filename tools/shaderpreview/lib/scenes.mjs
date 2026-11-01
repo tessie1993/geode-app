@@ -66,6 +66,18 @@ const SHADER_SCENE_DEFAULTS = {
   marchDetail: 1,
 };
 
+// Endless zoom's two octave layers, core/viz/EndlessZoom.hpp's layers(): the
+// outgoing copy grows 1x -> 2x and fades out over the window, the incoming one
+// grows 0.5x -> 1x and fades in, so the loop never pops and never backs out.
+export function zoomLayers(phase) {
+  const t = Math.min(Math.max((phase - 0.3) / 0.4, 0), 1);
+  const w = t * t * (3 - 2 * t);
+  const out = 2 ** phase;
+  const inc = 2 ** (phase - 1);
+  const [m0, m1, w1] = w <= 0.5 ? [out, inc, w] : [inc, out, 1 - w];
+  return [m0, m1, w1 < 0.002 ? 0 : w1];
+}
+
 export function createShaderSceneDriver({ params, width, height }) {
   const p = { ...SHADER_SCENE_DEFAULTS, ...params };
   let shaderTime = 0;
@@ -77,7 +89,7 @@ export function createShaderSceneDriver({ params, width, height }) {
 
   const supplies = new Set([
     'uTime', 'uBass', 'uMid', 'uTreble', 'uEnergy', 'uBeat', 'uSpeed', 'uZoom', 'uRotation',
-    'uZoomPhase', 'uColorShift', 'uHueRange', 'uSat', 'uBright', 'uInvert', 'uIntensity',
+    'uZoomLayers', 'uColorShift', 'uHueRange', 'uSat', 'uBright', 'uInvert', 'uIntensity',
     'uMirrorX', 'uBeatResponse', 'uTurbulence', 'uPalBase', 'uPalRange', 'uPal2Base',
     'uPal2Range', 'uPaletteMix', 'uDuotone', 'uBloom', 'uWarp', 'uRipple', 'uSymmetry',
     'uKaleido', 'uMorph', 'uPixelate', 'uPosterize', 'uSway', 'uPulse', 'uBeatPhase',
@@ -129,7 +141,7 @@ export function createShaderSceneDriver({ params, width, height }) {
       u('uSpeed', p.speed),
       u('uZoom', p.zoom),
       u('uRotation', rotationAngle),
-      u('uZoomPhase', zoomPhase),
+      { uZoomLayers: { t: '3f', v: zoomLayers(zoomPhase) } },
       u('uColorShift', p.colorShift + cyclePhase),
       u('uHueRange', p.hueRange),
       u('uSat', p.saturation),

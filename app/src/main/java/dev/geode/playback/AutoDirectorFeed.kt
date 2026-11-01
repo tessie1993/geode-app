@@ -5,7 +5,6 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import dev.geode.billing.ProSnapshot
 import dev.geode.data.AutoDirectorStore
-import dev.geode.data.NoteResponseStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -16,10 +15,7 @@ import kotlinx.coroutines.launch
  * Tells the auto-director (core/viz/Director, through [AutoDirectorStore]) when a new play starts and,
  * while playing, how far in it is, so the free taste can end after its minute. The entitlement is read
  * with [ProSnapshot] like the wallpaper does, so a purchase or a trial reaches the next tick.
- *
- * The same entitlement goes to [NoteResponseStore] (Note & key reactions, Pro and the trial), so a trial
- * that lapses mid-song turns the note layer off within a second, and the director's seed it reads stays
- * the play's. Listener callbacks and the ticker run on the main thread.
+ * Listener callbacks and the ticker run on the main thread.
  */
 class AutoDirectorFeed(
     private val context: Context,
@@ -27,11 +23,10 @@ class AutoDirectorFeed(
     private val scope: CoroutineScope,
 ) : Player.Listener {
     private val store = AutoDirectorStore.get(context)
-    private val notes = NoteResponseStore.get(context)
     private var ticker: Job? = null
 
     init {
-        newPlay()
+        store.newPlay(ProSnapshot.gate(context))
         if (player.isPlaying) startTicker()
     }
 
@@ -39,13 +34,7 @@ class AutoDirectorFeed(
         mediaItem: MediaItem?,
         reason: Int,
     ) {
-        newPlay()
-    }
-
-    private fun newPlay() {
-        val gate = ProSnapshot.gate(context)
-        store.newPlay(gate)
-        notes.onGate(gate)
+        store.newPlay(ProSnapshot.gate(context))
     }
 
     override fun onIsPlayingChanged(isPlaying: Boolean) {
@@ -59,9 +48,7 @@ class AutoDirectorFeed(
         ticker =
             scope.launch {
                 while (isActive) {
-                    val gate = ProSnapshot.gate(context)
-                    store.onPosition(player.currentPosition, gate)
-                    notes.onGate(gate)
+                    store.onPosition(player.currentPosition, ProSnapshot.gate(context))
                     delay(TICK_MS)
                 }
             }

@@ -22,8 +22,7 @@ class GeodeApp : Application() {
         // Customize › Macros are process-wide in the engine: hand the saved knobs over before any
         // surface (the app, the wallpaper, the dream, an export) builds a renderer.
         MacroStore.get(this)
-        // The auto-director's switch is process-wide too, and so is Note & key reactions' (off until an
-        // entitlement arrives with the first play or the settings screen).
+        // The auto-director's switch is process-wide too, and so is Note & key reactions'.
         AutoDirectorStore.get(this)
         NoteResponseStore.get(this)
         if (BuildConfig.DEBUG) {

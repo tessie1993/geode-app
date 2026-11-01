@@ -11,6 +11,7 @@
 #include <cstdio>
 #include <cstring>
 #include <fstream>
+#include <map>
 #include <set>
 #include <sstream>
 #include <string>
@@ -341,6 +342,32 @@ void textEqualsTheFixture(const char* path) {
 
 }  // namespace
 
+void everyStyleHasOneBloomLook() {
+    // Note & key reactions' bloom looks: every style lands in exactly one of the text's bloom rows.
+    std::map<std::string, int> rows;
+    std::istringstream in(catalogue::text());
+    std::string line;
+    int lines = 0;
+    while (std::getline(in, line)) {
+        if (line.rfind("bloom|", 0) != 0) continue;
+        ++lines;
+        const auto ids = line.substr(line.find('|', 6) + 1);
+        std::istringstream list(ids);
+        std::string id;
+        while (std::getline(list, id, ',')) ++rows[id];
+    }
+    check(lines == catalogue::kBloomLookCount, "one bloom row per look");
+    for (const auto& id : catalogue::allIds()) check(rows[id] == 1, id + " is in exactly one bloom row");
+    check(catalogue::bloomLook("hex_hive") == catalogue::BloomLook::Flower, "the neon set flowers");
+    check(catalogue::bloomLook("chrys_neon") == catalogue::BloomLook::Flower, "a family's neon member flowers");
+    check(catalogue::bloomLook("nebula_spiral") == catalogue::BloomLook::Glow, "a nebula glows");
+    check(catalogue::bloomLook("milkdrop") == catalogue::BloomLook::Burst, "MilkDrop bursts");
+    check(catalogue::bloomLook("water") == catalogue::BloomLook::Ripple, "water ripples");
+    check(catalogue::resolveBloomLook(0, "milkdrop") == catalogue::BloomLook::Burst, "0 is the style's own");
+    check(catalogue::resolveBloomLook(2, "milkdrop") == catalogue::BloomLook::Glow, "a pick wins");
+    check(catalogue::resolveBloomLook(9, "water") == catalogue::BloomLook::Ripple, "an out-of-range pick is the style's own");
+}
+
 int main(int argc, char** argv) {
     if (argc == 3 && std::strcmp(argv[1], "--write") == 0) {
         std::ofstream(argv[2], std::ios::binary) << catalogue::text();
@@ -351,6 +378,7 @@ int main(int argc, char** argv) {
     spinRateAndShaderStyleAgree();
     marchedStylesMatchTheOldSet();
     paramScopesMatchTheOldParamScope();
+    everyStyleHasOneBloomLook();
     textRoundTrips();
     textEqualsTheFixture(argc > 1 ? argv[1] : "core/tests/catalogue.txt");
     if (failures == 0) std::printf("catalogue_test: all checks passed\n");

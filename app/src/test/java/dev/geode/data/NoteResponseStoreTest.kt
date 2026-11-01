@@ -1,58 +1,48 @@
 package dev.geode.data
 
 import android.content.SharedPreferences
-import dev.geode.pro.Entitlement
-import dev.geode.pro.FeatureGate
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class NoteResponseStoreTest {
-    private val pro = FeatureGate(Entitlement.Pro)
-    private val trial = FeatureGate(Entitlement.Trial(endsAtMs = 1L))
-
     @Test
-    fun `starts off and tells the engine so once`() {
+    fun `a new install starts on and tells the engine so once`() {
         val pushes = mutableListOf<Boolean>()
         val store = NoteResponseStore(MapPrefs()) { pushes += it }
+        assertTrue(store.enabled.value)
+        assertEquals(listOf(true), pushes)
+    }
+
+    @Test
+    fun `a saved choice wins over the default`() {
+        val prefs = MapPrefs()
+        prefs.values[NoteResponseStore.KEY_ENABLED] = false
+        val pushes = mutableListOf<Boolean>()
+        val store = NoteResponseStore(prefs) { pushes += it }
         assertFalse(store.enabled.value)
-        assertFalse(store.active)
         assertEquals(listOf(false), pushes)
     }
 
     @Test
     fun `the switch is saved and survives a new store`() {
         val prefs = MapPrefs()
-        NoteResponseStore(prefs) { }.setEnabled(true)
-        assertEquals(true, prefs.values[NoteResponseStore.KEY_ENABLED])
+        NoteResponseStore(prefs) { }.setEnabled(false)
+        assertEquals(false, prefs.values[NoteResponseStore.KEY_ENABLED])
         val again = NoteResponseStore(prefs) { }
-        assertTrue(again.enabled.value)
+        assertFalse(again.enabled.value)
     }
 
     @Test
-    fun `free keeps the engine off whatever the switch says`() {
+    fun `each change reaches the engine and repeats push nothing`() {
         val pushes = mutableListOf<Boolean>()
         val store = NoteResponseStore(MapPrefs()) { pushes += it }
         store.setEnabled(true)
-        assertTrue(store.enabled.value)
-        assertFalse(store.active)
-        assertEquals(listOf(false), pushes)
-    }
-
-    @Test
-    fun `an entitlement turns it on, a lapsed trial off, and repeats push nothing`() {
-        val pushes = mutableListOf<Boolean>()
-        val store = NoteResponseStore(MapPrefs()) { pushes += it }
-        store.setEnabled(true)
-        store.onGate(trial)
-        store.onGate(trial)
-        assertTrue(store.active)
-        store.onGate(FeatureGate.FREE)
-        assertFalse(store.active)
-        store.onGate(pro)
         store.setEnabled(false)
-        assertEquals(listOf(false, true, false, true, false), pushes)
+        store.setEnabled(false)
+        store.setEnabled(true)
+        assertEquals(listOf(true, false, true), pushes)
     }
 
     /** In-memory [SharedPreferences]: the platform one is a stub in local unit tests. */

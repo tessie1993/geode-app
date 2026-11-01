@@ -459,12 +459,13 @@ bool reaches(Scope scope, const std::string& styleId) {
 BloomLook bloomLook(const std::string& id) {
     switch (kindOf(id)) {
         // The simulations: a glow on the silk and the cells, sparks in the mycelium's and the curl flow's
-        // particles, the flower in MilkDrop's and Acid's psychedelia, a ring on every liquid surface.
+        // particles and in MilkDrop's presets (they already flower on their own), the flower in Acid's
+        // psychedelia, a ring on every liquid surface.
         case Kind::Silk: return BloomLook::Glow;
         case Kind::Life: return BloomLook::Glow;
         case Kind::Mycelium: return BloomLook::Burst;
         case Kind::Acid: return BloomLook::Flower;
-        case Kind::Milkdrop: return BloomLook::Flower;
+        case Kind::Milkdrop: return BloomLook::Burst;
         case Kind::Fluid: return BloomLook::Ripple;
         case Kind::CurlFlow: return BloomLook::Burst;
         case Kind::Water: return BloomLook::Ripple;

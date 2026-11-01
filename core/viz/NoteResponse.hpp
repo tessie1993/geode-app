@@ -8,7 +8,7 @@
 
 namespace geode::viz {
 
-// Note & key reactions (Settings › Behaviour, Pro): the picture answering the music's notes, chords, key
+// Note & key reactions (Settings › Behaviour, free and on by default; its tuning card is Pro): the picture answering the music's notes, chords, key
 // and mood as they happen, not only its drums. docs/research/note-key-response.md has the design and the
 // reasons for every number below; the short version:
 //
@@ -18,8 +18,12 @@ namespace geode::viz {
 //            style by NoteBloomPass), and motion per interval (leaps swing and twist, steps glide)
 //   key, mood ─► the palette family when the auto-director is off (major warm and bright, minor cool and
 //            deep); under the director, its look's hue is the anchor and this layer only adds the notes
-//   harmony ─► tension bends the picture (warp, chromatic split, at the top a little glitch) and its
-//            resolution smooths it back; a chord change is a scene shift (fold count, bloom layout)
+//   harmony ─► tension bends the picture (warp, chromatic split, frayed petal edges) and its resolution
+//            smooths it back; a chord change is a scene shift (fold count, bloom layout)
+//   motion ─► a leap rolls and turns the camera, a build pushes it in (camRoll, camYaw, camPush, so the rig
+//            springs toward them and the safety clamp and reduced motion act on top), and the blooms sit
+//            at depths: near ones drift outward and grow past the viewer, far ones barely move, and all of
+//            them slide against the camera's pan (parallax), so the field of flowers has a sense of travel
 //   drums ─► weighted by how percussive the track is, measured continuously (hit and onset rate,
 //            spectral flatness, high-frequency content against pitch confidence, key clarity, scale fit)
 //
@@ -30,10 +34,15 @@ namespace geode::viz {
 // envelopes, reactions, motion field and the safety clamp. So the user's own settings and the flash and
 // motion limits always act on top, and the director keeps the scene-level palette and camera to itself.
 //
-// Real time only: everything reads the frame just heard; nothing anticipates. A pure function of (seed,
-// frames, dt): no clock, no randomness of its own (splitmix64 keyed by the play's seed and the note
-// count), so an export that hears the same frames with the same seed draws the same blooms in the same
-// places. Process-wide switch, like the director's, so the screen, exports, wallpaper and dream agree.
+// Variation: each play gets a personality (how many blooms at once, how fast they may come, how big, how
+// strongly the notes tint the whole picture, how fast the field travels, how far the flowers tilt), and
+// every new section and every drop rolls it again, eased over a couple of seconds. The user chose this to
+// be truly random per play: the renderer mixes fresh entropy into the seed at each new play
+// (Renderer::noteSeed), so the same song looks different every time, and an export is its own play.
+//
+// Real time only: everything reads the frame just heard; nothing anticipates. Given a seed it is a pure
+// function of (seed, frames, dt): no clock, no randomness of its own (splitmix64 keyed by the seed and the
+// note, chord and section counts), which is what the tests pin. Process-wide switch, like the director's.
 struct NoteResponseConfig {
     bool enabled = false;
     uint64_t seed = 0;
@@ -61,7 +70,16 @@ struct NoteUniforms {
     std::array<std::array<float, 4>, kBlooms> bloomA{};
     std::array<std::array<float, 4>, kBlooms> bloomB{};
     std::array<std::array<float, 4>, kBlooms> bloomC{};
+    // d = (tilt x, tilt y, depth, unused): the flower's disc turned in 3D (radians about the screen's x and
+    // y axes, so it foreshortens into an ellipse) and how far it sits, 0 near .. 1 far.
+    std::array<std::array<float, 4>, kBlooms> bloomD{};
     int bloomCount = 0;
+    // Which of lib_bloom's four looks draws them (viz/Catalogue BloomLook: 1 flower, 2 glow, 3 ripple,
+    // 4 burst), resolved from the style's own and the user's pick.
+    int look = 1;
+    // The whole picture's pull toward the notes' colour: rgb (unit luma) and amount, 0 while off. The
+    // composite pass mixes every family's finished frame toward it, keeping each pixel's brightness.
+    std::array<float, 4> tint{1.0f, 1.0f, 1.0f, 0.0f};
 };
 
 class NoteResponse {
@@ -70,6 +88,28 @@ public:
     struct Inputs {
         float anchorHue = 0.0f;
         float anchorWeight = 0.0f;
+        // The style's Customize › Advanced › Note & key amounts (SceneParams::note*), 0..2, 1 as designed.
+        float color = 1.0f;
+        float pitch = 1.0f;
+        float intervals = 1.0f;
+        float tension = 1.0f;
+        float chords = 1.0f;
+        float drums = 1.0f;
+        float bloom = 1.0f;
+        // The resolved bloom look, 1..4 (Catalogue::resolveBloomLook).
+        int look = 1;
+        // Last frame's CameraRig flat pose (panX, panY, zoom, roll), for the blooms' parallax.
+        std::array<float, 4> camFlat{0.0f, 0.0f, 1.0f, 0.0f};
+    };
+
+    // The play's character, rolled per play and again at every section and drop (see the class comment).
+    struct Personality {
+        float maxAlive = 8.0f;   // blooms on screen at once, 3..8
+        float budget = 3.0f;     // new blooms a second before each is dimmed, 1.5..3 (never past WCAG's 3)
+        float size = 1.0f;       // radius scale, 0.75..1.35
+        float tint = 0.15f;      // whole-picture pull toward the notes' colour, 0.04..0.3
+        float travel = 0.5f;     // how fast near blooms drift out past the viewer, 0.15..1
+        float tilt = 0.4f;       // how far the flowers' discs turn in 3D, 0..0.9 radians
     };
 
     struct Bloom {
@@ -88,6 +128,10 @@ public:
         float release = -1.0f;  // seconds into its fade; < 0 while its note still sounds
         float releaseSeconds = 1.0f;
         float tension = 0.0f;
+        float openSeconds = 0.7f;  // the look's unfurl time
+        float depth3 = 0.5f;       // 0 near .. 1 far: parallax and travel
+        float tiltX = 0.0f;
+        float tiltY = 0.0f;
         int note = -1;          // the MIDI note it was born on
         int index = 0;          // the spawn count it was born at, for ordering
         float envelope() const;
@@ -112,6 +156,8 @@ public:
     int spawned() const { return spawned_; }
     int liveBlooms() const;
     float anchorHue() const { return anchor_; }
+    const Personality& personality() const { return mood_; }
+    int rolls() const { return rolls_; }
     const std::array<Bloom, NoteUniforms::kBlooms>& blooms() const { return blooms_; }
 
 private:
@@ -121,12 +167,22 @@ private:
     void stepIntervals(const GeodeSoundFrame& f, float dt);
     void stepBlooms(const GeodeSoundFrame& f, const sound::Emotion::State& e, float dt);
     void spawn(const GeodeSoundFrame& f, const sound::Emotion::State& e);
+    void roll();
+    void stepPersonality(const GeodeSoundFrame& f, float dt);
     float noteHue(float pitchClass, float pitchHeight) const;
     void publish();
 
     NoteResponseConfig config_;
     bool configured_ = false;
     float amount_ = 0.0f;
+    Inputs in_;
+
+    // The play's character: the current one easing toward the last roll.
+    Personality mood_;
+    Personality moodTarget_;
+    int rolls_ = 0;
+    float tintHue_ = 0.0f;  // the notes' colour, a circular mean of the last notes, smoothed
+    bool tintPrimed_ = false;
 
     // Percussive vs tonal, continuously: leaky rates and slow means.
     float hitRate_ = 0.0f;     // drum triggers a second
@@ -142,6 +198,7 @@ private:
     float tone_ = 0.5f;        // the held melodic height (k3 before smoothing)
     float drum_ = 0.0f;        // percussive drive this frame, already weighted
     float distortion_ = 0.0f;  // tension bend, 0..1, eased back on resolution
+    float build_ = 0.0f;       // a build under way, eased: the camera's push-in
     float keyWarmth_ = 0.0f;   // -1 minor/cool .. 1 major/warm, times key clarity
     float valence_ = 0.0f;
     float anchor_ = 0.0f;      // the hue the notes spread around

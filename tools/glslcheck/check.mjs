@@ -120,6 +120,8 @@ const SHADER_VALUES = {
   uTouchSpin: 0,
   // The sound engine's frame (lib_sound): every slot at a mid-loudness 0.5, no events.
   uSound: [0.5, 0.5, 0.5, 0.5], uSoundDrive: 1, uSoundEvents: [0, 0, 0, 0], uSoundCounts: [0, 0],
+  // The style knobs (lib_scene_uniforms): every knob at the 0.5 ShaderScene holds them at (array fill).
+  uKnob: [0.5],
   uSteps: 96,
   uPalLutMix: 0, uPalLutRow: 0.5,
   uBassSmooth: 0.5, uMidSmooth: 0.4, uTrebleSmooth: 0.3, uEnergySmooth: 0.45, uSwell: 0.5, uSpike: 0.15,

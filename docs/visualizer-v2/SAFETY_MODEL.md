@@ -4,8 +4,9 @@ What the app does about flashing and motion, why each limit exists, and what is 
 Required by the V2 master plan (not in this tree) §2.2; the policy is §11.
 
 **Status:** the parameter-level clamp is production, tested, and **unconditional** — there is no
-setting, no off switch and no tier. The *measured* global limiter of §11.2 is still not built, so
-three render paths remain outside it. See "What this does not cover".
+setting, no off switch and no tier. Behind it, the *measured* output limiter (§11.2's temporal
+luminance half) now runs on every frame the renderer shows or exports, so MilkDrop presets, user
+GLSL and a scene's own brightness swings are held to three flashes a second too. See §4.
 
 ---
 
@@ -53,28 +54,39 @@ modulator can push it back into the hazardous range.
 | `layerMix` | ADD and DIFFERENCE blends, which reach the screen after `apply` |
 | `transitionStyle` / `transitionId` | a hard cut becomes a crossfade |
 | `FlashBudget` | how *often* the flash may fire — three rising edges per rolling second |
+| `FlashLimitPass` | what actually reaches the screen or the file — see §4 |
 
 Inversion and solarize are deliberately **not** forced off. A statically inverted picture is not a
 flash; the hazard is toggling it quickly, which the rate limits above already bound. Forcing them
 off would only produce a dead control.
 
-## 4. What this does not cover
+## 4. The measured output limiter
 
-**No frame is measured.** Every limit above is computed from parameters — what the app is about to
-ask the shader to do. §11.2's limiter is defined over *measured* temporal luminance and
-saturated-red change, which needs a downsampled target and an asynchronous readback.
+Every limit in §3 is computed from parameters. Three paths reach the screen without passing through
+them: **projectM** (MilkDrop presets render and can strobe internally), **Shader Studio** (user
+GLSL) and a scene's **own internal brightness**. The output limiter closes all three by measuring
+the finished frame instead.
 
-Three paths therefore still reach the screen outside all of it, because none passes through
-`uPostFlash` or `SceneParams`:
+`Renderer::composite` draws the frame into `FlashLimitPass`'s own target; the pass measures the
+mean relative luminance (sRGB-decoded, Rec.709 weights) of a 16 x 9 grid of tiles, steps a small
+per-tile state, and draws the frame on to the real target with each tile's luminance limited. It
+runs on the GPU with no readback, and since the live view, the wallpaper, the dream and the export
+all share `Renderer::composite`, they are limited alike. Only the W00 overlay (the user's own cover
+art and text) is drawn after it.
 
-- **projectM** renders MilkDrop presets itself and can strobe internally;
-- **Shader Studio** runs user GLSL;
-- a scene's **own internal brightness** swings.
+The per-tile rule (`core/viz/FlashLimiter`, mirrored in `shaders/lib_flash_limit.glsl`): the shown
+luminance drags an anchor inside a band of ±0.01, and only the anchor's travel is paid for, out of a
+token bucket (0.36, refilled at 0.13/s, plus 0.06/s free). A WCAG transition (an opposing swing of
+≥ 0.1) costs the anchor ≥ 0.08, so seven in one second would need 0.56 while the bucket allows 0.55:
+at most six transitions, three flashes, in any second. `core/tests/flash_limit_test.cpp` checks it
+exhaustively against square waves, sines and noise at 24–120 fps; slow fades, a single beat flash
+and sub-band jitter pass unchanged. The arithmetic is in `VisualSafety.hpp` beside the constants.
+What a strobe becomes: a 10 Hz black/white strobe is held near a steady gray; a hard cut from black
+to white shows its first 0.37 at once and reaches white over about three seconds.
 
-Making the clamp unconditional closed the *opt-out*; it did not close these. Until a measured
-final-frame limiter exists, an imported `.milk` preset can still flash outside the limit, so the
-product promise that "no imported file can exceed the flash limit" is **not yet true**. That work
-is **V2-0-02c**.
+What it does not cover: a flicker confined well inside one tile (a WCAG general flash must cover a
+quarter of a 10° field, several tiles on a phone), a pattern that inverts while its tile's mean stays
+the same (a checkerboard swapping).
 
 Also absent: the saturated-red analysis, the alternating-stripe and red-transition vectors (both
 need frame content), safety telemetry in debug builds, and the thermal half of §11.4.

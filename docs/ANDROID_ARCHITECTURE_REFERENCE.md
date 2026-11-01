@@ -488,11 +488,11 @@ Sources: `kb://JetBrains/kotlin-multiplatform-dev-docs/topics/development/multip
   class that references a Compose `DrawableResource` can't, because it's UI-bound.
 - **Applied to this repo (derived)**, candidates for pure-Kotlin modules that could move to
   commonMain (plain JVM libraries today; the guide records the decision): domain models
-  (`Preset`, `VisualSettings`, `AudioFeatures`, `SceneParams`), repository and data-source
+  (`Preset`, `VisualSettings`, `SceneParams`), repository and data-source
   **interfaces**, use cases, pure audio→visual mapping math, settings and preset serialization
   (`kotlinx.serialization`), and feature `api` modules holding `NavKey`s.
 - **Stays in Android modules** behind those interfaces: Media3, MediaStore/ContentResolver,
-  Oboe/JNI, GLES/EGL, wallpaper and dream services, Billing, and anything using `Context`,
+  JNI, GLES/EGL, wallpaper and dream services, Billing, and anything using `Context`,
   `Uri` or `R`.
 - KMP-safe libraries: coroutines, serialization, DataStore, ViewModel, Navigation 3 (its runtime
   lives in `navigation3-runtime/src/commonMain`; `DeepLinkUri` is a typealias of `android.net.Uri`

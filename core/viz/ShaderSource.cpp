@@ -29,7 +29,9 @@ constexpr const char* kIncludes[] = {
     "lib_terra",
     "lib_truchet",
     "lib_foam",
-    // The note blooms' paradoxical fractal flower (note_bloom_frag, NoteBloomPass).
+    // The neon set (five loose styles): normalized shape controls, the palette pull, shared sound drives.
+    "lib_neon",
+    // The note blooms' four looks (note_bloom_frag, NoteBloomPass).
     "lib_bloom",
 };
 

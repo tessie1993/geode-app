@@ -13,7 +13,7 @@
 
 namespace geode::viz {
 
-// Port of MycoScene.kt: physarum agents depositing into a blurred trail field.
+// Physarum agents depositing into a blurred trail field.
 class MycoScene : public Scene {
 public:
     MycoScene(const styles::MycoStyle& style, ProgramLoader loader, SceneHost host)

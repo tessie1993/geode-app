@@ -7,7 +7,7 @@
 
 namespace geode::viz::fluid {
 
-// Port of FluidChoreography.kt: the spawn and catch anchors walking a path on heard energy.
+// The spawn and catch anchors walking a path on heard energy.
 class Choreography {
 public:
     static constexpr int kMaxSpawn = 8;

@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <atomic>
 #include <cmath>
+#include <initializer_list>
 
 namespace geode::viz {
 
@@ -40,6 +41,25 @@ float draw(uint64_t seed, uint64_t stream, uint64_t index) {
 
 constexpr uint64_t kStreamBloom = 0xB100Bull;
 constexpr uint64_t kStreamChord = 0xC40Dull;
+constexpr uint64_t kStreamMood = 0x300Dull;
+
+float lerp(float a, float b, float t) { return a + (b - a) * t; }
+float tuning(float x) { return std::clamp(finite(x, 1.0f), 0.0f, 2.0f); }
+
+// Each look's unfurl time and size against the flower's (lib_bloom): a glow blooms at once and small, a
+// ripple spreads slowly and wide like a ring on water, a burst throws its sparks out fast and far.
+struct LookShape {
+    float openSeconds;
+    float radius;
+};
+LookShape lookShape(int look) {
+    switch (look) {
+        case 2: return {0.25f, 0.8f};
+        case 3: return {1.4f, 1.6f};
+        case 4: return {0.4f, 1.3f};
+        default: return {0.7f, 1.0f};
+    }
+}
 
 // A pitch class against the key's tonic, on the circle of fifths, -0.5 .. 0.5: the tonic is 0, the
 // dominant +1/12, the subdominant -1/12, the notes outside the key past ±5/12. Neighbours in harmony are
@@ -57,7 +77,6 @@ float fifthsFromTonic(float pitchClass, float keyRoot) {
 constexpr float kHueSpread = 0.85f;
 constexpr float kLeapOctaves = 5.0f / 12.0f;  // a fourth or more is a leap
 constexpr float kChordShiftMinSeconds = 1.5f;
-constexpr float kMaxSpawnsPerSecond = 3.0f;      // WCAG's three flashes, as a brightness budget
 
 }  // namespace
 
@@ -75,7 +94,7 @@ float NoteResponse::Bloom::envelope() const {
     return strength * grow * fade;
 }
 
-float NoteResponse::Bloom::open() const { return smooth(age / 0.7f); }
+float NoteResponse::Bloom::open() const { return smooth(age / std::max(openSeconds, 0.05f)); }
 
 void NoteResponse::reset() {
     const NoteResponseConfig keep = config_;
@@ -115,6 +134,12 @@ void NoteResponse::step(const GeodeSoundFrame& f, const sound::Emotion::State& e
     // The director's anchor, when it drives, glides the notes' colours into its look.
     anchorIn_ = finite(in.anchorHue);
     anchorWeight_ = clamp01(finite(in.anchorWeight));
+    in_ = in;
+    for (float* t : {&in_.color, &in_.pitch, &in_.intervals, &in_.tension, &in_.chords, &in_.drums, &in_.bloom}) *t = tuning(*t);
+    in_.look = in.look >= 1 && in.look <= 4 ? in.look : 1;
+    for (float& c : in_.camFlat) c = finite(c);
+    if (!(in_.camFlat[2] > 0.0f)) in_.camFlat[2] = 1.0f;
+    stepPersonality(f, dt);
     measurePercussiveness(f, dt);
     stepHarmony(f, e, dt);
     stepIntervals(f, dt);
@@ -158,12 +183,14 @@ void NoteResponse::stepHarmony(const GeodeSoundFrame& f, const sound::Emotion::S
     anchor_ = primed_ ? mixHue(anchor_, target, 1.0f - std::exp(-dt / 1.2f)) : target;
     primed_ = true;
     // Tension bends, resolution smooths back: quick to strain (a quarter second), slower to relax.
-    const float strain = clamp01((0.6f * clamp01(f.tension) + 0.4f * clamp01(e.tension) - 0.2f) / 0.6f);
+    const float strain = clamp01(in_.tension * (0.6f * clamp01(f.tension) + 0.4f * clamp01(e.tension) - 0.2f) / 0.6f);
     distortion_ = ease(distortion_, strain, 0.25f, 0.9f, dt);
+    // A build pushes the camera in, slowly; the drop lets it go quickly.
+    build_ = ease(build_, clamp01(f.buildUp), 1.5f, 0.6f, dt);
     // A chord change: a scene shift. The fold count steps by one or two (held until the next change), the
     // bloom layout turns, and the picture gets a turn of its own through the swing spring.
     sinceShift_ += dt;
-    if (f.harmonicChange > 0.0f && sinceShift_ >= kChordShiftMinSeconds) {
+    if (f.harmonicChange > 0.0f && sinceShift_ >= kChordShiftMinSeconds && in_.chords > 0.05f) {
         sinceShift_ = 0.0f;
         ++shifts_;
         const uint64_t i = static_cast<uint64_t>(shifts_);
@@ -173,7 +200,7 @@ void NoteResponse::stepHarmony(const GeodeSoundFrame& f, const sound::Emotion::S
         if (next > 3 || next < -3) next = symShift_ - step;
         symShift_ = next;
         layout_ = wrap01(layout_ + 0.25f + 0.5f * draw(config_.seed, kStreamChord + 1, i));
-        swingVel_ += (draw(config_.seed, kStreamChord + 2, i) - 0.5f) * 1.6f;
+        swingVel_ += (draw(config_.seed, kStreamChord + 2, i) - 0.5f) * 1.6f * std::min(in_.chords, 1.5f);
     }
 }
 
@@ -183,10 +210,10 @@ void NoteResponse::stepIntervals(const GeodeSoundFrame& f, float dt) {
         const float size = std::fabs(iv);
         if (size >= kLeapOctaves - 1e-3f) {
             // A leap swings the picture: a kick to a damped spring, harder the wider the leap, in its direction.
-            swingVel_ += (iv > 0.0f ? 1.0f : -1.0f) * (1.0f + 1.5f * std::min(size, 1.0f));
+            swingVel_ += in_.intervals * (iv > 0.0f ? 1.0f : -1.0f) * (1.0f + 1.5f * std::min(size, 1.0f));
         } else {
             // A step glides: it adds to a slow, leaky drift in the step's direction.
-            glide_ += iv * 1.5f;
+            glide_ += in_.intervals * iv * 1.5f;
         }
     }
     // Spring at 0.45 Hz, damping 0.35: a leap's swing rings once or twice and settles in about two seconds.
@@ -204,7 +231,7 @@ void NoteResponse::stepKnobs(const GeodeSoundFrame& f, const sound::Emotion::Sta
     // k0 PULSE: the drums, weighted by how percussive the track is. A drum-led track pumps the knob on
     // every hit; on a ballad the same soft onsets barely move it.
     const float drumEnv = std::max({f.kickEnv, 0.8f * f.snareEnv, 0.5f * f.hatEnv});
-    drum_ = perc_ * clamp01(0.75f * drumEnv + 0.25f * f.onsetEnv);
+    drum_ = std::min(perc_ * in_.drums, 1.0f) * clamp01(0.75f * drumEnv + 0.25f * f.onsetEnv);
     const float pulse = clamp01(0.15f + 0.85f * drum_ + 0.2f * perc_ * clamp01(f.bassAtt - 1.0f));
     // k1 TEXTURE: timbre: brightness (centroid, treble), how many partials sound, how noisy they are.
     const float texture = clamp01(0.35f * clamp01((f.centroid - 0.25f) / 0.5f) + 0.25f * clamp01(f.densityFast) +
@@ -230,7 +257,36 @@ void NoteResponse::stepKnobs(const GeodeSoundFrame& f, const sound::Emotion::Sta
 }
 
 float NoteResponse::noteHue(float pitchClass, float pitchHeight) const {
-    return wrap01(anchor_ + kHueSpread * fifthsFromTonic(pitchClass, keyRoot_) + 0.06f * (clamp01(pitchHeight) - 0.5f));
+    // The Note colours amount widens or narrows the spread: 0 paints every note in the anchor's colour.
+    const float spread = kHueSpread * std::min(in_.color, 1.6f);
+    return wrap01(anchor_ + spread * fifthsFromTonic(pitchClass, keyRoot_) + 0.06f * (clamp01(pitchHeight) - 0.5f));
+}
+
+void NoteResponse::roll() {
+    // A new character for the play or the section: each trait its own draw, so they vary independently.
+    const uint64_t i = static_cast<uint64_t>(rolls_);
+    auto r = [&](uint64_t k) { return draw(config_.seed, kStreamMood + k, i); };
+    moodTarget_.maxAlive = std::floor(lerp(3.0f, 8.99f, r(0)));
+    moodTarget_.budget = lerp(1.5f, 3.0f, r(1));
+    moodTarget_.size = lerp(0.75f, 1.35f, r(2));
+    // Squared, so most rolls tint lightly and a few lean in hard.
+    moodTarget_.tint = lerp(0.04f, 0.3f, r(3) * r(3));
+    moodTarget_.travel = lerp(0.15f, 1.0f, r(4));
+    moodTarget_.tilt = lerp(0.0f, 0.9f, r(5));
+    if (rolls_ == 0) mood_ = moodTarget_;
+    ++rolls_;
+}
+
+void NoteResponse::stepPersonality(const GeodeSoundFrame& f, float dt) {
+    if (rolls_ == 0 || f.sectionChange > 0.0f || f.drop > 0.0f) roll();
+    // The new character eases in over a couple of seconds.
+    const float k = 1.0f - std::exp(-dt / 2.5f);
+    mood_.maxAlive += (moodTarget_.maxAlive - mood_.maxAlive) * k;
+    mood_.budget += (moodTarget_.budget - mood_.budget) * k;
+    mood_.size += (moodTarget_.size - mood_.size) * k;
+    mood_.tint += (moodTarget_.tint - mood_.tint) * k;
+    mood_.travel += (moodTarget_.travel - mood_.travel) * k;
+    mood_.tilt += (moodTarget_.tilt - mood_.tilt) * k;
 }
 
 void NoteResponse::spawn(const GeodeSoundFrame& f, const sound::Emotion::State& e) {
@@ -238,21 +294,30 @@ void NoteResponse::spawn(const GeodeSoundFrame& f, const sound::Emotion::State& 
     for (Bloom& b : blooms_) {
         if (b.alive && b.release < 0.0f) b.release = 0.0f;
     }
+    // How many may be on screen is the play's character (3..8); past it, the faintest gives its place.
+    const int cap = std::clamp(static_cast<int>(std::lround(mood_.maxAlive)), 1, NoteUniforms::kBlooms);
     int slot = -1;
-    for (int i = 0; i < NoteUniforms::kBlooms; ++i) {
-        if (!blooms_[i].alive) {
-            slot = i;
-            break;
+    if (liveBlooms() < cap) {
+        for (int i = 0; i < NoteUniforms::kBlooms; ++i) {
+            if (!blooms_[i].alive) {
+                slot = i;
+                break;
+            }
         }
     }
     if (slot < 0) {
-        // Full: the faintest (the oldest on a tie) gives its place.
-        slot = 0;
-        for (int i = 1; i < NoteUniforms::kBlooms; ++i) {
+        // Full: the faintest live one (the oldest on a tie) gives its place.
+        for (int i = 0; i < NoteUniforms::kBlooms; ++i) {
+            if (!blooms_[i].alive) continue;
+            if (slot < 0) {
+                slot = i;
+                continue;
+            }
             const float a = blooms_[i].envelope();
             const float b = blooms_[slot].envelope();
             if (a < b || (a == b && blooms_[i].index < blooms_[slot].index)) slot = i;
         }
+        if (slot < 0) slot = 0;
     }
     const uint64_t n = static_cast<uint64_t>(spawned_);
     auto r = [&](uint64_t k) { return draw(config_.seed, kStreamBloom + k, n); };
@@ -272,17 +337,25 @@ void NoteResponse::spawn(const GeodeSoundFrame& f, const sound::Emotion::State& 
     const float centre = f.keyMajor >= 0.5f ? 2.0f / 12.0f : -1.0f / 12.0f;
     const float across = wrap01(0.5f + 1.4f * (fifths - centre) + layout_);
     b.x = std::clamp(0.1f + 0.8f * across + 0.06f * (r(1) - 0.5f), 0.06f, 0.94f);
-    b.y = std::clamp(0.5f + 1.1f * (height - 0.5f) + 0.08f * (r(2) - 0.5f), 0.08f, 0.92f);
-    // How bright: the note's attack and the mood, inside the flash budget: past three blooms a second each
-    // new one is dimmer (by the square root of the excess, so eight a second are at about 60 %), and a fast
-    // run reads as a shimmer, never as strobing.
+    b.y = std::clamp(0.5f + 1.1f * std::min(in_.pitch, 1.5f) * (height - 0.5f) + 0.08f * (r(2) - 0.5f), 0.08f, 0.92f);
+    // How bright: the note's attack and the mood, inside the flash budget: past the play's budget (1.5 to
+    // three blooms a second, never more than WCAG's three flashes) each new one is dimmer, by the square
+    // root of the excess, so a fast run reads as a shimmer, never as strobing.
     float strength = clamp01(0.55f + 0.45f * std::max({f.onsetEnv, f.noteChange, f.reattack})) * (0.85f + 0.15f * valence_);
     recentSpawns_ += 1.0f;
-    if (recentSpawns_ > kMaxSpawnsPerSecond) strength *= std::sqrt(kMaxSpawnsPerSecond / recentSpawns_);
+    const float budget = std::clamp(mood_.budget, 1.0f, 3.0f);
+    if (recentSpawns_ > budget) strength *= std::sqrt(budget / recentSpawns_);
     b.strength = clamp01(strength);
-    // Shape: high notes open and stretch up, low ones squat and pull in.
-    b.radius = (0.1f + 0.08f * b.strength) * (1.1f - 0.2f * height);
-    b.stretch = 0.8f + 0.5f * height;
+    // Shape: high notes open and stretch up, low ones squat and pull in; the look and the play set the size.
+    const LookShape shape = lookShape(in_.look);
+    const float pitchK = std::min(in_.pitch, 1.6f);
+    b.radius = (0.1f + 0.08f * b.strength) * (1.1f - 0.2f * height) * shape.radius * mood_.size;
+    b.stretch = std::clamp(1.0f + pitchK * (0.5f * height - 0.2f), 0.8f, 1.3f);
+    b.openSeconds = shape.openSeconds;
+    // Depth and attitude: near or far in the field, its disc turned toward or away from the viewer.
+    b.depth3 = r(6);
+    b.tiltX = (r(7) - 0.5f) * 2.0f * mood_.tilt;
+    b.tiltY = (r(8) - 0.5f) * 2.0f * mood_.tilt;
     // Chord quality: more tension, more petals and deeper recursion; minor adds a petal; the chord's
     // scene shift moves the fold count of every bloom after it.
     const float minor = f.keyMajor < 0.5f ? 1.0f : 0.0f;
@@ -324,6 +397,34 @@ void NoteResponse::stepBlooms(const GeodeSoundFrame& f, const sound::Emotion::St
 
 void NoteResponse::publish() {
     out_.amount = amount_;
+    out_.look = in_.look;
+    // The whole picture's tint: a circular mean of the last notes' colours (newer weigh more), smoothed,
+    // pulled in as far as the play's character, the Note colours amount and the director allow (the
+    // director owns the palette, so under it the tint is halved).
+    if (hueCount_ > 0) {
+        float sx = 0.0f;
+        float sy = 0.0f;
+        float w = 1.0f;
+        for (int i = 0; i < hueCount_; ++i) {
+            sx += w * std::cos(kTau * hues_[i]);
+            sy += w * std::sin(kTau * hues_[i]);
+            w *= 0.6f;
+        }
+        const float mean = wrap01(std::atan2(sy, sx) / kTau);
+        tintHue_ = tintPrimed_ ? mixHue(tintHue_, mean, 0.05f) : mean;
+        tintPrimed_ = true;
+    }
+    {
+        // HSV to RGB at saturation 0.75, value 1: the tint's colour; the composite keeps each pixel's luma.
+        const float h = tintHue_ * 6.0f;
+        constexpr float kSat = 0.75f;
+        auto channel = [&](float n) {
+            const float k = std::fmod(n + h, 6.0f);
+            return 1.0f - kSat * std::clamp(std::min(k, 4.0f - k), 0.0f, 1.0f);
+        };
+        const float pull = std::clamp(mood_.tint * std::min(in_.color, 1.5f) * (1.0f - 0.5f * anchorWeight_) * amount_, 0.0f, 0.45f);
+        out_.tint = {channel(5.0f), channel(3.0f), channel(1.0f), tintPrimed_ ? pull : 0.0f};
+    }
     for (int i = 0; i < NoteUniforms::kKnobs; ++i) out_.knobs[i] = 0.5f + (knobs_[i] - 0.5f) * amount_;
     // Before the first notes the ring is a spread around the anchor already, never one colour.
     for (int i = 0; i < NoteUniforms::kHues; ++i) {
@@ -352,14 +453,33 @@ void NoteResponse::publish() {
             out_.bloomA[k] = {};
             out_.bloomB[k] = {};
             out_.bloomC[k] = {};
+            out_.bloomD[k] = {};
             continue;
         }
         const Bloom& b = blooms_[order[k]];
         // The flower turns at its own rate and swings with the interval spring.
         const float angle = b.spin * b.age + 0.6f * swing_;
-        out_.bloomA[k] = {b.x, b.y, b.radius, b.hue};
-        out_.bloomB[k] = {b.open(), b.envelope() * amount_, b.petals, b.depth};
+        // Travel and parallax: a near bloom drifts out from the centre and grows as it ages, as if the
+        // viewer were moving through a field of them (vection), and slides against the camera's pan, roll
+        // and zoom more than a far one does. Far ones are a little dimmer, so the eye reads the depth.
+        const float near = 1.0f - b.depth3;
+        const float drift = mood_.travel * (0.25f + 0.75f * near) * b.age * 0.12f;
+        const auto& cam = in_.camFlat;
+        const float zoom = std::pow(cam[2], 0.5f * near) * (1.0f + drift);
+        const float roll = -0.5f * near * cam[3];
+        const float cr = std::cos(roll);
+        const float sr = std::sin(roll);
+        const float rx = (b.x - 0.5f) * zoom;
+        const float ry = (b.y - 0.5f) * zoom;
+        const float x = 0.5f + cr * rx - sr * ry - 0.35f * near * cam[0];
+        const float y = 0.5f + sr * rx + cr * ry - 0.35f * near * cam[1];
+        const float radius = b.radius * (1.0f + 0.8f * drift) * (1.0f + 0.25f * near);
+        const float envelope = std::min(b.envelope() * amount_ * in_.bloom * (1.0f - 0.3f * b.depth3), 1.0f);
+        out_.bloomA[k] = {finite(x, 0.5f), finite(y, 0.5f), finite(radius, 0.1f), b.hue};
+        out_.bloomB[k] = {b.open(), envelope, b.petals, b.depth};
         out_.bloomC[k] = {angle, b.stretch, b.seed, b.tension};
+        // Each disc keeps its own attitude and rocks with the music's swing and glide.
+        out_.bloomD[k] = {b.tiltX + 0.25f * swing_, b.tiltY + 0.15f * glide_, b.depth3, 0.0f};
     }
 }
 
@@ -369,24 +489,28 @@ SceneParams NoteResponse::apply(const SceneParams& p) const {
     SceneParams q = p;
     const float tone = knobs_[3] - 0.5f;
     // Pitch height shapes every style a little: the morph opens for high notes and closes for low ones.
-    q.morph = std::clamp(p.morph + a * 0.3f * tone, 0.0f, 1.0f);
-    // Harmonic tension bends: warp and chromatic split, and at the very top a touch of glitch (the safety
-    // clamp still caps glitch at its flash depth). Resolution eases all three back.
+    q.morph = std::clamp(p.morph + a * 0.3f * in_.pitch * tone, 0.0f, 1.0f);
+    // Harmonic tension bends: warp and chromatic split (and the blooms' frayed edges, in lib_bloom).
+    // Resolution eases them back. Never glitch: a composite glitch on a chord is a flash, not a bend.
     q.warp = std::clamp(p.warp + a * 0.35f * distortion_, 0.0f, 1.0f);
-    q.chromaAb = std::clamp(p.chromaAb + a * 0.18f * distortion_, 0.0f, 1.0f);
-    q.glitch = std::clamp(p.glitch + a * 0.05f * smooth((distortion_ - 0.5f) * 2.0f), 0.0f, 1.0f);
+    q.chromaAb = std::clamp(p.chromaAb + a * 0.22f * distortion_, 0.0f, 1.0f);
     // Intervals move it: a leap's swing twists and turns, a run of steps sways.
     q.twist = std::clamp(p.twist + a * 0.35f * swing_, -1.0f, 1.0f);
     q.rotation = std::clamp(p.rotation + a * 0.25f * swing_, -3.0f, 3.0f);
     q.sway = std::clamp(p.sway + a * 0.2f * std::fabs(glide_), 0.0f, 1.0f);
     // Drums, as much as the track is made of them.
     q.zoom = p.zoom * (1.0f + a * 0.035f * drum_);
+    // Perspective: a leap rolls and turns the camera, a run of steps leans it, a build pushes it in. Written
+    // as camera params, so CameraRig springs toward them and reduced motion and the safety clamp act on top.
+    q.camRoll = std::clamp(p.camRoll + a * 0.22f * swing_, -1.0f, 1.0f);
+    q.camYaw = std::clamp(p.camYaw + a * (0.12f * glide_ + 0.08f * swing_), -1.0f, 1.0f);
+    q.camPush = std::clamp(p.camPush + a * 0.3f * build_, -1.0f, 1.0f);
     // A chord change shifts the fold count; integer, so it lands once the switch is past half.
     if (a >= 0.5f && symShift_ != 0) q.symmetry = std::clamp(p.symmetry + symShift_, 2, 16);
     // Mood, only where the director is not already deciding the palette: major warmer, minor cooler, a
     // happy feeling a touch brighter.
     const float own = a * (1.0f - anchorWeight_);
-    q.temperature = std::clamp(p.temperature + own * 0.25f * keyWarmth_, -1.0f, 1.0f);
+    q.temperature = std::clamp(p.temperature + own * 0.25f * std::min(in_.color, 1.5f) * keyWarmth_, -1.0f, 1.0f);
     q.brightness = p.brightness * (1.0f + own * 0.06f * valence_);
     return q;
 }

@@ -50,15 +50,19 @@ class GeodeContainer(
     }
 
     /**
-     * Starts the disk load of the prefs files [dev.geode.playback.PlaybackSession] reads in its
-     * constructor (the engine choice, the audio FX state).
+     * Starts the disk load of the two prefs files [dev.geode.playback.PlaybackSession] reads while
+     * it is constructed: the player prefs, which its `init` loads and applies (speed, pitch,
+     * ReplayGain, shuffle, repeat, bit-perfect), and the audio FX state its `AudioFxController`
+     * restores.
      *
-     * That constructor runs on Main the first time the UI or the playback service acquires the
-     * session, and it has to stay synchronous: the engine choice decides which `Player` is built,
-     * and callers get the player back from `acquireForUi`/`acquireForService` directly. What made
-     * the read a stall was the parse, since a SharedPreferences getter blocks until its file is
+     * That construction runs on Main the first time the UI or the playback service acquires the
+     * session, and it has to stay synchronous: callers get the ExoPlayer back from
+     * `acquireForUi`/`acquireForService` directly, already carrying the saved options. What makes
+     * the read a stall is the parse, since a SharedPreferences getter blocks until its file is
      * loaded. Opening the files here, at process start and on IO, means the parse has normally
-     * finished long before the session asks, so its read is a map lookup.
+     * finished long before the session asks, so its read is a map lookup. The session opens its
+     * own [GeodePrefsFiles], but `getSharedPreferences` hands every caller the same process-wide
+     * instance per name, so the load started here is the one it gets.
      */
     private fun warmPlaybackPrefs() {
         appScope.launch(Dispatchers.IO) {

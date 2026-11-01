@@ -14,7 +14,7 @@ struct ThermalTierInfo {
 };
 const ThermalTierInfo& thermalTierInfo(ThermalTier tier);
 
-// Port of PerformanceMonitor.kt: downgrades on a sustained deficit, never upgrades.
+// The performance monitor: downgrades on a sustained deficit, never upgrades.
 class PerformanceMonitor {
 public:
     static constexpr float kFreeRunning = 0.0f;

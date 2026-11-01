@@ -1,13 +1,14 @@
 # Note & key reactions
 
-Settings › Behaviour › **Note & key reactions** (Pro and the trial; free does not get it). The styles
+Settings › Behaviour › **Note & key reactions** (free, on by default; Customize › Advanced › Note & key,
+which tunes it per style, is Pro; Customize › Look › Note blooms, which picks the bloom's look, is free). The styles
 answer more than the beat: the notes, the chords, the key, the mood, how the music is played and how
 hard. Everything is real time: it reads the sound frame just heard and never anticipates.
 
 Code: `core/viz/NoteResponse` (the decisions, pure C++), `core/viz/NoteBloomPass` with
-`note_bloom_frag.glsl` and `lib_bloom.glsl` (the flowers), `ShaderScene::uploadParams` (the style knobs),
-`data/NoteResponseStore`, `pro/NoteResponsePolicy`, `ui/NoteResponseSettings`. Tests:
-`core/tests/note_response_test.cpp` (CI, "Native host tests"), `NoteResponsePolicyTest`,
+`note_bloom_frag.glsl` and `lib_bloom.glsl` (the flowers), 
+`data/NoteResponseStore` (free, on by default), `ui/NoteResponseSettings`, Customize › Advanced › Note & key and Look's note blooms. Tests:
+`core/tests/note_response_test.cpp` (CI, "Native host tests"),
 `NoteResponseStoreTest`.
 
 ## What the owner asked for
@@ -23,7 +24,10 @@ Gathered by interview; each line is a requirement this layer meets, not a fixed 
 - Key and mood: the key sets the palette family; major warm and bright, minor cool and deep; harmonic
   tension distorts, resolution smooths it back; a chord change shifts the scene.
 - Drums: their weight depends on the input, measured continuously.
-- A Pro switch, persisted; off is exactly today's picture.
+- A switch, persisted, free and on for new installs; off is exactly today's picture.
+- Variation (second round): tint strength and bloom density are not fixed amounts but change, truly
+  at random per play, and again at every section; the result is judged on variation, harmony, the
+  qualities of good trippy visuals, whether the perspective changes and whether the viewer feels motion.
 - It lives inside the auto-director: the director keeps the section-level palette and camera, this
   layer adds note- and chord-level life within them.
 
@@ -103,9 +107,9 @@ three-a-second budget, by the square root of the excess), so a fast run shimmers
 - **Temperature and brightness**: major warms (+0.25 × clarity), minor cools; a happy feeling brightens
   up to 6 %. Only where the director is not deciding the palette (scaled by 1 − its weight).
 - **Tension → distortion**: 60 % the chord's dissonance, 40 % the feeling's tension, eased up in a
-  quarter second and back down over 0.9 s (resolution). It adds `warp` (up to +0.35), chromatic split
-  (+0.18) and, above half, a touch of `glitch` (+0.05, which the safety clamp caps anyway), and frays
-  the blooms' edges.
+  quarter second and back down over 0.9 s (resolution). It adds `warp` (up to +0.35) and chromatic split
+  (+0.22), and frays the blooms' edges. Never `glitch`: a composite glitch on a chord reads as a flash,
+  not a bend (and #216 retires the field).
 - **Chord change → scene shift**: on `harmonicChange`, at most once per 1.5 s: the fold count
   (`symmetry`) steps by one or two (seeded, held, within ±3 of the user's), the bloom layout turns, and
   the swing spring gets a turn. The fold shift lands once the switch is past half (it is an integer).
@@ -124,6 +128,9 @@ It weighs `k0 PULSE` (the drum envelopes times percussiveness) and a small drum 
 A drum-led track reads 0.94 in the test, a tonal one 0.06; silence settles at 0.5.
 
 ## The style knobs (`uKnob`)
+
+`ShaderScene::uploadParams` uploads them from `NoteResponse` (0.5 while off); the neon set reads each as an
+offset from 0.5 through `lib_neon`'s `neonKnob`, on top of the shared params and sound.
 
 Each from several fields, smoothed at a musical rate (attack / release):
 
@@ -151,13 +158,52 @@ live blooms are about 0.5 M flower pixels, ~125 M instructions a frame, about 7.
 roughly 2–3 % of a mid-range GPU (Adreno 618 / Mali-G57 class, 250–400 GFLOPS), or under half a
 millisecond. The scissor keeps the empty frame cost to the box around them.
 
-## Determinism and exports
+## Variation: each play its own character
 
-`NoteResponse` is a pure function of (seed, sound frames, dt): no clock, no randomness of its own. The
-offscreen export runs the same `Renderer::render`, steps the same sound engine at 1/fps and reads the
-same process-wide switch and seed, so the exported film has the same knobs, distortion and blooms as
-the screen would for the same frames. Like the director, a live renderer that has heard more of the
-song than an export's fresh one may differ in the slow means (percussiveness) for the first seconds.
+The owner asked for the tint and the density not to be fixed, and chose true randomness per play over a
+seeded, replayable one. So `Renderer::noteSeed` mixes fresh `std::random_device` entropy into the
+director's play seed each time that seed changes (a new track, a new play), and an export is a play of
+its own: it will not match the live view bloom for bloom, by choice.
+
+From that seed `NoteResponse` rolls a **personality** (`NoteResponse::Personality`), and rolls it again on
+every `sectionChange` and every `drop`, easing to the new one over ~2.5 s:
+
+| Trait | Range | What it changes |
+|---|---|---|
+| `maxAlive` | 3..8 | blooms on screen at once (past it the faintest gives its place) |
+| `budget` | 1.5..3 / s | new blooms a second before each is dimmed (never past WCAG's three) |
+| `size` | 0.75..1.35 | bloom radius |
+| `tint` | 0.04..0.3 (squared draw: mostly light) | the whole picture's pull toward the notes' colour |
+| `travel` | 0.15..1 | how fast near blooms drift out past the viewer |
+| `tilt` | 0..0.9 rad | how far each flower's disc turns in 3D |
+
+Given a seed the layer is still a pure function of (seed, frames, dt), which is what the host test pins.
+
+## Tint, looks, perspective and motion
+
+- **Tint**: a circular mean of the last notes' hues (newer weigh more), smoothed, sent to
+  `composite_frag` as `uNoteTint`. Every family's finished frame leans toward it by the personality's
+  amount × Note colours × (1 − ½ the director's weight), capped at 0.45, keeping each pixel's luma and
+  leaving blacks and near-whites alone.
+- **Looks** (`SceneParams::bloomLook`, 0 = the style's own from `Catalogue::bloomLook`): **flower** (the
+  paradoxical fractal, unfurls in 0.7 s) for the fractal, kaleidoscopic and neon styles and Acid;
+  **glow** (an orb, halo and star rays; 0.25 s, 0.8× size) for gas, glass, branches, silk and life;
+  **ripple** (three interfering rings spreading like a drop on water; 1.4 s, 1.6×) for liquids,
+  landscapes, scopes and tilings; **burst** (sparks thrown out, a heart that flashes and gives way;
+  0.4 s, 1.3×) for dives, fly-throughs, particles and MilkDrop, whose presets already flower.
+- **Perspective**: each bloom's disc is turned in 3D (`uBloomD.xy`, foreshortened with a touch of
+  perspective) and rocks with the swing and glide; a leap rolls and turns the camera (`camRoll`,
+  `camYaw`), a run of steps leans it, and a build pushes it in (`camPush`), all through SceneParams so
+  `CameraRig` springs toward them and reduced motion and the safety clamp act on top.
+- **Motion (vection)**: each bloom sits at a depth. Near ones drift outward from the centre and grow
+  as they age, as if the viewer were travelling through a field of flowers, and slide against the
+  camera's pan, roll and zoom more than far ones (parallax); far ones are dimmer and hazier.
+
+## Exports
+
+The offscreen export runs the same `Renderer::render`, steps the same sound engine at 1/fps and reads
+the same process-wide switch, so the exported film has the same kind of knobs, distortion and blooms;
+it rolls its own personality and bloom positions (see Variation).
 
 ## Previews
 

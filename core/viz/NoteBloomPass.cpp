@@ -32,7 +32,8 @@ void NoteBloomPass::draw(const NoteUniforms& notes, int width, int height, GLuin
     float y1 = 0.0f;
     for (int i = 0; i < count; ++i) {
         const auto& a = notes.bloomA[i];
-        const float reach = a[2] * shortSide * std::max(notes.bloomC[i][1], 1.0f) + 2.0f;
+        // 1.25: a disc tilted in 3D (lib_bloom bloomUntilt) reaches at most that far past its radius.
+        const float reach = 1.25f * a[2] * shortSide * std::max(notes.bloomC[i][1], 1.0f) + 2.0f;
         const float cx = a[0] * static_cast<float>(width);
         const float cy = a[1] * static_cast<float>(height);
         x0 = std::min(x0, cx - reach);
@@ -52,6 +53,8 @@ void NoteBloomPass::draw(const NoteUniforms& notes, int width, int height, GLuin
     glUniform4fv(uniforms_.loc("uBloomA"), uniforms_.arrayCount("uBloomA", NoteUniforms::kBlooms), notes.bloomA[0].data());
     glUniform4fv(uniforms_.loc("uBloomB"), uniforms_.arrayCount("uBloomB", NoteUniforms::kBlooms), notes.bloomB[0].data());
     glUniform4fv(uniforms_.loc("uBloomC"), uniforms_.arrayCount("uBloomC", NoteUniforms::kBlooms), notes.bloomC[0].data());
+    glUniform4fv(uniforms_.loc("uBloomD"), uniforms_.arrayCount("uBloomD", NoteUniforms::kBlooms), notes.bloomD[0].data());
+    glUniform1i(uniforms_.loc("uBloomLook"), notes.look);
     glUniform1fv(uniforms_.loc("uNoteHues"), uniforms_.arrayCount("uNoteHues", NoteUniforms::kHues), notes.hues.data());
     glUniform1f(uniforms_.loc("uBloomGain"), kGain);
 

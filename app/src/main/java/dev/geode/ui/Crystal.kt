@@ -85,7 +85,6 @@ fun CrystalGem(
     color: Color,
     modifier: Modifier = Modifier,
     size: Dp = 7.dp,
-    @Suppress("UNUSED_PARAMETER") glow: Boolean = true,
 ) {
     Box(
         modifier
@@ -118,7 +117,6 @@ fun GlowTitle(
     text: String,
     modifier: Modifier = Modifier,
     style: TextStyle = MaterialTheme.typography.headlineSmall,
-    @Suppress("UNUSED_PARAMETER") glow: Color = MaterialTheme.colorScheme.primary,
 ) {
     // Every top-level screen opens with this, so it is the heading TalkBack users jump between.
     Text(text, modifier.semantics { heading() }, style = style, color = MaterialTheme.colorScheme.onBackground)
@@ -181,10 +179,7 @@ fun Modifier.luminousHairline(glow: Color): Modifier = background(glow.copy(alph
 
 /** The app canvas behind every screen: black, with a barely-there lift towards the top. Fills its parent. */
 @Composable
-fun CrystalBackground(
-    modifier: Modifier = Modifier,
-    @Suppress("UNUSED_PARAMETER") reducedMotion: Boolean = false,
-) {
+fun CrystalBackground(modifier: Modifier = Modifier) {
     Box(
         modifier.fillMaxSize().background(
             Brush.verticalGradient(

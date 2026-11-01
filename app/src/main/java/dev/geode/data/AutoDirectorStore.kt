@@ -5,6 +5,7 @@ import android.content.SharedPreferences
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.pro.AutoDirectorPolicy
 import dev.geode.pro.FeatureGate
+import dev.geode.render.offscreen.DirectorPin
 import dev.geode.util.bestEffort
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -17,8 +18,10 @@ import kotlin.random.Random
  * every style. This store only tells the engine how much to drive (the switch, cut to the free taste by
  * [AutoDirectorPolicy]) and which play it is: each new track gets a new seed, so a replay is a new film
  * of the same feeling, and an export started now reads the same seed. Like the macros the configuration
- * is process-wide, so the screen, exports, the wallpaper and the dream all follow it; [GeodeApp] creates
- * the store at start, so a wallpaper that starts before the app does still sees the switch.
+ * is process-wide, so the screen, the wallpaper and the dream all follow it; [GeodeApp] creates the store
+ * at start, so a wallpaper that starts before the app does still sees the switch. An export does not read
+ * it live: it takes [exportPin] once, so the player moving on (a new seed, or past the free taste) never
+ * reaches a render in progress.
  *
  * Called on the main thread (the settings screen and [dev.geode.playback.AutoDirectorFeed]).
  */
@@ -28,9 +31,11 @@ class AutoDirectorStore private constructor(
     private val _enabled = MutableStateFlow(prefs.getBoolean(KEY_ENABLED, false))
     val enabled: StateFlow<Boolean> = _enabled
 
-    private var seed = Random.nextLong()
+    // Written on main; read by an export starting on its own thread (exportPin).
+    @Volatile private var seed = Random.nextLong()
     private var gate = FeatureGate.FREE
     private var positionMs = 0L
+    private var playing = false
     private var pushed: Pair<Float, Long>? = null
 
     init {
@@ -61,8 +66,27 @@ class AutoDirectorStore private constructor(
         push()
     }
 
+    /**
+     * Whether the app's own player is playing. The free taste is timed by its position, so it runs only
+     * while it plays; the mic and other apps' audio pause the player and get no taste.
+     */
+    fun onPlaying(
+        playing: Boolean,
+        gate: FeatureGate,
+    ) {
+        this.playing = playing
+        this.gate = gate
+        push()
+    }
+
+    /** What an export of [durationMs] renders with: the switch, cut by [gate], and this play's seed. */
+    fun exportPin(
+        gate: FeatureGate,
+        durationMs: Long,
+    ): DirectorPin = DirectorPin(AutoDirectorPolicy.exportAmount(_enabled.value, gate, durationMs), seed)
+
     private fun push() {
-        val amount = AutoDirectorPolicy.amount(_enabled.value, gate, positionMs)
+        val amount = AutoDirectorPolicy.amount(_enabled.value, gate, positionMs, playing)
         val next = amount to seed
         if (next == pushed) return
         pushed = next

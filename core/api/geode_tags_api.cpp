@@ -11,22 +11,6 @@ struct geode_tags {
 
 namespace {
 
-// The tags API is called from one thread at a time, so a thread-local suffices to remember the last
-// geode_tags_write failure reason without adding an out-parameter to the C entry point.
-thread_local GeodeTagsError g_lastTagsError = GEODE_TAGS_OK;
-
-GeodeTagsError toApiError(geode::library::TagsWriteError e) {
-    using geode::library::TagsWriteError;
-    switch (e) {
-        case TagsWriteError::kNone: return GEODE_TAGS_OK;
-        case TagsWriteError::kOpenFailed: return GEODE_TAGS_ERR_OPEN;
-        case TagsWriteError::kReadOnly: return GEODE_TAGS_ERR_READ_ONLY;
-        case TagsWriteError::kUnsupported: return GEODE_TAGS_ERR_UNSUPPORTED;
-        case TagsWriteError::kSaveFailed: return GEODE_TAGS_ERR_SAVE;
-    }
-    return GEODE_TAGS_ERR_UNSUPPORTED;
-}
-
 // NULL means "leave this field unchanged"; a present pointer (including "") is the new value.
 void setIfPresent(std::optional<std::string>& field, const char* value) {
     if (value) field = std::string(value);
@@ -95,12 +79,7 @@ int geode_tags_write(int fd, const char* const* texts, int year, int track) {
     }
     edit.year = year;
     edit.track = track;
-    geode::library::TagsWriteError error = geode::library::TagsWriteError::kNone;
-    const bool ok = geode::library::writeTags(fd, edit, &error);
-    g_lastTagsError = toApiError(error);
-    return ok ? 1 : 0;
+    return geode::library::writeTags(fd, edit) ? 1 : 0;
 }
-
-int geode_tags_last_error(void) { return g_lastTagsError; }
 
 }  // extern "C"

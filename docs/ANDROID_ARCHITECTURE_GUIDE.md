@@ -39,7 +39,7 @@ Ship Android only, but keep porting cheap.
   KMP-ready libraries: coroutines, serialization, DataStore, ViewModel,
   Navigation 3.
 - Platform code stays in Android modules behind interfaces that the pure modules
-  define: Media3, MediaStore, Oboe/JNI, GLES, wallpaper, Billing.
+  define: Media3, MediaStore, JNI, GLES, wallpaper, Billing.
 - Don't convert to `kotlin("multiplatform")` now; just don't block it.
 
 ## ViewModels
@@ -91,9 +91,10 @@ Source: `kb://android/guide/components/processes-and-threads`.
 - Blocking work (file and MediaStore I/O, decoding, DataStore, TagLib, JNI calls that
   can stall) runs on an injected `CoroutineDispatcher`: `IO` for I/O, `Default` for
   CPU work. Results come back to Main through coroutines, not `runOnUiThread`.
-- The audio callback (Oboe) and the GL render thread are real-time threads. No
-  allocation, locks or Kotlin callbacks on the hot path. Hand data over through
-  lock-free buffers.
+- ExoPlayer's playback thread (it runs the audio processor chain, the PCM tap
+  first) and the GL render thread (it steps each renderer's sound engine) are
+  real-time threads. No allocation, locks or Kotlin callbacks on the hot path.
+  Hand data over through lock-free buffers.
 - Keep the single default process. Don't add `android:process` unless there's a
   measured reason; services and the wallpaper share the app process and its singletons.
 - Services and the wallpaper can outlive the Activity, and Android can kill the

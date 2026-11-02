@@ -78,35 +78,57 @@ enum class VisualsBar {
     NEVER,
 }
 
-/** A gesture on the live canvas that the listener can remap or switch off. */
+/**
+ * A gesture on the visual (ui-flow-decisions.md › Gestures). Swipes count only when they start
+ * outside the system gesture insets; the edges stay Android's.
+ */
 enum class CanvasGesture {
-    SWIPE_SIDEWAYS,
+    /** A tap on the lower part of the visual. */
+    TAP_BOTTOM,
+
+    /** A tap on the upper part of the visual. */
+    TAP_TOP,
     DOUBLE_TAP,
-    SWIPE_DOWN,
+    SWIPE_SIDEWAYS,
     SWIPE_UP,
-    HOLD,
+    SWIPE_DOWN,
+
+    /** Held through the red ring (~0.8 s); lifting early does nothing. */
+    LONG_PRESS,
+
+    /** Two circles drawn with one finger. */
+    SWIRL,
+    TWO_FINGER_DRAG,
     PINCH_TWIST,
-    DRAG,
 }
 
 /** What a [CanvasGesture] does. Not every action suits every gesture; the settings screen offers the ones that do. */
 enum class GestureAction {
     OFF,
 
-    /** Next or previous style, by the swipe's direction. */
-    CHANGE_STYLE,
+    /** The mini player with the stage icons (Record, Fullscreen, ‹ ›, Studio). */
+    SHOW_MINI_PLAYER,
 
-    /** The next look: the visual playlist's next entry, else the next style. */
-    NEXT_LOOK,
-    HIDE_BARS,
-    SHOW_BARS,
-    HIDE_PANEL,
+    /** Visuals quick settings. */
+    QUICK_SETTINGS,
 
-    /** Zoom and turn the scene with two fingers. */
-    TRANSFORM,
+    /** The options sheet: hidden, or back at its last height. */
+    TOGGLE_SHEET,
 
-    /** Move the liquid, or draw the ripple and smear strokes. */
-    TOUCH_FIELD,
+    /** Next or previous by the swipe's direction: a style, a preset, or the visual playlist's look. */
+    STEP_STYLE,
+    STEP_PRESET,
+    STEP_PLAYLIST,
+
+    /** The Macros drawer, with its edit and make-a-macro icon. */
+    MACROS,
+
+    /** Record a take; while recording, the red icon stops it. */
+    RECORD,
+    RANDOMIZE_ALL,
+
+    /** Ripples, smear and stirring the liquid. */
+    TOUCH_PLAY,
     PLAY_PAUSE,
 }
 
@@ -152,16 +174,19 @@ data class BehaviourPrefs(
     fun actionFor(gesture: CanvasGesture): GestureAction = gestures[gesture] ?: GestureAction.OFF
 
     companion object {
-        /** Today's gestures, kept as they are until the listener changes one. */
+        /** The owner's gesture set (ui-flow-decisions.md › Gestures); pinch and twist do nothing. */
         val DEFAULT_GESTURES: Map<CanvasGesture, GestureAction> =
             mapOf(
-                CanvasGesture.SWIPE_SIDEWAYS to GestureAction.CHANGE_STYLE,
-                CanvasGesture.DOUBLE_TAP to GestureAction.NEXT_LOOK,
-                CanvasGesture.SWIPE_DOWN to GestureAction.HIDE_BARS,
-                CanvasGesture.SWIPE_UP to GestureAction.SHOW_BARS,
-                CanvasGesture.HOLD to GestureAction.HIDE_PANEL,
-                CanvasGesture.PINCH_TWIST to GestureAction.TRANSFORM,
-                CanvasGesture.DRAG to GestureAction.TOUCH_FIELD,
+                CanvasGesture.TAP_BOTTOM to GestureAction.SHOW_MINI_PLAYER,
+                CanvasGesture.TAP_TOP to GestureAction.QUICK_SETTINGS,
+                CanvasGesture.DOUBLE_TAP to GestureAction.TOGGLE_SHEET,
+                CanvasGesture.SWIPE_SIDEWAYS to GestureAction.STEP_STYLE,
+                CanvasGesture.SWIPE_UP to GestureAction.SHOW_MINI_PLAYER,
+                CanvasGesture.SWIPE_DOWN to GestureAction.MACROS,
+                CanvasGesture.LONG_PRESS to GestureAction.RECORD,
+                CanvasGesture.SWIRL to GestureAction.RANDOMIZE_ALL,
+                CanvasGesture.TWO_FINGER_DRAG to GestureAction.TOUCH_PLAY,
+                CanvasGesture.PINCH_TWIST to GestureAction.OFF,
             )
     }
 }

@@ -187,16 +187,15 @@ class GeodeContainer(
             uri
         }
 
-    internal companion object {
-        private const val TAG = "GeodeContainer"
+    private companion object {
+        const val TAG = "GeodeContainer"
 
         /** A render still `IS_PENDING` this long after it was inserted is treated as orphaned. */
-        private const val PENDING_EXPORT_GRACE_MS = 5 * 60 * 1000L
+        const val PENDING_EXPORT_GRACE_MS = 5 * 60 * 1000L
 
         /** Kept in step with AudioTranscoder, LoopRender and StudioExporter. */
-        private val RENDER_SCRATCH_PREFIXES = listOf("geode_aac_", "geode_loop_", "studio-")
+        val RENDER_SCRATCH_PREFIXES = listOf("geode_aac_", "geode_loop_", "studio-")
 
-        /** Also read by `data/StorageUsage`, whose Clear leaves a running render's scratch alone. */
         fun isRenderScratch(name: String): Boolean = RENDER_SCRATCH_PREFIXES.any { name.startsWith(it) }
     }
 }

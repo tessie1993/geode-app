@@ -160,8 +160,19 @@ class PlaybackSession internal constructor(
         pushVolume()
     }
 
+    /**
+     * Cast to TV plays the sound on the TV only: the phone keeps decoding, since the tap feeds the
+     * visuals, but stays silent. `cast/CastService` sets and clears it; the fades keep their values
+     * underneath, so clearing it brings back exactly the volume they would have now.
+     */
+    var castMuted: Boolean = false
+        set(value) {
+            field = value
+            pushVolume()
+        }
+
     private fun pushVolume() {
-        player.volume = (uiVolume * crossfadeGain).coerceIn(0f, 1f)
+        player.volume = if (castMuted) 0f else (uiVolume * crossfadeGain).coerceIn(0f, 1f)
     }
 
     /** Everything in [PlayerPrefs] that the player, ReplayGain or the USB route carry out. */

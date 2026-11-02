@@ -1,5 +1,6 @@
 package dev.geode.ui
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,6 +11,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -27,6 +30,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -66,24 +70,26 @@ internal fun EventsTab(
 ) {
     val sceneId = LocalSceneId.current
     val searching = LocalParamQuery.current.isNotBlank()
+    // The panel's way into Modulate › Reactions (it opens the paywall for a free user).
+    val fineTune = LocalReactTo.current
     Column {
         if (!searching) {
             val dna = remember(sceneId, p.reactSeed) { BuildStyleReactionsUseCase()(sceneId, p.reactSeed) }
             val routes = reactions ?: dna
             val actions = remember(sceneId) { MusicAction.entries.filter { it.target.scope.appliesTo(sceneId) } }
             SectionHeader(stringResource(R.string.music_moment_header))
-            ControlHint(stringResource(R.string.music_moment_hint))
             // A moment's Strength is not a parameter a wave or the sound could drive, so no "react to music" here.
             CompositionLocalProvider(LocalReactTo provides null) {
                 MusicMoment.entries.forEach { moment ->
                     MomentRow(moment, actions, routes, reactions, dna, onReactionsChange)
                 }
             }
-            // One list for the chips and the room note, so the note only ever speaks of chips on screen.
+            // A chip that would overflow the matrix is drawn disabled; no paragraph explains it (no hints on Customize).
             val shown = remember(sceneId) { EventRecipe.entries.filter { it.routesFor(sceneId).isNotEmpty() } }
             val onCount = shown.count { it.isOn(routes, sceneId) }
-            SectionHeader(stringResource(R.string.music_moment_recipes))
-            ProGated(FreeTier.FREE_EVENTS_CONTROL, "Reactions", "$onCount on") {
+            val recipesTitle = stringResource(R.string.music_moment_recipes)
+            SectionHeader(recipesTitle)
+            ProGated(FreeTier.FREE_EVENTS_CONTROL, recipesTitle, "$onCount") {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     shown.forEach { recipe ->
                         val on = recipe.isOn(routes, sceneId)
@@ -96,20 +102,40 @@ internal fun EventsTab(
                     }
                 }
             }
-            val recipeFull = shown.any { !it.isOn(routes, sceneId) && !it.fits(routes, sceneId) }
-            val momentFull =
-                MusicMoment.entries.any { m ->
-                    actions.any { a -> !MusicMoments.isOn(m, a, routes) && !MusicMoments.fits(m, a, routes) }
-                }
-            if (recipeFull || momentFull) {
-                ControlHint(stringResource(R.string.music_moment_full, routes.size, ReactionRoute.MAX_ROUTES))
-            }
         }
         SectionHeader(stringResource(R.string.music_moment_overall))
         LabeledSlider(ParamKeys.REACT_AMOUNT, p.reactAmount, 0f..2f, default = SceneParams.DEFAULT.reactAmount) {
             onChange(p.copy(reactAmount = it))
         }
-        ControlHint("Each reaction, one by one, is in Modulate › Reactions.")
+        if (!searching && fineTune != null) FineTuneRow(locked = !LocalProLock.current.unlocked, onClick = fineTune)
+    }
+}
+
+/**
+ * "Fine-tune ♛ ›": every route one by one, in Modulate › Reactions. Drawn like the panel's own
+ * drill-in rows (`SubPageRow`), so it sits beside "How it listens ›" as one more of them; its own
+ * row only because the decisions name it "Fine-tune" on this page, not "Reactions".
+ */
+@Composable
+private fun FineTuneRow(
+    locked: Boolean,
+    onClick: () -> Unit,
+) {
+    val title = stringResource(R.string.music_moment_fine_tune)
+    val clickLabel = stringResource(if (locked) R.string.music_moment_unlock else R.string.music_moment_open)
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .heightIn(min = 48.dp)
+            .clickable(role = Role.Button, onClickLabel = clickLabel, onClick = onClick)
+            .semantics(mergeDescendants = true) {}
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(Icons.Filled.Bolt, contentDescription = null, tint = accentTextColor())
+        Text(title, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(start = 16.dp).weight(1f))
+        if (locked) ProCrown()
+        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -162,7 +188,7 @@ private fun MomentRow(
         }
         if (MusicMoments.routesOf(moment, routes).isNotEmpty()) {
             LabeledSlider(
-                label = "Music ${moment.name.lowercase()} strength",
+                label = STRENGTH_KEY_PREFIX + moment.name,
                 value = MusicMoments.strength(moment, routes),
                 range = 0f..MusicMoments.MAX_STRENGTH,
                 display = stringResource(R.string.music_moment_strength, name),
@@ -172,6 +198,12 @@ private fun MomentRow(
         }
     }
 }
+
+/**
+ * The key of a moment's Strength slider: what [ProLock] and the search see. Stable (the enum name,
+ * never the shown text), so a translation or a renamed label does not change which slider is free.
+ */
+private const val STRENGTH_KEY_PREFIX = "music_moment_strength:"
 
 /** "Mine" in the accent when the user set this moment, else a quiet "Auto". */
 @Composable

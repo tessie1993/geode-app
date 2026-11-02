@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Customize › Music: moments → actions -->
+    <string name="music_moment_header">Moments</string>
+    <string name="music_moment_kick">Kick</string>
+    <string name="music_moment_snare">Snare</string>
+    <string name="music_moment_hat">Hi-hat</string>
+    <string name="music_moment_bass">Bass</string>
+    <string name="music_moment_drop">Drop</string>
+    <string name="music_moment_build_up">Build-up</string>
+    <string name="music_moment_chord_change">Chord change</string>
+    <string name="music_moment_new_section">New section</string>
+    <string name="music_moment_note">Note</string>
+    <string name="music_moment_loudness">Loudness</string>
+    <string name="music_moment_auto">Auto</string>
+    <string name="music_moment_mine">Mine</string>
+    <string name="music_moment_mine_description">Set by you</string>
+    <string name="music_moment_reset">Reset to Auto</string>
+    <string name="music_moment_more">More for %1$s</string>
+    <string name="music_moment_strength">%1$s strength</string>
+    <string name="music_moment_nothing">No actions</string>
+    <string name="music_moment_recipes">Ready-made</string>
+    <string name="music_action_pulse">Pulse</string>
+    <string name="music_action_flash">Flash</string>
+    <string name="music_action_zoom">Zoom</string>
+    <string name="music_action_shake">Shake</string>
+    <string name="music_action_colour">Colour shift</string>
+    <string name="music_action_camera">Camera move</string>
+    <string name="music_action_warp">Warp</string>
+    <string name="music_moment_fine_tune">Fine-tune</string>
+    <string name="music_moment_overall">Overall strength</string>
+    <string name="music_moment_open">Open</string>
+    <string name="music_moment_unlock">Unlock with Pro</string>
+</resources>

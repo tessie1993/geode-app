@@ -1115,36 +1115,6 @@
     <string name="wallpaper_options_look_full">Full</string>
     <string name="wallpaper_options_look_edge">Edge glow</string>
     <string name="wallpaper_options_edge_hint">Edge glow keeps the visual round the screen\'s edge and the middle black: easier on the battery on OLED screens, and your icons and clock stay easy to read.</string>
-    <!-- Customize › Music: moments → actions -->
-    <string name="music_moment_header">Moments</string>
-    <string name="music_moment_hint">Pick what each moment in the music does. Auto lets the style choose. Change a moment and it\'s yours; its ⋮ hands it back.</string>
-    <string name="music_moment_kick">Kick</string>
-    <string name="music_moment_snare">Snare</string>
-    <string name="music_moment_hat">Hi-hat</string>
-    <string name="music_moment_bass">Bass</string>
-    <string name="music_moment_drop">Drop</string>
-    <string name="music_moment_build_up">Build-up</string>
-    <string name="music_moment_chord_change">Chord change</string>
-    <string name="music_moment_new_section">New section</string>
-    <string name="music_moment_note">Note</string>
-    <string name="music_moment_loudness">Loudness</string>
-    <string name="music_moment_auto">Auto</string>
-    <string name="music_moment_mine">Mine</string>
-    <string name="music_moment_mine_description">Set by you</string>
-    <string name="music_moment_reset">Reset to Auto</string>
-    <string name="music_moment_more">More for %1$s</string>
-    <string name="music_moment_strength">%1$s strength</string>
-    <string name="music_moment_nothing">No actions</string>
-    <string name="music_moment_recipes">Ready-made</string>
-    <string name="music_moment_overall">Overall strength</string>
-    <string name="music_moment_full">%1$d of %2$d reactions in use, so greyed-out ones don\'t fit. Turn one off to make room.</string>
-    <string name="music_action_pulse">Pulse</string>
-    <string name="music_action_flash">Flash</string>
-    <string name="music_action_zoom">Zoom</string>
-    <string name="music_action_shake">Shake</string>
-    <string name="music_action_colour">Colour shift</string>
-    <string name="music_action_camera">Camera move</string>
-    <string name="music_action_warp">Warp</string>
     <!-- Visuals quick settings (VisualsQuickSettings) -->
     <string name="visuals_qs_title">Visual settings</string>
     <string name="visuals_qs_auto">Auto</string>

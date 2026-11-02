@@ -402,7 +402,10 @@ void Renderer::setUiBlurRegion(const UiBlurRegion& region) {
     r.top = unit(region.top);
     r.right = unit(region.right);
     r.bottom = unit(region.bottom);
-    r.strength = unit(region.strength);
+    // Any non-finite edge means the rect is unknown: switch the blur off rather than clamp an edge to 0 or 1.
+    const bool edgesFinite = std::isfinite(region.left) && std::isfinite(region.top) && std::isfinite(region.right) &&
+        std::isfinite(region.bottom);
+    r.strength = edgesFinite ? unit(region.strength) : 0.0f;
     r.cornerPx = std::isfinite(region.cornerPx) ? std::max(region.cornerPx, 0.0f) : 0.0f;
     std::lock_guard<std::mutex> lock(stateLock_);
     uiBlurRegion_ = r;

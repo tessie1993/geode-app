@@ -636,7 +636,11 @@ private fun UpNextCard(
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                 TextButton(onClick = onOpenQueue) {
-                    Text(stringResource(R.string.action_open_queue), style = MaterialTheme.typography.labelMedium, color = accentTextColor())
+                    Text(
+                        stringResource(R.string.action_open_queue),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = accentTextColor(),
+                    )
                 }
             }
         }

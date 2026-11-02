@@ -50,19 +50,20 @@ The native core is built by the root `CMakeLists.txt`, plus `core/CMakeLists.txt
 | `editor` | The Studio project model: pure Kotlin, no `android.*`. A project is a folder (`StudioProject`: edit, kind Standard or Loop, its own export settings, its renders); a template is a project minus audio (`ProjectTemplate`, fitted to a new track, batch = template × tracks); a take is a scene clip with a `takeId` on track time (ADR 0005) | `StudioProject`, `Timeline`, `Keyframes`, `Markers` |
 | `export` | Visualizer export (MediaCodec + offscreen GL), Studio export (Media3 Transformer), loop render, loudness (`LoudnessMeter` decodes; the BS.1770 maths is native), chapters, captions, `PcmResampler` (hi-res sources down to an AAC-supported rate; a handle over native maths, `close()` it), the non-Pro watermark, `MuxerBudget` (caps the bit rate so a long render stays under MediaMuxer's 4 GB) | `VideoExporter`, `StudioExporter`, `LoopRender`, `ExportRun`, `ExportService`, `WatermarkOverlay`, `RenderBatch` (batch queue and render scopes, pure) |
 | `viz` | Background image layer | `BackgroundImage` |
-| `wallpaper` | Live wallpaper and the dream. Each builds its own `VisualizerView` | `VisualizerWallpaperService`, `VisualizerDreamService` |
+| `wallpaper` | Live wallpaper and the dream. Each builds its own `VisualizerView`. The wallpaper's run rule (`wallpaperRunMode`: stopped when hidden or covered by the shade or recents, a still frame without Pro, in battery saver or after 6 s of silence), its sound (`SoundSource`: the app's ring while fed, else any app's audio through `OutputMixCapture`, a `Visualizer` on the output mix), the edge glow look (`EdgeGlow`, drawn by `WallpaperRenderer` after the visual; the AOD-like look, since ambient mode is a system API) and its options (`WallpaperPrefs`, own file `geode-wallpaper`) | `VisualizerWallpaperService`, `WallpaperRunState`, `SoundSource`, `EdgeGlow`, `VisualizerDreamService` |
 | `widget` | Glance now-playing widget in black glass (`SizeMode.Exact`, four layouts from 2x1 to 4x3+): progress on a slow tick while playing, the style on screen as a picture (`WidgetVisual`: its thumbnail, else a glow from the cover's palette), and style buttons the session takes through `WidgetStyles` (it collects `steps`, calls `publish`; with no session they open the app) | `NowPlayingWidget`, `WidgetPublisher`, `WidgetStyles`, `WidgetVisual` |
 | `tile` | Quick Settings tile: play/pause through a `MediaController` on `PlaybackService`'s session while the shade shows it; opens the app when nothing is loaded and on a long press | `PlaybackTileService` |
 
 ## Entry points (`app/src/main/AndroidManifest.xml`)
 
 - `GeodeApp`: `@HiltAndroidApp`. It installs the crash handler, and its lazy `GeodeContainer` sweeps leftover render scratch and pending MediaStore rows.
-- `ui.MainActivity`: the only `@AndroidEntryPoint`, and the single activity (launcher, PiP). It handles `geode://preset`, `geode://template` and `MEDIA_PLAY_FROM_SEARCH`, then calls `AppRoot()` in `ui/AppShell.kt`.
+- `ui.MainActivity`: the only `@AndroidEntryPoint`, and the app's one activity (launcher, PiP; the wallpaper options page below is the only other). It handles `geode://preset`, `geode://template` and `MEDIA_PLAY_FROM_SEARCH`, then calls `AppRoot()` in `ui/AppShell.kt`.
 - `playback.PlaybackService`: exported Media3 library service, also used by Android Auto. Media3's `MediaButtonReceiver` handles resumption.
 - `audio.PlaybackCaptureService`: MediaProjection foreground service.
 - `audio.GeodeNotificationListener` (in `NowPlayingBridge.kt`): lets the app name what another app is playing.
 - `export.ExportService`: keeps the process in the foreground during a render. It does not own the render; `ExportRun.scope` does.
 - `wallpaper.VisualizerWallpaperService` and `wallpaper.VisualizerDreamService`.
+- `ui.wallpaper.WallpaperOptionsActivity`: the wallpaper picker's Settings button (`android:settingsActivity` in `res/xml/wallpaper.xml`), a plain `ComponentActivity` outside Hilt.
 - `widget.NowPlayingWidgetReceiver` (in `NowPlayingWidget.kt`).
 - `tile.PlaybackTileService`: the Quick Settings tile (`BIND_QUICK_SETTINGS_TILE`), and `tile.TileLongPressActivity` beside it, which answers the tile's long press by opening the app.
 - `FileProvider` `${applicationId}.presets`, for sharing presets.

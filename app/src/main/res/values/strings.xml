@@ -1078,4 +1078,22 @@
     <string name="studio_a11y_curve_second_right">Move second handle right</string>
     <string name="studio_a11y_curve_second_up">Move second handle up</string>
     <string name="studio_a11y_curve_second_down">Move second handle down</string>
+    <!-- Live wallpaper options (wallpaper/*, ui/wallpaper/WallpaperOptionsActivity), opened from the system wallpaper picker. -->
+    <string name="wallpaper_options_title">Wallpaper options</string>
+    <string name="wallpaper_options_close">Close</string>
+    <string name="wallpaper_options_group_sound">Sound</string>
+    <string name="wallpaper_options_other_apps">React to any app</string>
+    <string name="wallpaper_options_other_apps_hint">Reacts to whatever your phone is playing, from any app. Android lists this under the microphone permission; the wallpaper only reads the sound your phone plays, and nothing is recorded or kept.</string>
+    <string name="wallpaper_options_open_settings">Allow in Android settings</string>
+    <string name="wallpaper_options_group_battery">Battery</string>
+    <string name="wallpaper_options_rest">Rest when silent</string>
+    <string name="wallpaper_options_rest_hint">After a few quiet seconds the wallpaper holds still and stops drawing. It wakes when sound comes back.</string>
+    <string name="wallpaper_options_saver">Pause in battery saver</string>
+    <string name="wallpaper_options_cover_hint">It always stops while an app, the notification shade or recent apps covers it.</string>
+    <string name="wallpaper_options_group_look">Look</string>
+    <string name="wallpaper_options_home">Home screen</string>
+    <string name="wallpaper_options_lock">Lock screen</string>
+    <string name="wallpaper_options_look_full">Full</string>
+    <string name="wallpaper_options_look_edge">Edge glow</string>
+    <string name="wallpaper_options_edge_hint">Edge glow keeps the visual round the screen\'s edge and the middle black: easier on the battery on OLED screens, and your icons and clock stay easy to read.</string>
 </resources>

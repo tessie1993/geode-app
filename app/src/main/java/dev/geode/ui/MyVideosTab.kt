@@ -89,7 +89,6 @@ internal fun MyVideosTab(
     // Items waiting out their Undo snackbar; hidden from the grid until then.
     var pendingDelete by remember { mutableStateOf(setOf<String>()) }
     val chooserTitle = stringResource(R.string.studio_share_chooser)
-    val deletedText = stringResource(R.string.my_videos_deleted)
     val undoText = stringResource(R.string.my_videos_undo)
 
     val renders =
@@ -107,6 +106,7 @@ internal fun MyVideosTab(
 
     val delete: (MyVideo) -> Unit = { item ->
         pendingDelete = pendingDelete + item.key
+        val deletedText = context.getString(R.string.my_videos_deleted, item.title)
         scope.launch {
             val result = snackbar.showSnackbar(deletedText, actionLabel = undoText, duration = SnackbarDuration.Short)
             pendingDelete = pendingDelete - item.key
@@ -237,7 +237,7 @@ private fun MyVideoCard(
             }
             Box {
                 IconButton(onClick = { menu = true }) {
-                    Icon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.edit_home_more))
+                    Icon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.edit_home_more_for, item.title))
                 }
                 DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                     val pick: (() -> Unit) -> () -> Unit = { action ->
@@ -250,7 +250,10 @@ private fun MyVideoCard(
                         DropdownMenuItem(text = { Text(stringResource(R.string.my_videos_share)) }, onClick = pick(onShare))
                     }
                     val editLabel = if (canEdit) R.string.my_videos_open_in_edit else R.string.my_videos_open_in_edit_pro
-                    DropdownMenuItem(text = { Text(stringResource(editLabel)) }, onClick = pick(onOpenInEdit))
+                    DropdownMenuItem(
+                        text = { ProText(stringResource(editLabel)) },
+                        onClick = pick(onOpenInEdit),
+                    )
                     DropdownMenuItem(text = { Text(stringResource(R.string.my_videos_delete)) }, onClick = pick(onDelete))
                 }
             }

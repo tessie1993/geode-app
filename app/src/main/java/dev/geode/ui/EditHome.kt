@@ -99,7 +99,7 @@ internal fun EditHome(
     LazyColumn(
         Modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item {
             EditSection(stringResource(R.string.edit_home_new)) {
@@ -131,6 +131,9 @@ internal fun EditHome(
                     }
                     CrystalButton(filled = false, onClick = blank) { Text(stringResource(R.string.edit_home_blank)) }
                 }
+                // Say why a choice is greyed out instead of leaving it silently disabled.
+                if (track == null) EditHint(stringResource(R.string.edit_home_nothing_playing))
+                if (takes.takes.isEmpty()) EditHint(stringResource(R.string.edit_home_no_takes))
             }
         }
         val recent = editor.projects.sortedByDescending { it.updatedAtMs }.take(RECENT_COUNT)
@@ -166,7 +169,7 @@ internal fun EditHome(
                     onValueChange = { query = it },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
-                    placeholder = { Text(stringResource(R.string.edit_home_search)) },
+                    label = { Text(stringResource(R.string.edit_home_search)) },
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FilterChip(
@@ -294,7 +297,7 @@ private fun ProjectRow(
             EditHint(projectSummary(project))
         }
         IconButton(onClick = { menu = true }) {
-            Icon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.edit_home_more))
+            Icon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.edit_home_more_for, project.name))
         }
         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
             DropdownMenuItem(
@@ -352,7 +355,14 @@ private fun RenameProjectDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.edit_home_rename)) },
-        text = { OutlinedTextField(value = name, onValueChange = { name = it }, singleLine = true) },
+        text = {
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                singleLine = true,
+                label = { Text(stringResource(R.string.edit_home_name)) },
+            )
+        },
         confirmButton = {
             TextButton(enabled = name.isNotBlank(), onClick = { onRename(name) }) { Text(stringResource(R.string.edit_home_rename)) }
         },

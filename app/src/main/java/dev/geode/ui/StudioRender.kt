@@ -5,11 +5,13 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.AlertDialog
@@ -18,6 +20,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RangeSlider
 import androidx.compose.material3.Text
@@ -38,6 +41,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
@@ -68,6 +76,7 @@ import dev.geode.render.VisualizerView
 import dev.geode.ui.pro.PaywallViewModel
 import dev.geode.ui.pro.ProGate
 import dev.geode.ui.studio.TimelineEditor
+import dev.geode.ui.theme.floatingGlass
 
 /**
  * The Studio destination: three tabs, in the order a first visit meets them.
@@ -296,7 +305,7 @@ internal fun StudioRenderTab(
         Box(Modifier.weight(1f)) {
             SettingsTabColumn {
                 item {
-                    SettingsGroup(stringResource(R.string.render_group_source)) {
+                    RenderGroup(stringResource(R.string.render_group_source)) {
                         RenderScopeChooser(
                             scope = selection.scope,
                             summary =
@@ -357,7 +366,7 @@ internal fun StudioRenderTab(
                         )
                     }
                     item {
-                        SettingsGroup(stringResource(R.string.render_group_save)) {
+                        RenderGroup(stringResource(R.string.render_group_save)) {
                             RenderChipRow {
                                 RenderChip(stringResource(R.string.render_save_library), !askWhere) { askWhere = false }
                                 RenderChip(stringResource(R.string.render_save_ask), askWhere) { askWhere = true }
@@ -499,8 +508,14 @@ private fun RenderKeepProjectDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(stringResource(R.string.render_keep_body))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(checked = dontAsk, onCheckedChange = { dontAsk = it })
+                // The whole row toggles, so TalkBack reads the label with the box and the text is a target.
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .toggleable(value = dontAsk, role = Role.Checkbox, onValueChange = { dontAsk = it }),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Checkbox(checked = dontAsk, onCheckedChange = null)
                     Text(stringResource(R.string.render_keep_remember))
                 }
             }
@@ -541,7 +556,7 @@ private fun RenderFormatGroup(
     // the paywall or a free version), so the mark says "something here is Pro", not which chip.
     val proInside = !gate.allows(ProFeature.EXPORT_4K) || !gate.allows(ProFeature.EXPORT_60FPS)
     val title = stringResource(R.string.render_group_format) + if (proInside) stringResource(R.string.render_pro_mark) else ""
-    SettingsGroup(title) {
+    RenderGroup(title) {
         OptionLabel(stringResource(R.string.render_destination))
         RenderChipRow {
             ExportDestination.entries.forEach { d ->
@@ -595,7 +610,7 @@ private fun RenderLookGroup(
     onLook: (String?) -> Unit,
 ) {
     var open by remember { mutableStateOf(false) }
-    SettingsGroup(stringResource(R.string.render_group_look)) {
+    RenderGroup(stringResource(R.string.render_group_look)) {
         Box {
             CrystalButton(filled = false, compact = true, onClick = { open = true }) {
                 Text(lookName ?: stringResource(R.string.render_look_current))
@@ -709,7 +724,7 @@ private fun RenderLengthGroup(
     loopLocked: Boolean,
     onLoop: () -> Unit,
 ) {
-    SettingsGroup(stringResource(R.string.export_length)) {
+    RenderGroup(stringResource(R.string.export_length)) {
         RenderChipRow {
             if (trackDurationMs > 0) {
                 RenderChip(stringResource(R.string.export_whole_track), !length.segment) { onLength(length.copy(segment = false)) }
@@ -742,6 +757,39 @@ private fun RenderLengthGroup(
     }
 }
 
+/**
+ * A Render section: a Title Small heading on plain floating glass, the owner's look (no overline,
+ * no glow). Settings keeps its own groups until 3B restyles them.
+ */
+@Composable
+private fun RenderGroup(
+    title: String,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .floatingGlass()
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        ProText(title, Modifier.semantics { heading() }, style = MaterialTheme.typography.titleSmall)
+        content()
+    }
+}
+
+/** A label that may carry ♛. TalkBack reads ♛ as "black chess queen", so it says "Pro" instead. */
+@Composable
+internal fun ProText(
+    text: String,
+    modifier: Modifier = Modifier,
+    style: TextStyle = LocalTextStyle.current,
+) {
+    val pro = stringResource(R.string.studio_pro_spoken)
+    val spoken = if ('♛' in text) modifier.semantics { contentDescription = text.replace("♛", pro) } else modifier
+    Text(text, spoken, style = style)
+}
+
 @Composable
 private fun OptionLabel(text: String) {
     Text(text, style = MaterialTheme.typography.labelMedium)
@@ -760,7 +808,7 @@ private fun OptionHint(text: String) {
 private fun RenderChipRow(content: @Composable () -> Unit) {
     FlowRow(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) { content() }
 }
 
@@ -775,7 +823,7 @@ private fun RenderChip(
         selected = selected,
         onClick = onClick,
         enabled = enabled,
-        label = { Text(label, style = MaterialTheme.typography.labelSmall) },
+        label = { ProText(label) },
     )
 }
 

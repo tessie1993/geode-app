@@ -171,7 +171,7 @@ private fun RenderResult(
         // Only a render kept as a project has something to open; a free user meets the Pro wall there.
         onOpenInEdit?.let { open ->
             CrystalButton(compact = true, filled = false, onClick = open) {
-                Text(stringResource(if (openInEditPro) R.string.my_videos_open_in_edit_pro else R.string.my_videos_open_in_edit))
+                ProText(stringResource(if (openInEditPro) R.string.my_videos_open_in_edit_pro else R.string.my_videos_open_in_edit))
             }
         }
         TextButton(onClick = onClearResult) { Text(stringResource(R.string.action_close)) }

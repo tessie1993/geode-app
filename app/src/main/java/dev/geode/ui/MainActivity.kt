@@ -35,6 +35,7 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.PlaybackPendingIntentBuilder
 import dagger.hilt.android.AndroidEntryPoint
 import dev.geode.R
+import dev.geode.cast.CastController
 import dev.geode.model.PresetLink
 import dev.geode.playback.PlaybackService
 
@@ -305,6 +306,9 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen().setKeepOnScreenCondition { !settingsViewModel.userDataLoaded.value }
         super.onCreate(savedInstanceState)
+        // Cast to TV starts with the app (owner Q38), so a TV picked in the system's output
+        // switcher is gated and streamed even before Visuals has shown the Cast button.
+        CastController.get(this)
         // The UI is dark in every system mode, so the bar icons are always light: SystemBarStyle.auto
         // would turn them dark under a light system theme and leave them invisible on black.
         enableEdgeToEdge(

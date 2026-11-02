@@ -23,6 +23,7 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
@@ -37,6 +38,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalAccessibilityManager
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.customActions
@@ -47,9 +49,11 @@ import androidx.compose.ui.unit.dp
 import dev.geode.R
 import dev.geode.ui.theme.GeodeRadius
 import dev.geode.ui.theme.GeodeSpacing
+import dev.geode.ui.theme.StoneHapticCue
 import dev.geode.ui.theme.StoneIcon
 import dev.geode.ui.theme.StoneIconArt
 import dev.geode.ui.theme.floatingGlass
+import dev.geode.ui.theme.performStoneHaptic
 import kotlinx.coroutines.delay
 
 /**
@@ -59,12 +63,17 @@ import kotlinx.coroutines.delay
  * on it, and the player back within one touch. It wakes on [wake] (a tap at the bottom of the
  * visual, the handle pill, a new track, a new screen) and falls asleep [fadeMs] later; [pin]
  * holds it awake for [PIN_MS] (a tap on the player itself), [hide] puts it to sleep at once (a
- * swipe down on it). A [fadeMs] of zero means it never fades.
+ * swipe down on it). A [fadeMs] of zero means it never fades. While [held] (a PiP window, which
+ * shows the visual alone) nothing wakes it.
  */
 @Stable
 internal class ShellChromeState {
-    var awake by mutableStateOf(true)
-        private set
+    private var shown by mutableStateOf(true)
+
+    /** Set by [rememberShellChrome] while a PiP window is up; a wake then waits until it ends. */
+    internal var held by mutableStateOf(false)
+
+    val awake: Boolean get() = shown && !held
 
     /** Bumped on every wake or pin, so the sleep timer starts over. */
     internal var stamp by mutableLongStateOf(0L)
@@ -74,24 +83,24 @@ internal class ShellChromeState {
         private set
 
     fun wake() {
-        awake = true
+        shown = true
         pinned = false
         stamp++
     }
 
     fun pin() {
-        awake = true
+        shown = true
         pinned = true
         stamp++
     }
 
     fun hide() {
-        awake = false
+        shown = false
         pinned = false
     }
 
     internal fun sleep() {
-        awake = false
+        shown = false
         pinned = false
     }
 
@@ -104,14 +113,16 @@ internal class ShellChromeState {
 /**
  * The shell's chrome state, asleep [fadeSeconds] after each wake (the user's Settings value,
  * 0 = never), stretched by the accessibility timeout the user set so TalkBack users are not raced.
- * Any change in [wakeKeys] (the screen, the track) wakes it.
+ * Any change in [wakeKeys] (the screen, the track) wakes it. While [held] it stays asleep.
  */
 @Composable
 internal fun rememberShellChrome(
     fadeSeconds: Float,
+    held: Boolean,
     vararg wakeKeys: Any?,
 ): ShellChromeState {
     val state = remember { ShellChromeState() }
+    SideEffect { state.held = held }
     val a11y = LocalAccessibilityManager.current
     LaunchedEffect(*wakeKeys) { state.wake() }
     LaunchedEffect(state.awake, state.stamp, fadeSeconds) {
@@ -149,6 +160,16 @@ internal fun FloatingMiniPlayer(
     val accent = MaterialTheme.colorScheme.primary
     val openLabel = stringResource(R.string.mini_player_open)
     val hideLabel = stringResource(R.string.mini_player_hide)
+    val view = LocalView.current
+    // A tap is a light tick; a swipe that changes the screen (Player opens, the player hides) confirms.
+    val tap = { action: () -> Unit ->
+        view.performStoneHaptic(StoneHapticCue.TAP)
+        action()
+    }
+    val confirm = { action: () -> Unit ->
+        view.performStoneHaptic(StoneHapticCue.CONFIRM)
+        action()
+    }
     Box(
         modifier
             .fillMaxWidth()
@@ -160,12 +181,12 @@ internal fun FloatingMiniPlayer(
                     onDragEnd = {
                         val far = SWIPE_DP.dp.toPx()
                         when {
-                            dy < -far -> onOpenPlayer()
-                            dy > far -> onHide()
+                            dy < -far -> confirm(onOpenPlayer)
+                            dy > far -> confirm(onHide)
                         }
                     },
                 ) { _, delta -> dy += delta }
-            }.clickable(onClickLabel = stringResource(R.string.mini_player_pin), onClick = onPin)
+            }.clickable(onClickLabel = stringResource(R.string.mini_player_pin)) { tap(onPin) }
             .semantics {
                 customActions =
                     listOf(
@@ -194,27 +215,27 @@ internal fun FloatingMiniPlayer(
             Column(Modifier.weight(1f).padding(horizontal = GeodeSpacing.M)) {
                 Text(
                     title ?: stringResource(R.string.mini_player_idle),
-                    style = MaterialTheme.typography.bodyLarge,
+                    style = MaterialTheme.typography.titleSmall,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
                 if (!artist.isNullOrBlank()) {
                     Text(
                         artist,
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
             }
-            IconButton(onClick = onPlayPause) {
+            IconButton(onClick = { tap(onPlayPause) }) {
                 StoneIconArt(
                     if (isPlaying) StoneIcon.PAUSE else StoneIcon.PLAY,
                     stringResource(if (isPlaying) R.string.action_pause else R.string.action_play),
                 )
             }
-            IconButton(onClick = onNext) { StoneIconArt(StoneIcon.NEXT, stringResource(R.string.action_next)) }
+            IconButton(onClick = { tap(onNext) }) { StoneIconArt(StoneIcon.NEXT, stringResource(R.string.action_next)) }
         }
     }
 }
@@ -229,13 +250,17 @@ internal fun MiniPlayerHandle(
     modifier: Modifier = Modifier,
 ) {
     val label = stringResource(R.string.mini_player_show)
+    val view = LocalView.current
     Box(
         modifier
             .fillMaxWidth()
             .height(GeodeSpacing.TouchTarget)
             .pointerInput(Unit) {
                 detectVerticalDragGestures { _, delta -> if (delta < 0f) onWake() }
-            }.clickable(onClickLabel = label, onClick = onWake)
+            }.clickable(onClickLabel = label) {
+                view.performStoneHaptic(StoneHapticCue.TAP)
+                onWake()
+            }
             .semantics {
                 onClick(label) {
                     onWake()
@@ -253,24 +278,34 @@ internal fun MiniPlayerHandle(
     }
 }
 
+/** One tab of the dock's bar and the wide shell's rail: its label and its icon. */
+internal data class DockItem(
+    val label: String,
+    val icon: StoneIcon,
+)
+
 /**
  * The tab bar as a floating pill of matte glass: the standard M3 NavigationBar (Android's own
  * bottom navigation), with no window insets of its own because the pill sits above them.
  */
 @Composable
 internal fun FloatingTabBar(
-    items: List<CrystalNavItem>,
+    items: List<DockItem>,
     selected: Int,
     onSelect: (Int) -> Unit,
     opacity: Float,
     modifier: Modifier = Modifier,
 ) {
+    val view = LocalView.current
     Box(modifier.fillMaxWidth().floatingGlass(RoundedCornerShape(50), fillAlpha = opacity)) {
         NavigationBar(containerColor = Color.Transparent, tonalElevation = 0.dp, windowInsets = WindowInsets(0, 0, 0, 0)) {
             items.forEachIndexed { i, item ->
                 NavigationBarItem(
                     selected = i == selected,
-                    onClick = { onSelect(i) },
+                    onClick = {
+                        view.performStoneHaptic(StoneHapticCue.TAP)
+                        onSelect(i)
+                    },
                     icon = { StoneIconArt(item.icon, null, selected = i == selected) },
                     label = { Text(item.label, style = MaterialTheme.typography.labelSmall, maxLines = 1) },
                 )

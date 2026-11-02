@@ -105,15 +105,16 @@ internal class VisualActions(
 
 /**
  * Every gesture on the full-screen visual, read by one detector, because pointers belong to whoever
- * reads them first: two detectors would each see half a gesture (the same reason
- * `VisualizerScreen.visualizerTouch` is one).
+ * reads them first: two detectors would each see half a gesture.
  *
  * One finger: a tap (top or bottom of the visible visual, split at [tapSplitPx]), a double tap, a
  * swipe sideways, up or down past [SWIPE_DP], a swirl (two circles drawn with the finger, counted as
- * the heading's total turn) and a long press held through the red ring. Two fingers: a drag or a
- * pinch / twist; while either is given [GestureAction.TOUCH_PLAY] the fingers are handed to the
- * visualizer's touch field ([onTouchPoints], in y-up NDC) as they move, which is what touch play is.
- * One finger never touches the visual (ui-flow decisions).
+ * the heading's total turn) and a long press held through the red ring. Two fingers are a drag while
+ * they move together, and a pinch / twist from the moment their spread or angle changes past its
+ * threshold; whichever of the two is given [GestureAction.TOUCH_PLAY] hands the fingers to the
+ * visualizer's touch field ([onTouchPoints], in y-up NDC) while it lasts, which is what touch play
+ * is, so with the defaults a pinch does nothing at all. One finger never touches the visual
+ * (ui-flow decisions).
  *
  * A swipe or a swirl only counts when it starts outside `WindowInsets.systemGestures`: those strips
  * stay Android's (back at the sides, home at the bottom, the shade at the top). A tap there is still
@@ -168,18 +169,19 @@ internal fun Modifier.visualGestures(
                         slop = viewConfiguration.touchSlop,
                         stepPx = SWIRL_STEP_DP.dp.toPx(),
                     )
-                val touchPlay =
-                    action(CanvasGesture.TWO_FINGER_DRAG) == GestureAction.TOUCH_PLAY ||
-                        action(CanvasGesture.PINCH_TWIST) == GestureAction.TOUCH_PLAY
-                val publishTo: ((PointerEvent) -> Unit)? =
-                    if (touchPlay) {
-                        { event ->
-                            publish(event, points, size.width.toFloat(), size.height.toFloat(), touch)
-                            read.published = true
-                        }
-                    } else {
-                        null
+                // Two fingers touch the visual only while what they are doing so far (a drag, or a
+                // pinch / twist once the spread or angle has changed) is mapped to touch play; the
+                // moment it reads as something else they let go of it.
+                val publishTo: (PointerEvent) -> Unit = { event ->
+                    val kind = read.pairKind
+                    if (kind != null && action(kind) == GestureAction.TOUCH_PLAY) {
+                        publish(event, points, size.width.toFloat(), size.height.toFloat(), touch)
+                        read.published = true
+                    } else if (read.published) {
+                        touch(points, 0)
+                        read.published = false
                     }
+                }
                 try {
                     follow(
                         read = read,
@@ -233,7 +235,7 @@ private suspend fun AwaitPointerEventScope.follow(
     ring: HoldRingState,
     onHold: () -> Unit,
     onSwirl: () -> Unit,
-    publishTo: ((PointerEvent) -> Unit)?,
+    publishTo: (PointerEvent) -> Unit,
 ) {
     while (true) {
         val event =
@@ -245,8 +247,8 @@ private suspend fun AwaitPointerEventScope.follow(
         when {
             event == null -> if (read.holdTick(ring)) onHold()
             read.pairing(event, ring) -> {
-                publishTo?.invoke(event)
                 if (read.trackPair(event)) return
+                publishTo(event)
             }
             else -> {
                 val change = event.changes.firstOrNull { it.id == downId }
@@ -321,6 +323,14 @@ private class GestureRead(
     private var zoom = 1f
     private var twist = 0f
 
+    /**
+     * What two fingers are doing, once they have shown it: [CanvasGesture.TWO_FINGER_DRAG] when
+     * they move together past the slop, [CanvasGesture.PINCH_TWIST] as soon as their spread or
+     * angle changes past its threshold. A pinch stays a pinch: it never turns back into a drag.
+     */
+    var pairKind: CanvasGesture? = null
+        private set
+
     /** Whether the next event is waited for with the hold timer running. */
     val waitingOnHold: Boolean get() = holds && !moved && !multi && !done
 
@@ -363,6 +373,13 @@ private class GestureRead(
         pan = (a + b) / 2f - pairStart
         zoom = (b - a).getDistance() / spanStart
         twist = wrap(atan2(b.y - a.y, b.x - a.x) - angleStart)
+        pairKind =
+            when {
+                pairKind == CanvasGesture.PINCH_TWIST -> pairKind
+                abs(zoom - 1f) > PINCH_ZOOM || abs(twist) > PINCH_TWIST_RAD -> CanvasGesture.PINCH_TWIST
+                pan.getDistance() > slop -> CanvasGesture.TWO_FINGER_DRAG
+                else -> pairKind
+            }
         return false
     }
 
@@ -382,10 +399,10 @@ private class GestureRead(
         return true
     }
 
-    /** What two fingers did, once they lift: a pinch or twist past its threshold, else a drag past [farPx]. */
+    /** What two fingers did, once they lift: a pinch or twist, else a drag past [farPx]. */
     fun pairGesture(farPx: Float): CanvasGesture? =
         when {
-            abs(zoom - 1f) > PINCH_ZOOM || abs(twist) > PINCH_TWIST_RAD -> CanvasGesture.PINCH_TWIST
+            pairKind == CanvasGesture.PINCH_TWIST -> CanvasGesture.PINCH_TWIST
             pan.getDistance() > farPx -> CanvasGesture.TWO_FINGER_DRAG
             else -> null
         }
@@ -515,15 +532,12 @@ internal fun rememberVisualA11yActions(
     actionFor: (CanvasGesture) -> GestureAction,
     actions: VisualActions,
     recording: Boolean,
-    onOpenLive: () -> Unit,
 ): List<CustomAccessibilityAction> {
     val labels =
         mapOf(
             GestureAction.SHOW_MINI_PLAYER to stringResource(R.string.visuals_gesture_show_mini_player),
             GestureAction.QUICK_SETTINGS to stringResource(R.string.visuals_gesture_quick_settings),
             GestureAction.TOGGLE_SHEET to stringResource(R.string.visuals_gesture_toggle_sheet),
-            // The playlist only steps forward (AutoVisualsController.stepVizPlaylist), so it has one action.
-            GestureAction.STEP_PLAYLIST to stringResource(R.string.visuals_gesture_next_look),
             GestureAction.MACROS to stringResource(R.string.visuals_gesture_macros),
             GestureAction.RECORD to stringResource(R.string.visuals_gesture_record),
             GestureAction.RANDOMIZE_ALL to stringResource(R.string.visuals_gesture_randomize),
@@ -535,9 +549,12 @@ internal fun rememberVisualA11yActions(
             GestureAction.STEP_STYLE to (stringResource(R.string.a11y_next_style) to stringResource(R.string.a11y_previous_style)),
             GestureAction.STEP_PRESET to
                 (stringResource(R.string.visuals_gesture_next_preset) to stringResource(R.string.visuals_gesture_previous_preset)),
+            GestureAction.STEP_PLAYLIST to
+                (stringResource(R.string.visuals_gesture_next_look) to stringResource(R.string.visuals_gesture_previous_look)),
         )
-    val live = stringResource(R.string.visuals_view_live)
-    val mapped = CanvasGesture.entries.map(actionFor).distinct()
+    // Full screen (the sheet hidden) has its own stage icon, which fades with the chrome, so
+    // TalkBack keeps it even when no gesture is mapped to it.
+    val mapped = (CanvasGesture.entries.map(actionFor) + GestureAction.TOGGLE_SHEET).distinct()
     val list = mutableListOf<CustomAccessibilityAction>()
     for (a in mapped) {
         if (a == GestureAction.OFF || (a == GestureAction.RECORD && recording)) continue
@@ -549,8 +566,6 @@ internal fun rememberVisualA11yActions(
             labels[a]?.let { label -> list += CustomAccessibilityAction(label) { true.also { actions.run(a, 0) } } }
         }
     }
-    // The live view has its own stage icon, which fades with the chrome; TalkBack keeps it here too.
-    list += CustomAccessibilityAction(live) { true.also { onOpenLive() } }
     return list
 }
 

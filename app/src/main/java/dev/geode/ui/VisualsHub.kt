@@ -136,6 +136,8 @@ internal fun VisualsHub(
     chrome: ShellChromeState,
     bottomReserve: Dp,
     sheetOpacity: Float,
+    // Unused since Full screen became the hidden sheet; it leaves with the old live view (owner).
+    @Suppress("UNUSED_PARAMETER", "UnusedParameter")
     onOpenLive: () -> Unit,
     onOpenStudioRender: () -> Unit,
     canvasFree: Boolean = false,
@@ -198,14 +200,15 @@ internal fun VisualsHub(
                     holdArmed = !(takes.recording && behaviour.actionFor(CanvasGesture.LONG_PRESS) == GestureAction.RECORD),
                     onGesture = { gesture, step -> actions.run(behaviour.actionFor(gesture), step) },
                     onTouchPoints = visualizerView.visualizerRenderer::submitTouchPoints,
-                    a11yActions = rememberVisualA11yActions(behaviour::actionFor, actions, takes.recording, onOpenLive),
+                    a11yActions = rememberVisualA11yActions(behaviour::actionFor, actions, takes.recording),
                 ),
         )
         HoldRing(ring)
         StageIcons(
             chrome = chrome,
             sheetTopPx = { heightPx.value + reservePx },
-            onOpenLive = onOpenLive,
+            // Full screen is the sheet hidden (owner: the old live view goes), the double tap's twin.
+            onFullScreen = { actions.run(GestureAction.TOGGLE_SHEET, 0) },
             onOpenStudioRender = onOpenStudioRender,
             // ‹ › are the sideways swipe's twin: they step what it steps, styles when it steps nothing.
             onStep = { step ->
@@ -290,8 +293,8 @@ private fun rememberStageActions(
         toggleSheet = onToggleSheet,
         stepStyle = stepStyle,
         stepPreset = { step -> stepPreset(viewModel, gate(), step) },
-        // The playlist has no step back yet (AutoVisualsController.stepVizPlaylist), so only forward moves.
-        stepPlaylist = { step -> if (step > 0) nextLook(viewModel, viewModel.vizState.value.sceneId, gate()) },
+        // With fewer than two looks in the playlist, the styles step instead (as nextLook does).
+        stepPlaylist = { step -> if (!viewModel.stepVizPlaylist(step)) stepStyle(step) },
         macros = onMacros,
         record = onRecord,
         randomizeAll = {
@@ -427,15 +430,15 @@ private fun VisualsSheet(
 }
 
 /**
- * The icons over the visual, the visible twins of its gestures: Studio and the live view at the
- * top right, ‹ › at the sides, Record at the bottom right just above the sheet. They fade with
+ * The icons over the visual, the visible twins of its gestures: Studio and Full screen (the sheet
+ * hidden or back) at the top right, ‹ › at the sides, Record at the bottom right just above the sheet. They fade with
  * the shell's chrome; Record stays while a take is being recorded, red, as its stop.
  */
 @Composable
 private fun BoxScope.StageIcons(
     chrome: ShellChromeState,
     sheetTopPx: () -> Float,
-    onOpenLive: () -> Unit,
+    onFullScreen: () -> Unit,
     onOpenStudioRender: () -> Unit,
     onStep: (Int) -> Unit,
 ) {
@@ -455,8 +458,8 @@ private fun BoxScope.StageIcons(
                 IconButton(onClick = onOpenStudioRender) {
                     StoneIconArt(StoneIcon.STUDIO, stringResource(R.string.visuals_open_render))
                 }
-                IconButton(onClick = onOpenLive) {
-                    Icon(Icons.Filled.Fullscreen, stringResource(R.string.visuals_view_live))
+                IconButton(onClick = onFullScreen) {
+                    Icon(Icons.Filled.Fullscreen, stringResource(R.string.visuals_gesture_toggle_sheet))
                 }
             }
             IconButton(onClick = { onStep(-1) }, modifier = Modifier.align(Alignment.CenterStart).padding(GeodeSpacing.S).then(glass)) {

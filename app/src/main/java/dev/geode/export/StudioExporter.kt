@@ -71,6 +71,7 @@ class StudioExporter(
         displayName: String,
         codec: ExportCodec = ExportCodec.H264,
         destination: Uri? = null,
+        isCancelled: () -> Boolean = { false },
         onProgress: (Float) -> Unit,
     ): Result {
         val lut = edit.lutUri?.let { uri -> withContext(Dispatchers.IO) { CubeLut.load(context, uri) } }
@@ -88,7 +89,7 @@ class StudioExporter(
                 .apply { edit.speedProvider()?.let { setSpeed(it) } }
                 .build()
         val composition = Composition.Builder(EditedMediaItemSequence.Builder().addItem(edited).build()).build()
-        return exportComposition(composition, edit.outputMs(sourceDurationMs), displayName, codec, destination, onProgress)
+        return exportComposition(composition, edit.outputMs(sourceDurationMs), displayName, codec, destination, isCancelled, onProgress)
     }
 
     /**
@@ -97,6 +98,9 @@ class StudioExporter(
      * [VideoExporter.exportToDestination] offers the visualizer export path. Below API 29
      * [publish] cannot insert into MediaStore at all, so callers on those versions must always
      * pass a [destination]; [ExportHost] enforces that by forcing its folder picker there.
+     *
+     * [isCancelled] is polled with the progress, so a cancel that does not come through [cancel]
+     * (the render notification's, through `ExportRun`) still stops Transformer.
      */
     suspend fun exportComposition(
         composition: Composition,
@@ -104,6 +108,7 @@ class StudioExporter(
         displayName: String,
         codec: ExportCodec = ExportCodec.H264,
         destination: Uri? = null,
+        isCancelled: () -> Boolean = { false },
         onProgress: (Float) -> Unit,
     ): Result {
         cancelled = false
@@ -111,7 +116,7 @@ class StudioExporter(
         try {
             val outcome =
                 withContext(Dispatchers.Main) {
-                    runTransformer(composition, scratch, outputDurationMs, codec.available(), onProgress)
+                    runTransformer(composition, scratch, outputDurationMs, codec.available(), isCancelled, onProgress)
                 }
             if (outcome != null) return outcome
             if (cancelled) return Result.Cancelled
@@ -133,6 +138,7 @@ class StudioExporter(
         output: File,
         outputDurationMs: Long,
         codec: ExportCodec,
+        isCancelled: () -> Boolean,
         onProgress: (Float) -> Unit,
     ): Result? =
         suspendCancellableCoroutine { continuation ->
@@ -183,6 +189,8 @@ class StudioExporter(
             val scope = kotlinx.coroutines.CoroutineScope(continuation.context)
             scope.launch {
                 while (continuation.isActive) {
+                    // Qualified: inside launch, a bare cancel() is CoroutineScope.cancel().
+                    if (isCancelled()) this@StudioExporter.cancel()
                     val state = runCatching { built.getProgress(holder) }.getOrNull()
                     if (state == Transformer.PROGRESS_STATE_AVAILABLE) {
                         onProgress(holder.progress / 100f)

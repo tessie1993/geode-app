@@ -68,25 +68,10 @@ class PlaybackService : MediaLibraryService() {
         private val tree: LibraryTree,
     ) : MediaLibrarySession.Callback {
         /**
-         * Who may browse the library, and who may only press play.
-         *
-         * The service is exported because System UI, Bluetooth, watches and Android Auto all
-         * reach it from other processes, and nothing in the manifest can tell them apart from
-         * any other installed app. Left to itself, Media3 1.11 gives an untrusted caller the
-         * read-only library commands: any app, with no READ_MEDIA_AUDIO grant of its own,
-         * could list every title, artist and folder on the device through us. That is the
-         * wrong way round for a music library. Here an untrusted caller gets the transport
-         * (play, pause, skip, seek) and what is playing now, and browsing goes only to:
-         * - [MediaSession.ControllerInfo.isTrusted]: this app, the system uid, holders of
-         *   MEDIA_CONTENT_CONTROL (System UI, Bluetooth) and enabled notification listeners;
-         * - apps preinstalled on the system image (Android Auto on Android 10+, an Automotive
-         *   head unit's media centre, the OEM's own launcher);
-         * - Android Auto, Wear OS and the Google app installed from the store, recognised by
-         *   name *and* by Google Play being the installer. Play never lets anyone else publish
-         *   under those package names, so an app that borrows one gets nothing unless it was
-         *   sideloaded and also lies about its installer, which takes adb. A signature check
-         *   would be stricter in theory, but it needs those apps' certificates pinned here, and
-         *   a pin that is wrong or rotated silently cuts Android Auto off.
+         * Who may browse the library, and who may only press play: [LibraryAccess] decides,
+         * and an untrusted caller gets the transport (play, pause, skip, seek) and what is
+         * playing now. Media3 then refuses the library commands to it before any callback runs;
+         * the checks in the browse callbacks below only back that up.
          */
         override fun onConnect(
             session: MediaSession,
@@ -106,6 +91,12 @@ class PlaybackService : MediaLibraryService() {
                     .build()
             }
 
+        /**
+         * Asked again by every browse and queue callback rather than remembered from
+         * [onConnect]: the answer costs two package-manager reads, and a cache keyed by
+         * [MediaSession.ControllerInfo] would hang Android Auto's browsing on how Media3 matches
+         * a legacy browser's later calls to its connection.
+         */
         private fun mayBrowse(controller: MediaSession.ControllerInfo): Boolean {
             if (controller.isTrusted) return true
             val pm = context.packageManager
@@ -115,10 +106,15 @@ class PlaybackService : MediaLibraryService() {
                     pm.getApplicationInfo(pkg, 0).flags and
                         (ApplicationInfo.FLAG_SYSTEM or ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0
                 }.getOrDefault(false)
-            if (systemApp && controller.isPackageNameVerified) return true
-            return pkg in GOOGLE_BROWSERS &&
-                controller.isPackageNameVerified &&
-                runCatching { installerOf(pm, pkg) == PLAY_STORE }.getOrDefault(false)
+            return LibraryAccess.mayBrowse(
+                CallerFacts(
+                    packageName = pkg,
+                    trusted = false,
+                    packageVerified = controller.isPackageNameVerified,
+                    systemApp = systemApp,
+                    installer = runCatching { installerOf(pm, pkg) }.getOrNull(),
+                ),
+            )
         }
 
         @Suppress("DEPRECATION")
@@ -151,6 +147,9 @@ class PlaybackService : MediaLibraryService() {
             browser: MediaSession.ControllerInfo,
             params: LibraryParams?,
         ): ListenableFuture<LibraryResult<MediaItem>> {
+            // A caller that may not browse connects to an empty root: the legacy browser
+            // protocol has no "accepted but no library", and an error here reads as a crash.
+            if (!mayBrowse(browser)) return Futures.immediateFuture(LibraryResult.ofItem(EMPTY_ROOT, params))
             // Coarse cache invalidation: a browser re-entering at the root (a fresh Android Auto
             // connection, or a manual refresh) is the signal to drop the memoised track list so
             // library edits made elsewhere in the app are picked up.
@@ -168,7 +167,7 @@ class PlaybackService : MediaLibraryService() {
         ): ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> =
             Futures.submit(
                 java.util.concurrent.Callable {
-                    val all = tree.children(parentId)
+                    val all = if (mayBrowse(browser)) tree.children(parentId) else emptyList()
                     // page * pageSize overflows Int when Media3 passes pageSize = Integer.MAX_VALUE
                     // (its "everything" request), which drove `from` negative and crashed subList.
                     // Do the multiply in Long, then clamp both ends into 0..all.size.
@@ -186,8 +185,12 @@ class PlaybackService : MediaLibraryService() {
         ): ListenableFuture<LibraryResult<MediaItem>> =
             Futures.submit(
                 java.util.concurrent.Callable {
-                    tree.item(mediaId)?.let { LibraryResult.ofItem(it, null) }
-                        ?: LibraryResult.ofError(SessionError.ERROR_BAD_VALUE)
+                    when {
+                        !mayBrowse(browser) -> LibraryResult.ofError(SessionError.ERROR_PERMISSION_DENIED)
+                        else ->
+                            tree.item(mediaId)?.let { LibraryResult.ofItem(it, null) }
+                                ?: LibraryResult.ofError(SessionError.ERROR_BAD_VALUE)
+                    }
                 },
                 resumptionExecutor,
             )
@@ -198,7 +201,7 @@ class PlaybackService : MediaLibraryService() {
             mediaItems: List<MediaItem>,
         ): ListenableFuture<List<MediaItem>> =
             Futures.submit(
-                java.util.concurrent.Callable { mediaItems.map { resolve(it) } },
+                java.util.concurrent.Callable { fromCaller(controller, mediaItems).map { resolve(it) } },
                 resumptionExecutor,
             )
 
@@ -212,16 +215,33 @@ class PlaybackService : MediaLibraryService() {
         ): ListenableFuture<MediaSession.MediaItemsWithStartPosition> =
             Futures.submit(
                 java.util.concurrent.Callable {
-                    val single = mediaItems.singleOrNull()?.takeIf { it.localConfiguration == null }
+                    val items = fromCaller(controller, mediaItems)
+                    val single = items.singleOrNull()?.takeIf { it.localConfiguration == null }
                     val queued = single?.let { tree.queueFor(it.mediaId) }
                     if (queued != null) {
                         MediaSession.MediaItemsWithStartPosition(queued.first, queued.second, startPositionMs)
                     } else {
-                        MediaSession.MediaItemsWithStartPosition(mediaItems.map { resolve(it) }, startIndex, startPositionMs)
+                        MediaSession.MediaItemsWithStartPosition(items.map { resolve(it) }, startIndex, startPositionMs)
                     }
                 },
                 resumptionExecutor,
             )
+
+        /**
+         * A caller that may not browse queues nothing. ExoPlayer opens a URI with this app's own
+         * grants, so a content:// or file path from such a caller would be played, and its tags
+         * shown as "now playing", with access the caller never had; and a bare media id, run
+         * through our tree, would let it probe the library one guessed id at a time through the
+         * current item it may read. Media3 already refuses it the queue commands, so this only
+         * backs that up; the failed future goes back to the caller as an error.
+         */
+        private fun fromCaller(
+            controller: MediaSession.ControllerInfo,
+            items: List<MediaItem>,
+        ): List<MediaItem> {
+            if (!mayBrowse(controller)) throw SecurityException("${controller.packageName} may not queue media")
+            return items
+        }
 
         private fun resolve(item: MediaItem): MediaItem = if (item.localConfiguration != null) item else tree.playable(item.mediaId) ?: item
     }
@@ -256,15 +276,18 @@ class PlaybackService : MediaLibraryService() {
     }
 
     companion object {
-        /** Store-installed media surfaces that browse: Android Auto, Wear OS, the Google app (Assistant). */
-        private val GOOGLE_BROWSERS =
-            setOf(
-                "com.google.android.projection.gearhead",
-                "com.google.android.wearable.app",
-                "com.google.android.googlequicksearchbox",
-            )
-
-        private const val PLAY_STORE = "com.android.vending"
+        /** What a caller that may not browse connects to: a folder with nothing in it. */
+        private val EMPTY_ROOT: MediaItem =
+            MediaItem
+                .Builder()
+                .setMediaId("geode:no-library")
+                .setMediaMetadata(
+                    MediaMetadata
+                        .Builder()
+                        .setIsBrowsable(true)
+                        .setIsPlayable(false)
+                        .build(),
+                ).build()
 
         /**
          * An untrusted controller's player commands: Media3's read-only set (state, position,
@@ -353,4 +376,57 @@ class PlaybackService : MediaLibraryService() {
             }
         }
     }
+}
+
+/**
+ * What [LibraryAccess] needs to know about a controller, read once from the platform:
+ * [MediaSession.ControllerInfo] for the first three, the package manager for the rest.
+ */
+internal data class CallerFacts(
+    val packageName: String,
+    /** [MediaSession.ControllerInfo.isTrusted]. */
+    val trusted: Boolean,
+    /** [MediaSession.ControllerInfo.isPackageNameVerified]: the name belongs to the caller's uid. */
+    val packageVerified: Boolean,
+    /** Preinstalled on the system image, updated or not. */
+    val systemApp: Boolean,
+    /** The package that installed it; null when sideloaded or unknown. */
+    val installer: String?,
+)
+
+/**
+ * Who may browse the library, and who may only press play.
+ *
+ * [PlaybackService] is exported because System UI, Bluetooth, watches and Android Auto all
+ * reach it from other processes, and nothing in the manifest can tell them apart from any other
+ * installed app. Left to itself, Media3 1.11 gives an untrusted caller the read-only library
+ * commands: any app, with no READ_MEDIA_AUDIO grant of its own, could list every title, artist
+ * and folder on the device through us. That is the wrong way round for a music library.
+ * Browsing goes only to:
+ * - trusted controllers: this app, the system uid, holders of MEDIA_CONTENT_CONTROL (System UI,
+ *   Bluetooth) and enabled notification listeners;
+ * - apps preinstalled on the system image (Android Auto on Android 10+, an Automotive head
+ *   unit's media centre, the OEM's own launcher), when the name is verified;
+ * - Android Auto, Wear OS and the Google app installed from the store, recognised by name *and*
+ *   by Google Play being the installer. Play never lets anyone else publish under those package
+ *   names, so an app that borrows one gets nothing unless it was sideloaded and also lies about
+ *   its installer, which takes adb. A signature check would be stricter in theory, but it needs
+ *   those apps' certificates pinned here, and a pin that is wrong or rotated silently cuts
+ *   Android Auto off.
+ */
+internal object LibraryAccess {
+    /** Store-installed media surfaces that browse: Android Auto, Wear OS, the Google app (Assistant). */
+    private val GOOGLE_BROWSERS =
+        setOf(
+            "com.google.android.projection.gearhead",
+            "com.google.android.wearable.app",
+            "com.google.android.googlequicksearchbox",
+        )
+
+    private const val PLAY_STORE = "com.android.vending"
+
+    fun mayBrowse(caller: CallerFacts): Boolean =
+        caller.trusted ||
+            (caller.packageVerified && caller.systemApp) ||
+            (caller.packageVerified && caller.packageName in GOOGLE_BROWSERS && caller.installer == PLAY_STORE)
 }

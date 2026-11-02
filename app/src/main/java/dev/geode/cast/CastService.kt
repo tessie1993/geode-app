@@ -13,6 +13,7 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.os.SystemClock
+import android.widget.Toast
 import androidx.media3.common.Player
 import dev.geode.R
 import dev.geode.RingLog
@@ -32,8 +33,10 @@ import dev.geode.pro.ProFeature
  * comes before the volume, so the visuals and the stream still hear it); only its volume goes to
  * zero, and anything that raises it while casting (a crossfade, the sleep timer's fade) is put back.
  *
- * Pro is checked again every minute ([recheckPro]): a trial that runs out mid-cast ends the cast,
- * as it would lock any other Pro feature. A stream that dies (the render loop failed) ends it too.
+ * Pro is checked again every minute ([recheckPro]). A trial that runs out mid-cast lets the song
+ * finish, then ends the cast with a Go Pro note (owner). A stream that fails (won't start, freezes,
+ * the renderer dies) ends the cast at once, with the sound back on the phone and a short message;
+ * no silent restart (owner).
  */
 class CastService : Service() {
     private val handler = Handler(Looper.getMainLooper())
@@ -42,12 +45,33 @@ class CastService : Service() {
     private var savedVolume = 1f
     private var waitingSinceMs = 0L
 
+    /** Set when the trial ran out mid-cast: the cast ends when this song does. */
+    private var stopAtSongEnd = false
+    private var failed = false
+
     private val keepMuted =
         object : Player.Listener {
             override fun onVolumeChanged(volume: Float) {
                 if (volume > 0f) playback?.player?.volume = 0f
             }
+
+            override fun onMediaItemTransition(
+                mediaItem: androidx.media3.common.MediaItem?,
+                reason: Int,
+            ) = endIfTrialOver()
+
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                if (playbackState == Player.STATE_ENDED) endIfTrialOver()
+            }
         }
+
+    private fun endIfTrialOver() {
+        if (!stopAtSongEnd) return
+        stopAtSongEnd = false
+        Toast.makeText(this, R.string.cast_trial_ended, Toast.LENGTH_LONG).show()
+        CastController.get(this).onTrialEnded()
+        stopSelf()
+    }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -79,6 +103,9 @@ class CastService : Service() {
 
     /** Ends the cast because the stream can't run; onDestroy gives the phone its sound back. */
     private fun fail() {
+        if (failed) return
+        failed = true
+        Toast.makeText(this, R.string.cast_failed, Toast.LENGTH_LONG).show()
         CastController.get(this).onStreamFailed()
         stopSelf()
     }
@@ -86,11 +113,24 @@ class CastService : Service() {
     private val recheckPro: Runnable =
         object : Runnable {
             override fun run() {
-                if (ProSnapshot.gate(this@CastService).allows(ProFeature.CAST)) {
-                    handler.postDelayed(this, PRO_RECHECK_MS)
+                if (!ProSnapshot.gate(this@CastService).allows(ProFeature.CAST)) {
+                    // Let the song finish (owner); the player listener ends the cast then.
+                    stopAtSongEnd = true
+                    return
+                }
+                handler.postDelayed(this, PRO_RECHECK_MS)
+            }
+        }
+
+    private val watchFreeze: Runnable =
+        object : Runnable {
+            override fun run() {
+                val s = stream ?: return
+                if (s.isFrozen) {
+                    RingLog.note(TAG, "no segment for ${CastStream.FROZEN_MS / 1000} s: ending the cast")
+                    fail()
                 } else {
-                    CastController.get(this@CastService).stop()
-                    stopSelf()
+                    handler.postDelayed(this, POLL_MS * 4)
                 }
             }
         }
@@ -100,7 +140,10 @@ class CastService : Service() {
             override fun run() {
                 val s = stream ?: return
                 when {
-                    s.isReady -> CastController.get(this@CastService).onStreamReady(s.playlistUrl)
+                    s.isReady -> {
+                        CastController.get(this@CastService).onStreamReady(s.playlistUrl)
+                        handler.post(watchFreeze)
+                    }
                     SystemClock.elapsedRealtime() - waitingSinceMs > START_TIMEOUT_MS -> {
                         RingLog.note(TAG, "stream not ready after ${START_TIMEOUT_MS / 1000} s")
                         fail()

@@ -27,10 +27,10 @@ import kotlin.math.roundToInt
  * The picture comes from its own [VisualizerRenderer] on its own thread and EGL context, not from
  * the screen's view: casting keeps going with the app in the background and the screen off (owner,
  * 2026-11-02), when the screen's view is paused. It shows what the screen would: the saved live
- * look (style, params, modulation, the MilkDrop preset the renderer restores itself), re-read
- * whenever the app saves it, the same sound ([AudioBus.soundInput]) and the same raw PCM
- * ([pcmRing], the mono ring the screen's PCM scenes read). A style only previewed on the phone,
- * not chosen, isn't saved, so the TV keeps the chosen one until the check is tapped.
+ * look: the stage's style and params as they change ([CastMirror], previews included), else the
+ * saved live state; modulation and the MilkDrop preset (which the renderer restores itself), re-read
+ * whenever the app saves them; the same sound ([AudioBus.soundInput]) and the same raw PCM
+ * ([pcmRing], the mono ring the screen's PCM scenes read).
  *
  * If the render loop dies after the stream started, [onFailed] runs (on the render thread): a
  * frozen picture on the TV with a muted phone is worse than ending the cast.
@@ -96,6 +96,12 @@ internal class CastStream(
         }
     }
 
+    /** The mirrored look last handed to the renderer; render thread only. */
+    private var mirrored: CastMirror.Look? = null
+
+    /** True once segments stopped arriving for [FROZEN_MS]: the encoder or the renderer stalled. */
+    val isFrozen: Boolean get() = segments.msSinceLastSegment() > FROZEN_MS
+
     private val pcmScratch = FloatArray(PCM_SCRATCH)
     private var pcmCursor = 0L
 
@@ -124,6 +130,14 @@ internal class CastStream(
                 if (lookChanged) {
                     lookChanged = false
                     restoreLook(renderer)
+                    mirrored = null
+                }
+                CastMirror.look?.let { look ->
+                    if (look !== mirrored) {
+                        mirrored = look
+                        renderer.requestedSceneId = look.sceneId
+                        renderer.sceneParams = look.params
+                    }
                 }
                 renderer.onDrawFrame(null)
                 val ptsNs = frame * NANOS_PER_SEC / CastEncoder.FPS
@@ -252,10 +266,13 @@ internal class CastStream(
         }
     }
 
-    private companion object {
+    companion object {
         const val TAG = "CastStream"
         const val KEY_LIVE_STATE = "live_state"
         const val PCM_SCRATCH = 4096
+
+        /** Segments arrive every second; five without one is a frozen picture on the TV. */
+        const val FROZEN_MS = 5_000L
         const val JOIN_MS = 2_000L
         const val NANOS_PER_SEC = 1_000_000_000L
         const val NANOS_PER_MS = 1_000_000L

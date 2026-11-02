@@ -68,8 +68,9 @@ logs how it is used (discovery and session events, device and app information) a
 sends that to Google, aggregated, without identifiers that trace back to you, encrypted in
 transit and kept for a short time, to improve Cast
 ([Google's Cast SDK disclosure](https://developers.google.com/cast/docs/android_sender/data_disclosure)).
-Neither you nor MuzViz can turn that logging off or delete it. If you never cast, none of
-this happens.
+Neither you nor MuzViz can turn that logging off or delete it. The SDK starts when the
+Visuals screen shows the Cast button (it then looks for TVs on your network), or when you
+pick a TV in Android's own output switcher; before that it doesn't run.
 
 ## Permissions
 

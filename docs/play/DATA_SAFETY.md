@@ -28,7 +28,7 @@ are summarised at the end.
 
 | Question | Answer |
 |---|---|
-| Does your app collect or share any of the required user data types? | **Yes**. Purchase history, and the Cast SDK's logging when the user casts, see below |
+| Does your app collect or share any of the required user data types? | **Yes**. Purchase history, and the Cast SDK's logging once Visuals shows the Cast button, see below |
 | Is all of the user data collected by your app encrypted in transit? | **Yes**. The Play Store app's own TLS connection to Google, and the Cast SDK's ("all data transmitted from the SDK is encrypted in transit", Google's disclosure) |
 | Do you provide a way for users to request that their data is deleted? | **No**. There's no account and nothing held off-device by you. (Google Play order history is Google's; users manage it in their Google account.) If the form requires a deletion path, answer Yes and give the in-app route: *Settings → Apps → MuzViz Studio Pro → Storage → Clear data* |
 
@@ -39,8 +39,8 @@ Declare **only**:
 | Category › type | Collected | Shared | Processed ephemerally | Required or optional | Purposes |
 |---|---|---|---|---|---|
 | **Financial info › Purchase history** | Yes | No | No | **Optional** (only if the user buys Pro) | **App functionality** (unlocking the purchased feature) |
-| **App activity › App interactions** | Yes | No | No | **Optional** (only when the user casts) | **Analytics** (the Cast SDK's discovery and session events, which Google uses to improve Cast) |
-| **App info and performance › Diagnostics** | Yes | No | No | **Optional** (only when the user casts) | **Analytics** (the Cast SDK's device, app and performance information) |
+| **App activity › App interactions** | Yes | No | No | **Required** (the SDK starts whenever Visuals shows the Cast button, and looks for TVs) | **Analytics** (the Cast SDK's discovery and session events, which Google uses to improve Cast) |
+| **App info and performance › Diagnostics** | Yes | No | No | **Required** (as above) | **Analytics** (the Cast SDK's device, app and performance information) |
 
 Everything else: **not collected, not shared.** In particular:
 

@@ -106,6 +106,10 @@ internal class LiveSegments(
         while (segments.size > WINDOW) segments.removeFirst()
     }
 
+    /** Milliseconds since the last segment was cut (or the header was written); 0 before that. */
+    @Synchronized
+    fun msSinceLastSegment(): Long = if (lastCutMs == 0L) 0L else nowMs() - lastCutMs
+
     /** The init segment, or null until the muxer has written its header. */
     fun initSegment(): ByteArray? = init
 

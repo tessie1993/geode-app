@@ -5,14 +5,9 @@
     <string name="cast_channel_name">Cast to TV</string>
     <string name="cast_channel_description">Shown while your visuals play on a TV</string>
     <string name="cast_notification_title">Casting to your TV</string>
-    <string name="cast_notification_text">The sound plays on the TV. Use the phone as the remote.</string>
+    <string name="cast_notification_text">The picture and the sound play on the TV.</string>
     <string name="cast_stop">Stop casting</string>
     <string name="cast_button_locked">Cast to TV needs Pro</string>
-    <string name="cast_remote_to">Casting to %1$s</string>
-    <string name="cast_remote_to_tv">Casting to your TV</string>
-    <string name="cast_remote_previous">Previous</string>
-    <string name="cast_remote_play">Play</string>
-    <string name="cast_remote_pause">Pause</string>
-    <string name="cast_remote_next">Next</string>
-    <string name="cast_remote_next_look">Next look</string>
+    <string name="cast_failed">Casting stopped. The sound is back on the phone.</string>
+    <string name="cast_trial_ended">Your Pro trial has ended, so casting stopped after this song. Go Pro to keep casting.</string>
 </resources>

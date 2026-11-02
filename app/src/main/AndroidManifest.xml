@@ -280,10 +280,14 @@
             android:exported="false"
             android:foregroundServiceType="mediaPlayback" />
 
-        <!-- Media3 Cast with Google's Default Media Receiver: no receiver app of our own. -->
+        <!-- Media3 Cast with Google's Default Media Receiver (no receiver app of our own).
+             cast.CastOptionsProvider is Media3's defaults plus building CastController when
+             Cast starts, so a session handed over by the system's output switcher (through
+             MediaTransferReceiver) is gated and streamed like one from the Cast button. -->
         <meta-data
             android:name="com.google.android.gms.cast.framework.OPTIONS_PROVIDER_CLASS_NAME"
-            android:value="androidx.media3.cast.DefaultCastOptionsProvider" />
+            android:value="dev.geode.cast.CastOptionsProvider" />
+        <receiver android:name="androidx.mediarouter.media.MediaTransferReceiver" />
 
         <!--
           Does nothing, and must exist: getActiveSessions() is gated on being

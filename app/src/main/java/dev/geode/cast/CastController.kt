@@ -14,7 +14,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
-/** Where casting stands, for the Cast button and the remote screen. */
+/** Where casting stands, for the Cast button. */
 sealed interface CastState {
     data object Idle : CastState
 
@@ -30,8 +30,11 @@ sealed interface CastState {
     /** A TV was picked without Pro; the session was ended. The UI shows the paywall. */
     data object Locked : CastState
 
-    /** The stream could not start (no Wi-Fi address, the encoder refused). The session was ended. */
+    /** The stream failed (couldn't start, froze, the renderer died). The session was ended. */
     data object Failed : CastState
+
+    /** The trial ran out while casting; the cast stopped at the end of that song. */
+    data object TrialEnded : CastState
 }
 
 /**
@@ -44,10 +47,10 @@ sealed interface CastState {
  * would hand the music queue to the TV), but a [RemoteCastPlayer] that only ever loads the one
  * live item.
  *
- * Sessions start from the app's Cast button (`ui/cast/CastButton`), which builds this on first
- * composition; the app declares no MediaTransferReceiver, so the system's output switcher doesn't
- * hand it sessions. The Pro gate is still checked here, when a session appears, not only on the
- * button, and [CastService] re-checks it while casting.
+ * Sessions start from the app's Cast button (`ui/cast/CastButton`) or from the system's output
+ * switcher (`MediaTransferReceiver`); [CastOptionsProvider] builds this as soon as Cast starts, so
+ * both are gated and streamed the same way. The Pro gate is checked here, when a session appears,
+ * and [CastService] re-checks it while casting (a trial that runs out ends the cast after the song).
  */
 @OptIn(UnstableApi::class)
 class CastController private constructor(
@@ -93,9 +96,8 @@ class CastController private constructor(
 
     private fun onSessionEnded() {
         CastService.stop(app)
-        if (mutableState.value !is CastState.Locked && mutableState.value !is CastState.Failed) {
-            mutableState.value = CastState.Idle
-        }
+        val s = mutableState.value
+        if (s !is CastState.Locked && s !is CastState.Failed && s !is CastState.TrialEnded) mutableState.value = CastState.Idle
     }
 
     /** [CastService] calls this once the stream has enough segments for the receiver to start on. */
@@ -109,6 +111,12 @@ class CastController private constructor(
 
     internal fun onStreamFailed() {
         mutableState.value = CastState.Failed
+        endSession()
+    }
+
+    /** [CastService]: the trial ran out and the song it was casting has ended. */
+    internal fun onTrialEnded() {
+        mutableState.value = CastState.TrialEnded
         endSession()
     }
 

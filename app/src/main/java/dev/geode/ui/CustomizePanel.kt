@@ -145,7 +145,11 @@ internal fun CustomizePanel(
                     siblings = siblings,
                     onBack = close,
                     onStep = { to ->
-                        if (nav != null) nav.stepAdvanced(siblings.map { it.name }, siblings.indexOf(to) - siblings.indexOf(sub)) else localSub = to.name
+                        if (nav != null) {
+                            nav.stepAdvanced(siblings.map { it.name }, siblings.indexOf(to) - siblings.indexOf(sub))
+                        } else {
+                            localSub = to.name
+                        }
                     },
                     modifier = Modifier.fillMaxSize(),
                 )

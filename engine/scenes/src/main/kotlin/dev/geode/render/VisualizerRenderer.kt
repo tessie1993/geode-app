@@ -252,6 +252,7 @@ class VisualizerRenderer(
     ) {
         ThermalGovernor.attach(appContext)
         nativeViz.surfaceCreated()
+        applyUiBlur()
         nativeParams = null
         nativeLfo = null
         nativeAdsr = null
@@ -285,6 +286,33 @@ class VisualizerRenderer(
         blend: UnderlayBlend,
         amount: Float,
     ) = nativeViz.setUnderlay(pixels, width, height, blend.ordinal, amount)
+
+    /**
+     * The glass sheet's blur region (left, top, right, bottom, strength, corner px), kept so a new
+     * native handle (one per attach) and a new surface start with the sheet the UI last set. GL thread
+     * only: [VisualizerView.setUiBlurRegion] posts here.
+     */
+    private val uiBlur = FloatArray(UI_BLUR_FLOATS)
+
+    /** GL thread; see [VisualizerView.setUiBlurRegion] for the contract. */
+    fun setUiBlurRegion(
+        left: Float,
+        top: Float,
+        right: Float,
+        bottom: Float,
+        strength: Float,
+        cornerPx: Float,
+    ) {
+        uiBlur[0] = left
+        uiBlur[1] = top
+        uiBlur[2] = right
+        uiBlur[3] = bottom
+        uiBlur[4] = strength
+        uiBlur[5] = cornerPx
+        applyUiBlur()
+    }
+
+    private fun applyUiBlur() = nativeViz.setUiBlurRegion(uiBlur[0], uiBlur[1], uiBlur[2], uiBlur[3], uiBlur[4], uiBlur[5])
 
     override fun onDrawFrame(gl: GL10?) {
         if (firstFrameOnSurface) {
@@ -375,4 +403,5 @@ class VisualizerRenderer(
 
 private const val THERMAL_SAMPLE_MS = 1000L
 private const val LIQUID_MODE_SAMPLE_MS = 500L
+private const val UI_BLUR_FLOATS = 6
 private const val NANOS_PER_SECOND = 1_000_000_000.0

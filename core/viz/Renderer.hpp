@@ -35,6 +35,7 @@
 #include "viz/ThermalGovernor.hpp"
 #include "viz/TouchField.hpp"
 #include "viz/TrailPass.hpp"
+#include "viz/UiBlurPass.hpp"
 #include "viz/VisualSafety.hpp"
 #include "viz/liquid/LiquidMath.hpp"
 #include "viz/liquid/LiquidPass.hpp"
@@ -61,6 +62,10 @@ public:
     // it, so no exported frame ever shows the previous scene or a clear in its place. A live renderer
     // (the default) builds a new scene across frames instead; see ScenePrep.hpp.
     void setBlockingBuilds(bool on) { blockingBuilds_.store(on, std::memory_order_relaxed); }
+    // Export (geode_viz_set_offscreen): never draws the UI blur, whatever region it was given.
+    void setOffscreen(bool on) { offscreen_.store(on, std::memory_order_relaxed); }
+    // The app's glass sheet over the live visual (UiBlurPass): latched for the next frame. Any thread.
+    void setUiBlurRegion(const UiBlurRegion& region);
     // Settings › Performance › Liquid on a hot phone (liquid::HotPolicy). Any thread.
     void setLiquidHotPolicy(int policy) { liquidHotPolicy_.store(policy, std::memory_order_relaxed); }
     // What Liquid mode ran last frame (liquid::Mode), so Customize can say when a hot phone simplified
@@ -148,6 +153,8 @@ private:
     void bindSecondaryTarget();
     void drawSceneTarget(Scene& scene, const SceneParams& p, float dt);
     void composite(const SceneParams& p, float progress, GLuint targetFbo, GLuint liquidTex);
+    // After the composite: the UI blur region, live surfaces only; nothing at strength 0.
+    void drawUiBlur(GLuint targetFbo);
     void deliverPcm(Scene& scene);
     void stepOverlays(Scene& scene, const SceneParams& p, float dt);
     void stepCamera(const SceneParams& p, float dt);
@@ -212,6 +219,12 @@ private:
     // Note & key reactions (viz/NoteResponse), after the director's look: knobs, note colours, blooms.
     NoteResponse notes_;
     NoteBloomPass bloomPass_;
+    // Frosted glass under the app's sheet. The region is guarded by stateLock_; uiBlurOn_ lets a frame
+    // with no sheet skip the lock.
+    UiBlurPass uiBlurPass_;
+    UiBlurRegion uiBlurRegion_;
+    std::atomic<bool> uiBlurOn_{false};
+    std::atomic<bool> offscreen_{false};
     // The note layer's seed: the director's play seed mixed with fresh entropy whenever that seed changes,
     // so every play (and every export) varies on its own, as the user chose (NoteResponse's class comment).
     uint64_t noteSeed(uint64_t playSeed);

@@ -356,6 +356,21 @@ object GeodeNative {
         on: Boolean,
     )
 
+    /**
+     * Frosted glass under the app's sheet (`core/viz/UiBlurPass`): the renderer blurs its finished frame
+     * inside one rounded rect. The rect is normalised to the viewport, y down (view pixels over the
+     * visual's size); [strength] 0..1, 0 = off and free; [cornerPx] in surface pixels. Ignored offscreen.
+     */
+    external fun vizSetUiBlurRegion(
+        handle: Long,
+        left: Float,
+        top: Float,
+        right: Float,
+        bottom: Float,
+        strength: Float,
+        cornerPx: Float,
+    )
+
     external fun vizKnows(
         handle: Long,
         sceneId: String,

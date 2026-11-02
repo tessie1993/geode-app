@@ -52,9 +52,8 @@ object FreeTier {
     const val FIRST_STYLE_ID: String = SceneIds.NEON_CHROME_SEA
 
     /**
-     * Where a free user lands when the style on screen is no longer theirs (a new install, whose
-     * engine default [SceneIds.DEFAULT] is still silk; a trial that ran out): the first style, so a
-     * fresh install opens on it. Must be in [freeStyleIds].
+     * Where a free user lands when the style on screen is no longer theirs (a saved look from a Pro
+     * time, a trial that ran out): the first style. Must be in [freeStyleIds].
      */
     const val FALLBACK_STYLE_ID: String = FIRST_STYLE_ID
 

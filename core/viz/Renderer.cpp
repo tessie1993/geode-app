@@ -341,6 +341,8 @@ void Renderer::onSurfaceCreated() {
     if (!compositePass_.create(*fadeVert, &error)) fail(error);
     // The note blooms are an extra: a driver that will not build them loses the flowers, not the frame.
     if (!bloomPass_.create(assets_, &programCache_, *fadeVert, &error)) GEODE_LOGW(kTag, "note blooms off: %s", error.c_str());
+    // So is the glass sheet's blur: without it the sheet shows the visual unblurred through its tint.
+    if (!uiBlurPass_.create(assets_, &programCache_, *fadeVert, &error)) GEODE_LOGW(kTag, "ui blur off: %s", error.c_str());
     // Liquid mode: half float where this GPU renders it, so a deep pour-back does not band.
     if (!liquidPass_.create(assets_, &programCache_, *fadeVert, fluid::probeFormats().ok, &error)) fail(error);
 
@@ -390,6 +392,21 @@ void Renderer::setUserQuality(float renderScale, float marchScale, bool postFx, 
     marchScale_.store(unit(marchScale), std::memory_order_relaxed);
     userPostFx_.store(postFx, std::memory_order_relaxed);
     thermal_.setAdaptive(adaptive);
+}
+
+void Renderer::setUiBlurRegion(const UiBlurRegion& region) {
+    // A non-finite value from the shell turns the blur off rather than reaching a scissor.
+    const auto unit = [](float v) { return std::isfinite(v) ? std::clamp(v, 0.0f, 1.0f) : 0.0f; };
+    UiBlurRegion r;
+    r.left = unit(region.left);
+    r.top = unit(region.top);
+    r.right = unit(region.right);
+    r.bottom = unit(region.bottom);
+    r.strength = unit(region.strength);
+    r.cornerPx = std::isfinite(region.cornerPx) ? std::max(region.cornerPx, 0.0f) : 0.0f;
+    std::lock_guard<std::mutex> lock(stateLock_);
+    uiBlurRegion_ = r;
+    uiBlurOn_.store(r.active(), std::memory_order_relaxed);
 }
 
 void Renderer::applyRenderScale() {

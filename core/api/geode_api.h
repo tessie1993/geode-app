@@ -90,6 +90,13 @@ GEODE_API void        geode_viz_set_liquid_hot_policy(geode_viz*, int policy);
 /* What Liquid mode ran last frame: 0 off, 1 full, 2 lite, 3 warp, 4 paused (liquid::Mode). 0 for a null handle. */
 GEODE_API int         geode_viz_liquid_mode(const geode_viz*);
 GEODE_API void        geode_viz_set_offscreen(geode_viz*, int on);
+/* Frosted glass under the app's sheet (core/viz/UiBlurPass): blurs the finished frame inside one rounded
+ * rect, after the composite. The rect is normalised to the viewport with y DOWN (a view's left/top/right/
+ * bottom in pixels over the visual's width/height); strength 0..1 mixes the blur in, 0 turns it off and
+ * costs nothing; corner_px is the corner radius in surface pixels. Any thread, latched for the next frame.
+ * An offscreen (export) renderer never draws it. */
+GEODE_API void        geode_viz_set_ui_blur_region(geode_viz*, float left, float top, float right, float bottom,
+                                                   float strength, float corner_px);
 /* An export's own auto-director (amount 0..1, the play's seed): from now on this renderer ignores
  * geode_director_set, so the live player's switch, track and free taste never reach the render. */
 GEODE_API void        geode_viz_set_director(geode_viz*, float amount, long long seed);

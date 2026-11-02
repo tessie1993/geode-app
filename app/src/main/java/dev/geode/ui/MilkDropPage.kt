@@ -44,6 +44,7 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextOverflow
@@ -347,7 +348,9 @@ private fun PageCard(
     val view = LocalView.current
     val motion = LocalGeodeMotion.current
     val turn by animateFloatAsState(if (expanded) HALF_TURN else 0f, motion.defaultEffectsSpec(), label = "card-chevron")
-    val state = stringResource(if (expanded) R.string.milk_collapse else R.string.milk_expand, title)
+    val action = stringResource(if (expanded) R.string.milk_collapse else R.string.milk_expand, title)
+    // The summary is read as the row's own text; the state says whether the card is open.
+    val state = stringResource(if (expanded) R.string.milk_card_expanded else R.string.milk_card_collapsed)
     Column(
         Modifier
             .fillMaxWidth()
@@ -360,10 +363,10 @@ private fun PageCard(
             Modifier
                 .fillMaxWidth()
                 .heightIn(min = CARD_HEADER)
-                .clickable(role = Role.Button, onClickLabel = state) {
+                .clickable(role = Role.Button, onClickLabel = action) {
                     view.performStoneHaptic(StoneHapticCue.TAP)
                     onToggle()
-                }.semantics { stateDescription = summary }
+                }.semantics { stateDescription = state }
                 .padding(start = GeodeSpacing.L),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -415,7 +418,8 @@ private fun PageRow(
             .clickable(role = Role.Button) {
                 view.performStoneHaptic(StoneHapticCue.TAP)
                 onClick()
-            }.padding(horizontal = GeodeSpacing.S),
+            }.then(if (selected) Modifier.semantics { this.selected = true } else Modifier)
+            .padding(horizontal = GeodeSpacing.S),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(GeodeSpacing.S),
     ) {

@@ -36,7 +36,6 @@ import dev.geode.R
 import dev.geode.data.BehaviourPrefs
 import dev.geode.data.CanvasGesture
 import dev.geode.data.GestureAction
-import dev.geode.pro.FeatureGate
 import dev.geode.pro.PaywallTrigger
 import dev.geode.pro.ProFeature
 import dev.geode.render.VisualizerView
@@ -234,7 +233,7 @@ internal fun rememberStageActions(
         toggleSheet = onToggleSheet,
         stepStyle = stepStyle,
         stepPreset = { step -> stepPreset(viewModel, gate(), step) },
-        // With fewer than two looks in the playlist, the styles step instead (as nextLook does).
+        // With fewer than two looks in the playlist, the styles step instead.
         stepPlaylist = { step -> if (!viewModel.stepVizPlaylist(step)) stepStyle(step) },
         macros = onMacros,
         record = onRecord,
@@ -252,20 +251,6 @@ internal fun rememberStageActions(
 
 /** The actions a sideways swipe, or its ‹ › twins, can step through. */
 internal val STEP_ACTIONS = setOf(GestureAction.STEP_STYLE, GestureAction.STEP_PRESET, GestureAction.STEP_PLAYLIST)
-
-/**
- * The double tap's "next": the user's visuals playlist when it holds two or more looks (the
- * playlist they built is the order they asked for), else the next style the stage swipe would
- * reach. The fullscreen live view uses the same rule.
- */
-internal fun nextLook(
-    viewModel: PlayerViewModel,
-    sceneId: String,
-    gate: FeatureGate,
-) {
-    if (viewModel.stepVizPlaylist()) return
-    nextStageStyle(stageStyleOrder(), sceneId, 1) { !gate.allowsStyle(it) }?.let(viewModel::selectScene)
-}
 
 /**
  * Every style the stage swipes through, in the order the Styles page lists them. MilkDrop is left

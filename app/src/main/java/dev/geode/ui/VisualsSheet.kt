@@ -100,7 +100,7 @@ internal fun VisualsOptions(
                 scope = scope,
                 restPx = { currentAnchors.getValue(nav.sheet) },
                 maxPx = { currentAnchors.getValue(SheetHeight.TALL) },
-                onRelease = { velocityUp -> currentSettle(settle(heightPx.value, velocityUp, currentAnchors)) },
+                onRelease = { velocityUp -> currentSettle(settleHeight(heightPx.value, velocityUp, currentAnchors)) },
             )
         }
     val shape = RoundedCornerShape(GeodeRadius.Floating)
@@ -132,7 +132,7 @@ internal fun VisualsOptions(
                 nav = nav,
                 side = side,
                 onDrag = { delta -> scope.launch { heightPx.snapTo((heightPx.value - delta).coerceIn(0f, maxPx)) } },
-                onDragStopped = { velocity -> onSettle(settle(heightPx.value, -velocity, anchors)) },
+                onDragStopped = { velocity -> onSettle(settleHeight(heightPx.value, -velocity, anchors)) },
                 onSettle = onSettle,
             )
             Box(
@@ -375,7 +375,7 @@ internal fun sheetAnchors(
  * Where a drag released at [px] comes to rest: the next height up or down on a fling, else the
  * nearest. [velocityUp] is px/s, positive upward. Below its tabs the sheet hides.
  */
-internal fun settle(
+internal fun settleHeight(
     px: Float,
     velocityUp: Float,
     anchors: Map<SheetHeight, Float>,

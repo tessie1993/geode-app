@@ -27,6 +27,8 @@
     <string name="milk_more">More for your presets</string>
     <string name="milk_expand">Show %1$s</string>
     <string name="milk_collapse">Hide %1$s</string>
+    <string name="milk_card_expanded">Expanded</string>
+    <string name="milk_card_collapsed">Collapsed</string>
     <plurals name="milk_import_presets">
         <item quantity="one">Imported %1$d preset</item>
         <item quantity="other">Imported %1$d presets</item>

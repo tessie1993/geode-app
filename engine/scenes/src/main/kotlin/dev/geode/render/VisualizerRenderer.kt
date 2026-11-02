@@ -82,6 +82,13 @@ class VisualizerRenderer(
     @Volatile
     var onMilkPresetLoaded: (String) -> Unit = {}
 
+    /**
+     * The auto-director chose a new look at a new section or a drop. Called on the GL thread, at most
+     * once a frame; the app's Auto changes style on it (one Auto mode).
+     */
+    @Volatile
+    var onDirectorStyleMoment: () -> Unit = {}
+
     // W02: lets the UI re-decode/re-crop the background image to the surface's new pixel size.
     // Assigned from Main (EnginePlumbing.kt), invoked on the GL thread from onSurfaceChanged.
     @Volatile
@@ -293,6 +300,7 @@ class VisualizerRenderer(
             milkPreset.loaded(path)
             onMilkPresetLoaded(path)
         }
+        if (nativeViz.takeDirectorStyleMoments() > 0) onDirectorStyleMoment()
     }
 
     private fun syncNativeState() {

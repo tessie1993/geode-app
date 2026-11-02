@@ -17,6 +17,9 @@ internal class PlaybackFades(
         val player: Player
         val fadeMs: Int
 
+        /** The playback session's volume mix, which the crossfade multiplies into. */
+        fun setVolume(volume: Float)
+
         fun stopLiveInput()
     }
 
@@ -34,7 +37,7 @@ internal class PlaybackFades(
     }
 
     private fun applyVolume() {
-        host.player.volume = (sleepVolume * fadeVolume).coerceIn(0f, 1f)
+        host.setVolume((sleepVolume * fadeVolume).coerceIn(0f, 1f))
     }
 
     private fun fadeThen(

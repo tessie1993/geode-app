@@ -4,12 +4,15 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -32,6 +35,7 @@ import dev.geode.data.RuleField
 import dev.geode.data.RuleOp
 import dev.geode.data.SmartPlaylist
 import dev.geode.data.SmartRule
+import dev.geode.ui.theme.GeodeSpacing
 import dev.geode.ui.theme.StoneIcon
 import dev.geode.ui.theme.StoneIconArt
 
@@ -44,7 +48,10 @@ internal fun SmartPlaylistsSection(viewModel: LibraryViewModel) {
     Column(Modifier.fillMaxWidth()) {
         Row(Modifier.padding(horizontal = 16.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(stringResource(R.string.smart_playlists), style = MaterialTheme.typography.labelMedium, modifier = Modifier.weight(1f))
-            CrystalButton(compact = true, filled = false, onClick = { creating = true }) { Text(stringResource(R.string.smart_new)) }
+            FilledTonalButton(
+                onClick = { creating = true },
+                contentPadding = PaddingValues(horizontal = GeodeSpacing.M, vertical = GeodeSpacing.XS),
+            ) { Text(stringResource(R.string.smart_new)) }
         }
         library.smartPlaylists.forEach { pl ->
             val count = remember(pl, library) { viewModel.resolveSmartPlaylist(pl).size }
@@ -143,7 +150,7 @@ private fun SmartPlaylistDialog(
             }
         },
         confirmButton = {
-            CrystalButton(enabled = nameOk, onClick = { onSave(draft.copy(name = draft.name.trim())) }) {
+            Button(enabled = nameOk, onClick = { onSave(draft.copy(name = draft.name.trim())) }) {
                 Text(stringResource(R.string.action_save))
             }
         },

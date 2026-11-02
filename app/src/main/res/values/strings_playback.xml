@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Media notification buttons (playback/NotificationButtons): each names what a tap does. -->
+    <string name="notification_shuffle_on">Shuffle on</string>
+    <string name="notification_shuffle_off">Shuffle off</string>
+    <string name="notification_repeat_all">Repeat all</string>
+    <string name="notification_repeat_one">Repeat one</string>
+    <string name="notification_repeat_off">Repeat off</string>
+    <string name="notification_favourite">Add to favourites</string>
+    <string name="notification_unfavourite">Remove from favourites</string>
+</resources>

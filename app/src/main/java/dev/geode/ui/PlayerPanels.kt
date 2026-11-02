@@ -18,6 +18,8 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -53,6 +55,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import dev.geode.R
+import dev.geode.ui.theme.GeodeSpacing
 import dev.geode.ui.theme.StoneIcon
 import dev.geode.ui.theme.StoneIconArt
 import kotlinx.coroutines.delay
@@ -152,7 +155,11 @@ fun LyricsPanel(
             modifier.padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            CrystalOverline(stringResource(R.string.lyrics_none))
+            Text(
+                stringResource(R.string.lyrics_none),
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             Text(
                 stringResource(R.string.lyrics_none_explainer),
                 style = MaterialTheme.typography.bodySmall,
@@ -257,7 +264,11 @@ fun QueuePanel(
 ) {
     if (queue.tracks.isEmpty()) {
         Column(modifier.padding(24.dp)) {
-            CrystalOverline(stringResource(R.string.queue))
+            Text(
+                stringResource(R.string.queue),
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             Text(
                 stringResource(R.string.queue_empty_explainer),
                 style = MaterialTheme.typography.bodySmall,
@@ -281,11 +292,17 @@ fun QueuePanel(
             Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            CrystalOverline(stringResource(R.string.queue), Modifier.weight(1f))
-            CrystalButton(
-                compact = true,
-                filled = false,
+            Text(
+                stringResource(R.string.queue),
+                Modifier.weight(1f),
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            FilledTonalButton(
                 onClick = { saving = true },
+                contentPadding =
+                    androidx.compose.foundation.layout
+                        .PaddingValues(horizontal = GeodeSpacing.M, vertical = GeodeSpacing.XS),
             ) { Text(stringResource(R.string.queue_save_as_playlist)) }
         }
         LazyColumn(
@@ -389,12 +406,12 @@ internal fun PlaylistNameDialog(
         title = { Text(title) },
         text = { OutlinedTextField(value = name, onValueChange = { name = it }, singleLine = true) },
         confirmButton = {
-            CrystalButton(
-                enabled = playlistNameAccepted(name, taken),
+            Button(
                 onClick = {
                     onName(name.trim())
                     onDismiss()
                 },
+                enabled = playlistNameAccepted(name, taken),
             ) { Text(confirmLabel) }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },

@@ -9,7 +9,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
 import dev.geode.R
+import dev.geode.data.GeodePrefsFiles
+import dev.geode.data.StudioPrefsStore
 import dev.geode.data.UserIntent
 import dev.geode.ui.theme.StoneIcon
 
@@ -32,13 +35,14 @@ enum class GeodeDestination(
 }
 
 /**
- * The sections of [GeodeDestination.STUDIO]. Studio owns everything that makes a video:
- * [EDIT] is the Pro clip editor, [RENDER] the visualizer export, loop render and their defaults,
- * [TAKES] the recorded performances a render can replay (recorded from the Visuals stage).
- * [RENDER] is open to free and trial users too (within `pro/FreeTier`), so it is reachable from
- * the Visuals export button and from Settings even when the Studio tab is hidden from the bar.
+ * The tabs of [GeodeDestination.STUDIO], in the order they show. Studio owns everything that makes
+ * a video: [RENDER] makes a video of what is playing (open to free and trial users within
+ * `pro/FreeTier`), [MY_VIDEOS] lists every finished render and recorded take, and [EDIT] is the Pro
+ * editor's home (new project, recent, all projects) in front of the timeline. Render comes first
+ * because it is where a first visit and every free user lands; the last tab used is kept across
+ * restarts by `data/StudioPrefsStore`.
  */
-enum class StudioSection { EDIT, RENDER, TAKES }
+enum class StudioSection { RENDER, MY_VIDEOS, EDIT }
 
 /**
  * What the Visuals stage asks of the shell's mini player and navigation bar. [FULL] is the
@@ -54,7 +58,7 @@ class GeodeAppState(
     expanded: Boolean = false,
     searching: Boolean = false,
     bootDone: Boolean = false,
-    studioSection: StudioSection = StudioSection.EDIT,
+    studioSection: StudioSection = StudioSection.RENDER,
 ) {
     var dest by mutableStateOf(dest)
 
@@ -120,7 +124,7 @@ class GeodeAppState(
                         bootDone = it[3] as Boolean,
                         studioSection =
                             StudioSection.entries.firstOrNull { s -> s.name == it.getOrNull(4) }
-                                ?: StudioSection.EDIT,
+                                ?: StudioSection.RENDER,
                     )
                 },
             )
@@ -129,7 +133,14 @@ class GeodeAppState(
 
 @Composable
 fun rememberGeodeAppState(externalDisplay: Display?): GeodeAppState {
-    val state = rememberSaveable(saver = GeodeAppState.Saver) { GeodeAppState() }
+    val context = LocalContext.current
+    val state =
+        rememberSaveable(saver = GeodeAppState.Saver) {
+            // A cold start opens Studio on the tab the user last left it on; a process-death
+            // restore keeps whatever the saver brought back instead.
+            val lastTab = StudioPrefsStore(GeodePrefsFiles(context).general).lastTab()
+            GeodeAppState(studioSection = StudioSection.entries.firstOrNull { it.name == lastTab } ?: StudioSection.RENDER)
+        }
     state.externalDisplay = externalDisplay
     return state
 }

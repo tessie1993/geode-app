@@ -24,6 +24,8 @@ class StyleShelfStore private constructor(
 
     fun pushRecent(id: String) = edit { it.pushRecent(id) }
 
+    fun removeRecent(id: String) = edit { it.removeRecent(id) }
+
     private fun edit(change: (StyleShelf) -> StyleShelf) {
         _shelf.update(change)
         val s = _shelf.value

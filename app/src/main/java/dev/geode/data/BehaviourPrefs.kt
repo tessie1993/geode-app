@@ -7,6 +7,7 @@ import androidx.core.content.edit
 // the visual means. The owner decided every default here (wave 1, 1C); the screens that read them
 // come later, so this file is the record of the decision as much as the store of the choice. Kept in
 // `geode-prefs`, so Settings › Backup carries it in the Settings section.
+// "Resume last track on launch" is not here: it is PlayerPrefs.autoResume, which already existed.
 
 /** The screen the app opens on. [LAST_USED] reopens [BehaviourPrefs.lastScreen]. */
 enum class StartScreen {
@@ -22,12 +23,6 @@ enum class VisualsOrientation {
     AUTO_ROTATE,
     PORTRAIT,
     LANDSCAPE,
-}
-
-/** What the lock screen and the media notification show behind the track. */
-enum class LockScreenPicture {
-    ARTWORK,
-    LIVE_VISUAL,
 }
 
 /** The extra buttons the media notification carries beside play, previous and next. */
@@ -84,35 +79,57 @@ enum class VisualsBar {
     NEVER,
 }
 
-/** A gesture on the live canvas that the listener can remap or switch off. */
+/**
+ * A gesture on the visual (ui-flow-decisions.md › Gestures). Swipes count only when they start
+ * outside the system gesture insets; the edges stay Android's.
+ */
 enum class CanvasGesture {
-    SWIPE_SIDEWAYS,
+    /** A tap on the lower part of the visual. */
+    TAP_BOTTOM,
+
+    /** A tap on the upper part of the visual. */
+    TAP_TOP,
     DOUBLE_TAP,
-    SWIPE_DOWN,
+    SWIPE_SIDEWAYS,
     SWIPE_UP,
-    HOLD,
+    SWIPE_DOWN,
+
+    /** Held through the red ring (~0.8 s); lifting early does nothing. */
+    LONG_PRESS,
+
+    /** Two circles drawn with one finger. */
+    SWIRL,
+    TWO_FINGER_DRAG,
     PINCH_TWIST,
-    DRAG,
 }
 
 /** What a [CanvasGesture] does. Not every action suits every gesture; the settings screen offers the ones that do. */
 enum class GestureAction {
     OFF,
 
-    /** Next or previous style, by the swipe's direction. */
-    CHANGE_STYLE,
+    /** The mini player with the stage icons (Record, Fullscreen, ‹ ›, Studio). */
+    SHOW_MINI_PLAYER,
 
-    /** The next look: the visual playlist's next entry, else the next style. */
-    NEXT_LOOK,
-    HIDE_BARS,
-    SHOW_BARS,
-    HIDE_PANEL,
+    /** Visuals quick settings. */
+    QUICK_SETTINGS,
 
-    /** Zoom and turn the scene with two fingers. */
-    TRANSFORM,
+    /** The options sheet: hidden, or back at its last height. */
+    TOGGLE_SHEET,
 
-    /** Move the liquid, or draw the ripple and smear strokes. */
-    TOUCH_FIELD,
+    /** Next or previous by the swipe's direction: a style, a preset, or the visual playlist's look. */
+    STEP_STYLE,
+    STEP_PRESET,
+    STEP_PLAYLIST,
+
+    /** The Macros drawer, with its edit and make-a-macro icon. */
+    MACROS,
+
+    /** Record a take; while recording, the red icon stops it. */
+    RECORD,
+    RANDOMIZE_ALL,
+
+    /** Ripples, smear and stirring the liquid. */
+    TOUCH_PLAY,
     PLAY_PAUSE,
 }
 
@@ -123,12 +140,11 @@ data class BehaviourPrefs(
     val visualsOrientation: VisualsOrientation = VisualsOrientation.AUTO_ROTATE,
     /** Keeps the screen awake while Visuals is on screen; Player's own keep-screen-on is apart from it. */
     val keepScreenOnVisuals: Boolean = true,
+    /** Plays when headphones or a Bluetooth audio device connect, while a track is loaded and paused. */
     val startOnHeadphones: Boolean = false,
     val autoFullscreen: Boolean = false,
-    val resumeOnLaunch: Boolean = false,
     /** Back twice to leave the app. */
     val confirmExit: Boolean = false,
-    val lockScreenPicture: LockScreenPicture = LockScreenPicture.ARTWORK,
     val notificationButtons: Set<NotificationButton> = setOf(NotificationButton.SHUFFLE, NotificationButton.REPEAT),
     val volumeKeysOnVisuals: VolumeKeysAction = VolumeKeysAction.VOLUME,
     val shake: ShakeAction = ShakeAction.OFF,
@@ -162,16 +178,19 @@ data class BehaviourPrefs(
     fun actionFor(gesture: CanvasGesture): GestureAction = gestures[gesture] ?: GestureAction.OFF
 
     companion object {
-        /** Today's gestures, kept as they are until the listener changes one. */
+        /** The owner's gesture set (ui-flow-decisions.md › Gestures); pinch and twist do nothing. */
         val DEFAULT_GESTURES: Map<CanvasGesture, GestureAction> =
             mapOf(
-                CanvasGesture.SWIPE_SIDEWAYS to GestureAction.CHANGE_STYLE,
-                CanvasGesture.DOUBLE_TAP to GestureAction.NEXT_LOOK,
-                CanvasGesture.SWIPE_DOWN to GestureAction.HIDE_BARS,
-                CanvasGesture.SWIPE_UP to GestureAction.SHOW_BARS,
-                CanvasGesture.HOLD to GestureAction.HIDE_PANEL,
-                CanvasGesture.PINCH_TWIST to GestureAction.TRANSFORM,
-                CanvasGesture.DRAG to GestureAction.TOUCH_FIELD,
+                CanvasGesture.TAP_BOTTOM to GestureAction.SHOW_MINI_PLAYER,
+                CanvasGesture.TAP_TOP to GestureAction.QUICK_SETTINGS,
+                CanvasGesture.DOUBLE_TAP to GestureAction.TOGGLE_SHEET,
+                CanvasGesture.SWIPE_SIDEWAYS to GestureAction.STEP_STYLE,
+                CanvasGesture.SWIPE_UP to GestureAction.SHOW_MINI_PLAYER,
+                CanvasGesture.SWIPE_DOWN to GestureAction.MACROS,
+                CanvasGesture.LONG_PRESS to GestureAction.RECORD,
+                CanvasGesture.SWIRL to GestureAction.RANDOMIZE_ALL,
+                CanvasGesture.TWO_FINGER_DRAG to GestureAction.TOUCH_PLAY,
+                CanvasGesture.PINCH_TWIST to GestureAction.OFF,
             )
     }
 }
@@ -188,9 +207,7 @@ class BehaviourStore(
             keepScreenOnVisuals = prefs.getBoolean(KEY_KEEP_SCREEN_ON_VISUALS, d.keepScreenOnVisuals),
             startOnHeadphones = prefs.getBoolean(KEY_START_ON_HEADPHONES, d.startOnHeadphones),
             autoFullscreen = prefs.getBoolean(KEY_AUTO_FULLSCREEN, d.autoFullscreen),
-            resumeOnLaunch = prefs.getBoolean(KEY_RESUME_ON_LAUNCH, d.resumeOnLaunch),
             confirmExit = prefs.getBoolean(KEY_CONFIRM_EXIT, d.confirmExit),
-            lockScreenPicture = enumOf(KEY_LOCK_SCREEN_PICTURE, d.lockScreenPicture),
             notificationButtons =
                 prefs
                     .getStringSet(KEY_NOTIFICATION_BUTTONS, null)
@@ -224,9 +241,7 @@ class BehaviourStore(
             putBoolean(KEY_KEEP_SCREEN_ON_VISUALS, b.keepScreenOnVisuals)
             putBoolean(KEY_START_ON_HEADPHONES, b.startOnHeadphones)
             putBoolean(KEY_AUTO_FULLSCREEN, b.autoFullscreen)
-            putBoolean(KEY_RESUME_ON_LAUNCH, b.resumeOnLaunch)
             putBoolean(KEY_CONFIRM_EXIT, b.confirmExit)
-            putString(KEY_LOCK_SCREEN_PICTURE, b.lockScreenPicture.name)
             putStringSet(KEY_NOTIFICATION_BUTTONS, b.notificationButtons.mapTo(mutableSetOf()) { it.name })
             putString(KEY_VOLUME_KEYS, b.volumeKeysOnVisuals.name)
             putString(KEY_SHAKE, b.shake.name)
@@ -264,9 +279,7 @@ class BehaviourStore(
         const val KEY_KEEP_SCREEN_ON_VISUALS = "behaviour_keep_screen_on_visuals"
         const val KEY_START_ON_HEADPHONES = "behaviour_start_on_headphones"
         const val KEY_AUTO_FULLSCREEN = "behaviour_auto_fullscreen"
-        const val KEY_RESUME_ON_LAUNCH = "behaviour_resume_on_launch"
         const val KEY_CONFIRM_EXIT = "behaviour_confirm_exit"
-        const val KEY_LOCK_SCREEN_PICTURE = "behaviour_lock_screen_picture"
         const val KEY_NOTIFICATION_BUTTONS = "behaviour_notification_buttons"
         const val KEY_VOLUME_KEYS = "behaviour_volume_keys_visuals"
         const val KEY_SHAKE = "behaviour_shake"

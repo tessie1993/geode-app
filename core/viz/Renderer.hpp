@@ -93,6 +93,9 @@ public:
     void setMilkTextureDir(const std::string& dir);
     // The path of the preset the MilkDrop scene last compiled, handed out once.
     std::string takeMilkPresetLoaded();
+    // How many times the director committed a look at a new section or a drop since the last take.
+    // The shell's Auto changes style on each (one Auto mode: the director picks the moments).
+    int takeDirectorStyleMoments() { return directorStyleMoments_.exchange(0, std::memory_order_acq_rel); }
     void setLfoConfigs(const std::array<LfoConfig, LfoEngine::kSlots>& configs);
     void setAdsrConfigs(const std::array<AdsrConfig, AdsrEngine::kCount>& configs);
     void setReactionRoutes(const std::array<ReactRoute, ReactionEngine::kRoutes>& routes);
@@ -202,6 +205,8 @@ private:
     Director director_;
     // Set by pinDirector; read once a frame on the GL thread.
     std::atomic<bool> directorPinned_{false};
+    std::atomic<int> directorStyleMoments_{0};
+    int directorCommitsSeen_ = 0;  // GL thread only
     std::atomic<float> pinnedDirectorAmount_{0.0f};
     std::atomic<uint64_t> pinnedDirectorSeed_{0};
     // Note & key reactions (viz/NoteResponse), after the director's look: knobs, note colours, blooms.

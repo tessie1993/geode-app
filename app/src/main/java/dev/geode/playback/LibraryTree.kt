@@ -72,6 +72,34 @@ class LibraryTree(
         return if (index < 0) null else siblings to index
     }
 
+    /**
+     * Settings › Behaviour › At queue end › Play similar: tracks that share [uri]'s artist or album,
+     * or sit in a playlist with it, shuffled and without [exclude]. The owner also named the record
+     * label, but no tag reader keeps a label yet, so it is not matched.
+     */
+    fun similarTo(
+        uri: String,
+        exclude: Set<String>,
+    ): List<MediaItem> {
+        val rows = tracks()
+        val last = rows.firstOrNull { it.uri == uri } ?: return emptyList()
+        val playlistMates =
+            MusicPlaylistStore(context)
+                .list()
+                .filter { uri in it.trackUris }
+                .flatMapTo(HashSet()) { it.trackUris }
+        return rows
+            .filter { it.uri != uri && it.uri !in exclude && (last.sharesTagWith(it) || it.uri in playlistMates) }
+            .shuffled()
+            .take(SIMILAR_LIMIT)
+            .map { playable(TRACKS, it) }
+    }
+
+    private fun Row.sharesTagWith(other: Row): Boolean {
+        val sameArtist = artist.isNotBlank() && artist.equals(other.artist, ignoreCase = true)
+        return sameArtist || (album.isNotBlank() && album.equals(other.album, ignoreCase = true))
+    }
+
     fun playable(mediaId: String): MediaItem? {
         val uri = mediaId.substringAfter(SEPARATOR, "")
         if (uri.isEmpty()) return null
@@ -193,6 +221,7 @@ class LibraryTree(
         const val RECENT = "recent"
         private const val SEPARATOR = "|"
         private const val RECENT_LIMIT = 50
+        private const val SIMILAR_LIMIT = 50
         private val TOP_LEVEL = setOf(TRACKS, ALBUMS, ARTISTS, PLAYLISTS, FAVOURITES, RECENT)
     }
 }

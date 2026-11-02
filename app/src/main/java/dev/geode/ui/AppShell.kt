@@ -204,13 +204,8 @@ fun AppRoot() {
                 modifier = modifier,
             )
         }
-        // Someone who came here to listen does not get a render queue in their navigation bar.
-        // First run no longer asks, so everyone starts with everything and narrows it in Settings.
-        val showsStudio = gui.intent.showsStudio
-        val tutorial = rememberTutorialState()
         val navEntries =
             GeodeDestination.entries
-                .filter { it != GeodeDestination.STUDIO || showsStudio }
                 .map { NavEntry(it, CrystalNavItem(stringResource(it.labelRes), it.icon)) }
         // Keyed by destination, not by position: rotating swaps the bar layout for the rail
         // layout, which would otherwise drop every screen's saved tab and scroll state.
@@ -458,6 +453,7 @@ private fun AppShellCompact(
                     },
                 ),
         ) { content() }
+        if (appState.immersive) return@Box
         Column(
             Modifier
                 .align(Alignment.BottomCenter)

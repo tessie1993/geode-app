@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.PlaylistRemove
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -179,7 +180,7 @@ internal fun SavePresetDialog(
             }
         },
         confirmButton = {
-            CrystalButton(enabled = cleaned.isNotEmpty() && !builtInClash, onClick = { onSave(cleaned, folder) }) {
+            Button(enabled = cleaned.isNotEmpty() && !builtInClash, onClick = { onSave(cleaned, folder) }) {
                 Text(if (replaces != null) "Replace" else "Save")
             }
         },
@@ -214,7 +215,7 @@ internal fun NameDialog(
             )
         },
         confirmButton = {
-            CrystalButton(enabled = problem == null, onClick = { onConfirm(text) }) { Text(confirmLabel) }
+            Button(enabled = problem == null, onClick = { onConfirm(text) }) { Text(confirmLabel) }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     )
@@ -273,7 +274,7 @@ internal fun ConfirmDialog(
         onDismissRequest = onDismiss,
         title = { Text(title, maxLines = 2, overflow = TextOverflow.Ellipsis) },
         text = { Text(text) },
-        confirmButton = { CrystalButton(onClick = onConfirm) { Text(confirmLabel) } },
+        confirmButton = { Button(onClick = onConfirm) { Text(confirmLabel) } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     )
 }

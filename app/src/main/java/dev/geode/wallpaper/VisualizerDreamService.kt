@@ -26,7 +26,7 @@ import dev.geode.util.bestEffort
 /**
  * The visualizer as a screensaver (Daydream): the same renderer [VisualizerWallpaperService]
  * hosts, on a plain window instead of a wallpaper surface, with the time and what is playing
- * over it ([DreamOverlay], each part a Settings › Behaviour toggle).
+ * over it ([DreamOverlay], each part a toggle in [DreamPrefsStore]).
  *
  * Reusing [VisualizerView] itself — rather than wiring a bare `GLSurfaceView` the way the
  * wallpaper has to — is what a Dream's window buys over a wallpaper's: it is a real window with a
@@ -92,8 +92,7 @@ class VisualizerDreamService : DreamService() {
         isFullscreen = true
         val prefsFiles = GeodePrefsFiles(this)
         // Its own switch (Settings › Behaviour), no longer Player's keep-screen-on.
-        val behaviour = BehaviourStore(prefsFiles.general).load()
-        isScreenBright = behaviour.dreamScreenBright
+        isScreenBright = BehaviourStore(prefsFiles.general).load().dreamScreenBright
         val view = VisualizerView(this)
         visualizerView = view
         restoreLiveState(view.visualizerRenderer, prefsFiles)
@@ -102,8 +101,9 @@ class VisualizerDreamService : DreamService() {
         view.visualizerRenderer.soundInput = { sound.input }
         val stage = DreamStage(this)
         stage.addView(view, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
-        if (behaviour.dreamShowClock || behaviour.dreamShowNowPlaying) {
-            val dreamOverlay = DreamOverlay(this, behaviour.dreamShowClock, behaviour.dreamShowNowPlaying)
+        val shown = DreamPrefsStore(this).load()
+        if (shown.showClock || shown.showNowPlaying) {
+            val dreamOverlay = DreamOverlay(this, shown.showClock, shown.showNowPlaying)
             overlay = dreamOverlay
             stage.addView(
                 dreamOverlay,

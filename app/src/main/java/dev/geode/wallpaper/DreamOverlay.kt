@@ -37,7 +37,7 @@ import kotlin.random.Random
  */
 class DreamOverlay(
     context: Context,
-    /** Settings › Behaviour's dream toggles (`BehaviourPrefs.dreamShowClock`, `dreamShowNowPlaying`). */
+    /** The dream's toggles ([DreamPrefsStore]). */
     private val showClock: Boolean,
     private val showNowPlaying: Boolean,
 ) : LinearLayout(context) {

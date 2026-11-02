@@ -42,6 +42,7 @@ import androidx.compose.material3.NavigationRail
 import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.runtime.Composable
@@ -58,7 +59,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.layout
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -67,6 +70,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
@@ -111,7 +115,7 @@ private const val CRASH_REPORT_MAX_BYTES = 64 * 1024
  */
 private data class NavEntry(
     val destination: GeodeDestination,
-    val item: CrystalNavItem,
+    val item: DockItem,
 )
 
 @Composable
@@ -189,7 +193,9 @@ fun AppRoot() {
     val motion = geodeMotionScheme(gui.reducedMotion || rememberSystemReducedMotion())
     val accent by animateColorAsState(accentTarget, motion.slowEffectsSpec(), label = "accent")
     // The mini player (and on Visuals the tab bar and stage icons) wakes on a new screen or track.
-    val chrome = rememberShellChrome(gui.miniPlayerFadeSeconds, appState.dest, state.title)
+    // A PiP window shows the visual alone (the sheet and the chrome hidden) until it closes.
+    val inPip = VisualizerPipCoordinator.inPictureInPicture
+    val chrome = rememberShellChrome(gui.miniPlayerFadeSeconds, inPip, appState.dest, state.title)
     var dockHeight by remember { mutableStateOf(0.dp) }
     val visualsReserve by animateDpAsState(dockHeight, motion.defaultSpatialSpec(), label = "dock")
     CrystalMaterialTheme(gui = gui, accentSource = accent) {
@@ -212,19 +218,20 @@ fun AppRoot() {
         val tutorial = rememberTutorialState()
         val navEntries =
             GeodeDestination.entries
-                .map { NavEntry(it, CrystalNavItem(stringResource(it.labelRes), it.icon)) }
+                .map { NavEntry(it, DockItem(stringResource(it.labelRes), it.icon)) }
         // Keyed by destination, not by position: rotating swaps the bar layout for the rail
         // layout, which would otherwise drop every screen's saved tab and scroll state.
         val destinationState = rememberSaveableStateHolder()
         val destinationContent: @Composable (twoPane: Boolean) -> Unit = { twoPane ->
-            PlaybackNoticeBanner(viewModel)
+            if (!inPip) PlaybackNoticeBanner(viewModel)
             destinationState.SaveableStateProvider(appState.dest.name) {
                 when (appState.dest) {
                     GeodeDestination.PLAYER ->
                         PlayerScreen(
                             viewModel,
                             onOpenSearch = appState::openSearch,
-                            onExpand = appState::expand,
+                            // The old live view is gone (owner): this opens Visuals, whose full screen is the sheet hidden.
+                            onExpand = { appState.navigateTo(GeodeDestination.VISUALS) },
                             onOpenLibrary = { appState.navigateTo(GeodeDestination.LIBRARY) },
                         )
                     GeodeDestination.LIBRARY ->
@@ -238,7 +245,7 @@ fun AppRoot() {
                                     PlayerScreen(
                                         viewModel,
                                         onOpenSearch = appState::openSearch,
-                                        onExpand = appState::expand,
+                                        onExpand = { appState.navigateTo(GeodeDestination.VISUALS) },
                                         onOpenLibrary = {},
                                     )
                                 }
@@ -247,19 +254,21 @@ fun AppRoot() {
                             LibraryScreen(onOpenSearch = appState::openSearch)
                         }
                     GeodeDestination.VISUALS ->
-                        VisualsHub(
-                            viewModel,
-                            visualizerView,
-                            chrome = chrome,
-                            bottomReserve = visualsReserve,
-                            // The glass slider (Visuals quick settings) tunes only the sheet over the visual, so the change shows.
-                            sheetOpacity = gui.barOpacity,
-                            onOpenLive = appState::expand,
-                            onOpenStudioRender = appState::openStudioRender,
-                            // The one VisualizerView has one parent: the Visuals screen may take it
-                            // only while the live view and the second screen don't hold it.
-                            canvasFree = !appState.expanded && !onSecondScreen,
-                        )
+                        // The visual fills Visuals, so these bounds are the PiP window's source rect and aspect.
+                        Box(Modifier.fillMaxSize().onGloballyPositioned { VisualizerPipCoordinator.canvasBoundsPx = it.windowRect() }) {
+                            VisualsHub(
+                                viewModel,
+                                visualizerView,
+                                chrome = chrome,
+                                bottomReserve = visualsReserve,
+                                // The glass slider (Visuals quick settings) tunes only the sheet over the visual, so the change shows.
+                                sheetOpacity = gui.barOpacity,
+                                onOpenStudioRender = appState::openStudioRender,
+                                // The one VisualizerView has one parent: the second screen holds it while it is on.
+                                canvasFree = !onSecondScreen,
+                                pip = inPip,
+                            )
+                        }
                     GeodeDestination.STUDIO ->
                         StudioHub(
                             viewModel,
@@ -282,7 +291,6 @@ fun AppRoot() {
             }
         }
         Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-            CrystalBackground(Modifier.fillMaxSize())
             val sizeClass = currentWindowAdaptiveInfo().windowSizeClass
             // Two panes only where both get a usable width and the Player pane can show more than
             // its artwork: from 840dp, and not on a short landscape phone. A foldable or a phone on
@@ -290,10 +298,6 @@ fun AppRoot() {
             val twoPane =
                 sizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND) &&
                     sizeClass.isHeightAtLeastBreakpoint(WindowSizeClass.HEIGHT_DP_MEDIUM_LOWER_BOUND)
-            // While the fullscreen visualizer covers the shell, the shell stays composed (its tabs
-            // and scroll positions survive) but is not placed, so nothing under the GL surface is
-            // laid out or drawn on every frame.
-            val shellHidden = appState.expanded && !onSecondScreen
             // Onboarding and the safety notice draw in this window, over the shell. Hiding the shell
             // from accessibility keeps TalkBack from swiping into the app beneath. (The tour is a
             // Dialog, a window of its own, so it needs no such help.)
@@ -301,7 +305,6 @@ fun AppRoot() {
             Box(
                 Modifier
                     .fillMaxSize()
-                    .then(if (shellHidden) Modifier.notPlaced() else Modifier)
                     .then(if (overlayUp) Modifier.clearAndSetSemantics { } else Modifier),
             ) {
                 if (!sizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND)) {
@@ -310,6 +313,7 @@ fun AppRoot() {
                         appState = appState,
                         chrome = chrome,
                         hasMedia = state.hasMedia,
+                        pip = inPip,
                         miniPlayer = miniPlayer,
                         onDock = { dockHeight = it },
                         content = { destinationContent(false) },
@@ -322,6 +326,7 @@ fun AppRoot() {
                         appState = appState,
                         chrome = chrome,
                         showMiniPlayer = state.hasMedia && !appState.onPlayer && !playerPaneShown,
+                        pip = inPip,
                         centerRail = sizeClass.isHeightAtLeastBreakpoint(WindowSizeClass.HEIGHT_DP_MEDIUM_LOWER_BOUND),
                         miniPlayer = miniPlayer,
                         onDock = { dockHeight = it },
@@ -344,13 +349,13 @@ fun AppRoot() {
                         )
                     },
                     confirmButton = {
-                        CrystalButton(onClick = {
+                        TextButton(onClick = {
                             val cm = context.getSystemService(android.content.ClipboardManager::class.java)
                             cm.setPrimaryClip(android.content.ClipData.newPlainText(clipLabel, text))
                         }) { Text(stringResource(R.string.action_copy)) }
                     },
                     dismissButton = {
-                        CrystalButton(filled = false, onClick = {
+                        TextButton(onClick = {
                             java.io.File(context.filesDir, "crash-latest.txt").delete()
                             crashText = null
                         }) { Text(stringResource(R.string.action_dismiss)) }
@@ -358,31 +363,17 @@ fun AppRoot() {
                 )
             }
             // Read by MainActivity to decide whether leaving the app should be treated as "enter
-            // PiP" at all — a screen other than the fullscreen visualizer has nothing worth
-            // shrinking into a window. Excludes the second-screen placeholder card too: when the
-            // visuals are mirrored to a connected display, this phone shows only a "Showing on
-            // <display>" notice, and shrinking that into a PiP window would carry nothing useful.
-            LaunchedEffect(appState.expanded, onSecondScreen) {
-                VisualizerPipCoordinator.visualizerShowing = appState.expanded && !onSecondScreen
+            // PiP" at all: only Visuals shows the visual, and every other screen has nothing worth
+            // shrinking into a window. Not while a connected display holds the visual either: this
+            // phone then shows Visuals without it, and a PiP window of that would carry nothing.
+            val visualShowing = appState.dest == GeodeDestination.VISUALS && !onSecondScreen
+            LaunchedEffect(visualShowing) {
+                VisualizerPipCoordinator.visualizerShowing = visualShowing
             }
             // Keeps the platform's own auto-enter flag (API 31+) and the PiP window's play/pause
-            // remote action in step with what is actually true, rather than only at the moment
-            // someone taps the PiP button.
-            LaunchedEffect(gui.autoEnterPip, state.isPlaying, appState.expanded) {
+            // remote action in step with what is actually true.
+            LaunchedEffect(gui.autoEnterPip, state.isPlaying, visualShowing) {
                 context.findMainActivity()?.refreshPipParams()
-            }
-            if (appState.expanded) {
-                VisualizerScreen(
-                    viewModel = viewModel,
-                    visualizerView = visualizerView,
-                    externalDisplayName = if (onSecondScreen) externalDisplay?.name else null,
-                    onCollapse = appState::collapse,
-                    destinations = navEntries.map { it.destination },
-                    onNavigate = { destination ->
-                        appState.collapse()
-                        appState.navigateTo(destination)
-                    },
-                )
             }
             if ((bootAnimEnabled == false || appState.bootDone) && !gui.safetyAcknowledged) {
                 SafetyConsent(
@@ -436,6 +427,7 @@ private fun AppShellCompact(
     appState: GeodeAppState,
     chrome: ShellChromeState,
     hasMedia: Boolean,
+    pip: Boolean,
     miniPlayer: @Composable (Modifier) -> Unit,
     onDock: (Dp) -> Unit,
     content: @Composable () -> Unit,
@@ -466,7 +458,8 @@ private fun AppShellCompact(
                     },
                 ),
         ) { content() }
-        if (appState.immersive) return@Box
+        // A PiP window is the visual alone; Studio's full-screen timeline takes the whole window.
+        if (appState.immersive || pip) return@Box
         Column(
             Modifier
                 .align(Alignment.BottomCenter)
@@ -514,6 +507,7 @@ private fun AppShellExpanded(
     appState: GeodeAppState,
     chrome: ShellChromeState,
     showMiniPlayer: Boolean,
+    pip: Boolean,
     centerRail: Boolean,
     miniPlayer: @Composable (Modifier) -> Unit,
     onDock: (Dp) -> Unit,
@@ -526,7 +520,8 @@ private fun AppShellExpanded(
     // cutout sits on a side edge, where it would cover the rail or the content's far edge. It
     // includes the keyboard too, so a focused field stays above it.
     Row(Modifier.fillMaxSize().safeDrawingPadding()) {
-        NavRail(navEntries, appState, centerRail)
+        // A PiP window is the visual alone, with no rail beside it.
+        if (!pip) NavRail(navEntries, appState, centerRail)
         Box(Modifier.weight(1f).fillMaxHeight()) {
             content()
             Column(
@@ -591,12 +586,14 @@ private val HANDLE_ZONE = 48.dp
 /** How wide the floating mini player grows on a tablet before it stops. */
 private val MINI_PLAYER_MAX_WIDTH = 640.dp
 
-/** Measured, so its state and size are kept, but never placed: nothing in it is drawn. */
-private fun Modifier.notPlaced(): Modifier =
-    layout { measurable, constraints ->
-        val placeable = measurable.measure(constraints)
-        layout(placeable.width, placeable.height) {}
-    }
+/**
+ * Window-space bounds, not local: PictureInPictureParams.setSourceRectHint wants the same
+ * coordinate space the platform draws the Activity's window in.
+ */
+private fun LayoutCoordinates.windowRect(): android.graphics.Rect {
+    val bounds = boundsInWindow()
+    return android.graphics.Rect(bounds.left.toInt(), bounds.top.toInt(), bounds.right.toInt(), bounds.bottom.toInt())
+}
 
 @Composable
 fun SettingsScreen(
@@ -607,8 +604,18 @@ fun SettingsScreen(
 ) {
     Column(Modifier.fillMaxSize()) {
         Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp)) {
-            CrystalOverline(stringResource(R.string.app_name))
-            GlowTitle(stringResource(R.string.nav_settings))
+            Text(
+                stringResource(R.string.app_name),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            // Every top-level screen opens with its heading, the one TalkBack users jump between.
+            Text(
+                stringResource(R.string.nav_settings),
+                Modifier.semantics { heading() },
+                style = MaterialTheme.typography.headlineSmall,
+                color = MaterialTheme.colorScheme.onBackground,
+            )
         }
         AppSettingsTab(
             viewModel,
@@ -625,12 +632,11 @@ private fun showTutorialTarget(
     appState: GeodeAppState,
     openPaywall: () -> Unit,
 ) {
-    if (target != TutorialTarget.LIVE_VIEW) appState.collapse()
     when (target) {
         TutorialTarget.PLAYER -> appState.navigateTo(GeodeDestination.PLAYER)
         TutorialTarget.LIBRARY -> appState.navigateTo(GeodeDestination.LIBRARY)
-        TutorialTarget.VISUALS -> appState.navigateTo(GeodeDestination.VISUALS)
-        TutorialTarget.LIVE_VIEW -> appState.expand()
+        // The live view is Visuals now: full screen is its sheet hidden.
+        TutorialTarget.VISUALS, TutorialTarget.LIVE_VIEW -> appState.navigateTo(GeodeDestination.VISUALS)
         TutorialTarget.STUDIO_RENDER -> appState.openStudioRender()
         TutorialTarget.STUDIO_EDIT -> {
             appState.studioSection = StudioSection.EDIT
@@ -706,8 +712,7 @@ fun SearchScreen(
             viz.presets.filter { SearchMatcher.matches(terms, listOf(it.name)) }
         }
 
-    Box(Modifier.fillMaxSize().dismissTransform(dismiss)) {
-        CrystalBackground(Modifier.fillMaxSize())
+    Box(Modifier.fillMaxSize().dismissTransform(dismiss).background(MaterialTheme.colorScheme.background)) {
         Column(
             Modifier
                 .fillMaxSize()
@@ -722,7 +727,6 @@ fun SearchScreen(
                     modifier = Modifier.weight(1f),
                     placeholder = { Text(stringResource(R.string.search_placeholder)) },
                     singleLine = true,
-                    shape = crystalShardShape(14.dp, 5.dp),
                 )
                 IconButton(onClick = onClose) { StoneIconArt(StoneIcon.CLOSE, stringResource(R.string.search_close)) }
             }
@@ -738,7 +742,7 @@ fun SearchScreen(
                 } else {
                     if (trackResults.isNotEmpty()) {
                         item {
-                            CrystalOverline(
+                            SearchHeading(
                                 stringResource(R.string.search_heading_tracks, trackResults.size),
                                 Modifier.padding(top = 8.dp),
                             )
@@ -776,7 +780,7 @@ fun SearchScreen(
                     }
                     if (playlistResults.isNotEmpty()) {
                         item {
-                            CrystalOverline(
+                            SearchHeading(
                                 stringResource(R.string.search_heading_playlists, playlistResults.size),
                                 Modifier.padding(top = 8.dp),
                             )
@@ -805,7 +809,7 @@ fun SearchScreen(
                     }
                     if (presetResults.isNotEmpty()) {
                         item {
-                            CrystalOverline(
+                            SearchHeading(
                                 stringResource(R.string.search_heading_presets, presetResults.size),
                                 Modifier.padding(top = 8.dp),
                             )
@@ -835,6 +839,20 @@ fun SearchScreen(
             }
         }
     }
+}
+
+/** A result group's heading: an M3 title in the accent, marked as a heading for TalkBack. */
+@Composable
+private fun SearchHeading(
+    text: String,
+    modifier: Modifier = Modifier,
+) {
+    Text(
+        text,
+        modifier.semantics { heading() },
+        style = MaterialTheme.typography.titleSmall,
+        color = MaterialTheme.colorScheme.primary,
+    )
 }
 
 @Composable

@@ -303,7 +303,6 @@ fun AppRoot() {
                     AppShellCompact(
                         navEntries = navEntries,
                         appState = appState,
-                        gui = gui,
                         chrome = chrome,
                         hasMedia = state.hasMedia,
                         miniPlayer = miniPlayer,
@@ -431,7 +430,6 @@ fun AppRoot() {
 private fun AppShellCompact(
     navEntries: List<NavEntry>,
     appState: GeodeAppState,
-    gui: GuiPrefs,
     chrome: ShellChromeState,
     hasMedia: Boolean,
     miniPlayer: @Composable (Modifier) -> Unit,

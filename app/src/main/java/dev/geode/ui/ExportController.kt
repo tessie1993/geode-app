@@ -16,6 +16,7 @@ import dev.geode.data.GuiPrefs
 import dev.geode.data.PerformanceTake
 import dev.geode.data.SaveTarget
 import dev.geode.editor.AnimatableParams
+import dev.geode.editor.BeatCut
 import dev.geode.editor.Clip
 import dev.geode.editor.ClipContent
 import dev.geode.editor.ClipId
@@ -51,6 +52,7 @@ import dev.geode.export.StudioExporter
 import dev.geode.export.TimeOfDayDrift
 import dev.geode.export.VideoExporter
 import dev.geode.render.SceneFactory
+import dev.geode.render.bridge.StyleSchedule
 import dev.geode.render.scene.SceneParams
 import dev.geode.viz.BackgroundExportSpec
 import kotlinx.coroutines.CoroutineScope
@@ -683,6 +685,8 @@ internal class ExportController(
     private class SegmentLook(
         val factory: SceneFactory,
         val paramsAt: ((Long) -> SceneParams)?,
+        /** The styles the segment switches to (a take's switches, a beat cut), timed natively. */
+        val styleSchedule: StyleSchedule = StyleSchedule.NONE,
     )
 
     /**
@@ -792,6 +796,7 @@ internal class ExportController(
             requestedFps = spec.defaults.fps,
             soundTuning = gui.soundTuning,
             paramsAt = look.paramsAt,
+            styleSchedule = look.styleSchedule,
             range = segment.range,
             destination = destination,
             codec = if (final) spec.defaults.codec else ExportCodec.H264,
@@ -805,7 +810,10 @@ internal class ExportController(
 
     /**
      * The look a segment draws. A take clip plays its recorded events at take time (the clip's
-     * source time), opening on the take's first style; a look clip is the stage's look. The project's
+     * source time), opening on the style in force where the segment starts and switching through
+     * every later one (Studio 2D); a beat-cut clip steps its styles on the beat; a look clip is the
+     * stage's look. When each switch lands is the native renderer's call (`core/viz/StyleSchedule`):
+     * this only hands it the take's switches and the cut's list. The project's
      * scene keyframes, programme-wide or on this clip, fold over either. A segment that neither
      * takes nor keyframes move draws one still look ([SegmentLook.paramsAt] null).
      */
@@ -816,8 +824,12 @@ internal class ExportController(
         factoryFor: (String, String?) -> SceneFactory,
     ): SegmentLook {
         val clip = segment.clip
-        val sceneId = if (take != null) exportSceneIdFor(take, segment.scene.sceneId) else segment.scene.sceneId
-        val milkPath = take?.stateAt(clip.sourceTimeAt(segment.programmeStartMs))?.milkPath ?: segment.scene.milkPath
+        val takeStartMs = clip.sourceTimeAt(segment.programmeStartMs)
+        val opening = take?.stateAt(takeStartMs)
+        val sceneId =
+            opening?.sceneId?.takeIf { it.isNotEmpty() }
+                ?: if (take != null) exportSceneIdFor(take, segment.scene.sceneId) else segment.scene.sceneId
+        val milkPath = opening?.milkPath ?: segment.scene.milkPath
         val animated =
             sheet.tracks.any {
                 it.enabled && (it.clipId == null || it.clipId == clip.id) && AnimatableParams.find(it.paramId)?.isScene == true
@@ -832,7 +844,40 @@ internal class ExportController(
                     if (animated) AnimatableParams.applyToScene(base, sheet.valuesAt(programmeMs, clip.id)) else base
                 }
             }
-        return SegmentLook(factoryFor(sceneId, milkPath), paramsAt)
+        val styleSchedule =
+            when {
+                take != null -> takeSchedule(take, takeStartMs, segment.durationMs)
+                segment.scene.beatCut != null -> beatCutSchedule(sceneId, segment.scene.beatCut)
+                else -> StyleSchedule.NONE
+            }
+        return SegmentLook(factoryFor(sceneId, milkPath), paramsAt, styleSchedule)
+    }
+
+    /**
+     * A take's switches inside this segment, moved from take time to the segment's render time
+     * (the clip plays its take at an offset, [Clip.sourceTimeAt]). The look at the segment's start is
+     * the factory's, so only later switches are cues.
+     */
+    private fun takeSchedule(
+        take: PerformanceTake.Timeline,
+        takeStartMs: Long,
+        durationMs: Long,
+    ): StyleSchedule =
+        StyleSchedule(
+            cues =
+                take
+                    .styleChanges()
+                    .map { change -> StyleSchedule.Cue(change.atMs - takeStartMs, change.sceneId, change.milkPath) }
+                    .filter { it.atMs in 1..durationMs },
+        )
+
+    /** A beat cut opens on [sceneId] and steps through its list from there. */
+    private fun beatCutSchedule(
+        sceneId: String,
+        cut: BeatCut,
+    ): StyleSchedule {
+        val ids = if (cut.sceneIds.firstOrNull() == sceneId) cut.sceneIds else listOf(sceneId) + cut.sceneIds
+        return StyleSchedule(beatCutIds = ids, everyBeats = cut.everyBeats)
     }
 
     /** A take recorded into project [id], or null for a project with no folder or no such take. */

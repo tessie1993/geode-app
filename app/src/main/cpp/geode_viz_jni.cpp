@@ -1,6 +1,7 @@
 #include <jni.h>
 #include <android/asset_manager_jni.h>
 
+#include <algorithm>
 #include <string>
 #include <vector>
 
@@ -13,6 +14,29 @@ using geode::jni::FloatElements;
 using geode::jni::Utf8Chars;
 
 geode_viz* vizOf(jlong handle) { return reinterpret_cast<geode_viz*>(handle); }
+
+// A Java String[] as owned UTF-8 strings (a null element becomes "").
+std::vector<std::string> utf8Strings(JNIEnv* env, jobjectArray array) {
+    std::vector<std::string> out;
+    const jsize n = array ? env->GetArrayLength(array) : 0;
+    out.reserve(static_cast<size_t>(n));
+    for (jsize i = 0; i < n; ++i) {
+        auto str = static_cast<jstring>(env->GetObjectArrayElement(array, i));
+        {
+            Utf8Chars chars(env, str);
+            out.emplace_back(chars.get() ? chars.get() : "");
+        }
+        if (str) env->DeleteLocalRef(str);
+    }
+    return out;
+}
+
+std::vector<const char*> cStrings(const std::vector<std::string>& strings) {
+    std::vector<const char*> out;
+    out.reserve(strings.size());
+    for (const auto& s : strings) out.push_back(s.c_str());
+    return out;
+}
 
 }  // namespace
 
@@ -383,6 +407,24 @@ JNIEXPORT jboolean JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_vizSetScene(JNIEnv* env, jobject, jlong handle, jstring sceneId) {
     Utf8Chars id(env, sceneId);
     return geode_viz_set_scene(vizOf(handle), id.get()) ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_vizSetStyleSchedule(JNIEnv* env, jobject, jlong handle, jdoubleArray atMs,
+                                                             jobjectArray sceneIds, jobjectArray milkPaths,
+                                                             jobjectArray cutIds, jint everyBeats) {
+    const std::vector<std::string> scenes = utf8Strings(env, sceneIds);
+    const std::vector<std::string> milks = utf8Strings(env, milkPaths);
+    const std::vector<std::string> cut = utf8Strings(env, cutIds);
+    const size_t timed = atMs ? static_cast<size_t>(env->GetArrayLength(atMs)) : 0;
+    const size_t count = std::min(timed, std::min(scenes.size(), milks.size()));
+    std::vector<double> times(count);
+    if (count > 0) env->GetDoubleArrayRegion(atMs, 0, static_cast<jsize>(count), times.data());
+    const std::vector<const char*> sceneChars = cStrings(scenes);
+    const std::vector<const char*> milkChars = cStrings(milks);
+    const std::vector<const char*> cutChars = cStrings(cut);
+    geode_viz_set_style_schedule(vizOf(handle), times.data(), sceneChars.data(), milkChars.data(),
+                                 static_cast<int>(count), cutChars.data(), static_cast<int>(cutChars.size()), everyBeats);
 }
 
 JNIEXPORT void JNICALL

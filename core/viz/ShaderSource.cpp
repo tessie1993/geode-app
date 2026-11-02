@@ -31,8 +31,6 @@ constexpr const char* kIncludes[] = {
     "lib_foam",
     // The neon set (five loose styles): normalized shape controls, the palette pull, shared sound drives.
     "lib_neon",
-    // The note blooms' four looks (note_bloom_frag, NoteBloomPass).
-    "lib_bloom",
 };
 
 struct AssetClose {

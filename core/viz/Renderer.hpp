@@ -21,7 +21,6 @@
 #include "viz/Lfo.hpp"
 #include "viz/Macros.hpp"
 #include "viz/MotionField.hpp"
-#include "viz/NoteBloomPass.hpp"
 #include "viz/NoteResponse.hpp"
 #include "viz/Overlays.hpp"
 #include "viz/Params.hpp"
@@ -31,6 +30,7 @@
 #include "viz/Scene.hpp"
 #include "viz/ScenePrep.hpp"
 #include "viz/SceneRegistry.hpp"
+#include "viz/StyleSchedule.hpp"
 #include "viz/ShaderSource.hpp"
 #include "viz/ThermalGovernor.hpp"
 #include "viz/TouchField.hpp"
@@ -123,6 +123,9 @@ public:
     void onSurfaceCreated();
     void surfaceChanged(int width, int height);
     bool setScene(const std::string& sceneId);
+    // Export (Studio 2D): the styles this segment switches to, by render time and by beat
+    // (StyleSchedule.hpp). Latched; the next frame starts it from its beginning. Empty clears it.
+    void setStyleSchedule(std::vector<StyleCue> cues, std::vector<std::string> beatCutIds, int everyBeats);
     void warmTransition(const std::string& id);
     void cut();
     void render(double timeSeconds, GLuint targetFbo);
@@ -143,6 +146,8 @@ private:
     void dropScene(const std::string& id);
     std::unique_ptr<Scene> buildScene(const std::string& id);
     float beginFrame(double timeSeconds);
+    // Steps styleSchedule_ once per frame (after the sound engine) and requests its change, if any.
+    void applyStyleSchedule();
     void applyRenderScale();
     static float supersampleFactor(int width, int height);
     Scene* resolveActiveScene();
@@ -216,9 +221,8 @@ private:
     int directorCommitsSeen_ = 0;  // GL thread only
     std::atomic<float> pinnedDirectorAmount_{0.0f};
     std::atomic<uint64_t> pinnedDirectorSeed_{0};
-    // Note & key reactions (viz/NoteResponse), after the director's look: knobs, note colours, blooms.
+    // Note & key reactions (viz/NoteResponse), after the director's look: knobs, note colours, tint.
     NoteResponse notes_;
-    NoteBloomPass bloomPass_;
     // Frosted glass under the app's sheet. The region is guarded by stateLock_; uiBlurOn_ lets a frame
     // with no sheet skip the lock.
     UiBlurPass uiBlurPass_;
@@ -290,6 +294,9 @@ private:
     // compiled. A rebuilt scene is seeded with both (buildScene).
     std::string lastGoodMilkPreset_;
     std::string milkPresetRequest_;
+    // setStyleSchedule's latest schedule, moved into styleSchedule_ by the GL thread (stateLock_).
+    std::optional<StyleSchedule> styleScheduleRequest_;
+    StyleSchedule styleSchedule_;
     bool milkReloadRequested_ = false;
     std::string milkTextureDir_;
     bool milkTextureDirDirty_ = false;

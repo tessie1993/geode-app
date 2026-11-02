@@ -148,7 +148,6 @@ const std::array<SceneParams::FloatField, SceneParams::kLerpedFloatCount>& Scene
         {"noteTension", &SceneParams::noteTension},
         {"noteChords", &SceneParams::noteChords},
         {"noteDrums", &SceneParams::noteDrums},
-        {"noteBloom", &SceneParams::noteBloom},
     }};
     return kFields;
 }
@@ -175,7 +174,6 @@ const IntField kInts[] = {
         {"cymaticsModes", &SceneParams::cymaticsModes},
         {"camPath", &SceneParams::camPath},
         {"reactSeed", &SceneParams::reactSeed},
-        {"bloomLook", &SceneParams::bloomLook},
         {"liquidBorn", &SceneParams::liquidBorn},
         {"liquidAge", &SceneParams::liquidAge},
         {"liquidSurface", &SceneParams::liquidSurface},
@@ -326,7 +324,6 @@ const SceneParams::FloatField kAllFloats[] = {
         {"noteTension", &SceneParams::noteTension},
         {"noteChords", &SceneParams::noteChords},
         {"noteDrums", &SceneParams::noteDrums},
-        {"noteBloom", &SceneParams::noteBloom},
 };
 }  // namespace
 

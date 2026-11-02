@@ -819,16 +819,8 @@
     <string name="director_taste">Free: the first minute of each song. Pro: the whole song.</string>
     <string name="behavior_group_notes">Note &amp; key reactions</string>
     <string name="notes_switch">Note &amp; key reactions</string>
-    <string name="notes_body">Every style answers the melody, the chords, the key and the mood, not just the drums: each note blooms its own flower in its own colour, leaps swing the picture, tension bends it and resolution smooths it back. Drums count for as much as the track is made of them.</string>
-    <!-- Customize › Look: the note bloom's look (free). -->
-    <string name="note_blooms_title">Note blooms</string>
-    <string name="note_blooms_hint">The shape each note grows when Note &amp; key reactions are on.</string>
-    <string name="note_bloom_look_style">Style\'s own</string>
-    <string name="note_bloom_look_flower">Flower</string>
-    <string name="note_bloom_look_glow">Glow</string>
-    <string name="note_bloom_look_ripple">Ripple</string>
-    <string name="note_bloom_look_burst">Burst</string>
-    <!-- Customize › Advanced › Note & key (Pro): seven per-style strengths, 1 = as designed. -->
+    <string name="notes_body">Every style answers the melody, the chords, the key and the mood, not just the drums: each note brings its own colour, leaps swing the picture, tension bends it and resolution smooths it back. Drums count for as much as the track is made of them.</string>
+    <!-- Customize › Advanced › Note & key (Pro): six per-style strengths, 1 = as designed. -->
     <string name="note_key_intro">How strongly each part of the music answers on this style. 1× is as designed, 0 turns that part off.</string>
     <string name="note_key_off">Note &amp; key reactions are off. Turn them on in Settings › Behaviour to hear these.</string>
     <string name="note_key_color">Note colours</string>
@@ -843,8 +835,6 @@
     <string name="note_key_chords_hint">How hard a new chord turns the scene.</string>
     <string name="note_key_drums">Drums</string>
     <string name="note_key_drums_hint">How much the kick, snare and hats push on top of the notes.</string>
-    <string name="note_key_bloom">Bloom brightness</string>
-    <string name="note_key_bloom_hint">How bright and big each note\'s bloom grows.</string>
     <string name="behavior_group_wallpaper">Live wallpaper</string>
     <string name="behavior_group_pip">Picture-in-picture</string>
     <string name="behavior_touch_smear">Smear the visuals with a finger</string>
@@ -1361,7 +1351,7 @@
         <item quantity="one">%1$d look</item>
         <item quantity="other">%1$d looks</item>
     </plurals>
-    <string name="visuals_qs_sheet_opacity">Sheet glass</string>
+    <string name="visuals_qs_sheet_opacity">Options glass</string>
     <string name="visuals_qs_percent">%1$d%%</string>
     <string name="visuals_qs_fade">Mini player fades after</string>
     <string name="visuals_qs_fade_never">Never</string>

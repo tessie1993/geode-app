@@ -60,6 +60,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
@@ -75,8 +76,10 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.roundToIntRect
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -161,6 +164,9 @@ fun AppRoot() {
     if (onSecondScreen) {
         SecondScreenCanvas(externalDisplay, visualizerView)
     }
+    // The Visuals screen's bounds, in root pixels. The one VisualizerView is hosted once below and
+    // laid out there, so leaving Visuals hides it rather than detaching it (VisualizerCanvasHost).
+    val visualsBounds = remember { mutableStateOf(IntRect.Zero) }
 
     var crashText by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(Unit) {
@@ -254,8 +260,14 @@ fun AppRoot() {
                             LibraryScreen(onOpenSearch = appState::openSearch)
                         }
                     GeodeDestination.VISUALS ->
-                        // The visual fills Visuals, so these bounds are the PiP window's source rect and aspect.
-                        Box(Modifier.fillMaxSize().onGloballyPositioned { VisualizerPipCoordinator.canvasBoundsPx = it.windowRect() }) {
+                        // The visual fills Visuals, so these bounds are the PiP window's source rect and aspect,
+                        // and where the shell lays the visual out.
+                        Box(
+                            Modifier.fillMaxSize().onGloballyPositioned {
+                                VisualizerPipCoordinator.canvasBoundsPx = it.windowRect()
+                                visualsBounds.value = it.boundsInRoot().roundToIntRect()
+                            },
+                        ) {
                             VisualsHub(
                                 viewModel,
                                 visualizerView,
@@ -264,8 +276,6 @@ fun AppRoot() {
                                 // The glass slider (Visuals quick settings) tunes only the sheet over the visual, so the change shows.
                                 sheetOpacity = gui.barOpacity,
                                 onOpenStudioRender = appState::openStudioRender,
-                                // The one VisualizerView has one parent: the second screen holds it while it is on.
-                                canvasFree = !onSecondScreen,
                                 pip = inPip,
                             )
                         }
@@ -307,6 +317,12 @@ fun AppRoot() {
                     .fillMaxSize()
                     .then(if (overlayUp) Modifier.clearAndSetSemantics { } else Modifier),
             ) {
+                // Drawn first, so every screen draws over it; Visuals draws nothing behind its stage,
+                // so the visual shows there. The one VisualizerView has one parent: the second screen
+                // holds it while it is on, and this host steps aside.
+                if (!onSecondScreen) {
+                    VisualizerCanvasHost(visualizerView, shown = appState.dest == GeodeDestination.VISUALS, bounds = visualsBounds)
+                }
                 if (!sizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND)) {
                     AppShellCompact(
                         navEntries = navEntries,

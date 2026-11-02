@@ -18,6 +18,7 @@ import dev.geode.billing.ProSnapshot
 import dev.geode.data.AutoDirectorStore
 import dev.geode.engine.audio.SoundTuning
 import dev.geode.render.SceneFactory
+import dev.geode.render.bridge.StyleSchedule
 import dev.geode.render.offscreen.OffscreenRenderSpec
 import dev.geode.render.offscreen.OffscreenSceneRenderer
 import dev.geode.render.offscreen.OffscreenUnderlay
@@ -157,6 +158,8 @@ class VideoExporter(
         requestedFps: Int = FPS,
         range: ExportRange? = null,
         paramsAt: ((Long) -> SceneParams)? = null,
+        // Studio 2D: the styles the range switches to; see OffscreenRenderSpec.styleSchedule.
+        styleSchedule: StyleSchedule = StyleSchedule.NONE,
         destination: Uri? = null,
         codec: ExportCodec = ExportCodec.H264,
         loudnessTarget: LoudnessTarget = LoudnessTarget.LeaveAsIs,
@@ -193,6 +196,7 @@ class VideoExporter(
                     onProgress,
                     isCancelled,
                     watermark = watermark,
+                    styleSchedule = styleSchedule,
                 )
             }
             val resolver = context.contentResolver
@@ -234,6 +238,7 @@ class VideoExporter(
                         onProgress,
                         isCancelled,
                         watermark = watermark,
+                        styleSchedule = styleSchedule,
                     )
                 }
                 if (isCancelled()) {
@@ -275,6 +280,7 @@ class VideoExporter(
         onProgress: (Float) -> Unit,
         isCancelled: () -> Boolean,
         watermark: Boolean,
+        styleSchedule: StyleSchedule = StyleSchedule.NONE,
     ): Result {
         val resolver = context.contentResolver
         val pfd =
@@ -301,6 +307,7 @@ class VideoExporter(
                     onProgress,
                     isCancelled,
                     watermark = watermark,
+                    styleSchedule = styleSchedule,
                 )
             }
             if (isCancelled()) {
@@ -373,6 +380,7 @@ class VideoExporter(
         onProgress: (Float) -> Unit,
         isCancelled: () -> Boolean,
         watermark: Boolean,
+        styleSchedule: StyleSchedule = StyleSchedule.NONE,
     ) {
         var encoderRef: MediaCodec? = null
         var watermarkRef: WatermarkOverlay? = null
@@ -447,6 +455,7 @@ class VideoExporter(
                             audioUri = audioUri,
                             soundTuning = soundTuning,
                             director = director,
+                            styleSchedule = styleSchedule,
                         ),
                 ).also { rendererRef = it }
             renderer.prepare()

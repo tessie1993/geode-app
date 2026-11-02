@@ -339,9 +339,7 @@ void Renderer::onSurfaceCreated() {
     quadVert_ = *quadVert;
     if (!trailPass_.create(assets_, &programCache_, *fadeVert, &error)) fail(error);
     if (!compositePass_.create(*fadeVert, &error)) fail(error);
-    // The note blooms are an extra: a driver that will not build them loses the flowers, not the frame.
-    if (!bloomPass_.create(assets_, &programCache_, *fadeVert, &error)) GEODE_LOGW(kTag, "note blooms off: %s", error.c_str());
-    // So is the glass sheet's blur: without it the sheet shows the visual unblurred through its tint.
+    // The glass sheet's blur is an extra: without it the sheet shows the visual unblurred through its tint.
     if (!uiBlurPass_.create(assets_, &programCache_, *fadeVert, &error)) GEODE_LOGW(kTag, "ui blur off: %s", error.c_str());
     // Liquid mode: half float where this GPU renders it, so a deep pour-back does not band.
     if (!liquidPass_.create(assets_, &programCache_, *fadeVert, fluid::probeFormats().ok, &error)) fail(error);
@@ -443,6 +441,36 @@ bool Renderer::setScene(const std::string& sceneId) {
     requestedSceneId_ = sceneId;
     sceneSpin_.store(SceneRegistry::spinRate(sceneId), std::memory_order_relaxed);
     return true;
+}
+
+void Renderer::setStyleSchedule(std::vector<StyleCue> cues, std::vector<std::string> beatCutIds, int everyBeats) {
+    StyleSchedule schedule;
+    schedule.set(std::move(cues), std::move(beatCutIds), everyBeats);
+    std::lock_guard<std::mutex> lock(stateLock_);
+    styleScheduleRequest_ = std::move(schedule);
+}
+
+void Renderer::applyStyleSchedule() {
+    {
+        std::lock_guard<std::mutex> lock(stateLock_);
+        if (styleScheduleRequest_) {
+            styleSchedule_ = std::move(*styleScheduleRequest_);
+            styleScheduleRequest_.reset();
+        }
+    }
+    if (styleSchedule_.empty()) return;
+    const StyleCue* cue = styleSchedule_.step(frameNowS_ * 1000.0, soundFrame_.beatCount);
+    if (!cue) return;
+    std::string requestedScene;
+    std::string requestedMilk;
+    {
+        std::lock_guard<std::mutex> lock(stateLock_);
+        requestedScene = requestedSceneId_;
+        requestedMilk = lastMilkPreset_;
+    }
+    // The segment's first look is already requested (prepare()); asking again would only reload it.
+    if (cue->sceneId != requestedScene) setScene(cue->sceneId);
+    if (!cue->milkPath.empty() && cue->milkPath != requestedMilk) loadMilkPreset(cue->milkPath);
 }
 
 void Renderer::warmTransition(const std::string& id) { compositePass_.warmTransition(id); }

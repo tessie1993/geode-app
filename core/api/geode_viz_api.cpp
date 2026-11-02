@@ -483,6 +483,26 @@ int geode_viz_set_scene(geode_viz* v, const char* scene_id) {
     return (v && scene_id && v->renderer.setScene(scene_id)) ? 1 : 0;
 }
 
+void geode_viz_set_style_schedule(geode_viz* v, const double* at_ms, const char* const* scene_ids,
+                                  const char* const* milk_paths, int count, const char* const* cut_ids, int cut_count,
+                                  int every_beats) {
+    if (!v) return;
+    std::vector<geode::viz::StyleCue> cues;
+    for (int i = 0; at_ms && scene_ids && i < count; ++i) {
+        if (!scene_ids[i]) continue;
+        geode::viz::StyleCue cue;
+        cue.atMs = at_ms[i];
+        cue.sceneId = scene_ids[i];
+        cue.milkPath = (milk_paths && milk_paths[i]) ? milk_paths[i] : "";
+        cues.push_back(std::move(cue));
+    }
+    std::vector<std::string> cut;
+    for (int i = 0; cut_ids && i < cut_count; ++i) {
+        if (cut_ids[i]) cut.emplace_back(cut_ids[i]);
+    }
+    v->renderer.setStyleSchedule(std::move(cues), std::move(cut), every_beats);
+}
+
 void geode_viz_warm_transition(geode_viz* v, const char* id) {
     if (v && id) v->renderer.warmTransition(id);
 }

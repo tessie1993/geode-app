@@ -24,12 +24,15 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -47,6 +50,7 @@ import dev.geode.data.Preset
 import dev.geode.data.StudioPrefsStore
 import dev.geode.data.exportCodecLabel
 import dev.geode.data.exportQualityLabel
+import dev.geode.editor.ProjectId
 import dev.geode.export.BatchTrack
 import dev.geode.export.ExportAspect
 import dev.geode.export.ExportCodec
@@ -103,6 +107,16 @@ fun StudioHub(
         select(StudioSection.EDIT)
         editing = canEdit
     }
+    val openProjectInEdit: (ProjectId) -> Unit = { id ->
+        studioViewModel.openProject(id)
+        openInEdit()
+    }
+    // The tabs taken through Studio, so back retraces them (the NavHistory pattern Visuals uses)
+    // instead of leaving Studio from wherever the user is. Held above the timeline so opening a
+    // project does not lose it. A render keeps going either way: it runs under ExportService.
+    val route = rememberSaveable(saver = studioRouteSaver) { mutableStateListOf(section) }
+    val history = remember(route) { NavHistory(route) }
+    LaunchedEffect(section) { history.open(section) }
 
     if (editing && canEdit && section == StudioSection.EDIT) {
         BackHandler { editing = false }
@@ -115,6 +129,10 @@ fun StudioHub(
         val studio by studioViewModel.studio.collectAsStateWithLifecycle()
         TimelineEditor(state = editor, exportPhase = studio.phase, actions = studioViewModel, onClose = { editing = false })
         return
+    }
+    BackHandler(enabled = history.canPop) {
+        history.pop()
+        select(history.top)
     }
     Column(Modifier.fillMaxSize()) {
         GlowTitle(stringResource(R.string.nav_studio), Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp))
@@ -129,15 +147,12 @@ fun StudioHub(
             onSelect = { select(StudioSection.entries[it]) },
         )
         when (section) {
-            StudioSection.RENDER -> StudioRenderTab(viewModel, visualizerView, gate)
+            StudioSection.RENDER -> StudioRenderTab(viewModel, visualizerView, gate, onOpenInEdit = openProjectInEdit)
             StudioSection.MY_VIDEOS ->
                 MyVideosTab(
                     viewModel = studioViewModel,
                     canEdit = canEdit,
-                    onOpenInEdit = { id ->
-                        studioViewModel.openProject(id)
-                        openInEdit()
-                    },
+                    onOpenInEdit = openProjectInEdit,
                     onRenderTake = { name ->
                         studioViewModel.setExportTake(name)
                         select(StudioSection.RENDER)
@@ -150,6 +165,13 @@ fun StudioHub(
         }
     }
 }
+
+/** Studio's route saved by tab name, so a rotation or process death keeps back's history. */
+private val studioRouteSaver =
+    listSaver<SnapshotStateList<StudioSection>, String>(
+        save = { route -> route.map { it.name } },
+        restore = { names -> mutableStateListOf(*names.map(StudioSection::valueOf).toTypedArray()) },
+    )
 
 /**
  * Studio › Render: one page that reads top to bottom as the questions a render asks.
@@ -173,12 +195,17 @@ internal fun StudioRenderTab(
     viewModel: PlayerViewModel,
     visualizerView: VisualizerView,
     gate: FeatureGate,
+    onOpenInEdit: (ProjectId) -> Unit,
 ) {
     val paywall: PaywallViewModel = geodeViewModel()
     val studioViewModel: StudioViewModel = geodeViewModel()
     val player by viewModel.uiState.collectAsStateWithLifecycle()
     val viz by viewModel.vizState.collectAsStateWithLifecycle()
     val export by studioViewModel.exportState.collectAsStateWithLifecycle()
+    val editor by studioViewModel.editor.collectAsStateWithLifecycle()
+    // The project that holds the finished render, when the user kept it as one: Open in Edit.
+    val renderedUri = (export.phase as? ExportPhase.Done)?.resultUri?.toString()
+    val renderProject = renderedUri?.let { uri -> editor.projects.firstOrNull { p -> p.renders.any { it.uri == uri } } }
     val takes by studioViewModel.takeState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val store = remember { ExportPrefsStore(GeodePrefsFiles(context).general) }
@@ -373,6 +400,8 @@ internal fun StudioRenderTab(
             },
             onCancel = studioViewModel::cancelExport,
             onClearResult = studioViewModel::resetExportState,
+            onOpenInEdit = renderProject?.let { project -> { onOpenInEdit(project.id) } },
+            openInEditPro = !gate.allows(ProFeature.STUDIO),
         )
     }
     if (loopOpen) ExportHost(viewModel, visualizerView) { loopOpen = false }

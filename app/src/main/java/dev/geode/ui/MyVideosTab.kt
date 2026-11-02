@@ -1,12 +1,20 @@
 package dev.geode.ui
 
+import android.content.Context
+import android.graphics.Bitmap
+import android.media.MediaMetadataRetriever
 import android.net.Uri
+import android.os.Build
 import android.text.format.DateUtils
+import android.util.Size
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -14,6 +22,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarDuration
@@ -25,12 +34,17 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -39,7 +53,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 import dev.geode.editor.ProjectId
 import dev.geode.ui.theme.floatingGlass
+import dev.geode.util.bestEffort
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * Studio › My videos: everything Studio made, newest first, in one grid. A render is a finished
@@ -193,6 +210,7 @@ private fun MyVideoCard(
             .padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
+        VideoThumbnail((item as? MyVideo.Render)?.uri)
         Text(item.title, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
         Text(
             listOf(
@@ -218,3 +236,49 @@ private fun MyVideoCard(
         }
     }
 }
+
+/**
+ * A frame of the video, read off the main thread. A take has no file of its own until it is
+ * rendered (part 2D), so it keeps the empty tile, which also stands in while a frame loads or when
+ * the file has gone.
+ */
+@Composable
+private fun VideoThumbnail(uri: String?) {
+    val context = LocalContext.current
+    val frame by produceState<ImageBitmap?>(null, uri) {
+        value = uri?.let { withContext(Dispatchers.IO) { context.videoFrame(Uri.parse(it))?.asImageBitmap() } }
+    }
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .aspectRatio(16f / 9f)
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant),
+    ) {
+        frame?.let { Image(it, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop) }
+    }
+}
+
+/** Android 10+ has a cached thumbnail per media row; older phones decode one frame. Null on any failure. */
+private fun Context.videoFrame(uri: Uri): Bitmap? {
+    var frame: Bitmap? = null
+    bestEffort(TAG, "video thumbnail") {
+        frame =
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                contentResolver.loadThumbnail(uri, Size(THUMB_WIDTH, THUMB_HEIGHT), null)
+            } else {
+                val retriever = MediaMetadataRetriever()
+                try {
+                    retriever.setDataSource(this, uri)
+                    retriever.frameAtTime
+                } finally {
+                    retriever.release()
+                }
+            }
+    }
+    return frame
+}
+
+private const val TAG = "MyVideosTab"
+private const val THUMB_WIDTH = 320
+private const val THUMB_HEIGHT = 180

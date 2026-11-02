@@ -49,6 +49,8 @@ internal fun RenderBar(
     onCancel: () -> Unit,
     onClearResult: () -> Unit,
     modifier: Modifier = Modifier,
+    onOpenInEdit: (() -> Unit)? = null,
+    openInEditPro: Boolean = false,
 ) {
     Column(
         modifier
@@ -60,7 +62,7 @@ internal fun RenderBar(
     ) {
         when (val phase = export.phase) {
             is ExportPhase.Running, ExportPhase.Loading -> RenderProgress(export, onCancel)
-            is ExportPhase.Done -> RenderResult(export, phase, onClearResult)
+            is ExportPhase.Done -> RenderResult(export, phase, onClearResult, onOpenInEdit, openInEditPro)
             is ExportPhase.Failed ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
@@ -127,6 +129,8 @@ private fun RenderResult(
     export: ExportUiState,
     phase: ExportPhase.Done,
     onClearResult: () -> Unit,
+    onOpenInEdit: (() -> Unit)?,
+    openInEditPro: Boolean,
 ) {
     val context = LocalContext.current
     val resources = LocalResources.current
@@ -162,6 +166,12 @@ private fun RenderResult(
         if (!export.customDestination) {
             CrystalButton(compact = true, filled = false, onClick = { context.showRendersFolder() }) {
                 Text(stringResource(R.string.render_show_in_folder))
+            }
+        }
+        // Only a render kept as a project has something to open; a free user meets the Pro wall there.
+        onOpenInEdit?.let { open ->
+            CrystalButton(compact = true, filled = false, onClick = open) {
+                Text(stringResource(if (openInEditPro) R.string.my_videos_open_in_edit_pro else R.string.my_videos_open_in_edit))
             }
         }
         TextButton(onClick = onClearResult) { Text(stringResource(R.string.action_close)) }

@@ -85,21 +85,33 @@ internal class TakeController(
         _state.update { it.copy(recording = true, recordedEvents = 1, recordedMs = 0L, note = null) }
         recordJob =
             scope.launch {
-                host.vizState.collect { live ->
-                    val rec = recorder ?: return@collect
-                    rec.append(takeClockMs(), live.sceneId, live.params, host.activeMilkPath)
-                    _state.update { it.copy(recordedEvents = rec.size, recordedMs = rec.durationMs) }
-                    if (!rec.hasRoom) stopRecording()
-                }
+                host.vizState.collect { live -> sample(live) }
             }
         recordTickJob =
             scope.launch {
                 while (true) {
                     delay(1_000L)
-                    val at = recorder?.let { (takeClockMs() - it.startTrackMs).coerceAtLeast(0L) } ?: 0L
-                    _state.update { if (it.recording) it.copy(recordedMs = at) else it }
+                    // Sampling with an unchanged look writes nothing, but it notices a seek back (a
+                    // punch-in) or a new song even while nobody touches the visual.
+                    sample(host.vizState.value)
                 }
             }
+    }
+
+    /**
+     * One look at the live state while recording. A different song (the queue moved on) ends the
+     * take first: its track time would otherwise read as a seek back and punch out everything
+     * recorded. Repeat-one looping the same song reads as a seek back, a punch-in, like any other.
+     */
+    private fun sample(live: VizUiState) {
+        val rec = recorder ?: return
+        if (host.trackUri != recordTrackUri) {
+            stopRecording()
+            return
+        }
+        rec.append(takeClockMs(), live.sceneId, live.params, host.activeMilkPath)
+        _state.update { it.copy(recordedEvents = rec.size, recordedMs = rec.durationMs) }
+        if (!rec.hasRoom) stopRecording()
     }
 
     fun stopRecording(name: String? = null) {

@@ -72,6 +72,9 @@ internal class EditorController(
 
     private val ids = IdSource { UUID.randomUUID().toString() }
 
+    /** The project the first edit created and no save has written yet; every other one has a folder. */
+    @Volatile private var unsaved: ProjectId? = null
+
     /**
      * Opens project [id], or with no id the most recently changed one. With no projects at all the
      * state is an empty, unsaved edit (see [EditorUiState.id]).
@@ -257,21 +260,41 @@ internal class EditorController(
     }
 
     /** The project the first edit of an empty Studio creates. Saved by the autosave that follows. */
-    private fun newFolder(existing: List<StudioProject>): StudioProject =
-        StudioProject.create(
-            id = store.newId(),
-            name = nextName(existing),
-            destination = ExportDestination.CUSTOM,
-            defaults = store.defaultsFor(ExportDestination.CUSTOM),
-            nowMs = store.clock(),
-            ids = ids,
-        )
+    private fun newFolder(existing: List<StudioProject>): StudioProject {
+        val folder =
+            StudioProject.create(
+                id = store.newId(),
+                name = nextName(existing),
+                destination = ExportDestination.CUSTOM,
+                defaults = store.defaultsFor(ExportDestination.CUSTOM),
+                nowMs = store.clock(),
+                ids = ids,
+            )
+        unsaved = folder.id
+        return folder
+    }
 
+    /**
+     * Writes the open project and puts it first in [EditorUiState.projects] without re-reading every
+     * folder. A folder deleted behind the controller's back (its take deleted from My videos) is not
+     * written again: the controller opens the next project instead.
+     */
     private fun autosave(project: StudioProject) {
         storeScope.launch {
-            store.save(store.touch(project))
-            refreshLists()
+            if (project.id != unsaved && !store.folderOf(project.id).isDirectory) {
+                open()
+                return@launch
+            }
+            val saved = store.touch(project)
+            store.save(saved)
+            if (unsaved == project.id) unsaved = null
+            _state.update { s -> s.copy(projects = listOf(saved) + s.projects.filterNot { it.id == saved.id }) }
         }
+    }
+
+    /** Re-reads the project and template lists, for a screen that knows the disk changed (a new take). */
+    fun refresh() {
+        storeScope.launch { refreshLists() }
     }
 
     /** Runs [make] on the store with the current list, then opens what it made. */

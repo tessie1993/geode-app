@@ -95,7 +95,7 @@ data class StudioProject(
      * later. A render of a [ProjectKind.Standard] project is exactly this long.
      */
     val lengthMs: Long
-        get() = maxOf(edit.timeline.durationMs, edit.timeline.lanes.maxOfOrNull { lane -> lane.clips.maxOfOrNull { it.endMs } ?: 0L } ?: 0L)
+        get() = maxOf(edit.timeline.durationMs, edit.contentEndMs())
 
     /** Every take recorded into this project, by id, in the order their clips start. */
     val takeIds: List<String>
@@ -294,7 +294,9 @@ data class ProjectTemplate(
         nowMs: Long,
         ids: IdSource,
     ): StudioProject {
-        val length = if (track.durationMs > 0L) track.durationMs else lengthMs
+        val length =
+            listOf(track.durationMs, lengthMs, edit.contentEndMs()).firstOrNull { it >= MIN_CLIP_DURATION_MS }
+                ?: DEFAULT_UNKNOWN_LENGTH_MS
         val fitted = edit.fittedTo(lengthMs, length).withFreshIds(ids)
         val audio = StudioProject.audioLane(track.copy(durationMs = length), ids)
         return StudioProject(
@@ -350,7 +352,8 @@ fun StudioProject.toTemplate(
 
 private fun withoutTake(clip: Clip): Clip {
     val scene = clip.content as? ClipContent.Scene ?: return clip
-    return if (scene.takeId == null) clip else clip.copy(content = scene.copy(takeId = null))
+    // As a plain look the clip has no source of its own any more, so it may stretch to a longer song.
+    return if (scene.takeId == null) clip else clip.copy(content = scene.copy(takeId = null), sourceInMs = 0L, sourceDurationMs = 0L)
 }
 
 /**
@@ -391,6 +394,16 @@ internal fun EditorProject.fittedTo(
         keyframes = KeyframeSheet().withTracks(keyframes.tracks.filterNot { it.clipId != null && it.clipId in dropped }),
     )
 }
+
+/** The last clip end of an edit, 0 when it has no clips. */
+internal fun EditorProject.contentEndMs(): Long = timeline.lanes.maxOfOrNull { lane -> lane.clips.maxOfOrNull { it.endMs } ?: 0L } ?: 0L
+
+/**
+ * The length a project from a template gets when neither the track nor the template knows one (an
+ * empty template over a track whose length is not read yet): long enough to hold the song's clip,
+ * which Edit then trims.
+ */
+internal const val DEFAULT_UNKNOWN_LENGTH_MS: Long = 60_000L
 
 /** How close to the song's end a clip's end counts as "runs to the end" when a template is fitted. */
 internal const val END_SNAP_MS: Long = 250L

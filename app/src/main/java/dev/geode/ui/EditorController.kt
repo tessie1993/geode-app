@@ -221,8 +221,8 @@ internal class EditorController(
                     label = label,
                 )
             val media = Lane(id = LaneId(ids.next()), kind = LaneKind.Media, name = label, clips = listOf(clip))
-            base.copy(edit = base.edit.copy(timeline = base.edit.timeline.copy(lanes = listOf(media), durationMs = durationMs)))
-                .also { store.save(it) }
+            val project = base.copy(edit = base.edit.copy(timeline = base.edit.timeline.copy(lanes = listOf(media), durationMs = durationMs)))
+            project.also { store.save(it) }
         }
     }
 

@@ -146,7 +146,12 @@ internal fun EditHome(
                                     .clickable { openProject(project.id) }
                                     .padding(12.dp),
                             ) {
-                                Text(project.name, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                Text(
+                                    project.name,
+                                    style = MaterialTheme.typography.titleSmall,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
                                 EditHint(projectSummary(project))
                             }
                         }

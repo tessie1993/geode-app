@@ -297,7 +297,6 @@ internal fun StudioRenderTab(
                     RenderLookGroup(
                         presets = lookPresets,
                         lookName = selection.lookName,
-                        batch = selection.scope.isBatch,
                     ) { name ->
                         selection = selection.copy(lookName = name)
                         // One song renders what is on stage, so the chosen preset goes on stage.
@@ -552,7 +551,7 @@ private val RenderSelectionSaver =
 
 /**
  * The look a render uses: the current one (null) or a preset. For one song the preset is put on
- * stage, so the video is what the user sees; a [batch] uses it for every track. Presets that draw
+ * stage, so the video is what the user sees; a batch uses it for every track. Presets that draw
  * through a custom shader or a Milkdrop file are left out: the offscreen export renders a scene id
  * and its parameters, and those two need the live view's own shader state.
  */
@@ -560,7 +559,6 @@ private val RenderSelectionSaver =
 private fun RenderLookGroup(
     presets: List<Preset>,
     lookName: String?,
-    batch: Boolean,
     onLook: (String?) -> Unit,
 ) {
     var open by remember { mutableStateOf(false) }

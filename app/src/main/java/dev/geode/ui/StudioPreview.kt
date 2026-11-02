@@ -58,6 +58,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import dev.geode.R
 import dev.geode.data.EditorProjectStore
 import dev.geode.data.PerformanceTake
+import dev.geode.editor.ProjectId
 import dev.geode.export.ClipEdit
 import dev.geode.export.CubeLut
 import dev.geode.export.ExportAspect
@@ -213,21 +214,7 @@ fun StudioPreview(
     val fps = open?.export?.fps ?: DEFAULT_PREVIEW_FPS
     val lengthMs = open?.lengthMs ?: project.timeline.durationMs
     val ratio = open?.export?.ratio ?: ExportRatio.R16_9
-    val takeIds = open?.takeIds.orEmpty()
-    val takes by produceState(emptyMap<String, PerformanceTake.Timeline>(), open?.id, takeIds) {
-        val id = open?.id ?: return@produceState
-        value =
-            withContext(Dispatchers.IO) {
-                val store = EditorProjectStore(context)
-                takeIds
-                    .mapNotNull { takeId ->
-                        store
-                            .loadTake(id, takeId)
-                            ?.let { json -> runCatching { PerformanceTake.Timeline(json) }.getOrNull() }
-                            ?.let { takeId to it }
-                    }.toMap()
-            }
-    }
+    val takes = rememberProjectTakes(open?.id, open?.takeIds.orEmpty())
 
     var bound by remember { mutableIntStateOf(0) }
     LaunchedEffect(project, fps, lengthMs, takes) {
@@ -267,10 +254,49 @@ fun StudioPreview(
     val frame = remember(shownMs, bound, look) { controller.frameAt(shownMs, look) }
     SideEffect { controller.showFootage(frame.video) }
 
+    PreviewLayers(frame, glView, controller, modifier.aspectRatio(ratio.wRatio.toFloat() / ratio.hRatio))
+}
+
+/**
+ * The takes recorded into project [id], read once per project and take list off the main thread.
+ * Empty when no project is open, so a closed project's takes never linger.
+ */
+@Composable
+private fun rememberProjectTakes(
+    id: ProjectId?,
+    takeIds: List<String>,
+): Map<String, PerformanceTake.Timeline> {
+    val context = LocalContext.current
+    val takes by produceState(emptyMap<String, PerformanceTake.Timeline>(), id, takeIds) {
+        value = emptyMap()
+        if (id == null) return@produceState
+        value =
+            withContext(Dispatchers.IO) {
+                val store = EditorProjectStore(context)
+                takeIds
+                    .mapNotNull { takeId ->
+                        store
+                            .loadTake(id, takeId)
+                            ?.let { json -> runCatching { PerformanceTake.Timeline(json) }.getOrNull() }
+                            ?.let { takeId to it }
+                    }.toMap()
+            }
+    }
+    return takes
+}
+
+/** One frame of the preview: the GL visual at the bottom, then footage, stills, overlays and text. */
+@UnstableApi
+@Composable
+private fun PreviewLayers(
+    frame: PreviewFrame,
+    glView: VisualizerView,
+    controller: StudioPreviewController,
+    modifier: Modifier,
+) {
     Box(
         modifier
             .fillMaxWidth()
-            .aspectRatio(ratio.wRatio.toFloat() / ratio.hRatio)
             .clip(RoundedCornerShape(12.dp))
             .background(Color.Black),
     ) {

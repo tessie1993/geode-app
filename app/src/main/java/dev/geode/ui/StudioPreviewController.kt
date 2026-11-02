@@ -207,9 +207,12 @@ internal class StudioPreviewController(
         val stills = mutableListOf<PreviewFrame.Still>()
         val texts = mutableListOf<String>()
         val overlays = mutableListOf<PreviewFrame.Overlay>()
-        for (lane in project.timeline.lanes) {
-            if (lane.muted && lane.kind != LaneKind.Media) continue
-            val clip = lane.clipAt(programmeMs)?.takeIf(Clip::enabled) ?: continue
+        // Hidden (muted) visual, text and overlay lanes draw nothing; a muted media lane is only silent.
+        val onScreen =
+            project.timeline.lanes
+                .filterNot { it.muted && it.kind != LaneKind.Media }
+                .mapNotNull { lane -> lane.clipAt(programmeMs)?.takeIf(Clip::enabled)?.let { lane to it } }
+        for ((lane, clip) in onScreen) {
             when (val content = clip.content) {
                 is ClipContent.Scene -> if (lane.kind == LaneKind.Visual) scene = sceneAt(clip, content, programmeMs, look)
                 is ClipContent.Video ->

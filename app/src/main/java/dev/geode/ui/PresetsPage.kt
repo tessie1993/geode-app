@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -32,8 +33,11 @@ import androidx.compose.material.icons.filled.CreateNewFolder
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.AssistChip
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -414,12 +418,13 @@ private fun PresetsToolbar(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(GeodeSpacing.S),
     ) {
-        CrystalButton(onClick = onSave, modifier = Modifier.weight(1f)) {
+        Button(onClick = onSave, modifier = Modifier.weight(1f)) {
             Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.size(ButtonDefaults.IconSpacing))
             Text("Save current look", maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         Box {
-            CrystalButton(filled = false, onClick = { importOpen = true }) { Text("Import") }
+            FilledTonalButton(onClick = { importOpen = true }) { Text("Import") }
             DropdownMenu(expanded = importOpen, onDismissRequest = { importOpen = false }) {
                 DropdownMenuItem(
                     text = { Text("Paste a shared preset link") },

@@ -1,5 +1,6 @@
 package dev.geode.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -10,13 +11,14 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import dev.geode.R
 import dev.geode.ui.theme.GeodeSpacing
 
 /**
- * The first-run photosensitivity notice.
+ * The first-run photosensitivity notice, and the whole of first run: everything else is asked
+ * where it is needed (music access on the first visit to Library).
  *
  * It takes an acknowledgement and nothing else. The flash clamp is unconditional, so there is no
  * safety level to pick here — telling someone the visuals are intense and that the rate is capped
@@ -40,12 +42,9 @@ fun SafetyConsent(
             Text(
                 stringResource(R.string.safety_prompt),
                 Modifier
-                    .crystalPanel(
-                        0.6f,
-                        MaterialTheme.colorScheme.surfaceContainer,
-                        MaterialTheme.colorScheme.primary,
-                        corner = 16.dp,
-                    ).padding(GeodeSpacing.L),
+                    .clip(MaterialTheme.shapes.large)
+                    .background(MaterialTheme.colorScheme.surfaceContainer)
+                    .padding(GeodeSpacing.L),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurface,
             )

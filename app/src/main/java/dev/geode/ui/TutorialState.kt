@@ -1,144 +1,156 @@
 package dev.geode.ui
 
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
-import androidx.compose.foundation.interaction.collectIsDraggedAsState
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.systemBarsPadding
-import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
+import androidx.annotation.StringRes
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalView
-import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.LiveRegionMode
-import androidx.compose.ui.semantics.heading
-import androidx.compose.ui.semantics.liveRegion
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 import dev.geode.data.GuiPrefs
 import dev.geode.model.TutorialChapter
-import dev.geode.model.TutorialPosition
-import dev.geode.model.TutorialTour
-import dev.geode.ui.pro.ProBadge
-import dev.geode.ui.theme.GeodeColors
-import dev.geode.ui.theme.GeodeSpacing
-import dev.geode.ui.theme.LocalReducedMotion
-import dev.geode.ui.theme.LocalUiSounds
-import dev.geode.ui.theme.StoneHapticCue
-import dev.geode.ui.theme.UiSound
-import dev.geode.ui.theme.performStoneHaptic
+import dev.geode.ui.tour.GestureTipHost
+import dev.geode.ui.tour.GestureTips
+import dev.geode.ui.tour.TourChapters
+import dev.geode.ui.tour.TourHint
+import dev.geode.ui.tour.TourPointer
+import dev.geode.ui.tour.TourSpot
+import dev.geode.ui.tour.TourTargets
+import dev.geode.ui.tour.spots
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+
+/** Where the tour can send someone: the real screen a pointer is about. */
+enum class TutorialTarget { PLAYER, LIBRARY, VISUALS, LIVE_VIEW, STUDIO_RENDER, STUDIO_EDIT, SETTINGS, PAYWALL }
+
+@get:StringRes
+val TutorialChapter.titleRes: Int
+    get() =
+        when (this) {
+            TutorialChapter.WELCOME -> R.string.tutorial_chapter_welcome
+            TutorialChapter.PLAYER -> R.string.tutorial_chapter_player
+            TutorialChapter.LIBRARY -> R.string.tutorial_chapter_library
+            TutorialChapter.VISUALS -> R.string.tutorial_chapter_visuals
+            TutorialChapter.CUSTOMIZE -> R.string.tutorial_chapter_customize
+            TutorialChapter.LIVE_VIEW -> R.string.tutorial_chapter_live_view
+            TutorialChapter.STUDIO -> R.string.tutorial_chapter_studio
+            TutorialChapter.ANYWHERE -> R.string.tutorial_chapter_anywhere
+            TutorialChapter.PRO -> R.string.tutorial_chapter_pro
+            TutorialChapter.SETTINGS -> R.string.tutorial_chapter_settings
+        }
+
+/** The screen a chapter's pointers live on, for a replay that has to take someone there first. */
+internal val TutorialChapter.screen: TutorialTarget?
+    get() =
+        when (this) {
+            TutorialChapter.PLAYER -> TutorialTarget.PLAYER
+            TutorialChapter.LIBRARY -> TutorialTarget.LIBRARY
+            TutorialChapter.VISUALS, TutorialChapter.CUSTOMIZE -> TutorialTarget.VISUALS
+            TutorialChapter.STUDIO -> TutorialTarget.STUDIO_RENDER
+            TutorialChapter.SETTINGS -> TutorialTarget.SETTINGS
+            else -> null
+        }
 
 /**
- * Whether a tour is running, which page it is on, and whether it is open or paused behind a
- * Resume pill (after Show me or Back).
+ * The guided path's steps: light the Library tab, wait while the user plays a song, light the
+ * Visuals tab. It runs once, after first run; it is the only part of the tour that leads.
+ */
+internal enum class GuideStage { OPEN_LIBRARY, PLAY_SONG, OPEN_VISUALS }
+
+/**
+ * What the tour is doing: the guided path's step ([guide]), and the screens whose pointers are
+ * queued ([queue], the head on screen now, at pointer [step]).
  *
- * Lives in [AppRoot] and is saved there, so a rotation or a trip to the real screen keeps the
- * page. [firstRun] marks the tour that offers itself after setup: only that one writes a resume
- * point and, once finished or skipped, [GuiPrefs.tutorialSeen]. A replay from Settings ticks
- * chapters off but otherwise leaves history alone.
+ * A screen's pointers queue themselves the first time that screen's controls are on screen
+ * ([TutorialHost]); a replay from Settings › Tutorials queues the chapters it was given, in order,
+ * and takes the user to each screen in turn ([replay]). Lives in [AppRoot] and is saved there, so
+ * a rotation keeps the step.
  */
 @Stable
 class TutorialState internal constructor(
-    chapters: List<TutorialChapter>,
-    page: Int,
-    open: Boolean,
-    firstRun: Boolean,
+    queue: List<TutorialChapter>,
+    step: Int,
+    replay: Boolean,
+    guide: GuideStage?,
     autoOfferUsed: Boolean,
 ) {
-    var tour by mutableStateOf(chapters.takeIf { it.isNotEmpty() }?.let(::TutorialTour))
+    var queue by mutableStateOf(queue)
         private set
-    var page by mutableIntStateOf(page)
-    var open by mutableStateOf(open)
+    var step by mutableIntStateOf(step)
+        internal set
+    var replay by mutableStateOf(replay)
         private set
-    var firstRun by mutableStateOf(firstRun)
-        private set
+    internal var guide by mutableStateOf(guide)
 
     /**
-     * Set once the first-run offer has been made in this process, and by Reset all, so resetting
-     * means "offer it on the next launch" rather than throwing the tour up over Settings.
+     * Set once the guided path has been offered in this process, and by Reset all, so resetting
+     * means "offer it on the next launch" rather than starting it over Settings.
      */
     var autoOfferUsed = autoOfferUsed
 
-    fun start(
-        chapters: List<TutorialChapter>,
-        firstRun: Boolean = false,
-        at: TutorialPosition? = null,
-    ) {
-        val next = TutorialTour(chapters)
-        tour = next
-        page = at?.let(next::pageOf) ?: 0
-        this.firstRun = firstRun
-        open = true
+    val current: TutorialChapter? get() = queue.firstOrNull()
+
+    val running: Boolean get() = guide != null || queue.isNotEmpty()
+
+    /** Settings › Tutorials: these chapters, in tour order. Welcome is the guided path again. */
+    fun start(chapters: List<TutorialChapter>) {
+        val wanted = TourChapters.filter { it in chapters }
+        guide = if (TutorialChapter.WELCOME in wanted) GuideStage.OPEN_LIBRARY else null
+        queue = wanted - TutorialChapter.WELCOME
+        step = 0
+        replay = true
     }
 
-    fun pause() {
-        open = false
+    internal fun startGuide() {
+        guide = GuideStage.OPEN_LIBRARY
+        replay = false
     }
 
-    fun resume() {
-        open = tour != null
+    internal fun startScreen(chapter: TutorialChapter) {
+        queue = listOf(chapter)
+        step = 0
+        replay = false
+    }
+
+    internal fun nextChapter() {
+        queue = queue.drop(1)
+        step = 0
+        if (queue.isEmpty() && guide == null) replay = false
     }
 
     fun end() {
-        tour = null
-        open = false
+        guide = null
+        queue = emptyList()
+        step = 0
+        replay = false
     }
 
     companion object {
         val Saver: Saver<TutorialState, List<Any>> =
             Saver(
                 save = {
-                    val chapters = it.tour?.chapters.orEmpty()
-                    listOf(chapters.joinToString(",") { c -> c.name }, it.page, it.open, it.firstRun, it.autoOfferUsed)
+                    listOf(it.queue.joinToString(",") { c -> c.name }, it.step, it.replay, it.guide?.name.orEmpty(), it.autoOfferUsed)
                 },
                 restore = {
                     TutorialState(
-                        chapters =
+                        queue =
                             (it[0] as String)
                                 .split(',')
                                 .mapNotNull { n -> TutorialChapter.entries.firstOrNull { c -> c.name == n } },
-                        page = it[1] as Int,
-                        open = it[2] as Boolean,
-                        firstRun = it[3] as Boolean,
+                        step = it[1] as Int,
+                        replay = it[2] as Boolean,
+                        guide = GuideStage.entries.firstOrNull { g -> g.name == it[3] },
                         autoOfferUsed = it[4] as Boolean,
                     )
                 },
@@ -149,15 +161,23 @@ class TutorialState internal constructor(
 @Composable
 fun rememberTutorialState(): TutorialState =
     rememberSaveable(saver = TutorialState.Saver) {
-        TutorialState(emptyList(), page = 0, open = false, firstRun = false, autoOfferUsed = false)
+        TutorialState(emptyList(), step = 0, replay = false, guide = null, autoOfferUsed = false)
     }
 
 /**
- * The tour, drawn over the app: the carousel when open, the Resume pill when paused.
+ * The tour, drawn over the app: pointers on the real controls, never a carousel.
  *
- * The carousel is a full-screen [Dialog], not a layer in the shell's window, so TalkBack cannot
- * wander into the app underneath and system Back reaches it first. [blocked] holds it back while
- * the safety notice, setup or the paywall is up; the tour waits rather than stacking on them.
+ * - **The guided path** offers itself once, after first run: play a song, then see Visuals. Ending
+ *   or skipping it sets [GuiPrefs.tutorialSeen] and ticks Welcome.
+ * - **Each screen's pointers** (3 or 4) play the first time that screen's controls are on screen,
+ *   once Welcome is ticked, and tick that chapter when finished or skipped. A screen whose
+ *   controls carry no `tourTarget` yet never queues itself; a replay still plays its cards,
+ *   centred.
+ * - **Gesture tips** ([GestureTips]) show when nothing else does.
+ *
+ * Installs that skip onboarding without the guided path (the journey tests' `Onboarded` rule)
+ * have no Welcome tick, so no pointer ever covers what they test. [blocked] holds everything back
+ * while the safety notice, setup or the paywall is up.
  */
 @Composable
 internal fun TutorialHost(
@@ -167,299 +187,157 @@ internal fun TutorialHost(
     onGuiChange: (GuiPrefs) -> Unit,
     onShowMe: (TutorialTarget) -> Unit,
 ) {
-    // Offered once, to someone who has finished setup and has not finished or skipped the tour,
-    // picking up where they left off if the app was closed mid-tour.
+    val context = LocalContext.current
+    LaunchedEffect(Unit) { GestureTips.attach(context) }
+    val player: PlayerViewModel = geodeViewModel()
+    val playingFlow = remember(player) { player.uiState.map { it.isPlaying }.distinctUntilChanged() }
+    val playing by playingFlow.collectAsStateWithLifecycle(initialValue = false)
+    val latestGui by rememberUpdatedState(gui)
+    // One write per ending, from the newest prefs, so a tick never overwrites another.
+    val tick: (TutorialChapter, Boolean) -> Unit = { chapter, seen ->
+        val now = latestGui
+        val progress = now.tutorialProgress
+        onGuiChange(
+            now.copy(
+                tutorialSeen = now.tutorialSeen || seen,
+                tutorialProgress = progress.copy(done = progress.done + chapter, resume = null),
+            ),
+        )
+    }
+
     val offer = gui.setupDone && !gui.tutorialSeen
     LaunchedEffect(offer) {
         if (offer && !state.autoOfferUsed) {
-            // A beat after setup, so the end-of-onboarding paywall is up first and the tour waits
+            // A beat after setup, so the end-of-onboarding paywall is up first and the guide waits
             // behind it instead of flashing open for a frame.
             delay(OFFER_DELAY_MS)
             state.autoOfferUsed = true
-            state.start(TutorialChapter.entries, firstRun = true, at = gui.tutorialProgress.resume)
+            state.startGuide()
         }
     }
-    val tour = state.tour ?: return
+    val due by remember {
+        derivedStateOf {
+            val done = latestGui.tutorialProgress.done
+            if (TutorialChapter.WELCOME !in done) {
+                null
+            } else {
+                TourChapters.firstOrNull { ch -> ch !in done && ch.spots.any(TourTargets::isShown) }
+            }
+        }
+    }
+    LaunchedEffect(due, state.running) {
+        val chapter = due ?: return@LaunchedEffect
+        if (state.running) return@LaunchedEffect
+        // Let the screen settle (a tab switch, a sheet rising) before pointing at it.
+        delay(SETTLE_MS)
+        if (!state.running && chapter.spots.any(TourTargets::isShown)) state.startScreen(chapter)
+    }
     if (blocked) return
-    // One write for the whole ending, so the last chapter's tick and "seen" cannot race each other.
-    val endTour = { finished: TutorialChapter? ->
-        val progress = gui.tutorialProgress
-        val done = progress.done + listOfNotNull(finished)
-        when {
-            state.firstRun -> onGuiChange(gui.copy(tutorialSeen = true, tutorialProgress = progress.copy(done = done, resume = null)))
-            finished != null -> onGuiChange(gui.copy(tutorialProgress = progress.copy(done = done)))
+
+    when (state.guide) {
+        GuideStage.OPEN_LIBRARY -> {
+            LaunchedEffect(playing) { if (playing) state.guide = GuideStage.OPEN_VISUALS }
+            GuidePointer(TourSpot.NAV_LIBRARY, 1, R.string.tour_guide_open_library, onSkip = { finishGuide(state, tick) }) {
+                onShowMe(TutorialTarget.LIBRARY)
+                state.guide = GuideStage.PLAY_SONG
+            }
         }
-        state.end()
-    }
-    if (!state.open) {
-        TutorialResumePill(onResume = state::resume, onEnd = { endTour(null) })
-        return
-    }
-    Dialog(
-        onDismissRequest = state::pause,
-        properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false, dismissOnClickOutside = false),
-    ) {
-        TutorialCarousel(
-            tour = tour,
-            startPage = state.page,
-            onMove = { from, to ->
-                val done = tour.completedBy(from, to)
-                state.page = to
-                val progress = gui.tutorialProgress
-                val next =
-                    progress.copy(
-                        done = progress.done + listOfNotNull(done),
-                        resume = if (state.firstRun) tour.positionOf(state.page) else progress.resume,
-                    )
-                if (next != progress) onGuiChange(gui.copy(tutorialProgress = next))
-                done
-            },
-            onFinish = { endTour(tour.completedBy(tour.pageCount - 1, tour.pageCount)) },
-            onSkipAll = { endTour(null) },
-            onShowMe = { target ->
-                state.pause()
-                onShowMe(target)
-            },
-        )
+        GuideStage.PLAY_SONG -> {
+            LaunchedEffect(playing) { if (playing) state.guide = GuideStage.OPEN_VISUALS }
+            TourHint(
+                text = stringResource(R.string.tour_guide_play_hint),
+                actionLabel = stringResource(R.string.tour_skip_tour),
+                onAction = { finishGuide(state, tick) },
+            )
+        }
+        GuideStage.OPEN_VISUALS ->
+            GuidePointer(TourSpot.NAV_VISUALS, 2, R.string.tour_guide_open_visuals, onSkip = { finishGuide(state, tick) }) {
+                onShowMe(TutorialTarget.VISUALS)
+                finishGuide(state, tick)
+            }
+        null -> ScreenPointers(state, tick, onShowMe)
     }
 }
 
-/**
- * The carousel itself, layout "B": a big animated drawing on top, and under it a glass card in
- * which Wave says the card's line.
- *
- * [onMove] is told every settled page change and answers with the chapter that move finished,
- * if any, which is the cue to celebrate.
- */
+/** One step of the guided path; its Skip (or Back) ends the whole path. */
 @Composable
-internal fun TutorialCarousel(
-    tour: TutorialTour,
-    startPage: Int,
-    onMove: (from: Int, to: Int) -> TutorialChapter?,
-    onFinish: () -> Unit,
-    onSkipAll: () -> Unit,
+private fun GuidePointer(
+    spot: TourSpot,
+    index: Int,
+    @StringRes primary: Int,
+    onSkip: () -> Unit,
+    onPrimary: () -> Unit,
+) {
+    TourPointer(
+        title = stringResource(spot.titleRes),
+        body = stringResource(spot.bodyRes),
+        index = index,
+        count = GUIDE_STEPS,
+        target = TourTargets.boundsOf(spot),
+        primaryLabel = stringResource(primary),
+        onPrimary = onPrimary,
+        skipLabel = stringResource(R.string.tour_skip_tour),
+        onSkip = onSkip,
+    )
+}
+
+private fun finishGuide(
+    state: TutorialState,
+    tick: (TutorialChapter, Boolean) -> Unit,
+) {
+    state.guide = null
+    tick(TutorialChapter.WELCOME, true)
+    if (state.queue.isEmpty()) state.end()
+}
+
+/** The head chapter's pointers, one at a time; tips when no chapter is queued. */
+@Composable
+private fun ScreenPointers(
+    state: TutorialState,
+    tick: (TutorialChapter, Boolean) -> Unit,
     onShowMe: (TutorialTarget) -> Unit,
 ) {
-    val reducedMotion = LocalReducedMotion.current
-    val sounds = LocalUiSounds.current
-    val view = LocalView.current
-    val scope = rememberCoroutineScope()
-    // The collector below outlives compositions; it must call the latest callback, not the first.
-    val currentOnMove by rememberUpdatedState(onMove)
-    val pager = rememberPagerState(initialPage = startPage.coerceIn(0, tour.pageCount - 1)) { tour.pageCount }
-    val confetti = remember { Animatable(0f) }
-    var cheering by remember { mutableStateOf<TutorialChapter?>(null) }
-    var talking by remember { mutableStateOf(true) }
-
-    val celebrate: (TutorialChapter?) -> Unit = { chapter ->
-        if (chapter != null) {
-            sounds.play(UiSound.CONFIRM)
-            view.performStoneHaptic(StoneHapticCue.CONFIRM)
-            cheering = chapter
-            if (!reducedMotion) {
-                scope.launch {
-                    confetti.snapTo(0f)
-                    confetti.animateTo(1f, tween(1100))
-                }
-            }
+    val chapter = state.current
+    if (chapter == null) {
+        GestureTipHost()
+        return
+    }
+    // A replay takes the user to the screen first and gives it a moment to lay out.
+    var ready by remember(chapter, state.replay) { mutableStateOf(!state.replay) }
+    LaunchedEffect(chapter, state.replay) {
+        if (state.replay) {
+            chapter.screen?.let(onShowMe)
+            delay(SETTLE_MS)
+            ready = true
         }
     }
-    // A swipe gets the swoop; a button press already made its own sound.
-    val dragged by pager.interactionSource.collectIsDraggedAsState()
-    var swiped by remember { mutableStateOf(false) }
-    LaunchedEffect(dragged) { if (dragged) swiped = true }
-    LaunchedEffect(pager) {
-        var last = pager.settledPage
-        snapshotFlow { pager.settledPage }.collect { now ->
-            if (now == last) return@collect
-            if (swiped) sounds.play(UiSound.SWOOP)
-            swiped = false
-            view.performStoneHaptic(StoneHapticCue.TAP)
-            celebrate(currentOnMove(last, now))
-            last = now
-        }
+    if (!ready) return
+    // A first visit points only at what is on screen; a replay says every card.
+    val steps = if (state.replay) chapter.spots else chapter.spots.filter(TourTargets::isShown)
+    val finish = {
+        tick(chapter, false)
+        state.nextChapter()
     }
-    LaunchedEffect(pager.settledPage) {
-        talking = true
-        delay(1600)
-        talking = false
+    if (steps.isEmpty()) {
+        LaunchedEffect(chapter) { finish() }
+        return
     }
-    LaunchedEffect(cheering) {
-        if (cheering != null) {
-            delay(1400)
-            cheering = null
-        }
-    }
-
-    val go: (Int) -> Unit = { target ->
-        scope.launch { if (reducedMotion) pager.scrollToPage(target) else pager.animateScrollToPage(target) }
-    }
-    val page = pager.currentPage
-    val position = tour.positionOf(page)
-    val card = position.chapter.cardContent[position.card]
-    val lastPage = page == tour.pageCount - 1
-
-    Box(
-        Modifier
-            .fillMaxSize()
-            .background(GeodeColors.Canvas.copy(alpha = 0.94f))
-            .testTag(TUTORIAL_TAG),
-    ) {
-        Column(
-            Modifier
-                .align(Alignment.Center)
-                .systemBarsPadding()
-                .padding(GeodeSpacing.L)
-                // A reading width on a tablet rather than a 2,500px-wide strip.
-                .widthIn(max = 560.dp)
-                .fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(GeodeSpacing.S),
-        ) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                tour.nextChapterPage(page)?.let { next ->
-                    CrystalButton(onClick = { go(next) }, filled = false) { Text(stringResource(R.string.tutorial_skip_chapter)) }
-                }
-                Spacer(Modifier.weight(1f))
-                CrystalButton(onClick = onSkipAll, filled = false) { Text(stringResource(R.string.tutorial_skip_all)) }
-            }
-            HorizontalPager(pager, Modifier.weight(1f).fillMaxWidth()) { p ->
-                val at = tour.positionOf(p)
-                TutorialPage(
-                    card = at.chapter.cardContent[at.card],
-                    talking = talking && p == pager.settledPage,
-                    cheer = cheering != null && p == pager.settledPage,
-                    cheerChapter = cheering,
-                )
-            }
-            CrystalOverline(
-                stringResource(
-                    R.string.tutorial_progress,
-                    stringResource(position.chapter.titleRes),
-                    position.card + 1,
-                    position.chapter.cards,
-                ),
-                Modifier.align(Alignment.CenterHorizontally),
-            )
-            ChapterDots(count = position.chapter.cards, current = position.card)
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                card.showMe?.let { target ->
-                    CrystalButton(onClick = { onShowMe(target) }, filled = false) { Text(stringResource(R.string.tutorial_show_me)) }
-                }
-                Spacer(Modifier.weight(1f))
-                if (page > 0) {
-                    CrystalButton(onClick = { go(page - 1) }, filled = false) { Text(stringResource(R.string.tutorial_back)) }
-                    Spacer(Modifier.size(GeodeSpacing.S))
-                }
-                CrystalButton(
-                    onClick = { if (lastPage) onFinish() else go(page + 1) },
-                ) { Text(stringResource(if (lastPage) R.string.tutorial_finish else R.string.tutorial_next)) }
-            }
-        }
-        Canvas(Modifier.fillMaxSize()) { drawConfettiBurst(confetti.value) }
-    }
+    val index = state.step.coerceIn(0, steps.lastIndex)
+    val spot = steps[index]
+    val last = index == steps.lastIndex
+    TourPointer(
+        title = stringResource(spot.titleRes),
+        body = stringResource(spot.bodyRes),
+        index = index + 1,
+        count = steps.size,
+        target = TourTargets.boundsOf(spot),
+        primaryLabel = stringResource(if (last) R.string.tour_done else R.string.tour_next),
+        onPrimary = { if (last) finish() else state.step = index + 1 },
+        skipLabel = stringResource(R.string.tour_skip),
+        onSkip = finish,
+    )
 }
 
-@Composable
-private fun TutorialPage(
-    card: TutorialCard,
-    talking: Boolean,
-    cheer: Boolean,
-    cheerChapter: TutorialChapter?,
-) {
-    BoxWithConstraints(Modifier.fillMaxSize()) {
-        // Side by side on a short, wide window (a phone on its side), stacked everywhere else.
-        if (maxWidth > maxHeight) {
-            Row(horizontalArrangement = Arrangement.spacedBy(GeodeSpacing.L), verticalAlignment = Alignment.CenterVertically) {
-                TutorialArtwork(card.art, Modifier.weight(1f).fillMaxHeight())
-                TutorialSpeech(card, talking, cheer, cheerChapter, Modifier.weight(1f))
-            }
-        } else {
-            Column(verticalArrangement = Arrangement.spacedBy(GeodeSpacing.M)) {
-                TutorialArtwork(card.art, Modifier.weight(1f).fillMaxWidth())
-                TutorialSpeech(card, talking, cheer, cheerChapter, Modifier.fillMaxWidth())
-            }
-        }
-    }
-}
-
-/** Wave and the card's words, read by TalkBack as one announcement each time the card changes. */
-@Composable
-private fun TutorialSpeech(
-    card: TutorialCard,
-    talking: Boolean,
-    cheer: Boolean,
-    cheerChapter: TutorialChapter?,
-    modifier: Modifier = Modifier,
-) {
-    val cs = MaterialTheme.colorScheme
-    Row(
-        modifier
-            .crystalPanel(0.92f, cs.surface, cs.primary, corner = 20.dp, glowStrength = 0.7f)
-            .padding(GeodeSpacing.L)
-            .semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite },
-        horizontalArrangement = Arrangement.spacedBy(GeodeSpacing.M),
-    ) {
-        WaveMascot(talking = talking, cheer = cheer, modifier = Modifier.size(56.dp))
-        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(GeodeSpacing.S)) {
-                Text(
-                    stringResource(card.titleRes),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = cs.onSurface,
-                    modifier = Modifier.weight(1f, fill = false).semantics { heading() },
-                )
-                if (card.pro) ProBadge()
-            }
-            Text(stringResource(card.bodyRes), style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant)
-            cheerChapter?.takeIf { cheer }?.let {
-                Text(
-                    stringResource(R.string.tutorial_chapter_done, stringResource(it.titleRes)),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = cs.primary,
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun ChapterDots(
-    count: Int,
-    current: Int,
-) {
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally)) {
-        repeat(count) { i ->
-            Box(
-                Modifier
-                    .size(if (i == current) 10.dp else 7.dp)
-                    .clip(CircleShape)
-                    .background(if (i == current) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.25f)),
-            )
-        }
-    }
-}
-
-/** Wave waiting at the top of the screen while someone looks at the real thing after Show me. */
-@Composable
-private fun TutorialResumePill(
-    onResume: () -> Unit,
-    onEnd: () -> Unit,
-) {
-    Box(Modifier.fillMaxSize().statusBarsPadding().padding(GeodeSpacing.S)) {
-        Row(
-            Modifier
-                .align(Alignment.TopEnd)
-                .crystalPanel(0.92f, MaterialTheme.colorScheme.surface, MaterialTheme.colorScheme.primary, corner = 28.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            CrystalButton(onClick = onResume, filled = false) {
-                WaveMascot(talking = true, modifier = Modifier.size(28.dp))
-                Text(stringResource(R.string.tutorial_resume))
-            }
-            CrystalButton(onClick = onEnd, filled = false) { Text(stringResource(R.string.tutorial_skip_all)) }
-        }
-    }
-}
-
-internal const val TUTORIAL_TAG = "tutorial-carousel"
 private const val OFFER_DELAY_MS = 600L
+private const val SETTLE_MS = 700L
+private const val GUIDE_STEPS = 2

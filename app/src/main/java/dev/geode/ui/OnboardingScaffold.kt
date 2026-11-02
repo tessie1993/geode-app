@@ -65,8 +65,11 @@ internal fun OnboardingScaffold(
                 .padding(horizontal = GeodeSpacing.XL, vertical = GeodeSpacing.XXL),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            StepDots(step, stepCount)
-            Spacer(Modifier.height(GeodeSpacing.XXL))
+            // One screen needs no "step 1 of 1".
+            if (stepCount > 1) {
+                StepDots(step, stepCount)
+                Spacer(Modifier.height(GeodeSpacing.XXL))
+            }
             Box(
                 Modifier
                     .size(72.dp)
@@ -126,5 +129,5 @@ private fun StepDots(
     }
 }
 
-/** The number of first-run screens the step indicator counts: the notice, music access, folders. */
-internal const val ONBOARDING_STEPS = 3
+/** The number of first-run screens the step indicator counts: the notice alone. */
+internal const val ONBOARDING_STEPS = 1

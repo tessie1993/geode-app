@@ -7,8 +7,12 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -76,6 +80,13 @@ internal fun EqualizerCard(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        // Folded by default: most people only want the switch, and the bands are a long run of
+        // sliders in the middle of the Playback & audio page.
+        var expanded by rememberSaveable { mutableStateOf(false) }
+        TextButton(onClick = { expanded = !expanded }) {
+            Text(stringResource(if (expanded) R.string.settings_eq_hide else R.string.settings_eq_show))
+        }
+        if (!expanded) return@SettingsGroup
         val controlsOn = fx.enabled
         if (!fx.available) {
             Text(

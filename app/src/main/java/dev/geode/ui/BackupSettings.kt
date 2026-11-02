@@ -34,8 +34,9 @@ import kotlin.system.exitProcess
 /** Zip files arrive under any of these types depending on the app that saved them. */
 private val zipMimeTypes = arrayOf("application/zip", "application/x-zip-compressed", "application/octet-stream")
 
+/** The backup card of Settings › Backup & about: save a backup zip, or restore one. */
 @Composable
-internal fun BackupSettingsTab() {
+internal fun BackupGroup() {
     val viewModel: BackupViewModel = geodeViewModel()
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val exportPicker =
@@ -47,22 +48,18 @@ internal fun BackupSettingsTab() {
             if (uri != null) viewModel.inspect(uri)
         }
     val idle = state != BackupUiState.Working && state != BackupUiState.Restored
-    SettingsTabColumn {
-        item {
-            SettingsGroup(stringResource(R.string.backup_group)) {
-                Text(
-                    stringResource(R.string.backup_body),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                BackupActions(
-                    enabled = idle,
-                    onExport = { exportPicker.launch(BackupFormat.defaultFileName(LocalDate.now())) },
-                    onImport = { importPicker.launch(zipMimeTypes) },
-                )
-                BackupStatus(state, onDismiss = viewModel::dismiss)
-            }
-        }
+    SettingsGroup(stringResource(R.string.backup_group)) {
+        Text(
+            stringResource(R.string.backup_body),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        BackupActions(
+            enabled = idle,
+            onExport = { exportPicker.launch(BackupFormat.defaultFileName(LocalDate.now())) },
+            onImport = { importPicker.launch(zipMimeTypes) },
+        )
+        BackupStatus(state, onDismiss = viewModel::dismiss)
     }
     BackupDialogs(state, viewModel)
 }
@@ -174,7 +171,7 @@ private fun RestartDialog() {
     )
 }
 
-private fun restartApp(context: Context) {
+internal fun restartApp(context: Context) {
     val launch = context.packageManager.getLaunchIntentForPackage(context.packageName) ?: return
     context.startActivity(Intent.makeRestartActivityTask(launch.component))
     exitProcess(0)

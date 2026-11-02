@@ -24,23 +24,15 @@ import dev.geode.data.GuiPrefs
 import dev.geode.ui.theme.StoneIcon
 import dev.geode.ui.theme.StoneIconArt
 
+/** Settings › Library & folders: where the library looks for music, and where presets are mirrored. */
 @Composable
 internal fun FolderSettingsTab() {
     val settingsViewModel: SettingsViewModel = geodeViewModel()
     val libraryViewModel: LibraryViewModel = geodeViewModel()
     val gui by settingsViewModel.guiPrefs.collectAsStateWithLifecycle()
     SettingsTabColumn {
-        item { SettingsGroup(stringResource(R.string.folders_group_preset)) { PresetFolderGroup(settingsViewModel, gui) } }
         item { SettingsGroup(stringResource(R.string.folders_group_music)) { MusicFoldersEditor(libraryViewModel) } }
-        item {
-            SettingsGroup(stringResource(R.string.folders_group_export)) {
-                Text(
-                    stringResource(R.string.folders_export_explainer),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
+        item { SettingsGroup(stringResource(R.string.folders_group_preset)) { PresetFolderGroup(settingsViewModel, gui) } }
     }
 }
 

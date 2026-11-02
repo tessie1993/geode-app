@@ -40,8 +40,8 @@ import dev.geode.ui.theme.StoneIcon
 import dev.geode.ui.theme.StoneIconArt
 
 /**
- * Settings › Tutorials: every chapter of the tour, replayable on its own, with a tick for each
- * one finished.
+ * Settings › Tutorials & help: every chapter of the tour, replayable on its own, with a tick for
+ * each one finished, then the help topics ([HelpTopicsGroup]).
  *
  * The tour is the only place some things are explained at all (touch on the visualizer, Events),
  * and someone who skipped it on day one is the person who needs it on day three, so it lives
@@ -95,6 +95,7 @@ internal fun TutorialSettingsTab(
                 }
             }
         }
+        item { HelpTopicsGroup() }
     }
 }
 

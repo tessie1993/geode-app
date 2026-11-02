@@ -53,7 +53,7 @@ class ShellTabsTest {
         compose.waitForIdle()
 
         compose.tap("Settings")
-        compose.awaitNode(hasText("Export"))
+        compose.awaitNode(hasText("Export & save"))
 
         compose.tap("Player")
         compose.awaitEmptyPlayer()

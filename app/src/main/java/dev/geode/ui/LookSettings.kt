@@ -29,7 +29,6 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 import dev.geode.data.BootAnimationStore
 import dev.geode.data.CornerStyle
@@ -37,18 +36,42 @@ import dev.geode.data.FontColorChoice
 import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.GuiPrefs
 import dev.geode.data.PlayerPosition
+import dev.geode.data.ThemeStore
 import dev.geode.ui.theme.isReadableOnCanvas
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
+// The app's look, shown in Settings › Display & performance: the theme and layout under
+// Appearance, the text under Accessibility.
+
+/** Appearance: the accent, interface sounds, the bars and player layout, the boot animation. */
 @Composable
-internal fun LookSettingsTab(viewModel: SettingsViewModel) {
-    val gui by viewModel.guiPrefs.collectAsStateWithLifecycle()
-    SettingsTabColumn {
-        item { SettingsGroup(stringResource(R.string.look_group_theme)) { ThemeGroup(viewModel, gui) } }
-        item { SettingsGroup(stringResource(R.string.look_group_text)) { TextGroup(viewModel, gui) } }
-        item { SettingsGroup(stringResource(R.string.look_group_layout)) { LayoutGroup(viewModel, gui) } }
+internal fun AppearanceSettings(
+    viewModel: SettingsViewModel,
+    gui: GuiPrefs,
+) {
+    ThemeGroup(viewModel, gui)
+    LayoutGroup(viewModel, gui)
+    Column {
+        Text(
+            stringResource(R.string.audio_preset_morph, gui.presetMorphSeconds),
+            style = MaterialTheme.typography.labelMedium,
+        )
+        CrystalSlider(
+            value = gui.presetMorphSeconds,
+            onValueChange = { viewModel.setGuiPrefs(gui.copy(presetMorphSeconds = it)) },
+            valueRange = 0f..ThemeStore.PRESET_MORPH_SECONDS_MAX,
+        )
     }
+}
+
+/** The text's colour and size, under Accessibility. */
+@Composable
+internal fun TextSettings(
+    viewModel: SettingsViewModel,
+    gui: GuiPrefs,
+) {
+    TextGroup(viewModel, gui)
 }
 
 @Composable

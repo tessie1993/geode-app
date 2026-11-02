@@ -24,6 +24,7 @@ SYMBOLS = [
     ("CHEVRON_LEFT", "chevron_left"),
     ("CHEVRON_RIGHT", "chevron_right"),
     ("CLOSE", "close"),
+    ("CROWN", "crown"),
     ("DELETE", "delete"),
     ("EDIT", "edit"),
     ("EXPAND", "expand_more"),

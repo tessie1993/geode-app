@@ -23,7 +23,8 @@ import androidx.compose.ui.unit.dp
  * so the selected tab or a favourite that is on reads by shape and not by colour alone. The
  * transport glyphs ([filledAtRest]) are the one exception: play, pause, skip, record and stop are solid in every
  * media player and in Android's own media controls, and an outlined play triangle reads as
- * disabled.
+ * disabled. The Pro crown (♛, `ProCrown`) is solid too: it is a mark, never a control, and at
+ * 18 dp the outlined crown's hollow band reads as a badge.
  *
  * Each vector is parsed the first time it is drawn, then kept: screens draw a handful of these,
  * and parsing all fifty paths at class load would cost start-up for nothing.
@@ -40,6 +41,7 @@ enum class StoneIcon(
     CHEVRON_LEFT(MaterialSymbols.CHEVRON_LEFT_OUTLINED, MaterialSymbols.CHEVRON_LEFT_FILLED, mirrored = true),
     CHEVRON_RIGHT(MaterialSymbols.CHEVRON_RIGHT_OUTLINED, MaterialSymbols.CHEVRON_RIGHT_FILLED, mirrored = true),
     CLOSE(MaterialSymbols.CLOSE_OUTLINED, MaterialSymbols.CLOSE_FILLED),
+    CROWN(MaterialSymbols.CROWN_OUTLINED, MaterialSymbols.CROWN_FILLED, filledAtRest = true),
     DELETE(MaterialSymbols.DELETE_OUTLINED, MaterialSymbols.DELETE_FILLED),
     EDIT(MaterialSymbols.EDIT_OUTLINED, MaterialSymbols.EDIT_FILLED),
     EXPAND(MaterialSymbols.EXPAND_OUTLINED, MaterialSymbols.EXPAND_FILLED),

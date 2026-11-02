@@ -139,14 +139,23 @@ internal fun BoxScope.StageIcons(
         stringResource(R.string.visuals_previous_style),
         awake,
         { onStep(-1) },
-        Modifier.align(Alignment.CenterStart).padding(GeodeSpacing.S).faded(shown).then(glass),
+        Modifier
+            .align(Alignment.CenterStart)
+            .padding(GeodeSpacing.S)
+            .faded(shown)
+            .then(glass),
     )
     StageIconButton(
         StoneIcon.CHEVRON_RIGHT,
         stringResource(R.string.visuals_next_style),
         awake,
         { onStep(1) },
-        Modifier.align(Alignment.CenterEnd).then(toLeft).padding(GeodeSpacing.S).faded(shown).then(glass),
+        Modifier
+            .align(Alignment.CenterEnd)
+            .then(toLeft)
+            .padding(GeodeSpacing.S)
+            .faded(shown)
+            .then(glass),
     )
     StageIconButton(
         icon = if (takes.recording) StoneIcon.STOP else StoneIcon.RECORD,

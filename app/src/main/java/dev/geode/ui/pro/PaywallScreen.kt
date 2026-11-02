@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -41,23 +42,28 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithCache
@@ -92,6 +98,7 @@ import dev.geode.pro.RestoreResult
 import dev.geode.pro.TrialState
 import dev.geode.ui.geodeViewModel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
@@ -102,6 +109,8 @@ import kotlin.math.sin
  * A [Dialog] rather than an overlay in the app's own layout: the paywall can be opened from inside
  * other dialogs (the export settings), and only a newer window reliably sits above an older one.
  * Also refreshes billing on every foreground, which is how a purchase completed elsewhere arrives.
+ * A locked style's paywall is the one exception: a half sheet ([StylePaywallSheet]) under the
+ * style it previews.
  */
 @Composable
 fun PaywallHost(reducedMotion: Boolean) {
@@ -112,25 +121,75 @@ fun PaywallHost(reducedMotion: Boolean) {
         onStopOrDispose { }
     }
     if (!state.visible) return
-    Dialog(
+    val debugActions =
+        DebugActions(
+            onOwnedChange = viewModel::setDebugOwned,
+            onOutcomeChange = viewModel::setDebugOutcome,
+            onCompletePending = viewModel::completeDebugPending,
+        )
+    if (state.highlighted == ProFeature.PREMIUM_STYLES) {
+        StylePaywallSheet(state, viewModel, debugActions)
+    } else {
+        Dialog(
+            onDismissRequest = viewModel::dismiss,
+            properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
+        ) {
+            BackHandler(onBack = viewModel::dismiss)
+            PaywallScreen(
+                state = state,
+                reducedMotion = reducedMotion,
+                onPurchase = viewModel::purchase,
+                onRestore = viewModel::restorePurchases,
+                onRetry = viewModel::retry,
+                onStartTrial = viewModel::startTrial,
+                onClose = viewModel::dismiss,
+                debugActions = debugActions,
+            )
+        }
+    }
+}
+
+/**
+ * The paywall a locked style opens: a partial bottom sheet under the live visual, not the full
+ * screen. The tap that opened it is already playing that style (Styles' preview), and the style
+ * moving to your own music is the whole case for buying it, so the offer must not hide it
+ * ("locked = preview + paywall", the owner's Styles decision). The sheet takes about half the
+ * height in matte glass over a light scrim; the hero art is left out, since the visual above is
+ * the hero. Swipe down, a tap on the scrim, Back and Close all dismiss it, and the page that
+ * previewed the style puts the chosen one back. Every other trigger keeps the full paywall.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun StylePaywallSheet(
+    state: PaywallUiState,
+    viewModel: PaywallViewModel,
+    debugActions: DebugActions,
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val scope = rememberCoroutineScope()
+    // Close slides the sheet away first, as a swipe would, then drops the request.
+    val close: () -> Unit = {
+        scope.launch { sheetState.hide() }.invokeOnCompletion { viewModel.dismiss() }
+    }
+    ModalBottomSheet(
         onDismissRequest = viewModel::dismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
+        sheetState = sheetState,
+        containerColor = ProColors.background.copy(alpha = SHEET_GLASS_ALPHA),
+        contentColor = Color.White,
+        scrimColor = Color.Black.copy(alpha = SHEET_SCRIM_ALPHA),
+        dragHandle = { BottomSheetDefaults.DragHandle(color = ProColors.muted) },
     ) {
-        BackHandler(onBack = viewModel::dismiss)
         PaywallScreen(
             state = state,
-            reducedMotion = reducedMotion,
+            // The sheet draws no hero, the paywall's one animation.
+            reducedMotion = true,
             onPurchase = viewModel::purchase,
             onRestore = viewModel::restorePurchases,
             onRetry = viewModel::retry,
             onStartTrial = viewModel::startTrial,
-            onClose = viewModel::dismiss,
-            debugActions =
-                DebugActions(
-                    onOwnedChange = viewModel::setDebugOwned,
-                    onOutcomeChange = viewModel::setDebugOutcome,
-                    onCompletePending = viewModel::completeDebugPending,
-                ),
+            onClose = close,
+            debugActions = debugActions,
+            asSheet = true,
         )
     }
 }
@@ -141,7 +200,13 @@ class DebugActions(
     val onCompletePending: () -> Unit,
 )
 
-/** The paywall itself: stateless, so previews and screenshot tests can drive every state. */
+/**
+ * The paywall itself: stateless, so previews and screenshot tests can drive every state.
+ *
+ * [asSheet] lays it out for [StylePaywallSheet]: about half the window's height, no hero art and no
+ * status-bar handling (the sheet sits at the bottom, under the live visual), the sheet's own
+ * glass behind it. The offer and the pinned purchase bar are the same in both.
+ */
 @Composable
 fun PaywallScreen(
     state: PaywallUiState,
@@ -152,11 +217,14 @@ fun PaywallScreen(
     onStartTrial: () -> Unit,
     onClose: () -> Unit,
     debugActions: DebugActions? = null,
+    asSheet: Boolean = false,
 ) {
     Box(
-        Modifier
-            .fillMaxSize()
-            .background(ProColors.background),
+        if (asSheet) {
+            Modifier.fillMaxWidth().fillMaxHeight(SHEET_HEIGHT_FRACTION)
+        } else {
+            Modifier.fillMaxSize().background(ProColors.background)
+        },
     ) {
         Column(Modifier.fillMaxSize()) {
             // The offer scrolls; the price and the button stay pinned below it (PurchaseBar), so
@@ -166,10 +234,12 @@ fun PaywallScreen(
                     .weight(1f)
                     .fillMaxWidth()
                     .verticalScroll(rememberScrollState())
-                    .statusBarsPadding(),
+                    .then(if (asSheet) Modifier else Modifier.statusBarsPadding()),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                VisualHero(reducedMotion = reducedMotion, modifier = Modifier.fillMaxWidth().height(HERO_HEIGHT))
+                if (!asSheet) {
+                    VisualHero(reducedMotion = reducedMotion, modifier = Modifier.fillMaxWidth().height(HERO_HEIGHT))
+                }
                 Column(
                     Modifier
                         .widthIn(max = CONTENT_MAX_WIDTH)
@@ -201,19 +271,21 @@ fun PaywallScreen(
                 PurchaseBar(state, onPurchase, onRetry)
             }
         }
-        // Content scrolls under a translucent status bar; this keeps the clock legible over it.
-        Box(
-            Modifier
-                .fillMaxWidth()
-                .windowInsetsTopHeight(WindowInsets.statusBars)
-                .background(ProColors.background.copy(alpha = STATUS_SCRIM_ALPHA)),
-        )
+        if (!asSheet) {
+            // Content scrolls under a translucent status bar; this keeps the clock legible over it.
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .windowInsetsTopHeight(WindowInsets.statusBars)
+                    .background(ProColors.background.copy(alpha = STATUS_SCRIM_ALPHA)),
+            )
+        }
         IconButton(
             onClick = onClose,
             modifier =
                 Modifier
                     .align(Alignment.TopEnd)
-                    .systemBarsPadding()
+                    .then(if (asSheet) Modifier else Modifier.systemBarsPadding())
                     .padding(8.dp)
                     .background(ProColors.scrim, CircleShape),
         ) {
@@ -763,6 +835,13 @@ private val CTA_HEIGHT = 56.dp
 private val MIN_TOUCH = 48.dp
 private const val LABEL_WEIGHT = 1.6f
 private const val STATUS_SCRIM_ALPHA = 0.85f
+
+// The style sheet: about half the window, so the previewed visual keeps the top half; matte glass
+// (nearly opaque, so the offer stays readable over any visual) on a scrim light enough to see the
+// style through.
+private const val SHEET_HEIGHT_FRACTION = 0.55f
+private const val SHEET_GLASS_ALPHA = 0.94f
+private const val SHEET_SCRIM_ALPHA = 0.2f
 private const val HERO_BARS = 56
 private const val HERO_LOOP_MS = 14_000
 private const val TWO_PI = (2.0 * PI).toFloat()

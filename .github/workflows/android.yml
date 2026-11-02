@@ -6,6 +6,8 @@ name: Build MuzViz Debug APK
 # would build the app twice per push for the same result.
 # Pushes to claude/** work branches run it too, so agent sessions offload
 # build, lint and tests here instead of building locally.
+# A green run on a push (or a manual run) ends by shipping the next
+# pre-release through ship-apk.yml; see the "pre-release" job at the end.
 
 on:
   workflow_dispatch:
@@ -365,3 +367,20 @@ jobs:
             ci-artifacts/
           if-no-files-found: ignore
           retention-days: 14
+
+  # The last step of every green run on a push or a manual run: ship this commit
+  # as the next pre-release ("Geode <base>.N"), so each commit that passed the
+  # build, lint, unit and emulator tests has an installable APK. Pull-request
+  # runs skip it: the push run of the same commit ships it already, and a
+  # fork's token cannot write releases. A newer push to the branch cancels this
+  # run, and ship-apk.yml then hands its reserved number back.
+  pre-release:
+    name: Ship pre-release
+    needs: [build-debug-apk, instrumented-tests]
+    if: github.event_name != 'pull_request'
+    permissions:
+      contents: write
+    uses: ./.github/workflows/ship-apk.yml
+    with:
+      ref: ${{ github.sha }}
+      prerelease: true

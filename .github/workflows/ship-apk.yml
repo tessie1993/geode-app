@@ -1,8 +1,13 @@
 name: Ship Geode APK
 
-# Builds the debug-signed APK from main and claude/geode-finish and publishes it as a GitHub Release,
-# so it can be downloaded and sideloaded without a GitHub login and without the
-# 30-day expiry that applies to the workflow artifacts in android.yml.
+# Builds the debug-signed APK and publishes it as a GitHub Release, so it can be
+# downloaded and sideloaded without a GitHub login and without the 30-day expiry
+# that applies to the workflow artifacts in android.yml.
+#
+# It runs at the end of every green android.yml run on a push (its "Ship
+# pre-release" job calls this workflow), so a pre-release only ever ships a
+# commit that passed build, lint, unit and emulator tests. Pushes to main, which
+# android.yml does not run on, still ship directly, as does a manual dispatch.
 #
 # Releases are marked pre-release: this is Android's debug signing key, not the
 # Play upload key. The Play Store build is release.yml.
@@ -21,12 +26,22 @@ on:
         description: Mark the GitHub Release as a pre-release
         type: boolean
         default: true
-  # Every merge into main or the integration branch ships a pre-release,
-  # docs-only merges included, so each merged PR has an installable build.
+  # android.yml's last job, once everything before it is green.
+  workflow_call:
+    inputs:
+      ref:
+        description: The commit the green run tested
+        type: string
+        required: true
+      prerelease:
+        type: boolean
+        default: true
+  # Every merge into main ships a pre-release, docs-only merges included, so
+  # each merged PR has an installable build. claude/geode-finish is not listed:
+  # android.yml runs on it (claude/**) and ships it once that run is green.
   push:
     branches:
       - main
-      - claude/geode-finish
 
 permissions:
   contents: write
@@ -58,7 +73,8 @@ jobs:
         uses: actions/checkout@v7
         with:
           # A dispatch defaults to main so the APK that ships is main's, even
-          # when the run is started from another branch.
+          # when the run is started from another branch. A call from android.yml
+          # passes the commit its green run tested.
           ref: ${{ inputs.ref || github.sha }}
           # third_party/* are submodules; the root CMakeLists.txt builds them.
           submodules: recursive
@@ -157,7 +173,8 @@ jobs:
           VERSION_NAME: ${{ steps.package.outputs.version_name }}
           VERSION_CODE: ${{ steps.package.outputs.version_code }}
           SHORT_SHA: ${{ steps.package.outputs.short_sha }}
-          # Empty on push events, where a pre-release is always what we want.
+          # Empty on push events, where a pre-release is always what we want;
+          # a call from android.yml passes true.
           PRERELEASE: ${{ inputs.prerelease }}
         run: |
           set -euo pipefail

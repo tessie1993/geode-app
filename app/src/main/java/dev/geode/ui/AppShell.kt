@@ -385,8 +385,7 @@ fun AppRoot() {
                     onDone = {
                         settingsViewModel.setGuiPrefs(gui.copy(setupDone = true))
                         appState.navigateTo(gui.intent.landingDestination)
-                        // The end-of-onboarding paywall: once, skippable, after setup is saved.
-                        paywallViewModel.open(PaywallTrigger.Onboarding)
+                        // No Pro offer here: it waits until the guided tour ends (TutorialHost).
                     },
                 )
             }

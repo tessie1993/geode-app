@@ -14,11 +14,14 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.render.EventRecipe
+import dev.geode.render.HandReactions
 import dev.geode.render.ReactMode
 import dev.geode.render.ReactionRoute
 import dev.geode.render.scene.BuildStyleReactionsUseCase
@@ -58,8 +61,9 @@ class ReactivityTabTest {
                         EventsTab(
                             p = params,
                             onChange = { params = it },
-                            reactions = reactions,
+                            hand = HandReactions(reactions, GeodeNative.HAND_ALL),
                             onReactionsChange = { reactions = it },
+                            onHandChange = { reactions = it.routes },
                         )
                         // Advanced › Reactions, the route list the recipes write into.
                         ReactionsSection(
@@ -135,6 +139,8 @@ class ReactivityTabTest {
         val routes = dna(sceneId, 0)
         val first = routes.first()
         openRoute(first)
+        // The mode is a dropdown row now: open it, then pick from its menu.
+        clickText("Mode")
         clickText(ReactMode.SPIN.label)
         val edited = assertNotNullAndGet()
         assertEquals(ReactMode.SPIN, edited.first().mode)
@@ -171,6 +177,11 @@ class ReactivityTabTest {
             EventRecipe.entries.first {
                 it.routesFor(sceneId).isNotEmpty() && !it.isOn(routes, sceneId) && it.fits(routes, sceneId)
             }
+        // The recipes are one checkable menu now; it stays open while ticking.
+        compose
+            .onNodeWithContentDescription("Ready-made reactions")
+            .performScrollTo()
+            .performSemanticsAction(SemanticsActions.OnClick)
         clickText(recipe.title)
         val on = assertNotNullAndGet()
         assertTrue(recipe.isOn(on, sceneId))

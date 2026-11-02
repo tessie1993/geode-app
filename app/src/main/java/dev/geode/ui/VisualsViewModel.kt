@@ -96,6 +96,8 @@ class VisualsViewModel
 
         val reactions: StateFlow<List<dev.geode.render.ReactionRoute>?> get() = session.reactions
 
+        val handMask: StateFlow<Int> get() = session.handMask
+
         val lockedParams: StateFlow<Set<String>> get() = session.lockedParams
 
         val presetLocked: StateFlow<Boolean> get() = session.presetLocked
@@ -151,6 +153,8 @@ class VisualsViewModel
         ) = session.setLfo(index, config)
 
         fun setReactions(routes: List<dev.geode.render.ReactionRoute>?) = session.setReactions(routes)
+
+        fun setHandReactions(edit: dev.geode.render.HandReactions) = session.setHandReactions(edit)
 
         fun rerollReactions() = session.rerollReactions()
 

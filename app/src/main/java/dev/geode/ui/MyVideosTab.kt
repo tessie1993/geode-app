@@ -53,6 +53,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -83,6 +84,7 @@ internal fun MyVideosTab(
     val editor by viewModel.editor.collectAsStateWithLifecycle()
     val takes by viewModel.takeState.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val resources = LocalResources.current
     val scope = rememberCoroutineScope()
     val snackbar = remember { SnackbarHostState() }
     var filter by rememberSaveable { mutableStateOf(VideoFilter.ALL) }
@@ -106,7 +108,7 @@ internal fun MyVideosTab(
 
     val delete: (MyVideo) -> Unit = { item ->
         pendingDelete = pendingDelete + item.key
-        val deletedText = context.getString(R.string.my_videos_deleted, item.title)
+        val deletedText = resources.getString(R.string.my_videos_deleted, item.title)
         scope.launch {
             val result = snackbar.showSnackbar(deletedText, actionLabel = undoText, duration = SnackbarDuration.Short)
             pendingDelete = pendingDelete - item.key

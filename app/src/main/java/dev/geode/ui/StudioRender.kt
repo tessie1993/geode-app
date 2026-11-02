@@ -23,6 +23,7 @@ import androidx.compose.material3.RangeSlider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -84,6 +85,7 @@ fun StudioHub(
     visualizerView: VisualizerView,
     section: StudioSection,
     onSection: (StudioSection) -> Unit,
+    onImmersive: (Boolean) -> Unit = {},
 ) {
     val context = LocalContext.current
     val prefs = remember { StudioPrefsStore(GeodePrefsFiles(context).general) }
@@ -104,6 +106,11 @@ fun StudioHub(
 
     if (editing && canEdit && section == StudioSection.EDIT) {
         BackHandler { editing = false }
+        // The shell's mini player and tab bar step aside while the timeline has the screen.
+        DisposableEffect(Unit) {
+            onImmersive(true)
+            onDispose { onImmersive(false) }
+        }
         val editor by studioViewModel.editor.collectAsStateWithLifecycle()
         val studio by studioViewModel.studio.collectAsStateWithLifecycle()
         TimelineEditor(state = editor, exportPhase = studio.phase, actions = studioViewModel, onClose = { editing = false })
@@ -156,7 +163,8 @@ fun StudioHub(
  * - Save: the Videos library, or a folder asked each time.
  *
  * The Render button sits in [RenderBar], which always repeats the quality, frame rate and save
- * place. Pressing it with a Pro choice by a free user offers the paywall or a free version of the
+ * place. There are no hint paragraphs: each control says what it is. Pressing Render with a Pro
+ * choice by a free user offers the paywall or a free version of the
  * same video (the free limits, never a dead end); a single render then asks once whether to keep it
  * as a project too, unless the user told it to stop asking.
  */
@@ -283,7 +291,6 @@ internal fun StudioRenderTab(
                                 onSelect = studioViewModel::setExportTake,
                             )
                         }
-                        if (selection.scope.isBatch) OptionHint(stringResource(R.string.render_batch_hint))
                     }
                 }
                 item {
@@ -483,7 +490,6 @@ private fun RenderTakeChoice(
         RenderChip(stringResource(R.string.export_live_settings), selected == null) { onSelect(null) }
         takes.forEach { name -> RenderChip(name, selected == name) { onSelect(name) } }
     }
-    if (selected != null) OptionHint(stringResource(R.string.export_take_explainer))
 }
 
 /**
@@ -499,7 +505,11 @@ private fun RenderFormatGroup(
     update: (ExportDefaults) -> Unit,
     gate: FeatureGate,
 ) {
-    SettingsGroup(stringResource(R.string.render_group_format)) {
+    // One ♛ for the group: 4K and frame rates above the free cap stay selectable (Render then offers
+    // the paywall or a free version), so the mark says "something here is Pro", not which chip.
+    val proInside = !gate.allows(ProFeature.EXPORT_4K) || !gate.allows(ProFeature.EXPORT_60FPS)
+    val title = stringResource(R.string.render_group_format) + if (proInside) stringResource(R.string.render_pro_mark) else ""
+    SettingsGroup(title) {
         OptionLabel(stringResource(R.string.render_destination))
         RenderChipRow {
             ExportDestination.entries.forEach { d ->
@@ -507,7 +517,7 @@ private fun RenderFormatGroup(
                 RenderChip(label, destination == d) { onDestination(d) }
             }
         }
-        RenderVideoOptions(options, update, gate)
+        RenderVideoOptions(options, update)
         RenderSoundOptions(options, update)
     }
 }
@@ -579,7 +589,6 @@ private fun RenderLookGroup(
                 }
             }
         }
-        OptionHint(stringResource(if (batch) R.string.render_look_hint else R.string.render_look_live_hint))
     }
 }
 
@@ -607,27 +616,23 @@ private val RenderLengthSaver =
         restore = { RenderLength(it[0] as Boolean, it[1] as Float, it[2] as Float) },
     )
 
-/** Format's picture options. 4K and frame rates above the free cap carry ♛ for a free user. */
+/** Format's picture options: quality, frame rate, ratio and codec. */
 @Composable
 private fun RenderVideoOptions(
     options: ExportDefaults,
     update: (ExportDefaults) -> Unit,
-    gate: FeatureGate,
 ) {
-    val crown = stringResource(R.string.render_pro_mark)
     OptionLabel(stringResource(R.string.export_quality))
     RenderChipRow {
         ExportQuality.entries.forEach { q ->
-            val pro = q.shortSide > FreeTier.FREE_MAX_SHORT_SIDE && !gate.allows(ProFeature.EXPORT_4K)
-            RenderChip(exportQualityLabel(q) + if (pro) crown else "", options.quality == q) { update(options.copy(quality = q)) }
+            RenderChip(exportQualityLabel(q), options.quality == q) { update(options.copy(quality = q)) }
         }
     }
     if (options.quality == ExportQuality.UHD4K) OptionHint(stringResource(R.string.export_4k_fallback))
     OptionLabel(stringResource(R.string.export_frame_rate))
     RenderChipRow {
         EXPORT_FPS_OPTIONS.zip(fpsLabels()).forEach { (fps, label) ->
-            val pro = fps > FreeTier.FREE_MAX_FPS && !gate.allows(ProFeature.EXPORT_60FPS)
-            RenderChip(label + if (pro) crown else "", options.fps == fps) { update(options.copy(fps = fps)) }
+            RenderChip(label, options.fps == fps) { update(options.copy(fps = fps)) }
         }
     }
     OptionLabel(stringResource(R.string.export_aspect_ratio))
@@ -643,7 +648,7 @@ private fun RenderVideoOptions(
         }
     }
     val hevcEncoder = remember { ExportCodec.hasEncoder(ExportCodec.HEVC.mimeType) }
-    OptionHint(stringResource(if (hevcEncoder) R.string.export_codec_explainer else R.string.export_codec_no_hevc))
+    if (!hevcEncoder) OptionHint(stringResource(R.string.export_codec_no_hevc))
 }
 
 @Composable
@@ -659,7 +664,6 @@ private fun RenderSoundOptions(
             }
         }
     }
-    OptionHint(stringResource(R.string.export_loudness_hint))
 }
 
 /**

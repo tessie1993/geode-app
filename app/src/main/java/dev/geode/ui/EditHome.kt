@@ -16,10 +16,14 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -127,7 +131,6 @@ internal fun EditHome(
                     }
                     CrystalButton(filled = false, onClick = blank) { Text(stringResource(R.string.edit_home_blank)) }
                 }
-                if (track == null) EditHint(stringResource(R.string.edit_home_nothing_playing))
             }
         }
         val recent = editor.projects.sortedByDescending { it.updatedAtMs }.take(RECENT_COUNT)
@@ -285,7 +288,9 @@ private fun ProjectRow(
             Text(project.name, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
             EditHint(projectSummary(project))
         }
-        TextButton(onClick = { menu = true }) { Text(stringResource(R.string.edit_home_more)) }
+        IconButton(onClick = { menu = true }) {
+            Icon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.edit_home_more))
+        }
         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
             DropdownMenuItem(
                 text = { Text(stringResource(R.string.edit_home_rename)) },

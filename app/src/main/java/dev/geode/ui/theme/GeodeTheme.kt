@@ -14,20 +14,28 @@ import dev.geode.ui.ColorDerive
 /**
  * The colour scheme, built from [GeodeColors].
  *
- * [accentIntensity] scales the accent's saturation (the Look setting); [fontColorOverride] is the
- * user's chosen text colour, applied only where it stays readable on the canvas.
+ * [accentSource] is the current visual's main colour; the primary colours are derived from it
+ * through [VisualAccent] (its hue, lifted until it reads on black). Null, the default, keeps the
+ * theme's own #9CC7FF family exactly as it was, so nothing changes on screen until a caller feeds
+ * the visual's colour in. [accentIntensity] scales the accent's saturation (the Look setting);
+ * [fontColorOverride] is the user's chosen text colour, applied only where it stays readable on
+ * the canvas.
  */
 fun geodeColorScheme(
     accentIntensity: Float = 1f,
     fontColorOverride: Color? = null,
+    accentSource: Color? = null,
 ): ColorScheme {
     fun Color.intensity(): Color = Color(ColorDerive.scaleSaturation(toArgbInt(), accentIntensity))
+    // Intensity first, then the rule, so a fully saturated Look setting cannot push the accent
+    // back under the contrast floor.
+    val accent = accentSource?.let { VisualAccent.from(it.intensity()) }
     val base =
         darkColorScheme(
-            primary = GeodeColors.Primary.intensity(),
-            onPrimary = GeodeColors.OnPrimary,
-            primaryContainer = GeodeColors.PrimaryContainer,
-            onPrimaryContainer = GeodeColors.OnPrimaryContainer,
+            primary = accent ?: GeodeColors.Primary.intensity(),
+            onPrimary = accent?.let(VisualAccent::onAccent) ?: GeodeColors.OnPrimary,
+            primaryContainer = accent?.let(VisualAccent::container) ?: GeodeColors.PrimaryContainer,
+            onPrimaryContainer = accent?.let(VisualAccent::onContainer) ?: GeodeColors.OnPrimaryContainer,
             secondary = GeodeColors.Secondary,
             onSecondary = GeodeColors.OnSecondary,
             secondaryContainer = GeodeColors.SecondaryContainer,
@@ -119,6 +127,25 @@ fun geodeTypography(textScale: Float = 1f): Typography {
         labelSmall = base.labelSmall.scaled(),
     )
 }
+
+/**
+ * The screen's one title (the heading TalkBack users jump between).
+ *
+ * This and the three roles below are the compact type scale: the redesign uses these sizes of
+ * the M3 scale and no more, so screens read alike (one Title Large per screen, Title Small over
+ * each group, Body Medium in rows, Body Small for a row's second line). Screens name the role,
+ * not the size, so the scale can be retuned here.
+ */
+val Typography.screenTitle: TextStyle get() = titleLarge
+
+/** A group's header inside a screen or sheet. */
+val Typography.sectionHeader: TextStyle get() = titleSmall
+
+/** A row's main line. */
+val Typography.rowText: TextStyle get() = bodyMedium
+
+/** A row's second line: its value or a short description. */
+val Typography.rowSupporting: TextStyle get() = bodySmall
 
 private fun TextUnit.scaledBy(factor: Float): TextUnit = if (isSpecified) this * factor else this
 

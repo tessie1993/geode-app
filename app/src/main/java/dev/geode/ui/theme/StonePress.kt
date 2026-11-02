@@ -1,7 +1,6 @@
 package dev.geode.ui.theme
 
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.interaction.InteractionSource
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -15,7 +14,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalView
 
-/** Whether the user asked for reduced motion (Look setting, or the system's "remove animations"). */
+/**
+ * Whether the user asked for reduced motion: the app's own setting, or the system's "Remove
+ * animations" ([rememberSystemReducedMotion], watched live). The theme also swaps its motion
+ * scheme on it ([geodeMotionScheme]); read this for animations the scheme does not cover.
+ */
 val LocalReducedMotion = staticCompositionLocalOf { false }
 
 /** A light haptic tick and a small scale-down while pressed; no scale under reduced motion. */
@@ -24,6 +27,7 @@ fun Modifier.stonePress(interaction: InteractionSource): Modifier {
     val reducedMotion = LocalReducedMotion.current
     val pressed by interaction.collectIsPressedAsState()
     val view = LocalView.current
+    val release = LocalGeodeMotion.current.fastSpatialSpec<Float>()
     LaunchedEffect(pressed) {
         if (pressed) view.performStoneHaptic(StoneHapticCue.TAP)
     }
@@ -36,7 +40,8 @@ fun Modifier.stonePress(interaction: InteractionSource): Modifier {
                 if (pressed) {
                     tween(GeodeMotion.PRESS)
                 } else {
-                    spring(dampingRatio = 0.78f, stiffness = 380f)
+                    // Springs back with the theme's expressive overshoot.
+                    release
                 },
             label = "stone-press",
         )

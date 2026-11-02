@@ -11,8 +11,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -71,10 +74,10 @@ private fun BackupActions(
     onImport: () -> Unit,
 ) {
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        CrystalButton(onClick = onExport, modifier = Modifier.weight(1f), enabled = enabled) {
+        FilledTonalButton(onClick = onExport, modifier = Modifier.weight(1f), enabled = enabled) {
             Text(stringResource(R.string.backup_export))
         }
-        CrystalButton(onClick = onImport, modifier = Modifier.weight(1f), enabled = enabled, filled = false) {
+        OutlinedButton(onClick = onImport, modifier = Modifier.weight(1f), enabled = enabled) {
             Text(stringResource(R.string.backup_import))
         }
     }
@@ -112,7 +115,7 @@ private fun BackupStatus(
             color = if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
         )
         if (state != BackupUiState.Working) {
-            CrystalButton(onClick = onDismiss, filled = false, compact = true) { Text(stringResource(R.string.action_dismiss)) }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_dismiss)) }
         }
     }
 }
@@ -144,12 +147,12 @@ private fun RestoreChoiceDialog(
             }
         },
         confirmButton = {
-            CrystalButton(onClick = viewModel::restore, enabled = choosing.selected.isNotEmpty()) {
+            TextButton(onClick = viewModel::restore, enabled = choosing.selected.isNotEmpty()) {
                 Text(stringResource(R.string.backup_restore_confirm))
             }
         },
         dismissButton = {
-            CrystalButton(onClick = viewModel::cancelRestore, filled = false) { Text(stringResource(R.string.action_cancel)) }
+            TextButton(onClick = viewModel::cancelRestore) { Text(stringResource(R.string.action_cancel)) }
         },
     )
 }
@@ -166,7 +169,7 @@ private fun RestartDialog() {
         title = { Text(stringResource(R.string.backup_restored_title)) },
         text = { Text(stringResource(R.string.backup_restored_body)) },
         confirmButton = {
-            CrystalButton(onClick = { restartApp(context) }) { Text(stringResource(R.string.backup_restart)) }
+            TextButton(onClick = { restartApp(context) }) { Text(stringResource(R.string.backup_restart)) }
         },
     )
 }

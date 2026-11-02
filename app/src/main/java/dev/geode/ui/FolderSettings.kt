@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -68,7 +69,7 @@ private fun PresetFolderGroup(
             style = MaterialTheme.typography.labelMedium,
         )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            CrystalButton(filled = false, onClick = { folderPicker.launchPicker(ctx, null) }) {
+            OutlinedButton(onClick = { folderPicker.launchPicker(ctx, null) }) {
                 Text(stringResource(R.string.folders_choose_preset))
             }
             if (gui.presetMirrorUri != null) {
@@ -122,14 +123,8 @@ internal fun MusicFoldersEditor(viewModel: LibraryViewModel) {
             }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            CrystalButton(
-                compact = true,
-                filled = false,
-                onClick = { folderPicker.launchPicker(ctx, null) },
-            ) { Text(stringResource(R.string.folders_add)) }
-            CrystalButton(
-                compact = true,
-                filled = false,
+            OutlinedButton(onClick = { folderPicker.launchPicker(ctx, null) }) { Text(stringResource(R.string.folders_add)) }
+            OutlinedButton(
                 onClick = viewModel::rescanMediaRoots,
                 enabled = roots.isNotEmpty() && !scanning,
             ) {

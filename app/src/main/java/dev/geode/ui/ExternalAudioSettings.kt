@@ -9,7 +9,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -127,8 +129,7 @@ fun ExternalAudioSettings(viewModel: PlayerViewModel) {
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                CrystalButton(
-                    filled = false,
+                OutlinedButton(
                     modifier = Modifier.padding(top = 6.dp),
                     onClick = {
                         runCatching { context.startActivity(viewModel.notificationAccessIntent()) }
@@ -160,7 +161,7 @@ private fun RefusedNotice(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        CrystalButton(onClick = {
+        FilledTonalButton(onClick = {
             viewModel.stopExternalAudio()
             viewModel.setMicEnabled(true)
         }) { Text(stringResource(R.string.ext_use_mic_instead)) }

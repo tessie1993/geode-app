@@ -13,7 +13,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -59,11 +61,13 @@ internal fun LyricsSettingsTab(viewModel: PlayerViewModel) {
             }
             Text(song, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                CrystalButton(onClick = { if (!context.searchWeb(query)) Toast.makeText(context, noBrowser, Toast.LENGTH_SHORT).show() }) {
+                FilledTonalButton(onClick = {
+                    if (!context.searchWeb(query)) Toast.makeText(context, noBrowser, Toast.LENGTH_SHORT).show()
+                }) {
                     Text(stringResource(R.string.lyrics_search_web))
                 }
                 // */* rather than text/plain: most file managers type .lrc as nothing at all.
-                CrystalButton(filled = false, onClick = { picker.launch(arrayOf("*/*")) }) {
+                OutlinedButton(onClick = { picker.launch(arrayOf("*/*")) }) {
                     Text(stringResource(R.string.lyrics_load_lrc))
                 }
             }

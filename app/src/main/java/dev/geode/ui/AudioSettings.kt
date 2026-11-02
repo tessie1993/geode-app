@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -89,7 +90,7 @@ private fun MicStatusNotice(
                 color = MaterialTheme.colorScheme.error,
             )
             if (permission.status == PermissionStatus.PERMANENTLY_DENIED) {
-                CrystalButton(onClick = permission::openSettings, compact = true, filled = false) {
+                OutlinedButton(onClick = permission::openSettings) {
                     Text(stringResource(R.string.permission_open_settings))
                 }
             }
@@ -121,7 +122,7 @@ internal fun SoundTuningControls(
             onChange(tuning.copy(speed = it))
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            CrystalButton(filled = false, onClick = { advanced = !advanced }) { Text(stringResource(R.string.audio_advanced)) }
+            OutlinedButton(onClick = { advanced = !advanced }) { Text(stringResource(R.string.audio_advanced)) }
             TextButton(onClick = { onChange(SoundTuning()) }) { Text(stringResource(R.string.audio_default)) }
         }
         if (advanced) AdvancedTuning(tuning, onChange)

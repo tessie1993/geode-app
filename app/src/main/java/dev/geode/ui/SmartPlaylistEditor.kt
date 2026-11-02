@@ -1,16 +1,18 @@
 package dev.geode.ui
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Button
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -25,6 +27,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
@@ -32,10 +36,14 @@ import dev.geode.data.RuleField
 import dev.geode.data.RuleOp
 import dev.geode.data.SmartPlaylist
 import dev.geode.data.SmartRule
+import dev.geode.ui.theme.GeodeSpacing
 import dev.geode.ui.theme.StoneIcon
 import dev.geode.ui.theme.StoneIconArt
 
-/** The smart playlists under the hand-made ones: each row plays its current matches; the editor writes rules. */
+/**
+ * The smart playlists under the hand-made ones (beside them in a wide pane): each row plays its
+ * current matches; the editor writes rules.
+ */
 @Composable
 internal fun SmartPlaylistsSection(viewModel: LibraryViewModel) {
     val library by viewModel.library.collectAsStateWithLifecycle()
@@ -43,8 +51,15 @@ internal fun SmartPlaylistsSection(viewModel: LibraryViewModel) {
     var creating by remember { mutableStateOf(false) }
     Column(Modifier.fillMaxWidth()) {
         Row(Modifier.padding(horizontal = 16.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(stringResource(R.string.smart_playlists), style = MaterialTheme.typography.labelMedium, modifier = Modifier.weight(1f))
-            CrystalButton(compact = true, filled = false, onClick = { creating = true }) { Text(stringResource(R.string.smart_new)) }
+            Text(
+                stringResource(R.string.smart_playlists),
+                style = MaterialTheme.typography.titleSmall,
+                modifier = Modifier.weight(1f).semantics { heading() },
+            )
+            FilledTonalButton(
+                onClick = { creating = true },
+                contentPadding = PaddingValues(horizontal = GeodeSpacing.M, vertical = GeodeSpacing.XS),
+            ) { Text(stringResource(R.string.smart_new)) }
         }
         library.smartPlaylists.forEach { pl ->
             val count = remember(pl, library) { viewModel.resolveSmartPlaylist(pl).size }
@@ -110,18 +125,14 @@ private fun SmartPlaylistDialog(
                     singleLine = true,
                     label = { Text(stringResource(R.string.studio_rename_field)) },
                 )
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    FilterChip(
-                        selected = draft.matchAll,
-                        onClick = { draft = draft.copy(matchAll = true) },
-                        label = { Text(stringResource(R.string.smart_match_all), style = MaterialTheme.typography.labelSmall) },
-                    )
-                    FilterChip(
-                        selected = !draft.matchAll,
-                        onClick = { draft = draft.copy(matchAll = false) },
-                        label = { Text(stringResource(R.string.smart_match_any), style = MaterialTheme.typography.labelSmall) },
-                    )
-                }
+                // All or any, as one row and a menu rather than a pair of chips (V2: no chip walls).
+                LibraryDropdownRow(
+                    value = stringResource(matchLabel(draft.matchAll)),
+                    options = listOf(true, false),
+                    label = { stringResource(matchLabel(it)) },
+                    isSelected = { it == draft.matchAll },
+                    onPick = { draft = draft.copy(matchAll = it) },
+                )
                 draft.rules.forEachIndexed { index, rule ->
                     RuleRow(
                         rule = rule,
@@ -143,7 +154,7 @@ private fun SmartPlaylistDialog(
             }
         },
         confirmButton = {
-            CrystalButton(enabled = nameOk, onClick = { onSave(draft.copy(name = draft.name.trim())) }) {
+            Button(enabled = nameOk, onClick = { onSave(draft.copy(name = draft.name.trim())) }) {
                 Text(stringResource(R.string.action_save))
             }
         },
@@ -158,23 +169,24 @@ private fun RuleRow(
     onRemove: () -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            RuleField.entries.forEach { field ->
-                FilterChip(
-                    selected = rule.field == field,
-                    onClick = { onChange(rule.copy(field = field, op = defaultOp(field))) },
-                    label = { Text(stringResource(fieldLabel(field)), style = MaterialTheme.typography.labelSmall) },
-                )
-            }
-        }
-        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            opsFor(rule.field).forEach { op ->
-                FilterChip(
-                    selected = rule.op == op,
-                    onClick = { onChange(rule.copy(op = op)) },
-                    label = { Text(stringResource(opLabel(op)), style = MaterialTheme.typography.labelSmall) },
-                )
-            }
+        // Field and comparison as two menus that read as the rule's sentence ("Play count ▾ at
+        // least ▾"), where they were two scrolling chip rows, eight chips wide. A flow row lets the
+        // pair wrap in a narrow dialog or at a large font scale instead of cutting a label.
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            LibraryDropdownRow(
+                value = stringResource(fieldLabel(rule.field)),
+                options = RuleField.entries,
+                label = { stringResource(fieldLabel(it)) },
+                isSelected = { it == rule.field },
+                onPick = { field -> onChange(rule.copy(field = field, op = defaultOp(field))) },
+            )
+            LibraryDropdownRow(
+                value = stringResource(opLabel(rule.op)),
+                options = opsFor(rule.field),
+                label = { stringResource(opLabel(it)) },
+                isSelected = { it == rule.op },
+                onPick = { op -> onChange(rule.copy(op = op)) },
+            )
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
             if (!rule.field.isFlag) {
@@ -189,6 +201,8 @@ private fun RuleRow(
         }
     }
 }
+
+private fun matchLabel(matchAll: Boolean): Int = if (matchAll) R.string.smart_match_all else R.string.smart_match_any
 
 private fun defaultOp(field: RuleField): RuleOp =
     when {

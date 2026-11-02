@@ -107,15 +107,16 @@ internal class AutoVisualsController(
     }
 
     /**
-     * A step by hand (the stage's double tap): the next entry now, whether or not the playlist is
-     * cycling, and its clock restarts so the timer does not jump again a moment later. False when
-     * the playlist has fewer than two looks, so the caller steps the styles instead.
+     * A step by hand (a gesture on the visual): the next entry now, or the previous one for a
+     * negative [step], whether or not the playlist is cycling, and its clock restarts so the timer
+     * does not jump again a moment later. False when the playlist has fewer than two looks, so the
+     * caller steps the styles instead.
      */
-    fun stepVizPlaylist(): Boolean {
+    fun stepVizPlaylist(step: Int = 1): Boolean {
         val s = host.vizState.value
         if (s.vizPlaylist.size < 2) return false
         lastVizSwitchMs = android.os.SystemClock.elapsedRealtime()
-        vizPlaylistIndex = (vizPlaylistIndex + 1) % s.vizPlaylist.size
+        vizPlaylistIndex = Math.floorMod(vizPlaylistIndex + if (step < 0) -1 else 1, s.vizPlaylist.size)
         applyVizEntry(s.vizPlaylist[vizPlaylistIndex])
         return true
     }
@@ -165,6 +166,17 @@ internal class AutoVisualsController(
 
     private fun refreshMilkCache() {
         host.milkFilesAsync { cachedMilkFiles = it }
+    }
+
+    /**
+     * One Auto mode (owner): with the auto-director on, a new section or a drop also brings a new look:
+     * the visual playlist's next entry when it is cycling, otherwise a draw from Auto's sources, as the
+     * timer does. The director only decides while it drives (the whole song for Pro and trial, the first
+     * minute for free), so the style changes follow the same rule.
+     */
+    fun onDirectorMoment() {
+        if (!host.isPlaying) return
+        if (host.vizState.value.vizPlaylistEnabled) stepVizPlaylist() else randomStepNow()
     }
 
     fun advanceRandomMode() {

@@ -139,6 +139,13 @@ SceneParams Renderer::resolveParams(float dt) {
                                               : director::global();
     director_.configure(directorConfig);
     director_.step(soundFrame_, dt);
+    if (director_.commits() != directorCommitsSeen_) {
+        directorCommitsSeen_ = director_.commits();
+        const Director::Reason why = director_.lastReason();
+        if (why == Director::Reason::Section || why == Director::Reason::Drop) {
+            directorStyleMoments_.fetch_add(1, std::memory_order_acq_rel);
+        }
+    }
     directedKnobs_ = director_.knobs(frameKnobs_);
     // Note & key reactions hear the frame next, inside the director's look: its hue anchors the notes'
     // colours, and its feeling (the director's emotion, stepped whether or not it drives) is the mood. Its
@@ -422,6 +429,17 @@ void Renderer::render(double timeSeconds, GLuint targetFbo) {
     drawSceneTarget(*scene, sceneParams, dt);
     const GLuint liquidTex = drawLiquid(*scene, p, dt);
     composite(p, progress, targetFbo, liquidTex);
+    drawUiBlur(targetFbo);
+}
+
+void Renderer::drawUiBlur(GLuint targetFbo) {
+    if (offscreen_.load(std::memory_order_relaxed) || !uiBlurOn_.load(std::memory_order_relaxed)) return;
+    UiBlurRegion region;
+    {
+        std::lock_guard<std::mutex> lock(stateLock_);
+        region = uiBlurRegion_;
+    }
+    uiBlurPass_.draw(region, targetFbo, width_, height_, quadVao_);
 }
 
 void Renderer::stepLiquid(Scene& scene, const SceneParams& p, float dt) {

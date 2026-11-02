@@ -1,5 +1,8 @@
 package dev.geode.ui
 
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -12,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
@@ -19,11 +23,16 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.Cast
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconToggleButton
@@ -31,6 +40,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -39,10 +49,16 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.collapse
+import androidx.compose.ui.semantics.expand
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
@@ -52,9 +68,13 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.Player
+import androidx.window.core.layout.WindowSizeClass
 import dev.geode.R
+import dev.geode.ui.theme.GeodeSpacing
+import dev.geode.ui.theme.LocalGeodeMotion
 import dev.geode.ui.theme.StoneIcon
 import dev.geode.ui.theme.StoneIconArt
+import dev.geode.ui.theme.selectedGlow
 
 @Composable
 fun PlayerScreen(
@@ -76,19 +96,40 @@ fun PlayerScreen(
     val tick by viewModel.historyTick.collectAsStateWithLifecycle()
     val sleepRemainingMs by viewModel.sleepTimerRemainingMs.collectAsStateWithLifecycle()
     val canShuffle = remember(tick) { viewModel.recentlyPlayed().isNotEmpty() }
-    var showQueue by rememberSaveable { mutableStateOf(true) }
+    // The secondary groups under the transport are an accordion: all closed at first, so the
+    // screen opens as an overview, and at most one open, so it never grows into a long column.
+    // The art, title, seek bar and transport are never inside it.
+    var openCard by rememberSaveable { mutableStateOf<String?>(null) }
+    val toggleCard: (String) -> Unit = { key -> openCard = if (openCard == key) null else key }
     // The whole queue (reorder, remove, save as a playlist), which used to be a panel of the live view.
     var queueSheet by rememberSaveable { mutableStateOf(false) }
     val upNext = remember(queue) { queue.tracks.drop(queue.index + 1).take(3) }
+    val upNextCount = (queue.tracks.size - queue.index - 1).coerceAtLeast(0)
+    val sizeClass = currentWindowAdaptiveInfo().windowSizeClass
+    val expandedWidth = sizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND)
+    // A phone on its side: wide enough for two columns, too short for one to reach the transport.
+    val landscape =
+        sizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND) &&
+            !sizeClass.isHeightAtLeastBreakpoint(WindowSizeClass.HEIGHT_DP_MEDIUM_LOWER_BOUND)
+    // Every block stops at a readable width, so a tablet column is not one stretched strip.
+    val readable = Modifier.widthIn(max = COLUMN_MAX_WIDTH)
 
     val header: @Composable () -> Unit = {
         Row(
-            Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 16.dp),
+            readable.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(Modifier.weight(1f)) {
-                CrystalOverline(stringResource(R.string.app_name))
-                GlowTitle(stringResource(R.string.nav_player))
+                Text(
+                    stringResource(R.string.app_name),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    stringResource(R.string.nav_player),
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.semantics { heading() },
+                )
             }
             IconButton(onClick = onOpenSearch) { StoneIconArt(StoneIcon.SEARCH, stringResource(R.string.action_search)) }
         }
@@ -105,54 +146,60 @@ fun PlayerScreen(
             onExpand = onExpand,
             onOpenLibrary = onOpenLibrary,
             artMax = artMax,
-            modifier = Modifier.padding(horizontal = 16.dp),
+            modifier = readable.padding(horizontal = 16.dp),
+        )
+    }
+    val transport: @Composable () -> Unit = {
+        TransportCard(
+            viewModel = viewModel,
+            state = state,
+            position = { position.value },
+            abLoop = abLoop,
+            autoMode = autoMode,
+            modifier = readable.padding(horizontal = 16.dp),
         )
     }
 
-    val controls: LazyListScope.() -> Unit = {
-        item {
-            TransportCard(
-                viewModel = viewModel,
-                state = state,
-                position = { position.value },
-                abLoop = abLoop,
-                autoMode = autoMode,
-                queueSize = queue.tracks.size,
-                queueOpen = showQueue,
-                onToggleQueue = { showQueue = !showQueue },
-                modifier = Modifier.padding(horizontal = 16.dp),
-            )
-        }
-
-        if (showQueue && upNext.isNotEmpty()) {
+    // The secondary cards, which take the other side in two columns.
+    val cards: LazyListScope.() -> Unit = {
+        if (upNext.isNotEmpty()) {
             item {
-                QueuePreview(
+                UpNextCard(
                     upNext = upNext,
+                    count = upNextCount,
+                    expanded = openCard == CARD_UP_NEXT,
+                    onToggle = { toggleCard(CARD_UP_NEXT) },
                     onOpenQueue = { queueSheet = true },
-                    modifier = Modifier.padding(horizontal = 16.dp),
+                    modifier = readable.padding(horizontal = 16.dp),
                 )
             }
         }
 
         item {
-            QuickActions(
+            QuickActionsCard(
                 viewModel = viewModel,
                 micActive = mic.active,
                 external = external,
                 sleepRunning = sleepRemainingMs != null,
                 canShuffle = canShuffle,
+                expanded = openCard == CARD_QUICK,
+                onToggle = { toggleCard(CARD_QUICK) },
+                modifier = readable.padding(horizontal = 16.dp),
             )
         }
     }
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
-        // Side by side once the pane is wide enough for two readable columns, or on a short
-        // landscape window, where one column would push the transport below the fold. Measured on
-        // this pane rather than the window, so the Player half of the two-pane Library stays one
-        // column.
-        val sideBySide = maxWidth >= SIDE_BY_SIDE_MIN_WIDTH || (maxWidth > maxHeight && maxHeight < SHORT_HEIGHT)
+        // Two columns in landscape or at expanded width: art and transport on one side, the cards
+        // on the other. The window says when; this pane's width says whether there is room, so the
+        // Player half of the two-pane Library stays one column.
+        val sideBySide =
+            (expandedWidth && maxWidth >= SIDE_BY_SIDE_MIN_WIDTH) || (landscape && maxWidth >= LANDSCAPE_MIN_WIDTH)
         // Read here: inside the Row below, BoxWithConstraints' scope is not an implicit receiver.
         val paneHeight = maxHeight
+        // Under the art when the pane is tall enough for both; on a phone on its side it heads the
+        // other column instead, where it is never below the fold.
+        val transportWithArt = paneHeight >= SHORT_HEIGHT
         if (sideBySide) {
             Row(Modifier.fillMaxSize()) {
                 Column(
@@ -161,29 +208,37 @@ fun PlayerScreen(
                         .fillMaxHeight()
                         .verticalScroll(rememberScrollState())
                         .padding(bottom = 24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
                     header()
-                    // The art takes what height is left under the header and the title rows.
-                    hero((paneHeight - HERO_CHROME).coerceIn(MIN_ART, MAX_ART))
+                    // The art takes what height is left under the header, the title rows and,
+                    // when it is on this side, the transport.
+                    val chrome = if (transportWithArt) HERO_CHROME + TRANSPORT_HEIGHT else HERO_CHROME
+                    hero((paneHeight - chrome).coerceIn(MIN_ART, MAX_ART))
+                    if (transportWithArt) transport()
                 }
                 LazyColumn(
                     Modifier.weight(1f).fillMaxHeight(),
                     contentPadding = PaddingValues(top = 16.dp, bottom = 24.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    controls()
+                    if (!transportWithArt) item { transport() }
+                    cards()
                 }
             }
         } else {
             LazyColumn(
                 Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(bottom = 24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 item { header() }
                 item { hero(MAX_ART) }
-                controls()
+                item { transport() }
+                cards()
             }
         }
     }
@@ -214,11 +269,24 @@ private fun QueueSheet(
 
 private const val QUEUE_SHEET_HEIGHT = 0.85f
 
-/** Below this the pane gets one column; at and above it, art and controls sit side by side. */
+/** The accordion's card keys, saved by name. */
+private const val CARD_UP_NEXT = "up_next"
+private const val CARD_QUICK = "quick"
+
+/** At expanded width, a pane narrower than this (the Player half of the two-pane Library) keeps one column. */
 private val SIDE_BY_SIDE_MIN_WIDTH = 720.dp
 
-/** A landscape pane shorter than this is a phone on its side. */
+/** In landscape, the least pane width that still gives two usable columns. */
+private val LANDSCAPE_MIN_WIDTH = 520.dp
+
+/** A pane shorter than this is a phone on its side: the transport moves out from under the art. */
 private val SHORT_HEIGHT = 480.dp
+
+/** A readable column: wider than this, a block stops growing and centres. */
+private val COLUMN_MAX_WIDTH = 600.dp
+
+/** The transport card's height (seek row, buttons, A–B and Auto), when it sits under the art. */
+private val TRANSPORT_HEIGHT = 180.dp
 
 /** On a phone the art fills the width; on anything wider it stops here. */
 private val MAX_ART = 420.dp
@@ -249,13 +317,9 @@ private fun PlayerHero(
     Column(
         modifier
             .fillMaxWidth()
-            .crystalPanel(
-                0.42f,
-                MaterialTheme.colorScheme.surfaceVariant,
-                MaterialTheme.colorScheme.primary,
-                corner = 24.dp,
-                glowStrength = if (state.isPlaying || foreign || micActive) 1.2f else 0.7f,
-            ).clickable(enabled = hasSource, onClick = onExpand)
+            .clip(RoundedCornerShape(24.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainer)
+            .clickable(enabled = hasSource, onClick = onExpand)
             .padding(14.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
@@ -272,7 +336,7 @@ private fun PlayerHero(
         )
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                CrystalOverline(
+                Text(
                     when {
                         foreign -> external.nowPlaying?.appLabel ?: stringResource(R.string.source_other_apps)
                         micActive -> stringResource(R.string.source_live_input)
@@ -280,6 +344,8 @@ private fun PlayerHero(
                         state.hasMedia -> stringResource(R.string.state_paused)
                         else -> stringResource(R.string.state_nothing_playing)
                     },
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Text(
                     when {
@@ -344,17 +410,20 @@ private fun PlayerHero(
             SceneChip(styleLabel)
             Box(Modifier.weight(1f))
             if (foreign) {
-                CrystalButton(filled = false, compact = true, onClick = viewModel::stopExternalAudio) {
+                FilledTonalButton(
+                    onClick = viewModel::stopExternalAudio,
+                    contentPadding = PaddingValues(horizontal = GeodeSpacing.M, vertical = GeodeSpacing.XS),
+                ) {
                     Text(stringResource(R.string.action_stop_capture))
                 }
             }
         }
         if (!hasSource) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                CrystalButton(enabled = canResume, onClick = viewModel::resumeLastPlayed) {
+                Button(onClick = viewModel::resumeLastPlayed, enabled = canResume) {
                     Text(stringResource(R.string.action_resume_last_played))
                 }
-                CrystalButton(filled = false, onClick = onOpenLibrary) { Text(stringResource(R.string.action_open_library)) }
+                FilledTonalButton(onClick = onOpenLibrary) { Text(stringResource(R.string.action_open_library)) }
             }
         }
     }
@@ -364,13 +433,9 @@ private fun PlayerHero(
 private fun SceneChip(label: String) {
     Box(
         Modifier
-            .crystalPanel(
-                0.25f,
-                MaterialTheme.colorScheme.surfaceVariant,
-                MaterialTheme.colorScheme.primary,
-                corner = 12.dp,
-                glowStrength = 0.4f,
-            ).padding(horizontal = 10.dp, vertical = 4.dp),
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainer)
+            .padding(horizontal = 10.dp, vertical = 4.dp),
     ) {
         Text(
             label,
@@ -389,21 +454,14 @@ private fun TransportCard(
     position: () -> Long,
     abLoop: AbLoop?,
     autoMode: Int,
-    queueSize: Int,
-    queueOpen: Boolean,
-    onToggleQueue: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
         modifier
             .fillMaxWidth()
-            .crystalPanel(
-                0.35f,
-                MaterialTheme.colorScheme.surfaceVariant,
-                MaterialTheme.colorScheme.primary,
-                corner = 24.dp,
-                glowStrength = 0.8f,
-            ).padding(horizontal = 14.dp, vertical = 10.dp),
+            .clip(RoundedCornerShape(24.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainer)
+            .padding(horizontal = 14.dp, vertical = 10.dp),
     ) {
         Row(
             Modifier.fillMaxWidth(),
@@ -430,21 +488,27 @@ private fun TransportCard(
             IconButton(onClick = viewModel::previous, enabled = state.hasMedia) {
                 StoneIconArt(StoneIcon.PREVIOUS, stringResource(R.string.action_previous))
             }
-            CrystalPlayButton(
-                icon = if (state.isPlaying) StoneIcon.PAUSE else StoneIcon.PLAY,
-                contentDescription = stringResource(if (state.isPlaying) R.string.action_pause else R.string.action_play),
+            // 64 dp, the size the old play button drew itself at, so the transport row keeps its rhythm.
+            FilledIconButton(
                 onClick = viewModel::togglePlayPause,
+                modifier = Modifier.size(64.dp),
                 enabled = state.hasMedia,
-            )
+            ) {
+                StoneIconArt(
+                    if (state.isPlaying) StoneIcon.PAUSE else StoneIcon.PLAY,
+                    stringResource(if (state.isPlaying) R.string.action_pause else R.string.action_play),
+                )
+            }
             IconButton(onClick = viewModel::next, enabled = state.hasMedia) {
                 StoneIconArt(StoneIcon.NEXT, stringResource(R.string.action_next))
             }
             RepeatButton(state.repeatMode, viewModel::cycleRepeatMode)
         }
+        // The queue's show/hide toggle that sat here is the Up next card's header now.
         Row(
             Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
+            horizontalArrangement = Arrangement.SpaceEvenly,
         ) {
             TextButton(onClick = viewModel::cycleAbLoop, enabled = state.hasMedia) {
                 Text(
@@ -472,60 +536,160 @@ private fun TransportCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            TextButton(onClick = onToggleQueue) {
-                Text(
-                    if (queueSize > 1) {
-                        stringResource(R.string.queue_with_count, queueSize)
+        }
+    }
+}
+
+/**
+ * One card of the Player's accordion: a 56 dp header row (name, the current value on the right,
+ * a chevron that turns when open) that expands its content in place. TalkBack hears a button with
+ * an expand or collapse action, so it announces the state in the system's own words.
+ */
+@Composable
+private fun CollapsibleCard(
+    title: String,
+    summary: String,
+    expanded: Boolean,
+    onToggle: () -> Unit,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    val motion = LocalGeodeMotion.current
+    val chevronTurn by animateFloatAsState(if (expanded) 180f else 0f, motion.fastSpatialSpec(), label = "chevron")
+    Column(
+        modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(20.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainer)
+            .animateContentSize(motion.defaultSpatialSpec()),
+    ) {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .heightIn(min = 56.dp)
+                .semantics {
+                    if (expanded) {
+                        collapse {
+                            onToggle()
+                            true
+                        }
                     } else {
-                        stringResource(R.string.queue)
-                    },
-                    style = MaterialTheme.typography.labelMedium,
-                    color =
-                        if (queueOpen) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        },
+                        expand {
+                            onToggle()
+                            true
+                        }
+                    }
+                }.clickable(role = Role.Button, onClick = onToggle)
+                .padding(start = 14.dp, end = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(title, style = MaterialTheme.typography.titleSmall)
+            Text(
+                summary,
+                Modifier.weight(1f).padding(horizontal = 12.dp),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.End,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Icon(
+                Icons.Filled.KeyboardArrowDown,
+                contentDescription = null,
+                modifier = Modifier.size(24.dp).rotate(chevronTurn),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        if (expanded) content()
+    }
+}
+
+@Composable
+private fun UpNextCard(
+    upNext: List<QueueTrack>,
+    count: Int,
+    expanded: Boolean,
+    onToggle: () -> Unit,
+    onOpenQueue: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    CollapsibleCard(
+        title = stringResource(R.string.queue_up_next),
+        summary = pluralStringResource(R.plurals.track_count, count, count),
+        expanded = expanded,
+        onToggle = onToggle,
+        modifier = modifier,
+    ) {
+        Column(
+            Modifier.fillMaxWidth().padding(start = 14.dp, end = 14.dp, bottom = 4.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            val untitled = stringResource(R.string.title_untitled)
+            upNext.forEach { t ->
+                Text(
+                    t.title.ifBlank { untitled },
+                    Modifier.fillMaxWidth().clickable(onClick = onOpenQueue),
+                    style = MaterialTheme.typography.bodyMedium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                TextButton(onClick = onOpenQueue) {
+                    Text(
+                        stringResource(R.string.action_open_queue),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = accentTextColor(),
+                    )
+                }
             }
         }
     }
 }
 
+/**
+ * The quick actions (live input, other apps' audio, the sleep timer, shuffle all) as a card.
+ * Closed, its summary names what is on, or the actions it holds when nothing is.
+ */
 @Composable
-private fun QueuePreview(
-    upNext: List<QueueTrack>,
-    onOpenQueue: () -> Unit,
+private fun QuickActionsCard(
+    viewModel: PlayerViewModel,
+    micActive: Boolean,
+    external: ExternalAudioState,
+    sleepRunning: Boolean,
+    canShuffle: Boolean,
+    expanded: Boolean,
+    onToggle: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(
-        modifier
-            .fillMaxWidth()
-            .crystalPanel(
-                0.3f,
-                MaterialTheme.colorScheme.surfaceVariant,
-                MaterialTheme.colorScheme.primary,
-                corner = 20.dp,
-                glowStrength = 0.5f,
-            ).padding(start = 14.dp, end = 14.dp, top = 12.dp, bottom = 4.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
+    val active =
+        listOfNotNull(
+            stringResource(R.string.quick_room_on).takeIf { micActive },
+            stringResource(R.string.quick_capturing).takeIf { external.active },
+            stringResource(R.string.quick_sleep_on).takeIf { sleepRunning },
+        )
+    val offered =
+        listOfNotNull(
+            stringResource(R.string.source_live_input),
+            stringResource(R.string.source_other_apps).takeIf { external.supported },
+            stringResource(R.string.quick_sleep_30m),
+            stringResource(R.string.quick_shuffle_all),
+        )
+    CollapsibleCard(
+        title = stringResource(R.string.action_more),
+        summary = active.ifEmpty { offered }.joinToString(" · "),
+        expanded = expanded,
+        onToggle = onToggle,
+        modifier = modifier,
     ) {
-        val untitled = stringResource(R.string.title_untitled)
-        CrystalOverline(stringResource(R.string.queue_up_next))
-        upNext.forEach { t ->
-            Text(
-                t.title.ifBlank { untitled },
-                Modifier.fillMaxWidth().clickable(onClick = onOpenQueue),
-                style = MaterialTheme.typography.bodyMedium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-            TextButton(onClick = onOpenQueue) {
-                Text(stringResource(R.string.action_open_queue), style = MaterialTheme.typography.labelMedium, color = accentTextColor())
-            }
-        }
+        QuickActions(
+            viewModel = viewModel,
+            micActive = micActive,
+            external = external,
+            sleepRunning = sleepRunning,
+            canShuffle = canShuffle,
+            contentPadding = PaddingValues(start = 14.dp, end = 14.dp, bottom = 14.dp),
+        )
     }
 }
 
@@ -536,6 +700,7 @@ private fun QuickActions(
     external: ExternalAudioState,
     sleepRunning: Boolean,
     canShuffle: Boolean,
+    contentPadding: PaddingValues,
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     // Once Android stops showing the dialog, request() opens the app's Settings page instead, so
@@ -573,9 +738,7 @@ private fun QuickActions(
         }
     LazyRow(
         horizontalArrangement = Arrangement.spacedBy(10.dp),
-        contentPadding =
-            androidx.compose.foundation.layout
-                .PaddingValues(horizontal = 16.dp),
+        contentPadding = contentPadding,
     ) {
         item {
             QuickAction(
@@ -670,14 +833,11 @@ private fun QuickActionShell(
         Modifier
             // A minimum, not a fixed width, so "Shuffle all" at 200% font wraps instead of "Shu…".
             .widthIn(min = 84.dp, max = 120.dp)
-            .crystalPanel(
-                if (active) 0.5f else 0.28f,
-                MaterialTheme.colorScheme.surfaceVariant,
-                MaterialTheme.colorScheme.primary,
-                corner = 18.dp,
-                glowStrength = if (active) 1.1f else 0.45f,
-                prismatic = active,
-            ).semantics { if (active) stateDescription = onLabel }
+            .selectedGlow(active, RoundedCornerShape(18.dp))
+            .clip(RoundedCornerShape(18.dp))
+            // On reads from the fill as well as the tint, not from colour alone.
+            .background(if (active) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainer)
+            .semantics { if (active) stateDescription = onLabel }
             .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
             .padding(vertical = 12.dp, horizontal = 6.dp),
         horizontalAlignment = Alignment.CenterHorizontally,

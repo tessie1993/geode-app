@@ -131,6 +131,9 @@ class NativeViz(
     /** The preset MilkDrop last compiled, handed out once; null until the next one. */
     fun takeMilkPresetLoaded(): String? = if (handle == 0L) null else GeodeNative.vizTakeMilkPresetLoaded(handle)
 
+    /** The director's new-section and drop decisions since the last call (one Auto mode). */
+    fun takeDirectorStyleMoments(): Int = if (handle == 0L) 0 else GeodeNative.vizTakeDirectorStyleMoments(handle)
+
     /** The renderer's sound engine: interleaved PCM in play order, each sample once, before [render]. */
     fun writeAudio(
         interleaved: FloatArray,
@@ -225,6 +228,18 @@ class NativeViz(
 
     fun setOffscreen(on: Boolean) {
         if (handle != 0L) GeodeNative.vizSetOffscreen(handle, on)
+    }
+
+    /** The glass sheet's blur region; see [GeodeNative.vizSetUiBlurRegion]. A no-op before the handle exists. */
+    fun setUiBlurRegion(
+        left: Float,
+        top: Float,
+        right: Float,
+        bottom: Float,
+        strength: Float,
+        cornerPx: Float,
+    ) {
+        if (handle != 0L) GeodeNative.vizSetUiBlurRegion(handle, left, top, right, bottom, strength, cornerPx)
     }
 
     fun surfaceCreated() {

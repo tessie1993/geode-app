@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.systemGestureExclusion
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -31,16 +32,16 @@ import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material.icons.filled.Waves
-import androidx.compose.material.icons.filled.WorkspacePremium
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.AssistChip
+import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -67,6 +68,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 import dev.geode.data.MacroStore
 import dev.geode.data.NoteResponseStore
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.render.AdsrConfig
 import dev.geode.render.AdsrEngine
 import dev.geode.render.BlendMode
@@ -94,6 +96,11 @@ import dev.geode.render.scene.ParamScope
 import dev.geode.render.scene.ParamUnit
 import dev.geode.render.scene.SceneCapabilities
 import dev.geode.render.scene.SceneParams
+import dev.geode.ui.theme.GeodeSpacing
+import dev.geode.ui.theme.LocalUiSounds
+import dev.geode.ui.theme.StoneIcon
+import dev.geode.ui.theme.StoneIconArt
+import dev.geode.ui.theme.UiSound
 import kotlin.math.ln
 import kotlin.math.pow
 
@@ -188,11 +195,15 @@ internal fun SubPageRow(
     }
 }
 
-/** The ♛ that marks Pro on a page or a row; the only Pro mark Customize draws. */
+/**
+ * The ♛ that marks Pro on a page or a row: Customize's pages and cards and the Styles list draw this
+ * one, so Pro reads the same everywhere. A real crown ([StoneIcon.CROWN]); the Material Icons
+ * `WorkspacePremium` it replaced is a rosette, which device QA read as a ribbon badge.
+ */
 @Composable
 internal fun ProCrown(modifier: Modifier = Modifier) {
-    Icon(
-        Icons.Filled.WorkspacePremium,
+    StoneIconArt(
+        StoneIcon.CROWN,
         contentDescription = "Pro",
         modifier = modifier.padding(horizontal = 4.dp).size(18.dp),
         tint = accentTextColor(),
@@ -285,7 +296,8 @@ internal fun SubPageBody(
         }
         CustomizeSubPage.REACTIONS -> {
             val reactions by host.visualsViewModel.reactions.collectAsStateWithLifecycle()
-            ReactionsSection(p, reactions, host.visualsViewModel::setReactions, host.visualsViewModel::rerollReactions)
+            val handMask by host.visualsViewModel.handMask.collectAsStateWithLifecycle()
+            ReactionsSection(p, reactions, host.visualsViewModel::setReactions, host.visualsViewModel::rerollReactions, handMask)
         }
         CustomizeSubPage.NOTE_KEY -> NoteKeyPage(p, onChange)
         CustomizeSubPage.LAYERS -> LayersPage()
@@ -381,6 +393,7 @@ internal fun ReactionsSection(
     reactions: List<ReactionRoute>?,
     onReactionsChange: (List<ReactionRoute>?) -> Unit,
     onReroll: () -> Unit,
+    handMask: Int = GeodeNative.HAND_ALL,
 ) {
     if (!sectionVisible()) return
     val sceneId = LocalSceneId.current
@@ -392,15 +405,24 @@ internal fun ReactionsSection(
             "Your own reactions, used on every style. \"Use the style's own reactions\" lets each style choose again."
         },
     )
-    val dna = remember(sceneId, p.reactSeed) { BuildStyleReactionsUseCase()(sceneId, p.reactSeed) }
-    val routes = reactions ?: dna
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        CrystalButton(compact = true, filled = false, onClick = onReroll) { Text("Shuffle reactions") }
+    // What plays: with moments set on Customize › Music, the user's routes there and the live DNA elsewhere
+    // (native's merge), so an edit here starts from the matrix as it sounds and makes the whole list the user's.
+    val routes =
+        remember(sceneId, p.reactSeed, reactions, handMask) {
+            BuildStyleReactionsUseCase().playing(sceneId, p.reactSeed, reactions, handMask)
+        }
+    val sounds = LocalUiSounds.current
+    val tap: (() -> Unit) -> Unit = { action ->
+        sounds.play(UiSound.TAP)
+        action()
+    }
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(GeodeSpacing.S)) {
+        FilledTonalButton(onClick = { tap(onReroll) }) { Text("Shuffle reactions") }
         if (reactions != null) {
-            CrystalButton(compact = true, filled = false, onClick = { onReactionsChange(null) }) { Text("Use the style's own reactions") }
+            FilledTonalButton(onClick = { tap { onReactionsChange(null) } }) { Text("Use the style's own reactions") }
         }
         if (routes.size < ReactionRoute.MAX_ROUTES) {
-            CrystalButton(compact = true, filled = false, onClick = { onReactionsChange(routes + NEW_REACTION) }) { Text("Add") }
+            FilledTonalButton(onClick = { tap { onReactionsChange(routes + NEW_REACTION) } }) { Text("Add") }
         }
     }
     routes.forEachIndexed { i, route ->
@@ -447,7 +469,7 @@ private fun ReactionCard(
                 TextButton(onClick = { picking = ReactionPick.SOURCE }) { Text("Sound: ${route.source.label}") }
                 TextButton(onClick = { picking = ReactionPick.TARGET }) { Text("Moves: ${route.target.label}") }
             }
-            ChipRow(ReactMode.entries.map { it.label }, ReactMode.entries.indexOf(route.mode)) {
+            DropdownRow("Mode", ReactMode.entries.map { it.label }, ReactMode.entries.indexOf(route.mode)) {
                 onChange(route.copy(mode = ReactMode.entries[it]))
             }
             LabeledSlider(REACT_DEPTH, route.amount, REACT_AMOUNT_RANGE, scope = ParamScope.UNIVERSAL, unit = ParamUnit.PERCENT) {
@@ -459,7 +481,7 @@ private fun ReactionCard(
             LabeledSlider(REACT_RELEASE, route.releaseSeconds, 0f..3f, scope = ParamScope.UNIVERSAL, unit = ParamUnit.SECONDS) {
                 onChange(route.copy(releaseSeconds = it))
             }
-            ChipRow(ModCurve.entries.map { it.label }, ModCurve.entries.indexOf(route.curve)) {
+            DropdownRow("Curve", ModCurve.entries.map { it.label }, ModCurve.entries.indexOf(route.curve)) {
                 onChange(route.copy(curve = ModCurve.entries[it]))
             }
             TextButton(onClick = onRemove) { Text("Remove") }
@@ -525,24 +547,21 @@ private fun ModulatorCard(
             if (config.target != LfoTarget.NONE && !config.target.scope.appliesTo(sceneId)) {
                 ControlHint("${config.target.label} does nothing on this style - pick another.")
             }
-            Text("Follows", style = MaterialTheme.typography.bodyMedium)
-            ChipRow(ModSource.entries.map { it.label }, ModSource.entries.indexOf(config.source)) {
+            DropdownRow("Follows", ModSource.entries.map { it.label }, ModSource.entries.indexOf(config.source)) {
                 val source = ModSource.entries[it]
                 onChange(config.copy(source = source, polarity = LfoConfig.naturalPolarity(source)))
             }
             if (config.source == ModSource.LFO) {
-                ChipRow(LfoWave.entries.map { it.label }, LfoWave.entries.indexOf(config.wave)) {
+                DropdownRow("Wave shape", LfoWave.entries.map { it.label }, LfoWave.entries.indexOf(config.wave)) {
                     onChange(config.copy(wave = LfoWave.entries[it]))
                 }
                 RateSecondsSlider(config.rateSeconds) { onChange(config.copy(rateSeconds = it)) }
             }
             LabeledSlider(MOD_DEPTH, config.depth, 0f..1f) { onChange(config.copy(depth = it)) }
-            Text("Direction", style = MaterialTheme.typography.bodyMedium)
-            ChipRow(ModPolarity.entries.map { it.label }, ModPolarity.entries.indexOf(config.polarity)) {
+            DropdownRow("Direction", ModPolarity.entries.map { it.label }, ModPolarity.entries.indexOf(config.polarity)) {
                 onChange(config.copy(polarity = ModPolarity.entries[it]))
             }
-            Text("Curve", style = MaterialTheme.typography.bodyMedium)
-            ChipRow(ModCurve.entries.map { it.label }, ModCurve.entries.indexOf(config.curve)) {
+            DropdownRow("Curve", ModCurve.entries.map { it.label }, ModCurve.entries.indexOf(config.curve)) {
                 onChange(config.copy(curve = ModCurve.entries[it]))
             }
         }
@@ -589,12 +608,13 @@ private fun RateSecondsSlider(
     val shown = ParamFormat.format(seconds, ParamUnit.SECONDS)
     Column(Modifier.padding(vertical = 2.dp)) {
         Text("One cycle · $shown", style = MaterialTheme.typography.bodyMedium)
-        CrystalSlider(
+        Slider(
             value = t,
             onValueChange = { onChange(lo * (hi / lo).pow(it)) },
             valueRange = 0f..1f,
+            // A thumb at 0 sits in the back-gesture strip; without the exclusion a drag from it leaves the screen.
             modifier =
-                Modifier.fillMaxWidth().semantics {
+                Modifier.fillMaxWidth().systemGestureExclusion().semantics {
                     contentDescription = "One cycle"
                     stateDescription = shown
                 },
@@ -608,40 +628,28 @@ private fun AdsrCard(
     config: AdsrConfig,
     onChange: (AdsrConfig) -> Unit,
 ) {
-    var showAdd by remember { mutableStateOf(false) }
     val sceneId = LocalSceneId.current
     Column(modifier = Modifier.padding(vertical = 4.dp)) {
         CheckRow("Envelope ${index + 1} on", config.enabled) { onChange(config.copy(enabled = it)) }
         if (!config.enabled) return@Column
-        Text("Moves:", style = MaterialTheme.typography.bodyMedium)
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            config.targets.forEach { t ->
-                AssistChip(
-                    onClick = { onChange(config.copy(targets = config.targets - t)) },
-                    label = { Text(t.label, style = MaterialTheme.typography.labelLarge) },
-                    modifier = Modifier.semantics { contentDescription = "Remove ${t.label}" },
-                )
+        // What it moves: one row and a checkable menu, in place of a chip per target and a "+" chip.
+        // The ones already chosen stay listed even where this style ignores them, so they can be unticked.
+        val offered =
+            LfoTarget.entries.filter {
+                it != LfoTarget.RETIRED_25 &&
+                    it != LfoTarget.NONE &&
+                    (it in config.targets || it.chain != null || it.scope.appliesTo(sceneId))
             }
-            Box {
-                AssistChip(
-                    onClick = { showAdd = true },
-                    label = { Text("+", style = MaterialTheme.typography.labelLarge) },
-                    modifier = Modifier.semantics { contentDescription = "Add a control" },
-                )
-                DropdownMenu(expanded = showAdd, onDismissRequest = { showAdd = false }) {
-                    LfoTarget.entries
-                        .filter { it != LfoTarget.RETIRED_25 }
-                        .filter { it != LfoTarget.NONE && it !in config.targets && (it.chain != null || it.scope.appliesTo(sceneId)) }
-                        .forEach { t ->
-                            DropdownMenuItem(
-                                text = { Text(t.label) },
-                                onClick = {
-                                    onChange(config.copy(targets = config.targets + t))
-                                    showAdd = false
-                                },
-                            )
-                        }
-                }
+        Row(Modifier.fillMaxWidth().heightIn(min = GeodeSpacing.TouchTarget), verticalAlignment = Alignment.CenterVertically) {
+            Text(stringResource(R.string.envelope_moves), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+            MultiPickButton(
+                name = stringResource(R.string.envelope_moves_for, index + 1),
+                summary = config.targets.joinToString { it.label }.ifEmpty { stringResource(R.string.envelope_moves_nothing) },
+                picks = offered.map { MenuPick(it.label, it in config.targets) },
+                modifier = Modifier.weight(1f, fill = false),
+            ) { i ->
+                val t = offered[i]
+                onChange(config.copy(targets = if (t in config.targets) config.targets - t else config.targets + t))
             }
         }
         CardSubHeader("Shape")
@@ -655,8 +663,7 @@ private fun AdsrCard(
             "The envelope holds while the chosen sound stays above the level and lets go when it drops, so the same hit " +
                 "opens a long swell in a loud chorus and a short blip in a quiet verse.",
         )
-        LockableChipLabel(ENV_GATE_SOURCE)
-        ChipRow(EnvBand.entries.map { it.label }, EnvBand.entries.indexOf(config.band)) {
+        DropdownRow(ENV_GATE_SOURCE, EnvBand.entries.map { it.label }, EnvBand.entries.indexOf(config.band), lockKey = ENV_GATE_SOURCE) {
             onChange(config.copy(band = EnvBand.entries[it]))
         }
         LabeledSlider(ENV_GATE_LEVEL, config.gateThreshold, 0.05f..1f) { onChange(config.copy(gateThreshold = it)) }
@@ -700,9 +707,8 @@ internal fun LayersPage() {
     if (layers.sceneId != null && layers.sceneId == activeScene) {
         ControlHint("That style is now the active one, so the layer is idle - pick another.")
     }
-    Text("Blend", style = MaterialTheme.typography.bodyMedium)
     val blendNames = BlendMode.entries.map { mode -> mode.name.lowercase().replaceFirstChar { it.uppercase() } }
-    ChipRow(blendNames, BlendMode.entries.indexOf(layers.blend)) {
+    DropdownRow("Blend", blendNames, BlendMode.entries.indexOf(layers.blend)) {
         LayersBus.state.value = layers.copy(blend = BlendMode.entries[it])
     }
     LabeledSlider(LAYER_MIX, layers.mix, 0f..1f, scope = ParamScope.UNIVERSAL) { LayersBus.state.value = layers.copy(mix = it) }
@@ -814,12 +820,14 @@ private fun TransitionsPage(
         SectionHeader("Style transition")
         val ctx = LocalContext.current
         val library = remember { TransitionCatalog.library(ctx) }
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            // "cut" is left out: VisualSafety always plays it as a fade, so its chip lied.
-            TransitionCatalog.BUILT_IN_IDS.filter { it != "cut" }.forEach { id ->
-                FilterChip(selected = transitionId == id, onClick = { onTransitionId(id) }, label = { Text(id) })
-            }
-        }
+        // "cut" is left out: VisualSafety always plays it as a fade, so its entry lied.
+        val builtIn = remember { TransitionCatalog.BUILT_IN_IDS.filter { it != "cut" } }
+        DropdownRow(
+            stringResource(R.string.transition_built_in),
+            builtIn,
+            builtIn.indexOf(transitionId),
+            placeholder = stringResource(R.string.transition_from_library),
+        ) { onTransitionId(builtIn[it]) }
         if (library.isNotEmpty()) {
             ControlHint(
                 "${library.size} more from the gl-transitions library. Each blends the outgoing and incoming styles " +
@@ -837,15 +845,13 @@ private fun TransitionsPage(
                 remember(query, library) {
                     if (query.isBlank()) library else library.filter { it.name.contains(query, ignoreCase = true) }
                 }
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                shown.take(TRANSITION_CHIP_LIMIT).forEach { def ->
-                    FilterChip(
-                        selected = transitionId == def.name,
-                        onClick = { onTransitionId(def.name) },
-                        label = { Text(def.name, style = MaterialTheme.typography.labelLarge) },
-                    )
-                }
-            }
+            val names = shown.take(TRANSITION_CHIP_LIMIT).map { it.name }
+            DropdownRow(
+                stringResource(R.string.transition_library),
+                names,
+                names.indexOf(transitionId),
+                placeholder = stringResource(R.string.transition_library_pick, shown.size),
+            ) { onTransitionId(names[it]) }
             if (shown.size > TRANSITION_CHIP_LIMIT) {
                 ControlHint("${shown.size - TRANSITION_CHIP_LIMIT} more - narrow the search to reach them.")
             }
@@ -993,8 +999,12 @@ private fun ShaderCodePage(host: AdvancedHost) {
             textStyle = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
         )
         viz.shaderError?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            CrystalButton(onClick = { host.viewModel.applyCustomShader(source) }) { Text("Apply shader") }
+        Row(horizontalArrangement = Arrangement.spacedBy(GeodeSpacing.S)) {
+            val sounds = LocalUiSounds.current
+            Button(onClick = {
+                sounds.play(UiSound.CONFIRM)
+                host.viewModel.applyCustomShader(source)
+            }) { Text("Apply shader") }
             TextButton(onClick = { source = host.visualizerView.visualizerRenderer.customShaderFor(viz.sceneId) ?: "" }) { Text("Revert") }
         }
     }

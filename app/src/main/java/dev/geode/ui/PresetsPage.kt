@@ -4,7 +4,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -12,6 +11,7 @@ import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -27,13 +27,16 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.PlaylistPlay
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CreateNewFolder
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material3.AssistChip
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -76,6 +79,7 @@ import dev.geode.ui.theme.GeodeRadius
 import dev.geode.ui.theme.GeodeSpacing
 import dev.geode.ui.theme.StoneHapticCue
 import dev.geode.ui.theme.performStoneHaptic
+import dev.geode.ui.theme.selectedGlow
 
 /**
  * Visuals › Presets: the user's saved looks and the built-ins, as pictures.
@@ -84,8 +88,9 @@ import dev.geode.ui.theme.performStoneHaptic
  * folder header's rename), a second list of built-ins under it and a save form at the bottom, so
  * the one thing people came for, putting a look on the stage, was one small icon among many.
  * Now a card is the preset: a tap applies it, and everything else sits behind a long press (or
- * the TalkBack action "Preset actions") in one sheet. Folders became filter chips beside All,
- * For this style, Mine and Built-in, so finding a preset no longer means scrolling past the rest.
+ * the TalkBack action "Preset actions") in one sheet. Filtering is one scrolling row: the four
+ * fixed shelves (All, For this style, Mine, Built-in) as chips, then one "Folders ▾" chip whose
+ * menu lists every folder and "New folder", so the row stays one row however many folders exist.
  *
  * One way to save, at the top: "Save current look" opens one dialog with the name and the
  * folder, and calls the same [VisualsViewModel.savePreset] as Customize's "Save as preset", with
@@ -293,9 +298,7 @@ internal fun PresetsTab(
         is PresetDialog.Replace ->
             ConfirmDialog(
                 title = "Replace \"${d.name}\"?",
-                text =
-                    "It takes the look on the stage now. Its old look is gone for good; there is no undo. " +
-                        "Share it first if you might want it back.",
+                text = "It takes the look on the stage now; there is no undo.",
                 confirmLabel = "Replace",
                 onDismiss = close,
                 onConfirm = {
@@ -306,9 +309,7 @@ internal fun PresetsTab(
         is PresetDialog.Delete ->
             ConfirmDialog(
                 title = "Delete \"${d.name}\"?",
-                text =
-                    "Removes this preset and its file for good; there is no undo. " +
-                        "Share it first if you might want it back.",
+                text = "Removes this preset and its file; there is no undo.",
                 confirmLabel = "Delete",
                 onDismiss = close,
                 onConfirm = {
@@ -414,12 +415,13 @@ private fun PresetsToolbar(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(GeodeSpacing.S),
     ) {
-        CrystalButton(onClick = onSave, modifier = Modifier.weight(1f)) {
+        Button(onClick = onSave, modifier = Modifier.weight(1f)) {
             Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.size(ButtonDefaults.IconSpacing))
             Text("Save current look", maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         Box {
-            CrystalButton(filled = false, onClick = { importOpen = true }) { Text("Import") }
+            FilledTonalButton(onClick = { importOpen = true }) { Text("Import") }
             DropdownMenu(expanded = importOpen, onDismissRequest = { importOpen = false }) {
                 DropdownMenuItem(
                     text = { Text("Paste a shared preset link") },
@@ -470,7 +472,11 @@ private fun PresetsToolbar(
     }
 }
 
-/** The shelves, then a chip per folder, then "New folder" so a folder is made where folders are. */
+/**
+ * The shelves as chips, then one "Folders ▾" chip: folders are the user's and unbounded, so they
+ * live in its menu (a check on the open one, "New folder" last) instead of widening the row. The
+ * chip names the open folder while one is shown.
+ */
 @Composable
 private fun PresetFilterRow(
     filters: List<PresetFilter>,
@@ -479,51 +485,82 @@ private fun PresetFilterRow(
     onRenameFolder: (String) -> Unit,
     onNewFolder: () -> Unit,
 ) {
+    val shelves = filters.filterNot { it is PresetFilter.Folder }
+    val folders = filters.filterIsInstance<PresetFilter.Folder>()
     LazyRow(
         contentPadding = PaddingValues(horizontal = GeodeSpacing.L),
         horizontalArrangement = Arrangement.spacedBy(GeodeSpacing.S),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        items(filters, key = ::filterKeyOf) { f ->
-            val folder = (f as? PresetFilter.Folder)?.name
+        items(shelves, key = ::filterKeyOf) { f ->
             FilterChip(
                 selected = f == selected,
                 onClick = { onSelect(f) },
                 label = { Text(filterLabel(f)) },
-                leadingIcon =
-                    if (folder != null) {
-                        { Icon(Icons.Filled.Folder, contentDescription = null, modifier = Modifier.size(18.dp)) }
-                    } else {
-                        null
-                    },
-                modifier =
-                    Modifier
-                        .heightIn(min = GeodeSpacing.TouchTarget)
-                        .then(
-                            if (folder == null) {
-                                Modifier
-                            } else {
-                                Modifier.semantics {
-                                    customActions =
-                                        listOf(
-                                            CustomAccessibilityAction("Rename folder") {
-                                                onRenameFolder(folder)
-                                                true
-                                            },
-                                        )
-                                }
-                            },
-                        ),
+                modifier = Modifier.heightIn(min = GeodeSpacing.TouchTarget),
             )
         }
-        item(key = "new_folder") {
-            AssistChip(
-                onClick = onNewFolder,
-                label = { Text("New folder") },
-                leadingIcon = {
-                    Icon(Icons.Filled.CreateNewFolder, contentDescription = null, modifier = Modifier.size(18.dp))
+        item(key = "folders") {
+            FolderFilterChip(
+                folders = folders,
+                open = (selected as? PresetFilter.Folder)?.name,
+                onSelect = onSelect,
+                onRenameFolder = onRenameFolder,
+                onNewFolder = onNewFolder,
+            )
+        }
+    }
+}
+
+@Composable
+private fun FolderFilterChip(
+    folders: List<PresetFilter.Folder>,
+    open: String?,
+    onSelect: (PresetFilter) -> Unit,
+    onRenameFolder: (String) -> Unit,
+    onNewFolder: () -> Unit,
+) {
+    var menuOpen by remember { mutableStateOf(false) }
+    Box {
+        FilterChip(
+            selected = open != null,
+            onClick = { menuOpen = true },
+            label = { Text(open ?: "Folders", maxLines = 1, overflow = TextOverflow.Ellipsis) },
+            leadingIcon = { Icon(Icons.Filled.Folder, contentDescription = null, modifier = Modifier.size(18.dp)) },
+            trailingIcon = { Icon(Icons.Filled.ArrowDropDown, contentDescription = null, modifier = Modifier.size(18.dp)) },
+            modifier = Modifier.heightIn(min = GeodeSpacing.TouchTarget),
+        )
+        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+            folders.forEach { f ->
+                DropdownMenuItem(
+                    text = { Text(f.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                    leadingIcon = {
+                        Icon(if (f.name == open) Icons.Filled.Check else Icons.Filled.Folder, contentDescription = null)
+                    },
+                    onClick = {
+                        menuOpen = false
+                        onSelect(f)
+                    },
+                    modifier =
+                        Modifier.semantics {
+                            customActions =
+                                listOf(
+                                    CustomAccessibilityAction("Rename folder") {
+                                        menuOpen = false
+                                        onRenameFolder(f.name)
+                                        true
+                                    },
+                                )
+                        },
+                )
+            }
+            DropdownMenuItem(
+                text = { Text("New folder") },
+                leadingIcon = { Icon(Icons.Filled.CreateNewFolder, contentDescription = null) },
+                onClick = {
+                    menuOpen = false
+                    onNewFolder()
                 },
-                modifier = Modifier.heightIn(min = GeodeSpacing.TouchTarget),
             )
         }
     }
@@ -571,8 +608,9 @@ private fun PresetCard(
             Modifier
                 .fillMaxWidth()
                 .aspectRatio(1f)
-                .clip(shape)
-                .then(if (applied) Modifier.border(2.dp, cs.primary, shape) else Modifier),
+                // The applied look glows; no accent edge (the look has no hairlines).
+                .selectedGlow(applied, shape)
+                .clip(shape),
         ) {
             StyleThumbnail(thumbnailEntry(entry, styleLabel), Modifier.fillMaxSize())
             if (locked) ProBadge(Modifier.align(Alignment.TopEnd).padding(GeodeSpacing.XS))

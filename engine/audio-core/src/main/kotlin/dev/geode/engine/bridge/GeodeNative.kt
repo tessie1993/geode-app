@@ -156,6 +156,8 @@ object GeodeNative {
 
     external fun vizTakeMilkPresetLoaded(handle: Long): String?
 
+    external fun vizTakeDirectorStyleMoments(handle: Long): Int
+
     external fun vizWriteAudio(
         handle: Long,
         interleaved: FloatArray,
@@ -249,6 +251,61 @@ object GeodeNative {
         seed: Int,
     ): FloatArray
 
+    /**
+     * Customize › Music's hand mask (core/viz Reactions.hpp `hand::`): bit i is moment i set by hand,
+     * [HAND_UNCLAIMED] every source no moment claims, [HAND_ALL] a whole list of the user's. Process-wide like
+     * [directorSet]: every renderer's director keeps its hands off those moments.
+     */
+    external fun handSet(mask: Int)
+
+    /**
+     * What plays (geode_style_reactions_hand): the [user]'s routes on the [mask]'s sources, the style's DNA on
+     * every other, in the [vizSetReactions] layout. [user] null is "all Auto", the DNA alone.
+     */
+    external fun styleReactionsHand(
+        styleId: String,
+        seed: Int,
+        user: FloatArray?,
+        mask: Int,
+    ): FloatArray
+
+    /** Customize › Music's rows, [MUSIC_STATE_FLOATS] per moment (geode_music_state). */
+    external fun musicState(
+        styleId: String,
+        seed: Int,
+        user: FloatArray?,
+        mask: Int,
+    ): FloatArray
+
+    /**
+     * One tap on Customize › Music (geode_music_edit: [op] 0 toggle [action], 1 strength [value], 2 reset to
+     * Auto). Returns the user's new routes; writes the new mask to `outHand[0]` and 1 to `outHand[1]` while the
+     * user still has a list (0: all Auto).
+     */
+    external fun musicEdit(
+        styleId: String,
+        seed: Int,
+        user: FloatArray?,
+        mask: Int,
+        op: Int,
+        moment: Int,
+        action: Int,
+        value: Float,
+        outHand: IntArray,
+    ): FloatArray
+
+    /** The LfoTarget ordinal a new route of Music [action] moves (geode_music_action_target). */
+    external fun musicActionTarget(action: Int): Int
+
+    /** Mirrors GEODE_HAND_UNCLAIMED. */
+    const val HAND_UNCLAIMED: Int = 0x40000000
+
+    /** Mirrors GEODE_HAND_ALL: every moment and every unclaimed source, the whole list the user's. */
+    const val HAND_ALL: Int = 0x400003FF
+
+    /** Mirrors GEODE_MUSIC_STATE_FLOATS: mine, route count, strength, on-action bits, fits-action bits. */
+    const val MUSIC_STATE_FLOATS: Int = 5
+
     /** Gyro look, -1..1 per axis; read only while camGyro is on. */
     external fun vizSetLook(
         handle: Long,
@@ -297,6 +354,21 @@ object GeodeNative {
     external fun vizSetOffscreen(
         handle: Long,
         on: Boolean,
+    )
+
+    /**
+     * Frosted glass under the app's sheet (`core/viz/UiBlurPass`): the renderer blurs its finished frame
+     * inside one rounded rect. The rect is normalised to the viewport, y down (view pixels over the
+     * visual's size); [strength] 0..1, 0 = off and free; [cornerPx] in surface pixels. Ignored offscreen.
+     */
+    external fun vizSetUiBlurRegion(
+        handle: Long,
+        left: Float,
+        top: Float,
+        right: Float,
+        bottom: Float,
+        strength: Float,
+        cornerPx: Float,
     )
 
     external fun vizKnows(
@@ -433,4 +505,91 @@ object GeodeNative {
         handle: Long,
         out: DoubleArray,
     ): Boolean
+
+    // Rest when silent (core/sound/Silence): the wallpaper's and the dream's silence rule.
+
+    /**
+     * The time sound was last heard, given this poll's newest [frames] samples per channel (0 when
+     * nothing new was written): [nowMs] when any is above about -42 dBFS, else [heardAtMs].
+     */
+    external fun silenceHeardAt(
+        left: FloatArray,
+        right: FloatArray,
+        frames: Int,
+        nowMs: Long,
+        heardAtMs: Long,
+    ): Long
+
+    /** Whether a surface may rest: nothing heard for 6 s. */
+    external fun silenceResting(
+        nowMs: Long,
+        heardAtMs: Long,
+    ): Boolean
+
+    // Studio preview clock (core/studio/PreviewClock): the live preview's programme time. One owner
+    // thread per handle; the app wraps it in `ui/StudioPreviewClock`.
+
+    external fun previewCreate(): Long
+
+    external fun previewDestroy(handle: Long)
+
+    external fun previewSetSpans(
+        handle: Long,
+        startsMs: LongArray,
+        durationsMs: LongArray,
+    )
+
+    external fun previewSetRate(
+        handle: Long,
+        fps: Int,
+        lengthMs: Long,
+    )
+
+    external fun previewPlay(
+        handle: Long,
+        programmeMs: Long,
+        nowNs: Long,
+    )
+
+    external fun previewPause(
+        handle: Long,
+        nowNs: Long,
+    )
+
+    external fun previewSeek(
+        handle: Long,
+        programmeMs: Long,
+        nowNs: Long,
+    )
+
+    external fun previewAudio(
+        handle: Long,
+        span: Int,
+        spanPosMs: Long,
+        nowNs: Long,
+    )
+
+    /** Programme time at [nowNs], on a frame boundary. */
+    external fun previewNow(
+        handle: Long,
+        nowNs: Long,
+    ): Long
+
+    external fun previewEnded(
+        handle: Long,
+        nowNs: Long,
+    ): Boolean
+
+    /** The audio span under [programmeMs] (its offset into [offsetOut]`[0]`), or -1 in a gap. */
+    external fun previewLocate(
+        handle: Long,
+        programmeMs: Long,
+        offsetOut: LongArray,
+    ): Int
+
+    /** The start of the frame [programmeMs] falls on at [fps]. */
+    external fun previewFrameOf(
+        programmeMs: Long,
+        fps: Int,
+    ): Long
 }

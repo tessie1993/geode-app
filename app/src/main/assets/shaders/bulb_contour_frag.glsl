@@ -17,8 +17,12 @@ out vec4 fragColor;
 // with no shading to speak of, wrapped in two families of thin neon lines:
 // contours of the orbit trap (log of its closest approach, so the lines crowd
 // into the creases and open out on the lobes) and rings of constant radius
-// (a topographic survey of the crust). It stands over a receding neon floor
-// grid, synthwave style, in a dark violet void.
+// (a topographic survey of the crust). A receding neon floor grid lies far
+// below, synthwave style, in a dark void.
+//
+// Framed MACRO (see lib_bulb's grid): the eye flies a low survey pass over
+// the crust and looks down at it, so the frame is a sheet of contour lines
+// with no outline, the body's horizon a thin edge near the top.
 //
 // Lines are antialiased with fwidth(), which needs derivatives from every
 // pixel of a quad, so the line coordinates are computed for all pixels and
@@ -38,14 +42,26 @@ out vec4 fragColor;
 // Speed (uSpeed) scales the floor's scroll. Complexity (uMorph) adds up to
 // two fractal iterations (bulbIters) and a denser second line family. Chaos
 // (uWarp, uTurbulence, uTwist) warps the body (bulbChaos, estimate divided by
-// bulbChaosLip). Energy (uIntensity) scales the air's thickening. Colour is
-// pal(); Space is the rig (camAround).
+// bulbChaosLip). Energy (uIntensity) scales the air's thickening. Colour is tone(), its own ramp
+// pal() tints. Space is the rig: travel drifts the eye, look and shake ride
+// on top (bulbAim), the dolly lowers it toward the crust.
 
 #define BW_MAX_STEPS 128
 #define BW_BOUND 1.22
-#define BW_CAM_R 3.6
+/** The eye's distance from the centre, its height component, and where it looks. */
+#define BW_EYE_R 1.52
+#define BW_EYE_Y 0.9
+#define BW_AIM_R 0.9
+#define BW_LEAD 0.38
 #define BW_FLOOR -1.3
-const float BW_SPIN = 3.0 * CAM_SPIN_UNIT;
+const float BW_SPIN = -2.0 * CAM_SPIN_UNIT;
+
+// Grid cell MACRO x LINE (see lib_bulb): bright lines on a black body, the
+// mirror image of Ink's dark lines on paper. Its own ramp is a survey screen:
+// phosphor green into cyan, with a lime second family.
+vec3 tone(float t) {
+    return bulbRamp(t, vec3(0.30, 0.62, 0.50), vec3(0.30, 0.38, 0.40), vec3(1.0), vec3(0.35, 0.15, 0.05));
+}
 
 int gIters;
 vec4 gTrap;
@@ -78,9 +94,17 @@ void main() {
     float dense = 1.0 + clamp(uMorph, 0.0, 1.0);
     gIters = bulbIters(6);
 
+    // MACRO: a survey flight. The eye drifts low over the crust, slower than
+    // Chrome and from the other side, and looks steeply down at the skin ahead,
+    // so the lines fill the frame as a topographic sheet and only a sliver of
+    // void shows at the top.
+    float a = uCamTravel * BW_SPIN - 1.9;
+    float eyeR = BW_EYE_R * (1.0 - 0.1 * uCamDolly);
+    vec3 eye = normalize(vec3(cos(a), BW_EYE_Y, sin(a))) * eyeR;
+    vec3 aim = normalize(vec3(cos(a - BW_LEAD), 0.25, sin(a - BW_LEAD))) * BW_AIM_R;
     vec3 ro;
     vec3 rd;
-    camAround(uv, BW_CAM_R, BW_SPIN, ro, rd);
+    bulbAim(uv, eye, aim, ro, rd);
 
     float hue = 0.78 + 0.04 * sin(bulbTime() * 0.017);
 
@@ -129,17 +153,17 @@ void main() {
     float gx = lineOn(fp.x * 2.0, 1.0);
     float gz = lineOn(fp.y * 2.0, 1.0);
 
-    vec3 col = mix(vec3(0.010, 0.004, 0.022), pal(hue + 0.1) * 0.06, smoothstep(-0.2, 0.5, rd.y));
+    vec3 col = mix(vec3(0.010, 0.004, 0.022), tone(hue + 0.1) * 0.06, smoothstep(-0.2, 0.5, rd.y));
     if (fT > 0.0 && (hitT < 0.0 || fT < hitT)) {
         float fade = exp(-fT * 0.18);
-        col += pal(hue + 0.5) * max(gx, gz) * fade * 0.7;
-        col += pal(hue + 0.5) * 0.04 * fade;
+        col += tone(hue + 0.5) * max(gx, gz) * fade * 0.7;
+        col += tone(hue + 0.5) * 0.04 * fade;
     }
     if (hitT > 0.0) {
         vec3 glass = vec3(0.012, 0.010, 0.02);
-        col = glass + pal(hue + 0.55) * rim * (0.25 + 0.2 * air);
-        col += pal(hue) * lA * (0.9 + 0.3 * air) * ao;
-        col += pal(hue + 0.33) * lB * 0.55 * ao;
+        col = glass + tone(hue + 0.55) * rim * (0.25 + 0.2 * air);
+        col += tone(hue) * lA * (0.9 + 0.3 * air) * ao;
+        col += tone(hue + 0.33) * lB * 0.55 * ao;
     }
 
     col *= 0.85 + 0.15 * swell;

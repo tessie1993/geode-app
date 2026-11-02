@@ -12,6 +12,7 @@ extern "C" {
 typedef struct geode_viz      geode_viz;
 typedef struct geode_dsp      geode_dsp;
 typedef struct geode_tags     geode_tags;
+typedef struct geode_preview  geode_preview;
 
 /* Native visualizer: one renderer per GL surface. Setters may be called from any thread and are latched
  * for the next frame; the calls under "GL thread" need the surface's context current. */
@@ -44,6 +45,8 @@ GEODE_API void        geode_viz_set_milk_texture_dir(geode_viz*, const char* dir
 /* The preset MilkDrop last compiled successfully, once; returns the full length, 0 when none is pending.
  * Every call takes it, a length query (out = NULL) too: pass a buffer the first time. */
 GEODE_API size_t      geode_viz_take_milk_preset_loaded(geode_viz*, char* out, size_t capacity);
+/* Section changes and drops the auto-director committed a look at since the last call; handed out once. */
+GEODE_API int         geode_viz_take_director_style_moments(geode_viz*);
 GEODE_API void        geode_viz_push_pcm(geode_viz*, const float* mono, int count);
 /* The reaction source catalogue, one line per source in wire order: "NAME|Label|GROUP|event(0/1)\n".
  * Writes at most capacity bytes (NUL-terminated when it fits) and returns the length it needs. */
@@ -77,6 +80,31 @@ GEODE_API void        geode_viz_set_reactions(geode_viz*, const float* routes, i
    geode_viz_set_reactions layout. Writes at most capacity / GEODE_REACT_ROUTE_FLOATS routes into
    out and returns how many. Pure: no viz handle, the same id and seed always give the same routes. */
 GEODE_API int         geode_style_reactions(const char* style_id, int seed, float* out, int capacity);
+/* Customize › Music, "the hand wins per moment" (core/viz Reactions.hpp hand::, ReactionDna.hpp). The hand mask
+   is bit i for moment i (GEODE_MUSIC_MOMENTS, in the page's order) plus GEODE_HAND_UNCLAIMED for every source
+   no moment claims; GEODE_HAND_ALL is a whole list of the user's (the route editor, a list saved before the
+   mask). `user` is the user's routes in the geode_viz_set_reactions layout, NULL (or has_user 0) for none.
+   geode_hand_set is process-wide like geode_director_set: every renderer's director keeps off those moments. */
+#define GEODE_MUSIC_MOMENTS 10
+#define GEODE_MUSIC_ACTIONS 7
+#define GEODE_HAND_UNCLAIMED 0x40000000u
+#define GEODE_HAND_ALL 0x400003FFu
+#define GEODE_MUSIC_STATE_FLOATS 5  /* per moment: mine, route count, strength, on-action bits, fits-action bits */
+GEODE_API void        geode_hand_set(unsigned mask);
+/* What plays: the user's routes on the hand's sources, the DNA's (dealt from id and seed) on the rest. */
+GEODE_API int         geode_style_reactions_hand(const char* style_id, int seed, const float* user, int user_floats, int has_user,
+                                                 unsigned mask, float* out, int capacity);
+/* Every moment's row, GEODE_MUSIC_STATE_FLOATS each, into out (capacity floats); returns the moments written. */
+GEODE_API int         geode_music_state(const char* style_id, int seed, const float* user, int user_floats, int has_user,
+                                        unsigned mask, float* out, int capacity);
+/* One tap: op 0 toggles `action` on `moment`, 1 sets its strength to `value`, 2 resets it to Auto. Writes the
+   user's new routes into out and the new mask and has_user (0: all Auto) into out_mask / out_has_user; returns
+   the route count. */
+GEODE_API int         geode_music_edit(const char* style_id, int seed, const float* user, int user_floats, int has_user,
+                                       unsigned mask, int op, int moment, int action, float value, float* out, int capacity,
+                                       unsigned* out_mask, int* out_has_user);
+/* The LfoTarget ordinal a new route of `action` moves, so the shell can hide a chip the style ignores. */
+GEODE_API int         geode_music_action_target(int action);
 /* Gyro look, -1..1 per axis; the camera reads it only while camGyro is on. */
 GEODE_API void        geode_viz_set_look(geode_viz*, float yaw, float pitch);
 GEODE_API void        geode_viz_set_thermal(geode_viz*, int platform_status, float headroom); /* status < 0 = unknown */
@@ -88,6 +116,13 @@ GEODE_API void        geode_viz_set_liquid_hot_policy(geode_viz*, int policy);
 /* What Liquid mode ran last frame: 0 off, 1 full, 2 lite, 3 warp, 4 paused (liquid::Mode). 0 for a null handle. */
 GEODE_API int         geode_viz_liquid_mode(const geode_viz*);
 GEODE_API void        geode_viz_set_offscreen(geode_viz*, int on);
+/* Frosted glass under the app's sheet (core/viz/UiBlurPass): blurs the finished frame inside one rounded
+ * rect, after the composite. The rect is normalised to the viewport with y DOWN (a view's left/top/right/
+ * bottom in pixels over the visual's width/height); strength 0..1 mixes the blur in, 0 turns it off and
+ * costs nothing; corner_px is the corner radius in surface pixels. Any thread, latched for the next frame.
+ * An offscreen (export) renderer never draws it. */
+GEODE_API void        geode_viz_set_ui_blur_region(geode_viz*, float left, float top, float right, float bottom,
+                                                   float strength, float corner_px);
 /* An export's own auto-director (amount 0..1, the play's seed): from now on this renderer ignores
  * geode_director_set, so the live player's switch, track and free taste never reach the render. */
 GEODE_API void        geode_viz_set_director(geode_viz*, float amount, long long seed);
@@ -208,6 +243,32 @@ GEODE_API void            geode_loudness_destroy(geode_loudness*);
 GEODE_API void            geode_loudness_feed(geode_loudness*, const float* interleaved, size_t samples);
 GEODE_API int             geode_loudness_has_block(geode_loudness*);   /* 1 once a 400 ms block exists */
 GEODE_API void            geode_loudness_finish(geode_loudness*, geode_loudness_report* out);   /* non-destructive */
+
+/* Rest when silent (sound/Silence): the live wallpaper's and the dream's silence rule. A poll hands in the
+ * newest planar samples written since the last one (frames 0 when nothing was written) and the time sound
+ * was last heard, and gets that time back, moved to now when any sample is above about -42 dBFS. Resting is
+ * nothing heard for 6 s. Pure: the caller keeps the one timestamp. */
+GEODE_API long long       geode_silence_heard_at(const float* const* channels, int channel_count, int frames,
+                                                 long long now_ms, long long heard_at_ms);
+GEODE_API int             geode_silence_resting(long long now_ms, long long heard_at_ms);   /* 1 = may rest */
+
+/* Studio preview clock (core/studio/PreviewClock): the programme time the live preview shows, run on the
+ * caller's monotonic clock (now_ns) and pulled toward the audio player's reports; spans are the audio
+ * lane's clips in programme ms. Not thread-safe: one owner thread. */
+GEODE_API geode_preview*  geode_preview_create(void);
+GEODE_API void            geode_preview_destroy(geode_preview* p);
+GEODE_API void            geode_preview_set_spans(geode_preview* p, const long long* starts_ms,
+                                                  const long long* durations_ms, int count);
+GEODE_API void            geode_preview_set_rate(geode_preview* p, int fps, long long length_ms);
+GEODE_API void            geode_preview_play(geode_preview* p, long long programme_ms, long long now_ns);
+GEODE_API void            geode_preview_pause(geode_preview* p, long long now_ns);
+GEODE_API void            geode_preview_seek(geode_preview* p, long long programme_ms, long long now_ns);
+GEODE_API void            geode_preview_audio(geode_preview* p, int span, long long span_pos_ms, long long now_ns);
+GEODE_API long long       geode_preview_now(const geode_preview* p, long long now_ns);      /* frame-aligned */
+GEODE_API int             geode_preview_ended(const geode_preview* p, long long now_ns);    /* 1 = at the end */
+GEODE_API int             geode_preview_locate(const geode_preview* p, long long programme_ms,
+                                               long long* offset_ms);                      /* span, or -1 */
+GEODE_API long long       geode_preview_frame_of(long long programme_ms, int fps);
 
 #ifdef __cplusplus
 }

@@ -1,5 +1,7 @@
 #pragma once
 #include <array>
+#include <bitset>
+#include <cstdint>
 
 #include "api/geode_api.h"
 #include "viz/Lfo.hpp"
@@ -114,6 +116,41 @@ private:
     float onsetCount_ = 0.0f;
     float cutCount_ = 0.0f;
 };
+
+// ── Customize › Music's moments and the hand mask ───────────────────────────────────────────────────
+//
+// The owner's rule: "Auto drives every untouched moment; a hand-set moment shows a 'mine' mark and the
+// director leaves it alone; 'Reset to Auto' is in its ⋮." All of it is native (ADR 0003): the moments and
+// the mask here, where the director reads them; the merge with the live DNA and the page's edits in
+// viz/ReactionDna. Kotlin only labels the rows and passes the mask along.
+//
+// WHY a moment is a set of sources, not one: the DNA and the director deal routes from every drum signal
+// (the kick's envelope, its hit, every 4th kick, its toggle), and a listener hears all of them as "the
+// kick". The sets never overlap, so a route belongs to at most one moment. Sources no moment claims (the
+// mids, the stereo pan, an EQ band) are the "unclaimed" part, which only the whole-list route editor
+// (Modulate › Reactions) takes over.
+
+// Wire ordinals, in the page's order; mirrored by ui/MusicMoments.kt's labels. Append only.
+enum class Moment { Kick, Snare, Hat, Bass, Drop, BuildUp, ChordChange, NewSection, Note, Loudness };
+constexpr int kMomentCount = static_cast<int>(Moment::Loudness) + 1;
+
+using ReactSourceMask = std::bitset<kReactSourceCount>;
+
+// The hand mask: bit i is Moment i set by hand; kUnclaimed is every source no moment claims. kAll is the
+// whole list (the route editor's edit, and a list saved before the mask existed).
+namespace hand {
+constexpr std::uint32_t kUnclaimed = 1u << 30;
+constexpr std::uint32_t kAll = ((1u << kMomentCount) - 1u) | kUnclaimed;
+constexpr std::uint32_t bit(Moment m) { return 1u << static_cast<int>(m); }
+// Every source the mask hands to the user.
+ReactSourceMask sources(std::uint32_t mask);
+// The moment `s` belongs to, or -1 when no moment claims it.
+int momentOf(ReactSource s);
+// Process-wide like the macros and the director, so every renderer's director (screen, export, wallpaper,
+// dream) keeps off the same moments. 0 (nothing the hand's) until the shell pushes the saved mask.
+void setGlobal(std::uint32_t mask);
+std::uint32_t global();
+}  // namespace hand
 
 class ReactionEngine {
 public:

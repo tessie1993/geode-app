@@ -43,7 +43,8 @@ The owner's decisions from the UI and app-flow grilling. This is still in progre
 
 ## Studio
 - Tabs: Render · My videos · Edit♛. Studio opens on the last tab used, never on a Pro wall.
-- Render starts with a choice: "Render a new video" or "Use an existing video" (a take, a past render or a phone video). It then shows only the steps that choice needs.
+- Render is one stack: Source → Look → Format → Save. There is no "new or existing video" step first. Existing videos open from My videos or from Edit home ("A video on the phone").
+- A free user who taps Edit♛ sees a Pro wall (not try-then-pay).
 - The first recording asks where to save. After that, the user can make that folder the default.
 
 ## First run, tour, Settings

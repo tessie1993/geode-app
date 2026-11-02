@@ -18,7 +18,8 @@ out vec4 fragColor;
 // Its long axis is the pole (the set runs from c = -2 to 1/4 along it), so it
 // stands upright like a whipped spire, cardioid at the foot. Three flat tones
 // of cel shading, black ink on the outline and in the creases, a single round
-// highlight, on a muted halftone backdrop. No gradients on the body at all.
+// highlight, on pale printed paper with a halftone of the second ink. No
+// gradients on the body at all.
 //
 // The outline is found during the march: a ray that MISSES but came within a
 // pixel-scaled distance of the surface is on the silhouette, so it is inked.
@@ -36,7 +37,7 @@ out vec4 fragColor;
 // Speed (uSpeed) scales the hue drift. Complexity (uMorph) adds up to two fractal
 // iterations (bulbIters). Chaos (uWarp, uTurbulence, uTwist) warps and twists
 // space before the fractal (bulbChaos, estimate divided by bulbChaosLip).
-// Energy (uIntensity) scales the snare squash. Colour is pal() throughout; Space is
+// Energy (uIntensity) scales the snare squash. Colour is tone(), the print ramp pal() tints; Space is
 // the rig (camAround).
 
 #define BI_MAX_STEPS 128
@@ -45,6 +46,12 @@ out vec4 fragColor;
 /** Fractal-space pole coordinate that lands at the world origin: the middle of the body. */
 #define BI_MID -0.85
 const float BI_SPIN = 5.0 * CAM_SPIN_UNIT;
+
+// Grid cell WHOLE x LINE (see lib_bulb): dark ink on light paper. Its own ramp
+// is a two-ink print: vermilion and a deep maroon.
+vec3 tone(float t) {
+    return bulbRamp(t, vec3(0.62, 0.28, 0.24), vec3(0.32, 0.20, 0.16), vec3(1.0), vec3(0.00, 0.05, 0.10));
+}
 
 vec3 gSquash;
 float gLip;
@@ -105,23 +112,25 @@ void main() {
         }
     }
 
-    // Halftone backdrop: dots that grow toward the bottom of the frame.
+    // Printed paper: a warm off-white, with halftone dots of the second ink
+    // that grow toward the bottom of the frame. The family's one LIGHT ground,
+    // so even desaturated Ink is a dark figure on a pale page.
     vec2 cell = fract(uv * 22.0) - 0.5;
-    float dotR = mix(0.12, 0.42, smoothstep(1.0, -1.0, uv.y));
+    float dotR = mix(0.08, 0.36, smoothstep(1.0, -1.0, uv.y));
     float dots = smoothstep(dotR, dotR - 0.06, length(cell));
-    vec3 paper = pal(hue + 0.5) * 0.10 + vec3(0.05, 0.045, 0.06);
-    vec3 col = mix(paper, paper * 1.9, dots);
-    vec3 ink = vec3(0.012, 0.01, 0.018);
+    vec3 paper = mix(vec3(0.90, 0.86, 0.78), tone(hue + 0.5), 0.12);
+    vec3 col = mix(paper, paper * mix(vec3(1.0), tone(hue + 0.35), 0.5) * 0.82, dots);
+    vec3 ink = vec3(0.03, 0.025, 0.04);
 
     if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
         vec3 n = normalAt(p, bulbEps(hitT));
         vec3 key = normalize(vec3(0.6, 0.7, -0.4));
         float lit = max(dot(n, key), 0.0) * (0.6 + 0.4 * smoothstep(0.1, 0.8, trap.x));
-        // Three tones, hard steps.
-        float tone = lit > 0.55 ? 1.0 : (lit > 0.18 ? 0.62 : 0.30);
-        vec3 body = pal(hue + 0.18 * floor(trap.y * 5.0) / 5.0);
-        col = body * tone;
+        // Three tones, hard steps, kept darker than the paper.
+        float cel = lit > 0.55 ? 0.78 : (lit > 0.18 ? 0.48 : 0.22);
+        vec3 body = tone(hue + 0.18 * floor(trap.y * 5.0) / 5.0);
+        col = body * cel;
         float hl = pow(max(dot(reflect(rd, n), key), 0.0), 30.0);
         col = mix(col, vec3(1.0, 0.98, 0.94), step(0.6, hl));
         // Ink: grazing silhouette from inside, and the creases.

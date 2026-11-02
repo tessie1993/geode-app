@@ -11,7 +11,6 @@ import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
-import androidx.test.espresso.Espresso
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.LargeTest
 import dev.geode.ui.MainActivity
@@ -21,8 +20,7 @@ import org.junit.rules.RuleChain
 import org.junit.runner.RunWith
 
 /**
- * The Visuals tab: the live view opens from it and gives the user back to it, and the
- * Customize tab's switches work.
+ * The Visuals tab: the Customize tab's switches work, and Presets saves the current look.
  */
 @LargeTest
 @RunWith(AndroidJUnit4::class)
@@ -35,31 +33,7 @@ class VisualsJourneyTest {
     private fun openVisuals() {
         compose.awaitEmptyPlayer()
         compose.tap("Visuals")
-        compose.awaitNode(hasContentDescription("View live"))
-    }
-
-    private fun openLiveView() {
-        openVisuals()
-        compose.tap("View live")
-        compose.awaitNode(hasContentDescription("Collapse"))
-    }
-
-    /** QA #11: Collapse must hand the user back to the tab they came from. */
-    @Test
-    fun collapseReturnsToVisuals() {
-        openLiveView()
-        compose.tap("Collapse")
-        compose.awaitNoNode(hasContentDescription("Collapse"))
-        compose.awaitNode(hasContentDescription("View live"))
-    }
-
-    /** QA #11, the system back route: the live view's dismiss must win over the shell's reset to Player. */
-    @Test
-    fun backFromLiveViewReturnsToVisuals() {
-        openLiveView()
-        Espresso.pressBack()
-        compose.awaitNoNode(hasContentDescription("Collapse"))
-        compose.awaitNode(hasContentDescription("View live"))
+        compose.awaitNode(hasContentDescription("Show or hide the options"))
     }
 
     /**

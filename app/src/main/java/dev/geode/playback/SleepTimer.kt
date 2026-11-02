@@ -16,6 +16,8 @@ import kotlin.coroutines.resume
 class SleepTimer internal constructor(
     private val player: Player,
     private val scope: CoroutineScope,
+    /** Where the fade goes when no UI hook is set: the session's volume mix, not the raw player volume. */
+    private val setVolume: (Float) -> Unit = { player.volume = it },
 ) {
     private val _remainingMs = MutableStateFlow<Long?>(null)
 
@@ -73,7 +75,7 @@ class SleepTimer internal constructor(
 
     private fun applyFade(volume: Float) {
         val hook = onFadeVolume
-        if (hook != null) hook(volume) else player.volume = volume
+        if (hook != null) hook(volume) else setVolume(volume)
     }
 
     private fun playbackOngoing(): Boolean =

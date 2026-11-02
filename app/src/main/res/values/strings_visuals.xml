@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The Visuals options' page tabs (ui/VisualsNavigation.kt, VisualsPage). -->
+    <string name="visuals_tab_styles">Styles</string>
+    <string name="visuals_tab_customize">Customize</string>
+    <string name="visuals_tab_presets">Presets</string>
+    <string name="visuals_tab_milkdrop">MilkDrop</string>
+    <string name="visuals_tab_textures">Textures</string>
+
+    <!-- The stage icons and the landscape side panel (ui/VisualsStage.kt, ui/VisualsSheet.kt). -->
+    <string name="visuals_stop_take">Stop recording this take</string>
+    <string name="visuals_panel_handle">Options panel edge</string>
+    <string name="visuals_panel_wider">Make the options wider</string>
+    <string name="visuals_panel_narrower">Make the options narrower</string>
+
+    <!-- Visuals › MilkDrop (ui/MilkDropPage.kt). -->
+    <string name="milk_unavailable">MilkDrop doesn\'t run on this device.</string>
+    <string name="milk_presets">Your presets</string>
+    <string name="milk_presets_none">None yet</string>
+    <plurals name="milk_presets_count">
+        <item quantity="one">%1$d preset</item>
+        <item quantity="other">%1$d presets</item>
+    </plurals>
+    <string name="milk_presets_empty">Load a .milk file from ⋮.</string>
+    <string name="milk_load_file">Load a .milk file</string>
+    <string name="milk_import_folder">Import a folder</string>
+    <string name="milk_more">More for your presets</string>
+    <string name="milk_expand">Show %1$s</string>
+    <string name="milk_collapse">Hide %1$s</string>
+    <string name="milk_card_expanded">Expanded</string>
+    <string name="milk_card_collapsed">Collapsed</string>
+    <plurals name="milk_import_presets">
+        <item quantity="one">Imported %1$d preset</item>
+        <item quantity="other">Imported %1$d presets</item>
+    </plurals>
+    <plurals name="milk_import_textures">
+        <item quantity="one">%1$d texture</item>
+        <item quantity="other">%1$d textures</item>
+    </plurals>
+    <plurals name="milk_import_skipped">
+        <item quantity="one">%1$d skipped</item>
+        <item quantity="other">%1$d skipped</item>
+    </plurals>
+    <plurals name="milk_import_missing">
+        <item quantity="one">%1$d needs a texture you don\'t have</item>
+        <item quantity="other">%1$d need textures you don\'t have</item>
+    </plurals>
+    <string name="milk_links">This preset\'s textures</string>
+    <plurals name="milk_links_to_check">
+        <item quantity="one">%1$d to check</item>
+        <item quantity="other">%1$d to check</item>
+    </plurals>
+    <string name="milk_link_renamed">Renamed on import</string>
+    <string name="milk_link_overridden">Your choice</string>
+    <string name="milk_link_substituted">Stand-in</string>
+    <string name="milk_link_missing">Missing</string>
+    <string name="milk_link_value">%1$s · %2$s</string>
+    <string name="milk_textures">Textures</string>
+    <string name="milk_textures_none">None</string>
+    <plurals name="milk_textures_count">
+        <item quantity="one">%1$d image</item>
+        <item quantity="other">%1$d images</item>
+    </plurals>
+    <string name="milk_texture_pick_title">Texture for “%1$s”</string>
+    <string name="milk_texture_pick_body">Remembered for this preset.</string>
+    <string name="milk_texture_auto">Match automatically</string>
+
+    <!-- Visuals › MilkDrop › Textures (ui/TexturesPage.kt). -->
+    <string name="textures_import">Import images</string>
+    <string name="textures_none">No images yet</string>
+    <string name="textures_use">Use</string>
+    <string name="textures_more">More for %1$s</string>
+    <string name="textures_delete_title">Delete “%1$s”?</string>
+    <string name="textures_delete_body">Presets that use it show noise until you import it again.</string>
+</resources>

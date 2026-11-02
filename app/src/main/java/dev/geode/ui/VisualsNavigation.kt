@@ -1,5 +1,6 @@
 package dev.geode.ui
 
+import androidx.annotation.StringRes
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.Stable
@@ -15,6 +16,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.runtime.toMutableStateList
 import androidx.navigation3.runtime.NavKey
+import dev.geode.R
 
 /**
  * The pages of the Visuals panel, in tab order. [STYLES] is always the root of the route and
@@ -22,13 +24,13 @@ import androidx.navigation3.runtime.NavKey
  * Visuals. [TEXTURES] has no tab: MilkDrop opens it, since textures only matter to MilkDrop presets.
  */
 internal enum class VisualsPage(
-    val title: String,
+    @param:StringRes val titleRes: Int,
 ) {
-    STYLES("Styles"),
-    CUSTOMIZE("Customize"),
-    PRESETS("Presets"),
-    MILKDROP("MilkDrop"),
-    TEXTURES("Textures"),
+    STYLES(R.string.visuals_tab_styles),
+    CUSTOMIZE(R.string.visuals_tab_customize),
+    PRESETS(R.string.visuals_tab_presets),
+    MILKDROP(R.string.visuals_tab_milkdrop),
+    TEXTURES(R.string.visuals_tab_textures),
 }
 
 internal val VisualsTabs = listOf(VisualsPage.STYLES, VisualsPage.CUSTOMIZE, VisualsPage.PRESETS, VisualsPage.MILKDROP)
@@ -58,8 +60,13 @@ internal sealed interface VisualsKey : NavKey {
         override val id: String get() = page.name
     }
 
-    /** A Customize page (Macros, Look, the style's own, Events, Advanced), by its name. */
-    data class CustomizeSub(
+    /**
+     * The open Customize card (Macros, Look, the style's own, Music, Advanced …), by its name. Only
+     * one card is open at a time, so there is at most one of these on the route: switching cards
+     * replaces it and collapsing one pops it, which is what lets back collapse the open card first
+     * and come back to it from another tab.
+     */
+    data class CustomizeCard(
         val name: String,
     ) : VisualsKey {
         override val page: VisualsPage get() = VisualsPage.CUSTOMIZE
@@ -82,7 +89,7 @@ internal sealed interface VisualsKey : NavKey {
 
         fun fromId(id: String): VisualsKey? =
             when {
-                id.startsWith(CUSTOMIZE_PREFIX) -> id.removePrefix(CUSTOMIZE_PREFIX).takeIf { it.isNotEmpty() }?.let(::CustomizeSub)
+                id.startsWith(CUSTOMIZE_PREFIX) -> id.removePrefix(CUSTOMIZE_PREFIX).takeIf { it.isNotEmpty() }?.let(::CustomizeCard)
                 id.startsWith(ADVANCED_PREFIX) -> id.removePrefix(ADVANCED_PREFIX).takeIf { it.isNotEmpty() }?.let(::AdvancedGroup)
                 else -> VisualsPage.entries.firstOrNull { it.name == id }?.let(::Page)
             }
@@ -97,7 +104,9 @@ internal sealed interface VisualsKey : NavKey {
             val route = mutableListOf(root)
             keys.drop(if (keys.firstOrNull() == root) 1 else keys.size).forEach { key ->
                 val fits = key is Page || route.last().page == key.page
-                if (fits && key !in route) route.add(key)
+                // One Customize card at a time; a second one in an older route is dropped.
+                val oneCard = key !is CustomizeCard || route.none { it is CustomizeCard }
+                if (fits && oneCard && key !in route) route.add(key)
             }
             return route
         }
@@ -126,12 +135,17 @@ internal enum class SheetHeight { HIDDEN, PEEK, HALF, TALL }
  * The route is true history: opening a tab goes forward from wherever the user is, it does not
  * clear back to Styles, so back retraces the way they came (Styles → Presets → Customize, back,
  * Presets, back, Styles). [NavHistory] says why a page already on the route is returned to rather
- * than added twice. Customize's deeper pages have keys of their own ([openCustomizePage],
- * [openAdvancedGroup]); Advanced's ‹ › arrows go sideways ([stepAdvanced]) and add no back entries.
+ * than added twice. Customize's open card and its deeper pages have keys of their own
+ * ([openCustomizeCard], [openAdvancedGroup]); Advanced's ‹ › arrows go sideways ([stepAdvanced]) and add no back entries.
  *
  * The visual always fills the screen (docs/ui-redesign); the options are a floating sheet over
- * it whose height is [sheet]. Back order, most recent first ([back] runs it whole): a hidden sheet
- * comes back at its last height, then the route in reverse, sub-pages first, then the shell
+ * it whose height is [sheet]. In landscape the same state drives the side panel instead
+ * (V2 rule 5): any shown height means the panel is out, [SheetHeight.HIDDEN] means it is away, so
+ * turning the phone keeps the route, the page and whether the options are up.
+ *
+ * Back order, most recent first ([back] runs it whole): a hidden sheet
+ * comes back at its last height, then the route in reverse (an Advanced group, then the open
+ * Customize card, then the page before it), then the shell
  * leaves Visuals.
  */
 @Stable
@@ -159,8 +173,8 @@ internal class VisualsNavState(
     /** The page on screen, under any sub-page open on it. */
     val top: VisualsPage get() = history.top.page
 
-    /** The Customize page open on the route, if one is; the last one opened when there are several. */
-    val customizePage: String? get() = route.filterIsInstance<VisualsKey.CustomizeSub>().lastOrNull()?.name
+    /** The Customize card open on the route, if one is (an Advanced group open on it keeps it open underneath). */
+    val openCard: String? get() = route.filterIsInstance<VisualsKey.CustomizeCard>().lastOrNull()?.name
 
     /** The Advanced group on screen, if one is. */
     val advancedGroup: String? get() = (history.top as? VisualsKey.AdvancedGroup)?.name
@@ -185,10 +199,19 @@ internal class VisualsNavState(
         openTab(page)
     }
 
-    /** A Customize page, opened on Customize (which opens first if it is not on screen). */
-    fun openCustomizePage(name: String) {
+    /**
+     * Expands the Customize card [name], on Customize (which opens first if it is not on screen).
+     * The card that was open is replaced, not stacked, so one open card is one back step.
+     */
+    fun openCustomizeCard(name: String) {
         onPage(VisualsPage.CUSTOMIZE)
-        history.open(VisualsKey.CustomizeSub(name))
+        if (history.top is VisualsKey.CustomizeCard) history.pop()
+        history.open(VisualsKey.CustomizeCard(name))
+    }
+
+    /** Collapses the open Customize card: the same step back as system back takes. */
+    fun closeCustomizeCard() {
+        if (history.top is VisualsKey.CustomizeCard) history.pop()
     }
 
     /** An Advanced group, opened from the Advanced list, so back returns to the list. */

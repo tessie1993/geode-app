@@ -65,6 +65,7 @@ import dev.geode.ui.theme.StoneHapticCue
 import dev.geode.ui.theme.StoneIcon
 import dev.geode.ui.theme.StoneIconArt
 import dev.geode.ui.theme.performStoneHaptic
+import dev.geode.ui.theme.selectedGlow
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -354,10 +355,11 @@ private fun PageCard(
     Column(
         Modifier
             .fillMaxWidth()
+            // The open card glows softly; drawn before the clip so the glow is not cut off.
+            .selectedGlow(expanded, RoundedCornerShape(GeodeRadius.Large))
             .clip16()
             .background(Color.White.copy(alpha = GeodeGlass.FILL_RAISED))
             .animateContentSize(motion.defaultSpatialSpec()),
-        // TODO(selectedGlow): Modifier.selectedGlow(expanded, shape) from #276 on the open card.
     ) {
         Row(
             Modifier

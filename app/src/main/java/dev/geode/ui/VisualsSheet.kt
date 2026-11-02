@@ -230,7 +230,6 @@ private fun OptionsHeader(
                             view.performStoneHaptic(StoneHapticCue.TAP)
                             nav.openTab(page)
                         },
-                        // TODO(selectedGlow): Modifier.selectedGlow(selected, shape) from #274 once it is on the base.
                         selectedContentColor = MaterialTheme.colorScheme.primary,
                         unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                         text = { Text(stringResource(page.titleRes), style = MaterialTheme.typography.titleSmall) },

@@ -79,6 +79,7 @@ import dev.geode.ui.theme.LocalGeodeMotion
 import dev.geode.ui.theme.LocalUiSounds
 import dev.geode.ui.theme.UiSound
 import dev.geode.ui.theme.floatingGlass
+import dev.geode.ui.theme.selectedGlow
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 
@@ -262,7 +263,7 @@ private fun CustomizePageCard(
     Column(
         Modifier
             .fillMaxWidth()
-            // TODO(selectedGlow): add Modifier.selectedGlow(expanded, shape) here once #276 lands the token.
+            .selectedGlow(expanded, shape)
             // The default matte fill, not the thinnest: the card sits on the sheet's own glass, and its summary
             // text must stay readable over a bright frame (WCAG 1.4.3).
             .floatingGlass(shape = shape, elevation = CARD_ELEVATION)

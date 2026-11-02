@@ -1,67 +1,142 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Widget-picker preview (API 31+): a static copy of the 4x1 layout in NowPlayingWidget. -->
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<!-- Widget-picker preview (API 31+): a static copy of NowPlayingWidget's 4x2 layout, with the
+     glass standing in for the visual behind it. Only RemoteViews classes: the launcher inflates it. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@android:id/background"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/widget_glass_background"
-    android:gravity="center_vertical"
-    android:orientation="horizontal"
-    android:paddingHorizontal="12dp">
-
-    <ImageView
-        android:layout_width="40dp"
-        android:layout_height="40dp"
-        android:background="#14FFFFFF"
-        android:importantForAccessibility="no"
-        android:padding="10dp"
-        android:src="@drawable/ic_widget_art" />
+    android:background="@drawable/widget_glass_background">
 
     <LinearLayout
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_weight="1"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:gravity="center_vertical"
         android:orientation="vertical"
-        android:paddingHorizontal="10dp">
+        android:paddingHorizontal="12dp"
+        android:paddingVertical="8dp">
 
-        <TextView
-            android:layout_width="wrap_content"
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:maxLines="1"
-            android:text="@string/widget_preview_title"
-            android:textColor="#ECECF0"
-            android:textSize="14sp"
-            android:textStyle="bold" />
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
 
-        <TextView
-            android:layout_width="wrap_content"
+            <ImageView
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="#1AFFFFFF"
+                android:importantForAccessibility="no"
+                android:padding="10dp"
+                android:src="@drawable/ic_widget_art" />
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:paddingStart="10dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:maxLines="1"
+                    android:text="@string/widget_preview_title"
+                    android:textColor="#ECECF0"
+                    android:textSize="15sp"
+                    android:textStyle="bold" />
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:maxLines="1"
+                        android:text="@string/widget_preview_artist"
+                        android:textColor="#A6A8B2"
+                        android:textSize="12sp" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:maxLines="1"
+                        android:paddingStart="6dp"
+                        android:text="@string/widget_preview_style"
+                        android:textColor="#A6A8B2"
+                        android:textSize="12sp" />
+                </LinearLayout>
+            </LinearLayout>
+        </LinearLayout>
+
+        <ProgressBar
+            style="@android:style/Widget.Material.ProgressBar.Horizontal"
+            android:layout_width="match_parent"
+            android:layout_height="3dp"
+            android:layout_marginTop="6dp"
+            android:max="100"
+            android:progress="38"
+            android:progressBackgroundTint="#33FFFFFF"
+            android:progressTint="#9CC7FF" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:maxLines="1"
-            android:text="@string/widget_preview_artist"
-            android:textColor="#A6A8B2"
-            android:textSize="12sp" />
+            android:layout_marginTop="2dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <ImageView
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:contentDescription="@string/widget_style_previous"
+                android:padding="12dp"
+                android:src="@drawable/widget_symbol_style_previous"
+                android:tint="#ECECF0" />
+
+            <FrameLayout
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:layout_weight="1" />
+
+            <ImageView
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:contentDescription="@string/widget_previous"
+                android:padding="12dp"
+                android:src="@drawable/widget_symbol_previous"
+                android:tint="#ECECF0" />
+
+            <ImageView
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:background="@drawable/widget_play_container"
+                android:contentDescription="@string/widget_play"
+                android:padding="12dp"
+                android:src="@drawable/widget_symbol_play"
+                android:tint="#00213F" />
+
+            <ImageView
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:contentDescription="@string/widget_next"
+                android:padding="12dp"
+                android:src="@drawable/widget_symbol_next"
+                android:tint="#ECECF0" />
+
+            <FrameLayout
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:layout_weight="1" />
+
+            <ImageView
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:contentDescription="@string/widget_style_next"
+                android:padding="12dp"
+                android:src="@drawable/widget_symbol_style_next"
+                android:tint="#ECECF0" />
+        </LinearLayout>
     </LinearLayout>
-
-    <ImageView
-        android:layout_width="48dp"
-        android:layout_height="48dp"
-        android:contentDescription="@string/widget_previous"
-        android:padding="12dp"
-        android:src="@drawable/ic_widget_prev" />
-
-    <ImageView
-        android:layout_width="48dp"
-        android:layout_height="48dp"
-        android:background="@drawable/widget_play_container"
-        android:contentDescription="@string/widget_play"
-        android:padding="12dp"
-        android:src="@drawable/ic_widget_play"
-        android:tint="#0E0E10" />
-
-    <ImageView
-        android:layout_width="48dp"
-        android:layout_height="48dp"
-        android:contentDescription="@string/widget_next"
-        android:padding="12dp"
-        android:src="@drawable/ic_widget_next" />
-</LinearLayout>
+</FrameLayout>

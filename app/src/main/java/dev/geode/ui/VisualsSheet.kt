@@ -105,6 +105,8 @@ internal fun VisualsOptions(
 ) {
     val scope = rememberCoroutineScope()
     val maxPx = anchors.getValue(SheetHeight.TALL)
+    // A drag never takes the sheet below its tabs (owner): hiding is the double tap, × and Fullscreen.
+    val minPx = anchors.getValue(SheetHeight.PEEK)
     val currentAnchors by rememberUpdatedState(anchors)
     val currentSettle by rememberUpdatedState(onSettle)
     val listDrag =
@@ -113,6 +115,7 @@ internal fun VisualsOptions(
                 heightPx = heightPx,
                 scope = scope,
                 restPx = { currentAnchors.getValue(nav.sheet) },
+                minPx = { currentAnchors.getValue(SheetHeight.PEEK) },
                 maxPx = { currentAnchors.getValue(SheetHeight.TALL) },
                 onRelease = { velocityUp -> currentSettle(settleHeight(heightPx.value, velocityUp, currentAnchors)) },
             )
@@ -148,7 +151,7 @@ internal fun VisualsOptions(
             OptionsHeader(
                 nav = nav,
                 side = side,
-                onDrag = { delta -> scope.launch { heightPx.snapTo((heightPx.value - delta).coerceIn(0f, maxPx)) } },
+                onDrag = { delta -> scope.launch { heightPx.snapTo((heightPx.value - delta).coerceIn(minPx, maxPx)) } },
                 onDragStopped = { velocity -> onSettle(settleHeight(heightPx.value, -velocity, anchors)) },
                 onSettle = onSettle,
             )
@@ -317,7 +320,7 @@ private fun PanelEdge(
     val drag =
         rememberDraggableState { delta ->
             // Rightward (positive) narrows a panel that grows from the right.
-            scope.launch { panelPx.snapTo((panelPx.value - delta).coerceIn(0f, panelRange.endInclusive)) }
+            scope.launch { panelPx.snapTo((panelPx.value - delta).coerceIn(panelRange)) }
         }
     val handle = stringResource(R.string.visuals_panel_handle)
     val wider = stringResource(R.string.visuals_panel_wider)
@@ -330,10 +333,9 @@ private fun PanelEdge(
             .draggable(
                 drag,
                 Orientation.Horizontal,
-                onDragStopped = { velocity ->
-                    val w = panelPx.value
-                    val hide = velocity > FLING_PX_PER_S || w < panelRange.start * HIDE_BELOW
-                    onSettle(if (hide) null else w.coerceIn(panelRange))
+                onDragStopped = {
+                    // Like the sheet, the panel's edge resizes it but never drags it away (owner).
+                    onSettle(panelPx.value.coerceIn(panelRange))
                 },
             ).semantics {
                 contentDescription = handle
@@ -373,6 +375,7 @@ private class SheetScrollConnection(
     private val heightPx: Animatable<Float, AnimationVector1D>,
     private val scope: CoroutineScope,
     private val restPx: () -> Float,
+    private val minPx: () -> Float,
     private val maxPx: () -> Float,
     private val onRelease: (Float) -> Unit,
 ) : NestedScrollConnection {
@@ -409,7 +412,7 @@ private class SheetScrollConnection(
 
     private fun raise(px: Float) {
         moved = true
-        scope.launch { heightPx.snapTo((heightPx.value + px).coerceIn(0f, maxPx())) }
+        scope.launch { heightPx.snapTo((heightPx.value + px).coerceIn(minPx(), maxPx())) }
     }
 }
 
@@ -427,14 +430,15 @@ internal fun sheetAnchors(
 
 /**
  * Where a drag released at [px] comes to rest: the next height up or down on a fling, else the
- * nearest. [velocityUp] is px/s, positive upward. Below its tabs the sheet hides.
+ * nearest. [velocityUp] is px/s, positive upward. A drag or fling never hides the sheet: it rests at
+ * its tabs at the lowest (owner), and only the double tap, × or Fullscreen hide it.
  */
 internal fun settleHeight(
     px: Float,
     velocityUp: Float,
     anchors: Map<SheetHeight, Float>,
 ): SheetHeight {
-    val ordered = SheetHeight.entries.sortedBy { anchors.getValue(it) }
+    val ordered = SheetHeight.entries.filter { it != SheetHeight.HIDDEN }.sortedBy { anchors.getValue(it) }
     return when {
         velocityUp > FLING_PX_PER_S -> ordered.firstOrNull { anchors.getValue(it) > px + 1f } ?: ordered.last()
         velocityUp < -FLING_PX_PER_S -> ordered.lastOrNull { anchors.getValue(it) < px - 1f } ?: ordered.first()
@@ -467,9 +471,6 @@ internal val PANEL_MAX = 480.dp
 
 private const val PANEL_MIN_FRACTION = 0.3f
 private const val PANEL_MAX_FRACTION = 0.5f
-
-/** A panel dragged narrower than this share of its narrowest width hides on release. */
-private const val HIDE_BELOW = 0.6f
 
 private const val HALF_FRACTION = 0.5f
 

@@ -31,33 +31,48 @@ import dev.geode.data.GuiPrefs
 import dev.geode.render.VisualizerView
 import dev.geode.ui.theme.GeodeColors
 import dev.geode.ui.theme.GeodeGlass
+import dev.geode.ui.theme.LocalGeodeMotion
 import dev.geode.ui.theme.LocalReducedMotion
 import dev.geode.ui.theme.LocalUiSounds
 import dev.geode.ui.theme.geodeColorScheme
+import dev.geode.ui.theme.geodeMotionScheme
 import dev.geode.ui.theme.geodeTypography
 import dev.geode.ui.theme.isReadableOnCanvas
+import dev.geode.ui.theme.rememberSystemReducedMotion
 import dev.geode.ui.theme.rememberUiSounds
 import kotlin.math.max
 
 /**
- * The app's one theme: black glass on the Material 3 type scale.
+ * The app's one theme: black glass on the Material 3 type scale, with M3 Expressive motion.
  *
  * The `Crystal*` names are kept as the seam every screen already calls through; what they draw
  * is now plain Material with the [GeodeColors]/[GeodeGlass] tokens.
+ *
+ * [accentSource] is the current visual's main colour, which the accent follows
+ * ([dev.geode.ui.theme.VisualAccent]); null keeps the fallback #9CC7FF. The motion scheme follows
+ * the system's "Remove animations" live, or the app's own reduced-motion setting.
  */
 @Composable
 internal fun CrystalMaterialTheme(
     gui: GuiPrefs,
+    accentSource: Color? = null,
     content: @Composable () -> Unit,
 ) {
     val fontColor = gui.fontColorOverride?.let { Color(it) }?.takeIf { isReadableOnCanvas(it) }
-    val scheme = geodeColorScheme(accentIntensity = gui.accentIntensity, fontColorOverride = fontColor)
-    // The system's "remove animations" switch counts as reduced motion too.
-    val reducedMotion = gui.reducedMotion || !android.animation.ValueAnimator.areAnimatorsEnabled()
+    val scheme =
+        geodeColorScheme(
+            accentIntensity = gui.accentIntensity,
+            fontColorOverride = fontColor,
+            accentSource = accentSource,
+        )
+    // Read unconditionally, so the observer stays registered whatever the app setting says.
+    val systemReducedMotion = rememberSystemReducedMotion()
+    val reducedMotion = gui.reducedMotion || systemReducedMotion
     CompositionLocalProvider(
         LocalFontColor provides fontColor,
         LocalContentColor provides scheme.onBackground,
         LocalReducedMotion provides reducedMotion,
+        LocalGeodeMotion provides geodeMotionScheme(reducedMotion),
         LocalUiSounds provides rememberUiSounds(gui.uiSounds),
     ) {
         MaterialTheme(

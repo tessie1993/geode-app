@@ -3,6 +3,7 @@ package dev.geode.ui
 import dev.geode.data.PerformanceTake
 import dev.geode.data.TakeInfo
 import dev.geode.data.TakeRepository
+import dev.geode.editor.ProjectId
 import dev.geode.render.scene.SceneParams
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -26,6 +27,15 @@ data class TakeUiState(
     val note: String? = null,
 )
 
+/**
+ * Records, replays and lists takes. A stopped recording becomes a Studio project (see
+ * `data/TakeStore`): the song on an audio lane and the take as a visual clip, both on track time.
+ *
+ * The recorder is timed by the song position ([Host.trackPositionMs]) whenever a song is loaded, so
+ * pausing, seeking forward and seeking back (a punch-in) all keep the take on the beat; with no song
+ * (mic or another app's audio) it falls back to the wall clock. Part 2D takes over the recording path
+ * (record → project → background MP4) from here.
+ */
 internal class TakeController(
     private val takes: TakeRepository,
     private val scope: CoroutineScope,
@@ -57,9 +67,10 @@ internal class TakeController(
     val state: StateFlow<TakeUiState> = _state
 
     private var recorder: PerformanceTake.Recorder? = null
-    private var recordStartMs = 0L
 
-    private var recordTrackOffsetMs = 0L
+    /** Wall-clock start, for takes recorded with no song. */
+    private var wallStartMs = 0L
+    private var recordTrackUri: String? = null
     private var recordJob: Job? = null
     private var recordTickJob: Job? = null
     private var replayJob: Job? = null
@@ -68,28 +79,39 @@ internal class TakeController(
         if (_state.value.recording) return
         stopReplay()
         val s = host.vizState.value
-        recorder = PerformanceTake.Recorder(s.sceneId, s.params, host.activeMilkPath)
-        recordStartMs = android.os.SystemClock.elapsedRealtime()
-        recordTrackOffsetMs = host.trackPositionMs
+        recordTrackUri = host.trackUri
+        wallStartMs = android.os.SystemClock.elapsedRealtime()
+        recorder = PerformanceTake.Recorder(s.sceneId, s.params, host.activeMilkPath, startTrackMs = takeClockMs())
         _state.update { it.copy(recording = true, recordedEvents = 1, recordedMs = 0L, note = null) }
         recordJob =
             scope.launch {
-                host.vizState.collect { live ->
-                    val rec = recorder ?: return@collect
-                    val at = android.os.SystemClock.elapsedRealtime() - recordStartMs
-                    rec.append(at, live.sceneId, live.params, host.activeMilkPath)
-                    _state.update { it.copy(recordedEvents = rec.size, recordedMs = at) }
-                    if (!rec.hasRoom) stopRecording()
-                }
+                host.vizState.collect { live -> sample(live) }
             }
         recordTickJob =
             scope.launch {
                 while (true) {
                     delay(1_000L)
-                    val at = android.os.SystemClock.elapsedRealtime() - recordStartMs
-                    _state.update { if (it.recording) it.copy(recordedMs = at) else it }
+                    // Sampling with an unchanged look writes nothing, but it notices a seek back (a
+                    // punch-in) or a new song even while nobody touches the visual.
+                    sample(host.vizState.value)
                 }
             }
+    }
+
+    /**
+     * One look at the live state while recording. A different song (the queue moved on) ends the
+     * take first: its track time would otherwise read as a seek back and punch out everything
+     * recorded. Repeat-one looping the same song reads as a seek back, a punch-in, like any other.
+     */
+    private fun sample(live: VizUiState) {
+        val rec = recorder ?: return
+        if (host.trackUri != recordTrackUri) {
+            stopRecording()
+            return
+        }
+        rec.append(takeClockMs(), live.sceneId, live.params, host.activeMilkPath)
+        _state.update { it.copy(recordedEvents = rec.size, recordedMs = rec.durationMs) }
+        if (!rec.hasRoom) stopRecording()
     }
 
     fun stopRecording(name: String? = null) {
@@ -99,9 +121,16 @@ internal class TakeController(
         recordTickJob?.cancel()
         recordTickJob = null
         recorder = null
-        val durationMs = android.os.SystemClock.elapsedRealtime() - recordStartMs
+        val live = host.vizState.value
+        val trackUri = recordTrackUri
+        val stopMs = takeClockMs()
+        val requested = name?.takeIf { it.isNotBlank() }
+        val milk = host.activeMilkPath
+        // The look and song position are read now, so the take ends on what was on screen at stop;
+        // the JSON is built once the name is known. Nothing else touches the recorder after this.
+        val pending = { label: String -> rec.finish(label, trackUri, stopMs, live.sceneId, live.params, milk) }
         _state.update { it.copy(recording = false, recordedEvents = 0, recordedMs = 0L) }
-        if (rec.size <= 1) {
+        if (maxOf(rec.durationMs, stopMs - rec.startTrackMs) < MIN_TAKE_MS) {
             _state.update { it.copy(note = TAKE_DISCARDED_NOTE) }
             scope.launch {
                 delay(TAKE_NOTE_MS)
@@ -110,14 +139,19 @@ internal class TakeController(
             refresh()
             return
         }
-        val trackUri = host.trackUri
-        val requested = name?.takeIf { it.isNotBlank() }
         storeScope.launch {
             val label = requested ?: defaultTakeName()
-            takes.save(label, rec.finish(label, trackUri, durationMs, recordTrackOffsetMs))
+            takes.save(label, pending(label))
             refresh()
         }
     }
+
+    /** Song position while a song is loaded, else wall-clock time since recording began. */
+    private fun takeClockMs(): Long =
+        if (recordTrackUri != null) host.trackPositionMs else android.os.SystemClock.elapsedRealtime() - wallStartMs
+
+    /** The project the take called [name] lives in, to open it in Edit. */
+    suspend fun projectOf(name: String): ProjectId? = takes.projectOf(name)
 
     private suspend fun defaultTakeName(): String {
         val taken = takes.list().map { it.name }.toSet()
@@ -198,7 +232,10 @@ internal class TakeController(
             ?.takeUnless { it.isEmpty }
 
     private companion object {
-        const val TAKE_DISCARDED_NOTE = "Nothing changed — take not saved"
+        const val TAKE_DISCARDED_NOTE = "Too short — take not saved"
+
+        /** A take shorter than this is a mis-tap, not a performance. */
+        const val MIN_TAKE_MS = 1_000L
 
         const val TAKE_NOTE_MS = 4_000L
     }

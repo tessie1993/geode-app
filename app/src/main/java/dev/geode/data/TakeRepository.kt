@@ -1,10 +1,14 @@
 package dev.geode.data
 
+import dev.geode.editor.ProjectId
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
+/** Takes by name. Each take is a Studio project ([TakeStore]); [projectOf] opens it in Edit. */
 interface TakeRepository {
     suspend fun list(): List<TakeInfo>
+
+    suspend fun projectOf(name: String): ProjectId?
 
     suspend fun load(name: String): PerformanceTake.Timeline?
 
@@ -25,6 +29,8 @@ class FileTakeRepository(
     private val store: TakeStore,
 ) : TakeRepository {
     override suspend fun list(): List<TakeInfo> = withContext(Dispatchers.IO) { store.list() }
+
+    override suspend fun projectOf(name: String): ProjectId? = withContext(Dispatchers.IO) { store.projectOf(name) }
 
     override suspend fun load(name: String): PerformanceTake.Timeline? = withContext(Dispatchers.IO) { store.load(name) }
 

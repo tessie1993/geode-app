@@ -1,5 +1,6 @@
 package dev.geode.data
 
+import dev.geode.editor.BeatCut
 import dev.geode.editor.BezierCurve
 import dev.geode.editor.Clip
 import dev.geode.editor.ClipContent
@@ -23,28 +24,104 @@ import dev.geode.editor.MarkerSet
 import dev.geode.editor.OverlayBlend
 import dev.geode.editor.ParamId
 import dev.geode.editor.ParamValue
+import dev.geode.editor.ProjectId
+import dev.geode.editor.ProjectKind
+import dev.geode.editor.ProjectRender
+import dev.geode.editor.ProjectTemplate
+import dev.geode.editor.StudioProject
 import dev.geode.editor.Timeline
 import dev.geode.export.ClipEdit
 import dev.geode.export.ClipLook
+import dev.geode.export.ExportCodec
 import dev.geode.export.ExportQuality
 import dev.geode.export.ExportRatio
 import org.json.JSONArray
 import org.json.JSONObject
 
-/** The on-disk shape of an [EditorProject]. Variants carry a "type"/"kind" tag; unknown tags fail the read. */
+/**
+ * The on-disk shapes of the Studio model: an [EditorProject] (the edit), a [StudioProject] (a
+ * project folder's `project.json`: the edit plus kind, export settings and renders) and a
+ * [ProjectTemplate] (a template folder's `template.json`). Variants carry a "type"/"kind" tag;
+ * unknown tags fail the read, and a file from a newer app is refused rather than half-read.
+ */
 internal object EditorProjectJson {
     const val VERSION = 1
 
-    fun toJson(project: EditorProject): String =
+    /** Version of `project.json` and `template.json`, separate from the edit's own [VERSION]. */
+    const val FOLDER_VERSION = 1
+
+    fun toJson(project: EditorProject): String = edit(project).toString(2)
+
+    fun fromJson(json: String): EditorProject = edit(JSONObject(json))
+
+    fun projectToJson(p: StudioProject): String =
+        JSONObject()
+            .put("version", FOLDER_VERSION)
+            .put("id", p.id.value)
+            .put("name", p.name)
+            .put("kind", kind(p.kind))
+            .put("destination", p.destination.name)
+            .put("export", export(p.export))
+            .put("createdAtMs", p.createdAtMs)
+            .put("updatedAtMs", p.updatedAtMs)
+            .putOpt("templateId", p.templateId?.value)
+            .put("renders", JSONArray(p.renders.map(::render)))
+            .put("edit", edit(p.edit))
+            .toString(2)
+
+    fun projectFromJson(json: String): StudioProject {
+        val o = JSONObject(json)
+        require(o.optInt("version", FOLDER_VERSION) <= FOLDER_VERSION) { "Studio project from a newer app" }
+        return StudioProject(
+            id = ProjectId(o.getString("id")),
+            name = o.optString("name", ""),
+            kind = o.optJSONObject("kind")?.let(::kind) ?: ProjectKind.Standard,
+            destination = ExportDestination.byName(o.stringOrNull("destination")),
+            export = o.optJSONObject("export")?.let(::export) ?: ExportDefaults(),
+            edit = o.optJSONObject("edit")?.let(::edit) ?: EditorProject(),
+            renders = o.optJSONArray("renders").items(::render),
+            createdAtMs = o.optLong("createdAtMs", 0L),
+            updatedAtMs = o.optLong("updatedAtMs", 0L),
+            templateId = o.stringOrNull("templateId")?.let(::ProjectId),
+        )
+    }
+
+    fun templateToJson(t: ProjectTemplate): String =
+        JSONObject()
+            .put("version", FOLDER_VERSION)
+            .put("id", t.id.value)
+            .put("name", t.name)
+            .put("kind", kind(t.kind))
+            .put("destination", t.destination.name)
+            .put("export", export(t.export))
+            .put("lengthMs", t.lengthMs)
+            .put("createdAtMs", t.createdAtMs)
+            .put("edit", edit(t.edit))
+            .toString(2)
+
+    fun templateFromJson(json: String): ProjectTemplate {
+        val o = JSONObject(json)
+        require(o.optInt("version", FOLDER_VERSION) <= FOLDER_VERSION) { "Studio template from a newer app" }
+        return ProjectTemplate(
+            id = ProjectId(o.getString("id")),
+            name = o.optString("name", ""),
+            kind = o.optJSONObject("kind")?.let(::kind) ?: ProjectKind.Standard,
+            destination = ExportDestination.byName(o.stringOrNull("destination")),
+            export = o.optJSONObject("export")?.let(::export) ?: ExportDefaults(),
+            edit = o.optJSONObject("edit")?.let(::edit) ?: EditorProject(),
+            lengthMs = o.optLong("lengthMs", 0L),
+            createdAtMs = o.optLong("createdAtMs", 0L),
+        )
+    }
+
+    private fun edit(project: EditorProject): JSONObject =
         JSONObject()
             .put("version", VERSION)
             .put("timeline", timeline(project.timeline))
             .put("markers", JSONArray(project.markers.markers.map(::marker)))
             .put("keyframes", JSONArray(project.keyframes.tracks.map(::track)))
-            .toString(2)
 
-    fun fromJson(json: String): EditorProject {
-        val o = JSONObject(json)
+    private fun edit(o: JSONObject): EditorProject {
         require(o.optInt("version", VERSION) <= VERSION) { "editor project from a newer app" }
         return EditorProject(
             timeline = timeline(o.getJSONObject("timeline")),
@@ -52,6 +129,66 @@ internal object EditorProjectJson {
             keyframes = KeyframeSheet().withTracks(o.optJSONArray("keyframes").items(::track)),
         )
     }
+
+    private fun kind(k: ProjectKind): JSONObject =
+        when (k) {
+            ProjectKind.Standard -> JSONObject().put("type", "standard")
+            is ProjectKind.Loop ->
+                JSONObject()
+                    .put("type", "loop")
+                    .put("targetLengthMs", k.targetLengthMs)
+                    .put("loopLengthMs", k.loopLengthMs)
+        }
+
+    private fun kind(o: JSONObject): ProjectKind =
+        when (val type = o.getString("type")) {
+            "standard" -> ProjectKind.Standard
+            "loop" ->
+                ProjectKind.Loop(
+                    targetLengthMs = o.optLong("targetLengthMs", ProjectKind.DEFAULT_LOOP_LENGTH_MS),
+                    loopLengthMs = o.optLong("loopLengthMs", ProjectKind.DEFAULT_LOOP_MS),
+                )
+            else -> throw IllegalArgumentException("unknown project kind: $type")
+        }
+
+    private fun export(d: ExportDefaults): JSONObject =
+        JSONObject()
+            .put("quality", d.quality.name)
+            .put("fps", d.fps)
+            .put("ratio", d.ratio.name)
+            .put("loopSafe", d.loopSafe)
+            .put("codec", d.codec.name)
+            .put("loudnessTargetId", d.loudnessTargetId)
+            .put("saveTo", d.saveTo.encode())
+
+    /** Unknown or missing values fall back one by one, so a project never fails to open over its export settings. */
+    private fun export(o: JSONObject): ExportDefaults {
+        val d = ExportDefaults()
+        return ExportDefaults(
+            quality = enumOr(o.optString("quality"), d.quality),
+            fps = o.optInt("fps", d.fps).let { if (it in EXPORT_FPS_OPTIONS) it else d.fps },
+            ratio = enumOr(o.optString("ratio"), d.ratio),
+            loopSafe = o.optBoolean("loopSafe", d.loopSafe),
+            codec = enumOr(o.optString("codec"), ExportCodec.H264),
+            loudnessTargetId = o.stringOrNull("loudnessTargetId") ?: d.loudnessTargetId,
+            saveTo = SaveTarget.decode(o.stringOrNull("saveTo")),
+        )
+    }
+
+    private fun render(r: ProjectRender): JSONObject =
+        JSONObject()
+            .put("uri", r.uri)
+            .put("label", r.label)
+            .put("createdAtMs", r.createdAtMs)
+            .put("durationMs", r.durationMs)
+
+    private fun render(o: JSONObject): ProjectRender =
+        ProjectRender(
+            uri = o.getString("uri"),
+            label = o.optString("label", ""),
+            createdAtMs = o.optLong("createdAtMs", 0L),
+            durationMs = o.optLong("durationMs", 0L),
+        )
 
     private fun timeline(t: Timeline): JSONObject =
         JSONObject()
@@ -104,10 +241,15 @@ internal object EditorProjectJson {
             transition = o.optJSONObject("transition")?.let(::transition),
         )
 
-    private fun transition(t: ClipTransition): JSONObject = JSONObject().put("id", t.id).put("durationMs", t.durationMs)
+    private fun transition(t: ClipTransition): JSONObject =
+        JSONObject().put("id", t.id).put("durationMs", t.durationMs).put("onBeat", t.onBeat)
 
     private fun transition(o: JSONObject): ClipTransition =
-        ClipTransition(o.getString("id"), o.optLong("durationMs", ClipTransition.DEFAULT_TRANSITION_MS))
+        ClipTransition(
+            o.getString("id"),
+            o.optLong("durationMs", ClipTransition.DEFAULT_TRANSITION_MS),
+            o.optBoolean("onBeat", false),
+        )
 
     private fun content(c: ClipContent): JSONObject =
         when (c) {
@@ -117,6 +259,8 @@ internal object EditorProjectJson {
                     .put("sceneId", c.sceneId)
                     .putOpt("presetId", c.presetId)
                     .putOpt("milkPath", c.milkPath)
+                    .putOpt("takeId", c.takeId)
+                    .putOpt("beatCut", c.beatCut?.let(::beatCut))
             is ClipContent.Video -> JSONObject().put("type", "video").put("uri", c.uri).put("edit", clipEdit(c.edit))
             is ClipContent.Still -> JSONObject().put("type", "still").put("uri", c.uri).put("kenBurns", c.kenBurns.toDouble())
             is ClipContent.Text -> JSONObject().put("type", "text").put("text", c.text).putOpt("styleId", c.styleId)
@@ -131,7 +275,14 @@ internal object EditorProjectJson {
 
     private fun content(o: JSONObject): ClipContent =
         when (val type = o.getString("type")) {
-            "scene" -> ClipContent.Scene(o.getString("sceneId"), o.stringOrNull("presetId"), o.stringOrNull("milkPath"))
+            "scene" ->
+                ClipContent.Scene(
+                    sceneId = o.getString("sceneId"),
+                    presetId = o.stringOrNull("presetId"),
+                    milkPath = o.stringOrNull("milkPath"),
+                    takeId = o.stringOrNull("takeId"),
+                    beatCut = o.optJSONObject("beatCut")?.let(::beatCut),
+                )
             "video" -> ClipContent.Video(o.getString("uri"), o.optJSONObject("edit")?.let(::clipEdit) ?: ClipEdit())
             "still" -> ClipContent.Still(o.getString("uri"), o.optDouble("kenBurns", 0.0).toFloat())
             "text" -> ClipContent.Text(o.getString("text"), o.stringOrNull("styleId"))
@@ -144,6 +295,16 @@ internal object EditorProjectJson {
             "audio" -> ClipContent.Audio(o.getString("uri"), o.optDouble("gainDb", 0.0).toFloat())
             else -> throw IllegalArgumentException("unknown clip content: $type")
         }
+
+    private fun beatCut(b: BeatCut): JSONObject = JSONObject().put("sceneIds", JSONArray(b.sceneIds)).put("everyBeats", b.everyBeats)
+
+    private fun beatCut(o: JSONObject): BeatCut {
+        val ids = o.optJSONArray("sceneIds")
+        return BeatCut(
+            sceneIds = if (ids == null) emptyList() else List(ids.length()) { ids.getString(it) },
+            everyBeats = o.optInt("everyBeats", BeatCut.DEFAULT_BEATS_PER_CUT).coerceAtLeast(1),
+        )
+    }
 
     private fun clipEdit(e: ClipEdit): JSONObject =
         JSONObject()

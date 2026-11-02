@@ -50,7 +50,7 @@ class PaywallJourneyTest {
     private fun openVisualsStyles() {
         compose.awaitEmptyPlayer()
         compose.tap("Visuals")
-        compose.awaitNode(hasContentDescription("View live"))
+        compose.awaitNode(hasContentDescription("Show or hide the options"))
     }
 
     @Test

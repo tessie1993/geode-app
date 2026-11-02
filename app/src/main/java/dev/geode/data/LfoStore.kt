@@ -1,6 +1,7 @@
 package dev.geode.data
 
 import android.content.SharedPreferences
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.render.AdsrConfig
 import dev.geode.render.AdsrEngine
 import dev.geode.render.EnvBand
@@ -54,9 +55,23 @@ class LfoStore(
     /** The user's own reaction routes, or null while the style's DNA plays (nothing saved, or unreadable). */
     fun loadReactions(): List<ReactionRoute>? = ReactionRouteCodec.decode(prefs.getString(KEY_REACTIONS, null))
 
-    fun saveReactions(routes: List<ReactionRoute>?) {
+    /**
+     * Customize › Music's hand mask, saved beside the routes ([GeodeNative.handSet] says what the bits are):
+     * 0 with no routes, and [GeodeNative.HAND_ALL] for routes saved before the mask existed, which were a
+     * whole list of the user's.
+     */
+    fun loadHandMask(): Int = if (prefs.contains(KEY_REACTIONS)) prefs.getInt(KEY_REACTIONS_HAND, GeodeNative.HAND_ALL) else 0
+
+    fun saveReactions(
+        routes: List<ReactionRoute>?,
+        handMask: Int = GeodeNative.HAND_ALL,
+    ) {
         val edit = prefs.edit()
-        if (routes == null) edit.remove(KEY_REACTIONS) else edit.putString(KEY_REACTIONS, ReactionRouteCodec.encode(routes))
+        if (routes == null) {
+            edit.remove(KEY_REACTIONS).remove(KEY_REACTIONS_HAND)
+        } else {
+            edit.putString(KEY_REACTIONS, ReactionRouteCodec.encode(routes)).putInt(KEY_REACTIONS_HAND, handMask)
+        }
         edit.apply()
     }
 
@@ -144,8 +159,9 @@ class LfoStore(
         const val KEY = "lfos"
         const val KEY_ADSR = "adsrs"
         const val KEY_REACTIONS = "reactions"
+        const val KEY_REACTIONS_HAND = "reactions_hand"
 
         /** Every key this store writes: a backup files the LFOs, envelopes and reactions under Creative. */
-        val KEYS: Set<String> = setOf(KEY, KEY_ADSR, KEY_REACTIONS)
+        val KEYS: Set<String> = setOf(KEY, KEY_ADSR, KEY_REACTIONS, KEY_REACTIONS_HAND)
     }
 }

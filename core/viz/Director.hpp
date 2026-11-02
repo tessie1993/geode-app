@@ -19,7 +19,9 @@ namespace geode::viz {
 //   behaviour ─► the six macro knobs (Energy, Speed, Complexity, Space, Chaos; never Mood, the palette is
 //              the director's own) laid over the user's, the camera rig's music moves, its spring
 //              softness, the motion field's breath, orbit and drift
-//   what reacts to what ─► a reaction engine of its own, re-dealt from the feeling's archetypes
+//   what reacts to what ─► a reaction engine of its own, re-dealt from the feeling's archetypes, with its
+//              hands off every moment the user set by hand (Customize › Music, hand::global in
+//              viz/Reactions.hpp): the hand wins per moment
 //
 // It decides at musical moments only: the first confident key,
 // a new section, a drop, a modulation that holds, and after 32 bars without one. Each decision is a

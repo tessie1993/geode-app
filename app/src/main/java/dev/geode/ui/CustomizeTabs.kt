@@ -2,8 +2,6 @@ package dev.geode.ui
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -13,19 +11,25 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.systemGestureExclusion
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PushPin
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
@@ -43,8 +47,12 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.semantics.toggleableState
+import androidx.compose.ui.state.ToggleableState
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.geode.R
 import dev.geode.pro.FreeTier
@@ -58,6 +66,9 @@ import dev.geode.render.scene.ParamUnit
 import dev.geode.render.scene.SceneCapabilities
 import dev.geode.render.scene.SceneIds
 import dev.geode.render.scene.SceneParams
+import dev.geode.ui.theme.GeodeSpacing
+import dev.geode.ui.theme.LocalUiSounds
+import dev.geode.ui.theme.UiSound
 import kotlin.math.abs
 
 val LocalParamLocks =
@@ -211,17 +222,26 @@ private fun RowMenu(
     name: String,
     lockKey: String,
     onReset: (() -> Unit)?,
+    about: String? = null,
 ) {
     val (kept, toggle) = LocalParamLocks.current
     val lockable = lockKey in ParamRandomizer.LOCKABLE_LABELS
     val reactTo = LocalReactTo.current
-    if (!lockable && onReset == null && reactTo == null) return
+    if (!lockable && onReset == null && reactTo == null && about == null) return
     var open by remember { mutableStateOf(false) }
+    var explaining by remember { mutableStateOf(false) }
     Box {
+        // 40 dp drawn; IconButton still answers to the 48 dp target around it.
         IconButton(onClick = { open = true }, modifier = Modifier.size(40.dp)) {
             Icon(Icons.Filled.MoreVert, contentDescription = "More for $name", tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            if (about != null) {
+                DropdownMenuItem(text = { Text(stringResource(R.string.customize_what_is_this)) }, onClick = {
+                    open = false
+                    explaining = true
+                })
+            }
             if (onReset != null) {
                 DropdownMenuItem(text = { Text("Reset") }, onClick = {
                     open = false
@@ -246,6 +266,25 @@ private fun RowMenu(
             }
         }
     }
+    if (explaining && about != null) AboutDialog(name, about) { explaining = false }
+}
+
+/**
+ * ⋮ › What is this: a control's explanation, kept out of the page (UI V2 rule 3: no caption
+ * paragraphs between controls) and one tap away for whoever wants it.
+ */
+@Composable
+internal fun AboutDialog(
+    title: String,
+    text: String,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = { Text(text, style = MaterialTheme.typography.bodyMedium) },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.customize_about_close)) } },
+    )
 }
 
 /** The small pin beside a name that Randomize leaves alone; the switch for it is in the row's ⋮. */
@@ -292,43 +331,36 @@ internal fun LookTab(
         SectionHeader("Colour")
         if (onTakeArtworkPalette != null && sectionVisible()) {
             ProGated(ParamKeys.PALETTE, "Take the colours from the artwork") {
-                CrystalButton(compact = true, filled = false, onClick = onTakeArtworkPalette) {
+                val sounds = LocalUiSounds.current
+                FilledTonalButton(onClick = {
+                    sounds.play(UiSound.TAP)
+                    onTakeArtworkPalette()
+                }) {
                     Text("Take the colours from the artwork")
                 }
             }
             artworkNote?.let { ControlHint(it) }
         }
         if (visible(ParamKeys.PALETTE, ParamScope.UNIVERSAL)) {
-            ProGated(ParamKeys.PALETTE) {
-                Column {
-                    LockableChipLabel(ParamKeys.PALETTE)
-                    PaletteSlotSelector(p, onChange, palettes)
-                }
-            }
+            ProGated(ParamKeys.PALETTE) { PaletteDropdown(ParamKeys.PALETTE, ParamKeys.PALETTE, p, onChange, palettes, second = false) }
         }
         if (visible(ParamKeys.COLOUR_MAP, ParamScope.SHADER_LOOK)) {
             val selected = SceneParams.CYCLIC_PALETTES.getOrNull(p.paletteLut) ?: "Off"
             ProGated(ParamKeys.COLOUR_MAP, value = selected) {
-                Column {
-                    LockableChipLabel(ParamKeys.COLOUR_MAP)
-                    ControlHint("Even colour steps that loop, so a wrap has no seam.", ParamScope.SHADER_LOOK)
-                    ChipRow(
-                        listOf("Off") + SceneParams.CYCLIC_PALETTES,
-                        selectedIndex = if (p.paletteLut < 0) 0 else p.paletteLut + 1,
-                    ) { i -> onChange(p.copy(paletteLut = if (i == 0) SceneParams.NO_PALETTE_LUT else i - 1)) }
-                }
+                DropdownRow(
+                    name = ParamKeys.COLOUR_MAP,
+                    options = listOf("Off") + SceneParams.CYCLIC_PALETTES,
+                    selectedIndex = if (p.paletteLut < 0) 0 else p.paletteLut + 1,
+                    lockKey = ParamKeys.COLOUR_MAP,
+                    about = "Even colour steps that loop, so a wrap has no seam.",
+                ) { i -> onChange(p.copy(paletteLut = if (i == 0) SceneParams.NO_PALETTE_LUT else i - 1)) }
             }
         }
         LabeledSlider(ParamKeys.PALETTE_BLEND, p.paletteMix, 0f..1f, default = SceneParams.DEFAULT.paletteMix) {
             onChange(p.copy(paletteMix = it))
         }
         if (p.paletteMix > 0.001f && visible(ParamKeys.PALETTE_2, ParamScope.SHADER_LOOK)) {
-            ProGated(ParamKeys.PALETTE_2) {
-                Column {
-                    LockableChipLabel(ParamKeys.PALETTE_2, "Second palette")
-                    PaletteSlotSelector(p, onChange, palettes, second = true)
-                }
-            }
+            ProGated(ParamKeys.PALETTE_2) { PaletteDropdown(ParamKeys.PALETTE_2, "Second palette", p, onChange, palettes, second = true) }
         }
         ControlHint(
             "MilkDrop presets paint their own colours. This steers them toward the palette above; 0 leaves the preset untouched.",
@@ -411,11 +443,41 @@ private fun NoteBloomChips(
         )
     val selected = p.bloomLook.coerceIn(0, looks.lastIndex)
     ProGated(key, title, looks[selected]) {
-        Column {
-            LockableChipLabel(key, title)
-            ControlHint(stringResource(R.string.note_blooms_hint))
-            ChipRow(looks, selectedIndex = selected) { onChange(p.copy(bloomLook = it)) }
+        DropdownRow(title, looks, selected, lockKey = key, about = stringResource(R.string.note_blooms_hint)) {
+            onChange(p.copy(bloomLook = it))
         }
+    }
+}
+
+/**
+ * A palette pick ([second] for the blend's second slot) as one dropdown row, the built-in palettes then
+ * the user's own, with the gradient it paints under it. The chip wall it replaces is still
+ * [PaletteSlotSelector] in the palette maker, which owns that page.
+ */
+@Composable
+private fun PaletteDropdown(
+    lockKey: String,
+    name: String,
+    p: SceneParams,
+    onChange: (SceneParams) -> Unit,
+    palettes: SavedPalettes,
+    second: Boolean,
+) {
+    val saved = palettes.items
+    val labels = SceneParams.PALETTES.map { it.first } + saved.map { it.name }
+    Column {
+        DropdownRow(
+            name = name,
+            options = labels,
+            selectedIndex = paletteChipIndex(p, saved, second),
+            lockKey = lockKey,
+            placeholder = stringResource(R.string.look_summary_custom),
+        ) { i -> onChange(paletteChipSelected(p, saved, i, second)) }
+        GradientPreview(
+            baseHue = if (second) p.palette2Base else p.paletteBase,
+            hueSpan = if (second) p.palette2Range else p.paletteRange,
+            modifier = Modifier.fillMaxWidth(),
+        )
     }
 }
 
@@ -563,11 +625,8 @@ internal fun StyleTab(
         if (p.kaleidoscope && visible(ParamKeys.KALEIDOSCOPE, ParamScope.of(ParamKeys.KALEIDOSCOPE))) {
             val folds = SceneParams.SYMMETRY_FOLDS.filter { it >= 2 }
             ProGated(ParamKeys.KALEIDOSCOPE, "Folds", "${p.symmetry}") {
-                Column {
-                    Text("Folds", style = MaterialTheme.typography.bodyMedium)
-                    ChipRow(folds.map { "$it" }, selectedIndex = folds.indexOf(p.symmetry)) { idx ->
-                        onChange(p.copy(symmetry = folds[idx]))
-                    }
+                DropdownRow("Folds", folds.map { "$it" }, selectedIndex = folds.indexOf(p.symmetry)) { idx ->
+                    onChange(p.copy(symmetry = folds[idx]))
                 }
             }
         }
@@ -599,29 +658,135 @@ internal fun StyleTab(
     }
 }
 
+/**
+ * A pick from a list as one row: "Name   value ▾  ⋮" (UI V2 rule 2: dropdowns, not chip walls).
+ *
+ * A tap anywhere on the name or value opens the options as a menu with the current one checked, so
+ * a page reads as names and values, and a long list (the camera paths, a fluid's patterns) costs
+ * one line instead of a wall of chips. [lockKey] gives the row its kept mark and ⋮ (Keep when
+ * randomizing); null for a pick that is not a rolled parameter (a reaction's mode, a layer's
+ * blend). [placeholder] is shown when nothing in [options] is the current value.
+ */
 @Composable
-internal fun ChipRow(
-    labels: List<String>,
+internal fun DropdownRow(
+    name: String,
+    options: List<String>,
     selectedIndex: Int,
+    lockKey: String? = null,
+    about: String? = null,
+    placeholder: String = "",
     onSelect: (Int) -> Unit,
 ) {
     val enabled = !LocalLockedByPro.current
-    Row(
-        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        labels.forEachIndexed { index, label ->
-            FilterChip(
-                selected = index == selectedIndex,
-                enabled = enabled,
-                onClick = { onSelect(index) },
-                label = { Text(label, style = MaterialTheme.typography.labelLarge) },
-            )
+    val value = options.getOrNull(selectedIndex) ?: placeholder
+    var open by remember { mutableStateOf(false) }
+    Row(Modifier.fillMaxWidth().heightIn(min = GeodeSpacing.TouchTarget), verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.weight(1f)) {
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = GeodeSpacing.TouchTarget)
+                    .clickable(enabled = enabled, role = Role.DropdownList, onClickLabel = "Choose $name") { open = true }
+                    // TalkBack: "Mode, Step, drop-down list" once, not the value twice (as text and as state).
+                    .semantics(mergeDescendants = true) {
+                        contentDescription = name
+                        stateDescription = value
+                    },
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(name, style = MaterialTheme.typography.bodyMedium)
+                if (lockKey != null) KeptMark(lockKey)
+                Spacer(Modifier.weight(1f))
+                Text(
+                    value,
+                    modifier = Modifier.padding(start = GeodeSpacing.S).weight(1f, fill = false),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Icon(Icons.Filled.ArrowDropDown, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+                options.forEachIndexed { i, label ->
+                    DropdownMenuItem(
+                        text = { Text(label) },
+                        trailingIcon =
+                            if (i == selectedIndex) {
+                                { Icon(Icons.Filled.Check, contentDescription = "Selected", tint = accentTextColor()) }
+                            } else {
+                                null
+                            },
+                        onClick = {
+                            open = false
+                            onSelect(i)
+                        },
+                    )
+                }
+            }
+        }
+        if (enabled && (lockKey != null || about != null)) RowMenu(name, lockKey ?: name, onReset = null, about = about)
+    }
+}
+
+/** One entry of a [MultiPickButton]'s menu: its name, whether it is on, whether it can be. */
+@Immutable
+internal class MenuPick(
+    val label: String,
+    val checked: Boolean,
+    val enabled: Boolean = true,
+)
+
+/**
+ * Several picks from one list (a moment's actions, the ready-made reactions, what an envelope moves)
+ * as one button: the [summary] ("Pulse, Zoom") and ▾, opening a menu of checkboxes. The menu stays
+ * open while the user ticks, the way a checkable menu does, and closes on a tap outside; a divider
+ * goes before each index in [dividersBefore], so a long menu reads as groups.
+ * [name] is what TalkBack calls the button; [summary] is read as its state.
+ */
+@Composable
+internal fun MultiPickButton(
+    name: String,
+    summary: String,
+    picks: List<MenuPick>,
+    modifier: Modifier = Modifier,
+    dividersBefore: Set<Int> = emptySet(),
+    onToggle: (Int) -> Unit,
+) {
+    var open by remember { mutableStateOf(false) }
+    Box(modifier) {
+        TextButton(
+            onClick = { open = true },
+            modifier =
+                Modifier.semantics {
+                    contentDescription = name
+                    stateDescription = summary
+                },
+        ) {
+            Text(summary, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+            Icon(Icons.Filled.ArrowDropDown, contentDescription = null)
+        }
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            picks.forEachIndexed { i, pick ->
+                if (i in dividersBefore) HorizontalDivider(Modifier.padding(vertical = GeodeSpacing.XS))
+                DropdownMenuItem(
+                    text = { Text(pick.label) },
+                    // The trailing box has no click of its own, so the item carries the checked state for TalkBack.
+                    modifier =
+                        Modifier.semantics {
+                            role = Role.Checkbox
+                            toggleableState = ToggleableState(pick.checked)
+                        },
+                    enabled = pick.enabled,
+                    trailingIcon = { Checkbox(checked = pick.checked, onCheckedChange = null, enabled = pick.enabled) },
+                    onClick = { onToggle(i) },
+                )
+            }
         }
     }
 }
 
-/** A named, keepable chip group. Hidden as one unit when the parameter is not live here. */
+/** A named, keepable pick from a list, as one [DropdownRow]. Hidden as one unit when the parameter is not live here. */
 @Composable
 internal fun ParamChips(
     label: String,
@@ -632,10 +797,7 @@ internal fun ParamChips(
 ) {
     if (!visible(label, scope)) return
     ProGated(label, value = options.getOrNull(selectedIndex)) {
-        Column {
-            ControlLabelRow(label, label)
-            ChipRow(options, selectedIndex, onSelect = onSelect)
-        }
+        DropdownRow(label, options, selectedIndex, lockKey = label, onSelect = onSelect)
     }
 }
 
@@ -687,7 +849,7 @@ internal fun LabeledSlider(
             Text(shown, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             if (!locked) RowMenu(name, label, reset)
         }
-        CrystalSlider(
+        Slider(
             value = value,
             onValueChange = { v ->
                 if (locked && before == null) before = value
@@ -704,8 +866,9 @@ internal fun LabeledSlider(
                 } else {
                     null
                 },
+            // A thumb at 0 sits in the back-gesture strip; without the exclusion a drag from it leaves the screen.
             modifier =
-                Modifier.fillMaxWidth().height(32.dp).semantics {
+                Modifier.fillMaxWidth().height(32.dp).systemGestureExclusion().semantics {
                     contentDescription = if (locked) "$name, part of Pro" else name
                     stateDescription = shown
                 },
@@ -714,12 +877,6 @@ internal fun LabeledSlider(
 }
 
 private const val RESET_EPSILON = 1e-4f
-
-@Composable
-internal fun LockableChipLabel(
-    label: String,
-    display: String = label,
-) = ControlLabelRow(display, label)
 
 @Composable
 internal fun CheckRow(
@@ -763,14 +920,14 @@ internal fun LabeledIntSlider(
     ProGated(label, display, "$value") {
         Column(Modifier.padding(vertical = 2.dp)) {
             ControlLabelRow("$display · $value", label)
-            CrystalSlider(
+            Slider(
                 value = value.toFloat(),
                 onValueChange = { onChange(it.toInt().coerceIn(range.first, range.last)) },
                 valueRange = range.first.toFloat()..range.last.toFloat(),
                 steps = (range.last - range.first - 1).coerceAtLeast(0),
                 enabled = !LocalLockedByPro.current,
                 modifier =
-                    Modifier.fillMaxWidth().semantics {
+                    Modifier.fillMaxWidth().systemGestureExclusion().semantics {
                         contentDescription = display
                         stateDescription = "$value"
                     },
@@ -857,7 +1014,7 @@ private fun FluidStyleSections(
         val labels = FluidQuality.LABELS
         val quality = p.fluidQuality.coerceIn(0, labels.size - 1)
         ProGated(FLUID_QUALITY, value = labels[quality]) {
-            ChipRow(labels, quality) { onChange(p.copy(fluidQuality = it)) }
+            DropdownRow(FLUID_QUALITY, labels, quality) { onChange(p.copy(fluidQuality = it)) }
         }
         CheckRow(AUTO_QUALITY, p.fluidAutoQuality, scope = ParamScope.EMITTERS) { onChange(p.copy(fluidAutoQuality = it)) }
     }

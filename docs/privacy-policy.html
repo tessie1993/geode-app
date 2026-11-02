@@ -45,6 +45,7 @@
     <tr><td>Audio waveform data</td><td>Levels, spectrum, drum hits, note onsets and melody that drive the visuals</td><td>Analysed in memory, frame by frame, while it plays; nothing is stored</td></tr>
     <tr><td>Microphone audio — only while the optional <em>Live input</em> feature is on</td><td>So the visuals can react to the room</td><td>Analysed in memory only; never recorded, stored or transmitted</td></tr>
     <tr><td>Audio other apps are playing — only while the optional <em>Visualize other apps</em> feature is on</td><td>So the visuals can react to music from another app</td><td>Analysed in memory only; never recorded, stored or transmitted</td></tr>
+    <tr><td>Audio any app is playing — only while the live wallpaper's optional <em>Hear other apps</em> setting is on (off by default)</td><td>So the wallpaper can react to music from another app</td><td>Analysed in memory only; never recorded, stored or transmitted</td></tr>
     <tr><td>The name of the app and track playing elsewhere — only with the optional notification access</td><td>To label what the visuals are reacting to</td><td>Shown on screen; not stored or transmitted</td></tr>
     <tr><td>Folders you pick</td><td>Optional music folders and preset folders</td><td>Granted by you through the Android file picker; revocable at any time</td></tr>
     <tr><td>Your presets, playlists, projects, track edits and settings</td><td>To remember your setup</td><td>The app's private storage</td></tr>
@@ -65,7 +66,7 @@
 <h2>Permissions</h2>
 <ul>
   <li><strong><code>READ_MEDIA_AUDIO</code></strong> (Android 13+) / <strong><code>READ_EXTERNAL_STORAGE</code></strong> (Android 12 and below): to find and play the music on your device.</li>
-  <li><strong><code>RECORD_AUDIO</code></strong>: only for the optional <em>Live input</em> and <em>Visualize other apps</em> features (Android requires it for its playback-capture API). Requested when you turn one of them on, never at launch.</li>
+  <li><strong><code>RECORD_AUDIO</code></strong>: only for the optional <em>Live input</em> and <em>Visualize other apps</em> features and the live wallpaper's optional <em>Hear other apps</em> setting (Android requires it for its playback-capture and audio-visualizer APIs). Requested when you turn one of them on, never at launch.</li>
   <li><strong><code>POST_NOTIFICATIONS</code></strong> (Android 13+): playback controls, and the ongoing notifications Android requires while <em>Visualize other apps</em> or a video render runs.</li>
   <li><strong><code>FOREGROUND_SERVICE</code></strong> with the media-playback, media-projection, media-processing and data-sync types: lets playback, casting, capture and video rendering continue while the app is not on screen, always with a visible notification.</li>
   <li><strong><code>com.android.vending.BILLING</code></strong>: lets the app talk to the Google Play Store app to sell and restore MuzViz Pro.</li>

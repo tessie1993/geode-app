@@ -28,6 +28,7 @@ To do its job MuzViz reads data that never leaves your device:
 | Audio waveform data | Levels, spectrum, drum hits, note onsets and melody that drive the visuals | Analysed in memory, frame by frame, while it plays; nothing is stored |
 | Microphone audio — only while the optional *Live input* feature is on | So the visuals can react to the room | Analysed in memory only; never recorded, stored or transmitted |
 | Audio other apps are playing — only while the optional *Visualize other apps* feature is on | So the visuals can react to music from another app | Analysed in memory only; never recorded, stored or transmitted |
+| Audio any app is playing — only while the live wallpaper's optional *Hear other apps* setting is on (off by default) | So the wallpaper can react to music from another app | Analysed in memory only; never recorded, stored or transmitted |
 | The name of the app and track playing elsewhere — only with the optional notification access | To label what the visuals are reacting to | Shown on screen; not stored or transmitted |
 | Folders you pick | Optional music folders and preset folders | Granted by you through the Android file picker; revocable at any time |
 | Your presets, playlists, projects, track edits and settings | To remember your setup | The app's private storage |
@@ -78,8 +79,9 @@ pick a TV in Android's own output switcher; before that it doesn't run.
 - **`READ_MEDIA_AUDIO`** (Android 13+) / **`READ_EXTERNAL_STORAGE`** (Android 12 and
   below): to find and play the music on your device.
 - **`RECORD_AUDIO`**: only for the optional *Live input* and *Visualize other apps*
-  features (Android requires it for its playback-capture API). Requested when you turn
-  one of them on, never at launch.
+  features and the live wallpaper's optional *Hear other apps* setting (Android requires it
+  for its playback-capture and audio-visualizer APIs). Requested when you turn one of them
+  on, never at launch.
 - **`POST_NOTIFICATIONS`** (Android 13+): playback controls, and the ongoing
   notifications Android requires while *Visualize other apps* or a video render runs.
 - **`FOREGROUND_SERVICE`** with the media-playback, media-projection, media-processing

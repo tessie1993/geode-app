@@ -109,7 +109,8 @@ internal fun VisualsQuickSettings(
                 .widthIn(max = PANEL_MAX_WIDTH)
                 .fillMaxWidth()
                 // Drawn at the sheet's own opacity, so the slider below previews itself.
-                .floatingGlass(fillAlpha = gui.barOpacity)
+                // Dense glass of its own: the options slider tunes the sheet, and the sheet must not read through here.
+                .floatingGlass(fillAlpha = DROP_IN_FILL)
                 // Taps on the card's empty parts stay on the card instead of reaching the dismiss target.
                 .pointerInput(Unit) { detectTapGestures { } }
                 .verticalScroll(rememberScrollState())
@@ -372,3 +373,6 @@ private val INTERVAL_RANGE =
 
 /** The range the floating glass reads the opacity in ([floatingGlass] clamps to it anyway). */
 private val OPACITY_RANGE = GeodeGlass.MATTE_FILL_MIN..GeodeGlass.MATTE_FILL_MAX
+
+/** How dense the drop-in panels are: the visual shows as colour, nothing behind reads as text. */
+internal const val DROP_IN_FILL = 0.9f

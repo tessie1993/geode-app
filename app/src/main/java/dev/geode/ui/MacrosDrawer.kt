@@ -112,7 +112,7 @@ private fun MacrosDrawerPanel(
             .padding(GeodeSpacing.EdgeInset)
             .widthIn(max = PANEL_MAX_WIDTH)
             .fillMaxWidth()
-            .floatingGlass()
+            .floatingGlass(fillAlpha = DROP_IN_FILL)
             // Taps on the panel's empty parts stay on it instead of reaching the outside target.
             .pointerInput(Unit) { detectTapGestures { } }
             // Pushed back up, it closes; the knobs take their own vertical drags first.

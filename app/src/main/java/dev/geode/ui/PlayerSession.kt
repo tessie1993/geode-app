@@ -1127,7 +1127,10 @@ class PlayerSession internal constructor(
 
     fun cancelStudioExport() = exportController.cancelStudioExport()
 
-    fun startProjectExport(destination: Uri? = null) = exportController.startProjectExport(editor.state.value.project, destination)
+    fun startProjectExport(destination: Uri? = null) {
+        val open = editor.state.value.open ?: return exportController.startProjectExport(editor.state.value.project, destination)
+        exportController.renderProject(open, destination) { editor.recordRender(open.id, it) }
+    }
 
     fun clearStudioResult() = exportController.clearStudioResult()
 

@@ -562,7 +562,7 @@ internal class ExportController(
      * save target unless [destination] names a file. This is the one entry point every Studio
      * render goes through (Render, a stopped recording, a batch of projects from a template); see
      * [render] for how each clip is drawn. [onRendered] gets the finished video for the project's
-     * list ([dev.geode.ui.EditorController.recordRender]).
+     * list ([dev.geode.ui.EditorController.recordRender]), on the main thread, where edits run.
      */
     fun renderProject(
         project: StudioProject,
@@ -623,7 +623,8 @@ internal class ExportController(
                         when (result) {
                             is RenderResult.Saved -> {
                                 val label = project.name.ifBlank { name }
-                                onRendered(ProjectRender(result.uri.toString(), label, System.currentTimeMillis(), result.durationMs))
+                                val render = ProjectRender(result.uri.toString(), label, System.currentTimeMillis(), result.durationMs)
+                                withContext(Dispatchers.Main) { onRendered(render) }
                                 ExportPhase.Done(result.uri)
                             }
                             is RenderResult.Failed -> ExportPhase.Failed(result.message)

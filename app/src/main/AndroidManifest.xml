@@ -306,6 +306,37 @@
                 android:resource="@xml/now_playing_widget_info" />
         </receiver>
 
+        <!--
+          Quick Settings tile: play/pause from the shade, through the playback service's session.
+          Exported because System UI binds it; BIND_QUICK_SETTINGS_TILE means only System UI can.
+          A listening tile, not an active one (see PlaybackTileService).
+        -->
+        <service
+            android:name=".tile.PlaybackTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_tile_play"
+            android:label="@string/tile_label"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
+        <!-- A long press on the tile opens the app (instead of its system info page). It draws
+             nothing and only brings the app forward, so exporting it exposes nothing. -->
+        <activity
+            android:name=".tile.TileLongPressActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.NoDisplay">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE_PREFERENCES" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
         <!-- Sharing a preset too long to be a link sends its .json; a raw
              file:// uri cannot leave the app, so it goes out through here.
              Scoped to the presets directory alone (preset_paths.xml). -->

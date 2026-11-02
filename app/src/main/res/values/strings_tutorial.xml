@@ -55,7 +55,7 @@
     <string name="tutorial_customize_3_title">Every detail, if you want it</string>
     <string name="tutorial_customize_3_body">Shape, Colour, Motion, FX, Reactivity and Scene hold every control the style can use, and Scene\'s Layers put a second style on top. Anything off its default shows a Reset.</string>
     <string name="tutorial_customize_4_title">Feeling lucky?</string>
-    <string name="tutorial_customize_4_body">Randomize, or Surprise on Macros, rolls a new look. Undo and Redo sit beside it, and further down A/B lets you keep two versions and blend between them.</string>
+    <string name="tutorial_customize_4_body">Randomize rolls a new look, on Macros too. Undo and Redo sit beside it, and further down A/B lets you keep two versions and blend between them.</string>
 
     <string name="tutorial_live_1_title">Go full screen</string>
     <string name="tutorial_live_1_body">The live view is the visualizer with nothing in the way. The controls fade after a few seconds; flick up to bring them back, flick down to clear them. Double tap for the next look.</string>
@@ -69,7 +69,7 @@
     <string name="tutorial_studio_2_title">Seamless loops</string>
     <string name="tutorial_studio_2_body">Loop render makes a clip that ends exactly where it began, ready for a canvas, a story or a stream background.</string>
     <string name="tutorial_studio_3_title">Cut it together</string>
-    <string name="tutorial_studio_3_body">Studio › Edit is a timeline: clips, keyframes, markers, and an auto-cut that drops a cut on every hit in the music.</string>
+    <string name="tutorial_studio_3_body">Studio › Edit is a timeline: clips, keyframes, markers and beat snapping, so cuts land on the music.</string>
 
     <string name="tutorial_anywhere_1_title">Live wallpaper</string>
     <string name="tutorial_anywhere_1_body">Your last style can live on your home screen, reacting to whatever MuzViz is playing. Set it up in Settings › Behavior.</string>

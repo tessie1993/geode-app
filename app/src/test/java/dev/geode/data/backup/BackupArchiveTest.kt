@@ -159,13 +159,15 @@ class BackupArchiveTest {
                 BackupMigration(2) { m, _ -> m.also { applied += 2 } },
                 BackupMigration(1) { m, _ -> m.copy(sections = m.sections + "renamed").also { applied += 1 } },
             )
-        val migrated = BackupMigrations.migrate(manifest(emptyList()), root, steps, target = 3)
+        val migrated = BackupMigrations.migrate(manifest(emptyList(), version = 1), root, steps, target = 3)
         assertEquals(listOf(1, 2), applied)
         assertEquals(3, migrated.version)
         assertTrue("renamed" in migrated.sections)
 
         assertEquals(manifest(emptyList()), BackupMigrations.migrate(manifest(emptyList()), root))
-        assertProblem(BackupProblem.DAMAGED) { BackupMigrations.migrate(manifest(emptyList()), root, steps.drop(1), target = 3) }
+        assertProblem(BackupProblem.DAMAGED) {
+            BackupMigrations.migrate(manifest(emptyList(), version = 1), root, steps.drop(1), target = 3)
+        }
     }
 
     @Test

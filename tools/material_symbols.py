@@ -21,6 +21,7 @@ SYMBOLS = [
     ("ADD", "add"),
     ("CHECK", "check"),
     ("CLOSE", "close"),
+    ("CROWN", "crown"),
     ("DELETE", "delete"),
     ("EDIT", "edit"),
     ("FAVORITE", "favorite"),

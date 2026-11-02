@@ -28,22 +28,16 @@ class AppLaunchSmokeTest {
         compose.awaitNode(hasText("Before the visuals start"))
         compose.tap("I understand")
 
-        compose.awaitNode(hasText("Let's find your music"))
-        // "Not now" keeps the system permission dialog, a different process, out of the test.
-        compose.tap("Not now")
+        // The notice is the whole of first run now: music access is asked in Library. The guided
+        // tour follows; Skip tour is the shortest way through it.
+        compose.awaitNode(hasText("Skip tour"))
+        compose.tap("Skip tour")
+        compose.awaitNoNode(hasText("Skip tour"))
 
-        compose.awaitNode(hasText("Add a folder?"))
-        compose.tap("Start listening")
-
-        // Finishing setup offers Pro once. Closing it must land on the shell, not a dead end.
+        // Ending the tour offers Pro once. Closing it must land on the shell, not a dead end.
         compose.awaitNode(hasText("Make your music come to life"))
         compose.tap("Close")
         compose.awaitNoNode(hasText("Make your music come to life"))
-
-        // The first-run tour always follows on a fresh install; Skip all is the shortest way to the shell.
-        compose.awaitNode(hasText("Skip all"))
-        compose.tap("Skip all")
-        compose.awaitNoNode(hasText("Skip all"))
 
         compose.awaitEmptyPlayer()
     }

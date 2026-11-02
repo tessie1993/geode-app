@@ -412,11 +412,26 @@ void geode_viz_set_offscreen(geode_viz* v, int on) {
     if (!v) return;
     // An export never shows a half-built scene: each one is built whole on the frame that asks for it.
     v->renderer.setBlockingBuilds(on != 0);
+    // Nor does it ever carry the app's sheet blur into the video.
+    v->renderer.setOffscreen(on != 0);
     if (on) {
         v->renderer.thermal().beginOffscreenRender();
     } else {
         v->renderer.thermal().endOffscreenRender();
     }
+}
+
+void geode_viz_set_ui_blur_region(geode_viz* v, float left, float top, float right, float bottom, float strength,
+                                  float corner_px) {
+    if (!v) return;
+    geode::viz::UiBlurRegion region;
+    region.left = left;
+    region.top = top;
+    region.right = right;
+    region.bottom = bottom;
+    region.strength = strength;
+    region.cornerPx = corner_px;
+    v->renderer.setUiBlurRegion(region);
 }
 
 int geode_viz_knows(geode_viz* v, const char* scene_id) {

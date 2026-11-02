@@ -5,6 +5,8 @@ add_library(geode_core STATIC
     api/geode_catalogue_api.cpp
     api/geode_params_api.cpp
     api/geode_sound_api.cpp
+    api/geode_preview_api.cpp
+    studio/PreviewClock.cpp
     sound/Fft.cpp
     sound/Emotion.cpp
     sound/Form.cpp
@@ -38,6 +40,7 @@ add_library(geode_core STATIC
     viz/Director.cpp
     viz/NoteResponse.cpp
     viz/NoteBloomPass.cpp
+    viz/UiBlurPass.cpp
     viz/Adsr.cpp
     viz/MotionField.cpp
     viz/ReactionDna.cpp

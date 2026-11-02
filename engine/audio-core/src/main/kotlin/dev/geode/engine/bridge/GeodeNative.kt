@@ -356,6 +356,21 @@ object GeodeNative {
         on: Boolean,
     )
 
+    /**
+     * Frosted glass under the app's sheet (`core/viz/UiBlurPass`): the renderer blurs its finished frame
+     * inside one rounded rect. The rect is normalised to the viewport, y down (view pixels over the
+     * visual's size); [strength] 0..1, 0 = off and free; [cornerPx] in surface pixels. Ignored offscreen.
+     */
+    external fun vizSetUiBlurRegion(
+        handle: Long,
+        left: Float,
+        top: Float,
+        right: Float,
+        bottom: Float,
+        strength: Float,
+        cornerPx: Float,
+    )
+
     external fun vizKnows(
         handle: Long,
         sceneId: String,
@@ -525,4 +540,71 @@ object GeodeNative {
         nowMs: Long,
         heardAtMs: Long,
     ): Boolean
+
+    // Studio preview clock (core/studio/PreviewClock): the live preview's programme time. One owner
+    // thread per handle; the app wraps it in `ui/StudioPreviewClock`.
+
+    external fun previewCreate(): Long
+
+    external fun previewDestroy(handle: Long)
+
+    external fun previewSetSpans(
+        handle: Long,
+        startsMs: LongArray,
+        durationsMs: LongArray,
+    )
+
+    external fun previewSetRate(
+        handle: Long,
+        fps: Int,
+        lengthMs: Long,
+    )
+
+    external fun previewPlay(
+        handle: Long,
+        programmeMs: Long,
+        nowNs: Long,
+    )
+
+    external fun previewPause(
+        handle: Long,
+        nowNs: Long,
+    )
+
+    external fun previewSeek(
+        handle: Long,
+        programmeMs: Long,
+        nowNs: Long,
+    )
+
+    external fun previewAudio(
+        handle: Long,
+        span: Int,
+        spanPosMs: Long,
+        nowNs: Long,
+    )
+
+    /** Programme time at [nowNs], on a frame boundary. */
+    external fun previewNow(
+        handle: Long,
+        nowNs: Long,
+    ): Long
+
+    external fun previewEnded(
+        handle: Long,
+        nowNs: Long,
+    ): Boolean
+
+    /** The audio span under [programmeMs] (its offset into [offsetOut]`[0]`), or -1 in a gap. */
+    external fun previewLocate(
+        handle: Long,
+        programmeMs: Long,
+        offsetOut: LongArray,
+    ): Int
+
+    /** The start of the frame [programmeMs] falls on at [fps]. */
+    external fun previewFrameOf(
+        programmeMs: Long,
+        fps: Int,
+    ): Long
 }

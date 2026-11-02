@@ -135,16 +135,27 @@ internal fun VisualsHub(
     chrome: ShellChromeState,
     bottomReserve: Dp,
     sheetOpacity: Float,
-    // Unused since Full screen became the hidden sheet; it leaves with the old live view (owner).
-    @Suppress("UNUSED_PARAMETER", "UnusedParameter")
-    onOpenLive: () -> Unit,
     onOpenStudioRender: () -> Unit,
     canvasFree: Boolean = false,
+    pip: Boolean = false,
 ) {
     val viz by viewModel.vizState.collectAsStateWithLifecycle()
     val gate by viewModel.gate.collectAsStateWithLifecycle()
     // Every navigation decision lives in VisualsNavState (VisualsNavigation.kt); this only draws.
     val nav = rememberVisualsNavState()
+    // A PiP window shows the visual alone (owner: the old live view goes): the sheet hides on the way
+    // in and comes back on the way out if it was up; the stage icons sleep with the shell's chrome
+    // ([rememberShellChrome] keeps it asleep while [pip]).
+    var sheetBeforePip by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(pip) {
+        if (pip) {
+            sheetBeforePip = nav.sheetShown
+            nav.hideSheet()
+        } else if (sheetBeforePip) {
+            sheetBeforePip = false
+            nav.showSheet()
+        }
+    }
     val stepStyle: (Int) -> Unit = { step ->
         nextStageStyle(stageStyleOrder(), viz.sceneId, step) { !gate.allowsStyle(it) }?.let(viewModel::selectScene)
     }

@@ -230,6 +230,18 @@ class NativeViz(
         if (handle != 0L) GeodeNative.vizSetOffscreen(handle, on)
     }
 
+    /** The glass sheet's blur region; see [GeodeNative.vizSetUiBlurRegion]. A no-op before the handle exists. */
+    fun setUiBlurRegion(
+        left: Float,
+        top: Float,
+        right: Float,
+        bottom: Float,
+        strength: Float,
+        cornerPx: Float,
+    ) {
+        if (handle != 0L) GeodeNative.vizSetUiBlurRegion(handle, left, top, right, bottom, strength, cornerPx)
+    }
+
     fun surfaceCreated() {
         if (create()) GeodeNative.vizSurfaceCreated(handle)
     }

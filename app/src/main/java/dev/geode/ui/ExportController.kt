@@ -3,14 +3,32 @@ package dev.geode.ui
 import android.app.Application
 import android.net.Uri
 import android.os.Build
+import android.provider.DocumentsContract
+import android.widget.Toast
 import androidx.core.net.toUri
+import dev.geode.RingLog
 import dev.geode.data.BackgroundPrefsStore
+import dev.geode.data.EditorProjectStore
+import dev.geode.data.ExportDefaults
 import dev.geode.data.ExportPrefsStore
 import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.GuiPrefs
 import dev.geode.data.PerformanceTake
+import dev.geode.data.SaveTarget
 import dev.geode.editor.AnimatableParams
+import dev.geode.editor.Clip
+import dev.geode.editor.ClipContent
+import dev.geode.editor.ClipId
+import dev.geode.editor.EditorProject
 import dev.geode.editor.KeyframeSheet
+import dev.geode.editor.Lane
+import dev.geode.editor.LaneId
+import dev.geode.editor.LaneKind
+import dev.geode.editor.ProjectId
+import dev.geode.editor.ProjectRender
+import dev.geode.editor.StudioProject
+import dev.geode.editor.Timeline
+import dev.geode.editor.sourceTimeAt
 import dev.geode.export.BatchOutcome
 import dev.geode.export.BatchTrack
 import dev.geode.export.ExportAspect
@@ -26,8 +44,10 @@ import dev.geode.export.LoudnessAdvice
 import dev.geode.export.LoudnessTarget
 import dev.geode.export.MixClip
 import dev.geode.export.ProjectComposition
+import dev.geode.export.ProjectComposition.SceneSegment
 import dev.geode.export.RenderBatch
 import dev.geode.export.RenderScope
+import dev.geode.export.StudioExporter
 import dev.geode.export.TimeOfDayDrift
 import dev.geode.export.VideoExporter
 import dev.geode.render.SceneFactory
@@ -42,10 +62,17 @@ import kotlinx.coroutines.flow.takeWhile
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
 
 data class StudioUiState(
     val clips: List<dev.geode.export.StudioClip> = emptyList(),
     val phase: ExportPhase = ExportPhase.Idle,
+    /**
+     * What the last project render left out and why (the render plan's skipped-clip report), or
+     * null when it drew everything. It is also shown as a toast when the render ends; this copy is
+     * for a Render page that wants to keep it on screen.
+     */
+    val notice: String? = null,
 )
 
 data class ExportUiState(
@@ -101,7 +128,11 @@ internal class ExportController(
 
         fun reactions(): List<dev.geode.render.ReactionRoute>?
 
-        /** The open editor project's tracks; programme-level scene tracks animate the export. */
+        /**
+         * The open editor project's tracks. Since every render renders a project (#232) the one-tap
+         * render no longer borrows them: it is a project of its own, and the open project's keyframes
+         * render with that project. Kept for the Host contract until PlayerSession drops it.
+         */
         fun keyframes(): KeyframeSheet
 
         suspend fun loadExportTake(): PerformanceTake.Timeline?
@@ -143,6 +174,18 @@ internal class ExportController(
 
     private var studioJob: Job? = null
 
+    @Volatile
+    private var studioCancelled = false
+
+    // Built on first use, which is on IO: the store sweeps old folders when it is made.
+    private val projectStore by lazy { EditorProjectStore(application) }
+
+    /**
+     * The one-tap Render: the current track as a project with one visual lane over the song (and
+     * the export take, when one is chosen, as that lane's clip), rendered through the same path as
+     * every Studio project ([render]). That project is always a direct one, so the visualizer
+     * exporter writes the file itself, as it always has.
+     */
     fun startExport(
         aspect: ExportAspect,
         fps: Int,
@@ -166,77 +209,39 @@ internal class ExportController(
         exportJob =
             ExportRun.launch {
                 try {
-                    val gui = host.guiPrefs
                     val name = "muzviz_${System.currentTimeMillis()}.mp4"
                     val exportTake = host.loadExportTake()
-                    val sheet = host.keyframes()
-                    val animated =
-                        sheet.tracks.any {
-                            it.enabled &&
-                                it.clipId == null &&
-                                AnimatableParams
-                                    .find(
-                                        it.paramId,
-                                    )?.isScene == true
-                        }
-                    val clipStartMs = range?.startMs ?: 0L
-                    val paramsAt: ((Long) -> SceneParams)? =
-                        if (exportTake == null && !animated) {
-                            null
-                        } else {
-                            { ms: Long ->
-                                val base =
-                                    exportTake?.stateAt(clipStartMs + ms - exportTake.trackOffsetMs)?.params ?: host.sceneParams
-                                if (animated) AnimatableParams.applyToScene(base, sheet.valuesAt(clipStartMs + ms)) else base
-                            }
-                        }
-                    val factory =
+                    val sceneId =
                         if (exportTake != null && sceneFactoryFor != null) {
-                            sceneFactoryFor(exportSceneIdFor(exportTake, host.sceneId))
+                            exportSceneIdFor(exportTake, host.sceneId)
                         } else {
-                            sceneFactory
+                            sceneFactory.sceneId
                         }
-                    // The style that renders is checked here, not only the one on stage when Render was
-                    // pressed: a take records whatever was on stage, a previewed Pro style or one used
-                    // during the trial included, and exporting it must not hand that style out for free.
-                    if (!host.allowsStyle(factory.sceneId)) {
-                        _exportState.value = ExportUiState()
-                        host.onStyleLocked()
-                        return@launch
-                    }
-                    val result =
-                        exporter.export(
-                            audioUri = uri,
-                            sceneFactory = factory,
+                    val project = oneTapProject(uri, range, sceneId, sceneFactory.milkPresetPath, exportTake)
+                    val factoryFor: (String, String?) -> SceneFactory =
+                        { id, _ -> if (id == sceneFactory.sceneId) sceneFactory else sceneFactoryFor?.invoke(id) ?: sceneFactory }
+                    val spec =
+                        RenderSpec(
                             aspect = aspect,
-                            fileName = name,
-                            sceneParams = host.sceneParams,
-                            lfoConfigs = host.lfoConfigs(),
-                            adsrConfigs = host.adsrConfigs(),
-                            reactions = host.reactions(),
-                            reducedMotion = gui.reducedMotion,
-                            requestedFps = fps,
-                            soundTuning = gui.soundTuning,
-                            paramsAt = paramsAt,
-                            range = range,
-                            destination = destination,
-                            codec = codec,
-                            loudnessTarget = defaultLoudnessTarget(),
-                            background = defaultBackground(),
-                            onProgress = { p ->
-                                _exportState.update { it.copy(phase = ExportPhase.Running(p)) }
-                                ExportRun.publish(p, steady = p >= VideoExporter.AUDIO_PROGRESS_SPAN)
-                            },
-                            isCancelled = { exportCancelled || ExportRun.cancelRequested },
+                            defaults = ExportDefaults(fps = fps, codec = codec, loudnessTargetId = loadExportDefaults().loudnessTargetId),
                             watermark = watermark,
                         )
-                    _exportState.value =
-                        ExportUiState(
-                            customDestination = destination != null,
-                            phase = result.toPhase(),
-                            loudnessAdvice = (result as? VideoExporter.Result.Saved)?.loudnessAdvice,
-                            fileName = name.takeIf { destination == null },
+                    val result =
+                        render(
+                            project = project,
+                            plan = ProjectComposition.plan(project),
+                            spec = spec,
+                            takes = { exportTake },
+                            factoryFor = factoryFor,
+                            fileName = name,
+                            destination = destination,
+                            onProgress = { p, steady ->
+                                _exportState.update { it.copy(phase = ExportPhase.Running(p)) }
+                                ExportRun.publish(p, steady = steady)
+                            },
+                            isCancelled = { exportCancelled || ExportRun.cancelRequested },
                         )
+                    _exportState.value = oneTapState(result, destination, name)
                 } catch (t: Throwable) {
                     // Cancellation is tested before the user's own cancel flag: when the two
                     // coincide the flag branch used to win and swallow the CancellationException,
@@ -255,6 +260,77 @@ internal class ExportController(
                     ExportRun.finish()
                 }
             }
+    }
+
+    private fun oneTapState(
+        result: RenderResult,
+        destination: Uri?,
+        name: String,
+    ): ExportUiState =
+        when (result) {
+            is RenderResult.Saved ->
+                ExportUiState(
+                    customDestination = destination != null,
+                    phase = ExportPhase.Done(result.uri),
+                    loudnessAdvice = result.loudnessAdvice,
+                    fileName = name.takeIf { destination == null },
+                )
+            is RenderResult.Failed -> ExportUiState(customDestination = destination != null, phase = ExportPhase.Failed(result.message))
+            RenderResult.Cancelled -> ExportUiState(customDestination = destination != null)
+            // The style that renders is checked, not only the one on stage when Render was pressed:
+            // a take records whatever was on stage, a previewed Pro style or one used during the
+            // trial included, and exporting it must not hand that style out for free.
+            RenderResult.Locked -> {
+                host.onStyleLocked()
+                ExportUiState()
+            }
+            RenderResult.NothingToRender ->
+                ExportUiState(phase = ExportPhase.Failed(application.getString(dev.geode.R.string.editor_export_nothing)))
+        }
+
+    /**
+     * The project a one-tap render is: the song (or the chosen [range] of it) on an audio lane, and
+     * one visual clip over exactly that span. With a [take] the clip is the take, its source time
+     * set so take time lines up with the song as it was recorded. Without a [range] the song's own
+     * length is not needed: a clip running the whole source from its start renders the whole song.
+     */
+    private fun oneTapProject(
+        song: Uri,
+        range: ExportRange?,
+        sceneId: String,
+        milkPath: String?,
+        take: PerformanceTake.Timeline?,
+    ): EditorProject {
+        val startMs = range?.startMs ?: 0L
+        val lengthMs = range?.durationMs ?: WHOLE_SONG_MS
+        val audio =
+            Clip(
+                id = ClipId("song"),
+                content = ClipContent.Audio(song.toString()),
+                startMs = 0L,
+                durationMs = lengthMs,
+                sourceInMs = startMs,
+                sourceDurationMs = if (range == null) lengthMs else 0L,
+            )
+        val visual =
+            Clip(
+                id = ClipId("visual"),
+                content = ClipContent.Scene(sceneId = sceneId, milkPath = milkPath, takeId = take?.let { ONE_TAP_TAKE }),
+                startMs = 0L,
+                durationMs = lengthMs,
+                sourceInMs = take?.let { startMs - it.trackOffsetMs } ?: 0L,
+            )
+        return EditorProject(
+            timeline =
+                Timeline(
+                    lanes =
+                        listOf(
+                            Lane(LaneId("visual"), LaneKind.Visual, clips = listOf(visual)),
+                            Lane(LaneId("song"), LaneKind.Audio, clips = listOf(audio)),
+                        ),
+                    durationMs = lengthMs,
+                ),
+        )
     }
 
     /**
@@ -448,65 +524,388 @@ internal class ExportController(
         }
     }
 
+    /**
+     * One clip of the old single-clip editor, re-encoded with its edit. It runs under [ExportRun]
+     * and [ExportService] like every other render, so leaving the app does not end it.
+     */
     fun startStudioExport(
         clip: dev.geode.export.StudioClip,
         edit: dev.geode.export.ClipEdit,
         destination: Uri? = null,
     ) {
-        if (_studio.value.phase.isBusy) return
-        _studio.update { it.copy(phase = ExportPhase.Running(0f)) }
+        if (_studio.value.phase.isBusy || ExportRun.running) return
+        studioCancelled = false
+        _studio.update { it.copy(phase = ExportPhase.Running(0f), notice = null) }
+        ExportRun.begin(application.getString(dev.geode.R.string.render_video_label))
+        ExportService.start(application)
         studioJob =
-            scope.launch {
-                val name = "muzviz_studio_${System.currentTimeMillis()}.mp4"
-                val result =
-                    studioExporter.export(
-                        source = Uri.parse(clip.uri),
-                        sourceDurationMs = clip.durationMs,
-                        edit = edit,
-                        displayName = name,
-                        codec = defaultCodec(),
-                        destination = destination,
-                    ) { p -> _studio.update { it.copy(phase = ExportPhase.Running(p.coerceIn(0f, 1f))) } }
-                _studio.update { it.copy(phase = result.toPhase()) }
-                refreshStudioClips()
-                studioJob = null
-            }
-    }
-
-    fun startProjectExport(
-        project: dev.geode.editor.EditorProject,
-        destination: Uri? = null,
-    ) {
-        if (_studio.value.phase.isBusy) return
-        _studio.update { it.copy(phase = ExportPhase.Running(0f)) }
-        studioJob =
-            scope.launch {
-                // build() reads the export defaults from prefs, so it runs on IO with them.
-                val built = withContext(Dispatchers.IO) { ProjectComposition.build(application, project) }
-                if (built !is ProjectComposition.Outcome.Ready) {
-                    _studio.update { it.copy(phase = ExportPhase.Failed(application.getString(dev.geode.R.string.editor_export_no_video))) }
-                    studioJob = null
-                    return@launch
+            ExportRun.launch {
+                runStudioRender {
+                    val name = "muzviz_studio_${System.currentTimeMillis()}.mp4"
+                    val result =
+                        studioExporter.export(
+                            source = Uri.parse(clip.uri),
+                            sourceDurationMs = clip.durationMs,
+                            edit = edit,
+                            displayName = name,
+                            codec = loadExportDefaults().codec,
+                            destination = destination,
+                            isCancelled = ::studioCancelRequested,
+                        ) { p -> publishStudioProgress(p) }
+                    _studio.update { it.copy(phase = result.toPhase()) }
                 }
-                val name = "muzviz_cut_${System.currentTimeMillis()}.mp4"
-                val result =
-                    studioExporter.exportComposition(built.composition, built.durationMs, name, defaultCodec(), destination) { p ->
-                        _studio.update { it.copy(phase = ExportPhase.Running(p.coerceIn(0f, 1f))) }
-                    }
-                _studio.update { it.copy(phase = result.toPhase()) }
-                refreshStudioClips()
-                studioJob = null
             }
     }
 
-    // Called from [scope], which is Main: the prefs read itself goes to IO.
-    private suspend fun defaultCodec(): ExportCodec =
-        withContext(Dispatchers.IO) { ExportPrefsStore(GeodePrefsFiles(application).general).load().codec }
+    /**
+     * Renders a Studio project: its edit, encoded with its own export settings, saved to its own
+     * save target unless [destination] names a file. This is the one entry point every Studio
+     * render goes through (Render, a stopped recording, a batch of projects from a template); see
+     * [render] for how each clip is drawn. [onRendered] gets the finished video for the project's
+     * list ([dev.geode.ui.EditorController.recordRender]).
+     */
+    fun renderProject(
+        project: StudioProject,
+        destination: Uri? = null,
+        watermark: Boolean = false,
+        onRendered: (ProjectRender) -> Unit = {},
+    ) = launchProjectRender(project, settingsExport = false, destination, watermark, onRendered)
+
+    /**
+     * The open edit alone, from callers that do not hand over its folder yet: it renders with the
+     * export settings from Settings › Export, and its take clips draw their first style, since the
+     * takes live in a folder this call does not name. [renderProject] is the full path.
+     */
+    fun startProjectExport(
+        project: EditorProject,
+        destination: Uri? = null,
+    ) = launchProjectRender(
+        StudioProject(id = ProjectId(""), name = "", edit = project),
+        settingsExport = true,
+        destination = destination,
+        watermark = false,
+        onRendered = {},
+    )
+
+    private fun launchProjectRender(
+        project: StudioProject,
+        settingsExport: Boolean,
+        destination: Uri?,
+        watermark: Boolean,
+        onRendered: (ProjectRender) -> Unit,
+    ) {
+        if (_studio.value.phase.isBusy || ExportRun.running) return
+        studioCancelled = false
+        _studio.update { it.copy(phase = ExportPhase.Running(0f), notice = null) }
+        ExportRun.begin(project.name.ifBlank { application.getString(dev.geode.R.string.render_video_label) })
+        ExportService.start(application)
+        studioJob =
+            ExportRun.launch {
+                runStudioRender {
+                    val export = if (settingsExport) loadExportDefaults() else project.export
+                    val plan = ProjectComposition.plan(project.edit)
+                    val notice = plan.report.message(application)
+                    val name = "muzviz_cut_${System.currentTimeMillis()}.mp4"
+                    val target = destination ?: withContext(Dispatchers.IO) { folderDocument(export.saveTo, name) }
+                    val result =
+                        render(
+                            project = project.edit,
+                            plan = plan,
+                            spec = RenderSpec(ExportAspect.of(export.quality, export.ratio), export, watermark),
+                            takes = { takeId -> loadTake(project.id, takeId) },
+                            factoryFor = ::plainSceneFactory,
+                            fileName = name,
+                            destination = target,
+                            onProgress = { p, _ -> publishStudioProgress(p) },
+                            isCancelled = ::studioCancelRequested,
+                        )
+                    val phase =
+                        when (result) {
+                            is RenderResult.Saved -> {
+                                val label = project.name.ifBlank { name }
+                                onRendered(ProjectRender(result.uri.toString(), label, System.currentTimeMillis(), result.durationMs))
+                                ExportPhase.Done(result.uri)
+                            }
+                            is RenderResult.Failed -> ExportPhase.Failed(result.message)
+                            RenderResult.Cancelled -> ExportPhase.Idle
+                            RenderResult.Locked -> {
+                                host.onStyleLocked()
+                                ExportPhase.Idle
+                            }
+                            RenderResult.NothingToRender ->
+                                ExportPhase.Failed(application.getString(dev.geode.R.string.editor_export_nothing))
+                        }
+                    _studio.update { it.copy(phase = phase, notice = notice) }
+                    // The report reaches the user whatever page they are on: the render may finish
+                    // long after they left Studio.
+                    if (notice != null && result != RenderResult.Cancelled) {
+                        withContext(Dispatchers.Main) { Toast.makeText(application, notice, Toast.LENGTH_LONG).show() }
+                    }
+                }
+            }
+    }
+
+    /** The shared ending of a Studio render: failures to [ExportPhase.Failed], the run released. */
+    private suspend fun runStudioRender(block: suspend () -> Unit) {
+        try {
+            block()
+            refreshStudioClips()
+        } catch (c: kotlinx.coroutines.CancellationException) {
+            _studio.update { it.copy(phase = ExportPhase.Idle) }
+            throw c
+        } catch (t: Throwable) {
+            val phase =
+                if (studioCancelled) {
+                    ExportPhase.Idle
+                } else {
+                    val reason = t.message ?: application.getString(dev.geode.R.string.export_error_no_message)
+                    ExportPhase.Failed("${t.javaClass.simpleName}: $reason")
+                }
+            _studio.update { it.copy(phase = phase) }
+        } finally {
+            studioJob = null
+            ExportRun.finish()
+        }
+    }
+
+    private fun studioCancelRequested(): Boolean = studioCancelled || ExportRun.cancelRequested
+
+    private fun publishStudioProgress(p: Float) {
+        val clamped = p.coerceIn(0f, 1f)
+        _studio.update { it.copy(phase = ExportPhase.Running(clamped)) }
+        ExportRun.publish(clamped)
+    }
+
+    /** How a render is encoded: a project's export settings, or the one-tap render's own choices. */
+    private class RenderSpec(
+        val aspect: ExportAspect,
+        val defaults: ExportDefaults,
+        val watermark: Boolean,
+    )
+
+    private sealed interface RenderResult {
+        data class Saved(
+            val uri: Uri,
+            val durationMs: Long,
+            val loudnessAdvice: LoudnessAdvice? = null,
+        ) : RenderResult
+
+        data class Failed(
+            val message: String,
+        ) : RenderResult
+
+        data object Cancelled : RenderResult
+
+        /** A style the project draws is Pro and the entitlement does not allow it. */
+        data object Locked : RenderResult
+
+        data object NothingToRender : RenderResult
+    }
+
+    /** What one scene segment draws: its style, and the look over time (a take, keyframes) if it moves. */
+    private class SegmentLook(
+        val factory: SceneFactory,
+        val paramsAt: ((Long) -> SceneParams)?,
+    )
+
+    /**
+     * The one render path (#232). Every render is a [project] and its [plan]:
+     * - a direct plan (one visual over one stretch of song) is drawn by the visualizer exporter
+     *   straight into the destination;
+     * - any other plan draws each scene segment offscreen into a `studio-` scratch MP4 (swept by
+     *   GeodeContainer if the process dies), then [ProjectComposition.compose] layers them with the
+     *   footage and the audio lanes and Transformer writes the file.
+     *
+     * Every style the project draws is checked against the entitlement before anything renders.
+     */
+    @Suppress("LongParameterList")
+    private suspend fun render(
+        project: EditorProject,
+        plan: ProjectComposition.RenderPlan,
+        spec: RenderSpec,
+        takes: suspend (String) -> PerformanceTake.Timeline?,
+        factoryFor: (String, String?) -> SceneFactory,
+        fileName: String,
+        destination: Uri?,
+        onProgress: (Float, Boolean) -> Unit,
+        isCancelled: () -> Boolean,
+    ): RenderResult {
+        val segments = plan.segments
+        if (segments.isEmpty() && plan.clips.none { it is ProjectComposition.ClipRender.Footage }) return RenderResult.NothingToRender
+        val looks = segments.associateWith { lookFor(it, project.keyframes, it.scene.takeId?.let { id -> takes(id) }, factoryFor) }
+        if (looks.values.any { !host.allowsStyle(it.factory.sceneId) }) return RenderResult.Locked
+
+        plan.direct?.let { segment ->
+            val result = drawSegment(segment, looks.getValue(segment), spec, destination, fileName, final = true, onProgress, isCancelled)
+            return when (result) {
+                is VideoExporter.Result.Saved -> RenderResult.Saved(result.uri, segment.durationMs, result.loudnessAdvice)
+                is VideoExporter.Result.Failed -> RenderResult.Failed(result.message)
+                VideoExporter.Result.Cancelled -> RenderResult.Cancelled
+            }
+        }
+
+        val scratch = mutableListOf<File>()
+        try {
+            val drawnShare = if (segments.isEmpty()) 0f else DRAW_SPAN
+            val totalMs = segments.sumOf(SceneSegment::durationMs).coerceAtLeast(1L).toFloat()
+            var doneMs = 0L
+            val drawn = LinkedHashMap<SceneSegment, Uri>()
+            for (segment in segments) {
+                val file = File(application.cacheDir, "studio-scene-${System.currentTimeMillis()}-${scratch.size}.mp4")
+                scratch += file
+                val before = doneMs
+                val progress: (Float, Boolean) -> Unit =
+                    { p, _ -> onProgress(drawnShare * (before + p * segment.durationMs) / totalMs, true) }
+                val look = looks.getValue(segment)
+                when (val result = drawSegment(segment, look, spec, Uri.fromFile(file), "", final = false, progress, isCancelled)) {
+                    is VideoExporter.Result.Saved -> drawn[segment] = Uri.fromFile(file)
+                    is VideoExporter.Result.Failed -> return RenderResult.Failed(result.message)
+                    VideoExporter.Result.Cancelled -> return RenderResult.Cancelled
+                }
+                doneMs += segment.durationMs
+            }
+            val composed = withContext(Dispatchers.IO) { ProjectComposition.compose(application, project, plan, drawn, spec.defaults) }
+            if (composed !is ProjectComposition.Outcome.Ready) return RenderResult.NothingToRender
+            val result =
+                studioExporter.exportComposition(
+                    composed.composition,
+                    composed.durationMs,
+                    fileName,
+                    spec.defaults.codec,
+                    destination,
+                    isCancelled,
+                ) { p -> onProgress(drawnShare + (1f - drawnShare) * p.coerceIn(0f, 1f), true) }
+            return when (result) {
+                is StudioExporter.Result.Saved -> RenderResult.Saved(result.uri, result.durationMs)
+                is StudioExporter.Result.Failed -> RenderResult.Failed(result.message)
+                StudioExporter.Result.Cancelled -> RenderResult.Cancelled
+            }
+        } finally {
+            scratch.forEach { it.delete() }
+        }
+    }
+
+    /**
+     * One scene segment through the visualizer exporter (`OffscreenSceneRenderer`), hearing its
+     * song. A [final] draw is the whole render, so it gets the codec, loudness readout and file
+     * name; a scratch draw is H.264 for Transformer to read back, and is measured by nobody.
+     */
+    @Suppress("LongParameterList")
+    private suspend fun drawSegment(
+        segment: SceneSegment,
+        look: SegmentLook,
+        spec: RenderSpec,
+        destination: Uri?,
+        fileName: String,
+        final: Boolean,
+        onProgress: (Float, Boolean) -> Unit,
+        isCancelled: () -> Boolean,
+    ): VideoExporter.Result {
+        val gui = host.guiPrefs
+        return exporter.export(
+            audioUri = segment.songUri.toUri(),
+            sceneFactory = look.factory,
+            aspect = spec.aspect,
+            fileName = fileName,
+            sceneParams = host.sceneParams,
+            lfoConfigs = host.lfoConfigs(),
+            adsrConfigs = host.adsrConfigs(),
+            reactions = host.reactions(),
+            reducedMotion = gui.reducedMotion,
+            requestedFps = spec.defaults.fps,
+            soundTuning = gui.soundTuning,
+            paramsAt = look.paramsAt,
+            range = segment.range,
+            destination = destination,
+            codec = if (final) spec.defaults.codec else ExportCodec.H264,
+            loudnessTarget = if (final) LoudnessTarget.byId(spec.defaults.loudnessTargetId) else LoudnessTarget.LeaveAsIs,
+            background = defaultBackground(),
+            onProgress = { p -> onProgress(p, p >= VideoExporter.AUDIO_PROGRESS_SPAN) },
+            isCancelled = isCancelled,
+            watermark = spec.watermark,
+        )
+    }
+
+    /**
+     * The look a segment draws. A take clip plays its recorded events at take time (the clip's
+     * source time), opening on the take's first style; a look clip is the stage's look. The project's
+     * scene keyframes, programme-wide or on this clip, fold over either. A segment that neither
+     * takes nor keyframes move draws one still look ([SegmentLook.paramsAt] null).
+     */
+    private fun lookFor(
+        segment: SceneSegment,
+        sheet: KeyframeSheet,
+        take: PerformanceTake.Timeline?,
+        factoryFor: (String, String?) -> SceneFactory,
+    ): SegmentLook {
+        val clip = segment.clip
+        val sceneId = if (take != null) exportSceneIdFor(take, segment.scene.sceneId) else segment.scene.sceneId
+        val milkPath = take?.stateAt(clip.sourceTimeAt(segment.programmeStartMs))?.milkPath ?: segment.scene.milkPath
+        val animated =
+            sheet.tracks.any {
+                it.enabled && (it.clipId == null || it.clipId == clip.id) && AnimatableParams.find(it.paramId)?.isScene == true
+            }
+        val paramsAt: ((Long) -> SceneParams)? =
+            if (take == null && !animated) {
+                null
+            } else {
+                { ms: Long ->
+                    val programmeMs = segment.programmeStartMs + ms
+                    val base = take?.stateAt(clip.sourceTimeAt(programmeMs))?.params ?: host.sceneParams
+                    if (animated) AnimatableParams.applyToScene(base, sheet.valuesAt(programmeMs, clip.id)) else base
+                }
+            }
+        return SegmentLook(factoryFor(sceneId, milkPath), paramsAt)
+    }
+
+    /** A take recorded into project [id], or null for a project with no folder or no such take. */
+    private suspend fun loadTake(
+        id: ProjectId,
+        takeId: String,
+    ): PerformanceTake.Timeline? {
+        if (id.value.isEmpty()) return null
+        return withContext(Dispatchers.IO) {
+            projectStore
+                .loadTake(id, takeId)
+                ?.let { json -> runCatching { PerformanceTake.Timeline(json) }.getOrNull() }
+                ?.takeUnless { it.isEmpty }
+        }
+    }
+
+    /** A Studio render's style: just the id, and the MilkDrop preset the clip names (if any). */
+    private fun plainSceneFactory(
+        sceneId: String,
+        milkPath: String?,
+    ): SceneFactory =
+        object : SceneFactory {
+            override val sceneId: String = sceneId
+            override val milkPresetPath: String? = milkPath
+        }
+
+    /**
+     * A new document in the project's chosen folder, or null to save in the Videos library (no
+     * folder chosen, or the folder's grant is gone; the library needs no permission).
+     */
+    private fun folderDocument(
+        saveTo: SaveTarget,
+        name: String,
+    ): Uri? {
+        val tree = (saveTo as? SaveTarget.Folder)?.treeUri?.toUri() ?: return null
+        return runCatching {
+            val parent = DocumentsContract.buildDocumentUriUsingTree(tree, DocumentsContract.getTreeDocumentId(tree))
+            DocumentsContract.createDocument(application.contentResolver, parent, "video/mp4", name)
+        }.getOrElse { e ->
+            RingLog.note(TAG, "save folder unavailable, saving to Videos", e)
+            null
+        }
+    }
+
+    private suspend fun loadExportDefaults(): ExportDefaults =
+        withContext(Dispatchers.IO) { ExportPrefsStore(GeodePrefsFiles(application).general).load() }
 
     // The main export's UI (Studio › Render) has no path to this controller's public API for
     // per-render options that aren't already threaded through startExport's callers, so the
-    // loudness target rides along as a persisted default instead, the same way defaultCodec()
-    // above does for studio exports.
+    // loudness target rides along as a persisted default instead.
     private fun defaultLoudnessTarget(): LoudnessTarget =
         LoudnessTarget.byId(
             ExportPrefsStore(GeodePrefsFiles(application).general).load().loudnessTargetId,
@@ -520,15 +919,19 @@ internal class ExportController(
         return BackgroundExportSpec(uri.toUri(), p.blend, p.amount, p.blurRadius, p.dim)
     }
 
+    /**
+     * Stops a Studio render. Through [ExportRun] as well as the exporter: the render runs there,
+     * and after the Activity is recreated it may belong to an older controller (see [cancelExport]).
+     */
     fun cancelStudioExport() {
+        studioCancelled = true
         studioExporter.cancel()
-        studioJob?.cancel()
-        studioJob = null
+        if (studioJob != null && ExportRun.running) ExportRun.requestCancel()
         _studio.update { it.copy(phase = ExportPhase.Idle) }
     }
 
     fun clearStudioResult() {
-        _studio.update { it.copy(phase = ExportPhase.Idle) }
+        _studio.update { it.copy(phase = ExportPhase.Idle, notice = null) }
     }
 
     private val loopRenderer = LoopRender(application)
@@ -673,6 +1076,20 @@ internal class ExportController(
     }
 
     private companion object {
+        const val TAG = "ExportController"
+
+        /** Share of a composed render's bar spent drawing scenes; the Transformer pass gets the rest. */
+        const val DRAW_SPAN = 0.8f
+
+        /**
+         * The length a one-tap render's project states when it renders the whole song: the song's
+         * own length is read by the exporter, so this only has to say "to the end".
+         */
+        const val WHOLE_SONG_MS = 24L * 60L * 60L * 1000L
+
+        /** The one-tap render's take clip names the export take by this id. */
+        const val ONE_TAP_TAKE = "export-take"
+
         // Extending mostly copies already-encoded samples, so it gets less of the bar than the
         // GPU render does.
         const val RENDER_SPAN = 0.7f

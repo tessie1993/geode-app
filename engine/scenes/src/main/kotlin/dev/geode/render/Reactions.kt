@@ -1,6 +1,8 @@
 package dev.geode.render
 
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.render.scene.BuildStyleReactionsUseCase
+import dev.geode.util.bestEffort
 
 /**
  * What a reaction route listens to: one value of the sound engine's frame (`core/sound/SoundFrame.h`).
@@ -196,25 +198,66 @@ data class ReactionRoute(
 }
 
 /**
- * Remembers the last style DNA built, so the GL thread rebuilds it only when the scene or the
- * seed changes, and hands back the same list instance otherwise (callers diff by identity).
- * Single-thread use.
+ * The user's side of the reaction matrix: their own [routes] (null: none, the DNA plays alone) and the
+ * hand [mask] of what is theirs (core/viz Reactions.hpp `hand::`; [GeodeNative.HAND_ALL] for a whole
+ * list). Saved together (LfoStore), so a moment set by hand stays the user's and every other one follows
+ * the live DNA.
+ */
+data class HandReactions(
+    val routes: List<ReactionRoute>?,
+    val mask: Int,
+)
+
+/**
+ * Customize › Music's hand mask for this process, the value every renderer merges with (through
+ * [StyleReactionsCache]) and every native director keeps off (`hand::global`). The shell sets it where it
+ * loads the user's routes from LfoStore. Until then it is [GeodeNative.HAND_ALL]: a list of the user's plays
+ * whole, as before the mask existed.
+ */
+object HandMask {
+    private const val TAG = "HandMask"
+
+    @Volatile
+    var current: Int = GeodeNative.HAND_ALL
+        private set
+
+    fun set(mask: Int) {
+        current = mask
+        bestEffort(TAG, "push hand mask") { GeodeNative.handSet(mask) }
+    }
+}
+
+/**
+ * Remembers the last routes resolved, so the GL thread asks native again only when the scene, the
+ * seed, the user's list (by identity) or the hand mask changes, and hands back the same list instance
+ * otherwise (callers diff by identity). Single-thread use.
+ *
+ * With no list of the user's this is the style's DNA; with one it is the native merge ("the hand wins
+ * per moment"): the user's routes on the moments they set, the live DNA on every other.
  */
 class StyleReactionsCache(
     private val build: BuildStyleReactionsUseCase = BuildStyleReactionsUseCase(),
 ) {
     private var sceneId: String? = null
     private var seed = 0
+    private var user: List<ReactionRoute>? = null
+    private var mask = 0
     private var routes: List<ReactionRoute> = emptyList()
 
     fun routesFor(
         sceneId: String,
         seed: Int,
+        user: List<ReactionRoute>? = null,
+        mask: Int = HandMask.current,
     ): List<ReactionRoute> {
-        if (sceneId != this.sceneId || seed != this.seed) {
+        // The mask means nothing without a list of the user's, so it does not invalidate the DNA alone.
+        val maskKey = if (user == null) 0 else mask
+        if (sceneId != this.sceneId || seed != this.seed || user !== this.user || maskKey != this.mask) {
             this.sceneId = sceneId
             this.seed = seed
-            routes = build(sceneId, seed)
+            this.user = user
+            this.mask = maskKey
+            routes = if (user == null) build(sceneId, seed) else build.playing(sceneId, seed, user, mask)
         }
         return routes
     }

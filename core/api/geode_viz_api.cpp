@@ -203,9 +203,14 @@ void geode_viz_set_adsr(geode_viz* v, int slot, const float* c, int count) {
     v->renderer.setAdsrConfigs(v->adsr);
 }
 
-void geode_viz_set_reactions(geode_viz* v, const float* c, int count) {
-    if (!v || !c || count < 0) return;
-    std::array<ReactRoute, ReactionEngine::kRoutes> routes{};
+}  // extern "C"
+
+namespace {
+
+// The geode_viz_set_reactions layout in; returns how many routes were read.
+int readRoutes(const float* c, int count, RouteArray& routes) {
+    routes = RouteArray{};
+    if (!c || count < 0) return 0;
     const int n = std::min(count / GEODE_REACT_ROUTE_FLOATS, ReactionEngine::kRoutes);
     for (int i = 0; i < n; ++i) {
         const float* r = c + i * GEODE_REACT_ROUTE_FLOATS;
@@ -219,7 +224,101 @@ void geode_viz_set_reactions(geode_viz* v, const float* c, int count) {
         out.attackSeconds = std::clamp(r[6], 0.0f, 5.0f);
         out.releaseSeconds = std::clamp(r[7], 0.0f, 10.0f);
     }
+    return n;
+}
+
+// The same layout out, at most capacity / ROUTE_FLOATS routes; returns how many were written.
+int writeRoutes(const RouteArray& routes, int count, float* out, int capacity) {
+    if (!out || capacity < GEODE_REACT_ROUTE_FLOATS) return 0;
+    const int n = std::min(count, capacity / GEODE_REACT_ROUTE_FLOATS);
+    for (int i = 0; i < n; ++i) {
+        const ReactRoute& r = routes[static_cast<size_t>(i)];
+        float* o = out + i * GEODE_REACT_ROUTE_FLOATS;
+        o[0] = r.enabled ? 1.0f : 0.0f;
+        o[1] = static_cast<float>(r.source);
+        o[2] = static_cast<float>(r.target);
+        o[3] = static_cast<float>(r.mode);
+        o[4] = r.amount;
+        o[5] = static_cast<float>(r.curve);
+        o[6] = r.attackSeconds;
+        o[7] = r.releaseSeconds;
+    }
+    return n;
+}
+
+StyleDna dnaOf(const std::string& id, int seed) {
+    return buildStyleDna(id, seed, {SceneRegistry::spinRate(id), SceneRegistry::isShaderStyle(id)});
+}
+
+HandRoutes handOf(const float* user, int user_floats, int has_user, unsigned mask) {
+    HandRoutes h;
+    h.user = has_user != 0;
+    if (h.user) h.count = readRoutes(user, user_floats, h.routes);
+    h.mask = h.user ? (static_cast<std::uint32_t>(mask) & hand::kAll) : 0u;
+    return h;
+}
+
+static_assert(kMomentCount == GEODE_MUSIC_MOMENTS);
+static_assert(kMusicActionCount == GEODE_MUSIC_ACTIONS);
+static_assert(hand::kAll == GEODE_HAND_ALL && hand::kUnclaimed == GEODE_HAND_UNCLAIMED);
+
+}  // namespace
+
+extern "C" {
+
+void geode_viz_set_reactions(geode_viz* v, const float* c, int count) {
+    if (!v || !c || count < 0) return;
+    RouteArray routes{};
+    readRoutes(c, count, routes);
     v->renderer.setReactionRoutes(routes);
+}
+
+void geode_hand_set(unsigned mask) { hand::setGlobal(static_cast<std::uint32_t>(mask)); }
+
+int geode_style_reactions_hand(const char* style_id, int seed, const float* user, int user_floats, int has_user, unsigned mask,
+                               float* out, int capacity) {
+    if (!style_id) return 0;
+    RouteArray playing;
+    const int n = mergeHand(handOf(user, user_floats, has_user, mask), dnaOf(style_id, seed), playing);
+    return writeRoutes(playing, n, out, capacity);
+}
+
+int geode_music_state(const char* style_id, int seed, const float* user, int user_floats, int has_user, unsigned mask, float* out,
+                      int capacity) {
+    if (!style_id || !out) return 0;
+    const HandRoutes h = handOf(user, user_floats, has_user, mask);
+    RouteArray playing;
+    const int n = mergeHand(h, dnaOf(style_id, seed), playing);
+    const int moments = std::min(kMomentCount, capacity / GEODE_MUSIC_STATE_FLOATS);
+    for (int m = 0; m < moments; ++m) {
+        const MomentState s = momentState(h, playing, n, static_cast<Moment>(m));
+        float* o = out + m * GEODE_MUSIC_STATE_FLOATS;
+        o[0] = s.mine ? 1.0f : 0.0f;
+        o[1] = static_cast<float>(s.routes);
+        o[2] = s.strength;
+        o[3] = static_cast<float>(s.on);
+        o[4] = static_cast<float>(s.fits);
+    }
+    return moments;
+}
+
+int geode_music_edit(const char* style_id, int seed, const float* user, int user_floats, int has_user, unsigned mask, int op,
+                     int moment, int action, float value, float* out, int capacity, unsigned* out_mask, int* out_has_user) {
+    const HandRoutes h = handOf(user, user_floats, has_user, mask);
+    HandRoutes next = h;
+    if (style_id && op >= 0 && op < kMusicEditCount && moment >= 0 && moment < kMomentCount && action >= 0 &&
+        action < kMusicActionCount) {
+        next = editMusic(h, dnaOf(style_id, seed), static_cast<MusicEdit>(op), static_cast<Moment>(moment),
+                         static_cast<MusicAction>(action), value);
+    }
+    if (out_mask) *out_mask = next.user ? next.mask : 0u;
+    if (out_has_user) *out_has_user = next.user ? 1 : 0;
+    return next.user ? writeRoutes(next.routes, next.count, out, capacity) : 0;
+}
+
+int geode_music_action_target(int action) {
+    if (action < 0 || action >= kMusicActionCount) return static_cast<int>(LfoTarget::None);
+    return static_cast<int>(musicActionTarget(static_cast<MusicAction>(action)));
 }
 
 int geode_react_source_catalog(char* out, int capacity) {
@@ -274,23 +373,9 @@ int geode_macro_starters(char* out, int capacity) {
 }
 
 int geode_style_reactions(const char* style_id, int seed, float* out, int capacity) {
-    if (!style_id || !out || capacity < GEODE_REACT_ROUTE_FLOATS) return 0;
-    const std::string id(style_id);
-    const StyleDna dna = buildStyleDna(id, seed, {SceneRegistry::spinRate(id), SceneRegistry::isShaderStyle(id)});
-    const int n = std::min(dna.count, capacity / GEODE_REACT_ROUTE_FLOATS);
-    for (int i = 0; i < n; ++i) {
-        const ReactRoute& r = dna.routes[static_cast<size_t>(i)];
-        float* o = out + i * GEODE_REACT_ROUTE_FLOATS;
-        o[0] = r.enabled ? 1.0f : 0.0f;
-        o[1] = static_cast<float>(r.source);
-        o[2] = static_cast<float>(r.target);
-        o[3] = static_cast<float>(r.mode);
-        o[4] = r.amount;
-        o[5] = static_cast<float>(r.curve);
-        o[6] = r.attackSeconds;
-        o[7] = r.releaseSeconds;
-    }
-    return n;
+    if (!style_id) return 0;
+    const StyleDna dna = dnaOf(style_id, seed);
+    return writeRoutes(dna.routes, dna.count, out, capacity);
 }
 
 void geode_viz_set_look(geode_viz* v, float yaw, float pitch) {

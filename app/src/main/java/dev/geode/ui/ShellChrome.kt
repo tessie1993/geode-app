@@ -159,7 +159,10 @@ internal fun FloatingMiniPlayer(
                     onDragStart = { dy = 0f },
                     onDragEnd = {
                         val far = SWIPE_DP.dp.toPx()
-                        if (dy < -far) onOpenPlayer() else if (dy > far) onHide()
+                        when {
+                            dy < -far -> onOpenPlayer()
+                            dy > far -> onHide()
+                        }
                     },
                 ) { _, delta -> dy += delta }
             }.clickable(onClickLabel = stringResource(R.string.mini_player_pin), onClick = onPin)

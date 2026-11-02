@@ -3,6 +3,8 @@ package dev.geode.ui
 import android.content.Context
 import android.graphics.BitmapFactory
 import android.util.LruCache
+import androidx.activity.compose.BackHandler
+import androidx.annotation.StringRes
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -22,12 +24,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.FavoriteBorder
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.WorkspacePremium
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
@@ -56,6 +52,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -65,6 +62,7 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import dev.geode.R
 import dev.geode.data.StyleShelfStore
 import dev.geode.model.StyleEntry
 import dev.geode.model.StyleFilter
@@ -78,6 +76,8 @@ import dev.geode.render.scene.VisualStyleCatalog
 import dev.geode.ui.theme.GeodeRadius
 import dev.geode.ui.theme.GeodeSpacing
 import dev.geode.ui.theme.StoneHapticCue
+import dev.geode.ui.theme.StoneIcon
+import dev.geode.ui.theme.StoneIconArt
 import dev.geode.ui.theme.performStoneHaptic
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -90,14 +90,19 @@ import kotlin.math.abs
  *
  * A dropdown at the top picks the group ([StyleLook]: Flowing & liquid, Fractals, Space…), or the
  * user's own Favourites and Recent, or everything; the list under it is one row per style: its
- * still, its name, a ♛ when it is Pro, and a heart. Search narrows the list by name, group, kind or
- * family. The owner chose list rows over the old card grid, which showed three styles a screen.
+ * still, its name, a ♛ when it is Pro, and a heart. Search looks through every style (not just the
+ * group) by name, group, kind or family, and Back closes it before it leaves the page. The owner
+ * chose list rows over the old card grid, which showed three styles a screen.
  *
  * A tap loads the style: the visual changes at once, and that is the choice (no "Use style" step).
  * A Pro style a free user taps still plays on the visual while the paywall offers it; leaving the
- * page without buying puts the chosen style back ([PlayerViewModel.leaveScenePreview]). A long
- * press or the heart stars a style; TalkBack gets the same as a custom action. The swipe on the
- * visual still steps through styles in this order.
+ * page without buying puts the chosen style back ([PlayerViewModel.leaveScenePreview]). The heart
+ * is the one-tap favourite; a long press opens the row's menu (favourite, add to the visuals
+ * playlist, remove from Recent), the Android rule for a list row, and TalkBack gets the same items
+ * as custom actions. The swipe on the visual still steps through styles in this order.
+ *
+ * Plain M3 parts on purpose (a list, a menu, a text field): the page is a tool over a live visual,
+ * so it stays cheap to draw and quiet to look at, and the stills are the colour.
  */
 @Composable
 internal fun StylesTab(viewModel: PlayerViewModel) {
@@ -109,7 +114,7 @@ internal fun StylesTab(viewModel: PlayerViewModel) {
     var filterKey by rememberSaveable { mutableStateOf(FILTER_ALL) }
     var query by rememberSaveable { mutableStateOf("") }
     var searching by rememberSaveable { mutableStateOf(false) }
-    val entries = remember { styleEntries() }
+    val entries = remember { styleEntries(context) }
     val filters = remember { styleFilters() }
     val filter = filters.firstOrNull { filterKeyOf(it) == filterKey } ?: StyleFilter.All
     // Leaving the page keeps the style the user may keep; only a locked one gives way.
@@ -136,19 +141,24 @@ internal fun StylesTab(viewModel: PlayerViewModel) {
             shelfStore.pushRecent(id)
         }
     }
+    val closeSearch = {
+        searching = false
+        query = ""
+    }
+    // Standard Android: Back closes an open search first, then leaves the page.
+    BackHandler(enabled = searching, onBack = closeSearch)
     Column(Modifier.fillMaxSize()) {
         if (searching) {
-            StyleSearchField(query, onQuery = { query = it }, onClose = {
-                searching = false
-                query = ""
-            })
+            StyleSearchField(query, onQuery = { query = it }, onClose = closeSearch)
         } else {
             Row(
                 Modifier.fillMaxWidth().heightIn(min = GeodeSpacing.TouchTarget).padding(horizontal = GeodeSpacing.S),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 StyleGroupMenu(filters, filter, onPick = { filterKey = filterKeyOf(it) }, modifier = Modifier.weight(1f))
-                IconButton(onClick = { searching = true }) { Icon(Icons.Filled.Search, contentDescription = "Search styles") }
+                IconButton(onClick = { searching = true }) {
+                    StoneIconArt(StoneIcon.SEARCH, contentDescription = stringResource(R.string.styles_search))
+                }
             }
         }
         val shown = remember(entries, filter, shelf, query) { StyleFiltering.apply(entries, filter, shelf, query) }
@@ -165,8 +175,13 @@ internal fun StylesTab(viewModel: PlayerViewModel) {
                         chosen = entry.id == viz.sceneId,
                         locked = !gate.allowsStyle(entry.id),
                         favourite = shelf.isFavourite(entry.id),
+                        recent = entry.id in shelf.recents,
                         onTap = { load(entry.id) },
                         onToggleFavourite = { shelfStore.toggleFavourite(entry.id) },
+                        onAddToPlaylist = {
+                            viewModel.addToVizPlaylist(VizPlaylistEntry(sceneId = entry.id, label = entry.label))
+                        },
+                        onRemoveRecent = { shelfStore.removeRecent(entry.id) },
                     )
                 }
             }
@@ -185,14 +200,20 @@ private fun StyleGroupMenu(
     var open by remember { mutableStateOf(false) }
     Box(modifier) {
         TextButton(onClick = { open = true }, modifier = Modifier.heightIn(min = GeodeSpacing.TouchTarget)) {
-            Text(filterLabel(filter), style = MaterialTheme.typography.titleMedium)
-            Icon(Icons.Filled.ArrowDropDown, contentDescription = "Choose a group")
+            Text(stringResource(filterLabel(filter)), style = MaterialTheme.typography.titleSmall)
+            // No Symbols glyph for ▾ in StoneIcon yet; the M3 menu's own arrow until one is generated.
+            Icon(Icons.Filled.ArrowDropDown, contentDescription = stringResource(R.string.styles_choose_group))
         }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             filters.forEach { f ->
                 DropdownMenuItem(
-                    text = { Text(filterLabel(f)) },
-                    trailingIcon = if (f == filter) ({ Icon(Icons.Filled.Check, contentDescription = "Shown") }) else null,
+                    text = { Text(stringResource(filterLabel(f))) },
+                    trailingIcon =
+                        if (f == filter) {
+                            { StoneIconArt(StoneIcon.CHECK, contentDescription = stringResource(R.string.styles_group_shown)) }
+                        } else {
+                            null
+                        },
                     onClick = {
                         open = false
                         onPick(f)
@@ -216,10 +237,12 @@ private fun StyleSearchField(
         onValueChange = onQuery,
         modifier = Modifier.fillMaxWidth().padding(horizontal = GeodeSpacing.L, vertical = GeodeSpacing.XS),
         singleLine = true,
-        placeholder = { Text("Search styles") },
-        leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+        placeholder = { Text(stringResource(R.string.styles_search)) },
+        leadingIcon = { StoneIconArt(StoneIcon.SEARCH, contentDescription = null) },
         trailingIcon = {
-            IconButton(onClick = onClose) { Icon(Icons.Filled.Close, contentDescription = "Close search") }
+            IconButton(onClick = onClose) {
+                StoneIconArt(StoneIcon.CLOSE, contentDescription = stringResource(R.string.styles_search_close))
+            }
         },
         shape = RoundedCornerShape(GeodeRadius.ExtraLarge),
     )
@@ -227,7 +250,11 @@ private fun StyleSearchField(
 
 /**
  * One style: its still, its name (lit when it is on screen), a ♛ when it is Pro, and a heart. The
- * row is one 56 dp target; the heart is its own 48 dp button.
+ * row is one 56 dp target; the heart is its own 48 dp button, the one-tap favourite.
+ *
+ * A long press opens the row's menu, as on any Android list row: favourite, add to the visuals
+ * playlist (not for a locked style, which the playlist would only skip), and remove from Recent
+ * when it is there. TalkBack reads the same items as custom actions, so nothing hides behind a hold.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -236,62 +263,90 @@ private fun StyleRow(
     chosen: Boolean,
     locked: Boolean,
     favourite: Boolean,
+    recent: Boolean,
     onTap: () -> Unit,
     onToggleFavourite: () -> Unit,
+    onAddToPlaylist: () -> Unit,
+    onRemoveRecent: () -> Unit,
 ) {
     val view = LocalView.current
     val cs = MaterialTheme.colorScheme
-    val favouriteAction = if (favourite) "Remove from favourites" else "Add to favourites"
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .heightIn(min = ROW_HEIGHT)
-            .combinedClickable(
-                role = Role.Button,
-                onClick = onTap,
-                onLongClick = {
-                    view.performStoneHaptic(StoneHapticCue.CONFIRM)
-                    onToggleFavourite()
-                },
-                onLongClickLabel = favouriteAction,
-            ).semantics {
-                contentDescription = entry.label + if (locked) ", Pro" else ""
-                if (chosen) stateDescription = "On screen"
-                customActions =
-                    listOf(
-                        CustomAccessibilityAction(favouriteAction) {
-                            onToggleFavourite()
-                            true
-                        },
-                    )
-            }.padding(horizontal = GeodeSpacing.L),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        val shape = RoundedCornerShape(GeodeRadius.Small)
-        StyleThumbnail(
-            entry,
-            Modifier
-                .size(THUMB_SIZE)
-                .clip(shape)
-                .then(if (chosen) Modifier.border(2.dp, cs.primary, shape) else Modifier),
-        )
-        Text(
-            entry.label,
-            Modifier.weight(1f).padding(horizontal = GeodeSpacing.M),
-            style = MaterialTheme.typography.bodyLarge,
-            color = if (chosen) accentTextColor() else cs.onSurface,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-        if (locked) {
-            Icon(Icons.Filled.WorkspacePremium, contentDescription = null, tint = accentTextColor(), modifier = Modifier.size(20.dp))
+    var menuOpen by remember { mutableStateOf(false) }
+    val favouriteAction = stringResource(if (favourite) R.string.styles_favourite_remove else R.string.styles_favourite_add)
+    val playlistAction = stringResource(R.string.styles_playlist_add)
+    val recentAction = stringResource(R.string.styles_recent_remove)
+    val moreOptions = stringResource(R.string.styles_more_options)
+    val onScreen = stringResource(R.string.styles_on_screen)
+    val menu =
+        buildList {
+            add(favouriteAction to onToggleFavourite)
+            if (!locked) add(playlistAction to onAddToPlaylist)
+            if (recent) add(recentAction to onRemoveRecent)
         }
-        IconButton(onClick = onToggleFavourite) {
-            Icon(
-                if (favourite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-                contentDescription = favouriteAction,
-                tint = if (favourite) accentTextColor() else cs.onSurfaceVariant,
+    Box {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .heightIn(min = ROW_HEIGHT)
+                .combinedClickable(
+                    role = Role.Button,
+                    onClick = onTap,
+                    onLongClick = {
+                        view.performStoneHaptic(StoneHapticCue.CONFIRM)
+                        menuOpen = true
+                    },
+                    onLongClickLabel = moreOptions,
+                ).semantics {
+                    // The ♛ adds "Pro" to what TalkBack reads, so the name stays plain here.
+                    contentDescription = entry.label
+                    if (chosen) stateDescription = onScreen
+                    customActions =
+                        menu.map { (label, action) ->
+                            CustomAccessibilityAction(label) {
+                                action()
+                                true
+                            }
+                        }
+                }.padding(horizontal = GeodeSpacing.L),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            val shape = RoundedCornerShape(GeodeRadius.Small)
+            StyleThumbnail(
+                entry,
+                Modifier
+                    .size(THUMB_SIZE)
+                    .clip(shape)
+                    .then(if (chosen) Modifier.border(2.dp, cs.primary, shape) else Modifier),
             )
+            Text(
+                entry.label,
+                Modifier.weight(1f).padding(horizontal = GeodeSpacing.M),
+                style = MaterialTheme.typography.bodyMedium,
+                color = if (chosen) accentTextColor() else cs.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            // The app's one ♛ (shared with Customize), so Pro reads the same on every page.
+            if (locked) ProCrown()
+            IconButton(onClick = onToggleFavourite) {
+                StoneIconArt(
+                    StoneIcon.FAVORITE,
+                    contentDescription = favouriteAction,
+                    tint = if (favourite) accentTextColor() else cs.onSurfaceVariant,
+                    selected = favourite,
+                )
+            }
+        }
+        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+            menu.forEach { (label, action) ->
+                DropdownMenuItem(
+                    text = { Text(label) },
+                    onClick = {
+                        menuOpen = false
+                        action()
+                    },
+                )
+            }
         }
     }
 }
@@ -303,13 +358,13 @@ private fun EmptyStyles(
 ) {
     val text =
         when {
-            query.isNotBlank() -> "No style matches \"${query.trim()}\"."
-            filter == StyleFilter.Favourites -> "No favourites yet. Press and hold a style to keep it here."
-            filter == StyleFilter.Recent -> "Styles you use show up here."
-            else -> "Nothing here yet."
+            query.isNotBlank() -> stringResource(R.string.styles_empty_search, query.trim())
+            filter == StyleFilter.Favourites -> stringResource(R.string.styles_empty_favourites)
+            filter == StyleFilter.Recent -> stringResource(R.string.styles_empty_recent)
+            else -> stringResource(R.string.styles_empty)
         }
     Box(Modifier.fillMaxSize().padding(GeodeSpacing.XL), contentAlignment = Alignment.Center) {
-        Text(text, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -385,16 +440,33 @@ private object StyleThumbs {
 }
 
 /** Every catalogue style as the list shows it, in catalogue order, each with its look group. */
-private fun styleEntries(): List<StyleEntry> =
+private fun styleEntries(context: Context): List<StyleEntry> =
     Catalogue.styles.map { style ->
         val family = StyleFamilies.of(style.id)
+        val look = StyleLookTags.of(style.id, style.kind, family)
         StyleEntry(
             id = style.id,
             label = sceneDisplayLabel(style.id),
             kindLabel = if (family != null) KIND_FAMILY else kindLabel(style.kind),
             familyLabel = family?.label,
-            look = StyleLookTags.of(style.id, style.kind, family),
+            look = look,
+            lookLabel = context.getString(lookLabelRes(look)),
         )
+    }
+
+/** The name a look group is read by; the enum stays pure (`model/StyleLook`). */
+@StringRes
+private fun lookLabelRes(look: StyleLook): Int =
+    when (look) {
+        StyleLook.FLOWING -> R.string.styles_look_flowing
+        StyleLook.LIVING -> R.string.styles_look_living
+        StyleLook.PSYCHEDELIC -> R.string.styles_look_psychedelic
+        StyleLook.FRACTALS -> R.string.styles_look_fractals
+        StyleLook.SPACE -> R.string.styles_look_space
+        StyleLook.FLY_THROUGH -> R.string.styles_look_fly_through
+        StyleLook.GLASS -> R.string.styles_look_glass
+        StyleLook.PATTERNS -> R.string.styles_look_patterns
+        StyleLook.CLASSIC -> R.string.styles_look_classic
     }
 
 /**
@@ -407,6 +479,10 @@ private fun styleEntries(): List<StyleEntry> =
  * What stays hand-written is only the taste: which family or kind looks like which group, and the
  * loose shader styles placed one by one in [LOOSE]. A style missing from every rule lands in
  * [StyleLook.PSYCHEDELIC], so a new style always shows somewhere.
+ *
+ * ADR 0003 counts per-style metadata as engine data. The UI lead accepted this table as display
+ * data for now; once the owner has tagged every style, the tags become a `look` column in
+ * core/viz/Catalogue (and `geode_catalogue_text`), read through [Catalogue], and this table goes.
  */
 private object StyleLookTags {
     /** A family style goes by its family, any other by its kind, a loose shader by [LOOSE]. */
@@ -524,14 +600,17 @@ private fun filterKeyOf(filter: StyleFilter): String =
         is StyleFilter.Look -> "look:${filter.look.name}"
     }
 
-private fun filterLabel(filter: StyleFilter): String =
+/**
+ * The menu's name for [filter]. Kind and Family are never offered here ([styleFilters]); they fall
+ * back to All so the menu never shows an id.
+ */
+@StringRes
+private fun filterLabel(filter: StyleFilter): Int =
     when (filter) {
-        StyleFilter.All -> "All styles"
-        StyleFilter.Favourites -> "Favourites"
-        StyleFilter.Recent -> "Recent"
-        is StyleFilter.Kind -> filter.label
-        is StyleFilter.Family -> filter.label
-        is StyleFilter.Look -> filter.look.label
+        StyleFilter.All, is StyleFilter.Kind, is StyleFilter.Family -> R.string.styles_all
+        StyleFilter.Favourites -> R.string.styles_favourites
+        StyleFilter.Recent -> R.string.styles_recent
+        is StyleFilter.Look -> lookLabelRes(filter.look)
     }
 
 internal fun sceneDisplayLabel(id: String): String {

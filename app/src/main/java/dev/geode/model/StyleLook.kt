@@ -11,18 +11,17 @@ package dev.geode.model
  * A plain enum on purpose: which group a style lands in is decided in `ui/StylesPage`
  * (`StyleLookTags`), which reads each style's family and kind from the native catalogue
  * (`render/scene/Catalogue`, ADR 0003) instead of guessing them from id prefixes here. This
- * package stays pure and engine-free for `:core:model`.
+ * package stays pure and engine-free for `:core:model`. The names people read are string resources
+ * (`styles_look_*`), mapped in the same file, so this enum carries no English.
  */
-enum class StyleLook(
-    val label: String,
-) {
-    FLOWING("Flowing & liquid"),
-    LIVING("Living"),
-    PSYCHEDELIC("Psychedelic"),
-    FRACTALS("Fractals"),
-    SPACE("Space"),
-    FLY_THROUGH("Fly-through"),
-    GLASS("Glass & light"),
-    PATTERNS("Patterns"),
-    CLASSIC("Classic"),
+enum class StyleLook {
+    FLOWING,
+    LIVING,
+    PSYCHEDELIC,
+    FRACTALS,
+    SPACE,
+    FLY_THROUGH,
+    GLASS,
+    PATTERNS,
+    CLASSIC,
 }

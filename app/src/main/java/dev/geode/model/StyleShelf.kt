@@ -17,6 +17,9 @@ data class StyleShelf(
     /** [id] moves to the front; the list never repeats a style and keeps [RECENT_LIMIT] of them. */
     fun pushRecent(id: String): StyleShelf = copy(recents = (listOf(id) + recents.filterNot { it == id }).take(RECENT_LIMIT))
 
+    /** [id] leaves Recent (the row menu's "Remove from Recent"); favourites are untouched. */
+    fun removeRecent(id: String): StyleShelf = copy(recents = recents - id)
+
     companion object {
         /** About two rows of the grid on a phone: more than that is not "recent" any more. */
         const val RECENT_LIMIT = 12
@@ -25,7 +28,8 @@ data class StyleShelf(
 
 /**
  * One style as the list's filters see it: what it is called, what kind it is, its family if any,
- * and the group it is shown in ([StyleLook]).
+ * and the group it is shown in ([StyleLook]) with that group's name as the user reads it
+ * ([lookLabel], a string resource the UI fills in, so a search finds a group in the user's language).
  */
 data class StyleEntry(
     val id: String,
@@ -33,6 +37,7 @@ data class StyleEntry(
     val kindLabel: String,
     val familyLabel: String?,
     val look: StyleLook? = null,
+    val lookLabel: String? = null,
 )
 
 /**
@@ -62,8 +67,11 @@ sealed interface StyleFilter {
 object StyleFiltering {
     /**
      * The styles [filter] and [query] leave, in grid order. Recent keeps the shelf's order (newest
-     * first) rather than the catalogue's, since that order is the point of the filter. A search
-     * matches the name, the kind and the family, every word somewhere.
+     * first) rather than the catalogue's, since that order is the point of the filter.
+     *
+     * A search looks through every style, not only the chosen group: a standard search box finds
+     * what you type wherever it is, and "where did that style go" is what people search to answer.
+     * It matches the name, the kind, the family and the group, every word somewhere.
      */
     fun apply(
         entries: List<StyleEntry>,
@@ -71,27 +79,27 @@ object StyleFiltering {
         shelf: StyleShelf,
         query: String,
     ): List<StyleEntry> {
-        val byFilter =
-            when (filter) {
-                StyleFilter.All -> entries
-                StyleFilter.Favourites -> entries.filter { shelf.isFavourite(it.id) }
-                StyleFilter.Recent -> {
-                    val byId = entries.associateBy { it.id }
-                    shelf.recents.mapNotNull { byId[it] }
-                }
-                is StyleFilter.Kind -> entries.filter { it.kindLabel == filter.label }
-                is StyleFilter.Family -> entries.filter { it.familyLabel == filter.label }
-                is StyleFilter.Look -> entries.filter { it.look == filter.look }
-            }
         val terms =
             query
                 .trim()
                 .split(Regex("\\s+"))
                 .filter { it.isNotBlank() }
-        if (terms.isEmpty()) return byFilter
-        return byFilter.filter { e ->
-            val fields = listOfNotNull(e.label, e.kindLabel, e.familyLabel, e.look?.label)
-            terms.all { t -> fields.any { it.contains(t, ignoreCase = true) } }
+        if (terms.isNotEmpty()) {
+            return entries.filter { e ->
+                val fields = listOfNotNull(e.label, e.kindLabel, e.familyLabel, e.lookLabel)
+                terms.all { t -> fields.any { it.contains(t, ignoreCase = true) } }
+            }
+        }
+        return when (filter) {
+            StyleFilter.All -> entries
+            StyleFilter.Favourites -> entries.filter { shelf.isFavourite(it.id) }
+            StyleFilter.Recent -> {
+                val byId = entries.associateBy { it.id }
+                shelf.recents.mapNotNull { byId[it] }
+            }
+            is StyleFilter.Kind -> entries.filter { it.kindLabel == filter.label }
+            is StyleFilter.Family -> entries.filter { it.familyLabel == filter.label }
+            is StyleFilter.Look -> entries.filter { it.look == filter.look }
         }
     }
 }

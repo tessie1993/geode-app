@@ -204,6 +204,7 @@ fun AppRoot() {
                 modifier = modifier,
             )
         }
+        val tutorial = rememberTutorialState()
         val navEntries =
             GeodeDestination.entries
                 .map { NavEntry(it, CrystalNavItem(stringResource(it.labelRes), it.icon)) }

@@ -240,9 +240,6 @@
     <string name="a11y_show_controls">Show controls</string>
     <string name="a11y_hide_controls">Hide controls</string>
     <string name="a11y_state_on">On</string>
-    <string name="visuals_stage_hint">Double tap for the next look · swipe down to hide the bars</string>
-    <string name="visuals_stage_hint_hidden">Hold to bring the panel back</string>
-    <string name="visuals_stage_hint_bars">Swipe up for the player and tabs</string>
     <string name="visuals_view_live">View live</string>
     <string name="a11y_next_look">Next look</string>
     <string name="a11y_hide_bars">Hide the player and tabs</string>

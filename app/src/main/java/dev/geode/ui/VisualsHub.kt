@@ -199,7 +199,7 @@ fun VisualsHub(
                     NavEntry(page) {
                         when (page) {
                             VisualsPage.STYLES -> StylesTab(viewModel)
-                            VisualsPage.CUSTOMIZE -> CustomizePanel(viewModel, visualizerView)
+                            VisualsPage.CUSTOMIZE -> CustomizePanel(viewModel, visualizerView, nav = nav)
                             VisualsPage.PRESETS -> PresetsTab(viewModel, visualizerView)
                             VisualsPage.MILKDROP ->
                                 MilkDropTab(viewModel, visualizerView, onOpenTextures = { nav.push(VisualsPage.TEXTURES) })

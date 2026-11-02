@@ -161,8 +161,9 @@ fun VisualizerScreen(
                 }
             }.pointerInput(Unit) {
                 // A double tap, not a tap: a tap on the canvas is a touch on the art (smear, steer).
-                // Read at the tap, not collected: the live view need not recompose for every look.
-                detectTapGestures(onDoubleTap = { nextLook(viewModel, viewModel.vizState.value.sceneId, viewModel.gate.value) })
+                // Double tap swaps fullscreen and the options (docs/ui-redesign): here it goes back
+                // to Visuals, where the same gesture comes back.
+                detectTapGestures(onDoubleTap = { onCollapse() })
             }.chromeFling { down ->
                 controlsVisible = !down
             }.semantics {

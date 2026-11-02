@@ -23,6 +23,7 @@ import dev.geode.data.ThemeStore
 import dev.geode.pro.ProFeature
 import dev.geode.render.FramePacer
 import dev.geode.render.FrameRatePolicy
+import dev.geode.render.HandMask
 import dev.geode.render.TouchField
 import dev.geode.render.VisualizerRenderer
 import dev.geode.util.bestEffort
@@ -174,7 +175,7 @@ class VisualizerWallpaperService : WallpaperService() {
             engine.lfoEngine.configs = modulation.load()
             engine.adsrEngine.configs = modulation.loadAdsrs()
             engine.reactions = modulation.loadReactions()
-            dev.geode.render.HandMask.set(modulation.loadHandMask())
+            HandMask.set(modulation.loadHandMask())
         }
 
         /**

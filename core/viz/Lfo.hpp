@@ -22,6 +22,8 @@ enum class LfoTarget {
     Lfo1Rate, Lfo1Depth, Lfo2Rate, Lfo2Depth, Lfo3Rate, Lfo3Depth,
     // Appended: the camera rig's offsets (viz/CameraRig). Ordinals above are wire values.
     CamFly, CamOrbit, CamPush, CamYaw, CamPitch, CamRoll, CamFov, CamShake,
+    // Appended: Liquid mode's Swirl, Push and Dive (viz/liquid), after the camera rig's.
+    FlowCurl, FlowForce, EndlessZoomSpeed,
 };
 
 struct ModChain {

@@ -31,11 +31,11 @@ public:
     void recreate();
     void resize(int width, int height);
     void release();
-    bool wantsFlow(const SceneParams& p, bool fluidActive) const;
     void stepFlow(const GeodeSoundFrame& features, float dt, const SceneParams& p);
     bool rippleOverlayActive(const SceneParams& p, bool smearingNow, bool waterActive) const;
     void stepRippleOverlay(const GeodeSoundFrame& features, const SceneParams& p, float dt);
-    void drainTouchStrokes(Scene& scene);
+    // `toLiquid`: Liquid mode reads the fingers itself (TouchField), so strokes drop no ripples.
+    void drainTouchStrokes(Scene& scene, bool toLiquid);
 
 private:
     static constexpr float kTouchRadius = 0.11f;

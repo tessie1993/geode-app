@@ -39,10 +39,6 @@ void Overlays::release() {
     ripple_.reset();
 }
 
-bool Overlays::wantsFlow(const SceneParams& p, bool fluidActive) const {
-    return p.flowEnabled && !fluidActive && flow_ && flow_->available();
-}
-
 void Overlays::stepFlow(const GeodeSoundFrame& features, float dt, const SceneParams& p) {
     if (flow_) flow_->step(features, dt, p);
 }
@@ -60,7 +56,7 @@ void Overlays::stepRippleOverlay(const GeodeSoundFrame& features, const ScenePar
     r.step(dt);
 }
 
-void Overlays::drainTouchStrokes(Scene& scene) {
+void Overlays::drainTouchStrokes(Scene& scene, bool toLiquid) {
     drained_.clear();
     {
         std::lock_guard<std::mutex> lock(strokeLock_);
@@ -73,7 +69,7 @@ void Overlays::drainTouchStrokes(Scene& scene) {
     for (const TouchStroke& st : drained_) {
         if (water) {
             scene.queueTouchStroke(st.nx * 2.0f - 1.0f, 1.0f - st.ny * 2.0f, st.ndx * 2.0f, -st.ndy * 2.0f, st.dt, st.strength);
-        } else if (r && r->available()) {
+        } else if (!toLiquid && r && r->available()) {
             r->queueStroke((st.nx * 2.0f - 1.0f) * aspect, 1.0f - st.ny * 2.0f, st.ndx * 2.0f * aspect, -st.ndy * 2.0f, st.dt, kTouchRadius,
                            st.strength);
         }

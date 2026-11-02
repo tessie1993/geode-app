@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Videocam
+import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material.icons.filled.Waves
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
@@ -121,7 +122,8 @@ internal enum class AdvancedSection(
     CAMERA("Camera", "The flight path, field of view, shake and touch or tilt to look.", Icons.Filled.Videocam),
     TRANSITIONS("Transitions", "How styles hand over, and how changes glide in.", Icons.Filled.Animation),
     GRADIENT("Gradient maker", "Build and save your own palettes.", Icons.Filled.Gradient),
-    FLOW("Flow field & water ripples", "Liquid motion and ripples that ride on every style.", Icons.Filled.Waves),
+    LIQUID("Liquid", "Every style turns liquid: touch and sound mold it, and the camera dives forever.", Icons.Filled.Waves),
+    RIPPLES("Water ripples", "Rings and drops that ride on top of any style.", Icons.Filled.WaterDrop),
     SHADER_CODE("Shader code", "Edit the style's shader, or write custom fluid shaders.", Icons.Filled.Code),
 
     /** Reserved for the modulation matrix (any sound or wave to any control). Not built yet. */
@@ -270,7 +272,11 @@ private fun AdvancedSectionBody(
                 onTransitionDuration = host.viewModel::setTransitionDuration,
             )
         AdvancedSection.GRADIENT -> if (sectionVisible()) PaletteMakerCard(p, onChange, rememberSavedPalettes())
-        AdvancedSection.FLOW -> FlowPage(p, onChange)
+        AdvancedSection.LIQUID -> {
+            val liquidMode by host.visualsViewModel.liquidMode.collectAsStateWithLifecycle()
+            LiquidPage(p, onChange, liquidMode = liquidMode)
+        }
+        AdvancedSection.RIPPLES -> RipplesPage(p, onChange)
         AdvancedSection.SHADER_CODE -> if (sectionVisible()) ShaderCodePage(host)
         AdvancedSection.MODULATION_MATRIX -> Unit
     }
@@ -851,30 +857,83 @@ private fun TransitionsPage(
     }
 }
 
-/** Advanced › Flow field & water ripples: two effects that ride on any style. */
+/**
+ * Advanced › Liquid: the switch that turns every style into a flowing liquid, and how it looks.
+ *
+ * [liquidMode] is the renderer's live state (0 off, 1 full, 2 lite, 3 warp, 4 paused); 2 to 4 only
+ * happen when the phone runs hot, and the note says so rather than leaving the picture to look broken.
+ */
 @Composable
-private fun FlowPage(
+internal fun LiquidPage(
+    p: SceneParams,
+    onChange: (SceneParams) -> Unit,
+    liquidMode: Int,
+) {
+    SectionHeader("Liquid")
+    ControlHint("Every style turns liquid: touch and sound mold it, and the camera dives forever.")
+    CheckRow(FLOWFIELD_ENABLED, p.flowEnabled, display = "Liquid mode", scope = ParamScope.UNIVERSAL) {
+        onChange(p.copy(flowEnabled = it))
+    }
+    liquidHotNote(liquidMode)?.let { note ->
+        Text(
+            note,
+            modifier = Modifier.padding(top = 4.dp, bottom = 2.dp),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.error,
+        )
+    }
+    if (p.flowEnabled) {
+        val d = SceneParams.DEFAULT
+        LabeledSlider(
+            ParamKeys.FLOW_STRENGTH,
+            p.flowStrength,
+            0f..1f,
+            display = "Liquidity",
+            scope = ParamScope.UNIVERSAL,
+            default = d.flowStrength,
+        ) {
+            onChange(p.copy(flowStrength = it))
+        }
+        LabeledSlider(ParamKeys.FLOW_FORCE, p.flowForce, 0f..3f, display = "Push", scope = ParamScope.UNIVERSAL, default = d.flowForce) {
+            onChange(p.copy(flowForce = it))
+        }
+        LabeledSlider(ParamKeys.FLOW_CURL, p.flowCurl, 0f..50f, display = "Swirl", scope = ParamScope.UNIVERSAL, default = d.flowCurl) {
+            onChange(p.copy(flowCurl = it))
+        }
+        LabeledSlider(ParamKeys.DIVE_SPEED, p.endlessZoomSpeed, 0f..1.2f, scope = ParamScope.UNIVERSAL, default = d.endlessZoomSpeed) {
+            onChange(p.copy(endlessZoomSpeed = it))
+        }
+        ParamChips(ParamKeys.LIQUID_BORN, LIQUID_BORN_OPTIONS, p.liquidBorn.coerceIn(0, 3), scope = ParamScope.UNIVERSAL) {
+            onChange(p.copy(liquidBorn = it))
+        }
+        ParamChips(ParamKeys.LIQUID_AGE, LIQUID_AGE_OPTIONS, p.liquidAge.coerceIn(0, 2), scope = ParamScope.UNIVERSAL) {
+            onChange(p.copy(liquidAge = it))
+        }
+        ParamChips(ParamKeys.LIQUID_SURFACE, LIQUID_SURFACE_OPTIONS, p.liquidSurface.coerceIn(0, 2), scope = ParamScope.UNIVERSAL) {
+            onChange(p.copy(liquidSurface = it))
+        }
+    }
+}
+
+private val LIQUID_BORN_OPTIONS = listOf("Live style", "Style re-rolled", "Next style", "Forms")
+private val LIQUID_AGE_OPTIONS = listOf("Pure palette", "Fade deep", "Ink bleed")
+private val LIQUID_SURFACE_OPTIONS = listOf("Ink", "Gloss", "Glass")
+
+/** The hot-phone line for the renderer's liquid mode (0 off, 1 full, 2 lite, 3 warp, 4 paused), or null. */
+internal fun liquidHotNote(liquidMode: Int): String? =
+    when (liquidMode) {
+        2, 3 -> "Liquid simplified: phone is hot"
+        4 -> "Liquid paused: phone is hot"
+        else -> null
+    }
+
+/** Advanced › Water ripples: water on top of any style. */
+@Composable
+private fun RipplesPage(
     p: SceneParams,
     onChange: (SceneParams) -> Unit,
 ) {
     val isWaterScene = ParamScope.WATER.appliesTo(LocalSceneId.current)
-    SectionHeader("Flow field")
-    ControlHint(
-        "A shared liquid motion that bends any style: it distorts the finished picture (and exports), particle " +
-            "styles can ride it, and shader code can read it.",
-    )
-    CheckRow(FLOWFIELD_ENABLED, p.flowEnabled, scope = ParamScope.UNIVERSAL) { onChange(p.copy(flowEnabled = it)) }
-    if (p.flowEnabled) {
-        LabeledSlider(ParamKeys.FLOW_STRENGTH, p.flowStrength, 0f..1f, default = SceneParams.DEFAULT.flowStrength) {
-            onChange(p.copy(flowStrength = it))
-        }
-        LabeledSlider(ParamKeys.FLOW_FORCE, p.flowForce, 0f..3f, default = SceneParams.DEFAULT.flowForce) {
-            onChange(p.copy(flowForce = it))
-        }
-        LabeledSlider(ParamKeys.FLOW_CURL, p.flowCurl, 0f..50f, display = "Flow swirl", default = SceneParams.DEFAULT.flowCurl) {
-            onChange(p.copy(flowCurl = it))
-        }
-    }
     SectionHeader("Water ripples", ParamScope.RIPPLE_OVERLAY)
     ControlHint(
         "Water on top of any style: hits drop rings that bend the picture, the highs sprinkle small drops, and glint " +

@@ -1,6 +1,7 @@
 #pragma once
 #include <GLES3/gl3.h>
 
+#include <algorithm>
 #include <vector>
 
 #include "api/geode_api.h"
@@ -10,7 +11,8 @@
 
 namespace geode::viz::fluid {
 
-// A velocity-only fluid whose field warps the fragment styles and the composite.
+// A velocity-only fluid: the flow Liquid mode's liquid rides (viz/liquid). The sound stirs it through
+// the emitters, a finger pushes it or spins a whirlpool in it, a drop bursts it open.
 class FlowField {
 public:
     explicit FlowField(const ProgramLoader& loader) : sim_(loader, true) {
@@ -27,11 +29,23 @@ public:
 
     void create();
     void resize(int w, int h) { sim_.resize(w, h); }
+    // One finger's push at (clipX, clipY), clip units (-1..1, y up), velocity in clip units per second.
+    void queueKick(float clipX, float clipY, float velX, float velY, float radius);
+    // A whirlpool: kicks around a small ring, each along the tangent; `spin` signed, clip units/s.
+    void queueVortex(float clipX, float clipY, float spin, float radius);
+    // A burst: kicks around a ring, each pointing away from the centre.
+    void queueBurst(float clipX, float clipY, float speed, float radius);
+    // Liquid mode's grid (liquid::planFor): cells along the short side, and second-order advection.
+    void setGrid(int cells, bool macCormack);
+    // uv displacement per (velocity * second), per axis: the liquid's back-trace scale.
+    float velScaleX() const { return sim_.rdx() / static_cast<float>(std::max(sim_.velocityGridWidth(), 1)); }
+    float velScaleY() const { return sim_.rdx() / static_cast<float>(std::max(sim_.velocityGridHeight(), 1)); }
     void step(const GeodeSoundFrame& features, float dt, const SceneParams& p);
     void release() { sim_.release(); }
 
 private:
     static constexpr int kGridRes = 64;
+    static constexpr float kKickForce = 0.22f;
 
     FluidSim sim_;
     Emitters emitters_;

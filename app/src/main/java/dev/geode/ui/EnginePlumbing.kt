@@ -116,6 +116,9 @@ fun VisualizerEngineBindings(
     LaunchedEffect(performance) {
         visualizerView.applyPerformance(performance)
     }
+    LaunchedEffect(Unit) {
+        visualizerView.visualizerRenderer.liquidMode.collect { viewModel.reportLiquidMode(it) }
+    }
     LaunchedEffect(gui.reducedMotion) {
         visualizerView.visualizerRenderer.reducedMotion = gui.reducedMotion
     }

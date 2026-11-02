@@ -128,6 +128,11 @@ enum class LfoTarget(
     CAM_ROLL("Camera roll", ParamScope.UNIVERSAL),
     CAM_FOV("Camera FOV", ParamScope.UNIVERSAL),
     CAM_SHAKE("Camera shake", ParamScope.UNIVERSAL),
+
+    // Liquid mode (core/viz/liquid), appended so every wire ordinal above survives.
+    FLOW_CURL("Swirl", ParamScope.UNIVERSAL),
+    FLOW_FORCE("Push", ParamScope.UNIVERSAL),
+    DIVE_SPEED("Dive", ParamScope.UNIVERSAL),
 }
 
 /**

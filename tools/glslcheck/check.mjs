@@ -225,6 +225,99 @@ function plan(uniforms, values, textures, width, height) {
   return out;
 }
 
+
+// ---- Liquid mode (--liquid <style>) -----------------------------------------
+//
+// Runs the style and liquid_frag.glsl together for --frames frames at 30 fps and writes four
+// snapshots of what the screen shows. The per-frame numbers mirror core/viz/liquid/LiquidMath
+// (injectWeight, bornRadius, Dive, BornClock) and LiquidPass::run; when those change, change these.
+function mulberry(seed) {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+function injectWeight(l, dt) {
+  const per60 = Math.exp(Math.log(0.5) + (Math.log(0.012) - Math.log(0.5)) * l);
+  return 1 - Math.pow(1 - per60, dt * 60);
+}
+const bornRadius = (l) => 0.12 + 0.08 * l;
+const ease = (v, t, tau, dt) => v + (t - v) * (1 - Math.exp(-dt / tau));
+
+function liquidJobs(args, registry) {
+  const W = args.size, H = args.height ?? args.size;
+  const aspect = W / H;
+  const quadVert = fs.readFileSync(path.join(SHADERS, 'quad_vert.glsl'), 'utf8');
+  const styleFile = (id) => {
+    const f = path.join(SHADERS, `${id}_frag.glsl`);
+    if (!fs.existsSync(f)) throw new Error(`no such fragment style: ${id}`);
+    return resolveIncludes(fs.readFileSync(f, 'utf8'), registry);
+  };
+  const styleFrag = styleFile(args.liquid);
+  const bornId = args.born === 2 ? (args.bornStyle ?? 'kifs') : args.liquid;
+  const bornFrag = styleFile(bornId);
+  const liquidFrag = fs.readFileSync(path.join(SHADERS, 'liquid_frag.glsl'), 'utf8');
+  const styleU = parseUniforms(styleFrag);
+  const bornU = parseUniforms(bornFrag);
+  const liquidU = parseUniforms(liquidFrag);
+  const rng = mulberry(args.seed);
+  const uni = (lo, hi) => lo + (hi - lo) * rng();
+  let course = 0, tx = 0, ty = 0, tTwist = 0, tSurge = 1, vx = 0, vy = 0, twist = 0, surge = 1;
+  let roll = { uColorShift: 0.0, uZoom: 1.0, uTwist: 0.0, uSymmetry: 6 };
+  let dip = -1, gain = 1, nextSwap = 4.0;
+  const dt = 1 / 30;
+  const frames = [];
+  const snaps = new Set([Math.floor(args.frames * 0.25), Math.floor(args.frames * 0.5), Math.floor(args.frames * 0.75), args.frames - 1]);
+  const t0 = args.time ?? 37;
+  for (let i = 0; i < args.frames; i++) {
+    const t = t0 + i * dt;
+    course -= dt;
+    if (course <= 0) {
+      course = uni(2.5, 7);
+      const r = 0.22 * Math.sqrt(uni(0, 1)), a = uni(0, 6.2831853);
+      tx = r * Math.cos(a); ty = r * Math.sin(a);
+      tTwist = uni(0, 1) < 0.35 ? uni(-0.5, 0.5) : 0;
+      tSurge = uni(0.6, 1.5);
+    }
+    vx = ease(vx, tx, 1.8, dt); vy = ease(vy, ty, 1.8, dt);
+    twist = ease(twist, tTwist, 1.5, dt); surge = ease(surge, tSurge, 1.2, dt);
+    const rate = 0.25 * surge;
+    // BornClock with a phrase every 8 s.
+    if (dip < 0 && t - t0 >= nextSwap) { dip = 0; nextSwap += 8; }
+    if (dip >= 0) {
+      const halfFade = 0.225, before = dip;
+      dip += dt;
+      if (before < halfFade && dip >= halfFade) {
+        roll = { uColorShift: uni(0, 1), uZoom: uni(0.7, 1.8), uTwist: uni(-0.6, 0.6), uSymmetry: Math.round(uni(3, 10)) };
+      }
+      gain = Math.min(1, Math.abs(dip - halfFade) / halfFade);
+      if (dip >= 0.45) { dip = -1; gain = 1; }
+    }
+    const styleValues = { ...SHADER_VALUES, uTime: t };
+    const bornValues = { ...SHADER_VALUES, uTime: t + 11, ...(args.born === 1 ? roll : {}) };
+    const threeD = args.threeD;
+    const liquidValues = {
+      uVelScale: [64 / 32, 64 / 32], uTexel: [1 / W, 1 / H], uStyleTexel: [1 / W, 1 / H], uDt: dt, uAspect: aspect,
+      uVp: threeD ? [0, 0] : [vx, vy], uScale: threeD ? 1 : Math.pow(2, rate * dt), uTwist: threeD ? 0 : twist * dt,
+      uInject: injectWeight(args.liquidity, dt), uEdge: 0.6 * (1 - args.liquidity * 0.5), uSharpen: 0.35,
+      uBornR: bornRadius(args.liquidity), uBornGain: threeD ? 0 : gain, uBornMode: args.born === 3 ? 3 : 0, uFlare: 0,
+      uAge: args.age, uSurface: args.surface, uFeedback: 1, uShimmer: 0.35, uLight: 0.5, uTime: t,
+    };
+    frames.push({
+      time: t,
+      snap: snaps.has(i),
+      style: plan(styleU, styleValues, SHADER_TEXTURES, W, H),
+      born: args.born === 1 || args.born === 2 ? plan(bornU, bornValues, SHADER_TEXTURES, W, H) : [],
+      liquid: plan(liquidU, liquidValues, { uPrev: 'prev', uStyle: 'style', uBorn: 'born', uVel: 'vel' }, W, H),
+    });
+  }
+  return { styleVert: quadVert, styleFrag, bornFrag, liquidVert: quadVert, liquidFrag, frames, bornSeparate: args.born === 1 || args.born === 2, width: W, height: H };
+}
+
 // ---- driving the page ------------------------------------------------------
 
 function withKeywords(src, defines) {
@@ -265,7 +358,11 @@ function applyOverrides(values, args) {
 }
 
 function parseArgs(argv) {
-  const a = { size: 240, height: null, shaders: [], all: false, list: false, fluidDisplay: false, out: null, time: null, sound: [], set: [], bloom: null, over: null };
+  const a = {
+    size: 240, height: null, shaders: [], all: false, list: false, fluidDisplay: false, out: null, time: null,
+    liquid: null, frames: 240, born: 1, bornStyle: null, age: 0, surface: 0, liquidity: 0.35, seed: 1, threeD: false,
+    sound: [], set: [], bloom: null, over: null,
+  };
   for (let i = 0; i < argv.length; i++) {
     const v = argv[i];
     if (v === '--list') a.list = true;
@@ -276,6 +373,15 @@ function parseArgs(argv) {
     else if (v === '--size') a.size = Number(argv[++i]);
     else if (v === '--out') a.out = argv[++i];
     else if (v === '--time') a.time = Number(argv[++i]);
+    else if (v === '--liquid') a.liquid = argv[++i];
+    else if (v === '--frames') a.frames = Number(argv[++i]);
+    else if (v === '--born') a.born = Number(argv[++i]);
+    else if (v === '--born-style') a.bornStyle = argv[++i];
+    else if (v === '--age') a.age = Number(argv[++i]);
+    else if (v === '--surface') a.surface = Number(argv[++i]);
+    else if (v === '--liquidity') a.liquidity = Number(argv[++i]);
+    else if (v === '--seed') a.seed = Number(argv[++i]);
+    else if (v === '--3d') a.threeD = true;
     else if (v === '--bloom') a.bloom = argv[++i];
     else if (v === '--over') a.over = argv[++i];
     else if (v === '--sound') a.sound.push(...argv[++i].split(','));
@@ -301,6 +407,27 @@ async function main() {
   const ids = shaderIds();
   if (args.list) {
     console.log(ids.join('\n'));
+    return;
+  }
+  if (args.liquid) {
+    const job = liquidJobs(args, registry);
+    const browser = await launch();
+    try {
+      const page = await browser.openPage(pathToFileURL(path.join(HERE, 'page.html')).href);
+      const r = await page.call('__liquid', job);
+      for (const line of page.drainConsole()) console.log(`  [page] ${line}`);
+      if (r.error) {
+        console.log(`FAIL liquid ${args.liquid}: ${r.error}`);
+        process.exit(1);
+      }
+      console.log(`ok   liquid ${args.liquid} (${job.frames.length} frames, half-float liquid ${r.half}, glError ${r.glError})`);
+      const dir = args.out ?? path.join(HERE, 'out', `liquid_${args.liquid}`);
+      fs.mkdirSync(dir, { recursive: true });
+      for (const f of r.frames) fs.writeFileSync(path.join(dir, `f${String(f.index).padStart(4, '0')}.png`), Buffer.from(f.png, 'base64'));
+      console.log(`     wrote ${r.frames.length} snapshots to ${dir}`);
+    } finally {
+      await browser.close();
+    }
     return;
   }
   const jobs = [];

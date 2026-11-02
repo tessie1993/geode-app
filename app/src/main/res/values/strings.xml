@@ -92,6 +92,11 @@
     <string name="perf_post_fx_hint">Flow distortion, touch ripples and fluid bloom.</string>
     <string name="perf_adaptive">Adapt to frame time</string>
     <string name="perf_adaptive_hint">Steps quality down while frames run slow, and back up once they keep up.</string>
+    <string name="perf_liquid_hot">Liquid on a hot phone</string>
+    <string name="perf_liquid_hot_simplify">Simplify (keep it flowing)</string>
+    <string name="perf_liquid_hot_full">Full (phone may throttle)</string>
+    <string name="perf_liquid_hot_pause">Pause</string>
+    <string name="perf_liquid_hot_hint">What Liquid mode does when the phone gets hot. Simplify keeps the flow with fewer details, Full never steps down, Pause freezes the liquid until the phone cools.</string>
     <string name="perf_export_note">Applies to the visualizer, wallpaper and screensaver. Exports always render at full quality.</string>
 
     <!-- Settings > Help -->

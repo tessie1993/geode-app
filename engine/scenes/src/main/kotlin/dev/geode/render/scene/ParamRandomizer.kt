@@ -49,6 +49,11 @@ object ParamRandomizer {
             ParamKeys.FLOW_STRENGTH to listOf("flowStrength"),
             ParamKeys.FLOW_FORCE to listOf("flowForce"),
             ParamKeys.FLOW_CURL to listOf("flowCurl"),
+            // Liquid mode's pickers are never rolled (native leaves them out of the roll table), so
+            // only a page reset or a hand-off between pages ever moves them.
+            ParamKeys.LIQUID_BORN to listOf("liquidBorn"),
+            ParamKeys.LIQUID_AGE to listOf("liquidAge"),
+            ParamKeys.LIQUID_SURFACE to listOf("liquidSurface"),
             ParamKeys.RIPPLE_OVERLAY_STRENGTH to listOf("rippleOverlayStrength"),
             ParamKeys.RIPPLE_GLINT to listOf("rippleOverlaySpecular"),
         )

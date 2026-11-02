@@ -7,12 +7,24 @@
 #include "viz/Catalogue.hpp"
 #include "viz/CompositeGrade.hpp"
 #include "viz/EndlessZoom.hpp"
+#include "viz/ParamRandomizer.hpp"
 #include "viz/Quad.hpp"
 
 namespace geode::viz {
 
 namespace {
 constexpr float kTouchMinOverlayStrength = 0.35f;
+// Liquid mode's hand and sound on the flow (clip units per second into FlowField's kicks), and the
+// radius of each kind of kick: a drag moves the liquid about as fast as the finger.
+constexpr float kLiquidPush = 1.0f;
+constexpr float kLiquidSwirl = 2.4f;
+constexpr float kLiquidBurst = 3.0f;
+constexpr float kPushRadius = 0.08f;
+constexpr float kSwirlRadius = 0.07f;
+constexpr float kBurstRadius = 0.12f;
+// How hard the liquid sharpens its own back-trace, and how much extra the style's edges are re-poured.
+constexpr float kLiquidSharpen = 0.35f;
+constexpr float kLiquidEdge = 0.6f;
 
 // The per-scene band trims (bassGain, midGain, trebGain) on the sound frame a scene reads: each band's
 // level and att envelope, and its shaped low/middle/high.
@@ -176,10 +188,12 @@ SceneParams Renderer::resolveParams(float dt) {
     p = motionField_.apply(p, reducedMotion, sceneSpin_.load(std::memory_order_relaxed));
     p = safety::apply(p, reducedMotion);
     const bool userPostFx = userPostFx_.load(std::memory_order_relaxed);
-    if (!thermalTierInfo(thermal_.tier()).optionalPasses || !userPostFx) {
-        p.flowEnabled = false;
-        p.rippleOverlayEnabled = false;
-    }
+    if (!thermalTierInfo(thermal_.tier()).optionalPasses || !userPostFx) p.rippleOverlayEnabled = false;
+    // Liquid mode is a mode the user switched on, not an optional pass: a hot phone simplifies or pauses
+    // it as Settings › Performance says, and says so (liquidMode), but never drops it silently.
+    const auto hot = liquid::hotPolicyFrom(liquidHotPolicy_.load(std::memory_order_relaxed));
+    liveLiquid_ = p.flowEnabled ? liquid::modeFor(thermal_.tier(), hot) : liquid::Mode::Off;
+    liquidMode_.store(static_cast<int>(liveLiquid_), std::memory_order_relaxed);
     if (!userPostFx) p.fluidBloom = false;
     lastFinalParams_ = p;
     postRotationAngle_ = grade::integrateRotation(postRotationAngle_, p.rotation, dt);
@@ -278,27 +292,17 @@ void Renderer::drawSceneTarget(Scene& scene, const SceneParams& p, float dt) {
     scene.draw(timeSeconds_);
 }
 
-void Renderer::composite(Scene& scene, const SceneParams& p, float progress, GLuint targetFbo) {
+void Renderer::composite(const SceneParams& p, float progress, GLuint targetFbo, GLuint liquidTex) {
     glBindFramebuffer(GL_FRAMEBUFFER, targetFbo);
     glViewport(0, 0, width_, height_);
     glDisable(GL_BLEND);
     CompositePass::Inputs& in = compositeInputs_;
     in.texA = fboA_.tex();
     in.texB = fboB_.tex();
-    GLuint flowTex = compositePass_.zeroTex();
-    float flowStrength = 0.0f;
-    if (p.flowEnabled) {
-        fluid::FlowField* ff = overlays_.flow();
-        if (const GLuint own = scene.velocityTexture(); own != 0) {
-            flowTex = own;
-            flowStrength = p.flowStrength;
-        } else if (ff && ff->available()) {
-            flowTex = ff->velocityTex();
-            flowStrength = p.flowStrength;
-        }
-    }
-    in.flowTex = flowTex;
-    in.flowStrength = flowStrength;
+    // Liquid mode shows the liquid in place of the scene target; the composite's old flow nudge is retired.
+    if (liquidTex != 0) in.texA = liquidTex;
+    in.flowTex = compositePass_.zeroTex();
+    in.flowStrength = 0.0f;
     fluid::RippleSim* ripple = overlays_.ripple();
     const bool rippleOn = rippleOverlayOn_ && ripple != nullptr;
     in.rippleTex = rippleOn ? ripple->heightTex() : compositePass_.zeroTex();
@@ -348,11 +352,12 @@ void Renderer::composite(Scene& scene, const SceneParams& p, float progress, GLu
 }
 
 void Renderer::stepOverlays(Scene& scene, const SceneParams& p, float dt) {
-    if (overlays_.wantsFlow(p, scene.isFluid())) overlays_.stepFlow(gainAdjusted(soundFrame_, p), dt, p);
     smearing_ = overlays_.smearing(monotonicSeconds());
     // Stepped once per frame ahead of every draw so each scene reads the same anchor.
     touchField_.step(dt);
-    overlays_.drainTouchStrokes(scene);
+    // In Liquid mode a finger moves the liquid (stepLiquid) instead of dropping ripples.
+    overlays_.drainTouchStrokes(scene, liquidOn());
+    stepLiquid(scene, p, dt);
     rippleOverlayOn_ = overlays_.rippleOverlayActive(p, smearing_, scene.isWater());
     if (rippleOverlayOn_) overlays_.stepRippleOverlay(gainAdjusted(soundFrame_, p), p, dt);
 }
@@ -377,13 +382,15 @@ void Renderer::stepCamera(const SceneParams& p, float dt) {
     SceneParams rigParams = p;
     rigParams.endlessZoom = p.endlessZoom && activeScene_ != nullptr && activeScene_->drawsCamera() &&
                             !endless::keepsTriangle(activeScene_->id());
+    // Liquid mode owns the dive: a 3D style dives by flying the rig through it, at Dive speed.
+    if (liquidOn() && activeScene_ != nullptr && activeScene_->drawsCamera()) rigParams.endlessZoom = true;
     camera_.step(rigParams, look, dt, reducedMotion_.load(std::memory_order_relaxed),
                  sceneSpin_.load(std::memory_order_relaxed) != 0.0f, &soundFrame_);
 }
 
 void Renderer::wireFlow(Scene& target, const SceneParams& p) {
     fluid::FlowField* ff = overlays_.flow();
-    if (p.flowEnabled && ff) {
+    if (liquidOn() && ff) {
         target.setFlow(ff->available() ? ff->velocityTex() : compositePass_.zeroTex(), p.flowStrength);
     } else {
         target.setFlow(compositePass_.zeroTex(), 0.0f);
@@ -409,8 +416,161 @@ void Renderer::render(double timeSeconds, GLuint targetFbo) {
     stepOverlays(*scene, p, dt);
     stepCamera(p, dt);
     const float progress = drawSecondaryTargets(p, dt);
-    drawSceneTarget(*scene, p, dt);
-    composite(*scene, p, progress, targetFbo);
+    // Liquid mode owns the dive, so a 2D style's own endless-zoom layers step aside (nothing dives twice).
+    SceneParams sceneParams = p;
+    if (liquidOn() && !scene->drawsCamera()) sceneParams.endlessZoom = false;
+    drawSceneTarget(*scene, sceneParams, dt);
+    const GLuint liquidTex = drawLiquid(*scene, p, dt);
+    composite(p, progress, targetFbo, liquidTex);
+}
+
+void Renderer::stepLiquid(Scene& scene, const SceneParams& p, float dt) {
+    if (!liquidOn()) {
+        // Paused keeps its place: the liquid comes back as it was once the phone cools.
+        if (liveLiquid_ == liquid::Mode::Off) liquidWasOn_ = false;
+        return;
+    }
+    if (!liquidWasOn_) {
+        // Truly random each play (the user's call): the device's entropy, never the clock or the track.
+        std::random_device rd;
+        const uint64_t seed = (static_cast<uint64_t>(rd()) << 32) ^ rd();
+        liquidDive_.reseed(seed);
+        bornClock_.reseed(seed * 0x9E3779B97F4A7C15ull + 1);
+        liquidGestures_.reset();
+        liquidPass_.reset();
+        bornRolled_ = false;
+        bornSceneId_.clear();
+        liquidFlare_ = 0.0f;
+        liquidWasOn_ = true;
+    }
+    const liquid::Plan plan = liquid::planFor(liveLiquid_);
+    // The fingers down now (TouchField keeps released ones fading at strength < 1).
+    const auto& pts = touchField_.points();
+    float xy[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+    int fingers = 0;
+    for (int i = 0; i < TouchField::kMaxPoints; i++) {
+        const size_t base = static_cast<size_t>(i * TouchField::kPointStride);
+        if (pts[base + 2] < 0.999f) break;
+        if (fingers < 2) {
+            xy[fingers * 2] = pts[base];
+            xy[fingers * 2 + 1] = pts[base + 1];
+        }
+        fingers++;
+    }
+    const liquid::GestureOut g = liquidGestures_.step(std::min(fingers, 2), xy, dt);
+    const float aspect = static_cast<float>(renderWidth_) / static_cast<float>(std::max(renderHeight_, 1));
+    const bool threeD = scene.drawsCamera();
+    const bool reducedMotion = reducedMotion_.load(std::memory_order_relaxed);
+    const float rate = threeD ? 0.0f : std::clamp(p.endlessZoomSpeed, 0.0f, 1.2f) * endless::musicRate(soundFrame_, p.audioDrive);
+    liquidFrame_ = liquidDive_.step(dt, rate, g.steerX * aspect, g.steerY, g.steerWeight, reducedMotion);
+    if (threeD) {
+        liquidFrame_.scale = 1.0f;
+        liquidFrame_.twist = 0.0f;
+    }
+    const bool drop = soundFrame_.drop > 0.5f;
+    liquidFlare_ = liquid::dropFlare(liquidFlare_, drop, dt);
+    const bool trigger = soundFrame_.phrase > 0.5f || soundFrame_.sectionChange > 0.5f;
+    if (bornClock_.step(dt, trigger, soundFrame_.beatConf > 0.35f)) {
+        bornRolled_ = false;
+        bornSceneId_.clear();
+    }
+    fluid::FlowField* ff = overlays_.flow();
+    if (ff == nullptr || !ff->available() || plan.velocityGrid <= 0) return;
+    ff->setGrid(plan.velocityGrid, plan.macCormack);
+    const float force = std::clamp(p.flowForce, 0.0f, 3.0f);
+    if (g.push) ff->queueKick(g.x, g.y, g.vx * kLiquidPush * force, g.vy * kLiquidPush * force, kPushRadius);
+    if (std::fabs(g.swirl) > 0.02f) ff->queueVortex(g.x, g.y, g.swirl * kLiquidSwirl * force, kSwirlRadius);
+    if (drop && !reducedMotion) ff->queueBurst(liquidFrame_.vpX / aspect, liquidFrame_.vpY, kLiquidBurst * force, kBurstRadius);
+    // The mids drive the swirl: Swirl is what a full mid band reaches.
+    SceneParams fp = p;
+    fp.flowCurl = std::clamp(p.flowCurl, 0.0f, 50.0f) * (0.4f + 0.6f * std::clamp(soundFrame_.middle, 0.0f, 1.0f));
+    overlays_.stepFlow(gainAdjusted(soundFrame_, p), dt, fp);
+}
+
+GLuint Renderer::drawBorn(Scene& scene, const SceneParams& p, float dt) {
+    const liquid::Born born = liquid::bornFrom(p.liquidBorn);
+    // A re-roll and the next style each draw a whole second scene, so only the full liquid affords them.
+    if (liveLiquid_ != liquid::Mode::Full || born == liquid::Born::Live || born == liquid::Born::Forms) return fboA_.tex();
+    if (!bornFbo_.ensure(renderWidth_, renderHeight_)) return fboA_.tex();
+    if (born == liquid::Born::Rerolled) {
+        // A stateful family (MilkDrop, the fluid) cannot draw twice in one frame without stepping twice.
+        if (scene.family() != SceneFamily::Shader) return fboA_.tex();
+        if (!bornRolled_) {
+            const uint64_t seed = bornClock_.rollSeed();
+            bornParams_ = randomizer::randomize(p, seed, randomizer::Tab::Shape, scene.id(), {});
+            bornParams_ = randomizer::randomize(bornParams_, seed ^ 0x5DEECE66Dull, randomizer::Tab::Color, scene.id(), {});
+            bornRolled_ = true;
+        }
+        glBindFramebuffer(GL_FRAMEBUFFER, bornFbo_.fbo());
+        glViewport(0, 0, renderWidth_, renderHeight_);
+        glClear(GL_COLOR_BUFFER_BIT);
+        scene.setParams(bornParams_);
+        scene.draw(timeSeconds_);
+        scene.setParams(p);
+        return bornFbo_.tex();
+    }
+    // The next style: a flat shader style the born clock picked, staged like the layer scene, one target
+    // at a time. The one it replaces is released, so a long play does not keep every style it passed.
+    if (requestedPending_ || outgoingScene_ != nullptr) return fboA_.tex();
+    if (bornSceneId_.empty()) {
+        std::vector<std::string> pool;
+        for (const std::string& id : catalogue::allIds()) {
+            if (id != scene.id() && catalogue::isShaderStyle(id) && !catalogue::isMarched(id) && registry_.knows(id)) pool.push_back(id);
+        }
+        if (pool.empty()) return fboA_.tex();
+        bornSceneId_ = pool[static_cast<size_t>(bornClock_.rollSeed() % pool.size())];
+        if (!lastBornSceneId_.empty() && lastBornSceneId_ != bornSceneId_) dropScene(lastBornSceneId_);
+        lastBornSceneId_ = bornSceneId_;
+    }
+    Scene* next = readyScene(bornSceneId_);
+    if (next == nullptr || next == &scene || next == layerScene_) return fboA_.tex();
+    glBindFramebuffer(GL_FRAMEBUFFER, bornFbo_.fbo());
+    glViewport(0, 0, renderWidth_, renderHeight_);
+    glClear(GL_COLOR_BUFFER_BIT);
+    next->setParams(p);
+    deliverPcm(*next);
+    next->update(gainAdjusted(soundFrame_, p), dt);
+    next->draw(timeSeconds_);
+    return bornFbo_.tex();
+}
+
+GLuint Renderer::drawLiquid(Scene& scene, const SceneParams& p, float dt) {
+    if (!liquidOn()) return 0;
+    const liquid::Plan plan = liquid::planFor(liveLiquid_);
+    const int w = std::max(static_cast<int>(static_cast<float>(renderWidth_) * plan.liquidScale), 1);
+    const int h = std::max(static_cast<int>(static_cast<float>(renderHeight_) * plan.liquidScale), 1);
+    if (!liquidPass_.ensure(w, h)) return 0;
+    fluid::FlowField* ff = overlays_.flow();
+    const bool flowing = ff != nullptr && ff->available() && plan.velocityGrid > 0;
+    const bool threeD = scene.drawsCamera();
+    const liquid::Born born = liquid::bornFrom(p.liquidBorn);
+    liquid::LiquidPass::Frame f;
+    f.styleTex = fboA_.tex();
+    f.bornTex = threeD ? fboA_.tex() : drawBorn(scene, p, dt);
+    f.velocityTex = flowing ? ff->velocityTex() : compositePass_.zeroTex();
+    f.velScaleX = flowing ? ff->velScaleX() : 0.0f;
+    f.velScaleY = flowing ? ff->velScaleY() : 0.0f;
+    f.styleWidth = renderWidth_;
+    f.styleHeight = renderHeight_;
+    f.dt = dt;
+    f.dive = liquidFrame_;
+    const float liquidity = std::clamp(p.flowStrength, 0.0f, 1.0f);
+    f.inject = liquid::injectWeight(liquidity, dt);
+    f.edge = kLiquidEdge * (1.0f - 0.5f * liquidity);
+    f.sharpen = liveLiquid_ == liquid::Mode::Full ? kLiquidSharpen : 0.0f;
+    f.bornRadius = liquid::bornRadius(liquidity);
+    // A 3D style dives by flying its camera; nothing is born at a vanishing point it does not have.
+    f.bornGain = threeD ? 0.0f : bornClock_.gain();
+    f.bornMode = born == liquid::Born::Forms ? 3 : 0;
+    f.flare = liquidFlare_;
+    f.age = static_cast<int>(liquid::ageFrom(p.liquidAge));
+    f.surface = static_cast<int>(liquid::surfaceFrom(p.liquidSurface));
+    f.feedback = plan.feedback;
+    f.shimmer = std::clamp(soundFrame_.high, 0.0f, 1.0f) * 0.8f;
+    f.light = std::clamp(soundFrame_.level, 0.0f, 1.0f);
+    f.time = timeSeconds_;
+    f.quadVao = quadVao_;
+    return liquidPass_.run(f);
 }
 
 }  // namespace geode::viz

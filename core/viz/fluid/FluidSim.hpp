@@ -68,6 +68,9 @@ public:
     GLuint dyeTex() const { return dye_ ? dye_->read().tex() : 0; }
     GLuint velocityTex() const { return velocity_ ? velocity_->read().tex() : 0; }
     int velocityGridHeight() const { return velocity_ ? velocity_->height() : 128; }
+    int velocityGridWidth() const { return velocity_ ? velocity_->width() : 128; }
+    /** Cells per sim unit: a velocity times dt times this, over the grid size, is a uv displacement. */
+    float rdx() const { return rdx_; }
     /** The heat field, the velocity grid's size; 0 for a style without one (samples as zero). */
     GLuint temperatureTex() const { return temperature_ ? temperature_->read().tex() : 0; }
     /** Whether this sim carries a temperature field; takes effect at the next grid allocation. */

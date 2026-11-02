@@ -264,6 +264,10 @@ const std::vector<std::pair<const char*, const char*>>& neverRolled() {
         {"noteChords", "a Note & key amount: how much the user wants the notes to move things"},
         {"noteDrums", "a Note & key amount: how much the user wants the notes to move things"},
         {"noteBloom", "a Note & key amount: how much the user wants the notes to move things"},
+        // Liquid mode's pickers: the user's choice of what the liquid is, not a look to roll.
+        {"liquidBorn", "a Liquid mode pick"},
+        {"liquidAge", "a Liquid mode pick"},
+        {"liquidSurface", "a Liquid mode pick"},
         // Inert since wave three (see SceneParams): no reader, so no control and no roll.
         {"pulse", "inert since wave three"},
         {"shake", "inert since wave three"},

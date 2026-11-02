@@ -207,6 +207,15 @@ data class SceneParams(
     val noteDrums: Float = 1f,
     /** Note & key reactions: how big each note bloom grows, 0..2. */
     val noteBloom: Float = 1f,
+    /**
+     * Liquid mode (Customize › Advanced › Liquid; the switch is [flowEnabled], Liquidity [flowStrength]):
+     * what forms at the vanishing point. 0 the live style, 1 a re-roll of it, 2 the next style, 3 ink forms.
+     */
+    val liquidBorn: Int = 1,
+    /** Liquid mode: what ageing liquid does. 0 keeps the palette, 1 fades with depth, 2 bleeds ink. */
+    val liquidAge: Int = 0,
+    /** Liquid mode: the liquid's surface. 0 ink, 1 wet gloss, 2 glass. */
+    val liquidSurface: Int = 0,
 ) {
     companion object {
         const val UNSET_OVERRIDE: Float = -1f

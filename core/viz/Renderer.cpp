@@ -312,6 +312,9 @@ void Renderer::onSurfaceCreated() {
     touchField_.reset();
     fboA_.release();
     fboB_.release();
+    bornFbo_.release();
+    liquidWasOn_ = false;
+    lastBornSceneId_.clear();
     compositePass_.releaseStaleTextures();
     activeScene_ = nullptr;
     outgoingScene_ = nullptr;
@@ -338,6 +341,8 @@ void Renderer::onSurfaceCreated() {
     if (!compositePass_.create(*fadeVert, &error)) fail(error);
     // The note blooms are an extra: a driver that will not build them loses the flowers, not the frame.
     if (!bloomPass_.create(assets_, &programCache_, *fadeVert, &error)) GEODE_LOGW(kTag, "note blooms off: %s", error.c_str());
+    // Liquid mode: half float where this GPU renders it, so a deep pour-back does not band.
+    if (!liquidPass_.create(assets_, &programCache_, *fadeVert, fluid::probeFormats().ok, &error)) fail(error);
 
     // The cyclic palette LUT: five 256-entry RGB rows.
     const auto palette = assets_.readAsset("shaders/cyclic_palettes.bin");
@@ -427,6 +432,17 @@ void Renderer::cut() {
     outgoingScene_ = nullptr;
     outgoingParams_.reset();
     layerScene_ = nullptr;
+}
+
+void Renderer::dropScene(const std::string& id) {
+    for (auto it = scenes_.begin(); it != scenes_.end(); ++it) {
+        if (it->first != id) continue;
+        Scene* s = it->second.get();
+        if (s == activeScene_ || s == outgoingScene_ || s == layerScene_) return;
+        s->release();
+        scenes_.erase(it);
+        return;
+    }
 }
 
 Scene* Renderer::builtScene(const std::string& id) {

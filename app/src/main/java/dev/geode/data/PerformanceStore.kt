@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.os.Build
 import androidx.core.content.edit
+import dev.geode.render.LiquidHotPolicy
 import dev.geode.render.PerformanceMode
 import dev.geode.render.PerformanceSettings
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -42,6 +43,7 @@ class PerformanceStore(
             marchScale = prefs.getFloat(KEY_MARCH, fallback.marchScale),
             postFx = prefs.getBoolean(KEY_POST_FX, fallback.postFx),
             adaptive = prefs.getBoolean(KEY_ADAPTIVE, fallback.adaptive),
+            liquidHot = LiquidHotPolicy.fromNative(prefs.getInt(KEY_LIQUID_HOT, fallback.liquidHot.native)),
         )
     }
 
@@ -52,6 +54,7 @@ class PerformanceStore(
             putFloat(KEY_MARCH, settings.marchScale)
             putBoolean(KEY_POST_FX, settings.postFx)
             putBoolean(KEY_ADAPTIVE, settings.adaptive)
+            putInt(KEY_LIQUID_HOT, settings.liquidHot.native)
         }
 
     private companion object {
@@ -60,6 +63,7 @@ class PerformanceStore(
         const val KEY_MARCH = "perf_march_scale"
         const val KEY_POST_FX = "perf_post_fx"
         const val KEY_ADAPTIVE = "perf_adaptive"
+        const val KEY_LIQUID_HOT = "perf_liquid_hot"
     }
 }
 

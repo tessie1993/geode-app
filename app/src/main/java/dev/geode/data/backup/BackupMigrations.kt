@@ -39,23 +39,37 @@ object BackupMigrations {
         var entries = manifest.entries
         for (section in BackupSection.entries.filter { it.id in manifest.sections }) {
             for ((name, keys) in section.borrowedKeys) {
-                val ownerPath = BackupFormat.prefsPath(name)
-                val owner = File(root, ownerPath)
-                if (entries.none { it.path == ownerPath } || !owner.isFile) continue
-                val (moved, kept) = PrefsJson.decode(owner.readText()).entries.partition { it.key in keys }
-                if (moved.isEmpty()) continue
-                val slicePath = BackupFormat.slicePath(section, name)
-                val written =
-                    listOf(ownerPath to kept, slicePath to moved).map { (path, values) ->
-                        val bytes = PrefsJson.encode(values.associate { it.toPair() }).toByteArray(Charsets.UTF_8)
-                        val file = File(root, path).apply { parentFile?.mkdirs() }
-                        val (size, sha) = file.outputStream().use { BackupArchive.copyHashed(bytes.inputStream(), it, Long.MAX_VALUE) }
-                        BackupEntry(path, size, sha)
-                    }
-                entries = entries.filter { it.path != ownerPath && it.path != slicePath } + written
+                entries = splitFile(section, name, keys, entries, root) ?: entries
             }
         }
         return manifest.copy(entries = entries)
+    }
+
+    /**
+     * Moves [keys] of prefs file [name] out of its owner's file into [section]'s slice, rewriting
+     * both and their entries. Null when there is nothing to move: no owner file, or none of the keys.
+     */
+    private fun splitFile(
+        section: BackupSection,
+        name: String,
+        keys: Set<String>,
+        entries: List<BackupEntry>,
+        root: File,
+    ): List<BackupEntry>? {
+        val ownerPath = BackupFormat.prefsPath(name)
+        val owner = File(root, ownerPath)
+        if (entries.none { it.path == ownerPath } || !owner.isFile) return null
+        val (moved, kept) = PrefsJson.decode(owner.readText()).entries.partition { it.key in keys }
+        if (moved.isEmpty()) return null
+        val slicePath = BackupFormat.slicePath(section, name)
+        val written =
+            listOf(ownerPath to kept, slicePath to moved).map { (path, values) ->
+                val bytes = PrefsJson.encode(values.associate { it.toPair() }).toByteArray(Charsets.UTF_8)
+                val file = File(root, path).apply { parentFile?.mkdirs() }
+                val (size, sha) = file.outputStream().use { BackupArchive.copyHashed(bytes.inputStream(), it, Long.MAX_VALUE) }
+                BackupEntry(path, size, sha)
+            }
+        return entries.filter { it.path != ownerPath && it.path != slicePath } + written
     }
 
     /** Runs every step from the manifest's version up to [target]. A gap in the chain is DAMAGED. */

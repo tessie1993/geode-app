@@ -147,7 +147,7 @@ internal fun BoxScope.StageIcons(
                 val width = (constraints.maxWidth - endPx().roundToInt()).coerceAtLeast(0)
                 val height = (constraints.maxHeight - sheetTopPx().roundToInt()).coerceAtLeast(0)
                 val placeable = measurable.measure(Constraints.fixed(width, height))
-                layout(constraints.maxWidth, constraints.maxHeight) { placeable.place(0, 0) }
+                layout(constraints.maxWidth, constraints.maxHeight) { placeable.placeRelative(0, 0) }
             },
     ) {
         StageIconButton(

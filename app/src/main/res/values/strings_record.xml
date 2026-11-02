@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Part 2D: the ask-once save sheet after the first recorded take. -->
+    <string name="record_save_title">Where should takes be saved?</string>
+    <string name="record_save_body">“%1$s” will render to a video in the background. Pick once; every later take goes to the same place. You can change it in Settings › Export &amp; save.</string>
+    <string name="record_save_library">Videos library</string>
+    <string name="record_save_library_hint">Movies/MuzViz, seen by the gallery and other apps</string>
+    <string name="record_save_folder">Choose a folder…</string>
+    <string name="record_save_later">Not now</string>
+</resources>

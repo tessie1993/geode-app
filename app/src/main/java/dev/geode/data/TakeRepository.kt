@@ -1,6 +1,7 @@
 package dev.geode.data
 
 import dev.geode.editor.ProjectId
+import dev.geode.editor.StudioProject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -23,6 +24,17 @@ interface TakeRepository {
         from: String,
         to: String,
     ): Boolean
+
+    /** Where takes render to, or null when the user has not been asked yet. */
+    suspend fun saveTarget(): SaveTarget?
+
+    suspend fun chooseSaveTarget(target: SaveTarget)
+
+    /** The take's project with [saveTo] written into its export settings, ready to render. */
+    suspend fun projectToRender(
+        name: String,
+        saveTo: SaveTarget,
+    ): StudioProject?
 }
 
 class FileTakeRepository(
@@ -47,4 +59,15 @@ class FileTakeRepository(
         from: String,
         to: String,
     ): Boolean = withContext(Dispatchers.IO) { store.rename(from, to) }
+
+    override suspend fun saveTarget(): SaveTarget? = withContext(Dispatchers.IO) { store.saveTarget() }
+
+    override suspend fun chooseSaveTarget(target: SaveTarget) {
+        withContext(Dispatchers.IO) { store.chooseSaveTarget(target) }
+    }
+
+    override suspend fun projectToRender(
+        name: String,
+        saveTo: SaveTarget,
+    ): StudioProject? = withContext(Dispatchers.IO) { store.projectToRender(name, saveTo) }
 }

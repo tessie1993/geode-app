@@ -42,8 +42,10 @@ data class TakeInfo(
  */
 class TakeStore(
     private val projects: EditorProjectStore,
+    /** Where takes render to, asked once (part 2D); null where nothing renders (tests). */
+    private val saveTargets: RecordSaveStore? = null,
 ) {
-    constructor(context: Context) : this(EditorProjectStore(context))
+    constructor(context: Context) : this(EditorProjectStore(context), RecordSaveStore(context))
 
     private val ids = IdSource { UUID.randomUUID().toString() }
 
@@ -122,6 +124,32 @@ class TakeStore(
         projects.saveTake(project.id, takeId, body)
         projects.save(project)
         return candidate
+    }
+
+    /** Where takes render to, or null when the user has not been asked yet. */
+    @WorkerThread
+    fun saveTarget(): SaveTarget? = saveTargets?.target()
+
+    /** Keeps [target] as where every later take renders, so the next stop does not ask. */
+    @WorkerThread
+    fun chooseSaveTarget(target: SaveTarget) {
+        saveTargets?.choose(target)
+    }
+
+    /**
+     * The take called [name]'s project, ready to render to [saveTo]. The target is written into the
+     * project's own export settings first, so a render from My videos or Edit later goes to the same
+     * place the take's first render did.
+     */
+    @WorkerThread
+    fun projectToRender(
+        name: String,
+        saveTo: SaveTarget,
+    ): StudioProject? {
+        val project = byName(name) ?: return null
+        if (project.export.saveTo == saveTo) return project
+        val stamped = project.copy(export = project.export.copy(saveTo = saveTo))
+        return if (projects.save(stamped)) stamped else project
     }
 
     /** Deletes the take's whole project: a take lives in its project and nowhere else. */

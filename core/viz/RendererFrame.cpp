@@ -139,6 +139,13 @@ SceneParams Renderer::resolveParams(float dt) {
                                               : director::global();
     director_.configure(directorConfig);
     director_.step(soundFrame_, dt);
+    if (director_.commits() != directorCommitsSeen_) {
+        directorCommitsSeen_ = director_.commits();
+        const Director::Reason why = director_.lastReason();
+        if (why == Director::Reason::Section || why == Director::Reason::Drop) {
+            directorStyleMoments_.fetch_add(1, std::memory_order_acq_rel);
+        }
+    }
     directedKnobs_ = director_.knobs(frameKnobs_);
     // Note & key reactions hear the frame next, inside the director's look: its hue anchors the notes'
     // colours, and its feeling (the director's emotion, stepped whether or not it drives) is the mood. Its

@@ -12,6 +12,7 @@ import dev.geode.audio.AudioFxState
 import dev.geode.audio.MicCapture
 import dev.geode.data.BackgroundPrefs
 import dev.geode.data.BackgroundPrefsStore
+import dev.geode.data.BehaviourStore
 import dev.geode.data.DeviceTrackQuery
 import dev.geode.data.EditorProjectStore
 import dev.geode.data.FavouritesRepository
@@ -514,6 +515,8 @@ class PlayerSession internal constructor(
                 override val player: Player get() = this@PlayerSession.player
                 override val fadeMs: Int get() = settings.playerPrefs.value.fadeMs
 
+                override fun setVolume(volume: Float) = playback.setUiVolume(volume)
+
                 override fun stopLiveInput() {
                     if (captureController.micActive) setMicEnabled(false)
                 }
@@ -591,6 +594,8 @@ class PlayerSession internal constructor(
     fun setRandomizeColors(enabled: Boolean) = autoVisuals.setRandomizeColors(enabled)
 
     fun randomStepNow() = autoVisuals.randomStepNow()
+
+    fun onDirectorStyleMoment() = autoVisuals.onDirectorMoment()
 
     fun applyVizEntry(entry: VizPlaylistEntry) = autoVisuals.applyVizEntry(entry)
 
@@ -1227,8 +1232,10 @@ class PlayerSession internal constructor(
 
     private suspend fun attachPlayback() {
         val pp = settings.loadedPlayerPrefs()
-        player.shuffleModeEnabled = pp.shuffle
-        player.repeatMode = pp.repeatMode
+        if (withContext(Dispatchers.IO) { BehaviourStore(prefsFiles.general).load().rememberShuffleRepeat }) {
+            player.shuffleModeEnabled = pp.shuffle
+            player.repeatMode = pp.repeatMode
+        }
         settings.applyPlaybackPrefs(pp)
         val alreadyLoaded = player.currentMediaItem != null
         if (alreadyLoaded) {

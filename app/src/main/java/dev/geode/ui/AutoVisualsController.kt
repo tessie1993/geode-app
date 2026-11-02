@@ -167,6 +167,17 @@ internal class AutoVisualsController(
         host.milkFilesAsync { cachedMilkFiles = it }
     }
 
+    /**
+     * One Auto mode (owner): with the auto-director on, a new section or a drop also brings a new look:
+     * the visual playlist's next entry when it is cycling, otherwise a draw from Auto's sources, as the
+     * timer does. The director only decides while it drives (the whole song for Pro and trial, the first
+     * minute for free), so the style changes follow the same rule.
+     */
+    fun onDirectorMoment() {
+        if (!host.isPlaying) return
+        if (host.vizState.value.vizPlaylistEnabled) stepVizPlaylist() else randomStepNow()
+    }
+
     fun advanceRandomMode() {
         val s = host.vizState.value
         if (!s.randomEnabled || !host.isPlaying) return

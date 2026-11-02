@@ -21,8 +21,8 @@ rejected but is a real defect; **nice-to-have** is polish.
 | B7 | **Japan (if it is a sales country).** Under Japan's Mobile Software Competition Act, Play asks developers selling in Japan to accept the updated terms and authorise Google as seller of record in Japan by **2026-12-01**; without it, Japan is dropped from the app's countries. Skip if Japan is excluded. | Play Console › Settings › Payments profile / Policy and programs | You |
 
 Code-side, nothing found would get the build rejected: targetSdk 36 meets the current
-requirement, every `.so` is 16 KB aligned and CI checks it, INTERNET and AD_ID are kept
-out of the merged manifest by a CI check, every foreground service has a type, every
+requirement, every `.so` is 16 KB aligned and CI checks it, a CI check keeps INTERNET to
+Cast only and AD_ID out of the merged manifest, every foreground service has a type, every
 `PendingIntent` is `FLAG_IMMUTABLE`, and PBL 9.1.0 is current (no upgrade needed).
 
 ## Should fix
@@ -49,7 +49,7 @@ updates it; the release-candidate check (5B) re-runs the policy audit over all o
 
 | Part | Play impact | Update |
 |---|---|---|
-| 4I Cast to TV (Pro) | **INTERNET comes back**, only for Cast. The Cast SDK (Google Play services) joins Play Billing as an SDK that talks off the device. Changes: Data safety (re-answer for the Cast SDK), privacy policy (`docs/privacy-policy.md`, `.html` and the app's copy), the "no INTERNET" CI checks in `android.yml` and `release.yml` (become "INTERNET only for Cast, never AD_ID"), the listing's "Offline" lines, and a foreground service type if casting continues with the screen off. | 4I, before its first build reaches the closed track |
+| 4I Cast to TV (Pro) | **INTERNET comes back**, only for Cast. The Cast SDK (Google Play services) joins Play Billing as an SDK that talks off the device. Changes: Data safety (re-answer for the Cast SDK), privacy policy (`docs/privacy-policy.md`, `.html` and the app's copy), the "no INTERNET" CI checks in `android.yml` and `release.yml` (become "INTERNET only for Cast, never AD_ID"), the listing's "Offline" lines, and a foreground service type if casting continues with the screen off. | **Done in 4I** (`cast/`): Data safety rows, privacy policy, CI checks, listing, `CastService` (`mediaPlayback`, one more console video). Enter the new Data safety answers before this build reaches the closed track |
 | 4E Wallpaper: any app's audio | Reads the output mix through `Visualizer`, which needs `RECORD_AUDIO` (already declared for live input). Audio stays on the device: Data safety unchanged. | 4E tells this topic if it adds a permission or a foreground service type |
 | 4H Quick Settings tile, 4G widget | None: no new permission, nothing leaves the device. | - |
 | 2D Record to project | Renders in the background through the existing export service (`mediaProcessing`/`dataSync`), already declared. | Re-check at 5B |

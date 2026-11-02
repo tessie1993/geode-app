@@ -1,11 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Widget-picker preview (API 31+): a static copy of NowPlayingWidget's 4x2 layout, with the
-     glass standing in for the visual behind it. Only RemoteViews classes: the launcher inflates it. -->
+     glass standing in for the visual behind it. Only RemoteViews classes: the launcher inflates it.
+     So android:tint stays: AppCompat's app:tint (lint UseAppTint, live once Cast's mediarouter brings
+     AppCompat in) doesn't exist outside the app's own inflater. -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     android:id="@android:id/background"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/widget_glass_background">
+    android:background="@drawable/widget_glass_background"
+    tools:ignore="UseAppTint">
 
     <LinearLayout
         android:layout_width="match_parent"

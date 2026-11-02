@@ -46,4 +46,11 @@ enum class ProFeature {
      * [FreeTier.FREE_AUTO_DIRECTOR_TASTE_MS] of each song (see [AutoDirectorPolicy]).
      */
     AUTO_DIRECTOR,
+
+    /**
+     * The visuals on a TV through Google Cast (`dev.geode.cast`): the phone renders and streams them,
+     * with the sound, to the Default Media Receiver. The app's only internet use (the owner's rule;
+     * docs/play/DATA_SAFETY.md).
+     */
+    CAST,
 }

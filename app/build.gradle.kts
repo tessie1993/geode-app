@@ -244,6 +244,8 @@ dependencies {
     implementation(libs.media3.session)
     implementation(libs.media3.transformer)
     implementation(libs.media3.effect)
+    implementation(libs.media3.cast)
+    implementation(libs.media3.muxer)
     implementation(libs.documentfile)
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.ui)

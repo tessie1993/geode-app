@@ -339,9 +339,7 @@ void Renderer::onSurfaceCreated() {
     quadVert_ = *quadVert;
     if (!trailPass_.create(assets_, &programCache_, *fadeVert, &error)) fail(error);
     if (!compositePass_.create(*fadeVert, &error)) fail(error);
-    // The note blooms are an extra: a driver that will not build them loses the flowers, not the frame.
-    if (!bloomPass_.create(assets_, &programCache_, *fadeVert, &error)) GEODE_LOGW(kTag, "note blooms off: %s", error.c_str());
-    // So is the glass sheet's blur: without it the sheet shows the visual unblurred through its tint.
+    // The glass sheet's blur is an extra: without it the sheet shows the visual unblurred through its tint.
     if (!uiBlurPass_.create(assets_, &programCache_, *fadeVert, &error)) GEODE_LOGW(kTag, "ui blur off: %s", error.c_str());
     // Liquid mode: half float where this GPU renders it, so a deep pour-back does not band.
     if (!liquidPass_.create(assets_, &programCache_, *fadeVert, fluid::probeFormats().ok, &error)) fail(error);

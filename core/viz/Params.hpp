@@ -187,19 +187,15 @@ struct SceneParams {
     int reactSeed = 0;        // which variant of the style's reaction DNA
 
     // Note & key reactions (viz/NoteResponse), per style like every Customize control, so a preset, a
-    // template and an export carry them. Appended so every existing wire index survives. Inert while
-    // Settings › Behaviour › Note & key reactions is off: the layer then does nothing at all.
-    // The bloom look: 0 the style's own (the catalogue's default, viz/Catalogue bloomLook), else one of
-    // NoteBloomLook's four (1 fractal flower, 2 soft glow, 3 ripple ring, 4 particle burst). Free.
-    int bloomLook = 0;
+    // template and an export carry them. Inert while Settings › Behaviour › Note & key reactions is off:
+    // the layer then does nothing at all.
     // Customize › Advanced › Note & key (Pro): how much each source drives, 0 none .. 1 as designed .. 2.
-    float noteColor = 1.0f;      // the notes' colours: the blooms' spread and the whole-picture tint
-    float notePitch = 1.0f;      // pitch height: morph and the blooms' stretch and height
+    float noteColor = 1.0f;      // the notes' colours: their spread and the whole-picture tint
+    float notePitch = 1.0f;      // pitch height: morph
     float noteIntervals = 1.0f;  // leaps swing and twist, steps glide
-    float noteTension = 1.0f;    // harmonic tension bends (warp, chromatic split, frayed bloom edges)
-    float noteChords = 1.0f;     // a chord change shifts the scene (fold count, layout, a turn)
+    float noteTension = 1.0f;    // harmonic tension bends (warp, chromatic split)
+    float noteChords = 1.0f;     // a chord change shifts the scene (fold count, a turn)
     float noteDrums = 1.0f;      // the drums' push, on top of how percussive the track is
-    float noteBloom = 1.0f;      // the blooms' brightness
 
     // Liquid mode (viz/liquid; Customize › Advanced › Liquid, Pro). The switch is flowEnabled, Liquidity is
     // flowStrength, Push is flowForce and Swirl is flowCurl, the old flow field's fields, so a preset saved
@@ -230,11 +226,11 @@ struct SceneParams {
     // pointer-to-member is not a compile error. It was declared as 98 over 95
     // entries, and lerpParams (and the blend since removed) wrote through the three null members
     // on every fade. Count again whenever a lerped float is added.
-    static constexpr int kLerpedFloatCount = 118;
+    static constexpr int kLerpedFloatCount = 117;
     static const std::array<FloatField, kLerpedFloatCount>& lerpedFloats();
 
     // Every field in declaration order; the wire order of geode_viz_set_params.
-    static constexpr int kFieldCount = 165;
+    static constexpr int kFieldCount = 163;
     static const std::array<const char*, kFieldCount>& fieldNames();
 
     // Sets a field by its Kotlin property name; ints and bools are taken from the float's value.

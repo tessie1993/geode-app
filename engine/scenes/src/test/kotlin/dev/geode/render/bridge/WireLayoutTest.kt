@@ -27,28 +27,27 @@ class WireLayoutTest {
 
     @Test
     fun liquidFieldsAreAppendedLast() {
-        // core/viz/ParamsFields.cpp: kFieldCount 165, Liquid mode's pickers last.
-        assertEquals(165, SceneParamsCodec.FIELDS)
-        val tail = listOf("noteBloom", "liquidBorn", "liquidAge", "liquidSurface")
+        // core/viz/ParamsFields.cpp: kFieldCount 163, Liquid mode's pickers last.
+        assertEquals(163, SceneParamsCodec.FIELDS)
+        val tail = listOf("noteDrums", "liquidBorn", "liquidAge", "liquidSurface")
         assertEquals(tail, SceneParamsCodec.NAMES.takeLast(tail.size))
         val p = SceneParams(liquidBorn = 3, liquidAge = 2, liquidSurface = 1)
         val out = SceneParamsCodec.pack(p)
-        assertEquals(3f, out[162])
-        assertEquals(2f, out[163])
-        assertEquals(1f, out[164])
+        assertEquals(3f, out[160])
+        assertEquals(2f, out[161])
+        assertEquals(1f, out[162])
         assertEquals(p, SceneParamsCodec.unpack(out, SceneParams.DEFAULT))
     }
 
     @Test
     fun noteAndKeyFieldsAreAppendedAfterReactSeed() {
         // core/viz/ParamsFields.cpp: the Note & key fields after reactSeed, in this order, then Liquid mode's.
-        val tail = listOf("bloomLook", "noteColor", "notePitch", "noteIntervals", "noteTension", "noteChords", "noteDrums", "noteBloom")
+        val tail = listOf("noteColor", "notePitch", "noteIntervals", "noteTension", "noteChords", "noteDrums")
         assertEquals(listOf("reactSeed") + tail, SceneParamsCodec.NAMES.drop(153).take(tail.size + 1))
-        val p = SceneParams(bloomLook = 3, noteColor = 0.25f, noteBloom = 1.75f)
+        val p = SceneParams(noteColor = 0.25f, noteDrums = 1.75f)
         val out = SceneParamsCodec.pack(p)
-        assertEquals(3f, out[SceneParamsCodec.NAMES.indexOf("bloomLook")])
         assertEquals(0.25f, out[SceneParamsCodec.NAMES.indexOf("noteColor")])
-        assertEquals(1.75f, out[SceneParamsCodec.NAMES.indexOf("noteBloom")])
+        assertEquals(1.75f, out[SceneParamsCodec.NAMES.indexOf("noteDrums")])
         assertEquals(p, SceneParamsCodec.unpack(out, SceneParams.DEFAULT))
     }
 

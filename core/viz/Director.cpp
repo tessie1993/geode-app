@@ -161,11 +161,13 @@ Director::Look lerpLook(const Director::Look& a, const Director::Look& b, float 
     return o;
 }
 
-Director::Routes scaled(const Director::Routes& base, float k) {
+// The playing set at weight k, with its hands off every source the user set by hand (Customize › Music:
+// "the director leaves it alone"). Checked per frame, so a moment set or reset mid-look takes effect at once.
+Director::Routes scaled(const Director::Routes& base, float k, const ReactSourceMask& userOwned) {
     Director::Routes out = base;
     for (ReactRoute& r : out) {
         r.amount *= k;
-        r.enabled = r.enabled && k > 0.0f;
+        r.enabled = r.enabled && k > 0.0f && !userOwned[static_cast<size_t>(r.source)];
     }
     return out;
 }
@@ -397,8 +399,9 @@ void Director::step(const GeodeSoundFrame& f, float dt) {
 
     const float k = smooth(glide_);
     const float w = weight();
-    outgoing_.routes = scaled(outgoingBase_, (1.0f - k) * w);
-    incoming_.routes = scaled(incomingBase_, k * w);
+    const ReactSourceMask userOwned = hand::sources(hand::global());
+    outgoing_.routes = scaled(outgoingBase_, (1.0f - k) * w, userOwned);
+    incoming_.routes = scaled(incomingBase_, k * w, userOwned);
     outgoing_.tick(f, dt);
     incoming_.tick(f, dt);
 

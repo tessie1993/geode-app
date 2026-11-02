@@ -123,7 +123,11 @@ internal class LiveHttpServer(
             }
         val head =
             buildString {
-                append("HTTP/1.1 ").append(status).append(' ').append(reason).append("\r\n")
+                append("HTTP/1.1 ")
+                    .append(status)
+                    .append(' ')
+                    .append(reason)
+                    .append("\r\n")
                 if (contentType != null) append("Content-Type: ").append(contentType).append("\r\n")
                 append("Content-Length: ").append(length).append("\r\n")
                 append("Access-Control-Allow-Origin: *\r\n")

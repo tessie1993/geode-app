@@ -4,6 +4,7 @@ import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 import java.nio.channels.WritableByteChannel
 import java.util.Locale
+import kotlin.math.ceil
 
 /**
  * The live HLS stream the TV plays, built from the fragmented MP4 that `FragmentedMp4Muxer` writes.
@@ -123,7 +124,10 @@ internal class LiveSegments(
     @Synchronized
     fun playlist(): String? {
         if (init == null || segments.size < START_SEGMENTS) return null
-        val target = kotlin.math.ceil(segments.maxOf { it.durationSec }).toInt().coerceAtLeast(1)
+        val target =
+            ceil(segments.maxOf { it.durationSec })
+                .toInt()
+                .coerceAtLeast(1)
         return buildString {
             append("#EXTM3U\n#EXT-X-VERSION:7\n")
             append("#EXT-X-TARGETDURATION:").append(target).append('\n')

@@ -227,7 +227,8 @@ private fun RowMenu(
     val (kept, toggle) = LocalParamLocks.current
     val lockable = lockKey in ParamRandomizer.LOCKABLE_LABELS
     val reactTo = LocalReactTo.current
-    if (!lockable && onReset == null && reactTo == null && about == null) return
+    val hasActions = lockable || onReset != null
+    if (!hasActions && reactTo == null && about == null) return
     var open by remember { mutableStateOf(false) }
     var explaining by remember { mutableStateOf(false) }
     Box {

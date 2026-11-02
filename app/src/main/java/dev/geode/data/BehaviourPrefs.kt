@@ -144,10 +144,10 @@ data class BehaviourPrefs(
     val showTips: Boolean = true,
     /**
      * The dream (screen saver) at full brightness. Its own switch: it used to follow Player's
-     * keep-screen-on, which is about a different screen. Off keeps what a fresh install did before,
-     * a dimmed dream on the charger.
+     * keep-screen-on, which is about a different screen. On by default (owner): a visualizer
+     * screen saver is there to be seen; the user can dim it.
      */
-    val dreamScreenBright: Boolean = false,
+    val dreamScreenBright: Boolean = true,
     /** Every canvas gesture's action. A gesture missing from the map is [GestureAction.OFF]. */
     val gestures: Map<CanvasGesture, GestureAction> = DEFAULT_GESTURES,
 ) {

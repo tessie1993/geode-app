@@ -162,6 +162,15 @@
           and parameters the app was last left showing. It reacts to what the
           app is playing and breathes on its own the rest of the time.
         -->
+        <!--
+          The wallpaper picker's Settings button (res/xml/wallpaper.xml). Exported because the
+          picker, another app, starts it; it only edits the wallpaper's own options.
+        -->
+        <activity
+            android:name=".ui.wallpaper.WallpaperOptionsActivity"
+            android:exported="true"
+            android:label="@string/wallpaper_options_title"
+            android:theme="@android:style/Theme.Material.NoActionBar" />
         <service
             android:name=".wallpaper.VisualizerWallpaperService"
             android:exported="true"

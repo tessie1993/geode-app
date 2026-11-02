@@ -39,10 +39,18 @@ internal class QueueEnd(
     }
 
     private fun playSimilar() {
-        val last = player.currentMediaItem?.localConfiguration?.uri?.toString() ?: return
+        val last =
+            player.currentMediaItem
+                ?.localConfiguration
+                ?.uri
+                ?.toString() ?: return
         val queued =
             (0 until player.mediaItemCount).mapNotNullTo(HashSet()) { i ->
-                player.getMediaItemAt(i).localConfiguration?.uri?.toString()
+                player
+                    .getMediaItemAt(i)
+                    .localConfiguration
+                    ?.uri
+                    ?.toString()
             }
         scope.launch {
             val more = withContext(Dispatchers.IO) { tree.similarTo(last, queued) }

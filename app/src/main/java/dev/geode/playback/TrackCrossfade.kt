@@ -30,7 +30,11 @@ internal class TrackCrossfade(
     var crossfadeMs: Int = 0
         set(value) {
             field = value.coerceAtLeast(0)
-            if (field == 0) stop() else if (player.isPlaying) start()
+            if (field == 0) {
+                stop()
+            } else if (player.isPlaying) {
+                start()
+            }
         }
 
     /** The current track was reached because the previous one ended, so it fades in. */

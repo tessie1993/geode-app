@@ -435,4 +435,24 @@ object GeodeNative {
         handle: Long,
         out: DoubleArray,
     ): Boolean
+
+    // Rest when silent (core/sound/Silence): the wallpaper's and the dream's silence rule.
+
+    /**
+     * The time sound was last heard, given this poll's newest [frames] samples per channel (0 when
+     * nothing new was written): [nowMs] when any is above about -42 dBFS, else [heardAtMs].
+     */
+    external fun silenceHeardAt(
+        left: FloatArray,
+        right: FloatArray,
+        frames: Int,
+        nowMs: Long,
+        heardAtMs: Long,
+    ): Long
+
+    /** Whether a surface may rest: nothing heard for 6 s. */
+    external fun silenceResting(
+        nowMs: Long,
+        heardAtMs: Long,
+    ): Boolean
 }

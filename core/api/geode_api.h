@@ -211,6 +211,14 @@ GEODE_API void            geode_loudness_feed(geode_loudness*, const float* inte
 GEODE_API int             geode_loudness_has_block(geode_loudness*);   /* 1 once a 400 ms block exists */
 GEODE_API void            geode_loudness_finish(geode_loudness*, geode_loudness_report* out);   /* non-destructive */
 
+/* Rest when silent (sound/Silence): the live wallpaper's and the dream's silence rule. A poll hands in the
+ * newest planar samples written since the last one (frames 0 when nothing was written) and the time sound
+ * was last heard, and gets that time back, moved to now when any sample is above about -42 dBFS. Resting is
+ * nothing heard for 6 s. Pure: the caller keeps the one timestamp. */
+GEODE_API long long       geode_silence_heard_at(const float* const* channels, int channel_count, int frames,
+                                                 long long now_ms, long long heard_at_ms);
+GEODE_API int             geode_silence_resting(long long now_ms, long long heard_at_ms);   /* 1 = may rest */
+
 #ifdef __cplusplus
 }
 #endif

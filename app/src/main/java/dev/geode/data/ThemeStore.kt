@@ -275,6 +275,7 @@ class ThemeStore(
         const val KEY_DIM = "gui_background_dim"
         const val KEY_COMPACT = "gui_compact_player"
         const val KEY_FOLLOW_DARK = "gui_follow_system_dark"
+
         /** Retired: written, never read. Removed on the next save. */
         const val KEY_CLEAR_VIZ_MENU = "gui_clear_visuals_menu"
         const val KEY_MINI_PLAYER_FADE = "gui_mini_player_fade_sec"

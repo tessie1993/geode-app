@@ -25,16 +25,19 @@ object BackupMigrations {
     /**
      * Version 1 kept the macros, LFOs, envelopes and reactions inside Settings' `prefs/geode-prefs.json`.
      * Version 2 files them under Creative ([BackupSection.borrowedKeys]), so they move into Creative's
-     * slice here and Creative joins the sections when anything moved: an old backup's macros come back
-     * with Creative, as a new backup's would.
+     * slice here, and an old backup's macros come back with Creative, as a new backup's would.
+     *
+     * Only when the backup holds Creative already. Adding Creative to a Settings-only backup would offer
+     * a Creative restore whose staging has no presets, palettes or projects, and restoring it would swap
+     * the phone's own for nothing. Such a backup keeps its file as it was; its macros are then nobody's
+     * to restore, and the phone keeps its own.
      */
     internal fun splitBorrowedKeys(
         manifest: BackupManifest,
         root: File,
     ): BackupManifest {
         var entries = manifest.entries
-        var sections = manifest.sections
-        for (section in BackupSection.entries) {
+        for (section in BackupSection.entries.filter { it.id in manifest.sections }) {
             for ((name, keys) in section.borrowedKeys) {
                 val ownerPath = BackupFormat.prefsPath(name)
                 val owner = File(root, ownerPath)
@@ -50,10 +53,9 @@ object BackupMigrations {
                         BackupEntry(path, size, sha)
                     }
                 entries = entries.filter { it.path != ownerPath && it.path != slicePath } + written
-                if (section.id !in sections) sections = sections + section.id
             }
         }
-        return manifest.copy(sections = sections, entries = entries)
+        return manifest.copy(entries = entries)
     }
 
     /** Runs every step from the manifest's version up to [target]. A gap in the chain is DAMAGED. */

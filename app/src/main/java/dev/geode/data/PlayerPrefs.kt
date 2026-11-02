@@ -19,6 +19,11 @@ data class PlayerPrefs(
     val replayGainClipGuard: Boolean = true,
     val resumeLongTracks: Boolean = true,
     val bitPerfect: Boolean = false,
+    /**
+     * How long one track crossfades into the next, in ms; 0 is off, the normal gapless join. Off by
+     * default: gapless is what an album expects, and a crossfade is a choice for mixes and playlists.
+     */
+    val crossfadeMs: Int = 0,
 ) {
     fun coerced(): PlayerPrefs =
         copy(
@@ -27,12 +32,14 @@ data class PlayerPrefs(
             pitchSemitones = pitchSemitones.coerceIn(-MAX_PITCH_SEMITONES, MAX_PITCH_SEMITONES),
             sleepTimerMinutes = sleepTimerMinutes.coerceAtLeast(0),
             fadeMs = fadeMs.coerceIn(0, MAX_FADE_MS),
+            crossfadeMs = crossfadeMs.coerceIn(0, MAX_CROSSFADE_MS),
             replayGainMode = replayGainMode.coerceIn(0, MAX_REPLAYGAIN_MODE),
             replayGainPreampDb = replayGainPreampDb.coerceIn(-MAX_REPLAYGAIN_PREAMP_DB, MAX_REPLAYGAIN_PREAMP_DB),
         )
 
     companion object {
         const val MAX_FADE_MS = 6_000
+        const val MAX_CROSSFADE_MS = 12_000
         const val MAX_REPEAT_MODE = 2
         const val MIN_SPEED = 0.5f
         const val MAX_SPEED = 2f
@@ -63,6 +70,7 @@ class PlayerPrefsStore(
             replayGainClipGuard = prefs.getBoolean(KEY_REPLAYGAIN_CLIP_GUARD, true),
             resumeLongTracks = prefs.getBoolean(KEY_RESUME_LONG, true),
             bitPerfect = prefs.getBoolean(KEY_BIT_PERFECT, false),
+            crossfadeMs = prefs.getInt(KEY_CROSSFADE_MS, 0),
         ).coerced()
 
     fun save(p: PlayerPrefs) {
@@ -84,6 +92,7 @@ class PlayerPrefsStore(
             .putBoolean(KEY_REPLAYGAIN_CLIP_GUARD, p.replayGainClipGuard)
             .putBoolean(KEY_RESUME_LONG, p.resumeLongTracks)
             .putBoolean(KEY_BIT_PERFECT, p.bitPerfect)
+            .putInt(KEY_CROSSFADE_MS, p.crossfadeMs)
             // The native engine's options, gone with it (ExoPlayer joins tracks gaplessly by itself).
             .remove("native_engine")
             .remove("crossfade_ms")
@@ -109,6 +118,9 @@ class PlayerPrefsStore(
         const val KEY_REPLAYGAIN_CLIP_GUARD = "replaygain_clip_guard"
         const val KEY_RESUME_LONG = "resume_long_tracks"
         const val KEY_BIT_PERFECT = "bit_perfect"
+
+        /** Not the native engine's old `crossfade_ms`, removed above: an install that kept one must not get it back. */
+        const val KEY_CROSSFADE_MS = "playback_crossfade_ms"
     }
 }
 

@@ -140,9 +140,12 @@ class LfoStore(
             }
         }
 
-    private companion object {
+    internal companion object {
         const val KEY = "lfos"
         const val KEY_ADSR = "adsrs"
         const val KEY_REACTIONS = "reactions"
+
+        /** Every key this store writes: a backup files the LFOs, envelopes and reactions under Creative. */
+        val KEYS: Set<String> = setOf(KEY, KEY_ADSR, KEY_REACTIONS)
     }
 }

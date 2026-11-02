@@ -1,6 +1,9 @@
 package dev.geode.data.backup
 
 import dev.geode.data.GeodePrefsFiles
+import dev.geode.data.LfoStore
+import dev.geode.data.MacroStore
+import dev.geode.data.PerformanceStore
 import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
@@ -9,7 +12,8 @@ import java.util.Locale
 
 // The rules of a MuzViz backup archive: what goes in, where it lives, what a restore will
 // accept. Pure Kotlin on purpose (org.json and java.* only): every check that decides whether
-// a file from outside the app may touch app data is here, where a JVM test can reach it.
+// a file from outside the app may touch app data is here, where a JVM test can reach it. The
+// stores it names are read only for their key names, never opened.
 
 /** Why a backup could not be written or read. The UI names each one; the message is for the log. */
 enum class BackupProblem {
@@ -36,15 +40,23 @@ internal fun fail(
  * What the user can choose to restore. Each section owns whole prefs files and whole
  * filesDir-relative directories or files, so restoring one never half-replaces another.
  *
- * The LFO and modulation slots live in the `geode-mod` prefs file and favourites in
- * `geode-favourites`, so those files ride with the section the user thinks of them in rather
- * than with Settings.
+ * The modulation slots live in the `geode-mod` prefs file and favourites in `geode-favourites`,
+ * so those files ride with the section the user thinks of them in rather than with Settings.
+ *
+ * The macros, LFOs, envelopes and reaction routes are the exception: they are creative work, but
+ * their stores ([MacroStore], [LfoStore]) write into `geode-prefs`, beside the settings, and the
+ * wallpaper and the dream read them from there. Moving them to another file would mean moving
+ * every reader too, so [borrowedKeys] lets Creative own just those keys of Settings' file instead.
+ * The section that borrows them keeps them in a slice of their own ([BackupFormat.slicePath]), so
+ * restoring one section still never touches the other's keys.
  */
 enum class BackupSection(
     val id: String,
     val prefsFiles: List<String>,
     val dirs: List<String>,
     val files: List<String>,
+    /** Keys this section owns inside a prefs file another section owns, by prefs file name. */
+    val borrowedKeys: Map<String, Set<String>> = emptyMap(),
 ) {
     SETTINGS(
         "settings",
@@ -62,8 +74,12 @@ enum class BackupSection(
     CREATIVE(
         "creative",
         listOf(GeodePrefsFiles.MODULATION),
-        listOf("presets", "palettes", "templates", "editor"),
+        // "projects" and "project-templates" are Studio's project folders (each with its takes) and
+        // its templates; "editor" and "templates" are where they lived before, kept so an older
+        // backup still restores instead of failing the allowlist.
+        listOf("presets", "palettes", "templates", "editor", "projects", "project-templates"),
         emptyList(),
+        mapOf(GeodePrefsFiles.GENERAL to MacroStore.KEYS + LfoStore.KEYS),
     ),
     MUSIC(
         "music",
@@ -90,8 +106,11 @@ data class BackupLimits(
 object BackupFormat {
     const val FORMAT_ID = "muzviz-backup"
 
-    /** Bump with a new step in [BackupMigrations] that turns the previous version into this one. */
-    const val CURRENT_VERSION = 1
+    /**
+     * Bump with a new step in [BackupMigrations] that turns the previous version into this one.
+     * Version 2 moved the macros, LFOs and reactions out of Settings' prefs file into Creative's slice.
+     */
+    const val CURRENT_VERSION = 2
 
     const val MANIFEST_PATH = "manifest.json"
 
@@ -110,6 +129,9 @@ object BackupFormat {
      *   (reduced motion, intent) are restored.
      * - Folder and image URIs picked through the system picker: their read grant belongs to
      *   this install and does not survive a reinstall, so a restored URI points at nothing.
+     * - Settings › Performance ([PerformanceStore.KEYS]): picked for this phone's RAM and
+     *   performance class at first launch. A backup from a fast phone restored onto a slow one
+     *   would run it hot; the new phone keeps its own pick.
      *
      * There is no crash or permission state in prefs: the crash report is `crash-latest.txt`,
      * which is never in a backup, and runtime permissions are the system's.
@@ -124,7 +146,7 @@ object BackupFormat {
                     "gui_tutorial_done",
                     "gui_tutorial_resume",
                     "preset_mirror_uri",
-                ),
+                ) + PerformanceStore.KEYS,
             GeodePrefsFiles.LIBRARY to setOf("roots"),
             GeodePrefsFiles.BACKGROUND to setOf("background_uri"),
         )
@@ -140,6 +162,32 @@ object BackupFormat {
     private val excludedSuffixes = listOf(".tmp", ".corrupt")
 
     fun prefsPath(prefsFile: String): String = PREFS_DIR + prefsFile + PREFS_SUFFIX
+
+    /** Where [section]'s borrowed keys of [prefsFile] live in the archive: `prefs/creative/geode-prefs.json`. */
+    fun slicePath(
+        section: BackupSection,
+        prefsFile: String,
+    ): String = PREFS_DIR + section.id + "/" + prefsFile + PREFS_SUFFIX
+
+    /** Every prefs file [section] writes, each with its path in the archive: its own files, then its slices. */
+    fun prefsEntries(section: BackupSection): List<Pair<String, String>> =
+        section.prefsFiles.map { it to prefsPath(it) } +
+            section.borrowedKeys.keys.map { it to slicePath(section, it) }
+
+    fun isPrefsPath(path: String): Boolean = path.startsWith(PREFS_DIR) && path.endsWith(PREFS_SUFFIX)
+
+    /**
+     * The section that backs up [key] of [prefsFile]: the one that borrowed it, else the file's
+     * owner. Null for a device-local key, or a file no section holds.
+     */
+    fun sectionOfKey(
+        prefsFile: String,
+        key: String,
+    ): BackupSection? {
+        if (key in deviceLocalKeys[prefsFile].orEmpty()) return null
+        return BackupSection.entries.firstOrNull { key in it.borrowedKeys[prefsFile].orEmpty() }
+            ?: BackupSection.entries.firstOrNull { prefsFile in it.prefsFiles }
+    }
 
     fun isPortableKey(
         prefsFile: String,
@@ -164,9 +212,14 @@ object BackupFormat {
         if (excludedSuffixes.any { path.endsWith(it) }) return null
         if (excludedSubtrees.any { path == it || path.startsWith("$it/") }) return null
         if (path.startsWith(PREFS_DIR)) {
+            if (!path.endsWith(PREFS_SUFFIX)) return null
             val name = path.removePrefix(PREFS_DIR).removeSuffix(PREFS_SUFFIX)
-            if (!path.endsWith(PREFS_SUFFIX) || '/' in name) return null
-            return BackupSection.entries.firstOrNull { name in it.prefsFiles }
+            val parts = name.split('/')
+            return when (parts.size) {
+                1 -> BackupSection.entries.firstOrNull { name in it.prefsFiles }
+                2 -> BackupSection.fromId(parts[0])?.takeIf { parts[1] in it.borrowedKeys }
+                else -> null
+            }
         }
         return BackupSection.entries.firstOrNull { section ->
             path in section.files || section.dirs.any { path.startsWith("$it/") }

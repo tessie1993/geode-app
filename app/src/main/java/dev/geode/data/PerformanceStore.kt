@@ -57,13 +57,20 @@ class PerformanceStore(
             putInt(KEY_LIQUID_HOT, settings.liquidHot.native)
         }
 
-    private companion object {
+    internal companion object {
         const val KEY_SCALE = "perf_render_scale"
         const val KEY_FPS = "perf_fps_cap"
         const val KEY_MARCH = "perf_march_scale"
         const val KEY_POST_FX = "perf_post_fx"
         const val KEY_ADAPTIVE = "perf_adaptive"
         const val KEY_LIQUID_HOT = "perf_liquid_hot"
+
+        /**
+         * Every key this store writes. They describe this phone (picked from its RAM and performance
+         * class at first launch), so a backup leaves them out and a restore never carries one phone's
+         * tuning onto another: the new phone keeps its own pick.
+         */
+        val KEYS: Set<String> = setOf(KEY_SCALE, KEY_FPS, KEY_MARCH, KEY_POST_FX, KEY_ADAPTIVE, KEY_LIQUID_HOT)
     }
 }
 

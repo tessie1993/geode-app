@@ -23,12 +23,16 @@ import kotlin.random.Random
  * it live: it takes [exportPin] once, so the player moving on (a new seed, or past the free taste) never
  * reaches a render in progress.
  *
+ * On by default: Auto is one mode now, the director driving the look with an optional timed style
+ * change on top (Auto visuals' timer, `AutoVisualsPrefsStore`), and a fresh install
+ * starts with the director part on. A free user gets the first minute of each song ([AutoDirectorPolicy]).
+ *
  * Called on the main thread (the settings screen and [dev.geode.playback.AutoDirectorFeed]).
  */
 class AutoDirectorStore private constructor(
     private val prefs: SharedPreferences,
 ) {
-    private val _enabled = MutableStateFlow(prefs.getBoolean(KEY_ENABLED, false))
+    private val _enabled = MutableStateFlow(prefs.getBoolean(KEY_ENABLED, DEFAULT_ENABLED))
     val enabled: StateFlow<Boolean> = _enabled
 
     // Written on main; read by an export starting on its own thread (exportPin).
@@ -96,6 +100,7 @@ class AutoDirectorStore private constructor(
     companion object {
         private const val TAG = "AutoDirectorStore"
         private const val KEY_ENABLED = "auto_director_enabled"
+        const val DEFAULT_ENABLED = true
 
         @Volatile private var instance: AutoDirectorStore? = null
 

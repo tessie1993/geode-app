@@ -4,17 +4,27 @@ import android.content.SharedPreferences
 import org.json.JSONArray
 import org.json.JSONObject
 
+/**
+ * Auto's remembered shape: the timed style change ("change style every N s", still called Random in
+ * the code), what it picks from, and the visual playlist.
+ *
+ * Auto is one mode now: the auto-director drives the look (on by default, [dev.geode.data.AutoDirectorStore])
+ * and the timer is an optional extra on top. The timer itself always starts OFF. It used to be
+ * restored from `auto_random_enabled`, and that is how Random came up ON on what looked like a fresh
+ * install: the key rides along with Android's own app backup and with Settings › Backup, so a
+ * reinstall brought the old phone's running timer back, while the Auto button on Now Playing always
+ * starts at "off" (it is session state) and so contradicted it. A timer is something the listener
+ * starts on purpose, for this session; what it does once started (interval, sources, colours) is
+ * remembered. The old key is removed on the next save.
+ */
 class AutoVisualsPrefsStore(
     private val prefs: SharedPreferences,
 ) {
     fun applyTo(state: VizUiState): VizUiState {
         val entries = prefs.getString(KEY_PLAYLIST_ENTRIES, null)?.let(::entriesFromJson) ?: state.vizPlaylist
         val playlistEnabled = prefs.getBoolean(KEY_PLAYLIST_ENABLED, state.vizPlaylistEnabled) && entries.isNotEmpty()
-        // Playlist mode and random mode are mutually exclusive (see AutoVisualsController), so a
-        // restore that finds both persisted as true favours the playlist and drops random.
-        val randomEnabled = prefs.getBoolean(KEY_RANDOM_ENABLED, state.randomEnabled) && !playlistEnabled
         return state.copy(
-            randomEnabled = randomEnabled,
+            randomEnabled = false,
             randomIntervalSec = prefs.getInt(KEY_RANDOM_INTERVAL, state.randomIntervalSec).coerceIn(INTERVAL_SEC),
             randomIncludeStyles = prefs.getBoolean(KEY_RANDOM_STYLES, state.randomIncludeStyles),
             randomIncludePresets = prefs.getBoolean(KEY_RANDOM_PRESETS, state.randomIncludePresets),
@@ -29,7 +39,7 @@ class AutoVisualsPrefsStore(
     fun save(state: VizUiState) {
         prefs
             .edit()
-            .putBoolean(KEY_RANDOM_ENABLED, state.randomEnabled)
+            .remove(LEGACY_KEY_RANDOM_ENABLED)
             .putInt(KEY_RANDOM_INTERVAL, state.randomIntervalSec)
             .putBoolean(KEY_RANDOM_STYLES, state.randomIncludeStyles)
             .putBoolean(KEY_RANDOM_PRESETS, state.randomIncludePresets)
@@ -44,7 +54,8 @@ class AutoVisualsPrefsStore(
     companion object {
         val INTERVAL_SEC: IntRange = 5..300
 
-        private const val KEY_RANDOM_ENABLED = "auto_random_enabled"
+        /** Read by no build since the timer stopped being restored; removed on the next save. */
+        private const val LEGACY_KEY_RANDOM_ENABLED = "auto_random_enabled"
         private const val KEY_RANDOM_INTERVAL = "auto_random_interval_sec"
         private const val KEY_RANDOM_STYLES = "auto_random_include_styles"
         private const val KEY_RANDOM_PRESETS = "auto_random_include_presets"

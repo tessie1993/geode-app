@@ -23,15 +23,15 @@ object FreeTier {
     /**
      * The neon showcase styles (Glow Vortex, Neon Chrome Sea, Black Hole, Hex Hive, Mandelbox
      * Cathedral) follow the families' rule even though they are loose styles: one opener is free,
-     * the other four are Pro. The owner picked that split; Hex Hive opens because it shows the most
-     * of the set at once (a 3D flight, the iridescent finish and the spectrum built into its walls)
-     * and is mid-cost, so a free user's first taste runs well on most phones.
+     * the other four are Pro. The owner picked that split, and then the opener: Neon Chrome Sea, the
+     * app's first style for everyone ([FIRST_STYLE_ID]), so the first thing a new listener sees is a
+     * showpiece they keep. Hex Hive, the opener before it, went Pro in the swap.
      */
-    val neonOpener: String = SceneIds.HEX_HIVE
+    val neonOpener: String = SceneIds.NEON_CHROME_SEA
 
     /** The four neon showcase styles behind Pro: every one but [neonOpener]. */
     val neonProIds: Set<String> =
-        setOf(SceneIds.GLOW_VORTEX, SceneIds.NEON_CHROME_SEA, SceneIds.BLACK_HOLE, SceneIds.MANDELBOX_CATHEDRAL)
+        setOf(SceneIds.GLOW_VORTEX, SceneIds.HEX_HIVE, SceneIds.BLACK_HOLE, SceneIds.MANDELBOX_CATHEDRAL)
 
     /**
      * Styles a free user can select and keep: the fragment-shader styles (julia, tunnel, bars,
@@ -46,10 +46,17 @@ object FreeTier {
     val freeStyleIds: Set<String> = SceneCapabilities.SHADER_SCENES.keys - familyProIds - neonProIds
 
     /**
-     * Where a free user lands when the style on screen is no longer theirs (a new install, whose
-     * default is silk; a trial that ran out). Must be in [freeStyleIds].
+     * The style a fresh install opens on, for everyone: one free showpiece, not a Pro default that a
+     * free user is then swapped off. It is the free neon opener, so it is in [freeStyleIds].
      */
-    const val FALLBACK_STYLE_ID: String = SceneIds.BARS
+    const val FIRST_STYLE_ID: String = SceneIds.NEON_CHROME_SEA
+
+    /**
+     * Where a free user lands when the style on screen is no longer theirs (a new install, whose
+     * engine default [SceneIds.DEFAULT] is still silk; a trial that ran out): the first style, so a
+     * fresh install opens on it. Must be in [freeStyleIds].
+     */
+    const val FALLBACK_STYLE_ID: String = FIRST_STYLE_ID
 
     /**
      * Customize › Look's one free control: the palette. Colour is the first thing a listener

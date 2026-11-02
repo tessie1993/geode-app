@@ -236,6 +236,63 @@ Java_dev_geode_engine_bridge_GeodeNative_styleReactions(JNIEnv* env, jobject, js
 }
 
 JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_handSet(JNIEnv*, jobject, jint mask) {
+    geode_hand_set(static_cast<unsigned>(mask));
+}
+
+JNIEXPORT jfloatArray JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_styleReactionsHand(JNIEnv* env, jobject, jstring styleId, jint seed, jfloatArray user, jint mask) {
+    Utf8Chars id(env, styleId);
+    FloatElements routes(env, user);
+    float out[GEODE_REACT_ROUTES * GEODE_REACT_ROUTE_FLOATS] = {};
+    const int n = id.get() ? geode_style_reactions_hand(id.get(), seed, routes.get(), routes.length(), user ? 1 : 0,
+                                                        static_cast<unsigned>(mask), out, GEODE_REACT_ROUTES * GEODE_REACT_ROUTE_FLOATS)
+                           : 0;
+    jfloatArray result = env->NewFloatArray(n * GEODE_REACT_ROUTE_FLOATS);
+    if (result && n > 0) env->SetFloatArrayRegion(result, 0, n * GEODE_REACT_ROUTE_FLOATS, out);
+    return result;
+}
+
+JNIEXPORT jfloatArray JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_musicState(JNIEnv* env, jobject, jstring styleId, jint seed, jfloatArray user, jint mask) {
+    Utf8Chars id(env, styleId);
+    FloatElements routes(env, user);
+    float out[GEODE_MUSIC_MOMENTS * GEODE_MUSIC_STATE_FLOATS] = {};
+    const int n = id.get() ? geode_music_state(id.get(), seed, routes.get(), routes.length(), user ? 1 : 0,
+                                               static_cast<unsigned>(mask), out, GEODE_MUSIC_MOMENTS * GEODE_MUSIC_STATE_FLOATS)
+                           : 0;
+    jfloatArray result = env->NewFloatArray(n * GEODE_MUSIC_STATE_FLOATS);
+    if (result && n > 0) env->SetFloatArrayRegion(result, 0, n * GEODE_MUSIC_STATE_FLOATS, out);
+    return result;
+}
+
+// outHand[0] is the new mask, outHand[1] 1 while the user has a list (0: all Auto); returns the user's routes.
+JNIEXPORT jfloatArray JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_musicEdit(JNIEnv* env, jobject, jstring styleId, jint seed, jfloatArray user, jint mask, jint op,
+                                                   jint moment, jint action, jfloat value, jintArray outHand) {
+    Utf8Chars id(env, styleId);
+    FloatElements routes(env, user);
+    float out[GEODE_REACT_ROUTES * GEODE_REACT_ROUTE_FLOATS] = {};
+    unsigned nextMask = 0;
+    int hasUser = 0;
+    // A null id leaves the user's side as it was (geode_music_edit's own rule), never "all Auto" by accident.
+    const int n = geode_music_edit(id.get(), seed, routes.get(), routes.length(), user ? 1 : 0, static_cast<unsigned>(mask), op,
+                                   moment, action, value, out, GEODE_REACT_ROUTES * GEODE_REACT_ROUTE_FLOATS, &nextMask, &hasUser);
+    if (outHand && env->GetArrayLength(outHand) >= 2) {
+        const jint hand[2] = {static_cast<jint>(nextMask), hasUser};
+        env->SetIntArrayRegion(outHand, 0, 2, hand);
+    }
+    jfloatArray result = env->NewFloatArray(n * GEODE_REACT_ROUTE_FLOATS);
+    if (result && n > 0) env->SetFloatArrayRegion(result, 0, n * GEODE_REACT_ROUTE_FLOATS, out);
+    return result;
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_musicActionTarget(JNIEnv*, jobject, jint action) {
+    return geode_music_action_target(action);
+}
+
+JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_vizSetLook(JNIEnv*, jobject, jlong handle, jfloat yaw, jfloat pitch) {
     geode_viz_set_look(vizOf(handle), yaw, pitch);
 }

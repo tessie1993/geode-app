@@ -249,6 +249,61 @@ object GeodeNative {
         seed: Int,
     ): FloatArray
 
+    /**
+     * Customize › Music's hand mask (core/viz Reactions.hpp `hand::`): bit i is moment i set by hand,
+     * [HAND_UNCLAIMED] every source no moment claims, [HAND_ALL] a whole list of the user's. Process-wide like
+     * [directorSet]: every renderer's director keeps its hands off those moments.
+     */
+    external fun handSet(mask: Int)
+
+    /**
+     * What plays (geode_style_reactions_hand): the [user]'s routes on the [mask]'s sources, the style's DNA on
+     * every other, in the [vizSetReactions] layout. [user] null is "all Auto", the DNA alone.
+     */
+    external fun styleReactionsHand(
+        styleId: String,
+        seed: Int,
+        user: FloatArray?,
+        mask: Int,
+    ): FloatArray
+
+    /** Customize › Music's rows, [MUSIC_STATE_FLOATS] per moment (geode_music_state). */
+    external fun musicState(
+        styleId: String,
+        seed: Int,
+        user: FloatArray?,
+        mask: Int,
+    ): FloatArray
+
+    /**
+     * One tap on Customize › Music (geode_music_edit: [op] 0 toggle [action], 1 strength [value], 2 reset to
+     * Auto). Returns the user's new routes; writes the new mask to `outHand[0]` and 1 to `outHand[1]` while the
+     * user still has a list (0: all Auto).
+     */
+    external fun musicEdit(
+        styleId: String,
+        seed: Int,
+        user: FloatArray?,
+        mask: Int,
+        op: Int,
+        moment: Int,
+        action: Int,
+        value: Float,
+        outHand: IntArray,
+    ): FloatArray
+
+    /** The LfoTarget ordinal a new route of Music [action] moves (geode_music_action_target). */
+    external fun musicActionTarget(action: Int): Int
+
+    /** Mirrors GEODE_HAND_UNCLAIMED. */
+    const val HAND_UNCLAIMED: Int = 0x40000000
+
+    /** Mirrors GEODE_HAND_ALL: every moment and every unclaimed source, the whole list the user's. */
+    const val HAND_ALL: Int = 0x400003FF
+
+    /** Mirrors GEODE_MUSIC_STATE_FLOATS: mine, route count, strength, on-action bits, fits-action bits. */
+    const val MUSIC_STATE_FLOATS: Int = 5
+
     /** Gyro look, -1..1 per axis; read only while camGyro is on. */
     external fun vizSetLook(
         handle: Long,

@@ -51,6 +51,7 @@ import dev.geode.data.MacroStore
 import dev.geode.pro.FreeTier
 import dev.geode.pro.PaywallTrigger
 import dev.geode.pro.ProFeature
+import dev.geode.render.HandReactions
 import dev.geode.render.VisualizerView
 import dev.geode.render.scene.Catalogue
 import dev.geode.render.scene.CustomizeTab
@@ -287,7 +288,14 @@ private fun CustomizePageBody(
             }
         CustomizeTab.MUSIC -> {
             val reactions by visualsViewModel.reactions.collectAsStateWithLifecycle()
-            EventsTab(p, onChange, reactions = reactions, onReactionsChange = visualsViewModel::setReactions)
+            val handMask by visualsViewModel.handMask.collectAsStateWithLifecycle()
+            EventsTab(
+                p,
+                onChange,
+                hand = HandReactions(reactions, handMask),
+                onReactionsChange = visualsViewModel::setReactions,
+                onHandChange = visualsViewModel::setHandReactions,
+            )
         }
         // Modulate and Advanced are their deeper pages; the engine's roll groups are not pages.
         else -> Unit

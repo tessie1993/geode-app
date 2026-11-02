@@ -67,6 +67,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 import dev.geode.data.MacroStore
 import dev.geode.data.NoteResponseStore
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.render.AdsrConfig
 import dev.geode.render.AdsrEngine
 import dev.geode.render.BlendMode
@@ -285,7 +286,8 @@ internal fun SubPageBody(
         }
         CustomizeSubPage.REACTIONS -> {
             val reactions by host.visualsViewModel.reactions.collectAsStateWithLifecycle()
-            ReactionsSection(p, reactions, host.visualsViewModel::setReactions, host.visualsViewModel::rerollReactions)
+            val handMask by host.visualsViewModel.handMask.collectAsStateWithLifecycle()
+            ReactionsSection(p, reactions, host.visualsViewModel::setReactions, host.visualsViewModel::rerollReactions, handMask)
         }
         CustomizeSubPage.NOTE_KEY -> NoteKeyPage(p, onChange)
         CustomizeSubPage.LAYERS -> LayersPage()
@@ -381,6 +383,7 @@ internal fun ReactionsSection(
     reactions: List<ReactionRoute>?,
     onReactionsChange: (List<ReactionRoute>?) -> Unit,
     onReroll: () -> Unit,
+    handMask: Int = GeodeNative.HAND_ALL,
 ) {
     if (!sectionVisible()) return
     val sceneId = LocalSceneId.current
@@ -392,8 +395,11 @@ internal fun ReactionsSection(
             "Your own reactions, used on every style. \"Use the style's own reactions\" lets each style choose again."
         },
     )
-    val dna = remember(sceneId, p.reactSeed) { BuildStyleReactionsUseCase()(sceneId, p.reactSeed) }
-    val routes = reactions ?: dna
+    // What plays: with moments set on Customize › Music, the user's routes there and the live DNA elsewhere
+    // (native's merge), so an edit here starts from the matrix as it sounds and makes the whole list the user's.
+    val routes = remember(sceneId, p.reactSeed, reactions, handMask) {
+        BuildStyleReactionsUseCase().playing(sceneId, p.reactSeed, reactions, handMask)
+    }
     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         CrystalButton(compact = true, filled = false, onClick = onReroll) { Text("Shuffle reactions") }
         if (reactions != null) {

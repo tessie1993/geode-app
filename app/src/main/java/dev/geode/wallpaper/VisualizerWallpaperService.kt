@@ -174,6 +174,7 @@ class VisualizerWallpaperService : WallpaperService() {
             engine.lfoEngine.configs = modulation.load()
             engine.adsrEngine.configs = modulation.loadAdsrs()
             engine.reactions = modulation.loadReactions()
+            dev.geode.render.HandMask.set(modulation.loadHandMask())
         }
 
         /**

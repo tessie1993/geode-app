@@ -21,18 +21,26 @@ import androidx.compose.material3.PrimaryScrollableTabRow
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
@@ -43,6 +51,7 @@ import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import dev.geode.R
+import dev.geode.render.VisualizerView
 import dev.geode.ui.theme.GeodeRadius
 import dev.geode.ui.theme.GeodeSpacing
 import dev.geode.ui.theme.StoneHapticCue
@@ -74,6 +83,9 @@ import kotlin.math.roundToInt
  * Both layouts keep the pages ([content]) at the same place in the tree, so turning the phone keeps
  * their scroll and state. TalkBack gets expand, collapse, wider, narrower and hide as custom actions,
  * since a drag is out of its reach.
+ *
+ * Over the visual the blur is the native one (see [UiBlurRegion]): [visualizerView] is told the
+ * surface's bounds whenever they change, with [blurActive] false (hidden, PiP) turning it off.
  */
 @Composable
 internal fun VisualsOptions(
@@ -84,6 +96,8 @@ internal fun VisualsOptions(
     panelPx: Animatable<Float, AnimationVector1D>,
     panelRange: ClosedFloatingPointRange<Float>,
     opacity: Float,
+    visualizerView: VisualizerView,
+    blurActive: Boolean,
     onSettle: (SheetHeight) -> Unit,
     onPanelSettle: (widthPx: Float?) -> Unit,
     modifier: Modifier = Modifier,
@@ -104,6 +118,8 @@ internal fun VisualsOptions(
             )
         }
     val shape = RoundedCornerShape(GeodeRadius.Floating)
+    var bounds by remember { mutableStateOf<Rect?>(null) }
+    UiBlurRegion(visualizerView, bounds, blurActive)
     Box(
         modifier
             .layout { measurable, constraints ->
@@ -124,7 +140,8 @@ internal fun VisualsOptions(
                         layout(placeable.width, h) { placeable.place(0, 0) }
                     }
                 }
-            }.glassBlur(shape)
+            }.onGloballyPositioned { bounds = it.boundsInWindow() }
+            .glassBlur(shape)
             .floatingGlass(shape, fillAlpha = opacity),
     ) {
         Column(Modifier.fillMaxSize()) {
@@ -151,6 +168,44 @@ internal fun VisualsOptions(
                 modifier = Modifier.align(Alignment.CenterStart),
             )
         }
+    }
+}
+
+/**
+ * Tells the native blur where the options surface is ([bounds], in the window) so the live visual
+ * frosts under it. Only a change of the bounds or of [active] calls through (one small event on
+ * the GL thread each); strength is 1 while the surface is shown, 0 when it is hidden or has no
+ * size, and 0 again on dispose so leaving Visuals clears it.
+ */
+@Composable
+private fun UiBlurRegion(
+    view: VisualizerView,
+    bounds: Rect?,
+    active: Boolean,
+) {
+    val cornerPx = with(LocalDensity.current) { GeodeRadius.Floating.toPx() }
+    LaunchedEffect(view, bounds, active, cornerPx) {
+        val loc = IntArray(2)
+        view.getLocationInWindow(loc)
+        val w = view.width.toFloat()
+        val h = view.height.toFloat()
+        // A rect only once laid out and measured; anything else turns the blur off.
+        val rect = bounds?.takeIf { !it.isEmpty && w > 0f && h > 0f }
+        if (rect == null || !active) {
+            view.setUiBlurRegion(0f, 0f, 0f, 0f, 0f, cornerPx)
+        } else {
+            view.setUiBlurRegion(
+                (rect.left - loc[0]) / w,
+                (rect.top - loc[1]) / h,
+                (rect.right - loc[0]) / w,
+                (rect.bottom - loc[1]) / h,
+                1f,
+                cornerPx,
+            )
+        }
+    }
+    DisposableEffect(view) {
+        onDispose { view.setUiBlurRegion(0f, 0f, 0f, 0f, 0f, 0f) }
     }
 }
 

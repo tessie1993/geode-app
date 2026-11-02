@@ -23,17 +23,21 @@ data class StyleShelf(
     }
 }
 
-/** One style as the grid's filters see it: what it is called, what kind it is, its family if any. */
+/**
+ * One style as the list's filters see it: what it is called, what kind it is, its family if any,
+ * and the group it is shown in ([StyleLook]).
+ */
 data class StyleEntry(
     val id: String,
     val label: String,
     val kindLabel: String,
     val familyLabel: String?,
+    val look: StyleLook? = null,
 )
 
 /**
- * The Styles grid's filter chips. One row of chips replaced nine sub-tabs: the user's own
- * shelf first, then each kind of style, then each family.
+ * What the Styles list shows: everything, the user's own shelf, or one look group ([Look]). Kind
+ * and family are no longer offered as filters (a search still finds them by those words).
  */
 sealed interface StyleFilter {
     data object All : StyleFilter
@@ -48,6 +52,10 @@ sealed interface StyleFilter {
 
     data class Family(
         val label: String,
+    ) : StyleFilter
+
+    data class Look(
+        val look: StyleLook,
     ) : StyleFilter
 }
 
@@ -73,6 +81,7 @@ object StyleFiltering {
                 }
                 is StyleFilter.Kind -> entries.filter { it.kindLabel == filter.label }
                 is StyleFilter.Family -> entries.filter { it.familyLabel == filter.label }
+                is StyleFilter.Look -> entries.filter { it.look == filter.look }
             }
         val terms =
             query
@@ -81,7 +90,7 @@ object StyleFiltering {
                 .filter { it.isNotBlank() }
         if (terms.isEmpty()) return byFilter
         return byFilter.filter { e ->
-            val fields = listOfNotNull(e.label, e.kindLabel, e.familyLabel)
+            val fields = listOfNotNull(e.label, e.kindLabel, e.familyLabel, e.look?.label)
             terms.all { t -> fields.any { it.contains(t, ignoreCase = true) } }
         }
     }

@@ -3,40 +3,38 @@ package dev.geode.ui
 import android.content.Context
 import android.graphics.BitmapFactory
 import android.util.LruCache
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.FilterChip
+import androidx.compose.material.icons.filled.WorkspacePremium
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -71,11 +69,11 @@ import dev.geode.data.StyleShelfStore
 import dev.geode.model.StyleEntry
 import dev.geode.model.StyleFilter
 import dev.geode.model.StyleFiltering
+import dev.geode.model.StyleLook
 import dev.geode.render.scene.Catalogue
 import dev.geode.render.scene.SceneKind
 import dev.geode.render.scene.StyleFamilies
 import dev.geode.render.scene.VisualStyleCatalog
-import dev.geode.ui.pro.ProBadge
 import dev.geode.ui.theme.GeodeRadius
 import dev.geode.ui.theme.GeodeSpacing
 import dev.geode.ui.theme.StoneHapticCue
@@ -87,20 +85,18 @@ import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.abs
 
 /**
- * Visuals › Styles: every style as a picture, not a line of text.
+ * Visuals › Styles: every style as a row with a still of it, in groups by what it looks like.
  *
- * Two hundred and more names in nine sub-tabs gave a music lover nothing to go on but words
- * like "Truchet". Here each style is a card with a still of it, and one row of filter chips (the
- * user's own Favourites and Recent first, then each kind and each family) replaces the
- * sub-tabs. A search box narrows the grid by name, kind or family.
+ * A dropdown at the top picks the group ([StyleLook]: Flowing & liquid, Fractals, Space…), or the
+ * user's own Favourites and Recent, or everything; the list under it is one row per style: its
+ * still, its name, a ♛ when it is Pro, and a heart. Search narrows the list by name, group, kind or
+ * family. The owner chose list rows over the old card grid, which showed three styles a screen.
  *
- * A tap previews: the stage shows the style at once, nothing is chosen yet, and a bar offers
- * the check that keeps it (CapCut's preview-then-commit). Leaving the page without the check
- * keeps the previewed style when the user may use it (a tap is what people mean as their pick);
- * only a locked Pro preview, or the bar's cancel, puts the chosen style back. Pro styles preview
- * for everyone; the check is where the paywall stands, since seeing a style move to your own
- * music is the best case for it. A second tap on the previewed card is the check too. A long press stars a style; TalkBack gets the same as a
- * custom action. The stage's swipe still steps through styles and chooses at once.
+ * A tap loads the style: the visual changes at once, and that is the choice (no "Use style" step).
+ * A Pro style a free user taps still plays on the visual while the paywall offers it; leaving the
+ * page without buying puts the chosen style back ([PlayerViewModel.leaveScenePreview]). A long
+ * press or the heart stars a style; TalkBack gets the same as a custom action. The swipe on the
+ * visual still steps through styles in this order.
  */
 @Composable
 internal fun StylesTab(viewModel: PlayerViewModel) {
@@ -111,35 +107,24 @@ internal fun StylesTab(viewModel: PlayerViewModel) {
     val gate by viewModel.gate.collectAsStateWithLifecycle()
     var filterKey by rememberSaveable { mutableStateOf(FILTER_ALL) }
     var query by rememberSaveable { mutableStateOf("") }
-    var previewId by remember { mutableStateOf<String?>(null) }
-    // The style in use, which the stage stops showing while another is previewed.
-    var chosenId by remember { mutableStateOf(viz.sceneId) }
+    var searching by rememberSaveable { mutableStateOf(false) }
     val entries = remember { styleEntries() }
-    val filters = remember(entries) { styleFilters(entries) }
+    val filters = remember { styleFilters() }
     val filter = filters.firstOrNull { filterKeyOf(it) == filterKey } ?: StyleFilter.All
-    // Anything else that changes the style (the stage swipe, a preset, auto-visuals) ends the preview.
-    LaunchedEffect(viz.sceneId) {
-        if (previewId != viz.sceneId) {
-            previewId = null
-            chosenId = viz.sceneId
-        }
-    }
-    // Leaving the page keeps a previewed style the user may keep; only a locked one gives way.
+    // Leaving the page keeps the style the user may keep; only a locked one gives way.
     DisposableEffect(Unit) { onDispose { viewModel.leaveScenePreview() } }
-    val cancel: () -> Unit = {
-        previewId = null
-        viewModel.cancelScenePreview()
-    }
-    // The style whose check opened the paywall. The session chooses it once a purchase lets it
-    // through (PlayerSessionProvider); here it only closes the preview bar and files it in Recent.
+    // The style whose tap opened the paywall. The session chooses it once a purchase lets it
+    // through (PlayerSessionProvider); here it only files it in Recent.
     var unlocking by remember { mutableStateOf<String?>(null) }
-    val commit: (String) -> Unit = { id ->
-        viewModel.selectScene(id)
+    val load: (String) -> Unit = { id ->
         if (gate.allowsStyle(id)) {
+            viewModel.selectScene(id)
             shelfStore.pushRecent(id)
-            previewId = null
             unlocking = null
         } else {
+            // Seeing it move to your own music is the best case for Pro: play it, then ask.
+            viewModel.previewScene(id)
+            viewModel.selectScene(id)
             unlocking = id
         }
     }
@@ -148,69 +133,72 @@ internal fun StylesTab(viewModel: PlayerViewModel) {
         if (gate.allowsStyle(id)) {
             unlocking = null
             shelfStore.pushRecent(id)
-            if (previewId == id) previewId = null
-            chosenId = id
         }
     }
     Column(Modifier.fillMaxSize()) {
-        StyleSearchField(query) { query = it }
-        LazyRow(
-            contentPadding = PaddingValues(horizontal = GeodeSpacing.L),
-            horizontalArrangement = Arrangement.spacedBy(GeodeSpacing.S),
-        ) {
-            items(filters, key = ::filterKeyOf) { f ->
-                FilterChip(
-                    selected = f == filter,
-                    onClick = { filterKey = filterKeyOf(f) },
-                    label = { Text(filterLabel(f)) },
-                    modifier = Modifier.heightIn(min = GeodeSpacing.TouchTarget),
-                )
+        if (searching) {
+            StyleSearchField(query, onQuery = { query = it }, onClose = {
+                searching = false
+                query = ""
+            })
+        } else {
+            Row(
+                Modifier.fillMaxWidth().heightIn(min = GeodeSpacing.TouchTarget).padding(horizontal = GeodeSpacing.S),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                StyleGroupMenu(filters, filter, onPick = { filterKey = filterKeyOf(it) }, modifier = Modifier.weight(1f))
+                IconButton(onClick = { searching = true }) { Icon(Icons.Filled.Search, contentDescription = "Search styles") }
             }
         }
-        Box(Modifier.weight(1f)) {
-            val shown = remember(entries, filter, shelf, query) { StyleFiltering.apply(entries, filter, shelf, query) }
-            if (shown.isEmpty()) {
-                EmptyStyles(filter, query)
-            } else {
-                LazyVerticalGrid(
-                    columns = GridCells.Adaptive(CARD_MIN_WIDTH),
-                    contentPadding = PaddingValues(GeodeSpacing.M),
-                    horizontalArrangement = Arrangement.spacedBy(GeodeSpacing.S),
-                    verticalArrangement = Arrangement.spacedBy(GeodeSpacing.M),
-                    modifier = Modifier.fillMaxSize(),
-                ) {
-                    items(shown, key = { it.id }) { entry ->
-                        StyleCard(
-                            entry = entry,
-                            chosen = entry.id == chosenId,
-                            previewing = entry.id == previewId,
-                            locked = !gate.allowsStyle(entry.id),
-                            favourite = shelf.isFavourite(entry.id),
-                            onTap = {
-                                when (entry.id) {
-                                    previewId -> commit(entry.id)
-                                    chosenId -> if (previewId != null) cancel()
-                                    else -> {
-                                        previewId = entry.id
-                                        viewModel.previewScene(entry.id)
-                                    }
-                                }
-                            },
-                            onToggleFavourite = { shelfStore.toggleFavourite(entry.id) },
-                        )
-                    }
+        val shown = remember(entries, filter, shelf, query) { StyleFiltering.apply(entries, filter, shelf, query) }
+        if (shown.isEmpty()) {
+            EmptyStyles(filter, query)
+        } else {
+            LazyColumn(
+                contentPadding = PaddingValues(bottom = GeodeSpacing.L),
+                modifier = Modifier.fillMaxSize(),
+            ) {
+                items(shown, key = { it.id }, contentType = { "style" }) { entry ->
+                    StyleRow(
+                        entry = entry,
+                        chosen = entry.id == viz.sceneId,
+                        locked = !gate.allowsStyle(entry.id),
+                        favourite = shelf.isFavourite(entry.id),
+                        onTap = { load(entry.id) },
+                        onToggleFavourite = { shelfStore.toggleFavourite(entry.id) },
+                    )
                 }
             }
         }
-        val previewing = previewId
-        AnimatedVisibility(visible = previewing != null) {
-            if (previewing != null) {
-                PreviewBar(
-                    name = sceneDisplayLabel(previewing),
-                    locked = !gate.allowsStyle(previewing),
-                    onCancel = cancel,
-                    onUse = { commit(previewing) },
+    }
+}
+
+/** The group picker: the current group's name with ▾, a standard menu of every group under it. */
+@Composable
+private fun StyleGroupMenu(
+    filters: List<StyleFilter>,
+    filter: StyleFilter,
+    onPick: (StyleFilter) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var open by remember { mutableStateOf(false) }
+    Box(modifier) {
+        TextButton(onClick = { open = true }, modifier = Modifier.heightIn(min = GeodeSpacing.TouchTarget)) {
+            Text(filterLabel(filter), style = MaterialTheme.typography.titleMedium)
+            Icon(Icons.Filled.ArrowDropDown, contentDescription = "Choose a group")
+        }
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            filters.forEach { f ->
+                DropdownMenuItem(
+                    text = { Text(filterLabel(f)) },
+                    trailingIcon = if (f == filter) ({ Icon(Icons.Filled.Check, contentDescription = "Shown") }) else null,
+                    onClick = {
+                        open = false
+                        onPick(f)
+                    },
                 )
+                // The user's own shelf above, the look groups below.
+                if (f == StyleFilter.Recent) HorizontalDivider()
             }
         }
     }
@@ -220,6 +208,7 @@ internal fun StylesTab(viewModel: PlayerViewModel) {
 private fun StyleSearchField(
     query: String,
     onQuery: (String) -> Unit,
+    onClose: () -> Unit,
 ) {
     OutlinedTextField(
         value = query,
@@ -229,20 +218,21 @@ private fun StyleSearchField(
         placeholder = { Text("Search styles") },
         leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
         trailingIcon = {
-            if (query.isNotEmpty()) {
-                IconButton(onClick = { onQuery("") }) { Icon(Icons.Filled.Close, contentDescription = "Clear search") }
-            }
+            IconButton(onClick = onClose) { Icon(Icons.Filled.Close, contentDescription = "Close search") }
         },
         shape = RoundedCornerShape(GeodeRadius.ExtraLarge),
     )
 }
 
+/**
+ * One style: its still, its name (lit when it is on screen), a ♛ when it is Pro, and a heart. The
+ * row is one 56 dp target; the heart is its own 48 dp button.
+ */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun StyleCard(
+private fun StyleRow(
     entry: StyleEntry,
     chosen: Boolean,
-    previewing: Boolean,
     locked: Boolean,
     favourite: Boolean,
     onTap: () -> Unit,
@@ -250,17 +240,11 @@ private fun StyleCard(
 ) {
     val view = LocalView.current
     val cs = MaterialTheme.colorScheme
-    val shape = RoundedCornerShape(GeodeRadius.Medium)
     val favouriteAction = if (favourite) "Remove from favourites" else "Add to favourites"
-    val state =
-        when {
-            previewing -> "Previewing. Tap again to use"
-            chosen -> "In use"
-            else -> null
-        }
-    Column(
+    Row(
         Modifier
-            .clip(shape)
+            .fillMaxWidth()
+            .heightIn(min = ROW_HEIGHT)
             .combinedClickable(
                 role = Role.Button,
                 onClick = onTap,
@@ -271,7 +255,7 @@ private fun StyleCard(
                 onLongClickLabel = favouriteAction,
             ).semantics {
                 contentDescription = entry.label + if (locked) ", Pro" else ""
-                state?.let { stateDescription = it }
+                if (chosen) stateDescription = "On screen"
                 customActions =
                     listOf(
                         CustomAccessibilityAction(favouriteAction) {
@@ -279,89 +263,34 @@ private fun StyleCard(
                             true
                         },
                     )
-            },
+            }.padding(horizontal = GeodeSpacing.L),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(
+        val shape = RoundedCornerShape(GeodeRadius.Small)
+        StyleThumbnail(
+            entry,
             Modifier
-                .fillMaxWidth()
-                .aspectRatio(1f)
+                .size(THUMB_SIZE)
                 .clip(shape)
-                .then(
-                    when {
-                        previewing -> Modifier.border(2.dp, cs.tertiary, shape)
-                        chosen -> Modifier.border(2.dp, cs.primary, shape)
-                        else -> Modifier
-                    },
-                ),
-        ) {
-            StyleThumbnail(entry, Modifier.fillMaxSize())
-            if (locked) ProBadge(Modifier.align(Alignment.TopEnd).padding(GeodeSpacing.XS))
-            if (favourite) {
-                Icon(
-                    Icons.Filled.Favorite,
-                    contentDescription = null,
-                    tint = Color.White,
-                    modifier =
-                        Modifier
-                            .align(Alignment.TopStart)
-                            .padding(GeodeSpacing.XS)
-                            .background(cs.scrim.copy(alpha = SCRIM_ALPHA), RoundedCornerShape(50))
-                            .padding(GeodeSpacing.XS)
-                            .size(14.dp),
-                )
-            }
-            if (chosen || previewing) {
-                Icon(
-                    Icons.Filled.Check,
-                    contentDescription = null,
-                    tint = if (previewing) cs.onTertiary else cs.onPrimary,
-                    modifier =
-                        Modifier
-                            .align(Alignment.BottomEnd)
-                            .padding(GeodeSpacing.XS)
-                            .background(if (previewing) cs.tertiary else cs.primary, RoundedCornerShape(50))
-                            .padding(GeodeSpacing.XXS)
-                            .size(16.dp),
-                )
-            }
-        }
+                .then(if (chosen) Modifier.border(2.dp, cs.primary, shape) else Modifier),
+        )
         Text(
             entry.label,
-            Modifier.padding(top = GeodeSpacing.XS, start = GeodeSpacing.XXS, end = GeodeSpacing.XXS),
-            style = MaterialTheme.typography.bodyMedium,
-            color = if (chosen || previewing) accentTextColor() else cs.onSurface,
-            maxLines = 2,
-            minLines = 2,
+            Modifier.weight(1f).padding(horizontal = GeodeSpacing.M),
+            style = MaterialTheme.typography.bodyLarge,
+            color = if (chosen) accentTextColor() else cs.onSurface,
+            maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
-    }
-}
-
-/**
- * The bar under the grid while a style is previewed. The check is the only way a preview
- * becomes the style, so it is a full-size button with a name that says so, never an icon alone.
- */
-@Composable
-private fun PreviewBar(
-    name: String,
-    locked: Boolean,
-    onCancel: () -> Unit,
-    onUse: () -> Unit,
-) {
-    Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh, tonalElevation = 3.dp) {
-        Row(
-            Modifier.fillMaxWidth().padding(horizontal = GeodeSpacing.L, vertical = GeodeSpacing.S),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(Modifier.weight(1f)) {
-                Text("Previewing", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(name, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
-            TextButton(onClick = onCancel, modifier = Modifier.heightIn(min = GeodeSpacing.TouchTarget)) { Text("Cancel") }
-            CrystalButton(onClick = onUse) {
-                Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(18.dp))
-                Text(if (locked) "Unlock with Pro" else "Use style", Modifier.padding(start = GeodeSpacing.XS))
-            }
+        if (locked) {
+            Icon(Icons.Filled.WorkspacePremium, contentDescription = null, tint = accentTextColor(), modifier = Modifier.size(20.dp))
+        }
+        IconButton(onClick = onToggleFavourite) {
+            Icon(
+                if (favourite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                contentDescription = favouriteAction,
+                tint = if (favourite) accentTextColor() else cs.onSurfaceVariant,
+            )
         }
     }
 }
@@ -454,7 +383,7 @@ private object StyleThumbs {
     private const val BYTES_PER_PIXEL = 4
 }
 
-/** Every catalogue style as the grid lists it: loose shader styles, then each kind, then the families. */
+/** Every catalogue style as the list shows it, in catalogue order, each with its look group. */
 private fun styleEntries(): List<StyleEntry> =
     Catalogue.styles.map { style ->
         val family = StyleFamilies.of(style.id)
@@ -463,6 +392,7 @@ private fun styleEntries(): List<StyleEntry> =
             label = sceneDisplayLabel(style.id),
             kindLabel = if (family != null) KIND_FAMILY else kindLabel(style.kind),
             familyLabel = family?.label,
+            look = StyleLook.of(style.id, style.kind.name),
         )
     }
 
@@ -473,20 +403,14 @@ private fun kindLabel(kind: SceneKind): String =
         SceneKind.LIFE -> "Life"
         SceneKind.MYCELIUM -> "Mycelium"
         SceneKind.ACID -> "Acid"
-        SceneKind.MILKDROP -> KIND_MILKDROP
+        SceneKind.MILKDROP -> "MilkDrop"
         SceneKind.FLUID, SceneKind.CURL_FLOW, SceneKind.WATER -> "Fluid"
         SceneKind.CYMATICS -> "Cymatics"
     }
 
-private fun styleFilters(entries: List<StyleEntry>): List<StyleFilter> =
-    listOf(StyleFilter.All, StyleFilter.Favourites, StyleFilter.Recent) +
-        entries
-            .map { it.kindLabel }
-            .distinct()
-            // MilkDrop has a tab of its own (its .milk library is not a grid of styles).
-            .filterNot { it == KIND_FAMILY || it == KIND_MILKDROP }
-            .map { StyleFilter.Kind(it) } +
-        StyleFamilies.all.map { StyleFilter.Family(it.label) }
+/** Everything, the user's own shelf, then each look group in [StyleLook]'s order. */
+private fun styleFilters(): List<StyleFilter> =
+    listOf(StyleFilter.All, StyleFilter.Favourites, StyleFilter.Recent) + StyleLook.entries.map { StyleFilter.Look(it) }
 
 private fun filterKeyOf(filter: StyleFilter): String =
     when (filter) {
@@ -495,15 +419,17 @@ private fun filterKeyOf(filter: StyleFilter): String =
         StyleFilter.Recent -> "recent"
         is StyleFilter.Kind -> "kind:${filter.label}"
         is StyleFilter.Family -> "family:${filter.label}"
+        is StyleFilter.Look -> "look:${filter.look.name}"
     }
 
 private fun filterLabel(filter: StyleFilter): String =
     when (filter) {
-        StyleFilter.All -> "All"
+        StyleFilter.All -> "All styles"
         StyleFilter.Favourites -> "Favourites"
         StyleFilter.Recent -> "Recent"
         is StyleFilter.Kind -> filter.label
         is StyleFilter.Family -> filter.label
+        is StyleFilter.Look -> filter.look.label
     }
 
 internal fun sceneDisplayLabel(id: String): String {
@@ -513,10 +439,9 @@ internal fun sceneDisplayLabel(id: String): String {
 }
 
 private const val FILTER_ALL = "all"
-private const val KIND_MILKDROP = "MilkDrop"
 private const val KIND_FAMILY = "Family"
-private val CARD_MIN_WIDTH = 104.dp
-private const val SCRIM_ALPHA = 0.55f
+private val ROW_HEIGHT = 56.dp
+private val THUMB_SIZE = 40.dp
 private const val HUE_TURN = 360
 private const val HUE_NUDGE = 40
 private const val HUE_SPREAD = 50

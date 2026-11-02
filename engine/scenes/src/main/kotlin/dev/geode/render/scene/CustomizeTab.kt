@@ -3,26 +3,28 @@ package dev.geode.render.scene
 /**
  * The Customize panel's pages, and the engine's roll groups under them.
  *
- * Two kinds of entry share this enum on purpose. The first five are what the panel shows, in
- * order ([PANEL]): simple first, Advanced at the back, so a listener who only wants "make it
- * warmer" never meets an envelope editor.
+ * Two kinds of entry share this enum on purpose. The panel shows seven pages, by kind, in one
+ * scrolling list ([PANEL]): the simple ones first, the Pro ones at the back, so a listener who only
+ * wants "make it warmer" never meets an envelope editor.
  *
  * - [MACROS]: six knobs laid over every style (core/viz/Macros), kept outside the params and
- *   presets, so it owns no parameter.
- * - [LOOK]: what every style shares: palette, hue, grading, speed and motion, trails, glow and
- *   screen effects.
- * - [STYLE]: the style's own controls (shape, symmetry, particles, march detail, endless zoom,
- *   MilkDrop, Fluid, Cymatics). Its title on screen is the style's name.
- * - [EVENTS]: "when this happens in the music, do that" ([dev.geode.render.EventRecipe]). It owns
- *   no parameter; its Randomize is "Shuffle reactions".
- * - [ADVANCED]: the deep editors (sound response, reaction routes, layers, camera, transitions,
- *   gradient maker, flow field, shader code), each a card opening its own page.
+ *   presets, so it owns no parameter. Its macro sets open from it.
+ * - [LOOK]: colour, palette, grading, glow, trails and the screen effects.
+ * - [STYLE]: the style's own controls (shape, symmetry, particles, march detail, MilkDrop, Fluid,
+ *   Cymatics).
+ * - [MOTION]: everything that moves: speed and drift, zoom and the endless dive, inner motion, the
+ *   camera, Liquid and the water ripples. It is also the engine's Motion group, which already
+ *   holds the camera and the dive, so only the all-styles flow controls change hands to reach it.
+ * - [MUSIC]: how the music moves the picture: the event recipes, how it listens, notes and key.
+ *   Its Randomize is a new set of reactions.
+ * - [MODULATE]: the reaction routes, envelopes and waves. Pro.
+ * - [ADVANCED]: layers, transitions and shader code. Pro.
  *
- * The rest ([SHAPE] .. [CYMATICS]) are the engine's roll groups: core/viz/ParamRandomizer files
- * every control under one of those names (`TAB|key` lines), and the saved locks and tests name
- * them, so they keep their names even though no panel page shows them as a tab any more. A panel
- * page rolls and resets the groups in [groups], minus the controls it hands to another page
- * ([gives]) plus the ones it takes from one ([takes]); [ParamRandomizer] does the arithmetic.
+ * The rest ([SHAPE] .. [CYMATICS], [MOTION] among them) are the engine's roll groups:
+ * core/viz/ParamRandomizer files every control under one of those names (`TAB|key` lines), and
+ * the saved locks and tests name them, so they keep their names. A panel page rolls and resets the
+ * groups in [groups], minus the controls it hands to another page ([gives]) plus the ones it takes
+ * from one ([takes]); [ParamRandomizer] does the arithmetic.
  */
 enum class CustomizeTab(
     val title: String,
@@ -30,7 +32,8 @@ enum class CustomizeTab(
     MACROS("Macros"),
     LOOK("Look"),
     STYLE("Style"),
-    EVENTS("Events"),
+    MUSIC("Music"),
+    MODULATE("Modulate"),
     ADVANCED("Advanced"),
 
     SHAPE("Shape"),
@@ -47,10 +50,10 @@ enum class CustomizeTab(
     val groups: List<CustomizeTab>
         get() =
             when (this) {
-                LOOK -> listOf(COLOR, MOTION, FX)
+                LOOK -> listOf(COLOR, FX)
                 STYLE -> listOf(SHAPE, SCENE, FLUID, CYMATICS)
-                ADVANCED -> listOf(REACTIVITY)
-                MACROS, EVENTS -> emptyList()
+                MUSIC -> listOf(REACTIVITY)
+                MACROS, MODULATE, ADVANCED -> emptyList()
                 else -> listOf(this)
             }
 
@@ -58,7 +61,6 @@ enum class CustomizeTab(
     val gives: Set<String>
         get() =
             when (this) {
-                LOOK -> CAMERA_KEYS + STYLE_MOTION_KEYS
                 STYLE -> ALL_STYLES_FLOW_KEYS
                 else -> emptySet()
             }
@@ -67,8 +69,7 @@ enum class CustomizeTab(
     val takes: Set<String>
         get() =
             when (this) {
-                STYLE -> STYLE_MOTION_KEYS
-                ADVANCED -> CAMERA_KEYS + ALL_STYLES_FLOW_KEYS
+                MOTION -> ALL_STYLES_FLOW_KEYS
                 else -> emptySet()
             }
 
@@ -84,16 +85,16 @@ enum class CustomizeTab(
 
     companion object {
         /** The pages the panel shows, in order. */
-        val PANEL: List<CustomizeTab> = listOf(MACROS, LOOK, STYLE, EVENTS, ADVANCED)
+        val PANEL: List<CustomizeTab> = listOf(MACROS, LOOK, STYLE, MOTION, MUSIC, MODULATE, ADVANCED)
 
-        /** The camera rig: Motion in the engine, Advanced › Camera on screen. */
+        /** The camera rig: Motion in the engine and on screen (Motion › Camera). */
         val CAMERA_KEYS: Set<String> =
             setOf(ParamKeys.CAM_PATH, ParamKeys.CAM_FLY, ParamKeys.CAM_ORBIT, ParamKeys.CAM_FOV, ParamKeys.CAM_SHAKE)
 
-        /** Motion controls only some styles have, so they sit with the style's own controls. */
+        /** Motion controls only some styles have: the endless dive and the scene's inner motion. */
         val STYLE_MOTION_KEYS: Set<String> = setOf(ParamKeys.ENDLESS_ZOOM, ParamKeys.DIVE_SPEED, ParamKeys.TURBULENCE)
 
-        /** The flow field and ripple overlay ride on every style: Advanced, not the style's page. */
+        /** The flow field and ripple overlay ride on every style: Motion, not the style's page. */
         val ALL_STYLES_FLOW_KEYS: Set<String> =
             setOf(
                 ParamKeys.FLOW_STRENGTH,

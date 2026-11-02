@@ -162,6 +162,15 @@
           and parameters the app was last left showing. It reacts to what the
           app is playing and breathes on its own the rest of the time.
         -->
+        <!--
+          The wallpaper picker's Settings button (res/xml/wallpaper.xml). Exported because the
+          picker, another app, starts it; it only edits the wallpaper's own options.
+        -->
+        <activity
+            android:name=".ui.wallpaper.WallpaperOptionsActivity"
+            android:exported="true"
+            android:label="@string/wallpaper_options_title"
+            android:theme="@android:style/Theme.Material.NoActionBar" />
         <service
             android:name=".wallpaper.VisualizerWallpaperService"
             android:exported="true"
@@ -296,6 +305,37 @@
                 android:name="android.appwidget.provider"
                 android:resource="@xml/now_playing_widget_info" />
         </receiver>
+
+        <!--
+          Quick Settings tile: play/pause from the shade, through the playback service's session.
+          Exported because System UI binds it; BIND_QUICK_SETTINGS_TILE means only System UI can.
+          A listening tile, not an active one (see PlaybackTileService).
+        -->
+        <service
+            android:name=".tile.PlaybackTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_tile_play"
+            android:label="@string/tile_label"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
+        <!-- A long press on the tile opens the app (instead of its system info page). It draws
+             nothing and only brings the app forward, so exporting it exposes nothing. -->
+        <activity
+            android:name=".tile.TileLongPressActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.NoDisplay">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE_PREFERENCES" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
 
         <!-- Sharing a preset too long to be a link sends its .json; a raw
              file:// uri cannot leave the app, so it goes out through here.

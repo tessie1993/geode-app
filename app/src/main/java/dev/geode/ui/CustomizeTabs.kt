@@ -1,11 +1,13 @@
 package dev.geode.ui
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -14,22 +16,28 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.LockOpen
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconToggleButton
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -50,7 +58,6 @@ import dev.geode.render.scene.ParamUnit
 import dev.geode.render.scene.SceneCapabilities
 import dev.geode.render.scene.SceneIds
 import dev.geode.render.scene.SceneParams
-import dev.geode.ui.pro.ProBadge
 import kotlin.math.abs
 
 val LocalParamLocks =
@@ -68,6 +75,18 @@ val LocalSceneId = compositionLocalOf { SceneIds.DEFAULT }
 
 /** The panel-wide parameter search. Blank shows the tab as authored. */
 val LocalParamQuery = compositionLocalOf { "" }
+
+/**
+ * Whether the panel shows its explanations. Off by default (⋯ › Show tips): the owner asked for
+ * the controls first and no hint paragraphs between them, and the names already say most of it.
+ */
+val LocalShowTips = compositionLocalOf { false }
+
+/** Opens the reaction editor ("Make it react to music"); null where the panel has none to open. */
+internal val LocalReactTo = compositionLocalOf<(() -> Unit)?> { null }
+
+/** How far a Pro control the user may not keep is dimmed. No lock icon per row: the ♛ is on the page. */
+private const val LOCKED_ALPHA = 0.6f
 
 /**
  * Which Customize controls this user may change.
@@ -116,7 +135,7 @@ internal fun ProGated(
     Box {
         CompositionLocalProvider(LocalLockedByPro provides true) {
             // A Column, so a block of several rows (a whole Advanced page in search) still stacks.
-            Column(Modifier.clearAndSetSemantics {}) { content() }
+            Column(Modifier.alpha(LOCKED_ALPHA).clearAndSetSemantics {}) { content() }
         }
         Box(
             Modifier
@@ -127,15 +146,6 @@ internal fun ProGated(
                     if (value != null) stateDescription = value
                 },
         )
-    }
-}
-
-/** The lock and the Pro pill, where a free control would show its reset and keep buttons. */
-@Composable
-private fun ProLockMark() {
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 8.dp)) {
-        Icon(Icons.Filled.Lock, contentDescription = null, modifier = Modifier.size(18.dp))
-        ProBadge(Modifier.padding(start = 4.dp))
     }
 }
 
@@ -169,19 +179,12 @@ internal fun SectionHeader(
     scope: ParamScope = ParamScope.UNIVERSAL,
 ) {
     if (!sectionVisible(scope)) return
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(top = 16.dp, bottom = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        CrystalGem(MaterialTheme.colorScheme.primary, size = 5.dp)
-        Text(
-            title,
-            modifier = Modifier.padding(start = 8.dp).semantics { heading() },
-            style = MaterialTheme.typography.titleSmall,
-            color = accentTextColor(),
-        )
-    }
-    Box(Modifier.fillMaxWidth().height(1.dp).luminousHairline(MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)))
+    Text(
+        title,
+        modifier = Modifier.fillMaxWidth().padding(top = 16.dp, bottom = 4.dp).semantics { heading() },
+        style = MaterialTheme.typography.titleSmall,
+        color = accentTextColor(),
+    )
 }
 
 @Composable
@@ -189,7 +192,7 @@ internal fun ControlHint(
     text: String,
     scope: ParamScope = ParamScope.UNIVERSAL,
 ) {
-    if (!sectionVisible(scope)) return
+    if (!sectionVisible(scope) || !LocalShowTips.current) return
     Text(
         text,
         modifier = Modifier.padding(top = 4.dp, bottom = 2.dp),
@@ -199,28 +202,62 @@ internal fun ControlHint(
 }
 
 /**
- * "Keep this when shuffling": holds the control still when Randomize rolls the tab.
- *
- * An icon toggle (a closed lock when kept) at the full 48dp, drawn at full contrast when on so a
- * glance down the tab shows what Randomize will leave alone. It replaced a 0.45-alpha emoji pill
- * that most people never noticed and TalkBack read as an unlabeled switch.
+ * A row's ⋮: reset, keep when randomizing, make it react to music. One small button per row in
+ * place of the old Reset text button and lock toggle, so a glance down a page reads names and
+ * values, not icons; the overflow is where Android users look for a row's actions.
  */
 @Composable
-private fun KeepToggle(label: String) {
-    if (label !in ParamRandomizer.LOCKABLE_LABELS) return
+private fun RowMenu(
+    name: String,
+    lockKey: String,
+    onReset: (() -> Unit)?,
+) {
     val (kept, toggle) = LocalParamLocks.current
-    val on = label in kept
-    IconToggleButton(
-        checked = on,
-        onCheckedChange = { toggle(label) },
-        modifier = Modifier.size(48.dp).semantics { contentDescription = "Keep $label when shuffling" },
-    ) {
-        Icon(
-            if (on) Icons.Filled.Lock else Icons.Filled.LockOpen,
-            contentDescription = null,
-            tint = if (on) accentTextColor() else MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+    val lockable = lockKey in ParamRandomizer.LOCKABLE_LABELS
+    val reactTo = LocalReactTo.current
+    if (!lockable && onReset == null && reactTo == null) return
+    var open by remember { mutableStateOf(false) }
+    Box {
+        IconButton(onClick = { open = true }, modifier = Modifier.size(40.dp)) {
+            Icon(Icons.Filled.MoreVert, contentDescription = "More for $name", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            if (onReset != null) {
+                DropdownMenuItem(text = { Text("Reset") }, onClick = {
+                    open = false
+                    onReset()
+                })
+            }
+            if (lockable) {
+                DropdownMenuItem(
+                    text = { Text("Keep when randomizing") },
+                    trailingIcon = { Checkbox(checked = lockKey in kept, onCheckedChange = null) },
+                    onClick = {
+                        open = false
+                        toggle(lockKey)
+                    },
+                )
+            }
+            if (reactTo != null) {
+                DropdownMenuItem(text = { Text("Make it react to music") }, onClick = {
+                    open = false
+                    reactTo()
+                })
+            }
+        }
     }
+}
+
+/** The small pin beside a name that Randomize leaves alone; the switch for it is in the row's ⋮. */
+@Composable
+private fun KeptMark(lockKey: String) {
+    if (lockKey !in LocalParamLocks.current.first) return
+    Icon(
+        Icons.Filled.PushPin,
+        contentDescription = "Kept when randomizing",
+        modifier = Modifier.padding(start = 4.dp).size(14.dp),
+        tint = accentTextColor(),
+    )
 }
 
 @Composable
@@ -229,11 +266,13 @@ internal fun ControlLabelRow(
     lockKey: String,
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+        modifier = Modifier.fillMaxWidth().heightIn(min = 40.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(text, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-        if (LocalLockedByPro.current) ProLockMark() else KeepToggle(lockKey)
+        Text(text, style = MaterialTheme.typography.bodyMedium)
+        KeptMark(lockKey)
+        Spacer(Modifier.weight(1f))
+        if (!LocalLockedByPro.current) RowMenu(text, lockKey, onReset = null)
     }
 }
 
@@ -344,7 +383,7 @@ internal fun LookTab(
         CheckRow(ParamKeys.DUOTONE, p.duotone, display = "Two-colour") { onChange(p.copy(duotone = it)) }
         CheckRow(ParamKeys.SOLARIZE, p.solarize) { onChange(p.copy(solarize = it)) }
         CheckRow(ParamKeys.INVERT, p.invert, display = "Invert colours") { onChange(p.copy(invert = it)) }
-        LookMotionSections(p, onChange)
+        LookEffectSections(p, onChange)
     }
 }
 
@@ -380,9 +419,12 @@ private fun NoteBloomChips(
     }
 }
 
-/** Look's second half: movement, trails and the screen effects. */
+/**
+ * Motion › Movement: how fast the picture runs and how it drifts. The engine's Motion roll group,
+ * which [dev.geode.render.scene.CustomizeTab.MOTION] rolls and resets as a page.
+ */
 @Composable
-private fun LookMotionSections(
+internal fun MovementSections(
     p: SceneParams,
     onChange: (SceneParams) -> Unit,
 ) {
@@ -399,6 +441,14 @@ private fun LookMotionSections(
     LabeledSlider(ParamKeys.DRIFT_Y, p.driftY, -1f..1f, display = "Drift up and down", default = SceneParams.DEFAULT.driftY) {
         onChange(p.copy(driftY = it))
     }
+}
+
+/** Look's second half: trails and the screen effects (the engine's Fx group). */
+@Composable
+private fun LookEffectSections(
+    p: SceneParams,
+    onChange: (SceneParams) -> Unit,
+) {
     SectionHeader("Trails", ParamScope.TRAIL_LENGTH)
     CheckRow(ParamKeys.TRAILS, p.trails) { onChange(p.copy(trails = it)) }
     LabeledSlider(ParamKeys.TRAIL_LENGTH, p.trailLength, 0.05f..0.98f, default = SceneParams.DEFAULT.trailLength) {
@@ -447,6 +497,30 @@ private fun LookMotionSections(
  */
 internal fun styleTabApplies(sceneId: String): Boolean = STYLE_SCOPES.any { it.appliesTo(sceneId) }
 
+/**
+ * Motion › Zoom & dive and Inner motion: the motion only some styles have. They hide themselves
+ * through [ParamScope] on a style without them, like every control.
+ */
+@Composable
+internal fun StyleMotionSections(
+    p: SceneParams,
+    onChange: (SceneParams) -> Unit,
+) {
+    SectionHeader("Zoom & dive", ParamScope.ENDLESS_ZOOM)
+    ControlHint("A dive that never arrives. Dive speed sets the rate.", ParamScope.ENDLESS_ZOOM)
+    CheckRow(ParamKeys.ENDLESS_ZOOM, p.endlessZoom) { onChange(p.copy(endlessZoom = it)) }
+    if (p.endlessZoom) {
+        LabeledSlider(ParamKeys.DIVE_SPEED, p.endlessZoomSpeed, 0.05f..1.2f, default = SceneParams.DEFAULT.endlessZoomSpeed) {
+            onChange(p.copy(endlessZoomSpeed = it))
+        }
+    }
+    SectionHeader("Inner motion", ParamScope.TURBULENCE)
+    ControlHint("A force inside the scene, not a screen effect.", ParamScope.TURBULENCE)
+    LabeledSlider(ParamKeys.TURBULENCE, p.turbulence, 0f..1.5f, default = SceneParams.DEFAULT.turbulence) {
+        onChange(p.copy(turbulence = it))
+    }
+}
+
 private val STYLE_SCOPES =
     listOf(
         ParamScope.UNIVERSAL,
@@ -462,7 +536,8 @@ private val STYLE_SCOPES =
     )
 
 /**
- * Customize › (style name): the controls that belong to the style rather than to every style.
+ * Customize › Style: the controls that belong to the style rather than to every style; its motion
+ * (the endless dive, inner motion) is on Motion with the rest of what moves.
  * Each section hides itself through [ParamScope] when the style on screen cannot show it, and the
  * Fluid and Cymatics sections appear only on their own kind of style.
  */
@@ -515,19 +590,6 @@ internal fun StyleTab(
             onChange(p.copy(particleSize = it))
         }
         LabeledSlider(ParamKeys.DENSITY, p.density, 0.1f..1f, default = SceneParams.DEFAULT.density) { onChange(p.copy(density = it)) }
-        SectionHeader("Inner motion", ParamScope.TURBULENCE)
-        LabeledSlider(ParamKeys.TURBULENCE, p.turbulence, 0f..1.5f, default = SceneParams.DEFAULT.turbulence) {
-            onChange(p.copy(turbulence = it))
-        }
-        ControlHint("A force inside the scene, not a screen effect.", ParamScope.TURBULENCE)
-        SectionHeader(ParamKeys.ENDLESS_ZOOM, ParamScope.ENDLESS_ZOOM)
-        ControlHint("A dive that never arrives. Dive speed sets the rate.", ParamScope.ENDLESS_ZOOM)
-        CheckRow(ParamKeys.ENDLESS_ZOOM, p.endlessZoom) { onChange(p.copy(endlessZoom = it)) }
-        if (p.endlessZoom) {
-            LabeledSlider(ParamKeys.DIVE_SPEED, p.endlessZoomSpeed, 0.05f..1.2f, default = SceneParams.DEFAULT.endlessZoomSpeed) {
-                onChange(p.copy(endlessZoomSpeed = it))
-            }
-        }
         SectionHeader("MilkDrop", ParamScope.MILKDROP)
         CheckRow(ParamKeys.BLEND_PRESET_CHANGES, p.milkdropBlendPresets) { onChange(p.copy(milkdropBlendPresets = it)) }
         if (SceneCapabilities.isFluid(sceneId) || ParamScope.WATER.appliesTo(sceneId) || ParamScope.JOURNEY.appliesTo(sceneId)) {
@@ -578,11 +640,15 @@ internal fun ParamChips(
 }
 
 /**
- * One slider row: "Name · value unit" at body size, the reset and keep buttons, then the track.
+ * One slider row, two lines and about 64 dp: "Name  value ⋮" over the track. A double tap on the
+ * name puts it back to [default]; the ⋮ has Reset and Keep as well.
  *
  * The value goes through [ParamFormat] (a % for amounts, × for multipliers, s/ms, Hz, °) and reads
  * "Default" at the default. A unit suffix in the key ("Particle life (s)") is dropped from the
  * shown name, since the value now carries it.
+ *
+ * A Pro control the user may not keep is try-then-pay: dimmed, but the slider still moves and the
+ * picture follows while it is held; on release it springs back and the paywall offers to keep it.
  */
 @Composable
 internal fun LabeledSlider(
@@ -601,38 +667,49 @@ internal fun LabeledSlider(
         remember(value, default, unit, range) {
             ParamFormat.format(value, unit ?: ParamFormat.unitFor(label, range), default, bipolar = range.start < 0f)
         }
-    ProGated(label, name, shown) {
-        val proLocked = LocalLockedByPro.current
-        Column(Modifier.padding(vertical = 2.dp)) {
-            Row(modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(name, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-                Text(shown, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                if (proLocked) {
-                    ProLockMark()
-                } else {
-                    // Per-control reset: only there when the control is off its default, so a glance
-                    // down the tab shows what has been changed.
-                    if (default != null && abs(value - default) > RESET_EPSILON) {
-                        TextButton(
-                            onClick = { onChange(default) },
-                            modifier = Modifier.semantics { contentDescription = "Reset $name" },
-                        ) { Text("Reset", style = MaterialTheme.typography.labelLarge) }
-                    }
-                    KeepToggle(label)
-                }
-            }
-            CrystalSlider(
-                value = value,
-                onValueChange = onChange,
-                valueRange = range,
-                enabled = !proLocked,
-                modifier =
-                    Modifier.fillMaxWidth().semantics {
-                        contentDescription = name
-                        stateDescription = shown
-                    },
-            )
+    val lock = LocalProLock.current
+    val locked = !lock.allows(label)
+    // The value before a locked drag began, put back on release.
+    var before by remember(label) { mutableStateOf<Float?>(null) }
+    val reset: (() -> Unit)? = default?.takeIf { abs(value - it) > RESET_EPSILON }?.let { d -> { onChange(d) } }
+    Column(Modifier.alpha(if (locked) LOCKED_ALPHA else 1f)) {
+        Row(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 32.dp)
+                    .pointerInput(label, locked, reset) { detectTapGestures(onDoubleTap = { if (!locked) reset?.invoke() }) },
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(name, style = MaterialTheme.typography.bodyMedium)
+            KeptMark(label)
+            Spacer(Modifier.weight(1f))
+            Text(shown, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (!locked) RowMenu(name, label, reset)
         }
+        CrystalSlider(
+            value = value,
+            onValueChange = { v ->
+                if (locked && before == null) before = value
+                onChange(v)
+            },
+            valueRange = range,
+            onValueChangeFinished =
+                if (locked) {
+                    {
+                        before?.let(onChange)
+                        before = null
+                        lock.onLocked()
+                    }
+                } else {
+                    null
+                },
+            modifier =
+                Modifier.fillMaxWidth().height(32.dp).semantics {
+                    contentDescription = if (locked) "$name, part of Pro" else name
+                    stateDescription = shown
+                },
+        )
     }
 }
 
@@ -665,8 +742,10 @@ internal fun CheckRow(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Checkbox(checked = checked, onCheckedChange = null, enabled = !proLocked)
-            Text(display, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-            if (proLocked) ProLockMark() else KeepToggle(label)
+            Text(display, style = MaterialTheme.typography.bodyMedium)
+            KeptMark(label)
+            Spacer(Modifier.weight(1f))
+            if (!proLocked) RowMenu(display, label, onReset = null)
         }
     }
 }

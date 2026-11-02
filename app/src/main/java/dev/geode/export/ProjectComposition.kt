@@ -411,8 +411,12 @@ object ProjectComposition {
                 MediaItem
                     .Builder()
                     .setUri(uri)
-                    .setClippingConfiguration(MediaItem.ClippingConfiguration.Builder().setEndPositionMs(durationMs).build())
-                    .build(),
+                    .setClippingConfiguration(
+                        MediaItem.ClippingConfiguration
+                            .Builder()
+                            .setEndPositionMs(durationMs)
+                            .build(),
+                    ).build(),
             ).setRemoveAudio(true)
             .setFrameRate(fps)
             .setEffects(Effects(emptyList(), effects))

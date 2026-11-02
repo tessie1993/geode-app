@@ -169,6 +169,7 @@ fun CrystalSlider(
     valueRange: ClosedFloatingPointRange<Float> = 0f..1f,
     steps: Int = 0,
     enabled: Boolean = true,
+    onValueChangeFinished: (() -> Unit)? = null,
 ) {
     Slider(
         value = value,
@@ -178,6 +179,7 @@ fun CrystalSlider(
         valueRange = valueRange,
         steps = steps,
         enabled = enabled,
+        onValueChangeFinished = onValueChangeFinished,
     )
 }
 

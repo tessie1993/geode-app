@@ -22,9 +22,17 @@ class CustomizeTabTest {
         )
 
     @Test
-    fun thePanelShowsFivePagesSimpleFirstAdvancedLast() {
+    fun thePanelShowsSevenPagesByKindSimpleFirstProLast() {
         assertEquals(
-            listOf(CustomizeTab.MACROS, CustomizeTab.LOOK, CustomizeTab.STYLE, CustomizeTab.EVENTS, CustomizeTab.ADVANCED),
+            listOf(
+                CustomizeTab.MACROS,
+                CustomizeTab.LOOK,
+                CustomizeTab.STYLE,
+                CustomizeTab.MOTION,
+                CustomizeTab.MUSIC,
+                CustomizeTab.MODULATE,
+                CustomizeTab.ADVANCED,
+            ),
             CustomizeTab.PANEL,
         )
     }
@@ -39,17 +47,19 @@ class CustomizeTabTest {
 
     @Test
     fun pagesHandOffTheControlsTheyDoNotShow() {
-        assertEquals(setOf(ParamKeys.SPEED, ParamKeys.PALETTE, ParamKeys.VIGNETTE), CustomizeTab.LOOK.ownedKeys(rollKeys))
+        assertEquals(setOf(ParamKeys.PALETTE, ParamKeys.VIGNETTE), CustomizeTab.LOOK.ownedKeys(rollKeys))
         assertEquals(
-            setOf(ParamKeys.ENDLESS_ZOOM, ParamKeys.TURBULENCE, ParamKeys.KALEIDOSCOPE, ParamKeys.FLUID_CURL, ParamKeys.GEOMETRY),
+            setOf(ParamKeys.KALEIDOSCOPE, ParamKeys.FLUID_CURL, ParamKeys.GEOMETRY),
             CustomizeTab.STYLE.ownedKeys(rollKeys),
         )
         assertEquals(
-            setOf(ParamKeys.CAM_FLY, ParamKeys.FLOW_STRENGTH, ParamKeys.AUDIO_DRIVE),
-            CustomizeTab.ADVANCED.ownedKeys(rollKeys),
+            setOf(ParamKeys.SPEED, ParamKeys.CAM_FLY, ParamKeys.ENDLESS_ZOOM, ParamKeys.TURBULENCE, ParamKeys.FLOW_STRENGTH),
+            CustomizeTab.MOTION.ownedKeys(rollKeys),
         )
+        assertEquals(setOf(ParamKeys.AUDIO_DRIVE), CustomizeTab.MUSIC.ownedKeys(rollKeys))
         assertTrue(CustomizeTab.MACROS.ownedKeys(rollKeys).isEmpty())
-        assertTrue(CustomizeTab.EVENTS.ownedKeys(rollKeys).isEmpty())
+        assertTrue(CustomizeTab.MODULATE.ownedKeys(rollKeys).isEmpty())
+        assertTrue(CustomizeTab.ADVANCED.ownedKeys(rollKeys).isEmpty())
     }
 
     @Test
@@ -61,7 +71,7 @@ class CustomizeTabTest {
         }
         // They travel with the other all-styles flow controls when a page is reset.
         assertTrue(CustomizeTab.ALL_STYLES_FLOW_KEYS.containsAll(pickers))
-        assertTrue(CustomizeTab.ADVANCED.takes.containsAll(pickers))
+        assertTrue(CustomizeTab.MOTION.takes.containsAll(pickers))
         assertTrue(CustomizeTab.STYLE.gives.containsAll(pickers))
     }
 

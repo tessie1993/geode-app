@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Default 4x1; resizes from 2x1 (play/pause and title) up to 4x2 and beyond (large art).
-     NowPlayingWidget's SizeMode.Responsive breakpoints match these sizes. -->
+<!-- Default 4x2 (the visual behind the glass, the style buttons); resizes down to 2x1 (play/pause
+     and title) and up to 4x3 and beyond (the visual as its own tile). NowPlayingWidget's
+     layoutFor() picks the layout from the size the launcher reports (SizeMode.Exact). -->
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
-    android:description="@string/widget_description"
+    android:description="@string/widget_picker_description"
     android:initialLayout="@layout/glance_default_loading_layout"
     android:previewLayout="@layout/widget_now_playing_preview"
     android:minWidth="@dimen/widget_min_width"
@@ -10,7 +11,7 @@
     android:minResizeWidth="@dimen/widget_min_resize_width"
     android:minResizeHeight="@dimen/widget_min_resize_height"
     android:targetCellWidth="4"
-    android:targetCellHeight="1"
+    android:targetCellHeight="2"
     android:resizeMode="horizontal|vertical"
     android:updatePeriodMillis="0"
     android:widgetCategory="home_screen" />

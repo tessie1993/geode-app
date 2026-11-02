@@ -1,8 +1,6 @@
 package dev.geode.ui
 
-import androidx.activity.compose.BackHandler
 import androidx.annotation.StringRes
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -13,23 +11,27 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Animation
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Gradient
 import androidx.compose.material.icons.filled.GraphicEq
+import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.Layers
-import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.Timeline
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material.icons.filled.Waves
+import androidx.compose.material.icons.filled.WorkspacePremium
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.DropdownMenu
@@ -63,6 +65,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
+import dev.geode.data.MacroStore
 import dev.geode.data.NoteResponseStore
 import dev.geode.render.AdsrConfig
 import dev.geode.render.AdsrEngine
@@ -84,6 +87,7 @@ import dev.geode.render.TransitionCatalog
 import dev.geode.render.VisualizerView
 import dev.geode.render.fluid.FluidShaderTemplate
 import dev.geode.render.scene.BuildStyleReactionsUseCase
+import dev.geode.render.scene.CustomizeTab
 import dev.geode.render.scene.ParamFormat
 import dev.geode.render.scene.ParamKeys
 import dev.geode.render.scene.ParamScope
@@ -94,41 +98,48 @@ import kotlin.math.ln
 import kotlin.math.pow
 
 /**
- * Customize › Advanced: one card per deep editor, each opening its own page inside the panel.
+ * Customize's deeper pages: each one opens from a row on its page and drills in, replacing the
+ * list inside the same sheet, with ← and its title, the way Android Settings and the photo editors
+ * do it (docs/ui-redesign). Back returns to the row it opened from.
  *
- * WHY a data-driven list: the next wave of the reactive work (Camera moves, a reaction grid,
- * Moods, Phone motion, Colour follow and the modulation matrix) each arrives as a new card. Adding one is one entry here plus one branch in
- * [AdvancedSectionBody]; the list, the paywall lock, back, search and the sticky toolbar need no
- * change. [MODULATION_MATRIX] is that slot, reserved and not offered yet.
+ * WHY a data-driven list: the next wave of the reactive work (a reaction grid, Moods, Phone motion,
+ * Colour follow and the modulation matrix) each arrives as one more entry here plus one branch in
+ * [SubPageBody]; the rows, the paywall, back, search and the ‹ › arrows need no change.
+ * [MODULATION_MATRIX] is that slot, reserved and not offered yet.
  *
- * The whole of Advanced is Pro: a free user sees every card with a lock, and a tap opens the
- * paywall instead of the page.
+ * [page] is the Customize page whose row opens it. Advanced's three ([stepped]) step sideways with
+ * ‹ › in their header, "2 of 3", because a user going through Advanced reads them as one set.
+ * Every one but the macro sets is Pro, as the Advanced cards they came from were: a free user sees
+ * the row with a ♛, and a tap opens the paywall instead of the page.
  */
-internal enum class AdvancedSection(
+internal enum class CustomizeSubPage(
     val title: String,
-    val summary: String,
     val icon: ImageVector,
+    val page: CustomizeTab,
+    val pro: Boolean = true,
     /** False for a slot reserved in code that the panel does not offer yet. */
     val available: Boolean = true,
 ) {
-    SOUND_RESPONSE(
-        "Sound response",
-        "How fast the picture follows the music, the bass-mids-highs balance, waves and envelopes.",
-        Icons.Filled.GraphicEq,
-    ),
-    REACTIONS("Reactions", "Every sound-to-movement link, one at a time.", Icons.Filled.Bolt),
-    NOTE_KEY("Note & key", "How strongly the notes, chords, key and drums move this style.", Icons.Filled.MusicNote),
-    LAYERS("Layers", "Blend a second style under this one.", Icons.Filled.Layers),
-    CAMERA("Camera", "The flight path, field of view, shake and touch or tilt to look.", Icons.Filled.Videocam),
-    TRANSITIONS("Transitions", "How styles hand over, and how changes glide in.", Icons.Filled.Animation),
-    GRADIENT("Gradient maker", "Build and save your own palettes.", Icons.Filled.Gradient),
-    LIQUID("Liquid", "Every style turns liquid: touch and sound mold it, and the camera dives forever.", Icons.Filled.Waves),
-    RIPPLES("Water ripples", "Rings and drops that ride on top of any style.", Icons.Filled.WaterDrop),
-    SHADER_CODE("Shader code", "Edit the style's shader, or write custom fluid shaders.", Icons.Filled.Code),
+    SETS("Sets & macros", Icons.Filled.Tune, CustomizeTab.MACROS, pro = false),
+    PALETTE("Make a palette", Icons.Filled.Gradient, CustomizeTab.LOOK),
+    CAMERA("Camera", Icons.Filled.Videocam, CustomizeTab.MOTION),
+    LIQUID("Liquid", Icons.Filled.Waves, CustomizeTab.MOTION),
+    RIPPLES("Water ripples", Icons.Filled.WaterDrop, CustomizeTab.MOTION),
+    LISTEN("How it listens", Icons.Filled.GraphicEq, CustomizeTab.MUSIC),
+    NOTE_KEY("Notes & key", Icons.Filled.MusicNote, CustomizeTab.MUSIC),
+    REACTIONS("Reactions", Icons.Filled.Bolt, CustomizeTab.MODULATE),
+    ENVELOPES("Envelopes", Icons.Filled.Insights, CustomizeTab.MODULATE),
+    WAVES("Waves", Icons.Filled.Timeline, CustomizeTab.MODULATE),
+    LAYERS("Layers", Icons.Filled.Layers, CustomizeTab.ADVANCED),
+    TRANSITIONS("Transitions", Icons.Filled.Animation, CustomizeTab.ADVANCED),
+    SHADER_CODE("Shader code", Icons.Filled.Code, CustomizeTab.ADVANCED),
 
     /** Reserved for the modulation matrix (any sound or wave to any control). Not built yet. */
-    MODULATION_MATRIX("Modulation matrix", "Connect any sound or wave to any control.", Icons.Filled.Bolt, available = false),
+    MODULATION_MATRIX("Modulation matrix", Icons.Filled.Bolt, CustomizeTab.MODULATE, available = false),
     ;
+
+    /** Advanced's groups, stepped with ‹ › rather than one back and forth through the list. */
+    val stepped: Boolean get() = page == CustomizeTab.ADVANCED
 
     /** Whether the style on screen has anything for this page. */
     fun appliesTo(sceneId: String): Boolean =
@@ -137,132 +148,149 @@ internal enum class AdvancedSection(
                 SHADER_CODE -> SceneCapabilities.hasShaderLook(sceneId) || SceneCapabilities.isFluid(sceneId)
                 else -> true
             }
+
+    companion object {
+        /** The deeper pages [page] opens on [sceneId], in order. */
+        fun of(
+            page: CustomizeTab,
+            sceneId: String,
+        ): List<CustomizeSubPage> = entries.filter { it.page == page && it.appliesTo(sceneId) }
+    }
 }
 
-/** What an Advanced page edits, gathered once so each page reads plain values. */
+/** What a deeper page edits, gathered once so each page reads plain values. */
 internal class AdvancedHost(
     val viewModel: PlayerViewModel,
     val visualsViewModel: VisualsViewModel,
     val visualizerView: VisualizerView,
 )
 
+/** A page's row that drills into one of its deeper pages: icon, name, ♛ when it is Pro, chevron. */
 @Composable
-internal fun AdvancedTab(
-    host: AdvancedHost,
-    unlocked: Boolean,
-    onLocked: () -> Unit,
-) {
-    val viz by host.viewModel.vizState.collectAsStateWithLifecycle()
-    val sections = AdvancedSection.entries.filter { it.appliesTo(viz.sceneId) }
-    if (LocalParamQuery.current.isNotBlank()) {
-        // Search reaches inside every page; a free user sees the matches locked.
-        sections.forEach { section ->
-            ProGated("advanced:${section.name}", section.title) { AdvancedSectionBody(section, host) }
-        }
-        return
-    }
-    var openName by rememberSaveable { mutableStateOf<String?>(null) }
-    val open = sections.firstOrNull { it.name == openName }?.takeIf { unlocked }
-    if (open != null) {
-        BackHandler { openName = null }
-        Column {
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) {
-                IconButton(onClick = { openName = null }) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back to Advanced")
-                }
-                Text(open.title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.semantics { heading() })
-            }
-            AdvancedSectionBody(open, host)
-        }
-        return
-    }
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
-        if (!unlocked) AdvancedUpsell(onLocked)
-        sections.forEach { section ->
-            AdvancedCard(section, locked = !unlocked) { if (unlocked) openName = section.name else onLocked() }
-        }
-    }
-}
-
-@Composable
-private fun AdvancedUpsell(onUnlock: () -> Unit) {
-    Column(
-        Modifier
-            .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f), RoundedCornerShape(16.dp))
-            .padding(16.dp),
-    ) {
-        Text("Advanced is part of Pro", style = MaterialTheme.typography.titleSmall, modifier = Modifier.semantics { heading() })
-        Text(
-            "Fine-tune how every sound moves the picture, layer two styles, fly the camera and write your own shaders.",
-            style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.padding(top = 4.dp, bottom = 8.dp),
-        )
-        CrystalButton(onClick = onUnlock) { Text("Unlock") }
-    }
-}
-
-@Composable
-private fun AdvancedCard(
-    section: AdvancedSection,
+internal fun SubPageRow(
+    sub: CustomizeSubPage,
     locked: Boolean,
     onClick: () -> Unit,
 ) {
     Row(
         Modifier
             .fillMaxWidth()
-            .heightIn(min = 64.dp)
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
+            .heightIn(min = 48.dp)
             .clickable(role = Role.Button, onClickLabel = if (locked) "Unlock with Pro" else "Open", onClick = onClick)
             .semantics(mergeDescendants = true) {}
-            .padding(horizontal = 12.dp, vertical = 8.dp),
+            .padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(section.icon, contentDescription = null, tint = accentTextColor())
-        Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
-            Text(section.title, style = MaterialTheme.typography.titleSmall)
-            Text(section.summary, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Icon(sub.icon, contentDescription = null, tint = accentTextColor())
+        Text(sub.title, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(start = 16.dp).weight(1f))
+        if (locked) ProCrown()
+        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+/** The ♛ that marks Pro on a page or a row; the only Pro mark Customize draws. */
+@Composable
+internal fun ProCrown(modifier: Modifier = Modifier) {
+    Icon(
+        Icons.Filled.WorkspacePremium,
+        contentDescription = "Pro",
+        modifier = modifier.padding(horizontal = 4.dp).size(18.dp),
+        tint = accentTextColor(),
+    )
+}
+
+/**
+ * A deeper page drilled into: ← and its title, ‹ › "2 of 3" for Advanced's groups, then the page.
+ * [siblings] are the groups the arrows step through; empty for a page that is not stepped.
+ */
+@Composable
+internal fun SubPageScreen(
+    sub: CustomizeSubPage,
+    host: AdvancedHost,
+    siblings: List<CustomizeSubPage>,
+    onBack: () -> Unit,
+    onStep: (CustomizeSubPage) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+            IconButton(onClick = onBack) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back to ${sub.page.title}")
+            }
+            val at = siblings.indexOf(sub)
+            if (sub.stepped && at >= 0) {
+                IconButton(onClick = { onStep(siblings[at - 1]) }, enabled = at > 0) {
+                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Previous group")
+                }
+                Text(
+                    sub.title,
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.weight(1f).semantics { heading() },
+                )
+                Text(
+                    "${at + 1} of ${siblings.size}",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                IconButton(onClick = { onStep(siblings[at + 1]) }, enabled = at < siblings.lastIndex) {
+                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "Next group")
+                }
+            } else {
+                Text(sub.title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f).semantics { heading() })
+            }
         }
-        if (locked) {
-            Icon(Icons.Filled.Lock, contentDescription = "Pro")
-        } else {
-            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
-        }
+        Column(
+            Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp),
+        ) { SubPageBody(sub, host) }
     }
 }
 
 @Composable
-private fun AdvancedSectionBody(
-    section: AdvancedSection,
+internal fun SubPageBody(
+    sub: CustomizeSubPage,
     host: AdvancedHost,
 ) {
     val viz by host.viewModel.vizState.collectAsStateWithLifecycle()
     val p = viz.params
     val onChange: (SceneParams) -> Unit = host.visualsViewModel::editSceneParams
-    when (section) {
-        AdvancedSection.SOUND_RESPONSE -> {
-            val lfos by host.visualsViewModel.lfos.collectAsStateWithLifecycle()
-            val adsrs by host.visualsViewModel.adsrs.collectAsStateWithLifecycle()
-            SoundResponsePage(
-                p,
-                onChange,
-                attack = viz.attack,
-                decay = viz.decay,
-                onReactivityChange = host.viewModel::setReactivity,
-                lfos = lfos,
-                onLfoChange = host.visualsViewModel::setLfo,
-                adsr = adsrs,
-                onAdsrChange = host.visualsViewModel::setAdsr,
-            )
+    when (sub) {
+        CustomizeSubPage.SETS -> {
+            val context = LocalContext.current
+            val store = remember { MacroStore.get(context) }
+            val macros by store.state.collectAsStateWithLifecycle()
+            val proLock = LocalProLock.current
+            MacroSetsPage(macros, store, canSavePresets = proLock.unlocked, onLockedSave = proLock.onLocked)
         }
-        AdvancedSection.REACTIONS -> {
+        CustomizeSubPage.LISTEN ->
+            ListenPage(p, onChange, attack = viz.attack, decay = viz.decay, onReactivityChange = host.viewModel::setReactivity)
+        CustomizeSubPage.ENVELOPES -> {
+            val adsrs by host.visualsViewModel.adsrs.collectAsStateWithLifecycle()
+            if (sectionVisible()) {
+                for (i in 0 until AdsrEngine.COUNT) {
+                    AdsrCard(index = i, config = adsrs.getOrElse(i) { AdsrConfig() }, onChange = { host.visualsViewModel.setAdsr(i, it) })
+                }
+            }
+        }
+        CustomizeSubPage.WAVES -> {
+            val lfos by host.visualsViewModel.lfos.collectAsStateWithLifecycle()
+            if (sectionVisible()) {
+                for (i in 0 until LfoEngine.SLOTS) {
+                    ModulatorCard(index = i, config = lfos.getOrElse(i) { LfoConfig() }, onChange = { host.visualsViewModel.setLfo(i, it) })
+                }
+            }
+        }
+        CustomizeSubPage.REACTIONS -> {
             val reactions by host.visualsViewModel.reactions.collectAsStateWithLifecycle()
             ReactionsSection(p, reactions, host.visualsViewModel::setReactions, host.visualsViewModel::rerollReactions)
         }
-        AdvancedSection.NOTE_KEY -> NoteKeyPage(p, onChange)
-        AdvancedSection.LAYERS -> LayersPage()
-        AdvancedSection.CAMERA -> CameraPage(p, onChange)
-        AdvancedSection.TRANSITIONS ->
+        CustomizeSubPage.NOTE_KEY -> NoteKeyPage(p, onChange)
+        CustomizeSubPage.LAYERS -> LayersPage()
+        CustomizeSubPage.CAMERA -> CameraPage(p, onChange)
+        CustomizeSubPage.TRANSITIONS ->
             TransitionsPage(
                 p,
                 onChange,
@@ -271,33 +299,28 @@ private fun AdvancedSectionBody(
                 onTransitionId = host.viewModel::setTransitionId,
                 onTransitionDuration = host.viewModel::setTransitionDuration,
             )
-        AdvancedSection.GRADIENT -> if (sectionVisible()) PaletteMakerCard(p, onChange, rememberSavedPalettes())
-        AdvancedSection.LIQUID -> {
+        CustomizeSubPage.PALETTE -> if (sectionVisible()) PaletteMakerCard(p, onChange, rememberSavedPalettes())
+        CustomizeSubPage.LIQUID -> {
             val liquidMode by host.visualsViewModel.liquidMode.collectAsStateWithLifecycle()
             LiquidPage(p, onChange, liquidMode = liquidMode)
         }
-        AdvancedSection.RIPPLES -> RipplesPage(p, onChange)
-        AdvancedSection.SHADER_CODE -> if (sectionVisible()) ShaderCodePage(host)
-        AdvancedSection.MODULATION_MATRIX -> Unit
+        CustomizeSubPage.RIPPLES -> RipplesPage(p, onChange)
+        CustomizeSubPage.SHADER_CODE -> if (sectionVisible()) ShaderCodePage(host)
+        CustomizeSubPage.MODULATION_MATRIX -> Unit
     }
 }
 
 /**
- * Advanced › Sound response: how the picture listens. The waves (LFOs) can run steadily or follow
- * a sound (a band, the level, note starts), so they stay tied to the music's envelope rather than
- * ticking on their own; tempo-synced waves arrive with the modulation matrix.
+ * Music › How it listens: how strongly and how fast the picture follows the sound. Its envelopes
+ * and waves are Modulate's ([CustomizeSubPage.ENVELOPES], [CustomizeSubPage.WAVES]).
  */
 @Composable
-internal fun SoundResponsePage(
+internal fun ListenPage(
     p: SceneParams,
     onChange: (SceneParams) -> Unit,
     attack: Float,
     decay: Float,
     onReactivityChange: (Float, Float) -> Unit,
-    lfos: List<LfoConfig>,
-    onLfoChange: (Int, LfoConfig) -> Unit,
-    adsr: List<AdsrConfig>,
-    onAdsrChange: (Int, AdsrConfig) -> Unit,
 ) {
     Column {
         SectionHeader("How strongly it listens")
@@ -342,25 +365,6 @@ internal fun SoundResponsePage(
         )
         LabeledSlider(REACTIVITY_ATTACK, attack, 0.05f..1f, scope = ParamScope.BAND_GAINS) { onReactivityChange(it, decay) }
         LabeledSlider(REACTIVITY_DECAY, decay, 0.02f..0.6f, scope = ParamScope.BAND_GAINS) { onReactivityChange(attack, it) }
-        SectionHeader("Envelopes on hits")
-        ControlHint(
-            "Two envelopes fired by the hits you hear. Each can move several controls at once: tap + to add one, tap a chip to remove it.",
-        )
-        if (sectionVisible()) {
-            for (i in 0 until AdsrEngine.COUNT) {
-                AdsrCard(index = i, config = adsr.getOrElse(i) { AdsrConfig() }, onChange = { onAdsrChange(i, it) })
-            }
-        }
-        SectionHeader("Waves")
-        ControlHint(
-            "Each wave moves one control. Let it run steadily, or let it follow a sound (bass, level, note starts) so it " +
-                "rises and falls with the music. Speed is the time for one cycle.",
-        )
-        if (sectionVisible()) {
-            for (i in 0 until LfoEngine.SLOTS) {
-                ModulatorCard(index = i, config = lfos.getOrElse(i) { LfoConfig() }, onChange = { onLfoChange(i, it) })
-            }
-        }
     }
 }
 

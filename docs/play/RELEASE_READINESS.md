@@ -1,4 +1,4 @@
-# Play release readiness (2026-10-30)
+# Play release readiness (2026-10-30, wave 1 added 2026-11-02)
 
 A pass over what stands between `claude/geode-finish` and a production release. It
 builds on a play-policy-insights audit (compliant) and adds
@@ -41,6 +41,19 @@ out of the merged manifest by a CI check, every foreground service has a type, e
 | N1 | Live input keeps its `AudioRecord` thread open while the app is in the background. On targetSdk 36 without a microphone FGS type the platform hands it silence, so nothing is heard, but the loop still runs. Pause on `ProcessLifecycleOwner` ON_STOP, resume on ON_START. | `ui/CaptureController.kt` |
 | N2 | `NowPlayingWidgetReceiver` is exported for `APPWIDGET_UPDATE`, as Glance requires. Any app can send it an explicit update; the worst case is a redraw. Leave it. | Manifest |
 | N3 | The entitlement cache is in Auto Backup. Since 2026-11-01 a verified purchase stays owned offline with no expiry (Pro is removed only when Play answers "not owned"), and the signature is re-checked on every read, so a forged cache fails. A genuine cache restored to a device on a different Google account still reads "owned" until Play first answers; the foreground refresh corrects that within seconds when online, but a device kept offline stays Pro. Excluding the file would also drop the useful case (same account, offline). Accepted for now. | `billing/EntitlementStore.kt`, `res/xml/*backup*` |
+
+## Wave 1 changes to re-check
+
+Wave 1 (#227) adds features after this pass. Each row is what it changes for Play and who
+updates it; the release-candidate check (5B) re-runs the policy audit over all of them.
+
+| Part | Play impact | Update |
+|---|---|---|
+| 4I Cast to TV (Pro) | **INTERNET comes back**, only for Cast. The Cast SDK (Google Play services) joins Play Billing as an SDK that talks off the device. Changes: Data safety (re-answer for the Cast SDK), privacy policy (`docs/privacy-policy.md`, `.html` and the app's copy), the "no INTERNET" CI checks in `android.yml` and `release.yml` (become "INTERNET only for Cast, never AD_ID"), the listing's "Offline" lines, and a foreground service type if casting continues with the screen off. | 4I, before its first build reaches the closed track |
+| 4E Wallpaper: any app's audio | Reads the output mix through `Visualizer`, which needs `RECORD_AUDIO` (already declared for live input). Audio stays on the device: Data safety unchanged. | 4E tells this topic if it adds a permission or a foreground service type |
+| 4H Quick Settings tile, 4G widget | None: no new permission, nothing leaves the device. | - |
+| 2D Record to project | Renders in the background through the existing export service (`mediaProcessing`/`dataSync`), already declared. | Re-check at 5B |
+| UI and Studio redesign (3x, 2x) | Screenshots, feature graphic and the full description describe the old UI. | 5B: new graphics per [GRAPHICS.md](GRAPHICS.md), new listing text |
 
 ## Fixed on this branch (`claude/play-readiness-50643f`)
 

@@ -242,7 +242,9 @@ jobs:
             echo "::error::Network APIs used outside dev.geode.cast; Cast to TV is the only internet use."; exit 1
           fi
           deps=$(./gradlew :app:dependencies --configuration releaseRuntimeClasspath --no-daemon -q)
-          banned='okhttp|retrofit|ktor|cronet|volley|firebase|play-services-ads|play-services-measurement|play-services-analytics|crashlytics|sentry|appsflyer|adjust'
+          # Firebase by product: Cast's own logging (datatransport) brings firebase-encoders, which only
+          # serialises its anonymous log records and opens no connection (Data safety declares it).
+          banned='okhttp|retrofit|ktor|cronet|volley|firebase-(analytics|crashlytics|messaging|perf|config|installations|auth|firestore|database|storage|appcheck|inappmessaging|dynamic-links|ml)|play-services-ads|play-services-measurement|play-services-analytics|crashlytics|sentry|appsflyer|adjust'
           if echo "$deps" | grep -iE "$banned"; then
             echo "::error::A networking, analytics or ads SDK is in the release build; Cast to TV is the only internet use."; exit 1
           fi

@@ -20,12 +20,8 @@ import kotlinx.coroutines.launch
  *
  * The style itself is the session's: its order, the Pro skip and the store all live in `ui`,
  * which this package may not name (tools/layer-gate.sh). So the session drives this, not the
- * other way round:
- *
- * ```
- * scope.launch { WidgetStyles.steps().collect { step -> nextStageStyle(…, step) { locked }?.let(::selectScene) } }
- * scope.launch { chosenSceneIdFlow.collect { WidgetStyles.publish(context, it) } }
- * ```
+ * other way round: `PlayerSession`'s last init block publishes its chosen style on every change
+ * and collects [steps] into the stage swipe's own step (same order, locked styles skipped).
  *
  * While nobody collects [steps] (no session: the app is closed, or the process was rebuilt for
  * the widget alone) [listening] is false and the style buttons open the app instead of doing

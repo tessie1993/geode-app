@@ -2,6 +2,7 @@ package dev.geode.ui
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -9,18 +10,15 @@ import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.selection.toggleable
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.ArrowDropDown
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -31,19 +29,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import dev.geode.R
 import dev.geode.pro.FeatureGate
 import dev.geode.pro.PaywallTrigger
 import dev.geode.pro.ProFeature
 import dev.geode.ui.pro.PaywallViewModel
 import dev.geode.ui.theme.GeodeSpacing
+import dev.geode.ui.theme.StoneIcon
 
 // The building blocks of every Settings page: the standard Android settings row (icon, title,
 // one-line summary) and its switch and single-choice forms. The Pro mark is
@@ -141,9 +139,10 @@ internal fun SettingsSwitchRow(
 }
 
 /**
- * The Android list preference: the row shows the current choice as its summary, and a tap opens
- * a dialog of radio buttons. Choosing closes the dialog. [proOption] marks the choices that need
- * Pro with a crown; [onSelect] decides what happens when a free user picks one.
+ * A pick from a list, as one row (the UI V2 rule: dropdowns, not dialogs or chip walls): the
+ * title, the current choice as its summary and a ▾; a tap drops the options down from the row,
+ * the current one ticked. Choosing closes it. [proOption] marks the choices that need Pro with a
+ * crown; [onSelect] decides what happens when a free user picks one.
  */
 @Composable
 internal fun <T> SettingsChoiceRow(
@@ -158,51 +157,36 @@ internal fun <T> SettingsChoiceRow(
     proOption: (T) -> Boolean = { false },
 ) {
     var open by rememberSaveable { mutableStateOf(false) }
-    SettingsRow(
-        title = title,
-        summary = label(selected),
-        icon = icon,
-        enabled = enabled,
-        modifier = modifier,
-        onClick = { open = true },
-    )
-    if (open) {
-        AlertDialog(
-            onDismissRequest = { open = false },
-            title = { Text(title) },
-            text = {
-                Column(Modifier.selectableGroup().verticalScroll(rememberScrollState())) {
-                    options.forEach { option ->
-                        val isSelected = option == selected
-                        Row(
-                            Modifier
-                                .fillMaxWidth()
-                                .defaultMinSize(minHeight = GeodeSpacing.TouchTarget)
-                                .clip(MaterialTheme.shapes.small)
-                                .selectable(
-                                    selected = isSelected,
-                                    role = Role.RadioButton,
-                                    onClick = {
-                                        open = false
-                                        onSelect(option)
-                                    },
-                                ).padding(horizontal = GeodeSpacing.XS),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(GeodeSpacing.M),
-                        ) {
-                            RadioButton(selected = isSelected, onClick = null)
-                            Text(
-                                label(option),
-                                style = MaterialTheme.typography.bodyLarge,
-                                modifier = Modifier.weight(1f, fill = false),
-                            )
-                            if (proOption(option)) ProCrown()
-                        }
-                    }
-                }
-            },
-            confirmButton = { TextButton(onClick = { open = false }) { Text(stringResource(R.string.action_cancel)) } },
+    Box(modifier) {
+        SettingsRow(
+            title = title,
+            summary = label(selected),
+            icon = icon,
+            enabled = enabled,
+            onClick = { open = true },
+            trailing = { Icon(Icons.Rounded.ArrowDropDown, contentDescription = null) },
         )
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            options.forEach { option ->
+                DropdownMenuItem(
+                    text = { Text(label(option), style = MaterialTheme.typography.bodyMedium) },
+                    onClick = {
+                        open = false
+                        onSelect(option)
+                    },
+                    leadingIcon = {
+                        // Every item keeps the tick's space, so the labels line up.
+                        Icon(
+                            StoneIcon.CHECK.vector,
+                            contentDescription = null,
+                            modifier = Modifier.alpha(if (option == selected) 1f else 0f),
+                        )
+                    },
+                    trailingIcon = { if (proOption(option)) ProCrown() },
+                    modifier = Modifier.semantics { this.selected = option == selected },
+                )
+            }
+        }
     }
 }
 

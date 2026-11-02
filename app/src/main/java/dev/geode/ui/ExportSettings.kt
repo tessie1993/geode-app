@@ -4,16 +4,12 @@ import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -23,7 +19,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -171,12 +166,12 @@ private fun DestinationDialog(
         title = { Text(destinationName(destination)) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(GeodeSpacing.M)) {
-                ChipLine(
+                SettingsChoiceRow(
                     title = stringResource(R.string.settings_export_quality),
                     options = ExportQuality.entries,
                     selected = draft.quality,
                     label = { exportQualityLabel(it) },
-                    isPro = { it == ExportQuality.UHD4K },
+                    proOption = { it == ExportQuality.UHD4K },
                     onSelect = { q ->
                         if (q == ExportQuality.UHD4K) {
                             pro.runOrPaywall(ProFeature.EXPORT_4K) { draft = draft.copy(quality = q) }
@@ -185,12 +180,12 @@ private fun DestinationDialog(
                         }
                     },
                 )
-                ChipLine(
+                SettingsChoiceRow(
                     title = stringResource(R.string.settings_export_fps),
                     options = EXPORT_FPS_OPTIONS,
                     selected = draft.fps,
                     label = { stringResource(R.string.settings_export_fps_value, it) },
-                    isPro = { it > FreeTier.FREE_MAX_FPS },
+                    proOption = { it > FreeTier.FREE_MAX_FPS },
                     onSelect = { fps ->
                         if (fps > FreeTier.FREE_MAX_FPS) {
                             pro.runOrPaywall(ProFeature.EXPORT_60FPS) { draft = draft.copy(fps = fps) }
@@ -199,7 +194,7 @@ private fun DestinationDialog(
                         }
                     },
                 )
-                ChipLine(
+                SettingsChoiceRow(
                     title = stringResource(R.string.settings_export_ratio),
                     options = ExportRatio.entries,
                     selected = draft.ratio,
@@ -221,40 +216,6 @@ private fun DestinationDialog(
             }
         },
     )
-}
-
-@Composable
-private fun <T> ChipLine(
-    title: String,
-    options: List<T>,
-    selected: T,
-    label: @Composable (T) -> String,
-    onSelect: (T) -> Unit,
-    isPro: (T) -> Boolean = { false },
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(GeodeSpacing.XS)) {
-        Text(title, style = MaterialTheme.typography.labelLarge)
-        Row(
-            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(GeodeSpacing.S),
-        ) {
-            options.forEach { option ->
-                FilterChip(
-                    selected = option == selected,
-                    onClick = { onSelect(option) },
-                    label = {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(GeodeSpacing.XS),
-                        ) {
-                            Text(label(option))
-                            if (isPro(option)) ProCrown()
-                        }
-                    },
-                )
-            }
-        }
-    }
 }
 
 @Composable

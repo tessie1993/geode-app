@@ -5,6 +5,7 @@ import android.content.SharedPreferences
 import android.net.ConnectivityManager
 import dev.geode.RingLog
 import dev.geode.audio.AudioBus
+import dev.geode.audio.PcmRingBuffer
 import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.LfoStore
 import dev.geode.data.PresetStore
@@ -14,6 +15,7 @@ import dev.geode.engine.audio.SoundInput
 import dev.geode.export.EncoderSurface
 import dev.geode.export.PcmResampler
 import dev.geode.render.VisualizerRenderer
+import dev.geode.render.scene.PcmChunk
 import dev.geode.util.bestEffort
 import java.net.Inet4Address
 import java.net.InetAddress
@@ -24,10 +26,14 @@ import kotlin.math.roundToInt
  *
  * The picture comes from its own [VisualizerRenderer] on its own thread and EGL context, not from
  * the screen's view: casting keeps going with the app in the background and the screen off (owner,
- * 2026-11-02), when the screen's view is paused. It shows what the screen would, the same way the
- * live wallpaper does: the saved live look (style, params, modulation, the MilkDrop preset the
- * renderer restores itself), re-read whenever the app saves it, and the same sound
- * ([AudioBus.soundInput]).
+ * 2026-11-02), when the screen's view is paused. It shows what the screen would: the saved live
+ * look (style, params, modulation, the MilkDrop preset the renderer restores itself), re-read
+ * whenever the app saves it, the same sound ([AudioBus.soundInput]) and the same raw PCM
+ * ([pcmRing], the mono ring the screen's PCM scenes read). A style only previewed on the phone,
+ * not chosen, isn't saved, so the TV keeps the chosen one until the check is tapped.
+ *
+ * If the render loop dies after the stream started, [onFailed] runs (on the render thread): a
+ * frozen picture on the TV with a muted phone is worse than ending the cast.
  *
  * The sound goes to the TV inside the stream (the phone is a silent remote, see [CastController]).
  * Audio is clocked by the wall clock like the picture: each frame queues exactly a frame's worth of
@@ -36,6 +42,8 @@ import kotlin.math.roundToInt
  */
 internal class CastStream(
     context: Context,
+    private val pcmRing: PcmRingBuffer?,
+    private val onFailed: () -> Unit,
 ) {
     private val appContext = context.applicationContext
     private val prefsFiles = GeodePrefsFiles(appContext)
@@ -57,12 +65,17 @@ internal class CastStream(
     val isReady: Boolean get() = segments.playlist() != null
 
     fun start() {
-        server.start()
+        try {
+            server.start()
+        } catch (e: java.io.IOException) {
+            server.stop()
+            throw e
+        }
         prefsFiles.viz.registerOnSharedPreferenceChangeListener(lookListener)
         prefsFiles.general.registerOnSharedPreferenceChangeListener(lookListener)
         running = true
         thread =
-            Thread({ runCatching { renderLoop() }.onFailure { RingLog.note(TAG, "render loop: $it") } }, "cast-render").apply {
+            Thread({ runRenderLoop() }, "cast-render").apply {
                 start()
             }
     }
@@ -76,6 +89,24 @@ internal class CastStream(
         server.stop()
     }
 
+    private fun runRenderLoop() {
+        runCatching { renderLoop() }.onFailure {
+            RingLog.note(TAG, "render loop: $it")
+            if (running) onFailed()
+        }
+    }
+
+    private val pcmScratch = FloatArray(PCM_SCRATCH)
+    private var pcmCursor = 0L
+
+    /** What the mono ring gained since the last frame, as the screen's renderer gets it (PlayerSession.latestPcm). */
+    private fun latestPcm(): PcmChunk? {
+        val ring = pcmRing ?: return null
+        val n = ring.copyNewSince(pcmCursor, pcmScratch)
+        pcmCursor = ring.lastCopyEndIndex
+        return if (n > 0) PcmChunk(pcmScratch, n) else null
+    }
+
     private fun renderLoop() {
         val encoder = CastEncoder(segments)
         val egl = EncoderSurface(encoder.surface)
@@ -83,7 +114,7 @@ internal class CastStream(
         val audio = AudioPump(encoder)
         try {
             egl.makeCurrent()
-            renderer.pcmProvider = { null }
+            renderer.pcmProvider = { latestPcm() }
             renderer.soundInput = { AudioBus.soundInput }
             renderer.onSurfaceCreated(null, null)
             renderer.onSurfaceChanged(null, encoder.width, encoder.height)
@@ -224,6 +255,7 @@ internal class CastStream(
     private companion object {
         const val TAG = "CastStream"
         const val KEY_LIVE_STATE = "live_state"
+        const val PCM_SCRATCH = 4096
         const val JOIN_MS = 2_000L
         const val NANOS_PER_SEC = 1_000_000_000L
         const val NANOS_PER_MS = 1_000_000L

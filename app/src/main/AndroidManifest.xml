@@ -87,7 +87,7 @@
     <!-- "Now playing in other apps" labels the capture with the app it is hearing.
          Android 11's package visibility filtering hides other packages from
          getApplicationLabel(), so without these narrow queries the UI would show raw
-         package names instead of "Spotify". Scoped to media apps only - this is not
+         package names instead of the app's name. Scoped to media apps only - this is not
          QUERY_ALL_PACKAGES and requests nothing from the user. -->
     <queries>
         <intent>
@@ -288,7 +288,7 @@
         <!--
           Does nothing, and must exist: getActiveSessions() is gated on being
           an enabled notification listener, and that is the only way to become
-          one. It is how the app can name what Spotify or YouTube is playing.
+          one. It is how the app can name what another app is playing.
           Optional — the visuals work on the captured audio alone.
         -->
         <service

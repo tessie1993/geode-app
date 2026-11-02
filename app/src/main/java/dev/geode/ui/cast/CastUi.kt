@@ -40,6 +40,7 @@ import dev.geode.cast.CastController
 import dev.geode.cast.CastState
 import dev.geode.pro.PaywallTrigger
 import dev.geode.pro.ProFeature
+import dev.geode.render.scene.VisualStyleCatalog
 import dev.geode.ui.PlayerViewModel
 import dev.geode.ui.geodeViewModel
 import dev.geode.ui.pro.PaywallViewModel
@@ -79,9 +80,10 @@ fun CastButton(modifier: Modifier = Modifier) {
 }
 
 /**
- * The phone while it casts: a dimmed, simple remote (owner Q19). The TV plays the picture and the
- * sound; this shows where it goes and drives the music's player: previous, play/pause, next, the
- * next style ([onNextStyle], stepped the way the visual's swipe does) and Stop casting.
+ * The phone while it casts: a dimmed, simple remote (owner Q19: style, next look, transport). The
+ * TV plays the picture and the sound; this shows where it goes and the style on the TV, and drives
+ * the music's player: previous, play/pause, next, the next look ([onNextLook], what a double tap on
+ * the visual does: the visuals playlist, else the next style) and Stop casting.
  *
  * The screen is dimmed to its lowest brightness while this is shown and given back when it goes.
  * Hosted full screen by the shell while [CastController.state] is [CastState.Casting].
@@ -89,12 +91,13 @@ fun CastButton(modifier: Modifier = Modifier) {
 @Composable
 fun CastRemote(
     controller: CastController,
-    onNextStyle: () -> Unit,
+    onNextLook: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val state by controller.state.collectAsStateWithLifecycle()
     val player: PlayerViewModel = geodeViewModel()
     val ui by player.uiState.collectAsStateWithLifecycle()
+    val viz by player.vizState.collectAsStateWithLifecycle()
     DimScreen()
     Box(
         modifier
@@ -125,6 +128,12 @@ fun CastRemote(
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = VisualStyleCatalog.label(viz.sceneId),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             Spacer(Modifier.height(24.dp))
             Row(
                 Modifier.fillMaxWidth(),
@@ -140,10 +149,10 @@ fun CastRemote(
                 RemoteButton(StoneIcon.NEXT, R.string.cast_remote_next) { player.next() }
             }
             Spacer(Modifier.height(16.dp))
-            TextButton(onClick = onNextStyle) {
+            TextButton(onClick = onNextLook) {
                 StoneIconArt(StoneIcon.VISUALIZER, contentDescription = null)
                 Spacer(Modifier.size(8.dp))
-                Text(stringResource(R.string.cast_remote_next_style))
+                Text(stringResource(R.string.cast_remote_next_look))
             }
             TextButton(onClick = { controller.stop() }) {
                 StoneIconArt(StoneIcon.CLOSE, contentDescription = null)

@@ -17,8 +17,10 @@ import androidx.media3.common.Player
 import dev.geode.R
 import dev.geode.RingLog
 import dev.geode.appLaunchIntent
+import dev.geode.billing.ProSnapshot
 import dev.geode.playback.PlaybackEngine
 import dev.geode.playback.PlaybackSession
+import dev.geode.pro.ProFeature
 
 /**
  * Keeps a cast running with the app in the background or the screen off (owner, 2026-11-02):
@@ -29,6 +31,9 @@ import dev.geode.playback.PlaybackSession
  * inside the stream, and the phone is the remote. The music's player keeps playing (its PCM tap
  * comes before the volume, so the visuals and the stream still hear it); only its volume goes to
  * zero, and anything that raises it while casting (a crossfade, the sleep timer's fade) is put back.
+ *
+ * Pro is checked again every minute ([recheckPro]): a trial that runs out mid-cast ends the cast,
+ * as it would lock any other Pro feature. A stream that dies (the render loop failed) ends it too.
  */
 class CastService : Service() {
     private val handler = Handler(Looper.getMainLooper())
@@ -62,18 +67,33 @@ class CastService : Service() {
     }
 
     private fun startStream() {
-        val started = runCatching { CastStream(this).also { it.start() } }
-        started.onFailure {
-            RingLog.note(TAG, "stream did not start: $it")
-            CastController.get(this).onStreamFailed()
-            stopSelf()
-        }
-        val s = started.getOrNull() ?: return
-        stream = s
         mutePhone()
+        val started = runCatching { CastStream(this, playback?.ring) { handler.post { fail() } }.also { it.start() } }
+        started.onFailure { RingLog.note(TAG, "stream did not start: $it") }
+        val s = started.getOrNull() ?: return fail()
+        stream = s
         waitingSinceMs = SystemClock.elapsedRealtime()
         handler.post(waitForStream)
+        handler.postDelayed(recheckPro, PRO_RECHECK_MS)
     }
+
+    /** Ends the cast because the stream can't run; onDestroy gives the phone its sound back. */
+    private fun fail() {
+        CastController.get(this).onStreamFailed()
+        stopSelf()
+    }
+
+    private val recheckPro: Runnable =
+        object : Runnable {
+            override fun run() {
+                if (ProSnapshot.gate(this@CastService).allows(ProFeature.CAST)) {
+                    handler.postDelayed(this, PRO_RECHECK_MS)
+                } else {
+                    CastController.get(this@CastService).stop()
+                    stopSelf()
+                }
+            }
+        }
 
     private val waitForStream: Runnable =
         object : Runnable {
@@ -83,8 +103,7 @@ class CastService : Service() {
                     s.isReady -> CastController.get(this@CastService).onStreamReady(s.playlistUrl)
                     SystemClock.elapsedRealtime() - waitingSinceMs > START_TIMEOUT_MS -> {
                         RingLog.note(TAG, "stream not ready after ${START_TIMEOUT_MS / 1000} s")
-                        CastController.get(this@CastService).onStreamFailed()
-                        stopSelf()
+                        fail()
                     }
                     else -> handler.postDelayed(this, POLL_MS)
                 }
@@ -156,6 +175,7 @@ class CastService : Service() {
         private const val NOTIFICATION_ID = 0xCA57
         private const val ACTION_STOP = "dev.geode.cast.STOP"
         private const val POLL_MS = 250L
+        private const val PRO_RECHECK_MS = 60_000L
 
         /** Enough for the three segments the receiver starts on, with room for a slow first encode. */
         private const val START_TIMEOUT_MS = 15_000L

@@ -44,8 +44,10 @@ sealed interface CastState {
  * would hand the music queue to the TV), but a [RemoteCastPlayer] that only ever loads the one
  * live item.
  *
- * A session can start from the app's Cast button or from the system's output switcher, so the Pro
- * gate is checked here, when the session appears, not only on the button.
+ * Sessions start from the app's Cast button (`ui/cast/CastButton`), which builds this on first
+ * composition; the app declares no MediaTransferReceiver, so the system's output switcher doesn't
+ * hand it sessions. The Pro gate is still checked here, when a session appears, not only on the
+ * button, and [CastService] re-checks it while casting.
  */
 @OptIn(UnstableApi::class)
 class CastController private constructor(

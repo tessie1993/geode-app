@@ -1,3 +1,5 @@
+@file:Suppress("MatchingDeclarationName")
+
 package dev.geode.ui.theme
 
 import android.os.Build

@@ -54,6 +54,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.window.core.layout.WindowSizeClass
 import dev.geode.R
+import dev.geode.data.BackgroundPrefs
 import dev.geode.data.BackgroundPrefsStore
 import dev.geode.render.UnderlayBlend
 import dev.geode.ui.theme.GeodeRadius
@@ -75,15 +76,66 @@ import kotlin.math.roundToInt
 fun BackgroundSheet(onDismiss: () -> Unit) {
     val visualsViewModel: VisualsViewModel = geodeViewModel()
     val prefs by visualsViewModel.backgroundPrefs.collectAsStateWithLifecycle()
-    var openCard by rememberSaveable { mutableStateOf<String?>(null) }
-    val toggle: (String) -> Unit = { key -> openCard = if (openCard == key) null else key }
-    val wide =
-        currentWindowAdaptiveInfo().windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND)
-
     val picker =
         rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
             if (uri != null) visualsViewModel.pickBackgroundImage(uri)
         }
+
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            BackgroundActions(
+                hasImage = prefs.uri != null,
+                onPick = { picker.launch(arrayOf("image/*")) },
+                onClear = visualsViewModel::clearBackgroundImage,
+            )
+            BackgroundOptions(prefs, visualsViewModel)
+        }
+    }
+}
+
+/** The title, the one line when there is no image, and Choose and Remove: always in view. */
+@Composable
+private fun BackgroundActions(
+    hasImage: Boolean,
+    onPick: () -> Unit,
+    onClear: () -> Unit,
+) {
+    Text(stringResource(R.string.background_sheet_title), style = MaterialTheme.typography.titleMedium)
+    if (!hasImage) {
+        Text(
+            stringResource(R.string.background_none),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        FilledTonalButton(onClick = onPick, contentPadding = CompactButtonPadding) {
+            Text(stringResource(R.string.background_pick))
+        }
+        if (hasImage) {
+            FilledTonalButton(onClick = onClear, contentPadding = CompactButtonPadding) {
+                Text(stringResource(R.string.background_clear))
+            }
+        }
+    }
+}
+
+/** Blend, Amount, Blur and Dim as an overview: one card open at a time, two columns when wide. */
+@Composable
+private fun BackgroundOptions(
+    prefs: BackgroundPrefs,
+    visualsViewModel: VisualsViewModel,
+) {
+    var openCard by rememberSaveable { mutableStateOf<String?>(null) }
+    val toggle: (String) -> Unit = { key -> openCard = if (openCard == key) null else key }
+    val wide =
+        currentWindowAdaptiveInfo().windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND)
 
     val blend: @Composable () -> Unit = {
         BlendRow(prefs.blend, visualsViewModel::setBackgroundBlend)
@@ -132,51 +184,23 @@ fun BackgroundSheet(onDismiss: () -> Unit) {
         }
     }
 
-    ModalBottomSheet(onDismissRequest = onDismiss) {
-        Column(
-            Modifier
-                .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Text(stringResource(R.string.background_sheet_title), style = MaterialTheme.typography.titleMedium)
-            if (prefs.uri == null) {
-                Text(
-                    stringResource(R.string.background_none),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+    if (wide) {
+        Row(horizontalArrangement = Arrangement.spacedBy(GeodeSpacing.M)) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(GeodeSpacing.S)) {
+                blend()
+                amount()
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilledTonalButton(onClick = { picker.launch(arrayOf("image/*")) }, contentPadding = CompactButtonPadding) {
-                    Text(stringResource(R.string.background_pick))
-                }
-                if (prefs.uri != null) {
-                    FilledTonalButton(onClick = visualsViewModel::clearBackgroundImage, contentPadding = CompactButtonPadding) {
-                        Text(stringResource(R.string.background_clear))
-                    }
-                }
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(GeodeSpacing.S)) {
+                blur()
+                dim()
             }
-            if (wide) {
-                Row(horizontalArrangement = Arrangement.spacedBy(GeodeSpacing.M)) {
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(GeodeSpacing.S)) {
-                        blend()
-                        amount()
-                    }
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(GeodeSpacing.S)) {
-                        blur()
-                        dim()
-                    }
-                }
-            } else {
-                Column(verticalArrangement = Arrangement.spacedBy(GeodeSpacing.S)) {
-                    blend()
-                    amount()
-                    blur()
-                    dim()
-                }
-            }
+        }
+    } else {
+        Column(verticalArrangement = Arrangement.spacedBy(GeodeSpacing.S)) {
+            blend()
+            amount()
+            blur()
+            dim()
         }
     }
 }

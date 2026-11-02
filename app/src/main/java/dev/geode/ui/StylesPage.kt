@@ -73,6 +73,7 @@ import dev.geode.model.StyleLook
 import dev.geode.render.scene.Catalogue
 import dev.geode.render.scene.SceneKind
 import dev.geode.render.scene.StyleFamilies
+import dev.geode.render.scene.StyleFamily
 import dev.geode.render.scene.VisualStyleCatalog
 import dev.geode.ui.theme.GeodeRadius
 import dev.geode.ui.theme.GeodeSpacing
@@ -392,9 +393,110 @@ private fun styleEntries(): List<StyleEntry> =
             label = sceneDisplayLabel(style.id),
             kindLabel = if (family != null) KIND_FAMILY else kindLabel(style.kind),
             familyLabel = family?.label,
-            look = StyleLook.of(style.id, style.kind.name),
+            look = StyleLookTags.of(style.id, style.kind, family),
         )
     }
+
+/**
+ * Which [StyleLook] group each style is shown in: UI data, the owner's draft to correct.
+ *
+ * WHY here and not in `model/StyleLook`: the facts the tags key on (a style's family and its
+ * renderer kind) are the native catalogue's (ADR 0003), and this page already reads them from
+ * [Catalogue] and [StyleFamilies]. Keying on the catalogue's family names and [SceneKind]s, not on
+ * hand-written id prefixes, means a style the engine moves between families moves group with it.
+ * What stays hand-written is only the taste: which family or kind looks like which group, and the
+ * loose shader styles placed one by one in [LOOSE]. A style missing from every rule lands in
+ * [StyleLook.PSYCHEDELIC], so a new style always shows somewhere.
+ */
+private object StyleLookTags {
+    /** A family style goes by its family, any other by its kind, a loose shader by [LOOSE]. */
+    fun of(
+        id: String,
+        kind: SceneKind,
+        family: StyleFamily?,
+    ): StyleLook =
+        family?.let { FAMILIES[it.name] }
+            ?: KINDS[kind]
+            ?: LOOSE[id]
+            ?: StyleLook.PSYCHEDELIC
+
+    /** Keyed by [StyleFamily.name], the catalogue's `family|<name>|…` rows. */
+    private val FAMILIES: Map<String, StyleLook> =
+        mapOf(
+            "bulb" to StyleLook.FRACTALS,
+            "arbor" to StyleLook.FRACTALS,
+            "foam" to StyleLook.FRACTALS,
+            "dive" to StyleLook.FLY_THROUGH,
+            "terrain" to StyleLook.FLY_THROUGH,
+            "nebula" to StyleLook.SPACE,
+            "glass" to StyleLook.GLASS,
+            "truchet" to StyleLook.PATTERNS,
+            "lucid" to StyleLook.PSYCHEDELIC,
+            "chrysanthemum" to StyleLook.PSYCHEDELIC,
+        )
+
+    /** Every kind but [SceneKind.SHADER], whose styles are placed one by one. */
+    private val KINDS: Map<SceneKind, StyleLook> =
+        mapOf(
+            SceneKind.SILK to StyleLook.FLOWING,
+            SceneKind.FLUID to StyleLook.FLOWING,
+            SceneKind.CURL_FLOW to StyleLook.FLOWING,
+            SceneKind.WATER to StyleLook.FLOWING,
+            SceneKind.LIFE to StyleLook.LIVING,
+            SceneKind.MYCELIUM to StyleLook.LIVING,
+            SceneKind.ACID to StyleLook.PSYCHEDELIC,
+            SceneKind.CYMATICS to StyleLook.PATTERNS,
+            SceneKind.MILKDROP to StyleLook.CLASSIC,
+        )
+
+    private val LOOSE: Map<String, StyleLook> =
+        buildMap {
+            listOf("julia", "mandel", "kifs", "fractal_temple", "menger_core", "mandelbox_cathedral", "supershape")
+                .forEach { put(it, StyleLook.FRACTALS) }
+            listOf(
+                "tunnel",
+                "rod_tunnel",
+                "particle_tunnel",
+                "fractal_dive",
+                "fractal_tunnel",
+                "outrun_drive",
+                "vanishing",
+                "crystal_canyon",
+                "spectrum_terrain",
+                "gyroid_cavern",
+                "noneuclid",
+            ).forEach { put(it, StyleLook.FLY_THROUGH) }
+            listOf("starfield", "nebula", "solar", "chrome_nebula", "ringed_planet", "black_hole", "aurora", "aurora_ocean")
+                .forEach { put(it, StyleLook.SPACE) }
+            listOf(
+                "orb_lattice",
+                "neon_tiles",
+                "chroma_orb",
+                "blacklight_bloom",
+                "prism_rain",
+                "glow_vortex",
+                "neon_chrome_sea",
+                "neon_city",
+                "merkaba_grid",
+                "bead_vortex",
+            ).forEach { put(it, StyleLook.GLASS) }
+            listOf("kaleido", "grid", "voronoi", "hexgrid", "spiral", "mandala_dome", "hex_hive", "spiral_eye")
+                .forEach { put(it, StyleLook.PATTERNS) }
+            listOf("bars", "ring", "scope", "liss", "waves").forEach { put(it, StyleLook.CLASSIC) }
+            listOf(
+                "plasma",
+                "warp",
+                "metaballs",
+                "lava",
+                "morphogen",
+                "curl_bloom",
+                "nectar_flow",
+                "jelly_abyss",
+                "ribbon_storm",
+                "ripples",
+            ).forEach { put(it, StyleLook.FLOWING) }
+        }
+}
 
 private fun kindLabel(kind: SceneKind): String =
     when (kind) {

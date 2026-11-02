@@ -44,7 +44,8 @@ out vec4 fragColor;
 // Speed (uSpeed) scales the vein drift. Complexity (uMorph) adds up to two
 // fractal iterations (bulbIters). Chaos (uWarp, uTurbulence, uTwist) bends
 // the bulb before it is inverted (bulbChaos in q, estimate divided by
-// bulbChaosLip). Energy (uIntensity) scales the drop twist. Colour is pal();
+// bulbChaosLip). Energy (uIntensity) scales the drop twist. Colour is tone(),
+// the grotto ramp pal() tints;
 // Space is the rig (travel and look drive the eye; its lateral wander offsets
 // the loop).
 
@@ -53,6 +54,13 @@ out vec4 fragColor;
 #define BV_FAR 7.0
 #define BV_LOOP_R 1.35
 const float BV_LOOP_RATE = 8.0 * CAM_SPIN_UNIT;
+
+// Grid cell INSIDE x LIT (see lib_bulb): a lit room, amber stone against teal
+// depth. Its own ramp is a grotto's: sea teal, aquamarine, and a mineral
+// gold for the veins.
+vec3 tone(float t) {
+    return bulbRamp(t, vec3(0.32, 0.50, 0.52), vec3(0.30, 0.32, 0.30), vec3(1.0), vec3(0.55, 0.35, 0.25));
+}
 
 float gTwist;
 float gTwistLip;
@@ -98,7 +106,7 @@ void main() {
     vec3 rd = normalize(frame * (uCamBasis * vec3(uv, uCamFocal)));
 
     float hue = 0.48 + 0.03 * sin(bulbTime() * 0.019);
-    vec3 fog = pal(hue) * 0.09 + vec3(0.01, 0.05, 0.06);
+    vec3 fog = tone(hue) * 0.09 + vec3(0.01, 0.05, 0.06);
 
     float t = 0.02;
     float hitT = -1.0;
@@ -138,12 +146,12 @@ void main() {
         vec3 h = normalize(-rd + vec3(0.0, 0.35, 0.0));
         float wet = pow(max(dot(n, h), 0.0), 60.0);
         float ao = mix(1.0, bulbStepAO(used), 0.6);
-        vec3 stone = mix(vec3(0.62, 0.38, 0.18), pal(hue + 0.55) * 0.5, 0.2);
+        vec3 stone = mix(vec3(0.62, 0.38, 0.18), tone(hue + 0.55) * 0.5, 0.2);
         col = stone * (0.25 + 0.9 * dif) * lamp * ao;
         col += vec3(0.9, 0.95, 1.0) * wet * lamp * 0.5 * ao;
         // Veins: where the orbit hugged the equatorial plane, the rock glows.
         float vein = smoothstep(0.05, 0.0, trap.y) * (0.6 + 0.4 * sin(sqrt(trap.x) * 9.0 + bulbTime() * 0.3));
-        col += pal(hue + 0.12 + 0.2 * sqrt(trap.x)) * vein * (0.6 + 0.2 * swell);
+        col += tone(hue + 0.12 + 0.2 * sqrt(trap.x)) * vein * (0.6 + 0.2 * swell);
         col = mix(col, fog, 1.0 - exp(-hitT * 0.22));
     }
 

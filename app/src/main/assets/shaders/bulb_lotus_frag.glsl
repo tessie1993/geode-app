@@ -22,16 +22,24 @@ out vec4 fragColor;
 // The latitude power is a real number and moves freely, because latitude has
 // no wrap; only the azimuth power has to stay an integer (see lib_bulb).
 //
-// Tilted toward the eye so the bloom is seen from above, lit from BEHIND by a
-// low sun, so the petals glow at their thin edges the way backlit petals do.
-// Pastel, foggy, soft; the sun's bloom sits in the sky behind the flower.
+// Grid cell MACRO x GLOW (see lib_bulb). The eye hovers just over the bloom
+// and looks down into its heart, so the frame is petals, never the flower's
+// outline. Nothing is lit by a normal: the flower glows from within. Light
+// pours from the pole axis (the trap's closeness to it), the thin petal edges
+// (the trap's closeness to the equatorial plane) and the folds (where the
+// ray crawled, by its step count), and every march step that passed near a
+// petal adds a little haze of its own, so the gaps between petals are veils
+// of light rather than holes. The family's one HIGH-KEY, low-contrast frame:
+// pastel on pale haze, soft everywhere. No normal also means four fractal
+// evaluations fewer per pixel.
 //
 // ---- audio ------------------------------------------------------------------
 //
 // PRESENCE opens the flower. The presence band (sndShaped(SND_HIGH) - voice and lead
 // instruments) raises the latitude power from 2.2 toward 4.0, so the petals
 // unfold and multiply while someone sings and close back into a bud in the
-// gaps. Hats (SND_HAT_ENV) shiver the azimuth phase, a tremble through the petals.
+// gaps; the eye sinks a little toward the heart as they open. Hats
+// (SND_HAT_ENV) shiver the azimuth phase, a tremble through the petals.
 // Brightness follows SND_ENERGY_TREND only.
 //
 // ---- macros -----------------------------------------------------------------
@@ -39,20 +47,32 @@ out vec4 fragColor;
 // Speed (uSpeed) scales the petal twirl. Complexity (uMorph) adds up to two fractal
 // iterations (bulbIters). Chaos (uWarp, uTurbulence, uTwist) warps and twists
 // space before the fractal (bulbChaos, estimate divided by bulbChaosLip).
-// Energy (uIntensity) scales the presence bloom and the hat tremble. Colour is pal() throughout; Space is
-// the rig (camAround).
+// Energy (uIntensity) scales the presence bloom and the hat tremble. Colour is
+// tone(), the blossom ramp pal() tints. Space is the rig: its travel circles
+// the eye round the pole, its look and shake ride on top (bulbAim), the dolly
+// lowers it toward the heart.
 
 #define BL_MAX_STEPS 112
 #define BL_BOUND 1.45
-#define BL_CAM_R 3.0
 #define BL_M 5.0
+/** The eye's height over the bloom at rest; presence and the dolly lower it. */
+#define BL_EYE_H 1.68
+/** How far off the pole the eye circles, and where on the bloom it looks. */
+#define BL_EYE_OFF 0.42
+#define BL_AIM_OFF 0.22
+#define BL_AIM_Y 0.30
+#define BL_GLOW_K 10.0
 const float BL_SPIN = -3.0 * CAM_SPIN_UNIT;
 
 float gLat;
 float gTwirl;
 int gIters;
 vec4 gTrap;
-mat3 gTilt;
+
+// Its own ramp: blush, peach and a pale jade, all kept light.
+vec3 tone(float t) {
+    return bulbRamp(t, vec3(0.80, 0.62, 0.66), vec3(0.20, 0.22, 0.18), vec3(1.0), vec3(0.00, 0.15, 0.55));
+}
 
 float lotusDE(vec3 p, out vec4 tr) {
     vec3 z = p;
@@ -84,15 +104,9 @@ float lotusDE(vec3 p, out vec4 tr) {
 
 float map(vec3 p) {
     vec4 tr;
-    float d = lotusDE(bulbChaos(gTilt * p), tr) / bulbChaosLip();
+    float d = lotusDE(bulbChaos(p), tr) / bulbChaosLip();
     gTrap = tr;
     return d;
-}
-
-vec3 normalAt(vec3 p, float e) {
-    vec2 k = vec2(1.0, -1.0);
-    return normalize(k.xyy * map(p + k.xyy * e) + k.yyx * map(p + k.yyx * e)
-                   + k.yxy * map(p + k.yxy * e) + k.xxx * map(p + k.xxx * e));
 }
 
 void main() {
@@ -100,22 +114,26 @@ void main() {
     float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
     float presence = clamp(0.5 * sndShaped(SND_HIGH) + 0.5 * sndShaped(SND_MIDDLE) / 1.5, 0.0, 1.0);
     float hat = clamp(SND_HAT_ENV, 0.0, 1.0);
-    gLat = 2.2 + 1.8 * clamp(presence * bulbEnergy(), 0.0, 1.0);
+    float open = clamp(presence * bulbEnergy(), 0.0, 1.0);
+    gLat = 2.2 + 1.8 * open;
     gTwirl = 0.05 * hat * bulbEnergy() * sin(bulbTime() * 23.0) + 0.1 * sin(bulbTime() * 0.05);
     gIters = bulbIters(6);
-    gTilt = rotX(0.55);
 
+    // MACRO: hover over the heart and look down into it, a little off-axis,
+    // circling the pole with the rig's travel.
+    float a = uCamTravel * BL_SPIN;
+    float h = BL_EYE_H - 0.18 * open - 0.12 * uCamDolly;
+    vec3 eye = vec3(BL_EYE_OFF * cos(a), h, BL_EYE_OFF * sin(a));
+    vec3 aim = vec3(BL_AIM_OFF * cos(a + 2.4), BL_AIM_Y, BL_AIM_OFF * sin(a + 2.4));
     vec3 ro;
     vec3 rd;
-    camAround(uv, BL_CAM_R, BL_SPIN, ro, rd);
+    bulbAim(uv, eye, aim, ro, rd);
 
-    float hue = 0.92 + 0.04 * sin(bulbTime() * 0.013);
-    // The sun sits behind the flower relative to the eye, a little high.
-    vec3 sun = normalize(-normalize(ro) + vec3(0.0, 0.45, 0.0));
+    float hue = 0.03 * sin(bulbTime() * 0.013);
 
     float hitT = -1.0;
     float used = 0.0;
-    float near = 1e3;
+    float veil = 0.0;
     vec4 trap = vec4(1.0);
     vec2 tb = bulbBound(ro, rd, vec3(0.0), BL_BOUND);
     if (tb.y > 0.0) {
@@ -125,7 +143,8 @@ void main() {
             if (t > tb.y) break;
             used = float(i);
             float d = map(ro + rd * t);
-            near = min(near, d);
+            // Every step near a petal lights the air a little: the veils.
+            veil += exp(-max(d, 0.0) * BL_GLOW_K) * 0.03;
             float eps = bulbEps(t);
             if (d < eps) {
                 hitT = t;
@@ -136,28 +155,23 @@ void main() {
         }
     }
 
-    // Pastel haze with the sun's bloom behind the subject.
-    float sunAmt = max(dot(rd, sun), 0.0);
-    vec3 haze = mix(vec3(0.16, 0.13, 0.17), mix(pal(hue + 0.15), vec3(1.0), 0.6) * 0.32, smoothstep(-0.5, 0.6, rd.y));
-    vec3 col = haze + vec3(1.0, 0.86, 0.72) * pow(sunAmt, 24.0) * 0.45;
-    col += mix(pal(hue), vec3(1.0), 0.5) * exp(-max(near, 0.0) * 12.0) * 0.12;
+    // Pale haze, lighter overhead, with the veils of light added.
+    vec3 haze = mix(vec3(0.62, 0.58, 0.60), mix(tone(hue + 0.2), vec3(1.0), 0.6), smoothstep(-0.6, 0.5, rd.y));
+    vec3 glowCol = mix(tone(hue + 0.1), vec3(1.0, 0.92, 0.84), 0.5);
+    vec3 col = haze * 0.82 + glowCol * min(veil, 1.0) * 0.35;
 
     if (hitT > 0.0) {
-        vec3 p = ro + rd * hitT;
-        vec3 n = normalAt(p, bulbEps(hitT));
-        float ndv = max(dot(n, -rd), 0.0);
-        // Wrap light from the sun, so the side facing away is not black.
-        float wrap = max((dot(n, sun) + 0.45) / 1.45, 0.0);
-        // Transmission: thin edges seen against the sun light up.
-        float trans = pow(sunAmt, 3.0) * pow(1.0 - ndv, 1.5) * (0.5 + 0.5 * smoothstep(0.4, 0.0, trap.y));
-        float ao = bulbStepAO(used) * (0.55 + 0.45 * smoothstep(0.08, 0.8, trap.x));
-        vec3 petal = mix(pal(hue + 0.35 * trap.y + 0.25 * sqrt(trap.x)), vec3(1.0), 0.45);
-        col = petal * (0.30 + 0.55 * wrap) * ao;
-        col += vec3(1.0, 0.80, 0.62) * trans * 0.9;
-        col += petal * (0.5 + 0.5 * n.y) * 0.12;
-        col = mix(col, haze, 1.0 - exp(-max(hitT - 1.8, 0.0) * 0.5));
+        // Emission only: the heart, the thin edges and the folds.
+        float heart = exp(-trap.z * 4.0);
+        float thin = smoothstep(0.4, 0.0, trap.y);
+        float fold = smoothstep(0.25, 0.85, used / max(uSteps, 1.0));
+        vec3 petal = mix(tone(hue + 0.35 * trap.y + 0.25 * sqrt(trap.x)), vec3(1.0), 0.3);
+        col = petal * (0.48 + 0.30 * thin + 0.25 * heart);
+        col += glowCol * (0.35 * fold + 0.25 * heart * thin);
+        col += glowCol * min(veil, 1.0) * 0.2;
+        col = mix(col, haze, 1.0 - exp(-max(hitT - 0.5, 0.0) * 0.7));
     }
 
-    col *= 0.85 + 0.15 * swell;
+    col *= 0.88 + 0.12 * swell;
     fragColor = vec4(grade(col), 1.0);
 }

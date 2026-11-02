@@ -17,38 +17,53 @@ out vec4 fragColor;
 // Bulb Hybrid: a bulb that alternates its power every iteration - 7, then 3,
 // then 7 - so the orbit is pulled between a seven-fold crown and a lumpy
 // three-fold knot, and the body is neither: a squat, gourd-like vessel with
-// crowns of small knobs. Glazed like porcelain: a white body, a glossy clear
-// coat with a sharp highlight and a soft one, and cobalt brushwork laid in
-// the bands where the orbit hugged the pole axis. The camera holds still - a
-// fixed three-quarter view on the rig, no orbit - and the piece turns on its
-// own like a pot on a wheel, against a warm studio grey.
+// crowns of small knobs. The derivative takes each step's own power, which is
+// exact for an alternating map: the chain rule multiplies the two stretches in
+// turn.
 //
-// The derivative takes each step's own power, which is exact for an
-// alternating map: the chain rule multiplies the two stretches in turn.
+// Grid cell INSIDE x LINE (see lib_bulb). The vessel is turned inside out
+// like Cavern's (q = K p / |p|^2, so its outside folds into a closed room and
+// its knobs hang from the walls), and the room is PORCELAIN: white walls with
+// almost no shading, drawn in cobalt brush lines - iso-lines of the orbit
+// trap's distance to the pole axis - with a blue-black outline wherever a wall
+// turns away from the eye and in the deepest creases. The far end fades to
+// white, not to dark. Cavern is the same idea lit like a wet grotto; this is
+// its negative: a pale room drawn in ink, the family's dark-on-light interior.
+//
+// THE ESTIMATE. As in Cavern: inversion scales lengths by K / |p|^2, so the
+// estimate is converted back by |p|^2 / K and the march takes 0.6 of it.
 //
 // ---- audio ------------------------------------------------------------------
 //
-// The BEAT nods the vessel. Each beat (SND_KICK_TOGGLE, 0.3 s) tips it toward the
-// eye and back on a bump envelope, so it bobs in time like a head keeping the
-// beat, while the accumulated rotation uDrift (eased across sections) turns
-// it on its wheel. Tonal passages (uHarmony) spread the cobalt brushwork,
-// percussive ones thin it. Brightness follows SND_ENERGY_TREND only.
+// The BEAT nods the room. Each beat (SND_KICK_TOGGLE, 0.3 s) tips the vessel
+// about the eye and back on a bump envelope, so the walls bob in time, while
+// the accumulated rotation uDrift (eased across sections) turns the room
+// slowly round. Tonal passages (uHarmony) multiply the brushwork, percussive
+// ones thin it. Brightness follows SND_ENERGY_TREND only.
 //
 // ---- macros -----------------------------------------------------------------
 //
-// Speed (uSpeed) scales the wheel's idle turn. Complexity (uMorph) adds up to
+// Speed (uSpeed) scales the room's idle turn. Complexity (uMorph) adds up to
 // two fractal iterations (bulbIters). Chaos (uWarp, uTurbulence, uTwist) warps
-// the clay (bulbChaos, estimate divided by bulbChaosLip). Energy (uIntensity)
-// scales the beat nod. Colour is pal() (glaze, ground); Space is the rig
-// (camAround, no spin).
+// the clay before it is inverted (bulbChaos in q, estimate divided by
+// bulbChaosLip). Energy (uIntensity) scales the beat nod. Colour is tone(),
+// the delft ramp pal() tints. Space is the rig: travel drifts the eye round a
+// small loop at the room's centre, look and shake ride on top (bulbAim).
 
 #define BY_MAX_STEPS 128
-#define BY_BOUND 1.45
-#define BY_CAM_R 3.3
+#define BY_K 2.6
+#define BY_FAR 7.0
+#define BY_LOOP_R 0.45
+const float BY_LOOP_RATE = 5.0 * CAM_SPIN_UNIT;
 
 mat3 gPose;
 int gIters;
 vec4 gTrap;
+
+// Its own ramp: delft cobalt, ultramarine and an ink violet.
+vec3 tone(float t) {
+    return bulbRamp(t, vec3(0.18, 0.26, 0.55), vec3(0.12, 0.15, 0.25), vec3(1.0), vec3(0.60, 0.55, 0.50));
+}
 
 float hybridDE(vec3 p, out vec4 tr) {
     vec3 z = p;
@@ -76,10 +91,13 @@ float hybridDE(vec3 p, out vec4 tr) {
 }
 
 float map(vec3 p) {
+    p = gPose * p;
+    float r2 = max(dot(p, p), 1e-4);
+    vec3 q = p * (BY_K / r2);
     vec4 tr;
-    float d = hybridDE(bulbChaos(gPose * p), tr) / bulbChaosLip();
+    float d = hybridDE(bulbChaos(q), tr) / bulbChaosLip();
     gTrap = tr;
-    return d;
+    return d * (r2 / BY_K) * 0.6;
 }
 
 vec3 normalAt(vec3 p, float e) {
@@ -88,71 +106,82 @@ vec3 normalAt(vec3 p, float e) {
                    + k.yxy * map(p + k.yxy * e) + k.xxx * map(p + k.xxx * e));
 }
 
+/** A thin line on every integer of f, `w` pixels wide, antialiased. */
+float lineOn(float f, float w) {
+    float fw = max(fwidth(f), 1e-4);
+    float dd = abs(fract(f + 0.5) - 0.5) / fw;
+    return 1.0 - smoothstep(0.5 * w, 0.5 * w + 1.0, dd);
+}
+
 void main() {
     vec2 uv = view();
     float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
     float beat = clamp(SND_KICK_TOGGLE, 0.0, 1.0);
     float nod = 4.0 * beat * (1.0 - beat);
     float harmony = clamp(uHarmony, 0.0, 1.0);
-    gPose = rotX(-0.25 * nod * bulbEnergy() - 0.3) * rotY(uDrift * 0.5 + 0.06 * bulbTime());
-    gIters = bulbIters(7);
+    gPose = rotX(-0.18 * nod * bulbEnergy() - 0.3) * rotY(uDrift * 0.5 + 0.06 * bulbTime());
+    // Four iterations, as in Cavern: inverted, the finest crust is a fur the
+    // march never resolves; fewer leave smooth porcelain to draw on.
+    gIters = bulbIters(4);
 
+    // INSIDE: a small loop at the room's centre, looking along it.
+    float a = uCamTravel * BY_LOOP_RATE;
+    vec3 eye = vec3(BY_LOOP_R * cos(a), 0.15 * sin(2.0 * a), BY_LOOP_R * sin(a));
+    vec3 fwd = normalize(vec3(-sin(a), 0.2 * cos(2.0 * a), cos(a)));
     vec3 ro;
     vec3 rd;
-    camAround(uv, BY_CAM_R, 0.0, ro, rd);
+    bulbAim(uv, eye, eye + fwd, ro, rd);
 
-    float hue = 0.62 + 0.02 * sin(bulbTime() * 0.01);
+    float hue = 0.02 * sin(bulbTime() * 0.01);
+    vec3 paper = vec3(0.93, 0.92, 0.89);
 
+    float t = 0.02;
     float hitT = -1.0;
     float used = 0.0;
-    float near = 1e3;
     vec4 trap = vec4(1.0);
-    vec2 tb = bulbBound(ro, rd, vec3(0.0), BY_BOUND);
-    if (tb.y > 0.0) {
-        float t = tb.x;
-        for (int i = 0; i < BY_MAX_STEPS; i++) {
-            if (float(i) >= uSteps) break;
-            if (t > tb.y) break;
-            used = float(i);
-            float d = map(ro + rd * t);
-            near = min(near, d);
-            float eps = bulbEps(t);
-            if (d < eps) {
-                hitT = t;
-                trap = gTrap;
-                break;
-            }
-            t += max(d * 0.8, eps * 0.5);
+    for (int i = 0; i < BY_MAX_STEPS; i++) {
+        if (float(i) >= uSteps) break;
+        if (t > BY_FAR) break;
+        used = float(i);
+        float d = map(ro + rd * t);
+        float eps = bulbEps(t) * 2.5;
+        if (d < eps) {
+            hitT = t;
+            trap = gTrap;
+            break;
         }
+        t += max(d, eps * 0.5);
+    }
+    // A ray that ran out of steps short of the far wall is at a wall, crawling
+    // a crease: shade it as a hit (Cavern's rule).
+    if (hitT < 0.0 && t < BY_FAR) {
+        hitT = t;
+        trap = gTrap;
     }
 
-    // Warm studio grey, lighter toward the top, and a soft contact shade
-    // under the piece.
-    vec3 ground = mix(vec3(0.20, 0.18, 0.16), mix(pal(hue + 0.45), vec3(0.5, 0.47, 0.43), 0.75) * 0.7, smoothstep(-0.8, 0.6, uv.y));
-    vec3 col = ground * (1.0 - 0.35 * exp(-max(near, 0.0) * 6.0));
+    // Brush coordinates for every pixel (fwidth needs the whole quad).
+    float bands = 4.0 + 4.0 * harmony;
+    float brush = lineOn(trap.z * bands, 1.2 + 1.6 * harmony);
+    float rings = lineOn(sqrt(trap.x) * 3.0, 0.9);
 
+    vec3 col = paper;
     if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
-        vec3 n = normalAt(p, bulbEps(hitT));
-        vec3 key = normalize(vec3(-0.45, 0.75, -0.5));
-        float dif = max(dot(n, key), 0.0);
-        float fill = 0.5 + 0.5 * n.y;
-        float ndv = max(dot(n, -rd), 0.0);
-        float ao = bulbStepAO(used) * (0.55 + 0.45 * smoothstep(0.05, 0.8, trap.x));
-        // Cobalt brushwork in the bands near the pole axis.
-        float bandW = 0.06 + 0.12 * harmony;
-        float brush = 1.0 - smoothstep(bandW, bandW + 0.04, abs(fract(trap.z * 4.0) - 0.5));
-        vec3 porcelain = vec3(0.92, 0.91, 0.88);
-        vec3 cobalt = pal(hue) * 0.35;
-        vec3 body = mix(porcelain, cobalt, brush * 0.85);
-        col = body * (0.25 + 0.75 * dif + 0.25 * fill) * ao;
-        // Clear coat: a sharp highlight, a broad sheen, and a fresnel lift.
-        vec3 r = reflect(rd, n);
-        col += vec3(1.0) * pow(max(dot(r, key), 0.0), 90.0) * 0.8 * ao;
-        col += vec3(1.0) * pow(max(dot(r, key), 0.0), 8.0) * 0.08 * ao;
-        col += ground * pow(1.0 - ndv, 4.0) * 0.6;
+        vec3 n = normalAt(p, bulbEps(hitT) * 1.5);
+        float ndv = dot(n, -rd);
+        // Porcelain: white, with only a whisper of light to tell the walls apart.
+        vec3 body = paper * (0.86 + 0.14 * max(dot(n, normalize(vec3(-0.3, 0.8, -0.4))), 0.0));
+        vec3 cobalt = tone(hue + 0.1 * trap.w);
+        body = mix(body, cobalt, brush * 0.85);
+        body = mix(body, tone(hue + 0.3), rings * 0.45);
+        // Ink: where a wall turns away from the eye, and in the deepest creases.
+        float edge = smoothstep(0.30, 0.18, ndv);
+        float crease = smoothstep(0.55, 0.75, used / max(uSteps, 1.0));
+        body = mix(body, tone(hue + 0.5) * 0.25, max(edge, crease));
+        // Distance fades to white, not to dark.
+        col = mix(body, paper, 1.0 - exp(-hitT * 0.20));
     }
 
-    col *= 0.85 + 0.15 * swell;
+    col *= 0.9 + 0.1 * swell;
     fragColor = vec4(grade(col), 1.0);
 }

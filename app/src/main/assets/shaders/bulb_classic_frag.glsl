@@ -35,13 +35,20 @@ out vec4 fragColor;
 // Speed (uSpeed) scales the palette drift. Complexity (uMorph) adds up to two fractal
 // iterations (bulbIters). Chaos (uWarp, uTurbulence, uTwist) warps and twists
 // space before the fractal (bulbChaos, estimate divided by bulbChaosLip).
-// Energy (uIntensity) scales the bass swell. Colour is pal() throughout; Space is
+// Energy (uIntensity) scales the bass swell. Colour is tone(), the bronze ramp pal() tints; Space is
 // the rig (camAround).
 
 #define BC_MAX_STEPS 128
 #define BC_BOUND 1.25
 #define BC_CAM_R 3.4
 const float BC_SPIN = 4.0 * CAM_SPIN_UNIT;
+
+// Grid cell WHOLE x LIT (see lib_bulb): the one sculpture in the family, a
+// mid-tone body on a dark ground. Its own ramp is cast bronze: copper, amber
+// and old gold.
+vec3 tone(float t) {
+    return bulbRamp(t, vec3(0.55, 0.42, 0.30), vec3(0.40, 0.30, 0.22), vec3(1.0), vec3(0.00, 0.08, 0.18));
+}
 
 float gPow;
 int gIters;
@@ -97,8 +104,8 @@ void main() {
     }
 
     // Sky: a dim wash, darker below the horizon, with the silhouette halo.
-    vec3 col = mix(pal(hue + 0.55) * 0.025, pal(hue + 0.45) * 0.09, smoothstep(-0.6, 0.7, rd.y));
-    col += pal(hue + 0.1) * exp(-max(near, 0.0) * 9.0) * 0.18;
+    vec3 col = mix(tone(hue + 0.55) * 0.025, tone(hue + 0.45) * 0.09, smoothstep(-0.6, 0.7, rd.y));
+    col += tone(hue + 0.1) * exp(-max(near, 0.0) * 9.0) * 0.18;
 
     if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
@@ -111,10 +118,10 @@ void main() {
         float spec = pow(max(dot(reflect(rd, n), key), 0.0), 20.0);
         // Creases: the trap's closest approach plus the step count.
         float ao = bulbStepAO(used) * (0.4 + 0.6 * smoothstep(0.12, 0.95, trap.x));
-        vec3 base = pal(hue + 0.55 * sqrt(trap.x) + 0.6 * trap.y);
+        vec3 base = tone(hue + 0.55 * sqrt(trap.x) + 0.6 * trap.y);
         col = base * dif * vec3(1.0, 0.92, 0.80) * 0.95;
         col += base * sky * vec3(0.55, 0.65, 0.85) * 0.28;
-        col += pal(hue + 0.5) * rim * 0.30;
+        col += tone(hue + 0.5) * rim * 0.30;
         col += vec3(1.0, 0.95, 0.88) * spec * 0.25;
         col *= ao;
     }

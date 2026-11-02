@@ -12,7 +12,6 @@ out vec4 fragColor;
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_sdf3
-//#include lib_dmt
 //#include lib_bulb
 
 // Bulb Prism: six small power-5 jewels hung at the corners of an octahedron,
@@ -22,14 +21,19 @@ out vec4 fragColor;
 // mirrors make exactly six copies, one per axis, each mirrored through its
 // own axis into a symmetric gem. The copies are far enough apart not to
 // touch: the one Bulb style that is a constellation rather than one body,
-// with the jewel sky showing between the stones. (It used to sit the seed
-// off-axis, where the 48 copies fused into one lumpy ball that read as
-// Classic in another colour.) Every fold is a reflection and the rotation is
-// rigid, so the estimate stays exact up to the bulb's own scale.
+// with black sky showing between the stones. Every fold is a reflection and
+// the rotation is rigid, so the estimate stays exact up to the bulb's own
+// scale.
 //
-// Shaded with lib_dmt's jewel material and set against its chrysanthemum sky,
-// the one bulb that lives in the visionary-art look the rest of the app's
-// marched styles share.
+// Grid cell WHOLE x FLAT TRAP (see lib_bulb). The gems are STAINED GLASS: no
+// light, no normal, no specular. The orbit trap is quantised into six flat
+// panes of the member's own rainbow ramp, each pane edged with a black lead
+// line where the trap crosses a pane boundary, and only the free step-count
+// occlusion darkens the deepest cuts. Six flat-coloured mosaics on black read
+// apart from every lit bulb even desaturated: hard flat cells, no gradient.
+// (It used to share lib_dmt's lit jewel material with Julia.) Skipping the
+// normal also makes it the cheapest whole-body bulb: four fractal
+// evaluations fewer per hit pixel.
 //
 // ---- audio ------------------------------------------------------------------
 //
@@ -39,15 +43,17 @@ out vec4 fragColor;
 // all six stones re-facet in a quick, smooth lurch and busy passages keep
 // them churning. Bass (sndShaped(SND_LOW)) breathes the constellation open: the
 // gems drift out along their axes and back. The seed's own spin follows the accumulated rotation uDrift.
-// Treble sharpens the jewel's specular. Brightness follows SND_INTENSITY only.
+// Treble (SND_TREBLE_PRESENCE) backlights the glass: the panes brighten and the leads
+// thin. Brightness follows SND_INTENSITY only.
 //
 // ---- macros -----------------------------------------------------------------
 //
-// Speed (uSpeed) scales the sky's hue drift. Complexity (uMorph) adds up to
+// Speed (uSpeed) scales the panes' hue drift. Complexity (uMorph) adds up to
 // two fractal iterations (bulbIters). Chaos (uWarp, uTurbulence, uTwist) bends
 // the seed bulb inside its wedge (bulbChaos, estimate divided by
 // bulbChaosLip). Energy (uIntensity) scales how far each onset re-seed moves
-// the seed. Colour is pal(); Space is the rig (camAround).
+// the seed. Colour is tone(), the stained-glass ramp pal() tints; Space is
+// the rig (camAround).
 
 #define BP_MAX_STEPS 128
 #define BP_BOUND 1.75
@@ -56,6 +62,8 @@ out vec4 fragColor;
 #define BP_SCALE 3.0
 /** How far out along its axis a gem sits at rest; bass pushes it further. */
 #define BP_REACH 0.95
+/** Panes per unit of the trap coordinate. */
+#define BP_PANES 6.0
 const float BP_SPIN = 3.0 * CAM_SPIN_UNIT;
 
 mat3 gRot;
@@ -63,6 +71,11 @@ vec3 gOff;
 mat3 gTurn;
 int gIters;
 vec4 gTrap;
+
+// Its own ramp: a full, saturated rainbow, the cathedral-window colours.
+vec3 tone(float t) {
+    return bulbRamp(t, vec3(0.5), vec3(0.5), vec3(1.0), vec3(0.00, 0.33, 0.67));
+}
 
 vec3 seedAngles(float n) {
     return vec3(hash11(n * 0.618 + 0.11), hash11(n * 0.618 + 0.53), hash11(n * 0.618 + 0.97)) - 0.5;
@@ -81,18 +94,13 @@ float map(vec3 p) {
     return d;
 }
 
-vec3 normalAt(vec3 p, float e) {
-    vec2 k = vec2(1.0, -1.0);
-    return normalize(k.xyy * map(p + k.xyy * e) + k.yyx * map(p + k.yyx * e)
-                   + k.yxy * map(p + k.yxy * e) + k.xxx * map(p + k.xxx * e));
-}
-
 void main() {
     vec2 uv = view();
     float swell = clamp(SND_INTENSITY, 0.0, 1.5);
     float onset = clamp(SND_ONSET_ENV, 0.0, 1.0);
     float glide = smoothstep(0.0, 1.0, 1.0 - onset);
     float en = bulbEnergy();
+    float treble = clamp(SND_TREBLE_PRESENCE, 0.0, 1.5);
     vec3 angOld = seedAngles(floor(SND_HIT_TIME) - 1.0);
     vec3 angNew = seedAngles(floor(SND_HIT_TIME));
     vec3 ang = mix(angOld, angNew, glide) * en;
@@ -106,7 +114,7 @@ void main() {
     vec3 rd;
     camAround(uv, BP_CAM_R, BP_SPIN, ro, rd);
 
-    float hue = 0.82 + 0.05 * sin(bulbTime() * 0.015);
+    float hue = 0.04 * sin(bulbTime() * 0.015);
 
     float hitT = -1.0;
     float used = 0.0;
@@ -131,15 +139,26 @@ void main() {
         }
     }
 
-    vec3 col = dmtChrysanthemum(rd, hue + 0.5, clamp(((SND_BASS_PRESENCE + SND_MID_PRESENCE + SND_TREBLE_PRESENCE) / 3.0), 0.0, 1.5)) * 0.7;
-    col += dmtHalo(near, hue + 0.2, 10.0, 0.18);
+    // Black sky, and a thin lead outline round each stone's silhouette.
+    vec3 col = vec3(0.006, 0.006, 0.010);
+    col = mix(col, vec3(0.0), smoothstep(0.03, 0.0, near) * 0.8);
 
+    // The pane coordinate for every pixel (misses carry the default trap):
+    // fwidth needs all four pixels of a quad, so it is taken outside the hit
+    // branch, as Contour does.
+    float band = BP_PANES * (1.2 * sqrt(trap.x) + 0.8 * trap.y);
+    float fw = clamp(fwidth(band), 1e-3, 0.2);
     if (hitT > 0.0) {
-        vec3 p = ro + rd * hitT;
-        vec3 n = normalAt(p, bulbEps(hitT));
-        float ao = bulbStepAO(used) * (0.5 + 0.5 * smoothstep(0.1, 0.9, trap.x));
-        float band = 1.2 * sqrt(trap.x) + 0.8 * trap.y;
-        col = dmtShade(n, rd, hue, band, ao, smoothstep(0.3, 0.0, trap.z), clamp(SND_TREBLE_PRESENCE, 0.0, 1.5)) * 0.85;
+        // One flat colour per pane: the trap coordinate quantised.
+        float pane = floor(band);
+        vec3 glass = tone(hue + pane / BP_PANES + 0.37 * hash11(pane * 0.731));
+        // Lead between panes, about two pixels wide, thinner under treble.
+        float edge = abs(fract(band) - 0.5);
+        float leadW = 0.5 - mix(2.2, 1.2, clamp(treble, 0.0, 1.0)) * fw;
+        float lead = smoothstep(leadW - fw, leadW, edge);
+        float ao = bulbStepAO(used);
+        col = glass * (0.78 + 0.22 * treble) * ao;
+        col = mix(col, vec3(0.01), lead);
     }
 
     col *= 0.82 + 0.2 * swell;

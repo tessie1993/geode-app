@@ -41,7 +41,7 @@ out vec4 fragColor;
 // Speed (uSpeed) scales the spin of the cloud. Complexity (uMorph) adds up to two fractal
 // iterations (bulbIters). Chaos (uWarp, uTurbulence, uTwist) warps and twists
 // space before the fractal (bulbChaos, estimate divided by bulbChaosLip).
-// Energy (uIntensity) scales the flux hue spread. Colour is pal() throughout; Space is
+// Energy (uIntensity) scales the flux hue spread. Colour is tone(), the nebula ramp pal() tints; Space is
 // the rig (camAround).
 
 #define BG_MAX_STEPS 96
@@ -49,6 +49,12 @@ out vec4 fragColor;
 #define BG_CAM_R 3.6
 #define BG_GLOW_K 14.0
 const float BG_SPIN = 2.0 * CAM_SPIN_UNIT;
+
+// Grid cell WHOLE x GLOW (see lib_bulb): light on black, a whole cloud with no
+// surface. Its own ramp is a nebula: violet, magenta and a cold cyan edge.
+vec3 tone(float t) {
+    return bulbRamp(t, vec3(0.55, 0.40, 0.65), vec3(0.45, 0.40, 0.35), vec3(1.0, 0.9, 0.8), vec3(0.70, 0.85, 0.15));
+}
 
 float gPowOld;
 float gPowNew;
@@ -104,7 +110,7 @@ void main() {
             float d = map(ro + rd * t);
             float dens = exp(-max(d, 0.0) * BG_GLOW_K);
             float stepLen = clamp(abs(d) * 0.7, 0.012, 0.11);
-            vec3 em = pal(hue + spread * (sqrt(gTrap.x) + 0.5 * gTrap.y));
+            vec3 em = tone(hue + spread * (sqrt(gTrap.x) + 0.5 * gTrap.y));
             // The interior burns hotter and whiter than the halo around it.
             float core = step(d, 0.0);
             em = mix(em, mix(em, vec3(1.0), 0.35), core);

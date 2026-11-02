@@ -189,15 +189,16 @@ private fun UiBlurRegion(
         view.getLocationInWindow(loc)
         val w = view.width.toFloat()
         val h = view.height.toFloat()
-        val measured = w > 0f && h > 0f
-        if (bounds == null || bounds.isEmpty || !measured || !active) {
+        // A rect only once laid out and measured; anything else turns the blur off.
+        val rect = bounds?.takeIf { !it.isEmpty && w > 0f && h > 0f }
+        if (rect == null || !active) {
             view.setUiBlurRegion(0f, 0f, 0f, 0f, 0f, cornerPx)
         } else {
             view.setUiBlurRegion(
-                (bounds.left - loc[0]) / w,
-                (bounds.top - loc[1]) / h,
-                (bounds.right - loc[0]) / w,
-                (bounds.bottom - loc[1]) / h,
+                (rect.left - loc[0]) / w,
+                (rect.top - loc[1]) / h,
+                (rect.right - loc[0]) / w,
+                (rect.bottom - loc[1]) / h,
                 1f,
                 cornerPx,
             )

@@ -1130,7 +1130,11 @@ class PlayerSession internal constructor(
 
     fun cancelStudioExport() = exportController.cancelStudioExport()
 
-    fun startProjectExport(destination: Uri? = null) = exportController.startProjectExport(editor.state.value.project, destination)
+    // An empty Studio has no project folder yet (the first edit makes one), so nothing to render.
+    fun startProjectExport(destination: Uri? = null) {
+        val open = editor.state.value.open ?: return
+        exportController.renderProject(open, destination) { editor.recordRender(open.id, it) }
+    }
 
     fun clearStudioResult() = exportController.clearStudioResult()
 

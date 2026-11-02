@@ -135,7 +135,11 @@ fun StudioHub(
         select(history.top)
     }
     Column(Modifier.fillMaxSize()) {
-        GlowTitle(stringResource(R.string.nav_studio), Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp))
+        GlowTitle(
+            stringResource(R.string.nav_studio),
+            Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp),
+            style = MaterialTheme.typography.titleLarge,
+        )
         CrystalTabs(
             titles =
                 listOf(

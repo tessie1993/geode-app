@@ -9,11 +9,13 @@ import android.text.format.DateUtils
 import android.util.Size
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -23,14 +25,19 @@ import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -190,8 +197,9 @@ private sealed interface MyVideo {
 }
 
 /**
- * A render plays and shares; a take renders (it opens Render with the take chosen). Both open in
- * Edit (♛ for a free user, who meets the Pro wall there) and delete with Undo.
+ * A tap does the obvious thing: a render plays, a take renders (Render opens with the take chosen).
+ * The rest sits behind the card's ⋮, as on every row in the app: Share (a render), Open in Edit
+ * (♛ for a free user, who meets the Pro wall there) and Delete, with Undo.
  */
 @Composable
 private fun MyVideoCard(
@@ -203,36 +211,49 @@ private fun MyVideoCard(
     onOpenInEdit: () -> Unit,
     onDelete: () -> Unit,
 ) {
+    var menu by remember { mutableStateOf(false) }
+    val primaryLabel = stringResource(if (item is MyVideo.Render) R.string.my_videos_play else R.string.my_videos_render)
     Column(
         Modifier
             .fillMaxWidth()
             .floatingGlass()
+            .clickable(onClickLabel = primaryLabel, onClick = if (item is MyVideo.Render) onPlay else onRender)
             .padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         VideoThumbnail((item as? MyVideo.Render)?.uri)
-        Text(item.title, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
-        Text(
-            listOf(
-                stringResource(if (item is MyVideo.Take) R.string.my_videos_kind_take else R.string.my_videos_kind_render),
-                formatClock(item.durationMs),
-                DateUtils.getRelativeTimeSpanString(item.createdAtMs).toString(),
-            ).joinToString(" · "),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        FlowRow {
-            when (item) {
-                is MyVideo.Render -> {
-                    TextButton(onClick = onPlay) { Text(stringResource(R.string.my_videos_play)) }
-                    TextButton(onClick = onShare) { Text(stringResource(R.string.my_videos_share)) }
+        Row(verticalAlignment = Alignment.Top) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(item.title, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(
+                    listOf(
+                        stringResource(if (item is MyVideo.Take) R.string.my_videos_kind_take else R.string.my_videos_kind_render),
+                        formatClock(item.durationMs),
+                        DateUtils.getRelativeTimeSpanString(item.createdAtMs).toString(),
+                    ).joinToString(" · "),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Box {
+                IconButton(onClick = { menu = true }) {
+                    Icon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.edit_home_more))
                 }
-                is MyVideo.Take -> TextButton(onClick = onRender) { Text(stringResource(R.string.my_videos_render)) }
+                DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                    val pick: (() -> Unit) -> () -> Unit = { action ->
+                        {
+                            menu = false
+                            action()
+                        }
+                    }
+                    if (item is MyVideo.Render) {
+                        DropdownMenuItem(text = { Text(stringResource(R.string.my_videos_share)) }, onClick = pick(onShare))
+                    }
+                    val editLabel = if (canEdit) R.string.my_videos_open_in_edit else R.string.my_videos_open_in_edit_pro
+                    DropdownMenuItem(text = { Text(stringResource(editLabel)) }, onClick = pick(onOpenInEdit))
+                    DropdownMenuItem(text = { Text(stringResource(R.string.my_videos_delete)) }, onClick = pick(onDelete))
+                }
             }
-            TextButton(onClick = onOpenInEdit) {
-                Text(stringResource(if (canEdit) R.string.my_videos_open_in_edit else R.string.my_videos_open_in_edit_pro))
-            }
-            TextButton(onClick = onDelete) { Text(stringResource(R.string.my_videos_delete)) }
         }
     }
 }

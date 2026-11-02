@@ -3,6 +3,11 @@ package dev.geode.ui
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.AnimationVector1D
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.Orientation
@@ -12,16 +17,22 @@ import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.systemGestures
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -29,6 +40,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.FiberManualRecord
 import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material.icons.filled.Stop
@@ -42,27 +56,30 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.NavEntry
@@ -74,134 +91,368 @@ import dev.geode.render.scene.SceneCapabilities
 import dev.geode.render.scene.SceneIds
 import dev.geode.render.scene.StyleFamilies
 import dev.geode.render.scene.VisualStyleCatalog
+import dev.geode.ui.theme.GeodeGlass
+import dev.geode.ui.theme.GeodeSpacing
+import dev.geode.ui.theme.LocalGeodeMotion
 import dev.geode.ui.theme.StoneIcon
 import dev.geode.ui.theme.StoneIconArt
+import dev.geode.ui.theme.floatingGlass
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.abs
+import kotlin.math.roundToInt
 
 /**
- * Visuals is a stage: the live canvas on top, where every pick and slider shows as it happens,
- * and a panel under it whose pages (Styles first, then Customize, Presets and MilkDrop) are a
- * Navigation 3 back stack. Nothing is drawn over the stage but a hint: the style's name, Record,
- * Studio and the live view sit in the shell's mini player ([VisualsChrome.FULL]), which the stage
- * asks for through [onChrome] while it is composed.
+ * Visuals: the visual fills the whole screen, and everything else floats over it (docs/ui-redesign;
+ * the owner dropped the old stage window). The options are a sheet of matte glass at the bottom
+ * whose height ([SheetHeight]) the user drags between its tabs alone, half and tall, or hides; its
+ * pages (Styles first, then Customize, Presets and MilkDrop) are a Navigation 3 back stack.
  *
- * The stage takes gestures: a horizontal swipe steps to the next or previous style the user may
- * use, a double tap to the next look ([nextLook]: the visuals playlist, else the next style), a
- * swipe down hides the mini player and the navigation bar (a swipe up brings them back), and a
- * hold hides the panel so the stage fills the screen (another hold brings it back). Customize
- * opens with the bars hidden, since its sliders want the room, and a swipe up there brings a
- * transport-only player ([VisualsChrome.MINIMAL]). TalkBack gets every gesture as a custom action.
- * The handle between stage and panel trades one for the other.
+ * The visual takes gestures ([visualStageGestures]): a tap wakes the shell's chrome (the mini
+ * player, the tab bar and the stage icons, which fade together), a double tap opens the live view
+ * (where a double tap comes back), a sideways swipe steps the style and a swipe up wakes the chrome.
+ * A swipe that starts in the system's gesture strips is left to Android (back, home, the shade).
+ * Every gesture has a visible twin among the stage icons, and TalkBack gets them as custom actions.
  *
- * Back undoes the most recent of these first: hidden bars, then a hidden panel, then whatever the
- * page has open (an Advanced card, a Customize page), then the page itself, back to Styles. No
- * per-entry ViewModel decorator: every ViewModel here stays in the Activity's store, which
- * `PlayerSessionProvider` depends on (ADR 0001 § Consequences).
+ * Back undoes the most recent first ([VisualsNavState.back]): a hidden sheet comes back, then the
+ * route in reverse. No per-entry ViewModel decorator: every ViewModel here stays in the Activity's
+ * store, which `PlayerSessionProvider` depends on (ADR 0001 § Consequences).
+ *
+ * [bottomReserve] is the room the shell's floating mini player and tab bar take at the bottom
+ * while awake; the sheet stands on top of it, so it glides down when they fade.
  */
 @Composable
-fun VisualsHub(
+internal fun VisualsHub(
     viewModel: PlayerViewModel,
     visualizerView: VisualizerView,
-    onChrome: (VisualsChrome?) -> Unit,
+    chrome: ShellChromeState,
+    bottomReserve: Dp,
+    sheetOpacity: Float,
+    onOpenLive: () -> Unit,
+    onOpenStudioRender: () -> Unit,
     canvasFree: Boolean = false,
 ) {
     val viz by viewModel.vizState.collectAsStateWithLifecycle()
     val gate by viewModel.gate.collectAsStateWithLifecycle()
     // Every navigation decision lives in VisualsNavState (VisualsNavigation.kt); this only draws.
     val nav = rememberVisualsNavState()
-    val chrome = nav.chrome
-    val onChromeNow by rememberUpdatedState(onChrome)
-    DisposableEffect(chrome) {
-        onChromeNow(chrome)
-        onDispose { onChromeNow(null) }
-    }
-    // Out here, not per page, so the size the user dragged to holds across every page.
-    var stageHeightDp by rememberSaveable { mutableFloatStateOf(STAGE_DEFAULT_DP) }
     val stepStyle: (Int) -> Unit = { step ->
         nextStageStyle(stageStyleOrder(), viz.sceneId, step) { !gate.allowsStyle(it) }?.let(viewModel::selectScene)
     }
-    // Hiding the panel is a view state, not a page: back brings the panel back before any page.
-    BackHandler(enabled = nav.panelBackEnabled, onBack = nav::backFromPanel)
     BoxWithConstraints(Modifier.fillMaxSize()) {
-        val fractionDp = (maxHeight * STAGE_MAX_FRACTION).value
-        // A short window (split screen, a phone on its side) can have less room than the floor;
-        // there the stage keeps what it can and the panel gives way.
-        val minStageDp = minOf(STAGE_MIN_DP, fractionDp)
-        // The panel keeps PANEL_MIN_DP before the stage grows: on a short phone the stage would
-        // otherwise take all the room under it once the mini player sits there too, and the style
-        // grid and its preview bar (the only way to choose a style) would get none.
-        val maxStageDp = minOf(fractionDp, maxHeight.value - PANEL_MIN_DP).coerceAtLeast(minStageDp)
-        Column(Modifier.fillMaxSize()) {
-            val stageSize =
-                if (nav.panelShown) {
-                    Modifier.fillMaxWidth().height(stageHeightDp.coerceIn(minStageDp, maxStageDp).dp)
+        // The one VisualizerView has one parent: while the live view or a second screen holds it,
+        // the shell's background shows instead.
+        if (canvasFree) VisualizerCanvasHost(visualizerView, Modifier.fillMaxSize())
+        Box(
+            Modifier
+                .fillMaxSize()
+                .visualStageGestures(
+                    // The top of the visual will open its quick settings (3C); until then a tap wakes.
+                    onTap = { chrome.wake() },
+                    // Double tap toggles the sheet: hidden, then back to the height it had.
+                    onDoubleTap = { if (nav.sheetShown) nav.hideSheet() else nav.showSheet() },
+                    onSwipe = stepStyle,
+                    onSwipeUp = chrome::wake,
+                ),
+        )
+        val density = LocalDensity.current
+        val statusTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+        val roomPx = with(density) { (maxHeight - statusTop - bottomReserve - GeodeSpacing.EdgeInset).toPx() }.coerceAtLeast(0f)
+        val anchors = remember(roomPx, density) { sheetAnchors(roomPx, with(density) { SHEET_PEEK.toPx() }) }
+        val heightPx = remember { Animatable(anchors.getValue(nav.sheet)) }
+        var settles by remember { mutableIntStateOf(0) }
+        // The motion scheme's spring, so the system's "Remove animations" snaps the sheet instead.
+        val settleSpec = LocalGeodeMotion.current.defaultSpatialSpec<Float>()
+        LaunchedEffect(nav.sheet, settles, anchors) {
+            heightPx.animateTo(anchors.getValue(nav.sheet), settleSpec)
+        }
+        val reservePx = with(density) { (bottomReserve + GeodeSpacing.EdgeInset).toPx() }
+        StageIcons(
+            chrome = chrome,
+            sheetTopPx = { heightPx.value + reservePx },
+            onOpenLive = onOpenLive,
+            onOpenStudioRender = onOpenStudioRender,
+            onStep = stepStyle,
+        )
+        VisualsSheet(
+            nav = nav,
+            heightPx = heightPx,
+            anchors = anchors,
+            opacity = sheetOpacity,
+            onSettle = { height ->
+                nav.settleSheet(height)
+                settles++
+            },
+            modifier =
+                Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = bottomReserve)
+                    .padding(horizontal = GeodeSpacing.EdgeInset, vertical = GeodeSpacing.EdgeInset / 2),
+        ) {
+            NavDisplay(
+                backStack = nav.backStack,
+                onBack = { nav.pop() },
+                modifier = Modifier.fillMaxSize(),
+                entryProvider = { page ->
+                    NavEntry(page) {
+                        when (page) {
+                            VisualsPage.STYLES -> StylesTab(viewModel)
+                            VisualsPage.CUSTOMIZE -> CustomizePanel(viewModel, visualizerView, nav = nav)
+                            VisualsPage.PRESETS -> PresetsTab(viewModel, visualizerView)
+                            VisualsPage.MILKDROP ->
+                                MilkDropTab(viewModel, visualizerView, onOpenTextures = { nav.push(VisualsPage.TEXTURES) })
+                            VisualsPage.TEXTURES -> TexturesHubTab(viewModel, visualizerView)
+                        }
+                    }
+                },
+            )
+        }
+    }
+    // Composed after NavDisplay so it wins over the pages' own back: a hidden sheet comes back first.
+    BackHandler(enabled = !nav.sheetShown, onBack = nav::showSheet)
+}
+
+/** The sheet's resting heights in px for [roomPx] of room: its tabs alone, half, nearly all. */
+private fun sheetAnchors(
+    roomPx: Float,
+    peekPx: Float,
+): Map<SheetHeight, Float> =
+    mapOf(
+        SheetHeight.HIDDEN to 0f,
+        SheetHeight.PEEK to peekPx.coerceAtMost(roomPx),
+        SheetHeight.HALF to (roomPx * HALF_FRACTION).coerceAtLeast(peekPx).coerceAtMost(roomPx),
+        SheetHeight.TALL to roomPx,
+    )
+
+/**
+ * Where a drag released at [px] comes to rest: the next height up or down on a fling, else the
+ * nearest. [velocityUp] is px/s, positive upward. Below its tabs the sheet hides.
+ */
+private fun settle(
+    px: Float,
+    velocityUp: Float,
+    anchors: Map<SheetHeight, Float>,
+): SheetHeight {
+    val ordered = SheetHeight.entries.sortedBy { anchors.getValue(it) }
+    return when {
+        velocityUp > FLING_PX_PER_S -> ordered.firstOrNull { anchors.getValue(it) > px + 1f } ?: ordered.last()
+        velocityUp < -FLING_PX_PER_S -> ordered.lastOrNull { anchors.getValue(it) < px - 1f } ?: ordered.first()
+        else -> ordered.minBy { abs(anchors.getValue(it) - px) }
+    }
+}
+
+/**
+ * The options sheet: matte glass floating over the visual, its height read from [heightPx] in the
+ * layout pass so a drag or a settle never recomposes the page under it. The header (the grip, the
+ * tabs and ×) is what drags; a tab tap on a sheet down to its tabs raises it to half
+ * ([VisualsNavState.openTab]). TalkBack gets expand, collapse and hide, since a drag is out of reach.
+ */
+@Composable
+private fun VisualsSheet(
+    nav: VisualsNavState,
+    heightPx: Animatable<Float, AnimationVector1D>,
+    anchors: Map<SheetHeight, Float>,
+    opacity: Float,
+    onSettle: (SheetHeight) -> Unit,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    val scope = rememberCoroutineScope()
+    val maxPx = anchors.getValue(SheetHeight.TALL)
+    val drag =
+        rememberDraggableState { delta ->
+            scope.launch { heightPx.snapTo((heightPx.value - delta).coerceIn(0f, maxPx)) }
+        }
+    val handle = stringResource(R.string.visuals_sheet_handle)
+    val expand = stringResource(R.string.visuals_sheet_expand)
+    val collapse = stringResource(R.string.visuals_sheet_collapse)
+    val close = stringResource(R.string.visuals_sheet_close)
+    Column(
+        modifier
+            .fillMaxWidth()
+            .layout { measurable, constraints ->
+                val h = heightPx.value.roundToInt().coerceIn(0, constraints.maxHeight)
+                if (h == 0) {
+                    layout(constraints.maxWidth, 0) {}
                 } else {
-                    Modifier.fillMaxWidth().weight(1f)
+                    val placeable = measurable.measure(constraints.copy(minHeight = h, maxHeight = h))
+                    layout(placeable.width, h) { placeable.place(0, 0) }
                 }
-            Box(stageSize) {
-                // The one VisualizerView has one parent: while the fullscreen view or a second
-                // screen holds it, the stage shows the shell's background instead.
-                if (canvasFree) VisualizerCanvasHost(visualizerView, Modifier.fillMaxSize())
-                Box(
-                    Modifier
-                        .fillMaxSize()
-                        .stageGestures(
-                            onHold = nav::togglePanel,
-                            onSwipe = stepStyle,
-                            onDoubleTap = { nextLook(viewModel, viz.sceneId, gate) },
-                            onBars = nav::showBars,
-                            barsShown = chrome != VisualsChrome.HIDDEN,
-                        ),
-                )
-                // On a scrim pill: the stage behind it can be any colour, white included.
-                Text(
-                    stringResource(
-                        when {
-                            !nav.panelShown -> R.string.visuals_stage_hint_hidden
-                            chrome == VisualsChrome.HIDDEN -> R.string.visuals_stage_hint_bars
-                            else -> R.string.visuals_stage_hint
-                        },
-                    ),
-                    Modifier
-                        .align(Alignment.BottomCenter)
-                        .padding(bottom = 8.dp)
-                        .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.6f), RoundedCornerShape(50))
-                        .padding(horizontal = 12.dp, vertical = 4.dp),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = Color.White,
-                )
-            }
-            if (nav.panelShown) {
-                PreviewResizeHandle(onResize = { stageHeightDp = (stageHeightDp + it).coerceIn(minStageDp, maxStageDp) })
+            }.floatingGlass(fillAlpha = opacity),
+    ) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .draggable(
+                    drag,
+                    Orientation.Vertical,
+                    onDragStopped = { velocity -> onSettle(settle(heightPx.value, -velocity, anchors)) },
+                ).semantics {
+                    contentDescription = handle
+                    customActions =
+                        listOf(
+                            CustomAccessibilityAction(expand) {
+                                onSettle(if (nav.sheet == SheetHeight.HALF) SheetHeight.TALL else SheetHeight.HALF)
+                                true
+                            },
+                            CustomAccessibilityAction(collapse) {
+                                onSettle(if (nav.sheet == SheetHeight.TALL) SheetHeight.HALF else SheetHeight.PEEK)
+                                true
+                            },
+                            CustomAccessibilityAction(close) {
+                                onSettle(SheetHeight.HIDDEN)
+                                true
+                            },
+                        )
+                },
+        ) {
+            Box(
+                Modifier
+                    .padding(top = GeodeSpacing.S)
+                    .size(width = GRIP_WIDTH, height = GRIP_HEIGHT)
+                    .background(MaterialTheme.colorScheme.onSurfaceVariant, RoundedCornerShape(50))
+                    .align(Alignment.CenterHorizontally),
+            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 CrystalTabs(
                     titles = VisualsTabs.map { it.title },
                     selected = nav.selectedTab,
                     onSelect = { nav.openTab(VisualsTabs[it]) },
-                )
-                NavDisplay(
-                    backStack = nav.backStack,
-                    onBack = { nav.pop() },
                     modifier = Modifier.weight(1f),
-                    entryProvider = { page ->
-                        NavEntry(page) {
-                            when (page) {
-                                VisualsPage.STYLES -> StylesTab(viewModel)
-                                VisualsPage.CUSTOMIZE -> CustomizePanel(viewModel, visualizerView)
-                                VisualsPage.PRESETS -> PresetsTab(viewModel, visualizerView)
-                                VisualsPage.MILKDROP ->
-                                    MilkDropTab(viewModel, visualizerView, onOpenTextures = { nav.push(VisualsPage.TEXTURES) })
-                                VisualsPage.TEXTURES -> TexturesHubTab(viewModel, visualizerView)
-                            }
-                        }
-                    },
                 )
+                IconButton(onClick = { onSettle(SheetHeight.HIDDEN) }) {
+                    Icon(Icons.Filled.Close, contentDescription = close)
+                }
+            }
+        }
+        Box(Modifier.weight(1f).fillMaxWidth()) { content() }
+    }
+}
+
+/**
+ * The icons over the visual, the visible twins of its gestures: Studio and the live view at the
+ * top right, ‹ › at the sides, Record at the bottom right just above the sheet. They fade with
+ * the shell's chrome; Record stays while a take is being recorded, red, as its stop.
+ */
+@Composable
+private fun BoxScope.StageIcons(
+    chrome: ShellChromeState,
+    sheetTopPx: () -> Float,
+    onOpenLive: () -> Unit,
+    onOpenStudioRender: () -> Unit,
+    onStep: (Int) -> Unit,
+) {
+    val studioViewModel: StudioViewModel = geodeViewModel()
+    val takes by studioViewModel.takeState.collectAsStateWithLifecycle()
+    val glass = Modifier.floatingGlass(RoundedCornerShape(50), fillAlpha = GeodeGlass.MATTE_FILL)
+    val fade = LocalGeodeMotion.current.defaultEffectsSpec<Float>()
+    AnimatedVisibility(chrome.awake, Modifier.matchParentSize(), enter = fadeIn(fade), exit = fadeOut(fade)) {
+        Box(Modifier.fillMaxSize()) {
+            Row(
+                Modifier
+                    .align(Alignment.TopEnd)
+                    .statusBarsPadding()
+                    .padding(GeodeSpacing.EdgeInset)
+                    .then(glass),
+            ) {
+                // Export, loop render and the takes list live in Studio; this only takes you there.
+                IconButton(onClick = onOpenStudioRender) {
+                    StoneIconArt(StoneIcon.STUDIO, stringResource(R.string.visuals_open_render))
+                }
+                IconButton(onClick = onOpenLive) {
+                    Icon(Icons.Filled.Fullscreen, stringResource(R.string.visuals_view_live))
+                }
+            }
+            IconButton(onClick = { onStep(-1) }, modifier = Modifier.align(Alignment.CenterStart).padding(GeodeSpacing.S).then(glass)) {
+                Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, stringResource(R.string.visuals_previous_style))
+            }
+            IconButton(onClick = { onStep(1) }, modifier = Modifier.align(Alignment.CenterEnd).padding(GeodeSpacing.S).then(glass)) {
+                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, stringResource(R.string.visuals_next_style))
             }
         }
     }
-    // Composed after NavDisplay so it wins over the pages' own back: hidden bars come back first.
-    BackHandler(enabled = nav.barsBackEnabled, onBack = nav::backFromBars)
+    if (chrome.awake || takes.recording) {
+        IconButton(
+            onClick = { if (takes.recording) studioViewModel.stopRecording() else studioViewModel.startRecording() },
+            modifier =
+                Modifier
+                    .align(Alignment.BottomEnd)
+                    .offset { IntOffset(0, -sheetTopPx().roundToInt()) }
+                    .padding(GeodeSpacing.EdgeInset)
+                    .then(glass),
+        ) {
+            Icon(
+                if (takes.recording) Icons.Filled.StopCircle else Icons.Filled.FiberManualRecord,
+                if (takes.recording) "Stop recording this take" else "Record a take",
+                tint = if (takes.recording) MaterialTheme.colorScheme.error else LocalContentColor.current,
+            )
+        }
+    }
+}
+
+/**
+ * The visual's own gestures until 3C's full set: a tap, a double tap, a sideways swipe past
+ * [STAGE_SWIPE_DP] (left is next, like turning a page) and a swipe up. A drag that starts in the
+ * system's gesture strips (back at the sides, home at the bottom, the shade at the top) is not
+ * ours. The callbacks go through [rememberUpdatedState] because `pointerInput(Unit)` keeps its
+ * first lambda for as long as the visual is on screen.
+ */
+@Composable
+private fun Modifier.visualStageGestures(
+    onTap: () -> Unit,
+    onDoubleTap: () -> Unit,
+    onSwipe: (Int) -> Unit,
+    onSwipeUp: () -> Unit,
+): Modifier {
+    val tap by rememberUpdatedState(onTap)
+    val doubleTap by rememberUpdatedState(onDoubleTap)
+    val swipe by rememberUpdatedState(onSwipe)
+    val up by rememberUpdatedState(onSwipeUp)
+    val edges = WindowInsets.systemGestures
+    val direction = LocalLayoutDirection.current
+    val next = stringResource(R.string.a11y_next_style)
+    val previous = stringResource(R.string.a11y_previous_style)
+    val live = stringResource(R.string.visuals_view_live)
+    return this
+        .pointerInput(Unit) { detectTapGestures(onTap = { tap() }, onDoubleTap = { doubleTap() }) }
+        .pointerInput(edges, direction) {
+            var drag = Offset.Zero
+            var ours = true
+            detectDragGestures(
+                onDragStart = { start ->
+                    drag = Offset.Zero
+                    ours = start.x > edges.getLeft(this, direction) &&
+                        start.x < size.width - edges.getRight(this, direction) &&
+                        start.y > edges.getTop(this) &&
+                        start.y < size.height - edges.getBottom(this)
+                },
+                onDragEnd = {
+                    val far = STAGE_SWIPE_DP.dp.toPx()
+                    when {
+                        !ours -> Unit
+                        abs(drag.x) >= abs(drag.y) -> if (abs(drag.x) > far) swipe(if (drag.x < 0) 1 else -1)
+                        drag.y < -far -> up()
+                    }
+                },
+            ) { _, delta -> drag += delta }
+        }.semantics {
+            customActions =
+                listOf(
+                    CustomAccessibilityAction(next) {
+                        swipe(1)
+                        true
+                    },
+                    CustomAccessibilityAction(previous) {
+                        swipe(-1)
+                        true
+                    },
+                    CustomAccessibilityAction(live) {
+                        doubleTap()
+                        true
+                    },
+                )
+        }
 }
 
 /**
@@ -216,117 +467,6 @@ internal fun nextLook(
 ) {
     if (viewModel.stepVizPlaylist()) return
     nextStageStyle(stageStyleOrder(), sceneId, 1) { !gate.allowsStyle(it) }?.let(viewModel::selectScene)
-}
-
-/**
- * The mini player's second line on the Visuals stage: the style on screen, or the take being
- * recorded or replayed, which used to sit over the stage itself.
- */
-@Composable
-internal fun VisualsMiniSubtitle(viewModel: PlayerViewModel) {
-    val studioViewModel: StudioViewModel = geodeViewModel()
-    val takes by studioViewModel.takeState.collectAsStateWithLifecycle()
-    val viz by viewModel.vizState.collectAsStateWithLifecycle()
-    Text(
-        when {
-            takes.recording -> "● Recording  ${formatTakeTime(takes.recordedMs)}"
-            takes.replaying != null -> "▶ ${takes.replaying}"
-            else -> sceneDisplayLabel(viz.sceneId)
-        },
-        style = MaterialTheme.typography.labelMedium,
-        color = if (takes.recording) MaterialTheme.colorScheme.error else accentTextColor(),
-        maxLines = 1,
-        overflow = TextOverflow.Ellipsis,
-    )
-}
-
-/** The Visuals mini player's own actions: record a take, Studio › Render, and the live view. */
-@Composable
-internal fun RowScope.VisualsMiniActions(
-    onOpenStudioRender: () -> Unit,
-    onOpenLive: () -> Unit,
-) {
-    val studioViewModel: StudioViewModel = geodeViewModel()
-    val takes by studioViewModel.takeState.collectAsStateWithLifecycle()
-    IconButton(onClick = { if (takes.recording) studioViewModel.stopRecording() else studioViewModel.startRecording() }) {
-        Icon(
-            if (takes.recording) Icons.Filled.StopCircle else Icons.Filled.FiberManualRecord,
-            if (takes.recording) "Stop recording this take" else "Record a take",
-            tint = if (takes.recording) MaterialTheme.colorScheme.error else LocalContentColor.current,
-        )
-    }
-    // Export, loop render and the takes list live in Studio; this only takes you there, even
-    // when the Studio tab is hidden from the bar for someone who came to listen.
-    IconButton(onClick = onOpenStudioRender) {
-        StoneIconArt(StoneIcon.STUDIO, stringResource(R.string.visuals_open_render))
-    }
-    IconButton(onClick = onOpenLive) {
-        Icon(Icons.Filled.Fullscreen, stringResource(R.string.visuals_view_live))
-    }
-}
-
-/**
- * A hold toggles the panel; a double tap is the next look; a swipe past [STAGE_SWIPE_DP] steps
- * the style when it is mostly sideways (left is next, like turning a page) and hides or shows the
- * bars when it is mostly up or down. The callbacks go through [rememberUpdatedState] because
- * `pointerInput(Unit)` keeps its first lambda for as long as the stage is on screen.
- */
-@Composable
-private fun Modifier.stageGestures(
-    onHold: () -> Unit,
-    onSwipe: (Int) -> Unit,
-    onDoubleTap: () -> Unit,
-    onBars: (show: Boolean) -> Unit,
-    barsShown: Boolean,
-): Modifier {
-    val hold by rememberUpdatedState(onHold)
-    val swipe by rememberUpdatedState(onSwipe)
-    val doubleTap by rememberUpdatedState(onDoubleTap)
-    val bars by rememberUpdatedState(onBars)
-    val next = stringResource(R.string.a11y_next_style)
-    val previous = stringResource(R.string.a11y_previous_style)
-    val nextLookLabel = stringResource(R.string.a11y_next_look)
-    val toggle = stringResource(R.string.a11y_toggle_visuals_panel)
-    val barsLabel = stringResource(if (barsShown) R.string.a11y_hide_bars else R.string.a11y_show_bars)
-    return this
-        .pointerInput(Unit) { detectTapGestures(onLongPress = { hold() }, onDoubleTap = { doubleTap() }) }
-        .pointerInput(Unit) {
-            var drag = Offset.Zero
-            detectDragGestures(
-                onDragStart = { drag = Offset.Zero },
-                onDragEnd = {
-                    val far = STAGE_SWIPE_DP.dp.toPx()
-                    when {
-                        abs(drag.x) >= abs(drag.y) -> if (abs(drag.x) > far) swipe(if (drag.x < 0) 1 else -1)
-                        abs(drag.y) > far -> bars(drag.y < 0)
-                    }
-                },
-            ) { _, delta -> drag += delta }
-        }.semantics {
-            customActions =
-                listOf(
-                    CustomAccessibilityAction(nextLookLabel) {
-                        doubleTap()
-                        true
-                    },
-                    CustomAccessibilityAction(next) {
-                        swipe(1)
-                        true
-                    },
-                    CustomAccessibilityAction(previous) {
-                        swipe(-1)
-                        true
-                    },
-                    CustomAccessibilityAction(barsLabel) {
-                        bars(!barsShown)
-                        true
-                    },
-                    CustomAccessibilityAction(toggle) {
-                        hold()
-                        true
-                    },
-                )
-        }
 }
 
 /**
@@ -603,65 +743,18 @@ private fun selectMilk(
     visualizerView.visualizerRenderer.loadMilkPreset(path)
 }
 
-/**
- * The grip under the Visuals stage. Drags report deltas rather than a new height, so the
- * owner adds them to its own state: several drag events can land before a recomposition, and a
- * height read from the last composition would drop all but one of them. TalkBack gets the same
- * control as two actions, since a drag is out of its reach.
- */
-@Composable
-private fun PreviewResizeHandle(onResize: (deltaDp: Float) -> Unit) {
-    val density = LocalDensity.current
-    val label = stringResource(R.string.a11y_preview_resize)
-    val larger = stringResource(R.string.a11y_preview_larger)
-    val smaller = stringResource(R.string.a11y_preview_smaller)
-    Box(
-        Modifier
-            .fillMaxWidth()
-            .height(PREVIEW_HANDLE_HEIGHT)
-            .draggable(
-                rememberDraggableState { delta -> onResize(with(density) { delta.toDp() }.value) },
-                Orientation.Vertical,
-            ).semantics {
-                contentDescription = label
-                customActions =
-                    listOf(
-                        CustomAccessibilityAction(larger) {
-                            onResize(PREVIEW_STEP_DP)
-                            true
-                        },
-                        CustomAccessibilityAction(smaller) {
-                            onResize(-PREVIEW_STEP_DP)
-                            true
-                        },
-                    )
-            },
-        contentAlignment = Alignment.Center,
-    ) {
-        Box(
-            Modifier
-                .size(width = 40.dp, height = 4.dp)
-                .background(MaterialTheme.colorScheme.onSurfaceVariant, RoundedCornerShape(2.dp)),
-        )
-    }
-}
+// Peek: the grip and the tabs row, the sheet's header alone.
+private val SHEET_PEEK = 72.dp
 
-private const val STAGE_DEFAULT_DP = 300f
+private const val HALF_FRACTION = 0.5f
 
-private const val STAGE_MIN_DP = 120f
-
-private const val STAGE_MAX_FRACTION = 0.75f
-
-// What the panel under the stage keeps before the stage grows: the resize handle and tabs,
-// a page's search and filter rows, and room for a row of cards with the preview bar.
-private const val PANEL_MIN_DP = 300f
+private const val FLING_PX_PER_S = 1200f
 
 private const val STAGE_SWIPE_DP = 72f
 
-private const val PREVIEW_STEP_DP = 80f
+private val GRIP_WIDTH = 36.dp
 
-// The full touch target: the grip drawn inside it is only 4dp tall.
-private val PREVIEW_HANDLE_HEIGHT = 48.dp
+private val GRIP_HEIGHT = 4.dp
 
 internal fun takeRenameError(
     from: String,

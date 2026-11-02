@@ -4,12 +4,18 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.systemGestureExclusion
+import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -20,6 +26,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 import dev.geode.data.BackgroundPrefsStore
 import dev.geode.render.UnderlayBlend
+import dev.geode.ui.theme.GeodeSpacing
 import kotlin.math.roundToInt
 
 /** Picks the background image behind the scene, and its blend/amount/blur/dim. */
@@ -48,11 +55,11 @@ fun BackgroundSheet(onDismiss: () -> Unit) {
                 )
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                CrystalButton(compact = true, filled = false, onClick = { picker.launch(arrayOf("image/*")) }) {
+                FilledTonalButton(onClick = { picker.launch(arrayOf("image/*")) }, contentPadding = CompactButtonPadding) {
                     Text(stringResource(R.string.background_pick))
                 }
                 if (prefs.uri != null) {
-                    CrystalButton(compact = true, filled = false, onClick = visualsViewModel::clearBackgroundImage) {
+                    FilledTonalButton(onClick = visualsViewModel::clearBackgroundImage, contentPadding = CompactButtonPadding) {
                         Text(stringResource(R.string.background_clear))
                     }
                 }
@@ -75,17 +82,20 @@ fun BackgroundSheet(onDismiss: () -> Unit) {
                     stringResource(R.string.background_amount, (prefs.amount * 100).roundToInt()),
                     style = MaterialTheme.typography.labelMedium,
                 )
-                CrystalSlider(
+                // A thumb at 0 sits in the back-gesture strip; without the exclusion a drag from it leaves the sheet.
+                Slider(
                     value = prefs.amount,
                     onValueChange = visualsViewModel::setBackgroundAmount,
+                    modifier = Modifier.systemGestureExclusion(),
                     valueRange = 0f..1f,
                 )
             }
             Column {
                 Text(stringResource(R.string.background_blur, prefs.blurRadius), style = MaterialTheme.typography.labelMedium)
-                CrystalSlider(
+                Slider(
                     value = prefs.blurRadius.toFloat(),
                     onValueChange = { visualsViewModel.setBackgroundBlurRadius(it.roundToInt()) },
+                    modifier = Modifier.systemGestureExclusion(),
                     valueRange = BackgroundPrefsStore.BLUR_RANGE.first.toFloat()..BackgroundPrefsStore.BLUR_RANGE.last.toFloat(),
                 )
             }
@@ -94,9 +104,10 @@ fun BackgroundSheet(onDismiss: () -> Unit) {
                     stringResource(R.string.background_dim, (prefs.dim * 100).roundToInt()),
                     style = MaterialTheme.typography.labelMedium,
                 )
-                CrystalSlider(
+                Slider(
                     value = prefs.dim,
                     onValueChange = visualsViewModel::setBackgroundDim,
+                    modifier = Modifier.systemGestureExclusion(),
                     valueRange = 0f..1f,
                 )
             }
@@ -111,7 +122,15 @@ private fun blendOption(
     current: UnderlayBlend,
     onSelect: (UnderlayBlend) -> Unit,
 ) {
-    CrystalButton(compact = true, filled = current == option, onClick = { onSelect(option) }) {
+    val label: @Composable RowScope.() -> Unit = {
         Text(stringResource(labelRes), style = MaterialTheme.typography.bodySmall)
     }
+    if (current == option) {
+        Button(onClick = { onSelect(option) }, contentPadding = CompactButtonPadding, content = label)
+    } else {
+        FilledTonalButton(onClick = { onSelect(option) }, contentPadding = CompactButtonPadding, content = label)
+    }
 }
+
+/** The old compact button's padding: these sit in tight rows in a sheet. */
+private val CompactButtonPadding = PaddingValues(horizontal = GeodeSpacing.M, vertical = GeodeSpacing.XS)

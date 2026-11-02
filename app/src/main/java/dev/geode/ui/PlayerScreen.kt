@@ -1,5 +1,6 @@
 package dev.geode.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -19,11 +20,15 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.Cast
+import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconToggleButton
@@ -39,10 +44,12 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
@@ -53,6 +60,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.Player
 import dev.geode.R
+import dev.geode.ui.theme.GeodeSpacing
 import dev.geode.ui.theme.StoneIcon
 import dev.geode.ui.theme.StoneIconArt
 
@@ -87,8 +95,16 @@ fun PlayerScreen(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(Modifier.weight(1f)) {
-                CrystalOverline(stringResource(R.string.app_name))
-                GlowTitle(stringResource(R.string.nav_player))
+                Text(
+                    stringResource(R.string.app_name),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    stringResource(R.string.nav_player),
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.semantics { heading() },
+                )
             }
             IconButton(onClick = onOpenSearch) { StoneIconArt(StoneIcon.SEARCH, stringResource(R.string.action_search)) }
         }
@@ -249,13 +265,9 @@ private fun PlayerHero(
     Column(
         modifier
             .fillMaxWidth()
-            .crystalPanel(
-                0.42f,
-                MaterialTheme.colorScheme.surfaceVariant,
-                MaterialTheme.colorScheme.primary,
-                corner = 24.dp,
-                glowStrength = if (state.isPlaying || foreign || micActive) 1.2f else 0.7f,
-            ).clickable(enabled = hasSource, onClick = onExpand)
+            .clip(RoundedCornerShape(24.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainer)
+            .clickable(enabled = hasSource, onClick = onExpand)
             .padding(14.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
@@ -272,7 +284,7 @@ private fun PlayerHero(
         )
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                CrystalOverline(
+                Text(
                     when {
                         foreign -> external.nowPlaying?.appLabel ?: stringResource(R.string.source_other_apps)
                         micActive -> stringResource(R.string.source_live_input)
@@ -280,6 +292,8 @@ private fun PlayerHero(
                         state.hasMedia -> stringResource(R.string.state_paused)
                         else -> stringResource(R.string.state_nothing_playing)
                     },
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Text(
                     when {
@@ -344,17 +358,20 @@ private fun PlayerHero(
             SceneChip(styleLabel)
             Box(Modifier.weight(1f))
             if (foreign) {
-                CrystalButton(filled = false, compact = true, onClick = viewModel::stopExternalAudio) {
+                FilledTonalButton(
+                    onClick = viewModel::stopExternalAudio,
+                    contentPadding = PaddingValues(horizontal = GeodeSpacing.M, vertical = GeodeSpacing.XS),
+                ) {
                     Text(stringResource(R.string.action_stop_capture))
                 }
             }
         }
         if (!hasSource) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                CrystalButton(enabled = canResume, onClick = viewModel::resumeLastPlayed) {
+                Button(onClick = viewModel::resumeLastPlayed, enabled = canResume) {
                     Text(stringResource(R.string.action_resume_last_played))
                 }
-                CrystalButton(filled = false, onClick = onOpenLibrary) { Text(stringResource(R.string.action_open_library)) }
+                FilledTonalButton(onClick = onOpenLibrary) { Text(stringResource(R.string.action_open_library)) }
             }
         }
     }
@@ -364,13 +381,9 @@ private fun PlayerHero(
 private fun SceneChip(label: String) {
     Box(
         Modifier
-            .crystalPanel(
-                0.25f,
-                MaterialTheme.colorScheme.surfaceVariant,
-                MaterialTheme.colorScheme.primary,
-                corner = 12.dp,
-                glowStrength = 0.4f,
-            ).padding(horizontal = 10.dp, vertical = 4.dp),
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainer)
+            .padding(horizontal = 10.dp, vertical = 4.dp),
     ) {
         Text(
             label,
@@ -397,13 +410,9 @@ private fun TransportCard(
     Column(
         modifier
             .fillMaxWidth()
-            .crystalPanel(
-                0.35f,
-                MaterialTheme.colorScheme.surfaceVariant,
-                MaterialTheme.colorScheme.primary,
-                corner = 24.dp,
-                glowStrength = 0.8f,
-            ).padding(horizontal = 14.dp, vertical = 10.dp),
+            .clip(RoundedCornerShape(24.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainer)
+            .padding(horizontal = 14.dp, vertical = 10.dp),
     ) {
         Row(
             Modifier.fillMaxWidth(),
@@ -430,12 +439,17 @@ private fun TransportCard(
             IconButton(onClick = viewModel::previous, enabled = state.hasMedia) {
                 StoneIconArt(StoneIcon.PREVIOUS, stringResource(R.string.action_previous))
             }
-            CrystalPlayButton(
-                icon = if (state.isPlaying) StoneIcon.PAUSE else StoneIcon.PLAY,
-                contentDescription = stringResource(if (state.isPlaying) R.string.action_pause else R.string.action_play),
+            // 64 dp, the size the old play button drew itself at, so the transport row keeps its rhythm.
+            FilledIconButton(
                 onClick = viewModel::togglePlayPause,
+                modifier = Modifier.size(64.dp),
                 enabled = state.hasMedia,
-            )
+            ) {
+                StoneIconArt(
+                    if (state.isPlaying) StoneIcon.PAUSE else StoneIcon.PLAY,
+                    stringResource(if (state.isPlaying) R.string.action_pause else R.string.action_play),
+                )
+            }
             IconButton(onClick = viewModel::next, enabled = state.hasMedia) {
                 StoneIconArt(StoneIcon.NEXT, stringResource(R.string.action_next))
             }
@@ -501,17 +515,17 @@ private fun QueuePreview(
     Column(
         modifier
             .fillMaxWidth()
-            .crystalPanel(
-                0.3f,
-                MaterialTheme.colorScheme.surfaceVariant,
-                MaterialTheme.colorScheme.primary,
-                corner = 20.dp,
-                glowStrength = 0.5f,
-            ).padding(start = 14.dp, end = 14.dp, top = 12.dp, bottom = 4.dp),
+            .clip(RoundedCornerShape(20.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainer)
+            .padding(start = 14.dp, end = 14.dp, top = 12.dp, bottom = 4.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         val untitled = stringResource(R.string.title_untitled)
-        CrystalOverline(stringResource(R.string.queue_up_next))
+        Text(
+            stringResource(R.string.queue_up_next),
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
         upNext.forEach { t ->
             Text(
                 t.title.ifBlank { untitled },
@@ -670,14 +684,10 @@ private fun QuickActionShell(
         Modifier
             // A minimum, not a fixed width, so "Shuffle all" at 200% font wraps instead of "Shu…".
             .widthIn(min = 84.dp, max = 120.dp)
-            .crystalPanel(
-                if (active) 0.5f else 0.28f,
-                MaterialTheme.colorScheme.surfaceVariant,
-                MaterialTheme.colorScheme.primary,
-                corner = 18.dp,
-                glowStrength = if (active) 1.1f else 0.45f,
-                prismatic = active,
-            ).semantics { if (active) stateDescription = onLabel }
+            .clip(RoundedCornerShape(18.dp))
+            // On reads from the fill as well as the tint, not from colour alone.
+            .background(if (active) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainer)
+            .semantics { if (active) stateDescription = onLabel }
             .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
             .padding(vertical = 12.dp, horizontal = 6.dp),
         horizontalAlignment = Alignment.CenterHorizontally,

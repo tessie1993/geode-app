@@ -171,6 +171,16 @@
 
     <!-- Mini-player above the nav bar. -->
     <string name="mini_player_idle">Now playing</string>
+    <string name="mini_player_open">Open Player</string>
+    <string name="mini_player_hide">Hide the player</string>
+    <string name="mini_player_pin">Keep the player shown</string>
+    <string name="mini_player_show">Show the player</string>
+    <string name="visuals_sheet_close">Hide the options</string>
+    <string name="visuals_sheet_handle">Options sheet</string>
+    <string name="visuals_sheet_expand">Show more options</string>
+    <string name="visuals_sheet_collapse">Show fewer options</string>
+    <string name="visuals_previous_style">Previous style</string>
+    <string name="visuals_next_style">Next style</string>
 
     <!-- Offered once, after a run that crashed. -->
     <string name="crash_dialog_title">Previous crash captured</string>
@@ -229,13 +239,7 @@
     <string name="a11y_favourite">Favourite</string>
     <string name="a11y_show_controls">Show controls</string>
     <string name="a11y_hide_controls">Hide controls</string>
-    <string name="a11y_preview_resize">Preview size. Drag down to enlarge, up to shrink</string>
-    <string name="a11y_preview_larger">Larger preview</string>
-    <string name="a11y_preview_smaller">Smaller preview</string>
     <string name="a11y_state_on">On</string>
-    <string name="visuals_stage_hint">Double tap for the next look · swipe down to hide the bars</string>
-    <string name="visuals_stage_hint_hidden">Hold to bring the panel back</string>
-    <string name="visuals_stage_hint_bars">Swipe up for the player and tabs</string>
     <string name="visuals_view_live">View live</string>
     <string name="a11y_next_look">Next look</string>
     <string name="a11y_hide_bars">Hide the player and tabs</string>

@@ -11,6 +11,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.cast.MediaRouteButton
 import androidx.media3.common.util.UnstableApi
@@ -48,13 +51,16 @@ fun CastButton(modifier: Modifier = Modifier) {
     Box(modifier) {
         MediaRouteButton()
         if (!gate.allows(ProFeature.CAST)) {
+            // Over the route button, so TalkBack must hear this one: a label and a button role.
+            val label = stringResource(R.string.cast_button_locked)
             Box(
                 Modifier
                     .matchParentSize()
+                    .semantics { contentDescription = label }
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
-                        onClickLabel = stringResource(R.string.cast_button_locked),
+                        role = Role.Button,
                     ) { paywall.open(PaywallTrigger.Feature(ProFeature.CAST)) },
             )
         }

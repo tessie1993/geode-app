@@ -36,6 +36,7 @@ import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateList
+import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -183,7 +184,7 @@ fun StudioHub(
 private val studioRouteSaver =
     listSaver<SnapshotStateList<StudioSection>, String>(
         save = { route -> route.map { it.name } },
-        restore = { names -> mutableStateListOf(*names.map(StudioSection::valueOf).toTypedArray()) },
+        restore = { names -> names.map(StudioSection::valueOf).toMutableStateList() },
     )
 
 /**

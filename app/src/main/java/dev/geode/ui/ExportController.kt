@@ -569,30 +569,6 @@ internal class ExportController(
         destination: Uri? = null,
         watermark: Boolean = false,
         onRendered: (ProjectRender) -> Unit = {},
-    ) = launchProjectRender(project, settingsExport = false, destination, watermark, onRendered)
-
-    /**
-     * The open edit alone, from callers that do not hand over its folder yet: it renders with the
-     * export settings from Settings › Export, and its take clips draw their first style, since the
-     * takes live in a folder this call does not name. [renderProject] is the full path.
-     */
-    fun startProjectExport(
-        project: EditorProject,
-        destination: Uri? = null,
-    ) = launchProjectRender(
-        StudioProject(id = ProjectId(""), name = "", edit = project),
-        settingsExport = true,
-        destination = destination,
-        watermark = false,
-        onRendered = {},
-    )
-
-    private fun launchProjectRender(
-        project: StudioProject,
-        settingsExport: Boolean,
-        destination: Uri?,
-        watermark: Boolean,
-        onRendered: (ProjectRender) -> Unit,
     ) {
         if (_studio.value.phase.isBusy || ExportRun.running) return
         studioCancelled = false
@@ -602,7 +578,7 @@ internal class ExportController(
         studioJob =
             ExportRun.launch {
                 runStudioRender {
-                    val export = if (settingsExport) loadExportDefaults() else project.export
+                    val export = project.export
                     val plan = ProjectComposition.plan(project.edit)
                     val notice = plan.report.message(application)
                     val name = "muzviz_cut_${System.currentTimeMillis()}.mp4"

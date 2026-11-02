@@ -31,8 +31,11 @@ import javax.inject.Singleton
  *   the music folders and the preset mirror folder (their read grants belong to this install,
  *   and dropping them would empty the library rather than reset it).
  * - Reset: Settings › Performance ([PerformanceStore.KEYS]), which [PerformanceStore] re-picks for
- *   this phone on the next start exactly as it does on a fresh install, and the background
- *   image, which is a look the user chose.
+ *   this phone on the next start exactly as it does on a fresh install.
+ *
+ * The look on screen stays too (owner: "settings only"). `geode-viz` is the live look, the style
+ * shelf's favourites and recents and the visual playlist, so only Auto's timer options are reset
+ * there ([AUTO_TIMER_KEYS]); `geode-background` (the background image and its blend) is kept whole.
  *
  * The live wallpaper's options (`geode-wallpaper`) are settings in a file of their own and are
  * reset whole.
@@ -77,9 +80,14 @@ class SettingsReset
             prefsFile: String,
             key: String,
         ): Boolean =
-            prefsFile == WALLPAPER_PREFS ||
-                BackupFormat.sectionOfKey(prefsFile, key) == BackupSection.SETTINGS ||
-                key in resetDeviceLocalKeys[prefsFile].orEmpty()
+            when (prefsFile) {
+                WALLPAPER_PREFS -> true
+                GeodePrefsFiles.VIZ -> key in AUTO_TIMER_KEYS
+                GeodePrefsFiles.BACKGROUND -> false
+                else ->
+                    BackupFormat.sectionOfKey(prefsFile, key) == BackupSection.SETTINGS ||
+                        key in resetDeviceLocalKeys[prefsFile].orEmpty()
+            }
 
         // The framework caches one instance per name for the process, so this is the same
         // object GeodePrefsFiles and every store already hold.
@@ -92,10 +100,18 @@ class SettingsReset
             const val WALLPAPER_PREFS = "geode-wallpaper"
 
             /** Device-local keys that are still settings, so a reset clears them (see the class KDoc). */
-            val resetDeviceLocalKeys: Map<String, Set<String>> =
-                mapOf(
-                    GeodePrefsFiles.GENERAL to PerformanceStore.KEYS,
-                    GeodePrefsFiles.BACKGROUND to setOf("background_uri"),
+            val resetDeviceLocalKeys: Map<String, Set<String>> = mapOf(GeodePrefsFiles.GENERAL to PerformanceStore.KEYS)
+
+            /** `ui/AutoVisualsPrefsStore`'s timer options, by name: data may not name the ui package. */
+            val AUTO_TIMER_KEYS: Set<String> =
+                setOf(
+                    "auto_random_interval_sec",
+                    "auto_random_include_styles",
+                    "auto_random_include_presets",
+                    "auto_random_include_milk",
+                    "auto_randomize_colors",
+                    "auto_playlist_enabled",
+                    "auto_playlist_interval_sec",
                 )
         }
     }

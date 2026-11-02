@@ -131,6 +131,9 @@ class NativeViz(
     /** The preset MilkDrop last compiled, handed out once; null until the next one. */
     fun takeMilkPresetLoaded(): String? = if (handle == 0L) null else GeodeNative.vizTakeMilkPresetLoaded(handle)
 
+    /** The director's new-section and drop decisions since the last call (one Auto mode). */
+    fun takeDirectorStyleMoments(): Int = if (handle == 0L) 0 else GeodeNative.vizTakeDirectorStyleMoments(handle)
+
     /** The renderer's sound engine: interleaved PCM in play order, each sample once, before [render]. */
     fun writeAudio(
         interleaved: FloatArray,

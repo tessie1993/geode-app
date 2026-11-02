@@ -149,7 +149,7 @@
     <string name="backup_restore_body">Made on %1$s. What you pick replaces what is on this phone now.</string>
     <string name="backup_restore_confirm">Restore</string>
     <string name="backup_section_settings">Settings</string>
-    <string name="backup_section_creative">Presets, palettes, modulation, templates and projects</string>
+    <string name="backup_section_creative">Presets, palettes, macros, modulation and reactions, templates and projects</string>
     <string name="backup_section_music">Playlists, favourites, history and track edits</string>
     <string name="backup_section_milk">Imported Milk presets and textures</string>
     <string name="backup_restored_title">Backup restored</string>
@@ -538,7 +538,7 @@
     <string name="audio_default">Default</string>
     <!-- The sound engine's tuning (core/sound GeodeSoundTuning). -->
     <string name="audio_reactivity">"Reactivity  %1$s× — how strongly the visuals answer the music"</string>
-    <string name="audio_speed">"Clock speed  %1$s× — how fast the music-driven motion runs"</string>
+    <string name="audio_speed">"Visual tempo  %1$s× — how fast the music-driven motion runs"</string>
     <string name="audio_advanced">Advanced</string>
     <string name="audio_band_low">Low</string>
     <string name="audio_band_middle">Middle</string>

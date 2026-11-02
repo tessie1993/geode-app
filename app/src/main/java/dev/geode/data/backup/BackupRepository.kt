@@ -106,7 +106,7 @@ class BackupRepository
                     try {
                         for (section in BackupSection.entries.filter { it in sections && it in preview.sections }) {
                             swapFiles(section)
-                            section.prefsFiles.forEach(::restorePrefs)
+                            BackupFormat.prefsEntries(section).forEach { (name, path) -> restorePrefs(section, name, path) }
                             RingLog.note(TAG, "restored ${section.id}")
                         }
                     } finally {
@@ -124,10 +124,10 @@ class BackupRepository
 
         private fun sourcesFor(section: BackupSection): List<BackupSource> {
             val prefs =
-                section.prefsFiles.map { name ->
-                    val values = prefsFile(name).all.filterKeys { BackupFormat.isPortableKey(name, it) }
+                BackupFormat.prefsEntries(section).map { (name, path) ->
+                    val values = prefsFile(name).all.filterKeys { BackupFormat.sectionOfKey(name, it) == section }
                     val bytes = PrefsJson.encode(values).toByteArray(Charsets.UTF_8)
-                    BackupSource(BackupFormat.prefsPath(name)) { bytes.inputStream() }
+                    BackupSource(path) { bytes.inputStream() }
                 }
             val files =
                 (section.dirs + section.files)
@@ -208,19 +208,24 @@ class BackupRepository
         }
 
         /**
-         * Replaces the portable keys of one prefs file with the backup's. Device-local keys on
-         * this phone are left as they are, and any in the backup are ignored. commit(), not
-         * apply(): the restore must know the write landed before it reports success.
+         * Replaces [section]'s keys of one prefs file with the backup's, read from [path]. Device-local
+         * keys and other sections' keys on this phone are left as they are, and any in the backup are
+         * ignored: restoring Settings keeps the macros, restoring Creative keeps the settings. commit(),
+         * not apply(): the restore must know the write landed before it reports success.
          */
         @SuppressLint("ApplySharedPref")
-        private fun restorePrefs(name: String) {
-            val file = File(stagedDir, BackupFormat.prefsPath(name))
+        private fun restorePrefs(
+            section: BackupSection,
+            name: String,
+            path: String,
+        ) {
+            val file = File(stagedDir, path)
             if (!file.isFile) return
-            val values = PrefsJson.decode(file.readText()).filterKeys { BackupFormat.isPortableKey(name, it) }
+            val values = PrefsJson.decode(file.readText()).filterKeys { BackupFormat.sectionOfKey(name, it) == section }
             val prefs = prefsFile(name)
             val editor = prefs.edit()
             for (key in prefs.all.keys) {
-                if (BackupFormat.isPortableKey(name, key)) editor.remove(key)
+                if (BackupFormat.sectionOfKey(name, key) == section) editor.remove(key)
             }
             for ((key, value) in values) {
                 when (value) {

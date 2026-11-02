@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import dev.geode.R
 import dev.geode.pro.FreeTier
 import dev.geode.render.EventRecipe
+import dev.geode.render.HandReactions
 import dev.geode.render.ReactionRoute
 import dev.geode.render.scene.BuildStyleReactionsUseCase
 import dev.geode.render.scene.ParamKeys
@@ -45,10 +46,11 @@ import dev.geode.render.scene.SceneParams
  * Customize › Music: moments → actions. When this happens in the music, the picture does that.
  *
  * One row per [MusicMoment] (Kick, Snare … Loudness), each with its [MusicAction] chips (Pulse,
- * Flash, Zoom …) and one Strength. Every row is a view of the one reaction matrix, so nothing here
- * adds state: Auto is the style's DNA, and the first tap on a row makes the matrix the user's own,
- * with every other row still a copy of the DNA and so still marked Auto. A row the user changed
- * reads "Mine" until its ⋮ › Reset to Auto puts the DNA's routes for it back ([MusicMoments]).
+ * Flash, Zoom …) and one Strength. The hand wins per moment: a tap on a row makes that moment the
+ * user's ("Mine", kept in the hand mask beside their routes, [HandReactions]); every other row stays
+ * Auto and keeps following the live DNA as the style or seed changes, and the director keeps off the
+ * moments marked Mine. A row's ⋮ › Reset to Auto hands it back. Native decides all of it
+ * ([MusicMoments] only calls it); this page draws the rows and sends the taps.
  *
  * The ready-made [EventRecipe]s stay below as one-tap bundles across moments, then how strongly the
  * music moves things overall. Each route on its own is in Modulate › Reactions, so a listener who
@@ -61,22 +63,25 @@ import dev.geode.render.scene.SceneParams
 internal fun EventsTab(
     p: SceneParams,
     onChange: (SceneParams) -> Unit,
-    reactions: List<ReactionRoute>?,
+    hand: HandReactions,
     onReactionsChange: (List<ReactionRoute>?) -> Unit,
+    onHandChange: (HandReactions) -> Unit,
 ) {
     val sceneId = LocalSceneId.current
     val searching = LocalParamQuery.current.isNotBlank()
     Column {
         if (!searching) {
-            val dna = remember(sceneId, p.reactSeed) { BuildStyleReactionsUseCase()(sceneId, p.reactSeed) }
-            val routes = reactions ?: dna
+            val seed = p.reactSeed
+            // What plays now (the native merge of the user's routes and the live DNA) and each row's state.
+            val routes = remember(sceneId, seed, hand) { BuildStyleReactionsUseCase().playing(sceneId, seed, hand.routes, hand.mask) }
+            val rows = remember(sceneId, seed, hand) { MusicMoments.rows(sceneId, seed, hand) }
             val actions = remember(sceneId) { MusicAction.entries.filter { it.target.scope.appliesTo(sceneId) } }
             SectionHeader(stringResource(R.string.music_moment_header))
             ControlHint(stringResource(R.string.music_moment_hint))
             // A moment's Strength is not a parameter a wave or the sound could drive, so no "react to music" here.
             CompositionLocalProvider(LocalReactTo provides null) {
                 MusicMoment.entries.forEach { moment ->
-                    MomentRow(moment, actions, routes, reactions, dna, onReactionsChange)
+                    MomentRow(moment, rows[moment.ordinal], actions) { edit -> onHandChange(edit(sceneId, seed, hand)) }
                 }
             }
             // One list for the chips and the room note, so the note only ever speaks of chips on screen.
@@ -97,10 +102,7 @@ internal fun EventsTab(
                 }
             }
             val recipeFull = shown.any { !it.isOn(routes, sceneId) && !it.fits(routes, sceneId) }
-            val momentFull =
-                MusicMoment.entries.any { m ->
-                    actions.any { a -> !MusicMoments.isOn(m, a, routes) && !MusicMoments.fits(m, a, routes) }
-                }
+            val momentFull = rows.any { row -> actions.any { a -> a !in row.on && a !in row.fits } }
             if (recipeFull || momentFull) {
                 ControlHint(stringResource(R.string.music_moment_full, routes.size, ReactionRoute.MAX_ROUTES))
             }
@@ -113,23 +115,23 @@ internal fun EventsTab(
     }
 }
 
+/** One tap on the page, sent to native with the style, the seed and the user's side. */
+private typealias MomentEdit = (sceneId: String, seed: Int, hand: HandReactions) -> HandReactions
+
 /**
  * One moment: its name with Auto or Mine and a ⋮, its action chips, then its Strength while it
- * does anything. [routes] is what plays now (the user's list, else the DNA); [reactions] is the
- * user's list alone, which decides Mine.
+ * does anything. [row] is native's reading of it ([MusicMoments.rows]); [onEdit] sends a tap.
  */
 @Composable
 private fun MomentRow(
     moment: MusicMoment,
+    row: MomentState,
     actions: List<MusicAction>,
-    routes: List<ReactionRoute>,
-    reactions: List<ReactionRoute>?,
-    dna: List<ReactionRoute>,
-    onReactionsChange: (List<ReactionRoute>?) -> Unit,
+    onEdit: (MomentEdit) -> Unit,
 ) {
     val name = stringResource(moment.label)
-    val mine = MusicMoments.isMine(moment, reactions, dna)
-    val onNames = actions.filter { MusicMoments.isOn(moment, it, routes) }.map { stringResource(it.label) }
+    val mine = row.mine
+    val onNames = actions.filter { it in row.on }.map { stringResource(it.label) }
     val canEdit = LocalProLock.current.allows(FreeTier.FREE_EVENTS_CONTROL)
     Column(Modifier.padding(top = 4.dp)) {
         // 48 dp, so the row keeps its height whether or not the ⋮ is there.
@@ -143,32 +145,32 @@ private fun MomentRow(
             Spacer(Modifier.weight(1f))
             // Like the slider rows' ⋮, it is drawn only when it has something to offer: an Auto moment has nothing to reset.
             if (canEdit && mine) {
-                MomentMenu(name) { onReactionsChange(MusicMoments.resetToAuto(moment, reactions, dna)) }
+                MomentMenu(name) { onEdit { s, seed, hand -> MusicMoments.resetToAuto(s, seed, hand, moment) } }
             }
         }
         val nothing = stringResource(R.string.music_moment_nothing)
         ProGated(FreeTier.FREE_EVENTS_CONTROL, name, onNames.joinToString().ifEmpty { nothing }) {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 actions.forEach { action ->
-                    val on = MusicMoments.isOn(moment, action, routes)
+                    val on = action in row.on
                     FilterChip(
                         selected = on,
-                        enabled = on || MusicMoments.fits(moment, action, routes),
-                        onClick = { onReactionsChange(MusicMoments.toggle(moment, action, routes, dna)) },
+                        enabled = on || action in row.fits,
+                        onClick = { onEdit { s, seed, hand -> MusicMoments.toggle(s, seed, hand, moment, action) } },
                         label = { Text(stringResource(action.label), style = MaterialTheme.typography.labelLarge) },
                     )
                 }
             }
         }
-        if (MusicMoments.routesOf(moment, routes).isNotEmpty()) {
+        if (row.routes > 0) {
             LabeledSlider(
                 label = "Music ${moment.name.lowercase()} strength",
-                value = MusicMoments.strength(moment, routes),
+                value = row.strength,
                 range = 0f..MusicMoments.MAX_STRENGTH,
                 display = stringResource(R.string.music_moment_strength, name),
                 scope = ParamScope.UNIVERSAL,
                 unit = ParamUnit.TIMES,
-            ) { v -> onReactionsChange(MusicMoments.withStrength(moment, v, routes, dna)) }
+            ) { v -> onEdit { s, seed, hand -> MusicMoments.withStrength(s, seed, hand, moment, v) } }
         }
     }
 }

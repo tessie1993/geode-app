@@ -307,6 +307,7 @@ class PlayerSession internal constructor(
     val lfos: StateFlow<List<LfoConfig>> get() = modulation.lfos
     val adsrs: StateFlow<List<AdsrConfig>> get() = modulation.adsrs
     val reactions: StateFlow<List<dev.geode.render.ReactionRoute>?> get() = modulation.reactions
+    val handMask: StateFlow<Int> get() = modulation.handMask
     val lockedParams: StateFlow<Set<String>> get() = modulation.lockedParams
     val paramHistory: StateFlow<ParamHistoryState> get() = modulation.history
 
@@ -335,6 +336,8 @@ class PlayerSession internal constructor(
     ) = modulation.setLfo(index, config)
 
     fun setReactions(routes: List<dev.geode.render.ReactionRoute>?) = modulation.setReactions(routes)
+
+    fun setHandReactions(edit: dev.geode.render.HandReactions) = modulation.setHandReactions(edit)
 
     fun rerollReactions() = modulation.rerollReactions()
 

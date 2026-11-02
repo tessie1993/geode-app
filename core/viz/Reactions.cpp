@@ -1,6 +1,7 @@
 #include "viz/Reactions.hpp"
 
 #include <algorithm>
+#include <atomic>
 #include <cmath>
 #include <cstddef>
 
@@ -377,5 +378,64 @@ SceneParams ReactionEngine::apply(const SceneParams& p) const {
     }
     return o;
 }
+
+namespace hand {
+
+namespace {
+
+using S = ReactSource;
+
+// Every moment's sources, in Moment order. No source is in two.
+struct MomentSources {
+    std::array<ReactSource, 8> sources;
+    int count;
+};
+constexpr std::array<MomentSources, kMomentCount> kMomentSources{{
+    {{S::KickEnv, S::Kick, S::Kick2, S::Kick4, S::Kick8, S::Kick16, S::KickToggle, S::KickRandom}, 8},
+    {{S::SnareEnv, S::Snare, S::Snare2, S::Snare4, S::SnareToggle}, 5},
+    {{S::HatEnv, S::Hat}, 2},
+    {{S::Bass, S::BassAtt, S::Sub, S::SubAtt, S::Low, S::BassPresence, S::BassTime}, 7},
+    {{S::Drop, S::Surge, S::Returned}, 3},
+    {{S::BuildUp, S::EnergyTrend}, 2},
+    {{S::HarmonicChange, S::ChordHue, S::Tension}, 3},
+    {{S::SectionChange, S::HardCut, S::Phrase, S::SectionState, S::SectionId}, 5},
+    {{S::NoteChange, S::Reattack, S::Legato, S::NoteRandom, S::PitchClass, S::PitchHeight, S::Glide, S::Vibrato}, 8},
+    {{S::Loudness, S::Vol, S::VolAtt, S::Level, S::Intensity, S::CurvedTime}, 6},
+}};
+
+// Each source's moment, or -1: looked up per route per frame by the director, so a table, not a search.
+constexpr std::array<int, kReactSourceCount> kOwners = [] {
+    std::array<int, kReactSourceCount> owners{};
+    for (int& o : owners) o = -1;
+    for (int m = 0; m < kMomentCount; ++m) {
+        const MomentSources& ms = kMomentSources[static_cast<size_t>(m)];
+        for (int i = 0; i < ms.count; ++i) owners[static_cast<size_t>(ms.sources[static_cast<size_t>(i)])] = m;
+    }
+    return owners;
+}();
+
+std::atomic<std::uint32_t> gMask{0};
+
+}  // namespace
+
+int momentOf(ReactSource s) {
+    const int i = static_cast<int>(s);
+    return i >= 0 && i < kReactSourceCount ? kOwners[static_cast<size_t>(i)] : -1;
+}
+
+ReactSourceMask sources(std::uint32_t mask) {
+    ReactSourceMask out;
+    for (int i = 0; i < kReactSourceCount; ++i) {
+        const int m = kOwners[static_cast<size_t>(i)];
+        const std::uint32_t owner = m < 0 ? kUnclaimed : (1u << m);
+        out[static_cast<size_t>(i)] = (mask & owner) != 0u;
+    }
+    return out;
+}
+
+void setGlobal(std::uint32_t mask) { gMask.store(mask & kAll, std::memory_order_relaxed); }
+std::uint32_t global() { return gMask.load(std::memory_order_relaxed); }
+
+}  // namespace hand
 
 }  // namespace geode::viz

@@ -18,7 +18,9 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.render.EventRecipe
+import dev.geode.render.HandReactions
 import dev.geode.render.ReactMode
 import dev.geode.render.ReactionRoute
 import dev.geode.render.scene.BuildStyleReactionsUseCase
@@ -58,8 +60,9 @@ class ReactivityTabTest {
                         EventsTab(
                             p = params,
                             onChange = { params = it },
-                            reactions = reactions,
+                            hand = HandReactions(reactions, GeodeNative.HAND_ALL),
                             onReactionsChange = { reactions = it },
+                            onHandChange = { reactions = it.routes },
                         )
                         // Advanced › Reactions, the route list the recipes write into.
                         ReactionsSection(

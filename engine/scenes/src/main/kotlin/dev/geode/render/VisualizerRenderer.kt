@@ -122,7 +122,8 @@ class VisualizerRenderer(
 
     /**
      * The user's own reaction routes, or null to play the style's DNA
-     * ([BuildStyleReactionsUseCase] for the current scene and `reactSeed`).
+     * ([BuildStyleReactionsUseCase] for the current scene and `reactSeed`). A list plays only on the
+     * moments [HandMask] gives the user; every other moment plays the live DNA ([StyleReactionsCache]).
      */
     @Volatile
     var reactions: List<ReactionRoute>? = null
@@ -319,7 +320,7 @@ class VisualizerRenderer(
             nativeViz.setAdsrConfigs(adsr)
             nativeAdsr = adsr
         }
-        val routes = reactions ?: styleReactions.routesFor(requestedSceneId, p.reactSeed)
+        val routes = styleReactions.routesFor(requestedSceneId, p.reactSeed, reactions, HandMask.current)
         if (routes !== nativeReactions) {
             nativeViz.setReactions(routes)
             nativeReactions = routes

@@ -69,23 +69,17 @@ private val MACRO_HINTS =
  * a few reactions of their own, on screen and in exports, the wallpaper and the dream alike.
  *
  * Drag a knob up or down, double-tap it back to "as styled", long-press to keep it out of Surprise.
+ * The sets (Calm, Groove…) and saving your own are a page of their own, [MacroSetsPage].
  */
 @Composable
 internal fun MacrosTab(
     state: MacroState,
     store: MacroStore,
-    canSavePresets: Boolean,
-    onLockedSave: () -> Unit,
 ) {
-    var naming by remember { mutableStateOf(false) }
-    val starters = remember { MacroStore.starters() }
     Column {
-        Text(
+        ControlHint(
             "Six knobs over every style. Centre is the look as styled; turn right for more, left for less. " +
                 "Double-tap a knob to centre it, long-press to keep it out of Surprise.",
-            modifier = Modifier.padding(top = 8.dp, bottom = 8.dp),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         for (row in 0 until 2) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
@@ -105,9 +99,29 @@ internal fun MacrosTab(
                 }
             }
         }
-        Text("Presets", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 12.dp))
+    }
+}
+
+/**
+ * Macros › Sets & macros: the built-in sets and the user's own, a tap sets all six knobs at once.
+ * Using a set is free; saving the knobs as a new one is Pro.
+ */
+@Composable
+internal fun MacroSetsPage(
+    state: MacroState,
+    store: MacroStore,
+    canSavePresets: Boolean,
+    onLockedSave: () -> Unit,
+) {
+    var naming by remember { mutableStateOf(false) }
+    val starters = remember { MacroStore.starters() }
+    Column {
+        SectionHeader("Sets")
         FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             starters.forEach { p -> PresetChip(p, state, store) }
+        }
+        SectionHeader("Yours")
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             state.presets.forEach { p ->
                 InputChip(
                     selected = sameKnobs(p.knobs, state.knobs),
@@ -126,14 +140,14 @@ internal fun MacrosTab(
             }
         }
         TextButton(onClick = { if (canSavePresets) naming = true else onLockedSave() }) {
-            Text(if (canSavePresets) "Save these knobs as a preset" else "Save these knobs as a preset (Pro)")
+            Text(if (canSavePresets) "Save these knobs as a set" else "Save these knobs as a set (Pro)")
         }
     }
     if (naming) {
         var name by remember { mutableStateOf("") }
         AlertDialog(
             onDismissRequest = { naming = false },
-            title = { Text("Name this macro preset") },
+            title = { Text("Name this set") },
             text = { OutlinedTextField(value = name, onValueChange = { name = it }, singleLine = true) },
             confirmButton = {
                 TextButton(enabled = name.isNotBlank(), onClick = {

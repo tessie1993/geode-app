@@ -3,13 +3,11 @@ package dev.geode.ui
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import dev.geode.pro.FreeTier
 import dev.geode.render.EventRecipe
@@ -19,12 +17,12 @@ import dev.geode.render.scene.ParamKeys
 import dev.geode.render.scene.SceneParams
 
 /**
- * Customize › Events: what happens when something happens in the music.
+ * Customize › Music: what happens when something happens in the music.
  *
  * The simple layer of the reaction matrix: ready-made [EventRecipe]s as one-tap chips (the page's
  * free control), and how strongly the music moves things overall. Each recipe is the same edit as
  * adding its routes by hand and is saved the same way; the routes themselves, one by one, are in
- * Advanced › Reactions, so a listener who only wants "kick punch" never meets attack and release.
+ * Modulate › Reactions, so a listener who only wants "kick punch" never meets attack and release.
  */
 @Composable
 internal fun EventsTab(
@@ -37,12 +35,7 @@ internal fun EventsTab(
     val searching = LocalParamQuery.current.isNotBlank()
     Column {
         if (!searching) {
-            Text(
-                "When something happens in the music, something moves. Tap a reaction to add it; tap it again to take it off.",
-                modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            ControlHint("When something happens in the music, something moves. Tap a reaction to add it; tap it again to take it off.")
             val dna = remember(sceneId, p.reactSeed) { BuildStyleReactionsUseCase()(sceneId, p.reactSeed) }
             val routes = reactions ?: dna
             // One list for the chips and the room note, so the note only ever speaks of chips on screen.
@@ -64,7 +57,7 @@ internal fun EventsTab(
             if (shown.any { !it.isOn(routes, sceneId) && !it.fits(routes, sceneId) }) {
                 ControlHint(
                     "${routes.size} of ${ReactionRoute.MAX_ROUTES} reactions in use, so the greyed-out ones don't fit. " +
-                        "Remove one in Advanced › Reactions to make room.",
+                        "Remove one in Modulate › Reactions to make room.",
                 )
             }
         }

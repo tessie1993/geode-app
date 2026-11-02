@@ -14,9 +14,7 @@ import androidx.compose.ui.test.performTextInput
 import androidx.test.espresso.Espresso
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.LargeTest
-import dev.geode.pro.FreeTier
 import dev.geode.ui.MainActivity
-import dev.geode.ui.sceneDisplayLabel
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.RuleChain
@@ -65,15 +63,14 @@ class VisualsJourneyTest {
     }
 
     /**
-     * Kaleidoscope sits on the style's own page, whose tab is titled with the style's name. A
-     * fresh free install lands on the fallback style (the default is Pro), so that is the tab.
-     * Not through Customize's search: with a query, the results page never let Compose go idle
-     * on the CI emulator, and every later step waited for it until the job timed out.
+     * Kaleidoscope sits on the Style page; its name in Customize's jump header scrolls the list
+     * there. Not through Customize's search: with a query, the results page never let Compose go
+     * idle on the CI emulator, and every later step waited for it until the job timed out.
      */
     private fun openCustomizeShape() {
         openVisuals()
         compose.tap("Customize")
-        compose.tap(sceneDisplayLabel(FreeTier.FALLBACK_STYLE_ID))
+        compose.tap("Style")
     }
 
     /** The whole CheckRow is the toggleable node (role Checkbox), its label merged into it. */

@@ -85,6 +85,37 @@ class VisualizerView(
         holder.surface?.takeIf { it.isValid }?.let(framePacer::applyTo)
     }
 
+    /**
+     * Frosted glass for a Compose sheet floating over this visual. The sheet lives in another layer
+     * (Compose over this GLSurfaceView), so a `RenderEffect` blur there never sees the visual's
+     * pixels; instead the visual blurs the region under the sheet itself (`core/viz/UiBlurPass`,
+     * after the composite, at quarter resolution), and the sheet draws its translucent matte glass
+     * over that.
+     *
+     * When: whenever the sheet's bounds, corner radius or glass strength change (open, drag,
+     * settle, resize, rotate), and with `strength = 0f` when it closes. Each call is one small event
+     * on the GL thread, latched for the next frame; the region is kept across surface and native-handle rebuilds, so call again
+     * only when something changes. Main thread is fine: the call is posted to the GL thread.
+     *
+     * Coordinates: [left], [top], [right], [bottom] are the sheet's bounds in this view's own pixel
+     * space divided by this view's width and height, so 0..1 with y DOWN (`top = 0` is the view's top
+     * edge), e.g. from `boundsInWindow` minus this view's window offset, over `width` / `height`.
+     * [strength] 0..1 mixes the blur in (0 = off, no GPU work at all). [cornerPx] is the sheet's
+     * corner radius in pixels (this view's pixels, which are the GL surface's).
+     *
+     * Live views only: exports render offscreen and never draw it.
+     */
+    fun setUiBlurRegion(
+        left: Float,
+        top: Float,
+        right: Float,
+        bottom: Float,
+        strength: Float,
+        cornerPx: Float,
+    ) {
+        queueEvent { visualizerRenderer.setUiBlurRegion(left, top, right, bottom, strength, cornerPx) }
+    }
+
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
         syncPacer()

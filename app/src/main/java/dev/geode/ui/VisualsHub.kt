@@ -182,7 +182,7 @@ internal fun VisualsHub(
             anchors = anchors,
             opacity = sheetOpacity,
             onSettle = { height ->
-                nav.setSheet(height)
+                nav.settleSheet(height)
                 settles++
             },
             modifier =

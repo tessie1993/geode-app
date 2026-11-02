@@ -1,3 +1,5 @@
+@file:Suppress("MatchingDeclarationName")
+
 package dev.geode.ui
 
 import androidx.compose.foundation.background

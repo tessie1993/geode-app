@@ -177,7 +177,7 @@ internal class VisualsNavState(
     fun openTab(page: VisualsPage) {
         history.open(VisualsKey.Page(page))
         // A page wants room to show: a sheet down to its tabs rises to half.
-        if (sheet == SheetHeight.PEEK || sheet == SheetHeight.HIDDEN) setSheet(SheetHeight.HALF)
+        if (sheet == SheetHeight.PEEK || sheet == SheetHeight.HIDDEN) settleSheet(SheetHeight.HALF)
     }
 
     /** A page with no tab of its own (Textures), on top of the one that opened it. */
@@ -226,14 +226,14 @@ internal class VisualsNavState(
         }
 
     /** The sheet at [height]; a shown height is remembered for the next [showSheet]. */
-    fun setSheet(height: SheetHeight) {
+    fun settleSheet(height: SheetHeight) {
         sheet = height
         if (height != SheetHeight.HIDDEN) lastShown = height
     }
 
-    fun showSheet() = setSheet(lastShown)
+    fun showSheet() = settleSheet(lastShown)
 
-    fun hideSheet() = setSheet(SheetHeight.HIDDEN)
+    fun hideSheet() = settleSheet(SheetHeight.HIDDEN)
 
     /** Opens [page] unless it is already the page on screen, keeping the sub-pages open on it. */
     private fun onPage(page: VisualsPage) {

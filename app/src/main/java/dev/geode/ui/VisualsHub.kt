@@ -124,7 +124,7 @@ import kotlin.math.roundToInt
  * while awake; the sheet stands on top of it, so it glides down when they fade.
  */
 @Composable
-fun VisualsHub(
+internal fun VisualsHub(
     viewModel: PlayerViewModel,
     visualizerView: VisualizerView,
     chrome: ShellChromeState,

@@ -28,16 +28,24 @@ class AppLaunchSmokeTest {
         compose.awaitNode(hasText("Before the visuals start"))
         compose.tap("I understand")
 
-        // The notice is the whole of first run now: music access is asked in Library. Finishing
-        // offers Pro once. Closing it must land on the shell, not a dead end.
-        compose.awaitNode(hasText("Make your music come to life"))
-        compose.tap("Close")
-        compose.awaitNoNode(hasText("Make your music come to life"))
+        // The notice is the whole of first run now: music access is asked in Library. The old
+        // end-of-onboarding Pro offer is being dropped (owner decision); until the shell stops
+        // opening it, close it if it shows. Either way the guided tour comes next.
+        val paywall = hasText("Make your music come to life")
+        val tour = hasText("Skip tour")
+        compose.waitUntil(JOURNEY_TIMEOUT_MS) {
+            compose.onAllNodes(paywall).fetchSemanticsNodes().isNotEmpty() ||
+                compose.onAllNodes(tour).fetchSemanticsNodes().isNotEmpty()
+        }
+        if (compose.onAllNodes(paywall).fetchSemanticsNodes().isNotEmpty()) {
+            compose.tap("Close")
+            compose.awaitNoNode(paywall)
+        }
 
         // The guided tour always follows on a fresh install; Skip tour is the shortest way to the shell.
-        compose.awaitNode(hasText("Skip tour"))
+        compose.awaitNode(tour)
         compose.tap("Skip tour")
-        compose.awaitNoNode(hasText("Skip tour"))
+        compose.awaitNoNode(tour)
 
         compose.awaitEmptyPlayer()
     }

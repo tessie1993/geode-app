@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The Quick Settings tile (tile/PlaybackTileService). The label shows under the tile and in the
+     shade's edit list, which cuts it off past about 18 characters. -->
+<resources>
+    <string name="tile_label">MuzViz</string>
+    <string name="tile_subtitle_idle">Open to pick music</string>
+    <string name="tile_state_playing">Playing</string>
+    <string name="tile_state_paused">Paused</string>
+    <string name="tile_state_idle">Nothing playing</string>
+    <string name="tile_play_description">Play %1$s</string>
+    <string name="tile_pause_description">Pause %1$s</string>
+    <string name="tile_open_app_description">Open MuzViz Studio Pro</string>
+</resources>

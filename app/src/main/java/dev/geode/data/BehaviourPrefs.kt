@@ -7,6 +7,7 @@ import androidx.core.content.edit
 // the visual means. The owner decided every default here (wave 1, 1C); the screens that read them
 // come later, so this file is the record of the decision as much as the store of the choice. Kept in
 // `geode-prefs`, so Settings › Backup carries it in the Settings section.
+// "Resume last track on launch" is not here: it is PlayerPrefs.autoResume, which already existed.
 
 /** The screen the app opens on. [LAST_USED] reopens [BehaviourPrefs.lastScreen]. */
 enum class StartScreen {
@@ -120,8 +121,6 @@ data class BehaviourPrefs(
     /** Plays when headphones or a Bluetooth audio device connect, while a track is loaded and paused. */
     val startOnHeadphones: Boolean = false,
     val autoFullscreen: Boolean = false,
-    // "Resume last track on launch" is PlayerPrefs.autoResume (Settings › Playback until 3B moves its row).
-
     /** Back twice to leave the app. */
     val confirmExit: Boolean = false,
     val notificationButtons: Set<NotificationButton> = setOf(NotificationButton.SHUFFLE, NotificationButton.REPEAT),

@@ -31,7 +31,6 @@ import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material.icons.filled.Waves
-import androidx.compose.material.icons.filled.WorkspacePremium
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.DropdownMenu
@@ -94,6 +93,8 @@ import dev.geode.render.scene.ParamScope
 import dev.geode.render.scene.ParamUnit
 import dev.geode.render.scene.SceneCapabilities
 import dev.geode.render.scene.SceneParams
+import dev.geode.ui.theme.StoneIcon
+import dev.geode.ui.theme.StoneIconArt
 import kotlin.math.ln
 import kotlin.math.pow
 
@@ -188,11 +189,15 @@ internal fun SubPageRow(
     }
 }
 
-/** The ♛ that marks Pro on a page or a row; the only Pro mark Customize draws. */
+/**
+ * The ♛ that marks Pro on a page or a row: Customize's pages and cards and the Styles list draw this
+ * one, so Pro reads the same everywhere. A real crown ([StoneIcon.CROWN]); the Material Icons
+ * `WorkspacePremium` it replaced is a rosette, which device QA read as a ribbon badge.
+ */
 @Composable
 internal fun ProCrown(modifier: Modifier = Modifier) {
-    Icon(
-        Icons.Filled.WorkspacePremium,
+    StoneIconArt(
+        StoneIcon.CROWN,
         contentDescription = "Pro",
         modifier = modifier.padding(horizontal = 4.dp).size(18.dp),
         tint = accentTextColor(),

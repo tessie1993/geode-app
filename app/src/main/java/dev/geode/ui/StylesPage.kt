@@ -47,6 +47,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -58,6 +60,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
@@ -80,6 +83,7 @@ import dev.geode.render.scene.SceneKind
 import dev.geode.render.scene.StyleFamilies
 import dev.geode.render.scene.StyleFamily
 import dev.geode.render.scene.VisualStyleCatalog
+import dev.geode.ui.pro.PaywallViewModel
 import dev.geode.ui.theme.GeodeGlass
 import dev.geode.ui.theme.GeodeRadius
 import dev.geode.ui.theme.GeodeSpacing
@@ -103,8 +107,10 @@ import kotlin.math.abs
  * chose list rows over the old card grid, which showed three styles a screen.
  *
  * A tap loads the style: the visual changes at once, and that is the choice (no "Use style" step).
- * A Pro style a free user taps still plays on the visual while the paywall offers it; leaving the
- * page without buying puts the chosen style back ([PlayerViewModel.leaveScenePreview]). The heart
+ * A Pro style a free user taps still plays on the visual while the paywall offers it, as a half
+ * sheet under the visual (`StylePaywallSheet`) so the preview stays in view. Closing the paywall
+ * without buying, or leaving the page, puts the chosen style back ([PlayerViewModel.leaveScenePreview]);
+ * before, only leaving the page did, so a closed paywall left the locked style on stage. The heart
  * is the one-tap favourite; a long press opens the row's menu (favourite, add to the visuals
  * playlist, remove from Recent), the Android rule for a list row, and TalkBack gets the same items
  * as custom actions. The swipe on the visual still steps through styles in this order.
@@ -119,7 +125,9 @@ internal fun StylesTab(viewModel: PlayerViewModel) {
     val shelf by shelfStore.shelf.collectAsStateWithLifecycle()
     val viz by viewModel.vizState.collectAsStateWithLifecycle()
     val gate by viewModel.gate.collectAsStateWithLifecycle()
-    var filterKey by rememberSaveable { mutableStateOf(FILTER_ALL) }
+    val paywall: PaywallViewModel = geodeViewModel()
+    val paywallOpen = paywall.uiState.collectAsStateWithLifecycle().value.visible
+    var filterKey by rememberSaveable { mutableStateOf(StylesGroupMemory.key) }
     var query by rememberSaveable { mutableStateOf("") }
     var searching by rememberSaveable { mutableStateOf(false) }
     val entries = remember { styleEntries(context) }
@@ -149,6 +157,16 @@ internal fun StylesTab(viewModel: PlayerViewModel) {
             shelfStore.pushRecent(id)
         }
     }
+    // The paywall went away (Close, Back, a swipe or a tap above it) and the style is still locked:
+    // the preview ends here, back on the chosen style, not only once the user leaves the page.
+    // A purchase keeps it: the gate allows it then, and the session chooses it.
+    LaunchedEffect(paywallOpen) {
+        val id = unlocking
+        if (!paywallOpen && id != null && !gate.allowsStyle(id)) {
+            unlocking = null
+            viewModel.leaveScenePreview()
+        }
+    }
     val closeSearch = {
         searching = false
         query = ""
@@ -163,7 +181,15 @@ internal fun StylesTab(viewModel: PlayerViewModel) {
                 Modifier.fillMaxWidth().heightIn(min = GeodeSpacing.TouchTarget).padding(horizontal = GeodeSpacing.S),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                StyleGroupMenu(filters, filter, onPick = { filterKey = filterKeyOf(it) }, modifier = Modifier.weight(1f))
+                StyleGroupMenu(
+                    filters,
+                    filter,
+                    onPick = {
+                        filterKey = filterKeyOf(it)
+                        StylesGroupMemory.key = filterKey
+                    },
+                    modifier = Modifier.weight(1f),
+                )
                 IconButton(onClick = { searching = true }) {
                     StoneIconArt(StoneIcon.SEARCH, contentDescription = stringResource(R.string.styles_search))
                 }
@@ -240,10 +266,22 @@ private fun StyleSearchField(
     onQuery: (String) -> Unit,
     onClose: () -> Unit,
 ) {
+    // The 🔍 tap means "I want to type": focus the field and raise the keyboard, so the first
+    // keystroke lands without a second tap on the field.
+    val focus = remember { FocusRequester() }
+    val keyboard = LocalSoftwareKeyboardController.current
+    LaunchedEffect(Unit) {
+        focus.requestFocus()
+        keyboard?.show()
+    }
     OutlinedTextField(
         value = query,
         onValueChange = onQuery,
-        modifier = Modifier.fillMaxWidth().padding(horizontal = GeodeSpacing.L, vertical = GeodeSpacing.XS),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = GeodeSpacing.L, vertical = GeodeSpacing.XS)
+                .focusRequester(focus),
         singleLine = true,
         placeholder = { Text(stringResource(R.string.styles_search)) },
         leadingIcon = { StoneIconArt(StoneIcon.SEARCH, contentDescription = null) },
@@ -483,6 +521,20 @@ private object StyleThumbs {
 
     private const val CACHE_BYTES = 16 * 1024 * 1024
     private const val BYTES_PER_PIXEL = 4
+}
+
+/**
+ * The group the list last showed, kept for the process as well as in the page's saved state.
+ *
+ * WHY rememberSaveable is not enough: on a phone, rotating swaps the shell's bar layout
+ * (`AppShellCompact`) for its rail layout (`AppShellExpanded`), so the whole Visuals subtree leaves
+ * the composition and comes back under a different parent. `MainActivity` handles the rotation
+ * itself, so nothing is restored from a bundle, and the group came back as All (device QA on #252).
+ * The page reads this as its saved state's first value, so the group survives that swap; keying
+ * the shell's destination content so it never moves is the root fix, in the shell's scope.
+ */
+private object StylesGroupMemory {
+    var key: String = FILTER_ALL
 }
 
 /** Every catalogue style as the list shows it, in catalogue order, each with its look group. */

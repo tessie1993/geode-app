@@ -1,3 +1,6 @@
+// The file is named for AppSettingsTab, its entry point; SettingsPage is its one class.
+@file:Suppress("MatchingDeclarationName")
+
 package dev.geode.ui
 
 import androidx.activity.compose.BackHandler

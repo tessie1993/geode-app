@@ -2,8 +2,8 @@ package dev.geode.ui
 
 import androidx.media3.common.Player
 import dev.geode.data.Preset
+import dev.geode.pro.FreeTier
 import dev.geode.render.TransitionStyle
-import dev.geode.render.scene.SceneIds
 import dev.geode.render.scene.SceneParams
 
 /**
@@ -25,7 +25,8 @@ data class PlayerUiState(
 )
 
 data class VizUiState(
-    val sceneId: String = SceneIds.DEFAULT,
+    /** A fresh install (no saved live look) opens on the free showpiece, for Pro and free alike. */
+    val sceneId: String = FreeTier.FIRST_STYLE_ID,
     val attack: Float = 0.6f,
     val decay: Float = 0.12f,
     val shaderError: String? = null,

@@ -2,7 +2,28 @@
 
 Every step is yours to do in your own browser and accounts; nothing here needs anyone
 else to hold your credentials. Tick them in order: later steps depend on earlier ones.
-App: **MuzViz Studio Pro**, package **`com.muzviz.studiopro`**, versionCode 33 / 1.8.1.
+App: **MuzViz Studio Pro**, package **`com.muzviz.studiopro`**, versionName `1.8.1.N`,
+versionCode `33 + N` (N = the release number, see step 6).
+
+## Start the closed test now (decided 2026-11-02)
+
+The 14-day clock for production access (step 9) runs while wave 1 is built, so start it with
+today's build instead of waiting for the release candidate. Shortest path, in order:
+
+1. Step 1 (account, payments profile, verification, trader status) and step 2 (create the app).
+2. Steps 3 and 4: the upload key, the four `MUZVIZ_UPLOAD_*` secrets and `PLAY_LICENSE_KEY`.
+   Without them the bundle is unsigned and Play refuses it.
+3. Step 5: create and activate `muzviz_pro`, and add the testers as licence testers.
+4. Steps 7 and 8: Play won't roll out to a closed track until the dashboard's setup tasks
+   (privacy policy, app access, ads, content rating, target audience, Data safety, store
+   listing) are done. Today's build is offline, so [DATA_SAFETY.md](DATA_SAFETY.md) applies
+   as written. Screenshots of today's UI are fine; replace them at the release candidate.
+5. Step 6, then step 9's first item: run **Play release bundle**, upload the AAB to a
+   **Closed testing** track, add at least 12 testers and keep them opted in for 14 days.
+   Ask them to open the app on several days: production access asks how the test went.
+6. Ship wave 1 merges to the same track (a higher versionCode each time). **Before the first
+   build with Cast reaches the track, update Data safety and the privacy policy**: Cast adds
+   internet ([RELEASE_READINESS.md § Wave 1](RELEASE_READINESS.md#wave-1-changes-to-re-check)).
 
 ## 1. Developer account (one-time)
 

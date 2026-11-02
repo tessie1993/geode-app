@@ -350,6 +350,11 @@
     <string name="widget_previous">Previous track</string>
     <string name="widget_preview_title">Night Drive</string>
     <string name="widget_preview_artist">MuzViz</string>
+    <string name="widget_picker_description">What MuzViz is playing, with its progress, the visual on screen and buttons to change the style.</string>
+    <string name="widget_style_next">Next style</string>
+    <string name="widget_style_previous">Previous style</string>
+    <string name="widget_style_open">Open MuzViz to change the style</string>
+    <string name="widget_preview_style">Neon Chrome Sea</string>
     <string name="auto_favourites">Favourites</string>
     <string name="auto_recently_played">Recently played</string>
     <string name="library_permission_rationale">Grant music access to browse everything on this device.</string>

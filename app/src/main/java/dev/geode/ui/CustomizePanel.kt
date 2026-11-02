@@ -20,9 +20,11 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Waves
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
@@ -293,6 +295,25 @@ private fun CustomizeToolbar(
                 }
             }
         }
+        // Liquid mode's one-tap switch (Advanced › Liquid has its settings); Pro like all of Advanced.
+        FilterChip(
+            selected = params.flowEnabled && proLock.unlocked,
+            onClick = {
+                if (proLock.unlocked) {
+                    visualsViewModel.editSceneParams(params.copy(flowEnabled = !params.flowEnabled))
+                } else {
+                    proLock.onLocked()
+                }
+            },
+            label = { Text("Liquid") },
+            leadingIcon = { Icon(Icons.Filled.Waves, contentDescription = null, modifier = Modifier.size(18.dp)) },
+            trailingIcon =
+                if (proLock.unlocked) {
+                    null
+                } else {
+                    { Icon(Icons.Filled.Lock, contentDescription = "Pro", modifier = Modifier.size(16.dp)) }
+                },
+        )
         if (searching) {
             OutlinedTextField(
                 value = query,

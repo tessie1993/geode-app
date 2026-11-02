@@ -201,6 +201,13 @@ struct SceneParams {
     float noteDrums = 1.0f;      // the drums' push, on top of how percussive the track is
     float noteBloom = 1.0f;      // the blooms' brightness
 
+    // Liquid mode (viz/liquid; Customize › Advanced › Liquid, Pro). The switch is flowEnabled, Liquidity is
+    // flowStrength, Push is flowForce and Swirl is flowCurl, the old flow field's fields, so a preset saved
+    // with "Flow field on" opens as a liquid. Appended so every existing wire index survives.
+    int liquidBorn = 1;     // what forms at the vanishing point: liquid::Born (0 live, 1 re-rolled, 2 next style, 3 ink forms)
+    int liquidAge = 0;      // liquid::Age: 0 pure palette, 1 fade deep, 2 ink bleed
+    int liquidSurface = 0;  // liquid::Surface: 0 ink, 1 wet gloss, 2 glass
+
     struct Palette {
         const char* name;
         float base;
@@ -227,7 +234,7 @@ struct SceneParams {
     static const std::array<FloatField, kLerpedFloatCount>& lerpedFloats();
 
     // Every field in declaration order; the wire order of geode_viz_set_params.
-    static constexpr int kFieldCount = 162;
+    static constexpr int kFieldCount = 165;
     static const std::array<const char*, kFieldCount>& fieldNames();
 
     // Sets a field by its Kotlin property name; ints and bools are taken from the float's value.

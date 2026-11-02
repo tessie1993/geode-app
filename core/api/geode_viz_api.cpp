@@ -34,7 +34,7 @@ static_assert(ReactionEngine::kRoutes == GEODE_REACT_ROUTES);
 static_assert(ReactionEngine::kConfigFloats == GEODE_REACT_ROUTE_FLOATS);
 
 constexpr int kModSourceCount = static_cast<int>(ModSource::StereoPan) + 1;
-constexpr int kLfoTargetCount = static_cast<int>(LfoTarget::CamShake) + 1;
+constexpr int kLfoTargetCount = static_cast<int>(LfoTarget::EndlessZoomSpeed) + 1;
 constexpr int kLfoWaveCount = static_cast<int>(LfoWave::Random) + 1;
 constexpr int kModPolarityCount = static_cast<int>(ModPolarity::Negative) + 1;
 constexpr int kModCurveCount = static_cast<int>(ModCurve::Smooth) + 1;
@@ -305,6 +305,14 @@ void geode_viz_set_paced_fps(geode_viz* v, float fps) {
 
 void geode_viz_set_quality(geode_viz* v, float render_scale, float march_scale, int post_fx, int adaptive) {
     if (v) v->renderer.setUserQuality(render_scale, march_scale, post_fx != 0, adaptive != 0);
+}
+
+void geode_viz_set_liquid_hot_policy(geode_viz* v, int policy) {
+    if (v) v->renderer.setLiquidHotPolicy(policy);
+}
+
+int geode_viz_liquid_mode(const geode_viz* v) {
+    return v ? v->renderer.liquidMode() : 0;
 }
 
 void geode_viz_set_director(geode_viz* v, float amount, long long seed) {

@@ -99,6 +99,9 @@ enum class CustomizeTab(
                 ParamKeys.FLOW_STRENGTH,
                 ParamKeys.FLOW_FORCE,
                 ParamKeys.FLOW_CURL,
+                ParamKeys.LIQUID_BORN,
+                ParamKeys.LIQUID_AGE,
+                ParamKeys.LIQUID_SURFACE,
                 ParamKeys.RIPPLE_OVERLAY_STRENGTH,
                 ParamKeys.RIPPLE_GLINT,
             )

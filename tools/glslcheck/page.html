@@ -183,5 +183,132 @@ window.__render = async function (job) {
   }
   return out;
 };
+
+// ---- Liquid mode: many frames of feedback (check.mjs --liquid) -------------
+//
+// The same frame graph as Renderer::render with Liquid on: the style draws into its own target, the
+// born look into another, then liquid_frag.glsl reads the liquid's last frame and writes the next
+// one plus what the screen shows (two targets). The flow field is a stand-in: a few drifting vortices
+// on a 32 x 32 grid, uploaded every frame, in FluidSim's units (cells per second). The dive, the born
+// clock and the pour-back weights come from check.mjs, which mirrors LiquidMath.
+function target(w, h, half) {
+  const t = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, t);
+  if (half) gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16F, w, h, 0, gl.RGBA, gl.HALF_FLOAT, null);
+  else gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  return t;
+}
+function fbo(texs) {
+  const f = gl.createFramebuffer();
+  gl.bindFramebuffer(gl.FRAMEBUFFER, f);
+  texs.forEach((t, i) => gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0 + i, gl.TEXTURE_2D, t, 0));
+  gl.drawBuffers(texs.map((_, i) => gl.COLOR_ATTACHMENT0 + i));
+  return f;
+}
+function bindUniforms(program, list, extraTextures) {
+  let unit = 0;
+  for (const u of list) {
+    if (u.texture) {
+      u.unit = unit++;
+      const loc = gl.getUniformLocation(program, u.name);
+      if (loc === null) continue;
+      gl.activeTexture(gl.TEXTURE0 + u.unit);
+      gl.bindTexture(gl.TEXTURE_2D, extraTextures[u.texture] || textures[u.texture]);
+      gl.uniform1i(loc, u.unit);
+    } else {
+      upload(program, u);
+    }
+  }
+}
+function velocityField(t, n) {
+  const data = new Float32Array(n * n * 4);
+  const vortices = [
+    [0.5 + 0.25 * Math.cos(t * 0.31), 0.5 + 0.2 * Math.sin(t * 0.43), 60],
+    [0.5 + 0.3 * Math.cos(t * 0.23 + 2), 0.5 + 0.25 * Math.sin(t * 0.37 + 1), -45],
+    [0.5 + 0.2 * Math.cos(t * 0.5 + 4), 0.5 + 0.3 * Math.sin(t * 0.29 + 3), 35],
+  ];
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+    let vx = 0, vy = 0;
+    const u = (x + 0.5) / n, v = (y + 0.5) / n;
+    for (const [cx, cy, k] of vortices) {
+      const dx = u - cx, dy = v - cy, r2 = dx * dx + dy * dy + 0.004;
+      const f = k * Math.exp(-r2 * 18) ;
+      vx += -dy * f; vy += dx * f;
+    }
+    data[(y * n + x) * 4] = vx; data[(y * n + x) * 4 + 1] = vy;
+  }
+  return data;
+}
+window.__liquid = async function (job) {
+  const out = { dropped: [], frames: [] };
+  const progs = [];
+  try {
+    const W = job.width, H = job.height;
+    canvas.width = W; canvas.height = H;
+    const half = !!gl.getExtension('EXT_color_buffer_float');
+    out.half = half;
+    const styleProg = link(job.styleVert, job.styleFrag); progs.push(styleProg);
+    const bornProg = link(job.styleVert, job.bornFrag); progs.push(bornProg);
+    const liquidProg = link(job.liquidVert, job.liquidFrag); progs.push(liquidProg);
+    const styleTex = target(W, H, false), bornTex = target(W, H, false);
+    const styleFbo = fbo([styleTex]), bornFbo = fbo([bornTex]);
+    const liq = [target(W, H, half), target(W, H, half)];
+    const disp = [target(W, H, false), target(W, H, false)];
+    const liqFbo = [fbo([liq[0], disp[0]]), fbo([liq[1], disp[1]])];
+    for (const f of liqFbo) { gl.bindFramebuffer(gl.FRAMEBUFFER, f); gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT); }
+    const N = 32;
+    const vel = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, vel);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.disableVertexAttribArray(0);
+    gl.viewport(0, 0, W, H);
+    gl.disable(gl.BLEND);
+    let read = 0;
+    for (let i = 0; i < job.frames.length; i++) {
+      const fr = job.frames[i];
+      gl.bindTexture(gl.TEXTURE_2D, vel);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16F, N, N, 0, gl.RGBA, gl.FLOAT, velocityField(fr.time, N));
+      gl.bindFramebuffer(gl.FRAMEBUFFER, styleFbo);
+      gl.useProgram(styleProg);
+      bindUniforms(styleProg, fr.style, {});
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+      if (job.bornSeparate) {
+        gl.bindFramebuffer(gl.FRAMEBUFFER, bornFbo);
+        gl.useProgram(bornProg);
+        bindUniforms(bornProg, fr.born, {});
+        gl.drawArrays(gl.TRIANGLES, 0, 3);
+      }
+      const write = 1 - read;
+      gl.bindFramebuffer(gl.FRAMEBUFFER, liqFbo[write]);
+      gl.useProgram(liquidProg);
+      bindUniforms(liquidProg, fr.liquid, { prev: liq[read], style: styleTex, born: job.bornSeparate ? bornTex : styleTex, vel });
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+      read = write;
+      if (fr.snap) {
+        gl.bindFramebuffer(gl.READ_FRAMEBUFFER, liqFbo[read]);
+        gl.readBuffer(gl.COLOR_ATTACHMENT1);
+        gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
+        gl.blitFramebuffer(0, 0, W, H, 0, 0, W, H, gl.COLOR_BUFFER_BIT, gl.NEAREST);
+        gl.finish();
+        out.frames.push({ index: i, png: canvas.toDataURL('image/png').split(',')[1] });
+      }
+    }
+    const err = gl.getError();
+    out.glError = err === gl.NO_ERROR ? 0 : err;
+  } catch (e) {
+    out.error = String(e.message || e).replace(/\n/g, ' | ');
+  } finally {
+    for (const p of progs) gl.deleteProgram(p);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  }
+  return out;
+};
 window.__harnessReady = true;
 </script>

@@ -263,6 +263,16 @@ Java_dev_geode_engine_bridge_GeodeNative_vizSetQuality(JNIEnv*, jobject, jlong h
 }
 
 JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_vizSetLiquidHotPolicy(JNIEnv*, jobject, jlong handle, jint policy) {
+    geode_viz_set_liquid_hot_policy(vizOf(handle), policy);
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_vizLiquidMode(JNIEnv*, jobject, jlong handle) {
+    return geode_viz_liquid_mode(vizOf(handle));
+}
+
+JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_vizSetDirector(JNIEnv*, jobject, jlong handle, jfloat amount, jlong seed) {
     geode_viz_set_director(vizOf(handle), amount, static_cast<long long>(seed));
 }

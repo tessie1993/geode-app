@@ -70,6 +70,8 @@ add_library(geode_core STATIC
     viz/fluid/FluidLook.cpp
     viz/fluid/RippleSim.cpp
     viz/fluid/FlowField.cpp
+    viz/liquid/LiquidMath.cpp
+    viz/liquid/LiquidPass.cpp
     viz/scenes/StyleCatalog.cpp
     viz/scenes/CymaticsMath.cpp
     viz/scenes/CymaticsScene.cpp

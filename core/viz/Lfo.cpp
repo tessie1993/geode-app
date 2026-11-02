@@ -99,6 +99,9 @@ SceneParams applyLfoTarget(const SceneParams& r, LfoTarget target, float v) {
         case LfoTarget::CamRoll: o.camRoll = std::clamp(r.camRoll + v, -1.0f, 1.0f); break;
         case LfoTarget::CamFov: o.camFov = std::clamp(r.camFov + v, 0.5f, 2.0f); break;
         case LfoTarget::CamShake: o.camShake = std::clamp(r.camShake + v, 0.0f, 1.0f); break;
+        case LfoTarget::FlowCurl: o.flowCurl = std::clamp(r.flowCurl + v * 25.0f, 0.0f, 50.0f); break;
+        case LfoTarget::FlowForce: o.flowForce = std::clamp(r.flowForce + v * 1.5f, 0.0f, 3.0f); break;
+        case LfoTarget::EndlessZoomSpeed: o.endlessZoomSpeed = std::clamp(r.endlessZoomSpeed + v * 0.5f, 0.0f, 1.2f); break;
         case LfoTarget::None: case LfoTarget::Lfo1Rate: case LfoTarget::Lfo1Depth: case LfoTarget::Lfo2Rate:
         case LfoTarget::Lfo2Depth: case LfoTarget::Lfo3Rate: case LfoTarget::Lfo3Depth:
             break;

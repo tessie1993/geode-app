@@ -16,6 +16,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 import dev.geode.data.GuiPrefs
 import dev.geode.geodeContainer
+import dev.geode.render.LiquidHotPolicy
 import dev.geode.render.PerformanceMode
 import dev.geode.render.PerformanceSettings
 
@@ -44,7 +45,7 @@ internal fun PerformanceSettingsContent(
                             stringResource(R.string.perf_mode_high),
                         ),
                     selected = mode?.ordinal ?: -1,
-                    onSelect = { onChange(PerformanceMode.entries[it].settings) },
+                    onSelect = { onChange(PerformanceMode.entries[it].settings.copy(liquidHot = settings.liquidHot)) },
                 )
                 Hint(
                     stringResource(
@@ -94,6 +95,19 @@ internal fun PerformanceSettingsContent(
                         onCheckedChange = { onChange(settings.copy(adaptive = it)) },
                     )
                     Hint(stringResource(R.string.perf_adaptive_hint))
+                }
+                Column {
+                    Choice(
+                        stringResource(R.string.perf_liquid_hot),
+                        listOf(
+                            stringResource(R.string.perf_liquid_hot_simplify),
+                            stringResource(R.string.perf_liquid_hot_full),
+                            stringResource(R.string.perf_liquid_hot_pause),
+                        ),
+                        settings.liquidHot.ordinal,
+                    ) { onChange(settings.copy(liquidHot = LiquidHotPolicy.entries[it])) }
+                    Spacer(Modifier.height(6.dp))
+                    Hint(stringResource(R.string.perf_liquid_hot_hint))
                 }
                 Hint(stringResource(R.string.perf_export_note))
             }

@@ -207,6 +207,14 @@ class NativeViz(
         if (handle != 0L) GeodeNative.vizSetQuality(handle, renderScale, marchScale, postFx, adaptive)
     }
 
+    /** Liquid on a hot phone; see [GeodeNative.vizSetLiquidHotPolicy]. */
+    fun setLiquidHotPolicy(policy: Int) {
+        if (handle != 0L) GeodeNative.vizSetLiquidHotPolicy(handle, policy)
+    }
+
+    /** What Liquid mode ran last frame (0 off, 1 full, 2 lite, 3 warp, 4 paused); 0 before the handle exists. */
+    fun liquidMode(): Int = if (handle != 0L) GeodeNative.vizLiquidMode(handle) else 0
+
     /** Pins this renderer's auto-director; see [GeodeNative.vizSetDirector]. */
     fun setDirector(
         amount: Float,

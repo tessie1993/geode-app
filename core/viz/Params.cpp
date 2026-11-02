@@ -176,6 +176,9 @@ const IntField kInts[] = {
         {"camPath", &SceneParams::camPath},
         {"reactSeed", &SceneParams::reactSeed},
         {"bloomLook", &SceneParams::bloomLook},
+        {"liquidBorn", &SceneParams::liquidBorn},
+        {"liquidAge", &SceneParams::liquidAge},
+        {"liquidSurface", &SceneParams::liquidSurface},
     };
 const BoolField kBools[] = {
         {"endlessZoom", &SceneParams::endlessZoom},

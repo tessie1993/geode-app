@@ -131,6 +131,10 @@ size_t geode_viz_take_milk_preset_loaded(geode_viz* v, char* out, size_t capacit
     return path.size();
 }
 
+int geode_viz_take_director_style_moments(geode_viz* v) {
+    return v ? v->renderer.takeDirectorStyleMoments() : 0;
+}
+
 void geode_viz_write_audio(geode_viz* v, const float* interleaved, int frames, int channels, int sample_rate) {
     if (v) v->renderer.writeAudio(interleaved, frames, channels, sample_rate);
 }

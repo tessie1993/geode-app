@@ -156,6 +156,14 @@ _Avoid_: Theme (alone), skin
 The multi-lane timeline editor where a video is cut.
 _Avoid_: Editor (the code name for its model), timeline (one part of it)
 
+**Project**:
+A Studio folder: one edit (lanes, clips, markers, keyframes), its own export settings, the takes recorded into it and every video rendered from it. A **Loop** project draws a short seamless loop and repeats it to a long length.
+_Avoid_: Untitled, document, session
+
+**Destination**:
+Where a video is meant to go (TikTok, Shorts, Feed, Square, YouTube, Master, Custom). Each has export defaults in Settings › Export, copied into a new project.
+_Avoid_: Platform preset (the code's starting values)
+
 **Lane**:
 One horizontal track of the Studio timeline, holding one kind of content: visual, media, text, overlay or audio.
 
@@ -173,12 +181,12 @@ A value pinned at a time on a curve, for a scene param or a clip param.
 A named instant on the timeline, often tapped in live to the beat.
 
 **Take**:
-A recording of a live performance: every scene and param change, timed, replayable as keyframes.
+A recording of a live performance: every style, Milk preset and param change, timed by the song position. Stopping one makes a project in which the take is a visual clip over its song.
 _Avoid_: Recording, session
 
 **Template**:
-A shareable recipe for a video (look, layout, text slots, export settings) that fills itself in from any track.
-_Avoid_: Video template (code name), format
+A project minus its audio: lanes, looks, text, overlays and export settings, fitted to whatever track a new project is made over. A **Batch** is one template over many tracks, one project each.
+_Avoid_: Video template (the older look-level format, replaced in wave 1), format
 
 **Export**:
 Rendering a video file from a track, a template or a Studio project.

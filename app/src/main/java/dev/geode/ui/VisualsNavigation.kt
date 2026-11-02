@@ -8,6 +8,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -111,37 +112,41 @@ private val VisualsRouteSaver =
     )
 
 /**
+ * How much of the options sheet shows over the full-screen visual. [PEEK] is its header alone
+ * (the tabs), [HALF] and [TALL] the page under it, [HIDDEN] the visual alone. Saved by name.
+ */
+internal enum class SheetHeight { HIDDEN, PEEK, HALF, TALL }
+
+/**
  * Every navigation decision of the Visuals tab in one place: the route the user took through the
- * panel (a [NavHistory] of [VisualsKey]s), the bars a swipe hid, the panel a hold hid, and what
- * back undoes first. The screens only call these, so moving Visuals onto a top-level NavDisplay
- * later (ADR 0001) rewires this class and [VisualsHub], nothing else.
+ * options (a [NavHistory] of [VisualsKey]s), how high the options sheet stands over the visual,
+ * and what back undoes first. The screens only call these, so moving Visuals onto a top-level
+ * NavDisplay later (ADR 0001) rewires this class and [VisualsHub], nothing else.
  *
  * The route is true history: opening a tab goes forward from wherever the user is, it does not
  * clear back to Styles, so back retraces the way they came (Styles → Presets → Customize, back,
  * Presets, back, Styles). [NavHistory] says why a page already on the route is returned to rather
- * than added twice. Customize's pages and Advanced's groups have keys of their own
- * ([openCustomizePage], [openAdvancedGroup]); Advanced's ‹ › arrows go sideways ([stepAdvanced])
- * and add no back entries. Customize still keeps its open page and card itself until its regroup
- * (3D) moves them onto these keys; nothing here changes what it does today.
+ * than added twice. Customize's deeper pages have keys of their own ([openCustomizePage],
+ * [openAdvancedGroup]); Advanced's ‹ › arrows go sideways ([stepAdvanced]) and add no back entries.
  *
- * Back order, most recent first ([back] runs it whole): hidden bars ([barsBackEnabled]), a hidden
- * panel ([panelBackEnabled]), then the route in reverse, sub-pages first, then the shell leaves
- * Visuals.
+ * The visual always fills the screen (docs/ui-redesign); the options are a floating sheet over
+ * it whose height is [sheet]. Back order, most recent first ([back] runs it whole): a hidden sheet
+ * comes back at its last height, then the route in reverse, sub-pages first, then the shell
+ * leaves Visuals.
  */
 @Stable
 internal class VisualsNavState(
     val route: SnapshotStateList<VisualsKey>,
-    barsHiddenState: MutableState<Boolean>,
-    customizeBarsShownState: MutableState<Boolean>,
-    panelShownState: MutableState<Boolean>,
+    sheetState: MutableState<SheetHeight>,
+    lastShownState: MutableState<SheetHeight>,
 ) {
     private val history = NavHistory(route)
 
-    // What a swipe hid. Customize keeps its own, because it starts hidden every time it opens.
-    private var barsHidden by barsHiddenState
-    private var customizeBarsShown by customizeBarsShownState
-    var panelShown by panelShownState
+    var sheet by sheetState
         private set
+
+    /** The height the sheet comes back to when it is shown again. */
+    private var lastShown by lastShownState
 
     /**
      * The pages the panel's NavDisplay draws: the route with each sub-page folded into its page.
@@ -154,8 +159,6 @@ internal class VisualsNavState(
     /** The page on screen, under any sub-page open on it. */
     val top: VisualsPage get() = history.top.page
 
-    private val onCustomize: Boolean get() = top == VisualsPage.CUSTOMIZE
-
     /** The Customize page open on the route, if one is; the last one opened when there are several. */
     val customizePage: String? get() = route.filterIsInstance<VisualsKey.CustomizeSub>().lastOrNull()?.name
 
@@ -165,27 +168,16 @@ internal class VisualsNavState(
     /** The lit tab: Textures belongs to MilkDrop (it opens it), so MilkDrop stays lit there. */
     val selectedTab: Int get() = VisualsTabs.indexOf(if (top == VisualsPage.TEXTURES) VisualsPage.MILKDROP else top).coerceAtLeast(0)
 
-    /** What the shell draws around the stage; see [VisualsChrome]. */
-    val chrome: VisualsChrome
-        get() =
-            when {
-                onCustomize -> if (customizeBarsShown) VisualsChrome.MINIMAL else VisualsChrome.HIDDEN
-                barsHidden -> VisualsChrome.HIDDEN
-                else -> VisualsChrome.FULL
-            }
-
-    val barsBackEnabled: Boolean get() = barsHidden && !onCustomize
-
-    val panelBackEnabled: Boolean get() = !panelShown
+    val sheetShown: Boolean get() = sheet != SheetHeight.HIDDEN
 
     /** Whether [back] has anything to undo; false means back leaves Visuals. */
-    val backEnabled: Boolean get() = barsBackEnabled || panelBackEnabled || history.canPop
+    val backEnabled: Boolean get() = !sheetShown || history.canPop
 
     /** A tab: forward to its page, on top of the route so far (or back to it, if it is on it). */
     fun openTab(page: VisualsPage) {
-        go { history.open(VisualsKey.Page(page)) }
-        // Tapping Customize while on it starts it over too, as it always has.
-        if (page == VisualsPage.CUSTOMIZE) customizeBarsShown = false
+        history.open(VisualsKey.Page(page))
+        // A page wants room to show: a sheet down to its tabs rises to half.
+        if (sheet == SheetHeight.PEEK || sheet == SheetHeight.HIDDEN) setSheet(SheetHeight.HALF)
     }
 
     /** A page with no tab of its own (Textures), on top of the one that opened it. */
@@ -195,18 +187,14 @@ internal class VisualsNavState(
 
     /** A Customize page, opened on Customize (which opens first if it is not on screen). */
     fun openCustomizePage(name: String) {
-        go {
-            onPage(VisualsPage.CUSTOMIZE)
-            history.open(VisualsKey.CustomizeSub(name))
-        }
+        onPage(VisualsPage.CUSTOMIZE)
+        history.open(VisualsKey.CustomizeSub(name))
     }
 
     /** An Advanced group, opened from the Advanced list, so back returns to the list. */
     fun openAdvancedGroup(name: String) {
-        go {
-            onPage(VisualsPage.CUSTOMIZE)
-            history.open(VisualsKey.AdvancedGroup(name))
-        }
+        onPage(VisualsPage.CUSTOMIZE)
+        history.open(VisualsKey.AdvancedGroup(name))
     }
 
     /**
@@ -226,57 +214,44 @@ internal class VisualsNavState(
     ): String? = (history.neighbour(order.map(VisualsKey::AdvancedGroup), delta) as? VisualsKey.AdvancedGroup)?.name
 
     /** One step back along the route; false at Styles, where back leaves Visuals. */
-    fun pop(): Boolean = go { history.pop() }
+    fun pop(): Boolean = history.pop()
 
     /** The whole back order in one call; false when there is nothing left, so the shell leaves. */
     fun back(): Boolean =
-        when {
-            barsBackEnabled -> {
-                backFromBars()
-                true
-            }
-            panelBackEnabled -> {
-                backFromPanel()
-                true
-            }
-            else -> pop()
+        if (!sheetShown) {
+            showSheet()
+            true
+        } else {
+            pop()
         }
 
-    fun showBars(show: Boolean) {
-        if (onCustomize) customizeBarsShown = show else barsHidden = !show
+    /** The sheet at [height]; a shown height is remembered for the next [showSheet]. */
+    fun setSheet(height: SheetHeight) {
+        sheet = height
+        if (height != SheetHeight.HIDDEN) lastShown = height
     }
 
-    fun togglePanel() {
-        panelShown = !panelShown
-    }
+    fun showSheet() = setSheet(lastShown)
 
-    fun backFromBars() {
-        barsHidden = false
-    }
-
-    fun backFromPanel() {
-        panelShown = true
-    }
+    fun hideSheet() = setSheet(SheetHeight.HIDDEN)
 
     /** Opens [page] unless it is already the page on screen, keeping the sub-pages open on it. */
     private fun onPage(page: VisualsPage) {
         if (top != page) history.open(VisualsKey.Page(page))
     }
-
-    /** Runs a route change; Customize, arrived at from another page, opens with its bars hidden. */
-    private inline fun <R> go(change: () -> R): R {
-        val before = top
-        val result = change()
-        if (top == VisualsPage.CUSTOMIZE && before != VisualsPage.CUSTOMIZE) customizeBarsShown = false
-        return result
-    }
 }
+
+/** Saved by name, so a reordered enum cannot restore the wrong height. */
+private val SheetHeightSaver =
+    Saver<MutableState<SheetHeight>, String>(
+        save = { it.value.name },
+        restore = { name -> mutableStateOf(SheetHeight.entries.firstOrNull { it.name == name } ?: SheetHeight.HALF) },
+    )
 
 @Composable
 internal fun rememberVisualsNavState(): VisualsNavState {
     val route = rememberSaveable(saver = VisualsRouteSaver) { mutableStateListOf(VisualsKey.root) }
-    val barsHidden = rememberSaveable { mutableStateOf(false) }
-    val customizeBarsShown = rememberSaveable { mutableStateOf(false) }
-    val panelShown = rememberSaveable { mutableStateOf(true) }
-    return remember(route) { VisualsNavState(route, barsHidden, customizeBarsShown, panelShown) }
+    val sheet = rememberSaveable(saver = SheetHeightSaver) { mutableStateOf(SheetHeight.HALF) }
+    val lastShown = rememberSaveable(saver = SheetHeightSaver) { mutableStateOf(SheetHeight.HALF) }
+    return remember(route) { VisualsNavState(route, sheet, lastShown) }
 }

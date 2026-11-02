@@ -171,6 +171,16 @@
 
     <!-- Mini-player above the nav bar. -->
     <string name="mini_player_idle">Now playing</string>
+    <string name="mini_player_open">Open Player</string>
+    <string name="mini_player_hide">Hide the player</string>
+    <string name="mini_player_pin">Keep the player shown</string>
+    <string name="mini_player_show">Show the player</string>
+    <string name="visuals_sheet_close">Hide the options</string>
+    <string name="visuals_sheet_handle">Options sheet</string>
+    <string name="visuals_sheet_expand">Show more options</string>
+    <string name="visuals_sheet_collapse">Show fewer options</string>
+    <string name="visuals_previous_style">Previous style</string>
+    <string name="visuals_next_style">Next style</string>
 
     <!-- Offered once, after a run that crashed. -->
     <string name="crash_dialog_title">Previous crash captured</string>

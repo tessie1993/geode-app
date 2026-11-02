@@ -189,7 +189,8 @@ private fun UiBlurRegion(
         view.getLocationInWindow(loc)
         val w = view.width.toFloat()
         val h = view.height.toFloat()
-        if (bounds == null || bounds.isEmpty || w <= 0f || h <= 0f || !active) {
+        val measured = w > 0f && h > 0f
+        if (bounds == null || bounds.isEmpty || !measured || !active) {
             view.setUiBlurRegion(0f, 0f, 0f, 0f, 0f, cornerPx)
         } else {
             view.setUiBlurRegion(

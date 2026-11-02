@@ -30,10 +30,14 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.constrainHeight
+import androidx.compose.ui.unit.constrainWidth
+import androidx.compose.ui.unit.offset
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.ui.NavDisplay
@@ -53,6 +57,7 @@ import dev.geode.ui.theme.performStoneHaptic
 import dev.geode.ui.theme.rememberGlassBackdrop
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlin.math.roundToInt
 
 /**
  * Visuals: the visual fills the whole screen, and everything else floats over it (docs/ui-redesign;
@@ -77,7 +82,11 @@ import kotlinx.coroutines.withContext
  * store, which `PlayerSessionProvider` depends on (ADR 0001 § Consequences).
  *
  * [bottomReserve] is the room the shell's floating mini player and tab bar take at the bottom
- * while awake; the sheet and the panel stand on top of it, so they glide down when those fade.
+ * while awake; the sheet's heights are set from it, so they hold still while the dock fades.
+ * [liveReservePx] is the room they take right now; the sheet and the panel stand on top of it, so
+ * they glide down when those fade. It is read only in layout and in lambdas, never here: it moves
+ * every frame of a fade, and reading it in composition rebuilt the anchors and restarted the
+ * sheet's settle every frame.
  */
 @Composable
 internal fun VisualsHub(
@@ -85,6 +94,7 @@ internal fun VisualsHub(
     visualizerView: VisualizerView,
     chrome: ShellChromeState,
     bottomReserve: Dp,
+    liveReservePx: () -> Float,
     sheetOpacity: Float,
     onOpenStudioRender: () -> Unit,
     canvasFree: Boolean = false,
@@ -165,8 +175,8 @@ internal fun VisualsHub(
         LaunchedEffect(nav.sheetShown, settles, panelWidth, side) {
             panelPx.animateTo(if (side && nav.sheetShown) panelWidth else 0f, settleSpec)
         }
-        val reservePx = with(density) { (bottomReserve + GeodeSpacing.EdgeInset).toPx() }
         val insetPx = with(density) { GeodeSpacing.EdgeInset.toPx() }
+        val reservePx = { liveReservePx() + insetPx }
         VisualsStage(
             visualizerView = visualizerView,
             canvasFree = canvasFree,
@@ -174,13 +184,13 @@ internal fun VisualsHub(
             actions = actions,
             recording = takes.recording,
             // The halves of the visual left in view above the sheet; the whole height beside the panel.
-            tapSplitPx = { if (side) fullPx / 2f else (fullPx - heightPx.value - reservePx) / 2f },
+            tapSplitPx = { if (side) fullPx / 2f else (fullPx - heightPx.value - reservePx()) / 2f },
         )
         // What the glass blurs: the stage icons, never the GL surface (GlassBlur.kt says why).
         Box(Modifier.matchParentSize().glassBackdrop(backdrop)) {
             StageIcons(
                 chrome = chrome,
-                sheetTopPx = { if (side) 0f else heightPx.value + reservePx },
+                sheetTopPx = { if (side) 0f else heightPx.value + reservePx() },
                 endPx = { if (panelPx.value > 0f) panelPx.value + insetPx else 0f },
                 // Full screen is the options hidden (owner: the old live view goes), the double tap's twin.
                 onFullScreen = { actions.run(GestureAction.TOGGLE_SHEET, 0) },
@@ -223,7 +233,7 @@ internal fun VisualsHub(
                         Modifier
                             .align(Alignment.TopEnd)
                             .fillMaxHeight()
-                            .padding(bottom = bottomReserve)
+                            .padBottom(liveReservePx)
                             .windowInsetsPadding(WindowInsets.statusBars)
                             .padding(GeodeSpacing.EdgeInset)
                             .hiddenUnderDropIn(dropInOpen) { optionsFade.value }
@@ -231,7 +241,7 @@ internal fun VisualsHub(
                         Modifier
                             .align(Alignment.BottomCenter)
                             .fillMaxWidth()
-                            .padding(bottom = bottomReserve)
+                            .padBottom(liveReservePx)
                             .padding(horizontal = GeodeSpacing.EdgeInset, vertical = GeodeSpacing.EdgeInset / 2)
                             .hiddenUnderDropIn(dropInOpen) { optionsFade.value }
                     },
@@ -273,3 +283,16 @@ internal fun VisualsHub(
         }
     }
 }
+
+/**
+ * `padding(bottom = …)` with the amount read in the layout phase: the dock's fade moves the
+ * options every frame, and this keeps that move a relayout instead of a recomposition.
+ */
+private fun Modifier.padBottom(px: () -> Float): Modifier =
+    layout { measurable, constraints ->
+        val pad = px().roundToInt().coerceAtLeast(0)
+        val placeable = measurable.measure(constraints.offset(vertical = -pad))
+        layout(constraints.constrainWidth(placeable.width), constraints.constrainHeight(placeable.height + pad)) {
+            placeable.place(0, 0)
+        }
+    }

@@ -13,6 +13,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.Typography
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
@@ -59,12 +60,18 @@ internal fun CrystalMaterialTheme(
     content: @Composable () -> Unit,
 ) {
     val fontColor = gui.fontColorOverride?.let { Color(it) }?.takeIf { isReadableOnCanvas(it) }
+    // Remembered on its real inputs: MaterialTheme compares schemes by identity (ColorScheme has no
+    // equals) through a static local, so a new instance on every run would recompose the whole app.
     val scheme =
-        geodeColorScheme(
-            accentIntensity = gui.accentIntensity,
-            fontColorOverride = fontColor,
-            accentSource = accentSource,
-        )
+        remember(gui.accentIntensity, fontColor, accentSource) {
+            geodeColorScheme(
+                accentIntensity = gui.accentIntensity,
+                fontColorOverride = fontColor,
+                accentSource = accentSource,
+            )
+        }
+    val shapes = remember(gui.cornerStyle) { gui.cornerStyle.shapes() }
+    val typography = remember(gui.textScale) { crystalTypography(gui.textScale) }
     // Read unconditionally, so the observer stays registered whatever the app setting says.
     val systemReducedMotion = rememberSystemReducedMotion()
     val reducedMotion = gui.reducedMotion || systemReducedMotion
@@ -77,8 +84,8 @@ internal fun CrystalMaterialTheme(
     ) {
         MaterialTheme(
             colorScheme = scheme,
-            shapes = gui.cornerStyle.shapes(),
-            typography = crystalTypography(gui.textScale),
+            shapes = shapes,
+            typography = typography,
             content = content,
         )
     }

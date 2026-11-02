@@ -90,6 +90,7 @@ import dev.geode.render.VisualizerView
 import dev.geode.render.scene.SceneIds
 import dev.geode.ui.pro.PaywallHost
 import dev.geode.ui.pro.PaywallViewModel
+import dev.geode.ui.theme.GeodeGlass
 import dev.geode.ui.theme.GeodeSpacing
 import dev.geode.ui.theme.LocalGeodeMotion
 import dev.geode.ui.theme.StoneIcon
@@ -200,7 +201,7 @@ fun AppRoot() {
                 artworkUri = viewModel.currentTrackUri(),
                 isPlaying = state.isPlaying,
                 progress = { if (state.durationMs > 0) position.value / state.durationMs.toFloat() else 0f },
-                opacity = gui.barOpacity,
+                opacity = GeodeGlass.MATTE_FILL,
                 onPin = chrome::pin,
                 onOpenPlayer = { appState.navigateTo(GeodeDestination.PLAYER) },
                 onHide = chrome::hide,
@@ -252,6 +253,7 @@ fun AppRoot() {
                             visualizerView,
                             chrome = chrome,
                             bottomReserve = visualsReserve,
+                            // The glass slider (Visuals quick settings) tunes only the sheet over the visual, so the change shows.
                             sheetOpacity = gui.barOpacity,
                             onOpenLive = appState::expand,
                             onOpenStudioRender = appState::openStudioRender,
@@ -492,7 +494,7 @@ private fun AppShellCompact(
                     // Studio from a track menu, say. Fall back to the first tab rather than -1.
                     selected = navEntries.indexOfFirst { it.destination == appState.dest }.coerceAtLeast(0),
                     onSelect = { appState.navigateTo(navEntries[it].destination) },
-                    opacity = gui.barOpacity,
+                    opacity = GeodeGlass.MATTE_FILL,
                     modifier = Modifier.onSizeChanged { if (it.height > 0) barHeight = with(density) { it.height.toDp() } },
                 )
             }

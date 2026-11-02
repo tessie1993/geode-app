@@ -169,7 +169,6 @@ object PerformanceTake {
                 .apply { if (milkPath != null) put("m", milkPath) }
     }
 
-    /** A recorded take read back; [stateAt] takes take time (ms from the take's start). */
     /** One look switch in a take: at take time [atMs], style [sceneId] with preset [milkPath]. */
     data class StyleChange(
         val atMs: Long,
@@ -177,6 +176,7 @@ object PerformanceTake {
         val milkPath: String?,
     )
 
+    /** A recorded take read back; [stateAt] takes take time (ms from the take's start). */
     class Timeline(
         json: String,
     ) {

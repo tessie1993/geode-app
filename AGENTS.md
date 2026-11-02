@@ -52,6 +52,7 @@ The native core is built by the root `CMakeLists.txt`, plus `core/CMakeLists.txt
 | `viz` | Background image layer | `BackgroundImage` |
 | `wallpaper` | Live wallpaper and the dream. Each builds its own `VisualizerView` | `VisualizerWallpaperService`, `VisualizerDreamService` |
 | `widget` | Glance now-playing widget in black glass (`SizeMode.Exact`, four layouts from 2x1 to 4x3+): progress on a slow tick while playing, the style on screen as a picture (`WidgetVisual`: its thumbnail, else a glow from the cover's palette), and style buttons the session takes through `WidgetStyles` (it collects `steps`, calls `publish`; with no session they open the app) | `NowPlayingWidget`, `WidgetPublisher`, `WidgetStyles`, `WidgetVisual` |
+| `tile` | Quick Settings tile: play/pause through a `MediaController` on `PlaybackService`'s session while the shade shows it; opens the app when nothing is loaded and on a long press | `PlaybackTileService` |
 
 ## Entry points (`app/src/main/AndroidManifest.xml`)
 
@@ -63,6 +64,7 @@ The native core is built by the root `CMakeLists.txt`, plus `core/CMakeLists.txt
 - `export.ExportService`: keeps the process in the foreground during a render. It does not own the render; `ExportRun.scope` does.
 - `wallpaper.VisualizerWallpaperService` and `wallpaper.VisualizerDreamService`.
 - `widget.NowPlayingWidgetReceiver` (in `NowPlayingWidget.kt`).
+- `tile.PlaybackTileService`: the Quick Settings tile (`BIND_QUICK_SETTINGS_TILE`), and `tile.TileLongPressActivity` beside it, which answers the tile's long press by opening the app.
 - `FileProvider` `${applicationId}.presets`, for sharing presets.
 
 ## Data flow and threads

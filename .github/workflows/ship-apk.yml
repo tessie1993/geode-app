@@ -206,17 +206,23 @@ jobs:
 
           # The tag already exists (reserved above). Re-running the workflow on
           # the same commit refreshes the assets of its release instead.
+          # A new release starts as a draft and is published only once both
+          # assets are up: a newer push can cancel this run mid-upload (android.yml
+          # cancels superseded runs), and a cancelled draft is deleted below
+          # instead of staying public without its APK.
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" \
               "dist/$FILE_NAME" "dist/$FILE_NAME.sha256" --clobber
           else
             gh release create "$TAG" \
               "dist/$FILE_NAME" "dist/$FILE_NAME.sha256" \
+              --draft \
               --target "$BUILT_SHA" \
               --title "Geode $VERSION_NAME" \
               --notes "$NOTES" \
               "${PRERELEASE_FLAG[@]}"
           fi
+          gh release edit "$TAG" --draft=false
 
           URL=$(gh release view "$TAG" --json url --jq .url)
           echo "url=$URL" >> "$GITHUB_OUTPUT"
@@ -232,8 +238,9 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       # A run that failed or was cancelled before publishing hands its number
-      # back, so the next release takes it. A tag that already has a release
-      # (a re-run that failed later) is never touched.
+      # back, so the next release takes it, and deletes the draft it left if it
+      # stopped mid-upload. A published release (a re-run that failed later) is
+      # never touched.
       - name: Release the reserved number
         if: (failure() || cancelled()) && steps.number.outputs.n != ''
         shell: bash
@@ -241,8 +248,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: apk-v${{ steps.number.outputs.base }}.${{ steps.number.outputs.n }}
         run: |
-          if gh release view "$TAG" >/dev/null 2>&1; then
-            echo "$TAG has a release; keeping it."
+          DRAFT=$(gh release view "$TAG" --json isDraft --jq .isDraft 2>/dev/null || echo none)
+          if [ "$DRAFT" = false ]; then
+            echo "$TAG has a published release; keeping it."
+          elif [ "$DRAFT" = true ]; then
+            gh release delete "$TAG" --yes --cleanup-tag || true
           else
             git push origin --delete "refs/tags/$TAG" || true
           fi

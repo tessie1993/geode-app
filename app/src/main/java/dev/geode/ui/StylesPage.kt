@@ -45,10 +45,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
@@ -73,6 +80,7 @@ import dev.geode.render.scene.SceneKind
 import dev.geode.render.scene.StyleFamilies
 import dev.geode.render.scene.StyleFamily
 import dev.geode.render.scene.VisualStyleCatalog
+import dev.geode.ui.theme.GeodeGlass
 import dev.geode.ui.theme.GeodeRadius
 import dev.geode.ui.theme.GeodeSpacing
 import dev.geode.ui.theme.StoneHapticCue
@@ -283,11 +291,13 @@ private fun StyleRow(
             if (!locked) add(playlistAction to onAddToPlaylist)
             if (recent) add(recentAction to onRemoveRecent)
         }
+    val accent = cs.primary
     Box {
         Row(
             Modifier
                 .fillMaxWidth()
                 .heightIn(min = ROW_HEIGHT)
+                .then(if (chosen) Modifier.drawBehind { drawChosenGlass() } else Modifier)
                 .combinedClickable(
                     role = Role.Button,
                     onClick = onTap,
@@ -315,8 +325,9 @@ private fun StyleRow(
                 entry,
                 Modifier
                     .size(THUMB_SIZE)
+                    .then(if (chosen) Modifier.accentGlow(accent, shape) else Modifier)
                     .clip(shape)
-                    .then(if (chosen) Modifier.border(2.dp, cs.primary, shape) else Modifier),
+                    .then(if (chosen) Modifier.border(1.dp, accent.copy(alpha = CHOSEN_EDGE_ALPHA), shape) else Modifier),
             )
             Text(
                 entry.label,
@@ -350,6 +361,41 @@ private fun StyleRow(
         }
     }
 }
+
+/**
+ * The chosen row's matte glass: a raised white wash ([GeodeGlass.FILL_RAISED], the token for a
+ * raised control on glass) in a rounded pill inset from the row's edges. Drawn behind the row, so
+ * the row keeps its layout and the list does not shift when the choice moves; one rounded rect,
+ * no blur or offscreen layer, so it costs nothing on a scroll over the live visual.
+ */
+private fun DrawScope.drawChosenGlass() {
+    val inset = GeodeSpacing.S.toPx()
+    val radius = GeodeRadius.Medium.toPx()
+    drawRoundRect(
+        color = Color.White.copy(alpha = GeodeGlass.FILL_RAISED),
+        topLeft = Offset(inset, 0f),
+        size = Size(size.width - 2 * inset, size.height),
+        cornerRadius = CornerRadius(radius, radius),
+    )
+}
+
+/**
+ * A soft glow in the visual's accent under the chosen style's still (the owner's 2026-11-02 look
+ * revision allows glow, matte glass and blur). It is the platform shadow tinted with the accent,
+ * drawn by the render thread like the floating glass's own shadow, so it is cheap; below API 28
+ * the platform draws shadows black, and the border alone marks the choice there.
+ */
+private fun Modifier.accentGlow(
+    accent: Color,
+    shape: Shape,
+): Modifier =
+    shadow(
+        elevation = GLOW_ELEVATION,
+        shape = shape,
+        clip = false,
+        ambientColor = accent.copy(alpha = GLOW_AMBIENT_ALPHA),
+        spotColor = accent.copy(alpha = GLOW_SPOT_ALPHA),
+    )
 
 @Composable
 private fun EmptyStyles(
@@ -623,6 +669,10 @@ private const val FILTER_ALL = "all"
 private const val KIND_FAMILY = "Family"
 private val ROW_HEIGHT = 56.dp
 private val THUMB_SIZE = 40.dp
+private val GLOW_ELEVATION = 10.dp
+private const val GLOW_AMBIENT_ALPHA = 0.55f
+private const val GLOW_SPOT_ALPHA = 0.85f
+private const val CHOSEN_EDGE_ALPHA = 0.7f
 private const val HUE_TURN = 360
 private const val HUE_NUDGE = 40
 private const val HUE_SPREAD = 50

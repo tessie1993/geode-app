@@ -118,9 +118,10 @@ class WidgetPublisher(
                     if (!player.isPlaying) break
                     val position = player.currentPosition.coerceAtLeast(0L)
                     val duration = durationOf(player)
-                    if (!hasWidgets()) continue
-                    WidgetState.update(appContext) { it.copy(positionMs = position, durationMs = duration, tick = it.tick + 1) }
-                    NowPlayingWidget().updateAll(appContext)
+                    if (hasWidgets()) {
+                        WidgetState.update(appContext) { it.copy(positionMs = position, durationMs = duration, tick = it.tick + 1) }
+                        NowPlayingWidget().updateAll(appContext)
+                    }
                 }
             }
     }

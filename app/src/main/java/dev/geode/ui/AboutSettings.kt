@@ -1,15 +1,20 @@
 package dev.geode.ui
 
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.os.Build
+import android.provider.Settings
+import android.text.format.Formatter
+import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -21,40 +26,52 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.BuildConfig
 import dev.geode.R
+import dev.geode.data.StorageBucket
+import dev.geode.data.StorageClearResult
+import dev.geode.data.StorageUsage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
+/**
+ * Settings › Backup & about: the backup card, then the app's own rows: version, privacy policy,
+ * licences, the per-app language (Android 13+), storage, and Reset all settings.
+ */
 @Composable
-internal fun AboutSettingsTab() {
+internal fun BackupAboutPage() {
+    val viewModel: SettingsViewModel = geodeViewModel()
     SettingsTabColumn {
+        item { BackupGroup() }
         item { SettingsGroup(stringResource(R.string.about_group)) { AboutSection() } }
+        item { SettingsGroup(stringResource(R.string.settings_storage_section)) { StorageAndResetSection(viewModel) } }
     }
 }
 
 @Composable
-fun AboutSection() {
+private fun AboutSection() {
+    val context = LocalContext.current
     var showLicenses by rememberSaveable { mutableStateOf(false) }
     var showPrivacy by rememberSaveable { mutableStateOf(false) }
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(stringResource(R.string.app_name), style = MaterialTheme.typography.titleSmall)
-        Text(
-            stringResource(R.string.about_version, BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE),
-            style = MaterialTheme.typography.bodySmall,
+    SettingsRow(
+        title = stringResource(R.string.app_name),
+        summary = stringResource(R.string.about_version, BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE),
+    )
+    SettingsRow(title = stringResource(R.string.about_privacy_policy), onClick = { showPrivacy = true })
+    SettingsRow(title = stringResource(R.string.about_licenses), onClick = { showLicenses = true })
+    // Android 13 added a per-app language page; below it the system language is the only one.
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        SettingsRow(
+            title = stringResource(R.string.settings_language),
+            summary = stringResource(R.string.settings_language_summary),
+            onClick = { context.openAppLanguageSettings() },
         )
-        Text(
-            stringResource(R.string.about_blurb),
-            style = MaterialTheme.typography.bodySmall,
-        )
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(onClick = { showLicenses = true }) { Text(stringResource(R.string.about_licenses)) }
-            OutlinedButton(onClick = { showPrivacy = true }) { Text(stringResource(R.string.about_privacy_policy)) }
-        }
     }
     if (showLicenses) {
         LicensesDialog { showLicenses = false }
@@ -63,6 +80,124 @@ fun AboutSection() {
         PrivacyPolicyDialog { showPrivacy = false }
     }
 }
+
+/** Android's "App language" page for this app (API 33+), else the app's own info page. */
+private fun Context.openAppLanguageSettings() {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        val page =
+            Intent(Settings.ACTION_APP_LOCALE_SETTINGS, Uri.fromParts("package", packageName, null))
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        if (runCatching { startActivity(page) }.isSuccess) return
+    }
+    openAppSettings()
+}
+
+/**
+ * Storage (the caches the app keeps on disk, and emptying them) and Reset all settings. A reset
+ * asks first and ends in a restart, since every store still holds its old copy in memory
+ * ([dev.geode.data.SettingsReset]).
+ */
+@Composable
+private fun StorageAndResetSection(viewModel: SettingsViewModel) {
+    val context = LocalContext.current
+    val usage by viewModel.storage.collectAsStateWithLifecycle()
+    val resetDone by viewModel.resetDone.collectAsStateWithLifecycle()
+    var storageOpen by rememberSaveable { mutableStateOf(false) }
+    var confirmReset by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(Unit) { viewModel.refreshStorage() }
+    SettingsRow(
+        title = stringResource(R.string.settings_storage),
+        summary =
+            usage?.let { stringResource(R.string.settings_storage_summary, Formatter.formatShortFileSize(context, it.clearableBytes())) }
+                ?: stringResource(R.string.settings_storage_measuring),
+        onClick = { storageOpen = true },
+    )
+    SettingsRow(
+        title = stringResource(R.string.settings_reset),
+        summary = stringResource(R.string.settings_reset_summary),
+        onClick = { confirmReset = true },
+    )
+    if (storageOpen) StorageDialog(viewModel, usage) { storageOpen = false }
+    if (confirmReset) {
+        AlertDialog(
+            onDismissRequest = { confirmReset = false },
+            title = { Text(stringResource(R.string.settings_reset_confirm_title)) },
+            text = { Text(stringResource(R.string.settings_reset_confirm_body)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmReset = false
+                    viewModel.resetAllSettings()
+                }) { Text(stringResource(R.string.settings_reset_confirm)) }
+            },
+            dismissButton = { TextButton(onClick = { confirmReset = false }) { Text(stringResource(R.string.action_cancel)) } },
+        )
+    }
+    resetDone?.let { ok ->
+        // Not dismissable, like the restore's: any store's next save would write the old values back.
+        AlertDialog(
+            onDismissRequest = {},
+            title = { Text(stringResource(if (ok) R.string.settings_reset_done_title else R.string.settings_reset_failed_title)) },
+            text = { Text(stringResource(R.string.settings_reset_done_body)) },
+            confirmButton = { TextButton(onClick = { restartApp(context) }) { Text(stringResource(R.string.backup_restart)) } },
+        )
+    }
+}
+
+/** The caches Storage can empty. Settings never offers to delete the user's videos. */
+private val CLEARABLE = listOf(StorageBucket.RENDER_SCRATCH, StorageBucket.CACHE)
+
+@Composable
+private fun StorageDialog(
+    viewModel: SettingsViewModel,
+    usage: StorageUsage?,
+    onDismiss: () -> Unit,
+) {
+    val context = LocalContext.current
+    val resources = LocalResources.current
+    val report: (StorageClearResult) -> Unit = { result ->
+        val message =
+            if (result.skipped > 0) {
+                resources.getString(R.string.settings_storage_kept)
+            } else {
+                resources.getString(R.string.settings_storage_freed, Formatter.formatShortFileSize(context, result.freedBytes))
+            }
+        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+    }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.settings_storage)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                CLEARABLE.forEach { bucket ->
+                    val bytes = usage?.get(bucket)
+                    val size = bytes?.let { Formatter.formatShortFileSize(context, it) }
+                    SettingsRow(
+                        title =
+                            stringResource(
+                                if (bucket == StorageBucket.CACHE) R.string.settings_storage_cache else R.string.settings_storage_scratch,
+                            ),
+                        summary =
+                            when {
+                                size == null -> stringResource(R.string.settings_storage_measuring)
+                                bucket == StorageBucket.CACHE -> stringResource(R.string.settings_storage_cache_size, size)
+                                else -> size
+                            },
+                        trailing = {
+                            TextButton(
+                                enabled = bytes != null && bytes > 0,
+                                onClick = { viewModel.clearStorage(bucket, report) },
+                            ) { Text(stringResource(R.string.settings_storage_clear)) }
+                        },
+                    )
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) } },
+    )
+}
+
+/** What the clearable caches hold together; the size the Storage row shows. */
+private fun StorageUsage.clearableBytes(): Long = CLEARABLE.sumOf { this[it] }
 
 /**
  * The privacy policy, read from the APK rather than a web page. The app has no network

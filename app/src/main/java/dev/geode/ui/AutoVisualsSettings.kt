@@ -24,7 +24,11 @@ internal fun AutoVisualsGroup(viewModel: PlayerViewModel) {
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
-    CrystalOverline(stringResource(R.string.autoviz_random_overline), color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Text(
+        stringResource(R.string.autoviz_random_overline),
+        style = MaterialTheme.typography.labelLarge,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
     Column {
         Text(
             stringResource(
@@ -97,7 +101,11 @@ internal fun AutoVisualsGroup(viewModel: PlayerViewModel) {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
-    CrystalOverline(stringResource(R.string.autoviz_playlist_overline), color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Text(
+        stringResource(R.string.autoviz_playlist_overline),
+        style = MaterialTheme.typography.labelLarge,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
     Column {
         LabeledSwitch(
             stringResource(R.string.autoviz_playlist_play),

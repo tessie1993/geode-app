@@ -11,8 +11,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -34,8 +37,9 @@ import kotlin.system.exitProcess
 /** Zip files arrive under any of these types depending on the app that saved them. */
 private val zipMimeTypes = arrayOf("application/zip", "application/x-zip-compressed", "application/octet-stream")
 
+/** The backup card of Settings › Backup & about: save a backup zip, or restore one. */
 @Composable
-internal fun BackupSettingsTab() {
+internal fun BackupGroup() {
     val viewModel: BackupViewModel = geodeViewModel()
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val exportPicker =
@@ -47,22 +51,18 @@ internal fun BackupSettingsTab() {
             if (uri != null) viewModel.inspect(uri)
         }
     val idle = state != BackupUiState.Working && state != BackupUiState.Restored
-    SettingsTabColumn {
-        item {
-            SettingsGroup(stringResource(R.string.backup_group)) {
-                Text(
-                    stringResource(R.string.backup_body),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                BackupActions(
-                    enabled = idle,
-                    onExport = { exportPicker.launch(BackupFormat.defaultFileName(LocalDate.now())) },
-                    onImport = { importPicker.launch(zipMimeTypes) },
-                )
-                BackupStatus(state, onDismiss = viewModel::dismiss)
-            }
-        }
+    SettingsGroup(stringResource(R.string.backup_group)) {
+        Text(
+            stringResource(R.string.backup_body),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        BackupActions(
+            enabled = idle,
+            onExport = { exportPicker.launch(BackupFormat.defaultFileName(LocalDate.now())) },
+            onImport = { importPicker.launch(zipMimeTypes) },
+        )
+        BackupStatus(state, onDismiss = viewModel::dismiss)
     }
     BackupDialogs(state, viewModel)
 }
@@ -74,10 +74,10 @@ private fun BackupActions(
     onImport: () -> Unit,
 ) {
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        CrystalButton(onClick = onExport, modifier = Modifier.weight(1f), enabled = enabled) {
+        FilledTonalButton(onClick = onExport, modifier = Modifier.weight(1f), enabled = enabled) {
             Text(stringResource(R.string.backup_export))
         }
-        CrystalButton(onClick = onImport, modifier = Modifier.weight(1f), enabled = enabled, filled = false) {
+        OutlinedButton(onClick = onImport, modifier = Modifier.weight(1f), enabled = enabled) {
             Text(stringResource(R.string.backup_import))
         }
     }
@@ -115,7 +115,7 @@ private fun BackupStatus(
             color = if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
         )
         if (state != BackupUiState.Working) {
-            CrystalButton(onClick = onDismiss, filled = false, compact = true) { Text(stringResource(R.string.action_dismiss)) }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_dismiss)) }
         }
     }
 }
@@ -147,12 +147,12 @@ private fun RestoreChoiceDialog(
             }
         },
         confirmButton = {
-            CrystalButton(onClick = viewModel::restore, enabled = choosing.selected.isNotEmpty()) {
+            TextButton(onClick = viewModel::restore, enabled = choosing.selected.isNotEmpty()) {
                 Text(stringResource(R.string.backup_restore_confirm))
             }
         },
         dismissButton = {
-            CrystalButton(onClick = viewModel::cancelRestore, filled = false) { Text(stringResource(R.string.action_cancel)) }
+            TextButton(onClick = viewModel::cancelRestore) { Text(stringResource(R.string.action_cancel)) }
         },
     )
 }
@@ -169,12 +169,12 @@ private fun RestartDialog() {
         title = { Text(stringResource(R.string.backup_restored_title)) },
         text = { Text(stringResource(R.string.backup_restored_body)) },
         confirmButton = {
-            CrystalButton(onClick = { restartApp(context) }) { Text(stringResource(R.string.backup_restart)) }
+            TextButton(onClick = { restartApp(context) }) { Text(stringResource(R.string.backup_restart)) }
         },
     )
 }
 
-private fun restartApp(context: Context) {
+internal fun restartApp(context: Context) {
     val launch = context.packageManager.getLaunchIntentForPackage(context.packageName) ?: return
     context.startActivity(Intent.makeRestartActivityTask(launch.component))
     exitProcess(0)

@@ -85,6 +85,28 @@ fun PlaybackSettingsSection(viewModel: SettingsViewModel) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+        Column {
+            Text(
+                if (prefs.crossfadeMs <= 0) {
+                    stringResource(R.string.settings_crossfade_off)
+                } else {
+                    stringResource(R.string.settings_crossfade, prefs.crossfadeMs / 1000f)
+                },
+                style = MaterialTheme.typography.labelMedium,
+            )
+            CrystalSlider(
+                value = prefs.crossfadeMs.toFloat(),
+                onValueChange = {
+                    viewModel.setPlayerPrefs(prefs.copy(crossfadeMs = (PlaybackMath.snap(it, 500f)).toInt()))
+                },
+                valueRange = 0f..PlayerPrefs.MAX_CROSSFADE_MS.toFloat(),
+            )
+            Text(
+                stringResource(R.string.settings_crossfade_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         ReplayGainSettings(prefs) { viewModel.setPlayerPrefs(it) }
         BitPerfectSettings(prefs) { viewModel.setPlayerPrefs(it) }
         PlaybackSwitchRow(stringResource(R.string.playback_skip_silence), prefs.skipSilence) {

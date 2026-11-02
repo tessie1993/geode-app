@@ -46,8 +46,8 @@ import dev.geode.ui.tour.TourChapters
 import dev.geode.ui.tour.spots
 
 /**
- * Settings › Tutorials: the guided path and each screen's pointers, replayable on their own, with
- * a tick for each one seen.
+ * Settings › Tutorials & help: the guided path and each screen's pointers, replayable on their own,
+ * with a tick for each one seen, then the help topics ([HelpTopicsGroup]).
  *
  * Someone who skipped the pointers on day one is the person who needs them on day three, so they
  * live here for good. A replay takes the user to each screen in turn and never re-arms the
@@ -111,6 +111,7 @@ internal fun TutorialSettingsTab(
                 }
             }
         }
+        item { HelpTopicsGroup() }
     }
 }
 

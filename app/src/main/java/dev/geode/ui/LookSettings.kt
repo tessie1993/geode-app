@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -21,34 +22,56 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 import dev.geode.data.BootAnimationStore
 import dev.geode.data.CornerStyle
 import dev.geode.data.FontColorChoice
 import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.GuiPrefs
-import dev.geode.data.PlayerPosition
+import dev.geode.data.ThemeStore
+import dev.geode.ui.theme.StoneIcon
+import dev.geode.ui.theme.StoneIconArt
 import dev.geode.ui.theme.isReadableOnCanvas
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
+// The app's look, shown in Settings › Display & performance: the theme and layout under
+// Appearance, the text under Accessibility.
+
+/** Appearance: the accent, interface sounds, the bars and player layout, the boot animation. */
 @Composable
-internal fun LookSettingsTab(viewModel: SettingsViewModel) {
-    val gui by viewModel.guiPrefs.collectAsStateWithLifecycle()
-    SettingsTabColumn {
-        item { SettingsGroup(stringResource(R.string.look_group_theme)) { ThemeGroup(viewModel, gui) } }
-        item { SettingsGroup(stringResource(R.string.look_group_text)) { TextGroup(viewModel, gui) } }
-        item { SettingsGroup(stringResource(R.string.look_group_layout)) { LayoutGroup(viewModel, gui) } }
+internal fun AppearanceSettings(
+    viewModel: SettingsViewModel,
+    gui: GuiPrefs,
+) {
+    ThemeGroup(viewModel, gui)
+    LayoutGroup(viewModel, gui)
+    Column {
+        Text(
+            stringResource(R.string.audio_preset_morph, gui.presetMorphSeconds),
+            style = MaterialTheme.typography.labelMedium,
+        )
+        CrystalSlider(
+            value = gui.presetMorphSeconds,
+            onValueChange = { viewModel.setGuiPrefs(gui.copy(presetMorphSeconds = it)) },
+            valueRange = 0f..ThemeStore.PRESET_MORPH_SECONDS_MAX,
+        )
     }
+}
+
+/** The text's colour and size, under Accessibility. */
+@Composable
+internal fun TextSettings(
+    viewModel: SettingsViewModel,
+    gui: GuiPrefs,
+) {
+    TextGroup(viewModel, gui)
 }
 
 @Composable
@@ -141,12 +164,8 @@ private fun FontColorSwatch(
 ) {
     val cs = MaterialTheme.colorScheme
     val usable = choice.argb == null || isReadableOnCanvas(Color(choice.argb))
-    val shape = crystalShardShape(8.dp, 3.dp)
-    val fill =
-        choice.argb?.let { argb ->
-            val c = Color(argb)
-            Brush.verticalGradient(listOf(c, lerp(c, Color.Black, 0.22f)))
-        } ?: Brush.verticalGradient(listOf(cs.primary, cs.secondary))
+    // A plain filled circle, the theme's own colour standing in for Auto: no gradient, no shard.
+    val swatch = choice.argb?.let { Color(it) } ?: cs.primary
     Column(
         Modifier
             .graphicsLayer { alpha = if (usable) 1f else 0.35f }
@@ -158,14 +177,18 @@ private fun FontColorSwatch(
         Box(
             Modifier
                 .size(30.dp)
-                .clip(shape)
-                .background(fill)
-                .border(1.dp, if (selected) Color.White.copy(alpha = 0.9f) else cs.outline, shape),
+                .clip(CircleShape)
+                .background(swatch)
+                .border(if (selected) 2.dp else 1.dp, if (selected) cs.onSurface else cs.outline, CircleShape),
             contentAlignment = Alignment.Center,
         ) {
             if (selected) {
-                val swatch = choice.argb?.let { Color(it) } ?: cs.primary
-                CrystalGem(if (swatch.luminance() > 0.55f) Color.Black else Color.White, size = 7.dp)
+                StoneIconArt(
+                    StoneIcon.CHECK,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                    tint = if (swatch.luminance() > 0.55f) Color.Black else Color.White,
+                )
             }
         }
         Text(
@@ -182,23 +205,9 @@ private fun LayoutGroup(
     viewModel: SettingsViewModel,
     gui: GuiPrefs,
 ) {
-    Column {
-        Text(stringResource(R.string.look_bar_opacity, (gui.barOpacity * 100).toInt()), style = MaterialTheme.typography.labelMedium)
-        CrystalSlider(
-            value = gui.barOpacity,
-            onValueChange = { viewModel.setGuiPrefs(gui.copy(barOpacity = it)) },
-            valueRange = 0.2f..1f,
-        )
-    }
-    Column {
-        Text(stringResource(R.string.look_player_position), style = MaterialTheme.typography.labelMedium)
-        CrystalSegmented(
-            options = PlayerPosition.entries.map { stringResource(it.labelRes) },
-            selected = PlayerPosition.entries.indexOf(gui.playerPosition),
-            onSelect = { viewModel.setGuiPrefs(gui.copy(playerPosition = PlayerPosition.entries[it])) },
-            modifier = Modifier.padding(top = 4.dp),
-        )
-    }
+    // No bar opacity (Visuals quick settings' Sheet glass is its one home), no top/bottom player
+    // position and no compact player: the owner dropped those with the floating mini player.
+
     Column {
         Text(stringResource(R.string.look_corner_style), style = MaterialTheme.typography.labelMedium)
         CrystalSegmented(
@@ -208,11 +217,6 @@ private fun LayoutGroup(
             modifier = Modifier.padding(top = 4.dp),
         )
     }
-    LabeledSwitch(
-        stringResource(R.string.look_compact_player),
-        checked = gui.compactPlayer,
-        onCheckedChange = { viewModel.setGuiPrefs(gui.copy(compactPlayer = it)) },
-    )
     BootAnimationRow()
 }
 

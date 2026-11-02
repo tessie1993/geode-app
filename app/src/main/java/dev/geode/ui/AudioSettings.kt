@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -16,35 +17,23 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 import dev.geode.audio.MicCapture
-import dev.geode.data.ThemeStore
 import dev.geode.engine.audio.SoundTuning
 import kotlin.math.roundToInt
 
+/**
+ * Settings › Playback & audio: how a track plays (speed, fades, ReplayGain, sleep timer), the
+ * equalizer, and the two other sources the visuals can hear (the microphone, other apps). How
+ * the visuals respond to sound is a Visuals setting now, not this page's: [SoundTuningControls]
+ * stays here for the Visuals side to host.
+ */
 @Composable
 internal fun AudioSettingsTab(viewModel: PlayerViewModel) {
     val settingsViewModel: SettingsViewModel = geodeViewModel()
     SettingsTabColumn {
         item { SettingsGroup(stringResource(R.string.audio_group_playback)) { PlaybackSettingsSection(settingsViewModel) } }
         item { EqualizerSettings(settingsViewModel) }
-        item { SettingsGroup(stringResource(R.string.audio_group_analysis)) { AnalysisGroup(settingsViewModel) } }
         item { SettingsGroup(stringResource(R.string.source_live_input)) { LiveInputGroup(viewModel) } }
         item { SettingsGroup(stringResource(R.string.source_other_apps)) { ExternalAudioSettings(viewModel) } }
-    }
-}
-
-@Composable
-private fun AnalysisGroup(viewModel: SettingsViewModel) {
-    val gui by viewModel.guiPrefs.collectAsStateWithLifecycle()
-    Column {
-        SoundTuningControls(gui.soundTuning) { viewModel.setGuiPrefs(gui.copy(soundTuning = it.clamped())) }
-    }
-    Column {
-        Text(stringResource(R.string.audio_preset_morph, gui.presetMorphSeconds))
-        CrystalSlider(
-            value = gui.presetMorphSeconds,
-            onValueChange = { viewModel.setGuiPrefs(gui.copy(presetMorphSeconds = it)) },
-            valueRange = 0f..ThemeStore.PRESET_MORPH_SECONDS_MAX,
-        )
     }
 }
 
@@ -101,7 +90,7 @@ private fun MicStatusNotice(
                 color = MaterialTheme.colorScheme.error,
             )
             if (permission.status == PermissionStatus.PERMANENTLY_DENIED) {
-                CrystalButton(onClick = permission::openSettings, compact = true, filled = false) {
+                OutlinedButton(onClick = permission::openSettings) {
                     Text(stringResource(R.string.permission_open_settings))
                 }
             }
@@ -121,7 +110,7 @@ private fun MicStatusNotice(
  * so the screen, the wallpaper, the dream and every export hear the music the same way.
  */
 @Composable
-private fun SoundTuningControls(
+internal fun SoundTuningControls(
     tuning: SoundTuning,
     onChange: (SoundTuning) -> Unit,
 ) {
@@ -133,7 +122,7 @@ private fun SoundTuningControls(
             onChange(tuning.copy(speed = it))
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            CrystalButton(filled = false, onClick = { advanced = !advanced }) { Text(stringResource(R.string.audio_advanced)) }
+            OutlinedButton(onClick = { advanced = !advanced }) { Text(stringResource(R.string.audio_advanced)) }
             TextButton(onClick = { onChange(SoundTuning()) }) { Text(stringResource(R.string.audio_default)) }
         }
         if (advanced) AdvancedTuning(tuning, onChange)

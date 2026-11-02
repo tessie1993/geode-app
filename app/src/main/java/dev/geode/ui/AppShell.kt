@@ -649,21 +649,8 @@ fun SettingsScreen(
     onPlayTutorial: (List<TutorialChapter>) -> Unit,
     onResetTutorials: () -> Unit,
 ) {
+    // AppSettingsTab draws its own header (the collapsing M3 top app bar).
     Column(Modifier.fillMaxSize()) {
-        Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp)) {
-            Text(
-                stringResource(R.string.app_name),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            // Every top-level screen opens with its heading, the one TalkBack users jump between.
-            Text(
-                stringResource(R.string.nav_settings),
-                Modifier.semantics { heading() },
-                style = MaterialTheme.typography.headlineSmall,
-                color = MaterialTheme.colorScheme.onBackground,
-            )
-        }
         AppSettingsTab(
             viewModel,
             onOpenStudioRender = onOpenStudioRender,

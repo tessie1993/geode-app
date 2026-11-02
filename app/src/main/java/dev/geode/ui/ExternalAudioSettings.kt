@@ -9,7 +9,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -127,8 +129,7 @@ fun ExternalAudioSettings(viewModel: PlayerViewModel) {
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                CrystalButton(
-                    filled = false,
+                OutlinedButton(
                     modifier = Modifier.padding(top = 6.dp),
                     onClick = {
                         runCatching { context.startActivity(viewModel.notificationAccessIntent()) }
@@ -145,19 +146,12 @@ private fun RefusedNotice(
     external: ExternalAudioState,
 ) {
     val app = external.refusingApp ?: stringResource(R.string.subtitle_capture_refused_unknown_app)
-    Column(
-        Modifier
-            .fillMaxWidth()
-            .crystalPanel(
-                0.32f,
-                MaterialTheme.colorScheme.surfaceVariant,
-                MaterialTheme.colorScheme.error,
-                corner = 16.dp,
-                glowStrength = 0.5f,
-            ).padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        CrystalOverline(stringResource(R.string.ext_silence_title), color = MaterialTheme.colorScheme.error)
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            stringResource(R.string.ext_silence_title),
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.error,
+        )
         Text(
             stringResource(R.string.ext_refused_body, app),
             style = MaterialTheme.typography.bodySmall,
@@ -167,7 +161,7 @@ private fun RefusedNotice(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        CrystalButton(onClick = {
+        FilledTonalButton(onClick = {
             viewModel.stopExternalAudio()
             viewModel.setMicEnabled(true)
         }) { Text(stringResource(R.string.ext_use_mic_instead)) }

@@ -44,25 +44,14 @@ enum class GeodeDestination(
  */
 enum class StudioSection { RENDER, MY_VIDEOS, EDIT }
 
-/**
- * What the Visuals stage asks of the shell's mini player and navigation bar. [FULL] is the
- * Visuals mini player (track, the style under it, Record, Studio and the live view); [MINIMAL]
- * is transport only, for Customize, where the sliders want the room; [HIDDEN] takes both the
- * mini player and the bar away (a swipe down on the stage; Customize starts that way).
- */
-enum class VisualsChrome { FULL, MINIMAL, HIDDEN }
-
 @Stable
 class GeodeAppState(
     dest: GeodeDestination = GeodeDestination.PLAYER,
-    expanded: Boolean = false,
     searching: Boolean = false,
     bootDone: Boolean = false,
     studioSection: StudioSection = StudioSection.RENDER,
 ) {
     var dest by mutableStateOf(dest)
-
-    var expanded by mutableStateOf(expanded)
 
     var searching by mutableStateOf(searching)
 
@@ -70,8 +59,11 @@ class GeodeAppState(
 
     var studioSection by mutableStateOf(studioSection)
 
-    /** Set by the Visuals stage while it is composed, null everywhere else. Not saved: the stage sets it again. */
-    var visualsChrome by mutableStateOf<VisualsChrome?>(null)
+    /**
+     * Set by a screen that needs the whole window (Studio's full-screen timeline): the floating
+     * mini player and tab bar step aside while it is true. Not saved: the screen sets it again.
+     */
+    var immersive by mutableStateOf(false)
 
     var externalDisplay: Display? = null
         internal set
@@ -84,14 +76,6 @@ class GeodeAppState(
 
     fun closeSearch() {
         searching = false
-    }
-
-    fun expand() {
-        expanded = true
-    }
-
-    fun collapse() {
-        expanded = false
     }
 
     fun navigateTo(destination: GeodeDestination) {
@@ -113,17 +97,16 @@ class GeodeAppState(
             Saver(
                 // Saved as the enum name, not its ordinal: reordering the navigation bar then
                 // cannot silently restore a process-death survivor onto a different screen.
-                save = { listOf(it.dest.name, it.expanded, it.searching, it.bootDone, it.studioSection.name) },
+                save = { listOf(it.dest.name, it.searching, it.bootDone, it.studioSection.name) },
                 restore = {
                     GeodeAppState(
                         dest =
                             GeodeDestination.entries.firstOrNull { d -> d.name == it[0] }
                                 ?: GeodeDestination.PLAYER,
-                        expanded = it[1] as Boolean,
-                        searching = it[2] as Boolean,
-                        bootDone = it[3] as Boolean,
+                        searching = it[1] as Boolean,
+                        bootDone = it[2] as Boolean,
                         studioSection =
-                            StudioSection.entries.firstOrNull { s -> s.name == it.getOrNull(4) }
+                            StudioSection.entries.firstOrNull { s -> s.name == it.getOrNull(3) }
                                 ?: StudioSection.RENDER,
                     )
                 },

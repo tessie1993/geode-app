@@ -13,11 +13,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.Button
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -27,27 +27,31 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 import dev.geode.model.TutorialChapter
-import dev.geode.ui.theme.GeodeGlass
 import dev.geode.ui.theme.GeodeSpacing
 import dev.geode.ui.theme.StoneIcon
 import dev.geode.ui.theme.StoneIconArt
+import dev.geode.ui.tour.GestureTips
+import dev.geode.ui.tour.TourChapters
+import dev.geode.ui.tour.spots
 
 /**
- * Settings › Tutorials & help: every chapter of the tour, replayable on its own, with a tick for
- * each one finished, then the help topics ([HelpTopicsGroup]).
+ * Settings › Tutorials & help: the guided path and each screen's pointers, replayable on their own,
+ * with a tick for each one seen, then the help topics ([HelpTopicsGroup]).
  *
- * The tour is the only place some things are explained at all (touch on the visualizer, Events),
- * and someone who skipped it on day one is the person who needs it on day three, so it lives
- * here for good. A replay never re-arms the first-run offer; Reset all does, for the next launch.
+ * Someone who skipped the pointers on day one is the person who needs them on day three, so they
+ * live here for good. A replay takes the user to each screen in turn and never re-arms the
+ * first-run guide; Reset all does, for the next launch, and lets every gesture tip speak once more.
  */
 @Composable
 internal fun TutorialSettingsTab(
@@ -56,33 +60,44 @@ internal fun TutorialSettingsTab(
     onReset: () -> Unit,
 ) {
     val gui by settingsViewModel.guiPrefs.collectAsStateWithLifecycle()
-    val done = gui.tutorialProgress.done
+    val done = gui.tutorialProgress.done.intersect(TourChapters.toSet())
+    val context = LocalContext.current
     var resetNote by rememberSaveable { mutableStateOf(false) }
     SettingsTabColumn {
         item {
-            SettingsGroup(stringResource(R.string.tutorials_group)) {
+            Column(
+                Modifier.padding(horizontal = GeodeSpacing.L, vertical = GeodeSpacing.S),
+                verticalArrangement = Arrangement.spacedBy(GeodeSpacing.S),
+            ) {
                 Text(
-                    stringResource(R.string.tutorials_progress, done.size, TutorialChapter.entries.size),
+                    stringResource(R.string.tutorials_group),
+                    Modifier.semantics { heading() },
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Text(
+                    stringResource(R.string.tutorials_progress, done.size, TourChapters.size),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 LinearProgressIndicator(
-                    progress = { done.size / TutorialChapter.entries.size.toFloat() },
+                    progress = { done.size / TourChapters.size.toFloat() },
                     modifier = Modifier.fillMaxWidth().height(4.dp),
                     color = MaterialTheme.colorScheme.primary,
                     trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
                 )
-                FilledTonalButton(onClick = { onPlay(TutorialChapter.entries) }, modifier = Modifier.fillMaxWidth()) {
+                Button(onClick = { onPlay(TourChapters) }, modifier = Modifier.fillMaxWidth()) {
                     Text(stringResource(R.string.tutorials_play_all))
                 }
                 Column {
-                    TutorialChapter.entries.forEach { chapter ->
+                    TourChapters.forEach { chapter ->
                         ChapterRow(chapter, chapter in done, onClick = { onPlay(listOf(chapter)) })
                     }
                 }
-                OutlinedButton(
+                TextButton(
                     onClick = {
                         onReset()
+                        GestureTips.reset(context)
                         resetNote = true
                     },
                     modifier = Modifier.fillMaxWidth(),
@@ -124,7 +139,7 @@ private fun ChapterRow(
                 .size(28.dp)
                 .clip(CircleShape)
                 .background(if (done) cs.primary else Color.Transparent)
-                .border(1.5.dp, if (done) cs.primary else Color.White.copy(alpha = GeodeGlass.EDGE * 3), CircleShape),
+                .border(1.5.dp, if (done) cs.primary else cs.outline, CircleShape),
             contentAlignment = Alignment.Center,
         ) {
             if (done) StoneIconArt(StoneIcon.CHECK, null, Modifier.size(18.dp), tint = cs.onPrimary)
@@ -132,7 +147,7 @@ private fun ChapterRow(
         Column(Modifier.weight(1f)) {
             Text(stringResource(chapter.titleRes), style = MaterialTheme.typography.titleSmall, color = cs.onSurface)
             Text(
-                pluralStringResource(R.plurals.tutorials_chapter_cards, chapter.cards, chapter.cards),
+                pluralStringResource(R.plurals.tour_chapter_pointers, chapter.spots.size, chapter.spots.size),
                 style = MaterialTheme.typography.bodySmall,
                 color = cs.onSurfaceVariant,
             )

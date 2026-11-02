@@ -218,7 +218,6 @@ private fun LayoutGroup(
         )
     }
     BootAnimationRow()
-
 }
 
 @Composable

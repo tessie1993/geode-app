@@ -1,38 +1,49 @@
 package dev.geode.ui
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.MusicNote
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationRail
 import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.VerticalDivider
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -48,16 +59,23 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.layout
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -68,16 +86,21 @@ import dev.geode.R
 import dev.geode.analysis.SearchMatcher
 import dev.geode.data.BootAnimationStore
 import dev.geode.data.GeodePrefsFiles
-import dev.geode.data.GuiPrefs
-import dev.geode.data.PlayerPosition
 import dev.geode.model.TutorialChapter
 import dev.geode.model.TutorialProgress
 import dev.geode.pro.PaywallTrigger
 import dev.geode.render.VisualizerView
+import dev.geode.render.scene.SceneIds
 import dev.geode.ui.pro.PaywallHost
 import dev.geode.ui.pro.PaywallViewModel
+import dev.geode.ui.theme.GeodeGlass
+import dev.geode.ui.theme.GeodeSpacing
+import dev.geode.ui.theme.LocalGeodeMotion
 import dev.geode.ui.theme.StoneIcon
 import dev.geode.ui.theme.StoneIconArt
+import dev.geode.ui.theme.VisualAccent
+import dev.geode.ui.theme.geodeMotionScheme
+import dev.geode.ui.theme.rememberSystemReducedMotion
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -92,7 +115,7 @@ private const val CRASH_REPORT_MAX_BYTES = 64 * 1024
  */
 private data class NavEntry(
     val destination: GeodeDestination,
-    val item: CrystalNavItem,
+    val item: DockItem,
 )
 
 @Composable
@@ -162,55 +185,53 @@ fun AppRoot() {
     }
     VisualizerEngineBindings(viewModel, visualizerView)
     androidx.activity.compose.BackHandler(enabled = !appState.onPlayer) { appState.resetToPlayer() }
-    CrystalMaterialTheme(gui = gui) {
-        val miniPlayer: @Composable () -> Unit = {
-            MiniPlayer(
-                title =
-                    listOfNotNull(
-                        state.title,
-                        state.artist?.takeIf { it.isNotBlank() },
-                    ).joinToString(" \u2014 ").ifBlank { null },
+    val viz by viewModel.vizState.collectAsStateWithLifecycle()
+    // The accent follows the visual: the middle of its palette's hues; MilkDrop paints its own.
+    val accentTarget =
+        if (viz.sceneId == SceneIds.MILKDROP) VisualAccent.Fallback else paletteAccent(viz.params.paletteBase, viz.params.paletteRange)
+    // Outside the theme, so the motion scheme is built here from the same switches the theme reads.
+    val motion = geodeMotionScheme(gui.reducedMotion || rememberSystemReducedMotion())
+    val accent by animateColorAsState(accentTarget, motion.slowEffectsSpec(), label = "accent")
+    // The mini player (and on Visuals the tab bar and stage icons) wakes on a new screen or track.
+    // A PiP window shows the visual alone (the sheet and the chrome hidden) until it closes.
+    val inPip = VisualizerPipCoordinator.inPictureInPicture
+    val chrome = rememberShellChrome(gui.miniPlayerFadeSeconds, inPip, appState.dest, state.title)
+    var dockHeight by remember { mutableStateOf(0.dp) }
+    val visualsReserve by animateDpAsState(dockHeight, motion.defaultSpatialSpec(), label = "dock")
+    CrystalMaterialTheme(gui = gui, accentSource = accent) {
+        val miniPlayer: @Composable (Modifier) -> Unit = { modifier ->
+            FloatingMiniPlayer(
+                title = state.title,
+                artist = state.artist,
+                artworkUri = viewModel.currentTrackUri(),
                 isPlaying = state.isPlaying,
-                hasMedia = state.hasMedia,
-                progress = {
-                    if (state.durationMs > 0) position.value / state.durationMs.toFloat() else 0f
-                },
-                compact = gui.compactPlayer,
-                barOpacity = gui.barOpacity,
-                onExpand = appState::expand,
+                progress = { if (state.durationMs > 0) position.value / state.durationMs.toFloat() else 0f },
+                opacity = GeodeGlass.MATTE_FILL,
+                onPin = chrome::pin,
+                onOpenPlayer = { appState.navigateTo(GeodeDestination.PLAYER) },
+                onHide = chrome::hide,
                 onPlayPause = viewModel::togglePlayPause,
-                onPrevious = viewModel::previous,
                 onNext = viewModel::next,
-                minimal = appState.visualsChrome == VisualsChrome.MINIMAL,
-                subtitle = if (appState.visualsChrome == VisualsChrome.FULL) ({ VisualsMiniSubtitle(viewModel) }) else null,
-                actions =
-                    if (appState.visualsChrome == VisualsChrome.FULL) {
-                        { VisualsMiniActions(onOpenStudioRender = appState::openStudioRender, onOpenLive = appState::expand) }
-                    } else {
-                        null
-                    },
+                modifier = modifier,
             )
         }
-        // Someone who came here to listen does not get a render queue in their navigation bar.
-        // First run no longer asks, so everyone starts with everything and narrows it in Settings.
-        val showsStudio = gui.intent.showsStudio
         val tutorial = rememberTutorialState()
         val navEntries =
             GeodeDestination.entries
-                .filter { it != GeodeDestination.STUDIO || showsStudio }
-                .map { NavEntry(it, CrystalNavItem(stringResource(it.labelRes), it.icon)) }
+                .map { NavEntry(it, DockItem(stringResource(it.labelRes), it.icon)) }
         // Keyed by destination, not by position: rotating swaps the bar layout for the rail
         // layout, which would otherwise drop every screen's saved tab and scroll state.
         val destinationState = rememberSaveableStateHolder()
         val destinationContent: @Composable (twoPane: Boolean) -> Unit = { twoPane ->
-            PlaybackNoticeBanner(viewModel)
+            if (!inPip) PlaybackNoticeBanner(viewModel)
             destinationState.SaveableStateProvider(appState.dest.name) {
                 when (appState.dest) {
                     GeodeDestination.PLAYER ->
                         PlayerScreen(
                             viewModel,
                             onOpenSearch = appState::openSearch,
-                            onExpand = appState::expand,
+                            // The old live view is gone (owner): this opens Visuals, whose full screen is the sheet hidden.
+                            onExpand = { appState.navigateTo(GeodeDestination.VISUALS) },
                             onOpenLibrary = { appState.navigateTo(GeodeDestination.LIBRARY) },
                         )
                     GeodeDestination.LIBRARY ->
@@ -219,17 +240,12 @@ fun AppRoot() {
                                 Box(Modifier.weight(1f)) {
                                     LibraryScreen(onOpenSearch = appState::openSearch)
                                 }
-                                Box(
-                                    Modifier
-                                        .width(1.dp)
-                                        .fillMaxHeight()
-                                        .luminousHairline(MaterialTheme.colorScheme.primary),
-                                )
+                                VerticalDivider()
                                 Box(Modifier.weight(1f)) {
                                     PlayerScreen(
                                         viewModel,
                                         onOpenSearch = appState::openSearch,
-                                        onExpand = appState::expand,
+                                        onExpand = { appState.navigateTo(GeodeDestination.VISUALS) },
                                         onOpenLibrary = {},
                                     )
                                 }
@@ -238,16 +254,29 @@ fun AppRoot() {
                             LibraryScreen(onOpenSearch = appState::openSearch)
                         }
                     GeodeDestination.VISUALS ->
-                        VisualsHub(
+                        // The visual fills Visuals, so these bounds are the PiP window's source rect and aspect.
+                        Box(Modifier.fillMaxSize().onGloballyPositioned { VisualizerPipCoordinator.canvasBoundsPx = it.windowRect() }) {
+                            VisualsHub(
+                                viewModel,
+                                visualizerView,
+                                chrome = chrome,
+                                bottomReserve = visualsReserve,
+                                // The glass slider (Visuals quick settings) tunes only the sheet over the visual, so the change shows.
+                                sheetOpacity = gui.barOpacity,
+                                onOpenStudioRender = appState::openStudioRender,
+                                // The one VisualizerView has one parent: the second screen holds it while it is on.
+                                canvasFree = !onSecondScreen,
+                                pip = inPip,
+                            )
+                        }
+                    GeodeDestination.STUDIO ->
+                        StudioHub(
                             viewModel,
                             visualizerView,
-                            onChrome = { appState.visualsChrome = it },
-                            // The one VisualizerView has one parent: the Visuals stage may take it
-                            // only while the fullscreen view and the second screen don't hold it.
-                            canvasFree = !appState.expanded && !onSecondScreen,
+                            appState.studioSection,
+                            onSection = { appState.studioSection = it },
+                            onImmersive = { appState.immersive = it },
                         )
-                    GeodeDestination.STUDIO ->
-                        StudioHub(viewModel, visualizerView, appState.studioSection, onSection = { appState.studioSection = it })
                     GeodeDestination.SETTINGS ->
                         SettingsScreen(
                             viewModel,
@@ -262,7 +291,6 @@ fun AppRoot() {
             }
         }
         Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-            CrystalBackground(Modifier.fillMaxSize())
             val sizeClass = currentWindowAdaptiveInfo().windowSizeClass
             // Two panes only where both get a usable width and the Player pane can show more than
             // its artwork: from 840dp, and not on a short landscape phone. A foldable or a phone on
@@ -270,10 +298,6 @@ fun AppRoot() {
             val twoPane =
                 sizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND) &&
                     sizeClass.isHeightAtLeastBreakpoint(WindowSizeClass.HEIGHT_DP_MEDIUM_LOWER_BOUND)
-            // While the fullscreen visualizer covers the shell, the shell stays composed (its tabs
-            // and scroll positions survive) but is not placed, so nothing under the GL surface is
-            // laid out or drawn on every frame.
-            val shellHidden = appState.expanded && !onSecondScreen
             // Onboarding and the safety notice draw in this window, over the shell. Hiding the shell
             // from accessibility keeps TalkBack from swiping into the app beneath. (The tour is a
             // Dialog, a window of its own, so it needs no such help.)
@@ -281,16 +305,17 @@ fun AppRoot() {
             Box(
                 Modifier
                     .fillMaxSize()
-                    .then(if (shellHidden) Modifier.notPlaced() else Modifier)
                     .then(if (overlayUp) Modifier.clearAndSetSemantics { } else Modifier),
             ) {
                 if (!sizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND)) {
                     AppShellCompact(
                         navEntries = navEntries,
                         appState = appState,
-                        gui = gui,
+                        chrome = chrome,
                         hasMedia = state.hasMedia,
+                        pip = inPip,
                         miniPlayer = miniPlayer,
+                        onDock = { dockHeight = it },
                         content = { destinationContent(false) },
                     )
                 } else {
@@ -299,10 +324,12 @@ fun AppRoot() {
                     AppShellExpanded(
                         navEntries = navEntries,
                         appState = appState,
-                        gui = gui,
-                        showMiniPlayer = appState.miniPlayerShown(state.hasMedia) && !playerPaneShown,
+                        chrome = chrome,
+                        showMiniPlayer = state.hasMedia && !appState.onPlayer && !playerPaneShown,
+                        pip = inPip,
                         centerRail = sizeClass.isHeightAtLeastBreakpoint(WindowSizeClass.HEIGHT_DP_MEDIUM_LOWER_BOUND),
                         miniPlayer = miniPlayer,
+                        onDock = { dockHeight = it },
                         content = { destinationContent(twoPane) },
                     )
                 }
@@ -322,13 +349,13 @@ fun AppRoot() {
                         )
                     },
                     confirmButton = {
-                        CrystalButton(onClick = {
+                        TextButton(onClick = {
                             val cm = context.getSystemService(android.content.ClipboardManager::class.java)
                             cm.setPrimaryClip(android.content.ClipData.newPlainText(clipLabel, text))
                         }) { Text(stringResource(R.string.action_copy)) }
                     },
                     dismissButton = {
-                        CrystalButton(filled = false, onClick = {
+                        TextButton(onClick = {
                             java.io.File(context.filesDir, "crash-latest.txt").delete()
                             crashText = null
                         }) { Text(stringResource(R.string.action_dismiss)) }
@@ -336,31 +363,17 @@ fun AppRoot() {
                 )
             }
             // Read by MainActivity to decide whether leaving the app should be treated as "enter
-            // PiP" at all — a screen other than the fullscreen visualizer has nothing worth
-            // shrinking into a window. Excludes the second-screen placeholder card too: when the
-            // visuals are mirrored to a connected display, this phone shows only a "Showing on
-            // <display>" notice, and shrinking that into a PiP window would carry nothing useful.
-            LaunchedEffect(appState.expanded, onSecondScreen) {
-                VisualizerPipCoordinator.visualizerShowing = appState.expanded && !onSecondScreen
+            // PiP" at all: only Visuals shows the visual, and every other screen has nothing worth
+            // shrinking into a window. Not while a connected display holds the visual either: this
+            // phone then shows Visuals without it, and a PiP window of that would carry nothing.
+            val visualShowing = appState.dest == GeodeDestination.VISUALS && !onSecondScreen
+            LaunchedEffect(visualShowing) {
+                VisualizerPipCoordinator.visualizerShowing = visualShowing
             }
             // Keeps the platform's own auto-enter flag (API 31+) and the PiP window's play/pause
-            // remote action in step with what is actually true, rather than only at the moment
-            // someone taps the PiP button.
-            LaunchedEffect(gui.autoEnterPip, state.isPlaying, appState.expanded) {
+            // remote action in step with what is actually true.
+            LaunchedEffect(gui.autoEnterPip, state.isPlaying, visualShowing) {
                 context.findMainActivity()?.refreshPipParams()
-            }
-            if (appState.expanded) {
-                VisualizerScreen(
-                    viewModel = viewModel,
-                    visualizerView = visualizerView,
-                    externalDisplayName = if (onSecondScreen) externalDisplay?.name else null,
-                    onCollapse = appState::collapse,
-                    destinations = navEntries.map { it.destination },
-                    onNavigate = { destination ->
-                        appState.collapse()
-                        appState.navigateTo(destination)
-                    },
-                )
             }
             if ((bootAnimEnabled == false || appState.bootDone) && !gui.safetyAcknowledged) {
                 SafetyConsent(
@@ -372,8 +385,7 @@ fun AppRoot() {
                     onDone = {
                         settingsViewModel.setGuiPrefs(gui.copy(setupDone = true))
                         appState.navigateTo(gui.intent.landingDestination)
-                        // The end-of-onboarding paywall: once, skippable, after setup is saved.
-                        paywallViewModel.open(PaywallTrigger.Onboarding)
+                        // No Pro offer here: it waits until the guided tour ends (TutorialHost).
                     },
                 )
             }
@@ -399,211 +411,188 @@ fun AppRoot() {
     }
 }
 
+/**
+ * The phone shell. Every screen fills the window; the mini player and the tab bar float over the
+ * bottom of it on matte glass ([FloatingMiniPlayer], [FloatingTabBar]), inset from the edges.
+ *
+ * The mini player fades on every screen ([ShellChromeState]); asleep, a small handle pill keeps
+ * its place. On Visuals the visual takes the whole window: the tab bar fades with the mini player
+ * there and no handle stays, since a tap at the bottom of the visual brings both back. The other
+ * screens keep the tab bar and are padded above it, so a list never ends under the glass.
+ * [onDock] reports the height the floating stack takes, which the Visuals sheet stands on.
+ */
 @Composable
 private fun AppShellCompact(
     navEntries: List<NavEntry>,
     appState: GeodeAppState,
-    gui: GuiPrefs,
+    chrome: ShellChromeState,
     hasMedia: Boolean,
-    miniPlayer: @Composable () -> Unit,
+    pip: Boolean,
+    miniPlayer: @Composable (Modifier) -> Unit,
+    onDock: (Dp) -> Unit,
     content: @Composable () -> Unit,
 ) {
-    Scaffold(
-        containerColor = Color.Transparent,
-        topBar = {
-            if (gui.playerPosition == PlayerPosition.TOP && appState.miniPlayerShown(hasMedia)) {
-                Box(Modifier.statusBarsPadding()) { miniPlayer() }
-            }
-        },
-        bottomBar = {
-            Column {
-                if (gui.playerPosition == PlayerPosition.BOTTOM && appState.miniPlayerShown(hasMedia)) miniPlayer()
-                // The Visuals stage's swipe down takes the bar too; Scaffold then pads for the system bar alone.
-                if (appState.visualsChrome != VisualsChrome.HIDDEN) {
-                    Box(
-                        Modifier
-                            .fillMaxWidth()
-                            .height(1.dp)
-                            .luminousHairline(MaterialTheme.colorScheme.primary),
-                    )
-                    CrystalNavBar(
-                        items = navEntries.map { it.item },
-                        // A destination can be hidden while still being the current one — reaching
-                        // Studio from a track menu, say. Fall back to the first tab rather than -1.
-                        selected = navEntries.indexOfFirst { it.destination == appState.dest }.coerceAtLeast(0),
-                        onSelect = { appState.navigateTo(navEntries[it].destination) },
-                        opacity = gui.barOpacity,
-                    )
-                }
-            }
-        },
-    ) { pad ->
+    val density = LocalDensity.current
+    // From the motion scheme, so "Remove animations" makes the dock appear without moving.
+    val dockFade = LocalGeodeMotion.current.defaultEffectsSpec<Float>()
+    val dockSize = LocalGeodeMotion.current.defaultSpatialSpec<IntSize>()
+    val onVisuals = appState.dest == GeodeDestination.VISUALS
+    val showsPlayer = hasMedia && !appState.onPlayer
+    var barHeight by remember { mutableStateOf(0.dp) }
+    Box(Modifier.fillMaxSize()) {
         // consumeWindowInsets so a screen that pads for the status bar itself doesn't pad twice,
-        // and imePadding so a focused field low on screen rises above the keyboard: the bar's share
-        // of the bottom inset is already consumed, so only the keyboard's extra height is added.
+        // and imePadding so a focused field low on screen rises above the keyboard.
+        val bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + barHeight + DOCK_GAP + HANDLE_ZONE
         Box(
             Modifier
-                .padding(pad)
-                .consumeWindowInsets(pad)
-                .imePadding(),
+                .fillMaxSize()
+                .then(
+                    if (onVisuals) {
+                        Modifier
+                    } else {
+                        Modifier
+                            .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
+                            .padding(bottom = bottom)
+                            .consumeWindowInsets(WindowInsets.safeDrawing)
+                            .imePadding()
+                    },
+                ),
         ) { content() }
-    }
-}
-
-@Composable
-private fun AppShellExpanded(
-    navEntries: List<NavEntry>,
-    appState: GeodeAppState,
-    gui: GuiPrefs,
-    showMiniPlayer: Boolean,
-    centerRail: Boolean,
-    miniPlayer: @Composable () -> Unit,
-    content: @Composable () -> Unit,
-) {
-    // safeDrawing rather than the status and navigation bars alone: in landscape the display
-    // cutout sits on a side edge, where it would cover the rail or the content's far edge. It
-    // includes the keyboard too, so a focused field stays above it.
-    Row(Modifier.fillMaxSize().safeDrawingPadding()) {
-        if (appState.visualsChrome != VisualsChrome.HIDDEN) RailWithHairline(navEntries, appState, gui, centerRail)
-        Column(Modifier.weight(1f)) {
-            val top = gui.playerPosition == PlayerPosition.TOP
-            if (showMiniPlayer && top) miniPlayer()
-            Box(Modifier.weight(1f)) { content() }
-            if (showMiniPlayer && !top) miniPlayer()
-        }
-    }
-}
-
-@Composable
-private fun RailWithHairline(
-    navEntries: List<NavEntry>,
-    appState: GeodeAppState,
-    gui: GuiPrefs,
-    centerRail: Boolean,
-) {
-    Row {
-        NavigationRail(containerColor = Color.Black.copy(alpha = gui.barOpacity * RAIL_GLASS_ALPHA)) {
-            if (centerRail) Spacer(Modifier.weight(1f))
-            navEntries.forEach { (destination, item) ->
-                NavigationRailItem(
-                    selected = appState.dest == destination,
-                    onClick = { appState.navigateTo(destination) },
-                    // The label below names the item; a description on the icon reads it twice.
-                    icon = { StoneIconArt(item.icon, null) },
-                    label = { Text(item.label, style = MaterialTheme.typography.labelSmall) },
+        // A PiP window is the visual alone; Studio's full-screen timeline takes the whole window.
+        if (appState.immersive || pip) return@Box
+        Column(
+            Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .onSizeChanged { onDock(with(density) { it.height.toDp() }) }
+                .navigationBarsPadding()
+                .padding(horizontal = GeodeSpacing.EdgeInset)
+                .padding(bottom = DOCK_GAP),
+            verticalArrangement = Arrangement.spacedBy(GeodeSpacing.S),
+        ) {
+            AnimatedVisibility(
+                showsPlayer && chrome.awake,
+                enter = fadeIn(dockFade) + expandVertically(dockSize),
+                exit = fadeOut(dockFade) + shrinkVertically(dockSize),
+            ) {
+                miniPlayer(Modifier)
+            }
+            if (showsPlayer && !chrome.awake && !onVisuals) MiniPlayerHandle(onWake = chrome::wake)
+            AnimatedVisibility(
+                !onVisuals || chrome.awake,
+                enter = fadeIn(dockFade) + expandVertically(dockSize),
+                exit = fadeOut(dockFade) + shrinkVertically(dockSize),
+            ) {
+                FloatingTabBar(
+                    items = navEntries.map { it.item },
+                    // A destination can be hidden while still being the current one — reaching
+                    // Studio from a track menu, say. Fall back to the first tab rather than -1.
+                    selected = navEntries.indexOfFirst { it.destination == appState.dest }.coerceAtLeast(0),
+                    onSelect = { appState.navigateTo(navEntries[it].destination) },
+                    opacity = GeodeGlass.MATTE_FILL,
+                    modifier = Modifier.onSizeChanged { if (it.height > 0) barHeight = with(density) { it.height.toDp() } },
                 )
             }
-            if (centerRail) Spacer(Modifier.weight(1f))
         }
-        Box(
-            Modifier
-                .width(1.dp)
-                .fillMaxHeight()
-                .luminousHairline(MaterialTheme.colorScheme.primary),
-        )
     }
 }
 
 /**
- * Whether the shell draws the mini player: never on Player (it has the full transport), never
- * while the Visuals stage has hidden it, always on the Visuals stage otherwise (Record, Studio and
- * the live view live in it there, playing or not), and elsewhere only when something is loaded.
+ * The wide shell: the navigation rail at the side, the screen beside it, and the floating mini
+ * player over the bottom of the screen, fading like the phone's ([AppShellCompact]).
  */
-private fun GeodeAppState.miniPlayerShown(hasMedia: Boolean): Boolean =
-    !onPlayer &&
-        when (visualsChrome) {
-            VisualsChrome.HIDDEN -> false
-            VisualsChrome.FULL -> true
-            VisualsChrome.MINIMAL, null -> hasMedia
-        }
-
-/** How dark the rail's glass gets at full bar opacity; the bottom bar reads the same setting. */
-private const val RAIL_GLASS_ALPHA = 0.5f
-
-/** Measured, so its state and size are kept, but never placed: nothing in it is drawn. */
-private fun Modifier.notPlaced(): Modifier =
-    layout { measurable, constraints ->
-        val placeable = measurable.measure(constraints)
-        layout(placeable.width, placeable.height) {}
-    }
-
 @Composable
-private fun MiniPlayer(
-    title: String?,
-    isPlaying: Boolean,
-    hasMedia: Boolean,
-    progress: () -> Float,
-    barOpacity: Float,
-    compact: Boolean,
-    onExpand: () -> Unit,
-    onPlayPause: () -> Unit,
-    onPrevious: () -> Unit,
-    onNext: () -> Unit,
-    minimal: Boolean = false,
-    subtitle: (@Composable () -> Unit)? = null,
-    actions: (@Composable RowScope.() -> Unit)? = null,
+private fun AppShellExpanded(
+    navEntries: List<NavEntry>,
+    appState: GeodeAppState,
+    chrome: ShellChromeState,
+    showMiniPlayer: Boolean,
+    pip: Boolean,
+    centerRail: Boolean,
+    miniPlayer: @Composable (Modifier) -> Unit,
+    onDock: (Dp) -> Unit,
+    content: @Composable () -> Unit,
 ) {
-    // The Visuals mini player draws with nothing loaded too: its Record and Studio still work.
-    if (!hasMedia && actions == null) return
-    Column(
-        Modifier
-            .fillMaxWidth()
-            .crystalPanel(
-                barOpacity,
-                MaterialTheme.colorScheme.surfaceVariant,
-                MaterialTheme.colorScheme.primary,
-                corner = 0.dp,
-                glowStrength = 0.6f,
-            ).clickable(onClick = onExpand),
-    ) {
-        Row(
-            Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = if (compact) 0.dp else 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            // Minimal (Customize) is the transport alone, centred: no title, nothing to read.
-            horizontalArrangement = if (minimal) Arrangement.Center else Arrangement.Start,
-        ) {
-            if (!minimal) {
-                // The Visuals actions need the width the note icon takes.
-                if (actions == null) {
-                    Icon(
-                        Icons.Filled.MusicNote,
-                        null,
-                        Modifier
-                            .size(if (compact) 20.dp else 28.dp)
-                            .softGlow(MaterialTheme.colorScheme.primary, 8.dp, if (isPlaying) 1f else 0.35f),
-                        tint = MaterialTheme.colorScheme.primary,
-                    )
+    val density = LocalDensity.current
+    // From the motion scheme, so "Remove animations" makes the dock appear without moving.
+    val dockFade = LocalGeodeMotion.current.defaultEffectsSpec<Float>()
+    // safeDrawing rather than the status and navigation bars alone: in landscape the display
+    // cutout sits on a side edge, where it would cover the rail or the content's far edge. It
+    // includes the keyboard too, so a focused field stays above it.
+    Row(Modifier.fillMaxSize().safeDrawingPadding()) {
+        // A PiP window is the visual alone, with no rail beside it.
+        if (!pip) NavRail(navEntries, appState, centerRail)
+        Box(Modifier.weight(1f).fillMaxHeight()) {
+            content()
+            Column(
+                Modifier
+                    .align(Alignment.BottomCenter)
+                    .widthIn(max = MINI_PLAYER_MAX_WIDTH)
+                    .fillMaxWidth()
+                    .onSizeChanged { onDock(with(density) { it.height.toDp() }) }
+                    .padding(GeodeSpacing.EdgeInset),
+            ) {
+                AnimatedVisibility(showMiniPlayer && chrome.awake, enter = fadeIn(dockFade), exit = fadeOut(dockFade)) {
+                    miniPlayer(Modifier)
                 }
-                Column(Modifier.weight(1f).padding(horizontal = 10.dp)) {
-                    Text(
-                        title ?: stringResource(R.string.mini_player_idle),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                    subtitle?.invoke()
-                }
+                if (showMiniPlayer && !chrome.awake && appState.dest != GeodeDestination.VISUALS) MiniPlayerHandle(onWake = chrome::wake)
             }
-            // In Visuals the previous button gives its place to Record, Studio and the live view.
-            if (actions == null) {
-                IconButton(onClick = onPrevious) { StoneIconArt(StoneIcon.PREVIOUS, stringResource(R.string.action_previous)) }
-            }
-            IconButton(onClick = onPlayPause) {
-                StoneIconArt(
-                    if (isPlaying) StoneIcon.PAUSE else StoneIcon.PLAY,
-                    stringResource(if (isPlaying) R.string.action_pause else R.string.action_play),
-                )
-            }
-            IconButton(onClick = onNext) { StoneIconArt(StoneIcon.NEXT, stringResource(R.string.action_next)) }
-            actions?.invoke(this)
         }
-        LinearProgressIndicator(
-            progress = { progress().coerceIn(0f, 1f) },
-            modifier = Modifier.fillMaxWidth().height(2.dp),
-            color = MaterialTheme.colorScheme.primary,
-            trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
-        )
     }
+}
+
+/** The standard M3 navigation rail, on the plain canvas: no glass, no glow. */
+@Composable
+private fun NavRail(
+    navEntries: List<NavEntry>,
+    appState: GeodeAppState,
+    centerRail: Boolean,
+) {
+    NavigationRail(containerColor = Color.Transparent) {
+        if (centerRail) Spacer(Modifier.weight(1f))
+        navEntries.forEach { (destination, item) ->
+            val selected = appState.dest == destination
+            NavigationRailItem(
+                selected = selected,
+                onClick = { appState.navigateTo(destination) },
+                // The label below names the item; a description on the icon reads it twice.
+                icon = { StoneIconArt(item.icon, null, selected = selected) },
+                label = { Text(item.label, style = MaterialTheme.typography.labelSmall) },
+            )
+        }
+        if (centerRail) Spacer(Modifier.weight(1f))
+    }
+}
+
+/** The accent a palette gives: the middle of its hue span, bright enough to read on black. */
+private fun paletteAccent(
+    base: Float,
+    range: Float,
+): Color {
+    val hue = ((base + range / 2f) % 1f + 1f) % 1f
+    return Color.hsl(hue * DEGREES, ACCENT_SATURATION, ACCENT_LIGHTNESS)
+}
+
+private const val DEGREES = 360f
+private const val ACCENT_SATURATION = 0.85f
+private const val ACCENT_LIGHTNESS = 0.6f
+
+/** The gap between the floating dock and the screen's bottom edge, and between the screen and the dock. */
+private val DOCK_GAP = 8.dp
+
+/** The handle pill's full touch target, kept clear above the tab bar on every screen. */
+private val HANDLE_ZONE = 48.dp
+
+/** How wide the floating mini player grows on a tablet before it stops. */
+private val MINI_PLAYER_MAX_WIDTH = 640.dp
+
+/**
+ * Window-space bounds, not local: PictureInPictureParams.setSourceRectHint wants the same
+ * coordinate space the platform draws the Activity's window in.
+ */
+private fun LayoutCoordinates.windowRect(): android.graphics.Rect {
+    val bounds = boundsInWindow()
+    return android.graphics.Rect(bounds.left.toInt(), bounds.top.toInt(), bounds.right.toInt(), bounds.bottom.toInt())
 }
 
 @Composable
@@ -630,12 +619,11 @@ private fun showTutorialTarget(
     appState: GeodeAppState,
     openPaywall: () -> Unit,
 ) {
-    if (target != TutorialTarget.LIVE_VIEW) appState.collapse()
     when (target) {
         TutorialTarget.PLAYER -> appState.navigateTo(GeodeDestination.PLAYER)
         TutorialTarget.LIBRARY -> appState.navigateTo(GeodeDestination.LIBRARY)
-        TutorialTarget.VISUALS -> appState.navigateTo(GeodeDestination.VISUALS)
-        TutorialTarget.LIVE_VIEW -> appState.expand()
+        // The live view is Visuals now: full screen is its sheet hidden.
+        TutorialTarget.VISUALS, TutorialTarget.LIVE_VIEW -> appState.navigateTo(GeodeDestination.VISUALS)
         TutorialTarget.STUDIO_RENDER -> appState.openStudioRender()
         TutorialTarget.STUDIO_EDIT -> {
             appState.studioSection = StudioSection.EDIT
@@ -711,8 +699,7 @@ fun SearchScreen(
             viz.presets.filter { SearchMatcher.matches(terms, listOf(it.name)) }
         }
 
-    Box(Modifier.fillMaxSize().dismissTransform(dismiss)) {
-        CrystalBackground(Modifier.fillMaxSize())
+    Box(Modifier.fillMaxSize().dismissTransform(dismiss).background(MaterialTheme.colorScheme.background)) {
         Column(
             Modifier
                 .fillMaxSize()
@@ -727,7 +714,6 @@ fun SearchScreen(
                     modifier = Modifier.weight(1f),
                     placeholder = { Text(stringResource(R.string.search_placeholder)) },
                     singleLine = true,
-                    shape = crystalShardShape(14.dp, 5.dp),
                 )
                 IconButton(onClick = onClose) { StoneIconArt(StoneIcon.CLOSE, stringResource(R.string.search_close)) }
             }
@@ -743,7 +729,7 @@ fun SearchScreen(
                 } else {
                     if (trackResults.isNotEmpty()) {
                         item {
-                            CrystalOverline(
+                            SearchHeading(
                                 stringResource(R.string.search_heading_tracks, trackResults.size),
                                 Modifier.padding(top = 8.dp),
                             )
@@ -781,7 +767,7 @@ fun SearchScreen(
                     }
                     if (playlistResults.isNotEmpty()) {
                         item {
-                            CrystalOverline(
+                            SearchHeading(
                                 stringResource(R.string.search_heading_playlists, playlistResults.size),
                                 Modifier.padding(top = 8.dp),
                             )
@@ -810,7 +796,7 @@ fun SearchScreen(
                     }
                     if (presetResults.isNotEmpty()) {
                         item {
-                            CrystalOverline(
+                            SearchHeading(
                                 stringResource(R.string.search_heading_presets, presetResults.size),
                                 Modifier.padding(top = 8.dp),
                             )
@@ -840,6 +826,20 @@ fun SearchScreen(
             }
         }
     }
+}
+
+/** A result group's heading: an M3 title in the accent, marked as a heading for TalkBack. */
+@Composable
+private fun SearchHeading(
+    text: String,
+    modifier: Modifier = Modifier,
+) {
+    Text(
+        text,
+        modifier.semantics { heading() },
+        style = MaterialTheme.typography.titleSmall,
+        color = MaterialTheme.colorScheme.primary,
+    )
 }
 
 @Composable

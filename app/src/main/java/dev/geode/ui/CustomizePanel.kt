@@ -1,6 +1,10 @@
 package dev.geode.ui
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -10,12 +14,15 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Redo
 import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.Casino
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
@@ -26,13 +33,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.SecondaryScrollableTabRow
-import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -41,39 +45,58 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import dev.geode.R
+import dev.geode.data.AutoDirectorStore
 import dev.geode.data.MacroStore
 import dev.geode.pro.FreeTier
 import dev.geode.pro.PaywallTrigger
 import dev.geode.pro.ProFeature
+import dev.geode.render.HandReactions
 import dev.geode.render.VisualizerView
 import dev.geode.render.scene.Catalogue
 import dev.geode.render.scene.CustomizeTab
+import dev.geode.render.scene.ParamFormat
 import dev.geode.render.scene.ParamKeys
 import dev.geode.render.scene.ParamScope
 import dev.geode.render.scene.SceneCapabilities
 import dev.geode.render.scene.SceneParams
 import dev.geode.ui.pro.PaywallViewModel
+import dev.geode.ui.theme.GeodeRadius
+import dev.geode.ui.theme.GeodeSpacing
+import dev.geode.ui.theme.LocalGeodeMotion
+import dev.geode.ui.theme.LocalUiSounds
+import dev.geode.ui.theme.UiSound
+import dev.geode.ui.theme.floatingGlass
 import kotlinx.coroutines.launch
+import kotlin.math.abs
 
 /**
- * Visuals › Customize: seven pages by kind, stacked in one scrolling list: Macros, Look, Style,
+ * Visuals › Customize: an overview of seven cards by kind, in editing order: Macros, Look, Style,
  * Motion, Music, then Modulate and Advanced (Pro).
  *
- * WHY one list with a sticky jump header (docs/ui-redesign): a user changing "how it moves" should
- * find every moving control in one place, and should be able to scroll past it into the next kind
- * without hunting for a tab. The header names the page in view and jumps to any page; its end
- * holds the page's tools: search, Randomize, Undo and ⋯. That one 48 dp row is all the chrome
- * above the first control.
+ * WHY an accordion (UI V2 rule 1, docs/ui-redesign; Lightroom's solo panels): the panel opens as a
+ * table of contents, every card collapsed, each saying its state in one line on the right ("Neon",
+ * "2 mine", "As styled"), so the user sees the whole look before touching it. A tap opens a card in
+ * place and closes the one that was open, so the list is never longer than one page of controls,
+ * and scrolls the opened card to the top. There is no second tab row: the cards are the pages. The
+ * one 48 dp row above them holds the state of the whole look and the tools: search, Randomize, Undo
+ * and ⋯. Randomize and "Reset" act on the open card, or on Macros while every card is closed.
  *
- * Deeper pages ([CustomizeSubPage]) drill in: the list gives way to the page inside the same sheet,
- * with ← and its title, and back returns to the same spot in the list, because the list's scroll
- * state lives here, above both. With [nav] (the Visuals route, 1B) each deeper page is an
+ * Deeper pages ([CustomizeSubPage]) still drill in: the cards give way to the page inside the same
+ * sheet, with ← and its title, and back returns to the same card, because the list's scroll state
+ * and the open card live here, above both. With [nav] (the Visuals route) each deeper page is an
  * [VisualsKey.AdvancedGroup] step on the route, so system back retraces it; without it the panel
  * keeps the open page itself.
  *
@@ -95,16 +118,12 @@ internal fun CustomizePanel(
     var searching by rememberSaveable { mutableStateOf(false) }
     var showTips by rememberSaveable { mutableStateOf(false) }
     var localSub by rememberSaveable { mutableStateOf<String?>(null) }
+    // Collapsed by default; one card open at a time, kept by name across rotation.
+    var openCard by rememberSaveable { mutableStateOf<String?>(null) }
     val pages = CustomizeTab.PANEL.filter { it != CustomizeTab.STYLE || styleTabApplies(viz.sceneId) }
+    val expanded = pages.firstOrNull { it.name == openCard }
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
-    val inView by remember(pages) {
-        derivedStateOf {
-            // At the end of the list the last page is in view, even when it is too short to reach the top.
-            if (!listState.canScrollForward && listState.firstVisibleItemIndex > 0) pages.lastIndex else listState.firstVisibleItemIndex
-        }
-    }
-    val page = pages[inView.coerceIn(pages.indices)]
     val unlocked = gate.allows(ProFeature.ADVANCED_CUSTOMIZATION)
     val proLock =
         remember(unlocked, viz.sceneId, paywall) {
@@ -158,8 +177,7 @@ internal fun CustomizePanel(
                     CustomizeHeader(
                         viewModel = viewModel,
                         visualizerView = visualizerView,
-                        pages = pages,
-                        page = page,
+                        page = expanded ?: CustomizeTab.MACROS,
                         proLock = proLock,
                         searching = searching,
                         onSearching = { on ->
@@ -168,13 +186,12 @@ internal fun CustomizePanel(
                         },
                         showTips = showTips,
                         onShowTips = { showTips = it },
-                        onJump = { i -> scope.launch { listState.animateScrollToItem(i) } },
                     )
                     if (searching) {
                         OutlinedTextField(
                             value = query,
                             onValueChange = { query = it },
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = GeodeSpacing.L),
                             singleLine = true,
                             label = { Text("Search every control") },
                         )
@@ -182,11 +199,30 @@ internal fun CustomizePanel(
                     LazyColumn(
                         state = listState,
                         modifier = Modifier.weight(1f).fillMaxWidth(),
-                        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 24.dp),
+                        contentPadding =
+                            PaddingValues(start = GeodeSpacing.M, end = GeodeSpacing.M, top = GeodeSpacing.XS, bottom = GeodeSpacing.XL),
+                        verticalArrangement = Arrangement.spacedBy(GeodeSpacing.S),
                     ) {
-                        pages.forEach { shown ->
-                            item(key = shown.name, contentType = "page") {
-                                CustomizePageSection(shown, viewModel, host, unlocked, onOpen = open)
+                        if (query.isNotBlank()) {
+                            // A search shows every match at once, deeper pages included, without the cards.
+                            itemsIndexed(pages, key = { _, shown -> shown.name }, contentType = { _, _ -> "results" }) { _, shown ->
+                                CustomizeSearchResults(shown, viewModel, host, unlocked)
+                            }
+                        } else {
+                            itemsIndexed(pages, key = { _, shown -> shown.name }, contentType = { _, _ -> "card" }) { i, shown ->
+                                CustomizePageCard(
+                                    page = shown,
+                                    viewModel = viewModel,
+                                    host = host,
+                                    unlocked = unlocked,
+                                    expanded = shown == expanded,
+                                    onToggle = {
+                                        val opening = shown != expanded
+                                        openCard = if (opening) shown.name else null
+                                        if (opening) scope.launch { listState.animateScrollToItem(i) }
+                                    },
+                                    onOpen = open,
+                                )
                             }
                         }
                     }
@@ -196,51 +232,224 @@ internal fun CustomizePanel(
     }
 }
 
+/** How far a card lifts off the sheet: a soft shadow, a fraction of the sheet's own, so seven stay cheap. */
+private val CARD_ELEVATION = 4.dp
+private const val HALF_TURN = 180f
+
 /**
- * One page in the list: its name (with ♛ when the whole page is Pro and locked), its controls,
- * then the rows that drill into its deeper pages. While searching, the deeper pages' controls are
- * drawn in place instead, so a search still reaches every control at once.
+ * One page as a collapsible card: its name (with ♛ when the whole page is Pro and locked), the
+ * page's state in one line on the right, a ▾ that turns over when it opens, and its ⋮. Open, its
+ * controls follow, then the rows that drill into its deeper pages. It grows and shrinks from its
+ * header with the theme's spatial spring (none under reduced motion).
  */
 @Composable
-private fun CustomizePageSection(
+private fun CustomizePageCard(
     page: CustomizeTab,
     viewModel: PlayerViewModel,
     host: AdvancedHost,
     unlocked: Boolean,
+    expanded: Boolean,
+    onToggle: () -> Unit,
     onOpen: (CustomizeSubPage) -> Unit,
 ) {
     val viz by viewModel.vizState.collectAsStateWithLifecycle()
-    val searching = LocalParamQuery.current.isNotBlank()
-    // Macros' knobs are not searchable controls; every other page is.
-    if (searching && page == CustomizeTab.MACROS) return
     val subs = CustomizeSubPage.of(page, viz.sceneId)
-    Column(Modifier.fillMaxWidth()) {
-        if (!searching) {
-            Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    page.title,
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.weight(1f).semantics { heading() },
-                )
-                if (page in PRO_PAGES && !unlocked) ProCrown()
-            }
+    val motion = LocalGeodeMotion.current
+    val turn by animateFloatAsState(if (expanded) HALF_TURN else 0f, motion.fastSpatialSpec(), label = "card chevron")
+    val shape = RoundedCornerShape(GeodeRadius.Large)
+    val stateText = stringResource(if (expanded) R.string.customize_card_expanded else R.string.customize_card_collapsed)
+    val actionText = stringResource(if (expanded) R.string.customize_card_collapse else R.string.customize_card_expand)
+    Column(
+        Modifier
+            .fillMaxWidth()
+            // TODO(selectedGlow): add Modifier.selectedGlow(expanded, shape) here once #276 lands the token.
+            // The default matte fill, not the thinnest: the card sits on the sheet's own glass, and its summary
+            // text must stay readable over a bright frame (WCAG 1.4.3).
+            .floatingGlass(shape = shape, elevation = CARD_ELEVATION)
+            .animateContentSize(motion.defaultSpatialSpec()),
+    ) {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .heightIn(min = CARD_HEADER_HEIGHT)
+                .clickable(role = Role.Button, onClickLabel = actionText, onClick = onToggle)
+                .semantics {
+                    heading()
+                    stateDescription = stateText
+                }.padding(start = GeodeSpacing.L, end = GeodeSpacing.XS),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(page.title, style = MaterialTheme.typography.titleSmall)
+            if (page in PRO_PAGES && !unlocked) ProCrown()
+            Text(
+                pageSummary(page, viz.sceneId, viz.params, host, subs),
+                modifier = Modifier.weight(1f).padding(start = GeodeSpacing.S),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.End,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Icon(
+                Icons.Filled.ExpandMore,
+                contentDescription = null,
+                modifier = Modifier.padding(start = GeodeSpacing.XS).rotate(turn),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            PageMenu(page, host, unlocked)
         }
-        CustomizePageBody(page, viewModel, host)
-        if (searching) {
-            subs.forEach { sub ->
-                if (sub.pro && !unlocked) {
-                    ProGated("advanced:${sub.name}", sub.title) { SubPageBody(sub, host) }
-                } else {
-                    SubPageBody(sub, host)
-                }
+        if (expanded) {
+            Column(Modifier.fillMaxWidth().padding(start = GeodeSpacing.L, end = GeodeSpacing.L, bottom = GeodeSpacing.M)) {
+                CustomizePageBody(page, viewModel, host)
+                subs.forEach { sub -> SubPageRow(sub, locked = sub.pro && !unlocked) { onOpen(sub) } }
             }
-        } else {
-            subs.forEach { sub -> SubPageRow(sub, locked = sub.pro && !unlocked) { onOpen(sub) } }
         }
     }
 }
 
-/** The pages that are Pro as a whole, so their ♛ sits on the page name. */
+private val CARD_HEADER_HEIGHT = 56.dp
+
+/** While searching: a page's matching controls, its deeper pages' too, drawn in place. */
+@Composable
+private fun CustomizeSearchResults(
+    page: CustomizeTab,
+    viewModel: PlayerViewModel,
+    host: AdvancedHost,
+    unlocked: Boolean,
+) {
+    // Macros' knobs are not searchable controls; every other page is.
+    if (page == CustomizeTab.MACROS) return
+    val viz by viewModel.vizState.collectAsStateWithLifecycle()
+    Column(Modifier.fillMaxWidth().padding(horizontal = GeodeSpacing.XS)) {
+        CustomizePageBody(page, viewModel, host)
+        CustomizeSubPage.of(page, viz.sceneId).forEach { sub ->
+            if (sub.pro && !unlocked) {
+                ProGated("advanced:${sub.name}", sub.title) { SubPageBody(sub, host) }
+            } else {
+                SubPageBody(sub, host)
+            }
+        }
+    }
+}
+
+/**
+ * A card's state in one line: real values rather than descriptions ("Neon", "2 turned", "Speed ×1.5"),
+ * so the closed overview says how the look stands.
+ */
+@Composable
+private fun pageSummary(
+    page: CustomizeTab,
+    sceneId: String,
+    p: SceneParams,
+    host: AdvancedHost,
+    subs: List<CustomizeSubPage>,
+): String =
+    when (page) {
+        CustomizeTab.MACROS -> {
+            val context = LocalContext.current
+            val store = remember { MacroStore.get(context) }
+            val macros by store.state.collectAsStateWithLifecycle()
+            val turned = macros.knobs.count { abs(it) >= KNOB_EPSILON }
+            if (turned == 0) {
+                stringResource(R.string.customize_summary_as_styled)
+            } else {
+                pluralStringResource(R.plurals.macros_summary_turned, turned, turned)
+            }
+        }
+        CustomizeTab.LOOK -> {
+            val saved = rememberSavedPalettes().items
+            val labels = SceneParams.PALETTES.map { it.first } + saved.map { it.name }
+            labels.getOrNull(paletteChipIndex(p, saved, second = false)) ?: stringResource(R.string.look_summary_custom)
+        }
+        CustomizeTab.STYLE -> sceneDisplayLabel(sceneId)
+        CustomizeTab.MOTION -> {
+            val shown = ParamFormat.format(p.speed, ParamFormat.unitFor(ParamKeys.SPEED, SPEED_RANGE), SceneParams.DEFAULT.speed)
+            stringResource(R.string.motion_summary, shown)
+        }
+        CustomizeTab.MUSIC -> {
+            val reactions by host.visualsViewModel.reactions.collectAsStateWithLifecycle()
+            val handMask by host.visualsViewModel.handMask.collectAsStateWithLifecycle()
+            val hand = HandReactions(reactions, handMask)
+            val mine = remember(sceneId, p.reactSeed, hand) { MusicMoments.rows(sceneId, p.reactSeed, hand).count { it.mine } }
+            if (mine == 0) {
+                stringResource(R.string.music_summary_auto)
+            } else {
+                pluralStringResource(R.plurals.music_summary_mine, mine, mine)
+            }
+        }
+        CustomizeTab.MODULATE -> {
+            val reactions by host.visualsViewModel.reactions.collectAsStateWithLifecycle()
+            stringResource(if (reactions == null) R.string.modulate_summary_style else R.string.modulate_summary_yours)
+        }
+        else -> subs.joinToString { it.title }
+    }
+
+/** Motion › Speed's range, as MovementSections slides it, for the card's summary of it. */
+private val SPEED_RANGE = 0.05f..4f
+private const val KNOB_EPSILON = 0.005f
+
+/** What a card's ⋮ › What is this says about the page. */
+private val PAGE_ABOUT =
+    mapOf(
+        CustomizeTab.MACROS to R.string.customize_about_macros,
+        CustomizeTab.LOOK to R.string.customize_about_look,
+        CustomizeTab.STYLE to R.string.customize_about_style,
+        CustomizeTab.MOTION to R.string.customize_about_motion,
+        CustomizeTab.MUSIC to R.string.customize_about_music,
+        CustomizeTab.MODULATE to R.string.customize_about_modulate,
+        CustomizeTab.ADVANCED to R.string.customize_about_advanced,
+    )
+
+/**
+ * A card's ⋮: What is this, then Randomize and Reset for the pages that own controls. Randomize is
+ * free on Macros (the knobs' Surprise) and Pro elsewhere, as in the header.
+ */
+@Composable
+private fun PageMenu(
+    page: CustomizeTab,
+    host: AdvancedHost,
+    unlocked: Boolean,
+) {
+    val context = LocalContext.current
+    val macroStore = remember { MacroStore.get(context) }
+    val lock = LocalProLock.current
+    var open by remember { mutableStateOf(false) }
+    var explaining by remember { mutableStateOf(false) }
+    val rolls = page !in UNROLLED_PAGES
+    Box {
+        IconButton(onClick = { open = true }) {
+            Icon(Icons.Filled.MoreVert, contentDescription = "More for ${page.title}", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            DropdownMenuItem(text = { Text(stringResource(R.string.customize_what_is_this)) }, onClick = {
+                open = false
+                explaining = true
+            })
+            if (rolls) {
+                DropdownMenuItem(
+                    text = { Text("Randomize ${page.title}") },
+                    leadingIcon = { Icon(Icons.Filled.Casino, contentDescription = null) },
+                    onClick = {
+                        open = false
+                        when {
+                            page == CustomizeTab.MACROS -> macroStore.surprise()
+                            !unlocked -> lock.onLocked()
+                            else -> host.visualsViewModel.randomizeParams(page)
+                        }
+                    },
+                )
+                DropdownMenuItem(text = { Text("Reset ${page.title}") }, onClick = {
+                    open = false
+                    if (page == CustomizeTab.MACROS) macroStore.resetKnobs() else host.visualsViewModel.resetCustomizeTab(page)
+                })
+            }
+        }
+    }
+    val about = PAGE_ABOUT[page]
+    if (explaining && about != null) AboutDialog(page.title, stringResource(about)) { explaining = false }
+}
+
+/** The pages that are Pro as a whole, so their ♛ sits on the card's name. */
 private val PRO_PAGES = setOf(CustomizeTab.MODULATE, CustomizeTab.ADVANCED)
 
 /**
@@ -287,35 +496,57 @@ private fun CustomizePageBody(
             }
         CustomizeTab.MUSIC -> {
             val reactions by visualsViewModel.reactions.collectAsStateWithLifecycle()
-            EventsTab(p, onChange, reactions = reactions, onReactionsChange = visualsViewModel::setReactions)
+            val handMask by visualsViewModel.handMask.collectAsStateWithLifecycle()
+            Column {
+                DirectorSwitch()
+                EventsTab(
+                    p,
+                    onChange,
+                    hand = HandReactions(reactions, handMask),
+                    onReactionsChange = visualsViewModel::setReactions,
+                    onHandChange = visualsViewModel::setHandReactions,
+                )
+            }
         }
         // Modulate and Advanced are their deeper pages; the engine's roll groups are not pages.
         else -> Unit
     }
 }
 
+/**
+ * Music's first row: the auto-director, the same switch (and store) as Settings › Behaviour ›
+ * Auto-director and Visuals' quick settings, so the three never disagree. What the free tier gets
+ * from it (the first minute of each song) is the store's policy, not this row's.
+ */
+@Composable
+private fun DirectorSwitch() {
+    val label = stringResource(R.string.customize_director)
+    if (!visible(label, ParamScope.UNIVERSAL)) return
+    val context = LocalContext.current
+    val store = remember { AutoDirectorStore.get(context) }
+    val on by store.enabled.collectAsStateWithLifecycle()
+    LabeledSwitch(label, checked = on, onCheckedChange = store::setEnabled)
+}
+
 /** The pages Randomize and "Reset this page" have nothing to roll on: their controls are deeper pages. */
 private val UNROLLED_PAGES = setOf(CustomizeTab.MODULATE, CustomizeTab.ADVANCED)
 
 /**
- * The sticky header: the page names (the one in view lit, a tap jumps to it), then search,
- * Randomize, Undo and ⋯ (Redo, Reset this page, Reset everything, Save as preset, Show tips).
- * Randomize is the one name everywhere and rolls the page in view; it is free on Macros (the knobs'
- * Surprise) and Pro elsewhere. Icon buttons keep their full 48 dp target and carry their own names
- * for TalkBack.
+ * The one row above the cards: how far the look is from as styled, then search, Randomize, Undo and
+ * ⋯ (Redo, Reset the open card, Reset everything, Save as preset, Show tips). Randomize rolls the
+ * open card ([page]: Macros while every card is closed); it is free on Macros (the knobs' Surprise)
+ * and Pro elsewhere. Icon buttons keep their full 48 dp target and carry their own names for TalkBack.
  */
 @Composable
 private fun CustomizeHeader(
     viewModel: PlayerViewModel,
     visualizerView: VisualizerView,
-    pages: List<CustomizeTab>,
     page: CustomizeTab,
     proLock: ProLock,
     searching: Boolean,
     onSearching: (Boolean) -> Unit,
     showTips: Boolean,
     onShowTips: (Boolean) -> Unit,
-    onJump: (Int) -> Unit,
 ) {
     val visualsViewModel: VisualsViewModel = geodeViewModel()
     val viz by viewModel.vizState.collectAsStateWithLifecycle()
@@ -328,22 +559,19 @@ private fun CustomizeHeader(
     val macroStore = remember { MacroStore.get(context) }
     val onMacros = page == CustomizeTab.MACROS
     val rolls = page !in UNROLLED_PAGES
-    Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
-        SecondaryScrollableTabRow(
-            selectedTabIndex = pages.indexOf(page).coerceAtLeast(0),
-            modifier = Modifier.weight(1f),
-            containerColor = Color.Transparent,
-            edgePadding = 8.dp,
-            divider = {},
-        ) {
-            pages.forEachIndexed { i, shown ->
-                Tab(
-                    selected = shown == page,
-                    onClick = { onJump(i) },
-                    text = { Text(shown.title, maxLines = 1) },
-                )
-            }
-        }
+    Row(Modifier.fillMaxWidth().heightIn(min = GeodeSpacing.TouchTarget), verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            if (changed == 0) {
+                stringResource(R.string.customize_summary_as_styled)
+            } else {
+                pluralStringResource(R.plurals.customize_summary_changed, changed, changed)
+            },
+            modifier = Modifier.weight(1f).padding(start = GeodeSpacing.L),
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
         IconButton(onClick = { onSearching(!searching) }) {
             Icon(
                 if (searching) Icons.Filled.Close else Icons.Filled.Search,
@@ -424,6 +652,7 @@ private fun CustomizeHeader(
         )
     }
     if (confirmReset) {
+        val sounds = LocalUiSounds.current
         AlertDialog(
             onDismissRequest = { confirmReset = false },
             title = { Text("Reset everything?") },
@@ -433,8 +662,10 @@ private fun CustomizeHeader(
                         "Undo brings them back, and saved presets are not touched.",
                 )
             },
+            // Dialog actions are text buttons (M3); the confirm keeps the old button's confirm sound.
             confirmButton = {
-                CrystalButton(onClick = {
+                TextButton(onClick = {
+                    sounds.play(UiSound.CONFIRM)
                     visualsViewModel.resetAllCustomize()
                     confirmReset = false
                 }) { Text("Reset") }
@@ -450,13 +681,19 @@ private fun SavePresetDialog(
     onSave: (String) -> Unit,
 ) {
     var name by remember { mutableStateOf("") }
+    val sounds = LocalUiSounds.current
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Save as preset") },
         text = {
             OutlinedTextField(value = name, onValueChange = { name = it }, singleLine = true, placeholder = { Text("Preset name") })
         },
-        confirmButton = { CrystalButton(enabled = name.isNotBlank(), onClick = { onSave(name.trim()) }) { Text("Save") } },
+        confirmButton = {
+            TextButton(enabled = name.isNotBlank(), onClick = {
+                sounds.play(UiSound.CONFIRM)
+                onSave(name.trim())
+            }) { Text("Save") }
+        },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     )
 }

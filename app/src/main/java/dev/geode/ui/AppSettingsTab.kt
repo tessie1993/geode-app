@@ -52,7 +52,6 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.unit.dp
 import dev.geode.R
 import dev.geode.model.TutorialChapter
 import dev.geode.ui.pro.GoProSettingsRow

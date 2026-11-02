@@ -41,13 +41,13 @@ import dev.geode.playback.PlaybackService
 /**
  * Picture-in-picture state shared across the Activity/Compose boundary.
  *
- * [VisualizerScreen] cannot see the Activity (it only sees a [Context]), and [MainActivity]
- * cannot see Compose state (`appState.expanded` lives inside `AppRoot`'s composition), so both
- * sides read and write this object instead of one holding a reference to the other. Every field
- * is written by exactly one side: [visualizerShowing] by `AppRoot` (true only while
- * [VisualizerScreen] is composed), [inPictureInPicture] by the Activity's own lifecycle callback,
- * and [canvasBoundsPx] by the visualizer canvas itself, which is the only place that knows where
- * it is on screen.
+ * Compose cannot see the Activity (it only sees a [Context]), and [MainActivity] cannot see
+ * Compose state (the current destination lives inside `AppRoot`'s composition), so both sides
+ * read and write this object instead of one holding a reference to the other. Every field is
+ * written by exactly one side: [visualizerShowing] by `AppRoot` (true only while Visuals shows
+ * the visual on this screen), [inPictureInPicture] by the Activity's own lifecycle callback, and
+ * [canvasBoundsPx] by `AppRoot` around Visuals, whose visual fills it. While [inPictureInPicture],
+ * Visuals hides its sheet and the shell its chrome, so the window shows the visual alone.
  */
 internal object VisualizerPipCoordinator {
     var visualizerShowing by mutableStateOf(false)
@@ -193,7 +193,7 @@ class MainActivity : ComponentActivity() {
     }
 
     /**
-     * A finger swiping home while the visualizer is up and something is playing is the platform's
+     * A finger swiping home while Visuals is up and something is playing is the platform's
      * own signal that this is exactly the moment PiP exists for. On S+ this is redundant with
      * `setAutoEnterEnabled` (kept in sync by [refreshPipParams]), but on 26-30 the platform has no
      * auto-enter of its own, so this is the only path there is.
@@ -213,14 +213,14 @@ class MainActivity : ComponentActivity() {
         VisualizerPipCoordinator.inPictureInPicture = isInPictureInPictureMode
     }
 
-    /** Called by the visualizer's own PiP control, and by [onUserLeaveHint] below S. */
+    /** Called by [onUserLeaveHint] below S; on S+ the platform enters by itself ([refreshPipParams]). */
     internal fun enterVisualizerPip() {
         runCatching { enterPictureInPictureMode(buildPipParams()) }
     }
 
     /**
-     * Keeps the auto-enter flag and the play/pause remote action current while the visualizer is
-     * on screen. Cheap to call often: [PictureInPictureParams] is immutable, so this just replaces
+     * Keeps the auto-enter flag and the play/pause remote action current while Visuals is on
+     * screen. Cheap to call often: [PictureInPictureParams] is immutable, so this just replaces
      * it — there is no running PiP session to disturb unless the platform is already showing one.
      */
     internal fun refreshPipParams() {

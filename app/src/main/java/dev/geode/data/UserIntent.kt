@@ -4,16 +4,12 @@ import androidx.annotation.StringRes
 import dev.geode.R
 
 /**
- * What the person opening the app uses it for.
+ * What the person opening the app said they use it for. Retired: the profile is gone.
  *
- * Decides two things: which tab the app lands on, and whether Studio appears in the navigation
- * at all. Someone who only wants to listen should not have to walk past a render queue to reach
- * their music.
- *
- * First run used to ASK this, as its final step. It no longer does — the question made someone
- * categorise themselves before they had seen a single thing to categorise, and the honest answer
- * on a fresh install is almost always "I don't know yet". Everyone starts on [BOTH], which hides
- * nothing, and Settings > Behaviour narrows it once there is something to narrow.
+ * Everyone gets the whole app, Studio included, and no screen asks this any more (first run
+ * never did after it stopped being a question, and the Behaviour picker leaves with the Settings
+ * restructure). The enum stays so a value saved by an older build still parses in [GuiPrefs] and
+ * a backup that carries it still restores; [showsStudio] is true whatever was saved.
  */
 enum class UserIntent(
     @param:StringRes val labelRes: Int,
@@ -24,6 +20,6 @@ enum class UserIntent(
     BOTH(R.string.settings_intent_both, R.string.settings_intent_both_detail),
     ;
 
-    /** Studio is hidden for pure listeners; everyone else gets it. */
-    val showsStudio: Boolean get() = this != LISTENING
+    /** Studio is always shown: nobody is filed as "only listening" any more. */
+    val showsStudio: Boolean get() = true
 }

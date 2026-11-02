@@ -19,6 +19,7 @@ import dev.geode.data.PerformanceStore
 import dev.geode.data.PresetStore
 import dev.geode.data.ThemeStore
 import dev.geode.pro.ProFeature
+import dev.geode.render.HandMask
 import dev.geode.render.VisualizerRenderer
 import dev.geode.render.VisualizerView
 import dev.geode.util.bestEffort
@@ -267,6 +268,7 @@ class VisualizerDreamService : DreamService() {
         engine.lfoEngine.configs = modulation.load()
         engine.adsrEngine.configs = modulation.loadAdsrs()
         engine.reactions = modulation.loadReactions()
+        HandMask.set(modulation.loadHandMask())
     }
 
     private companion object {

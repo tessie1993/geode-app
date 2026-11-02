@@ -170,6 +170,13 @@ object PerformanceTake {
     }
 
     /** A recorded take read back; [stateAt] takes take time (ms from the take's start). */
+    /** One look switch in a take: at take time [atMs], style [sceneId] with preset [milkPath]. */
+    data class StyleChange(
+        val atMs: Long,
+        val sceneId: String,
+        val milkPath: String?,
+    )
+
     class Timeline(
         json: String,
     ) {
@@ -210,6 +217,27 @@ object PerformanceTake {
         }
 
         fun lastEventMs(): Long = events.optJSONObject(events.length() - 1)?.optLong("t", 0L) ?: 0L
+
+        /**
+         * Every switch of style or MilkDrop preset in the take, in order, each with the full look it
+         * switches to (take time, style, preset). An export hands them to the native renderer, which
+         * times them (`core/viz/StyleSchedule`), so a take renders every style it was performed in.
+         */
+        fun styleChanges(): List<StyleChange> {
+            val out = mutableListOf<StyleChange>()
+            var scene = ""
+            var milk: String? = null
+            for (i in 0 until events.length()) {
+                val e = events.optJSONObject(i) ?: continue
+                val s = e.optString("s", "").takeIf { it.isNotEmpty() }
+                val m = e.optString("m", "").takeIf { it.isNotEmpty() }
+                if (s == null && m == null) continue
+                s?.let { scene = it }
+                m?.let { milk = it }
+                if (scene.isNotEmpty()) out += StyleChange(e.optLong("t", 0L), scene, milk)
+            }
+            return out
+        }
 
         private fun rewind() {
             cursor = 0

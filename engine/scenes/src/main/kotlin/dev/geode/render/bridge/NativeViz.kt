@@ -243,6 +243,19 @@ class NativeViz(
 
     fun setScene(sceneId: String): Boolean = handle != 0L && GeodeNative.vizSetScene(handle, sceneId)
 
+    /** An export segment's style switches; see [GeodeNative.vizSetStyleSchedule]. */
+    fun setStyleSchedule(schedule: StyleSchedule) {
+        if (handle == 0L || schedule.isEmpty) return
+        GeodeNative.vizSetStyleSchedule(
+            handle,
+            schedule.cues.map { it.atMs.toDouble() }.toDoubleArray(),
+            schedule.cues.map { it.sceneId }.toTypedArray(),
+            schedule.cues.map { it.milkPath.orEmpty() }.toTypedArray(),
+            schedule.beatCutIds.toTypedArray(),
+            schedule.everyBeats,
+        )
+    }
+
     fun warmTransition(id: String) {
         if (handle != 0L) GeodeNative.vizWarmTransition(handle, id)
     }

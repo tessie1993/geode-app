@@ -31,6 +31,7 @@
 #include "viz/Scene.hpp"
 #include "viz/ScenePrep.hpp"
 #include "viz/SceneRegistry.hpp"
+#include "viz/StyleSchedule.hpp"
 #include "viz/ShaderSource.hpp"
 #include "viz/ThermalGovernor.hpp"
 #include "viz/TouchField.hpp"
@@ -118,6 +119,9 @@ public:
     void onSurfaceCreated();
     void surfaceChanged(int width, int height);
     bool setScene(const std::string& sceneId);
+    // Export (Studio 2D): the styles this segment switches to, by render time and by beat
+    // (StyleSchedule.hpp). Latched; the next frame starts it from its beginning. Empty clears it.
+    void setStyleSchedule(std::vector<StyleCue> cues, std::vector<std::string> beatCutIds, int everyBeats);
     void warmTransition(const std::string& id);
     void cut();
     void render(double timeSeconds, GLuint targetFbo);
@@ -138,6 +142,8 @@ private:
     void dropScene(const std::string& id);
     std::unique_ptr<Scene> buildScene(const std::string& id);
     float beginFrame(double timeSeconds);
+    // Steps styleSchedule_ once per frame (after the sound engine) and requests its change, if any.
+    void applyStyleSchedule();
     void applyRenderScale();
     static float supersampleFactor(int width, int height);
     Scene* resolveActiveScene();
@@ -277,6 +283,9 @@ private:
     // compiled. A rebuilt scene is seeded with both (buildScene).
     std::string lastGoodMilkPreset_;
     std::string milkPresetRequest_;
+    // setStyleSchedule's latest schedule, moved into styleSchedule_ by the GL thread (stateLock_).
+    std::optional<StyleSchedule> styleScheduleRequest_;
+    StyleSchedule styleSchedule_;
     bool milkReloadRequested_ = false;
     std::string milkTextureDir_;
     bool milkTextureDirDirty_ = false;

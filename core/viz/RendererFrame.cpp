@@ -63,6 +63,7 @@ float Renderer::beginFrame(double timeSeconds) {
         }
         if (sound_) sound_->step(dt, soundFrame_);
     }
+    applyStyleSchedule();
     std::vector<std::pair<std::string, std::string>> pending;
     {
         std::lock_guard<std::mutex> lock(stateLock_);

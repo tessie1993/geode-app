@@ -40,7 +40,10 @@ import dev.geode.ui.theme.GeodeSpacing
 import dev.geode.ui.theme.StoneIcon
 import dev.geode.ui.theme.StoneIconArt
 
-/** The smart playlists under the hand-made ones (beside them in a wide pane): each row plays its current matches; the editor writes rules. */
+/**
+ * The smart playlists under the hand-made ones (beside them in a wide pane): each row plays its
+ * current matches; the editor writes rules.
+ */
 @Composable
 internal fun SmartPlaylistsSection(viewModel: LibraryViewModel) {
     val library by viewModel.library.collectAsStateWithLifecycle()

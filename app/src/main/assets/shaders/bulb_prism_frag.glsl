@@ -141,7 +141,7 @@ void main() {
 
     // Black sky, and a thin lead outline round each stone's silhouette.
     vec3 col = vec3(0.006, 0.006, 0.010);
-    col = mix(col, vec3(0.0), smoothstep(0.03, 0.0, near) * 0.8);
+    col = mix(col, vec3(0.0), (1.0 - smoothstep(0.0, 0.03, near)) * 0.8);
 
     // The pane coordinate for every pixel (misses carry the default trap):
     // fwidth needs all four pixels of a quad, so it is taken outside the hit

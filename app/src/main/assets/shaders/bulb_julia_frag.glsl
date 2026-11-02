@@ -132,7 +132,7 @@ void main() {
         float spread = 0.9 + 0.5 * treble;
         float fPoint = sqrt(trap.x);
         float fPlane = smoothstep(0.0, 0.6, trap.y);
-        float fAxis = smoothstep(0.35, 0.0, trap.z);
+        float fAxis = (1.0 - smoothstep(0.0, 0.35, trap.z));
         vec3 field = tone(hue + spread * (0.8 * fPoint + 0.35 * trap.w));
         field = mix(field, tone(hue + 0.5 + 0.3 * fPlane), 0.35 * (1.0 - fPlane));
         field = mix(field, vec3(1.0, 0.97, 0.88), 0.45 * fAxis);

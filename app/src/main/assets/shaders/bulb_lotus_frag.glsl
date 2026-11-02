@@ -163,7 +163,7 @@ void main() {
     if (hitT > 0.0) {
         // Emission only: the heart, the thin edges and the folds.
         float heart = exp(-trap.z * 4.0);
-        float thin = smoothstep(0.4, 0.0, trap.y);
+        float thin = (1.0 - smoothstep(0.0, 0.4, trap.y));
         float fold = smoothstep(0.25, 0.85, used / max(uSteps, 1.0));
         vec3 petal = mix(tone(hue + 0.35 * trap.y + 0.25 * sqrt(trap.x)), vec3(1.0), 0.3);
         col = petal * (0.48 + 0.30 * thin + 0.25 * heart);

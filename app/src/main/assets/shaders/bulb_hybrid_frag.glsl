@@ -175,7 +175,7 @@ void main() {
         body = mix(body, cobalt, brush * 0.85);
         body = mix(body, tone(hue + 0.3), rings * 0.45);
         // Ink: where a wall turns away from the eye, and in the deepest creases.
-        float edge = smoothstep(0.30, 0.18, ndv);
+        float edge = (1.0 - smoothstep(0.18, 0.30, ndv));
         float crease = smoothstep(0.55, 0.75, used / max(uSteps, 1.0));
         body = mix(body, tone(hue + 0.5) * 0.25, max(edge, crease));
         // Distance fades to white, not to dark.

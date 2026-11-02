@@ -44,9 +44,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.graphics.BlendMode
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.geometry.RoundRect
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathFillType
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.Layout
@@ -150,20 +150,24 @@ internal fun TourPointer(
                     origin = c.positionInWindow() + Offset(onScreen[0].toFloat(), onScreen[1].toFloat())
                 },
         ) {
+            // One even-odd path: the scrim with the hole cut out, no offscreen layer.
+            val scrim = remember { Path() }
             Canvas(
                 Modifier
                     .fillMaxSize()
-                    .graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)
                     .clearAndSetSemantics { }
                     .pointerInput(hole) { detectTapGestures { p -> if (hole?.contains(p) == true) primary() } },
             ) {
-                drawRect(GeodeColors.Scrim.copy(alpha = SCRIM_ALPHA))
+                scrim.reset()
+                scrim.fillType = PathFillType.EvenOdd
+                scrim.addRect(Rect(Offset.Zero, size))
                 hole?.let {
                     // One rule for every control: a pill for a nav item, a circle for an icon, the
                     // glass corner for anything big.
                     val corner = CornerRadius(minOf(it.height / 2f, GeodeRadius.Floating.toPx()))
-                    drawRoundRect(Color.Black, it.topLeft, it.size, corner, blendMode = BlendMode.Clear)
+                    scrim.addRoundRect(RoundRect(it, corner))
                 }
+                drawPath(scrim, GeodeColors.Scrim.copy(alpha = SCRIM_ALPHA))
             }
             PointerPlacement(hole) {
                 TourCard(

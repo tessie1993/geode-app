@@ -13,9 +13,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.Button
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -29,6 +31,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
@@ -62,7 +65,16 @@ internal fun TutorialSettingsTab(
     var resetNote by rememberSaveable { mutableStateOf(false) }
     SettingsTabColumn {
         item {
-            SettingsGroup(stringResource(R.string.tutorials_group)) {
+            Column(
+                Modifier.padding(horizontal = GeodeSpacing.L, vertical = GeodeSpacing.S),
+                verticalArrangement = Arrangement.spacedBy(GeodeSpacing.S),
+            ) {
+                Text(
+                    stringResource(R.string.tutorials_group),
+                    Modifier.semantics { heading() },
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
                 Text(
                     stringResource(R.string.tutorials_progress, done.size, TourChapters.size),
                     style = MaterialTheme.typography.bodySmall,
@@ -74,7 +86,7 @@ internal fun TutorialSettingsTab(
                     color = MaterialTheme.colorScheme.primary,
                     trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
                 )
-                CrystalButton(onClick = { onPlay(TourChapters) }, modifier = Modifier.fillMaxWidth()) {
+                Button(onClick = { onPlay(TourChapters) }, modifier = Modifier.fillMaxWidth()) {
                     Text(stringResource(R.string.tutorials_play_all))
                 }
                 Column {
@@ -82,13 +94,12 @@ internal fun TutorialSettingsTab(
                         ChapterRow(chapter, chapter in done, onClick = { onPlay(listOf(chapter)) })
                     }
                 }
-                CrystalButton(
+                TextButton(
                     onClick = {
                         onReset()
                         GestureTips.reset(context)
                         resetNote = true
                     },
-                    filled = false,
                     modifier = Modifier.fillMaxWidth(),
                 ) { Text(stringResource(R.string.tutorials_reset)) }
                 if (resetNote) {

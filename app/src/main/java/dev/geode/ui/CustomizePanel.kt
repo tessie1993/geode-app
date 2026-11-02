@@ -37,6 +37,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -97,9 +98,10 @@ import kotlin.math.abs
  *
  * Deeper pages ([CustomizeSubPage]) still drill in: the cards give way to the page inside the same
  * sheet, with ← and its title, and back returns to the same card, because the list's scroll state
- * and the open card live here, above both. With [nav] (the Visuals route) each deeper page is an
- * [VisualsKey.AdvancedGroup] step on the route, so system back retraces it; without it the panel
- * keeps the open page itself.
+ * and the open card live here, above both. With [nav] (the Visuals route) the open card is a
+ * [VisualsKey.CustomizeCard] and each deeper page an [VisualsKey.AdvancedGroup] on top of it, so
+ * system back retraces them (page, then card, then the tab before) and the true history of UI V2
+ * holds across cards; without it the panel keeps the open card and page itself.
  *
  * The free tier is applied here once ([ProLock]): Macros in full, one headline control on each other
  * simple page (dev.geode.pro.FreeTier), nothing deeper. A locked slider can still be tried: it moves
@@ -119,10 +121,21 @@ internal fun CustomizePanel(
     var searching by rememberSaveable { mutableStateOf(false) }
     var showTips by rememberSaveable { mutableStateOf(false) }
     var localSub by rememberSaveable { mutableStateOf<String?>(null) }
-    // Collapsed by default; one card open at a time, kept by name across rotation.
-    var openCard by rememberSaveable { mutableStateOf<String?>(null) }
+    // Collapsed by default; one card open at a time, kept by name across rotation. With [nav] the open card is a step
+    // on the Visuals route, so system back collapses it and a return from another tab finds it open.
+    var localCard by rememberSaveable { mutableStateOf<String?>(null) }
+    val openCard = if (nav != null) nav.openCard else localCard
+    val setCard: (String?) -> Unit = { name ->
+        when {
+            nav == null -> localCard = name
+            name != null -> nav.openCustomizeCard(name)
+            else -> nav.closeCustomizeCard()
+        }
+    }
     val pages = CustomizeTab.PANEL.filter { it != CustomizeTab.STYLE || styleTabApplies(viz.sceneId) }
     val expanded = pages.firstOrNull { it.name == openCard }
+    // A saved card the panel no longer shows (the style changed) would be a back step with nothing to undo.
+    LaunchedEffect(openCard, expanded) { if (openCard != null && expanded == null) setCard(null) }
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
     val unlocked = gate.allows(ProFeature.ADVANCED_CUSTOMIZATION)
@@ -219,7 +232,7 @@ internal fun CustomizePanel(
                                     expanded = shown == expanded,
                                     onToggle = {
                                         val opening = shown != expanded
-                                        openCard = if (opening) shown.name else null
+                                        setCard(if (opening) shown.name else null)
                                         if (opening) scope.launch { listState.animateScrollToItem(i) }
                                     },
                                     onOpen = open,

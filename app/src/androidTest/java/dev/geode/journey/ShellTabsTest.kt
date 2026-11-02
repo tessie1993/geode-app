@@ -53,7 +53,8 @@ class ShellTabsTest {
         compose.waitForIdle()
 
         compose.tap("Settings")
-        compose.awaitNode(hasText("Export & save"))
+        // The first group: always on screen under the collapsing top app bar, on any phone height.
+        compose.awaitNode(hasText("Playback & audio"))
 
         compose.tap("Player")
         compose.awaitEmptyPlayer()

@@ -14,6 +14,7 @@ import dev.geode.audio.AudioFxPresets
 import dev.geode.audio.PcmRingBuffer
 import dev.geode.audio.TapRenderersFactory
 import dev.geode.audio.dsp.NativeDspProcessor
+import dev.geode.data.BehaviourStore
 import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.PlayerPrefs
 import dev.geode.data.PlayerPrefsStore
@@ -108,7 +109,20 @@ class PlaybackSession internal constructor(
 
     val replayGain = ReplayGain(context.contentResolver, scope) { audioFx.setGainDb(it) }
 
-    val sleepTimer = SleepTimer(player, scope)
+    /** The UI's pause/skip and sleep fades, multiplied by [crossfade]'s gain into the one player volume. */
+    private var uiVolume = 1f
+
+    private var crossfadeGain = 1f
+
+    val sleepTimer = SleepTimer(player, scope, ::setUiVolume)
+
+    private val crossfade =
+        TrackCrossfade(player, scope) { gain ->
+            crossfadeGain = gain
+            pushVolume()
+        }
+
+    private val headphones = HeadphoneAutoplay(context, player)
 
     private val autoDirector = AutoDirectorFeed(context.applicationContext, player, scope)
 
@@ -126,15 +140,28 @@ class PlaybackSession internal constructor(
     init {
         player.addListener(replayGain)
         player.addListener(autoDirector)
+        player.addListener(crossfade)
         dev.geode.audio.AudioBus.soundInput = soundInput
         // The saved options go on here, not only when the UI attaches: a session the service starts
         // alone (a headset button, Android Auto or System UI resuming playback) has no PlayerSession,
         // and without this it would ignore pause-on-unplug, ReplayGain, shuffle and repeat until the
         // app was opened. The UI applies the same prefs again when it attaches, which is harmless.
         val saved = PlayerPrefsStore(prefsFiles.player).load()
-        player.shuffleModeEnabled = saved.shuffle
-        player.repeatMode = saved.repeatMode
+        if (BehaviourStore(prefsFiles.general).load().rememberShuffleRepeat) {
+            player.shuffleModeEnabled = saved.shuffle
+            player.repeatMode = saved.repeatMode
+        }
         applyPrefs(saved)
+    }
+
+    /** The UI's own fades (pause, resume, skip, sleep) set this; [crossfade] multiplies in on top. */
+    fun setUiVolume(volume: Float) {
+        uiVolume = volume
+        pushVolume()
+    }
+
+    private fun pushVolume() {
+        player.volume = (uiVolume * crossfadeGain).coerceIn(0f, 1f)
     }
 
     /** Everything in [PlayerPrefs] that the player, ReplayGain or the USB route carry out. */
@@ -144,6 +171,7 @@ class PlaybackSession internal constructor(
         player.setHandleAudioBecomingNoisy(p.pauseOnNoisy)
         replayGain.configure(p.replayGainMode, p.replayGainPreampDb, p.replayGainClipGuard)
         bitPerfect.setEnabled(p.bitPerfect, player)
+        crossfade.crossfadeMs = p.crossfadeMs
     }
 
     val playbackWanted: Boolean
@@ -159,6 +187,8 @@ class PlaybackSession internal constructor(
         audioFx.release()
         player.removeListener(replayGain)
         player.removeListener(autoDirector)
+        player.removeListener(crossfade)
+        headphones.release()
         autoDirector.release()
         bitPerfect.setEnabled(false, player)
         player.release()

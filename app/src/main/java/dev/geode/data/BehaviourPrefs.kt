@@ -24,12 +24,6 @@ enum class VisualsOrientation {
     LANDSCAPE,
 }
 
-/** What the lock screen and the media notification show behind the track. */
-enum class LockScreenPicture {
-    ARTWORK,
-    LIVE_VISUAL,
-}
-
 /** The extra buttons the media notification carries beside play, previous and next. */
 enum class NotificationButton {
     SHUFFLE,
@@ -123,12 +117,12 @@ data class BehaviourPrefs(
     val visualsOrientation: VisualsOrientation = VisualsOrientation.AUTO_ROTATE,
     /** Keeps the screen awake while Visuals is on screen; Player's own keep-screen-on is apart from it. */
     val keepScreenOnVisuals: Boolean = true,
+    /** Plays when headphones or a Bluetooth audio device connect, while a track is loaded and paused. */
     val startOnHeadphones: Boolean = false,
     val autoFullscreen: Boolean = false,
-    val resumeOnLaunch: Boolean = false,
+    // "Resume last track on launch" is PlayerPrefs.autoResume (Settings › Playback until 3B moves its row).
     /** Back twice to leave the app. */
     val confirmExit: Boolean = false,
-    val lockScreenPicture: LockScreenPicture = LockScreenPicture.ARTWORK,
     val notificationButtons: Set<NotificationButton> = setOf(NotificationButton.SHUFFLE, NotificationButton.REPEAT),
     val volumeKeysOnVisuals: VolumeKeysAction = VolumeKeysAction.VOLUME,
     val shake: ShakeAction = ShakeAction.OFF,
@@ -184,9 +178,7 @@ class BehaviourStore(
             keepScreenOnVisuals = prefs.getBoolean(KEY_KEEP_SCREEN_ON_VISUALS, d.keepScreenOnVisuals),
             startOnHeadphones = prefs.getBoolean(KEY_START_ON_HEADPHONES, d.startOnHeadphones),
             autoFullscreen = prefs.getBoolean(KEY_AUTO_FULLSCREEN, d.autoFullscreen),
-            resumeOnLaunch = prefs.getBoolean(KEY_RESUME_ON_LAUNCH, d.resumeOnLaunch),
             confirmExit = prefs.getBoolean(KEY_CONFIRM_EXIT, d.confirmExit),
-            lockScreenPicture = enumOf(KEY_LOCK_SCREEN_PICTURE, d.lockScreenPicture),
             notificationButtons =
                 prefs
                     .getStringSet(KEY_NOTIFICATION_BUTTONS, null)
@@ -218,9 +210,7 @@ class BehaviourStore(
             putBoolean(KEY_KEEP_SCREEN_ON_VISUALS, b.keepScreenOnVisuals)
             putBoolean(KEY_START_ON_HEADPHONES, b.startOnHeadphones)
             putBoolean(KEY_AUTO_FULLSCREEN, b.autoFullscreen)
-            putBoolean(KEY_RESUME_ON_LAUNCH, b.resumeOnLaunch)
             putBoolean(KEY_CONFIRM_EXIT, b.confirmExit)
-            putString(KEY_LOCK_SCREEN_PICTURE, b.lockScreenPicture.name)
             putStringSet(KEY_NOTIFICATION_BUTTONS, b.notificationButtons.mapTo(mutableSetOf()) { it.name })
             putString(KEY_VOLUME_KEYS, b.volumeKeysOnVisuals.name)
             putString(KEY_SHAKE, b.shake.name)
@@ -256,9 +246,7 @@ class BehaviourStore(
         const val KEY_KEEP_SCREEN_ON_VISUALS = "behaviour_keep_screen_on_visuals"
         const val KEY_START_ON_HEADPHONES = "behaviour_start_on_headphones"
         const val KEY_AUTO_FULLSCREEN = "behaviour_auto_fullscreen"
-        const val KEY_RESUME_ON_LAUNCH = "behaviour_resume_on_launch"
         const val KEY_CONFIRM_EXIT = "behaviour_confirm_exit"
-        const val KEY_LOCK_SCREEN_PICTURE = "behaviour_lock_screen_picture"
         const val KEY_NOTIFICATION_BUTTONS = "behaviour_notification_buttons"
         const val KEY_VOLUME_KEYS = "behaviour_volume_keys_visuals"
         const val KEY_SHAKE = "behaviour_shake"

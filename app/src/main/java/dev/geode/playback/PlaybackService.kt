@@ -6,6 +6,7 @@ import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.os.Build
+import android.os.Bundle
 import androidx.annotation.OptIn
 import androidx.core.content.ContextCompat
 import androidx.media3.common.MediaItem
@@ -17,7 +18,9 @@ import androidx.media3.session.DefaultMediaNotificationProvider
 import androidx.media3.session.LibraryResult
 import androidx.media3.session.MediaLibraryService
 import androidx.media3.session.MediaSession
+import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionError
+import androidx.media3.session.SessionResult
 import com.google.common.collect.ImmutableList
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
@@ -25,18 +28,28 @@ import dev.geode.RingLog
 import dev.geode.data.HistoryStore
 import dev.geode.data.SessionStore
 import dev.geode.widget.WidgetPublisher
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 
 @OptIn(UnstableApi::class)
 class PlaybackService : MediaLibraryService() {
     private var session: MediaLibrarySession? = null
     private var artworkLoader: SessionBitmapLoader? = null
     private var widget: WidgetPublisher? = null
+    private var buttons: NotificationButtons? = null
+    private var queueEnd: QueueEnd? = null
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
     override fun onCreate() {
         super.onCreate()
         val loader = SessionBitmapLoader(this)
         artworkLoader = loader
         val player = PlaybackEngine.acquireForService(this).player
+        val tree = LibraryTree(this)
+        val notificationButtons = NotificationButtons(this, player).also { buttons = it }
+        queueEnd = QueueEnd(this, player, tree, scope).also { player.addListener(it) }
         // Media3's default status-bar icon is a generic note; ours is the mark's silhouette.
         setMediaNotificationProvider(
             DefaultMediaNotificationProvider.Builder(this).build().apply {
@@ -45,8 +58,9 @@ class PlaybackService : MediaLibraryService() {
         )
         session =
             MediaLibrarySession
-                .Builder(this, player, LibraryCallback(this, LibraryTree(this)))
+                .Builder(this, player, LibraryCallback(this, tree, notificationButtons))
                 .setSessionActivity(openAppIntent())
+                .setMediaButtonPreferences(notificationButtons.buttons())
                 .setBitmapLoader(CacheBitmapLoader(loader))
                 .build()
                 // The app plays through PlaybackEngine directly, so no MediaController ever
@@ -55,6 +69,8 @@ class PlaybackService : MediaLibraryService() {
                 // startForeground, and the startForegroundService() from ensureRunning() ends in
                 // ForegroundServiceDidNotStartInTimeException a few seconds into every track.
                 .also { addSession(it) }
+        session?.let(notificationButtons::attach)
+        player.addListener(notificationButtons)
         widget =
             WidgetPublisher(this, player).also {
                 player.addListener(it)
@@ -66,6 +82,7 @@ class PlaybackService : MediaLibraryService() {
     private class LibraryCallback(
         private val context: Context,
         private val tree: LibraryTree,
+        private val buttons: NotificationButtons,
     ) : MediaLibrarySession.Callback {
         /**
          * Who may browse the library, and who may only press play: [LibraryAccess] decides,
@@ -80,13 +97,13 @@ class PlaybackService : MediaLibraryService() {
             if (mayBrowse(controller)) {
                 MediaSession.ConnectionResult
                     .AcceptedResultBuilder()
-                    .setAvailableSessionCommands(MediaSession.ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS)
+                    .setAvailableSessionCommands(buttons.commands(MediaSession.ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS))
                     .setAvailablePlayerCommands(MediaSession.ConnectionResult.DEFAULT_PLAYER_COMMANDS)
                     .build()
             } else {
                 MediaSession.ConnectionResult
                     .AcceptedResultBuilder()
-                    .setAvailableSessionCommands(MediaSession.ConnectionResult.DEFAULT_UNTRUSTED_SESSION_COMMANDS)
+                    .setAvailableSessionCommands(buttons.commands(MediaSession.ConnectionResult.DEFAULT_UNTRUSTED_SESSION_COMMANDS))
                     .setAvailablePlayerCommands(TRANSPORT_ONLY)
                     .build()
             }
@@ -127,6 +144,16 @@ class PlaybackService : MediaLibraryService() {
             } else {
                 pm.getInstallerPackageName(pkg)
             }
+
+        /** The media notification's extra buttons ([NotificationButtons]); anything else is not ours. */
+        override fun onCustomCommand(
+            session: MediaSession,
+            controller: MediaSession.ControllerInfo,
+            customCommand: SessionCommand,
+            args: Bundle,
+        ): ListenableFuture<SessionResult> =
+            buttons.onCustomCommand(customCommand)?.let { Futures.immediateFuture(it) }
+                ?: super.onCustomCommand(session, controller, customCommand, args)
 
         @OptIn(UnstableApi::class)
         override fun onPlaybackResumption(
@@ -249,6 +276,14 @@ class PlaybackService : MediaLibraryService() {
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaLibrarySession? = session
 
     override fun onDestroy() {
+        session?.player?.let { player ->
+            buttons?.let(player::removeListener)
+            queueEnd?.let(player::removeListener)
+        }
+        buttons?.detach()
+        buttons = null
+        queueEnd = null
+        scope.cancel()
         widget?.let { publisher ->
             session?.player?.removeListener(publisher)
             publisher.clear()

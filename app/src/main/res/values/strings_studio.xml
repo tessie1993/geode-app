@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Studio shell (part 2A): the tabs, Render's stack, My videos and Edit's home. -->
+<resources>
+    <string name="studio_my_videos">My videos</string>
+    <string name="studio_edit_pro">Edit ♛</string>
+    <!-- What TalkBack says for ♛. -->
+    <string name="studio_pro_spoken">Pro</string>
+
+    <!-- Studio › Render -->
+    <string name="render_group_source">Source</string>
+    <string name="render_group_format">Format</string>
+    <string name="render_destination">Made for</string>
+    <string name="render_destination_custom">Custom</string>
+    <string name="render_length_loop">Loop</string>
+    <string name="render_pro_mark">" ♛"</string>
+    <!-- The Render bar's summary: quality · frame rate · where it is saved. -->
+    <string name="render_summary">%1$s · %2$s · %3$s</string>
+    <string name="render_pro_title">Part of Pro</string>
+    <string name="render_pro_body">4K and 60 fps come with Pro. You can render this video now at the free limits instead: 1080p, 30 fps, the first minute, with the watermark.</string>
+    <string name="render_pro_unlock">Go Pro</string>
+    <string name="render_pro_free">Render free version</string>
+    <string name="render_keep_title">Keep it as a project too?</string>
+    <string name="render_keep_body">A project keeps the song and this look, so you can open the video in Edit later.</string>
+    <string name="render_keep_yes">Keep</string>
+    <string name="render_keep_no">Just the video</string>
+    <string name="render_keep_remember">Don\'t ask again</string>
+
+    <!-- Studio › My videos -->
+    <string name="my_videos_all">All</string>
+    <string name="my_videos_renders">Renders</string>
+    <string name="my_videos_takes">Takes</string>
+    <string name="my_videos_empty">Nothing here yet. Render a video or record a take on Visuals.</string>
+    <string name="my_videos_deleted">Deleted %1$s</string>
+    <string name="my_videos_undo">Undo</string>
+    <string name="my_videos_kind_take">Take</string>
+    <string name="my_videos_kind_render">Video</string>
+    <string name="my_videos_play">Play</string>
+    <string name="my_videos_share">Share</string>
+    <string name="my_videos_render">Render</string>
+    <string name="my_videos_open_in_edit">Open in Edit</string>
+    <string name="my_videos_open_in_edit_pro">Open in Edit ♛</string>
+    <string name="my_videos_delete">Delete</string>
+
+    <!-- Studio › Edit's home -->
+    <string name="edit_home_new">New project</string>
+    <string name="edit_home_from_playing">What\'s playing</string>
+    <string name="edit_home_from_take">A take</string>
+    <string name="edit_home_from_template">A template</string>
+    <string name="edit_home_from_video">A video on the phone</string>
+    <string name="edit_home_blank">Blank</string>
+    <string name="edit_home_recent">Recent</string>
+    <string name="edit_home_all">All projects</string>
+    <string name="edit_home_search">Search projects</string>
+    <string name="edit_home_sort_edited">Last edited</string>
+    <string name="edit_home_sort_name">Name</string>
+    <string name="edit_home_empty">No projects yet.</string>
+    <string name="edit_home_more_for">More options for %1$s</string>
+    <string name="edit_home_name">Name</string>
+    <string name="edit_home_nothing_playing">Play a song to start from it or from a template.</string>
+    <string name="edit_home_no_takes">No takes yet: record one on Visuals.</string>
+    <string name="edit_home_rename">Rename</string>
+    <string name="edit_home_delete">Delete</string>
+    <string name="edit_home_delete_title">Delete \"%1$s\"?</string>
+    <string name="edit_home_delete_body">The project goes. Videos already rendered from it stay where they were saved.</string>
+    <plurals name="edit_home_videos">
+        <item quantity="one">%d video</item>
+        <item quantity="other">%d videos</item>
+    </plurals>
+</resources>

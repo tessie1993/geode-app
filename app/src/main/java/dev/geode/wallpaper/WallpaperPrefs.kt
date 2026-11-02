@@ -33,9 +33,12 @@ data class WallpaperSettings(
     val pauseInBatterySaver: Boolean = true,
     /**
      * Hear whatever any app is playing, through a `Visualizer` on the output mix. Only takes
-     * effect once the user has granted the microphone permission that API requires.
+     * effect once the user has granted the microphone permission that API requires. Off until
+     * the user turns it on (owner, 2026-11-02, after the Play policy audit): the permission was
+     * granted for Live input, so using it here is the user's choice, and the privacy policy
+     * names it.
      */
-    val hearOtherApps: Boolean = true,
+    val hearOtherApps: Boolean = false,
     val homeLook: WallpaperLook = WallpaperLook.FULL,
     val lockLook: WallpaperLook = WallpaperLook.FULL,
 )

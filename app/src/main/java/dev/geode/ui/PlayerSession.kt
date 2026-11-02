@@ -595,6 +595,8 @@ class PlayerSession internal constructor(
 
     fun randomStepNow() = autoVisuals.randomStepNow()
 
+    fun onDirectorStyleMoment() = autoVisuals.onDirectorMoment()
+
     fun applyVizEntry(entry: VizPlaylistEntry) = autoVisuals.applyVizEntry(entry)
 
     fun stepVizPlaylist(): Boolean = autoVisuals.stepVizPlaylist()

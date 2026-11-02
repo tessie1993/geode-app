@@ -156,6 +156,8 @@ object GeodeNative {
 
     external fun vizTakeMilkPresetLoaded(handle: Long): String?
 
+    external fun vizTakeDirectorStyleMoments(handle: Long): Int
+
     external fun vizWriteAudio(
         handle: Long,
         interleaved: FloatArray,

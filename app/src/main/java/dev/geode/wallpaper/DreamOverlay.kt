@@ -20,7 +20,7 @@ import kotlin.random.Random
 /**
  * What the dream shows over the visual: the time, the date under it, and what is playing.
  *
- * Plain framework views rather than Compose: a dream has no `ComponentActivity` to host a
+ * Centred, large and thin, like Android's own clock dream. Plain framework views rather than Compose: a dream has no `ComponentActivity` to host a
  * composition, and text that changes once a minute needs nothing a [TextView] lacks. The system's
  * own 12/24-hour choice comes free with [TextClock] (both formats left unset), and the date
  * pattern is the locale's best one for weekday, day and month.
@@ -37,7 +37,9 @@ import kotlin.random.Random
  */
 class DreamOverlay(
     context: Context,
-    private val settings: DreamSettings,
+    /** Settings › Behaviour's dream toggles (`BehaviourPrefs.dreamShowClock`, `dreamShowNowPlaying`). */
+    private val showClock: Boolean,
+    private val showNowPlaying: Boolean,
 ) : LinearLayout(context) {
     private val handler = Handler(Looper.getMainLooper())
     private val driftPx = dp(DRIFT_DP)
@@ -65,7 +67,7 @@ class DreamOverlay(
         orientation = VERTICAL
         gravity = Gravity.CENTER_HORIZONTAL
         alpha = OVERLAY_ALPHA
-        if (settings.showClock) {
+        if (showClock) {
             addView(clock(TIME_SP, Typeface.create("sans-serif-light", Typeface.NORMAL)))
             addView(
                 clock(DATE_SP, Typeface.create("sans-serif", Typeface.NORMAL)).apply {
@@ -75,7 +77,7 @@ class DreamOverlay(
                 },
             )
         }
-        if (settings.showNowPlaying) {
+        if (showNowPlaying) {
             nowPlaying.apply {
                 maxLines = 1
                 ellipsize = TextUtils.TruncateAt.END
@@ -91,7 +93,7 @@ class DreamOverlay(
     fun start() {
         stop()
         handler.post(drift)
-        if (settings.showNowPlaying) handler.post(refresh)
+        if (showNowPlaying) handler.post(refresh)
     }
 
     fun stop() {

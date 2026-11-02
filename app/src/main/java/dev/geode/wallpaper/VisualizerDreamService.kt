@@ -26,7 +26,7 @@ import dev.geode.util.bestEffort
 /**
  * The visualizer as a screensaver (Daydream): the same renderer [VisualizerWallpaperService]
  * hosts, on a plain window instead of a wallpaper surface, with the time and what is playing
- * over it ([DreamOverlay], each part optional in [DreamPrefsStore]).
+ * over it ([DreamOverlay], each part a Settings › Behaviour toggle).
  *
  * Reusing [VisualizerView] itself — rather than wiring a bare `GLSurfaceView` the way the
  * wallpaper has to — is what a Dream's window buys over a wallpaper's: it is a real window with a
@@ -92,7 +92,8 @@ class VisualizerDreamService : DreamService() {
         isFullscreen = true
         val prefsFiles = GeodePrefsFiles(this)
         // Its own switch (Settings › Behaviour), no longer Player's keep-screen-on.
-        isScreenBright = BehaviourStore(prefsFiles.general).load().dreamScreenBright
+        val behaviour = BehaviourStore(prefsFiles.general).load()
+        isScreenBright = behaviour.dreamScreenBright
         val view = VisualizerView(this)
         visualizerView = view
         restoreLiveState(view.visualizerRenderer, prefsFiles)
@@ -101,17 +102,16 @@ class VisualizerDreamService : DreamService() {
         view.visualizerRenderer.soundInput = { sound.input }
         val stage = DreamStage(this)
         stage.addView(view, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
-        val overlaySettings = DreamPrefsStore(this).load()
-        if (overlaySettings.showClock || overlaySettings.showNowPlaying) {
-            val dreamOverlay = DreamOverlay(this, overlaySettings)
+        if (behaviour.dreamShowClock || behaviour.dreamShowNowPlaying) {
+            val dreamOverlay = DreamOverlay(this, behaviour.dreamShowClock, behaviour.dreamShowNowPlaying)
             overlay = dreamOverlay
             stage.addView(
                 dreamOverlay,
                 FrameLayout.LayoutParams(
                     ViewGroup.LayoutParams.WRAP_CONTENT,
                     ViewGroup.LayoutParams.WRAP_CONTENT,
-                    Gravity.CENTER_HORIZONTAL or Gravity.BOTTOM,
-                ).apply { bottomMargin = (resources.displayMetrics.density * OVERLAY_BOTTOM_DP).toInt() },
+                    Gravity.CENTER,
+                ),
             )
         }
         setContentView(stage)
@@ -257,7 +257,9 @@ class VisualizerDreamService : DreamService() {
         }
         // The MilkDrop preset needs nothing here: the renderer restores the app's (MilkPresetMemory).
         val gui = ThemeStore(prefsFiles.general).loadGui()
-        engine.reducedMotion = gui.reducedMotion
+        // The gentle flight (owner, wave 1): the camera keeps flying but without big moves, the
+        // same calm the reduce-motion setting gives, because a dream is watched from across a room.
+        engine.reducedMotion = true
         engine.soundTuning = gui.soundTuning
         // The user's modulation too: without it the wallpaper and the dream drew the look
         // with every LFO, envelope and custom reaction switched off.
@@ -272,8 +274,5 @@ class VisualizerDreamService : DreamService() {
 
         /** How long a still frame keeps drawing first, so a scene being built finishes on screen. */
         const val STILL_SETTLE_MS = 2_000L
-
-        /** Clear of the gesture bar and the charging indicator some phones draw at the bottom. */
-        const val OVERLAY_BOTTOM_DP = 72f
     }
 }

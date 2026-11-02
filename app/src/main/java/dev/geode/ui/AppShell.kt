@@ -3,7 +3,6 @@ package dev.geode.ui
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -72,6 +71,7 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -91,9 +91,12 @@ import dev.geode.render.scene.SceneIds
 import dev.geode.ui.pro.PaywallHost
 import dev.geode.ui.pro.PaywallViewModel
 import dev.geode.ui.theme.GeodeSpacing
+import dev.geode.ui.theme.LocalGeodeMotion
 import dev.geode.ui.theme.StoneIcon
 import dev.geode.ui.theme.StoneIconArt
 import dev.geode.ui.theme.VisualAccent
+import dev.geode.ui.theme.geodeMotionScheme
+import dev.geode.ui.theme.rememberSystemReducedMotion
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -182,11 +185,13 @@ fun AppRoot() {
     // The accent follows the visual: the middle of its palette's hues; MilkDrop paints its own.
     val accentTarget =
         if (viz.sceneId == SceneIds.MILKDROP) VisualAccent.Fallback else paletteAccent(viz.params.paletteBase, viz.params.paletteRange)
-    val accent by animateColorAsState(accentTarget, tween(ACCENT_FADE_MS), label = "accent")
+    // Outside the theme, so the motion scheme is built here from the same switches the theme reads.
+    val motion = geodeMotionScheme(gui.reducedMotion || rememberSystemReducedMotion())
+    val accent by animateColorAsState(accentTarget, motion.slowEffectsSpec(), label = "accent")
     // The mini player (and on Visuals the tab bar and stage icons) wakes on a new screen or track.
     val chrome = rememberShellChrome(gui.miniPlayerFadeSeconds, appState.dest, state.title)
     var dockHeight by remember { mutableStateOf(0.dp) }
-    val visualsReserve by animateDpAsState(dockHeight, tween(ACCENT_FADE_MS), label = "dock")
+    val visualsReserve by animateDpAsState(dockHeight, motion.defaultSpatialSpec(), label = "dock")
     CrystalMaterialTheme(gui = gui, accentSource = accent) {
         val miniPlayer: @Composable (Modifier) -> Unit = { modifier ->
             FloatingMiniPlayer(
@@ -432,6 +437,9 @@ private fun AppShellCompact(
     content: @Composable () -> Unit,
 ) {
     val density = LocalDensity.current
+    // From the motion scheme, so "Remove animations" makes the dock appear without moving.
+    val dockFade = LocalGeodeMotion.current.defaultEffectsSpec<Float>()
+    val dockSize = LocalGeodeMotion.current.defaultSpatialSpec<IntSize>()
     val onVisuals = appState.dest == GeodeDestination.VISUALS
     val showsPlayer = hasMedia && !appState.onPlayer
     var barHeight by remember { mutableStateOf(0.dp) }
@@ -465,11 +473,19 @@ private fun AppShellCompact(
                 .padding(bottom = DOCK_GAP),
             verticalArrangement = Arrangement.spacedBy(GeodeSpacing.S),
         ) {
-            AnimatedVisibility(showsPlayer && chrome.awake, enter = fadeIn() + expandVertically(), exit = fadeOut() + shrinkVertically()) {
+            AnimatedVisibility(
+                showsPlayer && chrome.awake,
+                enter = fadeIn(dockFade) + expandVertically(dockSize),
+                exit = fadeOut(dockFade) + shrinkVertically(dockSize),
+            ) {
                 miniPlayer(Modifier)
             }
             if (showsPlayer && !chrome.awake && !onVisuals) MiniPlayerHandle(onWake = chrome::wake)
-            AnimatedVisibility(!onVisuals || chrome.awake, enter = fadeIn() + expandVertically(), exit = fadeOut() + shrinkVertically()) {
+            AnimatedVisibility(
+                !onVisuals || chrome.awake,
+                enter = fadeIn(dockFade) + expandVertically(dockSize),
+                exit = fadeOut(dockFade) + shrinkVertically(dockSize),
+            ) {
                 FloatingTabBar(
                     items = navEntries.map { it.item },
                     // A destination can be hidden while still being the current one — reaching
@@ -500,6 +516,8 @@ private fun AppShellExpanded(
     content: @Composable () -> Unit,
 ) {
     val density = LocalDensity.current
+    // From the motion scheme, so "Remove animations" makes the dock appear without moving.
+    val dockFade = LocalGeodeMotion.current.defaultEffectsSpec<Float>()
     // safeDrawing rather than the status and navigation bars alone: in landscape the display
     // cutout sits on a side edge, where it would cover the rail or the content's far edge. It
     // includes the keyboard too, so a focused field stays above it.
@@ -515,7 +533,9 @@ private fun AppShellExpanded(
                     .onSizeChanged { onDock(with(density) { it.height.toDp() }) }
                     .padding(GeodeSpacing.EdgeInset),
             ) {
-                AnimatedVisibility(showMiniPlayer && chrome.awake, enter = fadeIn(), exit = fadeOut()) { miniPlayer(Modifier) }
+                AnimatedVisibility(showMiniPlayer && chrome.awake, enter = fadeIn(dockFade), exit = fadeOut(dockFade)) {
+                    miniPlayer(Modifier)
+                }
                 if (showMiniPlayer && !chrome.awake && appState.dest != GeodeDestination.VISUALS) MiniPlayerHandle(onWake = chrome::wake)
             }
         }
@@ -557,7 +577,6 @@ private fun paletteAccent(
 private const val DEGREES = 360f
 private const val ACCENT_SATURATION = 0.85f
 private const val ACCENT_LIGHTNESS = 0.6f
-private const val ACCENT_FADE_MS = 400
 
 /** The gap between the floating dock and the screen's bottom edge, and between the screen and the dock. */
 private val DOCK_GAP = 8.dp

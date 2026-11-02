@@ -6,8 +6,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationVector1D
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
@@ -95,6 +93,7 @@ import dev.geode.render.scene.StyleFamilies
 import dev.geode.render.scene.VisualStyleCatalog
 import dev.geode.ui.theme.GeodeGlass
 import dev.geode.ui.theme.GeodeSpacing
+import dev.geode.ui.theme.LocalGeodeMotion
 import dev.geode.ui.theme.StoneIcon
 import dev.geode.ui.theme.StoneIconArt
 import dev.geode.ui.theme.floatingGlass
@@ -149,9 +148,10 @@ internal fun VisualsHub(
             Modifier
                 .fillMaxSize()
                 .visualStageGestures(
-                    // The top of the visual will open its quick settings (3B); until then a tap wakes.
+                    // The top of the visual will open its quick settings (3C); until then a tap wakes.
                     onTap = { chrome.wake() },
-                    onDoubleTap = onOpenLive,
+                    // Double tap toggles the sheet: hidden, then back to the height it had.
+                    onDoubleTap = { if (nav.sheetShown) nav.hideSheet() else nav.showSheet() },
                     onSwipe = stepStyle,
                     onSwipeUp = chrome::wake,
                 ),
@@ -162,11 +162,10 @@ internal fun VisualsHub(
         val anchors = remember(roomPx, density) { sheetAnchors(roomPx, with(density) { SHEET_PEEK.toPx() }) }
         val heightPx = remember { Animatable(anchors.getValue(nav.sheet)) }
         var settles by remember { mutableIntStateOf(0) }
+        // The motion scheme's spring, so the system's "Remove animations" snaps the sheet instead.
+        val settleSpec = LocalGeodeMotion.current.defaultSpatialSpec<Float>()
         LaunchedEffect(nav.sheet, settles, anchors) {
-            heightPx.animateTo(
-                anchors.getValue(nav.sheet),
-                spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessMediumLow),
-            )
+            heightPx.animateTo(anchors.getValue(nav.sheet), settleSpec)
         }
         val reservePx = with(density) { (bottomReserve + GeodeSpacing.EdgeInset).toPx() }
         StageIcons(
@@ -347,7 +346,8 @@ private fun BoxScope.StageIcons(
     val studioViewModel: StudioViewModel = geodeViewModel()
     val takes by studioViewModel.takeState.collectAsStateWithLifecycle()
     val glass = Modifier.floatingGlass(RoundedCornerShape(50), fillAlpha = GeodeGlass.MATTE_FILL)
-    AnimatedVisibility(chrome.awake, Modifier.matchParentSize(), enter = fadeIn(), exit = fadeOut()) {
+    val fade = LocalGeodeMotion.current.defaultEffectsSpec<Float>()
+    AnimatedVisibility(chrome.awake, Modifier.matchParentSize(), enter = fadeIn(fade), exit = fadeOut(fade)) {
         Box(Modifier.fillMaxSize()) {
             Row(
                 Modifier

@@ -77,6 +77,12 @@ internal object MaterialSymbols {
             "26 18l55 56q12 11 17.5 26t5.5 30q0 16-5.5 30.5T817-647L313-143q-11 11-25.5 17t-30.5 6h-97Zm544-5" +
             "28 56-56-56-56-56 56 56 56Z"
 
+    // expand_more
+    const val EXPAND_OUTLINED =
+        "M465-364.5q-7-2.5-13-8.5L268-557q-11-11-11-28t11-28q11-11 28-11t28 11l156 156 156-156q11-11 28-1" +
+            "1t28 11q11 11 11 28t-11 28L508-373q-6 6-13 8.5t-15 2.5q-8 0-15-2.5Z"
+    const val EXPAND_FILLED = EXPAND_OUTLINED
+
     // favorite
     const val FAVORITE_OUTLINED =
         "M451.5-152q-14.5-5-25.5-16l-69-63q-106-97-191.5-192.5T80-634q0-94 63-157t157-63q53 0 100 22.5t80" +

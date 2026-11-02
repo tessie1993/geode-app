@@ -42,6 +42,7 @@ enum class StoneIcon(
     CLOSE(MaterialSymbols.CLOSE_OUTLINED, MaterialSymbols.CLOSE_FILLED),
     DELETE(MaterialSymbols.DELETE_OUTLINED, MaterialSymbols.DELETE_FILLED),
     EDIT(MaterialSymbols.EDIT_OUTLINED, MaterialSymbols.EDIT_FILLED),
+    EXPAND(MaterialSymbols.EXPAND_OUTLINED, MaterialSymbols.EXPAND_FILLED),
     FAVORITE(MaterialSymbols.FAVORITE_OUTLINED, MaterialSymbols.FAVORITE_FILLED),
     FILE(MaterialSymbols.FILE_OUTLINED, MaterialSymbols.FILE_FILLED, mirrored = true),
     FOLDER(MaterialSymbols.FOLDER_OUTLINED, MaterialSymbols.FOLDER_FILLED),

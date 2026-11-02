@@ -26,6 +26,7 @@ SYMBOLS = [
     ("CLOSE", "close"),
     ("DELETE", "delete"),
     ("EDIT", "edit"),
+    ("EXPAND", "expand_more"),
     ("FAVORITE", "favorite"),
     ("FILE", "draft"),
     ("FOLDER", "folder"),

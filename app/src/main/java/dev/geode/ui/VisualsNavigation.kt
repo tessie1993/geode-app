@@ -1,5 +1,6 @@
 package dev.geode.ui
 
+import androidx.annotation.StringRes
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.Stable
@@ -15,6 +16,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.runtime.toMutableStateList
 import androidx.navigation3.runtime.NavKey
+import dev.geode.R
 
 /**
  * The pages of the Visuals panel, in tab order. [STYLES] is always the root of the route and
@@ -22,13 +24,13 @@ import androidx.navigation3.runtime.NavKey
  * Visuals. [TEXTURES] has no tab: MilkDrop opens it, since textures only matter to MilkDrop presets.
  */
 internal enum class VisualsPage(
-    val title: String,
+    @param:StringRes val titleRes: Int,
 ) {
-    STYLES("Styles"),
-    CUSTOMIZE("Customize"),
-    PRESETS("Presets"),
-    MILKDROP("MilkDrop"),
-    TEXTURES("Textures"),
+    STYLES(R.string.visuals_tab_styles),
+    CUSTOMIZE(R.string.visuals_tab_customize),
+    PRESETS(R.string.visuals_tab_presets),
+    MILKDROP(R.string.visuals_tab_milkdrop),
+    TEXTURES(R.string.visuals_tab_textures),
 }
 
 internal val VisualsTabs = listOf(VisualsPage.STYLES, VisualsPage.CUSTOMIZE, VisualsPage.PRESETS, VisualsPage.MILKDROP)
@@ -130,7 +132,9 @@ internal enum class SheetHeight { HIDDEN, PEEK, HALF, TALL }
  * [openAdvancedGroup]); Advanced's ‹ › arrows go sideways ([stepAdvanced]) and add no back entries.
  *
  * The visual always fills the screen (docs/ui-redesign); the options are a floating sheet over
- * it whose height is [sheet]. Back order, most recent first ([back] runs it whole): a hidden sheet
+ * it whose height is [sheet]. In landscape the same state drives the side panel instead
+ * (V2 rule 5): any shown height means the panel is out, [SheetHeight.HIDDEN] means it is away, so
+ * turning the phone keeps the route, the page and whether the options are up. Back order, most recent first ([back] runs it whole): a hidden sheet
  * comes back at its last height, then the route in reverse, sub-pages first, then the shell
  * leaves Visuals.
  */

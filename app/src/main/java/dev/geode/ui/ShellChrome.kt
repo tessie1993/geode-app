@@ -260,8 +260,7 @@ internal fun MiniPlayerHandle(
             }.clickable(onClickLabel = label) {
                 view.performStoneHaptic(StoneHapticCue.TAP)
                 onWake()
-            }
-            .semantics {
+            }.semantics {
                 onClick(label) {
                     onWake()
                     true

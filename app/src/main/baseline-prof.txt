@@ -22,7 +22,7 @@ HSPLdev/geode/ui/SettingsViewModel**;->**(**)**
 HSPLdev/geode/ui/PlayerSession**;->**(**)**
 HSPLdev/geode/ui/PlayerScreenKt**;->**(**)**
 HSPLdev/geode/ui/BootIntroKt**;->**(**)**
-HSPLdev/geode/ui/ThemeStore**;->**(**)**
+HSPLdev/geode/data/ThemeStore**;->**(**)**
 HSPLdev/geode/data/GeodePrefsFiles;->**(**)**
 HSPLdev/geode/data/PlayerPrefs**;->**(**)**
 HSPLdev/geode/playback/PlaybackEngine**;->**(**)**

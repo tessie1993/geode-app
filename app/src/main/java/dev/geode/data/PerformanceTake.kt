@@ -228,13 +228,14 @@ object PerformanceTake {
             var scene = ""
             var milk: String? = null
             for (i in 0 until events.length()) {
-                val e = events.optJSONObject(i) ?: continue
-                val s = e.optString("s", "").takeIf { it.isNotEmpty() }
-                val m = e.optString("m", "").takeIf { it.isNotEmpty() }
-                if (s == null && m == null) continue
-                s?.let { scene = it }
-                m?.let { milk = it }
-                if (scene.isNotEmpty()) out += StyleChange(e.optLong("t", 0L), scene, milk)
+                val e = events.optJSONObject(i)
+                val s = e?.optString("s", "")?.takeIf { it.isNotEmpty() }
+                val m = e?.optString("m", "")?.takeIf { it.isNotEmpty() }
+                if (e != null && (s != null || m != null)) {
+                    s?.let { scene = it }
+                    m?.let { milk = it }
+                    if (scene.isNotEmpty()) out += StyleChange(e.optLong("t", 0L), scene, milk)
+                }
             }
             return out
         }

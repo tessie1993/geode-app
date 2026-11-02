@@ -196,6 +196,7 @@ class VideoExporter(
                     onProgress,
                     isCancelled,
                     watermark = watermark,
+                    styleSchedule = styleSchedule,
                 )
             }
             val resolver = context.contentResolver
@@ -237,6 +238,7 @@ class VideoExporter(
                         onProgress,
                         isCancelled,
                         watermark = watermark,
+                        styleSchedule = styleSchedule,
                     )
                 }
                 if (isCancelled()) {
@@ -278,6 +280,7 @@ class VideoExporter(
         onProgress: (Float) -> Unit,
         isCancelled: () -> Boolean,
         watermark: Boolean,
+        styleSchedule: StyleSchedule = StyleSchedule.NONE,
     ): Result {
         val resolver = context.contentResolver
         val pfd =
@@ -304,6 +307,7 @@ class VideoExporter(
                     onProgress,
                     isCancelled,
                     watermark = watermark,
+                    styleSchedule = styleSchedule,
                 )
             }
             if (isCancelled()) {
@@ -376,6 +380,7 @@ class VideoExporter(
         onProgress: (Float) -> Unit,
         isCancelled: () -> Boolean,
         watermark: Boolean,
+        styleSchedule: StyleSchedule = StyleSchedule.NONE,
     ) {
         var encoderRef: MediaCodec? = null
         var watermarkRef: WatermarkOverlay? = null

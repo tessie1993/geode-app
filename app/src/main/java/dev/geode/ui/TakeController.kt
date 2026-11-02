@@ -1,9 +1,13 @@
 package dev.geode.ui
 
 import dev.geode.data.PerformanceTake
+import dev.geode.data.SaveTarget
 import dev.geode.data.TakeInfo
 import dev.geode.data.TakeRepository
 import dev.geode.editor.ProjectId
+import dev.geode.editor.ProjectRender
+import dev.geode.editor.StudioProject
+import dev.geode.export.ExportRun
 import dev.geode.render.scene.SceneParams
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -25,6 +29,11 @@ data class TakeUiState(
     val replayEndMs: Long = 0L,
     val exportTake: String? = null,
     val note: String? = null,
+    /**
+     * A take saved on the first stop that has nowhere to render yet: the ask-once save sheet
+     * (`RecordSaveSheet`) shows while this is set, and [TakeController.chooseSaveTarget] answers it.
+     */
+    val pendingSave: String? = null,
 )
 
 /**
@@ -33,8 +42,13 @@ data class TakeUiState(
  *
  * The recorder is timed by the song position ([Host.trackPositionMs]) whenever a song is loaded, so
  * pausing, seeking forward and seeking back (a punch-in) all keep the take on the beat; with no song
- * (mic or another app's audio) it falls back to the wall clock. Part 2D takes over the recording path
- * (record → project → background MP4) from here.
+ * (mic or another app's audio) it falls back to the wall clock.
+ *
+ * Record is Pro ([Host.canRecord]). Every saved take renders to an MP4 in the background through the
+ * project render ([Host.renderProject], under `ExportRun` and `ExportService`), and the finished
+ * video is recorded on the take's project ([Host.recordRender]), which is how Studio › My videos
+ * lists it. Where it renders to is asked once: the first stop leaves [TakeUiState.pendingSave] set
+ * until [chooseSaveTarget]; later takes go straight to the stored answer.
  */
 internal class TakeController(
     private val takes: TakeRepository,
@@ -60,6 +74,24 @@ internal class TakeController(
             path: String,
             sceneId: String,
         )
+
+        /** Whether this user may record (Pro and the trial). */
+        fun canRecord(): Boolean
+
+        /** A refused recording: opens the paywall. */
+        fun onRecordLocked()
+
+        /** Renders [project] in the background; [onRendered] gets the finished video. */
+        fun renderProject(
+            project: StudioProject,
+            onRendered: (ProjectRender) -> Unit,
+        )
+
+        /** Keeps [render] on project [id]'s list of renders. */
+        fun recordRender(
+            id: ProjectId,
+            render: ProjectRender,
+        )
     }
 
     private val _state = MutableStateFlow(TakeUiState())
@@ -77,6 +109,10 @@ internal class TakeController(
 
     fun startRecording() {
         if (_state.value.recording) return
+        if (!host.canRecord()) {
+            host.onRecordLocked()
+            return
+        }
         stopReplay()
         val s = host.vizState.value
         recordTrackUri = host.trackUri
@@ -131,18 +167,64 @@ internal class TakeController(
         val pending = { label: String -> rec.finish(label, trackUri, stopMs, live.sceneId, live.params, milk) }
         _state.update { it.copy(recording = false, recordedEvents = 0, recordedMs = 0L) }
         if (maxOf(rec.durationMs, stopMs - rec.startTrackMs) < MIN_TAKE_MS) {
-            _state.update { it.copy(note = TAKE_DISCARDED_NOTE) }
-            scope.launch {
-                delay(TAKE_NOTE_MS)
-                _state.update { if (it.note == TAKE_DISCARDED_NOTE) it.copy(note = null) else it }
-            }
+            showNote(TAKE_DISCARDED_NOTE)
             refresh()
             return
         }
         storeScope.launch {
             val label = requested ?: defaultTakeName()
-            takes.save(label, pending(label))
+            val saved = takes.save(label, pending(label))
             refresh()
+            val target = takes.saveTarget()
+            if (target == null) {
+                _state.update { it.copy(pendingSave = saved) }
+            } else {
+                render(saved, target)
+            }
+        }
+    }
+
+    /**
+     * The ask-once answer for [TakeUiState.pendingSave]: kept as the default for every later take,
+     * then the waiting take renders there.
+     */
+    fun chooseSaveTarget(target: SaveTarget) {
+        val name = _state.value.pendingSave ?: return
+        _state.update { it.copy(pendingSave = null) }
+        storeScope.launch {
+            takes.chooseSaveTarget(target)
+            render(name, target)
+        }
+    }
+
+    /** The save sheet was dismissed: the take stays in My videos, unrendered, and the next stop asks again. */
+    fun skipPendingSave() {
+        _state.update { it.copy(pendingSave = null) }
+    }
+
+    /**
+     * Renders take [name] to [saveTo]. A render already running (an export, another take) owns the
+     * encoder, so this take waits in My videos instead, with a note saying so.
+     */
+    private suspend fun render(
+        name: String,
+        saveTo: SaveTarget,
+    ) {
+        val project = takes.projectToRender(name, saveTo) ?: return
+        scope.launch {
+            if (ExportRun.running) {
+                showNote(TAKE_NOT_RENDERED_NOTE)
+                return@launch
+            }
+            host.renderProject(project) { finished -> host.recordRender(project.id, finished) }
+        }
+    }
+
+    private fun showNote(note: String) {
+        _state.update { it.copy(note = note) }
+        scope.launch {
+            delay(TAKE_NOTE_MS)
+            _state.update { if (it.note == note) it.copy(note = null) else it }
         }
     }
 
@@ -233,6 +315,8 @@ internal class TakeController(
 
     private companion object {
         const val TAKE_DISCARDED_NOTE = "Too short — take not saved"
+
+        const val TAKE_NOT_RENDERED_NOTE = "Take saved — another render is running, render it from My videos"
 
         /** A take shorter than this is a mis-tap, not a performance. */
         const val MIN_TAKE_MS = 1_000L

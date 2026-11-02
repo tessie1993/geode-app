@@ -431,6 +431,21 @@ class PlayerSession internal constructor(
                     path: String,
                     sceneId: String,
                 ) = visual.emitApply(VizApply(milkPath = path, sceneId = sceneId))
+
+                // Open until PlayerSessionProvider sets the Pro gate for Record (asked of the Studio lead).
+                override fun canRecord(): Boolean = true
+
+                override fun onRecordLocked() = Unit
+
+                override fun renderProject(
+                    project: dev.geode.editor.StudioProject,
+                    onRendered: (dev.geode.editor.ProjectRender) -> Unit,
+                ) = exportController.renderProject(project, onRendered = onRendered)
+
+                override fun recordRender(
+                    id: dev.geode.editor.ProjectId,
+                    render: dev.geode.editor.ProjectRender,
+                ) = editor.recordRender(id, render)
             },
             takeName = { application.getString(dev.geode.R.string.take_default_name, it) },
         )

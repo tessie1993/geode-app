@@ -2,8 +2,8 @@ package dev.geode.ui
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -15,6 +15,8 @@ import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.DriveFileMove
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.CreateNewFolder
 import androidx.compose.material.icons.filled.Delete
@@ -24,8 +26,9 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -36,6 +39,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -164,19 +168,7 @@ internal fun SavePresetDialog(
                     },
                     modifier = Modifier.fillMaxWidth(),
                 )
-                if (folders.isNotEmpty()) {
-                    Text("Folder", style = MaterialTheme.typography.labelLarge)
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(GeodeSpacing.S)) {
-                        (listOf("") + folders).forEach { f ->
-                            FilterChip(
-                                selected = folder == f,
-                                onClick = { folder = f },
-                                label = { Text(f.ifEmpty { NO_FOLDER }) },
-                                modifier = Modifier.heightIn(min = GeodeSpacing.TouchTarget),
-                            )
-                        }
-                    }
-                }
+                if (folders.isNotEmpty()) FolderPickRow(folder, folders) { folder = it }
             }
         },
         confirmButton = {
@@ -186,6 +178,47 @@ internal fun SavePresetDialog(
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     )
+}
+
+/** The save form's folder: one row with the pick and ▾, its menu checking the current one. */
+@Composable
+private fun FolderPickRow(
+    folder: String,
+    folders: List<String>,
+    onPick: (String) -> Unit,
+) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .heightIn(min = GeodeSpacing.TouchTarget)
+                .clickable(role = Role.DropdownList) { open = true },
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(GeodeSpacing.S),
+        ) {
+            Text("Folder", Modifier.weight(1f), style = MaterialTheme.typography.labelLarge)
+            Text(
+                folder.ifEmpty { NO_FOLDER },
+                style = MaterialTheme.typography.bodyLarge,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Icon(Icons.Filled.ArrowDropDown, contentDescription = null)
+        }
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            (listOf("") + folders).forEach { f ->
+                DropdownMenuItem(
+                    text = { Text(f.ifEmpty { NO_FOLDER }) },
+                    leadingIcon = { if (f == folder) Icon(Icons.Filled.Check, contentDescription = null) },
+                    onClick = {
+                        open = false
+                        onPick(f)
+                    },
+                )
+            }
+        }
+    }
 }
 
 /** A name to type, checked as it is typed: [error] says why it cannot be used, or null. */

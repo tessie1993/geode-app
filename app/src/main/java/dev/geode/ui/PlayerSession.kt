@@ -432,10 +432,9 @@ class PlayerSession internal constructor(
                     sceneId: String,
                 ) = visual.emitApply(VizApply(milkPath = path, sceneId = sceneId))
 
-                // Open until PlayerSessionProvider sets the Pro gate for Record (asked of the Studio lead).
-                override fun canRecord(): Boolean = true
+                override fun canRecord(): Boolean = allowsRecording()
 
-                override fun onRecordLocked() = Unit
+                override fun onRecordLocked() = onRecordingLocked()
 
                 override fun renderProject(
                     project: dev.geode.editor.StudioProject,
@@ -886,6 +885,12 @@ class PlayerSession internal constructor(
 
     /** What a refused style does: the provider opens the paywall. */
     internal var onStyleLocked: () -> Unit = {}
+
+    /** The Pro gate for Record (part 2D), set by the provider like [allowsStyle]; open until set. */
+    internal var allowsRecording: () -> Boolean = { true }
+
+    /** What a refused recording does: the provider opens the paywall. */
+    internal var onRecordingLocked: () -> Unit = {}
 
     fun selectScene(sceneId: String) {
         pendingUnlockSceneId = null

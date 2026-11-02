@@ -123,7 +123,6 @@ internal fun ExportSettingsPage(onOpenStudioRender: () -> Unit) {
         }
         item {
             SettingsGroup(stringResource(R.string.settings_export_section_destinations)) {
-                SettingsHint(stringResource(R.string.settings_export_destinations_hint))
                 ExportDestination.entries.forEach { destination ->
                     val defaults = loaded.destinations[destination] ?: destination.factoryDefaults()
                     SettingsRow(

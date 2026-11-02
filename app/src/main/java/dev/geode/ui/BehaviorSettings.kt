@@ -1,9 +1,6 @@
 package dev.geode.ui
 
 import androidx.annotation.StringRes
-import androidx.compose.foundation.layout.Column
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -12,12 +9,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 import dev.geode.data.BehaviourPrefs
 import dev.geode.data.BehaviourStore
 import dev.geode.data.GeodePrefsFiles
-import dev.geode.data.GuiPrefs
 import dev.geode.data.NotificationButton
 import dev.geode.data.PlayerArt
 import dev.geode.data.QueueEndAction
@@ -25,7 +20,6 @@ import dev.geode.data.ShakeAction
 import dev.geode.data.StartScreen
 import dev.geode.data.SwipeRowAction
 import dev.geode.data.TapSongAction
-import dev.geode.data.UserIntent
 import dev.geode.data.VisualsBar
 import dev.geode.data.VisualsOrientation
 import dev.geode.data.VolumeKeysAction
@@ -35,29 +29,19 @@ import kotlinx.coroutines.withContext
 /**
  * Settings › Behaviour & gestures: the start screen, gestures, the queue, the screens and the
  * notification. The choices live in [BehaviourPrefs] (`geode-prefs`), whose defaults the owner
- * set; pinch and twist is still [GuiPrefs.touchTransform], which the canvas reads today.
+ * set. The gesture map on the visual (`BehaviourPrefs.gestures`) gets its own page with 3C.
  */
 @Composable
-internal fun BehaviorSettingsTab(viewModel: SettingsViewModel) {
-    val gui by viewModel.guiPrefs.collectAsStateWithLifecycle()
+internal fun BehaviorSettingsTab() {
     val behaviour = rememberBehaviourPrefs()
-    val prefs = behaviour.prefs
+    val prefs = behaviour.prefs ?: return
+    val update = behaviour.update
     SettingsTabColumn {
-        item { SettingsGroup(stringResource(R.string.settings_beh_section_start)) { StartGroup(viewModel, gui, behaviour) } }
-        if (prefs != null) {
-            item {
-                SettingsGroup(stringResource(R.string.settings_beh_section_gestures)) {
-                    GestureGroup(viewModel, gui, prefs, behaviour.update)
-                }
-            }
-            item { SettingsGroup(stringResource(R.string.settings_beh_section_queue)) { QueueGroup(prefs, behaviour.update) } }
-            item { SettingsGroup(stringResource(R.string.settings_beh_section_screens)) { ScreensGroup(prefs, behaviour.update) } }
-            item {
-                SettingsGroup(stringResource(R.string.settings_beh_section_notification)) {
-                    NotificationGroup(prefs, behaviour.update)
-                }
-            }
-        }
+        item { SettingsGroup(stringResource(R.string.settings_beh_section_start)) { StartGroup(prefs, update) } }
+        item { SettingsGroup(stringResource(R.string.settings_beh_section_gestures)) { GestureGroup(prefs, update) } }
+        item { SettingsGroup(stringResource(R.string.settings_beh_section_queue)) { QueueGroup(prefs, update) } }
+        item { SettingsGroup(stringResource(R.string.settings_beh_section_screens)) { ScreensGroup(prefs, update) } }
+        item { SettingsGroup(stringResource(R.string.settings_beh_section_notification)) { NotificationGroup(prefs, update) } }
     }
 }
 
@@ -85,49 +69,29 @@ internal fun rememberBehaviourPrefs(): BehaviourPrefsHolder {
 
 @Composable
 private fun StartGroup(
-    viewModel: SettingsViewModel,
-    gui: GuiPrefs,
-    behaviour: BehaviourPrefsHolder,
+    prefs: BehaviourPrefs,
+    update: (BehaviourPrefs) -> Unit,
 ) {
-    // The first-run question, asked again. Changing it moves Studio in or out of the navigation.
-    SettingsChoiceRow(
-        title = stringResource(R.string.settings_intent_title),
-        options = UserIntent.entries,
-        selected = gui.intent,
-        label = { stringResource(it.labelRes) },
-        onSelect = { viewModel.setGuiPrefs(gui.copy(intent = it)) },
-    )
-    val prefs = behaviour.prefs ?: return
     SettingsChoiceRow(
         title = stringResource(R.string.settings_beh_start_screen),
         options = StartScreen.entries,
         selected = prefs.startScreen,
         label = { stringResource(startScreenLabel(it)) },
-        onSelect = { behaviour.update(prefs.copy(startScreen = it)) },
+        onSelect = { update(prefs.copy(startScreen = it)) },
     )
     SettingsSwitchRow(
         title = stringResource(R.string.settings_beh_headphones),
         summary = stringResource(R.string.settings_beh_headphones_summary),
         checked = prefs.startOnHeadphones,
-        onCheckedChange = { behaviour.update(prefs.copy(startOnHeadphones = it)) },
+        onCheckedChange = { update(prefs.copy(startOnHeadphones = it)) },
     )
 }
 
 @Composable
 private fun GestureGroup(
-    viewModel: SettingsViewModel,
-    gui: GuiPrefs,
     prefs: BehaviourPrefs,
     update: (BehaviourPrefs) -> Unit,
 ) {
-    // Pinch and twist is GuiPrefs.touchTransform, which the canvas reads today. The rest of the
-    // gesture map (BehaviourPrefs.gestures) gets its own page with the new gesture set.
-    SettingsSwitchRow(
-        title = stringResource(R.string.behavior_touch_transform),
-        summary = stringResource(R.string.behavior_touch_transform_hint),
-        checked = gui.touchTransform,
-        onCheckedChange = { viewModel.setGuiPrefs(gui.copy(touchTransform = it)) },
-    )
     SettingsChoiceRow(
         title = stringResource(R.string.settings_beh_shake),
         options = ShakeAction.entries,
@@ -305,36 +269,6 @@ private fun NotificationGroup(
                 update(prefs.copy(notificationButtons = if (on) prefs.notificationButtons + button else prefs.notificationButtons - button))
             },
         )
-    }
-}
-
-/**
- * Touch smear: drawing on the visual with a finger. A Visuals setting now (quick settings or
- * Customize host it), kept here until they do.
- */
-@Composable
-internal fun TouchSmearSetting(
-    viewModel: SettingsViewModel,
-    gui: GuiPrefs,
-) {
-    Column {
-        LabeledSwitch(
-            stringResource(R.string.behavior_touch_smear),
-            checked = gui.touchSmear,
-            onCheckedChange = { viewModel.setGuiPrefs(gui.copy(touchSmear = it)) },
-        )
-        SettingsHint(stringResource(R.string.behavior_touch_smear_hint))
-        if (gui.touchSmear) {
-            Text(
-                stringResource(R.string.behavior_smear_strength, (gui.touchSmearStrength * 100).toInt()),
-                style = MaterialTheme.typography.labelMedium,
-            )
-            CrystalSlider(
-                value = gui.touchSmearStrength,
-                onValueChange = { viewModel.setGuiPrefs(gui.copy(touchSmearStrength = it)) },
-                valueRange = 0.2f..2f,
-            )
-        }
     }
 }
 

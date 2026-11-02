@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
@@ -30,7 +29,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LargeTopAppBar
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -157,7 +155,7 @@ internal fun AppSettingsTab(
                     SettingsPage.DISPLAY -> DisplaySettingsPage(settingsViewModel)
                     SettingsPage.EXPORT -> ExportSettingsPage(onOpenStudioRender)
                     SettingsPage.WALLPAPER -> WallpaperSettingsPage()
-                    SettingsPage.BEHAVIOUR -> BehaviorSettingsTab(settingsViewModel)
+                    SettingsPage.BEHAVIOUR -> BehaviorSettingsTab()
                     SettingsPage.HELP ->
                         TutorialSettingsTab(settingsViewModel, onPlay = onPlayTutorial, onReset = onResetTutorials)
                     SettingsPage.ABOUT -> BackupAboutPage()
@@ -219,13 +217,18 @@ private const val SHORT_WINDOW_DP = 480
 internal fun SettingsTabColumn(content: LazyListScope.() -> Unit) {
     LazyColumn(
         Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
+        contentPadding = PaddingValues(horizontal = GeodeSpacing.L, vertical = GeodeSpacing.S),
+        // The space between sections is what groups them, now that there is no panel.
+        verticalArrangement = Arrangement.spacedBy(GeodeSpacing.XL),
         content = content,
     )
 }
 
-/** A titled card of related controls on a page: a section of a settings screen. */
+/**
+ * A titled run of related controls on a page: a section of a settings screen. Plain rows on the
+ * black canvas under a Label Large title, as Android's own Settings draws them: no panel, no
+ * glow, no overline. Studio › Render and the wallpaper options use it too.
+ */
 @Composable
 internal fun SettingsGroup(
     title: String,
@@ -234,19 +237,11 @@ internal fun SettingsGroup(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Column(
-        modifier
-            .fillMaxWidth()
-            .crystalPanel(
-                0.30f,
-                MaterialTheme.colorScheme.surfaceVariant,
-                MaterialTheme.colorScheme.primary,
-                corner = 18.dp,
-                glowStrength = 0.45f,
-            ).padding(14.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+        modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(GeodeSpacing.S),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            CrystalOverline(title, Modifier.weight(1f).semantics { heading() })
+            SettingsSectionTitle(title, Modifier.weight(1f))
             header?.invoke(this)
         }
         content()

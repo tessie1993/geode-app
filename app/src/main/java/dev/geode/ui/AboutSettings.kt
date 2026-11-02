@@ -62,7 +62,6 @@ private fun AboutSection() {
         title = stringResource(R.string.app_name),
         summary = stringResource(R.string.about_version, BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE),
     )
-    SettingsHint(stringResource(R.string.about_blurb))
     SettingsRow(title = stringResource(R.string.about_privacy_policy), onClick = { showPrivacy = true })
     SettingsRow(title = stringResource(R.string.about_licenses), onClick = { showLicenses = true })
     // Android 13 added a per-app language page; below it the system language is the only one.
@@ -169,14 +168,18 @@ private fun StorageDialog(
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 CLEARABLE.forEach { bucket ->
                     val bytes = usage?.get(bucket)
+                    val size = bytes?.let { Formatter.formatShortFileSize(context, it) }
                     SettingsRow(
                         title =
                             stringResource(
                                 if (bucket == StorageBucket.CACHE) R.string.settings_storage_cache else R.string.settings_storage_scratch,
                             ),
                         summary =
-                            bytes?.let { Formatter.formatShortFileSize(context, it) }
-                                ?: stringResource(R.string.settings_storage_measuring),
+                            when {
+                                size == null -> stringResource(R.string.settings_storage_measuring)
+                                bucket == StorageBucket.CACHE -> stringResource(R.string.settings_storage_cache_size, size)
+                                else -> size
+                            },
                         trailing = {
                             TextButton(
                                 enabled = bytes != null && bytes > 0,
@@ -185,7 +188,6 @@ private fun StorageDialog(
                         },
                     )
                 }
-                SettingsHint(stringResource(R.string.settings_storage_cache_hint))
             }
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) } },

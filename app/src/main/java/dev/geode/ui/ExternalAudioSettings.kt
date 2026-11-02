@@ -145,19 +145,12 @@ private fun RefusedNotice(
     external: ExternalAudioState,
 ) {
     val app = external.refusingApp ?: stringResource(R.string.subtitle_capture_refused_unknown_app)
-    Column(
-        Modifier
-            .fillMaxWidth()
-            .crystalPanel(
-                0.32f,
-                MaterialTheme.colorScheme.surfaceVariant,
-                MaterialTheme.colorScheme.error,
-                corner = 16.dp,
-                glowStrength = 0.5f,
-            ).padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        CrystalOverline(stringResource(R.string.ext_silence_title), color = MaterialTheme.colorScheme.error)
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            stringResource(R.string.ext_silence_title),
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.error,
+        )
         Text(
             stringResource(R.string.ext_refused_body, app),
             style = MaterialTheme.typography.bodySmall,

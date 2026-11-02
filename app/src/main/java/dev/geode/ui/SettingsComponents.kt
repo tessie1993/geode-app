@@ -97,7 +97,7 @@ internal fun SettingsRow(
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(GeodeSpacing.XS)) {
                 Text(
                     title,
-                    style = MaterialTheme.typography.bodyLarge,
+                    style = MaterialTheme.typography.bodyMedium,
                     fontWeight = if (pro) FontWeight.SemiBold else null,
                     color = cs.onSurface,
                     modifier = Modifier.weight(1f, fill = false),
@@ -105,7 +105,7 @@ internal fun SettingsRow(
                 if (pro) ProCrown()
             }
             if (!summary.isNullOrBlank()) {
-                Text(summary, style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant)
+                Text(summary, style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
             }
         }
         trailing?.invoke()
@@ -206,7 +206,7 @@ internal fun <T> SettingsChoiceRow(
     }
 }
 
-/** The small primary-coloured title over a run of rows inside a page. */
+/** The primary-coloured Label Large title over a run of rows inside a page. */
 @Composable
 internal fun SettingsSectionTitle(
     text: String,
@@ -214,7 +214,7 @@ internal fun SettingsSectionTitle(
 ) {
     Text(
         text,
-        style = MaterialTheme.typography.titleSmall,
+        style = MaterialTheme.typography.labelLarge,
         color = MaterialTheme.colorScheme.primary,
         modifier = modifier.semantics { heading() },
     )

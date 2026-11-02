@@ -946,6 +946,25 @@
     <string name="editor_export">Render cut</string>
     <string name="editor_export_no_video">Put a video or still on a Media lane first — the cut renders that lane.</string>
     <string name="editor_export_skipped_kinds">Skipped clips this export can\'t carry: %1$s</string>
+    <!-- One render path (#232): the render plan's skipped-clip report and the Studio render labels. -->
+    <string name="editor_export_nothing">Nothing to render yet. Put a video or still on the timeline, or a visual over a song.</string>
+    <string name="render_video_label">Rendering your video</string>
+    <plurals name="render_skip_overlay">
+        <item quantity="one">%1$d overlay clip (overlays don\'t render yet)</item>
+        <item quantity="other">%1$d overlay clips (overlays don\'t render yet)</item>
+    </plurals>
+    <plurals name="render_skip_no_song">
+        <item quantity="one">%1$d visual clip with no song under it</item>
+        <item quantity="other">%1$d visual clips with no song under them</item>
+    </plurals>
+    <plurals name="render_skip_past_song">
+        <item quantity="one">the end of %1$d visual clip, past its song</item>
+        <item quantity="other">the ends of %1$d visual clips, past their song</item>
+    </plurals>
+    <plurals name="render_skip_wrong_lane">
+        <item quantity="one">%1$d clip on a lane that can\'t carry it</item>
+        <item quantity="other">%1$d clips on lanes that can\'t carry them</item>
+    </plurals>
     <string name="editor_transition">Transition into this clip</string>
     <string name="editor_transition_ellipsis">Transition…</string>
     <string name="editor_transition_none">None (hard cut)</string>
@@ -1096,4 +1115,25 @@
     <string name="wallpaper_options_look_full">Full</string>
     <string name="wallpaper_options_look_edge">Edge glow</string>
     <string name="wallpaper_options_edge_hint">Edge glow keeps the visual round the screen\'s edge and the middle black: easier on the battery on OLED screens, and your icons and clock stay easy to read.</string>
+    <!-- Visuals quick settings (VisualsQuickSettings) -->
+    <string name="visuals_qs_title">Visual settings</string>
+    <string name="visuals_qs_auto">Auto</string>
+    <string name="visuals_qs_timer">Change style on a timer</string>
+    <string name="visuals_qs_every">Every</string>
+    <string name="visuals_qs_seconds">%1$d s</string>
+    <string name="visuals_qs_steps_through">Steps through</string>
+    <string name="visuals_qs_source_random">Random</string>
+    <string name="visuals_qs_source_playlist">Playlist</string>
+    <string name="visuals_qs_pick_presets">Presets</string>
+    <string name="visuals_qs_pick_milk">MilkDrop</string>
+    <string name="visuals_qs_playlist">Visual playlist</string>
+    <string name="visuals_qs_playlist_empty">Empty</string>
+    <plurals name="visuals_qs_playlist_count">
+        <item quantity="one">%1$d look</item>
+        <item quantity="other">%1$d looks</item>
+    </plurals>
+    <string name="visuals_qs_sheet_opacity">Sheet glass</string>
+    <string name="visuals_qs_percent">%1$d%%</string>
+    <string name="visuals_qs_fade">Mini player fades after</string>
+    <string name="visuals_qs_fade_never">Never</string>
 </resources>

@@ -19,6 +19,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 import dev.geode.data.GuiPrefs
 import dev.geode.model.TutorialChapter
+import dev.geode.pro.PaywallTrigger
+import dev.geode.ui.pro.PaywallViewModel
 import dev.geode.ui.tour.GestureTipHost
 import dev.geode.ui.tour.GestureTips
 import dev.geode.ui.tour.TourChapters
@@ -168,7 +170,8 @@ fun rememberTutorialState(): TutorialState =
  * The tour, drawn over the app: pointers on the real controls, never a carousel.
  *
  * - **The guided path** offers itself once, after first run: play a song, then see Visuals. Ending
- *   or skipping it sets [GuiPrefs.tutorialSeen] and ticks Welcome.
+ *   or skipping it sets [GuiPrefs.tutorialSeen] and ticks Welcome, then opens the one-time Pro
+ *   offer ([PaywallTrigger.Onboarding]); a replay from Settings never does.
  * - **Each screen's pointers** (3 or 4) play the first time that screen's controls are on screen,
  *   once Welcome is ticked, and tick that chapter when finished or skipped. A screen whose
  *   controls carry no `tourTarget` yet never queues itself; a replay still plays its cards,
@@ -190,6 +193,7 @@ internal fun TutorialHost(
     val context = LocalContext.current
     LaunchedEffect(Unit) { GestureTips.attach(context) }
     val player: PlayerViewModel = geodeViewModel()
+    val paywall: PaywallViewModel = geodeViewModel()
     val playingFlow = remember(player) { player.uiState.map { it.isPlaying }.distinctUntilChanged() }
     val playing by playingFlow.collectAsStateWithLifecycle(initialValue = false)
     val latestGui by rememberUpdatedState(gui)
@@ -203,6 +207,13 @@ internal fun TutorialHost(
                 tutorialProgress = progress.copy(done = progress.done + chapter, resume = null),
             ),
         )
+    }
+    // The one-time Pro offer of a fresh install comes when its guided tour ends (finished or
+    // skipped), once the person has heard music and seen the visuals; never after a replay.
+    val endGuide = {
+        val firstRun = !state.replay
+        finishGuide(state, tick)
+        if (firstRun) paywall.open(PaywallTrigger.Onboarding)
     }
 
     val offer = gui.setupDone && !gui.tutorialSeen
@@ -237,7 +248,7 @@ internal fun TutorialHost(
     when (state.guide) {
         GuideStage.OPEN_LIBRARY -> {
             LaunchedEffect(playing) { if (playing) state.guide = GuideStage.OPEN_VISUALS }
-            GuidePointer(TourSpot.NAV_LIBRARY, 1, R.string.tour_guide_open_library, onSkip = { finishGuide(state, tick) }) {
+            GuidePointer(TourSpot.NAV_LIBRARY, 1, R.string.tour_guide_open_library, onSkip = endGuide) {
                 onShowMe(TutorialTarget.LIBRARY)
                 state.guide = GuideStage.PLAY_SONG
             }
@@ -247,13 +258,13 @@ internal fun TutorialHost(
             TourHint(
                 text = stringResource(R.string.tour_guide_play_hint),
                 actionLabel = stringResource(R.string.tour_skip_tour),
-                onAction = { finishGuide(state, tick) },
+                onAction = endGuide,
             )
         }
         GuideStage.OPEN_VISUALS ->
-            GuidePointer(TourSpot.NAV_VISUALS, 2, R.string.tour_guide_open_visuals, onSkip = { finishGuide(state, tick) }) {
+            GuidePointer(TourSpot.NAV_VISUALS, 2, R.string.tour_guide_open_visuals, onSkip = endGuide) {
                 onShowMe(TutorialTarget.VISUALS)
-                finishGuide(state, tick)
+                endGuide()
             }
         null -> ScreenPointers(state, tick, onShowMe)
     }

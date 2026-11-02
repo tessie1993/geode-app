@@ -26,10 +26,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.IntOffset
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
@@ -93,9 +95,11 @@ internal fun BoxScope.VisualsStage(
 
 /**
  * The icons over the visual, the visible twins of its gestures: Cast, Studio and Full screen (the
- * options hidden or back) at the top right, ‹ › at the sides, Record at the bottom right just
- * above the sheet. [endPx] moves the right-hand ones clear of the landscape side panel, and
- * [sheetTopPx] lifts Record over the portrait sheet; both are read in the layout pass.
+ * options hidden or back) at the top right, ‹ › at the sides of the part of the visual in view,
+ * Record at the bottom right just above the sheet. [endPx] moves the right-hand ones clear of the
+ * landscape side panel, and [sheetTopPx] lifts Record over the portrait sheet; both are read in the
+ * layout pass. ‹ › centre in what is left once both are taken off, so they never sit under the
+ * sheet or the panel.
  *
  * They fade with the shell's chrome through the layer's alpha, never AnimatedVisibility: the Cast
  * button feeds the cast mirror while Visuals is up, so it has to stay composed (CAST decision). A
@@ -134,29 +138,41 @@ internal fun BoxScope.StageIcons(
         StageIconButton(StoneIcon.STUDIO, stringResource(R.string.visuals_open_render), awake, onOpenStudioRender)
         StageIconButton(StoneIcon.FULLSCREEN, stringResource(R.string.visuals_gesture_toggle_sheet), awake, onFullScreen)
     }
-    StageIconButton(
-        StoneIcon.CHEVRON_LEFT,
-        stringResource(R.string.visuals_previous_style),
-        awake,
-        { onStep(-1) },
+    // ‹ › centre in the part of the visual in view: shrunk by the panel at the end (landscape) and
+    // the sheet at the bottom (portrait), so Center* aligns to the visible area, not the whole stage.
+    Box(
         Modifier
-            .align(Alignment.CenterStart)
-            .padding(GeodeSpacing.S)
-            .faded(shown)
-            .then(glass),
-    )
-    StageIconButton(
-        StoneIcon.CHEVRON_RIGHT,
-        stringResource(R.string.visuals_next_style),
-        awake,
-        { onStep(1) },
-        Modifier
-            .align(Alignment.CenterEnd)
-            .then(toLeft)
-            .padding(GeodeSpacing.S)
-            .faded(shown)
-            .then(glass),
-    )
+            .matchParentSize()
+            .layout { measurable, constraints ->
+                val width = (constraints.maxWidth - endPx().roundToInt()).coerceAtLeast(0)
+                val height = (constraints.maxHeight - sheetTopPx().roundToInt()).coerceAtLeast(0)
+                val placeable = measurable.measure(Constraints.fixed(width, height))
+                layout(constraints.maxWidth, constraints.maxHeight) { placeable.placeRelative(0, 0) }
+            },
+    ) {
+        StageIconButton(
+            StoneIcon.CHEVRON_LEFT,
+            stringResource(R.string.visuals_previous_style),
+            awake,
+            { onStep(-1) },
+            Modifier
+                .align(Alignment.CenterStart)
+                .padding(GeodeSpacing.S)
+                .faded(shown)
+                .then(glass),
+        )
+        StageIconButton(
+            StoneIcon.CHEVRON_RIGHT,
+            stringResource(R.string.visuals_next_style),
+            awake,
+            { onStep(1) },
+            Modifier
+                .align(Alignment.CenterEnd)
+                .padding(GeodeSpacing.S)
+                .faded(shown)
+                .then(glass),
+        )
+    }
     StageIconButton(
         icon = if (takes.recording) StoneIcon.STOP else StoneIcon.RECORD,
         description = stringResource(if (takes.recording) R.string.visuals_stop_take else R.string.visuals_gesture_record),

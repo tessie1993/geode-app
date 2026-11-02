@@ -613,11 +613,8 @@ fun SettingsScreen(
     onPlayTutorial: (List<TutorialChapter>) -> Unit,
     onResetTutorials: () -> Unit,
 ) {
+    // AppSettingsTab draws its own header (the collapsing M3 top app bar).
     Column(Modifier.fillMaxSize()) {
-        Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp)) {
-            CrystalOverline(stringResource(R.string.app_name))
-            GlowTitle(stringResource(R.string.nav_settings))
-        }
         AppSettingsTab(
             viewModel,
             onOpenStudioRender = onOpenStudioRender,

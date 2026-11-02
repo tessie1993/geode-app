@@ -14,11 +14,8 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Switch
@@ -49,7 +46,7 @@ import dev.geode.ui.pro.PaywallViewModel
 import dev.geode.ui.theme.GeodeSpacing
 
 // The building blocks of every Settings page: the standard Android settings row (icon, title,
-// one-line summary), its switch and single-choice forms, and the drill-in header. The Pro mark is
+// one-line summary) and its switch and single-choice forms. The Pro mark is
 // Customize's own ProCrown (CustomizeAdvanced), so the app draws one crown.
 // Plain Material 3 on the black-glass theme: no glows, the theme's own type and colours.
 
@@ -230,29 +227,6 @@ internal fun SettingsHint(
     modifier: Modifier = Modifier,
 ) {
     Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = modifier)
-}
-
-/** A drilled-in page's header: back arrow and the page's title. System Back does the same. */
-@Composable
-internal fun SettingsPageHeader(
-    title: String,
-    onBack: () -> Unit,
-) {
-    Row(
-        Modifier.fillMaxWidth().padding(start = GeodeSpacing.XS, end = GeodeSpacing.L, top = GeodeSpacing.XS),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(GeodeSpacing.XS),
-    ) {
-        IconButton(onClick = onBack) {
-            Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.action_back))
-        }
-        Text(
-            title,
-            style = MaterialTheme.typography.titleLarge,
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.semantics { heading() },
-        )
-    }
 }
 
 /** Whether the user has a Pro feature, and the one way a Settings row asks for it. */

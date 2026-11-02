@@ -74,7 +74,10 @@ enum class BackupSection(
     CREATIVE(
         "creative",
         listOf(GeodePrefsFiles.MODULATION),
-        listOf("presets", "palettes", "templates", "editor"),
+        // "projects" and "project-templates" are Studio's project folders (each with its takes) and
+        // its templates; "editor" and "templates" are where they lived before, kept so an older
+        // backup still restores instead of failing the allowlist.
+        listOf("presets", "palettes", "templates", "editor", "projects", "project-templates"),
         emptyList(),
         mapOf(GeodePrefsFiles.GENERAL to MacroStore.KEYS + LfoStore.KEYS),
     ),

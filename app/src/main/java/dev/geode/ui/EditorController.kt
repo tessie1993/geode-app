@@ -3,12 +3,17 @@ package dev.geode.ui
 import dev.geode.data.EditorProjectStore
 import dev.geode.data.ExportDefaults
 import dev.geode.data.ExportDestination
+import dev.geode.editor.Clip
+import dev.geode.editor.ClipContent
 import dev.geode.editor.ClipId
 import dev.geode.editor.EditResult
 import dev.geode.editor.EditorHistory
 import dev.geode.editor.EditorProject
 import dev.geode.editor.IdSource
 import dev.geode.editor.KeyframeId
+import dev.geode.editor.Lane
+import dev.geode.editor.LaneId
+import dev.geode.editor.LaneKind
 import dev.geode.editor.MarkerId
 import dev.geode.editor.ProjectId
 import dev.geode.editor.ProjectKind
@@ -145,6 +150,80 @@ internal class EditorController(
                 }
             refreshLists()
             onCreated(created)
+        }
+    }
+
+    /**
+     * "New from what's playing": [track] on an audio lane and the look on stage ([sceneId], plus
+     * [milkPath] for a MilkDrop preset) as one visual clip over the whole song, saved and opened.
+     * With a [render] the project also lists that finished video: the "keep it as a project too"
+     * answer of a one-tap Render, made after the file exists so a failed render leaves no folder.
+     */
+    fun createWithLook(
+        track: TrackRef,
+        sceneId: String,
+        milkPath: String?,
+        render: ProjectRender? = null,
+    ) {
+        withStore { all ->
+            val base =
+                StudioProject.create(
+                    id = store.newId(),
+                    name = track.title.ifBlank { nextName(all) },
+                    destination = ExportDestination.CUSTOM,
+                    defaults = store.defaultsFor(ExportDestination.CUSTOM),
+                    nowMs = store.clock(),
+                    ids = ids,
+                    track = track,
+                )
+            val lengthMs = maxOf(track.durationMs, render?.durationMs ?: 0L)
+            val look =
+                Clip(
+                    id = ClipId(ids.next()),
+                    content = ClipContent.Scene(sceneId = sceneId, milkPath = milkPath),
+                    startMs = 0L,
+                    durationMs = lengthMs,
+                )
+            val visual = Lane(LaneId(ids.next()), LaneKind.Visual, clips = listOfNotNull(look.takeIf { lengthMs > 0L }))
+            val song = base.edit.timeline
+            val timeline = song.copy(lanes = listOf(visual) + song.lanes, durationMs = maxOf(song.durationMs, lengthMs))
+            val project = base.copy(edit = base.edit.copy(timeline = timeline))
+            (if (render == null) project else project.withRender(render)).also { store.save(it) }
+        }
+    }
+
+    /**
+     * "New from a video on the phone": the video on a media lane from 0, the programme its length,
+     * saved and opened. [durationMs] comes from the clip's own metadata (`describeMedia`).
+     */
+    fun createFromVideo(
+        uri: String,
+        label: String,
+        durationMs: Long,
+    ) {
+        withStore { all ->
+            val base =
+                StudioProject.create(
+                    id = store.newId(),
+                    name = label.ifBlank { nextName(all) },
+                    destination = ExportDestination.CUSTOM,
+                    defaults = store.defaultsFor(ExportDestination.CUSTOM),
+                    nowMs = store.clock(),
+                    ids = ids,
+                )
+            val clip =
+                Clip(
+                    id = ClipId(ids.next()),
+                    content = ClipContent.Video(uri),
+                    startMs = 0L,
+                    durationMs = durationMs,
+                    sourceDurationMs = durationMs,
+                    label = label,
+                )
+            val media = Lane(id = LaneId(ids.next()), kind = LaneKind.Media, name = label, clips = listOf(clip))
+            val timeline = base.edit.timeline.copy(lanes = listOf(media), durationMs = durationMs)
+            val project = base.copy(edit = base.edit.copy(timeline = timeline))
+            project.also { store.save(it) }
         }
     }
 

@@ -261,7 +261,13 @@ fun AppRoot() {
                             canvasFree = !appState.expanded && !onSecondScreen,
                         )
                     GeodeDestination.STUDIO ->
-                        StudioHub(viewModel, visualizerView, appState.studioSection, onSection = { appState.studioSection = it })
+                        StudioHub(
+                            viewModel,
+                            visualizerView,
+                            appState.studioSection,
+                            onSection = { appState.studioSection = it },
+                            onImmersive = { appState.immersive = it },
+                        )
                     GeodeDestination.SETTINGS ->
                         SettingsScreen(
                             viewModel,

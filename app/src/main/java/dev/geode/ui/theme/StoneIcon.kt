@@ -21,7 +21,7 @@ import androidx.compose.ui.unit.dp
  *
  * The rule is M3's: outlined at rest, filled when selected ([filled], `StoneIconArt(selected =)`),
  * so the selected tab or a favourite that is on reads by shape and not by colour alone. The
- * transport glyphs ([filledAtRest]) are the one exception: play, pause and skip are solid in every
+ * transport glyphs ([filledAtRest]) are the one exception: play, pause, skip, record and stop are solid in every
  * media player and in Android's own media controls, and an outlined play triangle reads as
  * disabled.
  *
@@ -35,7 +35,10 @@ enum class StoneIcon(
     private val filledAtRest: Boolean = false,
 ) {
     ADD(MaterialSymbols.ADD_OUTLINED, MaterialSymbols.ADD_FILLED),
+    CAST(MaterialSymbols.CAST_OUTLINED, MaterialSymbols.CAST_FILLED),
     CHECK(MaterialSymbols.CHECK_OUTLINED, MaterialSymbols.CHECK_FILLED),
+    CHEVRON_LEFT(MaterialSymbols.CHEVRON_LEFT_OUTLINED, MaterialSymbols.CHEVRON_LEFT_FILLED, mirrored = true),
+    CHEVRON_RIGHT(MaterialSymbols.CHEVRON_RIGHT_OUTLINED, MaterialSymbols.CHEVRON_RIGHT_FILLED, mirrored = true),
     CLOSE(MaterialSymbols.CLOSE_OUTLINED, MaterialSymbols.CLOSE_FILLED),
     DELETE(MaterialSymbols.DELETE_OUTLINED, MaterialSymbols.DELETE_FILLED),
     EDIT(MaterialSymbols.EDIT_OUTLINED, MaterialSymbols.EDIT_FILLED),
@@ -46,17 +49,20 @@ enum class StoneIcon(
     LIBRARY(MaterialSymbols.LIBRARY_OUTLINED, MaterialSymbols.LIBRARY_FILLED),
     LYRICS(MaterialSymbols.LYRICS_OUTLINED, MaterialSymbols.LYRICS_FILLED, mirrored = true),
     MICROPHONE(MaterialSymbols.MICROPHONE_OUTLINED, MaterialSymbols.MICROPHONE_FILLED),
+    MORE(MaterialSymbols.MORE_OUTLINED, MaterialSymbols.MORE_FILLED),
     NEXT(MaterialSymbols.NEXT_OUTLINED, MaterialSymbols.NEXT_FILLED, filledAtRest = true),
     PAUSE(MaterialSymbols.PAUSE_OUTLINED, MaterialSymbols.PAUSE_FILLED, filledAtRest = true),
     PLAY(MaterialSymbols.PLAY_OUTLINED, MaterialSymbols.PLAY_FILLED, filledAtRest = true),
     PREVIOUS(MaterialSymbols.PREVIOUS_OUTLINED, MaterialSymbols.PREVIOUS_FILLED, filledAtRest = true),
     QUEUE(MaterialSymbols.QUEUE_OUTLINED, MaterialSymbols.QUEUE_FILLED, mirrored = true),
+    RECORD(MaterialSymbols.RECORD_OUTLINED, MaterialSymbols.RECORD_FILLED, filledAtRest = true),
     REPEAT(MaterialSymbols.REPEAT_OUTLINED, MaterialSymbols.REPEAT_FILLED),
     REPEAT_ONE(MaterialSymbols.REPEAT_ONE_OUTLINED, MaterialSymbols.REPEAT_ONE_FILLED),
     SEARCH(MaterialSymbols.SEARCH_OUTLINED, MaterialSymbols.SEARCH_FILLED),
     SETTINGS(MaterialSymbols.SETTINGS_OUTLINED, MaterialSymbols.SETTINGS_FILLED),
     SHARE(MaterialSymbols.SHARE_OUTLINED, MaterialSymbols.SHARE_FILLED),
     SHUFFLE(MaterialSymbols.SHUFFLE_OUTLINED, MaterialSymbols.SHUFFLE_FILLED),
+    STOP(MaterialSymbols.STOP_OUTLINED, MaterialSymbols.STOP_FILLED, filledAtRest = true),
     STUDIO(MaterialSymbols.STUDIO_OUTLINED, MaterialSymbols.STUDIO_FILLED),
     VISUALIZER(MaterialSymbols.VISUALIZER_OUTLINED, MaterialSymbols.VISUALIZER_FILLED),
     ;

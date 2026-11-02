@@ -252,7 +252,8 @@ class StyleReactionsCache(
     ): List<ReactionRoute> {
         // The mask means nothing without a list of the user's, so it does not invalidate the DNA alone.
         val maskKey = if (user == null) 0 else mask
-        if (sceneId != this.sceneId || seed != this.seed || user !== this.user || maskKey != this.mask) {
+        val sameKey = sceneId == this.sceneId && seed == this.seed
+        if (!sameKey || user !== this.user || maskKey != this.mask) {
             this.sceneId = sceneId
             this.seed = seed
             this.user = user

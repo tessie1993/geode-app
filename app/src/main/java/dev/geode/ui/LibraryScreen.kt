@@ -5,28 +5,44 @@ import android.net.Uri
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Sort
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -34,10 +50,10 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -46,6 +62,7 @@ import androidx.compose.material3.PrimaryScrollableTabRow
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -59,23 +76,31 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.collapse
+import androidx.compose.ui.semantics.expand
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.window.core.layout.WindowSizeClass
 import dev.geode.R
 import dev.geode.data.MusicPlaylist
 import dev.geode.model.DeviceTrack
 import dev.geode.model.LibraryTrack
 import dev.geode.ui.theme.GeodeSpacing
+import dev.geode.ui.theme.LocalGeodeMotion
 import dev.geode.ui.theme.StoneIcon
 import dev.geode.ui.theme.StoneIconArt
 import kotlinx.coroutines.launch
@@ -84,6 +109,38 @@ import kotlin.math.roundToInt
 /** Playlists sit last and behave differently: hand-ordered, so search and sort do not apply. */
 private const val PLAYLISTS_TAB = 4
 private const val DUPLICATES_TAB = 5
+
+/**
+ * The pane width from which a landscape or expanded window splits the library into two columns
+ * or panes. Read from the pane, not only the window: on a tablet the Player pane already takes
+ * half the window, and two 200 dp columns would be worse than one.
+ */
+private val LIBRARY_SPLIT_WIDTH = 640.dp
+
+/** A list column never stretches past this, so a row stays one glance wide on a tablet. */
+private val LIBRARY_COLUMN_MAX = 600.dp
+
+/**
+ * Landscape or expanded width, from the window size class. Portrait stays one column at any
+ * width: a portrait tablet is read top to bottom, and a second column there splits a list the
+ * eye expects to run down.
+ */
+@Composable
+private fun libraryLandscapeOrExpanded(): Boolean {
+    val size = currentWindowAdaptiveInfo().windowSizeClass
+    return size.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND) ||
+        (
+            size.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND) &&
+                !size.isHeightAtLeastBreakpoint(WindowSizeClass.HEIGHT_DP_MEDIUM_LOWER_BOUND)
+        )
+}
+
+/** Centres a list and caps it at [LIBRARY_COLUMN_MAX] per column, so a wide pane is not one stretched row. */
+private fun Modifier.libraryListWidth(columns: Int): Modifier =
+    fillMaxSize()
+        .wrapContentWidth(Alignment.CenterHorizontally)
+        .widthIn(max = LIBRARY_COLUMN_MAX * columns)
+        .fillMaxWidth()
 
 @Composable
 fun LibraryScreen(onOpenSearch: () -> Unit) {
@@ -112,6 +169,7 @@ fun LibraryScreen(onOpenSearch: () -> Unit) {
         )
     // Already searched and sorted by the ViewModel — the screen draws what it is handed.
     val shown = state.tracks
+    val landscapeOrExpanded = libraryLandscapeOrExpanded()
 
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -155,44 +213,118 @@ fun LibraryScreen(onOpenSearch: () -> Unit) {
         PrimaryScrollableTabRow(selectedTabIndex = tab, containerColor = Color.Transparent, divider = {}) {
             tabs.forEachIndexed { i, t -> Tab(selected = i == tab, onClick = { tab = i }, text = { Text(t) }) }
         }
-        // Search and sort belong to the track-shaped tabs. Playlists are ordered by hand, and
-        // re-sorting someone's running order out from under them would be a bug, not a feature.
-        if (tab != PLAYLISTS_TAB && tab != DUPLICATES_TAB) {
-            OutlinedTextField(
-                value = state.query,
-                onValueChange = libraryViewModel::setQuery,
-                singleLine = true,
-                label = { Text(stringResource(R.string.library_search_hint)) },
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-            )
-            // Chips in a scrolling row, not a segmented bar: equal-width segments split "Artist"
-            // mid-word at large font scales, while a chip keeps its label whole and scrolls instead.
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .selectableGroup()
-                    .horizontalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp, vertical = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                LibrarySort.entries.forEach { sort ->
-                    FilterChip(
-                        selected = sort == state.sort,
-                        onClick = { libraryViewModel.setSort(sort) },
-                        label = { Text(stringResource(sort.labelRes), maxLines = 1, softWrap = false) },
-                    )
+        // Measured below the tabs, where the lists live: the pane's own width decides the split.
+        BoxWithConstraints(Modifier.fillMaxWidth().weight(1f)) {
+            val wide = landscapeOrExpanded && maxWidth >= LIBRARY_SPLIT_WIDTH
+            val columns = if (wide) 2 else 1
+            Column(Modifier.fillMaxSize()) {
+                // Search and sort belong to the track-shaped tabs. Playlists are ordered by hand, and
+                // re-sorting someone's running order out from under them would be a bug, not a feature.
+                if (tab != PLAYLISTS_TAB && tab != DUPLICATES_TAB) {
+                    // One row in a wide pane: landscape is short, and two stacked rows of controls
+                    // there would leave the list a strip.
+                    Row(
+                        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        OutlinedTextField(
+                            value = state.query,
+                            onValueChange = libraryViewModel::setQuery,
+                            singleLine = true,
+                            label = { Text(stringResource(R.string.library_search_hint)) },
+                            modifier = Modifier.weight(1f),
+                        )
+                        if (wide) SortPicker(state.sort, libraryViewModel::setSort)
+                    }
+                    if (!wide) SortPicker(state.sort, libraryViewModel::setSort, Modifier.padding(horizontal = 8.dp))
+                }
+                // Grouping walks the whole library, so it runs when the shown tracks change, not on
+                // every recomposition of the screen.
+                when (tab) {
+                    0 -> TrackList(shown, playerViewModel, libraryViewModel, state.isSearching, columns)
+                    1 -> GroupList(remember(shown) { shown.groupBy { it.album } }, playerViewModel, libraryViewModel, columns)
+                    2 -> GroupList(remember(shown) { shown.groupBy { it.artist } }, playerViewModel, libraryViewModel, columns)
+                    3 -> FoldersTab(remember(shown) { shown.groupBy { it.folder } }, playerViewModel, wide)
+                    PLAYLISTS_TAB -> PlaylistsTab(libraryViewModel, wide)
+                    DUPLICATES_TAB -> DuplicatesTab(state.tracks, playerViewModel, onDeleted = { reloadKey++ })
                 }
             }
         }
-        // Grouping walks the whole library, so it runs when the shown tracks change, not on
-        // every recomposition of the screen.
-        when (tab) {
-            0 -> TrackList(shown, playerViewModel, libraryViewModel, state.isSearching)
-            1 -> GroupList(remember(shown) { shown.groupBy { it.album } }, playerViewModel, libraryViewModel)
-            2 -> GroupList(remember(shown) { shown.groupBy { it.artist } }, playerViewModel, libraryViewModel)
-            3 -> FoldersTab(remember(shown) { shown.groupBy { it.folder } }, playerViewModel)
-            PLAYLISTS_TAB -> PlaylistsTab(libraryViewModel)
-            DUPLICATES_TAB -> DuplicatesTab(state.tracks, playerViewModel, onDeleted = { reloadKey++ })
+    }
+}
+
+/**
+ * The track order as one row with its value and ▾, opening a menu with a check on the current
+ * order. It was a chip per order; a menu keeps the row one control wide however many orders
+ * there are, and a long label at a large font scale wraps in the menu instead of being cut.
+ */
+@Composable
+private fun SortPicker(
+    sort: LibrarySort,
+    onSort: (LibrarySort) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    LibraryDropdownRow(
+        value = stringResource(sort.labelRes),
+        options = LibrarySort.entries,
+        label = { stringResource(it.labelRes) },
+        isSelected = { it == sort },
+        onPick = onSort,
+        modifier = modifier,
+        leading = { Icon(Icons.AutoMirrored.Filled.Sort, contentDescription = null, Modifier.size(20.dp)) },
+    )
+}
+
+/**
+ * One pick from a list, Material's way: the current value and a ▾ on a 48 dp row, and an M3
+ * [DropdownMenu] with a check on the chosen item (TalkBack hears it as selected). Shared by the
+ * library's sort and the smart playlist editor's rule pickers, which replaced their chip walls
+ * with it.
+ */
+@Composable
+internal fun <T> LibraryDropdownRow(
+    value: String,
+    options: List<T>,
+    label: @Composable (T) -> String,
+    isSelected: (T) -> Boolean,
+    onPick: (T) -> Unit,
+    modifier: Modifier = Modifier,
+    leading: (@Composable () -> Unit)? = null,
+) {
+    var open by remember { mutableStateOf(false) }
+    Box(modifier) {
+        Row(
+            Modifier
+                .heightIn(min = 48.dp)
+                .clip(MaterialTheme.shapes.small)
+                .clickable(role = Role.DropdownList) { open = true }
+                .padding(horizontal = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            leading?.invoke()
+            Text(value, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Icon(Icons.Filled.ArrowDropDown, contentDescription = null)
+        }
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            options.forEach { option ->
+                val chosen = isSelected(option)
+                DropdownMenuItem(
+                    text = { Text(label(option)) },
+                    onClick = {
+                        open = false
+                        onPick(option)
+                    },
+                    modifier = Modifier.semantics { selected = chosen },
+                    trailingIcon =
+                        if (chosen) {
+                            { Icon(Icons.Filled.Check, contentDescription = null) }
+                        } else {
+                            null
+                        },
+                )
+            }
         }
     }
 }
@@ -203,11 +335,13 @@ private fun TrackList(
     viewModel: PlayerViewModel,
     libraryViewModel: LibraryViewModel,
     searching: Boolean = false,
+    columns: Int = 1,
 ) {
     val queue = remember(tracks) { tracks.map(PlaybackQueue::queueTrack) }
     // Collected once for the list: per row it was a ViewModel lookup and a collector per item.
     val overrides by libraryViewModel.trackOverrides.collectAsStateWithLifecycle()
-    LazyColumn(Modifier.fillMaxSize()) {
+    // Still a list, read row by row; a wide pane only flows it into side-by-side columns.
+    LazyVerticalGrid(GridCells.Fixed(columns), Modifier.libraryListWidth(columns)) {
         items(tracks, key = { it.uri }, contentType = { "track" }) { t ->
             TrackRow(t, viewModel, libraryViewModel, overrides[t.uri], queue = queue)
         }
@@ -215,7 +349,9 @@ private fun TrackList(
             // An empty library and an empty result set are different problems, and telling
             // someone "no music found" mid-search would send them looking for the wrong fix.
             val empty = if (searching) R.string.library_no_results else R.string.library_no_music
-            item(key = "empty", contentType = "empty") { Text(stringResource(empty), Modifier.padding(16.dp)) }
+            item(key = "empty", span = { GridItemSpan(maxLineSpan) }, contentType = "empty") {
+                Text(stringResource(empty), Modifier.padding(16.dp))
+            }
         }
     }
 }
@@ -360,6 +496,7 @@ private fun GroupList(
     groups: Map<String, List<DeviceTrack>>,
     viewModel: PlayerViewModel,
     libraryViewModel: LibraryViewModel,
+    columns: Int = 1,
 ) {
     var open by rememberSaveable { mutableStateOf<String?>(null) }
     val sel = open
@@ -396,7 +533,7 @@ private fun GroupList(
                     contentPadding = PaddingValues(horizontal = GeodeSpacing.M, vertical = GeodeSpacing.XS),
                 ) { Text(stringResource(R.string.action_shuffle)) }
             }
-            LazyColumn(Modifier.fillMaxSize()) {
+            LazyVerticalGrid(GridCells.Fixed(columns), Modifier.libraryListWidth(columns)) {
                 items(groups.getValue(sel), key = { it.uri }, contentType = { "track" }) { t ->
                     TrackRow(t, viewModel, libraryViewModel, overrides[t.uri], subtitleOverride = t.album, queue = queue)
                 }
@@ -404,7 +541,7 @@ private fun GroupList(
         }
     } else {
         val names = remember(groups) { groups.keys.sorted() }
-        LazyColumn(Modifier.fillMaxSize()) {
+        LazyVerticalGrid(GridCells.Fixed(columns), Modifier.libraryListWidth(columns)) {
             items(names, key = { it }, contentType = { "group" }) { g ->
                 Row(
                     Modifier.fillMaxWidth().clickable { open = g }.padding(horizontal = 16.dp, vertical = 10.dp),
@@ -432,7 +569,10 @@ private fun GroupList(
 }
 
 @Composable
-private fun PlaylistsTab(viewModel: LibraryViewModel) {
+private fun PlaylistsTab(
+    viewModel: LibraryViewModel,
+    wide: Boolean = false,
+) {
     val library by viewModel.library.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
     var expanded by remember { mutableStateOf<String?>(null) }
@@ -461,53 +601,62 @@ private fun PlaylistsTab(viewModel: LibraryViewModel) {
                 contentPadding = PaddingValues(horizontal = GeodeSpacing.M, vertical = GeodeSpacing.XS),
             ) { Text(stringResource(R.string.playlist_import_action)) }
         }
-        // Three kinds of item share this list, so each declares its type and lazy layout reuses
-        // a playlist row's slot only for another playlist row. Playlist keys carry a prefix so a
-        // playlist named like the fixed items cannot collide with them.
-        LazyColumn(Modifier.fillMaxSize()) {
-            item(key = "smart", contentType = "smart") { SmartPlaylistsSection(viewModel) }
-            items(library.playlists, key = { "playlist:${it.name}" }, contentType = { "playlist" }) { pl ->
-                Column(Modifier.fillMaxWidth()) {
-                    Row(
-                        Modifier
-                            .fillMaxWidth()
-                            .clickable { expanded = if (expanded == pl.name) null else pl.name }
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Column(Modifier.weight(1f)) {
-                            Text(pl.name)
-                            Text(
-                                pluralStringResource(
-                                    R.plurals.track_count,
-                                    pl.trackUris.size,
-                                    pl.trackUris.size,
-                                ),
-                                style = MaterialTheme.typography.bodySmall,
-                            )
+        // A wide pane puts the smart playlists beside the hand-made ones instead of on top of
+        // them, so neither list is pushed below the fold of a short landscape screen.
+        Row(Modifier.fillMaxSize()) {
+            // Three kinds of item share this list, so each declares its type and lazy layout reuses
+            // a playlist row's slot only for another playlist row. Playlist keys carry a prefix so a
+            // playlist named like the fixed items cannot collide with them.
+            LazyColumn(Modifier.weight(1f).fillMaxHeight()) {
+                if (!wide) item(key = "smart", contentType = "smart") { SmartPlaylistsSection(viewModel) }
+                items(library.playlists, key = { "playlist:${it.name}" }, contentType = { "playlist" }) { pl ->
+                    Column(Modifier.fillMaxWidth()) {
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .clickable { expanded = if (expanded == pl.name) null else pl.name }
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column(Modifier.weight(1f)) {
+                                Text(pl.name)
+                                Text(
+                                    pluralStringResource(
+                                        R.plurals.track_count,
+                                        pl.trackUris.size,
+                                        pl.trackUris.size,
+                                    ),
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                            }
+                            IconButton(onClick = {
+                                renaming = pl.name
+                                renameText = pl.name
+                            }) { StoneIconArt(StoneIcon.EDIT, stringResource(R.string.action_rename)) }
+                            IconButton(onClick = { viewModel.playPlaylist(pl.name) }) {
+                                StoneIconArt(StoneIcon.PLAY, stringResource(R.string.action_play))
+                            }
+                            IconButton(onClick = { deleting = pl.name }) {
+                                StoneIconArt(StoneIcon.CLOSE, stringResource(R.string.playlist_delete_title))
+                            }
                         }
-                        IconButton(onClick = {
-                            renaming = pl.name
-                            renameText = pl.name
-                        }) { StoneIconArt(StoneIcon.EDIT, stringResource(R.string.action_rename)) }
-                        IconButton(onClick = { viewModel.playPlaylist(pl.name) }) {
-                            StoneIconArt(StoneIcon.PLAY, stringResource(R.string.action_play))
-                        }
-                        IconButton(onClick = { deleting = pl.name }) {
-                            StoneIconArt(StoneIcon.CLOSE, stringResource(R.string.playlist_delete_title))
+                        if (expanded == pl.name) {
+                            PlaylistTracks(pl, library.tracks, viewModel)
                         }
                     }
-                    if (expanded == pl.name) {
-                        PlaylistTracks(pl, library.tracks, viewModel)
+                }
+                if (library.playlists.isEmpty()) {
+                    item(key = "empty", contentType = "empty") {
+                        Text(
+                            stringResource(R.string.playlist_none_yet),
+                            Modifier.padding(16.dp),
+                        )
                     }
                 }
             }
-            if (library.playlists.isEmpty()) {
-                item(key = "empty", contentType = "empty") {
-                    Text(
-                        stringResource(R.string.playlist_none_yet),
-                        Modifier.padding(16.dp),
-                    )
+            if (wide) {
+                Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState())) {
+                    SmartPlaylistsSection(viewModel)
                 }
             }
         }
@@ -719,8 +868,46 @@ private fun PlaylistTracks(
 private fun FoldersTab(
     folders: Map<String, List<DeviceTrack>>,
     viewModel: PlayerViewModel,
+    wide: Boolean = false,
 ) {
     val libraryViewModel: LibraryViewModel = geodeViewModel()
+    val folderRows = remember(folders) { FolderTree.rows(folders) }
+    val deviceFolders: @Composable (Modifier) -> Unit = { modifier ->
+        Column(modifier) {
+            Text(
+                stringResource(R.string.folders_device),
+                Modifier.padding(horizontal = 16.dp, vertical = 4.dp).semantics { heading() },
+                style = MaterialTheme.typography.titleSmall,
+            )
+            GroupList(folderRows, viewModel, libraryViewModel)
+        }
+    }
+    // The library folders are tools, the device folders are the content: the tools fold into one
+    // card with a summary, so the content starts near the top, and a wide pane sets them side by side.
+    if (wide) {
+        Row(Modifier.fillMaxSize()) {
+            Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState())) {
+                LibraryFoldersCard(libraryViewModel)
+            }
+            deviceFolders(Modifier.weight(1f).fillMaxHeight())
+        }
+    } else {
+        Column {
+            LibraryFoldersCard(libraryViewModel)
+            deviceFolders(Modifier)
+        }
+    }
+}
+
+/**
+ * Library › Folders' own tools as one collapsible card: the name, a one-line summary (the folders'
+ * names, or Scanning… while a rescan runs) and a ▾ that turns when open. Collapsed by default,
+ * like every V2 options card: the folder list and its buttons are needed now and then, the device
+ * folders under it every time. TalkBack hears it as expandable through the expand and collapse
+ * actions.
+ */
+@Composable
+private fun LibraryFoldersCard(libraryViewModel: LibraryViewModel) {
     val roots by libraryViewModel.mediaRoots.collectAsStateWithLifecycle()
     val scanning by libraryViewModel.libraryScanning.collectAsStateWithLifecycle()
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -728,52 +915,102 @@ private fun FoldersTab(
         rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
             if (uri != null) libraryViewModel.importFolder(uri)
         }
-    Column {
-        Text(
-            stringResource(R.string.folders_library),
-            Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-            style = MaterialTheme.typography.titleSmall,
-        )
-        roots.sorted().forEach { root ->
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
+    var open by rememberSaveable { mutableStateOf(false) }
+    val motion = LocalGeodeMotion.current
+    val chevron by animateFloatAsState(if (open) 180f else 0f, motion.defaultSpatialSpec(), label = "foldersChevron")
+    val named =
+        remember(roots) {
+            roots.sorted().map { root ->
+                root to
                     java.net.URLDecoder
                         .decode(root.substringAfterLast("%3A").substringAfterLast("/"), "UTF-8")
-                        .ifBlank { root },
-                    Modifier.weight(1f),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    style = MaterialTheme.typography.bodySmall,
-                )
-                IconButton(onClick = { libraryViewModel.removeMediaRoot(root) }) {
-                    StoneIconArt(StoneIcon.CLOSE, stringResource(R.string.folders_remove))
+                        .ifBlank { root }
+            }
+        }
+    val summary =
+        when {
+            scanning -> stringResource(R.string.folders_scanning)
+            named.isEmpty() -> "0"
+            else -> named.joinToString(", ") { it.second }
+        }
+    Card(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .heightIn(min = 48.dp)
+                .clickable(role = Role.Button) { open = !open }
+                .semantics {
+                    if (open) {
+                        collapse {
+                            open = false
+                            true
+                        }
+                    } else {
+                        expand {
+                            open = true
+                            true
+                        }
+                    }
+                }.padding(start = 16.dp, end = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                stringResource(R.string.folders_library),
+                style = MaterialTheme.typography.titleSmall,
+                maxLines = 1,
+            )
+            Text(
+                summary,
+                Modifier.weight(1f),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.End,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Icon(Icons.Filled.KeyboardArrowDown, contentDescription = null, Modifier.graphicsLayer { rotationZ = chevron })
+        }
+        AnimatedVisibility(
+            visible = open,
+            enter = expandVertically(motion.defaultSpatialSpec()) + fadeIn(motion.defaultEffectsSpec()),
+            exit = shrinkVertically(motion.defaultSpatialSpec()) + fadeOut(motion.defaultEffectsSpec()),
+        ) {
+            Column(Modifier.padding(bottom = 8.dp)) {
+                named.forEach { (root, name) ->
+                    Row(
+                        Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            name,
+                            Modifier.weight(1f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                        IconButton(onClick = { libraryViewModel.removeMediaRoot(root) }) {
+                            StoneIconArt(StoneIcon.CLOSE, stringResource(R.string.folders_remove))
+                        }
+                    }
+                }
+                Row(
+                    Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    FilledTonalButton(
+                        onClick = { folderPicker.launchPicker(context, null) },
+                        contentPadding = PaddingValues(horizontal = GeodeSpacing.M, vertical = GeodeSpacing.XS),
+                    ) { Text(stringResource(R.string.folders_add)) }
+                    FilledTonalButton(
+                        onClick = libraryViewModel::rescanMediaRoots,
+                        enabled = roots.isNotEmpty() && !scanning,
+                        contentPadding = PaddingValues(horizontal = GeodeSpacing.M, vertical = GeodeSpacing.XS),
+                    ) {
+                        Text(stringResource(if (scanning) R.string.folders_scanning else R.string.folders_rescan))
+                    }
                 }
             }
         }
-        Row(
-            Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            FilledTonalButton(
-                onClick = { folderPicker.launchPicker(context, null) },
-                contentPadding = PaddingValues(horizontal = GeodeSpacing.M, vertical = GeodeSpacing.XS),
-            ) { Text(stringResource(R.string.folders_add)) }
-            FilledTonalButton(
-                onClick = libraryViewModel::rescanMediaRoots,
-                enabled = roots.isNotEmpty() && !scanning,
-                contentPadding = PaddingValues(horizontal = GeodeSpacing.M, vertical = GeodeSpacing.XS),
-            ) {
-                Text(stringResource(if (scanning) R.string.folders_scanning else R.string.folders_rescan))
-            }
-        }
-        Text(
-            stringResource(R.string.folders_device),
-            Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-            style = MaterialTheme.typography.bodySmall,
-        )
-        GroupList(remember(folders) { FolderTree.rows(folders) }, viewModel, libraryViewModel)
     }
 }

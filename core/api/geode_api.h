@@ -80,6 +80,31 @@ GEODE_API void        geode_viz_set_reactions(geode_viz*, const float* routes, i
    geode_viz_set_reactions layout. Writes at most capacity / GEODE_REACT_ROUTE_FLOATS routes into
    out and returns how many. Pure: no viz handle, the same id and seed always give the same routes. */
 GEODE_API int         geode_style_reactions(const char* style_id, int seed, float* out, int capacity);
+/* Customize › Music, "the hand wins per moment" (core/viz Reactions.hpp hand::, ReactionDna.hpp). The hand mask
+   is bit i for moment i (GEODE_MUSIC_MOMENTS, in the page's order) plus GEODE_HAND_UNCLAIMED for every source
+   no moment claims; GEODE_HAND_ALL is a whole list of the user's (the route editor, a list saved before the
+   mask). `user` is the user's routes in the geode_viz_set_reactions layout, NULL (or has_user 0) for none.
+   geode_hand_set is process-wide like geode_director_set: every renderer's director keeps off those moments. */
+#define GEODE_MUSIC_MOMENTS 10
+#define GEODE_MUSIC_ACTIONS 7
+#define GEODE_HAND_UNCLAIMED 0x40000000u
+#define GEODE_HAND_ALL 0x400003FFu
+#define GEODE_MUSIC_STATE_FLOATS 5  /* per moment: mine, route count, strength, on-action bits, fits-action bits */
+GEODE_API void        geode_hand_set(unsigned mask);
+/* What plays: the user's routes on the hand's sources, the DNA's (dealt from id and seed) on the rest. */
+GEODE_API int         geode_style_reactions_hand(const char* style_id, int seed, const float* user, int user_floats, int has_user,
+                                                 unsigned mask, float* out, int capacity);
+/* Every moment's row, GEODE_MUSIC_STATE_FLOATS each, into out (capacity floats); returns the moments written. */
+GEODE_API int         geode_music_state(const char* style_id, int seed, const float* user, int user_floats, int has_user,
+                                        unsigned mask, float* out, int capacity);
+/* One tap: op 0 toggles `action` on `moment`, 1 sets its strength to `value`, 2 resets it to Auto. Writes the
+   user's new routes into out and the new mask and has_user (0: all Auto) into out_mask / out_has_user; returns
+   the route count. */
+GEODE_API int         geode_music_edit(const char* style_id, int seed, const float* user, int user_floats, int has_user,
+                                       unsigned mask, int op, int moment, int action, float value, float* out, int capacity,
+                                       unsigned* out_mask, int* out_has_user);
+/* The LfoTarget ordinal a new route of `action` moves, so the shell can hide a chip the style ignores. */
+GEODE_API int         geode_music_action_target(int action);
 /* Gyro look, -1..1 per axis; the camera reads it only while camGyro is on. */
 GEODE_API void        geode_viz_set_look(geode_viz*, float yaw, float pitch);
 GEODE_API void        geode_viz_set_thermal(geode_viz*, int platform_status, float headroom); /* status < 0 = unknown */
@@ -91,6 +116,13 @@ GEODE_API void        geode_viz_set_liquid_hot_policy(geode_viz*, int policy);
 /* What Liquid mode ran last frame: 0 off, 1 full, 2 lite, 3 warp, 4 paused (liquid::Mode). 0 for a null handle. */
 GEODE_API int         geode_viz_liquid_mode(const geode_viz*);
 GEODE_API void        geode_viz_set_offscreen(geode_viz*, int on);
+/* Frosted glass under the app's sheet (core/viz/UiBlurPass): blurs the finished frame inside one rounded
+ * rect, after the composite. The rect is normalised to the viewport with y DOWN (a view's left/top/right/
+ * bottom in pixels over the visual's width/height); strength 0..1 mixes the blur in, 0 turns it off and
+ * costs nothing; corner_px is the corner radius in surface pixels. Any thread, latched for the next frame.
+ * An offscreen (export) renderer never draws it. */
+GEODE_API void        geode_viz_set_ui_blur_region(geode_viz*, float left, float top, float right, float bottom,
+                                                   float strength, float corner_px);
 /* An export's own auto-director (amount 0..1, the play's seed): from now on this renderer ignores
  * geode_director_set, so the live player's switch, track and free taste never reach the render. */
 GEODE_API void        geode_viz_set_director(geode_viz*, float amount, long long seed);

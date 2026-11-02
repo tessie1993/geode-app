@@ -1,23 +1,29 @@
 package dev.geode.ui
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
-import androidx.compose.material3.InputChip
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -36,18 +42,21 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onLongClick
 import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.setProgress
 import androidx.compose.ui.semantics.stateDescription
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import dev.geode.data.MacroPreset
+import dev.geode.R
 import dev.geode.data.MacroState
 import dev.geode.data.MacroStore
+import dev.geode.ui.theme.GeodeSpacing
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
@@ -77,17 +86,14 @@ internal fun MacrosTab(
     store: MacroStore,
 ) {
     Column {
-        ControlHint(
-            "Six knobs over every style. Centre is the look as styled; turn right for more, left for less. " +
-                "Double-tap a knob to centre it, long-press to keep it out of Surprise.",
-        )
+        // No caption over the knobs (UI V2 rule 3): each knob's ⋮ › What is this says what it does.
         for (row in 0 until 2) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                 for (col in 0 until 3) {
                     val i = row * 3 + col
                     MacroKnob(
                         title = MACRO_TITLES[i],
-                        hint = MACRO_HINTS[i],
+                        about = MACRO_HINTS[i],
                         value = state.knobs[i],
                         locked = state.isLocked(i),
                         onChange = { store.setKnob(i, it, persist = false) },
@@ -116,29 +122,14 @@ internal fun MacroSetsPage(
     var naming by remember { mutableStateOf(false) }
     val starters = remember { MacroStore.starters() }
     Column {
-        SectionHeader("Sets")
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            starters.forEach { p -> PresetChip(p, state, store) }
-        }
-        SectionHeader("Yours")
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            state.presets.forEach { p ->
-                InputChip(
-                    selected = sameKnobs(p.knobs, state.knobs),
-                    onClick = { store.setKnobs(p.knobs) },
-                    label = { Text(p.name, style = MaterialTheme.typography.labelLarge) },
-                    trailingIcon = {
-                        Text(
-                            "×",
-                            modifier =
-                                Modifier
-                                    .pointerInput(p.name) { detectTapGestures { store.deletePreset(p.name) } }
-                                    .semantics { contentDescription = "Delete ${p.name}" },
-                        )
-                    },
-                )
-            }
-        }
+        // One dropdown row per shelf, the set in use checked (UI V2 rule 2), in place of two chip walls.
+        DropdownRow(
+            stringResource(R.string.macro_sets_built_in),
+            starters.map { it.name },
+            starters.indexOfFirst { sameKnobs(it.knobs, state.knobs) },
+            placeholder = stringResource(R.string.macro_sets_custom),
+        ) { store.setKnobs(starters[it].knobs) }
+        if (state.presets.isNotEmpty()) YourSetsRow(state, store)
         TextButton(onClick = { if (canSavePresets) naming = true else onLockedSave() }) {
             Text(if (canSavePresets) "Save these knobs as a set" else "Save these knobs as a set (Pro)")
         }
@@ -160,17 +151,60 @@ internal fun MacroSetsPage(
     }
 }
 
+/**
+ * The user's own sets as one dropdown row: a tap on a name applies it, its bin deletes it. The bin is
+ * a full 48 dp icon button inside the menu item, with the set's name in its TalkBack label.
+ */
 @Composable
-private fun PresetChip(
-    preset: MacroPreset,
+private fun YourSetsRow(
     state: MacroState,
     store: MacroStore,
 ) {
-    FilterChip(
-        selected = sameKnobs(preset.knobs, state.knobs),
-        onClick = { store.setKnobs(preset.knobs) },
-        label = { Text(preset.name, style = MaterialTheme.typography.labelLarge) },
-    )
+    var open by remember { mutableStateOf(false) }
+    val current = state.presets.firstOrNull { sameKnobs(it.knobs, state.knobs) }
+    val name = stringResource(R.string.macro_sets_yours)
+    Box {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .heightIn(min = GeodeSpacing.TouchTarget)
+                .clickable(role = Role.DropdownList, onClickLabel = "Choose $name") { open = true }
+                .semantics(mergeDescendants = true) {},
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(name, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+            Text(
+                current?.name ?: stringResource(R.string.macro_sets_count, state.presets.size),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Icon(Icons.Filled.ArrowDropDown, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            state.presets.forEach { p ->
+                DropdownMenuItem(
+                    text = { Text(p.name) },
+                    leadingIcon =
+                        if (p == current) {
+                            { Icon(Icons.Filled.Check, contentDescription = "Selected", tint = accentTextColor()) }
+                        } else {
+                            null
+                        },
+                    trailingIcon = {
+                        IconButton(onClick = { store.deletePreset(p.name) }) {
+                            Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.macro_sets_delete, p.name))
+                        }
+                    },
+                    onClick = {
+                        open = false
+                        store.setKnobs(p.knobs)
+                    },
+                )
+            }
+        }
+    }
 }
 
 private fun sameKnobs(
@@ -184,7 +218,7 @@ private fun knobText(v: Float): String = if (abs(v) < KNOB_EPSILON) "as styled" 
 @Composable
 private fun MacroKnob(
     title: String,
-    hint: String,
+    about: String,
     value: Float,
     locked: Boolean,
     onChange: (Float) -> Unit,
@@ -237,21 +271,58 @@ private fun MacroKnob(
             }
             if (locked) Icon(Icons.Filled.Lock, contentDescription = null, modifier = Modifier.size(16.dp))
         }
+        // Name and value, then the ⋮: no caption (UI V2 rule 3), and the knobs keep one height.
         Text(title, style = MaterialTheme.typography.labelLarge)
-        Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(
-            hint,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.height(36.dp),
-        )
-        if (abs(value) >= KNOB_EPSILON) {
-            TextButton(onClick = { onSet(0f) }, modifier = Modifier.semantics { contentDescription = "Reset $title" }) {
-                Text("Reset", style = MaterialTheme.typography.labelLarge)
-            }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            KnobMenu(
+                title = title,
+                about = about,
+                centred = abs(value) < KNOB_EPSILON,
+                locked = locked,
+                onReset = { onSet(0f) },
+                onToggleLock = onToggleLock,
+            )
         }
     }
+}
+
+/** A knob's ⋮: What is this, Reset (while it is off centre) and Keep out of Surprise. */
+@Composable
+private fun KnobMenu(
+    title: String,
+    about: String,
+    centred: Boolean,
+    locked: Boolean,
+    onReset: () -> Unit,
+    onToggleLock: () -> Unit,
+) {
+    var open by remember { mutableStateOf(false) }
+    var explaining by remember { mutableStateOf(false) }
+    Box {
+        IconButton(onClick = { open = true }) {
+            Icon(Icons.Filled.MoreVert, contentDescription = "More for $title", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            DropdownMenuItem(text = { Text(stringResource(R.string.customize_what_is_this)) }, onClick = {
+                open = false
+                explaining = true
+            })
+            DropdownMenuItem(text = { Text("Reset") }, enabled = !centred, onClick = {
+                open = false
+                onReset()
+            })
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.macro_keep_out_of_surprise)) },
+                trailingIcon = { Checkbox(checked = locked, onCheckedChange = null) },
+                onClick = {
+                    open = false
+                    onToggleLock()
+                },
+            )
+        }
+    }
+    if (explaining) AboutDialog(title, about) { explaining = false }
 }
 
 private val KNOB_SIZE = 72.dp

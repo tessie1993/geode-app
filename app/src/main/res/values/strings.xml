@@ -281,7 +281,7 @@
 
     <!-- Lyrics panel. -->
     <string name="lyrics_none">No lyrics</string>
-    <string name="lyrics_none_explainer">Drop an .lrc file next to the track — same name, .lrc extension — and it shows up here, timed and following the music. Words written into the file\'s own tags are read too. Nothing is fetched: the app has no network access.</string>
+    <string name="lyrics_none_explainer">Drop an .lrc file next to the track — same name, .lrc extension — and it shows up here, timed and following the music. Words written into the file\'s own tags are read too. Nothing is fetched: lyrics never come from the internet.</string>
     <string name="lyrics_source_timed">Timed lyrics from %1$s. Tap a line to jump there.</string>
     <string name="lyrics_source_untimed">Untimed lyrics from %1$s.</string>
     <!-- Where the lyrics came from; fills the %1$s of lyrics_source_timed / _untimed. -->
@@ -291,7 +291,7 @@
     <string name="lyrics_search_web">Search the web</string>
     <string name="lyrics_load_lrc">Load .lrc</string>
     <string name="lyrics_nothing_playing">Play a song to see its lyrics here.</string>
-    <string name="lyrics_search_hint">The search opens in your browser; this app stays offline. Save the lyrics as an .lrc file, then load it here and it sticks to this song.</string>
+    <string name="lyrics_search_hint">The search opens in your browser; MuzViz never looks lyrics up itself. Save the lyrics as an .lrc file, then load it here and it sticks to this song.</string>
     <string name="lyrics_no_browser">No browser to search with.</string>
     <!-- The web search for the playing song: %1$s is "title artist". -->
     <string name="lyrics_search_query">%1$s lyrics</string>
@@ -454,7 +454,7 @@
     <string name="studio_saved">Saved to Movies/MuzViz.</string>
     <string name="studio_play">Play</string>
     <string name="studio_edit_again">Edit again</string>
-    <string name="studio_send_explainer">Send opens the phone\'s own share sheet — YouTube, Instagram, TikTok, Drive, a message, whatever is installed and signed in. MuzViz has no network access of its own and never uploads anything itself.</string>
+    <string name="studio_send_explainer">Send opens the phone\'s own share sheet — YouTube, Instagram, TikTok, Drive, a message, whatever is installed and signed in. MuzViz never uploads anything itself.</string>
     <string name="studio_render">Render</string>
     <string name="studio_takes">Takes</string>
     <string name="studio_reset">Reset</string>
@@ -652,7 +652,7 @@
     <string name="export_segment_summary">Renders %1$s–%2$s (%3$s). The clip starts at 0:00 in the file, and the visuals are the ones from that part of the track.</string>
     <string name="export_group_performance">Performance</string>
     <string name="export_live_settings">Live settings</string>
-    <string name="export_take_explainer">Renders the take\'s parameter automation — every slider, colour and effect moving as you performed it. A style SWITCH inside the take is not reproduced: the render draws through the style selected now, for its whole length.</string>
+    <string name="export_take_explainer">Renders the take\'s parameter automation — every slider, colour and effect moving as you performed it. A style switch inside the take is not reproduced yet: the render draws through the style the take started on, for its whole length.</string>
     <!-- The name a recorded performance take gets when none is typed. -->
     <string name="take_default_name">Take %1$d</string>
     <string name="export_4k_fallback">4K depends on your device\'s encoder; it falls back automatically if unsupported.</string>
@@ -723,12 +723,12 @@
     <string name="export_loudness_up_headline">Turn it up %1$s for %2$s</string>
     <string name="export_loudness_down_headline">Turn it down %1$s for %2$s</string>
     <string name="export_loudness_unchanged_detail">Measured %1$s. Close enough to leave alone.</string>
-    <string name="export_loudness_raise_detail">Measured %1$s, %2$s under the %3$s %4$s plays at. %5$s. MuzViz will add %6$s on export, landing at %7$s with a true peak of %8$s.</string>
-    <string name="export_loudness_raise_limited_detail">Measured %1$s, %2$s under the %3$s %4$s plays at. %5$s. Going the whole way would push the true peak past the %6$s ceiling, so Geode will add only %7$s, landing at %8$s. Closing the rest of the gap needs a limiter on the mix, not more gain.</string>
-    <string name="export_loudness_lower_clipping_detail">Measured %1$s, true peak %2$s. That is under the %3$s %4$s plays at, but the peak is already over the %5$s ceiling, and gain alone can only make that worse. Geode will take off %6$s to get the peak legal; getting louder as well needs a limiter on the mix.</string>
-    <string name="export_loudness_lower_loud_detail">Measured %1$s, true peak %2$s. That is %3$s over the %4$s %5$s plays at — %6$s. Geode will take off %7$s, landing at %8$s with a true peak of %9$s.</string>
-    <string name="export_loudness_lower_loud_limited_detail">Measured %1$s, true peak %2$s. That is %3$s over the %4$s %5$s plays at — %6$s. Geode will take off %7$s — a shade more than the level alone needs, so the true peak clears the %8$s ceiling too, landing at %9$s with a true peak of %10$s.</string>
-    <string name="export_loudness_lower_peak_detail">Measured %1$s, true peak %2$s. The level is where %3$s wants it, but the peak is over the %4$s ceiling, where lossy encoders start to distort. Geode will take off %5$s, landing at %6$s.</string>
+    <string name="export_loudness_raise_detail">Measured %1$s, %2$s under the %3$s %4$s plays at. %5$s. Adding %6$s in your mix would land it at %7$s with a true peak of %8$s. MuzViz leaves the level as it is.</string>
+    <string name="export_loudness_raise_limited_detail">Measured %1$s, %2$s under the %3$s %4$s plays at. %5$s. Going the whole way would push the true peak past the %6$s ceiling, so gain alone can add only %7$s, landing at %8$s. Closing the rest of the gap needs a limiter on the mix. MuzViz leaves the level as it is.</string>
+    <string name="export_loudness_lower_clipping_detail">Measured %1$s, true peak %2$s. That is under the %3$s %4$s plays at, but the peak is already over the %5$s ceiling, and more gain can only make that worse. Taking off %6$s in your mix would get the peak legal; getting louder as well needs a limiter. MuzViz leaves the level as it is.</string>
+    <string name="export_loudness_lower_loud_detail">Measured %1$s, true peak %2$s. That is %3$s over the %4$s %5$s plays at — %6$s. Taking off %7$s in your mix would land it at %8$s with a true peak of %9$s. MuzViz leaves the level as it is.</string>
+    <string name="export_loudness_lower_loud_limited_detail">Measured %1$s, true peak %2$s. That is %3$s over the %4$s %5$s plays at — %6$s. Taking off %7$s in your mix — a shade more than the level alone needs, so the true peak clears the %8$s ceiling too — would land it at %9$s with a true peak of %10$s. MuzViz leaves the level as it is.</string>
+    <string name="export_loudness_lower_peak_detail">Measured %1$s, true peak %2$s. The level is where %3$s wants it, but the peak is over the %4$s ceiling, where lossy encoders start to distort. Taking off %5$s in your mix would land it at %6$s. MuzViz leaves the level as it is.</string>
 
     <!-- Export: failure messages. Shared by VideoExporter, StudioExporter and LoopRender. -->
     <string name="export_error_library_insert">Your Videos library would not accept a new file. Check that storage is not full, or render to a folder you choose instead.</string>
@@ -761,11 +761,11 @@
     <string name="export_error_extend_assemble">The long-form file could not be assembled.</string>
     <string name="export_error_extend_copy">The rendered loop could not be copied into the long file: %1$s</string>
     <string name="export_error_extend_write">Writing the long-form file failed — check there is room on the device. (%1$s)</string>
-    <string name="export_error_extend_track_no_audio">One of the tracks in this mix has no audio Geode can read: %1$s</string>
+    <string name="export_error_extend_track_no_audio">One of the tracks in this mix has no audio MuzViz can read: %1$s</string>
     <string name="export_error_extend_track_unreadable">One of the tracks in this mix could not be read — it may have moved or been deleted.</string>
     <string name="export_error_extend_soundtrack">The soundtrack could not be prepared.</string>
     <string name="export_error_extend_too_big">%1$.1f h at this quality would come to about %2$.1f GB, past the %3$.0f GB an MP4 written on Android can address. Render the loop at about %4$.1f Mbps (a smaller size or lower quality) or make the video shorter.</string>
-    <string name="export_error_extend_library_pre_q">On this version of Android, Geode cannot add to your Videos library directly. Render to a folder you choose instead.</string>
+    <string name="export_error_extend_library_pre_q">On this version of Android, MuzViz cannot add to your Videos library directly. Render to a folder you choose instead.</string>
 
     <!-- Settings: Look tab. -->
     <string name="look_group_theme">Theme</string>

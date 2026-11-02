@@ -43,14 +43,11 @@ enum class StudioSection { EDIT, RENDER, TAKES }
 @Stable
 class GeodeAppState(
     dest: GeodeDestination = GeodeDestination.PLAYER,
-    expanded: Boolean = false,
     searching: Boolean = false,
     bootDone: Boolean = false,
     studioSection: StudioSection = StudioSection.EDIT,
 ) {
     var dest by mutableStateOf(dest)
-
-    var expanded by mutableStateOf(expanded)
 
     var searching by mutableStateOf(searching)
 
@@ -77,14 +74,6 @@ class GeodeAppState(
         searching = false
     }
 
-    fun expand() {
-        expanded = true
-    }
-
-    fun collapse() {
-        expanded = false
-    }
-
     fun navigateTo(destination: GeodeDestination) {
         dest = destination
     }
@@ -104,17 +93,16 @@ class GeodeAppState(
             Saver(
                 // Saved as the enum name, not its ordinal: reordering the navigation bar then
                 // cannot silently restore a process-death survivor onto a different screen.
-                save = { listOf(it.dest.name, it.expanded, it.searching, it.bootDone, it.studioSection.name) },
+                save = { listOf(it.dest.name, it.searching, it.bootDone, it.studioSection.name) },
                 restore = {
                     GeodeAppState(
                         dest =
                             GeodeDestination.entries.firstOrNull { d -> d.name == it[0] }
                                 ?: GeodeDestination.PLAYER,
-                        expanded = it[1] as Boolean,
-                        searching = it[2] as Boolean,
-                        bootDone = it[3] as Boolean,
+                        searching = it[1] as Boolean,
+                        bootDone = it[2] as Boolean,
                         studioSection =
-                            StudioSection.entries.firstOrNull { s -> s.name == it.getOrNull(4) }
+                            StudioSection.entries.firstOrNull { s -> s.name == it.getOrNull(3) }
                                 ?: StudioSection.EDIT,
                     )
                 },

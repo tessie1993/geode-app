@@ -7,4 +7,12 @@
     <string name="cast_notification_title">Casting to your TV</string>
     <string name="cast_notification_text">The sound plays on the TV. Use the phone as the remote.</string>
     <string name="cast_stop">Stop casting</string>
+    <string name="cast_button_locked">Cast to TV needs Pro</string>
+    <string name="cast_remote_to">Casting to %1$s</string>
+    <string name="cast_remote_to_tv">Casting to your TV</string>
+    <string name="cast_remote_previous">Previous</string>
+    <string name="cast_remote_play">Play</string>
+    <string name="cast_remote_pause">Pause</string>
+    <string name="cast_remote_next">Next</string>
+    <string name="cast_remote_next_style">Next style</string>
 </resources>

@@ -12,16 +12,23 @@ out vec4 fragColor;
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_sdf3
-//#include lib_dmt
 //#include lib_bulb
 
 // Bulb Julia: a power-6 Julia bulb - the orbit starts at the point and adds a
 // FIXED c - so the body is not the one bulb but a family of them, one per c,
 // and walking c sculpts it continuously: lobes bud, fuse, hollow and pinch
-// off. Framed close (camAround at 2.7, a third of the body past the edges) and
-// shaded with lib_dmt's jewel material, the orbit trap as its banding
-// coordinate and the trap's closeness to the pole as its translucency. The
-// space behind is velvet black with a coloured halo hugging the silhouette.
+// off.
+//
+// Grid cell MACRO x FLAT TRAP (see lib_bulb). The eye sits close over one
+// flank of the body and looks into it, so the frame is crust from edge to
+// edge, and the crust is painted with the orbit trap alone, with no light at
+// all: the smooth, enamel-like colour fields of a trap render, where colour
+// is how close each orbit came to a point, a plane and the pole axis. Only
+// the free step-count occlusion darkens the deepest pits. Where Prism
+// quantises its trap into hard panes with lead between them, Julia keeps
+// every gradient continuous: soft flat colour, no edge. (It used to share
+// lib_dmt's lit jewel material with Prism.) No normal: four fractal
+// evaluations fewer per pixel, which pays for the seven iterations.
 //
 // ---- audio ------------------------------------------------------------------
 //
@@ -30,7 +37,8 @@ out vec4 fragColor;
 // round the loop to a new form and a song that sits in one key holds one
 // sculpture. Each pitch change (SND_HELD_NOTE_CHANGE) kicks c off the loop sideways on a
 // bump envelope, so melody makes the surface flinch and settle. Treble
-// sharpens the material's specular (lib_dmt). Brightness follows SND_LEVEL only.
+// (sndShaped(SND_HIGH)) pushes the colour fields apart, a wider sweep of the
+// ramp. Brightness follows SND_LEVEL only.
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -38,17 +46,25 @@ out vec4 fragColor;
 // iterations (bulbIters). Chaos (uWarp, uTurbulence, uTwist) warps and twists
 // space before the fractal (bulbChaos, estimate divided by bulbChaosLip);
 // turbulence also wobbles c itself.
-// Energy (uIntensity) scales the pitch kick on c. Colour is pal() throughout; Space is
-// the rig (camAround).
+// Energy (uIntensity) scales the pitch kick on c. Colour is tone(), the enamel
+// ramp pal() tints. Space is the rig: travel turns the eye slowly round the
+// body, look and shake ride on top (bulbAim), the dolly moves it in.
 
 #define BJ_MAX_STEPS 128
 #define BJ_BOUND 1.4
-#define BJ_CAM_R 2.7
-const float BJ_SPIN = 6.0 * CAM_SPIN_UNIT;
+/** The eye's distance from the centre, and the off-centre point it looks at. */
+#define BJ_EYE_R 1.55
+#define BJ_AIM_R 0.45
+const float BJ_SPIN = 2.0 * CAM_SPIN_UNIT;
 
 vec3 gC;
 int gIters;
 vec4 gTrap;
+
+// Its own ramp: jade, teal and a citrus yellow.
+vec3 tone(float t) {
+    return bulbRamp(t, vec3(0.45, 0.58, 0.42), vec3(0.40, 0.35, 0.35), vec3(1.0, 1.0, 0.5), vec3(0.25, 0.10, 0.60));
+}
 
 float map(vec3 p) {
     vec4 tr;
@@ -57,17 +73,12 @@ float map(vec3 p) {
     return d;
 }
 
-vec3 normalAt(vec3 p, float e) {
-    vec2 k = vec2(1.0, -1.0);
-    return normalize(k.xyy * map(p + k.xyy * e) + k.yyx * map(p + k.yyx * e)
-                   + k.yxy * map(p + k.yxy * e) + k.xxx * map(p + k.xxx * e));
-}
-
 void main() {
     vec2 uv = view();
     float swell = clamp(SND_LEVEL, 0.0, 1.5);
     float pe = clamp(SND_HELD_NOTE_CHANGE, 0.0, 1.0);
     float pitchBump = 4.0 * pe * (1.0 - pe);
+    float treble = clamp(sndShaped(SND_HIGH), 0.0, 1.5);
 
     // The loop of c: a tilted figure-of-eight in the horizontal plane, |c|
     // between 0.45 and 0.6, where power-6 Julia bulbs stay connected.
@@ -78,11 +89,15 @@ void main() {
     gC += 0.08 * clamp(uTurbulence, 0.0, 1.0) * sin(vec3(1.3, 1.7, 2.3) * bulbTime());
     gIters = bulbIters(7);
 
+    // MACRO: close over one flank, looking in past the centre.
+    float e = uCamTravel * BJ_SPIN + 2.2;
+    vec3 eye = normalize(vec3(cos(e), -0.35, sin(e))) * BJ_EYE_R * (1.0 - 0.12 * uCamDolly);
+    vec3 aim = vec3(BJ_AIM_R * cos(e + 1.6), 0.25, BJ_AIM_R * sin(e + 1.6));
     vec3 ro;
     vec3 rd;
-    camAround(uv, BJ_CAM_R, BJ_SPIN, ro, rd);
+    bulbAim(uv, eye, aim, ro, rd);
 
-    float hue = 0.3 + 0.05 * sin(bulbTime() * 0.017);
+    float hue = 0.05 * sin(bulbTime() * 0.017);
 
     float hitT = -1.0;
     float used = 0.0;
@@ -107,16 +122,22 @@ void main() {
         }
     }
 
-    vec3 col = vec3(0.006, 0.004, 0.010) + pal(hue + 0.6) * 0.02 * (1.0 - length(uv) * 0.4);
-    col += dmtHalo(near, hue + 0.4, 7.0, 0.22);
+    // A flat deep ground of the ramp's far end, and a soft halo of it where a
+    // ray only grazed the body.
+    vec3 col = tone(hue + 0.62) * 0.08;
+    col += tone(hue + 0.4) * exp(-max(near, 0.0) * 8.0) * 0.18;
 
     if (hitT > 0.0) {
-        vec3 p = ro + rd * hitT;
-        vec3 n = normalAt(p, bulbEps(hitT));
-        float ao = bulbStepAO(used) * (0.45 + 0.55 * smoothstep(0.05, 0.7, trap.x));
-        float thin = smoothstep(0.25, 0.0, trap.z);
-        float band = 1.4 * sqrt(trap.x) + trap.w;
-        col = dmtShade(n, rd, hue, band, ao, thin, clamp(sndShaped(SND_HIGH), 0.0, 1.5)) * 0.85;
+        // Three traps, three fields, blended: no light, only the orbit.
+        float spread = 0.9 + 0.5 * treble;
+        float fPoint = sqrt(trap.x);
+        float fPlane = smoothstep(0.0, 0.6, trap.y);
+        float fAxis = (1.0 - smoothstep(0.0, 0.35, trap.z));
+        vec3 field = tone(hue + spread * (0.8 * fPoint + 0.35 * trap.w));
+        field = mix(field, tone(hue + 0.5 + 0.3 * fPlane), 0.35 * (1.0 - fPlane));
+        field = mix(field, vec3(1.0, 0.97, 0.88), 0.45 * fAxis);
+        float ao = bulbStepAO(used) * (0.55 + 0.45 * smoothstep(0.05, 0.7, trap.x));
+        col = field * ao;
     }
 
     col *= 0.8 + 0.22 * swell;

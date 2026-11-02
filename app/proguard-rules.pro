@@ -14,12 +14,10 @@
 -keepclasseswithmembernames,includedescriptorclasses class dev.geode.engine.bridge.GeodeNative {
     native <methods>;
 }
--keep class dev.geode.engine.bridge.GeodeNative { *; }
-
-# Belt and braces for anything else that grows a native method later.
--keepclasseswithmembernames,includedescriptorclasses class * {
-    native <methods>;
-}
+# Anything else that grows a native method later is covered by the default
+# file's own -keepclasseswithmembernames rule. No native code calls back into
+# Kotlin (no FindClass/GetMethodID in app/src/main/cpp or core), so nothing
+# else in GeodeNative needs keeping.
 
 # ---------------------------------------------------------------------------
 # Media3 / ExoPlayer
@@ -27,16 +25,17 @@
 # Media3 resolves extractors, decoders and audio-processor implementations by
 # name at runtime; it ships consumer rules for its own classes, but the
 # reflective renderer lookup also touches platform audiofx wrappers.
+# Both rules are wider than they need to be (the dontwarn now also hides
+# media3-cast and media3-muxer warnings); narrow them only with a device check
+# of playback, since they sit on the audio path (docs/play/R8_KEEP_RULES.md).
 -dontwarn androidx.media3.**
 -keep class androidx.media3.exoplayer.audio.** { *; }
 
 # ---------------------------------------------------------------------------
 # Kotlin / coroutines
 # ---------------------------------------------------------------------------
+# kotlinx.coroutines ships its own R8 rules (its volatile fields included).
 -dontwarn kotlinx.coroutines.**
--keepclassmembers class kotlinx.coroutines.** {
-    volatile <fields>;
-}
 
 # ---------------------------------------------------------------------------
 # Crash reports
@@ -54,5 +53,6 @@
 # against the native layout's names) to pack and unpack the wire buffer. With
 # the fields renamed by R8, no name matches and every param reads its default,
 # in release builds only, invisible to the JVM test suite. Keeping the NAMES
-# (not the members wholesale) costs no shrinking: the fields are all live.
--keepclassmembernames class dev.geode.render.scene.SceneParams { <fields>; }
+# (not the members wholesale) costs no shrinking: the fields are all live. Only
+# instance fields: the layout's NAMES never hold a static one.
+-keepclassmembernames class dev.geode.render.scene.SceneParams { !static <fields>; }

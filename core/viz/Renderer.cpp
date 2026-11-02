@@ -445,6 +445,36 @@ bool Renderer::setScene(const std::string& sceneId) {
     return true;
 }
 
+void Renderer::setStyleSchedule(std::vector<StyleCue> cues, std::vector<std::string> beatCutIds, int everyBeats) {
+    StyleSchedule schedule;
+    schedule.set(std::move(cues), std::move(beatCutIds), everyBeats);
+    std::lock_guard<std::mutex> lock(stateLock_);
+    styleScheduleRequest_ = std::move(schedule);
+}
+
+void Renderer::applyStyleSchedule() {
+    {
+        std::lock_guard<std::mutex> lock(stateLock_);
+        if (styleScheduleRequest_) {
+            styleSchedule_ = std::move(*styleScheduleRequest_);
+            styleScheduleRequest_.reset();
+        }
+    }
+    if (styleSchedule_.empty()) return;
+    const StyleCue* cue = styleSchedule_.step(frameNowS_ * 1000.0, soundFrame_.beatCount);
+    if (!cue) return;
+    std::string requestedScene;
+    std::string requestedMilk;
+    {
+        std::lock_guard<std::mutex> lock(stateLock_);
+        requestedScene = requestedSceneId_;
+        requestedMilk = lastMilkPreset_;
+    }
+    // The segment's first look is already requested (prepare()); asking again would only reload it.
+    if (cue->sceneId != requestedScene) setScene(cue->sceneId);
+    if (!cue->milkPath.empty() && cue->milkPath != requestedMilk) loadMilkPreset(cue->milkPath);
+}
+
 void Renderer::warmTransition(const std::string& id) { compositePass_.warmTransition(id); }
 
 void Renderer::cut() {

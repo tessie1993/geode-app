@@ -141,6 +141,13 @@ GEODE_API int         geode_viz_set_scene(geode_viz*, const char* scene_id);   /
 GEODE_API void        geode_viz_warm_transition(geode_viz*, const char* id);
 /* Forgets the drawn scene so the next frame cuts instead of transitioning from it. */
 GEODE_API void        geode_viz_cut(geode_viz*);
+/* Export (Studio 2D): the styles this segment switches to. `count` timed cues (render ms since the
+ * segment began, style id, MilkDrop preset path or "" for none) and a beat cut stepping through
+ * `cut_count` style ids every `every_beats` beats of the renderer's own sound engine. Both empty
+ * clears it. Strings are copied. */
+GEODE_API void        geode_viz_set_style_schedule(geode_viz*, const double* at_ms, const char* const* scene_ids,
+                                                   const char* const* milk_paths, int count,
+                                                   const char* const* cut_ids, int cut_count, int every_beats);
 GEODE_API void        geode_viz_render(geode_viz*, double time_seconds, uint32_t target_fbo);
 GEODE_API void        geode_viz_release_scenes(geode_viz*);
 

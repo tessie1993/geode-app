@@ -87,7 +87,6 @@ internal fun VisualsHub(
     bottomReserve: Dp,
     sheetOpacity: Float,
     onOpenStudioRender: () -> Unit,
-    canvasFree: Boolean = false,
     pip: Boolean = false,
 ) {
     val viz by viewModel.vizState.collectAsStateWithLifecycle()
@@ -169,7 +168,6 @@ internal fun VisualsHub(
         val insetPx = with(density) { GeodeSpacing.EdgeInset.toPx() }
         VisualsStage(
             visualizerView = visualizerView,
-            canvasFree = canvasFree,
             behaviour = behaviour,
             actions = actions,
             recording = takes.recording,
@@ -204,6 +202,7 @@ internal fun VisualsHub(
                 visualizerView = visualizerView,
                 // Native blur under the glass while the options are up; off when hidden (full screen) or in PiP.
                 blurActive = nav.sheetShown && !pip,
+                glassAlpha = { optionsFade.value },
                 onSettle = { height ->
                     view.performStoneHaptic(StoneHapticCue.TAP)
                     nav.settleSheet(height)

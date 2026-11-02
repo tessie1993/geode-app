@@ -12,6 +12,7 @@ import dev.geode.render.SceneFactory
 import dev.geode.render.StyleReactionsCache
 import dev.geode.render.TransitionStyle
 import dev.geode.render.bridge.NativeViz
+import dev.geode.render.bridge.StyleSchedule
 import dev.geode.render.scene.SceneParams
 import dev.geode.util.bestEffort
 
@@ -47,6 +48,9 @@ data class OffscreenRenderSpec(
     // The export's own auto-director, pinned at prepare so the live player's switch, track and free
     // taste never reach the render. Null follows the process-wide switch (previews, thumbnails).
     val director: DirectorPin? = null,
+    // Studio 2D: the styles this range switches to (a take's switches, a beat cut), on render time
+    // since [rangeStartMs]. The native renderer times them; empty draws the factory's style throughout.
+    val styleSchedule: StyleSchedule = StyleSchedule.NONE,
 )
 
 /** An export's auto-director: how much it drives (0..1) and the play's seed, so it makes the same film. */
@@ -99,6 +103,7 @@ class OffscreenSceneRenderer(
         viz.surfaceChanged(spec.width, spec.height)
         check(viz.setScene(sceneFactory.sceneId)) { "native renderer cannot draw \"${sceneFactory.sceneId}\"" }
         sceneFactory.milkPresetPath?.let { viz.loadMilkPreset(it) }
+        viz.setStyleSchedule(spec.styleSchedule)
         viz.setTransition(TransitionStyle.CUT.name.lowercase(), 0L)
         viz.setReducedMotion(spec.reducedMotion)
         if (spec.lfoConfigs.isNotEmpty()) viz.setLfoConfigs(spec.lfoConfigs)

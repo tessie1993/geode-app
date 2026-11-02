@@ -29,6 +29,7 @@ add_library(geode_core STATIC
     viz/ProgramBinaryCache.cpp
     viz/Program.cpp
     viz/ProgramStager.cpp
+    viz/StyleSchedule.cpp
     viz/Texture.cpp
     viz/Framebuffer.cpp
     viz/Quad.cpp
@@ -38,7 +39,6 @@ add_library(geode_core STATIC
     viz/Macros.cpp
     viz/Director.cpp
     viz/NoteResponse.cpp
-    viz/NoteBloomPass.cpp
     viz/UiBlurPass.cpp
     viz/Adsr.cpp
     viz/MotionField.cpp

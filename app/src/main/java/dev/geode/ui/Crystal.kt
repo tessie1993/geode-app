@@ -19,6 +19,7 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
@@ -205,16 +206,48 @@ fun CrystalBackground(modifier: Modifier = Modifier) {
     )
 }
 
+/**
+ * The app's one live [VisualizerView], hosted once by the shell (`AppRoot`) for every screen and
+ * laid out at [bounds] (the Visuals screen's, in root pixels), so a tab switch never detaches it.
+ * Off Visuals ([shown] false) it is hidden, `INVISIBLE`: SurfaceView gives its surface back,
+ * GLSurfaceView keeps its GL thread and EGL context, and the view stops its own pacer and gyro.
+ *
+ * It used to be composed inside Visuals, so leaving Visuals removed it from the hierarchy: a
+ * main-thread wait of up to 200 ms for the scene release, a GL thread join, and coming back a
+ * new EGL context, every program rebuilt through ProgramStager and a black first frame.
+ *
+ * Still hidden until [bounds] has been measured once, so a cold start on Visuals never shows a
+ * 0×0 surface. The second screen remains the one real move: the shell drops this host while a
+ * Presentation holds the view, and the factory takes it back from whatever parent it has.
+ * Being drawn before the screens, the surface shows through wherever they draw nothing.
+ */
 @Composable
 fun VisualizerCanvasHost(
     view: VisualizerView,
+    shown: Boolean,
+    bounds: androidx.compose.runtime.State<androidx.compose.ui.unit.IntRect>,
     modifier: Modifier = Modifier,
 ) {
+    val measured =
+        androidx.compose.runtime.remember(bounds) {
+            androidx.compose.runtime.derivedStateOf { !bounds.value.isEmpty }
+        }
+    val visible = shown && measured.value
     AndroidView(
         factory = {
             (view.parent as? android.view.ViewGroup)?.removeView(view)
             view
         },
-        modifier = modifier,
+        // Bounds are read in the layout pass only, so a rotation or a PiP resize relays this out
+        // without recomposing the shell.
+        modifier =
+            modifier.layout { measurable, constraints ->
+                val r = bounds.value
+                val w = r.width.coerceAtLeast(0)
+                val h = r.height.coerceAtLeast(0)
+                val placeable = measurable.measure(constraints.copy(minWidth = w, maxWidth = w, minHeight = h, maxHeight = h))
+                layout(constraints.maxWidth, constraints.maxHeight) { placeable.place(r.left, r.top) }
+            },
+        update = { it.visibility = if (visible) android.view.View.VISIBLE else android.view.View.INVISIBLE },
     )
 }

@@ -142,20 +142,6 @@ window.__render = async function (job) {
     gl.clearColor(0, 0, 0, 1);
     gl.clear(gl.COLOR_BUFFER_BIT);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
-    if (job.overlay) {
-      // A second pass over the first, blended the way the app blends it (the note blooms: screen,
-      // ONE / ONE_MINUS_SRC_COLOR, as NoteBloomPass does).
-      gl.deleteProgram(program);
-      program = link(job.overlay.vert, job.overlay.frag);
-      gl.useProgram(program);
-      for (const u of job.overlay.uniforms) {
-        if (!upload(program, u)) out.dropped.push(u.name);
-      }
-      gl.enable(gl.BLEND);
-      gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_COLOR);
-      gl.drawArrays(gl.TRIANGLES, 0, 3);
-      gl.disable(gl.BLEND);
-    }
     gl.finish();
     const err = gl.getError();
     out.glError = err === gl.NO_ERROR ? 0 : err;

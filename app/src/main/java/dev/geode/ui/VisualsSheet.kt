@@ -1,5 +1,6 @@
 package dev.geode.ui
 
+import android.view.View
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationVector1D
 import androidx.compose.foundation.background
@@ -23,23 +24,21 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.layout
-import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.onLayoutRectChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
@@ -48,6 +47,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import dev.geode.R
@@ -84,8 +84,10 @@ import kotlin.math.roundToInt
  * their scroll and state. TalkBack gets expand, collapse, wider, narrower and hide as custom actions,
  * since a drag is out of its reach.
  *
- * Over the visual the blur is the native one (see [UiBlurRegion]): [visualizerView] is told the
- * surface's bounds whenever they change, with [blurActive] false (hidden, PiP) turning it off.
+ * Over the visual the blur is the native one (see [SheetBlur]): [visualizerView] is told the
+ * surface's bounds whenever they change, straight from the layout pass, with [blurActive] false
+ * (hidden, PiP) turning it off and [glassAlpha] (the surface's visible alpha, read only in an effect)
+ * fading it with the glass under a drop-in.
  */
 @Composable
 internal fun VisualsOptions(
@@ -98,6 +100,7 @@ internal fun VisualsOptions(
     opacity: Float,
     visualizerView: VisualizerView,
     blurActive: Boolean,
+    glassAlpha: () -> Float,
     onSettle: (SheetHeight) -> Unit,
     onPanelSettle: (widthPx: Float?) -> Unit,
     modifier: Modifier = Modifier,
@@ -105,6 +108,8 @@ internal fun VisualsOptions(
 ) {
     val scope = rememberCoroutineScope()
     val maxPx = anchors.getValue(SheetHeight.TALL)
+    // A drag never takes the sheet below its tabs (owner): hiding is the double tap, × and Fullscreen.
+    val minPx = anchors.getValue(SheetHeight.PEEK)
     val currentAnchors by rememberUpdatedState(anchors)
     val currentSettle by rememberUpdatedState(onSettle)
     val listDrag =
@@ -113,13 +118,13 @@ internal fun VisualsOptions(
                 heightPx = heightPx,
                 scope = scope,
                 restPx = { currentAnchors.getValue(nav.sheet) },
+                minPx = { currentAnchors.getValue(SheetHeight.PEEK) },
                 maxPx = { currentAnchors.getValue(SheetHeight.TALL) },
                 onRelease = { velocityUp -> currentSettle(settleHeight(heightPx.value, velocityUp, currentAnchors)) },
             )
         }
     val shape = RoundedCornerShape(GeodeRadius.Floating)
-    var bounds by remember { mutableStateOf<Rect?>(null) }
-    UiBlurRegion(visualizerView, bounds, blurActive)
+    val blur = rememberSheetBlur(visualizerView, blurActive, glassAlpha)
     Box(
         modifier
             .layout { measurable, constraints ->
@@ -140,15 +145,20 @@ internal fun VisualsOptions(
                         layout(placeable.width, h) { placeable.place(0, 0) }
                     }
                 }
-            }.onGloballyPositioned { bounds = it.boundsInWindow() }
-            .glassBlur(shape)
+            }.glassBlur(shape)
             .floatingGlass(shape, fillAlpha = opacity),
     ) {
-        Column(Modifier.fillMaxSize()) {
+        // The column is exactly the glass (the node inside the paddings and the size above), so its
+        // rect is the one the native blur needs; it arrives from the layout pass, never through state.
+        Column(
+            Modifier
+                .fillMaxSize()
+                .onLayoutRectChanged(throttleMillis = 0, debounceMillis = 0) { blur.onSheetMoved(it.boundsInWindow) },
+        ) {
             OptionsHeader(
                 nav = nav,
                 side = side,
-                onDrag = { delta -> scope.launch { heightPx.snapTo((heightPx.value - delta).coerceIn(0f, maxPx)) } },
+                onDrag = { delta -> scope.launch { heightPx.snapTo((heightPx.value - delta).coerceIn(minPx, maxPx)) } },
                 onDragStopped = { velocity -> onSettle(settleHeight(heightPx.value, -velocity, anchors)) },
                 onSettle = onSettle,
             )
@@ -172,42 +182,106 @@ internal fun VisualsOptions(
 }
 
 /**
- * Tells the native blur where the options surface is ([bounds], in the window) so the live visual
- * frosts under it. Only a change of the bounds or of [active] calls through (one small event on
- * the GL thread each); strength is 1 while the surface is shown, 0 when it is hidden or has no
- * size, and 0 again on dispose so leaving Visuals clears it.
+ * Builds the options surface's [SheetBlur] for [view] and feeds it everything but the rect (which
+ * the surface's layout pass hands it): the strength, [glassAlpha] while [active] and 0 otherwise,
+ * through one long-lived collector, so a fade costs one call per changed frame and no recomposition;
+ * the view's own layout, so a rotation or a new host re-sends the rect against the view's new size;
+ * and 0 on dispose, so leaving Visuals clears it.
  */
 @Composable
-private fun UiBlurRegion(
+private fun rememberSheetBlur(
     view: VisualizerView,
-    bounds: Rect?,
     active: Boolean,
-) {
+    glassAlpha: () -> Float,
+): SheetBlur {
     val cornerPx = with(LocalDensity.current) { GeodeRadius.Floating.toPx() }
-    LaunchedEffect(view, bounds, active, cornerPx) {
-        val loc = IntArray(2)
-        view.getLocationInWindow(loc)
-        val w = view.width.toFloat()
-        val h = view.height.toFloat()
-        // A rect only once laid out and measured; anything else turns the blur off.
-        val rect = bounds?.takeIf { !it.isEmpty && w > 0f && h > 0f }
-        if (rect == null || !active) {
-            view.setUiBlurRegion(0f, 0f, 0f, 0f, 0f, cornerPx)
-        } else {
-            view.setUiBlurRegion(
-                (rect.left - loc[0]) / w,
-                (rect.top - loc[1]) / h,
-                (rect.right - loc[0]) / w,
-                (rect.bottom - loc[1]) / h,
-                1f,
-                cornerPx,
-            )
+    val blur = remember(view) { SheetBlur(view) }
+    SideEffect { blur.onCorner(cornerPx) }
+    val currentActive by rememberUpdatedState(active)
+    val currentAlpha by rememberUpdatedState(glassAlpha)
+    LaunchedEffect(blur) {
+        snapshotFlow { if (currentActive) currentAlpha().coerceIn(0f, 1f) else 0f }
+            .collect { blur.onStrength(it) }
+    }
+    DisposableEffect(blur) {
+        val relayout = View.OnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> blur.push() }
+        view.addOnLayoutChangeListener(relayout)
+        onDispose {
+            view.removeOnLayoutChangeListener(relayout)
+            blur.clear()
         }
     }
-    DisposableEffect(view) {
-        onDispose { view.setUiBlurRegion(0f, 0f, 0f, 0f, 0f, 0f) }
+    return blur
+}
+
+/**
+ * The native blur's region for the options surface, kept outside composition: the surface's rect
+ * comes from its layout pass ([onSheetMoved]), the strength from its visible alpha ([onStrength]),
+ * and [push] sends [VisualizerView.setUiBlurRegion] only when the normalised rect, strength or
+ * corner actually changed (one small event on the GL thread each).
+ *
+ * Both rects are read in the same space, the window: the surface's `boundsInWindow` and the view's
+ * `getLocationInWindow`, re-read on every push. The rect used to live in composition state and reach
+ * the GL thread through a LaunchedEffect keyed on it, relaunched every frame of a drag and run after
+ * draw; when the bars hid, the surface dropped by the dock's reserve and the blur stayed where it had
+ * been (285 px higher on the QA phone). Here every layout of the surface or the view sends it.
+ */
+private class SheetBlur(
+    private val view: VisualizerView,
+) {
+    private val loc = IntArray(2)
+    private var sheet = IntRect.Zero
+    private var strength = 0f
+    private var cornerPx = 0f
+    private val next = FloatArray(SENT_FLOATS)
+    private val sent = FloatArray(SENT_FLOATS) { Float.NaN }
+
+    fun onSheetMoved(bounds: IntRect) {
+        sheet = bounds
+        push()
+    }
+
+    fun onStrength(value: Float) {
+        strength = value
+        push()
+    }
+
+    fun onCorner(px: Float) {
+        cornerPx = px
+        push()
+    }
+
+    fun push() {
+        val w = view.width.toFloat()
+        val h = view.height.toFloat()
+        // A rect only once both are laid out, and only while the glass shows; anything else is off.
+        val laidOut = !sheet.isEmpty && w > 0f && h > 0f
+        if (laidOut && strength > 0f) {
+            view.getLocationInWindow(loc)
+            next[0] = (sheet.left - loc[0]) / w
+            next[1] = (sheet.top - loc[1]) / h
+            next[2] = (sheet.right - loc[0]) / w
+            next[3] = (sheet.bottom - loc[1]) / h
+            next[STRENGTH] = strength
+        } else {
+            next.fill(0f, 0, STRENGTH + 1)
+        }
+        next[CORNER] = cornerPx
+        if (next.contentEquals(sent)) return
+        next.copyInto(sent)
+        view.setUiBlurRegion(next[0], next[1], next[2], next[3], next[STRENGTH], next[CORNER])
+    }
+
+    /** Off, whatever was sent before; the holder is done with. */
+    fun clear() {
+        sent.fill(Float.NaN)
+        view.setUiBlurRegion(0f, 0f, 0f, 0f, 0f, 0f)
     }
 }
+
+private const val SENT_FLOATS = 6
+private const val STRENGTH = 4
+private const val CORNER = 5
 
 /**
  * The surface's header: the grip (portrait), the page tabs and ×. In portrait it is the sheet's
@@ -317,7 +391,7 @@ private fun PanelEdge(
     val drag =
         rememberDraggableState { delta ->
             // Rightward (positive) narrows a panel that grows from the right.
-            scope.launch { panelPx.snapTo((panelPx.value - delta).coerceIn(0f, panelRange.endInclusive)) }
+            scope.launch { panelPx.snapTo((panelPx.value - delta).coerceIn(panelRange)) }
         }
     val handle = stringResource(R.string.visuals_panel_handle)
     val wider = stringResource(R.string.visuals_panel_wider)
@@ -330,10 +404,9 @@ private fun PanelEdge(
             .draggable(
                 drag,
                 Orientation.Horizontal,
-                onDragStopped = { velocity ->
-                    val w = panelPx.value
-                    val hide = velocity > FLING_PX_PER_S || w < panelRange.start * HIDE_BELOW
-                    onSettle(if (hide) null else w.coerceIn(panelRange))
+                onDragStopped = {
+                    // Like the sheet, the panel's edge resizes it but never drags it away (owner).
+                    onSettle(panelPx.value.coerceIn(panelRange))
                 },
             ).semantics {
                 contentDescription = handle
@@ -373,6 +446,7 @@ private class SheetScrollConnection(
     private val heightPx: Animatable<Float, AnimationVector1D>,
     private val scope: CoroutineScope,
     private val restPx: () -> Float,
+    private val minPx: () -> Float,
     private val maxPx: () -> Float,
     private val onRelease: (Float) -> Unit,
 ) : NestedScrollConnection {
@@ -409,7 +483,7 @@ private class SheetScrollConnection(
 
     private fun raise(px: Float) {
         moved = true
-        scope.launch { heightPx.snapTo((heightPx.value + px).coerceIn(0f, maxPx())) }
+        scope.launch { heightPx.snapTo((heightPx.value + px).coerceIn(minPx(), maxPx())) }
     }
 }
 
@@ -427,14 +501,15 @@ internal fun sheetAnchors(
 
 /**
  * Where a drag released at [px] comes to rest: the next height up or down on a fling, else the
- * nearest. [velocityUp] is px/s, positive upward. Below its tabs the sheet hides.
+ * nearest. [velocityUp] is px/s, positive upward. A drag or fling never hides the sheet: it rests at
+ * its tabs at the lowest (owner), and only the double tap, × or Fullscreen hide it.
  */
 internal fun settleHeight(
     px: Float,
     velocityUp: Float,
     anchors: Map<SheetHeight, Float>,
 ): SheetHeight {
-    val ordered = SheetHeight.entries.sortedBy { anchors.getValue(it) }
+    val ordered = SheetHeight.entries.filter { it != SheetHeight.HIDDEN }.sortedBy { anchors.getValue(it) }
     return when {
         velocityUp > FLING_PX_PER_S -> ordered.firstOrNull { anchors.getValue(it) > px + 1f } ?: ordered.last()
         velocityUp < -FLING_PX_PER_S -> ordered.lastOrNull { anchors.getValue(it) < px - 1f } ?: ordered.first()
@@ -467,9 +542,6 @@ internal val PANEL_MAX = 480.dp
 
 private const val PANEL_MIN_FRACTION = 0.3f
 private const val PANEL_MAX_FRACTION = 0.5f
-
-/** A panel dragged narrower than this share of its narrowest width hides on release. */
-private const val HIDE_BELOW = 0.6f
 
 private const val HALF_FRACTION = 0.5f
 

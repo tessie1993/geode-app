@@ -11,11 +11,11 @@ import kotlinx.coroutines.flow.StateFlow
  * Note & key reactions' switch (Settings › Behaviour), persisted, and what the engine is told.
  *
  * The work is native (core/viz/NoteResponse): notes, chords, key and mood drive the style knobs, the note
- * colours, a bloom per note over every style, and a gentle shape and distortion. This store only says
+ * colours and the whole-picture tint, and a gentle shape and distortion. This store only says
  * whether it runs. It is free and on by default: it is how every style hears the melody rather than just
  * the drums, so a new install should see it without hunting for a switch. A saved choice wins over the
  * default, so a user who turned it off keeps it off. How strongly each part answers is per style, in
- * Customize › Advanced › Note & key (Pro) and Customize › Look's note blooms (free). The engine seeds each
+ * Customize › Advanced › Note & key (Pro). The engine seeds each
  * play from the auto-director's seed ([AutoDirectorStore]) mixed with fresh entropy, so this needs none. Like the director the switch is
  * process-wide in the engine, so the screen, exports, the wallpaper and the dream agree; [GeodeApp] creates
  * the store at start so the saved switch reaches a renderer built before the app's UI.

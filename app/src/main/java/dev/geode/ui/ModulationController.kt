@@ -3,8 +3,11 @@ package dev.geode.ui
 import android.content.SharedPreferences
 import android.os.SystemClock
 import dev.geode.data.LfoStore
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.render.AdsrConfig
 import dev.geode.render.AdsrEngine
+import dev.geode.render.HandMask
+import dev.geode.render.HandReactions
 import dev.geode.render.LfoConfig
 import dev.geode.render.LfoEngine
 import dev.geode.render.ReactionRoute
@@ -51,6 +54,11 @@ internal class ModulationController(
     // Null while the style's DNA plays; the first edit copies the DNA into a list of the user's own.
     private val _reactions = MutableStateFlow(lfoStore.loadReactions())
     val reactions: StateFlow<List<ReactionRoute>?> = _reactions
+
+    // Which moments that list owns (Customize › Music: the hand wins per moment); saved beside it and
+    // pushed process-wide, where every renderer merges with the live DNA and every director keeps off.
+    private val _handMask = MutableStateFlow(lfoStore.loadHandMask().also(HandMask::set))
+    val handMask: StateFlow<Int> = _handMask
 
     private val _lockedParams =
         MutableStateFlow<Set<String>>(prefs.getStringSet("locked_params", emptySet()) ?: emptySet())
@@ -170,11 +178,20 @@ internal class ModulationController(
         }
     }
 
-    /** [routes] null hands the matrix back to the style's DNA. */
-    fun setReactions(routes: List<ReactionRoute>?) {
-        val list = routes?.take(ReactionRoute.MAX_ROUTES)
+    /**
+     * [routes] null hands the matrix back to the style's DNA. A list from the route editor or a recipe is
+     * the whole matrix, so it owns every moment ([GeodeNative.HAND_ALL]).
+     */
+    fun setReactions(routes: List<ReactionRoute>?) = setHandReactions(HandReactions(routes, GeodeNative.HAND_ALL))
+
+    /** Customize › Music's edit, as native worked it out: the user's routes and the moments they own. */
+    fun setHandReactions(edit: HandReactions) {
+        val list = edit.routes?.take(ReactionRoute.MAX_ROUTES)
+        val mask = if (list == null) 0 else edit.mask
         _reactions.value = list
-        lfoStore.saveReactions(list)
+        _handMask.value = mask
+        HandMask.set(mask)
+        lfoStore.saveReactions(list, mask)
     }
 
     /** A new personality for this style: the next DNA variant, and back to DNA if it was custom. */

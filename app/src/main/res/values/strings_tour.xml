@@ -56,9 +56,14 @@
     <string name="tour_studio_render_title">One tap to render</string>
     <string name="tour_studio_render_body">Pick what to render, then tap Render. It keeps going if you leave the app.</string>
 
+    <string name="tour_studio_videos_title">Your videos</string>
+    <string name="tour_studio_videos_body">Takes and renders, newest first. Play, share or open one in Edit.</string>
+
     <!-- Settings. -->
     <string name="tour_settings_groups_title">Settings, in groups</string>
     <string name="tour_settings_groups_body">Open a group to see its options.</string>
+    <string name="tour_settings_playback_title">Sound</string>
+    <string name="tour_settings_playback_body">Playback &amp; audio holds the EQ, crossfade and ReplayGain.</string>
     <string name="tour_settings_tutorials_title">See these again</string>
     <string name="tour_settings_tutorials_body">Replay the tips for any screen here.</string>
 

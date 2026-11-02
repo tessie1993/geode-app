@@ -267,7 +267,7 @@ private fun TourCard(
             .graphicsLayer {
                 scaleX = scale
                 scaleY = scale
-            }.floatingGlass(fillAlpha = CARD_FILL, elevation = GeodeElevation.Overlay)
+            }.floatingGlass(elevation = GeodeElevation.Overlay)
             .semantics { paneTitle = title }
             .padding(start = GeodeSpacing.L, end = GeodeSpacing.L, top = GeodeSpacing.L, bottom = GeodeSpacing.S),
     ) {
@@ -317,7 +317,7 @@ internal fun TourHint(
                 Modifier
                     .padding(horizontal = GeodeSpacing.EdgeInset)
                     .widthIn(max = CARD_MAX_WIDTH)
-                    .floatingGlass(fillAlpha = CARD_FILL)
+                    .floatingGlass()
                     .padding(start = GeodeSpacing.L, end = GeodeSpacing.XS),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -334,7 +334,6 @@ internal fun TourHint(
 }
 
 private const val SCRIM_ALPHA = 0.70f
-private const val CARD_FILL = 0.86f
 private const val ENTER_SCALE = 0.94f
 private val HOLE_PADDING = 8.dp
 private val MIN_HOLE = GeodeSpacing.TouchTarget

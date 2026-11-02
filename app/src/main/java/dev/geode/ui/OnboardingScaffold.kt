@@ -17,14 +17,12 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
@@ -33,6 +31,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import dev.geode.R
 import dev.geode.ui.theme.GeodeSpacing
+import dev.geode.ui.theme.StoneIcon
+import dev.geode.ui.theme.StoneIconArt
 
 /**
  * The frame every first-run screen shares: a step indicator, an icon badge, a heading and body,
@@ -43,7 +43,7 @@ import dev.geode.ui.theme.GeodeSpacing
 internal fun OnboardingScaffold(
     step: Int,
     stepCount: Int,
-    icon: ImageVector,
+    icon: StoneIcon,
     title: String,
     body: String,
     modifier: Modifier = Modifier,
@@ -77,7 +77,7 @@ internal fun OnboardingScaffold(
                     .background(MaterialTheme.colorScheme.primaryContainer),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(icon, null, Modifier.size(36.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                StoneIconArt(icon, null, Modifier.size(36.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer)
             }
             Spacer(Modifier.height(GeodeSpacing.XL))
             Text(

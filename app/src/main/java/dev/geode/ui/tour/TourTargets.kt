@@ -49,8 +49,10 @@ enum class TourSpot(
 
     STUDIO_TABS(TutorialChapter.STUDIO, R.string.tour_studio_tabs_title, R.string.tour_studio_tabs_body),
     STUDIO_RENDER(TutorialChapter.STUDIO, R.string.tour_studio_render_title, R.string.tour_studio_render_body),
+    STUDIO_MY_VIDEOS(TutorialChapter.STUDIO, R.string.tour_studio_videos_title, R.string.tour_studio_videos_body),
 
     SETTINGS_GROUPS(TutorialChapter.SETTINGS, R.string.tour_settings_groups_title, R.string.tour_settings_groups_body),
+    SETTINGS_PLAYBACK(TutorialChapter.SETTINGS, R.string.tour_settings_playback_title, R.string.tour_settings_playback_body),
     SETTINGS_TUTORIALS(TutorialChapter.SETTINGS, R.string.tour_settings_tutorials_title, R.string.tour_settings_tutorials_body),
 }
 

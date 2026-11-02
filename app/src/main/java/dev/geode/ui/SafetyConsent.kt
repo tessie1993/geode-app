@@ -5,8 +5,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.FlashOn
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -15,6 +13,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import dev.geode.R
 import dev.geode.ui.theme.GeodeSpacing
+import dev.geode.ui.theme.StoneIcon
 
 /**
  * The first-run photosensitivity notice, and the whole of first run: everything else is asked
@@ -33,7 +32,7 @@ fun SafetyConsent(
     OnboardingScaffold(
         step = 0,
         stepCount = ONBOARDING_STEPS,
-        icon = Icons.Rounded.FlashOn,
+        icon = StoneIcon.VISUALIZER,
         title = stringResource(R.string.safety_title),
         body = stringResource(R.string.safety_warning),
         modifier = modifier,

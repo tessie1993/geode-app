@@ -82,7 +82,7 @@ internal fun OnboardingScaffold(
             Spacer(Modifier.height(GeodeSpacing.XL))
             Text(
                 title,
-                style = MaterialTheme.typography.headlineSmall,
+                style = MaterialTheme.typography.titleLarge,
                 color = MaterialTheme.colorScheme.onBackground,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.semantics { heading() },

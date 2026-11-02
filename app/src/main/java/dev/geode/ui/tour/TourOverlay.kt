@@ -13,6 +13,8 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -23,6 +25,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -51,8 +55,10 @@ import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Constraints
@@ -227,7 +233,8 @@ private fun PointerPlacement(
             (constraints.maxWidth - 2 * margin)
                 .coerceIn(CARD_MIN_WIDTH.roundToPx(), CARD_MAX_WIDTH.roundToPx())
                 .coerceAtMost(constraints.maxWidth)
-        val placeable = measurables.first().measure(Constraints.fixedWidth(width))
+        // Never taller than the safe area: the text scrolls, the buttons stay on screen.
+        val placeable = measurables.first().measure(Constraints(width, width, 0, (bottom - top).coerceAtLeast(0)))
         val h = placeable.height
         val y =
             if (hole == null) {
@@ -253,6 +260,7 @@ private fun PointerPlacement(
  * The pop-up itself: floating glass, the title (a heading, so TalkBack lands on it), one or two
  * lines, then the step count at the start and the actions at the end, dismissive before confirm.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun TourCard(
     title: String,
@@ -271,25 +279,37 @@ private fun TourCard(
             .semantics { paneTitle = title }
             .padding(start = GeodeSpacing.L, end = GeodeSpacing.L, top = GeodeSpacing.L, bottom = GeodeSpacing.S),
     ) {
-        Text(
-            title,
-            Modifier.semantics { heading() },
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
-        Spacer(Modifier.height(GeodeSpacing.XS))
-        Text(body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
+            Text(
+                title,
+                Modifier.semantics { heading() },
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Spacer(Modifier.height(GeodeSpacing.XS))
+            // The dialog is reused between steps, so focus stays on Next: the new body is read out.
+            Text(
+                body,
+                Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         Spacer(Modifier.height(GeodeSpacing.M))
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        // Wraps at large font sizes instead of squeezing the last button.
+        FlowRow(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(GeodeSpacing.S, Alignment.End),
+        ) {
             if (count > 1) {
                 Text(
                     stringResource(R.string.tour_step_of, index, count),
+                    Modifier.weight(1f).align(Alignment.CenterVertically),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            Spacer(Modifier.weight(1f))
-            Row(horizontalArrangement = Arrangement.spacedBy(GeodeSpacing.S)) { buttons() }
+            buttons()
         }
     }
 }
@@ -317,7 +337,10 @@ internal fun TourHint(
                 Modifier
                     .padding(horizontal = GeodeSpacing.EdgeInset)
                     .widthIn(max = CARD_MAX_WIDTH)
-                    .floatingGlass()
+                    // Denser than the pop-up's glass: there is no scrim under it, and the visual
+                    // can be white.
+                    .floatingGlass(fillAlpha = HINT_FILL)
+                    .semantics { liveRegion = LiveRegionMode.Polite }
                     .padding(start = GeodeSpacing.L, end = GeodeSpacing.XS),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -335,6 +358,7 @@ internal fun TourHint(
 
 private const val SCRIM_ALPHA = 0.70f
 private const val ENTER_SCALE = 0.94f
+private const val HINT_FILL = 0.75f
 private val HOLE_PADDING = 8.dp
 private val MIN_HOLE = GeodeSpacing.TouchTarget
 private val CARD_MIN_WIDTH = 280.dp

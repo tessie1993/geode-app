@@ -39,7 +39,12 @@ data class GuiPrefs(
     val presetMorphSeconds: Float = 2f,
     val accentIntensity: Float = 1f,
     val compactPlayer: Boolean = false,
-    val clearVisualsMenu: Boolean = false,
+    /**
+     * How long the mini player on Visuals stays after the last touch before it fades to invisible,
+     * in seconds; 0 keeps it on screen. Three seconds shows the track long enough to read, then
+     * gives the canvas back.
+     */
+    val miniPlayerFadeSeconds: Float = MINI_PLAYER_FADE_DEFAULT_SECONDS,
     val whiteFont: Boolean = false,
     val fontColorArgb: Int? = null,
     val textScale: Float = 1f,
@@ -87,8 +92,12 @@ data class GuiPrefs(
      * until someone opts into it happening automatically too.
      */
     val autoEnterPip: Boolean = false,
-    /** Interface sounds on taps and tab changes; still silent when the system's touch sounds are off. */
-    val uiSounds: Boolean = true,
+    /**
+     * Interface sounds on taps and tab changes; still silent when the system's touch sounds are off.
+     * Off on a fresh install (the owner's call): a music app should not add clicks over the music
+     * until someone asks for them.
+     */
+    val uiSounds: Boolean = false,
 ) {
     val fontColorOverride: Int?
         get() = fontColorArgb ?: FontColorChoice.WHITE_ARGB.takeIf { whiteFont }
@@ -96,6 +105,8 @@ data class GuiPrefs(
     companion object {
         const val TEXT_SCALE_MIN = 0.85f
         const val TEXT_SCALE_MAX = 1.3f
+        const val MINI_PLAYER_FADE_DEFAULT_SECONDS = 3f
+        const val MINI_PLAYER_FADE_MAX_SECONDS = 10f
     }
 }
 
@@ -131,7 +142,10 @@ class ThemeStore(
             presetMorphSeconds = readPresetMorphSeconds(prefs),
             accentIntensity = prefs.getFloat(KEY_ACCENT, 1f),
             compactPlayer = prefs.getBoolean(KEY_COMPACT, false),
-            clearVisualsMenu = prefs.getBoolean(KEY_CLEAR_VIZ_MENU, false),
+            miniPlayerFadeSeconds =
+                prefs
+                    .getFloat(KEY_MINI_PLAYER_FADE, GuiPrefs.MINI_PLAYER_FADE_DEFAULT_SECONDS)
+                    .coerceIn(0f, GuiPrefs.MINI_PLAYER_FADE_MAX_SECONDS),
             fontColorArgb = fontColor,
             textScale =
                 prefs
@@ -157,7 +171,7 @@ class ThemeStore(
             secondScreen = prefs.getBoolean(KEY_SECOND_SCREEN, true),
             micReactive = prefs.getBoolean(KEY_MIC_REACTIVE, false),
             autoEnterPip = prefs.getBoolean(KEY_AUTO_ENTER_PIP, false),
-            uiSounds = prefs.getBoolean(KEY_UI_SOUNDS, true),
+            uiSounds = prefs.getBoolean(KEY_UI_SOUNDS, false),
         )
     }
 
@@ -210,7 +224,9 @@ class ThemeStore(
             putFloat(KEY_PRESET_MORPH_SEC, gui.presetMorphSeconds)
             putFloat(KEY_ACCENT, gui.accentIntensity)
             putBoolean(KEY_COMPACT, gui.compactPlayer)
-            putBoolean(KEY_CLEAR_VIZ_MENU, gui.clearVisualsMenu)
+            putFloat(KEY_MINI_PLAYER_FADE, gui.miniPlayerFadeSeconds)
+            // Dead: no screen read the "clear Visuals menu" switch.
+            remove(KEY_CLEAR_VIZ_MENU)
             if (fontColor != null) putInt(KEY_FONT_COLOR, fontColor) else remove(KEY_FONT_COLOR)
             remove(KEY_WHITE_FONT)
             // The gem theme packs, their light variant and the background dim are gone.
@@ -259,7 +275,9 @@ class ThemeStore(
         const val KEY_DIM = "gui_background_dim"
         const val KEY_COMPACT = "gui_compact_player"
         const val KEY_FOLLOW_DARK = "gui_follow_system_dark"
+        /** Retired: written, never read. Removed on the next save. */
         const val KEY_CLEAR_VIZ_MENU = "gui_clear_visuals_menu"
+        const val KEY_MINI_PLAYER_FADE = "gui_mini_player_fade_sec"
 
         const val KEY_WHITE_FONT = "gui_white_font"
         const val KEY_FONT_COLOR = "gui_font_color"

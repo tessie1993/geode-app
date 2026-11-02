@@ -121,6 +121,9 @@ class MacroStore private constructor(
         private const val KEY_LOCKS = "macro_locks"
         private const val KEY_PRESETS = "macro_presets"
 
+        /** Every key this store writes: a backup files them under Creative, with the presets they shape. */
+        internal val KEYS: Set<String> = setOf(KEY_KNOBS, KEY_LOCKS, KEY_PRESETS)
+
         @Volatile private var instance: MacroStore? = null
 
         fun get(context: Context): MacroStore =

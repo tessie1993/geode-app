@@ -156,7 +156,7 @@ object BackupArchive {
                 BackupFormat.sectionOf(entry.path)
                     ?: fail(BackupProblem.UNSAFE_PATH, "'${entry.path}' is outside what a backup may restore")
             if (section !in sections) fail(BackupProblem.DAMAGED, "'${entry.path}' belongs to a section not listed")
-            if (section.prefsFiles.any { BackupFormat.prefsPath(it) == entry.path }) {
+            if (BackupFormat.isPrefsPath(entry.path)) {
                 PrefsJson.decode(File(staging, entry.path).readText())
             }
         }

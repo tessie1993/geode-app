@@ -16,11 +16,45 @@ class BackupMigration(
 
 object BackupMigrations {
     /**
-     * Version 1 is the only format so far. When the format changes, bump
-     * [BackupFormat.CURRENT_VERSION] and add `BackupMigration(1) { manifest, root -> ... }` here;
-     * a version 1 backup then walks through it on its way in.
+     * Each step turns its version into the next. When the format changes, bump
+     * [BackupFormat.CURRENT_VERSION] and add the step from the old version here; an older backup
+     * then walks through every step on its way in.
      */
-    val steps: List<BackupMigration> = emptyList()
+    val steps: List<BackupMigration> = listOf(BackupMigration(1, ::splitBorrowedKeys))
+
+    /**
+     * Version 1 kept the macros, LFOs, envelopes and reactions inside Settings' `prefs/geode-prefs.json`.
+     * Version 2 files them under Creative ([BackupSection.borrowedKeys]), so they move into Creative's
+     * slice here and Creative joins the sections when anything moved: an old backup's macros come back
+     * with Creative, as a new backup's would.
+     */
+    internal fun splitBorrowedKeys(
+        manifest: BackupManifest,
+        root: File,
+    ): BackupManifest {
+        var entries = manifest.entries
+        var sections = manifest.sections
+        for (section in BackupSection.entries) {
+            for ((name, keys) in section.borrowedKeys) {
+                val ownerPath = BackupFormat.prefsPath(name)
+                val owner = File(root, ownerPath)
+                if (entries.none { it.path == ownerPath } || !owner.isFile) continue
+                val (moved, kept) = PrefsJson.decode(owner.readText()).entries.partition { it.key in keys }
+                if (moved.isEmpty()) continue
+                val slicePath = BackupFormat.slicePath(section, name)
+                val written =
+                    listOf(ownerPath to kept, slicePath to moved).map { (path, values) ->
+                        val bytes = PrefsJson.encode(values.associate { it.toPair() }).toByteArray(Charsets.UTF_8)
+                        val file = File(root, path).apply { parentFile?.mkdirs() }
+                        val (size, sha) = file.outputStream().use { BackupArchive.copyHashed(bytes.inputStream(), it, Long.MAX_VALUE) }
+                        BackupEntry(path, size, sha)
+                    }
+                entries = entries.filter { it.path != ownerPath && it.path != slicePath } + written
+                if (section.id !in sections) sections = sections + section.id
+            }
+        }
+        return manifest.copy(sections = sections, entries = entries)
+    }
 
     /** Runs every step from the manifest's version up to [target]. A gap in the chain is DAMAGED. */
     fun migrate(

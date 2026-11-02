@@ -86,7 +86,6 @@ import dev.geode.R
 import dev.geode.analysis.SearchMatcher
 import dev.geode.data.BootAnimationStore
 import dev.geode.data.GeodePrefsFiles
-import dev.geode.data.GuiPrefs
 import dev.geode.model.TutorialChapter
 import dev.geode.model.TutorialProgress
 import dev.geode.pro.PaywallTrigger
@@ -271,7 +270,13 @@ fun AppRoot() {
                             )
                         }
                     GeodeDestination.STUDIO ->
-                        StudioHub(viewModel, visualizerView, appState.studioSection, onSection = { appState.studioSection = it })
+                        StudioHub(
+                            viewModel,
+                            visualizerView,
+                            appState.studioSection,
+                            onSection = { appState.studioSection = it },
+                            onImmersive = { appState.immersive = it },
+                        )
                     GeodeDestination.SETTINGS ->
                         SettingsScreen(
                             viewModel,

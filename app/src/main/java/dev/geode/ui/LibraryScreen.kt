@@ -12,6 +12,7 @@ import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -31,14 +32,18 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.PrimaryScrollableTabRow
+import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -54,11 +59,14 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
@@ -67,6 +75,7 @@ import dev.geode.R
 import dev.geode.data.MusicPlaylist
 import dev.geode.model.DeviceTrack
 import dev.geode.model.LibraryTrack
+import dev.geode.ui.theme.GeodeSpacing
 import dev.geode.ui.theme.StoneIcon
 import dev.geode.ui.theme.StoneIconArt
 import kotlinx.coroutines.launch
@@ -107,8 +116,16 @@ fun LibraryScreen(onOpenSearch: () -> Unit) {
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                CrystalOverline(stringResource(R.string.app_name))
-                GlowTitle(stringResource(R.string.nav_library))
+                Text(
+                    stringResource(R.string.app_name),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    stringResource(R.string.nav_library),
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.semantics { heading() },
+                )
             }
             IconButton(onClick = onOpenSearch) { StoneIconArt(StoneIcon.SEARCH, stringResource(R.string.action_search)) }
         }
@@ -125,7 +142,7 @@ fun LibraryScreen(onOpenSearch: () -> Unit) {
                     ),
                 )
                 // request() opens the system dialog, or app Settings once Android stops asking.
-                CrystalButton(onClick = access::request) {
+                Button(onClick = access::request) {
                     Text(
                         stringResource(
                             if (canAskAgain) R.string.library_permission_allow else R.string.library_permission_open_settings,
@@ -135,7 +152,9 @@ fun LibraryScreen(onOpenSearch: () -> Unit) {
             }
             return
         }
-        CrystalTabs(titles = tabs, selected = tab, onSelect = { tab = it })
+        PrimaryScrollableTabRow(selectedTabIndex = tab, containerColor = Color.Transparent, divider = {}) {
+            tabs.forEachIndexed { i, t -> Tab(selected = i == tab, onClick = { tab = i }, text = { Text(t) }) }
+        }
         // Search and sort belong to the track-shaped tabs. Playlists are ordered by hand, and
         // re-sorting someone's running order out from under them would be a bug, not a feature.
         if (tab != PLAYLISTS_TAB && tab != DUPLICATES_TAB) {
@@ -368,10 +387,14 @@ private fun GroupList(
             }
             val queue = remember(sel, groups) { groups.getValue(sel).map(PlaybackQueue::queueTrack) }
             Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                CrystalButton(compact = true, onClick = { viewModel.playAll(queue) }) { Text(stringResource(R.string.library_play_all)) }
-                CrystalButton(compact = true, filled = false, onClick = {
-                    viewModel.playAll(queue, shuffled = true)
-                }) { Text(stringResource(R.string.action_shuffle)) }
+                Button(
+                    onClick = { viewModel.playAll(queue) },
+                    contentPadding = PaddingValues(horizontal = GeodeSpacing.M, vertical = GeodeSpacing.XS),
+                ) { Text(stringResource(R.string.library_play_all)) }
+                FilledTonalButton(
+                    onClick = { viewModel.playAll(queue, shuffled = true) },
+                    contentPadding = PaddingValues(horizontal = GeodeSpacing.M, vertical = GeodeSpacing.XS),
+                ) { Text(stringResource(R.string.action_shuffle)) }
             }
             LazyColumn(Modifier.fillMaxSize()) {
                 items(groups.getValue(sel), key = { it.uri }, contentType = { "track" }) { t ->
@@ -429,11 +452,13 @@ private fun PlaylistsTab(viewModel: LibraryViewModel) {
             Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            CrystalButton(compact = true, filled = false, onClick = { creating = true }) { Text(stringResource(R.string.playlist_new)) }
-            CrystalButton(
-                compact = true,
-                filled = false,
+            FilledTonalButton(
+                onClick = { creating = true },
+                contentPadding = PaddingValues(horizontal = GeodeSpacing.M, vertical = GeodeSpacing.XS),
+            ) { Text(stringResource(R.string.playlist_new)) }
+            FilledTonalButton(
                 onClick = { importPicker.launch(arrayOf("*/*")) },
+                contentPadding = PaddingValues(horizontal = GeodeSpacing.M, vertical = GeodeSpacing.XS),
             ) { Text(stringResource(R.string.playlist_import_action)) }
         }
         // Three kinds of item share this list, so each declares its type and lazy layout reuses
@@ -502,7 +527,7 @@ private fun PlaylistsTab(viewModel: LibraryViewModel) {
             title = { Text(stringResource(R.string.playlist_delete_title)) },
             text = { Text(stringResource(R.string.playlist_delete_body, doomed)) },
             confirmButton = {
-                CrystalButton(onClick = {
+                Button(onClick = {
                     viewModel.deleteMusicPlaylist(doomed)
                     deleting = null
                 }) { Text(stringResource(R.string.action_delete)) }
@@ -538,7 +563,7 @@ private fun PlaylistsTab(viewModel: LibraryViewModel) {
                 }
             },
             confirmButton = {
-                CrystalButton(enabled = nameOk, onClick = {
+                Button(enabled = nameOk, onClick = {
                     viewModel.renameMusicPlaylist(old, proposed)
                     renaming = null
                 }) { Text(stringResource(R.string.action_rename)) }
@@ -732,16 +757,14 @@ private fun FoldersTab(
             Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            CrystalButton(
-                compact = true,
-                filled = false,
+            FilledTonalButton(
                 onClick = { folderPicker.launchPicker(context, null) },
+                contentPadding = PaddingValues(horizontal = GeodeSpacing.M, vertical = GeodeSpacing.XS),
             ) { Text(stringResource(R.string.folders_add)) }
-            CrystalButton(
-                compact = true,
-                filled = false,
+            FilledTonalButton(
                 onClick = libraryViewModel::rescanMediaRoots,
                 enabled = roots.isNotEmpty() && !scanning,
+                contentPadding = PaddingValues(horizontal = GeodeSpacing.M, vertical = GeodeSpacing.XS),
             ) {
                 Text(stringResource(if (scanning) R.string.folders_scanning else R.string.folders_rescan))
             }

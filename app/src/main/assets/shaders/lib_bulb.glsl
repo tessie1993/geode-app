@@ -18,7 +18,7 @@
 // four details right, and each of the four is a bug that does not look like
 // one until the style is on a phone:
 //
-//   THE POLE IS +Y. Every style here orbits about +y (lib_camera's camAround
+//   THE POLE IS +Y. The WHOLE styles orbit about +y (lib_camera's camAround
 //   turns about +y), so the fractal's axis of symmetry is the axis the
 //   camera turns around and a bulb never rolls through the frame.
 //
@@ -57,6 +57,36 @@
 // against its own map(), with bulbBound / bulbEps / bulbStepAO below as the
 // pieces it is built from.
 //
+// THE FAMILY GRID. Twelve power-n bulbs framed the same way read as one lumpy
+// sphere twelve times at phone size: the eye ranks framing, silhouette, light
+// and dark mass, material and motion before it ever notices the formula. So
+// the family is a 3 x 4 grid over two structural axes, and no two members
+// share both:
+//
+//               LIT              GLOW            LINE            FLAT TRAP
+//   WHOLE    classic          glow            ink             prism
+//   MACRO    chrome           lotus           contour         julia
+//   INSIDE   cavern           shell           hybrid          slice
+//
+//   WHOLE   the whole body centred in the frame on camAround (a silhouette).
+//   MACRO   the eye hovers a fraction of the radius off the skin and looks
+//           across it (bulbAim), so the body's horizon cuts the frame and the
+//           surface is a landscape, never a silhouette.
+//   INSIDE  the eye is in the set's room: an inverted bulb, the hollow of a
+//           shell, or a cut face that fills the frame.
+//
+//   LIT     normals, a key light and a material.
+//   GLOW    emission accumulated along the ray or from a light inside; little
+//           or no use of the normal.
+//   LINE    ink: outlines, creases or iso-lines carry the drawing.
+//   FLAT    the orbit trap is the colour, with no lighting at all (iq's trap
+//           renders), only the free step-count occlusion.
+//
+// Each member also has its own palette (bulbRamp below, a cosine ramp the
+// Director's pal() tints but never replaces), its own value key (light on
+// dark or dark on light) and its own motion rule, so neighbours in a row or
+// a column still differ in a third way.
+//
 // TRAPS. The DE functions hand back a vec4 orbit trap alongside the distance:
 //   x  min |z|^2 over the orbit, starting point included (how close it came
 //      to the centre: low in the creases, so it doubles as cheap occlusion)
@@ -64,8 +94,9 @@
 //   z  min length(z.xz)  (distance to the pole axis: filaments)
 //   w  escape iteration / iterations, 0..1 (1 = never escaped)
 //
-// INCLUDE ORDER: after lib_scene_uniforms (reads uSteps only). It reads no
-// audio uniform: what moves with the music is each style's business.
+// INCLUDE ORDER: after lib_scene_uniforms (uSteps, the macros), lib_camera
+// (bulbAim) and lib_palette (bulbRamp). It reads no audio uniform: what moves
+// with the music is each style's business.
 
 /** Compile-time ceiling on fractal iterations. A style's own count is a runtime break below this. */
 #define BULB_MAX_ITERS 8
@@ -249,4 +280,38 @@ float bulbStepAO(float used) {
 mat3 bulbFrame(vec3 fwd, vec3 up) {
     vec3 right = normalize(cross(up, fwd));
     return mat3(right, cross(fwd, right), fwd);
+}
+
+/**
+ * The MACRO framing: the eye at `eye`, looking at `target`, with the rig's
+ * basis riding on top so its look, banking and shake still apply (the same
+ * composition Cavern uses for its loop). Put the eye a fraction of the radius
+ * off the skin and the target on the skin a little to one side, and the body's
+ * horizon crosses the frame instead of the whole silhouette sitting in it.
+ * The up vector swaps to +x near the pole so the frame never degenerates.
+ */
+void bulbAim(vec2 uv, vec3 eye, vec3 target, out vec3 ro, out vec3 rd) {
+    vec3 fwd = normalize(target - eye);
+    vec3 up = abs(fwd.y) > 0.96 ? vec3(1.0, 0.0, 0.0) : vec3(0.0, 1.0, 0.0);
+    ro = eye;
+    rd = normalize(bulbFrame(fwd, up) * (uCamBasis * vec3(uv, uCamFocal)));
+}
+
+// ---- the member's own palette --------------------------------------------------
+//
+// Every bulb used to colour through the one global pal(), which the Director
+// and the key hue drive, so at any moment the whole family wore one palette.
+// Now each member owns a cosine ramp (a + b cos(2 pi (c t + d)), iq's
+// palette form) and the Director's palette TINTS it by BULB_TINT rather than
+// replacing it: the live look still answers the auto-director and the user's
+// palette chips, but twelve bulbs never share one palette at once. The
+// user's Hue shift (uColorShift) turns the member's own ramp too.
+
+/** How much of the Director's pal() is mixed into a member's own ramp (the recipe's 0.3 - 0.5). */
+#define BULB_TINT 0.4
+
+/** A member's own cosine ramp at t, tinted toward pal(t). */
+vec3 bulbRamp(float t, vec3 a, vec3 b, vec3 c, vec3 d) {
+    vec3 own = clamp(a + b * cos(BULB_TAU * (c * (t + uColorShift) + d)), 0.0, 1.0);
+    return mix(own, pal(t), BULB_TINT);
 }

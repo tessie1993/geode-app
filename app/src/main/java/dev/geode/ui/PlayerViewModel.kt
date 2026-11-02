@@ -158,6 +158,8 @@ class PlayerViewModel
 
         fun randomStepNow() = session.randomStepNow()
 
+        fun onDirectorStyleMoment() = session.onDirectorStyleMoment()
+
         fun applyVizEntry(entry: VizPlaylistEntry) = session.applyVizEntry(entry)
 
         fun stepVizPlaylist(): Boolean = session.stepVizPlaylist()

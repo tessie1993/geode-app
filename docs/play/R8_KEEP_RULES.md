@@ -3,8 +3,17 @@
 An r8-analyzer audit of the release R8 configuration (`app/proguard-rules.pro` plus every
 consumer rule merged into `:app`), done before the Play release. It found nothing that breaks
 the build. Its findings are four rules that keep more than they need to and two that repeat
-the AGP defaults. Nothing has been changed yet: each **Action** below is a proposal for a
-follow-up PR, which has to be checked on a release build on a device (`docs/DEVICE_CHECKS.md`).
+the AGP defaults. Each **Action** below still needs a check on a release build on a device
+(`docs/DEVICE_CHECKS.md`): CI's release run proves the build, not the behaviour.
+
+**Applied 2026-11-02** (re-checked by a second r8-analyzer pass; line numbers below are the
+old file's): the `GeodeNative { *; }` keep and the `class * { native <methods>; }` repeat are
+gone (no native code calls back into Kotlin), the coroutines `volatile` rule is gone (the
+library ships it), and the SceneParams rule is `{ !static <fields>; }`. **Not yet:** the
+Media3 audio keep (`:31`) and `-dontwarn androidx.media3.**` stay until a device check of
+playback; the dontwarn now also covers media3-cast and media3-muxer (Cast to TV), so narrow it
+to the classes R8 actually warns about. Cast itself needs no app rule: media3-cast's consumer
+rules keep `DefaultCastOptionsProvider`; confirm in the release build's `configuration.txt`.
 
 **Dated snapshot.** This is the audit as it ran at `8588501`. Names it cites have changed since:
 `ParamBlend` is gone, the randomizer is native (`core/viz/ParamRandomizer`), and `GeodeNative`'s

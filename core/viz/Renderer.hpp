@@ -234,7 +234,7 @@ private:
 
     mutable std::mutex stateLock_;
     SceneParams requestedParams_;
-    std::string requestedSceneId_ = "silk_web";
+    std::string requestedSceneId_ = "neon_chrome_sea"; // the app's first style (FreeTier.FIRST_STYLE_ID)
     std::string layerSceneId_;
     float layerMix_ = 0.5f;
     int layerBlend_ = static_cast<int>(BlendMode::Screen);

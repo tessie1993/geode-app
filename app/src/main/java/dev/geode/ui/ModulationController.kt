@@ -114,11 +114,11 @@ internal class ModulationController(
     }
 
     /**
-     * Rolls [tab], or everything when null. Events owns no params of its own, so "Randomize"
-     * there means a new style DNA.
+     * Rolls [tab], or everything when null. On Music, "Randomize" means a new style DNA: a fresh
+     * set of reactions is what changes how the music moves the picture.
      */
     fun randomizeParams(tab: CustomizeTab? = null) {
-        if (tab == CustomizeTab.EVENTS) return rerollReactions()
+        if (tab == CustomizeTab.MUSIC) return rerollReactions()
         // The knobs are not params: the toolbar rolls them through MacroStore.
         if (tab == CustomizeTab.MACROS) return
         commitSceneParams(
@@ -134,7 +134,10 @@ internal class ModulationController(
     /** Puts one tab's parameters back to their defaults and leaves every other tab alone. */
     fun resetTab(tab: CustomizeTab) =
         when (tab) {
-            CustomizeTab.EVENTS -> setReactions(null)
+            CustomizeTab.MUSIC -> {
+                setReactions(null)
+                commitSceneParams(ParamRandomizer.resetTab(host.params, tab))
+            }
             CustomizeTab.MACROS -> Unit
             else -> commitSceneParams(ParamRandomizer.resetTab(host.params, tab))
         }

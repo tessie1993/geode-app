@@ -38,8 +38,12 @@ class VisualizerRenderer(
             )
     }
 
+    /**
+     * Until a look is pushed, the app's first style (FreeTier.FIRST_STYLE_ID in :app): the wallpaper
+     * and dream with no saved look then show the free showpiece rather than silk, a Pro renderer.
+     */
     @Volatile
-    var requestedSceneId: String = SceneIds.DEFAULT
+    var requestedSceneId: String = SceneIds.NEON_CHROME_SEA
 
     @Volatile
     var sceneParams: SceneParams = SceneParams.DEFAULT

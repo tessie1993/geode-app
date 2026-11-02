@@ -1,11 +1,20 @@
 package dev.geode.wallpaper
 
+import android.app.KeyguardManager
+import android.app.WallpaperManager
+import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.opengl.GLSurfaceView
+import android.os.Build
+import android.os.Handler
+import android.os.Looper
+import android.os.PowerManager
 import android.service.wallpaper.WallpaperService
 import android.view.MotionEvent
 import android.view.SurfaceHolder
-import dev.geode.audio.AudioBus
+import androidx.core.content.ContextCompat
 import dev.geode.billing.ProSnapshot
 import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.PerformanceStore
@@ -24,6 +33,7 @@ class VisualizerWallpaperService : WallpaperService() {
     private inner class VisualizerEngine : Engine() {
         private var glView: WallpaperGlSurfaceView? = null
         private var renderer: VisualizerRenderer? = null
+        private var wallpaperRenderer: WallpaperRenderer? = null
 
         /**
          * Each engine instance — preview and home screen can both be live at once — owns its
@@ -34,6 +44,44 @@ class VisualizerWallpaperService : WallpaperService() {
 
         private var surfaceAvailable = false
         private var visible = false
+
+        /** The shade or recents is over the wallpaper; see [onZoomChanged]. */
+        private var covered = false
+
+        private val prefsStore = WallpaperPrefsStore(this@VisualizerWallpaperService)
+        private var settings = WallpaperSettings()
+
+        /**
+         * What the wallpaper hears: the app's ring while MuzViz feeds it, else any app's audio.
+         * Its silence flips restate the run mode, which is how "rest when silent" happens.
+         */
+        private val sound = SoundSource(this@VisualizerWallpaperService) { syncRunState() }
+
+        /** Whether [sound] is running; it only restarts on a real change (see [syncListening]). */
+        private var listening = false
+
+        private var runMode = WallpaperRunMode.STOPPED
+        private val handler = Handler(Looper.getMainLooper())
+
+        /** Ends the settle burst of [WallpaperRunMode.STILL]. */
+        private val endStillSettle = Runnable { if (runMode == WallpaperRunMode.STILL) pacer.stop() }
+
+        private val powerManager = getSystemService(PowerManager::class.java)
+        private val keyguardManager = getSystemService(KeyguardManager::class.java)
+
+        /**
+         * Battery saver switching, and the unlock that turns the lock screen's look into the home
+         * screen's. Registered for the engine's whole life, not only while visible: both can change
+         * while the wallpaper is hidden, and a hidden wallpaper does nothing on the broadcast but
+         * restate a stopped state.
+         */
+        private val systemReceiver =
+            object : BroadcastReceiver() {
+                override fun onReceive(
+                    context: Context,
+                    intent: Intent,
+                ) = syncRunState()
+            }
 
         /**
          * Reused across touch events: a wallpaper is touched at the panel's rate, and this
@@ -49,6 +97,10 @@ class VisualizerWallpaperService : WallpaperService() {
          */
         private var surfaceWidth = 1f
         private var surfaceHeight = 1f
+
+        /** Where the screen sits on a panning surface, in surface pixels; see [onOffsetsChanged]. */
+        private var panX = 0f
+        private var panY = 0f
 
         private inner class WallpaperGlSurfaceView(
             context: Context,
@@ -68,8 +120,11 @@ class VisualizerWallpaperService : WallpaperService() {
             val engine = VisualizerRenderer(this@VisualizerWallpaperService)
             renderer = engine
             restoreLiveState(engine)
+            settings = prefsStore.load()
             engine.pcmProvider = { null }
-            engine.soundInput = { AudioBus.soundInput }
+            engine.soundInput = { sound.input }
+            val wrapped = WallpaperRenderer(engine) { sound.input }
+            wallpaperRenderer = wrapped
             glView =
                 WallpaperGlSurfaceView(this@VisualizerWallpaperService).apply {
                     setEGLContextClientVersion(3)
@@ -80,11 +135,20 @@ class VisualizerWallpaperService : WallpaperService() {
                     // may still refuse to keep it; VisualizerRenderer.onSurfaceCreated is safe to run
                     // again on a kept native renderer, so the lost-context path stays correct.
                     preserveEGLContextOnPause = true
-                    setRenderer(engine)
+                    setRenderer(wrapped)
                     // The pacer asks for each frame; without a request the GL thread parks, which
                     // is how "invisible costs nothing" is enforced rather than merely intended.
                     renderMode = GLSurfaceView.RENDERMODE_WHEN_DIRTY
                 }
+            ContextCompat.registerReceiver(
+                this@VisualizerWallpaperService,
+                systemReceiver,
+                IntentFilter().apply {
+                    addAction(PowerManager.ACTION_POWER_SAVE_MODE_CHANGED)
+                    addAction(Intent.ACTION_USER_PRESENT)
+                },
+                ContextCompat.RECEIVER_NOT_EXPORTED,
+            )
         }
 
         private fun restoreLiveState(engine: VisualizerRenderer) {
@@ -112,27 +176,93 @@ class VisualizerWallpaperService : WallpaperService() {
             engine.reactions = modulation.loadReactions()
         }
 
+        /**
+         * Restates the run mode from scratch ([wallpaperRunMode] has the rule). Called on every
+         * change that can move it: visibility, surface, cover, battery saver, unlock, silence.
+         */
         private fun syncRunState() {
             if (renderer == null) return
-            // Pro feature. Re-read on every visibility change, so a purchase or a trial made in
-            // the app animates the wallpaper the next time the home screen shows.
+            // Pro feature. Re-read on every change, so a purchase or a trial made in the app
+            // animates the wallpaper the next time the home screen shows.
             val animated = ProSnapshot.gate(this@VisualizerWallpaperService).allows(ProFeature.LIVE_WALLPAPER)
-            if (surfaceAvailable && visible && animated) {
-                glView?.onResume()
-                pacer.start()
-            } else if (surfaceAvailable && visible) {
-                // Without Pro: one still frame of the style and no pacing, so it costs nothing
-                // while it sits on the home screen.
-                pacer.stop()
-                glView?.onResume()
-                glView?.requestRender()
-            } else {
-                // Stopped first, and on this same main-thread callback: the vsync callback is gone
-                // before onPause is even asked for, so no frame can be requested after the
-                // wallpaper stops being visible.
-                pacer.stop()
-                glView?.onPause()
+            val conditions =
+                WallpaperConditions(
+                    surfaceAvailable = surfaceAvailable,
+                    visible = visible,
+                    animationAllowed = animated,
+                    preview = isPreview,
+                    covered = covered,
+                    batterySaver = powerManager?.isPowerSaveMode == true,
+                    silent = false,
+                    settings = settings,
+                )
+            // Listen whenever the wallpaper would animate if there were sound: that is what wakes
+            // a resting wallpaper. Hidden, battery saver and free hear nothing. A cover (the shade,
+            // recents) keeps listening: pulling the shade is a second's glance, and stopping would
+            // release the capture and restart the silence clock each time.
+            syncListening(wallpaperRunMode(conditions.copy(covered = false)) == WallpaperRunMode.ANIMATED)
+            wallpaperRenderer?.edge = currentLook() == WallpaperLook.EDGE
+            val previous = runMode
+            runMode = wallpaperRunMode(conditions.copy(silent = sound.silent))
+            if (runMode != WallpaperRunMode.STILL) handler.removeCallbacks(endStillSettle)
+            when (runMode) {
+                WallpaperRunMode.ANIMATED -> {
+                    glView?.onResume()
+                    pacer.start()
+                }
+                WallpaperRunMode.STILL -> {
+                    // A still frame of the style and then no pacing, so it costs nothing while it
+                    // sits there: without Pro, in battery saver, or resting in silence. Paced for
+                    // [STILL_SETTLE_MS] first, because a new scene is built across frames
+                    // (ScenePrep): one frame on a fresh engine would hold a black or half-built
+                    // picture. Already still, a restated look needs only one more frame.
+                    glView?.onResume()
+                    if (previous != WallpaperRunMode.STILL) {
+                        pacer.start()
+                        handler.postDelayed(endStillSettle, STILL_SETTLE_MS)
+                    } else {
+                        glView?.requestRender()
+                    }
+                }
+                WallpaperRunMode.STOPPED -> {
+                    // Stopped first, and on this same main-thread callback: the vsync callback is gone
+                    // before onPause is even asked for, so no frame can be requested after the
+                    // wallpaper stops being visible.
+                    pacer.stop()
+                    glView?.onPause()
+                }
             }
+        }
+
+        /**
+         * Starts or stops [sound] only on a real change: a start counts as fresh sound, so
+         * restarting on every sync would reset the silence clock and the wallpaper would never rest.
+         */
+        private fun syncListening(listen: Boolean) {
+            if (listen == listening) return
+            listening = listen
+            if (listen) sound.start(settings.hearOtherApps) else sound.stop()
+        }
+
+        /**
+         * The look for the screen this engine is drawing right now. Android 14 says which screens
+         * an engine draws ([getWallpaperFlags]): a lock-only engine is always the lock screen and a
+         * home-only one never is. One engine on both, and every older release, asks the keyguard.
+         */
+        private fun currentLook(): WallpaperLook {
+            if (isPreview) return settings.homeLook
+            val keyguardShowing = keyguardManager?.isKeyguardLocked == true
+            val onLock =
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                    when (wallpaperFlags) {
+                        WallpaperManager.FLAG_LOCK -> true
+                        WallpaperManager.FLAG_SYSTEM -> false
+                        else -> keyguardShowing
+                    }
+                } else {
+                    keyguardShowing
+                }
+            return if (onLock) settings.lockLook else settings.homeLook
         }
 
         override fun onVisibilityChanged(visible: Boolean) {
@@ -141,6 +271,26 @@ class VisualizerWallpaperService : WallpaperService() {
             // Going away with a finger still down is not guaranteed to come with a cancel,
             // and a pointer that is never retired stays pinned across the whole sleep.
             if (!visible) renderer?.submitTouchPoints(touchPoints, 0)
+            // Re-read each time it shows: the options page, opened from the picker, covers it.
+            if (visible) settings = prefsStore.load()
+            syncRunState()
+        }
+
+        /**
+         * Android 11+ zooms the wallpaper out behind the notification shade, recents and some
+         * launchers' app drawers, which leave it "visible" under a blur. Past [COVER_ZOOM] it
+         * stops: nobody watches a visual through a frosted shade.
+         */
+        override fun onZoomChanged(zoom: Float) {
+            super.onZoomChanged(zoom)
+            val nowCovered = zoom >= COVER_ZOOM
+            if (nowCovered == covered) return
+            covered = nowCovered
+            syncRunState()
+        }
+
+        override fun onWallpaperFlagsChanged(which: Int) {
+            super.onWallpaperFlagsChanged(which)
             syncRunState()
         }
 
@@ -160,9 +310,41 @@ class VisualizerWallpaperService : WallpaperService() {
             super.onSurfaceChanged(holder, format, width, height)
             surfaceWidth = width.toFloat().coerceAtLeast(1f)
             surfaceHeight = height.toFloat().coerceAtLeast(1f)
+            updateVisibleWindow()
             // A rotation or a fold replaces the surface, and the rate preference lives on the
             // surface, so it has to be restated rather than assumed to have survived.
             pacer.applyTo(holder.surface)
+        }
+
+        /**
+         * The launcher's pan, so the edge look draws on the screen's edge rather than the
+         * surface's. [xPixels] and [yPixels] are the surface's offset from the screen (≤ 0).
+         */
+        override fun onOffsetsChanged(
+            xOffset: Float,
+            yOffset: Float,
+            xOffsetStep: Float,
+            yOffsetStep: Float,
+            xPixels: Int,
+            yPixels: Int,
+        ) {
+            super.onOffsetsChanged(xOffset, yOffset, xOffsetStep, yOffsetStep, xPixels, yPixels)
+            panX = -xPixels.toFloat()
+            panY = -yPixels.toFloat()
+            updateVisibleWindow()
+        }
+
+        private fun updateVisibleWindow() {
+            val metrics = resources.displayMetrics
+            // Within a nav bar's worth of the display, the surface is the screen.
+            val wide = surfaceWidth > metrics.widthPixels * PAN_SLACK
+            val tall = surfaceHeight > metrics.heightPixels * PAN_SLACK
+            wallpaperRenderer?.setVisibleWindow(
+                if (wide) panX else 0f,
+                if (tall) panY else 0f,
+                if (wide) metrics.widthPixels.toFloat() else surfaceWidth,
+                if (tall) metrics.heightPixels.toFloat() else surfaceHeight,
+            )
         }
 
         /**
@@ -204,11 +386,15 @@ class VisualizerWallpaperService : WallpaperService() {
         }
 
         override fun onDestroy() {
+            handler.removeCallbacks(endStillSettle)
             pacer.stop()
+            sound.stop()
+            bestEffort(TAG, "unregister system receiver") { unregisterReceiver(systemReceiver) }
             releaseScenesOnGlThread()
             glView?.destroy()
             glView = null
             renderer = null
+            wallpaperRenderer = null
             super.onDestroy()
         }
 
@@ -241,6 +427,15 @@ class VisualizerWallpaperService : WallpaperService() {
         /** Bounded on purpose: a wedged GL thread must not turn teardown into an ANR. */
         const val GL_RELEASE_WAIT_MS = 200L
 
+        /** Wallpaper zoom (0 none, 1 fully zoomed out) past which the shade or recents covers it. */
+        const val COVER_ZOOM = 0.9f
+
+        /** A surface this much bigger than the display is a panning one. */
+        const val PAN_SLACK = 1.1f
+
+        /** How long a still frame keeps drawing first, so a scene being built finishes on screen. */
+        const val STILL_SETTLE_MS = 2_000L
+
         /**
          * The same target the app renders at, deliberately — not the 24–30 fps §4.4 of the
          * quality bar wants from a wallpaper.
@@ -252,7 +447,8 @@ class VisualizerWallpaperService : WallpaperService() {
          * free-runs. Ask for 30 and every fluid scene on the wallpaper reads its own cap as a
          * device that cannot keep up and downgrades itself two quality tiers within three
          * seconds. Teaching that monitor the difference between "capped" and "struggling" comes
-         * first; then this becomes a one-line change.
+         * first; then this becomes a one-line change. The same is why silence and battery saver
+         * hold a still frame rather than dropping to a low rate.
          */
         const val WALLPAPER_FPS = FramePacer.DEFAULT_TARGET_FPS
     }

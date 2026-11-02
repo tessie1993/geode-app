@@ -72,7 +72,7 @@ class SettingsViewModel
             viewModelScope.launch { _storage.value = storageRepository.usage() }
         }
 
-        /** Clears [bucket], then measures again. The screen asks first; always for the renders. */
+        /** Empties the [bucket] cache, then measures again. */
         fun clearStorage(
             bucket: StorageBucket,
             onDone: (StorageClearResult) -> Unit = {},

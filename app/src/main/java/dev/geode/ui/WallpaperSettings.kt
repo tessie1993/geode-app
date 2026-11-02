@@ -15,10 +15,8 @@ import dev.geode.wallpaper.VisualizerWallpaperService
 
 /**
  * Settings › Wallpaper & screensaver: the visual as the live wallpaper and as the screen saver
- * (both Pro), the wallpaper's own options, and how bright the screen saver runs.
- *
- * The screen saver's clock and now-playing switches come with the dream's own prefs (PR #259,
- * `wallpaper/DreamPrefs`); they join this page once that is merged.
+ * (both Pro), the wallpaper's own options, and the screen saver's brightness, clock and
+ * now-playing line ([dev.geode.data.BehaviourPrefs], read by the dream).
  */
 @Composable
 internal fun WallpaperSettingsPage() {
@@ -56,6 +54,17 @@ internal fun WallpaperSettingsPage() {
                         summary = stringResource(R.string.settings_screensaver_bright_summary),
                         checked = prefs.dreamScreenBright,
                         onCheckedChange = { behaviour.update(prefs.copy(dreamScreenBright = it)) },
+                    )
+                    SettingsSwitchRow(
+                        title = stringResource(R.string.settings_screensaver_clock),
+                        checked = prefs.dreamShowClock,
+                        onCheckedChange = { behaviour.update(prefs.copy(dreamShowClock = it)) },
+                    )
+                    SettingsSwitchRow(
+                        title = stringResource(R.string.settings_screensaver_now_playing),
+                        summary = stringResource(R.string.settings_screensaver_now_playing_summary),
+                        checked = prefs.dreamShowNowPlaying,
+                        onCheckedChange = { behaviour.update(prefs.copy(dreamShowNowPlaying = it)) },
                     )
                 }
             }

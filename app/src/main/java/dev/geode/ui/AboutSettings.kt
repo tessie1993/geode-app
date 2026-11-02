@@ -93,9 +93,9 @@ private fun Context.openAppLanguageSettings() {
 }
 
 /**
- * Storage (what the app keeps on disk, and clearing it) and Reset all settings. Deleting the
- * rendered videos and resetting always ask first; a reset ends in a restart, since every store
- * still holds its old copy in memory ([dev.geode.data.SettingsReset]).
+ * Storage (the caches the app keeps on disk, and emptying them) and Reset all settings. A reset
+ * asks first and ends in a restart, since every store still holds its old copy in memory
+ * ([dev.geode.data.SettingsReset]).
  */
 @Composable
 private fun StorageAndResetSection(viewModel: SettingsViewModel) {
@@ -108,7 +108,7 @@ private fun StorageAndResetSection(viewModel: SettingsViewModel) {
     SettingsRow(
         title = stringResource(R.string.settings_storage),
         summary =
-            usage?.let { stringResource(R.string.settings_storage_summary, Formatter.formatShortFileSize(context, it.totalBytes)) }
+            usage?.let { stringResource(R.string.settings_storage_summary, Formatter.formatShortFileSize(context, it.clearableBytes())) }
                 ?: stringResource(R.string.settings_storage_measuring),
         onClick = { storageOpen = true },
     )
@@ -143,6 +143,9 @@ private fun StorageAndResetSection(viewModel: SettingsViewModel) {
     }
 }
 
+/** The caches Storage can empty. Settings never offers to delete the user's videos. */
+private val CLEARABLE = listOf(StorageBucket.RENDER_SCRATCH, StorageBucket.CACHE)
+
 @Composable
 private fun StorageDialog(
     viewModel: SettingsViewModel,
@@ -150,7 +153,6 @@ private fun StorageDialog(
     onDismiss: () -> Unit,
 ) {
     val context = LocalContext.current
-    var confirmDelete by rememberSaveable { mutableStateOf(false) }
     val report: (StorageClearResult) -> Unit = { result ->
         val message =
             if (result.skipped > 0) {
@@ -165,34 +167,21 @@ private fun StorageDialog(
         title = { Text(stringResource(R.string.settings_storage)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                StorageBucket.entries.forEach { bucket ->
+                CLEARABLE.forEach { bucket ->
                     val bytes = usage?.get(bucket)
-                    val size = bytes?.let { Formatter.formatShortFileSize(context, it) }
-                    val actionRes =
-                        if (bucket == StorageBucket.RENDERS) R.string.settings_storage_delete else R.string.settings_storage_clear
                     SettingsRow(
                         title =
                             stringResource(
-                                when (bucket) {
-                                    StorageBucket.RENDER_SCRATCH -> R.string.settings_storage_scratch
-                                    StorageBucket.CACHE -> R.string.settings_storage_cache
-                                    StorageBucket.RENDERS -> R.string.settings_storage_renders
-                                },
+                                if (bucket == StorageBucket.CACHE) R.string.settings_storage_cache else R.string.settings_storage_scratch,
                             ),
-                        summary = size ?: stringResource(R.string.settings_storage_measuring),
+                        summary =
+                            bytes?.let { Formatter.formatShortFileSize(context, it) }
+                                ?: stringResource(R.string.settings_storage_measuring),
                         trailing = {
                             TextButton(
                                 enabled = bytes != null && bytes > 0,
-                                onClick = {
-                                    if (bucket == StorageBucket.RENDERS) {
-                                        confirmDelete = true
-                                    } else {
-                                        viewModel.clearStorage(bucket, report)
-                                    }
-                                },
-                            ) {
-                                Text(stringResource(actionRes))
-                            }
+                                onClick = { viewModel.clearStorage(bucket, report) },
+                            ) { Text(stringResource(R.string.settings_storage_clear)) }
                         },
                     )
                 }
@@ -201,21 +190,10 @@ private fun StorageDialog(
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) } },
     )
-    if (confirmDelete) {
-        AlertDialog(
-            onDismissRequest = { confirmDelete = false },
-            title = { Text(stringResource(R.string.settings_storage_delete_title)) },
-            text = { Text(stringResource(R.string.settings_storage_delete_body)) },
-            confirmButton = {
-                TextButton(onClick = {
-                    confirmDelete = false
-                    viewModel.clearStorage(StorageBucket.RENDERS, report)
-                }) { Text(stringResource(R.string.settings_storage_delete)) }
-            },
-            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text(stringResource(R.string.action_cancel)) } },
-        )
-    }
 }
+
+/** What the clearable caches hold together; the size the Storage row shows. */
+private fun StorageUsage.clearableBytes(): Long = CLEARABLE.sumOf { this[it] }
 
 /**
  * The privacy policy, read from the APK rather than a web page. The app has no network

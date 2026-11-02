@@ -16,7 +16,6 @@ import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.filled.WorkspacePremium
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -50,7 +49,8 @@ import dev.geode.ui.pro.PaywallViewModel
 import dev.geode.ui.theme.GeodeSpacing
 
 // The building blocks of every Settings page: the standard Android settings row (icon, title,
-// one-line summary), its switch and single-choice forms, the drill-in header and the Pro mark.
+// one-line summary), its switch and single-choice forms, and the drill-in header. The Pro mark is
+// Customize's own ProCrown (CustomizeAdvanced), so the app draws one crown.
 // Plain Material 3 on the black-glass theme: no glows, the theme's own type and colours.
 
 /** Settings never grows wider than this; on a tablet the list sits centred. */
@@ -253,17 +253,6 @@ internal fun SettingsPageHeader(
             modifier = Modifier.semantics { heading() },
         )
     }
-}
-
-/** The ♛ beside a Pro option. */
-@Composable
-internal fun ProCrown(modifier: Modifier = Modifier) {
-    Icon(
-        Icons.Filled.WorkspacePremium,
-        contentDescription = stringResource(R.string.settings_pro_mark),
-        tint = MaterialTheme.colorScheme.primary,
-        modifier = modifier.size(18.dp),
-    )
 }
 
 /** Whether the user has a Pro feature, and the one way a Settings row asks for it. */

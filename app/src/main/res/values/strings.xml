@@ -946,6 +946,25 @@
     <string name="editor_export">Render cut</string>
     <string name="editor_export_no_video">Put a video or still on a Media lane first — the cut renders that lane.</string>
     <string name="editor_export_skipped_kinds">Skipped clips this export can\'t carry: %1$s</string>
+    <!-- One render path (#232): the render plan's skipped-clip report and the Studio render labels. -->
+    <string name="editor_export_nothing">Nothing to render yet. Put a video or still on the timeline, or a visual over a song.</string>
+    <string name="render_video_label">Rendering your video</string>
+    <plurals name="render_skip_overlay">
+        <item quantity="one">%1$d overlay clip (overlays don\'t render yet)</item>
+        <item quantity="other">%1$d overlay clips (overlays don\'t render yet)</item>
+    </plurals>
+    <plurals name="render_skip_no_song">
+        <item quantity="one">%1$d visual clip with no song under it</item>
+        <item quantity="other">%1$d visual clips with no song under them</item>
+    </plurals>
+    <plurals name="render_skip_past_song">
+        <item quantity="one">the end of %1$d visual clip, past its song</item>
+        <item quantity="other">the ends of %1$d visual clips, past their song</item>
+    </plurals>
+    <plurals name="render_skip_wrong_lane">
+        <item quantity="one">%1$d clip on a lane that can\'t carry it</item>
+        <item quantity="other">%1$d clips on lanes that can\'t carry them</item>
+    </plurals>
     <string name="editor_transition">Transition into this clip</string>
     <string name="editor_transition_ellipsis">Transition…</string>
     <string name="editor_transition_none">None (hard cut)</string>
@@ -1097,7 +1116,6 @@
     <string name="wallpaper_options_look_edge">Edge glow</string>
     <string name="wallpaper_options_edge_hint">Edge glow keeps the visual round the screen\'s edge and the middle black: easier on the battery on OLED screens, and your icons and clock stay easy to read.</string>
     <!-- Settings (3B-1): the group list, its pages and their rows. -->
-    <string name="settings_pro_mark">Pro</string>
     <string name="settings_group_playback">Playback &amp; audio</string>
     <string name="settings_group_playback_summary">Speed, fades, ReplayGain, equalizer, live input</string>
     <string name="settings_group_library">Library &amp; folders</string>
@@ -1193,6 +1211,9 @@
     <string name="settings_screensaver_choose_summary">Choose MuzViz in Android\'s screensaver settings</string>
     <string name="settings_screensaver_bright">Full brightness</string>
     <string name="settings_screensaver_bright_summary">Keeps the screen bright while the screensaver runs</string>
+    <string name="settings_screensaver_clock">Show the clock</string>
+    <string name="settings_screensaver_now_playing">Show what\'s playing</string>
+    <string name="settings_screensaver_now_playing_summary">The song and artist under the clock</string>
     <string name="settings_storage_section">Storage &amp; reset</string>
     <string name="settings_language">Language</string>
     <string name="settings_language_summary">Choose the app\'s language in Android settings</string>
@@ -1201,14 +1222,10 @@
     <string name="settings_storage_measuring">Measuring…</string>
     <string name="settings_storage_scratch">Render leftovers</string>
     <string name="settings_storage_cache">Cache</string>
-    <string name="settings_storage_renders">Rendered videos</string>
     <string name="settings_storage_clear">Clear</string>
-    <string name="settings_storage_delete">Delete</string>
     <string name="settings_storage_cache_hint">The cache rebuilds itself. After a clear, the first styles take a moment longer to appear.</string>
     <string name="settings_storage_kept">Some files were kept: a render is running, or they belong to an earlier install.</string>
     <string name="settings_storage_freed">Freed %1$s</string>
-    <string name="settings_storage_delete_title">Delete your rendered videos?</string>
-    <string name="settings_storage_delete_body">This deletes every video MuzViz saved in Movies/MuzViz from this phone. You can\'t undo it.</string>
     <string name="settings_reset">Reset all settings</string>
     <string name="settings_reset_summary">Your music, presets, projects and videos stay</string>
     <string name="settings_reset_confirm_title">Reset all settings?</string>
@@ -1217,4 +1234,25 @@
     <string name="settings_reset_done_title">Settings reset</string>
     <string name="settings_reset_failed_title">Some settings couldn\'t be reset</string>
     <string name="settings_reset_done_body">MuzViz restarts to finish. If something wasn\'t reset, run Reset all settings again.</string>
+    <!-- Visuals quick settings (VisualsQuickSettings) -->
+    <string name="visuals_qs_title">Visual settings</string>
+    <string name="visuals_qs_auto">Auto</string>
+    <string name="visuals_qs_timer">Change style on a timer</string>
+    <string name="visuals_qs_every">Every</string>
+    <string name="visuals_qs_seconds">%1$d s</string>
+    <string name="visuals_qs_steps_through">Steps through</string>
+    <string name="visuals_qs_source_random">Random</string>
+    <string name="visuals_qs_source_playlist">Playlist</string>
+    <string name="visuals_qs_pick_presets">Presets</string>
+    <string name="visuals_qs_pick_milk">MilkDrop</string>
+    <string name="visuals_qs_playlist">Visual playlist</string>
+    <string name="visuals_qs_playlist_empty">Empty</string>
+    <plurals name="visuals_qs_playlist_count">
+        <item quantity="one">%1$d look</item>
+        <item quantity="other">%1$d looks</item>
+    </plurals>
+    <string name="visuals_qs_sheet_opacity">Sheet glass</string>
+    <string name="visuals_qs_percent">%1$d%%</string>
+    <string name="visuals_qs_fade">Mini player fades after</string>
+    <string name="visuals_qs_fade_never">Never</string>
 </resources>

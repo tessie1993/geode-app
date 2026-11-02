@@ -35,7 +35,6 @@ import dev.geode.data.CornerStyle
 import dev.geode.data.FontColorChoice
 import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.GuiPrefs
-import dev.geode.data.PlayerPosition
 import dev.geode.data.ThemeStore
 import dev.geode.ui.theme.isReadableOnCanvas
 import kotlinx.coroutines.Dispatchers
@@ -213,15 +212,7 @@ private fun LayoutGroup(
             valueRange = 0.2f..1f,
         )
     }
-    Column {
-        Text(stringResource(R.string.look_player_position), style = MaterialTheme.typography.labelMedium)
-        CrystalSegmented(
-            options = PlayerPosition.entries.map { stringResource(it.labelRes) },
-            selected = PlayerPosition.entries.indexOf(gui.playerPosition),
-            onSelect = { viewModel.setGuiPrefs(gui.copy(playerPosition = PlayerPosition.entries[it])) },
-            modifier = Modifier.padding(top = 4.dp),
-        )
-    }
+    // No top/bottom player position: the owner dropped that choice (the mini player floats at the bottom).
     Column {
         Text(stringResource(R.string.look_corner_style), style = MaterialTheme.typography.labelMedium)
         CrystalSegmented(

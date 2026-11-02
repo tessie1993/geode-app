@@ -59,7 +59,7 @@
 <p>The free one-hour trial of Pro runs entirely on your device: the app stores when it started, and nothing else.</p>
 
 <h2>Cast to TV (Google Cast, Pro)</h2>
-<p>If you cast to a TV, your phone draws the visuals and streams them, with the sound, to the TV over your own Wi-Fi. The stream goes from your phone straight to the TV on your local network; it is never sent to MuzViz or stored anywhere. Google's own Cast receiver plays it on the TV.</p>
+<p>If you cast to a TV, your phone draws the visuals and streams them, with the sound, to the TV over your own Wi-Fi. The stream goes from your phone straight to the TV on your local network; it is never sent to MuzViz or stored anywhere. Google's own Cast receiver plays it on the TV. Only the music MuzViz plays goes to the TV: while <em>Live input</em> or <em>Visualize other apps</em> drives the visuals, the TV gets the picture but not that sound.</p>
 <p>To find and connect to the TV the app uses the <strong>Google Cast SDK</strong>. Google says the SDK logs how it is used (discovery and session events, device and app information) and sends that to Google, aggregated, without identifiers that trace back to you, encrypted in transit and kept for a short time, to improve Cast (<a href="https://developers.google.com/cast/docs/android_sender/data_disclosure">Google's Cast SDK disclosure</a>). Neither you nor MuzViz can turn that logging off or delete it. The SDK starts when the Visuals screen shows the Cast button (it then looks for TVs on your network), or when you pick a TV in Android's own output switcher; before that it doesn't run.</p>
 
 <h2>Permissions</h2>

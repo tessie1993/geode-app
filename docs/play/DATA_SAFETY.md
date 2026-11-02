@@ -20,9 +20,9 @@ Play defines *collected* as "transmitted off the user's device". On-device proce
 not collection. That's why everything except purchase history and the Cast SDK's logging
 below is "not collected".
 
-An automated audit of the codebase (the `play-policy-insights` skill) found every data
-type local-only except purchase history, which it flagged IMPORTANT for review. Its notes
-are summarised at the end.
+An automated audit of the codebase (the `play-policy-insights` skill, re-run 2026-11-02
+with Cast) found every data type local-only except purchase history and the Cast SDK's
+logging. Its notes are summarised at the end.
 
 ## Page 1: Data collection and security
 
@@ -77,21 +77,22 @@ Keep this consistent with `docs/privacy-policy.md` ("Buying MuzViz Pro").
 
 ## Security practices
 
-- Encrypted in transit: **Yes** (only Play's own connection).
+- Encrypted in transit: **Yes** (the Play Store app's connection and the Cast SDK's; the LAN stream to the user's own TV never leaves their network).
 - Independent security review: **No**.
 - Committed to Families policy: **No** (the target audience is 13+).
 
-## Audit notes (play-policy-insights, 2026-10-30)
+## Audit notes (play-policy-insights, 2026-10-30; re-run 2026-11-02 with Cast)
 
 | Data type | Finding |
 |---|---|
-| Music, audio, other audio | Local only (Media3, AudioRecord, playback capture → in-process PcmSink) |
+| Music, audio, other audio | Local only (Media3, AudioRecord, playback capture → in-process PcmSink). While casting, the player's music goes to the user's own TV on their network (user-started, device to device): not collected |
 | Photos | Local only (system document picker → background and textures) |
 | Videos | Manual sharing through the share sheet: exempt |
 | Files and docs, crash logs, device ID, user account | Local only or not accessed |
 | Performance diagnostics | False positive: the debug-only fake billing panel (`USE_FAKE_BILLING=false` in release) |
 | **Purchase history** | **IMPORTANT: declared, as discussed above** |
-| Permissions | Four foreground service types, each typed and with a notification. The FGS declaration is needed in the console: see [CONSOLE_CHECKLIST.md](CONSOLE_CHECKLIST.md) §7 |
+| **Cast SDK (App interactions, Diagnostics)** | Declared, Required: the SDK starts when Visuals shows the Cast button (2026-11-02) |
+| Permissions | Four foreground service types (mediaPlayback now also covers Cast to TV), each typed and with a notification. The FGS declaration is needed in the console: see [CONSOLE_CHECKLIST.md](CONSOLE_CHECKLIST.md) §7 |
 | User accounts | None: no login, so no account-deletion requirement and no demo credentials needed for review |
 
 Re-run the audit (and update this file) if a networking, analytics, crash-reporting or

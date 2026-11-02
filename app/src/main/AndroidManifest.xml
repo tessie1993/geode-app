@@ -127,8 +127,8 @@
             </intent-filter>
             <!--
               Shared presets and video templates. Both are self-contained
-              documents and the app has no network permission, so a "shared"
-              link IS the thing itself, carried inside it; tapping one in a
+              documents and the app fetches nothing (its only internet use is
+              Cast to TV), so a "shared" link IS the thing itself, carried inside it; tapping one in a
               chat opens the app and imports it. Nothing is fetched.
             -->
             <intent-filter android:autoVerify="false">
@@ -206,7 +206,7 @@
           Bluetooth and wired headset buttons, watches, Android Auto. The
           MediaSession is the only surface any of them reach, and it exposes
           transport and the current track's own tags — nothing else, and
-          nothing off the device, since the app holds no network permission.
+          nothing off the device (the app's only internet use is Cast to TV).
         -->
         <service
             android:name=".playback.PlaybackService"
@@ -281,9 +281,11 @@
             android:foregroundServiceType="mediaPlayback" />
 
         <!-- Media3 Cast with Google's Default Media Receiver (no receiver app of our own).
-             cast.CastOptionsProvider is Media3's defaults plus building CastController when
-             Cast starts, so a session handed over by the system's output switcher (through
-             MediaTransferReceiver) is gated and streamed like one from the Cast button. -->
+             cast.CastOptionsProvider turns the Cast SDK's own notification and media session
+             off (CastService and the music's session already are those) and builds
+             CastController when Cast starts, so a session handed over by the system's output
+             switcher (through MediaTransferReceiver) is gated and streamed like one from the
+             Cast button. -->
         <meta-data
             android:name="com.google.android.gms.cast.framework.OPTIONS_PROVIDER_CLASS_NAME"
             android:value="dev.geode.cast.CastOptionsProvider" />

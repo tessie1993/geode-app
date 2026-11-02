@@ -61,7 +61,8 @@ started, and nothing else.
 If you cast to a TV, your phone draws the visuals and streams them, with the sound, to the
 TV over your own Wi-Fi. The stream goes from your phone straight to the TV on your local
 network; it is never sent to MuzViz or stored anywhere. Google's own Cast receiver plays
-it on the TV.
+it on the TV. Only the music MuzViz plays goes to the TV: while *Live input* or *Visualize
+other apps* drives the visuals, the TV gets the picture but not that sound.
 
 To find and connect to the TV the app uses the **Google Cast SDK**. Google says the SDK
 logs how it is used (discovery and session events, device and app information) and

@@ -43,6 +43,8 @@ import kotlin.math.roundToInt
 internal class CastStream(
     context: Context,
     private val pcmRing: PcmRingBuffer?,
+    /** The player's own feed: only its sound goes to the TV (see [AudioPump]). */
+    private val musicInput: SoundInput?,
     private val onFailed: () -> Unit,
 ) {
     private val appContext = context.applicationContext
@@ -117,7 +119,7 @@ internal class CastStream(
         val encoder = CastEncoder(segments)
         val egl = EncoderSurface(encoder.surface)
         val renderer = VisualizerRenderer(appContext)
-        val audio = AudioPump(encoder)
+        val audio = AudioPump(encoder, musicInput)
         try {
             egl.makeCurrent()
             renderer.pcmProvider = { latestPcm() }
@@ -177,9 +179,14 @@ internal class CastStream(
      * Turns what the ring gained into exactly a frame's worth of 48 kHz stereo per call: resampled
      * from the source rate, held in a short FIFO, padded with silence when there is too little
      * (paused, between tracks) and trimmed when too much piles up (the ring ran ahead).
+     *
+     * Only the player's music is sent ([musicInput]). While the microphone or another app's audio
+     * owns the ring, the visuals still hear it but the TV gets silence: the room's sound must not
+     * leave the phone, and the mic would hear the TV and feed back.
      */
     private class AudioPump(
         private val encoder: CastEncoder,
+        private val musicInput: SoundInput?,
     ) : AutoCloseable {
         private var input: SoundInput? = null
         private var cursor: SoundCursor? = null
@@ -208,6 +215,7 @@ internal class CastStream(
 
         private fun takeFromRing() {
             val current = AudioBus.soundInput ?: return
+            if (current !== musicInput) return
             if (current !== input) {
                 input = current
                 cursor = SoundCursor(current.ring)

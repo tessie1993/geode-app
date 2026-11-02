@@ -12,6 +12,7 @@ extern "C" {
 typedef struct geode_viz      geode_viz;
 typedef struct geode_dsp      geode_dsp;
 typedef struct geode_tags     geode_tags;
+typedef struct geode_preview  geode_preview;
 
 /* Native visualizer: one renderer per GL surface. Setters may be called from any thread and are latched
  * for the next frame; the calls under "GL thread" need the surface's context current. */
@@ -218,6 +219,24 @@ GEODE_API void            geode_loudness_finish(geode_loudness*, geode_loudness_
 GEODE_API long long       geode_silence_heard_at(const float* const* channels, int channel_count, int frames,
                                                  long long now_ms, long long heard_at_ms);
 GEODE_API int             geode_silence_resting(long long now_ms, long long heard_at_ms);   /* 1 = may rest */
+
+/* Studio preview clock (core/studio/PreviewClock): the programme time the live preview shows, run on the
+ * caller's monotonic clock (now_ns) and pulled toward the audio player's reports; spans are the audio
+ * lane's clips in programme ms. Not thread-safe: one owner thread. */
+GEODE_API geode_preview*  geode_preview_create(void);
+GEODE_API void            geode_preview_destroy(geode_preview* p);
+GEODE_API void            geode_preview_set_spans(geode_preview* p, const long long* starts_ms,
+                                                  const long long* durations_ms, int count);
+GEODE_API void            geode_preview_set_rate(geode_preview* p, int fps, long long length_ms);
+GEODE_API void            geode_preview_play(geode_preview* p, long long programme_ms, long long now_ns);
+GEODE_API void            geode_preview_pause(geode_preview* p, long long now_ns);
+GEODE_API void            geode_preview_seek(geode_preview* p, long long programme_ms, long long now_ns);
+GEODE_API void            geode_preview_audio(geode_preview* p, int span, long long span_pos_ms, long long now_ns);
+GEODE_API long long       geode_preview_now(const geode_preview* p, long long now_ns);      /* frame-aligned */
+GEODE_API int             geode_preview_ended(const geode_preview* p, long long now_ns);    /* 1 = at the end */
+GEODE_API int             geode_preview_locate(const geode_preview* p, long long programme_ms,
+                                               long long* offset_ms);                      /* span, or -1 */
+GEODE_API long long       geode_preview_frame_of(long long programme_ms, int fps);
 
 #ifdef __cplusplus
 }

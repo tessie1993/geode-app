@@ -7,7 +7,7 @@ import android.os.SystemClock
 import dev.geode.audio.AudioBus
 import dev.geode.engine.audio.SampleRing
 import dev.geode.engine.audio.SoundInput
-import kotlin.math.abs
+import dev.geode.engine.bridge.GeodeNative
 
 /**
  * What the wallpaper hears, and whether it is hearing anything at all.
@@ -17,10 +17,11 @@ import kotlin.math.abs
  *    app's mic or capture mode. It is the full-quality signal, so it always wins.
  * 2. Otherwise, with the user's say-so, [OutputMixCapture]: whatever any other app is playing.
  *
- * It also keeps the silence clock behind "rest when silent". Silence is judged on the samples,
- * not on whether a player is running, because a playing track can be silent (a gap, a fade) and
- * a capture can be fed zeros: no new samples, or new samples all under [SILENCE_PEAK], for
- * [REST_AFTER_MS], and the wallpaper may rest. Sound coming back wakes it on the next poll.
+ * It also keeps the silence clock behind "rest when silent": one timestamp, the last time sound
+ * was heard. The rule itself is native (`core/sound/Silence`, ADR 0003): each poll hands the newest
+ * samples to [GeodeNative.silenceHeardAt], which judges them on their level, not on whether a
+ * player is running, and [GeodeNative.silenceResting] says when the quiet has lasted long enough
+ * to rest. Sound coming back wakes it on the next poll.
  *
  * Polled on the main thread at [POLL_MS] only while [start]ed, which the engine does only while
  * the wallpaper is visible: a hidden wallpaper polls nothing and holds no output-mix capture.
@@ -98,8 +99,8 @@ class SoundSource(
         }
         val chosen = if (!appFed && capture.running) capture.soundInput else app
         input = chosen
-        if (chosen != null && isAudible(chosen.ring)) soundAtMs = now
-        val nowSilent = now - soundAtMs > REST_AFTER_MS
+        if (chosen != null) soundAtMs = heardAt(chosen.ring, now)
+        val nowSilent = GeodeNative.silenceResting(now, soundAtMs)
         if (nowSilent != silent) {
             silent = nowSilent
             onSilenceChanged()
@@ -123,31 +124,28 @@ class SoundSource(
         return appFedAtMs > 0L && now - appFedAtMs < FED_WINDOW_MS
     }
 
-    /** New samples since the last poll, and at least one of the newest above [SILENCE_PEAK]. */
-    private fun isAudible(ring: SampleRing): Boolean {
+    /**
+     * The newest [LEVEL_FRAMES] of [ring], only when it has new samples since the last poll, handed
+     * to the native rule; no new samples counts as nothing heard.
+     */
+    private fun heardAt(
+        ring: SampleRing,
+        now: Long,
+    ): Long {
         val written = ring.writtenFrames
         val fresh = ring === heardRing && written != heardWritten
         heardRing = ring
         heardWritten = written
-        if (!fresh || !ring.snapshotLatest(window)) return false
-        for (channel in window) {
-            for (sample in channel) if (abs(sample) > SILENCE_PEAK) return true
-        }
-        return false
+        val frames = if (fresh && ring.snapshotLatest(window)) LEVEL_FRAMES else 0
+        return GeodeNative.silenceHeardAt(window[0], window[1], frames, now, soundAtMs)
     }
 
     private companion object {
         const val POLL_MS = 250L
 
-        /** Long enough that a breakdown or a track change does not stop the picture mid-song. */
-        const val REST_AFTER_MS = 6_000L
-
         /** The app's ring counts as fed for this long after its last write (a tap writes every few ms). */
         const val FED_WINDOW_MS = 1_000L
         const val CAPTURE_RETRY_MS = 10_000L
         const val LEVEL_FRAMES = 1024
-
-        /** About -42 dBFS: under the quietest music, above the output mix's 8-bit floor of zero. */
-        const val SILENCE_PEAK = 0.008f
     }
 }

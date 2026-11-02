@@ -21,6 +21,10 @@ out vec4 fragColor;
 // count, which is what keeps chrome from looking like a flat mirror. The
 // background is the same studio, dimmed and seen directly.
 //
+// Framed MACRO (see lib_bulb's grid): no silhouette. The eye skims just above
+// the metal and looks across it, so the frame is a horizon of mercury lobes
+// under the studio sky, gliding as the rig travels.
+//
 // The power-7 body also takes a per-iteration POLAR PHASE (lib_bulb's
 // bulbPow phase): an angle added after every multiply, which slews the lobes
 // sideways and morphs the body rather than merely rotating it.
@@ -38,12 +42,27 @@ out vec4 fragColor;
 // adds up to two fractal iterations (bulbIters). Chaos (uWarp, uTurbulence,
 // uTwist) warps the metal (bulbChaos, estimate divided by bulbChaosLip), and
 // turbulence jitters the azimuth phase. Energy (uIntensity) scales the mid
-// swirl. Colour is pal() (strip lights, film); Space is the rig (camAround).
+// swirl. Colour is tone(), its own ramp pal() tints (strip lights, film);
+// Space is the rig: its travel glides the eye, its look and shake ride on top
+// (bulbAim), the dolly lowers the eye toward the metal.
 
 #define BM_MAX_STEPS 128
 #define BM_BOUND 1.3
-#define BM_CAM_R 3.5
+/** The eye's distance from the centre: about a third of the radius off the skin. */
+#define BM_EYE_R 1.62
+/** The eye's height on its glide, as a y component before normalising (a little above the equator). */
+#define BM_EYE_Y 0.42
+/** Where it looks: a point on the skin, BM_LEAD radians ahead round the body. */
+#define BM_AIM_R 0.95
+#define BM_LEAD 0.62
 const float BM_SPIN = 5.0 * CAM_SPIN_UNIT;
+
+// Grid cell MACRO x LIT (see lib_bulb): the family's bright, hard-contrast
+// cell, a mirror surface close up. Its own ramp colours the strip lights and
+// the film: electric blue, magenta and a sodium orange.
+vec3 tone(float t) {
+    return bulbRamp(t, vec3(0.50, 0.45, 0.60), vec3(0.50, 0.40, 0.40), vec3(1.0), vec3(0.60, 0.40, 0.10));
+}
 
 vec2 gPhase;
 float gStudioTurn;
@@ -71,7 +90,7 @@ vec3 studio(vec3 r) {
     vec3 c = mix(vec3(0.10, 0.10, 0.11), vec3(0.62, 0.64, 0.68), smoothstep(-0.35, 0.8, r.y));
     float ang = atan(r.z, r.x + 1e-12) + gStudioTurn;
     float strips = pow(max(1.0 - abs(sin(ang * 2.0)), 0.0), gStrip);
-    c += pal(gHue + 0.25 * floor(mod((ang + 3.14159) / 1.5708, 4.0))) * strips * smoothstep(-0.3, 0.2, r.y) * 1.3;
+    c += tone(gHue + 0.25 * floor(mod((ang + 3.14159) / 1.5708, 4.0))) * strips * smoothstep(-0.3, 0.2, r.y) * 1.3;
     c += vec3(1.0, 0.97, 0.92) * pow(max(1.0 - abs(r.y - 0.18) / 0.2, 0.0), 2.0) * 1.1;
     c += vec3(1.0) * smoothstep(0.6, 0.95, r.y) * 1.6;
     // The floor's dark seam at the horizon, which is what makes a mirror read as one.
@@ -91,9 +110,17 @@ void main() {
     gStrip = 3.0 + 14.0 * hat * bulbEnergy();
     gIters = bulbIters(6);
 
+    // MACRO: the eye skims a fraction of the radius above the metal, gliding
+    // round the body with the rig's travel, and looks across and down at a
+    // point on the skin ahead and to one side. The lobes fill the lower frame
+    // like a landscape of mercury, with the studio beyond the horizon.
+    float a = uCamTravel * BM_SPIN + 0.6;
+    float eyeR = BM_EYE_R * (1.0 - 0.12 * uCamDolly);
+    vec3 eye = normalize(vec3(cos(a), BM_EYE_Y, sin(a))) * eyeR;
+    vec3 aim = normalize(vec3(cos(a + BM_LEAD), -0.05, sin(a + BM_LEAD))) * BM_AIM_R;
     vec3 ro;
     vec3 rd;
-    camAround(uv, BM_CAM_R, BM_SPIN, ro, rd);
+    bulbAim(uv, eye, aim, ro, rd);
 
     float hitT = -1.0;
     float used = 0.0;
@@ -120,11 +147,11 @@ void main() {
         vec3 n = normalAt(p, bulbEps(hitT));
         float ndv = max(dot(n, -rd), 0.0);
         float ao = bulbStepAO(used);
-        vec3 metal = mix(vec3(0.9, 0.92, 0.95), pal(gHue + 0.1), 0.12);
+        vec3 metal = mix(vec3(0.9, 0.92, 0.95), tone(gHue + 0.1), 0.12);
         float fres = 0.75 + 0.25 * pow(1.0 - ndv, 4.0);
         col = studio(reflect(rd, n)) * metal * fres * ao;
         // Heat-blued film at mid angles.
-        col += pal(gHue + 0.6 + 0.5 * ndv) * ndv * (1.0 - ndv) * 0.35 * ao;
+        col += tone(gHue + 0.6 + 0.5 * ndv) * ndv * (1.0 - ndv) * 0.35 * ao;
     }
 
     col *= 0.85 + 0.15 * swell;

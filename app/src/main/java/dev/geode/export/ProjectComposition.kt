@@ -60,16 +60,16 @@ object ProjectComposition {
         @PluralsRes val label: Int,
     ) {
         /** Overlay clips draw once overlays are timeline elements (part 2E). */
-        OVERLAY_NOT_RENDERED(R.string.render_skip_overlay),
+        OVERLAY_NOT_RENDERED(R.plurals.render_skip_overlay),
 
         /** A visual hears its song; with no unmuted audio under it there is nothing to react to. */
-        NO_SONG(R.string.render_skip_no_song),
+        NO_SONG(R.plurals.render_skip_no_song),
 
         /** Part of a visual clip ran past the song under it; the part with a song still renders. */
-        PAST_SONG_END(R.string.render_skip_past_song),
+        PAST_SONG_END(R.plurals.render_skip_past_song),
 
         /** Content on a lane that cannot carry it (a video on a visual lane, say). */
-        WRONG_LANE(R.string.render_skip_wrong_lane),
+        WRONG_LANE(R.plurals.render_skip_wrong_lane),
     }
 
     /** How one enabled clip renders. */
@@ -313,7 +313,9 @@ object ProjectComposition {
                 .Builder(videoSequences + audioSequences)
                 .setEffects(Effects(emptyList(), listOf(ratioEffect(defaults))))
                 .build()
-        return Outcome.Ready(composition, rawDurationMs - trimTailMs)
+        // The render runs as long as its longest picture lane, which need not be the primary one.
+        val longestMs = pictureLanes.drop(1).maxOfOrNull { (_, items) -> items.sumOf(LaneItem::durationMs) } ?: 0L
+        return Outcome.Ready(composition, maxOf(rawDurationMs - trimTailMs, longestMs))
     }
 
     /**

@@ -189,7 +189,8 @@ class StudioExporter(
             val scope = kotlinx.coroutines.CoroutineScope(continuation.context)
             scope.launch {
                 while (continuation.isActive) {
-                    if (isCancelled()) cancel()
+                    // Qualified: inside launch, a bare cancel() is CoroutineScope.cancel().
+                    if (isCancelled()) this@StudioExporter.cancel()
                     val state = runCatching { built.getProgress(holder) }.getOrNull()
                     if (state == Transformer.PROGRESS_STATE_AVAILABLE) {
                         onProgress(holder.progress / 100f)

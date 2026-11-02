@@ -51,7 +51,7 @@ The native core is built by the root `CMakeLists.txt`, plus `core/CMakeLists.txt
 | `export` | Visualizer export (MediaCodec + offscreen GL), Studio export (Media3 Transformer), loop render, loudness (`LoudnessMeter` decodes; the BS.1770 maths is native), chapters, captions, `PcmResampler` (hi-res sources down to an AAC-supported rate; a handle over native maths, `close()` it), the non-Pro watermark, `MuxerBudget` (caps the bit rate so a long render stays under MediaMuxer's 4 GB) | `VideoExporter`, `StudioExporter`, `LoopRender`, `ExportRun`, `ExportService`, `WatermarkOverlay`, `RenderBatch` (batch queue and render scopes, pure) |
 | `viz` | Background image layer | `BackgroundImage` |
 | `wallpaper` | Live wallpaper and the dream. Each builds its own `VisualizerView` | `VisualizerWallpaperService`, `VisualizerDreamService` |
-| `widget` | Glance now-playing widget | `NowPlayingWidget`, `WidgetPublisher` |
+| `widget` | Glance now-playing widget in black glass (`SizeMode.Exact`, four layouts from 2x1 to 4x3+): progress on a slow tick while playing, the style on screen as a picture (`WidgetVisual`: its thumbnail, else a glow from the cover's palette), and style buttons the session takes through `WidgetStyles` (it collects `steps`, calls `publish`; with no session they open the app) | `NowPlayingWidget`, `WidgetPublisher`, `WidgetStyles`, `WidgetVisual` |
 
 ## Entry points (`app/src/main/AndroidManifest.xml`)
 

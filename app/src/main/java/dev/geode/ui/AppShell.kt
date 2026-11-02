@@ -1,8 +1,7 @@
 package dev.geode.ui
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -48,13 +47,16 @@ import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -106,6 +108,7 @@ import dev.geode.ui.theme.geodeMotionScheme
 import dev.geode.ui.theme.rememberSystemReducedMotion
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.withContext
 
 private const val CRASH_REPORT_MAX_BYTES = 64 * 1024
@@ -197,14 +200,23 @@ fun AppRoot() {
         if (viz.sceneId == SceneIds.MILKDROP) VisualAccent.Fallback else paletteAccent(viz.params.paletteBase, viz.params.paletteRange)
     // Outside the theme, so the motion scheme is built here from the same switches the theme reads.
     val motion = geodeMotionScheme(gui.reducedMotion || rememberSystemReducedMotion())
-    val accent by animateColorAsState(accentTarget, motion.slowEffectsSpec(), label = "accent")
     // The mini player (and on Visuals the tab bar and stage icons) wakes on a new screen or track.
     // A PiP window shows the visual alone (the sheet and the chrome hidden) until it closes.
     val inPip = VisualizerPipCoordinator.inPictureInPicture
     val chrome = rememberShellChrome(gui.miniPlayerFadeSeconds, inPip, appState.dest, state.title)
-    var dockHeight by remember { mutableStateOf(0.dp) }
-    val visualsReserve by animateDpAsState(dockHeight, motion.defaultSpatialSpec(), label = "dock")
-    CrystalMaterialTheme(gui = gui, accentSource = accent) {
+    // The dock's height as it fades, in px, and the room it takes awake. The live height changes
+    // every frame of a fade, so it is never read here: only the Visuals sheet's layout and the
+    // stage's lambdas read [dockGlide], which springs after it as animateDpAsState once did.
+    val dockLivePx = remember { mutableFloatStateOf(0f) }
+    var dockAwake by remember { mutableStateOf(0.dp) }
+    val dockGlide = remember { Animatable(0f) }
+    LaunchedEffect(motion) {
+        snapshotFlow { dockLivePx.floatValue }
+            .collectLatest { dockGlide.animateTo(it, motion.defaultSpatialSpec()) }
+    }
+    // Snapped, not faded: the accent sits in the ColorScheme, and every new scheme recomposes the
+    // whole app, so a fade cost one full recomposition per frame on each style change.
+    CrystalMaterialTheme(gui = gui, accentSource = accentTarget) {
         val miniPlayer: @Composable (Modifier) -> Unit = { modifier ->
             FloatingMiniPlayer(
                 title = state.title,
@@ -272,7 +284,8 @@ fun AppRoot() {
                                 viewModel,
                                 visualizerView,
                                 chrome = chrome,
-                                bottomReserve = visualsReserve,
+                                bottomReserve = dockAwake,
+                                liveReservePx = { dockGlide.value },
                                 // The glass slider (Visuals quick settings) tunes only the sheet over the visual, so the change shows.
                                 sheetOpacity = gui.barOpacity,
                                 onOpenStudioRender = appState::openStudioRender,
@@ -331,7 +344,8 @@ fun AppRoot() {
                         hasMedia = state.hasMedia,
                         pip = inPip,
                         miniPlayer = miniPlayer,
-                        onDock = { dockHeight = it },
+                        onDock = { dockLivePx.floatValue = it },
+                        onDockAwake = { dockAwake = it },
                         content = { destinationContent(false) },
                     )
                 } else {
@@ -345,7 +359,8 @@ fun AppRoot() {
                         pip = inPip,
                         centerRail = sizeClass.isHeightAtLeastBreakpoint(WindowSizeClass.HEIGHT_DP_MEDIUM_LOWER_BOUND),
                         miniPlayer = miniPlayer,
-                        onDock = { dockHeight = it },
+                        onDock = { dockLivePx.floatValue = it },
+                        onDockAwake = { dockAwake = it },
                         content = { destinationContent(twoPane) },
                     )
                 }
@@ -435,7 +450,8 @@ fun AppRoot() {
  * its place. On Visuals the visual takes the whole window: the tab bar fades with the mini player
  * there and no handle stays, since a tap at the bottom of the visual brings both back. The other
  * screens keep the tab bar and are padded above it, so a list never ends under the glass.
- * [onDock] reports the height the floating stack takes, which the Visuals sheet stands on.
+ * [onDock] reports the height the floating stack takes in px, every frame of a fade, and
+ * [onDockAwake] the height it takes awake, which the Visuals sheet's heights are set from.
  */
 @Composable
 private fun AppShellCompact(
@@ -445,7 +461,8 @@ private fun AppShellCompact(
     hasMedia: Boolean,
     pip: Boolean,
     miniPlayer: @Composable (Modifier) -> Unit,
-    onDock: (Dp) -> Unit,
+    onDock: (Float) -> Unit,
+    onDockAwake: (Dp) -> Unit,
     content: @Composable () -> Unit,
 ) {
     val density = LocalDensity.current
@@ -455,6 +472,12 @@ private fun AppShellCompact(
     val onVisuals = appState.dest == GeodeDestination.VISUALS
     val showsPlayer = hasMedia && !appState.onPlayer
     var barHeight by remember { mutableStateOf(0.dp) }
+    var playerHeight by remember { mutableStateOf(MINI_PLAYER_MIN_HEIGHT) }
+    val navBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    // Summed from each part's own full height (AnimatedVisibility clips, it never shrinks its
+    // child), so this changes when a part does, never during a fade.
+    val awake = navBottom + DOCK_GAP + barHeight + if (showsPlayer) playerHeight + GeodeSpacing.S else 0.dp
+    SideEffect { onDockAwake(awake) }
     Box(Modifier.fillMaxSize()) {
         // consumeWindowInsets so a screen that pads for the status bar itself doesn't pad twice,
         // and imePadding so a focused field low on screen rises above the keyboard.
@@ -480,7 +503,7 @@ private fun AppShellCompact(
             Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .onSizeChanged { onDock(with(density) { it.height.toDp() }) }
+                .onSizeChanged { onDock(it.height.toFloat()) }
                 .navigationBarsPadding()
                 .padding(horizontal = GeodeSpacing.EdgeInset)
                 .padding(bottom = DOCK_GAP),
@@ -491,7 +514,7 @@ private fun AppShellCompact(
                 enter = fadeIn(dockFade) + expandVertically(dockSize),
                 exit = fadeOut(dockFade) + shrinkVertically(dockSize),
             ) {
-                miniPlayer(Modifier)
+                miniPlayer(Modifier.onSizeChanged { if (it.height > 0) playerHeight = with(density) { it.height.toDp() } })
             }
             if (showsPlayer && !chrome.awake && !onVisuals) MiniPlayerHandle(onWake = chrome::wake)
             AnimatedVisibility(
@@ -526,12 +549,17 @@ private fun AppShellExpanded(
     pip: Boolean,
     centerRail: Boolean,
     miniPlayer: @Composable (Modifier) -> Unit,
-    onDock: (Dp) -> Unit,
+    onDock: (Float) -> Unit,
+    onDockAwake: (Dp) -> Unit,
     content: @Composable () -> Unit,
 ) {
     val density = LocalDensity.current
     // From the motion scheme, so "Remove animations" makes the dock appear without moving.
     val dockFade = LocalGeodeMotion.current.defaultEffectsSpec<Float>()
+    var playerHeight by remember { mutableStateOf(MINI_PLAYER_MIN_HEIGHT) }
+    // As the phone's: the awake height from the parts' own sizes, never from a fade.
+    val awake = GeodeSpacing.EdgeInset * 2 + if (showMiniPlayer) playerHeight else 0.dp
+    SideEffect { onDockAwake(awake) }
     // safeDrawing rather than the status and navigation bars alone: in landscape the display
     // cutout sits on a side edge, where it would cover the rail or the content's far edge. It
     // includes the keyboard too, so a focused field stays above it.
@@ -545,11 +573,11 @@ private fun AppShellExpanded(
                     .align(Alignment.BottomCenter)
                     .widthIn(max = MINI_PLAYER_MAX_WIDTH)
                     .fillMaxWidth()
-                    .onSizeChanged { onDock(with(density) { it.height.toDp() }) }
+                    .onSizeChanged { onDock(it.height.toFloat()) }
                     .padding(GeodeSpacing.EdgeInset),
             ) {
                 AnimatedVisibility(showMiniPlayer && chrome.awake, enter = fadeIn(dockFade), exit = fadeOut(dockFade)) {
-                    miniPlayer(Modifier)
+                    miniPlayer(Modifier.onSizeChanged { if (it.height > 0) playerHeight = with(density) { it.height.toDp() } })
                 }
                 if (showMiniPlayer && !chrome.awake && appState.dest != GeodeDestination.VISUALS) MiniPlayerHandle(onWake = chrome::wake)
             }
@@ -598,6 +626,9 @@ private val DOCK_GAP = 8.dp
 
 /** The handle pill's full touch target, kept clear above the tab bar on every screen. */
 private val HANDLE_ZONE = 48.dp
+
+/** The mini player's least height (its row's heightIn), until it is first measured. */
+private val MINI_PLAYER_MIN_HEIGHT = 64.dp
 
 /** How wide the floating mini player grows on a tablet before it stops. */
 private val MINI_PLAYER_MAX_WIDTH = 640.dp

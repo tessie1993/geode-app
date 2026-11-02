@@ -1,16 +1,21 @@
 package dev.geode.render
 
 import android.os.Build
+import android.os.Handler
+import android.os.HandlerThread
+import android.os.Process
 import android.view.Choreographer
 import android.view.Surface
 
 /**
- * Receives one call per paced frame, on the thread that owns the Choreographer.
+ * Receives one call per paced frame, on the pacer's own thread (see [FramePacer]), never the main
+ * thread. `GLSurfaceView.requestRender` is documented as callable from any thread, which is all
+ * the sinks here do.
  *
  * Declared as a `fun interface` rather than `(Float) -> Unit` because a Kotlin function type
  * boxes its `Float` argument: at 120 Hz that is 120 short-lived `java.lang.Float` objects a
- * second on the main thread, which is exactly the kind of steady garbage that turns into a
- * dropped frame when a GC lands mid-beat.
+ * second, which is exactly the kind of steady garbage that turns into a dropped frame when a GC
+ * lands mid-beat.
  */
 fun interface FrameSink {
     fun onFrame(dtSeconds: Float)
@@ -52,9 +57,19 @@ sealed interface FrameRatePolicy {
  * clock instead — one callback per display refresh, a whole-number divide down to the target
  * rate, and a measured dt handed to the sink — per `docs/quality/bar-visualizer.md` §4.3.
  *
- * Threading: [start], [stop] and [applyTo] must be called from a thread with a Looper (the main
- * thread for both `GLSurfaceView` and `WallpaperService.Engine`), because that is the thread the
- * Choreographer callbacks arrive on. [dtSeconds] is safe to read from any thread.
+ * Threading: the vsync callbacks arrive on one process-wide pacer thread ([PacerThread]), a
+ * `HandlerThread` with its own Choreographer, not on the main thread. They used to arrive on the
+ * main thread, so every Compose hitch (a recomposition, a layout pass, a GC on the UI thread)
+ * also cost the visual its vsync, and UI jank read as visual stutter even with the GPU idle. A
+ * Choreographer is per Looper and hears the same display vsync on any of them, so moving it
+ * changes the clock's thread and nothing else.
+ *
+ * [start] and [stop] may be called from any thread (in practice the main thread, for both
+ * `GLSurfaceView` and `WallpaperService.Engine`); they flip [running] at once, so the existing
+ * idempotence and the [ThermalGovernor] cap publish stay synchronous, and hand the callback
+ * itself to the pacer thread in order. Every frame-timing field below is confined to the pacer
+ * thread. [applyTo] is a Surface call and runs anywhere. [dtSeconds] is safe to read from any
+ * thread.
  */
 class FramePacer(
     initialPolicy: FrameRatePolicy = FrameRatePolicy.Capped(DEFAULT_TARGET_FPS),
@@ -92,9 +107,11 @@ class FramePacer(
 
     private val callback = Choreographer.FrameCallback { frameTimeNanos -> onVsync(frameTimeNanos) }
 
-    private var choreographer: Choreographer? = null
+    /** Written by [start] and [stop] on the caller's thread, read by [onVsync] on the pacer thread. */
+    @Volatile
     private var running = false
 
+    // Pacer thread only, from here down to [divisor].
     private var lastDrawnNanos = 0L
     private var lastVsyncNanos = 0L
     private var vsyncPeriodNanos = 0L
@@ -102,16 +119,30 @@ class FramePacer(
     private var vsyncsSinceDrawn = 0
     private var divisor = 1
 
+    /**
+     * Posted, not run inline: the frame-timing fields and the Choreographer belong to the pacer
+     * thread. Tasks run in the order they were posted, so a quick stop/start pair still ends in
+     * the state of its last call. A stale start (stopped again before it ran) does nothing.
+     */
+    private val beginOnPacerThread =
+        Runnable {
+            if (!running) return@Runnable
+            // A resume must not inherit the gap it was paused across.
+            lastDrawnNanos = 0L
+            lastVsyncNanos = 0L
+            vsyncsSinceDrawn = 0
+            // Removed first: two starts can both find the pacer running by the time they run, and
+            // a callback posted twice would fire twice per vsync and halve every dt.
+            PacerThread.choreographer.removeFrameCallback(callback)
+            PacerThread.choreographer.postFrameCallback(callback)
+        }
+
+    private val endOnPacerThread = Runnable { PacerThread.choreographer.removeFrameCallback(callback) }
+
     /** Idempotent: a second call while running is a no-op, so lifecycle callbacks can overlap. */
     fun start() {
         if (running) return
-        val instance = Choreographer.getInstance()
-        choreographer = instance
         running = true
-        // A resume must not inherit the gap it was paused across.
-        lastDrawnNanos = 0L
-        lastVsyncNanos = 0L
-        vsyncsSinceDrawn = 0
         // A pacer that starts twice without stopping (start() is idempotent, so this only runs
         // once per start) must not end up twice in the stack ahead of itself.
         synchronized(runningStack) {
@@ -119,19 +150,21 @@ class FramePacer(
             runningStack.add(this)
         }
         publishActiveCap()
-        instance.postFrameCallback(callback)
+        PacerThread.handler.post(beginOnPacerThread)
     }
 
     /**
      * Removes the pending vsync callback outright rather than letting it fire and skip work —
      * §4.4 of the quality bar asks for the callback itself to stop, and a wallpaper toggles
-     * visibility every time the screen sleeps.
+     * visibility every time the screen sleeps. The removal is posted to the pacer thread; until it
+     * runs, a vsync that fires sees [running] false and neither re-posts nor draws. One frame
+     * already inside [onVsync] when this is called can still reach the sink; `requestRender` on a
+     * paused or exiting GL thread is harmless.
      */
     fun stop() {
         if (!running) return
         running = false
-        choreographer?.removeFrameCallback(callback)
-        choreographer = null
+        PacerThread.handler.post(endOnPacerThread)
         // Drop out of the running stack before republishing: if another pacer (the view's and the
         // wallpaper's can both be live at once) is still running, its cap — not 0 — is what
         // ThermalGovernor should read next.
@@ -186,7 +219,7 @@ class FramePacer(
         if (!running) return
         // Re-post first: the cadence has to survive a slow sink, and a frame we skip still has to
         // wake us for the next one.
-        choreographer?.postFrameCallback(callback)
+        PacerThread.choreographer.postFrameCallback(callback)
         trackVsyncPeriod(frameTimeNanos)
         // Recomputed here, on the Choreographer thread, rather than in the [policy] setter: it
         // reads the vsync estimate, and a setter racing this thread over a 64-bit field is a bug
@@ -224,7 +257,7 @@ class FramePacer(
         lastVsyncNanos = frameTimeNanos
         if (previous == 0L) return
         val delta = frameTimeNanos - previous
-        // Outside the range of any real panel this is a main-thread hitch, not a refresh period;
+        // Outside the range of any real panel this is a pacer-thread hitch, not a refresh period;
         // folding it in would briefly halve the estimate and stutter the divide.
         if (delta < MIN_VSYNC_NANOS || delta > MAX_VSYNC_NANOS) return
         vsyncPeriodNanos =
@@ -298,4 +331,27 @@ class FramePacer(
          */
         private const val MAX_DIVISOR = 8
     }
+}
+
+/**
+ * The one thread every [FramePacer] in the process is clocked on: the in-app view's, each
+ * wallpaper engine's and the dream's. One is enough, since a callback only counts vsyncs and
+ * calls `requestRender`, and sharing it keeps a preview wallpaper beside the app from costing a
+ * second idle thread. Started on first use and never quit: an idle Looper costs nothing, and a
+ * thread torn down and rebuilt on every pause would race the next start.
+ *
+ * Display priority, the same class as the UI and RenderThreads, so a busy background (a render,
+ * a library scan) does not delay the tick it exists to protect.
+ */
+private object PacerThread {
+    private val thread = HandlerThread("GeodeFramePacer", Process.THREAD_PRIORITY_DISPLAY).apply { start() }
+
+    val handler = Handler(thread.looper)
+
+    /**
+     * Pacer thread only. `Choreographer.getInstance()` returns the calling Looper's instance, so
+     * it must first be read on this thread, which the lazy guarantees: only code that runs on it
+     * ([FramePacer]'s posted tasks and vsync callbacks) touches this.
+     */
+    val choreographer: Choreographer by lazy(LazyThreadSafetyMode.NONE) { Choreographer.getInstance() }
 }

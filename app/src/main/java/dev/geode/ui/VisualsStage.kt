@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -67,15 +66,13 @@ import kotlin.math.roundToInt
 @Composable
 internal fun BoxScope.VisualsStage(
     visualizerView: VisualizerView,
-    canvasFree: Boolean,
     behaviour: BehaviourPrefs,
     actions: VisualActions,
     recording: Boolean,
     tapSplitPx: () -> Float,
 ) {
-    // The one VisualizerView has one parent: while the live view or a second screen holds it,
-    // the shell's background shows instead.
-    if (canvasFree) VisualizerCanvasHost(visualizerView, Modifier.fillMaxSize())
+    // The visual itself is not drawn here: the shell hosts the one VisualizerView beneath every
+    // screen (VisualizerCanvasHost) and shows it through this transparent stage.
     val ring = remember { HoldRingState() }
     Box(
         Modifier

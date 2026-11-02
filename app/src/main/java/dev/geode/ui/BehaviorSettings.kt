@@ -12,7 +12,9 @@ import androidx.compose.ui.res.stringResource
 import dev.geode.R
 import dev.geode.data.BehaviourPrefs
 import dev.geode.data.BehaviourStore
+import dev.geode.data.CanvasGesture
 import dev.geode.data.GeodePrefsFiles
+import dev.geode.data.GestureAction
 import dev.geode.data.NotificationButton
 import dev.geode.data.PlayerArt
 import dev.geode.data.QueueEndAction
@@ -29,7 +31,7 @@ import kotlinx.coroutines.withContext
 /**
  * Settings › Behaviour & gestures: the start screen, gestures, the queue, the screens and the
  * notification. The choices live in [BehaviourPrefs] (`geode-prefs`), whose defaults the owner
- * set. The gesture map on the visual (`BehaviourPrefs.gestures`) gets its own page with 3C.
+ * set, the gesture map on the visual included (`BehaviourPrefs.gestures`, read by the stage).
  */
 @Composable
 internal fun BehaviorSettingsTab() {
@@ -92,6 +94,17 @@ private fun GestureGroup(
     prefs: BehaviourPrefs,
     update: (BehaviourPrefs) -> Unit,
 ) {
+    // The gesture map: one dropdown per gesture on the visual. Pinch and twist do nothing by the
+    // owner's decision, so they get no row.
+    CanvasGesture.entries.filter { it != CanvasGesture.PINCH_TWIST }.forEach { gesture ->
+        SettingsChoiceRow(
+            title = stringResource(gestureLabel(gesture)),
+            options = gestureChoices(gesture, prefs.actionFor(gesture)),
+            selected = prefs.actionFor(gesture),
+            label = { stringResource(gestureActionLabel(it)) },
+            onSelect = { action -> update(prefs.copy(gestures = prefs.gestures + (gesture to action))) },
+        )
+    }
     SettingsChoiceRow(
         title = stringResource(R.string.settings_beh_shake),
         options = ShakeAction.entries,
@@ -271,6 +284,68 @@ private fun NotificationGroup(
         )
     }
 }
+
+/**
+ * The actions that suit [gesture]: a sideways swipe has a direction, so it steps (a style, a
+ * preset or the playlist's look); a two-finger drag moves over the visual; the taps, the other
+ * swipes, the hold and the swirl each open or do one thing. Its current action always stays on
+ * the list, so a choice made elsewhere is never hidden.
+ */
+private fun gestureChoices(
+    gesture: CanvasGesture,
+    current: GestureAction,
+): List<GestureAction> {
+    val suited =
+        when (gesture) {
+            CanvasGesture.SWIPE_SIDEWAYS -> listOf(GestureAction.STEP_STYLE, GestureAction.STEP_PRESET, GestureAction.STEP_PLAYLIST)
+            CanvasGesture.TWO_FINGER_DRAG -> listOf(GestureAction.TOUCH_PLAY)
+            else -> ONE_SHOT_ACTIONS
+        }
+    return (suited + GestureAction.OFF).let { if (current in it) it else listOf(current) + it }
+}
+
+private val ONE_SHOT_ACTIONS =
+    listOf(
+        GestureAction.SHOW_MINI_PLAYER,
+        GestureAction.QUICK_SETTINGS,
+        GestureAction.TOGGLE_SHEET,
+        GestureAction.MACROS,
+        GestureAction.RECORD,
+        GestureAction.RANDOMIZE_ALL,
+        GestureAction.PLAY_PAUSE,
+    )
+
+@StringRes
+private fun gestureLabel(gesture: CanvasGesture): Int =
+    when (gesture) {
+        CanvasGesture.TAP_BOTTOM -> R.string.settings_gesture_tap_bottom
+        CanvasGesture.TAP_TOP -> R.string.settings_gesture_tap_top
+        CanvasGesture.DOUBLE_TAP -> R.string.settings_gesture_double_tap
+        CanvasGesture.SWIPE_SIDEWAYS -> R.string.settings_gesture_swipe_sideways
+        CanvasGesture.SWIPE_UP -> R.string.settings_gesture_swipe_up
+        CanvasGesture.SWIPE_DOWN -> R.string.settings_gesture_swipe_down
+        CanvasGesture.LONG_PRESS -> R.string.settings_gesture_long_press
+        CanvasGesture.SWIRL -> R.string.settings_gesture_swirl
+        CanvasGesture.TWO_FINGER_DRAG -> R.string.settings_gesture_two_finger_drag
+        CanvasGesture.PINCH_TWIST -> R.string.settings_gesture_pinch
+    }
+
+@StringRes
+private fun gestureActionLabel(action: GestureAction): Int =
+    when (action) {
+        GestureAction.OFF -> R.string.settings_beh_nothing
+        GestureAction.SHOW_MINI_PLAYER -> R.string.settings_gesture_action_mini_player
+        GestureAction.QUICK_SETTINGS -> R.string.settings_gesture_action_quick_settings
+        GestureAction.TOGGLE_SHEET -> R.string.settings_gesture_action_toggle_sheet
+        GestureAction.STEP_STYLE -> R.string.settings_gesture_action_step_style
+        GestureAction.STEP_PRESET -> R.string.settings_gesture_action_step_preset
+        GestureAction.STEP_PLAYLIST -> R.string.settings_gesture_action_step_playlist
+        GestureAction.MACROS -> R.string.settings_gesture_action_macros
+        GestureAction.RECORD -> R.string.settings_gesture_action_record
+        GestureAction.RANDOMIZE_ALL -> R.string.settings_gesture_action_randomize
+        GestureAction.TOUCH_PLAY -> R.string.settings_gesture_action_touch_play
+        GestureAction.PLAY_PAUSE -> R.string.settings_gesture_action_play_pause
+    }
 
 @StringRes
 private fun startScreenLabel(screen: StartScreen): Int =

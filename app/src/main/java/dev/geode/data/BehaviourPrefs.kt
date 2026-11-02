@@ -148,6 +148,10 @@ data class BehaviourPrefs(
      * screen saver is there to be seen; the user can dim it.
      */
     val dreamScreenBright: Boolean = true,
+    /** The dream's clock (time and date) over the visual; a dream is mostly a bedside clock. */
+    val dreamShowClock: Boolean = true,
+    /** The dream's "title · artist" line under the clock, while something plays. */
+    val dreamShowNowPlaying: Boolean = true,
     /** Every canvas gesture's action. A gesture missing from the map is [GestureAction.OFF]. */
     val gestures: Map<CanvasGesture, GestureAction> = DEFAULT_GESTURES,
 ) {
@@ -203,6 +207,8 @@ class BehaviourStore(
             visualsBar = enumOf(KEY_VISUALS_BAR, d.visualsBar),
             showTips = prefs.getBoolean(KEY_SHOW_TIPS, d.showTips),
             dreamScreenBright = prefs.getBoolean(KEY_DREAM_BRIGHT, d.dreamScreenBright),
+            dreamShowClock = prefs.getBoolean(KEY_DREAM_CLOCK, d.dreamShowClock),
+            dreamShowNowPlaying = prefs.getBoolean(KEY_DREAM_NOW_PLAYING, d.dreamShowNowPlaying),
             gestures =
                 CanvasGesture.entries.associateWith { gesture ->
                     enumOf(KEY_GESTURE_PREFIX + gesture.name, d.actionFor(gesture))
@@ -233,6 +239,8 @@ class BehaviourStore(
             putString(KEY_VISUALS_BAR, b.visualsBar.name)
             putBoolean(KEY_SHOW_TIPS, b.showTips)
             putBoolean(KEY_DREAM_BRIGHT, b.dreamScreenBright)
+            putBoolean(KEY_DREAM_CLOCK, b.dreamShowClock)
+            putBoolean(KEY_DREAM_NOW_PLAYING, b.dreamShowNowPlaying)
             for (gesture in CanvasGesture.entries) putString(KEY_GESTURE_PREFIX + gesture.name, b.actionFor(gesture).name)
         }
     }
@@ -271,6 +279,8 @@ class BehaviourStore(
         const val KEY_VISUALS_BAR = "behaviour_visuals_bar"
         const val KEY_SHOW_TIPS = "behaviour_show_tips"
         const val KEY_DREAM_BRIGHT = "behaviour_dream_screen_bright"
+        const val KEY_DREAM_CLOCK = "behaviour_dream_show_clock"
+        const val KEY_DREAM_NOW_PLAYING = "behaviour_dream_show_now_playing"
         const val KEY_GESTURE_PREFIX = "behaviour_gesture_"
     }
 }

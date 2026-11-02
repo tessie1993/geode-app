@@ -66,6 +66,7 @@ import dev.geode.render.UnderlayBlend
 import dev.geode.render.scene.CustomizeTab
 import dev.geode.render.scene.PcmChunk
 import dev.geode.render.scene.SceneParams
+import dev.geode.widget.WidgetStyles
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -76,6 +77,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.job
 import kotlinx.coroutines.joinAll
@@ -1212,6 +1215,13 @@ class PlayerSession internal constructor(
         templateLibrary.refreshInitial()
         musicLibrary.refresh()
         textureController.refresh()
+        // The home-screen widget shows the chosen style, and its style buttons step it like the stage swipe.
+        scope.launch { vizState.map { chosenSceneId }.distinctUntilChanged().collect { WidgetStyles.publish(application, it) } }
+        scope.launch {
+            WidgetStyles.steps(application).collect { step ->
+                nextStageStyle(stageStyleOrder(), chosenSceneId, step) { !allowsStyle(it) }?.let(::selectScene)
+            }
+        }
         scope.launch {
             attachPlayback()
             pollPlaybackState()

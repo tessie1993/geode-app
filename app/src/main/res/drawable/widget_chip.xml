@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A control on the widget's visual tile (the style name, the style buttons): a pill of the
+     app's matte glass, black at 62%. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="#9E000000" />
+    <corners android:radius="999dp" />
+</shape>

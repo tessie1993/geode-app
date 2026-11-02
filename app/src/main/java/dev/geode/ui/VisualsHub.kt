@@ -3,6 +3,7 @@ package dev.geode.ui
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.Box
@@ -120,6 +121,11 @@ internal fun VisualsHub(
     val takes by studioViewModel.takeState.collectAsStateWithLifecycle()
     var quickSettings by rememberSaveable { mutableStateOf(false) }
     var macros by rememberSaveable { mutableStateOf(false) }
+    // While a drop-in is up the options fade out and take no touch (UI V2 rule 6: the visual shows
+    // through, not the sheet); the nav state keeps the sheet's height, so it returns as it was.
+    val dropInOpen = quickSettings || macros
+    val fadeSpec = LocalGeodeMotion.current.defaultEffectsSpec<Float>()
+    val optionsFade = animateFloatAsState(if (dropInOpen) 0f else 1f, fadeSpec, label = "dropIn")
     val actions =
         rememberStageActions(
             viewModel = viewModel,
@@ -217,12 +223,14 @@ internal fun VisualsHub(
                             .padding(bottom = bottomReserve)
                             .windowInsetsPadding(WindowInsets.statusBars)
                             .padding(GeodeSpacing.EdgeInset)
+                            .hiddenUnderDropIn(dropInOpen) { optionsFade.value }
                     } else {
                         Modifier
                             .align(Alignment.BottomCenter)
                             .fillMaxWidth()
                             .padding(bottom = bottomReserve)
                             .padding(horizontal = GeodeSpacing.EdgeInset, vertical = GeodeSpacing.EdgeInset / 2)
+                            .hiddenUnderDropIn(dropInOpen) { optionsFade.value }
                     },
             ) {
                 NavDisplay(

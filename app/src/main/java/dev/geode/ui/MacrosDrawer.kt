@@ -61,7 +61,8 @@ import dev.geode.ui.theme.floatingGlass
  * it back up. No scrim, as with the quick settings, so the visual stays lit while the knobs move it.
  *
  * It slides on the app's spatial spring ([LocalGeodeMotion]), which is a jump under reduced
- * motion, and fades on the effects spec, which stays.
+ * motion, and fades on the effects spec, which stays. While it is open the options sheet fades out
+ * under it (the caller's [hiddenUnderDropIn]), so only the visual shows through its glass.
  */
 @Composable
 internal fun MacrosDrawer(
@@ -115,6 +116,8 @@ private fun MacrosDrawerPanel(
             .floatingGlass(fillAlpha = DROP_IN_FILL)
             // Taps on the panel's empty parts stay on it instead of reaching the outside target.
             .pointerInput(Unit) { detectTapGestures { } }
+            // Drags that start here stay here: the stage and the mini player never see them.
+            .keepDragsInside()
             // Pushed back up, it closes; the knobs take their own vertical drags first.
             .draggable(
                 drag,

@@ -1222,7 +1222,7 @@
         <item quantity="one">%1$d look</item>
         <item quantity="other">%1$d looks</item>
     </plurals>
-    <string name="visuals_qs_sheet_opacity">Sheet glass</string>
+    <string name="visuals_qs_sheet_opacity">Options glass</string>
     <string name="visuals_qs_percent">%1$d%%</string>
     <string name="visuals_qs_fade">Mini player fades after</string>
     <string name="visuals_qs_fade_never">Never</string>

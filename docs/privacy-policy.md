@@ -70,9 +70,9 @@ logs how it is used (discovery and session events, device and app information) a
 sends that to Google, aggregated, without identifiers that trace back to you, encrypted in
 transit and kept for a short time, to improve Cast
 ([Google's Cast SDK disclosure](https://developers.google.com/cast/docs/android_sender/data_disclosure)).
-Neither you nor MuzViz can turn that logging off or delete it. The SDK starts when the
-Visuals screen shows the Cast button (it then looks for TVs on your network), or when you
-pick a TV in Android's own output switcher; before that it doesn't run.
+Neither you nor MuzViz can turn that logging off or delete it. The SDK starts when you open
+the app, so that the Cast button and Android's own output switcher can find your TV, and it
+looks for TVs on your network while the Cast button is on screen.
 
 ## Permissions
 

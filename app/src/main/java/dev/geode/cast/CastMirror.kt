@@ -14,7 +14,7 @@ import kotlinx.coroutines.launch
  * live state deliberately leaves out.
  *
  * The UI feeds it ([follow], from `ui/cast/CastButton`); `cast/` can't read the UI's state itself
- * (the layer rule keeps `dev.geode.ui` out of every other package). It follows that flow for the
+ * (the layer rule keeps the UI package out of every other package). It follows that flow for the
  * life of the process, so it keeps mirroring with the app in the background. Until something has
  * fed it, [look] is null and [CastStream] falls back to the saved live state.
  */

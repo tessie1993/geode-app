@@ -28,7 +28,7 @@ logging. Its notes are summarised at the end.
 
 | Question | Answer |
 |---|---|
-| Does your app collect or share any of the required user data types? | **Yes**. Purchase history, and the Cast SDK's logging once Visuals shows the Cast button, see below |
+| Does your app collect or share any of the required user data types? | **Yes**. Purchase history, and the Cast SDK's logging (it starts with the app), see below |
 | Is all of the user data collected by your app encrypted in transit? | **Yes**. The Play Store app's own TLS connection to Google, and the Cast SDK's ("all data transmitted from the SDK is encrypted in transit", Google's disclosure) |
 | Do you provide a way for users to request that their data is deleted? | **No**. There's no account and nothing held off-device by you. (Google Play order history is Google's; users manage it in their Google account.) If the form requires a deletion path, answer Yes and give the in-app route: *Settings → Apps → MuzViz Studio Pro → Storage → Clear data* |
 
@@ -39,7 +39,7 @@ Declare **only**:
 | Category › type | Collected | Shared | Processed ephemerally | Required or optional | Purposes |
 |---|---|---|---|---|---|
 | **Financial info › Purchase history** | Yes | No | No | **Optional** (only if the user buys Pro) | **App functionality** (unlocking the purchased feature) |
-| **App activity › App interactions** | Yes | No | No | **Required** (the SDK starts whenever Visuals shows the Cast button, and looks for TVs) | **Analytics** (the Cast SDK's discovery and session events, which Google uses to improve Cast) |
+| **App activity › App interactions** | Yes | No | No | **Required** (the SDK starts with the app for every user, owner Q38, and looks for TVs while the Cast button shows) | **Analytics** (the Cast SDK's discovery and session events, which Google uses to improve Cast) |
 | **App info and performance › Diagnostics** | Yes | No | No | **Required** (as above) | **Analytics** (the Cast SDK's device, app and performance information) |
 
 Everything else: **not collected, not shared.** In particular:
@@ -91,7 +91,7 @@ Keep this consistent with `docs/privacy-policy.md` ("Buying MuzViz Pro").
 | Files and docs, crash logs, device ID, user account | Local only or not accessed |
 | Performance diagnostics | False positive: the debug-only fake billing panel (`USE_FAKE_BILLING=false` in release) |
 | **Purchase history** | **IMPORTANT: declared, as discussed above** |
-| **Cast SDK (App interactions, Diagnostics)** | Declared, Required: the SDK starts when Visuals shows the Cast button (2026-11-02) |
+| **Cast SDK (App interactions, Diagnostics)** | Declared, Required: the SDK starts with the app for every user (owner Q38, 2026-11-02) |
 | Permissions | Four foreground service types (mediaPlayback now also covers Cast to TV), each typed and with a notification. The FGS declaration is needed in the console: see [CONSOLE_CHECKLIST.md](CONSOLE_CHECKLIST.md) §7 |
 | User accounts | None: no login, so no account-deletion requirement and no demo credentials needed for review |
 

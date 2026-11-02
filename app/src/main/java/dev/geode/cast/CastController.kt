@@ -1,6 +1,7 @@
 package dev.geode.cast
 
 import android.content.Context
+import android.widget.Toast
 import androidx.annotation.MainThread
 import androidx.annotation.OptIn
 import androidx.media3.cast.RemoteCastPlayer
@@ -91,7 +92,10 @@ class CastController private constructor(
             return
         }
         mutableState.value = CastState.Connecting(deviceName())
-        if (!CastService.start(app)) onStreamFailed()
+        if (!CastService.start(app)) {
+            Toast.makeText(app, R.string.cast_failed, Toast.LENGTH_LONG).show()
+            onStreamFailed()
+        }
     }
 
     private fun onSessionEnded() {

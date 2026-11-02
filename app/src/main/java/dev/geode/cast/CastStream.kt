@@ -129,18 +129,7 @@ internal class CastStream(
             val startNs = System.nanoTime()
             var frame = 0L
             while (running) {
-                if (lookChanged) {
-                    lookChanged = false
-                    restoreLook(renderer)
-                    mirrored = null
-                }
-                CastMirror.look?.let { look ->
-                    if (look !== mirrored) {
-                        mirrored = look
-                        renderer.requestedSceneId = look.sceneId
-                        renderer.sceneParams = look.params
-                    }
-                }
+                syncLook(renderer)
                 renderer.onDrawFrame(null)
                 val ptsNs = frame * NANOS_PER_SEC / CastEncoder.FPS
                 egl.setPresentationTimeNs(ptsNs)
@@ -156,6 +145,20 @@ internal class CastStream(
             egl.release()
             encoder.release()
         }
+    }
+
+    /** The saved look when the app saves one, then the stage's own look on top while [CastMirror] has one. */
+    private fun syncLook(renderer: VisualizerRenderer) {
+        if (lookChanged) {
+            lookChanged = false
+            restoreLook(renderer)
+            mirrored = null
+        }
+        val look = CastMirror.look ?: return
+        if (look === mirrored) return
+        mirrored = look
+        renderer.requestedSceneId = look.sceneId
+        renderer.sceneParams = look.params
     }
 
     /** The saved live look, read the way the live wallpaper reads it. */

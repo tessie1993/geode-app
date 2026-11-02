@@ -11,8 +11,6 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.Orientation
-import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.Arrangement
@@ -32,7 +30,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.systemGestures
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -63,15 +60,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.contentDescription
@@ -85,12 +80,20 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.ui.NavDisplay
 import dev.geode.R
+import dev.geode.data.BehaviourPrefs
+import dev.geode.data.BehaviourStore
+import dev.geode.data.CanvasGesture
+import dev.geode.data.GeodePrefsFiles
+import dev.geode.data.GestureAction
 import dev.geode.pro.FeatureGate
+import dev.geode.pro.PaywallTrigger
+import dev.geode.pro.ProFeature
 import dev.geode.render.VisualizerView
 import dev.geode.render.scene.SceneCapabilities
 import dev.geode.render.scene.SceneIds
 import dev.geode.render.scene.StyleFamilies
 import dev.geode.render.scene.VisualStyleCatalog
+import dev.geode.ui.pro.PaywallViewModel
 import dev.geode.ui.theme.GeodeGlass
 import dev.geode.ui.theme.GeodeSpacing
 import dev.geode.ui.theme.LocalGeodeMotion
@@ -109,11 +112,14 @@ import kotlin.math.roundToInt
  * whose height ([SheetHeight]) the user drags between its tabs alone, half and tall, or hides; its
  * pages (Styles first, then Customize, Presets and MilkDrop) are a Navigation 3 back stack.
  *
- * The visual takes gestures ([visualStageGestures]): a tap wakes the shell's chrome (the mini
- * player, the tab bar and the stage icons, which fade together), a double tap opens the live view
- * (where a double tap comes back), a sideways swipe steps the style and a swipe up wakes the chrome.
- * A swipe that starts in the system's gesture strips is left to Android (back, home, the shade).
- * Every gesture has a visible twin among the stage icons, and TalkBack gets them as custom actions.
+ * The visual takes gestures ([visualGestures], ui/VisualGestures.kt), each doing what Settings ›
+ * Behaviour's gesture map gives it ([BehaviourPrefs.actionFor]). By default a tap on the bottom wakes
+ * the shell's chrome (the mini player, the tab bar and the stage icons, which fade together), a tap on
+ * the top opens the quick settings ([VisualsQuickSettings]), a double tap hides or brings back the
+ * sheet, a sideways swipe steps the style, a swipe up wakes the chrome, a swipe down pulls the Macros
+ * drawer ([MacrosDrawer]), a hold records a take, a swirl randomizes and two fingers play with the
+ * visual. A swipe that starts in the system's gesture strips is left to Android (back, home, the
+ * shade). Gestures have visible twins among the stage icons, and TalkBack gets them as custom actions.
  *
  * Back undoes the most recent first ([VisualsNavState.back]): a hidden sheet comes back, then the
  * route in reverse. No per-entry ViewModel decorator: every ViewModel here stays in the Activity's
@@ -129,6 +135,8 @@ internal fun VisualsHub(
     chrome: ShellChromeState,
     bottomReserve: Dp,
     sheetOpacity: Float,
+    // Unused since Full screen became the hidden sheet; it leaves with the old live view (owner).
+    @Suppress("UNUSED_PARAMETER", "UnusedParameter")
     onOpenLive: () -> Unit,
     onOpenStudioRender: () -> Unit,
     canvasFree: Boolean = false,
@@ -140,22 +148,32 @@ internal fun VisualsHub(
     val stepStyle: (Int) -> Unit = { step ->
         nextStageStyle(stageStyleOrder(), viz.sceneId, step) { !gate.allowsStyle(it) }?.let(viewModel::selectScene)
     }
+    val context = LocalContext.current
+    // Read once per visit, off the main thread; Settings › Behaviour is another screen, so a change
+    // there is always read on the way back.
+    val behaviour by produceState(BehaviourPrefs()) {
+        value = withContext(Dispatchers.IO) { BehaviourStore(GeodePrefsFiles(context).general).load() }
+    }
+    val studioViewModel: StudioViewModel = geodeViewModel()
+    val takes by studioViewModel.takeState.collectAsStateWithLifecycle()
+    var quickSettings by rememberSaveable { mutableStateOf(false) }
+    var macros by rememberSaveable { mutableStateOf(false) }
+    val actions =
+        rememberStageActions(
+            viewModel = viewModel,
+            visualizerView = visualizerView,
+            stepStyle = stepStyle,
+            onShowMiniPlayer = chrome::wake,
+            onQuickSettings = { quickSettings = true },
+            onToggleSheet = { if (nav.sheetShown) nav.hideSheet() else nav.showSheet() },
+            onMacros = { macros = true },
+            onRecord = { if (!takes.recording) studioViewModel.startRecording() },
+        )
+    val ring = remember { HoldRingState() }
     BoxWithConstraints(Modifier.fillMaxSize()) {
         // The one VisualizerView has one parent: while the live view or a second screen holds it,
         // the shell's background shows instead.
         if (canvasFree) VisualizerCanvasHost(visualizerView, Modifier.fillMaxSize())
-        Box(
-            Modifier
-                .fillMaxSize()
-                .visualStageGestures(
-                    // The top of the visual will open its quick settings (3C); until then a tap wakes.
-                    onTap = { chrome.wake() },
-                    // Double tap toggles the sheet: hidden, then back to the height it had.
-                    onDoubleTap = { if (nav.sheetShown) nav.hideSheet() else nav.showSheet() },
-                    onSwipe = stepStyle,
-                    onSwipeUp = chrome::wake,
-                ),
-        )
         val density = LocalDensity.current
         val statusTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
         val roomPx = with(density) { (maxHeight - statusTop - bottomReserve - GeodeSpacing.EdgeInset).toPx() }.coerceAtLeast(0f)
@@ -168,12 +186,33 @@ internal fun VisualsHub(
             heightPx.animateTo(anchors.getValue(nav.sheet), settleSpec)
         }
         val reservePx = with(density) { (bottomReserve + GeodeSpacing.EdgeInset).toPx() }
+        val fullPx = constraints.maxHeight.toFloat()
+        Box(
+            Modifier
+                .fillMaxSize()
+                .visualGestures(
+                    actionFor = behaviour::actionFor,
+                    ring = ring,
+                    // The top and bottom halves of the visual left in view above the sheet.
+                    tapSplitPx = { (fullPx - heightPx.value - reservePx) / 2f },
+                    holdArmed = !(takes.recording && behaviour.actionFor(CanvasGesture.LONG_PRESS) == GestureAction.RECORD),
+                    onGesture = { gesture, step -> actions.run(behaviour.actionFor(gesture), step) },
+                    onTouchPoints = visualizerView.visualizerRenderer::submitTouchPoints,
+                    a11yActions = rememberVisualA11yActions(behaviour::actionFor, actions, takes.recording),
+                ),
+        )
+        HoldRing(ring)
         StageIcons(
             chrome = chrome,
             sheetTopPx = { heightPx.value + reservePx },
-            onOpenLive = onOpenLive,
+            // Full screen is the sheet hidden (owner: the old live view goes), the double tap's twin.
+            onFullScreen = { actions.run(GestureAction.TOGGLE_SHEET, 0) },
             onOpenStudioRender = onOpenStudioRender,
-            onStep = stepStyle,
+            // ‹ › are the sideways swipe's twin: they step what it steps, styles when it steps nothing.
+            onStep = { step ->
+                val sideways = behaviour.actionFor(CanvasGesture.SWIPE_SIDEWAYS)
+                actions.run(if (sideways in STEP_ACTIONS) sideways else GestureAction.STEP_STYLE, step)
+            },
         )
         VisualsSheet(
             nav = nav,
@@ -208,10 +247,68 @@ internal fun VisualsHub(
                 },
             )
         }
+        // Composed after NavDisplay so it wins over the pages' own back: a hidden sheet comes back
+        // first. The two overlays below are composed later still, so Back closes them before that.
+        BackHandler(enabled = !nav.sheetShown, onBack = nav::showSheet)
+        MacrosDrawer(
+            visible = macros,
+            onDismiss = { macros = false },
+            onEdit = {
+                macros = false
+                nav.openTab(VisualsPage.CUSTOMIZE)
+            },
+            modifier = Modifier.fillMaxSize(),
+        )
+        AnimatedVisibility(quickSettings, Modifier.fillMaxSize(), enter = fadeIn(), exit = fadeOut()) {
+            VisualsQuickSettings(viewModel, onDismiss = { quickSettings = false }, modifier = Modifier.fillMaxSize())
+        }
     }
-    // Composed after NavDisplay so it wins over the pages' own back: a hidden sheet comes back first.
-    BackHandler(enabled = !nav.sheetShown, onBack = nav::showSheet)
 }
+
+/**
+ * What the visual's gestures can do here, for the gesture map to choose from ([VisualActions]).
+ * Randomize everything is Customize's roll with no page given (`randomizeParams()`, the native
+ * randomizer), which is Pro there; a free user meets the same paywall Customize's roll shows.
+ */
+@Composable
+private fun rememberStageActions(
+    viewModel: PlayerViewModel,
+    visualizerView: VisualizerView,
+    stepStyle: (Int) -> Unit,
+    onShowMiniPlayer: () -> Unit,
+    onQuickSettings: () -> Unit,
+    onToggleSheet: () -> Unit,
+    onMacros: () -> Unit,
+    onRecord: () -> Unit,
+): VisualActions {
+    val visualsViewModel: VisualsViewModel = geodeViewModel()
+    val paywall: PaywallViewModel = geodeViewModel()
+    val touchPulse = rememberTouchPulse(visualizerView.visualizerRenderer::submitTouchPoints)
+    val gate = { viewModel.gate.value }
+    return VisualActions(
+        showMiniPlayer = onShowMiniPlayer,
+        quickSettings = onQuickSettings,
+        toggleSheet = onToggleSheet,
+        stepStyle = stepStyle,
+        stepPreset = { step -> stepPreset(viewModel, gate(), step) },
+        // With fewer than two looks in the playlist, the styles step instead (as nextLook does).
+        stepPlaylist = { step -> if (!viewModel.stepVizPlaylist(step)) stepStyle(step) },
+        macros = onMacros,
+        record = onRecord,
+        randomizeAll = {
+            if (gate().allows(ProFeature.ADVANCED_CUSTOMIZATION)) {
+                visualsViewModel.randomizeParams()
+            } else {
+                paywall.open(PaywallTrigger.Feature(ProFeature.ADVANCED_CUSTOMIZATION))
+            }
+        },
+        touchPulse = touchPulse,
+        playPause = viewModel::togglePlayPause,
+    )
+}
+
+/** The actions a sideways swipe, or its ‹ › twins, can step through. */
+private val STEP_ACTIONS = setOf(GestureAction.STEP_STYLE, GestureAction.STEP_PRESET, GestureAction.STEP_PLAYLIST)
 
 /** The sheet's resting heights in px for [roomPx] of room: its tabs alone, half, nearly all. */
 private fun sheetAnchors(
@@ -331,15 +428,15 @@ private fun VisualsSheet(
 }
 
 /**
- * The icons over the visual, the visible twins of its gestures: Studio and the live view at the
- * top right, ‹ › at the sides, Record at the bottom right just above the sheet. They fade with
+ * The icons over the visual, the visible twins of its gestures: Studio and Full screen (the sheet
+ * hidden or back) at the top right, ‹ › at the sides, Record at the bottom right just above the sheet. They fade with
  * the shell's chrome; Record stays while a take is being recorded, red, as its stop.
  */
 @Composable
 private fun BoxScope.StageIcons(
     chrome: ShellChromeState,
     sheetTopPx: () -> Float,
-    onOpenLive: () -> Unit,
+    onFullScreen: () -> Unit,
     onOpenStudioRender: () -> Unit,
     onStep: (Int) -> Unit,
 ) {
@@ -360,8 +457,8 @@ private fun BoxScope.StageIcons(
                 IconButton(onClick = onOpenStudioRender) {
                     StoneIconArt(StoneIcon.STUDIO, stringResource(R.string.visuals_open_render))
                 }
-                IconButton(onClick = onOpenLive) {
-                    Icon(Icons.Filled.Fullscreen, stringResource(R.string.visuals_view_live))
+                IconButton(onClick = onFullScreen) {
+                    Icon(Icons.Filled.Fullscreen, stringResource(R.string.visuals_gesture_toggle_sheet))
                 }
             }
             IconButton(onClick = { onStep(-1) }, modifier = Modifier.align(Alignment.CenterStart).padding(GeodeSpacing.S).then(glass)) {
@@ -389,70 +486,6 @@ private fun BoxScope.StageIcons(
             )
         }
     }
-}
-
-/**
- * The visual's own gestures until 3C's full set: a tap, a double tap, a sideways swipe past
- * [STAGE_SWIPE_DP] (left is next, like turning a page) and a swipe up. A drag that starts in the
- * system's gesture strips (back at the sides, home at the bottom, the shade at the top) is not
- * ours. The callbacks go through [rememberUpdatedState] because `pointerInput(Unit)` keeps its
- * first lambda for as long as the visual is on screen.
- */
-@Composable
-private fun Modifier.visualStageGestures(
-    onTap: () -> Unit,
-    onDoubleTap: () -> Unit,
-    onSwipe: (Int) -> Unit,
-    onSwipeUp: () -> Unit,
-): Modifier {
-    val tap by rememberUpdatedState(onTap)
-    val doubleTap by rememberUpdatedState(onDoubleTap)
-    val swipe by rememberUpdatedState(onSwipe)
-    val up by rememberUpdatedState(onSwipeUp)
-    val edges = WindowInsets.systemGestures
-    val direction = LocalLayoutDirection.current
-    val next = stringResource(R.string.a11y_next_style)
-    val previous = stringResource(R.string.a11y_previous_style)
-    val live = stringResource(R.string.visuals_view_live)
-    return this
-        .pointerInput(Unit) { detectTapGestures(onTap = { tap() }, onDoubleTap = { doubleTap() }) }
-        .pointerInput(edges, direction) {
-            var drag = Offset.Zero
-            var ours = true
-            detectDragGestures(
-                onDragStart = { start ->
-                    drag = Offset.Zero
-                    ours = start.x > edges.getLeft(this, direction) &&
-                        start.x < size.width - edges.getRight(this, direction) &&
-                        start.y > edges.getTop(this) &&
-                        start.y < size.height - edges.getBottom(this)
-                },
-                onDragEnd = {
-                    val far = STAGE_SWIPE_DP.dp.toPx()
-                    when {
-                        !ours -> Unit
-                        abs(drag.x) >= abs(drag.y) -> if (abs(drag.x) > far) swipe(if (drag.x < 0) 1 else -1)
-                        drag.y < -far -> up()
-                    }
-                },
-            ) { _, delta -> drag += delta }
-        }.semantics {
-            customActions =
-                listOf(
-                    CustomAccessibilityAction(next) {
-                        swipe(1)
-                        true
-                    },
-                    CustomAccessibilityAction(previous) {
-                        swipe(-1)
-                        true
-                    },
-                    CustomAccessibilityAction(live) {
-                        doubleTap()
-                        true
-                    },
-                )
-        }
 }
 
 /**
@@ -749,8 +782,6 @@ private val SHEET_PEEK = 72.dp
 private const val HALF_FRACTION = 0.5f
 
 private const val FLING_PX_PER_S = 1200f
-
-private const val STAGE_SWIPE_DP = 72f
 
 private val GRIP_WIDTH = 36.dp
 

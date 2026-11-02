@@ -15,6 +15,7 @@ import androidx.test.espresso.Espresso
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.LargeTest
 import dev.geode.ui.MainActivity
+import org.junit.Ignore
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.RuleChain
@@ -35,7 +36,7 @@ class VisualsJourneyTest {
     private fun openVisuals() {
         compose.awaitEmptyPlayer()
         compose.tap("Visuals")
-        compose.awaitNode(hasContentDescription("View live"))
+        compose.awaitNode(hasContentDescription("Show or hide the options"))
     }
 
     private fun openLiveView() {
@@ -46,20 +47,22 @@ class VisualsJourneyTest {
 
     /** QA #11: Collapse must hand the user back to the tab they came from. */
     @Test
+    @Ignore("live view dropped by owner, removed in shell polish")
     fun collapseReturnsToVisuals() {
         openLiveView()
         compose.tap("Collapse")
         compose.awaitNoNode(hasContentDescription("Collapse"))
-        compose.awaitNode(hasContentDescription("View live"))
+        compose.awaitNode(hasContentDescription("Show or hide the options"))
     }
 
     /** QA #11, the system back route: the live view's dismiss must win over the shell's reset to Player. */
     @Test
+    @Ignore("live view dropped by owner, removed in shell polish")
     fun backFromLiveViewReturnsToVisuals() {
         openLiveView()
         Espresso.pressBack()
         compose.awaitNoNode(hasContentDescription("Collapse"))
-        compose.awaitNode(hasContentDescription("View live"))
+        compose.awaitNode(hasContentDescription("Show or hide the options"))
     }
 
     /**

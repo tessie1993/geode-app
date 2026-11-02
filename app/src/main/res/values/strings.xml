@@ -1170,4 +1170,21 @@
     <string name="visuals_qs_percent">%1$d%%</string>
     <string name="visuals_qs_fade">Mini player fades after</string>
     <string name="visuals_qs_fade_never">Never</string>
+    <!-- Gestures on the full-screen visual (ui/VisualGestures.kt): TalkBack custom actions, named by what each does. -->
+    <string name="visuals_gesture_surface">Live visual</string>
+    <string name="visuals_gesture_show_mini_player">Show the mini player</string>
+    <string name="visuals_gesture_quick_settings">Visual quick settings</string>
+    <string name="visuals_gesture_toggle_sheet">Show or hide the options</string>
+    <string name="visuals_gesture_next_preset">Next preset</string>
+    <string name="visuals_gesture_previous_preset">Previous preset</string>
+    <string name="visuals_gesture_next_look">Next look</string>
+    <string name="visuals_gesture_previous_look">Previous look</string>
+    <string name="visuals_gesture_macros">Macros</string>
+    <string name="visuals_gesture_record">Record a take</string>
+    <string name="visuals_gesture_randomize">Randomize everything</string>
+    <string name="visuals_gesture_touch_play">Stir the visual</string>
+    <string name="visuals_gesture_play_pause">Play or pause</string>
+    <!-- The Macros drawer (ui/MacrosDrawer.kt). -->
+    <string name="macros_drawer_title">Macros</string>
+    <string name="macros_drawer_edit">Edit and make macros</string>
 </resources>

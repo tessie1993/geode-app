@@ -599,7 +599,7 @@ class PlayerSession internal constructor(
 
     fun applyVizEntry(entry: VizPlaylistEntry) = autoVisuals.applyVizEntry(entry)
 
-    fun stepVizPlaylist(): Boolean = autoVisuals.stepVizPlaylist()
+    fun stepVizPlaylist(step: Int = 1): Boolean = autoVisuals.stepVizPlaylist(step)
 
     val deviceTracks: StateFlow<List<DeviceTrack>> get() = musicLibrary.deviceTracks
 

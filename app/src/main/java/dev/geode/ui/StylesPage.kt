@@ -126,7 +126,8 @@ internal fun StylesTab(viewModel: PlayerViewModel) {
     val viz by viewModel.vizState.collectAsStateWithLifecycle()
     val gate by viewModel.gate.collectAsStateWithLifecycle()
     val paywall: PaywallViewModel = geodeViewModel()
-    val paywallOpen = paywall.uiState.collectAsStateWithLifecycle().value.visible
+    val paywallState by paywall.uiState.collectAsStateWithLifecycle()
+    val paywallOpen = paywallState.visible
     var filterKey by rememberSaveable { mutableStateOf(StylesGroupMemory.key) }
     var query by rememberSaveable { mutableStateOf("") }
     var searching by rememberSaveable { mutableStateOf(false) }

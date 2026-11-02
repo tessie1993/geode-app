@@ -195,6 +195,9 @@ internal fun VisualsHub(
                 panelPx = panelPx,
                 panelRange = range,
                 opacity = sheetOpacity,
+                visualizerView = visualizerView,
+                // Native blur under the glass while the options are up; off when hidden (full screen) or in PiP.
+                blurActive = nav.sheetShown && !pip,
                 onSettle = { height ->
                     view.performStoneHaptic(StoneHapticCue.TAP)
                     nav.settleSheet(height)

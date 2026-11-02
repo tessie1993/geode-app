@@ -38,6 +38,9 @@ media3-common = { module = "androidx.media3:media3-common", version.ref = "media
 media3-session = { module = "androidx.media3:media3-session", version.ref = "media3" }
 media3-transformer = { module = "androidx.media3:media3-transformer", version.ref = "media3" }
 media3-effect = { module = "androidx.media3:media3-effect", version.ref = "media3" }
+# Cast to TV (dev.geode.cast): the Cast sender and the fragmented-MP4 muxer for its live stream.
+media3-cast = { module = "androidx.media3:media3-cast", version.ref = "media3" }
+media3-muxer = { module = "androidx.media3:media3-muxer", version.ref = "media3" }
 compose-bom = { module = "androidx.compose:compose-bom", version.ref = "composeBom" }
 compose-material3 = { module = "androidx.compose.material3:material3" }
 compose-material3-adaptive = { module = "androidx.compose.material3.adaptive:adaptive", version.ref = "material3Adaptive" }

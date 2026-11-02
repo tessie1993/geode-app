@@ -1,11 +1,12 @@
 # MuzViz Studio Pro — Privacy Policy
 
-*Last updated: 1 November 2026*
+*Last updated: 2 November 2026*
 
 MuzViz Studio Pro ("MuzViz", "the app") is a music player, music visualizer and music
 video studio for Android. This policy describes what the app does with your
-information. The short version: **MuzViz collects nothing, sends nothing and has no
-servers.** The one exception is buying MuzViz Pro, which Google Play handles.
+information. The short version: **MuzViz collects nothing, sells nothing and has no
+servers.** Two exceptions: buying MuzViz Pro, which Google Play handles, and the
+optional *Cast to TV*, which uses Google Cast on your own network.
 
 ## Information the app does not collect
 
@@ -14,7 +15,8 @@ MuzViz does **not** collect, transmit, sell or share personal information. The a
 - no user accounts, sign-in or registration;
 - no analytics, telemetry, crash-reporting or advertising SDKs;
 - no advertising identifier;
-- no `INTERNET` permission. The app cannot send your data anywhere.
+- no internet use except *Cast to TV*, which talks only to Google Cast and to the TV on
+  your own Wi-Fi (see below).
 
 ## Information the app uses on your device
 
@@ -49,10 +51,25 @@ signed purchase record on the device, with the time it last checked, so Pro keep
 when the Play Store can't be reached; it is removed when Play reports the purchase is no
 longer owned. Like the rest of the app's settings it is included in Android's own device
 backup. The purchase record isn't sent anywhere else. This exchange goes between MuzViz and the Play Store app on your
-device; MuzViz itself still makes no internet connection.
+device; MuzViz makes no internet connection of its own for it.
 
 The free one-hour trial of Pro runs entirely on your device: the app stores when it
 started, and nothing else.
+
+## Cast to TV (Google Cast, Pro)
+
+If you cast to a TV, your phone draws the visuals and streams them, with the sound, to the
+TV over your own Wi-Fi. The stream goes from your phone straight to the TV on your local
+network; it is never sent to MuzViz or stored anywhere. Google's own Cast receiver plays
+it on the TV.
+
+To find and connect to the TV the app uses the **Google Cast SDK**. Google says the SDK
+logs how it is used (discovery and session events, device and app information) and
+sends that to Google, aggregated, without identifiers that trace back to you, encrypted in
+transit and kept for a short time, to improve Cast
+([Google's Cast SDK disclosure](https://developers.google.com/cast/docs/android_sender/data_disclosure)).
+Neither you nor MuzViz can turn that logging off or delete it. If you never cast, none of
+this happens.
 
 ## Permissions
 
@@ -64,14 +81,16 @@ started, and nothing else.
 - **`POST_NOTIFICATIONS`** (Android 13+): playback controls, and the ongoing
   notifications Android requires while *Visualize other apps* or a video render runs.
 - **`FOREGROUND_SERVICE`** with the media-playback, media-projection, media-processing
-  and data-sync types: lets playback, capture and video rendering continue while the app
-  is not on screen, always with a visible notification.
+  and data-sync types: lets playback, casting, capture and video rendering continue while
+  the app is not on screen, always with a visible notification.
 - **`com.android.vending.BILLING`**: lets the app talk to the Google Play Store app to
   sell and restore MuzViz Pro.
+- **`INTERNET`** and **`ACCESS_NETWORK_STATE`**: only for *Cast to TV*: to find the TV,
+  talk to Google Cast and stream to the TV on your Wi-Fi.
 - **`MODIFY_AUDIO_SETTINGS`**: for bit-perfect USB audio output to an external DAC.
 - **`VIBRATE`**: haptic feedback for the app's controls.
 
-MuzViz requests no camera, contacts, location or internet permission.
+MuzViz requests no camera, contacts or location permission.
 
 ## Visualize other apps (playback capture)
 
@@ -106,7 +125,7 @@ presets. MuzViz never sends it anywhere; restoring reads it back from where you 
 ## Children
 
 MuzViz is not directed at children under 13. It contains no ads, no chat and no content
-from other users, and it collects no data from anyone, including children.
+from other users, and MuzViz collects no data from anyone, including children.
 
 ## Deleting your data
 
@@ -117,9 +136,10 @@ Exported videos are ordinary files and are deleted like any other file.
 
 ## Third-party components
 
-MuzViz bundles open-source libraries (including libprojectM, AndroidX/Jetpack and Media3)
-and the Google Play Billing Library. None of them collect or transmit data in this app,
-apart from the Play purchase exchange described above. The open-source notices are in the
+MuzViz bundles open-source libraries (including libprojectM, AndroidX/Jetpack and Media3),
+the Google Play Billing Library and the Google Cast SDK. None of them collect or transmit
+data in this app, apart from the Play purchase exchange and the Cast logging described
+above. The open-source notices are in the
 app under Settings.
 
 ## Changes to this policy

@@ -18,7 +18,7 @@ will search for once they know it.
 
 **`Music comes to life: reactive visuals, 4K music videos, live wallpaper.`** (71)
 
-Alternative: `Reactive music visuals, 4K music videos and a live wallpaper. Offline.` (70)
+Alternative: `Reactive music visuals, 4K music videos, live wallpaper and Cast to TV.` (71)
 
 ## Full description (max 4000)
 
@@ -46,6 +46,7 @@ MUSIC VIDEO STUDIO
 
 EVERYWHERE YOU ARE
 • Live wallpaper and screensaver that move with your music
+• Cast to TV: the visuals and your music on the big screen (Pro)
 • Picture-in-picture and second-screen output
 • Android Auto playback and a home-screen widget
 
@@ -54,8 +55,9 @@ A REAL MUSIC PLAYER
 • Gapless, ReplayGain, equalizer and bit-perfect USB output for DACs
 
 PRIVATE BY DESIGN
-MuzViz has no internet permission. No accounts, no ads, no tracking, no analytics.
-Your music and everything you make stay on your device. The full privacy policy is
+MuzViz uses the internet for one thing: Cast to TV, through Google Cast on your own Wi-Fi.
+No accounts, no ads, no tracking, no analytics. Your music and everything you make stay on
+your device. The full privacy policy is
 in the app under Settings › About › Privacy policy, and at the link on this page.
 
 SAFE TO WATCH

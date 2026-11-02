@@ -52,6 +52,7 @@ The native core is built by the root `CMakeLists.txt`, plus `core/CMakeLists.txt
 | `viz` | Background image layer | `BackgroundImage` |
 | `wallpaper` | Live wallpaper and the dream. Each builds its own `VisualizerView`. The wallpaper's run rule (`wallpaperRunMode`: stopped when hidden or covered by the shade or recents, a still frame without Pro, in battery saver or after 6 s of silence), its sound (`SoundSource`: the app's ring while fed, else any app's audio through `OutputMixCapture`, a `Visualizer` on the output mix), the edge glow look (`EdgeGlow`, drawn by `WallpaperRenderer` after the visual; the AOD-like look, since ambient mode is a system API) and its options (`WallpaperPrefs`, own file `geode-wallpaper`) | `VisualizerWallpaperService`, `WallpaperRunState`, `SoundSource`, `EdgeGlow`, `VisualizerDreamService` |
 | `widget` | Glance now-playing widget in black glass (`SizeMode.Exact`, four layouts from 2x1 to 4x3+): progress on a slow tick while playing, the style on screen as a picture (`WidgetVisual`: its thumbnail, else a glow from the cover's palette), and style buttons the session takes through `WidgetStyles` (it collects `steps`, calls `publish`; with no session they open the app) | `NowPlayingWidget`, `WidgetPublisher`, `WidgetStyles`, `WidgetVisual` |
+| `cast` | Cast to TV (Pro, the only internet use): Media3 Cast to Google's Default Media Receiver. The phone renders its own `VisualizerRenderer` into an H.264+AAC encoder (`CastStream`, `CastEncoder`), cuts the fragmented MP4 into live HLS (`LiveSegments`) and serves it on the LAN under a random token (`LiveHttpServer`); sound plays on the TV only, the phone is muted | `CastController` (`state`, `stop()`), `CastService`, `CastStream` |
 | `tile` | Quick Settings tile: play/pause through a `MediaController` on `PlaybackService`'s session while the shade shows it; opens the app when nothing is loaded and on a long press | `PlaybackTileService` |
 
 ## Entry points (`app/src/main/AndroidManifest.xml`)
@@ -65,6 +66,7 @@ The native core is built by the root `CMakeLists.txt`, plus `core/CMakeLists.txt
 - `wallpaper.VisualizerWallpaperService` and `wallpaper.VisualizerDreamService`.
 - `ui.wallpaper.WallpaperOptionsActivity`: the wallpaper picker's Settings button (`android:settingsActivity` in `res/xml/wallpaper.xml`), a plain `ComponentActivity` outside Hilt.
 - `widget.NowPlayingWidgetReceiver` (in `NowPlayingWidget.kt`).
+- `cast.CastService`: foreground service (`mediaPlayback`) that keeps a cast streaming in the background; started by `CastController` when a Cast session starts.
 - `tile.PlaybackTileService`: the Quick Settings tile (`BIND_QUICK_SETTINGS_TILE`), and `tile.TileLongPressActivity` beside it, which answers the tile's long press by opening the app.
 - `FileProvider` `${applicationId}.presets`, for sharing presets.
 
@@ -88,7 +90,7 @@ The native core is built by the root `CMakeLists.txt`, plus `core/CMakeLists.txt
 ## Pro (one-time unlock)
 
 - Product id `muzviz_pro` (`BillingRepository.PRO_PRODUCT_ID`). Every gate asks a `FeatureGate` from `GetFeatureGateUseCase` (Pro beats the 1-hour trial beats free); what free keeps is `pro/FreeTier.kt` alone. Free gets the loose shader styles, the first style of each style family and the neon opener, Neon Chrome Sea, which is also every install's first style (`FreeTier.FIRST_STYLE_ID`); the other eleven per family are Pro (`FreeTier.familyProIds`; the catalogue names each family's opener).
-- Gates: `PlayerViewModel.startExport`/`startLoopRender`/`startBatch` (4K, 60 fps, the 1-minute cap, the full-frame watermark; loop and batch renders need Pro), `StudioViewModel` exports (Pro only), `PlayerSession.selectScene`/`applyPreset` via `PlayerSessionProvider` (styles; auto-visuals skips locked ones silently), `ProGate` on Studio › Edit (Studio › Render is open to free and trial users within `FreeTier`), the wallpaper button, `ProSnapshot` in the wallpaper and dream services and the auto-director (`AutoDirectorPolicy`: Pro and trial get the whole song, free the first minute of each). Note & key reactions are free (Settings › Behaviour, on by default); their Customize › Advanced card is Pro like every card, and Look's note blooms are free (`FreeTier.NOTE_BLOOMS_CONTROL`).
+- Gates: `PlayerViewModel.startExport`/`startLoopRender`/`startBatch` (4K, 60 fps, the 1-minute cap, the full-frame watermark; loop and batch renders need Pro), `StudioViewModel` exports (Pro only), `PlayerSession.selectScene`/`applyPreset` via `PlayerSessionProvider` (styles; auto-visuals skips locked ones silently), `ProGate` on Studio › Edit (Studio › Render is open to free and trial users within `FreeTier`), the wallpaper button, `CastController` when a Cast session starts (`ProFeature.CAST`; a locked session is ended), `ProSnapshot` in the wallpaper and dream services and the auto-director (`AutoDirectorPolicy`: Pro and trial get the whole song, free the first minute of each). Note & key reactions are free (Settings › Behaviour, on by default); their Customize › Advanced card is Pro like every card, and Look's note blooms are free (`FreeTier.NOTE_BLOOMS_CONTROL`).
 - `PaywallNavigator.request` is state; `PaywallHost` (a `Dialog`, drawn from `AppRoot`) shows it. Debug builds bill against `FakeBillingRepository` (`BuildConfig.USE_FAKE_BILLING`) with a debug panel on the paywall.
 - Store and console steps: [`docs/play/`](docs/play/).
 
@@ -116,7 +118,7 @@ The native core is built by the root `CMakeLists.txt`, plus `core/CMakeLists.txt
 - Use `bestEffort(TAG, "what")` (`dev.geode.util`) for best-effort failures. Failures go to `RingLog`.
 - Scratch files use the prefixes `geode_aac_`, `geode_loop_` and `studio-`; `GeodeContainer` sweeps them. Renders insert with `IS_PENDING`.
 - The tap stays first in the audio chain, and the chain never gets float output (see `docs/AUDIO_CHAIN.md`).
-- The app is offline by design: there is no network permission. The manifest removes INTERNET explicitly; Play Billing works over IPC to the Play Store app.
+- Cast to TV is the app's only internet use (`INTERNET`, `ACCESS_NETWORK_STATE`; CI fails if INTERNET appears without `CastService`, or AD_ID at all). Everything else is offline; Play Billing works over IPC to the Play Store app.
 - Runtime permissions are asked for in context through `ui/PermissionRequest.kt` (`rememberPermissionRequest`: rationale first, retry after a refusal, app Settings once Android stops asking). Only music access is asked at first run (`SafetyConsent` → `FirstRun`, on `OnboardingScaffold`).
 
 ## Large files to split (lines)

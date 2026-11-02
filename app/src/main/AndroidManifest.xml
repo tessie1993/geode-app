@@ -51,21 +51,14 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROCESSING" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <!-- Media3 merges ACCESS_NETWORK_STATE in for streaming it can do and this app
-         never does. Geode is offline by design and its privacy policy says so; the
-         shipped manifest should agree. Media3 treats the missing permission as
-         "network type unknown", which is correct for local files. -->
-    <uses-permission
-        android:name="android.permission.ACCESS_NETWORK_STATE"
-        tools:node="remove" />
-    <!-- The same promise, held against any library that would merge it in. Play Billing does
-         not need it: the purchase sheet, the price and the purchase records all come from the
-         Play Store app over its bound service (com.android.vending.BILLING, which the billing
-         library declares), and the Play Store app does the networking. CI fails the release
-         build if the merged manifest ever carries INTERNET (see release.yml). -->
-    <uses-permission
-        android:name="android.permission.INTERNET"
-        tools:node="remove" />
+    <!-- Cast to TV (dev.geode.cast, Pro) is the app's only internet use (owner, 2026-11-02):
+         the Google Cast SDK finds and talks to the TV, and the phone serves the TV its live
+         stream over the local network (cast/LiveHttpServer). ACCESS_NETWORK_STATE finds the
+         phone's Wi-Fi address for that. Nothing else in the app opens a connection; Play
+         Billing still goes through the Play Store app. CI fails the build if AD_ID appears
+         (android.yml, release.yml); Data safety and the privacy policy describe Cast. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <!--
       The crystal packs' haptic cues name Android feedback constants that all
       landed after minSdk 26, so older devices fall back to the vibration
@@ -276,6 +269,21 @@
             android:name=".export.ExportService"
             android:exported="false"
             android:foregroundServiceType="mediaProcessing|dataSync" />
+
+        <!--
+          Cast to TV: keeps the phone rendering and streaming to the TV with the app in the
+          background or the screen off. mediaPlayback: it continues video playback (on the TV)
+          from the background. Declared in Play Console with the other types.
+        -->
+        <service
+            android:name=".cast.CastService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
+
+        <!-- Media3 Cast with Google's Default Media Receiver: no receiver app of our own. -->
+        <meta-data
+            android:name="com.google.android.gms.cast.framework.OPTIONS_PROVIDER_CLASS_NAME"
+            android:value="androidx.media3.cast.DefaultCastOptionsProvider" />
 
         <!--
           Does nothing, and must exist: getActiveSessions() is gated on being

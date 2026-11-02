@@ -121,6 +121,7 @@ data class BehaviourPrefs(
     val startOnHeadphones: Boolean = false,
     val autoFullscreen: Boolean = false,
     // "Resume last track on launch" is PlayerPrefs.autoResume (Settings › Playback until 3B moves its row).
+
     /** Back twice to leave the app. */
     val confirmExit: Boolean = false,
     val notificationButtons: Set<NotificationButton> = setOf(NotificationButton.SHUFFLE, NotificationButton.REPEAT),

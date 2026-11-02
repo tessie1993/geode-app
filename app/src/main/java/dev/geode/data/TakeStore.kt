@@ -112,7 +112,12 @@ class TakeStore(
             if (candidate == name) {
                 json
             } else {
-                runCatching { org.json.JSONObject(json).put("name", candidate).toString() }.getOrDefault(json)
+                runCatching {
+                    org.json
+                        .JSONObject(json)
+                        .put("name", candidate)
+                        .toString()
+                }.getOrDefault(json)
             }
         projects.saveTake(project.id, takeId, body)
         projects.save(project)

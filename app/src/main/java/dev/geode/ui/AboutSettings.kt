@@ -26,6 +26,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -152,12 +153,13 @@ private fun StorageDialog(
     onDismiss: () -> Unit,
 ) {
     val context = LocalContext.current
+    val resources = LocalResources.current
     val report: (StorageClearResult) -> Unit = { result ->
         val message =
             if (result.skipped > 0) {
-                context.getString(R.string.settings_storage_kept)
+                resources.getString(R.string.settings_storage_kept)
             } else {
-                context.getString(R.string.settings_storage_freed, Formatter.formatShortFileSize(context, result.freedBytes))
+                resources.getString(R.string.settings_storage_freed, Formatter.formatShortFileSize(context, result.freedBytes))
             }
         Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
     }

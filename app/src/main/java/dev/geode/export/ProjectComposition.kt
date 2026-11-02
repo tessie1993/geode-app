@@ -416,8 +416,7 @@ object ProjectComposition {
                             .Builder()
                             .setEndPositionMs(durationMs)
                             .build(),
-                    )
-                    .build(),
+                    ).build(),
             ).setRemoveAudio(true)
             .setFrameRate(fps)
             .setEffects(Effects(emptyList(), effects))

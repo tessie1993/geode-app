@@ -46,7 +46,7 @@ class ShellTabsTest {
         compose.awaitNoNode(hasText("Pick something to play"))
 
         compose.tap("Visuals")
-        compose.awaitNode(hasContentDescription("View live"))
+        compose.awaitNode(hasContentDescription("Show or hide the options"))
 
         // Default intent is BOTH, which shows Studio (behind its Pro gate for a free user).
         compose.tap("Studio")

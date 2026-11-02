@@ -5,6 +5,7 @@ import android.net.Uri
 import android.util.Log
 import dev.geode.engine.audio.SoundTuning
 import dev.geode.render.AdsrConfig
+import dev.geode.render.HandMask
 import dev.geode.render.LfoConfig
 import dev.geode.render.ReactionRoute
 import dev.geode.render.SceneFactory
@@ -31,7 +32,8 @@ data class OffscreenRenderSpec(
     val baseParams: SceneParams,
     val lfoConfigs: List<LfoConfig> = emptyList(),
     val adsrConfigs: List<AdsrConfig> = emptyList(),
-    // The user's reaction routes; null plays the style's DNA, exactly as the live renderer does.
+    // The user's reaction routes; null plays the style's DNA. Merged with the live DNA under the process's
+    // HandMask (the hand wins per moment) exactly as the live renderer does, so the export matches the screen.
     val reactions: List<ReactionRoute>? = null,
     val reducedMotion: Boolean = false,
     val paramsAt: ((Long) -> SceneParams)? = null,
@@ -137,7 +139,7 @@ class OffscreenSceneRenderer(
         val p = (spec.paramsAt?.invoke(timeMs) ?: spec.baseParams).copy(fluidAutoQuality = false)
         viz.setParams(p)
         // Keyframes can change reactSeed mid-export, so this resolves per frame like live does.
-        val routes = spec.reactions ?: styleReactions.routesFor(sceneFactory.sceneId, p.reactSeed)
+        val routes = styleReactions.routesFor(sceneFactory.sceneId, p.reactSeed, spec.reactions, HandMask.current)
         if (routes !== nativeReactions) {
             viz.setReactions(routes)
             nativeReactions = routes

@@ -1,5 +1,6 @@
 #pragma once
 #include <array>
+#include <cstdint>
 #include <string_view>
 
 #include "viz/Reactions.hpp"
@@ -58,5 +59,53 @@ struct StyleDna {
 };
 
 StyleDna buildStyleDna(std::string_view styleId, int seed, const StyleTraits& traits);
+
+// ── Customize › Music: the hand wins per moment ─────────────────────────────────────────────────────
+//
+// The moments and the hand mask are in viz/Reactions.hpp, where the director reads them. Here: how the
+// user's routes and the live DNA merge, and what each chip on the page does to the routes. Kotlin only
+// labels the rows and chips and calls these through geode_music_* and geode_style_reactions_hand.
+
+// What a moment can do to the picture, one chip each. Wire ordinals; append only.
+enum class MusicAction { Pulse, Flash, Zoom, Shake, Colour, Camera, Warp };
+constexpr int kMusicActionCount = static_cast<int>(MusicAction::Warp) + 1;
+
+using RouteArray = std::array<ReactRoute, ReactionEngine::kRoutes>;
+
+// The user's side of the matrix: their routes and the mask of what is theirs. `user` false is "all Auto"
+// (no list of their own), whatever `mask` says.
+struct HandRoutes {
+    RouteArray routes{};
+    int count = 0;
+    bool user = false;
+    std::uint32_t mask = 0;
+};
+
+// What plays: the user's routes on the hand's sources, then the DNA's on every other source, so an
+// untouched moment re-deals with the style and seed. The hand's routes come first: a full matrix drops a
+// DNA route, never one the user set. Returns the count; slots past it are disabled.
+int mergeHand(const HandRoutes& user, const StyleDna& dna, RouteArray& out);
+
+// One row of the Music page, read from what plays now.
+struct MomentState {
+    bool mine = false;      // the hand's: the "Mine" mark and the ⋮ › Reset to Auto
+    int routes = 0;         // how many routes play for it (its Strength shows while > 0)
+    float strength = 1.0f;  // its routes' amounts against each action's 1×, averaged; 1 when it does nothing
+    std::uint32_t on = 0;   // bit per MusicAction: one of the things it does now
+    std::uint32_t fits = 0; // bit per MusicAction: turning it on still fits the matrix's kRoutes
+};
+MomentState momentState(const HandRoutes& user, const RouteArray& playing, int count, Moment m);
+
+enum class MusicEdit { Toggle, Strength, ResetToAuto };
+constexpr int kMusicEditCount = static_cast<int>(MusicEdit::ResetToAuto) + 1;
+constexpr float kMaxMomentStrength = 2.0f;
+
+// One tap on the page. Toggle turns `action` on or off for `m`; Strength scales `m`'s routes to `value`;
+// both make `m` the hand's, with its routes as they played (DNA ones included) plus the change.
+// ResetToAuto hands `m` back to the DNA; with nothing left the hand's, the result is "all Auto".
+HandRoutes editMusic(const HandRoutes& user, const StyleDna& dna, MusicEdit op, Moment m, MusicAction action, float value);
+
+// The target a new route of `action` moves: the shell hides chips whose target the style ignores.
+LfoTarget musicActionTarget(MusicAction action);
 
 }  // namespace geode::viz

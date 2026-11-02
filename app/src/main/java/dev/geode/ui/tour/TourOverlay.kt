@@ -45,6 +45,7 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.RoundRect
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathFillType
 import androidx.compose.ui.graphics.graphicsLayer
@@ -194,7 +195,7 @@ private fun spotlight(
     val padded = r.inflate(pad)
     val w = max(padded.width, min)
     val h = max(padded.height, min)
-    return Rect.fromCenter(padded.center, w, h)
+    return Rect(padded.center - Offset(w / 2f, h / 2f), Size(w, h))
 }
 
 /** Full-screen, no platform dim or zoom, drawn under the camera cutout and a clear nav bar. */

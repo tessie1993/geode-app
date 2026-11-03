@@ -11,12 +11,12 @@ flowchart LR
   subgraph COORD["Main and coroutine pools"]
     MAIN["main: Compose, 7 ViewModels, services, widget, tile, sensors, 12 classes on Main.immediate"]:::main
     STORE["storeScope: IO.limitedParallelism 1, PlayerSession writes"]:::pool
-    IOP["Dispatchers.IO pool: 111 call sites in 40 files"]:::pool
-    DEF["Dispatchers.Default pool: ExportRun.scope, CastMirror"]:::pool
+    IOP["Dispatchers.IO pool: stores, MediaStore, TagLib reads, loudness decode"]:::pool
+    DEF["Dispatchers.Default pool: ExportRun.scope, CastMirror, LoopExtend"]:::pool
   end
 
   subgraph AUDIO["Audio producers"]
-    EXO["ExoPlayer:Playback, the one PlaybackEngine player: PcmTap, then DSP"]:::fw
+    EXO["ExoPlayer:Playback x5 players: PlaybackEngine, Studio song lane, footage, clip, boot intro"]:::fw
     MIC["geode-mic: AudioRecord loop"]:::aud
     PCAP["geode-playback-capture: AudioRecord loop"]:::aud
     VISCB["Visualizer capture callback, on main, wallpaper only"]:::risk
@@ -33,15 +33,20 @@ flowchart LR
     PACER["GeodeFramePacer HandlerThread: one Choreographer for all views"]:::gl
   end
 
-  subgraph NATIVE["libgeode.so"]
-    REN["core Renderer and core/sound engine, runs on the calling GL thread"]:::nat
+  subgraph NATIVE["libgeode.so: no thread of its own except the writer"]
+    REN["core/viz Renderer plus core/sound engine: on the calling GL or export thread"]:::nat
+    NDSP["core/audio/dsp chain: on ExoPlayer:Playback"]:::nat
+    NEXP["core/audio/dsp Loudness on IO, PcmResampler on Default or cast-render"]:::nat
+    NLIB["core/library TagLib: on IO"]:::nat
+    NSIL["core/sound Silence: on main, wallpaper and dream"]:::nat
+    NSTU["core/studio PreviewClock: on main"]:::nat
     WR["ProgramBinaryCache writer std::thread, one per Renderer"]:::nat
-    LOCKS["stateLock_, soundLock_, atomics: setters from any thread, latched per frame"]:::nat
+    LOCKS["12 mutexes, about 36 atomics: setters from any thread, latched per frame"]:::nat
   end
 
   subgraph EXPORT["Export"]
     EXG["Default worker: VideoExporter or LoopRender, EGL current for the whole render"]:::risk
-    TRF["Media3 Transformer threads: StudioExporter"]:::fw
+    TRF["Media3 Transformer internal threads: StudioExporter, started from main"]:::fw
   end
 
   subgraph CAST["Cast to TV"]
@@ -58,13 +63,22 @@ flowchart LR
     HIS["geode-history: listening history writes"]:::risk
   end
 
-  EXO -->|"write"| RING
+  subgraph LIBS["Threads libraries start for us"]
+    GLANCE["Glance widget session: WorkManager worker"]:::fw
+    M3X["ExoPlayer loader and codec callback threads"]:::fw
+    SYS["HWUI RenderThread, binder threads, GL driver compile threads"]:::fw
+  end
+
+  EXO -->|"PcmTap write"| RING
+  EXO --> NDSP
   MIC -->|"write"| RING
   PCAP -->|"write"| RING
   VISCB -->|"write"| OMR
   RING -->|"SoundCursor, each sample once"| GLA
+  RING --> GLS
   RING --> GLW
   RING --> GLD
+  RING --> CR
   OMR --> GLW
   OMR --> GLD
   PACER -->|"frame request"| GLA
@@ -80,15 +94,22 @@ flowchart LR
   REN -->|"queue binaries"| WR
   MAIN -->|"NativeViz setters"| LOCKS
   LOCKS --> REN
+  MAIN --> NSIL
+  MAIN --> NSTU
+  IOP --> NLIB
+  IOP --> NEXP
   MAIN --> STORE
   MAIN --> IOP
   MAIN --> DEF
   DEF --> EXG
   DEF -->|"look snapshots"| CR
   CR --> CE
+  CR --> NEXP
   CE -->|"fMP4 segments"| CH
   CH --> CP
   MAIN --> TRF
   MAIN --> ART
   MAIN --> RES
   MAIN --> HIS
+  MAIN --> GLANCE
+  EXO --> M3X

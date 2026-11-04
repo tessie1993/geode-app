@@ -1,14 +1,128 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "skillOverrides": {
+    "android-skills:android-for-cars-parked-apps": "name-only",
+    "android-skills:appfunctions": "name-only",
+    "android-skills:camerax": "name-only",
+    "android-skills:display-glasses-with-jetpack-compose-glimmer": "name-only",
+    "android-skills:engage-sdk-integration": "name-only",
+    "android-skills:ink-app-builder": "name-only",
+    "android-skills:ink-custom-brush-builder": "name-only",
+    "android-skills:leanback-to-compose-tv-migration": "name-only",
+    "android-skills:litert-lm": "name-only",
+    "android-skills:litert-runtime": "name-only",
+    "android-skills:migrate-xml-views-to-jetpack-compose": "name-only",
+    "android-skills:ml-kit-genai-prompt-api": "name-only",
+    "android-skills:mlkit-agent-api": "name-only",
+    "android-skills:projected-hardware": "name-only",
+    "android-skills:restore-credentials": "name-only",
+    "android-skills:verified-email": "name-only",
+    "android-skills:wear-compose-m3": "name-only",
+    "android-skills:wear-widgets": "name-only",
+    "anthropic-skills:3d-visualizer": "name-only",
+    "anthropic-skills:aesthetic-dreaming": "name-only",
+    "anthropic-skills:aesthetic-motion-temporal": "name-only",
+    "anthropic-skills:aesthetic-pattern-miner": "name-only",
+    "anthropic-skills:amazon-colouring-book-research": "name-only",
+    "anthropic-skills:antigravity-design-expert": "name-only",
+    "anthropic-skills:architecture-reference": "name-only",
+    "anthropic-skills:artifact-emulator": "name-only",
+    "anthropic-skills:character-design": "name-only",
+    "anthropic-skills:economic-systems": "name-only",
+    "anthropic-skills:fun-mode": "name-only",
+    "anthropic-skills:geometry-nodes": "name-only",
+    "anthropic-skills:google-flow-tool": "name-only",
+    "anthropic-skills:import-memory": "name-only",
+    "anthropic-skills:kdp-canva-format": "name-only",
+    "anthropic-skills:kdp-coloring-book-spec": "name-only",
+    "anthropic-skills:modeling-from-reference-in-blender": "name-only",
+    "anthropic-skills:morning": "name-only",
+    "anthropic-skills:newchat": "name-only",
+    "anthropic-skills:perchance-generator-builder": "name-only",
+    "anthropic-skills:pokemon-designer": "name-only",
+    "anthropic-skills:prompt-architect": "name-only",
+    "anthropic-skills:rpg": "name-only",
+    "anthropic-skills:web-ui-component-skill": "name-only",
+    "anthropic-skills:world-builder": "name-only",
+    "anthropic-skills:world-roleplay": "name-only",
+    "anthropic-skills:writers-room-story-engine": "name-only",
+    "authoring-motion:blender-web-pipeline": "name-only",
+    "authoring-motion:rive-interactive": "name-only",
+    "authoring-motion:spline-interactive": "name-only",
+    "authoring-motion:substance-3d-texturing": "name-only",
+    "canva:canva-brand-check": "name-only",
+    "canva:canva-bulk-create": "name-only",
+    "canva:canva-design-feedback": "name-only",
+    "canva:canva-edit-design": "name-only",
+    "canva:canva-implement-feedback": "name-only",
+    "canva:canva-resize-for-social-media": "name-only",
+    "chief-of-staff": "name-only",
+    "chrisbanes-skills:changelog": "name-only",
+    "chrisbanes-skills:deliver-spec": "name-only",
+    "chrisbanes-skills:grounded-writing": "name-only",
+    "chrisbanes-skills:implement-with-subagents": "name-only",
+    "chrisbanes-skills:release-kotlin-library": "name-only",
+    "chrisbanes-skills:run-github-project": "name-only",
+    "chrisbanes-skills:shepherd": "name-only",
+    "chrisbanes-skills:subagent-delegation": "name-only",
+    "chrisbanes-skills:to-plan": "name-only",
+    "chrisbanes-skills:using-chrisbanes-skills": "name-only",
+    "cowork-plugin-management:cowork-plugin-customizer": "name-only",
+    "cowork-plugin-management:create-cowork-plugin": "name-only",
+    "migrate-to-shoehorn": "name-only",
+    "scaffold-exercises": "name-only",
+    "setup-ts-deep-modules": "name-only",
+    "software-factory": "name-only",
+    "writing-beats": "name-only",
+    "writing-fragments": "name-only",
+    "writing-shape": "name-only"
+  },
+  "enabledPlugins": {
+    "android-skills@android-skills": true,
+    "chrisbanes-skills@chrisbanes-skills": true,
+    "shader-skills@shader-skills": true,
+    "systems-programming@claude-code-workflows": true,
+    "code-refactoring@claude-code-workflows": true,
+    "mattpocock-skills@mattpocock": true,
+    "superpowers@claude-plugins-official": true,
+    "clangd-lsp@claude-plugins-official": true
+  },
   "extraKnownMarketplaces": {
     "android-skills": {
       "source": {
         "source": "github",
         "repo": "android/skills"
       }
+    },
+    "claude-code-workflows": {
+      "source": {
+        "source": "github",
+        "repo": "wshobson/agents"
+      }
+    },
+    "shader-skills": {
+      "source": {
+        "source": "github",
+        "repo": "gokayfem/shader-skills"
+      }
+    },
+    "chrisbanes-skills": {
+      "source": {
+        "source": "github",
+        "repo": "chrisbanes/skills"
+      }
+    },
+    "mattpocock": {
+      "source": {
+        "source": "github",
+        "repo": "mattpocock/skills"
+      }
+    },
+    "claude-plugins-official": {
+      "source": {
+        "source": "github",
+        "repo": "anthropics/claude-plugins-official"
+      }
     }
-  },
-  "enabledPlugins": {
-    "android-skills@android-skills": true
   }
 }

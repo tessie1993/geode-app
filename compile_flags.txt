@@ -1,0 +1,7 @@
+-xc++
+-std=c++20
+-Wall
+-Wextra
+-Icore
+-Icore/tests/stub
+-Itools/clangd-stubs

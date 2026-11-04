@@ -36,6 +36,40 @@ if ! command -v android >/dev/null 2>&1 && [ ! -x "$HOME/.local/bin/android" ]; 
         echo "warning: Android CLI install failed"
 fi
 
+# Skill sets fetched as repo skills rather than plugins. Claude Code applies the skillOverrides in
+# .claude/settings.json only to repo and user skills, never to plugin skills, so a plugin's
+# skills always list their full descriptions. Fetching these two large sets into .claude/skills
+# lets the ones Geode rarely needs be listed by name only, while every one stays invocable.
+# Pinned commits keep sessions reproducible: bump a SHA to update a set. The copies are kept
+# out of git through .git/info/exclude (local to this checkout).
+step "skill sets: Google android/skills and chrisbanes/skills (pinned)"
+fetch_skills() { # <owner/repo> <sha>
+    local repo="$1" sha="$2" tmp
+    tmp="$(mktemp -d)"
+    if git -C "$tmp" init -q && git -C "$tmp" fetch -q --depth 1 "https://github.com/$repo" "$sha" &&
+        git -C "$tmp" checkout -q FETCH_HEAD; then
+        find "$tmp" -name SKILL.md -not -path '*/.git/*' | while read -r skill_md; do
+            local dir name
+            dir="$(dirname "$skill_md")"
+            name="$(basename "$dir")"
+            if [ -e ".claude/skills/$name" ] && ! grep -qx "/.claude/skills/$name/" .git/info/exclude 2>/dev/null; then
+                echo "warning: $repo skill $name clashes with a tracked skill; skipped"
+                continue
+            fi
+            rm -rf ".claude/skills/$name"
+            cp -r "$dir" ".claude/skills/$name"
+            grep -qx "/.claude/skills/$name/" .git/info/exclude 2>/dev/null ||
+                echo "/.claude/skills/$name/" >>.git/info/exclude
+        done
+    else
+        echo "warning: could not fetch $repo@$sha"
+    fi
+    rm -rf "$tmp"
+}
+mkdir -p .claude/skills .git/info
+fetch_skills android/skills bf68e2d66a992a1e6aeb7e9263293cc23fcbf475
+fetch_skills chrisbanes/skills 8df9735a751cfabe5ddae457f28b0a8ea3d4092b
+
 # The plugins themselves. Claude Code also offers these from .claude/settings.json; installing
 # here means a fresh container has them before the first prompt.
 step "Claude Code plugins (project scope)"

@@ -189,12 +189,18 @@ class NativeViz(
         routes: List<ReactionRoute>?,
         mask: Int,
     ) {
-        if (handle == 0L || (userSent && routes === userRoutes && mask == userMask)) return
+        if (handle == 0L || alreadySent(routes, mask)) return
         GeodeNative.vizSetUserReactions(handle, routes?.let { BuildStyleReactionsUseCase.packExact(it) }, mask)
         userRoutes = routes
         userMask = mask
         userSent = true
     }
+
+    /** True when this handle already has exactly these [routes] (by identity) and [mask]. */
+    private fun alreadySent(
+        routes: List<ReactionRoute>?,
+        mask: Int,
+    ) = userSent && routes === userRoutes && mask == userMask
 
     fun setLook(
         yaw: Float,

@@ -1,7 +1,8 @@
 // JNI marshalling for the export planning and clip maths (geode_api.h, "Export planning and clip maths").
-// Only copies in and out: every rule lives in core/output, core/signal/timeline, viz/ClipGrade, util/CubeLut
-// and audio/dsp/PcmConvert. Arrays move with Get/Set<Type>ArrayRegion (one copy, nothing pinned, no Release
-// to forget; NDK "JNI tips", Region calls), and every New<Type>Array is checked before it is filled.
+// Only copies in and out: every rule lives in core/output, core/signal/timeline, viz/ClipGrade, util/CubeLut,
+// audio/dsp/PcmConvert and audio/dsp/PcmTiming. Arrays move with Get/Set<Type>ArrayRegion (one copy, nothing
+// pinned, no Release to forget; NDK "JNI tips", Region calls), and every New<Type>Array is checked before it
+// is filled.
 #include <jni.h>
 
 #include <cstdint>
@@ -303,14 +304,37 @@ JNIEXPORT jshortArray JNICALL Java_dev_geode_engine_bridge_GeodeNative_pcmFloatT
     return result;
 }
 
-JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_pcmS16ToFloat(JNIEnv* env, jobject, jshortArray input,
-                                                                               jint count, jfloatArray out) {
-    if (!input || !out || count <= 0 || env->GetArrayLength(input) < count || env->GetArrayLength(out) < count) return;
-    std::vector<int16_t> in(static_cast<size_t>(count));
-    env->GetShortArrayRegion(input, 0, count, reinterpret_cast<jshort*>(in.data()));
-    std::vector<float> f(static_cast<size_t>(count));
-    geode_pcm_s16_to_float(in.data(), in.size(), f.data());
-    env->SetFloatArrayRegion(out, 0, count, f.data());
+// PCM timing (audio/dsp/PcmTiming).
+
+JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_aacRateFor(JNIEnv*, jobject, jint sourceRate) {
+    return geode_aac_rate_for(sourceRate);
+}
+
+JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_aacEndUs(JNIEnv*, jobject, jlong lastPtsUs,
+                                                                           jint sampleRate) {
+    return geode_aac_end_us(lastPtsUs, sampleRate);
+}
+
+JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_pcmS16BytesToUs(JNIEnv*, jobject, jlong bytes,
+                                                                                  jint rate, jint channels) {
+    return geode_pcm_s16_bytes_to_us(bytes, rate, channels);
+}
+
+JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_pcmSamplesBeforeUs(JNIEnv*, jobject, jlong us,
+                                                                                     jint rate, jint channels) {
+    return geode_pcm_samples_before_us(us, rate, channels);
+}
+
+JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_pcmTrimS16(JNIEnv* env, jobject, jlong startUs,
+                                                                             jlong bufferPtsUs, jlong bytes, jint rate,
+                                                                             jint channels, jlongArray outPtsUs) {
+    int64_t pts = 0;
+    const int64_t skip = geode_pcm_trim_s16(startUs, bufferPtsUs, bytes, rate, channels, &pts);
+    if (outPtsUs && env->GetArrayLength(outPtsUs) >= 1) {
+        const jlong value = pts;
+        env->SetLongArrayRegion(outPtsUs, 0, 1, &value);
+    }
+    return skip;
 }
 
 }  // extern "C"

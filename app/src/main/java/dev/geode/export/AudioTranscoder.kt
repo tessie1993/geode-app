@@ -23,10 +23,8 @@ class AudioTranscoder(
     ) {
         val durationUs: Long =
             sampleInfos.lastOrNull()?.let { last ->
-                // An AAC-LC frame is 1024 samples; its duration depends on the encoder's actual
-                // output sample rate (23.2ms at 44.1kHz, 21.3ms at 48kHz), not a fixed 24ms.
-                val sampleRate = format.getInteger(MediaFormat.KEY_SAMPLE_RATE)
-                last.presentationTimeUs + 1_024_000_000L / sampleRate
+                // One AAC-LC frame past the last, at the encoder's actual output rate (core/audio/dsp/PcmTiming).
+                GeodeNative.aacEndUs(last.presentationTimeUs, format.getInteger(MediaFormat.KEY_SAMPLE_RATE))
             } ?: 0L
 
         fun release() {
@@ -92,7 +90,7 @@ class AudioTranscoder(
         // Two rates from here on: the AIFF's own (source frames: the start skip) and the
         // encoder's (resampled bytes: every presentation timestamp handed to the encoder).
         val sourceRateHz = aiff.sampleRate
-        val encoderRateHz = outputRateHz ?: PcmResampler.aacRateFor(sourceRateHz)
+        val encoderRateHz = outputRateHz ?: GeodeNative.aacRateFor(sourceRateHz)
         val encFormat =
             MediaFormat.createAudioFormat(MediaFormat.MIMETYPE_AUDIO_AAC, encoderRateHz, channels).apply {
                 setInteger(MediaFormat.KEY_AAC_PROFILE, MediaCodecInfo.CodecProfileLevel.AACObjectLC)
@@ -131,7 +129,7 @@ class AudioTranscoder(
         var progressed = false
         var stallIterations = 0
         if (startMs > 0) {
-            var toSkip = startMs * sourceRateHz / 1000 * aiff.channels
+            var toSkip = GeodeNative.pcmSamplesBeforeUs(startMs * 1000, sourceRateHz, aiff.channels)
             while (toSkip > 0) {
                 val want = minOf(toSkip, readBuf.size.toLong()).toInt()
                 val n = aiff.read(if (want == readBuf.size) readBuf else ShortArray(want))
@@ -173,7 +171,7 @@ class AudioTranscoder(
                         inBuf.put(slice)
                         encoder.queueInputBuffer(inIndex, 0, toWrite, carryTimeUs, 0)
                         fedBytes += toWrite
-                        carryTimeUs = PcmResampler.pcmBytesToUs(fedBytes, encoderRateHz, channels)
+                        carryTimeUs = GeodeNative.pcmS16BytesToUs(fedBytes, encoderRateHz, channels)
                         carry.position(carry.position() + toWrite)
                         if (!carry.hasRemaining()) pcmCarry = null
                         progressed = true
@@ -238,7 +236,7 @@ class AudioTranscoder(
 
     /**
      * [outputRateHz] forces the AAC rate (a mix needs every clip at one rate); null picks
-     * [PcmResampler.aacRateFor] the source, which keeps it unless it is above what AAC encoders
+     * [GeodeNative.aacRateFor] the source, which keeps it unless it is above what AAC encoders
      * accept. Hi-res sources used to be handed to the encoder at their own 88.2-192 kHz.
      */
     fun transcode(
@@ -303,7 +301,7 @@ class AudioTranscoder(
                     channels = srcChannels.coerceAtMost(2)
                 }
             }
-            val converter = PcmResampler(sourceRateHz, outputRateHz ?: PcmResampler.aacRateFor(sourceRateHz), channels)
+            val converter = PcmResampler(sourceRateHz, outputRateHz ?: GeodeNative.aacRateFor(sourceRateHz), channels)
             resampler = converter
             val encFormat =
                 MediaFormat.createAudioFormat(MediaFormat.MIMETYPE_AUDIO_AAC, converter.outRateHz, channels).apply {
@@ -340,6 +338,7 @@ class AudioTranscoder(
         var encoderDone = false
         var pcmCarry: ByteBuffer? = null
         var carryTimeUs = 0L
+        val trimPtsUs = LongArray(1)
         var progressed = false
         var stallIterations = 0
 
@@ -355,7 +354,7 @@ class AudioTranscoder(
             // The carried PCM is already resampled, so its duration is at the encoder's rate.
             val encoderRateHz = resampler?.outRateHz ?: sourceRateHz
             enc.queueInputBuffer(inIndex, 0, toWrite, carryTimeUs, 0)
-            carryTimeUs += PcmResampler.pcmBytesToUs(toWrite.toLong(), encoderRateHz, channels)
+            carryTimeUs += GeodeNative.pcmS16BytesToUs(toWrite.toLong(), encoderRateHz, channels)
             carry.position(carry.position() + toWrite)
             if (!carry.hasRemaining()) pcmCarry = null
             progressed = true
@@ -420,13 +419,18 @@ class AudioTranscoder(
                                 } else {
                                     copy
                                 }
-                            if (decInfo.presentationTimeUs + 1000 < startUs) {
+                            // The seek lands on the sync sample before the start: native trims the frames
+                            // before it (a straddling buffer keeps the rest) and gives the kept part's pts.
+                            val bytes = mixed.remaining().toLong()
+                            val skip = GeodeNative.pcmTrimS16(startUs, decInfo.presentationTimeUs, bytes, sourceRateHz, channels, trimPtsUs)
+                            if (skip == bytes) {
                                 decoder.releaseOutputBuffer(outIndex, false)
                                 if (decInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) decoderDone = true
                                 continue
                             }
+                            mixed.position(mixed.position() + skip.toInt())
                             pcmCarry = resample(mixed, checkNotNull(resampler), channels)
-                            carryTimeUs = (decInfo.presentationTimeUs - startUs).coerceAtLeast(0L)
+                            carryTimeUs = trimPtsUs[0]
                         }
                         decoder.releaseOutputBuffer(outIndex, false)
                         if (decInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) decoderDone = true

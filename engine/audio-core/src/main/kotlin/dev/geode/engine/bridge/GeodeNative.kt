@@ -559,12 +559,18 @@ object GeodeNative {
 
     external fun loudnessDestroy(handle: Long)
 
-    /** Consumes [count] interleaved samples (not frames) of [samples], each in -1..1. */
-    external fun loudnessFeed(
+    /**
+     * Feeds the decoder output [buffer]'s bytes [offset] until [offset] + [size] (BufferInfo's span) to the
+     * meter where they lie: native-order s16, or float in -1..1 when [isFloat]. [buffer] must be direct, as
+     * MediaCodec's are; false, feeding nothing, when it is not or the span does not fit.
+     */
+    external fun loudnessFeedDirect(
         handle: Long,
-        samples: FloatArray,
-        count: Int,
-    )
+        buffer: java.nio.ByteBuffer,
+        offset: Int,
+        size: Int,
+        isFloat: Boolean,
+    ): Boolean
 
     external fun loudnessHasBlock(handle: Long): Boolean
 
@@ -753,12 +759,44 @@ object GeodeNative {
         count: Int,
     ): ShortArray
 
-    /** s16 to float by 1/32768 into [out]. */
-    external fun pcmS16ToFloat(
-        input: ShortArray,
-        count: Int,
-        out: FloatArray,
-    )
+    // PCM timing (core/audio/dsp/PcmTiming): the AAC encoder's rate, s16 durations, the start skip and trim.
+
+    /** The AAC rate for [sourceRateHz]: its own up to 48 kHz; above, 44.1 kHz for the 44.1k family, else 48 kHz. */
+    external fun aacRateFor(sourceRateHz: Int): Int
+
+    /** End of an AAC track: [lastPtsUs] plus one 1024-sample frame at [sampleRateHz]. */
+    external fun aacEndUs(
+        lastPtsUs: Long,
+        sampleRateHz: Int,
+    ): Long
+
+    /** Duration of [bytes] of interleaved s16 at [rateHz], the rate the bytes are at. */
+    external fun pcmS16BytesToUs(
+        bytes: Long,
+        rateHz: Int,
+        channels: Int,
+    ): Long
+
+    /** Interleaved samples before [us] at [rateHz]: what a start skip reads and discards. */
+    external fun pcmSamplesBeforeUs(
+        us: Long,
+        rateHz: Int,
+        channels: Int,
+    ): Long
+
+    /**
+     * A decoded s16 buffer of [bytes] at [bufferPtsUs] trimmed to [startUs]: the bytes to drop from its
+     * front (whole frames; == [bytes] when none is kept), with the kept part's pts (0 = the start) in
+     * outPtsUs[0]. A buffer that straddles the start keeps the frames from the start on.
+     */
+    external fun pcmTrimS16(
+        startUs: Long,
+        bufferPtsUs: Long,
+        bytes: Long,
+        rateHz: Int,
+        channels: Int,
+        outPtsUs: LongArray,
+    ): Long
 
     // Rest when silent (core/sound/Silence): the wallpaper's and the dream's silence rule.
 

@@ -23,6 +23,7 @@ add_library(geode_core STATIC
     api/geode_export_dsp_api.cpp
     api/geode_export_api.cpp
     audio/dsp/PcmConvert.cpp
+    audio/dsp/PcmTiming.cpp
     output/FrameClock.cpp
     output/LoopPlan.cpp
     output/EncodePlan.cpp

@@ -564,4 +564,37 @@ object GeodeNative {
         nowMs: Long,
         heardAtMs: Long,
     ): Boolean
+
+    // Live input's state machine (core/audio/LiveInput). States: LIVE_INPUT_OFF..LOST; events:
+    // LIVE_INPUT_TURN_ON..CAPTURE_STOPPED.
+
+    /** One step: the next state in the low 8 bits, the LIVE_INPUT_ACT_* bits to carry out above them. */
+    external fun liveInputStep(
+        state: Int,
+        event: Int,
+        hasPermission: Boolean,
+    ): Long
+
+    /** On, or paused while the app is away. */
+    external fun liveInputIsOn(state: Int): Boolean
+
+    const val LIVE_INPUT_OFF = 0
+    const val LIVE_INPUT_ON = 1
+    const val LIVE_INPUT_PAUSED = 2
+    const val LIVE_INPUT_LOST = 3
+
+    const val LIVE_INPUT_TURN_ON = 0
+    const val LIVE_INPUT_TURN_OFF = 1
+    const val LIVE_INPUT_START_FAILED = 2
+    const val LIVE_INPUT_MUSIC_STARTS = 3
+    const val LIVE_INPUT_APP_BACKGROUND = 4
+    const val LIVE_INPUT_APP_FOREGROUND = 5
+    const val LIVE_INPUT_CAPTURE_STOPPED = 6
+
+    const val LIVE_INPUT_ACT_STOP_OTHER_APP_AUDIO = 1 shl 0
+    const val LIVE_INPUT_ACT_PAUSE_MUSIC = 1 shl 1
+    const val LIVE_INPUT_ACT_START_CAPTURE = 1 shl 2
+    const val LIVE_INPUT_ACT_STOP_CAPTURE = 1 shl 3
+    const val LIVE_INPUT_ACT_RESET_SOUND = 1 shl 4
+    const val LIVE_INPUT_ACT_PLAYER_RATE = 1 shl 5
 }

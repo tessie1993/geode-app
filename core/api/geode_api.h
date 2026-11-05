@@ -247,6 +247,10 @@ GEODE_API const char* geode_params_roll_keys(void);
  * slots 0..count-1 in order; ints and bools as numbers, like the wire. Static: the pointer stays valid for the
  * process; the shell parses it once. Labels and page placement stay in Kotlin. */
 GEODE_API const char* geode_params_schema_text(void);
+/* The two-finger transform on the visual (core/viz/TouchTransform): a pinch's scale factor times Zoom, a twist in
+ * degrees added to Rotation, each clamped to its schema range; a broken gesture value returns current unchanged. */
+GEODE_API float       geode_touch_zoom(float current, float scale_factor);
+GEODE_API float       geode_touch_rotation(float current, float degrees);
 
 /* Export resampler (audio/dsp/PcmResampler): interleaved 16-bit PCM to the AAC encoder's rate; box filter
  * down, linear up. Streaming: state carries across calls. Any one thread at a time. There is no flush: a

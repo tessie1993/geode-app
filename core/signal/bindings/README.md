@@ -1,6 +1,8 @@
 # core/signal/bindings (skeleton, empty)
 
-Part of [`core/signal`](../README.md). Nothing here yet.
+Part of [`core/signal`](../README.md).
+
+**Here now:** `PlayingRoutes` (#352), the routes a renderer plays for the style it has asked for: the style's DNA (`viz::buildStyleDna` at the params' `reactSeed`), merged with the user's list under the frame's hand mask (`viz::mergeHand`). The renderer calls it at its frame latch, after `StyleSchedule` has applied this frame's cue, so a take's switch or a beat cut plays the new style's DNA from its first frame; the shell only hands over the user's list (`geode_viz_set_user_reactions`). Tested by `core/tests/playing_routes_test.cpp`. It is the first piece of the bus below.
 
 **Owns:** `Route` and `Bus`.
 - `Route { owner, source id, transforms[], target param id, weight, combine }`. Owner is one of: user, style DNA, director, macro, note response. Combine is add, multiply or lerp-to.

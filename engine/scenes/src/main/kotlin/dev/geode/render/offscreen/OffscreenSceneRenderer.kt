@@ -5,11 +5,9 @@ import android.net.Uri
 import android.util.Log
 import dev.geode.engine.audio.SoundTuning
 import dev.geode.render.AdsrConfig
-import dev.geode.render.HandMask
 import dev.geode.render.LfoConfig
 import dev.geode.render.ReactionRoute
 import dev.geode.render.SceneFactory
-import dev.geode.render.StyleReactionsCache
 import dev.geode.render.TransitionStyle
 import dev.geode.render.bridge.NativeViz
 import dev.geode.render.bridge.StyleSchedule
@@ -32,8 +30,8 @@ data class OffscreenRenderSpec(
     val baseParams: SceneParams,
     val lfoConfigs: List<LfoConfig> = emptyList(),
     val adsrConfigs: List<AdsrConfig> = emptyList(),
-    // The user's reaction routes; null plays the style's DNA. Merged with the live DNA under the process's
-    // HandMask (the hand wins per moment) exactly as the live renderer does, so the export matches the screen.
+    // The user's reaction routes; null plays the style's DNA. Native merges them with the DNA of whichever style
+    // is on (the schedule's switches too) under the frame's hand mask, as the live renderer does.
     val reactions: List<ReactionRoute>? = null,
     val reducedMotion: Boolean = false,
     val paramsAt: ((Long) -> SceneParams)? = null,
@@ -88,8 +86,6 @@ class OffscreenSceneRenderer(
     private val spec: OffscreenRenderSpec,
 ) {
     private var native: NativeViz? = null
-    private val styleReactions = StyleReactionsCache()
-    private var nativeReactions: List<ReactionRoute>? = null
     private var audio: TrackAudio? = null
 
     /** Builds the native renderer and its scene; must run with the target GL context current. */
@@ -106,6 +102,7 @@ class OffscreenSceneRenderer(
         viz.setStyleSchedule(spec.styleSchedule)
         viz.setTransition(TransitionStyle.CUT.name.lowercase(), 0L)
         viz.setReducedMotion(spec.reducedMotion)
+        viz.setUserReactions(spec.reactions)
         if (spec.lfoConfigs.isNotEmpty()) viz.setLfoConfigs(spec.lfoConfigs)
         if (spec.adsrConfigs.isNotEmpty()) viz.setAdsrConfigs(spec.adsrConfigs)
         spec.underlay?.let { viz.setUnderlay(it.pixels, it.width, it.height, it.blend, it.amount) }
@@ -137,13 +134,8 @@ class OffscreenSceneRenderer(
         val nextTimeMs = (frame + 1) * 1000L / fps
         // Quality never adapts downward in an export; the thermal half is the offscreen pin above.
         val p = (spec.paramsAt?.invoke(timeMs) ?: spec.baseParams).copy(fluidAutoQuality = false)
+        // reactSeed rides in the params: native re-deals the DNA when keyframes change it.
         viz.setParams(p)
-        // Keyframes can change reactSeed mid-export, so this resolves per frame like live does.
-        val routes = styleReactions.routesFor(sceneFactory.sceneId, p.reactSeed, spec.reactions, HandMask.current)
-        if (routes !== nativeReactions) {
-            viz.setReactions(routes)
-            nativeReactions = routes
-        }
         // Exactly the audio up to the end of this frame, then a render steps the engine by 1/fps.
         audio?.deliverUntilMs(nextTimeMs) { pcm, frames, channels, rate -> viz.writeAudio(pcm, frames, channels, rate) }
         viz.render(timeMs / 1000.0, targetFbo)

@@ -73,16 +73,20 @@ GEODE_API void        geode_viz_set_custom_shader(geode_viz*, const char* scene_
 GEODE_API size_t      geode_viz_custom_shader(geode_viz*, const char* scene_id, char* out, size_t capacity);
 GEODE_API void        geode_viz_set_lfo(geode_viz*, int slot, const float* config, int count);
 GEODE_API void        geode_viz_set_adsr(geode_viz*, int slot, const float* config, int count);
-/* Every reaction route at once, GEODE_REACT_ROUTE_FLOATS per route; routes past count / ROUTE_FLOATS are disabled. */
-GEODE_API void        geode_viz_set_reactions(geode_viz*, const float* routes, int count);
+/* The user's own reaction routes, GEODE_REACT_ROUTE_FLOATS per route (at most GEODE_REACT_ROUTES); has_user 0
+   (or NULL) is "all Auto". The renderer resolves what plays itself at each frame (core/signal/bindings/
+   PlayingRoutes): the requested style's DNA at the params' reactSeed, merged with this list under the frame's
+   hand mask (geode_hand_set), so a style switch from the shell or a style schedule re-deals the DNA in the same
+   frame. Kept until changed; a renderer never given a list plays the DNA. */
+GEODE_API void        geode_viz_set_user_reactions(geode_viz*, const float* user, int user_floats, int has_user);
 /* A style's DNA (core/viz/ReactionDna): the routes it plays until the user edits them, in the
-   geode_viz_set_reactions layout. Writes at most capacity / GEODE_REACT_ROUTE_FLOATS routes into
+   geode_viz_set_user_reactions layout. Writes at most capacity / GEODE_REACT_ROUTE_FLOATS routes into
    out and returns how many. Pure: no viz handle, the same id and seed always give the same routes. */
 GEODE_API int         geode_style_reactions(const char* style_id, int seed, float* out, int capacity);
 /* Customize › Music, "the hand wins per moment" (core/viz Reactions.hpp hand::, ReactionDna.hpp). The hand mask
    is bit i for moment i (GEODE_MUSIC_MOMENTS, in the page's order) plus GEODE_HAND_UNCLAIMED for every source
    no moment claims; GEODE_HAND_ALL is a whole list of the user's (the route editor, a list saved before the
-   mask). `user` is the user's routes in the geode_viz_set_reactions layout, NULL (or has_user 0) for none.
+   mask). `user` is the user's routes in the geode_viz_set_user_reactions layout, NULL (or has_user 0) for none.
    geode_hand_set is process-wide like geode_director_set: every renderer's director keeps off those moments. */
 #define GEODE_MUSIC_MOMENTS 10
 #define GEODE_MUSIC_ACTIONS 7

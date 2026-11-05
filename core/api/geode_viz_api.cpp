@@ -207,7 +207,7 @@ void geode_viz_set_adsr(geode_viz* v, int slot, const float* c, int count) {
 
 namespace {
 
-// The geode_viz_set_reactions layout in; returns how many routes were read.
+// The reaction route layout (GEODE_REACT_ROUTE_FLOATS per route) in; returns how many routes were read.
 int readRoutes(const float* c, int count, RouteArray& routes) {
     routes = RouteArray{};
     if (!c || count < 0) return 0;
@@ -266,11 +266,9 @@ static_assert(hand::kAll == GEODE_HAND_ALL && hand::kUnclaimed == GEODE_HAND_UNC
 
 extern "C" {
 
-void geode_viz_set_reactions(geode_viz* v, const float* c, int count) {
-    if (!v || !c || count < 0) return;
-    RouteArray routes{};
-    readRoutes(c, count, routes);
-    v->renderer.setReactionRoutes(routes);
+void geode_viz_set_user_reactions(geode_viz* v, const float* user, int user_floats, int has_user) {
+    // The mask is the frame's (EngineSettings::handMask), not this call's: the renderer merges at its latch.
+    if (v) v->renderer.setUserReactions(handOf(user, user_floats, has_user, hand::kAll));
 }
 
 void geode_hand_set(unsigned mask) { hand::setGlobal(static_cast<std::uint32_t>(mask)); }

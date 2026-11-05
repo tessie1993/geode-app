@@ -9,6 +9,7 @@ import dev.geode.render.BlendMode
 import dev.geode.render.LfoConfig
 import dev.geode.render.LfoEngine
 import dev.geode.render.ReactionRoute
+import dev.geode.render.scene.BuildStyleReactionsUseCase
 import dev.geode.render.scene.SceneParams
 import java.io.File
 
@@ -179,8 +180,9 @@ class NativeViz(
         configs.take(AdsrEngine.COUNT).forEachIndexed { slot, c -> GeodeNative.vizSetAdsr(handle, slot, ModConfigCodec.packAdsr(c)) }
     }
 
-    fun setReactions(routes: List<ReactionRoute>) {
-        if (handle != 0L) GeodeNative.vizSetReactions(handle, ModConfigCodec.packReactions(routes))
+    /** The user's own routes, null for none; native resolves what plays (the requested style's DNA, merged under the hand mask). */
+    fun setUserReactions(routes: List<ReactionRoute>?) {
+        if (handle != 0L) GeodeNative.vizSetUserReactions(handle, routes?.let { BuildStyleReactionsUseCase.packExact(it) })
     }
 
     fun setLook(

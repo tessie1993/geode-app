@@ -121,9 +121,9 @@ class VisualizerRenderer(
     val adsrEngine = AdsrEngine()
 
     /**
-     * The user's own reaction routes, or null to play the style's DNA
-     * ([BuildStyleReactionsUseCase] for the current scene and `reactSeed`). A list plays only on the
-     * moments [HandMask] gives the user; every other moment plays the live DNA ([StyleReactionsCache]).
+     * The user's own reaction routes, or null to play the style's DNA. Native resolves what plays at each
+     * frame (core/signal/bindings/PlayingRoutes): the requested style's DNA at `reactSeed`, the list only on
+     * the moments [HandMask] gives the user. Compared by identity, so assign a new list to change it.
      */
     @Volatile
     var reactions: List<ReactionRoute>? = null
@@ -134,8 +134,6 @@ class VisualizerRenderer(
 
     @Volatile
     var lookPitch: Float = 0f
-
-    private val styleReactions = StyleReactionsCache()
 
     private val appContext = context.applicationContext
 
@@ -256,7 +254,8 @@ class VisualizerRenderer(
         nativeParams = null
         nativeLfo = null
         nativeAdsr = null
-        nativeReactions = null
+        // The handle may outlive the surface; resend so it never keeps a list the shell has since dropped.
+        nativeReactions = reactions.also(nativeViz::setUserReactions)
         nativePerformance = null
         liquidModeSampleMs = 0L
         nativeSoundTuning = null
@@ -348,9 +347,9 @@ class VisualizerRenderer(
             nativeViz.setAdsrConfigs(adsr)
             nativeAdsr = adsr
         }
-        val routes = styleReactions.routesFor(requestedSceneId, p.reactSeed, reactions, HandMask.current)
+        val routes = reactions
         if (routes !== nativeReactions) {
-            nativeViz.setReactions(routes)
+            nativeViz.setUserReactions(routes)
             nativeReactions = routes
         }
         val perf = performance

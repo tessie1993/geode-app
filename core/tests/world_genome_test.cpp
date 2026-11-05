@@ -7,6 +7,7 @@
 //   world_genome_test --dump <seed>          print seed <seed>'s uWorld (96 floats, comma separated)
 //                                            for tools/glslcheck --set uWorld=...
 //   world_genome_test --names [shapes.bin]   print the seeds' names and open-space probes
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstdio>
@@ -709,11 +710,79 @@ void glslNamesMatch(const char* path) {
     check(src.find("uniform vec4 uWorld[" + std::to_string(kVec4) + "];") != std::string::npos, "lib_world declares uWorld[" + std::to_string(kVec4) + "]");
     // Every field and runtime value has a name: a new one cannot be left out of the map.
     check(static_cast<int>(expect.size()) == kUniformCount, "every uWorld slot is named (" + std::to_string(expect.size()) + "/" + std::to_string(kUniformCount) + ")");
+    // The shape atlas: wShape() addresses the tiles WorldAssets packs.
+    for (const auto& [name, value] : std::map<std::string, int>{
+             {"WG_SHAPES", kShapeCount}, {"WG_SHAPE_RES", kShapeRes}, {"WG_ATLAS_COLS", kAtlasCols}, {"WG_ATLAS_ROWS", kAtlasRows}}) {
+        const std::string want = "#define " + name + " " + std::to_string(value) + ".0\n";
+        check(src.find(want) != std::string::npos, "lib_world has #define " + name + " " + std::to_string(value) + ".0");
+    }
 }
 
 std::vector<uint8_t> readAll(const char* path) {
     std::ifstream in(path, std::ios::binary);
     return {std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>()};
+}
+
+// The GPU's tile atlas (#555): every side within GLES 3.0's 256, one tile per model, and lib_world's
+// addressing (atlasDistance) sampling it equal to shapeDistance() reading the file's slabs.
+void atlasLayoutIsSound() {
+    check(atlasMaxDimension() <= kGles3Max3dSize, "the shape atlas fits a 256^3 GL_MAX_3D_TEXTURE_SIZE");
+    check(kAtlasWidth == 192 && kAtlasHeight == 128 && kAtlasDepth == 32, "the shape atlas is 192 x 128 x 32");
+    std::vector<bool> used(static_cast<size_t>(kAtlasCols * kAtlasRows), false);
+    for (int i = 0; i < kShapeCount; ++i) {
+        const TileOrigin o = tileOrigin(i);
+        const bool inside = o.x >= 0 && o.y >= 0 && o.x + kShapeRes <= kAtlasWidth && o.y + kShapeRes <= kAtlasHeight &&
+                            o.x % kShapeRes == 0 && o.y % kShapeRes == 0;
+        check(inside, "tile " + std::to_string(i) + " lies whole inside the atlas");
+        if (!inside) continue;
+        const size_t cell = static_cast<size_t>((o.y / kShapeRes) * kAtlasCols + o.x / kShapeRes);
+        check(!used[cell], "tile " + std::to_string(i) + " has a tile of its own");
+        used[cell] = true;
+    }
+    check(packAtlas(std::vector<uint8_t>(10, 0)).empty(), "packAtlas refuses the wrong size");
+    // No bleed: a model of all 0 between neighbours of all 255 reads 0 everywhere, edges included.
+    std::vector<uint8_t> slabs(kShapeBytes, 255);
+    const int probe = 7;  // a tile with neighbours on all four sides in the 6 x 4 grid
+    const size_t slab = static_cast<size_t>(kShapeRes) * kShapeRes * kShapeRes;
+    std::fill_n(slabs.begin() + static_cast<std::ptrdiff_t>(slab * probe), slab, 0);
+    const std::vector<uint8_t> atlas = packAtlas(slabs);
+    check(atlas.size() == kAtlasBytes, "packAtlas makes kAtlasBytes");
+    float worst = 0.0f;
+    for (float x : {-1.0f, -0.99f, 0.0f, 0.99f, 1.0f}) {
+        for (float y : {-1.0f, -0.99f, 0.0f, 0.99f, 1.0f}) {
+            for (float z : {-1.0f, 0.5f, 1.0f}) worst = std::fmax(worst, std::fabs(atlasDistance(atlas, probe, x, y, z) - kShapeLo));
+        }
+    }
+    check(worst < 1e-5f, "linear filtering never reads a neighbouring tile");
+}
+
+void atlasMatchesTheSlabs(const std::vector<uint8_t>& slabs) {
+    const std::vector<uint8_t> atlas = packAtlas(slabs);
+    check(atlas.size() == kAtlasBytes, "the baked shapes pack into the atlas");
+    if (atlas.size() != kAtlasBytes) return;
+    // Byte for byte: each slab's first and last texel lands at its tile's corners.
+    for (int i = 0; i < kShapeCount; ++i) {
+        const TileOrigin o = tileOrigin(i);
+        const size_t slab = static_cast<size_t>(kShapeRes) * kShapeRes * kShapeRes;
+        const size_t first = (static_cast<size_t>(o.y) * kAtlasWidth) + static_cast<size_t>(o.x);
+        const size_t last = ((static_cast<size_t>(kShapeRes - 1) * kAtlasHeight + static_cast<size_t>(o.y + kShapeRes - 1)) * kAtlasWidth) +
+                            static_cast<size_t>(o.x + kShapeRes - 1);
+        check(atlas[first] == slabs[slab * static_cast<size_t>(i)] && atlas[last] == slabs[slab * static_cast<size_t>(i + 1) - 1],
+              "shape " + std::to_string(i) + "'s corners land in its tile");
+    }
+    // Sampled: lib_world's addressing on the atlas equals shapeDistance() on the file, inside the
+    // cube, on its faces and outside it.
+    float worst = 0.0f;
+    for (int i = 0; i < kShapeCount; ++i) {
+        for (int k = 0; k < 343; ++k) {
+            const float x = -1.2f + 2.4f * static_cast<float>(k % 7) / 6.0f;
+            const float y = -1.0f + 2.0f * static_cast<float>((k / 7) % 7) / 6.0f + 0.013f;
+            const float z = -1.05f + 2.1f * static_cast<float>(k / 49) / 6.0f;
+            worst = std::fmax(worst, std::fabs(atlasDistance(atlas, i, x, y, z) - shapeDistance(i, x, y, z)));
+        }
+        worst = std::fmax(worst, std::fabs(atlasDistance(atlas, i, 0.31f, -0.47f, 0.77f) - shapeDistance(i, 0.31f, -0.47f, 0.77f)));
+    }
+    check(worst < 1e-4f, "the atlas samples like the slabs (worst " + std::to_string(worst) + ")");
 }
 
 void loadAssets(const char* shapes, const char* textures) {
@@ -737,6 +806,7 @@ void loadAssets(const char* shapes, const char* textures) {
         check(shapeDistance(i, 3.0f, 0.0f, 0.0f) <= 2.0f + 1e-4f && shapeDistance(i, 3.0f, 0.0f, 0.0f) >= 2.0f - 1e-4f,
               "outside the cube the distance is the way to the cube");
     }
+    atlasMatchesTheSlabs(s);
 }
 
 }  // namespace
@@ -780,6 +850,7 @@ int main(int argc, char** argv) {
     dropRushesAndVerseGlides();
     travelIsSeamless();
     newFractalSeedsHold();
+    atlasLayoutIsSound();
     if (argc >= 2) glslNamesMatch(argv[1]);
     if (failures == 0) std::printf("world_genome_test: all passed\n");
     return failures == 0 ? 0 : 1;

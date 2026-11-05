@@ -315,18 +315,19 @@ std::array<Seed, 12> buildSeeds() {
                {PrimThick, 0.12f}, {Ifs, 0.9f}, {IfsIter, 3.0f}, {IfsScale, 1.45f}, {IfsAngA, 0.4f}, {IfsAngB, 0.6f}, {Scale, 2.6f}, {CellShift, 0.35f},
                {IfsOffX, 0.6f}, {IfsOffY, 0.9f}, {IfsOffZ, 0.4f}, {MSurface, 0.55f}, {MDensity, 0.45f}, {DensBand, 0.15f},
                {TrapR, 0.7f}, {TrapZ, 0.4f}, {PalOffset, 0.3f}, {PalSpan, 0.5f}, {Emission, 1.0f}, {Fog, 0.045f}})},
-        // Statues and skulls in mirrored niches down a marble gallery: the baked models (WorldAssets).
+        // Statues and skulls in mirrored niches down a marble gallery: the baked models (WorldAssets). A
+        // third of glow fills the dark between the niches, so the gallery never reads as a black hall.
         {"Reliquary", 0.3f, 0.35f, 0.6f,
          make({{RepXY, 1.0f}, {CellXY, 6.0f}, {CellZ, 5.0f}, {CellShift, 1.0f}, {PMesh, 1.0f}, {MeshPick, 1.0f},
-               {MeshSize, 1.8f}, {Mirror, 0.3f}, {MirrorOff, 0.4f}, {MSurface, 1.0f}, {TrapX, 0.3f}, {TrapR, 0.5f},
-               {PalOffset, 0.12f}, {PalSpan, 0.3f}, {Emission, 1.4f}, {Fog, 0.03f}, {TexAmount, 0.7f}, {TexPick, 0.0f},
+               {MeshSize, 1.8f}, {Mirror, 0.3f}, {MirrorOff, 0.4f}, {MSurface, 0.7f}, {MGlow, 0.3f}, {TrapX, 0.3f},
+               {TrapR, 0.5f}, {PalOffset, 0.38f}, {PalSpan, 0.3f}, {Emission, 1.4f}, {Fog, 0.025f}, {TexAmount, 0.7f}, {TexPick, 0.0f},
                {TexScale, 1.2f}})},
         // Shells and chandeliers hung in light, half glass, half glow.
         {"Shell Choir", 0.6f, 0.75f, 0.45f,
          make({{RepXY, 1.0f}, {CellXY, 5.0f}, {CellZ, 4.5f}, {CellShift, 1.0f}, {PMesh, 0.85f}, {PShell, 0.15f},
                {PrimSize, 1.2f}, {PrimThick, 0.04f}, {MeshPick, 5.0f}, {MeshSize, 2.3f}, {Invert, 0.2f}, {InvRadius, 1.6f},
-               {MSurface, 0.65f}, {MGlow, 0.35f}, {TrapR, 0.6f}, {TrapY, 0.3f}, {PalOffset, 0.7f}, {PalSpan, 0.45f},
-               {Emission, 1.05f}, {Fog, 0.04f}, {TexEmit, 0.5f}, {TexPick, 3.0f}, {TexScale, 1.4f}})},
+               {MSurface, 0.55f}, {MGlow, 0.45f}, {TrapR, 0.6f}, {TrapY, 0.3f}, {PalOffset, 0.3f}, {PalSpan, 0.45f},
+               {Emission, 1.05f}, {Fog, 0.025f}, {TexEmit, 0.5f}, {TexPick, 3.0f}, {TexScale, 1.4f}})},
     }};
 }
 

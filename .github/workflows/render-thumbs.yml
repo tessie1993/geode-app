@@ -9,6 +9,14 @@ name: Render style thumbnails
 # android.yml never runs it). It writes through TestStorage; AGP pulls that into
 # connected_android_test_additional_output/, and the script below also pulls the device folder
 # directly in case it does not.
+#
+# The emulator can die mid-run (#331: runs 42096988804 and 42106256167 both lost the device on
+# the style after vanishing, 27-33 minutes in, and with it the 63 thumbnails already written on
+# the device). So the device folder is also pulled every 30 seconds while the test runs, and a
+# run that crashed but salvaged thumbnails still opens the PR, marked partial, with the styles
+# it is missing: those fall back to generated art in the app until a later run with `ids` fills
+# them. A run that finished but failed the test's own threshold (more than a tenth of the styles
+# failed, which means the renderer is broken) still opens nothing.
 
 on:
   workflow_dispatch:
@@ -20,6 +28,10 @@ on:
       ids:
         description: "Optional comma-separated style ids to render (empty = every style)"
         default: ""
+        required: false
+      skip:
+        description: "Optional comma-separated style ids to leave out (morphogen took the emulator down in #331)"
+        default: "morphogen"
         required: false
 
 permissions:
@@ -81,6 +93,7 @@ jobs:
         uses: reactivecircus/android-emulator-runner@v2
         env:
           THUMBS_ONLY: ${{ inputs.ids }}
+          THUMBS_SKIP: ${{ inputs.skip }}
         with:
           api-level: 30
           target: google_apis
@@ -89,24 +102,44 @@ jobs:
           working-directory: .
           # Each line runs on its own and a failing line ends the script, so the Gradle exit
           # status is recorded instead and checked after the device folder has been pulled.
+          # The salvage loop pulls the thumbnails written so far every 30 seconds into its own
+          # folder, so a crash of the emulator loses at most the last half minute of them.
           script: |
             chmod +x gradlew
-            ./gradlew :app:connectedDebugAndroidTest --stacktrace --no-daemon -Pandroid.testInstrumentationRunnerArguments.class=dev.geode.thumbs.StyleThumbnailRenderTest -Pandroid.testInstrumentationRunnerArguments.thumbs=1 -Pandroid.testInstrumentationRunnerArguments.useTestStorageService=true ${THUMBS_ONLY:+-Pandroid.testInstrumentationRunnerArguments.thumbsOnly=$THUMBS_ONLY} || echo failed > thumbs-test-status
-            mkdir -p device-output && adb pull /sdcard/googletest/test_outputfiles device-output/ || true
+            mkdir -p device-output device-salvage
+            ( while true; do adb pull /sdcard/googletest/test_outputfiles/thumbs device-salvage/ ; sleep 30; done ) > /dev/null 2>&1 & echo $! > salvage.pid
+            ./gradlew :app:connectedDebugAndroidTest --stacktrace --no-daemon -Pandroid.testInstrumentationRunnerArguments.class=dev.geode.thumbs.StyleThumbnailRenderTest -Pandroid.testInstrumentationRunnerArguments.thumbs=1 -Pandroid.testInstrumentationRunnerArguments.useTestStorageService=true ${THUMBS_ONLY:+-Pandroid.testInstrumentationRunnerArguments.thumbsOnly=$THUMBS_ONLY} ${THUMBS_SKIP:+-Pandroid.testInstrumentationRunnerArguments.thumbsSkip=$THUMBS_SKIP} || echo failed > thumbs-test-status
+            kill "$(cat salvage.pid)" || true
+            adb pull /sdcard/googletest/test_outputfiles device-output/ || true
 
       - name: Collect thumbnails
         id: collect
         shell: bash
+        env:
+          THUMBS_ONLY: ${{ inputs.ids }}
+          THUMBS_SKIP: ${{ inputs.skip }}
         run: |
           mkdir -p app/src/main/assets/thumbs thumbs-out
           # Whichever route delivered them; the newest copy of a name wins.
-          find app/build/outputs/connected_android_test_additional_output device-output \
+          find app/build/outputs/connected_android_test_additional_output device-salvage device-output \
             \( -name '*.webp' -o -name 'failures.txt' \) -type f 2>/dev/null \
             | while read -r f; do cp "$f" thumbs-out/; done
           count=$(find thumbs-out -name '*.webp' | wc -l)
           echo "count=$count" >> "$GITHUB_OUTPUT"
           echo "Collected $count thumbnails"
           if [ -f thumbs-out/failures.txt ]; then cat thumbs-out/failures.txt; fi
+          # The test writes failures.txt only when it finishes; without it the run crashed, so
+          # name the styles it did not reach (catalogue.txt is the native catalogue's text,
+          # checked by catalogue_test; MilkDrop has no thumbnail).
+          if [ ! -f thumbs-out/failures.txt ]; then
+            grep '^style|' core/tests/catalogue.txt | grep -v '|MILKDROP' | cut -d'|' -f2 \
+              | while read -r id; do
+                  if [ -n "$THUMBS_ONLY" ] && ! echo ",$THUMBS_ONLY," | tr -d ' ' | grep -q ",$id,"; then continue; fi
+                  if echo ",$THUMBS_SKIP," | tr -d ' ' | grep -q ",$id,"; then continue; fi
+                  [ -f "thumbs-out/$id.webp" ] || echo "$id"
+                done > thumbs-out/missing.txt
+            echo "Run did not finish; $(wc -l < thumbs-out/missing.txt) styles have no thumbnail"
+          fi
           cp thumbs-out/*.webp app/src/main/assets/thumbs/ 2>/dev/null || true
           du -sh app/src/main/assets/thumbs
 
@@ -124,13 +157,16 @@ jobs:
 
       - name: Fail if the render failed
         run: |
-          if [ -f thumbs-test-status ]; then
-            echo "::error::StyleThumbnailRenderTest failed (too many styles, or the run crashed); no PR opened."
-            exit 1
-          fi
           if [ "${{ steps.collect.outputs.count }}" = "0" ]; then
             echo "::error::No thumbnails were collected; no PR opened."
             exit 1
+          fi
+          if [ -f thumbs-test-status ] && [ -f thumbs-out/failures.txt ]; then
+            echo "::error::StyleThumbnailRenderTest finished and failed (too many styles failed); no PR opened."
+            exit 1
+          fi
+          if [ -f thumbs-test-status ]; then
+            echo "::warning::The run crashed before the end; opening a partial PR (see missing.txt)."
           fi
 
       - name: Commit to a bot branch and open a PR
@@ -162,6 +198,16 @@ jobs:
             echo '```'
             cat thumbs-out/failures.txt 2>/dev/null || echo "(no report)"
             echo '```'
+            if [ -f thumbs-out/missing.txt ]; then
+              echo
+              echo "**Partial:** the emulator went away before the test finished, so these styles have"
+              echo "no thumbnail (they fall back to generated art). The first one is the likely culprit;"
+              echo "re-run with \`ids\` set to the rest, or add it to \`skip\`."
+              echo
+              echo '```'
+              cat thumbs-out/missing.txt
+              echo '```'
+            fi
             echo
             echo "Note: this PR was opened with GITHUB_TOKEN, so it does not trigger CI on its own."
             echo "Close and reopen it, or push an empty commit, to run android.yml before merging."

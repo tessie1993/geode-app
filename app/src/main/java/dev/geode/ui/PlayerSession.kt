@@ -51,7 +51,6 @@ import dev.geode.export.BatchTrack
 import dev.geode.export.ExportAspect
 import dev.geode.export.ExportCodec
 import dev.geode.export.ExportRange
-import dev.geode.export.StudioClip
 import dev.geode.geodeContainer
 import dev.geode.model.DeviceTrack
 import dev.geode.model.LibraryTrack
@@ -1063,8 +1062,6 @@ class PlayerSession internal constructor(
 
                 override fun reactions() = modulation.reactions.value
 
-                override fun keyframes() = editor.state.value.project.keyframes
-
                 override suspend fun loadExportTake() = takeController.loadExportTake()
 
                 override fun allowsStyle(sceneId: String) = this@PlayerSession.allowsStyle(sceneId)
@@ -1073,9 +1070,7 @@ class PlayerSession internal constructor(
             },
         )
 
-    val studio: StateFlow<StudioUiState> get() = exportController.studio
-
-    internal val editor: EditorController = EditorController(EditorProjectStore(application), scope, storeScope).also { it.open() }
+    internal val editor: EditorController = EditorController(EditorProjectStore(application), storeScope).also { it.refresh() }
 
     // W02: the background image behind the scene - see BackgroundController for why it takes no Host.
     private val backgroundController: BackgroundController =
@@ -1140,39 +1135,10 @@ class PlayerSession internal constructor(
 
     fun resetExportState() = exportController.resetExportState()
 
-    fun refreshStudioClips() = exportController.refreshStudioClips()
-
     fun deleteStudioClip(
         uri: String,
         onResult: (Boolean) -> Unit,
     ) = exportController.deleteStudioClip(uri, onResult)
-
-    fun renameStudioClip(
-        uri: String,
-        name: String,
-        onResult: (Boolean) -> Unit,
-    ) = exportController.renameStudioClip(uri, name, onResult)
-
-    fun describeStudioClip(
-        uri: Uri,
-        onReady: (StudioClip) -> Unit,
-    ) = exportController.describeStudioClip(uri, onReady)
-
-    fun startStudioExport(
-        clip: StudioClip,
-        edit: dev.geode.export.ClipEdit,
-        destination: Uri? = null,
-    ) = exportController.startStudioExport(clip, edit, destination)
-
-    fun cancelStudioExport() = exportController.cancelStudioExport()
-
-    // An empty Studio has no project folder yet (the first edit makes one), so nothing to render.
-    fun startProjectExport(destination: Uri? = null) {
-        val open = editor.state.value.open ?: return
-        exportController.renderProject(open, destination) { editor.recordRender(open.id, it) }
-    }
-
-    fun clearStudioResult() = exportController.clearStudioResult()
 
     val loopState: StateFlow<LoopUiState> get() = exportController.loopState
 

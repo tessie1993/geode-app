@@ -1,7 +1,6 @@
 package dev.geode.ui
 
 import android.net.Uri
-import dev.geode.export.StudioExporter
 import dev.geode.export.VideoExporter
 
 sealed interface ExportPhase {
@@ -56,13 +55,4 @@ fun VideoExporter.Result.toPhase(): ExportPhase =
         is VideoExporter.Result.Saved -> ExportPhase.Done(uri)
         is VideoExporter.Result.Failed -> ExportPhase.Failed(message)
         VideoExporter.Result.Cancelled -> ExportPhase.Idle
-    }
-
-// StudioExporter renders through Media3 Transformer, which is still @UnstableApi.
-@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
-fun StudioExporter.Result.toPhase(): ExportPhase =
-    when (this) {
-        is StudioExporter.Result.Saved -> ExportPhase.Done(uri)
-        is StudioExporter.Result.Failed -> ExportPhase.Failed(message)
-        StudioExporter.Result.Cancelled -> ExportPhase.Idle
     }

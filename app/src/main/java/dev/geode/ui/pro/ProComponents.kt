@@ -7,13 +7,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -27,15 +23,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 import dev.geode.pro.PaywallTrigger
-import dev.geode.pro.ProFeature
 import dev.geode.ui.geodeViewModel
 
 /** The small "PRO" pill: on locked items in pickers, and atop the paywall. */
@@ -54,66 +47,6 @@ fun ProBadge(modifier: Modifier = Modifier) {
             fontWeight = FontWeight.Bold,
             color = Color.White,
         )
-    }
-}
-
-/**
- * Shows [content] when [feature] is allowed, otherwise a panel that explains it and opens the
- * paywall. For whole destinations (the Studio tab); single controls gate in their ViewModel.
- */
-@Composable
-fun ProGate(
-    feature: ProFeature,
-    content: @Composable () -> Unit,
-) {
-    val viewModel: PaywallViewModel = geodeViewModel()
-    val gate by viewModel.gate.collectAsStateWithLifecycle()
-    if (gate.allows(feature)) {
-        content()
-    } else {
-        ProLockedPanel(
-            title = stringResource(R.string.pro_locked_studio_title),
-            body = stringResource(R.string.pro_locked_studio_body),
-            onUnlock = { viewModel.open(PaywallTrigger.Feature(feature)) },
-        )
-    }
-}
-
-@Composable
-private fun ProLockedPanel(
-    title: String,
-    body: String,
-    onUnlock: () -> Unit,
-) {
-    Box(Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
-        Column(
-            Modifier
-                .widthIn(max = 480.dp)
-                .background(ProColors.surface, RoundedCornerShape(24.dp))
-                .border(1.dp, ProColors.hairline, RoundedCornerShape(24.dp))
-                .padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            ProBadge()
-            Spacer(Modifier.height(12.dp))
-            Text(
-                title,
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                color = Color.White,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.semantics { heading() },
-            )
-            Spacer(Modifier.height(8.dp))
-            Text(body, style = MaterialTheme.typography.bodyMedium, color = ProColors.muted, textAlign = TextAlign.Center)
-            Spacer(Modifier.height(20.dp))
-            Button(
-                onClick = onUnlock,
-                shape = RoundedCornerShape(16.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = ProColors.accent, contentColor = Color.White),
-                modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
-            ) { Text(stringResource(R.string.pro_locked_cta)) }
-        }
     }
 }
 

@@ -1,7 +1,9 @@
 package dev.geode.ui
 
+import android.content.ClipData
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import android.provider.DocumentsContract
 import androidx.compose.foundation.layout.Arrangement
@@ -49,8 +51,6 @@ internal fun RenderBar(
     onCancel: () -> Unit,
     onClearResult: () -> Unit,
     modifier: Modifier = Modifier,
-    onOpenInEdit: (() -> Unit)? = null,
-    openInEditPro: Boolean = false,
 ) {
     Column(
         modifier
@@ -62,7 +62,7 @@ internal fun RenderBar(
     ) {
         when (val phase = export.phase) {
             is ExportPhase.Running, ExportPhase.Loading -> RenderProgress(export, onCancel)
-            is ExportPhase.Done -> RenderResult(export, phase, onClearResult, onOpenInEdit, openInEditPro)
+            is ExportPhase.Done -> RenderResult(export, phase, onClearResult)
             is ExportPhase.Failed ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
@@ -129,8 +129,6 @@ private fun RenderResult(
     export: ExportUiState,
     phase: ExportPhase.Done,
     onClearResult: () -> Unit,
-    onOpenInEdit: (() -> Unit)?,
-    openInEditPro: Boolean,
 ) {
     val context = LocalContext.current
     val resources = LocalResources.current
@@ -166,12 +164,6 @@ private fun RenderResult(
         if (!export.customDestination) {
             CrystalButton(compact = true, filled = false, onClick = { context.showRendersFolder() }) {
                 Text(stringResource(R.string.render_show_in_folder))
-            }
-        }
-        // Only a render kept as a project has something to open; a free user meets the Pro wall there.
-        onOpenInEdit?.let { open ->
-            CrystalButton(compact = true, filled = false, onClick = open) {
-                ProText(stringResource(if (openInEditPro) R.string.my_videos_open_in_edit_pro else R.string.my_videos_open_in_edit))
             }
         }
         TextButton(onClick = onClearResult) { Text(stringResource(R.string.action_close)) }
@@ -233,3 +225,34 @@ private const val EXTERNAL_STORAGE_DOCUMENTS = "com.android.externalstorage.docu
 
 // Where VideoExporter puts a render it saves without a picked folder (its RELATIVE_PATH).
 private const val RENDERS_RELATIVE_PATH = "Movies/MuzViz"
+
+// Shares a finished video: the Render bar's Share and My videos' Share build the one SEND intent here.
+internal fun android.content.Context.shareVideo(
+    uri: Uri,
+    chooserTitle: String,
+    title: String? = null,
+    subject: String? = null,
+) {
+    val send =
+        Intent(Intent.ACTION_SEND)
+            .setType("video/mp4")
+            .putExtra(Intent.EXTRA_STREAM, uri)
+            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            .apply {
+                // ClipData mirrors EXTRA_STREAM so share targets that read ClipData rather than
+                // the intent extra (most do, for a preview/thumbnail) still see the video.
+                clipData = ClipData.newUri(contentResolver, title ?: chooserTitle, uri)
+                if (title != null) putExtra(Intent.EXTRA_TITLE, title)
+                if (subject != null) putExtra(Intent.EXTRA_SUBJECT, subject)
+            }
+    runCatching { startActivity(Intent.createChooser(send, chooserTitle)) }
+}
+
+// Plays a finished video in the user's player: the Render bar's Open and a tap in My videos.
+internal fun android.content.Context.viewVideo(uri: Uri) {
+    val view =
+        Intent(Intent.ACTION_VIEW)
+            .setDataAndType(uri, "video/mp4")
+            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    runCatching { startActivity(view) }
+}

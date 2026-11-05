@@ -20,10 +20,13 @@ enum class ProFeature {
     /** Exports without the full-frame wordmark. */
     NO_WATERMARK,
 
-    /** Exports longer than [FreeTier.FREE_MAX_EXPORT_MS], loop renders, and Studio exports. */
+    /** Exports longer than [FreeTier.FREE_MAX_EXPORT_MS], loop renders and batch renders. */
     FULL_LENGTH_EXPORT,
 
-    /** The multi-clip Studio editor: timeline, keyframes, transitions, auto-cut, captions. */
+    /**
+     * Recording a take on Visuals (Record), which renders to a video in the background. The name
+     * is older than the change: Studio had a Pro editor until the owner dropped video editing (#227).
+     */
     STUDIO,
 
     /** The visualizer as a live wallpaper. */

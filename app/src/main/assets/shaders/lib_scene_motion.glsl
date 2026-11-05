@@ -64,7 +64,11 @@ uniform float uBeatOsc;
 uniform float uBarOsc;
 /** A slow wander point, -1..1; re-targeted (not stepped) on a novelty rise or a section boundary and eased over 3.0s. */
 uniform vec2 uOrbit;
-/** An accumulated rotation, radians; its sign eases rather than flips across a section. */
+/**
+ * An accumulated rotation, radians; its sign eases rather than flips across a section.
+ * It wraps at 200 pi (MotionField::kDriftWrap), so the wrap is seamless only for a
+ * fixed multiplier that is a multiple of 0.01 (0.35 * uDrift, never uDrift * uIntensity).
+ */
 uniform float uDrift;
 /** A slow, low-amplitude scale wobble around 1.0, 0.9..1.1, riding uBassRel and uBarOsc. */
 uniform float uBreath;

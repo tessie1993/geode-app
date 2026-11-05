@@ -51,7 +51,7 @@ public:
         float barOsc = 0.5f;      // uBarOsc: the same clock, a quarter as fast, 0..1
         float orbitX = 0.0f;      // uOrbit.x, -1..1
         float orbitY = 0.0f;      // uOrbit.y, -1..1
-        float drift = 0.0f;       // uDrift: accumulated angle, radians
+        float drift = 0.0f;       // uDrift: accumulated angle, radians, in [0, kDriftWrap) (a shader angle, never a rate)
         float breath = 1.0f;      // uBreath, 0.9..1.1
         float flowPhase = 0.0f;   // uFlowPhase: monotonic integrator
         float flowTime = 0.0f;    // uFlowTime: flowPhase at Speed's rate, integrated (equal at Speed 1)
@@ -74,7 +74,8 @@ public:
     void step(const GeodeSoundFrame& f, float dt, float speed = 1.0f);
     // Reshapes p with the state step() just computed; never touches
     // brightness/intensity/contrast/flash/strobe/pulse/shake. Reduced motion
-    // scales the geometric terms the same way safety::apply scales rates.
+    // scales the shape terms here; the rates safety::apply scales next
+    // (rotation, sway, turbulence) are left to it, so each is scaled once.
     // spin is the style's SceneRegistry::spinRate: it scales and signs the drift
     // spin, and 0 (a style that does not turn) adds no drift spin or sway, so
     // rotation and sway stay what the user and the routes set.
@@ -109,6 +110,16 @@ private:
     static constexpr float kDriftBaseRadPerSec = 0.02f;
     static constexpr float kDriftMidRadPerSec = 0.08f;
     static constexpr float kDriftSignEaseSeconds = 3.0f;
+    // What apply() adds to rotation per rad/s of drift rate: at full Spin drift
+    // and spin 1, about 0.5 rad/s on steady music (midRel 1) and at most 0.9 rad/s
+    // (midRel 2), so a turning style spins steadily with the mids, never runs up
+    // to the rotation clamp.
+    static constexpr float kDriftSpinGain = 5.0f;
+    // Where uDrift wraps: 200 pi, so every shader multiplier that is a multiple of
+    // 0.01 (0.07 to 0.5 today) turns a whole number of turns over one period and
+    // the wrap never shows. At the fastest drift that is about once an hour; the
+    // float uploaded stays under 629, fine-grained enough for highp.
+    static constexpr double kDriftWrap = 200.0 * 3.14159265358979323846;
 
     // Breath shaping.
     static constexpr float kBreathBassWeight = 0.06f;
@@ -141,7 +152,10 @@ private:
     float orbitCurY_ = 0.0f;
     float orbitRetargetLockout_ = 0.0f;
 
-    float driftAngle_ = 0.0f;
+    // Accumulated in double so the per-frame steps stay exact near the top of the period.
+    double driftAngle_ = 0.0;
+    // The eased, signed drift rate of the last step() (rad/s): apply()'s spin.
+    float driftRate_ = 0.0f;
     float driftSign_ = 1.0f;
     float driftSignTarget_ = 1.0f;
 

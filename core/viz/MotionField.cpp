@@ -18,7 +18,8 @@ void MotionField::reset() {
     orbitCurX_ = 0.0f;
     orbitCurY_ = 0.0f;
     orbitRetargetLockout_ = 0.0f;
-    driftAngle_ = 0.0f;
+    driftAngle_ = 0.0;
+    driftRate_ = 0.0f;
     driftSign_ = 1.0f;
     driftSignTarget_ = 1.0f;
     barSin_ = 0.0f;
@@ -137,13 +138,18 @@ void MotionField::step(const GeodeSoundFrame& f, float dt, float speed) {
     if (bigMoment) driftSignTarget_ = nextRandom() < 0.5f ? -1.0f : 1.0f;
     driftSign_ = oneOle(driftSign_, driftSignTarget_, dt, kDriftSignEaseSeconds);
     const float driftRate = driftSign_ * (kDriftBaseRadPerSec + kDriftMidRadPerSec * state_.midRel);
-    // Wrapped rather than free-running: state_.drift only ever feeds a bounded
-    // rotation-rate contribution in apply(), never an absolute angle drawn on
-    // screen, so wrapping it costs nothing and keeps float precision over a
-    // long session.
-    driftAngle_ = std::fmod(driftAngle_ + driftRate * dt + 2.0f * kTwoPi, 2.0f * kTwoPi);
-    if (driftAngle_ > kTwoPi) driftAngle_ -= 2.0f * kTwoPi;
-    state_.drift = driftAngle_;
+    // The rate is what apply() adds to rotation (a rate the scenes integrate),
+    // never the angle below: the angle grows without bound and wraps, so as a
+    // rate it would climb to the clamp and then reverse in one frame (#359).
+    // This one is bounded (the base plus the mid weight at midRel 2) and
+    // continuous: midRel is slewed and the sign eases.
+    driftRate_ = driftRate;
+    // The angle is uDrift, which a few styles turn by (times a fixed 0.07 to 0.5).
+    // Wrapped at kDriftWrap, where every such multiple lands on a whole turn, so
+    // the wrap never pops a style; wrapping keeps float precision over a long session.
+    driftAngle_ = std::fmod(driftAngle_ + static_cast<double>(driftRate) * dt, kDriftWrap);
+    if (driftAngle_ < 0.0) driftAngle_ += kDriftWrap;
+    state_.drift = static_cast<float>(driftAngle_);
 
     // ---- breath: a slow, low-amplitude scale wobble --------------------------
     const float breathTarget = 1.0f + kBreathBassWeight * (state_.bassRel - 1.0f) + kBreathBarWeight * (state_.barOsc - 0.5f);
@@ -165,9 +171,14 @@ SceneParams MotionField::apply(const SceneParams& p, bool reducedMotion, float s
     // motionOrbit is not read here: uOrbit is a raw shader uniform (see
     // lib_scene_motion.glsl), and its own motionOrbit scaling happens in
     // view() (wave three's R01), not in this SceneParams-facing table.
-    const float motionAmount = std::clamp(p.motionAmount, 0.0f, 1.0f) * g;
+    // Rotation, sway and turbulence are rates safety::apply scales for reduced
+    // motion after this, so their terms take the dials unscaled: scaling them
+    // here too slowed them to 0.4 x 0.4 of full. Every other term below is a
+    // shape safety leaves alone, so it is scaled here, once.
+    const float amountDial = std::clamp(p.motionAmount, 0.0f, 1.0f);
+    const float motionAmount = amountDial * g;
     const float motionBreath = std::clamp(p.motionBreath, 0.0f, 1.0f) * g;
-    const float motionDrift = std::clamp(p.motionDrift, 0.0f, 1.0f) * g;
+    const float motionDrift = std::clamp(p.motionDrift, 0.0f, 1.0f);
     const float motionHue = std::clamp(p.motionHue, 0.0f, 1.0f) * g;
     const auto& s = state_;
     SceneParams o = p;
@@ -178,8 +189,8 @@ SceneParams MotionField::apply(const SceneParams& p, bool reducedMotion, float s
     const float breath = 1.0f + (s.breath - 1.0f) * motionBreath;
     o.zoom = std::clamp(p.zoom * breath, 0.3f, 3.0f);
     if (spin != 0.0f) {
-        o.rotation = std::clamp(p.rotation + s.drift * motionDrift * spin, -3.0f, 3.0f);
-        o.sway = std::clamp(p.sway + motionAmount * 0.35f * std::fabs(barSin_) * rhythmLock_, 0.0f, 1.0f);
+        o.rotation = std::clamp(p.rotation + driftRate_ * kDriftSpinGain * motionDrift * spin, -3.0f, 3.0f);
+        o.sway = std::clamp(p.sway + amountDial * 0.35f * std::fabs(barSin_) * rhythmLock_, 0.0f, 1.0f);
     }
     o.warp = std::clamp(p.warp + motionAmount * 0.3f * (1.0f - s.harmony), 0.0f, 1.0f);
     o.morph = std::clamp(p.morph + motionAmount * (1.0f - s.harmony), 0.0f, 1.0f);
@@ -189,7 +200,7 @@ SceneParams MotionField::apply(const SceneParams& p, bool reducedMotion, float s
     const float keyHueOffset = s.keyStrength * wrappedDelta01(0.5f, s.keyHue);
     o.colorShift = p.colorShift + motionHue * (keyHueOffset + 0.1f * (s.bright - 0.5f));
 
-    o.turbulence = std::clamp(p.turbulence + motionAmount * 0.35f * (s.trebRel - 1.0f), 0.0f, 1.5f);
+    o.turbulence = std::clamp(p.turbulence + amountDial * 0.35f * (s.trebRel - 1.0f), 0.0f, 1.5f);
     o.particleSize = std::clamp(p.particleSize * (1.0f + motionAmount * 0.2f * (s.energyRel - 1.0f)), 0.3f, 2.5f);
     o.density = std::clamp(p.density * (1.0f + motionAmount * 0.15f * (s.energyRel - 1.0f)), 0.1f, 1.0f);
     o.trailLength = std::clamp(p.trailLength + motionAmount * 0.15f * (s.energyRel - 1.0f), 0.05f, 0.98f);

@@ -135,8 +135,8 @@ object GeodeNative {
         on: Boolean,
     )
 
-    external fun vizSetLayer(
-        handle: Long,
+    /** Process-wide (core/viz/LayerState): every renderer draws it; "" = no layer. */
+    external fun layerSet(
         sceneId: String,
         mix: Float,
         blendMode: Int,

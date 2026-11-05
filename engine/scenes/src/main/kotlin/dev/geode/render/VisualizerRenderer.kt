@@ -62,15 +62,6 @@ class VisualizerRenderer(
     var performance: PerformanceSettings = PerformanceSettings.HIGH
 
     @Volatile
-    var layerSceneId: String? = null
-
-    @Volatile
-    var layerMix: Float = 0.5f
-
-    @Volatile
-    var layerBlend: BlendMode = BlendMode.SCREEN
-
-    @Volatile
     var transitionDurationMs: Long = 1200
 
     @Volatile
@@ -200,6 +191,13 @@ class VisualizerRenderer(
     ) = GeodeNative.shaderOverrideSet(sceneId, fragmentSrc)
 
     fun customShaderFor(sceneId: String): String? = GeodeNative.shaderOverride(sceneId)
+
+    /** Customize › Layers, process-wide: exports, the wallpaper and the dream draw it too (core/viz/LayerState). */
+    fun submitLayer(
+        sceneId: String?,
+        mix: Float,
+        blend: BlendMode,
+    ) = GeodeNative.layerSet(sceneId.orEmpty(), mix, blend.ordinal)
 
     fun submitFluidInjectionShaders(
         force: String?,
@@ -360,7 +358,6 @@ class VisualizerRenderer(
         }
         nativeViz.setLook(lookYaw, lookPitch)
         nativeViz.setReducedMotion(reducedMotion)
-        nativeViz.setLayer(layerSceneId, layerMix, layerBlend)
         nativeViz.setTransition(transitionId, transitionDurationMs)
         nativeViz.setPacedFps(ThermalGovernor.pacedFps)
         val now = SystemClock.elapsedRealtime()

@@ -50,6 +50,7 @@ add_library(geode_core STATIC
     viz/Lfo.cpp
     viz/Macros.cpp
     viz/Director.cpp
+    viz/LayerState.cpp
     viz/NoteResponse.cpp
     viz/UiBlurPass.cpp
     viz/Adsr.cpp

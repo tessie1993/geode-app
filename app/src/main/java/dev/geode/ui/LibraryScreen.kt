@@ -829,11 +829,15 @@ private fun PlaylistTracks(
     // One pass over the library instead of a linear search per row.
     val byUri = remember(tracks) { tracks.associateBy { it.uri } }
     val liftTint = MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)
+    // The neighbours slide aside on the motion scheme's fast spatial spring, so with the
+    // system's "Remove animations" on they snap into place instead of springing.
+    val motion = LocalGeodeMotion.current
     playlist.trackUris.forEachIndexed { i, uri ->
         val title = byUri[uri]?.title ?: stringResource(R.string.playlist_untitled_track, i + 1)
         val dragging = i == dragFrom
         val shift by animateFloatAsState(
             if (dragFrom < 0) 0f else (playlistRowShift(i, dragFrom, dropIndex) * rowHeight).toFloat(),
+            motion.fastSpatialSpec(),
             label = "playlistRowShift",
         )
         Row(
@@ -990,6 +994,7 @@ private fun LibraryFoldersCard(libraryViewModel: LibraryViewModel) {
                 stringResource(R.string.folders_library),
                 style = MaterialTheme.typography.titleSmall,
                 maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
             Text(
                 summary,

@@ -178,6 +178,15 @@ GEODE_API void       geode_dsp_set_limiter(geode_dsp*, int enabled);
 /* In place, RT-safe. `channels` is the format the block was queued in: a block that is not the live chain's
  * passes through untouched, and frames are clamped to capacity_floats / channels. */
 GEODE_API void       geode_dsp_process(geode_dsp*, float* interleaved, size_t capacity_floats, size_t frames, int channels);
+/* The same on 16-bit PCM in place (the sink's encoding): the int16 <-> float conversion is native too. A block
+ * the chain does not run is left byte for byte as it came. */
+GEODE_API void       geode_dsp_process_pcm16(geode_dsp*, int16_t* interleaved, size_t capacity_samples, size_t frames, int channels);
+/* Bit-perfect USB (#353): whether the platform takes the next AudioTrack bit-perfect, from any thread. From the
+ * next flush (Media3 flushes whenever it builds an AudioTrack) until a flush with it off, process passes every
+ * block through untouched, whatever gain, ramp, equalizer, crossfeed or limiter is set. _live reports the
+ * latched state (tests). */
+GEODE_API void       geode_dsp_set_bit_perfect(geode_dsp*, int on);
+GEODE_API int        geode_dsp_bit_perfect_live(const geode_dsp*);
 
 /* Tag I/O through TagLib. Both calls take a file descriptor they own: it is closed before they return, so
  * the caller detaches it first. Text crosses as UTF-8. */

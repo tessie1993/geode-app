@@ -59,14 +59,25 @@ object GeodeNative {
     )
 
     /**
-     * [buffer] must be a direct float buffer holding [frames] interleaved frames of [channels] channels, the
-     * format they were queued in; processed in place, never past the buffer's capacity.
+     * Whether the platform takes the next AudioTrack bit-perfect (#353); from the next [dspFlush] the chain
+     * passes every block through untouched until a flush with it off.
+     */
+    external fun dspSetBitPerfect(
+        handle: Long,
+        on: Boolean,
+    )
+
+    /**
+     * [buffer] must be a direct buffer holding [frames] interleaved frames of [channels] channels, the format
+     * they were queued in, as 16-bit PCM or as float when [pcmFloat]; processed in place (the int16 conversion
+     * is native), never past the buffer's capacity.
      */
     external fun dspProcess(
         handle: Long,
         buffer: java.nio.ByteBuffer,
         frames: Int,
         channels: Int,
+        pcmFloat: Boolean,
     )
 
     /**

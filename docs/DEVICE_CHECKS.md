@@ -71,6 +71,25 @@ the original numbering as cited by the changelog.
   cubes' snare flip wave, the knot's snare bulge, the lens's snare flip, the
   pool's kick ripple and the drops sliding on onsets, none of them stepping
   the whole frame's brightness.
+- **43** — Bit-perfect USB (#353, #489). Needs Android 14+ and a USB DAC
+  that lists a `MIXER_BEHAVIOR_BIT_PERFECT` entry (`adb shell dumpsys
+  audio` shows the mixer attributes per device). With Settings › Playback ›
+  Bit-perfect on and ReplayGain, crossfade, the equalizer, bass boost,
+  loudness, crossfeed and the limiter all on: (a) cold start the app and play
+  a gapless album of 44.1 kHz FLACs; from the very first track,
+  `adb shell dumpsys media.audio_flinger` must show the output thread as
+  bit-perfect at 44100 Hz, and it must stay so through every gapless item
+  without a seek (the bug was a mixed first track reused for the album);
+  (b) a DAC that shows the stream's rate (most do) shows the file's rate,
+  not 48 kHz; (c) the EQ and ReplayGain make no audible difference and no
+  pause, skip or sleep fade is heard; (d) the visuals still react; (e) play
+  a 96 kHz file next: the output reopens at 96 kHz, still bit-perfect if the
+  DAC lists that rate, otherwise mixed with the EQ back; (f) switch the
+  setting off mid-track: playback jumps once (the seek that reopens the
+  track) and the EQ and ReplayGain are heard again at once; on again, the
+  same jump and they pause. If the DAC can capture its input (or a loopback
+  recorder is at hand), a null test against the file is the definitive
+  check: the difference must be exactly zero.
 
 ## See also
 

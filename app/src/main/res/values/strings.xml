@@ -460,7 +460,8 @@
     <string name="playback_resume_long_tracks">Remember position in long tracks</string>
     <string name="playback_resume_long_tracks_explainer">Anything over 20 minutes — a mix, an audiobook, a podcast — picks up where it was left, until it is played to the end.</string>
     <string name="playback_bit_perfect">Bit-perfect USB output</string>
-    <string name="playback_bit_perfect_explainer">Asks Android to hand the stream to a USB DAC untouched by the system mixer, at the track\'s own sample rate. Only DACs that offer that path take it, and it starts with the next track. The equalizer and ReplayGain still apply if they are on; system sounds are muted on the DAC while it plays.</string>
+    <string name="playback_bit_perfect_explainer">Asks Android to hand the stream to a USB DAC untouched by the system mixer, at the track\'s own sample rate. Only DACs that offer that path take it; a track the DAC cannot take bit-perfect plays as usual. System sounds are muted on the DAC while it plays.</string>
+    <string name="playback_bit_perfect_paused">While the DAC plays bit-perfect, these pause so it gets the file\'s exact samples: ReplayGain, crossfade, the pause, skip and sleep fades, the equalizer and bass boost, loudness, crossfeed and the limiter. The visuals still react.</string>
     <string name="playback_replaygain_explainer">Evens out loudness between tracks from the ReplayGain tags in each file. Files without the tags play at their own level.</string>
 
     <!-- Settings › Audio › Equalizer. -->

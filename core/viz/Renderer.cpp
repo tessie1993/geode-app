@@ -418,9 +418,17 @@ void Renderer::applyRenderScale() {
     const float scale = supersample * appliedUserScale_ * thermalTierInfo(appliedTier_).renderScale;
     renderWidth_ = std::max(static_cast<int>(width_ * scale), 1);
     renderHeight_ = std::max(static_cast<int>(height_ * scale), 1);
+    // A hotter tier keeps fewer spares: release them before anything is resized (#378). Then only the
+    // scenes drawn this frame are resized; a spare is resized when readyScene hands it out again, so
+    // a tier change costs one resize per scene shown, not one per scene ever built.
+    ++sizeStamp_;
+    trimScenes({});
     for (auto& entry : scenes_) {
-        entry.second->resize(renderWidth_, renderHeight_);
-        entry.second->setWindowSize(width_, height_);
+        Scene* s = entry.second.get();
+        if (s != activeScene_ && s != outgoingScene_ && s != layerScene_) continue;
+        s->resize(renderWidth_, renderHeight_);
+        s->setWindowSize(width_, height_);
+        residency_.markSized(entry.first, sizeStamp_);
     }
     overlays_.resize(renderWidth_, renderHeight_);
     fboA_.ensure(renderWidth_, renderHeight_);
@@ -489,7 +497,36 @@ void Renderer::dropScene(const std::string& id) {
         if (s == activeScene_ || s == outgoingScene_ || s == layerScene_) return;
         s->release();
         scenes_.erase(it);
+        residency_.remove(id);
         return;
+    }
+}
+
+void Renderer::admitScene(const std::string& id, const Scene& scene) {
+    residency_.insert(id, scene.isFluid(), sizeStamp_);
+    trimScenes(id);
+}
+
+void Renderer::trimScenes(const std::string& keepId) {
+    std::string requestedId;
+    std::string layerId;
+    {
+        std::lock_guard<std::mutex> lock(stateLock_);
+        requestedId = requestedSceneId_;
+        layerId = layerSceneId_;
+    }
+    const auto pinned = [&](const std::string& id) {
+        if (id == keepId || id == requestedId || id == layerId || id == bornSceneId_) return true;
+        const Scene* s = builtScene(id);
+        return s != nullptr && (s == activeScene_ || s == outgoingScene_ || s == layerScene_);
+    };
+    for (const std::string& victim : residency_.evict(pinned, SceneResidency::spareBudget(appliedTier_))) {
+        for (auto it = scenes_.begin(); it != scenes_.end(); ++it) {
+            if (it->first != victim) continue;
+            it->second->release();
+            scenes_.erase(it);
+            break;
+        }
     }
 }
 
@@ -505,7 +542,16 @@ Scene* Renderer::builtScene(const std::string& id) {
 // attempt (setup plus the programs already compiled) or one budgeted ProgramStager step. Exports
 // (blockingBuilds_) and scenes that keep deferring (ScenePrep::kMaxAttempts) build inline.
 Scene* Renderer::readyScene(const std::string& id) {
-    if (Scene* scene = builtScene(id)) return scene;
+    if (Scene* scene = builtScene(id)) {
+        residency_.touch(id);
+        // Skipped by a tier or scale change while it was not drawn: sized now, as it comes back.
+        if (residency_.needsResize(id, sizeStamp_)) {
+            scene->resize(renderWidth_, renderHeight_);
+            scene->setWindowSize(width_, height_);
+            residency_.markSized(id, sizeStamp_);
+        }
+        return scene;
+    }
     Scene* scene = nullptr;
     if (blockingBuilds_.load(std::memory_order_relaxed)) {
         scene = sceneFor(id);
@@ -558,6 +604,7 @@ Scene* Renderer::attemptScene(const std::string& id) {
     if (!scene) return nullptr;
     Scene* raw = scene.get();
     scenes_.emplace_back(id, std::move(scene));
+    admitScene(id, *raw);
     return raw;
 }
 
@@ -567,6 +614,7 @@ Scene* Renderer::sceneFor(const std::string& id) {
     if (!built) return nullptr;
     Scene* scene = built.get();
     scenes_.emplace_back(id, std::move(built));
+    admitScene(id, *scene);
     return scene;
 }
 
@@ -612,6 +660,7 @@ void Renderer::releaseScenes() {
     prep_.done();
     for (auto& entry : scenes_) entry.second->release();
     scenes_.clear();
+    residency_.clear();
     activeScene_ = nullptr;
     outgoingScene_ = nullptr;
     layerScene_ = nullptr;

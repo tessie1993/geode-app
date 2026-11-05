@@ -32,6 +32,7 @@
 #include "viz/Scene.hpp"
 #include "viz/ScenePrep.hpp"
 #include "viz/SceneRegistry.hpp"
+#include "viz/SceneResidency.hpp"
 #include "viz/StyleSchedule.hpp"
 #include "viz/ShaderSource.hpp"
 #include "viz/ThermalGovernor.hpp"
@@ -148,6 +149,11 @@ private:
     Scene* builtScene(const std::string& id);
     // Releases a built scene nothing is drawing (Liquid mode's last born style); a no-op otherwise.
     void dropScene(const std::string& id);
+    // A scene just built: recorded as the most recent, then the spares over the tier's budget go (#378).
+    void admitScene(const std::string& id, const Scene& scene);
+    // Releases the built scenes SceneResidency says are over budget; `keepId` is pinned beside the
+    // ones in use this frame.
+    void trimScenes(const std::string& keepId);
     std::unique_ptr<Scene> buildScene(const std::string& id);
     float beginFrame(double timeSeconds);
     // Steps styleSchedule_ once per frame (after the sound engine) and requests its change, if any.
@@ -202,6 +208,10 @@ private:
     SceneRegistry registry_;
     Overlays overlays_{loader_};
     std::vector<std::pair<std::string, std::unique_ptr<Scene>>> scenes_;
+    // Which of scenes_ stay resident, and which were sized before the last tier or scale change
+    // (viz/SceneResidency). sizeStamp_ moves on every applyRenderScale.
+    SceneResidency residency_;
+    uint32_t sizeStamp_ = 0;
     std::string quadVert_;
 
     TouchField touchField_;

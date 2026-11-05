@@ -788,7 +788,7 @@ void everyDriftMultiplierTurnsWholeTurnsAtTheWrap() {
 
 // The angle a shader turns by, 0.3 * uDrift and the rest, never jumps from one
 // frame to the next, including across uDrift's own wrap; uDrift stays bounded;
-// and apply() still spins with the old (-2pi, 2pi] angle.
+// and apply()'s spin never jumps either.
 void driftCrossesItsWrapWithoutAPop() {
     MotionField m;
     GeodeSoundFrame f = playing();
@@ -797,7 +797,9 @@ void driftCrossesItsWrapWithoutAPop() {
     const double ks[] = {0.07, 0.08, 0.1, 0.12, 0.15, 0.25, 0.3, 0.35, 0.5, 1.0};
     const float dt = 0.1f;
     float prev = m.state().drift;
-    double total = 0.0;  // the unwrapped angle, for apply()'s reference
+    const SceneParams p;
+    float prevRot = m.apply(p, false).rotation;
+    float worstRot = 0.0f;
     bool wrapped = false;
     double worst = 0.0;
     for (int i = 0; i < 2000000 && !wrapped; ++i) {
@@ -809,29 +811,59 @@ void driftCrossesItsWrapWithoutAPop() {
             wrapped = true;
             d -= std::copysign(2.0 * bound, d);
         }
-        total += d;
         for (const double k : ks) {
             // The screen angle's step, on the circle: tiny, wrap or no wrap.
             const double step = std::remainder(k * cur - k * prev, kTwoPi);
             worst = std::max(worst, std::fabs(step));
         }
-        // apply() reads the old law's angle.
-        double old = std::remainder(total, 2.0 * kTwoPi);
-        if (std::fabs(std::fabs(old) - kTwoPi) > 1e-2) {
-            const SceneParams p;
-            const float want = std::clamp(p.rotation + static_cast<float>(old) * p.motionDrift, -3.0f, 3.0f);
-            if (std::fabs(m.apply(p, false).rotation - want) > 2e-3f) {
-                check(false, "apply() spins with the old (-2pi, 2pi] drift angle");
-                break;
-            }
-        }
+        // apply()'s spin rate: steady, wrap or no wrap (the old law reversed
+        // it at full speed every 4pi of drift). After the first 30 s, while
+        // midRel settles from its start.
+        const float rot = m.apply(p, false).rotation;
+        if (i > 300) worstRot = std::max(worstRot, std::fabs(rot - prevRot));
+        prevRot = rot;
         prev = cur;
     }
     check(wrapped, "the drift reaches its wrap");
     check(worst < 0.05, "no style's drift turn jumps between frames, even across the wrap");
+    check(worstRot < 0.05f, "apply()'s drift spin never jumps, even across the wrap");
     check(std::fabs(MotionField::wrapDrift(bound + 0.5) - (0.5 - bound)) < 1e-9, "wrapDrift folds past the top to the bottom");
     check(MotionField::wrapDrift(-bound) == bound, "wrapDrift's range is (-bound, bound]");
     check(MotionField::wrapDrift(NAN) == 0.0, "a non-finite drift restarts at 0");
+}
+
+// Big moments re-draw the drift's direction; apply()'s spin follows it round
+// smoothly (the sign eases over seconds) and always turns the way the drift
+// does, so the scene's rotation and the uDrift styles never disagree.
+void driftSpinEasesItsTurnAround() {
+    MotionField m;
+    const SceneParams p;
+    const float dt = 1.0f / 60.0f;
+    float prevDrift = m.state().drift;
+    float prevRot = m.apply(p, false).rotation;
+    float worstRot = 0.0f;
+    bool sawPlus = false;
+    bool sawMinus = false;
+    bool agrees = true;
+    for (int i = 0; i < 60 * 240; ++i) {
+        GeodeSoundFrame f = playing();
+        if (i % (60 * 5) == 0) f.hardCut = 1.0f;
+        m.step(f, dt);
+        const float rot = m.apply(p, false).rotation;
+        const float spin = rot - p.rotation;
+        const float turned = m.state().drift - prevDrift;
+        if (i > 0) worstRot = std::max(worstRot, std::fabs(rot - prevRot));
+        if (std::fabs(spin) > 0.02f && std::fabs(turned) > 1e-6f && (spin > 0.0f) != (turned > 0.0f)) agrees = false;
+        sawPlus |= spin > 0.1f;
+        sawMinus |= spin < -0.1f;
+        prevRot = rot;
+        prevDrift = m.state().drift;
+    }
+    check(sawPlus && sawMinus, "big moments turn the drift spin both ways");
+    check(worstRot < 0.05f, "the drift spin eases round, never flips");
+    check(agrees, "apply() spins the way uDrift turns");
+    const SceneParams still = m.apply(p, false, 0.0f);
+    check(still.rotation == p.rotation, "a style that does not turn gets no drift spin");
 }
 
 void sourceCatalogueIsCompleteAndUnique() {
@@ -1200,6 +1232,7 @@ int main() {
     followerScalesASoundClockWithoutJumps();
     everyDriftMultiplierTurnsWholeTurnsAtTheWrap();
     driftCrossesItsWrapWithoutAPop();
+    driftSpinEasesItsTurnAround();
     sourceCatalogueIsCompleteAndUnique();
     macrosAtRestChangeNothing();
     macrosTurnTowardTheEndsAndStayInRange();

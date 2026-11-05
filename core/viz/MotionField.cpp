@@ -19,14 +19,6 @@ double MotionField::wrapDrift(double angle) {
     return a;
 }
 
-float MotionField::spinAngle(float drift) {
-    const double period = 2.0 * kTwoPiD;
-    double a = std::fmod(static_cast<double>(drift), period);
-    if (a > 0.5 * period) a -= period;
-    else if (a <= -0.5 * period) a += period;
-    return static_cast<float>(a);
-}
-
 void MotionField::reset() {
     rhythmLock_ = 0.0f;
     keyHuePhase_ = 0.0f;
@@ -36,6 +28,7 @@ void MotionField::reset() {
     orbitCurY_ = 0.0f;
     orbitRetargetLockout_ = 0.0f;
     driftAngle_ = 0.0;
+    driftRate_ = 0.0f;
     driftSign_ = 1.0f;
     driftSignTarget_ = 1.0f;
     barSin_ = 0.0f;
@@ -157,6 +150,7 @@ void MotionField::step(const GeodeSoundFrame& f, float dt, float speed) {
     // Wrapped rather than free-running, to keep float precision over a long
     // session, but at a period every shader's fraction of uDrift turns whole
     // turns through (kDriftWrapTurns), so the wrap never shows on screen.
+    driftRate_ = driftRate;
     driftAngle_ = wrapDrift(driftAngle_ + static_cast<double>(driftRate) * static_cast<double>(dt));
     state_.drift = static_cast<float>(driftAngle_);
 
@@ -193,7 +187,11 @@ SceneParams MotionField::apply(const SceneParams& p, bool reducedMotion, float s
     const float breath = 1.0f + (s.breath - 1.0f) * motionBreath;
     o.zoom = std::clamp(p.zoom * breath, 0.3f, 3.0f);
     if (spin != 0.0f) {
-        o.rotation = std::clamp(p.rotation + spinAngle(s.drift) * motionDrift * spin, -3.0f, 3.0f);
+        // rotation is a rate (ShaderScene integrates it), so the drift adds its
+        // rate, whose sign eases over kDriftSignEaseSeconds. It used to add the
+        // wrapped drift angle: a sawtooth that swept the spin from -2pi to 2pi
+        // rad/s and then reversed it at full speed on every wrap.
+        o.rotation = std::clamp(p.rotation + kDriftSpinGain * driftRate_ * motionDrift * spin, -3.0f, 3.0f);
         o.sway = std::clamp(p.sway + motionAmount * 0.35f * std::fabs(barSin_) * rhythmLock_, 0.0f, 1.0f);
     }
     o.warp = std::clamp(p.warp + motionAmount * 0.3f * (1.0f - s.harmony), 0.0f, 1.0f);

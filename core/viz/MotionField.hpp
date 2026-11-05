@@ -98,10 +98,11 @@ public:
     // Folds an accumulated drift angle (radians) into uDrift's range,
     // (-kDriftWrapTurns/2, kDriftWrapTurns/2] turns.
     static double wrapDrift(double angle);
-    // The drift angle apply() spins with: uDrift folded to (-2pi, 2pi], the
-    // value it read before uDrift's period grew, so apply() is unchanged.
-    // Exact because 4pi divides uDrift's period.
-    static float spinAngle(float drift);
+    // apply()'s drift spin, in rad/s of `rotation` per rad/s of drift: the
+    // drift's own rate, eased in sign, scaled so typical music (midRel 1,
+    // drift 0.1 rad/s) adds pi rad/s at motionDrift 1, the mean of the old
+    // sawtooth it replaces (see apply()).
+    static constexpr float kDriftSpinGain = 31.415927f;
 
 private:
 
@@ -166,6 +167,9 @@ private:
     // Double: a frame's increment (~2e-3 rad) is ~30 float ulps at 314 rad, so
     // a float accumulator would drift off the music's rate near the bounds.
     double driftAngle_ = 0.0;
+    // The rate driftAngle_ last advanced at (rad/s), eased in sign; apply()
+    // spins with it.
+    float driftRate_ = 0.0f;
     float driftSign_ = 1.0f;
     float driftSignTarget_ = 1.0f;
 

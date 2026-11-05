@@ -70,6 +70,7 @@ SIM_BODIES = {
 
 
 COMMENTS = re.compile(r"//[^\n]*|/\*.*?\*/", re.S)
+PREPROCESSOR = re.compile(r"^[ \t]*#[^\n]*", re.M)
 U_TIME = re.compile(r"\buTime\b")
 U_SPEED = re.compile(r"\buSpeed\b")
 
@@ -86,6 +87,10 @@ def speed_twice(text):
     `uTime * 0.2 * uSpeed` is caught too and prose about the rule is not.
     """
     code = COMMENTS.sub(lambda m: "\n" * m.group(0).count("\n"), text)
+    # A preprocessor line ends at its newline, not at a `;`: close each one as its
+    # own statement, so a #define never merges into the code after it (and one
+    # that itself multiplies uTime by uSpeed is still caught).
+    code = PREPROCESSOR.sub(lambda m: m.group(0) + ";", code)
     hits = []
     pos = 0
     for stmt in re.split(r"([;{}])", code):
@@ -99,6 +104,8 @@ def check_speed_rule():
     # The guard guards itself first, so a regex slip cannot pass everything.
     assert speed_twice("float t = uTime * uSpeed;") == [1]
     assert speed_twice("// uTime * uSpeed\nx = 1.0 +\n  uTime * 0.3 * uSpeed;") == [3]
+    assert speed_twice("#define T (uTime * 0.1)\nfloat w = uSpeed * 2.0;") == []
+    assert speed_twice("#define T (uTime * uSpeed)\nfloat w = 2.0;") == [1]
     assert speed_twice("float t = uTime;\nfloat f = uFlowPhase * uSpeed; // not uTime * uSpeed") == []
     bad = [f"{p.name}:{line}" for p in sorted(SHADERS.glob("*.glsl"))
            for line in speed_twice(p.read_text(encoding="utf-8"))]

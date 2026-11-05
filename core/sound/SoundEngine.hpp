@@ -13,32 +13,42 @@
 
 namespace geode::sound {
 
-// The sound engine: MilkDrop's architecture and TouchDesigner's side by side, both frame-locked.
+// The sound engine: MilkDrop's architecture and TouchDesigner's side by side, both on the sample clock.
 //
-// MilkDrop: audio is written into a ring as it arrives, and once per rendered frame the engine reads the
+// MilkDrop: audio is written into a ring as it arrives, and on every analysis hop the engine reads the
 // newest window out of it, transforms it and sums the spectrum into bands measured against their own
 // running means (bass, mid, treble, their att envelopes, everything spectral, the waveform).
 //
 // TouchDesigner: every sample also runs through a filter bank as it is written (4-pole bands with a
-// power envelope), and each frame reduces the slice since the last frame to one level per band, which
-// then goes through Lag and Trigger (low, middle, high and the drums).
+// power envelope), and each hop reduces the slice since the last hop to one level per band, which then
+// goes through Lag and Trigger (low, middle, high and the drums).
 //
-//   write() ─┬► ring ──► step(dt): newest window ─► Hann ─► FFT ─► tilt ─► bands ─► relative levels
-//            │                                  └► waveform, descriptors, melody, EQ, spectrum
-//            └► filter bank (per sample) ─► step(dt): slice levels ─► lag, threshold, gain ─► low/middle/high
-//                                                                  └► punch ─► triggers ─► envelopes
+// Two hops, both counted in written samples, never in frames, so the whole analysis is a function of the
+// audio alone: the same song gives the same numbers at 30, 60 or 120 fps, live or in an export (fosfora's
+// HopAnalyzer; docs/research/2026-11-05-fosfora-structure-plan.md step 4).
 //
-// No clock of its own: the frame is the unit, and each stage scales its smoothing by dt. The one
-// exception is the musical layer's rhythm (Rhythm), which needs an evenly sampled onset envelope and so
-// runs on a fixed 10 ms hop of the samples write() receives; harmony and form (Harmony, Form) step with
-// the frame like everything else:
+//  - Rhythm's 10 ms hop (Rhythm::kHopSeconds), for its evenly sampled onset envelope, as before.
+//  - The analysis hop, kAnalysisHz = 60 a second of audio (800 samples at 48 kHz, 735 at 44.1 kHz): the
+//    FFT path and everything after it. 60 because every detector's constants were tuned on 60 fps
+//    frames: each window is one noisy reading, and the triggers, peaks and sections were set for that
+//    many readings a second, not for any rate (at 100 or 120 a second the same code loses the drop and
+//    the sections; musical_test fails). So 60 fps behaves exactly as it did, and 30 and 120 fps now
+//    behave like it instead of drifting. A 10 ms hop for everything waits on re-tuning those detectors.
 //
-//   write() ─► filter bank ─► every 10 ms of audio: band powers ─► Rhythm (tempo, beat, bar, phrase)
-//   step(dt) ─► long spectrum ─► Harmony (chroma, key, tension) ─┐
-//            ─► EQ, timbre, loudness, bass share, hits ───────────┴► Form (novelty, sections, build, drop)
+//   write() ─┬► ring
+//            └► filter bank (per sample) ─┬► every 10 ms: band powers ─► Rhythm (tempo, beat, bar, phrase)
+//                                         └► every 1/60 s: analyzeHop(): newest window ─► Hann ─► FFT
+//                                              ─► tilt ─► bands, descriptors, drums, events, melody, clocks
+//                                              ─► Harmony (chroma, key, tension) ─► Form (sections, drop)
+//                                              ─► the hop's frame, triggers latched until the next step()
+//   step(dt) ─► the newest hop's frame, with every trigger any hop since the last step() fired
 //
-// The export path writes exactly the audio up to each video frame and steps with dt = 1/fps, through
-// this same code; one engine per surface (screen, wallpaper, export), never shared between threads.
+// Values are held at the newest hop (at most 1/60 s old); interpolating between hops is the next step.
+// dt matters to step() only when no audio arrives (a paused or starved live source): then it runs silent
+// hops on the frame clock, so the levels still fall and silence still fires, as they did before.
+//
+// The export path writes exactly the audio up to each video frame and steps, through this same code; one
+// engine per surface (screen, wallpaper, export), never shared between threads.
 class SoundEngine {
 public:
     explicit SoundEngine(int sampleRateHz);
@@ -49,8 +59,16 @@ public:
 
     int sampleRateHz() const { return sampleRateHz_; }
 
-    // Interleaved float PCM; mono feeds both channels, channels past the second are ignored.
+    // Analysis hops per second of audio; one hop of written samples is one step of every stage but Rhythm.
+    static constexpr int kAnalysisHz = 60;
+    static int analysisHopFor(int sampleRateHz);
+    int analysisHop() const { return analysisHop_; }
+
+    // Interleaved float PCM; mono feeds both channels, channels past the second are ignored. Runs the
+    // analysis on every hop the samples complete.
     void write(const float* interleaved, int frames, int channels);
+    // The newest hop's frame; each trigger is the strongest any hop since the last step() fired, so a beat
+    // between two frames is never lost and never reported twice.
     void step(float dtSeconds, GeodeSoundFrame& out);
     void setTuning(const GeodeSoundTuning& tuning) { tuning_ = tuning; }
     const GeodeSoundTuning& tuning() const { return tuning_; }
@@ -138,6 +156,8 @@ private:
     BinRange bins(float loHz, float hiHz) const;
     static float sum(const std::vector<float>& mag, BinRange r);
     void readWindow(int count, float* mono, float* left, float* right) const;
+    void analyzeHop(float dt);
+    void latch(const GeodeSoundFrame& hop);
     float nextRandom();
     void levels(float dt, bool warm, bool silent, GeodeSoundFrame& out);
     void spectrumPoints(float dt, float* out);
@@ -177,12 +197,17 @@ private:
     bool fresh_ = false;
     float starvedSeconds_ = 0.0f;
     bool starved_ = false;  // nothing written for a while: the window reads as silence, not a frozen loop
+    float starvedHopDue_ = 0.0f;  // frame time not yet spent on silent hops while starved
     std::array<SliceBand, kSlices> bank_;
     std::array<float, kSlices> sliceNow_{};   // this frame's slice levels
     std::array<float, kSlices> punchNow_{};   // and the highest punch each slice held
     std::array<int64_t, kSlices> punchAt_{};  // and when, in samples
 
-    // Per-frame scratch, overwritten every step.
+    // The newest hop's frame, and what step() hands out: that frame with the triggers of every hop since.
+    GeodeSoundFrame hopFrame_{};
+    GeodeSoundFrame latched_{};
+
+    // Per-hop scratch, overwritten every hop.
     std::vector<float> mono_;
     std::vector<float> left_;
     std::vector<float> right_;
@@ -205,6 +230,9 @@ private:
     Harmony harmony_;
     Form form_;
     int hopFill_ = 0;  // samples written since the rhythm's last hop
+    int analysisHop_ = 800;   // samples per analysis hop
+    float analysisDt_ = 1.0f / kAnalysisHz;
+    int analysisFill_ = 0;    // samples written since the last analysis hop
 
     State state_;
 };

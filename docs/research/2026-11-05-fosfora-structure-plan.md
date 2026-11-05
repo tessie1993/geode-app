@@ -128,13 +128,20 @@ Order: lock the behaviour first, then move, then change. Every step updates `AGE
 | **8** | **Bench.** `tools/bench/` scores `sound_dump` against Ballroom/GiantSteps (fetched outside the repo); a small fixture with floors in CI | none | the bench itself |
 | later | Rates audit (F11); per-style control manifests beside the shader (F10); a layer stack with blend modes (F8); generated diagrams (F14) | — | — |
 
+Progress: step 1 is the golden test (`core/tests/sound_golden_test.cpp`). Step 4 started ahead of 2–3: the
+FFT path runs on a 1/60 s hop of the samples inside `write()` and `step()` hands out the newest hop with
+latched triggers, so 30, 60 and 120 fps give the same frames and 60 fps is unchanged (the golden did not
+move). Still to do in step 4: the interpolator, `Emotion` in the chain, and a device check of the cost.
+
 Steps 1–3 and 5–6 change no pixels and no numbers; 4 is the one deliberate behaviour change and is
 gated by the golden and the 30/60 fps test. 7 is the mod matrix work already agreed, reframed as the bus.
 
 ## 5. Open questions for the owner
 
-1. Hop size for the FFT path: keep Rhythm's 10 ms (100 Hz, more FFTs than today's ~60/s) or a coarser
-   hop (~21 ms) with Rhythm on its own 10 ms? Decided with sound-engine-v2 stage 0.
+1. ~~Hop size for the FFT path~~ Answered by measurement: 1/60 s, Rhythm on its own 10 ms. Today's engine
+   run at 100 or 120 fps already fails `musical_test` (scales, downbeats, harmonic changes, the drop,
+   sections): the detectors are tuned for 60 readings a second. A 10 ms hop for everything needs them
+   re-tuned first (with step 8's bench).
 2. Step 2 (moves) before step 3, or schema first so the moves carry the generated files? Moves first is
    the recommendation: the later diffs then read cleanly.
 3. Per-style controls (F10) change Customize for users; is that wanted, or do global params stay?

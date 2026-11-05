@@ -1,6 +1,7 @@
 #pragma once
 
-/* What the sound engine hears in one rendered frame. Plain C and all floats, so the whole frame crosses JNI
+/* What the sound engine hears, as of its newest analysis hop (1/60 s of audio, core/sound/SoundEngine): the
+ * same values at any frame rate, live or in an export. Plain C and all floats, so the whole frame crosses JNI
  * as one float array in declaration order, and the C++ renderer, the shaders and Kotlin read the same thing.
  *
  * Where the parameters come from: MilkDrop 3 (the relative levels and their att envelopes, the hard cut,
@@ -16,7 +17,9 @@
  *  - Shaped (everything marked 0..1): ready to drive a parameter as it is.
  *  - Clocks (…Time): seconds or counts that only move forward, at a speed the music sets. Wrap at an hour
  *    (band clocks) or at 4096 (event clocks).
- *  - Triggers (kick … reattack): > 0 on the one frame they fire (the value is the strength, 0..1), else 0. */
+ *  - Triggers (kick … reattack, beat, downbeat, phrase, harmonicChange, sectionChange, drop): > 0 on the one
+ *    frame they fire (the value is the strength, 0..1), else 0. They fire on a hop and reach the next frame,
+ *    the strongest of any hops since the last one, so none is lost or doubled. */
 
 #define GEODE_SOUND_EQ_BANDS 16
 #define GEODE_SOUND_SPECTRUM_POINTS 64
@@ -63,7 +66,7 @@ typedef struct GeodeSoundFrame {
     float midPresence;
     float treblePresence;
     float intensity;
-    /* Clocks. bassTime… advance dt × the band's att each frame; curvedTime advances with vol_att^2.5, so
+    /* Clocks. bassTime… advance dt × the band's att each hop; curvedTime advances with vol_att^2.5, so
      * quiet barely moves it and loud races. hitTime / noteTime count drum hits / note changes, eased over
      * ~150 ms. presence is a 0..1 fade: up over ~2 s while music plays, down over ~2 s of silence. */
     float bassTime;

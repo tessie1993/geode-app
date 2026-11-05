@@ -4,11 +4,12 @@
 //   ./sound_golden_test core/tests/golden/sound_frames.tsv            checks against the golden
 //   ./sound_golden_test --write core/tests/golden/sound_frames.tsv    rewrites it after a deliberate change
 //
-// Why: the analysis is about to move off the render frame clock onto a fixed sample hop. Each step of that
-// work must either keep these numbers or change them on purpose, with the regenerated golden in the same PR
-// so the diff shows what moved. The second check records how far the frame-clocked fields drift between
-// 30, 60 and 120 fps today (reported, not failed), and asserts that the hop-clocked rhythm already agrees:
-// the drift report is the baseline the hop refactor must bring to zero.
+// Why: the analysis runs on a fixed hop of the sample clock (SoundEngine::kAnalysisHz), not on the render
+// frame. Every change to it must either keep these numbers or change them on purpose, with the regenerated
+// golden in the same PR so the diff shows what moved. The second check proves the hop: the same song at 30
+// and 120 fps gives exactly the 60 fps frames at the moments both render one (values held at the newest
+// hop), and every trigger a frame reports is the strongest that fired across the span it covers, so none
+// is lost or doubled whatever the frame rate.
 //
 // Determinism: the music is built in code from a fixed seed (no assets, no wall clock, no threads), and
 // written to the engine the way the export path feeds it (OffscreenSceneRenderer, TrackAudio): exactly the
@@ -59,9 +60,17 @@ constexpr int kFieldCount = static_cast<int>(sizeof(kFields) / sizeof(kFields[0]
 static_assert(kFieldCount == GEODE_SOUND_SCALARS, "a GeodeSoundFrame scalar was added or removed: update the list");
 static_assert(offsetof(GeodeSoundFrame, eq) == GEODE_SOUND_SCALARS * sizeof(float), "scalars come first");
 
-// Frame-clocked: the engine steps them with the frame's dt (FFT window, filter-bank slices, Harmony, Form).
-// Hop-clocked: Rhythm's tempo and beat count, which run on a fixed 10 ms hop of the written samples.
-bool hopClocked(const std::string& name) { return name == "bpm" || name == "beatCount"; }
+// Triggers (> 0 on the one hop they fire), which step() latches across the hops since the last frame; the
+// same list as kTriggers in core/sound/SoundEngine.cpp. Every other scalar holds the newest hop's value.
+bool isTrigger(const std::string& name) {
+    static const char* const kNames[] = {"kick",     "snare",   "hat",        "kick2",     "kick4",
+                                         "kick8",    "kick16",  "snare2",     "snare4",    "hardCut",
+                                         "onset",    "silence", "returned",   "surge",     "noteChange",
+                                         "legato",   "reattack", "beat",      "downbeat",  "phrase",
+                                         "harmonicChange", "sectionChange", "drop"};
+    for (const char* n : kNames) if (name == n) return true;
+    return false;
+}
 
 constexpr int kRate = 48000;
 constexpr double kSeconds = 20.0;
@@ -327,68 +336,46 @@ int checkGolden(const Run& now, const std::string& path) {
     return 0;
 }
 
-// ---- Check 2: frame-rate dependence ---------------------------------------------------------------------
+// ---- Check 2: frame-rate independence ------------------------------------------------------------------
 
-// Compares another frame rate against 60 fps at the times both rendered a frame (every 1/30 s), where both
-// engines have been written exactly the same samples. Reports the frame-clocked fields' drift; fails only
-// if a hop-clocked rhythm field disagrees.
+// The coarser run's frame c spans the finer run's frames [c·k, (c+1)·k), where k is the ratio of their
+// rates, and both end on the same sample. At that sample both engines have heard exactly the same audio and
+// run exactly the same hops, so every held value must be bit-equal, and each trigger in the coarse frame
+// must equal the strongest the fine run reported across the span.
 int compareRates(const Run& base, const Run& other, double fps) {
-    const double ratio = fps / 60.0;  // other frames per base frame
-    struct Drift {
-        double mean = 0.0;
-        double max = 0.0;
-        double scale = 0.0;  // the field's own range at 60 fps, to read the drift against
-    };
-    std::vector<Drift> drift(kFieldCount);
-    int matched = 0;
-    int rhythmBad = 0;
-    for (size_t i = 0; i < base.values.size(); i++) {
-        // Base frame i ends at (i+1)/60 s; the other run has a frame ending there when (i+1)·ratio is whole.
-        const double j = (static_cast<double>(i) + 1.0) * ratio;
-        if (std::fabs(j - std::round(j)) > 1e-9) continue;
-        const size_t oi = static_cast<size_t>(std::llround(j)) - 1;
-        if (oi >= other.values.size()) continue;
-        matched++;
-        for (int k = 0; k < kFieldCount; k++) {
-            const double d = std::fabs(static_cast<double>(other.values[oi][k]) - base.values[i][k]);
-            drift[k].mean += d;
-            drift[k].max = std::max(drift[k].max, d);
+    const bool otherCoarse = fps < 60.0;
+    const Run& coarse = otherCoarse ? other : base;
+    const Run& fine = otherCoarse ? base : other;
+    const int k = static_cast<int>(std::lround(otherCoarse ? 60.0 / fps : fps / 60.0));
+    std::vector<int> bad(kFieldCount, 0);
+    std::vector<double> worst(kFieldCount, 0.0);
+    int fires = 0;
+    for (size_t c = 0; c < coarse.values.size(); c++) {
+        const size_t last = (c + 1) * static_cast<size_t>(k) - 1;
+        if (last >= fine.values.size()) break;
+        for (int f = 0; f < kFieldCount; f++) {
+            float want = fine.values[last][f];
+            if (isTrigger(kFields[f].name)) {
+                for (size_t i = c * static_cast<size_t>(k); i < last; i++) want = std::max(want, fine.values[i][f]);
+                if (coarse.values[c][f] > 0.0f) fires++;
+            }
+            const double d = std::fabs(static_cast<double>(coarse.values[c][f]) - want);
+            if (d > 0.0) {
+                bad[f]++;
+                worst[f] = std::max(worst[f], d);
+            }
         }
     }
-    for (int k = 0; k < kFieldCount; k++) {
-        float lo = base.values[0][k];
-        float hi = lo;
-        for (const auto& row : base.values) {
-            lo = std::min(lo, row[k]);
-            hi = std::max(hi, row[k]);
-        }
-        drift[k].scale = hi - lo;
-        drift[k].mean /= std::max(1, matched);
+    int failed = 0;
+    for (int f = 0; f < kFieldCount; f++) {
+        if (bad[f] == 0) continue;
+        failed++;
+        std::printf("FAIL %.0f fps: %-16s %4d frames differ from 60 fps, worst |diff| %.4g\n", fps, kFields[f].name,
+                    bad[f], worst[f]);
     }
-    std::printf("\n%.0f fps vs 60 fps over %d shared frame times (report only: the hop refactor must zero these)\n",
-                fps, matched);
-    std::printf("  %-16s %10s %10s %10s\n", "field", "mean|d|", "max|d|", "range@60");
-    int equal = 0;
-    for (int k = 0; k < kFieldCount; k++) {
-        const std::string name = kFields[k].name;
-        if (hopClocked(name)) {
-            // Tempo to a tenth of a BPM, and the beat count to the beat: the oscillator's phase still reads
-            // frame-clocked accents (harmonyAccent, sectionStarted), so a beat may land one frame apart.
-            const double tol = name == "bpm" ? 0.1 : 1.0;
-            const bool ok = drift[k].max <= tol;
-            std::printf("  %-16s %10.4g %10.4g %10.4g  hop-clocked, must agree within %.1f: %s\n", name.c_str(),
-                        drift[k].mean, drift[k].max, drift[k].scale, tol, ok ? "ok" : "FAIL");
-            if (!ok) rhythmBad++;
-            continue;
-        }
-        if (drift[k].max == 0.0) {
-            equal++;
-            continue;
-        }
-        std::printf("  %-16s %10.4g %10.4g %10.4g\n", name.c_str(), drift[k].mean, drift[k].max, drift[k].scale);
-    }
-    std::printf("  (%d frame-clocked fields already equal)\n", equal);
-    return rhythmBad;
+    std::printf("%.0f fps: %s (%zu shared frames, %d trigger fires matched over their spans)\n", fps,
+                failed == 0 ? "every field equals 60 fps" : "differs from 60 fps", coarse.values.size(), fires);
+    return failed;
 }
 
 }  // namespace

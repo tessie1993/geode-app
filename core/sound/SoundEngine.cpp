@@ -26,6 +26,20 @@ constexpr float kRunTau = 1.0f;
 constexpr float kEase = 0.06f;
 constexpr float kLn2 = 0.69314718f;
 
+// The frame's triggers: > 0 on the one hop they fire. step() hands each out as the strongest any hop since
+// the last step() fired, so a frame that spans several hops loses none and a hop is never reported twice.
+// Every other scalar, and every array, is the newest hop's value.
+constexpr float GeodeSoundFrame::* kTriggers[] = {
+    &GeodeSoundFrame::kick,        &GeodeSoundFrame::snare,         &GeodeSoundFrame::hat,
+    &GeodeSoundFrame::kick2,       &GeodeSoundFrame::kick4,         &GeodeSoundFrame::kick8,
+    &GeodeSoundFrame::kick16,      &GeodeSoundFrame::snare2,        &GeodeSoundFrame::snare4,
+    &GeodeSoundFrame::hardCut,     &GeodeSoundFrame::onset,         &GeodeSoundFrame::silence,
+    &GeodeSoundFrame::returned,    &GeodeSoundFrame::surge,         &GeodeSoundFrame::noteChange,
+    &GeodeSoundFrame::legato,      &GeodeSoundFrame::reattack,      &GeodeSoundFrame::beat,
+    &GeodeSoundFrame::downbeat,    &GeodeSoundFrame::phrase,        &GeodeSoundFrame::harmonicChange,
+    &GeodeSoundFrame::sectionChange, &GeodeSoundFrame::drop,
+};
+
 // TouchDesigner's Band EQ centres.
 constexpr std::array<float, GEODE_SOUND_EQ_BANDS> kEqCentres = {
     25, 40, 60, 90, 150, 240, 370, 590, 930, 1500, 2300, 3600, 5600, 8900, 14000, 22000};
@@ -44,6 +58,10 @@ float logAxis(float hz) { return clamp01(std::log2(std::max(hz, 20.0f) / 20.0f) 
 float lag(float y, float x, float rise, float fall, float dt) { return follow(y, x, x > y ? rise : fall, dt); }
 
 }  // namespace
+
+int SoundEngine::analysisHopFor(int sampleRateHz) {
+    return std::max(1, static_cast<int>(std::lround(static_cast<double>(std::max(8000, sampleRateHz)) / kAnalysisHz)));
+}
 
 int SoundEngine::fftSizeFor(int sampleRateHz) {
     int n = 256;
@@ -129,6 +147,8 @@ SoundEngine::SoundEngine(int sampleRateHz)
     waveBlock_ = std::max(1, n_ / 512);  // 160 × block always fits the window: ~13 ms at every rate
     // Only the middle of the drawn wave counts when aligning, so the centre is what holds still.
     rhythm_.configure(sampleRateHz_);
+    analysisHop_ = analysisHopFor(sampleRateHz_);
+    analysisDt_ = static_cast<float>(analysisHop_) / static_cast<float>(sampleRateHz_);
     harmony_.configure(static_cast<float>(sampleRateHz_) / static_cast<float>(2 * n_), n_ + 1);
     waveWeight_.resize(GEODE_SOUND_WAVEFORM_POINTS);
     const float c = GEODE_SOUND_WAVEFORM_POINTS;
@@ -160,6 +180,11 @@ float SoundEngine::nextRandom() {
 
 void SoundEngine::write(const float* interleaved, int frames, int channels) {
     if (interleaved == nullptr || frames <= 0 || channels <= 0) return;
+    // Audio again: the window reads the ring, not silence.
+    fresh_ = true;
+    starved_ = false;
+    starvedSeconds_ = 0.0f;
+    starvedHopDue_ = 0.0f;
     const size_t cap = ringL_.size();
     for (int i = 0; i < frames; i++) {
         const float l = interleaved[static_cast<size_t>(i) * channels];
@@ -167,6 +192,7 @@ void SoundEngine::write(const float* interleaved, int frames, int channels) {
         ringL_[writePos_] = l;
         ringR_[writePos_] = r;
         writePos_ = (writePos_ + 1) % cap;
+        written_++;  // per sample: a hop inside this call reads the window up to here
         const float m = 0.5f * (l + r);
         for (auto& band : bank_) band.process(m);
         if (++hopFill_ >= rhythm_.hopSamples()) {
@@ -175,9 +201,17 @@ void SoundEngine::write(const float* interleaved, int frames, int channels) {
             for (int b = 0; b < Rhythm::kBands; b++) power[b] = bank_[b].power();
             rhythm_.hop(power);
         }
+        if (++analysisFill_ >= analysisHop_) {
+            analysisFill_ = 0;
+            analyzeHop(analysisDt_);
+        }
     }
-    written_ += frames;
-    fresh_ = true;
+}
+
+void SoundEngine::latch(const GeodeSoundFrame& hop) {
+    GeodeSoundFrame merged = hop;
+    for (auto field : kTriggers) merged.*field = std::max(hop.*field, latched_.*field);
+    latched_ = merged;
 }
 
 void SoundEngine::readWindow(int count, float* mono, float* left, float* right) const {
@@ -199,9 +233,28 @@ void SoundEngine::readWindow(int count, float* mono, float* left, float* right) 
 
 void SoundEngine::step(float dtSeconds, GeodeSoundFrame& out) {
     const float dt = std::clamp(dtSeconds, 1e-4f, 0.25f);
-    starvedSeconds_ = fresh_ ? 0.0f : starvedSeconds_ + dt;
+    if (!fresh_) {
+        // No audio since the last frame. Past kStarved the source is paused or gone: the window reads as
+        // silence and silent hops run on the frame clock, so the levels fall and silence fires as they
+        // would on written zeros. The one place the frame clock reaches the analysis, and live only: an
+        // export writes every frame's audio.
+        starvedSeconds_ += dt;
+        if (starvedSeconds_ > kStarved) {
+            starved_ = true;
+            starvedHopDue_ = std::min(starvedHopDue_ + dt, 0.25f);
+            while (starvedHopDue_ >= analysisDt_) {
+                starvedHopDue_ -= analysisDt_;
+                analyzeHop(analysisDt_);
+            }
+        }
+    }
     fresh_ = false;
-    starved_ = starvedSeconds_ > kStarved;
+    out = latched_;
+    for (auto field : kTriggers) latched_.*field = 0.0f;
+}
+
+void SoundEngine::analyzeHop(float dt) {
+    GeodeSoundFrame& out = hopFrame_;
     out = GeodeSoundFrame{};
     State& s = state_;
 
@@ -251,6 +304,7 @@ void SoundEngine::step(float dtSeconds, GeodeSoundFrame& out) {
     melody(dt, out);
     clocks(dt, out);
     musical(dt, warm, silent, out);
+    latch(out);
 }
 
 void SoundEngine::levels(float dt, bool warm, bool silent, GeodeSoundFrame& out) {
@@ -802,7 +856,7 @@ void SoundEngine::musical(float dt, bool warm, bool silent, GeodeSoundFrame& out
     const Rhythm::Tick* ticks = nullptr;
     const int count = rhythm_.ticks(ticks);
     form_.step(in, ticks, count, dt, rhythm_, out);
-    rhythm_.read(hopFill_, out.hitTime, out);
+    rhythm_.read(hopFill_, out.hitTime, out);  // the beat phase at this analysis hop, between rhythm hops
     rhythm_.clearFrame();
 }
 
@@ -811,6 +865,7 @@ void SoundEngine::reset() {
     harmony_.reset();
     form_.reset();
     hopFill_ = 0;
+    analysisFill_ = 0;
     std::fill(ringL_.begin(), ringL_.end(), 0.0f);
     std::fill(ringR_.begin(), ringR_.end(), 0.0f);
     writePos_ = 0;
@@ -818,6 +873,9 @@ void SoundEngine::reset() {
     fresh_ = false;
     starvedSeconds_ = 0.0f;
     starved_ = false;
+    starvedHopDue_ = 0.0f;
+    hopFrame_ = GeodeSoundFrame{};
+    latched_ = GeodeSoundFrame{};
     fluxAge_.fill(-1.0f);
     fluxHead_ = 0;
     std::fill(wavePrev_.begin(), wavePrev_.end(), 0.0f);

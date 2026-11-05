@@ -24,9 +24,14 @@ data class DspSettings(
  * The Media3 processor that runs `geode_dsp_process` over the sink's PCM, in place.
  *
  * 16-bit and float input both pass through a direct float buffer the native chain works on; the
- * output keeps the input encoding. The chain itself is created on the playback thread in
- * [onConfigure] and retired chains are only freed in [release], after the player is gone, so a
- * setter racing a format change can never reach a destroyed chain.
+ * output keeps the input encoding. This class is only the Media3 shell: it forwards configure, flush
+ * and each block to one native `geode_dsp` (`core/audio/dsp/DspProcessor`), which owns a chain per
+ * format and the switch between them. That switch follows the [AudioProcessor] contract: [onConfigure]
+ * describes the format queued after the next flush, and the old format may still drain through
+ * [queueInput] until then (issue #356), so native only stages the next chain at configure and makes it
+ * live at [onFlush]. Each block goes down with the channel count it was queued in and the buffer's
+ * capacity, and native passes a block it cannot fit through untouched. Native frees its chains only in
+ * [release], after the player is gone, so a setter racing a format change never reaches a freed one.
  *
  * A format the chain cannot run (more than two channels, a 5.1 or 7.1 file; an encoding other than
  * 16-bit or float) is not an error: [onConfigure] answers [AudioProcessor.AudioFormat.NOT_SET], which
@@ -39,9 +44,6 @@ data class DspSettings(
 class NativeDspProcessor : BaseAudioProcessor() {
     @Volatile
     private var handle = 0L
-    private var handleSampleRate = 0
-    private var handleChannels = 0
-    private val retired = ArrayList<Long>()
 
     @Volatile
     var settings: DspSettings = DspSettings()
@@ -56,23 +58,22 @@ class NativeDspProcessor : BaseAudioProcessor() {
     }
 
     override fun onConfigure(inputAudioFormat: AudioProcessor.AudioFormat): AudioProcessor.AudioFormat {
-        if (!runs(inputAudioFormat.encoding, inputAudioFormat.channelCount)) return AudioProcessor.AudioFormat.NOT_SET
-        ensureChain(inputAudioFormat.sampleRate, inputAudioFormat.channelCount)
+        if (!runs(inputAudioFormat.encoding, inputAudioFormat.channelCount)) {
+            // Stage pass-through, so the next flush never leaves the old format's chain live.
+            val h = handle
+            if (h != 0L) GeodeNative.dspConfigure(h, 0, 0)
+            return AudioProcessor.AudioFormat.NOT_SET
+        }
+        var h = handle
+        if (h == 0L) {
+            h = GeodeNative.dspCreate()
+            handle = h
+            if (h != 0L) apply(h, settings)
+        }
+        if (h == 0L || !GeodeNative.dspConfigure(h, inputAudioFormat.sampleRate, inputAudioFormat.channelCount)) {
+            return AudioProcessor.AudioFormat.NOT_SET
+        }
         return inputAudioFormat
-    }
-
-    private fun ensureChain(
-        sampleRate: Int,
-        channels: Int,
-    ) {
-        if (handle != 0L && handleSampleRate == sampleRate && handleChannels == channels) return
-        val previous = handle
-        val next = GeodeNative.dspCreate(sampleRate, channels)
-        if (next != 0L) apply(next, settings)
-        handle = next
-        handleSampleRate = sampleRate
-        handleChannels = channels
-        if (previous != 0L) retired.add(previous)
     }
 
     override fun queueInput(inputBuffer: ByteBuffer) {
@@ -97,7 +98,7 @@ class NativeDspProcessor : BaseAudioProcessor() {
         }
         inputBuffer.position(inputBuffer.limit())
         val h = handle
-        if (h != 0L) GeodeNative.dspProcess(h, scratch, frames)
+        if (h != 0L) GeodeNative.dspProcess(h, scratch, frames, channels)
         val output = replaceOutputBuffer(samples * bytesPerSample)
         floats.position(0)
         if (format.encoding == C.ENCODING_PCM_FLOAT) {
@@ -118,18 +119,14 @@ class NativeDspProcessor : BaseAudioProcessor() {
 
     override fun onFlush() {
         val h = handle
-        if (h != 0L) GeodeNative.dspReset(h)
+        if (h != 0L) GeodeNative.dspFlush(h)
     }
 
     /** Frees every chain; only after the player that owned the playback thread is released. */
     fun release() {
         val h = handle
         handle = 0L
-        handleSampleRate = 0
-        handleChannels = 0
         if (h != 0L) GeodeNative.dspDestroy(h)
-        retired.forEach { GeodeNative.dspDestroy(it) }
-        retired.clear()
     }
 
     internal fun apply(

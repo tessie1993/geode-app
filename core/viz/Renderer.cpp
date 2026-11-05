@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <utility>
 
 #include "util/Log.hpp"
 #include "viz/GlProber.hpp"
@@ -40,11 +41,26 @@ void Renderer::setParams(const SceneParams& params) {
     requestedParams_ = params;
 }
 
-void Renderer::setLayer(const std::string& sceneId, float mix, int blendOrdinal) {
+void Renderer::pinLayer(bool on) {
     std::lock_guard<std::mutex> lock(stateLock_);
-    layerSceneId_ = sceneId;
-    layerMix_ = mix;
-    layerBlend_ = blendOrdinal;
+    if (on) {
+        layerFollower_.pin();
+    } else {
+        layerFollower_.unpin();
+    }
+}
+
+// Under stateLock_, once a frame from beginFrame. The layer is process-wide (viz/LayerState, #364), so
+// the live screen, an export, the wallpaper and the dream all draw what Customize › Layers set; the
+// follower hands it over only when it changed (or once, pinned, in an export). resolveLayerScene and
+// trimScenes read layerSceneId_ as before, and an export's blocking build makes the layer scene whole
+// on the first frame that asks for it, like the main scene.
+void Renderer::syncLayerLocked() {
+    layer_state::Layer layer;
+    if (!layerFollower_.poll(layer)) return;
+    layerSceneId_ = std::move(layer.sceneId);
+    layerMix_ = layer.mix;
+    layerBlend_ = layer.blend;
 }
 
 void Renderer::setTransition(const std::string& id, int64_t durationMs) {

@@ -19,6 +19,7 @@
 #include "viz/FlashLimiter.hpp"
 #include "viz/Framebuffer.hpp"
 #include "viz/GlProfile.hpp"
+#include "viz/LayerState.hpp"
 #include "viz/Lfo.hpp"
 #include "viz/Macros.hpp"
 #include "viz/MotionField.hpp"
@@ -79,7 +80,10 @@ public:
     // (director::global), so the live player moving on to another track, or past the free taste, never
     // reaches a render in progress. The export hands over the play's seed, so it makes the same film.
     void pinDirector(float amount, uint64_t seed);
-    void setLayer(const std::string& sceneId, float mix, int blendOrdinal);
+    // Customize › Layers is process-wide (viz/LayerState, geode_layer_set): every renderer follows it.
+    // An export pins the layer it started with (geode_viz_set_offscreen), so a live edit during a
+    // background render never reaches the video; off follows the store again. Any thread.
+    void pinLayer(bool on);
     void setTransition(const std::string& id, int64_t durationMs);
     void beginParamMorph(float seconds);
     void submitTouchPoints(const float* xy, int n) { touchField_.submit(xy, n); }
@@ -164,6 +168,8 @@ private:
     Scene* resolveActiveScene();
     SceneParams resolveParams(float dt);
     void resolveLayerScene();
+    // beginFrame, under stateLock_: takes the layer layerFollower_ hands over when it changed.
+    void syncLayerLocked();
     bool ensureTargets();
     float drawSecondaryTargets(const SceneParams& p, float dt);
     void bindSecondaryTarget();
@@ -283,6 +289,8 @@ private:
     std::string layerSceneId_;
     float layerMix_ = 0.5f;
     int layerBlend_ = static_cast<int>(BlendMode::Screen);
+    // Under stateLock_: this renderer's view of viz/LayerState (followed live, pinned in an export).
+    layer_state::Follower layerFollower_;
     std::string transitionId_ = "fade";
     int64_t transitionDurationMs_ = 1200;
     std::atomic<bool> reducedMotion_{false};
@@ -368,7 +376,7 @@ private:
     float timeSeconds_ = 0.0f;
     // Latched once per frame in beginFrame, so the
     // rest of the frame (composite(), drawSecondaryTargets(), ...) reads a
-    // stable snapshot instead of racing setLayer()/setTransition() on
+    // stable snapshot instead of racing pinLayer()/setTransition() on
     // stateLock_.
     float frameLayerMix_ = 0.5f;
     int frameLayerBlend_ = static_cast<int>(BlendMode::Screen);

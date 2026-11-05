@@ -87,10 +87,9 @@ fun VisualizerEngineBindings(
         LayersBus.activeSceneId.value = viz.sceneId
     }
     LaunchedEffect(layers) {
-        val renderer = visualizerView.visualizerRenderer
-        renderer.layerSceneId = if (layers.enabled) layers.sceneId else null
-        renderer.layerMix = layers.mix
-        renderer.layerBlend = layers.blend
+        // Process-wide (core/viz/LayerState): exports, the wallpaper and the dream draw it too (#364).
+        val sceneId = if (layers.enabled) layers.sceneId else null
+        visualizerView.visualizerRenderer.submitLayer(sceneId, layers.mix, layers.blend)
     }
     LaunchedEffect(playerPrefs.keepScreenOn) {
         visualizerView.keepScreenOn = playerPrefs.keepScreenOn

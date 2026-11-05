@@ -11,6 +11,7 @@
 #include "viz/Director.hpp"
 #include "viz/NoteResponse.hpp"
 #include "viz/Macros.hpp"
+#include "viz/LayerState.hpp"
 #include "viz/ReactionDna.hpp"
 #include "viz/Renderer.hpp"
 #include "viz/SceneRegistry.hpp"
@@ -81,10 +82,6 @@ void geode_viz_set_params(geode_viz* v, const float* values, int count) {
 
 void geode_viz_set_reduced_motion(geode_viz* v, int on) {
     if (v) v->renderer.setReducedMotion(on != 0);
-}
-
-void geode_viz_set_layer(geode_viz* v, const char* scene_id, float mix, int blend_mode) {
-    if (v) v->renderer.setLayer(text(scene_id), mix, blend_mode);
 }
 
 void geode_viz_set_transition(geode_viz* v, const char* id, int64_t duration_ms) {
@@ -347,6 +344,10 @@ void geode_director_set(float amount, long long seed) { director::setGlobal(amou
 
 void geode_note_response_set(int enabled) { note_response::setGlobal(enabled != 0); }
 
+void geode_layer_set(const char* scene_id, float mix, int blend_mode) {
+    layer_state::set(layer_state::Layer{text(scene_id), mix, blend_mode});
+}
+
 void geode_macros_surprise(const float* knobs, int count, unsigned lock_mask, long long seed, float* out) {
     if (!out) return;
     const MacroKnobs k = macros::surprise(macros::clamped(knobs, count), lock_mask, static_cast<uint64_t>(seed));
@@ -414,6 +415,8 @@ void geode_viz_set_offscreen(geode_viz* v, int on) {
     v->renderer.setBlockingBuilds(on != 0);
     // Nor does it ever carry the app's sheet blur into the video.
     v->renderer.setOffscreen(on != 0);
+    // And it keeps the Customize layer it started with: a live edit during a background render stays live.
+    v->renderer.pinLayer(on != 0);
     if (on) {
         v->renderer.thermal().beginOffscreenRender();
     } else {

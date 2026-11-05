@@ -30,7 +30,6 @@ GEODE_API const char* geode_viz_param_name(int index);   /* NULL past the end */
 /* Every scene parameter in geode_viz_param_name order; ints and flags travel as floats. */
 GEODE_API void        geode_viz_set_params(geode_viz*, const float* values, int count);
 GEODE_API void        geode_viz_set_reduced_motion(geode_viz*, int on);
-GEODE_API void        geode_viz_set_layer(geode_viz*, const char* scene_id, float mix, int blend_mode); /* "" = none */
 GEODE_API void        geode_viz_set_transition(geode_viz*, const char* id, int64_t duration_ms);
 GEODE_API void        geode_viz_begin_param_morph(geode_viz*, float seconds);
 GEODE_API void        geode_viz_set_touch(geode_viz*, const float* xy_ndc, int points);   /* 0 points = all lifted */
@@ -63,6 +62,10 @@ GEODE_API void        geode_director_set(float amount, long long seed);
  * colours, the tint and a gentle shape and distortion on every style. Process-wide like the director; each
  * renderer eases it in and out, and off (0) is exactly the picture without it. The seed is the director's. */
 GEODE_API void        geode_note_response_set(int enabled);
+/* Customize › Advanced › Layers (core/viz/LayerState): a second style over the main one, process-wide like
+ * geode_director_set, so live, export, the wallpaper and the dream all draw it. "" (or null) = no layer; mix
+ * 0..1; blend_mode is the BlendMode ordinal. An export pins the layer it started with (geode_viz_set_offscreen). */
+GEODE_API void        geode_layer_set(const char* scene_id, float mix, int blend_mode);
 /* The renderer's own sound engine: interleaved PCM in play order, every sample once, written on the render
  * thread before geode_viz_render; the next render steps it with that frame's dt. */
 GEODE_API void        geode_viz_write_audio(geode_viz*, const float* interleaved, int frames, int channels, int sample_rate);

@@ -7,6 +7,7 @@ import android.os.SystemClock
 import dev.geode.engine.audio.SoundCursor
 import dev.geode.engine.audio.SoundInput
 import dev.geode.engine.audio.SoundTuning
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.render.bridge.NativeViz
 import dev.geode.render.scene.PcmChunk
 import dev.geode.render.scene.SceneIds
@@ -59,15 +60,6 @@ class VisualizerRenderer(
      */
     @Volatile
     var performance: PerformanceSettings = PerformanceSettings.HIGH
-
-    @Volatile
-    var layerSceneId: String? = null
-
-    @Volatile
-    var layerMix: Float = 0.5f
-
-    @Volatile
-    var layerBlend: BlendMode = BlendMode.SCREEN
 
     @Volatile
     var transitionDurationMs: Long = 1200
@@ -201,6 +193,13 @@ class VisualizerRenderer(
     }
 
     fun customShaderFor(sceneId: String): String? = nativeViz.customShaderFor(sceneId)
+
+    /** Customize › Layers, process-wide: exports, the wallpaper and the dream draw it too (core/viz/LayerState). */
+    fun submitLayer(
+        sceneId: String?,
+        mix: Float,
+        blend: BlendMode,
+    ) = GeodeNative.layerSet(sceneId.orEmpty(), mix, blend.ordinal)
 
     fun submitFluidInjectionShaders(
         force: String?,
@@ -361,7 +360,6 @@ class VisualizerRenderer(
         }
         nativeViz.setLook(lookYaw, lookPitch)
         nativeViz.setReducedMotion(reducedMotion)
-        nativeViz.setLayer(layerSceneId, layerMix, layerBlend)
         nativeViz.setTransition(transitionId, transitionDurationMs)
         nativeViz.setPacedFps(ThermalGovernor.pacedFps)
         val now = SystemClock.elapsedRealtime()

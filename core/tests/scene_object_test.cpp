@@ -9,6 +9,7 @@
 #include <string>
 #include <vector>
 
+#include "scene/object/ObjectOverlay.hpp"
 #include "scene/object/ObjectSystem.hpp"
 
 using namespace geode::scene;
@@ -595,6 +596,72 @@ void testFrameRates() {
     }
 }
 
+// ---- The overlay pass's instance block ------------------------------------------------------------
+
+void testOverlayPacking() {
+    // packOverlay is what ObjectOverlayPass uploads: count, transforms, the look and the palette, capped.
+    ObjectSystem sys;
+    sys.reset(3);
+    std::vector<std::uint32_t> ids;
+    for (int i = 0; i < 10; ++i) {
+        ObjectSpec s = plainShape();
+        s.pos = {static_cast<float>(i), 2.0f, -1.0f};
+        s.scale = 0.5f + 0.1f * static_cast<float>(i);
+        s.shape = static_cast<ShapeType>(i % kShapeTypeCount);
+        s.size = {0.3f, 0.2f, 0.1f};
+        s.round = 0.05f;
+        s.fadeIn = 0.0f;
+        s.palette = 0.25f;
+        s.glow = 0.7f;
+        if (i == 9) s.birth = 5.0f;  // not born yet: not drawn
+        ids.push_back(sys.place(s));
+    }
+    stepOnce(sys, 1.0f / 60.0f);
+
+    OverlayLook look;
+    look.hue = 0.4f;
+    look.gain = 0.8f;
+    look.roll = 0.1f;
+    OverlayPalette pal;
+    pal.base = 0.2f;
+    pal.lutMix = 1.0f;
+    OverlayFrame f;
+    check(packOverlay(sys, look, pal, 64, f) == 9 && f.count == 9, "every born, visible shape is packed; an unborn one is not");
+    check(f.bytes() == 9 * sizeof(ShapeGpu), "the upload is the live shapes' bytes only");
+    check(near(f.look.hue, 0.4f) && near(f.look.gain, 0.8f) && near(f.look.roll, 0.1f), "the world's look rides along");
+    check(near(f.palette.base, 0.2f) && near(f.palette.lutMix, 1.0f), "and the style's palette");
+    bool transforms = true;
+    for (int i = 0; i < 9; ++i) {
+        Vec3 pos;
+        Quat q;
+        sys.worldPose(ids[static_cast<std::size_t>(i)], pos, q);
+        const ShapeGpu& g = f.shapes[static_cast<std::size_t>(i)];
+        transforms = transforms && near(g.posScale[0], pos[0]) && near(g.posScale[1], pos[1]) && near(g.posScale[2], pos[2]) &&
+                     near(g.orient[0], q.x) && near(g.orient[1], q.y) && near(g.orient[2], q.z) && near(g.orient[3], q.w) &&
+                     near(g.posScale[3], 0.5f + 0.1f * static_cast<float>(i)) && near(g.size[0], 0.3f) &&
+                     near(g.size[3], 0.05f) && near(g.life[0], static_cast<float>(i % kShapeTypeCount)) &&
+                     near(g.material[0], 0.25f) && near(g.material[1], 0.7f) && near(g.material[2], 1.0f);
+    }
+    check(transforms, "each shape's position, orientation, scale, size, type and material are its own, slot order");
+    check(near(f.shapes[0].posScale[0], 0.0f) && near(f.shapes[8].posScale[0], 8.0f), "in placement order");
+
+    check(packOverlay(sys, look, pal, 4, f) == 4, "the pass's cap (Scene detail) packs no more than it");
+    check(near(f.shapes[3].posScale[0], 3.0f), "the first ones in slot order");
+
+    // A full pool: the block never holds more than kMaxShapes, the 64 the shader's loop is bounded by.
+    ObjectSystem full;
+    full.reset(1);
+    for (std::size_t i = 0; i < ObjectPool::kMaxShapesAndModels + 5; ++i) {
+        ObjectSpec s = plainShape();
+        s.fadeIn = 0.0f;
+        full.place(s);
+    }
+    stepOnce(full, 1.0f / 60.0f);
+    check(packOverlay(full, look, pal, 1000, f) == static_cast<int>(OverlayFrame::kMaxShapes),
+          "a cap past the block's size is held to kMaxShapes");
+    check(sizeof(f.shapes) == 64 * 80, "the block is 64 shapes of five vec4s, 5 KB");
+}
+
 }  // namespace
 
 int main() {
@@ -608,6 +675,7 @@ int main() {
     testStartingObjectsAndUsers();
     testAnchorsAndTargets();
     testFrameRates();
+    testOverlayPacking();
     if (failures == 0) std::printf("scene_object_test: all passed\n");
     return failures == 0 ? 0 : 1;
 }

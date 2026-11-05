@@ -13,6 +13,10 @@
 #include "viz/Params.hpp"
 #include "viz/TouchField.hpp"
 
+namespace geode::scene {
+class Scene;
+}
+
 namespace geode::viz {
 
 enum class SceneFamily { Shader, Milkdrop, Fluid };
@@ -42,6 +46,9 @@ public:
     virtual void setCamera(const CameraPose* pose) { (void) pose; }
     // True when the scene draws the rig's 3D pose itself, so the composite must not also apply its flat projection.
     virtual bool drawsCamera() const { return false; }
+    // The style's geode::scene::Scene (core/scene: environment and objects) when its family has one, so
+    // the renderer's object overlay pass draws its shapes after the world. Null for every other scene.
+    virtual const ::geode::scene::Scene* sceneGraph() const { return nullptr; }
     virtual void setFragmentSource(const std::string& source) { (void) source; }
     // > 0 keeps the previous frame in the scene target (Curl Flow); 0 clears it.
     virtual float trailRetention(const SceneParams& params) const { (void) params; return 0.0f; }

@@ -43,6 +43,7 @@
 #include "viz/UiBlurPass.hpp"
 #include "viz/VisualSafety.hpp"
 #include "viz/frame/EdgeGlowPass.hpp"
+#include "viz/frame/ObjectOverlayPass.hpp"
 #include "viz/liquid/LiquidMath.hpp"
 #include "viz/liquid/LiquidPass.hpp"
 #include "viz/scenes/ProgramLoader.hpp"
@@ -178,6 +179,8 @@ private:
     float drawSecondaryTargets(const SceneParams& p, float dt);
     void bindSecondaryTarget();
     void drawSceneTarget(Scene& scene, const SceneParams& p, float dt);
+    // The style's scene objects over its world, into the scene target (frame::ObjectOverlayPass, #515).
+    void drawSceneObjects(const Scene& scene, float dt);
     void composite(const SceneParams& p, float progress, GLuint targetFbo, GLuint liquidTex);
     // Feeds the landed output measurements to the flash limiter and takes this frame's grade.
     void stepFlashLimiter(float dt);
@@ -270,6 +273,9 @@ private:
     frame::EdgeGlowPass edgeGlowPass_;
     frame::edge_glow::Options edgeGlowOptions_;
     std::atomic<bool> edgeGlowOn_{false};
+    // The scene objects' overlay (#515): the drawn style's geode::scene::Scene shapes, after its world,
+    // on every surface (export included), only while that Scene has live shapes.
+    frame::ObjectOverlayPass objectOverlayPass_;
     std::atomic<bool> offscreen_{false};
     // The note layer's seed: the director's play seed mixed with fresh entropy whenever that seed changes,
     // so every play (and every export) varies on its own, as the user chose (NoteResponse's class comment).

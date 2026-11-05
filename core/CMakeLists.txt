@@ -42,6 +42,7 @@ add_library(geode_core STATIC
     viz/NoteResponse.cpp
     viz/UiBlurPass.cpp
     viz/frame/EdgeGlowPass.cpp
+    viz/frame/ObjectOverlayPass.cpp
     viz/Adsr.cpp
     viz/MotionField.cpp
     viz/ReactionDna.cpp
@@ -63,10 +64,13 @@ add_library(geode_core STATIC
     scene/object/ObjectParams.cpp
     scene/object/ObjectPool.cpp
     scene/object/ObjectSystem.cpp
+    scene/object/ObjectOverlay.cpp
     scene/object/Spawner.cpp
     signal/params/ParamSchema.cpp
     signal/params/ParamState.cpp
     signal/params/ParamStore.cpp
+    signal/events/Event.cpp
+    signal/events/SoundEvents.cpp
     viz/VisualSafety.cpp
     viz/FlashLimiter.cpp
     viz/OutputProbe.cpp

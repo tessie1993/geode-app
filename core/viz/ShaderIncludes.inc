@@ -40,3 +40,5 @@
 // The note blooms' four looks (note_bloom_frag, NoteBloomPass).
 // Morph World's space: the World Genome's operator chain and its three render modes (core/viz/world).
 "lib_world",
+// Scene objects' six SDF shapes, transform and Burst/Collapse looks (scene_objects_frag, ObjectOverlayPass).
+"lib_objects",

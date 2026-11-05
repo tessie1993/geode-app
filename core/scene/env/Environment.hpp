@@ -6,6 +6,8 @@
 #include <string_view>
 
 #include "api/geode_api.h"
+#include "scene/object/ObjectOverlay.hpp"
+#include "scene/object/Spawner.hpp"
 #include "signal/params/ParamStore.hpp"
 #include "viz/CameraRig.hpp"
 
@@ -99,6 +101,13 @@ public:
 
     // A GL fact the drawing scene reports: its baked assets (textures) are bound, or no longer are.
     virtual void setAssetsBound(bool bound) { (void) bound; }
+
+    // Objects (#515). The family's starting objects and spawners (static storage, read once when the
+    // Scene is built; a style only tunes their numbers), and the world's material and view this frame,
+    // which the overlay pass lights and turns the shapes by so they belong to the world. The defaults
+    // are no objects and a neutral look.
+    virtual object::Declaration objects() const { return {}; }
+    virtual object::OverlayLook objectLook() const { return {}; }
 };
 
 // The environment for a style, or null when its family has no environment yet (it keeps today's path).

@@ -305,6 +305,7 @@ void Renderer::onSurfaceCreated() {
     releaseScenes();
     // The frame passes (frame::Pass) drop their names before anything below generates new ones.
     edgeGlowPass_.release();
+    objectOverlayPass_.release();
     if (paletteLutTex_ != 0) {
         glDeleteTextures(1, &paletteLutTex_);
         paletteLutTex_ = 0;
@@ -352,6 +353,10 @@ void Renderer::onSurfaceCreated() {
     if (!uiBlurPass_.create(assets_, &programCache_, *fadeVert, &error)) GEODE_LOGW(kTag, "ui blur off: %s", error.c_str());
     // And the wallpaper's edge glow: without it the wallpaper shows the full visual instead of the rim.
     if (!edgeGlowPass_.create(assets_, &programCache_, *fadeVert, &error)) GEODE_LOGW(kTag, "edge glow off: %s", error.c_str());
+    // And the scene objects: without them a style with a Scene shows its world alone.
+    if (!objectOverlayPass_.create(assets_, &programCache_, *fadeVert, &error)) {
+        GEODE_LOGW(kTag, "scene objects off: %s", error.c_str());
+    }
     // Liquid mode: half float where this GPU renders it, so a deep pour-back does not band.
     if (!liquidPass_.create(assets_, &programCache_, *fadeVert, fluid::probeFormats().ok, &error)) fail(error);
 

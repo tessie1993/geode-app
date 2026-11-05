@@ -6,6 +6,7 @@
 //                                       print the uWorld a free camera uploads after 6 s of forward
 //                                       flight (or of hovering) ending at glslcheck's eye (0, 0, 37),
 //                                       for tools/glslcheck --set uWorld=... with --face
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstdio>
@@ -266,6 +267,77 @@ void sceneStepsTheEnvironmentOnThePlaySeed() {
     check(run(11) != run(12), "another play seed is another world");
 }
 
+// What the overlay pass would draw at each frame of a Morph World play, with a drop at frame dropAt.
+struct DropRun {
+    std::vector<int> counts;           // shapes packed per frame
+    std::vector<std::vector<float>> blocks;  // the packed bytes per frame, as floats
+    std::vector<int> live;             // live objects per frame
+    float maxBurst = 0.0f;             // the largest Burst progress any packed shape showed
+    bool sawGrowIn = false;            // a shape drawn under its full scale while entering
+};
+
+DropRun playWithADrop(uint64_t seed, int frames, int dropAt) {
+    geode::scene::Scene s("morph_world");
+    geode::viz::CameraPose cam = poseAt({0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 1.0f});
+    DropRun out;
+    geode::scene::object::OverlayFrame f;
+    for (int n = 0; n < frames; ++n) {
+        GeodeSoundFrame sound = groove();
+        if (n == dropAt) sound.drop = 0.8f;
+        cam.pos[2] = 1.6f * static_cast<float>(n) * kDt;
+        geode::scene::FrameInput in;
+        in.sound = &sound;
+        in.dt = kDt;
+        in.playSeed = seed;
+        in.camera = &cam;
+        in.freeCamera = true;
+        s.step(in);
+        const int c = s.packOverlay(f);
+        out.counts.push_back(c);
+        out.live.push_back(static_cast<int>(s.objects().pool().live()));
+        out.blocks.emplace_back(f.data(), f.data() + c * 20);
+        for (int i = 0; i < c; ++i) {
+            out.maxBurst = std::max(out.maxBurst, f.shapes[i].life[2]);
+            if (f.shapes[i].life[1] < 0.1f && f.shapes[i].life[3] > 0.0f) out.sawGrowIn = true;
+        }
+    }
+    return out;
+}
+
+void aDropOnMorphWorldThrowsShapesThatBurstOut() {
+    // The tracer bullet (#515): Morph World declares a drop spawner; the drop throws a few shapes into
+    // view in front of the camera, they grow in, and they leave by Burst, all deterministically per seed.
+    geode::scene::Scene probe("morph_world");
+    check(probe.objects().spawnerCount() == 1, "Morph World declares its drop spawner");
+
+    const int frames = 360;
+    const int dropAt = 60;
+    const DropRun a = playWithADrop(5, frames, dropAt);
+    bool quietBefore = true;
+    for (int n = 0; n < dropAt; ++n) quietBefore = quietBefore && a.live[n] == 0;
+    check(quietBefore, "nothing spawns before the drop");
+    check(a.live[dropAt] >= 3 && a.live[dropAt] <= 5, "the drop throws three to five shapes");
+    int peak = 0;
+    for (int c : a.counts) peak = std::max(peak, c);
+    check(peak >= 3, "the overlay packs them for drawing");
+    check(a.sawGrowIn, "they grow in from a point (a Collapse entry run backwards)");
+    check(a.maxBurst > 0.5f, "they leave by Burst");
+    check(a.live.back() == 0 && a.counts.back() == 0, "and are gone a few seconds after the drop");
+
+    // In front of the camera at the drop: the eye was at z = 1.6 s, looking +z; the shapes start 3.2 ahead.
+    const DropRun first = playWithADrop(5, dropAt + 20, dropAt);
+    const auto& blk = first.blocks.back();
+    bool ahead = !blk.empty();
+    const float eyeZ = 1.6f * static_cast<float>(dropAt) * kDt;
+    for (std::size_t i = 0; i + 20 <= blk.size(); i += 20) ahead = ahead && blk[i + 2] > eyeZ + 1.5f;
+    check(ahead, "the shapes are thrown into view, ahead of the camera of the drop");
+
+    const DropRun b = playWithADrop(5, frames, dropAt);
+    const DropRun c = playWithADrop(6, frames, dropAt);
+    check(a.blocks == b.blocks, "the same seed and sound draw the same shapes, bit for bit");
+    check(a.blocks != c.blocks, "another play seed throws other shapes");
+}
+
 int dump(uint64_t seed, bool hover) {
     // Six seconds ending at glslcheck's eye (0, 0, 37): flown forward at the rig's base speed, or held.
     MorphWorldEnv e("morph_world");
@@ -302,6 +374,7 @@ int main(int argc, char** argv) {
     theTubeOnlyForForwardFlight();
     railsDrawsTheDriverExactly();
     sceneStepsTheEnvironmentOnThePlaySeed();
+    aDropOnMorphWorldThrowsShapesThatBurstOut();
     if (failures == 0) std::printf("scene_env_test: all checks passed\n");
     return failures == 0 ? 0 : 1;
 }

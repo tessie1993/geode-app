@@ -104,6 +104,16 @@ void ShaderScene::update(const GeodeSoundFrame& sound, float dt) {
         in.camera = camera_;
         in.freeCamera = freeCamera_;
         in.controls = {p.morph, p.warp, p.turbulence, p.marchDetail, p.intensity};
+        // The palette draw() uploads, so the overlay's shapes take the world's colours (#515).
+        in.palette.base = p.paletteBase();
+        in.palette.range = p.paletteRange();
+        in.palette.base2 = p.palette2Base();
+        in.palette.range2 = p.palette2Range();
+        in.palette.mix = p.paletteMix;
+        in.palette.colorShift = p.colorShift + cyclePhase_;
+        in.palette.hueRange = p.hueRange;
+        in.palette.lutMix = flag(p.paletteLut >= 0 && paletteLutTex_ != 0);
+        in.palette.lutRow = paletteRowCoordinate(std::max(p.paletteLut, 0));
         if (const NoteUniforms* notes = host_.notes ? host_.notes() : nullptr) {
             std::copy(notes->knobs.begin(), notes->knobs.end(), in.knobs.begin());
         }

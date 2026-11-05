@@ -125,6 +125,64 @@ void MorphWorldEnv::publish(bool freeCamera) {
     uniforms_[world::Corridor] = view_[world::Corridor];
 }
 
+namespace {
+
+// The drop's shapes: everything a firing does not draw (ObjectSpec), then the rule.
+object::SpawnRule dropShapes() {
+    object::SpawnRule r;
+    r.trigger = signal::EventKind::Drop;
+    r.minStrength = 0.0f;  // the drop trigger is 0, or the build's peak at 0.4..1: every drop counts
+    r.count = 3;
+    r.countJitter = 2;
+    r.maxAlive = 10;
+    r.frame = object::EmitFrame::CameraFront;
+    r.shape = object::EmitShape::Sphere;
+    r.centre = {0.0f, 0.0f, 3.2f};  // ahead of the eye bubble (kEyeRadius 0.9)
+    r.radius = 0.35f;
+    r.speed = 0.9f;
+    r.speedJitter = 0.35f;
+    r.spinMax = 1.4f;
+    r.lifetime = 2.0f;
+    r.lifetimeJitter = 0.3f;
+    r.scaleJitter = 0.3f;
+    r.paletteSpread = 0.3f;
+    r.stagger = 0.06f;
+    r.shapeMask = (1u << object::kShapeTypeCount) - 1u;  // any of the six
+    object::ObjectSpec& b = r.base;
+    b.size = {0.28f, 0.16f, 0.28f};
+    b.round = 0.02f;
+    b.glow = 0.6f;
+    b.fadeIn = 0.25f;
+    b.fadeOut = 0.6f;
+    b.fadeCurve = 1.0f;
+    b.entry = object::Exit::Collapse;  // run backwards: it grows in from a point
+    b.exit = object::Exit::Burst;
+    b.burstSpread = 1.6f;
+    return r;
+}
+
+const object::SpawnRule kDropShapes[] = {dropShapes()};
+
+}  // namespace
+
+object::Declaration MorphWorldEnv::objects() const {
+    object::Declaration d;
+    d.spawners = kDropShapes;
+    d.spawnerCount = sizeof(kDropShapes) / sizeof(kDropShapes[0]);
+    return d;
+}
+
+object::OverlayLook MorphWorldEnv::objectLook() const {
+    object::OverlayLook l;
+    l.hue = uniforms_[world::PalOffset] + uniforms_[world::HueTurn];
+    l.emission = uniforms_[world::Emission];
+    l.gain = uniforms_[world::Gain];
+    l.fog = uniforms_[world::Fog];
+    l.roll = uniforms_[world::RollAngle];
+    l.lens = uniforms_[world::LensNow];
+    return l;
+}
+
 UniformBlock MorphWorldEnv::uniforms() const { return {"uWorld", uniforms_.data(), world::kVec4}; }
 
 float MorphWorldEnv::sdf(const Vec3& p) const { return world::sdf(view_, way_, p); }

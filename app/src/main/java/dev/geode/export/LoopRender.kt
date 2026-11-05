@@ -582,11 +582,8 @@ class LoopRender(
         if (bitRate < aspect.bitRate) RingLog.note(TAG, "loop bit rate capped to $bitRate for a $longFormMs ms long form")
         val candidates =
             listOf(codec.available(), ExportCodec.H264).distinct().flatMap { c ->
-                val requested = fps.coerceIn(LoopSpec.MIN_FPS, LoopSpec.MAX_FPS)
-                listOf(
-                    EncoderChoice(requested, bitRate, c),
-                    EncoderChoice(dev.geode.data.fallbackExportFps(requested), bitRate * 2 / 3, c),
-                )
+                val rungs = GeodeNative.encoderLadder(fps, bitRate, c.fpsCeiling(aspect.width, aspect.height))
+                (rungs.indices step 2).map { EncoderChoice(rungs[it], rungs[it + 1], c) }
             }
         return candidates.firstOrNull { accepts(aspect, it) }
     }

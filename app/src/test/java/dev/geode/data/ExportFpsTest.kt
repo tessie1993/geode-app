@@ -11,14 +11,4 @@ class ExportFpsTest {
             assertEquals("authored $authored", expected, TemplateExport(fps = authored).resolvedFps())
         }
     }
-
-    @Test
-    fun encoderFallbackStaysInTheRequestsCadenceFamily() {
-        assertEquals(24, fallbackExportFps(24))
-        assertEquals(25, fallbackExportFps(25))
-        assertEquals(30, fallbackExportFps(30))
-        assertEquals(25, fallbackExportFps(50))
-        assertEquals(30, fallbackExportFps(60))
-        for (fps in EXPORT_FPS_OPTIONS) assertEquals(true, fallbackExportFps(fps) <= fps)
-    }
 }

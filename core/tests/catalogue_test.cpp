@@ -261,7 +261,7 @@ void paramScopesMatchTheOldParamScope() {
     check(catalogue::reaches(Scope::Turbulence, "plasma"), "turbulence reaches a shader");
     check(!catalogue::reaches(Scope::Turbulence, "silk_web"), "turbulence misses silk");
     check(catalogue::reaches(Scope::MarchDetail, "vanishing"), "detail reaches a marched style");
-    check(!catalogue::reaches(Scope::MarchDetail, "plasma"), "detail misses an unmarched shader");
+    check(!catalogue::reaches(Scope::MarchDetail, "outrun_drive"), "detail misses an unmarched shader");
     check(!catalogue::reaches(Scope::FlowFieldSim, "fluid_ink"), "fluid drives its own field");
     check(catalogue::reaches(Scope::FlowFieldSim, "silk_web"), "flow field reaches silk");
     check(!catalogue::reaches(Scope::RippleOverlay, "water"), "water has no ripple overlay");

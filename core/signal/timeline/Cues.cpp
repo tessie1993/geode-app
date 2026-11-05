@@ -1,6 +1,7 @@
 #include "signal/timeline/Cues.hpp"
 
 #include <algorithm>
+#include <cstddef>
 
 namespace geode::signal::timeline {
 
@@ -24,12 +25,21 @@ int32_t CueTable::at(int64_t atMs) const {
     return -1;
 }
 
-int32_t CueTable::atPresentationUs(int64_t presentationUs) {
-    if (!hasOrigin_) {
-        hasOrigin_ = true;
-        originUs_ = presentationUs;
+int32_t CueTable::atTriples(const int64_t* triples, int count, int64_t atMs) {
+    if (!triples) return -1;
+    for (int i = 0; i < count; ++i) {
+        const int64_t* c = triples + static_cast<std::ptrdiff_t>(i) * 3;
+        if (atMs >= c[0] && atMs < c[1]) return static_cast<int32_t>(c[2]);
     }
-    return at((presentationUs - originUs_) / 1000);
+    return -1;
+}
+
+int64_t CueClock::itemMs(int64_t presentationUs) {
+    if (hasOrigin == 0) {
+        hasOrigin = 1;
+        originUs = presentationUs;
+    }
+    return (presentationUs - originUs) / 1000;
 }
 
 }  // namespace geode::signal::timeline

@@ -12,17 +12,15 @@ import dev.geode.engine.bridge.GeodeNative
  * touch the item, their re-basing to its first frame and the per-frame lookup are native
  * (`core/signal/timeline/Cues`, pinned by `core/tests/timeline_test`); only the text is held here.
  *
- * The native table lives from [forSpan] until Media3 releases the overlay. A frame asked for after a
- * release (Transformer retrying the export) builds it again, and its first frame becomes the origin.
+ * No native handle is kept: [cues] is the item's (start, end, source) triples and [origin] its clock,
+ * plain arrays the native lookup reads and steps. Media3 promises neither that it releases an
+ * overlay exactly once nor that no frame is asked for afterwards, so a handle freed in `release()`
+ * could leak or be read after it was freed; arrays can do neither.
  */
 @UnstableApi
 class TimedTextOverlay private constructor(
-    private val startsMs: LongArray,
-    private val endsMs: LongArray,
+    private val cues: LongArray,
     private val texts: List<String>,
-    private val spanStartMs: Long,
-    private val spanEndMs: Long,
-    private var table: Long,
 ) : TextOverlay() {
     private val settings =
         StaticOverlaySettings
@@ -30,20 +28,14 @@ class TimedTextOverlay private constructor(
             .setBackgroundFrameAnchor(0f, -0.82f)
             .setOverlayFrameAnchor(0f, -1f)
             .build()
+    private val origin = LongArray(GeodeNative.CUE_ORIGIN_LONGS)
 
     override fun getText(presentationTimeUs: Long): SpannableString {
-        if (table == 0L) table = GeodeNative.cuesForSpan(startsMs, endsMs, spanStartMs, spanEndMs)
         // A zero-width layout cannot become a bitmap, so an empty frame draws one space.
-        return SpannableString(texts.getOrNull(GeodeNative.cuesAt(table, presentationTimeUs)) ?: " ")
+        return SpannableString(texts.getOrNull(GeodeNative.cuesAt(cues, origin, presentationTimeUs)) ?: " ")
     }
 
     override fun getOverlaySettings(presentationTimeUs: Long) = settings
-
-    override fun release() {
-        super.release()
-        GeodeNative.cuesDestroy(table)
-        table = 0L
-    }
 
     companion object {
         /** The captions over [startMs, endMs) of project time, or null when no cue touches it. */
@@ -54,8 +46,8 @@ class TimedTextOverlay private constructor(
         ): TimedTextOverlay? {
             val starts = LongArray(cues.size) { cues[it].startMs }
             val ends = LongArray(cues.size) { cues[it].endMs }
-            val table = GeodeNative.cuesForSpan(starts, ends, startMs, endMs)
-            return if (table == 0L) null else TimedTextOverlay(starts, ends, cues.map(SubtitleCue::text), startMs, endMs, table)
+            val triples = GeodeNative.cuesForSpan(starts, ends, startMs, endMs)
+            return if (triples.isEmpty()) null else TimedTextOverlay(triples, cues.map(SubtitleCue::text))
         }
     }
 }

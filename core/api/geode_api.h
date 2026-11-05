@@ -390,14 +390,14 @@ GEODE_API int64_t geode_render_eta_sample(geode_render_eta* state, float progres
 GEODE_API int     geode_render_eta_phrase(int64_t seconds_left, int64_t* out_count);
 
 /* Caption cues (signal/timeline/Cues): the text-lane cues touching [span_start_ms, span_end_ms), re-based to
- * the item's first frame. NULL when none touches the span. The text stays Kotlin, keyed by source index. */
-typedef struct geode_cues geode_cues;
-GEODE_API geode_cues* geode_cues_for_span(const int64_t* starts_ms, const int64_t* ends_ms, int count,
-                                          int64_t span_start_ms, int64_t span_end_ms);
-GEODE_API void        geode_cues_destroy(geode_cues*);
-/* The source index of the cue on screen at a frame's presentation time, -1 for none; the first call fixes the
- * origin. One thread at a time (Transformer's GL thread). */
-GEODE_API int         geode_cues_at(geode_cues*, int64_t presentation_us);
+ * the item's first frame, written as up to `cap` (start ms, end ms, source index) triples into out_triples;
+ * returns how many (0 when none touches the span). The text stays Kotlin, keyed by source index. Stateless:
+ * the caller keeps the triples and the origin pair, so no handle has to outlive a Media3 overlay. */
+GEODE_API int geode_cues_for_span(const int64_t* starts_ms, const int64_t* ends_ms, int count, int64_t span_start_ms,
+                                  int64_t span_end_ms, int64_t* out_triples, int cap);
+/* The source index of the cue on screen at a frame's presentation time, -1 for none. origin2 is the item's clock
+ * (has origin, origin us), kept by the caller and all zeros before its first frame, which fixes it. */
+GEODE_API int geode_cues_at(const int64_t* triples, int count, int64_t* origin2, int64_t presentation_us);
 
 /* Keyframe tracks (signal/timeline/Keyframes). kind: 0 scalar, 1 vector2, 2 colour (4 floats), 3 toggle,
  * 4 choice; interp: 0 hold, 1 linear, 2 bezier (c1x, c1y, c2x, c2y; the Ease presets are beziers too).

@@ -742,19 +742,27 @@ object GeodeNative {
         outCount: LongArray,
     ): Int
 
-    /** The caption cues touching [spanStartMs]..[spanEndMs], re-based to the item; 0 when none does. */
+    /**
+     * The caption cues touching [spanStartMs]..[spanEndMs], re-based to the item, as (start ms, end ms, source
+     * index) triples; empty when none does. Nothing native is held: the caller keeps the array.
+     */
     external fun cuesForSpan(
         startsMs: LongArray,
         endsMs: LongArray,
         spanStartMs: Long,
         spanEndMs: Long,
-    ): Long
+    ): LongArray
 
-    external fun cuesDestroy(handle: Long)
+    /** The item's caption clock for [cuesAt]: (has origin, origin us); all zeros before its first frame. */
+    const val CUE_ORIGIN_LONGS = 2
 
-    /** The index (into the cues given) of the caption at a frame's time, -1 for none; the first call is the origin. */
+    /**
+     * The source index of the caption at a frame's time, -1 for none. [origin] is the item's clock
+     * ([CUE_ORIGIN_LONGS] longs, zeros at first); the first frame fixes it in place.
+     */
     external fun cuesAt(
-        handle: Long,
+        triples: LongArray,
+        origin: LongArray,
         presentationUs: Long,
     ): Int
 

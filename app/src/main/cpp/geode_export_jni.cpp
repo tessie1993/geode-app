@@ -226,23 +226,31 @@ JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_renderEtaPhrase(
     return phrase;
 }
 
-// Caption cues (signal/timeline/Cues).
-JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_cuesForSpan(JNIEnv* env, jobject, jlongArray startsMs,
-                                                                             jlongArray endsMs, jlong spanStartMs,
-                                                                             jlong spanEndMs) {
+// Caption cues (signal/timeline/Cues). Stateless: the triples and the origin pair live in Kotlin arrays.
+JNIEXPORT jlongArray JNICALL Java_dev_geode_engine_bridge_GeodeNative_cuesForSpan(JNIEnv* env, jobject, jlongArray startsMs,
+                                                                                  jlongArray endsMs, jlong spanStartMs,
+                                                                                  jlong spanEndMs) {
     const auto starts = longs(env, startsMs);
     const auto ends = longs(env, endsMs);
     const int count = static_cast<int>(starts.size() < ends.size() ? starts.size() : ends.size());
-    return reinterpret_cast<jlong>(geode_cues_for_span(starts.data(), ends.data(), count, spanStartMs, spanEndMs));
+    std::vector<int64_t> triples(static_cast<size_t>(count) * 3);
+    const int n = geode_cues_for_span(starts.data(), ends.data(), count, spanStartMs, spanEndMs, triples.data(), count);
+    jlongArray result = env->NewLongArray(static_cast<jsize>(n) * 3);
+    if (result && n > 0) {
+        env->SetLongArrayRegion(result, 0, static_cast<jsize>(n) * 3, reinterpret_cast<const jlong*>(triples.data()));
+    }
+    return result;
 }
 
-JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_cuesDestroy(JNIEnv*, jobject, jlong handle) {
-    geode_cues_destroy(reinterpret_cast<geode_cues*>(handle));
-}
-
-JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_cuesAt(JNIEnv*, jobject, jlong handle,
-                                                                       jlong presentationUs) {
-    return geode_cues_at(reinterpret_cast<geode_cues*>(handle), presentationUs);
+JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_cuesAt(JNIEnv* env, jobject, jlongArray triples,
+                                                                       jlongArray origin, jlong presentationUs) {
+    const auto cues = longs(env, triples);
+    if (!origin || env->GetArrayLength(origin) < 2) return -1;
+    int64_t clock[2] = {0, 0};
+    env->GetLongArrayRegion(origin, 0, 2, reinterpret_cast<jlong*>(clock));
+    const int index = geode_cues_at(cues.data(), static_cast<int>(cues.size() / 3), clock, presentationUs);
+    env->SetLongArrayRegion(origin, 0, 2, reinterpret_cast<const jlong*>(clock));
+    return index;
 }
 
 // Chapters (output/Chapters).

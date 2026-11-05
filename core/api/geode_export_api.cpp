@@ -33,10 +33,6 @@ struct geode_speed_ramp {
     tl::SpeedRamp ramp;
 };
 
-struct geode_cues {
-    tl::CueTable table;
-};
-
 struct geode_cube_lut {
     geode::util::CubeLut lut;
 };
@@ -297,15 +293,26 @@ int geode_render_eta_phrase(int64_t seconds_left, int64_t* out_count) {
     return static_cast<int>(out::renderEtaPhrase(seconds_left, out_count));
 }
 
-geode_cues* geode_cues_for_span(const int64_t* starts_ms, const int64_t* ends_ms, int count, int64_t span_start_ms,
-                                int64_t span_end_ms) {
-    auto table = tl::CueTable::forSpan(starts_ms, ends_ms, count, span_start_ms, span_end_ms);
-    if (table.empty()) return nullptr;
-    return new geode_cues{std::move(table)};
+int geode_cues_for_span(const int64_t* starts_ms, const int64_t* ends_ms, int count, int64_t span_start_ms,
+                        int64_t span_end_ms, int64_t* out_triples, int cap) {
+    const auto table = tl::CueTable::forSpan(starts_ms, ends_ms, count, span_start_ms, span_end_ms);
+    const int n = std::min(static_cast<int>(table.cues().size()), out_triples ? std::max(cap, 0) : 0);
+    for (int i = 0; i < n; ++i) {
+        const auto& c = table.cues()[static_cast<size_t>(i)];
+        out_triples[i * 3] = c.startMs;
+        out_triples[i * 3 + 1] = c.endMs;
+        out_triples[i * 3 + 2] = c.source;
+    }
+    return n;
 }
 
-void geode_cues_destroy(geode_cues* c) { std::unique_ptr<geode_cues> owned(c); }
-
-int geode_cues_at(geode_cues* c, int64_t presentation_us) { return c ? c->table.atPresentationUs(presentation_us) : -1; }
+int geode_cues_at(const int64_t* triples, int count, int64_t* origin2, int64_t presentation_us) {
+    if (!triples || !origin2 || count <= 0) return -1;
+    tl::CueClock clock{origin2[0], origin2[1]};
+    const int64_t atMs = clock.itemMs(presentation_us);
+    origin2[0] = clock.hasOrigin;
+    origin2[1] = clock.originUs;
+    return tl::CueTable::atTriples(triples, count, atMs);
+}
 
 }  // extern "C"

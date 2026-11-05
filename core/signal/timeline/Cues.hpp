@@ -12,7 +12,9 @@ namespace geode::signal::timeline {
 // first frame's timestamp is the item's origin, since the timestamps Media3 hands an overlay are not
 // promised to start at 0. The text itself stays Kotlin, keyed by each cue's index in the list given.
 //
-// One thread at a time; atUs is allocation-free.
+// Nothing here outlives a call across the ABI: the item's cues leave as (start, end, source) triples and its
+// origin as a CueClock, both kept by the caller, because Media3 does not promise to release an overlay exactly
+// once or to ask for no frame after it (#422). The lookup is allocation-free.
 class CueTable {
 public:
     struct Cue {
@@ -32,13 +34,21 @@ public:
     // The source index of the cue on screen at item time atMs, or -1 for none.
     int32_t at(int64_t atMs) const;
 
-    // The same for a frame's presentation time: the first call fixes the origin.
-    int32_t atPresentationUs(int64_t presentationUs);
+    // The same over cues laid out as (startMs, endMs, source) triples, as the ABI hands them back.
+    static int32_t atTriples(const int64_t* triples, int count, int64_t atMs);
 
 private:
     std::vector<Cue> cues_;
-    bool hasOrigin_ = false;
-    int64_t originUs_ = 0;
+};
+
+// An item's caption clock: the first frame's presentation time is its origin. Plain state the caller keeps
+// (two int64s, the ABI's origin pair); all zeros is an item that has not drawn a frame yet.
+struct CueClock {
+    int64_t hasOrigin = 0;
+    int64_t originUs = 0;
+
+    // Item time in ms for a frame; the first call fixes the origin.
+    int64_t itemMs(int64_t presentationUs);
 };
 
 }  // namespace geode::signal::timeline

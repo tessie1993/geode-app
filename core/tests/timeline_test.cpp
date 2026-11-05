@@ -190,6 +190,11 @@ void speedRamp() {
 
 // The Kotlin TimedTextOverlay: forSpan's filter and re-base, and getText's first-match lookup from the
 // first frame's timestamp.
+// A frame's caption the way the overlay asks: item time from the clock, then the first cue that spans it.
+int32_t live(const CueTable& table, CueClock& clock, int64_t presentationUs) {
+    return table.at(clock.itemMs(presentationUs));
+}
+
 void cues() {
     // Project time: 0..4 s, 3..9 s (overlapping the first), 12..15 s.
     const int64_t starts[] = {0, 3'000, 12'000};
@@ -211,18 +216,25 @@ void cues() {
     check(CueTable::forSpan(starts, ends, 3, 10'000, 12'000).empty(), "cues: a start at the span end misses");
     check(CueTable::forSpan(nullptr, ends, 3, 0, 1'000).empty(), "cues: no starts");
 
-    CueTable live = CueTable::forSpan(starts, ends, 3, 2'000, 10'000);
-    check(live.atPresentationUs(5'000'000) == 0, "cues: the first frame is the origin");
-    check(live.atPresentationUs(5'000'000 + 2'500'000) == 1, "cues: later frames from that origin");
-    check(live.atPresentationUs(5'000'000 + 7'000'000) == -1, "cues: past the last cue");
+    CueClock clock;
+    check(live(item, clock, 5'000'000) == 0, "cues: the first frame is the origin");
+    check(live(item, clock, 5'000'000 + 2'500'000) == 1, "cues: later frames from that origin");
+    check(live(item, clock, 5'000'000 + 7'000'000) == -1, "cues: past the last cue");
 
-    geode_cues* abi = geode_cues_for_span(starts, ends, 3, 2'000, 10'000);
-    check(abi != nullptr, "ABI cues");
-    check(geode_cues_at(abi, 1'000'000) == 0 && geode_cues_at(abi, 1'000'000 + 3'000'000) == 1, "ABI cue lookup");
-    geode_cues_destroy(abi);
-    check(geode_cues_for_span(starts, ends, 3, 20'000, 30'000) == nullptr, "ABI: no cue in the span is NULL");
-    check(geode_cues_at(nullptr, 0) == -1, "ABI: a NULL table is blank");
-    geode_cues_destroy(nullptr);
+    // The ABI is stateless: triples out, then the lookup with the caller's origin pair.
+    int64_t triples[9] = {};
+    check(geode_cues_for_span(starts, ends, 3, 2'000, 10'000, triples, 3) == 2, "ABI cues");
+    check(triples[0] == 0 && triples[1] == 2'000 && triples[2] == 0 && triples[3] == 1'000 && triples[4] == 7'000 &&
+              triples[5] == 1,
+          "ABI cues: the triples match the table");
+    int64_t origin[2] = {0, 0};
+    check(geode_cues_at(triples, 2, origin, 1'000'000) == 0 && origin[0] == 1 && origin[1] == 1'000'000,
+          "ABI cue lookup: the first frame fixes the caller's origin");
+    check(geode_cues_at(triples, 2, origin, 1'000'000 + 3'000'000) == 1, "ABI cue lookup from that origin");
+    check(geode_cues_for_span(starts, ends, 3, 2'000, 10'000, triples, 1) == 1, "ABI: cap bounds the triples");
+    check(geode_cues_for_span(starts, ends, 3, 20'000, 30'000, triples, 3) == 0, "ABI: no cue in the span is 0");
+    check(geode_cues_at(nullptr, 0, origin, 0) == -1 && geode_cues_at(triples, 2, nullptr, 0) == -1,
+          "ABI: no cues or no clock is blank");
 }
 
 }  // namespace

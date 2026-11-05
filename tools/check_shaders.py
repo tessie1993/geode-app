@@ -70,6 +70,7 @@ SIM_BODIES = {
 
 
 COMMENTS = re.compile(r"//[^\n]*|/\*.*?\*/", re.S)
+PREPROCESSOR = re.compile(r"^[ \t]*#[^\n]*", re.M)
 # Accumulated clocks. Speed is integrated natively into uTime, uFlowTime and
 # uSoundTimeSped (so those already carry it), and uFlowPhase and the SND_*_TIME
 # band clocks are the unscaled forms: none of them may meet uSpeed in a statement.
@@ -93,6 +94,10 @@ def speed_twice(text):
     prose about the rule is not.
     """
     code = COMMENTS.sub(lambda m: "\n" * m.group(0).count("\n"), text)
+    # A preprocessor line ends at its newline, not at a `;`: close each one as its
+    # own statement, so a #define never merges into the code after it (and one
+    # that itself multiplies uTime by uSpeed is still caught).
+    code = PREPROCESSOR.sub(lambda m: m.group(0) + ";", code)
     names = ["uSpeed"] + sorted(set(SPEED_ALIAS.findall(code)))
     u_speed = re.compile(r"\b(" + "|".join(map(re.escape, names)) + r")\b")
     hits = []
@@ -109,6 +114,8 @@ def check_speed_rule():
     # The guard guards itself first, so a regex slip cannot pass everything.
     assert speed_twice("float t = uTime * uSpeed;") == [1]
     assert speed_twice("// uTime * uSpeed\nx = 1.0 +\n  uTime * 0.3 * uSpeed;") == [3]
+    assert speed_twice("#define T (uTime * 0.1)\nfloat w = uSpeed * 2.0;") == []
+    assert speed_twice("#define T (uTime * uSpeed)\nfloat w = 2.0;") == [1]
     assert speed_twice("float f = uFlowPhase * 0.6 * uSpeed;") == [1]
     assert speed_twice("float spd = uSpeed;\nfloat c = SND_MID_TIME * spd;") == [2]
     assert speed_twice("float f = uFlowTime * uSpeed;") == [1]

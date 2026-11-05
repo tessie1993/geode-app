@@ -52,12 +52,12 @@
 
     <!-- Studio. -->
     <string name="tour_studio_tabs_title">Make a video</string>
-    <string name="tour_studio_tabs_body">Render makes a video. My videos keeps your takes and renders. Edit is the timeline.</string>
+    <string name="tour_studio_tabs_body">Render makes a video. My videos keeps your takes and renders.</string>
     <string name="tour_studio_render_title">One tap to render</string>
     <string name="tour_studio_render_body">Pick what to render, then tap Render. It keeps going if you leave the app.</string>
 
     <string name="tour_studio_videos_title">Your videos</string>
-    <string name="tour_studio_videos_body">Takes and renders, newest first. Play, share or open one in Edit.</string>
+    <string name="tour_studio_videos_body">Takes and renders, newest first. Play, share or render one.</string>
 
     <!-- Settings. -->
     <string name="tour_settings_groups_title">Settings, in groups</string>

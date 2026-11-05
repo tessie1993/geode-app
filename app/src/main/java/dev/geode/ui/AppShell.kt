@@ -285,7 +285,6 @@ fun AppRoot() {
                             visualizerView,
                             appState.studioSection,
                             onSection = { appState.studioSection = it },
-                            onImmersive = { appState.immersive = it },
                         )
                     GeodeDestination.SETTINGS ->
                         SettingsScreen(
@@ -475,8 +474,8 @@ private fun AppShellCompact(
                     },
                 ),
         ) { content() }
-        // A PiP window is the visual alone; Studio's full-screen timeline takes the whole window.
-        if (appState.immersive || pip) return@Box
+        // A PiP window is the visual alone.
+        if (pip) return@Box
         Column(
             Modifier
                 .align(Alignment.BottomCenter)
@@ -655,10 +654,6 @@ private fun showTutorialTarget(
         // The live view is Visuals now: full screen is its sheet hidden.
         TutorialTarget.VISUALS, TutorialTarget.LIVE_VIEW -> appState.navigateTo(GeodeDestination.VISUALS)
         TutorialTarget.STUDIO_RENDER -> appState.openStudioRender()
-        TutorialTarget.STUDIO_EDIT -> {
-            appState.studioSection = StudioSection.EDIT
-            appState.navigateTo(GeodeDestination.STUDIO)
-        }
         TutorialTarget.SETTINGS -> appState.navigateTo(GeodeDestination.SETTINGS)
         TutorialTarget.PAYWALL -> openPaywall()
     }

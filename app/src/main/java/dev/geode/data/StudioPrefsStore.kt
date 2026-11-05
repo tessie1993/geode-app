@@ -6,13 +6,14 @@ import androidx.core.content.edit
 /**
  * Studio's own small memory, kept across restarts.
  *
- * [lastTab] is the Studio tab the user was last on, so Studio opens where they left it (Render,
- * My videos or Edit). It is stored as the tab's name, never its position, so reordering the tabs
+ * [lastTab] is the Studio tab the user was last on, so Studio opens where they left it (Render or
+ * My videos; an "EDIT" saved before Edit was removed reads as Render, in `StudioSection.fromName`).
+ * It is stored as the tab's name, never its position, so reordering the tabs
  * cannot restore onto a different one; an unknown or missing name means "first visit" and the
  * caller falls back to Render. It is a plain string because `data` may not name the UI's own
  * `StudioSection` type.
  *
- * [keepAsProject] answers Render's "keep it as a project too?" once and for all: null until the
+ * [keepAsProject] answers Render's "add it to My videos?" once and for all: null until the
  * user ticks "don't ask again", then their answer.
  */
 class StudioPrefsStore(

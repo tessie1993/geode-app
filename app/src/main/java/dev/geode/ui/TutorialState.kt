@@ -34,7 +34,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 
 /** Where the tour can send someone: the real screen a pointer is about. */
-enum class TutorialTarget { PLAYER, LIBRARY, VISUALS, LIVE_VIEW, STUDIO_RENDER, STUDIO_EDIT, SETTINGS, PAYWALL }
+enum class TutorialTarget { PLAYER, LIBRARY, VISUALS, LIVE_VIEW, STUDIO_RENDER, SETTINGS, PAYWALL }
 
 @get:StringRes
 val TutorialChapter.titleRes: Int

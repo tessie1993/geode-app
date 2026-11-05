@@ -1,105 +1,35 @@
 package dev.geode.ui
 
-import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.geode.data.SaveTarget
 import dev.geode.di.PlayerSessionProvider
-import dev.geode.editor.ClipId
-import dev.geode.editor.EditResult
-import dev.geode.editor.EditorProject
-import dev.geode.editor.KeyframeId
-import dev.geode.editor.MarkerId
 import dev.geode.editor.ProjectId
 import dev.geode.editor.ProjectRender
-import dev.geode.editor.SubtitleCue
-import dev.geode.editor.Subtitles
 import dev.geode.editor.TrackRef
-import dev.geode.export.ClipEdit
-import dev.geode.export.StudioClip
-import dev.geode.pro.FeatureGate
-import dev.geode.pro.GetFeatureGateUseCase
-import dev.geode.pro.PaywallNavigator
-import dev.geode.pro.PaywallTrigger
-import dev.geode.pro.ProFeature
-import dev.geode.render.scene.SceneParams
-import dev.geode.ui.studio.EditorActions
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.dropWhile
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+/**
+ * Studio's two tabs, Render and My videos, plus Record. Studio has no editor (the owner dropped
+ * video editing from the launch, #227): a project here is only what a take or a kept render is
+ * stored as, so [editor] is read for its list of projects and their renders, never edited.
+ */
 @HiltViewModel
 class StudioViewModel
     @Inject
     constructor(
         private val sessions: PlayerSessionProvider,
-        getFeatureGate: GetFeatureGateUseCase,
-        private val paywall: PaywallNavigator,
-    ) : ViewModel(),
-        EditorActions {
+    ) : ViewModel() {
         private val session: PlayerSession = sessions.get()
 
-        /**
-         * Studio exports go through Media3 Transformer, which has no free-tier cap or wordmark, so
-         * they need the full Pro tier: the trial edits in the Studio, and exporting asks to unlock.
-         */
-        private val gate: StateFlow<FeatureGate> = getFeatureGate().stateIn(viewModelScope, SharingStarted.Eagerly, FeatureGate.FREE)
-
-        private fun studioExportLocked(): Boolean {
-            if (gate.value.allows(ProFeature.FULL_LENGTH_EXPORT) && gate.value.allows(ProFeature.NO_WATERMARK)) return false
-            paywall.open(PaywallTrigger.Feature(ProFeature.FULL_LENGTH_EXPORT))
-            return true
-        }
-
-        val studio: StateFlow<StudioUiState> get() = session.studio
-
+        /** The project folders (takes and kept renders), for My videos and the Render bar. */
         val editor: StateFlow<EditorUiState> get() = session.editor.state
-
-        override fun edit(transform: (EditorProject) -> EditorProject) = session.editor.edit(transform)
-
-        override fun apply(result: EditResult) = session.editor.apply(result)
-
-        override fun undo() = session.editor.undo()
-
-        override fun redo() = session.editor.redo()
-
-        override fun setPlayhead(ms: Long) = session.editor.setPlayhead(ms)
-
-        override fun newClipId(): ClipId = session.editor.newClipId()
-
-        override fun newMarkerId(): MarkerId = session.editor.newMarkerId()
-
-        override fun newKeyframeId(): KeyframeId = session.editor.newKeyframeId()
-
-        override fun currentSceneId(): String = session.currentSceneId()
-
-        override fun currentSceneParams(): SceneParams = session.currentSceneParams()
-
-        override fun playbackPositionMs(): Long? = session.playbackPositionMs()
-
-        override fun describeMedia(
-            uri: Uri,
-            onReady: (StudioClip) -> Unit,
-        ) = session.describeStudioClip(uri, onReady)
-
-        override fun exportProject(destination: Uri?) {
-            if (studioExportLocked()) return
-            session.startProjectExport(destination)
-        }
-
-        override fun cancelProjectExport() = session.cancelStudioExport()
-
-        override fun lyricCues(): List<SubtitleCue>? =
-            session.lyrics.value
-                ?.takeIf { it.synced }
-                ?.let { Subtitles.fromLyrics(it.lines, session.trackDurationMs()) }
-                ?.takeIf { it.isNotEmpty() }
 
         val exportState: StateFlow<ExportUiState> get() = session.exportState
 
@@ -135,72 +65,17 @@ class StudioViewModel
 
         fun resetExportState() = session.resetExportState()
 
-        fun refreshStudioClips() = session.refreshStudioClips()
-
-        fun describeStudioClip(
-            uri: Uri,
-            onReady: (StudioClip) -> Unit,
-        ) = session.describeStudioClip(uri, onReady)
-
-        fun renameStudioClip(
-            uri: String,
-            name: String,
-            onResult: (Boolean) -> Unit,
-        ) = session.renameStudioClip(uri, name, onResult)
-
-        fun deleteStudioClip(
-            uri: String,
-            onResult: (Boolean) -> Unit,
-        ) = session.deleteStudioClip(uri, onResult)
-
-        fun startStudioExport(
-            clip: StudioClip,
-            edit: ClipEdit,
-            destination: Uri? = null,
-        ) {
-            if (studioExportLocked()) return
-            session.startStudioExport(clip, edit, destination)
-        }
-
-        fun cancelStudioExport() = session.cancelStudioExport()
-
-        fun clearStudioResult() = session.clearStudioResult()
-
         val loopState: StateFlow<LoopUiState> get() = session.loopState
 
         fun cancelLoopRender() = session.cancelLoopRender()
 
         fun clearLoopResult() = session.clearLoopResult()
 
-        // ---------------------------------------------------------------- Studio › Edit's home
-
-        fun openProject(id: ProjectId) = session.editor.open(id)
-
-        fun newBlankProject() = session.editor.create()
+        // ---------------------------------------------------------------- Render
 
         /** The song playing now, or null when nothing is loaded; [title] is what the player shows. */
         fun currentTrack(title: String?): TrackRef? =
             session.currentTrackUri()?.let { TrackRef(it, title.orEmpty(), session.trackDurationMs()) }
-
-        fun newProjectFromPlaying(
-            track: TrackRef,
-            milkPath: String?,
-        ) = session.editor.createWithLook(track, session.currentSceneId(), milkPath)
-
-        fun newProjectFromTemplate(
-            templateId: ProjectId,
-            track: TrackRef,
-        ) = session.editor.createFromTemplate(templateId, track)
-
-        fun newProjectFromVideo(uri: Uri) =
-            session.describeStudioClip(uri) { clip -> session.editor.createFromVideo(clip.uri, clip.name, clip.durationMs) }
-
-        fun renameProject(
-            id: ProjectId,
-            name: String,
-        ) = session.editor.rename(id, name)
-
-        fun deleteProject(id: ProjectId) = session.editor.delete(id)
 
         // ---------------------------------------------------------------- My videos
 

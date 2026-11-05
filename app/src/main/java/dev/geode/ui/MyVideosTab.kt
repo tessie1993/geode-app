@@ -77,8 +77,6 @@ import kotlinx.coroutines.withContext
 @Composable
 internal fun MyVideosTab(
     viewModel: StudioViewModel,
-    canEdit: Boolean,
-    onOpenInEdit: (ProjectId) -> Unit,
     onRenderTake: (String) -> Unit,
 ) {
     val editor by viewModel.editor.collectAsStateWithLifecycle()
@@ -149,11 +147,9 @@ internal fun MyVideosTab(
             items(shown, key = { it.key }) { item ->
                 MyVideoCard(
                     item = item,
-                    canEdit = canEdit,
                     onPlay = { (item as? MyVideo.Render)?.let { context.viewVideo(Uri.parse(it.uri)) } },
                     onShare = { (item as? MyVideo.Render)?.let { context.shareVideo(Uri.parse(it.uri), chooserTitle, it.title) } },
                     onRender = { onRenderTake(item.title) },
-                    onOpenInEdit = { onOpenInEdit(item.projectId) },
                     onDelete = { delete(item) },
                 )
             }
@@ -200,17 +196,15 @@ private sealed interface MyVideo {
 
 /**
  * A tap does the obvious thing: a render plays, a take renders (Render opens with the take chosen).
- * The rest sits behind the card's ⋮, as on every row in the app: Share (a render), Open in Edit
- * (♛ for a free user, who meets the Pro wall there) and Delete, with Undo.
+ * The rest sits behind the card's ⋮, as on every row in the app: Share (a render) and Delete, with
+ * Undo.
  */
 @Composable
 private fun MyVideoCard(
     item: MyVideo,
-    canEdit: Boolean,
     onPlay: () -> Unit,
     onShare: () -> Unit,
     onRender: () -> Unit,
-    onOpenInEdit: () -> Unit,
     onDelete: () -> Unit,
 ) {
     var menu by remember { mutableStateOf(false) }
@@ -251,11 +245,6 @@ private fun MyVideoCard(
                     if (item is MyVideo.Render) {
                         DropdownMenuItem(text = { Text(stringResource(R.string.my_videos_share)) }, onClick = pick(onShare))
                     }
-                    val editLabel = if (canEdit) R.string.my_videos_open_in_edit else R.string.my_videos_open_in_edit_pro
-                    DropdownMenuItem(
-                        text = { ProText(stringResource(editLabel)) },
-                        onClick = pick(onOpenInEdit),
-                    )
                     DropdownMenuItem(text = { Text(stringResource(R.string.my_videos_delete)) }, onClick = pick(onDelete))
                 }
             }

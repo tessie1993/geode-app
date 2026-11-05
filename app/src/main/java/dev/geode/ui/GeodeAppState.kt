@@ -37,12 +37,28 @@ enum class GeodeDestination(
 /**
  * The tabs of [GeodeDestination.STUDIO], in the order they show. Studio owns everything that makes
  * a video: [RENDER] makes a video of what is playing (open to free and trial users within
- * `pro/FreeTier`), [MY_VIDEOS] lists every finished render and recorded take, and [EDIT] is the Pro
- * editor's home (new project, recent, all projects) in front of the timeline. Render comes first
+ * `pro/FreeTier`) and [MY_VIDEOS] lists every finished render and recorded take. Render comes first
  * because it is where a first visit and every free user lands; the last tab used is kept across
- * restarts by `data/StudioPrefsStore`.
+ * restarts by `data/StudioPrefsStore`. There was a third tab, Edit, until the owner dropped video
+ * editing (#227): [fromName] reads a name saved back then, or any unknown one, as Render.
  */
-enum class StudioSection { RENDER, MY_VIDEOS, EDIT }
+enum class StudioSection {
+    RENDER,
+    MY_VIDEOS,
+    ;
+
+    companion object {
+        /** The tab saved as [name], or null for none; the removed "EDIT" reads as [RENDER]. */
+        fun fromName(name: String?): StudioSection? =
+            when (name) {
+                null -> null
+                REMOVED_EDIT -> RENDER
+                else -> entries.firstOrNull { it.name == name }
+            }
+
+        private const val REMOVED_EDIT = "EDIT"
+    }
+}
 
 @Stable
 class GeodeAppState(
@@ -58,12 +74,6 @@ class GeodeAppState(
     var bootDone by mutableStateOf(bootDone)
 
     var studioSection by mutableStateOf(studioSection)
-
-    /**
-     * Set by a screen that needs the whole window (Studio's full-screen timeline): the floating
-     * mini player and tab bar step aside while it is true. Not saved: the screen sets it again.
-     */
-    var immersive by mutableStateOf(false)
 
     var externalDisplay: Display? = null
         internal set
@@ -105,9 +115,7 @@ class GeodeAppState(
                                 ?: GeodeDestination.PLAYER,
                         searching = it[1] as Boolean,
                         bootDone = it[2] as Boolean,
-                        studioSection =
-                            StudioSection.entries.firstOrNull { s -> s.name == it.getOrNull(3) }
-                                ?: StudioSection.RENDER,
+                        studioSection = StudioSection.fromName(it.getOrNull(3) as? String) ?: StudioSection.RENDER,
                     )
                 },
             )
@@ -122,7 +130,7 @@ fun rememberGeodeAppState(externalDisplay: Display?): GeodeAppState {
             // A cold start opens Studio on the tab the user last left it on; a process-death
             // restore keeps whatever the saver brought back instead.
             val lastTab = StudioPrefsStore(GeodePrefsFiles(context).general).lastTab()
-            GeodeAppState(studioSection = StudioSection.entries.firstOrNull { it.name == lastTab } ?: StudioSection.RENDER)
+            GeodeAppState(studioSection = StudioSection.fromName(lastTab) ?: StudioSection.RENDER)
         }
     state.externalDisplay = externalDisplay
     return state

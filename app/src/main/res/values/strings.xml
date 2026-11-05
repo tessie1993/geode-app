@@ -407,69 +407,26 @@
     <string name="folders_rescan">Rescan</string>
     <string name="folders_scanning">Scanning…</string>
 
-    <!-- Studio: the clip shelf and the editor. -->
-    <string name="studio_edit">Edit</string>
-    <string name="studio_open_video">Open a video…</string>
-    <string name="studio_empty_title">Nothing rendered yet</string>
-    <string name="studio_empty_body">Render a visual from Studio › Render and it lands here, ready to be cut, graded and sent somewhere. Any other video on the phone can be opened with the button above.</string>
-    <string name="studio_send">Send</string>
-    <string name="studio_send_ellipsis">Send…</string>
+    <!-- Studio: sharing a video. -->
     <string name="studio_share_chooser">Send video</string>
-    <string name="studio_storage_used">%1$s in Movies/MuzViz</string>
-    <string name="studio_rename_title">Rename clip</string>
     <string name="studio_rename_field">Name</string>
-    <string name="studio_rename_failed">Could not rename that clip.</string>
-    <string name="studio_delete_title">Delete clip?</string>
-    <string name="studio_delete_body">\"%1$s\" will be deleted from this device. This cannot be undone.</string>
-    <string name="studio_delete_failed">Android would not let MuzViz delete that file.</string>
-    <string name="studio_notice_title">Didn\'t work</string>
     <string name="action_back">Back</string>
 
     <plurals name="clip_count">
         <item quantity="one">%1$d clip</item>
         <item quantity="other">%1$d clips</item>
     </plurals>
-    <string name="studio_size_gb">%1$.1f GB</string>
 
-    <string name="studio_section_cut">Cut</string>
-    <string name="studio_section_look">Look</string>
-    <string name="studio_section_frame">Frame</string>
-    <string name="studio_section_sound">Sound &amp; caption</string>
-    <string name="studio_section_render">Render &amp; send</string>
 
-    <string name="studio_trim_summary">"%1$s → %2$s   ·   keeps %3$s"</string>
-    <string name="studio_trim_renders">, renders %1$s</string>
-    <string name="studio_look_explainer">A look writes these four and then gets out of the way — every one stays an ordinary slider afterwards, the same way the live-input profiles work.</string>
     <string name="studio_brightness">Brightness</string>
     <string name="studio_contrast">Contrast</string>
     <string name="studio_saturation">Saturation</string>
     <string name="studio_hue_shift">Hue shift</string>
     <string name="studio_speed">Speed</string>
-    <string name="studio_lut_pick">Load LUT (.cube)…</string>
-    <string name="studio_lut_clear">Remove LUT</string>
-    <string name="studio_lut_loaded">LUT: %1$s</string>
-    <string name="studio_lut_explainer">A .cube lookup table from a grading tool is applied after the sliders above and before the gamma curves.</string>
-    <string name="studio_gamma_red">Gamma · red</string>
-    <string name="studio_gamma_green">Gamma · green</string>
-    <string name="studio_gamma_blue">Gamma · blue</string>
     <string name="studio_rotate">Rotate</string>
-    <string name="studio_reframe">Reframe</string>
     <string name="studio_as_shot">As shot</string>
-    <string name="studio_reframe_explainer">Reframing crops rather than pillarboxes — turning 16:9 into 9:16 means losing the sides, and black bars are the one result nobody wants from that.</string>
-    <string name="studio_mute">Mute</string>
-    <string name="studio_caption">Burnt-in caption</string>
-    <string name="studio_caption_explainer">Drawn into the frame after everything else, so it is not graded or cropped with the picture. Leave it empty for none.</string>
-    <string name="studio_rendering">Rendering… %1$d%%</string>
-    <string name="studio_saved">Saved to Movies/MuzViz.</string>
-    <string name="studio_play">Play</string>
-    <string name="studio_edit_again">Edit again</string>
-    <string name="studio_send_explainer">Send opens the phone\'s own share sheet — YouTube, Instagram, TikTok, Drive, a message, whatever is installed and signed in. MuzViz never uploads anything itself.</string>
     <string name="studio_render">Render</string>
     <string name="studio_takes">Takes</string>
-    <string name="studio_reset">Reset</string>
-    <string name="studio_nothing_changed">Nothing is changed yet — rendering now would just copy the clip.</string>
-    <string name="studio_renders_new_file">Renders a NEW file. The original is never overwritten.</string>
-    <string name="studio_slider_value">"%1$s  %2$s%3$s"</string>
 
     <!-- Studio: the Look section's preset chips ("As shot" is studio_as_shot), and the name of a clip that has none. -->
     <string name="studio_look_punch">Punch</string>
@@ -891,63 +848,7 @@
     <string name="autoviz_playlist_add_hint">Add looks with the heart button in Visuals › Presets. The playlist needs at least two before it has anywhere to go.</string>
 
     <!-- Studio clip preview. -->
-    <!-- Timeline editor. -->
-    <string name="editor_open">Timeline</string>
-    <string name="editor_playhead">"Playhead  %1$s"</string>
-    <string name="editor_undo">Undo</string>
-    <string name="editor_redo">Redo</string>
-    <string name="editor_zoom_in">Zoom +</string>
-    <string name="editor_zoom_out">Zoom −</string>
-    <string name="editor_add_lane">+ %1$s lane</string>
-    <string name="editor_lane_visual">Visual</string>
-    <string name="editor_lane_media">Media</string>
-    <string name="editor_lane_text">Text</string>
-    <string name="editor_lane_overlay">Overlay</string>
-    <string name="editor_lane_audio">Audio</string>
-    <string name="editor_add_marker">Marker here</string>
-    <string name="editor_tap_in">Tap in</string>
-    <string name="editor_tap">Tap</string>
-    <string name="editor_tap_count">%1$d taps</string>
-    <string name="editor_tap_undo">Undo tap</string>
-    <string name="editor_tap_done">Keep taps</string>
-    <string name="editor_split">Split at playhead</string>
-    <string name="editor_delete">Delete</string>
-    <string name="editor_ripple_delete">Ripple delete</string>
-    <string name="editor_duplicate">Duplicate</string>
-    <string name="editor_enable">Enable</string>
-    <string name="editor_disable">Disable</string>
-    <string name="editor_delete_marker">Delete marker</string>
-    <string name="editor_delete_key">Delete key</string>
-    <string name="editor_markers">Markers</string>
-    <string name="editor_mute_short">M</string>
-    <string name="editor_lock_short">L</string>
-    <string name="editor_add_short">+</string>
-    <string name="editor_add_video">Video…</string>
-    <string name="editor_add_still">Still image…</string>
-    <string name="editor_text_title">Text clip</string>
-    <string name="editor_empty">Add a lane to start. Tap a clip to select it, double-tap to split, drag its body to move and its ends to trim; tap the ruler to move the playhead.</string>
-    <string name="editor_err_not_found">That clip is no longer there.</string>
-    <string name="editor_err_locked">The lane is locked.</string>
-    <string name="editor_err_wrong_lane">That kind of clip cannot live on this lane.</string>
-    <string name="editor_err_overlaps">It would overlap another clip.</string>
-    <string name="editor_err_needs_split">Split the clip underneath first.</string>
-    <string name="editor_err_too_short">Too short to keep.</string>
-    <string name="editor_err_outside_clip">The playhead is not inside the clip.</string>
-    <string name="curve_animate_scene">Animate scene…</string>
-    <string name="curve_animate_clip">Animate clip…</string>
-    <string name="curve_add_track">Animate</string>
-    <string name="curve_key_at">"%1$s  ·  key at %2$s"</string>
-    <string name="curve_value">"Value  %1$s"</string>
-    <string name="curve_toggle">On</string>
-    <string name="curve_hold">Hold</string>
-    <string name="curve_linear">Linear</string>
-    <string name="curve_ease_in">Ease in</string>
-    <string name="curve_ease_out">Ease out</string>
-    <string name="curve_ease_in_out">Ease in-out</string>
-    <string name="curve_smooth">Smooth</string>
-    <string name="curve_custom">Custom</string>
-    <string name="curve_unknown_param">Parameter</string>
-    <string name="editor_export">Render cut</string>
+    <!-- Studio renders: the render plan's notices (export/ProjectComposition). -->
     <string name="editor_export_no_video">Put a video or still on a Media lane first — the cut renders that lane.</string>
     <string name="editor_export_skipped_kinds">Skipped clips this export can\'t carry: %1$s</string>
     <!-- One render path (#232): the render plan's skipped-clip report and the Studio render labels. -->
@@ -969,29 +870,6 @@
         <item quantity="one">%1$d clip on a lane that can\'t carry it</item>
         <item quantity="other">%1$d clips on lanes that can\'t carry them</item>
     </plurals>
-    <string name="editor_transition">Transition into this clip</string>
-    <string name="editor_transition_ellipsis">Transition…</string>
-    <string name="editor_transition_none">None (hard cut)</string>
-    <string name="editor_transition_seconds">%1$.1f s</string>
-    <string name="editor_transition_current">%1$s ✓</string>
-    <string name="editor_lyric_captions">Lyrics → captions</string>
-    <string name="editor_import_srt">Import SRT…</string>
-    <string name="editor_export_srt">Export SRT…</string>
-    <string name="editor_export_chapters">Chapters…</string>
-    <string name="editor_chapters_title">Export chapter markers</string>
-    <string name="editor_chapters_description">Description block (.txt)</string>
-    <string name="editor_chapters_webvtt">WebVTT chapters (.vtt)</string>
-    <string name="editor_chapters_ffmetadata">FFmpeg metadata (.ffmeta)</string>
-    <string name="editor_chapters_none">Add at least two markers to export chapters.</string>
-    <string name="editor_chapters_saved">Chapters saved.</string>
-    <string name="editor_chapters_failed">"Chapters could not be saved: %1$s"</string>
-    <string name="editor_srt_saved">Captions saved.</string>
-    <string name="editor_srt_failed">"Captions could not be saved: %1$s"</string>
-    <string name="editor_chapter_untitled">Chapter %1$d</string>
-    <string name="editor_chapters_unwritable">The chapter list could not be written.</string>
-    <string name="editor_destination_unopenable">The destination could not be opened.</string>
-    <string name="studio_preview_hint">Loops your cut, muted — grade, speed and reframe show as they will render. Tap to pause.</string>
-    <string name="studio_preview_toggle">Play or pause the preview</string>
 
     <!-- Shared verbs. One definition each, so a translator sees them once. -->
     <string name="action_save">Save</string>
@@ -1066,41 +944,6 @@
     <!-- Library a11y -->
     <string name="library_move_track_up">Move %1$s up</string>
     <string name="library_move_track_down">Move %1$s down</string>
-    <!-- Studio a11y -->
-    <string name="studio_a11y_playing">Playing</string>
-    <string name="studio_a11y_playhead">Playhead</string>
-    <plurals name="studio_a11y_clip_lane">
-        <item quantity="one">%1$s, %2$d clip</item>
-        <item quantity="other">%1$s, %2$d clips</item>
-    </plurals>
-    <plurals name="studio_a11y_marker_lane">
-        <item quantity="one">Markers, %1$d marker</item>
-        <item quantity="other">Markers, %1$d markers</item>
-    </plurals>
-    <plurals name="studio_a11y_key_lane">
-        <item quantity="one">%1$s keyframes, %2$d key</item>
-        <item quantity="other">%1$s keyframes, %2$d keys</item>
-    </plurals>
-    <string name="studio_a11y_selected_at">%1$s selected, at %2$s</string>
-    <string name="studio_a11y_marker">Marker</string>
-    <string name="studio_a11y_key">Key</string>
-    <string name="studio_a11y_select_next">Select next</string>
-    <string name="studio_a11y_select_previous">Select previous</string>
-    <string name="studio_a11y_nudge_earlier">Nudge earlier</string>
-    <string name="studio_a11y_nudge_later">Nudge later</string>
-    <string name="studio_a11y_split_at_playhead">Split clip at playhead</string>
-    <string name="studio_a11y_add_marker_at_playhead">Add marker at playhead</string>
-    <string name="studio_a11y_add_key_at_playhead">Add keyframe at playhead</string>
-    <string name="studio_a11y_curve">Curve handles</string>
-    <string name="studio_a11y_curve_state">First handle %1$.2f, %2$.2f. Second handle %3$.2f, %4$.2f</string>
-    <string name="studio_a11y_curve_first_left">Move first handle left</string>
-    <string name="studio_a11y_curve_first_right">Move first handle right</string>
-    <string name="studio_a11y_curve_first_up">Move first handle up</string>
-    <string name="studio_a11y_curve_first_down">Move first handle down</string>
-    <string name="studio_a11y_curve_second_left">Move second handle left</string>
-    <string name="studio_a11y_curve_second_right">Move second handle right</string>
-    <string name="studio_a11y_curve_second_up">Move second handle up</string>
-    <string name="studio_a11y_curve_second_down">Move second handle down</string>
     <!-- Live wallpaper options (wallpaper/*, ui/wallpaper/WallpaperOptionsActivity), opened from the system wallpaper picker. -->
     <string name="wallpaper_options_title">Wallpaper options</string>
     <string name="wallpaper_options_close">Close</string>

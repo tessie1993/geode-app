@@ -7,12 +7,8 @@ import android.os.Build
 import android.provider.DocumentsContract
 import android.provider.MediaStore
 import androidx.annotation.StringRes
-import androidx.media3.common.MediaItem
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.transformer.Composition
-import androidx.media3.transformer.EditedMediaItem
-import androidx.media3.transformer.EditedMediaItemSequence
-import androidx.media3.transformer.Effects
 import androidx.media3.transformer.ExportException
 import androidx.media3.transformer.ExportResult
 import androidx.media3.transformer.ProgressHolder
@@ -63,34 +59,6 @@ class StudioExporter(
 
     @Volatile
     private var cancelled = false
-
-    suspend fun export(
-        source: Uri,
-        sourceDurationMs: Long,
-        edit: ClipEdit,
-        displayName: String,
-        codec: ExportCodec = ExportCodec.H264,
-        destination: Uri? = null,
-        isCancelled: () -> Boolean = { false },
-        onProgress: (Float) -> Unit,
-    ): Result {
-        val lut = edit.lutUri?.let { uri -> withContext(Dispatchers.IO) { CubeLut.load(context, uri) } }
-        val item =
-            MediaItem
-                .Builder()
-                .setUri(source)
-                .setClippingConfiguration(edit.clipping())
-                .build()
-        val edited =
-            EditedMediaItem
-                .Builder(item)
-                .setRemoveAudio(edit.mute)
-                .setEffects(Effects(emptyList(), edit.videoEffects(lut)))
-                .apply { edit.speedProvider()?.let { setSpeed(it) } }
-                .build()
-        val composition = Composition.Builder(EditedMediaItemSequence.Builder().addItem(edited).build()).build()
-        return exportComposition(composition, edit.outputMs(sourceDurationMs), displayName, codec, destination, isCancelled, onProgress)
-    }
 
     /**
      * Renders [composition] and saves it either to Movies/MuzViz (when [destination] is null) or

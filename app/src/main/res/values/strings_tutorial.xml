@@ -68,8 +68,8 @@
     <string name="tutorial_studio_1_body">Studio › Render exports the visualizer to your gallery. Free videos are up to 1080p, 30 fps and one minute, with a watermark. Pro goes to 4K and 60 fps, full length.</string>
     <string name="tutorial_studio_2_title">Seamless loops</string>
     <string name="tutorial_studio_2_body">Loop render makes a clip that ends exactly where it began, ready for a canvas, a story or a stream background.</string>
-    <string name="tutorial_studio_3_title">Cut it together</string>
-    <string name="tutorial_studio_3_body">Studio › Edit is a timeline: clips, keyframes, markers and beat snapping, so cuts land on the music.</string>
+    <string name="tutorial_studio_3_title">Record a take</string>
+    <string name="tutorial_studio_3_body">Hold the visual on Visuals to record a take: every style and knob change you make, on the beat of the song. Stopping renders it to a video in the background.</string>
 
     <string name="tutorial_anywhere_1_title">Live wallpaper</string>
     <string name="tutorial_anywhere_1_body">Your last style can live on your home screen, reacting to whatever MuzViz is playing. Set it up in Settings › Behavior.</string>
@@ -79,7 +79,7 @@
     <string name="tutorial_anywhere_3_body">Long-press your home screen, add the MuzViz widget, and play, pause or skip without opening the app.</string>
 
     <string name="tutorial_pro_1_title">One unlock, everything</string>
-    <string name="tutorial_pro_1_body">Pro is a one-time purchase: every style, 4K and 60 fps exports with no watermark, loop render, the Studio editor and the live wallpaper.</string>
+    <string name="tutorial_pro_1_body">Pro is a one-time purchase: every style, 4K and 60 fps exports with no watermark, loop render, recorded takes and the live wallpaper.</string>
     <string name="tutorial_pro_2_title">Try it for an hour</string>
     <string name="tutorial_pro_2_body">Start a free one-hour trial to play with every Pro style and tool before you decide. Anything marked Pro tells you where it is.</string>
 

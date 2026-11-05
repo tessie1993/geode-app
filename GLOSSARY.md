@@ -153,11 +153,11 @@ _Avoid_: Theme (alone), skin
 ## Making
 
 **Studio**:
-The multi-lane timeline editor where a video is cut.
-_Avoid_: Editor (the code name for its model), timeline (one part of it)
+Where videos are made and kept: Render (one tap, a batch or a loop) and My videos (every render and take). It has no editor: the owner dropped video editing from the launch (#227).
+_Avoid_: Editor (the code name for the project model), timeline
 
 **Project**:
-A Studio folder: one edit (lanes, clips, markers, keyframes), its own export settings, the takes recorded into it and every video rendered from it. A **Loop** project draws a short seamless loop and repeats it to a long length.
+A Studio folder: one edit (lanes, clips, markers, keyframes) that the render path draws and no screen edits, its own export settings, the takes recorded into it and every video rendered from it. A **Loop** project draws a short seamless loop and repeats it to a long length.
 _Avoid_: Untitled, document, session
 
 **Destination**:

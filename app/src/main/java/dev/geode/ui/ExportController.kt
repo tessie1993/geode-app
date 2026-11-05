@@ -67,7 +67,6 @@ import kotlinx.coroutines.withContext
 import java.io.File
 
 data class StudioUiState(
-    val clips: List<dev.geode.export.StudioClip> = emptyList(),
     val phase: ExportPhase = ExportPhase.Idle,
     /**
      * What the last project render left out and why (the render plan's skipped-clip report), or
@@ -130,13 +129,6 @@ internal class ExportController(
 
         fun reactions(): List<dev.geode.render.ReactionRoute>?
 
-        /**
-         * The open editor project's tracks. Since every render renders a project (#232) the one-tap
-         * render no longer borrows them: it is a project of its own, and the open project's keyframes
-         * render with that project. Kept for the Host contract until PlayerSession drops it.
-         */
-        fun keyframes(): KeyframeSheet
-
         suspend fun loadExportTake(): PerformanceTake.Timeline?
 
         /** Whether the entitlement allows rendering [sceneId] (FeatureGate.allowsStyle). */
@@ -175,9 +167,6 @@ internal class ExportController(
     }
 
     private var studioJob: Job? = null
-
-    @Volatile
-    private var studioCancelled = false
 
     // Built on first use, which is on IO: the store sweeps old folders when it is made.
     private val projectStore by lazy { EditorProjectStore(application) }
@@ -469,18 +458,7 @@ internal class ExportController(
         if (!_exportState.value.phase.isBusy) _exportState.value = ExportUiState()
     }
 
-    fun refreshStudioClips() {
-        scope.launch {
-            _studio.update { it.copy(phase = ExportPhase.Loading) }
-            val clips =
-                withContext(Dispatchers.IO) {
-                    dev.geode.export.StudioClips
-                        .list(application)
-                }
-            _studio.update { it.copy(clips = clips, phase = ExportPhase.Idle) }
-        }
-    }
-
+    /** Deletes a finished render's file (My videos' delete); [onResult] says whether it went. */
     fun deleteStudioClip(
         uri: String,
         onResult: (Boolean) -> Unit,
@@ -491,72 +469,8 @@ internal class ExportController(
                     dev.geode.export.StudioClips
                         .delete(application, uri)
                 }
-            if (ok) refreshStudioClips()
             onResult(ok)
         }
-    }
-
-    fun renameStudioClip(
-        uri: String,
-        name: String,
-        onResult: (Boolean) -> Unit,
-    ) {
-        scope.launch {
-            val ok =
-                withContext(Dispatchers.IO) {
-                    dev.geode.export.StudioClips
-                        .rename(application, uri, name)
-                }
-            if (ok) refreshStudioClips()
-            onResult(ok)
-        }
-    }
-
-    fun describeStudioClip(
-        uri: Uri,
-        onReady: (dev.geode.export.StudioClip) -> Unit,
-    ) {
-        scope.launch {
-            val clip =
-                withContext(Dispatchers.IO) {
-                    dev.geode.export.StudioClips
-                        .describe(application, uri)
-                }
-            onReady(clip)
-        }
-    }
-
-    /**
-     * One clip of the old single-clip editor, re-encoded with its edit. It runs under [ExportRun]
-     * and [ExportService] like every other render, so leaving the app does not end it.
-     */
-    fun startStudioExport(
-        clip: dev.geode.export.StudioClip,
-        edit: dev.geode.export.ClipEdit,
-        destination: Uri? = null,
-    ) {
-        if (_studio.value.phase.isBusy || ExportRun.running) return
-        studioCancelled = false
-        _studio.update { it.copy(phase = ExportPhase.Running(0f), notice = null) }
-        ExportRun.begin(application.getString(dev.geode.R.string.render_video_label))
-        ExportService.start(application)
-        studioJob =
-            ExportRun.launch {
-                runStudioRender {
-                    val name = "muzviz_studio_${System.currentTimeMillis()}.mp4"
-                    val result =
-                        studioExporter.export(
-                            source = Uri.parse(clip.uri),
-                            sourceDurationMs = clip.durationMs,
-                            edit = edit,
-                            displayName = name,
-                            codec = loadExportDefaults().codec,
-                            destination = destination,
-                            isCancelled = ::studioCancelRequested,
-                        ) { p -> publishStudioProgress(p) }
-                    _studio.update { it.copy(phase = result.toPhase()) }
-                }
-            }
     }
 
     /**
@@ -573,7 +487,6 @@ internal class ExportController(
         onRendered: (ProjectRender) -> Unit = {},
     ) {
         if (_studio.value.phase.isBusy || ExportRun.running) return
-        studioCancelled = false
         _studio.update { it.copy(phase = ExportPhase.Running(0f), notice = null) }
         ExportRun.begin(project.name.ifBlank { application.getString(dev.geode.R.string.render_video_label) })
         ExportService.start(application)
@@ -628,13 +541,12 @@ internal class ExportController(
     private suspend fun runStudioRender(block: suspend () -> Unit) {
         try {
             block()
-            refreshStudioClips()
         } catch (c: kotlinx.coroutines.CancellationException) {
             _studio.update { it.copy(phase = ExportPhase.Idle) }
             throw c
         } catch (t: Throwable) {
             val phase =
-                if (studioCancelled) {
+                if (ExportRun.cancelRequested) {
                     ExportPhase.Idle
                 } else {
                     val reason = t.message ?: application.getString(dev.geode.R.string.export_error_no_message)
@@ -647,7 +559,7 @@ internal class ExportController(
         }
     }
 
-    private fun studioCancelRequested(): Boolean = studioCancelled || ExportRun.cancelRequested
+    private fun studioCancelRequested(): Boolean = ExportRun.cancelRequested
 
     private fun publishStudioProgress(p: Float) {
         val clamped = p.coerceIn(0f, 1f)
@@ -939,21 +851,6 @@ internal class ExportController(
         val p = BackgroundPrefsStore(GeodePrefsFiles(application).background).load()
         val uri = p.uri ?: return null
         return BackgroundExportSpec(uri.toUri(), p.blend, p.amount, p.blurRadius, p.dim)
-    }
-
-    /**
-     * Stops a Studio render. Through [ExportRun] as well as the exporter: the render runs there,
-     * and after the Activity is recreated it may belong to an older controller (see [cancelExport]).
-     */
-    fun cancelStudioExport() {
-        studioCancelled = true
-        studioExporter.cancel()
-        if (studioJob != null && ExportRun.running) ExportRun.requestCancel()
-        _studio.update { it.copy(phase = ExportPhase.Idle) }
-    }
-
-    fun clearStudioResult() {
-        _studio.update { it.copy(phase = ExportPhase.Idle, notice = null) }
     }
 
     private val loopRenderer = LoopRender(application)

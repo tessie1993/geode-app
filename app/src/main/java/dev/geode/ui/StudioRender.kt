@@ -26,7 +26,6 @@ import androidx.compose.material3.RangeSlider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -59,7 +58,6 @@ import dev.geode.data.Preset
 import dev.geode.data.StudioPrefsStore
 import dev.geode.data.exportCodecLabel
 import dev.geode.data.exportQualityLabel
-import dev.geode.editor.ProjectId
 import dev.geode.export.BatchTrack
 import dev.geode.export.ExportAspect
 import dev.geode.export.ExportCodec
@@ -75,23 +73,20 @@ import dev.geode.pro.PaywallTrigger
 import dev.geode.pro.ProFeature
 import dev.geode.render.VisualizerView
 import dev.geode.ui.pro.PaywallViewModel
-import dev.geode.ui.pro.ProGate
-import dev.geode.ui.studio.TimelineEditor
 import dev.geode.ui.theme.floatingGlass
 
 /**
- * The Studio destination: three tabs, in the order a first visit meets them.
+ * The Studio destination: two tabs, in the order a first visit meets them.
  *
  * - Render makes a video of what is playing: one scrolling stack (Source, Look, Format, Save) over
  *   the sticky [RenderBar]. It stays open to free and trial users, whose limits are enforced where
  *   each render starts, in `PlayerViewModel`, by the same `FeatureGate` as before.
  * - My videos ([MyVideosTab]) lists everything Studio made: finished renders and recorded takes.
- * - Edit is the Pro editor's home ([EditHome]: new project, recent, all projects); a free user
- *   meets [ProGate] there. Opening a project replaces the whole Studio screen with its timeline,
- *   so the editor gets the full height; Back returns to Edit's home.
  *
- * The tab the user leaves Studio on is kept across restarts ([StudioPrefsStore]), except Edit for a
- * free user, who would otherwise come back to the Pro wall instead of Render.
+ * There is no Edit tab: the owner dropped video editing from the launch (#227). A take still
+ * renders to a video in the background, through the project model, without an editor.
+ *
+ * The tab the user leaves Studio on is kept across restarts ([StudioPrefsStore]).
  */
 @Composable
 fun StudioHub(
@@ -99,47 +94,23 @@ fun StudioHub(
     visualizerView: VisualizerView,
     section: StudioSection,
     onSection: (StudioSection) -> Unit,
-    onImmersive: (Boolean) -> Unit = {},
 ) {
     val context = LocalContext.current
     val prefs = remember { StudioPrefsStore(GeodePrefsFiles(context).general) }
     val paywall: PaywallViewModel = geodeViewModel()
     val studioViewModel: StudioViewModel = geodeViewModel()
     val gate by paywall.gate.collectAsStateWithLifecycle()
-    val canEdit = gate.allows(ProFeature.STUDIO)
-    // True while a project's timeline fills Studio; saved so a rotation keeps the user in it.
-    var editing by rememberSaveable { mutableStateOf(false) }
     val select: (StudioSection) -> Unit = { tab ->
-        if (tab != StudioSection.EDIT || canEdit) prefs.saveLastTab(tab.name)
+        prefs.saveLastTab(tab.name)
         onSection(tab)
     }
-    val openInEdit: () -> Unit = {
-        select(StudioSection.EDIT)
-        editing = canEdit
-    }
-    val openProjectInEdit: (ProjectId) -> Unit = { id ->
-        studioViewModel.openProject(id)
-        openInEdit()
-    }
     // The tabs taken through Studio, so back retraces them (the NavHistory pattern Visuals uses)
-    // instead of leaving Studio from wherever the user is. Held above the timeline so opening a
-    // project does not lose it. A render keeps going either way: it runs under ExportService.
+    // instead of leaving Studio from wherever the user is. A render keeps going either way: it runs
+    // under ExportService.
     val route = rememberSaveable(saver = studioRouteSaver) { mutableStateListOf(section) }
     val history = remember(route) { NavHistory(route) }
     LaunchedEffect(section) { history.open(section) }
 
-    if (editing && canEdit && section == StudioSection.EDIT) {
-        BackHandler { editing = false }
-        // The shell's mini player and tab bar step aside while the timeline has the screen.
-        DisposableEffect(Unit) {
-            onImmersive(true)
-            onDispose { onImmersive(false) }
-        }
-        val editor by studioViewModel.editor.collectAsStateWithLifecycle()
-        val studio by studioViewModel.studio.collectAsStateWithLifecycle()
-        TimelineEditor(state = editor, exportPhase = studio.phase, actions = studioViewModel, onClose = { editing = false })
-        return
-    }
     BackHandler(enabled = history.canPop) {
         history.pop()
         select(history.top)
@@ -155,27 +126,20 @@ fun StudioHub(
                 listOf(
                     stringResource(R.string.studio_render),
                     stringResource(R.string.studio_my_videos),
-                    stringResource(if (canEdit) R.string.studio_edit else R.string.studio_edit_pro),
                 ),
             selected = section.ordinal,
             onSelect = { select(StudioSection.entries[it]) },
         )
         when (section) {
-            StudioSection.RENDER -> StudioRenderTab(viewModel, visualizerView, gate, onOpenInEdit = openProjectInEdit)
+            StudioSection.RENDER -> StudioRenderTab(viewModel, visualizerView, gate)
             StudioSection.MY_VIDEOS ->
                 MyVideosTab(
                     viewModel = studioViewModel,
-                    canEdit = canEdit,
-                    onOpenInEdit = openProjectInEdit,
                     onRenderTake = { name ->
                         studioViewModel.setExportTake(name)
                         select(StudioSection.RENDER)
                     },
                 )
-            StudioSection.EDIT ->
-                ProGate(ProFeature.STUDIO) {
-                    EditHome(viewModel = studioViewModel, player = viewModel, visualizerView = visualizerView, onOpen = openInEdit)
-                }
         }
     }
 }
@@ -184,7 +148,14 @@ fun StudioHub(
 private val studioRouteSaver =
     listSaver<SnapshotStateList<StudioSection>, String>(
         save = { route -> route.map { it.name } },
-        restore = { names -> names.map(StudioSection::valueOf).toMutableStateList() },
+        // A route saved before Edit was removed may name it; those entries are dropped.
+        restore = { names ->
+            names
+                .mapNotNull(StudioSection::fromName)
+                .distinct()
+                .ifEmpty { listOf(StudioSection.RENDER) }
+                .toMutableStateList()
+        },
     )
 
 /**
@@ -201,25 +172,20 @@ private val studioRouteSaver =
  * The Render button sits in [RenderBar], which always repeats the quality, frame rate and save
  * place. There are no hint paragraphs: each control says what it is. Pressing Render with a Pro
  * choice by a free user offers the paywall or a free version of the
- * same video (the free limits, never a dead end); a single render then asks once whether to keep it
- * as a project too, unless the user told it to stop asking.
+ * same video (the free limits, never a dead end); a single render then asks once whether to add it
+ * to My videos, unless the user told it to stop asking.
  */
 @Composable
 internal fun StudioRenderTab(
     viewModel: PlayerViewModel,
     visualizerView: VisualizerView,
     gate: FeatureGate,
-    onOpenInEdit: (ProjectId) -> Unit,
 ) {
     val paywall: PaywallViewModel = geodeViewModel()
     val studioViewModel: StudioViewModel = geodeViewModel()
     val player by viewModel.uiState.collectAsStateWithLifecycle()
     val viz by viewModel.vizState.collectAsStateWithLifecycle()
     val export by studioViewModel.exportState.collectAsStateWithLifecycle()
-    val editor by studioViewModel.editor.collectAsStateWithLifecycle()
-    // The project that holds the finished render, when the user kept it as one: Open in Edit.
-    val renderedUri = (export.phase as? ExportPhase.Done)?.resultUri?.toString()
-    val renderProject = renderedUri?.let { uri -> editor.projects.firstOrNull { p -> p.renders.any { it.uri == uri } } }
     val takes by studioViewModel.takeState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val store = remember { ExportPrefsStore(GeodePrefsFiles(context).general) }
@@ -414,8 +380,6 @@ internal fun StudioRenderTab(
             },
             onCancel = studioViewModel::cancelExport,
             onClearResult = studioViewModel::resetExportState,
-            onOpenInEdit = renderProject?.let { project -> { onOpenInEdit(project.id) } },
-            openInEditPro = !gate.allows(ProFeature.STUDIO),
         )
     }
     if (loopOpen) ExportHost(viewModel, visualizerView) { loopOpen = false }
@@ -493,9 +457,10 @@ private fun RenderProChoiceDialog(
 }
 
 /**
- * "Keep it as a project too?" before a single render starts. A project keeps the song and the look
- * as a timeline, so the finished video can be opened in Edit later; "don't ask again" stores the
- * answer in [StudioPrefsStore]. Dismissing the dialog renders nothing.
+ * "Add it to My videos?" before a single render starts. My videos lists renders by the project
+ * that holds them, so a kept render becomes a project of the song and the look (never edited:
+ * Studio has no editor); "don't ask again" stores the answer in [StudioPrefsStore]. Dismissing the
+ * dialog renders nothing.
  */
 @Composable
 private fun RenderKeepProjectDialog(

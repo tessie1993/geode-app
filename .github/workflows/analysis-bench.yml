@@ -1,0 +1,81 @@
+name: Analysis bench
+
+# Scores Geode's analysers against labelled clips (#462, spec #455 § Analysis). The lab
+# (tools/analysis_lab/lab.py, librosa pinned) synthesizes the clips and their exact answers and writes
+# librosa's answers as goldens; the C++ bench (core/tests/analysis_bench.cpp) scores librosa, the live
+# sound engine and, from #463, the offline analyser with mir_eval's conventions, and fails when a score
+# drops below core/tests/analysis/bench_baseline.tsv. Its own workflow, not a step of android.yml: it needs
+# Python and librosa but no Android toolchain, so it reports in about two minutes instead of after the APK.
+# Nothing the lab writes is committed; the scores and a re-recorded baseline are uploaded as an artifact.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["claude/**"]
+    paths:
+      - "core/sound/**"
+      - "core/tests/analysis/**"
+      - "core/tests/analysis_bench.cpp"
+      - "core/tests/offline_*"
+      - "tools/analysis_lab/**"
+      - ".github/workflows/analysis-bench.yml"
+  pull_request:
+    paths:
+      - "core/sound/**"
+      - "core/tests/analysis/**"
+      - "core/tests/analysis_bench.cpp"
+      - "core/tests/offline_*"
+      - "tools/analysis_lab/**"
+      - ".github/workflows/analysis-bench.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: analysis-bench-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  bench:
+    name: Analysis bench
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: tools/analysis_lab/requirements.txt
+
+      - name: Install the lab's pinned toolchain
+        run: python -m pip install -r tools/analysis_lab/requirements.txt
+
+      - name: Run the lab (clips, truth, librosa goldens, mir_eval scores)
+        run: python tools/analysis_lab/lab.py --out build/analysis-lab
+
+      - name: Build the bench
+        run: |
+          g++ -std=c++20 -O2 -Wall -Wextra -Werror -Icore core/tests/analysis_bench.cpp core/sound/*.cpp -o analysis_bench
+
+      - name: Score every analyser against the baseline
+        run: ./analysis_bench build/analysis-lab core/tests/analysis/bench_baseline.tsv --write build/analysis-lab/bench_baseline.new.tsv
+
+      # The new baseline is printed as well as uploaded, so a deliberate change can be recorded straight from
+      # the log: copy it over core/tests/analysis/bench_baseline.tsv in the same PR.
+      - name: Show the re-recorded baseline
+        if: always()
+        run: cat build/analysis-lab/bench_baseline.new.tsv || true
+
+      - name: Upload scores and goldens
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: analysis-bench-${{ github.run_number }}
+          path: |
+            build/analysis-lab/*.tsv
+            build/analysis-lab/clips.txt
+          retention-days: 14

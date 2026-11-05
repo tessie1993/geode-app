@@ -26,10 +26,10 @@ class FreeTierCustomizeTest {
     }
 
     @Test
-    fun `the free set is one control per simple page, plus Look's note blooms`() {
+    fun `the free set is one control per simple page`() {
         val shown = setOf(ParamKeys.PARTICLE_SHAPE, ParamKeys.KALEIDOSCOPE)
         assertEquals(
-            setOf(ParamKeys.PALETTE, FreeTier.NOTE_BLOOMS_CONTROL, "Event recipes", ParamKeys.PARTICLE_SHAPE),
+            setOf(ParamKeys.PALETTE, "Event recipes", ParamKeys.PARTICLE_SHAPE),
             FreeTier.freeCustomizeControls { it in shown },
         )
     }
@@ -38,7 +38,7 @@ class FreeTierCustomizeTest {
     fun `a style with none of the candidates frees nothing on its page`() {
         assertNull(FreeTier.freeStyleControl { false })
         assertEquals(
-            setOf(ParamKeys.PALETTE, FreeTier.NOTE_BLOOMS_CONTROL, "Event recipes"),
+            setOf(ParamKeys.PALETTE, "Event recipes"),
             FreeTier.freeCustomizeControls { false },
         )
     }

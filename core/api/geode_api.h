@@ -276,6 +276,14 @@ GEODE_API long long       geode_silence_heard_at(const float* const* channels, i
                                                  long long now_ms, long long heard_at_ms);
 GEODE_API int             geode_silence_resting(long long now_ms, long long heard_at_ms);   /* 1 = may rest */
 
+/* The frame pacer (core/viz/frame/Pacer): which vsyncs a surface draws on, and the dt it draws with.
+   `state` is six int64s the shell owns, zeroed at first (GEODE_PACER_STATE_LONGS). */
+#define GEODE_PACER_STATE_LONGS 6
+/* One vsync: the dt in seconds to draw with, or 0 to skip it. cap_fps <= 0 draws every vsync. */
+GEODE_API double          geode_pacer_on_vsync(long long* state, long long frame_time_ns, float cap_fps);
+/* A start after a stop: forget the gap, keep the panel's period. */
+GEODE_API void            geode_pacer_resume(long long* state);
+
 #ifdef __cplusplus
 }
 #endif

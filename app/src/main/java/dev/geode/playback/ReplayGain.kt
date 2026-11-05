@@ -44,7 +44,7 @@ class ReplayGain(
         player: Player,
         events: Player.Events,
     ) {
-        if (events.containsAny(*READ_AHEAD_EVENTS)) readAhead(player)
+        if (READ_AHEAD_EVENTS.any(events::contains)) readAhead(player)
     }
 
     /** The current item first, then the one that plays next on its own, then the one before. */
@@ -67,8 +67,8 @@ class ReplayGain(
             var mask = 0
             val values = listOf(tags?.trackGainDb, tags?.trackPeak, tags?.albumGainDb, tags?.albumPeak)
             values.forEachIndexed { bit, v -> if (v != null) mask = mask or (1 shl bit) }
-            val (trackGain, trackPeak, albumGain, albumPeak) = values.map { it ?: 0f }
-            GeodeNative.dspSetStreamTags(dsp.nativeHandle(), name, mask, trackGain, trackPeak, albumGain, albumPeak)
+            val v = values.map { it ?: 0f }
+            GeodeNative.dspSetStreamTags(dsp.nativeHandle(), name, mask, v[0], v[1], v[2], v[3])
         }
     }
 

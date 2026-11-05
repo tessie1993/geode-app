@@ -33,7 +33,7 @@ internal class TrackCrossfade(
         player: Player,
         events: Player.Events,
     ) {
-        if (events.containsAny(*FOLLOWS_ON_EVENTS)) pushFollowsOn()
+        if (FOLLOWS_ON_EVENTS.any(events::contains)) pushFollowsOn()
     }
 
     private fun pushFollowsOn() =

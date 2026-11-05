@@ -2,8 +2,8 @@ package dev.geode.ui
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -49,7 +49,6 @@ import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -57,6 +56,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -114,6 +114,7 @@ import dev.geode.ui.theme.geodeMotionScheme
 import dev.geode.ui.theme.rememberSystemReducedMotion
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.withContext
 
 private const val CRASH_REPORT_MAX_BYTES = 64 * 1024
@@ -123,36 +124,50 @@ private const val BACK_TO_PLAYER_FADE = 0.5f
 
 /**
  * Back from any tab but Player goes to Player, the app's home (#557 point 6), and the gesture
- * previews it: the returned state is how far the back gesture has travelled (0..1), which the shell
- * turns into the tab's fade. On completion [GeodeAppState.resetToPlayer] commits; on cancel the
- * progress returns to 0 and the tab settles back. Either way the value eases on the theme's effects
- * spring ([GeodeMotionScheme.fastEffectsSpec]), so Player fades in from where the gesture left it
- * and a cancel settles rather than jumps. A fade and no slide or scale, so the reduced-motion scheme
- * keeps it as it is (spatial specs would snap there).
+ * previews it: the returned provider reads how far the back gesture has travelled (0..1), which the
+ * shell turns into the tab's fade. While the finger moves the value follows it exactly; on completion
+ * [GeodeAppState.resetToPlayer] commits, and on completion or cancel the value eases back to 0 on the
+ * theme's effects spring ([GeodeMotionScheme.fastEffectsSpec]), so Player fades in from where the
+ * gesture left it and a cancel settles rather than jumps.
+ *
+ * Why a provider and an effect, not a value: the gesture changes the transition state every frame,
+ * and this is a non-restartable composable (it returns a value), so a state read here would
+ * invalidate the caller's scope and recompose the whole shell per frame. Instead a [snapshotFlow] in
+ * a [LaunchedEffect] watches it and drives an [Animatable], and the caller reads the Animatable only
+ * inside `graphicsLayer {}`, in the draw phase (jetpack-compose-performance skill, "Phase Deferral";
+ * compose-performance skill, deferred reads). `collectLatest`, so a new gesture cuts a settle short
+ * instead of queueing behind it. A fade and no slide or scale, so the reduced-motion scheme keeps it
+ * as it is (spatial specs would snap there).
  *
  * The API: NavigationEvent's [NavigationBackHandler] with its [rememberNavigationEventState], whose
  * [NavigationEventTransitionState.InProgress] carries the progress. The navigation-event skill (and
  * its "Handle back gestures and predictive back animations" guide) names it for Compose on SDK 36+
  * in place of activity's `BackHandler`/`PredictiveBackHandler`: no Flow to collect and no
- * CancellationException to tell a cancel apart, and the state is snapshot state the fade reads
- * directly. It shares the activity's one dispatcher with every `BackHandler` and Nav3's `NavDisplay`,
- * and the last registered enabled handler wins, which is why the caller composes this before every
- * screen: a screen's own back (Visuals' pages, Studio's tabs, a sheet) comes first. It is disabled on
+ * CancellationException to tell a cancel apart; the progress is snapshot state, watched above. It
+ * shares the activity's one dispatcher with every `BackHandler` and Nav3's `NavDisplay`, and the
+ * last registered enabled handler wins, which is why the caller composes this before every screen:
+ * a screen's own back (Visuals' pages, Studio's tabs, a sheet) comes first. It is disabled on
  * Player, so Back there is the system's back-to-home, with the system's own preview.
  */
 @Composable
 private fun rememberBackToPlayer(
     appState: GeodeAppState,
     motion: GeodeMotionScheme,
-): State<Float> {
+): () -> Float {
     val backState = rememberNavigationEventState(currentInfo = NavigationEventInfo.None)
     NavigationBackHandler(
         state = backState,
         isBackEnabled = !appState.onPlayer,
         onBackCompleted = appState::resetToPlayer,
     )
-    val travel = (backState.transitionState as? NavigationEventTransitionState.InProgress)?.latestEvent?.progress ?: 0f
-    return animateFloatAsState(travel, motion.fastEffectsSpec(), label = "backToPlayer")
+    val fade = remember { Animatable(0f) }
+    LaunchedEffect(backState, motion) {
+        snapshotFlow { (backState.transitionState as? NavigationEventTransitionState.InProgress)?.latestEvent?.progress }
+            .collectLatest { travel ->
+                if (travel != null) fade.snapTo(travel) else fade.animateTo(0f, motion.fastEffectsSpec())
+            }
+    }
+    return remember(fade) { { fade.value } }
 }
 
 /**
@@ -281,7 +296,7 @@ fun AppRoot() {
             // The tab fades toward Player as a back gesture travels (rememberBackToPlayer); the banner
             // stays lit, since it belongs to playback, not to the tab.
             if (!inPip) PlaybackNoticeBanner(viewModel)
-            Box(Modifier.graphicsLayer { alpha = 1f - BACK_TO_PLAYER_FADE * backToPlayer.value }) {
+            Box(Modifier.graphicsLayer { alpha = 1f - BACK_TO_PLAYER_FADE * backToPlayer() }) {
                 destinationState.SaveableStateProvider(appState.dest.name) {
                     when (appState.dest) {
                         GeodeDestination.PLAYER ->

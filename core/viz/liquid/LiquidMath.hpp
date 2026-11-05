@@ -171,7 +171,4 @@ private:
     uint64_t rollSeed_ = 1;
 };
 
-// A drop bursts ink at the vanishing point: a flare that jumps to 1 and decays over ~0.8 s.
-float dropFlare(float flare, bool drop, float dt);
-
 }  // namespace geode::viz::liquid

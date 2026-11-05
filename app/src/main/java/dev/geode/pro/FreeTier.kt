@@ -65,14 +65,6 @@ object FreeTier {
     const val FREE_LOOK_CONTROL: String = ParamKeys.PALETTE
 
     /**
-     * Customize › Look's second free control: which bloom a note grows (the style's own, flower, glow,
-     * ripple, burst). Note & key reactions are free, and the bloom is the part a listener sees first, so
-     * choosing its look belongs with them; how strongly each part answers stays in Advanced (Pro). Its
-     * own key, not a [ParamKeys] name: the control is a chip row of Look's, not a style parameter.
-     */
-    const val NOTE_BLOOMS_CONTROL: String = "Note blooms"
-
-    /**
      * Customize › Events' one free control: the one-tap reaction recipes ("Kick punch"). They are
      * the simple way into reactions; the strength slider and the route editor behind them are Pro.
      */
@@ -99,7 +91,7 @@ object FreeTier {
 
     /** Every Customize control a free user may change on this style, Macros aside. */
     fun freeCustomizeControls(isShown: (String) -> Boolean): Set<String> =
-        setOfNotNull(FREE_LOOK_CONTROL, NOTE_BLOOMS_CONTROL, FREE_EVENTS_CONTROL, freeStyleControl(isShown))
+        setOfNotNull(FREE_LOOK_CONTROL, FREE_EVENTS_CONTROL, freeStyleControl(isShown))
 
     /** Pro features given away in full. Empty: the free tier is the styles above plus basics. */
     val freeFeatures: Set<ProFeature> = emptySet()

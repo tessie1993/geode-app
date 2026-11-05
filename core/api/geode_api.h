@@ -276,6 +276,16 @@ GEODE_API long long       geode_silence_heard_at(const float* const* channels, i
                                                  long long now_ms, long long heard_at_ms);
 GEODE_API int             geode_silence_resting(long long now_ms, long long heard_at_ms);   /* 1 = may rest */
 
+/* Settings › Audio's listening tuning (sound/Tuning): the one schema of GeodeSoundTuning. A slot is one
+ * float of the struct in field order, GEODE_SOUND_TUNING_FLOATS of them; each call touches the first
+ * min(count, slots) and ignores the rest. Clamping puts each slot in its range and turns a NaN or an
+ * infinity into the slot's default. The engine clamps whatever it is given; the shell clamps too, so a
+ * slider never shows a value the engine would not use. */
+GEODE_API int             geode_sound_tuning_slots(void);
+GEODE_API void            geode_sound_tuning_defaults(float* out, int count);
+GEODE_API void            geode_sound_tuning_ranges(float* min_out, float* max_out, int count);
+GEODE_API void            geode_sound_tuning_clamp(float* values, int count);   /* in place */
+
 #ifdef __cplusplus
 }
 #endif

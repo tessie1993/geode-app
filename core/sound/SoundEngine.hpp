@@ -52,7 +52,8 @@ public:
     // Interleaved float PCM; mono feeds both channels, channels past the second are ignored.
     void write(const float* interleaved, int frames, int channels);
     void step(float dtSeconds, GeodeSoundFrame& out);
-    void setTuning(const GeodeSoundTuning& tuning) { tuning_ = tuning; }
+    // Clamped to sound/Tuning's ranges, whatever the caller hands in (a NaN slot is its default).
+    void setTuning(const GeodeSoundTuning& tuning);
     const GeodeSoundTuning& tuning() const { return tuning_; }
     void reset();
 

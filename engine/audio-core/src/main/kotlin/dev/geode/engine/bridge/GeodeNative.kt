@@ -564,4 +564,12 @@ object GeodeNative {
         nowMs: Long,
         heardAtMs: Long,
     ): Boolean
+
+    // Settings › Audio's listening tuning (core/sound/Tuning): the schema behind SoundTuning.
+
+    /** Every `GeodeSoundTuning` slot's default, then every minimum, then every maximum; null when out of memory. */
+    external fun soundTuningSchema(): FloatArray?
+
+    /** Clamps [values] (the tuning's wire form) in place; a NaN or an infinity becomes the slot's default. */
+    external fun soundTuningClamp(values: FloatArray)
 }

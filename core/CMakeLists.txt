@@ -12,6 +12,7 @@ add_library(geode_core STATIC
     sound/Harmony.cpp
     sound/Rhythm.cpp
     sound/SoundEngine.cpp
+    sound/Tuning.cpp
     library/Tags.cpp
     library/Search.cpp
     audio/dsp/DspProcessor.cpp

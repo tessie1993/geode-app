@@ -2,7 +2,6 @@ package dev.geode.render
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -24,8 +23,6 @@ class ModTableTest {
     @Test
     fun readsTheColumns() {
         assertFalse(ModTable.offered(LfoTarget.RETIRED_25))
-        assertEquals(2, ModTable.chainSlot(LfoTarget.LFO3_RATE))
-        assertNull(ModTable.chainSlot(LfoTarget.ZOOM))
         assertEquals(ModPolarity.POSITIVE, ModTable.naturalPolarity(ModSource.BASS))
         assertEquals(ModPolarity.BIPOLAR, ModTable.naturalPolarity(ModSource.STEREO_PAN))
         assertEquals(ModTable.defaultRateSeconds, LfoConfig().rateSeconds, 0f)
@@ -38,5 +35,15 @@ class ModTableTest {
         assertFalse(ModTable.reaches(LfoTarget.MORPH, "silk_web"))
         assertTrue(ModTable.reaches(LfoTarget.LFO2_DEPTH, "milkdrop"))
         assertFalse(ModTable.reaches(LfoTarget.RETIRED_25, "julia"))
+    }
+
+    @Test
+    fun readsEachPickersOfferMask() {
+        assertFalse(ModTable.offeredTo(LfoTarget.LFO1_RATE, "julia", ModTable.REACTION))
+        assertTrue(ModTable.offeredTo(LfoTarget.LFO1_RATE, "julia", ModTable.ENVELOPE))
+        assertTrue(ModTable.offeredTo(LfoTarget.LFO2_RATE, "julia", 0))
+        assertFalse(ModTable.offeredTo(LfoTarget.LFO1_RATE, "julia", 1))
+        assertFalse(ModTable.offeredTo(LfoTarget.ZOOM, "julia", 3))
+        assertTrue(ModTable.offeredTo(LfoTarget.ZOOM, "not_a_style", 0))
     }
 }

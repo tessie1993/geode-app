@@ -104,7 +104,8 @@ GEODE_API int         geode_music_edit(const char* style_id, int seed, const flo
                                        unsigned* out_mask, int* out_has_user);
 /* Modulation targets (core/viz/ModTargets, #642): bit per Music action whose target reaches `style_id`, so the
    shell hides a chip the style ignores; and the whole target, source and curve table (scopes, chained slots,
-   slot defaults and rate range, each source's natural polarity) as the line table ModTargets.hpp documents.
+   slot defaults and rate range, each source's natural polarity, and per style what a reaction, an envelope and
+   each wave may move) as the line table ModTargets.hpp documents.
    Static: the pointer stays valid for the process; the shell parses it once. Labels stay in Kotlin. */
 GEODE_API unsigned    geode_music_actions_for(const char* style_id);
 GEODE_API const char* geode_mod_targets_text(void);

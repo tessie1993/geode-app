@@ -1,12 +1,8 @@
 package dev.geode.playback
 
-import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.launch
+import dev.geode.audio.dsp.NativeDspProcessor
+import dev.geode.engine.bridge.GeodeNative
 
 /**
  * Settings › Playback › Crossfade. One track fades out and the next fades in, back to back on the
@@ -14,82 +10,43 @@ import kotlinx.coroutines.launch
  * into the tap, and the tap stays first and single (docs/AUDIO_CHAIN.md). The owner chose the
  * setting, and this is the shape that keeps the audio chain as it is.
  *
- * Half of [crossfadeMs] is spent on each side of the join. The gain goes to [onGain], and
- * [PlaybackSession] multiplies it with the pause and sleep fades, so none of them overwrites
- * another. The tap sits before the volume, so the visuals keep hearing the music at full level
- * through the fade.
- *
- * It only joins tracks that follow on by themselves. A skip, a seek or a pick from the queue starts
- * at full volume, as gapless did.
+ * The fade itself is native (`core/audio/dsp/GainStage`): half of [crossfadeMs] on each side of the
+ * join, counted in the samples of each track, so it lands on the join whether the app is open or
+ * closed. This only tells native the length and whether anything follows the current item on its own
+ * (a next item, or repeat one); a track nothing follows plays out at full level. A skip, a seek or a
+ * pick from the queue starts at full level, as gapless did; native tells those apart from a track that
+ * followed on by the end of stream Media3 queues before a gapless hand-off. The tap sits before the
+ * DSP, so the visuals keep hearing the music at full level through the fade.
  */
 internal class TrackCrossfade(
     private val player: Player,
-    private val scope: CoroutineScope,
-    private val onGain: (Float) -> Unit,
+    private val dsp: NativeDspProcessor,
 ) : Player.Listener {
     var crossfadeMs: Int = 0
         set(value) {
             field = value.coerceAtLeast(0)
-            if (field == 0) {
-                stop()
-            } else if (player.isPlaying) {
-                start()
-            }
+            GeodeNative.dspSetCrossfade(dsp.nativeHandle(), field)
+            pushFollowsOn()
         }
 
-    /** The current track was reached because the previous one ended, so it fades in. */
-    private var fadingIn = false
-
-    private var job: Job? = null
-
-    override fun onIsPlayingChanged(isPlaying: Boolean) {
-        if (isPlaying && crossfadeMs > 0) start() else job?.cancel()
-    }
-
-    override fun onMediaItemTransition(
-        mediaItem: MediaItem?,
-        reason: Int,
+    override fun onEvents(
+        player: Player,
+        events: Player.Events,
     ) {
-        val followedOn = reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO || reason == Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT
-        fadingIn = crossfadeMs > 0 && followedOn
-        if (!fadingIn) onGain(1f)
+        if (events.containsAny(*FOLLOWS_ON_EVENTS)) pushFollowsOn()
     }
 
-    private fun start() {
-        if (job?.isActive == true) return
-        job =
-            scope.launch {
-                while (isActive) {
-                    onGain(gainNow())
-                    delay(STEP_MS)
-                }
-            }
-    }
-
-    private fun stop() {
-        job?.cancel()
-        job = null
-        fadingIn = false
-        onGain(1f)
-    }
-
-    private fun gainNow(): Float {
-        val half = crossfadeMs / 2L
-        if (half <= 0L) return 1f
-        val position = player.currentPosition
-        if (fadingIn && position >= half) fadingIn = false
-        val fadeIn = if (fadingIn) position.toFloat() / half else 1f
-        val followsOn = player.hasNextMediaItem() || player.repeatMode == Player.REPEAT_MODE_ONE
-        val duration = player.duration
-        val remaining = if (duration > 0L) duration - position else Long.MAX_VALUE
-        val fadeOut = if (followsOn && remaining < half) remaining.toFloat() / half else 1f
-        return smooth(minOf(fadeIn, fadeOut).coerceIn(0f, 1f))
-    }
-
-    /** Smoothstep, so neither end of the ramp clicks. */
-    private fun smooth(x: Float): Float = x * x * (3f - 2f * x)
+    private fun pushFollowsOn() =
+        GeodeNative.dspSetFollowsOn(dsp.nativeHandle(), player.hasNextMediaItem() || player.repeatMode == Player.REPEAT_MODE_ONE)
 
     private companion object {
-        const val STEP_MS = 40L
+        /** What changes whether something follows the current item. */
+        val FOLLOWS_ON_EVENTS =
+            intArrayOf(
+                Player.EVENT_TIMELINE_CHANGED,
+                Player.EVENT_MEDIA_ITEM_TRANSITION,
+                Player.EVENT_REPEAT_MODE_CHANGED,
+                Player.EVENT_SHUFFLE_MODE_ENABLED_CHANGED,
+            )
     }
 }

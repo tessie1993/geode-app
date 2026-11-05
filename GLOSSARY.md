@@ -278,3 +278,7 @@ _Avoid_: Look resolver (a look is one auto-director decision), param pipeline
 **Engine settings**:
 The process-wide values the scene params resolver reads: macro knobs, the auto-director's amount and seed, the Note & key switch, the hand mask, reduced motion and the note entropy. The renderer latches one copy per frame and uses the same copy for the sound engine's tuning. An export pins its own copy, so a live edit never reaches a render.
 _Avoid_: Globals, settings (alone), scene params
+
+**Gain ramp**:
+A change of playback level (ReplayGain, a pause, resume or skip fade, the sleep fade, the crossfade) made on the samples in `core/audio/dsp/GainStage`: linear in dB, counted in frames, starting and ending on the sample it was meant for. The shell only names a target and a length. After the tap, so the visuals never hear it.
+_Avoid_: Volume fade, player volume (`player.volume` is only Cast's mute)

@@ -2,12 +2,14 @@
 #include <array>
 #include <atomic>
 #include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <mutex>
 #include <vector>
 
 #include "audio/dsp/DspChain.hpp"
 #include "audio/dsp/Equalizer.hpp"
+#include "audio/dsp/GainStage.hpp"
 
 namespace geode::audio {
 
@@ -23,8 +25,11 @@ namespace geode::audio {
 // process() also refuses what it cannot fit: a block whose channel count is not the live chain's passes
 // through untouched, and frames are clamped to the buffer's capacity, so no caller mistake can walk past it.
 //
-// Threads: configure, flush and process run on the playback thread; the setters may run on any thread.
-// Every chain ever built stays owned here until destruction, so a setter racing a flush never reaches a
+// The playback gain (GainStage: ReplayGain, fades, crossfade, sleep) belongs to the processor, not to a chain,
+// and runs on every block a live chain processes, before it.
+//
+// Threads: configure, flush and process (and the gain's beginStream and endStream) run on the playback
+// thread; the setters may run on any thread. Every chain ever built stays owned here until destruction, so a setter racing a flush never reaches a
 // freed chain, and there is at most one chain per format (a format seen again reuses its chain).
 class DspProcessor {
 public:
@@ -39,14 +44,18 @@ public:
     // Playback thread, RT-safe: no allocation, no locks. `capacityFloats` is how many floats `interleaved`
     // holds; `channels` is the channel count the block was queued in.
     void process(float* interleaved, size_t capacityFloats, size_t frames, int channels);
+    // The same for 16-bit PCM, converted here: the sink's usual format, so no per-sample loop runs in Kotlin.
+    void processPcm16(int16_t* interleaved, size_t capacitySamples, size_t frames, int channels);
 
     void setEnabled(bool enabled);
     void setBand(int band, int millibels);
     void setBassBoost(int permille);
     void setLoudnessMb(int millibels);
-    void setGainDb(float db);
     void setCrossfeed(bool enabled);
     void setLimiter(bool enabled);
+
+    // ReplayGain, fades, crossfade and sleep (GainStage.hpp); its setters are thread-safe themselves.
+    GainStage& gain() { return gain_; }
 
     // For tests: the live chain's format, 0 when none.
     int liveChannels() const;
@@ -58,7 +67,6 @@ private:
         std::array<int, Equalizer::kBands> bandsMb{};
         int bassBoost = 0;
         int loudnessMb = 0;
-        float gainDb = 0.0f;
         bool crossfeed = false;
         bool limiter = true;
     };
@@ -67,6 +75,11 @@ private:
     template <typename F>
     void forEachChain(F&& f);
 
+    static constexpr float kShortFullScale = 32768.0f;
+    static constexpr size_t kScratchFloats = 2048;
+
+    GainStage gain_;
+    std::array<float, kScratchFloats> scratch_{};  // playback thread only (processPcm16)
     std::mutex mutex_;  // settings_ and chains_; never taken by process() or flush()
     Settings settings_;
     std::vector<std::unique_ptr<DspChain>> chains_;

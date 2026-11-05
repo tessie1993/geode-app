@@ -38,7 +38,33 @@ void DspProcessor::process(float* interleaved, size_t capacityFloats, size_t fra
     DspChain* chain = live_.load(std::memory_order_acquire);
     if (!chain || !interleaved || channels <= 0 || chain->channels() != channels) return;
     frames = std::min(frames, capacityFloats / static_cast<size_t>(channels));
-    if (frames > 0) chain->process(interleaved, frames);
+    if (frames == 0) return;
+    gain_.process(interleaved, frames, channels, chain->sampleRate());
+    chain->process(interleaved, frames);
+}
+
+void DspProcessor::processPcm16(int16_t* interleaved, size_t capacitySamples, size_t frames, int channels) {
+    DspChain* chain = live_.load(std::memory_order_acquire);
+    if (!chain || !interleaved || channels <= 0 || chain->channels() != channels) return;
+    const size_t ch = static_cast<size_t>(channels);
+    frames = std::min(frames, capacitySamples / ch);
+    // In chunks through a float buffer this processor owns, so the audio thread never allocates. Each chunk
+    // goes through the same gain and chain as a float block; every stage is a running state, so chunking
+    // changes nothing in the result.
+    const size_t chunkFrames = scratch_.size() / ch;
+    for (size_t done = 0; done < frames; done += chunkFrames) {
+        const size_t n = std::min(chunkFrames, frames - done);
+        int16_t* block = interleaved + done * ch;
+        for (size_t i = 0; i < n * ch; ++i) scratch_[i] = static_cast<float>(block[i]) / kShortFullScale;
+        gain_.process(scratch_.data(), n, channels, chain->sampleRate());
+        chain->process(scratch_.data(), n);
+        // Truncated toward zero, as the Kotlin conversion this replaced did, so a block nothing changed comes
+        // back bit-identical (s / 32768 * 32768 == s for every 16-bit s).
+        for (size_t i = 0; i < n * ch; ++i) {
+            const float v = std::clamp(scratch_[i], -1.0f, 1.0f) * kShortFullScale;
+            block[i] = static_cast<int16_t>(std::clamp(static_cast<int>(v), -32768, 32767));
+        }
+    }
 }
 
 int DspProcessor::liveChannels() const {
@@ -56,7 +82,6 @@ void DspProcessor::applyTo(DspChain& chain, const Settings& s) {
     for (int band = 0; band < Equalizer::kBands; ++band) chain.equalizer().setBand(band, s.bandsMb[static_cast<size_t>(band)]);
     chain.equalizer().setBassBoost(s.bassBoost);
     chain.loudness().setTargetDb(static_cast<float>(s.loudnessMb) / 100.0f);
-    chain.gain().setTargetDb(s.gainDb);
     chain.crossfeed().setEnabled(s.crossfeed);
     chain.limiter().setEnabled(s.limiter);
 }
@@ -92,12 +117,6 @@ void DspProcessor::setLoudnessMb(int millibels) {
     std::lock_guard<std::mutex> lock(mutex_);
     settings_.loudnessMb = clamped;
     forEachChain([&](DspChain& c) { c.loudness().setTargetDb(static_cast<float>(clamped) / 100.0f); });
-}
-
-void DspProcessor::setGainDb(float db) {
-    std::lock_guard<std::mutex> lock(mutex_);
-    settings_.gainDb = db;
-    forEachChain([&](DspChain& c) { c.gain().setTargetDb(db); });
 }
 
 void DspProcessor::setCrossfeed(bool enabled) {

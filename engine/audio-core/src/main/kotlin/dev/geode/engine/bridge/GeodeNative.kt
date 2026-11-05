@@ -43,10 +43,67 @@ object GeodeNative {
         millibels: Int,
     )
 
-    external fun dspSetGainDb(
+    // Playback gain (core/audio/dsp/GainStage): the shell says targets and lengths; the ramps, the dB maths
+    // and when each applies are native.
+
+    /** The UI fade (pause, resume, skip) to [db] over [ms]; -inf or <= -80 dB is silence. */
+    external fun dspRampTo(
         handle: Long,
         db: Float,
+        ms: Int,
     )
+
+    /** The sleep timer's time left (< 0 when cancelled or done); returns the ms until native next needs it. */
+    external fun dspSleepFade(
+        handle: Long,
+        remainingMs: Long,
+    ): Long
+
+    external fun dspSetCrossfade(
+        handle: Long,
+        ms: Int,
+    )
+
+    /** Whether something plays after the current item on its own: a next item, or repeat one. */
+    external fun dspSetFollowsOn(
+        handle: Long,
+        followsOn: Boolean,
+    )
+
+    external fun dspSetSpeed(
+        handle: Long,
+        speed: Float,
+    )
+
+    /** ReplayGain mode (0 off, 1 track, 2 album), preamp and clip guard. */
+    external fun dspSetReplayGain(
+        handle: Long,
+        mode: Int,
+        preampDb: Float,
+        clipGuard: Boolean,
+    )
+
+    /** One track's ReplayGain tags by stream name (its URI); [mask] holds the 1, 2, 4, 8 bits of those present. */
+    external fun dspSetStreamTags(
+        handle: Long,
+        stream: String,
+        mask: Int,
+        trackGainDb: Float,
+        trackPeak: Float,
+        albumGainDb: Float,
+        albumPeak: Float,
+    )
+
+    /** Playback thread, right after [dspFlush]: the stream whose first sample comes next. */
+    external fun dspBeginStream(
+        handle: Long,
+        stream: String?,
+        positionUs: Long,
+        durationUs: Long,
+    )
+
+    /** Playback thread: the stream's last sample has been queued. */
+    external fun dspEndStream(handle: Long)
 
     external fun dspSetCrossfeed(
         handle: Long,
@@ -59,14 +116,16 @@ object GeodeNative {
     )
 
     /**
-     * [buffer] must be a direct float buffer holding [frames] interleaved frames of [channels] channels, the
-     * format they were queued in; processed in place, never past the buffer's capacity.
+     * [buffer] must be a direct buffer of [frames] interleaved frames of [channels] channels, the format they
+     * were queued in: float when [floatSamples], else 16-bit PCM (converted natively); processed in place,
+     * never past the buffer's capacity.
      */
     external fun dspProcess(
         handle: Long,
         buffer: java.nio.ByteBuffer,
         frames: Int,
         channels: Int,
+        floatSamples: Boolean,
     )
 
     /**

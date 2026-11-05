@@ -71,6 +71,19 @@ the original numbering as cited by the changelog.
   cubes' snare flip wave, the knot's snare bulge, the lens's snare flip, the
   pool's kick ripple and the drops sliding on onsets, none of them stepping
   the whole frame's brightness.
+- **43** — Native gain ramps (#483, #351; `core/audio/dsp/GainStage`). On
+  headphones, phone speaker and one Bluetooth headset: (a) ReplayGain Track,
+  a gapless album with a loud track after a quiet one (and the reverse): the
+  new track's level is right from its first note, with no burst or dip at
+  the join and none a moment later; (b) Settings › Playback › Fade at 1 s:
+  pause, resume and skip fade smoothly with no zipper or click, the pause
+  lands only after the fade is heard (on Bluetooth too), and a resume after
+  a notification pause starts at full level without a dropout; (c) Crossfade
+  at 6 s on an auto-advancing queue: the fade out and in meet at the join,
+  sound the same with the app swiped away, and a skip or a pick starts at
+  full level; (d) sleep timer at 1 minute: the last 3 s fade to silence and
+  the pause follows without a click; cancel during the fade comes back
+  smoothly. The visuals must keep moving at full level through all of it.
 
 ## See also
 

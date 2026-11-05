@@ -152,11 +152,11 @@ GEODE_API void        geode_viz_set_style_schedule(geode_viz*, const double* at_
 GEODE_API void        geode_viz_render(geode_viz*, double time_seconds, uint32_t target_fbo);
 GEODE_API void        geode_viz_release_scenes(geode_viz*);
 
-/* Playback DSP: gain -> 10-band equalizer -> crossfeed -> lookahead limiter on float interleaved PCM, one
- * chain per input format, switched on the Media3 AudioProcessor contract (audio/dsp/DspProcessor):
+/* Playback DSP: gain -> 10-band equalizer -> loudness makeup -> crossfeed -> lookahead limiter on float
+ * interleaved PCM, one chain per input format, switched on the Media3 AudioProcessor contract (audio/dsp/DspProcessor):
  * configure stages the next format's chain, and the old one keeps processing the draining tail until flush
  * makes the staged one live. Setters may be called from any thread and reach every chain; configure, flush
- * and process run on the playback thread, and process never allocates, locks or logs. */
+ * and process run on the playback thread, and process never allocates, blocks or logs. */
 #define GEODE_DSP_BANDS 10
 #define GEODE_DSP_MIN_MILLIBELS (-1500)
 #define GEODE_DSP_MAX_MILLIBELS 1500
@@ -172,12 +172,43 @@ GEODE_API void       geode_dsp_set_enabled(geode_dsp*, int enabled);          /*
 GEODE_API void       geode_dsp_set_band(geode_dsp*, int band, int millibels);
 GEODE_API void       geode_dsp_set_bass_boost(geode_dsp*, int permille);      /* 0..1000 */
 GEODE_API void       geode_dsp_set_loudness_mb(geode_dsp*, int millibels);    /* 0..1000 makeup gain */
-GEODE_API void       geode_dsp_set_gain_db(geode_dsp*, float db);             /* ReplayGain + preamp */
 GEODE_API void       geode_dsp_set_crossfeed(geode_dsp*, int enabled);
 GEODE_API void       geode_dsp_set_limiter(geode_dsp*, int enabled);
+
+/* Playback gain (audio/dsp/GainStage): ReplayGain, the UI fades, the sleep fade and the track crossfade, as
+ * ramps linear in dB counted in samples, before the chain (#483). The shell only says targets and lengths;
+ * the curves, the dB maths and when each applies are here. "Silence" is GEODE_DSP_SILENCE_DB or below (-inf
+ * included); a frame there is multiplied by exactly 0. Setters from any thread, never blocking the audio. */
+#define GEODE_DSP_SILENCE_DB (-80.0f)
+/* The UI fade (pause, resume, skip): from wherever it is to db over ms; ms 0 jumps. */
+GEODE_API void       geode_dsp_ramp_to(geode_dsp*, float db, int ms);
+/* The sleep timer's time left in ms (< 0: cancelled or done). Its last 3 s ramp to silence, ending as the
+ * timer ends; a cancel comes back up in 50 ms. Returns the ms until it next needs to hear the time left. */
+GEODE_API int64_t    geode_dsp_sleep_fade(geode_dsp*, int64_t remaining_ms);
+/* Settings › Playback › Crossfade: half fades out the tail of a track something follows, half fades in the
+ * track that followed on. A skip, seek or pick starts at full level. */
+GEODE_API void       geode_dsp_set_crossfade(geode_dsp*, int ms);
+GEODE_API void       geode_dsp_set_follows_on(geode_dsp*, int follows_on);  /* a next item, or repeat one */
+GEODE_API void       geode_dsp_set_speed(geode_dsp*, float speed);          /* what Sonic plays at, upstream */
+/* ReplayGain. mode: 0 off, 1 track, 2 album; clip_guard keeps the tagged peak below full scale. */
+GEODE_API void       geode_dsp_set_replaygain(geode_dsp*, int mode, float preamp_db, int clip_guard);
+/* One track's tags as the file carries them, by stream name (its item's URI), read ahead of its first sample.
+ * mask: the GEODE_TAG_*_GAIN/PEAK bits of the values present (0: read, untagged), as geode_tags_replaygain
+ * returns them. The 32 newest streams are kept. */
+GEODE_API void       geode_dsp_set_stream_tags(geode_dsp*, const char* stream, int mask, float track_gain_db,
+                                               float track_peak, float album_gain_db, float album_peak);
+/* Playback thread, right after geode_dsp_flush: the stream whose first sample comes next (NULL or "" when
+ * not known), the media position of that sample and the item's duration (<= 0 unknown). Its ReplayGain gain
+ * starts on that sample; while its tags are still loading the last gain is kept, never 0 dB (#351). */
+GEODE_API void       geode_dsp_begin_stream(geode_dsp*, const char* stream, int64_t position_us, int64_t duration_us);
+/* Playback thread: the stream's last sample has been queued (Media3's end of stream). */
+GEODE_API void       geode_dsp_end_stream(geode_dsp*);
 /* In place, RT-safe. `channels` is the format the block was queued in: a block that is not the live chain's
  * passes through untouched, and frames are clamped to capacity_floats / channels. */
 GEODE_API void       geode_dsp_process(geode_dsp*, float* interleaved, size_t capacity_floats, size_t frames, int channels);
+/* The same on 16-bit PCM, converted natively in place (truncating, so an untouched block is bit-identical). */
+GEODE_API void       geode_dsp_process_pcm16(geode_dsp*, int16_t* interleaved, size_t capacity_samples, size_t frames,
+                                             int channels);
 
 /* Tag I/O through TagLib. Both calls take a file descriptor they own: it is closed before they return, so
  * the caller detaches it first. Text crosses as UTF-8. */

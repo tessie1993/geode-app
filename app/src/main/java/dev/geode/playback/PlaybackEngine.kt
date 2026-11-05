@@ -27,6 +27,7 @@ import dev.geode.engine.audio.SoundInput
 import dev.geode.engine.audioandroid.PcmTap
 import dev.geode.engine.audioandroid.SinkClockDriver
 import dev.geode.engine.audioandroid.TapBoundaryListener
+import dev.geode.engine.bridge.GeodeNative
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -109,20 +110,14 @@ class PlaybackSession internal constructor(
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
-    val replayGain = ReplayGain(context.contentResolver, scope) { audioFx.setGainDb(it) }
+    // Every gain the playback applies (ReplayGain, the UI fades, the sleep fade, the crossfade) is a native
+    // ramp on the samples, in the DSP after the tap (`core/audio/dsp/GainStage`, #483). These only tell it
+    // targets, lengths and which tracks are which; `player.volume` is left to Cast's mute.
+    val replayGain = ReplayGain(context.contentResolver, scope, dsp)
 
-    /** The UI's pause/skip and sleep fades, multiplied by [crossfade]'s gain into the one player volume. */
-    private var uiVolume = 1f
+    val sleepTimer = SleepTimer(player, scope) { remainingMs -> GeodeNative.dspSleepFade(dsp.nativeHandle(), remainingMs) }
 
-    private var crossfadeGain = 1f
-
-    val sleepTimer = SleepTimer(player, scope, ::setUiVolume)
-
-    private val crossfade =
-        TrackCrossfade(player, scope) { gain ->
-            crossfadeGain = gain
-            pushVolume()
-        }
+    private val crossfade = TrackCrossfade(player, dsp)
 
     private val headphones = HeadphoneAutoplay(context, player)
 
@@ -175,26 +170,15 @@ class PlaybackSession internal constructor(
         applyPrefs(saved)
     }
 
-    /** The UI's own fades (pause, resume, skip, sleep) set this; [crossfade] multiplies in on top. */
-    fun setUiVolume(volume: Float) {
-        uiVolume = volume
-        pushVolume()
-    }
-
     /**
-     * Cast to TV plays the sound on the TV only: the phone keeps decoding, since the tap feeds the
-     * visuals, but stays silent. `cast/CastService` sets and clears it; the fades keep their values
-     * underneath, so clearing it brings back exactly the volume they would have now.
+     * The UI fade (pause, resume, skip): native ramps to full level or to silence over [ms]. The ramp runs
+     * on the samples, which are processed up to a sink buffer ahead of the speaker, so a caller that acts
+     * once the fade is heard (a pause) waits [ms] plus [SINK_LAG_MS].
      */
-    var castMuted: Boolean = false
-        set(value) {
-            field = value
-            pushVolume()
-        }
-
-    private fun pushVolume() {
-        player.volume = if (castMuted) 0f else (uiVolume * crossfadeGain).coerceIn(0f, 1f)
-    }
+    fun rampUiFade(
+        audible: Boolean,
+        ms: Int,
+    ) = GeodeNative.dspRampTo(dsp.nativeHandle(), if (audible) 0f else Float.NEGATIVE_INFINITY, ms)
 
     /** Everything in [PlayerPrefs] that the player, ReplayGain or the USB route carry out. */
     fun applyPrefs(p: PlayerPrefs) {
@@ -202,6 +186,7 @@ class PlaybackSession internal constructor(
         player.skipSilenceEnabled = p.skipSilence
         player.setHandleAudioBecomingNoisy(p.pauseOnNoisy)
         replayGain.configure(p.replayGainMode, p.replayGainPreampDb, p.replayGainClipGuard)
+        GeodeNative.dspSetSpeed(dsp.nativeHandle(), p.speed)
         bitPerfect.setEnabled(p.bitPerfect, player)
         crossfade.crossfadeMs = p.crossfadeMs
     }
@@ -229,11 +214,18 @@ class PlaybackSession internal constructor(
         dsp.release()
     }
 
-    private companion object {
-        const val DEFAULT_SAMPLE_RATE_HZ = 48_000
+    companion object {
+        private const val DEFAULT_SAMPLE_RATE_HZ = 48_000
+
+        /**
+         * How long a gain ramp that ended on the samples takes to reach the speaker: DefaultAudioSink's PCM
+         * buffer, 250 ms on the usual phone (its minimum). Until the playout clock (#482) says which sample
+         * the speaker is on, a pause after a fade-out waits this long so it never cuts the fade short.
+         */
+        const val SINK_LAG_MS = 250L
 
         /** One file, written in order off the main thread; a daemon, like the history writer. */
-        val sessionWriter: java.util.concurrent.ExecutorService =
+        private val sessionWriter: java.util.concurrent.ExecutorService =
             java.util.concurrent.Executors.newSingleThreadExecutor { r ->
                 Thread(r, "geode-session").apply { isDaemon = true }
             }

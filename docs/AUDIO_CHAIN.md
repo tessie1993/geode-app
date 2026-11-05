@@ -25,7 +25,7 @@ DefaultAudioSink  ── MvzAudioProcessorChain ──────────�
    │   1. TeeAudioProcessor(PcmTap)       ← the PCM tap               │
    │   2. SilenceSkippingAudioProcessor   ← media3's own              │
    │   3. SonicAudioProcessor             ← media3's own (speed/pitch)│
-   │   4. NativeDspProcessor              ← EQ, crossfeed, ReplayGain │
+   │   4. NativeDspProcessor              ← gain ramps, EQ, crossfeed │
    │                                                                  │
    ▼                                                                  │
 AudioTrack ──▶ platform audiofx (Equalizer / BassBoost / Loudness) ──▶ speaker
@@ -105,6 +105,48 @@ it was queued in and its buffer's capacity; a block the live chain cannot fit
 passes through untouched. Swapping at configure fed a mono tail to a stereo
 chain and wrote past the buffer (#356); `core/tests/dsp_handoff_test.cpp`
 pins this.
+
+**Gain is on the samples.** Every level change the player makes is a ramp in
+`core/audio/dsp/GainStage`, run by `NativeDspProcessor` before the equalizer
+(#483): ReplayGain, the pause, resume and skip fades (`ui/PlaybackFades`), the
+sleep timer's last 3 s (`playback/SleepTimer`) and the track crossfade
+(`playback/TrackCrossfade`). Each ramp is linear in dB and counted in frames, so
+it starts and ends on the sample it was meant for and no frame steps by more than
+one increment; a fade to silence ramps to −80 dB and then multiplies by exactly
+0. The Kotlin only says targets and lengths (`geode_dsp_ramp_to`,
+`geode_dsp_sleep_fade`, `geode_dsp_set_crossfade`, `geode_dsp_set_replaygain`,
+`geode_dsp_set_stream_tags`); the dB maths, the curves and the clip guard are
+native, and `core/tests/gain_ramp_test.cpp` pins them. `player.volume` is no
+longer touched for any of it; only Cast's mute (`cast/CastService`) sets it.
+
+- **ReplayGain switches at the boundary (#351).** The gain used to be set from
+  `onMediaItemTransition`, on the main thread at playout time, a sink buffer
+  after the DSP had already processed the new track's head, and it dropped to
+  0 dB until the tag read came back. Now `playback/ReplayGain` reads the tags of
+  the current, next and previous items ahead of time, `NativeDspProcessor.onFlush`
+  names the stream that starts at the next sample (Media3's
+  `flush(StreamMetadata)` carries its timeline and period, in stream order), and
+  native takes that stream's gain on its first sample. Tags still loading keep
+  the previous gain, never 0 dB, and glide in when they arrive.
+- **Crossfade is told apart from a skip by the end of stream.** A gapless
+  hand-off queues an end of stream through the chain before the next stream's
+  flush (`onQueueEndOfStream`); a skip, seek or pick flushes without one, and
+  starts at full level. The fade is worked out per frame from the stream's media
+  position (the flush's position, the item's duration, the speed), so it is the
+  same with the app open or closed. A track whose tail did not fade (nothing
+  followed it, or skipped silence shortened it) is not followed by a dip.
+- **The cost: a fade is heard a sink buffer late.** The chain runs up to a sink
+  buffer ahead of the speaker, so a fade the user asks for starts that much
+  later than `player.volume` did, and a pause after a fade-out waits
+  `PlaybackSession.SINK_LAG_MS` (DefaultAudioSink's 250 ms minimum PCM buffer)
+  so the cut never lands mid-fade. A resume after such a pause plays the silence
+  left in that buffer before fading in. The playout clock (#482) can retire the
+  allowance.
+- **Formats the chain does not run** (more than two channels) get no gain, no
+  fade and no crossfade: the processor is inactive for them, as for the EQ.
+- **16-bit is converted natively** (`geode_dsp_process_pcm16`), truncating like
+  the Kotlin loop it replaced, so a block with nothing to do comes back
+  bit-identical. Bit-perfect pass-through (#489) builds on that.
 
 **2. The tap stays first.** Live and export run the same `core/sound` code, so
 they can only agree if they hear the same audio. Live, the tap writes the ring

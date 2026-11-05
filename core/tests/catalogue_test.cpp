@@ -356,19 +356,35 @@ void textEqualsTheFixture(const char* path) {
 }  // namespace
 
 void marchedStylesStartOnRails() {
-    // #473: every marched style, loose (25) and family (63), starts on rails; a port flips its own entry.
+    // #473: every marched style, loose (26) and family (63), starts on rails; a port flips its own entry.
+    // #513 flipped the first: Morph World, the first full 6-DoF environment (core/scene/env).
     using catalogue::CameraMode;
     int rails = 0;
+    int sixDof = 0;
     for (const auto& id : catalogue::allIds()) {
         const CameraMode mode = catalogue::cameraMode(id);
         if (catalogue::isMarched(id)) {
-            check(mode == CameraMode::Rails, id + " marches and starts on rails");
-            ++rails;
+            if (id == catalogue::kMorphWorld) {
+                check(mode == CameraMode::SixDof, id + " is ported and flies free");
+                ++sixDof;
+            } else {
+                check(mode == CameraMode::Rails, id + " marches and starts on rails");
+                ++rails;
+            }
         } else {
             check(mode == CameraMode::None, id + " does not march and has no Scene camera");
         }
     }
     check(rails == 25 + 63, "88 styles on rails, got " + std::to_string(rails));
+    check(sixDof == 1, "one style on 6-DoF, got " + std::to_string(sixDof));
+    check(catalogue::cameraMode("morph_world") == CameraMode::SixDof, "Morph World is SixDof");
+    const std::string& text = catalogue::text();
+    const size_t row = text.find("\nrails|");
+    check(row != std::string::npos, "the text has a rails row");
+    if (row != std::string::npos) {
+        const std::string railsRow = text.substr(row + 1, text.find('\n', row + 1) - row - 1);
+        check(railsRow.find("morph_world") == std::string::npos, "Morph World is not in the rails row");
+    }
     check(catalogue::cameraMode("milkdrop") == CameraMode::None, "MilkDrop gets no Scene camera");
     check(catalogue::cameraMode("plasma") == CameraMode::None, "a 2D shader gets no Scene camera");
     check(catalogue::cameraMode("dive_lattice") == CameraMode::Rails, "a family march is on rails");

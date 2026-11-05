@@ -12,7 +12,7 @@
 #include "viz/Scene.hpp"
 #include "viz/SoundUniforms.hpp"
 #include "viz/Texture.hpp"
-#include "viz/world/MorphDriver.hpp"
+#include "scene/Scene.hpp"
 
 namespace geode::viz {
 
@@ -60,7 +60,7 @@ private:
     void uploadMotion();
     void uploadTouch();
     void uploadCamera();
-    void uploadWorld();
+    void uploadEnvironment();
     void set1f(const char* name, float value);
     float marchSteps(float detail);
 
@@ -107,15 +107,17 @@ private:
     std::array<float, TouchField::kPointStride> touchAnchor_{};
     std::array<float, TouchField::kMaxPoints * TouchField::kPointStride> touchPoints_{};
 
-    // Morph World (shaders/morph_world_frag, lib_world): the World Genome's driver, built only for that
-    // style. Stepped in update() from the sound and the controls, moved along by the camera in draw().
-    std::unique_ptr<world::MorphDriver> world_;
-    float worldDt_ = 0.0f;
+    // The style's geode::scene::Scene (core/scene): its family's environment, built only when one is
+    // ported (scene::env::has; Morph World so far). Stepped in update() with the camera's pose (the
+    // renderer steps the camera first), its uniform block uploaded in draw(). Null for every other
+    // style, which keeps today's path.
+    std::unique_ptr<::geode::scene::Scene> scene_;
+    bool freeCamera_ = false;
+    // Morph World's baked assets (GL), bound beside its environment's block.
     std::string worldShapes_;
     std::string worldMaps_;
     GLuint worldShapesTex_ = 0;
     GLuint worldMapsTex_ = 0;
-    bool worldSeeded_ = false;
 
     float stepsDetail_ = -1.0f;
     float stepsBudget_ = 0.0f;

@@ -116,7 +116,7 @@ GEODE_API void        geode_viz_set_look(geode_viz*, float yaw, float pitch);
 #define GEODE_FRAME_THERMAL_DUE    0x2 /* read PowerManager and call geode_thermal_push */
 #define GEODE_FRAME_LIQUID_CHANGED 0x4 /* Liquid mode changed: GEODE_FRAME_LIQUID_MODE(due) */
 /* What Liquid mode ran last frame: 0 off, 1 full, 2 lite, 3 warp, 4 paused (liquid::Mode). */
-#define GEODE_FRAME_LIQUID_MODE(due) (((due) >> 8) & 0xF)
+#define GEODE_FRAME_LIQUID_MODE(due) ((int)(((unsigned)(due) >> 8) & 0xFu))
 GEODE_API int         geode_viz_frame_begin(geode_viz*, float paced_fps, float render_scale, float march_scale,
                                             int post_fx, int adaptive, int liquid_hot_policy);
 GEODE_API void        geode_viz_set_offscreen(geode_viz*, int on);

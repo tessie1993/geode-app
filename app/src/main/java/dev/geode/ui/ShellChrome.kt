@@ -192,8 +192,7 @@ internal fun FloatingMiniPlayer(
                 // A tap is the long way to Player: the tip says a swipe up opens it.
                 GestureTips.nudge(GestureTip.SWIPE_UP_PLAYER)
                 tap(onPin)
-            }
-            .semantics {
+            }.semantics {
                 customActions =
                     listOf(
                         CustomAccessibilityAction(openLabel) {

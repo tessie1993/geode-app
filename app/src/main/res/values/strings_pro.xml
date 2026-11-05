@@ -20,6 +20,7 @@
     <string name="pro_title_full_length">Export the whole track, clean</string>
     <string name="pro_title_studio">Unlock the Studio</string>
     <string name="pro_title_wallpaper">Your visuals, on your home screen</string>
+    <string name="pro_title_cast">Your visuals, on the TV</string>
     <string name="pro_title_screensaver">Your visuals, as a screensaver</string>
     <string name="pro_title_styles">Every visual style, unlocked</string>
     <string name="pro_title_customization">Shape every detail</string>
@@ -48,6 +49,7 @@
     <string name="pro_row_watermark_pro">None</string>
     <string name="pro_row_studio">Studio editor</string>
     <string name="pro_row_wallpaper">Live wallpaper and screensaver</string>
+    <string name="pro_row_cast">Cast to TV</string>
     <string name="pro_row_customization">Advanced look controls</string>
     <string name="pro_row_auto_director">Auto-director</string>
     <string name="pro_row_auto_director_free">First minute</string>

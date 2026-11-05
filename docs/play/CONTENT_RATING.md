@@ -17,7 +17,7 @@ music, art and visuals and nothing from other people.
 | Users can interact or exchange content with each other | **No** | No accounts, chat or feeds. Sharing a preset link or a video goes through the Android share sheet to another app the user picks |
 | Shares the user's location with others | No | No location permission |
 | Allows purchase of digital goods | **Yes** | The one-time MuzViz Pro unlock through Google Play Billing |
-| Unrestricted internet access / web browser | No | No INTERNET permission |
+| Unrestricted internet access / web browser | No | No browser or web content. The only internet use is Cast to TV (Google Cast on the user's Wi-Fi) |
 
 Expected result: **Everyone / PEGI 3 / USK 0 / ESRB Everyone**, with the
 "In-App Purchases" interactive element.

@@ -44,6 +44,7 @@ import dev.geode.render.scene.SceneCapabilities
 import dev.geode.render.scene.SceneIds
 import dev.geode.render.scene.StyleFamilies
 import dev.geode.render.scene.VisualStyleCatalog
+import dev.geode.ui.cast.CastButton
 import dev.geode.ui.pro.PaywallViewModel
 import dev.geode.ui.theme.GeodeGlass
 import dev.geode.ui.theme.GeodeSpacing
@@ -129,8 +130,19 @@ internal fun BoxScope.StageIcons(
             .faded(shown)
             .then(glass),
     ) {
-        // TODO(cast): CastButton() from ui.cast (#257) goes here, left of Studio, once #257 is on the
-        // base. It stays composed through the fade; while faded, cover it so it takes no taps.
+        // Cast stays composed through the fade (it feeds the cast mirror); while faded a cover takes
+        // its taps and TalkBack skips it, as the other icons do when disabled.
+        Box(Modifier.size(GeodeSpacing.TouchTarget), contentAlignment = Alignment.Center) {
+            CastButton()
+            if (!awake) {
+                Box(
+                    Modifier
+                        .matchParentSize()
+                        .clearAndSetSemantics {}
+                        .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {},
+                )
+            }
+        }
         // Export, loop render and the takes list live in Studio; this only takes you there.
         StageIconButton(StoneIcon.STUDIO, stringResource(R.string.visuals_open_render), awake, onOpenStudioRender)
         StageIconButton(StoneIcon.FULLSCREEN, stringResource(R.string.visuals_gesture_toggle_sheet), awake, onFullScreen)

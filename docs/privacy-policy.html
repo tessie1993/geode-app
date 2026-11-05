@@ -24,8 +24,8 @@
 <body>
 <!-- Generated from docs/privacy-policy.md; edit that file and regenerate. -->
 <h1>MuzViz Studio Pro — Privacy Policy</h1>
-<p class="updated">Last updated: 1 November 2026</p>
-<p>MuzViz Studio Pro ("MuzViz", "the app") is a music player, music visualizer and music video studio for Android. This policy describes what the app does with your information. The short version: <strong>MuzViz collects nothing, sends nothing and has no servers.</strong> The one exception is buying MuzViz Pro, which Google Play handles.</p>
+<p class="updated">Last updated: 2 November 2026</p>
+<p>MuzViz Studio Pro ("MuzViz", "the app") is a music player, music visualizer and music video studio for Android. This policy describes what the app does with your information. The short version: <strong>MuzViz collects nothing, sells nothing and has no servers.</strong> Two exceptions: buying MuzViz Pro, which Google Play handles, and the optional <em>Cast to TV</em>, which uses Google Cast on your own network.</p>
 
 <h2>Information the app does not collect</h2>
 <p>MuzViz does <strong>not</strong> collect, transmit, sell or share personal information. The app has:</p>
@@ -33,7 +33,7 @@
   <li>no user accounts, sign-in or registration;</li>
   <li>no analytics, telemetry, crash-reporting or advertising SDKs;</li>
   <li>no advertising identifier;</li>
-  <li>no <code>INTERNET</code> permission. The app cannot send your data anywhere.</li>
+  <li>no internet use except <em>Cast to TV</em>, which talks only to Google Cast and to the TV on your own Wi-Fi (see below).</li>
 </ul>
 
 <h2>Information the app uses on your device</h2>
@@ -45,6 +45,7 @@
     <tr><td>Audio waveform data</td><td>Levels, spectrum, drum hits, note onsets and melody that drive the visuals</td><td>Analysed in memory, frame by frame, while it plays; nothing is stored</td></tr>
     <tr><td>Microphone audio — only while the optional <em>Live input</em> feature is on</td><td>So the visuals can react to the room</td><td>Analysed in memory only; never recorded, stored or transmitted</td></tr>
     <tr><td>Audio other apps are playing — only while the optional <em>Visualize other apps</em> feature is on</td><td>So the visuals can react to music from another app</td><td>Analysed in memory only; never recorded, stored or transmitted</td></tr>
+    <tr><td>Audio any app is playing — only while the live wallpaper's optional <em>Hear other apps</em> setting is on (off by default)</td><td>So the wallpaper can react to music from another app</td><td>Analysed in memory only; never recorded, stored or transmitted</td></tr>
     <tr><td>The name of the app and track playing elsewhere — only with the optional notification access</td><td>To label what the visuals are reacting to</td><td>Shown on screen; not stored or transmitted</td></tr>
     <tr><td>Folders you pick</td><td>Optional music folders and preset folders</td><td>Granted by you through the Android file picker; revocable at any time</td></tr>
     <tr><td>Your presets, playlists, projects, track edits and settings</td><td>To remember your setup</td><td>The app's private storage</td></tr>
@@ -55,20 +56,25 @@
 
 <h2>Buying MuzViz Pro (Google Play)</h2>
 <p>MuzViz Pro is a one-time in-app purchase made through <strong>Google Play Billing</strong>. When you buy it, Google Play handles the whole payment: your payment method, billing address and the order are processed by Google under the <a href="https://payments.google.com/payments/apis-secure/get_legal_document?ldo=0&amp;ldt=privacynotice">Google Payments privacy notice</a> and the <a href="https://policies.google.com/privacy">Google Privacy Policy</a>. MuzViz never sees your payment details.</p>
-<p>To unlock Pro, the app asks the Google Play Store app on your device which purchases your Google account owns. Play returns a purchase record (product, purchase time, order ID and a purchase token). The app checks its signature on the device and confirms ("acknowledges") the purchase back to Google Play, as Google Play requires. It keeps that signed purchase record on the device, with the time it last checked, so Pro keeps working when the Play Store can't be reached; it is removed when Play reports the purchase is no longer owned. Like the rest of the app's settings it is included in Android's own device backup. The purchase record isn't sent anywhere else. This exchange goes between MuzViz and the Play Store app on your device; MuzViz itself still makes no internet connection.</p>
+<p>To unlock Pro, the app asks the Google Play Store app on your device which purchases your Google account owns. Play returns a purchase record (product, purchase time, order ID and a purchase token). The app checks its signature on the device and confirms ("acknowledges") the purchase back to Google Play, as Google Play requires. It keeps that signed purchase record on the device, with the time it last checked, so Pro keeps working when the Play Store can't be reached; it is removed when Play reports the purchase is no longer owned. Like the rest of the app's settings it is included in Android's own device backup. The purchase record isn't sent anywhere else. This exchange goes between MuzViz and the Play Store app on your device; MuzViz makes no internet connection of its own for it.</p>
 <p>The free one-hour trial of Pro runs entirely on your device: the app stores when it started, and nothing else.</p>
+
+<h2>Cast to TV (Google Cast, Pro)</h2>
+<p>If you cast to a TV, your phone draws the visuals and streams them, with the sound, to the TV over your own Wi-Fi. The stream goes from your phone straight to the TV on your local network; it is never sent to MuzViz or stored anywhere. Google's own Cast receiver plays it on the TV. Only the music MuzViz plays goes to the TV: while <em>Live input</em> or <em>Visualize other apps</em> drives the visuals, the TV gets the picture but not that sound.</p>
+<p>To find and connect to the TV the app uses the <strong>Google Cast SDK</strong>. Google says the SDK logs how it is used (discovery and session events, device and app information) and sends that to Google, aggregated, without identifiers that trace back to you, encrypted in transit and kept for a short time, to improve Cast (<a href="https://developers.google.com/cast/docs/android_sender/data_disclosure">Google's Cast SDK disclosure</a>). Neither you nor MuzViz can turn that logging off or delete it. The SDK starts when you open the app, so that the Cast button and Android's own output switcher can find your TV, and it looks for TVs on your network while the Cast button is on screen.</p>
 
 <h2>Permissions</h2>
 <ul>
   <li><strong><code>READ_MEDIA_AUDIO</code></strong> (Android 13+) / <strong><code>READ_EXTERNAL_STORAGE</code></strong> (Android 12 and below): to find and play the music on your device.</li>
-  <li><strong><code>RECORD_AUDIO</code></strong>: only for the optional <em>Live input</em> and <em>Visualize other apps</em> features (Android requires it for its playback-capture API). Requested when you turn one of them on, never at launch.</li>
+  <li><strong><code>RECORD_AUDIO</code></strong>: only for the optional <em>Live input</em> and <em>Visualize other apps</em> features and the live wallpaper's optional <em>Hear other apps</em> setting (Android requires it for its playback-capture and audio-visualizer APIs). Requested when you turn one of them on, never at launch.</li>
   <li><strong><code>POST_NOTIFICATIONS</code></strong> (Android 13+): playback controls, and the ongoing notifications Android requires while <em>Visualize other apps</em> or a video render runs.</li>
-  <li><strong><code>FOREGROUND_SERVICE</code></strong> with the media-playback, media-projection, media-processing and data-sync types: lets playback, capture and video rendering continue while the app is not on screen, always with a visible notification.</li>
+  <li><strong><code>FOREGROUND_SERVICE</code></strong> with the media-playback, media-projection, media-processing and data-sync types: lets playback, casting, capture and video rendering continue while the app is not on screen, always with a visible notification.</li>
   <li><strong><code>com.android.vending.BILLING</code></strong>: lets the app talk to the Google Play Store app to sell and restore MuzViz Pro.</li>
+  <li><strong><code>INTERNET</code></strong> and <strong><code>ACCESS_NETWORK_STATE</code></strong>: only for <em>Cast to TV</em>: to find the TV, talk to Google Cast and stream to the TV on your Wi-Fi.</li>
   <li><strong><code>MODIFY_AUDIO_SETTINGS</code></strong>: for bit-perfect USB audio output to an external DAC.</li>
   <li><strong><code>VIBRATE</code></strong>: haptic feedback for the app's controls.</li>
 </ul>
-<p>MuzViz requests no camera, contacts, location or internet permission.</p>
+<p>MuzViz requests no camera, contacts or location permission.</p>
 
 <h2>Visualize other apps (playback capture)</h2>
 <p>If you turn this on, Android shows its own consent dialog first and an ongoing notification for as long as it runs. The device's audio output is read only to animate the visuals. It passes through an in-memory buffer and is never saved, recorded or sent.</p>
@@ -84,13 +90,13 @@
 <p>Settings › Backup can also save one zip file, only when you ask it to, to a place you choose with the system file picker. It holds your settings, presets, palettes, templates, editor projects, playlists, library list and listening history, and your MilkDrop presets. MuzViz never sends it anywhere; restoring reads it back from where you saved it.</p>
 
 <h2>Children</h2>
-<p>MuzViz is not directed at children under 13. It contains no ads, no chat and no content from other users, and it collects no data from anyone, including children.</p>
+<p>MuzViz is not directed at children under 13. It contains no ads, no chat and no content from other users, and MuzViz collects no data from anyone, including children.</p>
 
 <h2>Deleting your data</h2>
 <p>Everything MuzViz stores lives in its private storage. Uninstalling the app, or <em>Settings → Apps → MuzViz Studio Pro → Storage → Clear data</em>, removes it. Your Pro purchase stays with your Google account and is restored automatically after reinstalling. Exported videos are ordinary files and are deleted like any other file.</p>
 
 <h2>Third-party components</h2>
-<p>MuzViz bundles open-source libraries (including libprojectM, AndroidX/Jetpack and Media3) and the Google Play Billing Library. None of them collect or transmit data in this app, apart from the Play purchase exchange described above. The open-source notices are in the app under Settings.</p>
+<p>MuzViz bundles open-source libraries (including libprojectM, AndroidX/Jetpack and Media3), the Google Play Billing Library and the Google Cast SDK. None of them collect or transmit data in this app, apart from the Play purchase exchange and the Cast logging described above. The open-source notices are in the app under Settings.</p>
 
 <h2>Changes to this policy</h2>
 <p>The policy ships inside the app: <em>Settings → About → Privacy policy</em> always shows the version that matches the app you have. If it changes, an app update carries the new version, it is published at the same address as before, and the date above changes.</p>

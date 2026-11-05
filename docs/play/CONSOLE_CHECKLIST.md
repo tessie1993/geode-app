@@ -97,8 +97,8 @@ sign uploads with an **upload key** you create and keep.
 
 - [ ] Actions tab > **Play release bundle** > Run workflow, on the commit you're releasing.
       It runs only on request (not on pull requests or tags). The workflow
-      (`.github/workflows/release.yml`) builds the signed AAB, checks it (no INTERNET
-      permission, targetSdk ≥ 36, R8 mapping, baseline profile, signature) and uploads it as
+      (`.github/workflows/release.yml`) builds the signed AAB, checks it (INTERNET only
+      with Cast, no AD_ID, targetSdk ≥ 36, R8 mapping, baseline profile, signature) and uploads it as
       the `muzviz-release-<n>` artifact. Without the upload key it builds unsigned with a
       warning; with the key but no `PLAY_LICENSE_KEY` it fails.
 - [ ] Download `app-release.aab` (and `mapping.txt`) from the run.
@@ -139,6 +139,7 @@ sign uploads with an **upload key** you create and keep.
       | Type | Feature | What to say |
       |---|---|---|
       | `mediaPlayback` | Music player | Plays the user's local music while the app is in the background, with the media notification |
+      | `mediaPlayback` | Cast to TV (Pro) | Keeps streaming the visuals and the music to the user's TV while the app is in the background or the screen is off, with a "Casting to your TV" notification and a Stop button. One more video: start a cast, leave the app, show the notification |
       | `mediaProjection` | Visualize other apps | Captures audio another app is playing (with the system consent dialog) to animate the visuals; nothing is recorded or stored |
       | `mediaProcessing` | Video export (Android 15+) | Renders a music video (can take tens of minutes at 4K) while the user leaves the app |
       | `dataSync` | Video export (Android 14 and below) | The same render on versions without `mediaProcessing` |

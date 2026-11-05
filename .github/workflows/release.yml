@@ -5,7 +5,7 @@ name: Play release bundle
 #
 # Runs only on request (Actions > Play release bundle > Run workflow): pull requests and
 # tags don't build it. It signs with the upload key; without the key it builds UNSIGNED
-# with a warning. The manifest promise checks (no INTERNET, no AD_ID, targetSdk) also run
+# with a warning. The manifest promise checks (INTERNET only with Cast, no AD_ID, targetSdk) also run
 # on every PR in android.yml, against the debug build.
 #
 # Repository secrets (Settings > Secrets and variables > Actions > Secrets):
@@ -131,9 +131,9 @@ jobs:
           test -n "$manifest" || { echo "::error::merged release manifest not found"; exit 1; }
           echo "Merged manifest: $manifest"
 
-          # The privacy policy and Data safety answers say the app has no network access.
-          if grep -q 'android.permission.INTERNET"' "$manifest"; then
-            echo "::error::The merged release manifest requests INTERNET; the app promises not to."
+          # The privacy policy and Data safety answers say Cast to TV is the only internet use.
+          if grep -q 'android.permission.INTERNET"' "$manifest" && ! grep -q 'dev.geode.cast.CastService' "$manifest"; then
+            echo "::error::The merged release manifest requests INTERNET without Cast; Cast to TV is the only internet use."
             exit 1
           fi
           # The console's Advertising ID declaration says "not used".

@@ -33,6 +33,10 @@ public:
     static void lfoOffsets(const std::array<AdsrConfig, kCount>& configs, const std::array<float, kCount>& envs,
                            std::array<float, LfoEngine::kSlots>& rate, std::array<float, LfoEngine::kSlots>& depth);
     static SceneParams apply(const SceneParams& p, const std::array<AdsrConfig, kCount>& configs, const std::array<float, kCount>& envs);
+    // Adds what apply() adds to each luminance target this frame, for the flash limiter (#363): an
+    // envelope's attack goes down to 5 ms and it retriggers on every onset, so it is a strobe source.
+    static void addLuminanceDrive(const std::array<AdsrConfig, kCount>& configs, const std::array<float, kCount>& envs,
+                                  LuminanceDrive& out);
 
 private:
     static constexpr float kChainRateHz = 4.0f;

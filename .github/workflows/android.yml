@@ -195,6 +195,9 @@ jobs:
           # Studio's takes move out of project folders once, the newer copy winning (#384).
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/studio_files_test.cpp core/library/Search.cpp core/api/geode_library_api.cpp -o studio_files_test
           ./studio_files_test
+          # The search sheet's text filter (#341): every term in some field, case like Kotlin's ignoreCase, dedupe by uri keeping the preferred row, then the cap.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/library_filter_test.cpp core/library/Search.cpp core/api/geode_library_api.cpp -o library_filter_test
+          ./library_filter_test
           # Envelopes and LFOs on luminance targets reach the flash limiter (#363): an 8 Hz envelope strobe holds within 0.25 s.
           g++ -std=c++20 -O1 -Wall -Wextra -Icore -Icore/tests/stub core/tests/luminance_drive_test.cpp core/viz/Adsr.cpp core/viz/Lfo.cpp \
             core/viz/FlashLimiter.cpp core/viz/VisualSafety.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp -o luminance_drive_test

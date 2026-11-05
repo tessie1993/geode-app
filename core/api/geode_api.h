@@ -223,6 +223,16 @@ GEODE_API int         geode_library_search(const char* const* rows, int track_co
  * be moved (they stay where they were). Paths are UTF-8. */
 GEODE_API int         geode_studio_move_takes_out(const char* projects_dir, const char* takes_dir);
 
+/* The search sheet's text filter (core/library/Search, filterRows; #341). `cells` holds 1 + `fields_per_row`
+ * UTF-8 strings per row, `row_count` rows: the row's key (a track's uri; NULL = never merged with another
+ * row), then its fields. `preferred` (NULL = none) holds one byte per row, nonzero for the row a key keeps
+ * over its other matches. `query` is split on whitespace and every term must be in some field, ignoring
+ * case. Writes the kept rows' indices, at most `max_out` (the cap), to `out` and returns how many it wrote;
+ * a blank query writes none. */
+GEODE_API int         geode_library_filter(const char* const* cells, int row_count, int fields_per_row,
+                                           const unsigned char* preferred, const char* query, int* out,
+                                           int max_out);
+
 /* Scene and style catalogue (core/viz/Catalogue): every style id, its renderer kind, the style families,
  * which Customize controls reach which styles, and the ranges the shell's controls quote, as one versioned
  * '|'-separated line table (see Catalogue.hpp for the rows). Static: the pointer stays valid for the

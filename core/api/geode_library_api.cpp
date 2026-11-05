@@ -1,3 +1,6 @@
+#include <optional>
+#include <span>
+#include <string_view>
 #include <vector>
 
 #include "api/geode_api.h"
@@ -33,6 +36,25 @@ int geode_library_search(const char* const* rows, int track_count, const char* q
 int geode_studio_move_takes_out(const char* projects_dir, const char* takes_dir) {
     if (!projects_dir || !takes_dir) return 0;
     return geode::library::studio::moveTakesOut(projects_dir, takes_dir).failed;
+}
+
+int geode_library_filter(const char* const* cells, int row_count, int fields_per_row,
+                         const unsigned char* preferred, const char* query, int* out, int max_out) {
+    if (row_count <= 0 || fields_per_row < 0 || !cells || !out || max_out <= 0) return 0;
+    const auto rows = static_cast<size_t>(row_count);
+    const auto width = static_cast<size_t>(fields_per_row) + 1;
+    std::vector<std::string_view> fields(rows * width);
+    std::vector<geode::library::FilterRow> table(rows);
+    for (size_t r = 0; r < rows; ++r) {
+        const char* const* row = cells + r * width;
+        for (size_t f = 1; f < width; ++f) fields[r * width + f] = view(row[f]);
+        table[r].key = row[0] ? std::optional<std::string_view>(row[0]) : std::nullopt;
+        table[r].preferred = preferred && preferred[r] != 0;
+        table[r].fields = std::span<const std::string_view>(fields.data() + r * width + 1, width - 1);
+    }
+    const std::vector<int> kept = geode::library::filterRows(table, view(query), static_cast<size_t>(max_out));
+    for (size_t i = 0; i < kept.size(); ++i) out[i] = kept[i];
+    return static_cast<int>(kept.size());
 }
 
 }  // extern "C"

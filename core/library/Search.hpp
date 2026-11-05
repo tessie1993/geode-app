@@ -1,4 +1,8 @@
 #pragma once
+#include <cstddef>
+#include <optional>
+#include <span>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -35,5 +39,28 @@ std::vector<int> searchTracks(const std::vector<SearchRow>& rows, const SearchRe
 // True when `term` is in any of `fields`, case-folded, allowing a typo: none for words of three
 // letters or less, one up to five, two beyond (the Library screen's rule, `LibraryBrowse.matches`).
 bool termMatches(std::string_view term, const std::vector<std::string_view>& fields);
+
+// --- Library text filter (#341): the search sheet's "every word in some field" -----------------------
+
+// One row the search sheet filters: a track, a playlist or a preset. Views into the caller's strings, UTF-8.
+struct FilterRow {
+    // What makes two rows the same thing (a track's uri). nullopt: the row is never merged with another.
+    std::optional<std::string_view> key;
+    // Among rows sharing a key, a preferred one (a device track over its library copy) is the one kept.
+    bool preferred = false;
+    std::span<const std::string_view> fields;
+};
+
+// The rows of `rows` whose fields hold every term of `query`, as indices, at most `max` of them.
+//
+// The query is trimmed, split on whitespace and every term must be inside some field, case-insensitive
+// (Kotlin's `contains(ignoreCase = true)`: exact for ASCII, and the same per-letter case folding the voice
+// search uses for Latin, Greek, Cyrillic, Armenian and full-width letters). A blank query matches nothing.
+// Rows sharing a key collapse into one, at the place the first matching one held, keeping the first
+// preferred match if there is one, else the first match; the list is cut to `max` after that.
+std::vector<int> filterRows(std::span<const FilterRow> rows, std::string_view query, std::size_t max);
+
+// The terms `filterRows` looks for, folded and re-encoded as UTF-8: for tests and callers that show them.
+std::vector<std::string> filterTerms(std::string_view query);
 
 }  // namespace geode::library

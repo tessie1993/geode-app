@@ -1,5 +1,6 @@
 ---
 status: accepted
+superseded_in_part_by: 0007 (its Studio project model and Edit tab)
 ---
 
 # Wave 1 restructures Studio, Visuals and Customize before the release

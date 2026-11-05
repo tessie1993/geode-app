@@ -1,7 +1,7 @@
 # Modulation matrix: a patch bay that fits a phone
 
 Research note and UX spec, 2026-11-01. The owner's decisions are in [`MOD_MATRIX_PLAN.md`](MOD_MATRIX_PLAN.md) §1;
-where this note's research (§1–§5) recommends otherwise, the plan wins. §6 is the agreed UX. It follows [`REACTIVE_VISUALS.md`](REACTIVE_VISUALS.md), which already proposes one native
+where this note's research (§1–§5) recommends otherwise, the plan wins. §6 is the agreed UX. It follows `REACTIVE_VISUALS.md` (since removed; in git history), which already proposes one native
 `ModMatrix`, tempo-synced LFOs and a built-in tempo tracker (its §5, §5.1, §5.2). This note does not repeat that work. It
 covers what the owner asked for next: a Pro **patch bay** under Customize › Advanced, with cables, more modulators (6 LFOs,
 4 ADSHR envelopes, 2 step sequencers), modulators that modulate modulators, several tempo sources, and MIDI. All of it has

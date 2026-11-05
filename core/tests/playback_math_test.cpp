@@ -48,7 +48,7 @@ void sleepFade() {
 void snapToStep() {
     check(near(geode_playback_snap(1.07f, 0.05f), 1.05f), "speed lands on 0.05");
     check(near(geode_playback_snap(-2.3f, 0.5f), -2.5f), "pitch lands on half semitones");
-    check(near(geode_playback_snap(1130.0f, 250.0f), 1000.0f), "fade lands on 250 ms");
+    check(near(geode_playback_snap(1120.0f, 250.0f), 1000.0f), "fade lands on 250 ms");
     check(near(geode_playback_snap(125.0f, 250.0f), 250.0f), "a half step rounds up");
     check(near(geode_playback_snap(-125.0f, 250.0f), 0.0f), "a negative half step rounds up too");
     check(geode_playback_snap(0.123f, 0.0f) == 0.123f, "a zero step leaves the value");
@@ -210,7 +210,7 @@ void snapSpeedLandsOnTheNearestTwentieth() {
 // JDK 7 fix of JDK-6430675; Android's OpenJDK libcore). 0.49999997f is nearest to 0, so Kotlin
 // snapped the float just under 0.25 st to 0. floor(q + 0.5f) rounds q + 0.5f to 1.0f in float
 // first, so the C++ port lands a whole step up here.
-// Kills: the PR's floor(x + 0.5f) itself. EXPECTED TO FAIL on #502 as written.
+// Kills: the PR's first floor(x + 0.5f), which failed this; snap now compares q's fraction with 0.5.
 void snapJustUnderAQuarterMatchesKotlin() {
     check(geode_playback_snap(std::nextafter(0.25f, 0.0f), 0.5f) == 0.0f,
           "PARITY: just under a quarter semitone snaps to 0, as Kotlin's roundToInt did");

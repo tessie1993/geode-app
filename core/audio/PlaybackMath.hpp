@@ -29,11 +29,21 @@ inline float sleepFadeVolume(int64_t remainingMs, int64_t fadeMs = kSleepFadeMs)
     return v < 1.0f ? v : 1.0f;
 }
 
-// value rounded to the nearest multiple of step, halves rounding up (floor(x + 0.5), as Kotlin's
-// roundToInt did), so a slider lands on its steps; a step <= 0 leaves value as it is.
+// value rounded to the nearest multiple of step, halves rounding up (toward +infinity), so a slider
+// lands on its steps; a step <= 0 leaves value as it is.
+//
+// Parity with the deleted Kotlin, (value / step).roundToInt() * step: Float.roundToInt is the JVM's
+// Math.round, the exactly nearest integer with ties up. The obvious floor(q + 0.5f) is not that: the
+// sum is rounded to float before the floor, so for q = 0.5 - 2^-25 (the float just under a half)
+// q + 0.5f rounds to 1.0f and snap(nextafter(0.25f, 0), 0.5f) gave 0.5 where Kotlin gave 0. Instead
+// compare q's fraction with one half: q - floor(q) is exact for every finite float, so the only
+// rounding is the one division, as in Kotlin.
 inline float snap(float value, float step) {
     if (!(step > 0.0f)) return value;
-    return static_cast<float>(std::floor(value / step + 0.5f)) * step;
+    const float q = value / step;
+    float r = std::floor(q);
+    if (q - r >= 0.5f) r += 1.0f;
+    return r * step;
 }
 
 }  // namespace geode::audio::playback

@@ -14,6 +14,7 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -28,15 +29,28 @@ import dev.geode.R
 import dev.geode.model.TutorialChapter
 import dev.geode.ui.pro.GoProSettingsRow
 
+/** The Folders tab's place in [AppSettingsTab]'s row; other screens open it by this number. */
+internal const val SETTINGS_TAB_FOLDERS = 4
+
 @Composable
 internal fun AppSettingsTab(
     viewModel: PlayerViewModel,
     onOpenStudioRender: () -> Unit,
     onPlayTutorial: (List<TutorialChapter>) -> Unit,
     onResetTutorials: () -> Unit,
+    requestedTab: Int? = null,
+    onRequestedTabShown: () -> Unit = {},
 ) {
     val settingsViewModel: SettingsViewModel = geodeViewModel()
     var tab by rememberSaveable { mutableIntStateOf(0) }
+    // Another screen asked for a tab (the empty library's "Choose a music folder" → Folders):
+    // switch once, then hand the request back so a later visit opens where the user left it.
+    LaunchedEffect(requestedTab) {
+        if (requestedTab != null) {
+            tab = requestedTab
+            onRequestedTabShown()
+        }
+    }
     // Order matches the `when` below.
     val tabTitles =
         listOf(
@@ -60,7 +74,7 @@ internal fun AppSettingsTab(
             1 -> AudioSettingsTab(viewModel)
             2 -> LyricsSettingsTab(viewModel)
             3 -> ExportLinkTab(onOpenStudioRender)
-            4 -> FolderSettingsTab()
+            SETTINGS_TAB_FOLDERS -> FolderSettingsTab()
             5 -> BehaviorSettingsTab(settingsViewModel)
             6 -> PerformanceSettingsTab()
             7 -> HelpSettingsTab()

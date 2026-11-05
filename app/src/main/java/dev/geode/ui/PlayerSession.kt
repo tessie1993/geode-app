@@ -622,6 +622,13 @@ class PlayerSession internal constructor(
 
     val libraryScanning: StateFlow<Boolean> get() = musicLibrary.libraryScanning
 
+    /** False until the first device-track query has answered; see [MusicLibraryController.deviceTracksLoaded]. */
+    val deviceTracksLoaded: StateFlow<Boolean> get() = musicLibrary.deviceTracksLoaded
+
+    val minTrackSeconds: StateFlow<Int> get() = musicLibrary.minTrackSeconds
+
+    fun setMinTrackSeconds(seconds: Int) = musicLibrary.setMinTrackSeconds(seconds)
+
     fun refreshDeviceTracks() = musicLibrary.refreshDeviceTracks()
 
     fun importTracks(uris: List<Uri>) = musicLibrary.importTracks(uris)

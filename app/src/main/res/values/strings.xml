@@ -358,6 +358,15 @@
     <string name="library_play_all">Play all</string>
     <string name="library_search_hint">Search titles, artists, albums</string>
     <string name="library_no_results">Nothing matches that.</string>
+    <!-- Library with access granted and no songs (#340). -->
+    <string name="library_empty_title">No songs here yet</string>
+    <string name="library_empty_hint">MuzViz lists the music Android has indexed on this phone. If you just copied songs over, rescan. If they live somewhere else, choose the folder. Or skip the library: the visuals can listen to another app or the room.</string>
+    <string name="library_empty_short_hint">Tracks shorter than %1$d s are hidden. Change that in Settings › Folders.</string>
+    <string name="library_empty_rescan">Rescan</string>
+    <string name="library_empty_choose_folder">Choose a music folder</string>
+    <string name="library_empty_listen">Listen to another app or the mic</string>
+    <string name="library_empty_listen_app">Another app</string>
+    <string name="library_empty_listen_mic">Microphone</string>
     <string name="library_sort_title">Title</string>
     <string name="library_sort_artist">Artist</string>
     <string name="library_sort_album">Album</string>
@@ -483,6 +492,10 @@
     <!-- Settings › Folders. -->
     <string name="folders_group_preset">Preset folder</string>
     <string name="folders_group_music">Music folders</string>
+    <string name="folders_min_track_label">Hide tracks shorter than</string>
+    <string name="folders_min_track_off">Off — list everything</string>
+    <string name="folders_min_track_seconds">%1$d s</string>
+    <string name="folders_min_track_explainer">Leaves ringtones, notification sounds and voice notes out of the library. Tracks of unknown length always show.</string>
     <string name="folders_group_export">Export destination</string>
     <string name="folders_export_explainer">Exports land in your Videos library (Movies/MuzViz), or in a folder you pick at render time — there is no standing export folder to configure. Defaults for quality and size live in the Export tab.</string>
     <string name="folders_preset_chosen">Preset folder: chosen — saves are mirrored there</string>

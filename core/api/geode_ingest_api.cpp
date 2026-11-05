@@ -39,6 +39,24 @@ size_t geode_ingest_write_bytes(geode_ingest* ingest, const void* bytes, size_t 
     return ingest ? ingest->ring.writeBytes(bytes, byte_count, encoding) : 0;
 }
 
+int geode_ingest_flush(geode_ingest* ingest, int sample_rate, int channels, int channel_mask, int reapplied,
+                       long long position_us, long long period_id) {
+    if (!ingest) return 0;
+    geode::audio::ingest::FlushFacts facts;
+    facts.sampleRate = sample_rate;
+    facts.channels = channels;
+    facts.channelMask = channel_mask;
+    facts.reapplied = reapplied != 0;
+    facts.positionUs = position_us;
+    facts.periodId = period_id;
+    if (ingest->flushJudge.judge(facts, ingest->ring.written()) == geode::audio::ingest::FlushVerdict::BeginEpoch) {
+        ingest->ring.beginEpoch(sample_rate, channels, channel_mask);
+        return 1;
+    }
+    ingest->ring.setFormat(sample_rate, channels, channel_mask);
+    return 0;
+}
+
 long long geode_ingest_written(const geode_ingest* ingest) {
     return ingest ? static_cast<long long>(ingest->ring.written()) : 0;
 }

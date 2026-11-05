@@ -7,12 +7,13 @@ import androidx.media3.common.audio.AudioProcessorChain
 import androidx.media3.common.audio.SonicAudioProcessor
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.audio.SilenceSkippingAudioProcessor
+import dev.geode.engine.audioandroid.PcmTap
 import dev.geode.engine.audioandroid.SinkClockHooks
 import dev.geode.engine.audioandroid.SkippedFrameSource
 
 @OptIn(UnstableApi::class)
 class MvzAudioProcessorChain(
-    tap: AudioProcessor,
+    private val tap: PcmTap,
     dsp: List<AudioProcessor> = emptyList(),
     private val hooks: SinkClockHooks = SinkClockHooks.None,
 ) : AudioProcessorChain,
@@ -35,6 +36,7 @@ class MvzAudioProcessorChain(
     override fun applySkipSilenceEnabled(skipSilenceEnabled: Boolean): Boolean {
         silenceSkipping.setEnabled(skipSilenceEnabled)
         hooks.onSkipSilenceApplied(skipSilenceEnabled)
+        tap.onParametersReapplied() // the sink flushes the chain next: a re-apply, not a seek (#358)
         return skipSilenceEnabled
     }
 

@@ -14,6 +14,7 @@ data class PcmTapFormat(
     val channelCount: Int,
     val encoding: Int,
     val generation: Int,
+    val newEpoch: Boolean = true, // native's verdict on this flush (FlushJudge, #358)
 ) {
     val sampleWidth: PcmSampleWidth? =
         when (encoding) {

@@ -26,7 +26,7 @@ import dev.geode.engine.audio.SampleRing
 import dev.geode.engine.audio.SoundInput
 import dev.geode.engine.audioandroid.PcmTap
 import dev.geode.engine.audioandroid.SinkClockDriver
-import dev.geode.engine.audioandroid.TapBoundaryListener
+import dev.geode.engine.bridge.GeodeNative
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -39,6 +39,9 @@ class PlaybackSession internal constructor(
     val ring = PcmRingBuffer()
 
     internal val sampleRing = SampleRing(capacityFrames = 1 shl 16, channelCount = 2)
+
+    /** The player's native ingest ring (#480), freed after the player in [release]; #481 moves the tap's writes onto it. */
+    internal val ingest: Long = GeodeNative.ingestCreate(1 shl 16, 8)
 
     @Volatile
     var onAudioFormat: ((sampleRateHz: Int, channelCount: Int, encoding: Int) -> Unit)? = null
@@ -58,8 +61,10 @@ class PlaybackSession internal constructor(
     /** Settings › Playback › Bit-perfect USB output; told every stream format before its AudioTrack opens. */
     private val bitPerfect = BitPerfectOutput(context)
 
+    // The ring's epoch is native's call: PcmTap reports each flush to FlushJudge (#358).
     internal val tap =
-        PcmTap(captureSink) { format ->
+        PcmTap(captureSink, ring = ingest, boundaryListener = clockDriver) { format ->
+            if (format.newEpoch) sampleRing.beginEpoch() // until #481 retires the Kotlin ring
             bitPerfect.onFormat(format.sampleRateHz, format.channelCount)
             val hook = onAudioFormat
             if (hook != null) {
@@ -67,12 +72,6 @@ class PlaybackSession internal constructor(
             } else {
                 sampleRateHz = format.sampleRateHz
             }
-        }.apply {
-            boundaryListener =
-                TapBoundaryListener { ended, endedFrames, begun ->
-                    sampleRing.beginEpoch()
-                    clockDriver.onTapBoundary(ended, endedFrames, begun)
-                }
         }
 
     internal val dsp = NativeDspProcessor()
@@ -227,6 +226,7 @@ class PlaybackSession internal constructor(
         bitPerfect.setEnabled(false, player)
         player.release()
         dsp.release()
+        GeodeNative.ingestDestroy(ingest)
     }
 
     private companion object {

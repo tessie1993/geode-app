@@ -612,4 +612,20 @@ object GeodeNative {
         handle: Long,
         nowMs: Long,
     ): Boolean
+
+    /**
+     * Reports one flush of the player's processor chain to the ingest ring; native decides whether it
+     * begins an epoch (true) or keeps it with the new format (`core/audio/ingest/FlushJudge`, #358).
+     * Playback thread only. [reapplied]: the sink re-applied speed, pitch or skip-silence rather than
+     * resetting; [periodId]: the playlist item's period, 0 when unknown.
+     */
+    external fun ingestFlush(
+        ring: Long,
+        sampleRate: Int,
+        channels: Int,
+        channelMask: Int,
+        reapplied: Boolean,
+        positionUs: Long,
+        periodId: Long,
+    ): Boolean
 }

@@ -309,6 +309,16 @@ GEODE_API long long     geode_ingest_written(const geode_ingest*);
 /* 1 = may rest (core/sound/Silence rule, fed by the ring; no writes for the hold also = silent). The first
  * poll counts as sound, so a surface rests 6 s after it starts at the earliest. */
 GEODE_API int           geode_ingest_resting(geode_ingest*, long long now_ms);
+/* Writer thread only. The player tap reports each flush of its processor chain as facts, and native decides
+ * (audio/ingest/FlushJudge, #358, #487) between geode_ingest_begin_epoch and geode_ingest_set_format.
+ * reapplied = 1 when the sink re-applied speed, pitch or skip-silence (Media3 drained the chain and gave the
+ * next buffer's media position and period), 0 for a sink reset (seek, stop, reconfigure). period_id names the
+ * playlist item's period, 0 when unknown. A reset, another period, or a re-apply whose position jumps begins
+ * an epoch; anything else keeps it with the new format, so readers' cursors and sound engines keep what they
+ * learned. Returns 1 when it began an epoch. The tap stays first (owner, 2026-11-05), so the ring holds
+ * source-time samples; the playout clock (#482, #488) maps the speaker back to them at a speed other than 1x. */
+GEODE_API int           geode_ingest_flush(geode_ingest*, int sample_rate, int channels, int channel_mask,
+                                           int reapplied, long long position_us, long long period_id);
 
 #ifdef __cplusplus
 }

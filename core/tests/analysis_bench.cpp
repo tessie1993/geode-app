@@ -12,10 +12,13 @@
 //            sectionChange as it fires (it means "a section began a bar ago", and the bench scores where
 //            it lands, which is what a visual sees), the key and tempo held over the clip's second half
 //   offline  core/sound/offline's whole-track analyser (#463): the beat grid, its downbeats and tempo;
-//            (#464) the key and the drums found in the percussive part
+//            (#464) the key and the drums found in the percussive part;
+//            its form (#465): section boundaries and drops, blind (no section count, unlike librosa's)
 //   Drums (kick_f, snare_f, hat_f): every hit the score places, matched within 50 ms (mir_eval.onset's
 //   window), untrimmed; scored for live (its kick, snare, hat triggers) and offline, on clips that play
 //   that drum
+// Drops are scored only on clips whose truth has one (drop_f_0.5, drop_f_3, the same detection F as
+// boundaries), for live (where its drop trigger fires) and offline.
 //
 // Metrics are core/tests/analysis/MirEval.hpp (mir_eval's conventions). Before scoring anything the bench
 // recomputes librosa's scores and compares them with mir_eval's own (<clip>.mir_eval.tsv): a mismatch fails,
@@ -41,6 +44,7 @@
 #include "sound/SoundEngine.hpp"
 #include "sound/offline/OfflineBeats.hpp"
 #include "sound/offline/OfflineFeatures.hpp"
+#include "sound/offline/OfflineForm.hpp"
 #include "tests/analysis/Annotations.hpp"
 #include "tests/analysis/MirEval.hpp"
 #include "tests/analysis/Wav.hpp"
@@ -54,7 +58,8 @@ constexpr double kClipTolerance = 0.05;
 constexpr double kMirEvalTolerance = 1e-6;
 
 struct Claims {
-    bool beats = false, downbeats = false, tempo = false, key = false, sections = false, drums = false;
+    bool beats = false, downbeats = false, tempo = false, key = false, sections = false, drums = false,
+         drops = false;
 };
 
 // ---- live: core/sound's SoundEngine at 60 fps -------------------------------------------------------------
@@ -85,6 +90,7 @@ Answers runLive(const Wav& wav) {
         if (frame.kick > 0.0f) a.kicks.push_back(t);
         if (frame.snare > 0.0f) a.snares.push_back(t);
         if (frame.hat > 0.0f) a.hats.push_back(t);
+        if (frame.drop > 0.0f) a.drops.push_back(t);
         if (t >= duration / 2) {
             if (frame.bpm > 0.0f) bpms.push_back(frame.bpm);
             if (frame.keyClarity > 0.0f && frame.keyMajor != 0.5f) {
@@ -113,8 +119,10 @@ Answers runLive(const Wav& wav) {
 Answers runOffline(const Wav& wav) {
     const std::vector<float> mono = wav.mono();
     const geode::sound::offline::BeatGrid grid = geode::sound::offline::analyse(mono.data(), mono.size(), wav.sampleRate);
+    const geode::sound::offline::FormTimeline form =
+        geode::sound::offline::analyseForm(mono.data(), mono.size(), wav.sampleRate, grid);
     Answers a;
-    a.hasDownbeats = true;
+    a.hasDownbeats = a.hasBoundaries = a.hasDrops = true;
     a.tempo = grid.bpm;
     a.beats = grid.beats;
     a.downbeats = grid.downbeats;
@@ -125,6 +133,8 @@ Answers runOffline(const Wav& wav) {
     a.kicks = features.kicks;
     a.snares = features.snares;
     a.hats = features.hats;
+    a.boundaries = form.boundaries;
+    for (const auto& d : form.drops) a.drops.push_back(d.at);
     return a;
 }
 
@@ -150,6 +160,10 @@ Scores score(const Answers& truth, const Answers& est, const Claims& claims) {
         if (!truth.kicks.empty()) s["kick_f"] = fMeasure(truth.kicks, est.kicks, 0.05);
         if (!truth.snares.empty()) s["snare_f"] = fMeasure(truth.snares, est.snares, 0.05);
         if (!truth.hats.empty()) s["hat_f"] = fMeasure(truth.hats, est.hats, 0.05);
+    }
+    if (claims.drops && truth.hasDrops) {
+        s["drop_f_0.5"] = boundaryF(truth.drops, est.drops, 0.5);
+        s["drop_f_3"] = boundaryF(truth.drops, est.drops, 3.0);
     }
     return s;
 }
@@ -184,9 +198,12 @@ int main(int argc, char** argv) {
     int failures = 0;
     std::vector<Row> rows;
     std::map<std::string, std::vector<double>> perMetric;  // analyser\tmetric -> clip scores
-    const Claims librosaClaims{.beats = true, .downbeats = false, .tempo = true, .key = true, .sections = true, .drums = false};
-    const Claims liveClaims{.beats = true, .downbeats = true, .tempo = true, .key = true, .sections = true, .drums = true};
-    const Claims offlineClaims{.beats = true, .downbeats = true, .tempo = true, .key = true, .sections = false, .drums = true};
+    const Claims librosaClaims{
+        .beats = true, .downbeats = false, .tempo = true, .key = true, .sections = true, .drums = false, .drops = false};
+    const Claims liveClaims{
+        .beats = true, .downbeats = true, .tempo = true, .key = true, .sections = true, .drums = true, .drops = true};
+    const Claims offlineClaims{
+        .beats = true, .downbeats = true, .tempo = true, .key = true, .sections = true, .drums = true, .drops = true};
 
     for (const auto& clipRow : clipRows) {
         const std::string clip = clipRow[0];

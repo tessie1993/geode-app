@@ -14,6 +14,7 @@
 #include "viz/ReactionDna.hpp"
 #include "viz/Renderer.hpp"
 #include "viz/SceneRegistry.hpp"
+#include "viz/frame/Quality.hpp"
 
 struct geode_viz {
     geode_viz(AAssetManager* assets, std::string cacheDir) : renderer(assets, std::move(cacheDir)) {}
@@ -201,6 +202,22 @@ void geode_viz_set_adsr(geode_viz* v, int slot, const float* c, int count) {
     std::lock_guard<std::mutex> lock(v->configLock);
     v->adsr[static_cast<size_t>(slot)] = std::move(cfg);
     v->renderer.setAdsrConfigs(v->adsr);
+}
+
+int geode_perf_tier(int mode, float* out, int capacity) {
+    namespace frame = geode::viz::frame;
+    if (!out || capacity < GEODE_PERF_TIER_FLOATS || mode < 0 || mode >= frame::kQualityModes) return 0;
+    const frame::QualityTier& t = frame::qualityTier(static_cast<frame::QualityMode>(mode));
+    out[0] = t.renderScale;
+    out[1] = t.fpsCap;
+    out[2] = t.marchScale;
+    out[3] = t.postFx ? 1.0f : 0.0f;
+    out[4] = t.adaptive ? 1.0f : 0.0f;
+    return GEODE_PERF_TIER_FLOATS;
+}
+
+int geode_perf_mode_for_device(long long total_ram_bytes, int low_ram, int media_performance_class) {
+    return static_cast<int>(geode::viz::frame::modeForDevice(total_ram_bytes, low_ram != 0, media_performance_class));
 }
 
 }  // extern "C"

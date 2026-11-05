@@ -7,8 +7,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeGestures
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
@@ -159,6 +162,9 @@ internal fun BoxScope.StageIcons(
     }
     // ‹ › centre in the part of the visual in view: shrunk by the panel at the end (landscape) and
     // the sheet at the bottom (portrait), so Center* aligns to the visible area, not the whole stage.
+    // They sit beside the side strips, not in them: `safeGestures` (left and right only) keeps them
+    // out of the back gesture's reach, so pressing one never starts Back and Back never lands on one.
+    val sideStrips = WindowInsets.safeGestures.only(WindowInsetsSides.Horizontal)
     Box(
         Modifier
             .matchParentSize()
@@ -179,6 +185,7 @@ internal fun BoxScope.StageIcons(
             },
             Modifier
                 .align(Alignment.CenterStart)
+                .windowInsetsPadding(sideStrips)
                 .padding(GeodeSpacing.S)
                 .faded(shown)
                 .then(glass),
@@ -193,6 +200,7 @@ internal fun BoxScope.StageIcons(
             },
             Modifier
                 .align(Alignment.CenterEnd)
+                .windowInsetsPadding(sideStrips)
                 .padding(GeodeSpacing.S)
                 .faded(shown)
                 .then(glass),

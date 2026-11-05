@@ -5,6 +5,7 @@
 #include <cmath>
 
 #include "api/geode_api.h"
+#include "viz/Circular.hpp"
 #include "viz/MotionField.hpp"
 #include "viz/PcmHandoff.hpp"
 #include "viz/Program.hpp"
@@ -27,10 +28,7 @@ constexpr float kMaxHueRange = 1.5f;
 constexpr float kMaxPaletteCycle = 2.0f;
 
 inline float range(float hueRange) { return std::clamp(hueRange, kMinHueRange, kMaxHueRange); }
-inline float wrap01(float h) {
-    const float w = h - std::floor(h);
-    return w >= 1.0f ? 0.0f : w;
-}
+inline float wrap01(float h) { return circular::wrap01(h); }
 inline float base(float paletteBase) { return wrap01(paletteBase); }
 inline float paletteCycleSpeed(float speed) { return std::clamp(speed, 0.0f, kMaxPaletteCycle); }
 inline float span(float hueRange, float paletteRange) { return range(hueRange) * std::clamp(paletteRange, 0.0f, 1.0f); }

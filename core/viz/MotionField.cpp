@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 
+#include "viz/Circular.hpp"
 #include "viz/VisualSafety.hpp"
 
 namespace geode::viz {
@@ -38,11 +39,7 @@ float MotionField::oneOle(float current, float target, float dt, float tauSecond
     return current + (target - current) * k;
 }
 
-float MotionField::wrappedDelta01(float from, float to) {
-    float d = std::fmod(to - from + 1.5f, 1.0f);
-    if (d < 0.0f) d += 1.0f;
-    return d - 0.5f;
-}
+float MotionField::wrappedDelta01(float from, float to) { return circular::arcDelta(from, to); }
 
 // A 32-bit LCG: cheap enough for a per-frame path, deterministic per instance.
 float MotionField::nextRandom() {
@@ -101,7 +98,7 @@ void MotionField::step(const GeodeSoundFrame& f, float dt) {
             hueStrength = std::clamp(f.presence, 0.0f, 1.0f) * 0.6f;
             break;
     }
-    keyHuePhase_ = std::fmod(keyHuePhase_ + wrappedDelta01(keyHuePhase_, hueTarget) * (1.0f - std::exp(-dt / kKeyHueSeconds)) + 1.0f, 1.0f);
+    keyHuePhase_ = circular::mixHue(keyHuePhase_, hueTarget, 1.0f - std::exp(-dt / kKeyHueSeconds));
     state_.keyHue = keyHuePhase_;
     state_.keyStrength = oneOle(state_.keyStrength, hueStrength, dt, kKeyStrengthSeconds);
 

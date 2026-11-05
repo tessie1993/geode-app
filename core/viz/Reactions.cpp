@@ -167,7 +167,7 @@ constexpr std::array<ReactSourceInfo, kReactSourceCount> kSourceInfo = {{
     {"LEGATO", "Slide", "MELODY", true},
     {"REATTACK", "Same note again", "MELODY", true},
     {"NOTE_RANDOM", "Note random", "MELODY", false},
-    {"PITCH_CLASS", "Pitch class", "MELODY", false},
+    {"PITCH_CLASS", "Pitch class", "MELODY", false, Circle::Hue},
     {"PITCH_HEIGHT", "Pitch height", "MELODY", false},
     {"PITCH_CONFIDENCE", "Pitch clarity", "MELODY", false},
     {"INTERVAL", "Interval", "MELODY", false},
@@ -191,9 +191,9 @@ constexpr std::array<ReactSourceInfo, kReactSourceCount> kSourceInfo = {{
     {"EQ_8K9", "8.9 kHz", "EQ", false},
     {"EQ_14K", "14 kHz", "EQ", false},
     {"EQ_22K", "22 kHz", "EQ", false},
-    {"BEAT_PHASE", "Beat phase", "RHYTHM", false},
-    {"BAR_PHASE", "Bar phase", "RHYTHM", false},
-    {"PHRASE_PHASE", "Phrase phase", "RHYTHM", false},
+    {"BEAT_PHASE", "Beat phase", "RHYTHM", false, Circle::Phase},
+    {"BAR_PHASE", "Bar phase", "RHYTHM", false, Circle::Phase},
+    {"PHRASE_PHASE", "Phrase phase", "RHYTHM", false, Circle::Phase},
     {"BEAT_CONF", "Beat certainty", "RHYTHM", false},
     {"BPM", "Tempo", "RHYTHM", false},
     {"BEAT", "Beat", "RHYTHM", true},
@@ -203,14 +203,14 @@ constexpr std::array<ReactSourceInfo, kReactSourceCount> kSourceInfo = {{
     {"FLUX_MID", "Mid onsets", "RHYTHM", false},
     {"FLUX_HIGH", "High onsets", "RHYTHM", false},
     {"HFC", "Percussive attack", "RHYTHM", false},
-    {"KEY_HUE", "Key colour", "HARMONY", false},
-    {"KEY_ROOT", "Key note", "HARMONY", false},
+    {"KEY_HUE", "Key colour", "HARMONY", false, Circle::Hue},
+    {"KEY_ROOT", "Key note", "HARMONY", false, Circle::Hue},
     {"KEY_MAJOR", "Major vs minor", "HARMONY", false},
     {"KEY_CLARITY", "Key clarity", "HARMONY", false},
-    {"CHORD_HUE", "Chord colour", "HARMONY", false},
+    {"CHORD_HUE", "Chord colour", "HARMONY", false, Circle::Hue},
     {"TENSION", "Chord tension", "HARMONY", false},
     {"HARMONIC_CHANGE", "Chord change", "HARMONY", true},
-    {"SCALE_ROOT", "Scale note", "HARMONY", false},
+    {"SCALE_ROOT", "Scale note", "HARMONY", false, Circle::Hue},
     {"SCALE_BRIGHTNESS", "Scale mood (dark to bright)", "HARMONY", false},
     {"SCALE_TENSION", "Scale tension", "HARMONY", false},
     {"SCALE_FIT", "In a scale", "HARMONY", false},
@@ -287,6 +287,10 @@ void ReactionEngine::reset() {
     acc_.fill(0.0f);
     out_.fill(0.0f);
     high_.fill(false);
+    circ_.fill(0.0f);
+    circSource_.fill(0);
+    circFrom_.fill(0.0f);
+    circBlend_.fill(0.0f);
     for (int i = 0; i < kRoutes; ++i) jumpSeed_[static_cast<size_t>(i)] = 0x9E3779B9u * static_cast<unsigned int>(i + 1);
 }
 
@@ -321,6 +325,7 @@ void ReactionEngine::tick(const GeodeSoundFrame& f, float dt) {
         const size_t k = static_cast<size_t>(i);
         if (!r.enabled || r.target == LfoTarget::None) {
             out_[k] = 0.0f;
+            circSource_[k] = 0;
             continue;
         }
         const float src = signals_.value(r.source);
@@ -361,6 +366,29 @@ void ReactionEngine::tick(const GeodeSoundFrame& f, float dt) {
             attack = std::max(attack, kLuminanceMinAttack);
             release = std::max(release, kLuminanceMinRelease);
         }
+        const Circle circle = reactSourceInfo(r.source).circle;
+        if (r.mode == ReactMode::Follow && circle != Circle::None) {
+            // A hue or a phase has no rest to rise from or fall back to, so it glides by the attack
+            // alone, on its circle: 0.95 -> 0.05 goes forward through 1.0 = 0.0, never back through 0.5.
+            // Smoothing the source before the curve and the amount (not the output after) is what keeps
+            // the seam a seam: the output wraps where the source wraps, by `amount`, as the raw source does.
+            const float gain = attack <= 1e-4f ? 1.0f : onePoleK(dt, attack);
+            const int source = static_cast<int>(r.source) + 1;
+            if (circSource_[k] != source) {
+                circ_[k] = src;
+                circSource_[k] = source;
+                circFrom_[k] = out_[k];
+                circBlend_[k] = 0.0f;
+            } else {
+                circ_[k] = circular::follow(circle, circ_[k], src, gain);
+            }
+            circBlend_[k] += (1.0f - circBlend_[k]) * gain;
+            if (circBlend_[k] > 0.999f) circBlend_[k] = 1.0f;
+            const float followed = shape(circ_[k], r.curve) * r.amount;
+            out_[k] = circFrom_[k] + (followed - circFrom_[k]) * circBlend_[k];
+            continue;
+        }
+        circSource_[k] = 0;
         const float tau = std::fabs(target) > std::fabs(out_[k]) ? attack : release;
         out_[k] += (target - out_[k]) * (tau <= 1e-4f ? 1.0f : onePoleK(dt, tau));
     }

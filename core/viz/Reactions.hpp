@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include "api/geode_api.h"
+#include "viz/Circular.hpp"
 #include "viz/Lfo.hpp"
 #include "viz/Params.hpp"
 
@@ -60,12 +61,15 @@ constexpr int kReactSourceCount = static_cast<int>(ReactSource::Drop) + 1;
 // source. C++ owns it (the user's rule: the reaction feature lives in C++); Kotlin reads it over JNI
 // (geode_react_source_catalog) and does not keep its own list. `name` is the stable saved name,
 // `group` the picker section (LEVELS, DRUMS, EVENTS, MELODY, CLOCKS, TEXTURE, EQ, RHYTHM, HARMONY, FORM), `event` a trigger
-// held as an envelope rather than a level.
+// held as an envelope rather than a level, `circle` a value on a circle (a hue, a pitch class, a phase):
+// the route smoothing follows it round the seam (viz/Circular.hpp) instead of sweeping back across the
+// whole circle, so the rule is data, not a list in the smoother.
 struct ReactSourceInfo {
     const char* name;
     const char* label;
     const char* group;
     bool event;
+    Circle circle = Circle::None;
 };
 const ReactSourceInfo& reactSourceInfo(ReactSource s);
 
@@ -179,6 +183,14 @@ private:
     std::array<float, kRoutes> out_{};
     std::array<bool, kRoutes> high_{};
     std::array<unsigned int, kRoutes> jumpSeed_{};
+    // A Follow route on a circular source smooths the source on its circle, before the curve and the
+    // amount; `circ_` is that smoothed value, `circSource_` the source it follows plus one (0: not primed, so a fresh engine needs no reset).
+    std::array<float, kRoutes> circ_{};
+    std::array<int, kRoutes> circSource_{};
+    // Where the output was when the route started following its circle, and how far (0..1) it has
+    // glided from there, so a route the director or the DNA swaps in eases in like any other.
+    std::array<float, kRoutes> circFrom_{};
+    std::array<float, kRoutes> circBlend_{};
 
     float nextJump(int route);
 };

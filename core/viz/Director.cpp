@@ -4,6 +4,8 @@
 #include <atomic>
 #include <cmath>
 
+#include "viz/Circular.hpp"
+
 namespace geode::viz {
 
 using sound::Emotion;
@@ -79,10 +81,10 @@ const std::array<Pool, Emotion::kGems> kPools = {{
       {ReactSource::Level, LfoTarget::Vignette, 0.3f, 0.5f, 1.5f}}},
 }};
 
-float wrap01(float h) { return h - std::floor(h); }
-// Shortest way round the colour wheel, -0.5..0.5.
-float hueDelta(float from, float to) { return wrap01(to - from + 0.5f) - 0.5f; }
-float mixHue(float from, float to, float k) { return wrap01(from + hueDelta(from, to) * k); }
+// The colour wheel's one set of helpers (viz/Circular.hpp): hueDelta is the shortest way round, -0.5..0.5.
+using circular::mixHue;
+using circular::wrap01;
+float hueDelta(float from, float to) { return circular::arcDelta(from, to); }
 float lerp(float a, float b, float k) { return a + (b - a) * k; }
 float clamp01(float x) { return std::clamp(x, 0.0f, 1.0f); }
 float smooth(float x) {

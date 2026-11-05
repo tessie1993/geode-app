@@ -74,3 +74,24 @@ jobs:
       - name: Nothing below ui names ui
         shell: bash
         run: bash tools/layer-gate.sh
+
+      # Pins the engine Kotlin gate: growth in an engine path must fail it, shrinking must pass.
+      - name: Self-test the engine Kotlin gate
+        shell: bash
+        run: |
+          set -u
+          T=$'\t'
+          ok() { printf '%s\n' "$@" | bash tools/engine-kotlin-gate.sh >/dev/null; }
+          ok "5${T}40${T}engine/scenes/src/main/kotlin/dev/geode/render/Lfo.kt" || { echo "::error::shrink failed"; exit 1; }
+          ok "30${T}0${T}app/src/main/java/dev/geode/ui/AppShell.kt" || { echo "::error::ui change failed"; exit 1; }
+          ok "12${T}0${T}engine/audio-core/src/main/kotlin/dev/geode/engine/bridge/GeodeNative.kt" || { echo "::error::JNI decls failed"; exit 1; }
+          if ok "40${T}0${T}engine/audio-core/src/main/kotlin/dev/geode/engine/audio/PlayoutClock.kt"; then echo "::error::new engine Kotlin passed"; exit 1; fi
+          if ok "20${T}5${T}app/src/main/java/dev/geode/export/LoopRender.kt"; then echo "::error::export growth passed"; exit 1; fi
+          echo "engine Kotlin gate self-test passed"
+
+      - name: Engine Kotlin only shrinks
+        shell: bash
+        run: |
+          git diff --numstat -M \
+            "${{ github.event.pull_request.base.sha }}...${{ github.event.pull_request.head.sha }}" \
+            | bash tools/engine-kotlin-gate.sh

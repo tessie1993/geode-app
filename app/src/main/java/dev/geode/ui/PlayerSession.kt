@@ -78,6 +78,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.job
@@ -396,7 +397,7 @@ class PlayerSession internal constructor(
 
     private val listening: ListeningTracker =
         ListeningTracker(
-            application,
+            playback.history,
             favouritesRepository,
             sessionRepository,
             storeScope,
@@ -1225,6 +1226,8 @@ class PlayerSession internal constructor(
                 nextStageStyle(stageStyleOrder(), chosenSceneId, step) { !allowsStyle(it) }?.let(::selectScene)
             }
         }
+        // The playback session records plays (#371); this only tells history screens to re-read.
+        scope.launch { playback.playsRecorded.drop(1).collect { listening.onPlayRecorded() } }
         scope.launch {
             attachPlayback()
             pollPlaybackState()
@@ -1253,22 +1256,6 @@ class PlayerSession internal constructor(
                     refresh()
                     if (events.contains(Player.EVENT_MEDIA_ITEM_TRANSITION)) {
                         currentUri = player.currentMediaItem?.localConfiguration?.uri
-                        currentUri?.let { u ->
-                            val title =
-                                player.mediaMetadata.title?.toString()
-                                    ?: player.currentMediaItem
-                                        ?.localConfiguration
-                                        ?.uri
-                                        ?.lastPathSegment
-                                        .orEmpty()
-                            listening.recordPlay(
-                                u.toString(),
-                                title,
-                                player.mediaMetadata.artist
-                                    ?.toString()
-                                    .orEmpty(),
-                            )
-                        }
                         onTrackChanged()
                         bookmarks.onTrackStarted(player)
                     }
@@ -1331,7 +1318,6 @@ class PlayerSession internal constructor(
             captureController.refreshMicState()
             autoVisuals.advanceVizPlaylist()
             autoVisuals.advanceRandomMode()
-            listening.persistSession()
             bookmarks.onPoll(player)
             delay(POLL_INTERVAL_MS)
         }

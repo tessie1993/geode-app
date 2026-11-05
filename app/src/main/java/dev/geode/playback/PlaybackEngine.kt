@@ -16,8 +16,10 @@ import dev.geode.audio.TapRenderersFactory
 import dev.geode.audio.dsp.NativeDspProcessor
 import dev.geode.data.BehaviourStore
 import dev.geode.data.GeodePrefsFiles
+import dev.geode.data.HistoryStore
 import dev.geode.data.PlayerPrefs
 import dev.geode.data.PlayerPrefsStore
+import dev.geode.data.SessionStore
 import dev.geode.engine.audio.AudioPresentationClock
 import dev.geode.engine.audio.PcmSink
 import dev.geode.engine.audio.SampleRing
@@ -127,6 +129,24 @@ class PlaybackSession internal constructor(
     private val autoDirector = AutoDirectorFeed(context.applicationContext, player, scope)
 
     /**
+     * The process's one play history. The UI reads it (Recent, play counts) and adds listen time to it;
+     * [recorder] records the plays. One instance, because each [HistoryStore] holds its own copy in
+     * memory and writes the whole file: two writers would undo each other's plays.
+     */
+    val history = HistoryStore(context)
+
+    private val sessionStore = SessionStore(context)
+
+    /** Saves the resumption queue and records plays whoever holds the player, UI or service alone (#371). */
+    private val recorder =
+        PlayRecorder(PlayRecorder.sourceOf(player), history, scope) { saved ->
+            runCatching { sessionWriter.execute { sessionStore.save(saved) } }
+        }
+
+    /** Bumps once per recorded play; the UI's history tick follows it. */
+    val playsRecorded = recorder.plays
+
+    /**
      * The rate of whichever source writes [sampleRing] right now: the tap's format when nothing else
      * claims it, otherwise what the UI session's capture controller sets (mic, other apps' audio, or
      * back to the player). Written from the playback and capture threads, read on every GL thread.
@@ -141,6 +161,7 @@ class PlaybackSession internal constructor(
         player.addListener(replayGain)
         player.addListener(autoDirector)
         player.addListener(crossfade)
+        player.addListener(recorder)
         dev.geode.audio.AudioBus.soundInput = soundInput
         // The saved options go on here, not only when the UI attaches: a session the service starts
         // alone (a headset button, Android Auto or System UI resuming playback) has no PlayerSession,
@@ -193,12 +214,14 @@ class PlaybackSession internal constructor(
 
     internal fun release() {
         if (dev.geode.audio.AudioBus.soundInput === soundInput) dev.geode.audio.AudioBus.soundInput = null
+        recorder.release()
         scope.cancel()
         onAudioFormat = null
         audioFx.release()
         player.removeListener(replayGain)
         player.removeListener(autoDirector)
         player.removeListener(crossfade)
+        player.removeListener(recorder)
         headphones.release()
         autoDirector.release()
         bitPerfect.setEnabled(false, player)
@@ -208,6 +231,12 @@ class PlaybackSession internal constructor(
 
     private companion object {
         const val DEFAULT_SAMPLE_RATE_HZ = 48_000
+
+        /** One file, written in order off the main thread; a daemon, like the history writer. */
+        val sessionWriter: java.util.concurrent.ExecutorService =
+            java.util.concurrent.Executors.newSingleThreadExecutor { r ->
+                Thread(r, "geode-session").apply { isDaemon = true }
+            }
     }
 }
 

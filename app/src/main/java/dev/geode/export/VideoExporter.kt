@@ -42,30 +42,33 @@ enum class ExportCodec(
     /** This codec when the device has an encoder for it, otherwise H.264, which every device has. */
     fun available(): ExportCodec = if (this == H264 || hasEncoder(mimeType)) this else H264
 
-    /**
-     * The highest rate the first encoder for this codec lists for a [width] x [height] picture
-     * (the standard's limit, not a speed promise), 0 when it does not say or refuses the size.
-     * Only the query: the encoder ladder in core/output decides what to ask for.
-     */
-    fun fpsCeiling(
-        width: Int,
-        height: Int,
-    ): Int =
-        runCatching {
-            val encoder =
-                MediaCodecList(MediaCodecList.REGULAR_CODECS).codecInfos.firstOrNull { info ->
-                    info.isEncoder && info.supportedTypes.any { it.equals(mimeType, ignoreCase = true) }
-                }
-            encoder?.getCapabilitiesForType(mimeType)?.videoCapabilities?.getSupportedFrameRatesFor(width, height)?.upper?.toInt()
-        }.getOrNull() ?: 0
+    /** Encoder attempts in order: core/output's ladder on this codec if the device has it, then H.264, under each listed top rate. */
+    fun attempts(
+        aspect: ExportAspect,
+        requestedFps: Int,
+        bitRate: Int,
+    ): List<EncoderAttempt> {
+        val codecs = listOf(available(), H264).distinct()
+        val tops = codecs.map { c -> runCatching { videoCaps(c.mimeType)?.getSupportedFrameRatesFor(aspect.width, aspect.height)?.upper } }
+        val rungs = GeodeNative.encoderAttempts(requestedFps, bitRate, IntArray(codecs.size) { tops[it].getOrNull()?.toInt() ?: 0 })
+        return (rungs.indices step 3).map { EncoderAttempt(codecs[rungs[it]], rungs[it + 1], rungs[it + 2]) }
+    }
 
     companion object {
-        fun hasEncoder(mimeType: String): Boolean =
-            MediaCodecList(MediaCodecList.REGULAR_CODECS).codecInfos.any { info ->
+        fun hasEncoder(mimeType: String): Boolean = videoCaps(mimeType) != null
+
+        private fun videoCaps(mimeType: String): MediaCodecInfo.VideoCapabilities? =
+            MediaCodecList(MediaCodecList.REGULAR_CODECS).codecInfos.firstOrNull { info ->
                 info.isEncoder && info.supportedTypes.any { it.equals(mimeType, ignoreCase = true) }
-            }
+            }?.getCapabilitiesForType(mimeType)?.videoCapabilities
     }
 }
+
+class EncoderAttempt(
+    val codec: ExportCodec,
+    val fps: Int,
+    val bitRate: Int,
+)
 
 enum class ExportQuality(
     val shortSide: Int,
@@ -423,13 +426,7 @@ class VideoExporter(
             if (bitRate < aspect.bitRate) {
                 RingLog.note(TAG, "video bit rate capped to $bitRate for a ${aac.durationUs / 1000} ms render")
             }
-            // The requested codec's ladder (core/output/EncoderLadder), then the same ladder on H.264.
-            val attempts =
-                listOf(codec.available(), ExportCodec.H264).distinct().flatMap { c ->
-                    val rungs = GeodeNative.encoderLadder(requestedFps, bitRate, c.fpsCeiling(aspect.width, aspect.height))
-                    (rungs.indices step 2).map { EncoderAttempt(c, rungs[it], rungs[it + 1]) }
-                }
-            val (encoder, fps) = openEncoder(aspect, attempts)
+            val (encoder, fps) = openEncoder(aspect, codec.attempts(aspect, requestedFps, bitRate))
             encoderRef = encoder
             val inputSurface = encoder.createInputSurface().also { inputSurfaceRef = it }
             encoder.start()
@@ -586,12 +583,6 @@ class VideoExporter(
             aacRef?.release()
         }
     }
-
-    private class EncoderAttempt(
-        val codec: ExportCodec,
-        val fps: Int,
-        val bitRate: Int,
-    )
 
     private fun videoFormat(
         aspect: ExportAspect,

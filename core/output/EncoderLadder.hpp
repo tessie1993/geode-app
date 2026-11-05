@@ -5,6 +5,9 @@
 // (export/LoopRender `negotiate`, export/VideoExporter's attempt list, both over data/ExportPrefs
 // `fallbackExportFps`); one source here keeps the loop render and the one-tap render from drifting.
 //
+// encoderAttempts gives the whole attempt list an export walks: each candidate codec's ladder in turn (the
+// requested codec, then H.264), so Kotlin only iterates it.
+//
 // Kotlin still asks the platform what the encoder can do (MediaCodecInfo.VideoCapabilities
 // .getSupportedFrameRatesFor, the coding standard's limit for the size, not a performance promise)
 // and hands the upper bound in as `ceilingFps`. It still tries each rung with configure, because the
@@ -63,6 +66,31 @@ constexpr int encoderLadder(int requestedFps, int bitRate, int ceilingFps, Encod
         const bool floorRung = i == kLadderMaxRungs - 1;
         if (ceilingFps > 0 && rungs[i].fps > ceilingFps && !floorRung) continue;
         out[written++] = rungs[i];
+    }
+    return written;
+}
+
+/** The most codecs encoderAttempts reads: the requested one, then H.264. */
+inline constexpr int kAttemptMaxCodecs = 2;
+/** The most attempts encoderAttempts writes. */
+inline constexpr int kAttemptMaxCount = kAttemptMaxCodecs * kLadderMaxRungs;
+
+struct EncoderAttempt {
+    int codec = 0;  // index into the caller's codec list
+    EncoderRung rung;
+};
+
+/**
+ * Writes every attempt into out[0 .. kAttemptMaxCount) in the order to try: codec 0's ladder, then codec 1's,
+ * each under its own ceiling (ceilings[i], <= 0 when unknown). Reads at most kAttemptMaxCodecs codecs and
+ * returns how many attempts it wrote.
+ */
+constexpr int encoderAttempts(int requestedFps, int bitRate, const int* ceilings, int codecCount, EncoderAttempt* out) {
+    int written = 0;
+    for (int c = 0; c < std::min(codecCount, kAttemptMaxCodecs); ++c) {
+        EncoderRung rungs[kLadderMaxRungs];
+        const int count = encoderLadder(requestedFps, bitRate, ceilings[c], rungs);
+        for (int i = 0; i < count; ++i) out[written++] = {c, rungs[i]};
     }
     return written;
 }

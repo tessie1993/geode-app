@@ -72,6 +72,8 @@ float Renderer::beginFrame(double timeSeconds) {
         frameLayerBlend_ = layerBlend_;
         frameTransitionId_ = transitionId_;
         frameTransitionDurationMs_ = transitionDurationMs_;
+        // Each pushed block reaches this frame's scenes once; no new push, no PCM (PcmHandoff).
+        framePcmCount_ = pcm_.take(pcmDeliverScratch_.data());
     }
     for (const auto& [id, src] : pending) {
         if (Scene* scene = builtScene(id)) scene->setFragmentSource(src);
@@ -238,17 +240,8 @@ bool Renderer::ensureTargets() {
 }
 
 void Renderer::deliverPcm(Scene& scene) {
-    // Copy out under the lock, then hand the scene its own scratch buffer
-    // once unlocked: acceptPcm() (a copy of up to 4096 samples and its
-    // upload) must never run while stateLock_ is held, or pushPcm() on
-    // the PCM producer thread blocks behind a scene upload.
-    int count = 0;
-    {
-        std::lock_guard<std::mutex> lock(stateLock_);
-        count = pcmCount_;
-        if (count > 0) std::copy(pcm_.begin(), pcm_.begin() + count, pcmDeliverScratch_.begin());
-    }
-    if (count > 0) scene.acceptPcm(pcmDeliverScratch_.data(), count);
+    // beginFrame took this frame's block (if any) into the scratch buffer; acceptPcm() runs unlocked.
+    if (framePcmCount_ > 0) scene.acceptPcm(pcmDeliverScratch_.data(), framePcmCount_);
 }
 
 void Renderer::bindSecondaryTarget() {

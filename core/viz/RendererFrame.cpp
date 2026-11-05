@@ -4,6 +4,7 @@
 #include <cmath>
 #include <random>
 
+#include "output/TakeSession.hpp"
 #include "sound/Form.hpp"
 #include "viz/Catalogue.hpp"
 #include "viz/CompositeGrade.hpp"
@@ -444,6 +445,11 @@ void Renderer::render(double timeSeconds, GLuint targetFbo) {
     // Measured after the composite, before the UI blur: the glass sheet is not the visual (and an export
     // never draws it). Live and export both run this, so a render is limited exactly like the screen.
     outputProbe_.capture(targetFbo, width_, height_, flashGrade_, safetyClock_);
+    // A capture take copies the frame here: finished and flash-limited, and still without the glass sheet.
+    if (takeStage_.load(std::memory_order_relaxed) && targetFbo == 0) {
+        output::TakeSession::shared().noteStageSize(width_, height_);
+        takeSurface_.present(timeSeconds, width_, height_);
+    }
     drawUiBlur(targetFbo);
 }
 

@@ -369,6 +369,11 @@ Java_dev_geode_engine_bridge_GeodeNative_vizSetOffscreen(JNIEnv*, jobject, jlong
 }
 
 JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_vizSetTakeStage(JNIEnv*, jobject, jlong handle, jboolean on) {
+    geode_viz_set_take_stage(vizOf(handle), on == JNI_TRUE);
+}
+
+JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_vizSetUiBlurRegion(JNIEnv*, jobject, jlong handle, jfloat left, jfloat top,
                                                             jfloat right, jfloat bottom, jfloat strength, jfloat cornerPx) {
     geode_viz_set_ui_blur_region(vizOf(handle), left, top, right, bottom, strength, cornerPx);

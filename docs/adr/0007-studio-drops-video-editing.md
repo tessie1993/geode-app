@@ -14,7 +14,7 @@ What goes:
 What stays:
 
 - Studio › Render (one tap, batch, loop) and My videos (renders and takes).
-- Record: a stopped take still becomes a project and renders to MP4 in the background through `ExportController.renderProject`, `export/ProjectComposition` and `StudioExporter.exportComposition`. ADR 0005's project model (`editor/StudioProject`, `data/EditorProjectStore`, `data/TakeStore`) stays as the storage and render plan for takes and kept renders; no screen edits it.
+- Record (amended by [ADR 0008](0008-takes-are-screen-captures.md): a take is a screen capture, nothing renders after the stop): a stopped take still becomes a project and renders to MP4 in the background through `ExportController.renderProject`, `export/ProjectComposition` and `StudioExporter.exportComposition`. ADR 0005's project model (`editor/StudioProject`, `data/EditorProjectStore`, `data/TakeStore`) stays as the storage and render plan for takes and kept renders; no screen edits it.
 - `ProFeature.STUDIO`, which now gates Record only.
 
 ## Consequences

@@ -378,6 +378,12 @@ object GeodeNative {
         on: Boolean,
     )
 
+    /** The in-app stage, the one renderer a capture take copies its frames from (`geode_viz_set_take_stage`). */
+    external fun vizSetTakeStage(
+        handle: Long,
+        on: Boolean,
+    )
+
     /**
      * Frosted glass under the app's sheet (`core/viz/UiBlurPass`): the renderer blurs its finished frame
      * inside one rounded rect. The rect is normalised to the viewport, y down (view pixels over the
@@ -564,4 +570,32 @@ object GeodeNative {
         nowMs: Long,
         heardAtMs: Long,
     ): Boolean
+
+    // Capture takes (core/output/TakeSession, ADR 0008): Record encodes the live stage and the heard sound.
+
+    /**
+     * Starts a take into [fd] (read-write; keep it open until [takeEnd] returns) at the stage's size and
+     * [displayFps] up to 60. False when no stage has drawn, a take is running, or no encoder would start.
+     */
+    external fun takeBegin(
+        fd: Int,
+        displayFps: Float,
+    ): Boolean
+
+    /** Ends the take and finishes its MP4: its length in ms, or -1 with no picture. Blocks; never on Main. */
+    external fun takeEnd(): Long
+
+    external fun takeActive(): Boolean
+
+    /**
+     * The record tap: [bytes] of interleaved 16-bit PCM from [offset] in the direct [buffer], as heard.
+     * A no-op while no take runs, or for a buffer that is not direct.
+     */
+    external fun takeWriteAudio(
+        buffer: java.nio.ByteBuffer,
+        offset: Int,
+        bytes: Int,
+        channels: Int,
+        sampleRate: Int,
+    )
 }

@@ -39,7 +39,9 @@ import dev.geode.data.SharedPrefsPlayerPrefsRepository
 import dev.geode.data.SmartPlaylist
 import dev.geode.data.SmartPlaylistMatcher
 import dev.geode.data.TagWriteOutcome
+import dev.geode.data.TakeCapture
 import dev.geode.data.TakeStore
+import dev.geode.data.TakeVideo
 import dev.geode.data.TemplateId
 import dev.geode.data.TemplateImport
 import dev.geode.data.TemplateLook
@@ -415,6 +417,8 @@ class PlayerSession internal constructor(
 
     val favourites: StateFlow<Set<String>> get() = listening.favourites
 
+    private val takeCapture = TakeCapture(application)
+
     private val takeController: TakeController =
         TakeController(
             FileTakeRepository(TakeStore(application)),
@@ -441,10 +445,16 @@ class PlayerSession internal constructor(
 
                 override fun onRecordLocked() = onRecordingLocked()
 
-                override fun renderProject(
-                    project: dev.geode.editor.StudioProject,
-                    onRendered: (dev.geode.editor.ProjectRender) -> Unit,
-                ) = exportController.renderProject(project, onRendered = onRendered)
+                override fun beginCapture(): Boolean = takeCapture.begin()
+
+                override fun endCapture(): TakeVideo? = takeCapture.end()
+
+                override fun publishCapture(
+                    video: TakeVideo,
+                    target: SaveTarget,
+                ): String? = takeCapture.publish(video, target)?.toString()
+
+                override fun discardCapture(video: TakeVideo) = takeCapture.discard(video)
 
                 override fun recordRender(
                     id: dev.geode.editor.ProjectId,

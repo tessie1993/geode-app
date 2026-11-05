@@ -106,25 +106,6 @@ data class ClipEdit(
         return (end - startMs).coerceAtLeast(0L)
     }
 
-    fun outputMs(sourceDurationMs: Long): Long = (trimmedMs(sourceDurationMs) / speed.coerceAtLeast(0.01f)).toLong()
-
-    fun isIdentity(sourceDurationMs: Long): Boolean =
-        startMs == 0L &&
-            (endMs == 0L || endMs >= sourceDurationMs) &&
-            brightness == 0f &&
-            contrast == 0f &&
-            saturation == 0f &&
-            hueDegrees == 0f &&
-            !monochrome &&
-            !invert &&
-            speed == 1f &&
-            rotationDegrees == 0f &&
-            ratio == null &&
-            !mute &&
-            caption.isBlank() &&
-            lutUri == null &&
-            !hasGamma
-
     fun clipping(): MediaItem.ClippingConfiguration =
         MediaItem.ClippingConfiguration
             .Builder()

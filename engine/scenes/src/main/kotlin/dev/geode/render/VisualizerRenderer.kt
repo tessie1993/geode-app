@@ -60,6 +60,10 @@ class VisualizerRenderer(
     @Volatile
     var performance: PerformanceSettings = PerformanceSettings.HIGH
 
+    /** The in-app stage, the one surface a capture take copies (ADR 0008); wallpaper, dream and cast leave it off. */
+    @Volatile
+    var takeStage: Boolean = false
+
     @Volatile
     var layerSceneId: String? = null
 
@@ -361,6 +365,7 @@ class VisualizerRenderer(
         }
         nativeViz.setLook(lookYaw, lookPitch)
         nativeViz.setReducedMotion(reducedMotion)
+        nativeViz.setTakeStage(takeStage)
         nativeViz.setLayer(layerSceneId, layerMix, layerBlend)
         nativeViz.setTransition(transitionId, transitionDurationMs)
         nativeViz.setPacedFps(ThermalGovernor.pacedFps)

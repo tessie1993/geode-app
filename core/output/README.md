@@ -1,6 +1,8 @@
-# core/output (skeleton, empty)
+# core/output
 
-Part of the target in [ADR 0006](../../docs/adr/0006-fosfora-aligned-engine.md). Nothing here yet.
+Part of the target in [ADR 0006](../../docs/adr/0006-fosfora-aligned-engine.md). The offline driver below is not built yet.
+
+**Built:** capture takes ([ADR 0008](../../docs/adr/0008-takes-are-screen-captures.md)). `TakeClock` holds every rule a take's timing and size follow (host-tested in `core/tests/take_clock_test.cpp`); `TakeSession` runs the encoders, muxer and encoder thread behind `geode_take_*`.
 
 **Owns:** the offline driver: how a render steps the same engine the screen runs, faster than real time.
 - A frame clock from samples: for frame `n` at `fps`, deliver samples up to `llround((n + 1) · rate / fps)` and render at that sample position, with dt passed in rather than worked out from wall time (`RendererFrame.cpp:50-51` clamps and guesses it today; the first frame is always 1/60 s).

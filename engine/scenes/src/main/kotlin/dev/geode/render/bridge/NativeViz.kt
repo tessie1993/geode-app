@@ -230,6 +230,11 @@ class NativeViz(
         if (handle != 0L) GeodeNative.vizSetOffscreen(handle, on)
     }
 
+    /** See [GeodeNative.vizSetTakeStage]. A no-op before the handle exists. */
+    fun setTakeStage(on: Boolean) {
+        if (handle != 0L) GeodeNative.vizSetTakeStage(handle, on)
+    }
+
     /** The glass sheet's blur region; see [GeodeNative.vizSetUiBlurRegion]. A no-op before the handle exists. */
     fun setUiBlurRegion(
         left: Float,

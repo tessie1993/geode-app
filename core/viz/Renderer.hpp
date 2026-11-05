@@ -35,6 +35,7 @@
 #include "viz/SceneRegistry.hpp"
 #include "viz/SceneResidency.hpp"
 #include "viz/StyleSchedule.hpp"
+#include "viz/TakeSurface.hpp"
 #include "viz/ShaderSource.hpp"
 #include "viz/ThermalGovernor.hpp"
 #include "viz/TouchField.hpp"
@@ -68,6 +69,9 @@ public:
     void setBlockingBuilds(bool on) { blockingBuilds_.store(on, std::memory_order_relaxed); }
     // Export (geode_viz_set_offscreen): never draws the UI blur, whatever region it was given.
     void setOffscreen(bool on) { offscreen_.store(on, std::memory_order_relaxed); }
+    // The in-app stage (geode_viz_set_take_stage): the one renderer a capture take copies its frames from
+    // (TakeSurface, output::TakeSession). Wallpaper, dream and cast renderers never are. Any thread.
+    void setTakeStage(bool on) { takeStage_.store(on, std::memory_order_relaxed); }
     // The app's glass sheet over the live visual (UiBlurPass): latched for the next frame. Any thread.
     void setUiBlurRegion(const UiBlurRegion& region);
     // Settings › Performance › Liquid on a hot phone (liquid::HotPolicy). Any thread.
@@ -249,6 +253,9 @@ private:
     // Frosted glass under the app's sheet. The region is guarded by stateLock_; uiBlurOn_ lets a frame
     // with no sheet skip the lock.
     UiBlurPass uiBlurPass_;
+    // A capture take's copy of the finished frame (ADR 0008), before the UI blur. GL thread only.
+    TakeSurface takeSurface_;
+    std::atomic<bool> takeStage_{false};
     UiBlurRegion uiBlurRegion_;
     std::atomic<bool> uiBlurOn_{false};
     std::atomic<bool> offscreen_{false};

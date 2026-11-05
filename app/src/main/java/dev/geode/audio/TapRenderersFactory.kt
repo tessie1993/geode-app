@@ -18,8 +18,16 @@ class TapRenderersFactory(
     private val hooks: SinkClockHooks = SinkClockHooks.None,
     private val dsp: List<AudioProcessor> = emptyList(),
 ) : DefaultRenderersFactory(context) {
+    /**
+     * The analysis tap first, the user's DSP after it, and the record-only [TakeAudioTap] last of all, so a
+     * capture take hears every stage the speaker does (`docs/AUDIO_CHAIN.md`).
+     */
     internal fun audioProcessorChain(): MvzAudioProcessorChain =
-        MvzAudioProcessorChain(TeeAudioProcessor(sink), dsp = dsp, hooks = hooks).also(hooks::attachSkippedFrames)
+        MvzAudioProcessorChain(
+            TeeAudioProcessor(sink),
+            dsp = dsp + TeeAudioProcessor(TakeAudioTap),
+            hooks = hooks,
+        ).also(hooks::attachSkippedFrames)
 
     override fun buildAudioSink(
         context: Context,

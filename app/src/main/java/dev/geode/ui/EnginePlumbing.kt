@@ -52,6 +52,8 @@ fun VisualizerEngineBindings(
         visualizerView.visualizerRenderer.onShaderError = viewModel::reportShaderError
         visualizerView.visualizerRenderer.pcmProvider = { viewModel.latestPcm() }
         visualizerView.visualizerRenderer.soundInput = { dev.geode.audio.AudioBus.soundInput }
+        // This view is the stage Record captures (ADR 0008); no other VisualizerView ever is.
+        visualizerView.visualizerRenderer.takeStage = true
         // W02: the background image is decoded to the surface's current pixel size, so a rotation
         // or a fold needs a re-decode just as much as a fresh pick does. onSurfaceSizeChanged fires
         // on the GL thread; BackgroundController's state is only ever touched from Main, so this

@@ -122,6 +122,9 @@ GEODE_API void        geode_viz_set_offscreen(geode_viz*, int on);
  * An offscreen (export) renderer never draws it. */
 GEODE_API void        geode_viz_set_ui_blur_region(geode_viz*, float left, float top, float right, float bottom,
                                                    float strength, float corner_px);
+/* The in-app stage (on = 1): the one live renderer a capture take copies its finished frames from, after the
+ * composite and before the UI blur (core/viz/TakeSurface). Wallpaper, dream and cast renderers leave it 0. */
+GEODE_API void        geode_viz_set_take_stage(geode_viz*, int on);
 /* An export's own auto-director (amount 0..1, the play's seed): from now on this renderer ignores
  * geode_director_set, so the live player's switch, track and free taste never reach the render. */
 GEODE_API void        geode_viz_set_director(geode_viz*, float amount, long long seed);
@@ -275,6 +278,20 @@ GEODE_API void            geode_loudness_finish(geode_loudness*, geode_loudness_
 GEODE_API long long       geode_silence_heard_at(const float* const* channels, int channel_count, int frames,
                                                  long long now_ms, long long heard_at_ms);
 GEODE_API int             geode_silence_resting(long long now_ms, long long heard_at_ms);   /* 1 = may rest */
+
+/* Capture takes (core/output/TakeSession, ADR 0008): Record encodes the live stage's frames, at screen size and
+ * the display's rate up to 60 fps, with the sound the performer heard, straight into one MP4. Process-wide:
+ * one take at a time, fed by the stage renderer (geode_viz_set_take_stage) and the record tap at the end of the
+ * playback chain. Timestamps are the engine's frame time and the tap's arrival time on one clock (BOOTTIME);
+ * every timing and sizing rule is core/output/TakeClock, which a host test pins.
+ * begin: fd open for reading and writing, kept open by the caller until end returns; 1 = recording, 0 = no stage
+ * has drawn yet, a take is already running, or no encoder took any offered size. end blocks while the encoders
+ * drain (never call it on the main thread) and returns the take's length in ms, or -1 when it holds no picture.
+ * write_audio: interleaved 16-bit PCM as heard, any rate and channel count; a no-op while no take runs. */
+GEODE_API int         geode_take_begin(int fd, float display_fps);
+GEODE_API int64_t     geode_take_end(void);
+GEODE_API int         geode_take_active(void);
+GEODE_API void        geode_take_write_audio(const int16_t* interleaved, int frames, int channels, int sample_rate);
 
 #ifdef __cplusplus
 }

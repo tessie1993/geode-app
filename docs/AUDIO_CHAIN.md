@@ -26,6 +26,7 @@ DefaultAudioSink  ── MvzAudioProcessorChain ──────────�
    │   2. SilenceSkippingAudioProcessor   ← media3's own              │
    │   3. SonicAudioProcessor             ← media3's own (speed/pitch)│
    │   4. NativeDspProcessor              ← EQ, crossfeed, ReplayGain │
+   │   5. TeeAudioProcessor(TakeAudioTap) ← record-only tap (takes)   │
    │                                                                  │
    ▼                                                                  │
 AudioTrack ──▶ platform audiofx (Equalizer / BassBoost / Loudness) ──▶ speaker
@@ -114,6 +115,11 @@ renderer's own engine at 1/fps; that decode has no user DSP in it. Put
 user-tunable DSP upstream of the tap and live visuals diverge from every
 exported video, differently for every user and every preset.
 
+The last stage is the record-only tap (`audio/TakeAudioTap`, ADR 0008): a capture
+take keeps what the performer heard, after every stage of ours, so it hears the
+chain's integer PCM and feeds the take's encoder only, never a sound engine. It is
+the "second tap, downstream" below. Anything new goes ahead of it.
+
 Stages in the chain after the tap today: `SilenceSkippingAudioProcessor`,
 `SonicAudioProcessor`, `NativeDspProcessor`. A new stage goes after them, never
 ahead of the tap; add its name to this list when you add it.
@@ -134,7 +140,7 @@ audio category is a dozen features, and each one will look broken to someone who
 turns a knob while watching the visualizer.
 
 If output metering is ever wanted, it gets a **second** tap, downstream, feeding
-meters only — never the sound engine.
+meters only — never the sound engine. Takes already have one (`TakeAudioTap`, stage 5).
 
 ## Platform effects are a separate mechanism
 

@@ -1,4 +1,5 @@
 #pragma once
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 
@@ -27,16 +28,10 @@ inline float wrap01(float x) {
 // The shorter signed way from `from` to `to`, in [-0.5, 0.5).
 inline float arcDelta(float from, float to) { return wrap01(to - from + 0.5f) - 0.5f; }
 
-// A phase this far behind its follower or less is jitter (the beat tracker nudging its lock back), not a
-// lap: the follower waits for the ramp to come round instead of racing a whole circle forward to it.
-constexpr float kPhaseBackSlack = 0.1f;
-
-// The forward way from `from` to `to`, in [0, 1): what a phase follower may move. A target a little
-// behind (within kPhaseBackSlack) gives 0: hold.
-inline float phaseDelta(float from, float to) {
-    const float d = wrap01(to - from);
-    return d > 1.0f - kPhaseBackSlack ? 0.0f : d;
-}
+// The forward way from `from` to `to`, in [0, 0.5): what a phase follower may move. A target behind the
+// short way (the beat tracker nudging its lock back, or a follower that lags) gives 0: the follower holds
+// until the ramp comes round. It never runs backward, and never races a whole lap forward either.
+inline float phaseDelta(float from, float to) { return std::max(arcDelta(from, to), 0.0f); }
 
 // The shortest-arc blend of two hues, `k` = 0 at `from`, 1 at `to`.
 inline float mixHue(float from, float to, float k) { return wrap01(from + arcDelta(from, to) * k); }

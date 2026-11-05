@@ -368,11 +368,10 @@ void ReactionEngine::tick(const GeodeSoundFrame& f, float dt) {
         }
         const Circle circle = reactSourceInfo(r.source).circle;
         if (r.mode == ReactMode::Follow && circle != Circle::None) {
-            // A hue or a phase has no rest to rise from or fall back to, so it glides by the attack
-            // alone, on its circle: 0.95 -> 0.05 goes forward through 1.0 = 0.0, never back through 0.5.
-            // Smoothing the source before the curve and the amount (not the output after) is what keeps
-            // the seam a seam: the output wraps where the source wraps, by `amount`, as the raw source does.
-            const float gain = attack <= 1e-4f ? 1.0f : onePoleK(dt, attack);
+            // The source is smoothed on its circle, before the curve and the amount (not the output
+            // after), so 0.95 -> 0.05 goes forward through 1.0 = 0.0, never back through 0.5, and the
+            // output wraps only where the source itself wraps. The route's two times keep their meaning:
+            // moving up the circle raises |amount * source| (attack), moving down lowers it (release).
             const int source = static_cast<int>(r.source) + 1;
             if (circSource_[k] != source) {
                 circ_[k] = src;
@@ -380,12 +379,21 @@ void ReactionEngine::tick(const GeodeSoundFrame& f, float dt) {
                 circFrom_[k] = out_[k];
                 circBlend_[k] = 0.0f;
             } else {
-                circ_[k] = circular::follow(circle, circ_[k], src, gain);
+                const float tauC = circular::arcDelta(circ_[k], src) >= 0.0f ? attack : release;
+                circ_[k] = circular::follow(circle, circ_[k], src, tauC <= 1e-4f ? 1.0f : onePoleK(dt, tauC));
             }
-            circBlend_[k] += (1.0f - circBlend_[k]) * gain;
+            circBlend_[k] += (1.0f - circBlend_[k]) * (attack <= 1e-4f ? 1.0f : onePoleK(dt, attack));
             if (circBlend_[k] > 0.999f) circBlend_[k] = 1.0f;
             const float followed = shape(circ_[k], r.curve) * r.amount;
-            out_[k] = circFrom_[k] + (followed - circFrom_[k]) * circBlend_[k];
+            const float next = circFrom_[k] + (followed - circFrom_[k]) * circBlend_[k];
+            if (isLuminanceTarget(r.target)) {
+                // The seam is a step of `amount` in the output. On a luminance target the anti-strobe
+                // floors still glide it, as they glide every other route's steps.
+                const float tauL = std::fabs(next) > std::fabs(out_[k]) ? kLuminanceMinAttack : kLuminanceMinRelease;
+                out_[k] += (next - out_[k]) * onePoleK(dt, tauL);
+            } else {
+                out_[k] = next;
+            }
             continue;
         }
         circSource_[k] = 0;

@@ -1,6 +1,7 @@
 // Host-side checks for the pure render-thread math: the reaction matrix and
 // the camera rig. Built and run by CI (see .github/workflows/android.yml,
 // "Native host tests") with the system compiler; no GL, no device.
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -65,6 +66,7 @@ void circularHelpersTakeTheShortWay() {
     check(std::fabs(circular::phaseDelta(0.98f, 0.02f) - 0.04f) < 1e-5f, "a phase wrap is a small step forward");
     check(circular::phaseDelta(0.5f, 0.45f) == 0.0f, "a phase a little behind holds, never runs back");
     check(std::fabs(circular::phaseDelta(0.6f, 0.0f) - 0.4f) < 1e-5f, "a phase reset to 0 goes forward through the seam");
+    check(circular::phaseDelta(0.5f, 0.3f) == 0.0f, "a phase jumped well back holds too, never laps forward");
     check(circular::wrap01(1.0f) == 0.0f && circular::wrap01(-0.25f) == 0.75f && circular::wrap01(NAN) == 0.0f, "wrap01 lands in [0, 1)");
     check(std::fabs(circular::follow(Circle::None, 0.95f, 0.05f, 0.5f) - 0.5f) < 1e-5f, "a plain value still eases on its line");
 }
@@ -72,7 +74,7 @@ void circularHelpersTakeTheShortWay() {
 // Before: 0.95 -> 0.05 on a chord-hue route eased back through 0.5, every colour on the wheel in one glide.
 void hueRouteWrapsTheShortWay() {
     ReactionEngine e;
-    e.routes[0] = {true, ReactSource::ChordHue, LfoTarget::ColorShift, ReactMode::Follow, 1.0f, ModCurve::Linear, 0.3f, 0.3f};
+    e.routes[0] = {true, ReactSource::ChordHue, LfoTarget::CamYaw, ReactMode::Follow, 1.0f, ModCurve::Linear, 0.3f, 0.3f};
     GeodeSoundFrame f = silence();
     f.chordHue = 0.95f;
     for (int i = 0; i < 240; ++i) e.tick(f, 1.0f / 60.0f);
@@ -93,7 +95,7 @@ void hueRouteWrapsTheShortWay() {
 // A beat phase ramps and wraps every beat; smoothed, it must keep turning forward through each wrap.
 void phaseRouteStaysMonotonic() {
     ReactionEngine e;
-    e.routes[0] = {true, ReactSource::BeatPhase, LfoTarget::ColorShift, ReactMode::Follow, 1.0f, ModCurve::Linear, 0.1f, 0.5f};
+    e.routes[0] = {true, ReactSource::BeatPhase, LfoTarget::CamYaw, ReactMode::Follow, 1.0f, ModCurve::Linear, 0.1f, 0.5f};
     GeodeSoundFrame f = silence();
     const float dt = 1.0f / 60.0f;
     float prev = 0.0f;
@@ -113,6 +115,25 @@ void phaseRouteStaysMonotonic() {
     }
     check(!backward, "a smoothed beat phase never steps backward, wraps included");
     check(std::fabs(travelled - 18.0f) < 0.1f, "and turns once per beat (18 beats in the checked 9 s)");
+}
+
+// A phase on a luminance target steps by its amount at every wrap; the anti-strobe floors still glide it.
+void phaseSeamOnLuminanceIsSlewLimited() {
+    ReactionEngine e;
+    e.routes[0] = {true, ReactSource::BeatPhase, LfoTarget::Brightness, ReactMode::Follow, 1.0f, ModCurve::Linear, 0.0f, 0.0f};
+    GeodeSoundFrame f = silence();
+    const float dt = 1.0f / 60.0f;
+    float prev = 0.0f;
+    float biggest = 0.0f;
+    for (int i = 0; i < 600; ++i) {
+        const float t = static_cast<float>(i) * dt;
+        f.beatPhase = 2.0f * t - std::floor(2.0f * t);
+        e.tick(f, dt);
+        if (i >= 60) biggest = std::max(biggest, std::fabs(e.output(0) - prev));
+        prev = e.output(0);
+    }
+    const float floorStep = 1.0f - std::exp(-dt / ReactionEngine::kLuminanceMinAttack);
+    check(biggest <= floorStep + 1e-4f, "a beat phase on brightness never jumps a frame faster than the luminance floor");
 }
 
 void stepRouteJumpsOncePerEdge() {
@@ -926,6 +947,7 @@ int main() {
     circularHelpersTakeTheShortWay();
     hueRouteWrapsTheShortWay();
     phaseRouteStaysMonotonic();
+    phaseSeamOnLuminanceIsSlewLimited();
     stepRouteJumpsOncePerEdge();
     luminanceRoutesAreSlewLimited();
     triggersHoldAndSilenceIsQuiet();

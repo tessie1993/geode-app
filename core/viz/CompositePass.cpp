@@ -109,6 +109,8 @@ void CompositePass::draw(const Inputs& inputs) {
     glUniform2fv(program.loc("uCamTilt"), 1, inputs.camTilt.data());
     glUniform2fv(program.loc("uCamGate"), 1, inputs.camGate.data());
     glUniform4fv(program.loc("uNoteTint"), 1, inputs.noteTint.data());
+    glUniform1f(program.loc("uSafetyHold"), inputs.safetyHold);
+    glUniform1f(program.loc("uSafetyAnchor"), inputs.safetyAnchor);
     glBindVertexArray(inputs.quadVao);
     glDrawArrays(GL_TRIANGLES, 0, 3);
     glBindVertexArray(0);

@@ -327,7 +327,11 @@ void Renderer::composite(const SceneParams& p, float progress, GLuint targetFbo,
     // shake themselves are already inert (see Params.hpp).
     in.hitImpulse = 0.0f;
     const SceneParams& fx = lastFinalParams_;
-    in.flash = fx.flash * flashBudget_.gainFor(timeSeconds_, safety::flashImpulse(fx.flash, 0.0f));
+    // uPostFlash rides uBeat, which is hitImpulse: 0 since wave three, so this term draws nothing. The
+    // flash limit is the measured one below (safetyHold), not a guess from the params.
+    in.flash = fx.flash;
+    in.safetyHold = 1.0f - flashGrade_.scale;
+    in.safetyAnchor = flashGrade_.anchor;
     in.strobeHz = safety::strobeHz();
     in.postRotationAngle = postRotationAngle_;
     in.postCyclePhase = postCyclePhase_;
@@ -350,7 +354,16 @@ void Renderer::composite(const SceneParams& p, float progress, GLuint targetFbo,
     in.noteTint = notes_.uniforms().tint;
     compositePass_.draw(in);
     // The note blooms over every family, last; nothing while there are none.
-    bloomPass_.draw(notes_.uniforms(), width_, height_, quadVao_);
+    bloomPass_.draw(notes_.uniforms(), width_, height_, quadVao_, NoteBloomPass::kGain * flashGrade_.scale);
+}
+
+void Renderer::stepFlashLimiter(float dt) {
+    safetyClock_ += dt;
+    safety::FrameLight light;
+    safety::Grade drawnWith;
+    double drawnAt = 0.0;
+    while (outputProbe_.poll(light, drawnWith, drawnAt)) flashLimiter_.observe(light, drawnWith, drawnAt);
+    flashGrade_ = flashLimiter_.next(safetyClock_);
 }
 
 void Renderer::stepOverlays(Scene& scene, const SceneParams& p, float dt) {
@@ -423,7 +436,11 @@ void Renderer::render(double timeSeconds, GLuint targetFbo) {
     if (liquidOn() && !scene->drawsCamera()) sceneParams.endlessZoom = false;
     drawSceneTarget(*scene, sceneParams, dt);
     const GLuint liquidTex = drawLiquid(*scene, p, dt);
+    stepFlashLimiter(dt);
     composite(p, progress, targetFbo, liquidTex);
+    // Measured after the blooms, before the UI blur: the glass sheet is not the visual (and an export
+    // never draws it). Live and export both run this, so a render is limited exactly like the screen.
+    outputProbe_.capture(targetFbo, width_, height_, flashGrade_, safetyClock_);
     drawUiBlur(targetFbo);
 }
 

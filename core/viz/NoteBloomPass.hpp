@@ -32,8 +32,9 @@ public:
     ~NoteBloomPass() { release(); }
     bool create(const ShaderSource& assets, ProgramBinaryCache* cache, const std::string& fadeVert, std::string* error);
     void release();
-    // After CompositePass::draw, into the bound target of width × height pixels.
-    void draw(const NoteUniforms& notes, int width, int height, GLuint quadVao);
+    // After CompositePass::draw, into the bound target of width × height pixels. `gain` is kGain, scaled
+    // down by the flash limiter while it holds the picture (the blooms land after the composite's grade).
+    void draw(const NoteUniforms& notes, int width, int height, GLuint quadVao, float gain = kGain);
 
 private:
     GLuint program_ = 0;

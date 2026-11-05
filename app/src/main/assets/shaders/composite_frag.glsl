@@ -150,6 +150,11 @@ uniform vec4 uNoteTint;
 uniform sampler2D uUnderlay;
 uniform int uUnderlayBlend;
 uniform float uUnderlayAmount;
+// The photosensitive flash limit (core/viz/FlashLimiter): while a style strobes, the finished frame is
+// held toward one grey in linear light, so no frame can swing far enough to flash. uSafetyHold is how far
+// (1 - Grade::scale); 0, also when unset, leaves the frame exactly as drawn.
+uniform float uSafetyHold;
+uniform float uSafetyAnchor;
 
 float compHash12(vec2 p) {
     vec3 p3 = fract(vec3(p.xyx) * 0.1031);
@@ -514,6 +519,12 @@ void main() {
         vec3 tinted = min(uNoteTint.rgb * (l / max(dot(uNoteTint.rgb, kLuma), 0.25)), vec3(1.0));
         // Blacks stay black and the brightest whites stay white, so the tint colours the mid-tones.
         col = mix(col, tinted, clamp(uNoteTint.a, 0.0, 0.5) * smoothstep(0.02, 0.2, l) * (1.0 - smoothstep(0.85, 1.0, l)));
+    }
+    if (uSafetyHold > 0.0001) {
+        // The same 2.2 curve FlashLimiter unsqueezes the measurement with.
+        vec3 lin = pow(clamp(col, 0.0, 1.0), vec3(2.2));
+        lin = mix(lin, vec3(clamp(uSafetyAnchor, 0.0, 1.0)), clamp(uSafetyHold, 0.0, 1.0));
+        col = pow(lin, vec3(1.0 / 2.2));
     }
     // Dither LAST, after every grade and effect, sampled one texel per output
     // pixel: this is fighting the 8-bit quantization of the surface being

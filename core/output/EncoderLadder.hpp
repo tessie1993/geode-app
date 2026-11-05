@@ -16,7 +16,9 @@
 // - Rung 0 is the request at the full bit rate.
 // - Rung 1 is the fallback: half the rate above 30 fps (50 -> 25, 60 -> 30, so the retry stays in the
 //   request's cadence family), the rate itself at 30 and below, at 2/3 of the bit rate. One halving
-//   always lands at or below 30, which is the floor: the ladder never goes lower.
+//   always lands at or below 30, the floor above which a rate is halved. It is not clamped again:
+//   a request of 31..47 falls back to 15..23, below the 24 a request is clamped to, exactly as the
+//   Kotlin's `requested / 2` did.
 // - A ceiling of 0 or less is "unknown": every rung is offered.
 // - A known ceiling drops the rungs above it, but never the last one: when even the floor is over
 //   the ceiling, the floor is still tried, since configure, not the table, has the final word.
@@ -30,7 +32,7 @@ namespace geode::output {
 
 inline constexpr int kLadderMinFps = 24;
 inline constexpr int kLadderMaxFps = 60;
-/** Rates at or below this are never halved; it is also the lowest a halving can land above. */
+/** Rates at or below this are never halved, and every halving lands at or below it. */
 inline constexpr int kLadderFloorFps = 30;
 /** The most rungs encoderLadder writes. */
 inline constexpr int kLadderMaxRungs = 2;

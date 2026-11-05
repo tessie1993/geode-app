@@ -47,7 +47,13 @@ void fallbackStaysInTheCadenceFamily() {
     check(out::fallbackFps(30) == 30, "30 retries at 30");
     check(out::fallbackFps(50) == 25, "50 retries at 25, not 30");
     check(out::fallbackFps(60) == 30, "60 retries at 30");
-    for (int fps : {24, 25, 30, 50, 60}) {
+    // Between 31 and 47 the Kotlin halved below the 24 a request is clamped to, and nothing clamped
+    // the result again: the fallback keeps that, so the ladder matches what shipped.
+    check(out::fallbackFps(31) == 15, "31 retries at 15, as the Kotlin did");
+    check(out::fallbackFps(40) == 20, "40 retries at 20, as the Kotlin did");
+    check(out::fallbackFps(47) == 23, "47 retries at 23, as the Kotlin did");
+    check(out::fallbackFps(48) == 24, "48 retries at 24");
+    for (int fps = out::kLadderMinFps; fps <= out::kLadderMaxFps; ++fps) {
         check(out::fallbackFps(fps) <= fps, "a fallback never raises the rate");
         check(out::fallbackFps(fps) == kotlinFallback(fps), "fallback equals the Kotlin");
     }
@@ -97,8 +103,15 @@ void floorIsAlwaysTried() {
         for (int ceiling : {-1, 0, 1, 24, 25, 30, 50, 60, 1000}) {
             const Ladder any = ladder(fps, 1'000'000, ceiling);
             check(any.count >= 1 && any.count <= out::kLadderMaxRungs, "one or two rungs");
-            check(any.rungs[any.count - 1].fps >= out::kLadderMinFps, "never below 24 fps");
+            // The last rung is always the Kotlin's fallback of the clamped request (which can be below
+            // 24 for a 31..47 request), at 2/3 of the bits, whatever the ceiling says.
+            const int clamped = fps < out::kLadderMinFps ? out::kLadderMinFps
+                                : fps > out::kLadderMaxFps ? out::kLadderMaxFps
+                                                           : fps;
+            check(any.rungs[any.count - 1].fps == kotlinFallback(clamped), "the last rung is the Kotlin's fallback");
+            check(any.rungs[any.count - 1].bitRate == 666'666, "the last rung is at 2/3 of the bits");
             check(any.rungs[any.count - 1].fps <= out::kLadderFloorFps, "the last rung is at or below 30");
+            check(any.rungs[0].fps == clamped || any.count == 1, "a full ladder starts at the clamped request");
         }
     }
 }

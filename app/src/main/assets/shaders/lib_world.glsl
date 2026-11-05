@@ -16,6 +16,10 @@
 // six simple ones, a baked CC0 model (uWorldShapes), and six fractals (gyroid, Menger sponge,
 // Mandelbulb, Mandelbox, Sierpinski tetrahedron, Apollonian packing). Grey CC0 material maps (uWorldTex) add surface
 // detail and pattern the light; their colour never reaches the screen, pal() still owns it.
+// Then the landscape (WG_TERRAIN, wTerrain()): a ridged fBm height field in world space, not
+// through the chain, rising out of the ground at FLOOR_Y and joined to the chain's matter by min.
+// Its walls rise to the sides, so the travel line runs down a valley, and the corridor carves
+// a canyon through any ridge that crosses the way.
 // The orbit trap is gathered on the way (gWTrap) and colours the world for free: its channels,
 // weighted by the genome, are the palette coordinate, and its radius is the cheap occlusion.
 //
@@ -45,7 +49,8 @@
 //
 // Provenance: written from scratch for Geode from textbook maths (signed distance functions,
 // domain repetition, reflection folds, iterated function systems, sphere inversion, orbit traps,
-// sphere tracing, emission-absorption volume rendering). No code was taken from any shader. The
+// sphere tracing, emission-absorption volume rendering, value noise, fractional Brownian motion,
+// ridged noise, the Lipschitz bound of a height field). No code was taken from any shader. The
 // baked models and material maps are CC0 assets from BlenderKit (docs/morph-world-assets.md).
 
 /** The genome and the driver's runtime values; WorldGenome.hpp's Field and Runtime order. */
@@ -361,7 +366,133 @@ float wPrims(vec3 q) {
     return d;
 }
 
-/** The bare world at p: the operator chain, then the primitives. Writes gWTrap. */
+// ---- the landscape (WG_TERRAIN; WorldGenome.cpp terrain(), the same numbers) --------------------
+//
+// A height field y = base + relief * (ridged(x, z) + WALL * valley(x)), in world space. Its
+// distance is the vertical gap times the textbook bound for a height field, 1 / sqrt(1 + s^2),
+// where s is the steepest slope the field can have, so the sphere tracer never overshoots it; above
+// the field's highest possible point the gap to that plane is a bound too, and the larger wins.
+// The noise is integer-hashed value noise (no sin, no float hash), so the GPU and the CPU port
+// build the same ground. The rig's travel wraps at 8192: the last stretch before the wrap blends
+// into the ground found 8192 behind, so the eye crosses the wrap onto the same ground.
+
+#define WG_TERRAIN_OCTAVES 5
+#define WG_TERRAIN_GAIN 0.45
+/**
+ * The ridged sum's steepest slope per unit of base frequency and relief: value noise rises at most
+ * 3 per lattice unit (the cubic fade's slope, 1.5, times a corner difference of at most 2), ridging
+ * keeps that, and the octaves add sum(gain^i 2^i) / sum(gain^i) = 2.295 of it. 3 x 2.295, rounded up.
+ */
+#define WG_TERRAIN_SLOPE 6.9
+/** The valley walls: up to twice the relief, half-way up at WIDTH from the travel line. */
+#define WG_TERRAIN_WALL 2.0
+#define WG_TERRAIN_WIDTH 8.0
+/** The steepest the walls get per unit of relief: WALL x max(d/dx x^2 / (x^2 + W^2)) = WALL x 0.6495 / W. */
+#define WG_TERRAIN_WALL_SLOPE 0.1625
+/** How far under FLOOR_Y the ground waits while Terrain is off, and the distance it reads as then. */
+#define WG_TERRAIN_SINK 8.0
+#define WG_TERRAIN_FAR 80.0
+/** CameraRig::kTravelWrap, and the stretch before it that blends into the ground behind the wrap. */
+#define WG_TRAVEL_WRAP 8192.0
+#define WG_WRAP_LO 7692.0
+#define WG_WRAP_HI 8092.0
+/** The blend's slope per unit of relief: smoothstep's 1.5 over the 400-unit stretch, rounded up. */
+#define WG_WRAP_SLOPE 0.004
+
+/** A lattice point's hash: Knuth's multiplicative hash per axis, then xor-shift-multiply rounds. */
+uint wHash(int x, int y) {
+    uint h = (uint(x) * 0x9E3779B1u) ^ (uint(y) * 0x85EBCA77u);
+    h ^= h >> 15u;
+    h *= 0x2C1B3C6Du;
+    h ^= h >> 12u;
+    h *= 0x297A2D39u;
+    h ^= h >> 15u;
+    return h;
+}
+
+/** The lattice value at (x, y): the hash's top 24 bits as -1..1, exact in any float. */
+float wLattice(int x, int y) { return float(wHash(x, y) >> 8u) * (1.0 / 8388608.0) - 1.0; }
+
+/** Smooth value noise, -1..1, lattice unit 1, cubic fade: continuous, at most 3 per unit steep. */
+float wValue(vec2 s) {
+    vec2 i = floor(s);
+    vec2 f = s - i;
+    vec2 u = f * f * (3.0 - 2.0 * f);
+    int x = int(i.x);
+    int y = int(i.y);
+    float a = wLattice(x, y);
+    float b = wLattice(x + 1, y);
+    float c = wLattice(x, y + 1);
+    float d = wLattice(x + 1, y + 1);
+    return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
+}
+
+/**
+ * Ridged fBm at s, 0..1: each octave's 1 - |n| is a crest where the noise crosses zero; the next
+ * octave is turned (a 3-4-5 rotation) and twice as fine, so no lattice axis shows. `crest` gets
+ * the smallest |n|: how near the point is to a ridge line, for the colour.
+ */
+float wRidged(vec2 s, out float crest) {
+    float sum = 0.0;
+    float norm = 0.0;
+    float amp = 1.0;
+    crest = 1.0;
+    for (int i = 0; i < WG_TERRAIN_OCTAVES; i++) {
+        float n = wValue(s);
+        sum += amp * (1.0 - abs(n));
+        norm += amp;
+        crest = min(crest, abs(n));
+        amp *= WG_TERRAIN_GAIN;
+        s = vec2(0.8 * s.x - 0.6 * s.y, 0.6 * s.x + 0.8 * s.y) * 2.0 + vec2(5.3, -2.9);
+    }
+    return sum / norm;
+}
+
+/** The ridged ground at world (x, z), the wrap's last stretch blended into the ground behind it. */
+float wLandscape(vec2 xz, out float crest) {
+    float h = wRidged(xz * WG_TERRAIN_SCALE, crest);
+    float w = smoothstep(WG_WRAP_LO, WG_WRAP_HI, xz.y);
+    if (w > 0.0) {
+        float c2;
+        float h2 = wRidged(vec2(xz.x, xz.y - WG_TRAVEL_WRAP) * WG_TERRAIN_SCALE, c2);
+        h = mix(h, h2, w);
+        crest = mix(crest, c2, w);
+    }
+    return h;
+}
+
+/** The valley across the way: 0 on the travel line, toward 1 far out to the sides. */
+float wValley(float x) { return x * x / (x * x + WG_TERRAIN_WIDTH * WG_TERRAIN_WIDTH); }
+
+/**
+ * The landscape's distance at p and its orbit trap (height, wall, crest, and a radius that darkens
+ * the valley floors). As Terrain fades in, the ground rises from SINK under FLOOR_Y and its relief
+ * grows; near 0 the distance itself fades to FAR, so the layer leaves and arrives without a pop.
+ */
+float wTerrain(vec3 p, out vec4 trap) {
+    float on = WG_TERRAIN;
+    float relief = on * WG_TERRAIN_HEIGHT;
+    float base = WG_FLOOR_Y - (1.0 - on) * WG_TERRAIN_SINK;
+    float crest;
+    float h = wLandscape(p.xz, crest);
+    float v = wValley(p.x);
+    float y = base + relief * (h + WG_TERRAIN_WALL * v);
+    float slope = relief * (WG_TERRAIN_SLOPE * WG_TERRAIN_SCALE + WG_TERRAIN_WALL_SLOPE + WG_WRAP_SLOPE);
+    float d = (p.y - y) / sqrt(1.0 + slope * slope);
+    d = max(d, p.y - (base + relief * (1.0 + WG_TERRAIN_WALL)));
+    trap = vec4(h, v, crest, (0.4 + 1.2 * h) * (0.4 + 1.2 * h));
+    return mix(WG_TERRAIN_FAR, d, min(on * 8.0, 1.0));
+}
+
+/** The chain's matter at distance d joined with the landscape; the nearer one owns the trap. */
+float wWithTerrain(vec3 p, float d) {
+    vec4 trap;
+    float t = wTerrain(p, trap);
+    if (t < d) gWTrap = trap;
+    return min(d, t);
+}
+
+/** The bare world at p: the operator chain, then the primitives, then the landscape. Writes gWTrap. */
 float world(vec3 p) {
     vec3 w = p;
     float pz = WG_CELL_Z;
@@ -421,7 +552,9 @@ float world(vec3 p) {
     q = mix(q, abs(q) / r2 - WG_ABS_INV_C, WG_ABS_INV);
     k *= mix(1.0, 1.0 / r2, WG_ABS_INV);
     gWTrap = min(gWTrap, vec4(abs(q), dot(q, q)));
-    return wPrims(q) / k;
+    float d = wPrims(q) / k;
+    if (WG_TERRAIN > 0.0) d = wWithTerrain(p, d);
+    return d;
 }
 
 /** The open way: the travel tube, the eye's bubble, the wake ahead. Negative inside the air. */

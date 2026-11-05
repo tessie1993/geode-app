@@ -315,6 +315,108 @@ float prims(const Genome& g, const V3& q) {
     return d;
 }
 
+// ---- the landscape (lib_world's wTerrain, the same numbers) -----------------------------------
+//
+// A ridged fBm height field in world space with valley walls to the sides, its distance the
+// vertical gap times the height field's Lipschitz bound 1 / sqrt(1 + s^2). The noise hashes
+// integer lattice points (no sin, no float hash), so this port builds the GPU's ground.
+
+constexpr int kTerrainOctaves = 5;
+constexpr float kTerrainGain = 0.45f;
+// The ridged sum's steepest slope per unit of base frequency and relief: value noise rises at most
+// 3 per lattice unit (the cubic fade's 1.5 times a corner difference of 2), ridging keeps that, and
+// the octaves add sum(gain^i 2^i) / sum(gain^i) = 2.295 of it. 3 x 2.295, rounded up.
+constexpr float kTerrainSlope = 6.9f;
+constexpr float kTerrainWall = 2.0f;
+constexpr float kTerrainWidth = 8.0f;
+// WALL x max(d/dx x^2 / (x^2 + W^2)) = WALL x 0.6495 / W.
+constexpr float kTerrainWallSlope = 0.1625f;
+constexpr float kTerrainSink = 8.0f;
+constexpr float kTerrainFar = 80.0f;
+// CameraRig::kTravelWrap, and the stretch before it that blends into the ground behind the wrap.
+constexpr float kTravelWrap = 8192.0f;
+constexpr float kWrapLo = 7692.0f;
+constexpr float kWrapHi = 8092.0f;
+constexpr float kWrapSlope = 0.004f;
+
+// lib_world's wHash: Knuth's multiplicative hash per axis, then xor-shift-multiply rounds.
+uint32_t latticeHash(int32_t x, int32_t y) {
+    uint32_t h = (static_cast<uint32_t>(x) * 0x9E3779B1u) ^ (static_cast<uint32_t>(y) * 0x85EBCA77u);
+    h ^= h >> 15;
+    h *= 0x2C1B3C6Du;
+    h ^= h >> 12;
+    h *= 0x297A2D39u;
+    h ^= h >> 15;
+    return h;
+}
+
+// lib_world's wLattice: the hash's top 24 bits as -1..1, exact in any float.
+float lattice(int32_t x, int32_t y) { return static_cast<float>(latticeHash(x, y) >> 8) * (1.0f / 8388608.0f) - 1.0f; }
+
+// lib_world's wValue: smooth value noise, -1..1, lattice unit 1, cubic fade.
+float valueNoise(float sx, float sy) {
+    const float ix = std::floor(sx);
+    const float iy = std::floor(sy);
+    const float fx = sx - ix;
+    const float fy = sy - iy;
+    const float ux = fx * fx * (3.0f - 2.0f * fx);
+    const float uy = fy * fy * (3.0f - 2.0f * fy);
+    const auto x = static_cast<int32_t>(ix);
+    const auto y = static_cast<int32_t>(iy);
+    const float a = lattice(x, y);
+    const float b = lattice(x + 1, y);
+    const float c = lattice(x, y + 1);
+    const float d = lattice(x + 1, y + 1);
+    return mixf(mixf(a, b, ux), mixf(c, d, ux), uy);
+}
+
+// lib_world's wRidged: ridged fBm, 0..1, each octave turned (a 3-4-5 rotation) and twice as fine.
+float ridged(float sx, float sy) {
+    float sum = 0.0f;
+    float norm = 0.0f;
+    float amp = 1.0f;
+    for (int i = 0; i < kTerrainOctaves; ++i) {
+        const float n = valueNoise(sx, sy);
+        sum += amp * (1.0f - std::fabs(n));
+        norm += amp;
+        amp *= kTerrainGain;
+        const float nx = (0.8f * sx - 0.6f * sy) * 2.0f + 5.3f;
+        const float ny = (0.6f * sx + 0.8f * sy) * 2.0f - 2.9f;
+        sx = nx;
+        sy = ny;
+    }
+    return sum / norm;
+}
+
+// GLSL's smoothstep.
+float smoothstepf(float e0, float e1, float x) {
+    const float t = clampf((x - e0) / (e1 - e0), 0.0f, 1.0f);
+    return t * t * (3.0f - 2.0f * t);
+}
+
+// lib_world's wLandscape: the ridged ground at world (x, z), the wrap's last stretch blended into
+// the ground 8192 behind it, so the eye crosses the rig's travel wrap onto the same ground.
+float landscape(float x, float z, float scale) {
+    float h = ridged(x * scale, z * scale);
+    const float w = smoothstepf(kWrapLo, kWrapHi, z);
+    if (w > 0.0f) h = mixf(h, ridged(x * scale, (z - kTravelWrap) * scale), w);
+    return h;
+}
+
+// lib_world's wTerrain: the landscape's distance, rising from under FloorY as Terrain fades in.
+float terrain(const Genome& g, const V3& p) {
+    const float on = g[Terrain];
+    const float relief = on * g[TerrainHeight];
+    const float base = g[FloorY] - (1.0f - on) * kTerrainSink;
+    const float h = landscape(p[0], p[2], g[TerrainScale]);
+    const float v = p[0] * p[0] / (p[0] * p[0] + kTerrainWidth * kTerrainWidth);
+    const float y = base + relief * (h + kTerrainWall * v);
+    const float slope = relief * (kTerrainSlope * g[TerrainScale] + kTerrainWallSlope + kWrapSlope);
+    float d = (p[1] - y) / std::sqrt(1.0f + slope * slope);
+    d = std::max(d, p[1] - (base + relief * (1.0f + kTerrainWall)));
+    return mixf(kTerrainFar, d, std::min(on * 8.0f, 1.0f));
+}
+
 float bareWorld(const Genome& g, const Way& way, const V3& p) {
     V3 w = p;
     const float pz = g[CellZ];
@@ -381,7 +483,9 @@ float bareWorld(const Genome& g, const Way& way, const V3& p) {
         for (float& c : q) c = mixf(c, std::fabs(c) / r2 - g[AbsInvC], a);
         k *= mixf(1.0f, 1.0f / r2, a);
     }
-    return prims(g, q) / k;
+    const float d = prims(g, q) / k;
+    // The landscape, joined by min (lib_world's wWithTerrain).
+    return g[Terrain] > 0.0f ? std::min(d, terrain(g, p)) : d;
 }
 
 float corridor(const Genome& g, const Way& way, const V3& p) {
@@ -462,7 +566,7 @@ Genome make(const Set (&sets)[N]) {
     return g;
 }
 
-std::array<Seed, 47> buildSeeds() {
+std::array<Seed, 50> buildSeeds() {
     return {{
         // A nave of soap-thin spheres, inverted into one another: bubbles inside bubbles, lit from within.
         {"Bubble Nave", 0.35f, 0.7f, 0.5f,
@@ -734,11 +838,31 @@ std::array<Seed, 47> buildSeeds() {
                {PolarTwist, -0.25f}, {PMesh, 1.0f}, {MeshPick, 22.4f}, {MeshSize, 2.1f}, {MSurface, 0.45f}, {MGlow, 0.55f},
                {TrapR, 0.5f}, {TrapZ, 0.4f}, {PalOffset, 0.58f}, {PalSpan, 0.4f}, {Emission, 1.25f}, {Fog, 0.03f},
                {TexAmount, 0.5f}, {TexPick, 4.0f}, {Roll, -0.18f}, {Lens, 1.2f}})},
+        // A ridged canyon under a low warm light, thin glowing spheres hung above it: the way runs
+        // down the valley floor between rising walls, cut through every ridge that crosses it.
+        {"Ember Canyon", 0.45f, 0.55f, 0.45f,
+         make({{RepXY, 1.0f}, {CellXY, 10.0f}, {CellZ, 8.0f}, {CellShift, 1.0f}, {PShell, 1.0f}, {PrimSize, 0.9f},
+               {PrimThick, 0.05f}, {Terrain, 1.0f}, {TerrainHeight, 2.6f}, {TerrainScale, 0.12f}, {FloorY, -5.0f},
+               {MSurface, 0.85f}, {MGlow, 0.15f}, {TrapX, 0.7f}, {TrapY, 0.4f}, {TrapR, 0.2f}, {PalOffset, 0.04f},
+               {PalSpan, 0.45f}, {Emission, 1.15f}, {Fog, 0.03f}, {TexAmount, 0.5f}, {TexPick, 3.0f}, {Lens, 0.85f}})},
+        // Fine ridged dunes with great rings half sunk in them: a desert of arches, a little haze.
+        {"Dune Arches", 0.3f, 0.7f, 0.35f,
+         make({{RepXY, 0.0f}, {CellXY, 8.0f}, {CellZ, 5.0f}, {PTorus, 1.0f}, {PrimSize, 2.4f}, {PrimThick, 0.2f},
+               {Scale, 1.6f}, {Terrain, 1.0f}, {TerrainHeight, 1.4f}, {TerrainScale, 0.22f}, {FloorY, -3.6f},
+               {MSurface, 0.8f}, {MDensity, 0.2f}, {DensBand, 0.1f}, {TrapX, 0.8f}, {TrapZ, 0.3f}, {TrapR, 0.2f},
+               {PalOffset, 0.12f}, {PalSpan, 0.35f}, {Emission, 1.1f}, {Fog, 0.035f}, {TexAmount, 0.4f}, {TexPick, 6.0f},
+               {Roll, 0.04f}})},
+        // Broad fractal highlands with Mandelbulbs floating over them and boulders of bulbs half buried.
+        {"Bulb Highlands", 0.55f, 0.5f, 0.55f,
+         make({{RepXY, 1.0f}, {CellXY, 8.0f}, {CellZ, 7.0f}, {CellShift, 1.0f}, {PBulb, 1.0f}, {BulbPower, 8.0f},
+               {PrimSize, 1.2f}, {Terrain, 1.0f}, {TerrainHeight, 3.0f}, {TerrainScale, 0.08f}, {FloorY, -5.5f},
+               {MSurface, 0.85f}, {MGlow, 0.15f}, {TrapX, 0.4f}, {TrapY, 0.3f}, {TrapR, 0.5f}, {PalOffset, 0.36f},
+               {PalSpan, 0.5f}, {Emission, 1.15f}, {Fog, 0.03f}, {TexAmount, 0.5f}, {TexPick, 2.0f}, {Lens, 0.9f}})},
     }};
 }
 
-const std::array<Seed, 47>& seeds() {
-    static const std::array<Seed, 47> kSeeds = buildSeeds();
+const std::array<Seed, 50>& seeds() {
+    static const std::array<Seed, 50> kSeeds = buildSeeds();
     return kSeeds;
 }
 
@@ -807,6 +931,8 @@ bool inBounds(const Genome& g) {
 }
 
 float sdfUncarved(const Genome& g, const Way& way, const std::array<float, 3>& p) { return bareWorld(g, way, p); }
+
+float terrainSdf(const Genome& g, const std::array<float, 3>& p) { return terrain(g, p); }
 
 float sdf(const Genome& g, const Way& way, const std::array<float, 3>& p) {
     return smax(bareWorld(g, way, p), -corridor(g, way, p), 0.5f);
@@ -885,7 +1011,8 @@ Genome random(uint64_t seedValue, const Constraints& c, int* picked) {
     for (int f : {static_cast<int>(Mirror), static_cast<int>(Ifs), static_cast<int>(Invert), static_cast<int>(AbsInv),
                   static_cast<int>(PMesh), static_cast<int>(TexAmount), static_cast<int>(TexEmit),
                   static_cast<int>(Polar), static_cast<int>(PGyroid), static_cast<int>(PMenger), static_cast<int>(PBulb),
-                  static_cast<int>(PMandelbox), static_cast<int>(PSierp), static_cast<int>(PApollo)}) {
+                  static_cast<int>(PMandelbox), static_cast<int>(PSierp), static_cast<int>(PApollo),
+                  static_cast<int>(Terrain)}) {
         if (origin[f] < 0.05f && unit(s) < amount * 0.5f) m[f] = unit(s) * amount;
     }
     m = clampFields(m);

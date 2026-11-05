@@ -5,6 +5,7 @@
 #include <jni.h>
 
 #include <cstdint>
+#include <string>
 #include <vector>
 
 #include "api/geode_api.h"
@@ -17,6 +18,8 @@ constexpr jsize kLoopSpecLongs = 7;
 constexpr jsize kEtaStateDoubles = 9;
 // Size of the render-job snapshot double[]; GeodeNative.RENDER_JOB_DOUBLES is the same.
 constexpr jsize kRenderJobDoubles = 8;
+// Size of the render-batch summary int[]; GeodeNative.RENDER_BATCH_INTS is the same.
+constexpr jsize kRenderBatchInts = 10;
 
 void writeLoopSpec(JNIEnv* env, const geode_loop_spec& s, jlongArray out) {
     if (!out || env->GetArrayLength(out) < kLoopSpecLongs) return;
@@ -269,6 +272,75 @@ JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_renderJobReport(
 
 JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_GeodeNative_renderJobKeepsOutput(JNIEnv*, jobject, jint outcome) {
     return geode_render_job_keeps_output(outcome) != 0 ? JNI_TRUE : JNI_FALSE;
+}
+
+// A batch's bookkeeping (output/RenderBatch). Stateless: Kotlin keeps the tracks and the outcome codes, so
+// nothing native outlives a call. The keys are copied out of the String[] (a null element is an empty key).
+JNIEXPORT jintArray JNICALL Java_dev_geode_engine_bridge_GeodeNative_renderBatchTracks(JNIEnv* env, jobject, jint scope,
+                                                                                      jobjectArray keys,
+                                                                                      jintArray sources) {
+    const jsize n = keys ? env->GetArrayLength(keys) : 0;
+    const jsize result = sources ? env->GetArrayLength(sources) : 0;
+    const jsize count = n < result ? n : result;
+    std::vector<std::string> owned(static_cast<size_t>(count));
+    for (jsize i = 0; i < count; ++i) {
+        auto element = static_cast<jstring>(env->GetObjectArrayElement(keys, i));
+        if (!element) continue;
+        const char* chars = env->GetStringUTFChars(element, nullptr);
+        if (chars) {
+            owned[static_cast<size_t>(i)] = chars;
+            env->ReleaseStringUTFChars(element, chars);
+        }
+        env->DeleteLocalRef(element);
+    }
+    std::vector<const char*> pointers(static_cast<size_t>(count));
+    for (size_t i = 0; i < owned.size(); ++i) pointers[i] = owned[i].c_str();
+    std::vector<int32_t> from(static_cast<size_t>(count));
+    if (count > 0) env->GetIntArrayRegion(sources, 0, count, reinterpret_cast<jint*>(from.data()));
+    std::vector<int32_t> indices(static_cast<size_t>(count));
+    const int found = count > 0 ? geode_render_batch_tracks(scope, pointers.data(), from.data(), count, indices.data(),
+                                                            count)
+                                : 0;
+    jintArray out = env->NewIntArray(found);
+    if (out && found > 0) env->SetIntArrayRegion(out, 0, found, reinterpret_cast<const jint*>(indices.data()));
+    return out;
+}
+
+JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_renderBatchNext(JNIEnv*, jobject, jint total, jint done,
+                                                                                jboolean cancelRequested) {
+    return geode_render_batch_next(total, done, cancelRequested ? 1 : 0);
+}
+
+JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_renderBatchRecord(JNIEnv*, jobject, jint total, jint done,
+                                                                                  jint outcome) {
+    return geode_render_batch_record(nullptr, total, done, outcome);
+}
+
+JNIEXPORT jfloat JNICALL Java_dev_geode_engine_bridge_GeodeNative_renderBatchProgress(JNIEnv*, jobject, jint total,
+                                                                                      jint done, jfloat within) {
+    return geode_render_batch_progress(total, done, within);
+}
+
+// The summary goes out as an int[kRenderBatchInts] in GeodeNative.RENDER_BATCH_* order; returns the failed
+// tracks' indices.
+JNIEXPORT jintArray JNICALL Java_dev_geode_engine_bridge_GeodeNative_renderBatchSummarize(JNIEnv* env, jobject,
+                                                                                         jintArray codes, jint total,
+                                                                                         jintArray out) {
+    const jsize done = codes ? env->GetArrayLength(codes) : 0;
+    std::vector<int32_t> in(static_cast<size_t>(done));
+    if (done > 0) env->GetIntArrayRegion(codes, 0, done, reinterpret_cast<jint*>(in.data()));
+    geode_render_batch_summary s{};
+    std::vector<int32_t> failed(static_cast<size_t>(done));
+    const int n = geode_render_batch_summarize(in.data(), total, done, &s, failed.data(), done);
+    if (out && env->GetArrayLength(out) >= kRenderBatchInts) {
+        const jint values[kRenderBatchInts] = {s.total,      s.done,       s.saved,        s.failed, s.cancelled,
+                                               s.current,    s.last_saved, s.first_failed, s.report, s.finished};
+        env->SetIntArrayRegion(out, 0, kRenderBatchInts, values);
+    }
+    const jsize written = n < done ? n : done;
+    jintArray result = env->NewIntArray(written);
+    if (result && written > 0) env->SetIntArrayRegion(result, 0, written, reinterpret_cast<const jint*>(failed.data()));
+    return result;
 }
 
 // Caption cues (signal/timeline/Cues). Stateless: the triples and the origin pair live in Kotlin arrays.

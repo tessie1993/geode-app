@@ -419,12 +419,12 @@ internal class ExportController(
             ExportRun.Kind.BATCH,
             label,
             onBegin = { _exportState.value = ExportUiState(phase = ExportPhase.Running(0f), batch = batch) },
-            onEnd = { _, _ -> _exportState.value = batch.cancelRest().toUiState() },
+            onEnd = { _, _ -> _exportState.value = batch.record(BatchOutcome.Cancelled).toUiState() },
         ) {
             val gui = host.guiPrefs
-            // A Cancel between tracks ends the loop; the tracks left are then marked cancelled.
-            var track = batch.current
-            while (track != null && !ExportRun.cancelRequested) {
+            // A Cancel between tracks ends the loop (native's next); the tracks left are then marked cancelled.
+            var track = batch.next(ExportRun.cancelRequested)
+            while (track != null) {
                 val publish: (Float) -> Unit = { within ->
                     _exportState.update { it.copy(batch = batch) }
                     publishProgress(batch.progress(within))
@@ -438,8 +438,9 @@ internal class ExportController(
                     } catch (t: Throwable) {
                         BatchOutcome.Failed(t.message ?: t.javaClass.simpleName)
                     }
-                batch = if (outcome == BatchOutcome.Cancelled) batch.cancelRest() else batch.record(outcome)
-                track = batch.current
+                // Native records it: a failure is skipped, a cancel ends this track and every one after it.
+                batch = batch.record(outcome)
+                track = batch.next(ExportRun.cancelRequested)
             }
             Ended(if (ExportRun.cancelRequested) ExportRun.Outcome.CANCELLED else ExportRun.Outcome.SAVED)
         }
@@ -485,13 +486,14 @@ internal class ExportController(
         }
     }
 
+    /** The batch's bar as native reports it: the last saved video, else the first failure, else none. */
     private fun RenderBatch.toUiState(): ExportUiState {
         val last = lastSaved
         return ExportUiState(
             phase =
-                when {
-                    last != null -> ExportPhase.Done(last.uri.toUri())
-                    failures.isNotEmpty() -> ExportPhase.Failed(failures.first().second)
+                when (Report.entries.getOrNull(report)) {
+                    Report.DONE -> last?.let { ExportPhase.Done(it.uri.toUri()) } ?: ExportPhase.Idle
+                    Report.FAILED -> failures.firstOrNull()?.let { ExportPhase.Failed(it.second) } ?: ExportPhase.Idle
                     else -> ExportPhase.Idle
                 },
             fileName = last?.fileName,

@@ -420,6 +420,38 @@ GEODE_API void    geode_render_job_snapshot(geode_render_job_state* out);
 GEODE_API int     geode_render_job_report(int outcome);
 GEODE_API int     geode_render_job_keeps_output(int outcome);
 
+/* A batch render's bookkeeping (output/RenderBatch), beside the render job that runs it. Stateless: the caller
+ * keeps the tracks (and their strings) and the outcome codes (render job outcomes 0 saved, 1 failed,
+ * 2 cancelled) in track order. Scopes: 0 the song playing, 1 the play queue, 2 a playlist, 3 chosen tracks;
+ * a candidate's source uses the same numbers. */
+/* The scope's tracks: indices into the candidates (keys[i] its URI, sources[i] its source), in order, each URI
+ * once. Writes min(n, cap) indices, returns n. */
+GEODE_API int     geode_render_batch_tracks(int scope, const char* const* keys, const int32_t* sources, int count,
+                                            int32_t* out_indices, int cap);
+/* The index of the track to render next, or -1 when none is left or a cancel was requested. */
+GEODE_API int     geode_render_batch_next(int total, int done, int cancel_requested);
+/* The outcome count after the current track ended with `outcome` (a cancel ends every track left; a finished
+ * batch ignores it); the new codes are written into codes[done..) when codes is not NULL. */
+GEODE_API int     geode_render_batch_record(int32_t* codes, int total, int done, int outcome);
+/* The whole batch's progress with `within` of the current track done. */
+GEODE_API float   geode_render_batch_progress(int total, int done, float within);
+typedef struct geode_render_batch_summary {
+    int32_t total;
+    int32_t done;
+    int32_t saved;
+    int32_t failed;
+    int32_t cancelled;
+    int32_t current;      /* rendering now, -1 once finished */
+    int32_t last_saved;   /* -1: none */
+    int32_t first_failed; /* -1: none */
+    int32_t report;       /* the render job's reports: 0 clear, 1 done (the last saved), 2 failed (the first) */
+    int32_t finished;
+} geode_render_batch_summary;
+/* Summarizes `done` codes of a `total`-track batch into out (may be NULL) and writes the failed tracks'
+ * indices, min(n, cap) of them, into out_failed (may be NULL); returns the failed count n. */
+GEODE_API int     geode_render_batch_summarize(const int32_t* codes, int total, int done,
+                                               geode_render_batch_summary* out, int32_t* out_failed, int cap);
+
 /* Caption cues (signal/timeline/Cues): the text-lane cues touching [span_start_ms, span_end_ms), re-based to
  * the item's first frame, written as up to `cap` (start ms, end ms, source index) triples into out_triples;
  * returns how many (0 when none touches the span). The text stays Kotlin, keyed by source index. Stateless:

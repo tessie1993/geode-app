@@ -561,6 +561,7 @@ void testOriginChecks() {
     ParamCell c = inPhase(ParamPhase::Rest);
     check(apply(c, ParamInput::hold(), kDef) == Outcome::Applied && c.phase == ParamPhase::Held, "the user's hold holds");
     c = inPhase(ParamPhase::Driven);
+    apply(c, ParamInput::set(2.5f, Origin::Timeline), kDef);  // off the user's value, so there is a glide back
     check(apply(c, ParamInput::undrive(), kDef) == Outcome::Applied && c.phase == ParamPhase::Glide,
           "the timeline's undrive glides back");
 }

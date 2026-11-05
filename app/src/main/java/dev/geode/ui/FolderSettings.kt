@@ -24,24 +24,26 @@ import dev.geode.data.GuiPrefs
 import dev.geode.ui.theme.StoneIcon
 import dev.geode.ui.theme.StoneIconArt
 
+/** Settings › Library › Basics: the folders the library reads music from. */
 @Composable
-internal fun FolderSettingsTab() {
-    val settingsViewModel: SettingsViewModel = geodeViewModel()
+internal fun MusicFoldersBasics() {
     val libraryViewModel: LibraryViewModel = geodeViewModel()
+    MusicFoldersEditor(libraryViewModel)
+}
+
+/** Settings › Library › Folders for presets and videos: where presets live, and where renders go. */
+@Composable
+internal fun OtherFoldersSection() {
+    val settingsViewModel: SettingsViewModel = geodeViewModel()
     val gui by settingsViewModel.guiPrefs.collectAsStateWithLifecycle()
-    SettingsTabColumn {
-        item { SettingsGroup(stringResource(R.string.folders_group_preset)) { PresetFolderGroup(settingsViewModel, gui) } }
-        item { SettingsGroup(stringResource(R.string.folders_group_music)) { MusicFoldersEditor(libraryViewModel) } }
-        item {
-            SettingsGroup(stringResource(R.string.folders_group_export)) {
-                Text(
-                    stringResource(R.string.folders_export_explainer),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-    }
+    CrystalOverline(stringResource(R.string.folders_group_preset), color = MaterialTheme.colorScheme.onSurfaceVariant)
+    PresetFolderGroup(settingsViewModel, gui)
+    CrystalOverline(stringResource(R.string.folders_group_export), color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Text(
+        stringResource(R.string.folders_export_explainer),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
 }
 
 @Composable

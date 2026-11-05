@@ -41,14 +41,25 @@ import dev.geode.ui.theme.isReadableOnCanvas
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
+/** Settings › Look › Basics: the accent and the interface sounds. */
 @Composable
-internal fun LookSettingsTab(viewModel: SettingsViewModel) {
+internal fun LookBasics(viewModel: SettingsViewModel) {
     val gui by viewModel.guiPrefs.collectAsStateWithLifecycle()
-    SettingsTabColumn {
-        item { SettingsGroup(stringResource(R.string.look_group_theme)) { ThemeGroup(viewModel, gui) } }
-        item { SettingsGroup(stringResource(R.string.look_group_text)) { TextGroup(viewModel, gui) } }
-        item { SettingsGroup(stringResource(R.string.look_group_layout)) { LayoutGroup(viewModel, gui) } }
-    }
+    ThemeGroup(viewModel, gui)
+}
+
+/** Settings › Look › Text: its size and colour. */
+@Composable
+internal fun LookTextSection(viewModel: SettingsViewModel) {
+    val gui by viewModel.guiPrefs.collectAsStateWithLifecycle()
+    TextGroup(viewModel, gui)
+}
+
+/** Settings › Look › Layout: the glass, the player's place, corners, the boot animation. */
+@Composable
+internal fun LookLayoutSection(viewModel: SettingsViewModel) {
+    val gui by viewModel.guiPrefs.collectAsStateWithLifecycle()
+    LayoutGroup(viewModel, gui)
 }
 
 @Composable

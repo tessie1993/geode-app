@@ -10,9 +10,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.height
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -34,7 +33,7 @@ import dev.geode.R
  * this track ([LyricsLoader.attach]).
  */
 @Composable
-internal fun LyricsSettingsTab(viewModel: PlayerViewModel) {
+internal fun LyricsSection(viewModel: PlayerViewModel) {
     val context = LocalContext.current
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val lyrics by viewModel.lyrics.collectAsStateWithLifecycle()
@@ -47,15 +46,15 @@ internal fun LyricsSettingsTab(viewModel: PlayerViewModel) {
     val song = listOfNotNull(state.title, state.artist?.takeIf { it.isNotBlank() }).joinToString(" ")
     val query = stringResource(R.string.lyrics_search_query, song)
     val noBrowser = stringResource(R.string.lyrics_no_browser)
-    Column(Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        SettingsGroup(stringResource(R.string.settings_tab_lyrics)) {
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             if (!state.hasMedia) {
                 Text(
                     stringResource(R.string.lyrics_nothing_playing),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                return@SettingsGroup
+                return@Column
             }
             Text(song, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -78,11 +77,14 @@ internal fun LyricsSettingsTab(viewModel: PlayerViewModel) {
                 lyrics = lyrics,
                 positionMs = { position.value },
                 onSeek = viewModel::seekToMs,
-                modifier = Modifier.weight(1f).fillMaxWidth(),
+                // A fixed height: the panel is a lazy list, and the Settings page around it scrolls.
+                modifier = Modifier.height(LYRICS_PANEL_HEIGHT).fillMaxWidth(),
             )
         }
     }
 }
+
+private val LYRICS_PANEL_HEIGHT = 360.dp
 
 /** A web search in whatever handles one, else the browser; false when nothing can. */
 private fun Context.searchWeb(query: String): Boolean {

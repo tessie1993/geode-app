@@ -52,7 +52,7 @@
     </plurals>
     <string name="first_run_done">Start listening</string>
 
-    <!-- The intent setting. No longer asked at first run; it lives in Settings > Behaviour. -->
+    <!-- The intent setting. No longer asked at first run; it lives in Settings › Behaviour and gestures. -->
     <string name="settings_intent_title">What do you use MuzViz for?</string>
     <string name="settings_intent_body">Sets where the app opens and whether Studio appears in the navigation bar.</string>
     <string name="settings_intent_listening">Listening</string>
@@ -102,13 +102,13 @@
     <!-- Settings > Help -->
     <string name="help_topics_group">How things work</string>
     <string name="help_topic_library">Library and folders</string>
-    <string name="help_topic_library_body">MuzViz reads the audio Android already indexes. If you keep music somewhere it does not look — an SD card, or Downloads — add that folder in Settings › Folders.</string>
+    <string name="help_topic_library_body">MuzViz reads the audio Android already indexes. If you keep music somewhere it does not look — an SD card, or Downloads — add that folder in Settings › Library &amp; lyrics.</string>
     <string name="help_topic_visuals">Styles, presets and Customize</string>
     <string name="help_topic_visuals_body">A style is the renderer; a preset is a style plus every control around it. Customize hides controls a style cannot use, so an empty section means that style ignores it rather than that something is broken.</string>
     <string name="help_topic_touch">Touch on the visualizer</string>
     <string name="help_topic_touch_body">Every style reads where your finger is and means something by it — a vanishing point, a spawn point, a place the geometry reaches toward. Pinch and twist map onto the real Zoom and Rotation controls, so a gesture you like is saved with the preset.</string>
     <string name="help_topic_safety">Flashing and motion</string>
-    <string name="help_topic_safety_body">Nothing on screen can flash more than three times a second. That limit lives in the engine, covers exported video as well as the screen, and is always on — there is no switch for it and nothing to turn on. Settings › Behavior › Visual safety adds one choice on top: “Slow the motion down”, which eases movement, shake, drift and rotation if motion rather than flashing is what affects you.</string>
+    <string name="help_topic_safety_body">Nothing on screen can flash more than three times a second. That limit lives in the engine, covers exported video as well as the screen, and is always on — there is no switch for it and nothing to turn on. Motion follows Android: turn on Remove animations (Settings › Accessibility) and the visual, the interface and exported video all move gently.</string>
     <string name="help_topic_performance">If it runs hot or stutters</string>
     <string name="help_topic_performance_body">The engine already lowers its own quality when the device heats up. The Detail control on the marched styles is the biggest single lever you have, and lowering it costs less than you would expect.</string>
 
@@ -272,7 +272,7 @@
 
     <!-- Now Playing on a connected display: this screen becomes the remote. -->
     <string name="second_screen_showing_on">Showing on</string>
-    <string name="second_screen_explainer">The visuals are on the connected display. Everything here still controls them — turn this off in Settings › Live input &amp; touch to bring them back.</string>
+    <string name="second_screen_explainer">The visuals are on the connected display. Everything here still controls them — turn this off in Settings › Visuals › Connected display to bring them back.</string>
     <string name="action_collapse">Collapse</string>
     <string name="action_pip">Picture-in-picture</string>
 
@@ -785,7 +785,7 @@
     <string name="note_bloom_look_burst">Burst</string>
     <!-- Customize › Advanced › Note & key (Pro): seven per-style strengths, 1 = as designed. -->
     <string name="note_key_intro">How strongly each part of the music answers on this style. 1× is as designed, 0 turns that part off.</string>
-    <string name="note_key_off">Note &amp; key reactions are off. Turn them on in Settings › Behaviour to hear these.</string>
+    <string name="note_key_off">Note &amp; key reactions are off. Turn them on in Settings › Visuals to hear these.</string>
     <string name="note_key_color">Note colours</string>
     <string name="note_key_color_hint">How much the key and each note tint the palette.</string>
     <string name="note_key_pitch">Pitch height</string>
@@ -813,8 +813,6 @@
     <string name="behavior_group_intent">What you\'re here for</string>
     <string name="behavior_safety_title">Flashing and motion</string>
     <string name="behavior_flash_guidance">Nothing in MuzViz can flash more than three times a second. Published guidance (WCAG 2.3.1) puts the general limit there, and the clamp sits in the render path itself — it applies to every scene, every preset and every imported file, on screen and in exported video alike. It is not a setting, so there is nothing here to adjust.</string>
-    <string name="behavior_slow_motion">Slow the motion down</string>
-    <string name="behavior_slow_motion_hint">Slows movement, shake, drift and rotation. This one is about motion comfort rather than seizures, which is why it is a choice: the flash limit above is not. Applies to exported video as well as the screen.</string>
     <string name="behavior_wallpaper_hint">Set the visualizer as your wallpaper. It uses the style and settings the app was last showing, reacts to whatever MuzViz is playing, and drifts gently on its own the rest of the time. It draws nothing while another app is in front, so it is not a background battery drain.</string>
     <string name="behavior_wallpaper_button">Set as live wallpaper</string>
     <string name="behavior_pip_auto_enter">Enter automatically</string>
@@ -1084,4 +1082,88 @@
     <!-- The Macros drawer (ui/MacrosDrawer.kt). -->
     <string name="macros_drawer_title">Macros</string>
     <string name="macros_drawer_edit">Edit and make macros</string>
+    <!-- Settings, rebuilt in Customize's pattern (#337, #338, #336): groups, Basics, sections. -->
+    <string name="settings_back_to_list">Back to Settings</string>
+    <string name="settings_group_position">%1$d of %2$d</string>
+    <string name="settings_previous_group">Previous group</string>
+    <string name="settings_next_group">Next group</string>
+    <string name="settings_basics">Basics</string>
+    <string name="settings_group_playback">Playback</string>
+    <string name="settings_group_playback_summary">Crossfade, fades, sleep timer, equalizer, ReplayGain</string>
+    <string name="settings_group_behaviour">Behaviour &amp; gestures</string>
+    <string name="settings_group_behaviour_summary">Start screen, screen on, headphones, queue end, gestures</string>
+    <string name="settings_group_visuals">Visuals</string>
+    <string name="settings_group_visuals_summary">Note reactions, safety, touch, second screen, wallpaper</string>
+    <string name="settings_group_sound_input">Sound input</string>
+    <string name="settings_group_sound_input_summary">Microphone, other apps' audio, how the visual listens</string>
+    <string name="settings_group_look">Look</string>
+    <string name="settings_group_look_summary">Accent, sounds, text size and colour, layout</string>
+    <string name="settings_group_performance">Performance</string>
+    <string name="settings_group_performance_summary">Quality for the screen, wallpaper and screen saver</string>
+    <string name="settings_group_library">Library &amp; lyrics</string>
+    <string name="settings_group_library_summary">Music folders, lyrics, the preset folder</string>
+    <string name="settings_group_export">Export</string>
+    <string name="settings_group_export_summary">Renders and their defaults live in Studio</string>
+    <string name="settings_group_help">Tutorials &amp; help</string>
+    <string name="settings_group_help_summary">Replay the tour and read how things work</string>
+    <string name="settings_group_about">Backup &amp; about</string>
+    <string name="settings_group_about_summary">Back up your settings, version, licences</string>
+    <string name="settings_section_speed_pitch">Speed &amp; pitch</string>
+    <string name="settings_section_volume_levelling">Volume levelling</string>
+    <string name="settings_section_equalizer">Equalizer</string>
+    <string name="settings_section_playback_more">Output and more</string>
+    <string name="settings_section_gestures">Gestures on the visual</string>
+    <string name="settings_section_notification">Notification buttons</string>
+    <string name="settings_section_wallpaper_dream">Wallpaper &amp; screen saver</string>
+    <string name="settings_section_other_folders">Preset and video folders</string>
+    <string name="playback_crossfade_off">Crossfade: off</string>
+    <plurals name="playback_crossfade_seconds">
+        <item quantity="one">Crossfade: %1$d second</item>
+        <item quantity="other">Crossfade: %1$d seconds</item>
+    </plurals>
+    <string name="playback_crossfade_explainer">Fades each track out while the next fades in. Off keeps the gapless join an album expects.</string>
+    <string name="settings_beh_start_screen">Open on</string>
+    <string name="settings_beh_start_last">Where you left off</string>
+    <string name="settings_beh_keep_screen_on">Keep the screen on in Visuals</string>
+    <string name="settings_beh_keep_screen_on_summary">Only while Visuals is on screen</string>
+    <string name="settings_beh_headphones">Play when headphones connect</string>
+    <string name="settings_beh_headphones_summary">Resumes a paused track when headphones or a Bluetooth device connect</string>
+    <string name="settings_beh_queue_end">When the queue ends</string>
+    <string name="settings_beh_queue_end_stop">Stop</string>
+    <string name="settings_beh_queue_end_repeat">Start again</string>
+    <string name="settings_beh_queue_end_similar">Keep playing similar music</string>
+    <string name="settings_beh_remember_shuffle">Remember shuffle and repeat</string>
+    <string name="settings_beh_remember_shuffle_summary">Keeps them as you left them the next time the app starts</string>
+    <string name="settings_beh_nothing">Nothing</string>
+    <string name="settings_beh_notif_shuffle">Shuffle button</string>
+    <string name="settings_beh_notif_repeat">Repeat button</string>
+    <string name="settings_beh_notif_favourite">Favourite button</string>
+    <string name="settings_gestures_hint">What each gesture on the visual does. Swipes that start at the screen's edges stay Android's.</string>
+    <string name="settings_gesture_tap_bottom">Tap the bottom</string>
+    <string name="settings_gesture_tap_top">Tap the top</string>
+    <string name="settings_gesture_double_tap">Double tap</string>
+    <string name="settings_gesture_swipe_sideways">Swipe sideways</string>
+    <string name="settings_gesture_swipe_up">Swipe up</string>
+    <string name="settings_gesture_swipe_down">Swipe down</string>
+    <string name="settings_gesture_long_press">Touch and hold</string>
+    <string name="settings_gesture_swirl">Draw two circles</string>
+    <string name="settings_gesture_two_finger_drag">Drag with two fingers</string>
+    <string name="settings_gesture_pinch">Pinch and twist</string>
+    <string name="settings_gesture_action_mini_player">Show the mini player</string>
+    <string name="settings_gesture_action_quick_settings">Open quick settings</string>
+    <string name="settings_gesture_action_toggle_sheet">Show or hide the sheet</string>
+    <string name="settings_gesture_action_step_style">Next or previous style</string>
+    <string name="settings_gesture_action_step_preset">Next or previous preset</string>
+    <string name="settings_gesture_action_step_playlist">Next or previous playlist look</string>
+    <string name="settings_gesture_action_macros">Open Macros</string>
+    <string name="settings_gesture_action_record">Record</string>
+    <string name="settings_gesture_action_randomize">Randomize</string>
+    <string name="settings_gesture_action_touch_play">Touch the visual</string>
+    <string name="settings_gesture_action_play_pause">Play or pause</string>
+    <string name="behavior_motion_system">Reduced motion</string>
+    <string name="behavior_motion_system_on">On: Android's Remove animations is on, so the visual, the interface and exports move gently. Tap to change it in Android's settings.</string>
+    <string name="behavior_motion_system_off">Follows Android's Remove animations (Accessibility). Tap to change it there.</string>
+    <string name="settings_dream_bright">Screen saver at full brightness</string>
+    <string name="settings_dream_clock">Show the time and date on the screen saver</string>
+    <string name="settings_dream_now_playing">Show what's playing on the screen saver</string>
 </resources>

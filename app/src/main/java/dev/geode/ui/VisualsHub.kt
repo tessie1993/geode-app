@@ -116,6 +116,8 @@ internal fun VisualsHub(
     val behaviour by produceState(BehaviourPrefs()) {
         value = withContext(Dispatchers.IO) { BehaviourStore(GeodePrefsFiles(context).general).load() }
     }
+    // Settings › Behaviour › Keep the screen on in Visuals: held while this screen is composed (#337).
+    KeepScreenOnWhileShown(behaviour.keepScreenOnVisuals)
     val studioViewModel: StudioViewModel = geodeViewModel()
     val takes by studioViewModel.takeState.collectAsStateWithLifecycle()
     var quickSettings by rememberSaveable { mutableStateOf(false) }

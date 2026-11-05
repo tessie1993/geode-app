@@ -19,6 +19,7 @@ import dev.geode.billing.ProSnapshot
 import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.PerformanceStore
 import dev.geode.data.PresetStore
+import dev.geode.data.SystemMotion
 import dev.geode.data.ThemeStore
 import dev.geode.pro.ProFeature
 import dev.geode.render.FramePacer
@@ -163,7 +164,7 @@ class VisualizerWallpaperService : WallpaperService() {
             }
             // The MilkDrop preset needs nothing here: the renderer restores the app's (MilkPresetMemory).
             val gui = ThemeStore(prefsFiles.general).loadGui()
-            engine.reducedMotion = gui.reducedMotion
+            engine.reducedMotion = SystemMotion.isReduced(contentResolver)
             engine.soundTuning = gui.soundTuning
             // Settings › Performance; the wallpaper keeps its own pacer, so the cap goes there.
             val performance = PerformanceStore(prefsFiles.general, this@VisualizerWallpaperService).settings.value

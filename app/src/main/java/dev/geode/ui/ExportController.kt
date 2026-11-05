@@ -15,6 +15,7 @@ import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.GuiPrefs
 import dev.geode.data.PerformanceTake
 import dev.geode.data.SaveTarget
+import dev.geode.data.SystemMotion
 import dev.geode.editor.AnimatableParams
 import dev.geode.editor.BeatCut
 import dev.geode.editor.Clip
@@ -421,7 +422,7 @@ internal class ExportController(
                 lfoConfigs = host.lfoConfigs(),
                 adsrConfigs = host.adsrConfigs(),
                 reactions = host.reactions(),
-                reducedMotion = gui.reducedMotion,
+                reducedMotion = SystemMotion.isReduced(application.contentResolver),
                 requestedFps = fps,
                 soundTuning = gui.soundTuning,
                 codec = codec,
@@ -721,7 +722,7 @@ internal class ExportController(
             lfoConfigs = host.lfoConfigs(),
             adsrConfigs = host.adsrConfigs(),
             reactions = host.reactions(),
-            reducedMotion = gui.reducedMotion,
+            reducedMotion = SystemMotion.isReduced(application.contentResolver),
             requestedFps = spec.defaults.fps,
             soundTuning = gui.soundTuning,
             paramsAt = look.paramsAt,
@@ -933,7 +934,7 @@ internal class ExportController(
                             lfoConfigs = host.lfoConfigs(),
                             adsrConfigs = host.adsrConfigs(),
                             reactions = host.reactions(),
-                            reducedMotion = gui.reducedMotion,
+                            reducedMotion = SystemMotion.isReduced(application.contentResolver),
                             codec = codec,
                             audioUri = uri,
                             soundTuning = gui.soundTuning,

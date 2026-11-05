@@ -196,7 +196,9 @@ fun AppRoot() {
     val accentTarget =
         if (viz.sceneId == SceneIds.MILKDROP) VisualAccent.Fallback else paletteAccent(viz.params.paletteBase, viz.params.paletteRange)
     // Outside the theme, so the motion scheme is built here from the same switches the theme reads.
-    val motion = geodeMotionScheme(gui.reducedMotion || rememberSystemReducedMotion())
+    // Android's "Remove animations" alone (data/SystemMotion, #336); the paywall below reads it too.
+    val reducedMotion = rememberSystemReducedMotion()
+    val motion = geodeMotionScheme(reducedMotion)
     val accent by animateColorAsState(accentTarget, motion.slowEffectsSpec(), label = "accent")
     // The mini player (and on Visuals the tab bar and stage icons) wakes on a new screen or track.
     // A PiP window shows the visual alone (the sheet and the chrome hidden) until it closes.
@@ -421,7 +423,7 @@ fun AppRoot() {
                 BootIntro(onDone = { appState.bootDone = true })
             }
             RecordSaveHost()
-            PaywallHost(reducedMotion = gui.reducedMotion)
+            PaywallHost(reducedMotion = reducedMotion)
             SharedLinkConfirm()
         }
     }

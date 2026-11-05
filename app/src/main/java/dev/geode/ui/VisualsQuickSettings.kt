@@ -92,10 +92,10 @@ import kotlin.math.roundToInt
  * long the mini player stays).
  *
  * It owns no state of its own. Every row reads and writes the store the matching Settings row uses,
- * so the two can never disagree: Auto is [AutoDirectorStore] (as Settings › Behaviour ›
- * Auto-director), the timer, its sources and the playlist are [PlayerViewModel]'s Auto visuals
- * (`AutoVisualsPrefsStore`, as Settings › Auto visuals), and the glass rows are [GuiPrefs] through
- * [SettingsViewModel] (as Settings › Look). Gating stays where it is: a free user may switch Auto on
+ * so the two can never disagree: Auto is [AutoDirectorStore], the timer, its sources and the
+ * playlist are [PlayerViewModel]'s Auto visuals (`AutoVisualsPrefsStore`), Auto's only home now
+ * (Settings has no Auto group), and the glass rows are [GuiPrefs] through [SettingsViewModel] (as
+ * Settings › Look). Gating stays where it is: a free user may switch Auto on
  * and gets the first minute of each song ([dev.geode.pro.AutoDirectorPolicy]); the timer's picks skip
  * locked styles by themselves.
  *

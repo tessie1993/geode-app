@@ -9,7 +9,7 @@ Shaders are GLSL ES 3.00 (`#version 300 es`) in `app/src/main/assets/shaders/`. 
 
 ## House rules
 
-- Shared code comes in by `//#include lib_x`. The allow-list is in `core/viz/ShaderSource.cpp`: a new `lib_*` file must be added there.
+- Shared code comes in by `//#include lib_x`. The allow-list is `core/viz/ShaderIncludes.inc` (compiled into `core/viz/ShaderSource.cpp`, read by `check_shaders.py` and `glslcheck`): a new `lib_*` file must be added there.
 - Every style hears sound through `lib_sound` (`uSound`, `uSoundTex`, `sndChroma`). `lib_scene_uniforms` pastes it in, together with `lib_zoom` and the six knobs `uKnob[6]` (k0 PULSE … k5 SPACE; exactly 0.5 while Note & key reactions are off).
 - 3D styles read the camera through `lib_camera` (`core/viz/CameraRig`). They dive by flying the rig, never by zooming UV.
 - 2D styles get endless zoom from `lib_zoom` (two layers an octave apart). In Liquid mode `LiquidPass` replaces it.

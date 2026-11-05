@@ -38,7 +38,7 @@ class StyleFamiliesTest {
 
     @Test
     fun everyFamilyLibraryIsOnTheNativeIncludeAllowList() {
-        val allowList = File(root, "core/viz/ShaderSource.cpp").readText()
+        val allowList = File(root, "core/viz/ShaderIncludes.inc").readText()
         StyleFamilies.all.forEach { family ->
             assertTrue(family.library, "\"${family.library}\"" in allowList)
             assertTrue(File(root, "app/src/main/assets/shaders/${family.library}.glsl").isFile)

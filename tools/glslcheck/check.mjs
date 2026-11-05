@@ -11,7 +11,8 @@
 // here is the list the app ships.
 //
 // Includes are resolved the way core/viz/ShaderSource.cpp resolves them: the
-// registered names are PARSED OUT OF THAT FILE (kIncludes), the line pattern
+// registered names are read from core/viz/ShaderIncludes.inc, the allow-list
+// ShaderSource.cpp compiles in (kIncludes), the line pattern
 // is the same anchored `//#include <name>`, and an unknown name is a hard
 // error - so a library added to the app without registering it fails here
 // the same way it fails on the phone.
@@ -51,17 +52,18 @@ import { launch } from './cdp.mjs';
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..', '..');
 const SHADERS = path.join(ROOT, 'app', 'src', 'main', 'assets', 'shaders');
-const SHADER_SOURCE_CPP = path.join(ROOT, 'core', 'viz', 'ShaderSource.cpp');
+const SHADER_INCLUDES_INC = path.join(ROOT, 'core', 'viz', 'ShaderIncludes.inc');
 const CATALOGUE_TXT = path.join(ROOT, 'core', 'tests', 'catalogue.txt');
 const FLUID_LOOK_HPP = path.join(ROOT, 'core', 'viz', 'fluid', 'FluidLook.hpp');
 
 // ---- includes, as ShaderSource.cpp does them ------------------------------
 
 function parseIncludeRegistry() {
-  const src = fs.readFileSync(SHADER_SOURCE_CPP, 'utf8');
-  const m = src.match(/kIncludes\s*=\s*\{([\s\S]*?)\};/);
-  if (!m) throw new Error(`could not find kIncludes in ${SHADER_SOURCE_CPP}`);
-  return [...m[1].matchAll(/"([A-Za-z0-9_]+)"/g)].map((x) => x[1]);
+  // Every double-quoted name outside a `//` comment, as the .inc's header says.
+  const src = fs.readFileSync(SHADER_INCLUDES_INC, 'utf8').replace(/\/\/[^\n]*/g, '');
+  const names = [...src.matchAll(/"([A-Za-z0-9_]+)"/g)].map((x) => x[1]);
+  if (!names.length) throw new Error(`no include names in ${SHADER_INCLUDES_INC}`);
+  return names;
 }
 
 const INCLUDE_LINE = /^[ \t]*\/\/#include[ \t]+(\w+)[ \t]*$/;

@@ -16,7 +16,7 @@ data class StyleFamily(
     val name: String,
     /** Every id in the family starts with this. */
     val prefix: String,
-    /** The shared include, on the native allow-list in core/viz/ShaderSource.cpp. */
+    /** The shared include, on the native allow-list in core/viz/ShaderIncludes.inc. */
     val library: String,
     /** The styles, the opener first, in the order the picker lists them. */
     val ids: List<String>,

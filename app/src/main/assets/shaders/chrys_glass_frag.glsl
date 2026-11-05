@@ -52,7 +52,7 @@ out vec4 fragColor;
 void main() {
     vec2 uv = view();
     float swell = clamp(SND_INTENSITY, 0.0, 1.5);
-    float t = uTime * uSpeed;
+    float t = uTime;  // uTime already integrates Speed (ShaderScene::update)
     float pitchEnv = clamp(SND_HELD_NOTE_CHANGE, 0.0, 1.0);
     float chaos = clamp(uTurbulence + uWarp, 0.0, 2.0);
     float rings = 6.0 + floor(2.0 * clamp(uMorph, 0.0, 1.0) + 0.5);

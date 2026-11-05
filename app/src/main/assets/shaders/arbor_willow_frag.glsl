@@ -113,7 +113,7 @@ vec3 skyCol(vec3 rd, vec3 moonDir, float hue) {
 void main() {
     vec2 uv = arbView();
 
-    float t = uTime * uSpeed;
+    float t = uTime;  // uTime already integrates Speed (ShaderScene::update)
     float energy = uIntensity;
     float chaos = arbChaos();
     float swell = clamp((0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)), 0.0, 1.5);

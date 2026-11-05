@@ -56,7 +56,7 @@
 //
 // THE CUSTOMIZE MACROS
 //
-// Speed: truchetTime() is uTime * uSpeed. Complexity: truchetMorph() is uMorph
+// Speed: truchetTime() is uTime, which already integrates Speed. Complexity: truchetMorph() is uMorph
 // 0..1; each style spends it on detail of its own (more cells, more lanes, a
 // deeper quadtree). Chaos: truchetWarp() bends the plane slowly BEFORE it is
 // tiled (uWarp, uTurbulence; uTwist already twists it in view()), so the paths
@@ -129,7 +129,7 @@ mat2 truchetRot(float a) {
 
 /** Animation time under the Speed macro. */
 float truchetTime() {
-    return uTime * uSpeed;
+    return uTime;  // already integrates Speed (ShaderScene::update)
 }
 
 /** The Energy macro: gain on in-shader audio reaction, clamped so a high setting cannot tear the tiling. */

@@ -104,7 +104,7 @@ const mat2 TERRA_OCT = mat2(2.0, -1.0, 1.0, 2.0);
 
 /** Animation time under the Speed macro. */
 float terraTime() {
-    return uTime * uSpeed;
+    return uTime;  // already integrates Speed (ShaderScene::update)
 }
 
 /** The Energy macro as a gain on in-shader reaction, clamped so a high setting cannot lift a peak through the eye. */

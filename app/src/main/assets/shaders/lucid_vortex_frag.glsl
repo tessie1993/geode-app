@@ -53,7 +53,7 @@ vec3 blackbody(float h) {
 
 void main() {
     vec2 uv = lucidView(true);
-    float t = uTime * uSpeed;
+    float t = uTime;  // uTime already integrates Speed (ShaderScene::update)
     float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
     float rel = clamp(uEnergyRel - 0.6, 0.0, 1.4) * uIntensity;
     float chaos = lucidChaos();

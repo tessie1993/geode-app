@@ -83,7 +83,7 @@ vec3 normalAt(vec3 p, float eps) {
 
 void main() {
     vec2 uv = arbView();
-    float t = uTime * uSpeed;
+    float t = uTime;  // uTime already integrates Speed (ShaderScene::update)
     float energy = uIntensity;
     float chaos = arbChaos();
     float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);

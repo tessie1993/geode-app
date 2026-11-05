@@ -46,7 +46,7 @@ out vec4 fragColor;
 
 void main() {
     vec2 uv = lucidView(false);
-    float t = uTime * uSpeed;
+    float t = uTime;  // uTime already integrates Speed (ShaderScene::update)
     float flow = uFlowPhase * uSpeed;
     float kick = clamp(SND_KICK_ENV, 0.0, 1.0) * uIntensity;
     float treb = clamp(SND_TREBLE_PRESENCE, 0.0, 1.5);

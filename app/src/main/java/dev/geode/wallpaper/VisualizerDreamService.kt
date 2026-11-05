@@ -13,6 +13,7 @@ import android.view.ViewGroup
 import android.widget.FrameLayout
 import androidx.core.content.ContextCompat
 import dev.geode.billing.ProSnapshot
+import dev.geode.billing.WallClock
 import dev.geode.data.BehaviourStore
 import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.PerformanceStore
@@ -89,6 +90,7 @@ class VisualizerDreamService : DreamService() {
             finish()
             return
         }
+        scheduleTrialEndCheck()
         isInteractive = false
         isFullscreen = true
         val prefsFiles = GeodePrefsFiles(this)
@@ -141,8 +143,26 @@ class VisualizerDreamService : DreamService() {
         super.onDreamingStopped()
     }
 
+    /**
+     * A trial that ends mid-dream ends the dream, the same as a free user starting one (owner,
+     * #376): nothing announces the end, so the dream books a check for the trial's last moment
+     * and, if Pro has not arrived meanwhile, finishes, and Android falls back to its own.
+     */
+    private val trialEnded =
+        Runnable {
+            if (ProSnapshot.gate(this).allows(ProFeature.SCREENSAVER)) scheduleTrialEndCheck() else finish()
+        }
+
+    private fun scheduleTrialEndCheck() {
+        handler.removeCallbacks(trialEnded)
+        ProSnapshot.gate(this).msUntilTrialEnds(WallClock.SYSTEM.nowMs())?.let {
+            handler.postDelayed(trialEnded, it + TRIAL_END_SLACK_MS)
+        }
+    }
+
     override fun onDetachedFromWindow() {
         handler.removeCallbacks(endStillSettle)
+        handler.removeCallbacks(trialEnded)
         sound.stop()
         cover.stop()
         overlay?.stop()
@@ -276,5 +296,8 @@ class VisualizerDreamService : DreamService() {
 
         /** How long a still frame keeps drawing first, so a scene being built finishes on screen. */
         const val STILL_SETTLE_MS = 2_000L
+
+        /** Past the trial's end before the re-check, so wall-clock rounding cannot read it as still running. */
+        const val TRIAL_END_SLACK_MS = 1_000L
     }
 }

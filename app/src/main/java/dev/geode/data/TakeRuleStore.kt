@@ -28,6 +28,10 @@ enum class TakeRule(
  * this store only keeps the choice and pushes it, like [NoteResponseStore]. A take reads the rule when it
  * begins, so the push only has to land before the next Record; [TakeCapture] fetches the store before every
  * take so a saved choice is always pushed first.
+ *
+ * [KEY_RULE] lives in `geode-prefs`, which Settings owns in the backup ([dev.geode.data.backup.BackupSection]),
+ * so it is backed up, restored and cleared by Reset all settings with the other Settings keys; both restore and
+ * reset restart the app, so the cached [instance] reloads the restored or default rule.
  */
 class TakeRuleStore internal constructor(
     private val prefs: SharedPreferences,

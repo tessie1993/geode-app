@@ -1,5 +1,7 @@
 package dev.geode.data.backup
 
+import dev.geode.data.GeodePrefsFiles
+import dev.geode.data.TakeRuleStore
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -200,6 +202,20 @@ class BackupArchiveTest {
         assertFalse(BackupFormat.isPortableKey("geode-prefs", "gui_tutorial_seen"))
         assertFalse(BackupFormat.isPortableKey("geode-library", "roots"))
         assertTrue(BackupFormat.isPortableKey("geode-prefs", "gui_reduced_motion"))
+    }
+
+    /**
+     * Settings keys that live in `geode-prefs` ride with Settings by file ownership, with no list of
+     * their own, so a new store's key is pinned here: if it were ever borrowed by Creative or made
+     * device-local it would silently leave Settings' backup and Reset all settings (which reads the
+     * same map, [dev.geode.data.SettingsReset]).
+     */
+    @Test
+    fun `settings keys in geode-prefs belong to Settings`() {
+        for (key in listOf(TakeRuleStore.KEY_RULE, "note_response_enabled", "gui_reduced_motion")) {
+            assertTrue(key, BackupFormat.isPortableKey(GeodePrefsFiles.GENERAL, key))
+            assertEquals(key, BackupSection.SETTINGS, BackupFormat.sectionOfKey(GeodePrefsFiles.GENERAL, key))
+        }
     }
 
     @Test

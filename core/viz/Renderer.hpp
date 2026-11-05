@@ -146,6 +146,7 @@ private:
 
     Scene* sceneFor(const std::string& id);
     Scene* readyScene(const std::string& id);
+    Scene* readySecondary(const std::string& id, const std::string& other);
     Scene* attemptScene(const std::string& id);
     Scene* builtScene(const std::string& id);
     // Releases a built scene nothing is drawing (Liquid mode's last born style); a no-op otherwise.
@@ -337,6 +338,11 @@ private:
     bool bornRolled_ = false;
     std::string bornSceneId_;
     std::string lastBornSceneId_;
+    // The secondary targets' staging asks (#369): this frame's layer, and the next style's this frame
+    // and the frame before.
+    std::string layerAsked_;
+    std::string bornAsked_;
+    std::string bornAskedBefore_;
     bool liquidWasOn_ = false;
     std::atomic<int> liquidHotPolicy_{0};
     std::atomic<int> liquidMode_{0};

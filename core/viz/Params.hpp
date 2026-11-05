@@ -221,12 +221,11 @@ struct SceneParams {
         const char* name;
         float SceneParams::*member;
     };
-    // MUST equal the number of initialisers in Params.cpp: a std::array with
-    // fewer initialisers than its size value-initialises the rest, and a null
-    // pointer-to-member is not a compile error. It was declared as 98 over 95
-    // entries, and lerpParams (and the blend since removed) wrote through the three null members
-    // on every fade. Count again whenever a lerped float is added.
-    static constexpr int kLerpedFloatCount = 118;
+    // MUST equal the number of entries in Params.cpp, and a static_assert there now says so:
+    // a std::array with fewer initialisers than its size value-initialises the rest to a null
+    // pointer-to-member, which lerpParams reads and writes through on every fade. It was 98 over
+    // 95 entries once, and 118 over 117 after noteBloom left (#445).
+    static constexpr int kLerpedFloatCount = 117;
     static const std::array<FloatField, kLerpedFloatCount>& lerpedFloats();
 
     // Every field in declaration order; the wire order of geode_viz_set_params.

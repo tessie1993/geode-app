@@ -1,0 +1,256 @@
+name: UI tour
+
+# Walks the whole app on the emulator and uploads what it saw: numbered screenshots of every
+# screen, sheet, page and gesture, plus ui-tour-report.md / .json (one row per step or gesture:
+# expected, observed, system gesture inset collisions, errors) and the device's logcat. A design
+# audit downloads the artifact instead of needing a device.
+#
+# The tour is the instrumented test dev.geode.journey.UiTourTest, skipped unless the
+# instrumentation argument uitour=1 is set, so android.yml's emulator job never pays for it. It
+# runs here three times on one emulator boot, one per look (uitourConfig=portrait, landscape,
+# font); a config that fails or crashes loses only its own screenshots. A tour step that cannot
+# find its control is written in the report, not failed: the job fails only when a config's run
+# failed (the app crashed, or the activity never came up), and uploads everything either way.
+#
+# Pull requests that touch the UI re-run it, so their artifact shows the change on screen.
+# Gesture navigation is switched on before the tour, so WindowInsets.systemGestures are the
+# ones a gesture-nav phone has and the report's edge collisions mean something.
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "app/src/main/java/dev/geode/ui/**"
+      - "app/src/main/res/**"
+      - "app/src/androidTest/java/dev/geode/journey/UiTour*"
+      - ".github/workflows/ui-tour.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ui-tour-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tour:
+    name: UI tour (emulator)
+    runs-on: ubuntu-latest
+    # Three configs of ~20-30 min each on a software-rendered emulator, plus the native build.
+    timeout-minutes: 150
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          # third_party/* are submodules; the root CMakeLists.txt builds them.
+          submodules: recursive
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+
+      - name: Enable KVM for the emulator
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      # Both APKs before the emulator exists, as in android.yml: built inside the emulator step,
+      # the native build shares the emulator's vCPUs.
+      - name: Build app and test APKs
+        run: ./gradlew :app:assembleDebug :app:assembleDebugAndroidTest --stacktrace --no-daemon
+
+      # The emulator runner runs each line of its script on its own and stops at the first that
+      # fails, which cannot express "run three configs and keep going". So the loop lives in a
+      # script written here and the emulator step runs that one line.
+      - name: Write the tour script
+        run: |
+          cat > "$RUNNER_TEMP/ui-tour.sh" <<'SH'
+          #!/usr/bin/env bash
+          set -uo pipefail
+          OUT=ui-tour-out
+          mkdir -p "$OUT/raw"
+          adb shell settings put global window_animation_scale 0
+          adb shell settings put global transition_animation_scale 0
+          adb shell settings put global animator_duration_scale 0
+          adb shell settings put secure long_press_timeout 1500
+          adb shell settings put secure show_ime_with_hard_keyboard 0
+          # Gesture navigation: the edge strips become Android's back, home and shade gestures.
+          adb shell cmd overlay enable com.android.internal.systemui.navbar.gestural || true
+          sleep 10
+          adb shell settings get secure navigation_mode > "$OUT/navigation_mode.txt" || true
+          adb shell cmd overlay list | grep -i navbar > "$OUT/navbar_overlays.txt" || true
+          adb shell input keyevent 82
+          # SystemUI demo mode: a fixed clock, full battery and signal and no notification icons, so
+          # screenshots differ only where the app does (screenshot evidence must be deterministic).
+          adb shell settings put global sysui_demo_allowed 1 || true
+          adb shell am broadcast -a com.android.systemui.demo -e command enter || true
+          adb shell am broadcast -a com.android.systemui.demo -e command clock -e hhmm 1200 || true
+          adb shell am broadcast -a com.android.systemui.demo -e command battery -e level 100 -e plugged false || true
+          adb shell am broadcast -a com.android.systemui.demo -e command network -e wifi show -e level 4 || true
+          adb shell am broadcast -a com.android.systemui.demo -e command notifications -e visible false || true
+          timeout 30 adb logcat -G 16M >/dev/null 2>&1 || true
+          adb logcat -b main,system,crash,events -v threadtime > "$OUT/logcat.txt" 2>&1 &
+          LOGCAT_PID=$!
+          failed=""
+          for cfg in portrait landscape font; do
+            echo "::group::UI tour, $cfg"
+            ./gradlew :app:connectedDebugAndroidTest --stacktrace --no-daemon \
+              -Pandroid.testInstrumentationRunnerArguments.class=dev.geode.journey.UiTourTest \
+              -Pandroid.testInstrumentationRunnerArguments.uitour=1 \
+              -Pandroid.testInstrumentationRunnerArguments.uitourConfig="$cfg" \
+              -Pandroid.testInstrumentationRunnerArguments.useTestStorageService=true \
+              2>&1 | tee "$OUT/gradle-$cfg.log"
+            [ "${PIPESTATUS[0]}" -eq 0 ] || failed="$failed $cfg"
+            # Both routes the files can take: the device folder TestStorage writes, and AGP's
+            # copy of it (AGP may clear either between runs, so each run is collected at once).
+            mkdir -p "$OUT/raw/$cfg"
+            timeout 600 adb pull /sdcard/googletest/test_outputfiles/ui-tour "$OUT/raw/$cfg/device" >/dev/null 2>&1 || true
+            cp -r app/build/outputs/connected_android_test_additional_output "$OUT/raw/$cfg/agp" 2>/dev/null || true
+            cp -r app/build/reports/androidTests "$OUT/raw/$cfg/test-report" 2>/dev/null || true
+            cp -r app/build/outputs/androidTest-results "$OUT/raw/$cfg/test-results" 2>/dev/null || true
+            # The test puts these back itself; this covers a run that died before it could.
+            adb shell settings put system font_scale 1.0 || true
+            adb shell settings put system user_rotation 0 || true
+            adb shell settings put system accelerometer_rotation 1 || true
+            echo "::endgroup::"
+          done
+          kill "$LOGCAT_PID" >/dev/null 2>&1 || true
+          echo "$failed" | xargs > "$OUT/failed-configs.txt"
+          SH
+          chmod +x "$RUNNER_TEMP/ui-tour.sh"
+
+      # Emulator settings are android.yml's instrumented-tests job's, which survive the
+      # visualizer journeys on these runners (see the comments there for why each one).
+      - name: Run the tour on the emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          target: google_apis
+          arch: x86_64
+          ram-size: 4096M
+          heap-size: 576M
+          cores: 3
+          disk-size: 6000M
+          force-avd-creation: true
+          emulator-boot-timeout: 900
+          emulator-options: -no-snapshot -no-window -gpu swangle_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
+          disable-animations: true
+          working-directory: .
+          script: bash "$RUNNER_TEMP/ui-tour.sh"
+
+      # One folder per config with its screenshots, whichever route delivered them, and the
+      # cases' report fragments merged into ui-tour-report.md / .json per config and overall.
+      - name: Collect screenshots and merge the reports
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p ui-tour-out
+          python3 - <<'PY'
+          import json, pathlib, shutil
+
+          out = pathlib.Path("ui-tour-out")
+          raw = out / "raw"
+          configs = ["portrait", "landscape", "font"]
+          for path in sorted(raw.rglob("*")) if raw.exists() else []:
+              if not path.is_file() or "ui-tour" not in path.parts:
+                  continue
+              rel = path.parts[path.parts.index("ui-tour") + 1:]
+              if not rel or rel[0] not in configs:
+                  continue
+              dest = out.joinpath(*rel)
+              dest.parent.mkdir(parents=True, exist_ok=True)
+              shutil.copy2(path, dest)
+
+          def cell(text):
+              return str(text if text is not None else "").replace("|", "\\|").replace("\n", " ")
+
+          everything = {"configs": {}}
+          summary = []
+          for cfg in configs:
+              folder = out / cfg
+              cases = []
+              for report in sorted(folder.glob("report-*.json")) if folder.exists() else []:
+                  try:
+                      cases.append(json.loads(report.read_text()))
+                  except ValueError as e:
+                      cases.append({"case": report.name, "rows": [], "error": f"unreadable: {e}"})
+              rows = [row for case in cases for row in case.get("rows", [])]
+              device = next((case.get("device") for case in cases if case.get("device")), {})
+              shots = len(list(folder.glob("*.png"))) if folder.exists() else 0
+              errors = sum(1 for row in rows if row.get("error"))
+              mismatches = sum(1 for row in rows if "MISMATCH" in str(row.get("observed", "")))
+              collisions = sum(1 for row in rows if row.get("insetCollision") == "yes")
+              everything["configs"][cfg] = {"device": device, "cases": cases}
+              summary.append(f"| {cfg} | {len(cases)} | {len(rows)} | {shots} | {errors} | {mismatches} | {collisions} |")
+              if not folder.exists():
+                  continue
+              lines = [f"# UI tour: {cfg}", "", f"Device and insets: `{json.dumps(device)}`", ""]
+              lines += ["✅ the step ran, ❌ it could not be done (see error). Each screenshot has its accessibility tree beside it",
+                        "(`<name>.layout.json`, `android layout`'s shape); *unlabeled* lists actionable nodes TalkBack cannot name.", ""]
+              lines += ["| | case | step | screenshots | expected | observed | inset collision | unlabeled | error |",
+                        "|---|---|---|---|---|---|---|---|---|"]
+              for row in rows:
+                  shots_md = " ".join(f"[{name}]({name})" for name in row.get("screenshots", []))
+                  lines.append("| " + " | ".join(cell(v) for v in [
+                      "❌" if row.get("error") else "✅", row.get("case"), f"{row.get('area')}/{row.get('step')}", shots_md,
+                      row.get("expected"), row.get("observed"), row.get("insetCollision", ""),
+                      "; ".join(row.get("unlabeledInteractive", [])), row.get("error"),
+                  ]) + " |")
+              unlabeled = sorted({u for row in rows for u in row.get("unlabeledInteractive", [])})
+              lines += ["", f"## Actionable nodes with no label ({len(unlabeled)})", ""] + [f"- {u}" for u in unlabeled]
+              (folder / "ui-tour-report.md").write_text("\n".join(lines) + "\n")
+              (folder / "ui-tour-report.json").write_text(json.dumps(everything["configs"][cfg], indent=2))
+
+          head = ["# UI tour", "", "| config | cases | rows | screenshots | step errors | gesture mismatches | inset collisions |",
+                  "|---|---|---|---|---|---|---|"]
+          failed = (out / "failed-configs.txt").read_text().strip() if (out / "failed-configs.txt").exists() else ""
+          tail = ["", f"Configs whose run failed (crash or no activity): {failed or 'none'}", "",
+                  "Per-config tables: `<config>/ui-tour-report.md`. Screenshots: `<config>/NNN_<area>_<step>_<orientation>_<fontscale>.png`."]
+          (out / "ui-tour-report.md").write_text("\n".join(head + summary + tail) + "\n")
+          (out / "ui-tour-report.json").write_text(json.dumps(everything, indent=2))
+
+          # Recording is checked on its own: a run that "passed" proves nothing about the files.
+          missing = [cfg for cfg in configs if not list((out / cfg).glob("*.png"))]
+          (out / "missing-screenshots.txt").write_text(" ".join(missing))
+          for cfg in configs:
+              print(f"{cfg}: {len(list((out / cfg).glob('*.png')))} screenshots in ui-tour-out/{cfg}/")
+          with open(__import__("os").environ.get("GITHUB_STEP_SUMMARY", "/dev/null"), "a") as s:
+              s.write("\n".join(head + summary + tail) + "\n")
+
+          # The merged folders hold every screenshot; drop the raw copies so the artifact is not twice the size.
+          for cfg in configs:
+              for sub in ("device", "agp"):
+                  shutil.rmtree(raw / cfg / sub, ignore_errors=True)
+          PY
+
+      - name: Upload the tour
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ui-tour-${{ github.run_number }}
+          path: ui-tour-out/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Fail if a config's run failed or recorded nothing
+        if: always()
+        run: |
+          failed=$(cat ui-tour-out/failed-configs.txt 2>/dev/null || echo "unknown (the tour script did not finish)")
+          missing=$(cat ui-tour-out/missing-screenshots.txt 2>/dev/null || echo "all")
+          if [ -n "$missing" ]; then
+            echo "::error::No screenshots were recorded for: $missing (expected ui-tour-out/<config>/NNN_*.png)."
+          fi
+          if [ -n "$failed" ]; then
+            echo "::error::UI tour run failed for: $failed (the app crashed or the activity never came up). Screenshots and reports were still uploaded."
+          fi
+          if [ -n "$failed$missing" ]; then exit 1; fi

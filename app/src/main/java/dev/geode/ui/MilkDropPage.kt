@@ -372,7 +372,15 @@ private fun PageCard(
                 .padding(start = GeodeSpacing.L),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(title, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall, maxLines = 1)
+            // Two lines then an ellipsis (#558): a long title at a large font wraps once instead
+            // of clipping, and the header grows with it (heightIn, not height).
+            Text(
+                title,
+                Modifier.weight(1f),
+                style = MaterialTheme.typography.titleSmall,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
             Text(
                 summary,
                 Modifier.padding(horizontal = GeodeSpacing.S).weight(1f, fill = false),

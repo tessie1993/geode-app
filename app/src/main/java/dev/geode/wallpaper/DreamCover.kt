@@ -14,9 +14,11 @@ import android.hardware.SensorManager
  * renders at full rate onto a screen pressed against wood. This is the dream's version of the
  * wallpaper's shade cover (`Engine.onZoomChanged`), which a dream does not get.
  *
- * The non-wakeup proximity sensor, registered only while dreaming: it is a low-power sensor the
- * phone already runs for calls, and it never wakes the CPU on its own. A phone without one is
- * never covered. Binary sensors report 0 or their maximum range; continuous ones report
+ * The non-wakeup proximity sensor where the phone has one, registered only while dreaming: it is
+ * a low-power sensor the phone already runs for calls, and it never wakes the CPU on its own.
+ * Proximity is declared wake-up by default, so many phones have only the wake-up one; there it is
+ * the fallback, and since it is registered only while the dream shows (screen on, CPU awake on the
+ * charger) its wake-ups cost next to nothing. A phone with neither is never covered. Binary sensors report 0 or their maximum range; continuous ones report
  * centimetres, so near is anything under [NEAR_CM] or under the range, whichever is smaller.
  */
 class DreamCover(
@@ -25,7 +27,12 @@ class DreamCover(
     private val onChanged: () -> Unit,
 ) : SensorEventListener {
     private val sensors = context.getSystemService(SensorManager::class.java)
-    private val proximity: Sensor? = sensors?.getDefaultSensor(Sensor.TYPE_PROXIMITY)
+    // Asked for by wake-up flag: the one-argument getDefaultSensor returns the wake-up proximity
+    // sensor, which wakes the CPU on every near/far change (#388). The non-wakeup one is optional,
+    // so fall back to the wake-up one rather than never covering.
+    private val proximity: Sensor? =
+        sensors?.getDefaultSensor(Sensor.TYPE_PROXIMITY, false)
+            ?: sensors?.getDefaultSensor(Sensor.TYPE_PROXIMITY)
     private var listening = false
 
     var covered: Boolean = false

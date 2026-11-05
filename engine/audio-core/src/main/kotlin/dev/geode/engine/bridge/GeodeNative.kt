@@ -276,9 +276,13 @@ object GeodeNative {
     /**
      * Customize › Music's hand mask (core/viz Reactions.hpp `hand::`): bit i is moment i set by hand,
      * [HAND_UNCLAIMED] every source no moment claims, [HAND_ALL] a whole list of the user's. Process-wide like
-     * [directorSet]: every renderer's director keeps its hands off those moments.
+     * [directorSet]: every renderer's director keeps its hands off those moments. Without a list of the user's
+     * ([hasUser] false) native counts the mask as 0, so a stale mask cannot switch off the director's routes.
      */
-    external fun handSet(mask: Int)
+    external fun handSet(
+        mask: Int,
+        hasUser: Boolean,
+    )
 
     /**
      * What plays (geode_style_reactions_hand): the [user]'s routes on the [mask]'s sources, the style's DNA on
@@ -469,12 +473,9 @@ object GeodeNative {
      */
     external fun catalogueText(): String
 
-    /** Every rolled control as `TAB|ParamKeys string` lines, in roll order (core/viz/ParamRandomizer). Static. */
-    external fun paramsRollKeys(): String
-
     /**
      * Rolls a new look (core/viz/ParamRandomizer) from [input], a SceneParamsCodec frame, into [output]:
-     * the controls of [tab] (a CustomizeTab name; null = every tab) that reach [styleId] (null = any),
+     * the controls of [tab] (a ParamRandomizer roll group name; null = every group) that reach [styleId] (null = any),
      * except the newline-joined ParamKeys in [locked]. Same arguments, same look. True when it changed
      * something.
      */
@@ -487,9 +488,36 @@ object GeodeNative {
         output: FloatArray,
     ): Boolean
 
-    /** [input] with exactly the fields [tab] (a CustomizeTab name) rolls put back to their defaults, into [output]. */
-    external fun paramsResetTab(
-        tab: String,
+    /**
+     * The Customize panel's map (core/viz/CustomizeMap) as its versioned line table: the ten
+     * categories, their Basics and Pro sections, and the controls in each. Static; parse once
+     * (the app's CustomizeMapTable does).
+     */
+    external fun customizeText(): String
+
+    /** True when a roll can move the control named [key] (a ParamKeys string), so the panel offers to keep it. */
+    external fun customizeLockable(key: String): Boolean
+
+    /** What the panel offers on [styleId]: `CATEGORY` and `CATEGORY/section` lines, in panel order. */
+    external fun customizeShown(styleId: String): String
+
+    /**
+     * Rolls one Customize category (core/viz/CustomizeMap; [category] by its CustomizeMap name) from
+     * [input] into [output]: its controls that reach [styleId] (null = any), except the newline-joined
+     * ParamKeys in [locked]. Every other control holds. True when it changed something.
+     */
+    external fun customizeRandomize(
+        styleId: String?,
+        category: String,
+        locked: String?,
+        seed: Long,
+        input: FloatArray,
+        output: FloatArray,
+    ): Boolean
+
+    /** [input] with every field [category]'s controls write put back to its default, into [output]. */
+    external fun customizeReset(
+        category: String,
         input: FloatArray,
         output: FloatArray,
     )

@@ -83,13 +83,14 @@ GEODE_API int         geode_style_reactions(const char* style_id, int seed, floa
    is bit i for moment i (GEODE_MUSIC_MOMENTS, in the page's order) plus GEODE_HAND_UNCLAIMED for every source
    no moment claims; GEODE_HAND_ALL is a whole list of the user's (the route editor, a list saved before the
    mask). `user` is the user's routes in the geode_viz_set_reactions layout, NULL (or has_user 0) for none.
-   geode_hand_set is process-wide like geode_director_set: every renderer's director keeps off those moments. */
+   geode_hand_set is process-wide like geode_director_set: every renderer's director keeps off those moments.
+   has_user 0 (no list of the user's: the DNA plays) makes the mask count as 0, whatever its bits. */
 #define GEODE_MUSIC_MOMENTS 10
 #define GEODE_MUSIC_ACTIONS 7
 #define GEODE_HAND_UNCLAIMED 0x40000000u
 #define GEODE_HAND_ALL 0x400003FFu
 #define GEODE_MUSIC_STATE_FLOATS 5  /* per moment: mine, route count, strength, on-action bits, fits-action bits */
-GEODE_API void        geode_hand_set(unsigned mask);
+GEODE_API void        geode_hand_set(unsigned mask, int has_user);
 /* What plays: the user's routes on the hand's sources, the DNA's (dealt from id and seed) on the rest. */
 GEODE_API int         geode_style_reactions_hand(const char* style_id, int seed, const float* user, int user_floats, int has_user,
                                                  unsigned mask, float* out, int capacity);
@@ -236,6 +237,21 @@ GEODE_API void        geode_params_reset_tab(const char* tab, const float* in, f
 /* Every rolled control as "TAB|ParamKeys string" lines, in roll order: what the panel offers to lock and what
  * each tab's Randomize and Reset cover. Static: the pointer stays valid for the process. */
 GEODE_API const char* geode_params_roll_keys(void);
+
+/* Customize panel map (core/viz/CustomizeMap): ten categories, each a free Basics section and Pro sections, and
+ * which control lives in which. geode_customize_text is its versioned '|'-separated line table (rows in
+ * CustomizeMap.hpp). Static: the pointer stays valid for the process. geode_customize_shown lists what the panel
+ * offers on style_id ("CATEGORY" and "CATEGORY/section" lines); the pointer stays valid until this thread's next call.
+ * geode_customize_randomize rolls one category's controls (named by its CustomizeMap name; an unknown one rolls
+ * nothing), holding every other control and the newline-joined ParamKeys in locked; 1 when it changed something.
+ * geode_customize_reset puts back every field the category's controls write. Wire as geode_params_randomize. */
+GEODE_API const char* geode_customize_text(void);
+/* 1 when the control named key (a ParamKeys string) is one a roll can move, so the panel offers to keep it. */
+GEODE_API int         geode_customize_lockable(const char* key);
+GEODE_API const char* geode_customize_shown(const char* style_id);
+GEODE_API int         geode_customize_randomize(const char* style_id, const char* category, const char* locked, uint64_t seed,
+                                                const float* in, float* out);
+GEODE_API void        geode_customize_reset(const char* category, const float* in, float* out);
 
 /* Export resampler (audio/dsp/PcmResampler): interleaved 16-bit PCM to the AAC encoder's rate; box filter
  * down, linear up. Streaming: state carries across calls. Any one thread at a time. There is no flush: a

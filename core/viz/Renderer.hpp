@@ -349,6 +349,8 @@ private:
     SceneParams displayedParams_;
     SceneParams lastFinalParams_;
     std::array<float, LfoEngine::kSlots> envRate_{};
+    // The envelopes' and LFOs' luminance modulation this frame, for the flash limiter (resolveParams).
+    LuminanceDrive luminanceDrive_{};
     std::array<float, LfoEngine::kSlots> envDepth_{};
     float postRotationAngle_ = 0.0f;
     float postCyclePhase_ = 0.0f;

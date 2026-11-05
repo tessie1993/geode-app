@@ -30,6 +30,13 @@ namespace geode::viz::safety {
 // unsqueezed through the grade it was drawn with, so the limiter keeps seeing the strobe it is hiding),
 // and lets go over kReleaseSeconds once a whole second has passed with at most one transition. Slow
 // fades, a pulse on the beat, a cut now and then never come near it and pass untouched (scale exactly 1).
+//
+// The drive (issue #363): the envelopes (ADSR) and LFO slots on a luminance target (Brightness,
+// Intensity, Saturation, Bloom, Vignette, Colour shift, Palette mix, Warmth) are known the frame they are
+// applied, so they are counted here too, one counter per target, beside the measured regions. A strobe
+// they drive engages the hold the very frame it is applied, never waits out the readback's lag or a frame
+// the probe skipped, and keeps the hold while they still swing. The hold itself is the one grade above:
+// there is no second limiter, and the measurement still catches whatever the drive does not describe.
 
 // The grade one frame is drawn with: lin' = anchor + (lin - anchor) * scale, per channel, in linear
 // light. scale 1 is the picture untouched.
@@ -92,6 +99,12 @@ public:
     static constexpr float kReleaseSeconds = 1.5f;
     // How fast the held grey may follow the source's average: slow enough to never read as a flash.
     static constexpr float kAnchorDriftPerSecond = 0.2f;
+    // A swing of a luminance target's modulation that counts as a transition, in the target's own units
+    // (applyLfoTarget adds the modulation about 1:1 to brightness, intensity, saturation, bloom, ...). The
+    // same depth VisualSafety lets any one flash reach (safety::kMaxFlashDepth); RendererFrame asserts it.
+    static constexpr float kDriveThreshold = 0.25f;
+    // One drive per luminance target (viz/Lfo.hpp kLuminanceTargets; RendererFrame asserts it).
+    static constexpr int kDrives = 8;
     // The readback is 8-bit: unsqueezing a held frame multiplies its quantization by 1/scale, so the
     // swing that counts is raised to stay above that noise (a missed count only holds a little longer).
     static constexpr float kQuantizationFloor = 0.008f;
@@ -104,8 +117,12 @@ public:
     // The grade for the frame drawn at `now` (seconds, never decreasing; a step back resets).
     Grade next(double now);
 
+    // The luminance modulation the envelopes and LFOs apply to the frame drawn at `now`, per target
+    // (summed when several drive one). Call before next(now) so the frame it is applied to is graded by it.
+    void drive(const std::array<float, kDrives>& modulation, double now);
+
     bool held() const { return held_; }
-    // The most transitions any region's luminance or red counted in the last second, as of `now`.
+    // The most transitions any region's luminance or red, or any drive, counted in the last second, as of `now`.
     int transitionsInWindow(double now);
 
 private:
@@ -122,6 +139,8 @@ private:
     };
 
     std::array<Signal, kSignals> signals_{};
+    std::array<Signal, kDrives> drives_{};
+    double lastDriveAt_ = -1.0;
     bool held_ = false;
     float scale_ = 1.0f;
     float anchor_ = 0.0f;

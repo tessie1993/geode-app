@@ -96,6 +96,12 @@ void FlashLimiter::reset() {
         s.head = 0;
         s.count = 0;
     }
+    for (Signal& s : drives_) {
+        s.counter.reset();
+        s.head = 0;
+        s.count = 0;
+    }
+    lastDriveAt_ = -1.0;
     held_ = false;
     scale_ = 1.0f;
     anchor_ = 0.0f;
@@ -137,9 +143,25 @@ void FlashLimiter::observe(const FrameLight& shown, const Grade& drawnWith, doub
     }
 }
 
+// No dark-side rule: the drive is a param, not a light level, and it is counted before the grade, so a
+// held frame keeps counting the strobe the hold hides (as the measurement does by unsqueezing).
+void FlashLimiter::drive(const std::array<float, kDrives>& modulation, double now) {
+    if (now < lastDriveAt_) return;
+    lastDriveAt_ = now;
+    for (int i = 0; i < kDrives; i++) {
+        const float v = modulation[static_cast<size_t>(i)];
+        Signal& s = drives_[static_cast<size_t>(i)];
+        if (s.counter.step(std::isfinite(v) ? v : 0.0f, kDriveThreshold, kNoCeiling)) s.record(now);
+    }
+}
+
 int FlashLimiter::transitionsInWindow(double now) {
     int most = 0;
     for (Signal& s : signals_) {
+        s.dropOlderThan(now - kWindowSeconds);
+        most = std::max(most, s.count);
+    }
+    for (Signal& s : drives_) {
         s.dropOlderThan(now - kWindowSeconds);
         most = std::max(most, s.count);
     }

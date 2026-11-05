@@ -180,6 +180,11 @@ SceneParams Renderer::resolveParams(float dt) {
     // Order: the director's look, the note layer inside it, then the user's macros and LFOs over both.
     SceneParams p = lfo_.apply(macros::apply(notes_.apply(director_.apply(displayedParams_, palWheel)), directedKnobs_), lfoValues);
     p = AdsrEngine::apply(p, adsr_.configs, envValues);
+    // What the envelopes and LFOs add to the luminance targets this frame: the flash limiter counts it
+    // with the measured output (stepFlashLimiter), so an envelope strobe engages the hold at once (#363).
+    luminanceDrive_.fill(0.0f);
+    lfo_.addLuminanceDrive(lfoValues, luminanceDrive_);
+    AdsrEngine::addLuminanceDrive(adsr_.configs, envValues, luminanceDrive_);
     // The reaction matrix: per-style routes from the sound frame to many
     // targets. Ahead of the motion field and the safety clamp, like the LFOs.
     reactions_.tick(soundFrame_, dt);
@@ -357,12 +362,17 @@ void Renderer::composite(const SceneParams& p, float progress, GLuint targetFbo,
     bloomPass_.draw(notes_.uniforms(), width_, height_, quadVao_, NoteBloomPass::kGain * flashGrade_.scale);
 }
 
+static_assert(safety::FlashLimiter::kDrives == kLuminanceTargets, "one limiter drive per luminance target");
+static_assert(safety::FlashLimiter::kDriveThreshold == safety::kMaxFlashDepth, "a drive counts past the flash depth");
+
 void Renderer::stepFlashLimiter(float dt) {
     safetyClock_ += dt;
     safety::FrameLight light;
     safety::Grade drawnWith;
     double drawnAt = 0.0;
     while (outputProbe_.poll(light, drawnWith, drawnAt)) flashLimiter_.observe(light, drawnWith, drawnAt);
+    // This frame's drive (resolveParams ran first), stamped with the time this frame is drawn at.
+    flashLimiter_.drive(luminanceDrive_, safetyClock_);
     flashGrade_ = flashLimiter_.next(safetyClock_);
 }
 

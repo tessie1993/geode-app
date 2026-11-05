@@ -55,6 +55,7 @@ class PlaybackSession internal constructor(
     /** Settings › Playback › Bit-perfect USB output; told every stream format before its AudioTrack opens. */
     private val bitPerfect = BitPerfectOutput(context)
 
+    // The ring's epoch is native's call: PcmTap reports each flush to FlushJudge (#358).
     internal val tap =
         PcmTap(ingest) { format ->
             bitPerfect.onFormat(format.sampleRateHz, format.channelCount)

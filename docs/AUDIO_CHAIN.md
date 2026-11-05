@@ -22,7 +22,7 @@ ExoPlayer
    ▼
 DefaultAudioSink  ── MvzAudioProcessorChain ──────────────────────────┐
    │                                                                  │
-   │   1. TeeAudioProcessor(PcmTap)       ← the PCM tap               │
+   │   1. PcmTap                          ← the PCM tap               │
    │   2. SilenceSkippingAudioProcessor   ← media3's own              │
    │   3. SonicAudioProcessor             ← media3's own (speed/pitch)│
    │   4. NativeDspProcessor              ← EQ, crossfeed, ReplayGain │
@@ -35,9 +35,9 @@ AudioTrack ──▶ platform audiofx (Equalizer / BassBoost / Loudness) ──�
 ```
 
 The tap (`engine/audio-android/.../PcmTap.kt`) hands each buffer, as bytes, to the
-player's native ingest ring (`geode_ingest_write`, `core/audio/ingest`) and begins
-the ring's new epoch on each flush, on the playback thread, before the next stream's
-first sample (#361). No sample is converted in Kotlin. The ring is published as
+player's native ingest ring (`geode_ingest_write`, `core/audio/ingest`) and reports
+each flush's facts on the playback thread, before the next stream's first sample
+(#361); native's `FlushJudge` decides whether that is a new epoch (#358, below). No sample is converted in Kotlin. The ring is published as
 `AudioBus.playerIngest`; each renderer's native side reads its own cursor on it
 every frame (`core/viz/SoundFeed`, `geode_viz_set_sound_source`) into its own
 `core/sound` engine, as the stereo downmix, so a 5.1 or 7.1 file's centre and LFE
@@ -100,7 +100,7 @@ in the tree, so today they are conventions that this document keeps.
 obvious way to get a float pipeline. It is the opposite. `DefaultAudioSink`'s
 own javadoc says *"Audio processing (for example, speed adjustment) will not be
 available when float output is in use."* Float output does not give us a float
-chain — it removes the chain, and the `TeeAudioProcessor` that feeds every
+chain — it removes the chain, and the tap that feeds every
 visual in the app goes with it. The failure is silent: no crash, no log, a
 visualizer that never moves and an equalizer that does nothing. **A float chain
 is built by having the stages work in float internally**, not by asking the
@@ -136,13 +136,35 @@ passes through untouched. Swapping at configure fed a mono tail to a stereo
 chain and wrote past the buffer (#356); `core/tests/dsp_handoff_test.cpp`
 pins this.
 
-**2. The tap stays first.** Live and export run the same `core/sound` code, so
+**2. The tap stays first** (owner decision, 2026-11-05: considered moving it
+after `SilenceSkipping` and Sonic to "hear as played", and kept it first). Live
+and export run the same `core/sound` code, so
 they can only agree if they hear the same audio. Live, the tap writes the ring
 that each renderer's sound engine reads. Export, `render/offscreen/TrackAudio`
 decodes the file itself (MediaExtractor and MediaCodec) and feeds the export
 renderer's own engine at 1/fps; that decode has no user DSP in it. Put
 user-tunable DSP upstream of the tap and live visuals diverge from every
 exported video, differently for every user and every preset.
+
+Because it is first, the ring holds **source-time** samples: speed and pitch do
+not stretch it and skipped silence is still in it. Following what the speaker
+plays at a speed other than 1× is the playout clock's job (#482, #488): it maps
+the speaker's media position back to a ring position.
+
+**Flushes and epochs (#358).** Media3 flushes the whole chain for two reasons:
+a sink reset (seek, stop, reconfigure; no position) and a re-apply (speed,
+pitch or skip-silence change, the first buffer after a reset, a reused-output
+item change, a > 200 ms timestamp resync; the chain is drained first and the
+flush carries the next buffer's media position and period). `PcmTap` is its own
+`BaseAudioProcessor`, not a `TeeAudioProcessor`, because the tee drops that
+`StreamMetadata` and also reports end-of-stream as a flush. The chain tells the
+tap when it re-applies (`applySkipSilenceEnabled` runs only on that path, just
+before the flush), and the tap reports each flush's facts through
+`geode_ingest_flush`. Native decides (`core/audio/ingest/FlushJudge`): a reset,
+another period or a position jump of more than 1 s begins an epoch, which
+restarts every reader's cursor and sound engine; anything else keeps the epoch
+with the new format, so the tempo, key and sections the visuals learned survive
+a speed slider. `core/tests/ingest_flush_test.cpp` pins it.
 
 Stages in the chain after the tap today: `SilenceSkippingAudioProcessor`,
 `SonicAudioProcessor`, `NativeDspProcessor`. A new stage goes after them, never

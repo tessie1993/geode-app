@@ -7,13 +7,13 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.audio.AudioSink
 import androidx.media3.exoplayer.audio.DefaultAudioSink
-import androidx.media3.exoplayer.audio.TeeAudioProcessor
 import dev.geode.audio.dsp.MvzAudioProcessorChain
+import dev.geode.engine.audioandroid.PcmTap
 
 @OptIn(UnstableApi::class)
 class TapRenderersFactory(
     context: Context,
-    private val sink: TeeAudioProcessor.AudioBufferSink,
+    private val tap: PcmTap,
     private val dsp: List<AudioProcessor> = emptyList(),
     /**
      * The native playout clock the sink reports its timing to ([PlayoutSink], #488), with the position the
@@ -23,7 +23,7 @@ class TapRenderersFactory(
     private val ringWritten: () -> Long = { 0L },
 ) : DefaultRenderersFactory(context) {
     internal fun audioProcessorChain(): MvzAudioProcessorChain =
-        MvzAudioProcessorChain(TeeAudioProcessor(sink), dsp = dsp)
+        MvzAudioProcessorChain(tap, dsp = dsp)
 
     override fun buildAudioSink(
         context: Context,

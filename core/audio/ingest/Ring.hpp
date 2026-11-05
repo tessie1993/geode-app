@@ -5,6 +5,8 @@
 #include <cstdint>
 #include <vector>
 
+#include "audio/ingest/FlushJudge.hpp"
+
 // The native ingest ring (ADR 0006, #478, #480): one per audio source (the player's tap, the mic, another
 // app's audio, the wallpaper's output-mix capture, a decoded file for export). The source writes raw PCM
 // bytes straight from its buffer; every renderer and analyzer reads it through its own Cursor (Cursor.hpp).
@@ -152,4 +154,5 @@ private:
 struct geode_ingest {
     geode_ingest(int capacityFrames, int maxChannels) : ring(capacityFrames, maxChannels) {}
     geode::audio::ingest::Ring ring;
+    geode::audio::ingest::FlushJudge flushJudge;   // writer thread only: geode_ingest_flush (#358)
 };

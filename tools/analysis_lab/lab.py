@@ -138,9 +138,13 @@ def crash(rng):
     return np.diff(rng.standard_normal(len(t) + 1)) * 0.25 * np.exp(-t / 0.5)
 
 
-def click(freq, gain):
+def click(rng, freq, gain):
+    """A metronome click: a pitched ping plus a few milliseconds of noise. The noise matters: librosa's beat
+    tracker takes the median over 128 mel bands, and a pure tone moves too few of them to register."""
     t = _t(0.03)
-    return np.sin(2 * np.pi * freq * t) * np.exp(-t / 0.008) * gain
+    ping = np.sin(2 * np.pi * freq * t) * np.exp(-t / 0.008)
+    noise = rng.standard_normal(len(t)) * 0.5 * np.exp(-t / 0.004)
+    return (ping + noise) * gain
 
 
 def tone(freqs, seconds, attack=0.01, release=0.08, harmonics=3, gain=1.0):
@@ -204,7 +208,7 @@ def render(clip):
             truth_downbeats.append(t_bar)
             if s.get("click"):
                 for k in range(4):
-                    place(t_bar + k * beat, click(1500.0, 1.0) if k == 0 else click(1000.0, 0.55), gain=g)
+                    place(t_bar + k * beat, click(rng, 1500.0, 1.0) if k == 0 else click(rng, 1000.0, 0.55), gain=g)
             for pos in s.get("kick", []):
                 place(t_bar + pos * beat, kick(), gain=0.9 * g)
             for pos in s.get("snare", []):

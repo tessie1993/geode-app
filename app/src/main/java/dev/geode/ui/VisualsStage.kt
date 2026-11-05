@@ -53,6 +53,8 @@ import dev.geode.ui.theme.StoneHapticCue
 import dev.geode.ui.theme.StoneIcon
 import dev.geode.ui.theme.floatingGlass
 import dev.geode.ui.theme.performStoneHaptic
+import dev.geode.ui.tour.GestureTip
+import dev.geode.ui.tour.GestureTips
 import kotlin.math.roundToInt
 
 /**
@@ -145,7 +147,15 @@ internal fun BoxScope.StageIcons(
         }
         // Export, loop render and the takes list live in Studio; this only takes you there.
         StageIconButton(StoneIcon.STUDIO, stringResource(R.string.visuals_open_render), awake, onOpenStudioRender)
-        StageIconButton(StoneIcon.FULLSCREEN, stringResource(R.string.visuals_gesture_toggle_sheet), awake, onFullScreen)
+        StageIconButton(
+            StoneIcon.FULLSCREEN,
+            stringResource(R.string.visuals_gesture_toggle_sheet),
+            awake,
+            onClick = {
+                GestureTips.nudge(GestureTip.DOUBLE_TAP_SHEET)
+                onFullScreen()
+            },
+        )
     }
     // ‹ › centre in the part of the visual in view: shrunk by the panel at the end (landscape) and
     // the sheet at the bottom (portrait), so Center* aligns to the visible area, not the whole stage.
@@ -163,7 +173,10 @@ internal fun BoxScope.StageIcons(
             StoneIcon.CHEVRON_LEFT,
             stringResource(R.string.visuals_previous_style),
             awake,
-            { onStep(-1) },
+            {
+                GestureTips.nudge(GestureTip.SWIPE_STYLES)
+                onStep(-1)
+            },
             Modifier
                 .align(Alignment.CenterStart)
                 .padding(GeodeSpacing.S)
@@ -174,7 +187,10 @@ internal fun BoxScope.StageIcons(
             StoneIcon.CHEVRON_RIGHT,
             stringResource(R.string.visuals_next_style),
             awake,
-            { onStep(1) },
+            {
+                GestureTips.nudge(GestureTip.SWIPE_STYLES)
+                onStep(1)
+            },
             Modifier
                 .align(Alignment.CenterEnd)
                 .padding(GeodeSpacing.S)
@@ -186,7 +202,14 @@ internal fun BoxScope.StageIcons(
         icon = if (takes.recording) StoneIcon.STOP else StoneIcon.RECORD,
         description = stringResource(if (takes.recording) R.string.visuals_stop_take else R.string.visuals_gesture_record),
         enabled = awake || takes.recording,
-        onClick = { if (takes.recording) studioViewModel.stopRecording() else studioViewModel.startRecording() },
+        onClick = {
+            if (takes.recording) {
+                studioViewModel.stopRecording()
+            } else {
+                GestureTips.nudge(GestureTip.HOLD_TO_RECORD)
+                studioViewModel.startRecording()
+            }
+        },
         modifier =
             Modifier
                 .align(Alignment.BottomEnd)

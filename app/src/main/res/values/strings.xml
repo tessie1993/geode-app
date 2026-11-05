@@ -258,8 +258,6 @@
     <string name="ab_loop_looping">Looping</string>
 
     <!-- Automatic visual switching. -->
-    <string name="auto_random">Auto: random</string>
-    <string name="auto_off">Auto: off</string>
 
     <string name="queue">Queue</string>
     <string name="queue_with_count">Queue · %1$d</string>

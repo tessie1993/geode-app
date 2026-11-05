@@ -72,7 +72,8 @@ import kotlinx.coroutines.withContext
  * performance, itself a project since part 1D. The chips narrow the grid to one kind.
  *
  * Deleting is never a dialog: the item leaves the grid at once and a snackbar offers Undo; only
- * when the snackbar goes away unanswered is the file (or the take) really deleted.
+ * when the Undo window passes unanswered is the file (or the take) really deleted, by
+ * [StudioViewModel.deleteVideoLater], which keeps waiting if the tab is left meanwhile.
  */
 @Composable
 internal fun MyVideosTab(
@@ -87,7 +88,7 @@ internal fun MyVideosTab(
     val snackbar = remember { SnackbarHostState() }
     var filter by rememberSaveable { mutableStateOf(VideoFilter.ALL) }
     // Items waiting out their Undo snackbar; hidden from the grid until then.
-    var pendingDelete by remember { mutableStateOf(setOf<String>()) }
+    val pendingDelete by viewModel.pendingVideoDeletes.collectAsStateWithLifecycle()
     val chooserTitle = stringResource(R.string.studio_share_chooser)
     val undoText = stringResource(R.string.my_videos_undo)
 
@@ -105,17 +106,18 @@ internal fun MyVideosTab(
             .sortedByDescending { it.createdAtMs }
 
     val delete: (MyVideo) -> Unit = { item ->
-        pendingDelete = pendingDelete + item.key
+        viewModel.deleteVideoLater(
+            when (item) {
+                is MyVideo.Render -> VideoDelete.Render(item.projectId, item.uri)
+                is MyVideo.Take -> VideoDelete.Take(item.title)
+            },
+        )
         val deletedText = resources.getString(R.string.my_videos_deleted, item.title)
+        // The snackbar only offers Undo; the delete itself waits in the ViewModel and happens even
+        // if this tab leaves the screen first (#322).
         scope.launch {
             val result = snackbar.showSnackbar(deletedText, actionLabel = undoText, duration = SnackbarDuration.Short)
-            pendingDelete = pendingDelete - item.key
-            if (result == SnackbarResult.Dismissed) {
-                when (item) {
-                    is MyVideo.Render -> viewModel.deleteRender(item.projectId, item.uri)
-                    is MyVideo.Take -> viewModel.deleteTake(item.title)
-                }
-            }
+            if (result == SnackbarResult.ActionPerformed) viewModel.undoVideoDelete(item.key)
         }
     }
 

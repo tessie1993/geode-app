@@ -495,9 +495,6 @@ class PlayerSession internal constructor(
         }
     }
 
-    private val _autoMode = MutableStateFlow(0)
-    val autoMode: StateFlow<Int> = _autoMode
-
     private var playerListener: Player.Listener? = null
 
     private fun refresh() {
@@ -750,12 +747,6 @@ class PlayerSession internal constructor(
 
     fun togglePresetLock() {
         _presetLocked.update { !it }
-    }
-
-    fun cycleAutoMode() {
-        val next = (_autoMode.value + 1) % 2
-        _autoMode.value = next
-        setRandomEnabled(next == 1)
     }
 
     fun playNext(uri: String) = queueController.playNext(uri)

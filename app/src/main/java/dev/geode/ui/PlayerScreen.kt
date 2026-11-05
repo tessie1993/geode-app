@@ -90,7 +90,6 @@ fun PlayerScreen(
     val mic by viewModel.micState.collectAsStateWithLifecycle()
     val external by viewModel.externalAudio.collectAsStateWithLifecycle()
     val abLoop by viewModel.abLoop.collectAsStateWithLifecycle()
-    val autoMode by viewModel.autoMode.collectAsStateWithLifecycle()
     val queue by viewModel.queue.collectAsStateWithLifecycle()
     val favourites by viewModel.favourites.collectAsStateWithLifecycle()
     val tick by viewModel.historyTick.collectAsStateWithLifecycle()
@@ -155,7 +154,6 @@ fun PlayerScreen(
             state = state,
             position = { position.value },
             abLoop = abLoop,
-            autoMode = autoMode,
             modifier = readable.padding(horizontal = 16.dp),
         )
     }
@@ -453,7 +451,6 @@ private fun TransportCard(
     state: PlayerUiState,
     position: () -> Long,
     abLoop: AbLoop?,
-    autoMode: Int,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -524,16 +521,6 @@ private fun TransportCard(
                         } else {
                             MaterialTheme.colorScheme.onSurfaceVariant
                         },
-                )
-            }
-            TextButton(onClick = viewModel::cycleAutoMode) {
-                Text(
-                    when (autoMode) {
-                        1 -> stringResource(R.string.auto_random)
-                        else -> stringResource(R.string.auto_off)
-                    },
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }

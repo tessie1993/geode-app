@@ -224,20 +224,20 @@ Java_dev_geode_engine_bridge_GeodeNative_macroStarters(JNIEnv* env, jobject) {
 }
 
 JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_vizSetCustomShader(JNIEnv* env, jobject, jlong handle, jstring sceneId,
-                                                            jstring fragmentSource) {
-    Utf8Chars id(env, sceneId);
+Java_dev_geode_engine_bridge_GeodeNative_shaderOverrideSet(JNIEnv* env, jobject, jstring styleId,
+                                                           jstring fragmentSource) {
+    Utf8Chars id(env, styleId);
     Utf8Chars source(env, fragmentSource);
-    geode_viz_set_custom_shader(vizOf(handle), id.get(), source.get());
+    geode_shader_override_set(id.get(), source.get());
 }
 
 JNIEXPORT jstring JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_vizCustomShader(JNIEnv* env, jobject, jlong handle, jstring sceneId) {
-    Utf8Chars id(env, sceneId);
-    const size_t length = geode_viz_custom_shader(vizOf(handle), id.get(), nullptr, 0);
+Java_dev_geode_engine_bridge_GeodeNative_shaderOverride(JNIEnv* env, jobject, jstring styleId) {
+    Utf8Chars id(env, styleId);
+    const size_t length = geode_shader_override(id.get(), nullptr, 0);
     if (length == 0) return nullptr;
     std::vector<char> buffer(length + 1, '\0');
-    geode_viz_custom_shader(vizOf(handle), id.get(), buffer.data(), buffer.size());
+    geode_shader_override(id.get(), buffer.data(), buffer.size());
     return env->NewStringUTF(buffer.data());
 }
 
@@ -264,8 +264,8 @@ Java_dev_geode_engine_bridge_GeodeNative_styleReactions(JNIEnv* env, jobject, js
 }
 
 JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_handSet(JNIEnv*, jobject, jint mask) {
-    geode_hand_set(static_cast<unsigned>(mask));
+Java_dev_geode_engine_bridge_GeodeNative_handSet(JNIEnv*, jobject, jint mask, jboolean hasUser) {
+    geode_hand_set(static_cast<unsigned>(mask), hasUser ? 1 : 0);
 }
 
 JNIEXPORT jfloatArray JNICALL

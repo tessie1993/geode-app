@@ -4,6 +4,8 @@
 
 #include <array>
 #include <atomic>
+#include <cstdint>
+#include <map>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -96,9 +98,6 @@ public:
     void resetAudio();
     // Settings › Audio: kept across engine rebuilds (a new sample rate builds a new engine).
     void setSoundTuning(const GeodeSoundTuning& tuning);
-    void setCustomShader(const std::string& sceneId, const std::string& fragmentSource);
-    // The user source a scene last compiled successfully; "" when it draws its built-in style.
-    std::string customShaderFor(const std::string& sceneId) const;
     void queueTouchStroke(float nx, float ny, float ndx, float ndy, float dt, float strength);
     void setFluidInjectionShaders(const std::string& forceSrc, const std::string& dyeSrc);
     void loadMilkPreset(const std::string& path);
@@ -196,7 +195,8 @@ private:
     void notePresetLoaded(const std::string& path);
     static double monotonicSeconds();
     void fail(const std::string& message);
-    void rememberCustomShader(const std::string& sceneId, const std::string& source);
+    // Re-applies the process-wide shader overrides (viz/ShaderOverrides) to resident scenes when they change.
+    void syncShaderOverrides();
 
     ShaderSource assets_;
     std::string cacheDir_;
@@ -306,8 +306,13 @@ private:
     PcmHandoff pcm_;
     int framePcmCount_ = 0;  // GL thread: samples of pcmDeliverScratch_ this frame's scenes get.
     std::vector<float> pcmDeliverScratch_;
+    // Drained by beginFrame; nothing queues into it since the overrides went process-wide (#364), and
+    // the frame code that drains it is being moved (#344), which drops it.
     std::vector<std::pair<std::string, std::string>> pendingShaders_;
-    std::vector<std::pair<std::string, std::string>> customShaders_;
+    // GL thread: the shader override each built scene was last given ("" = its built-in source), and
+    // the ShaderOverrides generation syncShaderOverrides last applied.
+    std::map<std::string, std::string> appliedShaders_;
+    uint64_t shaderGeneration_ = 0;
     std::string fluidForceSrc_;
     std::string fluidDyeSrc_;
     bool fluidInjectionDirty_ = false;

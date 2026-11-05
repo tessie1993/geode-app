@@ -183,7 +183,6 @@ class PlayerViewModel
 
         fun resumeLastPlayed() = session.resumeLastPlayed()
 
-
         fun playNext(uri: String) = session.playNext(uri)
 
         fun playFromSearch(query: String) = session.playFromSearch(query)

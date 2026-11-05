@@ -71,9 +71,12 @@ GEODE_API void        geode_layer_set(const char* scene_id, float mix, int blend
 GEODE_API void        geode_viz_write_audio(geode_viz*, const float* interleaved, int frames, int channels, int sample_rate);
 GEODE_API void        geode_viz_reset_audio(geode_viz*);
 GEODE_API void        geode_viz_set_sound_tuning(geode_viz*, const GeodeSoundTuning*);
-GEODE_API void        geode_viz_set_custom_shader(geode_viz*, const char* scene_id, const char* fragment_source);
-/* The user source the scene last compiled; returns its full length, 0 when it draws the built-in style. */
-GEODE_API size_t      geode_viz_custom_shader(geode_viz*, const char* scene_id, char* out, size_t capacity);
+/* Customize › Advanced › Shader code (core/viz/ShaderOverrides): the user's fragment source for a style, process-wide
+ * like geode_director_set, so live, export, the wallpaper and the dream all draw it. A null or empty source clears it
+ * (the built-in style again). Every renderer applies it at scene build and to its resident scenes on the next frame. */
+GEODE_API void        geode_shader_override_set(const char* style_id, const char* fragment_source);
+/* The style's override; returns its full length, 0 when it draws the built-in style. */
+GEODE_API size_t      geode_shader_override(const char* style_id, char* out, size_t capacity);
 GEODE_API void        geode_viz_set_lfo(geode_viz*, int slot, const float* config, int count);
 GEODE_API void        geode_viz_set_adsr(geode_viz*, int slot, const float* config, int count);
 /* Every reaction route at once, GEODE_REACT_ROUTE_FLOATS per route; routes past count / ROUTE_FLOATS are disabled. */
@@ -86,13 +89,14 @@ GEODE_API int         geode_style_reactions(const char* style_id, int seed, floa
    is bit i for moment i (GEODE_MUSIC_MOMENTS, in the page's order) plus GEODE_HAND_UNCLAIMED for every source
    no moment claims; GEODE_HAND_ALL is a whole list of the user's (the route editor, a list saved before the
    mask). `user` is the user's routes in the geode_viz_set_reactions layout, NULL (or has_user 0) for none.
-   geode_hand_set is process-wide like geode_director_set: every renderer's director keeps off those moments. */
+   geode_hand_set is process-wide like geode_director_set: every renderer's director keeps off those moments.
+   has_user 0 (no list of the user's: the DNA plays) makes the mask count as 0, whatever its bits. */
 #define GEODE_MUSIC_MOMENTS 10
 #define GEODE_MUSIC_ACTIONS 7
 #define GEODE_HAND_UNCLAIMED 0x40000000u
 #define GEODE_HAND_ALL 0x400003FFu
 #define GEODE_MUSIC_STATE_FLOATS 5  /* per moment: mine, route count, strength, on-action bits, fits-action bits */
-GEODE_API void        geode_hand_set(unsigned mask);
+GEODE_API void        geode_hand_set(unsigned mask, int has_user);
 /* What plays: the user's routes on the hand's sources, the DNA's (dealt from id and seed) on the rest. */
 GEODE_API int         geode_style_reactions_hand(const char* style_id, int seed, const float* user, int user_floats, int has_user,
                                                  unsigned mask, float* out, int capacity);

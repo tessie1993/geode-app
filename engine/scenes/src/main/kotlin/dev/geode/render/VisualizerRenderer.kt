@@ -184,15 +184,13 @@ class VisualizerRenderer(
     /** Frees the native renderer; only when this renderer is being discarded, on the GL thread. */
     fun releaseScenes() = nativeViz.destroy()
 
+    /** Process-wide: export, the wallpaper and the dream draw it too (core/viz/ShaderOverrides). */
     fun submitShader(
         sceneId: String,
         fragmentSrc: String,
-    ) {
-        nativeViz.create()
-        nativeViz.setCustomShader(sceneId, fragmentSrc)
-    }
+    ) = GeodeNative.shaderOverrideSet(sceneId, fragmentSrc)
 
-    fun customShaderFor(sceneId: String): String? = nativeViz.customShaderFor(sceneId)
+    fun customShaderFor(sceneId: String): String? = GeodeNative.shaderOverride(sceneId)
 
     /** Customize › Layers, process-wide: exports, the wallpaper and the dream draw it too (core/viz/LayerState). */
     fun submitLayer(

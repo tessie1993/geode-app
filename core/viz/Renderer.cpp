@@ -7,6 +7,7 @@
 
 #include "util/Log.hpp"
 #include "viz/GlProber.hpp"
+#include "viz/ShaderOverrides.hpp"
 
 namespace geode::viz {
 
@@ -23,7 +24,6 @@ Renderer::Renderer(AAssetManager* assets, std::string cacheDir)
       deviceGl_(cacheDir_),
       registry_(assets_, &programCache_, &profile_,
                 SceneHost{[this](const std::string& m) { fail(m); },
-                          [this](const std::string& id, const std::string& src) { rememberCustomShader(id, src); },
                           [this] { return thermal_.pacedFps(); },
                           [this](const std::string& path) { notePresetLoaded(path); },
                           [this] { return marchScale_.load(std::memory_order_relaxed); },
@@ -103,11 +103,6 @@ void Renderer::setSoundTuning(const GeodeSoundTuning& tuning) {
     std::lock_guard<std::mutex> lock(soundLock_);
     soundTuning_ = tuning;
     if (sound_) sound_->setTuning(macros::tuning(tuning, tunedKnobs_));
-}
-
-void Renderer::setCustomShader(const std::string& sceneId, const std::string& fragmentSource) {
-    std::lock_guard<std::mutex> lock(stateLock_);
-    pendingShaders_.emplace_back(sceneId, fragmentSource);
 }
 
 double Renderer::monotonicSeconds() {
@@ -287,23 +282,25 @@ std::string Renderer::lastError() const {
     return lastError_;
 }
 
-void Renderer::rememberCustomShader(const std::string& sceneId, const std::string& source) {
-    std::lock_guard<std::mutex> lock(stateLock_);
-    for (auto& entry : customShaders_) {
-        if (entry.first == sceneId) {
-            entry.second = source;
-            return;
-        }
+// GL thread, from readyScene (every frame's way to its scenes). The overrides are process-wide
+// (viz/ShaderOverrides, #364): when their generation moves, every resident scene whose override
+// changed gets the new source (or "" = its built-in one) and recompiles on its next draw through the
+// same path a first build takes, so a compile error still reaches lastError(). One atomic load a
+// frame otherwise.
+void Renderer::syncShaderOverrides() {
+    const uint64_t generation = shader_overrides::generation();
+    if (generation == shaderGeneration_) return;
+    shaderGeneration_ = generation;
+    const auto overrides = shader_overrides::snapshot();
+    const std::string stock;
+    for (auto& [id, scene] : scenes_) {
+        const auto found = overrides.find(id);
+        const std::string& want = found == overrides.end() ? stock : found->second;
+        std::string& have = appliedShaders_[id];
+        if (have == want) continue;
+        have = want;
+        scene->setFragmentSource(want);
     }
-    customShaders_.emplace_back(sceneId, source);
-}
-
-std::string Renderer::customShaderFor(const std::string& sceneId) const {
-    std::lock_guard<std::mutex> lock(stateLock_);
-    for (const auto& entry : customShaders_) {
-        if (entry.first == sceneId) return entry.second;
-    }
-    return {};
 }
 
 void Renderer::onSurfaceCreated() {
@@ -561,6 +558,7 @@ Scene* Renderer::builtScene(const std::string& id) {
 // attempt (setup plus the programs already compiled) or one budgeted ProgramStager step. Exports
 // (blockingBuilds_) and scenes that keep deferring (ScenePrep::kMaxAttempts) build inline.
 Scene* Renderer::readyScene(const std::string& id) {
+    syncShaderOverrides();
     if (Scene* scene = builtScene(id)) {
         residency_.touch(id);
         // Skipped by a tier or scale change while it was not drawn: sized now, as it comes back.
@@ -664,7 +662,11 @@ std::unique_ptr<Scene> Renderer::buildScene(const std::string& id) {
     scene->init();
     scene->setParams(initialParams);
     scene->resize(renderWidth_, renderHeight_);
-    const std::string custom = customShaderFor(id);
+    // The user's edited source for this style, whichever renderer this is (live, export, wallpaper,
+    // dream): one process-wide table (viz/ShaderOverrides, #364). Recorded so syncShaderOverrides
+    // only re-applies what changed after this build.
+    const std::string custom = shader_overrides::get(id);
+    appliedShaders_[id] = custom;
     if (!custom.empty()) scene->setFragmentSource(custom);
     if (!force.empty() || !dye.empty()) scene->setInjectionShaders(force, dye);
     scene->setWindowSize(width_, height_);

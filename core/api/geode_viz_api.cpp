@@ -15,6 +15,7 @@
 #include "viz/ReactionDna.hpp"
 #include "viz/Renderer.hpp"
 #include "viz/SceneRegistry.hpp"
+#include "viz/ShaderOverrides.hpp"
 
 struct geode_viz {
     geode_viz(AAssetManager* assets, std::string cacheDir) : renderer(assets, std::move(cacheDir)) {}
@@ -148,13 +149,13 @@ void geode_viz_push_pcm(geode_viz* v, const float* mono, int count) {
     if (v && mono && count > 0) v->renderer.pushPcm(mono, count);
 }
 
-void geode_viz_set_custom_shader(geode_viz* v, const char* scene_id, const char* fragment_source) {
-    if (v && scene_id && fragment_source) v->renderer.setCustomShader(scene_id, fragment_source);
+void geode_shader_override_set(const char* style_id, const char* fragment_source) {
+    if (style_id) geode::viz::shader_overrides::set(style_id, fragment_source ? fragment_source : "");
 }
 
-size_t geode_viz_custom_shader(geode_viz* v, const char* scene_id, char* out, size_t capacity) {
-    if (!v || !scene_id) return 0;
-    const std::string source = v->renderer.customShaderFor(scene_id);
+size_t geode_shader_override(const char* style_id, char* out, size_t capacity) {
+    if (!style_id) return 0;
+    const std::string source = geode::viz::shader_overrides::get(style_id);
     if (out && capacity > 0) {
         const size_t n = std::min(capacity - 1, source.size());
         std::memcpy(out, source.data(), n);
@@ -270,7 +271,7 @@ void geode_viz_set_reactions(geode_viz* v, const float* c, int count) {
     v->renderer.setReactionRoutes(routes);
 }
 
-void geode_hand_set(unsigned mask) { hand::setGlobal(static_cast<std::uint32_t>(mask)); }
+void geode_hand_set(unsigned mask, int has_user) { hand::setGlobal(static_cast<std::uint32_t>(mask), has_user != 0); }
 
 int geode_style_reactions_hand(const char* style_id, int seed, const float* user, int user_floats, int has_user, unsigned mask,
                                float* out, int capacity) {

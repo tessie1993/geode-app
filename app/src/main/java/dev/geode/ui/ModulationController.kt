@@ -57,7 +57,7 @@ internal class ModulationController(
 
     // Which moments that list owns (Customize › Music: the hand wins per moment); saved beside it and
     // pushed process-wide, where every renderer merges with the live DNA and every director keeps off.
-    private val _handMask = MutableStateFlow(lfoStore.loadHandMask().also(HandMask::set))
+    private val _handMask = MutableStateFlow(lfoStore.loadHandMask().also { HandMask.set(it, _reactions.value != null) })
     val handMask: StateFlow<Int> = _handMask
 
     private val _lockedParams =
@@ -190,7 +190,7 @@ internal class ModulationController(
         val mask = if (list == null) 0 else edit.mask
         _reactions.value = list
         _handMask.value = mask
-        HandMask.set(mask)
+        HandMask.set(mask, list != null)
         lfoStore.saveReactions(list, mask)
     }
 

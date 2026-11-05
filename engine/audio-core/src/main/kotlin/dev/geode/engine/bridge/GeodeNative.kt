@@ -743,6 +743,53 @@ object GeodeNative {
     ): Int
 
     /**
+     * The render job (`core/output/RenderJob`): the process's one render. Kinds: 0 one-tap Render, 1 batch,
+     * 2 Studio project, 3 loop. False when a job is already live: one render at a time.
+     */
+    external fun renderJobBegin(kind: Int): Boolean
+
+    /** Progress for the live job (clamped natively, the ETA stepped); false when none is live. */
+    external fun renderJobPublish(
+        progress: Float,
+        atMs: Long,
+        steady: Boolean,
+    ): Boolean
+
+    /** Raises the cancel flag on the live job; false when there is none or it was already up. */
+    external fun renderJobRequestCancel(): Boolean
+
+    /** The flag the encoders' frame loops poll. */
+    external fun renderJobCancelRequested(): Boolean
+
+    /**
+     * Ends the live job with a RENDER_OUTCOME_* and returns the resolved one (a failure after a cancel
+     * request reads as cancelled), or RENDER_OUTCOME_NONE when no job was live.
+     */
+    external fun renderJobFinish(outcome: Int): Int
+
+    /**
+     * Size of the snapshot [renderJobSnapshot] fills: phase (RENDER_PHASE_*), kind, generation, has progress
+     * (1.0 or 0.0), progress, seconds left (-1 for none), cancel requested (1.0 or 0.0), outcome.
+     */
+    const val RENDER_JOB_DOUBLES = 8
+
+    external fun renderJobSnapshot(out: DoubleArray)
+
+    /** What the starting screen shows for an outcome: RENDER_REPORT_*. */
+    external fun renderJobReport(outcome: Int): Int
+
+    /** Whether a render target the job created is kept (only a saved video's is). */
+    external fun renderJobKeepsOutput(outcome: Int): Boolean
+
+    const val RENDER_PHASE_IDLE = 0
+    const val RENDER_PHASE_PREPARING = 1
+    const val RENDER_PHASE_RENDERING = 2
+    const val RENDER_PHASE_CANCELLING = 3
+    const val RENDER_PHASE_ENDED = 4
+
+    const val RENDER_OUTCOME_NONE = -1
+
+    /**
      * The caption cues touching [spanStartMs]..[spanEndMs], re-based to the item, as (start ms, end ms, source
      * index) triples; empty when none does. Nothing native is held: the caller keeps the array.
      */

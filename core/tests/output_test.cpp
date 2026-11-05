@@ -1,9 +1,10 @@
 // Host-side checks for the offline render's planning (core/output: FrameClock, LoopPlan, EncodePlan,
-// Chapters, ExportRange, RenderEta) and its C ABI. Built and run by CI (.github/workflows/android.yml,
+// Chapters, ExportRange, RenderEta, RenderJob) and its C ABI. Built and run by CI (.github/workflows/android.yml,
 // "Native export planning tests") with the system compiler; no device. Where a value pins the Kotlin it
 // replaces (VideoExporter, LoopSpec, LoopExtendPlan, MuxerBudget, ExportAspect, fallbackExportFps,
-// ChapterMarkers, ExportRange.of, RenderEta and its JVM RenderEtaTest), the comment says so; the deliberate
-// changes (exact pts, the seam budget's lost frame, the 0:00 lead-in) say why.
+// ChapterMarkers, ExportRange.of, RenderEta and its JVM RenderEtaTest, ExportRunTest), the comment says so; the
+// deliberate changes (exact pts, the seam budget's lost frame, the 0:00 lead-in) say why.
+#include <cmath>
 #include <cstdint>
 #include <cstdlib>
 #include <cstdio>
@@ -16,6 +17,7 @@
 #include "output/FrameClock.hpp"
 #include "output/LoopPlan.hpp"
 #include "output/RenderEta.hpp"
+#include "output/RenderJob.hpp"
 #include "viz/FrameStep.hpp"
 
 using namespace geode::output;
@@ -305,6 +307,133 @@ void renderEta() {
     check(geode_render_eta_phrase(150, &n) == 2 && n == 3 && geode_render_eta_phrase(10, nullptr) == 0, "eta words: ABI");
 }
 
+// The render job (#433), moved from the JVM ExportRunTest and ExportController's phase handling: every
+// transition, one render at a time, cancel before and after the end, progress clamping, outcome resolution
+// and reset. The process job is shared, so each case resets it first.
+void renderJob() {
+    RenderJob& job = RenderJob::process();
+    job.reset();
+    RenderJobSnapshot s = job.snapshot();
+    check(s.phase == RenderPhase::Idle && s.generation == 0 && !s.live() && s.outcome == RenderOutcome::None,
+          "job: starts idle");
+    check(!job.publish(0.5f, 0, true) && !job.snapshot().hasProgress, "job: progress before begin is ignored");
+    check(job.finish(RenderOutcome::Saved) == RenderOutcome::None && job.snapshot().phase == RenderPhase::Idle,
+          "job: finish before begin changes nothing");
+
+    // Cancel before begin is a no-op, and the next job's flag stays down (ExportRunTest's second case).
+    check(!job.requestCancel() && !job.cancelRequested(), "job: cancel with nothing live is ignored");
+    check(job.begin(RenderKind::Project), "job: begin from idle");
+    s = job.snapshot();
+    check(s.phase == RenderPhase::Preparing && s.kind == RenderKind::Project && s.generation == 1 && !s.hasProgress &&
+              s.secondsLeft == -1 && !s.cancelRequested,
+          "job: begin is preparing, no progress yet");
+    check(!job.begin(RenderKind::Render) && job.snapshot().kind == RenderKind::Project &&
+              job.snapshot().generation == 1,
+          "job: double begin refused, the running job untouched");
+
+    check(job.publish(0.25f, 0, false), "job: progress taken");
+    s = job.snapshot();
+    check(s.phase == RenderPhase::Rendering && s.hasProgress && s.progress == 0.25f, "job: first progress renders");
+    check(job.publish(1.7f, 100, true) && job.snapshot().progress == 1.0f, "job: progress clamped above");
+    check(job.publish(-3.0f, 200, true) && job.snapshot().progress == 0.0f, "job: progress clamped below");
+    check(!job.publish(std::nanf(""), 300, true) && job.snapshot().progress == 0.0f, "job: NaN progress ignored");
+
+    check(job.finish(RenderOutcome::Saved) == RenderOutcome::Saved, "job: saved stays saved");
+    s = job.snapshot();
+    check(s.phase == RenderPhase::Ended && !s.live() && s.outcome == RenderOutcome::Saved && s.secondsLeft == -1,
+          "job: ended");
+    check(!job.requestCancel() && !job.cancelRequested(), "job: cancel after finish is ignored");
+    check(job.finish(RenderOutcome::Failed) == RenderOutcome::None && job.snapshot().outcome == RenderOutcome::Saved,
+          "job: a second finish changes nothing");
+    check(!job.publish(0.5f, 400, true), "job: progress after finish is ignored");
+
+    // Cancel while running: the flag the frame loops poll, the estimate hidden, and a failure that follows
+    // reads as the cancel it was.
+    check(job.begin(RenderKind::Loop) && job.snapshot().generation == 2, "job: begin again after the end");
+    check(job.requestCancel(), "job: cancel a preparing job");
+    s = job.snapshot();
+    check(s.phase == RenderPhase::Cancelling && s.cancelRequested && job.cancelRequested(), "job: cancelling");
+    check(!job.requestCancel(), "job: a second cancel is a no-op");
+    check(job.publish(0.6f, 500, true) && job.snapshot().phase == RenderPhase::Cancelling &&
+              job.snapshot().progress == 0.6f && job.snapshot().secondsLeft == -1,
+          "job: the bar still moves while cancelling, no time left shown");
+    check(!job.begin(RenderKind::Render), "job: begin refused while cancelling");
+    check(job.finish(RenderOutcome::Failed) == RenderOutcome::Cancelled &&
+              job.snapshot().outcome == RenderOutcome::Cancelled,
+          "job: a failure after cancel is cancelled");
+
+    check(job.begin(RenderKind::Render) && !job.cancelRequested(), "job: a new job starts with the flag down");
+    job.publish(0.1f, 0, true);
+    job.requestCancel();
+    check(job.finish(RenderOutcome::Saved) == RenderOutcome::Saved, "job: a late cancel does not undo a saved file");
+    job.begin(RenderKind::Batch);
+    job.requestCancel();
+    check(job.finish(RenderOutcome::Locked) == RenderOutcome::Locked, "job: locked stays locked under cancel");
+    job.begin(RenderKind::Batch);
+    check(job.finish(RenderOutcome::None) == RenderOutcome::Failed, "job: no outcome reads as failed");
+    job.begin(RenderKind::Batch);
+    check(job.finish(RenderOutcome::NothingToRender) == RenderOutcome::NothingToRender, "job: nothing to render");
+
+    // The time left comes from the job's own RenderEta, fresh for each job.
+    job.reset();
+    job.begin(RenderKind::Render);
+    RenderEtaState mirror;
+    bool same = true;
+    for (int64_t t = 0; t <= 60'000; t += 250) {
+        const float p = static_cast<float>(t) / 120'000.0f;
+        job.publish(p, t, true);
+        if (job.snapshot().secondsLeft != renderEtaSample(mirror, p, t, true)) same = false;
+    }
+    check(same && job.snapshot().secondsLeft > 0, "job: time left is RenderEta's");
+    job.finish(RenderOutcome::Saved);
+    job.begin(RenderKind::Render);
+    job.publish(0.6f, 70'000, true);
+    check(job.snapshot().secondsLeft == -1, "job: a new job's estimate starts over");
+
+    job.reset();
+    s = job.snapshot();
+    check(s.phase == RenderPhase::Idle && s.generation == 0 && !s.cancelRequested && !s.hasProgress,
+          "job: reset is idle, generation 0");
+    check(job.begin(RenderKind::Render), "job: begin after reset");
+    job.reset();
+    check(job.begin(RenderKind::Render), "job: reset frees a live job (tests only)");
+
+    check(reportFor(RenderOutcome::Saved) == RenderReport::Done &&
+              reportFor(RenderOutcome::Failed) == RenderReport::Failed &&
+              reportFor(RenderOutcome::NothingToRender) == RenderReport::Failed &&
+              reportFor(RenderOutcome::Cancelled) == RenderReport::Clear &&
+              reportFor(RenderOutcome::Locked) == RenderReport::OfferPro &&
+              reportFor(RenderOutcome::None) == RenderReport::Clear,
+          "job: reports");
+    check(keepsOutput(RenderOutcome::Saved) && !keepsOutput(RenderOutcome::Failed) &&
+              !keepsOutput(RenderOutcome::Cancelled) && !keepsOutput(RenderOutcome::Locked) &&
+              !keepsOutput(RenderOutcome::NothingToRender) && !keepsOutput(RenderOutcome::None),
+          "job: only a saved video keeps its target (#366)");
+
+    // The C ABI over the same process job, with the codes Kotlin's enum ordinals use.
+    geode_render_job_reset();
+    geode_render_job_state abi{};
+    geode_render_job_snapshot(&abi);
+    check(abi.phase == 0 && abi.outcome == -1 && abi.seconds_left == -1, "job ABI: idle");
+    check(geode_render_job_begin(4) == 0 && geode_render_job_begin(-1) == 0, "job ABI: unknown kind refused");
+    check(geode_render_job_begin(2) == 1 && geode_render_job_begin(0) == 0, "job ABI: one at a time");
+    check(geode_render_job_publish(0.4f, 0, 1) == 1, "job ABI: publish");
+    geode_render_job_snapshot(&abi);
+    check(abi.phase == 2 && abi.kind == 2 && abi.generation == 1 && abi.has_progress == 1 && abi.progress == 0.4f,
+          "job ABI: snapshot");
+    check(geode_render_job_request_cancel() == 1 && geode_render_job_cancel_requested() == 1, "job ABI: cancel");
+    check(geode_render_job_finish(1) == 2, "job ABI: failure after cancel is cancelled");
+    check(geode_render_job_finish(0) == -1, "job ABI: finish with nothing live");
+    check(geode_render_job_begin(0) == 1 && geode_render_job_cancel_requested() == 0 && geode_render_job_finish(99) == 1,
+          "job ABI: an unknown outcome is a failure");
+    check(geode_render_job_report(0) == 1 && geode_render_job_report(1) == 2 && geode_render_job_report(2) == 0 &&
+              geode_render_job_report(3) == 3 && geode_render_job_report(4) == 2 && geode_render_job_report(-1) == 0,
+          "job ABI: reports");
+    check(geode_render_job_keeps_output(0) == 1 && geode_render_job_keeps_output(2) == 0, "job ABI: keeps output");
+    geode_render_job_snapshot(nullptr);
+    geode_render_job_reset();
+}
+
 }  // namespace
 
 int main() {
@@ -315,6 +444,7 @@ int main() {
     chapters();
     exportRange();
     renderEta();
+    renderJob();
     if (failures) {
         std::printf("%d failure(s)\n", failures);
         return 1;

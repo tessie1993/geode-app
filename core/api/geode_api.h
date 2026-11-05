@@ -389,6 +389,37 @@ GEODE_API int64_t geode_render_eta_sample(geode_render_eta* state, float progres
  * minutes or hours (0 for the first two). */
 GEODE_API int     geode_render_eta_phrase(int64_t seconds_left, int64_t* out_count);
 
+/* The render job (output/RenderJob): the process's one render, its progress, cancel and outcome. Kinds:
+ * 0 one-tap Render, 1 batch, 2 Studio project, 3 loop. Phases: 0 idle, 1 preparing, 2 rendering,
+ * 3 cancelling, 4 ended. Outcomes: -1 none, 0 saved, 1 failed, 2 cancelled, 3 locked, 4 nothing to render.
+ * Reports: 0 clear, 1 done, 2 failed, 3 offer Pro. Thread-safe; Kotlin mirrors the snapshot. */
+typedef struct geode_render_job_state {
+    int32_t  phase;
+    int32_t  kind;
+    uint32_t generation;
+    int32_t  has_progress;
+    float    progress;
+    int64_t  seconds_left; /* -1: no estimate */
+    int32_t  cancel_requested;
+    int32_t  outcome;
+} geode_render_job_state;
+/* 1 begun, 0 refused: a job is already live (one render at a time). */
+GEODE_API int     geode_render_job_begin(int kind);
+/* 1 taken (clamped to 0..1, the ETA stepped), 0 when no job is live or progress is NaN. */
+GEODE_API int     geode_render_job_publish(float progress, int64_t at_ms, int steady);
+/* 1 when it raised the flag on a live job, 0 otherwise (no job, or already asked). */
+GEODE_API int     geode_render_job_request_cancel(void);
+GEODE_API int     geode_render_job_cancel_requested(void);
+/* Ends the live job with the reported outcome and returns the resolved one (a failure after a cancel
+ * request is cancelled), or -1 when no job was live. */
+GEODE_API int     geode_render_job_finish(int outcome);
+/* Back to idle, generation 0. For tests. */
+GEODE_API void    geode_render_job_reset(void);
+GEODE_API void    geode_render_job_snapshot(geode_render_job_state* out);
+/* What the starting screen shows for an outcome, and whether a target the job created is kept. */
+GEODE_API int     geode_render_job_report(int outcome);
+GEODE_API int     geode_render_job_keeps_output(int outcome);
+
 /* Caption cues (signal/timeline/Cues): the text-lane cues touching [span_start_ms, span_end_ms), re-based to
  * the item's first frame, written as up to `cap` (start ms, end ms, source index) triples into out_triples;
  * returns how many (0 when none touches the span). The text stays Kotlin, keyed by source index. Stateless:

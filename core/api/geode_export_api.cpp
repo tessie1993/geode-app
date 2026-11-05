@@ -1,6 +1,6 @@
 // The C ABI over the export planning and clip maths (geode_api.h, "Export planning and clip maths"). Only
 // argument checks and copies live here; the rules are in output/ (FrameClock, LoopPlan, EncodePlan, Chapters,
-// ExportRange, RenderEta), signal/timeline/ (Keyframes, SpeedRamp, Cues), viz/ClipGrade,
+// ExportRange, RenderEta, RenderJob), signal/timeline/ (Keyframes, SpeedRamp, Cues), viz/ClipGrade,
 // util/CubeLut and audio/dsp/PcmConvert, each host-tested in core/tests.
 #include <algorithm>
 #include <memory>
@@ -16,6 +16,7 @@
 #include "output/FrameClock.hpp"
 #include "output/LoopPlan.hpp"
 #include "output/RenderEta.hpp"
+#include "output/RenderJob.hpp"
 #include "signal/timeline/Cues.hpp"
 #include "signal/timeline/Keyframes.hpp"
 #include "signal/timeline/SpeedRamp.hpp"
@@ -292,6 +293,62 @@ int64_t geode_render_eta_sample(geode_render_eta* state, float progress, int64_t
 int geode_render_eta_phrase(int64_t seconds_left, int64_t* out_count) {
     return static_cast<int>(out::renderEtaPhrase(seconds_left, out_count));
 }
+
+namespace {
+
+// Outcome codes from Kotlin or a test: anything unknown is a failure, so a bad code never reads as saved.
+out::RenderOutcome outcomeOf(int code) {
+    switch (code) {
+        case static_cast<int>(out::RenderOutcome::Saved):
+        case static_cast<int>(out::RenderOutcome::Failed):
+        case static_cast<int>(out::RenderOutcome::Cancelled):
+        case static_cast<int>(out::RenderOutcome::Locked):
+        case static_cast<int>(out::RenderOutcome::NothingToRender):
+            return static_cast<out::RenderOutcome>(code);
+        case static_cast<int>(out::RenderOutcome::None):
+            return out::RenderOutcome::None;
+        default:
+            return out::RenderOutcome::Failed;
+    }
+}
+
+}  // namespace
+
+int geode_render_job_begin(int kind) {
+    if (kind < static_cast<int>(out::RenderKind::Render) || kind > static_cast<int>(out::RenderKind::Loop)) return 0;
+    return out::RenderJob::process().begin(static_cast<out::RenderKind>(kind)) ? 1 : 0;
+}
+
+int geode_render_job_publish(float progress, int64_t at_ms, int steady) {
+    return out::RenderJob::process().publish(progress, at_ms, steady != 0) ? 1 : 0;
+}
+
+int geode_render_job_request_cancel(void) { return out::RenderJob::process().requestCancel() ? 1 : 0; }
+
+int geode_render_job_cancel_requested(void) { return out::RenderJob::process().cancelRequested() ? 1 : 0; }
+
+int geode_render_job_finish(int outcome) {
+    return static_cast<int>(out::RenderJob::process().finish(outcomeOf(outcome)));
+}
+
+void geode_render_job_reset(void) { out::RenderJob::process().reset(); }
+
+void geode_render_job_snapshot(geode_render_job_state* out_state) {
+    if (!out_state) return;
+    const out::RenderJobSnapshot s = out::RenderJob::process().snapshot();
+    out_state->phase = static_cast<int32_t>(s.phase);
+    out_state->kind = static_cast<int32_t>(s.kind);
+    out_state->generation = s.generation;
+    out_state->has_progress = s.hasProgress ? 1 : 0;
+    out_state->progress = s.progress;
+    out_state->seconds_left = s.secondsLeft;
+    out_state->cancel_requested = s.cancelRequested ? 1 : 0;
+    out_state->outcome = static_cast<int32_t>(s.outcome);
+}
+
+int geode_render_job_report(int outcome) { return static_cast<int>(out::reportFor(outcomeOf(outcome))); }
+
+int geode_render_job_keeps_output(int outcome) { return out::keepsOutput(outcomeOf(outcome)) ? 1 : 0; }
 
 int geode_cues_for_span(const int64_t* starts_ms, const int64_t* ends_ms, int count, int64_t span_start_ms,
                         int64_t span_end_ms, int64_t* out_triples, int cap) {

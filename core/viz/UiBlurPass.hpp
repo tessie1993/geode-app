@@ -30,7 +30,7 @@ struct UiBlurRegion {
 // sheet's own window never sees the visual's pixels. The visual blurs the region itself instead, and
 // the sheet draws its translucent matte glass over that.
 //
-// Drawn by Renderer::render after the composite and the note blooms, the frame's last draw, into the
+// Drawn by Renderer::render after the composite, the frame's last draw, into the
 // target framebuffer. Live surfaces only: an offscreen (export) renderer never draws it, so a sheet
 // that happened to be open never ends up in a video.
 //

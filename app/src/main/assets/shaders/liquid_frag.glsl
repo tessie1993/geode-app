@@ -38,7 +38,6 @@ uniform float uSharpen;     // 0 off
 uniform float uBornR;       // the born disc's radius, centred units
 uniform float uBornGain;    // 0..1, dips while the born look is swapped
 uniform int uBornMode;      // 0 frame from uBorn, 3 ink forms
-uniform float uFlare;       // a drop's burst, 0..1
 uniform int uAge;           // 0 pure, 1 fade deep, 2 ink bleed
 uniform int uSurface;       // 0 ink, 1 wet gloss, 2 glass
 uniform int uFeedback;      // 0: the warp fallback, nothing carried over
@@ -119,7 +118,7 @@ void main() {
     }
 
     vec3 liquid = prev;
-    float r = uBornR * (1.0 + uFlare * 1.2);
+    float r = uBornR;
     float bornMask = uBornGain * (1.0 - smoothstep(r * 0.5, r, length(c - uVp)));
     if (uFeedback == 1) {
         vec3 style = texture(uStyle, vUv).rgb;
@@ -146,7 +145,7 @@ void main() {
                 // The disc shows the born frame's central circle, whatever the screen's shape.
                 born = texture(uBorn, clamp(uncentred(bc * 2.0 * min(uAspect, 1.0)), 0.0, 1.0)).rgb;
             }
-            liquid = mix(liquid, born * (1.0 + uFlare * 0.6), bornMask);
+            liquid = mix(liquid, born, bornMask);
         }
     }
     liquid = clamp(liquid, 0.0, 64.0);

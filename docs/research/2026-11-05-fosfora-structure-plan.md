@@ -60,7 +60,7 @@ OSC, MIDI, web and NDI I/O (Geode is offline by design), the egui node canvas (a
 | F6 | `beatCount`, `barCount`, `uSoundCounts` exist | Mostly there; make it the rule for every trigger |
 | F7 | Six modulators composed in a fixed chain in `Renderer::resolveParams` (`RendererFrame.cpp:120-213`): director → notes → ADSR → LFO → macros → `reactions_` → `macroReactions_` → `director_.applyRoutes` → `MotionField` → `safety::apply`. Routes are `Route{source, LfoTarget, ReactMode, amount, curve, a/r}` ×12; LFO has its own 9-entry `ModSource`; targets are `LfoTarget` (~57) applied by a switch with per-target clamps (`Lfo.cpp:54`) | Same idea as fosfora's bus, spread over five engines with three source enums. `MOD_MATRIX_PLAN.md` (E0 registry of jacks) is the agreed fix and fits F7 exactly |
 | F8 | `Scene` (`core/viz/Scene.hpp:20`) has 8 pure virtuals and ~20 no-op hooks (`acceptPcm`, `setFlow`, `setTouchField`, `setCamera`, `setMilk*`, `isFluid`, `isWater`, `velocityTexture` …); `SceneRegistry::create` is an if-chain | Fat interface; capability questions asked by type flags |
-| F9 | Live and export already share `Renderer::render` (good). Its body is a hardcoded call list (`RendererFrame.cpp:408-434`); `TrailPass`, `CompositePass`, `NoteBloomPass`, `UiBlurPass`, `LiquidPass` share no interface | Order lives in one function body; adding a pass or a layer means editing it |
+| F9 | Live and export already share `Renderer::render` (good). Its body is a hardcoded call list (`RendererFrame.cpp:408-434`); `TrailPass`, `CompositePass`, `UiBlurPass`, `LiquidPass` share no interface (`NoteBloomPass` was removed with the note blooms) | Order lives in one function body; adding a pass or a layer means editing it |
 | F10 | `Catalogue.cpp` (one C++ table: ids, kinds, families, scopes, ranges); every style receives the same 165-field `SceneParams` and picks what it reads | Styles cannot declare their own controls; Customize shows global params |
 | F11 | Not checked yet: audit the shaders and `MotionField` for `uTime * speed` on modulated speeds | — |
 | F12 | No sink or estimator seams; detectors are concrete members | Fine until we want a dump or a model (sound-engine-v2 §6 wants models) |
@@ -81,7 +81,7 @@ render frame (live: vsync; export: frame n / fps):
     FeatureInterpolator(playhead) ─► SoundFrame@t
     ─► Modulation: Director → NoteResponse → Sources (LFO, ADSR, macros, sound features, touch)
                   → Bus.evaluate(routes: source → transforms → target) → MotionField → safety::apply
-    ─► SceneParams ─► FrameGraph: scene pass → trail → liquid → composite → note bloom → UI blur
+    ─► SceneParams ─► FrameGraph: scene pass → trail → liquid → composite → UI blur
 offline / tests / bench: FileDriver feeds the SAME HopAnalyzer; the SAME FrameGraph renders export
 ```
 
@@ -100,7 +100,7 @@ core/
   viz/
     scene/             Scene (slim) + capability interfaces, SceneRegistry, Catalogue
     scenes/            shader/, milkdrop/, sim/ (Fluid, Silk, Life, Acid, Myco, Cymatics, Water, CurlFlow)
-    pass/              Pass interface: Trail, Composite, NoteBloom, Liquid, UiBlur; FrameGraph
+    pass/              Pass interface: Trail, Composite, Liquid, UiBlur; FrameGraph
     camera/            CameraRig, EndlessZoom
     safety/            VisualSafety
     gl/                Program, ProgramStager, ProgramBinaryCache, Framebuffer, Texture, Quad, GlCaps, GlProber, ThermalGovernor

@@ -736,7 +736,7 @@ private fun NoteKeySlider(
  * Advanced › Note & key: how strongly each part of the musical layer (core/viz/NoteResponse) moves this
  * style, saved with the style like every Customize value. The switch that runs the layer at all is
  * Settings › Behaviour (free, on by default); with it off these sliders do nothing, so the page says so
- * rather than letting a user drag a dead control. The bloom's look is on Look, free.
+ * rather than letting a user drag a dead control.
  */
 @Composable
 private fun NoteKeyPage(
@@ -765,9 +765,6 @@ private fun NoteKeyPage(
     }
     NoteKeySlider(R.string.note_key_drums, R.string.note_key_drums_hint, p.noteDrums, d.noteDrums) {
         onChange(p.copy(noteDrums = it))
-    }
-    NoteKeySlider(R.string.note_key_bloom, R.string.note_key_bloom_hint, p.noteBloom, d.noteBloom) {
-        onChange(p.copy(noteBloom = it))
     }
 }
 

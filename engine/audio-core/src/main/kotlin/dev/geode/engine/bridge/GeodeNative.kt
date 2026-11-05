@@ -35,9 +35,36 @@ object GeodeNative {
         millibels: Int,
     )
 
-    external fun dspSetGainDb(
+    // ReplayGain (core/audio/dsp/ReplayGain): the tags of the tracks around the one playing, by stream
+    // (the item's URI); the chain takes its gain from it at each stream start (dspBeginStream).
+    external fun replayGainCreate(): Long
+
+    external fun replayGainDestroy(table: Long)
+
+    external fun replayGainConfigure(
+        table: Long,
+        mode: Int,
+        preampDb: Float,
+        clipGuard: Boolean,
+    )
+
+    /** [values]: track gain dB, track peak, album gain dB, album peak; [mask] the tag bits of the ones present. */
+    external fun replayGainSetTags(
+        table: Long,
+        stream: String,
+        mask: Int,
+        values: FloatArray,
+    )
+
+    external fun dspSetReplayGain(
         handle: Long,
-        db: Float,
+        table: Long,
+    )
+
+    /** The stream the next processed sample starts; null when the processor cannot name it. */
+    external fun dspBeginStream(
+        handle: Long,
+        stream: String?,
     )
 
     external fun dspSetCrossfeed(

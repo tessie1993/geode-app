@@ -11,6 +11,7 @@ extern "C" {
 
 typedef struct geode_viz      geode_viz;
 typedef struct geode_dsp      geode_dsp;
+typedef struct geode_replaygain geode_replaygain;
 typedef struct geode_tags     geode_tags;
 typedef struct geode_preview  geode_preview;
 
@@ -165,11 +166,25 @@ GEODE_API void       geode_dsp_set_enabled(geode_dsp*, int enabled);          /*
 GEODE_API void       geode_dsp_set_band(geode_dsp*, int band, int millibels);
 GEODE_API void       geode_dsp_set_bass_boost(geode_dsp*, int permille);      /* 0..1000 */
 GEODE_API void       geode_dsp_set_loudness_mb(geode_dsp*, int millibels);    /* 0..1000 makeup gain */
-GEODE_API void       geode_dsp_set_gain_db(geode_dsp*, float db);             /* ReplayGain + preamp */
 GEODE_API void       geode_dsp_set_crossfeed(geode_dsp*, int enabled);
 GEODE_API void       geode_dsp_set_limiter(geode_dsp*, int enabled);
 GEODE_API void       geode_dsp_reset(geode_dsp*);                              /* clears filter state after a seek or flush */
 GEODE_API void       geode_dsp_process(geode_dsp*, float* interleaved, size_t frames);   /* in place, RT-safe */
+
+/* ReplayGain (audio/dsp/ReplayGain): the gain rule and the tags of the tracks around the one playing, keyed
+ * by stream name (the item's URI). The chain's gain stage reads it for the stream it is processing, so the
+ * gain changes on the first sample of a track, not when the player announces it (#351). Setters from any
+ * thread; the table must outlive every chain it is attached to. mode: 0 off, 1 track, 2 album. */
+GEODE_API geode_replaygain* geode_replaygain_create(void);
+GEODE_API void       geode_replaygain_destroy(geode_replaygain*);
+GEODE_API void       geode_replaygain_configure(geode_replaygain*, int mode, float preamp_db, int clip_guard);
+/* values: track gain dB, track peak, album gain dB, album peak; mask: the GEODE_TAG_*_GAIN/PEAK bits of the
+ * ones the file carries (0 = read, untagged). As geode_tags_replaygain hands them back. */
+GEODE_API void       geode_replaygain_set_tags(geode_replaygain*, const char* stream, int mask, const float values[4]);
+GEODE_API void       geode_dsp_set_replaygain(geode_dsp*, const geode_replaygain*);   /* NULL detaches */
+/* The stream that the next processed sample starts (the processor's flush); NULL or "" = not known, which
+ * keeps the gain the chain has. */
+GEODE_API void       geode_dsp_begin_stream(geode_dsp*, const char* stream);
 
 /* Tag I/O through TagLib. Both calls take a file descriptor they own: it is closed before they return, so
  * the caller detaches it first. Text crosses as UTF-8. */

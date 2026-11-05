@@ -107,7 +107,7 @@ class PlaybackSession internal constructor(
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
-    val replayGain = ReplayGain(context.contentResolver, scope) { audioFx.setGainDb(it) }
+    val replayGain = ReplayGain(context.contentResolver, scope, dsp)
 
     /** The UI's pause/skip and sleep fades, multiplied by [crossfade]'s gain into the one player volume. */
     private var uiVolume = 1f

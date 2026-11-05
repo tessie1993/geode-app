@@ -155,6 +155,15 @@ others.
    actually calls it before relying on it to tell the two cases apart — this is
    the stage-side half of an invariant the queue side also depends on, and
    only the queue side is testable without a decoder.
-5. Configuration belongs on `PlaybackSession`, never on a ViewModel: the service
+5. A setting that changes per track follows the samples, not the player's
+   callbacks. `onMediaItemTransition` fires on Main at playout time, a sink
+   buffer or more after the chain processed the new track's head. Media3 flushes
+   the processors with the new item's `StreamMetadata` (timeline and period) in
+   stream order, so that is where a stage learns which track it is in.
+   ReplayGain works this way (#351): `playback/ReplayGain` reads the tags of the
+   current, next and previous items ahead, `core/audio/dsp/ReplayGain` holds
+   them by stream, and `NativeDspProcessor.onFlush` names the stream starting,
+   so its gain lands on its first sample and stays put while a read is out.
+6. Configuration belongs on `PlaybackSession`, never on a ViewModel: the service
    and the UI share one session and one player.
-6. Add one line of UI copy saying it will not move the visuals.
+7. Add one line of UI copy saying it will not move the visuals.

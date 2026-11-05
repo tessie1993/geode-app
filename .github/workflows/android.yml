@@ -163,6 +163,15 @@ jobs:
           ./resampler_test
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/loudness_test.cpp core/audio/dsp/PcmResampler.cpp core/audio/dsp/Loudness.cpp core/api/geode_export_dsp_api.cpp -o loudness_test
           ./loudness_test
+      # Playback ReplayGain (core/audio/dsp/ReplayGain, DspChain): a track's gain lands on its first
+      # sample at the processor's flush, and never drops to 0 dB while its tags load (#351).
+      - name: Native playback DSP tests
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -c core/tests/replaygain_test.cpp core/api/geode_dsp_api.cpp
+          g++ -std=c++20 -O1 -Icore -c core/audio/dsp/Equalizer.cpp core/audio/dsp/Crossfeed.cpp core/audio/dsp/Limiter.cpp
+          g++ replaygain_test.o geode_dsp_api.o Equalizer.o Crossfeed.o Limiter.o -o replaygain_test
+          ./replaygain_test
 
       # The Customize randomizer, Reset tab and params wire (core/viz/ParamRandomizer, core/viz/Params).
       - name: Params host tests

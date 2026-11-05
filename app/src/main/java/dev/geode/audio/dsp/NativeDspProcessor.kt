@@ -2,6 +2,8 @@ package dev.geode.audio.dsp
 
 import androidx.annotation.OptIn
 import androidx.media3.common.C
+import androidx.media3.common.MediaItem
+import androidx.media3.common.Timeline
 import androidx.media3.common.audio.AudioProcessor
 import androidx.media3.common.audio.BaseAudioProcessor
 import androidx.media3.common.util.UnstableApi
@@ -15,7 +17,6 @@ data class DspSettings(
     val bandsMb: List<Int> = List(NativeDspProcessor.BANDS) { 0 },
     val bassBoost: Int = 0,
     val loudnessMb: Int = 0,
-    val gainDb: Float = 0f,
     val crossfeed: Boolean = false,
     val limiter: Boolean = true,
 )
@@ -34,6 +35,13 @@ data class DspSettings(
  * instead, as this used to, fails the sink's configure, and ExoPlayer reports the whole file as
  * unplayable. The equalizer, crossfeed and ReplayGain gain do not apply to such a track; the tap
  * before this processor still hears it, so the visuals do.
+ *
+ * ReplayGain is not a setting pushed at the chain: the chain takes its gain from a native table of the
+ * tags of the tracks around the one playing ([setReplayGainTags], filled ahead by `playback/ReplayGain`),
+ * by the stream it is processing. [onFlush] names that stream: Media3 flushes the processors with the new
+ * item's timeline and period in stream order, after the last sample of the one before, which is the
+ * only point that knows which track a buffer belongs to. A gain set from the player's
+ * `onMediaItemTransition` instead lands a sink buffer late, on the head of the next track (#351).
  */
 @OptIn(UnstableApi::class)
 class NativeDspProcessor : BaseAudioProcessor() {
@@ -48,6 +56,41 @@ class NativeDspProcessor : BaseAudioProcessor() {
         private set
 
     private var scratch: ByteBuffer = ByteBuffer.allocateDirect(0).order(ByteOrder.nativeOrder())
+
+    private val tableLock = Any()
+
+    @Volatile
+    private var table = 0L
+
+    /** The stream the chain is in, so a chain built mid-stream (a format change) carries on with its gain. */
+    private var streamName: String? = null
+
+    private val period = Timeline.Period()
+    private val window = Timeline.Window()
+
+    /** Made on first use, so a processor that never meets native code (JVM tests) never loads libgeode. */
+    private fun replayGainTable(): Long =
+        synchronized(tableLock) {
+            if (table == 0L) table = GeodeNative.replayGainCreate()
+            table
+        }
+
+    /** ReplayGain mode (0 off, 1 track, 2 album), preamp and clip guard; any thread. */
+    fun configureReplayGain(
+        mode: Int,
+        preampDb: Float,
+        clipGuard: Boolean,
+    ) = GeodeNative.replayGainConfigure(replayGainTable(), mode, preampDb, clipGuard)
+
+    /**
+     * One track's tags as the file carries them, by its stream name ([streamName] of its item); any
+     * thread. [values] is track gain, track peak, album gain, album peak; [mask] the bits of those present.
+     */
+    fun setReplayGainTags(
+        stream: String,
+        mask: Int,
+        values: FloatArray,
+    ) = GeodeNative.replayGainSetTags(replayGainTable(), stream, mask, values)
 
     fun update(next: DspSettings) {
         settings = next
@@ -68,7 +111,11 @@ class NativeDspProcessor : BaseAudioProcessor() {
         if (handle != 0L && handleSampleRate == sampleRate && handleChannels == channels) return
         val previous = handle
         val next = GeodeNative.dspCreate(sampleRate, channels)
-        if (next != 0L) apply(next, settings)
+        if (next != 0L) {
+            apply(next, settings)
+            GeodeNative.dspSetReplayGain(next, replayGainTable())
+            GeodeNative.dspBeginStream(next, streamName)
+        }
         handle = next
         handleSampleRate = sampleRate
         handleChannels = channels
@@ -116,9 +163,15 @@ class NativeDspProcessor : BaseAudioProcessor() {
         output.flip()
     }
 
-    override fun onFlush() {
+    override fun onFlush(streamMetadata: AudioProcessor.StreamMetadata) {
+        val name = streamName(streamMetadata, period, window)
+        // A flush with no playlist context (a bare flush()) keeps the stream it was in.
+        if (name != null) streamName = name
         val h = handle
-        if (h != 0L) GeodeNative.dspReset(h)
+        if (h != 0L) {
+            GeodeNative.dspReset(h)
+            GeodeNative.dspBeginStream(h, streamName)
+        }
     }
 
     /** Frees every chain; only after the player that owned the playback thread is released. */
@@ -130,6 +183,11 @@ class NativeDspProcessor : BaseAudioProcessor() {
         if (h != 0L) GeodeNative.dspDestroy(h)
         retired.forEach { GeodeNative.dspDestroy(it) }
         retired.clear()
+        // After the chains, which point at it.
+        synchronized(tableLock) {
+            if (table != 0L) GeodeNative.replayGainDestroy(table)
+            table = 0L
+        }
     }
 
     internal fun apply(
@@ -140,7 +198,6 @@ class NativeDspProcessor : BaseAudioProcessor() {
         s.bandsMb.take(BANDS).forEachIndexed { band, mb -> GeodeNative.dspSetBand(h, band, mb) }
         GeodeNative.dspSetBassBoost(h, s.bassBoost)
         GeodeNative.dspSetLoudnessMb(h, s.loudnessMb)
-        GeodeNative.dspSetGainDb(h, s.gainDb)
         GeodeNative.dspSetCrossfeed(h, s.crossfeed)
         GeodeNative.dspSetLimiter(h, s.limiter)
     }
@@ -160,6 +217,31 @@ class NativeDspProcessor : BaseAudioProcessor() {
             encoding: Int,
             channelCount: Int,
         ): Boolean = (encoding == C.ENCODING_PCM_16BIT || encoding == C.ENCODING_PCM_FLOAT) && channelCount in 1..MAX_CHANNELS
+
+        /**
+         * The name ReplayGain keys a stream by: its item's URI, as `playback/ReplayGain` names the same
+         * item from the player's timeline. Null when the flush carries no playlist context.
+         */
+        fun streamName(
+            meta: AudioProcessor.StreamMetadata,
+            period: Timeline.Period = Timeline.Period(),
+            window: Timeline.Window = Timeline.Window(),
+        ): String? {
+            val uid = meta.periodUid ?: return null
+            val timeline = meta.timeline
+            if (timeline.isEmpty) return null
+            val index = timeline.getIndexOfPeriod(uid)
+            if (index == C.INDEX_UNSET) return null
+            timeline.getPeriod(index, period)
+            return streamName(timeline.getWindow(period.windowIndex, window).mediaItem)
+        }
+
+        /** [streamName] of one item. */
+        fun streamName(item: MediaItem?): String? =
+            item
+                ?.localConfiguration
+                ?.uri
+                ?.toString()
 
         /** Band centres in millihertz, as the platform equalizer reported them, from the native chain. */
         fun bandCenterMilliHz(band: Int): Int = (GeodeNative.dspBandCenterHz(band) * 1000f).toInt()

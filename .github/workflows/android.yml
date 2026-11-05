@@ -209,6 +209,18 @@ jobs:
             core/audio/dsp/DspProcessor.cpp core/audio/dsp/Equalizer.cpp core/audio/dsp/Crossfeed.cpp core/audio/dsp/Limiter.cpp -o dsp_handoff_test
           ./dsp_handoff_test
 
+      # Export planning and clip maths ported from Kotlin (ADR 0003, ADR 0006 core/output and
+      # core/signal/timeline): frame clock, loops, encoder budget, chapters, keyframes, speed ramps,
+      # clip grade, .cube LUTs and PCM conversion, each through its C ABI too.
+      - name: Native export planning tests
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          EXPORT_SRCS="core/api/geode_export_api.cpp core/output/FrameClock.cpp core/output/LoopPlan.cpp core/output/EncodePlan.cpp core/output/Chapters.cpp core/signal/timeline/Keyframes.cpp core/signal/timeline/SpeedRamp.cpp core/viz/ClipGrade.cpp core/util/CubeLut.cpp core/audio/dsp/PcmConvert.cpp"
+          for t in output_test timeline_test clip_media_test; do
+            g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/$t.cpp $EXPORT_SRCS -o $t
+            ./$t
+          done
+
       # The Customize randomizer, Reset tab and params wire (core/viz/ParamRandomizer, core/viz/Params).
       - name: Params host tests
         working-directory: ${{ env.PROJECT_DIR }}

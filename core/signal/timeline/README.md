@@ -1,6 +1,6 @@
-# core/signal/timeline (skeleton, empty)
+# core/signal/timeline
 
-Part of [`core/signal`](../README.md). Nothing here yet.
+Part of [`core/signal`](../README.md). **Landed:** `Keyframes` (the bezier solve, ease presets and `Track::valueAt`, ported from `editor/Keyframes.kt` with the same float maths) and `SpeedRamp` (a keyframed clip speed as Media3's piecewise speeds, plus the clamp a saved clip speed lacked), behind `geode_api.h`'s export section and tested by `core/tests/timeline_test.cpp`. The Kotlin callers still evaluate keys themselves until they switch.
 
 **Owns:** everything that changes the look on programme time: style switches (by time and by beat), scene keyframes and a take's param events. Kotlin builds it once from the Studio project and sends it; native samples it per frame as a source. Studio preview and export send the same timeline, so they cannot disagree.
 

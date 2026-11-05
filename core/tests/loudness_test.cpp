@@ -230,6 +230,141 @@ void loudnessTargets() {
           "abi: the kind alone");
 }
 
+// #532 tests: the band edges, the tolerances and the ABI's numbers, each named by the mutant it kills. Expected
+// values are hand-worked from the Kotlin LoudnessTargets windows (YouTube -14 LUFS, the streaming-video norm, band
+// -15..-13 under -1 dBTP; short-form -11, band -12..-10) and its tolerances (gain 0.1 dB, peak 0.05 dB).
+void loudnessWindowsMatchThePlatforms() {
+    // Kills a window constant mutated or the switch cases swapped / falling through.
+    const auto* yt = geode::audio::loudnessWindow(LoudnessTargetId::YouTube);
+    const auto* shorts = geode::audio::loudnessWindow(LoudnessTargetId::Shorts);
+    check(yt && yt->aimLufs == -14.0 && yt->lowLufs == -15.0 && yt->highLufs == -13.0 && yt->ceilingDbtp == -1.0,
+          "window: YouTube plays at -14 LUFS (band -15..-13) under -1 dBTP");
+    check(shorts && shorts->aimLufs == -11.0 && shorts->lowLufs == -12.0 && shorts->highLufs == -10.0 &&
+              shorts->ceilingDbtp == -1.0,
+          "window: short-form plays at -11 LUFS (band -12..-10) under -1 dBTP");
+    check(geode::audio::loudnessWindow(LoudnessTargetId::AsIs) == nullptr &&
+              geode::audio::loudnessWindow(static_cast<LoudnessTargetId>(-1)) == nullptr,
+          "window: leave as-is (and a negative id) has none");
+}
+
+void loudnessBandEdgesAreOnTarget() {
+    const auto yt = LoudnessTargetId::YouTube;
+    const auto sh = LoudnessTargetId::Shorts;
+    // Kills inBand `lufs >= low` -> `>` (would raise 1 dB).
+    check(adviseLoudness(measured(-15.0, -3.0), yt).kind == AdviceKind::OnTarget, "band: -15 LUFS is YouTube's floor");
+    // Kills inBand `lufs <= high` -> `<` (would lower 1 dB).
+    check(adviseLoudness(measured(-13.0, -3.0), yt).kind == AdviceKind::OnTarget, "band: -13 LUFS is YouTube's top");
+    check(adviseLoudness(measured(-12.0, -3.0), sh).kind == AdviceKind::OnTarget &&
+              adviseLoudness(measured(-10.0, -3.0), sh).kind == AdviceKind::OnTarget,
+          "band: -12 and -10 LUFS are short-form's edges");
+    // Kills a band widened by a constant: just outside each edge is a real, audible gain.
+    auto a = adviseLoudness(measured(-15.2, -3.0), yt);
+    check(a.kind == AdviceKind::Raise && near(a.gainDb, 1.2, 1e-9) && near(a.resultingLufs, -14.0, 1e-9),
+          "band: 0.2 LU under the floor is raised to -14");
+    a = adviseLoudness(measured(-12.8, -3.0), yt);
+    check(a.kind == AdviceKind::LowerLoud && near(a.gainDb, -1.2, 1e-9) && near(a.resultingLufs, -14.0, 1e-9),
+          "band: 0.2 LU over the top is lowered to -14");
+    a = adviseLoudness(measured(-12.2, -3.0), sh);
+    check(a.kind == AdviceKind::Raise && near(a.gainDb, 1.2, 1e-9), "band: short-form floor");
+    a = adviseLoudness(measured(-9.8, -3.0), sh);
+    check(a.kind == AdviceKind::LowerLoud && near(a.gainDb, -1.2, 1e-9), "band: short-form top");
+}
+
+void loudnessPeakToleranceIsRoundingOnly() {
+    const auto yt = LoudnessTargetId::YouTube;
+    // At the top of the band the level allows -1 dB, so a peak judged unsafe there lowers a whole dB.
+    // Kills dropping `+ kPeakToleranceDb` or flipping its sign (0.02 dB over would lower 1 dB).
+    check(adviseLoudness(measured(-13.0, -0.98), yt).kind == AdviceKind::OnTarget,
+          "peak: 0.02 dB over at the band's top is still rounding");
+    // Kills peakSafe `<=` -> `<`: exactly the 0.05 dB tolerance is still safe.
+    check(adviseLoudness(measured(-13.0, -0.95), yt).kind == AdviceKind::OnTarget,
+          "peak: exactly 0.05 dB over is rounding");
+    // Kills a tolerance widened to 0.1 dB or more: 0.1 dB over is clipping, and the level allows a full dB down.
+    const auto a = adviseLoudness(measured(-13.0, -0.9), yt);
+    check(a.kind == AdviceKind::LowerPeak && near(a.gainDb, -1.0, 1e-9) && near(a.resultingTruePeakDbtp, -1.9, 1e-9),
+          "peak: 0.1 dB over is lowered");
+}
+
+void loudnessLoweringSaysWhy() {
+    const auto yt = LoudnessTargetId::YouTube;
+    // Kills `lufs < low` -> `<=`: at the floor, clipping is a peak problem, not a quiet one.
+    auto a = adviseLoudness(measured(-15.0, 0.5), yt);
+    check(a.kind == AdviceKind::LowerPeak && near(a.gainDb, -1.5, 1e-9), "lower: at the floor and clipping is the peak");
+    // Kills `lufs > high` -> `>=`: at the top, clipping is a peak problem, not a loud one.
+    a = adviseLoudness(measured(-13.0, 0.5), yt);
+    check(a.kind == AdviceKind::LowerPeak && near(a.gainDb, -1.5, 1e-9), "lower: at the top and clipping is the peak");
+    a = adviseLoudness(measured(-15.5, 0.5), yt);
+    check(a.kind == AdviceKind::LowerClipping && near(a.gainDb, -1.5, 1e-9) && near(a.gainForLevelDb, 1.5, 1e-9),
+          "lower: under the floor and clipping");
+    // Kills ceilingLimited losing its tolerance: a ceiling that takes 0.05 dB more than the level is not "limited".
+    a = adviseLoudness(measured(-10.0, 3.05), yt);
+    check(a.kind == AdviceKind::LowerLoud && near(a.gainDb, -4.05, 1e-9), "lower: 0.05 dB past the level is not limited");
+    a = adviseLoudness(measured(-10.0, 3.2), yt);
+    check(a.kind == AdviceKind::LowerLoudLimited && near(a.gainDb, -4.2, 1e-9), "lower: 0.2 dB past the level is limited");
+    // The same tolerance on the way up: a ceiling 0.05 dB short of the level is a plain raise.
+    a = adviseLoudness(measured(-20.0, -6.95), yt);
+    check(a.kind == AdviceKind::Raise && near(a.gainDb, 5.95, 1e-9) && near(a.gainForLevelDb, 6.0, 1e-9),
+          "raise: 0.05 dB short of the level is not limited");
+}
+
+void asMixedHintsOnlyWhenWorthSaying() {
+    const auto asIs = LoudnessTargetId::AsIs;
+    // Kills `underYouTube > kQuietHintLu` -> `>=`: exactly 1 LU under is not worth saying.
+    auto a = adviseLoudness(measured(-15.0, -6.0), asIs);
+    check(a.kind == AdviceKind::AsMixed && a.quietUnderYouTubeLu == 0.0, "as-is: exactly 1 LU under says nothing");
+    a = adviseLoudness(measured(-15.5, -6.0), asIs);
+    check(near(a.quietUnderYouTubeLu, 1.5, 1e-9), "as-is: 1.5 LU under is said");
+    // Kills a fabs() on the difference: louder than YouTube is never "quieter by" anything.
+    a = adviseLoudness(measured(-8.0, -6.0), asIs);
+    check(a.quietUnderYouTubeLu == 0.0, "as-is: louder than YouTube has no quiet hint");
+    // Kills peakWarning `>` -> `>=`: a peak exactly on -1 dBTP is not over it.
+    check(!adviseLoudness(measured(-14.0, -1.0), asIs).peakWarning, "as-is: a peak on -1 dBTP is no warning");
+    check(adviseLoudness(measured(-14.0, -0.99), asIs).peakWarning, "as-is: a peak over -1 dBTP warns");
+    // Kills as-is applying a gain or quoting a ceiling.
+    a = adviseLoudness(measured(-30.0, 2.0), asIs);
+    check(a.gainDb == 0.0 && a.ceilingDbtp == 0.0 && a.lufs == -30.0 && a.truePeakDbtp == 2.0,
+          "as-is: never moves the level, quotes what was measured");
+}
+
+void loudnessAdviceAbiCarriesEveryNumber() {
+    // Kills any dropped or swapped field copy in geode_loudness_advise (the PR's ABI case checks four of ten).
+    geode_loudness_report report{};
+    report.has_integrated = 1;
+    report.integrated_lufs = -20.0;
+    report.true_peak_dbtp = -10.0;
+    geode_loudness_advice out{};
+    out.quiet_under_youtube_lu = 99.0;
+    out.peak_warning = 1;
+    check(geode_loudness_advise(&report, GEODE_LOUDNESS_TARGET_YOUTUBE, &out) == GEODE_LOUDNESS_ADVICE_RAISE &&
+              near(out.gain_db, 6.0, 1e-12) && near(out.gain_for_level_db, 6.0, 1e-12) && out.lufs == -20.0 &&
+              out.true_peak_dbtp == -10.0 && near(out.resulting_lufs, -14.0, 1e-12) &&
+              near(out.resulting_true_peak_dbtp, -4.0, 1e-12) && out.ceiling_dbtp == -1.0 &&
+              out.quiet_under_youtube_lu == 0.0 && out.peak_warning == 0,
+          "abi: a raise carries every number");
+
+    report.true_peak_dbtp = -0.5;
+    out = geode_loudness_advice{};
+    check(geode_loudness_advise(&report, GEODE_LOUDNESS_TARGET_AS_IS, &out) == GEODE_LOUDNESS_ADVICE_AS_MIXED &&
+              out.kind == GEODE_LOUDNESS_ADVICE_AS_MIXED && out.gain_db == 0.0 && out.lufs == -20.0 &&
+              out.true_peak_dbtp == -0.5 && near(out.quiet_under_youtube_lu, 6.0, 1e-12) && out.peak_warning == 1 &&
+              out.ceiling_dbtp == 0.0,
+          "abi: as-mixed carries the hint and the warning");
+
+    // Kills an early return that leaves a stale gain in out when nothing was measured.
+    report.has_integrated = 0;
+    out.gain_db = 5.0;
+    out.kind = GEODE_LOUDNESS_ADVICE_RAISE;
+    check(geode_loudness_advise(&report, GEODE_LOUDNESS_TARGET_YOUTUBE, &out) == GEODE_LOUDNESS_ADVICE_NOTHING_TO_MEASURE &&
+              out.kind == GEODE_LOUDNESS_ADVICE_NOTHING_TO_MEASURE && out.gain_db == 0.0,
+          "abi: nothing measured applies no gain");
+    // Kills the target id ignored or mapped wrong: short-form aims 3 LU louder than YouTube.
+    report.has_integrated = 1;
+    report.true_peak_dbtp = -10.0;
+    check(geode_loudness_advise(&report, GEODE_LOUDNESS_TARGET_SHORTS, &out) == GEODE_LOUDNESS_ADVICE_RAISE &&
+              near(out.gain_db, 9.0, 1e-12),
+          "abi: short-form target");
+}
+
 }  // namespace
 
 int main() {
@@ -242,6 +377,12 @@ int main() {
     surroundSkipsTheLfe();
     cAbiGuards();
     loudnessTargets();
+    loudnessWindowsMatchThePlatforms();
+    loudnessBandEdgesAreOnTarget();
+    loudnessPeakToleranceIsRoundingOnly();
+    loudnessLoweringSaysWhy();
+    asMixedHintsOnlyWhenWorthSaying();
+    loudnessAdviceAbiCarriesEveryNumber();
     if (failures == 0) std::printf("loudness_test: all passed\n");
     return failures == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
 }

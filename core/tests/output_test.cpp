@@ -305,6 +305,186 @@ void renderEta() {
     check(geode_render_eta_phrase(150, &n) == 2 && n == 3 && geode_render_eta_phrase(10, nullptr) == 0, "eta words: ABI");
 }
 
+// #532 tests: render range edges the PR's cases leave open, each named by the mutant it kills.
+void exportRangeClampsBeforeItMeasures() {
+    ExportRange r{7, 7};
+    // Kills measuring the part before clamping it: 170..999 s is 829 s asked, but only 0.5 s of track.
+    check(!clampExportRange(179'500, 999'000, 180'000, &r), "range: what is left after the end is clamped is under a second");
+    // The same at the start: -5..0.5 s is 5.5 s asked, 0.5 s of track.
+    check(!clampExportRange(-5'000, 500, 180'000, &r), "range: what is left after 0:00 is clamped is under a second");
+    check(!clampExportRange(200'000, 250'000, 180'000, &r), "range: a part wholly past the end");
+    // Kills writing out before the checks: every "whole track" answer leaves out as it was.
+    check(r.startMs == 7 && r.durationMs == 7, "range: a short part leaves out untouched");
+    check(!clampExportRange(0, 1'000, -5, &r) && r.startMs == 7, "range: a negative track length is no range");
+    // Kills `start == 0 && end >= track` -> `start == 0`: a part from 0:00 that stops early is a range.
+    check(clampExportRange(0, 4'000, 5'000, &r) && r.startMs == 0 && r.durationMs == 4'000, "range: from 0:00, short of the end");
+    // Kills `start == 0 && end >= track` -> `end >= track`: a part that runs to the end from later is a range.
+    check(clampExportRange(1'000, 5'000, 5'000, &r) && r.startMs == 1'000 && r.durationMs == 4'000, "range: to the end");
+    // A one-second track has no part shorter than itself that is a second long.
+    check(!clampExportRange(0, 1'000, 1'000, &r), "range: a one-second track renders whole");
+    // ABI: a refusal leaves the caller's outputs alone; null outputs are allowed.
+    int64_t start = -1;
+    int64_t duration = -1;
+    check(geode_export_range_clamp(10'000, 10'500, 180'000, &start, &duration) == 0 && start == -1 && duration == -1,
+          "range ABI: under a second leaves outputs untouched");
+    check(geode_export_range_clamp(10'000, 40'000, 180'000, nullptr, nullptr) == 1, "range ABI: null outputs");
+}
+
+// The ETA's rule as RenderEta.hpp states it, in hand-worked numbers. Samples once a second at 1 % a second (100 s
+// render), from t = 0: warm-up to 4 s, then a 6 s span, so the first estimate is at 10 s: 90 % left at 1 %/s = 90 s.
+void renderEtaFirstSpeaksAfterWarmupAndSpan() {
+    RenderEtaState s;
+    bool quiet = true;
+    for (int64_t t = 0; t < 10'000; t += 1'000) {
+        if (renderEtaSample(s, static_cast<float>(t) / 100'000.0f, t, true) != -1) quiet = false;
+    }
+    // Kills warm-up `<` -> `<=` and span `<` -> `<=` (each moves the first estimate to 11 s).
+    check(quiet, "eta: nothing before warm-up plus span");
+    check(renderEtaSample(s, 0.10f, 10'000, true) == 90, "eta: at 10 s, 90 % left at 1 %/s is 90 s");
+    // Kills a countdown that does not count (or counts the wrong way): one second later, one second less.
+    check(renderEtaSample(s, 0.11f, 11'000, true) == 89, "eta: a second later at the same pace, 89 s");
+}
+
+// Kills dropping the smoothing, the wall-time countdown, the exp sign, or ms read as s (each moves the answer
+// far from 23). Base at 4 s with 0 % done; at 10 s 10 % done: 54 s shown. Then the render races: at 18 s 60 % done,
+// a fresh figure of 9.3 s. The shown value counts 8 s down to 46 and eases 1 - e^-1 (63 %) of the way to 9.3:
+// 46 - 0.632 * 36.67 = 22.8, so 23 s, never a jump straight to 9.
+void renderEtaEasesTowardANewPace() {
+    RenderEtaState s;
+    renderEtaSample(s, 0.0f, 0, true);
+    renderEtaSample(s, 0.0f, 4'000, true);
+    check(renderEtaSample(s, 0.1f, 10'000, true) == 54, "eta: 10 % in 6 s leaves 54 s");
+    check(renderEtaSample(s, 0.6f, 18'000, true) == 23, "eta: a sudden race is eased into, 23 s not 9");
+}
+
+// Kills losing the lower clamp: progress read as -1 for the baseline would make 10 % look like 110 % gained.
+void renderEtaClampsNegativeProgress() {
+    RenderEtaState s;
+    renderEtaSample(s, -1.0f, 0, true);
+    renderEtaSample(s, -1.0f, 4'000, true);
+    check(renderEtaSample(s, 0.1f, 10'000, true) == 54, "eta: progress under 0 counts as 0");
+}
+
+// A render stuck at 0 % never divides by its zero progress, and 100 % is 0 s only while steady.
+void renderEtaAtTheEnds() {
+    RenderEtaState s;
+    bool quiet = true;
+    // Kills dropping the `gained < minProgress` gate (a 0 / 0 rate).
+    for (int64_t t = 0; t <= 60'000; t += 500) {
+        if (renderEtaSample(s, 0.0f, t, true) != -1) quiet = false;
+    }
+    check(quiet, "eta: a minute stuck at 0 % says nothing");
+    RenderEtaState fresh;
+    check(renderEtaSample(fresh, 1.0f, 0, true) == 0, "eta: done on the first sample is 0 s");
+    // Kills testing `>= 1` before `steady`: a finished lead-in is not the render finishing.
+    RenderEtaState leadIn;
+    check(renderEtaSample(leadIn, 1.0f, 0, false) == -1, "eta: a lead-in at 100 % says nothing");
+}
+
+// Kills the gained gate removed or loosened: at 0.1 %/s the span is long enough at 10 s, but 1 % is not gained
+// until 14 s after the 4 s baseline. At 15 s: 98.5 % left, 1.1 % in 11 s, so 985 s.
+void renderEtaWaitsForOnePercent() {
+    RenderEtaState s;
+    bool quiet = true;
+    for (int64_t t = 0; t <= 13'000; t += 1'000) {
+        if (renderEtaSample(s, static_cast<float>(t) / 1'000'000.0f, t, true) != -1) quiet = false;
+    }
+    check(quiet, "eta: under 1 % gained says nothing");
+    renderEtaSample(s, 0.014f, 14'000, true);
+    const int64_t e = renderEtaSample(s, 0.015f, 15'000, true);
+    check(e >= 984 && e <= 986, "eta: 1.1 % in 11 s with 98.5 % left is 985 s");
+}
+
+// Kills `clamped < latest` -> `<=`: a bar that moves every 500 ms, sampled every 100 ms, repeats itself; a repeat
+// is not progress going backwards. Even pace, 120 s render.
+void renderEtaRepeatedProgressIsNotARestart() {
+    RenderEtaState s;
+    int shown = 0;
+    bool close = true;
+    for (int64_t t = 0; t <= 110'000; t += 100) {
+        const float p = static_cast<float>((t / 500) * 500) / 120'000.0f;
+        const int64_t e = renderEtaSample(s, p, t, true);
+        if (e == -1) continue;
+        ++shown;
+        if (std::llabs(e - (120'000 - t) / 1'000) > 3) close = false;
+    }
+    check(shown > 900, "eta: a bar that repeats itself still gets an estimate");
+    check(close, "eta: within 3 s of the truth with a stepping bar");
+}
+
+// Kills a partial restart: after a retry sends the bar back, the new run waits out warm-up and span again,
+// whatever the old run had shown.
+void renderEtaRetryStartsOver() {
+    RenderEtaState s;
+    int64_t t = 0;
+    int64_t last = -1;
+    for (; t <= 30'000; t += 100) last = renderEtaSample(s, static_cast<float>(t) / 100'000.0f, t, true);
+    check(last != -1, "eta: the first run was showing");
+    const int64_t retry = t;
+    bool quiet = true;
+    int64_t after = -1;
+    for (; t <= retry + 12'000; t += 100) {
+        after = renderEtaSample(s, static_cast<float>(t - retry) / 100'000.0f, t, true);
+        if (t - retry < 10'000 && after != -1) quiet = false;
+    }
+    check(quiet, "eta: a retry shows nothing for warm-up plus span");
+    check(after >= 86 && after <= 90, "eta: then about 88 s of the new 100 s run");
+}
+
+// A tiny seeded generator (xorshift32), so the sequence is the same on every standard library.
+uint32_t nextRandom(uint32_t& x) {
+    x ^= x << 13;
+    x ^= x >> 17;
+    x ^= x << 5;
+    return x;
+}
+
+// Kills a field dropped from either copy in geode_render_eta_sample: an uneven render (bursts, stalls, retries,
+// lead-in samples) through the ABI and through RenderEtaState give the same answers. The PR's parity loop is
+// an even pace, where the smoothing state hardly matters.
+void renderEtaAbiMatchesOnAnUnevenRender() {
+    geode_render_eta abi{};
+    RenderEtaState mirror;
+    uint32_t seed = 0x5EED532u;
+    float p = 0.0f;
+    int64_t t = 0;
+    bool same = true;
+    int shown = 0;
+    for (int i = 0; i < 5'000; ++i) {
+        const uint32_t r = nextRandom(seed);
+        t += 50 + static_cast<int64_t>(r % 400);
+        const uint32_t kind = (r >> 9) % 1'000;
+        if (kind < 2) {
+            p = 0.0f;  // a retry
+        } else {
+            p += static_cast<float>((r >> 16) % 300) / 100'000.0f;
+            if (p > 1.0f) p = 0.0f;
+        }
+        const bool steady = kind >= 5;
+        const int64_t a = geode_render_eta_sample(&abi, p, t, steady ? 1 : 0);
+        const int64_t b = renderEtaSample(mirror, p, t, steady);
+        if (a != b) same = false;
+        if (b > 0) ++shown;
+    }
+    check(shown > 100, "eta ABI: the uneven render showed estimates");
+    check(same, "eta ABI: matches the state struct on an uneven render");
+}
+
+// The Kotlin RenderEta.describe buckets: minutes rounded to the nearest, hours too.
+void renderEtaPhraseRoundsToTheNearest() {
+    int64_t n = -1;
+    // Kills `+ 30` -> `+ 31`: 2 min 29 s reads 2 minutes.
+    check(renderEtaPhrase(149, &n) == EtaPhrase::Minutes && n == 2, "eta words: 149 s is 2 minutes");
+    // Kills `+ 1800` -> `+ 1801`: 1 h 29 min 59 s reads 1 hour.
+    check(renderEtaPhrase(5'399, &n) == EtaPhrase::Hours && n == 1, "eta words: 5399 s is 1 hour");
+    // Kills a count left over from an earlier bucket: about a minute carries none.
+    n = -1;
+    check(renderEtaPhrase(60, &n) == EtaPhrase::AboutAMinute && n == 0, "eta words: about a minute carries no count");
+    n = -1;
+    check(renderEtaPhrase(-5, &n) == EtaPhrase::AlmostDone && n == 0, "eta words: under nothing is almost done");
+    check(renderEtaPhrase(86'400, &n) == EtaPhrase::Hours && n == 24, "eta words: a day is 24 hours");
+}
+
 }  // namespace
 
 int main() {
@@ -315,6 +495,16 @@ int main() {
     chapters();
     exportRange();
     renderEta();
+    exportRangeClampsBeforeItMeasures();
+    renderEtaFirstSpeaksAfterWarmupAndSpan();
+    renderEtaEasesTowardANewPace();
+    renderEtaClampsNegativeProgress();
+    renderEtaAtTheEnds();
+    renderEtaWaitsForOnePercent();
+    renderEtaRepeatedProgressIsNotARestart();
+    renderEtaRetryStartsOver();
+    renderEtaAbiMatchesOnAnUnevenRender();
+    renderEtaPhraseRoundsToTheNearest();
     if (failures) {
         std::printf("%d failure(s)\n", failures);
         return 1;

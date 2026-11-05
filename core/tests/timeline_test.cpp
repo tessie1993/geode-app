@@ -237,6 +237,82 @@ void cues() {
           "ABI: no cues or no clock is blank");
 }
 
+// #532 tests: caption cue timing the PR's cases leave open, each named by the mutant it kills. The rule is the
+// Kotlin TimedTextOverlay's: SubtitleCue.spans was [start, end), firstOrNull won, and item time was
+// (presentationTimeUs - originUs) / 1000L, a Long division that truncates.
+
+// Kills atTriples `< end` -> `<=`, `>= start` -> `>`, a reversed scan, and rounding µs to ms. The item's cues over
+// [2 s, 10 s) are 0..2 s (cue 0) and 1..7 s (cue 1); its first frame has presentation time 0.
+void cueLookupThroughTheAbiIsHalfOpenAndFirstWins() {
+    const int64_t starts[] = {0, 3'000};
+    const int64_t ends[] = {4'000, 9'000};
+    int64_t triples[6] = {};
+    check(geode_cues_for_span(starts, ends, 2, 2'000, 10'000, triples, 2) == 2, "cue ABI: two cues touch the item");
+    int64_t origin[2] = {0, 0};
+    check(geode_cues_at(triples, 2, origin, 0) == 0, "cue ABI: the first frame shows the cue starting at 0");
+    check(geode_cues_at(triples, 2, origin, 1'500'000) == 0, "cue ABI: where two overlap, the first given wins");
+    check(geode_cues_at(triples, 2, origin, 1'999'999) == 0, "cue ABI: 1999.999 ms is still before the end");
+    check(geode_cues_at(triples, 2, origin, 2'000'000) == 1, "cue ABI: the end is exclusive");
+    check(geode_cues_at(triples, 2, origin, 6'999'999) == 1, "cue ABI: the last microsecond of a cue");
+    check(geode_cues_at(triples, 2, origin, 7'000'000) == -1, "cue ABI: blank at the last cue's end");
+}
+
+// Kills taking origin 0 for "no origin yet": an item whose first frame is stamped 0 keeps that origin.
+void cueClockAtZeroIsStillAnOrigin() {
+    CueClock clock;
+    check(clock.itemMs(0) == 0, "cue clock: the first frame at 0 is item time 0");
+    check(clock.itemMs(2'500'000) == 2'500, "cue clock: 2.5 s later is 2500 ms");
+    check(clock.itemMs(33'333) == 33, "cue clock: µs truncate to ms");
+    int64_t origin[2] = {0, 0};
+    const int64_t triples[] = {0, 1'000, 0, 2'000, 3'000, 1};
+    check(geode_cues_at(triples, 2, origin, 0) == 0 && origin[0] == 1 && origin[1] == 0,
+          "cue ABI: an origin at 0 is fixed");
+    check(geode_cues_at(triples, 2, origin, 2'500'000) == 1, "cue ABI: 2.5 s after an origin at 0");
+}
+
+// Kills sorting the cues: the list's own order decides which of two overlapping cues shows, as firstOrNull did,
+// even when the later one starts first.
+void cuesKeepTheirGivenOrder() {
+    const int64_t starts[] = {6'000, 3'000};
+    const int64_t ends[] = {9'000, 8'000};
+    const CueTable t = CueTable::forSpan(starts, ends, 2, 0, 10'000);
+    check(t.cues().size() == 2 && t.cues()[0].source == 0 && t.cues()[1].source == 1, "cues: in the order given");
+    check(t.at(5'000) == 1 && t.at(7'000) == 0 && t.at(8'500) == 0, "cues: the first given wins an overlap");
+}
+
+// A cue across the whole item fills it, and one ending on the item's end runs to its last millisecond.
+void cuesAtTheSpanEdges() {
+    const int64_t starts[] = {1'000, 5'000};
+    const int64_t ends[] = {20'000, 10'000};
+    const CueTable whole = CueTable::forSpan(starts, ends, 1, 2'000, 10'000);
+    // Kills dropping either re-base clamp (max at 0 or min at the item's length).
+    check(whole.cues().size() == 1 && whole.cues()[0].startMs == 0 && whole.cues()[0].endMs == 8'000,
+          "cues: one across the item is cut to 0..8 s");
+    check(whole.at(0) == 0 && whole.at(7'999) == 0 && whole.at(8'000) == -1, "cues: shown from first to last ms");
+    const CueTable tail = CueTable::forSpan(starts + 1, ends + 1, 1, 2'000, 10'000);
+    check(tail.cues().size() == 1 && tail.cues()[0].startMs == 3'000 && tail.cues()[0].endMs == 8'000 &&
+              tail.cues()[0].source == 0,
+          "cues: one ending on the item's end keeps its length");
+    // Kills `count <= 0` -> `count < 0` turning into a read: no cues is no table.
+    check(CueTable::forSpan(starts, ends, 0, 0, 10'000).empty(), "cues: none given");
+    check(CueTable::forSpan(starts, nullptr, 2, 0, 10'000).empty(), "cues: no ends");
+}
+
+// The ABI never writes past its capacity or through a null buffer, and an empty lookup is blank.
+void cueAbiGuards() {
+    const int64_t starts[] = {0, 3'000};
+    const int64_t ends[] = {4'000, 9'000};
+    int64_t triples[6] = {-7, -7, -7, -7, -7, -7};
+    // Kills `std::max(cap, 0)` dropped: a negative capacity writes nothing.
+    check(geode_cues_for_span(starts, ends, 2, 0, 10'000, triples, -1) == 0 && triples[0] == -7,
+          "cue ABI: a negative capacity writes nothing");
+    check(geode_cues_for_span(starts, ends, 2, 0, 10'000, nullptr, 2) == 0, "cue ABI: no buffer writes nothing");
+    check(geode_cues_for_span(starts, ends, 2, 0, 10'000, triples, 1) == 1 && triples[3] == -7,
+          "cue ABI: a capacity of one writes one triple");
+    int64_t origin[2] = {0, 0};
+    check(geode_cues_at(triples, 0, origin, 0) == -1 && origin[0] == 0, "cue ABI: no cues is blank, no origin taken");
+}
+
 }  // namespace
 
 int main() {
@@ -244,6 +320,11 @@ int main() {
     tracks();
     speedRamp();
     cues();
+    cueLookupThroughTheAbiIsHalfOpenAndFirstWins();
+    cueClockAtZeroIsStillAnOrigin();
+    cuesKeepTheirGivenOrder();
+    cuesAtTheSpanEdges();
+    cueAbiGuards();
     if (failures) {
         std::printf("%d failure(s)\n", failures);
         return 1;

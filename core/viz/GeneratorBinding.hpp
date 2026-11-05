@@ -15,9 +15,13 @@
 #include <array>
 #include <iterator>
 
+#include "scene/generator/Slot.hpp"
+
 namespace geode::viz::generator_binding {
 
 inline constexpr int kSlots = 4;
+static_assert(kSlots == scene::generator::kSlotCount, "one texture unit per generator slot");
+static_assert(static_cast<int>(scene::generator::Slot::CameraPlane) == 3, "uGenMix.w is the camera plane");
 inline constexpr int kFirstUnit = 4;
 
 constexpr int unit(int slot) { return kFirstUnit + slot; }

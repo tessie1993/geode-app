@@ -6,8 +6,7 @@ Usage: python3 tools/precheck.py [base]   (base defaults to origin/main; run fro
 What it runs (the owner allows these locally; Gradle, the APK, lint and the emulator stay CI-only):
   1. No conflict markers in files the branch changed.
   2. `{`/`}` balance in changed C/C++ files (a lost brace broke every PR once, #477).
-  3. The three gates exactly as arch-map.yml runs them: engine Kotlin only shrinks, the layer rule,
-     and the architecture map (AGENTS.md updated with structure).
+  3. The two gates exactly as arch-map.yml runs them: engine Kotlin only shrinks, and the layer rule.
   4. Every native host test, taken from .github/workflows/android.yml's steps (the g++ line and the
      ./binary line that runs it), so this never drifts from CI. Binaries go to a temp dir; the tests
      run in parallel. Only tests whose sources the branch touched run, unless --all is given.
@@ -79,11 +78,9 @@ def main():
                 fails.append(f"unbalanced braces: {f} ({s.count('{')} {{ vs {s.count('}')} }})")
 
     numstat = sh(f"git diff --numstat {mb} HEAD").stdout
-    namestat = sh(f"git diff --name-status -M {mb} HEAD").stdout
     for name, cmd, inp in (
         ("engine Kotlin gate", "bash tools/engine-kotlin-gate.sh", numstat),
         ("layer gate", "bash tools/layer-gate.sh", None),
-        ("arch-map gate", "bash tools/arch-map-gate.sh", namestat),
     ):
         r = sh(cmd, inp)
         if r.returncode:

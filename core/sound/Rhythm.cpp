@@ -34,6 +34,21 @@ constexpr float kLatencyHops = 1.5f;
 constexpr float kCountWrap = 4096.0f;
 constexpr float kHarmonyLatency = 0.35f;   // a harmonic change is heard this long after the chord moved
 
+// The phase arbiter, as fosfora's #4160 round measured it on kick events alone (scheduler.rs; manifest
+// bench/manifests/q4160_phase_frozen.json): every beat it folds the last 8 beats of kicks onto the grid, and
+// votes to move the grid half a beat when at least 4 kicks are there and the half beat holds twice the
+// on-grid ones; 4 votes in a row move it, and only if the last 32 beats agree (the half beat twice the
+// on-grid kicks, which hold at most .3 of them). fosfora later relaxed the guard to 1.5, .4 and 3 votes
+// (#4234) for a window that also holds its beat activation's peaks; Geode has kicks alone.
+constexpr double kArbWindowBeats = 8.0;
+constexpr int kArbMinKicks = 4;
+constexpr double kArbRatio = 2.0;
+constexpr int kArbStreak = 4;
+constexpr double kArbLongBeats = 32.0;
+constexpr double kArbLongRatio = 2.0;
+constexpr double kArbLongShare = 0.3;
+constexpr double kArbTolerance = 0.125;  // a kick counts toward a phase within this share of a beat
+
 float wrapHalf(float x) { return x - std::round(x); }
 float frac(double x) { return static_cast<float>(x - std::floor(x)); }
 
@@ -206,6 +221,8 @@ void Rhythm::estimateTempo() {
     if (candidateVotes_ >= (related ? 8 : 4)) {
         period_ = candidate_;
         candidateVotes_ = 0;
+        phaseOffset_ = 0.0f;  // the arbiter starts over: its half beat belonged to the old period
+        arbStreak_ = 0;
         missSeconds_ = 1e9f;  // re-place the phase on the next measurement
     }
 }
@@ -238,7 +255,7 @@ void Rhythm::measurePhase() {
     }
     plpConf_ = mass > 1e-9f ? std::clamp(std::abs(sum) / mass, 0.0f, 1.0f) : 0.0f;
     if (mass > 1e-9f) {
-        measured_ = frac(std::arg(sum) / (2.0 * std::numbers::pi) + kLatencyHops / p);
+        measured_ = frac(std::arg(sum) / (2.0 * std::numbers::pi) + kLatencyHops / p + phaseOffset_);
     }
 
     const float dt = kPhaseEvery * kHopSeconds;
@@ -323,6 +340,7 @@ void Rhythm::advance() {
             if (phrase) phrases_++;
         }
         if (tickCount_ < kMaxTicks) ticks_[tickCount_++] = Tick{lastBeat_, down, phrase, locked_};
+        if (period_ > 0.0f) arbitrate();
         if (locked_) {
             const float strength = std::clamp(conf_, 0.05f, 1.0f);
             beatHit_ = std::max(beatHit_, strength);
@@ -330,6 +348,47 @@ void Rhythm::advance() {
             if (phrase) phraseHit_ = std::max(phraseHit_, strength);
         }
     }
+}
+
+void Rhythm::kick(double intoHop) {
+    kicks_[kickHead_] = static_cast<double>(hops_) + std::clamp(intoHop, 0.0, 1.0);
+    kickHead_ = (kickHead_ + 1) % kKickEvents;
+    kickCount_ = std::min(kickCount_ + 1, kKickEvents);
+}
+
+void Rhythm::arbitrate() {
+    // At the beat that just ticked: where each kick of the window sits in the beat, 0 = on the grid.
+    const double p = period_;
+    const double instant = static_cast<double>(hops_) - (theta_ - static_cast<double>(lastBeat_)) * p;
+    int on = 0, half = 0, total = 0, longOn = 0, longHalf = 0, longTotal = 0;
+    for (int i = 0; i < kickCount_; i++) {
+        const double t = kicks_[(kickHead_ - 1 - i + kKickEvents) % kKickEvents];
+        const double ago = (instant - t) / p;
+        if (ago > kArbLongBeats) break;  // newest first: the rest are older
+        const double x = (t - instant) / p - std::floor((t - instant) / p);
+        const bool isOn = std::min(x, 1.0 - x) <= kArbTolerance;
+        const bool isHalf = std::fabs(x - 0.5) <= kArbTolerance;
+        longTotal++;
+        longOn += isOn;
+        longHalf += isHalf;
+        if (ago <= kArbWindowBeats) {
+            total++;
+            on += isOn;
+            half += isHalf;
+        }
+    }
+    const bool vote = half > on && total >= kArbMinKicks && half >= kArbRatio * std::max(on, 1) &&
+                      longOn <= kArbLongShare * longTotal && longHalf >= kArbLongRatio * std::max(longOn, 1);
+    arbStreak_ = vote ? arbStreak_ + 1 : 0;
+    if (arbStreak_ < kArbStreak) return;
+    arbStreak_ = 0;
+    // Half a beat later (a long gap reads better than a double beat), and kept: the pulse measures the
+    // same phase as before, so the offset rides on every measurement from now on.
+    theta_ -= 0.5;
+    phaseOffset_ = frac(phaseOffset_ + 0.5);
+    measured_ = frac(measured_ + 0.5);
+    pending_ = 0.0;
+    missSeconds_ = 0.0f;
 }
 
 void Rhythm::finishBeatAccent(int64_t beat) {

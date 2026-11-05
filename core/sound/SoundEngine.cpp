@@ -129,6 +129,7 @@ SoundEngine::SoundEngine(int sampleRateHz)
     waveBlock_ = std::max(1, n_ / 512);  // 160 × block always fits the window: ~13 ms at every rate
     // Only the middle of the drawn wave counts when aligning, so the centre is what holds still.
     rhythm_.configure(sampleRateHz_);
+    kick_.configure(sampleRateHz_);
     harmony_.configure(static_cast<float>(sampleRateHz_) / static_cast<float>(2 * n_), n_ + 1);
     waveWeight_.resize(GEODE_SOUND_WAVEFORM_POINTS);
     const float c = GEODE_SOUND_WAVEFORM_POINTS;
@@ -169,6 +170,7 @@ void SoundEngine::write(const float* interleaved, int frames, int channels) {
         writePos_ = (writePos_ + 1) % cap;
         const float m = 0.5f * (l + r);
         for (auto& band : bank_) band.process(m);
+        if (kick_.push(m)) rhythm_.kick(static_cast<double>(hopFill_ + 1) / rhythm_.hopSamples());
         if (++hopFill_ >= rhythm_.hopSamples()) {
             hopFill_ = 0;
             std::array<float, Rhythm::kBands> power{};
@@ -808,6 +810,7 @@ void SoundEngine::musical(float dt, bool warm, bool silent, GeodeSoundFrame& out
 
 void SoundEngine::reset() {
     rhythm_.reset();
+    kick_.reset();
     harmony_.reset();
     form_.reset();
     hopFill_ = 0;

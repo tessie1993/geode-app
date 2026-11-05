@@ -15,6 +15,7 @@
 
 #include "sound/Form.hpp"
 #include "sound/Harmony.hpp"
+#include "sound/KickModel.hpp"
 #include "sound/SoundEngine.hpp"
 
 using namespace geode::sound;
@@ -495,9 +496,63 @@ void checkGroove(const Groove& g) {
 }
 
 // The kick and an off-beat bass note are both rises in the low bands, and no onset function tells them
-// apart: the beat needs kick events that reject bass notes, then fosfora's phase arbiter on top of them
-// (docs/research/fosfora/02-rhythm-structure.md R2; its kick model is fosfora's kick_model.rs).
-constexpr const char* kNeedsKickModel = "the low bands hear the bass as a kick; needs a kick model and the phase arbiter (fosfora R2)";
+// apart; the kick model (fosfora's) does for a legato bass, each note running into the next, but this one is
+// staccato: every note starts from silence, and the model reads that attack as a kick too, so the phase
+// arbiter sees kicks on both halves of the beat and abstains.
+constexpr const char* kStaccatoBass = "the kick model reads a staccato sine bass, each note from silence, as a kick; the arbiter abstains";
+
+// The kick model is fosfora's, ported: the same trees give the same probability (fixed inputs, scored by
+// fosfora's own Rust), and it passes fosfora's own test, kick_fires_on_kick_drums_not_on_bass_notes: 16 kick
+// drums read as at least 13 kicks, 16 legato bass notes as at most one.
+void testKickModel() {
+    std::printf("kick model:\n");
+    struct Golden {
+        float c, amp, p;
+    };
+    // x[i] = amp·sin(1.7·i + c), through fosfora's Ensemble::probability on its kick_model.json at 2e85d3b.
+    const Golden golden[] = {
+        {0.0f, 0.0f, 9.357562661e-2f}, {0.0f, 1.0f, 5.725576878e-1f}, {1.0f, 2.0f, 1.204860061e-1f},
+        {2.0f, 0.5f, 4.502753913e-1f}, {3.0f, 4.0f, 4.412003756e-1f},
+    };
+    for (const Golden& g : golden) {
+        std::array<float, KickModel::kInputs> x{};
+        for (int i = 0; i < KickModel::kInputs; i++) x[i] = g.amp * std::sin(1.7f * static_cast<float>(i) + g.c);
+        const float p = KickModel::score(x);
+        CHECK(std::fabs(p - g.p) < 1e-5f, "kick model on sin(1.7i + %.0f)·%.1f: %.7f, fosfora %.7f", g.c, g.amp, p, g.p);
+    }
+    constexpr int kRate = 44100;
+    const int period = kRate / 2;
+    // fosfora's synth_kick: a 155 → 45 Hz drop over ~180 ms and a 4 ms click; synth_bass_note: a 10 ms
+    // attack into a sustained fundamental and second harmonic, notes 55, 41.2, 49 and 61.7 Hz.
+    auto count = [&](auto make) {
+        KickModel k;
+        k.configure(kRate);
+        int kicks = 0;
+        for (int i = 0; i < period * 17; i++) {
+            const int n = i / period;
+            const float v = n >= 1 ? make(n - 1, i % period) : 0.0f;
+            kicks += k.push(v);
+        }
+        return kicks;
+    };
+    const int drums = count([&](int, int j) {
+        static double body = 0.0, click = 0.0;
+        if (j == 0) body = click = 0.0;
+        const double t = static_cast<double>(j) / kRate;
+        body += kTau * (45.0 + 110.0 * std::exp(-t / 0.03)) / kRate;
+        click += kTau * (1000.0 + 3000.0 * std::exp(-t / 0.004)) / kRate;
+        return static_cast<float>(0.8 * (std::sin(body) * std::exp(-t / 0.18) + 0.3 * std::sin(click) * std::exp(-t / 0.004)));
+    });
+    const double notes[] = {55.0, 41.2, 49.0, 61.7};
+    const int bass = count([&](int n, int j) {
+        const double t = static_cast<double>(j) / kRate;
+        const double w = kTau * notes[n % 4] * t;
+        return static_cast<float>(0.6 * std::min(t / 0.01, 1.0) * (std::sin(w) + 0.3 * std::sin(2.0 * w)));
+    });
+    std::printf("  16 kick drums: %d kicks; 16 legato bass notes: %d\n", drums, bass);
+    CHECK(drums >= 13, "16 kick drums read as %d kicks", drums);
+    CHECK(bass <= 1, "16 bass notes read as %d kicks", bass);
+}
 
 // The fosfora study's two failures (PR #300, docs/research/fosfora/02-rhythm-structure.md §4), at 120 BPM:
 // a kick on every beat under an open hat on every "and" (the hat's peak 18 dB and 4 dB under the kick's),
@@ -515,9 +570,12 @@ void testOffbeatGrooves() {
         char name[48];
         std::snprintf(name, sizeof name, "kick 1+3, bass %.2f on and", bass);
         Groove g{name, 120.0, {{Voice::kKick, 0.8, {0, 2}}, {Voice::kBass, bass, ands}}};
-        g.knownFailure = kNeedsKickModel;
+        g.knownFailure = kStaccatoBass;
         checkGroove(g);
     }
+    // A quiet kick on every beat under a loud snare on every "and": the onset envelope says the "and", and
+    // only the kick events move the grid onto the beat (the phase arbiter).
+    checkGroove({"quiet kick, snare on and", 120.0, {{Voice::kKick, 0.2, fours}, {Voice::kSnare, 0.8, ands}}});
 }
 
 // The regression set every tracker change must keep: the common shapes of a beat, one each.
@@ -539,7 +597,7 @@ void testGrooveRegressions() {
     checkGroove({"swung 8ths", 110.0, {{Voice::kKick, 0.8, {0, 2}}, {Voice::kSnare, 0.4, {1, 3}}, {Voice::kClosedHat, 0.2, swung}}});
     // House: a kick on every beat and the bass on every "and".
     Groove house{"off-beat bass", 124.0, {{Voice::kKick, 0.8, fours}, {Voice::kBass, 0.3, ands}, {Voice::kClosedHat, 0.1, ands}}};
-    house.knownFailure = kNeedsKickModel;
+    house.knownFailure = "never locks: the kick and the bass on the \"and\" split the pulse, legato bass or staccato; not a phase choice";
     checkGroove(house);
     // Eight seconds of hats alone, then the kick: the grid lands on the kick once it comes.
     Groove intro{"hat intro, then kick", 128.0, {{Voice::kClosedHat, 0.2, eighths}, {Voice::kKick, 0.8, fours, 8.0}}};
@@ -621,6 +679,7 @@ int main() {
     testBuildAndDrop();
     testSectionsReturn();
     testDeterministic();
+    testKickModel();
     testOffbeatGrooves();
     testGrooveRegressions();
     testBeatless();

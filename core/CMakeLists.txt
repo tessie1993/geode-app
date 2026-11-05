@@ -10,6 +10,7 @@ add_library(geode_core STATIC
     sound/Emotion.cpp
     sound/Form.cpp
     sound/Harmony.cpp
+    sound/KickModel.cpp
     sound/Rhythm.cpp
     sound/SoundEngine.cpp
     library/Tags.cpp

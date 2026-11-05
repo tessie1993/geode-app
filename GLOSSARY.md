@@ -122,7 +122,7 @@ _Avoid_: Meta control, master knob
 A named set of the six knob positions: the built-in starters (Calm, Groove, Rave, Dreamy, Wide, Glitch) or the user's own (saving is Pro). Separate from look presets.
 
 **Event recipe**:
-A named bundle of reaction routes offered in the Events tab ("Kick punch", "Drop burst"), turned on and off as one.
+A named bundle of reaction routes offered in the Events tab ("Kick punch", "Snare crack"), turned on and off as one.
 _Avoid_: Trigger preset
 
 **Modulation**:

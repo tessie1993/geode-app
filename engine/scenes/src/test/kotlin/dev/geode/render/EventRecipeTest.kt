@@ -49,8 +49,8 @@ class EventRecipeTest {
     @Test
     fun aFullMatrixRefusesARecipeRatherThanDroppingRoutes() {
         val full = List(ReactionRoute.MAX_ROUTES) { ReactionRoute(source = ReactSource.HIGH, target = LfoTarget.WARP) }
-        assertFalse(EventRecipe.DROP_BURST.fits(full, shader))
-        assertEquals(full, EventRecipe.DROP_BURST.toggle(full, shader))
+        assertFalse(EventRecipe.KICK_PUNCH.fits(full, shader))
+        assertEquals(full, EventRecipe.KICK_PUNCH.toggle(full, shader))
     }
 
     @Test

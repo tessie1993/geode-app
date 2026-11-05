@@ -11,6 +11,7 @@ out vec4 fragColor;
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_sdf3
+//#include lib_generator
 
 // Aurora Ocean: low flight over a dark, mirror-still-to-choppy sea under
 // aurora curtains. The sea is a four-octave heightfield marched from the
@@ -30,6 +31,14 @@ out vec4 fragColor;
 // sends a bright shimmer running along the curtains. Hats (SND_HAT_ENV) scatter
 // sparkles on the water. A drop (SND_HELD_SURGE) leans the curtains over and lights
 // one patch of them, never the whole frame. Overall level follows SND_INTENSITY.
+//
+// ---- generators (lib_generator, #471) ----------------------------------------
+//
+// The open sky is the sky slot: genSky takes the curtains' colour for a ray and,
+// with a generator assigned, mixes another style's frame over it, so the sea
+// mirrors that style too. The finished frame goes through genPlane last, the
+// camera plane a generator fills the view from. Both return the colour they are
+// given while their uGenMix channel is 0, so the style is unchanged without one.
 
 #define AO_MAX_STEPS 96
 #define AO_LAYERS 12
@@ -177,7 +186,7 @@ void main() {
         r.y = abs(r.y);
         float fres = 0.02 + 0.98 * pow(1.0 - clamp(dot(n, -rd), 0.0, 1.0), 5.0);
         vec3 deep = pal(hue + 0.55) * 0.012 + vec3(0.002, 0.004, 0.008);
-        col = mix(deep, sky(r, eye, hue, drop, dropLean, snare) * 1.2, fres);
+        col = mix(deep, genSky(r, sky(r, eye, hue, drop, dropLean, snare)) * 1.2, fres);
         // Hat sparkles: hashed glints on a grid tiled every 64 along z, lit only
         // where a facet tilts toward the curtains.
         vec2 g = p.xz * 5.0;
@@ -191,10 +200,10 @@ void main() {
     } else if (rd.y < 0.0) {
         col = horizon;
     } else {
-        col = sky(rd, eye, hue, drop, dropLean, snare);
+        col = genSky(rd, sky(rd, eye, hue, drop, dropLean, snare));
     }
 
     col *= 0.8 + 0.25 * swell;
     col *= 0.75 + 0.25 * (1.0 - smoothstep(0.4, 2.2, length(uv)));
-    fragColor = vec4(grade(col), 1.0);
+    fragColor = vec4(genPlane(vUv, grade(col)), 1.0);
 }

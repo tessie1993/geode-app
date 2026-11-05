@@ -161,6 +161,9 @@ jobs:
           # Which built scenes stay on the GPU (#378): a bounded LRU with pins, spares by thermal tier, lazy resize.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/scene_residency_test.cpp -o scene_residency_test
           ./scene_residency_test
+          # Generator textures (#471): slot i on unit 4 + i, lib_generator's sampler names, uGenMix 0 where nothing is bound.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/generator_binding_test.cpp -o generator_binding_test
+          ./generator_binding_test
           g++ -std=c++20 -O1 -Wall -Wextra -Icore core/tests/sound_test.cpp core/sound/*.cpp -o sound_test
           ./sound_test
           g++ -std=c++20 -O1 -Wall -Wextra -Icore core/tests/musical_test.cpp core/sound/*.cpp -o musical_test

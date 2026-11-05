@@ -39,3 +39,5 @@
 "lib_neon",
 // The note blooms' four looks (note_bloom_frag, NoteBloomPass).
 "lib_bloom",
+// Generators (#471): other styles' frames as sky, wall, material and camera plane; uGenMix 0 = today's look.
+"lib_generator",

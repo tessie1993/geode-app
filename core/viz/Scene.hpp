@@ -16,6 +16,15 @@ namespace geode::viz {
 
 enum class SceneFamily { Shader, Milkdrop, Fluid };
 
+// Generators (#471): other styles rendered offscreen into textures a scene samples through
+// lib_generator, one per geode::scene::generator::Slot (Sky, Wall, Material, CameraPlane = 0..3).
+// tex 0 = no generator in that slot; mix is the slot's scene.generators.mix param (0..1). The
+// renderer owns the textures and keeps this struct alive; viz/GeneratorBinding has the unit rule.
+struct GeneratorTextures {
+    unsigned tex[4] = {0, 0, 0, 0};
+    float mix[4] = {0, 0, 0, 0};
+};
+
 // A scene, plus the optional hooks the renderer wires by capability rather than by class.
 class Scene {
 public:
@@ -36,6 +45,9 @@ public:
     virtual void acceptPcm(const float* samples, int count) { (void) samples; (void) count; }
     virtual void setFlow(GLuint texture, float strength) { (void) texture; (void) strength; }
     virtual void setPaletteLut(GLuint texture) { (void) texture; }
+    // The renderer's generator textures, stable for the scene's lifetime (nullptr = none); a style
+    // that includes lib_generator samples them, every other scene ignores them.
+    virtual void setGenerators(const GeneratorTextures* generators) { (void) generators; }
     virtual void setTouchField(const TouchField* field) { (void) field; }
     // The renderer's camera rig pose, stable for the scene's lifetime; stepped once per frame before draw.
     virtual void setCamera(const CameraPose* pose) { (void) pose; }

@@ -38,6 +38,10 @@
 //                                                 # black or a style, uniforms from a NoteResponse frame
 //                                                 # (core/tests/note_response_test --dump <scenario> <s>)
 //   node check.mjs --shader black_hole --sound SND_KICK_ENV=1,SND_DROP=1 --set uMorph=0.8
+//   node check.mjs --shader aurora_ocean --gen sky:kifs --out out/sky.png
+//                                                 # a generator (#471): style B rendered offscreen and
+//                                                 # bound to the lib_generator sampler of that slot
+//                                                 # (sky|wall|material|plane), its uGenMix channel at 1
 //
 // --sound sets single slots of the sound frame by their lib_sound name (the
 // rest keep the table's mid-loudness groove below), so a
@@ -194,9 +198,44 @@ const SHADER_VALUES = {
   // CameraRig at rest: eye on the path at the base height, looking down +z, base focal.
   uCamPos: [0, 0, 37], uCamBasis: [1, 0, 0, 0, 1, 0, 0, 0, 1], uCamFocal: 1.6, uCamTravel: 37,
   uCamDolly: 0, uCamLook: [0, 0, 0],
+  // lib_generator (#471): no generator assigned, the way ShaderScene uploads it with every slot empty.
+  // --gen <slot>:<id> sets that slot's channel to 1.
+  uGenMix: [0, 0, 0, 0],
 };
 
-const SHADER_TEXTURES = { uSoundTex: 'sound', uPalLut: 'palette' };
+// The generator samplers read page.html's gen0..gen3: black stand-ins, or style B's frame under --gen.
+const SHADER_TEXTURES = {
+  uSoundTex: 'sound', uPalLut: 'palette', uGenSky: 'gen0', uGenWall: 'gen1', uGenMaterial: 'gen2', uGenPlane: 'gen3',
+};
+
+// --gen <slot>:<styleId>: the slots of core/scene/generator/Slot.hpp, by name or number.
+const GEN_SLOTS = ['sky', 'wall', 'material', 'plane'];
+
+// The generators of one job: each style B is planned like any style at its target's size (the plane
+// at the render size, the others a square power of two capped at 512, as the renderer sizes them),
+// drawn first into its own texture, then bound to the matching sampler of the style under test.
+function generatorJobs(args, registry, values, width, height) {
+  const quadVert = fs.readFileSync(path.join(SHADERS, 'quad_vert.glsl'), 'utf8');
+  const out = [];
+  for (const spec of args.gen) {
+    const [slotName, id] = spec.split(':');
+    const slot = /^\d$/.test(slotName) ? Number(slotName) : GEN_SLOTS.indexOf(slotName);
+    if (slot < 0 || slot >= GEN_SLOTS.length || !id) throw new Error(`--gen wants <sky|wall|material|plane>:<styleId>, got ${spec}`);
+    const file = path.join(SHADERS, `${id}_frag.glsl`);
+    if (!fs.existsSync(file)) throw new Error(`no such fragment style: ${id}`);
+    const frag = resolveIncludes(fs.readFileSync(file, 'utf8'), registry);
+    let w = width, h = height;
+    if (GEN_SLOTS[slot] !== 'plane') {
+      w = h = Math.min(512, 2 ** Math.ceil(Math.log2(Math.max(width, height))));
+    }
+    const genValues = { ...SHADER_VALUES };
+    if (args.time !== null) genValues.uTime = args.time;
+    out.push({ slot, name: id, width: w, height: h, vert: quadVert, frag, uniforms: plan(parseUniforms(frag), genValues, SHADER_TEXTURES, w, h) });
+    values.uGenMix = [...values.uGenMix];
+    values.uGenMix[slot] = 1;
+  }
+  return out;
+}
 
 // FluidLook::drawDisplay with mid-loudness audio.
 const FLUID_VALUES = {
@@ -366,7 +405,7 @@ function parseArgs(argv) {
   const a = {
     size: 240, height: null, shaders: [], all: false, list: false, fluidDisplay: false, out: null, time: null,
     liquid: null, frames: 240, born: 1, bornStyle: null, age: 0, surface: 0, liquidity: 0.35, seed: 1, threeD: false,
-    sound: [], set: [], bloom: null, over: null,
+    sound: [], set: [], bloom: null, over: null, gen: [],
   };
   for (let i = 0; i < argv.length; i++) {
     const v = argv[i];
@@ -391,6 +430,7 @@ function parseArgs(argv) {
     else if (v === '--over') a.over = argv[++i];
     else if (v === '--sound') a.sound.push(...argv[++i].split(','));
     else if (v === '--set') a.set.push(argv[++i]);
+    else if (v === '--gen') a.gen.push(argv[++i]);
     else throw new Error(`unknown flag ${v}`);
   }
   return a;
@@ -445,7 +485,9 @@ async function main() {
     const values = { ...SHADER_VALUES };
     if (args.time !== null) values.uTime = args.time;
     applyOverrides(values, args);
-    jobs.push({ name: id, vert: quadVert, frag, uniforms: plan(parseUniforms(frag), values, SHADER_TEXTURES, args.size, args.height ?? args.size) });
+    const gens = generatorJobs(args, registry, values, args.size, args.height ?? args.size);
+    const name = gens.length ? `${id} ${gens.map((g) => `${GEN_SLOTS[g.slot]}:${g.name}`).join(' ')}` : id;
+    jobs.push({ name, vert: quadVert, frag, gens, uniforms: plan(parseUniforms(frag), values, SHADER_TEXTURES, args.size, args.height ?? args.size) });
   }
   if (args.fluidDisplay) {
     const vert = fs.readFileSync(path.join(SHADERS, 'fluid_base_vert.glsl'), 'utf8');

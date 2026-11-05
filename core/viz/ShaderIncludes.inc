@@ -38,4 +38,5 @@
 // The neon set (five loose styles): normalized shape controls, the palette pull, shared sound drives.
 "lib_neon",
 // The note blooms' four looks (note_bloom_frag, NoteBloomPass).
-"lib_bloom",
+// Morph World's space: the World Genome's operator chain and its three render modes (core/viz/world).
+"lib_world",

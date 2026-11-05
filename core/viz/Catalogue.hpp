@@ -50,11 +50,6 @@ enum class Scope {
 };
 constexpr int kScopeCount = 24;
 
-// Note & key reactions' four bloom looks (viz/NoteResponse, lib_bloom), in SceneParams::bloomLook's
-// numbering (0 there means "the style's own", this table's pick). Names match Kotlin's BloomLook.
-enum class BloomLook { Flower = 1, Glow = 2, Ripple = 3, Burst = 4 };
-constexpr int kBloomLookCount = 4;
-
 // How the Scene camera (core/scene/camera, #512) may move in a style (#473). A marched style flies
 // the free camera: Rails clamps it to today's rig limits (forward flight, yaw ±0.6, pitch ±0.45,
 // roll ±0.8 rad, no flips) until its family is ported to a full environment, SixDof leaves it free.
@@ -77,6 +72,9 @@ struct Family {
     const char* opener() const { return ids[0]; }
 };
 
+// Morph World: the one style whose ShaderScene runs a World Genome driver (core/viz/world).
+constexpr const char* kMorphWorld = "morph_world";
+
 // The user's Detail control; ShaderScene turns it into the march step budget.
 constexpr Range kMarchDetail{0.25f, 1.5f};
 // A pinch scales Zoom and a twist turns Rotation, held to these.
@@ -98,12 +96,6 @@ bool isMarched(const std::string& id);
 // style that holds still (bars, grids, landscapes and trees read as broken when they roll).
 float spinRate(const std::string& id);
 const std::array<Family, 10>& families();
-// The note bloom a style draws when the user leaves Customize's bloom look on Auto: the fractal flower
-// for the neon, psychedelic and petal styles, a soft glow for the gas, glass and light ones, a ripple
-// ring for water, waves and landscapes, a particle burst for fly-throughs, rain and particle fields.
-BloomLook bloomLook(const std::string& id);
-// SceneParams::bloomLook resolved for a style: the user's pick, or the style's own on Auto (0).
-BloomLook resolveBloomLook(int userPick, const std::string& id);
 
 // The camera mode of a style: None unless it marches, then Rails until its port lists it as 6-DoF.
 CameraMode cameraMode(const std::string& id);
@@ -114,7 +106,6 @@ bool reaches(Scope scope, const std::string& styleId);
 
 const char* name(Kind kind);
 const char* name(Scope scope);
-const char* name(BloomLook look);
 
 // The whole catalogue as the shell reads it. Built once; the reference lives for the process.
 // Rows, '|'-separated, one per line, in this order:
@@ -126,7 +117,6 @@ const char* name(BloomLook look);
 //   key|<ParamKeys string>|<SCOPE>         every non-Universal control
 //   range|<ParamKeys string>|<min>|<max>
 //   value|<name>|<number>
-//   bloom|<LOOK>|<id>,<id>,...             each style's own note bloom; every style in exactly one row
 //   rails|<id>,<id>,...                    every style on CameraMode::Rails, allIds() order. A row type of
 //                                          its own (not a style| field) so an older shell skips it
 const std::string& text();

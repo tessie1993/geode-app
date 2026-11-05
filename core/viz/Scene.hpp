@@ -1,6 +1,7 @@
 #pragma once
 #include <GLES3/gl3.h>
 
+#include <cstdint>
 #include <functional>
 #include <memory>
 #include <string>
@@ -74,6 +75,10 @@ struct SceneHost {
     // Note & key reactions (viz/NoteResponse): this frame's style knobs (uKnob). Unset (or the layer off)
     // leaves every knob at 0.5, the midpoint each style was tuned around.
     std::function<const NoteUniforms*()> notes;
+    // The play's seed: the auto-director's (viz/Director), or the one an export pinned, so a scene
+    // that draws its own choices from it (Morph World's worlds) replays the film the screen showed.
+    // Unset reads as 0.
+    std::function<uint64_t()> playSeed;
 };
 
 }  // namespace geode::viz

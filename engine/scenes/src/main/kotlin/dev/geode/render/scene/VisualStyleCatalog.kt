@@ -71,6 +71,8 @@ object VisualStyleCatalog {
             "fluid_lava" to "Lava",
             "fluid_marble" to "Marble",
             "fluid_aurora" to "Aurora",
+            // Morph World (core/viz/world): one shader, many worlds, so its id alone says too little.
+            "morph_world" to "Morph World",
         )
 
     private val FAMILY_LABELS: Map<String, String> =

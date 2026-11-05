@@ -10,7 +10,7 @@ namespace geode::viz {
 
 // Measures the finished frame for the flash limiter (FlashLimiter.hpp), without ever waiting on the GPU.
 //
-// Each frame, after the composite and the note blooms and before the UI blur (the glass sheet is not
+// Each frame, after the composite and before the UI blur (the glass sheet is not
 // the visual, and the export never draws it): the target framebuffer is blitted, linearly filtered, to a
 // 256 × 256 texture, its mip chain built, and level 4 (16 × 16, each cell a box mean of 16 × 16 of the
 // blit) read into a pixel-pack buffer behind a fence. A later frame takes it once the fence has

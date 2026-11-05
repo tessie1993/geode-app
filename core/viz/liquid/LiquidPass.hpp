@@ -34,7 +34,6 @@ public:
         float bornRadius = 0.15f;
         float bornGain = 0.0f;
         int bornMode = 0;  // 0 a frame from bornTex, 3 ink forms
-        float flare = 0.0f;
         int age = 0;
         int surface = 0;
         bool feedback = true;

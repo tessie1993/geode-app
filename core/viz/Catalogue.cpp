@@ -36,7 +36,7 @@ constexpr std::array<const char*, 60> kLooseShaders = {
 };
 
 // The loose styles that raymarch, and so spend the Detail budget. Per STYLE rather than per kind:
-// Lucid Weave and Vanishing are both shader styles and only one has a march to spend steps on.
+// Outrun Drive and Vanishing are both shader styles and only one has a march to spend steps on.
 constexpr std::array<const char*, 57> kLooseMarched = {
     "vanishing", "morphogen", "nebula", "noneuclid", "kifs", "rod_tunnel",
     // Curl Bloom marches a distance field, Nectar Flow a volume; Detail is the budget for both.
@@ -97,7 +97,7 @@ constexpr std::array<Family, 10> kFamilies = {{
 }};
 
 // The family styles that march.
-constexpr std::array<const char*, 63> kFamilyMarched = {
+constexpr std::array<const char*, 120> kFamilyMarched = {
     "arbor_willow", "arbor_coral", "arbor_bonsai", "arbor_canopy", "arbor_spire", "arbor_synapse",
     "bulb_classic", "bulb_julia", "bulb_slice", "bulb_lotus", "bulb_ink", "bulb_glow", "bulb_cavern", "bulb_shell",
     "bulb_prism", "bulb_contour", "bulb_chrome", "bulb_hybrid",
@@ -111,6 +111,16 @@ constexpr std::array<const char*, 63> kFamilyMarched = {
     "truchet_relief",
     "foam_fall", "foam_neon", "foam_soap", "foam_chrome", "foam_ember", "foam_ice",
     "foam_orb", "foam_kaleido", "foam_ink", "foam_coral", "foam_ghost", "foam_show",
+    // The flat family styles rebuilt in 3D, one ticket each (the style3d wave, part two).
+    "arbor_grove", "arbor_frost", "arbor_bolt", "arbor_roots", "arbor_rosette", "arbor_sakura", "chrys_bloom",
+    "chrys_phyllo", "chrys_dahlia", "chrys_lotus", "chrys_meadow", "chrys_glass", "chrys_ink", "chrys_neon",
+    "chrys_fall", "chrys_kaleido", "chrys_tunnel", "lucid_weave", "lucid_mandala", "lucid_spiral", "lucid_tunnel",
+    "lucid_disc", "lucid_hive", "lucid_ink", "lucid_mirror", "lucid_bulge", "lucid_petal", "lucid_lattice",
+    "lucid_vortex", "glass_orb", "glass_pool", "glass_prism", "glass_lens", "glass_drops", "glass_bubbles",
+    "glass_marble", "glass_caustic", "nebula_dust", "nebula_spiral", "nebula_ring", "nebula_veil", "nebula_pulsar",
+    "nebula_cluster", "nebula_nova", "nebula_horizon", "terra_topo", "truchet_arcs", "truchet_hex", "truchet_weave",
+    "truchet_maze", "truchet_tri", "truchet_quad", "truchet_tubes", "truchet_neon", "truchet_flow", "truchet_knot",
+    "truchet_tunnel",
 };
 
 // The styles whose look is a turning one (kaleidoscopes, mandalas, spirals, vortices, tunnels),

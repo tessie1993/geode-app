@@ -237,7 +237,16 @@ void marchedStylesMatchTheOldSet() {
         "julia", "tunnel", "mandel", "kaleido", "plasma", "bars", "ring", "scope", "liss", "warp", "grid", "voronoi",
         "metaballs", "ripples", "starfield", "waves", "hexgrid", "spiral", "aurora", "solar", "winter", "lava",
         "orb_lattice", "neon_tiles", "chroma_orb", "mandala_dome", "bead_vortex", "merkaba_grid", "spiral_eye",
-        "blacklight_bloom", "fractal_temple", "glow_vortex"};
+        "blacklight_bloom", "fractal_temple", "glow_vortex",
+        "arbor_grove", "arbor_frost", "arbor_bolt", "arbor_roots", "arbor_rosette", "arbor_sakura", "chrys_bloom",
+        "chrys_phyllo", "chrys_dahlia", "chrys_lotus", "chrys_meadow", "chrys_glass", "chrys_ink", "chrys_neon",
+        "chrys_fall", "chrys_kaleido", "chrys_tunnel", "lucid_weave", "lucid_mandala", "lucid_spiral",
+        "lucid_tunnel", "lucid_disc", "lucid_hive", "lucid_ink", "lucid_mirror", "lucid_bulge", "lucid_petal",
+        "lucid_lattice", "lucid_vortex", "glass_orb", "glass_pool", "glass_prism", "glass_lens", "glass_drops",
+        "glass_bubbles", "glass_marble", "glass_caustic", "nebula_dust", "nebula_spiral", "nebula_ring",
+        "nebula_veil", "nebula_pulsar", "nebula_cluster", "nebula_nova", "nebula_horizon", "terra_topo",
+        "truchet_arcs", "truchet_hex", "truchet_weave", "truchet_maze", "truchet_tri", "truchet_quad",
+        "truchet_tubes", "truchet_neon", "truchet_flow", "truchet_knot", "truchet_tunnel"};
     std::set<std::string> marched;
     for (const auto& id : catalogue::allIds()) {
         if (catalogue::isMarched(id)) marched.insert(id);

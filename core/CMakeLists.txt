@@ -10,12 +10,14 @@ add_library(geode_core STATIC
     audio/ingest/Ring.cpp
     audio/ingest/Cursor.cpp
     api/geode_ingest_reader_api.cpp
+    api/geode_playout_api.cpp
     sound/Fft.cpp
     sound/Emotion.cpp
     sound/Form.cpp
     sound/Harmony.cpp
     sound/Rhythm.cpp
     sound/SoundEngine.cpp
+    sound/interp/PlayoutClock.cpp
     library/Tags.cpp
     library/Search.cpp
     audio/dsp/DspProcessor.cpp

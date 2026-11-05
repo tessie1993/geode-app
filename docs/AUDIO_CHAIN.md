@@ -44,6 +44,16 @@ every frame (`core/viz/SoundFeed`, `geode_viz_set_sound_source`) into its own
 reach the visuals (#362). Stages 2–4 are downstream of it. The mic and other apps'
 audio still write the Kotlin `SampleRing` (`AudioBus.soundInput`) until #485.
 
+**When the speaker plays it.** The tap sees a sample when the sink takes it,
+a whole AudioTrack buffer (and on Bluetooth a link) before it is heard. The
+native playout clock (`core/sound/interp/PlayoutClock`, `geode_playout_*`,
+#349) maps the sink's media-time position, which already counts the output
+latency, speed and skipped silence, back onto the ring, so a renderer can stop
+at the sample the speaker plays. Because the tap is first, the ring holds source
+samples: one media second is one source-rate second of ring, at any speed. The
+`AudioSink` glue that feeds the clock and the renderer side that reads it are
+#488.
+
 ## Why the chain is owned rather than configured
 
 `DefaultAudioSink.Builder.setAudioProcessors(...)` looks like it takes an

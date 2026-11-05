@@ -27,13 +27,6 @@ class PcmTap(
         private set
 
     @Volatile
-    var boundaryListener: TapBoundaryListener? = null
-
-    @Volatile
-    var boundaryFailures: Long = 0L
-        private set
-
-    @Volatile
     var framesWritten: Long = 0L
         private set
 
@@ -45,24 +38,17 @@ class PcmTap(
         channelCount: Int,
         encoding: Int,
     ) {
-        val ended = format
-        val endedFrames = framesWritten
         val next =
             PcmTapFormat(
                 sampleRateHz = sampleRateHz,
                 channelCount = channelCount,
                 encoding = encoding,
-                generation = (ended?.generation ?: 0) + 1,
+                generation = (format?.generation ?: 0) + 1,
             )
         framesWritten = 0L
         format = next
         // Mask 0: the default layout for the count (the tap is told no mask).
         GeodeNative.ingestBeginEpoch(ingest, sampleRateHz, channelCount, 0)
-        try {
-            boundaryListener?.onTapBoundary(ended, endedFrames, next)
-        } catch (survivable: RuntimeException) {
-            boundaryFailures++
-        }
         onFormat(next)
     }
 

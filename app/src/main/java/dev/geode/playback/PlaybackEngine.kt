@@ -19,13 +19,10 @@ import dev.geode.data.HistoryStore
 import dev.geode.data.PlayerPrefs
 import dev.geode.data.PlayerPrefsStore
 import dev.geode.data.SessionStore
-import dev.geode.engine.audio.AudioPresentationClock
 import dev.geode.engine.audio.PcmSink
 import dev.geode.engine.audio.SampleRing
 import dev.geode.engine.audio.SoundInput
 import dev.geode.engine.audioandroid.PcmTap
-import dev.geode.engine.audioandroid.SinkClockDriver
-import dev.geode.engine.audioandroid.TapBoundaryListener
 import dev.geode.engine.bridge.GeodeNative
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -49,10 +46,6 @@ class PlaybackSession internal constructor(
     @Volatile
     var onAudioFormat: ((sampleRateHz: Int, channelCount: Int, encoding: Int) -> Unit)? = null
 
-    internal val presentationClock = AudioPresentationClock()
-
-    internal val clockDriver = SinkClockDriver(presentationClock)
-
     /** Where the mic and capture write (CaptureController) until #485. */
     internal val captureSink: PcmSink = sampleRing
 
@@ -70,11 +63,6 @@ class PlaybackSession internal constructor(
             } else {
                 sampleRateHz = format.sampleRateHz
             }
-        }.apply {
-            boundaryListener =
-                TapBoundaryListener { ended, endedFrames, begun ->
-                    clockDriver.onTapBoundary(ended, endedFrames, begun)
-                }
         }
 
     internal val dsp = NativeDspProcessor()
@@ -86,7 +74,7 @@ class PlaybackSession internal constructor(
      */
     val player: ExoPlayer =
         ExoPlayer
-            .Builder(context, TapRenderersFactory(context, tap, clockDriver, dsp = listOf(dsp)))
+            .Builder(context, TapRenderersFactory(context, tap, dsp = listOf(dsp)))
             .setMediaSourceFactory(
                 androidx.media3.exoplayer.source.DefaultMediaSourceFactory(
                     context,

@@ -15,6 +15,7 @@
 #include "viz/ReactionDna.hpp"
 #include "viz/Renderer.hpp"
 #include "viz/SceneRegistry.hpp"
+#include "viz/frame/Cadence.hpp"
 #include "viz/frame/Pacer.hpp"
 #include "viz/frame/Thermal.hpp"
 
@@ -25,6 +26,8 @@ struct geode_viz {
     std::mutex configLock;
     std::array<geode::viz::LfoConfig, geode::viz::LfoEngine::kSlots> lfo{};
     std::array<geode::viz::AdsrConfig, geode::viz::AdsrEngine::kCount> adsr{};
+    // The live shell's per-frame cadence (geode_viz_frame_begin); GL thread only.
+    geode::viz::frame::FrameCadence cadence;
 };
 
 namespace {
@@ -35,6 +38,10 @@ static_assert(LfoEngine::kSlots == GEODE_LFO_SLOTS);
 static_assert(AdsrEngine::kCount == GEODE_ADSR_SLOTS);
 static_assert(ReactionEngine::kRoutes == GEODE_REACT_ROUTES);
 static_assert(ReactionEngine::kConfigFloats == GEODE_REACT_ROUTE_FLOATS);
+static_assert(frame::kFrameClearOnly == GEODE_FRAME_CLEAR_ONLY);
+static_assert(frame::kFrameThermalDue == GEODE_FRAME_THERMAL_DUE);
+static_assert(frame::kFrameLiquidChanged == GEODE_FRAME_LIQUID_CHANGED);
+static_assert(GEODE_FRAME_LIQUID_MODE(frame::kFrameLiquidMask << frame::kFrameLiquidShift) == frame::kFrameLiquidMask);
 
 constexpr int kModSourceCount = static_cast<int>(ModSource::StereoPan) + 1;
 constexpr int kLfoTargetCount = static_cast<int>(LfoTarget::EndlessZoomSpeed) + 1;
@@ -230,10 +237,6 @@ float geode_pacer_effective_cap(float cap_fps) {
     return geode::viz::ThermalState::process().capFor(cap_fps);
 }
 
-int geode_thermal_sample_due(void) {
-    return geode::viz::ThermalState::process().claimSample(monotonicSeconds()) ? 1 : 0;
-}
-
 void geode_thermal_push(int platform_status, float headroom) {
     geode::viz::ThermalState::process().push(platform_status, headroom, monotonicSeconds());
 }
@@ -425,20 +428,20 @@ void geode_viz_set_look(geode_viz* v, float yaw, float pitch) {
     if (v) v->renderer.setLook(std::clamp(yaw, -1.0f, 1.0f), std::clamp(pitch, -1.0f, 1.0f));
 }
 
-void geode_viz_set_paced_fps(geode_viz* v, float fps) {
-    if (v) v->renderer.thermal().setPacedFps(fps);
-}
-
-void geode_viz_set_quality(geode_viz* v, float render_scale, float march_scale, int post_fx, int adaptive) {
-    if (v) v->renderer.setUserQuality(render_scale, march_scale, post_fx != 0, adaptive != 0);
-}
-
-void geode_viz_set_liquid_hot_policy(geode_viz* v, int policy) {
-    if (v) v->renderer.setLiquidHotPolicy(policy);
-}
-
-int geode_viz_take_liquid_mode(geode_viz* v) {
-    return v ? v->renderer.takeLiquidMode() : -1;
+int geode_viz_frame_begin(geode_viz* v, float paced_fps, float render_scale, float march_scale, int post_fx,
+                          int adaptive, int liquid_hot_policy) {
+    if (!v) return 0;
+    Renderer& r = v->renderer;
+    r.thermal().setPacedFps(paced_fps);
+    const frame::UserQuality quality{render_scale, march_scale, post_fx != 0, adaptive != 0, liquid_hot_policy};
+    if (v->cadence.offerQuality(quality)) {
+        r.setUserQuality(quality.renderScale, quality.marchScale, quality.postFx, quality.adaptive);
+        r.setLiquidHotPolicy(quality.liquidHotPolicy);
+    }
+    const uint32_t due = v->cadence.step([] { return ThermalState::process().claimSample(monotonicSeconds()); },
+                                         [&r] { return r.takeLiquidMode(); });
+    if (due & frame::kFrameClearOnly) r.clearToBlack(0);
+    return static_cast<int>(due);
 }
 
 void geode_viz_set_director(geode_viz* v, float amount, long long seed) {
@@ -509,7 +512,9 @@ const char* geode_viz_last_error(geode_viz* v) {
 }
 
 void geode_viz_surface_created(geode_viz* v) {
-    if (v) v->renderer.onSurfaceCreated();
+    if (!v) return;
+    v->renderer.onSurfaceCreated();
+    v->cadence.surfaceCreated();
 }
 
 void geode_viz_surface_changed(geode_viz* v, int width, int height) {

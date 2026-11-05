@@ -332,25 +332,12 @@ Java_dev_geode_engine_bridge_GeodeNative_vizSetAdsr(JNIEnv* env, jobject, jlong 
     if (data.get()) geode_viz_set_adsr(vizOf(handle), slot, data.get(), data.length());
 }
 
-JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_vizSetPacedFps(JNIEnv*, jobject, jlong handle, jfloat fps) {
-    geode_viz_set_paced_fps(vizOf(handle), fps);
-}
-
-JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_vizSetQuality(JNIEnv*, jobject, jlong handle, jfloat renderScale,
-                                                       jfloat marchScale, jboolean postFx, jboolean adaptive) {
-    geode_viz_set_quality(vizOf(handle), renderScale, marchScale, postFx == JNI_TRUE, adaptive == JNI_TRUE);
-}
-
-JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_vizSetLiquidHotPolicy(JNIEnv*, jobject, jlong handle, jint policy) {
-    geode_viz_set_liquid_hot_policy(vizOf(handle), policy);
-}
-
 JNIEXPORT jint JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_vizTakeLiquidMode(JNIEnv*, jobject, jlong handle) {
-    return geode_viz_take_liquid_mode(vizOf(handle));
+Java_dev_geode_engine_bridge_GeodeNative_vizFrameBegin(JNIEnv*, jobject, jlong handle, jfloat pacedFps,
+                                                       jfloat renderScale, jfloat marchScale, jboolean postFx,
+                                                       jboolean adaptive, jint liquidHotPolicy) {
+    return geode_viz_frame_begin(vizOf(handle), pacedFps, renderScale, marchScale, postFx == JNI_TRUE ? 1 : 0,
+                                 adaptive == JNI_TRUE ? 1 : 0, liquidHotPolicy);
 }
 
 JNIEXPORT void JNICALL
@@ -532,11 +519,6 @@ Java_dev_geode_engine_bridge_GeodeNative_pacerResume(JNIEnv* env, jobject, jlong
 JNIEXPORT jfloat JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_pacerEffectiveCap(JNIEnv*, jobject, jfloat capFps) {
     return geode_pacer_effective_cap(capFps);
-}
-
-JNIEXPORT jboolean JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_thermalSampleDue(JNIEnv*, jobject) {
-    return geode_thermal_sample_due() != 0 ? JNI_TRUE : JNI_FALSE;
 }
 
 JNIEXPORT void JNICALL

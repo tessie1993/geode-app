@@ -1,12 +1,12 @@
 package dev.geode.render
 
 import android.content.Context
-import android.opengl.GLES30
 import android.opengl.GLSurfaceView
 import android.os.SystemClock
 import dev.geode.engine.audio.SoundCursor
 import dev.geode.engine.audio.SoundInput
 import dev.geode.engine.audio.SoundTuning
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.render.bridge.NativeViz
 import dev.geode.render.scene.PcmChunk
 import dev.geode.render.scene.SceneIds
@@ -151,7 +151,6 @@ class VisualizerRenderer(
     private var nativeLfo: List<LfoConfig>? = null
     private var nativeAdsr: List<AdsrConfig>? = null
     private var nativeReactions: List<ReactionRoute>? = null
-    private var nativePerformance: PerformanceSettings? = null
     private val liquidModeState = MutableStateFlow(0)
 
     /**
@@ -161,20 +160,6 @@ class VisualizerRenderer(
      * for a label that stayed the same.
      */
     val liquidMode: StateFlow<Int> = liquidModeState.asStateFlow()
-
-    /**
-     * True from [onSurfaceCreated] until the first frame on that surface has been presented.
-     *
-     * `GLSurfaceView.surfaceChanged` runs on the main thread and parks it in
-     * `GLThread.onWindowResize` until the GL thread has finished the next frame. A new surface's
-     * first real frame is the expensive one: it builds the scene and compiles every shader it
-     * needs, which on a software GPU (the CI emulator's swiftshader) takes ~5 s. That held the
-     * main thread long enough for input dispatch to time out, an ANR that kills the process.
-     * So the first frame is only a clear: the main thread is released at once, and the build runs
-     * on the next frame the pacer asks for, where nobody waits on it. The screen is black for that
-     * one frame, as a new surface already is.
-     */
-    private var firstFrameOnSurface = false
 
     val milkdropAvailable: Boolean
         get() {
@@ -255,11 +240,9 @@ class VisualizerRenderer(
         nativeLfo = null
         nativeAdsr = null
         nativeReactions = null
-        nativePerformance = null
         nativeSoundTuning = null
         // A new native renderer starts a new engine: hand it a full window, not the tail of the last.
         soundCursor = null
-        firstFrameOnSurface = true
     }
 
     override fun onSurfaceChanged(
@@ -311,13 +294,27 @@ class VisualizerRenderer(
 
     private fun applyUiBlur() = nativeViz.setUiBlurRegion(uiBlur[0], uiBlur[1], uiBlur[2], uiBlur[3], uiBlur[4], uiBlur[5])
 
+    /**
+     * Each frame starts with one native call that takes the pacer's cap and Settings › Performance and
+     * says what is due (`core/viz/frame/Cadence`): native skips a repeated quality push, clears a new
+     * surface's first frame and builds nothing on it (so `GLSurfaceView.surfaceChanged`, parked on the
+     * main thread until this frame ends, is released at once), and picks the frame that reads the
+     * thermal state and the one that hands over a new Liquid label.
+     */
     override fun onDrawFrame(gl: GL10?) {
-        if (firstFrameOnSurface) {
-            firstFrameOnSurface = false
-            GLES30.glClearColor(0f, 0f, 0f, 1f)
-            GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT)
-            return
-        }
+        val perf = performance
+        val due =
+            nativeViz.frameBegin(
+                ThermalGovernor.pacedFps,
+                perf.renderScale,
+                perf.marchScale,
+                perf.postFx,
+                perf.adaptive,
+                perf.liquidHot.native,
+            )
+        if (due and GeodeNative.FRAME_CLEAR_ONLY != 0) return
+        if (due and GeodeNative.FRAME_THERMAL_DUE != 0) ThermalGovernor.sample()
+        if (due and GeodeNative.FRAME_LIQUID_CHANGED != 0) liquidModeState.value = GeodeNative.frameLiquidMode(due)
         nativeViz.setScene(requestedSceneId)
         syncNativeState()
         nativeViz.render(SystemClock.elapsedRealtimeNanos() / NANOS_PER_SECOND, targetFbo = 0)
@@ -350,20 +347,10 @@ class VisualizerRenderer(
             nativeViz.setReactions(routes)
             nativeReactions = routes
         }
-        val perf = performance
-        if (perf != nativePerformance) {
-            nativeViz.setQuality(perf.renderScale, perf.marchScale, perf.postFx, perf.adaptive)
-            nativeViz.setLiquidHotPolicy(perf.liquidHot.native)
-            nativePerformance = perf
-        }
         nativeViz.setLook(lookYaw, lookPitch)
         nativeViz.setReducedMotion(reducedMotion)
         nativeViz.setLayer(layerSceneId, layerMix, layerBlend)
         nativeViz.setTransition(transitionId, transitionDurationMs)
-        nativeViz.setPacedFps(ThermalGovernor.pacedFps)
-        // Both cadences are native: the thermal reading once a second for the process, the liquid label on a change.
-        ThermalGovernor.sample()
-        nativeViz.takeLiquidMode().let { if (it >= 0) liquidModeState.value = it }
         pcmProvider()?.let { chunk -> nativeViz.pushPcm(chunk.data, chunk.count) }
         val tuning = soundTuning
         if (tuning !== nativeSoundTuning) {

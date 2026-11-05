@@ -88,6 +88,28 @@ class StudioViewModel
             session.deleteStudioClip(uri) {}
         }
 
+        /**
+         * My videos' deletes waiting out their Undo snackbar. They wait in [viewModelScope] (the
+         * Activity's store), not in the tab's composition, so leaving the tab mid-snackbar still
+         * deletes the item (#322) instead of bringing it back.
+         */
+        private val videoDeletes =
+            PendingDeletes<VideoDelete>(viewModelScope, keyOf = VideoDelete::key) { item ->
+                when (item) {
+                    is VideoDelete.Render -> deleteRender(item.projectId, item.uri)
+                    is VideoDelete.Take -> deleteTake(item.name)
+                }
+            }
+
+        /** Keys of My videos items hidden while their Undo is offered. */
+        val pendingVideoDeletes: StateFlow<Set<String>> get() = videoDeletes.pending
+
+        /** Hides the item now and deletes it once the Undo window passes, on screen or not. */
+        fun deleteVideoLater(item: VideoDelete) = videoDeletes.delete(item)
+
+        /** Undo on the snackbar: the item comes back and is never deleted. */
+        fun undoVideoDelete(key: String) = videoDeletes.undo(key)
+
         // ---------------------------------------------------------------- Render's "keep as a project"
 
         private var keepJob: Job? = null
@@ -113,3 +135,21 @@ class StudioViewModel
                 }
         }
     }
+
+/** A My videos item to delete: a render's file, or a take. [key] matches the grid's item key. */
+sealed interface VideoDelete {
+    val key: String
+
+    data class Render(
+        val projectId: ProjectId,
+        val uri: String,
+    ) : VideoDelete {
+        override val key: String get() = "render:$uri"
+    }
+
+    data class Take(
+        val name: String,
+    ) : VideoDelete {
+        override val key: String get() = "take:$name"
+    }
+}

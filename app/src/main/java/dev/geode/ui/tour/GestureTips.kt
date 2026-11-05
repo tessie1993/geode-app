@@ -17,24 +17,24 @@ import kotlinx.coroutines.withContext
 
 /**
  * A gesture worth knowing, and how many times someone takes the long way round before the app
- * mentions it: three taps on › before "you can swipe too". Each tip is said once, ever; there is
- * no always-on hint, because a hint that is always there stops being read.
+ * mentions it: once (owner, #330), so the first tap on › says "you can swipe too". Each tip is
+ * said once, ever; there is no always-on hint, because a hint that is always there stops being read.
  */
 enum class GestureTip(
     val after: Int,
     @param:StringRes val textRes: Int,
 ) {
     /** Counted by the ‹ › arrows on the visual. */
-    SWIPE_STYLES(3, R.string.tour_tip_swipe_styles),
+    SWIPE_STYLES(1, R.string.tour_tip_swipe_styles),
 
-    /** Counted by the sheet's × and the Fullscreen icon. */
-    DOUBLE_TAP_SHEET(2, R.string.tour_tip_double_tap_sheet),
+    /** Counted by the sheet's × (beside its grip) and the Fullscreen icon. */
+    DOUBLE_TAP_SHEET(1, R.string.tour_tip_double_tap_sheet),
 
     /** Counted by the Record icon on the visual. */
     HOLD_TO_RECORD(1, R.string.tour_tip_hold_to_record),
 
-    /** Counted by the handle pill that brings the faded mini player back. */
-    SWIPE_UP_PLAYER(3, R.string.tour_tip_swipe_up_player),
+    /** Counted by a tap on the mini player, the long way to Player. */
+    SWIPE_UP_PLAYER(1, R.string.tour_tip_swipe_up_player),
 }
 
 /**

@@ -54,6 +54,8 @@ import dev.geode.ui.theme.StoneIcon
 import dev.geode.ui.theme.StoneIconArt
 import dev.geode.ui.theme.floatingGlass
 import dev.geode.ui.theme.performStoneHaptic
+import dev.geode.ui.tour.GestureTip
+import dev.geode.ui.tour.GestureTips
 import kotlinx.coroutines.delay
 
 /**
@@ -186,7 +188,11 @@ internal fun FloatingMiniPlayer(
                         }
                     },
                 ) { _, delta -> dy += delta }
-            }.clickable(onClickLabel = stringResource(R.string.mini_player_pin)) { tap(onPin) }
+            }.clickable(onClickLabel = stringResource(R.string.mini_player_pin)) {
+                // A tap is the long way to Player: the tip says a swipe up opens it.
+                GestureTips.nudge(GestureTip.SWIPE_UP_PLAYER)
+                tap(onPin)
+            }
             .semantics {
                 customActions =
                     listOf(

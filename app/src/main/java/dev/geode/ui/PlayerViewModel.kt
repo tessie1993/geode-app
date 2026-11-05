@@ -77,8 +77,6 @@ class PlayerViewModel
 
         fun attachLyrics(source: android.net.Uri) = session.attachLyrics(source)
 
-        val autoMode: StateFlow<Int> get() = session.autoMode
-
         val sleepTimerRemainingMs: StateFlow<Long?> get() = session.sleepTimerRemainingMs
 
         val vizApply: SharedFlow<VizApply> get() = session.vizApply
@@ -185,7 +183,6 @@ class PlayerViewModel
 
         fun resumeLastPlayed() = session.resumeLastPlayed()
 
-        fun cycleAutoMode() = session.cycleAutoMode()
 
         fun playNext(uri: String) = session.playNext(uri)
 

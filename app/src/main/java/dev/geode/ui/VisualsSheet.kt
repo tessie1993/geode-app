@@ -60,6 +60,8 @@ import dev.geode.ui.theme.StoneIconArt
 import dev.geode.ui.theme.floatingGlass
 import dev.geode.ui.theme.glassBlur
 import dev.geode.ui.theme.performStoneHaptic
+import dev.geode.ui.tour.GestureTip
+import dev.geode.ui.tour.GestureTips
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import kotlin.math.abs
@@ -296,6 +298,7 @@ private fun OptionsHeader(
             }
             IconButton(onClick = {
                 view.performStoneHaptic(StoneHapticCue.TAP)
+                GestureTips.nudge(GestureTip.DOUBLE_TAP_SHEET)
                 onSettle(SheetHeight.HIDDEN)
             }) {
                 StoneIconArt(StoneIcon.CLOSE, close)

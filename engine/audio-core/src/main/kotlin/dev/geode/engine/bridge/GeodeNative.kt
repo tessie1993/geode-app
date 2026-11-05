@@ -213,9 +213,9 @@ object GeodeNative {
 
     /**
      * Note & key reactions (core/viz/NoteResponse): the notes, chords, key and mood drive the style knobs,
-     * the note colours, the blooms over every style and a gentle shape and distortion. Process-wide like
+     * the note colours, the tint toward them and a gentle shape and distortion. Process-wide like
      * the director, so the screen, an export, the wallpaper and the dream agree; off is exactly the picture
-     * without it. The play's seed is the director's ([directorSet]), so an export draws the same blooms.
+     * without it. The play's seed is the director's ([directorSet]), so an export answers the notes the same way.
      */
     external fun noteResponseSet(enabled: Boolean)
 

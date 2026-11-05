@@ -491,8 +491,11 @@ internal class ExportController(
         // One state for every render (#372): a take rendering in the background shows its progress
         // and result on Studio › Render's bar like the one-tap Render, so Render is never a button
         // that silently does nothing while the encoder is taken. A picked folder's name is the
-        // picker's, so no file name is claimed.
-        _exportState.value = ExportUiState(phase = ExportPhase.Running(0f))
+        // picker's, so no file name is claimed. A render into a picked file or folder is not in
+        // the app's Movies folder, so the bar must not offer "Show in folder" for it; every later
+        // write below copies this state, so the flag holds through the result.
+        val custom = destination != null || project.export.saveTo is SaveTarget.Folder
+        _exportState.value = ExportUiState(customDestination = custom, phase = ExportPhase.Running(0f))
         ExportRun.begin(project.name.ifBlank { application.getString(dev.geode.R.string.render_video_label) })
         ExportService.start(application)
         studioJob =

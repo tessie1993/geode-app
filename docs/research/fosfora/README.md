@@ -1,6 +1,6 @@
 # fosfora study (2026-11-05)
 
-Seven area reports on [kevinraymond/fosfora](https://github.com/kevinraymond/fosfora) @ `2e85d3b` (fork:
+Seven area reports plus one end-to-end pipeline report on [kevinraymond/fosfora](https://github.com/kevinraymond/fosfora) @ `2e85d3b` (fork:
 `tessie1993/fosforatess`, indexed in Graphify at the same commit), each set against Geode at `37761e8a`. The plan
 that comes out of them is [`../2026-11-05-fosfora-structure-plan.md`](../2026-11-05-fosfora-structure-plan.md).
 
@@ -13,6 +13,7 @@ that comes out of them is [`../2026-11-05-fosfora-structure-plan.md`](../2026-11
 | [05](05-particles-sim.md) | GPU particles and simulations | Trails dim under the thermal fps cap (source gain not dt-corrected); auto-downgrade never sheds tracers; phone-sized particle ideas only |
 | [06](06-modulation-control.md) | Params, bindings, LFOs, presets, transitions, persistence | Base vs modulation split; clamp once; the catalogue has no range table (matrix E0 prerequisite); plan D6 order wrong; export note seed not pinned |
 | [07](07-app-ui-product.md) | The app as a product, UI architecture, docs | Renderer ignores the system's "Remove animations"; beat-locked loops; typed command channel to untangle `PlayerSession`; offline help |
+| [08](08-audio-to-visual-pipeline.md) | Audio to pixels end to end: threads, clocks, hand-off, per-frame order, offline paths | Triggers bypass the 1.5-hop playhead by design; binding `Smooth` depends on fps; particles read unbound features; two beats between polls merge; offline paths differ from live in five ways |
 
 Method: each report was written by a separate agent that read the fosfora code (no fosfora code was built or run),
 read the matching Geode code, checked fosfora call paths in Graphify, and in some cases ran Geode's own `core/`

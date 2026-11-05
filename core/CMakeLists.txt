@@ -8,6 +8,7 @@ add_library(geode_core STATIC
     api/geode_sound_api.cpp
     api/geode_take_api.cpp
     output/TakeClock.cpp
+    output/TakeRules.cpp
     output/TakeSession.cpp
     sound/Fft.cpp
     sound/Emotion.cpp

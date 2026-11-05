@@ -8,4 +8,13 @@
     <string name="record_save_folder">Choose a folder…</string>
     <string name="record_save_remember">Use for every take</string>
     <string name="record_save_later">Videos library, just this once</string>
+    <!-- #459: Settings › Behaviour › Record, what pause, seek and a track change do during a take. -->
+    <string name="behavior_group_record">Record</string>
+    <string name="take_rule_body">What happens to a take when you pause, seek or the song changes. Applies from the next take.</string>
+    <string name="take_rule_default">Hold &amp; cut</string>
+    <string name="take_rule_default_detail">Pause holds the take, a seek is a hard cut, and a new song ends and saves it.</string>
+    <string name="take_rule_continuous">Keep rolling</string>
+    <string name="take_rule_continuous_detail">The take keeps recording through pauses, seeks and new songs.</string>
+    <string name="take_rule_seek_ends">Seek ends</string>
+    <string name="take_rule_seek_ends_detail">Pause holds the take; any seek or a new song ends and saves it.</string>
 </resources>

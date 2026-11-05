@@ -296,6 +296,12 @@ GEODE_API int         geode_take_begin(int fd, float display_fps);
 GEODE_API int         geode_take_begin_limited(int fd, float display_fps, int64_t cap_ms, const uint32_t* tile_argb,
                                                int tile_w, int tile_h, int tile_short_side);
 GEODE_API int         geode_take_reached_cap(void);
+/* Settings › Behaviour › Record (core/output/TakeRules), for the next take: 0 pause holds, seek cuts, a new track
+ * ends and saves (the default); 1 continuous; 2 pause holds and any seek ends. Unknown values are the default.
+ * event: what the player did (0 pause, 1 resume, 2 seek, 3 track change); returns what the running take did
+ * (0 roll, 1 hold, 2 release, 3 cut, 4 end: the shell stops and saves it). 0 while no take runs. */
+GEODE_API void        geode_take_set_rule(int rule);
+GEODE_API int         geode_take_event(int event);
 GEODE_API int64_t     geode_take_end(void);
 GEODE_API int         geode_take_active(void);
 GEODE_API void        geode_take_write_audio(const int16_t* interleaved, int frames, int channels, int sample_rate);

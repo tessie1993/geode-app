@@ -101,6 +101,8 @@ class TakeSaveTargetTest {
 
         override fun captureReachedCap(): Boolean = false
 
+        override fun reportToCapture(event: dev.geode.data.TakeEvent): Boolean = false
+
         override fun endCapture(): TakeVideo? = null
 
         override fun publishCapture(

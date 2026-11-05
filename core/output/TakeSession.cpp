@@ -287,6 +287,7 @@ bool TakeSession::begin(int fd, float displayFps, TakeLimits limits) {
     // Encoders are opened outside the lock: writeAudio takes it on the playback thread, which must not
     // wait out a codec set-up.
     std::shared_ptr<Take> take(new Take());
+    take->rules_ = TakeRules(static_cast<TakeRule>(rule_.load(std::memory_order_relaxed)));
     if (!take->open(fd, w, h, displayFps, generation, std::move(limits))) return false;
     std::lock_guard<std::mutex> guard(lock_);
     if (take_) return false;
@@ -312,6 +313,22 @@ bool TakeSession::active() const {
 bool TakeSession::reachedCap() const {
     std::shared_ptr<Take> take = current();
     return take && take->impl_->frames->reachedCap();
+}
+
+TakeAction TakeSession::event(TakeEvent event) {
+    std::shared_ptr<Take> take = current();
+    if (!take) return TakeAction::Roll;
+    std::lock_guard<std::mutex> guard(take->rulesLock_);
+    const TakeAction action = take->rules_.on(event);
+    const int64_t now = bootNs();
+    if (action == TakeAction::Hold) {
+        take->impl_->frames->hold(now);
+        take->impl_->sound->hold(now);
+    } else if (action == TakeAction::Release) {
+        take->impl_->frames->release(now);
+        take->impl_->sound->release(now);
+    }
+    return action;
 }
 
 void TakeSession::writeAudio(const int16_t* pcm, int frames, int channels, int rateHz) {

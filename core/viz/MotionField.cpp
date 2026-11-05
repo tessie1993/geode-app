@@ -19,6 +19,7 @@ void MotionField::reset() {
     orbitCurY_ = 0.0f;
     orbitRetargetLockout_ = 0.0f;
     driftAngle_ = 0.0f;
+    driftRate_ = 0.0f;
     driftSign_ = 1.0f;
     driftSignTarget_ = 1.0f;
     barSin_ = 0.0f;
@@ -137,10 +138,14 @@ void MotionField::step(const GeodeSoundFrame& f, float dt, float speed) {
     if (bigMoment) driftSignTarget_ = nextRandom() < 0.5f ? -1.0f : 1.0f;
     driftSign_ = oneOle(driftSign_, driftSignTarget_, dt, kDriftSignEaseSeconds);
     const float driftRate = driftSign_ * (kDriftBaseRadPerSec + kDriftMidRadPerSec * state_.midRel);
-    // Wrapped rather than free-running: state_.drift only ever feeds a bounded
-    // rotation-rate contribution in apply(), never an absolute angle drawn on
-    // screen, so wrapping it costs nothing and keeps float precision over a
-    // long session.
+    // The rate is what apply() adds to rotation (a rate the scenes integrate),
+    // never the angle below: the angle grows without bound and wraps, so as a
+    // rate it would climb to the clamp and then reverse in one frame (#359).
+    // This one is bounded (the base plus the mid weight at midRel 2) and
+    // continuous: midRel is slewed and the sign eases.
+    driftRate_ = driftRate;
+    // The angle is uDrift, which a few styles turn by. Wrapped to keep float
+    // precision over a long session.
     driftAngle_ = std::fmod(driftAngle_ + driftRate * dt + 2.0f * kTwoPi, 2.0f * kTwoPi);
     if (driftAngle_ > kTwoPi) driftAngle_ -= 2.0f * kTwoPi;
     state_.drift = driftAngle_;
@@ -178,7 +183,7 @@ SceneParams MotionField::apply(const SceneParams& p, bool reducedMotion, float s
     const float breath = 1.0f + (s.breath - 1.0f) * motionBreath;
     o.zoom = std::clamp(p.zoom * breath, 0.3f, 3.0f);
     if (spin != 0.0f) {
-        o.rotation = std::clamp(p.rotation + s.drift * motionDrift * spin, -3.0f, 3.0f);
+        o.rotation = std::clamp(p.rotation + driftRate_ * kDriftSpinGain * motionDrift * spin, -3.0f, 3.0f);
         o.sway = std::clamp(p.sway + motionAmount * 0.35f * std::fabs(barSin_) * rhythmLock_, 0.0f, 1.0f);
     }
     o.warp = std::clamp(p.warp + motionAmount * 0.3f * (1.0f - s.harmony), 0.0f, 1.0f);

@@ -1,6 +1,7 @@
 // Host-side checks for the pure render-thread math: the reaction matrix and
 // the camera rig. Built and run by CI (see .github/workflows/android.yml,
 // "Native host tests") with the system compiler; no GL, no device.
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -654,6 +655,34 @@ void followerScalesASoundClockWithoutJumps() {
     const float at = one.value;
     one.step(source, 1.5f, 7100.0f);
     check(one.value == at, "a Speed change with no source advance leaves the clock where it is");
+// #359: the drift's spin is a rate, so it must stay bounded and never jump. It used to add the
+// wrapped drift angle itself: the spin climbed to the clamp, then reversed in one frame at the wrap.
+void motionFieldDriftSpinIsBoundedAndContinuous() {
+    GeodeSoundFrame f = playing();
+    f.midAtt = 2.0f;  // the loudest mids: the fastest drift
+    SceneParams p;
+    p.rotation = 0.0f;
+    p.motionDrift = 1.0f;
+    const float spin = 1.4f;  // bead_vortex, the fastest turning style
+    const float bound = 0.9f * spin + 1e-3f;
+    MotionField m;
+    float prev = 0.0f;
+    float peak = 0.0f;
+    bool bounded = true;
+    bool smooth = true;
+    for (int k = 0; k < 60 * 300; ++k) {   // five minutes at 60 fps: past two old wrap cycles
+        f.hardCut = (k % (60 * 20) == 0) ? 1.0f : 0.0f;  // re-aim the drift's sign now and then
+        m.step(f, 1.0f / 60.0f);
+        const float r = m.apply(p, false, spin).rotation;
+        if (!(std::fabs(r) <= bound)) bounded = false;
+        if (k > 0 && std::fabs(r - prev) > 0.05f) smooth = false;
+        peak = std::max(peak, std::fabs(r));
+        prev = r;
+    }
+    check(bounded, "the drift spin stays under its bound, far from the rotation clamp");
+    check(smooth, "the drift spin never jumps between frames");
+    check(peak > 0.1f, "the drift still spins a turning style");
+    check(m.apply(p, false, 0.0f).rotation == 0.0f, "a style that does not turn gets no drift spin");
 }
 
 void sourceCatalogueIsCompleteAndUnique() {
@@ -1020,6 +1049,7 @@ int main() {
     flowTimeIsFlowPhaseAtSpeedOne();
     flowTimeRunsAtSpeedAndNeverJumps();
     followerScalesASoundClockWithoutJumps();
+    motionFieldDriftSpinIsBoundedAndContinuous();
     sourceCatalogueIsCompleteAndUnique();
     macrosAtRestChangeNothing();
     macrosTurnTowardTheEndsAndStayInRange();

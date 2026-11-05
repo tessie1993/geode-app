@@ -51,7 +51,7 @@ public:
         float barOsc = 0.5f;      // uBarOsc: the same clock, a quarter as fast, 0..1
         float orbitX = 0.0f;      // uOrbit.x, -1..1
         float orbitY = 0.0f;      // uOrbit.y, -1..1
-        float drift = 0.0f;       // uDrift: accumulated angle, radians
+        float drift = 0.0f;       // uDrift: accumulated angle, radians (a shader angle, never a rate)
         float breath = 1.0f;      // uBreath, 0.9..1.1
         float flowPhase = 0.0f;   // uFlowPhase: monotonic integrator
         float flowTime = 0.0f;    // uFlowTime: flowPhase at Speed's rate, integrated (equal at Speed 1)
@@ -109,6 +109,11 @@ private:
     static constexpr float kDriftBaseRadPerSec = 0.02f;
     static constexpr float kDriftMidRadPerSec = 0.08f;
     static constexpr float kDriftSignEaseSeconds = 3.0f;
+    // What apply() adds to rotation per rad/s of drift rate: at full Spin drift
+    // and spin 1, about 0.5 rad/s on steady music (midRel 1) and at most 0.9 rad/s
+    // (midRel 2), so a turning style spins steadily with the mids, never runs up
+    // to the rotation clamp.
+    static constexpr float kDriftSpinGain = 5.0f;
 
     // Breath shaping.
     static constexpr float kBreathBassWeight = 0.06f;
@@ -142,6 +147,8 @@ private:
     float orbitRetargetLockout_ = 0.0f;
 
     float driftAngle_ = 0.0f;
+    // The eased, signed drift rate of the last step() (rad/s): apply()'s spin.
+    float driftRate_ = 0.0f;
     float driftSign_ = 1.0f;
     float driftSignTarget_ = 1.0f;
 

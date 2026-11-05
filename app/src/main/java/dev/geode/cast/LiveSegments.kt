@@ -134,7 +134,7 @@ internal class LiveSegments(
         const val SEGMENT_SUFFIX = ".m4s"
 
         /** Segments kept and listed: about six seconds at one-second fragments (native, GEODE_HLS_WINDOW). */
-        const val WINDOW = GeodeNative.HLS_WINDOW
+        val WINDOW = GeodeNative.hlsWindow()
 
         private const val BOX_HEADER = 8
 

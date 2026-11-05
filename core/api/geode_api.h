@@ -284,16 +284,19 @@ GEODE_API void            geode_frame_clock_start(int64_t* state, int fps, int64
 GEODE_API int64_t         geode_frame_clock_wait_ns(const int64_t* state, int64_t now_ns);   /* 0 = due now */
 GEODE_API int64_t         geode_frame_clock_take(int64_t* state, int64_t now_ns);   /* the frame's PTS, ns */
 GEODE_API int64_t         geode_frame_clock_audio_until_us(const int64_t* state);   /* end of the last frame taken */
-/* The Cast stream's format: out[0] width, out[1] height, out[2] fps. */
+/* The Cast stream's format: out[0] width, out[1] height, out[2] fps, out[3] keyframe interval (s). */
 GEODE_API void            geode_cast_format(int* out);
 /* Cast's live HLS timing (viz/frame/HlsSegments): a segment lasts the media time its fragment holds (the
  * video track's trun sample durations over its mdhd timescale), never the wall time between cuts. */
 #define GEODE_HLS_WINDOW 6           /* segments kept and listed */
 #define GEODE_HLS_START_SEGMENTS 3   /* listed before the playlist is served */
+GEODE_API int             geode_hls_window(void);   /* GEODE_HLS_WINDOW, for Kotlin */
 GEODE_API double          geode_hls_fragment_seconds(const uint8_t* init, size_t init_size,
                                                      const uint8_t* fragment, size_t fragment_size);   /* 0 = unknown */
-/* The playlist for count segments numbered from first_sequence into out (NUL-terminated); returns its
- * length, or 0 while fewer than GEODE_HLS_START_SEGMENTS are listed or when it would not fit in cap. */
+/* The playlist for count segments numbered from first_sequence (the newest GEODE_HLS_WINDOW listed; a
+ * duration of 0 = the nominal segment) into out, NUL-terminated. Returns its length; 0 while fewer than
+ * GEODE_HLS_START_SEGMENTS are given. When length + 1 > cap nothing is written (out[0] = 0 if cap > 0):
+ * call again with a buffer of length + 1. out may be null with cap 0, to ask the size. */
 GEODE_API int             geode_hls_playlist(int64_t first_sequence, const double* durations, int count,
                                              const char* init_uri, const char* segment_prefix,
                                              const char* segment_suffix, char* out, int cap);

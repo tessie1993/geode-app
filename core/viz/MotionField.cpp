@@ -18,7 +18,7 @@ void MotionField::reset() {
     orbitCurX_ = 0.0f;
     orbitCurY_ = 0.0f;
     orbitRetargetLockout_ = 0.0f;
-    driftAngle_ = 0.0f;
+    driftAngle_ = 0.0;
     driftRate_ = 0.0f;
     driftSign_ = 1.0f;
     driftSignTarget_ = 1.0f;
@@ -144,11 +144,12 @@ void MotionField::step(const GeodeSoundFrame& f, float dt, float speed) {
     // This one is bounded (the base plus the mid weight at midRel 2) and
     // continuous: midRel is slewed and the sign eases.
     driftRate_ = driftRate;
-    // The angle is uDrift, which a few styles turn by. Wrapped to keep float
-    // precision over a long session.
-    driftAngle_ = std::fmod(driftAngle_ + driftRate * dt + 2.0f * kTwoPi, 2.0f * kTwoPi);
-    if (driftAngle_ > kTwoPi) driftAngle_ -= 2.0f * kTwoPi;
-    state_.drift = driftAngle_;
+    // The angle is uDrift, which a few styles turn by (times a fixed 0.07 to 0.5).
+    // Wrapped at kDriftWrap, where every such multiple lands on a whole turn, so
+    // the wrap never pops a style; wrapping keeps float precision over a long session.
+    driftAngle_ = std::fmod(driftAngle_ + static_cast<double>(driftRate) * dt, kDriftWrap);
+    if (driftAngle_ < 0.0) driftAngle_ += kDriftWrap;
+    state_.drift = static_cast<float>(driftAngle_);
 
     // ---- breath: a slow, low-amplitude scale wobble --------------------------
     const float breathTarget = 1.0f + kBreathBassWeight * (state_.bassRel - 1.0f) + kBreathBarWeight * (state_.barOsc - 0.5f);

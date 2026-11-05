@@ -709,6 +709,31 @@ void motionFieldReducedMotionScalesRatesOnce() {
     check(std::fabs(calm.turbulence - s * full.turbulence) < 1e-5f, "reduced motion scales the turbulence once");
 }
 
+// uDrift is an angle the styles turn by, times a fixed multiplier (bulb_prism 0.3 and 0.07,
+// chrys_* 0.08 to 0.25, lucid_mandala 0.35, bulb_hybrid 0.5). Its wrap must land each of those on a
+// whole turn, or the style pops at the wrap; the old 4 pi wrap popped 0.3 * uDrift by 3.8 rad.
+void motionFieldDriftWrapNeverPopsAStyle() {
+    const float multipliers[] = {0.07f, 0.08f, 0.1f, 0.12f, 0.15f, 0.25f, 0.3f, 0.35f, 0.5f};
+    GeodeSoundFrame f = playing();
+    f.midAtt = 2.0f;  // the fastest drift, so the wrap comes soonest
+    MotionField m;
+    float prev = m.state().drift;
+    bool wrapped = false;
+    bool seamless = true;
+    for (int k = 0; k < 50000; ++k) {  // 5000 s at dt 0.1: past one wrap at the fastest rate
+        m.step(f, 0.1f);
+        const float d = m.state().drift;
+        if (d < prev - 1.0f) wrapped = true;
+        for (const float mul : multipliers) {
+            const float step = std::remainder(mul * d - mul * prev, 6.2831853f);
+            if (std::fabs(step) > 0.02f) seamless = false;
+        }
+        prev = d;
+    }
+    check(wrapped, "the drift angle wraps on a long session");
+    check(seamless, "every style's turn is seamless across the wrap");
+}
+
 void sourceCatalogueIsCompleteAndUnique() {
     std::set<std::string> names;
     const std::set<std::string> groups = {"LEVELS", "DRUMS", "EVENTS", "MELODY", "CLOCKS", "TEXTURE", "EQ", "RHYTHM", "HARMONY", "FORM"};
@@ -1075,6 +1100,7 @@ int main() {
     followerScalesASoundClockWithoutJumps();
     motionFieldDriftSpinIsBoundedAndContinuous();
     motionFieldReducedMotionScalesRatesOnce();
+    motionFieldDriftWrapNeverPopsAStyle();
     sourceCatalogueIsCompleteAndUnique();
     macrosAtRestChangeNothing();
     macrosTurnTowardTheEndsAndStayInRange();

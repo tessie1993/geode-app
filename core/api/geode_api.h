@@ -68,9 +68,12 @@ GEODE_API void        geode_note_response_set(int enabled);
 GEODE_API void        geode_viz_write_audio(geode_viz*, const float* interleaved, int frames, int channels, int sample_rate);
 GEODE_API void        geode_viz_reset_audio(geode_viz*);
 GEODE_API void        geode_viz_set_sound_tuning(geode_viz*, const GeodeSoundTuning*);
-GEODE_API void        geode_viz_set_custom_shader(geode_viz*, const char* scene_id, const char* fragment_source);
-/* The user source the scene last compiled; returns its full length, 0 when it draws the built-in style. */
-GEODE_API size_t      geode_viz_custom_shader(geode_viz*, const char* scene_id, char* out, size_t capacity);
+/* Customize › Advanced › Shader code (core/viz/ShaderOverrides): the user's fragment source for a style, process-wide
+ * like geode_director_set, so live, export, the wallpaper and the dream all draw it. A null or empty source clears it
+ * (the built-in style again). Every renderer applies it at scene build and to its resident scenes on the next frame. */
+GEODE_API void        geode_shader_override_set(const char* style_id, const char* fragment_source);
+/* The style's override; returns its full length, 0 when it draws the built-in style. */
+GEODE_API size_t      geode_shader_override(const char* style_id, char* out, size_t capacity);
 GEODE_API void        geode_viz_set_lfo(geode_viz*, int slot, const float* config, int count);
 GEODE_API void        geode_viz_set_adsr(geode_viz*, int slot, const float* config, int count);
 /* Every reaction route at once, GEODE_REACT_ROUTE_FLOATS per route; routes past count / ROUTE_FLOATS are disabled. */

@@ -235,16 +235,14 @@ object GeodeNative {
         count: Int,
     )
 
-    external fun vizSetCustomShader(
-        handle: Long,
-        sceneId: String,
+    /** Process-wide (core/viz/ShaderOverrides): every renderer draws it; "" clears it. */
+    external fun shaderOverrideSet(
+        styleId: String,
         fragmentSource: String,
     )
 
-    external fun vizCustomShader(
-        handle: Long,
-        sceneId: String,
-    ): String?
+    /** The style's shader override; null when it draws its built-in shader. */
+    external fun shaderOverride(styleId: String): String?
 
     external fun vizSetLfo(
         handle: Long,

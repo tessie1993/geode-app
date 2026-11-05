@@ -706,9 +706,15 @@ fun SearchScreen(
                             fromDevice = false,
                         )
                     }
-            SearchFilter(candidates, fieldsPerRow = 4, keyOf = { it.uri }, preferredOf = { it.fromDevice }) { it.fields }
+            SearchFilter(
+                candidates,
+                fieldsPerRow = 4,
+                keyOf = { it.uri },
+                preferredOf = { it.fromDevice },
+            ) { it.fields }
         }
-    val playlistTable = remember(library.playlists) { SearchFilter(library.playlists, fieldsPerRow = 1) { listOf(it.name) } }
+    val playlistTable =
+        remember(library.playlists) { SearchFilter(library.playlists, fieldsPerRow = 1) { listOf(it.name) } }
     val presetTable = remember(viz.presets) { SearchFilter(viz.presets, fieldsPerRow = 1) { listOf(it.name) } }
     val trackResults = remember(debounced, trackTable) { trackTable.filter(debounced, SearchFilter.TRACK_LIMIT) }
     val playlistResults = remember(debounced, playlistTable) { playlistTable.filter(debounced) }

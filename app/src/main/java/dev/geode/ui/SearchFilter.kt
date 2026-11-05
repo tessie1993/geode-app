@@ -38,7 +38,10 @@ class SearchFilter<T>(
     ): List<T> {
         if (items.isEmpty() || max <= 0) return emptyList()
         val out = IntArray(minOf(max, items.size))
-        val count = GeodeNative.libraryFilter(cells, width - 1, preferred, query.encodeToByteArray(), out).coerceIn(0, out.size)
+        val count =
+            GeodeNative
+                .libraryFilter(cells, width - 1, preferred, query.encodeToByteArray(), out)
+                .coerceIn(0, out.size)
         return List(count) { items[out[it]] }
     }
 

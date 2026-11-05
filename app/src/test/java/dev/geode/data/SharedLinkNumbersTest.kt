@@ -1,5 +1,6 @@
 package dev.geode.data
 
+import dev.geode.render.scene.ConfigSchema
 import dev.geode.render.scene.SceneParams
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -24,9 +25,10 @@ class SharedLinkNumbersTest {
 
     @Test
     fun finiteInClampsIntoTheSliderRange() {
-        assertEquals(PresetStore.ATTACK_RANGE.start, PresetStore.finiteIn(Double.NaN, PresetStore.ATTACK_RANGE))
-        assertEquals(PresetStore.DECAY_RANGE.endInclusive, PresetStore.finiteIn(40.0, PresetStore.DECAY_RANGE))
-        assertEquals(0.3f, PresetStore.finiteIn(0.3, PresetStore.ATTACK_RANGE))
+        // A non-finite value takes the range's low end, not the row's default (unlike native config::sanitized).
+        assertEquals(ATTACK.start, PresetStore.finiteIn(Double.NaN, ATTACK))
+        assertEquals(DECAY.endInclusive, PresetStore.finiteIn(40.0, DECAY))
+        assertEquals(0.3f, PresetStore.finiteIn(0.3, ATTACK))
     }
 
     @Test
@@ -36,8 +38,8 @@ class SharedLinkNumbersTest {
         assertEquals(SceneParams.DEFAULT.zoom, preset.params.zoom)
         assertEquals(SceneParams.DEFAULT.speed, preset.params.speed)
         assertEquals(SceneParams.DEFAULT.warp, preset.params.warp)
-        assertEquals(PresetStore.ATTACK_RANGE.start, preset.attack)
-        assertEquals(PresetStore.DECAY_RANGE.start, preset.decay)
+        assertEquals(ATTACK.start, preset.attack)
+        assertEquals(DECAY.start, preset.decay)
         // Writing it back out is what threw before.
         assertEquals(preset.params.zoom, PresetStore.fromJson(PresetStore.toJson(preset)).params.zoom)
     }
@@ -56,7 +58,7 @@ class SharedLinkNumbersTest {
         val template = (parsed as TemplateParse.Parsed).template
         assertEquals(SceneParams.DEFAULT.zoom, template.look.params.zoom)
         assertEquals(SceneParams.DEFAULT.bloom, template.look.params.bloom)
-        assertEquals(TemplateLook.DEFAULT_ATTACK, template.look.attack)
+        assertEquals(ConfigSchema["look", "attack"].default, template.look.attack)
         assertEquals(TemplateLayout.DEFAULT_ARTWORK_SCALE, template.layout.artworkScale)
         assertEquals(
             TextSlot.DEFAULT_SIZE_SP,
@@ -66,5 +68,10 @@ class SharedLinkNumbersTest {
         )
         // And it encodes again, which is where `put` threw.
         assertTrue(TemplateFormat.decode(TemplateFormat.encode(template)) is TemplateParse.Parsed)
+    }
+
+    private companion object {
+        val ATTACK = ConfigSchema["look", "attack"].range
+        val DECAY = ConfigSchema["look", "decay"].range
     }
 }

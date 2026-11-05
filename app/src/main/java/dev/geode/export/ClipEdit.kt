@@ -16,6 +16,7 @@ import androidx.media3.effect.SingleColorLut
 import androidx.media3.effect.StaticOverlaySettings
 import androidx.media3.effect.TextOverlay
 import dev.geode.R
+import dev.geode.render.scene.ConfigSchema
 
 enum class ClipLook(
     @param:StringRes val labelRes: Int,
@@ -82,14 +83,14 @@ data class ClipEdit(
     val startMs: Long = 0L,
     val endMs: Long = 0L,
     val look: ClipLook = ClipLook.NONE,
-    val brightness: Float = 0f,
-    val contrast: Float = 0f,
-    val saturation: Float = 0f,
-    val hueDegrees: Float = 0f,
+    val brightness: Float = ConfigSchema["clip", "brightness"].default,
+    val contrast: Float = ConfigSchema["clip", "contrast"].default,
+    val saturation: Float = ConfigSchema["clip", "saturation"].default,
+    val hueDegrees: Float = ConfigSchema["clip", "hueDegrees"].default,
     val monochrome: Boolean = false,
     val invert: Boolean = false,
-    val speed: Float = 1f,
-    val rotationDegrees: Float = 0f,
+    val speed: Float = ConfigSchema["clip", "speed"].default,
+    val rotationDegrees: Float = ConfigSchema["clip", "rotationDegrees"].default,
     val ratio: ExportRatio? = null,
     val quality: ExportQuality = ExportQuality.FHD1080,
     val mute: Boolean = false,

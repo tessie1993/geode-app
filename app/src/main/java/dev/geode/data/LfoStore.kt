@@ -14,6 +14,7 @@ import dev.geode.render.ModPolarity
 import dev.geode.render.ModSource
 import dev.geode.render.ReactionRoute
 import dev.geode.render.ReactionRouteCodec
+import dev.geode.render.scene.ConfigSchema
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -99,13 +100,13 @@ class LfoStore(
                         runCatching { LfoTarget.valueOf(a.getString(i)) }.getOrNull()?.let { add(it) }
                     }
                 },
-            attack = o.optDouble("attack", 0.05).toFloat(),
-            decay = o.optDouble("decay", 0.25).toFloat(),
-            sustain = o.optDouble("sustain", 0.5).toFloat(),
-            release = o.optDouble("release", 0.35).toFloat(),
-            amount = o.optDouble("amount", 0.5).toFloat(),
+            attack = o.optDouble("attack", adsr("attack")).toFloat(),
+            decay = o.optDouble("decay", adsr("decay")).toFloat(),
+            sustain = o.optDouble("sustain", adsr("sustain")).toFloat(),
+            release = o.optDouble("release", adsr("release")).toFloat(),
+            amount = o.optDouble("amount", adsr("amount")).toFloat(),
             band = runCatching { EnvBand.valueOf(o.getString("band")) }.getOrDefault(EnvBand.BASS),
-            gateThreshold = o.optDouble("gateThreshold", 0.25).toFloat(),
+            gateThreshold = o.optDouble("gateThreshold", adsr("gateThreshold")).toFloat(),
             sustainTrack = o.optBoolean("sustainTrack", false),
             retrigger = o.optBoolean("retrigger", true),
         )
@@ -128,7 +129,7 @@ class LfoStore(
             target = runCatching { LfoTarget.valueOf(o.getString("target")) }.getOrDefault(LfoTarget.NONE),
             wave = runCatching { LfoWave.valueOf(o.getString("wave")) }.getOrDefault(LfoWave.SINE),
             rateSeconds = readRateSeconds(o),
-            depth = o.optDouble("depth", 0.3).toFloat(),
+            depth = o.optDouble("depth", ConfigSchema["lfo", "depth"].default.toDouble()).toFloat(),
             polarity = runCatching { ModPolarity.valueOf(o.getString("polarity")) }.getOrDefault(ModPolarity.BIPOLAR),
             curve = runCatching { ModCurve.valueOf(o.getString("curve")) }.getOrDefault(ModCurve.LINEAR),
         )
@@ -137,23 +138,18 @@ class LfoStore(
      * Reads the rate as a period in seconds, converting a slot saved by an older build.
      *
      * Rates used to be stored in Hz (and could be locked to a detected tempo). A saved
-     * `rateHz` is turned into the period it described so an existing setup keeps its speed;
-     * the tempo lock is simply dropped, because the slots are free-running now.
+     * `rateHz` is turned into the period it described so an existing setup keeps its speed
+     * (native `config::lfoRateSecondsFromHz`); the tempo lock is simply dropped, because the
+     * slots are free-running now.
      */
-    private fun readRateSeconds(o: JSONObject): Float =
-        if (o.has("rateSeconds")) {
-            o
-                .optDouble("rateSeconds", LfoConfig.DEFAULT_RATE_SECONDS.toDouble())
-                .toFloat()
-                .coerceIn(LfoConfig.MIN_RATE_SECONDS, LfoConfig.MAX_RATE_SECONDS)
-        } else {
-            val hz = o.optDouble("rateHz", 0.0).toFloat()
-            if (hz <= 0f) {
-                LfoConfig.DEFAULT_RATE_SECONDS
-            } else {
-                (1f / hz).coerceIn(LfoConfig.MIN_RATE_SECONDS, LfoConfig.MAX_RATE_SECONDS)
-            }
-        }
+    private fun readRateSeconds(o: JSONObject): Float {
+        val rate = ConfigSchema["lfo", "rateSeconds"]
+        if (!o.has("rateSeconds")) return GeodeNative.configLfoRateSecondsFromHz(o.optDouble("rateHz", 0.0).toFloat())
+        return o.optDouble("rateSeconds", rate.default.toDouble()).toFloat().coerceIn(rate.range)
+    }
+
+    /** An envelope field's schema default, as the Double `optDouble` falls back to. */
+    private fun adsr(name: String): Double = ConfigSchema["adsr", name].default.toDouble()
 
     internal companion object {
         const val KEY = "lfos"

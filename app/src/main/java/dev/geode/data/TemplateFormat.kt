@@ -75,6 +75,7 @@
 package dev.geode.data
 
 import dev.geode.model.PresetLink
+import dev.geode.render.scene.ConfigSchema
 import dev.geode.render.scene.SceneIds
 import dev.geode.render.scene.SceneParams
 import org.json.JSONArray
@@ -325,8 +326,8 @@ object TemplateFormat {
         val bare =
             TemplateLook(
                 sceneId = source?.optString(KEY_SCENE_ID).orEmpty().ifBlank { SceneIds.DEFAULT },
-                attack = optFloat(source, KEY_ATTACK, TemplateLook.DEFAULT_ATTACK).coerceIn(PresetStore.ATTACK_RANGE),
-                decay = optFloat(source, KEY_DECAY, TemplateLook.DEFAULT_DECAY).coerceIn(PresetStore.DECAY_RANGE),
+                attack = ConfigSchema["look", "attack"].let { optFloat(source, KEY_ATTACK, it.default).coerceIn(it.range) },
+                decay = ConfigSchema["look", "decay"].let { optFloat(source, KEY_DECAY, it.default).coerceIn(it.range) },
                 params = params,
                 customShader = optStringOrNull(source, KEY_CUSTOM_SHADER),
                 milkPreset = optStringOrNull(source, KEY_MILK_PRESET),

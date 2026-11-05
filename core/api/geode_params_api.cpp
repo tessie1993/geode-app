@@ -4,6 +4,7 @@
 
 #include "api/geode_api.h"
 #include "viz/Config.hpp"
+#include "viz/ConfigMath.hpp"
 #include "viz/ParamRandomizer.hpp"
 #include "viz/Params.hpp"
 
@@ -47,6 +48,16 @@ void geode_params_reset_tab(const char* tab, const float* in, float* out) {
 const char* geode_params_schema_text(void) { return SceneParams::schemaText().c_str(); }
 
 const char* geode_config_schema_text(void) { return geode::viz::config::schemaText().c_str(); }
+
+float geode_config_lfo_rate_seconds_from_hz(float hz) { return geode::viz::config::lfoRateSecondsFromHz(hz); }
+
+float geode_config_morph_seconds_from_legacy_beats(int beats) { return geode::viz::config::morphSecondsFromLegacyBeats(beats); }
+
+float geode_config_palette_sample_hue(float base_hue, float hue_span, int index, int stops) {
+    return geode::viz::config::paletteSampleHue(base_hue, hue_span, index, stops);
+}
+
+int geode_config_palette_preview_stops(void) { return geode::viz::config::kPalettePreviewStops; }
 
 const char* geode_params_roll_keys(void) {
     static const std::string kText = [] {

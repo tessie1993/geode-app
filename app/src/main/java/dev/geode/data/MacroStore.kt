@@ -4,6 +4,8 @@ import android.content.Context
 import android.content.SharedPreferences
 import dev.geode.RingLog
 import dev.geode.engine.bridge.GeodeNative
+import dev.geode.render.scene.ConfigSchema
+import dev.geode.render.scene.ConfigSpec
 import dev.geode.util.bestEffort
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -49,14 +51,14 @@ class MacroStore private constructor(
         persist: Boolean = true,
     ) {
         if (i !in 0 until COUNT) return
-        val v = value.coerceIn(-1f, 1f)
+        val v = value.coerceIn(KNOBS[i].range)
         _state.update { it.copy(knobs = it.knobs.toMutableList().also { k -> k[i] = v }) }
         push(_state.value.knobs)
         if (persist) write()
     }
 
     fun setKnobs(knobs: List<Float>) {
-        _state.update { it.copy(knobs = List(COUNT) { i -> knobs.getOrElse(i) { 0f }.coerceIn(-1f, 1f) }) }
+        _state.update { it.copy(knobs = List(COUNT) { i -> knobs.getOrElse(i) { 0f }.coerceIn(KNOBS[i].range) }) }
         push(_state.value.knobs)
         write()
     }
@@ -114,7 +116,9 @@ class MacroStore private constructor(
     }
 
     companion object {
-        const val COUNT = 6
+        /** The knobs: the config schema's "macro" rows, in core/viz/Macros' order, each -1..1 with 0 as styled. */
+        private val KNOBS: List<ConfigSpec> = ConfigSchema.group("macro")
+        val COUNT: Int = KNOBS.size
 
         private const val TAG = "MacroStore"
         private const val KEY_KNOBS = "macro_knobs"
@@ -148,7 +152,7 @@ class MacroStore private constructor(
 
         private fun parseKnobs(text: String?): List<Float>? {
             val v = text?.split(',')?.map { it.trim().toFloatOrNull() ?: return null } ?: return null
-            return if (v.size == COUNT) v.map { it.coerceIn(-1f, 1f) } else null
+            return if (v.size == COUNT) v.mapIndexed { i, k -> k.coerceIn(KNOBS[i].range) } else null
         }
     }
 }

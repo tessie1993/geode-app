@@ -37,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import dev.geode.R
 import dev.geode.data.CustomPalette
 import dev.geode.data.PaletteStore
+import dev.geode.render.scene.ConfigSchema
 import dev.geode.render.scene.SceneParams
 
 @Stable
@@ -154,7 +155,7 @@ internal fun PaletteMakerCard(
         CrystalSlider(
             value = baseHue,
             onValueChange = { baseHue = it },
-            valueRange = 0f..1f,
+            valueRange = ConfigSchema["palette", "baseHue"].range,
             modifier = Modifier.fillMaxWidth(),
         )
         Text(
@@ -164,7 +165,7 @@ internal fun PaletteMakerCard(
         CrystalSlider(
             value = hueSpan,
             onValueChange = { hueSpan = it },
-            valueRange = 0f..1f,
+            valueRange = ConfigSchema["palette", "hueSpan"].range,
             modifier = Modifier.fillMaxWidth(),
         )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -228,7 +229,7 @@ private fun gradientColors(
     baseHue: Float,
     hueSpan: Float,
 ): List<Color> =
-    (0 until PaletteStore.PREVIEW_STOPS).map { i ->
-        val (r, g, b) = PaletteStore.hueRgb(PaletteStore.sampleHue(baseHue, hueSpan, i))
+    PaletteStore.previewHues(baseHue, hueSpan).map { hue ->
+        val (r, g, b) = PaletteStore.hueRgb(hue)
         Color(red = r, green = g, blue = b)
     }

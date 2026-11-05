@@ -4,9 +4,17 @@
 // well formed, viz/Lfo, viz/Adsr and viz/Macros clamp exactly as their old literals did, the store
 // conversions in viz/ConfigMath.hpp equal the Kotlin formulas, and the text reads back to the rows.
 // Built and run by CI (.github/workflows/android.yml, "Native host tests") with the system compiler; no GL.
+//
+//   config_schema_test core/tests/config_schema.txt           checks, including schemaText() against the fixture
+//   config_schema_test --write core/tests/config_schema.txt   rewrites the fixture after a deliberate change
+//
+// The fixture is what the shell's JVM tests read in place of geode_config_schema_text (the geode.configSchema
+// property, dev.geode.render.scene.ConfigSchema), so this check is what keeps their schema the device's.
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
+#include <fstream>
 #include <limits>
 #include <set>
 #include <sstream>
@@ -279,9 +287,46 @@ void theTextReadsBack() {
     check(text.find("config|adsr|9|retrigger|BOOL|1|0|1|NONE\n") != std::string::npos, "a flag row");
 }
 
+std::string readFile(const char* path) {
+    std::ifstream in(path, std::ios::binary);
+    std::string out;
+    for (char c; in.get(c);) {
+        if (c != '\r') out += c;  // a Windows checkout
+    }
+    return out;
+}
+
+// Byte for byte, so the JVM tests' copy can never drift from what the engine publishes.
+void textEqualsTheFixture(const char* path) {
+    const std::string fixture = readFile(path);
+    check(!fixture.empty(), std::string("fixture readable: ") + path);
+    if (fixture == config::schemaText()) return;
+    std::istringstream want(fixture);
+    std::istringstream got(config::schemaText());
+    for (int line = 1;; ++line) {
+        std::string w;
+        std::string g;
+        const bool hasW = static_cast<bool>(std::getline(want, w));
+        const bool hasG = static_cast<bool>(std::getline(got, g));
+        if (!hasW && !hasG) break;
+        if (!hasW) w = "<end>";
+        if (!hasG) g = "<end>";
+        if (w != g) {
+            check(false, "schemaText() differs from " + std::string(path) + " at line " + std::to_string(line) + ": fixture [" + w +
+                             "] native [" + g + "]; after a deliberate change run config_schema_test --write " + path);
+            return;
+        }
+    }
+    check(false, "schemaText() differs from " + std::string(path) + " only in its line ends; run config_schema_test --write " + path);
+}
+
 }  // namespace
 
-int main() {
+int main(int argc, char** argv) {
+    if (argc == 3 && std::strcmp(argv[1], "--write") == 0) {
+        std::ofstream(argv[2], std::ios::binary) << config::schemaText();
+        return 0;
+    }
     everyRowIsWellFormed();
     theGroupsAreTheWires();
     theOldLiteralsHold();
@@ -291,6 +336,7 @@ int main() {
     conversionsMatchKotlin();
     clampHelpers();
     theTextReadsBack();
+    textEqualsTheFixture(argc > 1 ? argv[1] : "core/tests/config_schema.txt");
     if (failures) {
         std::printf("%d config schema check(s) failed\n", failures);
         return 1;

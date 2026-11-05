@@ -1,5 +1,6 @@
 package dev.geode.render
 
+import dev.geode.render.scene.ConfigSchema
 import dev.geode.render.scene.ParamScope
 
 enum class LfoWave(
@@ -141,25 +142,19 @@ enum class LfoTarget(
  * The rate is a PERIOD IN SECONDS, not a frequency: "one sweep every 8 seconds" is the thing a
  * person setting up a slow drift actually wants to say, and it is free-running — there is no
  * tempo sync, because a tempo estimate is not a live signal and a wrong one drags the whole look
- * off the music.
+ * off the music. The period's and depth's defaults and ranges are the config schema's ("lfo" rows).
  */
 data class LfoConfig(
     val enabled: Boolean = false,
     val source: ModSource = ModSource.LFO,
     val target: LfoTarget = LfoTarget.NONE,
     val wave: LfoWave = LfoWave.SINE,
-    val rateSeconds: Float = DEFAULT_RATE_SECONDS,
-    val depth: Float = 0.3f,
+    val rateSeconds: Float = ConfigSchema["lfo", "rateSeconds"].default,
+    val depth: Float = ConfigSchema["lfo", "depth"].default,
     val polarity: ModPolarity = ModPolarity.BIPOLAR,
     val curve: ModCurve = ModCurve.LINEAR,
 ) {
     companion object {
-        const val DEFAULT_RATE_SECONDS: Float = 2f
-
-        const val MIN_RATE_SECONDS: Float = 0.05f
-
-        const val MAX_RATE_SECONDS: Float = 60f
-
         /** The polarity that makes a source useful the moment it is picked. */
         fun naturalPolarity(source: ModSource): ModPolarity =
             when (source) {

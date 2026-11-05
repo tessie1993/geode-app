@@ -480,6 +480,23 @@ object GeodeNative {
      */
     external fun configSchemaText(): String
 
+    /** An LFO slot's old `rateHz` as the period it described, within the schema's range; 0 or less is the default. */
+    external fun configLfoRateSecondsFromHz(hz: Float): Float
+
+    /** An old preset-morph beat count (at the old fixed 120 BPM) as seconds, within the schema's range. */
+    external fun configMorphSecondsFromLegacyBeats(beats: Int): Float
+
+    /** Stop [index] of [stops] along the palette maker's gradient, wrapped into 0..1 (core/viz/ConfigMath). */
+    external fun configPaletteSampleHue(
+        baseHue: Float,
+        hueSpan: Float,
+        index: Int,
+        stops: Int,
+    ): Float
+
+    /** How many stops the palette maker's preview draws. */
+    external fun configPalettePreviewStops(): Int
+
     /** Every rolled control as `TAB|ParamKeys string` lines, in roll order (core/viz/ParamRandomizer). Static. */
     external fun paramsRollKeys(): String
 

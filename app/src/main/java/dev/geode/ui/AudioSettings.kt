@@ -16,8 +16,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 import dev.geode.audio.MicCapture
-import dev.geode.data.ThemeStore
 import dev.geode.engine.audio.SoundTuning
+import dev.geode.render.scene.ConfigSchema
 import kotlin.math.roundToInt
 
 @Composable
@@ -43,7 +43,7 @@ private fun AnalysisGroup(viewModel: SettingsViewModel) {
         CrystalSlider(
             value = gui.presetMorphSeconds,
             onValueChange = { viewModel.setGuiPrefs(gui.copy(presetMorphSeconds = it)) },
-            valueRange = 0f..ThemeStore.PRESET_MORPH_SECONDS_MAX,
+            valueRange = ConfigSchema["theme", "presetMorphSeconds"].range,
         )
     }
 }

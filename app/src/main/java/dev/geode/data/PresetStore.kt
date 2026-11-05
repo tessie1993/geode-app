@@ -2,6 +2,7 @@ package dev.geode.data
 
 import android.content.Context
 import androidx.annotation.WorkerThread
+import dev.geode.render.scene.ConfigSchema
 import dev.geode.render.scene.SceneParams
 import org.json.JSONObject
 import java.io.File
@@ -341,13 +342,6 @@ class PresetStore(
         }
 
         /**
-         * The envelope ranges the Customize sliders offer (attack 5 ms to 1 s, decay 10 ms to 1.5 s).
-         * Every preset the app saves sits inside them; a shared link can say anything.
-         */
-        val ATTACK_RANGE: ClosedFloatingPointRange<Float> = 0.005f..1f
-        val DECAY_RANGE: ClosedFloatingPointRange<Float> = 0.01f..1.5f
-
-        /**
          * [raw] as a Float, or [fallback] when it is not a finite one.
          *
          * Presets and templates arrive from `geode://` links anything can send, and their numbers
@@ -382,8 +376,10 @@ class PresetStore(
             return Preset(
                 name = o.getString("name"),
                 sceneId = o.getString("sceneId"),
-                attack = finiteIn(o.getDouble("attack"), ATTACK_RANGE),
-                decay = finiteIn(o.getDouble("decay"), DECAY_RANGE),
+                // The look's envelope ranges are the config schema's ("look" rows): every preset the app
+                // saves sits inside them; a shared link can say anything.
+                attack = finiteIn(o.getDouble("attack"), ConfigSchema["look", "attack"].range),
+                decay = finiteIn(o.getDouble("decay"), ConfigSchema["look", "decay"].range),
                 customShader = if (o.has("customShader")) o.getString("customShader") else null,
                 milkPreset = if (o.has("milkPreset")) o.getString("milkPreset") else null,
                 params =

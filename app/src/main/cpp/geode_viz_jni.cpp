@@ -480,6 +480,27 @@ Java_dev_geode_engine_bridge_GeodeNative_configSchemaText(JNIEnv* env, jobject) 
     return env->NewStringUTF(geode_config_schema_text());
 }
 
+JNIEXPORT jfloat JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_configLfoRateSecondsFromHz(JNIEnv*, jobject, jfloat hz) {
+    return geode_config_lfo_rate_seconds_from_hz(hz);
+}
+
+JNIEXPORT jfloat JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_configMorphSecondsFromLegacyBeats(JNIEnv*, jobject, jint beats) {
+    return geode_config_morph_seconds_from_legacy_beats(beats);
+}
+
+JNIEXPORT jfloat JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_configPaletteSampleHue(JNIEnv*, jobject, jfloat baseHue, jfloat hueSpan, jint index,
+                                                                jint stops) {
+    return geode_config_palette_sample_hue(baseHue, hueSpan, index, stops);
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_configPalettePreviewStops(JNIEnv*, jobject) {
+    return geode_config_palette_preview_stops();
+}
+
 JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_paramsRollKeys(JNIEnv* env, jobject) {
     return env->NewStringUTF(geode_params_roll_keys());

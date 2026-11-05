@@ -31,6 +31,7 @@ package dev.geode.data
 
 import dev.geode.export.ExportQuality
 import dev.geode.export.ExportRatio
+import dev.geode.render.scene.ConfigSchema
 import dev.geode.render.scene.SceneIds
 import dev.geode.render.scene.SceneParams
 import java.util.UUID
@@ -157,8 +158,8 @@ fun VideoTemplate.asNewCopy(
  */
 data class TemplateLook(
     val sceneId: String = SceneIds.DEFAULT,
-    val attack: Float = DEFAULT_ATTACK,
-    val decay: Float = DEFAULT_DECAY,
+    val attack: Float = ConfigSchema["look", "attack"].default,
+    val decay: Float = ConfigSchema["look", "decay"].default,
     val params: SceneParams = SceneParams.DEFAULT,
     val customShader: String? = null,
     val milkPreset: String? = null,
@@ -178,9 +179,6 @@ data class TemplateLook(
         )
 
     companion object {
-        const val DEFAULT_ATTACK: Float = 0.6f
-        const val DEFAULT_DECAY: Float = 0.12f
-
         fun from(preset: Preset): TemplateLook =
             TemplateLook(
                 sceneId = preset.sceneId,

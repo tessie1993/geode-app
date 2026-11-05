@@ -1,6 +1,8 @@
 package dev.geode.data
 
 import android.content.Context
+import dev.geode.engine.bridge.GeodeNative
+import dev.geode.render.scene.ConfigSchema
 import dev.geode.render.scene.SceneParams
 import org.json.JSONObject
 import java.io.File
@@ -57,7 +59,9 @@ class PaletteStore(
     }
 
     companion object {
-        const val PREVIEW_STOPS: Int = 9
+        /** The gradient's rows: what [applyGradient] writes into the overrides and a saved palette reads as. */
+        private val BASE_HUE = ConfigSchema["palette", "baseHue"]
+        private val HUE_SPAN = ConfigSchema["palette", "hueSpan"]
 
         fun idFor(name: String): String = sanitize(name)
 
@@ -74,8 +78,8 @@ class PaletteStore(
             id: String = SceneParams.NO_CUSTOM_PALETTE,
             second: Boolean = false,
         ): SceneParams {
-            val base = baseHue.coerceIn(0f, 1f)
-            val span = hueSpan.coerceIn(0f, 1f)
+            val base = baseHue.coerceIn(BASE_HUE.range)
+            val span = hueSpan.coerceIn(HUE_SPAN.range)
             return if (second) {
                 p.copy(palette2BaseOverride = base, palette2RangeOverride = span, customPalette2Id = id)
             } else {
@@ -105,15 +109,13 @@ class PaletteStore(
             return out
         }
 
-        fun sampleHue(
+        /** The hues the palette maker's preview draws, one per stop along the gradient (core/viz/ConfigMath). */
+        fun previewHues(
             baseHue: Float,
             hueSpan: Float,
-            index: Int,
-            stops: Int = PREVIEW_STOPS,
-        ): Float {
-            val t = if (stops <= 1) 0f else index.toFloat() / (stops - 1).toFloat()
-            val h = baseHue + hueSpan * t
-            return ((h % 1f) + 1f) % 1f
+        ): List<Float> {
+            val stops = GeodeNative.configPalettePreviewStops()
+            return (0 until stops).map { GeodeNative.configPaletteSampleHue(baseHue, hueSpan, it, stops) }
         }
 
         fun hueRgb(
@@ -147,8 +149,8 @@ class PaletteStore(
             CustomPalette(
                 id = sanitize(c.id.ifBlank { c.name }),
                 name = c.name.trim().ifEmpty { "Palette" },
-                baseHue = c.baseHue.coerceIn(0f, 1f),
-                hueSpan = c.hueSpan.coerceIn(0f, 1f),
+                baseHue = c.baseHue.coerceIn(BASE_HUE.range),
+                hueSpan = c.hueSpan.coerceIn(HUE_SPAN.range),
             )
 
         internal fun toJson(c: CustomPalette): String =
@@ -165,8 +167,8 @@ class PaletteStore(
             return CustomPalette(
                 id = o.optString("id").ifBlank { idFor(name) },
                 name = name,
-                baseHue = o.optDouble("baseHue", 0.0).toFloat().coerceIn(0f, 1f),
-                hueSpan = o.optDouble("hueSpan", 1.0).toFloat().coerceIn(0f, 1f),
+                baseHue = o.optDouble("baseHue", BASE_HUE.default.toDouble()).toFloat().coerceIn(BASE_HUE.range),
+                hueSpan = o.optDouble("hueSpan", HUE_SPAN.default.toDouble()).toFloat().coerceIn(HUE_SPAN.range),
             )
         }
     }

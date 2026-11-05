@@ -89,6 +89,7 @@ import dev.geode.render.TransitionCatalog
 import dev.geode.render.VisualizerView
 import dev.geode.render.fluid.FluidShaderTemplate
 import dev.geode.render.scene.BuildStyleReactionsUseCase
+import dev.geode.render.scene.ConfigSchema
 import dev.geode.render.scene.CustomizeTab
 import dev.geode.render.scene.ParamFormat
 import dev.geode.render.scene.ParamKeys
@@ -557,7 +558,7 @@ private fun ModulatorCard(
                 }
                 RateSecondsSlider(config.rateSeconds) { onChange(config.copy(rateSeconds = it)) }
             }
-            LabeledSlider(MOD_DEPTH, config.depth, 0f..1f) { onChange(config.copy(depth = it)) }
+            LabeledSlider(MOD_DEPTH, config.depth, ConfigSchema["lfo", "depth"].range) { onChange(config.copy(depth = it)) }
             DropdownRow("Direction", ModPolarity.entries.map { it.label }, ModPolarity.entries.indexOf(config.polarity)) {
                 onChange(config.copy(polarity = ModPolarity.entries[it]))
             }
@@ -602,8 +603,8 @@ private fun RateSecondsSlider(
     seconds: Float,
     onChange: (Float) -> Unit,
 ) {
-    val lo = LfoConfig.MIN_RATE_SECONDS
-    val hi = LfoConfig.MAX_RATE_SECONDS
+    val lo = ConfigSchema["lfo", "rateSeconds"].range.start
+    val hi = ConfigSchema["lfo", "rateSeconds"].range.endInclusive
     val t = (ln(seconds.coerceIn(lo, hi) / lo) / ln(hi / lo)).coerceIn(0f, 1f)
     val shown = ParamFormat.format(seconds, ParamUnit.SECONDS)
     Column(Modifier.padding(vertical = 2.dp)) {
@@ -621,6 +622,9 @@ private fun RateSecondsSlider(
         )
     }
 }
+
+/** An envelope slider's range: its config schema row (core/viz/ConfigTable.inc, group "adsr"). */
+private fun adsr(name: String): ClosedFloatingPointRange<Float> = ConfigSchema["adsr", name].range
 
 @Composable
 private fun AdsrCard(
@@ -653,11 +657,11 @@ private fun AdsrCard(
             }
         }
         CardSubHeader("Shape")
-        LabeledSlider(ENV_ATTACK, config.attack, 0.005f..1f, unit = ParamUnit.SECONDS) { onChange(config.copy(attack = it)) }
-        LabeledSlider(ENV_DECAY, config.decay, 0.01f..1.5f, unit = ParamUnit.SECONDS) { onChange(config.copy(decay = it)) }
-        LabeledSlider(ENV_SUSTAIN, config.sustain, 0f..1f) { onChange(config.copy(sustain = it)) }
-        LabeledSlider(ENV_RELEASE, config.release, 0.02f..2f, unit = ParamUnit.SECONDS) { onChange(config.copy(release = it)) }
-        LabeledSlider(ENV_AMOUNT, config.amount, 0f..1.5f, unit = ParamUnit.PERCENT) { onChange(config.copy(amount = it)) }
+        LabeledSlider(ENV_ATTACK, config.attack, adsr("attack"), unit = ParamUnit.SECONDS) { onChange(config.copy(attack = it)) }
+        LabeledSlider(ENV_DECAY, config.decay, adsr("decay"), unit = ParamUnit.SECONDS) { onChange(config.copy(decay = it)) }
+        LabeledSlider(ENV_SUSTAIN, config.sustain, adsr("sustain")) { onChange(config.copy(sustain = it)) }
+        LabeledSlider(ENV_RELEASE, config.release, adsr("release"), unit = ParamUnit.SECONDS) { onChange(config.copy(release = it)) }
+        LabeledSlider(ENV_AMOUNT, config.amount, adsr("amount"), unit = ParamUnit.PERCENT) { onChange(config.copy(amount = it)) }
         CardSubHeader("Hold while loud")
         ControlHint(
             "The envelope holds while the chosen sound stays above the level and lets go when it drops, so the same hit " +
@@ -666,7 +670,7 @@ private fun AdsrCard(
         DropdownRow(ENV_GATE_SOURCE, EnvBand.entries.map { it.label }, EnvBand.entries.indexOf(config.band), lockKey = ENV_GATE_SOURCE) {
             onChange(config.copy(band = EnvBand.entries[it]))
         }
-        LabeledSlider(ENV_GATE_LEVEL, config.gateThreshold, 0.05f..1f) { onChange(config.copy(gateThreshold = it)) }
+        LabeledSlider(ENV_GATE_LEVEL, config.gateThreshold, adsr("gateThreshold")) { onChange(config.copy(gateThreshold = it)) }
         CheckRow(ENV_SUSTAIN_TRACK, config.sustainTrack) { onChange(config.copy(sustainTrack = it)) }
         CheckRow(ENV_RETRIGGER, config.retrigger) { onChange(config.copy(retrigger = it)) }
     }

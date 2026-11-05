@@ -4,8 +4,10 @@ import android.content.SharedPreferences
 import androidx.annotation.StringRes
 import androidx.core.content.edit
 import dev.geode.R
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.engine.audio.SoundTuning
 import dev.geode.model.TutorialProgress
+import dev.geode.render.scene.ConfigSchema
 
 enum class PlayerPosition(
     @param:StringRes val labelRes: Int,
@@ -36,7 +38,7 @@ data class GuiPrefs(
      * length whenever the estimate was, and fell back to a flat 120 BPM on live input where
      * there is no estimate at all. Seconds are the thing the user is actually choosing.
      */
-    val presetMorphSeconds: Float = 2f,
+    val presetMorphSeconds: Float = ConfigSchema["theme", "presetMorphSeconds"].default,
     val accentIntensity: Float = 1f,
     val compactPlayer: Boolean = false,
     /**
@@ -113,13 +115,16 @@ data class GuiPrefs(
 class ThemeStore(
     private val prefs: SharedPreferences,
 ) {
-    /** Reads the morph length, converting a beat count saved by an older build. */
+    /**
+     * Reads the morph length, converting a beat count saved by an older build (native
+     * `config::morphSecondsFromLegacyBeats`). With neither key the schema's default stands, which is what
+     * the old key's default of 4 beats migrated to, so a fresh install never crosses JNI here.
+     */
     private fun readPresetMorphSeconds(prefs: SharedPreferences): Float {
-        if (prefs.contains(KEY_PRESET_MORPH_SEC)) {
-            return prefs.getFloat(KEY_PRESET_MORPH_SEC, 2f).coerceIn(0f, PRESET_MORPH_SECONDS_MAX)
-        }
-        val beats = prefs.getInt(LEGACY_KEY_MORPH_BEATS, 4)
-        return (beats * 60f / LEGACY_MORPH_BPM).coerceIn(0f, PRESET_MORPH_SECONDS_MAX)
+        val morph = ConfigSchema["theme", "presetMorphSeconds"]
+        if (prefs.contains(KEY_PRESET_MORPH_SEC)) return prefs.getFloat(KEY_PRESET_MORPH_SEC, morph.default).coerceIn(morph.range)
+        if (!prefs.contains(LEGACY_KEY_MORPH_BEATS)) return morph.default
+        return GeodeNative.configMorphSecondsFromLegacyBeats(prefs.getInt(LEGACY_KEY_MORPH_BEATS, 0))
     }
 
     fun loadGui(): GuiPrefs {
@@ -299,10 +304,6 @@ class ThemeStore(
         const val KEY_PRESET_MORPH_SEC = "gui_preset_morph_seconds"
         const val LEGACY_KEY_MORPH_BEATS = "morph_beats"
 
-        /** The tempo the old beat-count morph fell back to; used only to migrate a saved value. */
-        const val LEGACY_MORPH_BPM = 120f
-
-        const val PRESET_MORPH_SECONDS_MAX = 8f
         const val KEY_REDUCED_MOTION = "gui_reduced_motion"
         const val KEY_TOUCH_SMEAR = "gui_touch_smear"
         const val KEY_TOUCH_SMEAR_STRENGTH = "gui_touch_smear_strength"

@@ -3,6 +3,7 @@ package dev.geode.editor
 import dev.geode.R
 import dev.geode.export.ClipEdit
 import dev.geode.render.scene.Catalogue
+import dev.geode.render.scene.ConfigSchema
 import dev.geode.render.scene.ParamKeys
 import dev.geode.render.scene.SceneParams
 import kotlin.math.roundToInt
@@ -112,37 +113,33 @@ object AnimatableParams {
         writeScene = { p, v -> if (v is ParamValue.Choice) write(p, v.index.coerceIn(0, choices.lastIndex)) else p },
     )
 
+    // A clip field's range is its config schema row (core/viz/ConfigTable.inc, group "clip", named as the field).
     private fun clipScalar(
         field: String,
         labelRes: Int,
-        min: Float,
-        max: Float,
         read: (ClipEdit) -> Float,
         write: (ClipEdit, Float) -> ClipEdit,
-    ) = AnimatableParam(
-        id = ParamId(CLIP + field),
-        kind = ParamKind.SCALAR,
-        labelRes = labelRes,
-        min = min,
-        max = max,
-        readClip = { ParamValue.Scalar(read(it)) },
-        writeClip = { e, v -> if (v is ParamValue.Scalar) write(e, v.value.coerceIn(min, max)) else e },
-    )
+    ): AnimatableParam {
+        val range = ConfigSchema["clip", field].range
+        return AnimatableParam(
+            id = ParamId(CLIP + field),
+            kind = ParamKind.SCALAR,
+            labelRes = labelRes,
+            min = range.start,
+            max = range.endInclusive,
+            readClip = { ParamValue.Scalar(read(it)) },
+            writeClip = { e, v -> if (v is ParamValue.Scalar) write(e, v.value.coerceIn(range)) else e },
+        )
+    }
 
     private fun clipTable(): List<AnimatableParam> =
         listOf(
-            clipScalar("brightness", R.string.studio_brightness, -1f, 1f, { it.brightness }) { e, v -> e.copy(brightness = v) },
-            clipScalar("contrast", R.string.studio_contrast, -1f, 1f, { it.contrast }) { e, v -> e.copy(contrast = v) },
-            clipScalar("saturation", R.string.studio_saturation, -100f, 100f, { it.saturation }) { e, v -> e.copy(saturation = v) },
-            clipScalar("hueDegrees", R.string.studio_hue_shift, -180f, 180f, { it.hueDegrees }) { e, v -> e.copy(hueDegrees = v) },
-            clipScalar("speed", R.string.studio_speed, 0.25f, 4f, { it.speed }) { e, v -> e.copy(speed = v) },
-            clipScalar(
-                "rotationDegrees",
-                R.string.studio_rotate,
-                -180f,
-                180f,
-                { it.rotationDegrees },
-            ) { e, v -> e.copy(rotationDegrees = v) },
+            clipScalar("brightness", R.string.studio_brightness, { it.brightness }) { e, v -> e.copy(brightness = v) },
+            clipScalar("contrast", R.string.studio_contrast, { it.contrast }) { e, v -> e.copy(contrast = v) },
+            clipScalar("saturation", R.string.studio_saturation, { it.saturation }) { e, v -> e.copy(saturation = v) },
+            clipScalar("hueDegrees", R.string.studio_hue_shift, { it.hueDegrees }) { e, v -> e.copy(hueDegrees = v) },
+            clipScalar("speed", R.string.studio_speed, { it.speed }) { e, v -> e.copy(speed = v) },
+            clipScalar("rotationDegrees", R.string.studio_rotate, { it.rotationDegrees }) { e, v -> e.copy(rotationDegrees = v) },
         )
 
     // Ranges follow the sliders in CustomizeTabs so an animated value never leaves what the panel offers.

@@ -56,6 +56,7 @@ import androidx.compose.ui.unit.dp
 import dev.geode.R
 import dev.geode.data.MacroState
 import dev.geode.data.MacroStore
+import dev.geode.render.scene.ConfigSchema
 import dev.geode.ui.theme.GeodeSpacing
 import kotlin.math.abs
 import kotlin.math.roundToInt
@@ -95,6 +96,7 @@ internal fun MacrosTab(
                         title = MACRO_TITLES[i],
                         about = MACRO_HINTS[i],
                         value = state.knobs[i],
+                        range = ConfigSchema.group("macro")[i].range,
                         locked = state.isLocked(i),
                         onChange = { store.setKnob(i, it, persist = false) },
                         onCommit = store::commit,
@@ -220,6 +222,7 @@ private fun MacroKnob(
     title: String,
     about: String,
     value: Float,
+    range: ClosedFloatingPointRange<Float>,
     locked: Boolean,
     onChange: (Float) -> Unit,
     onCommit: () -> Unit,
@@ -241,16 +244,16 @@ private fun MacroKnob(
                 .pointerInput(Unit) {
                     detectVerticalDragGestures(onDragEnd = onCommit) { c, dy ->
                         c.consume()
-                        change((current - dy / unitPx).coerceIn(-1f, 1f))
+                        change((current - dy / unitPx).coerceIn(range))
                     }
                 }.pointerInput(Unit) {
                     detectTapGestures(onDoubleTap = { onSet(0f) }, onLongPress = { onToggleLock() })
                 }.semantics {
                     contentDescription = title
                     stateDescription = text + if (locked) ", locked" else ""
-                    progressBarRangeInfo = ProgressBarRangeInfo(value, -1f..1f, steps = KNOB_STEPS)
+                    progressBarRangeInfo = ProgressBarRangeInfo(value, range, steps = KNOB_STEPS)
                     setProgress { target ->
-                        onSet(target.coerceIn(-1f, 1f))
+                        onSet(target.coerceIn(range))
                         true
                     }
                     onLongClick(if (locked) "Unlock for Surprise" else "Lock against Surprise") {

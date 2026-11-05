@@ -1,5 +1,7 @@
 package dev.geode.render
 
+import dev.geode.render.scene.ConfigSchema
+
 enum class EnvBand(
     val label: String,
 ) {
@@ -14,13 +16,13 @@ enum class EnvBand(
 data class AdsrConfig(
     val enabled: Boolean = false,
     val targets: List<LfoTarget> = emptyList(),
-    val attack: Float = 0.05f,
-    val decay: Float = 0.25f,
-    val sustain: Float = 0.5f,
-    val release: Float = 0.35f,
-    val amount: Float = 0.5f,
+    val attack: Float = ConfigSchema["adsr", "attack"].default,
+    val decay: Float = ConfigSchema["adsr", "decay"].default,
+    val sustain: Float = ConfigSchema["adsr", "sustain"].default,
+    val release: Float = ConfigSchema["adsr", "release"].default,
+    val amount: Float = ConfigSchema["adsr", "amount"].default,
     val band: EnvBand = EnvBand.BASS,
-    val gateThreshold: Float = 0.25f,
+    val gateThreshold: Float = ConfigSchema["adsr", "gateThreshold"].default,
     val sustainTrack: Boolean = false,
     val retrigger: Boolean = true,
 )

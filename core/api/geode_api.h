@@ -251,6 +251,17 @@ GEODE_API const char* geode_params_schema_text(void);
  * index = the row's place in its group (for lfo and adsr the float index of geode_viz_set_lfo / _adsr, for macro
  * the knob). A sibling of geode_params_schema_text, whose format it leaves alone. Static; parse once. */
 GEODE_API const char* geode_config_schema_text(void);
+/* The data stores' conversions over the config schema (core/viz/ConfigMath.hpp), so Kotlin keeps no copy. Pure.
+ * lfo_rate_seconds_from_hz: an LFO slot saved by an older build in Hz, as the period the slot now holds,
+ * within the lfo rateSeconds row; zero, a negative rate or a NaN reads as the row's default.
+ * morph_seconds_from_legacy_beats: an old preset-morph beat count at the old fixed 120 BPM, as seconds
+ * within the theme presetMorphSeconds row.
+ * palette_sample_hue: stop index of stops along the palette maker's gradient from base_hue spanning
+ * hue_span of a turn, wrapped into 0..1; palette_preview_stops is how many stops its preview draws. */
+GEODE_API float       geode_config_lfo_rate_seconds_from_hz(float hz);
+GEODE_API float       geode_config_morph_seconds_from_legacy_beats(int beats);
+GEODE_API float       geode_config_palette_sample_hue(float base_hue, float hue_span, int index, int stops);
+GEODE_API int         geode_config_palette_preview_stops(void);
 
 /* Export resampler (audio/dsp/PcmResampler): interleaved 16-bit PCM to the AAC encoder's rate; box filter
  * down, linear up. Streaming: state carries across calls. Any one thread at a time. There is no flush: a

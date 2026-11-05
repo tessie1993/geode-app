@@ -159,7 +159,7 @@ jobs:
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/pacer_test.cpp -o pacer_test
           ./pacer_test
           # The process's one thermal state (#440): the fps-first ladder, the cap on the pacer, two renderers sharing it.
-          g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore core/tests/thermal_test.cpp core/viz/ThermalGovernor.cpp -o thermal_test
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore -Icore/tests/stub core/tests/thermal_test.cpp core/viz/ThermalGovernor.cpp -o thermal_test
           ./thermal_test
           g++ -std=c++20 -O1 -Wall -Wextra -Icore core/tests/sound_test.cpp core/sound/*.cpp -o sound_test
           ./sound_test

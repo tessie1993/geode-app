@@ -273,7 +273,7 @@ void geode_viz_set_reactions(geode_viz* v, const float* c, int count) {
     v->renderer.setReactionRoutes(routes);
 }
 
-void geode_hand_set(unsigned mask) { hand::setGlobal(static_cast<std::uint32_t>(mask)); }
+void geode_hand_set(unsigned mask, int has_user) { hand::setGlobal(static_cast<std::uint32_t>(mask), has_user != 0); }
 
 int geode_style_reactions_hand(const char* style_id, int seed, const float* user, int user_floats, int has_user, unsigned mask,
                                float* out, int capacity) {

@@ -328,6 +328,35 @@ object GeodeNative {
     /** Mirrors GEODE_MUSIC_STATE_FLOATS: mine, route count, strength, on-action bits, fits-action bits. */
     const val MUSIC_STATE_FLOATS: Int = 5
 
+    /**
+     * Customize › Music's ready-made [recipe]'s routes the style [styleId] can show, in the [vizSetReactions]
+     * layout; every route it holds for a null [styleId] (geode_event_recipe_routes).
+     */
+    external fun eventRecipeRoutes(
+        recipe: Int,
+        styleId: String?,
+    ): FloatArray
+
+    /** [RECIPE_ON] and [RECIPE_FITS] for [recipe] on [styleId] over what plays, [current] (geode_event_recipe_state). */
+    external fun eventRecipeState(
+        recipe: Int,
+        styleId: String,
+        current: FloatArray,
+    ): Int
+
+    /** [current] with [recipe] turned off if on, else on if it fits (geode_event_recipe_toggle). */
+    external fun eventRecipeToggle(
+        recipe: Int,
+        styleId: String,
+        current: FloatArray,
+    ): FloatArray
+
+    /** Mirrors GEODE_RECIPE_ON: every route the recipe would add to the style already plays. */
+    const val RECIPE_ON: Int = 1
+
+    /** Mirrors GEODE_RECIPE_FITS: turning the recipe on stays within GEODE_REACT_ROUTES. */
+    const val RECIPE_FITS: Int = 2
+
     /** Gyro look, -1..1 per axis; read only while camGyro is on. */
     external fun vizSetLook(
         handle: Long,

@@ -104,6 +104,19 @@ GEODE_API int         geode_music_edit(const char* style_id, int seed, const flo
                                        unsigned* out_mask, int* out_has_user);
 /* The LfoTarget ordinal a new route of `action` moves, so the shell can hide a chip the style ignores. */
 GEODE_API int         geode_music_action_target(int action);
+/* Customize › Music's ready-made recipes (core/viz ReactionDna.hpp EventRecipe), GEODE_EVENT_RECIPES in the
+   menu's order. `current` is what plays, in the geode_viz_set_reactions layout. Pure: no viz handle. */
+#define GEODE_EVENT_RECIPES 30
+#define GEODE_RECIPE_ON 1u    /* every route it would add to the style is in current */
+#define GEODE_RECIPE_FITS 2u  /* turning it on stays within GEODE_REACT_ROUTES */
+/* The recipe's routes the style can show (every route for a NULL style_id) into out; returns how many. */
+GEODE_API int         geode_event_recipe_routes(int recipe, const char* style_id, float* out, int capacity);
+/* GEODE_RECIPE_* flags for the recipe on the style over current; 0 for an unknown recipe or a NULL style. */
+GEODE_API unsigned    geode_event_recipe_state(int recipe, const char* style_id, const float* current, int current_floats);
+/* current with the recipe turned off if on, else on if it fits (replacing a route on the same source and
+   target), into out; returns the route count. An unknown recipe or a NULL style leaves current as it was. */
+GEODE_API int         geode_event_recipe_toggle(int recipe, const char* style_id, const float* current, int current_floats,
+                                                float* out, int capacity);
 /* Gyro look, -1..1 per axis; the camera reads it only while camGyro is on. */
 GEODE_API void        geode_viz_set_look(geode_viz*, float yaw, float pitch);
 GEODE_API void        geode_viz_set_thermal(geode_viz*, int platform_status, float headroom); /* status < 0 = unknown */

@@ -2,9 +2,11 @@
 // the camera rig. Built and run by CI (see .github/workflows/android.yml,
 // "Native host tests") with the system compiler; no GL, no device.
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <initializer_list>
 
 #include <set>
 #include <string>
@@ -1065,6 +1067,203 @@ void stagedBuildFinishesInBoundedFrames() {
     check(mostCompilesInAFrame == 1, "no frame compiles more than one program without the parallel extension");
 }
 
+// ── Customize › Music's ready-made recipes (EventRecipe in ReactionDna), pinned to the old Kotlin table ──
+
+const std::string kShaderStyle = "plasma";
+const std::string kFluidStyle = "fluid";
+
+struct RecipeRow {
+    ReactSource source;
+    LfoTarget target;
+    ReactMode mode;
+    float amount;
+    float attack;
+    float release;
+};
+
+struct RecipeExpect {
+    EventRecipe recipe;
+    int count;
+    std::array<RecipeRow, kMaxRecipeRoutes> rows;
+};
+
+constexpr ReactMode kF = ReactMode::Follow;
+constexpr ReactMode kS = ReactMode::Step;
+constexpr ReactMode kP = ReactMode::Spin;
+using RS = ReactSource;
+using LT = LfoTarget;
+using ER = EventRecipe;
+
+// Every recipe's routes exactly as dev.geode.render.EventRecipe held them before the port (follow, step
+// over `seconds` both ways, spin at 0.5 s both ways).
+const std::array<RecipeExpect, kEventRecipeCount> kRecipeExpect{{
+    {ER::KickPunch, 2, {{{RS::KickEnv, LT::CamPush, kF, 0.4f, 0.015f, 0.25f}, {RS::KickEnv, LT::Zoom, kF, 0.12f, 0.015f, 0.22f}}}},
+    {ER::SnareCrack, 1, {{{RS::SnareEnv, LT::ChromaAb, kF, 0.5f, 0.01f, 0.18f}}}},
+    {ER::HatShimmer, 2, {{{RS::HatEnv, LT::ParticleSize, kF, 0.3f, 0.01f, 0.12f}, {RS::HatEnv, LT::Bloom, kF, 0.2f, 0.01f, 0.15f}}}},
+    {ER::SubWeight, 2, {{{RS::SubAtt, LT::Warp, kF, 0.35f, 0.06f, 0.4f}, {RS::SubAtt, LT::FluidForce, kF, 0.5f, 0.05f, 0.4f}}}},
+    {ER::LoudnessGlow, 2, {{{RS::Loudness, LT::Brightness, kF, 0.15f, 0.1f, 0.5f}, {RS::Loudness, LT::Bloom, kF, 0.25f, 0.1f, 0.5f}}}},
+    {ER::SwellBreathe, 2, {{{RS::Intensity, LT::CamFov, kF, 0.25f, 0.4f, 0.8f}, {RS::Intensity, LT::Vignette, kF, -0.3f, 0.4f, 0.8f}}}},
+    {ER::BuildupRush, 3, {{{RS::EnergyTrend, LT::Speed, kF, 0.5f, 0.5f, 0.5f}, {RS::EnergyTrend, LT::CamShake, kF, 0.3f, 0.5f, 0.3f},
+                          {RS::EnergyTrend, LT::Rotation, kP, 0.3f, 0.5f, 0.5f}}}},
+    {ER::SectionColours, 2, {{{RS::HardCut, LT::ColorShift, kS, 0.33f, 1.2f, 1.2f}, {RS::HardCut, LT::PaletteMix, kS, 0.5f, 1.2f, 1.2f}}}},
+    {ER::BeatTurn, 1, {{{RS::Kick, LT::CamRoll, kS, 0.15f, 0.08f, 0.08f}}}},
+    {ER::TimbreTurn, 1, {{{RS::Kick8, LT::CamYaw, kS, 0.4f, 0.8f, 0.8f}}}},
+    {ER::PitchTint, 1, {{{RS::NoteChange, LT::ColorShift, kS, 0.08f, 0.25f, 0.25f}}}},
+    {ER::FluxTexture, 2, {{{RS::Flux, LT::Ripple, kF, 0.3f, 0.03f, 0.3f}, {RS::Flux, LT::Twist, kF, 0.2f, 0.03f, 0.3f}}}},
+    {ER::StereoSway, 2, {{{RS::StereoPan, LT::CamYaw, kF, 0.35f, 0.3f, 0.6f}, {RS::StereoWidth, LT::CamOrbit, kF, 0.3f, 0.3f, 0.6f}}}},
+    {ER::BarHue, 1, {{{RS::Kick4, LT::ColorShift, kS, 0.1f, 0.2f, 0.2f}}}},
+    {ER::HitChaos, 2, {{{RS::Onset, LT::Turbulence, kF, 0.3f, 0.01f, 0.3f}, {RS::Onset, LT::CamShake, kF, 0.15f, 0.01f, 0.3f}}}},
+    {ER::KickSwap, 2, {{{RS::KickToggle, LT::ColorShift, kF, 0.25f, 0.06f, 0.06f}, {RS::KickToggle, LT::PaletteMix, kF, 0.6f, 0.06f, 0.06f}}}},
+    {ER::KickAngle, 2, {{{RS::KickRandom, LT::CamYaw, kF, 0.35f, 0.15f, 0.15f}, {RS::KickRandom, LT::CamPitch, kF, 0.15f, 0.15f, 0.15f}}}},
+    {ER::SnareRoll, 1, {{{RS::Snare2, LT::CamRoll, kS, 0.12f, 0.15f, 0.15f}}}},
+    {ER::MelodyLift, 1, {{{RS::PitchHeight, LT::CamPitch, kF, 0.3f, 0.3f, 0.6f}}}},
+    {ER::NoteHue, 1, {{{RS::PitchClass, LT::ColorShift, kF, 0.5f, 0.15f, 0.4f}}}},
+    {ER::GlideTwist, 1, {{{RS::Glide, LT::Twist, kF, 0.4f, 0.05f, 0.3f}}}},
+    {ER::VibratoShimmer, 2, {{{RS::Vibrato, LT::Ripple, kF, 0.3f, 0.1f, 0.3f}, {RS::Vibrato, LT::ChromaAb, kF, 0.2f, 0.1f, 0.3f}}}},
+    {ER::SlideSmear, 2, {{{RS::Legato, LT::Warp, kF, 0.25f, 0.05f, 0.5f}, {RS::Legato, LT::TrailLength, kF, 0.4f, 0.05f, 0.5f}}}},
+    {ER::SilenceFade, 2, {{{RS::Silence, LT::Brightness, kF, -0.4f, 0.3f, 1.5f}, {RS::Silence, LT::Vignette, kF, 0.4f, 0.3f, 1.5f}}}},
+    {ER::ReturnFlash, 2, {{{RS::Returned, LT::Bloom, kF, 0.6f, 0.02f, 1.5f}, {RS::Returned, LT::CamPush, kF, 0.5f, 0.02f, 1.5f}}}},
+    {ER::BassPull, 1, {{{RS::BassPresence, LT::Zoom, kF, 0.2f, 1.0f, 2.0f}}}},
+    {ER::ClockOrbit, 2, {{{RS::MidTime, LT::CamOrbit, kP, 0.15f, 0.5f, 0.5f}, {RS::MidTime, LT::Rotation, kP, 0.1f, 0.5f, 0.5f}}}},
+    {ER::BarTurn, 1, {{{RS::Downbeat, LT::CamYaw, kS, 0.25f, 0.6f, 0.6f}}}},
+    {ER::ScaleMood, 3, {{{RS::ScaleBrightness, LT::Brightness, kF, 0.15f, 1.0f, 1.0f}, {RS::ScaleTension, LT::Turbulence, kF, 0.3f, 1.0f, 1.0f},
+                        {RS::KeyHue, LT::ColorShift, kF, 0.5f, 1.5f, 1.5f}}}},
+    {ER::BuildAndDrop, 3, {{{RS::BuildUp, LT::Speed, kF, 0.5f, 0.5f, 0.5f}, {RS::Drop, LT::Bloom, kF, 0.7f, 0.02f, 2.0f},
+                           {RS::Drop, LT::CamPush, kF, 0.6f, 0.02f, 1.5f}}}},
+}};
+
+ReactRoute recipeRoute(ReactSource s, LfoTarget t, float amount = 0.3f) {
+    ReactRoute r;
+    r.enabled = true;
+    r.source = s;
+    r.target = t;
+    r.amount = amount;
+    return r;
+}
+
+RouteArray routesOf(std::initializer_list<ReactRoute> list, int& count) {
+    RouteArray out{};
+    count = 0;
+    for (const ReactRoute& r : list) out[static_cast<size_t>(count++)] = r;
+    return out;
+}
+
+bool sameRoute(const ReactRoute& a, const ReactRoute& b) {
+    return a.enabled == b.enabled && a.source == b.source && a.target == b.target && a.mode == b.mode && a.amount == b.amount &&
+           a.curve == b.curve && a.attackSeconds == b.attackSeconds && a.releaseSeconds == b.releaseSeconds;
+}
+
+void everyRecipeHoldsItsOldRoutes() {
+    for (int i = 0; i < kEventRecipeCount; ++i) {
+        const RecipeExpect& e = kRecipeExpect[static_cast<size_t>(i)];
+        check(static_cast<int>(e.recipe) == i, "the expected table is in wire order");
+        const RecipeRoutes got = recipeRoutes(e.recipe);
+        check(got.count == e.count, "each recipe holds its old number of routes");
+        for (int k = 0; k < std::min(got.count, e.count); ++k) {
+            const ReactRoute& r = got.routes[static_cast<size_t>(k)];
+            const RecipeRow& x = e.rows[static_cast<size_t>(k)];
+            check(r.enabled && r.curve == ModCurve::Linear, "recipe routes are enabled and linear");
+            check(r.source == x.source && r.target == x.target && r.mode == x.mode, "recipe route source, target and mode");
+            check(r.amount == x.amount && r.attackSeconds == x.attack && r.releaseSeconds == x.release,
+                  "recipe route amount, attack and release");
+        }
+    }
+    check(recipeRoutes(static_cast<EventRecipe>(kEventRecipeCount)).count == 0, "an unknown recipe holds nothing");
+}
+
+void everyRecipeFitsTheMatrixAndListensToSomething() {
+    std::set<std::string> groups;
+    for (int i = 0; i < kEventRecipeCount; ++i) {
+        const auto recipe = static_cast<EventRecipe>(i);
+        const RecipeRoutes all = recipeRoutes(recipe);
+        check(all.count > 0 && all.count <= ReactionEngine::kRoutes, "every recipe has routes and fits the matrix");
+        for (int k = 0; k < all.count; ++k) {
+            const ReactRoute& r = all.routes[static_cast<size_t>(k)];
+            check(r.target != LfoTarget::None, "every recipe route moves something");
+            check(r.amount >= -2.0f && r.amount <= 2.0f, "recipe amounts within what native accepts");
+            groups.insert(reactSourceInfo(r.source).group);
+        }
+        check(recipeRoutesFor(recipe, kShaderStyle).count > 0, "every recipe does something on a shader style");
+    }
+    const std::set<std::string> want = {"LEVELS", "DRUMS", "EVENTS", "MELODY", "CLOCKS", "TEXTURE", "RHYTHM", "HARMONY", "FORM"};
+    check(groups == want, "the recipes together listen to every sound group but the EQ");
+}
+
+void recipeOnThenOffLeavesTheListAsItWas() {
+    int n = 0;
+    const RouteArray start = routesOf({recipeRoute(RS::Bass, LT::Zoom)}, n);
+    RouteArray on;
+    const int onCount = toggleRecipe(ER::KickPunch, start, n, kShaderStyle, on);
+    check(onCount == 3, "on appends the recipe's two routes");
+    check(sameRoute(on[0], start[0]), "on keeps what was there first");
+    check(sameRoute(on[1], recipeRoutes(ER::KickPunch).routes[0]) && sameRoute(on[2], recipeRoutes(ER::KickPunch).routes[1]),
+          "on adds the recipe's routes after, in order");
+    check(recipeIsOn(ER::KickPunch, on, onCount, kShaderStyle), "the recipe reads as on");
+    RouteArray off;
+    const int offCount = toggleRecipe(ER::KickPunch, on, onCount, kShaderStyle, off);
+    check(!recipeIsOn(ER::KickPunch, off, offCount, kShaderStyle), "the recipe reads as off");
+    check(offCount == n && sameRoute(off[0], start[0]), "off leaves the list as it was");
+    check(!off[1].enabled, "slots past the count are disabled");
+}
+
+void recipeReplacesTheSameSlotInsteadOfStacking() {
+    int n = 0;
+    const RouteArray start = routesOf({recipeRoute(RS::KickEnv, LT::CamPush, 0.9f)}, n);
+    check(!recipeIsOn(ER::KickPunch, start, n, kShaderStyle), "half a recipe is not on");
+    RouteArray on;
+    const int count = toggleRecipe(ER::KickPunch, start, n, kShaderStyle, on);
+    int kickPush = 0;
+    for (int i = 0; i < count; ++i) {
+        if (on[static_cast<size_t>(i)].source == RS::KickEnv && on[static_cast<size_t>(i)].target == LT::CamPush) {
+            kickPush += 1;
+            check(on[static_cast<size_t>(i)].amount == 0.4f, "the recipe's amount replaces the old one");
+        }
+    }
+    check(count == 2 && kickPush == 1, "one route per source and target");
+    // A recipe whose slots are all taken by other amounts is on: off then takes those routes out.
+    int m = 0;
+    const RouteArray taken = routesOf({recipeRoute(RS::SnareEnv, LT::ChromaAb, 1.5f), recipeRoute(RS::Bass, LT::Zoom)}, m);
+    check(recipeIsOn(ER::SnareCrack, taken, m, kShaderStyle), "on means every slot is held, whatever the amount");
+    RouteArray off;
+    const int offCount = toggleRecipe(ER::SnareCrack, taken, m, kShaderStyle, off);
+    check(offCount == 1 && off[0].source == RS::Bass, "off takes the slot's route out, whoever set it");
+}
+
+void recipeOnlyAddsWhatTheStyleCanShow() {
+    const RecipeRoutes shader = recipeRoutesFor(ER::SubWeight, kShaderStyle);
+    check(shader.count == 1 && shader.routes[0].target == LT::Warp, "fluid splat force has nothing to push on a shader style");
+    const RecipeRoutes fluid = recipeRoutesFor(ER::SubWeight, kFluidStyle);
+    check(fluid.count == 2 && fluid.routes[1].target == LT::FluidForce, "a fluid style takes both");
+    RouteArray on;
+    const int count = toggleRecipe(ER::SubWeight, RouteArray{}, 0, kShaderStyle, on);
+    check(count == 1 && on[0].target == LT::Warp, "toggling on adds only what the style shows");
+    check(recipeIsOn(ER::SubWeight, on, count, kShaderStyle), "and then reads as on");
+    check(!targetReaches(LT::Speed, "milkdrop") && targetReaches(LT::Speed, kShaderStyle), "MilkDrop presets pace themselves");
+    check(targetReaches(LT::PaletteMix, kShaderStyle) && !targetReaches(LT::PaletteMix, kFluidStyle), "palette blend is a shader look");
+    check(targetReaches(LT::CamYaw, kFluidStyle) && targetReaches(LT::Bloom, "milkdrop"), "camera and composite targets are universal");
+    check(!targetReaches(LT::ParticleSize, kShaderStyle) && targetReaches(LT::ParticleSize, kFluidStyle), "particle size");
+    check(!targetReaches(LT::TrailLength, kShaderStyle) && !targetReaches(LT::Turbulence, kFluidStyle), "trail and turbulence scopes");
+}
+
+void aFullMatrixRefusesARecipeRatherThanDroppingRoutes() {
+    RouteArray full{};
+    for (int i = 0; i < ReactionEngine::kRoutes; ++i) full[static_cast<size_t>(i)] = recipeRoute(RS::High, LT::Warp);
+    check(!recipeFits(ER::KickPunch, full, ReactionEngine::kRoutes, kShaderStyle), "a full matrix has no room");
+    RouteArray out;
+    const int count = toggleRecipe(ER::KickPunch, full, ReactionEngine::kRoutes, kShaderStyle, out);
+    bool same = count == ReactionEngine::kRoutes;
+    for (int i = 0; i < count; ++i) same = same && sameRoute(out[static_cast<size_t>(i)], full[static_cast<size_t>(i)]);
+    check(same, "a refused recipe leaves the list as it was");
+    // One slot short of full: a two-route recipe does not fit, one that replaces a held slot does.
+    RouteArray almost = full;
+    almost[0] = recipeRoute(RS::KickEnv, LT::CamPush);
+    const int eleven = ReactionEngine::kRoutes - 1;
+    check(!recipeFits(ER::LoudnessGlow, almost, eleven, kShaderStyle), "two new routes do not fit in one free slot");
+    check(recipeFits(ER::KickPunch, almost, eleven, kShaderStyle), "a recipe that reuses a held slot needs only one");
+    check(!recipeIsOn(ER::KickPunch, RouteArray{}, 0, kShaderStyle) && recipeFits(ER::KickPunch, RouteArray{}, 0, kShaderStyle),
+          "an empty list has room and nothing on");
+}
+
 }  // namespace
 
 int main() {
@@ -1119,6 +1318,12 @@ int main() {
     buildBudgetBoundsAFrame();
     scenePrepRetargetsAndCaps();
     stagedBuildFinishesInBoundedFrames();
+    everyRecipeHoldsItsOldRoutes();
+    everyRecipeFitsTheMatrixAndListensToSomething();
+    recipeOnThenOffLeavesTheListAsItWas();
+    recipeReplacesTheSameSlotInsteadOfStacking();
+    recipeOnlyAddsWhatTheStyleCanShow();
+    aFullMatrixRefusesARecipeRatherThanDroppingRoutes();
     if (failures == 0) std::printf("viz_math_test: all passed\n");
     return failures == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
 }

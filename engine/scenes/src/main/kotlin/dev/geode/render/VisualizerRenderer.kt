@@ -94,10 +94,20 @@ class VisualizerRenderer(
     var onSurfaceSizeChanged: (width: Int, height: Int) -> Unit = { _, _ -> }
 
     /**
-     * The audio this surface's sound engine hears (core/sound, owned by the native renderer). Read on the
-     * GL thread each frame through [soundCursor], so the engine gets every sample once, in order, and is
-     * stepped with this surface's own frame time. Asked every frame, so a playback session that comes and
-     * goes under a running wallpaper is picked up. Null: the engine hears nothing and its frame stays silent.
+     * The native ingest ring (`geode_ingest*`, the player's: `AudioBus.playerIngest`) this surface's sound
+     * engine hears, or 0. The native renderer reads it itself with its own cursor each frame (core/viz/
+     * SoundFeed, #481): every sample once, downmixed, with its own rate and epoch. Asked every frame, so a
+     * playback session that comes and goes under a running wallpaper is picked up.
+     */
+    @Volatile
+    var soundSource: () -> Long = { 0L }
+
+    /** The source last handed to this native handle; -1 forces a hand-over to a new one. GL thread. */
+    private var nativeSoundSource = -1L
+
+    /**
+     * The Kotlin capture ring (mic, other apps' audio, the wallpaper's output mix) until #485 moves capture
+     * onto native rings too. Fed through [soundCursor]; only one of the two sources plays at a time.
      */
     @Volatile
     var soundInput: () -> SoundInput? = { null }
@@ -258,6 +268,7 @@ class VisualizerRenderer(
         nativeSoundTuning = null
         // A new native renderer starts a new engine: hand it a full window, not the tail of the last.
         soundCursor = null
+        nativeSoundSource = -1L
         firstFrameOnSurface = true
     }
 
@@ -378,6 +389,11 @@ class VisualizerRenderer(
     }
 
     private fun feedSound() {
+        val source = soundSource()
+        if (source != nativeSoundSource) {
+            nativeViz.setSoundSource(source)
+            nativeSoundSource = source
+        }
         val input = soundInput() ?: return
         val cursor = soundCursor?.takeIf { it.ring === input.ring } ?: SoundCursor(input.ring).also { soundCursor = it }
         val take = cursor.take()

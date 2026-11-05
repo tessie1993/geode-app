@@ -12,6 +12,7 @@ extern "C" {
 typedef struct geode_viz      geode_viz;
 typedef struct geode_dsp      geode_dsp;
 typedef struct geode_tags     geode_tags;
+typedef struct geode_ingest   geode_ingest;   /* the native ingest ring, declared in full with its calls below */
 
 /* Native visualizer: one renderer per GL surface. Setters may be called from any thread and are latched
  * for the next frame; the calls under "GL thread" need the surface's context current. */
@@ -66,6 +67,20 @@ GEODE_API void        geode_note_response_set(int enabled);
  * thread before geode_viz_render; the next render steps it with that frame's dt. */
 GEODE_API void        geode_viz_write_audio(geode_viz*, const float* interleaved, int frames, int channels, int sample_rate);
 GEODE_API void        geode_viz_reset_audio(geode_viz*);
+/* The ingest ring this renderer hears (#481), NULL for none. The renderer reads it natively with its own
+ * cursor at the start of each geode_viz_render: every sample once, as the stereo downmix, with the rate it
+ * was written at, the engine reset when a new epoch starts. Any thread; taken up at the next render. The
+ * ring must outlive the renderer, or be unset first. geode_viz_write_audio stays an adapter for callers
+ * that push PCM themselves (export, capture until #485). */
+GEODE_API void        geode_viz_set_sound_source(geode_viz*, geode_ingest*);
+/* A reader of an ingest ring for a shell that must hand samples to an Android API (cast's AAC encoder):
+ * its own cursor, from the newest sample, behind core/viz/SoundFeed's catch-up cap. One thread. */
+typedef struct geode_ingest_reader geode_ingest_reader;
+GEODE_API geode_ingest_reader* geode_ingest_reader_create(geode_ingest*);   /* NULL for a NULL ring */
+GEODE_API void        geode_ingest_reader_destroy(geode_ingest_reader*);
+/* Up to max_frames stereo frames of the downmix as interleaved int16 (clamped, rounded), all of one rate,
+ * which goes to *sample_rate. Returns the frames written; 0 when nothing new. */
+GEODE_API int         geode_ingest_reader_read_s16(geode_ingest_reader*, int16_t* out, int max_frames, int* sample_rate);
 GEODE_API void        geode_viz_set_sound_tuning(geode_viz*, const GeodeSoundTuning*);
 GEODE_API void        geode_viz_set_custom_shader(geode_viz*, const char* scene_id, const char* fragment_source);
 /* The user source the scene last compiled; returns its full length, 0 when it draws the built-in style. */

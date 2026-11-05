@@ -88,6 +88,11 @@ void Renderer::resetAudio() {
     pcm_.clear();
 }
 
+void Renderer::setSoundSource(const audio::ingest::Ring* ring) {
+    std::lock_guard<std::mutex> lock(soundLock_);
+    requestedSoundSource_ = ring;
+}
+
 void Renderer::setSoundTuning(const GeodeSoundTuning& tuning) {
     std::lock_guard<std::mutex> lock(soundLock_);
     soundTuning_ = tuning;

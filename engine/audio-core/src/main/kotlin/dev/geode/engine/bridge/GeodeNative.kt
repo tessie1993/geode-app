@@ -190,6 +190,25 @@ object GeodeNative {
 
     external fun vizResetAudio(handle: Long)
 
+    /** The ingest ring ([ingestCreate]) the renderer reads natively each frame; 0 for none. */
+    external fun vizSetSoundSource(
+        handle: Long,
+        ingest: Long,
+    )
+
+    /** A reader of an ingest ring from its newest sample, for cast's encoder; 0 for a 0 ring. */
+    external fun ingestReaderCreate(ingest: Long): Long
+
+    external fun ingestReaderDestroy(reader: Long)
+
+    /** Up to [maxFrames] stereo int16 frames of one rate into [out]; the rate goes to `rateOut[0]`. */
+    external fun ingestReaderReadS16(
+        reader: Long,
+        out: ShortArray,
+        maxFrames: Int,
+        rateOut: IntArray,
+    ): Int
+
     external fun vizSetSoundTuning(
         handle: Long,
         tuning: FloatArray,

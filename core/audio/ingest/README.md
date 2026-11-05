@@ -1,6 +1,6 @@
 # core/audio/ingest
 
-Part of the target in [ADR 0006](../../../docs/adr/0006-fosfora-aligned-engine.md). The ring and its reader exist (#480); no Kotlin caller writes to it yet (the player tap moves in #481, the capture pumps in #485, export in #490).
+Part of the target in [ADR 0006](../../../docs/adr/0006-fosfora-aligned-engine.md). The ring and its reader exist (#480). The player tap writes it and every live renderer reads its own cursor natively (`core/viz/SoundFeed`, `geode_viz_set_sound_source`, #481); cast's TV audio reads it through `geode_ingest_reader_*`. The capture pumps move in #485, export in #490.
 
 **Owns:** one native PCM ring per audio source (the player tap, the mic, another app's audio, the wallpaper's output mix, a decoded file for export). Each write carries the sample rate, layout and epoch together, so a format change can never pair new samples with an old rate. Converts int16, u8, float, 24- and 32-bit PCM to float here, not in Kotlin. Keeps every channel; readers hear one stereo downmix.
 

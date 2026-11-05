@@ -122,6 +122,7 @@ class VisualizerWallpaperService : WallpaperService() {
             renderer = engine
             restoreLiveState(engine)
             settings = prefsStore.load()
+            engine.soundSource = { sound.ingest }
             engine.soundInput = { sound.input }
             val wrapped = WallpaperRenderer(engine) { sound.input }
             wallpaperRenderer = wrapped

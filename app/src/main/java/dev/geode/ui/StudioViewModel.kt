@@ -4,6 +4,7 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dev.geode.data.SaveTarget
 import dev.geode.di.PlayerSessionProvider
 import dev.geode.editor.ClipId
 import dev.geode.editor.EditResult
@@ -107,6 +108,15 @@ class StudioViewModel
         fun startRecording() = session.startRecording()
 
         fun stopRecording(name: String? = null) = session.stopRecording(name)
+
+        /** The ask-once save sheet's answer for the take waiting in [TakeUiState.pendingSave]. */
+        fun chooseTakeSaveTarget(
+            target: SaveTarget,
+            remember: Boolean,
+        ) = session.chooseTakeSaveTarget(target, remember)
+
+        /** The save sheet was dismissed: the take stays in My videos, unrendered. */
+        fun skipTakeSave() = session.skipTakeSave()
 
         fun playTake(name: String) = session.playTake(name)
 

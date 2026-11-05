@@ -175,25 +175,44 @@ internal class TakeController(
             val label = requested ?: defaultTakeName()
             val saved = takes.save(label, pending(label))
             refresh()
-            val target = takes.saveTarget()
-            if (target == null) {
-                _state.update { it.copy(pendingSave = saved) }
-            } else {
-                render(saved, target)
-            }
+            onTakeSaved(saved)
         }
     }
 
     /**
-     * The ask-once answer for [TakeUiState.pendingSave]: kept as the default for every later take,
-     * then the waiting take renders there.
+     * After take [saved] is on disk: render it where takes go, or, when that has not been answered
+     * yet, raise the ask-once save sheet ([TakeUiState.pendingSave]) and wait for
+     * [chooseSaveTarget]. Split from [stopRecording] so the rule is testable without a recorder.
      */
-    fun chooseSaveTarget(target: SaveTarget) {
+    @androidx.annotation.VisibleForTesting
+    internal suspend fun onTakeSaved(saved: String) {
+        val target = takes.saveTarget()
+        if (target == null) {
+            _state.update { it.copy(pendingSave = saved) }
+        } else {
+            render(saved, target)
+        }
+    }
+
+    /**
+     * The answer to [TakeUiState.pendingSave]: the waiting take renders to [target], which is kept
+     * as the default for every later take only when [remember] is set (the sheet's "use for every
+     * take", on by default). A target that cannot be used (a folder whose grant would not hold)
+     * leaves the sheet up with a note, so the take is never sent to a folder it cannot write.
+     */
+    fun chooseSaveTarget(
+        target: SaveTarget,
+        remember: Boolean = true,
+    ) {
         val name = _state.value.pendingSave ?: return
         _state.update { it.copy(pendingSave = null) }
         storeScope.launch {
-            takes.chooseSaveTarget(target)
-            render(name, target)
+            if (takes.chooseSaveTarget(target, remember)) {
+                render(name, target)
+            } else {
+                _state.update { it.copy(pendingSave = name) }
+                showNote(TAKE_FOLDER_REFUSED_NOTE)
+            }
         }
     }
 
@@ -317,6 +336,8 @@ internal class TakeController(
         const val TAKE_DISCARDED_NOTE = "Too short — take not saved"
 
         const val TAKE_NOT_RENDERED_NOTE = "Take saved — another render is running, render it from My videos"
+
+        const val TAKE_FOLDER_REFUSED_NOTE = "Can't save to that folder — pick another"
 
         /** A take shorter than this is a mis-tap, not a performance. */
         const val MIN_TAKE_MS = 1_000L

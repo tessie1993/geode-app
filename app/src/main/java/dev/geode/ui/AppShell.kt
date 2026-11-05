@@ -421,6 +421,7 @@ fun AppRoot() {
             if (bootAnimEnabled != false && !appState.bootDone) {
                 BootIntro(onDone = { appState.bootDone = true })
             }
+            RecordSaveHost()
             PaywallHost(reducedMotion = gui.reducedMotion)
             SharedLinkConfirm()
         }

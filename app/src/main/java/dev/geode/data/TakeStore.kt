@@ -130,11 +130,15 @@ class TakeStore(
     @WorkerThread
     fun saveTarget(): SaveTarget? = saveTargets?.target()
 
-    /** Keeps [target] as where every later take renders, so the next stop does not ask. */
+    /**
+     * Answers where a take renders: [target], kept for every later take when [remember] is set.
+     * False when the target cannot be used (a folder whose write grant could not be held).
+     */
     @WorkerThread
-    fun chooseSaveTarget(target: SaveTarget) {
-        saveTargets?.choose(target)
-    }
+    fun chooseSaveTarget(
+        target: SaveTarget,
+        remember: Boolean,
+    ): Boolean = saveTargets?.choose(target, remember) ?: true
 
     /**
      * The take called [name]'s project, ready to render to [saveTo]. The target is written into the

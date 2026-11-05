@@ -9,8 +9,8 @@ import dev.geode.util.bestEffort
 
 /**
  * Where a recorded take's MP4 goes, asked once: the first stopped recording asks the user (Videos
- * library or a folder they pick), and every later take renders there without asking. Settings ›
- * Export & save reads and changes the same answer.
+ * library or a folder they pick) and may keep that answer, so every later take renders there
+ * without asking. [clear] forgets it.
  *
  * Its own small prefs file rather than [ExportPrefsStore]'s Custom defaults, so "not asked yet"
  * stays distinct from "asked, chose the Videos library", which a [SaveTarget] alone cannot say.
@@ -34,18 +34,26 @@ class RecordSaveStore(
     }
 
     /**
-     * Keeps [target] as the default. For a folder, takes the persistable grant the picker offered
-     * first, so the answer outlives a restart; if that fails, nothing is stored and the next take
-     * asks again.
+     * Answers the ask-once question with [target], and keeps it as the default only when
+     * [remember] is set; otherwise just this take renders there and the next stop asks again.
+     *
+     * For a folder, the persistable grant the picker offered is taken either way: the render runs
+     * in the background and can outlive the picker's temporary grant, so even a one-off folder
+     * needs it. If the grant cannot be held, nothing is stored and false comes back, so the caller
+     * keeps asking instead of rendering to a folder it cannot write.
      */
-    fun choose(target: SaveTarget) {
+    fun choose(
+        target: SaveTarget,
+        remember: Boolean = true,
+    ): Boolean {
         if (target is SaveTarget.Folder) {
             bestEffort(TAG, "take persistable grant") {
                 appContext.contentResolver.takePersistableUriPermission(target.treeUri.toUri(), GRANT_FLAGS)
             }
-            if (!holdsGrant(target.treeUri)) return
+            if (!holdsGrant(target.treeUri)) return false
         }
-        prefs.edit { putString(KEY_TARGET, target.encode()) }
+        if (remember) prefs.edit { putString(KEY_TARGET, target.encode()) }
+        return true
     }
 
     /** Forgets the answer, so the next take asks again. */

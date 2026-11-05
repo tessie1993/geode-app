@@ -10,7 +10,6 @@ import dev.geode.render.HandMask
 import dev.geode.render.LfoConfig
 import dev.geode.render.ReactionRoute
 import dev.geode.render.SceneFactory
-import dev.geode.render.StyleReactionsCache
 import dev.geode.render.bridge.NativeViz
 import dev.geode.render.bridge.StyleSchedule
 import dev.geode.render.scene.SceneParams
@@ -87,8 +86,6 @@ class OffscreenSceneRenderer(
     private val spec: OffscreenRenderSpec,
 ) {
     private var native: NativeViz? = null
-    private val styleReactions = StyleReactionsCache()
-    private var nativeReactions: List<ReactionRoute>? = null
     private var audio: TrackAudio? = null
 
     /** Builds the native renderer and its scene; must run with the target GL context current. */
@@ -138,12 +135,8 @@ class OffscreenSceneRenderer(
         val nextTimeMs = GeodeNative.exportFrameTimeMs(frame + 1L, fps)
         val p = spec.paramsAt?.invoke(timeMs) ?: spec.baseParams
         viz.setParams(p)
-        // Keyframes can change reactSeed mid-export, so this resolves per frame like live does.
-        val routes = styleReactions.routesFor(sceneFactory.sceneId, p.reactSeed, spec.reactions, HandMask.current)
-        if (routes !== nativeReactions) {
-            viz.setReactions(routes)
-            nativeReactions = routes
-        }
+        // Native re-resolves the routes when keyframes change reactSeed, as live does; this sends only changes.
+        viz.setUserReactions(spec.reactions, HandMask.current)
         // Exactly the audio up to the end of this frame, then a render steps the engine by 1/fps.
         audio?.deliverUntilMs(nextTimeMs) { pcm, frames, channels, rate -> viz.writeAudio(pcm, frames, channels, rate) }
         // The frame's exact time, not the whole-ms one above (#377): floor(n * 1e9 / fps) ns.

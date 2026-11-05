@@ -270,15 +270,19 @@ object GeodeNative {
         config: FloatArray,
     )
 
-    /** Every reaction route, `REACT_ROUTE_FLOATS` per route (geode_viz_set_reactions). */
-    external fun vizSetReactions(
+    /**
+     * The user's reaction [routes] (`REACT_ROUTE_FLOATS` per route; null: none, the DNA plays) under the hand
+     * [mask] (geode_viz_set_user_reactions). Native resolves what plays from these, the scene and `reactSeed`.
+     */
+    external fun vizSetUserReactions(
         handle: Long,
-        routes: FloatArray,
+        routes: FloatArray?,
+        mask: Int,
     )
 
     /**
      * A style's reaction DNA (core/viz/ReactionDna), `REACT_ROUTE_FLOATS` per route, in the
-     * [vizSetReactions] layout. Needs no viz handle: the same id and seed always give the same routes.
+     * [vizSetUserReactions] layout. Needs no viz handle: the same id and seed always give the same routes.
      */
     external fun styleReactions(
         styleId: String,
@@ -298,7 +302,7 @@ object GeodeNative {
 
     /**
      * What plays (geode_style_reactions_hand): the [user]'s routes on the [mask]'s sources, the style's DNA on
-     * every other, in the [vizSetReactions] layout. [user] null is "all Auto", the DNA alone.
+     * every other, in the [vizSetUserReactions] layout. [user] null is "all Auto", the DNA alone.
      */
     external fun styleReactionsHand(
         styleId: String,
@@ -345,7 +349,7 @@ object GeodeNative {
     const val MUSIC_STATE_FLOATS: Int = 5
 
     /**
-     * Customize › Music's ready-made [recipe]'s routes the style [styleId] can show, in the [vizSetReactions]
+     * Customize › Music's ready-made [recipe]'s routes the style [styleId] can show, in the [vizSetUserReactions]
      * layout; every route it holds for a null [styleId] (geode_event_recipe_routes).
      */
     external fun eventRecipeRoutes(

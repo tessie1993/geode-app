@@ -12,7 +12,7 @@ import dev.geode.render.bridge.ModConfigCodec
  * camera angle, a warp, a push...) and a second one from another group for alternate phrases,
  * plus layers for the backbeat, the sustained bands, the top end, colour over the song, build-ups
  * and drops. This class only asks for it and decodes the floats, so the Reactivity tab can show
- * the routes and the renderers can send them back.
+ * the routes (the renderers resolve their own natively, core/viz/ReactionResolve).
  *
  * [playing] is what the matrix plays once the user has routes of their own: "the hand wins per
  * moment" (Customize › Music), so their routes play only for the sources their hand mask owns and the

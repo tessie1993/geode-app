@@ -123,7 +123,7 @@ class VisualizerRenderer(
     /**
      * The user's own reaction routes, or null to play the style's DNA
      * ([BuildStyleReactionsUseCase] for the current scene and `reactSeed`). A list plays only on the
-     * moments [HandMask] gives the user; every other moment plays the live DNA ([StyleReactionsCache]).
+     * moments [HandMask] gives the user; every other moment plays the live DNA (resolved natively).
      */
     @Volatile
     var reactions: List<ReactionRoute>? = null
@@ -134,8 +134,6 @@ class VisualizerRenderer(
 
     @Volatile
     var lookPitch: Float = 0f
-
-    private val styleReactions = StyleReactionsCache()
 
     private val appContext = context.applicationContext
 
@@ -150,7 +148,6 @@ class VisualizerRenderer(
     private var nativeParams: SceneParams? = null
     private var nativeLfo: List<LfoConfig>? = null
     private var nativeAdsr: List<AdsrConfig>? = null
-    private var nativeReactions: List<ReactionRoute>? = null
     private var nativePerformance: PerformanceSettings? = null
     private var nativeThermalSampleMs = 0L
     private var liquidModeSampleMs = 0L
@@ -256,7 +253,6 @@ class VisualizerRenderer(
         nativeParams = null
         nativeLfo = null
         nativeAdsr = null
-        nativeReactions = null
         nativePerformance = null
         liquidModeSampleMs = 0L
         nativeSoundTuning = null
@@ -348,11 +344,8 @@ class VisualizerRenderer(
             nativeViz.setAdsrConfigs(adsr)
             nativeAdsr = adsr
         }
-        val routes = styleReactions.routesFor(requestedSceneId, p.reactSeed, reactions, HandMask.current)
-        if (routes !== nativeReactions) {
-            nativeViz.setReactions(routes)
-            nativeReactions = routes
-        }
+        // Native resolves what plays from these, the scene and reactSeed, only when one changes.
+        nativeViz.setUserReactions(reactions, HandMask.current)
         val perf = performance
         if (perf != nativePerformance) {
             nativeViz.setQuality(perf.renderScale, perf.marchScale, perf.postFx, perf.adaptive)

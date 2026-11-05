@@ -9,6 +9,7 @@ import dev.geode.render.BlendMode
 import dev.geode.render.LfoConfig
 import dev.geode.render.LfoEngine
 import dev.geode.render.ReactionRoute
+import dev.geode.render.scene.BuildStyleReactionsUseCase
 import dev.geode.render.scene.SceneParams
 import java.io.File
 
@@ -34,6 +35,9 @@ class NativeViz(
     private var handle = 0L
     private val paramFrame = FloatArray(SceneParamsCodec.FIELDS)
     private var reportedError = ""
+    private var userRoutes: List<ReactionRoute>? = null
+    private var userMask = 0
+    private var userSent = false
 
     /**
      * Runs once per new handle, inside [create], on whichever thread created it. A handle is
@@ -47,6 +51,7 @@ class NativeViz(
         if (handle == 0L) {
             verifyLayouts()
             handle = GeodeNative.vizCreate(assets, cacheDir)
+            userSent = false
             if (handle != 0L) {
                 GeodeNative.vizSetMilkTextureDir(handle, milkTextureDir)
                 onCreated()
@@ -179,8 +184,16 @@ class NativeViz(
         configs.take(AdsrEngine.COUNT).forEachIndexed { slot, c -> GeodeNative.vizSetAdsr(handle, slot, ModConfigCodec.packAdsr(c)) }
     }
 
-    fun setReactions(routes: List<ReactionRoute>) {
-        if (handle != 0L) GeodeNative.vizSetReactions(handle, ModConfigCodec.packReactions(routes))
+    /** The user's routes and hand mask, sent only when [routes] (by identity) or [mask] changes; native resolves what plays. */
+    fun setUserReactions(
+        routes: List<ReactionRoute>?,
+        mask: Int,
+    ) {
+        if (handle == 0L || (userSent && routes === userRoutes && mask == userMask)) return
+        GeodeNative.vizSetUserReactions(handle, routes?.let { BuildStyleReactionsUseCase.packExact(it) }, mask)
+        userRoutes = routes
+        userMask = mask
+        userSent = true
     }
 
     fun setLook(

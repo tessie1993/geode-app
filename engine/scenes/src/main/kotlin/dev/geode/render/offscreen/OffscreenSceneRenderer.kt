@@ -9,7 +9,6 @@ import dev.geode.render.HandMask
 import dev.geode.render.LfoConfig
 import dev.geode.render.ReactionRoute
 import dev.geode.render.SceneFactory
-import dev.geode.render.StyleReactionsCache
 import dev.geode.render.bridge.NativeViz
 import dev.geode.render.bridge.StyleSchedule
 import dev.geode.render.scene.SceneParams
@@ -87,8 +86,6 @@ class OffscreenSceneRenderer(
     private val spec: OffscreenRenderSpec,
 ) {
     private var native: NativeViz? = null
-    private val styleReactions = StyleReactionsCache()
-    private var nativeReactions: List<ReactionRoute>? = null
     private var audio: TrackAudio? = null
 
     /** Builds the native renderer and its scene; must run with the target GL context current. */
@@ -132,12 +129,8 @@ class OffscreenSceneRenderer(
         // The frame grid and the audio cut are native, on the absolute frame index (core/viz/frame/OfflineStep).
         val p = spec.paramsAt?.invoke(NativeViz.offlineFrameMs(frame, spec.fps, 1)) ?: spec.baseParams
         viz.setParams(p)
-        // Keyframes can change reactSeed mid-export, so this resolves per frame like live does.
-        val routes = styleReactions.routesFor(sceneFactory.sceneId, p.reactSeed, spec.reactions, HandMask.current)
-        if (routes !== nativeReactions) {
-            viz.setReactions(routes)
-            nativeReactions = routes
-        }
+        // Native re-resolves the routes when keyframes change reactSeed, as live does; this sends only changes.
+        viz.setUserReactions(spec.reactions, HandMask.current)
         // Exactly the audio up to the end of this frame, then a render steps the engine by 1/fps.
         audio?.let { a ->
             val until = NativeViz.offlineAudioUntil(frame, spec.fps, 1, a.sampleRate())

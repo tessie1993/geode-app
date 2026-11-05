@@ -6,6 +6,7 @@
 #include <memory>
 #include <mutex>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "api/geode_api.h"
@@ -13,6 +14,7 @@
 #include "viz/NoteResponse.hpp"
 #include "viz/Macros.hpp"
 #include "viz/ReactionDna.hpp"
+#include "viz/ReactionResolve.hpp"
 #include "viz/Renderer.hpp"
 #include "viz/SceneRegistry.hpp"
 #include "viz/frame/OfflineStep.hpp"
@@ -26,6 +28,15 @@ struct geode_viz {
     std::array<geode::viz::AdsrConfig, geode::viz::AdsrEngine::kCount> adsr{};
     // Set by geode_viz_prepare_offscreen: every set_params then carries the export's pinned params.
     std::atomic<bool> offline{false};
+    // What the reaction matrix plays (#750): scene, reactSeed, the user's routes and hand mask in, resolved
+    // on the render thread only when one changed. reactLock guards it: set_params may come from any thread.
+    std::mutex reactLock;
+    geode::viz::ReactionResolve reactions{&styleTraits};
+
+    static geode::viz::StyleTraits styleTraits(std::string_view id) {
+        const std::string s(id);
+        return {geode::viz::SceneRegistry::spinRate(s), geode::viz::SceneRegistry::isShaderStyle(s)};
+    }
 };
 
 namespace {
@@ -81,6 +92,10 @@ void geode_viz_set_params(geode_viz* v, const float* values, int count) {
     SceneParams p;
     for (int i = 0; i < count; ++i) p.set(names[static_cast<size_t>(i)], values[i]);
     if (v->offline.load(std::memory_order_relaxed)) geode::viz::frame::pinOfflineParams(p);
+    {
+        std::lock_guard<std::mutex> lock(v->reactLock);
+        v->reactions.setSeed(p.reactSeed);
+    }
     v->renderer.setParams(p);
 }
 
@@ -212,7 +227,7 @@ void geode_viz_set_adsr(geode_viz* v, int slot, const float* c, int count) {
 
 namespace {
 
-// The geode_viz_set_reactions layout in; returns how many routes were read.
+// The routes layout (GEODE_REACT_ROUTE_FLOATS per route) in; returns how many routes were read.
 int readRoutes(const float* c, int count, RouteArray& routes) {
     routes = RouteArray{};
     if (!c || count < 0) return 0;
@@ -251,9 +266,7 @@ int writeRoutes(const RouteArray& routes, int count, float* out, int capacity) {
     return n;
 }
 
-StyleDna dnaOf(const std::string& id, int seed) {
-    return buildStyleDna(id, seed, {SceneRegistry::spinRate(id), SceneRegistry::isShaderStyle(id)});
-}
+StyleDna dnaOf(const std::string& id, int seed) { return buildStyleDna(id, seed, geode_viz::styleTraits(id)); }
 
 HandRoutes handOf(const float* user, int user_floats, int has_user, unsigned mask) {
     HandRoutes h;
@@ -261,6 +274,13 @@ HandRoutes handOf(const float* user, int user_floats, int has_user, unsigned mas
     if (h.user) h.count = readRoutes(user, user_floats, h.routes);
     h.mask = h.user ? (static_cast<std::uint32_t>(mask) & hand::kAll) : 0u;
     return h;
+}
+
+// Before a render: what plays, worked out again only when the scene, seed, routes or mask changed.
+void syncReactions(geode_viz* v) {
+    RouteArray routes{};
+    std::lock_guard<std::mutex> lock(v->reactLock);
+    if (v->reactions.resolve(routes)) v->renderer.setReactionRoutes(routes);
 }
 
 static_assert(kMomentCount == GEODE_MUSIC_MOMENTS);
@@ -271,11 +291,11 @@ static_assert(hand::kAll == GEODE_HAND_ALL && hand::kUnclaimed == GEODE_HAND_UNC
 
 extern "C" {
 
-void geode_viz_set_reactions(geode_viz* v, const float* c, int count) {
-    if (!v || !c || count < 0) return;
-    RouteArray routes{};
-    readRoutes(c, count, routes);
-    v->renderer.setReactionRoutes(routes);
+void geode_viz_set_user_reactions(geode_viz* v, const float* routes, int count, int has_user, unsigned mask) {
+    if (!v) return;
+    const HandRoutes h = handOf(routes, count, has_user, mask);
+    std::lock_guard<std::mutex> lock(v->reactLock);
+    v->reactions.setHand(h);
 }
 
 void geode_hand_set(unsigned mask) { hand::setGlobal(static_cast<std::uint32_t>(mask)); }
@@ -485,7 +505,13 @@ void geode_viz_surface_changed(geode_viz* v, int width, int height) {
 }
 
 int geode_viz_set_scene(geode_viz* v, const char* scene_id) {
-    return (v && scene_id && v->renderer.setScene(scene_id)) ? 1 : 0;
+    if (!v || !scene_id) return 0;
+    {
+        // The routes follow the scene asked for, drawable or not, as the Kotlin cache did.
+        std::lock_guard<std::mutex> lock(v->reactLock);
+        v->reactions.setScene(scene_id);
+    }
+    return v->renderer.setScene(scene_id) ? 1 : 0;
 }
 
 void geode_viz_set_style_schedule(geode_viz* v, const double* at_ms, const char* const* scene_ids,
@@ -521,7 +547,9 @@ void geode_viz_cut(geode_viz* v) {
 }
 
 void geode_viz_render(geode_viz* v, double time_seconds, uint32_t target_fbo) {
-    if (v) v->renderer.render(time_seconds, target_fbo);
+    if (!v) return;
+    syncReactions(v);
+    v->renderer.render(time_seconds, target_fbo);
 }
 
 void geode_viz_prepare_offscreen(geode_viz* v) {
@@ -537,7 +565,9 @@ void geode_viz_prepare_offscreen(geode_viz* v) {
 
 void geode_viz_render_offscreen_frame(geode_viz* v, int64_t index, int32_t fps_num, int32_t fps_den,
                                       uint32_t target_fbo) {
-    if (v) v->renderer.render(geode::viz::frame::frameSeconds(index, {fps_num, fps_den}), target_fbo);
+    if (!v) return;
+    syncReactions(v);
+    v->renderer.render(geode::viz::frame::frameSeconds(index, {fps_num, fps_den}), target_fbo);
 }
 
 int64_t geode_offline_frame_ms(int64_t index, int32_t fps_num, int32_t fps_den) {

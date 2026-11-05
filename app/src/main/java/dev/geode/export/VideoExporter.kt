@@ -16,6 +16,7 @@ import dev.geode.R
 import dev.geode.RingLog
 import dev.geode.billing.ProSnapshot
 import dev.geode.data.AutoDirectorStore
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.engine.audio.SoundTuning
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.render.SceneFactory
@@ -40,6 +41,23 @@ enum class ExportCodec(
 
     /** This codec when the device has an encoder for it, otherwise H.264, which every device has. */
     fun available(): ExportCodec = if (this == H264 || hasEncoder(mimeType)) this else H264
+
+    /**
+     * The highest rate the first encoder for this codec lists for a [width] x [height] picture
+     * (the standard's limit, not a speed promise), 0 when it does not say or refuses the size.
+     * Only the query: the encoder ladder in core/output decides what to ask for.
+     */
+    fun fpsCeiling(
+        width: Int,
+        height: Int,
+    ): Int =
+        runCatching {
+            val encoder =
+                MediaCodecList(MediaCodecList.REGULAR_CODECS).codecInfos.firstOrNull { info ->
+                    info.isEncoder && info.supportedTypes.any { it.equals(mimeType, ignoreCase = true) }
+                }
+            encoder?.getCapabilitiesForType(mimeType)?.videoCapabilities?.getSupportedFrameRatesFor(width, height)?.upper?.toInt()
+        }.getOrNull() ?: 0
 
     companion object {
         fun hasEncoder(mimeType: String): Boolean =
@@ -405,14 +423,11 @@ class VideoExporter(
             if (bitRate < aspect.bitRate) {
                 RingLog.note(TAG, "video bit rate capped to $bitRate for a ${aac.durationUs / 1000} ms render")
             }
-            val requestedFpsBounded = requestedFps.coerceIn(24, 60)
-            // The requested codec at the requested rate first, then its reduced form, then the same pair on H.264.
+            // The requested codec's ladder (core/output/EncoderLadder), then the same ladder on H.264.
             val attempts =
                 listOf(codec.available(), ExportCodec.H264).distinct().flatMap { c ->
-                    listOf(
-                        EncoderAttempt(c, requestedFpsBounded, bitRate),
-                        EncoderAttempt(c, dev.geode.data.fallbackExportFps(requestedFpsBounded), bitRate * 2 / 3),
-                    )
+                    val rungs = GeodeNative.encoderLadder(requestedFps, bitRate, c.fpsCeiling(aspect.width, aspect.height))
+                    (rungs.indices step 2).map { EncoderAttempt(c, rungs[it], rungs[it + 1]) }
                 }
             val (encoder, fps) = openEncoder(aspect, attempts)
             encoderRef = encoder

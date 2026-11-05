@@ -90,7 +90,7 @@ enum class ExportDestination {
 fun ExportDefaults.filledFrom(preset: ExportPreset): ExportDefaults =
     copy(quality = preset.quality, ratio = preset.ratio, fps = preset.fps, loopSafe = preset.loopSafe)
 
-// Kept in sync with VideoExporter's `requestedFps.coerceIn(24, 60)`: these are the frame rates
+// Kept in sync with the encoder ladder's 24..60 clamp (core/output/EncoderLadder): these are the frame rates
 // offered anywhere in the UI, so nothing outside this set is ever persisted or requested.
 internal val EXPORT_FPS_OPTIONS: List<Int> = listOf(24, 25, 30, 50, 60)
 

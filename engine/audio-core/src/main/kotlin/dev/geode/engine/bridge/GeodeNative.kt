@@ -578,6 +578,18 @@ object GeodeNative {
         frames: Int,
     ): ShortArray
 
+    // Encoder fallback ladder (core/output/EncoderLadder): what an export asks the video encoder for.
+
+    /**
+     * The rungs to try for [requestedFps] at [bitRate], as `[fps, bitRate]` pairs in order (one or
+     * two). [ceilingFps] is the encoder's listed upper rate for the size, 0 when unknown.
+     */
+    external fun encoderLadder(
+        requestedFps: Int,
+        bitRate: Int,
+        ceilingFps: Int,
+    ): IntArray
+
     // Export loudness meter (core/audio/dsp/Loudness): BS.1770-4 integrated loudness and true peak.
 
     external fun loudnessSupports(channels: Int): Boolean

@@ -115,4 +115,23 @@ Java_dev_geode_engine_bridge_GeodeNative_loudnessFinish(JNIEnv* env, jobject, jl
     return report.has_integrated ? JNI_TRUE : JNI_FALSE;
 }
 
+// Encoder fallback ladder (core/output/EncoderLadder): marshalling only. The int[] is [fps, bitRate] pairs in
+// the order to try; GeodeNative.encoderLadder documents the same layout.
+JNIEXPORT jintArray JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_encoderLadder(JNIEnv* env, jobject, jint requestedFps, jint bitRate,
+                                                      jint ceilingFps) {
+    constexpr int kCapacity = 2;
+    int fps[kCapacity] = {};
+    int bps[kCapacity] = {};
+    const int count = geode_encoder_ladder(requestedFps, bitRate, ceilingFps, fps, bps, kCapacity);
+    jint pairs[kCapacity * 2] = {};
+    for (int i = 0; i < count; ++i) {
+        pairs[i * 2] = fps[i];
+        pairs[i * 2 + 1] = bps[i];
+    }
+    jintArray result = env->NewIntArray(count * 2);
+    if (result && count > 0) env->SetIntArrayRegion(result, 0, count * 2, pairs);
+    return result;
+}
+
 }

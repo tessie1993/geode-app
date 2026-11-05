@@ -322,6 +322,13 @@ GEODE_API void            geode_loudness_feed_s16(geode_loudness*, const int16_t
 GEODE_API int             geode_loudness_has_block(geode_loudness*);   /* 1 once a 400 ms block exists */
 GEODE_API void            geode_loudness_finish(geode_loudness*, geode_loudness_report* out);   /* non-destructive */
 
+/* Encoder fallback ladder (output/EncoderLadder, #607): the frame rates and bit rates an export asks the video
+ * encoder for, in order, until configure accepts one. ceiling_fps is the upper bound the encoder's capability
+ * table gives for the size (MediaCodecInfo.VideoCapabilities), 0 or less when unknown. Writes up to capacity
+ * rungs (2 at most) into out_fps / out_bit_rate and returns how many; 0 for NULL outs. Pure, any thread. */
+GEODE_API int             geode_encoder_ladder(int requested_fps, int bit_rate, int ceiling_fps, int* out_fps,
+                                               int* out_bit_rate, int capacity);
+
 /* Export post-passes (viz/frame/ExportPasses, #442): the non-Pro watermark, a loop render's seam, and a Studio
  * render's GL Transition with the capture that feeds it, each a frame::Pass on the export surface. The pure
  * calls (text_px, tile_*, seam_weight) run anywhere; every other call needs the export's GL context current

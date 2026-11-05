@@ -1,5 +1,6 @@
 #pragma once
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 
 // The frame clock every surface shares (ADR 0006, ADR 0008): which vsyncs a surface draws on, and
@@ -24,6 +25,16 @@ inline constexpr double kFirstDtSeconds = 1.0 / 60.0;
 
 inline double clampDt(double elapsedSeconds) { return std::clamp(elapsedSeconds, kMinDtSeconds, kMaxDtSeconds); }
 
+// The cap a surface actually runs at (ADR 0008): its own (Settings › Performance, the wallpaper's or the
+// dream's choice) under the thermal one (ThermalState::capFor). Either <= 0, or not a number, means none.
+inline float effectiveCapFps(float surfaceCapFps, float thermalCapFps) {
+    const bool surface = std::isfinite(surfaceCapFps) && surfaceCapFps > 0.0f;
+    const bool thermal = std::isfinite(thermalCapFps) && thermalCapFps > 0.0f;
+    if (surface && thermal) return std::min(surfaceCapFps, thermalCapFps);
+    if (surface) return surfaceCapFps;
+    return thermal ? thermalCapFps : 0.0f;
+}
+
 struct PacerState {
     int64_t lastDrawnNs = 0;
     int64_t lastVsyncNs = 0;
@@ -31,10 +42,14 @@ struct PacerState {
     int64_t samples = 0;   // period samples taken, capped at kSettleFrames
     int64_t sinceDrawn = 0;
     int64_t divisor = 1;
+    // The cap the last vsync paced to, in millihertz (0 = none). The shell compares it each vsync and
+    // re-asks Surface.setFrameRate when the thermal cap moves it, without a second call across JNI.
+    int64_t capMilliHz = 0;
 };
 
-// The wire layout for the ABI: six int64s in this order.
-inline constexpr int kPacerStateLongs = 6;
+// The wire layout for the ABI: seven int64s in this order.
+inline constexpr int kPacerStateLongs = 7;
+inline constexpr int kPacerCapSlot = 6;
 
 class Pacer {
 public:
@@ -59,6 +74,7 @@ public:
     // with, or 0 to skip this vsync.
     static double onVsync(PacerState& s, int64_t frameTimeNs, float capFps) {
         trackPeriod(s, frameTimeNs);
+        s.capMilliHz = capFps > 0.0f && std::isfinite(capFps) ? std::llround(static_cast<double>(capFps) * 1000.0) : 0;
         s.divisor = divisorFor(s, capFps);
         if (++s.sinceDrawn < s.divisor) return 0.0;
         s.sinceDrawn = 0;
@@ -98,7 +114,7 @@ private:
 };
 
 // Wire helpers for the ABI.
-inline PacerState unpack(const int64_t* w) { return PacerState{w[0], w[1], w[2], w[3], w[4], w[5]}; }
+inline PacerState unpack(const int64_t* w) { return PacerState{w[0], w[1], w[2], w[3], w[4], w[5], w[6]}; }
 inline void pack(const PacerState& s, int64_t* w) {
     w[0] = s.lastDrawnNs;
     w[1] = s.lastVsyncNs;
@@ -106,6 +122,7 @@ inline void pack(const PacerState& s, int64_t* w) {
     w[3] = s.samples;
     w[4] = s.sinceDrawn;
     w[5] = s.divisor;
+    w[6] = s.capMilliHz;
 }
 
 }  // namespace geode::viz::frame

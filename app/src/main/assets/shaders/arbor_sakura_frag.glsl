@@ -49,7 +49,7 @@ out vec4 fragColor;
 void main() {
     vec2 uv = arbView();
     float px = max(length(fwidth(uv)), 1e-4);
-    float t = uTime * uSpeed;
+    float t = uTime;
     float energy = uIntensity;
     float chaos = arbChaos();
     float swell = clamp(SND_INTENSITY, 0.0, 1.5);

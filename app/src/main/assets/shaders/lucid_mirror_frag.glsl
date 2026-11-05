@@ -63,7 +63,7 @@ vec2 mirrorBox(vec2 p, float h, out float seam) {
 
 void main() {
     vec2 uv = lucidView(false);
-    float t = uTime * uSpeed;
+    float t = uTime;
     float flow = uFlowPhase * uSpeed;
     float treb = clamp(sndShaped(SND_HIGH), 0.0, 1.5);
     float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);

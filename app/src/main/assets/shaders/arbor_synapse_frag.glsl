@@ -99,7 +99,7 @@ float spark(float level, float along, float path, float cellH, float phase) {
 
 void main() {
     vec2 uv = arbView();
-    float t = uTime * uSpeed;
+    float t = uTime;
     float energy = uIntensity;
     float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
     float flux = clamp(sndLevel(SND_FLUX), 0.0, 1.0) * energy;

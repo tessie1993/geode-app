@@ -119,14 +119,14 @@
 // ---- the Customize macros ---------------------------------------------------
 //
 // At their defaults each is the identity: Speed (uSpeed 1) scales animation
-// time, Complexity (uMorph 0) adds pieces or detail per style, Chaos (uWarp,
+// time through uTime, which ShaderScene already integrates by speed, Complexity (uMorph 0) adds pieces or detail per style, Chaos (uWarp,
 // uTurbulence 0) wobbles surfaces as if the glass were poured and not yet set,
 // Energy (uIntensity 1) scales how far the music moves a style. Colour is pal();
 // Space is the rig.
 
 /** Animation time under the Speed macro. */
 float glassTime() {
-    return uTime * uSpeed;
+    return uTime;
 }
 
 /** The Energy macro as a gain on in-shader audio reaction, clamped so a high setting cannot fling a shape out of frame. */

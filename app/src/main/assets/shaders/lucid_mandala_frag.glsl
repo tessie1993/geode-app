@@ -51,7 +51,7 @@ vec2 wedge(vec2 uv, float segs) {
 
 void main() {
     vec2 uv = lucidView(false);
-    float t = uTime * uSpeed;
+    float t = uTime;
     float flow = uFlowPhase * uSpeed;
     float hat = clamp(SND_HAT_ENV, 0.0, 1.0) * uIntensity;
     float mid = clamp(sndShaped(SND_MIDDLE), 0.0, 1.5);

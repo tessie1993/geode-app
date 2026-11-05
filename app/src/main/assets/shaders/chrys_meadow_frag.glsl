@@ -47,7 +47,7 @@ void main() {
     vec2 uv = view();
     float swell = clamp((0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)), 0.0, 1.5);
     float aspect = uResolution.x / uResolution.y;
-    float t = uTime * uSpeed;
+    float t = uTime;
     float chaos = clamp(uTurbulence + uWarp, 0.0, 2.0);
     float density = 1.0 + clamp(uMorph, 0.0, 1.0);
     float hue = 0.75 + 0.02 * sin(t * 0.02);

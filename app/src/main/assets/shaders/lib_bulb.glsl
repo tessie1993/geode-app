@@ -120,14 +120,15 @@ int bulbIters(int hi) {
 //
 // The app's macros move standard scene params, not per-style uniforms, so
 // every bulb answers them through these, the same way, and at their defaults
-// each is the identity: Speed (uSpeed 1) scales animation time, Complexity
+// each is the identity: Speed (uSpeed 1) scales animation time
+// through uTime, which ShaderScene already integrates by speed, Complexity
 // (uMorph 0) adds iterations in bulbIters(), Chaos (uWarp, uTurbulence,
 // uTwist 0) bends space before the fractal sees it, Energy (uIntensity 1)
 // scales how far the music moves a style. Colour is pal(); Space is the rig.
 
 /** Animation time under the Speed macro. */
 float bulbTime() {
-    return uTime * uSpeed;
+    return uTime;
 }
 
 /** The Energy macro as a gain on in-shader audio reaction, clamped so a high setting cannot fling geometry out of its bound. */

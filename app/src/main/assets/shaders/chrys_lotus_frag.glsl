@@ -104,7 +104,7 @@ void main() {
     float lift = clamp(SND_SNARE_ENV * uIntensity, 0.0, 1.2);
     float bass = clamp(sndLevel(SND_BASS_ATT) * uIntensity, 0.0, 1.5);
     float aa = 3.0 / uResolution.y;
-    gT = uTime * uSpeed;
+    gT = uTime;
     gChaos = clamp(uTurbulence + uWarp, 0.0, 2.0);
     gHue = 0.95 + 0.02 * sin(gT * 0.03);
 

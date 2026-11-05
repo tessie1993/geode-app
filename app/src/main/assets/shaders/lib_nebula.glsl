@@ -61,7 +61,8 @@
 //
 // The app's macros move standard scene params. Every Nebula style answers
 // them through the helpers below, and at their defaults each is the identity:
-// Speed is uSpeed on time (nebTime, nebFlow); Complexity is uMorph on octaves
+// Speed is already in uTime (nebTime: ShaderScene integrates it, so it
+// is never multiplied by uSpeed again) and uSpeed on the flow phase (nebFlow); Complexity is uMorph on octaves
 // (nebOctaves); Chaos is uWarp and uTurbulence as a curl-like domain warp
 // (nebWarp2, nebWarp3) - a curl field rather than a plain displacement
 // because it swirls the gas without pinching it into hard bright knots; uTwist
@@ -135,7 +136,7 @@ mat2 nebRot(float a) {
 
 /** Animation time under the Speed macro. */
 float nebTime() {
-    return uTime * uSpeed;
+    return uTime;
 }
 
 /** Travel under the Speed macro: uFlowPhase only ever advances, loudness sets its rate. */

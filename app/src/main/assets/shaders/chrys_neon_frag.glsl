@@ -76,7 +76,7 @@ void main() {
     vec2 uv = view();
     float swell = clamp((0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)), 0.0, 1.5);
     float sectEnv = clamp(SND_HELD_HARD_CUT, 0.0, 1.0);
-    gT = uTime * uSpeed;
+    gT = uTime;
     gChaos = clamp(uTurbulence + uWarp, 0.0, 2.0);
     float rings = 4.0 + floor(2.0 * clamp(uMorph, 0.0, 1.0) + 0.5);
     float trail = 0.04 + 0.3 * clamp(sndSpectrum(0.80) * uIntensity, 0.0, 1.5);

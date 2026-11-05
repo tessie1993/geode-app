@@ -58,7 +58,7 @@ float inkStroke(float d, vec2 fibre, float tone) {
 
 void main() {
     vec2 uv = view();
-    float t = uTime * uSpeed;
+    float t = uTime;
     gChaos = clamp(uTurbulence + uWarp, 0.0, 2.0);
     float lowmid = clamp(sndSpectrum(0.41) * uIntensity, 0.0, 1.5);
     float flux = clamp(sndLevel(SND_FLUX) * uIntensity, 0.0, 1.5);

@@ -56,7 +56,7 @@ float bolt(vec2 uv, float n, float grow, float chaos, float t) {
 void main() {
     vec2 uv = arbView();
     float px = max(length(fwidth(uv)), 1e-4);
-    float t = uTime * uSpeed;
+    float t = uTime;
     float energy = uIntensity;
     float chaos = arbChaos();
     float swell = clamp(SND_LEVEL, 0.0, 1.5);

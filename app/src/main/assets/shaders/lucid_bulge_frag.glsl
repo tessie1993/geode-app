@@ -52,7 +52,7 @@ vec3 walkFilm(float thick, float walk) {
 
 void main() {
     vec2 uv = lucidView(true);
-    float t = uTime * uSpeed;
+    float t = uTime;
     float flow = uFlowPhase * uSpeed;
     float swell = clamp(SND_INTENSITY, 0.0, 1.5);
     float chaos = lucidChaos();

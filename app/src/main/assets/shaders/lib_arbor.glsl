@@ -10,7 +10,8 @@
 // ---- the Customize macros --------------------------------------------------------
 //
 // Every Arbor style answers the same six macros through standard scene params,
-// neutral at their defaults: Speed scales animation time (uTime * uSpeed),
+// neutral at their defaults: Speed scales animation time (uTime, which ShaderScene
+// already integrates by speed: never multiply it by uSpeed again),
 // Complexity (uMorph) adds fold levels within the march budget (arbLevels),
 // Chaos (uTurbulence + uWarp, arbChaos) adds per-branch jitter and sway noise
 // and uTwist a spiral twist, Colour is pal(), Energy (uIntensity) scales the

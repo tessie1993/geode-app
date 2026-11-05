@@ -83,7 +83,8 @@
 //
 // ---- the Customize macros ---------------------------------------------------
 //
-// Speed: uSpeed scales the animation clock (diveTime), the gyroscopes, the
+// Speed: scales the animation clock (diveTime is uTime, already
+// speed-integrated by ShaderScene, so never times uSpeed again), the gyroscopes, the
 // orbit swing and the scene cycle; the dive itself runs on the rig's Fly.
 // Complexity: uMorph adds a layer to every scene - cross-braces in the
 // lattice, a second ring of star facets on the jewels, a second, smaller
@@ -170,7 +171,7 @@ float dive_box2(vec2 v, vec2 b) {
 // ---- the macros -------------------------------------------------------------
 
 float diveTime() {
-    return uTime * uSpeed;
+    return uTime;
 }
 
 float diveEnergy() {

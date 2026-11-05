@@ -96,15 +96,15 @@ const mat2 TERRA_OCT = mat2(2.0, -1.0, 1.0, 2.0);
 
 // ---- the Customize macros ---------------------------------------------------
 //
-// As in every family, neutral at their defaults: Speed (uSpeed) scales
-// animation time, Complexity (uMorph) adds an octave (terraOctaves), Chaos
+// As in every family, neutral at their defaults: Speed scales
+// animation time (uTime is already speed-integrated: never times uSpeed), Complexity (uMorph) adds an octave (terraOctaves), Chaos
 // (uWarp, uTurbulence, uTwist) warps the ground plane before the field reads
 // it (terraChaos), Energy (uIntensity) scales how far the music moves the
 // land, Colour is pal(), Space is the rig.
 
 /** Animation time under the Speed macro. */
 float terraTime() {
-    return uTime * uSpeed;
+    return uTime;
 }
 
 /** The Energy macro as a gain on in-shader reaction, clamped so a high setting cannot lift a peak through the eye. */

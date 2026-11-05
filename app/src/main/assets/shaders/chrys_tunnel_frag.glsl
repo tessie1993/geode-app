@@ -85,7 +85,7 @@ vec3 tunnelScales(vec2 w, float cols, float hue, float lift, float aa, out float
 
 void main() {
     vec2 uv = view();
-    gT = uTime * uSpeed;
+    gT = uTime;
     gChaos = clamp(uTurbulence + uWarp, 0.0, 2.0);
     float swell = clamp(SND_LEVEL, 0.0, 1.5);
     float sect = clamp(SND_HELD_HARD_CUT, 0.0, 1.0);

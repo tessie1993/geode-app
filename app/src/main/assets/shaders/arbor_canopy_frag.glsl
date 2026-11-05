@@ -89,7 +89,7 @@ vec3 normalAt(vec3 p, float eps) {
 
 void main() {
     vec2 uv = arbView();
-    float t = uTime * uSpeed;
+    float t = uTime;
     float energy = uIntensity;
     float swell = clamp(SND_INTENSITY, 0.0, 1.5);
     float snare = clamp(SND_SNARE_ENV * energy, 0.0, 1.0);

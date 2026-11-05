@@ -43,7 +43,7 @@ out vec4 fragColor;
 
 void main() {
     vec2 uv = lucidView(false);
-    float t = uTime * uSpeed;
+    float t = uTime;
     float flow = uFlowPhase * uSpeed;
     float sub = clamp(sndSpectrum(0.10), 0.0, 1.0) * uIntensity;
     float mid = clamp(sndShaped(SND_MIDDLE), 0.0, 1.5) * uIntensity;

@@ -137,7 +137,7 @@ vec3 normalAt(vec3 p, float eps) {
 void main() {
     vec2 uv = view();
     float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
-    float t = uTime * uSpeed;
+    float t = uTime;
     float drop = clamp(SND_HELD_SURGE, 0.0, 1.0);
     gBass = clamp(sndLevel(SND_BASS_ATT) * uIntensity, 0.0, 1.5);
     gOpen = clamp(0.55 + 0.12 * swell + 0.4 * uIntensity * chrysBump(drop), 0.0, 1.0);

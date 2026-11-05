@@ -95,6 +95,17 @@ else (5.1, 7.1) its `onConfigure` returns `AudioFormat.NOT_SET`, which makes it
 inactive for that track, rather than throwing: a throw in `configure` fails the
 sink and ExoPlayer reports the file as unplayable.
 
+**Format changes.** Media3 configures the next item's format while the old
+item's tail (a stretch `SilenceSkipping` or Sonic held back) still drains, and
+the new format applies only at `flush`. So `NativeDspProcessor` stays a thin
+shell and native `core/audio/dsp/DspProcessor` owns the switch: `configure`
+stages the next format's chain, the old chain keeps processing the tail, and
+`flush` makes the staged one live. Each block goes down with the channel count
+it was queued in and its buffer's capacity; a block the live chain cannot fit
+passes through untouched. Swapping at configure fed a mono tail to a stereo
+chain and wrote past the buffer (#356); `core/tests/dsp_handoff_test.cpp`
+pins this.
+
 **2. The tap stays first.** Live and export run the same `core/sound` code, so
 they can only agree if they hear the same audio. Live, the tap writes the ring
 that each renderer's sound engine reads. Export, `render/offscreen/TrackAudio`

@@ -2,12 +2,10 @@
 #include <memory>
 
 #include "api/geode_api.h"
-#include "audio/dsp/DspChain.hpp"
+#include "audio/dsp/DspProcessor.hpp"
 
 struct geode_dsp {
-    geode_dsp(int sampleRate, int channels) : chain(sampleRate, channels) {}
-
-    geode::audio::DspChain chain;
+    geode::audio::DspProcessor processor;
 };
 
 namespace {
@@ -19,13 +17,20 @@ static_assert(Equalizer::kMaxMillibels == GEODE_DSP_MAX_MILLIBELS);
 
 extern "C" {
 
-geode_dsp* geode_dsp_create(int sample_rate, int channels) {
-    if (sample_rate <= 0 || channels < 1 || channels > Equalizer::kMaxChannels) return nullptr;
-    return std::make_unique<geode_dsp>(sample_rate, channels).release();
+geode_dsp* geode_dsp_create(void) {
+    return std::make_unique<geode_dsp>().release();
 }
 
 void geode_dsp_destroy(geode_dsp* d) {
     std::unique_ptr<geode_dsp> owned(d);
+}
+
+int geode_dsp_configure(geode_dsp* d, int sample_rate, int channels) {
+    return d && d->processor.configure(sample_rate, channels) ? 1 : 0;
+}
+
+void geode_dsp_flush(geode_dsp* d) {
+    if (d) d->processor.flush();
 }
 
 float geode_dsp_band_center_hz(int band) {
@@ -34,39 +39,35 @@ float geode_dsp_band_center_hz(int band) {
 }
 
 void geode_dsp_set_enabled(geode_dsp* d, int enabled) {
-    if (d) d->chain.equalizer().setEnabled(enabled != 0);
+    if (d) d->processor.setEnabled(enabled != 0);
 }
 
 void geode_dsp_set_band(geode_dsp* d, int band, int millibels) {
-    if (d) d->chain.equalizer().setBand(band, millibels);
+    if (d) d->processor.setBand(band, millibels);
 }
 
 void geode_dsp_set_bass_boost(geode_dsp* d, int permille) {
-    if (d) d->chain.equalizer().setBassBoost(permille);
+    if (d) d->processor.setBassBoost(permille);
 }
 
 void geode_dsp_set_loudness_mb(geode_dsp* d, int millibels) {
-    if (d) d->chain.loudness().setTargetDb(static_cast<float>(std::clamp(millibels, 0, 1000)) / 100.0f);
+    if (d) d->processor.setLoudnessMb(millibels);
 }
 
 void geode_dsp_set_gain_db(geode_dsp* d, float db) {
-    if (d) d->chain.gain().setTargetDb(db);
+    if (d) d->processor.setGainDb(db);
 }
 
 void geode_dsp_set_crossfeed(geode_dsp* d, int enabled) {
-    if (d) d->chain.crossfeed().setEnabled(enabled != 0);
+    if (d) d->processor.setCrossfeed(enabled != 0);
 }
 
 void geode_dsp_set_limiter(geode_dsp* d, int enabled) {
-    if (d) d->chain.limiter().setEnabled(enabled != 0);
+    if (d) d->processor.setLimiter(enabled != 0);
 }
 
-void geode_dsp_reset(geode_dsp* d) {
-    if (d) d->chain.reset();
-}
-
-void geode_dsp_process(geode_dsp* d, float* interleaved, size_t frames) {
-    if (d && interleaved && frames > 0) d->chain.process(interleaved, frames);
+void geode_dsp_process(geode_dsp* d, float* interleaved, size_t capacity_floats, size_t frames, int channels) {
+    if (d) d->processor.process(interleaved, capacity_floats, frames, channels);
 }
 
 }

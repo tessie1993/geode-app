@@ -11,8 +11,18 @@ geode_dsp* dspOf(jlong handle) { return reinterpret_cast<geode_dsp*>(handle); }
 extern "C" {
 
 JNIEXPORT jlong JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_dspCreate(JNIEnv*, jobject, jint sampleRate, jint channels) {
-    return reinterpret_cast<jlong>(geode_dsp_create(sampleRate, channels));
+Java_dev_geode_engine_bridge_GeodeNative_dspCreate(JNIEnv*, jobject) {
+    return reinterpret_cast<jlong>(geode_dsp_create());
+}
+
+JNIEXPORT jboolean JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_dspConfigure(JNIEnv*, jobject, jlong handle, jint sampleRate, jint channels) {
+    return geode_dsp_configure(dspOf(handle), sampleRate, channels) != 0 ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_dspFlush(JNIEnv*, jobject, jlong handle) {
+    geode_dsp_flush(dspOf(handle));
 }
 
 JNIEXPORT void JNICALL
@@ -60,18 +70,15 @@ Java_dev_geode_engine_bridge_GeodeNative_dspSetLimiter(JNIEnv*, jobject, jlong h
     geode_dsp_set_limiter(dspOf(handle), enabled == JNI_TRUE);
 }
 
+// The buffer must be direct: the audio thread must not copy or allocate here. Its capacity goes along so
+// native can never walk past it (issue #356).
 JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_dspReset(JNIEnv*, jobject, jlong handle) {
-    geode_dsp_reset(dspOf(handle));
-}
-
-// The buffer must be direct: the audio thread must not copy or allocate here.
-JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_dspProcess(JNIEnv* env, jobject, jlong handle, jobject buffer, jint frames) {
+Java_dev_geode_engine_bridge_GeodeNative_dspProcess(JNIEnv* env, jobject, jlong handle, jobject buffer, jint frames, jint channels) {
     if (!buffer) return;
     auto* samples = static_cast<float*>(env->GetDirectBufferAddress(buffer));
-    if (!samples || frames <= 0) return;
-    geode_dsp_process(dspOf(handle), samples, static_cast<size_t>(frames));
+    const jlong capacityBytes = env->GetDirectBufferCapacity(buffer);
+    if (!samples || capacityBytes <= 0 || frames <= 0 || channels <= 0) return;
+    geode_dsp_process(dspOf(handle), samples, static_cast<size_t>(capacityBytes) / sizeof(float), static_cast<size_t>(frames), channels);
 }
 
 }

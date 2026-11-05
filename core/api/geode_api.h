@@ -152,15 +152,21 @@ GEODE_API void        geode_viz_set_style_schedule(geode_viz*, const double* at_
 GEODE_API void        geode_viz_render(geode_viz*, double time_seconds, uint32_t target_fbo);
 GEODE_API void        geode_viz_release_scenes(geode_viz*);
 
-/* Playback DSP: gain -> 10-band equalizer -> crossfeed -> lookahead limiter on float interleaved PCM.
- * Setters may be called from any thread; geode_dsp_process runs on the audio thread and never allocates,
- * locks or logs. */
+/* Playback DSP: gain -> 10-band equalizer -> crossfeed -> lookahead limiter on float interleaved PCM, one
+ * chain per input format, switched on the Media3 AudioProcessor contract (audio/dsp/DspProcessor):
+ * configure stages the next format's chain, and the old one keeps processing the draining tail until flush
+ * makes the staged one live. Setters may be called from any thread and reach every chain; configure, flush
+ * and process run on the playback thread, and process never allocates, locks or logs. */
 #define GEODE_DSP_BANDS 10
 #define GEODE_DSP_MIN_MILLIBELS (-1500)
 #define GEODE_DSP_MAX_MILLIBELS 1500
 
-GEODE_API geode_dsp* geode_dsp_create(int sample_rate, int channels);   /* channels 1 or 2 */
+GEODE_API geode_dsp* geode_dsp_create(void);
 GEODE_API void       geode_dsp_destroy(geode_dsp*);
+/* Stages the chain for the format queued after the next flush; 0 when it cannot run it (not 1 or 2
+ * channels), and that format then passes through untouched. */
+GEODE_API int        geode_dsp_configure(geode_dsp*, int sample_rate, int channels);
+GEODE_API void       geode_dsp_flush(geode_dsp*);                              /* commits, then clears filter state */
 GEODE_API float      geode_dsp_band_center_hz(int band);
 GEODE_API void       geode_dsp_set_enabled(geode_dsp*, int enabled);          /* the equalizer and bass boost */
 GEODE_API void       geode_dsp_set_band(geode_dsp*, int band, int millibels);
@@ -169,8 +175,9 @@ GEODE_API void       geode_dsp_set_loudness_mb(geode_dsp*, int millibels);    /*
 GEODE_API void       geode_dsp_set_gain_db(geode_dsp*, float db);             /* ReplayGain + preamp */
 GEODE_API void       geode_dsp_set_crossfeed(geode_dsp*, int enabled);
 GEODE_API void       geode_dsp_set_limiter(geode_dsp*, int enabled);
-GEODE_API void       geode_dsp_reset(geode_dsp*);                              /* clears filter state after a seek or flush */
-GEODE_API void       geode_dsp_process(geode_dsp*, float* interleaved, size_t frames);   /* in place, RT-safe */
+/* In place, RT-safe. `channels` is the format the block was queued in: a block that is not the live chain's
+ * passes through untouched, and frames are clamped to capacity_floats / channels. */
+GEODE_API void       geode_dsp_process(geode_dsp*, float* interleaved, size_t capacity_floats, size_t frames, int channels);
 
 /* Tag I/O through TagLib. Both calls take a file descriptor they own: it is closed before they return, so
  * the caller detaches it first. Text crosses as UTF-8. */

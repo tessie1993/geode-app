@@ -14,6 +14,7 @@ add_library(geode_core STATIC
     sound/SoundEngine.cpp
     library/Tags.cpp
     library/Search.cpp
+    audio/dsp/DspProcessor.cpp
     audio/dsp/Equalizer.cpp
     audio/dsp/Crossfeed.cpp
     audio/dsp/Limiter.cpp

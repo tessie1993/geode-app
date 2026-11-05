@@ -5,10 +5,18 @@ object GeodeNative {
         System.loadLibrary("geode")
     }
 
-    external fun dspCreate(
+    /** One playback DSP for a player's lifetime; its chains follow the formats [dspConfigure] stages. */
+    external fun dspCreate(): Long
+
+    /** Stages the chain for the format queued after the next [dspFlush]; false when it cannot run it. */
+    external fun dspConfigure(
+        handle: Long,
         sampleRate: Int,
         channels: Int,
-    ): Long
+    ): Boolean
+
+    /** Makes the staged chain live, then clears its filter state. */
+    external fun dspFlush(handle: Long)
 
     external fun dspDestroy(handle: Long)
 
@@ -50,13 +58,15 @@ object GeodeNative {
         enabled: Boolean,
     )
 
-    external fun dspReset(handle: Long)
-
-    /** [buffer] must be a direct float buffer holding [frames] interleaved frames; processed in place. */
+    /**
+     * [buffer] must be a direct float buffer holding [frames] interleaved frames of [channels] channels, the
+     * format they were queued in; processed in place, never past the buffer's capacity.
+     */
     external fun dspProcess(
         handle: Long,
         buffer: java.nio.ByteBuffer,
         frames: Int,
+        channels: Int,
     )
 
     /**

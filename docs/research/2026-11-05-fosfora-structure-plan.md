@@ -134,7 +134,11 @@ gated by the golden and the 30/60 fps test. 7 is the mod matrix work already agr
 ## 5. Open questions for the owner
 
 1. Hop size for the FFT path: keep Rhythm's 10 ms (100 Hz, more FFTs than today's ~60/s) or a coarser
-   hop (~21 ms) with Rhythm on its own 10 ms? Decided with sound-engine-v2 stage 0.
+   hop (~21 ms) with Rhythm on its own 10 ms? **Decided: 10 ms** (the owner's call on #324, which closed
+   the 1/60 s variant #308). One clock for everything, madmom's 100 fps; the FFT cost (~1.7× at 60 fps)
+   still wants the device check of step 4. `step()` holds the newest hop (triggers as their maximum,
+   phases moved on to the frame's sample) rather than interpolating, so every frame rate reads exactly
+   the same values.
 2. Step 2 (moves) before step 3, or schema first so the moves carry the generated files? Moves first is
    the recommendation: the later diffs then read cleanly.
 3. Per-style controls (F10) change Customize for users; is that wanted, or do global params stay?

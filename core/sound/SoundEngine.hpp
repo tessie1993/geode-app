@@ -40,10 +40,11 @@ namespace geode::sound {
 //               phrase phases moved on to the frame's own sample, and the waveform (a drawing, per frame)
 //
 // Why 10 ms: it is Rhythm's hop already (the onset envelope needs 100 Hz), so one clock serves everything
-// and a beat, its kick and the frame's levels come from the same instant; it is madmom's 100 fps and close
-// to librosa's 512 at 44.1 kHz, so the 2048-point window overlaps ~78 %; it is shorter than any frame up
-// to 100 fps, so a frame never reads a value more than 10 ms old; and at 100 analyses a second it costs
-// less than the old per-frame analysis did at 120 fps.
+// and a beat, its kick and the frame's levels come from the same instant; it is madmom's rate exactly (its
+// beat activations run at 100 fps, online on one 2048-sample frame, the window here), where librosa's
+// default (512 at 22.05 kHz) is 23 ms; the 2048-point window overlaps ~78 %; and it is shorter than any
+// frame up to 100 fps, so a frame never reads a value more than 10 ms old. The cost: 100 FFTs (and pitch
+// FFTs) a second, ~1.7× the old per-frame analysis at 60 fps and ~0.8× at 120 fps.
 //
 // step() runs the analysis only when the writer has stopped (> 0.1 s without audio): it feeds silence,
 // dt worth, so the levels fall and silence fires instead of the last window being read forever.

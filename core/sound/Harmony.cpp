@@ -215,14 +215,22 @@ void Harmony::step(const float* mag, float dt, bool silent, GeodeSoundFrame& out
             for (float v : raw) rawTop = std::max(rawTop, v);
             if (rawTop <= 0.0f) rawTop = 1.0f;
             for (float& v : raw) v /= rawTop;
-            if (!heard_) {
-                fast_ = medium_ = slow_ = raw;
-                heard_ = true;
-            }
+            // Until a chroma has heard its own time constant of audio, it is the plain mean of every hop
+            // heard (Essentia's streaming Key averages all its HPCP frames the same way); after that the
+            // one-pole average takes over, where the two weights meet. Seeding with the first hop gave
+            // one mostly empty window the weight of four seconds, and the key and scale read from it.
+            constexpr float kFastTau = 0.1f;
+            constexpr float kMediumTau = 0.5f;
+            constexpr float kSlowTau = 4.0f;
+            heard_ = true;
+            heardSeconds_ = std::min(heardSeconds_ + dt, kSlowTau);
+            const auto settle = [&](float y, float x, float tau) {
+                return heardSeconds_ < tau ? y + (x - y) * (dt / heardSeconds_) : follow(y, x, tau, dt);
+            };
             for (int i = 0; i < 12; i++) {
-                fast_[i] = follow(fast_[i], raw[i], 0.1f, dt);
-                medium_[i] = follow(medium_[i], raw[i], 0.5f, dt);
-                slow_[i] = follow(slow_[i], raw[i], 4.0f, dt);
+                fast_[i] = settle(fast_[i], raw[i], kFastTau);
+                medium_[i] = settle(medium_[i], raw[i], kMediumTau);
+                slow_[i] = settle(slow_[i], raw[i], kSlowTau);
             }
         }
     }

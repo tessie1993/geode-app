@@ -267,6 +267,9 @@ GEODE_API int             geode_loudness_supports(int channels);
 GEODE_API geode_loudness* geode_loudness_create(int sample_rate, int channels);   /* NULL on bad args */
 GEODE_API void            geode_loudness_destroy(geode_loudness*);
 GEODE_API void            geode_loudness_feed(geode_loudness*, const float* interleaved, size_t samples);
+/* The same feed from interleaved s16 (a decoder's default output), scaled by 1/32768 as audio/dsp/PcmConvert
+ * does, so the result equals converting first and calling geode_loudness_feed. */
+GEODE_API void            geode_loudness_feed_s16(geode_loudness*, const int16_t* interleaved, size_t samples);
 GEODE_API int             geode_loudness_has_block(geode_loudness*);   /* 1 once a 400 ms block exists */
 GEODE_API void            geode_loudness_finish(geode_loudness*, geode_loudness_report* out);   /* non-destructive */
 
@@ -282,7 +285,7 @@ GEODE_API int             geode_silence_resting(long long now_ms, long long hear
  * Pure functions and plain handles, any thread, no GL. The Kotlin exporters (VideoExporter, LoopRender,
  * LoopExtend, StudioExporter, the Media3 clip effects, AudioTranscoder) call these instead of carrying the
  * maths themselves; the classes behind them are output/FrameClock, LoopPlan, EncodePlan, Chapters,
- * signal/timeline/Keyframes, SpeedRamp, viz/ClipGrade, util/CubeLut and audio/dsp/PcmConvert. */
+ * signal/timeline/Keyframes, SpeedRamp, viz/ClipGrade, util/CubeLut, audio/dsp/PcmConvert and PcmTiming. */
 
 /* Frame clock (output/FrameClock): each value from the frame index alone, so nothing accumulates. */
 GEODE_API int64_t geode_export_total_frames(int64_t duration_us, int fps);            /* >= 1 */
@@ -377,6 +380,17 @@ GEODE_API size_t  geode_pcm_downmix_s16(const int16_t* in, size_t frames, int sr
                                         int16_t* out);
 GEODE_API void    geode_pcm_float_to_s16(const float* in, size_t samples, int16_t* out);
 GEODE_API void    geode_pcm_s16_to_float(const int16_t* in, size_t samples, float* out);
+
+/* PCM timing (audio/dsp/PcmTiming): the AAC encoder's rate, s16 durations, the start skip and trim. */
+GEODE_API int     geode_aac_rate_for(int source_rate);          /* own rate to 48k; above: 44.1k family -> 44.1k, else 48k */
+GEODE_API int64_t geode_aac_end_us(int64_t last_pts_us, int sample_rate);   /* + one 1024-sample AAC frame */
+GEODE_API int64_t geode_pcm_s16_bytes_to_us(int64_t bytes, int rate, int channels);   /* floor; 0 on bad args */
+GEODE_API int64_t geode_pcm_samples_before_us(int64_t us, int rate, int channels);    /* floor(us*rate/1e6)*channels */
+/* A decoded s16 buffer of `bytes` at buf_pts_us trimmed to start_us: returns the bytes to drop from its front
+ * (whole frames; == bytes when none of it is kept) and writes the kept part's pts (0 = the start) to
+ * out_pts_us when not NULL. A buffer that straddles the start keeps the frames from the start on. */
+GEODE_API int64_t geode_pcm_trim_s16(int64_t start_us, int64_t buf_pts_us, int64_t bytes, int rate, int channels,
+                                     int64_t* out_pts_us);
 
 #ifdef __cplusplus
 }

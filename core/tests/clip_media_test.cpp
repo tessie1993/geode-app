@@ -1,6 +1,7 @@
 // Host-side checks for the Studio clip maths and the export's PCM conversions: viz/ClipGrade (the colour
 // matrix behind Media3's RgbMatrix effect), util/CubeLut (.cube parsing and the gamma cube) and
-// audio/dsp/PcmConvert (downmix, float <-> s16), each through its C ABI too. Built and run by CI
+// audio/dsp/PcmConvert (downmix, float <-> s16) and audio/dsp/PcmTiming (AAC rate, s16 durations, the start
+// skip and trim), each through its C ABI too. Built and run by CI
 // (.github/workflows/android.yml, "Native export planning tests"). The behaviour pinned is the Kotlin
 // gradeMatrix (export/KeyframedClipEffects.kt), CubeLut (export/CubeLut.kt) and AudioTranscoder's loops.
 #include <cmath>
@@ -11,6 +12,7 @@
 
 #include "api/geode_api.h"
 #include "audio/dsp/PcmConvert.hpp"
+#include "audio/dsp/PcmTiming.hpp"
 #include "util/CubeLut.hpp"
 #include "viz/ClipGrade.hpp"
 
@@ -136,12 +138,78 @@ void pcm() {
     check(geode_pcm_downmix_s16(six, 1, 6, 2, abi) == 1 && abi[0] == 1125, "ABI downmix");
 }
 
+// Parity with the Kotlin it replaced (PcmResampler.aacRateFor / pcmBytesToUs, AudioTranscoder's AIFF skip and
+// AAC end), plus the start trim, whose straddling case is the bug #421 fixes.
+void pcmTiming() {
+    using namespace geode::audio;
+    // The rate policy (the old PcmResamplerTest cases).
+    check(aacRateFor(22050) == 22050 && aacRateFor(44100) == 44100 && aacRateFor(48000) == 48000, "AAC keeps rates to 48k");
+    check(aacRateFor(88200) == 44100 && aacRateFor(176400) == 44100, "the 44.1k family steps down to 44.1k");
+    check(aacRateFor(96000) == 48000 && aacRateFor(192000) == 48000 && aacRateFor(64000) == 48000, "the rest to 48k");
+    check(geode_aac_rate_for(96000) == 48000, "ABI AAC rate");
+
+    // One second of stereo s16 at each rate; bytes are timed at the rate they are at.
+    check(s16BytesToUs(44100LL * 4, 44100, 2) == 1000000 && s16BytesToUs(48000LL * 4, 48000, 2) == 1000000 &&
+              s16BytesToUs(96000LL * 4, 96000, 2) == 1000000,
+          "a second of stereo s16 is 1e6 us");
+    check(s16BytesToUs(48000LL * 4, 96000, 2) == 500000, "timing 48k bytes at 96k halves them");
+    check(s16BytesToUs(3, 48000, 1) == 31, "floor, as Kotlin's Long division");
+    check(s16BytesToUs(100, 0, 2) == 0 && s16BytesToUs(100, 48000, 0) == 0, "bad layouts are 0");
+    check(geode_pcm_s16_bytes_to_us(192000, 48000, 2) == 1000000, "ABI bytes to us");
+
+    // AIFF start skip: Kotlin's startMs * rate / 1000 * channels, from µs.
+    check(samplesBeforeUs(1500 * 1000LL, 44100, 2) == 1500LL * 44100 / 1000 * 2, "start skip matches the Kotlin");
+    check(samplesBeforeUs(1000, 44100, 6) == 44 * 6, "1 ms at 44.1k is 44 whole frames");
+    check(samplesBeforeUs(0, 48000, 2) == 0 && samplesBeforeUs(-5, 48000, 2) == 0, "nothing before 0");
+    check(geode_pcm_samples_before_us(1000000, 48000, 2) == 96000, "ABI samples before");
+
+    // AAC end: one 1024-sample frame past the last pts, integer division.
+    check(aacEndUs(1000000, 48000) == 1000000 + 21333 && aacEndUs(0, 44100) == 23219, "AAC frame length per rate");
+    check(aacEndUs(500, 0) == 500, "a bad rate adds nothing");
+    check(geode_aac_end_us(0, 48000) == 21333, "ABI AAC end");
+
+    // Start trim at 48 kHz stereo (4 bytes a frame), 1024-frame buffers (4096 bytes).
+    const int64_t start = 1000000;
+    auto t = trimS16(0, 0, 4096, 48000, 2);
+    check(t.skipBytes == 0 && t.ptsUs == 0, "no start: everything, at its own pts");
+    t = trimS16(start, 1500000, 4096, 48000, 2);
+    check(t.skipBytes == 0 && t.ptsUs == 500000, "a buffer after the start keeps all, at pts - start");
+    t = trimS16(start, start, 4096, 48000, 2);
+    check(t.skipBytes == 0 && t.ptsUs == 0, "a buffer on the start keeps all, at 0");
+    // The bug: 10 ms early, 21.3 ms long. Kotlin dropped it whole (pts + 1 ms < start); 480 frames precede
+    // the start, the other 544 are kept and stamped 0.
+    t = trimS16(start, start - 10000, 4096, 48000, 2);
+    check(t.skipBytes == 480 * 4 && t.ptsUs == 0, "a straddling buffer keeps the frames from the start");
+    t = trimS16(start, start - 10000, 4096, 44100, 2);
+    check(t.skipBytes == 441 * 4 && t.ptsUs == 0, "straddling at 44.1k");
+    t = trimS16(start, start - 1000, 4096, 44100, 1);
+    check(t.skipBytes == 44 * 2 && t.ptsUs == 0, "1 ms early at 44.1k mono skips 44 frames (44.1 rounded)");
+    t = trimS16(start, start - 5, 4096, 48000, 2);
+    check(t.skipBytes == 0 && t.ptsUs == 0, "under half a frame early skips nothing");
+    t = trimS16(start, start - 100000, 4096, 48000, 2);
+    check(t.skipBytes == 4096, "a buffer that ends before the start is dropped whole");
+    t = trimS16(start, start - 21333, 4096, 48000, 2);
+    check(t.skipBytes == 4096, "a buffer that ends at the start is dropped whole");
+    t = trimS16(start, start - 10000, 4098, 48000, 2);
+    check(t.skipBytes == 480 * 4, "the skip is whole frames even with a stray tail");
+    t = trimS16(0, -2000, 4096, 48000, 2);
+    check(t.skipBytes == 96 * 4 && t.ptsUs == 0, "a negative pts (priming) trims to 0");
+    t = trimS16(start, start - 10000, 4096, 0, 2);
+    check(t.skipBytes == 4096, "an early buffer without a rate keeps nothing");
+    t = trimS16(start, start - 10000, 0, 48000, 2);
+    check(t.skipBytes == 0, "an empty buffer: skip == bytes == 0, nothing kept");
+    int64_t pts = -1;
+    check(geode_pcm_trim_s16(start, start - 10000, 4096, 48000, 2, &pts) == 1920 && pts == 0, "ABI trim");
+    check(geode_pcm_trim_s16(start, 1500000, 4096, 48000, 2, nullptr) == 0, "ABI trim with no pts out");
+}
+
 }  // namespace
 
 int main() {
     grade();
     cubeLut();
     pcm();
+    pcmTiming();
     if (failures) {
         std::printf("%d failure(s)\n", failures);
         return 1;

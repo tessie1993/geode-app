@@ -1,6 +1,6 @@
 // The C ABI over the export planning and clip maths (geode_api.h, "Export planning and clip maths"). Only
 // argument checks and copies live here; the rules are in output/, signal/timeline/, viz/ClipGrade,
-// util/CubeLut and audio/dsp/PcmConvert, each host-tested in core/tests.
+// util/CubeLut and audio/dsp/PcmConvert and PcmTiming, each host-tested in core/tests.
 #include <algorithm>
 #include <memory>
 #include <string_view>
@@ -9,6 +9,7 @@
 
 #include "api/geode_api.h"
 #include "audio/dsp/PcmConvert.hpp"
+#include "audio/dsp/PcmTiming.hpp"
 #include "output/Chapters.hpp"
 #include "output/EncodePlan.hpp"
 #include "output/FrameClock.hpp"
@@ -247,5 +248,24 @@ size_t geode_pcm_downmix_s16(const int16_t* in, size_t frames, int src_channels,
 void geode_pcm_float_to_s16(const float* in, size_t samples, int16_t* o) { geode::audio::floatToS16(in, samples, o); }
 
 void geode_pcm_s16_to_float(const int16_t* in, size_t samples, float* o) { geode::audio::s16ToFloat(in, samples, o); }
+
+int geode_aac_rate_for(int source_rate) { return geode::audio::aacRateFor(source_rate); }
+
+int64_t geode_aac_end_us(int64_t last_pts_us, int sample_rate) { return geode::audio::aacEndUs(last_pts_us, sample_rate); }
+
+int64_t geode_pcm_s16_bytes_to_us(int64_t bytes, int rate, int channels) {
+    return geode::audio::s16BytesToUs(bytes, rate, channels);
+}
+
+int64_t geode_pcm_samples_before_us(int64_t us, int rate, int channels) {
+    return geode::audio::samplesBeforeUs(us, rate, channels);
+}
+
+int64_t geode_pcm_trim_s16(int64_t start_us, int64_t buf_pts_us, int64_t bytes, int rate, int channels,
+                           int64_t* out_pts_us) {
+    const auto t = geode::audio::trimS16(start_us, buf_pts_us, bytes, rate, channels);
+    if (out_pts_us) *out_pts_us = t.ptsUs;
+    return t.skipBytes;
+}
 
 }  // extern "C"

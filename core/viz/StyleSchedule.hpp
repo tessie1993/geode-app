@@ -25,12 +25,21 @@ struct StyleCue {
 // beatCount keeps counting on the hit clock while the tempo tracker is unsure (the beat trigger
 // stays silent then), so a quiet intro still cuts, just on hits rather than predicted beats.
 //
+// The entitlement (#357): `lockedIds` are the catalogue styles this user may not draw (empty for Pro
+// and the trial). set() drops every cue and beat-cut id among them, so a take recorded during the
+// trial, or while a Pro style was previewed, renders its free styles and holds the look before each
+// locked switch instead of drawing it. The segment's opening style is gated by the caller before the
+// render starts; this is every later style, gated where the schedule is built, on exactly the ids
+// that would be drawn.
+//
 // Pure: no GL, no locks. The renderer owns one, steps it once per frame from beginFrame and
 // applies whatever change it returns through its own setScene / loadMilkPreset.
 class StyleSchedule {
 public:
-    // Replaces the schedule. Cues need not be sorted. everyBeats below 1 counts as 1.
-    void set(std::vector<StyleCue> cues, std::vector<std::string> beatCutIds, int everyBeats);
+    // Replaces the schedule. Cues need not be sorted. everyBeats below 1 counts as 1. Cues and cut ids
+    // naming a style in `lockedIds` are dropped.
+    void set(std::vector<StyleCue> cues, std::vector<std::string> beatCutIds, int everyBeats,
+             const std::vector<std::string>& lockedIds = {});
     void clear();
     bool empty() const { return cues_.empty() && cut_.empty(); }
 

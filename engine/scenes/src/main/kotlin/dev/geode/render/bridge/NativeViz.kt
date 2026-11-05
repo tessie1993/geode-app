@@ -265,6 +265,7 @@ class NativeViz(
             schedule.cues.map { it.milkPath.orEmpty() }.toTypedArray(),
             schedule.beatCutIds.toTypedArray(),
             schedule.everyBeats,
+            schedule.lockedStyleIds.toTypedArray(),
         )
     }
 

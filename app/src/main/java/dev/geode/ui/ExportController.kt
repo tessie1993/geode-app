@@ -53,6 +53,7 @@ import dev.geode.export.TimeOfDayDrift
 import dev.geode.export.VideoExporter
 import dev.geode.render.SceneFactory
 import dev.geode.render.bridge.StyleSchedule
+import dev.geode.render.scene.Catalogue
 import dev.geode.render.scene.SceneParams
 import dev.geode.viz.BackgroundExportSpec
 import kotlinx.coroutines.CoroutineScope
@@ -697,7 +698,9 @@ internal class ExportController(
      *   GeodeContainer if the process dies), then [ProjectComposition.compose] layers them with the
      *   footage and the audio lanes and Transformer writes the file.
      *
-     * Every style the project draws is checked against the entitlement before anything renders.
+     * Every style the project draws is checked against the entitlement: each segment's opening style
+     * here, before anything renders ([RenderResult.Locked]), and every later switch (a take's style
+     * changes, a beat cut's list) by the native schedule, which drops the locked ones (#357).
      */
     @Suppress("LongParameterList")
     private suspend fun render(
@@ -844,12 +847,14 @@ internal class ExportController(
                     if (animated) AnimatableParams.applyToScene(base, sheet.valuesAt(programmeMs, clip.id)) else base
                 }
             }
-        val styleSchedule =
+        val switches =
             when {
                 take != null -> takeSchedule(take, takeStartMs, segment.durationMs)
                 segment.scene.beatCut != null -> beatCutSchedule(sceneId, segment.scene.beatCut)
                 else -> StyleSchedule.NONE
             }
+        // Every later style is gated natively against the entitlement (#357); the opening one in render().
+        val styleSchedule = if (switches.isEmpty) switches else switches.copy(lockedStyleIds = lockedStyleIds())
         return SegmentLook(factoryFor(sceneId, milkPath), paramsAt, styleSchedule)
     }
 
@@ -870,6 +875,13 @@ internal class ExportController(
                     .map { change -> StyleSchedule.Cue(change.atMs - takeStartMs, change.sceneId, change.milkPath) }
                     .filter { it.atMs in 1..durationMs },
         )
+
+    /**
+     * The entitlement as a value for the native schedule (#357): every catalogue style the gate
+     * refuses. Only catalogue styles can be drawn, so this is every style a later switch could show
+     * that the user does not own; the native schedule drops them where it is built.
+     */
+    private fun lockedStyleIds(): List<String> = Catalogue.styles.map { it.id }.filterNot(host::allowsStyle)
 
     /** A beat cut opens on [sceneId] and steps through its list from there. */
     private fun beatCutSchedule(

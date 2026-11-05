@@ -412,7 +412,8 @@ Java_dev_geode_engine_bridge_GeodeNative_vizSetScene(JNIEnv* env, jobject, jlong
 JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_vizSetStyleSchedule(JNIEnv* env, jobject, jlong handle, jdoubleArray atMs,
                                                              jobjectArray sceneIds, jobjectArray milkPaths,
-                                                             jobjectArray cutIds, jint everyBeats) {
+                                                             jobjectArray cutIds, jint everyBeats,
+                                                             jobjectArray lockedIds) {
     const std::vector<std::string> scenes = utf8Strings(env, sceneIds);
     const std::vector<std::string> milks = utf8Strings(env, milkPaths);
     const std::vector<std::string> cut = utf8Strings(env, cutIds);
@@ -423,8 +424,11 @@ Java_dev_geode_engine_bridge_GeodeNative_vizSetStyleSchedule(JNIEnv* env, jobjec
     const std::vector<const char*> sceneChars = cStrings(scenes);
     const std::vector<const char*> milkChars = cStrings(milks);
     const std::vector<const char*> cutChars = cStrings(cut);
+    const std::vector<std::string> locked = utf8Strings(env, lockedIds);
+    const std::vector<const char*> lockedChars = cStrings(locked);
     geode_viz_set_style_schedule(vizOf(handle), times.data(), sceneChars.data(), milkChars.data(),
-                                 static_cast<int>(count), cutChars.data(), static_cast<int>(cutChars.size()), everyBeats);
+                                 static_cast<int>(count), cutChars.data(), static_cast<int>(cutChars.size()), everyBeats,
+                                 lockedChars.data(), static_cast<int>(lockedChars.size()));
 }
 
 JNIEXPORT void JNICALL

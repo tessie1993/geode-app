@@ -442,9 +442,10 @@ bool Renderer::setScene(const std::string& sceneId) {
     return true;
 }
 
-void Renderer::setStyleSchedule(std::vector<StyleCue> cues, std::vector<std::string> beatCutIds, int everyBeats) {
+void Renderer::setStyleSchedule(std::vector<StyleCue> cues, std::vector<std::string> beatCutIds, int everyBeats,
+                                const std::vector<std::string>& lockedIds) {
     StyleSchedule schedule;
-    schedule.set(std::move(cues), std::move(beatCutIds), everyBeats);
+    schedule.set(std::move(cues), std::move(beatCutIds), everyBeats, lockedIds);
     std::lock_guard<std::mutex> lock(stateLock_);
     styleScheduleRequest_ = std::move(schedule);
 }

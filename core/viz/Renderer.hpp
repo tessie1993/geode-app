@@ -127,7 +127,9 @@ public:
     bool setScene(const std::string& sceneId);
     // Export (Studio 2D): the styles this segment switches to, by render time and by beat
     // (StyleSchedule.hpp). Latched; the next frame starts it from its beginning. Empty clears it.
-    void setStyleSchedule(std::vector<StyleCue> cues, std::vector<std::string> beatCutIds, int everyBeats);
+    // Styles in `lockedIds` (the entitlement) are dropped from it.
+    void setStyleSchedule(std::vector<StyleCue> cues, std::vector<std::string> beatCutIds, int everyBeats,
+                          const std::vector<std::string>& lockedIds);
     void warmTransition(const std::string& id);
     void cut();
     void render(double timeSeconds, GLuint targetFbo);

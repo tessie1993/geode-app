@@ -397,7 +397,8 @@ object GeodeNative {
      * Export only (Studio 2D): the styles this segment switches to, as timed cues ([atMs] render ms
      * since the segment began, [sceneIds], [milkPaths] with "" for none, all the same length) and a
      * beat cut through [cutIds] every [everyBeats] beats. The native renderer decides when
-     * (`core/viz/StyleSchedule`); empty arrays clear it.
+     * (`core/viz/StyleSchedule`); empty arrays clear it. [lockedIds] is the entitlement: styles this
+     * user may not draw, dropped from the schedule natively (empty for Pro).
      */
     external fun vizSetStyleSchedule(
         handle: Long,
@@ -406,6 +407,7 @@ object GeodeNative {
         milkPaths: Array<String>,
         cutIds: Array<String>,
         everyBeats: Int,
+        lockedIds: Array<String>,
     )
 
     external fun vizWarmTransition(

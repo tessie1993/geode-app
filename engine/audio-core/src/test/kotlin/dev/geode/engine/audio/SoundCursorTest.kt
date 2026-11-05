@@ -65,4 +65,46 @@ class SoundCursorTest {
         assertEquals(1f, cursor.interleaved[1])
         assertEquals(4f, cursor.interleaved[7])
     }
+
+    @Test
+    fun stopsAtTheHeardFrame() {
+        val ring = SampleRing(capacityFrames = 1024, channelCount = 2)
+        val cursor = SoundCursor(ring)
+        var heard = 0L
+        val playout = Playout { _, _ -> heard }
+        ring.write(stereo(0, 300), 300, 2)
+        // The sink buffered 300 frames the speaker has not played: nothing yet, and no reset.
+        val held = cursor.take(playout)
+        assertEquals(0, held.frames)
+        assertFalse(held.restarted)
+        heard = 100
+        val first = cursor.take(playout)
+        assertTrue(first.restarted)
+        assertEquals(100, first.frames)
+        assertEquals(0f, cursor.interleaved[0])
+        heard = 250
+        val second = cursor.take(playout)
+        assertEquals(150, second.frames)
+        assertEquals(100f, cursor.interleaved[0])
+    }
+
+    @Test
+    fun aNewEpochWaitsUntilItIsHeard() {
+        val ring = SampleRing(capacityFrames = 1024, channelCount = 2)
+        val cursor = SoundCursor(ring)
+        var heard = 100L
+        val playout = Playout { _, _ -> heard }
+        ring.write(stereo(0, 100), 100, 2)
+        cursor.take(playout)
+        ring.beginEpoch()
+        ring.write(stereo(0, 50), 50, 2)
+        heard = 0
+        val held = cursor.take(playout)
+        assertFalse(held.restarted)
+        assertEquals(0, held.frames)
+        heard = 20
+        val take = cursor.take(playout)
+        assertTrue(take.restarted)
+        assertEquals(20, take.frames)
+    }
 }

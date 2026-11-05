@@ -20,6 +20,7 @@ import dev.geode.data.PlayerPrefs
 import dev.geode.data.PlayerPrefsStore
 import dev.geode.engine.audio.AudioPresentationClock
 import dev.geode.engine.audio.PcmSink
+import dev.geode.engine.audio.PlayoutClock
 import dev.geode.engine.audio.SampleRing
 import dev.geode.engine.audio.SoundInput
 import dev.geode.engine.audioandroid.PcmTap
@@ -36,7 +37,12 @@ class PlaybackSession internal constructor(
 ) {
     val ring = PcmRingBuffer()
 
-    internal val sampleRing = SampleRing(capacityFrames = 1 shl 16, channelCount = 2)
+    /**
+     * 128 Ki frames with the old 16 Ki runway: the cursors now trail the tap by what the sink still holds
+     * (#349; 500 ms of PCM plus the HAL and a Bluetooth link), and that much must stay readable, up to
+     * about 1.2 s at 96 kHz. One take still hands out at most 16 Ki frames.
+     */
+    internal val sampleRing = SampleRing(capacityFrames = 1 shl 17, channelCount = 2, maxWriteFrames = 1 shl 14)
 
     @Volatile
     var onAudioFormat: ((sampleRateHz: Int, channelCount: Int, encoding: Int) -> Unit)? = null
@@ -44,6 +50,12 @@ class PlaybackSession internal constructor(
     internal val presentationClock = AudioPresentationClock()
 
     internal val clockDriver = SinkClockDriver(presentationClock)
+
+    /**
+     * Which ring frame the speaker plays now (#349): the sink reports its timing to it ([TapRenderersFactory]),
+     * every surface's cursor stops there ([soundInput]). Process-wide, not per session; see [PlaybackEngine.playout].
+     */
+    private val playout = PlaybackEngine.playout.also { it.reset() }
 
     internal val captureSink =
         PcmSink { samples, frames, channels ->
@@ -69,6 +81,7 @@ class PlaybackSession internal constructor(
             boundaryListener =
                 TapBoundaryListener { ended, endedFrames, begun ->
                     sampleRing.beginEpoch()
+                    playout.beginEpoch(sampleRing.epoch, begun.sampleRateHz)
                     clockDriver.onTapBoundary(ended, endedFrames, begun)
                 }
         }
@@ -82,7 +95,7 @@ class PlaybackSession internal constructor(
      */
     val player: ExoPlayer =
         ExoPlayer
-            .Builder(context, TapRenderersFactory(context, tap, clockDriver, dsp = listOf(dsp)))
+            .Builder(context, TapRenderersFactory(context, tap, clockDriver, dsp = listOf(dsp), playout = playout))
             .setMediaSourceFactory(
                 androidx.media3.exoplayer.source.DefaultMediaSourceFactory(
                     context,
@@ -135,7 +148,7 @@ class PlaybackSession internal constructor(
     var sampleRateHz: Int = DEFAULT_SAMPLE_RATE_HZ
 
     /** What every surface's sound engine reads; the rate follows whichever source owns the ring. */
-    val soundInput = SoundInput(sampleRing) { sampleRateHz }
+    val soundInput = SoundInput(sampleRing, playout) { sampleRateHz }
 
     init {
         player.addListener(replayGain)
@@ -212,6 +225,13 @@ class PlaybackSession internal constructor(
 }
 
 object PlaybackEngine {
+    /**
+     * The player's playout clock. One for the process and never freed: a wallpaper or dream GL thread may
+     * still read the last session's [SoundInput] after [PlaybackSession.release], so its native handle must
+     * outlive any session; each new session resets it.
+     */
+    internal val playout: PlayoutClock by lazy { PlayoutClock() }
+
     private var app: Context? = null
     private var session: PlaybackSession? = null
     private var uiHolds = 0

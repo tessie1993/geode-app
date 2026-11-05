@@ -39,6 +39,16 @@ The tap (`engine/audio-android/.../PcmTap.kt`) writes into the PCM rings
 feeds each renderer's own `core/sound` engine on its GL thread. Stages 2–4 are
 downstream of it.
 
+**The tap is ahead of the speaker.** It sees each sample when the sink writes it
+into the AudioTrack, a buffer (Media3 1.11: 500 ms for PCM), the HAL and any
+Bluetooth link before anyone hears it. The main player's sink is wrapped in
+`PlayoutSink` (`engine/audio-android`), which reports the sink's own position
+(from `AudioTrack.getTimestamp`), play state, speed and each ring epoch's first
+buffer to `core/audio/PlayoutClock`; every live renderer's `SoundCursor` stops at
+the frame it says is playing now (#349). It is a wrapper around the sink, not a
+stage in the chain, and changes no audio. Cast to TV opts out
+(`VisualizerRenderer.followsSpeaker`), since its stream carries the ring as written.
+
 ## Why the chain is owned rather than configured
 
 `DefaultAudioSink.Builder.setAudioProcessors(...)` looks like it takes an

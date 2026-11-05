@@ -13,6 +13,7 @@ typedef struct geode_viz      geode_viz;
 typedef struct geode_dsp      geode_dsp;
 typedef struct geode_tags     geode_tags;
 typedef struct geode_preview  geode_preview;
+typedef struct geode_playout  geode_playout;
 
 /* Native visualizer: one renderer per GL surface. Setters may be called from any thread and are latched
  * for the next frame; the calls under "GL thread" need the surface's context current. */
@@ -276,6 +277,22 @@ GEODE_API int             geode_preview_ended(const geode_preview* p, long long 
 GEODE_API int             geode_preview_locate(const geode_preview* p, long long programme_ms,
                                                long long* offset_ms);                      /* span, or -1 */
 GEODE_API long long       geode_preview_frame_of(long long programme_ms, int fps);
+
+/* Playout clock (core/audio/PlayoutClock, #349): the newest ring frame the speaker has played, so live
+ * renderers hear the player's audio when the listener does, not when the sink buffers it. The player's
+ * playback thread writes (begin_epoch, buffer, flush, position, playing, speed); any GL thread reads
+ * heard_frame. Media times in us, now_ns from the caller's monotonic clock. */
+GEODE_API geode_playout*  geode_playout_create(void);
+GEODE_API void            geode_playout_destroy(geode_playout* p);
+GEODE_API void            geode_playout_reset(geode_playout* p);
+GEODE_API void            geode_playout_begin_epoch(geode_playout* p, int epoch, int rate_hz);
+GEODE_API void            geode_playout_buffer(geode_playout* p, long long media_us);
+GEODE_API void            geode_playout_flush(geode_playout* p);
+GEODE_API void            geode_playout_position(geode_playout* p, long long media_us, long long now_ns);
+GEODE_API void            geode_playout_playing(geode_playout* p, int playing, long long now_ns);
+GEODE_API void            geode_playout_speed(geode_playout* p, float speed);
+GEODE_API long long       geode_playout_heard_frame(const geode_playout* p, int epoch, long long written,
+                                                    long long now_ns);           /* 0..written */
 
 #ifdef __cplusplus
 }

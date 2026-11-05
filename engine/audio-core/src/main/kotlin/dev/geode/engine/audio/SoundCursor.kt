@@ -34,19 +34,27 @@ class SoundCursor(
         val restarted: Boolean,
     )
 
-    fun take(): Take {
+    /**
+     * Hands out what the ring gained since the last take, up to the frame [playout] says the listener has
+     * heard (all of it when null). A new epoch is held until its first frame is heard, so the engine is not
+     * reset while the speaker still plays the end of the last track; it then starts from the oldest frame
+     * not yet heard, so a start burst the sink wrote at decode speed is heard from its head, not dropped.
+     */
+    fun take(playout: Playout? = null): Take {
         val written = ring.writtenFrames
         val ringEpoch = ring.epoch
+        val heard = playout?.heardFrame(ringEpoch, written)?.coerceIn(0L, written) ?: written
         var restarted = false
         if (ringEpoch != epoch || read > written) {
+            if (heard <= 0L) return Take(0, false)
             epoch = ringEpoch
-            read = maxOf(ring.oldestAvailable, written - maxFrames)
+            read = maxOf(ring.oldestAvailable, heard - maxFrames)
             restarted = true
         }
         if (read < ring.oldestAvailable) read = ring.oldestAvailable
-        // A stall longer than one take: keep the newest audio, which is what is playing now.
-        if (written - read > maxFrames) read = written - maxFrames
-        val count = (written - read).toInt()
+        // A stall longer than one take: keep the newest audio heard, which is what is playing now.
+        if (heard - read > maxFrames) read = heard - maxFrames
+        val count = (heard - read).toInt()
         if (count <= 0) return Take(0, restarted)
         ring.copyInto(read, count, planar)
         // A mono source leaves the ring's second channel silent; hand the engine the mono twice so it

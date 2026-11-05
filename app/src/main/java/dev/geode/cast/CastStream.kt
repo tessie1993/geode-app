@@ -124,6 +124,8 @@ internal class CastStream(
             egl.makeCurrent()
             renderer.pcmProvider = { latestPcm() }
             renderer.soundInput = { AudioBus.soundInput }
+            // The stream's audio is the ring as written (AudioPump), so the picture keeps to that clock.
+            renderer.followsSpeaker = false
             renderer.onSurfaceCreated(null, null)
             renderer.onSurfaceChanged(null, encoder.width, encoder.height)
             val startNs = System.nanoTime()

@@ -108,6 +108,14 @@ class VisualizerRenderer(
 
     private var soundCursor: SoundCursor? = null
 
+    /**
+     * Whether this surface waits for the speaker: true, the engine hears the player's audio when the
+     * listener does ([SoundInput.playout], #349). Cast to TV sets it false, since its stream carries the
+     * ring's audio as written and the picture must stay with that, not with the muted phone.
+     */
+    @Volatile
+    var followsSpeaker: Boolean = true
+
     /** Settings › Audio. Compared by identity on the GL thread, so assign a new instance to change it. */
     @Volatile
     var soundTuning: SoundTuning = SoundTuning()
@@ -385,7 +393,7 @@ class VisualizerRenderer(
     private fun feedSound() {
         val input = soundInput() ?: return
         val cursor = soundCursor?.takeIf { it.ring === input.ring } ?: SoundCursor(input.ring).also { soundCursor = it }
-        val take = cursor.take()
+        val take = cursor.take(if (followsSpeaker) input.playout else null)
         if (take.restarted) nativeViz.resetAudio()
         nativeViz.writeAudio(cursor.interleaved, take.frames, cursor.channels, input.sampleRateHz)
     }

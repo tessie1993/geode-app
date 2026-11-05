@@ -607,4 +607,49 @@ object GeodeNative {
         programmeMs: Long,
         fps: Int,
     ): Long
+
+    // Playout clock (core/audio/PlayoutClock, #349): which ring frame the speaker plays now. The player's
+    // playback thread writes, every GL thread reads; the app wraps it in `engine/audio/PlayoutClock`.
+
+    external fun playoutCreate(): Long
+
+    external fun playoutReset(handle: Long)
+
+    external fun playoutBeginEpoch(
+        handle: Long,
+        epoch: Int,
+        rateHz: Int,
+    )
+
+    external fun playoutBuffer(
+        handle: Long,
+        mediaUs: Long,
+    )
+
+    external fun playoutFlush(handle: Long)
+
+    external fun playoutPosition(
+        handle: Long,
+        mediaUs: Long,
+        nowNs: Long,
+    )
+
+    external fun playoutPlaying(
+        handle: Long,
+        playing: Boolean,
+        nowNs: Long,
+    )
+
+    external fun playoutSpeed(
+        handle: Long,
+        speed: Float,
+    )
+
+    /** The newest frame of ring epoch [epoch] heard at [nowNs]: 0..[written]. */
+    external fun playoutHeardFrame(
+        handle: Long,
+        epoch: Int,
+        written: Long,
+        nowNs: Long,
+    ): Long
 }

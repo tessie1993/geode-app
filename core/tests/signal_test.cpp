@@ -532,6 +532,108 @@ void testEventRoutes() {
     check(zoom.livePulses() == 0, "and retires once it has faded");
 }
 
+// Hold and Undrive check their origin like Drive and Try: only a finger holds, only a timeline lets go.
+// The factories set the origin, so these inputs are built by hand (a replay, a wire format).
+void testOriginChecks() {
+    ParamInput hold = ParamInput::hold();
+    ParamInput undrive = ParamInput::undrive();
+    for (Origin o : {Origin::Preset, Origin::Timeline, Origin::Engine}) {
+        hold.origin = o;
+        for (ParamPhase from : {ParamPhase::Rest, ParamPhase::Glide, ParamPhase::Trial}) {
+            ParamCell c = inPhase(from);
+            const ParamCell before = c;
+            check(apply(c, hold, kDef) == Outcome::Rejected, std::string("a non-user hold is rejected in ") + phaseName(from));
+            check(c.phase == before.phase && c.base == before.base && c.committed == before.committed &&
+                      c.trialHeld == before.trialHeld,
+                  std::string("and leaves the cell as it was in ") + phaseName(from));
+        }
+    }
+    for (Origin o : {Origin::User, Origin::Preset, Origin::Engine}) {
+        undrive.origin = o;
+        ParamCell c = inPhase(ParamPhase::Driven);
+        check(apply(c, undrive, kDef) == Outcome::Rejected && c.phase == ParamPhase::Driven,
+              "only the timeline undrives a driven param");
+        // Elsewhere an undrive means nothing, whoever sends it.
+        ParamCell r = inPhase(ParamPhase::Rest);
+        check(apply(r, undrive, kDef) == Outcome::Ignored && r.phase == ParamPhase::Rest, "an undrive at rest is ignored");
+    }
+    // The real origins still pass.
+    ParamCell c = inPhase(ParamPhase::Rest);
+    check(apply(c, ParamInput::hold(), kDef) == Outcome::Applied && c.phase == ParamPhase::Held, "the user's hold holds");
+    c = inPhase(ParamPhase::Driven);
+    check(apply(c, ParamInput::undrive(), kDef) == Outcome::Applied && c.phase == ParamPhase::Glide,
+          "the timeline's undrive glides back");
+}
+
+// A glide of negative or non-finite seconds is rejected in every phase; 0 lands at once, like a Set.
+void testBadGlides() {
+    for (float s : {INFINITY, -INFINITY, NAN, -1.0f, -1e-6f}) {
+        for (ParamPhase from : {ParamPhase::Rest, ParamPhase::Glide, ParamPhase::Trial, ParamPhase::Driven}) {
+            const Origin o = from == ParamPhase::Driven ? Origin::Timeline : Origin::Preset;
+            ParamCell c = inPhase(from);
+            const ParamCell before = c;
+            check(apply(c, ParamInput::glideTo(2.0f, s, o), kDef) == Outcome::Rejected,
+                  std::string("a glide of ") + std::to_string(s) + " s is rejected in " + phaseName(from));
+            check(c.phase == before.phase && c.base == before.base && c.committed == before.committed,
+                  std::string("and leaves the cell as it was in ") + phaseName(from));
+            ParamCell r = inPhase(from);
+            check(apply(r, ParamInput::reset(s, Origin::Preset), kDef) == Outcome::Rejected,
+                  std::string("a reset of ") + std::to_string(s) + " s is rejected in " + phaseName(from));
+        }
+    }
+    // The infinite glide in particular never starts, so it can never hang short of its target.
+    ParamCell c = inPhase(ParamPhase::Rest);
+    apply(c, ParamInput::glideTo(2.0f, INFINITY), kDef);
+    for (int i = 0; i < 600; ++i) advance(c, 1.0f / 60.0f, kDef);
+    check(c.phase == ParamPhase::Rest && near(c.base, 1.0f), "an infinite glide leaves the param where it was");
+    // Zero is valid: it lands at once, exactly like a Set.
+    ParamCell g = inPhase(ParamPhase::Glide);
+    ParamCell s = inPhase(ParamPhase::Glide);
+    check(apply(g, ParamInput::glideTo(2.0f, 0.0f), kDef) == Outcome::Applied, "a glide of 0 s is applied");
+    apply(s, ParamInput::set(2.0f, Origin::Preset), kDef);
+    check(g.phase == ParamPhase::Rest && s.phase == ParamPhase::Rest && g.base == s.base && g.committed == s.committed,
+          "and lands at once, like a Set");
+}
+
+// Engine time is not monotonic. Time before a param's last pulse is a new clock: the param's old pulses
+// and flash history go, the first pulse on the new clock starts, and the limit holds within it.
+void testTimeGoingBack() {
+    ParamStore store(schema());
+    EventRoutes routes(store);
+    routes.add({EventFilter::of({EventKind::Kick}), 1, kBrightness, {ActionKind::Pulse, 0.4f, 0.5f}});
+    routes.add({EventFilter::of({EventKind::Snare}), 1, kZoom, {ActionKind::Pulse, 0.5f, 0.5f}});
+    routes.onEvent(Event{EventKind::Kick, 1.0f, 0, 100.0});
+    routes.onEvent(Event{EventKind::Snare, 1.0f, 0, 100.0});
+    check(routes.livePulses() == 2, "two pulses on the old clock");
+    // A new render starts at 0: the kick is not dropped as if 100 s had to pass first.
+    routes.onEvent(Event{EventKind::Kick, 1.0f, 0, 0.0});
+    check(routes.pulsesLimited() == 0, "a pulse at time 0 after time 100 is a new clock, not a limited flash");
+    check(routes.livePulses() == 2, "the brightness pulse of the old clock is replaced, the zoom pulse kept");
+    store.clearModulation();
+    routes.modulate(0.0f);
+    // 0.4 alone; the old pulse summed in would give 0.8 (both under the range's top, so the clamp hides neither).
+    check(near(store.effective(kBrightness) - store.base(kBrightness), 0.4f),
+          "only the new clock's pulse plays on brightness, not the old one summed in");
+    // The flash limit holds within the new clock: kicks every frame for one second start at most three.
+    std::size_t started = 1;  // the one at 0
+    for (int frame = 1; frame < 60; ++frame) {
+        const std::uint32_t before = routes.pulsesLimited();
+        routes.onEvent(Event{EventKind::Kick, 1.0f, 0, frame / 60.0});
+        if (routes.pulsesLimited() == before) ++started;
+    }
+    check(started <= 3, "the flash limit holds on the new clock (" + std::to_string(started) + ")");
+    check(started >= 3, "and re-arms each third of a second (" + std::to_string(started) + ")");
+    // A seek back by a little is a new clock too, so a pulse there starts at once.
+    const std::uint32_t before = routes.pulsesLimited();
+    routes.onEvent(Event{EventKind::Kick, 1.0f, 0, 0.5});
+    check(routes.pulsesLimited() == before, "a seek back re-arms the param's pulse");
+    // An event with no real time never reaches a luminance param.
+    routes.onEvent(Event{EventKind::Kick, 1.0f, 0, NAN});
+    check(routes.pulsesLimited() == before + 1, "a luminance pulse at a non-finite time is dropped");
+    routes.onEvent(Event{EventKind::Kick, 1.0f, 0, 0.6});
+    check(routes.pulsesLimited() == before + 2, "and leaves the flash clock as it was");
+}
+
 // Two identical pipelines, fed the same frames, give bit-identical params.
 std::vector<float> runPipeline() {
     ParamStore store(schema());
@@ -589,6 +691,9 @@ int main() {
     testQueue();
     testBus();
     testEventRoutes();
+    testOriginChecks();
+    testBadGlides();
+    testTimeGoingBack();
     testDeterminism();
     if (failures == 0) std::printf("signal_test: all passed\n");
     return failures == 0 ? 0 : 1;

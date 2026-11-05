@@ -580,12 +580,7 @@ class LoopRender(
         val longFormUs = longFormMs * 1000L
         val bitRate = MuxerBudget.cappedVideoBps(aspect.bitRate, longFormUs, MuxerBudget.audioBytes(longFormUs))
         if (bitRate < aspect.bitRate) RingLog.note(TAG, "loop bit rate capped to $bitRate for a $longFormMs ms long form")
-        val candidates =
-            listOf(codec.available(), ExportCodec.H264).distinct().flatMap { c ->
-                val rungs = GeodeNative.encoderLadder(fps, bitRate, c.fpsCeiling(aspect.width, aspect.height))
-                (rungs.indices step 2).map { EncoderChoice(rungs[it], rungs[it + 1], c) }
-            }
-        return candidates.firstOrNull { accepts(aspect, it) }
+        return codec.attempts(aspect, fps, bitRate).map { EncoderChoice(it.fps, it.bitRate, it.codec) }.firstOrNull { accepts(aspect, it) }
     }
 
     private fun accepts(

@@ -268,12 +268,14 @@ GEODE_API void            geode_loudness_feed(geode_loudness*, const float* inte
 GEODE_API int             geode_loudness_has_block(geode_loudness*);   /* 1 once a 400 ms block exists */
 GEODE_API void            geode_loudness_finish(geode_loudness*, geode_loudness_report* out);   /* non-destructive */
 
-/* Encoder fallback ladder (output/EncoderLadder, #607): the frame rates and bit rates an export asks the video
- * encoder for, in order, until configure accepts one. ceiling_fps is the upper bound the encoder's capability
- * table gives for the size (MediaCodecInfo.VideoCapabilities), 0 or less when unknown. Writes up to capacity
- * rungs (2 at most) into out_fps / out_bit_rate and returns how many; 0 for NULL outs. Pure, any thread. */
-GEODE_API int             geode_encoder_ladder(int requested_fps, int bit_rate, int ceiling_fps, int* out_fps,
-                                               int* out_bit_rate, int capacity);
+/* Encoder fallback ladder (output/EncoderLadder, #607): every attempt an export makes at opening the video
+ * encoder, in order, until configure accepts one: each candidate codec's ladder in turn. ceilings[i] is codec
+ * i's upper rate for the size from its capability table (MediaCodecInfo.VideoCapabilities), 0 or less when
+ * unknown; at most 2 codecs are read. Writes up to capacity attempts (4 at most) as the codec's index, frame
+ * rate and bit rate, and returns how many; 0 for NULL arrays. Pure, any thread. */
+GEODE_API int             geode_encoder_attempts(int requested_fps, int bit_rate, const int* ceilings,
+                                                 int codec_count, int* out_codec, int* out_fps,
+                                                 int* out_bit_rate, int capacity);
 
 /* Export post-passes (viz/frame/ExportPasses, #442): the non-Pro watermark, a loop render's seam, and a Studio
  * render's GL Transition with the capture that feeds it, each a frame::Pass on the export surface. The pure

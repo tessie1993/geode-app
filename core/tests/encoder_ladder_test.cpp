@@ -125,16 +125,37 @@ void bitRateScaling() {
     check(rung(ladder(60, -1, 0), 0, 60, 0), "a negative rate is clamped to zero");
 }
 
+void attemptsWalkEachCodecsLadder() {
+    out::EncoderAttempt a[out::kAttemptMaxCount];
+    const int both[2] = {0, 0};
+    check(out::encoderAttempts(60, 12'000'000, both, 2, a) == 4, "two codecs, two rungs each");
+    check(a[0].codec == 0 && a[1].codec == 0 && a[2].codec == 1 && a[3].codec == 1, "codec 0's ladder first");
+    check(a[2].rung.fps == 60 && a[3].rung.fps == 30 && a[3].rung.bitRate == 8'000'000, "codec 1 repeats it");
+    const int ceilings[2] = {30, 0};
+    check(out::encoderAttempts(60, 12'000'000, ceilings, 2, a) == 3, "each codec under its own ceiling");
+    check(a[0].codec == 0 && a[0].rung.fps == 30 && a[1].codec == 1 && a[1].rung.fps == 60, "the ceiling skips");
+    check(out::encoderAttempts(60, 12'000'000, both, 1, a) == 2, "one codec, its ladder alone");
+    check(out::encoderAttempts(60, 12'000'000, both, 0, a) == 0, "no codecs, no attempts");
+    const int three[3] = {0, 0, 0};
+    check(out::encoderAttempts(60, 12'000'000, three, 3, a) == out::kAttemptMaxCount, "at most two codecs");
+}
+
 void cAbiMatchesTheHeader() {
+    const int ceilings[2] = {0, 30};
+    int codec[4] = {};
     int fps[4] = {};
     int bps[4] = {};
-    check(geode_encoder_ladder(60, 12'000'000, 0, fps, bps, 4) == 2, "ABI: two rungs");
-    check(fps[0] == 60 && bps[0] == 12'000'000 && fps[1] == 30 && bps[1] == 8'000'000, "ABI: the rungs");
-    check(geode_encoder_ladder(60, 12'000'000, 30, fps, bps, 4) == 1 && fps[0] == 30, "ABI: the ceiling");
-    check(geode_encoder_ladder(60, 12'000'000, 0, fps, bps, 1) == 1 && fps[0] == 60, "ABI: capacity caps");
-    check(geode_encoder_ladder(60, 12'000'000, 0, nullptr, bps, 4) == 0, "ABI: NULL fps");
-    check(geode_encoder_ladder(60, 12'000'000, 0, fps, nullptr, 4) == 0, "ABI: NULL bit rates");
-    check(geode_encoder_ladder(60, 12'000'000, 0, fps, bps, 0) == 0, "ABI: no room");
+    check(geode_encoder_attempts(60, 12'000'000, ceilings, 2, codec, fps, bps, 4) == 3, "ABI: three attempts");
+    check(codec[0] == 0 && fps[0] == 60 && bps[0] == 12'000'000, "ABI: codec 0 at the request");
+    check(codec[1] == 0 && fps[1] == 30 && bps[1] == 8'000'000, "ABI: codec 0's fallback");
+    check(codec[2] == 1 && fps[2] == 30 && bps[2] == 8'000'000, "ABI: codec 1 under its ceiling");
+    check(geode_encoder_attempts(60, 12'000'000, ceilings, 2, codec, fps, bps, 1) == 1 && fps[0] == 60,
+          "ABI: capacity caps");
+    check(geode_encoder_attempts(60, 12'000'000, nullptr, 2, codec, fps, bps, 4) == 0, "ABI: NULL ceilings");
+    check(geode_encoder_attempts(60, 12'000'000, ceilings, 2, nullptr, fps, bps, 4) == 0, "ABI: NULL codecs");
+    check(geode_encoder_attempts(60, 12'000'000, ceilings, 2, codec, nullptr, bps, 4) == 0, "ABI: NULL fps");
+    check(geode_encoder_attempts(60, 12'000'000, ceilings, 2, codec, fps, nullptr, 4) == 0, "ABI: NULL bit rates");
+    check(geode_encoder_attempts(60, 12'000'000, ceilings, 2, codec, fps, bps, 0) == 0, "ABI: no room");
 }
 
 }  // namespace
@@ -146,6 +167,7 @@ int main() {
     ceilingSkipsRungsAboveIt();
     floorIsAlwaysTried();
     bitRateScaling();
+    attemptsWalkEachCodecsLadder();
     cAbiMatchesTheHeader();
     if (failures == 0) std::printf("encoder_ladder_test: all passed\n");
     return failures == 0 ? 0 : 1;

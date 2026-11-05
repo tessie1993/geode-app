@@ -2,7 +2,7 @@
 
 Part of the target in [ADR 0006](../../docs/adr/0006-fosfora-aligned-engine.md).
 
-**Here now:** `EncoderLadder.hpp` (#607), the frame rate and bit rate an export asks the video encoder for, rung by rung (`geode_encoder_ladder`; Kotlin passes in only the `MediaCodecInfo.VideoCapabilities` ceiling). Test: `core/tests/encoder_ladder_test.cpp`.
+**Here now:** `EncoderLadder.hpp` (#607), the frame rate and bit rate an export asks the video encoder for, rung by rung, over each candidate codec (`geode_encoder_attempts`; Kotlin passes in only each codec's `MediaCodecInfo.VideoCapabilities` ceiling and iterates the list). Test: `core/tests/encoder_ladder_test.cpp`.
 
 **Still to come:**
 

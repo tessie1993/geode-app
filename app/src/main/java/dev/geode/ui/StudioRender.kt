@@ -1,7 +1,6 @@
 package dev.geode.ui
 
 import android.os.Build
-import androidx.activity.compose.PredictiveBackHandler
 import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -38,6 +37,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
@@ -53,6 +53,11 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigationevent.NavigationEventInfo
+import androidx.navigationevent.NavigationEventTransitionState
+import androidx.navigationevent.compose.NavigationBackHandler
+import androidx.navigationevent.compose.NavigationEventState
+import androidx.navigationevent.compose.rememberNavigationEventState
 import dev.geode.R
 import dev.geode.data.EXPORT_FPS_OPTIONS
 import dev.geode.data.ExportDefaults
@@ -81,7 +86,6 @@ import dev.geode.ui.pro.PaywallViewModel
 import dev.geode.ui.theme.LocalGeodeMotion
 import dev.geode.ui.theme.floatingGlass
 import kotlinx.coroutines.launch
-import kotlin.coroutines.cancellation.CancellationException
 
 /**
  * The Studio destination: two tabs, in the order a first visit meets them.
@@ -119,44 +123,69 @@ fun StudioHub(
     val history = remember(route) { NavHistory(route) }
     LaunchedEffect(section) { history.open(section) }
 
-    // How far a back gesture has pulled the tab under this one into view: 0 at rest, 1 committed.
-    val backProgress = remember { Animatable(0f) }
+    // The back gesture's own state: while the user swipes it is InProgress, carrying the latest
+    // event's progress (0 → 1 with the swipe); at rest, after a commit or a cancel, it is Idle.
+    val backState = rememberNavigationEventState(NavigationEventInfo.None)
+    // The fade after the finger lifts (the commit to 1, the settle back to 0), started from where
+    // the gesture let go; 0 at rest. The gesture state is already Idle when the handler's
+    // callbacks run, so this follows the swipe and keeps its last value as the starting point.
+    val settle = remember { Animatable(0f) }
     val settleSpec = LocalGeodeMotion.current.defaultEffectsSpec<Float>()
     val settleScope = rememberCoroutineScope()
+    // True while a commit or settle runs, so a second gesture cannot start on a half-faded tab.
+    var settling by remember { mutableStateOf(false) }
+    LaunchedEffect(backState) {
+        snapshotFlow { backState.gestureProgress() }.collect { progress ->
+            if (progress != null) settle.snapTo(progress)
+        }
+    }
+    // How far the tab under this one shows: the live swipe while it lasts, then the settle. Read
+    // only inside the layers' graphicsLayer, so the swipe redraws without recomposing.
+    val backProgress = { backState.gestureProgress() ?: settle.value }
     // The tab back would land on, composed under this one only while a gesture previews it.
     val previous = history.keys.getOrNull(history.keys.lastIndex - 1)
-    // Read per frame only by the layers' alpha; the composition hears just "previewing or not".
-    val previewing by remember { derivedStateOf { backProgress.value > 0f } }
+    // The composition hears just "previewing or not".
+    val previewing by remember { derivedStateOf { backProgress() > 0f } }
 
     /*
      * Predictive back over the tab history: the gesture cross-fades from this tab to the one before
-     * it, so the user sees where back lands before letting go (#557). This is the documented shape
-     * of `PredictiveBackHandler` (developer.android.com/develop/ui/compose/system/predictive-back-progress,
-     * "Access progress manually"): the handler gets a `Flow<BackEventCompat>` whose `progress` runs
-     * 0 → 1 with the swipe; the flow completing normally is the commit, and a cancelled gesture
-     * arrives as a `CancellationException` thrown out of `collect`, which must be rethrown.
+     * it, so the user sees where back lands before letting go (#557). This is the NavigationEvent
+     * shape the navigation-event skill asks for on SDK 36+ (`.claude/skills/navigation-event`,
+     * "Are legacy BackHandler usages migrated to NavigationBackHandler with predictive progress
+     * support?") and its guide, developer.android.com/guide/navigation/navigation-event/handle-back:
+     * a `NavigationEventState` from `rememberNavigationEventState` whose `transitionState` is
+     * `InProgress` with the latest event's `progress` during the swipe, and one
+     * `NavigationBackHandler` that hears the commit (`onBackCompleted`) or the cancel
+     * (`onBackCancelled`). The library ships with activity-compose and Navigation 3.
      *
      * On commit the fade is finished with the theme's effects spec before the route pops, so the
-     * swap lands on a frame that already shows the old tab fully. On cancel the handler's own
-     * coroutine is being cancelled and cannot animate, so the settle back to the current tab runs
-     * in the composition's scope instead. Only a fade is used, never a slide or a zoom: fades are
-     * what [LocalGeodeMotion]'s reduced scheme keeps (WCAG 2.3.3), so the preview reads the same
-     * with "Remove animations" on and nothing travels. A plain back press (three-button nav, no
-     * gesture) completes the flow at once, so it gets the same short commit fade and lands where
-     * the old `BackHandler` did.
+     * swap lands on a frame that already shows the old tab fully; on cancel it settles back to the
+     * current tab. Only a fade is used, never a slide or a zoom: fades are what [LocalGeodeMotion]'s
+     * reduced scheme keeps (WCAG 2.3.3), so the preview reads the same with "Remove animations" on
+     * and nothing travels. A plain back press (three-button nav, no gesture) commits at once, so it
+     * gets the same short commit fade from 0 and lands where the old `BackHandler` did.
      */
-    PredictiveBackHandler(enabled = history.canPop) { events ->
-        try {
-            events.collect { event -> backProgress.snapTo(event.progress) }
-            backProgress.animateTo(1f, settleSpec)
-            history.pop()
-            select(history.top)
-            backProgress.snapTo(0f)
-        } catch (cancelled: CancellationException) {
-            settleScope.launch { backProgress.animateTo(0f, settleSpec) }
-            throw cancelled
-        }
-    }
+    NavigationBackHandler(
+        state = backState,
+        isBackEnabled = history.canPop && !settling,
+        onBackCancelled = {
+            settling = true
+            settleScope.launch {
+                settle.animateTo(0f, settleSpec)
+                settling = false
+            }
+        },
+        onBackCompleted = {
+            settling = true
+            settleScope.launch {
+                settle.animateTo(1f, settleSpec)
+                history.pop()
+                select(history.top)
+                settle.snapTo(0f)
+                settling = false
+            }
+        },
+    )
     Column(Modifier.fillMaxSize()) {
         GlowTitle(
             stringResource(R.string.nav_studio),
@@ -182,7 +211,8 @@ fun StudioHub(
                     val isPreview = tab != section
                     Box(
                         Modifier.fillMaxSize().graphicsLayer {
-                            alpha = if (isPreview) backProgress.value else 1f - backProgress.value
+                            val progress = backProgress()
+                            alpha = if (isPreview) progress else 1f - progress
                         },
                     ) {
                         when (tab) {
@@ -202,6 +232,10 @@ fun StudioHub(
         }
     }
 }
+
+/** The live back swipe's progress while one is in progress, else null. */
+private fun NavigationEventState<*>.gestureProgress(): Float? =
+    (transitionState as? NavigationEventTransitionState.InProgress)?.latestEvent?.progress
 
 /** Studio's route saved by tab name, so a rotation or process death keeps back's history. */
 private val studioRouteSaver =

@@ -62,6 +62,59 @@ void grade() {
     geode::viz::clipGradeMatrix(0.0f, 0.0f, 0.0f, 180.0f, m);
     check(near(m[0], 0.213f - 0.787f, 1e-3f), "hue 180");
 
+    // Kills: brightness applied after contrast instead of before (mul's operands swapped). Media3's Contrast on
+    // mid grey lifted by 0.1: ((0.5 + 0.1) - 0.5) * 1.5 / 0.5001 + 0.5 = 0.79994; the other order gives 0.6.
+    geode::viz::clipGradeMatrix(0.1f, 0.5f, 0.0f, 0.0f, m);
+    apply(m, grey, o);
+    check(near(o[0], 0.79994f, 1e-4f) && near(o[1], 0.79994f, 1e-4f) && near(o[2], 0.79994f, 1e-4f),
+          "brightness lifts before contrast stretches");
+
+    // Kills: the "+ s" on any diagonal of the saturation rows dropped (invisible at s = 0, full desaturation),
+    // or 1 + p/100 turned to 1 - p/100. +100 % is s = 2: diagonal 2 - luma, off-diagonal -luma (Rec. 709).
+    geode::viz::clipGradeMatrix(0.0f, 0.0f, 100.0f, 0.0f, m);
+    check(near(m[0], 1.7874f, 1e-3f) && near(m[5], 1.2848f, 1e-3f) && near(m[10], 1.9278f, 1e-3f) &&
+              near(m[4], -0.7152f, 1e-3f) && near(m[8], -0.0722f, 1e-3f) && near(m[1], -0.2126f, 1e-3f),
+          "double saturation pushes each channel away from the Rec. 709 luma");
+
+    // Kills: any coefficient of the saturation rows mistyped or moved: saturation keeps Rec. 709 luma for every
+    // colour and amount (the matrix is s*I + (1 - s) * 1 * luma^T, and luma . 1 = 1).
+    bool lumaKept = true;
+    for (float sat : {-100.0f, -40.0f, 35.0f, 100.0f}) {
+        geode::viz::clipGradeMatrix(0.0f, 0.0f, sat, 0.0f, m);
+        for (int c = 0; c < 27; ++c) {
+            const float rgb[3] = {static_cast<float>(c % 3) * 0.5f, static_cast<float>((c / 3) % 3) * 0.5f,
+                                  static_cast<float>(c / 9) * 0.5f};
+            apply(m, rgb, o);
+            const float before = 0.2126f * rgb[0] + 0.7152f * rgb[1] + 0.0722f * rgb[2];
+            const float after = 0.2126f * o[0] + 0.7152f * o[1] + 0.0722f * o[2];
+            if (!near(before, after, 1e-3f)) lumaKept = false;
+        }
+    }
+    check(lumaKept, "saturation never changes a colour's luma");
+
+    // Kills: a sin term's sign flipped (hue 180 has sin = 0 and white has every row summing to 1, so neither
+    // saw it), degrees not turned into radians, or rows() storing a row as a column. Hue 90 per the W3C
+    // feColorMatrix hueRotate coefficients with cos = 0, sin = 1; R takes B, so m[8] (R from B) is 1.
+    geode::viz::clipGradeMatrix(0.0f, 0.0f, 0.0f, 90.0f, m);
+    check(near(m[0], 0.0f, 1e-3f) && near(m[4], 0.0f, 1e-3f) && near(m[8], 1.0f, 1e-3f), "hue 90: red row");
+    check(near(m[1], 0.356f, 1e-3f) && near(m[5], 0.855f, 1e-3f) && near(m[9], -0.211f, 1e-3f), "hue 90: green row");
+    check(near(m[2], -0.574f, 1e-3f) && near(m[6], 1.430f, 1e-3f) && near(m[10], 0.144f, 1e-3f), "hue 90: blue row");
+
+    // Kills: hue coefficients mistyped: the hue turn keeps luminance (weights 0.213, 0.715, 0.072) at any angle.
+    bool hueLumaKept = true;
+    for (float deg : {-45.0f, 30.0f, 200.0f, 333.0f}) {
+        geode::viz::clipGradeMatrix(0.0f, 0.0f, 0.0f, deg, m);
+        for (int c = 0; c < 27; ++c) {
+            const float rgb[3] = {static_cast<float>(c % 3) * 0.5f, static_cast<float>((c / 3) % 3) * 0.5f,
+                                  static_cast<float>(c / 9) * 0.5f};
+            apply(m, rgb, o);
+            const float before = 0.213f * rgb[0] + 0.715f * rgb[1] + 0.072f * rgb[2];
+            const float after = 0.213f * o[0] + 0.715f * o[1] + 0.072f * o[2];
+            if (!near(before, after, 2e-3f)) hueLumaKept = false;
+        }
+    }
+    check(hueLumaKept, "a hue turn never changes a colour's luminance");
+
     float abi[16];
     geode_clip_grade_matrix(0.0f, 0.0f, 0.0f, 180.0f, abi);
     check(std::memcmp(abi, m, sizeof m) == 0, "ABI grade matches");

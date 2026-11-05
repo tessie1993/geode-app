@@ -143,7 +143,7 @@ class VisualizerRenderer(
     // too (shared by the process, saved across restarts); each new handle starts on the preset it
     // remembers rather than on projectM's idle preset.
     private val milkPreset = MilkPresetMemory.shared(context)
-    private val nativeViz =
+    val nativeViz =
         NativeViz(context).also { viz ->
             viz.onCreated = { milkPreset.restorePath?.let(viz::loadMilkPreset) }
         }

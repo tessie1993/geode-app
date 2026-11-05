@@ -142,7 +142,10 @@ MelodyTrack analyseMelody(const PitchFrames& pitch, const Features& features, fl
             int n = 0;
             for (int d = std::max(0, t - 1); d <= std::min(frames - 1, t + 1); ++d)
                 if (voiced[d]) v[n++] = folded[d];
-            std::sort(v, v + n);
+            // At most three values: an insertion sort GCC's -Warray-bounds can follow (std::sort's 16-wide
+            // insertion pass trips it on a float[3]).
+            for (int i = 1; i < n; ++i)
+                for (int j = i; j > 0 && v[j - 1] > v[j]; --j) std::swap(v[j - 1], v[j]);
             midi[t] = v[n / 2];
         }
     }

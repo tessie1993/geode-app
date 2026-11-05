@@ -201,6 +201,32 @@ data class ChapterMarkers(
                 },
             )
 
+        /** `m:ss` under an hour, `h:mm:ss` over — the form description fields parse. */
+        fun timestamp(ms: Long): String {
+            val totalSeconds = (ms / 1000).coerceAtLeast(0)
+            val hours = totalSeconds / 3600
+            val minutes = (totalSeconds % 3600) / 60
+            val seconds = totalSeconds % 60
+            return if (hours > 0) {
+                String.format(Locale.ROOT, "%d:%02d:%02d", hours, minutes, seconds)
+            } else {
+                String.format(Locale.ROOT, "%d:%02d", minutes, seconds)
+            }
+        }
+
+        fun vttTimestamp(ms: Long): String {
+            val clamped = ms.coerceAtLeast(0)
+            val totalSeconds = clamped / 1000
+            return String.format(
+                Locale.ROOT,
+                "%02d:%02d:%02d.%03d",
+                totalSeconds / 3600,
+                (totalSeconds % 3600) / 60,
+                totalSeconds % 60,
+                clamped % 1000,
+            )
+        }
+
         /** The source native gives the lead-in chapter it adds in front of a marker list. */
         internal const val LEAD_IN = -1
     }

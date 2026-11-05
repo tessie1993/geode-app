@@ -85,7 +85,7 @@ Paths are under `app/src/main/java/dev/geode/` unless they start with `core/`.
 | 14 | Lyrics | `.lrc` sidecar and embedded tags (`ui/Lyrics.kt:32`, `:81`, `:108`), attach per track (`ui/PlayerSession.kt:491`), shown in Settings › Lyrics (`ui/LyricsSettings.kt:37`). | Partial: no synced view on the Player screen |
 | 15 | Bit-perfect | USB DAC through `setPreferredMixerAttributes` on API 34+ (`playback/BitPerfectOutput.kt:41`, `:102`). | Has |
 | 16 | Crossfade | `playback/TrackCrossfade.kt:25` (fade out, then fade in; never an overlap). | Has |
-| 17 | Android Auto | `MediaLibraryService` browse tree (`playback/PlaybackService.kt:172`, `playback/LibraryTree.kt:19`). | Partial: browse only; no `onSearch` for in-car search |
+| 17 | Android Auto | `MediaLibraryService` browse tree (`playback/PlaybackService.kt:172`, `playback/LibraryTree.kt:19`). | Browse, plus in-car search in this PR (`onSearch` / `onGetSearchResult`, see below) |
 | 18 | Widget, notification | Glance widget (`widget/NowPlayingWidget.kt:79`). Shuffle, repeat and favourite buttons in the notification (`playback/NotificationButtons.kt:31`). Media3 lock-screen controls. Headphone autoplay (`playback/HeadphoneAutoplay.kt:23`). | Has |
 | 19 | Sleep timer, A-B | Fade, or finish the track (`playback/SleepTimer.kt:16`, `:34`, `:49`). A-B loop (`ui/QueueController.kt:24`). | Has |
 | 20 | Playlists import/export | Manual playlists with reorder (`data/MusicPlaylistStore.kt:72`, `ui/LibraryScreen.kt:572`). Import M3U, PLS and XSPF (`data/PlaylistFormats.kt:3`, `:50`). | Partial: no export |
@@ -111,7 +111,7 @@ Paths are under `app/src/main/java/dev/geode/` unless they start with `core/`.
 8. **Playlist export** to M3U, and a **Favourites** category or tab.
 9. **Built-in automatic lists**: Recently added, Most played, Recently played as ready-made smart
    playlists.
-10. **Android Auto search** (`onSearch` / `onGetSearchResult` in the library session).
+10. ~~**Android Auto search**~~: added in this PR (see "Example: Android Auto search with Media3").
 11. **Ratings, user-set row text, a separate return-to-list queue, a parametric EQ and per-output
     presets.** All of these are later or never.
 12. Out of scope (online): cover and artist art download, online lyrics, scrobbling, radio streams.
@@ -125,6 +125,8 @@ Paths are under `app/src/main/java/dev/geode/` unless they start with `core/`.
 - Search folded for accents and case, ranked title > artist > album (#341).
 - Debounced search, with filter, sort and grouping off Main and duplicates computed off Main
   (#341).
+- Android Auto and Assistant search through the library session, using the same folded, ranked
+  match (see the example below).
 
 **Launch: proposals (cheap must-haves, not built)**
 
@@ -147,10 +149,51 @@ Paths are under `app/src/main/java/dev/geode/` unless they start with `core/`.
   columns; `model/LibraryTrack.kt` already carries `genre`).
 - Folder hierarchy view, and per-folder exclude.
 - Playlist export to M3U.
-- Android Auto search.
 - A queue mode that returns to the list after the queue ends.
 - Ratings, and user-set row text.
 - A parametric EQ with per-output presets (an audio-chain change: read `docs/AUDIO_CHAIN.md`
   first).
 
 **Never (offline app):** online art and lyrics lookup, scrobbling, cloud libraries, radio streams.
+
+## Example: Android Auto search with Media3
+
+The Media3 documentation (AndroidX Media `api.txt` and the developer.android.com guides
+"Build audio playback apps for cars" and "Serve content with MediaLibraryService", read through
+Context7) describes search on a library session as two `MediaLibrarySession.Callback` methods
+and one notify call:
+
+- `onSearch(session, browser, query, params)`: answer at once, start the search, and report the
+  result count with `session.notifySearchResultChanged(browser, query, itemCount, params)`.
+- `onGetSearchResult(session, browser, query, page, pageSize, params)`: return one page of
+  results as `LibraryResult.ofItemList(...)`.
+- The browser side mirrors it: `MediaBrowser.search(...)`, then
+  `Listener.onSearchResultChanged(...)`, then `getSearchResult(...)`.
+
+Geode follows that shape (`playback/PlaybackService.kt`, `LibraryCallback`):
+
+```kotlin
+override fun onSearch(session: MediaLibrarySession, browser: ControllerInfo, query: String, params: LibraryParams?) =
+    if (!mayBrowse(browser)) {
+        Futures.immediateFuture(LibraryResult.ofError(SessionError.ERROR_PERMISSION_DENIED))
+    } else {
+        resumptionExecutor.execute {
+            session.notifySearchResultChanged(browser, query, tree.search(query).size, params)
+        }
+        Futures.immediateFuture(LibraryResult.ofVoid())
+    }
+
+override fun onGetSearchResult(session: MediaLibrarySession, browser: ControllerInfo, query: String,
+                               page: Int, pageSize: Int, params: LibraryParams?) =
+    Futures.submit(Callable {
+        LibraryResult.ofItemList(pageOf(if (mayBrowse(browser)) tree.search(query) else emptyList(), page, pageSize), params)
+    }, resumptionExecutor)
+```
+
+`LibraryTree.search` runs the library screen's `SearchMatcher` (accent and case folded, title over
+artist over album, capped at 50 results). Each result hangs under `search/<query>`, so tapping one
+plays the whole result list from that row, as a browsed folder does. The root result carries the
+legacy `android.media.browse.SEARCH_SUPPORTED` extra, which Android Auto reads to show its search
+box; Media3 passes the root result's extras to legacy browsers as root hints. A device check in
+the car (or the Desktop Head Unit) is still needed: no emulator job drives Auto.
+

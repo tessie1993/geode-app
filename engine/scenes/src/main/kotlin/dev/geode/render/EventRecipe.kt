@@ -71,16 +71,6 @@ enum class EventRecipe(
             ReactionRoute(true, ReactSource.ENERGY_TREND, LfoTarget.ROTATION, ReactMode.SPIN, 0.3f, ModCurve.LINEAR, 0.5f, 0.5f),
         ),
     ),
-    DROP_BURST(
-        "Drop burst",
-        "When the music surges back in, burst",
-        listOf(
-            follow(ReactSource.SURGE, LfoTarget.BLOOM, 0.6f, 0.02f, 1.5f),
-            follow(ReactSource.SURGE, LfoTarget.CAM_SHAKE, 0.6f, 0.02f, 1.2f),
-            follow(ReactSource.SURGE, LfoTarget.CAM_FLY, 1f, 0.25f, 2.2f),
-            follow(ReactSource.SURGE, LfoTarget.FLUID_FORCE, 1f, 0.02f, 1.2f),
-        ),
-    ),
     SECTION_COLOURS(
         "New colours on big moments",
         "When everything jumps at once, change colour",
@@ -233,7 +223,7 @@ enum class EventRecipe(
     ),
     BUILD_AND_DROP(
         "Build and drop",
-        "Speed up through the build, burst on the drop",
+        "Speed up through the build, glow on the drop",
         listOf(
             follow(ReactSource.BUILD_UP, LfoTarget.SPEED, 0.5f, 0.5f, 0.5f),
             follow(ReactSource.DROP, LfoTarget.BLOOM, 0.7f, 0.02f, 2f),

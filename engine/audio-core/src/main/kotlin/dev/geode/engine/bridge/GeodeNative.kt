@@ -225,9 +225,9 @@ object GeodeNative {
 
     /**
      * Note & key reactions (core/viz/NoteResponse): the notes, chords, key and mood drive the style knobs,
-     * the note colours, the blooms over every style and a gentle shape and distortion. Process-wide like
+     * the note colours, the tint toward them and a gentle shape and distortion. Process-wide like
      * the director, so the screen, an export, the wallpaper and the dream agree; off is exactly the picture
-     * without it. The play's seed is the director's ([directorSet]), so an export draws the same blooms.
+     * without it. The play's seed is the director's ([directorSet]), so an export answers the notes the same way.
      */
     external fun noteResponseSet(enabled: Boolean)
 
@@ -403,6 +403,16 @@ object GeodeNative {
         bottom: Float,
         strength: Float,
         cornerPx: Float,
+    )
+
+    /**
+     * The wallpaper's edge look (`core/viz/frame/EdgeGlowPass`), `GEODE_EDGE_GLOW_FLOATS` floats: enabled
+     * (> 0.5), then the on-screen window in surface pixels, y down (left, top, width, height; a size <= 0
+     * is the whole surface). Any thread, latched for the next frame; ignored offscreen.
+     */
+    external fun vizSetEdgeGlow(
+        handle: Long,
+        opts: FloatArray?,
     )
 
     external fun vizKnows(

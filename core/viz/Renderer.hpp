@@ -23,7 +23,6 @@
 #include "viz/Lfo.hpp"
 #include "viz/Macros.hpp"
 #include "viz/MotionField.hpp"
-#include "viz/NoteBloomPass.hpp"
 #include "viz/NoteResponse.hpp"
 #include "viz/OutputProbe.hpp"
 #include "viz/Overlays.hpp"
@@ -43,6 +42,7 @@
 #include "viz/TrailPass.hpp"
 #include "viz/UiBlurPass.hpp"
 #include "viz/VisualSafety.hpp"
+#include "viz/frame/EdgeGlowPass.hpp"
 #include "viz/liquid/LiquidMath.hpp"
 #include "viz/liquid/LiquidPass.hpp"
 #include "viz/scenes/ProgramLoader.hpp"
@@ -78,6 +78,8 @@ public:
     void setOffscreen(bool on) { offscreen_.store(on, std::memory_order_relaxed); }
     // The app's glass sheet over the live visual (UiBlurPass): latched for the next frame. Any thread.
     void setUiBlurRegion(const UiBlurRegion& region);
+    // The wallpaper's edge look (frame::EdgeGlowPass): latched for the next frame. Any thread.
+    void setEdgeGlow(const frame::edge_glow::Options& options);
     // Settings › Performance › Liquid on a hot phone (liquid::HotPolicy). Any thread.
     void setLiquidHotPolicy(int policy) { liquidHotPolicy_.store(policy, std::memory_order_relaxed); }
     // What Liquid mode ran last frame (liquid::Mode), so Customize can say when a hot phone simplified
@@ -181,6 +183,8 @@ private:
     void stepFlashLimiter(float dt);
     // After the composite: the UI blur region, live surfaces only; nothing at strength 0.
     void drawUiBlur(GLuint targetFbo);
+    // After the composite, before the output probe: the wallpaper's edge glow, while the shell has it on.
+    void drawEdgeGlow(GLuint targetFbo, double timeSeconds, float dt);
     void deliverPcm(Scene& scene);
     void stepOverlays(Scene& scene, const SceneParams& p, float dt);
     void stepCamera(const SceneParams& p, float dt);
@@ -252,14 +256,20 @@ private:
     int directorCommitsSeen_ = 0;  // GL thread only
     std::atomic<float> pinnedDirectorAmount_{0.0f};
     std::atomic<uint64_t> pinnedDirectorSeed_{0};
-    // Note & key reactions (viz/NoteResponse), after the director's look: knobs, note colours, blooms.
+    // Note & key reactions (viz/NoteResponse), after the director's look: knobs, note colours, tint.
     NoteResponse notes_;
-    NoteBloomPass bloomPass_;
     // Frosted glass under the app's sheet. The region is guarded by stateLock_; uiBlurOn_ lets a frame
     // with no sheet skip the lock.
     UiBlurPass uiBlurPass_;
     UiBlurRegion uiBlurRegion_;
     std::atomic<bool> uiBlurOn_{false};
+    // The wallpaper's edge look, the first frame::Pass (#439). Its options are guarded by stateLock_ and
+    // handed to the pass on the GL thread; edgeGlowOn_ lets a frame without it (every surface but the
+    // wallpaper) skip the lock. The renderer has no surface kind of its own: the pass runs only when the
+    // shell turned it on (the wallpaper is its only caller), and never offscreen.
+    frame::EdgeGlowPass edgeGlowPass_;
+    frame::edge_glow::Options edgeGlowOptions_;
+    std::atomic<bool> edgeGlowOn_{false};
     std::atomic<bool> offscreen_{false};
     // The note layer's seed: the director's play seed mixed with fresh entropy whenever that seed changes,
     // so every play (and every export) varies on its own, as the user chose (NoteResponse's class comment).
@@ -350,7 +360,6 @@ private:
     std::string bornSceneId_;
     std::string lastBornSceneId_;
     bool liquidWasOn_ = false;
-    float liquidFlare_ = 0.0f;
     std::atomic<int> liquidHotPolicy_{0};
     std::atomic<int> liquidMode_{0};
     bool rippleOverlayOn_ = false;

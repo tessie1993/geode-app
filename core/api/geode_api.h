@@ -66,7 +66,7 @@ GEODE_API int         geode_macro_starters(char* out, int capacity);
  * is a new play (the renderer forgets the song so far) and an export given the same seed makes the same film. */
 GEODE_API void        geode_director_set(float amount, long long seed);
 /* Note & key reactions (core/viz/NoteResponse): notes, chords, key and mood driving the style knobs, note
- * colours, blooms and a gentle shape and distortion on every style. Process-wide like the director; each
+ * colours, the tint and a gentle shape and distortion on every style. Process-wide like the director; each
  * renderer eases it in and out, and off (0) is exactly the picture without it. The seed is the director's. */
 GEODE_API void        geode_note_response_set(int enabled);
 /* The renderer's own sound engine: interleaved PCM in play order, every sample once, written on the render
@@ -128,6 +128,14 @@ GEODE_API void        geode_viz_set_offscreen(geode_viz*, int on);
  * An offscreen (export) renderer never draws it. */
 GEODE_API void        geode_viz_set_ui_blur_region(geode_viz*, float left, float top, float right, float bottom,
                                                    float strength, float corner_px);
+/* The wallpaper's edge look (core/viz/frame/EdgeGlowPass): after the composite, black over the frame except
+ * along the screen's rounded rim, the band breathing with the music's level. opts, in this order
+ * (core/viz/frame/EdgeGlowMath.hpp): enabled (> 0.5 = on), then the part of the surface on screen in
+ * surface pixels, y down: left, top, width, height (width or height <= 0 = the whole surface). Fewer than
+ * GEODE_EDGE_GLOW_FLOATS floats, or any non-finite one, turns it off. Any thread, latched for the next
+ * frame. Off by default; an offscreen (export) renderer never draws it. */
+#define GEODE_EDGE_GLOW_FLOATS 5
+GEODE_API void        geode_viz_set_edge_glow(geode_viz*, const float* opts, int count);
 /* An export's own auto-director (amount 0..1, the play's seed): from now on this renderer ignores
  * geode_director_set, so the live player's switch, track and free taste never reach the render. */
 GEODE_API void        geode_viz_set_director(geode_viz*, float amount, long long seed);

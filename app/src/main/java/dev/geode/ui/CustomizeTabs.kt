@@ -55,7 +55,6 @@ import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.geode.R
-import dev.geode.pro.FreeTier
 import dev.geode.render.fluid.FluidQuality
 import dev.geode.render.scene.Catalogue
 import dev.geode.render.scene.ParamFormat
@@ -409,7 +408,6 @@ internal fun LookTab(
         LabeledSlider(ParamKeys.BLOOM, p.bloom, 0f..0.25f, display = "Glow", default = SceneParams.DEFAULT.bloom) {
             onChange(p.copy(bloom = it))
         }
-        NoteBloomChips(p, onChange)
         LabeledSlider(ParamKeys.POSTERIZE, p.posterize, 0f..1f, display = "Fewer colours", default = SceneParams.DEFAULT.posterize) {
             onChange(p.copy(posterize = it))
         }
@@ -417,36 +415,6 @@ internal fun LookTab(
         CheckRow(ParamKeys.SOLARIZE, p.solarize) { onChange(p.copy(solarize = it)) }
         CheckRow(ParamKeys.INVERT, p.invert, display = "Invert colours") { onChange(p.copy(invert = it)) }
         LookEffectSections(p, onChange)
-    }
-}
-
-/**
- * Look › Note blooms: which bloom a note grows on this style, free like the switch that runs them
- * ([FreeTier.NOTE_BLOOMS_CONTROL]). Index 0 is the style's own look from the catalogue, so a new style
- * blooms as designed until the user picks; the rest are the engine's looks by wire value. It sits under
- * Glow because a bloom is light added over the picture, and how bright it grows is Advanced › Note & key.
- */
-@Composable
-private fun NoteBloomChips(
-    p: SceneParams,
-    onChange: (SceneParams) -> Unit,
-) {
-    val key = FreeTier.NOTE_BLOOMS_CONTROL
-    val title = stringResource(R.string.note_blooms_title)
-    if (!visible(key, ParamScope.UNIVERSAL, title)) return
-    val looks =
-        listOf(
-            stringResource(R.string.note_bloom_look_style),
-            stringResource(R.string.note_bloom_look_flower),
-            stringResource(R.string.note_bloom_look_glow),
-            stringResource(R.string.note_bloom_look_ripple),
-            stringResource(R.string.note_bloom_look_burst),
-        )
-    val selected = p.bloomLook.coerceIn(0, looks.lastIndex)
-    ProGated(key, title, looks[selected]) {
-        DropdownRow(title, looks, selected, lockKey = key, about = stringResource(R.string.note_blooms_hint)) {
-            onChange(p.copy(bloomLook = it))
-        }
     }
 }
 

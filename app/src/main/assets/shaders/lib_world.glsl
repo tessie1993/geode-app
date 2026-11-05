@@ -138,8 +138,8 @@ uniform vec4 uWorld[22];
 #define WG_SPARE uWorld[21].w
 
 /**
- * The baked CC0 assets (core/viz/world/WorldAssets, tools/morph_world_assets): sixteen models as signed
- * distance volumes, one 32^3 slab each stacked along z (32 x 32 x 512, R8, linear, clamped), and
+ * The baked CC0 assets (core/viz/world/WorldAssets, tools/morph_world_assets): twenty-four models as signed
+ * distance volumes, one 32^3 slab each stacked along z (32 x 32 x 768, R8, linear, clamped), and
  * eight grey material detail maps (128^2 layers, mirrored repeat). Read only while WG_ASSETS is 1.
  */
 uniform highp sampler3D uWorldShapes;
@@ -153,7 +153,7 @@ void worldCamera(vec2 uv, out vec3 ro, out vec3 rd) {
     ro = uCamPos;
     rd = normalize(uCamBasis * vec3(turned, uCamFocal * WG_LENS_NOW));
 }
-#define WG_SHAPES 16.0
+#define WG_SHAPES 24.0
 #define WG_SHAPE_RES 32.0
 #define WG_SHAPE_LO -0.25
 #define WG_SHAPE_HI 0.75

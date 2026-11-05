@@ -54,7 +54,7 @@ constexpr Bounds kBounds[kFieldCount] = {
     {0.0f, 1.0f},     // PApollo
     {0.2f, 2.4f},     // PrimSize
     {0.03f, 0.45f},   // PrimThick
-    {0.0f, 15.0f},    // MeshPick (kShapeCount - 1)
+    {0.0f, 23.0f},    // MeshPick (kShapeCount - 1)
     {0.6f, 2.6f},     // MeshSize
     {2.0f, 9.0f},     // BulbPower
     {0.8f, 4.0f},     // GyroScale
@@ -454,7 +454,7 @@ Genome make(const Set (&sets)[N]) {
     return g;
 }
 
-std::array<Seed, 41> buildSeeds() {
+std::array<Seed, 47> buildSeeds() {
     return {{
         // A nave of soap-thin spheres, inverted into one another: bubbles inside bubbles, lit from within.
         {"Bubble Nave", 0.35f, 0.7f, 0.5f,
@@ -690,11 +690,47 @@ std::array<Seed, 41> buildSeeds() {
                {MeshSize, 1.6f}, {MSurface, 0.65f}, {MDensity, 0.35f}, {DensBand, 0.1f}, {TrapR, 0.6f}, {TrapZ, 0.3f},
                {PalOffset, 0.72f}, {PalSpan, 0.45f}, {Emission, 1.2f}, {Fog, 0.035f}, {TexAmount, 0.6f}, {TexPick, 5.0f},
                {Lens, 1.1f}})},
+        // Marble busts folded five ways round the way, a slow spiral and roll: a round gallery of faces.
+        {"Bust Rotunda", 0.3f, 0.5f, 0.55f,
+         make({{RepXY, 0.5f}, {CellXY, 6.5f}, {CellZ, 5.0f}, {CellShift, 0.9f}, {Polar, 1.0f}, {PolarN, 5.0f},
+               {PolarTwist, 0.15f}, {PMesh, 1.0f}, {MeshPick, 16.0f}, {MeshSize, 1.9f}, {MSurface, 0.75f}, {MGlow, 0.25f},
+               {TrapR, 0.5f}, {TrapY, 0.3f}, {PalOffset, 0.4f}, {PalSpan, 0.3f}, {Emission, 1.25f}, {Fog, 0.03f},
+               {TexAmount, 0.7f}, {TexPick, 0.0f}, {TexScale, 1.2f}, {Roll, 0.08f}, {Lens, 0.9f}})},
+        // Cat statues on a lattice tipped and turned off the axes, half stone, half glow: a crooked temple.
+        {"Cat Temple", 0.45f, 0.55f, 0.6f,
+         make({{RepXY, 0.5f}, {CellXY, 5.5f}, {CellZ, 4.5f}, {CellShift, 1.0f}, {LatticeTilt, 0.35f}, {LatticeYaw, -0.25f},
+               {PMesh, 1.0f}, {MeshPick, 17.0f}, {MeshSize, 1.8f}, {MSurface, 0.6f}, {MGlow, 0.4f}, {TrapR, 0.6f},
+               {TrapX, 0.3f}, {PalOffset, 0.12f}, {PalSpan, 0.4f}, {Emission, 1.2f}, {Fog, 0.035f}, {TexAmount, 0.5f},
+               {TexPick, 2.0f}, {Roll, -0.1f}, {Lens, 1.1f}})},
+        // Stone pillars folded seven ways and turning: a colonnade that spirals round the way.
+        {"Spiral Colonnade", 0.5f, 0.6f, 0.5f,
+         make({{RepXY, 0.4f}, {CellXY, 6.0f}, {CellZ, 4.0f}, {CellShift, 0.8f}, {Polar, 1.0f}, {PolarN, 7.0f},
+               {PolarTwist, 0.3f}, {PMesh, 1.0f}, {MeshPick, 18.0f}, {MeshSize, 2.2f}, {MSurface, 0.8f}, {MGlow, 0.2f},
+               {TrapR, 0.5f}, {TrapZ, 0.4f}, {PalOffset, 0.08f}, {PalSpan, 0.35f}, {Emission, 1.2f}, {Fog, 0.035f},
+               {TexAmount, 0.7f}, {TexPick, 2.0f}, {TexScale, 1.1f}, {Roll, 0.15f}, {Lens, 0.85f}})},
+        // Stumps and pumpkins blended, folded three ways, under a glowing mist: an autumn hollow.
+        {"Harvest Hollow", 0.35f, 0.45f, 0.65f,
+         make({{RepXY, 0.5f}, {CellXY, 6.0f}, {CellZ, 5.0f}, {CellShift, 0.9f}, {Polar, 1.0f}, {PolarN, 3.0f},
+               {PolarTwist, -0.2f}, {PMesh, 1.0f}, {MeshPick, 19.5f}, {MeshSize, 1.8f}, {MSurface, 0.6f}, {MDensity, 0.4f},
+               {DensBand, 0.12f}, {TrapR, 0.6f}, {TrapY, 0.3f}, {PalOffset, 0.06f}, {PalSpan, 0.35f}, {Emission, 1.2f},
+               {Fog, 0.035f}, {TexAmount, 0.6f}, {TexPick, 5.0f}, {Roll, -0.08f}, {Lens, 1.15f}})},
+        // Teapots on a lattice tipped and yawed, through a spiral nine-way fold: a tea party in a kaleidoscope.
+        {"Teapot Kaleido", 0.6f, 0.7f, 0.55f,
+         make({{RepXY, 0.5f}, {CellXY, 5.5f}, {CellZ, 4.5f}, {CellShift, 1.0f}, {LatticeTilt, -0.3f}, {LatticeYaw, 0.4f},
+               {Polar, 1.0f}, {PolarN, 9.0f}, {PolarTwist, 0.2f}, {PMesh, 1.0f}, {MeshPick, 21.0f}, {MeshSize, 1.8f},
+               {MSurface, 0.5f}, {MGlow, 0.5f}, {TrapR, 0.6f}, {TrapX, 0.3f}, {PalOffset, 0.62f}, {PalSpan, 0.5f},
+               {Emission, 1.15f}, {Fog, 0.03f}, {TexEmit, 0.5f}, {TexPick, 6.0f}, {Roll, 0.2f}, {Lens, 0.9f}})},
+        // Bronze whales and hanging lanterns blended, folded eleven ways round a slow roll: a deep-sea vigil.
+        {"Whale Lanterns", 0.3f, 0.6f, 0.6f,
+         make({{RepXY, 0.4f}, {CellXY, 6.5f}, {CellZ, 5.0f}, {CellShift, 0.9f}, {Polar, 1.0f}, {PolarN, 11.0f},
+               {PolarTwist, -0.25f}, {PMesh, 1.0f}, {MeshPick, 22.4f}, {MeshSize, 2.1f}, {MSurface, 0.45f}, {MGlow, 0.55f},
+               {TrapR, 0.5f}, {TrapZ, 0.4f}, {PalOffset, 0.58f}, {PalSpan, 0.4f}, {Emission, 1.25f}, {Fog, 0.03f},
+               {TexAmount, 0.5f}, {TexPick, 4.0f}, {Roll, -0.18f}, {Lens, 1.2f}})},
     }};
 }
 
-const std::array<Seed, 41>& seeds() {
-    static const std::array<Seed, 41> kSeeds = buildSeeds();
+const std::array<Seed, 47>& seeds() {
+    static const std::array<Seed, 47> kSeeds = buildSeeds();
     return kSeeds;
 }
 

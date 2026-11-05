@@ -198,11 +198,11 @@ const SHADER_VALUES = {
 const SHADER_TEXTURES = { uSoundTex: 'sound', uPalLut: 'palette', uWorldShapes: 'world_shapes', uWorldTex: 'world_tex' };
 
 // Morph World's baked assets (core/viz/world/WorldAssets), handed to the page as the app uploads them:
-// the shape volumes as one 32 x 32 x 512 R8 TEXTURE_3D, the detail maps as an 8-layer R8 TEXTURE_2D_ARRAY.
+// the shape volumes as one 32 x 32 x 768 R8 TEXTURE_3D, the detail maps as an 8-layer R8 TEXTURE_2D_ARRAY.
 function worldAssets() {
   const read = (f) => fs.readFileSync(path.join(SHADERS, f)).toString('base64');
   return {
-    world_shapes: { target: '3d', w: 32, h: 32, d: 512, b64: read('world_shapes.bin') },
+    world_shapes: { target: '3d', w: 32, h: 32, d: 768, b64: read('world_shapes.bin') },
     world_tex: { target: 'array', w: 128, h: 128, d: 8, b64: read('world_textures.bin') },
   };
 }

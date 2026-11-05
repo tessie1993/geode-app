@@ -47,11 +47,15 @@ class TakeCapture(
 
     /**
      * Starts capturing the stage under the entitlement's [limits], the same as a render's (a trial take
-     * stops at the cap and carries the wordmark; native applies both). False when it could not: no stage
+     * stops at the cap and carries the wordmark; native applies both). [fromInput]: the mic or another app's
+     * audio owns the sound now, so the take keeps that instead of the player's (#458). False when it could not: no stage
      * drawn yet, or no encoder would start.
      */
     @WorkerThread
-    fun begin(limits: RenderLimits = RenderLimits.NONE): Boolean {
+    fun begin(
+        limits: RenderLimits = RenderLimits.NONE,
+        fromInput: Boolean = false,
+    ): Boolean {
         if (fd != null) return false
         // The take reads Settings › Behaviour › Record as it begins; fetching the store pushes the saved rule.
         TakeRuleStore.get(appContext)
@@ -74,6 +78,7 @@ class TakeCapture(
                 tile?.width ?: 0,
                 tile?.height ?: 0,
                 shortSide,
+                fromInput,
             )
         if (!started) {
             bestEffort(TAG, "close refused take") { opened.close() }

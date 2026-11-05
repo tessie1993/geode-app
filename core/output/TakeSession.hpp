@@ -28,6 +28,7 @@ class Take;
 // tileForShortSide; TakeSurface scales the pattern to the take's own size and draws it into the take only.
 struct TakeLimits {
     int64_t capMs = 0;  // 0: no cap
+    TakeSource source = TakeSource::Player;
     std::vector<uint32_t> tileArgb;
     int tileWidth = 0;
     int tileHeight = 0;
@@ -55,11 +56,13 @@ public:
     // Settings › Behaviour › Record (TakeRules), for the next take to begin. Any thread.
     void setRule(TakeRule rule) { rule_.store(static_cast<int>(rule), std::memory_order_relaxed); }
     // What the player did; the running take holds, releases or carries on as its rule says, and the answer
-    // comes back so the shell can stop a take that ended. Roll while no take runs.
+    // comes back so the shell can stop a take that ended. Roll while no take runs, and for a mic or capture take.
     TakeAction event(TakeEvent event);
 
     // The record tap, on the playback thread: interleaved 16-bit PCM as the performer hears it.
     void writeAudio(const int16_t* pcm, int frames, int channels, int rateHz);
+    // The mic or another app's audio, on its capture thread: interleaved float PCM as it arrives (#458).
+    void writeInput(const float* pcm, int frames, int channels, int rateHz);
 
     // The stage renderer's surface size, noted every frame so begin() knows the screen's size.
     void noteStageSize(int width, int height);

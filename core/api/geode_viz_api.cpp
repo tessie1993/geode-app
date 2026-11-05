@@ -147,10 +147,6 @@ void geode_viz_set_sound_tuning(geode_viz* v, const GeodeSoundTuning* tuning) {
     if (v && tuning) v->renderer.setSoundTuning(*tuning);
 }
 
-void geode_viz_push_pcm(geode_viz* v, const float* mono, int count) {
-    if (v && mono && count > 0) v->renderer.pushPcm(mono, count);
-}
-
 void geode_viz_set_custom_shader(geode_viz* v, const char* scene_id, const char* fragment_source) {
     if (v && scene_id && fragment_source) v->renderer.setCustomShader(scene_id, fragment_source);
 }

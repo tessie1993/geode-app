@@ -229,12 +229,6 @@ object GeodeNative {
     /** The built-in macro presets, "Name|e,s,c,m,sp,ch" lines. */
     external fun macroStarters(): String
 
-    external fun vizPushPcm(
-        handle: Long,
-        mono: FloatArray,
-        count: Int,
-    )
-
     external fun vizSetCustomShader(
         handle: Long,
         sceneId: String,

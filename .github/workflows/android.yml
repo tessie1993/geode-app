@@ -153,8 +153,9 @@ jobs:
             core/signal/params/*.cpp -o scene_camera_test
           ./scene_camera_test
           # Generators (#471, #472): the pool (2D shader styles + simulations, catalogue order), the slot
-          # assignment at sections and drops (pins and OnlyMe hold, seeded and deterministic), the param rows.
-          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/generator_test.cpp core/scene/generator/*.cpp \
+          # assignment at sections and drops (pins and OnlyMe hold, seeded and deterministic), the param rows,
+          # the director hook, which slots draw (sampled, tier) and the published assignment an export adopts.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/generator_test.cpp core/scene/generator/*.cpp \
             core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp core/signal/params/*.cpp -o generator_test
           ./generator_test
           # The fluid engine: multigrid pressure plan, MacCormack, splat batching, heat, tracers, tiers.

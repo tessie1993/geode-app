@@ -48,6 +48,12 @@ public:
     // The renderer's generator textures, stable for the scene's lifetime (nullptr = none); a style
     // that includes lib_generator samples them, every other scene ignores them.
     virtual void setGenerators(const GeneratorTextures* generators) { (void) generators; }
+    // Whether this scene's program reads generator slot `slot` (0..3): the renderer steps a slot's
+    // generator only while some scene on screen samples it.
+    virtual bool samplesGenerator(int slot) const {
+        (void) slot;
+        return false;
+    }
     virtual void setTouchField(const TouchField* field) { (void) field; }
     // The renderer's camera rig pose, stable for the scene's lifetime; stepped once per frame before draw.
     virtual void setCamera(const CameraPose* pose) { (void) pose; }

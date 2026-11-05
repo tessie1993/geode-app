@@ -19,6 +19,7 @@
 using namespace geode::scene::generator;
 namespace catalogue = geode::viz::catalogue;
 using geode::signal::ParamKind;
+using Reason = geode::viz::Director::Reason;
 
 namespace {
 
@@ -372,6 +373,120 @@ void testTargets() {
     check(!gt::pins(keys, ""), "nothing pins the empty id");
 }
 
+
+// The director hook (#472): only a Section or a Drop commit is a generator moment, numbered by the
+// director's commit count, so a replay with the same seed swaps at the same commits.
+void testDirectorMoment() {
+    namespace gt = geode::viz::generator_targets;
+    const auto section = gt::directorMoment(Reason::Section, 7);
+    check(section && section->moment == Moment::Section && section->index == 7u, "a Section commit is a Section moment");
+    const auto drop = gt::directorMoment(Reason::Drop, 9);
+    check(drop && drop->moment == Moment::Drop && drop->index == 9u, "a Drop commit is a Drop moment");
+    check(!gt::directorMoment(Reason::First, 1), "the first look is no moment");
+    check(!gt::directorMoment(Reason::Modulation, 3), "a modulation is no moment");
+    check(!gt::directorMoment(Reason::Long, 4), "a long hold is no moment");
+    check(!gt::directorMoment(Reason::Section, -1), "a negative count is no moment");
+}
+
+// A play's run of director commits (7 of them Sections or Drops), fed through the hook as the
+// renderer feeds it.
+int playThrough(Assignment& a, std::uint64_t seed) {
+    namespace gt = geode::viz::generator_targets;
+    static const Reason kRun[] = {Reason::First, Reason::Modulation, Reason::Section, Reason::Long,
+                                  Reason::Drop, Reason::Section, Reason::Modulation, Reason::Section,
+                                  Reason::Drop, Reason::Drop, Reason::Section, Reason::Long};
+    int changes = 0;
+    int commits = 0;
+    for (Reason why : kRun) {
+        const auto m = gt::directorMoment(why, ++commits);
+        if (m && onMoment(a, m->moment, seed, m->index, kPool)) ++changes;
+    }
+    return changes;
+}
+
+Assignment twoPinnedOneEmpty() {
+    Assignment a = fourAssigned(Policy::DirectorSwaps);
+    a.slots[1].pinned = true;
+    a.slots[3].pinned = true;
+    a.slots[2].id.clear();
+    return a;
+}
+
+void testDirectorSequence() {
+    Assignment only = fourAssigned(Policy::OnlyMe);
+    only.slots[0].pinned = true;
+    const Assignment before = only;
+    check(playThrough(only, 0xC0FFEEu) == 0 && sameAssignment(only, before), "OnlyMe: a play's moments change nothing");
+
+    for (std::uint64_t seed : {1ull, 42ull, 0xDEADBEEFull}) {
+        Assignment a = twoPinnedOneEmpty();
+        const int changes = playThrough(a, seed);
+        check(changes == 7, "DirectorSwaps: every Section and Drop of the play swaps something");
+        check(a.slots[1].id == "julia" && a.slots[1].pinned, "DirectorSwaps: a pinned wall survives the play");
+        check(a.slots[3].id == "acid_tv" && a.slots[3].pinned, "DirectorSwaps: a pinned plane survives the play");
+        check(a.slots[2].id.empty() && !a.slots[2].pinned, "DirectorSwaps: an empty slot stays empty");
+        Assignment again = twoPinnedOneEmpty();
+        playThrough(again, seed);
+        check(sameAssignment(a, again), "DirectorSwaps: the same play swaps the same way");
+    }
+    Assignment allPinned = fourAssigned(Policy::DirectorSwaps);
+    for (auto& s : allPinned.slots) s.pinned = true;
+    const Assignment pinnedBefore = allPinned;
+    check(playThrough(allPinned, 7u) == 0 && sameAssignment(allPinned, pinnedBefore), "DirectorSwaps: all pinned, nothing moves");
+}
+
+// Which slots the renderer steps: only those the scenes on screen sample, and at the Minimal tier only
+// the camera plane (it is the picture; a sky, wall or material is decoration a hot phone sheds).
+void testDrawsSlot() {
+    namespace gt = geode::viz::generator_targets;
+    using geode::viz::ThermalTier;
+    const ThermalTier tiers[] = {ThermalTier::Full, ThermalTier::Eased, ThermalTier::Reduced, ThermalTier::Minimal};
+    for (ThermalTier t : tiers) {
+        for (int i = 0; i < kSlotCount; ++i) {
+            check(!gt::drawsSlot(static_cast<Slot>(i), t, false), "an unsampled slot is never drawn");
+        }
+        check(gt::drawsSlot(Slot::CameraPlane, t, true), "a sampled plane is drawn on every tier");
+    }
+    for (ThermalTier t : {ThermalTier::Full, ThermalTier::Eased, ThermalTier::Reduced}) {
+        for (Slot s : {Slot::Sky, Slot::Wall, Slot::Material}) check(gt::drawsSlot(s, t, true), "a sampled surface is drawn below Minimal");
+    }
+    for (Slot s : {Slot::Sky, Slot::Wall, Slot::Material}) {
+        check(!gt::drawsSlot(s, ThermalTier::Minimal, true), "Minimal sheds the sky, wall and material");
+    }
+}
+
+// The live assignment, published process-wide for an export to adopt (like director::setGlobal).
+void testPublished() {
+    check(sameAssignment(published(), Assignment{}), "nothing published: the default assignment");
+    Assignment a = fourAssigned(Policy::DirectorSwaps);
+    a.slots[2].pinned = true;
+    publish(a);
+    check(sameAssignment(published(), a), "an export adopts what the live renderer published");
+    Assignment b;
+    b.slots[0].id = "julia";
+    publish(b);
+    check(sameAssignment(published(), b), "the latest publish wins");
+
+    // Who publishes: the live renderer the shell set generators on; never an export's, nor a renderer
+    // nobody set anything on (the wallpaper, the dream).
+    namespace gt = geode::viz::generator_targets;
+    check(gt::publishesAssignment(false, true), "the live renderer the shell sets publishes");
+    check(!gt::publishesAssignment(false, false), "a live renderer nobody set anything on never publishes");
+    check(!gt::publishesAssignment(true, true) && !gt::publishesAssignment(true, false), "an export never publishes");
+
+    // A Visuals view detached and attached again: the old renderer published its choices and a swap, the
+    // new one starts from them (Renderer's constructor adopts published()), and so does an export.
+    Assignment live = twoPinnedOneEmpty();
+    publish(live);
+    playThrough(live, 99u);
+    publish(live);  // the renderer publishes after each swap
+    const Assignment adopted = published();
+    check(sameAssignment(adopted, live), "a new live renderer adopts the choices and the director's swaps");
+    check(adopted.slots[1].pinned && adopted.slots[3].pinned && adopted.policy == Policy::DirectorSwaps,
+          "the pins and the policy survive the renderer's rebuild");
+    publish(Assignment{});
+}
+
 }  // namespace
 
 int main() {
@@ -387,6 +502,10 @@ int main() {
     testSchema();
     testText();
     testTargets();
+    testDirectorMoment();
+    testDirectorSequence();
+    testDrawsSlot();
+    testPublished();
     if (failures == 0) std::printf("generator_test: OK\n");
     return failures == 0 ? 0 : 1;
 }

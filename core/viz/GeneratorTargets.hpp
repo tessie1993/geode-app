@@ -12,11 +12,14 @@
 
 #include <algorithm>
 #include <array>
+#include <cstdint>
+#include <optional>
 #include <string>
 #include <string_view>
 
 #include "scene/generator/Assignment.hpp"
 #include "scene/generator/Slot.hpp"
+#include "viz/Director.hpp"
 #include "viz/ThermalGovernor.hpp"
 
 namespace geode::viz::generator_targets {
@@ -95,6 +98,41 @@ inline Keys wantedKeys(const gen::Assignment& a) {
 inline bool pins(const Keys& wanted, std::string_view id) {
     if (id.empty()) return false;
     return std::any_of(wanted.begin(), wanted.end(), [&](const std::string& k) { return k == id; });
+}
+
+// Who publishes the assignment process-wide (scene::generator::publish): a live renderer the shell has
+// set a generator, pin or policy on, after each setter and each director swap. Every renderer adopts
+// the published assignment when it is built (Visuals builds a new one each time its view attaches, so
+// leaving Visuals keeps the choices), and an export's again when it turns offscreen. An offscreen
+// renderer never publishes, nor does one nobody set anything on (the wallpaper, the dream), so their
+// own directors' swaps never overwrite the app's.
+constexpr bool publishesAssignment(bool offscreen, bool setHere) { return !offscreen && setHere; }
+
+// Whether a slot's instance is stepped and drawn this frame. Only when a scene on screen samples it
+// (ShaderScene::samplesGenerator: its program has that slot's uGen* sampler), so assigning a sky under
+// a 2D style costs nothing until a style that reads the sky comes on; and at the Minimal tier only the
+// camera plane, which is the picture itself, while a sky, wall or material is decoration a hot phone
+// sheds before frames. A slot skipped here keeps its instance resident (pins() still holds it), so it
+// resumes without a rebuild.
+constexpr bool drawsSlot(gen::Slot slot, ThermalTier tier, bool sampled) {
+    if (!sampled) return false;
+    return slot == gen::Slot::CameraPlane || tier != ThermalTier::Minimal;
+}
+
+// The director hook (#472): the director committed a look (Director::commits() is `commits`, the reason
+// is `why`). A section or a drop is a generator moment, numbered by that commit count so a replay of
+// the play (an export pins the same seed) swaps at the same commits; any other commit is none.
+struct DirectorMoment {
+    gen::Moment moment = gen::Moment::Section;
+    std::uint32_t index = 0;
+};
+
+constexpr std::optional<DirectorMoment> directorMoment(Director::Reason why, int commits) {
+    if (commits < 0) return std::nullopt;
+    const auto index = static_cast<std::uint32_t>(commits);
+    if (why == Director::Reason::Section) return DirectorMoment{gen::Moment::Section, index};
+    if (why == Director::Reason::Drop) return DirectorMoment{gen::Moment::Drop, index};
+    return std::nullopt;
 }
 
 }  // namespace geode::viz::generator_targets

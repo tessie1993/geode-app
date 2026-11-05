@@ -77,7 +77,8 @@ public:
     // (the default) builds a new scene across frames instead; see ScenePrep.hpp.
     void setBlockingBuilds(bool on) { blockingBuilds_.store(on, std::memory_order_relaxed); }
     // Export (geode_viz_set_offscreen): never draws the UI blur, whatever region it was given.
-    void setOffscreen(bool on) { offscreen_.store(on, std::memory_order_relaxed); }
+    // On, for an export: also adopts the live renderer's generator assignment (scene::generator::published).
+    void setOffscreen(bool on);
     // The app's glass sheet over the live visual (UiBlurPass): latched for the next frame. Any thread.
     void setUiBlurRegion(const UiBlurRegion& region);
     // Settings › Performance › Liquid on a hot phone (liquid::HotPolicy). Any thread.
@@ -373,9 +374,14 @@ private:
     bool rippleOverlayOn_ = false;
     bool smearing_ = false;
 
-    // Generators (#471). The assignment the setters (and, from #472, the director) change, under
+    // Generators (#471). The assignment the setters and the director (#472, resolveParams) change, under
     // stateLock_; the GL thread reads it once a frame in drawGenerators.
     scene::generator::Assignment generatorRequest_;
+    // Whether the shell has set a generator, pin or policy on this renderer: only then does it publish
+    // (generator_targets::publishesAssignment). Under stateLock_.
+    bool generatorsSetHere_ = false;
+    // stateLock_ held: publishes generatorRequest_ process-wide when this renderer is the publisher.
+    void publishGeneratorsLocked();
     // The pool setGenerator accepts (Pool.hpp), fixed for the process.
     const std::vector<std::string> generatorPool_;
     // GL thread only. Each slot's wanted instance key ("gen:<slot>:<id>", "" for none), pinned in

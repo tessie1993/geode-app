@@ -38,4 +38,12 @@ enum class Moment : int { Section, Drop };
 bool onMoment(Assignment& assignment, Moment moment, std::uint64_t playSeed, std::uint32_t momentIndex,
               const std::vector<std::string>& pool);
 
+// The live assignment, process-wide, like director::setGlobal: the live renderer publishes the user's
+// choices (ids, pins, policy) whenever a setter changes them, and a renderer that turns offscreen for an
+// export adopts that snapshot at the start of the render. So an export shows the generators the user
+// set without the shell (OffscreenSceneRenderer) calling any setter, and the live player changing them
+// mid-render never reaches the render in progress. Any thread.
+void publish(const Assignment& assignment);
+Assignment published();
+
 }  // namespace geode::scene::generator

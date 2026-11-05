@@ -34,6 +34,9 @@ public:
     void setFlow(GLuint texture, float strength) override;
     void setPaletteLut(GLuint texture) override { paletteLutTex_ = texture; }
     void setGenerators(const GeneratorTextures* generators) override { generators_ = generators; }
+    bool samplesGenerator(int slot) const override {
+        return readsGenerators_ && slot >= 0 && static_cast<size_t>(slot) < genSamplerLoc_.size() && genSamplerLoc_[static_cast<size_t>(slot)] >= 0;
+    }
     void setTouchField(const TouchField* field) override { touchField_ = field; }
     void setCamera(const CameraPose* pose) override { camera_ = pose; }
     bool drawsCamera() const override { return drawsCamera_; }

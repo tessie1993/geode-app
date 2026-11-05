@@ -150,6 +150,14 @@ SceneParams Renderer::resolveParams(float dt) {
         if (why == Director::Reason::Section || why == Director::Reason::Drop) {
             directorStyleMoments_.fetch_add(1, std::memory_order_acq_rel);
         }
+        // The same moment may swap the generators the user left unpinned (#472; a no-op under OnlyMe).
+        // A swapped slot's instance is rebuilt by drawGenerators below, this frame's key diff.
+        if (const auto moment = generator_targets::directorMoment(why, directorCommitsSeen_)) {
+            std::lock_guard<std::mutex> lock(stateLock_);
+            if (scene::generator::onMoment(generatorRequest_, moment->moment, directorConfig.seed, moment->index, generatorPool_)) {
+                publishGeneratorsLocked();
+            }
+        }
     }
     directedKnobs_ = director_.knobs(frameKnobs_);
     // Note & key reactions hear the frame next, inside the director's look: its hue anchors the notes'
@@ -654,6 +662,11 @@ void Renderer::drawGenerators(Scene& active, const SceneParams& p, float dt) {
         generatorTextures_.mix[i] = 0.0f;
         const std::string& key = generatorKeys_[s];
         if (key.empty()) continue;
+        // Only a slot some scene on screen samples is stepped, and at the Minimal tier only the plane;
+        // a skipped slot's instance stays resident (pinned) and resumes without a rebuild.
+        const bool sampled = active.samplesGenerator(i) || (layerScene_ && layerScene_->samplesGenerator(i)) ||
+                             (outgoingScene_ && outgoingScene_->samplesGenerator(i));
+        if (!gt::drawsSlot(static_cast<gen::Slot>(i), appliedTier_, sampled)) continue;
         const gt::TargetSize size = gt::targetSize(static_cast<gen::Slot>(i), appliedTier_, renderWidth_, renderHeight_);
         Scene* g = builtScene(key);
         if (g != nullptr) {

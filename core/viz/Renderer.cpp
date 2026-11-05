@@ -32,6 +32,7 @@ Renderer::Renderer(AAssetManager* assets, std::string cacheDir)
       compositePass_(assets_, &programCache_),
       pcm_(kPcmCapacity),
       pcmDeliverScratch_(kPcmCapacity, 0.0f),
+      generatorRequest_(scene::generator::published()),
       generatorPool_(scene::generator::generatorPool()),
       generatorParams_(scene::generator::generatorSchema()) {
     programCache_.install(cacheDir_);
@@ -468,12 +469,16 @@ void Renderer::setGenerator(int slot, const std::string& styleId) {
     }
     std::lock_guard<std::mutex> lock(stateLock_);
     generatorRequest_.slots[static_cast<size_t>(slot)].id = styleId;
+    generatorsSetHere_ = true;
+    publishGeneratorsLocked();
 }
 
 void Renderer::setGeneratorPin(int slot, bool pinned) {
     if (!generator_targets::validSlot(slot)) return;
     std::lock_guard<std::mutex> lock(stateLock_);
     generatorRequest_.slots[static_cast<size_t>(slot)].pinned = pinned;
+    generatorsSetHere_ = true;
+    publishGeneratorsLocked();
 }
 
 void Renderer::setGeneratorPolicy(int policy) {
@@ -481,6 +486,30 @@ void Renderer::setGeneratorPolicy(int policy) {
     if (policy != static_cast<int>(Policy::OnlyMe) && policy != static_cast<int>(Policy::DirectorSwaps)) return;
     std::lock_guard<std::mutex> lock(stateLock_);
     generatorRequest_.policy = static_cast<Policy>(policy);
+    generatorsSetHere_ = true;
+    publishGeneratorsLocked();
+}
+
+// The assignment as it stands (the user's choices and the director's swaps), published process-wide so
+// the next renderer starts from it: a live renderer built again after Visuals detached its view, and an
+// export's renderer at the start of its render. Only the renderer the shell sets generators on
+// publishes (generator_targets::publishesAssignment), so the wallpaper's or the dream's own director,
+// adopting the same assignment, never writes its swaps over the app's.
+void Renderer::publishGeneratorsLocked() {
+    if (!generator_targets::publishesAssignment(offscreen_.load(std::memory_order_relaxed), generatorsSetHere_)) return;
+    scene::generator::publish(generatorRequest_);
+}
+
+void Renderer::setOffscreen(bool on) {
+    const bool was = offscreen_.exchange(on, std::memory_order_relaxed);
+    if (!on || was) return;
+    // An export adopts the live assignment once, at the start of its render (geode_viz_set_offscreen):
+    // the shell's OffscreenSceneRenderer calls no generator setter, and the screen changing them while
+    // the render runs never reaches it.
+    const scene::generator::Assignment live = scene::generator::published();
+    std::lock_guard<std::mutex> lock(stateLock_);
+    generatorRequest_ = live;
+    generatorsSetHere_ = false;
 }
 
 scene::generator::Assignment Renderer::generatorAssignment() const {

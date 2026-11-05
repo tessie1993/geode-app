@@ -1,5 +1,7 @@
 #include "scene/generator/Assignment.hpp"
 
+#include <mutex>
+
 namespace geode::scene::generator {
 
 namespace {
@@ -76,6 +78,27 @@ bool onMoment(Assignment& assignment, Moment moment, std::uint64_t playSeed, std
         if (chosen[i]) swapSlot(assignment.slots[i], pool, draw(playSeed, momentIndex, i, kPick));
     }
     return true;
+}
+
+namespace {
+std::mutex& publishedLock() {
+    static std::mutex lock;
+    return lock;
+}
+Assignment& publishedSlot() {
+    static Assignment assignment;
+    return assignment;
+}
+}  // namespace
+
+void publish(const Assignment& assignment) {
+    std::lock_guard<std::mutex> lock(publishedLock());
+    publishedSlot() = assignment;
+}
+
+Assignment published() {
+    std::lock_guard<std::mutex> lock(publishedLock());
+    return publishedSlot();
 }
 
 }  // namespace geode::scene::generator

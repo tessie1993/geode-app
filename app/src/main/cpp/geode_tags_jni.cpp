@@ -122,9 +122,11 @@ Java_dev_geode_engine_bridge_GeodeNative_studioMoveTakesOut(JNIEnv* env, jobject
 
 JNIEXPORT jint JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_libraryFilter(JNIEnv* env, jobject, jobjectArray cells, jint fieldsPerRow,
-                                                       jbooleanArray preferred, jbyteArray query, jintArray out) {
+                                                       jbooleanArray preferred, jbyteArray query, jint options,
+                                                       jintArray out) {
     // cells: per row a key (null = never merged) then fieldsPerRow fields, UTF-8 byte arrays; preferred: one
-    // flag per row or null. Only marshalling here; the matching is core/library/Search (filterRows).
+    // flag per row or null; options: GEODE_LIBRARY_FILTER_* bits. Only marshalling here; the matching and the
+    // ranking are core/library/Search (filterRows).
     if (!cells || !query || !out || fieldsPerRow < 0) return 0;
     const jsize count = env->GetArrayLength(cells);
     const jsize rows = count / (fieldsPerRow + 1);
@@ -146,8 +148,8 @@ Java_dev_geode_engine_bridge_GeodeNative_libraryFilter(JNIEnv* env, jobject, job
     const jsize capacity = env->GetArrayLength(out);
     std::vector<jint> kept(static_cast<size_t>(capacity));
     const int written = geode_library_filter(pointers.data(), static_cast<int>(rows), static_cast<int>(fieldsPerRow),
-                                             flags.empty() ? nullptr : flags.data(), asked.c_str(), kept.data(),
-                                             static_cast<int>(capacity));
+                                             flags.empty() ? nullptr : flags.data(), asked.c_str(),
+                                             static_cast<int>(options), kept.data(), static_cast<int>(capacity));
     if (written > 0) env->SetIntArrayRegion(out, 0, static_cast<jsize>(written), kept.data());
     return written;
 }

@@ -22,8 +22,7 @@ class TapRenderersFactory(
     private val playout: Long = 0L,
     private val ringWritten: () -> Long = { 0L },
 ) : DefaultRenderersFactory(context) {
-    internal fun audioProcessorChain(): MvzAudioProcessorChain =
-        MvzAudioProcessorChain(tap, dsp = dsp)
+    internal fun audioProcessorChain(): MvzAudioProcessorChain = MvzAudioProcessorChain(tap, dsp = dsp)
 
     override fun buildAudioSink(
         context: Context,

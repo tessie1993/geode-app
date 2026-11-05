@@ -3,6 +3,7 @@ add_library(geode_core STATIC
     api/geode_dsp_api.cpp
     api/geode_tags_api.cpp
     api/geode_library_api.cpp
+    api/geode_underlay_api.cpp
     api/geode_catalogue_api.cpp
     api/geode_params_api.cpp
     api/geode_sound_api.cpp
@@ -31,6 +32,7 @@ add_library(geode_core STATIC
     viz/Program.cpp
     viz/ProgramStager.cpp
     viz/StyleSchedule.cpp
+    viz/UnderlayPrep.cpp
     viz/Texture.cpp
     viz/Framebuffer.cpp
     viz/Quad.cpp

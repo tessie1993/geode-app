@@ -133,6 +133,16 @@ GEODE_API const char* geode_viz_last_error(geode_viz*);   /* "" when clean */
  * much of that blend result replaces the plain scene colour. `pixels` is Android's Bitmap.getPixels
  * ARGB_8888 layout (0xAARRGGBB per int), row-major, width*height entries; NULL or a 0x0 size clears it. */
 GEODE_API void        geode_viz_set_underlay_rgba(geode_viz*, const uint32_t* pixels, int width, int height, int blend, float amount);
+/* Background image prep (viz/UnderlayPrep), the pixels geode_viz_set_underlay_rgba takes. Pure, any thread.
+ * sample_size: the BitmapFactory inSampleSize to decode src_w x src_h with, the largest power of two that
+ * leaves the decode at least target_w x target_h (1 for a non-positive size).
+ * prepare: src is w x h in Bitmap.getPixels layout (0xAARRGGBB, row-major); centre-crops it to the target's
+ * aspect, resizes to target_w x target_h, blurs by shrinking 1 + blur_radius times (capped at 32; 0 = none)
+ * and back, dims toward black by dim (0..1, alpha kept), and writes target_w * target_h pixels in the same
+ * layout to out. Returns that count, or 0 (out untouched) for a bad size or out_capacity too small. */
+GEODE_API int         geode_underlay_sample_size(int src_w, int src_h, int target_w, int target_h);
+GEODE_API int         geode_underlay_prepare(const uint32_t* src, int w, int h, int target_w, int target_h,
+                                             int blur_radius, float dim, uint32_t* out, int out_capacity);
 /* GL thread. */
 GEODE_API void        geode_viz_surface_created(geode_viz*);
 GEODE_API void        geode_viz_surface_changed(geode_viz*, int width, int height);

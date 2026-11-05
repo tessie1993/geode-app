@@ -475,6 +475,38 @@ Java_dev_geode_engine_bridge_GeodeNative_vizSetUnderlay(JNIEnv* env, jobject, jl
     env->ReleaseIntArrayElements(pixels, data, JNI_ABORT);
 }
 
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_underlaySampleSize(JNIEnv*, jobject, jint srcW, jint srcH, jint targetW,
+                                                            jint targetH) {
+    return geode_underlay_sample_size(srcW, srcH, targetW, targetH);
+}
+
+// IntArrays, not direct buffers: Bitmap.getPixels can only fill an int[], and those ints are already the
+// 0xAARRGGBB layout the prep and geode_viz_set_underlay_rgba read, so Kotlin hands over the array it has
+// with no extra copy or byte reordering (a direct buffer would mean copyPixelsToBuffer, the bitmap's own
+// premultiplied RGBA bytes, or a second copy). Not GetPrimitiveArrayCritical: a 4K prep runs long enough
+// that holding the GC off for it is worse than the copy some VMs make. src is sized against its real
+// length so w*h can never read past it; out's length is the prep's capacity.
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_underlayPrepare(JNIEnv* env, jobject, jintArray src, jint w, jint h,
+                                                         jint targetW, jint targetH, jint blurRadius, jfloat dim,
+                                                         jintArray out) {
+    if (!src || !out || w <= 0 || h <= 0) return 0;
+    if (static_cast<jlong>(w) * static_cast<jlong>(h) > env->GetArrayLength(src)) return 0;
+    jint* in = env->GetIntArrayElements(src, nullptr);
+    if (!in) return 0;
+    jint* dst = env->GetIntArrayElements(out, nullptr);
+    if (!dst) {
+        env->ReleaseIntArrayElements(src, in, JNI_ABORT);
+        return 0;
+    }
+    const jint written = geode_underlay_prepare(reinterpret_cast<const uint32_t*>(in), w, h, targetW, targetH, blurRadius,
+                                                dim, reinterpret_cast<uint32_t*>(dst), env->GetArrayLength(out));
+    env->ReleaseIntArrayElements(out, dst, written > 0 ? 0 : JNI_ABORT);
+    env->ReleaseIntArrayElements(src, in, JNI_ABORT);
+    return written;
+}
+
 JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_catalogueText(JNIEnv* env, jobject) {
     return env->NewStringUTF(geode_catalogue_text());

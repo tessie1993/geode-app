@@ -463,6 +463,36 @@ object GeodeNative {
     )
 
     /**
+     * The `BitmapFactory.Options.inSampleSize` for a background image of [srcWidth]x[srcHeight] shown at
+     * [targetWidth]x[targetHeight] (core/viz/UnderlayPrep): the largest power of two that still decodes at
+     * least the target size. Pure.
+     */
+    external fun underlaySampleSize(
+        srcWidth: Int,
+        srcHeight: Int,
+        targetWidth: Int,
+        targetHeight: Int,
+    ): Int
+
+    /**
+     * Prepares a decoded background image for [vizSetUnderlay] (core/viz/UnderlayPrep): [src] is
+     * [width]x[height] `Bitmap.getPixels` ARGB; centre-crops it to the target aspect, resizes it to
+     * [targetWidth]x[targetHeight], blurs it ([blurRadius] 0 = none) and dims it ([dim] 0..1) into [out],
+     * in the same ARGB layout. Returns the pixels written, or 0 when a size is bad or [out] is too small.
+     * Pure; any thread.
+     */
+    external fun underlayPrepare(
+        src: IntArray,
+        width: Int,
+        height: Int,
+        targetWidth: Int,
+        targetHeight: Int,
+        blurRadius: Int,
+        dim: Float,
+        out: IntArray,
+    ): Int
+
+    /**
      * The scene and style catalogue (core/viz/Catalogue) as its versioned line table: style ids and
      * kinds, the style families, which controls reach which styles, the control ranges. Static; parse
      * once (dev.geode.render.scene.Catalogue does).

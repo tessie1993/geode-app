@@ -2,11 +2,15 @@ package dev.geode.data
 
 import android.content.Context
 import androidx.annotation.WorkerThread
+import dev.geode.render.bridge.SceneParamsCodec
 import dev.geode.render.scene.ConfigSchema
+import dev.geode.render.scene.ParamSchema
+import dev.geode.render.scene.ParamSpec
 import dev.geode.render.scene.SceneParams
 import org.json.JSONObject
 import java.io.File
 import java.security.MessageDigest
+import kotlin.math.roundToInt
 
 data class Preset(
     val name: String,
@@ -140,170 +144,7 @@ class PresetStore(
                 .put("sceneId", p.sceneId)
                 .put("attack", p.attack.toDouble())
                 .put("decay", p.decay.toDouble())
-                .put("speed", p.params.speed.toDouble())
-                .put("zoom", p.params.zoom.toDouble())
-                .put("rotation", p.params.rotation.toDouble())
-                .put("endlessZoom", p.params.endlessZoom)
-                .put("endlessZoomSpeed", p.params.endlessZoomSpeed.toDouble())
-                .put("audioDrive", p.params.audioDrive.toDouble())
-                .put("beatResponse", p.params.beatResponse.toDouble())
-                .put("turbulence", p.params.turbulence.toDouble())
-                .put("density", p.params.density.toDouble())
-                .put("marchDetail", p.params.marchDetail.toDouble())
-                .put("trails", p.params.trails)
-                .put("trailLength", p.params.trailLength.toDouble())
-                .put("trailZoom", p.params.trailZoom.toDouble())
-                .put("trailWarp", p.params.trailWarp.toDouble())
-                .put("mirror", p.params.mirror)
-                .put("palette", p.params.palette)
-                .put("colorShift", p.params.colorShift.toDouble())
-                .put("hueRange", p.params.hueRange.toDouble())
-                .put("saturation", p.params.saturation.toDouble())
-                .put("brightness", p.params.brightness.toDouble())
-                .put("colorCycle", p.params.colorCycle)
-                .put("cycleSpeed", p.params.cycleSpeed.toDouble())
-                .put("invert", p.params.invert)
-                .put("contrast", p.params.contrast.toDouble())
-                .put("gamma", p.params.gamma.toDouble())
-                .put("intensity", p.params.intensity.toDouble())
-                .put("sway", p.params.sway.toDouble())
-                .put("pulse", p.params.pulse.toDouble())
-                .put("warp", p.params.warp.toDouble())
-                .put("ripple", p.params.ripple.toDouble())
-                .put("symmetry", p.params.symmetry)
-                .put("kaleidoscope", p.params.kaleidoscope)
-                .put("morph", p.params.morph.toDouble())
-                .put("pixelate", p.params.pixelate.toDouble())
-                .put("posterize", p.params.posterize.toDouble())
-                .put("particleShape", p.params.particleShape)
-                .put("particleSize", p.params.particleSize.toDouble())
-                .put("palette2", p.params.palette2)
-                .put("paletteMix", p.params.paletteMix.toDouble())
-                .put("paletteBaseOverride", p.params.paletteBaseOverride.toDouble())
-                .put("paletteRangeOverride", p.params.paletteRangeOverride.toDouble())
-                .put("palette2BaseOverride", p.params.palette2BaseOverride.toDouble())
-                .put("palette2RangeOverride", p.params.palette2RangeOverride.toDouble())
-                .put("customPaletteId", p.params.customPaletteId)
-                .put("customPalette2Id", p.params.customPalette2Id)
-                .put("milkdropPaletteTint", p.params.milkdropPaletteTint.toDouble())
-                .put("milkdropBlendPresets", p.params.milkdropBlendPresets)
-                .put("duotone", p.params.duotone)
-                .put("bloom", p.params.bloom.toDouble())
-                .put("driftX", p.params.driftX.toDouble())
-                .put("driftY", p.params.driftY.toDouble())
-                .put("shake", p.params.shake.toDouble())
-                .put("tile", p.params.tile.toDouble())
-                .put("twist", p.params.twist.toDouble())
-                .put("temperature", p.params.temperature.toDouble())
-                .put("bassGain", p.params.bassGain.toDouble())
-                .put("midGain", p.params.midGain.toDouble())
-                .put("trebGain", p.params.trebGain.toDouble())
-                .put("flash", p.params.flash.toDouble())
-                .put("chromaAb", p.params.chromaAb.toDouble())
-                .put("vignette", p.params.vignette.toDouble())
-                .put("scanlines", p.params.scanlines.toDouble())
-                .put("grain", p.params.grain.toDouble())
-                .put("fisheye", p.params.fisheye.toDouble())
-                .put("strobe", p.params.strobe.toDouble())
-                .put("paramFadeSec", p.params.paramFadeSec.toDouble())
-                .put("solarize", p.params.solarize)
-                .put("fluidQuality", p.params.fluidQuality)
-                .put("fluidAutoQuality", p.params.fluidAutoQuality)
-                .put("fluidIterations", p.params.fluidIterations)
-                .put("fluidPressure", p.params.fluidPressure.toDouble())
-                .put("fluidCurl", p.params.fluidCurl.toDouble())
-                .put("fluidVelocityDissipation", p.params.fluidVelocityDissipation.toDouble())
-                .put("fluidDensityDissipation", p.params.fluidDensityDissipation.toDouble())
-                .put("fluidChromaticAging", p.params.fluidChromaticAging.toDouble())
-                .put("fluidSplatRadius", p.params.fluidSplatRadius.toDouble())
-                .put("fluidSplatForce", p.params.fluidSplatForce.toDouble())
-                .put("fluidBeatPattern", p.params.fluidBeatPattern)
-                .put("fluidBeatSplats", p.params.fluidBeatSplats)
-                .put("fluidStirrers", p.params.fluidStirrers)
-                .put("fluidStirrerSpeed", p.params.fluidStirrerSpeed.toDouble())
-                .put("fluidBassPump", p.params.fluidBassPump)
-                .put("fluidPaletteCycleSpeed", p.params.fluidPaletteCycleSpeed.toDouble())
-                .put("fluidParticlesEnabled", p.params.fluidParticlesEnabled)
-                .put("fluidParticleDrag", p.params.fluidParticleDrag.toDouble())
-                .put("fluidParticleBrightness", p.params.fluidParticleBrightness.toDouble())
-                .put("fluidDyeEnabled", p.params.fluidDyeEnabled)
-                .put("fluidShading", p.params.fluidShading)
-                .put("fluidBloom", p.params.fluidBloom)
-                .put("fluidBloomIntensity", p.params.fluidBloomIntensity.toDouble())
-                .put("fluidBloomThreshold", p.params.fluidBloomThreshold.toDouble())
-                .put("fluidSunrays", p.params.fluidSunrays)
-                .put("fluidSunraysWeight", p.params.fluidSunraysWeight.toDouble())
-                .put("fluidCurlAudio", p.params.fluidCurlAudio.toDouble())
-                .put("fluidBloomAudio", p.params.fluidBloomAudio.toDouble())
-                .put("fluidFadeAudio", p.params.fluidFadeAudio.toDouble())
-                .put("fluidRadiusPulse", p.params.fluidRadiusPulse.toDouble())
-                .put("fluidSparkle", p.params.fluidSparkle)
-                .put("fluidSpawnPath", p.params.fluidSpawnPath)
-                .put("fluidSpawnPoints", p.params.fluidSpawnPoints)
-                .put("fluidSpawnProgress", p.params.fluidSpawnProgress.toDouble())
-                .put("fluidCatchPoints", p.params.fluidCatchPoints)
-                .put("fluidCatchPull", p.params.fluidCatchPull.toDouble())
-                .put("fluidCatchRadius", p.params.fluidCatchRadius.toDouble())
-                .put("fluidParticleLife", p.params.fluidParticleLife.toDouble())
-                .put("flowEnabled", p.params.flowEnabled)
-                .put("flowStrength", p.params.flowStrength.toDouble())
-                .put("flowForce", p.params.flowForce.toDouble())
-                .put("flowCurl", p.params.flowCurl.toDouble())
-                .put("waterWaveSpeed", p.params.waterWaveSpeed.toDouble())
-                .put("waterDamping", p.params.waterDamping.toDouble())
-                .put("waterRippleStrength", p.params.waterRippleStrength.toDouble())
-                .put("waterDepth", p.params.waterDepth.toDouble())
-                .put("waterSpecular", p.params.waterSpecular.toDouble())
-                .put("waterFlow", p.params.waterFlow.toDouble())
-                .put("waterLiquid", p.params.waterLiquid.toDouble())
-                .put("waterLiquidFlow", p.params.waterLiquidFlow.toDouble())
-                .put("waterLiquidFade", p.params.waterLiquidFade.toDouble())
-                .put("paletteLut", p.params.paletteLut)
-                .put("cymaticsGeometry", p.params.cymaticsGeometry)
-                .put("cymaticsFundamental", p.params.cymaticsFundamental.toDouble())
-                .put("cymaticsModes", p.params.cymaticsModes)
-                .put("cymaticsRing", p.params.cymaticsRing.toDouble())
-                .put("cymaticsFocus", p.params.cymaticsFocus.toDouble())
-                .put("cymaticsScale", p.params.cymaticsScale.toDouble())
-                .put("cymaticsFill", p.params.cymaticsFill.toDouble())
-                .put("cymaticsLine", p.params.cymaticsLine.toDouble())
-                .put("cymaticsGlow", p.params.cymaticsGlow.toDouble())
-                .put("cymaticsIridescence", p.params.cymaticsIridescence.toDouble())
-                .put("cymaticsCaustic", p.params.cymaticsCaustic.toDouble())
-                .put("cymaticsFlow", p.params.cymaticsFlow.toDouble())
-                .put("cymaticsSwirl", p.params.cymaticsSwirl.toDouble())
-                .put("rippleOverlayEnabled", p.params.rippleOverlayEnabled)
-                .put("rippleOverlayStrength", p.params.rippleOverlayStrength.toDouble())
-                .put("rippleOverlaySpecular", p.params.rippleOverlaySpecular.toDouble())
-                .put("formDrive", p.params.formDrive.toDouble())
-                .put("motionAmount", p.params.motionAmount.toDouble())
-                .put("motionBreath", p.params.motionBreath.toDouble())
-                .put("motionOrbit", p.params.motionOrbit.toDouble())
-                .put("motionDrift", p.params.motionDrift.toDouble())
-                .put("motionHue", p.params.motionHue.toDouble())
-                .put("camFly", p.params.camFly.toDouble())
-                .put("camOrbit", p.params.camOrbit.toDouble())
-                .put("camPush", p.params.camPush.toDouble())
-                .put("camYaw", p.params.camYaw.toDouble())
-                .put("camPitch", p.params.camPitch.toDouble())
-                .put("camRoll", p.params.camRoll.toDouble())
-                .put("camFov", p.params.camFov.toDouble())
-                .put("camShake", p.params.camShake.toDouble())
-                .put("camSmooth", p.params.camSmooth.toDouble())
-                .put("reactAmount", p.params.reactAmount.toDouble())
-                .put("camPath", p.params.camPath)
-                .put("reactSeed", p.params.reactSeed)
-                .put("camTouch", p.params.camTouch)
-                .put("camGyro", p.params.camGyro)
-                .put("noteColor", p.params.noteColor.toDouble())
-                .put("notePitch", p.params.notePitch.toDouble())
-                .put("noteIntervals", p.params.noteIntervals.toDouble())
-                .put("noteTension", p.params.noteTension.toDouble())
-                .put("noteChords", p.params.noteChords.toDouble())
-                .put("noteDrums", p.params.noteDrums.toDouble())
-                .put("liquidBorn", p.params.liquidBorn)
-                .put("liquidAge", p.params.liquidAge)
-                .put("liquidSurface", p.params.liquidSurface)
+                .also { putParams(it, p.params) }
                 .apply { if (p.customShader != null) put("customShader", p.customShader) }
                 .apply { if (p.milkPreset != null) put("milkPreset", p.milkPreset) }
                 .toString(2)
@@ -332,14 +173,7 @@ class PresetStore(
             JSONObject(toJson(Preset("", "", 0f, 0f, null, params)))
                 .also { o -> ENVELOPE_KEYS.forEach(o::remove) }
 
-        internal fun paramsFromJson(o: JSONObject): SceneParams {
-            val full = JSONObject(o.toString())
-            full.put("name", "")
-            full.put("sceneId", "")
-            full.put("attack", 0.0)
-            full.put("decay", 0.0)
-            return fromJson(full.toString()).params
-        }
+        internal fun paramsFromJson(o: JSONObject): SceneParams = readParams(o)
 
         /**
          * [raw] as a Float, or [fallback] when it is not a finite one.
@@ -366,10 +200,72 @@ class PresetStore(
             range: ClosedFloatingPointRange<Float>,
         ): Float = finiteOr(raw, range.start).coerceIn(range)
 
-        private fun JSONObject.optFinite(
-            key: String,
-            fallback: Double,
-        ): Float = finiteOr(optDouble(key, fallback), fallback.toFloat())
+        /**
+         * Schema rows preset JSON has never carried. `glitch` is retired (no reader, see
+         * [SceneParams.glitch]) and was left out of the format before the schema existed; writing it
+         * now would add a key to every file, so it stays out and reads back as its default.
+         */
+        private val NOT_SAVED = setOf("glitch")
+
+        /**
+         * The two Kotlin-only fields ([SceneParams.NOT_RENDERED]): the saved palette slots' ids. They
+         * are not schema rows, so they travel by hand, under their own names, as strings.
+         */
+        private const val KEY_CUSTOM_PALETTE_ID = "customPaletteId"
+        private const val KEY_CUSTOM_PALETTE2_ID = "customPalette2Id"
+
+        /**
+         * Writes [params] into [o] by the native params schema ([ParamSchema], core/viz/ParamTable.inc):
+         * every row under its name, a flag as a JSON boolean, a picker as an int and every float as a
+         * number, from the wire frame [SceneParamsCodec.pack] gives. The names are the ones the format
+         * always used (the table's names are the preset keys), so a file written now holds the same
+         * keys and values as one written before the schema.
+         */
+        private fun putParams(
+            o: JSONObject,
+            params: SceneParams,
+        ) {
+            val frame = SceneParamsCodec.pack(params)
+            for (spec in ParamSchema.params) {
+                if (spec.name in NOT_SAVED) continue
+                val v = frame[spec.slot]
+                when (spec.kind) {
+                    ParamSpec.Kind.BOOL -> o.put(spec.name, v > 0.5f)
+                    ParamSpec.Kind.INT -> o.put(spec.name, v.roundToInt())
+                    ParamSpec.Kind.FLOAT, ParamSpec.Kind.CIRCULAR -> o.put(spec.name, v.toDouble())
+                }
+            }
+            o.put(KEY_CUSTOM_PALETTE_ID, params.customPaletteId)
+            o.put(KEY_CUSTOM_PALETTE2_ID, params.customPalette2Id)
+        }
+
+        /**
+         * Reads scene params from [o] by the schema: each row under its name, its default when the key
+         * is missing or not a finite number ([finiteOr]), then held to the row's range (the widest any
+         * control uses), so a shared link cannot hand the renderer a value no control can make. The ids
+         * are copied as written: an id whose overrides are unset is kept, as it always was, rather than
+         * dropped by [SceneParamsCodec.unpack].
+         */
+        private fun readParams(o: JSONObject): SceneParams {
+            val frame = FloatArray(SceneParamsCodec.FIELDS)
+            for (spec in ParamSchema.params) {
+                val def = spec.default
+                val v =
+                    when {
+                        spec.name in NOT_SAVED -> def
+                        spec.kind == ParamSpec.Kind.BOOL -> if (o.optBoolean(spec.name, def > 0.5f)) 1f else 0f
+                        spec.kind == ParamSpec.Kind.INT -> o.optInt(spec.name, def.roundToInt()).toFloat()
+                        else -> finiteOr(o.optDouble(spec.name, def.toDouble()), def)
+                    }
+                // A circular value wraps natively (1.5 is 0.5); clamping it would turn the hue.
+                frame[spec.slot] = if (spec.kind == ParamSpec.Kind.CIRCULAR) v else v.coerceIn(spec.range)
+            }
+            val read = SceneParamsCodec.unpack(frame, SceneParams.DEFAULT)
+            return read.copy(
+                customPaletteId = o.optString(KEY_CUSTOM_PALETTE_ID, SceneParams.NO_CUSTOM_PALETTE),
+                customPalette2Id = o.optString(KEY_CUSTOM_PALETTE2_ID, SceneParams.NO_CUSTOM_PALETTE),
+            )
+        }
 
         internal fun fromJson(json: String): Preset {
             val o = JSONObject(json)
@@ -382,182 +278,7 @@ class PresetStore(
                 decay = finiteIn(o.getDouble("decay"), ConfigSchema["look", "decay"].range),
                 customShader = if (o.has("customShader")) o.getString("customShader") else null,
                 milkPreset = if (o.has("milkPreset")) o.getString("milkPreset") else null,
-                params =
-                    SceneParams(
-                        speed = o.optFinite("speed", 1.0),
-                        zoom = o.optFinite("zoom", 1.0),
-                        rotation = o.optFinite("rotation", 0.0),
-                        endlessZoom = o.optBoolean("endlessZoom", false),
-                        endlessZoomSpeed = o.optFinite("endlessZoomSpeed", 0.3),
-                        sway = o.optFinite("sway", 0.0),
-                        pulse = o.optFinite("pulse", 0.0),
-                        driftX = o.optFinite("driftX", 0.0),
-                        driftY = o.optFinite("driftY", 0.0),
-                        shake = o.optFinite("shake", 0.0),
-                        audioDrive = o.optFinite("audioDrive", 1.0),
-                        beatResponse = o.optFinite("beatResponse", 1.0),
-                        turbulence = o.optFinite("turbulence", 0.0),
-                        density = o.optFinite("density", 1.0),
-                        marchDetail = o.optFinite("marchDetail", 1.0),
-                        trails = o.optBoolean("trails", false),
-                        trailLength = o.optFinite("trailLength", 0.5),
-                        trailZoom = o.optFinite("trailZoom", 0.0),
-                        trailWarp = o.optFinite("trailWarp", 0.0),
-                        mirror = o.optBoolean("mirror", false),
-                        warp = o.optFinite("warp", 0.0),
-                        ripple = o.optFinite("ripple", 0.0),
-                        // Fallback must match SceneParams' own default, not an arbitrary literal,
-                        // so an old file missing this key round-trips to the same rendered scene.
-                        symmetry = o.optInt("symmetry", SceneParams.DEFAULT.symmetry),
-                        kaleidoscope = o.optBoolean("kaleidoscope", false),
-                        morph = o.optFinite("morph", 0.0),
-                        pixelate = o.optFinite("pixelate", 0.0),
-                        posterize = o.optFinite("posterize", 0.0),
-                        particleShape = o.optInt("particleShape", 0),
-                        particleSize = o.optFinite("particleSize", 1.0),
-                        tile = o.optFinite("tile", 1.0),
-                        twist = o.optFinite("twist", 0.0),
-                        palette = o.optInt("palette", 0),
-                        palette2 = o.optInt("palette2", 1),
-                        paletteMix = o.optFinite("paletteMix", 0.0),
-                        paletteBaseOverride =
-                            o.optFinite("paletteBaseOverride", SceneParams.UNSET_OVERRIDE.toDouble()),
-                        paletteRangeOverride =
-                            o.optFinite("paletteRangeOverride", SceneParams.UNSET_OVERRIDE.toDouble()),
-                        palette2BaseOverride =
-                            o.optFinite("palette2BaseOverride", SceneParams.UNSET_OVERRIDE.toDouble()),
-                        palette2RangeOverride =
-                            o.optFinite("palette2RangeOverride", SceneParams.UNSET_OVERRIDE.toDouble()),
-                        customPaletteId = o.optString("customPaletteId", SceneParams.NO_CUSTOM_PALETTE),
-                        customPalette2Id = o.optString("customPalette2Id", SceneParams.NO_CUSTOM_PALETTE),
-                        milkdropPaletteTint = o.optFinite("milkdropPaletteTint", 0.0),
-                        milkdropBlendPresets = o.optBoolean("milkdropBlendPresets", false),
-                        colorShift = o.optFinite("colorShift", 0.0),
-                        hueRange = o.optFinite("hueRange", 1.0),
-                        saturation = o.optFinite("saturation", 1.0),
-                        brightness = o.optFinite("brightness", 1.0),
-                        contrast = o.optFinite("contrast", 1.0),
-                        gamma = o.optFinite("gamma", 1.0),
-                        colorCycle = o.optBoolean("colorCycle", false),
-                        cycleSpeed = o.optFinite("cycleSpeed", 0.1),
-                        invert = o.optBoolean("invert", false),
-                        intensity = o.optFinite("intensity", 1.0),
-                        duotone = o.optBoolean("duotone", false),
-                        bloom = o.optFinite("bloom", 0.0),
-                        temperature = o.optFinite("temperature", 0.0),
-                        solarize = o.optBoolean("solarize", false),
-                        bassGain = o.optFinite("bassGain", 1.0),
-                        midGain = o.optFinite("midGain", 1.0),
-                        trebGain = o.optFinite("trebGain", 1.0),
-                        flash = o.optFinite("flash", 0.0),
-                        chromaAb = o.optFinite("chromaAb", 0.0),
-                        vignette = o.optFinite("vignette", 0.0),
-                        scanlines = o.optFinite("scanlines", 0.0),
-                        grain = o.optFinite("grain", 0.0),
-                        fisheye = o.optFinite("fisheye", 0.0),
-                        strobe = o.optFinite("strobe", 0.0),
-                        paramFadeSec = o.optFinite("paramFadeSec", 0.0),
-                        fluidQuality = o.optInt("fluidQuality", 2),
-                        fluidAutoQuality = o.optBoolean("fluidAutoQuality", true),
-                        fluidIterations = o.optInt("fluidIterations", 20),
-                        fluidPressure = o.optFinite("fluidPressure", 0.8),
-                        fluidCurl = o.optFinite("fluidCurl", 30.0),
-                        fluidVelocityDissipation = o.optFinite("fluidVelocityDissipation", 0.2),
-                        fluidDensityDissipation = o.optFinite("fluidDensityDissipation", 1.0),
-                        fluidChromaticAging = o.optFinite("fluidChromaticAging", 0.3),
-                        fluidSplatRadius = o.optFinite("fluidSplatRadius", 0.12),
-                        fluidSplatForce = o.optFinite("fluidSplatForce", 1.0),
-                        fluidBeatPattern = o.optInt("fluidBeatPattern", 1),
-                        fluidBeatSplats = o.optInt("fluidBeatSplats", 3),
-                        fluidStirrers = o.optInt("fluidStirrers", 2),
-                        fluidStirrerSpeed = o.optFinite("fluidStirrerSpeed", 1.0),
-                        fluidBassPump = o.optBoolean("fluidBassPump", false),
-                        fluidPaletteCycleSpeed = o.optFinite("fluidPaletteCycleSpeed", 0.5),
-                        fluidParticlesEnabled = o.optBoolean("fluidParticlesEnabled", true),
-                        fluidParticleDrag = o.optFinite("fluidParticleDrag", 0.5),
-                        fluidParticleBrightness = o.optFinite("fluidParticleBrightness", 1.0),
-                        fluidDyeEnabled = o.optBoolean("fluidDyeEnabled", true),
-                        fluidShading = o.optBoolean("fluidShading", true),
-                        fluidBloom = o.optBoolean("fluidBloom", true),
-                        fluidBloomIntensity = o.optFinite("fluidBloomIntensity", 0.8),
-                        fluidBloomThreshold = o.optFinite("fluidBloomThreshold", 0.6),
-                        fluidSunrays = o.optBoolean("fluidSunrays", true),
-                        fluidSunraysWeight = o.optFinite("fluidSunraysWeight", 1.0),
-                        fluidCurlAudio = o.optFinite("fluidCurlAudio", 0.5),
-                        fluidBloomAudio = o.optFinite("fluidBloomAudio", 0.5),
-                        fluidFadeAudio = o.optFinite("fluidFadeAudio", 0.6),
-                        fluidRadiusPulse = o.optFinite("fluidRadiusPulse", 0.4),
-                        fluidSparkle = o.optBoolean("fluidSparkle", true),
-                        fluidSpawnPath = o.optInt("fluidSpawnPath", 1),
-                        fluidSpawnPoints = o.optInt("fluidSpawnPoints", 3),
-                        fluidSpawnProgress = o.optFinite("fluidSpawnProgress", 1.0),
-                        // Fallback must match SceneParams' own default (see symmetry above).
-                        fluidCatchPoints = o.optInt("fluidCatchPoints", SceneParams.DEFAULT.fluidCatchPoints),
-                        fluidCatchPull = o.optFinite("fluidCatchPull", 1.0),
-                        fluidCatchRadius = o.optFinite("fluidCatchRadius", 0.12),
-                        // Fallback must match SceneParams' own default (see symmetry above).
-                        fluidParticleLife =
-                            o.optFinite("fluidParticleLife", SceneParams.DEFAULT.fluidParticleLife.toDouble()),
-                        flowEnabled = o.optBoolean("flowEnabled", false),
-                        flowStrength = o.optFinite("flowStrength", 0.35),
-                        flowForce = o.optFinite("flowForce", 1.0),
-                        flowCurl = o.optFinite("flowCurl", 25.0),
-                        waterWaveSpeed = o.optFinite("waterWaveSpeed", 1.0),
-                        waterDamping = o.optFinite("waterDamping", 0.985),
-                        waterRippleStrength = o.optFinite("waterRippleStrength", 1.0),
-                        waterDepth = o.optFinite("waterDepth", 0.6),
-                        waterSpecular = o.optFinite("waterSpecular", 0.7),
-                        waterFlow = o.optFinite("waterFlow", 0.3),
-                        waterLiquid = o.optFinite("waterLiquid", 0.85),
-                        waterLiquidFlow = o.optFinite("waterLiquidFlow", 1.4),
-                        waterLiquidFade = o.optFinite("waterLiquidFade", 0.35),
-                        paletteLut = o.optInt("paletteLut", SceneParams.NO_PALETTE_LUT),
-                        cymaticsGeometry = o.optInt("cymaticsGeometry", 0),
-                        cymaticsFundamental = o.optFinite("cymaticsFundamental", 110.0),
-                        cymaticsModes = o.optInt("cymaticsModes", 5),
-                        cymaticsRing = o.optFinite("cymaticsRing", 0.35),
-                        cymaticsFocus = o.optFinite("cymaticsFocus", 0.7),
-                        cymaticsScale = o.optFinite("cymaticsScale", 3.2),
-                        cymaticsFill = o.optFinite("cymaticsFill", 0.45),
-                        cymaticsLine = o.optFinite("cymaticsLine", 1.0),
-                        cymaticsGlow = o.optFinite("cymaticsGlow", 1.0),
-                        cymaticsIridescence = o.optFinite("cymaticsIridescence", 0.5),
-                        cymaticsCaustic = o.optFinite("cymaticsCaustic", 0.8),
-                        cymaticsFlow = o.optFinite("cymaticsFlow", 0.35),
-                        cymaticsSwirl = o.optFinite("cymaticsSwirl", 0.05),
-                        rippleOverlayEnabled = o.optBoolean("rippleOverlayEnabled", false),
-                        rippleOverlayStrength = o.optFinite("rippleOverlayStrength", 0.4),
-                        rippleOverlaySpecular = o.optFinite("rippleOverlaySpecular", 0.3),
-                        formDrive = o.optFinite("formDrive", 0.7),
-                        motionAmount = o.optFinite("motionAmount", 0.7),
-                        motionBreath = o.optFinite("motionBreath", 0.5),
-                        motionOrbit = o.optFinite("motionOrbit", 0.5),
-                        motionDrift = o.optFinite("motionDrift", 0.5),
-                        motionHue = o.optFinite("motionHue", 0.4),
-                        camFly = o.optFinite("camFly", SceneParams.DEFAULT.camFly.toDouble()),
-                        camOrbit = o.optFinite("camOrbit", SceneParams.DEFAULT.camOrbit.toDouble()),
-                        camPush = o.optFinite("camPush", SceneParams.DEFAULT.camPush.toDouble()),
-                        camYaw = o.optFinite("camYaw", SceneParams.DEFAULT.camYaw.toDouble()),
-                        camPitch = o.optFinite("camPitch", SceneParams.DEFAULT.camPitch.toDouble()),
-                        camRoll = o.optFinite("camRoll", SceneParams.DEFAULT.camRoll.toDouble()),
-                        camFov = o.optFinite("camFov", SceneParams.DEFAULT.camFov.toDouble()),
-                        camShake = o.optFinite("camShake", SceneParams.DEFAULT.camShake.toDouble()),
-                        camSmooth = o.optFinite("camSmooth", SceneParams.DEFAULT.camSmooth.toDouble()),
-                        reactAmount = o.optFinite("reactAmount", SceneParams.DEFAULT.reactAmount.toDouble()),
-                        camPath = o.optInt("camPath", SceneParams.DEFAULT.camPath),
-                        reactSeed = o.optInt("reactSeed", SceneParams.DEFAULT.reactSeed),
-                        camTouch = o.optBoolean("camTouch", SceneParams.DEFAULT.camTouch),
-                        camGyro = o.optBoolean("camGyro", SceneParams.DEFAULT.camGyro),
-                        noteColor = o.optFinite("noteColor", SceneParams.DEFAULT.noteColor.toDouble()),
-                        notePitch = o.optFinite("notePitch", SceneParams.DEFAULT.notePitch.toDouble()),
-                        noteIntervals = o.optFinite("noteIntervals", SceneParams.DEFAULT.noteIntervals.toDouble()),
-                        noteTension = o.optFinite("noteTension", SceneParams.DEFAULT.noteTension.toDouble()),
-                        noteChords = o.optFinite("noteChords", SceneParams.DEFAULT.noteChords.toDouble()),
-                        noteDrums = o.optFinite("noteDrums", SceneParams.DEFAULT.noteDrums.toDouble()),
-                        liquidBorn = o.optInt("liquidBorn", SceneParams.DEFAULT.liquidBorn),
-                        liquidAge = o.optInt("liquidAge", SceneParams.DEFAULT.liquidAge),
-                        liquidSurface = o.optInt("liquidSurface", SceneParams.DEFAULT.liquidSurface),
-                    ),
+                params = readParams(o),
             )
         }
     }

@@ -136,7 +136,7 @@ internal fun EventsTab(
             }
         }
         SectionHeader(stringResource(R.string.music_moment_overall))
-        LabeledSlider(ParamKeys.REACT_AMOUNT, p.reactAmount, 0f..2f, default = SceneParams.DEFAULT.reactAmount) {
+        LabeledSlider(ParamKeys.REACT_AMOUNT, p, SceneParams::reactAmount) {
             onChange(p.copy(reactAmount = it))
         }
         ControlHint("Each reaction, one by one, is in Modulate › Reactions.")

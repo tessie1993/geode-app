@@ -312,6 +312,14 @@ GEODE_API long long       geode_surface_recheck_in_ms(long long animate_until_ms
 GEODE_API int             geode_live_input_step(int state, int event, int has_permission, unsigned* actions_out);
 GEODE_API int             geode_live_input_is_on(int state);   /* 1 = on or paused in the background */
 
+/* Playback maths (audio/PlaybackMath): the pitch shift, the sleep timer's fade and the slider steps,
+ * so the shell keeps no audio maths. Pure, any thread. */
+GEODE_API float           geode_playback_semitones_to_ratio(float semitones);   /* 2^(st/12), Media3's pitch */
+GEODE_API long long       geode_playback_sleep_fade_ms(void);   /* the sleep timer's fade length */
+/* Volume with remaining_ms left: 1 down to 0 over the last fade_ms, clamped; fade_ms <= 0 = no fade. */
+GEODE_API float           geode_playback_sleep_fade_volume(long long remaining_ms, long long fade_ms);
+GEODE_API float           geode_playback_snap(float value, float step);   /* nearest step; step <= 0 = as is */
+
 #ifdef __cplusplus
 }
 #endif

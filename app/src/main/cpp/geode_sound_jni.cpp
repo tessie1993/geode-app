@@ -60,4 +60,26 @@ Java_dev_geode_engine_bridge_GeodeNative_liveInputIsOn(JNIEnv*, jobject, jint st
     return geode_live_input_is_on(state) ? JNI_TRUE : JNI_FALSE;
 }
 
+// Playback maths (core/audio/PlaybackMath): values in, values out.
+
+JNIEXPORT jfloat JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_playbackSemitonesToRatio(JNIEnv*, jobject, jfloat semitones) {
+    return geode_playback_semitones_to_ratio(semitones);
+}
+
+JNIEXPORT jlong JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_playbackSleepFadeMs(JNIEnv*, jobject) {
+    return geode_playback_sleep_fade_ms();
+}
+
+JNIEXPORT jfloat JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_playbackSleepFadeVolume(JNIEnv*, jobject, jlong remainingMs, jlong fadeMs) {
+    return geode_playback_sleep_fade_volume(remainingMs, fadeMs);
+}
+
+JNIEXPORT jfloat JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_playbackSnap(JNIEnv*, jobject, jfloat value, jfloat step) {
+    return geode_playback_snap(value, step);
+}
+
 }  // extern "C"

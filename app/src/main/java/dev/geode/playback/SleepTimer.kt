@@ -3,7 +3,7 @@ package dev.geode.playback
 import android.os.SystemClock
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
-import dev.geode.analysis.PlaybackMath
+import dev.geode.engine.bridge.GeodeNative
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -42,12 +42,13 @@ class SleepTimer internal constructor(
             scope.launch {
                 try {
                     val endMs = SystemClock.elapsedRealtime() + minutes * 60_000L
+                    val fadeMs = GeodeNative.playbackSleepFadeMs()
                     while (true) {
                         val remaining = endMs - SystemClock.elapsedRealtime()
                         if (remaining <= 0L) break
                         _remainingMs.value = remaining
-                        if (!finishTrack) applyFade(PlaybackMath.sleepFadeVolume(remaining))
-                        delay(if (remaining <= PlaybackMath.SLEEP_FADE_MS) 100 else 500)
+                        if (!finishTrack) applyFade(GeodeNative.playbackSleepFadeVolume(remaining, fadeMs))
+                        delay(if (remaining <= fadeMs) 100 else 500)
                     }
                     if (finishTrack && playbackOngoing()) {
                         _remainingMs.value = 0L

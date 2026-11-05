@@ -29,6 +29,11 @@ data class WallpaperConditions(
     val covered: Boolean,
     val batterySaver: Boolean,
     val silent: Boolean,
+    /**
+     * Reduce motion is on: the in-app switch or the system's Remove animations ([SystemAnimations]).
+     * Either holds a still frame on the wallpaper and the dream (owner, ADR 0008; #389).
+     */
+    val reducedMotion: Boolean,
     val settings: WallpaperSettings,
     /** Wall-clock ms the entitlement lets the visual move until ([dev.geode.billing.ProSnapshot.animateUntilMs]). */
     val animateUntilMs: Long,
@@ -44,6 +49,7 @@ data class WallpaperConditions(
             if (settings.pauseInBatterySaver) f = f or GeodeNative.SURFACE_PAUSE_IN_BATTERY_SAVER
             if (silent) f = f or GeodeNative.SURFACE_SILENT
             if (settings.restWhenSilent) f = f or GeodeNative.SURFACE_REST_WHEN_SILENT
+            if (reducedMotion) f = f or GeodeNative.SURFACE_REDUCED_MOTION
             return f
         }
 
@@ -57,3 +63,10 @@ data class WallpaperConditions(
     /** When to restate because a trial ends, or null when nothing will change on its own. */
     fun recheckInMs(nowMs: Long): Long? = GeodeNative.surfaceRecheckInMs(animateUntilMs, nowMs).takeIf { it >= 0 }
 }
+
+/**
+ * How long to keep pacing after moving from [previous] to [this] before the pacer stops: the native
+ * still-frame settle (a scene is built across frames, so one frame could hold a half-built picture),
+ * or 0 when one frame, or the plain on and off, is enough. The shell only schedules the stop.
+ */
+fun WallpaperRunMode.settleMsFrom(previous: WallpaperRunMode): Long = GeodeNative.surfaceSettleMs(previous.ordinal, ordinal)

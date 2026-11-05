@@ -21,6 +21,7 @@ import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.PerformanceStore
 import dev.geode.data.PresetStore
 import dev.geode.data.ThemeStore
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.pro.ProFeature
 import dev.geode.render.FramePacer
 import dev.geode.render.FrameRatePolicy
@@ -39,10 +40,11 @@ class VisualizerWallpaperService : WallpaperService() {
 
         /**
          * Each engine instance — preview and home screen can both be live at once — owns its
-         * own pacer, so the two never share a cadence or a frame-time window.
+         * own pacer, so the two never share a cadence or a frame-time window. Its cap is the
+         * wallpaper's own fps choice ([WallpaperSettings.fps], see [applyFps]).
          */
         private val pacer =
-            FramePacer(FrameRatePolicy.Capped(WALLPAPER_FPS)) { glView?.requestRender() }
+            FramePacer(FrameRatePolicy.Capped(GeodeNative.SURFACE_DEFAULT_FPS.toFloat())) { glView?.requestRender() }
 
         private var surfaceAvailable = false
         private var visible = false
@@ -52,6 +54,12 @@ class VisualizerWallpaperService : WallpaperService() {
 
         private val prefsStore = WallpaperPrefsStore(this@VisualizerWallpaperService)
         private var settings = WallpaperSettings()
+
+        /** The in-app Reduce motion switch, re-read with [settings] each time the wallpaper shows. */
+        private var appReducedMotion = false
+
+        /** The system's Remove animations; a flip restates the run mode at once. */
+        private val systemAnimations = SystemAnimations(this@VisualizerWallpaperService) { syncRunState() }
 
         /**
          * What the wallpaper hears: the app's ring while MuzViz feeds it, else any app's audio.
@@ -65,7 +73,7 @@ class VisualizerWallpaperService : WallpaperService() {
         private var runMode = WallpaperRunMode.STOPPED
         private val handler = Handler(Looper.getMainLooper())
 
-        /** Ends the settle burst of [WallpaperRunMode.STILL]. */
+        /** Ends the settle burst of [WallpaperRunMode.STILL] (how long is native: [settleMsFrom]). */
         private val endStillSettle = Runnable { if (runMode == WallpaperRunMode.STILL) pacer.stop() }
 
         /** Re-reads the gate when a running trial ends, so the wallpaper stills on time (#376). */
@@ -126,6 +134,7 @@ class VisualizerWallpaperService : WallpaperService() {
             renderer = engine
             restoreLiveState(engine)
             settings = prefsStore.load()
+            applyFps()
             engine.pcmProvider = { null }
             engine.soundInput = { sound.input }
             val wrapped = WallpaperRenderer(engine) { sound.input }
@@ -154,6 +163,17 @@ class VisualizerWallpaperService : WallpaperService() {
                 },
                 ContextCompat.RECEIVER_NOT_EXPORTED,
             )
+            // For the engine's whole life, like the receiver: the setting can flip while hidden.
+            systemAnimations.start()
+        }
+
+        /**
+         * Caps the pacer to the wallpaper's own fps choice, snapped to a listed rate natively, and
+         * restates the rate on the surface. Settings › Performance's cap is the live visual's, not this.
+         */
+        private fun applyFps() {
+            pacer.policy = FrameRatePolicy.Capped(GeodeNative.surfaceFpsChoice(settings.fps).toFloat())
+            surfaceHolder.surface?.takeIf { it.isValid }?.let(pacer::applyTo)
         }
 
         private fun restoreLiveState(engine: VisualizerRenderer) {
@@ -168,11 +188,11 @@ class VisualizerWallpaperService : WallpaperService() {
             // The MilkDrop preset needs nothing here: the renderer restores the app's (MilkPresetMemory).
             val gui = ThemeStore(prefsFiles.general).loadGui()
             engine.reducedMotion = gui.reducedMotion
+            appReducedMotion = gui.reducedMotion
             engine.soundTuning = gui.soundTuning
-            // Settings › Performance; the wallpaper keeps its own pacer, so the cap goes there.
-            val performance = PerformanceStore(prefsFiles.general, this@VisualizerWallpaperService).settings.value
-            engine.performance = performance
-            pacer.policy = FrameRatePolicy.Capped(minOf(WALLPAPER_FPS, performance.fpsCap.toFloat()))
+            // Settings › Performance's quality; its fps cap is the live visual's, and the wallpaper
+            // paces to its own choice instead (applyFps, ADR 0008).
+            engine.performance = PerformanceStore(prefsFiles.general, this@VisualizerWallpaperService).settings.value
             // The user's modulation too: without it the wallpaper and the dream drew the look
             // with every LFO, envelope and custom reaction switched off.
             val modulation = dev.geode.data.LfoStore(prefsFiles.general)
@@ -185,7 +205,7 @@ class VisualizerWallpaperService : WallpaperService() {
         /**
          * Restates the run mode from scratch (the native rule, [WallpaperConditions.runMode]). Called
          * on every change that can move it: visibility, surface, cover, battery saver, unlock,
-         * silence, and a trial's end.
+         * silence, Remove animations, and a trial's end.
          */
         private fun syncRunState() {
             if (renderer == null) return
@@ -203,6 +223,7 @@ class VisualizerWallpaperService : WallpaperService() {
                     covered = covered,
                     batterySaver = powerManager?.isPowerSaveMode == true,
                     silent = sound.silent,
+                    reducedMotion = appReducedMotion || systemAnimations.removed,
                     settings = settings,
                     animateUntilMs = until,
                 )
@@ -220,14 +241,15 @@ class VisualizerWallpaperService : WallpaperService() {
                 }
                 WallpaperRunMode.STILL -> {
                     // A still frame of the style and then no pacing, so it costs nothing while it
-                    // sits there: without Pro, in battery saver, or resting in silence. Paced for
-                    // [STILL_SETTLE_MS] first, because a new scene is built across frames
-                    // (ScenePrep): one frame on a fresh engine would hold a black or half-built
-                    // picture. Already still, a restated look needs only one more frame.
+                    // sits there: without Pro, in battery saver, resting in silence, or under reduced
+                    // motion. The native rule says how long to pace first (a new scene is built across
+                    // frames, ScenePrep, so one frame on a fresh engine would hold a black or
+                    // half-built picture); 0 means already still, and a restated look needs one frame.
                     glView?.onResume()
-                    if (previous != WallpaperRunMode.STILL) {
+                    val settle = runMode.settleMsFrom(previous)
+                    if (settle > 0) {
                         pacer.start()
-                        handler.postDelayed(endStillSettle, STILL_SETTLE_MS)
+                        handler.postDelayed(endStillSettle, settle)
                     } else {
                         glView?.requestRender()
                     }
@@ -279,8 +301,14 @@ class VisualizerWallpaperService : WallpaperService() {
             // Going away with a finger still down is not guaranteed to come with a cancel,
             // and a pointer that is never retired stays pinned across the whole sleep.
             if (!visible) renderer?.submitTouchPoints(touchPoints, 0)
-            // Re-read each time it shows: the options page, opened from the picker, covers it.
-            if (visible) settings = prefsStore.load()
+            // Re-read each time it shows: the options page, opened from the picker, covers it, and
+            // the in-app Reduce motion switch may have changed while the app was in front.
+            if (visible) {
+                settings = prefsStore.load()
+                val general = GeodePrefsFiles(this@VisualizerWallpaperService).general
+                appReducedMotion = ThemeStore(general).loadGui().reducedMotion
+                applyFps()
+            }
             syncRunState()
         }
 
@@ -398,6 +426,7 @@ class VisualizerWallpaperService : WallpaperService() {
             handler.removeCallbacks(trialEnded)
             pacer.stop()
             sound.stop()
+            systemAnimations.stop()
             bestEffort(TAG, "unregister system receiver") { unregisterReceiver(systemReceiver) }
             releaseScenesOnGlThread()
             glView?.destroy()
@@ -441,24 +470,5 @@ class VisualizerWallpaperService : WallpaperService() {
 
         /** A surface this much bigger than the display is a panning one. */
         const val PAN_SLACK = 1.1f
-
-        /** How long a still frame keeps drawing first, so a scene being built finishes on screen. */
-        const val STILL_SETTLE_MS = 2_000L
-
-        /**
-         * The same target the app renders at, deliberately — not the 24–30 fps §4.4 of the
-         * quality bar wants from a wallpaper.
-         *
-         * The reduced rate is the right end state, but it cannot be switched on from here alone:
-         * the native fluid quality ladder (`FluidSceneBase::autoQualityTick` in `core/viz/scenes`)
-         * reads GPU pressure off the achieved frame rate through its `PerformanceMonitor`
-         * (target 50 fps), an inference that only holds while the renderer
-         * free-runs. Ask for 30 and every fluid scene on the wallpaper reads its own cap as a
-         * device that cannot keep up and downgrades itself two quality tiers within three
-         * seconds. Teaching that monitor the difference between "capped" and "struggling" comes
-         * first; then this becomes a one-line change. The same is why silence and battery saver
-         * hold a still frame rather than dropping to a low rate.
-         */
-        const val WALLPAPER_FPS = FramePacer.DEFAULT_TARGET_FPS
     }
 }

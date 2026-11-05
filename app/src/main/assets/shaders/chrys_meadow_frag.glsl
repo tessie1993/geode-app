@@ -63,9 +63,11 @@ out vec4 fragColor;
 // ---- why the distance estimate is safe ----------------------------------------
 //
 // Each cell measures only its own flower. Every flower stays within CM_REACH
-// (0.46) of its cell centre (petal reach clamped to 0.38 past a 0.06 base,
-// jitter 0.04), so a neighbour's flower is at least the distance to the
-// shared cell edge plus 0.04 away; and nothing rises above gTop, so above it
+// (0.46) of its cell centre (petal length clamped to 0.33 past a 0.06 base,
+// the fray reaching up to 0.03 past the tip at chaos 2, jitter 0.04 per
+// axis), so a neighbour's flower is at least the distance to the shared
+// cell edge plus 0.04 away. That 0.04 must stay: it is what keeps the
+// bound above the hit epsilon out to CM_FAR. And nothing rises above gTop, so above it
 // the vertical gap is a bound too, and the march skips straight down to it.
 // The petal distance is the family's 2D bound (exact on the centreline,
 // drifting toward the edges); the bowl bends the sheet with slope at most
@@ -82,8 +84,8 @@ out vec4 fragColor;
 #define CM_ZWRAP 256.0
 /** Every flower lies inside this radius of its own cell centre (< 0.5 - margin). */
 #define CM_REACH 0.46
-/** Longest petal, world units: 0.06 base + 0.38 reach + 0.04 jitter = CM_REACH. */
-#define CM_PETAL_MAX 0.38
+/** Longest petal, world units: 0.06 base + 0.33 petal + 0.03 fray + 0.04 jitter = CM_REACH. */
+#define CM_PETAL_MAX 0.33
 #define CM_THICK 0.016
 #define CM_BUBBLE 0.6
 

@@ -122,7 +122,7 @@ _Avoid_: Meta control, master knob
 A named set of the six knob positions: the built-in starters (Calm, Groove, Rave, Dreamy, Wide, Glitch) or the user's own (saving is Pro). Separate from look presets.
 
 **Event recipe**:
-A named bundle of reaction routes offered in the Events tab ("Kick punch", "Drop burst"), turned on and off as one.
+A named bundle of reaction routes offered in the Events tab ("Kick punch", "Snare crack"), turned on and off as one.
 _Avoid_: Trigger preset
 
 **Modulation**:
@@ -239,14 +239,14 @@ _Avoid_: Auto visuals (that switches styles on a timer)
 One auto-director decision: a palette, a behaviour and a set of routes, glided in over a bar. Never the same look twice in a row of six.
 
 **Note & key reactions**:
-Settings › Behaviour's switch that lets notes, chords, key and mood move every style inside the auto-director's look: a colour per note, a bloom per note onset, leaps swing and steps glide, tension bends and resolution smooths, a chord change shifts the fold count, drums weighted by how percussive the track is. Free and on by default; Customize › Advanced › Note & key (Pro) tunes it per style. See `docs/research/note-key-response.md`.
+Settings › Behaviour's switch that lets notes, chords, key and mood move every style inside the auto-director's look: a colour per note and a tint toward it, leaps swing and steps glide, tension bends and resolution smooths, a chord change shifts the fold count, drums weighted by how percussive the track is. Free and on by default; Customize › Advanced › Note & key (Pro) tunes it per style. See `docs/research/note-key-response.md`.
 _Avoid_: Note mode, melody mode
 
 **Bloom (note bloom)**:
-The paradoxical fractal flower one note grows over the picture (petals that hold the flower again), fading as the note ends. Four looks (flower, glow, ripple, burst), the style's own unless Customize › Look › Note blooms picks one. Not the `bloom` glow parameter.
+Removed. The fractal flower each note once grew over every style was dropped by the owner; presets that still carry `bloomLook` or `noteBloom` load and ignore them. "Bloom" now means only the `bloom` glow parameter and the fluid glow.
 
 **Personality (note layer)**:
-Note & key reactions' character for a play: how many blooms at once, how fast, how big, how strongly the notes tint the picture, how fast the blooms travel, how far they tilt. Rolled at random per play and again at every section and drop.
+Note & key reactions' character for a play: how strongly the notes tint the picture. Rolled at random per play and again at every section and drop.
 _Avoid_: Flower effect, note flash
 
 **Percussiveness**:
@@ -272,7 +272,7 @@ The Kotlin around the engine: JNI declarations, Android lifecycle, Media3 and Me
 _Avoid_: Wrapper, glue layer
 
 **Scene params resolver**:
-The engine's per-frame chain that turns the requested scene params into the ones a scene is drawn with: the param fade, then the auto-director, Note & key reactions, macros, LFOs, envelopes, reaction routes, motion field, and the safety clamp last. It knows nothing of GL. It reads the sound frame, dt, the style on screen and the engine settings, and also returns the director's style moments and camera moves and the note blooms. Device policy (thermal tier, post-FX, Liquid's hot policy) and the camera rig stay in the renderer. Proposed in #344.
+The engine's per-frame chain that turns the requested scene params into the ones a scene is drawn with: the param fade, then the auto-director, Note & key reactions, macros, LFOs, envelopes, reaction routes, motion field, and the safety clamp last. It knows nothing of GL. It reads the sound frame, dt, the style on screen and the engine settings, and also returns the director's style moments and camera moves. Device policy (thermal tier, post-FX, Liquid's hot policy) and the camera rig stay in the renderer. Proposed in #344.
 _Avoid_: Look resolver (a look is one auto-director decision), param pipeline
 
 **Engine settings**:

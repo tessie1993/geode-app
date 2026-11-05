@@ -255,15 +255,13 @@ const std::vector<std::pair<const char*, const char*>>& neverRolled() {
         {"camTouch", "an input preference, not a look"},
         {"camGyro", "an input preference, not a look"},
         {"reactAmount", "how much the user wants the music to move things"},
-        // Note & key reactions: the user's pick and how much each source drives, never a roll's.
-        {"bloomLook", "the user's pick of note bloom, Auto by default"},
+        // Note & key reactions: how much each source drives, the user's, never a roll's.
         {"noteColor", "a Note & key amount: how much the user wants the notes to move things"},
         {"notePitch", "a Note & key amount: how much the user wants the notes to move things"},
         {"noteIntervals", "a Note & key amount: how much the user wants the notes to move things"},
         {"noteTension", "a Note & key amount: how much the user wants the notes to move things"},
         {"noteChords", "a Note & key amount: how much the user wants the notes to move things"},
         {"noteDrums", "a Note & key amount: how much the user wants the notes to move things"},
-        {"noteBloom", "a Note & key amount: how much the user wants the notes to move things"},
         // Liquid mode's pickers: the user's choice of what the liquid is, not a look to roll.
         {"liquidBorn", "a Liquid mode pick"},
         {"liquidAge", "a Liquid mode pick"},

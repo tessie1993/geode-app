@@ -184,16 +184,13 @@ data class SceneParams(
     /** Which variant of the style's reaction DNA ([BuildStyleReactionsUseCase]) plays. */
     val reactSeed: Int = 0,
     /**
-     * The first of Note & key reactions' fields (core/viz Params.hpp, appended after [reactSeed] so every
-     * older wire index survives). Each is a per-style Customize control, inert while Settings › Behaviour ›
-     * Note & key reactions is off, and the ParamRandomizer never rolls them.
+     * The first of Note & key reactions' fields (core/viz Params.hpp, after [reactSeed]). Each is a
+     * per-style Customize control, inert while Settings › Behaviour › Note & key reactions is off, and the
+     * ParamRandomizer never rolls them. (The note blooms' `bloomLook` and `noteBloom` are gone with the
+     * blooms; a preset or link that still carries them loads, and the keys are ignored.)
      *
-     * How a note bloom looks on this style: 0 = the style's own look (the catalogue's `bloom` row,
-     * [Catalogue.bloomLook]), else a [BloomLook] wire value (1 flower, 2 glow, 3 ripple, 4 burst).
-     * Not lerped: a look switches, it does not blend.
+     * How strongly the key and notes tint the palette, 0..2 (1 = as designed).
      */
-    val bloomLook: Int = 0,
-    /** Note & key reactions: how strongly the key and notes tint the palette, 0..2 (1 = as designed). */
     val noteColor: Float = 1f,
     /** Note & key reactions: how strongly pitch height moves the picture, 0..2. */
     val notePitch: Float = 1f,
@@ -205,8 +202,6 @@ data class SceneParams(
     val noteChords: Float = 1f,
     /** Note & key reactions: how strongly the drum hits answer, 0..2. */
     val noteDrums: Float = 1f,
-    /** Note & key reactions: how big each note bloom grows, 0..2. */
-    val noteBloom: Float = 1f,
     /**
      * Liquid mode (Customize › Advanced › Liquid; the switch is [flowEnabled], Liquidity [flowStrength]):
      * what forms at the vanishing point. 0 the live style, 1 a re-roll of it, 2 the next style, 3 ink forms.

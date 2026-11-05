@@ -14,7 +14,7 @@ import dev.geode.data.NoteResponseStore
 /**
  * Settings › Behaviour › Note & key reactions: one switch, free and on by default. The store saves it and
  * hands it to the engine, so the screen, exports, the wallpaper and the dream all follow it at once. How
- * strongly each part answers is per style, in Customize (Advanced › Note & key, and Look's note blooms).
+ * strongly each part answers is per style, in Customize › Advanced › Note & key.
  */
 @Composable
 internal fun NoteResponseGroup() {

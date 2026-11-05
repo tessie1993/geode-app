@@ -31,9 +31,6 @@ add_library(geode_core STATIC
     output/ExportRange.cpp
     output/RenderEta.cpp
     signal/timeline/Keyframes.cpp
-    signal/timeline/SpeedRamp.cpp
-    signal/timeline/Cues.cpp
-    util/CubeLut.cpp
     viz/ShaderSource.cpp
     viz/GlCaps.cpp
     viz/GlProber.cpp
@@ -66,7 +63,6 @@ add_library(geode_core STATIC
     viz/TouchField.cpp
     viz/Transition.cpp
     viz/CompositeGrade.cpp
-    viz/ClipGrade.cpp
     viz/CompositePass.cpp
     viz/TrailPass.cpp
     viz/Catalogue.cpp

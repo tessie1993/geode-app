@@ -1,6 +1,5 @@
-// JNI marshalling for the export planning and clip maths (geode_api.h, "Export planning and clip maths").
-// Only copies in and out: every rule lives in core/output, core/signal/timeline, viz/ClipGrade, util/CubeLut
-// and audio/dsp/PcmConvert. Arrays move with Get/Set<Type>ArrayRegion (one copy, nothing pinned, no Release
+// JNI marshalling for the export planning (geode_api.h, "Export planning").
+// Only copies in and out: every rule lives in core/output and audio/dsp/PcmConvert. Arrays move with Get/Set<Type>ArrayRegion (one copy, nothing pinned, no Release
 // to forget; NDK "JNI tips", Region calls), and every New<Type>Array is checked before it is filled.
 #include <jni.h>
 
@@ -42,18 +41,6 @@ jlongArray chapterTriples(JNIEnv* env, int count, const std::vector<int64_t>& st
     }
     jlongArray result = env->NewLongArray(static_cast<jsize>(flat.size()));
     if (result && !flat.empty()) env->SetLongArrayRegion(result, 0, static_cast<jsize>(flat.size()), flat.data());
-    return result;
-}
-
-jintArray lutArray(JNIEnv* env, geode_cube_lut* lut) {
-    if (!lut) return nullptr;
-    const int size = geode_cube_lut_size(lut);
-    const jsize entries = static_cast<jsize>(size) * size * size;
-    jintArray result = env->NewIntArray(entries);
-    if (result && entries > 0) {
-        env->SetIntArrayRegion(result, 0, entries, reinterpret_cast<const jint*>(geode_cube_lut_argb(lut)));
-    }
-    geode_cube_lut_destroy(lut);
     return result;
 }
 
@@ -226,33 +213,6 @@ JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_renderEtaPhrase(
     return phrase;
 }
 
-// Caption cues (signal/timeline/Cues). Stateless: the triples and the origin pair live in Kotlin arrays.
-JNIEXPORT jlongArray JNICALL Java_dev_geode_engine_bridge_GeodeNative_cuesForSpan(JNIEnv* env, jobject, jlongArray startsMs,
-                                                                                  jlongArray endsMs, jlong spanStartMs,
-                                                                                  jlong spanEndMs) {
-    const auto starts = longs(env, startsMs);
-    const auto ends = longs(env, endsMs);
-    const int count = static_cast<int>(starts.size() < ends.size() ? starts.size() : ends.size());
-    std::vector<int64_t> triples(static_cast<size_t>(count) * 3);
-    const int n = geode_cues_for_span(starts.data(), ends.data(), count, spanStartMs, spanEndMs, triples.data(), count);
-    jlongArray result = env->NewLongArray(static_cast<jsize>(n) * 3);
-    if (result && n > 0) {
-        env->SetLongArrayRegion(result, 0, static_cast<jsize>(n) * 3, reinterpret_cast<const jlong*>(triples.data()));
-    }
-    return result;
-}
-
-JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_cuesAt(JNIEnv* env, jobject, jlongArray triples,
-                                                                       jlongArray origin, jlong presentationUs) {
-    const auto cues = longs(env, triples);
-    if (!origin || env->GetArrayLength(origin) < 2) return -1;
-    int64_t clock[2] = {0, 0};
-    env->GetLongArrayRegion(origin, 0, 2, reinterpret_cast<jlong*>(clock));
-    const int index = geode_cues_at(cues.data(), static_cast<int>(cues.size() / 3), clock, presentationUs);
-    env->SetLongArrayRegion(origin, 0, 2, reinterpret_cast<const jlong*>(clock));
-    return index;
-}
-
 // Chapters (output/Chapters).
 
 JNIEXPORT jlongArray JNICALL Java_dev_geode_engine_bridge_GeodeNative_chaptersFromClips(JNIEnv* env, jobject,
@@ -279,84 +239,6 @@ JNIEXPORT jlongArray JNICALL Java_dev_geode_engine_bridge_GeodeNative_chaptersFr
     std::vector<int32_t> src(static_cast<size_t>(count) + 1);
     const int n = geode_chapters_from_markers(markers.data(), count, totalMs, s.data(), d.data(), src.data(), count + 1);
     return chapterTriples(env, n, s, d, src);
-}
-
-// Clip speed ramps (signal/timeline/SpeedRamp). The keys arrive as parallel arrays: time, kind and interp per
-// key, four value floats and four bezier handle floats per key. Returns [source span µs, segment starts…] and
-// writes the segment speeds into speedsOut; null when there are no keys.
-JNIEXPORT jlongArray JNICALL Java_dev_geode_engine_bridge_GeodeNative_speedRampBuild(
-    JNIEnv* env, jobject, jlongArray keyTimesMs, jintArray keyKinds, jfloatArray keyValues, jintArray keyInterps,
-    jfloatArray keyCurves, jlong clipStartMs, jlong clipDurationMs, jlong stepMs, jfloatArray speedsOut) {
-    const auto times = longs(env, keyTimesMs);
-    const jsize keys = static_cast<jsize>(times.size());
-    if (keys == 0 || !keyKinds || !keyValues || !keyInterps || !keyCurves || !speedsOut ||
-        env->GetArrayLength(keyKinds) < keys || env->GetArrayLength(keyInterps) < keys ||
-        env->GetArrayLength(keyValues) < keys * 4 || env->GetArrayLength(keyCurves) < keys * 4) {
-        return nullptr;
-    }
-    std::vector<jint> kinds(static_cast<size_t>(keys));
-    std::vector<jint> interps(static_cast<size_t>(keys));
-    std::vector<jfloat> values(static_cast<size_t>(keys) * 4);
-    std::vector<jfloat> curves(static_cast<size_t>(keys) * 4);
-    env->GetIntArrayRegion(keyKinds, 0, keys, kinds.data());
-    env->GetIntArrayRegion(keyInterps, 0, keys, interps.data());
-    env->GetFloatArrayRegion(keyValues, 0, keys * 4, values.data());
-    env->GetFloatArrayRegion(keyCurves, 0, keys * 4, curves.data());
-
-    geode_track* track = geode_track_create();
-    for (jsize i = 0; i < keys; ++i) {
-        const float* c = &curves[static_cast<size_t>(i) * 4];
-        geode_track_add_key(track, times[static_cast<size_t>(i)], kinds[static_cast<size_t>(i)],
-                            &values[static_cast<size_t>(i) * 4], interps[static_cast<size_t>(i)], c[0], c[1], c[2], c[3]);
-    }
-    geode_speed_ramp* ramp = geode_speed_ramp_create(track, clipStartMs, clipDurationMs, stepMs);
-    geode_track_destroy(track);
-    if (!ramp) return nullptr;
-
-    const int segments = geode_speed_ramp_segments(ramp, nullptr, nullptr, 0);
-    const jsize capacity = env->GetArrayLength(speedsOut);
-    const int kept = segments < capacity ? segments : static_cast<int>(capacity);
-    std::vector<jlong> out(static_cast<size_t>(kept) + 1);
-    std::vector<jfloat> speeds(static_cast<size_t>(kept));
-    out[0] = geode_speed_ramp_source_span_us(ramp);
-    std::vector<int64_t> starts(static_cast<size_t>(kept));
-    geode_speed_ramp_segments(ramp, starts.data(), speeds.data(), kept);
-    geode_speed_ramp_destroy(ramp);
-    for (int i = 0; i < kept; ++i) out[static_cast<size_t>(i) + 1] = starts[static_cast<size_t>(i)];
-
-    jlongArray result = env->NewLongArray(static_cast<jsize>(out.size()));
-    if (!result) return nullptr;
-    env->SetLongArrayRegion(result, 0, static_cast<jsize>(out.size()), out.data());
-    if (kept > 0) env->SetFloatArrayRegion(speedsOut, 0, kept, speeds.data());
-    return result;
-}
-
-JNIEXPORT jfloat JNICALL Java_dev_geode_engine_bridge_GeodeNative_clipSpeedSanitize(JNIEnv*, jobject, jfloat speed) {
-    return geode_clip_speed_sanitize(speed);
-}
-
-// Clip grade (viz/ClipGrade) and colour cubes (util/CubeLut).
-
-JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_clipGradeMatrix(JNIEnv* env, jobject, jfloat brightness,
-                                                                                 jfloat contrast, jfloat saturationPercent,
-                                                                                 jfloat hueDegrees, jfloatArray out) {
-    if (!out || env->GetArrayLength(out) < 16) return;
-    float m[16];
-    geode_clip_grade_matrix(brightness, contrast, saturationPercent, hueDegrees, m);
-    env->SetFloatArrayRegion(out, 0, 16, m);
-}
-
-JNIEXPORT jintArray JNICALL Java_dev_geode_engine_bridge_GeodeNative_cubeLutParse(JNIEnv* env, jobject, jbyteArray text) {
-    if (!text) return nullptr;
-    const jsize n = env->GetArrayLength(text);
-    std::vector<char> bytes(static_cast<size_t>(n));
-    if (n > 0) env->GetByteArrayRegion(text, 0, n, reinterpret_cast<jbyte*>(bytes.data()));
-    return lutArray(env, geode_cube_lut_parse(bytes.data(), bytes.size()));
-}
-
-JNIEXPORT jintArray JNICALL Java_dev_geode_engine_bridge_GeodeNative_cubeLutGamma(JNIEnv* env, jobject, jfloat red,
-                                                                                   jfloat green, jfloat blue, jint size) {
-    return lutArray(env, geode_cube_lut_gamma(red, green, blue, size));
 }
 
 // PCM conversions (audio/dsp/PcmConvert).

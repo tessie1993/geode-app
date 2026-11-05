@@ -6,7 +6,7 @@ namespace geode::signal::timeline {
 
 // Keyframe evaluation on programme time (ADR 0006, core/signal/timeline). The project document (adding,
 // moving and rippling keys, `editor/Keyframes.kt`) stays Kotlin; what a track is worth at time t is
-// answered here, once, for the Studio preview, the scene export and the Media3 clip effects alike. Today
+// answered here, once, for the Studio preview and the scene export alike. Today
 // that evaluation runs in Kotlin on the export thread every frame, in two places that can disagree.
 //
 // Ported from Kotlin's BezierCurve, Interpolation and KeyframeTrack.valueAt with the same float maths, so a

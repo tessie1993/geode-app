@@ -593,8 +593,8 @@ object GeodeNative {
         out: DoubleArray,
     ): Int
 
-    // Export planning and clip maths (core/output, core/signal/timeline, viz/ClipGrade, util/CubeLut,
-    // audio/dsp/PcmConvert). Pure functions, any thread; the Kotlin exporters only marshal through these.
+    // Export planning (core/output, audio/dsp/PcmConvert). Pure functions, any thread; the Kotlin
+    // exporters only marshal through these.
 
     /** Frames a render of [durationUs] draws at [fps], at least 1. */
     external fun exportTotalFrames(
@@ -742,30 +742,6 @@ object GeodeNative {
         outCount: LongArray,
     ): Int
 
-    /**
-     * The caption cues touching [spanStartMs]..[spanEndMs], re-based to the item, as (start ms, end ms, source
-     * index) triples; empty when none does. Nothing native is held: the caller keeps the array.
-     */
-    external fun cuesForSpan(
-        startsMs: LongArray,
-        endsMs: LongArray,
-        spanStartMs: Long,
-        spanEndMs: Long,
-    ): LongArray
-
-    /** The item's caption clock for [cuesAt]: (has origin, origin us); all zeros before its first frame. */
-    const val CUE_ORIGIN_LONGS = 2
-
-    /**
-     * The source index of the caption at a frame's time, -1 for none. [origin] is the item's clock
-     * ([CUE_ORIGIN_LONGS] longs, zeros at first); the first frame fixes it in place.
-     */
-    external fun cuesAt(
-        triples: LongArray,
-        origin: LongArray,
-        presentationUs: Long,
-    ): Int
-
     /** Chapter spans as (start ms, duration ms, source) triples; empty under two clips. */
     external fun chaptersFromClips(
         startsMs: LongArray,
@@ -777,46 +753,6 @@ object GeodeNative {
         markersMs: LongArray,
         totalMs: Long,
     ): LongArray
-
-    /**
-     * A keyframed clip speed as Media3 segments. Keys are parallel arrays: [keyTimesMs], [keyKinds]
-     * (0 scalar, 1 vector2, 2 colour, 3 toggle, 4 choice), [keyInterps] (0 hold, 1 linear, 2 bezier),
-     * four [keyValues] and four [keyCurves] floats per key. Returns [source span µs, segment starts µs…]
-     * with the speeds written to [speedsOut]; null when there are no keys.
-     */
-    external fun speedRampBuild(
-        keyTimesMs: LongArray,
-        keyKinds: IntArray,
-        keyValues: FloatArray,
-        keyInterps: IntArray,
-        keyCurves: FloatArray,
-        clipStartMs: Long,
-        clipDurationMs: Long,
-        stepMs: Long,
-        speedsOut: FloatArray,
-    ): LongArray?
-
-    /** A saved clip speed made safe: NaN, infinite, 0 or negative is 1x, else 0.25..4. */
-    external fun clipSpeedSanitize(speed: Float): Float
-
-    /** The clip grade as a column-major 4x4 into [out] (16 floats). */
-    external fun clipGradeMatrix(
-        brightness: Float,
-        contrast: Float,
-        saturationPercent: Float,
-        hueDegrees: Float,
-        out: FloatArray,
-    )
-
-    /** A .cube file's ARGB entries, size^3 in [r][g][b] order; null when it is not a usable cube. */
-    external fun cubeLutParse(text: ByteArray): IntArray?
-
-    external fun cubeLutGamma(
-        red: Float,
-        green: Float,
-        blue: Float,
-        size: Int,
-    ): IntArray
 
     /** Interleaved s16 [frames] from [srcChannels] down to [dstChannels] (1 or 2); empty when not a downmix. */
     external fun pcmDownmixS16(

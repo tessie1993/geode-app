@@ -14,11 +14,10 @@ namespace geode::sound {
 // a phone dropping to 40 and an export stepping at 1/30 s hear the same beats in the same places. step()
 // only reads where the oscillator is now.
 //
-//   band powers ─► log, over each band's own mean ─► positive change (20 ms) ─┬► weighted by register
-//      (low 0.6, middle 0.28, high 0.12) ─► onset envelope (100 Hz)          └► low and kick ─► low envelope
+//   band powers ─► dB against one shared reference ─► positive change (20 ms) ─► mean ─► onset envelope
+//      (librosa's onset_strength; each band's log over its own mean still feeds the drum accents)
 //      onset envelope ─► minus its local mean ─► 6 s ring ─┬► autocorrelation × tempo prior ─► period
-//                                                          └► 4 s windowed Fourier at that period ─► phase
-//      low envelope ─► its Fourier at twice the period (the half-bar anchor) ─► beat or "and"
+//                                                          └► Fourier at that period, whole bars ─► phase
 //      period + phase ─► phase-locked oscillator ─► beats ─► kick/snare accent per beat slot ─► downbeat
 //
 // The tempogram is Grosche & Müller's autocorrelation tempogram restricted to its best lag, and the
@@ -92,13 +91,12 @@ private:
     // Onset envelope.
     std::array<float, kBands> bandMean_{};
     std::array<std::array<float, 2>, kBands> bandLog_{};  // the last two hops' log level, for a 20 ms change
+    std::array<std::array<float, 2>, kBands> bandDb_{};   // ... and their dB against the shared reference
+    float dbRef_ = 0.0f;  // the shared reference: the loudest band's power, released over ~4 s
     float localMean_ = 0.0f;
     int64_t hops_ = 0;
     static constexpr int kRing = 600;  // 6 s
     std::array<float, kRing> ring_{};
-    // The low band's own onset envelope (low and kick), on the same head: the half-bar anchor reads it.
-    std::array<float, kRing> lowRing_{};
-    float lowLocalMean_ = 0.0f;
     int ringHead_ = 0;  // the next slot to write
     std::array<float, 3> bandFluxPeak_{};
 

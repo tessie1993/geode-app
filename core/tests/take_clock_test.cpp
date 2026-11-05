@@ -122,6 +122,33 @@ void framesCarryTheEngineClock() {
     check(pts && *pts == 40'000, "a frame's time is its engine frame time since the take began, in us");
 }
 
+void aTrialTakeStopsAtItsCap() {
+    const int64_t start = 0;
+    TakeFramePicker picker(start, 30.0f, 60'000'000);
+    int kept = 0;
+    int64_t last = -1;
+    for (int f = 0; f < 70 * 30; ++f) {
+        if (const auto pts = picker.admit(start + static_cast<int64_t>(f) * 33'333'333)) {
+            ++kept;
+            last = *pts;
+        }
+        if (f == 59 * 30) check(!picker.reachedCap(), "a minute's take has not reached its cap at 59 s");
+    }
+    check(picker.reachedCap(), "past a minute the take has reached its cap");
+    check(last <= 60'000'000, "no frame past the cap is kept");
+    check(kept > 59 * 30, "every frame up to the cap is kept");
+
+    TakeFramePicker pro(start, 30.0f);
+    for (int f = 0; f < 70 * 30; ++f) (void)pro.admit(start + static_cast<int64_t>(f) * 33'333'333);
+    check(!pro.reachedCap() && pro.lastPtsUs() > 60'000'000, "with no cap a take runs on");
+
+    TakeAudio sound(start, 1'000'000);
+    const auto b = block(kRate * 2, 600);
+    sound.write(b.data(), kRate * 2, 2, kRate, 0);
+    const auto left = drain(sound, 0);
+    check(left.size() == static_cast<size_t>(kRate), "a capped take's sound stops at the cap with its picture");
+}
+
 void soundStartsAtTimeZero() {
     TakeAudio audio(0);
     const auto b = block(4800, 1000);
@@ -209,6 +236,7 @@ int main() {
     sizesStartAtTheScreenAndStepDown();
     fpsAndBitrate();
     framesCarryTheEngineClock();
+    aTrialTakeStopsAtItsCap();
     soundStartsAtTimeZero();
     blocksFollowSampleBySample();
     aPauseIsFilledAndTheSoundLandsOnTime();

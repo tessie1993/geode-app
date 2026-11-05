@@ -48,7 +48,8 @@ data class TakeUiState(
  * ([Host.trackPositionMs]) whenever a song is loaded and by the wall clock otherwise. The captured
  * MP4 is the project's render ([Host.recordRender]), which is how Studio › My videos lists it.
  *
- * Record is Pro ([Host.canRecord]). Where a take's video goes is asked once: the first stop leaves
+ * Record is Pro and the trial ([Host.canRecord]); a trial take is limited like a trial render, a
+ * minute and the wordmark, both applied natively ([Host.captureReachedCap] says when to stop). Where a take's video goes is asked once: the first stop leaves
  * [TakeUiState.pendingSave] set until [chooseSaveTarget]; later takes go straight to the stored
  * answer. Nothing renders after the stop: the video already exists and is only copied there.
  */
@@ -85,6 +86,9 @@ internal class TakeController(
 
         /** Starts capturing the stage; false when it cannot. Blocking: called on the store dispatcher. */
         fun beginCapture(): Boolean
+
+        /** The running capture reached the entitlement's cap (a trial take's minute); native decides. */
+        fun captureReachedCap(): Boolean
 
         /** Ends the capture: its finished MP4, or null when it holds no picture. Blocking, store dispatcher. */
         fun endCapture(): TakeVideo?
@@ -150,6 +154,8 @@ internal class TakeController(
                     // Sampling with an unchanged look writes nothing, but it notices a seek back (a
                     // punch-in) or a new song even while nobody touches the visual.
                     sample(host.vizState.value)
+                    // A trial take stops at its cap like a trial render; the file already ends there.
+                    if (host.captureReachedCap()) stopRecording()
                 }
             }
     }

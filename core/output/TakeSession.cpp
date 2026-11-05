@@ -159,9 +159,10 @@ Take::~Take() {
     if (window_) ANativeWindow_release(window_);
 }
 
-bool Take::open(int fd, int screenW, int screenH, float displayFps, uint64_t generation) {
+bool Take::open(int fd, int screenW, int screenH, float displayFps, uint64_t generation, TakeLimits limits) {
     impl_ = std::make_unique<Impl>();
     generation_ = generation;
+    limits_ = std::move(limits);
     const float fps = takeFps(displayFps);
     for (int attempt = 0; attempt < kMaxAttempts && !impl_->video; ++attempt) {
         const TakeSize size = takeSize(screenW, screenH, attempt);
@@ -209,8 +210,9 @@ bool Take::open(int fd, int screenW, int screenH, float displayFps, uint64_t gen
 
     // Time zero is now, after the encoders are up, so the picture does not start with their set-up time.
     const int64_t startNs = bootNs();
-    impl_->frames = std::make_unique<TakeFramePicker>(startNs, fps);
-    impl_->sound = std::make_unique<TakeAudio>(startNs);
+    const int64_t capUs = limits_.capMs > 0 ? limits_.capMs * 1000 : 0;
+    impl_->frames = std::make_unique<TakeFramePicker>(startNs, fps, capUs);
+    impl_->sound = std::make_unique<TakeAudio>(startNs, capUs);
     impl_->worker = std::thread([this] { run(); });
     return true;
 }
@@ -273,7 +275,7 @@ TakeSession& TakeSession::shared() {
     return session;
 }
 
-bool TakeSession::begin(int fd, float displayFps) {
+bool TakeSession::begin(int fd, float displayFps, TakeLimits limits) {
     const int w = stageW_.load();
     const int h = stageH_.load();
     uint64_t generation = 0;
@@ -285,7 +287,7 @@ bool TakeSession::begin(int fd, float displayFps) {
     // Encoders are opened outside the lock: writeAudio takes it on the playback thread, which must not
     // wait out a codec set-up.
     std::shared_ptr<Take> take(new Take());
-    if (!take->open(fd, w, h, displayFps, generation)) return false;
+    if (!take->open(fd, w, h, displayFps, generation, std::move(limits))) return false;
     std::lock_guard<std::mutex> guard(lock_);
     if (take_) return false;
     take_ = std::move(take);
@@ -305,6 +307,11 @@ int64_t TakeSession::end() {
 bool TakeSession::active() const {
     std::lock_guard<std::mutex> guard(lock_);
     return take_ != nullptr;
+}
+
+bool TakeSession::reachedCap() const {
+    std::shared_ptr<Take> take = current();
+    return take && take->impl_->frames->reachedCap();
 }
 
 void TakeSession::writeAudio(const int16_t* pcm, int frames, int channels, int rateHz) {

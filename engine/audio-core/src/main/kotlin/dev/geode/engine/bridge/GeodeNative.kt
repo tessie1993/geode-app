@@ -575,12 +575,23 @@ object GeodeNative {
 
     /**
      * Starts a take into [fd] (read-write; keep it open until [takeEnd] returns) at the stage's size and
-     * [displayFps] up to 60. False when no stage has drawn, a take is running, or no encoder would start.
+     * [displayFps] up to 60, under the entitlement's limits, the same as a render's: [capMs] > 0 is the
+     * longest the take may run; [tile] (ARGB, [tileW] x [tileH], rasterised for a frame whose short side is [tileShortSide]) is
+     * the wordmark tiled over the take's frames only, null for none. False when no stage has drawn, a take
+     * is running, or no encoder would start.
      */
-    external fun takeBegin(
+    external fun takeBeginLimited(
         fd: Int,
         displayFps: Float,
+        capMs: Long,
+        tile: IntArray?,
+        tileW: Int,
+        tileH: Int,
+        tileShortSide: Int,
     ): Boolean
+
+    /** The running take has reached its cap: stop it. */
+    external fun takeReachedCap(): Boolean
 
     /** Ends the take and finishes its MP4: its length in ms, or -1 with no picture. Blocks; never on Main. */
     external fun takeEnd(): Long

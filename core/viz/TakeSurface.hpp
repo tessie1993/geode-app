@@ -1,5 +1,6 @@
 #pragma once
 #include <EGL/egl.h>
+#include <GLES3/gl3.h>
 
 #include <cstdint>
 
@@ -14,6 +15,10 @@
 // GL thread only. The surface follows the process-wide output::TakeSession: made on the first frame of a
 // take, remade if the context changes under it (a lost context brings a new one), and dropped once the take
 // ends.
+namespace geode::output {
+struct TakeLimits;
+}
+
 namespace geode::viz {
 
 class TakeSurface {
@@ -32,12 +37,20 @@ public:
 
 private:
     bool attach(EGLDisplay display, EGLContext context, void* window);
+    // The entitlement's wordmark (TakeLimits): made with the surface, drawn over every frame into the encoder.
+    void makeWatermark(const output::TakeLimits& limits);
+    void drawWatermark(const output::TakeLimits& limits, int width, int height);
+    void dropWatermark();
 
     EGLDisplay display_ = EGL_NO_DISPLAY;
     EGLContext context_ = EGL_NO_CONTEXT;
     EGLSurface surface_ = EGL_NO_SURFACE;
     uint64_t generation_ = 0;
     bool failed_ = false;  // this take's surface could not be made; do not retry every frame
+    GLuint markProgram_ = 0;
+    GLuint markTexture_ = 0;
+    GLint markRepeat_ = -1;
+    EGLContext markContext_ = EGL_NO_CONTEXT;  // the context the two names above belong to
 };
 
 }  // namespace geode::viz

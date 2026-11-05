@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <memory>
 #include <mutex>
+#include <vector>
 
 #include "output/TakeClock.hpp"
 
@@ -20,6 +21,20 @@ namespace geode::output {
 
 class Take;
 
+// The entitlement's limits on a take, the same as on a render (FeatureGate.renderLimits): the longest it may
+// run, and the wordmark tiled over every frame. The tile arrives as Android ARGB pixels (Bitmap.getPixels,
+// rasterised by the shell's WatermarkOverlay, which owns the font), sized for a frame whose short side is
+// tileForShortSide; TakeSurface scales the pattern to the take's own size and draws it into the take only.
+struct TakeLimits {
+    int64_t capMs = 0;  // 0: no cap
+    std::vector<uint32_t> tileArgb;
+    int tileWidth = 0;
+    int tileHeight = 0;
+    int tileForShortSide = 0;
+
+    bool watermark() const { return tileWidth > 0 && tileHeight > 0 && tileForShortSide > 0; }
+};
+
 class TakeSession {
 public:
     static TakeSession& shared();
@@ -27,12 +42,14 @@ public:
     // Starts a take into fd (open for reading and writing; the caller closes it after end()), at the stage's
     // last size and the display's rate. False when no stage has drawn yet, a take is already running, or no
     // encoder would take any size TakeClock offered.
-    bool begin(int fd, float displayFps);
+    bool begin(int fd, float displayFps, TakeLimits limits = {});
     // Ends the take: the stage stops feeding it, both encoders drain and the MP4 is finished. Returns the
     // take's length in ms, or -1 when it holds no picture (the stage never drew while it ran). Blocks for the
     // drain, so never on the main thread.
     int64_t end();
     bool active() const;
+    // The running take has reached its cap (TakeLimits::capMs): the shell should stop it.
+    bool reachedCap() const;
 
     // The record tap, on the playback thread: interleaved 16-bit PCM as the performer hears it.
     void writeAudio(const int16_t* pcm, int frames, int channels, int rateHz);
@@ -62,6 +79,7 @@ public:
     uint64_t generation() const { return generation_; }
     ANativeWindow* window() const { return window_; }
     TakeSize size() const { return size_; }
+    const TakeLimits& limits() const { return limits_; }
 
     // GL thread, around one frame into window(): the presentation time to give it, or nothing when TakeClock
     // skips this frame or the take is closing. Every frame that gets a time must be followed by endFrame().
@@ -72,7 +90,7 @@ private:
     friend class TakeSession;
     Take() = default;
 
-    bool open(int fd, int screenW, int screenH, float displayFps, uint64_t generation);
+    bool open(int fd, int screenW, int screenH, float displayFps, uint64_t generation, TakeLimits limits);
     int64_t finish();
     void run();
 
@@ -81,6 +99,7 @@ private:
     uint64_t generation_ = 0;
     ANativeWindow* window_ = nullptr;
     TakeSize size_{};
+    TakeLimits limits_;
     std::atomic<bool> closing_{false};
     std::atomic<int> inFlight_{0};
 };

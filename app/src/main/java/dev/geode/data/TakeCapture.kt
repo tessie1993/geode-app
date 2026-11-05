@@ -11,7 +11,10 @@ import android.provider.MediaStore
 import android.view.Display
 import androidx.annotation.WorkerThread
 import androidx.core.net.toUri
+import dev.geode.R
 import dev.geode.engine.bridge.GeodeNative
+import dev.geode.export.WatermarkOverlay
+import dev.geode.pro.RenderLimits
 import dev.geode.util.bestEffort
 import java.io.File
 
@@ -39,9 +42,13 @@ class TakeCapture(
     private var fd: ParcelFileDescriptor? = null
     private var file: File? = null
 
-    /** Starts capturing the stage. False when it could not: no stage drawn yet, or no encoder would start. */
+    /**
+     * Starts capturing the stage under the entitlement's [limits], the same as a render's (a trial take
+     * stops at the cap and carries the wordmark; native applies both). False when it could not: no stage
+     * drawn yet, or no encoder would start.
+     */
     @WorkerThread
-    fun begin(): Boolean {
+    fun begin(limits: RenderLimits = RenderLimits.NONE): Boolean {
         if (fd != null) return false
         val out = File(appContext.cacheDir, "studio-take-${System.currentTimeMillis()}.mp4")
         val opened =
@@ -51,7 +58,19 @@ class TakeCapture(
                     ParcelFileDescriptor.MODE_READ_WRITE or ParcelFileDescriptor.MODE_CREATE or ParcelFileDescriptor.MODE_TRUNCATE,
                 )
             }.getOrNull() ?: return false
-        if (!GeodeNative.takeBegin(opened.fd, displayFps())) {
+        val shortSide = appContext.resources.displayMetrics.let { minOf(it.widthPixels, it.heightPixels) }
+        val tile = if (limits.watermark) wordmarkTile(shortSide) else null
+        val started =
+            GeodeNative.takeBeginLimited(
+                opened.fd,
+                displayFps(),
+                limits.capMs ?: 0L,
+                tile?.pixels,
+                tile?.width ?: 0,
+                tile?.height ?: 0,
+                shortSide,
+            )
+        if (!started) {
             bestEffort(TAG, "close refused take") { opened.close() }
             out.delete()
             return false
@@ -96,6 +115,9 @@ class TakeCapture(
         if (uri != null) video.file.delete() else dev.geode.RingLog.note(TAG, "take could not be saved to ${target.encode()}")
         return uri
     }
+
+    /** The running take reached the entitlement's cap; native decides, the controller stops it. */
+    fun reachedCap(): Boolean = GeodeNative.takeReachedCap()
 
     @WorkerThread
     fun discard(video: TakeVideo) {
@@ -146,6 +168,20 @@ class TakeCapture(
         if (copied.getOrDefault(false)) return doc
         bestEffort(TAG, "delete half-made take document") { DocumentsContract.deleteDocument(resolver, doc) }
         return null
+    }
+
+    private class Tile(
+        val pixels: IntArray,
+        val width: Int,
+        val height: Int,
+    )
+
+    /** The export's own wordmark tile (the font lives on the Android side), handed to native as ARGB pixels. */
+    private fun wordmarkTile(shortSide: Int): Tile {
+        val bitmap = WatermarkOverlay(appContext.getString(R.string.pro_watermark_text)).rasteriseTile(shortSide)
+        val pixels = IntArray(bitmap.width * bitmap.height)
+        bitmap.getPixels(pixels, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
+        return Tile(pixels, bitmap.width, bitmap.height).also { bitmap.recycle() }
     }
 
     /** The display's refresh rate; native holds the take to 24..60 fps. */

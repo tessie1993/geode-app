@@ -289,6 +289,13 @@ GEODE_API int             geode_silence_resting(long long now_ms, long long hear
  * drain (never call it on the main thread) and returns the take's length in ms, or -1 when it holds no picture.
  * write_audio: interleaved 16-bit PCM as heard, any rate and channel count; a no-op while no take runs. */
 GEODE_API int         geode_take_begin(int fd, float display_fps);
+/* geode_take_begin under the entitlement's limits, the same as a render's: cap_ms > 0 is the longest the take may
+ * run (no frame or sound past it is kept, and geode_take_reached_cap turns 1 so the shell stops it); tile_argb is
+ * the wordmark tile (Bitmap.getPixels ARGB, tile_w x tile_h, rasterised for a frame whose short side is
+ * tile_short_side), tiled over every frame of the take only, never the screen; NULL for none. */
+GEODE_API int         geode_take_begin_limited(int fd, float display_fps, int64_t cap_ms, const uint32_t* tile_argb,
+                                               int tile_w, int tile_h, int tile_short_side);
+GEODE_API int         geode_take_reached_cap(void);
 GEODE_API int64_t     geode_take_end(void);
 GEODE_API int         geode_take_active(void);
 GEODE_API void        geode_take_write_audio(const int16_t* interleaved, int frames, int channels, int sample_rate);

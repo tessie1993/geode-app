@@ -1,6 +1,7 @@
 #include <jni.h>
 
 #include <cstdint>
+#include <vector>
 
 #include "api/geode_api.h"
 
@@ -9,8 +10,21 @@
 extern "C" {
 
 JNIEXPORT jboolean JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_takeBegin(JNIEnv*, jobject, jint fd, jfloat displayFps) {
-    return geode_take_begin(fd, displayFps) != 0 ? JNI_TRUE : JNI_FALSE;
+Java_dev_geode_engine_bridge_GeodeNative_takeBeginLimited(JNIEnv* env, jobject, jint fd, jfloat displayFps, jlong capMs,
+                                                           jintArray tile, jint tileW, jint tileH, jint tileShortSide) {
+    std::vector<uint32_t> pixels;
+    const jsize n = tile ? env->GetArrayLength(tile) : 0;
+    if (n > 0 && n >= tileW * tileH) {
+        pixels.resize(static_cast<size_t>(n));
+        env->GetIntArrayRegion(tile, 0, n, reinterpret_cast<jint*>(pixels.data()));
+    }
+    const uint32_t* argb = pixels.empty() ? nullptr : pixels.data();
+    return geode_take_begin_limited(fd, displayFps, capMs, argb, tileW, tileH, tileShortSide) != 0 ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT jboolean JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_takeReachedCap(JNIEnv*, jobject) {
+    return geode_take_reached_cap() != 0 ? JNI_TRUE : JNI_FALSE;
 }
 
 JNIEXPORT jlong JNICALL

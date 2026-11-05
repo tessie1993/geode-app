@@ -118,7 +118,8 @@ class WatermarkOverlay(
         quad = null
     }
 
-    private fun rasteriseTile(shortSide: Int): Bitmap {
+    /** One tile of the mark for a frame whose short side is [shortSide]; also what a trial take tiles natively. */
+    fun rasteriseTile(shortSide: Int): Bitmap {
         val textPx = (shortSide * TEXT_FRACTION).coerceAtLeast(MIN_TEXT_PX)
         val paint =
             Paint(Paint.ANTI_ALIAS_FLAG).apply {

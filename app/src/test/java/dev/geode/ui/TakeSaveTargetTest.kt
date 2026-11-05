@@ -99,6 +99,8 @@ class TakeSaveTargetTest {
 
         override fun beginCapture(): Boolean = true
 
+        override fun captureReachedCap(): Boolean = false
+
         override fun endCapture(): TakeVideo? = null
 
         override fun publishCapture(

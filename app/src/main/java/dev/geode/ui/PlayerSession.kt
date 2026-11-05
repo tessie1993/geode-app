@@ -445,7 +445,9 @@ class PlayerSession internal constructor(
 
                 override fun onRecordLocked() = onRecordingLocked()
 
-                override fun beginCapture(): Boolean = takeCapture.begin()
+                override fun beginCapture(): Boolean = takeCapture.begin(renderLimits())
+
+                override fun captureReachedCap(): Boolean = takeCapture.reachedCap()
 
                 override fun endCapture(): TakeVideo? = takeCapture.end()
 

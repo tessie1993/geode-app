@@ -1,4 +1,5 @@
 #pragma once
+#include <atomic>
 #include <cstdint>
 #include <memory>
 #include <mutex>
@@ -45,11 +46,17 @@ int takeBitrate(TakeSize size, float fps);
 // rendered before the take began, or sooner than 3/5 of a frame period after the last one kept, is skipped:
 // a 120 Hz screen records at 60, and a frame's jitter never drops a frame at the display's own rate. Times
 // only go forward, so the encoder never sees a timestamp twice. GL thread only.
+//
+// A trial take is limited exactly like a trial render (FeatureGate.renderLimits): capUs > 0 is the longest it
+// may run, and no frame past it is kept. reachedCap() says so, from any thread, and the shell then stops the
+// take; the file ends at the cap whenever the stop arrives.
 class TakeFramePicker {
 public:
-    TakeFramePicker(int64_t startNs, float fps);
+    TakeFramePicker(int64_t startNs, float fps, int64_t capUs = 0);
 
     std::optional<int64_t> admit(int64_t frameNs);
+
+    bool reachedCap() const { return reachedCap_.load(std::memory_order_relaxed); }
 
     // The last kept frame's time, or -1 before the first. Read after the GL thread stops presenting.
     int64_t lastPtsUs() const { return lastUs_; }
@@ -58,6 +65,8 @@ public:
 private:
     int64_t startNs_;
     int64_t minGapUs_;
+    int64_t capUs_;
+    std::atomic<bool> reachedCap_{false};
     int64_t lastUs_ = -1;
     int64_t frames_ = 0;
 };
@@ -75,6 +84,8 @@ private:
 // - Any rate, mono, stereo or more (the first two channels) is accepted; a rate change mid-take (the next
 //   song) starts a new resampler.
 //
+// - A capped take's sound stops at the cap with its picture: read() never hands out a frame past capUs.
+//
 // write() runs on the playback thread, read() on the take's encoder thread; one mutex, held for a copy.
 class TakeAudio {
 public:
@@ -82,7 +93,7 @@ public:
     static constexpr int kChannels = 2;
     static constexpr int64_t kGapNs = 200'000'000;
 
-    explicit TakeAudio(int64_t startNs);
+    explicit TakeAudio(int64_t startNs, int64_t capUs = 0);
 
     void write(const int16_t* pcm, int frames, int channels, int rateHz, int64_t wallNs);
 
@@ -105,6 +116,7 @@ private:
 
     mutable std::mutex lock_;
     int64_t startNs_;
+    int64_t capFrames_;  // 0: no cap
     std::vector<int16_t> buffer_;  // interleaved stereo, frames from readAt_ / 2 onward unread
     size_t readAt_ = 0;            // sample index into buffer_
     int64_t framesIn_ = 0;         // every frame placed in the stream, silence included

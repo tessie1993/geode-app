@@ -40,19 +40,24 @@ int takeBitrate(TakeSize size, float fps) {
     return static_cast<int>(std::clamp(bits, 2.0e6, 40.0e6));
 }
 
-TakeFramePicker::TakeFramePicker(int64_t startNs, float fps)
-    : startNs_(startNs), minGapUs_(std::llround(600000.0 / takeFps(fps))) {}
+TakeFramePicker::TakeFramePicker(int64_t startNs, float fps, int64_t capUs)
+    : startNs_(startNs), minGapUs_(std::llround(600000.0 / takeFps(fps))), capUs_(std::max<int64_t>(capUs, 0)) {}
 
 std::optional<int64_t> TakeFramePicker::admit(int64_t frameNs) {
     if (frameNs < startNs_) return std::nullopt;
     const int64_t us = (frameNs - startNs_) / kNsPerUs;
+    if (capUs_ > 0 && us > capUs_) {
+        reachedCap_.store(true, std::memory_order_relaxed);
+        return std::nullopt;
+    }
     if (lastUs_ >= 0 && us - lastUs_ < minGapUs_) return std::nullopt;
     lastUs_ = us;
     ++frames_;
     return us;
 }
 
-TakeAudio::TakeAudio(int64_t startNs) : startNs_(startNs) {}
+TakeAudio::TakeAudio(int64_t startNs, int64_t capUs)
+    : startNs_(startNs), capFrames_(capUs > 0 ? capUs * kRate / kUsPerSecond : 0) {}
 
 int64_t TakeAudio::endNsLocked() const { return startNs_ + framesIn_ * kNsPerSecond / kRate; }
 
@@ -101,7 +106,9 @@ int TakeAudio::read(int16_t* out, int maxFrames, int64_t nowNs) {
         anchored_ = true;
         lastWasPad_ = true;
     }
-    const int n = static_cast<int>(std::min<int64_t>(pendingLocked(), maxFrames));
+    int64_t due = std::min<int64_t>(pendingLocked(), maxFrames);
+    if (capFrames_ > 0) due = std::min(due, capFrames_ - framesOut_);
+    const int n = static_cast<int>(due);
     if (n <= 0) return 0;
     std::copy(buffer_.begin() + static_cast<std::ptrdiff_t>(readAt_),
               buffer_.begin() + static_cast<std::ptrdiff_t>(readAt_ + static_cast<size_t>(n) * kChannels), out);

@@ -454,7 +454,7 @@ Genome make(const Set (&sets)[N]) {
     return g;
 }
 
-std::array<Seed, 41> buildSeeds() {
+std::array<Seed, 51> buildSeeds() {
     return {{
         // A nave of soap-thin spheres, inverted into one another: bubbles inside bubbles, lit from within.
         {"Bubble Nave", 0.35f, 0.7f, 0.5f,
@@ -690,11 +690,72 @@ std::array<Seed, 41> buildSeeds() {
                {MeshSize, 1.6f}, {MSurface, 0.65f}, {MDensity, 0.35f}, {DensBand, 0.1f}, {TrapR, 0.6f}, {TrapZ, 0.3f},
                {PalOffset, 0.72f}, {PalSpan, 0.45f}, {Emission, 1.2f}, {Fog, 0.035f}, {TexAmount, 0.6f}, {TexPick, 5.0f},
                {Lens, 1.1f}})},
+        // A seated figure held in a ring of Menger sponges, five round the way: a relic in a stone frame.
+        {"Sponge Reliquary", 0.3f, 0.4f, 0.75f,
+         make({{RepXY, 0.5f}, {CellXY, 6.0f}, {CellZ, 5.0f}, {CellShift, 0.8f}, {Polar, 1.0f}, {PolarN, 5.0f},
+               {PMenger, 0.55f}, {PMesh, 0.45f}, {PrimSize, 1.5f}, {MeshPick, 13.0f}, {MeshSize, 1.4f}, {MSurface, 0.75f},
+               {MGlow, 0.25f}, {TrapX, 0.4f}, {TrapR, 0.5f}, {PalOffset, 0.1f}, {PalSpan, 0.35f}, {Emission, 1.2f},
+               {Fog, 0.03f}, {TexAmount, 0.6f}, {TexPick, 0.0f}, {TexScale, 1.2f}, {Lens, 1.05f}})},
+        // One low, wide gyroid drawn only in light, the view rolling slowly through it: veils of glowing silk.
+        {"Gyroid Veils", 0.2f, 0.8f, 0.3f,
+         make({{RepXY, 0.0f}, {CellXY, 8.0f}, {CellZ, 6.0f}, {PGyroid, 1.0f}, {GyroScale, 1.1f}, {PrimThick, 0.06f},
+               {MSurface, 0.15f}, {MGlow, 0.85f}, {TrapR, 0.5f}, {TrapY, 0.5f}, {PalOffset, 0.52f}, {PalSpan, 0.45f},
+               {Emission, 1.05f}, {Fog, 0.025f}, {Corridor, 1.8f}, {TexEmit, 0.3f}, {TexPick, 4.0f}, {Roll, 0.08f},
+               {Lens, 0.9f}})},
+        // The Apollonian packing as thin glowing sheets in a dark haze: a mist of pearls at night.
+        {"Apollonian Mist", 0.1f, 0.25f, 0.2f,
+         make({{RepXY, 0.0f}, {CellXY, 8.0f}, {CellZ, 6.0f}, {PApollo, 1.0f}, {PrimSize, 1.6f}, {MDensity, 0.85f},
+               {MGlow, 0.15f}, {DensBand, 0.18f}, {TrapR, 0.7f}, {TrapZ, 0.3f}, {PalOffset, 0.68f}, {PalSpan, 0.35f},
+               {Emission, 1.0f}, {Fog, 0.025f}, {Roll, -0.04f}})},
+        // Sierpinski tetrahedra turned inside out by a sphere, three ways round: a hollow nave of triangles.
+        {"Tetra Cathedral", 0.55f, 0.3f, 0.65f,
+         make({{RepXY, 0.5f}, {CellXY, 6.0f}, {CellZ, 4.5f}, {CellShift, 0.8f}, {Polar, 1.0f}, {PolarN, 3.0f},
+               {PSierp, 1.0f}, {PrimSize, 1.4f}, {Invert, 0.35f}, {InvRadius, 2.0f}, {MSurface, 0.7f}, {MGlow, 0.3f},
+               {TrapR, 0.6f}, {TrapX, 0.3f}, {PalOffset, 0.02f}, {PalSpan, 0.4f}, {Emission, 1.2f}, {Fog, 0.03f},
+               {TexAmount, 0.5f}, {TexPick, 2.0f}, {Lens, 0.85f}})},
+        // Cow skulls spiralling three ways down the way, seen through a long lens: a slow, dark procession.
+        {"Skull Spiral", 0.6f, 0.15f, 0.45f,
+         make({{RepXY, 0.4f}, {CellXY, 6.0f}, {CellZ, 4.0f}, {CellShift, 0.8f}, {Polar, 1.0f}, {PolarN, 3.0f},
+               {PolarTwist, 0.35f}, {PMesh, 1.0f}, {MeshPick, 3.0f}, {MeshSize, 2.0f}, {MSurface, 0.75f}, {MGlow, 0.25f},
+               {TrapR, 0.5f}, {TrapY, 0.3f}, {PalOffset, 0.92f}, {PalSpan, 0.3f}, {Emission, 1.25f}, {Fog, 0.035f},
+               {TexAmount, 0.6f}, {TexPick, 3.0f}, {Roll, 0.06f}, {Lens, 1.3f}})},
+        // Chandeliers hung five ways in a reverse spiral, mostly glow, in iron: a ballroom at the bottom of the sea.
+        {"Chandelier Abyss", 0.85f, 0.25f, 0.5f,
+         make({{RepXY, 0.4f}, {CellXY, 6.0f}, {CellZ, 4.5f}, {CellShift, 0.8f}, {Polar, 1.0f}, {PolarN, 5.0f},
+               {PolarTwist, -0.25f}, {PMesh, 1.0f}, {MeshPick, 5.0f}, {MeshSize, 2.0f}, {MSurface, 0.3f}, {MGlow, 0.7f},
+               {TrapR, 0.6f}, {TrapZ, 0.3f}, {PalOffset, 0.7f}, {PalSpan, 0.35f}, {Emission, 1.1f}, {Fog, 0.04f},
+               {TexEmit, 0.5f}, {TexPick, 1.0f}, {Roll, -0.1f}})},
+        // Folded girders wound seven ways into a fast spiral, corrugated iron: the inside of a turbine.
+        {"Iron Helix", 0.9f, 0.3f, 0.85f,
+         make({{RepXY, 0.8f}, {CellXY, 5.0f}, {CellZ, 4.0f}, {CellShift, 0.5f}, {Polar, 1.0f}, {PolarN, 7.0f},
+               {PolarTwist, 0.4f}, {PBar, 1.0f}, {PrimThick, 0.07f}, {Mirror, 1.0f}, {MirrorOff, 0.9f}, {Ifs, 0.8f},
+               {IfsIter, 2.0f}, {IfsScale, 1.5f}, {IfsAngA, 0.35f}, {IfsAngB, 0.2f}, {IfsOffX, 0.8f}, {IfsOffY, 0.6f},
+               {IfsOffZ, 0.7f}, {MSurface, 0.85f}, {MGlow, 0.15f}, {TrapX, 0.6f}, {TrapY, 0.3f}, {PalOffset, 0.05f},
+               {PalSpan, 0.45f}, {Emission, 1.1f}, {Fog, 0.045f}, {TexAmount, 0.7f}, {TexPick, 1.0f}, {TexScale, 1.5f},
+               {Roll, 0.2f}})},
+        // Low-power Mandelbulbs ringed nine ways and spun hard, all glow: a wheel of comets.
+        {"Comet Wheel", 0.9f, 0.85f, 0.3f,
+         make({{RepXY, 0.3f}, {CellXY, 6.0f}, {CellZ, 4.5f}, {CellShift, 0.9f}, {Polar, 1.0f}, {PolarN, 9.0f},
+               {PolarTwist, 0.5f}, {PBulb, 1.0f}, {BulbPower, 3.0f}, {PrimSize, 1.1f}, {MSurface, 0.3f}, {MGlow, 0.7f},
+               {TrapR, 0.7f}, {TrapY, 0.3f}, {PalOffset, 0.18f}, {PalSpan, 0.7f}, {Emission, 1.15f}, {Fog, 0.025f},
+               {TexEmit, 0.4f}, {TexPick, 7.0f}, {Roll, -0.25f}, {Lens, 0.85f}})},
+        // Ferns in ice, seven ways round a slow spiral, stone half lost in frost mist: a still winter glade.
+        {"Frozen Ferns", 0.15f, 0.8f, 0.8f,
+         make({{RepXY, 0.8f}, {CellXY, 5.0f}, {CellZ, 4.0f}, {CellShift, 0.9f}, {Polar, 1.0f}, {PolarN, 7.0f},
+               {PolarTwist, 0.15f}, {PMesh, 1.0f}, {MeshPick, 7.0f}, {MeshSize, 2.0f}, {MSurface, 0.6f}, {MDensity, 0.4f},
+               {DensBand, 0.12f}, {TrapR, 0.5f}, {TrapX, 0.3f}, {PalOffset, 0.56f}, {PalSpan, 0.3f}, {Emission, 1.2f},
+               {Fog, 0.035f}, {TexAmount, 0.6f}, {TexPick, 4.0f}, {TexScale, 1.3f}, {Lens, 0.85f}})},
+        // Lambis shells hollowed by a sphere inversion, five ways in a spiral, glowing: a bloom of nacre.
+        {"Nacre Bloom", 0.7f, 0.9f, 0.6f,
+         make({{RepXY, 0.4f}, {CellXY, 6.0f}, {CellZ, 4.0f}, {CellShift, 0.8f}, {Polar, 1.0f}, {PolarN, 5.0f},
+               {PolarTwist, 0.2f}, {PMesh, 1.0f}, {MeshPick, 0.0f}, {MeshSize, 1.6f}, {Invert, 0.3f}, {InvRadius, 1.6f},
+               {MSurface, 0.4f}, {MGlow, 0.6f}, {TrapR, 0.7f}, {TrapX, 0.2f}, {PalOffset, 0.8f}, {PalSpan, 0.5f},
+               {Emission, 1.1f}, {Fog, 0.03f}, {TexEmit, 0.4f}, {TexPick, 4.0f}, {Roll, 0.12f}})},
     }};
 }
 
-const std::array<Seed, 41>& seeds() {
-    static const std::array<Seed, 41> kSeeds = buildSeeds();
+const std::array<Seed, 51>& seeds() {
+    static const std::array<Seed, 51> kSeeds = buildSeeds();
     return kSeeds;
 }
 

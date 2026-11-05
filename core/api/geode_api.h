@@ -62,7 +62,7 @@ GEODE_API int         geode_macro_starters(char* out, int capacity);
  * makes the same film. */
 GEODE_API void        geode_director_set(int on, float amount, long long seed);
 /* Note & key reactions (core/viz/NoteResponse): notes, chords, key and mood driving the style knobs, note
- * colours, blooms and a gentle shape and distortion on every style. Process-wide like the director; each
+ * colours, the tint and a gentle shape and distortion on every style. Process-wide like the director; each
  * renderer eases it in and out, and off (0) is exactly the picture without it. The seed is the director's. */
 GEODE_API void        geode_note_response_set(int enabled);
 /* The renderer's own sound engine: interleaved PCM in play order, every sample once, written on the render

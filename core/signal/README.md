@@ -11,7 +11,7 @@ param fade → Director → NoteResponse → macros → LFO → ADSR (+ the lumi
   → reaction routes → macro routes → director routes → MotionField → safety::apply
 ```
 
-- **In, once a frame:** the requested `SceneParams`, the sound frame, dt, one `EngineSettings` value (macro knobs, the director's amount and seed, the Note & key switch, the hand mask, reduced motion, the note entropy), a `StyleContext` (style id, shader family or not, spin rate, "style switched") and the camera rig's flat projection from the frame before.
+- **In, once a frame:** the requested `SceneParams`, the sound frame, dt, one `EngineSettings` value (macro knobs, the director's amount and seed, the Note & key switch, the hand mask, reduced motion, the note entropy), a `StyleContext` (style id, shader family or not, spin rate, "style switched").
 - **Out:** the final params (before the renderer's device masks), the director's style moments, the camera rig's music moves, the luminance drive, and the note uniforms (`noteUniforms()`).
 - **It owns** the stages' state (fade and morph timer, `Director`, `NoteResponse`, the LFO and envelope engines, the user and macro reaction engines, `MotionField`), the LFO, envelope and route configs, and the reset on a new surface.
 - **Single-threaded, GL-free:** no mutex, no atomics, no GL header. The renderer keeps its lock and atomics, latches one `EngineSettings` a frame through its `SettingsLatch` (the same copy re-tunes its sound engine) and hands the resolver copies. The director takes the hand mask as an input; nothing in the chain reads a global.

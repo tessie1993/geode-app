@@ -55,7 +55,6 @@ void check(bool ok, const std::string& what) {
 }
 
 constexpr float kDt = 1.0f / 60.0f;
-const std::array<float, 4> kFlat{0.0f, 0.0f, 1.0f, 0.0f};
 const std::string kStyle = "neon_chrome_sea";
 const std::string kOtherStyle = "glow_vortex";
 
@@ -171,8 +170,8 @@ void testOrder() {
     for (int i = 0; i < frames; ++i, t += kDt) {
         const GeodeSoundFrame f = frame(t);
         const StyleContext st = style(kStyle, i == 0);
-        const SceneParams& a = plain->step(requested, f, kDt, s, st, kFlat).params;
-        const SceneParams& b = lfo->step(requested, f, kDt, s, st, kFlat).params;
+        const SceneParams& a = plain->step(requested, f, kDt, s, st).params;
+        const SceneParams& b = lfo->step(requested, f, kDt, s, st).params;
         if (t >= 38.0f) {
             maxPlain = std::max(maxPlain, std::fabs(a.saturation));
             maxLfo = std::max(maxLfo, b.saturation);
@@ -200,8 +199,8 @@ void testReducedMotionOnce() {
     for (int i = 0; i < 300; ++i, t += kDt) {
         const GeodeSoundFrame f = frame(t);
         const StyleContext st = style(kStyle, i == 0);
-        const SceneParams& pa = a->step(requested, f, kDt, off, st, kFlat).params;
-        const SceneParams& pb = b->step(requested, f, kDt, on, st, kFlat).params;
+        const SceneParams& pa = a->step(requested, f, kDt, off, st).params;
+        const SceneParams& pb = b->step(requested, f, kDt, on, st).params;
         once = once && pa.camFly > 0.0f && pa.endlessZoomSpeed > 0.0f &&
                std::fabs(pb.camFly - pa.camFly * safety::kReducedMotionScale) < 1e-6f &&
                std::fabs(pb.endlessZoomSpeed - pa.endlessZoomSpeed * safety::kReducedMotionScale) < 1e-6f;
@@ -246,7 +245,7 @@ void testPinnedAgainstGlobals() {
         auto r = std::make_unique<Resolver>();
         configureRich(*r);
         float t = 0.0f;
-        for (int i = 0; i < 600; ++i, t += kDt) calm.push_back(wire(r->step(requested, frame(t), kDt, s, style(kStyle, i == 0), kFlat).params));
+        for (int i = 0; i < 600; ++i, t += kDt) calm.push_back(wire(r->step(requested, frame(t), kDt, s, style(kStyle, i == 0)).params));
     }
     auto r = std::make_unique<Resolver>();
     configureRich(*r);
@@ -258,7 +257,7 @@ void testPinnedAgainstGlobals() {
         geode::viz::note_response::setGlobal(i % 2 == 0);
         hand::setGlobal(i % 2 == 0 ? hand::kAll : 0u);
         geode::viz::director::setGlobal(i % 2 != 0, i % 2 == 0 ? 0.0f : 1.0f, static_cast<uint64_t>(i));
-        same = same && sameBits(calm[static_cast<size_t>(i)], wire(r->step(requested, frame(t), kDt, s, style(kStyle, i == 0), kFlat).params));
+        same = same && sameBits(calm[static_cast<size_t>(i)], wire(r->step(requested, frame(t), kDt, s, style(kStyle, i == 0)).params));
     }
     geode::viz::macros::setGlobal(MacroKnobs{});
     geode::viz::note_response::setGlobal(false);
@@ -356,8 +355,8 @@ void testDeterministic() {
         if (i == 300) requested.zoom = 1.6f;
         const std::string& id = i < 300 ? kStyle : kOtherStyle;
         const StyleContext st = style(id, i == 0 || i == 300);
-        const Resolver::Frame& fa = a->step(requested, f, kDt, s, st, kFlat);
-        const Resolver::Frame& fb = b->step(requested, f, kDt, s, st, kFlat);
+        const Resolver::Frame& fa = a->step(requested, f, kDt, s, st);
+        const Resolver::Frame& fb = b->step(requested, f, kDt, s, st);
         moments += fa.styleMoments;
         same = same && sameBits(wire(fa.params), wire(fb.params)) && fa.styleMoments == fb.styleMoments &&
                std::memcmp(&fa.cameraMoves, &fb.cameraMoves, sizeof(fa.cameraMoves)) == 0 &&
@@ -405,7 +404,7 @@ void testSafetyLast() {
     float t = 0.0f;
     bool held = true;
     for (int i = 0; i < 600; ++i, t += kDt) {
-        const SceneParams& p = r->step(requested, frame(t), kDt, s, style(kStyle, i == 0), kFlat).params;
+        const SceneParams& p = r->step(requested, frame(t), kDt, s, style(kStyle, i == 0)).params;
         held = held && p.brightness <= top && p.intensity <= top && p.contrast <= top &&
                p.bloom <= safety::kMaxFlashDepth + 1e-6f &&
                p.flash <= safety::kMaxFlashDepth / safety::kFlashShaderDepth + 1e-6f &&

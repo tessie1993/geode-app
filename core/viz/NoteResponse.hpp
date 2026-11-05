@@ -13,17 +13,16 @@ namespace geode::viz {
 // reasons for every number below; the short version:
 //
 //   notes ─► a colour per note (pitch class on the circle of fifths around the key's colour, so a
-//            melody paints a spread of hues, never one), a shape per height (high notes open and stretch
-//            up, low ones pull in), a bloom per note onset (a paradoxical fractal flower drawn over every
-//            style by NoteBloomPass), and motion per interval (leaps swing and twist, steps glide)
+//            melody paints a spread of hues, never one) that the whole picture leans toward, a shape per
+//            height (high notes open the morph, low ones close it), and motion per interval (leaps swing
+//            and twist, steps glide). The note blooms that once flowered over every style are gone (the
+//            owner dropped them); the notes reach the picture only through the style itself.
 //   key, mood ─► the palette family when the auto-director is off (major warm and bright, minor cool and
 //            deep); under the director, its look's hue is the anchor and this layer only adds the notes
 //   harmony ─► tension bends the picture (warp, chromatic split, frayed petal edges) and its resolution
-//            smooths it back; a chord change is a scene shift (fold count, bloom layout)
+//            smooths it back; a chord change is a scene shift (fold count, a turn)
 //   motion ─► a leap rolls and turns the camera, a build pushes it in (camRoll, camYaw, camPush, so the rig
-//            springs toward them and the safety clamp and reduced motion act on top), and the blooms sit
-//            at depths: near ones drift outward and grow past the viewer, far ones barely move, and all of
-//            them slide against the camera's pan (parallax), so the field of flowers has a sense of travel
+//            springs toward them and the safety clamp and reduced motion act on top)
 //   drums ─► weighted by how percussive the track is, measured continuously (hit and onset rate,
 //            spectral flatness, high-frequency content against pitch confidence, key clarity, scale fit)
 //
@@ -35,8 +34,7 @@ namespace geode::viz {
 // envelopes, reactions, motion field and the safety clamp. So the user's own settings and the flash and
 // motion limits always act on top, and the director keeps the scene-level palette and camera to itself.
 //
-// Variation: each play gets a personality (how many blooms at once, how fast they may come, how big, how
-// strongly the notes tint the whole picture, how fast the field travels, how far the flowers tilt), and
+// Variation: each play gets a personality (how strongly the notes tint the whole picture), and
 // every new section and every drop rolls it again, eased over a couple of seconds. The user chose this to
 // be truly random per live play: a live renderer mixes fresh entropy into the seed at each new play
 // (signal::SettingsLatch, EngineSettings::noteEntropy), so the same song looks different every time. An
@@ -56,11 +54,10 @@ void setGlobal(bool enabled);
 bool globalEnabled();
 }  // namespace note_response
 
-// What the scenes and the bloom pass read this frame. Plain arrays so the GL side uploads them as is.
+// What the scenes and the composite read this frame. Plain arrays so the GL side uploads them as is.
 struct NoteUniforms {
     static constexpr int kKnobs = 6;
     static constexpr int kHues = 6;
-    static constexpr int kBlooms = 8;
     // k0 PULSE, k1 TEXTURE, k2 FLOW, k3 TONE, k4 BUILD, k5 SPACE; 0.5 is the midpoint each style was tuned
     // around, and exactly 0.5 while the layer is off.
     std::array<float, kKnobs> knobs{0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f};
@@ -68,18 +65,6 @@ struct NoteUniforms {
     std::array<float, kHues> hues{};
     // How much the layer drives right now: the switch, eased in and out over ~0.7 s.
     float amount = 0.0f;
-    // Live blooms, packed: a = (x, y, radius, hue), b = (open, envelope, petals, depth),
-    // c = (spin, stretch, seed, tension). x, y in 0..1 of the frame (y up); radius in short sides.
-    std::array<std::array<float, 4>, kBlooms> bloomA{};
-    std::array<std::array<float, 4>, kBlooms> bloomB{};
-    std::array<std::array<float, 4>, kBlooms> bloomC{};
-    // d = (tilt x, tilt y, depth, unused): the flower's disc turned in 3D (radians about the screen's x and
-    // y axes, so it foreshortens into an ellipse) and how far it sits, 0 near .. 1 far.
-    std::array<std::array<float, 4>, kBlooms> bloomD{};
-    int bloomCount = 0;
-    // Which of lib_bloom's four looks draws them (viz/Catalogue BloomLook: 1 flower, 2 glow, 3 ripple,
-    // 4 burst), resolved from the style's own and the user's pick.
-    int look = 1;
     // The whole picture's pull toward the notes' colour: rgb (unit luma) and amount, 0 while off. The
     // composite pass mixes every family's finished frame toward it, keeping each pixel's brightness.
     std::array<float, 4> tint{1.0f, 1.0f, 1.0f, 0.0f};
@@ -98,47 +83,11 @@ public:
         float tension = 1.0f;
         float chords = 1.0f;
         float drums = 1.0f;
-        float bloom = 1.0f;
-        // The resolved bloom look, 1..4 (Catalogue::resolveBloomLook).
-        int look = 1;
-        // Last frame's CameraRig flat pose (panX, panY, zoom, roll), for the blooms' parallax.
-        std::array<float, 4> camFlat{0.0f, 0.0f, 1.0f, 0.0f};
     };
 
     // The play's character, rolled per play and again at every section and drop (see the class comment).
     struct Personality {
-        float maxAlive = 8.0f;   // blooms on screen at once, 3..8
-        float budget = 3.0f;     // new blooms a second before each is dimmed, 1.5..3 (never past WCAG's 3)
-        float size = 1.0f;       // radius scale, 0.75..1.35
-        float tint = 0.15f;      // whole-picture pull toward the notes' colour, 0.04..0.3
-        float travel = 0.5f;     // how fast near blooms drift out past the viewer, 0.15..1
-        float tilt = 0.4f;       // how far the flowers' discs turn in 3D, 0..0.9 radians
-    };
-
-    struct Bloom {
-        bool alive = false;
-        float x = 0.5f;
-        float y = 0.5f;
-        float radius = 0.15f;
-        float hue = 0.0f;
-        float stretch = 1.0f;
-        float petals = 6.0f;
-        float depth = 3.0f;
-        float spin = 0.0f;
-        float seed = 0.0f;
-        float strength = 1.0f;
-        float age = 0.0f;
-        float release = -1.0f;  // seconds into its fade; < 0 while its note still sounds
-        float releaseSeconds = 1.0f;
-        float tension = 0.0f;
-        float openSeconds = 0.7f;  // the look's unfurl time
-        float depth3 = 0.5f;       // 0 near .. 1 far: parallax and travel
-        float tiltX = 0.0f;
-        float tiltY = 0.0f;
-        int note = -1;          // the MIDI note it was born on
-        int index = 0;          // the spawn count it was born at, for ordering
-        float envelope() const;
-        float open() const;
+        float tint = 0.15f;  // whole-picture pull toward the notes' colour, 0.04..0.3
     };
 
     void configure(const NoteResponseConfig& config);
@@ -156,20 +105,17 @@ public:
     float glide() const { return glide_; }
     int symmetryShift() const { return symShift_; }
     int sceneShifts() const { return shifts_; }
-    int spawned() const { return spawned_; }
-    int liveBlooms() const;
+    int notesHeard() const { return notes_; }
     float anchorHue() const { return anchor_; }
     const Personality& personality() const { return mood_; }
     int rolls() const { return rolls_; }
-    const std::array<Bloom, NoteUniforms::kBlooms>& blooms() const { return blooms_; }
 
 private:
     void measurePercussiveness(const GeodeSoundFrame& f, float dt);
     void stepKnobs(const GeodeSoundFrame& f, const sound::Emotion::State& e, float dt);
     void stepHarmony(const GeodeSoundFrame& f, const sound::Emotion::State& e, float dt);
     void stepIntervals(const GeodeSoundFrame& f, float dt);
-    void stepBlooms(const GeodeSoundFrame& f, const sound::Emotion::State& e, float dt);
-    void spawn(const GeodeSoundFrame& f, const sound::Emotion::State& e);
+    void hearNotes(const GeodeSoundFrame& f);
     void roll();
     void stepPersonality(const GeodeSoundFrame& f, float dt);
     float noteHue(float pitchClass, float pitchHeight) const;
@@ -213,7 +159,6 @@ private:
     // Chord changes.
     int shifts_ = 0;
     int symShift_ = 0;
-    float layout_ = 0.0f;
     float sinceShift_ = 10.0f;
 
     // Intervals: a damped spring kicked by leaps, a leaky glide fed by steps.
@@ -223,10 +168,7 @@ private:
 
     std::array<float, NoteUniforms::kHues> hues_{};
     int hueCount_ = 0;
-    std::array<Bloom, NoteUniforms::kBlooms> blooms_{};
-    int spawned_ = 0;
-    float unvoiced_ = 0.0f;
-    float recentSpawns_ = 0.0f;  // leaky count, for the flash budget
+    int notes_ = 0;  // note onsets heard this play
 
     NoteUniforms out_;
 };

@@ -2,13 +2,12 @@
 
 #include <algorithm>
 
-#include "viz/Catalogue.hpp"
 #include "viz/VisualSafety.hpp"
 
 namespace geode::signal {
 
 namespace {
-// The id a bloom look resolves against when no style is on screen (the style's own look is then the default).
+// The id the motion field's variant is seeded from when no style is on screen.
 const std::string kNoStyle;
 }  // namespace
 
@@ -29,8 +28,7 @@ void Resolver::reset() {
 }
 
 const Resolver::Frame& Resolver::step(const viz::SceneParams& requested, const GeodeSoundFrame& sound, float dt,
-                                      const EngineSettings& settings, const StyleContext& style,
-                                      const std::array<float, 4>& camFlat) {
+                                      const EngineSettings& settings, const StyleContext& style) {
     using viz::SceneParams;
     const std::string& styleId = style.id != nullptr ? *style.id : kNoStyle;
     if (style.switched) motionField_.setVariant(viz::styleVariantSeed(styleId));
@@ -58,7 +56,7 @@ const Resolver::Frame& Resolver::step(const viz::SceneParams& requested, const G
     directedKnobs_ = director_.knobs(settings.knobs);
     // Note & key reactions hear the frame next, inside the director's look: its hue anchors the notes'
     // colours, and its feeling (the director's emotion, stepped whether or not it drives) is the mood. Its
-    // tuning and bloom look are the style's own (Customize), read before the director and macros touch them.
+    // tuning is the style's own (Customize), read before the director and macros touch it.
     notes_.configure({settings.notesOn, settings.director.seed ^ settings.noteEntropy});
     {
         const SceneParams& own = displayed_;
@@ -71,9 +69,6 @@ const Resolver::Frame& Resolver::step(const viz::SceneParams& requested, const G
         in.tension = own.noteTension;
         in.chords = own.noteChords;
         in.drums = own.noteDrums;
-        in.bloom = own.noteBloom;
-        in.look = static_cast<int>(viz::catalogue::resolveBloomLook(own.bloomLook, styleId));
-        in.camFlat = camFlat;
         notes_.step(sound, director_.emotion(), in, dt);
     }
     const auto& envValues = adsr_.tick(dt, sound);

@@ -23,7 +23,6 @@
 #include "viz/Lfo.hpp"
 #include "viz/Macros.hpp"
 #include "viz/MotionField.hpp"
-#include "viz/NoteBloomPass.hpp"
 #include "viz/NoteResponse.hpp"
 #include "viz/OutputProbe.hpp"
 #include "viz/Overlays.hpp"
@@ -247,7 +246,6 @@ private:
     // The globals live, or an export's settings pinned at prepare (pinEngineSettings); latched once a frame.
     signal::SettingsLatch settingsLatch_;
     std::atomic<int> directorStyleMoments_{0};
-    NoteBloomPass bloomPass_;
     // Frosted glass under the app's sheet. The region is guarded by stateLock_; uiBlurOn_ lets a frame
     // with no sheet skip the lock.
     UiBlurPass uiBlurPass_;
@@ -339,7 +337,6 @@ private:
     std::string bornSceneId_;
     std::string lastBornSceneId_;
     bool liquidWasOn_ = false;
-    float liquidFlare_ = 0.0f;
     std::atomic<int> liquidHotPolicy_{0};
     std::atomic<int> liquidMode_{0};
     bool rippleOverlayOn_ = false;

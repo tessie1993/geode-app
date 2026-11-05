@@ -215,8 +215,8 @@ object GeodeNative {
 
     /**
      * Note & key reactions (core/viz/NoteResponse): the notes, chords, key and mood drive the style knobs,
-     * the note colours, the blooms over every style and a gentle shape and distortion. Process-wide like
-     * the director, so the screen, the wallpaper and the dream agree; off is exactly the picture without it.
+     * the note colours, the tint toward them and a gentle shape and distortion. Process-wide like the
+     * director, so the screen, the wallpaper and the dream agree; off is exactly the picture without it.
      * The play's seed is the director's ([directorSet]). A live renderer mixes fresh entropy into it per play,
      * so the live note response differs every time; an export pins its settings with none
      * ([vizPinEngineSettings]), so exporting the same play twice draws the same picture, though not the one

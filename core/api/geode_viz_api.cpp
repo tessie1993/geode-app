@@ -15,6 +15,7 @@
 #include "viz/NoteResponse.hpp"
 #include "viz/Macros.hpp"
 #include "viz/LayerState.hpp"
+#include "viz/ModTargets.hpp"
 #include "viz/ReactionDna.hpp"
 #include "viz/Renderer.hpp"
 #include "viz/SceneRegistry.hpp"
@@ -413,10 +414,9 @@ int geode_music_edit(const char* style_id, int seed, const float* user, int user
     return next.user ? writeRoutes(next.routes, next.count, out, capacity) : 0;
 }
 
-int geode_music_action_target(int action) {
-    if (action < 0 || action >= kMusicActionCount) return static_cast<int>(LfoTarget::None);
-    return static_cast<int>(musicActionTarget(static_cast<MusicAction>(action)));
-}
+unsigned geode_music_actions_for(const char* style_id) { return style_id ? modtargets::musicActionsFor(style_id) : 0u; }
+
+const char* geode_mod_targets_text(void) { return modtargets::text().c_str(); }
 
 static_assert(kEventRecipeCount == GEODE_EVENT_RECIPES);
 

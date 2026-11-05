@@ -55,6 +55,7 @@ add_library(geode_core STATIC
     viz/ParamsFields.cpp
     viz/ConfigFields.cpp
     viz/Lfo.cpp
+    viz/ModTargets.cpp
     viz/Macros.cpp
     viz/Director.cpp
     viz/LayerState.cpp

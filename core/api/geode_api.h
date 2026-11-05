@@ -108,8 +108,6 @@ GEODE_API int         geode_music_state(const char* style_id, int seed, const fl
 GEODE_API int         geode_music_edit(const char* style_id, int seed, const float* user, int user_floats, int has_user,
                                        unsigned mask, int op, int moment, int action, float value, float* out, int capacity,
                                        unsigned* out_mask, int* out_has_user);
-/* The LfoTarget ordinal a new route of `action` moves, so the shell can hide a chip the style ignores. */
-GEODE_API int         geode_music_action_target(int action);
 /* Customize › Music's ready-made recipes (core/viz ReactionDna.hpp EventRecipe), GEODE_EVENT_RECIPES in the
    menu's order. `current` is what plays, in the geode_viz_set_reactions layout. Pure: no viz handle. */
 #define GEODE_EVENT_RECIPES 30
@@ -123,6 +121,12 @@ GEODE_API unsigned    geode_event_recipe_state(int recipe, const char* style_id,
    target), into out; returns the route count. An unknown recipe or a NULL style leaves current as it was. */
 GEODE_API int         geode_event_recipe_toggle(int recipe, const char* style_id, const float* current, int current_floats,
                                                 float* out, int capacity);
+/* Modulation targets (core/viz/ModTargets, #642): bit per Music action whose target reaches `style_id`, so the
+   shell hides a chip the style ignores; and the whole target, source and curve table (scopes, chained slots,
+   slot defaults and rate range, each source's natural polarity) as the line table ModTargets.hpp documents.
+   Static: the pointer stays valid for the process; the shell parses it once. Labels stay in Kotlin. */
+GEODE_API unsigned    geode_music_actions_for(const char* style_id);
+GEODE_API const char* geode_mod_targets_text(void);
 /* Gyro look, -1..1 per axis; the camera reads it only while camGyro is on. */
 GEODE_API void        geode_viz_set_look(geode_viz*, float yaw, float pitch);
 /* One gyro reading from SensorManager.getOrientation (radians: azimuth -pi..pi, pitch -pi/2..pi/2). The first after a

@@ -330,8 +330,11 @@ object GeodeNative {
         outHand: IntArray,
     ): FloatArray
 
-    /** The LfoTarget ordinal a new route of Music [action] moves (geode_music_action_target). */
-    external fun musicActionTarget(action: Int): Int
+    /** Bit per Music action whose target reaches [styleId] (geode_music_actions_for). */
+    external fun musicActionsFor(styleId: String): Int
+
+    /** The modulation-target table (geode_mod_targets_text), parsed once by `render/ModTable`. */
+    external fun modTargetsText(): String
 
     /** Mirrors GEODE_HAND_UNCLAIMED. */
     const val HAND_UNCLAIMED: Int = 0x40000000

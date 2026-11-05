@@ -63,4 +63,6 @@ tasks.withType<Test>().configureEach {
     // The same for Customize's map (core/viz/CustomizeMap), which core/tests/customize_test proves equal.
     systemProperty("geode.customize", rootProject.file("core/tests/customize.txt").absolutePath)
     systemProperty("geode.paramsSchema", rootProject.file("core/tests/params_schema.txt").absolutePath)
+    // dev.geode.render.ModTable's copy, proven by core/tests/mod_targets_test (#642).
+    systemProperty("geode.modTargets", rootProject.file("core/tests/mod_targets.txt").absolutePath)
 }

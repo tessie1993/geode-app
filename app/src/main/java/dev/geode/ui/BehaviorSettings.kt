@@ -1,3 +1,6 @@
+// Named for its settings pages; BehaviourPrefsHolder is only the pages' copy of the prefs.
+@file:Suppress("MatchingDeclarationName")
+
 package dev.geode.ui
 
 import android.app.WallpaperManager

@@ -5,6 +5,7 @@
 // (.github/workflows/android.yml, "Native export planning tests"). The behaviour pinned is the Kotlin
 // gradeMatrix (export/KeyframedClipEffects.kt), CubeLut (export/CubeLut.kt) and AudioTranscoder's loops.
 #include <cmath>
+#include <random>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -256,6 +257,145 @@ void pcmTiming() {
     check(geode_pcm_trim_s16(start, 1500000, 4096, 48000, 2, nullptr) == 0, "ABI trim with no pts out");
 }
 
+// ── #506 follow-up: PCM timing through its seams (audio/dsp/PcmTiming and the geode_* ABI). Expected values are
+// hand-worked from the sample clock (a frame lasts 1e6 / rate us; 1024 frames at 48 kHz are 64000 / 3 us) or
+// from the deleted Kotlin (startMs * rate / 1000 * channels, Long division truncating toward zero), never from
+// PcmTiming's own formulas. Each block names the mutants it kills.
+
+int64_t absI64(int64_t v) { return v < 0 ? -v : v; }
+
+// Encoder pts from the bytes written so far: exact on whole seconds after ten hours or a day, never ahead of
+// the sample clock and under one us behind it at every buffer boundary of an hour, and a rate change times
+// each run at its own rate.
+// Kills: the floor turned to nearest or ceil (a stamp ahead of its samples); the `<= 0` guards turned `== 0`
+// (a negative rate or channel count gives a negative duration, a negative AAC rate an end before the last pts).
+void pcmClockFromBytes() {
+    using namespace geode::audio;
+    // Ten hours of 44.1 kHz stereo s16 are 44100 * 4 * 36000 bytes and 36 000 s.
+    check(s16BytesToUs(44100LL * 4 * 36000, 44100, 2) == 36000000000LL, "ten hours of bytes stamp exactly 36e9 us");
+    check(geode_pcm_s16_bytes_to_us(192000LL * 16 * 86400, 192000, 8) == 86400000000LL, "ABI: a day of 192k 7.1 is 86400 s");
+
+    // 1024-frame buffers of 48 kHz stereo (4096 bytes): buffer n ends at n * 64000 / 3 us.
+    bool neverAhead = true;
+    bool underOneUsBehind = true;
+    for (int64_t n = 1; n <= 168750; ++n) {
+        const int64_t pts = s16BytesToUs(n * 4096, 48000, 2);
+        if (pts * 3 > n * 64000) neverAhead = false;
+        if (n * 64000 - pts * 3 >= 3) underOneUsBehind = false;
+    }
+    check(neverAhead, "a buffer boundary's stamp is never ahead of its samples");
+    check(underOneUsBehind, "a buffer boundary's stamp is under 1 us behind its samples: no drift over an hour");
+    check(s16BytesToUs(168750LL * 4096, 48000, 2) == 3600000000LL, "168750 buffers of 1024 frames at 48k are one hour");
+
+    // A rate change mid-stream: 1 s at 96 kHz, then 2 s at 48 kHz, each run timed at the rate it is at.
+    const int64_t first = s16BytesToUs(96000LL * 4, 96000, 2);
+    check(first == 1000000 && first + s16BytesToUs(2 * 48000LL * 4, 48000, 2) == 3000000, "a rate change: 1 s + 2 s");
+
+    check(s16BytesToUs(4096, -48000, 2) == 0 && s16BytesToUs(4096, 48000, -2) == 0, "a negative rate or channel count lasts 0");
+    check(aacEndUs(500, -48000) == 500, "a negative AAC rate adds nothing, so the end never precedes the last pts");
+}
+
+// The AIFF start skip: interleaved samples, so always whole frames (a cut mid-frame swaps left and right for
+// the rest of the export), equal to the deleted Kotlin's startMs * rate / 1000 * channels.
+// Kills: the floor taken over samples instead of frames (us * rate * channels / 1e6), rounding instead of the
+// floor, and the removed rate or channel guard (a negative skip).
+void pcmStartSkipWholeFrames() {
+    using namespace geode::audio;
+    // 9 ms at 44.1 kHz is 396.9 frames: 396 whole frames, 792 samples (not 793, not 794).
+    check(samplesBeforeUs(9000, 44100, 2) == 792, "9 ms at 44.1k stereo skips 396 whole frames");
+    check(geode_pcm_samples_before_us(9000, 44100, 6) == 396 * 6, "ABI: 9 ms at 44.1k 5.1 skips 396 whole frames");
+
+    const int rates[] = {8000, 11025, 22050, 44100, 48000, 88200, 96000, 176400, 192000};
+    std::mt19937_64 rng(506);
+    bool parity = true;
+    bool whole = true;
+    for (int i = 0; i < 20000; ++i) {
+        const int64_t ms = static_cast<int64_t>(rng() % (3ULL * 3600 * 1000));   // anywhere in three hours
+        const int rate = rates[rng() % 9];
+        const int channels = 1 + static_cast<int>(rng() % 8);
+        const int64_t got = samplesBeforeUs(ms * 1000, rate, channels);
+        if (got != ms * rate / 1000 * channels) parity = false;   // the deleted Kotlin, verbatim
+        if (got % channels != 0) whole = false;
+    }
+    check(parity, "the start skip equals the Kotlin's startMs * rate / 1000 * channels");
+    check(whole, "the start skip is always whole frames");
+    check(samplesBeforeUs(1000000, -48000, 2) == 0 && samplesBeforeUs(1000000, 48000, -2) == 0,
+          "a negative rate or channel count skips nothing");
+}
+
+// The part-render start trim, case by case.
+// Kills: `lead <= 0` turned `< 0` (a buffer on the start with no usable layout would be dropped); `>=` turned
+// `>` on the whole-buffer test (a buffer ending on the start with a stray tail would keep 2 bytes); the
+// nearest frame turned floor or ceil; the removed channel, rate and negative-bytes guards; the ABI writing a
+// negated pts.
+void pcmTrimEdges() {
+    using namespace geode::audio;
+    const int64_t start = 1000000;
+    auto t = trimS16(start, start, 4096, 0, 2);
+    check(t.skipBytes == 0 && t.ptsUs == 0, "a buffer on the start keeps all even with no rate to cut at");
+    t = trimS16(start, start, 4096, 48000, 0);
+    check(t.skipBytes == 0 && t.ptsUs == 0, "a buffer on the start keeps all even with no channels");
+    // 21333 us at 48 kHz is 1023.98 frames: rounds to all 1024, so the stray 2 bytes go too.
+    t = trimS16(start, start - 21333, 4098, 48000, 2);
+    check(t.skipBytes == 4098, "a buffer that ends on the start is dropped whole, stray tail included");
+    // 15 us at 48 kHz is 0.72 of a frame: one frame (4 bytes); 10 us is 0.48: none.
+    check(trimS16(start, start - 15, 4096, 48000, 2).skipBytes == 4, "0.72 of a frame early rounds to one frame");
+    check(trimS16(start, start - 10, 4096, 48000, 2).skipBytes == 0, "0.48 of a frame early rounds to none");
+    check(trimS16(start, start - 10000, 4096, 48000, 0).skipBytes == 4096, "an early buffer with no channels keeps nothing");
+    check(trimS16(start, start - 10000, 4096, -48000, 2).skipBytes == 4096, "an early buffer with a negative rate keeps nothing");
+    t = trimS16(start, start - 10000, -8, 48000, 2);
+    check(t.skipBytes == 0, "a negative size never gives a negative skip");
+    int64_t pts = -1;
+    check(geode_pcm_trim_s16(start, 1500000, 4096, 48000, 2, &pts) == 0 && pts == 500000, "ABI trim: pts - start out");
+}
+
+// Contiguous decoder buffers from a seek before the start, as AudioTranscoder sees them: every kept part is
+// stamped where its first frame truly lies (within half a frame), a dropped buffer ends at most half a frame
+// past the start, every skip is whole frames inside the buffer, and the frames kept add up to all of them
+// minus those before the start (within half a frame): each frame from the start on is kept exactly once.
+// Kills: the nearest frame turned floor or ceil, the trim's pts sign, frame bytes counted as channels.
+void pcmTrimKeepsEachFrameOnce() {
+    using namespace geode::audio;
+    struct Layout {
+        int rate;
+        int64_t frames;   // per decoder buffer, chosen so a buffer lasts a whole number of us
+        int64_t bufUs;
+    };
+    const Layout layouts[] = {{48000, 4800, 100000}, {44100, 4410, 100000}, {96000, 960, 10000}, {22050, 2205, 100000}};
+    std::mt19937_64 rng(421);
+    bool stampsTrue = true;
+    bool droppedOnlyBefore = true;
+    bool wholeFrames = true;
+    bool keptOnce = true;
+    for (int iter = 0; iter < 4000; ++iter) {
+        const Layout& l = layouts[rng() % 4];
+        const int channels = 1 + static_cast<int>(rng() % 2);
+        const int64_t frameBytes = 2 * channels;
+        const int64_t bytes = l.frames * frameBytes;
+        const int64_t start = static_cast<int64_t>(rng() % 3600000000ULL);   // anywhere in the first hour
+        const int64_t lead = 1 + static_cast<int64_t>(rng() % static_cast<uint64_t>(3 * l.bufUs));
+        int64_t keptFrames = 0;
+        for (int64_t i = 0; i < 5; ++i) {
+            const int64_t bufPts = start - lead + i * l.bufUs;
+            const PcmTrim t = trimS16(start, bufPts, bytes, l.rate, channels);
+            if (t.skipBytes < 0 || t.skipBytes > bytes || t.skipBytes % frameBytes != 0) wholeFrames = false;
+            if (t.skipBytes == bytes) {
+                if ((bufPts - start) * l.rate + l.frames * 1000000 > 500000) droppedOnlyBefore = false;
+                continue;
+            }
+            const int64_t skipFrames = t.skipBytes / frameBytes;
+            // (true source time of the first kept frame - its stamp on the render clock) * rate, in us * Hz.
+            if (absI64((bufPts - start - t.ptsUs) * l.rate + skipFrames * 1000000) > 500000) stampsTrue = false;
+            keptFrames += l.frames - skipFrames;
+        }
+        if (absI64((5 * l.frames - keptFrames) * 1000000 - lead * l.rate) > 500000) keptOnce = false;
+    }
+    check(stampsTrue, "each kept part is stamped where its first frame lies, within half a frame");
+    check(droppedOnlyBefore, "a dropped buffer ends at most half a frame past the start");
+    check(wholeFrames, "every skip is whole frames inside the buffer");
+    check(keptOnce, "the frames kept are all of them minus those before the start");
+}
+
 }  // namespace
 
 int main() {
@@ -263,6 +403,10 @@ int main() {
     cubeLut();
     pcm();
     pcmTiming();
+    pcmClockFromBytes();
+    pcmStartSkipWholeFrames();
+    pcmTrimEdges();
+    pcmTrimKeepsEachFrameOnce();
     if (failures) {
         std::printf("%d failure(s)\n", failures);
         return 1;

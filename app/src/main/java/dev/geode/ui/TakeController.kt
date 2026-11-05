@@ -49,9 +49,10 @@ data class TakeUiState(
  * MP4 is the project's render ([Host.recordRender]), which is how Studio › My videos lists it.
  *
  * Record is Pro and the trial ([Host.canRecord]); a trial take is limited like a trial render, a
- * minute and the wordmark, both applied natively ([Host.captureReachedCap] says when to stop). Where a take's video goes is asked once: the first stop leaves
- * [TakeUiState.pendingSave] set until [chooseSaveTarget]; later takes go straight to the stored
- * answer. Nothing renders after the stop: the video already exists and is only copied there.
+ * minute and the wordmark, both applied natively ([Host.captureReachedCap] says when to stop).
+ * Where a take's video goes is asked once: the first stop leaves [TakeUiState.pendingSave] set
+ * until [chooseSaveTarget]; later takes go straight to the stored answer. Nothing renders after
+ * the stop: the video already exists and is only copied there.
  */
 internal class TakeController(
     private val takes: TakeRepository,

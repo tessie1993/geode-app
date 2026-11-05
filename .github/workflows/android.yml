@@ -214,6 +214,10 @@ jobs:
             core/audio/ingest/Ring.cpp core/audio/ingest/Cursor.cpp core/api/geode_file_feed_api.cpp \
             core/api/geode_export_dsp_api.cpp core/audio/dsp/Loudness.cpp core/audio/dsp/PcmResampler.cpp -o file_feed_test
           ./file_feed_test
+          # The AIFF reader (#653): header walk, the 80-bit float rate, 8/16/24/32-bit big and little endian to s16.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/aiff_test.cpp core/audio/ingest/Aiff.cpp \
+            core/api/geode_aiff_api.cpp -o aiff_test
+          ./aiff_test
           # The playback DSP's format hand-off (#356): the old format's tail drains through its own chain
           # until flush, and no block is ever processed past its buffer.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/dsp_handoff_test.cpp core/api/geode_dsp_api.cpp \

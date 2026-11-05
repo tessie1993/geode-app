@@ -293,6 +293,30 @@ GEODE_API int              geode_file_feed_needs(const geode_file_feed*, long lo
  * export hears what the screen hears. Returns the frames delivered (fewer once the file has ended). */
 GEODE_API int              geode_viz_feed_file(geode_viz*, geode_file_feed*, long long frame_index, int fps);
 
+/* The AIFF reader (audio/ingest/Aiff, #653): the file's bytes in, interleaved s16 out, for the export's
+ * file ring and AAC transcoder (MediaExtractor cannot open AIFF). Write bytes in any chunk sizes; once
+ * ready, read until it returns 0 (write more) or -1 (done). 24/32-bit keep their top 16 bits, truncated,
+ * no dither; AIFC "sowt" is little endian; other compressions and depths are refused. One thread. */
+typedef struct geode_aiff geode_aiff;
+typedef struct geode_aiff_format {
+    int channels;
+    int sample_rate;   /* COMM's 80-bit float, whole hertz */
+    int bits;
+    long long total_frames;
+} geode_aiff_format;
+GEODE_API geode_aiff* geode_aiff_create(void);
+GEODE_API void        geode_aiff_destroy(geode_aiff*);
+/* The next `count` bytes of the file. Returns 0 while the header is incomplete, 1 once samples follow,
+ * -1 when it is not an AIFF this can read. */
+GEODE_API int         geode_aiff_write(geode_aiff*, const void* bytes, size_t count);
+/* Up to `capacity` samples, whole frames only. Returns the samples, 0 when more bytes are needed, -1 once
+ * COMM's frame count is read (or refused). */
+GEODE_API int         geode_aiff_read_s16(geode_aiff*, int16_t* out, int capacity);
+/* The header's format (zeros before it is read). Returns 1 once ready, else 0. */
+GEODE_API int         geode_aiff_get_format(const geode_aiff*, geode_aiff_format* out);
+/* Frames read over COMM's frame count, in [0, 1]. */
+GEODE_API float       geode_aiff_progress(const geode_aiff*);
+
 /* Rest when silent (sound/Silence): the live wallpaper's and the dream's silence rule. A poll hands in the
  * newest planar samples written since the last one (frames 0 when nothing was written) and the time sound
  * was last heard, and gets that time back, moved to now when any sample is above about -42 dBFS. Resting is

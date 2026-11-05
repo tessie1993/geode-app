@@ -584,6 +584,35 @@ object GeodeNative {
         channels: Int,
     ): Long
 
+    // The AIFF reader (core/audio/ingest/Aiff, #653): the file's bytes in, interleaved 16-bit out.
+
+    external fun aiffCreate(): Long
+
+    external fun aiffDestroy(handle: Long)
+
+    /** The next [count] bytes of the file. Returns 0 while the header is incomplete, 1 when ready, -1 refused. */
+    external fun aiffWrite(
+        handle: Long,
+        bytes: ByteArray,
+        count: Int,
+    ): Int
+
+    /** Up to [count] samples (whole frames) into [out]: the count, 0 to write more bytes, -1 when done. */
+    external fun aiffRead(
+        handle: Long,
+        out: ShortArray,
+        count: Int,
+    ): Int
+
+    /** Fills [out] (2 ints: channels, sample rate); true once the header is read. */
+    external fun aiffFormat(
+        handle: Long,
+        out: IntArray,
+    ): Boolean
+
+    /** Frames read over the header's frame count, 0..1. */
+    external fun aiffProgress(handle: Long): Float
+
     /** True while video frame [frameIndex] at [fps] still needs samples not written yet. */
     external fun fileFeedNeeds(
         handle: Long,

@@ -11,6 +11,7 @@
 #include <string>
 
 #include "sound/Emotion.hpp"
+#include "sound/Form.hpp"
 #include "sound/Harmony.hpp"
 #include "viz/Director.hpp"
 
@@ -171,6 +172,46 @@ void testPacing() {
     check(d.commits() == 0, "a new seed starts over");
 }
 
+// Form owns the event floor (Form::kEventFloor, 0.4) and the director acts on every event Form fires. Before,
+// it re-thresholded the strength at 0.5 and missed the events between: a drop after a build that peaked at
+// 0.45, or a section change at novelty 0.45, changed nothing on screen.
+void testWeakEventsDecide() {
+    const float weak = 0.45f;
+    check(weak >= geode::sound::Form::kEventFloor, "0.45 is an event Form can fire");
+    {
+        Director d;
+        d.configure({1.0f, 42});
+        float t = 0.0f;
+        run(d, kHappy, 20.0f, t);
+        check(d.commits() == 1, "one first look before the weak section change");
+        GeodeSoundFrame f = frame(kHappy, t, kDt);
+        f.sectionChange = weak;
+        d.step(f, kDt);
+        check(d.commits() == 2 && d.lastReason() == Director::Reason::Section, "a section change at 0.45 commits a look");
+    }
+    {
+        Director d;
+        d.configure({1.0f, 42});
+        float t = 0.0f;
+        run(d, kHappy, 20.0f, t);
+        GeodeSoundFrame f = frame(kHappy, t, kDt);
+        f.drop = weak;
+        d.step(f, kDt);
+        check(d.commits() == 2 && d.lastReason() == Director::Reason::Drop, "a drop at 0.45 commits a look");
+    }
+    {
+        // No event, no decision: the frame between events holds 0, whatever else moves.
+        Director d;
+        d.configure({1.0f, 42});
+        float t = 0.0f;
+        run(d, kHappy, 20.0f, t);
+        GeodeSoundFrame f = frame(kHappy, t, kDt);
+        check(!geode::sound::dropped(f) && !geode::sound::sectionChanged(f), "a plain frame carries no event");
+        d.step(f, kDt);
+        check(d.commits() == 1, "and decides nothing");
+    }
+}
+
 float distance(const Director::Look& a, const Director::Look& b) {
     const float dh = std::fabs(std::fmod(a.hue - b.hue + 1.5f, 1.0f) - 0.5f);
     return 2.0f * dh + std::fabs(a.range - b.range) + 0.5f * std::fabs(a.saturation - b.saturation);
@@ -262,6 +303,7 @@ int main() {
     testTable();
     testLiveFeeling();
     testPacing();
+    testWeakEventsDecide();
     testNeverTheSame();
     testFeelingSurvivesTheSeed();
     testDeterministicAndOff();

@@ -4,6 +4,7 @@
 #include <cmath>
 #include <random>
 
+#include "sound/Form.hpp"
 #include "viz/Catalogue.hpp"
 #include "viz/CompositeGrade.hpp"
 #include "viz/EndlessZoom.hpp"
@@ -486,9 +487,9 @@ void Renderer::stepLiquid(Scene& scene, const SceneParams& p, float dt) {
         liquidFrame_.scale = 1.0f;
         liquidFrame_.twist = 0.0f;
     }
-    const bool drop = soundFrame_.drop > 0.5f;
+    const bool drop = sound::dropped(soundFrame_);
     liquidFlare_ = liquid::dropFlare(liquidFlare_, drop, dt);
-    const bool trigger = soundFrame_.phrase > 0.5f || soundFrame_.sectionChange > 0.5f;
+    const bool trigger = soundFrame_.phrase > 0.5f || sound::sectionChanged(soundFrame_);
     if (bornClock_.step(dt, trigger, soundFrame_.beatConf > 0.35f)) {
         bornRolled_ = false;
         bornSceneId_.clear();

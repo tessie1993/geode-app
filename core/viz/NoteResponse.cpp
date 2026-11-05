@@ -5,6 +5,8 @@
 #include <cmath>
 #include <initializer_list>
 
+#include "sound/Form.hpp"
+
 namespace geode::viz {
 
 namespace {
@@ -278,7 +280,7 @@ void NoteResponse::roll() {
 }
 
 void NoteResponse::stepPersonality(const GeodeSoundFrame& f, float dt) {
-    if (rolls_ == 0 || f.sectionChange > 0.0f || f.drop > 0.0f) roll();
+    if (rolls_ == 0 || sound::sectionChanged(f) || sound::dropped(f)) roll();
     // The new character eases in over a couple of seconds.
     const float k = 1.0f - std::exp(-dt / 2.5f);
     mood_.maxAlive += (moodTarget_.maxAlive - mood_.maxAlive) * k;

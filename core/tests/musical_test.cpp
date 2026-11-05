@@ -12,6 +12,7 @@
 #include <string>
 #include <vector>
 
+#include "sound/Form.hpp"
 #include "sound/Harmony.hpp"
 #include "sound/SoundEngine.hpp"
 
@@ -210,6 +211,7 @@ void testBuildAndDrop() {
     int dropState = -1;
     float verseId = -1.0f;
     float dropId = -1.0f;
+    float weakestDrop = 2.0f;
     const int rate = e.sampleRateHz();
     std::vector<float> buf;
     int64_t done = 0;
@@ -245,6 +247,7 @@ void testBuildAndDrop() {
         }
         if (t > 20.0 && t < 24.0) verseId = f.sectionId;
         if (f.drop > 0.0f && dropAt < 0.0) dropAt = t;
+        if (f.drop > 0.0f) weakestDrop = std::min(weakestDrop, f.drop);
         if (std::fabs(t - 42.0) < 1e-6) dropState = static_cast<int>(std::lround(f.sectionState));
         if (std::fabs(t - 50.0) < 1e-6) dropId = f.sectionId;
     }
@@ -253,6 +256,8 @@ void testBuildAndDrop() {
     CHECK(dropAt >= 40.0 && dropAt < 40.5, "drop at %f", dropAt);
     CHECK(dropState == GEODE_SECTION_DROP, "state %d after the drop", dropState);
     CHECK(dropId == verseId, "the drop's kick and bass (%f) are the verse's material (%f)", dropId, verseId);
+    // Form's one floor: an event fires at kEventFloor..1 or not at all (a 0.3 never reaches a consumer).
+    CHECK(weakestDrop >= Form::kEventFloor && weakestDrop <= 1.0f, "a drop fired at %f, outside kEventFloor..1", weakestDrop);
 }
 
 // A B A, 16 bars each at 120 BPM: A a C major pad with kick and hats, B an F# pad over a low buzz. The
@@ -265,6 +270,7 @@ void testSectionsReturn() {
     float idA = -1.0f;
     float idB = -1.0f;
     float idA2 = -1.0f;
+    float weakest = 2.0f;
     const int rate = e.sampleRateHz();
     std::vector<float> buf;
     int64_t done = 0;
@@ -290,6 +296,8 @@ void testSectionsReturn() {
         e.step(1.0f / 60.0f, f);
         const double t = i / 60.0;
         if (f.sectionChange > 0.0f) changes.push_back(t);
+        if (f.sectionChange > 0.0f) weakest = std::min(weakest, f.sectionChange);
+        if (f.drop > 0.0f) weakest = std::min(weakest, f.drop);
         if (std::fabs(t - 30.0) < 1e-6) idA = f.sectionId;
         if (std::fabs(t - 60.0) < 1e-6) idB = f.sectionId;
         if (std::fabs(t - 90.0) < 1e-6) idA2 = f.sectionId;
@@ -308,6 +316,7 @@ void testSectionsReturn() {
     }
     CHECK(intoB && backToA && !stray, "%zu section changes; into B %d, back to A %d, stray %d", changes.size(), intoB, backToA, stray);
     CHECK(idA == idA2 && idA != idB, "ids A %f, B %f, A again %f", idA, idB, idA2);
+    CHECK(weakest >= Form::kEventFloor, "an event fired at %f, under Form's floor", weakest);
 }
 
 // The same input gives the same frames, bit for bit (live and export agree).

@@ -34,6 +34,10 @@
 //   node check.mjs --all --size 200
 //   node check.mjs --fluid-display               # every SHADING/BLOOM/SUNRAYS x LOOK variant
 //   node check.mjs --shader black_hole --sound SND_KICK_ENV=1,SND_DROP=1 --set uMorph=0.8
+//   node check.mjs --stills out/stills.tsv [--shard 1/4] [--out out/stills]
+//                                                 # the visual quality gate's input: every style through
+//                                                 # the sound engine's golden song, judged by
+//                                                 # core/tests/visual_gate.cpp (README, "Stills gate")
 //
 // --sound sets single slots of the sound frame by their lib_sound name (the
 // rest keep the table's mid-loudness groove below), so a
@@ -51,6 +55,8 @@ const SHADERS = path.join(ROOT, 'app', 'src', 'main', 'assets', 'shaders');
 const SHADER_INCLUDES_INC = path.join(ROOT, 'core', 'viz', 'ShaderIncludes.inc');
 const CATALOGUE_TXT = path.join(ROOT, 'core', 'tests', 'catalogue.txt');
 const FLUID_LOOK_HPP = path.join(ROOT, 'core', 'viz', 'fluid', 'FluidLook.hpp');
+const GOLDEN_SONG = path.join(ROOT, 'core', 'tests', 'golden', 'sound_frames.tsv');
+const FLASH_LIMITER_HPP = path.join(ROOT, 'core', 'viz', 'FlashLimiter.hpp');
 
 // ---- includes, as ShaderSource.cpp does them ------------------------------
 
@@ -358,11 +364,157 @@ function applyOverrides(values, args) {
   }
 }
 
+// ---- The stills gate (--stills <tsv>) ----------------------------------------
+//
+// Every style through the sound engine's own output, not a hand-made groove: core/tests/golden/
+// sound_frames.tsv is every GeodeSoundFrame scalar at 60 fps over sound_golden_test's 20 s synthetic song
+// (verse, a build with a snare roll, a drop in a new key with four on the floor and sixteenth hats, a
+// second of silence, the verse again). Its columns are matched to lib_sound's SND_* names by name, so a
+// field added to one and not the other stops the run instead of shifting every slot after it.
+//
+// Two reads per style, written to one TSV for core/tests/visual_gate.cpp to judge:
+//   stills  STILL_TIMES at --still-size: black and blown fractions (frameStats in page.html).
+//   run     every golden frame from RUN_START to RUN_END (the end of the build into the drop, the most
+//           strobe-prone stretch of the song), at --run-size, each boxed to the kProbeGrid grid
+//           OutputProbe reads on the phone; the gate counts them with FlashLimiter's own counters.
+// Song seconds, not uTime: uTime runs at TIME_OFFSET + song time, so the clocks are past their start the
+// way the default table's 37 is.
+const STILL_TIMES = [4.0, 9.5, 12.0, 18.5]; // verse, build, drop, verse again after the silence
+const RUN_START = 9.5;
+const RUN_END = 12.0;
+const TIME_OFFSET = 30.0;
+// The held events' fall times (lib_sound: hard cut 2.5 s, surge 2 s, returned 2.5 s, note change 0.5 s).
+const HELD = [['hardCut', 2.5], ['surge', 2.0], ['returned', 2.5], ['noteChange', 0.5]];
+
+function probeGridSide() {
+  const m = fs.readFileSync(FLASH_LIMITER_HPP, 'utf8').match(/kProbeGrid\s*=\s*(\d+)/);
+  if (!m) throw new Error(`no kProbeGrid in ${FLASH_LIMITER_HPP}`);
+  return Number(m[1]);
+}
+
+// The golden song as one sound frame per row, in lib_sound's uSound order, plus the CPU-held events and
+// counts SoundUniforms uploads beside it (stepped here from the triggers, as ReactionState steps them).
+function goldenSong() {
+  const lines = fs.readFileSync(GOLDEN_SONG, 'utf8').split('\n').filter((l) => l.trim());
+  const header = lines[0].split('\t');
+  if (header[0] !== 't') throw new Error(`${GOLDEN_SONG} has no t column`);
+  const slots = soundSlots();
+  const order = header.slice(1).map((name) => {
+    const snd = `SND_${name.replace(/([a-z0-9])([A-Z])/g, '$1_$2').toUpperCase()}`;
+    const s = slots[snd];
+    if (!s || s.uniform !== 'uSound') throw new Error(`golden column ${name} has no lib_sound slot ${snd}`);
+    return s.slot;
+  });
+  if (order.length !== SOUND_SCALARS.length) {
+    throw new Error(`golden song has ${order.length} scalars, lib_sound ${SOUND_SCALARS.length}: regenerate one of them`);
+  }
+  const col = (name) => header.indexOf(name) - 1;
+  const held = HELD.map(([name, fall]) => ({ i: col(name), fall, v: 0 }));
+  const onsetI = col('onset'), cutI = col('hardCut');
+  let onsets = 0, cuts = 0, last = 0;
+  return lines.slice(1).map((line) => {
+    const f = line.split('\t').map(Number);
+    const t = f[0];
+    const vals = f.slice(1);
+    const dt = t - last;
+    last = t;
+    const sound = new Array(SOUND_SCALARS.length);
+    order.forEach((slot, i) => { sound[slot] = vals[i]; });
+    for (const h of held) h.v = Math.max(h.v - dt / h.fall, vals[h.i] > 0 ? 1 : 0, 0);
+    if (vals[onsetI] > 0) onsets = (onsets + 1) % 4096;
+    if (vals[cutI] > 0) cuts = (cuts + 1) % 4096;
+    return { t, sound, events: held.map((h) => h.v), counts: [onsets, cuts], snd: (name) => vals[col(name)] };
+  });
+}
+
+// One frame's uniform values: the table, with everything the song moves taken from the song.
+function songValues(row) {
+  const t = TIME_OFFSET + row.t;
+  const beat = row.snd('beatPhase'), bar = row.snd('barPhase');
+  return {
+    ...SHADER_VALUES,
+    uTime: t, uSound: row.sound, uSoundEvents: row.events, uSoundCounts: row.counts,
+    uSoundTimeSped: [row.snd('bassTime'), row.snd('midTime'), row.snd('trebleTime')],
+    uFlowPhase: 0.5 * t, uFlowTime: 0.5 * t,
+    uBeatOsc: 0.5 + 0.5 * Math.cos(6.2831853 * beat), uBarOsc: 0.5 + 0.5 * Math.cos(6.2831853 * bar),
+    uKeyHue: row.snd('keyHue'), uHarmony: row.snd('keyClarity'),
+    uCamPos: [0, 0, t], uCamTravel: t,
+  };
+}
+
+async function runStills(args, registry) {
+  const song = goldenSong();
+  const side = probeGridSide();
+  const at = (t) => song[Math.min(song.length - 1, Math.max(0, Math.round(t * 60) - 1))];
+  const textures = { ...SHADER_TEXTURES, uSoundTex: 'soundLive' };
+  const quadVert = fs.readFileSync(path.join(SHADERS, 'quad_vert.glsl'), 'utf8');
+  let ids = args.shaders.length ? args.shaders : shaderIds();
+  if (args.shard) {
+    const [k, n] = args.shard.split('/').map(Number);
+    if (!(n >= 1 && k >= 1 && k <= n)) throw new Error(`bad --shard ${args.shard}: want k/n`);
+    ids = ids.filter((_, i) => i % n === k - 1);
+  }
+  const runRows = song.filter((r) => r.t >= RUN_START - 1e-6 && r.t <= RUN_END + 1e-6);
+  const lines = [`stills\t1\t${args.stillSize}\t${args.runSize}\t60\t${side}`];
+  const browser = await launch();
+  try {
+    const page = await browser.openPage(pathToFileURL(path.join(HERE, 'page.html')).href);
+    for (const id of ids) {
+      const file = path.join(SHADERS, `${id}_frag.glsl`);
+      if (!fs.existsSync(file)) throw new Error(`no such fragment style: ${id}`);
+      const frag = resolveIncludes(fs.readFileSync(file, 'utf8'), registry);
+      const uniforms = parseUniforms(frag);
+      const frame = (row, size) => ({
+        time: row.t,
+        soundGain: Math.min(1.5, Math.max(0, row.snd('vol'))),
+        roll: row.t * 7.0,
+        uniforms: plan(uniforms, songValues(row), textures, size, size),
+      });
+      const started = Date.now();
+      let r;
+      try {
+        // A uniform missing from the table is this style's failure (render), not the whole shard's.
+        r = await page.call('__stills', {
+          vert: quadVert, frag, side, png: !!args.out, stillSize: args.stillSize, runSize: args.runSize,
+          stills: STILL_TIMES.map((t) => frame(at(t), args.stillSize)),
+          frames: runRows.map((row) => frame(row, args.runSize)),
+        });
+      } catch (e) {
+        r = { error: e.message };
+      }
+      const ms = Date.now() - started;
+      if (r.error) {
+        lines.push(`style\t${id}\terror\t${String(r.error).replace(/[\t\n]/g, ' ')}`);
+        console.log(`FAIL ${id.padEnd(28)} ${r.error}`);
+        continue;
+      }
+      lines.push(`style\t${id}\tok\t${ms}`);
+      for (const s of r.stills) {
+        lines.push(`still\t${s.time.toFixed(4)}\t${s.meanLuma.toFixed(4)}\t${s.maxLuma.toFixed(4)}\t${s.fracBlack.toFixed(4)}\t${s.fracBlown.toFixed(4)}`);
+        if (args.out && s.png) {
+          fs.mkdirSync(args.out, { recursive: true });
+          fs.writeFileSync(path.join(args.out, `${id}_t${s.time.toFixed(1)}.png`), Buffer.from(s.png, 'base64'));
+        }
+      }
+      for (const f of r.frames) lines.push(`frame\t${f.time.toFixed(4)}\t${f.grid}`);
+      const worst = r.stills.reduce((w, s) => ({ black: Math.max(w.black, s.fracBlack), blown: Math.max(w.blown, s.fracBlown) }), { black: 0, blown: 0 });
+      console.log(`ok   ${id.padEnd(28)} black<=${worst.black.toFixed(3)} blown<=${worst.blown.toFixed(3)} ${r.frames.length} frames ${ms} ms` +
+        (r.glError ? ` glError ${r.glError}` : ''));
+    }
+    for (const line of page.drainConsole()) console.log(`  [page] ${line}`);
+  } finally {
+    await browser.close();
+  }
+  fs.mkdirSync(path.dirname(path.resolve(args.stills)), { recursive: true });
+  fs.writeFileSync(args.stills, `${lines.join('\n')}\n`);
+  console.log(`wrote ${ids.length} styles to ${args.stills}`);
+}
+
 function parseArgs(argv) {
   const a = {
     size: 240, height: null, shaders: [], all: false, list: false, fluidDisplay: false, out: null, time: null,
     liquid: null, frames: 240, born: 1, bornStyle: null, age: 0, surface: 0, liquidity: 0.35, seed: 1, threeD: false,
-    sound: [], set: [],
+    sound: [], set: [], stills: null, shard: null, stillSize: 96, runSize: 32,
   };
   for (let i = 0; i < argv.length; i++) {
     const v = argv[i];
@@ -385,6 +537,10 @@ function parseArgs(argv) {
     else if (v === '--3d') a.threeD = true;
     else if (v === '--sound') a.sound.push(...argv[++i].split(','));
     else if (v === '--set') a.set.push(argv[++i]);
+    else if (v === '--stills') a.stills = argv[++i];
+    else if (v === '--shard') a.shard = argv[++i];
+    else if (v === '--still-size') a.stillSize = Number(argv[++i]);
+    else if (v === '--run-size') a.runSize = Number(argv[++i]);
     else throw new Error(`unknown flag ${v}`);
   }
   return a;
@@ -406,6 +562,10 @@ async function main() {
   const ids = shaderIds();
   if (args.list) {
     console.log(ids.join('\n'));
+    return;
+  }
+  if (args.stills) {
+    await runStills(args, registry);
     return;
   }
   if (args.liquid) {

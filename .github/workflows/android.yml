@@ -439,6 +439,70 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
+  # The visual quality gate (#470): every style glslcheck can render, through the sound engine's golden
+  # song (core/tests/golden/sound_frames.tsv), judged by core/tests/visual_gate.cpp for mostly black
+  # stills, blown highlights and flashes the FlashLimiter would hold. Thresholds: tools/glslcheck/README.md
+  # ("Stills gate"); styles failing today: core/tests/visual_gate_baseline.txt. Four shards render in
+  # parallel (SwiftShader is slow on the heavy marches); one job judges them all. Needs no submodules, no
+  # SDK: Node 22, the runner's Chrome and g++.
+  visual-stills:
+    name: Visual stills (shard ${{ matrix.shard }}/4)
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Render the stills
+        working-directory: ${{ env.PROJECT_DIR }}/tools/glslcheck
+        run: |
+          export MUSICVIZ_CHROMIUM="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          node check.mjs --stills out/stills-${{ matrix.shard }}.tsv --shard ${{ matrix.shard }}/4 --out out/stills
+
+      - name: Upload the stills
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: visual-stills-${{ matrix.shard }}
+          path: |
+            tools/glslcheck/out/stills-${{ matrix.shard }}.tsv
+            tools/glslcheck/out/stills/
+          if-no-files-found: warn
+          retention-days: 14
+
+  visual-gate:
+    name: Visual gate
+    needs: visual-stills
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Download the stills
+        uses: actions/download-artifact@v6
+        with:
+          pattern: visual-stills-*
+          path: stills
+          merge-multiple: true
+
+      # The per-style report is the log; on a new failure it ends with the baseline lines to paste. The
+      # still PNGs are in the visual-stills-* artifacts, to look at before baselining anything.
+      - name: Judge the stills
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/visual_gate.cpp core/viz/FlashLimiter.cpp -o visual_gate
+          ./visual_gate core/tests/visual_gate_baseline.txt stills/stills-*.tsv
+
   # The last step of every green run on a push or a manual run: ship this commit
   # as the next pre-release ("Geode <base>.N"), so each commit that passed the
   # build, lint, unit and emulator tests has an installable APK. Pull-request
@@ -447,7 +511,7 @@ jobs:
   # run, and ship-apk.yml then hands its reserved number back.
   pre-release:
     name: Ship pre-release
-    needs: [build-debug-apk, instrumented-tests]
+    needs: [build-debug-apk, instrumented-tests, visual-gate]
     if: github.event_name != 'pull_request'
     permissions:
       contents: write

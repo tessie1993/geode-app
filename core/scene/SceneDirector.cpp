@@ -174,7 +174,7 @@ int SceneDirector::decide(const Moment& m, int index, const GeodeSoundFrame& f, 
     const float depth = param(kFeelingDepth);
     const float persona = param(kPersonality);
     const float damp = param(kRepeatDamp);
-    const int cap = std::clamp(static_cast<int>(std::lround(param(kMaxChoices))), 1, kMaxChoices);
+    const int cap = std::clamp(static_cast<int>(std::lround(param(DirectorParam::kMaxChoices))), 1, kMaxChoices);
     auto personaOf = [persona](float p) { return 1.0f + persona * (p - 1.0f); };
 
     const float energy = clamp01(ctx.feeling.energy);

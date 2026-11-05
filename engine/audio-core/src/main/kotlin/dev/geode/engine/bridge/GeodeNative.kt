@@ -132,8 +132,6 @@ object GeodeNative {
 
     external fun vizDestroy(handle: Long)
 
-    external fun vizParamNames(): String
-
     external fun vizSetParams(
         handle: Long,
         values: FloatArray,

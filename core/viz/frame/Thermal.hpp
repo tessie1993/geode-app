@@ -19,8 +19,9 @@
 // read "no forecast" and settled on Full while the first was easing off (#387). Now one state holds the
 // readings and the settled tier; every renderer's governor reads it, and the pacer applies its fps cap.
 //
-// Android keeps only the reads: `ThermalGovernor.kt` asks `geode_thermal_sample_due` each frame and,
-// only when it says yes, reads PowerManager and calls `geode_thermal_push`. The cadence, the NaN rule,
+// Android keeps only the reads: a live renderer's one per-frame call (`geode_viz_frame_begin`) claims the slot
+// and says GEODE_FRAME_THERMAL_DUE; only then does `ThermalGovernor.kt` read PowerManager and call
+// `geode_thermal_push`. The cadence, the NaN rule,
 // the dwell and the ladder are all decided here.
 namespace geode::viz {
 

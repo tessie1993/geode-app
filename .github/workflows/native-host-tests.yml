@@ -101,6 +101,9 @@ jobs:
           # The frame clock every surface shares (#436): vsync divides, the settle window, hitches, resume, one dt clamp.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/pacer_test.cpp -o pacer_test
           ./pacer_test
+          # What a live frame owes the shell (#604): the first-frame clear, the quality dedupe, the thermal and Liquid bits.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/renderer_cadence_test.cpp -o renderer_cadence_test
+          ./renderer_cadence_test
           # The process-wide shader overrides every renderer draws (#364): set, replace, clear, generation, copies.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore core/tests/shader_overrides_test.cpp core/viz/ShaderOverrides.cpp -o shader_overrides_test
           ./shader_overrides_test

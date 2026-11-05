@@ -113,15 +113,19 @@ GEODE_API int         geode_music_edit(const char* style_id, int seed, const flo
 GEODE_API int         geode_music_action_target(int action);
 /* Gyro look, -1..1 per axis; the camera reads it only while camGyro is on. */
 GEODE_API void        geode_viz_set_look(geode_viz*, float yaw, float pitch);
-/* This surface's own fps cap (0 = free-running); the thermal cap is applied under it natively. */
-GEODE_API void        geode_viz_set_paced_fps(geode_viz*, float fps);
-/* Settings › Performance (live surfaces): scales 0..1, post_fx / adaptive 0 or 1. Export never calls it. */
-GEODE_API void        geode_viz_set_quality(geode_viz*, float render_scale, float march_scale, int post_fx, int adaptive);
-/* Settings › Performance › Liquid on a hot phone: 0 simplify, 1 full, 2 pause (liquid::HotPolicy). */
-GEODE_API void        geode_viz_set_liquid_hot_policy(geode_viz*, int policy);
-/* What Liquid mode ran last frame: 0 off, 1 full, 2 lite, 3 warp, 4 paused (liquid::Mode), or -1 when it has
-   not changed since the last take (and for a null handle). Taken every frame by the live shell. */
-GEODE_API int         geode_viz_take_liquid_mode(geode_viz*);
+/* One live frame's start (core/viz/frame/Cadence, #604), on the GL thread before geode_viz_set_scene and
+   geode_viz_render. The shell passes what it holds every frame and native applies only what changed:
+   paced_fps is this surface's own fps cap (0 = free-running; the thermal cap is applied under it natively);
+   the rest is Settings › Performance (scales 0..1, post_fx / adaptive 0 or 1, liquid_hot_policy 0 simplify,
+   1 full, 2 pause: liquid::HotPolicy). Export never calls it. Answers a bitmask of GEODE_FRAME_*; 0 for a
+   null handle. */
+#define GEODE_FRAME_CLEAR_ONLY     0x1 /* the first frame on a new surface, cleared to black: present it, do nothing else */
+#define GEODE_FRAME_THERMAL_DUE    0x2 /* read PowerManager and call geode_thermal_push */
+#define GEODE_FRAME_LIQUID_CHANGED 0x4 /* Liquid mode changed: GEODE_FRAME_LIQUID_MODE(due) */
+/* What Liquid mode ran last frame: 0 off, 1 full, 2 lite, 3 warp, 4 paused (liquid::Mode). */
+#define GEODE_FRAME_LIQUID_MODE(due) (((due) >> 8) & 0xF)
+GEODE_API int         geode_viz_frame_begin(geode_viz*, float paced_fps, float render_scale, float march_scale,
+                                            int post_fx, int adaptive, int liquid_hot_policy);
 GEODE_API void        geode_viz_set_offscreen(geode_viz*, int on);
 /* Export: step every frame by exactly 1/fps instead of measuring the time between frames (#377); 0 = live. */
 GEODE_API void        geode_viz_set_frame_rate(geode_viz*, int fps);
@@ -426,10 +430,9 @@ GEODE_API void            geode_pacer_resume(long long* state);
    Surface.setFrameRate. */
 GEODE_API float           geode_pacer_effective_cap(float cap_fps);
 
-/* The process's one thermal state (core/viz/frame/Thermal): every renderer reads the same tier.
-   Polled each frame by every live renderer; 1 for at most one caller a second in the whole process,
-   which then reads PowerManager and pushes. */
-GEODE_API int             geode_thermal_sample_due(void);
+/* The process's one thermal state (core/viz/frame/Thermal): every renderer reads the same tier. The
+   once-a-second cadence across the process is native; a live renderer learns its turn from
+   GEODE_FRAME_THERMAL_DUE (geode_viz_frame_begin), then reads PowerManager and pushes. */
 /* One reading: PowerManager's thermal status (< 0 = no thermal API) and its headroom forecast (NaN = none
    this time; the last real one holds a while). Settles the shared tier. */
 GEODE_API void            geode_thermal_push(int platform_status, float headroom);

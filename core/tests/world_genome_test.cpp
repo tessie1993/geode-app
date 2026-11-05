@@ -4,7 +4,7 @@
 //                                 run the checks; with lib_world, also check that its WG_* names
 //                                 index the same fields; with the baked assets, check their sizes
 //                                 and probe every world with the real shapes (else spheres)
-//   world_genome_test --dump <seed>          print seed <seed>'s uWorld (88 floats, comma separated)
+//   world_genome_test --dump <seed>          print seed <seed>'s uWorld (96 floats, comma separated)
 //                                            for tools/glslcheck --set uWorld=...
 //   world_genome_test --names [shapes.bin]   print the seeds' names and open-space probes
 #include <array>
@@ -539,6 +539,67 @@ void travelIsSeamless() {
     check(std::fabs(moved - 0.15f) < 1e-3f, "the wrap is invisible to the world (moved " + std::to_string(moved) + ")");
 }
 
+// The Julia, Kleinian and octahedral KIFS seeds (#499): each named seed exists, is made of its
+// primitive, turns round the way by an odd fold (never the 4-way cross), is open with matter to
+// see, and keeps the eye and its wake open on every rig path, as designed and lightly mutated.
+void newFractalSeedsHold() {
+    struct Want {
+        const char* name;
+        int prim;
+    };
+    const Want wants[] = {
+        {"Julia Bloom", PJulia}, {"Quaternion Reef", PJulia},   {"Julia Lanterns", PJulia},  {"Klein Foam", PKlein},
+        {"Limit Set Nave", PKlein}, {"Octa Spires", PKifs}, {"Octahedral Choir", PKifs},
+    };
+    for (const Want& w : wants) {
+        int at = -1;
+        for (int i = 0; i < seedCount(); ++i) {
+            if (std::string(seed(i).name) == w.name) at = i;
+        }
+        check(at >= 0, std::string("seed ") + w.name + " exists");
+        if (at < 0) continue;
+        const Genome& g = seed(at).genome;
+        check(g[w.prim] > 0.99f, std::string(w.name) + " is made of its primitive");
+        const float n = g[PolarN];
+        const bool oddFold = g[Polar] > 0.99f && std::fabs(n - std::round(n)) < 1e-4f && static_cast<int>(std::round(n)) % 2 == 1;
+        const bool tilted = std::fabs(g[LatticeTilt]) > 0.05f || std::fabs(g[LatticeYaw]) > 0.05f;
+        check(oddFold || tilted, std::string(w.name) + " turns by an odd fold or a tilted lattice");
+        check(valid(g), std::string(w.name) + " is valid");
+        for (float mutation : {0.0f, 0.3f}) {
+            for (int path = 0; path < 4; ++path) {
+                for (int s = 0; s < 8; ++s) {
+                    Genome h = g;
+                    if (mutation > 0.0f) {
+                        // A light, replayable wobble of the space's operators and the primitive's numbers.
+                        uint64_t r = mix64(static_cast<uint64_t>(at * 131 + path * 17 + s));
+                        for (int f : {static_cast<int>(PrimSize), static_cast<int>(JuliaCX), static_cast<int>(JuliaCY),
+                                      static_cast<int>(KleinBox), static_cast<int>(KifsScale), static_cast<int>(PolarTwist)}) {
+                            r = mix64(r);
+                            const Bounds b = bounds(f);
+                            h[f] += (static_cast<float>((r >> 40) & 0xFFFFu) / 65535.0f * 2.0f - 1.0f) * mutation * (b.hi - b.lo) * 0.5f;
+                        }
+                        h = clampFields(h);
+                    }
+                    const float travel = 23.0f * static_cast<float>(s) + 5.0f * static_cast<float>(path);
+                    const auto here = CameraRig::pathPoint(path, 0.5f, travel);
+                    const auto ahead = CameraRig::pathPoint(path, 0.5f, travel + 1.6f);
+                    Way way;
+                    way.eye = here;
+                    way.zPhase = std::fmod(travel * 0.37f, 2.0f * h[CellZ]);
+                    way.wake = {ahead[0] - here[0], ahead[1] - here[1], ahead[2] - here[2]};
+                    const float d = sdf(h, way, here);
+                    check(std::isfinite(d) && d >= kEyeRadius * 0.99f,
+                          std::string(w.name) + " keeps the eye open (path " + std::to_string(path) + ")");
+                    for (float t : {0.5f, 1.0f}) {
+                        const std::array<float, 3> p{here[0] + way.wake[0] * t, here[1] + way.wake[1] * t, here[2] + way.wake[2] * t};
+                        check(sdf(h, way, p) > 0.0f, std::string(w.name) + " keeps the wake open");
+                    }
+                }
+            }
+        }
+    }
+}
+
 // lib_world's WG_* names must index the fields the C++ side uploads.
 void glslNamesMatch(const char* path) {
     std::ifstream in(path);
@@ -565,7 +626,9 @@ void glslNamesMatch(const char* path) {
         {"WG_Z_PHASE", ZPhase},     {"WG_GAIN", Gain},          {"WG_ITER_CAP", IterCap},   {"WG_HUE_TURN", HueTurn},
         {"WG_WAKE_X", WakeX},       {"WG_WAKE_Y", WakeY},       {"WG_WAKE_Z", WakeZ},
         {"WG_ROLL", Roll},          {"WG_LENS", Lens},          {"WG_ROLL_ANGLE", RollAngle}, {"WG_LENS_NOW", LensNow},
-        {"WG_FLOOR", Floor}, {"WG_FLOOR_Y", FloorY}, {"WG_FLOOR_GLOSS", FloorGloss}, {"WG_SKY", Sky}, {"WG_SKY_HUE", SkyHue}, {"WG_HORIZON", Horizon}, {"WG_TERRAIN", Terrain}, {"WG_TERRAIN_HEIGHT", TerrainHeight}, {"WG_TERRAIN_SCALE", TerrainScale}, {"WG_LATTICE_TILT", LatticeTilt}, {"WG_LATTICE_YAW", LatticeYaw}, {"WG_GAZE_PITCH", GazePitch}, {"WG_GAZE_YAW", GazeYaw}, {"WG_GAZE_X", GazeX}, {"WG_GAZE_Y", GazeY}, {"WG_SPARE", Spare},
+        {"WG_FLOOR", Floor}, {"WG_FLOOR_Y", FloorY}, {"WG_FLOOR_GLOSS", FloorGloss}, {"WG_SKY", Sky}, {"WG_SKY_HUE", SkyHue}, {"WG_HORIZON", Horizon}, {"WG_TERRAIN", Terrain}, {"WG_TERRAIN_HEIGHT", TerrainHeight}, {"WG_TERRAIN_SCALE", TerrainScale}, {"WG_LATTICE_TILT", LatticeTilt}, {"WG_LATTICE_YAW", LatticeYaw}, {"WG_GAZE_PITCH", GazePitch}, {"WG_GAZE_YAW", GazeYaw}, {"WG_GAZE_X", GazeX}, {"WG_GAZE_Y", GazeY},
+        {"WG_P_JULIA", PJulia}, {"WG_P_KLEIN", PKlein}, {"WG_P_KIFS", PKifs}, {"WG_JULIA_CX", JuliaCX}, {"WG_JULIA_CY", JuliaCY},
+        {"WG_JULIA_CZ", JuliaCZ}, {"WG_JULIA_CW", JuliaCW}, {"WG_KLEIN_BOX", KleinBox}, {"WG_KIFS_SCALE", KifsScale},
     };
     const char comps[4] = {'x', 'y', 'z', 'w'};
     for (const auto& [name, index] : expect) {
@@ -573,7 +636,9 @@ void glslNamesMatch(const char* path) {
         std::snprintf(want, sizeof want, "#define %s uWorld[%d].%c", name.c_str(), index / 4, comps[index % 4]);
         check(src.find(want) != std::string::npos, std::string("lib_world has ") + want);
     }
-    check(src.find("uniform vec4 uWorld[" + std::to_string(kVec4) + "];") != std::string::npos, "lib_world declares uWorld[22]");
+    check(src.find("uniform vec4 uWorld[" + std::to_string(kVec4) + "];") != std::string::npos, "lib_world declares uWorld[" + std::to_string(kVec4) + "]");
+    // Every field and runtime value has a name: a new one cannot be left out of the map.
+    check(static_cast<int>(expect.size()) == kUniformCount, "every uWorld slot is named (" + std::to_string(expect.size()) + "/" + std::to_string(kUniformCount) + ")");
 }
 
 std::vector<uint8_t> readAll(const char* path) {
@@ -643,6 +708,7 @@ int main(int argc, char** argv) {
     aCalmSongCanKeepItsWorld();
     dropRushesAndVerseGlides();
     travelIsSeamless();
+    newFractalSeedsHold();
     if (argc >= 2) glslNamesMatch(argv[1]);
     if (failures == 0) std::printf("world_genome_test: all passed\n");
     return failures == 0 ? 0 : 1;

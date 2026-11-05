@@ -12,9 +12,10 @@
 // mirrored x/y repeat (WG_LATTICE_TILT and WG_LATTICE_YAW first turn its lattice off the view,
 // WG_REP_XY fades it, WG_CELL_SHIFT moves the cells off the axis) -> a twist along travel (a sine over one z period,
 // so it stays periodic) -> scale -> mirror fold -> up to five rotate-fold IFS steps (fractional:
-// the last one fades in) -> sphere inversion -> abs-inversion -> ten primitives blended by weight:
-// six simple ones, a baked CC0 model (uWorldShapes), and six fractals (gyroid, Menger sponge,
-// Mandelbulb, Mandelbox, Sierpinski tetrahedron, Apollonian packing). Grey CC0 material maps (uWorldTex) add surface
+// the last one fades in) -> sphere inversion -> abs-inversion -> sixteen primitives blended by weight:
+// six simple ones, a baked CC0 model (uWorldShapes), and nine fractals (gyroid, Menger sponge,
+// Mandelbulb, Mandelbox, Sierpinski tetrahedron, Apollonian packing, quaternion Julia set,
+// pseudo-Kleinian limit set, octahedral kaleidoscopic IFS). Grey CC0 material maps (uWorldTex) add surface
 // detail and pattern the light; their colour never reaches the screen, pal() still owns it.
 // Then the landscape (WG_TERRAIN, wTerrain()): a ridged fBm height field in world space, not
 // through the chain, rising out of the ground at FLOOR_Y and joined to the chain's matter by min.
@@ -54,7 +55,7 @@
 // baked models and material maps are CC0 assets from BlenderKit (docs/morph-world-assets.md).
 
 /** The genome and the driver's runtime values; WorldGenome.hpp's Field and Runtime order. */
-uniform vec4 uWorld[22];
+uniform vec4 uWorld[24];
 
 #define WG_REP_XY uWorld[0].x
 #define WG_CELL_XY uWorld[0].y
@@ -92,58 +93,66 @@ uniform vec4 uWorld[22];
 #define WG_P_MANDELBOX uWorld[8].y
 #define WG_P_SIERP uWorld[8].z
 #define WG_P_APOLLO uWorld[8].w
-#define WG_PRIM_SIZE uWorld[9].x
-#define WG_PRIM_THICK uWorld[9].y
-#define WG_MESH_PICK uWorld[9].z
-#define WG_MESH_SIZE uWorld[9].w
-#define WG_BULB_POWER uWorld[10].x
-#define WG_GYRO_SCALE uWorld[10].y
-#define WG_BOX_SCALE uWorld[10].z
-#define WG_M_SURFACE uWorld[10].w
-#define WG_M_GLOW uWorld[11].x
-#define WG_M_DENSITY uWorld[11].y
-#define WG_DENS_BAND uWorld[11].z
-#define WG_TRAP_X uWorld[11].w
-#define WG_TRAP_Y uWorld[12].x
-#define WG_TRAP_Z uWorld[12].y
-#define WG_TRAP_R uWorld[12].z
-#define WG_PAL_OFFSET uWorld[12].w
-#define WG_PAL_SPAN uWorld[13].x
-#define WG_EMISSION uWorld[13].y
-#define WG_FOG uWorld[13].z
-#define WG_CORRIDOR uWorld[13].w
-#define WG_TEX_AMOUNT uWorld[14].x
-#define WG_TEX_PICK uWorld[14].y
-#define WG_TEX_SCALE uWorld[14].z
-#define WG_TEX_EMIT uWorld[14].w
-#define WG_ROLL uWorld[15].x
-#define WG_LENS uWorld[15].y
-#define WG_FLOOR uWorld[15].z
-#define WG_FLOOR_Y uWorld[15].w
-#define WG_FLOOR_GLOSS uWorld[16].x
-#define WG_SKY uWorld[16].y
-#define WG_SKY_HUE uWorld[16].z
-#define WG_HORIZON uWorld[16].w
-#define WG_TERRAIN uWorld[17].x
-#define WG_TERRAIN_HEIGHT uWorld[17].y
-#define WG_TERRAIN_SCALE uWorld[17].z
-#define WG_LATTICE_TILT uWorld[17].w
-#define WG_LATTICE_YAW uWorld[18].x
-#define WG_GAZE_PITCH uWorld[18].y
-#define WG_GAZE_YAW uWorld[18].z
-#define WG_Z_PHASE uWorld[18].w
-#define WG_GAIN uWorld[19].x
-#define WG_ITER_CAP uWorld[19].y
-#define WG_HUE_TURN uWorld[19].z
-#define WG_WAKE_X uWorld[19].w
-#define WG_WAKE_Y uWorld[20].x
-#define WG_WAKE_Z uWorld[20].y
-#define WG_ASSETS uWorld[20].z
-#define WG_ROLL_ANGLE uWorld[20].w
-#define WG_LENS_NOW uWorld[21].x
-#define WG_GAZE_X uWorld[21].y
-#define WG_GAZE_Y uWorld[21].z
-#define WG_SPARE uWorld[21].w
+#define WG_P_JULIA uWorld[9].x
+#define WG_P_KLEIN uWorld[9].y
+#define WG_P_KIFS uWorld[9].z
+#define WG_PRIM_SIZE uWorld[9].w
+#define WG_PRIM_THICK uWorld[10].x
+#define WG_MESH_PICK uWorld[10].y
+#define WG_MESH_SIZE uWorld[10].z
+#define WG_BULB_POWER uWorld[10].w
+#define WG_GYRO_SCALE uWorld[11].x
+#define WG_BOX_SCALE uWorld[11].y
+#define WG_M_SURFACE uWorld[11].z
+#define WG_M_GLOW uWorld[11].w
+#define WG_M_DENSITY uWorld[12].x
+#define WG_DENS_BAND uWorld[12].y
+#define WG_TRAP_X uWorld[12].z
+#define WG_TRAP_Y uWorld[12].w
+#define WG_TRAP_Z uWorld[13].x
+#define WG_TRAP_R uWorld[13].y
+#define WG_PAL_OFFSET uWorld[13].z
+#define WG_PAL_SPAN uWorld[13].w
+#define WG_EMISSION uWorld[14].x
+#define WG_FOG uWorld[14].y
+#define WG_CORRIDOR uWorld[14].z
+#define WG_TEX_AMOUNT uWorld[14].w
+#define WG_TEX_PICK uWorld[15].x
+#define WG_TEX_SCALE uWorld[15].y
+#define WG_TEX_EMIT uWorld[15].z
+#define WG_ROLL uWorld[15].w
+#define WG_LENS uWorld[16].x
+#define WG_FLOOR uWorld[16].y
+#define WG_FLOOR_Y uWorld[16].z
+#define WG_FLOOR_GLOSS uWorld[16].w
+#define WG_SKY uWorld[17].x
+#define WG_SKY_HUE uWorld[17].y
+#define WG_HORIZON uWorld[17].z
+#define WG_TERRAIN uWorld[17].w
+#define WG_TERRAIN_HEIGHT uWorld[18].x
+#define WG_TERRAIN_SCALE uWorld[18].y
+#define WG_LATTICE_TILT uWorld[18].z
+#define WG_LATTICE_YAW uWorld[18].w
+#define WG_GAZE_PITCH uWorld[19].x
+#define WG_GAZE_YAW uWorld[19].y
+#define WG_JULIA_CX uWorld[19].z
+#define WG_JULIA_CY uWorld[19].w
+#define WG_JULIA_CZ uWorld[20].x
+#define WG_JULIA_CW uWorld[20].y
+#define WG_KLEIN_BOX uWorld[20].z
+#define WG_KIFS_SCALE uWorld[20].w
+#define WG_Z_PHASE uWorld[21].x
+#define WG_GAIN uWorld[21].y
+#define WG_ITER_CAP uWorld[21].z
+#define WG_HUE_TURN uWorld[21].w
+#define WG_WAKE_X uWorld[22].x
+#define WG_WAKE_Y uWorld[22].y
+#define WG_WAKE_Z uWorld[22].z
+#define WG_ASSETS uWorld[22].w
+#define WG_ROLL_ANGLE uWorld[23].x
+#define WG_LENS_NOW uWorld[23].y
+#define WG_GAZE_X uWorld[23].z
+#define WG_GAZE_Y uWorld[23].w
 
 /**
  * The baked CC0 assets (core/viz/world/WorldAssets, tools/morph_world_assets): twenty-four models as signed
@@ -306,6 +315,70 @@ float wApollo(vec3 q, float s) {
     return 0.25 * abs(p.y) / scale * s;
 }
 
+/**
+ * A quaternion Julia set, z -> z^2 + c with c the genome's (WG_JULIA_C*), on the slice w = 0 and
+ * filling about s (WorldGenome.cpp julia()). The real part is x. The square of (a, v) is
+ * (a^2 - |v|^2, 2 a v); the running derivative is 2 |z| dr; the distance is the Hubbard-Douady
+ * bound 0.5 |z| log |z| / |dz|. Inside the set the bound is held at one unit deep: matter, not a
+ * number that drowns the other primitives' weights.
+ */
+float wJulia(vec3 q, float s, vec4 c) {
+    float k = 0.7 * s;
+    vec4 z = vec4(q / k, 0.0);
+    float dr = 1.0;
+    for (int i = 0; i < 8; i++) {
+        float r2 = dot(z, z);
+        if (r2 > 16.0) break;
+        dr = 2.0 * sqrt(r2) * dr;
+        z = vec4(z.x * z.x - dot(z.yzw, z.yzw), 2.0 * z.x * z.yzw) + c;
+    }
+    float r = max(length(z), 1e-6);
+    return max(0.5 * log(r) * r / max(dr, 1e-6), -1.0) * k;
+}
+
+/**
+ * A pseudo-Kleinian limit set (WorldGenome.cpp klein()): the space folded into the box of half-size
+ * b by its face reflections (the mirrored cell), then inverted in the unit sphere (the inversion's
+ * stretch capped at 16, so the middle scales instead of flying off), seven times; the last fold
+ * then meets a slab of half-thickness t, whose images under the group are the nested discs and
+ * caps. Held in a ball of 1.3 s, so the foam is a thing in its cell, not a wall.
+ */
+float wKlein(vec3 q, float s, float b, float t) {
+    float k = 0.5 * s;
+    vec3 z = q / k;
+    float dr = 1.0;
+    for (int i = 0; i < 7; i++) {
+        z = vec3(wCell(z.x, 2.0 * b), wCell(z.y, 2.0 * b), wCell(z.z, 2.0 * b));
+        float m = clamp(1.0 / max(dot(z, z), 1e-4), 1.0, 16.0);
+        z *= m;
+        dr *= m;
+    }
+    z = vec3(wCell(z.x, 2.0 * b), wCell(z.y, 2.0 * b), wCell(z.z, 2.0 * b));
+    float d = (abs(z.y) - t) / dr * k;
+    return max(d, length(q) - 1.3 * s);
+}
+
+/**
+ * An octahedral kaleidoscopic IFS (WorldGenome.cpp kifs()): fold across the octahedron's nine
+ * mirror planes (the three coordinate planes, then x = y, x = z, y = z), scale by sc about the
+ * vertex (1, 0, 0), seven times; the distance is to the unit octahedron at the last level.
+ * Its hull is the octahedron of radius 1.2 s.
+ */
+float wKifs(vec3 q, float s, float sc) {
+    float k = 1.2 * s;
+    vec3 z = q / k;
+    float scale = 1.0;
+    for (int i = 0; i < 7; i++) {
+        z = abs(z);
+        if (z.x < z.y) z.xy = z.yx;
+        if (z.x < z.z) z.xz = z.zx;
+        if (z.y < z.z) z.yz = z.zy;
+        z = z * sc - vec3(sc - 1.0, 0.0, 0.0);
+        scale *= sc;
+    }
+    return (abs(z.x) + abs(z.y) + abs(z.z) - 1.0) * 0.57735 / scale * k;
+}
+
 /** The plane about the travel axis folded into one mirrored wedge of n (WorldGenome.cpp polarFold()). */
 vec2 wPolar(vec2 v, float n) {
     float r = length(v);
@@ -341,9 +414,10 @@ float wMesh(vec3 q) {
 }
 
 /**
- * The thirteen primitives, blended by weight (the weights sum to one): six simple ones (tube and
- * torus ring the travel axis), a baked model, and six fractals: a gyroid, a Menger sponge, a
- * Mandelbulb, a Mandelbox, a Sierpinski tetrahedron and an Apollonian packing.
+ * The sixteen primitives, blended by weight (the weights sum to one): six simple ones (tube and
+ * torus ring the travel axis), a baked model, and nine fractals: a gyroid, a Menger sponge, a
+ * Mandelbulb, a Mandelbox, a Sierpinski tetrahedron, an Apollonian packing, a quaternion Julia
+ * set, a pseudo-Kleinian limit set and an octahedral kaleidoscopic IFS.
  */
 float wPrims(vec3 q) {
     float s = WG_PRIM_SIZE;
@@ -363,6 +437,9 @@ float wPrims(vec3 q) {
     if (WG_P_MANDELBOX > 0.0) d += WG_P_MANDELBOX * wMandelbox(q, s, WG_BOX_SCALE);
     if (WG_P_SIERP > 0.0) d += WG_P_SIERP * wSierp(q, s);
     if (WG_P_APOLLO > 0.0) d += WG_P_APOLLO * wApollo(q, s);
+    if (WG_P_JULIA > 0.0) d += WG_P_JULIA * wJulia(q, s, vec4(WG_JULIA_CX, WG_JULIA_CY, WG_JULIA_CZ, WG_JULIA_CW));
+    if (WG_P_KLEIN > 0.0) d += WG_P_KLEIN * wKlein(q, s, WG_KLEIN_BOX, t);
+    if (WG_P_KIFS > 0.0) d += WG_P_KIFS * wKifs(q, s, WG_KIFS_SCALE);
     return d;
 }
 

@@ -18,10 +18,11 @@
 //   the cells off the axis, so the way runs between structures rather than through them), a polar
 //   kaleidoscope fold about the travel axis (N-fold, round tunnels, a spiral), twist along
 //   travel, global scale, mirror fold, up to five IFS steps (rotate-fold, fractional count),
-//   sphere inversion, abs-inversion, then thirteen primitives blended by weight (six simple ones, a
-//   baked CC0 model from WorldAssets, and six fractals: gyroid, Menger sponge, Mandelbulb, Mandelbox,
-//   Sierpinski tetrahedron, Apollonian packing), joined by min to the landscape (Terrain: a ridged
-//   fBm height field in world space on FloorY, valley walls to the sides), then the corridor
+//   sphere inversion, abs-inversion, then sixteen primitives blended by weight (six simple ones, a
+//   baked CC0 model from WorldAssets, and nine fractals: gyroid, Menger sponge, Mandelbulb, Mandelbox,
+//   Sierpinski tetrahedron, Apollonian packing, quaternion Julia set, pseudo-Kleinian limit set,
+//   octahedral kaleidoscopic IFS), joined by min to the landscape (Terrain: a ridged fBm height field
+//   in world space on FloorY, valley walls to the sides), then the corridor
 //   carved out around the camera's way. Three render modes read that one world: a hard surface,
 //   a glow-through volume (translucent glowing plates) and an emissive density (thin glowing
 //   sheets); their weights are in the genome too, so a world can melt from stone into light.
@@ -75,6 +76,9 @@ enum Field : int {
     PMandelbox,  // a Mandelbox: box fold, sphere fold, scale (BoxScale, PrimSize)
     PSierp,      // a Sierpinski tetrahedron, folded seven times (PrimSize)
     PApollo,     // an Apollonian packing: spheres inverted into spheres, endless (PrimSize)
+    PJulia,      // a quaternion Julia set, z -> z^2 + c (JuliaCX..JuliaCW, PrimSize)
+    PKlein,      // a pseudo-Kleinian limit set: box fold, sphere inversion, a slab (KleinBox, PrimThick, PrimSize)
+    PKifs,       // an octahedral kaleidoscopic IFS: the octahedron's folds, a scale about a vertex (KifsScale, PrimSize)
     PrimSize,
     PrimThick,
     MeshPick,    // 0..kShapeCount-1: which baked model, fractional = a blend of two neighbours
@@ -120,6 +124,13 @@ enum Field : int {
     LatticeYaw,   // radians: the lattice turned about y
     GazePitch,    // radians: how far the view may look up and down (view only)
     GazeYaw,      // radians: how far the view may look to the sides (view only)
+    // The newer fractals' own numbers.
+    JuliaCX,      // the Julia set's constant c, a quaternion: its real part
+    JuliaCY,      // c's i part
+    JuliaCZ,      // c's j part
+    JuliaCW,      // c's k part
+    KleinBox,     // the pseudo-Kleinian's fold box half-size against its unit inversion sphere
+    KifsScale,    // the octahedral IFS's scale per step (2 = the copies touch, more = sparser)
     kFieldCount,
 };
 
@@ -137,13 +148,16 @@ enum Runtime : int {
     LensNow,               // Lens with the kick's punch on top: the factor lib_world's ray takes on uCamFocal
     GazeX,                  // the view's look to the side now, radians (the driver's, within GazeYaw)
     GazeY,                  // the view's look up or down now, radians (within GazePitch)
-    Spare,                  // unused: pads uWorld to whole vec4s
     kUniformCount,
 };
 
 constexpr int kVec4 = kUniformCount / 4;
 static_assert(kUniformCount % 4 == 0, "uWorld is whole vec4s");
-static_assert(kVec4 == 22, "lib_world declares uWorld[22]");
+static_assert(kVec4 == 24, "lib_world declares uWorld[24]");
+
+// The primitive weights, PBox .. PKifs: one contiguous group, normalized to sum one.
+constexpr int kPrimCount = PKifs - PBox + 1;
+static_assert(kPrimCount == 16, "the primitive group is PBox .. PKifs");
 
 constexpr int kMaxIfsSteps = 5;
 // The corridor's eye bubble (lib_world's WG_EYE_RADIUS): what is always open around the eye.

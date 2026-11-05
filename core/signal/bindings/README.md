@@ -9,6 +9,8 @@ Part of [`core/signal`](../README.md).
 - **A new clock:** engine time is not monotonic (a new render, a seek, an export restart). A pulse earlier than its param's last pulse drops that param's live pulses and flash history and starts its clock again, so the limit holds within the new clock.
 - It hears events from an [`events/EventBus`](../events/README.md). That bus hands out moments; the route bus below evaluates continuous routes each frame. They are two different things.
 
+**Built: `PlayingRoutes`** (#352), the routes a renderer plays for the style it has asked for: the style's DNA (`viz::buildStyleDna` at the params' `reactSeed`), merged with the user's list under the frame's hand mask (`viz::mergeHand`). The renderer calls it at its frame latch, after `StyleSchedule` has applied this frame's cue, so a take's switch or a beat cut plays the new style's DNA from its first frame; the shell only hands over the user's list (`geode_viz_set_user_reactions`). Tested by `core/tests/playing_routes_test.cpp`.
+
 **Still to build:** the continuous routes below.
 
 **Owns:** `Route` and `Bus`.

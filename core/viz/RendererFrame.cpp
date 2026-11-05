@@ -42,6 +42,9 @@ GeodeSoundFrame gainAdjusted(const GeodeSoundFrame& f, const SceneParams& p) {
     out.high = std::clamp(f.high * p.trebGain, 0.0f, 1.0f);
     return out;
 }
+
+// What a style's DNA needs from the registry (the same traits geode_style_reactions deals from).
+StyleTraits styleTraitsOf(const std::string& id) { return {SceneRegistry::spinRate(id), SceneRegistry::isShaderStyle(id)}; }
 }  // namespace
 
 float Renderer::beginFrame(double timeSeconds) {
@@ -149,9 +152,14 @@ SceneParams Renderer::resolveParams(float dt) {
             resolver_.setAdsrConfigs(adsrConfigs_);
             adsrConfigsDirty_ = false;
         }
-        if (reactionRoutesDirty_) {
-            resolver_.setReactionRoutes(reactionRoutes_);
-            reactionRoutesDirty_ = false;
+        if (userReactionsDirty_) {
+            playingRoutes_.setUser(userReactions_);
+            userReactionsDirty_ = false;
+        }
+        // The style requested now (applyStyleSchedule already ran this frame), so a take's switch or a beat
+        // cut plays the new style's DNA from its first frame; the hand mask is the frame's latched one.
+        if (playingRoutes_.resolve(requestedSceneId_, requested.reactSeed, frameSettings_.handMask, &styleTraitsOf)) {
+            resolver_.setReactionRoutes(playingRoutes_.routes());
         }
     }
     signal::StyleContext style;

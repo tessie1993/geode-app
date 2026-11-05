@@ -14,6 +14,7 @@
 
 #include "api/geode_api.h"
 #include "signal/Resolver.hpp"
+#include "signal/bindings/PlayingRoutes.hpp"
 #include "sound/PlayerSignals.hpp"
 #include "sound/SoundEngine.hpp"
 #include "viz/Adsr.hpp"
@@ -32,6 +33,7 @@
 #include "viz/PcmHandoff.hpp"
 #include "viz/ProgramBinaryCache.hpp"
 #include "viz/ProgramStager.hpp"
+#include "viz/ReactionDna.hpp"
 #include "viz/Reactions.hpp"
 #include "viz/Scene.hpp"
 #include "viz/ScenePrep.hpp"
@@ -122,7 +124,11 @@ public:
     int takeDirectorStyleMoments() { return directorStyleMoments_.exchange(0, std::memory_order_acq_rel); }
     void setLfoConfigs(const std::array<LfoConfig, LfoEngine::kSlots>& configs);
     void setAdsrConfigs(const std::array<AdsrConfig, AdsrEngine::kCount>& configs);
-    void setReactionRoutes(const std::array<ReactRoute, ReactionEngine::kRoutes>& routes);
+    // The user's own reaction routes (`user.user` false: none, the style's DNA plays). The renderer resolves
+    // what plays itself at each frame latch (signal::PlayingRoutes): the requested style's DNA at the
+    // params' reactSeed, merged with this list under the frame's hand mask, so a StyleSchedule switch
+    // re-deals the DNA in the frame it lands (#352).
+    void setUserReactions(const HandRoutes& user);
     // Gyro look, -1..1 per axis; read by the camera only while camGyro is on.
     void setLook(float yaw, float pitch) {
         lookYaw_.store(yaw, std::memory_order_relaxed);
@@ -321,10 +327,12 @@ private:
     // The configs the shell last set, handed to the resolver at the next frame latch (stateLock_).
     std::array<LfoConfig, LfoEngine::kSlots> lfoConfigs_{};
     std::array<AdsrConfig, AdsrEngine::kCount> adsrConfigs_{};
-    std::array<ReactRoute, ReactionEngine::kRoutes> reactionRoutes_{};
+    HandRoutes userReactions_{};
     bool lfoConfigsDirty_ = false;
     bool adsrConfigsDirty_ = false;
-    bool reactionRoutesDirty_ = false;
+    bool userReactionsDirty_ = false;
+    // GL thread, at the frame latch: the routes the requested style plays (#352).
+    signal::PlayingRoutes playingRoutes_;
     PcmHandoff pcm_;
     int framePcmCount_ = 0;  // GL thread: samples of pcmDeliverScratch_ this frame's scenes get.
     std::vector<float> pcmDeliverScratch_;

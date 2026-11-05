@@ -29,6 +29,7 @@ add_library(geode_core STATIC
     api/geode_export_dsp_api.cpp
     signal/EngineSettings.cpp
     signal/Resolver.cpp
+    signal/bindings/PlayingRoutes.cpp
     api/geode_export_pass_api.cpp
     api/geode_export_api.cpp
     audio/dsp/PcmConvert.cpp

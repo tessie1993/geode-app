@@ -10,6 +10,33 @@ Read before you change structure:
 - [`GLOSSARY.md`](GLOSSARY.md): domain words. Name things with them.
 - [`docs/AUDIO_CHAIN.md`](docs/AUDIO_CHAIN.md): read it before touching the playback audio path.
 
+## Where code lives (owner rule, no exceptions)
+
+- **Kotlin runs on the main thread only:** Compose UI, ViewModels' UI state, and the thin Android glue that has to be Kotlin. That glue is Activity and Service lifecycle, Media3 session and player wiring, permissions, the MediaStore, MediaCodec and Transformer calls, billing IPC, and the widget, tile, wallpaper and dream shells.
+- **Everything else is C++ in `core/`, behind `core/api/geode_api.h`, never Kotlin.** That means:
+  - every worker, GL, audio and export thread
+  - all logic and decisions
+  - all audio code: DSP, the PCM ring, clocks, analysis
+  - params: definitions, ranges, defaults, randomizing, clamping, modulation, routing
+  - the catalogue, scheduling, export maths and timing
+  - shaders, which `core/viz` drives
+  - the engine's inner workings
+- **Where:**
+  - `core/sound`: hearing, analysis and the musical layer
+  - `core/viz`: the renderer, scenes, params, Director, NoteResponse, Reactions, CameraRig, Catalogue and safety
+  - `core/audio/dsp`: playback and export DSP
+  - `core/studio`: the programme clock
+  - ADR 0006's skeleton folders: the target shape
+  - `app/src/main/cpp/*_jni.cpp`: only marshals values
+- **Why:**
+  - One engine serves live, export, wallpaper and dream, so they can't drift apart.
+  - It is deterministic and testable on the host in `core/tests`.
+  - There are no GC pauses or chatty JNI calls on real-time threads.
+  - There is one source of truth instead of a Kotlin copy and a C++ copy.
+  - See [ADR 0003](docs/adr/0003-engine-internals-in-cpp.md) and [ADR 0006](docs/adr/0006-fosfora-aligned-engine.md).
+- **When a change touches logic that is still in Kotlin,** put the new logic in C++ and leave Kotlin as a thin caller. Never add logic to Kotlin. The leftovers are listed under "Where the code breaks the architecture guide".
+- **Never build, compile, lint or test in an agent container.** Push to `claude/**` and let GitHub CI do it.
+
 ## Modules
 
 ```

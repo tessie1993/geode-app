@@ -639,6 +639,7 @@ private object StyleLookTags {
                 "crystal_canyon",
                 "spectrum_terrain",
                 "gyroid_cavern",
+                "scaffold_drift",
                 "noneuclid",
             ).forEach { put(it, StyleLook.FLY_THROUGH) }
             listOf("starfield", "nebula", "solar", "chrome_nebula", "ringed_planet", "black_hole", "aurora", "aurora_ocean")

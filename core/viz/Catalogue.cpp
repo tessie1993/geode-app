@@ -12,7 +12,7 @@ namespace {
 
 // The loose fragment styles (ShaderScene compiles shaders/<id>_frag.glsl), in picker order. The
 // families' styles follow them.
-constexpr std::array<const char*, 60> kLooseShaders = {
+constexpr std::array<const char*, 61> kLooseShaders = {
     "julia", "tunnel", "mandel", "kaleido", "plasma", "bars", "ring", "scope", "liss", "warp", "grid", "voronoi",
     "metaballs", "ripples", "starfield", "waves", "hexgrid", "spiral", "aurora", "solar", "winter", "lava",
     // Built on the shared GLSL libraries (lib_scene_uniforms, lib_scene_grade, lib_sdf3, lib_touch).
@@ -33,11 +33,13 @@ constexpr std::array<const char*, 60> kLooseShaders = {
     // The neon set, written from scratch on lib_neon: a 2D spiral web,
     // then four marches (a chrome sea, a lensed singularity, a hex-pillar tunnel, a Mandelbox nave).
     "glow_vortex", "neon_chrome_sea", "black_hole", "hex_hive", "mandelbox_cathedral",
+    // A flight through an endless beam-and-node scaffold, on the shared rig (written clean-room).
+    "scaffold_drift",
 };
 
 // The loose styles that raymarch, and so spend the Detail budget. Per STYLE rather than per kind:
 // Plasma and Vanishing are both shader styles and only one has a march to spend steps on.
-constexpr std::array<const char*, 25> kLooseMarched = {
+constexpr std::array<const char*, 26> kLooseMarched = {
     "vanishing", "morphogen", "nebula", "noneuclid", "kifs", "rod_tunnel",
     // Curl Bloom marches a distance field, Nectar Flow a volume; Detail is the budget for both.
     "curl_bloom", "nectar_flow", "crystal_canyon", "neon_city", "particle_tunnel", "chrome_nebula", "fractal_dive",
@@ -45,6 +47,7 @@ constexpr std::array<const char*, 25> kLooseMarched = {
     "supershape", "fractal_tunnel",
     // The neon set's marches; Glow Vortex is its one style without a march.
     "neon_chrome_sea", "black_hole", "hex_hive", "mandelbox_cathedral",
+    "scaffold_drift",
 };
 
 constexpr std::array<Family, 10> kFamilies = {{
@@ -153,7 +156,7 @@ constexpr LookOf kLooseLooks[] = {
     {"starfield", BloomLook::Burst}, {"tunnel", BloomLook::Burst}, {"particle_tunnel", BloomLook::Burst},
     {"prism_rain", BloomLook::Burst}, {"ribbon_storm", BloomLook::Burst}, {"rod_tunnel", BloomLook::Burst},
     {"neon_city", BloomLook::Burst}, {"crystal_canyon", BloomLook::Burst}, {"solar", BloomLook::Burst},
-    {"vanishing", BloomLook::Burst}, {"gyroid_cavern", BloomLook::Burst},
+    {"vanishing", BloomLook::Burst}, {"gyroid_cavern", BloomLook::Burst}, {"scaffold_drift", BloomLook::Burst},
 };
 // Per family, by its name: petals and folds flower, gas, glass and branches glow, landscapes and tilings
 // ripple, dives burst.

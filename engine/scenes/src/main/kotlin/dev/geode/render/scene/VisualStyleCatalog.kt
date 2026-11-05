@@ -71,6 +71,7 @@ object VisualStyleCatalog {
             "fluid_lava" to "Lava",
             "fluid_marble" to "Marble",
             "fluid_aurora" to "Aurora",
+            "scaffold_drift" to "Scaffold Drift",
         )
 
     private val FAMILY_LABELS: Map<String, String> =

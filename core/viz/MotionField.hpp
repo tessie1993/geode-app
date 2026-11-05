@@ -74,7 +74,8 @@ public:
     void step(const GeodeSoundFrame& f, float dt, float speed = 1.0f);
     // Reshapes p with the state step() just computed; never touches
     // brightness/intensity/contrast/flash/strobe/pulse/shake. Reduced motion
-    // scales the geometric terms the same way safety::apply scales rates.
+    // scales the shape terms here; the rates safety::apply scales next
+    // (rotation, sway, turbulence) are left to it, so each is scaled once.
     // spin is the style's SceneRegistry::spinRate: it scales and signs the drift
     // spin, and 0 (a style that does not turn) adds no drift spin or sway, so
     // rotation and sway stay what the user and the routes set.

@@ -685,6 +685,30 @@ void motionFieldDriftSpinIsBoundedAndContinuous() {
     check(m.apply(p, false, 0.0f).rotation == 0.0f, "a style that does not turn gets no drift spin");
 }
 
+// Reduced motion scales a rate once: MotionField leaves rotation, sway and turbulence to
+// safety::apply, which scales them right after it, so the pair lands at 0.4 of full, not 0.16.
+void motionFieldReducedMotionScalesRatesOnce() {
+    GeodeSoundFrame f = playing();
+    f.midAtt = 1.0f;
+    f.trebleAtt = 2.0f;
+    f.hitTime = 0.3f;  // a bar phase off zero, so sway has a term
+    SceneParams p;
+    p.rotation = 0.0f;
+    p.sway = 0.0f;
+    p.turbulence = 0.2f;
+    p.motionAmount = 1.0f;
+    p.motionDrift = 1.0f;
+    MotionField m;
+    for (int k = 0; k < 120; ++k) m.step(f, 1.0f / 60.0f);
+    const SceneParams full = safety::apply(m.apply(p, false, 1.0f), false);
+    const SceneParams calm = safety::apply(m.apply(p, true, 1.0f), true);
+    const float s = safety::kReducedMotionScale;
+    check(std::fabs(full.rotation) > 1e-3f && std::fabs(calm.rotation - s * full.rotation) < 1e-5f,
+          "reduced motion scales the drift spin once");
+    check(full.sway > 1e-3f && std::fabs(calm.sway - s * full.sway) < 1e-5f, "reduced motion scales the sway once");
+    check(std::fabs(calm.turbulence - s * full.turbulence) < 1e-5f, "reduced motion scales the turbulence once");
+}
+
 void sourceCatalogueIsCompleteAndUnique() {
     std::set<std::string> names;
     const std::set<std::string> groups = {"LEVELS", "DRUMS", "EVENTS", "MELODY", "CLOCKS", "TEXTURE", "EQ", "RHYTHM", "HARMONY", "FORM"};
@@ -1050,6 +1074,7 @@ int main() {
     flowTimeRunsAtSpeedAndNeverJumps();
     followerScalesASoundClockWithoutJumps();
     motionFieldDriftSpinIsBoundedAndContinuous();
+    motionFieldReducedMotionScalesRatesOnce();
     sourceCatalogueIsCompleteAndUnique();
     macrosAtRestChangeNothing();
     macrosTurnTowardTheEndsAndStayInRange();

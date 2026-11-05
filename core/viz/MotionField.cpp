@@ -170,9 +170,14 @@ SceneParams MotionField::apply(const SceneParams& p, bool reducedMotion, float s
     // motionOrbit is not read here: uOrbit is a raw shader uniform (see
     // lib_scene_motion.glsl), and its own motionOrbit scaling happens in
     // view() (wave three's R01), not in this SceneParams-facing table.
-    const float motionAmount = std::clamp(p.motionAmount, 0.0f, 1.0f) * g;
+    // Rotation, sway and turbulence are rates safety::apply scales for reduced
+    // motion after this, so their terms take the dials unscaled: scaling them
+    // here too slowed them to 0.4 x 0.4 of full. Every other term below is a
+    // shape safety leaves alone, so it is scaled here, once.
+    const float amountDial = std::clamp(p.motionAmount, 0.0f, 1.0f);
+    const float motionAmount = amountDial * g;
     const float motionBreath = std::clamp(p.motionBreath, 0.0f, 1.0f) * g;
-    const float motionDrift = std::clamp(p.motionDrift, 0.0f, 1.0f) * g;
+    const float motionDrift = std::clamp(p.motionDrift, 0.0f, 1.0f);
     const float motionHue = std::clamp(p.motionHue, 0.0f, 1.0f) * g;
     const auto& s = state_;
     SceneParams o = p;
@@ -184,7 +189,7 @@ SceneParams MotionField::apply(const SceneParams& p, bool reducedMotion, float s
     o.zoom = std::clamp(p.zoom * breath, 0.3f, 3.0f);
     if (spin != 0.0f) {
         o.rotation = std::clamp(p.rotation + driftRate_ * kDriftSpinGain * motionDrift * spin, -3.0f, 3.0f);
-        o.sway = std::clamp(p.sway + motionAmount * 0.35f * std::fabs(barSin_) * rhythmLock_, 0.0f, 1.0f);
+        o.sway = std::clamp(p.sway + amountDial * 0.35f * std::fabs(barSin_) * rhythmLock_, 0.0f, 1.0f);
     }
     o.warp = std::clamp(p.warp + motionAmount * 0.3f * (1.0f - s.harmony), 0.0f, 1.0f);
     o.morph = std::clamp(p.morph + motionAmount * (1.0f - s.harmony), 0.0f, 1.0f);
@@ -194,7 +199,7 @@ SceneParams MotionField::apply(const SceneParams& p, bool reducedMotion, float s
     const float keyHueOffset = s.keyStrength * wrappedDelta01(0.5f, s.keyHue);
     o.colorShift = p.colorShift + motionHue * (keyHueOffset + 0.1f * (s.bright - 0.5f));
 
-    o.turbulence = std::clamp(p.turbulence + motionAmount * 0.35f * (s.trebRel - 1.0f), 0.0f, 1.5f);
+    o.turbulence = std::clamp(p.turbulence + amountDial * 0.35f * (s.trebRel - 1.0f), 0.0f, 1.5f);
     o.particleSize = std::clamp(p.particleSize * (1.0f + motionAmount * 0.2f * (s.energyRel - 1.0f)), 0.3f, 2.5f);
     o.density = std::clamp(p.density * (1.0f + motionAmount * 0.15f * (s.energyRel - 1.0f)), 0.1f, 1.0f);
     o.trailLength = std::clamp(p.trailLength + motionAmount * 0.15f * (s.energyRel - 1.0f), 0.05f, 0.98f);

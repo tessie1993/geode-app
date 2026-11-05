@@ -17,8 +17,6 @@ data class ClockSegment(
         require(skippedInputSamples >= 0) { "skippedInputSamples must not be negative" }
     }
 
-    val firstPresentedSample: Long get() = inputSampleStart + skippedInputSamples
-
     companion object {
         private const val US_PER_SECOND = 1_000_000.0
 

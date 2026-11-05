@@ -149,7 +149,7 @@ void fadeGlidesAndHoldSnaps() {
         check(std::fabs(half.getSlot(slot) - want) <= 1e-6f * std::fmax(1.0f, std::fabs(want)),
               std::string(s.name) + (s.fade == ParamFade::Fade ? " glides halfway" : " snaps to the new value"));
     }
-    // The NOT_FADED sentinels: a glide through -1 would flash the palette's own colours.
+    // The held sentinels (Kotlin's old NOT_FADED list): a glide through -1 would flash the palette's own colours.
     for (const char* held : {"paletteBaseOverride", "paletteRangeOverride", "palette2BaseOverride", "palette2RangeOverride", "paramFadeSec"}) {
         check(SceneParams::schema()[static_cast<size_t>(SceneParams::slotOf(held))].fade == ParamFade::Hold, std::string(held) + " is held");
     }

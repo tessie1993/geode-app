@@ -26,18 +26,6 @@ import javax.microedition.khronos.opengles.GL10
 class VisualizerRenderer(
     context: Context,
 ) : GLSurfaceView.Renderer {
-    companion object {
-        /** The floats a parameter fade must never glide, and why. */
-        val NOT_FADED: Map<String, String> =
-            mapOf(
-                "paramFadeSec" to "the fade's own time constant: gliding it would make every fade chase a moving target",
-                "paletteBaseOverride" to "UNSET_OVERRIDE (-1) is a sentinel: a glide through it flickers between set and unset",
-                "paletteRangeOverride" to "UNSET_OVERRIDE sentinel, as paletteBaseOverride",
-                "palette2BaseOverride" to "UNSET_OVERRIDE sentinel, as paletteBaseOverride",
-                "palette2RangeOverride" to "UNSET_OVERRIDE sentinel, as paletteBaseOverride",
-            )
-    }
-
     /**
      * Until a look is pushed, the app's first style (FreeTier.FIRST_STYLE_ID in :app): the wallpaper
      * and dream with no saved look then show the free showpiece rather than silk, a Pro renderer.

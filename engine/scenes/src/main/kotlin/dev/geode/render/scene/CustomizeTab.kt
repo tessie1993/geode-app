@@ -87,13 +87,6 @@ enum class CustomizeTab(
         /** The pages the panel shows, in order. */
         val PANEL: List<CustomizeTab> = listOf(MACROS, LOOK, STYLE, MOTION, MUSIC, MODULATE, ADVANCED)
 
-        /** The camera rig: Motion in the engine and on screen (Motion › Camera). */
-        val CAMERA_KEYS: Set<String> =
-            setOf(ParamKeys.CAM_PATH, ParamKeys.CAM_FLY, ParamKeys.CAM_ORBIT, ParamKeys.CAM_FOV, ParamKeys.CAM_SHAKE)
-
-        /** Motion controls only some styles have: the endless dive and the scene's inner motion. */
-        val STYLE_MOTION_KEYS: Set<String> = setOf(ParamKeys.ENDLESS_ZOOM, ParamKeys.DIVE_SPEED, ParamKeys.TURBULENCE)
-
         /** The flow field and ripple overlay ride on every style: Motion, not the style's page. */
         val ALL_STYLES_FLOW_KEYS: Set<String> =
             setOf(

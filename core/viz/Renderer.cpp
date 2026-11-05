@@ -297,7 +297,18 @@ void Renderer::onSurfaceCreated() {
     programCache_.prime();
     // The old context's staged programs died with it: drop their ids before releaseScenes clears.
     stager_.onContext(profile_.report.extensions.count("GL_KHR_parallel_shader_compile") > 0);
+    // Every name the old context made is released here, before this context's first glGen* (#374).
+    // GL numbers names per context from 1, so an old name deleted after a new object was made can be
+    // that new object: the passes' create() used to release first, after the overlays and the trail
+    // pass had already made names on the new context, and deleted them. Deleting a name a fresh
+    // context never made is a no-op, so releasing first is safe whether or not the context is new.
     releaseScenes();
+    trailPass_.release();
+    compositePass_.release();
+    bloomPass_.release();
+    uiBlurPass_.release();
+    liquidPass_.release();
+    overlays_.release();
     if (paletteLutTex_ != 0) {
         glDeleteTextures(1, &paletteLutTex_);
         paletteLutTex_ = 0;
@@ -317,7 +328,6 @@ void Renderer::onSurfaceCreated() {
     safetyClock_ = 0.0;
     liquidWasOn_ = false;
     lastBornSceneId_.clear();
-    compositePass_.releaseStaleTextures();
     activeScene_ = nullptr;
     outgoingScene_ = nullptr;
     outgoingParams_.reset();
@@ -325,7 +335,7 @@ void Renderer::onSurfaceCreated() {
     {
         std::lock_guard<std::mutex> lock(stateLock_);
         if (!fluidForceSrc_.empty() || !fluidDyeSrc_.empty()) fluidInjectionDirty_ = true;
-        // W00: the compositePass_.releaseStaleTextures() call above already dropped the underlay
+        // W00: the compositePass_.release() call above already dropped the underlay
         // GL texture, so re-arm from the retained pixel buffer to reupload it once
         // compositePass_.create() (below) has run on the new context.
         if (!underlayPixels_.empty()) underlayDirty_ = true;

@@ -30,6 +30,7 @@ add_library(geode_core STATIC
     output/Chapters.cpp
     output/ExportRange.cpp
     output/RenderEta.cpp
+    output/RenderJob.cpp
     signal/timeline/Keyframes.cpp
     signal/timeline/SpeedRamp.cpp
     signal/timeline/Cues.cpp

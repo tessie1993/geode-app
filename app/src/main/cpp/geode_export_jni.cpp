@@ -15,6 +15,8 @@ namespace {
 constexpr jsize kLoopSpecLongs = 7;
 // Size of the render-ETA state double[]; GeodeNative.ETA_STATE_DOUBLES is the same.
 constexpr jsize kEtaStateDoubles = 9;
+// Size of the render-job snapshot double[]; GeodeNative.RENDER_JOB_DOUBLES is the same.
+constexpr jsize kRenderJobDoubles = 8;
 
 void writeLoopSpec(JNIEnv* env, const geode_loop_spec& s, jlongArray out) {
     if (!out || env->GetArrayLength(out) < kLoopSpecLongs) return;
@@ -224,6 +226,49 @@ JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_renderEtaPhrase(
         env->SetLongArrayRegion(outCount, 0, 1, &value);
     }
     return phrase;
+}
+
+// The render job (output/RenderJob). Process-wide in native; these only pass codes through, and the snapshot
+// goes out as a double[kRenderJobDoubles] in GeodeNative.RENDER_JOB_* order.
+JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_GeodeNative_renderJobBegin(JNIEnv*, jobject, jint kind) {
+    return geode_render_job_begin(kind) != 0 ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_GeodeNative_renderJobPublish(JNIEnv*, jobject, jfloat progress,
+                                                                                    jlong atMs, jboolean steady) {
+    return geode_render_job_publish(progress, atMs, steady ? 1 : 0) != 0 ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_GeodeNative_renderJobRequestCancel(JNIEnv*, jobject) {
+    return geode_render_job_request_cancel() != 0 ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_GeodeNative_renderJobCancelRequested(JNIEnv*, jobject) {
+    return geode_render_job_cancel_requested() != 0 ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_renderJobFinish(JNIEnv*, jobject, jint outcome) {
+    return geode_render_job_finish(outcome);
+}
+
+JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_renderJobSnapshot(JNIEnv* env, jobject, jdoubleArray out) {
+    if (!out || env->GetArrayLength(out) < kRenderJobDoubles) return;
+    geode_render_job_state s{};
+    geode_render_job_snapshot(&s);
+    const jdouble values[kRenderJobDoubles] = {
+        static_cast<jdouble>(s.phase),        static_cast<jdouble>(s.kind),
+        static_cast<jdouble>(s.generation),   static_cast<jdouble>(s.has_progress),
+        s.progress,                           static_cast<jdouble>(s.seconds_left),
+        static_cast<jdouble>(s.cancel_requested), static_cast<jdouble>(s.outcome)};
+    env->SetDoubleArrayRegion(out, 0, kRenderJobDoubles, values);
+}
+
+JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_renderJobReport(JNIEnv*, jobject, jint outcome) {
+    return geode_render_job_report(outcome);
+}
+
+JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_GeodeNative_renderJobKeepsOutput(JNIEnv*, jobject, jint outcome) {
+    return geode_render_job_keeps_output(outcome) != 0 ? JNI_TRUE : JNI_FALSE;
 }
 
 // Caption cues (signal/timeline/Cues). Stateless: the triples and the origin pair live in Kotlin arrays.

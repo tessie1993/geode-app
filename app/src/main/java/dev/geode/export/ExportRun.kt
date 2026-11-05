@@ -9,91 +9,91 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
+/**
+ * The glue around the native render job (`core/output/RenderJob`, #433), which decides the one render at
+ * a time, its progress, cancel and outcome. Kotlin keeps the coroutine and [state], the native snapshot
+ * mirrored after every transition for the UI and [ExportService]. Enum ordinals are the native codes.
+ */
 object ExportRun {
     val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+    /** Which render holds the job, so a rebuilt screen mirrors the right state (#372). */
+    enum class Kind { RENDER, BATCH, PROJECT, LOOP }
+
+    /** How a render ended as its caller saw it; [finish] resolves it. */
+    enum class Outcome { SAVED, FAILED, CANCELLED, LOCKED, NOTHING_TO_RENDER }
 
     data class State(
         val running: Boolean = false,
         val progress: Float? = null,
         val label: String = "",
         val secondsRemaining: Long? = null,
+        val kind: Kind? = null,
     )
 
-    /**
-     * The render-ETA state `core/output/RenderEta` steps on each [publish]. Kotlin only holds it; all
-     * zeros is a fresh estimate, so [begin] and [finish] clear it without a native call.
-     */
-    private val eta = DoubleArray(GeodeNative.ETA_STATE_DOUBLES)
+    private val snapshot = DoubleArray(GeodeNative.RENDER_JOB_DOUBLES)
+    private var label = ""
 
     private val _state = MutableStateFlow(State())
     val state: StateFlow<State> = _state
 
     val running: Boolean get() = _state.value.running
 
-    @Volatile
-    var cancelRequested: Boolean = false
-        private set
+    /** What the encoders' frame loops poll: blocking GL and MediaCodec work has no suspension point. */
+    val cancelRequested: Boolean get() = GeodeNative.renderJobCancelRequested()
 
-    /**
-     * The coroutine running the render now, kept here rather than in the controller that started
-     * it. The controller belongs to the UI's session and is rebuilt when the Activity is; the render
-     * is not. A Cancel pressed on the rebuilt UI used to set a flag on the new controller that the
-     * old render's `isCancelled` lambda never read, so the button did nothing. Held process-wide,
-     * any caller can stop the one render there is.
-     */
+    /** The render's coroutine, held here: the controller is rebuilt with the Activity, the render is not. */
     @Volatile
     private var job: Job? = null
 
-    /**
-     * Starts [block] as the render on [scope] and remembers it for [requestCancel]. Call after
-     * [begin]; the block's own `finally` should call [finish].
-     */
+    /** Starts [block] as the render on [scope]. Call after [begin]; the block's `finally` calls [finish]. */
     fun launch(block: suspend CoroutineScope.() -> Unit): Job = scope.launch(block = block).also { job = it }
 
     /**
-     * Stops the render, whoever asks: the Cancel button (whichever controller drew it), or
-     * [ExportService] when the platform times the foreground service out.
-     *
-     * Two levers, because neither reaches everything alone. The flag is what the encoders' frame
-     * loops poll: they run blocking GL and MediaCodec work with no suspension point, so a
-     * cancelled job would carry on to the last frame, and the flag is also what sends them down
-     * their own cleanup (the pending MediaStore row or SAF document deleted, scratch loops
-     * discarded). Cancelling the job then ends whatever is suspended (the loudness read, the step
-     * from loop render to extend, the gap between batch tracks) and makes the run end as
-     * cancelled: the callers' `catch` blocks see a [kotlinx.coroutines.CancellationException],
-     * reset their UI state and rethrow, and their `finally` still calls [finish], which is what
-     * stops [ExportService].
+     * Stops the render, whoever asks (any Cancel, or [ExportService]'s timeout): the native flag sends the frame
+     * loops down their own cleanup, cancelling the job ends whatever is suspended; the `finally` still finishes.
      */
     fun requestCancel() {
-        cancelRequested = true
+        if (GeodeNative.renderJobRequestCancel()) mirror()
         job?.cancel()
     }
 
-    fun begin(label: String) {
-        eta.fill(0.0)
-        cancelRequested = false
-        _state.value = State(running = true, progress = null, label = label)
+    /** False when another render holds the job. */
+    fun begin(
+        kind: Kind,
+        label: String,
+    ): Boolean {
+        if (!GeodeNative.renderJobBegin(kind.ordinal)) return false
+        this.label = label
+        mirror()
+        return true
     }
 
-    /**
-     * [steady] is false for the quick lead-in phase (the audio transcode): it moves the
-     * bar but says nothing about how fast the render will go, so the native estimate skips it.
-     */
+    /** [steady] is false for the quick lead-in (the audio transcode), which the native estimate skips. */
     fun publish(
         progress: Float,
         steady: Boolean = true,
-        atMs: Long = android.os.SystemClock.elapsedRealtime(),
     ) {
-        val current = _state.value
-        if (!current.running) return
-        val clamped = progress.coerceIn(0f, 1f)
-        val left = GeodeNative.renderEtaSample(eta, clamped, atMs, steady)
-        _state.value = current.copy(progress = clamped, secondsRemaining = left.takeIf { it >= 0 })
+        if (GeodeNative.renderJobPublish(progress, android.os.SystemClock.elapsedRealtime(), steady)) mirror()
     }
 
-    fun finish() {
+    /** Ends the render with what its caller saw; answers the native resolution, null when none was live. */
+    fun finish(outcome: Outcome): Outcome? {
         job = null
-        eta.fill(0.0)
-        _state.value = State()
+        return Outcome.entries.getOrNull(GeodeNative.renderJobFinish(outcome.ordinal)).also { mirror() }
+    }
+
+    /** Read and published under one lock, so a stale snapshot never overwrites a newer one. */
+    @Synchronized
+    private fun mirror() {
+        GeodeNative.renderJobSnapshot(snapshot)
+        val live = snapshot[0].toInt() in GeodeNative.RENDER_PHASE_PREPARING..GeodeNative.RENDER_PHASE_CANCELLING
+        _state.value =
+            if (!live) {
+                State()
+            } else {
+                val progress = snapshot[4].toFloat().takeIf { snapshot[3] != 0.0 }
+                State(true, progress, label, snapshot[5].toLong().takeIf { it >= 0 }, Kind.entries[snapshot[1].toInt()])
+            }
     }
 }

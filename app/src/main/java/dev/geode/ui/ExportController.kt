@@ -31,6 +31,7 @@ import dev.geode.editor.StudioProject
 import dev.geode.editor.Timeline
 import dev.geode.editor.cappedAt
 import dev.geode.editor.sourceTimeAt
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.export.BatchOutcome
 import dev.geode.export.BatchTrack
 import dev.geode.export.ExportAspect
@@ -60,7 +61,6 @@ import dev.geode.util.bestEffort
 import dev.geode.viz.BackgroundExportSpec
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -69,16 +69,6 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
-
-data class StudioUiState(
-    val phase: ExportPhase = ExportPhase.Idle,
-    /**
-     * What the last project render left out and why (the render plan's skipped-clip report), or
-     * null when it drew everything. It is also shown as a toast when the render ends; this copy is
-     * for a Render page that wants to keep it on screen.
-     */
-    val notice: String? = null,
-)
 
 data class ExportUiState(
     val customDestination: Boolean = false,
@@ -155,29 +145,30 @@ internal class ExportController(
     private val _exportState = MutableStateFlow(ExportUiState())
     val exportState: StateFlow<ExportUiState> = _exportState
 
-    private val _studio = MutableStateFlow(StudioUiState())
+    private val _loopState = MutableStateFlow(LoopUiState())
+    val loopState: StateFlow<LoopUiState> = _loopState
 
-    val studio: StateFlow<StudioUiState> = _studio
-
-    @Volatile
-    private var exportCancelled = false
-
-    private var exportJob: Job? = null
-
+    /**
+     * A render an earlier controller started (the session was rebuilt while it ran) shows here too
+     * (#372): the native job says which kind holds it, so a loop render's progress goes to
+     * [loopState] and every other render's to [exportState], the state Studio › Render reads. Its
+     * result belongs to the controller that started it; this one clears its bar when the job ends.
+     */
     init {
-        if (ExportRun.running) {
+        val kind = ExportRun.state.value.kind
+        if (kind != null) {
+            val loop = kind == ExportRun.Kind.LOOP
             scope.launch {
                 ExportRun.state
                     .takeWhile { it.running }
                     .collect { run ->
-                        _exportState.update { it.copy(phase = ExportPhase.Running(run.progress ?: 0f)) }
+                        val phase = ExportPhase.Running(run.progress ?: 0f)
+                        if (loop) _loopState.value = LoopUiState(phase) else _exportState.update { it.copy(phase = phase) }
                     }
-                if (!ExportRun.running) _exportState.value = ExportUiState()
+                if (loop) _loopState.value = LoopUiState() else _exportState.value = ExportUiState()
             }
         }
     }
-
-    private var studioJob: Job? = null
 
     // Built on first use, which is on IO: the store sweeps old folders when it is made.
     private val projectStore by lazy { EditorProjectStore(application) }
@@ -199,96 +190,156 @@ internal class ExportController(
         watermark: Boolean = false,
     ) {
         val uri = host.exportUri ?: return
-        if (_exportState.value.phase.isBusy || ExportRun.running) return
-        exportCancelled = false
-        _exportState.value =
-            ExportUiState(customDestination = destination != null, phase = ExportPhase.Running(0f))
+        val name = "muzviz_${System.currentTimeMillis()}.mp4"
+        val custom = destination != null
+        var saved: RenderResult.Saved? = null
         // Basename only: a SAF document id is "primary:Music/Artist/Song.mp3", and this
         // label goes straight into the foreground-service notification, where the lock
         // screen and every enabled notification listener can read it.
-        ExportRun.begin(uri.lastPathSegment.orEmpty().substringAfterLast('/'))
-        ExportService.start(application)
-        exportJob =
-            ExportRun.launch {
-                try {
-                    val name = "muzviz_${System.currentTimeMillis()}.mp4"
-                    val exportTake = host.loadExportTake()
-                    val sceneId =
-                        if (exportTake != null && sceneFactoryFor != null) {
-                            exportSceneIdFor(exportTake, host.sceneId)
-                        } else {
-                            sceneFactory.sceneId
-                        }
-                    val project = oneTapProject(uri, range, sceneId, sceneFactory.milkPresetPath, exportTake)
-                    val factoryFor: (String, String?) -> SceneFactory =
-                        { id, _ -> if (id == sceneFactory.sceneId) sceneFactory else sceneFactoryFor?.invoke(id) ?: sceneFactory }
-                    val spec =
-                        RenderSpec(
-                            aspect = aspect,
-                            defaults = ExportDefaults(fps = fps, codec = codec, loudnessTargetId = loadExportDefaults().loudnessTargetId),
-                            watermark = watermark,
-                        )
-                    val result =
-                        render(
-                            project = project,
-                            plan = ProjectComposition.plan(project),
-                            spec = spec,
-                            takes = { exportTake },
-                            factoryFor = factoryFor,
-                            fileName = name,
-                            destination = destination,
-                            onProgress = { p, steady ->
-                                _exportState.update { it.copy(phase = ExportPhase.Running(p)) }
-                                ExportRun.publish(p, steady = steady)
-                            },
-                            isCancelled = { exportCancelled || ExportRun.cancelRequested },
-                        )
-                    _exportState.value = oneTapState(result, destination, name)
-                } catch (t: Throwable) {
-                    // Cancellation is tested before the user's own cancel flag: when the two
-                    // coincide the flag branch used to win and swallow the CancellationException,
-                    // leaving a cancelled coroutine to finish as if it had succeeded.
-                    if (t is kotlinx.coroutines.CancellationException) {
-                        _exportState.value = ExportUiState()
-                        throw t
-                    } else if (exportCancelled) {
-                        _exportState.value = ExportUiState()
-                    } else {
-                        val reason = t.message ?: application.getString(dev.geode.R.string.export_error_no_message)
-                        val detail = "${t.javaClass.simpleName}: $reason"
-                        _exportState.value = ExportUiState(phase = ExportPhase.Failed(detail))
-                    }
-                } finally {
-                    ExportRun.finish()
+        val label = uri.lastPathSegment.orEmpty().substringAfterLast('/')
+        val onEnd: (Report, Ended) -> Unit = { report, ended -> _exportState.value = oneTapState(report, ended, saved, custom, name) }
+        val starting = ExportUiState(customDestination = custom, phase = ExportPhase.Running(0f))
+        launchRender(ExportRun.Kind.RENDER, label, onBegin = { _exportState.value = starting }, onEnd) {
+            val exportTake = host.loadExportTake()
+            val sceneId =
+                if (exportTake != null && sceneFactoryFor != null) {
+                    exportSceneIdFor(exportTake, host.sceneId)
+                } else {
+                    sceneFactory.sceneId
                 }
-            }
+            val project = oneTapProject(uri, range, sceneId, sceneFactory.milkPresetPath, exportTake)
+            val factoryFor: (String, String?) -> SceneFactory =
+                { id, _ -> if (id == sceneFactory.sceneId) sceneFactory else sceneFactoryFor?.invoke(id) ?: sceneFactory }
+            val spec =
+                RenderSpec(
+                    aspect = aspect,
+                    defaults = ExportDefaults(fps = fps, codec = codec, loudnessTargetId = loadExportDefaults().loudnessTargetId),
+                    watermark = watermark,
+                )
+            val result =
+                render(
+                    project = project,
+                    plan = ProjectComposition.plan(project),
+                    spec = spec,
+                    takes = { exportTake },
+                    factoryFor = factoryFor,
+                    fileName = name,
+                    destination = destination,
+                    onProgress = { p, steady -> publishProgress(p, steady) },
+                    isCancelled = { ExportRun.cancelRequested },
+                )
+            saved = result as? RenderResult.Saved
+            ended(result)
+        }
     }
 
+    /**
+     * The one-tap Render's bar once it ends. The style that renders is checked, not only the one on
+     * stage when Render was pressed: a take records whatever was on stage, a previewed Pro style or
+     * one used during the trial included, and exporting it must not hand that style out for free, so
+     * a locked render offers Pro ([phaseFor]).
+     */
     private fun oneTapState(
-        result: RenderResult,
-        destination: Uri?,
+        report: Report,
+        ended: Ended,
+        saved: RenderResult.Saved?,
+        custom: Boolean,
         name: String,
     ): ExportUiState =
-        when (result) {
-            is RenderResult.Saved ->
-                ExportUiState(
-                    customDestination = destination != null,
-                    phase = ExportPhase.Done(result.uri),
-                    loudnessAdvice = result.loudnessAdvice,
-                    fileName = name.takeIf { destination == null },
-                )
-            is RenderResult.Failed -> ExportUiState(customDestination = destination != null, phase = ExportPhase.Failed(result.message))
-            RenderResult.Cancelled -> ExportUiState(customDestination = destination != null)
-            // The style that renders is checked, not only the one on stage when Render was pressed:
-            // a take records whatever was on stage, a previewed Pro style or one used during the
-            // trial included, and exporting it must not hand that style out for free.
-            RenderResult.Locked -> {
-                host.onStyleLocked()
-                ExportUiState()
-            }
-            RenderResult.NothingToRender ->
-                ExportUiState(phase = ExportPhase.Failed(application.getString(dev.geode.R.string.editor_export_nothing)))
+        ExportUiState(
+            customDestination = custom,
+            phase = phaseFor(report, ended),
+            loudnessAdvice = saved?.loudnessAdvice?.takeIf { report == Report.DONE },
+            fileName = name.takeIf { report == Report.DONE && !custom },
+        )
+
+    /** Every render's progress: the bar of the state the job's kind shows in, mirrored from the native job. */
+    private fun publishProgress(
+        p: Float,
+        steady: Boolean = true,
+    ) {
+        ExportRun.publish(p, steady)
+        val progress = ExportRun.state.value.progress ?: return
+        if (ExportRun.state.value.kind == ExportRun.Kind.LOOP) {
+            _loopState.value = LoopUiState(ExportPhase.Running(progress))
+        } else {
+            _exportState.update { it.copy(phase = ExportPhase.Running(progress)) }
         }
+    }
+
+    /**
+     * What a render ended with, as its caller saw it: the outcome the native job resolves, and the
+     * video or the reason that goes with it.
+     */
+    private class Ended(
+        val outcome: ExportRun.Outcome,
+        val uri: Uri? = null,
+        val message: String? = null,
+    )
+
+    /** What the screen that started a render shows once it ends; ordinal = native `RenderReport`. */
+    private enum class Report { CLEAR, DONE, FAILED, OFFER_PRO }
+
+    private fun ended(result: RenderResult): Ended =
+        when (result) {
+            is RenderResult.Saved -> Ended(ExportRun.Outcome.SAVED, uri = result.uri)
+            is RenderResult.Failed -> Ended(ExportRun.Outcome.FAILED, message = result.message)
+            RenderResult.Cancelled -> Ended(ExportRun.Outcome.CANCELLED)
+            RenderResult.Locked -> Ended(ExportRun.Outcome.LOCKED)
+            RenderResult.NothingToRender ->
+                Ended(ExportRun.Outcome.NOTHING_TO_RENDER, message = application.getString(dev.geode.R.string.editor_export_nothing))
+        }
+
+    /** The bar a native report draws; a locked style also offers Pro (the paywall request is a StateFlow, safe here). */
+    private fun phaseFor(
+        report: Report,
+        ended: Ended,
+    ): ExportPhase =
+        when (report) {
+            Report.DONE -> ended.uri?.let { ExportPhase.Done(it) } ?: ExportPhase.Idle
+            Report.FAILED -> ExportPhase.Failed(ended.message ?: application.getString(dev.geode.R.string.export_error_no_message))
+            Report.OFFER_PRO -> {
+                host.onStyleLocked()
+                ExportPhase.Idle
+            }
+            Report.CLEAR -> ExportPhase.Idle
+        }
+
+    /**
+     * Begins [kind] as the process's one render (false, and nothing runs, when the native job refuses:
+     * another render holds the encoder), shows [onBegin]'s busy state before anything can end it,
+     * starts [ExportService] and runs [body] on [ExportRun.scope].
+     * Whatever ends it, [body]'s result, a failure or the coroutine's cancellation (tested first, so a
+     * cancelled render never finishes as if it had succeeded), goes to the native job, and [onEnd] gets
+     * the job's report, after the run is released.
+     */
+    private fun launchRender(
+        kind: ExportRun.Kind,
+        label: String,
+        onBegin: () -> Unit,
+        onEnd: (Report, Ended) -> Unit,
+        body: suspend () -> Ended,
+    ): Boolean {
+        if (!ExportRun.begin(kind, label)) return false
+        onBegin()
+        ExportService.start(application)
+        ExportRun.launch {
+            var ended = Ended(ExportRun.Outcome.FAILED)
+            try {
+                ended = body()
+            } catch (c: kotlinx.coroutines.CancellationException) {
+                ended = Ended(ExportRun.Outcome.CANCELLED)
+                throw c
+            } catch (t: Throwable) {
+                val reason = t.message ?: application.getString(dev.geode.R.string.export_error_no_message)
+                ended = Ended(ExportRun.Outcome.FAILED, message = "${t.javaClass.simpleName}: $reason")
+            } finally {
+                val resolved = ExportRun.finish(ended.outcome)
+                onEnd(Report.entries[GeodeNative.renderJobReport(resolved?.ordinal ?: GeodeNative.RENDER_OUTCOME_NONE)], ended)
+            }
+        }
+        return true
+    }
 
     /**
      * The project a one-tap render is: the song (or the chosen [range] of it) on an audio lane, and
@@ -353,7 +404,7 @@ internal class ExportController(
         codec: ExportCodec,
         watermark: Boolean,
     ) {
-        if (tracks.isEmpty() || _exportState.value.phase.isBusy || ExportRun.running) return
+        if (tracks.isEmpty() || ExportRun.running) return
         // The scope picker hides batches below Android 10; this catches any other way in, since
         // there every track would fail at the MediaStore insert (RenderScope.BATCH_MIN_SDK).
         if (!RenderScope.batchSupported(Build.VERSION.SDK_INT)) {
@@ -361,43 +412,37 @@ internal class ExportController(
                 ExportUiState(phase = ExportPhase.Failed(application.getString(dev.geode.R.string.render_batch_needs_q)))
             return
         }
-        exportCancelled = false
         var batch = RenderBatch(tracks)
-        _exportState.value = ExportUiState(phase = ExportPhase.Running(0f), batch = batch)
-        ExportRun.begin(application.getString(dev.geode.R.string.render_batch_label, tracks.size))
-        ExportService.start(application)
-        exportJob =
-            ExportRun.launch {
-                try {
-                    val gui = host.guiPrefs
-                    // A Cancel between tracks ends the loop; the tracks left are then marked cancelled.
-                    var track = batch.current
-                    while (track != null && !exportCancelled && !ExportRun.cancelRequested) {
-                        val publish: (Float) -> Unit = { within ->
-                            val overall = batch.progress(within)
-                            _exportState.update { it.copy(phase = ExportPhase.Running(overall), batch = batch) }
-                            ExportRun.publish(overall)
-                        }
-                        publish(0f)
-                        val outcome =
-                            try {
-                                renderBatchTrack(track, aspect, fps, sceneFactory, sceneParams, codec, watermark, gui, publish)
-                            } catch (c: kotlinx.coroutines.CancellationException) {
-                                throw c
-                            } catch (t: Throwable) {
-                                BatchOutcome.Failed(t.message ?: t.javaClass.simpleName)
-                            }
-                        batch = if (outcome == BatchOutcome.Cancelled) batch.cancelRest() else batch.record(outcome)
-                        track = batch.current
-                    }
-                    _exportState.value = batch.cancelRest().toUiState()
-                } catch (t: kotlinx.coroutines.CancellationException) {
-                    _exportState.value = batch.cancelRest().toUiState()
-                    throw t
-                } finally {
-                    ExportRun.finish()
+        val label = application.getString(dev.geode.R.string.render_batch_label, tracks.size)
+        // The batch's own record says what each track did, so its bar is the record's, whatever the job reports.
+        launchRender(
+            ExportRun.Kind.BATCH,
+            label,
+            onBegin = { _exportState.value = ExportUiState(phase = ExportPhase.Running(0f), batch = batch) },
+            onEnd = { _, _ -> _exportState.value = batch.cancelRest().toUiState() },
+        ) {
+            val gui = host.guiPrefs
+            // A Cancel between tracks ends the loop; the tracks left are then marked cancelled.
+            var track = batch.current
+            while (track != null && !ExportRun.cancelRequested) {
+                val publish: (Float) -> Unit = { within ->
+                    _exportState.update { it.copy(batch = batch) }
+                    publishProgress(batch.progress(within))
                 }
+                publish(0f)
+                val outcome =
+                    try {
+                        renderBatchTrack(track, aspect, fps, sceneFactory, sceneParams, codec, watermark, gui, publish)
+                    } catch (c: kotlinx.coroutines.CancellationException) {
+                        throw c
+                    } catch (t: Throwable) {
+                        BatchOutcome.Failed(t.message ?: t.javaClass.simpleName)
+                    }
+                batch = if (outcome == BatchOutcome.Cancelled) batch.cancelRest() else batch.record(outcome)
+                track = batch.current
             }
+            Ended(if (ExportRun.cancelRequested) ExportRun.Outcome.CANCELLED else ExportRun.Outcome.SAVED)
+        }
     }
 
     private suspend fun renderBatchTrack(
@@ -430,7 +475,7 @@ internal class ExportController(
                 loudnessTarget = defaultLoudnessTarget(),
                 background = defaultBackground(),
                 onProgress = publish,
-                isCancelled = { exportCancelled || ExportRun.cancelRequested },
+                isCancelled = { ExportRun.cancelRequested },
                 watermark = watermark,
             )
         return when (result) {
@@ -455,15 +500,11 @@ internal class ExportController(
     }
 
     /**
-     * Stops the render through [ExportRun], not only through this controller's flag: after the
-     * Activity is recreated this controller is a new one that re-attached to a render an older one
-     * started, whose `isCancelled` never reads [exportCancelled]. [ExportRun.requestCancel] reaches
-     * that render whichever controller asks.
+     * Stops the render through [ExportRun], whichever controller started it: after the Activity is
+     * recreated this controller is a new one that re-attached to a render an older one started. The
+     * native job ignores a cancel when nothing is rendering, so the next render starts with the flag down.
      */
-    fun cancelExport() {
-        exportCancelled = true
-        if (ExportRun.running) ExportRun.requestCancel()
-    }
+    fun cancelExport() = ExportRun.requestCancel()
 
     fun resetExportState() {
         if (!_exportState.value.phase.isBusy) _exportState.value = ExportUiState()
@@ -501,69 +542,60 @@ internal class ExportController(
         destination: Uri? = null,
         onRendered: (ProjectRender) -> Unit = {},
     ) {
-        if (_studio.value.phase.isBusy || ExportRun.running) return
         val limits = host.renderLimits()
         val edit = project.cappedAt(limits.capMs).edit
-        _studio.update { it.copy(phase = ExportPhase.Running(0f), notice = null) }
-        ExportRun.begin(project.name.ifBlank { application.getString(dev.geode.R.string.render_video_label) })
-        ExportService.start(application)
-        studioJob =
-            ExportRun.launch {
-                runStudioRender {
-                    val export = project.export
-                    val plan = ProjectComposition.plan(edit)
-                    val notice = plan.report.message(application)
-                    val name = "muzviz_cut_${System.currentTimeMillis()}.mp4"
-                    // A document this call makes in the user's folder exists the moment it is created,
-                    // so every outcome but Saved deletes it again (#366): a locked style, nothing to
-                    // render, a failed segment, Cancel, an exception or the job's own cancellation. A
-                    // destination the caller passed in is theirs and is left alone.
-                    val created =
-                        if (destination == null) withContext(Dispatchers.IO) { folderDocument(export.saveTo, name) } else null
-                    val target = destination ?: created
-                    var saved = false
-                    try {
-                        val result =
-                            render(
-                                project = edit,
-                                plan = plan,
-                                spec = RenderSpec(ExportAspect.of(export.quality, export.ratio), export, limits.watermark),
-                                takes = { takeId -> loadTake(project.id, takeId) },
-                                factoryFor = ::plainSceneFactory,
-                                fileName = name,
-                                destination = target,
-                                onProgress = { p, _ -> publishStudioProgress(p) },
-                                isCancelled = ::studioCancelRequested,
-                            )
-                        saved = result is RenderResult.Saved
-                        val phase =
-                            when (result) {
-                                is RenderResult.Saved -> {
-                                    val label = project.name.ifBlank { name }
-                                    val render = ProjectRender(result.uri.toString(), label, System.currentTimeMillis(), result.durationMs)
-                                    withContext(Dispatchers.Main) { onRendered(render) }
-                                    ExportPhase.Done(result.uri)
-                                }
-                                is RenderResult.Failed -> ExportPhase.Failed(result.message)
-                                RenderResult.Cancelled -> ExportPhase.Idle
-                                RenderResult.Locked -> {
-                                    host.onStyleLocked()
-                                    ExportPhase.Idle
-                                }
-                                RenderResult.NothingToRender ->
-                                    ExportPhase.Failed(application.getString(dev.geode.R.string.editor_export_nothing))
-                            }
-                        _studio.update { it.copy(phase = phase, notice = notice) }
-                        // The report reaches the user whatever page they are on: the render may finish
-                        // long after they left Studio.
-                        if (notice != null && result != RenderResult.Cancelled) {
-                            withContext(Dispatchers.Main) { Toast.makeText(application, notice, Toast.LENGTH_LONG).show() }
-                        }
-                    } finally {
-                        if (!saved && created != null) discardUnusedTarget(created)
-                    }
+        val label = project.name.ifBlank { application.getString(dev.geode.R.string.render_video_label) }
+        // One state for every render but the loop (#372, as #448 has it): a take rendering in the
+        // background shows its progress and result on Studio › Render's bar like the one-tap Render. A
+        // picked folder's name is the picker's, so no file name is claimed.
+        launchRender(
+            ExportRun.Kind.PROJECT,
+            label,
+            onBegin = { _exportState.value = ExportUiState(phase = ExportPhase.Running(0f)) },
+            onEnd = { report, ended -> _exportState.update { it.copy(phase = phaseFor(report, ended)) } },
+        ) {
+            val export = project.export
+            val plan = ProjectComposition.plan(edit)
+            val notice = plan.report.message(application)
+            val name = "muzviz_cut_${System.currentTimeMillis()}.mp4"
+            // A document this call makes in the user's folder exists the moment it is created, and
+            // the native job says which outcomes keep it: only Saved (#366). A locked style, nothing
+            // to render, a failed segment, Cancel, an exception or the job's own cancellation delete
+            // it again. A destination the caller passed in is theirs and is left alone.
+            val created =
+                if (destination == null) withContext(Dispatchers.IO) { folderDocument(export.saveTo, name) } else null
+            var outcome = ExportRun.Outcome.FAILED
+            try {
+                val result =
+                    render(
+                        project = edit,
+                        plan = plan,
+                        spec = RenderSpec(ExportAspect.of(export.quality, export.ratio), export, limits.watermark),
+                        takes = { takeId -> loadTake(project.id, takeId) },
+                        factoryFor = ::plainSceneFactory,
+                        fileName = name,
+                        destination = destination ?: created,
+                        onProgress = { p, _ -> publishProgress(p) },
+                        isCancelled = { ExportRun.cancelRequested },
+                    )
+                val end = ended(result)
+                outcome = end.outcome
+                if (result is RenderResult.Saved) {
+                    val title = project.name.ifBlank { name }
+                    val render = ProjectRender(result.uri.toString(), title, System.currentTimeMillis(), result.durationMs)
+                    withContext(Dispatchers.Main) { onRendered(render) }
                 }
+                // The report reaches the user whatever page they are on: the render may finish
+                // long after they left Studio.
+                if (notice != null && result != RenderResult.Cancelled) {
+                    withContext(Dispatchers.Main) { Toast.makeText(application, notice, Toast.LENGTH_LONG).show() }
+                }
+                end
+            } finally {
+                val keeps = GeodeNative.renderJobKeepsOutput(outcome.ordinal)
+                if (!keeps && created != null) discardUnusedTarget(created)
             }
+        }
     }
 
     /**
@@ -579,36 +611,6 @@ internal class ExportController(
                 bestEffort(TAG, "delete unused render target") { DocumentsContract.deleteDocument(application.contentResolver, target) }
             }
         }
-    }
-
-    /** The shared ending of a Studio render: failures to [ExportPhase.Failed], the run released. */
-    private suspend fun runStudioRender(block: suspend () -> Unit) {
-        try {
-            block()
-        } catch (c: kotlinx.coroutines.CancellationException) {
-            _studio.update { it.copy(phase = ExportPhase.Idle) }
-            throw c
-        } catch (t: Throwable) {
-            val phase =
-                if (ExportRun.cancelRequested) {
-                    ExportPhase.Idle
-                } else {
-                    val reason = t.message ?: application.getString(dev.geode.R.string.export_error_no_message)
-                    ExportPhase.Failed("${t.javaClass.simpleName}: $reason")
-                }
-            _studio.update { it.copy(phase = phase) }
-        } finally {
-            studioJob = null
-            ExportRun.finish()
-        }
-    }
-
-    private fun studioCancelRequested(): Boolean = ExportRun.cancelRequested
-
-    private fun publishStudioProgress(p: Float) {
-        val clamped = p.coerceIn(0f, 1f)
-        _studio.update { it.copy(phase = ExportPhase.Running(clamped)) }
-        ExportRun.publish(clamped)
     }
 
     /** How a render is encoded: a project's export settings, or the one-tap render's own choices. */
@@ -911,19 +913,11 @@ internal class ExportController(
     private val loopRenderer = LoopRender(application)
     private val loopExtender = LoopExtend(application)
 
-    private val _loopState = MutableStateFlow(LoopUiState())
-    val loopState: StateFlow<LoopUiState> = _loopState
-
-    @Volatile
-    private var loopCancelled = false
-
-    private var loopJob: Job? = null
-
     /**
      * Renders a seamless loop of the current track's visuals, then repeats it into a
      * long-form video with [audioClips] (or, if empty, the current track) as its soundtrack.
      *
-     * Runs on [ExportRun.scope] and shares [ExportRun]'s single-render guard and foreground
+     * Runs on [ExportRun.scope] and shares the native job's one-render rule and the foreground
      * notification with [startExport]: a long-form render is exactly the case that must survive
      * the Activity going away, and the two are heavy enough that they should not overlap.
      */
@@ -940,53 +934,37 @@ internal class ExportController(
         watermark: Boolean = false,
     ) {
         val uri = host.exportUri ?: return
-        if (_loopState.value.phase.isBusy || ExportRun.running) return
-        loopCancelled = false
-        _loopState.value = LoopUiState(phase = ExportPhase.Running(0f))
-        ExportRun.begin(uri.lastPathSegment.orEmpty().substringAfterLast('/'))
-        ExportService.start(application)
-        loopJob =
-            ExportRun.launch {
-                try {
-                    val gui = host.guiPrefs
-                    val spec = LoopSpec.of(loopMs, crossfadeMs, fps = fps)
-                    // Plus one loop: the extend rounds the repeats up to a whole loop.
-                    val longFormMs = loopRenderer.soundtrackMs(audioClips.ifEmpty { listOf(uri) }) + loopMs
-                    val renderResult =
-                        loopRenderer.render(
-                            sceneFactory = sceneFactory,
-                            aspect = aspect,
-                            spec = spec,
-                            sceneParams = host.sceneParams,
-                            drift = drift,
-                            lfoConfigs = host.lfoConfigs(),
-                            adsrConfigs = host.adsrConfigs(),
-                            reactions = host.reactions(),
-                            reducedMotion = gui.reducedMotion,
-                            codec = codec,
-                            audioUri = uri,
-                            soundTuning = gui.soundTuning,
-                            longFormMs = longFormMs,
-                            onProgress = { p -> publishLoopProgress(p * RENDER_SPAN) },
-                            isCancelled = { loopCancelled || ExportRun.cancelRequested },
-                            watermark = watermark,
-                        )
-                    _loopState.value = LoopUiState(phase = finishLoopRender(renderResult, uri, audioClips, destination))
-                } catch (t: Throwable) {
-                    if (t is kotlinx.coroutines.CancellationException) {
-                        _loopState.value = LoopUiState()
-                        throw t
-                    } else if (loopCancelled) {
-                        _loopState.value = LoopUiState()
-                    } else {
-                        val reason = t.message ?: application.getString(dev.geode.R.string.export_error_no_message)
-                        val detail = "${t.javaClass.simpleName}: $reason"
-                        _loopState.value = LoopUiState(phase = ExportPhase.Failed(detail))
-                    }
-                } finally {
-                    ExportRun.finish()
-                }
-            }
+        launchRender(
+            ExportRun.Kind.LOOP,
+            uri.lastPathSegment.orEmpty().substringAfterLast('/'),
+            onBegin = { _loopState.value = LoopUiState(phase = ExportPhase.Running(0f)) },
+            onEnd = { report, ended -> _loopState.value = LoopUiState(phaseFor(report, ended)) },
+        ) {
+            val gui = host.guiPrefs
+            val spec = LoopSpec.of(loopMs, crossfadeMs, fps = fps)
+            // Plus one loop: the extend rounds the repeats up to a whole loop.
+            val longFormMs = loopRenderer.soundtrackMs(audioClips.ifEmpty { listOf(uri) }) + loopMs
+            val renderResult =
+                loopRenderer.render(
+                    sceneFactory = sceneFactory,
+                    aspect = aspect,
+                    spec = spec,
+                    sceneParams = host.sceneParams,
+                    drift = drift,
+                    lfoConfigs = host.lfoConfigs(),
+                    adsrConfigs = host.adsrConfigs(),
+                    reactions = host.reactions(),
+                    reducedMotion = gui.reducedMotion,
+                    codec = codec,
+                    audioUri = uri,
+                    soundTuning = gui.soundTuning,
+                    longFormMs = longFormMs,
+                    onProgress = { p -> publishProgress(p * RENDER_SPAN) },
+                    isCancelled = { ExportRun.cancelRequested },
+                    watermark = watermark,
+                )
+            finishLoopRender(renderResult, uri, audioClips, destination)
+        }
     }
 
     /** Extends a rendered reel into the long-form file, or passes through a render failure. */
@@ -995,10 +973,10 @@ internal class ExportController(
         trackUri: Uri,
         audioClips: List<Uri>,
         destination: Uri?,
-    ): ExportPhase =
+    ): Ended =
         when (renderResult) {
-            is LoopRender.Result.Failed -> ExportPhase.Failed(renderResult.message)
-            LoopRender.Result.Cancelled -> ExportPhase.Idle
+            is LoopRender.Result.Failed -> Ended(ExportRun.Outcome.FAILED, message = renderResult.message)
+            LoopRender.Result.Cancelled -> Ended(ExportRun.Outcome.CANCELLED)
             is LoopRender.Result.Rendered -> {
                 val reel = renderResult.reel
                 try {
@@ -1019,13 +997,13 @@ internal class ExportController(
                             audio = audio,
                             fileName = name,
                             destination = destination,
-                            onProgress = { p -> publishLoopProgress(RENDER_SPAN + p * EXTEND_SPAN) },
-                            isCancelled = { loopCancelled || ExportRun.cancelRequested },
+                            onProgress = { p -> publishProgress(RENDER_SPAN + p * EXTEND_SPAN) },
+                            isCancelled = { ExportRun.cancelRequested },
                         )
                     when (extended) {
-                        is LoopExtend.Result.Saved -> ExportPhase.Done(extended.uri)
-                        is LoopExtend.Result.Failed -> ExportPhase.Failed(extended.message)
-                        LoopExtend.Result.Cancelled -> ExportPhase.Idle
+                        is LoopExtend.Result.Saved -> Ended(ExportRun.Outcome.SAVED, uri = extended.uri)
+                        is LoopExtend.Result.Failed -> Ended(ExportRun.Outcome.FAILED, message = extended.message)
+                        LoopExtend.Result.Cancelled -> Ended(ExportRun.Outcome.CANCELLED)
                     }
                 } finally {
                     reel.delete()
@@ -1033,17 +1011,8 @@ internal class ExportController(
             }
         }
 
-    private fun publishLoopProgress(overall: Float) {
-        val clamped = overall.coerceIn(0f, 1f)
-        _loopState.update { it.copy(phase = ExportPhase.Running(clamped)) }
-        ExportRun.publish(clamped)
-    }
-
     /** Same reasoning as [cancelExport]: the loop render may belong to an earlier controller. */
-    fun cancelLoopRender() {
-        loopCancelled = true
-        if (ExportRun.running) ExportRun.requestCancel()
-    }
+    fun cancelLoopRender() = ExportRun.requestCancel()
 
     fun clearLoopResult() {
         if (!_loopState.value.phase.isBusy) _loopState.value = LoopUiState()

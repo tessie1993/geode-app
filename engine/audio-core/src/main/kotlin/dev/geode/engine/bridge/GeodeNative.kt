@@ -790,6 +790,57 @@ object GeodeNative {
     const val RENDER_OUTCOME_NONE = -1
 
     /**
+     * A batch render's bookkeeping (`core/output/RenderBatch`). Stateless: the caller keeps the tracks and
+     * the outcome codes (RENDER_OUTCOME_*: 0 saved, 1 failed, 2 cancelled) in track order. The tracks [scope]
+     * (0 the song playing, 1 the play queue, 2 a playlist, 3 chosen tracks) renders: indices into the
+     * candidates, [keys] their URIs and [sources] the scope each came from, in order, each URI once.
+     */
+    external fun renderBatchTracks(
+        scope: Int,
+        keys: Array<String>,
+        sources: IntArray,
+    ): IntArray
+
+    /** The track to render next, or -1 when none is left or a cancel was requested. */
+    external fun renderBatchNext(
+        total: Int,
+        done: Int,
+        cancelRequested: Boolean,
+    ): Int
+
+    /** The outcome count after the current track ended with [outcome]: a cancel ends every track left. */
+    external fun renderBatchRecord(
+        total: Int,
+        done: Int,
+        outcome: Int,
+    ): Int
+
+    /** The whole batch's progress with [within] of the current track done. */
+    external fun renderBatchProgress(
+        total: Int,
+        done: Int,
+        within: Float,
+    ): Float
+
+    /**
+     * Size of the summary [renderBatchSummarize] fills: total, done, saved, failed, cancelled, current (-1 once
+     * finished), last saved (-1), first failed (-1), report (RENDER_REPORT ordinal), finished (1 or 0).
+     */
+    const val RENDER_BATCH_INTS = 10
+    const val RENDER_BATCH_SAVED = 2
+    const val RENDER_BATCH_CURRENT = 5
+    const val RENDER_BATCH_LAST_SAVED = 6
+    const val RENDER_BATCH_REPORT = 8
+    const val RENDER_BATCH_FINISHED = 9
+
+    /** Summarizes [codes] (one per track done) of a [total]-track batch into [out]; returns the failed indices. */
+    external fun renderBatchSummarize(
+        codes: IntArray,
+        total: Int,
+        out: IntArray,
+    ): IntArray
+
+    /**
      * The caption cues touching [spanStartMs]..[spanEndMs], re-based to the item, as (start ms, end ms, source
      * index) triples; empty when none does. Nothing native is held: the caller keeps the array.
      */

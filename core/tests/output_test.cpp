@@ -1,13 +1,14 @@
-// Host-side checks for the offline render's planning (core/output: FrameClock, LoopPlan, EncodePlan,
-// Chapters, ExportRange, RenderEta, RenderJob) and its C ABI. Built and run by CI (.github/workflows/android.yml,
+// Host-side checks for the offline render's planning (core/output: FrameClock, LoopPlan, EncodePlan, Chapters,
+// ExportRange, RenderEta, RenderJob, RenderBatch) and its C ABI. Built and run by CI (.github/workflows/android.yml,
 // "Native export planning tests") with the system compiler; no device. Where a value pins the Kotlin it
 // replaces (VideoExporter, LoopSpec, LoopExtendPlan, MuxerBudget, ExportAspect, fallbackExportFps,
-// ChapterMarkers, ExportRange.of, RenderEta and its JVM RenderEtaTest, ExportRunTest), the comment says so; the
-// deliberate changes (exact pts, the seam budget's lost frame, the 0:00 lead-in) say why.
+// ChapterMarkers, ExportRange.of, RenderEta and its JVM RenderEtaTest, ExportRunTest, RenderBatchTest), the
+// comment says so; the deliberate changes (exact pts, the seam budget's lost frame, the 0:00 lead-in) say why.
 #include <cmath>
 #include <cstdint>
 #include <cstdlib>
 #include <cstdio>
+#include <string_view>
 #include <vector>
 
 #include "api/geode_api.h"
@@ -17,6 +18,7 @@
 #include "output/FrameClock.hpp"
 #include "output/LoopPlan.hpp"
 #include "output/RenderEta.hpp"
+#include "output/RenderBatch.hpp"
 #include "output/RenderJob.hpp"
 #include "viz/FrameStep.hpp"
 
@@ -434,6 +436,123 @@ void renderJob() {
     geode_render_job_reset();
 }
 
+// The batch's bookkeeping, moved from the JVM RenderBatchTest (export/RenderBatch.kt) and
+// ExportController.startBatch's loop: each scope's tracks, skip a failure and go on, a cancel marks the rest,
+// progress across the batch, late outcomes ignored, and the summary's bar (the old toUiState).
+void renderBatch() {
+    constexpr auto kSaved = static_cast<int32_t>(RenderOutcome::Saved);
+    constexpr auto kFailed = static_cast<int32_t>(RenderOutcome::Failed);
+    constexpr auto kCancelled = static_cast<int32_t>(RenderOutcome::Cancelled);
+
+    // eachScopeCoversItsOwnTracksOnceInOrder: current = b, queue = a b a c, playlist = c a, chosen = b c b.
+    const std::string_view keys[] = {"content://b", "content://a", "content://b", "content://a", "content://c",
+                                     "content://c", "content://a", "content://b", "content://c", "content://b"};
+    const int32_t sources[] = {0, 1, 1, 1, 1, 2, 2, 3, 3, 3};
+    const int count = 10;
+    auto tracks = [&](BatchScope scope) {
+        int32_t idx[16] = {};
+        const int n = batchTracks(scope, keys, sources, count, idx, 16);
+        std::vector<std::string_view> got;
+        for (int i = 0; i < n; ++i) got.push_back(keys[idx[i]]);
+        return got;
+    };
+    using V = std::vector<std::string_view>;
+    check(tracks(BatchScope::CurrentTrack) == V{"content://b"}, "batch: current track");
+    check(tracks(BatchScope::PlayQueue) == V{"content://a", "content://b", "content://c"}, "batch: queue, each once");
+    check(tracks(BatchScope::Playlist) == V{"content://c", "content://a"}, "batch: playlist in its order");
+    check(tracks(BatchScope::ChosenTracks) == V{"content://b", "content://c"}, "batch: chosen, each once");
+    check(tracks(static_cast<BatchScope>(7)).empty(), "batch: an unknown scope covers nothing");
+    int32_t one[1] = {-9};
+    check(batchTracks(BatchScope::PlayQueue, keys, sources, count, one, 1) == 3 && one[0] == 1,
+          "batch: count past the cap");
+
+    // nothingPlayingMeansNoCurrentTrack: no source-0 candidate, only a queued track.
+    const std::string_view queueOnly[] = {"content://a"};
+    const int32_t queueSource[] = {1};
+    check(batchTracks(BatchScope::CurrentTrack, queueOnly, queueSource, 1, nullptr, 0) == 0,
+          "batch: nothing playing, no current track");
+
+    // aFailedTrackIsSkippedAndTheRestStillRender
+    int32_t codes[4] = {-1, -1, -1, -1};
+    int done = 0;
+    check(batchNext(3, done, false) == 0, "batch: starts at the first track");
+    done = batchRecord(codes, 3, done, RenderOutcome::Saved);
+    check(done == 1 && batchNext(3, done, false) == 1, "batch: saved, next");
+    done = batchRecord(codes, 3, done, RenderOutcome::Failed);
+    check(done == 2 && batchNext(3, done, false) == 2, "batch: a failure is skipped, the next starts");
+    done = batchRecord(codes, 3, done, RenderOutcome::Saved);
+    BatchSummary s = summarizeBatch(codes, 3, done);
+    int32_t failedIdx[4] = {};
+    check(s.finished && s.current == -1 && batchNext(3, done, false) == -1, "batch: finished");
+    check(s.saved == 2 && s.failed == 1 && s.cancelled == 0 && s.lastSaved == 2 && s.firstFailed == 1,
+          "batch: counts, last saved, first failure");
+    check(batchFailed(codes, done, failedIdx, 4) == 1 && failedIdx[0] == 1, "batch: the failures list");
+    check(s.report == RenderReport::Done, "batch: anything saved shows the last video");
+
+    // cancellingMarksEveryTrackNotYetRendered (the controller's cancelRest, and a Cancelled track outcome).
+    int32_t c2[3] = {-1, -1, -1};
+    done = batchRecord(c2, 3, 0, RenderOutcome::Saved);
+    done = batchRecord(c2, 3, done, RenderOutcome::Cancelled);
+    s = summarizeBatch(c2, 3, done);
+    check(done == 3 && s.finished && s.saved == 1 && s.cancelled == 2 && s.failed == 0 &&
+              c2[1] == kCancelled && c2[2] == kCancelled,
+          "batch: a cancel marks every track left");
+    check(batchFailed(c2, done, nullptr, 0) == 0, "batch: a cancel is no failure");
+    check(batchNext(3, 1, true) == -1, "batch: a cancel between tracks ends the loop");
+
+    // progressCountsFinishedTracksPlusTheShareOfTheOneRendering
+    check(std::fabs(batchProgress(4, 1, 0.0f) - 0.25f) < 1e-6f, "batch: progress, one of four done");
+    check(std::fabs(batchProgress(4, 1, 0.5f) - 0.375f) < 1e-6f, "batch: progress, half the second");
+    check(std::fabs(batchProgress(4, 1, 2.0f) - 0.5f) < 1e-6f, "batch: progress within is clamped");
+    check(std::isnan(batchProgress(4, 1, NAN)), "batch: NaN passes on for the job to drop");
+    check(batchProgress(0, 0, 0.3f) == 1.0f, "batch: an empty batch is done");
+
+    // recordingPastTheEndChangesNothing
+    int32_t c3[1] = {-1};
+    done = batchRecord(c3, 1, 0, RenderOutcome::Failed);
+    check(batchRecord(c3, 1, done, RenderOutcome::Saved) == 1 && c3[0] == kFailed, "batch: a late outcome is ignored");
+    check(batchProgress(1, done, 0.7f) == 1.0f, "batch: a finished batch is at 1");
+    s = summarizeBatch(c3, 1, done);
+    check(s.report == RenderReport::Failed && s.firstFailed == 0 && s.lastSaved == -1,
+          "batch: nothing saved shows the first failure");
+
+    // A cancelled batch with nothing saved: no bar but its counts (RenderBar's Idle summary).
+    int32_t c4[2] = {-1, -1};
+    done = batchRecord(c4, 2, 0, RenderOutcome::Cancelled);
+    s = summarizeBatch(c4, 2, done);
+    check(done == 2 && s.report == RenderReport::Clear && s.cancelled == 2, "batch: cancelled, nothing saved");
+    s = summarizeBatch(c4, 2, 0);
+    check(!s.finished && s.current == 0 && s.report == RenderReport::Clear, "batch: just begun");
+    check(batchRecord(c4, 0, 0, RenderOutcome::Saved) == 0 && summarizeBatch(nullptr, 0, 0).finished,
+          "batch: an empty batch is finished");
+
+    // The C ABI, with Kotlin's codes (RenderScope and ExportRun.Outcome ordinals).
+    const char* abiKeys[] = {"u1", "u2", "u1", nullptr};
+    const int32_t abiSources[] = {1, 1, 1, 1};
+    int32_t abiIdx[4] = {};
+    check(geode_render_batch_tracks(1, abiKeys, abiSources, 4, abiIdx, 4) == 3 && abiIdx[0] == 0 && abiIdx[1] == 1 &&
+              abiIdx[2] == 3,
+          "batch ABI: tracks");
+    check(geode_render_batch_tracks(1, nullptr, abiSources, 4, abiIdx, 4) == 0, "batch ABI: no keys");
+    int32_t abiCodes[3] = {-1, -1, -1};
+    int abiDone = geode_render_batch_record(abiCodes, 3, 0, 1);
+    abiDone = geode_render_batch_record(abiCodes, 3, abiDone, 99);
+    check(abiDone == 2 && abiCodes[1] == kFailed, "batch ABI: an unknown outcome is a failure");
+    check(geode_render_batch_next(3, abiDone, 0) == 2 && geode_render_batch_next(3, abiDone, 1) == -1,
+          "batch ABI: next");
+    check(geode_render_batch_progress(3, abiDone, 0.5f) > 0.83f, "batch ABI: progress");
+    abiDone = geode_render_batch_record(abiCodes, 3, abiDone, 0);
+    geode_render_batch_summary abi{};
+    int32_t abiFailed[1] = {};
+    check(geode_render_batch_summarize(abiCodes, 3, abiDone, &abi, abiFailed, 1) == 2 && abiFailed[0] == 0,
+          "batch ABI: failures past the cap still count");
+    check(abi.total == 3 && abi.done == 3 && abi.saved == 1 && abi.failed == 2 && abi.current == -1 &&
+              abi.last_saved == 2 && abi.first_failed == 0 && abi.report == 1 && abi.finished == 1 &&
+              abiCodes[2] == kSaved,
+          "batch ABI: summary");
+    check(geode_render_batch_summarize(abiCodes, 3, abiDone, nullptr, nullptr, 0) == 2, "batch ABI: no outputs");
+}
+
 }  // namespace
 
 int main() {
@@ -445,6 +564,7 @@ int main() {
     exportRange();
     renderEta();
     renderJob();
+    renderBatch();
     if (failures) {
         std::printf("%d failure(s)\n", failures);
         return 1;

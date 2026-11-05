@@ -1,6 +1,6 @@
 // The C ABI over the export planning and clip maths (geode_api.h, "Export planning and clip maths"). Only
 // argument checks and copies live here; the rules are in output/ (FrameClock, LoopPlan, EncodePlan, Chapters,
-// ExportRange, RenderEta, RenderJob), signal/timeline/ (Keyframes, SpeedRamp, Cues), viz/ClipGrade,
+// ExportRange, RenderEta, RenderJob, RenderBatch), signal/timeline/ (Keyframes, SpeedRamp, Cues), viz/ClipGrade,
 // util/CubeLut and audio/dsp/PcmConvert, each host-tested in core/tests.
 #include <algorithm>
 #include <memory>
@@ -16,6 +16,7 @@
 #include "output/FrameClock.hpp"
 #include "output/LoopPlan.hpp"
 #include "output/RenderEta.hpp"
+#include "output/RenderBatch.hpp"
 #include "output/RenderJob.hpp"
 #include "signal/timeline/Cues.hpp"
 #include "signal/timeline/Keyframes.hpp"
@@ -349,6 +350,46 @@ void geode_render_job_snapshot(geode_render_job_state* out_state) {
 int geode_render_job_report(int outcome) { return static_cast<int>(out::reportFor(outcomeOf(outcome))); }
 
 int geode_render_job_keeps_output(int outcome) { return out::keepsOutput(outcomeOf(outcome)) ? 1 : 0; }
+
+int geode_render_batch_tracks(int scope, const char* const* keys, const int32_t* sources, int count,
+                              int32_t* out_indices, int cap) {
+    if (!keys || !sources || count <= 0) return 0;
+    std::vector<std::string_view> views(static_cast<size_t>(count));
+    for (int i = 0; i < count; ++i) {
+        const char* key = keys[i];
+        views[static_cast<size_t>(i)] = key ? std::string_view(key) : std::string_view();
+    }
+    return out::batchTracks(static_cast<out::BatchScope>(scope), views.data(), sources, count, out_indices,
+                            std::max(cap, 0));
+}
+
+int geode_render_batch_next(int total, int done, int cancel_requested) {
+    return out::batchNext(total, done, cancel_requested != 0);
+}
+
+int geode_render_batch_record(int32_t* codes, int total, int done, int outcome) {
+    return out::batchRecord(codes, total, done, outcomeOf(outcome));
+}
+
+float geode_render_batch_progress(int total, int done, float within) { return out::batchProgress(total, done, within); }
+
+int geode_render_batch_summarize(const int32_t* codes, int total, int done, geode_render_batch_summary* out_summary,
+                                 int32_t* out_failed, int cap) {
+    if (out_summary) {
+        const out::BatchSummary s = out::summarizeBatch(codes, total, done);
+        out_summary->total = s.total;
+        out_summary->done = s.done;
+        out_summary->saved = s.saved;
+        out_summary->failed = s.failed;
+        out_summary->cancelled = s.cancelled;
+        out_summary->current = s.current;
+        out_summary->last_saved = s.lastSaved;
+        out_summary->first_failed = s.firstFailed;
+        out_summary->report = static_cast<int32_t>(s.report);
+        out_summary->finished = s.finished ? 1 : 0;
+    }
+    return out::batchFailed(codes, std::clamp(done, 0, std::max(total, 0)), out_failed, std::max(cap, 0));
+}
 
 int geode_cues_for_span(const int64_t* starts_ms, const int64_t* ends_ms, int count, int64_t span_start_ms,
                         int64_t span_end_ms, int64_t* out_triples, int cap) {

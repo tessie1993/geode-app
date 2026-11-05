@@ -183,13 +183,6 @@ class NativeViz(
         if (handle != 0L) GeodeNative.vizSetReactions(handle, ModConfigCodec.packReactions(routes))
     }
 
-    fun setLook(
-        yaw: Float,
-        pitch: Float,
-    ) {
-        if (handle != 0L) GeodeNative.vizSetLook(handle, yaw, pitch)
-    }
-
     fun gyroSample(
         azimuth: Float,
         pitch: Float,

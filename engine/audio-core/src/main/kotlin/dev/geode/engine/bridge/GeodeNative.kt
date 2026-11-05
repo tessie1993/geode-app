@@ -328,13 +328,6 @@ object GeodeNative {
     /** Mirrors GEODE_MUSIC_STATE_FLOATS: mine, route count, strength, on-action bits, fits-action bits. */
     const val MUSIC_STATE_FLOATS: Int = 5
 
-    /** Gyro look, -1..1 per axis; read only while camGyro is on. */
-    external fun vizSetLook(
-        handle: Long,
-        yaw: Float,
-        pitch: Float,
-    )
-
     /** One gyro reading (azimuth, pitch in radians from SensorManager.getOrientation); core/viz/GyroLook makes the look. */
     external fun vizGyroSample(
         handle: Long,

@@ -10,6 +10,7 @@ import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.HistoryStore
 import dev.geode.data.MusicPlaylistStore
 import dev.geode.data.TrackLibrary
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.model.DeviceTrack
 
 /**
@@ -93,6 +94,28 @@ class LibraryTree(
             .shuffled()
             .take(SIMILAR_LIMIT)
             .map { playable(TRACKS, it) }
+    }
+
+    /**
+     * The tracks a voice "play X" plays, in library order, as playable rows of [TRACKS]; empty when nothing
+     * matches. The matching is native (`core/library/Search`); this only hands it the rows' tags.
+     */
+    fun search(request: VoiceSearch): List<MediaItem> {
+        val rows = tracks()
+        if (rows.isEmpty()) return emptyList()
+        val cells = arrayOfNulls<ByteArray>(rows.size * 3)
+        rows.forEachIndexed { i, row ->
+            cells[i * 3] = row.title.encodeToByteArray()
+            cells[i * 3 + 1] = row.artist.encodeToByteArray()
+            cells[i * 3 + 2] = row.album.encodeToByteArray()
+        }
+        val asked =
+            arrayOf(request.query, request.focus, request.artist, request.album, request.title)
+                .map { it?.encodeToByteArray() }
+                .toTypedArray()
+        val out = IntArray(rows.size)
+        val count = GeodeNative.librarySearch(cells, asked, out).coerceIn(0, out.size)
+        return (0 until count).map { playable(TRACKS, rows[out[it]]) }
     }
 
     private fun Row.sharesTagWith(other: Row): Boolean {

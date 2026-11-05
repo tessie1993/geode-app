@@ -2,6 +2,7 @@ add_library(geode_core STATIC
     api/geode_viz_api.cpp
     api/geode_dsp_api.cpp
     api/geode_tags_api.cpp
+    api/geode_library_api.cpp
     api/geode_catalogue_api.cpp
     api/geode_params_api.cpp
     api/geode_sound_api.cpp
@@ -12,6 +13,7 @@ add_library(geode_core STATIC
     sound/Rhythm.cpp
     sound/SoundEngine.cpp
     library/Tags.cpp
+    library/Search.cpp
     audio/dsp/Equalizer.cpp
     audio/dsp/Crossfeed.cpp
     audio/dsp/Limiter.cpp

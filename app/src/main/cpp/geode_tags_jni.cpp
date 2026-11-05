@@ -7,6 +7,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include "api/geode_api.h"
 
@@ -77,6 +78,37 @@ Java_dev_geode_engine_bridge_GeodeNative_tagsWrite(JNIEnv* env, jobject, jint fd
         pointers[static_cast<size_t>(i)] = value ? value->c_str() : nullptr;
     }
     return geode_tags_write(fd, pointers.data(), year, track) ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_librarySearch(JNIEnv* env, jobject, jobjectArray rows, jobjectArray request,
+                                                       jintArray out) {
+    // rows: 3 UTF-8 byte arrays per track (title, artist, album); request: query, focus, artist, album, title,
+    // a null element meaning absent. Only marshalling here; the matching is core/library/Search.
+    if (!rows || !request || !out) return 0;
+    const jsize cells = env->GetArrayLength(rows);
+    std::vector<std::string> owned(static_cast<size_t>(cells));
+    std::vector<const char*> pointers(static_cast<size_t>(cells));
+    for (jsize i = 0; i < cells; ++i) {
+        owned[static_cast<size_t>(i)] = stringAt(env, rows, i).value_or(std::string());
+        pointers[static_cast<size_t>(i)] = owned[static_cast<size_t>(i)].c_str();
+    }
+    std::array<std::optional<std::string>, 5> asked;
+    std::array<const char*, 5> askedPointers{};
+    const jsize askedCount = env->GetArrayLength(request);
+    for (jsize i = 0; i < 5 && i < askedCount; ++i) {
+        asked[static_cast<size_t>(i)] = stringAt(env, request, i);
+        const std::optional<std::string>& value = asked[static_cast<size_t>(i)];
+        askedPointers[static_cast<size_t>(i)] = value ? value->c_str() : nullptr;
+    }
+    const jsize capacity = env->GetArrayLength(out);
+    std::vector<jint> hits(static_cast<size_t>(capacity));
+    const int total = geode_library_search(pointers.data(), static_cast<int>(cells / 3), askedPointers[0],
+                                           askedPointers[1], askedPointers[2], askedPointers[3], askedPointers[4],
+                                           hits.data(), static_cast<int>(capacity));
+    const jsize written = std::min<jsize>(capacity, static_cast<jsize>(total));
+    if (written > 0) env->SetIntArrayRegion(out, 0, written, hits.data());
+    return total;
 }
 
 }  // extern "C"

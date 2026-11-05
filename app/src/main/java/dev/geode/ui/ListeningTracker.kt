@@ -1,21 +1,24 @@
 package dev.geode.ui
 
-import android.app.Application
 import android.net.Uri
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import dev.geode.data.FavouritesRepository
 import dev.geode.data.HistoryStore
 import dev.geode.data.SessionRepository
-import dev.geode.data.SessionStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+/**
+ * The UI's side of listening: favourites, listen time, and restoring the last queue when the app opens.
+ * The plays themselves and the resumption queue are written by [dev.geode.playback.PlayRecorder] on the
+ * playback session, which outlives this one (#371); here they are only read.
+ */
 internal class ListeningTracker(
-    application: Application,
+    private val historyStore: HistoryStore,
     private val favouritesRepository: FavouritesRepository,
     private val sessionRepository: SessionRepository,
     private val storeScope: CoroutineScope,
@@ -30,17 +33,18 @@ internal class ListeningTracker(
         fun mediaItemFor(track: QueueTrack): MediaItem
     }
 
-    private val historyStore = HistoryStore(application)
-
     private val _historyTick = MutableStateFlow(0)
+
+    /** Bumps on every recorded play and favourite toggle, so history screens re-read. */
     val historyTick: StateFlow<Int> = _historyTick
+
+    /** The playback session recorded a play ([dev.geode.playback.PlaybackSession.playsRecorded]). */
+    fun onPlayRecorded() = _historyTick.update { it + 1 }
 
     val favourites: StateFlow<Set<String>> = favouritesRepository.favourites
 
     private var listenTickAtMs = 0L
     private var listenTickUri: String? = null
-    private var lastSessionWriteMs = Long.MIN_VALUE
-    private var lastSessionIndex = -1
 
     fun recentlyPlayed() = historyStore.recentlyPlayed()
 
@@ -53,16 +57,6 @@ internal class ListeningTracker(
             favouritesRepository.toggle(uri)
             _historyTick.update { it + 1 }
         }
-    }
-
-    fun recordPlay(
-        uri: String,
-        title: String,
-        artist: String,
-    ) {
-        flushListenTime()
-        historyStore.recordPlay(uri, title, artist)
-        _historyTick.update { it + 1 }
     }
 
     fun accrueListenTime() {
@@ -111,36 +105,6 @@ internal class ListeningTracker(
             player.prepare()
             uri
         }.getOrNull()
-    }
-
-    fun persistSession() {
-        val player = host.player
-        val count = runCatching { player.mediaItemCount }.getOrDefault(0)
-        if (count == 0) return
-        val index = runCatching { player.currentMediaItemIndex }.getOrDefault(0)
-        val position = runCatching { player.currentPosition }.getOrDefault(0L)
-        val movedTrack = index != lastSessionIndex
-        if (!movedTrack && position - lastSessionWriteMs in 0 until SessionStore.POSITION_WRITE_INTERVAL_MS) return
-        lastSessionWriteMs = position
-        lastSessionIndex = index
-
-        val tracks =
-            (0 until count).mapNotNull { i ->
-                val item = runCatching { player.getMediaItemAt(i) }.getOrNull() ?: return@mapNotNull null
-                val uri = item.localConfiguration?.uri?.toString() ?: return@mapNotNull null
-                SessionStore.SavedTrack(
-                    uri = uri,
-                    title =
-                        item.mediaMetadata.title
-                            ?.toString()
-                            .orEmpty(),
-                    artist =
-                        item.mediaMetadata.artist
-                            ?.toString()
-                            .orEmpty(),
-                )
-            }
-        storeScope.launch { sessionRepository.save(SessionStore.Saved(tracks, index, position)) }
     }
 
     private companion object {

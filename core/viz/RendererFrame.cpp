@@ -153,7 +153,7 @@ SceneParams Renderer::resolveParams(float dt) {
     directedKnobs_ = director_.knobs(frameKnobs_);
     // Note & key reactions hear the frame next, inside the director's look: its hue anchors the notes'
     // colours, and its feeling (the director's emotion, stepped whether or not it drives) is the mood. Its
-    // tuning and bloom look are the style's own (Customize), read before the director and macros touch them.
+    // tuning is the style's own (Customize), read before the director and macros touch it.
     notes_.configure({note_response::globalEnabled(), noteSeed(directorConfig.seed)});
     {
         const SceneParams& own = displayedParams_;
@@ -166,9 +166,6 @@ SceneParams Renderer::resolveParams(float dt) {
         in.tension = own.noteTension;
         in.chords = own.noteChords;
         in.drums = own.noteDrums;
-        in.bloom = own.noteBloom;
-        in.look = static_cast<int>(catalogue::resolveBloomLook(own.bloomLook, activeScene_ ? activeScene_->id() : std::string()));
-        in.camFlat = camera_.pose().flat;
         notes_.step(soundFrame_, director_.emotion(), in, dt);
     }
     const auto& envValues = adsr_.tick(dt, soundFrame_);
@@ -358,8 +355,6 @@ void Renderer::composite(const SceneParams& p, float progress, GLuint targetFbo,
     in.underlayAmount = compositePass_.underlayAmount();
     in.noteTint = notes_.uniforms().tint;
     compositePass_.draw(in);
-    // The note blooms over every family, last; nothing while there are none.
-    bloomPass_.draw(notes_.uniforms(), width_, height_, quadVao_, NoteBloomPass::kGain * flashGrade_.scale);
 }
 
 static_assert(safety::FlashLimiter::kDrives == kLuminanceTargets, "one limiter drive per luminance target");
@@ -448,7 +443,7 @@ void Renderer::render(double timeSeconds, GLuint targetFbo) {
     const GLuint liquidTex = drawLiquid(*scene, p, dt);
     stepFlashLimiter(dt);
     composite(p, progress, targetFbo, liquidTex);
-    // Measured after the blooms, before the UI blur: the glass sheet is not the visual (and an export
+    // Measured after the composite, before the UI blur: the glass sheet is not the visual (and an export
     // never draws it). Live and export both run this, so a render is limited exactly like the screen.
     outputProbe_.capture(targetFbo, width_, height_, flashGrade_, safetyClock_);
     drawUiBlur(targetFbo);

@@ -22,7 +22,6 @@
 #include "viz/Lfo.hpp"
 #include "viz/Macros.hpp"
 #include "viz/MotionField.hpp"
-#include "viz/NoteBloomPass.hpp"
 #include "viz/NoteResponse.hpp"
 #include "viz/OutputProbe.hpp"
 #include "viz/Overlays.hpp"
@@ -245,9 +244,8 @@ private:
     int directorCommitsSeen_ = 0;  // GL thread only
     std::atomic<float> pinnedDirectorAmount_{0.0f};
     std::atomic<uint64_t> pinnedDirectorSeed_{0};
-    // Note & key reactions (viz/NoteResponse), after the director's look: knobs, note colours, blooms.
+    // Note & key reactions (viz/NoteResponse), after the director's look: knobs, note colours, tint.
     NoteResponse notes_;
-    NoteBloomPass bloomPass_;
     // Frosted glass under the app's sheet. The region is guarded by stateLock_; uiBlurOn_ lets a frame
     // with no sheet skip the lock.
     UiBlurPass uiBlurPass_;

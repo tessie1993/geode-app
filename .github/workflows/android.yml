@@ -180,7 +180,7 @@ jobs:
           # recovery, cut spacing, takeover glide-back, keyframes, reduced motion -> Calm, 30/60/120 fps,
           # and the catalogue's rails flag (#473) clamping the free camera.
           g++ -std=c++20 -O1 -Wall -Wextra -Icore -Icore/tests/stub core/tests/scene_camera_test.cpp core/scene/camera/*.cpp \
-            core/viz/CameraRig.cpp core/viz/VisualSafety.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp \
+            core/viz/CameraRig.cpp core/viz/VisualSafety.cpp core/viz/Lfo.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp \
             core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp core/signal/params/*.cpp -o scene_camera_test
           ./scene_camera_test
           # The fluid engine: multigrid pressure plan, MacCormack, splat batching, heat, tracers, tiers.

@@ -181,12 +181,23 @@ jobs:
           # Note & key reactions: knobs by meaning, the drum weight, hues per note, the tint, off = today.
           g++ -std=c++20 -O1 -Wall -Wextra -Icore core/tests/note_response_test.cpp core/viz/NoteResponse.cpp -o note_response_test
           ./note_response_test
+          # core/signal: the param state machine and store, the events, the bus and event routes (flash limit).
+          # Built from core/signal alone: no GL, no core/viz.
+          g++ -std=c++20 -O1 -Wall -Wextra -Icore core/tests/signal_test.cpp core/signal/params/*.cpp \
+            core/signal/events/*.cpp core/signal/bindings/*.cpp -o signal_test
+          ./signal_test
           # The raw-PCM hand-off: each pushed block reaches the scenes once, so a paused pulse decays.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/pcm_handoff_test.cpp -o pcm_handoff_test
           ./pcm_handoff_test
+          # The process-wide Customize layer every renderer draws (#364): set, clamp, generation, follow, export pin.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/layer_state_test.cpp core/viz/LayerState.cpp -o layer_state_test
+          ./layer_state_test
           # An export segment's style schedule: every later style is gated by the entitlement (#357).
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/style_schedule_test.cpp core/viz/StyleSchedule.cpp -o style_schedule_test
           ./style_schedule_test
+          # The process-wide shader overrides every renderer draws (#364): set, replace, clear, generation, copies.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore core/tests/shader_overrides_test.cpp core/viz/ShaderOverrides.cpp -o shader_overrides_test
+          ./shader_overrides_test
           # The photosensitive flash limiter: a 10 Hz strobe shows at most 3 flashes/s, a slow fade passes untouched.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/flash_limiter_test.cpp core/viz/FlashLimiter.cpp -o flash_limiter_test
           ./flash_limiter_test
@@ -209,15 +220,32 @@ jobs:
       - name: Native export DSP tests
         working-directory: ${{ env.PROJECT_DIR }}
         run: |
-          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/resampler_test.cpp core/audio/dsp/PcmResampler.cpp core/audio/dsp/Loudness.cpp core/api/geode_export_dsp_api.cpp -o resampler_test
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/resampler_test.cpp core/audio/dsp/PcmResampler.cpp core/audio/dsp/Loudness.cpp core/audio/dsp/PcmConvert.cpp core/api/geode_export_dsp_api.cpp -o resampler_test
           ./resampler_test
-          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/loudness_test.cpp core/audio/dsp/PcmResampler.cpp core/audio/dsp/Loudness.cpp core/api/geode_export_dsp_api.cpp -o loudness_test
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/loudness_test.cpp core/audio/dsp/PcmResampler.cpp core/audio/dsp/Loudness.cpp core/audio/dsp/PcmConvert.cpp core/api/geode_export_dsp_api.cpp -o loudness_test
           ./loudness_test
           # The playback DSP's format hand-off (#356): the old format's tail drains through its own chain
           # until flush, and no block is ever processed past its buffer.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/dsp_handoff_test.cpp core/api/geode_dsp_api.cpp \
             core/audio/dsp/DspProcessor.cpp core/audio/dsp/Equalizer.cpp core/audio/dsp/Crossfeed.cpp core/audio/dsp/Limiter.cpp -o dsp_handoff_test
           ./dsp_handoff_test
+          # Bit-perfect USB (#353, #489): with bit-perfect live the playback DSP passes every byte through,
+          # whatever gain, EQ, crossfeed or limiter is set; plus the native 16-bit conversion.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/bit_perfect_test.cpp core/api/geode_dsp_api.cpp \
+            core/audio/dsp/DspProcessor.cpp core/audio/dsp/Equalizer.cpp core/audio/dsp/Crossfeed.cpp core/audio/dsp/Limiter.cpp -o bit_perfect_test
+          ./bit_perfect_test
+
+      # Export planning and clip maths ported from Kotlin (ADR 0003, ADR 0006 core/output and
+      # core/signal/timeline): frame clock, loops, encoder budget, chapters, keyframes, speed ramps,
+      # clip grade, .cube LUTs, PCM conversion and timing, each through its C ABI too.
+      - name: Native export planning tests
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          EXPORT_SRCS="core/api/geode_export_api.cpp core/output/FrameClock.cpp core/output/LoopPlan.cpp core/output/EncodePlan.cpp core/output/Chapters.cpp core/signal/timeline/Keyframes.cpp core/signal/timeline/SpeedRamp.cpp core/viz/ClipGrade.cpp core/util/CubeLut.cpp core/audio/dsp/PcmConvert.cpp core/audio/dsp/PcmTiming.cpp"
+          for t in output_test timeline_test clip_media_test; do
+            g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/$t.cpp $EXPORT_SRCS -o $t
+            ./$t
+          done
 
       # The Customize randomizer, Reset tab and params wire (core/viz/ParamRandomizer, core/viz/Params).
       - name: Params host tests
@@ -456,6 +484,70 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
+  # The visual quality gate (#470): every style glslcheck can render, through the sound engine's golden
+  # song (core/tests/golden/sound_frames.tsv), judged by core/tests/visual_gate.cpp for mostly black
+  # stills, blown highlights and flashes the FlashLimiter would hold. Thresholds: tools/glslcheck/README.md
+  # ("Stills gate"); styles failing today: core/tests/visual_gate_baseline.txt. Four shards render in
+  # parallel (SwiftShader is slow on the heavy marches); one job judges them all. Needs no submodules, no
+  # SDK: Node 22, the runner's Chrome and g++.
+  visual-stills:
+    name: Visual stills (shard ${{ matrix.shard }}/4)
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Render the stills
+        working-directory: ${{ env.PROJECT_DIR }}/tools/glslcheck
+        run: |
+          export MUSICVIZ_CHROMIUM="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          node check.mjs --stills out/stills-${{ matrix.shard }}.tsv --shard ${{ matrix.shard }}/4 --out out/stills
+
+      - name: Upload the stills
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: visual-stills-${{ matrix.shard }}
+          path: |
+            tools/glslcheck/out/stills-${{ matrix.shard }}.tsv
+            tools/glslcheck/out/stills/
+          if-no-files-found: warn
+          retention-days: 14
+
+  visual-gate:
+    name: Visual gate
+    needs: visual-stills
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Download the stills
+        uses: actions/download-artifact@v6
+        with:
+          pattern: visual-stills-*
+          path: stills
+          merge-multiple: true
+
+      # The per-style report is the log; on a new failure it ends with the baseline lines to paste. The
+      # still PNGs are in the visual-stills-* artifacts, to look at before baselining anything.
+      - name: Judge the stills
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/visual_gate.cpp core/viz/FlashLimiter.cpp -o visual_gate
+          ./visual_gate core/tests/visual_gate_baseline.txt stills/stills-*.tsv
+
   # The last step of every green run on a push or a manual run: ship this commit
   # as the next pre-release ("Geode <base>.N"), so each commit that passed the
   # build, lint, unit and emulator tests has an installable APK. Pull-request
@@ -464,7 +556,7 @@ jobs:
   # run, and ship-apk.yml then hands its reserved number back.
   pre-release:
     name: Ship pre-release
-    needs: [build-debug-apk, instrumented-tests]
+    needs: [build-debug-apk, instrumented-tests, visual-gate]
     if: github.event_name != 'pull_request'
     permissions:
       contents: write

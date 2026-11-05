@@ -7,7 +7,6 @@ import androidx.media3.common.audio.BaseAudioProcessor
 import androidx.media3.common.util.UnstableApi
 import dev.geode.engine.bridge.GeodeNative
 import java.nio.ByteBuffer
-import java.nio.ByteOrder
 
 /** Everything the native chain is told; re-applied whenever a format change builds a new chain. */
 data class DspSettings(
@@ -23,9 +22,11 @@ data class DspSettings(
 /**
  * The Media3 processor that runs `geode_dsp_process` over the sink's PCM, in place.
  *
- * 16-bit and float input both pass through a direct float buffer the native chain works on; the
- * output keeps the input encoding. This class is only the Media3 shell: it forwards configure, flush
- * and each block to one native `geode_dsp` (`core/audio/dsp/DspProcessor`), which owns a chain per
+ * Each block is copied once into the output buffer and native processes it there, 16-bit or float; the
+ * int16 conversion is native too, so no sample loop runs here. While the DAC takes the stream
+ * bit-perfect ([bitPerfect], issue #353) native leaves every byte as it came. This class is only the
+ * Media3 shell: it forwards configure, flush and each block to one native `geode_dsp`
+ * (`core/audio/dsp/DspProcessor`), which owns a chain per
  * format and the switch between them. That switch follows the [AudioProcessor] contract: [onConfigure]
  * describes the format queued after the next flush, and the old format may still drain through
  * [queueInput] until then (issue #356), so native only stages the next chain at configure and makes it
@@ -49,7 +50,14 @@ class NativeDspProcessor : BaseAudioProcessor() {
     var settings: DspSettings = DspSettings()
         private set
 
-    private var scratch: ByteBuffer = ByteBuffer.allocateDirect(0).order(ByteOrder.nativeOrder())
+    /** Set by `playback/BitPerfectOutput` as each AudioTrack is built; native latches it at the next flush. */
+    @Volatile
+    var bitPerfect = false
+        set(on) {
+            field = on
+            val h = handle
+            if (h != 0L) GeodeNative.dspSetBitPerfect(h, on)
+        }
 
     fun update(next: DspSettings) {
         settings = next
@@ -78,43 +86,14 @@ class NativeDspProcessor : BaseAudioProcessor() {
 
     override fun queueInput(inputBuffer: ByteBuffer) {
         val format = inputAudioFormat
-        val channels = format.channelCount
-        val bytesPerSample = if (format.encoding == C.ENCODING_PCM_FLOAT) 4 else 2
-        val samples = inputBuffer.remaining() / bytesPerSample
-        val frames = samples / channels
-        if (frames <= 0) {
-            inputBuffer.position(inputBuffer.limit())
-            return
-        }
-        val floatBytes = samples * 4
-        if (scratch.capacity() < floatBytes) scratch = ByteBuffer.allocateDirect(floatBytes).order(ByteOrder.nativeOrder())
-        scratch.clear()
-        val floats = scratch.asFloatBuffer()
-        if (format.encoding == C.ENCODING_PCM_FLOAT) {
-            floats.put(inputBuffer.asFloatBuffer().also { it.limit(samples) })
-        } else {
-            val shorts = inputBuffer.asShortBuffer()
-            for (i in 0 until samples) floats.put(shorts.get(i) / SHORT_FULL_SCALE)
-        }
-        inputBuffer.position(inputBuffer.limit())
-        val h = handle
-        if (h != 0L) GeodeNative.dspProcess(h, scratch, frames, channels)
-        val output = replaceOutputBuffer(samples * bytesPerSample)
-        floats.position(0)
-        if (format.encoding == C.ENCODING_PCM_FLOAT) {
-            output.asFloatBuffer().put(floats)
-        } else {
-            val shorts = output.asShortBuffer()
-            for (i in 0 until samples) {
-                val v = floats.get(i)
-                shorts.put(
-                    i,
-                    (v.coerceIn(-1f, 1f) * SHORT_FULL_SCALE).toInt().coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort(),
-                )
-            }
-        }
-        output.position(samples * bytesPerSample)
+        val frames = inputBuffer.remaining() / format.bytesPerFrame
+        // replaceOutputBuffer is direct and in native order, so native works on it where it lies.
+        val output = replaceOutputBuffer(inputBuffer.remaining()).put(inputBuffer)
         output.flip()
+        val h = handle
+        if (h != 0L && frames > 0) {
+            GeodeNative.dspProcess(h, output, frames, format.channelCount, format.encoding == C.ENCODING_PCM_FLOAT)
+        }
     }
 
     override fun onFlush() {
@@ -140,14 +119,13 @@ class NativeDspProcessor : BaseAudioProcessor() {
         GeodeNative.dspSetGainDb(h, s.gainDb)
         GeodeNative.dspSetCrossfeed(h, s.crossfeed)
         GeodeNative.dspSetLimiter(h, s.limiter)
+        GeodeNative.dspSetBitPerfect(h, bitPerfect)
     }
 
     companion object {
         const val BANDS = 10
         const val MIN_MB = -1500
         const val MAX_MB = 1500
-
-        private const val SHORT_FULL_SCALE = 32768f
 
         /** The native chain is built for mono or stereo; anything else steps aside (see the class KDoc). */
         const val MAX_CHANNELS = 2

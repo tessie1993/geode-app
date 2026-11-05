@@ -35,6 +35,7 @@ ShaderScene::ShaderScene(std::string id, std::string vertexSrc, std::string frag
     : id_(std::move(id)),
       vertexSrc_(std::move(vertexSrc)),
       currentFragment_(std::move(fragmentSrc)),
+      stockFragment_(currentFragment_),
       cache_(cache),
       host_(std::move(host)) {
     pendingFragment_ = currentFragment_;
@@ -49,8 +50,8 @@ void ShaderScene::setFlow(GLuint texture, float strength) {
 
 void ShaderScene::setFragmentSource(const std::string& source) {
     std::lock_guard<std::mutex> lock(pendingLock_);
-    pendingFragment_ = source;
-    pendingIsUserSource_ = true;
+    // "" is a cleared shader override (viz/ShaderOverrides): back to the built-in style.
+    pendingFragment_ = source.empty() ? stockFragment_ : source;
 }
 
 void ShaderScene::init() {
@@ -264,12 +265,9 @@ float ShaderScene::marchSteps(float detail) {
 
 void ShaderScene::compilePendingIfAny() {
     std::optional<std::string> pending;
-    bool fromUser = false;
     {
         std::lock_guard<std::mutex> lock(pendingLock_);
         pending.swap(pendingFragment_);
-        fromUser = pendingIsUserSource_;
-        pendingIsUserSource_ = false;
     }
     if (!pending) return;
     std::string error;
@@ -284,7 +282,6 @@ void ShaderScene::compilePendingIfAny() {
     drawsCamera_ = uniforms_.loc("uCamBasis") >= 0;
     currentFragment_ = *pending;
     host_.onShaderError("");
-    if (fromUser) host_.onUserSourceCompiled(id_, currentFragment_);
 }
 
 void ShaderScene::release() {

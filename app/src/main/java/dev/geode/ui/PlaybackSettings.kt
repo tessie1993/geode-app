@@ -277,6 +277,12 @@ private fun BitPerfectSettings(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        // Said before it is switched on too, so nobody finds their EQ or crossfade gone and calls it a bug.
+        Text(
+            stringResource(R.string.playback_bit_perfect_paused),
+            style = MaterialTheme.typography.bodySmall,
+            color = if (prefs.bitPerfect) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 

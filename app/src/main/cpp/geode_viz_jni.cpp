@@ -76,10 +76,9 @@ Java_dev_geode_engine_bridge_GeodeNative_vizSetReducedMotion(JNIEnv*, jobject, j
 }
 
 JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_vizSetLayer(JNIEnv* env, jobject, jlong handle, jstring sceneId, jfloat mix,
-                                                     jint blendMode) {
+Java_dev_geode_engine_bridge_GeodeNative_layerSet(JNIEnv* env, jobject, jstring sceneId, jfloat mix, jint blendMode) {
     Utf8Chars id(env, sceneId);
-    geode_viz_set_layer(vizOf(handle), id.get() ? id.get() : "", mix, blendMode);
+    geode_layer_set(id.get() ? id.get() : "", mix, blendMode);
 }
 
 JNIEXPORT void JNICALL
@@ -225,20 +224,20 @@ Java_dev_geode_engine_bridge_GeodeNative_macroStarters(JNIEnv* env, jobject) {
 }
 
 JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_vizSetCustomShader(JNIEnv* env, jobject, jlong handle, jstring sceneId,
-                                                            jstring fragmentSource) {
-    Utf8Chars id(env, sceneId);
+Java_dev_geode_engine_bridge_GeodeNative_shaderOverrideSet(JNIEnv* env, jobject, jstring styleId,
+                                                           jstring fragmentSource) {
+    Utf8Chars id(env, styleId);
     Utf8Chars source(env, fragmentSource);
-    geode_viz_set_custom_shader(vizOf(handle), id.get(), source.get());
+    geode_shader_override_set(id.get(), source.get());
 }
 
 JNIEXPORT jstring JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_vizCustomShader(JNIEnv* env, jobject, jlong handle, jstring sceneId) {
-    Utf8Chars id(env, sceneId);
-    const size_t length = geode_viz_custom_shader(vizOf(handle), id.get(), nullptr, 0);
+Java_dev_geode_engine_bridge_GeodeNative_shaderOverride(JNIEnv* env, jobject, jstring styleId) {
+    Utf8Chars id(env, styleId);
+    const size_t length = geode_shader_override(id.get(), nullptr, 0);
     if (length == 0) return nullptr;
     std::vector<char> buffer(length + 1, '\0');
-    geode_viz_custom_shader(vizOf(handle), id.get(), buffer.data(), buffer.size());
+    geode_shader_override(id.get(), buffer.data(), buffer.size());
     return env->NewStringUTF(buffer.data());
 }
 
@@ -366,6 +365,11 @@ Java_dev_geode_engine_bridge_GeodeNative_vizSetDirector(JNIEnv*, jobject, jlong 
 JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_vizSetOffscreen(JNIEnv*, jobject, jlong handle, jboolean on) {
     geode_viz_set_offscreen(vizOf(handle), on == JNI_TRUE);
+}
+
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_vizSetFrameRate(JNIEnv*, jobject, jlong handle, jint fps) {
+    geode_viz_set_frame_rate(vizOf(handle), fps);
 }
 
 JNIEXPORT void JNICALL

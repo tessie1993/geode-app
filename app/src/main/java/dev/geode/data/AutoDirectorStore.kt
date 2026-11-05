@@ -5,7 +5,6 @@ import android.content.SharedPreferences
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.pro.AutoDirectorPolicy
 import dev.geode.pro.FeatureGate
-import dev.geode.render.offscreen.DirectorPin
 import dev.geode.util.bestEffort
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -19,9 +18,10 @@ import kotlin.random.Random
  * [AutoDirectorPolicy]) and which play it is: each new track gets a new seed, so a replay is a new film
  * of the same feeling, and an export started now reads the same seed. Like the macros the configuration
  * is process-wide, so the screen, the wallpaper and the dream all follow it; [GeodeApp] creates the store
- * at start, so a wallpaper that starts before the app does still sees the switch. An export does not read
- * it live: it takes [exportPin] once, so the player moving on (a new seed, or past the free taste) never
- * reaches a render in progress.
+ * at start, so a wallpaper that starts before the app does still sees the switch. The switch itself goes
+ * native too: an export's renderer pins its director from it once at prepare (geode_viz_pin_engine_settings,
+ * director::forExport), so the player moving on (a new seed, or past the free taste) never reaches a render
+ * in progress.
  *
  * On by default: Auto is one mode now, the director driving the look with an optional timed style
  * change on top (Auto visuals' timer, `AutoVisualsPrefsStore`), and a fresh install
@@ -35,12 +35,11 @@ class AutoDirectorStore private constructor(
     private val _enabled = MutableStateFlow(prefs.getBoolean(KEY_ENABLED, DEFAULT_ENABLED))
     val enabled: StateFlow<Boolean> = _enabled
 
-    // Written on main; read by an export starting on its own thread (exportPin).
-    @Volatile private var seed = Random.nextLong()
+    private var seed = Random.nextLong()
     private var gate = FeatureGate.FREE
     private var positionMs = 0L
     private var playing = false
-    private var pushed: Pair<Float, Long>? = null
+    private var pushed: Triple<Boolean, Float, Long>? = null
 
     init {
         push()
@@ -83,18 +82,12 @@ class AutoDirectorStore private constructor(
         push()
     }
 
-    /** What an export of [durationMs] renders with: the switch, cut by [gate], and this play's seed. */
-    fun exportPin(
-        gate: FeatureGate,
-        durationMs: Long,
-    ): DirectorPin = DirectorPin(AutoDirectorPolicy.exportAmount(_enabled.value, gate, durationMs), seed)
-
     private fun push() {
         val amount = AutoDirectorPolicy.amount(_enabled.value, gate, positionMs, playing)
-        val next = amount to seed
+        val next = Triple(_enabled.value, amount, seed)
         if (next == pushed) return
         pushed = next
-        bestEffort(TAG, "push director") { GeodeNative.directorSet(amount, seed) }
+        bestEffort(TAG, "push director") { GeodeNative.directorSet(_enabled.value, amount, seed) }
     }
 
     companion object {

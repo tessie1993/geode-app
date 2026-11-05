@@ -43,18 +43,15 @@ data class OffscreenRenderSpec(
     val audioUri: Uri? = null,
     // Settings › Audio, the same tuning the screen used.
     val soundTuning: SoundTuning = SoundTuning(),
-    // The export's own auto-director, pinned at prepare so the live player's switch, track and free
-    // taste never reach the render. Null follows the process-wide switch (previews, thumbnails).
-    val director: DirectorPin? = null,
+    // An export's length: non-null pins the engine settings (macros, Note & key switch, hand mask, director)
+    // natively at prepare (NativeViz.pinEngineSettings, #350), so live edits never reach the render; the
+    // director's free-taste rule is native. Null follows the process globals (previews, thumbnails).
+    val pinDurationMs: Long? = null,
+    // Pro or the trial (ProFeature.AUTO_DIRECTOR), for the pinned director; read only with [pinDurationMs].
+    val entitled: Boolean = false,
     // Studio 2D: the styles this range switches to (a take's switches, a beat cut), on render time
     // since [rangeStartMs]. The native renderer times them; empty draws the factory's style throughout.
     val styleSchedule: StyleSchedule = StyleSchedule.NONE,
-)
-
-/** An export's auto-director: how much it drives (0..1) and the play's seed, so it makes the same film. */
-data class DirectorPin(
-    val amount: Float,
-    val seed: Long,
 )
 
 /**
@@ -107,7 +104,7 @@ class OffscreenSceneRenderer(
         if (spec.adsrConfigs.isNotEmpty()) viz.setAdsrConfigs(spec.adsrConfigs)
         spec.underlay?.let { viz.setUnderlay(it.pixels, it.width, it.height, it.blend, it.amount) }
         viz.setSoundTuning(spec.soundTuning.toFloats())
-        spec.director?.let { viz.setDirector(it.amount, it.seed) }
+        spec.pinDurationMs?.let { viz.pinEngineSettings(spec.entitled, it) }
         native = viz
         // A track that will not decode still exports, silent to the engine, rather than failing the render.
         audio =

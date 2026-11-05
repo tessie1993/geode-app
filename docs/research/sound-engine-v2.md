@@ -13,7 +13,7 @@ schedules scans and stores files.
 | Windows | Several resolutions at once: short for hits, medium for the spectrum, long for notes and bass |
 | Hits | Complex-domain onsets beside today's log flux, so soft pitched hits are heard as well as drums |
 | Chroma | Both: constant-Q chroma for harmony, and instantaneous-frequency pitch refinement for the melody |
-| Exactness | Detection is exact and repeatable; visual decisions may be random (live), drawn from the play's seed (export, `Renderer::pinDirector`, #210) |
+| Exactness | Detection is exact and repeatable; visual decisions may be random (live), drawn from the play's seed (export, `Renderer::pinEngineSettings`, #210, #350) |
 | Latency | Use the output buffer as look-ahead (file playback), predict for mic and capture; plus **pre-scan maps** the user chooses: tracks played, a playlist, a folder, the library |
 | Libraries | Study everything; ship only permissive code (BSD, MIT, Apache, ISC). GPL, AGPL and non-commercial work is read as papers and READMEs, never copied or paraphrased |
 | AI | Maths live, small models in the pre-scan. Runtime: Google AI Edge (LiteRT) where a model needs it, plain C++ where it is tiny (§6) |
@@ -211,7 +211,7 @@ reactions, `Form` and every modulator read the same grid. The other places are *
 
 **Native API** (`core/api/geode_api.h`; agreed with the Visuals UI session). Process-wide like the macros,
 so a tap or MIDI clock reaches every live engine (screen, wallpaper, dream); an export pins its own source
-(from the take, else the tag, else Auto), the way `Renderer::pinDirector` pins the director:
+(from the take, else the tag, else Auto), the way `Renderer::pinEngineSettings` pins the director (#350):
 ```
 geode_tempo_set_source(int source, float bpm)   // 0 AUTO, 1 MANUAL (typed or tag BPM), 2 TAP, 3 MIDI
 geode_tempo_tap(int64_t nanos)                  // median of the last 2..8 intervals; a tap snaps the phase

@@ -1,8 +1,8 @@
 # Note & key reactions
 
-> **The note blooms are removed (2026-11).** The owner dropped the flower each note grew over every style
-> ("bloom burst fireworks overlay drop them"): `NoteBloomPass`, `note_bloom_frag.glsl`, `lib_bloom.glsl`,
-> the four looks (`Catalogue::bloomLook`), the params `bloomLook` and `noteBloom`, Customize › Look ›
+> **The note blooms are removed (2026-11).** The owner dropped the flower each note grew over every style:
+> `NoteBloomPass`, `note_bloom_frag.glsl`, `lib_bloom.glsl`,
+> its looks (`Catalogue::bloomLook`), the params `bloomLook` and `noteBloom`, Customize › Look ›
 > Note blooms and the personality's bloom traits are gone. A preset or link that still carries
 > `bloomLook` or `noteBloom` loads and ignores them. Everything else here stands: the note colours and
 > tint, interval motion, tension, chord shifts, the six style knobs, the drum weight and the personality's
@@ -189,12 +189,6 @@ Given a seed the layer is still a pure function of (seed, frames, dt), which is 
   `composite_frag` as `uNoteTint`. Every family's finished frame leans toward it by the personality's
   amount × Note colours × (1 − ½ the director's weight), capped at 0.45, keeping each pixel's luma and
   leaving blacks and near-whites alone.
-- **Looks** *(removed)* (`SceneParams::bloomLook`, 0 = the style's own from `Catalogue::bloomLook`): **flower** (the
-  paradoxical fractal, unfurls in 0.7 s) for the fractal, kaleidoscopic and neon styles and Acid;
-  **glow** (an orb, halo and star rays; 0.25 s, 0.8× size) for gas, glass, branches, silk and life;
-  **ripple** (three interfering rings spreading like a drop on water; 1.4 s, 1.6×) for liquids,
-  landscapes, scopes and tilings; **burst** (sparks thrown out, a heart that flashes and gives way;
-  0.4 s, 1.3×) for dives, fly-throughs, particles and MilkDrop, whose presets already flower.
 - **Perspective**: a leap rolls and turns the camera (`camRoll`,
   `camYaw`), a run of steps leans it, and a build pushes it in (`camPush`), all through SceneParams so
   `CameraRig` springs toward them and reduced motion and the safety clamp act on top.

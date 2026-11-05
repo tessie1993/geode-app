@@ -19,10 +19,8 @@ constexpr float kTouchMinOverlayStrength = 0.35f;
 // radius of each kind of kick: a drag moves the liquid about as fast as the finger.
 constexpr float kLiquidPush = 1.0f;
 constexpr float kLiquidSwirl = 2.4f;
-constexpr float kLiquidBurst = 3.0f;
 constexpr float kPushRadius = 0.08f;
 constexpr float kSwirlRadius = 0.07f;
-constexpr float kBurstRadius = 0.12f;
 // How hard the liquid sharpens its own back-trace, and how much extra the style's edges are re-poured.
 constexpr float kLiquidSharpen = 0.35f;
 constexpr float kLiquidEdge = 0.6f;
@@ -475,7 +473,6 @@ void Renderer::stepLiquid(Scene& scene, const SceneParams& p, float dt) {
         liquidPass_.reset();
         bornRolled_ = false;
         bornSceneId_.clear();
-        liquidFlare_ = 0.0f;
         liquidWasOn_ = true;
     }
     const liquid::Plan plan = liquid::planFor(liveLiquid_);
@@ -502,8 +499,6 @@ void Renderer::stepLiquid(Scene& scene, const SceneParams& p, float dt) {
         liquidFrame_.scale = 1.0f;
         liquidFrame_.twist = 0.0f;
     }
-    const bool drop = sound::dropped(soundFrame_);
-    liquidFlare_ = liquid::dropFlare(liquidFlare_, drop, dt);
     const bool trigger = soundFrame_.phrase > 0.5f || sound::sectionChanged(soundFrame_);
     if (bornClock_.step(dt, trigger, soundFrame_.beatConf > 0.35f)) {
         bornRolled_ = false;
@@ -515,7 +510,6 @@ void Renderer::stepLiquid(Scene& scene, const SceneParams& p, float dt) {
     const float force = std::clamp(p.flowForce, 0.0f, 3.0f);
     if (g.push) ff->queueKick(g.x, g.y, g.vx * kLiquidPush * force, g.vy * kLiquidPush * force, kPushRadius);
     if (std::fabs(g.swirl) > 0.02f) ff->queueVortex(g.x, g.y, g.swirl * kLiquidSwirl * force, kSwirlRadius);
-    if (drop && !reducedMotion) ff->queueBurst(liquidFrame_.vpX / aspect, liquidFrame_.vpY, kLiquidBurst * force, kBurstRadius);
     // The mids drive the swirl: Swirl is what a full mid band reaches.
     SceneParams fp = p;
     fp.flowCurl = std::clamp(p.flowCurl, 0.0f, 50.0f) * (0.4f + 0.6f * std::clamp(soundFrame_.middle, 0.0f, 1.0f));
@@ -597,7 +591,6 @@ GLuint Renderer::drawLiquid(Scene& scene, const SceneParams& p, float dt) {
     // A 3D style dives by flying its camera; nothing is born at a vanishing point it does not have.
     f.bornGain = threeD ? 0.0f : bornClock_.gain();
     f.bornMode = born == liquid::Born::Forms ? 3 : 0;
-    f.flare = liquidFlare_;
     f.age = static_cast<int>(liquid::ageFrom(p.liquidAge));
     f.surface = static_cast<int>(liquid::surfaceFrom(p.liquidSurface));
     f.feedback = plan.feedback;

@@ -338,7 +338,6 @@ private:
     std::string bornSceneId_;
     std::string lastBornSceneId_;
     bool liquidWasOn_ = false;
-    float liquidFlare_ = 0.0f;
     std::atomic<int> liquidHotPolicy_{0};
     std::atomic<int> liquidMode_{0};
     bool rippleOverlayOn_ = false;

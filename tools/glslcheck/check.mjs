@@ -305,7 +305,7 @@ function liquidJobs(args, registry) {
       uVelScale: [64 / 32, 64 / 32], uTexel: [1 / W, 1 / H], uStyleTexel: [1 / W, 1 / H], uDt: dt, uAspect: aspect,
       uVp: threeD ? [0, 0] : [vx, vy], uScale: threeD ? 1 : Math.pow(2, rate * dt), uTwist: threeD ? 0 : twist * dt,
       uInject: injectWeight(args.liquidity, dt), uEdge: 0.6 * (1 - args.liquidity * 0.5), uSharpen: 0.35,
-      uBornR: bornRadius(args.liquidity), uBornGain: threeD ? 0 : gain, uBornMode: args.born === 3 ? 3 : 0, uFlare: 0,
+      uBornR: bornRadius(args.liquidity), uBornGain: threeD ? 0 : gain, uBornMode: args.born === 3 ? 3 : 0,
       uAge: args.age, uSurface: args.surface, uFeedback: 1, uShimmer: 0.35, uLight: 0.5, uTime: t,
     };
     frames.push({

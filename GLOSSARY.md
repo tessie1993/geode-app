@@ -243,7 +243,7 @@ Settings › Behaviour's switch that lets notes, chords, key and mood move every
 _Avoid_: Note mode, melody mode
 
 **Bloom (note bloom)**:
-Removed. The fractal flower each note once grew over every style (four looks: flower, glow, ripple, burst) was dropped by the owner; presets that still carry `bloomLook` or `noteBloom` load and ignore them. "Bloom" now means only the `bloom` glow parameter and the fluid glow.
+Removed. The fractal flower each note once grew over every style was dropped by the owner; presets that still carry `bloomLook` or `noteBloom` load and ignore them. "Bloom" now means only the `bloom` glow parameter and the fluid glow.
 
 **Personality (note layer)**:
 Note & key reactions' character for a play: how strongly the notes tint the picture. Rolled at random per play and again at every section and drop.

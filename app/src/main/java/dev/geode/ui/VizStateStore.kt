@@ -1,6 +1,7 @@
 package dev.geode.ui
 
 import android.content.SharedPreferences
+import dev.geode.data.LookStore
 import dev.geode.data.Preset
 import dev.geode.data.PresetStore
 import dev.geode.render.MilkPresetMemory
@@ -101,9 +102,10 @@ internal class VizStateStore(
     }
 
     private companion object {
-        const val KEY_LIVE_STATE = "live_state"
-        const val KEY_TRANSITION_ID = "transition_id"
-        const val KEY_TRANSITION_DURATION_SEC = "transition_duration_sec"
+        // The keys are LookStore's, which the wallpaper, the dream and Cast read the saved look through.
+        const val KEY_LIVE_STATE = LookStore.KEY_LIVE_STATE
+        const val KEY_TRANSITION_ID = LookStore.KEY_TRANSITION_ID
+        const val KEY_TRANSITION_DURATION_SEC = LookStore.KEY_TRANSITION_DURATION_SEC
         const val PERSIST_WINDOW_MS = 400L
     }
 }

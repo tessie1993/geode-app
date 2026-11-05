@@ -15,12 +15,9 @@ import androidx.core.content.ContextCompat
 import dev.geode.billing.ProSnapshot
 import dev.geode.data.BehaviourStore
 import dev.geode.data.GeodePrefsFiles
+import dev.geode.data.LookStore
 import dev.geode.data.PerformanceStore
-import dev.geode.data.PresetStore
-import dev.geode.data.ThemeStore
 import dev.geode.pro.ProFeature
-import dev.geode.render.HandMask
-import dev.geode.render.VisualizerRenderer
 import dev.geode.render.VisualizerView
 import dev.geode.util.bestEffort
 
@@ -97,7 +94,11 @@ class VisualizerDreamService : DreamService() {
         isScreenBright = behaviour.dreamScreenBright
         val view = VisualizerView(this)
         visualizerView = view
-        restoreLiveState(view.visualizerRenderer, prefsFiles)
+        // The app's saved look in the gentle flight (owner, wave 1): the camera keeps flying without big
+        // moves, because a dream is watched from across a room. The MilkDrop preset is the renderer's own.
+        val looks = LookStore(prefsFiles)
+        looks.pushProcessWide()
+        view.visualizerRenderer.look = looks.current().gentleFlight()
         view.applyPerformance(PerformanceStore(prefsFiles.general, this).settings.value)
         view.visualizerRenderer.pcmProvider = { null }
         view.visualizerRenderer.soundInput = { sound.input }
@@ -242,33 +243,6 @@ class VisualizerDreamService : DreamService() {
             super.onWindowVisibilityChanged(visibility)
             handler.post { syncRunState() }
         }
-    }
-
-    /** Mirrors [VisualizerWallpaperService]'s own `restoreLiveState`: the same prefs, the same keys. */
-    private fun restoreLiveState(
-        engine: VisualizerRenderer,
-        prefsFiles: GeodePrefsFiles,
-    ) {
-        val prefs = prefsFiles.viz
-        prefs.getString("live_state", null)?.let { json ->
-            runCatching { PresetStore.fromJson(json) }.getOrNull()?.let { preset ->
-                engine.requestedSceneId = preset.sceneId
-                engine.sceneParams = preset.params
-            }
-        }
-        // The MilkDrop preset needs nothing here: the renderer restores the app's (MilkPresetMemory).
-        val gui = ThemeStore(prefsFiles.general).loadGui()
-        // The gentle flight (owner, wave 1): the camera keeps flying but without big moves, the
-        // same calm the reduce-motion setting gives, because a dream is watched from across a room.
-        engine.reducedMotion = true
-        engine.soundTuning = gui.soundTuning
-        // The user's modulation too: without it the wallpaper and the dream drew the look
-        // with every LFO, envelope and custom reaction switched off.
-        val modulation = dev.geode.data.LfoStore(prefsFiles.general)
-        engine.lfoEngine.configs = modulation.load()
-        engine.adsrEngine.configs = modulation.loadAdsrs()
-        engine.reactions = modulation.loadReactions()
-        HandMask.set(modulation.loadHandMask())
     }
 
     private companion object {

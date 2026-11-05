@@ -13,11 +13,9 @@ import androidx.annotation.StringRes
 import dev.geode.R
 import dev.geode.RingLog
 import dev.geode.billing.ProSnapshot
-import dev.geode.engine.audio.SoundTuning
 import dev.geode.pro.ProFeature
-import dev.geode.render.AdsrConfig
-import dev.geode.render.LfoConfig
 import dev.geode.render.SceneFactory
+import dev.geode.render.look.LookSnapshot
 import dev.geode.render.offscreen.OffscreenRenderSpec
 import dev.geode.render.offscreen.OffscreenSceneRenderer
 import dev.geode.render.scene.GlUtil
@@ -266,21 +264,17 @@ class LoopRender(
         sceneFactory: SceneFactory,
         aspect: ExportAspect,
         spec: LoopSpec,
-        sceneParams: SceneParams,
+        // The look the caller pinned when the render started; each drift stop shifts its params.
+        look: LookSnapshot,
         drift: TimeOfDayDrift = TimeOfDayDrift.None,
-        lfoConfigs: List<LfoConfig> = emptyList(),
-        adsrConfigs: List<AdsrConfig> = emptyList(),
-        reactions: List<dev.geode.render.ReactionRoute>? = null,
-        reducedMotion: Boolean = false,
         paramsAt: ((Long) -> SceneParams)? = null,
         codec: ExportCodec = ExportCodec.H264,
         onProgress: (Float) -> Unit,
         isCancelled: () -> Boolean,
         // The free tier's corner wordmark; see WatermarkOverlay.
         watermark: Boolean = false,
-        // The track the loop is cut from, and Settings › Audio: the export's sound engine hears it.
+        // The track the loop is cut from: the export's sound engine hears it.
         audioUri: Uri? = null,
-        soundTuning: SoundTuning = SoundTuning(),
         // How long the long-form file LoopExtend will repeat this reel into, or 0 when unknown.
         longFormMs: Long = 0L,
     ): Result =
@@ -295,16 +289,11 @@ class LoopRender(
                     aspect = aspect,
                     choice = choice,
                     spec = budgeted,
-                    sceneParams = sceneParams,
+                    look = look,
                     drift = drift,
-                    lfoConfigs = lfoConfigs,
-                    adsrConfigs = adsrConfigs,
-                    reactions = reactions,
-                    reducedMotion = reducedMotion,
                     paramsAt = paramsAt,
                     watermarkText = if (watermark) context.getString(R.string.pro_watermark_text) else null,
                     audioUri = audioUri,
-                    soundTuning = soundTuning,
                 ),
                 onProgress,
                 isCancelled,
@@ -317,16 +306,11 @@ class LoopRender(
         val aspect: ExportAspect,
         val choice: EncoderChoice,
         val spec: LoopSpec,
-        val sceneParams: SceneParams,
+        val look: LookSnapshot,
         val drift: TimeOfDayDrift,
-        val lfoConfigs: List<LfoConfig>,
-        val adsrConfigs: List<AdsrConfig>,
-        val reactions: List<dev.geode.render.ReactionRoute>?,
-        val reducedMotion: Boolean,
         val paramsAt: ((Long) -> SceneParams)?,
         val watermarkText: String?,
         val audioUri: Uri?,
-        val soundTuning: SoundTuning,
     )
 
     private data class EncoderChoice(
@@ -546,14 +530,9 @@ class LoopRender(
                     fps = job.choice.fps,
                     totalFrames = sourceFrames,
                     rangeStartMs = 0L,
-                    baseParams = stop.applyTo(job.sceneParams),
-                    lfoConfigs = job.lfoConfigs,
-                    adsrConfigs = job.adsrConfigs,
-                    reactions = job.reactions,
-                    reducedMotion = job.reducedMotion,
+                    look = job.look.copy(params = stop.applyTo(job.look.params)),
                     paramsAt = driftedParamsAt,
                     audioUri = job.audioUri,
-                    soundTuning = job.soundTuning,
                     // Pinned at prepare: live edits and the player moving on never reach the render.
                     pinDurationMs = sourceFrames * 1000L / job.choice.fps,
                     entitled = ProSnapshot.gate(context).allows(ProFeature.AUTO_DIRECTOR),

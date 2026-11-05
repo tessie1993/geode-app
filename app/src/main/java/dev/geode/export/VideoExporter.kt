@@ -15,13 +15,12 @@ import androidx.annotation.StringRes
 import dev.geode.R
 import dev.geode.RingLog
 import dev.geode.billing.ProSnapshot
-import dev.geode.engine.audio.SoundTuning
 import dev.geode.pro.ProFeature
 import dev.geode.render.SceneFactory
 import dev.geode.render.bridge.StyleSchedule
+import dev.geode.render.look.LookSnapshot
 import dev.geode.render.offscreen.OffscreenRenderSpec
 import dev.geode.render.offscreen.OffscreenSceneRenderer
-import dev.geode.render.offscreen.OffscreenUnderlay
 import dev.geode.render.scene.SceneParams
 import dev.geode.util.bestEffort
 import dev.geode.viz.BackgroundExportSpec
@@ -150,11 +149,8 @@ class VideoExporter(
         sceneFactory: SceneFactory,
         aspect: ExportAspect,
         fileName: String,
-        sceneParams: SceneParams,
-        lfoConfigs: List<dev.geode.render.LfoConfig> = emptyList(),
-        adsrConfigs: List<dev.geode.render.AdsrConfig> = emptyList(),
-        reactions: List<dev.geode.render.ReactionRoute>? = null,
-        reducedMotion: Boolean = false,
+        // The look the caller pinned when the render started; its underlay comes from [background].
+        look: LookSnapshot,
         requestedFps: Int = FPS,
         range: ExportRange? = null,
         paramsAt: ((Long) -> SceneParams)? = null,
@@ -164,8 +160,6 @@ class VideoExporter(
         codec: ExportCodec = ExportCodec.H264,
         loudnessTarget: LoudnessTarget = LoudnessTarget.LeaveAsIs,
         background: BackgroundExportSpec? = null,
-        // Settings › Audio, so the export's sound engine hears the music as the screen did.
-        soundTuning: SoundTuning = SoundTuning(),
         onProgress: (Float) -> Unit,
         isCancelled: () -> Boolean,
         // The free tier's corner wordmark; see WatermarkOverlay.
@@ -174,25 +168,20 @@ class VideoExporter(
         withContext(Dispatchers.Default) {
             // Decoded once, at the export's own pixel size, and reused for whichever destination
             // path below runs - see BackgroundImage for why this never touches Main.
-            val underlay = background?.let { BackgroundImage.decodeForExport(context, it, aspect.width, aspect.height) }
+            val decoded = background?.let { BackgroundImage.decodeForExport(context, it, aspect.width, aspect.height) }
+            val withUnderlay = look.copy(underlay = decoded)
             if (destination != null) {
                 return@withContext exportToDestination(
                     destination,
                     audioUri,
                     sceneFactory,
                     aspect,
-                    sceneParams,
-                    lfoConfigs,
-                    adsrConfigs,
-                    reactions,
-                    reducedMotion,
+                    withUnderlay,
                     requestedFps,
                     paramsAt,
                     range,
                     codec,
                     loudnessTarget,
-                    underlay,
-                    soundTuning,
                     onProgress,
                     isCancelled,
                     watermark = watermark,
@@ -224,17 +213,11 @@ class VideoExporter(
                         audioUri,
                         sceneFactory,
                         aspect,
-                        sceneParams,
-                        lfoConfigs,
-                        adsrConfigs,
-                        reactions,
-                        reducedMotion,
+                        withUnderlay,
                         requestedFps,
                         paramsAt,
                         range,
                         codec,
-                        underlay,
-                        soundTuning,
                         onProgress,
                         isCancelled,
                         watermark = watermark,
@@ -257,26 +240,19 @@ class VideoExporter(
             }
         }
 
-    // ponytail: 21 params since reactions (#94) and watermark (#91) both landed; fold them into
-    // an export-request object when this signature next grows.
+    // The look folds six of the old params into one pinned value (#345); the rest is the render's own request.
     @Suppress("LongParameterList")
     private suspend fun exportToDestination(
         destination: Uri,
         audioUri: Uri,
         sceneFactory: SceneFactory,
         aspect: ExportAspect,
-        sceneParams: SceneParams,
-        lfoConfigs: List<dev.geode.render.LfoConfig>,
-        adsrConfigs: List<dev.geode.render.AdsrConfig>,
-        reactions: List<dev.geode.render.ReactionRoute>?,
-        reducedMotion: Boolean,
+        look: LookSnapshot,
         requestedFps: Int,
         paramsAt: ((Long) -> SceneParams)?,
         range: ExportRange?,
         codec: ExportCodec,
         loudnessTarget: LoudnessTarget,
-        underlay: OffscreenUnderlay?,
-        soundTuning: SoundTuning,
         onProgress: (Float) -> Unit,
         isCancelled: () -> Boolean,
         watermark: Boolean,
@@ -293,17 +269,11 @@ class VideoExporter(
                     audioUri,
                     sceneFactory,
                     aspect,
-                    sceneParams,
-                    lfoConfigs,
-                    adsrConfigs,
-                    reactions,
-                    reducedMotion,
+                    look,
                     requestedFps,
                     paramsAt,
                     range,
                     codec,
-                    underlay,
-                    soundTuning,
                     onProgress,
                     isCancelled,
                     watermark = watermark,
@@ -366,17 +336,11 @@ class VideoExporter(
         audioUri: Uri,
         sceneFactory: SceneFactory,
         aspect: ExportAspect,
-        sceneParams: SceneParams,
-        lfoConfigs: List<dev.geode.render.LfoConfig>,
-        adsrConfigs: List<dev.geode.render.AdsrConfig>,
-        reactions: List<dev.geode.render.ReactionRoute>?,
-        reducedMotion: Boolean,
+        look: LookSnapshot,
         requestedFps: Int,
         paramsAt: ((Long) -> SceneParams)?,
         range: ExportRange?,
         codec: ExportCodec,
-        underlay: OffscreenUnderlay?,
-        soundTuning: SoundTuning,
         onProgress: (Float) -> Unit,
         isCancelled: () -> Boolean,
         watermark: Boolean,
@@ -442,15 +406,9 @@ class VideoExporter(
                             fps = fps,
                             totalFrames = totalFrames,
                             rangeStartMs = rangeStartMs,
-                            baseParams = sceneParams,
-                            lfoConfigs = lfoConfigs,
-                            adsrConfigs = adsrConfigs,
-                            reactions = reactions,
-                            reducedMotion = reducedMotion,
+                            look = look,
                             paramsAt = paramsAt,
-                            underlay = underlay,
                             audioUri = audioUri,
-                            soundTuning = soundTuning,
                             // Pinned at prepare: live edits and the player moving on never reach the render.
                             pinDurationMs = exportDurationUs / 1000L,
                             entitled = ProSnapshot.gate(context).allows(ProFeature.AUTO_DIRECTOR),

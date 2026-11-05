@@ -7,9 +7,7 @@ import dev.geode.RingLog
 import dev.geode.audio.AudioBus
 import dev.geode.audio.PcmRingBuffer
 import dev.geode.data.GeodePrefsFiles
-import dev.geode.data.LfoStore
-import dev.geode.data.PresetStore
-import dev.geode.data.ThemeStore
+import dev.geode.data.LookStore
 import dev.geode.engine.audio.SoundCursor
 import dev.geode.engine.audio.SoundInput
 import dev.geode.export.EncoderSurface
@@ -151,31 +149,14 @@ internal class CastStream(
     private fun syncLook(renderer: VisualizerRenderer) {
         if (lookChanged) {
             lookChanged = false
-            restoreLook(renderer)
+            // The saved live look, read the way the wallpaper and the dream read it.
+            renderer.look = LookStore(prefsFiles).current()
             mirrored = null
         }
         val look = CastMirror.look ?: return
         if (look === mirrored) return
         mirrored = look
-        renderer.requestedSceneId = look.sceneId
-        renderer.sceneParams = look.params
-    }
-
-    /** The saved live look, read the way the live wallpaper reads it. */
-    private fun restoreLook(renderer: VisualizerRenderer) {
-        prefsFiles.viz.getString(KEY_LIVE_STATE, null)?.let { json ->
-            runCatching { PresetStore.fromJson(json) }.getOrNull()?.let { preset ->
-                renderer.requestedSceneId = preset.sceneId
-                renderer.sceneParams = preset.params
-            }
-        }
-        val gui = ThemeStore(prefsFiles.general).loadGui()
-        renderer.reducedMotion = gui.reducedMotion
-        renderer.soundTuning = gui.soundTuning
-        val modulation = LfoStore(prefsFiles.general)
-        renderer.lfoEngine.configs = modulation.load()
-        renderer.adsrEngine.configs = modulation.loadAdsrs()
-        renderer.reactions = modulation.loadReactions()
+        renderer.look = renderer.look.copy(sceneId = look.sceneId, params = look.params)
     }
 
     /**
@@ -279,7 +260,6 @@ internal class CastStream(
 
     companion object {
         const val TAG = "CastStream"
-        const val KEY_LIVE_STATE = "live_state"
         const val PCM_SCRATCH = 4096
 
         /** Segments arrive every second; five without one is a frozen picture on the TV. */

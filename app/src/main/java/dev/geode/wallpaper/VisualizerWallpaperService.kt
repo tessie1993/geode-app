@@ -17,13 +17,11 @@ import android.view.SurfaceHolder
 import androidx.core.content.ContextCompat
 import dev.geode.billing.ProSnapshot
 import dev.geode.data.GeodePrefsFiles
+import dev.geode.data.LookStore
 import dev.geode.data.PerformanceStore
-import dev.geode.data.PresetStore
-import dev.geode.data.ThemeStore
 import dev.geode.pro.ProFeature
 import dev.geode.render.FramePacer
 import dev.geode.render.FrameRatePolicy
-import dev.geode.render.HandMask
 import dev.geode.render.TouchField
 import dev.geode.render.VisualizerRenderer
 import dev.geode.util.bestEffort
@@ -120,7 +118,7 @@ class VisualizerWallpaperService : WallpaperService() {
             setTouchEventsEnabled(true)
             val engine = VisualizerRenderer(this@VisualizerWallpaperService)
             renderer = engine
-            restoreLiveState(engine)
+            restoreLook(engine)
             settings = prefsStore.load()
             engine.pcmProvider = { null }
             engine.soundInput = { sound.input }
@@ -152,30 +150,16 @@ class VisualizerWallpaperService : WallpaperService() {
             )
         }
 
-        private fun restoreLiveState(engine: VisualizerRenderer) {
+        /** The app's saved look (LookStore), as it is; the MilkDrop preset is the renderer's own (MilkPresetMemory). */
+        private fun restoreLook(engine: VisualizerRenderer) {
             val prefsFiles = GeodePrefsFiles(this@VisualizerWallpaperService)
-            val prefs = prefsFiles.viz
-            prefs.getString("live_state", null)?.let { json ->
-                runCatching { PresetStore.fromJson(json) }.getOrNull()?.let { preset ->
-                    engine.requestedSceneId = preset.sceneId
-                    engine.sceneParams = preset.params
-                }
-            }
-            // The MilkDrop preset needs nothing here: the renderer restores the app's (MilkPresetMemory).
-            val gui = ThemeStore(prefsFiles.general).loadGui()
-            engine.reducedMotion = gui.reducedMotion
-            engine.soundTuning = gui.soundTuning
+            val looks = LookStore(prefsFiles)
+            looks.pushProcessWide()
+            engine.look = looks.current()
             // Settings › Performance; the wallpaper keeps its own pacer, so the cap goes there.
             val performance = PerformanceStore(prefsFiles.general, this@VisualizerWallpaperService).settings.value
             engine.performance = performance
             pacer.policy = FrameRatePolicy.Capped(minOf(WALLPAPER_FPS, performance.fpsCap.toFloat()))
-            // The user's modulation too: without it the wallpaper and the dream drew the look
-            // with every LFO, envelope and custom reaction switched off.
-            val modulation = dev.geode.data.LfoStore(prefsFiles.general)
-            engine.lfoEngine.configs = modulation.load()
-            engine.adsrEngine.configs = modulation.loadAdsrs()
-            engine.reactions = modulation.loadReactions()
-            HandMask.set(modulation.loadHandMask())
         }
 
         /**

@@ -12,7 +12,6 @@ import dev.geode.data.EditorProjectStore
 import dev.geode.data.ExportDefaults
 import dev.geode.data.ExportPrefsStore
 import dev.geode.data.GeodePrefsFiles
-import dev.geode.data.GuiPrefs
 import dev.geode.data.PerformanceTake
 import dev.geode.data.SaveTarget
 import dev.geode.editor.AnimatableParams
@@ -54,6 +53,8 @@ import dev.geode.export.TimeOfDayDrift
 import dev.geode.export.VideoExporter
 import dev.geode.render.SceneFactory
 import dev.geode.render.bridge.StyleSchedule
+import dev.geode.render.look.LookSnapshot
+import dev.geode.render.look.LookSource
 import dev.geode.render.scene.Catalogue
 import dev.geode.render.scene.SceneParams
 import dev.geode.viz.BackgroundExportSpec
@@ -120,16 +121,10 @@ internal class ExportController(
     interface Host {
         val exportUri: Uri?
 
-        val guiPrefs: GuiPrefs
-
         val sceneId: String
-        val sceneParams: SceneParams
 
-        fun lfoConfigs(): List<dev.geode.render.LfoConfig>
-
-        fun adsrConfigs(): List<dev.geode.render.AdsrConfig>
-
-        fun reactions(): List<dev.geode.render.ReactionRoute>?
+        /** The stage's look; every render pins it once when it starts ([LookSource.pin]), so live edits never reach it. */
+        val look: LookSource
 
         suspend fun loadExportTake(): PerformanceTake.Timeline?
 
@@ -367,7 +362,7 @@ internal class ExportController(
         exportJob =
             ExportRun.launch {
                 try {
-                    val gui = host.guiPrefs
+                    val look = host.look.pin().let { live -> sceneParams?.let { live.copy(params = it) } ?: live }
                     // A Cancel between tracks ends the loop; the tracks left are then marked cancelled.
                     var track = batch.current
                     while (track != null && !exportCancelled && !ExportRun.cancelRequested) {
@@ -379,7 +374,7 @@ internal class ExportController(
                         publish(0f)
                         val outcome =
                             try {
-                                renderBatchTrack(track, aspect, fps, sceneFactory, sceneParams, codec, watermark, gui, publish)
+                                renderBatchTrack(track, aspect, fps, sceneFactory, look, codec, watermark, publish)
                             } catch (c: kotlinx.coroutines.CancellationException) {
                                 throw c
                             } catch (t: Throwable) {
@@ -403,10 +398,9 @@ internal class ExportController(
         aspect: ExportAspect,
         fps: Int,
         sceneFactory: SceneFactory,
-        sceneParams: SceneParams?,
+        look: LookSnapshot,
         codec: ExportCodec,
         watermark: Boolean,
-        gui: GuiPrefs,
         publish: (Float) -> Unit,
     ): BatchOutcome {
         val uri = track.uri.toUri()
@@ -417,13 +411,8 @@ internal class ExportController(
                 sceneFactory = sceneFactory,
                 aspect = aspect,
                 fileName = name,
-                sceneParams = sceneParams ?: host.sceneParams,
-                lfoConfigs = host.lfoConfigs(),
-                adsrConfigs = host.adsrConfigs(),
-                reactions = host.reactions(),
-                reducedMotion = gui.reducedMotion,
+                look = look,
                 requestedFps = fps,
-                soundTuning = gui.soundTuning,
                 codec = codec,
                 loudnessTarget = defaultLoudnessTarget(),
                 background = defaultBackground(),
@@ -642,11 +631,14 @@ internal class ExportController(
     ): RenderResult {
         val segments = plan.segments
         if (segments.isEmpty() && plan.clips.none { it is ProjectComposition.ClipRender.Footage }) return RenderResult.NothingToRender
-        val looks = segments.associateWith { lookFor(it, project.keyframes, it.scene.takeId?.let { id -> takes(id) }, factoryFor) }
+        val pinned = host.look.pin()
+        val looks =
+            segments.associateWith { lookFor(it, project.keyframes, it.scene.takeId?.let { id -> takes(id) }, factoryFor, pinned) }
         if (looks.values.any { !host.allowsStyle(it.factory.sceneId) }) return RenderResult.Locked
 
         plan.direct?.let { segment ->
-            val result = drawSegment(segment, looks.getValue(segment), spec, destination, fileName, final = true, onProgress, isCancelled)
+            val result =
+                drawSegment(segment, looks.getValue(segment), pinned, spec, destination, fileName, final = true, onProgress, isCancelled)
             return when (result) {
                 is VideoExporter.Result.Saved -> RenderResult.Saved(result.uri, segment.durationMs, result.loudnessAdvice)
                 is VideoExporter.Result.Failed -> RenderResult.Failed(result.message)
@@ -667,7 +659,7 @@ internal class ExportController(
                 val progress: (Float, Boolean) -> Unit =
                     { p, _ -> onProgress(drawnShare * (before + p * segment.durationMs) / totalMs, true) }
                 val look = looks.getValue(segment)
-                when (val result = drawSegment(segment, look, spec, Uri.fromFile(file), "", final = false, progress, isCancelled)) {
+                when (val result = drawSegment(segment, look, pinned, spec, Uri.fromFile(file), "", final = false, progress, isCancelled)) {
                     is VideoExporter.Result.Saved -> drawn[segment] = Uri.fromFile(file)
                     is VideoExporter.Result.Failed -> return RenderResult.Failed(result.message)
                     VideoExporter.Result.Cancelled -> return RenderResult.Cancelled
@@ -704,6 +696,7 @@ internal class ExportController(
     private suspend fun drawSegment(
         segment: SceneSegment,
         look: SegmentLook,
+        pinned: LookSnapshot,
         spec: RenderSpec,
         destination: Uri?,
         fileName: String,
@@ -711,19 +704,13 @@ internal class ExportController(
         onProgress: (Float, Boolean) -> Unit,
         isCancelled: () -> Boolean,
     ): VideoExporter.Result {
-        val gui = host.guiPrefs
         return exporter.export(
             audioUri = segment.songUri.toUri(),
             sceneFactory = look.factory,
             aspect = spec.aspect,
             fileName = fileName,
-            sceneParams = host.sceneParams,
-            lfoConfigs = host.lfoConfigs(),
-            adsrConfigs = host.adsrConfigs(),
-            reactions = host.reactions(),
-            reducedMotion = gui.reducedMotion,
+            look = pinned,
             requestedFps = spec.defaults.fps,
-            soundTuning = gui.soundTuning,
             paramsAt = look.paramsAt,
             styleSchedule = look.styleSchedule,
             range = segment.range,
@@ -751,6 +738,7 @@ internal class ExportController(
         sheet: KeyframeSheet,
         take: PerformanceTake.Timeline?,
         factoryFor: (String, String?) -> SceneFactory,
+        pinned: LookSnapshot,
     ): SegmentLook {
         val clip = segment.clip
         val takeStartMs = clip.sourceTimeAt(segment.programmeStartMs)
@@ -769,7 +757,7 @@ internal class ExportController(
             } else {
                 { ms: Long ->
                     val programmeMs = segment.programmeStartMs + ms
-                    val base = take?.stateAt(clip.sourceTimeAt(programmeMs))?.params ?: host.sceneParams
+                    val base = take?.stateAt(clip.sourceTimeAt(programmeMs))?.params ?: pinned.params
                     if (animated) AnimatableParams.applyToScene(base, sheet.valuesAt(programmeMs, clip.id)) else base
                 }
             }
@@ -919,7 +907,7 @@ internal class ExportController(
         loopJob =
             ExportRun.launch {
                 try {
-                    val gui = host.guiPrefs
+                    val look = host.look.pin()
                     val spec = LoopSpec.of(loopMs, crossfadeMs, fps = fps)
                     // Plus one loop: the extend rounds the repeats up to a whole loop.
                     val longFormMs = loopRenderer.soundtrackMs(audioClips.ifEmpty { listOf(uri) }) + loopMs
@@ -928,15 +916,10 @@ internal class ExportController(
                             sceneFactory = sceneFactory,
                             aspect = aspect,
                             spec = spec,
-                            sceneParams = host.sceneParams,
+                            look = look,
                             drift = drift,
-                            lfoConfigs = host.lfoConfigs(),
-                            adsrConfigs = host.adsrConfigs(),
-                            reactions = host.reactions(),
-                            reducedMotion = gui.reducedMotion,
                             codec = codec,
                             audioUri = uri,
-                            soundTuning = gui.soundTuning,
                             longFormMs = longFormMs,
                             onProgress = { p -> publishLoopProgress(p * RENDER_SPAN) },
                             isCancelled = { loopCancelled || ExportRun.cancelRequested },

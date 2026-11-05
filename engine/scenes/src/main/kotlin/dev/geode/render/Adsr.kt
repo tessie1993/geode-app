@@ -25,15 +25,8 @@ data class AdsrConfig(
     val retrigger: Boolean = true,
 )
 
-// Modulation is applied natively every frame (see core/viz/RendererFrame.cpp, which ticks its own
-// LfoEngine/AdsrEngine against the configs pushed by geode_viz_set_lfo/geode_viz_set_adsr), so this
-// class only needs to hold the config the UI edits and NativeViz.setAdsrConfigs forwards; it does not
-// run the envelope/apply logic itself.
-class AdsrEngine {
-    @Volatile
-    var configs: List<AdsrConfig> = List(COUNT) { AdsrConfig() }
-
-    companion object {
-        const val COUNT = 2
-    }
+// Envelopes run natively every frame (core/viz/RendererFrame.cpp, against the configs geode_viz_set_adsr
+// pushes); the configs ride in the LookSnapshot (render/look). Only the count is Kotlin's.
+object AdsrEngine {
+    const val COUNT = 2
 }

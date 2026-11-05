@@ -63,6 +63,7 @@ import dev.geode.render.MilkPresetMemory
 import dev.geode.render.SceneFactory
 import dev.geode.render.TransitionStyle
 import dev.geode.render.UnderlayBlend
+import dev.geode.render.look.LookSource
 import dev.geode.render.scene.CustomizeTab
 import dev.geode.render.scene.PcmChunk
 import dev.geode.render.scene.SceneParams
@@ -1050,15 +1051,12 @@ class PlayerSession internal constructor(
             scope,
             object : ExportController.Host {
                 override val exportUri: Uri? get() = currentUri
-                override val guiPrefs: GuiPrefs get() = settings.guiPrefs.value
                 override val sceneId: String get() = _vizState.value.sceneId
-                override val sceneParams get() = _vizState.value.params
-
-                override fun lfoConfigs() = modulation.lfos.value
-
-                override fun adsrConfigs() = modulation.adsrs.value
-
-                override fun reactions() = modulation.reactions.value
+                override val look =
+                    LookSource {
+                        val m = modulation
+                        liveLook(_vizState.value, m.lfos.value, m.adsrs.value, m.reactions.value, settings.guiPrefs.value)
+                    }
 
                 override suspend fun loadExportTake() = takeController.loadExportTake()
 

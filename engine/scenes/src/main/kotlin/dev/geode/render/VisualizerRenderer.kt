@@ -6,11 +6,11 @@ import android.opengl.GLSurfaceView
 import android.os.SystemClock
 import dev.geode.engine.audio.SoundCursor
 import dev.geode.engine.audio.SoundInput
-import dev.geode.engine.audio.SoundTuning
 import dev.geode.render.bridge.NativeViz
+import dev.geode.render.look.LookApplier
+import dev.geode.render.look.LookSnapshot
 import dev.geode.render.scene.PcmChunk
 import dev.geode.render.scene.SceneIds
-import dev.geode.render.scene.SceneParams
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -39,18 +39,13 @@ class VisualizerRenderer(
     }
 
     /**
-     * Until a look is pushed, the app's first style (FreeTier.FIRST_STYLE_ID in :app): the wallpaper
-     * and dream with no saved look then show the free showpiece rather than silk, a Pro renderer.
+     * What this surface draws (#345): the host publishes a new [LookSnapshot] from any thread, and each frame
+     * [LookApplier] pushes only what changed. Until one is published, [LookSnapshot]'s defaults (the free first style).
      */
     @Volatile
-    var requestedSceneId: String = SceneIds.NEON_CHROME_SEA
+    var look: LookSnapshot = LookSnapshot()
 
-    @Volatile
-    var sceneParams: SceneParams = SceneParams.DEFAULT
-
-    /** Vestibular accessibility only; the flash clamp is unconditional inside the native safety pass. */
-    @Volatile
-    var reducedMotion: Boolean = false
+    private val lookApplier = LookApplier()
 
     /**
      * Settings › Performance. Live surfaces only: the offscreen export renderer never reads it,
@@ -68,12 +63,6 @@ class VisualizerRenderer(
 
     @Volatile
     var layerBlend: BlendMode = BlendMode.SCREEN
-
-    @Volatile
-    var transitionDurationMs: Long = 1200
-
-    @Volatile
-    var transitionId: String = TransitionStyle.FADE.name.lowercase()
 
     @Volatile
     var onShaderError: (String?) -> Unit = {}
@@ -108,26 +97,6 @@ class VisualizerRenderer(
 
     private var soundCursor: SoundCursor? = null
 
-    /** Settings › Audio. Compared by identity on the GL thread, so assign a new instance to change it. */
-    @Volatile
-    var soundTuning: SoundTuning = SoundTuning()
-
-    private var nativeSoundTuning: SoundTuning? = null
-
-    // Config holders only: native ticks its own LfoEngine/AdsrEngine against the configs
-    // syncNativeState forwards below (core/viz/RendererFrame.cpp).
-    val lfoEngine = LfoEngine()
-
-    val adsrEngine = AdsrEngine()
-
-    /**
-     * The user's own reaction routes, or null to play the style's DNA. Native resolves what plays at each
-     * frame (core/signal/bindings/PlayingRoutes): the requested style's DNA at `reactSeed`, the list only on
-     * the moments [HandMask] gives the user. Compared by identity, so assign a new list to change it.
-     */
-    @Volatile
-    var reactions: List<ReactionRoute>? = null
-
     /** Gyro look, -1..1 per axis, written by the sensor listener; native reads it only while camGyro is on. */
     @Volatile
     var lookYaw: Float = 0f
@@ -145,10 +114,6 @@ class VisualizerRenderer(
         NativeViz(context).also { viz ->
             viz.onCreated = { milkPreset.restorePath?.let(viz::loadMilkPreset) }
         }
-    private var nativeParams: SceneParams? = null
-    private var nativeLfo: List<LfoConfig>? = null
-    private var nativeAdsr: List<AdsrConfig>? = null
-    private var nativeReactions: List<ReactionRoute>? = null
     private var nativePerformance: PerformanceSettings? = null
     private var nativeThermalSampleMs = 0L
     private var liquidModeSampleMs = 0L
@@ -251,14 +216,10 @@ class VisualizerRenderer(
         ThermalGovernor.attach(appContext)
         nativeViz.surfaceCreated()
         applyUiBlur()
-        nativeParams = null
-        nativeLfo = null
-        nativeAdsr = null
-        // The handle may outlive the surface; resend so it never keeps a list the shell has since dropped.
-        nativeReactions = reactions.also(nativeViz::setUserReactions)
+        // The handle may outlive the surface, or be new: either way the next frame resends the whole look.
+        lookApplier.reset()
         nativePerformance = null
         liquidModeSampleMs = 0L
-        nativeSoundTuning = null
         // A new native renderer starts a new engine: hand it a full window, not the tail of the last.
         soundCursor = null
         firstFrameOnSurface = true
@@ -272,19 +233,6 @@ class VisualizerRenderer(
         nativeViz.surfaceChanged(width, height)
         onSurfaceSizeChanged(width, height)
     }
-
-    /**
-     * Full-frame RGBA8 background image blended under the scene; see [dev.geode.render.bridge.NativeViz.setUnderlay].
-     * Any thread; latched for the next frame, so the UI calls this directly (or via
-     * `VisualizerView.queueEvent {}`) rather than waiting for [onDrawFrame].
-     */
-    fun setUnderlay(
-        pixels: IntArray?,
-        width: Int,
-        height: Int,
-        blend: UnderlayBlend,
-        amount: Float,
-    ) = nativeViz.setUnderlay(pixels, width, height, blend.ordinal, amount)
 
     /**
      * The glass sheet's blur region (left, top, right, bottom, strength, corner px), kept so a new
@@ -320,7 +268,6 @@ class VisualizerRenderer(
             GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT)
             return
         }
-        nativeViz.setScene(requestedSceneId)
         syncNativeState()
         nativeViz.render(SystemClock.elapsedRealtimeNanos() / NANOS_PER_SECOND, targetFbo = 0)
         nativeViz.pollError(onShaderError)
@@ -332,26 +279,7 @@ class VisualizerRenderer(
     }
 
     private fun syncNativeState() {
-        val p = sceneParams
-        if (p !== nativeParams) {
-            nativeViz.setParams(p)
-            nativeParams = p
-        }
-        val lfo = lfoEngine.configs
-        if (lfo !== nativeLfo) {
-            nativeViz.setLfoConfigs(lfo)
-            nativeLfo = lfo
-        }
-        val adsr = adsrEngine.configs
-        if (adsr !== nativeAdsr) {
-            nativeViz.setAdsrConfigs(adsr)
-            nativeAdsr = adsr
-        }
-        val routes = reactions
-        if (routes !== nativeReactions) {
-            nativeViz.setUserReactions(routes)
-            nativeReactions = routes
-        }
+        lookApplier.apply(look, nativeViz)
         val perf = performance
         if (perf != nativePerformance) {
             nativeViz.setQuality(perf.renderScale, perf.marchScale, perf.postFx, perf.adaptive)
@@ -359,9 +287,7 @@ class VisualizerRenderer(
             nativePerformance = perf
         }
         nativeViz.setLook(lookYaw, lookPitch)
-        nativeViz.setReducedMotion(reducedMotion)
         nativeViz.setLayer(layerSceneId, layerMix, layerBlend)
-        nativeViz.setTransition(transitionId, transitionDurationMs)
         nativeViz.setPacedFps(ThermalGovernor.pacedFps)
         val now = SystemClock.elapsedRealtime()
         if (now - nativeThermalSampleMs >= THERMAL_SAMPLE_MS) {
@@ -373,11 +299,6 @@ class VisualizerRenderer(
             liquidModeState.value = nativeViz.liquidMode()
         }
         pcmProvider()?.let { chunk -> nativeViz.pushPcm(chunk.data, chunk.count) }
-        val tuning = soundTuning
-        if (tuning !== nativeSoundTuning) {
-            nativeViz.setSoundTuning(tuning.toFloats())
-            nativeSoundTuning = tuning
-        }
         feedSound()
     }
 

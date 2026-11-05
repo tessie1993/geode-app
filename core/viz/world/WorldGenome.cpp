@@ -337,6 +337,14 @@ float bareWorld(const Genome& g, const Way& way, const V3& p) {
         w[0] = mixf(w[0], mixf(ax, bx, fn), g[Polar]);
         w[1] = mixf(w[1], mixf(ay, by, fn), g[Polar]);
     }
+    if (g[LatticeTilt] != 0.0f || g[LatticeYaw] != 0.0f) {
+        // The lattice turned off the view (lib_world's world(), line for line): tipped about x,
+        // turned about y, then the turned z folded again on the same period. An isometry and a
+        // fold, so the distance stays a true bound and the travel repeat stays periodic.
+        rot(w[1], w[2], g[LatticeTilt]);
+        rot(w[2], w[0], g[LatticeYaw]);
+        w[2] = cell(w[2], pz);
+    }
     const float sxy = g[CellXY] / std::max(g[RepXY], 0.08f);
     const float shift = 0.5f * g[CellXY] * g[CellShift];
     // The shift moves the cells' content out along +x, the side the kaleidoscope folds onto, so a
@@ -458,12 +466,12 @@ std::array<Seed, 41> buildSeeds() {
     return {{
         // A nave of soap-thin spheres, inverted into one another: bubbles inside bubbles, lit from within.
         {"Bubble Nave", 0.35f, 0.7f, 0.5f,
-         make({{RepXY, 1.0f}, {CellXY, 6.0f}, {CellZ, 5.0f}, {CellShift, 1.0f}, {PShell, 1.0f}, {PrimSize, 1.6f}, {PrimThick, 0.05f},
+         make({{LatticeTilt, 0.35f}, {LatticeYaw, 0.25f}, {RepXY, 1.0f}, {CellXY, 6.0f}, {CellZ, 5.0f}, {CellShift, 1.0f}, {PShell, 1.0f}, {PrimSize, 1.6f}, {PrimThick, 0.05f},
                {Invert, 0.6f}, {InvRadius, 1.1f}, {Mirror, 0.5f}, {MirrorOff, 0.6f}, {MSurface, 0.8f}, {MGlow, 0.2f},
                {TrapR, 0.8f}, {TrapX, 0.2f}, {PalOffset, 0.55f}, {PalSpan, 0.4f}, {Emission, 0.9f}, {Fog, 0.04f}})},
         // Girders crossing girders, folded: the inside of a crane built by a crystal.
         {"Girder Yard", 0.7f, 0.45f, 0.75f,
-         make({{RepXY, 1.0f}, {CellXY, 5.0f}, {CellZ, 4.0f}, {CellShift, 0.5f}, {PBar, 1.0f}, {PrimThick, 0.07f}, {Mirror, 1.0f},
+         make({{LatticeTilt, 0.45f}, {LatticeYaw, -0.3f}, {RepXY, 1.0f}, {CellXY, 5.0f}, {CellZ, 4.0f}, {CellShift, 0.5f}, {PBar, 1.0f}, {PrimThick, 0.07f}, {Mirror, 1.0f},
                {MirrorOff, 0.9f}, {Ifs, 0.8f}, {IfsIter, 2.0f}, {IfsScale, 1.5f}, {IfsAngA, 0.35f}, {IfsAngB, 0.2f},
                {IfsOffX, 0.8f}, {IfsOffY, 0.6f}, {IfsOffZ, 0.7f}, {MSurface, 1.0f}, {TrapX, 0.6f}, {TrapY, 0.3f},
                {PalOffset, 0.08f}, {PalSpan, 0.6f}, {Emission, 1.0f}, {Fog, 0.05f}, {TexAmount, 0.6f}, {TexPick, 1.0f}, {TexScale, 1.5f}})},
@@ -475,7 +483,7 @@ std::array<Seed, 41> buildSeeds() {
                {Emission, 1.1f}, {Fog, 0.035f}})},
         // Boxes folded on boxes: quartz grown in a mirror.
         {"Folded Quartz", 0.5f, 0.55f, 0.7f,
-         make({{RepXY, 0.8f}, {CellXY, 6.0f}, {CellZ, 6.0f}, {PBox, 1.0f}, {PrimSize, 0.6f}, {PrimThick, 0.1f},
+         make({{LatticeTilt, 0.2f}, {LatticeYaw, 0.4f}, {RepXY, 0.8f}, {CellXY, 6.0f}, {CellZ, 6.0f}, {PBox, 1.0f}, {PrimSize, 0.6f}, {PrimThick, 0.1f},
                {Ifs, 1.0f}, {IfsIter, 4.0f}, {IfsScale, 1.9f}, {Scale, 2.2f}, {CellShift, 0.4f}, {IfsAngA, 0.25f}, {IfsAngB, 0.45f}, {IfsOffX, 1.2f},
                {IfsOffY, 1.0f}, {IfsOffZ, 1.1f}, {MSurface, 0.85f}, {MGlow, 0.15f}, {TrapX, 0.4f}, {TrapZ, 0.5f},
                {PalOffset, 0.4f}, {PalSpan, 0.35f}, {Emission, 0.95f}, {Fog, 0.045f}, {TexAmount, 0.5f}, {TexPick, 4.0f}, {TexEmit, 0.3f}})},
@@ -487,7 +495,7 @@ std::array<Seed, 41> buildSeeds() {
                {Fog, 0.06f}, {TexAmount, 0.5f}, {TexPick, 2.0f}, {TexEmit, 0.6f}})},
         // A gas of folded inversions: no surface at all, a cloud with a fractal inside.
         {"Fractal Gas", 0.25f, 0.5f, 0.3f,
-         make({{RepXY, 0.7f}, {CellXY, 5.0f}, {CellZ, 5.0f}, {PShell, 1.0f}, {PrimSize, 0.7f}, {PrimThick, 0.08f},
+         make({{LatticeTilt, -0.3f}, {LatticeYaw, 0.35f}, {RepXY, 0.7f}, {CellXY, 5.0f}, {CellZ, 5.0f}, {PShell, 1.0f}, {PrimSize, 0.7f}, {PrimThick, 0.08f},
                {AbsInv, 0.9f}, {AbsInvC, 0.55f}, {Ifs, 0.5f}, {IfsIter, 2.0f}, {IfsScale, 1.4f}, {IfsOffX, 0.5f},
                {IfsOffY, 0.5f}, {IfsOffZ, 0.5f}, {MDensity, 1.0f}, {DensBand, 0.2f}, {TrapR, 1.0f}, {TrapX, 0.3f},
                {PalOffset, 0.62f}, {PalSpan, 0.8f}, {Emission, 1.0f}, {Fog, 0.03f}})},
@@ -498,37 +506,37 @@ std::array<Seed, 41> buildSeeds() {
                {TrapY, 0.5f}, {TrapR, 0.4f}, {PalOffset, 0.45f}, {PalSpan, 0.3f}, {Emission, 0.85f}, {Fog, 0.025f}})},
         // Arches on arches, a mirrored aqueduct with no end.
         {"Endless Arches", 0.45f, 0.4f, 0.6f,
-         make({{RepXY, 1.0f}, {CellXY, 5.0f}, {CellZ, 4.0f}, {PTube, 0.7f}, {PBar, 0.3f}, {PrimSize, 1.4f},
+         make({{LatticeTilt, 0.15f}, {LatticeYaw, 0.3f}, {RepXY, 1.0f}, {CellXY, 5.0f}, {CellZ, 4.0f}, {PTube, 0.7f}, {PBar, 0.3f}, {PrimSize, 1.4f},
                {PrimThick, 0.16f}, {Mirror, 1.0f}, {MirrorOff, 0.5f}, {Invert, 0.2f}, {InvRadius, 1.2f}, {MSurface, 1.0f},
                {TrapX, 0.5f}, {TrapZ, 0.3f}, {PalOffset, 0.15f}, {PalSpan, 0.3f}, {Emission, 0.9f}, {Fog, 0.055f}, {TexAmount, 0.7f}, {TexPick, 0.0f}, {TexScale, 0.8f}})},
         // A lattice of small boxes thrown through an abs-inversion: blossoms of light along every edge.
         {"Lattice Bloom", 0.65f, 0.8f, 0.5f,
-         make({{RepXY, 1.0f}, {CellXY, 4.0f}, {CellZ, 4.0f}, {PBox, 0.6f}, {PShell, 0.4f}, {PrimSize, 0.5f},
+         make({{LatticeTilt, 0.5f}, {LatticeYaw, 0.5f}, {RepXY, 1.0f}, {CellXY, 4.0f}, {CellZ, 4.0f}, {PBox, 0.6f}, {PShell, 0.4f}, {PrimSize, 0.5f},
                {PrimThick, 0.06f}, {AbsInv, 0.6f}, {AbsInvC, 0.4f}, {Mirror, 0.7f}, {MirrorOff, 0.4f}, {MGlow, 0.7f},
                {MSurface, 0.3f}, {TrapX, 0.4f}, {TrapR, 0.6f}, {PalOffset, 0.85f}, {PalSpan, 0.55f}, {Emission, 1.1f},
                {Fog, 0.04f}, {TexEmit, 0.7f}, {TexPick, 7.0f}, {TexScale, 1.2f}})},
         // Folded spheres under a tide of light: a reef half stone, half glowing mist.
         {"Coral Drift", 0.4f, 0.6f, 0.65f,
-         make({{RepXY, 0.8f}, {CellXY, 5.5f}, {CellZ, 5.5f}, {PShell, 0.7f}, {PTorus, 0.3f}, {PrimSize, 0.9f},
+         make({{LatticeTilt, -0.25f}, {LatticeYaw, 0.3f}, {RepXY, 0.8f}, {CellXY, 5.5f}, {CellZ, 5.5f}, {PShell, 0.7f}, {PTorus, 0.3f}, {PrimSize, 0.9f},
                {PrimThick, 0.12f}, {Ifs, 0.9f}, {IfsIter, 3.0f}, {IfsScale, 1.45f}, {IfsAngA, 0.4f}, {IfsAngB, 0.6f}, {Scale, 2.6f}, {CellShift, 0.35f},
                {IfsOffX, 0.6f}, {IfsOffY, 0.9f}, {IfsOffZ, 0.4f}, {MSurface, 0.55f}, {MDensity, 0.45f}, {DensBand, 0.15f},
                {TrapR, 0.7f}, {TrapZ, 0.4f}, {PalOffset, 0.3f}, {PalSpan, 0.5f}, {Emission, 1.0f}, {Fog, 0.045f}})},
         // Statues and skulls in mirrored niches down a marble gallery: the baked models (WorldAssets). A
         // third of glow fills the dark between the niches, so the gallery never reads as a black hall.
         {"Reliquary", 0.3f, 0.35f, 0.6f,
-         make({{RepXY, 1.0f}, {CellXY, 6.0f}, {CellZ, 5.0f}, {CellShift, 1.0f}, {PMesh, 1.0f}, {MeshPick, 1.0f},
+         make({{LatticeTilt, -0.15f}, {LatticeYaw, 0.35f}, {RepXY, 1.0f}, {CellXY, 6.0f}, {CellZ, 5.0f}, {CellShift, 1.0f}, {PMesh, 1.0f}, {MeshPick, 1.0f},
                {MeshSize, 1.8f}, {Mirror, 0.3f}, {MirrorOff, 0.4f}, {MSurface, 0.7f}, {MGlow, 0.3f}, {TrapX, 0.3f},
                {TrapR, 0.5f}, {PalOffset, 0.38f}, {PalSpan, 0.3f}, {Emission, 1.4f}, {Fog, 0.025f}, {TexAmount, 0.7f}, {TexPick, 0.0f},
                {TexScale, 1.2f}})},
         // Shells and chandeliers hung in light, half glass, half glow.
         {"Shell Choir", 0.6f, 0.75f, 0.45f,
-         make({{RepXY, 1.0f}, {CellXY, 5.0f}, {CellZ, 4.5f}, {CellShift, 1.0f}, {PMesh, 0.85f}, {PShell, 0.15f},
+         make({{LatticeTilt, 0.4f}, {LatticeYaw, -0.2f}, {RepXY, 1.0f}, {CellXY, 5.0f}, {CellZ, 4.5f}, {CellShift, 1.0f}, {PMesh, 0.85f}, {PShell, 0.15f},
                {PrimSize, 1.2f}, {PrimThick, 0.04f}, {MeshPick, 5.0f}, {MeshSize, 2.3f}, {Invert, 0.2f}, {InvRadius, 1.6f},
                {MSurface, 0.55f}, {MGlow, 0.45f}, {TrapR, 0.6f}, {TrapY, 0.3f}, {PalOffset, 0.3f}, {PalSpan, 0.45f},
                {Emission, 1.05f}, {Fog, 0.025f}, {TexEmit, 0.5f}, {TexPick, 3.0f}, {TexScale, 1.4f}})},
         // Mandelbulbs grown in mirrored cells, lichen on their folds: a garden of fractal fruit.
         {"Bulb Garden", 0.45f, 0.6f, 0.65f,
-         make({{RepXY, 1.0f}, {CellXY, 5.0f}, {CellZ, 5.0f}, {CellShift, 1.0f}, {PBulb, 1.0f}, {BulbPower, 8.0f},
+         make({{LatticeTilt, 0.3f}, {LatticeYaw, 0.4f}, {RepXY, 1.0f}, {CellXY, 5.0f}, {CellZ, 5.0f}, {CellShift, 1.0f}, {PBulb, 1.0f}, {BulbPower, 8.0f},
                {PrimSize, 1.3f}, {MSurface, 0.8f}, {MGlow, 0.2f}, {TrapR, 0.6f}, {TrapX, 0.3f}, {PalOffset, 0.55f},
                {PalSpan, 0.6f}, {Emission, 1.1f}, {Fog, 0.03f}, {TexAmount, 0.5f}, {TexPick, 3.0f}})},
         // Menger sponges set in a hexagonal hall: the kaleidoscope turns the square sponge round.
@@ -600,7 +608,7 @@ std::array<Seed, 41> buildSeeds() {
                {TexEmit, 0.5f}, {TexPick, 7.0f}})},
         // Mandelboxes in mirrored cells: folded halls of boxes inside boxes, marble underfoot.
         {"Mandelbox Vault", 0.5f, 0.5f, 0.7f,
-         make({{RepXY, 1.0f}, {CellXY, 6.0f}, {CellZ, 6.0f}, {CellShift, 1.0f}, {PMandelbox, 1.0f}, {BoxScale, 2.0f},
+         make({{LatticeTilt, -0.35f}, {LatticeYaw, 0.25f}, {RepXY, 1.0f}, {CellXY, 6.0f}, {CellZ, 6.0f}, {CellShift, 1.0f}, {PMandelbox, 1.0f}, {BoxScale, 2.0f},
                {PrimSize, 1.2f}, {MSurface, 0.8f}, {MGlow, 0.2f}, {TrapR, 0.6f}, {TrapX, 0.3f}, {PalOffset, 0.5f},
                {PalSpan, 0.55f}, {Emission, 1.15f}, {Fog, 0.03f}, {TexAmount, 0.4f}, {TexPick, 0.0f}})},
         // A wider-scaled Mandelbox folded eight ways: a round cathedral whose walls are its own fractal.
@@ -615,7 +623,7 @@ std::array<Seed, 41> buildSeeds() {
                {PalOffset, 0.62f}, {PalSpan, 0.5f}, {Emission, 1.15f}, {Fog, 0.03f}, {TexAmount, 0.5f}, {TexPick, 4.0f}})},
         // Small Sierpinski tetrahedra in rows, twisted and glowing: a choir of triangles.
         {"Triangle Choir", 0.7f, 0.7f, 0.6f,
-         make({{RepXY, 1.0f}, {CellXY, 4.5f}, {CellZ, 4.0f}, {CellShift, 1.0f}, {PSierp, 1.0f}, {PrimSize, 1.1f},
+         make({{LatticeTilt, 0.3f}, {LatticeYaw, -0.4f}, {RepXY, 1.0f}, {CellXY, 4.5f}, {CellZ, 4.0f}, {CellShift, 1.0f}, {PSierp, 1.0f}, {PrimSize, 1.1f},
                {Twist, 0.5f}, {MSurface, 0.4f}, {MGlow, 0.6f}, {TrapR, 0.6f}, {PalOffset, 0.85f}, {PalSpan, 0.55f},
                {Emission, 1.1f}, {Fog, 0.03f}, {TexEmit, 0.5f}, {TexPick, 7.0f}})},
         // An Apollonian packing, spheres inverted into spheres without end: a foam of pearls.
@@ -657,7 +665,7 @@ std::array<Seed, 41> buildSeeds() {
                {Emission, 1.2f}, {Fog, 0.03f}, {TexAmount, 0.5f}, {TexPick, 4.0f}, {Roll, 0.12f}, {Lens, 0.9f}})},
         // Iceplant rosettes on a gyroid sheet through ice: a frozen garden seen through a long lens.
         {"Ice Garden", 0.3f, 0.65f, 0.7f,
-         make({{RepXY, 1.0f}, {CellXY, 5.0f}, {CellZ, 4.5f}, {CellShift, 1.0f}, {PMesh, 0.7f}, {PGyroid, 0.3f},
+         make({{LatticeTilt, 0.3f}, {LatticeYaw, -0.35f}, {RepXY, 1.0f}, {CellXY, 5.0f}, {CellZ, 4.5f}, {CellShift, 1.0f}, {PMesh, 0.7f}, {PGyroid, 0.3f},
                {MeshPick, 9.0f}, {MeshSize, 2.5f}, {GyroScale, 1.4f}, {PrimThick, 0.08f}, {MSurface, 0.6f},
                {MDensity, 0.4f}, {DensBand, 0.12f}, {TrapR, 0.5f}, {TrapX, 0.3f}, {PalOffset, 0.6f}, {PalSpan, 0.35f},
                {Emission, 1.2f}, {Fog, 0.035f}, {TexAmount, 0.7f}, {TexPick, 4.0f}, {TexScale, 1.3f}, {Lens, 1.2f}})},
@@ -669,7 +677,7 @@ std::array<Seed, 41> buildSeeds() {
                {Emission, 1.15f}, {Fog, 0.03f}, {TexEmit, 0.5f}, {TexPick, 4.0f}, {Roll, -0.2f}, {Lens, 0.85f}})},
         // Stone lanterns in rows along the way, warm light, a long lens: a night path to a shrine.
         {"Lantern Path", 0.35f, 0.55f, 0.45f,
-         make({{RepXY, 1.0f}, {CellXY, 5.0f}, {CellZ, 4.0f}, {CellShift, 1.0f}, {PMesh, 1.0f}, {MeshPick, 12.0f},
+         make({{LatticeYaw, 0.45f}, {RepXY, 1.0f}, {CellXY, 5.0f}, {CellZ, 4.0f}, {CellShift, 1.0f}, {PMesh, 1.0f}, {MeshPick, 12.0f},
                {MeshSize, 1.8f}, {MSurface, 0.8f}, {MGlow, 0.2f}, {TrapR, 0.5f}, {TrapY, 0.4f}, {PalOffset, 0.05f},
                {PalSpan, 0.3f}, {Emission, 1.25f}, {Fog, 0.04f}, {TexAmount, 0.6f}, {TexPick, 3.0f}, {Lens, 1.15f}})},
         // Seated figures folded six ways round the way under a slow roll: a round hall of calm.
@@ -686,7 +694,7 @@ std::array<Seed, 41> buildSeeds() {
                {TexAmount, 0.5f}, {TexPick, 6.0f}, {Roll, -0.15f}})},
         // Owls in mirrored cells, through bark and a glowing mist: a night wood.
         {"Owl Wood", 0.4f, 0.45f, 0.65f,
-         make({{RepXY, 1.0f}, {CellXY, 5.0f}, {CellZ, 4.5f}, {CellShift, 1.0f}, {PMesh, 1.0f}, {MeshPick, 15.0f},
+         make({{LatticeTilt, 0.15f}, {LatticeYaw, -0.4f}, {RepXY, 1.0f}, {CellXY, 5.0f}, {CellZ, 4.5f}, {CellShift, 1.0f}, {PMesh, 1.0f}, {MeshPick, 15.0f},
                {MeshSize, 1.6f}, {MSurface, 0.65f}, {MDensity, 0.35f}, {DensBand, 0.1f}, {TrapR, 0.6f}, {TrapZ, 0.3f},
                {PalOffset, 0.72f}, {PalSpan, 0.45f}, {Emission, 1.2f}, {Fog, 0.035f}, {TexAmount, 0.6f}, {TexPick, 5.0f},
                {Lens, 1.1f}})},
@@ -843,6 +851,14 @@ Genome random(uint64_t seedValue, const Constraints& c, int* picked) {
         if (origin[f] < 0.05f && unit(s) < amount * 0.5f) m[f] = unit(s) * amount;
     }
     m = clampFields(m);
+    // A full x/y lattice with no polar fold and no turn reads from the camera as the same 4-way
+    // cross every time (#496): turn such a mutation's lattice off the view, by a draw of its own.
+    if (m[RepXY] > 0.5f && m[Polar] < 0.5f && std::fabs(m[LatticeTilt]) < 0.15f && std::fabs(m[LatticeYaw]) < 0.15f) {
+        const float tilt = 0.2f + 0.3f * unit(s);
+        const float yaw = 0.2f + 0.3f * unit(s);
+        m[LatticeTilt] = unit(s) < 0.5f ? -tilt : tilt;
+        m[LatticeYaw] = unit(s) < 0.5f ? -yaw : yaw;
+    }
     // Pull back toward the seed until the world is open and has something in it; the seed always is.
     for (int attempt = 0; attempt <= 5; ++attempt) {
         const float t = 1.0f - static_cast<float>(attempt) / 5.0f;

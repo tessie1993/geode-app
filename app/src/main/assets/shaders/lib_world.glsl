@@ -9,8 +9,8 @@
 //
 // THE CHAIN (world()): mirrored z repeat (always: travel is endless) -> a polar kaleidoscope about
 // the travel axis (WG_POLAR, N-fold with a spiral: round tunnels instead of the 4-way cross) ->
-// mirrored x/y repeat (WG_REP_XY fades it,
-// WG_CELL_SHIFT moves the cells off the axis) -> a twist along travel (a sine over one z period,
+// mirrored x/y repeat (WG_LATTICE_TILT and WG_LATTICE_YAW first turn its lattice off the view,
+// WG_REP_XY fades it, WG_CELL_SHIFT moves the cells off the axis) -> a twist along travel (a sine over one z period,
 // so it stays periodic) -> scale -> mirror fold -> up to five rotate-fold IFS steps (fractional:
 // the last one fades in) -> sphere inversion -> abs-inversion -> ten primitives blended by weight:
 // six simple ones, a baked CC0 model (uWorldShapes), and six fractals (gyroid, Menger sponge,
@@ -364,6 +364,17 @@ float world(vec3 p) {
         vec2 a = wPolar(v, n0);
         vec2 b = fn > 0.0 ? wPolar(v, n0 + 1.0) : a;
         w.xy = mix(w.xy, mix(a, b, fn), WG_POLAR);
+    }
+    if (WG_LATTICE_TILT != 0.0 || WG_LATTICE_YAW != 0.0) {
+        // The lattice turned off the view: tipped about x, then turned about y, so its rows no
+        // longer meet on the travel axis as a 4-way cross. A rotation is an isometry, so distances
+        // stay exact. It turns the folded z too, and that turned z is folded again on the same
+        // period, so the tipped lattice fills the whole slab instead of a band; everything here
+        // reads only the folded z, so the travel axis' repeat above stays periodic. The corridor
+        // is carved in unrotated eye space (worldCarved()), so the way stays open.
+        w.yz = wRot(w.yz, WG_LATTICE_TILT);
+        w.zx = wRot(w.zx, WG_LATTICE_YAW);
+        w.z = wCell(w.z, pz);
     }
     float sxy = WG_CELL_XY / max(WG_REP_XY, 0.08);
     float shift = 0.5 * WG_CELL_XY * WG_CELL_SHIFT;

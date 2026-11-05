@@ -87,6 +87,43 @@ void seedsAreValid() {
     check(static_cast<int>(names.size()) == seedCount(), "seed names are unique");
 }
 
+// The 4-way cross (#496): a full x/y lattice with no polar fold and no turn shows the camera the
+// same split every time. No seed may be one, and a random genome that grows into one is turned.
+bool isFourWayCross(const Genome& g) {
+    return g[RepXY] > 0.5f && g[Polar] < 0.5f && g[LatticeTilt] == 0.0f && g[LatticeYaw] == 0.0f;
+}
+
+void noWorldIsTheFourWayCross() {
+    for (int i = 0; i < seedCount(); ++i) {
+        check(!isFourWayCross(seed(i).genome), std::string(seed(i).name) + " is not the 4-way cross");
+    }
+    int crosses = 0;
+    for (int i = 0; i < 400; ++i) {
+        Constraints c;
+        c.mutation = static_cast<float>(i % 11) / 10.0f;
+        c.energy = static_cast<float>((i * 7) % 10) / 9.0f;
+        c.mood = static_cast<float>((i * 3) % 10) / 9.0f;
+        c.density = static_cast<float>((i * 13) % 10) / 9.0f;
+        if (isFourWayCross(random(static_cast<uint64_t>(i) * 104729u + 5u, c))) ++crosses;
+    }
+    check(crosses == 0, "random never grows the 4-way cross (" + std::to_string(crosses) + "/400)");
+    // The turned lattice keeps the travel axis periodic: one mirrored z period (2 CellZ) on, the
+    // bare world is the same.
+    const Way way;
+    float worst = 0.0f;
+    for (int i = 0; i < seedCount(); ++i) {
+        const Genome& g = seed(i).genome;
+        if (g[LatticeTilt] == 0.0f && g[LatticeYaw] == 0.0f) continue;
+        for (int k = 0; k < 24; ++k) {
+            const float a = static_cast<float>(k) * 0.71f;
+            const std::array<float, 3> p{3.1f * std::sin(a), 2.7f * std::cos(1.3f * a), -4.0f + 0.37f * static_cast<float>(k)};
+            const std::array<float, 3> q{p[0], p[1], p[2] + 2.0f * g[CellZ]};
+            worst = std::fmax(worst, std::fabs(sdfUncarved(g, way, p) - sdfUncarved(g, way, q)));
+        }
+    }
+    check(worst < 2e-3f, "a turned lattice keeps the travel repeat periodic (" + std::to_string(worst) + ")");
+}
+
 void randomGenomesAreValid() {
     int valids = 0;
     for (int i = 0; i < 1000; ++i) {
@@ -390,6 +427,7 @@ int main(int argc, char** argv) {
     if (argc == 4) loadAssets(argv[2], argv[3]);
     lerpEndpointsAreExact();
     seedsAreValid();
+    noWorldIsTheFourWayCross();
     randomGenomesAreValid();
     corridorIsOpenAtTheCamera();
     driverIsReplayableAndSeeded();

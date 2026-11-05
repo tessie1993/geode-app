@@ -158,6 +158,9 @@ jobs:
           # The export post-passes' maths (#442): watermark tiling, the loop seam's weights, transition progress.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/export_passes_test.cpp -o export_passes_test
           ./export_passes_test
+          # The loop seam driver (#603): stash or present, the PTS, the dissolve weight and the 192 MB budget.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/loop_seam_test.cpp -o loop_seam_test
+          ./loop_seam_test
           g++ -std=c++20 -O1 -Wall -Wextra -Icore core/tests/sound_test.cpp core/sound/*.cpp -o sound_test
           ./sound_test
           g++ -std=c++20 -O1 -Wall -Wextra -Icore core/tests/musical_test.cpp core/sound/*.cpp -o musical_test

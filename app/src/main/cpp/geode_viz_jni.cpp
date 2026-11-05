@@ -574,14 +574,17 @@ Java_dev_geode_engine_bridge_GeodeNative_exportSeamAllocate(JNIEnv*, jobject, jl
     return geode_export_seam_allocate(passOf(handle), requested);
 }
 
-JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_exportSeamCapture(JNIEnv*, jobject, jlong handle, jint index) {
-    geode_export_seam_capture(passOf(handle), index);
+JNIEXPORT jlong JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_exportSeamFrame(JNIEnv*, jobject, jlong handle, jint frame, jint loopFrames,
+                                                        jint seamFrames, jint fps) {
+    return geode_export_seam_frame(passOf(handle), frame, loopFrames, seamFrames, fps);
 }
 
-JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_exportSeamBlend(JNIEnv*, jobject, jlong handle, jint index, jint tail, jint seamFrames) {
-    geode_export_seam_blend(passOf(handle), index, tail, seamFrames);
+JNIEXPORT jlong JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_exportSeamBudgetedCrossfadeMs(JNIEnv*, jobject, jlong crossfadeMs,
+                                                                      jint crossfadeFrames, jint fps, jint width,
+                                                                      jint height) {
+    return geode_export_seam_budgeted_crossfade_ms(crossfadeMs, crossfadeFrames, fps, width, height);
 }
 
 JNIEXPORT jlong JNICALL

@@ -104,7 +104,8 @@ struct ModelMesh {
 };
 
 // One placement of a mesh: the node's world matrix (column-major, glTF's). A mesh used by several
-// nodes is stored once and placed several times, so it can be drawn instanced.
+// nodes is stored once and placed several times, so it can be drawn instanced. Instances come in the
+// scene's pre-order: roots in the scene's order, each node before its children.
 struct ModelInstance {
     uint32_t mesh = 0;
     float world[16]{};

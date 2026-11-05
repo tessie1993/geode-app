@@ -140,10 +140,14 @@ Gathered gather(const cgltf_data* data) {
     std::unordered_map<const cgltf_primitive*, uint32_t> meshOf;
     std::vector<const cgltf_node*> stack;
     const cgltf_scene* scene = data->scene != nullptr ? data->scene : (data->scenes_count > 0 ? &data->scenes[0] : nullptr);
+    // Everything goes on the stack in reverse, so it comes off in the file's order: instances are a
+    // pre-order walk of the scene (roots in the scene's order, each node before its children, children
+    // in their listed order). A plain push would hand them back reversed, and a caller that pairs an
+    // instance with its node by position would read the wrong world matrix.
     if (scene != nullptr) {
-        for (cgltf_size i = 0; i < scene->nodes_count; ++i) stack.push_back(scene->nodes[i]);
+        for (cgltf_size i = scene->nodes_count; i-- > 0;) stack.push_back(scene->nodes[i]);
     } else {
-        for (cgltf_size i = 0; i < data->nodes_count; ++i) {
+        for (cgltf_size i = data->nodes_count; i-- > 0;) {
             if (data->nodes[i].parent == nullptr) stack.push_back(&data->nodes[i]);
         }
     }
@@ -152,7 +156,7 @@ Gathered gather(const cgltf_data* data) {
         const cgltf_node* node = stack.back();
         stack.pop_back();
         if (node == nullptr) continue;
-        for (cgltf_size i = 0; i < node->children_count; ++i) stack.push_back(node->children[i]);
+        for (cgltf_size i = node->children_count; i-- > 0;) stack.push_back(node->children[i]);
         if (node->mesh == nullptr) continue;
         float world[16];
         cgltf_node_transform_world(node, world);

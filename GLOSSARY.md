@@ -270,3 +270,11 @@ _Avoid_: Core logic, backend
 **Shell**:
 The Kotlin around the engine: JNI declarations, Android lifecycle, Media3 and MediaCodec wiring, UI, stores, permissions, file IO, product rules (Pro) and display labels.
 _Avoid_: Wrapper, glue layer
+
+**Scene params resolver**:
+The engine's per-frame chain that turns the requested scene params into the ones a scene is drawn with: the param fade, then the auto-director, Note & key reactions, macros, LFOs, envelopes, reaction routes, motion field, and the safety clamp last. It knows nothing of GL. It reads the sound frame, dt, the style on screen and the engine settings, and also returns the director's style moments and camera moves and the note blooms. Device policy (thermal tier, post-FX, Liquid's hot policy) and the camera rig stay in the renderer. Proposed in #344.
+_Avoid_: Look resolver (a look is one auto-director decision), param pipeline
+
+**Engine settings**:
+The process-wide values the scene params resolver reads: macro knobs, the auto-director's amount and seed, the Note & key switch, the hand mask, reduced motion and the note entropy. The renderer latches one copy per frame and uses the same copy for the sound engine's tuning. An export pins its own copy, so a live edit never reaches a render.
+_Avoid_: Globals, settings (alone), scene params

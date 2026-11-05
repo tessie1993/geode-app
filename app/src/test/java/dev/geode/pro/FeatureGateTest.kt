@@ -88,4 +88,11 @@ class FeatureGateTest {
         FreeTier.neonProIds.forEach { assertFalse(it, it in FreeTier.freeStyleIds) }
         assertFalse(FreeTier.neonOpener in FreeTier.neonProIds)
     }
+
+    @Test
+    fun `Scaffold Drift is Pro`() {
+        assertFalse(SceneIds.SCAFFOLD_DRIFT in FreeTier.freeStyleIds)
+        assertFalse(free.allowsStyle(SceneIds.SCAFFOLD_DRIFT))
+        assertTrue(pro.allowsStyle(SceneIds.SCAFFOLD_DRIFT))
+    }
 }

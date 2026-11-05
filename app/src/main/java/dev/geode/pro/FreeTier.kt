@@ -34,16 +34,23 @@ object FreeTier {
         setOf(SceneIds.GLOW_VORTEX, SceneIds.HEX_HIVE, SceneIds.BLACK_HOLE, SceneIds.MANDELBOX_CATHEDRAL)
 
     /**
+     * Loose shader styles the owner put behind Pro one by one, outside any family or set. Without an
+     * entry here a new loose shader style is free (see [freeStyleIds]); Scaffold Drift is the first
+     * the owner chose to keep for Pro.
+     */
+    val looseProIds: Set<String> = setOf(SceneIds.SCAFFOLD_DRIFT)
+
+    /**
      * Styles a free user can select and keep: the fragment-shader styles (julia, tunnel, bars,
      * ring, scope, plasma, nebula and the rest of [SceneCapabilities.SHADER_SCENES]), so a loose
      * shader style added later is free too, minus [familyProIds]. A style family gives away its
      * opener (the first, most basic style) and keeps the other eleven for Pro: a free user can try every
      * family, and buying Pro is what opens the range. Everything else (silk, fluid, water, MilkDrop,
-     * cymatics and the other dedicated renderers) is Pro, as are [neonProIds], shows a Pro badge and opens the paywall
+     * cymatics and the other dedicated renderers) is Pro, as are [neonProIds] and [looseProIds], shows a Pro badge and opens the paywall
      * when picked. A renamed or removed id simply stops matching, which makes that style Pro rather
      * than crashing.
      */
-    val freeStyleIds: Set<String> = SceneCapabilities.SHADER_SCENES.keys - familyProIds - neonProIds
+    val freeStyleIds: Set<String> = SceneCapabilities.SHADER_SCENES.keys - familyProIds - neonProIds - looseProIds
 
     /**
      * The style a fresh install opens on, for everyone: one free showpiece, not a Pro default that a

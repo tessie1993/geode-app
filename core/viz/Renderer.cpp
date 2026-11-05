@@ -26,7 +26,7 @@ Renderer::Renderer(AAssetManager* assets, std::string cacheDir)
                           [this] { return thermal_.pacedFps(); },
                           [this](const std::string& path) { notePresetLoaded(path); },
                           [this] { return marchScale_.load(std::memory_order_relaxed); },
-                          [this] { return &notes_.uniforms(); }}),
+                          [this] { return &resolver_.noteUniforms(); }}),
       compositePass_(assets_, &programCache_),
       pcm_(kPcmCapacity),
       pcmDeliverScratch_(kPcmCapacity, 0.0f) {
@@ -59,8 +59,8 @@ void Renderer::setTransition(const std::string& id, int64_t durationMs) {
 void Renderer::beginParamMorph(float seconds) {
     if (seconds <= 0.0f) return;
     std::lock_guard<std::mutex> lock(stateLock_);
-    morphFadeSec_ = seconds;
-    morphRemainSec_ = seconds * 3.0f;
+    morphRequested_ = true;
+    morphRequestSec_ = seconds;
 }
 
 void Renderer::pushPcm(const float* samples, int count) {
@@ -239,17 +239,20 @@ void Renderer::applyUnderlayUpload() {
 
 void Renderer::setLfoConfigs(const std::array<LfoConfig, LfoEngine::kSlots>& configs) {
     std::lock_guard<std::mutex> lock(stateLock_);
-    lfo_.configs = configs;
+    lfoConfigs_ = configs;
+    lfoConfigsDirty_ = true;
 }
 
 void Renderer::setAdsrConfigs(const std::array<AdsrConfig, AdsrEngine::kCount>& configs) {
     std::lock_guard<std::mutex> lock(stateLock_);
-    adsr_.configs = configs;
+    adsrConfigs_ = configs;
+    adsrConfigsDirty_ = true;
 }
 
 void Renderer::setReactionRoutes(const std::array<ReactRoute, ReactionEngine::kRoutes>& routes) {
     std::lock_guard<std::mutex> lock(stateLock_);
-    reactions_.routes = routes;
+    reactionRoutes_ = routes;
+    reactionRoutesDirty_ = true;
 }
 
 void Renderer::fail(const std::string& message) {
@@ -365,11 +368,7 @@ void Renderer::onSurfaceCreated() {
     glGenVertexArrays(1, &quadVao_);
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     lastTimeS_ = -1.0;
-    motionField_.reset();
-    reactions_.reset();
-    macroReactions_.reset();
-    director_.reset();
-    notes_.reset();
+    resolver_.reset();
     camera_.reset();
 }
 

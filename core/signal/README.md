@@ -1,6 +1,24 @@
-# core/signal (skeleton, empty)
+# core/signal
 
-Part of the target in [ADR 0006](../../docs/adr/0006-fosfora-aligned-engine.md). The layer between sound and pictures: what the user set, what moves it, and the one place both meet. Nothing here yet.
+Part of the target in [ADR 0006](../../docs/adr/0006-fosfora-aligned-engine.md). The layer between sound and pictures: what the user set, what moves it, and the one place both meet.
+
+## The scene params resolver (`Resolver.hpp`, `Resolver.cpp`, #344)
+
+The per-frame chain, moved out of the GL renderer unchanged (`core/viz/RendererFrame.cpp`, `Renderer::resolveParams`, which is now a thin caller):
+
+```
+param fade → Director → NoteResponse → macros → LFO → ADSR (+ the luminance drive for FlashLimiter, #363)
+  → reaction routes → macro routes → director routes → MotionField → safety::apply
+```
+
+- **In, once a frame:** the requested `SceneParams`, the sound frame, dt, one `EngineSettings` value (macro knobs, the director's amount and seed, the Note & key switch, the hand mask, reduced motion, the note entropy), a `StyleContext` (style id, shader family or not, spin rate, "style switched") and the camera rig's flat projection from the frame before.
+- **Out:** the final params (before the renderer's device masks), the director's style moments, the camera rig's music moves, the luminance drive, and the note uniforms (`noteUniforms()`).
+- **It owns** the stages' state (fade and morph timer, `Director`, `NoteResponse`, the LFO and envelope engines, the user and macro reaction engines, `MotionField`), the LFO, envelope and route configs, and the reset on a new surface.
+- **Single-threaded, GL-free:** no mutex, no atomics, no GL header. The renderer keeps its lock and atomics, latches `EngineSettings` from the process globals once a frame (the same copy re-tunes its sound engine) and hands the resolver copies. The director takes the hand mask as an input; nothing in the chain reads a global.
+- **Stays in the renderer:** the camera rig, the thermal and post-FX masks, Liquid's hot policy, the post pass's integrators.
+- **Tested** as a chain by `core/tests/resolver_test.cpp` (CI "Native host tests"): order, reduced motion once, settings pinned against the globals, 600 bit-identical frames, safety last.
+
+The stages themselves still live in `core/viz` (GL-free files); the folders below are where ADR 0006 rebuilds them behind this interface. Pinning an export's settings at prepare is #344's second PR.
 
 | Folder | Owns | fosfora |
 |---|---|---|
@@ -19,6 +37,6 @@ params = store.effective()                           // base ⊕ Σ modulation, 
 params = safety::apply(params)                       // the flash and motion limits, last
 ```
 
-Replaces the chain in `core/viz/RendererFrame.cpp:178-197` (as of `cf7e88f`): director → notes → macros → LFO → ADSR → reactions → macro routes → director routes → motion field → safety, ten `SceneParams → SceneParams` mutators, each clamping with its own literals.
+Replaces the chain in `Resolver::step` (moved there from `core/viz/RendererFrame.cpp:178-197` as of `cf7e88f`): director → notes → macros → LFO → ADSR → reactions → macro routes → director routes → motion field → safety, ten `SceneParams → SceneParams` mutators, each clamping with its own literals.
 
-Depends on `core/sound` (the frame) only. `core/viz` depends on it; it never depends on `core/viz`.
+Target: depends on `core/sound` (the frame) only; `core/viz` depends on it, never the reverse. Today `Resolver` still includes the GL-free stage headers in `core/viz`, and never a GL one.

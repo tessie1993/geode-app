@@ -101,9 +101,6 @@ object GeodeColors {
  * floor too, a little darker than the old 0.62.
  */
 object GeodeGlass {
-    /** The default glass is the floor: the lowest alpha that passes contrast ([MATTE_FILL_MIN]). */
-    const val MATTE_FILL = MATTE_FILL_MIN
-
     /**
      * The range the user's sheet-opacity setting moves the glass in. The floor is the lowest alpha
      * at which every text role on [WorstBackdrop] still clears 4.5:1 (secondary text and the
@@ -112,6 +109,9 @@ object GeodeGlass {
      */
     const val MATTE_FILL_MIN = 0.72f
     const val MATTE_FILL_MAX = 0.92f
+
+    /** The default glass is the floor: the lowest alpha that passes contrast ([MATTE_FILL_MIN]). */
+    const val MATTE_FILL = MATTE_FILL_MIN
 
     /**
      * A raised control on glass (a chip, the chosen row): white at this alpha over the matte. It

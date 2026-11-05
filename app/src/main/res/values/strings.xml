@@ -971,7 +971,6 @@
     <string name="music_moment_strength">%1$s strength</string>
     <string name="music_moment_nothing">No actions</string>
     <string name="music_moment_recipes">Ready-made</string>
-    <string name="music_moment_overall">Overall strength</string>
     <string name="music_moment_full">%1$d of %2$d reactions in use, so greyed-out ones don\'t fit. Turn one off to make room.</string>
     <string name="music_action_pulse">Pulse</string>
     <string name="music_action_flash">Flash</string>

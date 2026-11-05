@@ -57,6 +57,7 @@ add_library(geode_core STATIC
     viz/TrailPass.cpp
     viz/Catalogue.cpp
     viz/ParamRandomizer.cpp
+    viz/CustomizeMap.cpp
     viz/SceneRegistry.cpp
     viz/Renderer.cpp
     viz/RendererFrame.cpp

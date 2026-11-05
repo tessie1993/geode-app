@@ -59,4 +59,6 @@ tasks.withType<io.gitlab.arturbosch.detekt.DetektCreateBaselineTask>().configure
 // the native catalogue table instead. core/tests/catalogue_test proves that copy equal to what C++ emits.
 tasks.withType<Test>().configureEach {
     systemProperty("geode.catalogue", rootProject.file("core/tests/catalogue.txt").absolutePath)
+    // The same for Customize's map (core/viz/CustomizeMap), which core/tests/customize_test proves equal.
+    systemProperty("geode.customize", rootProject.file("core/tests/customize.txt").absolutePath)
 }

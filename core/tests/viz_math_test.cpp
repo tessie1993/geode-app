@@ -977,13 +977,6 @@ void endlessZoomReducedMotionScalesTheDiveOnce() {
     check(std::fabs(ratio - safety::kReducedMotionScale) < 0.05f, "reduced motion scales the 3D dive exactly once");
 }
 
-void endlessZoomLeavesGlassAndTruchetOnTheOldLaw() {
-    check(endless::keepsTriangle("glass_orb") && endless::keepsTriangle("truchet_arcs"), "Glass and Truchet keep their law");
-    check(!endless::keepsTriangle("plasma") && !endless::keepsTriangle("arbor_bolt"), "every other style dives");
-    check(std::fabs(endless::triangle(0.5f).mag0 - 2.0f) < 1e-6f && endless::triangle(0.0f).mag0 == 1.0f, "the old law is kept exactly");
-    check(endless::triangle(0.5f).weight1 == 0.0f, "the old law draws one layer");
-}
-
 void buildBudgetBoundsAFrame() {
     BuildBudget b;
     b.begin(10.0);
@@ -1114,7 +1107,6 @@ int main() {
     endlessZoomPhaseWrapsForEverInBothDirections();
     endlessZoomFollowsTheBassNotTheLoudness();
     endlessZoomDrivesTheRigForward();
-    endlessZoomLeavesGlassAndTruchetOnTheOldLaw();
     endlessZoomReducedMotionScalesTheDiveOnce();
     buildBudgetBoundsAFrame();
     scenePrepRetargetsAndCaps();

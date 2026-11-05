@@ -131,9 +131,7 @@ void ShaderScene::uploadParams() {
     set1f("uZoomPhase", zoomPhase_);
     // Endless zoom's two octave layers (lib_zoom). A style that reads the camera rig dives by
     // travel instead (CameraRig::step), so it stays one layer at 1x and never marches twice.
-    const endless::Layers zoom = endless::keepsTriangle(id_) ? endless::triangle(zoomPhase_)
-                                 : drawsCamera_              ? endless::Layers{}
-                                                             : endless::layers(zoomPhase_);
+    const endless::Layers zoom = drawsCamera_ ? endless::Layers{} : endless::layers(zoomPhase_);
     glUniform3f(uniforms_.loc("uZoomLayers"), zoom.mag0, zoom.mag1, zoom.weight1);
     set1f("uColorShift", p.colorShift + cyclePhase_);
     set1f("uHueRange", p.hueRange);

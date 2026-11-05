@@ -32,8 +32,8 @@ data class OffscreenRenderSpec(
     val baseParams: SceneParams,
     val lfoConfigs: List<LfoConfig> = emptyList(),
     val adsrConfigs: List<AdsrConfig> = emptyList(),
-    // The user's reaction routes; null plays the style's DNA. Merged with the live DNA under the process's
-    // HandMask (the hand wins per moment) exactly as the live renderer does, so the export matches the screen.
+    // The user's reaction routes; null plays the style's DNA. Merged with the live DNA under the hand mask
+    // (the hand wins per moment) exactly as the live renderer does, so the export matches the screen.
     val reactions: List<ReactionRoute>? = null,
     val reducedMotion: Boolean = false,
     val paramsAt: ((Long) -> SceneParams)? = null,
@@ -45,18 +45,15 @@ data class OffscreenRenderSpec(
     val audioUri: Uri? = null,
     // Settings › Audio, the same tuning the screen used.
     val soundTuning: SoundTuning = SoundTuning(),
-    // The export's own auto-director, pinned at prepare so the live player's switch, track and free
-    // taste never reach the render. Null follows the process-wide switch (previews, thumbnails).
-    val director: DirectorPin? = null,
+    // An export's length: non-null pins the engine settings (macros, Note & key switch, hand mask, director)
+    // natively at prepare (NativeViz.pinEngineSettings, #350), so live edits never reach the render; the
+    // director's free-taste rule is native. Null follows the process globals (previews, thumbnails).
+    val pinDurationMs: Long? = null,
+    // Pro or the trial (ProFeature.AUTO_DIRECTOR), for the pinned director; read only with [pinDurationMs].
+    val entitled: Boolean = false,
     // Studio 2D: the styles this range switches to (a take's switches, a beat cut), on render time
     // since [rangeStartMs]. The native renderer times them; empty draws the factory's style throughout.
     val styleSchedule: StyleSchedule = StyleSchedule.NONE,
-)
-
-/** An export's auto-director: how much it drives (0..1) and the play's seed, so it makes the same film. */
-data class DirectorPin(
-    val amount: Float,
-    val seed: Long,
 )
 
 /**
@@ -91,6 +88,9 @@ class OffscreenSceneRenderer(
     private var nativeReactions: List<ReactionRoute>? = null
     private var audio: TrackAudio? = null
 
+    // The hand mask the route merge uses: the native pin's for an export, else the process's live one.
+    private var pinnedHandMask: Int? = null
+
     /** Builds the native renderer and its scene; must run with the target GL context current. */
     fun prepare() {
         val viz = NativeViz(context)
@@ -110,7 +110,7 @@ class OffscreenSceneRenderer(
         if (spec.adsrConfigs.isNotEmpty()) viz.setAdsrConfigs(spec.adsrConfigs)
         spec.underlay?.let { viz.setUnderlay(it.pixels, it.width, it.height, it.blend, it.amount) }
         viz.setSoundTuning(spec.soundTuning.toFloats())
-        spec.director?.let { viz.setDirector(it.amount, it.seed) }
+        pinnedHandMask = spec.pinDurationMs?.let { viz.pinEngineSettings(spec.entitled, it) }
         native = viz
         // A track that will not decode still exports, silent to the engine, rather than failing the render.
         audio =
@@ -139,7 +139,7 @@ class OffscreenSceneRenderer(
         val p = spec.paramsAt?.invoke(timeMs) ?: spec.baseParams
         viz.setParams(p)
         // Keyframes can change reactSeed mid-export, so this resolves per frame like live does.
-        val routes = styleReactions.routesFor(sceneFactory.sceneId, p.reactSeed, spec.reactions, HandMask.current)
+        val routes = styleReactions.routesFor(sceneFactory.sceneId, p.reactSeed, spec.reactions, pinnedHandMask ?: HandMask.current)
         if (routes !== nativeReactions) {
             viz.setReactions(routes)
             nativeReactions = routes

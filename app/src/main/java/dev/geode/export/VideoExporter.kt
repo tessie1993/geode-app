@@ -17,6 +17,7 @@ import dev.geode.RingLog
 import dev.geode.billing.ProSnapshot
 import dev.geode.data.AutoDirectorStore
 import dev.geode.engine.audio.SoundTuning
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.render.SceneFactory
 import dev.geode.render.bridge.StyleSchedule
 import dev.geode.render.offscreen.OffscreenRenderSpec
@@ -76,26 +77,14 @@ class ExportAspect(
     val bitRate: Int,
 ) {
     companion object {
+        /** The size rule (ratio, 4096 cap, even sides) is native: core/output/ExportGeometry. */
         fun of(
             quality: ExportQuality,
             ratio: ExportRatio,
         ): ExportAspect {
-            val short = quality.shortSide
-            val landscape = ratio.wRatio >= ratio.hRatio
-            var longSide = (short.toLong() * maxOf(ratio.wRatio, ratio.hRatio) / minOf(ratio.wRatio, ratio.hRatio)).toInt()
-            var shortSide = short
-            if (longSide > MAX_AVC_DIM) {
-                shortSide = (short.toLong() * MAX_AVC_DIM / longSide).toInt()
-                longSide = MAX_AVC_DIM
-            }
-            val w = if (landscape) longSide else shortSide
-            val h = if (landscape) shortSide else longSide
-            return ExportAspect(even(w), even(h), quality.bitRate)
+            val size = GeodeNative.exportSize(quality.shortSide, ratio.wRatio, ratio.hRatio)
+            return ExportAspect(size[0], size[1], quality.bitRate)
         }
-
-        private const val MAX_AVC_DIM = 4096
-
-        private fun even(v: Int): Int = if (v % 2 == 0) v else v + 1
     }
 }
 
@@ -411,7 +400,7 @@ class VideoExporter(
             if (bitRate < aspect.bitRate) {
                 RingLog.note(TAG, "video bit rate capped to $bitRate for a ${aac.durationUs / 1000} ms render")
             }
-            val requestedFpsBounded = requestedFps.coerceIn(24, 60)
+            val requestedFpsBounded = GeodeNative.exportFps(requestedFps)
             // The requested codec at the requested rate first, then its reduced form, then the same pair on H.264.
             val attempts =
                 listOf(codec.available(), ExportCodec.H264).distinct().flatMap { c ->
@@ -428,8 +417,8 @@ class VideoExporter(
             egl.makeCurrent()
 
             val exportDurationUs = aac.durationUs
-            val totalFrames = (exportDurationUs * fps / 1_000_000L).toInt().coerceAtLeast(1)
-            val frameDurationNs = 1_000_000_000L / fps
+            val totalFrames = GeodeNative.exportTotalFrames(exportDurationUs, fps)
+            val frameDurationNs = GeodeNative.exportFrameDurationNs(fps)
 
             // Pinned now: the live player moving on must not change this render's director.
             val directorStore = AutoDirectorStore.get(context)

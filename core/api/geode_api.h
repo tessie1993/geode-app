@@ -268,6 +268,17 @@ GEODE_API void            geode_loudness_feed(geode_loudness*, const float* inte
 GEODE_API int             geode_loudness_has_block(geode_loudness*);   /* 1 once a 400 ms block exists */
 GEODE_API void            geode_loudness_finish(geode_loudness*, geode_loudness_report* out);   /* non-destructive */
 
+/* Export geometry (output/ExportGeometry): an export's picture size and frame clock. Pure, any thread.
+ * Size: the short side times the w:h ratio, the long side capped at 4096 (the short side scaled with it),
+ * each side rounded up to even; wRatio >= hRatio is landscape. Returns 1, or 0 with both sizes 0 on bad args.
+ * Fps: clamped to 24..60. Total frames: floor(duration_us * fps / 1e6), integer-exact, 1..INT_MAX.
+ * Frame duration: 1e9 / fps ns, truncated; 0 for fps <= 0. */
+GEODE_API int             geode_export_size(int short_side, int w_ratio, int h_ratio, int* out_width,
+                                            int* out_height);
+GEODE_API int             geode_export_fps(int requested_fps);
+GEODE_API int             geode_export_total_frames(int64_t duration_us, int fps);
+GEODE_API int64_t         geode_export_frame_duration_ns(int fps);
+
 /* Rest when silent (sound/Silence): the live wallpaper's and the dream's silence rule. A poll hands in the
  * newest planar samples written since the last one (frames 0 when nothing was written) and the time sound
  * was last heard, and gets that time back, moved to now when any sample is above about -42 dBFS. Resting is

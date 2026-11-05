@@ -89,4 +89,29 @@ Java_dev_geode_engine_bridge_GeodeNative_loudnessFinish(JNIEnv* env, jobject, jl
     return report.has_integrated ? JNI_TRUE : JNI_FALSE;
 }
 
+// Export geometry (core/output/ExportGeometry): marshalling only.
+JNIEXPORT jintArray JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_exportSize(JNIEnv* env, jobject, jint shortSide, jint wRatio, jint hRatio) {
+    int size[2] = {0, 0};
+    geode_export_size(shortSide, wRatio, hRatio, &size[0], &size[1]);
+    jintArray result = env->NewIntArray(2);
+    if (result) env->SetIntArrayRegion(result, 0, 2, reinterpret_cast<const jint*>(size));
+    return result;
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_exportFps(JNIEnv*, jobject, jint requestedFps) {
+    return geode_export_fps(requestedFps);
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_exportTotalFrames(JNIEnv*, jobject, jlong durationUs, jint fps) {
+    return geode_export_total_frames(durationUs, fps);
+}
+
+JNIEXPORT jlong JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_exportFrameDurationNs(JNIEnv*, jobject, jint fps) {
+    return geode_export_frame_duration_ns(fps);
+}
+
 }

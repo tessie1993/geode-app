@@ -209,6 +209,14 @@ jobs:
             core/audio/dsp/DspProcessor.cpp core/audio/dsp/Equalizer.cpp core/audio/dsp/Crossfeed.cpp core/audio/dsp/Limiter.cpp -o dsp_handoff_test
           ./dsp_handoff_test
 
+      # The export geometry (core/output/ExportGeometry, #606): size per quality and ratio, the 4096 cap,
+      # even sides, the fps clamp and integer-exact frame counts, ported from Kotlin's ExportAspect.
+      - name: Native export geometry tests
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/export_geometry_test.cpp core/api/geode_output_api.cpp -o export_geometry_test
+          ./export_geometry_test
+
       # The Customize randomizer, Reset tab and params wire (core/viz/ParamRandomizer, core/viz/Params).
       - name: Params host tests
         working-directory: ${{ env.PROJECT_DIR }}

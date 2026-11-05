@@ -545,6 +545,30 @@ object GeodeNative {
         out: DoubleArray,
     ): Boolean
 
+    // Export geometry (core/output/ExportGeometry): an export's picture size and frame clock.
+
+    /**
+     * [width, height] for a quality's [shortSide] at [wRatio]:[hRatio]: the long side capped at 4096,
+     * both sides even; [0, 0] on bad input.
+     */
+    external fun exportSize(
+        shortSide: Int,
+        wRatio: Int,
+        hRatio: Int,
+    ): IntArray
+
+    /** The requested frame rate clamped to 24..60. */
+    external fun exportFps(requestedFps: Int): Int
+
+    /** floor([durationUs] * [fps] / 1e6), integer-exact, at least 1. */
+    external fun exportTotalFrames(
+        durationUs: Long,
+        fps: Int,
+    ): Int
+
+    /** One frame at [fps] in nanoseconds, truncated. */
+    external fun exportFrameDurationNs(fps: Int): Long
+
     // Rest when silent (core/sound/Silence): the wallpaper's and the dream's silence rule.
 
     /**

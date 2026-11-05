@@ -1,6 +1,8 @@
-# core/output (skeleton, empty)
+# core/output (skeleton)
 
-Part of the target in [ADR 0006](../../docs/adr/0006-fosfora-aligned-engine.md). Nothing here yet.
+Part of the target in [ADR 0006](../../docs/adr/0006-fosfora-aligned-engine.md).
+
+**Here now:** `ExportGeometry.hpp` (#606): an export's picture size (short side times the ratio, the long side capped at 4096, even sides), the fps clamp to 24..60, the total frame count and the frame duration, all integer-exact. ABI `geode_export_*` (`api/geode_output_api.cpp`); Kotlin's `ExportAspect.of` and `VideoExporter` only call it. Tested by `core/tests/export_geometry_test.cpp`. The frame clock from samples below will build on its frame count.
 
 **Owns:** the offline driver: how a render steps the same engine the screen runs, faster than real time.
 - A frame clock from samples: for frame `n` at `fps`, deliver samples up to `llround((n + 1) · rate / fps)` and render at that sample position, with dt passed in rather than worked out from wall time (`RendererFrame.cpp:50-51` clamps and guesses it today; the first frame is always 1/60 s).

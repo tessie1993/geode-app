@@ -20,13 +20,10 @@ import dev.geode.data.HistoryStore
 import dev.geode.data.PlayerPrefs
 import dev.geode.data.PlayerPrefsStore
 import dev.geode.data.SessionStore
-import dev.geode.engine.audio.AudioPresentationClock
 import dev.geode.engine.audio.PcmSink
 import dev.geode.engine.audio.SampleRing
 import dev.geode.engine.audio.SoundInput
 import dev.geode.engine.audioandroid.PcmTap
-import dev.geode.engine.audioandroid.SinkClockDriver
-import dev.geode.engine.audioandroid.TapBoundaryListener
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -43,10 +40,6 @@ class PlaybackSession internal constructor(
     @Volatile
     var onAudioFormat: ((sampleRateHz: Int, channelCount: Int, encoding: Int) -> Unit)? = null
 
-    internal val presentationClock = AudioPresentationClock()
-
-    internal val clockDriver = SinkClockDriver(presentationClock)
-
     internal val captureSink =
         PcmSink { samples, frames, channels ->
             ring.writeInterleaved(samples, frames, channels)
@@ -60,6 +53,8 @@ class PlaybackSession internal constructor(
 
     internal val tap =
         PcmTap(captureSink) { format ->
+            // Every tap flush starts a ring epoch, before the new format's rate is published.
+            sampleRing.beginEpoch()
             bitPerfect.onFormat(format.sampleRateHz, format.channelCount)
             val hook = onAudioFormat
             if (hook != null) {
@@ -67,12 +62,6 @@ class PlaybackSession internal constructor(
             } else {
                 sampleRateHz = format.sampleRateHz
             }
-        }.apply {
-            boundaryListener =
-                TapBoundaryListener { ended, endedFrames, begun ->
-                    sampleRing.beginEpoch()
-                    clockDriver.onTapBoundary(ended, endedFrames, begun)
-                }
         }
 
     internal val dsp = NativeDspProcessor()
@@ -84,7 +73,7 @@ class PlaybackSession internal constructor(
      */
     val player: ExoPlayer =
         ExoPlayer
-            .Builder(context, TapRenderersFactory(context, tap, clockDriver, dsp = listOf(dsp)))
+            .Builder(context, TapRenderersFactory(context, tap, dsp = listOf(dsp)))
             .setMediaSourceFactory(
                 androidx.media3.exoplayer.source.DefaultMediaSourceFactory(
                     context,

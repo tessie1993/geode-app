@@ -276,6 +276,30 @@ GEODE_API long long       geode_silence_heard_at(const float* const* channels, i
                                                  long long now_ms, long long heard_at_ms);
 GEODE_API int             geode_silence_resting(long long now_ms, long long heard_at_ms);   /* 1 = may rest */
 
+/* Playout clock (sound/interp/PlayoutClock, #349): which ring sample the speaker plays now, so live visuals
+ * land on what is heard (AudioTrack buffer, HAL and Bluetooth latency included) instead of on what the sink
+ * took. Times: media microseconds (the sink's timeline) and monotonic nanoseconds; ring samples are absolute
+ * per-channel frame indices (the ring's running write count). The playback thread writes, any GL thread
+ * reads; every call is safe on a NULL handle. speaker_frame is a pure read: the same facts and now_ns give
+ * the same answer at any frame rate. */
+typedef struct geode_playout geode_playout;
+GEODE_API geode_playout* geode_playout_create(void);
+GEODE_API void           geode_playout_destroy(geode_playout*);
+/* The sink handled a buffer presented at presentation_us whose first sample is ring_frame and which put
+ * `frames` samples in the ring. A repeat of the newest presentation time is the same buffer retried. */
+GEODE_API void           geode_playout_buffer_handled(geode_playout*, int64_t presentation_us, int64_t ring_frame,
+                                                      int64_t frames);
+/* The sink's playback position in media time (AudioTrack.getTimestamp, latency included), read at now_ns. */
+GEODE_API void           geode_playout_position(geode_playout*, int64_t sink_us, int64_t now_ns);
+GEODE_API void           geode_playout_playing(geode_playout*, int playing, int64_t now_ns);   /* 1 play, 0 pause */
+GEODE_API void           geode_playout_flush(geode_playout*);           /* a seek: every anchor and position goes */
+GEODE_API void           geode_playout_speed(geode_playout*, float speed);   /* media per wall time; > 0 */
+/* The user's A/V offset, clamped to +-1000 ms; positive shows the picture later. */
+GEODE_API void           geode_playout_set_offset_ms(geode_playout*, int ms);
+/* The newest ring sample heard at now_ns, offset applied: never past the newest sample written. -1 when
+ * nothing was handled since create or flush (and for NULL); the first handled sample until a position. */
+GEODE_API int64_t        geode_playout_speaker_frame(const geode_playout*, int64_t now_ns);
+
 #ifdef __cplusplus
 }
 #endif
